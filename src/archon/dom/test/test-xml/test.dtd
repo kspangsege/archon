@@ -1,0 +1,10 @@
+<!ELEMENT test (#PCDATA|div)*>
+<!ELEMENT div (#PCDATA|div)*>
+
+<!ATTLIST test
+ name CDATA #FIXED "viggo"
+ id CDATA #IMPLIED
+>
+
+<!ENTITY dark "DARK<!-- x --">
+<!ENTITY light "DARK<?HUJ?>">

@@ -1,0 +1,11 @@
+/Makefile
+/.deps
+/.libs
+/*.o
+
+/dom
+/parse
+/async_parse
+/parse_dtd
+/parse_html
+/html_dom

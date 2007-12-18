@@ -1,0 +1,43 @@
+
+
+Basics:
+
+Rays are generated for each pixel on target screen. Each ray is traced from the eye through the pixel, onto the first obstructing object, they the ray reflects on the surface, and the process continues.
+
+
+
+The scene for each frame is built from scratch
+
+
+Custom objects with arbitarry intersection and texture mapping functions must be supported
+
+
+Possible headlight defined on raytracer
+
+
+Other lights are a part of the scene
+
+
+Envisioned usage:
+
+Raytracer::Ref raytracer = Raytracer::getDefault();
+
+raytrater->enablePhotonMapping();
+
+raytracer->setPerspective(...);
+
+Screne::Ref scene = raytracer->newScene();
+
+scene->addObject();
+
+raytracer->render(scene);
+
+
+
+
+
+Definitions:
+
+Scene
+  addObject(Object::RefArg);
+  

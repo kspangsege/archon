@@ -1,0 +1,132 @@
+If the content-type says "application/xml" or "application/xhtml+xml", then the document is parsed with a regular XML parser.
+
+If the content-type says "application/xhtml+xml" or "text/html", then the document becomes an HTMLDocument regardless of the contents of the file.
+
+If the content-type says "application/xml", then WebKit still creates an HTMLDocument, but Gecko, and Presto creates a regular XML document (undefined document.body).
+
+A regular XML document has no write() method.
+
+document.write() is not supported when the content-type says "application/xhtml+xml", since a regular XML parser does not support it.
+
+
+
+Browsers:
+  Gecko:   Firefox 3.6.18
+  Trident: Internet Explorer 9.0.8112.16421
+  WebKit:  Google Chrome 12.0.742.124
+  Presto:  Opera 11.50
+
+
+
+
+Modes of createElement() and createElementNS() behaviour:
+  XML:   Document served as "application/xml".
+  XHTML: Document served as "application/xhtml+xml".
+  HTML:  Document served as "text/html". (sub modes: Strict, AlmostStrict, Quirks).
+
+The mode is constant across the lifetime of a document.
+
+There is also a flag that tells whether or not any element with the XHTML namespace was added during parsing in XML mode. If not, the document is displayed as an expandable hierarchy view of the DOM structure on all browsers. Trident always displays the expandable hierarchy view when the mode is XML.
+
+
+A decument created by implementation.createDocument() is always created in XML mode.
+
+
+
+createElement(name):
+  tagName=uc(name) if mode is not XML, else tagName=name.
+  namespaceURI=null.
+  prefix=null.
+  localName=null.
+  Exception(Gecko,Trident,WebKit,Presto):
+    localName=lc(name) if mode is not XML, else localName=name.
+    namespaceURI="http://www.w3.org/1999/xhtml" if mode is not XML.
+  Exception(WebKit):
+    namespaceURI="http://www.w3.org/1999/xhtml" if has orig_root and orig_root.namespaceURI="http://www.w3.org/1999/xhtml" and mode is XML.
+    orig_root is the original root element added during implementation.createDocument() (or at time of parsing).
+  Exception(Presto):
+    namespaceURI=null if mode is not XML, else namespaceURI=root.namespaceURI if has root.
+    localName=uc(name) if mode is not XML.
+  Has style if, and only if mode is not XML or namespaceURI="http://www.w3.org/1999/xhtml".
+  Is H1 if, and only if at least one of the following are true:
+    has style and name="h1".
+    mode is neither XML nor XHTML and case_fold(name)=case_fold("h1").
+
+
+createElementNS(ns, name):
+  Exception(Presto):
+    Same as createElement(name) if mode is not XML and ns=null (not "").
+  ns=null if ns="".
+  tagName=uc(name) if mode is not XML and ns="http://www.w3.org/1999/xhtml", else tagName=name.
+  namespaceURI=ns.
+  prefix=prefix_of(name).
+  localName=local_of(name).
+  Exception(Trident):
+    localName=lc(localName) if mode is not XML and ns="http://www.w3.org/1999/xhtml".
+  Exception(WebKit):
+    tagName=name if has prefix. (quirk_no_uc_tagname_if_prefix)
+  Exception(Presto):
+    tagName=name.
+  Has style if, and only if namespaceURI="http://www.w3.org/1999/xhtml".
+  Is H1 if, and only if has style and localName="h1". (Check up on Trident - is it the lower cased version that is used in this comparison or not)
+
+
+
+
+Specification say that namespaceURI and localName is always null for createElement().
+Specification probably says that tagName is converted to upper case when mode is HTML for both createElement() and createElementNS().
+
+
+
+
+createElement(name): createElementAny(null, name, true).
+createElementNS(ns, name): createElementAny(ns, name, false).
+
+createElementAny(ns, name, dom1) (incomplete and partly incorrect):
+  if not dom1 and browser is Presto and mode is HTML and 'ns' is null (not ''):
+    dom1=true.
+
+  if mode is not XML: tagName=uc(name).
+  else:               tagName=name.
+
+  if dom1:
+    Has style if, and only if mode is not XML or ns="http://www.w3.org/1999/xhtml".
+  else:
+    Has style if, and only if ns="http://www.w3.org/1999/xhtml".
+    namespaceURI=ns.
+    prefix=prefix_of(name).
+    localName=local_of(name).
+
+  Has style if, and only if at least one of the following are true:
+    - dom1 and mode is not XML.
+    - namespaceURI="http://www.w3.org/1999/xhtml".
+
+  Is H1 if, and only if case_foldhtml_name = case_fold("H1")
+
+
+
+General scheme and variations for createElement():
+
+  Variations (incomplete and partly incorrect):
+    quirk_dom1_api_sets_local_name (all browsers say TRUE)
+      For createElement(qname) set localName=qname if mode is not HTML,
+      else set localName=lc(qname) if namespaceURI is set to "http://www.w3.org/1999/xhtml",
+      else set localName=uc(qname).
+    quirk_dom2_api_sets_lc_local_name_for_xhtml_as_html (Trident syas TRUE)
+      For createElementNS(ns, qname) set localName=lc(qname) if mode is HTML and ns="http://www.w3.org/1999/xhtml".
+    quirk_dom1_api_sets_ns_for_html (Gecko, trident, and WebKit say TRUE)
+      For createElement(qname) set namespaceURI="http://www.w3.org/1999/xhtml" if mode is HTML.
+    quirk_dom1_api_sets_root_ns (Presto says TRUE)
+
+
+Theory about parsing:
+  When mode is XML, files is parsed with genuine XML parser, and elements are created using createElementNS().
+  When mode is HTML, files are parsed with an HTML parser, and elements are created using createElement().
+
+Can javascript modify file after script tag when file is parsed with genuine XML parser? No, because the document has no write() method.
+
+How is the mode selected when using implementation.createDocument()?
+
+
+
+Implement simple parser

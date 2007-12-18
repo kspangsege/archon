@@ -1,0 +1,6 @@
+/** \namespace Archon::Math
+
+Holds the Archon math library which, among others, provide
+comprehensive vector and matrix classes.
+
+*/

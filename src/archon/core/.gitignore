@@ -1,0 +1,8 @@
+/Makefile
+/.deps
+/.libs
+/*.o
+/*.lo
+
+/build_config.dyn.h
+/libarchon_core.la

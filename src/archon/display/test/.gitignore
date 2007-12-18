@@ -1,0 +1,8 @@
+/Makefile
+/.deps
+/.libs
+/*.o
+
+/cursor
+/image
+/shared_textures

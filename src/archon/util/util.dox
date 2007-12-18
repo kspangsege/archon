@@ -1,0 +1,6 @@
+/** \namespace Archon::Util
+
+A collection of miscellanious functions and classes that are used by
+several other libraries/namepsaces.
+
+*/

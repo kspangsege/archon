@@ -1,0 +1,1 @@
+./configure LDFLAGS="-L/usr/X11/lib -L/opt/local/lib" CPPFLAGS="-I/usr/X11/include -I/opt/local/include" --disable-static --prefix=$HOME "$@"

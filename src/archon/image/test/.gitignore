@@ -1,0 +1,15 @@
+/Makefile
+/.deps
+/.libs
+/*.o
+
+/rect_packer
+/color_space
+/integer_buffer_format
+/image_view_source
+/image_view_target
+/buffered_image
+/imageio
+/reader
+/writer
+/dither

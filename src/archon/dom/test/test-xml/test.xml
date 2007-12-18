@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE test PUBLIC "-//TEST//DTD TEST//EN" "test.dtd" [
+
+<!ENTITY hilbert "HILBERT">
+
+]>
+<test>
+&hilbert;
+</test>

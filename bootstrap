@@ -1,0 +1,6 @@
+#!/bin/sh
+
+aclocal -Wall -I m4 && \
+autoheader -Wall && \
+automake -Wall && \
+autoconf -Wall

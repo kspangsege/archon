@@ -1,0 +1,8 @@
+/Makefile
+/.deps
+/.libs
+/*.o
+
+/show_fonts
+/regen_fallback
+/text_render

@@ -1,0 +1,66 @@
+Archon is a collection of libraries and applications mostly focussed towards 3-D graphics.
+
+Current plan
+------------
+
+Primary goal: OpenGL font rendering.
+Secondary goal: Finish dithering and GIF-construction.
+Tertiary goal: Get multicolored mouse cursor to work using XRender.
+Quaternary goal: Get the ray tracer to work again.
+
+
+Thread safty issues
+-------------------
+
+The following is assumed though not guranteed by standard C++:
+
+The construction of static variables inside a function scope is atomic
+and thread safe. That is, it is always done exactly once, and all
+calling threads sees a completely constructed object.
+
+Constant strings (and other copy-on-demand type objects) are thread
+safe. That is, as long as a string is not modified in a logical sense,
+it is safe for two threads to access it simultaneously. This includes
+calling the 'c_str' method.
+
+It is safe for one threads to access and modify a string that is a
+copy of a string that is accessed and modified by another thread. The
+same is true for other copy-on-demand type objects.
+
+It is safe for two threads to simultaneously be terminated due to
+exceptions being stopped by a 'throws' restriction.
+
+
+Prerequisites
+-------------
+
+Ubuntu 13.04, 13.10
+
+    sudo apt-get install build-essential automake libtool libreadline-dev libpng12-dev
+    sudo apt-get install libreadline-dev libtiff5-dev libmagic-dev libnetpbm10-dev libmozjs185-dev
+    sudo apt-get install libfreetype6-dev mesa-common-dev libgl1-mesa-dev libglu1-mesa-dev
+    sudo apt-get install libxrender-dev
+
+Ubuntu 10.04
+
+    sudo apt-get install libreadline-dev libtiff4-dev libmagic-dev libnetpbm10-dev
+    sudo apt-get install mesa-common-dev libgl1-mesa-dev libglu1-mesa-dev
+
+
+(Imminent)
+The GNU MPFR Library (Multiple Precision Floating-Point Reliable Library)
+Debian:
+libmpfr-dev - multiple precision floating-point computation developers tools
+libmpfr-doc - multiple precision floating-point computation documentation
+libmpfr1ldbl - multiple precision floating-point computation
+
+Apple Darwin (Macports):
+  jpeg @8c_0 (active)
+  spidermonkey @1.7.0_5 (active)
+
+
+Essential guides/papers
+-----------------------
+
+Appendix D: What Every Computer Scientist Should Know About Floating-Point Arithmetic
+http://docs.sun.com/source/806-3568/ncg_goldberg.html

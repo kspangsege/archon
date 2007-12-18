@@ -1,0 +1,192 @@
+Style:
+Change .C to .cpp
+Change .H to .hpp
+Do not widen portable characters explicitely in overloaded '>>' on std::basic_ostream.
+Always use 'class' rather than 'typename' when declaring template type parameters.
+Use 'if (cond) {'
+
+
+DOM/HTML:
+
+Various errors: inline style not applied, vertical block spacing is weird, sometimes letters jump up and down relative to the baseline (integer rounding?).
+
+Implement font-weight.
+
+Implement borders.
+
+Implement padding and margin.
+
+Add the remaining DOM child manipulation methods.
+
+Font provider errors: Exception at exit, exception at other times (Bad font ID).
+
+
+
+
+
+Only use GLU when available
+
+Make sure to delete stale OpenGL texture ID's in the texture cache.
+
+Utility function for calling up the status HUD with arbitrary texts.
+
+Key 's' to enable/disable status HUD. Use HUD utility function to display 'DISABLDE' and 'ENABLED'.
+
+Asynchronous texture loading.
+
+Add a help screen to the HUD, which should list all the key bindings and associated descriptions.
+
+Support light sources and material properties in preview scene builder for raytracer.
+
+Make raytracer be able to reflect and transmit.
+
+
+Multi-threaded OpenGL rendering is failing under race condition like circumstances. Is most easily triggered with ./multi_threaded -n 32 -s 16,16 and pressing escape repeatedly while the windows are opening.
+
+Finish the convex hull algorithm.
+
+Finish the image dithering code for GIF format.
+
+Then update Archon::Render - maybe merge it into Archon::Display.
+
+Then continue with Raytracer.
+
+
+
+
+Other fun things to be done:
+----------------------------
+
+Enforce the following limit on Display::EventProcessor: Max 2000
+events can be stored. For a high precision mouse, reporting at 500Hz,
+there will be room for only 4 seconds of mouse motion events. This
+means that if the process method returns, and more than 4 seconds
+pass before the process method is reinvoked, then events might have
+been lost. It is however always the newest events that will be kept.
+
+Is it maybe unsafe to have one thread doing OpenGL calls while another thread does GLX calls (assuming single X connection and one window per thread)?
+
+It might be sufficient to have one lock per Display::Connection.
+
+Alternatively, it may be good enough to just use Xlib's XInitThreads and then get rid of xlib_mutex altogether. - PROBLEM IS HOW TO MAKE SURE XInitThreads IS CALLED EARLY ENOUGH.
+
+Worst case scenario is that it is unsafe to render with OpenGL while another thread is using Xlib. In this case it might be necessary to hold a lock on the xlib_mutex while the thread is bound to a context. Hopefully it will still be possible for two threads to render using OpenGL simultaneously, if so, a more elaborate locking scheme is needed.
+
+On some Xlib versions claiming thread safty, it may also be possible to have one hidden dedicated thread whose only purpose is to call XPeekEvent and signal every time that call returns. - NO, nothing gained.
+
+
+FullScreen display.
+
+Automatic synchronization to vertical sync to prevent tearing (XrandR)
+#ifdef GLX_SGI_swap_control
+//      reinterpret_cast<PFNGLXSWAPINTERVALSGIPROC>(glXGetProcAddress(reinterpret_cast<GLubyte const *>("glXSwapIntervalSGI")))(1);
+#endif
+
+Handle exposure events.
+
+Use Quaternions instead of awkward axis rotation combinations.
+
+Dithering in image transformation for non-Xrender mouse cursors.
+
+Scaling in image transformation for non-Xrender mouse cursors.
+
+Allow for multiple simultaneous window event listeners.
+
+
+Ideas for new Display::Render:
+------------------------------
+
+The viewing coordinate system is used to position and orient the following entities relative to each other:
+
+ - The scene (or model)
+ - Each surface (or screen or viewport or window)
+ - Each eye (or observer or viewer or camera)
+
+RenderMaster(int num_virt_pipes):
+  int regiser_scene(Scene *, location) // location is the location of the screne origin within the viewing coordinate system.
+  it register_surface() // Some rectangular rendering target
+  int register_eye() // Initial position is at the origin of the viewing coordinate system.
+  int register_portal(int scene, int surface, int eye) // Render the specified scene on the specified surface as seen from the specified eye
+  void activate_portal(int portal)
+  void deactivate_portal(int portal)
+  void render() // Render a new frame on all active portals
+  void update_eye_position(int eye, Vec3 position)
+
+struct Scene
+{
+  virtual void render() {}
+};
+
+
+OpenGL test application for multi-pipe renderer:
+---------------------------------------------------
+
+struct OpenGLViewport: Viewport
+{
+  Display::Drawable drw;
+  int x,y,w,h;
+};
+
+struct OpenGLContext: Context
+{
+  Display::Context ctx;
+  Display::Context::Bind bond;
+
+  void set_viewport(Viewport *v)
+  {
+    bond.acquire(ctx, v->drw);
+    glViewport(v->x, v->y, v->w, v->h);
+  }
+
+//  void update_projection(eye, surface_center, surface_right, surface_top)
+
+  // \param dist Shortest distance from centre of projection to projection
+  // plane. The point in the projection plane that is closest to the
+  // point of projection may or may not lie inside teh rendering area.
+  void update_projection(x, y, z)
+  {
+    
+    glFrustum(left, right, bottom, top, near, far);
+  }
+  void render(Scene *s)
+  {
+    s->render();
+  }
+};
+
+Raytracer test application for multi-pipe renderer:
+---------------------------------------------------
+
+struct RaytracerViewport: Viewport
+{
+  Image::Ref img = Image::new_image(x, y);
+};
+
+struct RaytracerScene: Scene
+{
+  void set_viewport(Viewport *v)
+  {
+    img = v->img;
+  }
+
+  void update_projection(eye)
+  {
+    
+  }
+  void render(Scene *s)
+  {
+    for(int y=0; y<img->get_height(); ++y)
+      for(int x=0; x<img->get_width(); ++x)
+        {
+          Vec3 scr_point = scr_center + x * scr_x + y * scr_y
+          Vec3 direction = scr_point - eye;
+          Vec3 color = scene->trace(point, direction)
+        }
+  }
+};
+
+
+Experiment: Listen for window movement events, and update the view
+configuration accordingly. The idea is that this should neither affect
+the eye position nor the scene position and orientation. You will
+simply be able to pan across the scene in this way.

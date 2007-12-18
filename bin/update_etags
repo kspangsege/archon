@@ -1,0 +1,4 @@
+#!/bin/bash
+
+root_dir="$(readlink -f "$(dirname "$(readlink -f "$BASH_SOURCE")")/..")"
+find "$root_dir/src/" -type f | fgrep -v /.svn | egrep '\.(cpp|hpp|c|h)$' | etags -o "$root_dir/tmp/TAGS" -

@@ -1,0 +1,6 @@
+/** \namespace Archon::Render
+
+Holds the Archon render library, which is a generalization/abtraction
+over multi-pipe OpenGL rendering.
+
+*/

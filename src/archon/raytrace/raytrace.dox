@@ -1,0 +1,5 @@
+/** \namespace Archon::Raytrace
+
+Contains a simple raytracer.
+
+*/

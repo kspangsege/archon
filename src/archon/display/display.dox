@@ -1,0 +1,23 @@
+/** \namespace Archon::Display
+
+Holds the Archon display API. The main purpose of the display API is
+to provide a platform independant way of opening windows of a kind
+that supports OpenGL rendering.
+
+The object model of this API is inspired heavily by Xlib (X Window
+System). Apart from that the API is an abstraction completely
+dissociated from Xlib.
+
+It is designed in a way that easily supports any number of
+implementations. These implementations can even coexists at the same
+time. That is, your application will in general have access to all the
+implementations supported on the local platform simultaniously.
+
+This API supports multi-threaded OpenGL rendering in a completely
+general way (see Context and Bind).
+
+Currently, only an X11 based implementation is in place. An SDL
+implementation should be really easy to add, and would provide windows
+on many new platforms.
+
+*/

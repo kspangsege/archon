@@ -1,0 +1,9 @@
+/Makefile
+/.deps
+/.libs
+/*.o
+
+/exceptions
+/interrupt
+/cond_select
+/thread

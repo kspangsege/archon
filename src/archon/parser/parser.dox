@@ -1,0 +1,7 @@
+/** \namespace Archon::Parser
+
+A collection of text parsing facilities covering such things a finite
+state automata, lexical analysis, context free grammers, LALR-parsers,
+and regular expressions.
+
+*/

@@ -1,0 +1,278 @@
+The big overarching problem is how to prevent aliasing (or how to handle it, assuming it is allowed)
+
+
+Working with channels:
+----------------------
+
+It is possible to reintepret the channels of an image as belonging to a different color space:
+
+Image::Ref      Image::reinterpretChannels(ColorSpace::ConstRefArg, std::vector<int> const &channelMap)
+Image::ConstRef Image::reinterpretChannels(ColorSpace::ConstRefArg, std::vector<int> const &channelMap) const
+
+
+To isolate a single channel of an image and access it as an one-channeled image:
+
+Image::Ref      Image::getChannel(int channelIndex)
+Image::ConstRef Image::getChannel(int channelIndex) const
+
+A returned image will always have color space = luminance.
+
+Image::Ref Image::getChannel(int channelIndex)
+{
+  std::vector<int> channelMap;
+  channelMap.push_back(channelIndex);
+  return reinterpretChannels(ColorSpace::getLuminance, channelMap);
+}
+
+
+To access a set of one-channeled images as a single multi-channeled image:
+
+static Imag::Ref      Image::collectChannels(ColorSpace::ConstRefArg, std::vector<Image::Ref> const &)
+static Imag::ConstRef Image::collectChannels(ColorSpace::ConstRefArg, std::vector<Image::ConstRef> const &)
+
+The width of the resultimg image will be as wide as the narrowest of
+the channel images, and as high as the lowest of the channel images.
+
+
+
+
+Working with palettes:
+----------------------
+
+struct Palette: BufferedImage;
+
+static Palette::Ref Palette::newWebOptimizedPalette();
+static Palette::Ref Palette::newBlackWhitePalette();
+
+static Palette::Ref Palette::generatePaletteFor(Image::ConstRefArg, int maxColors=256)
+
+Note: A palette is itself an image of height one, and a width equal to
+the size of the palette. The left-most pixel corresponds with the
+first color in the palette.
+
+Image::ConstRef Palette::mapToDirectColor(Image::ConstRefArg);
+
+BufferedImage::Ref Palette::mapToIndirectColor(Image::ConstRefArg, bool allowDither = true);
+
+The color space of the palette defines the color space of the image,
+and if an explicit pixel format is specified, its number of channels
+must match the number of channels of the color space.
+
+
+
+
+
+
+
+
+
+
+Currently the bolow specifies what is wanted, not the way it is.
+
+
+Standard Image implementation comtains buffer format sensitive code, but no pixel format sensitive code.
+
+A pixel format instance shall be able to provide an encoder function and a decoder function.
+
+If source and target pixel formats are the same (including color spaces) and it is a format where every pixel is word aligned (addressible) then putImage shall make a transfer that does not involve conversion to and from intermediate floating point format. In the best case where also the strip direction is the same, a putImage should reduce to a simple loop of memcpy's.
+
+
+ImageSource: virtual CntRefObjectBase  // Delivers high-level read ops and has abstract low-level rect reader method
+
+  int getWidth()
+
+  int getHeight()
+
+  ColorSpace::Ref getColorSpace()
+
+  getPixel(...) inline
+
+  getPixels(...)
+
+  putPixel(...) inline
+
+  Ref compose(...)    // Allows various advanced compositions such as blending / overlay
+
+  Ref getSubView(int left, int top, int width, int height);
+  Ref getFlippedView(bool horizontally, bool vertically);
+  Ref getRotatedView(bool plusNinety, bool plusOneEighty);
+
+  Ref getColorMappedView()
+  Ref getScaledView(double horizontally, double vertically)
+  Ref getRotatedView(double angle)
+
+ protected:
+
+  virtual void readPixelArray(...)
+
+
+
+
+Image: ImageSource  // Adds high-level write ops and has abstract low-level rect writer method
+
+  putPixels(...)
+
+  putImage(ImageSource::ConstRefArg)
+
+  Ref getSubImage(int left, int top, int width, int height);
+  Ref getFlippedImage(bool horizontally, bool vertically);
+  Ref getRotatedImage(bool plusNinety, bool plusOneEighty);
+
+ protected:
+
+  virtual void writePixelArray(...)
+
+
+BufferedImage: Image
+
+  void *getBufferPtr()
+  PixelFormat::Ref getPixelFormat()
+
+  static Ref newImage(int width, int height,
+                      ColorSpace::ConstRefArg colorSpace = ColorSpace::getRgba(),
+                      PixelFormat::ConstRefArg = PixelFormat::getDefault(colorSpace))      // Managed buffer
+
+  // Pixels are layed out in horizontal strips starting at the lower left corner. If your buffer has a different layout, consider using \c getFlippedImage and/or getRotatedImage. Regardless of this, the \c width argument is always the number of pixels per strip, and the height argument is the nuber of strips in your buffer. The size of the buffer measured in number of bytes must be no less than what is returned by \c Format::computeBufferSize, and it must have been allocated using C++'s \c new notation. If you intend to transfer ownership of the buffer to the image object, consider using \c Format::allocateBuffer.
+
+  static Ref newImage(void *buffer, int width, int height,
+                      ColorSpace::ConstRefArg, PixelFormat::ConstRefArg);            // Access pre-existing buffer
+
+
+
+Image::Ref getGlFrameBufferImage()
+
+
+
+Both ColorSpace and PixelFormat are abstract and deliver methods for
+encoding/decoding/transcoding. Both should be thread safe and
+immutable objects. In both cases, two instances two formats will be
+considered equal if and only if the instance pointers are equal.
+
+
+
+
+putImage(source):
+  If same color space:
+    read long double channels
+    write long double channels
+  Else if one color space can convert to the other:
+    read long double channels
+    convert
+    write long double channels
+  Else:
+    Find best common color space (with RGBA as fallback):
+    read long double channels
+    convert to common
+    convert from common
+    write long double channels
+
+
+
+ImageIO:
+  BufferedImage load(InputStream);
+  void save(ImageSource, OutputStream);
+
+
+
+
+
+ColorSpace::Ref = ColorSpace::getRgba();
+BufferFormat::Ref = ...;
+
+Image::Ref image = Image::newImage(buffer, );
+
+
+
+
+
+The Image class provides high level rectangular primitives. It is
+pixel and buffer format agnostic. It knows its width, height and color
+space though, and pixels are represented as sequences of N long
+doubles, when N is the number of color space components. Some
+primitives involve conversion between color spaces which always occur
+on the long doubles. All image data operations are delegated to two
+lower level abstract methods, one reads a rectangular array of pixels,
+and one writes a rectangular array of pixels.
+
+The Image class also provides a static method for constructing a new
+image based on a pre-existing buffer.
+
+Image::newImage(buffer, colorSpace)
+
+
+BufferFormat::Ref bufferFormat = ...;
+MemoryBuffer buffer(bufferFormat->getBufferSizeInBytes(...));
+Image::Ref image = Image::newImage(buffer.get(), bufferFormat, ...);
+
+
+
+
+
+Requirements:
+
+Must present a homogenous high-level API across all possible prepresentations.
+Must be able to access a wide variety of preexisting buffers.
+Must be able to convert between all supported formats.
+Must be able to load and save various file formats.
+Must allow multiple independant windows into the same buffer.
+
+
+
+
+A derived image source can do the following:
+
+reduce frame of interest
+Remap color components
+Linear transformation of pixel coordinates
+
+
+
+
+
+BufferedImage
+  void *getBufferPtr();
+
+
+DerivedImage
+  
+
+
+
+Non-owned buffer:
+
+ImageBuffer b(void *);
+
+
+
+
+General scheme for Image file decoding:
+
+1) Construct buffer format based on image header information.
+2) Allocate buffer with size determined by buffer format object.
+3) Decode image into buffer
+4) Construct image with ownership of buffer.
+
+Sometimes data will be available in a buffer that cannot be owned by
+the image object. In such cases the buffer can be passed to the image
+constructor, and a Guard object may optionally be created to check
+that there is no leaked reference to the image object at the time the
+buffer becomes unavailable:
+
+{
+  buffer = funnyImageLib->getBuffer();
+  Image::Ref image = Image::newImage(buffer, false); // No ownership
+  UniqueRefGuard g(image); // This is not a solution but an aid to debugging if the reference gets leaked
+
+  // Do stuff...
+}
+
+
+
+Thoughts:
+
+A writable image is also always readable.
+
+A BufferedImage should always describe a complete buffer. This way we
+know that the buffer pointer corresponds with the first pixel in the
+image. If a smaller frame of interest is required, a derived image
+must be used.

@@ -1,0 +1,14 @@
+Change: In SocketServer::Connection and Resource, combine read() and write() into io(bool read, bool write), provide access to the in and out streams with methods get_input_stream() and get_output_stream(). This should make it possible to implement the request_body_stream properly.
+
+FixedLength and Chunked request body readers needs to be created.
+Threads and servlets - maybe a new thread for the server, and then the calling thread can execute servlets.
+Directory presentor.
+Pipelining support
+Spec says: Need to accept empty lines at start of request.
+When response has no Content-Length set by resource, server must use chunked transfer encoding.
+
+Resolvers must be thread-safe
+
+Ideas:
+
+One resource responds with what is uploaded by another in a rendezvous fashion. The first one waits for the second one to connect.

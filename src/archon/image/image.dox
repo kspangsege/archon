@@ -1,0 +1,16 @@
+/** \namespace Archon::Imaging
+
+Holds an image (pixel array) abstraction layer with a high-level API
+for writing and extracting pixels. It has the ability to load from,
+and save to files or streams, using any of a set of image file formats
+such as PNG and JPEG. It is extremely flexible in regard to in-memory
+representation of pixel data, and can therefore be used to wrap
+pre-existing buffers whose format is constrained in various ways. It is
+also highly extensible, and allows you to define arbitrary custom
+color spaces, pixel buffer formats, file formats, and even allows
+wrapping the image API around entities that are not based on a memory
+buffer at all.
+
+\todo FIXME: Include a brief description of the composition operators.
+
+*/

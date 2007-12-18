@@ -1,0 +1,8 @@
+/** \namespace Archon::Web
+
+Contains functionality related to the HTTP protocol, including a
+general purpose HTTP client and server.
+
+\sa http://www.w3.org/Protocols/
+
+*/

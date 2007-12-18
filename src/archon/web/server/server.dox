@@ -1,0 +1,8 @@
+/** \namespace Archon::Web::Server
+
+Contains an implementation of a general purpose, highly efficient, and
+easily embeddable HTTP/1.0 and HTTP/1.1 server.
+
+\sa http://www.w3.org/Protocols/
+
+*/

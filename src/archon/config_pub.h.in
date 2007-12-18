@@ -1,0 +1,9 @@
+/* This file contains details that depend on the target platform. In
+   contrast to <archon/config.h>, this file is supposed to be
+   installed, and may therefore be included in other installed header
+   files. */
+
+/* Decide which encoding is used in wide character strings */
+#if @ARCHON_WCHAR_ENC_IS_UCS@
+#define ARCHON_WCHAR_ENC_IS_UCS
+#endif

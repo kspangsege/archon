@@ -1,0 +1,7 @@
+/Makefile
+/.deps
+/.libs
+/*.o
+/*.lo
+
+/libarchon_display.la

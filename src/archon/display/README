@@ -1,0 +1,61 @@
+Header dependencies:
+
+
+                    keysyms <---
+                                 \
+                                   ---------  event  <---------
+                                 /                              \
+                --  window  <---                                  --  connection  <--  implementation
+              /                  \                              /
+drawable  <--                      --  visual  <--  screen  <--
+              \                  /
+                --  context  <--
+
+
+
+
+
+
+Thread safty:
+
+It shall be thread safe to:
+
+- Aquire an implementation.
+- Aquire a connection from an implementation.
+- Aquire a screen descriptor from a connection.
+- Acqure a visual (video mode) descriptor from a screen descriptor.
+- Query about the properties of a screen via a screen descriptor.
+- Open a new window from a visual descriptor.
+- Create a new rendering context from a visual descriptor.
+- Query about the bit widths of the various buffers of a visual through a visual descriptor.
+- Manipulate and render to a window
+
+
+Event handling:
+
+Pending events are processed by calling the 'process_events' method on the connection object.
+
+
+
+Todo:
+
+    Must handle time stamp wrap arounds - save previous time stamp from X11, then see if new timestamp is less than previous, if it is, there was a wrap-around.  This will work as long as the event processor is invoked at least once every 50 days. assuming 32 bit unsigned X11 timestamp. Before the comparison, convert the X11 timestamp directly to an unsigned long.
+
+
+    There is a problem: How can we be sure that the event handler we want to call has not been removed and deallocated by another thread?
+
+
+
+Make drawable and window be reference counting objects.
+
+Maintain a map from X11 window ID to window reference in connection object.
+
+Add a window reference to the event type.
+
+Fix event handling fundamentals.
+
+Make it so that Bind keeps the bound window open.
+
+Fix multi-threaded rendering test such that individual windows can be closed.
+
+Finish the mouse cursor code.

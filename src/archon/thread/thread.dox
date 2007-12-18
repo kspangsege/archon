@@ -1,0 +1,5 @@
+/** \namespace Archon::Thread
+
+A wrapper of POSIX threads adding many convenience features.
+
+*/

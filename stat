@@ -1,0 +1,6 @@
+files=$(find src -type f|egrep '\.(h|c|hpp|cpp)$'|egrep -v '(/test/|/attic/|\.dyn\.|\.autogen\.|\.stub\.|\.dynamic\.|-old\.|-old/)')
+cat <<EOI
+Number of source files:   $(echo $(echo $files|wc -w))
+Number of source lines:   $(echo $(cat $files|wc -l))
+Number of classes:        $(echo $(egrep '(class|struct)[[:space:]]+[[:alnum:]_]+[[:space:]]*(:|\{|$)' $files|wc -l))
+EOI

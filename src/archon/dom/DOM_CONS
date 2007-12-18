@@ -1,0 +1,145 @@
+
+
+
+The main problem is the "shrink-to-fit" width, becuase it forces a two-stage processing with an intermediate representation (think right-alignment inside shrink-to-fit box).
+
+
+What is needed is a very effective storage/allocation mechanism for the intermediate representation
+
+
+
+
+There must be a box for each DOM-element.
+
+
+The intermediate representation is a "box representation".
+
+
+The most important property of the box representation is that it caches the result of expensive computations that are needed to compute the widths. In particular, the laying out of text.
+
+
+
+
+
+I must also at any time be able to compute the layout-width of any element with respect to a specific "view" as defined by the "DOM Views" specification.
+
+
+
+
+
+Idea:
+
+  A specific view is expressed as a specific way of obtaining a 'box' pointer from an 'element' pointer.
+
+  Any box directly specifies a width and a height.
+
+
+
+
+Whenever all the children of a 'shrink-to-fit' box have been created, update the width of any 'expand-to-fit' children.
+
+
+
+
+Thus, the width is known for all boxes when the generation-recursion terminates.
+
+
+
+Box:
+  int left, top, width, height; # 'top' and 'width' are relative to parent - all four are determined for all boxes when the generation-recursion terminates.
+
+
+
+
+On each box or element, have a tri-state flag:
+
+0 - Reuse (no change)
+1 - Need refresh (color change) (refresh of OpenGL display list)
+2 - Need reflow and rerender (size change)
+
+If child has 1 then parent has at least 1
+If child has 2 then parent has 2
+
+A child shal be re-flown if it has 2 or if its parent has 2 and the childs size depends on the parents size
+
+Not good due to the issue where where a child must be reflown due to a change from left to right alignment inside parent
+
+Certain modifications to an element trigger a redraw of the associated box
+
+Certain modifications to an element trigger a reflow of the associated box
+
+Must distinguish between shallow and deep reflow.
+Shallow reflow does not necessarily apply to children.
+
+A deep reflow triggers a shallow reflow of parent
+
+A shallow reflow of parent triggers a deep reflow of...?
+
+
+
+
+
+When a child is modified in a way that affects the width of the parent
+
+
+
+
+Invariants:
+
+If a child has a box, then the parent also has a box.
+
+An element that is not part of a document has no box. If a subtree is removed from a parent or moved from one parent to another, then all the boxes of the subtree shall be removed and deallocated. When an element subtree is removed from a document, all its associated boxes shall be removed (and deallocated). If the root of the subtree has no box, then none of the children have boxes. The easy way to implement it, is by running the check whenever the subtree is removed from a parent - regardless of whether that parent is in a document or not.
+
+
+
+
+
+
+
+Before every rendering of a frame, the box tree must be updated, unless it is already up to date.
+
+Also, whenver the box structure is queried (offsetLeft, etc.) the entire box tree must be updated, unless it is already up to date.
+
+update_boxes(avail_width):
+  ...
+
+
+
+
+
+
+Focus on everything
+
+Focus on box sub-tree reuse, disconsider softer kinds of refresh
+  So any change with a visual impact forces at least a recreation of the box that is associated with the target element
+
+  A child box can be reused if the parent is unmodified except that other children may have changed size
+
+
+
+A severe style change is one that affects not only the target element, but also all children, grand childrens, and so on.
+  A change in fixed size is a severe style change
+  A change in border color is not a severe style change
+
+
+A box can be reused if all of the following are true:
+
+ - The element's list of children is unchanged.
+
+ - The element's specified style is unchanged.
+
+ - The element has no ancestor whose specified style is changed severely (in a way that affects this element).
+
+ - One of the following are true:
+
+   - The elements width is fixed
+
+   - The elements width is "grow-to-fit" and parents width is unchanged
+
+   - The elemtns width is shrink-to-fit
+
+
+
+
+Overflow shall be handled at OpenGL rendering time with glScissor(GLint x, GLint y, GLsizei width, GLsizei height);
+It might still be usefull to stop adding lines of text when the bottom has been passed by a sufficient amount. Does the text rendering system already do this?

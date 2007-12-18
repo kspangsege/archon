@@ -1,0 +1,11 @@
+/Makefile
+/.deps
+/.libs
+/*.o
+
+/vector
+/vector_adapt
+/matrix
+/matrix_adapt
+/rotation
+/intersect

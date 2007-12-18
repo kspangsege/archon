@@ -1,0 +1,6 @@
+/** \namespace Archon::Font
+
+Holds a font renderer able to render individual glyphs, or entire
+strings of text into an image.
+
+*/

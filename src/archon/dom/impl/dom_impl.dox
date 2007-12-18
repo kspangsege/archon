@@ -1,0 +1,8 @@
+/** \namespace Archon::DomImpl
+
+An implementation of a number of specifications of the Document Object
+Model Level 3 as defined by the World Wide Web Consortium (W3C).
+
+\sa http://www.w3.org/DOM/
+
+*/

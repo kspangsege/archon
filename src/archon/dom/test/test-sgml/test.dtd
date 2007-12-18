@@ -1,0 +1,17 @@
+<!ELEMENT test - - (#PCDATA|DIV|RCD)*>
+<!ATTLIST test
+ class NMTOKENS #IMPLIED
+ name CDATA #FIXED "viggo"
+ id CDATA #IMPLIED
+>
+
+<!ELEMENT div - - (#PCDATA|DIV)*>
+<!ATTLIST div
+ x CDATA "viggo"
+>
+
+<!ELEMENT rcd - - RCDATA>
+
+<!ENTITY % fido "--">
+
+<!ENTITY viggo %fido;>          
