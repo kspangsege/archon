@@ -153,7 +153,7 @@ namespace
       unblock.insert(SIGIO);
       int r = 0;
       {
-        sys::Signal::Block b(block);
+        sys::signal::Block b(block);
         if(!event) r = sys::select(0, 0, 0, timeout, &unblock);
         if(!event) return r; // In this case 'event' must have been
                              // false before the select and therfore r
@@ -172,7 +172,7 @@ namespace
 
     FileSystemListenerImpl(string p)
     {
-      oldHandler = sys::Signal::setHandler(SIGIO, sighandler);
+      oldHandler = sys::signal::setHandler(SIGIO, sighandler);
       dir = opendir(p.c_str());
       int errnum = errno;
       if(!dir)
@@ -193,12 +193,12 @@ namespace
     ~FileSystemListenerImpl()
     {
       closedir(dir);
-      sys::Signal::setHandler(SIGIO, oldHandler);
+      sys::signal::setHandler(SIGIO, oldHandler);
     }
 
 
     DIR *dir;
-    sys::Signal::Handler oldHandler;
+    sys::signal::Handler oldHandler;
 
     static void sighandler(int)
     {

@@ -50,7 +50,7 @@ using namespace archon::thread;
 using namespace archon::math;
 using namespace archon::image;
 using namespace archon::render;
-namespace display = archon::Display;
+namespace display = archon::display;
 
 
 namespace

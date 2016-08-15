@@ -176,7 +176,7 @@ namespace archon
       /**
        * Functions for working with system signals.
        */
-      namespace Signal
+      namespace signal
       {
         /**
          * Representation of a signal handler.

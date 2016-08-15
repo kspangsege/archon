@@ -57,7 +57,7 @@ namespace archon
        * <pre>
        *
        *   #include <archon/core/sys.hpp>
-       *   core::sys::Signal::ignore_signal(SIGPIPE);
+       *   core::sys::signal::ignore_signal(SIGPIPE);
        *
        * </pre>
        */

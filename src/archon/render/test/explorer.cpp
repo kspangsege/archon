@@ -84,7 +84,7 @@ int main(int argc, char const *argv[]) throw()
 
   Application::Config cfg;
   CommandlineOptions opts;
-  opts.add_help("Test application for the archon::Display library", "OBJECT-FILE");
+  opts.add_help("Test application for the archon::render library", "OBJECT-FILE");
   opts.check_num_args(0,1);
   opts.add_group(cfg);
   if(int stop = opts.process(argc, argv)) return stop == 2 ? 0 : 1;

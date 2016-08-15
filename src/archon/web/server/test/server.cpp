@@ -206,7 +206,7 @@ int main(int argc, char const *argv[]) throw()
 
   if(int stop = o.process(argc, argv)) return stop == 2 ? 0 : 1;
 
-  sys::Signal::ignore_signal(SIGPIPE); // Required by the web server
+  sys::signal::ignore_signal(SIGPIPE); // Required by the web server
 
   UniquePtr<Server> const serv(new_default_server(opt_port).release());
 

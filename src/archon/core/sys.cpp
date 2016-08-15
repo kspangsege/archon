@@ -286,7 +286,7 @@ namespace archon
       }
 
 
-      namespace Signal
+      namespace signal
       {
         Handler::Handler(void (*h)(int))
         {
