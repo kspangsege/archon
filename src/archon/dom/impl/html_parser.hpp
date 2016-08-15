@@ -34,7 +34,7 @@
 #include <archon/core/utf16.hpp>
 
 
-namespace Archon {
+namespace archon {
 namespace DomImpl {
 namespace HtmlParser {
 
@@ -270,6 +270,6 @@ private:
 
 } // namespace HtmlParser
 } // namespace DomImpl
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_DOM_IMPL_HTML_PARSER_HPP

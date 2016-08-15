@@ -35,7 +35,7 @@
 //#include <archon/raytrace/light.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Raytrace
   {

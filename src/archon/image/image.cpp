@@ -29,10 +29,10 @@
 
 
 using namespace std;
-using namespace Archon::Util;
-using namespace Archon::Imaging;
+using namespace archon::Util;
+using namespace archon::Imaging;
 
-namespace Archon
+namespace archon
 {
   namespace Imaging
   {

@@ -304,7 +304,7 @@ namespace
 }
 
 
-namespace Archon
+namespace archon
 {
   namespace Util
   {

@@ -37,9 +37,9 @@
 
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Util;
-using namespace Archon::Web::Server;
+using namespace archon::Core;
+using namespace archon::Util;
+using namespace archon::Web::Server;
 
 /*
 

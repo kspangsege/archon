@@ -55,20 +55,20 @@
 #include <archon/render/app.hpp>
 
 
-using namespace Archon::Core;
-using namespace Archon::Math;
-using namespace Archon::Util;
-using namespace Archon::Imaging;
-using namespace Archon::Font;
-using namespace Archon::Display;
-using namespace Archon::Render;
-namespace dom = Archon::dom;
-namespace DomImpl = Archon::DomImpl;
+using namespace archon::Core;
+using namespace archon::Math;
+using namespace archon::Util;
+using namespace archon::Imaging;
+using namespace archon::Font;
+using namespace archon::Display;
+using namespace archon::Render;
+namespace dom = archon::dom;
+namespace DomImpl = archon::DomImpl;
 
 
 namespace {
 
-typedef Archon::Render::TextFormatter TextFormatter; // Resolving ambiguity
+typedef archon::Render::TextFormatter TextFormatter; // Resolving ambiguity
 
 
 const double zoom_step = std::pow(2, 1.0 / 8); // 8 steps to double
@@ -669,12 +669,12 @@ Dialog::Ptr PrivateApplicationState::new_modal_hud_dialog()
 
 
 
-namespace Archon {
+namespace archon {
 namespace Render {
 
 class Application::PrivateState: public PrivateApplicationState {
 public:
-    static Archon::Core::SharedPtr<PrivateState>
+    static archon::Core::SharedPtr<PrivateState>
     create(const Config& cfg, const std::locale& loc,
            TextureCache* texture_cache, FontCache::Arg font_cache)
     {
@@ -985,7 +985,7 @@ Application::Application(std::string title, const Config& cfg, const std::locale
     if (title.empty())
         title = "Archon";
     if (!conn)
-        conn = Archon::Display::get_default_implementation()->new_connection();
+        conn = archon::Display::get_default_implementation()->new_connection();
 
     int vis = conn->choose_gl_visual();
 
@@ -1658,4 +1658,4 @@ void Application::Config::populate(Core::ConfigBuilder& cfg)
 
 
 } // namespace Render
-} // namespace Archon
+} // namespace archon

@@ -50,7 +50,7 @@ Iteration on a
 
 #include <archon/math/vector.hpp>
 
-namespace Archon
+namespace archon
 {
   namespace Math
   {

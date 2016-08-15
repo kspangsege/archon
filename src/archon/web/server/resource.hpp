@@ -36,7 +36,7 @@
 #include <archon/web/server/response.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Web
   {

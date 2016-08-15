@@ -35,7 +35,7 @@
 
 
 using namespace std;
-using namespace Archon::Display;
+using namespace archon::Display;
 
 
 namespace
@@ -60,7 +60,7 @@ namespace
 }
 
 
-namespace Archon
+namespace archon
 {
   namespace Display
   {

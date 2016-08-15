@@ -36,12 +36,12 @@
 
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Math;
-using namespace Archon::Util;
-using namespace Archon::Imaging;
-using namespace Archon::Font;
-using namespace Archon::Render;
+using namespace archon::Core;
+using namespace archon::Math;
+using namespace archon::Util;
+using namespace archon::Imaging;
+using namespace archon::Font;
+using namespace archon::Render;
 
 
 namespace {
@@ -99,7 +99,7 @@ void dump_info(ostream& out) const
 } // unnamed namespace
 
 
-namespace Archon {
+namespace archon {
 namespace Render {
 
 struct FontProvider::TextureFontSource: TextureSource {
@@ -665,4 +665,4 @@ void FontProvider::release(TextContainer& text)
 }
 
 } // namespace Render
-} // namespace Archon
+} // namespace archon

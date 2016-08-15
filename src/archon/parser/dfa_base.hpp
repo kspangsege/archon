@@ -29,7 +29,7 @@
 
 #include <archon/parser/fsa_base.hpp>
 
-namespace Archon
+namespace archon
 {
   namespace Parser
   {

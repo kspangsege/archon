@@ -31,7 +31,7 @@
 #include <archon/render/context.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Render
   {

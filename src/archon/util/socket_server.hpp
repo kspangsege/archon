@@ -28,7 +28,7 @@
 #define ARCHON_UTIL_SOCKET_SERVER_HPP
 
 
-namespace Archon
+namespace archon
 {
   namespace Util
   {

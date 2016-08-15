@@ -29,7 +29,7 @@
 #include <archon/raytrace/material.hpp>
 
 
-namespace Archon {
+namespace archon {
 namespace Raytrace {
 
 class Surface {
@@ -97,6 +97,6 @@ public:
 */
 
 } // namespace Raytrace
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_RAYTRACE_SURFACE_HPP

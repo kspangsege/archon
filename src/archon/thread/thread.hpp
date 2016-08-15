@@ -33,7 +33,7 @@
 #include <archon/core/refcnt.hpp>
 #include <archon/thread/condition.hpp>
 
-namespace Archon
+namespace archon
 {
   namespace Thread
   {

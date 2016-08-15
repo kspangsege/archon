@@ -32,7 +32,7 @@
 #include <archon/core/shared_ptr.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Core
   {

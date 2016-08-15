@@ -40,9 +40,9 @@
 
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Thread;
-using namespace Archon::Util;
+using namespace archon::Core;
+using namespace archon::Thread;
+using namespace archon::Util;
 
 
 namespace
@@ -215,7 +215,7 @@ namespace
 
 
 
-namespace Archon
+namespace archon
 {
   namespace Util
   {

@@ -30,9 +30,9 @@
 #include <archon/raytrace/object.hpp>
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Math;
-using namespace Archon::Raytrace;
+using namespace archon::Core;
+using namespace archon::Math;
+using namespace archon::Raytrace;
 
 
 namespace {
@@ -323,7 +323,7 @@ private:
 
 
 
-namespace Archon {
+namespace archon {
 namespace Raytrace {
 
 std::unique_ptr<Object> Object::make_box(SharedPtr<Material>mat)
@@ -352,4 +352,4 @@ std::unique_ptr<Object> Object::make_torus(SharedPtr<Material> mat, double major
 }
 
 } // namespace Raytrace
-} // namespace Archon
+} // namespace archon

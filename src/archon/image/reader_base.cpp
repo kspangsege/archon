@@ -27,7 +27,7 @@
 #include <archon/image/reader_base.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Imaging
   {

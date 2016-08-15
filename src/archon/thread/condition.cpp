@@ -42,8 +42,8 @@
 
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Thread;
+using namespace archon::Core;
+using namespace archon::Thread;
 
 
 namespace
@@ -113,7 +113,7 @@ namespace
 }
 
 
-namespace Archon
+namespace archon
 {
   namespace Thread
   {

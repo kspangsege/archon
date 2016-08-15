@@ -36,7 +36,7 @@
 #define TEST_MSG(assertion, message) if(!(assertion)) throw std::runtime_error(message)
 
 
-using namespace Archon::dom;
+using namespace archon::dom;
 
 
 int main() throw()

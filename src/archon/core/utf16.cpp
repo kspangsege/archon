@@ -31,7 +31,7 @@
 using namespace std;
 
 
-namespace Archon {
+namespace archon {
 namespace Core {
 
 
@@ -70,4 +70,4 @@ string utf16_to_narrow(const StringUtf16& str, const locale& loc)
 
 
 } // namespace Core
-} // namespace Archon
+} // namespace archon

@@ -43,15 +43,15 @@
 #include <archon/raytrace/scene_build.hpp>
 
 
-using namespace Archon::Core;
-using namespace Archon::Math;
-using namespace Archon::Util;
-using namespace Archon::Imaging;
-using namespace Archon::Display;
+using namespace archon::Core;
+using namespace archon::Math;
+using namespace archon::Util;
+using namespace archon::Imaging;
+using namespace archon::Display;
 #ifdef ARCHON_HAVE_OPENGL
-using namespace Archon::Render;
+using namespace archon::Render;
 #endif
-using namespace Archon::Raytrace;
+using namespace archon::Raytrace;
 
 
 namespace {
@@ -167,9 +167,9 @@ void build_scene(SceneBuilder& builder)
 #ifdef ARCHON_HAVE_OPENGL
 class Preview: public Application {
 public:
-    Preview(Archon::Display::Connection::Arg display,
+    Preview(archon::Display::Connection::Arg display,
             const Application::Config& cfg, Raytracer& raytracer):
-        Application("Archon::Raytracer::Preview", cfg, std::locale(""), display),
+        Application("archon::Raytracer::Preview", cfg, std::locale(""), display),
         m_raytracer(raytracer)
     {
         glEnable(GL_DEPTH_TEST);
@@ -209,9 +209,9 @@ private:
 
 
 
-Archon::Display::Connection::Ptr try_get_display(bool insist = true)
+archon::Display::Connection::Ptr try_get_display(bool insist = true)
 {
-    using namespace Archon::Display;
+    using namespace archon::Display;
     try {
         Implementation::Ptr impl = get_default_implementation();
         return impl->new_connection();
@@ -224,7 +224,7 @@ Archon::Display::Connection::Ptr try_get_display(bool insist = true)
         if (insist)
             throw AppError("Could not connect to display: " + std::string(e.what()));
     }
-    return Archon::Display::Connection::Ptr(); // Null
+    return archon::Display::Connection::Ptr(); // Null
 }
 
 } // unnamed namespace
@@ -299,7 +299,7 @@ int main(int argc, const char* argv[]) throw()
 
     std::unique_ptr<Raytracer> raytracer = make_raytracer();
 
-    Archon::Display::Connection::Ptr display;
+    archon::Display::Connection::Ptr display;
 
     // Auto-detect screen resolution
     if (opt_scr_dpcm[0] <= 0 || opt_scr_dpcm[1] <= 0) {

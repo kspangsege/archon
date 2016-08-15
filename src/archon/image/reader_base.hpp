@@ -40,7 +40,7 @@
 #include <archon/image/pixel_converter.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Imaging
   {

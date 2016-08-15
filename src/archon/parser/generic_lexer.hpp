@@ -29,7 +29,7 @@
 
 #include <archon/parser/lexer.hpp>
 
-namespace Archon
+namespace archon
 {
   namespace Parser
   {

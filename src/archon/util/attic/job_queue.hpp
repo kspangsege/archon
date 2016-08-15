@@ -54,7 +54,7 @@
 
 #include <archon/util/thread.hpp>
 
-namespace Archon
+namespace archon
 {
   namespace Utilities
   {

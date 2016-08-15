@@ -27,7 +27,7 @@
 #include <archon/math/quaternion.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Math
   {

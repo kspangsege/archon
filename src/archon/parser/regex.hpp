@@ -39,7 +39,7 @@
 #include <archon/core/refcnt.hpp>
 #include <archon/core/iseq.hpp>
 
-namespace Archon {
+namespace archon {
 namespace Parser {
 
 struct RegexBase {
@@ -379,6 +379,6 @@ inline BasicRegex<Ch>::Bra::Bra(RangeSeq r, ClassSeq c, bool inv): invert(inv)
 }
 
 } // namespace Parser
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_PARSER_REGEX_HPP

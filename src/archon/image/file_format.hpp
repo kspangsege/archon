@@ -36,7 +36,7 @@
 #include <archon/image/buffered_image.hpp>
 
 
-namespace Archon {
+namespace archon {
 namespace Imaging {
 
 /**
@@ -280,6 +280,6 @@ inline void FileFormat::ProgressTracker::defined(BufferedImage::ConstRefArg) thr
 }
 
 } // namespace Imaging
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_IMAGE_FILE_FORMAT_HPP

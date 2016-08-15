@@ -30,7 +30,7 @@
 #include <archon/image/writer_base.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Imaging
   {

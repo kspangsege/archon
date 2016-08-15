@@ -29,11 +29,11 @@
 
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Math;
-using namespace Archon::Util;
-using namespace Archon::Render;
-using namespace Archon::Imaging;
+using namespace archon::Core;
+using namespace archon::Math;
+using namespace archon::Util;
+using namespace archon::Render;
+using namespace archon::Imaging;
 
 
 namespace {
@@ -65,7 +65,7 @@ TextureDecl get_dotted_texture_decl(TextureCache& cache, const string& resource_
 } // anonymous namespace
 
 
-namespace Archon {
+namespace archon {
 namespace Render {
 
 
@@ -211,4 +211,4 @@ void DomRenderer::render_border(const Border& side, int s0, int s1, int s2, int 
 
 
 } // namespace Render
-} // namespace Archon
+} // namespace archon

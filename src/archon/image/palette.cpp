@@ -26,8 +26,8 @@
 
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Imaging;
+using namespace archon::Core;
+using namespace archon::Imaging;
 
 namespace {
 
@@ -45,7 +45,7 @@ public:
 
 } // unnamed namespace
 
-namespace Archon {
+namespace archon {
 namespace Imaging {
 
 Palette::Ref Palette::generate_palette_for(Image::ConstRefArg, int max_colors)
@@ -53,4 +53,4 @@ Palette::Ref Palette::generate_palette_for(Image::ConstRefArg, int max_colors)
 }
 
 } // namespace Imaging
-} // namespace Archon
+} // namespace archon

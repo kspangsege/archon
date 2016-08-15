@@ -32,7 +32,7 @@
 #include <archon/core/memory.hpp>
 
 
-namespace Archon {
+namespace archon {
 namespace Util {
 
 /// A flexible description of the layout of a 2-D grid of tuples within some
@@ -412,6 +412,6 @@ inline void BasicTupleGrid<I>::extend_2(int width, int height,
 }
 
 } // namespace Util
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_UTIL_TUPLE_GRID_HPP

@@ -33,7 +33,7 @@
 #include <archon/dom/util/string.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace DomImpl
   {

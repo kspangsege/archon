@@ -120,7 +120,7 @@ HtmlAnchorAttribsRep: CssAttribsRep: (only when 'href' is specified) (questionab
 */
 
 
-namespace Archon
+namespace archon
 {
   namespace DomImpl
   {

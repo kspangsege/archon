@@ -17,7 +17,7 @@
 #include <archon/core/muta_ref.hpp>
 #include <archon/core/file.hpp>
 
-namespace Archon
+namespace archon
 {
   namespace ImageOrig
   {

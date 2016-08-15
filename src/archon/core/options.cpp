@@ -37,7 +37,7 @@
 
 
 using namespace std;
-using namespace Archon::Core;
+using namespace archon::Core;
 
 
 
@@ -56,7 +56,7 @@ using namespace Archon::Core;
 
 
 
-namespace Archon
+namespace archon
 {
   namespace Core
   {

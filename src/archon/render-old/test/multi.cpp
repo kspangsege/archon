@@ -45,12 +45,12 @@
 
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Thread;
-using namespace Archon::Math;
-using namespace Archon::Imaging;
-using namespace Archon::Render;
-namespace Display = Archon::Display;
+using namespace archon::Core;
+using namespace archon::Thread;
+using namespace archon::Math;
+using namespace archon::Imaging;
+using namespace archon::Render;
+namespace Display = archon::Display;
 
 
 namespace
@@ -552,7 +552,7 @@ namespace
     if(opt_help)
     {
       cout <<
-        "Test Application for the Archon::Render library\n"
+        "Test Application for the archon::Render library\n"
         "by Brian Kristiansen & Kristian Spangsege\n"
         "\n"
         "Synopsis: " << argv[0] << "\n"

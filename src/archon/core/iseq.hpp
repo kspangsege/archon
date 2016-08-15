@@ -30,7 +30,7 @@
 #ifndef ARCHON_CORE_ISEQ_HPP
 #define ARCHON_CORE_ISEQ_HPP
 
-namespace Archon
+namespace archon
 {
   namespace Core
   {

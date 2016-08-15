@@ -36,7 +36,7 @@
 #include <archon/font/face.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Font
   {

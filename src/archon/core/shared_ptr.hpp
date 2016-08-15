@@ -35,7 +35,7 @@
 #include <archon/core/atomic.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Core
   {

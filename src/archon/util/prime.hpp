@@ -28,7 +28,7 @@
 #define ARCHON_UTIL_PRIME_HPP
 
 
-namespace Archon
+namespace archon
 {
   namespace Util
   {

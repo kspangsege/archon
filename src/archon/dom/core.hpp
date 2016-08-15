@@ -33,7 +33,7 @@
 #include <archon/dom/util/string.hpp>
 
 
-namespace Archon {
+namespace archon {
 namespace dom {
 
 class NodeList;
@@ -390,6 +390,6 @@ public:
 
 
 } // namespace dom
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_DOM_CORE_HPP

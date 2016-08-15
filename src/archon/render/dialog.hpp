@@ -29,7 +29,7 @@
 #include <archon/dom/html.hpp>
 
 
-namespace Archon {
+namespace archon {
 namespace Render {
 
 class Dialog {
@@ -46,6 +46,6 @@ public:
 };
 
 } // namespace Render
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_RENDER_DIALOG_HPP

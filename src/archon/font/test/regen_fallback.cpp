@@ -44,11 +44,11 @@
 #include <archon/font/util.hpp>
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Math;
-using namespace Archon::Util;
-using namespace Archon::Imaging;
-using namespace Archon::Font;
+using namespace archon::Core;
+using namespace archon::Math;
+using namespace archon::Util;
+using namespace archon::Imaging;
+using namespace archon::Font;
 
 
 namespace

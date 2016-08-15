@@ -27,7 +27,7 @@
 #include <archon/util/rect_packer.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Util
   {

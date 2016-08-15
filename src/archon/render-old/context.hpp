@@ -31,7 +31,7 @@
 #include <archon/render/view.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Render
   {

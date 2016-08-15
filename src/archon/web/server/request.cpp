@@ -27,10 +27,10 @@
 #include <archon/web/server/request.hpp>
 
 
-using namespace Archon::Core;
+using namespace archon::Core;
 
 
-namespace Archon
+namespace archon
 {
   namespace Web
   {

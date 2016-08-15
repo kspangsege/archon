@@ -34,7 +34,7 @@
 #include <iterator>
 
 
-namespace Archon
+namespace archon
 {
   namespace Core
   {

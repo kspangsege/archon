@@ -32,7 +32,7 @@
 #include <archon/math/rotation.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Render
   {

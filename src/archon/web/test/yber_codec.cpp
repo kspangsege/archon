@@ -31,8 +31,8 @@
 #include <archon/web/yber_codec.hpp>
 
 using namespace std;
-using namespace Archon::Web;
-using namespace Archon::Core;
+using namespace archon::Web;
+using namespace archon::Core;
 
 int main(int argc, char const *argv[]) throw()
 {

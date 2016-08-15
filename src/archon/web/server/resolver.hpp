@@ -33,7 +33,7 @@
 #include <archon/web/server/resource.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Web
   {

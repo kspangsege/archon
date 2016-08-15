@@ -38,10 +38,10 @@
 #include <archon/core/cxx.hpp>
 
 
-using namespace Archon::Core;
-using namespace Archon::Util;
-using namespace Archon::Display;
-using namespace Archon::Render;
+using namespace archon::Core;
+using namespace archon::Util;
+using namespace archon::Display;
+using namespace archon::Render;
 
 
 namespace {
@@ -49,7 +49,7 @@ namespace {
 class SceneBuilderApp: public Application {
 public:
     SceneBuilderApp(const Application::Config& cfg):
-        Application("Archon::Render::SceneBuilder", cfg),
+        Application("archon::Render::SceneBuilder", cfg),
         m_resource_dir(cfg.archon_datadir+"render/test/")
     {
         register_key_handler(KeySym_Right, &SceneBuilderApp::next,

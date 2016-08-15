@@ -18,7 +18,7 @@
 #endif
 
 
-namespace Archon
+namespace archon
 {
 #ifdef HAVE_STDINT_H
 

@@ -38,7 +38,7 @@
 
 #include <archon/parser/fsa.hpp>
 
-namespace Archon
+namespace archon
 {
   namespace Parser
   {

@@ -37,7 +37,7 @@
 #include <archon/image/color_space.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Imaging
   {

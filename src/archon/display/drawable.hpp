@@ -30,7 +30,7 @@
 #include <archon/display/geometry.hpp>
 
 
-namespace Archon {
+namespace archon {
 namespace Display {
 
 /// Something on which you can draw.
@@ -104,6 +104,6 @@ inline void Drawable::put_image(Imaging::Image::ConstRefArg image, Point positio
 }
 
 } // namespace Display
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_DISPLAY_DRAWABLE_HPP

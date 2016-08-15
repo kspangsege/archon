@@ -31,7 +31,7 @@
 #include<ostream>
 
 
-namespace Archon
+namespace archon
 {
   namespace Core
   {

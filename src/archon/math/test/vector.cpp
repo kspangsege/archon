@@ -33,7 +33,7 @@
 #include <archon/math/vector.hpp>
 
 using namespace std;
-using namespace Archon::Math;
+using namespace archon::Math;
 
 namespace
 {

@@ -34,7 +34,7 @@
 #include <archon/dom/impl/render.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace DomImpl
   {

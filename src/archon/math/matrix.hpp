@@ -40,7 +40,7 @@
 #include <archon/math/vector.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Math
   {

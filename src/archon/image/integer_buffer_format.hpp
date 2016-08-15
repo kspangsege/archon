@@ -37,7 +37,7 @@
 #include <archon/image/word_based_buffer_format.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Imaging
   {

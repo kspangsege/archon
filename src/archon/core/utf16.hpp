@@ -39,7 +39,7 @@
 #include <archon/core/functions.hpp>
 
 
-namespace Archon {
+namespace archon {
 namespace Core {
 
 namespace _Impl { typedef UIntMin16 CharUtf16_int; }
@@ -154,7 +154,7 @@ inline std::wostream& operator<<(std::wostream&, const StringUtf16&);
 
 
 } // namespace Core
-} // namespace Archon
+} // namespace archon
 
 
 
@@ -167,8 +167,8 @@ inline std::wostream& operator<<(std::wostream&, const StringUtf16&);
 
 namespace std {
 
-template<> struct char_traits<Archon::Core::CharUtf16> {
-    typedef Archon::Core::CharUtf16 char_type;
+template<> struct char_traits<archon::Core::CharUtf16> {
+    typedef archon::Core::CharUtf16 char_type;
     typedef unsigned                int_type;
     typedef std::streampos          pos_type;
     typedef std::streamoff          off_type;
@@ -193,7 +193,7 @@ template<> struct char_traits<Archon::Core::CharUtf16> {
 } // namespace std
 
 
-inline int std::char_traits<Archon::Core::CharUtf16>::
+inline int std::char_traits<archon::Core::CharUtf16>::
 compare(const char_type* s1, const char_type* s2, std::size_t n)
 {
     for (std::size_t i=0; i<n; ++i) {
@@ -205,7 +205,7 @@ compare(const char_type* s1, const char_type* s2, std::size_t n)
     return 0;
 }
 
-inline std::size_t std::char_traits<Archon::Core::CharUtf16>::
+inline std::size_t std::char_traits<archon::Core::CharUtf16>::
 length(const char_type* s)
 {
     std::size_t n = 0;
@@ -214,7 +214,7 @@ length(const char_type* s)
     return n;
 }
 
-inline const Archon::Core::CharUtf16* std::char_traits<Archon::Core::CharUtf16>::
+inline const archon::Core::CharUtf16* std::char_traits<archon::Core::CharUtf16>::
 find(const char_type* s, std::size_t n, const char_type& a)
 {
     for (std::size_t i = 0; i != n; ++i) {
@@ -224,7 +224,7 @@ find(const char_type* s, std::size_t n, const char_type& a)
     return 0;
 }
 
-inline Archon::Core::CharUtf16* std::char_traits<Archon::Core::CharUtf16>::
+inline archon::Core::CharUtf16* std::char_traits<archon::Core::CharUtf16>::
 move(char_type* s1, const char_type* s2, std::size_t n)
 {
     if (s1 < s2) {
@@ -236,30 +236,30 @@ move(char_type* s1, const char_type* s2, std::size_t n)
     return s1;
 }
 
-inline Archon::Core::CharUtf16* std::char_traits<Archon::Core::CharUtf16>::
+inline archon::Core::CharUtf16* std::char_traits<archon::Core::CharUtf16>::
 copy(char_type* s1, const char_type* s2, std::size_t n)
 {
     std::copy(s2, s2+n, s1);
     return s1;
 }
 
-inline Archon::Core::CharUtf16* std::char_traits<Archon::Core::CharUtf16>::
+inline archon::Core::CharUtf16* std::char_traits<archon::Core::CharUtf16>::
 assign(char_type* s, std::size_t n, char_type a)
 {
     std::fill(s, s+n, a);
     return s;
 }
 
-inline Archon::Core::CharUtf16 std::char_traits<Archon::Core::CharUtf16>::
+inline archon::Core::CharUtf16 std::char_traits<archon::Core::CharUtf16>::
 to_char_type(const int_type& i)
 {
     char_type c;
-    c.val = static_cast<Archon::Core::_Impl::CharUtf16_int>(i);
+    c.val = static_cast<archon::Core::_Impl::CharUtf16_int>(i);
     return c;
 }
 
 
-namespace Archon {
+namespace archon {
 namespace Core {
 
 #ifdef ARCHON_WCHAR_ENC_IS_UCS
@@ -489,6 +489,6 @@ inline std::wostream& operator<<(std::wostream& out, const StringUtf16& str)
 }
 
 } // namespace Core
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_CORE_UTF16_HPP

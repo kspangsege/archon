@@ -33,9 +33,9 @@
 #include <archon/font/text_render.hpp>
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Imaging;
-using namespace Archon::Font;
+using namespace archon::Core;
+using namespace archon::Imaging;
+using namespace archon::Font;
 
 
 int main(int argc, char const *argv[]) throw()

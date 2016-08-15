@@ -35,7 +35,7 @@
 #include <archon/core/codec.hpp>
 #include <archon/core/text.hpp>
 
-namespace Archon
+namespace archon
 {
   namespace Parser
   {

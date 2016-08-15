@@ -59,20 +59,20 @@
 
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Math;
-using namespace Archon::Util;
-using namespace Archon::Imaging;
-using namespace Archon::Font;
-using namespace Archon::Display;
-using namespace Archon::Render;
-namespace dom = Archon::dom;
-//namespace DomImpl = Archon::DomImpl;
+using namespace archon::Core;
+using namespace archon::Math;
+using namespace archon::Util;
+using namespace archon::Imaging;
+using namespace archon::Font;
+using namespace archon::Display;
+using namespace archon::Render;
+namespace dom = archon::dom;
+//namespace DomImpl = archon::DomImpl;
 
 
 namespace
 {
-  typedef Archon::Render::TextFormatter TextFormatter; // Resolving ambiguity
+  typedef archon::Render::TextFormatter TextFormatter; // Resolving ambiguity
 
 
   double const zoom_step = pow(2, 1.0 / 8); // 8 steps to double
@@ -650,13 +650,13 @@ cout << "*";
 
 
 
-namespace Archon
+namespace archon
 {
   namespace Render
   {
     struct Application::PrivateState: PrivateApplicationState
     {
-      static Archon::Core::SharedPtr<PrivateState>
+      static archon::Core::SharedPtr<PrivateState>
       create(Config const &cfg, locale const &loc,
              TextureCache::Arg tex_cache, FontCache::Arg font_cache)
       {
@@ -970,7 +970,7 @@ namespace Archon
       private_state(PrivateState::create(cfg, loc, tex_cache, font_cache))
     {
       if(title.empty()) title = "Archon";
-      if(!conn) conn = Archon::Display::get_default_implementation()->new_connection();
+      if(!conn) conn = archon::Display::get_default_implementation()->new_connection();
 
       int const vis = conn->choose_gl_visual();
 

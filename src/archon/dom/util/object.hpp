@@ -31,7 +31,7 @@
 #include <archon/core/bind_ref.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace dom
   {

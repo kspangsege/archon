@@ -31,8 +31,8 @@
 
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Math;
+using namespace archon::Core;
+using namespace archon::Math;
 
 /*
 
@@ -48,7 +48,7 @@ Want to emulate OpenGL modulate mode
 
 */
 
-namespace Archon
+namespace archon
 {
   namespace Raytrace
   {

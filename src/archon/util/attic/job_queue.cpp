@@ -52,8 +52,8 @@
 #include <archon/util/job.hpp>
 
 
-using namespace Archon::Util;
-using namespace Archon::Thread;
+using namespace archon::Util;
+using namespace archon::Thread;
 
 
 namespace
@@ -101,7 +101,7 @@ namespace
 }
 
 
-namespace Archon
+namespace archon
 {
   namespace Utilities
   {

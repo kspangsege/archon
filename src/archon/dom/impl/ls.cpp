@@ -44,7 +44,7 @@
 
 
 using namespace std;
-using namespace Archon::Core;
+using namespace archon::Core;
 
 
 // FIXME: PROBLEM: How can an in-context asynchronous parser be supported without completely thread-safe document API? NOT A PROBLEM, because parseWithContext() always operates in synchonous mode. There are still problems!!! The thread that initiates an asynchronious parse will be in conflict will the parsing thread immediately. What are the use cases for asynchronous parsing? Progress reporting? Simultaneous loading of multiple documents? PArtial rendering would require special support of the implementation.
@@ -111,8 +111,8 @@ Error: Unknown encoding or bad start of XML file.
 
 namespace
 {
-  namespace dom = Archon::dom;
-  using namespace Archon::DomImpl;
+  namespace dom = archon::dom;
+  using namespace archon::DomImpl;
 
 
 
@@ -574,7 +574,7 @@ namespace
       ARCHON_ASSERT_1(doc, "Text before root element");
       bool const elem_cont_whitespace = level->is_element_content &&
         DOMImplementation::is_whitespace(text_accum);
-      level->elem->append_child_for_parser(new Archon::DomImpl::Text(doc.get(), text_accum,
+      level->elem->append_child_for_parser(new archon::DomImpl::Text(doc.get(), text_accum,
                                                                      elem_cont_whitespace));
       text_accum.clear();
     }
@@ -777,7 +777,7 @@ namespace
 
 
 
-namespace Archon
+namespace archon
 {
   namespace DomImpl
   {

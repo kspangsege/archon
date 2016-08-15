@@ -30,9 +30,9 @@
 
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Imaging;
-using namespace Archon::Render;
+using namespace archon::Core;
+using namespace archon::Imaging;
+using namespace archon::Render;
 
 namespace {
 
@@ -156,7 +156,7 @@ public:
 } // unnamed namespace
 
 
-namespace Archon {
+namespace archon {
 namespace Render {
 
 std::unique_ptr<TextureCache> make_texture_cache()
@@ -204,4 +204,4 @@ void TextureCache::Texture::show_state()
 }
 
 } // namespace Render
-} // namespace Archon
+} // namespace archon

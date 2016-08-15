@@ -32,7 +32,7 @@
 #include <archon/raytrace/material.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Raytrace
   {

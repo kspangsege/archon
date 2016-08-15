@@ -33,7 +33,7 @@
 #include <archon/math/geometry.hpp>
 
 
-namespace Archon {
+namespace archon {
 namespace Math {
 
 /**
@@ -401,6 +401,6 @@ inline bool intersect_sphere(const BasicLine<N,T>& ray, T& dist, T radius)
 }
 
 } // namespace Math
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_MATH_INTERSECT_HPP

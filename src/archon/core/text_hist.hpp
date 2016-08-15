@@ -32,7 +32,7 @@
 #include <iosfwd>
 
 
-namespace Archon
+namespace archon
 {
   namespace Core
   {

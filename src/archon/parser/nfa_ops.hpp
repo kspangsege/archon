@@ -37,7 +37,7 @@
 #include <archon/parser/nfa.hpp>
 #include <archon/parser/regex.hpp>
 
-namespace Archon
+namespace archon
 {
   namespace Parser
   {

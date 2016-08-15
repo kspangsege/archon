@@ -32,7 +32,7 @@
 
 
 using namespace std;
-using namespace Archon::Core;
+using namespace archon::Core;
 
 int main(int argc, char const *argv[]) throw()
 {

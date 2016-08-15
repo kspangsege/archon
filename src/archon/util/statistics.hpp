@@ -30,7 +30,7 @@
 #include <algorithm>
 
 
-namespace Archon
+namespace archon
 {
   namespace Util
   {

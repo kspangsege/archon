@@ -30,7 +30,7 @@
 #include <string>
 #include <stdexcept>
 
-namespace Archon
+namespace archon
 {
   namespace Parser
   {

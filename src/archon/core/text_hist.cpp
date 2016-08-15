@@ -76,7 +76,7 @@ namespace
 }
 
 
-namespace Archon
+namespace archon
 {
   namespace Core
   {

@@ -43,10 +43,10 @@
 
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Math;
-using namespace Archon::Imaging;
-using namespace Archon::Render;
+using namespace archon::Core;
+using namespace archon::Math;
+using namespace archon::Imaging;
+using namespace archon::Render;
 
 
 namespace
@@ -54,7 +54,7 @@ namespace
   struct Explorer: Application
   {
     Explorer(Application::Config const &cfg, Object const &obj):
-      Application("Archon::Render::Explorer", cfg), object(obj)
+      Application("archon::Render::Explorer", cfg), object(obj)
     {
       glEnable(GL_LIGHTING);
       glEnable(GL_DEPTH_TEST);
@@ -84,7 +84,7 @@ int main(int argc, char const *argv[]) throw()
 
   Application::Config cfg;
   CommandlineOptions opts;
-  opts.add_help("Test application for the Archon::Display library", "OBJECT-FILE");
+  opts.add_help("Test application for the archon::Display library", "OBJECT-FILE");
   opts.check_num_args(0,1);
   opts.add_group(cfg);
   if(int stop = opts.process(argc, argv)) return stop == 2 ? 0 : 1;

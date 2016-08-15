@@ -41,7 +41,7 @@
 #include <archon/core/text.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Core
   {

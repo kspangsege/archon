@@ -33,7 +33,7 @@
 #include <string>
 
 
-namespace Archon
+namespace archon
 {
   namespace Core
   {

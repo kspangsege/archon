@@ -30,7 +30,7 @@
 #include <archon/image/file_format.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Imaging
   {

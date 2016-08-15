@@ -42,9 +42,9 @@
 
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Imaging;
-using namespace Archon::Render;
+using namespace archon::Core;
+using namespace archon::Imaging;
+using namespace archon::Render;
 
 namespace
 {
@@ -312,7 +312,7 @@ namespace
 
 
 
-namespace Archon
+namespace archon
 {
   namespace Render
   {

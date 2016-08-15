@@ -30,7 +30,7 @@
 #include <archon/core/unique_ptr.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Util
   {

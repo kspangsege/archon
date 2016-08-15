@@ -32,7 +32,7 @@
 #include <archon/core/assert.hpp>
 #include <archon/core/types.hpp>
 
-namespace Archon
+namespace archon
 {
   namespace Util
   {

@@ -143,7 +143,7 @@ pre-line
 
 
 
-namespace Archon {
+namespace archon {
 namespace DomImpl {
 
 struct Box;
@@ -984,6 +984,6 @@ inline RenderElemUpdateState::RenderElemUpdateState(ContainingBlock *b,
 
 
 } // namespace DomImpl
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_DOM_IMPL_RENDER_HPP

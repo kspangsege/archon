@@ -35,7 +35,7 @@
 
 
 using namespace std;
-using namespace Archon::Thread;
+using namespace archon::Thread;
 
 
 namespace

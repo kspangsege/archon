@@ -33,7 +33,7 @@
 #include <archon/core/file.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Core
   {

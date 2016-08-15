@@ -32,7 +32,7 @@
 
 namespace {
 
-using namespace Archon::dom;
+using namespace archon::dom;
 
 
 struct List: DOMImplementationList {
@@ -55,7 +55,7 @@ struct List: DOMImplementationList {
 
 
 
-namespace Archon {
+namespace archon {
 namespace dom {
 namespace bootstrap {
 
@@ -116,4 +116,4 @@ DOMImplementationRegistry::DOMImplementationRegistry()
 
 } // namespace bootstrap
 } // namespace dom
-} // namespace Archon
+} // namespace archon

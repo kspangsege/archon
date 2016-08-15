@@ -30,7 +30,7 @@
 #include <archon/display/drawable.hpp>
 
 
-namespace Archon {
+namespace archon {
 namespace Display {
 
 /// An off-screen pixel buffer which can be used as a target for OpenGL
@@ -65,6 +65,6 @@ inline void PixelBuffer::save(std::string image_path)
 }
 
 } // namespace Display
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_DISPLAY_PIXEL_BUFFER_HPP

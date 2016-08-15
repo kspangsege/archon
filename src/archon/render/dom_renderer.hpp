@@ -32,7 +32,7 @@
 #include <archon/render/texture_cache.hpp>
 
 
-namespace Archon {
+namespace archon {
 namespace Render {
 
 // FIXME: Overlaps with ModalHudDialogImpl in app.cpp
@@ -69,6 +69,6 @@ inline void DomRenderer::set_viewport_height(int value)
 
 
 } // namespace Render
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_RENDER_DOM_RENDERER_HPP

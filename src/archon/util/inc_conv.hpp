@@ -35,7 +35,7 @@
 #include <archon/core/codec.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Util
   {

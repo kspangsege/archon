@@ -25,11 +25,11 @@
 #include <archon/render/scene_builder.hpp>
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Math;
+using namespace archon::Core;
+using namespace archon::Math;
 
 
-namespace Archon {
+namespace archon {
 namespace Render {
 
 OpenGlSceneBuilder::OpenGlSceneBuilder(GLuint list, TextureCache& texture_cache,
@@ -183,4 +183,4 @@ void OpenGlSceneBuilder::provide_tex_transform()
 }
 
 } // namespace Render
-} // namespace Archon
+} // namespace archon

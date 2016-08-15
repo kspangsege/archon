@@ -31,7 +31,7 @@
 #include <archon/image/word_type.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Imaging
   {

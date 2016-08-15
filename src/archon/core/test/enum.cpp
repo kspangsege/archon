@@ -40,19 +40,19 @@ namespace Module
     orange, purple, brown
   };
 
-  struct ColorSpec { static Archon::Core::EnumAssoc map[]; };
-  typedef Archon::Core::Enum<Color, ColorSpec> ColorEnum;
+  struct ColorSpec { static archon::Core::EnumAssoc map[]; };
+  typedef archon::Core::Enum<Color, ColorSpec> ColorEnum;
 }
 
 
 // Module implementation
 
 using namespace std;
-using namespace Archon::Core;
+using namespace archon::Core;
 
 namespace Module
 {
-  Archon::Core::EnumAssoc ColorSpec::map[] =
+  archon::Core::EnumAssoc ColorSpec::map[] =
   {
     { orange, "orange" },
     { purple, "purple" },

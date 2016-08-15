@@ -33,7 +33,7 @@
 #include <archon/core/unique_ptr.hpp>
 
 
-namespace Archon {
+namespace archon {
 namespace Core {
 
 // An abstract thread safe logger.
@@ -105,6 +105,6 @@ public:
 };
 
 } // namespace Core
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_CORE_LOGGER_HPP

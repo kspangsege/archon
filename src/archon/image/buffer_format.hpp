@@ -35,7 +35,7 @@
 #include <archon/image/buffer_codec.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Imaging
   {

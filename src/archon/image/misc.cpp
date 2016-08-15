@@ -27,13 +27,13 @@
 #include <archon/image/misc.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Imaging
   {
     namespace _Impl
     {
-      Archon::Core::EnumAssoc FalloffSpec::map[] =
+      archon::Core::EnumAssoc FalloffSpec::map[] =
       {
         { falloff_Background, "background" },
         { falloff_Edge,       "edge"       },

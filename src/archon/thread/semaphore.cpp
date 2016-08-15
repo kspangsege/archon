@@ -27,10 +27,10 @@
 #include <archon/thread/semaphore.hpp>
 
 
-using namespace Archon::Core;
+using namespace archon::Core;
 
 
-namespace Archon
+namespace archon
 {
   namespace Thread
   {

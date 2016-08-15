@@ -49,7 +49,7 @@
 #include <archon/render/text_formatter.hpp>
 
 
-namespace Archon {
+namespace archon {
 namespace Render {
 
 /// Thrown if an attempt is made to register a key handler with a key that is
@@ -512,6 +512,6 @@ template<class C> void Application::register_key_handler(Display::KeySym key, bo
 }
 
 } // namespace Render
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_RENDER_APP_HPP

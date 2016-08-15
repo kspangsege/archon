@@ -73,7 +73,7 @@
 #include <archon/core/utf16.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Util
   {

@@ -41,8 +41,8 @@
 
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Util;
+using namespace archon::Core;
+using namespace archon::Util;
 
 
 namespace

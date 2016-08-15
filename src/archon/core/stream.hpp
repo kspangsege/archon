@@ -36,7 +36,7 @@
 #include <archon/core/memory.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Core
   {

@@ -36,7 +36,7 @@
 #include <archon/core/enum.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Imaging
   {

@@ -33,7 +33,7 @@
 #include <archon/raytrace/surface.hpp>
 
 
-namespace Archon {
+namespace archon {
 namespace Raytrace {
 
 class Object {
@@ -219,6 +219,6 @@ public:
 */
 
 } // namespace Raytrace
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_RAYTRACE_OBJECT_HPP

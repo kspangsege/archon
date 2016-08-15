@@ -16,7 +16,7 @@
 #include <archon/math/functions.hpp>
 #include <archon/image/buffer_format.hpp>
 
-namespace Archon
+namespace archon
 {
   namespace Imaging
   {

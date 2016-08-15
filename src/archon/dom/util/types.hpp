@@ -30,7 +30,7 @@
 #include <archon/core/types.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace dom
   {

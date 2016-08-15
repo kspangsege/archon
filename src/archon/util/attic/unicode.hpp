@@ -11,7 +11,7 @@
 #include <string>
 #include <locale>
 
-namespace Archon
+namespace archon
 {
   namespace Util
   {

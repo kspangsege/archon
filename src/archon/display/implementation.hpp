@@ -30,7 +30,7 @@
 #include <archon/display/connection.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Display
   {

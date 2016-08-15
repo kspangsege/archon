@@ -35,11 +35,11 @@
 
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Math;
-using namespace Archon::Thread;
-using namespace Archon::Display;
-using namespace Archon::Render;
+using namespace archon::Core;
+using namespace archon::Math;
+using namespace archon::Thread;
+using namespace archon::Display;
+using namespace archon::Render;
 
 
 namespace
@@ -314,7 +314,7 @@ namespace
     {
     }
 
-    Archon::Display::Context::Ref context;
+    archon::Display::Context::Ref context;
 
     Mutex channelMutex;
     vector<Channel> channels;
@@ -520,7 +520,7 @@ namespace
 }
 
 
-namespace Archon
+namespace archon
 {
   namespace Render
   {

@@ -520,7 +520,7 @@ namespace
 }
 
 
-namespace Archon
+namespace archon
 {
   namespace Math
   {

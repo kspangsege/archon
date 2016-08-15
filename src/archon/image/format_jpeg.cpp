@@ -43,9 +43,9 @@
 
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Util;
-using namespace Archon::Imaging;
+using namespace archon::Core;
+using namespace archon::Util;
+using namespace archon::Imaging;
 
 
 namespace {
@@ -959,7 +959,7 @@ private:
 } // unnamed namespace
 
 
-namespace Archon {
+namespace archon {
 namespace Imaging {
 
 FileFormat::ConstRef get_default_jpeg_file_format()
@@ -969,4 +969,4 @@ FileFormat::ConstRef get_default_jpeg_file_format()
 }
 
 } // namespace Imaging
-} // namespace Archon
+} // namespace archon

@@ -34,9 +34,9 @@
 
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Util;
-using namespace Archon::Imaging;
+using namespace archon::Core;
+using namespace archon::Util;
+using namespace archon::Imaging;
 
 
 namespace
@@ -155,7 +155,7 @@ namespace
 }
 
 
-namespace Archon
+namespace archon
 {
   namespace Imaging
   {

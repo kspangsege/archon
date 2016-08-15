@@ -33,7 +33,7 @@
 #include <archon/web/server/resolver.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Web
   {

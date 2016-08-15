@@ -31,7 +31,7 @@
 #include <archon/font/text_format.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Font
   {

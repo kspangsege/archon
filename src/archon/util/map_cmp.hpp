@@ -34,7 +34,7 @@
 
 #include <archon/core/proxy_iter.hpp>
 
-namespace Archon
+namespace archon
 {
   namespace Util
   {

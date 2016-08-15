@@ -40,11 +40,11 @@
 
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Math;
-using namespace Archon::Font;
-using namespace Archon::Display;
-using namespace Archon::Render;
+using namespace archon::Core;
+using namespace archon::Math;
+using namespace archon::Font;
+using namespace archon::Display;
+using namespace archon::Render;
 
 
 
@@ -99,7 +99,7 @@ struct TextFormatterApp: Application {
 
 
     TextFormatterApp(const Config& cfg, FontList::Arg font_list, wstring text):
-        Application("Archon::Render::TextFormatter", cfg, locale(""), Connection::Ptr(),
+        Application("archon::Render::TextFormatter", cfg, locale(""), Connection::Ptr(),
                     nullptr, new_font_cache(font_list)),
         text_formatter(get_font_provider())
     {
@@ -218,7 +218,7 @@ private:
     }
 
 
-    Archon::Render::TextFormatter text_formatter;
+    archon::Render::TextFormatter text_formatter;
     TextLayout text_layout;
     int page_index, num_pages;
 };
@@ -237,7 +237,7 @@ int main(int argc, const char* argv[]) throw()
     FontConfig font_cfg;
     CommandlineOptions opts;
     opts.add_help("Test application for the texture based text rendering facility "
-                  "of Archon::Render::Application.", "TEXT");
+                  "of archon::Render::Application.", "TEXT");
     opts.check_num_args(0,1);
     opts.add_stop_opts();
     opts.add_group(app_cfg);

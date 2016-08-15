@@ -30,8 +30,8 @@
 
 
 using namespace std;
-using namespace Archon::Math;
-using namespace Archon::Graphics;
+using namespace archon::Math;
+using namespace archon::Graphics;
 
 
 namespace {
@@ -131,7 +131,7 @@ void build_mesh(SpatialObjectBuilder& builder, bool texture, int orient,
 } // unnamed namespace
 
 
-namespace Archon {
+namespace archon {
 namespace Graphics {
 
 void build_xyz_mesh(SpatialObjectBuilder& builder, bool texture, bool reverse,
@@ -501,4 +501,4 @@ void build_torus(SpatialObjectBuilder& builder, bool texture,
 }
 
 } // namespace Graphics
-} // namespace Archon
+} // namespace archon

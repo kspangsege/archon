@@ -36,7 +36,7 @@
 
 namespace {
 
-using namespace Archon::dom;
+using namespace archon::dom;
 
 
 typedef ref<DOMImplementation> Impl;
@@ -134,7 +134,7 @@ private:
         DOMString space(1, traits::to_char_type(0x20));
         typedef std::vector<DOMString> Tokens;
         Tokens tokens;
-        Archon::Core::Text::split(f, space, back_inserter(tokens), true);
+        archon::Core::Text::split(f, space, back_inserter(tokens), true);
 
         DOMString feature, version;
         Tokens::const_iterator tokens_end = tokens.end();
@@ -163,8 +163,8 @@ ref<Source> new_source()
 {
     Impls impls;
 
-    impls.push_back(Impl(new Archon::DomImpl::DOMImplementationLS));
-    impls.push_back(Impl(new Archon::DomImpl::HTMLImplementation));
+    impls.push_back(Impl(new archon::DomImpl::DOMImplementationLS));
+    impls.push_back(Impl(new archon::DomImpl::HTMLImplementation));
 
     return ref<Source>(new Source(impls));
 }
@@ -173,7 +173,7 @@ ref<Source> new_source()
 
 
 
-namespace Archon {
+namespace archon {
 namespace DomImpl {
 
 dom::ref<dom::DOMImplementationSource> get_default_impl_src()
@@ -183,4 +183,4 @@ dom::ref<dom::DOMImplementationSource> get_default_impl_src()
 }
 
 } // namespace DomImpl
-} // namespace Archon
+} // namespace archon

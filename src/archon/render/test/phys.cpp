@@ -42,10 +42,10 @@
 
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Math;
-using namespace Archon::Imaging;
-using namespace Archon::Render;
+using namespace archon::Core;
+using namespace archon::Math;
+using namespace archon::Imaging;
+using namespace archon::Render;
 
 
 namespace
@@ -152,7 +152,7 @@ namespace
   struct Phys: Application
   {
     Phys(Application::Config const &cfg):
-      Application("Archon::Render::Phys", cfg)
+      Application("archon::Render::Phys", cfg)
     {
       for(int i=0;i<num_particles;++i)
       {
@@ -296,8 +296,8 @@ namespace
         for(int j=0; j<i; ++j)
           if(SpringMatrix[j][i][0]>0)
           {
-            update.drawLine(prevScreenPos[i].x, prevScreenPos[i].y, prevScreenPos[j].x, prevScreenPos[j].y, Archon::Utilities::Window::sub);
-            update.drawLine(screenPos[i].x, screenPos[i].y, screenPos[j].x, screenPos[j].y, Archon::Utilities::Window::add);
+            update.drawLine(prevScreenPos[i].x, prevScreenPos[i].y, prevScreenPos[j].x, prevScreenPos[j].y, archon::Utilities::Window::sub);
+            update.drawLine(screenPos[i].x, screenPos[i].y, screenPos[j].x, screenPos[j].y, archon::Utilities::Window::add);
           }
 */
 

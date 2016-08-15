@@ -36,9 +36,9 @@
 #include <archon/font/list.hpp>
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Math;
-using namespace Archon::Font;
+using namespace archon::Core;
+using namespace archon::Math;
+using namespace archon::Font;
 
 
 namespace
@@ -474,7 +474,7 @@ namespace
 }
 
 
-namespace Archon
+namespace archon
 {
   namespace Font
   {

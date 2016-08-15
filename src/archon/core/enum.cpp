@@ -34,7 +34,7 @@
 using namespace std;
 
 
-namespace Archon {
+namespace archon {
 namespace Core {
 namespace _Impl {
 
@@ -65,4 +65,4 @@ bool EnumMapper::parse(string s, int &val, bool ignore_case) const
 
 } // namespace _Impl
 } // namespace Core
-} // namespace Archon
+} // namespace archon

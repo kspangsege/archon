@@ -39,7 +39,7 @@
 #include <archon/image/image.hpp>
 
 
-namespace Archon {
+namespace archon {
 namespace Render {
 
 class TextureCache;
@@ -551,6 +551,6 @@ inline Imaging::Image::ConstRef TextureFileSource::get_image()
 }
 
 } // namespace Render
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_RENDER_TEXTURE_CACHE_HPP

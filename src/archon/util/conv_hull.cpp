@@ -39,9 +39,9 @@
 
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Math;
-using namespace Archon::Util;
+using namespace archon::Core;
+using namespace archon::Math;
+using namespace archon::Util;
 
 /*
 
@@ -433,7 +433,7 @@ void validate_surface(vector<Facet> const &facets, size_t entry_facet,
 } // unnamed namespace
 
 
-namespace Archon {
+namespace archon {
 namespace Util {
 namespace ConvHull {
 
@@ -845,7 +845,7 @@ void TriangleHandler::close_trifan_set()
 
 } // namespace ConvHull
 } // namespace Util
-} // namespace Archon
+} // namespace archon
 
 
 
@@ -872,7 +872,7 @@ namespace
   };
 }
 
-namespace Archon
+namespace archon
 {
   namespace Util
   {

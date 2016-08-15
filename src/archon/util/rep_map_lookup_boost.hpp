@@ -31,7 +31,7 @@
 #include <utility>
 
 
-namespace Archon
+namespace archon
 {
   namespace Util
   {

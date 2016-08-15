@@ -36,7 +36,7 @@
 #include <archon/core/assert.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Core
   {

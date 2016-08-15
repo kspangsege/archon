@@ -33,7 +33,7 @@
 #include <archon/image/writer.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Font
   {

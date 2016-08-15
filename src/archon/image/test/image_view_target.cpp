@@ -34,8 +34,8 @@
 
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Imaging;
+using namespace archon::Core;
+using namespace archon::Imaging;
 
 namespace
 {

@@ -18,7 +18,7 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-namespace Archon
+namespace archon
 {
   namespace Render
   {

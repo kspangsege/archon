@@ -28,7 +28,7 @@
 #include <archon/util/packed_trgb.hpp>
 
 
-namespace Archon {
+namespace archon {
 namespace Util {
 namespace Color {
 
@@ -182,6 +182,6 @@ constexpr PackedTRGB transparent          (0,0,0,0);
 
 } // namespace Color
 } // namespace Util
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_UTIL_NAMED_COLORS_HPP

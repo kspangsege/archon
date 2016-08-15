@@ -138,7 +138,7 @@
 #include <archon/math/vec_ops.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Math
   {

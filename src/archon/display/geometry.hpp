@@ -33,7 +33,7 @@
 #include <archon/display/window.hpp>
 
 
-namespace Archon {
+namespace archon {
 namespace Display {
 
 struct Point {
@@ -49,6 +49,6 @@ struct Box {
 };
 
 } // namespace Display
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_DISPLAY_GEOMETRY_HPP

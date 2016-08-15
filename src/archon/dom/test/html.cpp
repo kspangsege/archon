@@ -30,7 +30,7 @@
 #include <archon/dom/html.hpp>
 
 
-using namespace Archon::dom;
+using namespace archon::dom;
 
 
 int main() throw()

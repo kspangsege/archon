@@ -35,7 +35,7 @@
 #include <archon/core/char_enc.hpp>
 
 
-namespace Archon {
+namespace archon {
 namespace Core {
 
 /**
@@ -193,6 +193,6 @@ std::basic_istream<C,T>& operator>>(std::basic_istream<C,T>& i,
 }
 
 } // namespace Core
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_CORE_ENUM_HPP

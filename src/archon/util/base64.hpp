@@ -30,7 +30,7 @@
 #include <stdexcept>
 #include <string>
 
-namespace Archon
+namespace archon
 {
   namespace Util
   {

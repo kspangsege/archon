@@ -42,7 +42,7 @@
 #include <archon/core/stream.hpp>
 #include <archon/util/range_map.hpp>
 
-namespace Archon
+namespace archon
 {
   namespace Parser
   {

@@ -37,7 +37,7 @@
 #include <archon/core/term.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Core
   {

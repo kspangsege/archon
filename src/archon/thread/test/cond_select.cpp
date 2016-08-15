@@ -33,8 +33,8 @@
 #include <archon/thread/thread.hpp>
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Thread;
+using namespace archon::Core;
+using namespace archon::Thread;
 
 namespace
 {

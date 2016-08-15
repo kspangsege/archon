@@ -41,10 +41,10 @@
 
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Thread;
-using namespace Archon::Util;
-using namespace Archon::Web::Server;
+using namespace archon::Core;
+using namespace archon::Thread;
+using namespace archon::Util;
+using namespace archon::Web::Server;
 
 
 namespace
@@ -780,7 +780,7 @@ namespace
 
 
 
-namespace Archon
+namespace archon
 {
   namespace Web
   {

@@ -43,7 +43,7 @@
     }
 
 
-using namespace Archon::dom;
+using namespace archon::dom;
 
 
 namespace {

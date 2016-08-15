@@ -25,7 +25,7 @@
 #ifndef ARCHON_CORE_BIND_HPP
 #define ARCHON_CORE_BIND_HPP
 
-namespace Archon {
+namespace archon {
 namespace Core {
 
 
@@ -264,6 +264,6 @@ inline _impl::MemFunObjArgBinder2<O,A,B,C> bind(void (O::*mem_fun)(A,B,C), O* ob
 
 
 } // namespace Core
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_CORE_BIND_HPP

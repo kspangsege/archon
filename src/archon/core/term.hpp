@@ -31,7 +31,7 @@
 #include <string>
 #include <utility>
 
-namespace Archon
+namespace archon
 {
   namespace Core
   {

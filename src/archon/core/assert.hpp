@@ -37,10 +37,10 @@
 #  include <archon/core/terminate.hpp>
 #  define ARCHON_ASSERT(condition) \
     (ARCHON_LIKELY(condition) ? static_cast<void>(0) : \
-     Archon::Core::_Impl::terminate("Assertion failed: " #condition, __FILE__, __LINE__))
+     archon::Core::_Impl::terminate("Assertion failed: " #condition, __FILE__, __LINE__))
 #  define ARCHON_ASSERT_1(condition, message)    \
     (ARCHON_LIKELY(condition) ? static_cast<void>(0) : \
-     Archon::Core::_Impl::terminate(message, __FILE__, __LINE__))
+     archon::Core::_Impl::terminate(message, __FILE__, __LINE__))
 #else
 #  define ARCHON_ASSERT(condition) \
     static_cast<void>(sizeof bool(condition))
@@ -53,10 +53,10 @@
 #  define ARCHON_STATIC_ASSERT(condition, message) static_assert(condition, message)
 #else
 #  define ARCHON_STATIC_ASSERT(condition, message) typedef \
-    Archon::Core::_impl::static_assert_dummy<sizeof(Archon::Core::_impl:: \
+    archon::Core::_impl::static_assert_dummy<sizeof(archon::Core::_impl:: \
         ARCHON_STATIC_ASSERTION_FAILURE<bool(condition)>)> \
     ARCHON_JOIN(_archon_static_assert_, __LINE__) ARCHON_UNUSED
-namespace Archon {
+namespace archon {
 namespace Core {
 namespace _impl {
     template<bool> struct ARCHON_STATIC_ASSERTION_FAILURE;
@@ -64,7 +64,7 @@ namespace _impl {
     template<int> struct static_assert_dummy {};
 } // namespace _impl
 } // namespace Core
-} // namespace Archon
+} // namespace archon
 #endif
 
 #endif // ARCHON_CORE_ASSERT_HPP

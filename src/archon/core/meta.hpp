@@ -49,7 +49,7 @@
 // is not a standard type, and if it is `long long` or `unsigned long
 // long` and ARCHON_CORE_META_HAVE_LONG_LONG is not defined.
 
-namespace Archon {
+namespace archon {
 namespace Core {
 
 
@@ -230,6 +230,6 @@ template<class T> inline bool is_negative(T value)
 
 
 } // namespace Core
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_CORE_META_HPP

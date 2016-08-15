@@ -25,7 +25,7 @@
 
 
 using namespace std;
-using namespace Archon::Core;
+using namespace archon::Core;
 
 
 namespace
@@ -113,7 +113,7 @@ int main(int argc, char const *argv[]) throw()
 
   CommandlineOptions opts;
   opts.add_help("Test application for the command-line interpreter "
-                "of the Archon::Core library.\n"
+                "of the archon::Core library.\n"
                 "By Kristian Spangsege.", "  WIDTH  HEIGHT  ");
   opts.check_num_args(0,-1);
   opts.add_version("5.5");

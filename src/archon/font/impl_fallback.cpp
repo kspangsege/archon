@@ -37,10 +37,10 @@
 
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Math;
-using namespace Archon::Imaging;
-using namespace Archon::Font;
+using namespace archon::Core;
+using namespace archon::Math;
+using namespace archon::Imaging;
+using namespace archon::Font;
 
 
 namespace
@@ -359,7 +359,7 @@ namespace
 }
 
 
-namespace Archon
+namespace archon
 {
   namespace Font
   {

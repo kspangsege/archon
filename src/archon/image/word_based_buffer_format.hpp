@@ -36,7 +36,7 @@
 #include <archon/image/buffer_format.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Imaging
   {
@@ -106,12 +106,12 @@ namespace Archon
 
     inline bool WordBasedBufferFormat::is_floating_point_words() const
     {
-      return Archon::Imaging::is_floating_point(get_word_type());
+      return archon::Imaging::is_floating_point(get_word_type());
     }
 
     inline std::string WordBasedBufferFormat::get_word_type_name() const
     {
-      return Archon::Imaging::get_word_type_name(get_word_type());
+      return archon::Imaging::get_word_type_name(get_word_type());
     }
   }
 }

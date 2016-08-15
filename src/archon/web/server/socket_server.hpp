@@ -35,7 +35,7 @@
 #include <archon/web/server/stream.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Web
   {

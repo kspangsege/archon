@@ -38,7 +38,7 @@ The establishment of the BLIT function and the allocation of buffers represent a
 Vocabulary:
 
 Image object
-  An instance of the Archon::Image::Image class.
+  An instance of the archon::Image::Image class.
 
 Image operator:
   A reinterpretation of an image. That is, an image

@@ -32,12 +32,12 @@
 
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Imaging;
+using namespace archon::Core;
+using namespace archon::Imaging;
 
 
 // Declarations of available defaul file format getters
-namespace Archon
+namespace archon
 {
   namespace Imaging
   {
@@ -101,7 +101,7 @@ namespace
 }
 
 
-namespace Archon
+namespace archon
 {
   namespace Imaging
   {

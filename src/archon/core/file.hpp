@@ -35,7 +35,7 @@
 #include <sys/types.h>
 
 
-namespace Archon
+namespace archon
 {
   namespace Core
   {

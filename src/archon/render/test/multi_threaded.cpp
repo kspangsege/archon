@@ -32,11 +32,11 @@
 
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Math;
-using namespace Archon::Thread;
-using namespace Archon::Display;
-using namespace Archon::Render;
+using namespace archon::Core;
+using namespace archon::Math;
+using namespace archon::Thread;
+using namespace archon::Display;
+using namespace archon::Render;
 
 
 namespace
@@ -44,7 +44,7 @@ namespace
   struct Facet: Thread, Application
   {
     Facet(Application::Config const &cfg, Connection::Arg c, int i, double m):
-      Application("Archon::Render::MultiThreaded #"+Text::print(i+1), cfg, locale::classic(), c)
+      Application("archon::Render::MultiThreaded #"+Text::print(i+1), cfg, locale::classic(), c)
     {
       set_scene_spin(Rotation3(Vec3(0,1,0), m));
 
@@ -119,7 +119,7 @@ int main(int argc, char const *argv[]) throw()
   if (int stop = opts.process(argc, argv)) return stop == 2 ? 0 : 1;
 
   {
-    Implementation::Ptr const impl = Archon::Display::get_default_implementation();
+    Implementation::Ptr const impl = archon::Display::get_default_implementation();
     Connection::Ptr const conn = impl->new_connection();
 
     int const n = opt_num_wins;

@@ -32,7 +32,7 @@
 #include <archon/image/image.hpp>
 
 
-namespace Archon {
+namespace archon {
 namespace Graphics {
 
 class SpatialObjectBuilder {
@@ -390,6 +390,6 @@ inline int SpatialSceneBuilder::do_make_texture(std::string image_path, bool rep
 }
 
 } // namespace Graphics
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_GRAPHICS_SCENE_BUILDER_HPP

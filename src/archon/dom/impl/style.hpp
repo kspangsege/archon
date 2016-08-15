@@ -43,7 +43,7 @@
 #include <archon/dom/impl/ls.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace DomImpl
   {

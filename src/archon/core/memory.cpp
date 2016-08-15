@@ -37,8 +37,8 @@ namespace
 {
   vector<bool> detect_native_endianness()
   {
-    ARCHON_STATIC_ASSERT(1 < sizeof (Archon::UIntMax), "Unexpected size of maxint type");
-    Archon::UIntMax v = 1;
+    ARCHON_STATIC_ASSERT(1 < sizeof (archon::UIntMax), "Unexpected size of maxint type");
+    archon::UIntMax v = 1;
     char *p = reinterpret_cast<char *>(&v);
     // The bit pattern of the index of the non-zero byte describes the
     // native endianness in exactly the way described above.
@@ -61,7 +61,7 @@ namespace
 }
 
 
-namespace Archon
+namespace archon
 {
   namespace Core
   {

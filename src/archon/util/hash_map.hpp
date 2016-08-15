@@ -37,7 +37,7 @@
 #include <archon/util/prime.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Util
   {

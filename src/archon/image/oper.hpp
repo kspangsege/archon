@@ -32,7 +32,7 @@
 #include <archon/image/image.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Imaging
   {

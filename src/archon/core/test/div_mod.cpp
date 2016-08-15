@@ -36,7 +36,7 @@
 #include <archon/core/text_table.hpp>
 
 using namespace std;
-using namespace Archon::Core;
+using namespace archon::Core;
 
 int main() throw()
 {

@@ -36,7 +36,7 @@
 #include <archon/font/text_format.hpp>
 
 
-namespace Archon {
+namespace archon {
 namespace Font {
 
 /**
@@ -241,6 +241,6 @@ inline void TextRenderer::enable_grid_fitting(bool enabled)
 }
 
 } // namespace Font
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_FONT_TEXT_RENDER_HPP

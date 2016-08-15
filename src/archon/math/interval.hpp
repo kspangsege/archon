@@ -31,7 +31,7 @@
 #include <algorithm>
 
 
-namespace Archon
+namespace archon
 {
   namespace Math
   {

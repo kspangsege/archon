@@ -24,10 +24,10 @@
 
 #include <archon/util/color.hpp>
 
-using namespace Archon::Math;
+using namespace archon::Math;
 
 
-namespace Archon {
+namespace archon {
 namespace Util {
 namespace Color {
 
@@ -67,4 +67,4 @@ Vec3 interp(double x, double x1, double x2, const Vec3& y1, const Vec3& y2)
 
 } // namespace Color
 } // namespace Util
-} // namespace Archon
+} // namespace archon

@@ -27,7 +27,7 @@
 #ifndef ARCHON_CORE_GENERATOR_HPP
 #define ARCHON_CORE_GENERATOR_HPP
 
-namespace Archon
+namespace archon
 {
   namespace Core
   {

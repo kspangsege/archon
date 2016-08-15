@@ -31,8 +31,8 @@
 
 
 using namespace std;
-using namespace Archon::Math;
-using namespace Archon::Raytrace;
+using namespace archon::Math;
+using namespace archon::Raytrace;
 
 
 namespace
@@ -94,7 +94,7 @@ namespace
 }
 
 
-namespace Archon
+namespace archon
 {
   namespace Raytrace
   {

@@ -44,10 +44,10 @@
 #include <archon/image/oper.hpp>
 
 
-using namespace Archon::Core;
-using namespace Archon::Util;
-using namespace Archon::Math;
-using namespace Archon::Imaging;
+using namespace archon::Core;
+using namespace archon::Util;
+using namespace archon::Math;
+using namespace archon::Imaging;
 
 
 //bool palette_clamp(float const *pal, std::size_t pal_size, float *col);

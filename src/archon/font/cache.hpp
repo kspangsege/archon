@@ -34,7 +34,7 @@
 #include <archon/font/list.hpp>
 
 
-namespace Archon {
+namespace archon {
 namespace Font {
 
 struct FontCache;
@@ -307,6 +307,6 @@ inline void FontCache::render_text(int font_id, bool grid_fitting, Direction dir
 }
 
 } // namespace Font
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_FONT_CACHE_HPP

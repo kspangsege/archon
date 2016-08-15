@@ -34,7 +34,7 @@
 #include <archon/math/functions.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Util
   {

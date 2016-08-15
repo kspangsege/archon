@@ -36,7 +36,7 @@
 #include <archon/font/cache.hpp>
 
 
-namespace Archon {
+namespace archon {
 namespace Font {
 
 /// A powerfull, flexible, and efficient text formatter.
@@ -561,6 +561,6 @@ inline void TextFormatter::close_page()
 }
 
 } // namespace Font
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_FONT_TEXT_FORMAT_HPP

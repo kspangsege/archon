@@ -33,7 +33,7 @@
 #include <archon/display/window.hpp>
 
 
-namespace Archon {
+namespace archon {
 namespace Display {
 
 /// The base class for all event objects. Event objects are created internally
@@ -482,6 +482,6 @@ inline EventProcessor::~EventProcessor()
 }
 
 } // namespace Display
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_DISPLAY_EVENT_HPP

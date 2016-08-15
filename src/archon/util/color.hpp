@@ -37,7 +37,7 @@
 #include <archon/math/matrix.hpp>
 
 
-namespace Archon {
+namespace archon {
 namespace Util {
 
 /// Defines a number of functions related to color space conversions.
@@ -496,6 +496,6 @@ template<class T> const T CIE_Lab<T>::a     = 1/(3*delta*delta);
 
 } // namespace Color
 } // namespace Util
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_UTIL_COLOR_HPP

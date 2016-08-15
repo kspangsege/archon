@@ -32,8 +32,8 @@
 #include <archon/parser/cfg.hpp>
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Parser;
+using namespace archon::Core;
+using namespace archon::Parser;
 
 struct MyActor: Cfg::Actor
 {

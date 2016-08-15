@@ -34,8 +34,8 @@
 #include <archon/parser/regex_print.hpp>
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Parser;
+using namespace archon::Core;
+using namespace archon::Parser;
 
 int main() throw()
 {

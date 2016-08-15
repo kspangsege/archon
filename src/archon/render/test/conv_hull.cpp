@@ -54,13 +54,13 @@
 #include <archon/core/cxx.hpp>
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Math;
-using namespace Archon::Util;
-using namespace Archon::Imaging;
-using namespace Archon::Font;
-using namespace Archon::Display;
-using namespace Archon::Render;
+using namespace archon::Core;
+using namespace archon::Math;
+using namespace archon::Util;
+using namespace archon::Imaging;
+using namespace archon::Font;
+using namespace archon::Display;
+using namespace archon::Render;
 
 
 namespace
@@ -161,7 +161,7 @@ namespace
   struct ConvHullApp: Application
   {
     ConvHullApp(Application::Config const &cfg):
-      Application("Archon::Render::ConvHull", cfg),
+      Application("archon::Render::ConvHull", cfg),
       text_formatter(get_font_provider()),
       points_display_on(true), point_labels_display_on(false),
       colorize_on(true), normals_display_on(false),
@@ -708,7 +708,7 @@ namespace
 
 
     // Text rendering
-    Archon::Render::TextFormatter text_formatter;
+    archon::Render::TextFormatter text_formatter;
     TextLayout text_layout;
     Text::WideValuePrinter value_printer;
 

@@ -33,7 +33,7 @@
 #include <archon/font/loader.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Font
   {

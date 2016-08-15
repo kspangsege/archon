@@ -34,7 +34,7 @@
 #include <archon/core/iterator.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Util
   {

@@ -9,7 +9,7 @@
 
 #include <archon/image/pixel_format.hpp>
 
-namespace Archon
+namespace archon
 {
   namespace Imaging
   {

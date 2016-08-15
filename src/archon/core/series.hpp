@@ -31,7 +31,7 @@
 #include <ios>
 
 
-namespace Archon
+namespace archon
 {
   namespace Core
   {

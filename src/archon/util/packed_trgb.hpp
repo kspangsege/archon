@@ -37,7 +37,7 @@
 #include <archon/util/unit_frac.hpp>
 
 
-namespace Archon {
+namespace archon {
 namespace Util {
 
 /// Special packed 32-bit TRGB format.
@@ -385,6 +385,6 @@ inline std::basic_istream<Ch, Tr>& operator>>(std::basic_istream<Ch, Tr>& in,
 }
 
 } // namespace Util
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_UTIL_PACKED_TRGB_HPP

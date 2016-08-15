@@ -32,7 +32,7 @@
 
 
 using namespace std;
-using namespace Archon::Util;
+using namespace archon::Util;
 
 
 int main() throw()

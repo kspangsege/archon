@@ -46,12 +46,12 @@
 #include <archon/render/dom_renderer.hpp>
 
 
-using namespace Archon::Core;
-using namespace Archon::DomImpl;
-using namespace Archon::Display;
-using namespace Archon::Render;
+using namespace archon::Core;
+using namespace archon::DomImpl;
+using namespace archon::Display;
+using namespace archon::Render;
 
-namespace dom = Archon::dom;
+namespace dom = archon::dom;
 
 
 namespace {
@@ -245,7 +245,7 @@ private:
         if (level) {
             bool elem_cont_whitespace = level->is_element_content &&
                 DOMImplementation::is_whitespace(text_accum);
-            level->elem->append_child_for_parser(new Archon::DomImpl::Text(doc.get(), text_accum,
+            level->elem->append_child_for_parser(new archon::DomImpl::Text(doc.get(), text_accum,
                                                                            elem_cont_whitespace));
         }
         text_accum.clear();
@@ -497,7 +497,7 @@ int main(int argc, const char* argv[])
         doc = dom_builder.get_doc();
     }
 
-    Implementation::Ptr impl = Archon::Display::get_default_implementation();
+    Implementation::Ptr impl = archon::Display::get_default_implementation();
     Connection::Ptr conn = impl->new_connection();
     int screen = -1; // Default screen
     bool double_buffer = false; // Only front buffer is needed

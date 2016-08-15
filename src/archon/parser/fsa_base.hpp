@@ -33,7 +33,7 @@
 #include <archon/core/refcnt.hpp>
 #include <archon/core/stream.hpp>
 
-namespace Archon
+namespace archon
 {
   namespace Parser
   {

@@ -34,11 +34,11 @@
 #include <archon/raytrace/raytracer.hpp>
 
 
-using namespace Archon::Core;
-using namespace Archon::Math;
-using namespace Archon::Util;
-using namespace Archon::Imaging;
-using namespace Archon::Raytrace;
+using namespace archon::Core;
+using namespace archon::Math;
+using namespace archon::Util;
+using namespace archon::Imaging;
+using namespace archon::Raytrace;
 
 
 /*
@@ -348,7 +348,7 @@ bool RaytracerImpl::eclipsed(const Line3& ray, double dist, const Object* object
 } // unnamed namespace
 
 
-namespace Archon {
+namespace archon {
 namespace Raytrace {
 
 std::unique_ptr<Raytracer> make_raytracer()
@@ -357,4 +357,4 @@ std::unique_ptr<Raytracer> make_raytracer()
 }
 
 } // namespace Raytrace
-} // namespace Archon
+} // namespace archon

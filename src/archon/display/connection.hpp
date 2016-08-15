@@ -35,7 +35,7 @@
 #include <archon/display/event.hpp>
 
 
-namespace Archon {
+namespace archon {
 namespace Display {
 
 /// Thrown if no visual is avaialble that matches your requirements.
@@ -432,6 +432,6 @@ public:
 };
 
 } // namespace Display
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_DISPLAY_CONNECTION_HPP

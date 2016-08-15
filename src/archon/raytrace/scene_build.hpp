@@ -34,7 +34,7 @@
 #include <archon/raytrace/raytracer.hpp>
 
 
-namespace Archon {
+namespace archon {
 namespace Raytrace {
 
 class SceneBuilder;
@@ -141,6 +141,6 @@ inline void SceneBuilder::tex_scale(double f)
 }
 
 } // namespace Raytrace
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_RAYTRACE_SCENE_BUILD_HPP

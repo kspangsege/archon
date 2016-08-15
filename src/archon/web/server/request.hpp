@@ -30,7 +30,7 @@
 #include <archon/web/server/header.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Web
   {

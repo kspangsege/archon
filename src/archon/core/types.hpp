@@ -34,7 +34,7 @@
 #include <archon/core/meta.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Core
   {

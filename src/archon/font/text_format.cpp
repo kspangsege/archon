@@ -81,12 +81,12 @@ this is not the case.
 #include <archon/font/text_format.hpp>
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Math;
-using namespace Archon::Font;
+using namespace archon::Core;
+using namespace archon::Math;
+using namespace archon::Font;
 
 
-namespace Archon {
+namespace archon {
 namespace Font {
 
 Math::Vec2 TextFormatter::get_page_size(int page_index)
@@ -756,7 +756,7 @@ void TextFormatter::adjust_lateral_line_span(const Math::Interval& span, bool in
 }
 
 
-Archon::Core::EnumAssoc TextFormatter::WordWrapSpec::map[] =
+archon::Core::EnumAssoc TextFormatter::WordWrapSpec::map[] =
 {
     { TextFormatter::word_wrap_No,      "no"      },
     { TextFormatter::word_wrap_Yes,     "yes"     },
@@ -766,4 +766,4 @@ Archon::Core::EnumAssoc TextFormatter::WordWrapSpec::map[] =
 
 
 } // namespace Font
-} // namespace Archon
+} // namespace archon

@@ -26,7 +26,7 @@
 
 #include <archon/core/terminate.hpp>
 
-namespace Archon {
+namespace archon {
 namespace Core {
 namespace _Impl {
 

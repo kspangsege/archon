@@ -34,7 +34,7 @@
 #include <archon/core/stream.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Core
   {

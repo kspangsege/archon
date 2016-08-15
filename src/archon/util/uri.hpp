@@ -35,7 +35,7 @@
 #include <map>
 
 
-namespace Archon
+namespace archon
 {
   namespace Util
   {

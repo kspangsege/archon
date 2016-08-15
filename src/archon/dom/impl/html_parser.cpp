@@ -39,8 +39,8 @@
 #include <archon/dom/impl/html_parser.hpp>
 
 
-using namespace Archon::Core;
-using namespace Archon::Util;
+using namespace archon::Core;
+using namespace archon::Util;
 
 
 // REFERENCES:
@@ -795,7 +795,7 @@ Two modes for handling general entities:
 
 namespace {
 
-using namespace Archon::DomImpl;
+using namespace archon::DomImpl;
 using namespace HtmlParser;
 
 
@@ -3813,7 +3813,7 @@ private:
 
 
 
-namespace Archon {
+namespace archon {
 namespace DomImpl {
 namespace HtmlParser {
 
@@ -3926,4 +3926,4 @@ void Callbacks::proc_instr(const Core::StringUtf16&)
 
 } // namespace HtmlParser
 } // namespace DomImpl
-} // namespace Archon
+} // namespace archon

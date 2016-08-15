@@ -36,11 +36,11 @@
 
 
 using namespace std;
-using namespace Archon::Core;
+using namespace archon::Core;
 
 namespace
 {
-  Archon::Core::Atomic counter;
+  archon::Core::Atomic counter;
 
 
   /**
@@ -281,7 +281,7 @@ namespace
   };
 }
 
-namespace Archon
+namespace archon
 {
   namespace Core
   {

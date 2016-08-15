@@ -22,7 +22,7 @@
 
 #include <archon/util/image.hpp>
 
-namespace Archon
+namespace archon
 {
   namespace Utilities
   {

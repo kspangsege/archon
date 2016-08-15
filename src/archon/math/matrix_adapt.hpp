@@ -31,7 +31,7 @@
 #include <archon/math/matrix.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Math
   {

@@ -32,7 +32,7 @@
 #include <archon/features.h>
 #include <archon/core/tuple.hpp>
 
-namespace Archon {
+namespace archon {
 namespace Core {
 
 
@@ -278,6 +278,6 @@ inline void param_expand_tuple(std::basic_ostream<Char, Traits>& out, const char
 }
 
 } // namespace Core
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_CORE_PARAM_SUBST_HPP

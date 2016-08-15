@@ -32,7 +32,7 @@
 using namespace std;
 
 
-namespace Archon
+namespace archon
 {
   namespace Math
   {

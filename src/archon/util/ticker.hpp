@@ -35,7 +35,7 @@
 #include <archon/util/progress.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Util
   {

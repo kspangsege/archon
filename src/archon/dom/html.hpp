@@ -35,7 +35,7 @@
 #include <archon/dom/core.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace dom
   {

@@ -35,7 +35,7 @@
 #include <archon/core/functions.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Core
   {

@@ -28,7 +28,7 @@
 #include <archon/image/buffered_image.hpp>
 
 
-namespace Archon {
+namespace archon {
 namespace Imaging {
 
 Image::ConstRef get_direct_color_view(Image::ConstRefArg indexImage, Image::ConstRefArg palette);
@@ -48,6 +48,6 @@ public:
 };
 
 } // namespace Imaging
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_IMAGE_PALETTE_HPP

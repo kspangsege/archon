@@ -31,7 +31,7 @@
 #include <archon/dom/impl/core.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace DomImpl
   {

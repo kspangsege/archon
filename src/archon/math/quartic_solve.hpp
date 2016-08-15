@@ -28,7 +28,7 @@
 #define ARCHON_MATH_QUARTIC_SOLVE_HPP
 
 
-namespace Archon
+namespace archon
 {
   namespace Math
   {

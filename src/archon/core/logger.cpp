@@ -41,7 +41,7 @@
 #include <archon/core/logger.hpp>
 
 using namespace std;
-using namespace Archon::Core;
+using namespace archon::Core;
 
 namespace {
 
@@ -151,7 +151,7 @@ public:
 } // anonymous namespace
 
 
-namespace Archon {
+namespace archon {
 namespace Core {
 
 Logger& Logger::get_default_logger()
@@ -185,4 +185,4 @@ UniquePtr<Logger> Logger::new_time_pid_logger(UniquePtr<Logger> superlogger)
 }
 
 } // namespace Core
-} // namespace Archon
+} // namespace archon

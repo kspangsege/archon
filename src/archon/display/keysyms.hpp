@@ -27,7 +27,7 @@
 #ifndef ARCHON_DISPLAY_KEYSYMS_HPP
 #define ARCHON_DISPLAY_KEYSYMS_HPP
 
-namespace Archon
+namespace archon
 {
   namespace Display
   {

@@ -32,10 +32,10 @@
 
 
 using namespace std;
-using namespace Archon::Math;
+using namespace archon::Math;
 
 
-namespace Archon
+namespace archon
 {
   namespace Render
   {

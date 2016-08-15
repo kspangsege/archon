@@ -31,7 +31,7 @@
 
 #include <functional>
 
-namespace Archon {
+namespace archon {
 namespace Core {
 
 template<class F> struct FuncGenerator {
@@ -63,6 +63,6 @@ template<class T> inline auto make_inc_generator(T init_val = 0)
 }
 
 } // namespace Core
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_CORE_GENERATE_HPP

@@ -30,14 +30,14 @@
 
 
 using namespace std;
-using namespace Archon::Core;
+using namespace archon::Core;
 
 
 
 namespace
 {
-  namespace dom = Archon::dom;
-  using namespace Archon::DomImpl;
+  namespace dom = archon::dom;
+  using namespace archon::DomImpl;
 
 
 
@@ -210,7 +210,7 @@ namespace
 
 
 
-namespace Archon
+namespace archon
 {
   namespace DomImpl
   {

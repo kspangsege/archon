@@ -31,16 +31,16 @@
 #include <archon/raytrace/texture.hpp>
 #include <archon/raytrace/scene_build.hpp>
 
-using namespace Archon::Core;
-using namespace Archon::Math;
-using namespace Archon::Graphics;
-using namespace Archon::Imaging;
-using namespace Archon::Raytrace;
+using namespace archon::Core;
+using namespace archon::Math;
+using namespace archon::Graphics;
+using namespace archon::Imaging;
+using namespace archon::Raytrace;
 
 
 namespace {
 
-class SceneBuilderImpl: public Archon::Raytrace::SceneBuilder {
+class SceneBuilderImpl: public archon::Raytrace::SceneBuilder {
 public:
     SceneBuilderImpl(Raytracer& raytracer, SpatialSceneBuilder* aux):
         m_raytracer(raytracer),
@@ -333,7 +333,7 @@ private:
 } // unnamed namespace
 
 
-namespace Archon {
+namespace archon {
 namespace Raytrace {
 
 std::unique_ptr<SceneBuilder> make_scene_builder(Raytracer& raytracer, SpatialSceneBuilder* aux_builder)
@@ -342,4 +342,4 @@ std::unique_ptr<SceneBuilder> make_scene_builder(Raytracer& raytracer, SpatialSc
 }
 
 } // namespace Raytrace
-} // namespace Archon
+} // namespace archon

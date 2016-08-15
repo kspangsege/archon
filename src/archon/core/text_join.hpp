@@ -32,7 +32,7 @@
 #include <sstream>
 
 
-namespace Archon
+namespace archon
 {
   namespace Core
   {

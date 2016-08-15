@@ -34,7 +34,7 @@
 #include <archon/render/texture_cache.hpp>
 
 
-namespace Archon {
+namespace archon {
 namespace Render {
 
 class OpenGlSceneBuilder: public Graphics::SpatialSceneBuilder {
@@ -87,6 +87,6 @@ private:
 };
 
 } // namespace Render
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_RENDER_SCENE_BUILDER_HPP

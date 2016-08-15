@@ -52,7 +52,7 @@ It makes no sense to ever have grid fitting enabled. Why?
 
 */
 
-namespace Archon {
+namespace archon {
 namespace Render {
 
 class TextLayout;
@@ -326,6 +326,6 @@ inline void TextLayout::clear()
 
 
 } // namespace Render
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_RENDER_TEXT_FORMATTER_HPP

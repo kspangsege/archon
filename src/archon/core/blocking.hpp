@@ -34,7 +34,7 @@
 #include <exception>
 
 
-namespace Archon
+namespace archon
 {
   namespace Core
   {

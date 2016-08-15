@@ -27,9 +27,9 @@
 
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Math;
-using namespace Archon::Font;
+using namespace archon::Core;
+using namespace archon::Math;
+using namespace archon::Font;
 
 
 /*
@@ -156,7 +156,7 @@ No no not at all anyway: I probably want to count the texture usage rather than 
 
 
 
-namespace Archon {
+namespace archon {
 namespace Render {
 
 class TextFormatter::TextProcessor: public TextHandler {
@@ -212,12 +212,12 @@ void TextFormatter::clear()
     clear_vector(used_styles, 8, 32);
     if (style_id)
         used_styles.push_back(style_id);
-    Archon::Font::TextFormatter::clear();
+    archon::Font::TextFormatter::clear();
 }
 
 
 
-// Overriding Archon::Font::TextFormatter::acquire_style
+// Overriding archon::Font::TextFormatter::acquire_style
 int TextFormatter::acquire_style()
 {
     if (!style_id) {
@@ -259,4 +259,4 @@ void TextFormatter::release_used_styles() throw()
 
 
 } // namespace Render
-} // namespace Archon
+} // namespace archon

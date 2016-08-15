@@ -32,7 +32,7 @@
 #include <archon/display/drawable.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Display
   {

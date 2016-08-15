@@ -74,17 +74,17 @@ using Xlib_Drawable = Drawable;
 #endif
 
 using namespace std;
-using namespace Archon::Core;
-using namespace Archon::Thread;
-using namespace Archon::Util;
-using namespace Archon::Imaging;
-using namespace Archon::Display;
+using namespace archon::Core;
+using namespace archon::Thread;
+using namespace archon::Util;
+using namespace archon::Imaging;
+using namespace archon::Display;
 
-using Arch_Time     = Archon::Core::Time;
-using Arch_Drawable = Archon::Display::Drawable;
-using Arch_Window   = Archon::Display::Window;
-using Arch_KeySym   = Archon::Display::KeySym;
-using Arch_Cursor   = Archon::Display::Cursor;
+using Arch_Time     = archon::Core::Time;
+using Arch_Drawable = archon::Display::Drawable;
+using Arch_Window   = archon::Display::Window;
+using Arch_KeySym   = archon::Display::KeySym;
+using Arch_Cursor   = archon::Display::Cursor;
 
 
 /*
@@ -5152,7 +5152,7 @@ KeySymMapper::KeySymMapper()
 } // unnamed namespace
 
 
-namespace Archon {
+namespace archon {
 namespace Display {
 
 Implementation::Ptr get_implementation_x11()
@@ -5162,4 +5162,4 @@ Implementation::Ptr get_implementation_x11()
 }
 
 } // namespace Display
-} // namespace Archon
+} // namespace archon

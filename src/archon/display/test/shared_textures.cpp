@@ -35,8 +35,8 @@
 
 
 using namespace std;
-using namespace Archon::Imaging;
-using namespace Archon::Display;
+using namespace archon::Imaging;
+using namespace archon::Display;
 
 
 int main() throw()

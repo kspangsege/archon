@@ -31,7 +31,7 @@
 #include <archon/image/reader.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Imaging
   {

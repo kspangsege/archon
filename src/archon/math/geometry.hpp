@@ -32,7 +32,7 @@
 #include <archon/math/coord_system.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Math
   {

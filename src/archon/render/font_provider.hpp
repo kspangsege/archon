@@ -44,7 +44,7 @@
 #include <archon/render/texture_cache.hpp>
 
 
-namespace Archon {
+namespace archon {
 namespace Render {
 
 /**
@@ -483,6 +483,6 @@ inline void FontProvider::TextInserter::insert_strip(int style_id, int num_glyph
 }
 
 } // namespace Render
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_RENDER_FONT_PROVIDER_HPP

@@ -24,7 +24,7 @@
 //#include <archon/image/pixel.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Imaging
   {

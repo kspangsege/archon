@@ -38,10 +38,10 @@
 
 
 using namespace std;
-using namespace Archon::Core;
-namespace dom = Archon::dom;
-namespace bootstrap = Archon::dom::bootstrap;
-namespace ls = Archon::dom::ls;
+using namespace archon::Core;
+namespace dom = archon::dom;
+namespace bootstrap = archon::dom::bootstrap;
+namespace ls = archon::dom::ls;
 using dom::dynamic_pointer_cast;
 
 

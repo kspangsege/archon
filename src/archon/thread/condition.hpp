@@ -34,7 +34,7 @@
 #include <archon/core/time.hpp>
 
 
-namespace Archon
+namespace archon
 {
   namespace Thread
   {

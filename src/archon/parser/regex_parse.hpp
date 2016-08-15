@@ -50,7 +50,7 @@
 #include <archon/core/refcnt.hpp>
 #include <archon/core/text.hpp>
 
-namespace Archon
+namespace archon
 {
   namespace Parser
   {

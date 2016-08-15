@@ -25,7 +25,7 @@
 ///
 /// \author Kristian Spangsege
 
-namespace Archon {
+namespace archon {
 namespace Core {
 
 
@@ -156,6 +156,6 @@ template<template<class T, int i> class Pred, int i> struct HasType<void, Pred, 
 
 
 } // namespace Core
-} // namespace Archon
+} // namespace archon
 
 #endif // ARCHON_CORE_TYPE_LIST_HPP
