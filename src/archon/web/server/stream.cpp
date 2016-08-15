@@ -37,7 +37,7 @@ namespace archon
 {
   namespace web
   {
-    namespace Server
+    namespace server
     {
       void FileInputStream::open(string p)
       {

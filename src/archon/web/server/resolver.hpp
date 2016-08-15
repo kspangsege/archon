@@ -18,11 +18,9 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #ifndef ARCHON_WEB_SERVER_RESOLVER_HPP
 #define ARCHON_WEB_SERVER_RESOLVER_HPP
@@ -33,31 +31,29 @@
 #include <archon/web/server/resource.hpp>
 
 
-namespace archon
-{
-  namespace web
-  {
-    namespace Server
+namespace archon {
+namespace web {
+namespace server {
+
+class Resolver {
+public:
+    virtual core::UniquePtr<Resource> resolve(std::string path) throw(RequestException) = 0;
+
+    virtual ~Resolver() {}
+};
+
+
+template<class ResourceImpl> class SimpleResolver: public Resolver {
+public:
+    core::UniquePtr<Resource> resolve(std::string path) throw(RequestException)
     {
-      struct Resolver
-      {
-        virtual core::UniquePtr<Resource> resolve(std::string path) throw(RequestException) = 0;
-
-        virtual ~Resolver() {}
-      };
-
-
-
-      template<class ResourceImpl> struct SimpleResolver: Resolver
-      {
-        core::UniquePtr<Resource> resolve(std::string path) throw(RequestException)
-        {
-          core::UniquePtr<Resource> r(new ResourceImpl(path));
-          return r;
-        }
-      };
+        core::UniquePtr<Resource> r(new ResourceImpl(path));
+        return r;
     }
-  }
-}
+};
+
+} // namespace server
+} // namespace web
+} // namespace archon
 
 #endif // ARCHON_WEB_SERVER_RESOLVER_HPP

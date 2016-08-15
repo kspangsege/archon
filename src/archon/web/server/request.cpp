@@ -18,11 +18,9 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #include <archon/web/server/request.hpp>
 
@@ -30,35 +28,30 @@
 using namespace archon::core;
 
 
-namespace archon
-{
-  namespace web
-  {
-    namespace Server
-    {
-      namespace _impl
-      {
-        EnumAssoc MethodSpec::map[] =
-        {
-          { method_OPTIONS, "OPTIONS" },
-          { method_GET,     "GET"     },
-          { method_HEAD,    "HEAD"    },
-          { method_POST,    "POST"    },
-          { method_PUT,     "PUT"     },
-          { method_DELETE,  "DELETE"  },
-          { method_TRACE,   "TRACE"   },
-          { method_CONNECT, "CONNECT" },
-          { 0, 0 }
-        };
+namespace archon {
+namespace web {
+namespace server {
+namespace _impl {
 
+EnumAssoc MethodSpec::map[] = {
+    { method_OPTIONS, "OPTIONS" },
+    { method_GET,     "GET"     },
+    { method_HEAD,    "HEAD"    },
+    { method_POST,    "POST"    },
+    { method_PUT,     "PUT"     },
+    { method_DELETE,  "DELETE"  },
+    { method_TRACE,   "TRACE"   },
+    { method_CONNECT, "CONNECT" },
+    { 0, 0 }
+};
 
-        EnumAssoc ProtocolSpec::map[] =
-        {
-          { protocol_HTTP_1_0, "HTTP/1.0" },
-          { protocol_HTTP_1_1, "HTTP/1.1" },
-          { 0, 0 }
-        };
-      }
-    }
-  }
-}
+EnumAssoc ProtocolSpec::map[] = {
+    { protocol_HTTP_1_0, "HTTP/1.0" },
+    { protocol_HTTP_1_1, "HTTP/1.1" },
+    { 0, 0 }
+};
+
+} // namespace _impl
+} // namespace server
+} // namespace web
+} // namespace archon

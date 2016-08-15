@@ -29,7 +29,7 @@ using namespace archon::core;
 
 namespace archon {
 namespace web {
-namespace Server {
+namespace server {
 
 namespace _impl {
 
@@ -89,6 +89,6 @@ EnumAssoc StatusSpec::map[] = {
 
 } // namespace _impl
 
-} // namespace Server
+} // namespace server
 } // namespace web
 } // namespace archon

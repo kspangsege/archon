@@ -33,7 +33,7 @@
 
 namespace archon {
 namespace web {
-namespace Server {
+namespace server {
 
 enum Header {
     // General
@@ -109,7 +109,7 @@ struct HeaderSpec {
 
 using HeaderEnum = core::Enum<Header, _impl::HeaderSpec, true>;
 
-} // namespace Server
+} // namespace server
 } // namespace web
 } // namespace archon
 

@@ -31,7 +31,7 @@ using namespace archon::core;
 
 namespace archon {
 namespace web {
-namespace Server {
+namespace server {
 
 namespace _impl {
 
@@ -172,6 +172,6 @@ void init_header_sets(std::set<Header>& general, std::set<Header>& request,
     joinable.insert(header_WWW_Authenticate);
 }
 
-} // namespace Server
+} // namespace server
 } // namespace web
 } // namespace archon

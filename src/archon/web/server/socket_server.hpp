@@ -39,7 +39,7 @@ namespace archon
 {
   namespace web
   {
-    namespace Server
+    namespace server
     {
       struct SocketServer
       {

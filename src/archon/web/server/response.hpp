@@ -30,7 +30,7 @@
 
 namespace archon {
 namespace web {
-namespace Server {
+namespace server {
 
 enum Status {
     // Informational
@@ -107,7 +107,7 @@ struct StatusSpec {
 
 using StatusEnum = core::Enum<Status, _impl::StatusSpec>;
 
-} // namespace Server
+} // namespace server
 } // namespace web
 } // namespace archon
 

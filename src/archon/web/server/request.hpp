@@ -18,11 +18,9 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #ifndef ARCHON_WEB_SERVER_REQUEST_HPP
 #define ARCHON_WEB_SERVER_REQUEST_HPP
@@ -30,61 +28,60 @@
 #include <archon/web/server/header.hpp>
 
 
-namespace archon
-{
-  namespace web
-  {
-    namespace Server
-    {
-      enum Method
-      {
-        method_OPTIONS,
-        method_GET,
-        method_HEAD,
-        method_POST,
-        method_PUT,
-        method_DELETE,
-        method_TRACE,
-        method_CONNECT
-      };
+namespace archon {
+namespace web {
+namespace server {
 
-      enum Protocol
-      {
-        protocol_HTTP_1_0,
-        protocol_HTTP_1_1
-      };
+enum Method {
+    method_OPTIONS,
+    method_GET,
+    method_HEAD,
+    method_POST,
+    method_PUT,
+    method_DELETE,
+    method_TRACE,
+    method_CONNECT
+};
+
+enum Protocol {
+    protocol_HTTP_1_0,
+    protocol_HTTP_1_1
+};
 
 
-      struct Request
-      {
-        virtual Method get_method() const = 0;
+class Request {
+public:
+    virtual Method get_method() const = 0;
 
-        virtual std::string get_uri() const = 0;
+    virtual std::string get_uri() const = 0;
 
-        virtual Protocol get_protocol() const = 0;
+    virtual Protocol get_protocol() const = 0;
 
-        virtual int get_num_headers() const = 0;
+    virtual int get_num_headers() const = 0;
 
-        virtual Header get_header_name(int i) const = 0;
+    virtual Header get_header_name(int i) const = 0;
 
-        virtual std::string get_header_value(int i) const = 0;
+    virtual std::string get_header_value(int i) const = 0;
 
-        virtual std::string find_header(Header h) const = 0;
+    virtual std::string find_header(Header h) const = 0;
 
-        virtual ~Request() {}
-      };
+    virtual ~Request() {}
+};
 
 
-      namespace _impl
-      {
-        struct MethodSpec   { static core::EnumAssoc map[]; };
-        struct ProtocolSpec { static core::EnumAssoc map[]; };
-      }
+namespace _impl {
 
-      typedef core::Enum<Method,   _impl::MethodSpec>   MethodEnum;
-      typedef core::Enum<Protocol, _impl::ProtocolSpec> ProtocolEnum;
-    }
-  }
-}
+struct MethodSpec   { static core::EnumAssoc map[]; };
+struct ProtocolSpec { static core::EnumAssoc map[]; };
+
+} // namespace _impl
+
+
+using MethodEnum   = core::Enum<Method,   _impl::MethodSpec>;
+using ProtocolEnum = core::Enum<Protocol, _impl::ProtocolSpec>;
+
+} // namespace server
+} // namespace web
+} // namespace archon
 
 #endif // ARCHON_WEB_SERVER_REQUEST_HPP

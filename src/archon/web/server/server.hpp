@@ -18,65 +18,54 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #ifndef ARCHON_WEB_SERVER_SERVER_HPP
 #define ARCHON_WEB_SERVER_SERVER_HPP
 
+#include <memory>
 #include <string>
 
-#include <archon/core/unique_ptr.hpp>
 #include <archon/web/server/resolver.hpp>
 
 
-namespace archon
-{
-  namespace web
-  {
-    namespace Server
-    {
-      struct Server;
+namespace archon {
+namespace web {
+namespace server {
+
+class Server;
+
+std::unique_ptr<Server> make_default_server(int port);
 
 
-      core::UniquePtr<Server> new_default_server(int port);
+/// When this server runs, it will occasionally write to a socket that is closed
+/// by the client. This causes the system to send a SIGPIPE signal to this
+/// process, and the default behavior when such a signal is received, is to
+/// instantly terminate the process. This is inconvenient for a web server, and
+/// therfore the application is advised to disable this behavior, for example as
+/// follows:
+///
+/// <pre>
+///
+///   #include <archon/core/sys.hpp>
+///   core::sys::signal::ignore_signal(SIGPIPE);
+///
+/// </pre>
+class Server {
+public:
+    /// The ownership of the Resolver remains with the caller.
+    virtual void register_context(std::string path, Resolver*) = 0;
 
+    /// Not thread-safe.
+    virtual void serve() = 0;
 
-      /**
-       * When this server runs, it will occasionally write to a socket
-       * that is closed by the client. This causes the system to send
-       * a SIGPIPE signal to this process, and the default behavior
-       * when such a signal is received, is to instantly terminate the
-       * process. This is inconvenient for a web server, and therfore
-       * the application is advised to disable this behavior, for
-       * example as follows:
-       *
-       * <pre>
-       *
-       *   #include <archon/core/sys.hpp>
-       *   core::sys::signal::ignore_signal(SIGPIPE);
-       *
-       * </pre>
-       */
-      struct Server
-      {
-        /**
-         * The ownership of the Resolver remains with the caller.
-         */
-        virtual void register_context(std::string path, Resolver *r) = 0;
+    virtual ~Server() {}
+};
 
-        /**
-         * Not thread-safe.
-         */
-        virtual void serve() = 0;
-
-        virtual ~Server() {}
-      };
-    }
-  }
-}
+} // namespace server
+} // namespace web
+} // namespace archon
 
 #endif // ARCHON_WEB_SERVER_SERVER_HPP

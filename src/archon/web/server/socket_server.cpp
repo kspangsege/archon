@@ -98,7 +98,7 @@ namespace archon
 {
   namespace web
   {
-    namespace Server
+    namespace server
     {
       void SocketServer::serve()
       {
