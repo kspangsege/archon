@@ -65,7 +65,7 @@ namespace archon
       int const r = gettimeofday(&tv, 0);
       if(r != 0) {
         int const errnum = errno;
-        throw runtime_error("'gettimeofday' failed: "+Sys::error(errnum));
+        throw runtime_error("'gettimeofday' failed: "+sys::error(errnum));
       }
       return Time(tv.tv_sec, tv.tv_usec*1000);
 #endif // ARCHON_HAVE_LIBREALTIME

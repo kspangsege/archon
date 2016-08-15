@@ -101,7 +101,7 @@ int main(int argc, const char* argv[]) throw ()
     StringUtf16 charenc;
     if (argc < 2) {
         in.reset(make_stdin_stream().release());
-        charenc = utf16_from_narrow(Sys::get_env_locale_charenc(), locale());
+        charenc = utf16_from_narrow(sys::get_env_locale_charenc(), locale());
     }
     else {
         string path = argv[1];

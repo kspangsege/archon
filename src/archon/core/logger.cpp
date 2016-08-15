@@ -54,7 +54,7 @@ public:
             if (errno == EINTR)
                 continue;
             int errno_2 = errno;
-            throw runtime_error("`flock()` failed while aquiring lock: "+Sys::error(errno_2));
+            throw runtime_error("`flock()` failed while aquiring lock: "+sys::error(errno_2));
         }
     }
     ~Flock()
@@ -82,7 +82,7 @@ public:
                 if (errno == EINTR)
                     continue;
                 int errno_2 = errno;
-                throw runtime_error("`write()` failed: "+Sys::error(errno_2));
+                throw runtime_error("`write()` failed: "+sys::error(errno_2));
             }
             p += n;
         }
@@ -172,7 +172,7 @@ UniquePtr<Logger> Logger::new_flock_logger(const std::string& path, const locale
                   S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH);
     if (fd < 0) {
         int errno_2 = errno;
-        throw runtime_error("`open()` failed for '"+path+"': "+Sys::error(errno_2));
+        throw runtime_error("`open()` failed for '"+path+"': "+sys::error(errno_2));
     }
     UniquePtr<Logger> l(new FlockLogger(loc, fd, true));
     return l;

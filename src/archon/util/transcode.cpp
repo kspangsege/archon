@@ -142,7 +142,7 @@ namespace
             if(errnum == E2BIG) return false; // Not enought room in out buffer
 
             // Unexpected error
-            throw runtime_error("'iconv' failed: "+Sys::error(errnum));
+            throw runtime_error("'iconv' failed: "+sys::error(errnum));
           }
 
           if(eoi) return true; // End of conversion
@@ -192,9 +192,9 @@ namespace
           errnum = EILSEQ; // Interpret as invalid input
         }
         if(errnum != EILSEQ) // Unexpected error
-          throw runtime_error("'iconv' failed: "+Sys::error(errnum));
+          throw runtime_error("'iconv' failed: "+sys::error(errnum));
 
-        if(fail) throw IncConvException(Sys::error(errnum));
+        if(fail) throw IncConvException(sys::error(errnum));
 
         // Throw away one byte of input
         ++in;
@@ -254,7 +254,7 @@ namespace
                                                 target_encoding+"'");
         int errnum = errno;
         throw runtime_error("Unexpected error from 'iconv_open': " +
-                            Sys::error(errnum));
+                            sys::error(errnum));
       }
     }
 

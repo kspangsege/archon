@@ -73,7 +73,7 @@ namespace
               if(n < 0)
               {
                 int const errnum = errno;
-                throw runtime_error("Read from STDIN failed: "+Sys::error(errnum));
+                throw runtime_error("Read from STDIN failed: "+sys::error(errnum));
               }
               if(!n)
               {

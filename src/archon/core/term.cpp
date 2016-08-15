@@ -58,20 +58,20 @@ namespace archon
         {
           int errnum = errno;
           throw NoTerminalException("Could not open "
-                                    "/dev/tty: "+Sys::error(errnum));
+                                    "/dev/tty: "+sys::error(errnum));
         }
         winsize s;
         if(ioctl(tty, TIOCGWINSZ, reinterpret_cast<char *>(&s)) < 0)
         {
           int errnum = errno;
           throw runtime_error("get_terminal_size(): Could not do "
-                              "TIOCGWINSZ on /dev/tty: "+Sys::error(errnum));
+                              "TIOCGWINSZ on /dev/tty: "+sys::error(errnum));
         }
         if(close(tty) < 0)
         {
           int errnum = errno;
           throw runtime_error("get_terminal_size(): Could close "
-                              "/dev/tty: " + Sys::error(errnum));
+                              "/dev/tty: " + sys::error(errnum));
         }
         return pair<int,int>(s.ws_col, s.ws_row);
       }

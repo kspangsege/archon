@@ -48,7 +48,7 @@ namespace archon
     /**
      * Provides convenient, portable, and thread safe wrappers for several system features.
      */
-    namespace Sys
+    namespace sys
     {
       /**
        * An instance of this class represents a mutual exclusion in a

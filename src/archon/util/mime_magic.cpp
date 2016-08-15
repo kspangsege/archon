@@ -60,12 +60,12 @@ namespace
   {
     Checker()
     {
-      Sys::GlobalLock l;
+      sys::GlobalLock l;
       cookie = magic_open(MAGIC_MIME_TYPE | MAGIC_MIME_ENCODING | MAGIC_SYMLINK | MAGIC_ERROR);
       if(!cookie)
       {
         int const e = errno;
-        throw runtime_error("'magic_open' failed: "+Sys::error(e));
+        throw runtime_error("'magic_open' failed: "+sys::error(e));
       }
       int const r = magic_load(cookie, 0);
       if(r < 0) throw runtime_error("'magic_load' failed: "+string(magic_error(cookie)));
@@ -73,7 +73,7 @@ namespace
 
     ~Checker()
     {
-      Sys::GlobalLock l;
+      sys::GlobalLock l;
       magic_close(cookie);
     }
 
@@ -81,7 +81,7 @@ namespace
     {
       string type;
       {
-        Sys::GlobalLock l;
+        sys::GlobalLock l;
         const char *const r = magic_file(cookie, p.c_str());
         if(!r)
         {
@@ -105,7 +105,7 @@ namespace
   {
     Checker():
       fallback("application/octet-stream"),
-      charenc_part("; charset="+ascii_tolower(Sys::get_env_locale_charenc()))
+      charenc_part("; charset="+ascii_tolower(sys::get_env_locale_charenc()))
     {
       add("txt",  "text/plain");
       add("xml",  "text/xml");

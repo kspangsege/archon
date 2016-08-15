@@ -5702,7 +5702,7 @@ namespace archon
       glyph_mipmap(true), glyph_save(false),
       archon_datadir(get_value_of(build_config_param_DataDir))
     {
-      string const v = Sys::getenv("ARCHON_DATADIR");
+      string const v = sys::getenv("ARCHON_DATADIR");
       if (!v.empty()) {
         archon_datadir = v;
         if (v[v.size()-1] != '/') archon_datadir += "/";

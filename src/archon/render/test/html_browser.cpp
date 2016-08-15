@@ -469,7 +469,7 @@ int main(int argc, const char* argv[])
         StringUtf16 charenc;
         if (argc < 2) {
             in.reset(make_stdin_stream().release());
-            charenc = utf16_from_narrow(Sys::get_env_locale_charenc(), std::locale());
+            charenc = utf16_from_narrow(sys::get_env_locale_charenc(), std::locale());
         }
         else {
             std::string path = argv[1];

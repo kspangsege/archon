@@ -276,7 +276,7 @@ namespace
 
       {
         ostringstream out;
-        out << Sys::get_hostname();
+        out << sys::get_hostname();
         if(p != 80) out << ":"<<p;
         host_string = out.str();
       }

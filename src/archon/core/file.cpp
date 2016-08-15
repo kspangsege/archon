@@ -62,7 +62,7 @@ namespace archon
         if (fd < 0) {
           int const e = errno;
           File::throw_file_access_exception(e, "Could not open \""+p+"\" for reading: "+
-                                            Sys::error(e));
+                                            sys::error(e));
         }
         return fd;
       }
@@ -74,7 +74,7 @@ namespace archon
         if (fd < 0) {
           int const e = errno;
           File::throw_file_access_exception(e, "Could not open \""+p+"\" for writing: "+
-                                            Sys::error(e));
+                                            sys::error(e));
         }
         return fd;
       }
@@ -91,7 +91,7 @@ namespace archon
             int errnum = errno;
             delete[] buffer;
             throw runtime_error("Utilities::File::get_cwd: 'getcwd' failed: " +
-                                Sys::error(errnum));
+                                sys::error(errnum));
           }
 
           delete[] buffer;
@@ -108,7 +108,7 @@ namespace archon
 
       string get_home_dir()
       {
-        string s = Sys::getenv("HOME");
+        string s = sys::getenv("HOME");
         if (s.empty()) throw runtime_error("Could not determine home directory of "
                                           "the logged in user");
         if (s.empty() || s[s.size()-1] != '/') s += "/";
@@ -127,7 +127,7 @@ namespace archon
         int error = mkdir(path.c_str(), S_IRWXU|S_IRWXG|S_IRWXO);
         if (error < 0) {
           int errnum = errno;
-          throw runtime_error("'mkdir "+path+"' failed: "+Sys::error(errnum));
+          throw runtime_error("'mkdir "+path+"' failed: "+sys::error(errnum));
         }
       }
 
@@ -171,7 +171,7 @@ namespace archon
         {
           int const e = errno;
           throw runtime_error("Utilities::File::Stat::Stat: 'stat "+
-                              Text::print(fildes)+"' failed: "+Sys::error(e));
+                              Text::print(fildes)+"' failed: "+sys::error(e));
         }
 
         type =
@@ -339,7 +339,7 @@ namespace archon
 
           // Internal errors
         default:
-          throw runtime_error(m+" ("+Sys::error(errnum)+")");
+          throw runtime_error(m+" ("+sys::error(errnum)+")");
         }
       }
     }

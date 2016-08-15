@@ -77,7 +77,7 @@ namespace
         int const errnum = errno;
         if(errnum == EAGAIN) break; // Would block
         if(errnum == EINTR) continue;
-        throw runtime_error("'read' from 'inotify' failed: "+Sys::error(errnum));
+        throw runtime_error("'read' from 'inotify' failed: "+sys::error(errnum));
       }
     }
 
@@ -87,14 +87,14 @@ namespace
       if(file_des < 0)
       {
         int const errnum = errno;
-        throw runtime_error("'inotify_init'"+Sys::error(errnum));
+        throw runtime_error("'inotify_init'"+sys::error(errnum));
       }
-      Sys::nonblock(file_des);
+      sys::nonblock(file_des);
       int w = inotify_add_watch(file_des, p.c_str(), IN_CREATE);
       if(w < 0)
       {
         int const errnum = errno;
-        throw runtime_error("'inotify_add_watch' failed: "+Sys::error(errnum));
+        throw runtime_error("'inotify_add_watch' failed: "+sys::error(errnum));
       }
       select_spec.read_in.insert(file_des);
     }
@@ -153,8 +153,8 @@ namespace
       unblock.insert(SIGIO);
       int r = 0;
       {
-        Sys::Signal::Block b(block);
-        if(!event) r = Sys::select(0, 0, 0, timeout, &unblock);
+        sys::Signal::Block b(block);
+        if(!event) r = sys::select(0, 0, 0, timeout, &unblock);
         if(!event) return r; // In this case 'event' must have been
                              // false before the select and therfore r
                              // was assigned a value from select.
@@ -172,33 +172,33 @@ namespace
 
     FileSystemListenerImpl(string p)
     {
-      oldHandler = Sys::Signal::setHandler(SIGIO, sighandler);
+      oldHandler = sys::Signal::setHandler(SIGIO, sighandler);
       dir = opendir(p.c_str());
       int errnum = errno;
       if(!dir)
-        throw runtime_error("'opendir(\""+p+"\")' failed: "+Sys::error(errnum));
+        throw runtime_error("'opendir(\""+p+"\")' failed: "+sys::error(errnum));
       int fd = dirfd(dir);
       // The next two fcntl's makes sure the signal is always delivered to this thread
       if(fcntl(fd, F_SETSIG, SIGIO) < 0)
-        throw runtime_error("'fcntl(F_SETSIG)' failed: "+Sys::error(errno));
+        throw runtime_error("'fcntl(F_SETSIG)' failed: "+sys::error(errno));
       if(fcntl(fd, F_SETOWN, syscall(__NR_gettid)) < 0)
-        throw runtime_error("'fcntl(F_SETOWN)' failed: "+Sys::error(errno));
+        throw runtime_error("'fcntl(F_SETOWN)' failed: "+sys::error(errno));
       if(fcntl(fd, F_SETFL, O_ASYNC) < 0)
-        throw runtime_error("'fcntl(F_SETFL)' failed: "+Sys::error(errno));
+        throw runtime_error("'fcntl(F_SETFL)' failed: "+sys::error(errno));
       if(fcntl(fd, F_NOTIFY, DN_MULTISHOT|DN_CREATE) < 0)
-        throw runtime_error("'fcntl(F_NOTIFY)' failed: "+Sys::error(errno));
+        throw runtime_error("'fcntl(F_NOTIFY)' failed: "+sys::error(errno));
     }
 
 
     ~FileSystemListenerImpl()
     {
       closedir(dir);
-      Sys::Signal::setHandler(SIGIO, oldHandler);
+      sys::Signal::setHandler(SIGIO, oldHandler);
     }
 
 
     DIR *dir;
-    Sys::Signal::Handler oldHandler;
+    sys::Signal::Handler oldHandler;
 
     static void sighandler(int)
     {

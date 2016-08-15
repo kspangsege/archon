@@ -54,7 +54,7 @@ int main(int argc, char const *argv[]) throw()
 
   if(int stop = o.process(argc, argv)) return stop == 2 ? 0 : 1;
 
-  Sys::Signal::ignore_signal(SIGPIPE); // Required by the socket server
+  sys::Signal::ignore_signal(SIGPIPE); // Required by the socket server
 
   Server server;
 

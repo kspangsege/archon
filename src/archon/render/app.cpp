@@ -1576,7 +1576,7 @@ void Application::register_key_handler(KeySym key, UniquePtr<KeyHandlerBase> han
 Application::Config::Config():
     archon_datadir(get_value_of(build_config_param_DataDir))
 {
-    std::string v = Sys::getenv("ARCHON_DATADIR");
+    std::string v = sys::getenv("ARCHON_DATADIR");
     if (!v.empty()) {
         archon_datadir = v;
         if (v[v.size()-1] != '/')

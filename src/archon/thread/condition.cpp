@@ -105,7 +105,7 @@ namespace
         int const errnum = errno;
         if(errnum == EAGAIN) return;
         if(errnum != EINTR)
-          throw runtime_error("Read from pipe failed: "+Sys::error(errnum));
+          throw runtime_error("Read from pipe failed: "+sys::error(errnum));
       }
       else throw runtime_error("Write end of pipe was unexpectedly closed");
     }
@@ -122,10 +122,10 @@ namespace archon
       if(pipe(pipe_fds) < 0)
       {
         int const errnum = errno;
-        throw runtime_error("Failed to create pipe: "+Sys::error(errnum));
+        throw runtime_error("Failed to create pipe: "+sys::error(errnum));
       }
-      Sys::nonblock(pipe_fds[0]); // Read end of pipe
-      Sys::nonblock(pipe_fds[1]); // Write end of pipe
+      sys::nonblock(pipe_fds[0]); // Read end of pipe
+      sys::nonblock(pipe_fds[1]); // Write end of pipe
       prepped = true;
     }
 
@@ -278,7 +278,7 @@ namespace archon
             if(0 <= n) break;
             int errnum = errno;
             if(errnum != EINTR)
-              throw runtime_error("'select' failed: "+Sys::error(errnum));
+              throw runtime_error("'select' failed: "+sys::error(errnum));
           }
         }
 
@@ -314,7 +314,7 @@ namespace archon
           if(write(*i, &zero, 1) != -1) break;
           int errnum = errno;
           if(errnum == EINTR) continue;
-          throw runtime_error("Write on pipe failed: "+Sys::error(errnum));
+          throw runtime_error("Write on pipe failed: "+sys::error(errnum));
         }
       }
     }

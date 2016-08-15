@@ -57,13 +57,13 @@ namespace archon
         throw(ReadException, InterruptException)
       {
         if(closed) throw ReadException("Reading from closed stream");
-        return Sys::read(fildes, b, n);
+        return sys::read(fildes, b, n);
       }
 
       void FileInputStream::close() throw()
       {
         if(closed) return;
-        if(must_close) Sys::close(fildes);
+        if(must_close) sys::close(fildes);
         closed = true;
       }
     }

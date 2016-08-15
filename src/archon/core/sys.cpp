@@ -118,7 +118,7 @@ namespace archon
 {
   namespace core
   {
-    namespace Sys
+    namespace sys
     {
       GlobalLock::GlobalLock()
       {
@@ -198,7 +198,7 @@ namespace archon
         {
           int const e = errno;
            if(e == EINTR || e == EAGAIN) throw InterruptException();
-         throw ReadException(Sys::error(e));
+         throw ReadException(sys::error(e));
         }
         return m;
       }
@@ -211,9 +211,9 @@ namespace archon
         {
           int const e = errno;
           if(e == EINTR || e == EAGAIN) throw InterruptException();
-          throw WriteException(Sys::error(e));
+          throw WriteException(sys::error(e));
         }
-        if(static_cast<size_t>(m) != n) throw WriteException(Sys::error(EFBIG));
+        if(static_cast<size_t>(m) != n) throw WriteException(sys::error(EFBIG));
         return m;
       }
 
@@ -223,7 +223,7 @@ namespace archon
         if(r == 0) return;
         int const e = errno;
         if(e == EINTR || e == EAGAIN) throw InterruptException();
-        throw WriteException(Sys::error(e));
+        throw WriteException(sys::error(e));
       }
 
 
@@ -519,7 +519,7 @@ namespace archon
             if(errno != EINTR)
             {
               int const e = errno;
-              throw runtime_error("'waitpid' failed: "+Sys::error(e));
+              throw runtime_error("'waitpid' failed: "+sys::error(e));
             }
           }
           if(!status || !error.empty()) continue;

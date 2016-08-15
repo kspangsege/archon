@@ -61,7 +61,7 @@ namespace
     if(r == -1)
     {
       int const e = errno;
-      throw runtime_error("'bind' failed: "+Sys::error(e));
+      throw runtime_error("'bind' failed: "+sys::error(e));
     }
   }
 
@@ -78,15 +78,15 @@ namespace
     if(s == -1)
     {
       int const e = errno;
-      throw runtime_error("'socket' failed: "+Sys::error(e));
+      throw runtime_error("'socket' failed: "+sys::error(e));
     }
-    Sys::nonblock(s);
+    sys::nonblock(s);
     bind(s, port);
     int const r = ::listen(s, 10);
     if(r == -1)
     {
       int const e = errno;
-      throw runtime_error("'listen' failed: "+Sys::error(e));
+      throw runtime_error("'listen' failed: "+sys::error(e));
     }
     return s;
   }
@@ -120,9 +120,9 @@ namespace archon
               {
                 int const e = errno;
                 if(e == EAGAIN) break;
-                throw runtime_error("Failed to accept socket connection: "+Sys::error(e));
+                throw runtime_error("Failed to accept socket connection: "+sys::error(e));
               }
-              Sys::nonblock(fd);
+              sys::nonblock(fd);
               UniquePtr<Connection> conn(new_connection().release());
               conn->stream.reset(&select_spec, conn.get(), fd);
               cerr << "Open connection " << fd << endl;
@@ -144,7 +144,7 @@ namespace archon
               UniquePtr<Connection> c(conn);
               i->second = 0;
               connections.erase(i++);
-              Sys::close(fd);
+              sys::close(fd);
               destroy_connection(c);
             }
           }
@@ -156,7 +156,7 @@ namespace archon
         throw(ReadException, InterruptException)
       {
         if(read_state == state_Closed || n == 0) return 0;
-        size_t const m = Sys::read(fildes, b, n);
+        size_t const m = sys::read(fildes, b, n);
         if(read_state == state_Wait) select_spec->read_in.insert(fildes);
         read_state = state_Ready;
         return m;
@@ -167,7 +167,7 @@ namespace archon
         throw(WriteException, InterruptException)
       {
         if(write_state == state_Closed || n == 0) return 0;
-        size_t const m = Sys::write(fildes, b, n);
+        size_t const m = sys::write(fildes, b, n);
         if(write_state == state_Wait) select_spec->write_in.insert(fildes);
         write_state = state_Ready;
         return m;

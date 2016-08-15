@@ -689,7 +689,7 @@ public:
 
     Connection::Ptr new_connection()
     {
-        string name, env_name = Sys::getenv("DISPLAY");
+        string name, env_name = sys::getenv("DISPLAY");
         const char* name_ptr;
         Xlib_Display* dpy;
 

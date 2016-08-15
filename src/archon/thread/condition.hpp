@@ -254,7 +254,7 @@ namespace archon
        *
        * \sa SelectSpec
        * \sa Time
-       * \sa Sys::nonblock
+       * \sa sys::nonblock
        */
       bool select(SelectSpec &s, core::Time timeout = 0);
 

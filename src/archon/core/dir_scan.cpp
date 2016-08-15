@@ -117,7 +117,7 @@ namespace
       struct dirent *result;
     next:
       int e = readdir_r(dirp, entry, &result);
-      if(e != 0) throw runtime_error("'readdir_r' failed: "+Sys::error(e));
+      if(e != 0) throw runtime_error("'readdir_r' failed: "+sys::error(e));
       if(result)
       {
         string const n = result->d_name;
@@ -135,7 +135,7 @@ namespace
       if(!dirp)
       {
         int errnum = errno;
-        File::throw_file_access_exception(errnum, "'opendir' failed: "+Sys::error(errnum));
+        File::throw_file_access_exception(errnum, "'opendir' failed: "+sys::error(errnum));
       }
       size_t size = dirent_buf_size(dirp);
       if(!size) throw runtime_error("Cannot determine size of 'struct dirent'");

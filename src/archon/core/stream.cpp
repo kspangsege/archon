@@ -48,7 +48,7 @@ namespace
   {
     virtual size_t read(char *b, size_t n)
     {
-      return Sys::read(fildes, b, n);
+      return sys::read(fildes, b, n);
     }
 
     FileInputStream(int fildes, bool must_close): fildes(fildes), must_close(must_close ? 1 : 0) {}
@@ -57,7 +57,7 @@ namespace
     {
       try
       {
-        if(must_close) Sys::close(fildes);
+        if(must_close) sys::close(fildes);
       }
       catch(...) {}
     }
@@ -73,7 +73,7 @@ namespace
     virtual void write(char const *b, size_t n)
     {
       size_t m = 0;
-      while(m < n) m += Sys::write(fildes, b + m, n - m);
+      while(m < n) m += sys::write(fildes, b + m, n - m);
     }
 
     void flush() {} // Noop since there is no user space buffer involved.
@@ -86,7 +86,7 @@ namespace
     {
       try
       {
-        if(must_close) Sys::close(fildes);
+        if(must_close) sys::close(fildes);
       }
       catch(...) {}
     }
