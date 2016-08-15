@@ -33,11 +33,11 @@
 namespace archon {
 namespace core {
 
-namespace _Impl {
+namespace _impl {
 
 template<class, class> class TextJoin;
 
-} // namespace _Impl
+} // namespace _impl
 
 
 /// Produce a character string by joining the elements of the specified sequence
@@ -60,14 +60,14 @@ template<class, class> class TextJoin;
 /// from the joining when writing to a stream. The individual elements are
 /// written directly to the target stream.
 template<class FwdIn, class Delim>
-_Impl::TextJoin<FwdIn, Delim> text_join(FwdIn begin, FwdIn end, const Delim& delim);
+_impl::TextJoin<FwdIn, Delim> text_join(FwdIn begin, FwdIn end, const Delim& delim);
 
 
 
 
 // Implementation
 
-namespace _Impl {
+namespace _impl {
 
 template<class FwdIn, class Delim> class TextJoin {
 public:
@@ -100,13 +100,13 @@ inline std::basic_ostream<Ch, Tr>& operator<<(std::basic_ostream<Ch, Tr>& out,
     return out;
 }
 
-} // namespace _Impl
+} // namespace _impl
 
 
 template<class FwdIn, class Delim>
-inline _Impl::TextJoin<FwdIn, Delim> text_join(FwdIn begin, FwdIn end, const Delim& delim)
+inline _impl::TextJoin<FwdIn, Delim> text_join(FwdIn begin, FwdIn end, const Delim& delim)
 {
-    return _Impl::TextJoin<FwdIn, Delim>(begin, end, delim);
+    return _impl::TextJoin<FwdIn, Delim>(begin, end, delim);
 }
 
 } // namespace core

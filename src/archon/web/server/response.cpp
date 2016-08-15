@@ -31,7 +31,7 @@ namespace archon {
 namespace web {
 namespace Server {
 
-namespace _Impl {
+namespace _impl {
 
 EnumAssoc StatusSpec::map[] = {
     // Informational
@@ -87,7 +87,7 @@ EnumAssoc StatusSpec::map[] = {
     { 0, 0 }
 };
 
-} // namespace _Impl
+} // namespace _impl
 
 } // namespace Server
 } // namespace web

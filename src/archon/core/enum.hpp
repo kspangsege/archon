@@ -107,7 +107,7 @@ struct EnumAssoc { const int value; const char* const name; };
 
 // Implementation
 
-namespace _Impl {
+namespace _impl {
 struct EnumMapper {
     EnumMapper(const EnumAssoc*, bool ignore_case);
 
@@ -123,20 +123,20 @@ template<class S, bool ignore_case> const EnumMapper& get_enum_mapper()
     return m;
 }
 
-} // namespace _Impl
+} // namespace _impl
 
 
 template<class E, class S, bool ignore_case>
 inline std::string Enum<E, S, ignore_case>::str() const
 {
-    return _Impl::get_enum_mapper<S, ignore_case>().val2name.at(value);
+    return _impl::get_enum_mapper<S, ignore_case>().val2name.at(value);
 }
 
 template<class E, class S, bool ignore_case>
 inline bool Enum<E, S, ignore_case>::parse(std::string s)
 {
     int v;
-    if (!_Impl::get_enum_mapper<S, ignore_case>().parse(s, v, ignore_case))
+    if (!_impl::get_enum_mapper<S, ignore_case>().parse(s, v, ignore_case))
         return false;
     value = E(v);
     return true;

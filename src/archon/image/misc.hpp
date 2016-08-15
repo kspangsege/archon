@@ -50,12 +50,12 @@ namespace archon
       falloff_Repeat      ///< Repeat image indefinitely
     };
 
-    namespace _Impl
+    namespace _impl
     {
       struct FalloffSpec { static core::EnumAssoc map[]; };
     }
 
-    typedef core::Enum<Falloff, _Impl::FalloffSpec> FalloffEnum;
+    typedef core::Enum<Falloff, _impl::FalloffSpec> FalloffEnum;
   }
 }
 

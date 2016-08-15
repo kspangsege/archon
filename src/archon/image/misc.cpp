@@ -31,7 +31,7 @@ namespace archon
 {
   namespace image
   {
-    namespace _Impl
+    namespace _impl
     {
       archon::core::EnumAssoc FalloffSpec::map[] =
       {

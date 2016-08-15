@@ -385,7 +385,7 @@ namespace archon
     }
 
 
-    namespace _Impl
+    namespace _impl
     {
       template<typename A, typename B, bool intA, bool intB> struct FracAnyToAny {};
       template<typename A, typename B> struct FracAnyToAny<A, B, false, false>
@@ -429,7 +429,7 @@ namespace archon
 
     template<typename A, typename B> inline B frac_any_to_any(A v)
     {
-      return _Impl::FracAnyToAny<A, B, std::numeric_limits<A>::is_integer,
+      return _impl::FracAnyToAny<A, B, std::numeric_limits<A>::is_integer,
         std::numeric_limits<B>::is_integer>::cvt(v);
     }
 
@@ -448,7 +448,7 @@ namespace archon
 
     template<typename T> inline T frac_complement(T v)
     {
-      return _Impl::FracComplement<T, std::numeric_limits<T>::is_integer>::inv(v);
+      return _impl::FracComplement<T, std::numeric_limits<T>::is_integer>::inv(v);
     }
 
 

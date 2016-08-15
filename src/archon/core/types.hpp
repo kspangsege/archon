@@ -35,18 +35,18 @@
 namespace archon {
 namespace core {
 
-namespace _Impl {
+namespace _impl {
 
 template<class T> struct ToNum;
 
-} // namespace _Impl
+} // namespace _impl
 
 
 /// If the type of the argument is <tt>char</tt>, <tt>signed char</tt>, or
 /// <tt>unsigned char</tt>, convert it to a type that will be written out as a
 /// numeral on an STL output stream. Otherwise the argument is passed through
 /// without conversion.
-template<class T> typename _Impl::ToNum<T>::type to_num(T);
+template<class T> typename _impl::ToNum<T>::type to_num(T);
 
 
 /// Choose the fastest signed integer type with at least the specified number of
@@ -271,7 +271,7 @@ public:
 
 // Implementation
 
-namespace _Impl {
+namespace _impl {
 
 template<class T> class ToNum {
 public:
@@ -306,12 +306,12 @@ template<> class ToNumChar<false>: public ToNum<unsigned char> {};
 
 template<> class ToNum<char>: public ToNumChar<std::numeric_limits<char>::is_signed> {};
 
-} // namespace _Impl
+} // namespace _impl
 
 
-template<class T> inline typename _Impl::ToNum<T>::type to_num(T v)
+template<class T> inline typename _impl::ToNum<T>::type to_num(T v)
 {
-    return _Impl::ToNum<T>()(v);
+    return _impl::ToNum<T>()(v);
 }
 
 } // namespace core

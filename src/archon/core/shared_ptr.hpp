@@ -39,7 +39,7 @@ namespace archon
 {
   namespace core
   {
-    namespace _Impl {
+    namespace _impl {
     struct SharedPtrPrimaryCount;
     struct SharedPtrSecondaryCount;
     }
@@ -98,9 +98,9 @@ namespace archon
       template<class U> friend struct SharedPtr;
       template<class U> friend struct WeakPtr;
 
-      SharedPtr(T *p, _Impl::SharedPtrPrimaryCount *c) throw ();
+      SharedPtr(T *p, _impl::SharedPtrPrimaryCount *c) throw ();
 
-      SharedPtr(T *p, _Impl::SharedPtrSecondaryCount *c) throw (): ptr(p), count(c) {}
+      SharedPtr(T *p, _impl::SharedPtrSecondaryCount *c) throw (): ptr(p), count(c) {}
 
       template<class V, class U>
       friend SharedPtr<V> static_pointer_cast(SharedPtr<U> const &);
@@ -110,7 +110,7 @@ namespace archon
 
       // Invariant: 'ptr' is null if, and only if 'count' is null.
       T *ptr;
-      BindRef<_Impl::SharedPtrSecondaryCount *> count;
+      BindRef<_impl::SharedPtrSecondaryCount *> count;
     };
 
 
@@ -146,7 +146,7 @@ namespace archon
     };
 
 
-    namespace _Impl
+    namespace _impl
     {
       struct SharedPtrPrimaryCount
       {
@@ -222,14 +222,14 @@ namespace archon
 
 
     template<class T> template<class U>
-    inline SharedPtr<T>::SharedPtr(U *p): ptr(p), count(_Impl::make_shared_ptr_count(p)) {}
+    inline SharedPtr<T>::SharedPtr(U *p): ptr(p), count(_impl::make_shared_ptr_count(p)) {}
 
     template<class T> template<class U>
     inline SharedPtr<T>::SharedPtr(SharedPtr<U> const &p) throw (): ptr(p.ptr), count(p.count) {}
 
     template<class T> template<class U>
     inline SharedPtr<T>::SharedPtr(WeakPtr<U> const &p) throw(BadWeakPtr):
-      count(static_cast<_Impl::SharedPtrCountBase *>(p.count.get()), BindRefSafeTag())
+      count(static_cast<_impl::SharedPtrCountBase *>(p.count.get()), BindRefSafeTag())
     {
       // The copying of p.ptr may involve polymorphic type conversion,
       // and therfore it may involve access to the object pointed to
@@ -242,8 +242,8 @@ namespace archon
     }
 
     template<class T>
-    inline SharedPtr<T>::SharedPtr(T *p, _Impl::SharedPtrPrimaryCount *c) throw ():
-      count(static_cast<_Impl::SharedPtrCountBase *>(c), BindRefSafeTag())
+    inline SharedPtr<T>::SharedPtr(T *p, _impl::SharedPtrPrimaryCount *c) throw ():
+      count(static_cast<_impl::SharedPtrCountBase *>(c), BindRefSafeTag())
     {
       ptr = count ? p : 0;
     }

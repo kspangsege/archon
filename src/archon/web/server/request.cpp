@@ -36,7 +36,7 @@ namespace archon
   {
     namespace Server
     {
-      namespace _Impl
+      namespace _impl
       {
         EnumAssoc MethodSpec::map[] =
         {

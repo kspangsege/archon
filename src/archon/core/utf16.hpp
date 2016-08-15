@@ -40,17 +40,17 @@
 namespace archon {
 namespace core {
 
-namespace _Impl {
+namespace _impl {
 
 using CharUtf16_int = UIntMin16;
 
-} // namespace _Impl
+} // namespace _impl
 
 
 /// Replacement for \c char16_t in C++0x.
 class CharUtf16 {
 public:
-    _Impl::CharUtf16_int val;
+    _impl::CharUtf16_int val;
 
     bool operator==(const CharUtf16& c) const
     {
@@ -280,7 +280,7 @@ inline archon::core::CharUtf16 std::char_traits<archon::core::CharUtf16>::
 to_char_type(const int_type& i)
 {
     char_type c;
-    c.val = static_cast<archon::core::_Impl::CharUtf16_int>(i);
+    c.val = static_cast<archon::core::_impl::CharUtf16_int>(i);
     return c;
 }
 
@@ -290,7 +290,7 @@ namespace core {
 
 #ifdef ARCHON_WCHAR_ENC_IS_UCS
 
-namespace _Impl {
+namespace _impl {
 
 template<class WideCharIter>
 inline bool try_encode_utf16(WideCharIter begin, WideCharIter end, StringUtf16& out)
@@ -414,37 +414,37 @@ inline bool try_utf16_to_port(Utf16CharIter begin, Utf16CharIter end, std::strin
     return true;
 }
 
-} // namespace _Impl
+} // namespace _impl
 
 
 inline StringUtf16 utf16_from_port(const char* port)
 {
     StringUtf16 str;
-    _Impl::utf16_append_port(port, port+std::strlen(port), str);
+    _impl::utf16_append_port(port, port+std::strlen(port), str);
     return str;
 }
 
 inline StringUtf16 utf16_from_port(const std::string& port)
 {
     StringUtf16 str;
-    _Impl::utf16_append_port(port.begin(), port.end(), str);
+    _impl::utf16_append_port(port.begin(), port.end(), str);
     return str;
 }
 
 inline void utf16_append_port(StringUtf16& str, const std::string& port)
 {
-    _Impl::utf16_append_port(port.begin(), port.end(), str);
+    _impl::utf16_append_port(port.begin(), port.end(), str);
 }
 
 inline void utf16_append_port(StringUtf16& str, const char* port)
 {
-    _Impl::utf16_append_port(port, port+std::strlen(port), str);
+    _impl::utf16_append_port(port, port+std::strlen(port), str);
 }
 
 inline StringUtf16 utf16_from_cloc(const wchar_t* s)
 {
     StringUtf16 t;
-    if (_Impl::try_encode_utf16(s, s+std::wcslen(s), t))
+    if (_impl::try_encode_utf16(s, s+std::wcslen(s), t))
         return t;
     throw std::runtime_error("Bad Unicode character in specified string");
 }
@@ -452,7 +452,7 @@ inline StringUtf16 utf16_from_cloc(const wchar_t* s)
 inline StringUtf16 utf16_from_wide(const std::wstring& s, const std::locale&)
 {
     StringUtf16 t;
-    if (_Impl::try_encode_utf16(s.begin(), s.end(), t))
+    if (_impl::try_encode_utf16(s.begin(), s.end(), t))
         return t;
     throw std::runtime_error("Bad Unicode character in specified string");
 }
@@ -460,14 +460,14 @@ inline StringUtf16 utf16_from_wide(const std::wstring& s, const std::locale&)
 inline std::wstring utf16_to_wide(const StringUtf16& s, const std::locale&)
 {
     std::wstring t;
-    if (_Impl::try_decode_utf16(s.begin(), s.end(), t))
+    if (_impl::try_decode_utf16(s.begin(), s.end(), t))
         return t;
     throw std::runtime_error("Bad UTF-16 element in specified string");
 }
 
 inline bool utf16_to_narrow_port(const StringUtf16& s, std::string& port)
 {
-    return _Impl::try_utf16_to_port(s.begin(), s.end(), port);
+    return _impl::try_utf16_to_port(s.begin(), s.end(), port);
 }
 
 #else

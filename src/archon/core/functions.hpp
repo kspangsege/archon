@@ -439,7 +439,7 @@ namespace archon
 
     // Inline implementations:
 
-    namespace _Impl
+    namespace _impl
     {
       // This one is used when A and B are both signed or both unsigned
       template<class A, class B, bool signedA, bool signedB, int op>
@@ -492,13 +492,13 @@ namespace archon
 
     template<class A, class B> inline bool int_less_than(A a, B b)
     {
-      return _Impl::IntCompare<A, B, std::numeric_limits<A>::is_signed,
+      return _impl::IntCompare<A, B, std::numeric_limits<A>::is_signed,
         std::numeric_limits<B>::is_signed, 0>::cmp(a,b);
     }
 
     template<class A, class B> inline bool int_less_than_equal(A a, B b)
     {
-      return _Impl::IntCompare<A, B, std::numeric_limits<A>::is_signed,
+      return _impl::IntCompare<A, B, std::numeric_limits<A>::is_signed,
         std::numeric_limits<B>::is_signed, 1>::cmp(a,b);
     }
 
@@ -514,7 +514,7 @@ namespace archon
 
     template<class A, class B> inline bool int_equal(A a, B b)
     {
-      return _Impl::IntCompare<A, B, std::numeric_limits<A>::is_signed,
+      return _impl::IntCompare<A, B, std::numeric_limits<A>::is_signed,
         std::numeric_limits<B>::is_signed, 2>::cmp(a,b);
     }
 
@@ -680,7 +680,7 @@ namespace archon
         max <= f ? std::numeric_limits<I>::max() : I(f);
     }
 
-    namespace _Impl
+    namespace _impl
     {
       template<class S, bool sourceInt, class T, bool targetInt> struct ClampAnyToAny
       {
@@ -703,7 +703,7 @@ namespace archon
 
     template<class T, class S> T clamp_any_to_any(S v)
     {
-      return _Impl::ClampAnyToAny<S, std::numeric_limits<S>::is_integer,
+      return _impl::ClampAnyToAny<S, std::numeric_limits<S>::is_integer,
                                   T, std::numeric_limits<T>::is_integer>::cvt(v);
     }
 
@@ -846,7 +846,7 @@ namespace archon
 
 
 
-    namespace _Impl
+    namespace _impl
     {
       // Low-level right shifting that assumes a positive shift
       template<class T> inline T bit_shift_right(T v, int n)
@@ -869,12 +869,12 @@ namespace archon
 
     template<class T> inline T bit_shift_right(T v, int n)
     {
-      return n < 0 ? _Impl::bit_shift_left(v, -n) : _Impl::bit_shift_right(v, n);
+      return n < 0 ? _impl::bit_shift_left(v, -n) : _impl::bit_shift_right(v, n);
     }
 
     template<class T> inline T bit_shift_left(T v, int n)
     {
-      return n < 0 ? _Impl::bit_shift_right(v, -n) : _Impl::bit_shift_left(v, n);
+      return n < 0 ? _impl::bit_shift_right(v, -n) : _impl::bit_shift_left(v, n);
     }
   }
 }

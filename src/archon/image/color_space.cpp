@@ -40,7 +40,7 @@ using namespace std;
 using namespace archon::core;
 using namespace archon::util;
 using namespace archon::image;
-namespace ImageImpl = archon::image::_Impl;
+namespace ImageImpl = archon::image::_impl;
 
 
 namespace

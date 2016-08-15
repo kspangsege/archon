@@ -28,7 +28,7 @@
 
 namespace archon {
 namespace core {
-namespace _Impl {
+namespace _impl {
 
 ARCHON_NORETURN void terminate(const char* message, const char* file, long line) ARCHON_NOEXCEPT
 {
@@ -36,6 +36,6 @@ ARCHON_NORETURN void terminate(const char* message, const char* file, long line)
     std::abort();
 }
 
-} // namespace _Impl
+} // namespace _impl
 } // namespace core
 } // namespace archon

@@ -177,7 +177,7 @@ namespace archon
 
     // Implementation:
 
-    namespace _Impl
+    namespace _impl
     {
       // This single-pixel operation wrapper allows an operation that
       // accepts only floating point word types, to be used in an
@@ -471,7 +471,7 @@ namespace archon
 
     // A set of AlphaSet's. One AlphaSet for each 'way' (to RGB, from RGB, to self).
     template<class S, ColorSpace::Type t> template<typename T, WordType>
-    struct ColorSpaceHelper<S,t>::WaySet: _Impl::WaySet1<S, T, S::is_rgb>
+    struct ColorSpaceHelper<S,t>::WaySet: _impl::WaySet1<S, T, S::is_rgb>
     {
       typename ColorSpace::Converter const &operator()(std::pair<Way, AlphaType> p) const
       {

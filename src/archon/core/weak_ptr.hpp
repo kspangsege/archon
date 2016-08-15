@@ -65,7 +65,7 @@ namespace archon
       // Invariant: 'ptr' is null if 'count' is null.
       // Invariant: 'ptr' is not null if 'count' has secondary reference count greater than zero.
       T *ptr;
-      BindRef<_Impl::SharedPtrPrimaryCount *> count;
+      BindRef<_impl::SharedPtrPrimaryCount *> count;
     };
 
 
@@ -94,7 +94,7 @@ namespace archon
 
     template<typename T> template<typename U>
     inline WeakPtr<T>::WeakPtr(SharedPtr<U> const &p) throw():
-      ptr(p.ptr), count(static_cast<_Impl::SharedPtrCountBase *>(p.count.get())) {}
+      ptr(p.ptr), count(static_cast<_impl::SharedPtrCountBase *>(p.count.get())) {}
 
     template<typename T>
     inline WeakPtr<T> &WeakPtr<T>::operator=(WeakPtr<T> const &p) throw()
@@ -120,7 +120,7 @@ namespace archon
     inline WeakPtr<T> &WeakPtr<T>::operator=(SharedPtr<U> const &p) throw()
     {
       ptr = p.ptr;
-      count.reset(static_cast<_Impl::SharedPtrCountBase *>(p.count.get()));
+      count.reset(static_cast<_impl::SharedPtrCountBase *>(p.count.get()));
       return *this;
     }
 

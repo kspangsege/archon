@@ -51,15 +51,15 @@ enum WordType {
     word_type_LngDbl  ///< High precision floating point number
 };
 
-namespace _Impl {
+namespace _impl {
 
 struct WordTypeEnumSpec {
     static core::EnumAssoc map[];
 };
 
-} // namespace _Impl
+} // namespace _impl
 
-using WordTypeEnum = core::Enum<WordType, _Impl::WordTypeEnumSpec>;
+using WordTypeEnum = core::Enum<WordType, _impl::WordTypeEnumSpec>;
 
 
 class NoSuchWordTypeException;
@@ -232,7 +232,7 @@ inline int get_bits_per_word(WordType t)
 }
 
 
-namespace _Impl {
+namespace _impl {
 
 template<template<class, WordType> class F> class WordTypeSwitchBase {
 public:
@@ -383,30 +383,30 @@ public:
     }
 };
 
-} // namespace _Impl
+} // namespace _impl
 
 
 template<template<class, WordType> class F, class A, class R, bool only_floats>
-class WordTypeSwitch: public _Impl::WordTypeSwitch<F, A, R, only_floats>::Switch {};
+class WordTypeSwitch: public _impl::WordTypeSwitch<F, A, R, only_floats>::Switch {};
 
 inline int get_bytes_per_word(WordType t)
 {
-    return WordTypeSwitch<_Impl::GetBytesPerWord, void, int>()(t);
+    return WordTypeSwitch<_impl::GetBytesPerWord, void, int>()(t);
 }
 
 inline bool is_floating_point(WordType t)
 {
-    return WordTypeSwitch<_Impl::IsFloatingPoint, void, bool>()(t);
+    return WordTypeSwitch<_impl::IsFloatingPoint, void, bool>()(t);
 }
 
 inline WordType get_smallest_float_cover(WordType t)
 {
-    return WordTypeSwitch<_Impl::GetSmallestFloatCover, void, WordType>()(t);
+    return WordTypeSwitch<_impl::GetSmallestFloatCover, void, WordType>()(t);
 }
 
 inline WordType get_fastest_float_cover(WordType t)
 {
-    return WordTypeSwitch<_Impl::GetFastestFloatCover, void, WordType>()(t);
+    return WordTypeSwitch<_impl::GetFastestFloatCover, void, WordType>()(t);
 }
 
 } // namespace image

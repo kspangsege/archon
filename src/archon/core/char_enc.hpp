@@ -1034,7 +1034,7 @@ namespace archon
 
 
 
-    namespace _Impl
+    namespace _impl
     {
       template<typename Ch> inline BasicLocaleCodec<Ch> const &get_ascii_codec()
       {
@@ -1050,7 +1050,7 @@ namespace archon
 
     template<typename Ch> inline std::string ascii_encode(std::basic_string<Ch> const &s)
     {
-      return _Impl::get_ascii_codec<Ch>().encode(s);
+      return _impl::get_ascii_codec<Ch>().encode(s);
     }
 
     template<> inline std::string ascii_encode(std::string const &s)
@@ -1060,7 +1060,7 @@ namespace archon
 
     template<typename Ch> inline std::basic_string<Ch> ascii_decode(std::string const &s)
     {
-      return _Impl::get_ascii_codec<Ch>().decode(s);
+      return _impl::get_ascii_codec<Ch>().decode(s);
     }
 
     template<> inline std::string ascii_decode(std::string const &s)
@@ -1070,7 +1070,7 @@ namespace archon
 
     template<typename Ch> inline std::string env_encode(std::basic_string<Ch> const &s)
     {
-      return _Impl::get_env_codec<Ch>().encode(s);
+      return _impl::get_env_codec<Ch>().encode(s);
     }
 
     template<> inline std::string env_encode(std::string const &s)
@@ -1080,7 +1080,7 @@ namespace archon
 
     template<typename Ch> inline std::basic_string<Ch> env_decode(std::string const &s)
     {
-      return _Impl::get_env_codec<Ch>().decode(s);
+      return _impl::get_env_codec<Ch>().decode(s);
     }
 
     template<> inline std::string env_decode(std::string const &s)
@@ -1090,7 +1090,7 @@ namespace archon
 
 
 
-    namespace _Impl
+    namespace _impl
     {
       template<typename Ch> inline BasicLocaleCharMapper<Ch> const &get_ascii_mapper()
       {
@@ -1107,7 +1107,7 @@ namespace archon
     template<typename Ch>
     inline std::string ascii_narrow(std::basic_string<Ch> const &s)
     {
-      return _Impl::get_ascii_mapper<Ch>().narrow(s);
+      return _impl::get_ascii_mapper<Ch>().narrow(s);
     }
 
     template<>
@@ -1119,7 +1119,7 @@ namespace archon
     template<typename Ch>
     inline std::basic_string<Ch> ascii_widen(std::string const &s)
     {
-      return _Impl::get_ascii_mapper<Ch>().widen(s);
+      return _impl::get_ascii_mapper<Ch>().widen(s);
     }
 
     template<>
@@ -1131,7 +1131,7 @@ namespace archon
     template<typename Ch>
     inline std::string env_narrow(std::basic_string<Ch> const &s)
     {
-      return _Impl::get_env_mapper<Ch>().narrow(s);
+      return _impl::get_env_mapper<Ch>().narrow(s);
     }
 
     template<>
@@ -1143,7 +1143,7 @@ namespace archon
     template<typename Ch>
     inline std::basic_string<Ch> env_widen(std::string const &s)
     {
-      return _Impl::get_env_mapper<Ch>().widen(s);
+      return _impl::get_env_mapper<Ch>().widen(s);
     }
 
     template<>
@@ -1157,25 +1157,25 @@ namespace archon
     template<typename Ch>
     inline std::basic_string<Ch> ascii_toupper(std::basic_string<Ch> const &s)
     {
-      return _Impl::get_ascii_mapper<Ch>().toupper(s);
+      return _impl::get_ascii_mapper<Ch>().toupper(s);
     }
 
     template<typename Ch>
     inline std::basic_string<Ch> ascii_tolower(std::basic_string<Ch> const &s)
     {
-      return _Impl::get_ascii_mapper<Ch>().tolower(s);
+      return _impl::get_ascii_mapper<Ch>().tolower(s);
     }
 
     template<typename Ch>
     inline std::basic_string<Ch> env_toupper(std::basic_string<Ch> const &s)
     {
-      return _Impl::get_env_mapper<Ch>().toupper(s);
+      return _impl::get_env_mapper<Ch>().toupper(s);
     }
 
     template<typename Ch>
     inline std::basic_string<Ch> env_tolower(std::basic_string<Ch> const &s)
     {
-      return _Impl::get_env_mapper<Ch>().tolower(s);
+      return _impl::get_env_mapper<Ch>().tolower(s);
     }
   }
 }

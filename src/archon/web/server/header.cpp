@@ -33,7 +33,7 @@ namespace archon {
 namespace web {
 namespace Server {
 
-namespace _Impl {
+namespace _impl {
 
 EnumAssoc HeaderSpec::map[] = {
     // General
@@ -94,7 +94,7 @@ EnumAssoc HeaderSpec::map[] = {
     { 0, 0 }
 };
 
-} // namespace _Impl
+} // namespace _impl
 
 
 void init_header_sets(std::set<Header>& general, std::set<Header>& request,

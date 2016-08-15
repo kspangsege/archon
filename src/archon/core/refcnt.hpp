@@ -46,7 +46,7 @@ namespace archon
 
 
 
-    namespace _Impl
+    namespace _impl
     {
       struct CntRefTraits
       {
@@ -59,10 +59,10 @@ namespace archon
 
 
 
-    template<class T> struct CntRef: BindRef<T *, _Impl::CntRefTraits>
+    template<class T> struct CntRef: BindRef<T *, _impl::CntRefTraits>
     {
     private:
-      typedef BindRef<T *, _Impl::CntRefTraits> Base;
+      typedef BindRef<T *, _impl::CntRefTraits> Base;
 
 
     public:
@@ -176,7 +176,7 @@ namespace archon
       void cnt_ref_dec() const { if(n.dec_and_zero_test()) delete this; } // May throw if ~T throws
 
     private:
-      friend struct _Impl::CntRefTraits;
+      friend struct _impl::CntRefTraits;
 
       mutable Atomic n;
     };
@@ -198,17 +198,17 @@ namespace archon
 
     // Template implementations:
 
-    inline void _Impl::CntRefTraits::bind(CntRefObjectBase const *p) throw()
+    inline void _impl::CntRefTraits::bind(CntRefObjectBase const *p) throw()
     {
       p->cnt_ref_inc();
     }
 
-    inline bool _Impl::CntRefTraits::bind_safe(CntRefObjectBase const *p) throw()
+    inline bool _impl::CntRefTraits::bind_safe(CntRefObjectBase const *p) throw()
     {
       return p->cnt_ref_inc_safe();
     }
 
-    inline void _Impl::CntRefTraits::unbind(CntRefObjectBase const *p)
+    inline void _impl::CntRefTraits::unbind(CntRefObjectBase const *p)
     {
       p->cnt_ref_dec();
     }

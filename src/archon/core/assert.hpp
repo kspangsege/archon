@@ -37,10 +37,10 @@
 #  include <archon/core/terminate.hpp>
 #  define ARCHON_ASSERT(condition) \
     (ARCHON_LIKELY(condition) ? static_cast<void>(0) : \
-     archon::core::_Impl::terminate("Assertion failed: " #condition, __FILE__, __LINE__))
+     archon::core::_impl::terminate("Assertion failed: " #condition, __FILE__, __LINE__))
 #  define ARCHON_ASSERT_1(condition, message)    \
     (ARCHON_LIKELY(condition) ? static_cast<void>(0) : \
-     archon::core::_Impl::terminate(message, __FILE__, __LINE__))
+     archon::core::_impl::terminate(message, __FILE__, __LINE__))
 #else
 #  define ARCHON_ASSERT(condition) \
     static_cast<void>(sizeof bool(condition))

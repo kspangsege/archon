@@ -96,16 +96,16 @@ public:
 };
 
 
-namespace _Impl {
+namespace _impl {
 
 struct StatusSpec {
     static core::EnumAssoc map[];
 };
 
-} // namespace _Impl
+} // namespace _impl
 
 
-using StatusEnum = core::Enum<Status, _Impl::StatusSpec>;
+using StatusEnum = core::Enum<Status, _impl::StatusSpec>;
 
 } // namespace Server
 } // namespace web

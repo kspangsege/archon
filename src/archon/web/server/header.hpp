@@ -98,16 +98,16 @@ void init_header_sets(std::set<Header>& general, std::set<Header>& request,
                       std::set<Header>& joinable);
 
 
-namespace _Impl {
+namespace _impl {
 
 struct HeaderSpec {
     static core::EnumAssoc map[];
 };
 
-} // namespace _Impl
+} // namespace _impl
 
 
-using HeaderEnum = core::Enum<Header, _Impl::HeaderSpec, true>;
+using HeaderEnum = core::Enum<Header, _impl::HeaderSpec, true>;
 
 } // namespace Server
 } // namespace web

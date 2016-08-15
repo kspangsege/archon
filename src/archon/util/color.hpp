@@ -369,7 +369,7 @@ math::Vec3 interp(double x, double x1, double x2, const math::Vec3& c1, const ma
 
 // Implementation
 
-namespace _Impl {
+namespace _impl {
 
 const CIE_RGB_PrimSpec srgb_prim_spec(math::Vec2F(0.6400, 0.3300),  // Red
                                       math::Vec2F(0.3000, 0.6000),  // Green
@@ -447,15 +447,15 @@ template<class T> inline void cvt_XYZ_to_Lin(const T* xyz, T* lin)
 template<class T> inline void cvt_RGB_to_XYZ(const T* rgb, T* xyz)
 {
     T lin[3];
-    _Impl::cvt_RGB_to_Lin(rgb, lin);
-    _Impl::cvt_Lin_to_XYZ(lin, xyz);
+    _impl::cvt_RGB_to_Lin(rgb, lin);
+    _impl::cvt_Lin_to_XYZ(lin, xyz);
 }
 
 template<class T> inline void cvt_XYZ_to_RGB(const T* xyz, T* rgb)
 {
     T lin[3];
-    _Impl::cvt_XYZ_to_Lin(xyz, lin);
-    _Impl::cvt_Lin_to_RGB(lin, rgb);
+    _impl::cvt_XYZ_to_Lin(xyz, lin);
+    _impl::cvt_Lin_to_RGB(lin, rgb);
 }
 
 /// \sa http://en.wikipedia.org/wiki/Lab_color_space
@@ -465,16 +465,16 @@ public:
     {
         T f_y = f(xyz[1]);
         lab[0] = 116 * f_y - 16;
-        lab[1] = 500 * (f(xyz[0] / _Impl::sRGB<T>::white[0]) - f_y);
-        lab[2] = 200 * (f_y - f(xyz[2] / _Impl::sRGB<T>::white[2]));
+        lab[1] = 500 * (f(xyz[0] / _impl::sRGB<T>::white[0]) - f_y);
+        lab[2] = 200 * (f_y - f(xyz[2] / _impl::sRGB<T>::white[2]));
     }
 
     static void to_xyz(const T* lab, T* xyz)
     {
         T f_y = (lab[0]+16) / 116;
-        xyz[0] = t(f_y + lab[1]/500) * _Impl::sRGB<T>::white[0];
+        xyz[0] = t(f_y + lab[1]/500) * _impl::sRGB<T>::white[0];
         xyz[1] = t(f_y);
-        xyz[2] = t(f_y - lab[2]/200) * _Impl::sRGB<T>::white[2];
+        xyz[2] = t(f_y - lab[2]/200) * _impl::sRGB<T>::white[2];
     }
 
 private:

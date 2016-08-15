@@ -34,29 +34,29 @@ namespace archon
 {
   namespace math
   {
-    namespace _Impl
+    namespace _impl
     {
       template<int, class> struct VecAdapt;
       template<int, class> struct VecAdaptConst;
     }
 
 
-    template<int N, class T> _Impl::VecAdapt<N,T> vec_adapt(T *p);
+    template<int N, class T> _impl::VecAdapt<N,T> vec_adapt(T *p);
 
-    template<int N, class T> _Impl::VecAdaptConst<N,T> vec_adapt(T const *p);
+    template<int N, class T> _impl::VecAdaptConst<N,T> vec_adapt(T const *p);
 
 
-    template<class T> inline _Impl::VecAdapt<2,T> vec2_adapt(T *p) { return vec_adapt<2,T>(p); }
+    template<class T> inline _impl::VecAdapt<2,T> vec2_adapt(T *p) { return vec_adapt<2,T>(p); }
 
-    template<class T> inline _Impl::VecAdaptConst<2,T> vec2_adapt(T const *p) { return vec_adapt<2,T>(p); }
+    template<class T> inline _impl::VecAdaptConst<2,T> vec2_adapt(T const *p) { return vec_adapt<2,T>(p); }
 
-    template<class T> inline _Impl::VecAdapt<3,T> vec3_adapt(T *p) { return vec_adapt<3,T>(p); }
+    template<class T> inline _impl::VecAdapt<3,T> vec3_adapt(T *p) { return vec_adapt<3,T>(p); }
 
-    template<class T> inline _Impl::VecAdaptConst<3,T> vec3_adapt(T const *p) { return vec_adapt<3,T>(p); }
+    template<class T> inline _impl::VecAdaptConst<3,T> vec3_adapt(T const *p) { return vec_adapt<3,T>(p); }
 
-    template<class T> inline _Impl::VecAdapt<4,T> vec4_adapt(T *p) { return vec_adapt<4,T>(p); }
+    template<class T> inline _impl::VecAdapt<4,T> vec4_adapt(T *p) { return vec_adapt<4,T>(p); }
 
-    template<class T> inline _Impl::VecAdaptConst<4,T> vec4_adapt(T const *p) { return vec_adapt<4,T>(p); }
+    template<class T> inline _impl::VecAdaptConst<4,T> vec4_adapt(T const *p) { return vec_adapt<4,T>(p); }
 
 
 
@@ -67,7 +67,7 @@ namespace archon
 
     // Implementation:
 
-    namespace _Impl
+    namespace _impl
     {
       template<class T> struct VecAdaptRep
       {
@@ -117,15 +117,15 @@ namespace archon
     }
 
 
-    template<int N, class T> inline _Impl::VecAdapt<N,T> vec_adapt(T *p)
+    template<int N, class T> inline _impl::VecAdapt<N,T> vec_adapt(T *p)
     {
-      return _Impl::VecAdapt<N,T>(p);
+      return _impl::VecAdapt<N,T>(p);
     }
 
 
-    template<int N, class T> inline _Impl::VecAdaptConst<N,T> vec_adapt(T const *p)
+    template<int N, class T> inline _impl::VecAdaptConst<N,T> vec_adapt(T const *p)
     {
-      return _Impl::VecAdaptConst<N,T>(p);
+      return _impl::VecAdaptConst<N,T>(p);
     }
   }
 }

@@ -35,7 +35,7 @@ namespace archon
 {
   namespace math
   {
-    namespace _Impl
+    namespace _impl
     {
       template<int, int, class> struct MatAdapt;
       template<int, int, class> struct MatAdaptConst;
@@ -50,24 +50,24 @@ namespace archon
      * while for example, OpenGL uses column major order in its
      * matrices.
      */
-    template<int M, int N, class T> _Impl::MatAdapt<M,N,T> mat_adapt(T *p);
+    template<int M, int N, class T> _impl::MatAdapt<M,N,T> mat_adapt(T *p);
 
-    template<int M, int N, class T> _Impl::MatAdaptConst<M,N,T> mat_adapt(T const *p);
-
-
-    template<class T> inline _Impl::MatAdapt<2,2,T> mat2x2_adapt(T *p) { return mat_adapt<2,2,T>(p); }
-
-    template<class T> inline _Impl::MatAdaptConst<2,2,T> mat2x2_adapt(T const *p) { return mat_adapt<2,2,T>(p); }
+    template<int M, int N, class T> _impl::MatAdaptConst<M,N,T> mat_adapt(T const *p);
 
 
-    template<class T> inline _Impl::MatAdapt<3,3,T> mat3x3_adapt(T *p) { return mat_adapt<3,3,T>(p); }
+    template<class T> inline _impl::MatAdapt<2,2,T> mat2x2_adapt(T *p) { return mat_adapt<2,2,T>(p); }
 
-    template<class T> inline _Impl::MatAdaptConst<3,3,T> mat3x3_adapt(T const *p) { return mat_adapt<3,3,T>(p); }
+    template<class T> inline _impl::MatAdaptConst<2,2,T> mat2x2_adapt(T const *p) { return mat_adapt<2,2,T>(p); }
 
 
-    template<class T> inline _Impl::MatAdapt<4,4,T> mat4x4_adapt(T *p) { return mat_adapt<4,4,T>(p); }
+    template<class T> inline _impl::MatAdapt<3,3,T> mat3x3_adapt(T *p) { return mat_adapt<3,3,T>(p); }
 
-    template<class T> inline _Impl::MatAdaptConst<4,4,T> mat4x4_adapt(T const *p) { return mat_adapt<4,4,T>(p); }
+    template<class T> inline _impl::MatAdaptConst<3,3,T> mat3x3_adapt(T const *p) { return mat_adapt<3,3,T>(p); }
+
+
+    template<class T> inline _impl::MatAdapt<4,4,T> mat4x4_adapt(T *p) { return mat_adapt<4,4,T>(p); }
+
+    template<class T> inline _impl::MatAdaptConst<4,4,T> mat4x4_adapt(T const *p) { return mat_adapt<4,4,T>(p); }
 
 
 
@@ -78,7 +78,7 @@ namespace archon
 
     // Implementation:
 
-    namespace _Impl
+    namespace _impl
     {
       template<int M, int N, class T>
       struct MatAdapt: MatMem<M, N, T, VecAdaptRep<T>, MatAdapt<M,N,T> >
@@ -107,15 +107,15 @@ namespace archon
     }
 
 
-    template<int M, int N, class T> inline _Impl::MatAdapt<M,N,T> mat_adapt(T *p)
+    template<int M, int N, class T> inline _impl::MatAdapt<M,N,T> mat_adapt(T *p)
     {
-      return _Impl::MatAdapt<M,N,T>(p);
+      return _impl::MatAdapt<M,N,T>(p);
     }
 
 
-    template<int M, int N, class T> inline _Impl::MatAdaptConst<M,N,T> mat_adapt(T const *p)
+    template<int M, int N, class T> inline _impl::MatAdaptConst<M,N,T> mat_adapt(T const *p)
     {
-      return _Impl::MatAdaptConst<M,N,T>(p);
+      return _impl::MatAdaptConst<M,N,T>(p);
     }
   }
 }

@@ -322,7 +322,7 @@ namespace archon
 
     // Implementations:
 
-    namespace _Impl
+    namespace _impl
     {
       template<class C>
       struct IncConvInputStream:
@@ -607,7 +607,7 @@ namespace archon
                             core::BasicInputStream<typename
                             C::source_char_type> &in)
     {
-      typedef _Impl::IncConvInputStream<C>                         Stream1;
+      typedef _impl::IncConvInputStream<C>                         Stream1;
       typedef core::BasicInputStream<typename C::source_char_type> Stream2;
       typedef core::BasicInputStream<typename C::target_char_type> Stream3;
       core::UniquePtr<Stream3> s(new Stream1(in, core::SharedPtr<Stream2>(), converter));
@@ -621,7 +621,7 @@ namespace archon
                              core::BasicOutputStream<typename
                              C::target_char_type> &out)
     {
-      typedef _Impl::IncConvOutputStream<C> Stream1;
+      typedef _impl::IncConvOutputStream<C> Stream1;
       typedef core::BasicOutputStream<typename C::source_char_type> Stream2;
       typedef core::BasicOutputStream<typename C::target_char_type> Stream3;
       core::UniquePtr<Stream2> s(new Stream1(out, core::SharedPtr<Stream3>(), converter));
@@ -635,7 +635,7 @@ namespace archon
                             core::SharedPtr<core::BasicInputStream<typename
                             C::source_char_type> > const &in)
     {
-      typedef _Impl::IncConvInputStream<C>                         Stream1;
+      typedef _impl::IncConvInputStream<C>                         Stream1;
       typedef core::BasicInputStream<typename C::target_char_type> Stream2;
       core::UniquePtr<Stream2> s(new Stream1(*in, in, converter));
       return s;
@@ -648,7 +648,7 @@ namespace archon
                              core::SharedPtr<core::BasicOutputStream<typename
                              C::target_char_type> > const &out)
     {
-      typedef _Impl::IncConvOutputStream<C> Stream1;
+      typedef _impl::IncConvOutputStream<C> Stream1;
       typedef core::BasicOutputStream<typename C::source_char_type> Stream2;
       core::UniquePtr<Stream2> s(new Stream1(*out, out, converter));
       return s;

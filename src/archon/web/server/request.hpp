@@ -75,14 +75,14 @@ namespace archon
       };
 
 
-      namespace _Impl
+      namespace _impl
       {
         struct MethodSpec   { static core::EnumAssoc map[]; };
         struct ProtocolSpec { static core::EnumAssoc map[]; };
       }
 
-      typedef core::Enum<Method,   _Impl::MethodSpec>   MethodEnum;
-      typedef core::Enum<Protocol, _Impl::ProtocolSpec> ProtocolEnum;
+      typedef core::Enum<Method,   _impl::MethodSpec>   MethodEnum;
+      typedef core::Enum<Protocol, _impl::ProtocolSpec> ProtocolEnum;
     }
   }
 }

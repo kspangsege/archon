@@ -36,7 +36,7 @@ using namespace std;
 
 namespace archon {
 namespace core {
-namespace _Impl {
+namespace _impl {
 
 EnumMapper::EnumMapper(EnumAssoc const *m, bool ignore_case)
 {
@@ -63,6 +63,6 @@ bool EnumMapper::parse(string s, int &val, bool ignore_case) const
     return true;
 }
 
-} // namespace _Impl
+} // namespace _impl
 } // namespace core
 } // namespace archon
