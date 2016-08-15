@@ -72,7 +72,7 @@ namespace
     Acquisition()
     {
       Mutex::Lock l(mutex);
-      if(occupied) throw Readline::OccupiedException();
+      if(occupied) throw readline::OccupiedException();
       occupied = true;
     }
 
@@ -89,7 +89,7 @@ namespace archon
 {
   namespace util
   {
-    namespace Readline
+    namespace readline
     {
       bool read(string &s)
       {
@@ -98,7 +98,7 @@ namespace archon
         read_called = true;
 
 #ifdef HAVE_LIBREADLINE
-        char *const line = readline(prompt.c_str());
+        char *const line = ::readline(prompt.c_str());
         if(!line) return false;
 
 #  ifdef HAVE_READLINE_HISTORY

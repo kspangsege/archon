@@ -37,10 +37,10 @@ using namespace archon::util;
 
 int main() throw()
 {
-  Readline::set_prompt("Readline> ");
+  readline::set_prompt("Readline> ");
 
   string s;
-  while(Readline::read(s)) cout << "Got '" << s << "'" << endl;
+  while(readline::read(s)) cout << "Got '" << s << "'" << endl;
   cout << endl;
 
   return 0;

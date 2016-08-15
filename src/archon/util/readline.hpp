@@ -45,7 +45,7 @@ namespace archon
      * Thread safety is assured as long as everybody uses 'readline'
      * via this interface. If they do not, anything can happen.
      */
-    namespace Readline
+    namespace readline
     {
       /**
        * Thrown when two threads attempt to call one of the functions
@@ -104,11 +104,11 @@ namespace archon
 
     // Definitions:
 
-    namespace Readline
+    namespace readline
     {
       struct OccupiedException: std::runtime_error
       {
-        OccupiedException(): std::runtime_error("Readline::read() called by multiple threads") {}
+        OccupiedException(): std::runtime_error("readline::read() called by multiple threads") {}
       };
     }
   }
