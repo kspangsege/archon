@@ -46,7 +46,7 @@
 #include <archon/render/dom_renderer.hpp>
 
 
-using namespace archon::Core;
+using namespace archon::core;
 using namespace archon::DomImpl;
 using namespace archon::Display;
 using namespace archon::Render;

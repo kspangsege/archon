@@ -37,7 +37,7 @@
 
 
 using namespace std;
-using namespace archon::Core;
+using namespace archon::core;
 using namespace archon::Util;
 using namespace archon::Imaging;
 namespace ImageImpl = archon::Imaging::_Impl;
@@ -363,7 +363,7 @@ namespace archon
 {
   namespace Imaging
   {
-    archon::Core::EnumAssoc ColorSpace::TypeSpec::map[] =
+    archon::core::EnumAssoc ColorSpace::TypeSpec::map[] =
     {
       { ColorSpace::type_Lum,   "Lum"   },
       { ColorSpace::type_RGB,   "RGB"   },

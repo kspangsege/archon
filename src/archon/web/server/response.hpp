@@ -101,8 +101,8 @@ namespace archon
       };
 
 
-      namespace _Impl { struct StatusSpec { static Core::EnumAssoc map[]; }; }
-      typedef Core::Enum<Status, _Impl::StatusSpec> StatusEnum;
+      namespace _Impl { struct StatusSpec { static core::EnumAssoc map[]; }; }
+      typedef core::Enum<Status, _Impl::StatusSpec> StatusEnum;
     }
   }
 }

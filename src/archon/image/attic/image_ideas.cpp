@@ -341,7 +341,7 @@ struct Image::Reader
   virtual void release() = 0;
 
   // Lowest level read method - region is assumed to be withing image borders
-  virtual void read(Core::Grid<char *> const &tray, int left, int bottom) = 0;
+  virtual void read(core::Grid<char *> const &tray, int left, int bottom) = 0;
 
   virtual ~Reader() {}
 };
@@ -352,7 +352,7 @@ struct Image::Writer: Image::Reader
   void manip(Manipulator &manip, int width, int height, int left, int bottom);
 
   // Lowest level write method - region is assumed to be withing image borders
-  virtual void write(Core::Grid<char const *> const &tray, int left, int bottom) = 0;
+  virtual void write(core::Grid<char const *> const &tray, int left, int bottom) = 0;
 };
 
 

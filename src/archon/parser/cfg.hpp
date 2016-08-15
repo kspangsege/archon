@@ -392,7 +392,7 @@ namespace archon
 
       Actor const *actor; // Defines the known methods and knows how to call them. Is optional.
 
-      Core::Text::ValuePrinter valPrinter;
+      core::Text::ValuePrinter valPrinter;
     };
   }
 }

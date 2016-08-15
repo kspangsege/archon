@@ -33,7 +33,7 @@
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     struct BindRefNullTag {};
     struct BindRefSafeTag {};

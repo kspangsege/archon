@@ -81,17 +81,17 @@ namespace archon
        * \throw InvalidFormatException When a fatal error occurs
        * during parsing of the stream contents.
        *
-       * \throw Core::ReadException If reading from the stream
+       * \throw core::ReadException If reading from the stream
        * fails.
        *
        * \sa FileFormat::Registry::new_registry
        */
-      BufferedImage::Ref load(Core::InputStream &in,
+      BufferedImage::Ref load(core::InputStream &in,
                               std::string source_name, std::string format_name = "",
-                              Core::Logger *l = &Core::Logger::get_default_logger(),
+                              core::Logger *l = &core::Logger::get_default_logger(),
                               FileFormat::ProgressTracker *t = 0,
                               FileFormat::Registry::ConstRefArg r =
-                              Core::CntRefNullTag());
+                              core::CntRefNullTag());
 
 
       /**
@@ -130,15 +130,15 @@ namespace archon
        * \throw InvalidFormatException When a fatal error occurs
        * during parsing of the stream contents.
        *
-       * \throw Core::ReadException If reading from the file fails.
+       * \throw core::ReadException If reading from the file fails.
        *
        * \sa FileFormat::Registry::new_registry
        */
       BufferedImage::Ref load(std::string file_path, std::string format_name = "",
-                              Core::Logger *l = &Core::Logger::get_default_logger(),
+                              core::Logger *l = &core::Logger::get_default_logger(),
                               FileFormat::ProgressTracker *t = 0,
                               FileFormat::Registry::ConstRefArg r =
-                              Core::CntRefNullTag());
+                              core::CntRefNullTag());
 
 
       /**
@@ -180,16 +180,16 @@ namespace archon
        * \throw UnknownFormatException If an explicite format is
        * specified but does not correspond to a known type.
        *
-       * \throw Core::WriteException If writing to the stream fails.
+       * \throw core::WriteException If writing to the stream fails.
        *
        * \sa FileFormat::Registry::new_registry
        */
-      void save(Image::ConstRefArg image, Core::OutputStream &out,
+      void save(Image::ConstRefArg image, core::OutputStream &out,
 		std::string target_name, std::string format_name = "",
-		Core::Logger *l = &Core::Logger::get_default_logger(),
+		core::Logger *l = &core::Logger::get_default_logger(),
                 FileFormat::ProgressTracker *t = 0,
 		FileFormat::Registry::ConstRefArg r =
-                Core::CntRefNullTag());
+                core::CntRefNullTag());
 
 
       /**
@@ -227,16 +227,16 @@ namespace archon
        * \throw UnknownFormatException If an explicite format is
        * specified but does not correspond to a known type.
        *
-       * \throw Core::WriteException If writing to the file fails.
+       * \throw core::WriteException If writing to the file fails.
        *
        * \sa FileFormat::Registry::new_registry
        */
       void save(Image::ConstRefArg image,
                 std::string file_path, std::string format_name = "",
-		Core::Logger *l = &Core::Logger::get_default_logger(),
+		core::Logger *l = &core::Logger::get_default_logger(),
                 FileFormat::ProgressTracker *t = 0,
 		FileFormat::Registry::ConstRefArg r =
-                Core::CntRefNullTag());
+                core::CntRefNullTag());
     }
 
 

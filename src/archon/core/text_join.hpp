@@ -34,7 +34,7 @@
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     namespace _Impl { template<class, class> struct TextJoin; }
 

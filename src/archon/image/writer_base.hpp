@@ -101,7 +101,7 @@ namespace archon
       bool write_cvt_is_blending; // Only initialized when not noop
 
       PixelConverter blend_read_cvt; // Reads to RGB / RGBA in best_float word type.
-      Core::MemoryBuffer blend_read_buffer;
+      core::MemoryBuffer blend_read_buffer;
       bool blend_read_cvt_initialized;
 
 

@@ -72,7 +72,7 @@ namespace archon
       static int const uint_bits =
         (sizeof (unsigned) < sizeof (K) ? sizeof (K) : sizeof (unsigned)) *
         std::numeric_limits<unsigned char>::digits;
-      typedef typename Core::SmallestUnsignedWithBits<uint_bits>::type uint_type;
+      typedef typename core::SmallestUnsignedWithBits<uint_bits>::type uint_type;
       ARCHON_STATIC_ASSERT(sizeof (K) <= sizeof (uint_type), "Key type has too many bits");
       typedef std::map<uint_type, V *> map_type;
 

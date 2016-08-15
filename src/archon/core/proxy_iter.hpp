@@ -31,7 +31,7 @@
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     template<typename Proxy, typename RepIter> struct ProxyBase
     {

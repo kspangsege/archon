@@ -81,7 +81,7 @@ this is not the case.
 #include <archon/font/text_format.hpp>
 
 using namespace std;
-using namespace archon::Core;
+using namespace archon::core;
 using namespace archon::Math;
 using namespace archon::Font;
 
@@ -756,7 +756,7 @@ void TextFormatter::adjust_lateral_line_span(const Math::Interval& span, bool in
 }
 
 
-archon::Core::EnumAssoc TextFormatter::WordWrapSpec::map[] =
+archon::core::EnumAssoc TextFormatter::WordWrapSpec::map[] =
 {
     { TextFormatter::word_wrap_No,      "no"      },
     { TextFormatter::word_wrap_Yes,     "yes"     },

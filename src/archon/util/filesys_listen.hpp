@@ -65,17 +65,17 @@ namespace archon
        *
        * \return True if the timeout was reached.
        *
-       * \throw Core::InterruptException If the waiting
+       * \throw core::InterruptException If the waiting
        * thread is interrupted.
        */
-      virtual bool wait(Core::Time timeout = 0) = 0;
+      virtual bool wait(core::Time timeout = 0) = 0;
 
       /**
        * Forget about past events.
        */
       virtual void clear() = 0;
 
-      static Core::UniquePtr<FileSystemListener> new_listener(std::string path);
+      static core::UniquePtr<FileSystemListener> new_listener(std::string path);
 
       virtual ~FileSystemListener() {}
     };

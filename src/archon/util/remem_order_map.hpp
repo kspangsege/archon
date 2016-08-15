@@ -47,8 +47,8 @@ namespace archon
     private:
       typedef std::map<K,V> Map;
       typedef std::vector<typename Map::iterator> Vec;
-      typedef Core::DoubleDeref<typename Vec::iterator> Deref;
-      typedef Core::DoubleDeref<typename Vec::const_iterator> ConstDeref;
+      typedef core::DoubleDeref<typename Vec::iterator> Deref;
+      typedef core::DoubleDeref<typename Vec::const_iterator> ConstDeref;
 
     public:
       typedef K                            key_type;
@@ -78,8 +78,8 @@ namespace archon
        * Special random access iterator that remembers the order in
        * which associations are added to this map.
        */
-      typedef Core::CustomDerefIter<Deref,      value_type>       remem_order_iterator;
-      typedef Core::CustomDerefIter<ConstDeref, value_type const> const_remem_order_iterator;
+      typedef core::CustomDerefIter<Deref,      value_type>       remem_order_iterator;
+      typedef core::CustomDerefIter<ConstDeref, value_type const> const_remem_order_iterator;
 
       remem_order_iterator remem_order_begin() { return remem_order_iterator(vec.begin()); }
       remem_order_iterator remem_order_end()   { return remem_order_iterator(vec.end());   }

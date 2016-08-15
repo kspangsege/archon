@@ -73,7 +73,7 @@ namespace archon
      */
     struct Conductor
     {
-      static Core::UniquePtr<Conductor> create();
+      static core::UniquePtr<Conductor> create();
 
       /**
        * Add another pipeline to this conductor.

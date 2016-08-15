@@ -44,7 +44,7 @@
 #include <archon/image/oper.hpp>
 
 
-using namespace archon::Core;
+using namespace archon::core;
 using namespace archon::Util;
 using namespace archon::Math;
 using namespace archon::Imaging;

@@ -214,7 +214,7 @@ We can only generally blend in RGB space. For example, a linear blending in HSV 
       size_t const bufferSize; // Number of bytes per per buffer
       int const imageWidth, imageHeight; // Actual dimmensions of accessed image
       int posX, posY, clipLeft, clipRight, clipBottom, clipTop;
-      Core::MemoryBuffer buffers[2], colorBuffer;
+      core::MemoryBuffer buffers[2], colorBuffer;
     };
 
 
@@ -241,7 +241,7 @@ We can only generally blend in RGB space. For example, a linear blending in HSV 
       ImageWriter &getPixel(unsigned long &p) { ImageReader::getPixel(p); return *this; }
       template<typename T>
       ImageWriter &getBlock(T *t, int w, int h,
-                            ColorSpace const *c = Core::CntRefNullTag()) { ImageReader::getBlock(t,w,h,c); return *this; }
+                            ColorSpace const *c = core::CntRefNullTag()) { ImageReader::getBlock(t,w,h,c); return *this; }
 
     private:
       void putImage(Image const *, Image::Accessor const *);
@@ -793,10 +793,10 @@ std::cerr << "target pixel type = " << (targetColorSpace ? targetColorSpace->get
 
     inline ImageReader &ImageReader::setClip(int l, int b, int w, int h)
     {
-      clipLeft   = Core::clamp(l, 0, imageWidth);
-      clipBottom = Core::clamp(b, 0, imageHeight);
-      clipRight  = w < 0 ? imageWidth  : Core::clamp(l + w, 0, imageWidth);
-      clipTop    = h < 0 ? imageHeight : Core::clamp(b + h, 0, imageHeight);
+      clipLeft   = core::clamp(l, 0, imageWidth);
+      clipBottom = core::clamp(b, 0, imageHeight);
+      clipRight  = w < 0 ? imageWidth  : core::clamp(l + w, 0, imageWidth);
+      clipTop    = h < 0 ? imageHeight : core::clamp(b + h, 0, imageHeight);
       return *this;
     }
 
@@ -810,12 +810,12 @@ std::cerr << "target pixel type = " << (targetColorSpace ? targetColorSpace->get
 
       int const n = std::numeric_limits<unsigned char>::digits;
       unsigned long q =
-        static_cast<unsigned long>(Core::adjustFracBitWidth<unsigned>(b[0], n, 8)) << 16 |
-        static_cast<unsigned long>(Core::adjustFracBitWidth<unsigned>(b[1], n, 8)) <<  8 |
-        static_cast<unsigned long>(Core::adjustFracBitWidth<unsigned>(b[2], n, 8));
+        static_cast<unsigned long>(core::adjustFracBitWidth<unsigned>(b[0], n, 8)) << 16 |
+        static_cast<unsigned long>(core::adjustFracBitWidth<unsigned>(b[1], n, 8)) <<  8 |
+        static_cast<unsigned long>(core::adjustFracBitWidth<unsigned>(b[2], n, 8));
       if(hasAlpha)
         q |= static_cast<unsigned long>(255u - 
-                                        Core::adjustFracBitWidth<unsigned>(b[3], n, 8)) << 24;
+                                        core::adjustFracBitWidth<unsigned>(b[3], n, 8)) << 24;
       p = q;
       return *this;
     }
@@ -895,7 +895,7 @@ std::cerr << "CLEAR READERS TRAY" << std::endl;
       char *b = cvt.getInternalSource();
       fetchColor(false, b); // Backgound color into converters source buffer
       cvt(b, g.origin, 1);  // Convert to tray format
-      Core::extendTupleGrid(Core::Grid<char *>(g.origin, 1, 1, g.pitch, g.stride), op.targetPixelSize,
+      core::extendTupleGrid(core::Grid<char *>(g.origin, 1, 1, g.pitch, g.stride), op.targetPixelSize,
                             0, 0, 0, 0, 0, w, 0, h);
     }
 
@@ -925,7 +925,7 @@ std::cerr << "FETCH COLOR("<<fg<<")" << std::endl;
 
     inline char *ImageReader::getBuf(bool w)
     {
-      Core::MemoryBuffer &b = buffers[w ? 1 : 0];
+      core::MemoryBuffer &b = buffers[w ? 1 : 0];
       if(!b) b.reset(bufferSize);
       return b.get();
     }
@@ -1184,10 +1184,10 @@ std::cerr << "trayHeight = " << trayHeight << std::endl;
       unsigned t = static_cast<unsigned>(p>>24) & 0xFFu;
       unsigned char b[4] =
         {
-          Core::adjustFracBitWidth(static_cast<unsigned>(p>>16) & 0xFFu, 8, n),
-          Core::adjustFracBitWidth(static_cast<unsigned>(p>>8)  & 0xFFu, 8, n),
-          Core::adjustFracBitWidth(static_cast<unsigned>(p)     & 0xFFu, 8, n),
-          Core::adjustFracBitWidth(255u - t,                         8, n)
+          core::adjustFracBitWidth(static_cast<unsigned>(p>>16) & 0xFFu, 8, n),
+          core::adjustFracBitWidth(static_cast<unsigned>(p>>8)  & 0xFFu, 8, n),
+          core::adjustFracBitWidth(static_cast<unsigned>(p)     & 0xFFu, 8, n),
+          core::adjustFracBitWidth(255u - t,                         8, n)
         };
 
       // Request RGB if accessed image uses RGB, otherwise request RGBA.

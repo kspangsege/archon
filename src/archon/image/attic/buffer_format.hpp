@@ -13,7 +13,7 @@ namespace archon
 {
   namespace Imaging
   {
-    struct BufferFormat: virtual Core::CntRefObjectBase, Core::CntRefDefs<BufferFormat>
+    struct BufferFormat: virtual core::CntRefObjectBase, core::CntRefDefs<BufferFormat>
     {
       static BufferFormat::Ref newDefaultFormat()
       {
@@ -28,7 +28,7 @@ namespace archon
                                     verticalStrips, wordAlignStrip));
       }
 
-      virtual Core::UniquePtr<BufferCodec> newCodec() const = 0;
+      virtual core::UniquePtr<BufferCodec> newCodec() const = 0;
     };
   }
 }

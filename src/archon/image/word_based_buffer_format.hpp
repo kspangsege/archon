@@ -60,8 +60,8 @@ namespace archon
     {
       // We need to define these manually to avoid ambiguity with the
       // cousins in BufferFormat.
-      typedef Core::CntRef<WordBasedBufferFormat>        Ref;
-      typedef Core::CntRef<WordBasedBufferFormat const>  ConstRef;
+      typedef core::CntRef<WordBasedBufferFormat>        Ref;
+      typedef core::CntRef<WordBasedBufferFormat const>  ConstRef;
       typedef Ref                                 const &RefArg;
       typedef ConstRef                            const &ConstRefArg;
 
@@ -88,7 +88,7 @@ namespace archon
        * will be ignored, and this method will decide whether or not
        * an alpha channel is present.
        */
-      virtual std::string print(ColorSpace::ConstRefArg color_space = Core::CntRefNullTag(),
+      virtual std::string print(ColorSpace::ConstRefArg color_space = core::CntRefNullTag(),
                                 bool has_alpha = false) const = 0;
     };
 

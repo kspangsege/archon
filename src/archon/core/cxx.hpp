@@ -32,7 +32,7 @@
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     /**
      * Functions for demangling C++ type names.

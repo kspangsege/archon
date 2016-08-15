@@ -99,11 +99,11 @@ namespace archon
      */
     template<typename T, typename H>
     struct KdTreeMap:
-      BasicKdTree<T, std::pair<T const *, H>, Core::SelectFirst<std::pair<T const *, H> > >
+      BasicKdTree<T, std::pair<T const *, H>, core::SelectFirst<std::pair<T const *, H> > >
     {
     private:
       typedef std::pair<T const *, H> P;
-      typedef BasicKdTree<T, P, Core::SelectFirst<P> > B;
+      typedef BasicKdTree<T, P, core::SelectFirst<P> > B;
 
     public:
       KdTreeMap(int num_components): B(num_components) {}
@@ -123,10 +123,10 @@ namespace archon
      * A kd-tree specialized to work roughly as a set.
      */
     template<typename T>
-    struct KdTreeSet: BasicKdTree<T, T const *, Core::Identity<T const *> >
+    struct KdTreeSet: BasicKdTree<T, T const *, core::Identity<T const *> >
     {
     private:
-      typedef BasicKdTree<T, T const *, Core::Identity<T const *> > B;
+      typedef BasicKdTree<T, T const *, core::Identity<T const *> > B;
 
     public:
       KdTreeSet(int num_components): B(num_components) {}

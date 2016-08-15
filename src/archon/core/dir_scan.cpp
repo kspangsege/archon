@@ -59,7 +59,7 @@
 
 
 using namespace std;
-using namespace archon::Core;
+using namespace archon::core;
 
 
 namespace
@@ -158,7 +158,7 @@ namespace
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     UniquePtr<DirScanner> DirScanner::new_dir_scanner(string path, bool include_special)
     {

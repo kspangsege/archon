@@ -78,7 +78,7 @@ namespace
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     void Histogram::print(ostream &out, bool include_under_over, int max_width)
     {

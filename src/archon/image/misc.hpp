@@ -52,10 +52,10 @@ namespace archon
 
     namespace _Impl
     {
-      struct FalloffSpec { static Core::EnumAssoc map[]; };
+      struct FalloffSpec { static core::EnumAssoc map[]; };
     }
 
-    typedef Core::Enum<Falloff, _Impl::FalloffSpec> FalloffEnum;
+    typedef core::Enum<Falloff, _Impl::FalloffSpec> FalloffEnum;
   }
 }
 

@@ -34,7 +34,7 @@ namespace Render {
 
 class Dialog {
 public:
-    typedef Core::SharedPtr<Dialog> Ptr;
+    typedef core::SharedPtr<Dialog> Ptr;
     typedef Ptr const &Arg;
 
     virtual void show() = 0;

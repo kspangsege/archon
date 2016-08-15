@@ -57,7 +57,7 @@ void add_history(char const *);
 
 
 using namespace std;
-using namespace archon::Core;
+using namespace archon::core;
 using namespace archon::Util;
 
 namespace

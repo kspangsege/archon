@@ -33,7 +33,7 @@
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     /**
      * This class acts as a sentry, and can be used to safely rollback

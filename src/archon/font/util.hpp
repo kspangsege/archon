@@ -65,7 +65,7 @@ namespace archon
        *
        * The default is (0,0).
        */
-      Core::Series<2, double> size;
+      core::Series<2, double> size;
 
       /**
        * Set to true if you only want the list of available fonts to
@@ -93,7 +93,7 @@ namespace archon
        */
       std::string file;
 
-      void populate(Core::ConfigBuilder &cfg);
+      void populate(core::ConfigBuilder &cfg);
 
       ListConfig();
     };
@@ -123,7 +123,7 @@ namespace archon
        */
       bool italic;
 
-      void populate(Core::ConfigBuilder &cfg);
+      void populate(core::ConfigBuilder &cfg);
 
       FontConfig();
     };
@@ -138,7 +138,7 @@ namespace archon
      * \param resource_dir The directory holding the font loader
      * resources.
      */
-    Core::UniquePtr<FontFace> load_font(std::string resource_dir, FontConfig const &cfg);
+    core::UniquePtr<FontFace> load_font(std::string resource_dir, FontConfig const &cfg);
 
 
     /**

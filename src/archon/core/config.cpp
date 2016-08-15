@@ -31,7 +31,7 @@
 
 
 using namespace std;
-using namespace archon::Core;
+using namespace archon::core;
 
 
 namespace
@@ -42,7 +42,7 @@ namespace
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     string ConfigBuilder::ParamBase::print_type(type_info const &type) const
     {

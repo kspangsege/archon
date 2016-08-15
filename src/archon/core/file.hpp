@@ -37,7 +37,7 @@
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     /**
      * Functions for working with the file system.
@@ -109,7 +109,7 @@ namespace archon
        * entries "." and ".." to be included.
        *
        * \note This is just a wrapper around
-       * <tt>Core::DirScanner</tt>.
+       * <tt>core::DirScanner</tt>.
        */
       void scan_dir(std::string dir_path, std::vector<std::string> &result, bool include_special = false);
 

@@ -39,9 +39,9 @@
  * the output encoding. The default is to simply output a replacement
  * character in these cases. On request, the transcode function will
  * throw a <tt>TranscodeException</tt>, the streams will throw a \c
- * Core::ReadException or \c Core::WriteException depending on
+ * core::ReadException or \c core::WriteException depending on
  * direction, and the \c encode and \c decode methods of the codec
- * will throw Core::EncodeException or \c Core::DecodeException
+ * will throw core::EncodeException or \c core::DecodeException
  * depending on direction.
  *
  * \note The implementation is currently based on the \c iconv
@@ -209,7 +209,7 @@ namespace archon
      * stream will be encoded using this character encoding.
      *
      * \param fail Pass true if you want the \c read method of the
-     * new stream to throw a \c Core::ReadException when an input
+     * new stream to throw a \c core::ReadException when an input
      * character could not be converted. The default is to convert
      * it silently to a replacement character.
      *
@@ -221,8 +221,8 @@ namespace archon
      *
      * \sa http://www.iana.org/assignments/character-sets
      */
-    Core::UniquePtr<Core::InputStream>
-    get_transcoding_input_stream(Core::InputStream &in,
+    core::UniquePtr<core::InputStream>
+    get_transcoding_input_stream(core::InputStream &in,
                                  std::string source_encoding,
                                  std::string target_encoding, bool fail = false);
 
@@ -243,7 +243,7 @@ namespace archon
      * stream will be encoded using this character encoding.
      *
      * \param fail Pass true if you want the \c write method of the
-     * new stream to throw a \c Core::WriteException when an output
+     * new stream to throw a \c core::WriteException when an output
      * character could not be converted. The default is to convert
      * it silently to a replacement character.
      *
@@ -255,8 +255,8 @@ namespace archon
      *
      * \sa http://www.iana.org/assignments/character-sets
      */
-    Core::UniquePtr<Core::OutputStream>
-    get_transcoding_output_stream(Core::OutputStream &out,
+    core::UniquePtr<core::OutputStream>
+    get_transcoding_output_stream(core::OutputStream &out,
                                   std::string source_encoding,
                                   std::string target_encoding, bool fail = false);
 
@@ -278,7 +278,7 @@ namespace archon
      *
      * \return The requested codec object.
      */
-    Core::UniquePtr<Core::WideCodec const>
+    core::UniquePtr<core::WideCodec const>
     get_transcoding_codec(std::string encoding, bool fail = false);
 
 
@@ -362,7 +362,7 @@ namespace archon
 
 
     typedef BasicTranscoder<char, char>            Transcoder;
-    typedef BasicTranscoder<char, Core::CharUtf16> TranscoderToUtf16;
+    typedef BasicTranscoder<char, core::CharUtf16> TranscoderToUtf16;
 
 
 
@@ -392,7 +392,7 @@ namespace archon
      *
      * \sa http://www.iana.org/assignments/character-sets
      */
-    Core::UniquePtr<Transcoder> get_transcoder(std::string input_encoding,
+    core::UniquePtr<Transcoder> get_transcoder(std::string input_encoding,
                                                std::string output_encoding,
                                                bool fail = false);
 
@@ -401,12 +401,12 @@ namespace archon
     /**
      * A convenience function for transcoding to UTF-16 when the
      * result is needed as a sequence of elements of type
-     * Core::CharUtf16.
+     * core::CharUtf16.
      *
      * Same as get_transcoder() but delivers result as a sequence of
-     * characters of type Core::CharUtf16.
+     * characters of type core::CharUtf16.
      */
-    Core::UniquePtr<TranscoderToUtf16> get_transcoder_to_utf16(std::string input_encoding,
+    core::UniquePtr<TranscoderToUtf16> get_transcoder_to_utf16(std::string input_encoding,
                                                                bool fail = false);
 
 

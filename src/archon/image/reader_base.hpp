@@ -129,7 +129,7 @@ namespace archon
       Falloff horiz_falloff, vert_falloff;
 
     private:
-      Core::MemoryBuffer color_slot_buffer;
+      core::MemoryBuffer color_slot_buffer;
 
       double pos_x, pos_y, pos_align_x, pos_align_y;
 
@@ -277,10 +277,10 @@ namespace archon
 
     inline void ReaderBase::set_clip(int l, int b, int w, int h)
     {
-      clip_left   = Core::clamp(l, 0, image_width);
-      clip_bottom = Core::clamp(b, 0, image_height);
-      clip_right  = w < 0 ? image_width  : Core::clamp(l + w, clip_left,   image_width);
-      clip_top    = h < 0 ? image_height : Core::clamp(b + h, clip_bottom, image_height);
+      clip_left   = core::clamp(l, 0, image_width);
+      clip_bottom = core::clamp(b, 0, image_height);
+      clip_right  = w < 0 ? image_width  : core::clamp(l + w, clip_left,   image_width);
+      clip_top    = h < 0 ? image_height : core::clamp(b + h, clip_bottom, image_height);
     }
 
 
@@ -508,7 +508,7 @@ namespace archon
 
       case falloff_Repeat:
         {
-          int const l = Core::modulo(falloff_left, clip_width);
+          int const l = core::modulo(falloff_left, clip_width);
           int const l2 = l ? l : clip_width;
           if(w <= l2)
           {

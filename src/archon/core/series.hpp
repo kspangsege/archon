@@ -33,7 +33,7 @@
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     template<int N, class T> struct SeriesBase
     {

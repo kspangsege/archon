@@ -34,10 +34,10 @@ namespace archon
 {
   namespace dom
   {
-    typedef Core::IntMin16  int16;
-    typedef Core::UIntMin16 uint16;
-    typedef Core::IntMin32  int32;
-    typedef Core::UIntMin32 uint32;
+    typedef core::IntMin16  int16;
+    typedef core::UIntMin16 uint16;
+    typedef core::IntMin32  int32;
+    typedef core::UIntMin32 uint32;
   }
 }
 

@@ -35,7 +35,7 @@
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     enum BuildConfigParam
     {

@@ -42,8 +42,8 @@ namespace archon
     template<typename Ch, typename Tok = short unsigned, typename Tr = FsaTraits<Ch, Tok> >
     struct DfaBase: FsaBase<Ch, Tok, Tr>
     {
-      typedef Core::CntRef<DfaBase>        Ref;
-      typedef Core::CntRef<DfaBase const>  ConstRef;
+      typedef core::CntRef<DfaBase>        Ref;
+      typedef core::CntRef<DfaBase const>  ConstRef;
       typedef Ref const                   &RefArg;
       typedef ConstRef const              &ConstRefArg;
     };

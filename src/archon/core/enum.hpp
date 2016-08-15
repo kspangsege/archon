@@ -36,7 +36,7 @@
 
 
 namespace archon {
-namespace Core {
+namespace core {
 
 /**
  * This template class allows you to endow a fundamental \c enum type
@@ -192,7 +192,7 @@ std::basic_istream<C,T>& operator>>(std::basic_istream<C,T>& i,
     return i;
 }
 
-} // namespace Core
+} // namespace core
 } // namespace archon
 
 #endif // ARCHON_CORE_ENUM_HPP

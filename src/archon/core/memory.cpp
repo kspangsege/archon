@@ -63,7 +63,7 @@ namespace
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     bool compare_endianness(vector<bool> const &a, vector<bool> const &b,
                             int levels)

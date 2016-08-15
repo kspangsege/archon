@@ -55,7 +55,7 @@
 #include <archon/render/app.hpp>
 
 
-using namespace archon::Core;
+using namespace archon::core;
 using namespace archon::Math;
 using namespace archon::Util;
 using namespace archon::Imaging;
@@ -674,7 +674,7 @@ namespace Render {
 
 class Application::PrivateState: public PrivateApplicationState {
 public:
-    static archon::Core::SharedPtr<PrivateState>
+    static archon::core::SharedPtr<PrivateState>
     create(const Config& cfg, const std::locale& loc,
            TextureCache* texture_cache, FontCache::Arg font_cache)
     {
@@ -1585,7 +1585,7 @@ Application::Config::Config():
 }
 
 
-void Application::Config::populate(Core::ConfigBuilder& cfg)
+void Application::Config::populate(core::ConfigBuilder& cfg)
 {
     cfg.add_param("f", "frame-rate", frame_rate,
                   "The initial frame rate. The frame rate marks the upper limit of frames "

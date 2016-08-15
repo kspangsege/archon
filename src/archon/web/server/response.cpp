@@ -27,7 +27,7 @@
 #include <archon/web/server/response.hpp>
 
 
-using namespace archon::Core;
+using namespace archon::core;
 
 
 namespace archon

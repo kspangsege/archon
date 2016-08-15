@@ -64,7 +64,7 @@ namespace archon
      * context of another thread. This is exactly what this thread
      * class supports. If a thread gets an interruption request, then
      * any current or future call to any of the following methods will
-     * throw a <tt>Core::InterruptException</tt>.
+     * throw a <tt>core::InterruptException</tt>.
      *
      * <pre>
      *
@@ -104,7 +104,7 @@ namespace archon
      * explicitly interrupt the thread in B. So, why not add a feature
      * to Thread that supports this behaviour directly?
      */
-    struct Thread: virtual Core::CntRefObjectBase, Core::CntRefDefs<Thread>
+    struct Thread: virtual core::CntRefObjectBase, core::CntRefDefs<Thread>
     {
       struct AlreadyStartedException: std::runtime_error
       {
@@ -132,10 +132,10 @@ namespace archon
        * also a dynamically allocated object.
        */
       template<typename Obj>
-      static Ref run(Core::CntRef<Obj>, void (Obj::*)(), bool start = true);
+      static Ref run(core::CntRef<Obj>, void (Obj::*)(), bool start = true);
 
       /**
-       * Like Thread::run(Core::CntRef<Obj>, void (Obj::*)()) except
+       * Like Thread::run(core::CntRef<Obj>, void (Obj::*)()) except
        * that it invokes a method taking one argument, and you get to
        * specify that extra argument when calling this method.
        *
@@ -143,7 +143,7 @@ namespace archon
        * argument, since copying is essential to thread safty.
        */
       template<typename Obj, typename Arg>
-      static Ref run(Core::CntRef<Obj>, void (Obj::*)(Arg), Arg, bool start = true);
+      static Ref run(core::CntRef<Obj>, void (Obj::*)(Arg), Arg, bool start = true);
 
       /**
        * Let a new thread invoke a method of your choise on a object
@@ -213,7 +213,7 @@ namespace archon
        * you do, you might get back (from the constructor) an object
        * which has already been deleted.
        *
-       * \sa Core::CntRef<T>
+       * \sa core::CntRef<T>
        *
        * \note This method is thread-safe.
        *
@@ -232,7 +232,7 @@ namespace archon
        *
        * \throw NotStartedException If this thread was never started.
        *
-       * \throw Core::InterruptException If \c force was not true
+       * \throw core::InterruptException If \c force was not true
        * and some other thread has called the \c interrupt method of
        * the calling thread.
        *
@@ -258,7 +258,7 @@ namespace archon
        * </pre>
        *
        * by this thread to imediately throw a
-       * <tt>Core::InterruptException</tt>. This method will
+       * <tt>core::InterruptException</tt>. This method will
        * normally be called by some other thread in the intent to
        * bring the execution of this thread to an end.
        *
@@ -285,14 +285,14 @@ namespace archon
        * Make the calling thread sleep for the specified amount of
        * time.
        *
-       * \throw Core::InterruptException If some other thread has
+       * \throw core::InterruptException If some other thread has
        * called the \c interrupt method for this thread.
        *
-       * \sa Core::Time
+       * \sa core::Time
        *
        * \note This method is thread-safe.
        */
-      static void sleep(Core::Time const &period);
+      static void sleep(core::Time const &period);
 
       /**
        * Make the calling thread sleep until the specified point in
@@ -302,14 +302,14 @@ namespace archon
        * The sleeping will not be interrupted due to reception of a
        * UNIX system signal.
        *
-       * \throw Core::InterruptException If some other thread has
+       * \throw core::InterruptException If some other thread has
        * called the \c interrupt method for this thread.
        *
-       * \sa Core::Time
+       * \sa core::Time
        *
        * \note This method is thread-safe.
        */
-      static void sleep_until(Core::Time const &timeout);
+      static void sleep_until(core::Time const &timeout);
 
 
       /**
@@ -318,7 +318,7 @@ namespace archon
        *
        * \note This method is thread-safe.
        */
-      static bool select(SelectSpec &s, Core::Time timeout = 0);
+      static bool select(SelectSpec &s, core::Time timeout = 0);
 
 
       /**
@@ -329,7 +329,7 @@ namespace archon
        * more frequent this method is called, the shorter the response
        * to an interruption request will be.
        *
-       * \throw Core::InterruptException If some other thread has
+       * \throw core::InterruptException If some other thread has
        * called the \c interrupt method for this thread.
        *
        * \note This method is thread-safe.
@@ -394,7 +394,7 @@ namespace archon
        * reached. If \c timeout was 0, this method will always return
        * false.
        */
-      static bool main_exit_wait(Core::Time timeout = 0);
+      static bool main_exit_wait(core::Time timeout = 0);
 
     protected:
       /**
@@ -425,7 +425,7 @@ namespace archon
       // simultaneously.
       Ref self_ref;
 
-      Core::Mutex mutex;
+      core::Mutex mutex;
       bool started; // Protected by 'mutex'.
       bool terminated; // Protected by 'mutex'.
       Condition termination; // Protected by 'mutex'.
@@ -443,7 +443,7 @@ namespace archon
 
       static pthread_key_t self_key;
       static pthread_once_t self_key_once;
-      static Core::Mutex active_threads_mutex;
+      static core::Mutex active_threads_mutex;
       static Condition::SimpleCond last_active_thread;
       static unsigned long active_threads;
     };
@@ -460,34 +460,34 @@ namespace archon
                              current_wait_cond(0), interrupted(false), interrupting(false) {}
 
 
-    inline bool Thread::select(SelectSpec &s, Core::Time t)
+    inline bool Thread::select(SelectSpec &s, core::Time t)
     {
-      Core::Mutex m;
+      core::Mutex m;
       Condition c(m);
-      Core::Mutex::Lock l(m);
+      core::Mutex::Lock l(m);
       return c.select(s,t);
     }
 
 
     template<typename Obj> struct RefCntMethodVoidRunner: Thread
     {
-      Core::CntRef<Obj> obj;
+      core::CntRef<Obj> obj;
       void (Obj::*meth)();
-      RefCntMethodVoidRunner(Core::CntRef<Obj> o, void (Obj::*m)()): obj(o), meth(m) {}
+      RefCntMethodVoidRunner(core::CntRef<Obj> o, void (Obj::*m)()): obj(o), meth(m) {}
       void main()
       {
 	// The swap is used to ensure that we do not hold on the the
 	// reference counted object any longer than we need to.
-	Core::CntRef<Obj> o;
+	core::CntRef<Obj> o;
 	o.swap(obj);
 	(o.get()->*meth)();
       }
     };
 
     template<typename Obj>
-    inline Core::CntRef<Thread> Thread::run(Core::CntRef<Obj> o, void (Obj::*m)(), bool s)
+    inline core::CntRef<Thread> Thread::run(core::CntRef<Obj> o, void (Obj::*m)(), bool s)
     {
-      Core::CntRef<RefCntMethodVoidRunner<Obj> > r(new RefCntMethodVoidRunner<Obj>(o,m));
+      core::CntRef<RefCntMethodVoidRunner<Obj> > r(new RefCntMethodVoidRunner<Obj>(o,m));
       if(s) start(r);
       return r;
     }
@@ -496,10 +496,10 @@ namespace archon
 
     template<typename Obj, typename Arg> struct RefCntMethodArgRunner: Thread
     {
-      Core::CntRef<Obj> obj;
+      core::CntRef<Obj> obj;
       void (Obj::*meth)(Arg);
       Arg arg;
-      RefCntMethodArgRunner(Core::CntRef<Obj> o, void (Obj::*m)(Arg), Arg a):
+      RefCntMethodArgRunner(core::CntRef<Obj> o, void (Obj::*m)(Arg), Arg a):
         obj(o), meth(m), arg(a) {}
 
       void main()
@@ -509,7 +509,7 @@ namespace archon
 	// to. The second one is to ensure that when the argument owns
 	// some resource (e.g. if it is a smart pointer) then we do
 	// not hold on to that resource any longer that we need to.
-	Core::CntRef<Obj> o;
+	core::CntRef<Obj> o;
 	Arg a;
 	o.swap(obj);
 	std::swap(a, arg);
@@ -518,9 +518,9 @@ namespace archon
     };
 
     template<typename Obj, typename Arg>
-    inline Core::CntRef<Thread> Thread::run(Core::CntRef<Obj> o, void (Obj::*m)(Arg), Arg a, bool s)
+    inline core::CntRef<Thread> Thread::run(core::CntRef<Obj> o, void (Obj::*m)(Arg), Arg a, bool s)
     {
-      Core::CntRef<RefCntMethodArgRunner<Obj, Arg> > r(new RefCntMethodArgRunner<Obj, Arg>(o,m,a));
+      core::CntRef<RefCntMethodArgRunner<Obj, Arg> > r(new RefCntMethodArgRunner<Obj, Arg>(o,m,a));
       if(s) start(r);
       return r;
     }
@@ -536,9 +536,9 @@ namespace archon
     };
 
     template<typename Obj>
-    inline Core::CntRef<Thread> Thread::run(Obj *o, void (Obj::*m)(), bool s)
+    inline core::CntRef<Thread> Thread::run(Obj *o, void (Obj::*m)(), bool s)
     {
-      Core::CntRef<MethodVoidRunner<Obj> > r(new RefCntMethodVoidRunner<Obj>(o,m));
+      core::CntRef<MethodVoidRunner<Obj> > r(new RefCntMethodVoidRunner<Obj>(o,m));
       if(s) start(r);
       return r;
     }
@@ -564,9 +564,9 @@ namespace archon
     };
 
     template<typename Obj, typename Arg>
-    inline Core::CntRef<Thread> Thread::run(Obj *o, void (Obj::*m)(Arg), Arg a, bool s)
+    inline core::CntRef<Thread> Thread::run(Obj *o, void (Obj::*m)(Arg), Arg a, bool s)
     {
-      Core::CntRef<MethodArgRunner<Obj, Arg> > r(new MethodArgRunner<Obj, Arg>(o,m,a));
+      core::CntRef<MethodArgRunner<Obj, Arg> > r(new MethodArgRunner<Obj, Arg>(o,m,a));
       if(s) start(r);
       return r;
     }
@@ -580,9 +580,9 @@ namespace archon
       void main() { (*func)(); }
     };
 
-    inline Core::CntRef<Thread> Thread::run(void (*f)(), bool s)
+    inline core::CntRef<Thread> Thread::run(void (*f)(), bool s)
     {
-      Core::CntRef<FuncVoidRunner> r(new FuncVoidRunner(f));
+      core::CntRef<FuncVoidRunner> r(new FuncVoidRunner(f));
       if(s) start(r);
       return r;
     }
@@ -606,9 +606,9 @@ namespace archon
     };
 
     template<typename Arg>
-    inline Core::CntRef<Thread> Thread::run(void (*f)(Arg), Arg a, bool s)
+    inline core::CntRef<Thread> Thread::run(void (*f)(Arg), Arg a, bool s)
     {
-      Core::CntRef<FuncArgRunner<Arg> > r(new FuncArgRunner<Arg>(f,a));
+      core::CntRef<FuncArgRunner<Arg> > r(new FuncArgRunner<Arg>(f,a));
       if(s) start(r);
       return r;
     }

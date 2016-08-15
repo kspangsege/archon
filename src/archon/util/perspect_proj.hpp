@@ -525,12 +525,12 @@ namespace archon
 
       int get_viewport_width_pixels()
       {
-        return Core::archon_round(get_viewport_width_meters() / horiz_dot_pitch);
+        return core::archon_round(get_viewport_width_meters() / horiz_dot_pitch);
       }
 
       int get_viewport_height_pixels()
       {
-        return Core::archon_round(get_viewport_height_meters() / vert_dot_pitch);
+        return core::archon_round(get_viewport_height_meters() / vert_dot_pitch);
       }
 
       void set_viewport_size_pixels(int width, int height)

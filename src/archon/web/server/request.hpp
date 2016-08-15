@@ -77,12 +77,12 @@ namespace archon
 
       namespace _Impl
       {
-        struct MethodSpec   { static Core::EnumAssoc map[]; };
-        struct ProtocolSpec { static Core::EnumAssoc map[]; };
+        struct MethodSpec   { static core::EnumAssoc map[]; };
+        struct ProtocolSpec { static core::EnumAssoc map[]; };
       }
 
-      typedef Core::Enum<Method,   _Impl::MethodSpec>   MethodEnum;
-      typedef Core::Enum<Protocol, _Impl::ProtocolSpec> ProtocolEnum;
+      typedef core::Enum<Method,   _Impl::MethodSpec>   MethodEnum;
+      typedef core::Enum<Protocol, _Impl::ProtocolSpec> ProtocolEnum;
     }
   }
 }

@@ -40,7 +40,7 @@
 
 
 namespace archon {
-namespace Core {
+namespace core {
 
 namespace _Impl { typedef UIntMin16 CharUtf16_int; }
 
@@ -76,7 +76,7 @@ void utf16_append_port(StringUtf16&, const std::string& port);
 
 // Returns false if, and only if the specified UCS code point is
 // invalid or cannot be encoded by UTF-16.
-bool utf16_append_ucs_char(StringUtf16&, Core::UIntFast32 ucs_code_point);
+bool utf16_append_ucs_char(StringUtf16&, core::UIntFast32 ucs_code_point);
 
 
 /// Construct a UTF-16 string from a null terminated wide character
@@ -153,7 +153,7 @@ inline std::ostream&  operator<<(std::ostream&,  const StringUtf16&);
 inline std::wostream& operator<<(std::wostream&, const StringUtf16&);
 
 
-} // namespace Core
+} // namespace core
 } // namespace archon
 
 
@@ -167,8 +167,8 @@ inline std::wostream& operator<<(std::wostream&, const StringUtf16&);
 
 namespace std {
 
-template<> struct char_traits<archon::Core::CharUtf16> {
-    typedef archon::Core::CharUtf16 char_type;
+template<> struct char_traits<archon::core::CharUtf16> {
+    typedef archon::core::CharUtf16 char_type;
     typedef unsigned                int_type;
     typedef std::streampos          pos_type;
     typedef std::streamoff          off_type;
@@ -193,7 +193,7 @@ template<> struct char_traits<archon::Core::CharUtf16> {
 } // namespace std
 
 
-inline int std::char_traits<archon::Core::CharUtf16>::
+inline int std::char_traits<archon::core::CharUtf16>::
 compare(const char_type* s1, const char_type* s2, std::size_t n)
 {
     for (std::size_t i=0; i<n; ++i) {
@@ -205,7 +205,7 @@ compare(const char_type* s1, const char_type* s2, std::size_t n)
     return 0;
 }
 
-inline std::size_t std::char_traits<archon::Core::CharUtf16>::
+inline std::size_t std::char_traits<archon::core::CharUtf16>::
 length(const char_type* s)
 {
     std::size_t n = 0;
@@ -214,7 +214,7 @@ length(const char_type* s)
     return n;
 }
 
-inline const archon::Core::CharUtf16* std::char_traits<archon::Core::CharUtf16>::
+inline const archon::core::CharUtf16* std::char_traits<archon::core::CharUtf16>::
 find(const char_type* s, std::size_t n, const char_type& a)
 {
     for (std::size_t i = 0; i != n; ++i) {
@@ -224,7 +224,7 @@ find(const char_type* s, std::size_t n, const char_type& a)
     return 0;
 }
 
-inline archon::Core::CharUtf16* std::char_traits<archon::Core::CharUtf16>::
+inline archon::core::CharUtf16* std::char_traits<archon::core::CharUtf16>::
 move(char_type* s1, const char_type* s2, std::size_t n)
 {
     if (s1 < s2) {
@@ -236,31 +236,31 @@ move(char_type* s1, const char_type* s2, std::size_t n)
     return s1;
 }
 
-inline archon::Core::CharUtf16* std::char_traits<archon::Core::CharUtf16>::
+inline archon::core::CharUtf16* std::char_traits<archon::core::CharUtf16>::
 copy(char_type* s1, const char_type* s2, std::size_t n)
 {
     std::copy(s2, s2+n, s1);
     return s1;
 }
 
-inline archon::Core::CharUtf16* std::char_traits<archon::Core::CharUtf16>::
+inline archon::core::CharUtf16* std::char_traits<archon::core::CharUtf16>::
 assign(char_type* s, std::size_t n, char_type a)
 {
     std::fill(s, s+n, a);
     return s;
 }
 
-inline archon::Core::CharUtf16 std::char_traits<archon::Core::CharUtf16>::
+inline archon::core::CharUtf16 std::char_traits<archon::core::CharUtf16>::
 to_char_type(const int_type& i)
 {
     char_type c;
-    c.val = static_cast<archon::Core::_Impl::CharUtf16_int>(i);
+    c.val = static_cast<archon::core::_Impl::CharUtf16_int>(i);
     return c;
 }
 
 
 namespace archon {
-namespace Core {
+namespace core {
 
 #ifdef ARCHON_WCHAR_ENC_IS_UCS
 
@@ -449,7 +449,7 @@ inline bool utf16_to_narrow_port(const StringUtf16& s, std::string& port)
 #endif // ARCHON_WCHAR_ENC_IS_UCS
 
 
-inline bool utf16_append_ucs_char(StringUtf16& str, Core::UIntFast32 ucs_code_point)
+inline bool utf16_append_ucs_char(StringUtf16& str, core::UIntFast32 ucs_code_point)
 {
     if (0x110000 <= ucs_code_point)
         return false; // Cannot be encoded by UTF-16
@@ -461,8 +461,8 @@ inline bool utf16_append_ucs_char(StringUtf16& str, Core::UIntFast32 ucs_code_po
         return true;
     }
     ucs_code_point -= 0x10000;
-    Core::UIntFast16 v1 = 0xD800 + (ucs_code_point >> 10);
-    Core::UIntFast16 v2 = 0xDC00 + (ucs_code_point & 0x3FF);
+    core::UIntFast16 v1 = 0xD800 + (ucs_code_point >> 10);
+    core::UIntFast16 v2 = 0xDC00 + (ucs_code_point & 0x3FF);
     str += utf16_traits::to_char_type(v1);
     str += utf16_traits::to_char_type(v2);
     return true;
@@ -488,7 +488,7 @@ inline std::wostream& operator<<(std::wostream& out, const StringUtf16& str)
     return out << utf16_to_wide(str, out.getloc());
 }
 
-} // namespace Core
+} // namespace core
 } // namespace archon
 
 #endif // ARCHON_CORE_UTF16_HPP

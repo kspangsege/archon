@@ -43,7 +43,7 @@ namespace Imaging {
  * An abstract image file format codec. All methods must be
  * individually and mutually thread safe.
  */
-class FileFormat: public virtual Core::CntRefObjectBase, public Core::CntRefDefs<FileFormat> {
+class FileFormat: public virtual core::CntRefObjectBase, public core::CntRefDefs<FileFormat> {
 public:
     /**
      * Thrown when invalid data is encountered while reading a file
@@ -74,10 +74,10 @@ public:
      * \return True iff the format of the data on the stream can be
      * identified as the format represented by this format object.
      *
-     * \thows Core::ReadException If reading from the stream
+     * \thows core::ReadException If reading from the stream
      * fails.
      */
-    virtual bool check_signature(Core::InputStream& in) const = 0;
+    virtual bool check_signature(core::InputStream& in) const = 0;
 
     /**
      * Check if the passed suffix is a proper file name suffix for
@@ -148,11 +148,11 @@ public:
      * \throws InvalidFormatException If the stream contents could
      * not be validly decoded.
      *
-     * \thows Core::ReadException If reading from the stream
+     * \thows core::ReadException If reading from the stream
      * fails.
      */
-    virtual BufferedImage::Ref load(Core::InputStream& in, Core::Logger* l =
-                                    &Core::Logger::get_default_logger(),
+    virtual BufferedImage::Ref load(core::InputStream& in, core::Logger* l =
+                                    &core::Logger::get_default_logger(),
                                     ProgressTracker* t = 0) const = 0;
 
     /**
@@ -170,12 +170,12 @@ public:
      * \param t A progress tracker through which the saving
      * progress will be reported.
      *
-     * \thows Core::WriteException If writing to the stream fails.
+     * \thows core::WriteException If writing to the stream fails.
      */
     virtual void save(Image::ConstRefArg image,
-                      Core::OutputStream& out,
-                      Core::Logger* l =
-                      &Core::Logger::get_default_logger(),
+                      core::OutputStream& out,
+                      core::Logger* l =
+                      &core::Logger::get_default_logger(),
                       ProgressTracker* t = 0) const = 0;
 
 
@@ -193,7 +193,7 @@ public:
      * register_format is only used immediately after creation of a
      * new registry and before any other use of the registry.
      */
-    class Registry: public virtual Core::CntRefObjectBase, public Core::CntRefDefs<Registry> {
+    class Registry: public virtual core::CntRefObjectBase, public core::CntRefDefs<Registry> {
     public:
         /**
          * Get the default registry. This registry will contain all
@@ -214,7 +214,7 @@ public:
          *
          * \sa register_format
          */
-        static Ref new_registry(Registry::ConstRefArg base = Core::CntRefNullTag());
+        static Ref new_registry(Registry::ConstRefArg base = core::CntRefNullTag());
 
         /**
          * Get the number of formats currently in this registry.

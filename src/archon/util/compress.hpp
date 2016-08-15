@@ -50,7 +50,7 @@ namespace archon
      * is not in the range <tt>[0;2**N-1]</tt> (assuming bytes of
      * unsigned type).
      */
-    Core::UniquePtr<Core::Codec const> get_lempel_ziv_welch_codec(int bits_per_byte = 8);
+    core::UniquePtr<core::Codec const> get_lempel_ziv_welch_codec(int bits_per_byte = 8);
   }
 }
 

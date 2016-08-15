@@ -95,7 +95,7 @@ namespace archon
       long const out_tick_threshold_millis, millis_per_check;
       long in_ticks_per_check, in_ticks_before_check, accum_in_ticks, accum_in_ticks_copy;
       Util::WeightedMovingAverage<double, 10> millis_per_in_tick;
-      Core::Time time_of_last_check, next_out_tick_threshold_time;
+      core::Time time_of_last_check, next_out_tick_threshold_time;
 
       bool check();
     };
@@ -114,7 +114,7 @@ namespace archon
 
       std::string const prefix;
       std::ostream &out;
-      Core::Time time_of_last_update;
+      core::Time time_of_last_update;
     };
 
 
@@ -141,7 +141,7 @@ namespace archon
 
       ProgressTracker *const tracker;
       long const expected_num_ticks;
-      Core::Time const start_time;
+      core::Time const start_time;
       long accum_ticks;
     };
   }

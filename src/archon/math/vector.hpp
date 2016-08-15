@@ -407,9 +407,9 @@ namespace archon
       template<int M>
       _VecImpl::Slice<M, 1, T, Inst const> const slice(size_type i = 0) const;
 
-      operator Core::Series<N,T>() const
+      operator core::Series<N,T>() const
       {
-        Core::Series<N,T> s;
+        core::Series<N,T> s;
         std::copy(begin(), end(), s.get());
         return s;
       }
@@ -771,7 +771,7 @@ namespace archon
       {
         typedef size_t size_type;
 
-        typedef Core::SubIter<R const, T, void, T,
+        typedef core::SubIter<R const, T, void, T,
                               ssize_t, size_t> const_iterator;
 
         // There is no non-const iterator in this case
@@ -1035,8 +1035,8 @@ namespace archon
       template<int S, class F> struct SliceRep
       {
         typedef typename F::size_type size_type;
-        typedef Core::StrideIter<S, typename F::iterator>       iterator;
-        typedef Core::StrideIter<S, typename F::const_iterator> const_iterator;
+        typedef core::StrideIter<S, typename F::iterator>       iterator;
+        typedef core::StrideIter<S, typename F::const_iterator> const_iterator;
         iterator       iter()       { return       iterator(f.begin()+o); }
         const_iterator iter() const { return const_iterator(f.begin()+o); }
         SliceRep(F &f, size_type o): f(f), o(o) {}
@@ -1142,7 +1142,7 @@ namespace archon
       /**
        * Initialize this vector from a series of the same length and type.
        */
-      BasicVec(Core::Series<N,T> const &s) { set(s.get()); }
+      BasicVec(core::Series<N,T> const &s) { set(s.get()); }
 
       using VecBuf<N, T, BasicVec<N,T> >::operator=;
     };
@@ -1283,7 +1283,7 @@ namespace archon
     {
       return Math::fold(f, std::numeric_limits<T>::is_integer ?
                         std::numeric_limits<T>::max() :
-                        std::numeric_limits<T>::infinity(), Core::Min<T>());
+                        std::numeric_limits<T>::infinity(), core::Min<T>());
     }
 
 
@@ -1295,7 +1295,7 @@ namespace archon
     {
       return Math::fold(f, std::numeric_limits<T>::is_integer ?
                         std::numeric_limits<T>::min() :
-                        -std::numeric_limits<T>::infinity(), Core::Max<T>());
+                        -std::numeric_limits<T>::infinity(), core::Max<T>());
     }
 
 
@@ -1597,7 +1597,7 @@ namespace archon
       /**
        * Initialize this vector from a series of the same length and type.
        */
-      BasicVec(Core::Series<2,T> const &s) { this->set(s.get()); }
+      BasicVec(core::Series<2,T> const &s) { this->set(s.get()); }
 
       using VecBuf<2, T, BasicVec<2,T> >::operator=;
     };
@@ -1655,7 +1655,7 @@ namespace archon
       /**
        * Initialize this vector from a series of the same length and type.
        */
-      BasicVec(Core::Series<3,T> const &s) { this->set(s.get()); }
+      BasicVec(core::Series<3,T> const &s) { this->set(s.get()); }
 
       using VecBuf<3, T, BasicVec<3,T> >::operator=;
     };
@@ -1713,7 +1713,7 @@ namespace archon
       /**
        * Initialize this vector from a series of the same length and type.
        */
-      BasicVec(Core::Series<4,T> const &s) { this->set(s.get()); }
+      BasicVec(core::Series<4,T> const &s) { this->set(s.get()); }
 
       using VecBuf<4, T, BasicVec<4,T> >::operator=;
     };

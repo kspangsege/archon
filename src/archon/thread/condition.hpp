@@ -61,7 +61,7 @@ namespace archon
      *
      * In C++ a monitor can be conveniently expressed as a class with
      * condition variables expressed by this \c Condition class and
-     * using the companion \c Core::Mutex class for mutual
+     * using the companion \c core::Mutex class for mutual
      * exclusion. Here is an example using one condition variable:
      *
      * <pre>
@@ -70,7 +70,7 @@ namespace archon
      *   {
      *     int get()
      *     {
-     *       Core::Mutex::Lock l(mutex);
+     *       core::Mutex::Lock l(mutex);
      *       while(q.empty()) non_empty.wait(); // Keep waiting until
      *                                          // the condition is satisfied.
      *       int i = q.front();
@@ -80,7 +80,7 @@ namespace archon
      *
      *     void put(int i)
      *     {
-     *       Core::Mutex::Lock l(mutex);
+     *       core::Mutex::Lock l(mutex);
      *       q.push(i);
      *       non_empty.notify_all();            // Wake up waiting threads
      *     }
@@ -88,7 +88,7 @@ namespace archon
      *     QueueMonitor(): non_empty(mutex) {}  // Condition is bound to mutex.
      *
      *   private:
-     *     Core::Mutex mutex;
+     *     core::Mutex mutex;
      *     std::queue<int> q;
      *     Condition non_empty;
      *   }
@@ -136,7 +136,7 @@ namespace archon
      */
     struct Condition
     {
-      Condition(Core::Mutex &m): mutex(m) {}
+      Condition(core::Mutex &m): mutex(m) {}
 
 
       /**
@@ -221,7 +221,7 @@ namespace archon
        * does not imply that the timeout is not reached when the
        * method returns.
        *
-       * \throw Core::InterruptException If the calling thread has
+       * \throw core::InterruptException If the calling thread has
        * been interrupted.
        *
        * \note The mutex must be locked at entry, and will always be
@@ -232,7 +232,7 @@ namespace archon
        *
        * \sa Time
        */
-      bool wait(Core::Time timeout = 0);
+      bool wait(core::Time timeout = 0);
 
 
       /**
@@ -256,7 +256,7 @@ namespace archon
        * \sa Time
        * \sa Sys::nonblock
        */
-      bool select(SelectSpec &s, Core::Time timeout = 0);
+      bool select(SelectSpec &s, core::Time timeout = 0);
 
 
     private:
@@ -267,7 +267,7 @@ namespace archon
         SimpleCond();
         ~SimpleCond();
         void wait(pthread_mutex_t &); // Indefinate
-        bool wait(pthread_mutex_t &, Core::Time const &timeout); // Indefinate if timeout = 0
+        bool wait(pthread_mutex_t &, core::Time const &timeout); // Indefinate if timeout = 0
         void notify_one();
         void notify_all();
 
@@ -276,9 +276,9 @@ namespace archon
       };
 
       SimpleCond simple_cond;
-      Core::Mutex &mutex;
+      core::Mutex &mutex;
 
-      Core::Mutex pipes_mutex;
+      core::Mutex pipes_mutex;
       std::set<int> pipes; // Write end of pipes to wake up selects. Protected by 'pipes_mutex'
 
       void pipes_notify(); // Must be called with lock on 'pipes_mutex'
@@ -324,7 +324,7 @@ namespace archon
     inline void Condition::notify_one()
     {
       simple_cond.notify_one();
-      Core::Mutex::Lock l(pipes_mutex);
+      core::Mutex::Lock l(pipes_mutex);
       if(!pipes.empty()) pipes_notify();
     }
 
@@ -332,7 +332,7 @@ namespace archon
     inline void Condition::notify_all()
     {
       simple_cond.notify_all();
-      Core::Mutex::Lock l(pipes_mutex);
+      core::Mutex::Lock l(pipes_mutex);
       if(!pipes.empty()) pipes_notify();
     }
 

@@ -48,8 +48,8 @@ namespace archon
     {
       // We need to define these manually to avoid ambiguity with the
       // cousins in Image.
-      typedef Core::CntRef<BufferedImage>        Ref;
-      typedef Core::CntRef<BufferedImage const>  ConstRef;
+      typedef core::CntRef<BufferedImage>        Ref;
+      typedef core::CntRef<BufferedImage const>  ConstRef;
       typedef Ref                         const &RefArg;
       typedef ConstRef                    const &ConstRefArg;
 
@@ -156,7 +156,7 @@ namespace archon
       static Ref new_image(int width, int height,
                            ColorSpace::ConstRefArg color_space = ColorSpace::get_RGB(),
                            bool has_alpha = false,
-                           BufferFormat::ConstRefArg buffer_format = Core::CntRefNullTag());
+                           BufferFormat::ConstRefArg buffer_format = core::CntRefNullTag());
 
       /**
        * Create a new image wrapping a pre-existing buffer. The

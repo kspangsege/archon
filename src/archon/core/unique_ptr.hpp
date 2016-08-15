@@ -32,7 +32,7 @@
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     template<class T> struct DefaultDelete
     {

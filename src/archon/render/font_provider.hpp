@@ -198,7 +198,7 @@ private:
     FontEntry* new_font(int font_id);
     Page* new_page(FontEntry* font, int page_idx);
     void new_texture(FontEntry* font, int page_idx, int tex_ord,
-                     Core::UniquePtr<Util::RectanglePacker>& packer, Core::UIntMin16& tex_idx);
+                     core::UniquePtr<Util::RectanglePacker>& packer, core::UIntMin16& tex_idx);
     void render(const TextContainer& text) const;
     void release(TextContainer& text);
 
@@ -211,8 +211,8 @@ private:
 
     typedef std::map<int, FontEntry*> FontMap;
     FontMap font_map;
-    Core::DeletingVector<FontEntry> fonts;
-    Core::DeletingVector<Texture> textures;
+    core::DeletingVector<FontEntry> fonts;
+    core::DeletingVector<Texture> textures;
 
     std::size_t used_pages = 0, used_textures = 0;
 };
@@ -409,8 +409,8 @@ public:
 class FontProvider::Page {
 public:
     struct Glyph {
-        Core::UIntMin16 texture; // Index of texture
-        Core::UIntMin16 index; // Index of glyph in texture
+        core::UIntMin16 texture; // Index of texture
+        core::UIntMin16 index; // Index of glyph in texture
     };
     std::vector<Glyph> glyphs;
     int text_use_count = 0; // One for each TextContainer that refers to a glyph from this page.
@@ -425,10 +425,10 @@ public:
     bool grid_fitting;
     int texture_width, texture_height;
     Math::Vec2 texture_scale; // Inverse of texture resolution
-    Core::DeletingVector<Page> pages;
+    core::DeletingVector<Page> pages;
 
-    Core::UniquePtr<Util::RectanglePacker> packer;
-    Core::UIntMin16 open_texture_index; // Defined only if 'packer' is not null
+    core::UniquePtr<Util::RectanglePacker> packer;
+    core::UIntMin16 open_texture_index; // Defined only if 'packer' is not null
     bool dirty_texture = false; // If new glyphs were rendered into the open texture, but the texture is not yet refreshed
 
     FontEntry(int i, std::string n):

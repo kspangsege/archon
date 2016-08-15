@@ -42,7 +42,7 @@ namespace archon
       struct Server;
 
 
-      Core::UniquePtr<Server> new_default_server(int port);
+      core::UniquePtr<Server> new_default_server(int port);
 
 
       /**
@@ -57,7 +57,7 @@ namespace archon
        * <pre>
        *
        *   #include <archon/core/sys.hpp>
-       *   Core::Sys::Signal::ignore_signal(SIGPIPE);
+       *   core::Sys::Signal::ignore_signal(SIGPIPE);
        *
        * </pre>
        */

@@ -138,7 +138,7 @@ namespace archon
      *   however, there exist exotic variants that are a mixture of
      *   the two. This specification is general enough to cover almost
      *   any conceivable endianness. See
-     *   <tt>Core::compare_endianness</tt> for more details on the
+     *   <tt>core::compare_endianness</tt> for more details on the
      *   representation. In any case, it is important to undertand
      *   that if the specified endianness does not match the native
      *   endianness of the platform, a severe run-time penaly applies
@@ -175,7 +175,7 @@ namespace archon
      * words, and therefore it determines, which byte delivers the
      * least significant bits of thw word, and which byte delivers the
      * most significant bits. Please see
-     * <tt>Core::compare_endianness</tt> for the complete story about
+     * <tt>core::compare_endianness</tt> for the complete story about
      * endianness and the description of it, used in this context.
      *
      *
@@ -320,8 +320,8 @@ namespace archon
     {
       // We need to define these manually to avoid ambiguity with the
       // cousins in BufferFormat.
-      typedef Core::CntRef<IntegerBufferFormat>        Ref;
-      typedef Core::CntRef<IntegerBufferFormat const>  ConstRef;
+      typedef core::CntRef<IntegerBufferFormat>        Ref;
+      typedef core::CntRef<IntegerBufferFormat const>  ConstRef;
       typedef Ref                               const &RefArg;
       typedef ConstRef                          const &ConstRefArg;
 
@@ -574,7 +574,7 @@ namespace archon
       int get_channel_width(int index) const;
       bool is_equiv_to(BufferFormat::ConstRefArg, int width, int height) const;
       size_t get_required_buffer_size(int width, int height) const;
-      Core::UniquePtr<BufferCodec> get_codec(void *buffer, int width, int height) const;
+      core::UniquePtr<BufferCodec> get_codec(void *buffer, int width, int height) const;
 
       // Implementation of methods from WordBasedBufferFormat
       WordType get_word_type() const           { return word_type; }
@@ -692,7 +692,7 @@ namespace archon
 
       static std::string print(WordType word_type, std::vector<bool> const &endianness,
                                bool most_sig_bit_first, ChannelLayout const &channel_layout,
-                               ColorSpace::ConstRef color_space = Core::CntRefNullTag(),
+                               ColorSpace::ConstRef color_space = core::CntRefNullTag(),
                                bool has_alpha = false);
     };
 
@@ -786,10 +786,10 @@ namespace archon
     }
 
 
-    inline Core::UniquePtr<BufferCodec>
+    inline core::UniquePtr<BufferCodec>
     IntegerBufferFormat::get_codec(void *buffer, int width, int height) const
     {
-      Core::UniquePtr<BufferCodec> c(choose_codec(buffer, width, height));
+      core::UniquePtr<BufferCodec> c(choose_codec(buffer, width, height));
       return c;
     }
 

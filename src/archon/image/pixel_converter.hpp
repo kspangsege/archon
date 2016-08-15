@@ -97,7 +97,7 @@ namespace archon
 
       private:
         size_t size_of_buffers;
-        Core::MemoryBuffer first, second;
+        core::MemoryBuffer first, second;
       };
 
 

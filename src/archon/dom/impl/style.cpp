@@ -30,7 +30,7 @@
 
 
 using namespace std;
-using namespace archon::Core;
+using namespace archon::core;
 
 
 
@@ -273,14 +273,14 @@ namespace archon
 
 
 
-    Core::EnumAssoc EmptyEnumSpec::map[] =
+    core::EnumAssoc EmptyEnumSpec::map[] =
     {
       { 0, 0 }
     };
 
 
 
-    Core::EnumAssoc LengthUnitSpec::map[] =
+    core::EnumAssoc LengthUnitSpec::map[] =
     {
       { lengthUnit_None,    ""   },
       { lengthUnit_Percent, "%"  },
@@ -297,7 +297,7 @@ namespace archon
 
 
 
-    Core::EnumAssoc NamedBorderWidthSpec::map[] =
+    core::EnumAssoc NamedBorderWidthSpec::map[] =
     {
       { borderWidth_Thin,   "thin"   },
       { borderWidth_Medium, "medium" },
@@ -307,7 +307,7 @@ namespace archon
 
 
 
-    Core::EnumAssoc BorderStyleSpec::map[] =
+    core::EnumAssoc BorderStyleSpec::map[] =
     {
       { borderStyle_None,   "none"   },
       { borderStyle_Hidden, "hidden" },
@@ -324,7 +324,7 @@ namespace archon
 
 
 
-    Core::EnumAssoc FontStyleSpec::map[] =
+    core::EnumAssoc FontStyleSpec::map[] =
     {
       { fontStyle_Normal,  "normal"  },
       { fontStyle_Italic,  "italic"  },
@@ -334,7 +334,7 @@ namespace archon
 
 
 
-    Core::EnumAssoc FontVariantSpec::map[] =
+    core::EnumAssoc FontVariantSpec::map[] =
     {
       { fontVariant_Normal,    "normal"     },
       { fontVariant_SmallCaps, "small-caps" },
@@ -343,7 +343,7 @@ namespace archon
 
 
 
-    Core::EnumAssoc FontWeightSpec::map[] =
+    core::EnumAssoc FontWeightSpec::map[] =
     {
       { fontWeight_100,     "100"     },
       { fontWeight_200,     "200"     },
@@ -357,7 +357,7 @@ namespace archon
       { 0, 0 }
     };
 
-    Core::EnumAssoc SpecialFontWeightSpec::map[] =
+    core::EnumAssoc SpecialFontWeightSpec::map[] =
     {
       { specialFontWeight_Normal,  "normal"  },
       { specialFontWeight_Bold,    "bold"    },
@@ -368,7 +368,7 @@ namespace archon
 
 
 
-    Core::EnumAssoc NamedFontSizeSpec::map[] =
+    core::EnumAssoc NamedFontSizeSpec::map[] =
     {
       { fontSize_XXSmall, "xx-small" },
       { fontSize_XSmall,  "x-small"  },
@@ -384,7 +384,7 @@ namespace archon
 
 
 
-    Core::EnumAssoc SystemColorSpec::map[] =
+    core::EnumAssoc SystemColorSpec::map[] =
     {
       { sysColor_ActiveBorder,        "ActiveBorder"        },
       { sysColor_ActiveCaption,       "ActiveCaption"       },
@@ -419,7 +419,7 @@ namespace archon
 
 
 
-    Core::EnumAssoc ClearValueSpec::map[] =
+    core::EnumAssoc ClearValueSpec::map[] =
     {
       { clear_None,  "none"  },
       { clear_Left,  "left"  },
@@ -430,7 +430,7 @@ namespace archon
 
 
 
-    Core::EnumAssoc DisplayValueSpec::map[] =
+    core::EnumAssoc DisplayValueSpec::map[] =
     {
       { display_Inline,           "inline"             },
       { display_Block,            "block"              },
@@ -452,7 +452,7 @@ namespace archon
 
 
 
-    Core::EnumAssoc FloatValueSpec::map[] =
+    core::EnumAssoc FloatValueSpec::map[] =
     {
       { float_Left,  "left"  },
       { float_Right, "right" },
@@ -462,7 +462,7 @@ namespace archon
 
 
 
-    Core::EnumAssoc OverflowValueSpec::map[] =
+    core::EnumAssoc OverflowValueSpec::map[] =
     {
       { overflow_Visible, "visible" },
       { overflow_Hidden,  "hidden"  },
@@ -472,7 +472,7 @@ namespace archon
 
 
 
-    Core::EnumAssoc PositionValueSpec::map[] =
+    core::EnumAssoc PositionValueSpec::map[] =
     {
       { position_Static,   "static"   },
       { position_Relative, "relative" },

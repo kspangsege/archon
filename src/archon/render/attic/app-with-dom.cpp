@@ -77,7 +77,7 @@
 
 
 using namespace std;
-using namespace archon::Core;
+using namespace archon::core;
 using namespace archon::Math;
 using namespace archon::Util;
 using namespace archon::Imaging;
@@ -142,7 +142,7 @@ browser/browser.h
 
 namespace archon::dom
 {
-  typedef Util::NullableString<Core::CharUtf16> DOMString;
+  typedef Util::NullableString<core::CharUtf16> DOMString;
 
 
   struct Document;
@@ -153,10 +153,10 @@ namespace archon::dom
   {
     virtual DOMString getNodeName() const throw () = 0;
     virtual DOMString getNodeValue() const throw () = 0;
-    virtual Core::UIntMin16 getNodeType() const throw () = 0;
-    virtual Core::SharedPtr<Document> getOwnerDocument() const throw () = 0;
+    virtual core::UIntMin16 getNodeType() const throw () = 0;
+    virtual core::SharedPtr<Document> getOwnerDocument() const throw () = 0;
     virtual DOMString getNamespaceURI() const throw () = 0;
-    virtial bool isSameNode(Core::SharedPtr<Node> const &other) = 0;
+    virtial bool isSameNode(core::SharedPtr<Node> const &other) = 0;
 
     virtual ~Node() {}
   };
@@ -170,9 +170,9 @@ namespace archon::dom
 
   struct Document: virtual Node
   {
-    virtual Core::SharedPtr<Implementation> getImplementation() const throw () = 0;
+    virtual core::SharedPtr<Implementation> getImplementation() const throw () = 0;
 
-    virtual Core::SharedPtr<Element>
+    virtual core::SharedPtr<Element>
     createElementNS(DOMString const &namespaceURI, DOMString const &qualifiedName)
       throw (DOMException) = 0;
   };
@@ -4808,7 +4808,7 @@ namespace archon
   {
     struct Application::PrivateState: PrivateApplicationState
     {
-      static archon::Core::SharedPtr<PrivateState>
+      static archon::core::SharedPtr<PrivateState>
       create(Config const &cfg, locale const &loc,
              TextureCache::Arg tex_cache, FontCache::Arg font_cache)
       {
@@ -5710,7 +5710,7 @@ namespace archon
     }
 
 
-    void Application::Config::populate(Core::ConfigBuilder &cfg)
+    void Application::Config::populate(core::ConfigBuilder &cfg)
     {
       cfg.add_param("f", "frame-rate", frame_rate,
                     "The initial frame rate. The frame rate marks the upper limit of frames "

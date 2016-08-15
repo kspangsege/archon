@@ -412,7 +412,7 @@ namespace archon
 
 	// Fetch all 4 pixels in the target 2x2 pixel array
 	int const n = numberOfChannels;
-        Core::Array<long double> tray(4*n);
+        core::Array<long double> tray(4*n);
 	getPixels(xi, yi, tray.get(), 2, 2, horizontalRepeat, verticalRepeat);
 
 	// Get the fractional parts (intra pixel positions)
@@ -470,7 +470,7 @@ namespace archon
 
 	// Fetch all 16 pixels in the target 4x4 pixel array
 	int const n = numberOfChannels;
-        Core::Array<long double> tray(16*n);
+        core::Array<long double> tray(16*n);
 	getPixels(xi-1, yi-1, tray.get(), 4, 4,
 		  horizontalRepeat, verticalRepeat);
 
@@ -1127,7 +1127,7 @@ namespace archon
 	int const trayWidth  = std::min(sourceWidth,  32);
 	int const trayHeight = std::min(sourceHeight, 32);
 
-        Core::Array<long double> sourceTray, intermediateTray, targetTray;
+        core::Array<long double> sourceTray, intermediateTray, targetTray;
 
 	long double *effectiveSourceTray, *effectiveTargetTray;
 

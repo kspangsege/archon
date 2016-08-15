@@ -173,10 +173,10 @@ public:
     void enable_kerning(bool enabled);
 
 private:
-    struct WordWrapSpec { static Core::EnumAssoc map[]; };
+    struct WordWrapSpec { static core::EnumAssoc map[]; };
 
 public:
-    typedef Core::Enum<WordWrapMode, WordWrapSpec> WordWrapEnum;
+    typedef core::Enum<WordWrapMode, WordWrapSpec> WordWrapEnum;
 
 protected:
     TextFormatter();
@@ -503,7 +503,7 @@ inline void TextFormatter::set_word_spacing(double extra_pixels)
     flush_inbuf(false);
     next_session_word_spacing = extra_pixels;
     if (in_session)
-        word_spacing = grid_fitting ? Core::archon_round(extra_pixels) : extra_pixels;
+        word_spacing = grid_fitting ? core::archon_round(extra_pixels) : extra_pixels;
 }
 
 inline void TextFormatter::set_letter_spacing(double extra_pixels)
@@ -511,7 +511,7 @@ inline void TextFormatter::set_letter_spacing(double extra_pixels)
     flush_inbuf(false);
     next_session_letter_spacing = extra_pixels;
     if (in_session)
-        letter_spacing = grid_fitting ? Core::archon_round(extra_pixels) : extra_pixels;
+        letter_spacing = grid_fitting ? core::archon_round(extra_pixels) : extra_pixels;
 }
 
 inline void TextFormatter::set_layout_direction(bool horizontal, bool l_to_r, bool t_to_b)

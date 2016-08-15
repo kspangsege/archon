@@ -41,7 +41,7 @@ namespace archon
     {
       struct Resolver
       {
-        virtual Core::UniquePtr<Resource> resolve(std::string path) throw(RequestException) = 0;
+        virtual core::UniquePtr<Resource> resolve(std::string path) throw(RequestException) = 0;
 
         virtual ~Resolver() {}
       };
@@ -50,9 +50,9 @@ namespace archon
 
       template<class ResourceImpl> struct SimpleResolver: Resolver
       {
-        Core::UniquePtr<Resource> resolve(std::string path) throw(RequestException)
+        core::UniquePtr<Resource> resolve(std::string path) throw(RequestException)
         {
-          Core::UniquePtr<Resource> r(new ResourceImpl(path));
+          core::UniquePtr<Resource> r(new ResourceImpl(path));
           return r;
         }
       };

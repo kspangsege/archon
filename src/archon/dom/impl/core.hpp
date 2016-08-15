@@ -753,7 +753,7 @@ private:
 };
 
 
-typedef Core::BindRef<ElemType*> ElemTypeRef;
+typedef core::BindRef<ElemType*> ElemTypeRef;
 
 
 
@@ -1527,7 +1527,7 @@ private:
     void upgrade_attr_map()
     {
         const CompactAttrMap* old_map = static_cast<CompactAttrMap*>(attr_map);
-        Core::UniquePtr<GeneralAttrMap> new_map(new GeneralAttrMap);
+        core::UniquePtr<GeneralAttrMap> new_map(new GeneralAttrMap);
         int n = old_map->get_size();
         try {
             Attr* prev_attr = 0;
@@ -1542,7 +1542,7 @@ private:
                     bool is_spec = slot_bits & CompactAttrMap::slot_bit_is_spec;
                     bool is_id   = slot_bits & CompactAttrMap::slot_bit_is_id;
                     attr = build_attr(s.type, s.value, is_spec, is_id);
-                    Core::UniquePtr<Attr> attr_owner(attr);
+                    core::UniquePtr<Attr> attr_owner(attr);
                     new_map->map[s.type] = attr;
                     attr_owner.release();
                 }
@@ -1570,7 +1570,7 @@ private:
     {
 /*
         Document* doc = get_doc();
-        Core::UniquePtr<Attr> a(new Attr(doc));
+        core::UniquePtr<Attr> a(new Attr(doc));
         a->init(this, is_spec, is_id);
         if (!v.empty()) {
             Text* text = new Text(doc, v, false);
@@ -1742,14 +1742,14 @@ struct DocumentType: Node, virtual dom::DocumentType {
 private:
     const dom::DOMString name, public_id, system_id;
 
-    Core::UniquePtr<NodeType> node_type_entity, node_type_notation;
+    core::UniquePtr<NodeType> node_type_entity, node_type_notation;
 
-    const Core::UniquePtr<NamedNodeMap> entities, notations;
+    const core::UniquePtr<NamedNodeMap> entities, notations;
 
     dom::DOMString internal_subset;
 
     class DegenChildList;
-    mutable Core::UniquePtr<DegenChildList> degen_child_list;
+    mutable core::UniquePtr<DegenChildList> degen_child_list;
 
 
     // Overriding Node::on_referenced().
@@ -2628,7 +2628,7 @@ inline void Element::set_attr_value(const AttrType* t, const dom::DOMString& v)
         invalidate_attr_node_map();
         bool is_spec = true;
         bool is_id   = t->is_id();
-        Core::UniquePtr<Attr> a(build_attr(t, v, is_spec, is_id));
+        core::UniquePtr<Attr> a(build_attr(t, v, is_spec, is_id));
 //        static_cast<GeneralAttrMap*>(attr_map)->add(t, a.get());
         a.release();
         return;

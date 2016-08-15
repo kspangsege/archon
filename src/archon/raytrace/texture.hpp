@@ -38,7 +38,7 @@ namespace archon
   {
     struct Texture
     {
-      static Core::SharedPtr<Texture> get_image_texture(Imaging::Image::ConstRefArg img,
+      static core::SharedPtr<Texture> get_image_texture(Imaging::Image::ConstRefArg img,
                                                         bool repeat_s = true, bool repeat_t = true);
 
 
@@ -56,7 +56,7 @@ namespace archon
 
     struct TexturedPhongMaterial: PhongMaterialBase
     {
-      TexturedPhongMaterial(Core::SharedPtr<Texture> const &tex,
+      TexturedPhongMaterial(core::SharedPtr<Texture> const &tex,
                             Math::CoordSystem2 xform = Math::CoordSystem2::identity(),
                             Math::Vec3 emis_col = Math::Vec3(0),
                             Math::Vec3 spec_col = Math::Vec3(0),
@@ -66,7 +66,7 @@ namespace archon
     private:
       void get_diffuse_color(Math::Vec2 tex_point, Math::Vec4 &rgba) const;
 
-      Core::SharedPtr<Texture> const texture;
+      core::SharedPtr<Texture> const texture;
       Math::CoordSystem2 const transform;
     };
   }

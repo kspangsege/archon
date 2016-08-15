@@ -57,11 +57,11 @@ struct RegexBase {
  * \todo Exclude newline characters from "."
  * See http://www.unicode.org/unicode/reports/tr18/tr18-5.1.html#End%20Of%20Line
  */
-template<class Ch> struct BasicRegex: RegexBase, Core::CntRefObjectBase {
+template<class Ch> struct BasicRegex: RegexBase, core::CntRefObjectBase {
     typedef Ch                                      CharType;
     typedef std::basic_string<CharType>             StringType;
     typedef std::pair<CharType, CharType>           CharRange;
-    typedef Core::CntRef<BasicRegex const>          Exp;
+    typedef core::CntRef<BasicRegex const>          Exp;
     typedef Exp const                              &ExpArg;
 
     /**
@@ -320,13 +320,13 @@ inline typename BasicRegex<Ch>::Exp BasicRegex<Ch>::bra(RangeSeq r, ClassSeq c, 
 template<typename Ch>
 inline typename BasicRegex<Ch>::Exp BasicRegex<Ch>::range(CharRange r, bool i)
 {
-    return bra(Core::oneSeq(r), Core::nullSeq<NamedClass>(), i);
+    return bra(core::oneSeq(r), core::nullSeq<NamedClass>(), i);
 }
 
 template<typename Ch>
 inline typename BasicRegex<Ch>::Exp BasicRegex<Ch>::cla(NamedClass c, bool i)
 {
-    return bra(Core::nullSeq<CharRange>(), Core::oneSeq(c), i);
+    return bra(core::nullSeq<CharRange>(), core::oneSeq(c), i);
 }
 
 template<typename Ch>

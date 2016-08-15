@@ -40,7 +40,7 @@
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
 
     // FIXME: Consider this one: How to get the average of two integers

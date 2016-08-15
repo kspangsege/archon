@@ -52,7 +52,7 @@ using namespace std;
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     Time Time::now()
     {

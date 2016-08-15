@@ -189,7 +189,7 @@ namespace archon
         {
           static void cvt(UInt const *source, UInt *target)
           {
-            typedef typename Core::FastestFloatCover<UInt>::type Float;
+            typedef typename core::FastestFloatCover<UInt>::type Float;
             Float s[P::source_color_channels], t[P::target_color_channels];
             Util::frac_any_to_any(source, s, P::source_color_channels); // Int to float
             O<Float>::cvt(s,t);

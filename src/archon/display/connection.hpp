@@ -64,7 +64,7 @@ class NoGLException;
 /// \sa http://www.x.org
 class Connection {
 public:
-    typedef Core::SharedPtr<Connection> Ptr;
+    typedef core::SharedPtr<Connection> Ptr;
     typedef const Ptr& Arg;
 
     /// Get the index of the default screen of the connected display.

@@ -50,7 +50,7 @@ namespace archon
     {
       typedef Ch                               CharType;
       typedef std::basic_string<CharType>      StringType;
-      typedef Core::BasicInputStream<CharType> StreamType;
+      typedef core::BasicInputStream<CharType> StreamType;
       typedef size_t                           SizeType;
       typedef Tok                              TokenId;
       typedef size_t                           StateId;
@@ -878,37 +878,37 @@ namespace archon
 
 
     public:
-      struct EdgeRangeProxy: Core::ProxyBase<EdgeRangeProxy, EdgeRangeRepIter>
+      struct EdgeRangeProxy: core::ProxyBase<EdgeRangeProxy, EdgeRangeRepIter>
       {
         CharRange getRange()       const { return this->i->range; }
         StateId   getTargetState() const { return this->i->targetState; }
 
         EdgeRangeProxy(EdgeRangeRepIter i):
-          Core::ProxyBase<EdgeRangeProxy, EdgeRangeRepIter>(i) {}
+          core::ProxyBase<EdgeRangeProxy, EdgeRangeRepIter>(i) {}
       };
 
-      struct SentinelEdgeProxy: Core::ProxyBase<SentinelEdgeProxy, SentinelEdgeRepIter>
+      struct SentinelEdgeProxy: core::ProxyBase<SentinelEdgeProxy, SentinelEdgeRepIter>
       {
         Sentinel getSentinel()    const { return this->i->sentinel; }
         StateId  getTargetState() const { return this->i->targetState; }
 
         SentinelEdgeProxy(SentinelEdgeRepIter i):
-          Core::ProxyBase<SentinelEdgeProxy, SentinelEdgeRepIter>(i) {}
+          core::ProxyBase<SentinelEdgeProxy, SentinelEdgeRepIter>(i) {}
       };
 
-      struct EpsilonEdgeProxy: Core::ProxyBase<EpsilonEdgeProxy, EpsilonEdgeRepIter>
+      struct EpsilonEdgeProxy: core::ProxyBase<EpsilonEdgeProxy, EpsilonEdgeRepIter>
       {
         StateId getTargetState() const { return *this->i; }
 
         EpsilonEdgeProxy(EpsilonEdgeRepIter i):
-          Core::ProxyBase<EpsilonEdgeProxy, EpsilonEdgeRepIter>(i) {}
+          core::ProxyBase<EpsilonEdgeProxy, EpsilonEdgeRepIter>(i) {}
       };
 
-      typedef Core::IterSeq<Core::ProxyIter<EdgeRangeProxy> >    EdgeRangeSeq;
-      typedef Core::IterSeq<Core::ProxyIter<SentinelEdgeProxy> > SentinelEdgeSeq;
-      typedef Core::IterSeq<Core::ProxyIter<EpsilonEdgeProxy> >  EpsilonEdgeSeq;
+      typedef core::IterSeq<core::ProxyIter<EdgeRangeProxy> >    EdgeRangeSeq;
+      typedef core::IterSeq<core::ProxyIter<SentinelEdgeProxy> > SentinelEdgeSeq;
+      typedef core::IterSeq<core::ProxyIter<EpsilonEdgeProxy> >  EpsilonEdgeSeq;
 
-      struct StateProxy: Core::ProxyBase<StateProxy, StateRepIter>
+      struct StateProxy: core::ProxyBase<StateProxy, StateRepIter>
       {
         StateId getId()      const { return s; }
         TokenId getTokenId() const { return this->i->tokenId; }
@@ -933,19 +933,19 @@ namespace archon
 
         void next()
         {
-          Core::ProxyBase<StateProxy, StateRepIter>::next();
+          core::ProxyBase<StateProxy, StateRepIter>::next();
           ++s;
         }
 
         StateProxy(StateRepIter i, StateId s):
-          Core::ProxyBase<StateProxy, StateRepIter>(i), s(s) {}
+          core::ProxyBase<StateProxy, StateRepIter>(i), s(s) {}
 
       private:
         StateId s;
       };
 
-      typedef Core::ProxyIter<StateProxy> StateIter;
-      typedef Core::IterSeq<StateIter>    StateSeq;
+      typedef core::ProxyIter<StateProxy> StateIter;
+      typedef core::IterSeq<StateIter>    StateSeq;
 
       StateIter getState(StateId s) const
       {

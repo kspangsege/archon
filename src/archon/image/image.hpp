@@ -132,7 +132,7 @@ namespace archon
      * Assuming a short is twice as wide as a char, then a format using short is equivalent with one using char endianess is right.
      * Might be a good idea to reintroduce flags (right_to_left, top_to_bottom, vertical_strips) such that load can prevent introducing a buffer hiding, turning image node which would force an image copy in save even though it would not have been necessary.
      */
-    struct Image: virtual Core::CntRefObjectBase, Core::CntRefDefs<Image>
+    struct Image: virtual core::CntRefObjectBase, core::CntRefDefs<Image>
     {
       /**
        * Get the width of this image measured in pixels.
@@ -693,8 +693,8 @@ namespace archon
 
       struct Codec;
       struct Release;
-      typedef Core::UniquePtr<Codec, Release> CodecPtr;
-      typedef Core::UniquePtr<Codec const, Release> CodecConstPtr;
+      typedef core::UniquePtr<Codec, Release> CodecPtr;
+      typedef core::UniquePtr<Codec const, Release> CodecConstPtr;
 
       /**
        * All reading from an image and writing to an image must go
@@ -745,7 +745,7 @@ namespace archon
 
 
 /*
-      void read_block(Core::Grid<double *> const &tray, int left, int bottom,
+      void read_block(core::Grid<double *> const &tray, int left, int bottom,
                       int horizontal_repeat, int vertical_repeat) const;
 */
 
@@ -762,7 +762,7 @@ namespace archon
        * \sa put_block
        */
 /*
-      void write_block(Core::Grid<double const *> const &tray, int left, int bottom,
+      void write_block(core::Grid<double const *> const &tray, int left, int bottom,
                        int horizontal_repeat, int vertical_repeat);
 */
 
@@ -776,7 +776,7 @@ namespace archon
        * instance.
        */
 /*
-      static void read_block(Image const *, Core::Grid<double *> const &, int, int, int, int);
+      static void read_block(Image const *, core::Grid<double *> const &, int, int, int, int);
 */
 
       /**
@@ -787,7 +787,7 @@ namespace archon
        * instance.
        */
 /*
-      static void write_block(Image *, Core::Grid<double const *> const &, int, int, int, int);
+      static void write_block(Image *, core::Grid<double const *> const &, int, int, int, int);
 */
 
 
@@ -988,7 +988,7 @@ namespace archon
                             int horizontal_repeat, int vertical_repeat)
     {
       PixelOld p(pixel, get_color_space().get(), has_alpha_channel());
-      Core::Grid<double const *> g(p.get(), width ? width : get_width(),
+      core::Grid<double const *> g(p.get(), width ? width : get_width(),
                                    height ? height : get_height(), 0, 0);
       write_block(g, left, bottom, horizontal_repeat, vertical_repeat);
     }
@@ -1014,7 +1014,7 @@ namespace archon
                                  int horizontal_repeat, int vertical_repeat) const
     {
       int const pitch  = get_num_channels();
-      read_block(Core::Grid<double *>(tray, width, height, pitch, pitch*width),
+      read_block(core::Grid<double *>(tray, width, height, pitch, pitch*width),
                  left, bottom, horizontal_repeat, vertical_repeat);
     }
 
@@ -1022,7 +1022,7 @@ namespace archon
                                  int width, int height, int horizontal_repeat, int vertical_repeat)
     {
       int const pitch  = get_num_channels();
-      write_block(Core::Grid<double const *>(tray, width, height, pitch, pitch*width),
+      write_block(core::Grid<double const *>(tray, width, height, pitch, pitch*width),
                   left, bottom, horizontal_repeat, vertical_repeat);
     }
 
@@ -1037,13 +1037,13 @@ namespace archon
 
 
 /*
-    inline void Image::read_block(Image const *source, Core::Grid<double *> const &grid,
+    inline void Image::read_block(Image const *source, core::Grid<double *> const &grid,
                                   int left, int bottom, int horizontal_repeat, int vertical_repeat)
     {
       source->read_block(grid, left, bottom, horizontal_repeat, vertical_repeat);
     }
 
-    inline void Image::write_block(Image *target, Core::Grid<double const *> const &grid,
+    inline void Image::write_block(Image *target, core::Grid<double const *> const &grid,
                                    int left, int bottom, int horizontal_repeat, int vertical_repeat)
     {
       target->write_block(grid, left, bottom, horizontal_repeat, vertical_repeat);
@@ -1052,13 +1052,13 @@ namespace archon
 
 
     inline void
-    Image::decode(Image const *source, Core::Grid<double *> const &grid, int left, int bottom)
+    Image::decode(Image const *source, core::Grid<double *> const &grid, int left, int bottom)
     {
       source->decode(grid, left, bottom);
     }
 
     inline void
-    Image::encode(Image *target, Core::Grid<double const *> const &grid, int left, int bottom)
+    Image::encode(Image *target, core::Grid<double const *> const &grid, int left, int bottom)
     {
       target->encode(grid, left, bottom);
     }

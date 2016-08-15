@@ -39,7 +39,7 @@
 #include <archon/parser/cfg.hpp>
 
 using namespace std;
-using namespace archon::Core;
+using namespace archon::core;
 
 namespace archon
 {

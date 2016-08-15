@@ -1042,7 +1042,7 @@ namespace archon
       if(!in || ch != left) bad = true;
       else
       {
-        Core::BasicIosFormatResetter<C,T> sentry(in);
+        core::BasicIosFormatResetter<C,T> sentry(in);
         in.setf(std::ios_base::skipws);
         if(0 < M)
         {

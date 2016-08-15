@@ -37,7 +37,7 @@
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     /**
      * An iterator with a custom way of dereferencing the wrapped iterator.

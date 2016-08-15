@@ -40,12 +40,12 @@
 
 
 using namespace std;
-using namespace archon::Core;
+using namespace archon::core;
 
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     namespace Term
     {

@@ -25,7 +25,7 @@
 
 
 using namespace std;
-using namespace archon::Core;
+using namespace archon::core;
 
 
 namespace

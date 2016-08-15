@@ -41,7 +41,7 @@
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
 //     char_enc_Native,  ///< The multi-byte encoding native to the specified locale.
 //     char_enc_ASCII,   ///< The ASCII encoding which is also known as US-ASCII, ANSI_X3.4-1986, and ISO646-US.

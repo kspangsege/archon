@@ -32,7 +32,7 @@
 
 
 using namespace std;
-using namespace archon::Core;
+using namespace archon::core;
 using namespace archon::DomImpl;
 
 namespace dom = archon::dom;
@@ -760,7 +760,7 @@ private:
     friend class Notation;
 
 
-    Core::DeletingVector<Node> order;
+    core::DeletingVector<Node> order;
     typedef map<dom::DOMString, Node*> Map;
     Map node_map;
 

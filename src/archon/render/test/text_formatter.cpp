@@ -40,7 +40,7 @@
 
 
 using namespace std;
-using namespace archon::Core;
+using namespace archon::core;
 using namespace archon::Math;
 using namespace archon::Font;
 using namespace archon::Display;

@@ -99,9 +99,9 @@ class TimedEvent: public Event {
 public:
     /// The time the event occured. The origin is arbitrary, but the same for
     /// all events. Thus, it does _not_ represent the time since the UNIX Epoch.
-    const Core::Time time;
+    const core::Time time;
 
-    TimedEvent(int cookie, Core::Time t);
+    TimedEvent(int cookie, core::Time t);
 };
 
 
@@ -115,7 +115,7 @@ class KeyEvent: public TimedEvent {
 public:
     const KeySym key_sym;
 
-    KeyEvent(int cookie, Core::Time t, KeySym s);
+    KeyEvent(int cookie, core::Time t, KeySym s);
 };
 
 
@@ -131,7 +131,7 @@ public:
     /// measured in pixels from the upper left corner of thw window.
     const int x,y;
 
-    MouseEvent(int cookie, Core::Time t, int x, int y);
+    MouseEvent(int cookie, core::Time t, int x, int y);
 };
 
 
@@ -148,7 +148,7 @@ public:
     /// 2 will be the middle button or the scroll wheel when used as a button.
     const int button;
 
-    MouseButtonEvent(int cookie, Core::Time t, int x, int y, int button);
+    MouseButtonEvent(int cookie, core::Time t, int x, int y, int button);
 };
 
 
@@ -275,7 +275,7 @@ public:
 /// <tt>Connection::new_event_processor</tt>.
 class EventProcessor {
 public:
-    typedef Core::SharedPtr<EventProcessor> Ptr;
+    typedef core::SharedPtr<EventProcessor> Ptr;
     typedef const Ptr& Arg;
 
     /// Register the specified window with this event processor. What this means
@@ -330,7 +330,7 @@ public:
     /// \note This method is _not_ thread-safe.
     ///
     /// \sa EventHandler::before_sleep
-    virtual void process(Core::Time timeout = 0) = 0;
+    virtual void process(core::Time timeout = 0) = 0;
 
     /// Find the names of all the specified <tt>KeySym</tt>'s.
     ///
@@ -380,26 +380,26 @@ inline AreaEvent::AreaEvent(int c, int x_, int y_, int w, int h):
 {
 }
 
-inline TimedEvent::TimedEvent(int c, Core::Time t):
+inline TimedEvent::TimedEvent(int c, core::Time t):
     Event(c),
     time(t)
 {
 }
 
-inline KeyEvent::KeyEvent(int c, Core::Time t, KeySym s):
+inline KeyEvent::KeyEvent(int c, core::Time t, KeySym s):
     TimedEvent(c,t),
     key_sym(s)
 {
 }
 
-inline MouseEvent::MouseEvent(int c, Core::Time t, int x_, int y_):
+inline MouseEvent::MouseEvent(int c, core::Time t, int x_, int y_):
     TimedEvent(c,t),
     x(x_),
     y(y_)
 {
 }
 
-inline MouseButtonEvent::MouseButtonEvent(int c, Core::Time t, int x, int y, int b):
+inline MouseButtonEvent::MouseButtonEvent(int c, core::Time t, int x, int y, int b):
     MouseEvent(c,t,x,y),
     button(b)
 {

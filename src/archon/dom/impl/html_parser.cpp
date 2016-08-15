@@ -39,7 +39,7 @@
 #include <archon/dom/impl/html_parser.hpp>
 
 
-using namespace archon::Core;
+using namespace archon::core;
 using namespace archon::Util;
 
 
@@ -3886,8 +3886,8 @@ void DefaultResolver::resolve(const StringUtf16&,
 
 
 
-void Callbacks::doctype_begin(const Core::StringUtf16&, const Core::StringUtf16&,
-                              const Core::StringUtf16&)
+void Callbacks::doctype_begin(const core::StringUtf16&, const core::StringUtf16&,
+                              const core::StringUtf16&)
 {
 }
 
@@ -3895,11 +3895,11 @@ void Callbacks::doctype_end()
 {
 }
 
-void Callbacks::elem_begin(const Core::StringUtf16&, const std::vector<Attr>&)
+void Callbacks::elem_begin(const core::StringUtf16&, const std::vector<Attr>&)
 {
 }
 
-void Callbacks::elem_end(const Core::StringUtf16&)
+void Callbacks::elem_end(const core::StringUtf16&)
 {
 }
 
@@ -3911,15 +3911,15 @@ void Callbacks::style(const std::vector<Attr>&, InlineStream&)
 {
 }
 
-void Callbacks::text(const Core::StringUtf16&)
+void Callbacks::text(const core::StringUtf16&)
 {
 }
 
-void Callbacks::comment(const Core::StringUtf16&)
+void Callbacks::comment(const core::StringUtf16&)
 {
 }
 
-void Callbacks::proc_instr(const Core::StringUtf16&)
+void Callbacks::proc_instr(const core::StringUtf16&)
 {
 }
 

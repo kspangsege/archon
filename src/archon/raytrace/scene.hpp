@@ -44,7 +44,7 @@ namespace archon
     /**
      * Get a fresh empty scene object.
      */
-    Core::UniquePtr<Scene> new_scene();
+    core::UniquePtr<Scene> new_scene();
 
 
 

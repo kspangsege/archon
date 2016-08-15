@@ -39,7 +39,7 @@
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
 /*
   template<class T, int N=64> struct Alloc
@@ -99,7 +99,7 @@ namespace archon
       const_iterator begin() const { return vec.begin(); }
       const_iterator end()   const { return vec.end();   }
 
-      template<class U> void push_back(Core::UniquePtr<U> p);
+      template<class U> void push_back(core::UniquePtr<U> p);
 
       T *const &back() const { return vec.back(); }
 
@@ -115,7 +115,7 @@ namespace archon
 
       T *&at(std::size_t i) { return vec.at(i); }
 
-      template<class U> void set_at(std::size_t i, Core::UniquePtr<U> p);
+      template<class U> void set_at(std::size_t i, core::UniquePtr<U> p);
 
       std::size_t size() const { return vec.size(); }
 
@@ -171,7 +171,7 @@ namespace archon
 
       void erase(iterator i);
 
-      template<class U> void set_at(K const &k, Core::UniquePtr<U> p);
+      template<class U> void set_at(K const &k, core::UniquePtr<U> p);
 
       DeletingMap() {}
       ~DeletingMap() { clear(); }
@@ -594,7 +594,7 @@ namespace archon
     // Implementation:
 
     template<class T> template<class U>
-    inline void DeletingVector<T>::push_back(Core::UniquePtr<U> u)
+    inline void DeletingVector<T>::push_back(core::UniquePtr<U> u)
     {
       vec.push_back(u.get());
       u.release();
@@ -608,7 +608,7 @@ namespace archon
     }
 
     template<class T> template<class U>
-    inline void DeletingVector<T>::set_at(std::size_t i, Core::UniquePtr<U> u)
+    inline void DeletingVector<T>::set_at(std::size_t i, core::UniquePtr<U> u)
     {
       T *&p = vec.at(i);
       delete p;
@@ -639,7 +639,7 @@ namespace archon
 
 
     template<class K, class V> template<class U>
-    inline void DeletingMap<K,V>::set_at(K const &k, Core::UniquePtr<U> u)
+    inline void DeletingMap<K,V>::set_at(K const &k, core::UniquePtr<U> u)
     {
       V *&v = map[k];
       delete v;

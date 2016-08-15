@@ -31,19 +31,19 @@
 #include <archon/features.h>
 
 #ifndef ARCHON_NDEBUG
-#  define ARCHON_TERMINATE(message) archon::Core::_Impl::terminate((message), __FILE__, __LINE__)
+#  define ARCHON_TERMINATE(message) archon::core::_Impl::terminate((message), __FILE__, __LINE__)
 #else
 #  define ARCHON_TERMINATE(message) (static_cast<void>(sizeof (message)), std::abort())
 #endif
 
 namespace archon {
-namespace Core {
+namespace core {
 namespace _Impl {
 
 ARCHON_NORETURN void terminate(const char* message, const char* file, long line) ARCHON_NOEXCEPT;
 
 } // namespace _Impl
-} // namespace Core
+} // namespace core
 } // namespace archon
 
 #endif // ARCHON_CORE_TERMINATE_HPP

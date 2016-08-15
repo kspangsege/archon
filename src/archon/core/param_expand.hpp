@@ -33,7 +33,7 @@
 #include <archon/core/tuple.hpp>
 
 namespace archon {
-namespace Core {
+namespace core {
 
 
 #ifdef TIGHTDB_HAVE_CXX11_VARIADIC_TEMPLATES
@@ -277,7 +277,7 @@ inline void param_expand_tuple(std::basic_ostream<Char, Traits>& out, const char
     expander.expand(out, pattern);
 }
 
-} // namespace Core
+} // namespace core
 } // namespace archon
 
 #endif // ARCHON_CORE_PARAM_SUBST_HPP

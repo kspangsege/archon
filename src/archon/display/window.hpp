@@ -47,7 +47,7 @@ namespace archon
      */
     struct Cursor
     {
-      typedef Core::SharedPtr<Cursor> Ptr;
+      typedef core::SharedPtr<Cursor> Ptr;
       typedef Ptr const &Arg;
       virtual ~Cursor() {}
     };
@@ -77,7 +77,7 @@ namespace archon
      */
     struct Window: virtual Drawable
     {
-      typedef Core::SharedPtr<Window> Ptr;
+      typedef core::SharedPtr<Window> Ptr;
       typedef Ptr const &Arg;
 
       /**

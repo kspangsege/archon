@@ -273,7 +273,7 @@ namespace archon
      * \todo Make a formal format for string representation of pixel
      * formats and a parser.
      */
-    struct PixelFormat: virtual Core::CntRefObjectBase, Core::CntRefDefs<PixelFormat>
+    struct PixelFormat: virtual core::CntRefObjectBase, core::CntRefDefs<PixelFormat>
     {
       /**
        * Interpret image data as a sequence of words of this type. The
@@ -455,7 +455,7 @@ namespace archon
        * width of the red channel.
        */
       static Ref makeFormat(std::vector<int> const &channelWidths,
-                            ColorSpace::ConstRefArg colorSpace=Core::CntRefNullTag(),
+                            ColorSpace::ConstRefArg colorSpace=core::CntRefNullTag(),
                             bool reverseChannelOrder=false,
                             int bitsPerWord=0,
                             bool floatingPointWords=false,
@@ -513,7 +513,7 @@ namespace archon
        * or inconsistent.
        */
       static Ref makeFormat(std::vector<Channel> const &channelLayout,
-                            ColorSpace::ConstRefArg colorSpace=Core::CntRefNullTag(),
+                            ColorSpace::ConstRefArg colorSpace=core::CntRefNullTag(),
                             int bitsPerWord=0,
                             bool floatingPointWords=false,
                             bool mostSignificantBitsFirst=false,

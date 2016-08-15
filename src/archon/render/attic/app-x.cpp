@@ -59,7 +59,7 @@
 
 
 using namespace std;
-using namespace archon::Core;
+using namespace archon::core;
 using namespace archon::Math;
 using namespace archon::Util;
 using namespace archon::Imaging;
@@ -656,7 +656,7 @@ namespace archon
   {
     struct Application::PrivateState: PrivateApplicationState
     {
-      static archon::Core::SharedPtr<PrivateState>
+      static archon::core::SharedPtr<PrivateState>
       create(Config const &cfg, locale const &loc,
              TextureCache::Arg tex_cache, FontCache::Arg font_cache)
       {
@@ -1555,7 +1555,7 @@ namespace archon
     }
 
 
-    void Application::Config::populate(Core::ConfigBuilder &cfg)
+    void Application::Config::populate(core::ConfigBuilder &cfg)
     {
       cfg.add_param("f", "frame-rate", frame_rate,
                     "The initial frame rate. The frame rate marks the upper limit of frames "

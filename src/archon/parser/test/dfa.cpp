@@ -33,7 +33,7 @@
 #include <archon/parser/dfa.hpp>
 
 using namespace std;
-using namespace archon::Core;
+using namespace archon::core;
 using namespace archon::Parser;
 
 int main() throw()

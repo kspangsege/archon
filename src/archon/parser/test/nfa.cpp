@@ -38,7 +38,7 @@
 #include <archon/parser/nfa_ops.hpp>
 
 using namespace std;
-using namespace archon::Core;
+using namespace archon::core;
 using namespace archon::Parser;
 
 int main() throw()

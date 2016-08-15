@@ -75,7 +75,7 @@ namespace archon
     private:
       template<class> friend struct ref;
 
-      typedef Core::BindRef<T *> Bond;
+      typedef core::BindRef<T *> Bond;
       typedef Bond ref::*unspecified_bool_type;
 
       Bond bond;

@@ -60,7 +60,7 @@ namespace archon
   {
     struct JobQueue
     {
-      static Core::UniqueRef<JobQueue> new_queue(int max_threads = 4,
+      static core::UniqueRef<JobQueue> new_queue(int max_threads = 4,
                                                  long max_idle_millis = 10000);
 
 

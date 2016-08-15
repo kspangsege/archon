@@ -57,8 +57,8 @@ namespace archon
       word_type_LngDbl  ///< High precision floating point number
     };
 
-    namespace _Impl { struct WordTypeEnumSpec { static Core::EnumAssoc map[]; }; }
-    typedef Core::Enum<WordType, _Impl::WordTypeEnumSpec> WordTypeEnum;
+    namespace _Impl { struct WordTypeEnumSpec { static core::EnumAssoc map[]; }; }
+    typedef core::Enum<WordType, _Impl::WordTypeEnumSpec> WordTypeEnum;
 
 
     struct NoSuchWordTypeException;
@@ -103,7 +103,7 @@ namespace archon
 
     template<typename T> WordType get_smallest_int_type_by_max_val(T max_val)
     {
-      return get_word_type_by_bit_width(Core::find_most_sig_bit(max_val)+1, false, true);
+      return get_word_type_by_bit_width(core::find_most_sig_bit(max_val)+1, false, true);
     }
 
     /**
@@ -347,7 +347,7 @@ namespace archon
       {
         WordType operator()() const
         {
-          return get_word_type_by_type<typename Core::SmallestFloatCover<T>::type>();
+          return get_word_type_by_type<typename core::SmallestFloatCover<T>::type>();
         }
       };
 
@@ -355,7 +355,7 @@ namespace archon
       {
         WordType operator()() const
         {
-          return get_word_type_by_type<typename Core::FastestFloatCover<T>::type>();
+          return get_word_type_by_type<typename core::FastestFloatCover<T>::type>();
         }
       };
     }

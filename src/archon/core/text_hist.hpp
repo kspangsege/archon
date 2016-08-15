@@ -34,7 +34,7 @@
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     struct Histogram
     {

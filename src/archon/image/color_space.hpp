@@ -102,7 +102,7 @@ namespace archon
      * mutually thread safe. This includes the \c Converter::convert
      * method.
      */
-    struct ColorSpace: Core::CntRefObjectBase, Core::CntRefDefs<ColorSpace>
+    struct ColorSpace: core::CntRefObjectBase, core::CntRefDefs<ColorSpace>
     {
       /**
        * Get the luminance color space.
@@ -430,10 +430,10 @@ namespace archon
 
 
     private:
-      struct TypeSpec { static Core::EnumAssoc map[]; };
+      struct TypeSpec { static core::EnumAssoc map[]; };
 
     public:
-      typedef Core::Enum<Type, TypeSpec> TypeEnum;
+      typedef core::Enum<Type, TypeSpec> TypeEnum;
     };
 
 

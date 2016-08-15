@@ -71,7 +71,7 @@ namespace archon
       {
         int x, y;
         int width, height;
-        Core::UniquePtr<Node> right, under;
+        core::UniquePtr<Node> right, under;
 
         // Return 0 on 'no fit'
         Node const *insert(int w, int h);

@@ -39,7 +39,7 @@ namespace Font {
 
 struct FontCache;
 
-Core::SharedPtr<FontCache> new_font_cache(FontList::Arg l);
+core::SharedPtr<FontCache> new_font_cache(FontList::Arg l);
 
 
 
@@ -57,7 +57,7 @@ Core::SharedPtr<FontCache> new_font_cache(FontList::Arg l);
  */
 class FontCache {
 public:
-    using Ptr = Core::SharedPtr<FontCache>;
+    using Ptr = core::SharedPtr<FontCache>;
     using Arg = const Ptr&;
 
 

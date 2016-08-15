@@ -30,7 +30,7 @@
 #include <archon/core/type_list.hpp>
 
 namespace archon {
-namespace Core {
+namespace core {
 
 
 template<class L> struct Tuple {
@@ -168,7 +168,7 @@ inline std::basic_ostream<Ch, Tr>& operator<<(std::basic_ostream<Ch, Tr>& out, c
 }
 
 
-} // namespace Core
+} // namespace core
 } // namespace archon
 
 #endif // ARCHON_CORE_TUPLE_HPP

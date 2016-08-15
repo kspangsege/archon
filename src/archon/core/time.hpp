@@ -38,7 +38,7 @@
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     /**
      * Signed representation of time in nanosecond precision.

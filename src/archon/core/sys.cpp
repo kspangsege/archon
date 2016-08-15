@@ -49,7 +49,7 @@
 
 
 using namespace std;
-using namespace archon::Core;
+using namespace archon::core;
 
 
 namespace
@@ -116,7 +116,7 @@ namespace
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     namespace Sys
     {

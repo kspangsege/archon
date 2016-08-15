@@ -46,7 +46,7 @@ namespace Display {
 /// \sa http://www.x.org
 class PixelBuffer: public virtual Drawable {
 public:
-    typedef Core::SharedPtr<PixelBuffer> Ptr;
+    typedef core::SharedPtr<PixelBuffer> Ptr;
     typedef const Ptr& Arg;
 
     void save(std::string image_path);

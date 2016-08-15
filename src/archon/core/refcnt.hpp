@@ -37,7 +37,7 @@
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     typedef BindRefNullTag CntRefNullTag;
     typedef BindRefSafeTag CntRefSafeTag;

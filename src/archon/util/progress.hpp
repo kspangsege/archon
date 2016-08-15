@@ -75,7 +75,7 @@ namespace archon
       std::string const prefix;
       std::ostream &out;
       int width;
-      Core::Time start_time;
+      core::Time start_time;
     };
   }
 }

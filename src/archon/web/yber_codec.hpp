@@ -42,7 +42,7 @@ namespace archon
      *
      * \note The 'Y' is pronounced like the german U with an umlaut.
      */
-    Core::UniquePtr<Core::Codec const> get_yber_codec();
+    core::UniquePtr<core::Codec const> get_yber_codec();
   }
 }
 

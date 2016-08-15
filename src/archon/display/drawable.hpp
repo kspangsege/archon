@@ -39,7 +39,7 @@ namespace Display {
 /// \sa PixelBuffer
 class Drawable {
 public:
-    typedef Core::SharedPtr<Drawable> Ptr;
+    typedef core::SharedPtr<Drawable> Ptr;
     typedef const Ptr& Arg;
 
     /// Write the pixels of the specified image to the specified position of

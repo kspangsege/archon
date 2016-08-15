@@ -103,8 +103,8 @@ namespace archon
                             std::set<Header> &joinable);
 
 
-      namespace _Impl { struct HeaderSpec { static Core::EnumAssoc map[]; }; }
-      typedef Core::Enum<Header, _Impl::HeaderSpec, true> HeaderEnum;
+      namespace _Impl { struct HeaderSpec { static core::EnumAssoc map[]; }; }
+      typedef core::Enum<Header, _Impl::HeaderSpec, true> HeaderEnum;
     }
   }
 }

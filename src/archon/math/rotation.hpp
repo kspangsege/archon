@@ -245,7 +245,7 @@ namespace archon
       C ch;
       bool bad = false;
       in >> ch; if(ch != left) bad  = true;
-      Core::BasicIosFormatResetter<C,T> sentry(in);
+      core::BasicIosFormatResetter<C,T> sentry(in);
       in >> s.axis[0] >> ch; if(ch != comma)     bad  = true; 
       in >> s.axis[1] >> ch; if(ch != comma)     bad  = true; 
       in >> s.axis[2] >> ch; if(ch != semicolon) bad  = true; 

@@ -82,7 +82,7 @@ namespace archon
      * then delete the anchor edge other wise add the new states to
      * its state set.
      */
-    Core::CntRef<Dfa> constructDfaFromNfa(Core::CntRef<NfaBase const> const &nfa,
+    core::CntRef<Dfa> constructDfaFromNfa(core::CntRef<NfaBase const> const &nfa,
                                           std::map<Dfa::StateId, NfaBase::StateSet> *stateSets = 0)
     {
       if(nfa.empty()) return; // Handle the special empty NFA

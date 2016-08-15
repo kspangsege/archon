@@ -33,7 +33,7 @@ namespace archon
   {
     namespace _Impl
     {
-      archon::Core::EnumAssoc FalloffSpec::map[] =
+      archon::core::EnumAssoc FalloffSpec::map[] =
       {
         { falloff_Background, "background" },
         { falloff_Edge,       "edge"       },

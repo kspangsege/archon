@@ -55,7 +55,7 @@ namespace archon
 
     private:
       int value;
-      Core::Mutex mutex;
+      core::Mutex mutex;
       Condition non_zero;
     };
   }

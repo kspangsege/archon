@@ -87,7 +87,7 @@ namespace archon
     private:
       struct Rep
       {
-        Core::Atomic num_refs;
+        core::Atomic num_refs;
         size_type const size;
         T first_char;
         Rep(size_type s): num_refs(0), size(s) {}
@@ -99,7 +99,7 @@ namespace archon
         static void unbind(Rep *r) throw ();
       };
 
-      typedef Core::BindRef<Rep *, BindTraits> NullableString::*unspecified_bool_type;
+      typedef core::BindRef<Rep *, BindTraits> NullableString::*unspecified_bool_type;
 
     public:
       operator unspecified_bool_type() const throw () { return rep ? &NullableString::rep : 0; }
@@ -107,7 +107,7 @@ namespace archon
     private:
       static Rep *make_rep(T const *p, size_type n) throw (std::bad_alloc);
 
-      Core::BindRef<Rep *, BindTraits> rep;
+      core::BindRef<Rep *, BindTraits> rep;
     };
 
 

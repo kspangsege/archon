@@ -479,12 +479,12 @@ namespace archon
 
       StylePropDef &add2(std::string name, StylePropDef *prop)
       {
-        Core::UniquePtr<StylePropDef> p(prop);
+        core::UniquePtr<StylePropDef> p(prop);
         prop_map.set_at(dom::str_from_port(name), p);
         return *prop;
       }
 
-      typedef Core::DeletingMap<dom::DOMString, StylePropDef const> PropMap;
+      typedef core::DeletingMap<dom::DOMString, StylePropDef const> PropMap;
       PropMap prop_map;
     };
 
@@ -666,7 +666,7 @@ namespace archon
       ComputedStyle const &get_default_style()
       {
         if (!default_style) {
-          Core::UniquePtr<ComputedStyle> s(new ComputedStyle);
+          core::UniquePtr<ComputedStyle> s(new ComputedStyle);
           s->init();
           s->border.set_width(get_std_border_width(borderWidth_Medium));
           s->font.size = get_std_font_size(0);
@@ -716,7 +716,7 @@ namespace archon
       virtual void modif_default_style(ComputedStyle &) {}
 
     private:
-      Core::UniquePtr<ComputedStyle const> default_style;
+      core::UniquePtr<ComputedStyle const> default_style;
 
       static double get_font_size_scale_factor() { return 7.0/6; }
 
@@ -1054,7 +1054,7 @@ namespace archon
         1ul<<style_group_Font | 1ul<<style_group_Text;
       StyleComputeState::GroupBits dirty; // Groups that were changed by the style of the current element
       StyleComputeState::GroupBits accum_dirty;
-      Core::UniquePtr<ComputedStyle> backup_style;
+      core::UniquePtr<ComputedStyle> backup_style;
       bool has_current_height_of_x;
       double current_height_of_x;
 
@@ -1070,76 +1070,76 @@ namespace archon
     // Defininition of endowed enumerations
 
 
-    struct EmptyEnumSpec { static Core::EnumAssoc map[]; };
+    struct EmptyEnumSpec { static core::EnumAssoc map[]; };
     enum EmptyBaseEnum {};
-    typedef Core::Enum<EmptyBaseEnum, EmptyEnumSpec> EmptyEnum;
+    typedef core::Enum<EmptyBaseEnum, EmptyEnumSpec> EmptyEnum;
 
 
-    struct LengthUnitSpec { static Core::EnumAssoc map[]; };
-    typedef Core::Enum<LengthUnit, LengthUnitSpec> LengthUnitEnum;
-
-
-
-    struct NamedBorderWidthSpec { static Core::EnumAssoc map[]; };
-    typedef Core::Enum<NamedBorderWidth, NamedBorderWidthSpec> NamedBorderWidthEnum;
+    struct LengthUnitSpec { static core::EnumAssoc map[]; };
+    typedef core::Enum<LengthUnit, LengthUnitSpec> LengthUnitEnum;
 
 
 
-    struct BorderStyleSpec { static Core::EnumAssoc map[]; };
-    typedef Core::Enum<BorderStyle, BorderStyleSpec> BorderStyleEnum;
+    struct NamedBorderWidthSpec { static core::EnumAssoc map[]; };
+    typedef core::Enum<NamedBorderWidth, NamedBorderWidthSpec> NamedBorderWidthEnum;
 
 
 
-    struct FontStyleSpec { static Core::EnumAssoc map[]; };
-    typedef Core::Enum<FontStyle, FontStyleSpec> FontStyleEnum;
+    struct BorderStyleSpec { static core::EnumAssoc map[]; };
+    typedef core::Enum<BorderStyle, BorderStyleSpec> BorderStyleEnum;
 
 
 
-    struct FontVariantSpec { static Core::EnumAssoc map[]; };
-    typedef Core::Enum<FontVariant, FontVariantSpec> FontVariantEnum;
+    struct FontStyleSpec { static core::EnumAssoc map[]; };
+    typedef core::Enum<FontStyle, FontStyleSpec> FontStyleEnum;
 
 
 
-    struct FontWeightSpec { static Core::EnumAssoc map[]; };
-    typedef Core::Enum<FontWeight, FontWeightSpec> FontWeightEnum;
-
-    struct SpecialFontWeightSpec { static Core::EnumAssoc map[]; };
-    typedef Core::Enum<SpecialFontWeight, SpecialFontWeightSpec> SpecialFontWeightEnum;
+    struct FontVariantSpec { static core::EnumAssoc map[]; };
+    typedef core::Enum<FontVariant, FontVariantSpec> FontVariantEnum;
 
 
 
-    struct NamedFontSizeSpec { static Core::EnumAssoc map[]; };
-    typedef Core::Enum<NamedFontSize, NamedFontSizeSpec> NamedFontSizeEnum;
+    struct FontWeightSpec { static core::EnumAssoc map[]; };
+    typedef core::Enum<FontWeight, FontWeightSpec> FontWeightEnum;
+
+    struct SpecialFontWeightSpec { static core::EnumAssoc map[]; };
+    typedef core::Enum<SpecialFontWeight, SpecialFontWeightSpec> SpecialFontWeightEnum;
 
 
 
-    struct SystemColorSpec { static Core::EnumAssoc map[]; };
-    typedef Core::Enum<SystemColor, SystemColorSpec> SystemColorEnum;
+    struct NamedFontSizeSpec { static core::EnumAssoc map[]; };
+    typedef core::Enum<NamedFontSize, NamedFontSizeSpec> NamedFontSizeEnum;
 
 
 
-    struct ClearValueSpec { static Core::EnumAssoc map[]; };
-    typedef Core::Enum<ClearValue, ClearValueSpec> ClearValueEnum;
+    struct SystemColorSpec { static core::EnumAssoc map[]; };
+    typedef core::Enum<SystemColor, SystemColorSpec> SystemColorEnum;
 
 
 
-    struct DisplayValueSpec { static Core::EnumAssoc map[]; };
-    typedef Core::Enum<DisplayValue, DisplayValueSpec> DisplayValueEnum;
+    struct ClearValueSpec { static core::EnumAssoc map[]; };
+    typedef core::Enum<ClearValue, ClearValueSpec> ClearValueEnum;
 
 
 
-    struct FloatValueSpec { static Core::EnumAssoc map[]; };
-    typedef Core::Enum<FloatValue, FloatValueSpec> FloatValueEnum;
+    struct DisplayValueSpec { static core::EnumAssoc map[]; };
+    typedef core::Enum<DisplayValue, DisplayValueSpec> DisplayValueEnum;
 
 
 
-    struct OverflowValueSpec { static Core::EnumAssoc map[]; };
-    typedef Core::Enum<OverflowValue, OverflowValueSpec> OverflowValueEnum;
+    struct FloatValueSpec { static core::EnumAssoc map[]; };
+    typedef core::Enum<FloatValue, FloatValueSpec> FloatValueEnum;
 
 
 
-    struct PositionValueSpec { static Core::EnumAssoc map[]; };
-    typedef Core::Enum<PositionValue, PositionValueSpec> PositionValueEnum;
+    struct OverflowValueSpec { static core::EnumAssoc map[]; };
+    typedef core::Enum<OverflowValue, OverflowValueSpec> OverflowValueEnum;
+
+
+
+    struct PositionValueSpec { static core::EnumAssoc map[]; };
+    typedef core::Enum<PositionValue, PositionValueSpec> PositionValueEnum;
 
 
 
@@ -2499,7 +2499,7 @@ namespace archon
       }
 
       ColorProp<PropSpec_Color>  color;
-      Core::UniquePtr<FontGroup> font;
+      core::UniquePtr<FontGroup> font;
     };
 
 
@@ -2521,9 +2521,9 @@ namespace archon
         if (padding)       padding->format(out, ctx);
       }
 
-      Core::UniquePtr<BackgroundGroup> background;
-      Core::UniquePtr<MarginGroup>     margin;
-      Core::UniquePtr<PaddingGroup>    padding;
+      core::UniquePtr<BackgroundGroup> background;
+      core::UniquePtr<MarginGroup>     margin;
+      core::UniquePtr<PaddingGroup>    padding;
     };
 
 
@@ -2543,8 +2543,8 @@ namespace archon
         if (structure) structure->format(out, ctx);
       }
 
-      Core::UniquePtr<SizeGroup>      size;
-      Core::UniquePtr<StructureGroup> structure;
+      core::UniquePtr<SizeGroup>      size;
+      core::UniquePtr<StructureGroup> structure;
     };
 
 
@@ -2573,10 +2573,10 @@ namespace archon
         if (border) border->format(out, ctx);
       }
 
-      Core::UniquePtr<TextGroup>   text;
-      Core::UniquePtr<BoxGroup1>   box1;
-      Core::UniquePtr<BoxGroup2>   box2;
-      Core::UniquePtr<BorderGroup> border;
+      core::UniquePtr<TextGroup>   text;
+      core::UniquePtr<BoxGroup1>   box1;
+      core::UniquePtr<BoxGroup2>   box2;
+      core::UniquePtr<BorderGroup> border;
     };
 
 
@@ -2677,7 +2677,7 @@ namespace archon
       friend class ElemStyleDecl;
       friend class ElemStyleDeclManager;
 
-      Core::UniquePtr<SpecifiedStyle> spec_style;
+      core::UniquePtr<SpecifiedStyle> spec_style;
     };
 
 
@@ -2805,7 +2805,7 @@ namespace archon
     template<> struct PropGroupInfo<BackgroundGroup>
     {
       typedef BoxGroup1 Parent;
-      static Core::UniquePtr<BackgroundGroup> Parent::*get_self() { return &Parent::background; }
+      static core::UniquePtr<BackgroundGroup> Parent::*get_self() { return &Parent::background; }
     };
 
     template<> struct PropGroupInfo<BorderGroup::Width>
@@ -2829,55 +2829,55 @@ namespace archon
     template<> struct PropGroupInfo<FontGroup>
     {
       typedef TextGroup Parent;
-      static Core::UniquePtr<FontGroup> Parent::*get_self() { return &Parent::font; }
+      static core::UniquePtr<FontGroup> Parent::*get_self() { return &Parent::font; }
     };
 
     template<> struct PropGroupInfo<MarginGroup>
     {
       typedef BoxGroup1 Parent;
-      static Core::UniquePtr<MarginGroup> Parent::*get_self() { return &Parent::margin; }
+      static core::UniquePtr<MarginGroup> Parent::*get_self() { return &Parent::margin; }
     };
 
     template<> struct PropGroupInfo<PaddingGroup>
     {
       typedef BoxGroup1 Parent;
-      static Core::UniquePtr<PaddingGroup> Parent::*get_self() { return &Parent::padding; }
+      static core::UniquePtr<PaddingGroup> Parent::*get_self() { return &Parent::padding; }
     };
 
     template<> struct PropGroupInfo<SizeGroup>
     {
       typedef BoxGroup2 Parent;
-      static Core::UniquePtr<SizeGroup> Parent::*get_self() { return &Parent::size; }
+      static core::UniquePtr<SizeGroup> Parent::*get_self() { return &Parent::size; }
     };
 
     template<> struct PropGroupInfo<StructureGroup>
     {
       typedef BoxGroup2 Parent;
-      static Core::UniquePtr<StructureGroup> Parent::*get_self() { return &Parent::structure; }
+      static core::UniquePtr<StructureGroup> Parent::*get_self() { return &Parent::structure; }
     };
 
     template<> struct PropGroupInfo<TextGroup>
     {
       typedef SpecifiedStyle Parent;
-      static Core::UniquePtr<TextGroup> Parent::*get_self() { return &Parent::text; }
+      static core::UniquePtr<TextGroup> Parent::*get_self() { return &Parent::text; }
     };
 
     template<> struct PropGroupInfo<BoxGroup1>
     {
       typedef SpecifiedStyle Parent;
-      static Core::UniquePtr<BoxGroup1> Parent::*get_self() { return &Parent::box1; }
+      static core::UniquePtr<BoxGroup1> Parent::*get_self() { return &Parent::box1; }
     };
 
     template<> struct PropGroupInfo<BoxGroup2>
     {
       typedef SpecifiedStyle Parent;
-      static Core::UniquePtr<BoxGroup2> Parent::*get_self() { return &Parent::box2; }
+      static core::UniquePtr<BoxGroup2> Parent::*get_self() { return &Parent::box2; }
     };
 
     template<> struct PropGroupInfo<BorderGroup>
     {
       typedef SpecifiedStyle Parent;
-      static Core::UniquePtr<BorderGroup> Parent::*get_self() { return &Parent::border; }
+      static core::UniquePtr<BorderGroup> Parent::*get_self() { return &Parent::border; }
     };
 
 
@@ -2896,7 +2896,7 @@ namespace archon
       static Group &get_write_ref(StyledElement &elem)
       {
         Parent &p = PropGroupAccess<Parent>::get_write_ref(elem);
-        Core::UniquePtr<Group> &ptr = p.*Info::get_self();
+        core::UniquePtr<Group> &ptr = p.*Info::get_self();
         if (!ptr) ptr.reset(new Group);
         return *ptr;
       }

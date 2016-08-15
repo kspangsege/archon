@@ -37,7 +37,7 @@
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     namespace _Impl { struct SharedPtrPrimaryCount; struct SharedPtrSecondaryCount; }
 

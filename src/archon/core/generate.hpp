@@ -32,7 +32,7 @@
 #include <functional>
 
 namespace archon {
-namespace Core {
+namespace core {
 
 template<class F> struct FuncGenerator {
     using value_type = typename F::result_type;
@@ -62,7 +62,7 @@ template<class T> inline auto make_inc_generator(T init_val = 0)
     return make_func_generator(std::bind2nd(std::plus<T>(), 1), init_val);
 }
 
-} // namespace Core
+} // namespace core
 } // namespace archon
 
 #endif // ARCHON_CORE_GENERATE_HPP

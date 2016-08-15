@@ -77,8 +77,8 @@ namespace archon
       typedef typename _Super::StateId     StateId;
       typedef std::set<StateId>            StateSet;
 
-      typedef Core::CntRef<NfaBase>        Ref;
-      typedef Core::CntRef<NfaBase const>  ConstRef;
+      typedef core::CntRef<NfaBase>        Ref;
+      typedef core::CntRef<NfaBase const>  ConstRef;
       typedef Ref const                   &RefArg;
       typedef ConstRef const              &ConstRefArg;
 

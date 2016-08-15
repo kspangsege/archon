@@ -55,7 +55,7 @@ namespace archon
        * \return The MIME type of the specified file.
        */
       virtual std::string check(std::string filesys_path) const
-        throw(Core::File::AccessException) = 0;
+        throw(core::File::AccessException) = 0;
 
       virtual ~MimeMagician() {}
     };
@@ -67,7 +67,7 @@ namespace archon
      *
      * This function is thread-safe.
      */
-    Core::UniquePtr<MimeMagician> new_mime_magician();
+    core::UniquePtr<MimeMagician> new_mime_magician();
   }
 }
 

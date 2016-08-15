@@ -45,8 +45,8 @@ namespace archon
       {
         struct Connection;
 
-        virtual Core::UniquePtr<Connection> new_connection() = 0;
-        virtual void destroy_connection(Core::UniquePtr<Connection>) {}
+        virtual core::UniquePtr<Connection> new_connection() = 0;
+        virtual void destroy_connection(core::UniquePtr<Connection>) {}
 
         SocketServer(int p): port(p) {}
 
@@ -61,7 +61,7 @@ namespace archon
         struct Stream;
 
         int const port;
-        typedef Core::DeletingMap<int, Connection> Connections;
+        typedef core::DeletingMap<int, Connection> Connections;
         Connections connections;
         std::vector<int> pending_close;
         Thread::SelectSpec select_spec;
@@ -86,10 +86,10 @@ namespace archon
       struct SocketServer::Stream: Input, Output
       {
         std::size_t read(char *buffer, std::size_t n)
-          throw(Core::ReadException, Core::InterruptException);
+          throw(core::ReadException, core::InterruptException);
 
         std::size_t write(char const *buffer, std::size_t n)
-          throw(Core::WriteException, Core::InterruptException);
+          throw(core::WriteException, core::InterruptException);
 
         void close_input();
         void close_output();
@@ -128,7 +128,7 @@ namespace archon
          * input stream, or by closing the input stream, or by calling
          * resume_read().
          */
-        virtual void handle_read()  throw(Core::ReadException) = 0;
+        virtual void handle_read()  throw(core::ReadException) = 0;
 
         /**
          * Called by the server when writing to the output stream can
@@ -145,7 +145,7 @@ namespace archon
          * stream, or by closing the output stream, or by calling
          * resume_write().
          */
-        virtual void handle_write() throw(Core::WriteException) = 0;
+        virtual void handle_write() throw(core::WriteException) = 0;
 
         virtual ~Connection() {}
 

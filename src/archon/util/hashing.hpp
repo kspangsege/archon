@@ -109,7 +109,7 @@ namespace archon
     private:
       void add_octet(unsigned v);
 
-      Core::UIntFast32 h;
+      core::UIntFast32 h;
     };
 
 
@@ -125,7 +125,7 @@ namespace archon
       int const width = sizeof(Int)*std::numeric_limits<unsigned char>::digits;
       if(8 < width)
       {
-        typedef typename Core::FastestUnsignedWithBits<width>::type UInt;
+        typedef typename core::FastestUnsignedWithBits<width>::type UInt;
         UInt u = v;
         int n = width;
         while(n > 8)
@@ -164,7 +164,7 @@ namespace archon
           n = (n+1) * (double(std::log(std::numeric_limits<Float>::radix))/std::log(2.0));
         for(;;)
         {
-          typedef typename Core::SmallestIntCover<Float>::type Int;
+          typedef typename core::SmallestIntCover<Float>::type Int;
           v = std::ldexp(v, std::numeric_limits<Int>::digits);
           Int const i = v;
           add_int(i);

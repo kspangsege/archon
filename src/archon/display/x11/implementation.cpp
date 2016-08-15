@@ -74,13 +74,13 @@ using Xlib_Drawable = Drawable;
 #endif
 
 using namespace std;
-using namespace archon::Core;
+using namespace archon::core;
 using namespace archon::Thread;
 using namespace archon::Util;
 using namespace archon::Imaging;
 using namespace archon::Display;
 
-using Arch_Time     = archon::Core::Time;
+using Arch_Time     = archon::core::Time;
 using Arch_Drawable = archon::Display::Drawable;
 using Arch_Window   = archon::Display::Window;
 using Arch_KeySym   = archon::Display::KeySym;

@@ -180,7 +180,7 @@ template<class T> inline void cvt_HSV_to_RGB(const T* hsv, T* rgb)
         return;
     }
 
-    T h = Core::modulo<T>(hsv[0], 1) * 6;
+    T h = core::modulo<T>(hsv[0], 1) * 6;
     int i = static_cast<int>(h);
     T f = h - i;
     T c0 = hsv[2] * (1 - hsv[1]);
@@ -306,7 +306,7 @@ template<class T> inline void cvt_YCbCr_to_RGB(const T* ycbcr, T* rgb)
 template<class T> inline void cvt_RGB_to_CMYK(const T* rgb, T* cmyk)
 {
     T c = 1-rgb[0], m = 1-rgb[1], y = 1-rgb[2];
-    T b = cmyk[3] = Core::min3(c,m,y);
+    T b = cmyk[3] = core::min3(c,m,y);
     cmyk[0] = b == 1 && c == 1 ? 0 : (c-b) / (1-b);
     cmyk[1] = b == 1 && m == 1 ? 0 : (m-b) / (1-b);
     cmyk[2] = b == 1 && y == 1 ? 0 : (y-b) / (1-b);

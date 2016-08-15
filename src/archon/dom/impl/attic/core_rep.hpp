@@ -508,7 +508,7 @@ namespace archon
         if (type) return create_elem_rep(type);
         dom::DOMString const prefix = has_prefix ? qname.substr(0, i) : dom::DOMString();
         dom::DOMString const local_name = has_prefix ? qname.substr(i+1) : qname;
-        Core::UniquePtr<ElemType> owned_type(new ElemType(this, qname, ns_uri,
+        core::UniquePtr<ElemType> owned_type(new ElemType(this, qname, ns_uri,
                                                           prefix, local_name));
         type_ref = owned_type.get();
         ElemRep *const rep = create_elem_rep(owned_type.get());
@@ -624,16 +624,16 @@ namespace archon
 
 //     struct Document: virtual dom::Document
 //     {
-//       Core::SharedPtr<Implementation> const impl;
+//       core::SharedPtr<Implementation> const impl;
 
 //       dom::DOMString getNodeName() const throw () { return impl->doc_node_name; }
 //       dom::DOMString getNodeValue() const throw () { return dom::DOMString(); }
-//       Core::UIntMin16 getNodeType() const throw () { return dom::Node::DOCUMENT_NODE; }
-//       Core::SharedPtr<dom::Document> getOwnerDocument() const throw () { return 0; }
+//       core::UIntMin16 getNodeType() const throw () { return dom::Node::DOCUMENT_NODE; }
+//       core::SharedPtr<dom::Document> getOwnerDocument() const throw () { return 0; }
 //       dom::DOMString getNamespaceURI() const throw () { return dom::DOMString(); }
-//       Core::SharedPtr<Implementation> getImplementation() const throw () { return impl; }
+//       core::SharedPtr<Implementation> getImplementation() const throw () { return impl; }
 
-//       Document(Core::SharedPtr<Implementation> const &i): impl(i), num_external_refs(0) {}
+//       Document(core::SharedPtr<Implementation> const &i): impl(i), num_external_refs(0) {}
 
 //       ~Document() { std::cerr << "DomImpl::~Document()" << std::endl; }
 
@@ -653,7 +653,7 @@ namespace archon
 //       int num_external_refs;
 
 //     public:
-//       Core::SharedPtr<com::Element>
+//       core::SharedPtr<com::Element>
 //       createElementNS(dom::DOMString const &namespace_uri, dom::DOMString const &qualified_name)
 //         throw (DOMException)
 //       {
@@ -693,7 +693,7 @@ namespace archon
 
 //   struct Document: virtual dom::Document, DomImpl::ExtDocRef
 //   {
-//     static Core::SharedPtr<Document> get(DomImpl::Doc *rep)
+//     static core::SharedPtr<Document> get(DomImpl::Doc *rep)
 //     {
 //       if (doc->ext_ref) {
 //         return doc->ext_ref->self();
@@ -710,7 +710,7 @@ namespace archon
 //   private:
 //     Document(DomImpl::Doc *d): rep(d) {}
 
-//     Core::WeakPtr<Document> self;
+//     core::WeakPtr<Document> self;
 //     DomImpl::Doc *const rep;
 //   };
 

@@ -34,7 +34,7 @@
 
 
 namespace archon {
-namespace Core {
+namespace core {
 
 // An abstract thread safe logger.
 class Logger {
@@ -104,7 +104,7 @@ public:
     virtual ~Logger() {}
 };
 
-} // namespace Core
+} // namespace core
 } // namespace archon
 
 #endif // ARCHON_CORE_LOGGER_HPP

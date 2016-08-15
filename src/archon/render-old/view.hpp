@@ -35,7 +35,7 @@ namespace archon
 {
   namespace Render
   {
-    struct Viewport: Core::CntRefObjectBase, Core::CntRefDefs<Viewport>
+    struct Viewport: core::CntRefObjectBase, core::CntRefDefs<Viewport>
     {
       /**
        * Change the properties of the viewport.
@@ -57,7 +57,7 @@ namespace archon
 
 
 
-    struct Screen: Core::CntRefObjectBase, Core::CntRefDefs<Screen>
+    struct Screen: core::CntRefObjectBase, core::CntRefDefs<Screen>
     {
       /**
        * Change the geometric properties of the screen.
@@ -114,7 +114,7 @@ namespace archon
 
 
 
-    struct Eye: Core::CntRefObjectBase, Core::CntRefDefs<Eye>
+    struct Eye: core::CntRefObjectBase, core::CntRefDefs<Eye>
     {
       /**
        * Change the properties of the eye.
@@ -129,7 +129,7 @@ namespace archon
 
 
 
-    struct Clip: Core::CntRefObjectBase, Core::CntRefDefs<Clip>
+    struct Clip: core::CntRefObjectBase, core::CntRefDefs<Clip>
     {
       /**
        * Change the clipping planes.
@@ -152,7 +152,7 @@ namespace archon
      * defined in the Render namespace. This includes: Conductor,
      * Pipe, Viewport, Eye, Screen, Clip and View.
      */
-    struct Renderer: Core::CntRefObjectBase, Core::CntRefDefs<Renderer>
+    struct Renderer: core::CntRefObjectBase, core::CntRefDefs<Renderer>
     {
       /**
        * Called to initialize each OpenGL rending context. This is
@@ -176,7 +176,7 @@ namespace archon
 
 
 
-    struct View: Core::CntRefObjectBase, Core::CntRefDefs<View>
+    struct View: core::CntRefObjectBase, core::CntRefDefs<View>
     {
       static Ref newView(Renderer::RefArg r);
 

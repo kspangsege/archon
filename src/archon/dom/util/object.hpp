@@ -46,7 +46,7 @@ namespace archon
 
       bool is_referenced() const throw () { return ref_count != 0; }
 
-      friend struct Core::DefaultBindTraits;
+      friend struct core::DefaultBindTraits;
       void bind_ref()   const throw () { if (ref_count++ == 0) on_referenced();   }
       void unbind_ref() const throw () { if (--ref_count == 0) on_unreferenced(); }
 

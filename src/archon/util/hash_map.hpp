@@ -186,8 +186,8 @@ namespace archon
       };
 
     public:
-      typedef Core::IncIter<Entry       *, Iter>      iterator;
-      typedef Core::IncIter<Entry const *, ConstIter> const_iterator;
+      typedef core::IncIter<Entry       *, Iter>      iterator;
+      typedef core::IncIter<Entry const *, ConstIter> const_iterator;
 
       iterator begin() { return iterator(first_entry); }
       iterator end()   { return iterator(0); }
@@ -206,7 +206,7 @@ namespace archon
     template<class Int> inline int HashFuncInt<Int>::hash(Int i, int n)
     {
       int const w = sizeof(Int) * std::numeric_limits<unsigned char>::digits;
-      typedef typename Core::FastestUnsignedWithBits<w>::type UInt;
+      typedef typename core::FastestUnsignedWithBits<w>::type UInt;
       return UInt(i) % n;
     }
 

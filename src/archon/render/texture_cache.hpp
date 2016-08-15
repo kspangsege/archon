@@ -100,7 +100,7 @@ public:
      * handle. Otherwise the image will be retrieved as soon as somebody
      * acquires the texture by calling TextureDecl::acquire().
      */
-    TextureDecl declare(Core::UniquePtr<TextureSource>,
+    TextureDecl declare(core::UniquePtr<TextureSource>,
                         GLenum wrap_s = GL_REPEAT, GLenum wrap_t = GL_REPEAT,
                         FilterMode = filter_mode_Mipmap, bool wait_for_refresh = false,
                         bool fast_image_retrieval = true);
@@ -133,7 +133,7 @@ public:
     }
 
 protected:
-    virtual std::size_t decl(Core::UniquePtr<TextureSource>, GLenum h_wrap, GLenum v_wrap,
+    virtual std::size_t decl(core::UniquePtr<TextureSource>, GLenum h_wrap, GLenum v_wrap,
                              FilterMode f, bool wait, bool fast) = 0;
     virtual void obtain_gl_name(std::size_t i) = 0; // Requires bound OpenGL context. Assumes Texture::has_name is false.
     virtual void update2() = 0; // Requires bound OpenGL context.
@@ -317,7 +317,7 @@ private:
         static void bind(const Ref&) throw();
         static void unbind(const Ref&);
     };
-    Core::BindRef<Ref, Traits> ref;
+    core::BindRef<Ref, Traits> ref;
 };
 
 
@@ -372,7 +372,7 @@ private:
         static void bind(const Ref&) throw();
         static void unbind(const Ref&);
     };
-    Core::BindRef<Ref, Traits> ref;
+    core::BindRef<Ref, Traits> ref;
 };
 
 
@@ -424,7 +424,7 @@ private:
  */
 class TextureCache::Texture {
 public:
-    void open(Core::UniquePtr<TextureSource> s, GLenum wrap_s, GLenum wrap_t,
+    void open(core::UniquePtr<TextureSource> s, GLenum wrap_s, GLenum wrap_t,
               FilterMode f, bool wait, bool fast)
     {
         source = s.release();
@@ -486,7 +486,7 @@ public:
 };
 
 
-inline TextureDecl TextureCache::declare(Core::UniquePtr<TextureSource> src,
+inline TextureDecl TextureCache::declare(core::UniquePtr<TextureSource> src,
                                          GLenum wrap_s, GLenum wrap_t,
                                          FilterMode f, bool wait, bool fast)
 {

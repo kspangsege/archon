@@ -32,7 +32,7 @@
 #include <archon/util/transcode.hpp>
 
 using namespace std;
-using namespace archon::Core;
+using namespace archon::core;
 using namespace archon::Util;
 
 int main() throw()

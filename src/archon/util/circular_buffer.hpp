@@ -175,7 +175,7 @@ namespace archon
       }
 
       size_t const buffer_size;
-      Core::Array<T> const buffer;
+      core::Array<T> const buffer;
       size_t buffer_used_begin;
       size_t buffer_used_size;
     };

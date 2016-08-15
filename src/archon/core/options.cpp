@@ -37,7 +37,7 @@
 
 
 using namespace std;
-using namespace archon::Core;
+using namespace archon::core;
 
 
 
@@ -58,7 +58,7 @@ using namespace archon::Core;
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     CommandlineOptions::CommandlineOptions(bool long_has_one_dash, bool allow_numeric_names,
                                            locale const &l):
@@ -202,7 +202,7 @@ namespace archon
 
     void CommandlineOptions::add_stop_opts(string short_name, string long_name)
     {
-      Core::UniquePtr<Def> o;
+      core::UniquePtr<Def> o;
       o.reset(new DefStopOpts(dec(short_name), dec(long_name),
                               L"Stop any further command-line arguments "
                               L"from being intepreted as options", this));

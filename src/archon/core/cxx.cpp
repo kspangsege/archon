@@ -40,7 +40,7 @@ using namespace std;
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     namespace Cxx
     {

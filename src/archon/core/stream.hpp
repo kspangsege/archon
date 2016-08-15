@@ -38,7 +38,7 @@
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     struct IOException;
     struct ReadException;

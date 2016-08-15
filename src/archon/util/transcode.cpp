@@ -40,7 +40,7 @@
 
 
 using namespace std;
-using namespace archon::Core;
+using namespace archon::core;
 using namespace archon::Util;
 
 namespace
@@ -320,7 +320,7 @@ namespace
         throw runtime_error("Unsupported number of bits in byte");
 
       if(sizeof(CharUtf16) != 2)
-        throw runtime_error("Unsupported size of Core::CharUtf16");
+        throw runtime_error("Unsupported size of core::CharUtf16");
 
       bool const big_endian = native_endianness[0];
 

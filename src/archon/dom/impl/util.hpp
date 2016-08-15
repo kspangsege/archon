@@ -366,7 +366,7 @@ namespace archon
               if (++i == end) return 0; // Incomplete surrogate pair
               int_type const v2 = traits::to_int_type(*i);
               if (v2 < 0xDC00 || 0xE000 <= v2) return 0; // Invalid high surrogate
-              Core::UIntFast32 w = 0x10000 + (Core::UIntFast32(v-0xD800)<<10) + (v2-0xDC00);
+              core::UIntFast32 w = 0x10000 + (core::UIntFast32(v-0xD800)<<10) + (v2-0xDC00);
               if (0xF0000 <= w) return 0; // 0xF0000 <= w  -->  bad!
               // 0x10000 <= w < 0xF0000  -->  good!
             }

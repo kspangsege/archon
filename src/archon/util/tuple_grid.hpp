@@ -346,8 +346,8 @@ inline void BasicTupleGrid<I>::extend_0(int n, int width, int height,
         extend_1(n, width, height, left, right, down, up, left2, right2, down2, up2);
     }
     else {
-        using PeriodGrid = BasicTupleGrid<Core::PeriodIter<I>>;
-        PeriodGrid period_grid(Core::PeriodIter<I>(origin, use, gap, l), pitch, use);
+        using PeriodGrid = BasicTupleGrid<core::PeriodIter<I>>;
+        PeriodGrid period_grid(core::PeriodIter<I>(origin, use, gap, l), pitch, use);
         period_grid.extend_1(n, width, height, left, right, down, up, left2, right2, down2, up2);
     }
 }
@@ -364,8 +364,8 @@ inline void BasicTupleGrid<I>::extend_1(int n, int width, int height,
         extend_2(width, height, left, right, down, up, left2, right2, down2, up2);
     }
     else {
-        using PeriodGrid = BasicTupleGrid<Core::PeriodIter<I>>;
-        PeriodGrid period_grid(Core::PeriodIter<I>(origin, n, gap), n, stride/pitch*n);
+        using PeriodGrid = BasicTupleGrid<core::PeriodIter<I>>;
+        PeriodGrid period_grid(core::PeriodIter<I>(origin, n, gap), n, stride/pitch*n);
         period_grid.extend_2(width, height, left, right, down, up, left2, right2, down2, up2);
     }
 }
@@ -382,14 +382,14 @@ inline void BasicTupleGrid<I>::extend_2(int width, int height,
     if (l||l2||r||r2) {
         I b = origin;
         for (int i = 0; i < height; ++i) {
-            difference_type m = l ? Core::repeat(b, w, -l) : 0;
+            difference_type m = l ? core::repeat(b, w, -l) : 0;
             if (l2)
-                Core::repeat(b-l, p, -l2);
+                core::repeat(b-l, p, -l2);
             I e = b + w;
             if (r)
-                Core::repeat(e, m-w-l, r);
+                core::repeat(e, m-w-l, r);
             if (r2)
-                Core::repeat(e+r, -p, r2);
+                core::repeat(e+r, -p, r2);
             b += stride;
         }
     }
@@ -400,14 +400,14 @@ inline void BasicTupleGrid<I>::extend_2(int width, int height,
             d = s * down, d2 = s * down2, u = s * up, u2 = s * up2;
         I b = origin;
         b -= l2 + l;
-        difference_type m = d ? Core::repeat(b, h, -d) : 0;
+        difference_type m = d ? core::repeat(b, h, -d) : 0;
         if (d2)
-            Core::repeat(b-d, s, -d2);
+            core::repeat(b-d, s, -d2);
         b += h;
         if (u)
-            Core::repeat(b, m-h-d, u);
+            core::repeat(b, m-h-d, u);
         if (u2)
-            Core::repeat(b+u, -s, u2);
+            core::repeat(b+u, -s, u2);
     }
 }
 

@@ -80,7 +80,7 @@ namespace archon
       BasicRegexPrinter(std::locale loc = std::locale(""))
       {
         // Widen some fixed strings
-        Core::BasicLocaleCharMapper<CharType> mapper(loc);
+        core::BasicLocaleCharMapper<CharType> mapper(loc);
 
         lpar      = mapper.widen("(");
         rpar      = mapper.widen(")");
@@ -121,7 +121,7 @@ namespace archon
       }
 
     private:
-      Core::Text::BasicValuePrinter<CharType> s;
+      core::Text::BasicValuePrinter<CharType> s;
 
       StringType lpar;
       StringType rpar;

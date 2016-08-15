@@ -41,9 +41,9 @@ namespace archon
   {
     namespace Server
     {
-      using Core::ReadException;
-      using Core::WriteException;
-      using Core::InterruptException;
+      using core::ReadException;
+      using core::WriteException;
+      using core::InterruptException;
 
 
       /**

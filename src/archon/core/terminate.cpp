@@ -27,7 +27,7 @@
 #include <archon/core/terminate.hpp>
 
 namespace archon {
-namespace Core {
+namespace core {
 namespace _Impl {
 
 ARCHON_NORETURN void terminate(const char* message, const char* file, long line) ARCHON_NOEXCEPT
@@ -37,5 +37,5 @@ ARCHON_NORETURN void terminate(const char* message, const char* file, long line)
 }
 
 } // namespace _Impl
-} // namespace Core
+} // namespace core
 } // namespace archon

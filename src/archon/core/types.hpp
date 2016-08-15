@@ -36,7 +36,7 @@
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     namespace _Impl { template<typename T> struct ToNum; }
 

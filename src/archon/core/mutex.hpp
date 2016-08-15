@@ -42,7 +42,7 @@ namespace archon
   }
 
 
-  namespace Core
+  namespace core
   {
     /**
      * Thrown by the \c Mutex::Lock constructor and the \c

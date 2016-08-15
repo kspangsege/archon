@@ -74,7 +74,7 @@ namespace archon
      */
     struct Context
     {
-      typedef Core::SharedPtr<Context> Ptr;
+      typedef core::SharedPtr<Context> Ptr;
       typedef Ptr const &Arg;
 
       /**

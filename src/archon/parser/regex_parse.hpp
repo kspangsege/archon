@@ -74,7 +74,7 @@ namespace archon
      * See http://www.unicode.org/unicode/reports/tr18/tr18-5.1.html#End%20Of%20Line
      */
     template<typename Ch>
-    struct Regex: Core::CntRefObjectBase
+    struct Regex: core::CntRefObjectBase
     {
 
       /**
@@ -86,12 +86,12 @@ namespace archon
        * errors are logged, and only a fatal error will result in an
        * exception being thrown.
        */
-      static Exp parse(StringType, Core::Logger *l=0);
+      static Exp parse(StringType, core::Logger *l=0);
 
 
 
     /*
-      Regex(StringType s, Core::Logger *l=0)
+      Regex(StringType s, core::Logger *l=0)
       {
 	parse(s, l, 0);
       }
@@ -102,17 +102,17 @@ namespace archon
        * Accept the special syntax extension where {name} stands for a
        * previously defined expression.
        *
-       * @param l See Regex(StringType, Core::Logger *)
+       * @param l See Regex(StringType, core::Logger *)
        */
     /*
-      Regex(StringType s, Environment const &e, Core::Logger *l=0)
+      Regex(StringType s, Environment const &e, core::Logger *l=0)
       {
 	parse(s, l, &e);
       }
 
 //      static Parser const &getParser();
 
-      void parse(StringType, Core::Logger *, Environment const *);
+      void parse(StringType, core::Logger *, Environment const *);
     };
     */
 /*
@@ -374,9 +374,9 @@ namespace archon
 	}
       };
 
-      Core::UniquePtr<LrParserBase::Actor<ParserContext> > actor;
-      Core::UniquePtr<Printer> printer;
-      Core::UniquePtr<SlrParser> lrParser;
+      core::UniquePtr<LrParserBase::Actor<ParserContext> > actor;
+      core::UniquePtr<Printer> printer;
+      core::UniquePtr<SlrParser> lrParser;
       int terminalMap[128];
 
       Parser():

@@ -41,7 +41,7 @@
 
 
 using namespace std;
-using namespace archon::Core;
+using namespace archon::core;
 using namespace archon::Thread;
 using namespace archon::Util;
 using namespace archon::Web::Server;

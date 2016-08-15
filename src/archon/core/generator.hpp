@@ -29,7 +29,7 @@
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     template<typename T> struct Generator
     {

@@ -52,7 +52,7 @@ namespace
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     namespace File
     {

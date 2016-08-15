@@ -32,7 +32,7 @@
 #include <archon/parser/cfg.hpp>
 
 using namespace std;
-using namespace archon::Core;
+using namespace archon::core;
 using namespace archon::Parser;
 
 struct MyActor: Cfg::Actor

@@ -32,7 +32,7 @@ using namespace std;
 
 
 namespace archon {
-namespace Core {
+namespace core {
 
 
 StringUtf16 case_fold(const StringUtf16&)
@@ -69,5 +69,5 @@ string utf16_to_narrow(const StringUtf16& str, const locale& loc)
 }
 
 
-} // namespace Core
+} // namespace core
 } // namespace archon

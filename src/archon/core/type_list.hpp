@@ -26,7 +26,7 @@
 /// \author Kristian Spangsege
 
 namespace archon {
-namespace Core {
+namespace core {
 
 
 /// The 'cons' operator for building lists of types.
@@ -155,7 +155,7 @@ template<template<class T, int i> class Pred, int i> struct HasType<void, Pred, 
 };
 
 
-} // namespace Core
+} // namespace core
 } // namespace archon
 
 #endif // ARCHON_CORE_TYPE_LIST_HPP

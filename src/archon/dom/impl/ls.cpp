@@ -44,7 +44,7 @@
 
 
 using namespace std;
-using namespace archon::Core;
+using namespace archon::core;
 
 
 // FIXME: PROBLEM: How can an in-context asynchronous parser be supported without completely thread-safe document API? NOT A PROBLEM, because parseWithContext() always operates in synchonous mode. There are still problems!!! The thread that initiates an asynchronious parse will be in conflict will the parsing thread immediately. What are the use cases for asynchronous parsing? Progress reporting? Simultaneous loading of multiple documents? PArtial rendering would require special support of the implementation.

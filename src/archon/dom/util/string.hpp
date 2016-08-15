@@ -34,7 +34,7 @@ namespace archon
 {
   namespace dom
   {
-    typedef Core::StringUtf16 DOMString;
+    typedef core::StringUtf16 DOMString;
 
 
     /**
@@ -47,18 +47,18 @@ namespace archon
      * portable character set only, has identical encoding in all
      * locales. See \ref CharEnc.
      */
-    inline DOMString str_from_port(char const *port) { return Core::utf16_from_port(port); }
+    inline DOMString str_from_port(char const *port) { return core::utf16_from_port(port); }
 
-    inline DOMString str_from_port(std::string const &port) { return Core::utf16_from_port(port); }
+    inline DOMString str_from_port(std::string const &port) { return core::utf16_from_port(port); }
 
     inline void str_append_port(DOMString &s, char const *port)
     {
-      Core::utf16_append_port(s, port);
+      core::utf16_append_port(s, port);
     }
 
     inline void str_append_port(DOMString &s, std::string const &port)
     {
-      Core::utf16_append_port(s, port);
+      core::utf16_append_port(s, port);
     }
 
 
@@ -71,12 +71,12 @@ namespace archon
      * portable character set only, is always assumed to be encoded
      * according to the "C" locale. See \ref CharEnc.
      */
-    inline DOMString str_from_cloc(wchar_t const *s) { return Core::utf16_from_cloc(s); }
+    inline DOMString str_from_cloc(wchar_t const *s) { return core::utf16_from_cloc(s); }
 
 
     inline std::wstring str_to_wide(DOMString const &s, std::locale const &l = std::locale())
     {
-      return Core::utf16_to_wide(s,l);
+      return core::utf16_to_wide(s,l);
     }
 
     /**
@@ -102,17 +102,17 @@ namespace archon
      */
     inline bool str_to_narrow_port(DOMString const &s, std::string &port)
     {
-      return Core::utf16_to_narrow_port(s, port);
+      return core::utf16_to_narrow_port(s, port);
     }
 
 
-    inline DOMString case_fold(DOMString const &s) { return Core::case_fold(s); }
+    inline DOMString case_fold(DOMString const &s) { return core::case_fold(s); }
 
 
-    inline DOMString to_upper_case(DOMString const &s) { return Core::to_upper_case(s); }
+    inline DOMString to_upper_case(DOMString const &s) { return core::to_upper_case(s); }
 
 
-    inline DOMString to_lower_case(DOMString const &s) { return Core::to_lower_case(s); }
+    inline DOMString to_lower_case(DOMString const &s) { return core::to_lower_case(s); }
   }
 }
 

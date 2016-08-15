@@ -50,7 +50,7 @@ namespace archon
       typedef typename FsaType::StringType StringType;
       typedef typename FsaType::TokenId    TokenId;
 
-      typedef Core::Text::PrinterBase<CharType, CharType> SymbolPrinter;
+      typedef core::Text::PrinterBase<CharType, CharType> SymbolPrinter;
 
       StringType print(FsaType const &) const;
 
@@ -60,7 +60,7 @@ namespace archon
       size_t width;
       SymbolPrinter const &symPrinter;
       std::locale loc;
-      Core::Text::BasicValuePrinter<CharType> valPrinter;
+      core::Text::BasicValuePrinter<CharType> valPrinter;
 
       struct DefaultSymbolPrinter: SymbolPrinter
       {
@@ -85,7 +85,7 @@ namespace archon
     BasicFsaPrinter<Ch, Tok, Tr>::print(FsaType const &fsa) const
     {
       // Widen some fixed strings
-      Core::BasicLocaleCharMapper<CharType> mapper(loc);
+      core::BasicLocaleCharMapper<CharType> mapper(loc);
       StringType const ping       = mapper.widen("'");
       StringType const dashPing   = mapper.widen("-'");
       StringType const commaSpace = mapper.widen(", ");
@@ -96,7 +96,7 @@ namespace archon
       StringType const bow        = mapper.widen("BOW");
       StringType const eow        = mapper.widen("EOW");
 
-      Core::Text::BasicTable<CharType> table;
+      core::Text::BasicTable<CharType> table;
       table.get_col(0).set_width(1);
       table.get_col(1).set_width(1);
       table.get_col(2).set_width(1);

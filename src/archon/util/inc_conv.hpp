@@ -210,9 +210,9 @@ namespace archon
      * \sa make_inc_conv_out_stream
      */
     template<class Conv>
-    Core::UniquePtr<Core::BasicInputStream<typename Conv::target_char_type> >
+    core::UniquePtr<core::BasicInputStream<typename Conv::target_char_type> >
     make_inc_conv_in_stream(Conv const &converter,
-                            Core::BasicInputStream<typename
+                            core::BasicInputStream<typename
                             Conv::source_char_type> &in);
 
 
@@ -230,22 +230,22 @@ namespace archon
      * flush. Thaat is, a flush is effectively a close.
      */
     template<class Conv>
-    Core::UniquePtr<Core::BasicOutputStream<typename Conv::source_char_type> >
+    core::UniquePtr<core::BasicOutputStream<typename Conv::source_char_type> >
     make_inc_conv_out_stream(Conv const &converter,
-                             Core::BasicOutputStream<typename
+                             core::BasicOutputStream<typename
                              Conv::target_char_type> &out);
 
 
     template<class Conv>
-    Core::UniquePtr<Core::BasicInputStream<typename Conv::target_char_type> >
+    core::UniquePtr<core::BasicInputStream<typename Conv::target_char_type> >
     make_inc_conv_in_stream(Conv const &converter,
-                            Core::SharedPtr<Core::BasicInputStream<typename
+                            core::SharedPtr<core::BasicInputStream<typename
                             Conv::source_char_type> > const &in);
 
     template<class Conv>
-    Core::UniquePtr<Core::BasicOutputStream<typename Conv::source_char_type> >
+    core::UniquePtr<core::BasicOutputStream<typename Conv::source_char_type> >
     make_inc_conv_out_stream(Conv const &converter,
-                             Core::SharedPtr<Core::BasicOutputStream<typename
+                             core::SharedPtr<core::BasicOutputStream<typename
                              Conv::target_char_type> > const &out);
 
 
@@ -273,9 +273,9 @@ namespace archon
      * <tt>char</tt>.
      */
     template<class Enc, class Dec>
-    struct IncConvCodec: Core::BasicCodec<typename Enc::source_char_type>
+    struct IncConvCodec: core::BasicCodec<typename Enc::source_char_type>
     {
-      typedef Core::BasicCodec<typename Enc::source_char_type> Base;
+      typedef core::BasicCodec<typename Enc::source_char_type> Base;
       typedef typename Base::StringType       StringType;
       typedef typename Base::InputStreamType  InputStreamType;
       typedef typename Base::OutputStreamType OutputStreamType;
@@ -286,26 +286,26 @@ namespace archon
       StringType decode(std::string const &) const;
 
 
-      Core::UniquePtr<OutputStreamType> get_enc_out_stream(Core::OutputStream &) const;
+      core::UniquePtr<OutputStreamType> get_enc_out_stream(core::OutputStream &) const;
 
-      Core::UniquePtr<InputStreamType> get_dec_in_stream(Core::InputStream &) const;
+      core::UniquePtr<InputStreamType> get_dec_in_stream(core::InputStream &) const;
 
-      Core::UniquePtr<Core::InputStream> get_enc_in_stream(InputStreamType &) const;
+      core::UniquePtr<core::InputStream> get_enc_in_stream(InputStreamType &) const;
 
-      Core::UniquePtr<Core::OutputStream> get_dec_out_stream(OutputStreamType &) const;
+      core::UniquePtr<core::OutputStream> get_dec_out_stream(OutputStreamType &) const;
 
 
-      Core::UniquePtr<OutputStreamType>
-      get_enc_out_stream(Core::SharedPtr<Core::OutputStream> const &) const;
+      core::UniquePtr<OutputStreamType>
+      get_enc_out_stream(core::SharedPtr<core::OutputStream> const &) const;
 
-      Core::UniquePtr<InputStreamType>
-      get_dec_in_stream(Core::SharedPtr<Core::InputStream> const &) const;
+      core::UniquePtr<InputStreamType>
+      get_dec_in_stream(core::SharedPtr<core::InputStream> const &) const;
 
-      Core::UniquePtr<Core::InputStream>
-      get_enc_in_stream(Core::SharedPtr<InputStreamType> const &) const;
+      core::UniquePtr<core::InputStream>
+      get_enc_in_stream(core::SharedPtr<InputStreamType> const &) const;
 
-      Core::UniquePtr<Core::OutputStream>
-      get_dec_out_stream(Core::SharedPtr<OutputStreamType> const &) const;
+      core::UniquePtr<core::OutputStream>
+      get_dec_out_stream(core::SharedPtr<OutputStreamType> const &) const;
 
 
     private:
@@ -326,12 +326,12 @@ namespace archon
     {
       template<class C>
       struct IncConvInputStream:
-        Core::BasicInputStream<typename C::target_char_type>
+        core::BasicInputStream<typename C::target_char_type>
       {
         typedef C Converter;
         typedef typename C::source_char_type SourceChar;
         typedef typename C::target_char_type TargetChar;
-        typedef Core::BasicInputStream<SourceChar> SourceStream;
+        typedef core::BasicInputStream<SourceChar> SourceStream;
 
 
         // Accepts NULL in place of the buffer for discarding input
@@ -425,12 +425,12 @@ namespace archon
             }
           }
           catch (IncConvException &e) {
-            throw Core::ReadException(e.what());
+            throw core::ReadException(e.what());
           }
         }
 
 
-        IncConvInputStream(SourceStream &src, Core::SharedPtr<SourceStream> const &owner,
+        IncConvInputStream(SourceStream &src, core::SharedPtr<SourceStream> const &owner,
                            Converter const &c):
           source(src), source_owner(owner), converter(c), in(in_buf), in_end(in),
           out(out_buf), out_end(out), out_buf_end(out_buf+out_buf_size),
@@ -451,7 +451,7 @@ namespace archon
           Converter::min_target_buffer_size : out_buf_default_size;
 
         SourceStream &source;
-        Core::SharedPtr<SourceStream> const source_owner;
+        core::SharedPtr<SourceStream> const source_owner;
 
         typename Converter::State converter;
         SourceChar in_buf[in_buf_size];
@@ -465,12 +465,12 @@ namespace archon
 
       template<class C>
       struct IncConvOutputStream:
-        Core::BasicOutputStream<typename C::source_char_type>
+        core::BasicOutputStream<typename C::source_char_type>
       {
         typedef C Converter;
         typedef typename C::source_char_type SourceChar;
         typedef typename C::target_char_type TargetChar;
-        typedef Core::BasicOutputStream<TargetChar> TargetStream;
+        typedef core::BasicOutputStream<TargetChar> TargetStream;
 
 
         void write(SourceChar const *b, size_t n)
@@ -514,7 +514,7 @@ namespace archon
             }
           }
           catch (IncConvException &e) {
-            throw Core::WriteException(e.what());
+            throw core::WriteException(e.what());
           }
         }
 
@@ -530,7 +530,7 @@ namespace archon
           }
           catch(IncConvException &e)
           {
-            throw Core::WriteException(e.what());
+            throw core::WriteException(e.what());
           }
           target.flush();
         }
@@ -563,7 +563,7 @@ namespace archon
         }
 
 
-        IncConvOutputStream(TargetStream &tgt, Core::SharedPtr<TargetStream> const &owner,
+        IncConvOutputStream(TargetStream &tgt, core::SharedPtr<TargetStream> const &owner,
                             Converter const &c):
           target(tgt), target_owner(owner), converter(c), closed(false),
           in_end(in_buf), in_buf_end(in_buf+in_buf_size),
@@ -589,7 +589,7 @@ namespace archon
           Converter::min_target_buffer_size : out_buf_default_size;
 
         TargetStream &target;
-        Core::SharedPtr<TargetStream> const target_owner;
+        core::SharedPtr<TargetStream> const target_owner;
 
         typename Converter::State converter;
         bool closed;
@@ -602,55 +602,55 @@ namespace archon
 
 
     template<class C>
-    Core::UniquePtr<Core::BasicInputStream<typename C::target_char_type> >
+    core::UniquePtr<core::BasicInputStream<typename C::target_char_type> >
     make_inc_conv_in_stream(C const &converter,
-                            Core::BasicInputStream<typename
+                            core::BasicInputStream<typename
                             C::source_char_type> &in)
     {
       typedef _Impl::IncConvInputStream<C>                         Stream1;
-      typedef Core::BasicInputStream<typename C::source_char_type> Stream2;
-      typedef Core::BasicInputStream<typename C::target_char_type> Stream3;
-      Core::UniquePtr<Stream3> s(new Stream1(in, Core::SharedPtr<Stream2>(), converter));
+      typedef core::BasicInputStream<typename C::source_char_type> Stream2;
+      typedef core::BasicInputStream<typename C::target_char_type> Stream3;
+      core::UniquePtr<Stream3> s(new Stream1(in, core::SharedPtr<Stream2>(), converter));
       return s;
     }
 
 
     template<class C>
-    Core::UniquePtr<Core::BasicOutputStream<typename C::source_char_type> >
+    core::UniquePtr<core::BasicOutputStream<typename C::source_char_type> >
     make_inc_conv_out_stream(C const &converter,
-                             Core::BasicOutputStream<typename
+                             core::BasicOutputStream<typename
                              C::target_char_type> &out)
     {
       typedef _Impl::IncConvOutputStream<C> Stream1;
-      typedef Core::BasicOutputStream<typename C::source_char_type> Stream2;
-      typedef Core::BasicOutputStream<typename C::target_char_type> Stream3;
-      Core::UniquePtr<Stream2> s(new Stream1(out, Core::SharedPtr<Stream3>(), converter));
+      typedef core::BasicOutputStream<typename C::source_char_type> Stream2;
+      typedef core::BasicOutputStream<typename C::target_char_type> Stream3;
+      core::UniquePtr<Stream2> s(new Stream1(out, core::SharedPtr<Stream3>(), converter));
       return s;
     }
 
 
     template<class C>
-    Core::UniquePtr<Core::BasicInputStream<typename C::target_char_type> >
+    core::UniquePtr<core::BasicInputStream<typename C::target_char_type> >
     make_inc_conv_in_stream(C const &converter,
-                            Core::SharedPtr<Core::BasicInputStream<typename
+                            core::SharedPtr<core::BasicInputStream<typename
                             C::source_char_type> > const &in)
     {
       typedef _Impl::IncConvInputStream<C>                         Stream1;
-      typedef Core::BasicInputStream<typename C::target_char_type> Stream2;
-      Core::UniquePtr<Stream2> s(new Stream1(*in, in, converter));
+      typedef core::BasicInputStream<typename C::target_char_type> Stream2;
+      core::UniquePtr<Stream2> s(new Stream1(*in, in, converter));
       return s;
     }
 
 
     template<class C>
-    Core::UniquePtr<Core::BasicOutputStream<typename C::source_char_type> >
+    core::UniquePtr<core::BasicOutputStream<typename C::source_char_type> >
     make_inc_conv_out_stream(C const &converter,
-                             Core::SharedPtr<Core::BasicOutputStream<typename
+                             core::SharedPtr<core::BasicOutputStream<typename
                              C::target_char_type> > const &out)
     {
       typedef _Impl::IncConvOutputStream<C> Stream1;
-      typedef Core::BasicOutputStream<typename C::source_char_type> Stream2;
-      Core::UniquePtr<Stream2> s(new Stream1(*out, out, converter));
+      typedef core::BasicOutputStream<typename C::source_char_type> Stream2;
+      core::UniquePtr<Stream2> s(new Stream1(*out, out, converter));
       return s;
     }
 
@@ -695,7 +695,7 @@ namespace archon
       }
       catch(IncConvException &e)
       {
-        throw Core::EncodeException(e.what());
+        throw core::EncodeException(e.what());
       }
     }
 
@@ -709,69 +709,69 @@ namespace archon
       }
       catch(IncConvException &e)
       {
-        throw Core::DecodeException(e.what());
+        throw core::DecodeException(e.what());
       }
     }
 
 
-    template<class Enc, class Dec> Core::UniquePtr<typename IncConvCodec<Enc, Dec>::OutputStreamType>
-    IncConvCodec<Enc, Dec>::get_enc_out_stream(Core::OutputStream &out) const
+    template<class Enc, class Dec> core::UniquePtr<typename IncConvCodec<Enc, Dec>::OutputStreamType>
+    IncConvCodec<Enc, Dec>::get_enc_out_stream(core::OutputStream &out) const
     {
-      Core::UniquePtr<typename IncConvCodec<Enc, Dec>::OutputStreamType>
+      core::UniquePtr<typename IncConvCodec<Enc, Dec>::OutputStreamType>
         s(make_inc_conv_out_stream(enc, out).release());
       return s;
     }
 
-    template<class Enc, class Dec> Core::UniquePtr<typename IncConvCodec<Enc, Dec>::InputStreamType>
-    IncConvCodec<Enc, Dec>::get_dec_in_stream(Core::InputStream &in) const
+    template<class Enc, class Dec> core::UniquePtr<typename IncConvCodec<Enc, Dec>::InputStreamType>
+    IncConvCodec<Enc, Dec>::get_dec_in_stream(core::InputStream &in) const
     {
-      Core::UniquePtr<typename IncConvCodec<Enc, Dec>::InputStreamType>
+      core::UniquePtr<typename IncConvCodec<Enc, Dec>::InputStreamType>
         s(make_inc_conv_in_stream(dec, in).release());
       return s;
     }
 
-    template<class Enc, class Dec> Core::UniquePtr<Core::InputStream> IncConvCodec<Enc, Dec>::
+    template<class Enc, class Dec> core::UniquePtr<core::InputStream> IncConvCodec<Enc, Dec>::
     get_enc_in_stream(InputStreamType &in) const
     {
-      Core::UniquePtr<Core::InputStream> s(make_inc_conv_in_stream(enc, in).release());
+      core::UniquePtr<core::InputStream> s(make_inc_conv_in_stream(enc, in).release());
       return s;
     }
 
-    template<class Enc, class Dec> Core::UniquePtr<Core::OutputStream> IncConvCodec<Enc, Dec>::
+    template<class Enc, class Dec> core::UniquePtr<core::OutputStream> IncConvCodec<Enc, Dec>::
     get_dec_out_stream(OutputStreamType &out) const
     {
-      Core::UniquePtr<Core::OutputStream> s(make_inc_conv_out_stream(dec, out).release());
+      core::UniquePtr<core::OutputStream> s(make_inc_conv_out_stream(dec, out).release());
       return s;
     }
 
 
-    template<class Enc, class Dec> Core::UniquePtr<typename IncConvCodec<Enc, Dec>::OutputStreamType>
-    IncConvCodec<Enc, Dec>::get_enc_out_stream(Core::SharedPtr<Core::OutputStream> const &out) const
+    template<class Enc, class Dec> core::UniquePtr<typename IncConvCodec<Enc, Dec>::OutputStreamType>
+    IncConvCodec<Enc, Dec>::get_enc_out_stream(core::SharedPtr<core::OutputStream> const &out) const
     {
-      Core::UniquePtr<typename IncConvCodec<Enc, Dec>::OutputStreamType>
+      core::UniquePtr<typename IncConvCodec<Enc, Dec>::OutputStreamType>
         s(make_inc_conv_out_stream(enc, out).release());
       return s;
     }
 
-    template<class Enc, class Dec> Core::UniquePtr<typename IncConvCodec<Enc, Dec>::InputStreamType>
-    IncConvCodec<Enc, Dec>::get_dec_in_stream(Core::SharedPtr<Core::InputStream> const &in) const
+    template<class Enc, class Dec> core::UniquePtr<typename IncConvCodec<Enc, Dec>::InputStreamType>
+    IncConvCodec<Enc, Dec>::get_dec_in_stream(core::SharedPtr<core::InputStream> const &in) const
     {
-      Core::UniquePtr<typename IncConvCodec<Enc, Dec>::InputStreamType>
+      core::UniquePtr<typename IncConvCodec<Enc, Dec>::InputStreamType>
         s(make_inc_conv_in_stream(dec, in).release());
       return s;
     }
 
-    template<class Enc, class Dec> Core::UniquePtr<Core::InputStream>
-    IncConvCodec<Enc, Dec>::get_enc_in_stream(Core::SharedPtr<InputStreamType> const &in) const
+    template<class Enc, class Dec> core::UniquePtr<core::InputStream>
+    IncConvCodec<Enc, Dec>::get_enc_in_stream(core::SharedPtr<InputStreamType> const &in) const
     {
-      Core::UniquePtr<Core::InputStream> s(make_inc_conv_in_stream(enc, in).release());
+      core::UniquePtr<core::InputStream> s(make_inc_conv_in_stream(enc, in).release());
       return s;
     }
 
-    template<class Enc, class Dec> Core::UniquePtr<Core::OutputStream>
-    IncConvCodec<Enc, Dec>::get_dec_out_stream(Core::SharedPtr<OutputStreamType> const &out) const
+    template<class Enc, class Dec> core::UniquePtr<core::OutputStream>
+    IncConvCodec<Enc, Dec>::get_dec_out_stream(core::SharedPtr<OutputStreamType> const &out) const
     {
-      Core::UniquePtr<Core::OutputStream> s(make_inc_conv_out_stream(dec, out).release());
+      core::UniquePtr<core::OutputStream> s(make_inc_conv_out_stream(dec, out).release());
       return s;
     }
   }

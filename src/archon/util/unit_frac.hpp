@@ -298,7 +298,7 @@ namespace archon
       // Require two extra bits of the float type, if this cannot be
       // honored, the result will not be exactly correct.
       int const extra_bits = 2;
-      typedef typename Core::FastestFloatCover<Int, extra_bits>::type Float;
+      typedef typename core::FastestFloatCover<Int, extra_bits>::type Float;
       return frac_float_to_int<Float, Int>(frac_int_to_float<Int, Float>(v,n), m);
     }
 

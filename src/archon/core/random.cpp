@@ -36,11 +36,11 @@
 
 
 using namespace std;
-using namespace archon::Core;
+using namespace archon::core;
 
 namespace
 {
-  archon::Core::Atomic counter;
+  archon::core::Atomic counter;
 
 
   /**
@@ -283,7 +283,7 @@ namespace
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     Random::Random()
     {

@@ -89,15 +89,15 @@ struct Config {
 ///
 /// \sa http://www.iana.org/assignments/character-sets
 void parse_html(const Source&, Callbacks&, Resolver&,
-                Core::Logger* = &Core::Logger::get_default_logger(),
+                core::Logger* = &core::Logger::get_default_logger(),
                 const Config& = Config());
 
 void parse_dtd(const Source&, Callbacks&, Resolver&,
-               Core::Logger* = &Core::Logger::get_default_logger(),
+               core::Logger* = &core::Logger::get_default_logger(),
                const Config& = Config());
 
-bool parse_xml_proc_instr(const Core::StringUtf16& text, Core::StringUtf16& xml_target,
-                          Core::StringUtf16& xml_data);
+bool parse_xml_proc_instr(const core::StringUtf16& text, core::StringUtf16& xml_target,
+                          core::StringUtf16& xml_data);
 
 
 /*
@@ -137,9 +137,9 @@ At '>' of start tag seen:
 
 class Source {
 public:
-    Source(Core::InputStream& i): in(i) {}
+    Source(core::InputStream& i): in(i) {}
 
-    Core::InputStream& in;
+    core::InputStream& in;
 
     /// The character encoding used in the input. Empty means
     /// 'auto-detect'. For files received over HTTP, the caller should
@@ -151,17 +151,17 @@ public:
     /// list. Not all encodings may be available on any specific
     /// platform. The available encodings are precisely those offered
     /// by <archon/util/transcode.hpp>.
-    Core::StringUtf16 charenc;
+    core::StringUtf16 charenc;
 
     /// A string that identifies the input. Defaults to "<input>",
     /// litteraly. This should in general be the URI reference from
     /// which the input is retreived.
-    Core::StringUtf16 system_ident;
+    core::StringUtf16 system_ident;
 
     /// The base URI to resolve against whan requesting sub components
     /// of the input. Empty means 'the current working directory'. The
     /// base URI should in general be equal to 'system_ident'.
-    Core::StringUtf16 base_uri;
+    core::StringUtf16 base_uri;
 };
 
 
@@ -169,11 +169,11 @@ public:
 /// All callback functions are no-op's by default.
 class Callbacks {
 public:
-    typedef Core::BasicInputStream<Core::CharUtf16> InlineStream;
+    typedef core::BasicInputStream<core::CharUtf16> InlineStream;
 
-    virtual void doctype_begin(const Core::StringUtf16& name,
-                               const Core::StringUtf16& public_id,
-                               const Core::StringUtf16& system_id);
+    virtual void doctype_begin(const core::StringUtf16& name,
+                               const core::StringUtf16& public_id,
+                               const core::StringUtf16& system_id);
 
     virtual void doctype_end();
 
@@ -185,9 +185,9 @@ public:
     ///
     /// Attributes are reported in the order they occur on start tag
     /// in the source document.
-    virtual void elem_begin(const Core::StringUtf16& name, const std::vector<Attr>&);
+    virtual void elem_begin(const core::StringUtf16& name, const std::vector<Attr>&);
 
-    virtual void elem_end(const Core::StringUtf16& name);
+    virtual void elem_end(const core::StringUtf16& name);
 
     /// Called whenever a script tag is encountered.
     virtual void script(const std::vector<Attr>&, InlineStream& inline_script,
@@ -197,16 +197,16 @@ public:
 
     /// Continuous text may be broken arbitrarily and reported in
     /// multiple chunks. A reported chunk is never empty.
-    virtual void text(const Core::StringUtf16& chunk);
+    virtual void text(const core::StringUtf16& chunk);
 
     /// Called for each SGML comment declaration. For comment
     /// declarations with multiple comments, only the first comment
     /// within the declaration is included in the text that is passed
     /// as argument. This method will not be called for degenerate
     /// comment declarations containing zero comments.
-    virtual void comment(const Core::StringUtf16& text);
+    virtual void comment(const core::StringUtf16& text);
 
-    virtual void proc_instr(const Core::StringUtf16& text);
+    virtual void proc_instr(const core::StringUtf16& text);
 
     virtual ~Callbacks() {}
 };
@@ -215,7 +215,7 @@ public:
 
 class Attr {
 public:
-    Core::StringUtf16 name, value;
+    core::StringUtf16 name, value;
 };
 
 
@@ -224,7 +224,7 @@ class DocWriter {
 public:
     /// Inject the specified arbitrary text immediately after the
     /// closing script tag of the currently executing script.
-    virtual void write(const Core::StringUtf16& text) = 0;
+    virtual void write(const core::StringUtf16& text) = 0;
 
     virtual ~DocWriter() {}
 };
@@ -241,12 +241,12 @@ class Resolver {
 public:
     /// \throw ResolveException if the specified resource is
     /// unavialble.
-    virtual void resolve(const Core::StringUtf16& public_ident,
-                         const Core::StringUtf16& system_ident,
-                         const Core::StringUtf16& base_uri,
-                         Core::UniquePtr<Core::InputStream>& in,
-                         Core::StringUtf16& charenc,
-                         Core::StringUtf16& uri) = 0;
+    virtual void resolve(const core::StringUtf16& public_ident,
+                         const core::StringUtf16& system_ident,
+                         const core::StringUtf16& base_uri,
+                         core::UniquePtr<core::InputStream>& in,
+                         core::StringUtf16& charenc,
+                         core::StringUtf16& uri) = 0;
 
     virtual ~Resolver() {}
 };
@@ -256,12 +256,12 @@ class DefaultResolver: public Resolver {
 public:
     DefaultResolver(const std::locale& l = std::locale()): loc(l) {}
 
-    virtual void resolve(const Core::StringUtf16& public_ident,
-                         const Core::StringUtf16& system_ident,
-                         const Core::StringUtf16& base_uri,
-                         Core::UniquePtr<Core::InputStream>& in,
-                         Core::StringUtf16& charenc,
-                         Core::StringUtf16& uri);
+    virtual void resolve(const core::StringUtf16& public_ident,
+                         const core::StringUtf16& system_ident,
+                         const core::StringUtf16& base_uri,
+                         core::UniquePtr<core::InputStream>& in,
+                         core::StringUtf16& charenc,
+                         core::StringUtf16& uri);
 
 private:
     const std::locale loc;

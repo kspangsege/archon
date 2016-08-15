@@ -54,8 +54,8 @@ namespace archon
      * objects are retrieved for images of equal size, they must
      * perform exactly the same conversions.
      */
-    struct BufferFormat: virtual Core::CntRefObjectBase,
-                         Core::CntRefDefs<BufferFormat>
+    struct BufferFormat: virtual core::CntRefObjectBase,
+                         core::CntRefDefs<BufferFormat>
     {
       /**
        * The number of channels per pixel that is encoded by this
@@ -133,7 +133,7 @@ namespace archon
        * pixels in the wrapped buffer. Ownership of the returned
        * buffer codec is transferred to the caller.
        */
-      virtual Core::UniquePtr<BufferCodec>
+      virtual core::UniquePtr<BufferCodec>
       get_codec(void *buffer, int width, int height) const = 0;
 
 

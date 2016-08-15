@@ -64,7 +64,7 @@ namespace archon
      */
     struct FontLoader
     {
-      typedef Core::SharedPtr<FontLoader> Ptr;
+      typedef core::SharedPtr<FontLoader> Ptr;
       typedef Ptr const &Arg;
 
 
@@ -78,7 +78,7 @@ namespace archon
        *
        * \return The loaded font face.
        */
-      virtual Core::UniquePtr<FontFace> load_default_face(double width = 12,
+      virtual core::UniquePtr<FontFace> load_default_face(double width = 12,
                                                           double height = 12) const = 0;
 
 
@@ -101,7 +101,7 @@ namespace archon
        * \throw BadFontFileException If the specified font file could
        * not be successfully processed.
        */
-      virtual Core::UniquePtr<FontFace> load_face(std::string font_file, int face_index = 0,
+      virtual core::UniquePtr<FontFace> load_face(std::string font_file, int face_index = 0,
                                                   double width = 12, double height = 12) const = 0;
 
 

@@ -39,7 +39,7 @@
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     /**
      * A generator of pseudo random numbers.

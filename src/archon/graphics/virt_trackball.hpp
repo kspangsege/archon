@@ -101,7 +101,7 @@ namespace archon
        *
        * \sa track
        */
-      void acquire(Core::Time now);
+      void acquire(core::Time now);
 
 
       /**
@@ -120,7 +120,7 @@ namespace archon
        *
        * \sa release
        */
-      void track(int x, int y, Core::Time event_time);
+      void track(int x, int y, core::Time event_time);
 
 
       /**
@@ -145,7 +145,7 @@ namespace archon
        *
        * \sa track
        */
-      void release(Core::Time now);
+      void release(core::Time now);
 
 
       /**
@@ -153,7 +153,7 @@ namespace archon
        * time. To get reliable results, the specified time shold be as
        * close to 'now' as possible.
        */
-      Math::Rotation3 get_orientation(Core::Time now) const;
+      Math::Rotation3 get_orientation(core::Time now) const;
 
 
       /**
@@ -175,7 +175,7 @@ namespace archon
        * calls to \c get_orientation get correct results based on the
        * time of those calls.
        */
-      void set_spin(Math::Rotation3 spin, Core::Time now);
+      void set_spin(Math::Rotation3 spin, core::Time now);
 
 
       void dump_info(std::ostream &) const;
@@ -184,7 +184,7 @@ namespace archon
       ~VirtualTrackball();
 
     private:
-      Math::Rotation3 get_free_orientation(Core::Time time) const;
+      Math::Rotation3 get_free_orientation(core::Time time) const;
       Math::Rotation3 get_track_orientation() const;
       void set_track_orientation(Math::Vec3 p) const;
       Math::Vec3 get_ball_point(Math::Vec2 pos) const;
@@ -199,13 +199,13 @@ namespace archon
 
       bool acquired;
 
-      Core::Time release_time;
+      core::Time release_time;
       Math::Rotation3 base_orientation;
       Math::Rotation3 spin;
 
       bool no_track_yet;
 
-      Core::Time first_track_time;
+      core::Time first_track_time;
       Math::Vec2 first_track_pos;
       Math::Vec3 first_track_point;
 
@@ -213,7 +213,7 @@ namespace archon
       Math::Vec2 track_pos;
 
       template<class> struct FiniteCurveMemory;
-      Core::UniquePtr<FiniteCurveMemory<Math::Vec2> > const curve_mem;
+      core::UniquePtr<FiniteCurveMemory<Math::Vec2> > const curve_mem;
 
       // Caching
       mutable Math::Rotation3 track_orientation;
@@ -234,7 +234,7 @@ namespace archon
     }
 
 
-    void VirtualTrackball::acquire(Core::Time now)
+    void VirtualTrackball::acquire(core::Time now)
     {
       if(acquired) return;
       base_orientation = get_free_orientation(now);
@@ -250,7 +250,7 @@ namespace archon
     }
 
 
-    void VirtualTrackball::set_spin(Math::Rotation3 s, Core::Time now)
+    void VirtualTrackball::set_spin(Math::Rotation3 s, core::Time now)
     {
       base_orientation = get_orientation(now);
       release_time = now;
@@ -259,7 +259,7 @@ namespace archon
     }
 
 
-    Math::Rotation3 VirtualTrackball::get_orientation(Core::Time now) const
+    Math::Rotation3 VirtualTrackball::get_orientation(core::Time now) const
     {
       return acquired ? get_track_orientation() : get_free_orientation(now);
     }
@@ -269,7 +269,7 @@ namespace archon
      * Calculate the orientation of the free spinning ball at the
      * specified time.
      */
-    Math::Rotation3 VirtualTrackball::get_free_orientation(Core::Time time) const
+    Math::Rotation3 VirtualTrackball::get_free_orientation(core::Time time) const
     {
       using namespace Math;
       if (!spin.angle) return base_orientation;

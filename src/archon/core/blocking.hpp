@@ -36,7 +36,7 @@
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     /**
      * Some operations are capable of blocking the caller for extended

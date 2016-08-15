@@ -27,7 +27,7 @@
 #include <archon/thread/semaphore.hpp>
 
 
-using namespace archon::Core;
+using namespace archon::core;
 
 
 namespace archon

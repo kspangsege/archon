@@ -44,7 +44,7 @@ namespace archon
      *
      * \return The new input stream.
      */
-    template<class Ch> Core::SharedPtr<Core::BasicInputStream<Ch> >
+    template<class Ch> core::SharedPtr<core::BasicInputStream<Ch> >
     make_string_input_stream(typename std::basic_string<Ch> const &s);
 
 
@@ -62,8 +62,8 @@ namespace archon
      * sqrt(mean_chunk_size)))</tt> due to the fact that the actual
      * chunk size will follow a Poisson distribution.
      */
-    Core::UniquePtr<Core::InputStream>
-    make_slow_stream(Core::InputStream &in,
+    core::UniquePtr<core::InputStream>
+    make_slow_stream(core::InputStream &in,
                      double mean_transfer_rate, double mean_chunk_size);
 
 
@@ -80,9 +80,9 @@ namespace archon
      *
      * \sa Image::ImageIO
      */
-    template<class Ch> struct BasicRewindableStream: Core::BasicInputStream<Ch>
+    template<class Ch> struct BasicRewindableStream: core::BasicInputStream<Ch>
     {
-      BasicRewindableStream(Core::BasicInputStream<Ch> &in):
+      BasicRewindableStream(core::BasicInputStream<Ch> &in):
         in(in), buffer_start(0), released(false), eoi(false) {}
 
       std::size_t read(Ch *b, std::size_t n);
@@ -103,7 +103,7 @@ namespace archon
       void release();
 
     private:
-      Core::BasicInputStream<Ch> &in;
+      core::BasicInputStream<Ch> &in;
       std::basic_string<Ch> buffer;
       std::size_t buffer_start;
       bool released, eoi;
@@ -119,7 +119,7 @@ namespace archon
 
     // Template implementations
 
-    template<class Ch> struct BasicStringInputStream: Core::BasicInputStream<Ch>
+    template<class Ch> struct BasicStringInputStream: core::BasicInputStream<Ch>
     {
       std::size_t read(Ch *b, std::size_t n)
       {
@@ -138,10 +138,10 @@ namespace archon
       std::size_t pos;
     };
 
-    template<class Ch> Core::SharedPtr<Core::BasicInputStream<Ch> >
+    template<class Ch> core::SharedPtr<core::BasicInputStream<Ch> >
     make_string_input_stream(std::basic_string<Ch> const &s)
     {
-      return Core::SharedPtr<Core::BasicInputStream<Ch> >(new BasicStringInputStream<Ch>(s));
+      return core::SharedPtr<core::BasicInputStream<Ch> >(new BasicStringInputStream<Ch>(s));
     }
 
 

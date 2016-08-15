@@ -74,7 +74,7 @@ namespace archon
 
     struct Implementation
     {
-      typedef Core::SharedPtr<Implementation> Ptr;
+      typedef core::SharedPtr<Implementation> Ptr;
       typedef Ptr const &Arg;
 
       /**

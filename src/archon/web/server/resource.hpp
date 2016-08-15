@@ -116,7 +116,7 @@ namespace archon
         }
 
         size_t const size;
-        Core::MemoryBuffer const data;
+        core::MemoryBuffer const data;
         size_t pos;
       };
 

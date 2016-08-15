@@ -41,7 +41,7 @@ namespace archon
     {
       typedef Ch                               CharType;
       typedef std::basic_string<CharType>      StringType;
-      typedef Core::BasicInputStream<CharType> StreamType;
+      typedef core::BasicInputStream<CharType> StreamType;
       typedef size_t                           SizeType;
       typedef Tok                              TokenId;
       typedef size_t                           StateId;
@@ -422,7 +422,7 @@ namespace archon
      * \sa Dfa
      */
     template<typename Ch, typename Tok = short unsigned, typename Tr = FsaTraits<Ch, Tok> >
-    struct FsaBase: Core::CntRefObjectBase
+    struct FsaBase: core::CntRefObjectBase
     {
       typedef Tr                              TraitsType;
       typedef typename TraitsType::CharType   CharType;
@@ -432,8 +432,8 @@ namespace archon
       typedef typename TraitsType::TokenId    TokenId;
       typedef typename TraitsType::StateId    StateId;
 
-      typedef Core::CntRef<FsaBase>           Ref;
-      typedef Core::CntRef<FsaBase const>     ConstRef;
+      typedef core::CntRef<FsaBase>           Ref;
+      typedef core::CntRef<FsaBase const>     ConstRef;
       typedef Ref const                      &RefArg;
       typedef ConstRef const                 &ConstRefArg;
 
@@ -458,7 +458,7 @@ namespace archon
        * example, the "beginning of line" anchor condition will always
        * be satisfied at the start of input.
        */
-      struct Matcher: Core::CntRefObjectBase, Core::CntRefDefs<Matcher>
+      struct Matcher: core::CntRefObjectBase, core::CntRefDefs<Matcher>
       {
         /**
          * Match the longest possible prefix of the remaining
@@ -502,7 +502,7 @@ namespace archon
        *
        * \return A new matcher object
        */
-      virtual Core::CntRef<Matcher> getMatcher(Core::CntRef<StreamType> const &input) const = 0;
+      virtual core::CntRef<Matcher> getMatcher(core::CntRef<StreamType> const &input) const = 0;
 
       /**
        * Simulate this state machine on the specified input string.

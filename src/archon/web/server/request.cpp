@@ -27,7 +27,7 @@
 #include <archon/web/server/request.hpp>
 
 
-using namespace archon::Core;
+using namespace archon::core;
 
 
 namespace archon

@@ -48,7 +48,7 @@
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     /**
      * Functions and objects for working with text strings.

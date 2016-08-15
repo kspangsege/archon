@@ -43,7 +43,7 @@
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     /**
      * Thrown by the configuration builder when it sees invalid
@@ -297,7 +297,7 @@ namespace archon
         S &group_struct;
       };
 
-      void add_param(Core::UniquePtr<ParamBase> p);
+      void add_param(core::UniquePtr<ParamBase> p);
       void add_group(PublisherBase const &p, std::wstring name);
 
       std::string enc(std::wstring s) const;
@@ -357,7 +357,7 @@ namespace archon
       friend struct ConfigBuilder;
       template<class> friend struct ConfigCodec;
 
-      int register_param(Core::UniquePtr<ParamBase> p);
+      int register_param(core::UniquePtr<ParamBase> p);
 
       DeletingVector<ParamBase> params;
     };
@@ -447,7 +447,7 @@ namespace archon
     inline void ConfigBuilder::add_param(std::string short_name, std::string long_name, T &var,
                                          std::string description)
     {
-      Core::UniquePtr<ParamBase> p;
+      core::UniquePtr<ParamBase> p;
       p.reset(new ProxyParam<T, ConfigCodec<T> >(var, path, dec(short_name), dec(long_name),
                                                  dec(description), ConfigCodec<T>(config)));
       add_param(p);

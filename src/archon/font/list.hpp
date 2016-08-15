@@ -62,9 +62,9 @@ namespace archon
      */
     struct FontList
     {
-      typedef Core::SharedPtr<FontList> Ptr;
+      typedef core::SharedPtr<FontList> Ptr;
       typedef Ptr const &Arg;
-      typedef Core::SharedPtr<FontList const> ConstPtr;
+      typedef core::SharedPtr<FontList const> ConstPtr;
       typedef ConstPtr const &ConstArg;
 
 
@@ -173,7 +173,7 @@ namespace archon
        * \throw BadFontFileException If the file containing the
        * specified font could not be successfully processed.
        */
-      virtual Core::UniquePtr<FontFace> load_face(int face_index = -1) const = 0;
+      virtual core::UniquePtr<FontFace> load_face(int face_index = -1) const = 0;
 
 
       /**

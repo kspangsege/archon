@@ -43,7 +43,7 @@
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     /**
      * Provides convenient, portable, and thread safe wrappers for several system features.

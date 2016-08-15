@@ -136,7 +136,7 @@ namespace archon
       bool kerning;
 
 
-      void populate(Core::ConfigBuilder &cfg);
+      void populate(core::ConfigBuilder &cfg);
 
 
       void apply_to(TextFormatter &formatter) const;

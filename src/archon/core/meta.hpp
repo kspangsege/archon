@@ -50,7 +50,7 @@
 // long` and ARCHON_CORE_META_HAVE_LONG_LONG is not defined.
 
 namespace archon {
-namespace Core {
+namespace core {
 
 
 /// A ternary operator that selects the first type if the condition
@@ -229,7 +229,7 @@ template<class T> inline bool is_negative(T value)
 }
 
 
-} // namespace Core
+} // namespace core
 } // namespace archon
 
 #endif // ARCHON_CORE_META_HPP

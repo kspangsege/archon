@@ -134,16 +134,16 @@ namespace archon
       struct AssignOp;
 
     public:
-      struct Range: Core::ProxyBase<Range, ConstRepIter>
+      struct Range: core::ProxyBase<Range, ConstRepIter>
       {
         Key get_first() const { return this->i->first; }
         Key get_last()  const { return this->i->second.first; }
         Value const &get_value()  const { return this->i->second.second; }
 
-        Range(ConstRepIter i): Core::ProxyBase<Range, ConstRepIter>(i) {}
+        Range(ConstRepIter i): core::ProxyBase<Range, ConstRepIter>(i) {}
       };
 
-      typedef Core::IterSeq<Core::ProxyIter<Range> > RangeSeq;
+      typedef core::IterSeq<core::ProxyIter<Range> > RangeSeq;
 
       RangeSeq get_ranges() const;
     };

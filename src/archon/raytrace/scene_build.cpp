@@ -31,7 +31,7 @@
 #include <archon/raytrace/texture.hpp>
 #include <archon/raytrace/scene_build.hpp>
 
-using namespace archon::Core;
+using namespace archon::core;
 using namespace archon::Math;
 using namespace archon::Graphics;
 using namespace archon::Imaging;

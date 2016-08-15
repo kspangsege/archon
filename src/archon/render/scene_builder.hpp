@@ -72,7 +72,7 @@ protected:
     void do_reset_tex_transform() override;
 
 private:
-    int make_texture(Core::UniquePtr<TextureSource>, bool, bool);
+    int make_texture(core::UniquePtr<TextureSource>, bool, bool);
 
     void set_matrix_mode(GLint);
     void provide_tex_transform();

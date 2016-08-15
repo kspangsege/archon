@@ -58,7 +58,7 @@ namespace archon
       /**
        * Get the default material. This method is thread-safe.
        */
-      static Core::SharedPtr<Material> get_default();
+      static core::SharedPtr<Material> get_default();
 
 
       struct LightInfo

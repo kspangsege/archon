@@ -37,7 +37,7 @@
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     /**
      * This class can help you interpret the command-line.
@@ -185,7 +185,7 @@ namespace archon
 	throw(DefinitionException)
       {
 	verify(shortName, longName);
-        Core::UniquePtr<Def> d;
+        core::UniquePtr<Def> d;
 	d.reset(new DefVar<T, ConfigCodec<T>, D>(false, shortName, longName, var, val,
                                                  want_arg, ConfigCodec<T>(value_codec),
                                                  domainChecker, description));
@@ -208,7 +208,7 @@ namespace archon
 	throw(DefinitionException)
       {
 	verify(shortName, longName);
-        Core::UniquePtr<Def> d;
+        core::UniquePtr<Def> d;
 	d.reset(new DefVar<T, ConfigCodec<T>, Unrestricted<T> >
                 (false, shortName, longName, var, val, want_arg,
                  ConfigCodec<T>(value_codec), Unrestricted<T>(), description));
@@ -226,7 +226,7 @@ namespace archon
       void add_switch(std::string short_name, std::string long_name, T &var, T val,
                       std::string description, bool accept_val = false)
       {
-        Core::UniquePtr<Def> o;
+        core::UniquePtr<Def> o;
 	o.reset(new DefSwitchVar<T, ConfigCodec<T> >(dec(short_name), dec(long_name),
                                                      dec(description), accept_val, var,
                                                      val, ConfigCodec<T>(this)));
@@ -239,7 +239,7 @@ namespace archon
                       T Obj::*memb, Obj *obj, T val,
                       std::string description, bool accept_val = false)
       {
-        Core::UniquePtr<Def> o;
+        core::UniquePtr<Def> o;
 	o.reset(new DefSwitchMemb<T, Obj, ConfigCodec<T> >(dec(short_name), dec(long_name),
                                                            dec(description), accept_val, memb, obj,
                                                            val, ConfigCodec<T>(this)));

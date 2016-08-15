@@ -215,10 +215,10 @@ inline bool PackedTRGB::operator!=(const PackedTRGB& trgb) const
 inline constexpr PackedTRGB::value_type PackedTRGB::pack_rgba(int r, int g, int b, int a)
 {
     return
-        value_type(       unsigned(Core::clamp(r, 0, 255))) << 16 |
-        value_type(       unsigned(Core::clamp(g, 0, 255))) <<  8 |
-        value_type(       unsigned(Core::clamp(b, 0, 255)))       |
-        value_type(255u - unsigned(Core::clamp(a, 0, 255))) << 24;
+        value_type(       unsigned(core::clamp(r, 0, 255))) << 16 |
+        value_type(       unsigned(core::clamp(g, 0, 255))) <<  8 |
+        value_type(       unsigned(core::clamp(b, 0, 255)))       |
+        value_type(255u - unsigned(core::clamp(a, 0, 255))) << 24;
 }
 
 
@@ -330,7 +330,7 @@ inline std::basic_ostream<Ch, Tr>& operator<<(std::basic_ostream<Ch, Tr>& out,
 {
     bool uppercase_hex = out.flags() | std::ios_base::uppercase;
     bool uppercase_names = false;
-    return out << Core::Text::widen_port<Ch>(trgb.format2(PackedTRGB::css3_ext, uppercase_hex,
+    return out << core::Text::widen_port<Ch>(trgb.format2(PackedTRGB::css3_ext, uppercase_hex,
                                                           uppercase_names), out.getloc());
 }
 
@@ -378,7 +378,7 @@ inline std::basic_istream<Ch, Tr>& operator>>(std::basic_istream<Ch, Tr>& in,
     }
 
     std::string str2;
-    if (!Core::Text::narrow_port(str, str2, in.getloc()) ||
+    if (!core::Text::narrow_port(str, str2, in.getloc()) ||
         !PackedTRGB::parse2(str2, trgb, PackedTRGB::css3_ext))
         in.setstate(std::ios_base::badbit);
     return in;

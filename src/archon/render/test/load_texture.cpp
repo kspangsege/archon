@@ -33,7 +33,7 @@
 #include <archon/core/cxx.hpp>
 
 
-using namespace archon::Core;
+using namespace archon::core;
 using namespace archon::Display;
 using namespace archon::Render;
 

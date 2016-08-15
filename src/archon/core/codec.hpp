@@ -36,7 +36,7 @@
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     struct CodecException;
     struct EncodeException;
@@ -100,16 +100,16 @@ namespace archon
 
 
       virtual UniquePtr<OutputStreamType>
-      get_enc_out_stream(Core::SharedPtr<OutputStream> const &) const = 0;
+      get_enc_out_stream(core::SharedPtr<OutputStream> const &) const = 0;
 
       virtual UniquePtr<InputStreamType>
-      get_dec_in_stream(Core::SharedPtr<InputStream> const &) const = 0;
+      get_dec_in_stream(core::SharedPtr<InputStream> const &) const = 0;
 
       virtual UniquePtr<InputStream>
-      get_enc_in_stream(Core::SharedPtr<InputStreamType> const &) const = 0;
+      get_enc_in_stream(core::SharedPtr<InputStreamType> const &) const = 0;
 
       virtual UniquePtr<OutputStream>
-      get_dec_out_stream(Core::SharedPtr<OutputStreamType> const &) const = 0;
+      get_dec_out_stream(core::SharedPtr<OutputStreamType> const &) const = 0;
 
       virtual ~BasicCodec() {}
     };

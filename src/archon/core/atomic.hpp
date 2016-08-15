@@ -35,7 +35,7 @@
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     /**
      * Atomic integer operations. Useful for reference counting

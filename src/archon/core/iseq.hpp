@@ -32,7 +32,7 @@
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     template<typename Iter> struct IterSeq
     {

@@ -38,7 +38,7 @@
 
 
 using namespace std;
-using namespace archon::Core;
+using namespace archon::core;
 namespace dom = archon::dom;
 namespace bootstrap = archon::dom::bootstrap;
 namespace ls = archon::dom::ls;

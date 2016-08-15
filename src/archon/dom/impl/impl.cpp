@@ -134,7 +134,7 @@ private:
         DOMString space(1, traits::to_char_type(0x20));
         typedef std::vector<DOMString> Tokens;
         Tokens tokens;
-        archon::Core::Text::split(f, space, back_inserter(tokens), true);
+        archon::core::Text::split(f, space, back_inserter(tokens), true);
 
         DOMString feature, version;
         Tokens::const_iterator tokens_end = tokens.end();

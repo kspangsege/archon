@@ -315,8 +315,8 @@ width is set to -1 if shrink_to_fit2
     // storing these in a style object like background and border.
     int pad_top, pad_right, pad_bottom, pad_left;
 
-    Core::UniquePtr<RenderBackground> background;
-    Core::UniquePtr<RenderBorder>     border;
+    core::UniquePtr<RenderBackground> background;
+    core::UniquePtr<RenderBorder>     border;
 
     RenderElement *elem;
     Box *next_sibling;
@@ -448,7 +448,7 @@ std::cerr << "ELEM: " << sssss << std::endl;
             if (disp == display_None)
                 return nullptr;
 
-            Core::UniquePtr<Box> box(new Box);
+            core::UniquePtr<Box> box(new Box);
             box->elem = this;
             box->first_child = nullptr;
             box->parent = cont_block;
@@ -697,13 +697,13 @@ std::cerr << "ELEM: " << sssss << std::endl;
             }
 
             if (elem_st.has(style_group_Background)) {
-                Core::UniquePtr<RenderBackground> b(new RenderBackground);
+                core::UniquePtr<RenderBackground> b(new RenderBackground);
                 b->color = elem_st.get<PropSpec_BackgroundColor>();
                 box->background.reset(b.release());
             }
 
             if (elem_st.has(style_group_Border)) {
-                Core::UniquePtr<RenderBorder> b(new RenderBorder);
+                core::UniquePtr<RenderBorder> b(new RenderBorder);
                 b->sides[0].width = elem_st.get<PropSpec_BorderTopWidth>();
                 b->sides[0].style = elem_st.get<PropSpec_BorderTopStyle>();
                 b->sides[0].color = elem_st.get<PropSpec_BorderTopColor>();
@@ -771,7 +771,7 @@ struct RenderDocument: StyledDocument {
     virtual ~RenderDocument() throw () {}
 
 private:
-    Core::UniquePtr<Box> root_box;
+    core::UniquePtr<Box> root_box;
     int root_box_width;
     int root_box_height;
 };

@@ -49,7 +49,7 @@ namespace archon
       typedef typename NfaType::StringType StringType;
       typedef typename NfaType::TokenId    TokenId;
 
-      typedef Core::Text::PrinterBase<CharType, CharType> SymbolPrinter;
+      typedef core::Text::PrinterBase<CharType, CharType> SymbolPrinter;
 
       StringType print(typename NfaType::ConstRefArg) const;
 
@@ -59,7 +59,7 @@ namespace archon
       size_t width;
       SymbolPrinter const &symPrinter;
       std::locale loc;
-      Core::Text::BasicValuePrinter<CharType> valPrinter;
+      core::Text::BasicValuePrinter<CharType> valPrinter;
 
       struct DefaultSymbolPrinter: SymbolPrinter
       {
@@ -83,7 +83,7 @@ namespace archon
     typename BasicNfaPrinter<Ch, Tok, Tr>::StringType BasicNfaPrinter<Ch, Tok, Tr>::print(typename NfaType::ConstRefArg nfa) const
     {
       // Widen some fixed strings
-      Core::BasicLocaleCharMapper<CharType> mapper(loc);
+      core::BasicLocaleCharMapper<CharType> mapper(loc);
       StringType const ping       = mapper.widen("'");
       StringType const dashPing   = mapper.widen("-'");
       StringType const commaSpace = mapper.widen(", ");
@@ -99,7 +99,7 @@ namespace archon
       columnWidthFractions.push_back(0.1);
       columnWidthFractions.push_back(0.1);
       columnWidthFractions.push_back(0.8);
-      Core::Text::Table<CharType> table(nfa->getNumberOfStates()+1, columnWidthFractions);
+      core::Text::Table<CharType> table(nfa->getNumberOfStates()+1, columnWidthFractions);
       table(0, 0) = mapper.widen("State");
       table(0, 1) = mapper.widen("Start index");
       table(0, 2) = mapper.widen("Token ID");

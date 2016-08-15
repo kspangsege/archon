@@ -36,7 +36,7 @@
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     /**
      * This function is similar to std::partial_sum() but allows one

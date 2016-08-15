@@ -33,7 +33,7 @@
 
 namespace archon
 {
-  namespace Core
+  namespace core
   {
     /**
      * Provides various terminal features.

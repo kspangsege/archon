@@ -41,7 +41,7 @@
 
 
 using namespace std;
-using namespace archon::Core;
+using namespace archon::core;
 using namespace archon::Math;
 using namespace archon::Util;
 using namespace archon::Imaging;

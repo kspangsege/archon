@@ -62,7 +62,7 @@ namespace archon
      * \note Currently only the decoding input stream and the encoding
      * output stream is implemented.
      */
-    Core::UniquePtr<Core::Codec const> get_block_codec();
+    core::UniquePtr<core::Codec const> get_block_codec();
   }
 }
 
