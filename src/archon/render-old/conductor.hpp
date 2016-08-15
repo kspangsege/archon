@@ -81,7 +81,7 @@ namespace archon
        * Elsewhere pipelines are identified by their index referring
        * to the order in which they were added.
        */
-      virtual void add_pipeline(Display::Visual::ConstRefArg, bool direct = true) = 0;
+      virtual void add_pipeline(display::Visual::ConstRefArg, bool direct = true) = 0;
 
       /**
        * Render a single frame.

@@ -48,7 +48,7 @@
 
 using namespace archon::core;
 using namespace archon::DomImpl;
-using namespace archon::Display;
+using namespace archon::display;
 using namespace archon::Render;
 
 namespace dom = archon::dom;
@@ -497,7 +497,7 @@ int main(int argc, const char* argv[])
         doc = dom_builder.get_doc();
     }
 
-    Implementation::Ptr impl = archon::Display::get_default_implementation();
+    Implementation::Ptr impl = archon::display::get_default_implementation();
     Connection::Ptr conn = impl->new_connection();
     int screen = -1; // Default screen
     bool double_buffer = false; // Only front buffer is needed

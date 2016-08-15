@@ -82,7 +82,7 @@ using namespace archon::math;
 using namespace archon::util;
 using namespace archon::image;
 using namespace archon::font;
-using namespace archon::Display;
+using namespace archon::display;
 using namespace archon::Render;
 
 
@@ -5128,7 +5128,7 @@ namespace archon
       private_state(PrivateState::create(cfg, loc, tex_cache, font_cache))
     {
       if(title.empty()) title = "Archon";
-      if(!conn) conn = archon::Display::get_default_implementation()->new_connection();
+      if(!conn) conn = archon::display::get_default_implementation()->new_connection();
 
       int const vis = conn->choose_gl_visual();
 

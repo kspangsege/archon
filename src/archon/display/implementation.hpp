@@ -32,7 +32,7 @@
 
 namespace archon
 {
-  namespace Display
+  namespace display
   {
     /**
      * Thrown if no display implementations are available.

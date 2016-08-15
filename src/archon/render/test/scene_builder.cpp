@@ -40,7 +40,7 @@
 
 using namespace archon::core;
 using namespace archon::util;
-using namespace archon::Display;
+using namespace archon::display;
 using namespace archon::Render;
 
 

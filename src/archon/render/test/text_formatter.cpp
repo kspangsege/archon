@@ -43,7 +43,7 @@ using namespace std;
 using namespace archon::core;
 using namespace archon::math;
 using namespace archon::font;
-using namespace archon::Display;
+using namespace archon::display;
 using namespace archon::Render;
 
 

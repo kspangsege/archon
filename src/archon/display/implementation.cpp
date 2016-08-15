@@ -35,7 +35,7 @@
 
 
 using namespace std;
-using namespace archon::Display;
+using namespace archon::display;
 
 
 namespace
@@ -62,7 +62,7 @@ namespace
 
 namespace archon
 {
-  namespace Display
+  namespace display
   {
     Implementation::Ptr get_default_implementation() throw(NoImplementationException)
     {

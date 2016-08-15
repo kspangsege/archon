@@ -29,11 +29,11 @@
 
 
 namespace archon {
-namespace Display {
+namespace display {
 
 Implementation::Ptr get_implementation_x11();
 
-} // namespace Display
+} // namespace display
 } // namespace archon
 
 #endif // ARCHON_DISPLAY_X11_IMPLEMENTATION_HPP

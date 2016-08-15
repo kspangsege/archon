@@ -34,7 +34,7 @@
 
 
 namespace archon {
-namespace Display {
+namespace display {
 
 /// The base class for all event objects. Event objects are created internally
 /// in the event processor and passed as arguments to your event handler
@@ -481,7 +481,7 @@ inline EventProcessor::~EventProcessor()
 {
 }
 
-} // namespace Display
+} // namespace display
 } // namespace archon
 
 #endif // ARCHON_DISPLAY_EVENT_HPP

@@ -31,7 +31,7 @@
 
 
 namespace archon {
-namespace Display {
+namespace display {
 
 /// An off-screen pixel buffer which can be used as a target for OpenGL
 /// rendering.
@@ -64,7 +64,7 @@ inline void PixelBuffer::save(std::string image_path)
     get_image()->save(image_path);
 }
 
-} // namespace Display
+} // namespace display
 } // namespace archon
 
 #endif // ARCHON_DISPLAY_PIXEL_BUFFER_HPP

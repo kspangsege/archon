@@ -47,7 +47,7 @@ using namespace archon::core;
 using namespace archon::math;
 using namespace archon::util;
 using namespace archon::image;
-using namespace archon::Display;
+using namespace archon::display;
 #ifdef ARCHON_HAVE_OPENGL
 using namespace archon::Render;
 #endif
@@ -167,7 +167,7 @@ void build_scene(SceneBuilder& builder)
 #ifdef ARCHON_HAVE_OPENGL
 class Preview: public Application {
 public:
-    Preview(archon::Display::Connection::Arg display,
+    Preview(archon::display::Connection::Arg display,
             const Application::Config& cfg, Raytracer& raytracer):
         Application("archon::Raytracer::Preview", cfg, std::locale(""), display),
         m_raytracer(raytracer)
@@ -209,9 +209,9 @@ private:
 
 
 
-archon::Display::Connection::Ptr try_get_display(bool insist = true)
+archon::display::Connection::Ptr try_get_display(bool insist = true)
 {
-    using namespace archon::Display;
+    using namespace archon::display;
     try {
         Implementation::Ptr impl = get_default_implementation();
         return impl->new_connection();
@@ -224,7 +224,7 @@ archon::Display::Connection::Ptr try_get_display(bool insist = true)
         if (insist)
             throw AppError("Could not connect to display: " + std::string(e.what()));
     }
-    return archon::Display::Connection::Ptr(); // Null
+    return archon::display::Connection::Ptr(); // Null
 }
 
 } // unnamed namespace
@@ -299,7 +299,7 @@ int main(int argc, const char* argv[]) throw()
 
     std::unique_ptr<Raytracer> raytracer = make_raytracer();
 
-    archon::Display::Connection::Ptr display;
+    archon::display::Connection::Ptr display;
 
     // Auto-detect screen resolution
     if (opt_scr_dpcm[0] <= 0 || opt_scr_dpcm[1] <= 0) {

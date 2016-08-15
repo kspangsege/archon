@@ -31,7 +31,7 @@
 
 
 namespace archon {
-namespace Display {
+namespace display {
 
 /// Something on which you can draw.
 ///
@@ -103,7 +103,7 @@ inline void Drawable::put_image(image::Image::ConstRefArg image, Point position,
     put_image(image, clip, position, background); // Throws
 }
 
-} // namespace Display
+} // namespace display
 } // namespace archon
 
 #endif // ARCHON_DISPLAY_DRAWABLE_HPP

@@ -34,7 +34,7 @@
 
 namespace archon
 {
-  namespace Display
+  namespace display
   {
     /**
      * Representation of a cursor image. Call \c Window::set_cursor to

@@ -34,7 +34,7 @@
 
 using namespace std;
 using namespace archon::image;
-using namespace archon::Display;
+using namespace archon::display;
 
 namespace
 {
@@ -61,12 +61,12 @@ int main(int argc, char const *argv[]) throw()
   if(argc != 3) throw runtime_error("Please specify two images on the commandline");
   string const path1 = argv[1], path2 = argv[2];
 
-  Implementation::Ptr const impl = archon::Display::get_default_implementation();
+  Implementation::Ptr const impl = archon::display::get_default_implementation();
   Connection::Ptr const conn = impl->new_connection();
   Cursor::Ptr const cursor1 = conn->new_cursor(Image::load(path1));
   Cursor::Ptr const cursor2 = conn->new_cursor(Image::load(path2));
   Window::Ptr const win = conn->new_window(256, 256);
-  win->set_title("archon::Display::Cursor");
+  win->set_title("archon::display::Cursor");
   win->set_bg_color(0xCFDFBF);
   win->set_cursor(cursor1);
   win->show();

@@ -36,7 +36,7 @@
 
 
 namespace archon {
-namespace Display {
+namespace display {
 
 /// Thrown if no visual is avaialble that matches your requirements.
 ///
@@ -431,7 +431,7 @@ public:
     }
 };
 
-} // namespace Display
+} // namespace display
 } // namespace archon
 
 #endif // ARCHON_DISPLAY_CONNECTION_HPP

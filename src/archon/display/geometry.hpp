@@ -34,7 +34,7 @@
 
 
 namespace archon {
-namespace Display {
+namespace display {
 
 struct Point {
     int x = 0;
@@ -48,7 +48,7 @@ struct Box {
     int height = 0;
 };
 
-} // namespace Display
+} // namespace display
 } // namespace archon
 
 #endif // ARCHON_DISPLAY_GEOMETRY_HPP

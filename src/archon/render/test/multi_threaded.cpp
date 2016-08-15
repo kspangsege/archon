@@ -35,7 +35,7 @@ using namespace std;
 using namespace archon::core;
 using namespace archon::math;
 using namespace archon::thread;
-using namespace archon::Display;
+using namespace archon::display;
 using namespace archon::Render;
 
 
@@ -119,7 +119,7 @@ int main(int argc, char const *argv[]) throw()
   if (int stop = opts.process(argc, argv)) return stop == 2 ? 0 : 1;
 
   {
-    Implementation::Ptr const impl = archon::Display::get_default_implementation();
+    Implementation::Ptr const impl = archon::display::get_default_implementation();
     Connection::Ptr const conn = impl->new_connection();
 
     int const n = opt_num_wins;

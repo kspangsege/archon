@@ -50,7 +50,7 @@ using namespace archon::thread;
 using namespace archon::math;
 using namespace archon::image;
 using namespace archon::Render;
-namespace Display = archon::Display;
+namespace display = archon::Display;
 
 
 namespace
@@ -72,9 +72,9 @@ namespace
     return adjust(val, min, opt_detailLevel);
   }
 
-  Conductor::Ref oneThreadMono(Display::Connection::Ptr conn, Renderer::Ref renderer)
+  Conductor::Ref oneThreadMono(display::Connection::Ptr conn, Renderer::Ref renderer)
   {
-    Display::Window::Ptr window = conn->new_window(adjust(1000, 10, opt_win_size),
+    display::Window::Ptr window = conn->new_window(adjust(1000, 10, opt_win_size),
                                                    adjust(1000, 10, opt_win_size));
     win->set_title("One thread monoscopic view");
     win->show();
@@ -97,9 +97,9 @@ namespace
   }
 
 
-  Conductor::Ref twoThreadMono(Display::Visual::ConstRef visual, Renderer::Ref renderer)
+  Conductor::Ref twoThreadMono(display::Visual::ConstRef visual, Renderer::Ref renderer)
   {
-    Display::Window::Ref window = visual->newWindow(100, 100,
+    display::Window::Ref window = visual->newWindow(100, 100,
                                                     adjust(1000, 10, opt_windowSize),
                                                     adjust(1000, 10, opt_windowSize),
                                                     "Two thread monoscopic view");
@@ -133,9 +133,9 @@ namespace
   }
 
 
-  Conductor::Ref oneThreadPaperStereo(Display::Visual::ConstRef visual, Renderer::Ref renderer)
+  Conductor::Ref oneThreadPaperStereo(display::Visual::ConstRef visual, Renderer::Ref renderer)
   {
-    Display::Window::Ref window = visual->newWindow(100, 100,
+    display::Window::Ref window = visual->newWindow(100, 100,
                                                     adjust(1500, 10, opt_windowSize),
                                                     adjust(750, 10, opt_windowSize),
                                                     "One thread paper stereo: Use a piece of paper");
@@ -171,9 +171,9 @@ namespace
     return conductor;
   }
 
-  Conductor::Ref twoThreadPaperStereo(Display::Visual::ConstRef visual, Renderer::Ref renderer)
+  Conductor::Ref twoThreadPaperStereo(display::Visual::ConstRef visual, Renderer::Ref renderer)
   {
-    Display::Window::Ref window = visual->newWindow(100, 100,
+    display::Window::Ref window = visual->newWindow(100, 100,
                                                     adjust(1500, 10, opt_windowSize),
                                                     adjust(750, 10, opt_windowSize),
                                                     "Two thread paper stereo: Use a piece of paper");
@@ -210,9 +210,9 @@ namespace
     return conductor;
   }
 
-  Conductor::Ref splitScreenStereo(Display::Visual::ConstRef visual, Renderer::Ref renderer)
+  Conductor::Ref splitScreenStereo(display::Visual::ConstRef visual, Renderer::Ref renderer)
   {
-    Display::Window::Ref window = visual->newWindow(100, 100,
+    display::Window::Ref window = visual->newWindow(100, 100,
                                                     adjust(1000, 10, opt_windowSize),
                                                     adjust(1000, 10, opt_windowSize),
                                                     "Split screen stereoscopic view");
@@ -243,13 +243,13 @@ namespace
     return conductor;
   }
 
-  Conductor::Ref dualWindowStereo(Display::Visual::ConstRef visual, Renderer::Ref renderer)
+  Conductor::Ref dualWindowStereo(display::Visual::ConstRef visual, Renderer::Ref renderer)
   {
-    Display::Window::Ref leftWindow = visual->newWindow(100, 100,
+    display::Window::Ref leftWindow = visual->newWindow(100, 100,
                                                         adjust(500, 10, opt_windowSize),
                                                         adjust(500, 10, opt_windowSize),
                                                         "Left eye of stereoscopic view");
-    Display::Window::Ref rightWindow = visual->newWindow(100, 100,
+    display::Window::Ref rightWindow = visual->newWindow(100, 100,
                                                          adjust(500, 10, opt_windowSize),
                                                          adjust(500, 10, opt_windowSize),
                                                          "Right eye of stereoscopic view");
@@ -278,9 +278,9 @@ namespace
     return conductor;
   }
 
-  Conductor::Ref angledScreens(Display::Visual::ConstRef visual, Renderer::Ref renderer)
+  Conductor::Ref angledScreens(display::Visual::ConstRef visual, Renderer::Ref renderer)
   {
-    Display::Window::Ref window = visual->newWindow(100, 100,
+    display::Window::Ref window = visual->newWindow(100, 100,
                                                     adjust(1500, 10, opt_windowSize),
                                                     adjust(750, 10, opt_windowSize),
                                                     "Angled screens");
@@ -569,13 +569,13 @@ namespace
       return 1;
     }
 
-    Display::Implementation::ConstRef implementation =
-      Display::getDefaultImplementation();
-    Display::Connection::ConstRef connection =
+    display::Implementation::ConstRef implementation =
+      display::getDefaultImplementation();
+    display::Connection::ConstRef connection =
       implementation->newConnection();
-    Display::Screen::ConstRef screen =
+    display::Screen::ConstRef screen =
       connection->getDefaultScreen();
-    Display::Visual::ConstRef visual =
+    display::Visual::ConstRef visual =
       screen->chooseVisual();
 
     CntRef<MyRenderer> myRenderer(new MyRenderer);

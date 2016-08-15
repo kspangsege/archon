@@ -32,7 +32,7 @@
 
 using namespace std;
 using namespace archon::image;
-using namespace archon::Display;
+using namespace archon::display;
 
 namespace {
 
@@ -77,11 +77,11 @@ int main(int argc, const char* argv[]) throw()
         throw runtime_error("Please specify an image on the commandline");
     string path = argv[1];
 
-    Implementation::Ptr impl = archon::Display::get_default_implementation();
+    Implementation::Ptr impl = archon::display::get_default_implementation();
     Connection::Ptr conn = impl->new_connection();
     Image::Ref img = Image::load(path);
     Window::Ptr win = conn->new_window(img->get_width(), img->get_height());
-    win->set_title("archon::Display::Image");
+    win->set_title("archon::display::Image");
 
     EventHandlerImpl event_handler(win, img);
     EventProcessor::Ptr event_proc = conn->new_event_processor(&event_handler);

@@ -95,9 +95,9 @@ public:
 /// \sa ThreadSafety
 ///
 /// \todo FIXME: This class should not derive privately from
-/// Display::EventHandler, since the overwritten virtual methods could be
+/// display::EventHandler, since the overwritten virtual methods could be
 /// redefined by a sub-class.
-class Application: private Display::EventHandler {
+class Application: private display::EventHandler {
 public:
     struct Config {
         /// The initial frame rate. The frame rate marks the upper limit of
@@ -321,7 +321,7 @@ public:
     ///
     /// \throw KeyHandlerConflictException If the specified key is already bound
     /// to a handler.
-    template<class C> void register_key_handler(Display::KeySym, bool (C::*handler)(bool down),
+    template<class C> void register_key_handler(display::KeySym, bool (C::*handler)(bool down),
                                                 std::string description);
 
     void run();
@@ -379,7 +379,7 @@ protected:
     /// \todo FIXME: Is the title specified using a UTF-8 encoded string?
     Application(std::string title = "", const Config& cfg = Config(),
                 const std::locale& loc = std::locale::classic(),
-                Display::Connection::Arg conn = Display::Connection::Ptr(),
+                display::Connection::Arg conn = display::Connection::Ptr(),
                 TextureCache* texture_cache = nullptr,
                 font::FontCache::Arg font_cache = font::FontCache::Ptr());
 
@@ -403,33 +403,33 @@ private:
     void modify_zoom(int diff);
     void modify_dist(int diff);
 
-    void on_resize(const Display::SizeEvent&);
-    void on_close(const Display::Event&);
-    void on_keydown(const Display::KeyEvent&);
-    void on_keyup(const Display::KeyEvent&);
-    void on_mousedown(const Display::MouseButtonEvent&);
-    void on_mouseup(const Display::MouseButtonEvent&);
-    void on_mousemove(const Display::MouseEvent&);
-    void on_show(const Display::Event&);
-    void on_hide(const Display::Event&);
-    void on_damage(const Display::AreaEvent&);
+    void on_resize(const display::SizeEvent&);
+    void on_close(const display::Event&);
+    void on_keydown(const display::KeyEvent&);
+    void on_keyup(const display::KeyEvent&);
+    void on_mousedown(const display::MouseButtonEvent&);
+    void on_mouseup(const display::MouseButtonEvent&);
+    void on_mousemove(const display::MouseEvent&);
+    void on_show(const display::Event&);
+    void on_hide(const display::Event&);
+    void on_damage(const display::AreaEvent&);
     void before_sleep();
 
     class KeyHandlerBase;
     template<class> class KeyHandler;
 
     /// The OpenGL context is guaranteed to be bound while the handler executes.
-    void register_key_handler(Display::KeySym key, core::UniquePtr<KeyHandlerBase> handler,
+    void register_key_handler(display::KeySym key, core::UniquePtr<KeyHandlerBase> handler,
                               std::string descr);
 
     core::Time get_status_hud_timout();
 
-    Display::Connection::Ptr conn;
-    Display::Context::Ptr ctx;
-    Display::EventProcessor::Ptr event_proc;
-    Display::Cursor::Ptr cursor_normal, cursor_trackball;
-    Display::Window::Ptr win;
-    Display::Bind gl_binding;
+    display::Connection::Ptr conn;
+    display::Context::Ptr ctx;
+    display::EventProcessor::Ptr event_proc;
+    display::Cursor::Ptr cursor_normal, cursor_trackball;
+    display::Window::Ptr win;
+    display::Bind gl_binding;
 
     util::PerspectiveProjection proj;
     graphics::VirtualTrackball trackball;
@@ -458,7 +458,7 @@ private:
     GLuint one_axis_dpy_list = 0, all_axes_dpy_list;
 
     core::DeletingVector<KeyHandlerBase> key_handler_owner;
-    typedef std::map<Display::KeySym, std::pair<KeyHandlerBase*, std::string> > KeyHandlers;
+    typedef std::map<display::KeySym, std::pair<KeyHandlerBase*, std::string> > KeyHandlers;
     KeyHandlers key_handlers;
 
     std::wstring status_hud_text;
@@ -504,7 +504,7 @@ private:
     bool (C::*handler)(bool);
 };
 
-template<class C> void Application::register_key_handler(Display::KeySym key, bool (C::*handler)(bool),
+template<class C> void Application::register_key_handler(display::KeySym key, bool (C::*handler)(bool),
                                                          std::string description)
 {
     core::UniquePtr<KeyHandlerBase> h(new KeyHandler<C>(handler));

@@ -34,7 +34,7 @@
 
 namespace archon
 {
-  namespace Display
+  namespace display
   {
     struct ContextAlreadyBoundException: std::runtime_error
     {

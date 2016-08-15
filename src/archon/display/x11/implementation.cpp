@@ -78,13 +78,13 @@ using namespace archon::core;
 using namespace archon::thread;
 using namespace archon::util;
 using namespace archon::image;
-using namespace archon::Display;
+using namespace archon::display;
 
 using Arch_Time     = archon::core::Time;
-using Arch_Drawable = archon::Display::Drawable;
-using Arch_Window   = archon::Display::Window;
-using Arch_KeySym   = archon::Display::KeySym;
-using Arch_Cursor   = archon::Display::Cursor;
+using Arch_Drawable = archon::display::Drawable;
+using Arch_Window   = archon::display::Window;
+using Arch_KeySym   = archon::display::KeySym;
+using Arch_Cursor   = archon::display::Cursor;
 
 
 /*
@@ -5153,7 +5153,7 @@ KeySymMapper::KeySymMapper()
 
 
 namespace archon {
-namespace Display {
+namespace display {
 
 Implementation::Ptr get_implementation_x11()
 {
@@ -5161,5 +5161,5 @@ Implementation::Ptr get_implementation_x11()
     return impl;
 }
 
-} // namespace Display
+} // namespace display
 } // namespace archon

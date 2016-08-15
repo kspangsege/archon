@@ -37,7 +37,7 @@ namespace archon
   {
     /**
      * This class represents a single virtualized rendering pipeline,
-     * thus it corresponds closely to a \c Display::Context. All work
+     * thus it corresponds closely to a \c display::Context. All work
      * done by a pipline is serialized. To get multiple rendering
      * threads ro run concurrently, you must create multiple
      * pipelines. All the piplines are managed by a \c Conductor
@@ -58,7 +58,7 @@ namespace archon
        * needs to be carried out at each frame of the overall
        * rendering process.
        */
-      virtual void add_channel(Display::Window *,
+      virtual void add_channel(display::Window *,
                                Viewport::ConstRefArg, Screen::ConstRefArg,
                                Eye::ConstRefArg, Clip::ConstRefArg) = 0;
     };

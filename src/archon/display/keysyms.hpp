@@ -29,7 +29,7 @@
 
 namespace archon
 {
-  namespace Display
+  namespace display
   {
     /**
      * A KeySym identifies a symbol (or pictogram) on a key (on the keyboard).
