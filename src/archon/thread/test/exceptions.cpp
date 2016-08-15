@@ -32,7 +32,7 @@
 
 
 using namespace std;
-using namespace archon::Thread;
+using namespace archon::thread;
 
 
 namespace

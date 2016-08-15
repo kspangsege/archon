@@ -31,7 +31,7 @@
 
 namespace archon
 {
-  namespace Thread
+  namespace thread
   {
     /**
      * A simple semaphore.

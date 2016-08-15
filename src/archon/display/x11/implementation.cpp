@@ -75,7 +75,7 @@ using Xlib_Drawable = Drawable;
 
 using namespace std;
 using namespace archon::core;
-using namespace archon::Thread;
+using namespace archon::thread;
 using namespace archon::util;
 using namespace archon::Imaging;
 using namespace archon::Display;

@@ -43,7 +43,7 @@
 
 using namespace std;
 using namespace archon::core;
-using namespace archon::Thread;
+using namespace archon::thread;
 
 
 namespace
@@ -115,7 +115,7 @@ namespace
 
 namespace archon
 {
-  namespace Thread
+  namespace thread
   {
     void SelectSpec::open_pipe()
     {

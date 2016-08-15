@@ -35,7 +35,7 @@
 
 namespace archon
 {
-  namespace Thread
+  namespace thread
   {
     /**
      * A thread of execution (aka a light weight proccess or LWP)

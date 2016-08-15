@@ -37,7 +37,7 @@
 using namespace std;
 using namespace archon::core;
 using namespace archon::math;
-using namespace archon::Thread;
+using namespace archon::thread;
 using namespace archon::Display;
 using namespace archon::Render;
 

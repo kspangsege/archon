@@ -36,7 +36,7 @@
 
 namespace archon
 {
-  namespace Thread
+  namespace thread
   {
     struct SelectSpec;
 

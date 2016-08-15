@@ -36,7 +36,7 @@ using namespace archon::core;
 
 namespace archon
 {
-  namespace Thread
+  namespace thread
   {
     /**
      * TSD key for the thread self reference.

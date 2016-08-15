@@ -32,7 +32,7 @@ using namespace archon::core;
 
 namespace archon
 {
-  namespace Thread
+  namespace thread
   {
     void Semaphore::down()
     {

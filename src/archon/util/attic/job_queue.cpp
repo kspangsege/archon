@@ -53,7 +53,7 @@
 
 
 using namespace archon::util;
-using namespace archon::Thread;
+using namespace archon::thread;
 
 
 namespace

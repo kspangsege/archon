@@ -35,7 +35,7 @@
 
 namespace archon
 {
-  namespace Thread
+  namespace thread
   {
     struct Thread;
     struct Condition;
@@ -162,8 +162,8 @@ namespace archon
       };
 
     private:
-      friend struct Thread::Condition;
-      friend struct Thread::Thread;
+      friend struct thread::Condition;
+      friend struct thread::Thread;
 
       mutable pthread_mutex_t mutex;
 
