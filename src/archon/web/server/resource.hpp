@@ -38,7 +38,7 @@
 
 namespace archon
 {
-  namespace Web
+  namespace web
   {
     namespace Server
     {

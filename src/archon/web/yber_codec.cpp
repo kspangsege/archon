@@ -151,7 +151,7 @@ namespace
 
 namespace archon
 {
-  namespace Web
+  namespace web
   {
     UniquePtr<Codec const> get_yber_codec()
     {

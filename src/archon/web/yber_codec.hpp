@@ -33,7 +33,7 @@
 
 namespace archon
 {
-  namespace Web
+  namespace web
   {
     /**
      * Get the codec object for the Yber encoding. Internal encoding

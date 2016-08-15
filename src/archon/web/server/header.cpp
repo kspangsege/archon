@@ -33,7 +33,7 @@ using namespace archon::core;
 
 namespace archon
 {
-  namespace Web
+  namespace web
   {
     namespace Server
     {
