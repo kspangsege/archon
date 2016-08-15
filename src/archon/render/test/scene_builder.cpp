@@ -148,7 +148,7 @@ private:
 
 int main(int argc, const char* argv[]) throw()
 {
-    std::set_terminate(&Cxx::terminate_handler);
+    std::set_terminate(&cxx::terminate_handler);
 
     try_fix_preinstall_datadir(argv[0], "render/test/");
     Application::Config cfg;

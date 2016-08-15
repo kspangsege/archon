@@ -38,7 +38,7 @@ using namespace archon::render;
 
 int main() throw()
 {
-  set_terminate(&Cxx::terminate_handler);
+  set_terminate(&cxx::terminate_handler);
 
   double values[] = {
     -1, +0, +0,

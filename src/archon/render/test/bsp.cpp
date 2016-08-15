@@ -481,7 +481,7 @@ There is a problem here - it requires a specific basis:
 
 int main(int, const char *argv[]) throw()
 {
-  set_terminate(&Cxx::terminate_handler);
+  set_terminate(&cxx::terminate_handler);
     
   try_fix_preinstall_datadir(argv[0], "render/test/");
   BSP().run();

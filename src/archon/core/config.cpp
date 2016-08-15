@@ -46,7 +46,7 @@ namespace archon
   {
     string ConfigBuilder::ParamBase::print_type(type_info const &type) const
     {
-      return Cxx::demangle(type.name());
+      return cxx::demangle(type.name());
     }
 
 

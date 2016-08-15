@@ -89,7 +89,7 @@ namespace
     }
     catch(...)
     {
-      cout << "Type: signed = '" << Cxx::type<S>() << "', unsigned = '" << Cxx::type<U>() << "'" << endl;
+      cout << "Type: signed = '" << cxx::type<S>() << "', unsigned = '" << cxx::type<U>() << "'" << endl;
       cout << "Position: " << i << endl;
       cerr << "(signed least, signed most), (unsigned least, unsigned most)" << endl;
       Text::format_binary(cout << "One:   ", one, true) << "  "

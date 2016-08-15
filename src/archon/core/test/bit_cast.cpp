@@ -73,8 +73,8 @@ namespace
       }
       catch(...)
       {
-        Text::format_binary(cout << "Source: ", v, true, true) << " : " << Cxx::type<Source>() << endl;
-        Text::format_binary(cout << "Target: ", w, true, true) << " : " << Cxx::type<Target>() << endl;
+        Text::format_binary(cout << "Source: ", v, true, true) << " : " << cxx::type<Source>() << endl;
+        Text::format_binary(cout << "Target: ", w, true, true) << " : " << cxx::type<Target>() << endl;
         throw;
       }
     }

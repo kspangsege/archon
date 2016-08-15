@@ -80,7 +80,7 @@ namespace
 
 int main(int argc, char const *argv[]) throw()
 {
-  set_terminate(&Cxx::terminate_handler);
+  set_terminate(&cxx::terminate_handler);
     
   CommandlineOptions opts;
   opts.add_help("Test application for the convex hull computation", "IMAGE");

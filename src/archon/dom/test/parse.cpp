@@ -85,7 +85,7 @@ namespace
       return;
     }
 
-    wcout << ind << "Node: " << fmt(n->getNodeName()) << "  (" << Cxx::type(*n).c_str() << ")\n";
+    wcout << ind << "Node: " << fmt(n->getNodeName()) << "  (" << cxx::type(*n).c_str() << ")\n";
     if (!n->getNodeValue().empty()) {
       wcout << ind << "  Value: " << fmt(n->getNodeValue()) << "\n";
     }
@@ -113,7 +113,7 @@ namespace
 
 int main() throw()
 {
-  set_terminate(&Cxx::terminate_handler);
+  set_terminate(&cxx::terminate_handler);
 
   dom::ref<bootstrap::DOMImplementationRegistry> const registry =
     bootstrap::DOMImplementationRegistry::newInstance();

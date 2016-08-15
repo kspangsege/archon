@@ -37,7 +37,7 @@ namespace archon
     /**
      * Functions for demangling C++ type names.
      */
-    namespace Cxx
+    namespace cxx
     {
       /**
        * Tries to demangle the argument. If this is not possible then

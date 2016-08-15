@@ -83,7 +83,7 @@ namespace
       if((a < b ? b - a : a - b) / fuzzy_factor == 0) continue;
       TEST_MSG(false, "Mismatch for "+Text::print(to_num(w))+": "
                ""+Text::print(n)+" bits -> "+Text::print(m)+" bits"", "
-               "int type = '"+Cxx::type<Int>()+"', float type = '"+Cxx::type<Float>()+"', "
+               "int type = '"+cxx::type<Int>()+"', float type = '"+cxx::type<Float>()+"', "
                "fuzzy factor = "+Text::print(fuzzy_factor)+", "
                ""+Text::print(to_num(a))+" (shift) != "+Text::print(to_num(b))+" (float)");
     }

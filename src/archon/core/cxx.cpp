@@ -42,7 +42,7 @@ namespace archon
 {
   namespace core
   {
-    namespace Cxx
+    namespace cxx
     {
       /**
        * \sa http://gcc.gnu.org/onlinedocs/libstdc++/latest-doxygen/namespaceabi.html
