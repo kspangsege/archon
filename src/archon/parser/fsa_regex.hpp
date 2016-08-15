@@ -38,7 +38,7 @@
 
 namespace archon
 {
-  namespace Parser
+  namespace parser
   {
     /**
      * Add a new start state to the specified automaton through which

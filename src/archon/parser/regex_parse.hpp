@@ -52,7 +52,7 @@
 
 namespace archon
 {
-  namespace Parser
+  namespace parser
   {
     /**
      * A reference counting abstract base class for any node in the

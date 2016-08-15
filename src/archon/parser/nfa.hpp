@@ -54,7 +54,7 @@
 
 namespace archon
 {
-  namespace Parser
+  namespace parser
   {
     /**
      * A generic implementation of the abstract NFA API. It uses

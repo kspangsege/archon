@@ -39,7 +39,7 @@
 
 namespace archon
 {
-  namespace Parser
+  namespace parser
   {
     /**
      * A generic implementation of the abstract DFA API. It uses

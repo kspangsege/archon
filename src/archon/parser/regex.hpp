@@ -40,7 +40,7 @@
 #include <archon/core/iseq.hpp>
 
 namespace archon {
-namespace Parser {
+namespace parser {
 
 struct RegexBase {
     enum NamedClass {
@@ -378,7 +378,7 @@ inline BasicRegex<Ch>::Bra::Bra(RangeSeq r, ClassSeq c, bool inv): invert(inv)
     for(; c; ++c) classes.push_back(*c);
 }
 
-} // namespace Parser
+} // namespace parser
 } // namespace archon
 
 #endif // ARCHON_PARSER_REGEX_HPP

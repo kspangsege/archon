@@ -35,7 +35,7 @@
 
 namespace archon
 {
-  namespace Parser
+  namespace parser
   {
     template<typename Ch, typename Tok = short unsigned> struct FsaTraits
     {

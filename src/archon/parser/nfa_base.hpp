@@ -50,7 +50,7 @@
 
 namespace archon
 {
-  namespace Parser
+  namespace parser
   {
     /**
      * An abstract interface for an arbitrary non-deterministic finite state

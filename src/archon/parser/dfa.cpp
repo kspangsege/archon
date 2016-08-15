@@ -37,7 +37,7 @@ using namespace std;
 
 namespace archon
 {
-  namespace Parser
+  namespace parser
   {
   }
 }

@@ -40,7 +40,7 @@
 
 namespace archon
 {
-  namespace Parser
+  namespace parser
   {
     template<typename Ch, typename Tok = short unsigned, typename Tr = FsaTraits<Ch, Tok> >
     struct BasicFsaPrinter

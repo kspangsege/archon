@@ -37,7 +37,7 @@
 
 namespace archon
 {
-  namespace Parser
+  namespace parser
   {
     /**
      * \todo Exclude newline characters from "."

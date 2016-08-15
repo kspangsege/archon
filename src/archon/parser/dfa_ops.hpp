@@ -38,7 +38,7 @@
 
 namespace archon
 {
-  namespace Parser
+  namespace parser
   {
     /**
      * Construct a DFA that accepts exactly the same language as the

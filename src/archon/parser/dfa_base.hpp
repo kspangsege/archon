@@ -31,7 +31,7 @@
 
 namespace archon
 {
-  namespace Parser
+  namespace parser
   {
     /**
      * An abstract interface for an arbitrary deterministic finite

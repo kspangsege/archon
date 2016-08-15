@@ -33,7 +33,7 @@
 
 using namespace std;
 using namespace archon::core;
-using namespace archon::Parser;
+using namespace archon::parser;
 
 struct MyActor: Cfg::Actor
 {

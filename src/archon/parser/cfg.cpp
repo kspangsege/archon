@@ -43,7 +43,7 @@ using namespace archon::core;
 
 namespace archon
 {
-  namespace Parser
+  namespace parser
   {
     void Cfg::updateRuleIndices(vector<int> const &oldToNewMap)
     {

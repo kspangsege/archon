@@ -31,7 +31,7 @@
 
 namespace archon
 {
-  namespace Parser
+  namespace parser
   {
     template<typename Ch, typename Val> struct GenericLexer: Lexer<Ch, Val>
     {

@@ -39,7 +39,7 @@
 
 namespace archon
 {
-  namespace Parser
+  namespace parser
   {
     template<typename Ch, typename Tok = short unsigned, typename FsaTr = FsaTraits<Ch, Tok> >
     struct BasicNfaFromRegex

@@ -38,7 +38,7 @@
 
 namespace archon
 {
-  namespace Parser
+  namespace parser
   {
     /**
      * Context free grammars

@@ -32,7 +32,7 @@
 
 namespace archon
 {
-  namespace Parser
+  namespace parser
   {
     /**
      * An abstract base class for lexers defining a lexeme object and a
