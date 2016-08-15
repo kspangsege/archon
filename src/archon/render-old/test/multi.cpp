@@ -49,7 +49,7 @@ using namespace archon::core;
 using namespace archon::thread;
 using namespace archon::math;
 using namespace archon::image;
-using namespace archon::Render;
+using namespace archon::render;
 namespace display = archon::Display;
 
 

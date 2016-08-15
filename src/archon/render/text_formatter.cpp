@@ -157,7 +157,7 @@ No no not at all anyway: I probably want to count the texture usage rather than 
 
 
 namespace archon {
-namespace Render {
+namespace render {
 
 class TextFormatter::TextProcessor: public TextHandler {
 public:
@@ -258,5 +258,5 @@ void TextFormatter::release_used_styles() throw()
 }
 
 
-} // namespace Render
+} // namespace render
 } // namespace archon

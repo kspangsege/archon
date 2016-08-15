@@ -36,7 +36,7 @@
 
 namespace archon
 {
-  namespace Render
+  namespace render
   {
     struct Object
     {

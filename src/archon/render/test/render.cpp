@@ -41,7 +41,7 @@ using namespace std;
 using namespace archon::core;
 using namespace archon::math;
 using namespace archon::thread;
-using namespace archon::Render;
+using namespace archon::render;
 
 
 namespace
@@ -49,7 +49,7 @@ namespace
   struct Render: Application
   {
     Render(Application::Config const &cfg):
-      Application("archon::Render::Render", cfg)
+      Application("archon::render::Render", cfg)
     {
 /*
       set_scene_orientation(Rotation3(Vec3(1,0,0), M_PI/8));

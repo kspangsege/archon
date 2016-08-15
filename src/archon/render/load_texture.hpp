@@ -32,7 +32,7 @@
 
 namespace archon
 {
-  namespace Render
+  namespace render
   {
     /**
      * Load the specified image into the currently bound OpenGL

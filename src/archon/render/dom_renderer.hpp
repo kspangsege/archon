@@ -33,7 +33,7 @@
 
 
 namespace archon {
-namespace Render {
+namespace render {
 
 // FIXME: Overlaps with ModalHudDialogImpl in app.cpp
 class DomRenderer: public DomImpl::Renderer {
@@ -68,7 +68,7 @@ inline void DomRenderer::set_viewport_height(int value)
 }
 
 
-} // namespace Render
+} // namespace render
 } // namespace archon
 
 #endif // ARCHON_RENDER_DOM_RENDERER_HPP

@@ -32,7 +32,7 @@ using namespace std;
 using namespace archon::core;
 using namespace archon::math;
 using namespace archon::util;
-using namespace archon::Render;
+using namespace archon::render;
 using namespace archon::image;
 
 
@@ -66,7 +66,7 @@ TextureDecl get_dotted_texture_decl(TextureCache& cache, const string& resource_
 
 
 namespace archon {
-namespace Render {
+namespace render {
 
 
 DomRenderer::DomRenderer(TextureCache& cache, const string& resource_dir):
@@ -210,5 +210,5 @@ void DomRenderer::render_border(const Border& side, int s0, int s1, int s2, int 
 }
 
 
-} // namespace Render
+} // namespace render
 } // namespace archon

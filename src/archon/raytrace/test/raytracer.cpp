@@ -49,7 +49,7 @@ using namespace archon::util;
 using namespace archon::image;
 using namespace archon::display;
 #ifdef ARCHON_HAVE_OPENGL
-using namespace archon::Render;
+using namespace archon::render;
 #endif
 using namespace archon::Raytrace;
 

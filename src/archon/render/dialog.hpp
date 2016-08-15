@@ -30,7 +30,7 @@
 
 
 namespace archon {
-namespace Render {
+namespace render {
 
 class Dialog {
 public:
@@ -45,7 +45,7 @@ public:
     virtual ~Dialog() {}
 };
 
-} // namespace Render
+} // namespace render
 } // namespace archon
 
 #endif // ARCHON_RENDER_DIALOG_HPP

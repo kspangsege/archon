@@ -47,7 +47,7 @@ using namespace archon::core;
 using namespace archon::math;
 using namespace archon::util;
 using namespace archon::image;
-using namespace archon::Render;
+using namespace archon::render;
 
 
 namespace {
@@ -110,7 +110,7 @@ Vec3 magnetic_field(0, 0, 35E35); // teslas
 class Hydrogen: public Application {
 public:
     Hydrogen(const Application::Config& cfg):
-        Application("archon::Render::Hydrogen", cfg),
+        Application("archon::render::Hydrogen", cfg),
         m_image_writer(1000, 1000)
     {
         for (int i = 0; i < num_protons; ++i) {

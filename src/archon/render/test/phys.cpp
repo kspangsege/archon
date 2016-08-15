@@ -45,7 +45,7 @@ using namespace std;
 using namespace archon::core;
 using namespace archon::math;
 using namespace archon::image;
-using namespace archon::Render;
+using namespace archon::render;
 
 
 namespace
@@ -152,7 +152,7 @@ namespace
   struct Phys: Application
   {
     Phys(Application::Config const &cfg):
-      Application("archon::Render::Phys", cfg)
+      Application("archon::render::Phys", cfg)
     {
       for(int i=0;i<num_particles;++i)
       {

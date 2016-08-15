@@ -37,7 +37,7 @@ using namespace archon::math;
 
 namespace archon
 {
-  namespace Render
+  namespace render
   {
     void Object::load(istream &in)
     {

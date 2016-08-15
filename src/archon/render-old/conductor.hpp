@@ -33,7 +33,7 @@
 
 namespace archon
 {
-  namespace Render
+  namespace render
   {
     /**
      * The purpose of a Conductor is to handle paralellized rendering

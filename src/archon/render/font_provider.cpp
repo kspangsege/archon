@@ -41,7 +41,7 @@ using namespace archon::math;
 using namespace archon::util;
 using namespace archon::image;
 using namespace archon::font;
-using namespace archon::Render;
+using namespace archon::render;
 
 
 namespace {
@@ -100,7 +100,7 @@ void dump_info(ostream& out) const
 
 
 namespace archon {
-namespace Render {
+namespace render {
 
 struct FontProvider::TextureFontSource: TextureSource {
     TextureFontSource(FontCache* c, Texture* t, string n, bool s):
@@ -664,5 +664,5 @@ void FontProvider::release(TextContainer& text)
     }
 }
 
-} // namespace Render
+} // namespace render
 } // namespace archon

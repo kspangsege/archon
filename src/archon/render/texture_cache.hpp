@@ -40,7 +40,7 @@
 
 
 namespace archon {
-namespace Render {
+namespace render {
 
 class TextureCache;
 class TextureSource;
@@ -550,7 +550,7 @@ inline image::Image::ConstRef TextureFileSource::get_image()
     return image::Image::load(path);
 }
 
-} // namespace Render
+} // namespace render
 } // namespace archon
 
 #endif // ARCHON_RENDER_TEXTURE_CACHE_HPP

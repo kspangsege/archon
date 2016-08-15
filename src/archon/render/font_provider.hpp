@@ -45,7 +45,7 @@
 
 
 namespace archon {
-namespace Render {
+namespace render {
 
 /**
  * A provider of text fonts for rendering text in OpenGL. The fonts are provided
@@ -482,7 +482,7 @@ inline void FontProvider::TextInserter::insert_strip(int style_id, int num_glyph
     font_provider->provide(style_id, num_glyphs, glyphs, components, *this);
 }
 
-} // namespace Render
+} // namespace render
 } // namespace archon
 
 #endif // ARCHON_RENDER_FONT_PROVIDER_HPP

@@ -44,7 +44,7 @@
 using namespace std;
 using namespace archon::core;
 using namespace archon::image;
-using namespace archon::Render;
+using namespace archon::render;
 
 namespace
 {
@@ -314,7 +314,7 @@ namespace
 
 namespace archon
 {
-  namespace Render
+  namespace render
   {
     void load_image(Image::ConstRefArg,
                     int width, int height, ImageHandler const &);

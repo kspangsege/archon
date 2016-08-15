@@ -36,7 +36,7 @@ using namespace archon::core;
 using namespace archon::math;
 using namespace archon::thread;
 using namespace archon::display;
-using namespace archon::Render;
+using namespace archon::render;
 
 
 namespace
@@ -44,7 +44,7 @@ namespace
   struct Facet: Thread, Application
   {
     Facet(Application::Config const &cfg, Connection::Arg c, int i, double m):
-      Application("archon::Render::MultiThreaded #"+Text::print(i+1), cfg, locale::classic(), c)
+      Application("archon::render::MultiThreaded #"+Text::print(i+1), cfg, locale::classic(), c)
     {
       set_scene_spin(Rotation3(Vec3(0,1,0), m));
 

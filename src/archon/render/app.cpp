@@ -61,14 +61,14 @@ using namespace archon::util;
 using namespace archon::image;
 using namespace archon::font;
 using namespace archon::display;
-using namespace archon::Render;
+using namespace archon::render;
 namespace dom = archon::dom;
 namespace DomImpl = archon::DomImpl;
 
 
 namespace {
 
-typedef archon::Render::TextFormatter TextFormatter; // Resolving ambiguity
+typedef archon::render::TextFormatter TextFormatter; // Resolving ambiguity
 
 
 const double zoom_step = std::pow(2, 1.0 / 8); // 8 steps to double
@@ -670,7 +670,7 @@ Dialog::Ptr PrivateApplicationState::new_modal_hud_dialog()
 
 
 namespace archon {
-namespace Render {
+namespace render {
 
 class Application::PrivateState: public PrivateApplicationState {
 public:
@@ -1657,5 +1657,5 @@ void Application::Config::populate(core::ConfigBuilder& cfg)
 }
 
 
-} // namespace Render
+} // namespace render
 } // namespace archon

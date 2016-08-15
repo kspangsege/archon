@@ -60,7 +60,7 @@ using namespace archon::util;
 using namespace archon::image;
 using namespace archon::font;
 using namespace archon::display;
-using namespace archon::Render;
+using namespace archon::render;
 
 
 namespace
@@ -161,7 +161,7 @@ namespace
   struct ConvHullApp: Application
   {
     ConvHullApp(Application::Config const &cfg):
-      Application("archon::Render::ConvHull", cfg),
+      Application("archon::render::ConvHull", cfg),
       text_formatter(get_font_provider()),
       points_display_on(true), point_labels_display_on(false),
       colorize_on(true), normals_display_on(false),
@@ -708,7 +708,7 @@ namespace
 
 
     // Text rendering
-    archon::Render::TextFormatter text_formatter;
+    archon::render::TextFormatter text_formatter;
     TextLayout text_layout;
     Text::WideValuePrinter value_printer;
 

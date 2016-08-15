@@ -34,7 +34,7 @@
 
 namespace archon
 {
-  namespace Render
+  namespace render
   {
     namespace Billboard
     {

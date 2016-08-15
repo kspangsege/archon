@@ -41,7 +41,7 @@
 using namespace archon::core;
 using namespace archon::util;
 using namespace archon::display;
-using namespace archon::Render;
+using namespace archon::render;
 
 
 namespace {
@@ -49,7 +49,7 @@ namespace {
 class SceneBuilderApp: public Application {
 public:
     SceneBuilderApp(const Application::Config& cfg):
-        Application("archon::Render::SceneBuilder", cfg),
+        Application("archon::render::SceneBuilder", cfg),
         m_resource_dir(cfg.archon_datadir+"render/test/")
     {
         register_key_handler(KeySym_Right, &SceneBuilderApp::next,

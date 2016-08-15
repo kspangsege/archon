@@ -49,7 +49,7 @@
 using namespace archon::core;
 using namespace archon::DomImpl;
 using namespace archon::display;
-using namespace archon::Render;
+using namespace archon::render;
 
 namespace dom = archon::dom;
 

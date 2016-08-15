@@ -32,7 +32,7 @@
 using namespace std;
 using namespace archon::core;
 using namespace archon::image;
-using namespace archon::Render;
+using namespace archon::render;
 
 namespace {
 
@@ -157,7 +157,7 @@ public:
 
 
 namespace archon {
-namespace Render {
+namespace render {
 
 std::unique_ptr<TextureCache> make_texture_cache()
 {
@@ -203,5 +203,5 @@ void TextureCache::Texture::show_state()
 */
 }
 
-} // namespace Render
+} // namespace render
 } // namespace archon

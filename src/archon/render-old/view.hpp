@@ -33,7 +33,7 @@
 
 namespace archon
 {
-  namespace Render
+  namespace render
   {
     struct Viewport: core::CntRefObjectBase, core::CntRefDefs<Viewport>
     {

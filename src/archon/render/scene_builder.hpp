@@ -35,7 +35,7 @@
 
 
 namespace archon {
-namespace Render {
+namespace render {
 
 class OpenGlSceneBuilder: public graphics::SpatialSceneBuilder {
 public:
@@ -86,7 +86,7 @@ private:
     bool m_has_tex_transform = false;
 };
 
-} // namespace Render
+} // namespace render
 } // namespace archon
 
 #endif // ARCHON_RENDER_SCENE_BUILDER_HPP

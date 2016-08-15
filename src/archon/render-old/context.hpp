@@ -33,7 +33,7 @@
 
 namespace archon
 {
-  namespace Render
+  namespace render
   {
     /**
      * This class represents a single virtualized rendering pipeline,

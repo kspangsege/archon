@@ -44,7 +44,7 @@ using namespace archon::core;
 using namespace archon::math;
 using namespace archon::font;
 using namespace archon::display;
-using namespace archon::Render;
+using namespace archon::render;
 
 
 
@@ -99,7 +99,7 @@ struct TextFormatterApp: Application {
 
 
     TextFormatterApp(const Config& cfg, FontList::Arg font_list, wstring text):
-        Application("archon::Render::TextFormatter", cfg, locale(""), Connection::Ptr(),
+        Application("archon::render::TextFormatter", cfg, locale(""), Connection::Ptr(),
                     nullptr, new_font_cache(font_list)),
         text_formatter(get_font_provider())
     {
@@ -218,7 +218,7 @@ private:
     }
 
 
-    archon::Render::TextFormatter text_formatter;
+    archon::render::TextFormatter text_formatter;
     TextLayout text_layout;
     int page_index, num_pages;
 };
@@ -237,7 +237,7 @@ int main(int argc, const char* argv[]) throw()
     FontConfig font_cfg;
     CommandlineOptions opts;
     opts.add_help("Test application for the texture based text rendering facility "
-                  "of archon::Render::Application.", "TEXT");
+                  "of archon::render::Application.", "TEXT");
     opts.check_num_args(0,1);
     opts.add_stop_opts();
     opts.add_group(app_cfg);

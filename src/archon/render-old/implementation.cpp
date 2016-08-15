@@ -39,7 +39,7 @@ using namespace archon::core;
 using namespace archon::math;
 using namespace archon::thread;
 using namespace archon::display;
-using namespace archon::Render;
+using namespace archon::render;
 
 
 namespace
@@ -522,7 +522,7 @@ namespace
 
 namespace archon
 {
-  namespace Render
+  namespace render
   {
     View::Ref View::newView(Renderer::RefArg r)
     {

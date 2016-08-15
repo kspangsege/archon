@@ -35,7 +35,7 @@
 
 using namespace archon::core;
 using namespace archon::display;
-using namespace archon::Render;
+using namespace archon::render;
 
 
 namespace {
@@ -58,7 +58,7 @@ public:
     };
 
     LoadTexture(const Config& cfg, const std::vector<std::string>& textures):
-        Application("archon::Render::LoadTexture", cfg)
+        Application("archon::render::LoadTexture", cfg)
     {
         for (const auto& path: textures) {
             TextureDecl decl = declare_texture(path, false, cfg.mipmap);
@@ -152,7 +152,7 @@ int main(int argc, const char* argv[]) throw()
     LoadTexture::Config cfg;
     CommandlineOptions opts;
     opts.add_help("Test application for the texture loading facility "
-                  "of archon::Render::Application.", "TEXTURE-FILE");
+                  "of archon::render::Application.", "TEXTURE-FILE");
     opts.check_num_args(0,-1);
     opts.add_group(cfg);
     if (int stop = opts.process(argc, argv))

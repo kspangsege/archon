@@ -83,12 +83,12 @@ using namespace archon::util;
 using namespace archon::image;
 using namespace archon::font;
 using namespace archon::display;
-using namespace archon::Render;
+using namespace archon::render;
 
 
 namespace
 {
-  typedef archon::Render::TextFormatter TextFormatter; // Resolving ambiguity
+  typedef archon::render::TextFormatter TextFormatter; // Resolving ambiguity
 
 
 
@@ -4804,7 +4804,7 @@ cout << "*";
 
 namespace archon
 {
-  namespace Render
+  namespace render
   {
     struct Application::PrivateState: PrivateApplicationState
     {

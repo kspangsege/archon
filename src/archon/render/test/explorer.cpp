@@ -46,7 +46,7 @@ using namespace std;
 using namespace archon::core;
 using namespace archon::math;
 using namespace archon::image;
-using namespace archon::Render;
+using namespace archon::render;
 
 
 namespace
@@ -54,7 +54,7 @@ namespace
   struct Explorer: Application
   {
     Explorer(Application::Config const &cfg, Object const &obj):
-      Application("archon::Render::Explorer", cfg), object(obj)
+      Application("archon::render::Explorer", cfg), object(obj)
     {
       glEnable(GL_LIGHTING);
       glEnable(GL_DEPTH_TEST);

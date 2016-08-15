@@ -20,7 +20,7 @@
 
 namespace archon
 {
-  namespace Render
+  namespace render
   {
     /**
      * The purpose of this function is only to ensure that the library

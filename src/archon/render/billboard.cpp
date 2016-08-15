@@ -41,7 +41,7 @@ using namespace archon::math;
 
 namespace archon
 {
-  namespace Render
+  namespace render
   {
     namespace Billboard
     {

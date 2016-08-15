@@ -30,7 +30,7 @@ using namespace archon::math;
 
 
 namespace archon {
-namespace Render {
+namespace render {
 
 OpenGlSceneBuilder::OpenGlSceneBuilder(GLuint list, TextureCache& texture_cache,
                                        vector<TextureUse>* textures_ext, bool mipmapping):
@@ -182,5 +182,5 @@ void OpenGlSceneBuilder::provide_tex_transform()
     m_has_tex_transform = true;
 }
 
-} // namespace Render
+} // namespace render
 } // namespace archon

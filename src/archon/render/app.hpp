@@ -50,7 +50,7 @@
 
 
 namespace archon {
-namespace Render {
+namespace render {
 
 /// Thrown if an attempt is made to register a key handler with a key that is
 /// already bound to a handler.
@@ -511,7 +511,7 @@ template<class C> void Application::register_key_handler(display::KeySym key, bo
     register_key_handler(key, h, description);
 }
 
-} // namespace Render
+} // namespace render
 } // namespace archon
 
 #endif // ARCHON_RENDER_APP_HPP

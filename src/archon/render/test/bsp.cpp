@@ -36,7 +36,7 @@
 using namespace std;
 using namespace archon::core;
 using namespace archon::math;
-using namespace archon::Render;
+using namespace archon::render;
 
 namespace
 {
@@ -451,7 +451,7 @@ There is a problem here - it requires a specific basis:
 
   struct BSP: Application
   {
-    BSP(): Application("archon::Render::BSP")
+    BSP(): Application("archon::render::BSP")
     {
 /*
       CSG csg;
