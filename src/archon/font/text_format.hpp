@@ -89,23 +89,23 @@ public:
     // Get the dimensions of the specified page of the current layout.
     // Components will be integers if grid fitting was enabled in this session.
     // The width is always the width of the widest page clamped to the specified width range.
-    Math::Vec2 get_page_size(int page_index = 0);
+    math::Vec2 get_page_size(int page_index = 0);
 
     // Set the minimum and maximum page width in pixels. If the maximum component is less than or equal to zero, the page has unbounded width. Otherwise, if the maximum component is less than the minimum component, then the page width will be equal to the maximum component.
     // Grid fitting: Minimum will be rounded upwards, and maximum will be rounded downwards.
     // If a layout session is already initiated, this setting will not have any effect until clear() is called and a new session is started.
     // By default the minimum width is zero, and the maximum is unbounded.
-    void set_page_width(const Math::Interval& width);
+    void set_page_width(const math::Interval& width);
 
     // Set the minimum and maximum page height in pixels. If the maximum component is less than or equal to zero, the page has unbounded height. Otherwise, if the maximum component is less than the minimum component, then the page height will be equal to the maximum component.
     // Grid fitting: Minimum will be rounded upwards, and maximum will be rounded downwards.
     // If a layout session is already initiated, this setting will not have any effect until clear() is called and a new session is started.
     // By default the minimum height is zero, and the maximum is unbounded.
-    void set_page_height(const Math::Interval& height);
+    void set_page_height(const math::Interval& height);
 
     // Set the page size in pixels. If a component is less than or equal to zero, the page is unbounded in that direction.
     // This is just a shorthand for calling both set_page_width() and set_page_height() with minimum and maximum being the same.
-    void set_page_size(const Math::Vec2& size);
+    void set_page_size(const math::Vec2& size);
 
     // Specifies how each line is aligned with respect to the edge
     // of the page. For a horizontal layout that runs from left to
@@ -227,7 +227,7 @@ protected:
     };
 
     // Offset is desired coordinates of lower left corner of page
-    void process_page(int page_index, Math::Vec2 offset, TextHandler&);
+    void process_page(int page_index, math::Vec2 offset, TextHandler&);
 
     // Both line and glyph boxes are reported in reading order. For
     // each line, the line box is reported first, then all the glyph
@@ -235,15 +235,15 @@ protected:
     // reported, a lateral pseudo baseline is reported, which marks
     // the point of text alignment between lines.
     struct StructHandler {
-        virtual void line_box(const Math::Vec2& pos, const Math::Vec2& size) = 0;
-        virtual void glyph_box(const Math::Vec2& pos, const Math::Vec2& size) = 0;
+        virtual void line_box(const math::Vec2& pos, const math::Vec2& size) = 0;
+        virtual void glyph_box(const math::Vec2& pos, const math::Vec2& size) = 0;
         // which: 0 means first baseline, 1 means other baselines, 2 means perpendicular alignment marker
         virtual void baseline(double pos, bool vertical, bool before, int which) = 0;
         virtual ~StructHandler() {}
     };
 
     // Same as process_page() but reports structure instead of text
-    void process_page_struct(int page_index, Math::Vec2 offset, StructHandler&);
+    void process_page_struct(int page_index, math::Vec2 offset, StructHandler&);
 
 private:
     void reset();
@@ -261,9 +261,9 @@ private:
 
     void do_word_wrap();
 
-    void adjust_lateral_line_span(const Math::Interval& span, bool include);
+    void adjust_lateral_line_span(const math::Interval& span, bool include);
 
-    Math::Interval next_session_page_width, next_session_page_height; // min, max
+    math::Interval next_session_page_width, next_session_page_height; // min, max
     double next_session_alignment;
     double next_session_word_spacing, next_session_letter_spacing;
     bool next_session_horizontal;
@@ -305,7 +305,7 @@ private:
     bool in_session; // True iff the current layout is non-empty
 
     int current_style_id; // Identifier for the currently selected style, or zero if none are currently selected.
-    Math::Interval style_lateral_span;
+    math::Interval style_lateral_span;
 
     bool have_space_advance;
     double space_advance; // Baseline advance of space character in pixels. Is integer if session is grid fitting.
@@ -341,7 +341,7 @@ private:
     {
         int num_glyphs; // The number of glyphs on this line.
         double length; // Length along baseline, never negative. Start of line is indicated by the advance of the first glyph.
-        Math::Interval lateral_span; // Positions of (vertical ? left and right : bottom and top) edges of line relative to baseline.
+        math::Interval lateral_span; // Positions of (vertical ? left and right : bottom and top) edges of line relative to baseline.
         double lateral_pos; // Lateral position of leading edge of line box.
         Line(double p): num_glyphs(0), length(0), lateral_span(0,0), lateral_pos(p) {}
         double get_lateral_trail_pos() const { return lateral_pos + lateral_span.get_length(); }
@@ -397,8 +397,8 @@ private:
     long word_start_index; // Index within advance_comps of first glyph of last word on current line. Less than 0 until a space is seen on the current line. Only valid when current_line != 0
     double word_sep_pos; // Position in primary direction of separator before last word on current line
     double line_length_snapshot; // Length of line ending at glyph that preceeds the word separator that caused this snapshot
-    Math::Interval lateral_span_snapshot; // Lateral span of line ending with the word separator that caused this snapshot
-    Math::Interval word_lateral_span; // Lateral span of current word
+    math::Interval lateral_span_snapshot; // Lateral span of line ending with the word separator that caused this snapshot
+    math::Interval word_lateral_span; // Lateral span of current word
     std::vector<long> word_separators; // Indices within advance_comps of white-spaces of current line. This includes non-breaking spaces.
     long num_word_separators; // Number of word separators preceeding the one that delimits the last word on the current line
 
@@ -417,8 +417,8 @@ private:
     double cursor; // Position of cursor along baseline
     Line* current_line;
     Page* current_page;
-// No need      Math::Box2 line_bbox; // Bounding box of current line
-// No need      Math::Box2 page_bbox; // Bounding box of text on current page
+// No need      math::Box2 line_bbox; // Bounding box of current line
+// No need      math::Box2 page_bbox; // Bounding box of text on current page
     Pages pages;
 */
 };
@@ -448,19 +448,19 @@ inline int TextFormatter::get_num_pages()
     return pages.size();
 }
 
-inline void TextFormatter::set_page_width(const Math::Interval& width)
+inline void TextFormatter::set_page_width(const math::Interval& width)
 {
     flush_inbuf(false);
     next_session_page_width = width;
 }
 
-inline void TextFormatter::set_page_height(const Math::Interval& height)
+inline void TextFormatter::set_page_height(const math::Interval& height)
 {
     flush_inbuf(false);
     next_session_page_height = height;
 }
 
-inline void TextFormatter::set_page_size(const Math::Vec2& size)
+inline void TextFormatter::set_page_size(const math::Vec2& size)
 {
     flush_inbuf(false);
     next_session_page_width.set(size[0], size[0]);

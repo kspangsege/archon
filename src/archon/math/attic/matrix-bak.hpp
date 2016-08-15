@@ -52,7 +52,7 @@ Iteration on a
 
 namespace archon
 {
-  namespace Math
+  namespace math
   {
     template<typename I, int S>
     struct StrideIterator: std::iterator<typename std::iterator_traits<I>::iterator_category,

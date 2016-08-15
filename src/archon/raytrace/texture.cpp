@@ -34,7 +34,7 @@
 
 using namespace std;
 using namespace archon::core;
-using namespace archon::Math;
+using namespace archon::math;
 using namespace archon::util;
 using namespace archon::Imaging;
 using namespace archon::Raytrace;

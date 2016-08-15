@@ -514,7 +514,7 @@ namespace archon
       int const m = color_map_need_alpha(w) ? 4 : 3;
       for(size_t i=0; i<n; ++i)
       {
-        for(int j=0; j<m; ++j) t[j] = Math::lin_interp(*s, 0, 1, bg[j], fg[j]);
+        for(int j=0; j<m; ++j) t[j] = math::lin_interp(*s, 0, 1, bg[j], fg[j]);
         s += 1;
         t += m;
       }

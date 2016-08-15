@@ -153,7 +153,7 @@ namespace archon
        * time. To get reliable results, the specified time shold be as
        * close to 'now' as possible.
        */
-      Math::Rotation3 get_orientation(core::Time now) const;
+      math::Rotation3 get_orientation(core::Time now) const;
 
 
       /**
@@ -162,7 +162,7 @@ namespace archon
        * default orientation is described in the class
        * documentation. The trackball will stop spinning.
        */
-      void set_orientation(Math::Rotation3 r);
+      void set_orientation(math::Rotation3 r);
 
 
       /**
@@ -175,7 +175,7 @@ namespace archon
        * calls to \c get_orientation get correct results based on the
        * time of those calls.
        */
-      void set_spin(Math::Rotation3 spin, core::Time now);
+      void set_spin(math::Rotation3 spin, core::Time now);
 
 
       void dump_info(std::ostream &) const;
@@ -184,39 +184,39 @@ namespace archon
       ~VirtualTrackball();
 
     private:
-      Math::Rotation3 get_free_orientation(core::Time time) const;
-      Math::Rotation3 get_track_orientation() const;
-      void set_track_orientation(Math::Vec3 p) const;
-      Math::Vec3 get_ball_point(Math::Vec2 pos) const;
-      Math::Rotation3 calc_rotation(Math::Vec3 const &a, Math::Vec3 const &b) const;
+      math::Rotation3 get_free_orientation(core::Time time) const;
+      math::Rotation3 get_track_orientation() const;
+      void set_track_orientation(math::Vec3 p) const;
+      math::Vec3 get_ball_point(math::Vec2 pos) const;
+      math::Rotation3 calc_rotation(math::Vec3 const &a, math::Vec3 const &b) const;
 
       // Considder the last 100 milliseconds of the mouse movement
       // when determining the free spin. Must be at least 2.
       static long const millis_back = 100;
 
-      Math::Vec2 half_viewport_size;
+      math::Vec2 half_viewport_size;
       double radius;
 
       bool acquired;
 
       core::Time release_time;
-      Math::Rotation3 base_orientation;
-      Math::Rotation3 spin;
+      math::Rotation3 base_orientation;
+      math::Rotation3 spin;
 
       bool no_track_yet;
 
       core::Time first_track_time;
-      Math::Vec2 first_track_pos;
-      Math::Vec3 first_track_point;
+      math::Vec2 first_track_pos;
+      math::Vec3 first_track_point;
 
       long track_millis;
-      Math::Vec2 track_pos;
+      math::Vec2 track_pos;
 
       template<class> struct FiniteCurveMemory;
-      core::UniquePtr<FiniteCurveMemory<Math::Vec2> > const curve_mem;
+      core::UniquePtr<FiniteCurveMemory<math::Vec2> > const curve_mem;
 
       // Caching
-      mutable Math::Rotation3 track_orientation;
+      mutable math::Rotation3 track_orientation;
       mutable bool need_track_orientation;
     };
 
@@ -228,7 +228,7 @@ namespace archon
 
     void VirtualTrackball::set_viewport_size(int w, int h)
     {
-      using namespace Math;
+      using namespace math;
       half_viewport_size.set(w/2.0, h/2.0);
       radius = min(half_viewport_size);
     }
@@ -242,7 +242,7 @@ namespace archon
     }
 
 
-    void VirtualTrackball::set_orientation(Math::Rotation3 r)
+    void VirtualTrackball::set_orientation(math::Rotation3 r)
     {
       base_orientation = r;
       spin.angle = 0;
@@ -250,7 +250,7 @@ namespace archon
     }
 
 
-    void VirtualTrackball::set_spin(Math::Rotation3 s, core::Time now)
+    void VirtualTrackball::set_spin(math::Rotation3 s, core::Time now)
     {
       base_orientation = get_orientation(now);
       release_time = now;
@@ -259,7 +259,7 @@ namespace archon
     }
 
 
-    Math::Rotation3 VirtualTrackball::get_orientation(core::Time now) const
+    math::Rotation3 VirtualTrackball::get_orientation(core::Time now) const
     {
       return acquired ? get_track_orientation() : get_free_orientation(now);
     }
@@ -269,9 +269,9 @@ namespace archon
      * Calculate the orientation of the free spinning ball at the
      * specified time.
      */
-    Math::Rotation3 VirtualTrackball::get_free_orientation(core::Time time) const
+    math::Rotation3 VirtualTrackball::get_free_orientation(core::Time time) const
     {
-      using namespace Math;
+      using namespace math;
       if (!spin.angle) return base_orientation;
       time -= release_time;
       Rotation3 s = spin, r = base_orientation;
@@ -284,7 +284,7 @@ namespace archon
     /**
      * Assumes ball in acquired mode and no_track_yet = false.
      */
-    Math::Rotation3 VirtualTrackball::get_track_orientation() const
+    math::Rotation3 VirtualTrackball::get_track_orientation() const
     {
       if(need_track_orientation) {
         if (no_track_yet) track_orientation = base_orientation;
@@ -295,17 +295,17 @@ namespace archon
     }
 
 
-    void VirtualTrackball::set_track_orientation(Math::Vec3 p) const
+    void VirtualTrackball::set_track_orientation(math::Vec3 p) const
     {
       track_orientation = base_orientation;
       track_orientation.combine_with(calc_rotation(first_track_point, p));
     }
 
 
-    Math::Vec3 VirtualTrackball::get_ball_point(Math::Vec2 pos) const
+    math::Vec3 VirtualTrackball::get_ball_point(math::Vec2 pos) const
     {
       using namespace std;
-      using namespace Math;
+      using namespace math;
       Vec2 p(pos[0]-half_viewport_size[0], half_viewport_size[1]-pos[1]);
       p /= radius;
       double s = sq_sum(p);
@@ -320,10 +320,10 @@ namespace archon
     }
 
 
-    Math::Rotation3 VirtualTrackball::calc_rotation(Math::Vec3 const &a, Math::Vec3 const &b) const
+    math::Rotation3 VirtualTrackball::calc_rotation(math::Vec3 const &a, math::Vec3 const &b) const
     {
       using namespace std;
-      using namespace Math;
+      using namespace math;
       Vec3 const axis = a * b;
       double const s = sq_sum(axis), d = dot(a,b);
       return s && d<1 ? Rotation3(axis/sqrt(s), acos(d)) : Rotation3::zero();

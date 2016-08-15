@@ -165,7 +165,7 @@ public:
     ///
     /// \note This method will not be called by the raytracer for a convex
     /// object if the ray originates on the surface of that object.
-    virtual bool intersect(const Math::Line3& ray, double& dist,
+    virtual bool intersect(const math::Line3& ray, double& dist,
                            const Object* origin_obj = nullptr,
                            const Surface** surface = nullptr) const = 0;
 
@@ -210,9 +210,9 @@ public:
         /// and optionally to the corresponding texture coordinates. The mapping
         /// to texture coordinates must reflect the canonical mapping, and must
         /// not include the effect of any texture coordinate transformation.
-        virtual void map(const Math::Vec3& point,
-                         Math::Vec3& normal,
-                         Math::Vec2* texture_point = 0) const = 0;
+        virtual void map(const math::Vec3& point,
+                         math::Vec3& normal,
+                         math::Vec2* texture_point = 0) const = 0;
 
         virtual ~Surface() {}
     };

@@ -192,7 +192,7 @@ namespace archon
       long wordAdvance;
       if(bitAdvance)
       {
-	wordBitOffset = Math::modulo(wordBitOffset + bitAdvance,
+	wordBitOffset = math::modulo(wordBitOffset + bitAdvance,
 				     pixelFormat.bitsPerWord, wordAdvance);
 	if(wordAdvance) p += wordAdvance;
       }
@@ -256,7 +256,7 @@ namespace archon
 	}
 	if(bitAdvance)
 	{
-	  wordBitOffset = Math::modulo<int>(wordBitOffset + bitAdvance,
+	  wordBitOffset = math::modulo<int>(wordBitOffset + bitAdvance,
 					    pixelFormat.bitsPerWord,
 					    wordAdvance);
 	  if(wordAdvance)
@@ -323,7 +323,7 @@ namespace archon
       long wordAdvance;
       if(bitAdvance)
       {
-	wordBitOffset = Math::modulo(wordBitOffset + bitAdvance,
+	wordBitOffset = math::modulo(wordBitOffset + bitAdvance,
 				     pixelFormat.bitsPerWord, wordAdvance);
 	if(wordAdvance) p += wordAdvance;
       }
@@ -405,7 +405,7 @@ namespace archon
 	}
 	if(bitAdvance)
 	{
-	  wordBitOffset = Math::modulo<int>(wordBitOffset + bitAdvance,
+	  wordBitOffset = math::modulo<int>(wordBitOffset + bitAdvance,
 					    pixelFormat.bitsPerWord, wordAdvance);
 	  if(wordAdvance)
 	  {

@@ -45,7 +45,7 @@ namespace archon
       /**
        * Must be thread-safe.
        */
-      virtual void map(Math::Vec2 point, Math::Vec4 &rgba) const = 0;
+      virtual void map(math::Vec2 point, math::Vec4 &rgba) const = 0;
 
 
       virtual ~Texture() {}
@@ -57,17 +57,17 @@ namespace archon
     struct TexturedPhongMaterial: PhongMaterialBase
     {
       TexturedPhongMaterial(core::SharedPtr<Texture> const &tex,
-                            Math::CoordSystem2 xform = Math::CoordSystem2::identity(),
-                            Math::Vec3 emis_col = Math::Vec3(0),
-                            Math::Vec3 spec_col = Math::Vec3(0),
+                            math::CoordSystem2 xform = math::CoordSystem2::identity(),
+                            math::Vec3 emis_col = math::Vec3(0),
+                            math::Vec3 spec_col = math::Vec3(0),
                             double ambi = 0.2, double shin = 0.2):
         PhongMaterialBase(emis_col, spec_col, ambi, shin), texture(tex), transform(xform) {}
 
     private:
-      void get_diffuse_color(Math::Vec2 tex_point, Math::Vec4 &rgba) const;
+      void get_diffuse_color(math::Vec2 tex_point, math::Vec4 &rgba) const;
 
       core::SharedPtr<Texture> const texture;
-      Math::CoordSystem2 const transform;
+      math::CoordSystem2 const transform;
     };
   }
 }

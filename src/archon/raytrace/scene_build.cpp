@@ -32,7 +32,7 @@
 #include <archon/raytrace/scene_build.hpp>
 
 using namespace archon::core;
-using namespace archon::Math;
+using namespace archon::math;
 using namespace archon::Graphics;
 using namespace archon::Imaging;
 using namespace archon::Raytrace;

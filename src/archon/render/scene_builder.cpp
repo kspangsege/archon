@@ -26,7 +26,7 @@
 
 using namespace std;
 using namespace archon::core;
-using namespace archon::Math;
+using namespace archon::math;
 
 
 namespace archon {
@@ -126,13 +126,13 @@ void OpenGlSceneBuilder::do_bind_texture(int index)
     m_textures.at(index).bind();
 }
 
-void OpenGlSceneBuilder::do_tex_translate(Math::Vec2 v)
+void OpenGlSceneBuilder::do_tex_translate(math::Vec2 v)
 {
     provide_tex_transform();
     glTranslated(v[0], v[1], 0);
 }
 
-void OpenGlSceneBuilder::do_tex_scale(Math::Vec2 s)
+void OpenGlSceneBuilder::do_tex_scale(math::Vec2 s)
 {
     provide_tex_transform();
     glScaled(s[0], s[1], 1);

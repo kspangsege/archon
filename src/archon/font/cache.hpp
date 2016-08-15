@@ -82,7 +82,7 @@ public:
     struct FontDesc {
         std::string family;
         double boldness, italicity;
-        Math::Vec2 size;
+        math::Vec2 size;
         bool operator==(const FontDesc&) const throw();
     };
 
@@ -148,7 +148,7 @@ public:
 
 
     struct FontMetrics {
-        Math::Interval lateral_span; // For horizontal layouts, this is known as the fonts descender and ascender.
+        math::Interval lateral_span; // For horizontal layouts, this is known as the fonts descender and ascender.
     };
 
     virtual void get_font_metrics(int font_id, bool vertical, bool grid_fitting,
@@ -243,7 +243,7 @@ public:
      * </pre>
      */
     struct GlyphBoxInfo {
-        Math::Vec2F size, hori_pos, vert_pos, rev_pos;
+        math::Vec2F size, hori_pos, vert_pos, rev_pos;
     };
 
 

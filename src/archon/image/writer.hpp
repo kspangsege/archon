@@ -162,16 +162,16 @@ namespace archon
       template<typename T> Accessor &put_pixel_rgb(T red, T green, T blue, T alpha);
 
 
-      template<typename T, class R, class I> Accessor &put_pixel_rgb(Math::VecMem<3,T,R,I> const &v);
+      template<typename T, class R, class I> Accessor &put_pixel_rgb(math::VecMem<3,T,R,I> const &v);
 
 
-      template<typename T, class R, class I> Accessor &put_pixel_rgb(Math::VecMem<4,T,R,I> const &v);
+      template<typename T, class R, class I> Accessor &put_pixel_rgb(math::VecMem<4,T,R,I> const &v);
 
 
-      template<typename T, class R, class I> Accessor &put_pixel_rgb(Math::VecVal<3,T,R,I> const &v);
+      template<typename T, class R, class I> Accessor &put_pixel_rgb(math::VecVal<3,T,R,I> const &v);
 
 
-      template<typename T, class R, class I> Accessor &put_pixel_rgb(Math::VecVal<4,T,R,I> const &v);
+      template<typename T, class R, class I> Accessor &put_pixel_rgb(math::VecVal<4,T,R,I> const &v);
 
 
       template<typename T> Accessor &put_pixel(T const *p, ColorSpace::ConstRefArg c, bool has_alpha);
@@ -340,7 +340,7 @@ namespace archon
 
 
     template<class A, class B> template<typename T, class R, class I>
-    inline A &WriterOps<A,B>::put_pixel_rgb(Math::VecMem<3,T,R,I> const &v)
+    inline A &WriterOps<A,B>::put_pixel_rgb(math::VecMem<3,T,R,I> const &v)
     {
       WriterBase::put_pixel_smart<T, false>(v.get(), 0);
       return static_cast<A &>(*this);
@@ -348,7 +348,7 @@ namespace archon
 
 
     template<class A, class B> template<typename T, class R, class I>
-    inline A &WriterOps<A,B>::put_pixel_rgb(Math::VecMem<4,T,R,I> const &v)
+    inline A &WriterOps<A,B>::put_pixel_rgb(math::VecMem<4,T,R,I> const &v)
     {
       WriterBase::put_pixel_smart<T, true>(v.get(), 0);
       return static_cast<A &>(*this);
@@ -356,17 +356,17 @@ namespace archon
 
 
     template<class A, class B> template<typename T, class R, class I>
-    inline A &WriterOps<A,B>::put_pixel_rgb(Math::VecVal<3,T,R,I> const &v)
+    inline A &WriterOps<A,B>::put_pixel_rgb(math::VecVal<3,T,R,I> const &v)
     {
-      WriterBase::put_pixel_smart<T, false>(Math::BasicVec<3,T>(v).get(), 0);
+      WriterBase::put_pixel_smart<T, false>(math::BasicVec<3,T>(v).get(), 0);
       return static_cast<A &>(*this);
     }
 
 
     template<class A, class B> template<typename T, class R, class I>
-    inline A &WriterOps<A,B>::put_pixel_rgb(Math::VecVal<4,T,R,I> const &v)
+    inline A &WriterOps<A,B>::put_pixel_rgb(math::VecVal<4,T,R,I> const &v)
     {
-      WriterBase::put_pixel_smart<T, true>(Math::BasicVec<3,T>(v).get(), 0);
+      WriterBase::put_pixel_smart<T, true>(math::BasicVec<3,T>(v).get(), 0);
       return static_cast<A &>(*this);
     }
 

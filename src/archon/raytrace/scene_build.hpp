@@ -48,18 +48,18 @@ make_scene_builder(Raytracer&, Graphics::SpatialSceneBuilder* aux_builder = null
 /// The methods of this class are not thread-safe.
 class SceneBuilder {
 public:
-    virtual void translate(Math::Vec3) = 0;
+    virtual void translate(math::Vec3) = 0;
 
     void scale(double f);
 
-    virtual void scale(Math::Vec3) = 0;
+    virtual void scale(math::Vec3) = 0;
 
     /// \param axis Need not be of unit length.
     ///
     /// \param angle Specified in radians.
-    void rotate(Math::Vec3 axis, double angle);
+    void rotate(math::Vec3 axis, double angle);
 
-    virtual void rotate(Math::Rotation3) = 0;
+    virtual void rotate(math::Rotation3) = 0;
 
     virtual void push() = 0;
 
@@ -81,7 +81,7 @@ public:
 
     virtual void add_spot_light(double cutoff_angle = M_PI/4, double hotspot_angle = M_PI/2) = 0;
 
-    virtual void set_material_diffuse_color(Math::Vec3 color) = 0;
+    virtual void set_material_diffuse_color(math::Vec3 color) = 0;
 
     virtual void set_material_transparency(double transparency) = 0;
 
@@ -89,11 +89,11 @@ public:
     virtual void set_texture(std::string image_path = "",
                              bool repeat_s = true, bool repeat_t = true) = 0;
 
-    virtual void tex_translate(Math::Vec2 v) = 0;
+    virtual void tex_translate(math::Vec2 v) = 0;
 
     void tex_scale(double);
 
-    virtual void tex_scale(Math::Vec2 s) = 0;
+    virtual void tex_scale(math::Vec2 s) = 0;
 
     /// Specified in radians.
     virtual void tex_rotate(double angle) = 0;
@@ -101,7 +101,7 @@ public:
     virtual void reset_tex_transform() = 0;
 
     /// Default is 'white'.
-    virtual void set_light_color(Math::Vec3) = 0;
+    virtual void set_light_color(math::Vec3) = 0;
 
     /// Default is 0.
     virtual void set_light_ambience(double) = 0;
@@ -127,17 +127,17 @@ public:
 
 inline void SceneBuilder::scale(double f)
 {
-    scale(Math::Vec3(f));
+    scale(math::Vec3(f));
 }
 
-inline void SceneBuilder::rotate(Math::Vec3 axis, double angle)
+inline void SceneBuilder::rotate(math::Vec3 axis, double angle)
 {
-    rotate(Math::Rotation3(unit(axis), angle));
+    rotate(math::Rotation3(unit(axis), angle));
 }
 
 inline void SceneBuilder::tex_scale(double f)
 {
-    tex_scale(Math::Vec2(f));
+    tex_scale(math::Vec2(f));
 }
 
 } // namespace Raytrace

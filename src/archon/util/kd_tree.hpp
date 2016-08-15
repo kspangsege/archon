@@ -202,7 +202,7 @@ namespace archon
       for(size_t i=0; i<entries.size(); ++i)
       {
         T const *const v = get_vec(entries[i]);
-        Math::vec_print(o, v, v + num_components) << std::endl;
+        math::vec_print(o, v, v + num_components) << std::endl;
       }
       return o;
     }
@@ -243,7 +243,7 @@ namespace archon
       int const mid = begin + len/2;
       entry_type const &entry = entries[mid];
 
-      T const sq_dist = Math::vec_sq_dist(c.vec, c.vec + num_components, get_vec(entry));
+      T const sq_dist = math::vec_sq_dist(c.vec, c.vec + num_components, get_vec(entry));
       if(sq_dist < c.sq_radius)
       {
         if(c.nearest.size() < c.num)
@@ -277,7 +277,7 @@ namespace archon
           find_n_nearest(begin, mid, dim, c);
 
           // Look in right subtree if we have to
-          if(0 < discr && Math::square(split - point) <= c.sq_radius)
+          if(0 < discr && math::square(split - point) <= c.sq_radius)
           {
             begin = mid+1;
             goto again;
@@ -290,7 +290,7 @@ namespace archon
           if(0 < discr) find_n_nearest(mid+1, end, dim, c);
 
           // Look in left subtree if we have to
-          if(Math::square(point - split) <= c.sq_radius)
+          if(math::square(point - split) <= c.sq_radius)
           {
             end = mid;
             goto again;

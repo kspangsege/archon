@@ -44,7 +44,7 @@
 
 
 using namespace archon::core;
-using namespace archon::Math;
+using namespace archon::math;
 using namespace archon::util;
 using namespace archon::Imaging;
 using namespace archon::Render;
@@ -80,7 +80,7 @@ const double grav_const      = 6.67428E-11;        // Gravitational constant (me
 const double elem_charge     = 1.602176487E-19;    // coulombs
 const double elec_mass       = 9.10938215E-31;     // kilograms
 const double prot_mass       = 1.672621637E-27;    // kilograms
-const double radius_scale    = 0.1 / archon::Math::cbrt(prot_mass);
+const double radius_scale    = 0.1 / archon::math::cbrt(prot_mass);
 const double avg_elec_dist   = 37E-12;
 const double init_elec_speed = sqrt(2*(coul_const*square(elem_charge)/avg_elec_dist)/elec_mass) / 1.3;
 const double elec_orbit_time = M_PI * 2 * avg_elec_dist / init_elec_speed;
@@ -120,7 +120,7 @@ public:
             p.veloc  = Vec3(0,0,0);
             p.charge = elem_charge;
             p.mass   = prot_mass;
-            p.radius = radius_scale * archon::Math::cbrt(p.mass);
+            p.radius = radius_scale * archon::math::cbrt(p.mass);
             p.color  = Color::cvt_HSV_to_RGB(Vec3(double(i)/num_protons, 0.5, 1));
         }
         for (int i = 0; i < num_electrons; ++i) {
@@ -130,7 +130,7 @@ public:
             p.veloc  = Vec3(init_elec_speed,0,0);
             p.charge = -elem_charge;
             p.mass   = elec_mass;
-            p.radius = radius_scale * archon::Math::cbrt(p.mass);
+            p.radius = radius_scale * archon::math::cbrt(p.mass);
             p.color  = Color::cvt_HSV_to_RGB(Vec3(double(i)/num_electrons, 0.5, 1));
         }
 

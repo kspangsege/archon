@@ -61,9 +61,9 @@ class CIE_RGB_PrimSpec {
 public:
     /// Coordinates of the primaries and the white point within the CIE 1931 xy
     /// chromaticity diagram.
-    const Math::Vec2F red, green, blue, white;
+    const math::Vec2F red, green, blue, white;
 
-    CIE_RGB_PrimSpec(Math::Vec2F red, Math::Vec2F green, Math::Vec2F blue, Math::Vec2F white):
+    CIE_RGB_PrimSpec(math::Vec2F red, math::Vec2F green, math::Vec2F blue, math::Vec2F white):
         red(red),
         green(green),
         blue(blue),
@@ -92,14 +92,14 @@ template<class T> inline void cvt_Lum_to_RGB(T lum, T* rgb)
     rgb[0] = rgb[1] = rgb[2] = lum;
 }
 
-template<class T> inline T cvt_RGB_To_Lum(const Math::BasicVec<3,T>& rgb)
+template<class T> inline T cvt_RGB_To_Lum(const math::BasicVec<3,T>& rgb)
 {
     return cvt_RGB_to_Lum(rgb.get());
 }
 
-template<class T> inline Math::BasicVec<3,T> cvt_Lum_to_RGB(T lum)
+template<class T> inline math::BasicVec<3,T> cvt_Lum_to_RGB(T lum)
 {
-    Math::BasicVec<3,T> rgb;
+    math::BasicVec<3,T> rgb;
     cvt_Lum_to_RGB(lum, rgb.get());
     return rgb;
 }
@@ -220,16 +220,16 @@ template<class T> inline void cvt_HSV_to_RGB(const T* hsv, T* rgb)
     }
 }
 
-template<class T> inline Math::BasicVec<3,T> cvt_RGB_to_HSV(const Math::BasicVec<3,T>& rgb)
+template<class T> inline math::BasicVec<3,T> cvt_RGB_to_HSV(const math::BasicVec<3,T>& rgb)
 {
-    Math::BasicVec<3,T> hsv;
+    math::BasicVec<3,T> hsv;
     cvt_RGB_to_HSV(rgb.get(), hsv.get());
     return hsv;
 }
 
-template<class T> inline Math::BasicVec<3,T> cvt_HSV_to_RGB(const Math::BasicVec<3,T>& hsv)
+template<class T> inline math::BasicVec<3,T> cvt_HSV_to_RGB(const math::BasicVec<3,T>& hsv)
 {
-    Math::BasicVec<3,T> rgb;
+    math::BasicVec<3,T> rgb;
     cvt_HSV_to_RGB(hsv.get(), rgb.get());
     return rgb;
 }
@@ -361,8 +361,8 @@ template<class T> inline void cvt_CMYK_to_RGB(const T* cmyk, T* rgb)
 /// interpolated color. This is sensible since any other saturation will look
 /// artificial.
 ///
-/// \sa Math::linInterp
-Math::Vec3 interp(double x, double x1, double x2, const Math::Vec3& c1, const Math::Vec3& c2);
+/// \sa math::linInterp
+math::Vec3 interp(double x, double x1, double x2, const math::Vec3& c1, const math::Vec3& c2);
 
 
 
@@ -371,16 +371,16 @@ Math::Vec3 interp(double x, double x1, double x2, const Math::Vec3& c1, const Ma
 
 namespace _Impl {
 
-const CIE_RGB_PrimSpec srgb_prim_spec(Math::Vec2F(0.6400, 0.3300),  // Red
-                                      Math::Vec2F(0.3000, 0.6000),  // Green
-                                      Math::Vec2F(0.1500, 0.0600),  // Blue
-                                      Math::Vec2F(0.3127, 0.3290)); // White
+const CIE_RGB_PrimSpec srgb_prim_spec(math::Vec2F(0.6400, 0.3300),  // Red
+                                      math::Vec2F(0.3000, 0.6000),  // Green
+                                      math::Vec2F(0.1500, 0.0600),  // Blue
+                                      math::Vec2F(0.3127, 0.3290)); // White
 
 template<class T> class sRGB {
 public:
     static const T a, gamma, phi, k0;
-    static const Math::BasicVec<3,T> white;
-    static const Math::BasicMat<3,3,T> to_xyz, fr_xyz;
+    static const math::BasicVec<3,T> white;
+    static const math::BasicMat<3,3,T> to_xyz, fr_xyz;
 
     static T gamma_enc(T v)
     {
@@ -392,24 +392,24 @@ public:
         return k0 < v ? std::pow((v+a)/(1+a), gamma) : v/phi;
     }
 
-    static Math::BasicVec<3,T> get_white()
+    static math::BasicVec<3,T> get_white()
     {
-        const Math::Vec2F& w = srgb_prim_spec.white;
-        return Math::BasicVec<3,T>(T(w[0])/w[1], 1, (1-(T(w[0])+w[1]))/w[1]);
+        const math::Vec2F& w = srgb_prim_spec.white;
+        return math::BasicVec<3,T>(T(w[0])/w[1], 1, (1-(T(w[0])+w[1]))/w[1]);
     }
 
-    static Math::BasicMat<3,3,T> get_to_xyz()
+    static math::BasicMat<3,3,T> get_to_xyz()
     {
-        const Math::Vec2F& r = srgb_prim_spec.red;
-        const Math::Vec2F& g = srgb_prim_spec.green;
-        const Math::Vec2F& b = srgb_prim_spec.blue;
+        const math::Vec2F& r = srgb_prim_spec.red;
+        const math::Vec2F& g = srgb_prim_spec.green;
+        const math::Vec2F& b = srgb_prim_spec.blue;
 
-        Math::BasicMat<3,3,T> m;
-        m.row(0) = Math::BasicVec<3,T>(r[0], g[0], b[0]);
-        m.row(1) = Math::BasicVec<3,T>(r[1], g[1], b[1]);
-        m.row(2) = Math::BasicVec<3,T>(1) - (m.row(0) + m.row(1));
+        math::BasicMat<3,3,T> m;
+        m.row(0) = math::BasicVec<3,T>(r[0], g[0], b[0]);
+        m.row(1) = math::BasicVec<3,T>(r[1], g[1], b[1]);
+        m.row(2) = math::BasicVec<3,T>(1) - (m.row(0) + m.row(1));
 
-        m.scale(Math::inv(m) * white);
+        m.scale(math::inv(m) * white);
         return m;
     }
 };
@@ -419,9 +419,9 @@ template<class T> const T sRGB<T>::gamma = 2.4F;
 template<class T> const T sRGB<T>::k0    = 0.040448236276987F;
 template<class T> const T sRGB<T>::phi   = k0/std::pow((k0+a)/(1+a), gamma); // Approx 12.92
 
-template<class T> const Math::BasicVec<3,T> sRGB<T>::white(get_white());
-template<class T> const Math::BasicMat<3,3,T> sRGB<T>::to_xyz(get_to_xyz());
-template<class T> const Math::BasicMat<3,3,T> sRGB<T>::fr_xyz(Math::inv(to_xyz));
+template<class T> const math::BasicVec<3,T> sRGB<T>::white(get_white());
+template<class T> const math::BasicMat<3,3,T> sRGB<T>::to_xyz(get_to_xyz());
+template<class T> const math::BasicMat<3,3,T> sRGB<T>::fr_xyz(math::inv(to_xyz));
 
 template<class T> inline void cvt_RGB_to_Lin(const T* rgb, T* lin)
 {
@@ -435,12 +435,12 @@ template<class T> inline void cvt_Lin_to_RGB(const T* lin, T* rgb)
 
 template<class T> inline void cvt_Lin_to_XYZ(const T* lin, T* xyz)
 {
-    Math::vec3_adapt(xyz) = sRGB<T>::to_xyz * Math::vec3_adapt(lin);
+    math::vec3_adapt(xyz) = sRGB<T>::to_xyz * math::vec3_adapt(lin);
 }
 
 template<class T> inline void cvt_XYZ_to_Lin(const T* xyz, T* lin)
 {
-    Math::vec3_adapt(lin) = sRGB<T>::fr_xyz * Math::vec3_adapt(xyz);
+    math::vec3_adapt(lin) = sRGB<T>::fr_xyz * math::vec3_adapt(xyz);
 }
 }
 
@@ -481,7 +481,7 @@ private:
     static const T b, delta, t0, a;
     static T f(T t)
     {
-        return t0 < t ? Math::cbrt(t) : a*t + b;
+        return t0 < t ? math::cbrt(t) : a*t + b;
     }
     static T t(T f)
     {

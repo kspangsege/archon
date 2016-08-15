@@ -114,11 +114,11 @@ public:
     /// text that is written to the formatter.
     ///
     /// The default text color is white witch alpha = 1.
-    void set_text_color(const Math::Vec4F& rgba);
+    void set_text_color(const math::Vec4F& rgba);
 
 
     /// Get the current text color.
-    Math::Vec4F get_text_color() const;
+    math::Vec4F get_text_color() const;
 
 
     /// Upon return, the TextLayout object will contain a reference to
@@ -198,7 +198,7 @@ public:
 private:
     friend class TextFormatter;
     FontProvider::TextContainer text;
-    Math::Vec2 size;
+    math::Vec2 size;
 };
 
 
@@ -264,7 +264,7 @@ inline void TextFormatter::reset_font()
 }
 
 
-inline void TextFormatter::set_text_color(const Math::Vec4F& rgba)
+inline void TextFormatter::set_text_color(const math::Vec4F& rgba)
 {
     if (rgba == style_desc.text_color)
         return;
@@ -274,7 +274,7 @@ inline void TextFormatter::set_text_color(const Math::Vec4F& rgba)
 }
 
 
-inline Math::Vec4F TextFormatter::get_text_color() const
+inline math::Vec4F TextFormatter::get_text_color() const
 {
     return style_desc.text_color;
 }

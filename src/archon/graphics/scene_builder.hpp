@@ -41,9 +41,9 @@ public:
     void begin_polygon();
     void end();
 
-    void set_normal(Math::Vec3); // Must be a unit vector
-    void set_tex_coord(Math::Vec2);
-    void add_vertex(Math::Vec3);
+    void set_normal(math::Vec3); // Must be a unit vector
+    void set_tex_coord(math::Vec2);
+    void add_vertex(math::Vec3);
 
     void set_normal(double x, double y, double z); // Must be a unit vector
     void set_tex_coord(double s, double t);
@@ -56,9 +56,9 @@ protected:
     virtual void do_begin_polygon() = 0;
     virtual void do_end() = 0;
 
-    virtual void do_set_normal(Math::Vec3) = 0;
-    virtual void do_set_tex_coord(Math::Vec2) = 0;
-    virtual void do_add_vertex(Math::Vec3) = 0;
+    virtual void do_set_normal(math::Vec3) = 0;
+    virtual void do_set_tex_coord(math::Vec2) = 0;
+    virtual void do_add_vertex(math::Vec3) = 0;
 };
 
 
@@ -68,9 +68,9 @@ public:
     void push_matrix();
     void pop_matrix();
 
-    void translate(Math::Vec3);
-    void scale(Math::Vec3);
-    void rotate(Math::Rotation3);
+    void translate(math::Vec3);
+    void scale(math::Vec3);
+    void rotate(math::Rotation3);
 
     void translate(double x, double y, double z);
     void scale(double f);
@@ -85,8 +85,8 @@ public:
 
     void bind_texture(int texture_index);
 
-    void tex_translate(Math::Vec2 v);
-    void tex_scale(Math::Vec2 s);
+    void tex_translate(math::Vec2 v);
+    void tex_scale(math::Vec2 s);
 
     void tex_translate(double s, double t);
     void tex_scale(double s, double t);
@@ -99,9 +99,9 @@ protected:
     virtual void do_push_matrix() = 0;
     virtual void do_pop_matrix() = 0;
 
-    virtual void do_translate(Math::Vec3) = 0;
-    virtual void do_scale(Math::Vec3) = 0;
-    virtual void do_rotate(Math::Rotation3) = 0;
+    virtual void do_translate(math::Vec3) = 0;
+    virtual void do_scale(math::Vec3) = 0;
+    virtual void do_rotate(math::Rotation3) = 0;
 
     virtual int do_make_texture(std::string image_path, bool repeat_s, bool repeat_t);
     virtual int do_make_texture(Imaging::Image::ConstRefArg, std::string name,
@@ -109,15 +109,15 @@ protected:
 
     virtual void do_bind_texture(int texture_index) = 0;
 
-    virtual void do_tex_translate(Math::Vec2 v) = 0;
-    virtual void do_tex_scale(Math::Vec2 s) = 0;
+    virtual void do_tex_translate(math::Vec2 v) = 0;
+    virtual void do_tex_scale(math::Vec2 s) = 0;
     virtual void do_tex_rotate(double radians) = 0;
 
     virtual void do_reset_tex_transform() = 0;
 
 /*
-    virtual int add_directional_light(Math::Vec3 dir) = 0;
-    virtual int add_point_light(Math::Vec3 pos) = 0;
+    virtual int add_directional_light(math::Vec3 dir) = 0;
+    virtual int add_point_light(math::Vec3 pos) = 0;
     virtual int add_spot_light_light() = 0;
     virtual void remove_light() = 0;
 */
@@ -247,34 +247,34 @@ inline void SpatialObjectBuilder::end()
     do_end();
 }
 
-inline void SpatialObjectBuilder::set_normal(Math::Vec3 n)
+inline void SpatialObjectBuilder::set_normal(math::Vec3 n)
 {
     do_set_normal(n);
 }
 
-inline void SpatialObjectBuilder::set_tex_coord(Math::Vec2 c)
+inline void SpatialObjectBuilder::set_tex_coord(math::Vec2 c)
 {
     do_set_tex_coord(c);
 }
 
-inline void SpatialObjectBuilder::add_vertex(Math::Vec3 v)
+inline void SpatialObjectBuilder::add_vertex(math::Vec3 v)
 {
     do_add_vertex(v);
 }
 
 inline void SpatialObjectBuilder::set_normal(double x, double y, double z)
 {
-    do_set_normal(Math::Vec3(x,y,z));
+    do_set_normal(math::Vec3(x,y,z));
 }
 
 inline void SpatialObjectBuilder::set_tex_coord(double s, double t)
 {
-    do_set_tex_coord(Math::Vec2(s,t));
+    do_set_tex_coord(math::Vec2(s,t));
 }
 
 inline void SpatialObjectBuilder::add_vertex(double x, double y, double z)
 {
-    do_add_vertex(Math::Vec3(x,y,z));
+    do_add_vertex(math::Vec3(x,y,z));
 }
 
 inline void SpatialSceneBuilder::push_matrix()
@@ -287,24 +287,24 @@ inline void SpatialSceneBuilder::pop_matrix()
     do_pop_matrix();
 }
 
-inline void SpatialSceneBuilder::translate(Math::Vec3 v)
+inline void SpatialSceneBuilder::translate(math::Vec3 v)
 {
     do_translate(v);
 }
 
-inline void SpatialSceneBuilder::scale(Math::Vec3 s)
+inline void SpatialSceneBuilder::scale(math::Vec3 s)
 {
     do_scale(s);
 }
 
-inline void SpatialSceneBuilder::rotate(Math::Rotation3 r)
+inline void SpatialSceneBuilder::rotate(math::Rotation3 r)
 {
     do_rotate(r);
 }
 
 inline void SpatialSceneBuilder::translate(double x, double y, double z)
 {
-    do_translate(Math::Vec3(x,y,z));
+    do_translate(math::Vec3(x,y,z));
 }
 
 inline void SpatialSceneBuilder::scale(double f)
@@ -314,12 +314,12 @@ inline void SpatialSceneBuilder::scale(double f)
 
 inline void SpatialSceneBuilder::scale(double x, double y, double z)
 {
-    do_scale(Math::Vec3(x,y,z));
+    do_scale(math::Vec3(x,y,z));
 }
 
 inline void SpatialSceneBuilder::rotate(double angle, double x, double y, double z)
 {
-    do_rotate(Math::Rotation3(Math::Vec3(x,y,z), angle));
+    do_rotate(math::Rotation3(math::Vec3(x,y,z), angle));
 }
 
 inline int SpatialSceneBuilder::make_texture(std::string img_path, bool rep)
@@ -349,19 +349,19 @@ inline void SpatialSceneBuilder::bind_texture(int texture_index)
     do_bind_texture(texture_index);
 }
 
-inline void SpatialSceneBuilder::tex_translate(Math::Vec2 v)
+inline void SpatialSceneBuilder::tex_translate(math::Vec2 v)
 {
     do_tex_translate(v);
 }
 
-inline void SpatialSceneBuilder::tex_scale(Math::Vec2 s)
+inline void SpatialSceneBuilder::tex_scale(math::Vec2 s)
 {
     do_tex_scale(s);
 }
 
 inline void SpatialSceneBuilder::tex_translate(double s, double t)
 {
-    do_tex_translate(Math::Vec2(s,t));
+    do_tex_translate(math::Vec2(s,t));
 }
 
 inline void SpatialSceneBuilder::tex_scale(double f)
@@ -371,7 +371,7 @@ inline void SpatialSceneBuilder::tex_scale(double f)
 
 inline void SpatialSceneBuilder::tex_scale(double s, double t)
 {
-    do_tex_scale(Math::Vec2(s,t));
+    do_tex_scale(math::Vec2(s,t));
 }
 
 inline void SpatialSceneBuilder::tex_rotate(double angle)

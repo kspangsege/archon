@@ -34,7 +34,7 @@ using namespace std;
 
 namespace archon
 {
-  namespace Math
+  namespace math
   {
     /**
      * \todo FIXME: This can probably be generalized to N-D space as

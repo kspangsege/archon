@@ -41,7 +41,7 @@ namespace archon
 /*
     struct TransmitProps
     {
-      Math::Vec3 specular; // Modulated by color of texture
+      math::Vec3 specular; // Modulated by color of texture
       double shininess;
     };
 */
@@ -63,11 +63,11 @@ namespace archon
 
       struct LightInfo
       {
-        Math::Vec3 direction; // Must be a unit vector
-        Math::Vec3 color;
+        math::Vec3 direction; // Must be a unit vector
+        math::Vec3 color;
         double ambience;  // ambient.red = ambience * color.red
         double intencity; // diffuse.red = intencity * color.red, same with specular
-        LightInfo(Math::Vec3 d, Math::Vec3 c, double a, double i):
+        LightInfo(math::Vec3 d, math::Vec3 c, double a, double i):
           direction(d), color(c), ambience(a), intencity(i) {}
       };
 
@@ -87,9 +87,9 @@ namespace archon
        * \note All vectors must be expressed relative to the same
        * coordinate system; which one is imaterial.
        */
-      virtual void shade(Math::Vec2 texture_point, Math::Vec3 normal, Math::Vec3 view_dir,
+      virtual void shade(math::Vec2 texture_point, math::Vec3 normal, math::Vec3 view_dir,
                          std::vector<LightInfo> const &lights, double global_ambience,
-                         Math::Vec4 &rgba) const = 0;
+                         math::Vec4 &rgba) const = 0;
 
 
       virtual ~Material() {}
@@ -101,21 +101,21 @@ namespace archon
     struct PhongMaterialBase: Material
     {
     protected:
-      PhongMaterialBase(Math::Vec3 emis_col, Math::Vec3 spec_col, double ambi, double shin):
+      PhongMaterialBase(math::Vec3 emis_col, math::Vec3 spec_col, double ambi, double shin):
         emissive_color(emis_col), specular_color(spec_col), ambience(ambi), shininess(shin) {}
 
-      void shade(Math::Vec2 texture_point, Math::Vec3 normal, Math::Vec3 view_dir,
+      void shade(math::Vec2 texture_point, math::Vec3 normal, math::Vec3 view_dir,
                  std::vector<LightInfo> const &lights, double global_ambience,
-                 Math::Vec4 &rgba) const;
+                 math::Vec4 &rgba) const;
 
       /**
        * Must be thread-safe.
        */
-      virtual void get_diffuse_color(Math::Vec2 texture_point, Math::Vec4 &rgba) const = 0;
+      virtual void get_diffuse_color(math::Vec2 texture_point, math::Vec4 &rgba) const = 0;
 
     private:
-      Math::Vec3 const emissive_color;
-      Math::Vec3 const specular_color;
+      math::Vec3 const emissive_color;
+      math::Vec3 const specular_color;
       double const ambience; // Ambient modifier, ambient_red = ambience * diffuse.red
       double const shininess; // 1 corresponds to a specular exponent of 128 in the Phong reflection model.
     };
@@ -125,17 +125,17 @@ namespace archon
 
     struct PhongMaterial: PhongMaterialBase
     {
-      PhongMaterial(Math::Vec3 emis_col = Math::Vec3(0.0),
-                    Math::Vec3 diff_col = Math::Vec3(0.8),
-                    Math::Vec3 spec_col = Math::Vec3(0.0),
+      PhongMaterial(math::Vec3 emis_col = math::Vec3(0.0),
+                    math::Vec3 diff_col = math::Vec3(0.8),
+                    math::Vec3 spec_col = math::Vec3(0.0),
                     double ambi = 0.2, double shin = 0.2, double tran = 0):
         PhongMaterialBase(emis_col, spec_col, ambi, shin),
         diffuse_color(diff_col[0], diff_col[1], diff_col[2], 1-tran) {}
 
     private:
-      void get_diffuse_color(Math::Vec2, Math::Vec4 &rgba) const { rgba = diffuse_color; }
+      void get_diffuse_color(math::Vec2, math::Vec4 &rgba) const { rgba = diffuse_color; }
 
-      Math::Vec4 const diffuse_color;
+      math::Vec4 const diffuse_color;
     };
   }
 }

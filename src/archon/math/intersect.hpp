@@ -34,7 +34,7 @@
 
 
 namespace archon {
-namespace Math {
+namespace math {
 
 /**
  * Test for collision bewteen ray and plane and determine the distance
@@ -400,7 +400,7 @@ inline bool intersect_sphere(const BasicLine<N,T>& ray, T& dist, T radius)
     return true;
 }
 
-} // namespace Math
+} // namespace math
 } // namespace archon
 
 #endif // ARCHON_MATH_INTERSECT_HPP

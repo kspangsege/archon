@@ -57,7 +57,7 @@ namespace Render {
 class FontProvider {
 public:
     FontProvider(Font::FontCache::Arg, TextureCache&,
-                 const Math::Vec2F& desired_glyph_resol = Math::Vec2F(64,64),
+                 const math::Vec2F& desired_glyph_resol = math::Vec2F(64,64),
                  bool enable_mipmap = true, bool save_textures_to_disk = false);
 
 
@@ -76,8 +76,8 @@ public:
     struct StyleDesc {
         std::string font_family;
         double font_boldness, font_italicity;
-        Math::Vec2F font_size;
-        Math::Vec4F text_color;
+        math::Vec2F font_size;
+        math::Vec4F text_color;
         bool operator==(const StyleDesc&) const throw();
     };
 
@@ -160,19 +160,19 @@ private:
 
     struct Style {
         int font_id; // As known to Font::FontCache
-        Math::Vec2F font_size;
-        Math::Vec4F text_color;
+        math::Vec2F font_size;
+        math::Vec4F text_color;
         Style()
         {
         }
-        Style(int font_id, const Math::Vec2F& font_size, const Math::Vec4F& text_color);
+        Style(int font_id, const math::Vec2F& font_size, const math::Vec4F& text_color);
         bool operator==(const Style& s) const;
     };
 
     struct StyleEntry {
         std::size_t use_count = 0;
         Style style;
-        Math::Vec2F font_scaling;
+        math::Vec2F font_scaling;
     };
 
     struct StyleHasher {
@@ -190,8 +190,8 @@ private:
     class Page;
     class FontEntry;
 
-    int acquire_style(Font::FontCache::FontOwner& font, const Math::Vec2F& font_size,
-                      const Math::Vec4F& text_color);
+    int acquire_style(Font::FontCache::FontOwner& font, const math::Vec2F& font_size,
+                      const math::Vec4F& text_color);
     void release_style_fast(int style_id);
     void provide(int style_id, int num_glyphs, const int* glyphs, const float* components,
                  TextInserter& inserter);
@@ -204,8 +204,8 @@ private:
 
     const Font::FontCache::Ptr font_cache;
     TextureCache& texture_cache;
-    const Math::Vec2F desired_glyph_resol; // Ask cache for this rendering size
-    const Math::Vec2 size_of_pixel; // Inverse of desired glyph resolution
+    const math::Vec2F desired_glyph_resol; // Ask cache for this rendering size
+    const math::Vec2 size_of_pixel; // Inverse of desired glyph resolution
     const bool enable_mipmap; // Do mipmapping on textures
     const bool save_textures; // Save each of the generated textures as a PNG file in /tmp/
 
@@ -359,7 +359,7 @@ inline void FontProvider::StyleOwner::reset(int style_id)
         provider->release_style(s);
 }
 
-inline FontProvider::Style::Style(int i, const Math::Vec2F& s, const Math::Vec4F& c):
+inline FontProvider::Style::Style(int i, const math::Vec2F& s, const math::Vec4F& c):
     font_id(i),
     font_size(s),
     text_color(c)
@@ -391,7 +391,7 @@ public:
         int index; // Index of glyph in font as known to Font::FontCache.
         int img_x, img_y; // Position of glyph in texture image.
         Font::FontCache::GlyphBoxInfo quad_info; // Size and position of GL quad. All distances specified relative to EM-square.
-        Math::Vec2F tex_lower_left, tex_upper_right; // Position in relative coordinates of glyph in texture
+        math::Vec2F tex_lower_left, tex_upper_right; // Position in relative coordinates of glyph in texture
     };
     std::vector<Glyph> glyphs;
     TextureDecl decl; // A hook into the texture cache
@@ -424,7 +424,7 @@ public:
     int num_glyphs = 0;
     bool grid_fitting;
     int texture_width, texture_height;
-    Math::Vec2 texture_scale; // Inverse of texture resolution
+    math::Vec2 texture_scale; // Inverse of texture resolution
     core::DeletingVector<Page> pages;
 
     core::UniquePtr<util::RectanglePacker> packer;

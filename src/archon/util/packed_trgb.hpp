@@ -86,7 +86,7 @@ public:
 
     void unpack_rgba(unsigned char* rgba) const;
 
-    void unpack_rgba(Math::Vec4F& rgba) const;
+    void unpack_rgba(math::Vec4F& rgba) const;
 
     enum CssLevel {
         css21,    ///< Level 2 Revision 1
@@ -111,7 +111,7 @@ public:
     /// blue, and the fourth component of \a color is set to the alpha value in
     /// the range [0;1]. Again, values 5 and 6 are similar to 3 and 4 except
     /// that \a color is now expressed in the HSL color space.
-    static int parse(std::string, int& named_index, Math::Vec4F& color,
+    static int parse(std::string, int& named_index, math::Vec4F& color,
                      CssLevel css_level = css3_ext);
 
     /// The specified type may be 2, 3, 4, 5 or 6, and these values have the
@@ -120,7 +120,7 @@ public:
     ///
     /// The returned string is guaranteed to use characters from the portable
     /// character set only. See \ref CharEnc.
-    static std::string format(int type, const Math::Vec4F& color, CssLevel css_level = css3_ext);
+    static std::string format(int type, const math::Vec4F& color, CssLevel css_level = css3_ext);
 
     template<class C, class T>
     friend std::basic_ostream<C,T>& operator<<(std::basic_ostream<C,T>&, const PackedTRGB&);
@@ -293,7 +293,7 @@ inline void PackedTRGB::unpack_rgba(unsigned char* b) const
 }
 
 
-inline void PackedTRGB::unpack_rgba(Math::Vec4F& rgba) const
+inline void PackedTRGB::unpack_rgba(math::Vec4F& rgba) const
 {
     rgba[0] = uint_red(m_value)   * (1.0 / 255);
     rgba[1] = uint_green(m_value) * (1.0 / 255);

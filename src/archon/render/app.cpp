@@ -56,7 +56,7 @@
 
 
 using namespace archon::core;
-using namespace archon::Math;
+using namespace archon::math;
 using namespace archon::util;
 using namespace archon::Imaging;
 using namespace archon::Font;
@@ -728,13 +728,13 @@ void Application::set_frame_rate(double r)
 }
 
 
-void Application::set_scene_orientation(Math::Rotation3 rot)
+void Application::set_scene_orientation(math::Rotation3 rot)
 {
     trackball.set_orientation(rot);
 }
 
 
-void Application::set_scene_spin(Math::Rotation3 rot)
+void Application::set_scene_spin(math::Rotation3 rot)
 {
     trackball.set_spin(rot, Time::now());
 }
@@ -930,7 +930,7 @@ void Application::emit_gl_error(GLenum error, bool last)
 
 
 
-void Application::get_current_view(Math::Vec3& eye, CoordSystem3x2& screen)
+void Application::get_current_view(math::Vec3& eye, CoordSystem3x2& screen)
 {
     update_proj_and_trackball();
 

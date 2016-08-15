@@ -660,7 +660,7 @@ namespace archon
        */
       void auto_dist(double interest, double f = 1)
       {
-        camera_dist = interest * std::sqrt(0.25 + Math::square(/*zoom_factor*/1 / neutral_fov / f));
+        camera_dist = interest * std::sqrt(0.25 + math::square(/*zoom_factor*/1 / neutral_fov / f));
       }
 
       /**
@@ -703,7 +703,7 @@ namespace archon
        */
       void auto_zoom(double interest, double f = 1)
       {
-        zoom_factor = neutral_fov * f * std::sqrt(Math::square(camera_dist/interest) - 0.25);
+        zoom_factor = neutral_fov * f * std::sqrt(math::square(camera_dist/interest) - 0.25);
       }
 
 
@@ -744,7 +744,7 @@ namespace archon
        */
       double get_neutral_solid_angle_of_view()
       {
-        return 4 * std::atan(1 / std::sqrt(4/Math::square(neutral_fov) +
+        return 4 * std::atan(1 / std::sqrt(4/math::square(neutral_fov) +
                                            aspect_ratio + 1/aspect_ratio));
       }
 
@@ -765,7 +765,7 @@ namespace archon
        */
       void set_neutral_solid_angle_of_view(double v)
       {
-        neutral_fov = std::sqrt(4/(Math::square(1/std::tan(v/4)) -
+        neutral_fov = std::sqrt(4/(math::square(1/std::tan(v/4)) -
                                    aspect_ratio - 1/aspect_ratio));
       }
 
@@ -783,7 +783,7 @@ namespace archon
        */
       double get_actual_solid_angle_of_view()
       {
-        return 4 * std::atan(1 / std::sqrt(4/Math::square(neutral_fov/zoom_factor) +
+        return 4 * std::atan(1 / std::sqrt(4/math::square(neutral_fov/zoom_factor) +
                                            aspect_ratio + 1/aspect_ratio));
       }
 
@@ -801,7 +801,7 @@ namespace archon
        */
       void set_actual_solid_angle_of_view(double v)
       {
-        neutral_fov = zoom_factor * std::sqrt(4/(Math::square(1/std::tan(v/4)) -
+        neutral_fov = zoom_factor * std::sqrt(4/(math::square(1/std::tan(v/4)) -
                                                  aspect_ratio - 1/aspect_ratio));
       }
 

@@ -52,7 +52,7 @@ namespace archon
         triangles.reserve(num_triangles);
       }
 
-      std::size_t add_vertex(Math::Vec3F v)
+      std::size_t add_vertex(math::Vec3F v)
       {
         size_t i = vertices.size();
         vertices.push_back(v);
@@ -61,7 +61,7 @@ namespace archon
 
       std::size_t add_vertex(float x, float y, float z)
       {
-        return add_vertex(Math::Vec3F(x,y,z));
+        return add_vertex(math::Vec3F(x,y,z));
       }
 
       std::size_t add_triangle(Triangle t)
@@ -85,8 +85,8 @@ namespace archon
 
 
     private:
-      typedef std::vector<Math::Vec3F>::iterator       vertex_iterator;
-      typedef std::vector<Math::Vec3F>::const_iterator const_vertex_iterator;
+      typedef std::vector<math::Vec3F>::iterator       vertex_iterator;
+      typedef std::vector<math::Vec3F>::const_iterator const_vertex_iterator;
       typedef std::vector<Triangle>::iterator          triangle_iterator;
       typedef std::vector<Triangle>::const_iterator    const_triangle_iterator;
 
@@ -103,7 +103,7 @@ namespace archon
 
 
     private:
-      std::vector<Math::Vec3F> vertices;
+      std::vector<math::Vec3F> vertices;
       std::vector<Triangle>    triangles;
     };
   }

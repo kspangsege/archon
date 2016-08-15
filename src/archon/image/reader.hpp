@@ -288,9 +288,9 @@ namespace archon
        */
       template<typename T> Accessor &get_pixel_rgb(T &red, T &green, T &blue, T &alpha);
 
-      template<typename T, class R, class I> Accessor &get_pixel_rgb(Math::VecMem<3,T,R,I> &v);
+      template<typename T, class R, class I> Accessor &get_pixel_rgb(math::VecMem<3,T,R,I> &v);
 
-      template<typename T, class R, class I> Accessor &get_pixel_rgb(Math::VecMem<4,T,R,I> &v);
+      template<typename T, class R, class I> Accessor &get_pixel_rgb(math::VecMem<4,T,R,I> &v);
 
       template<typename T> Accessor &get_pixel(T *tray, ColorSpace::ConstRefArg c, bool has_alpha);
 
@@ -298,9 +298,9 @@ namespace archon
 
       util::PackedTRGB get_pixel() { util::PackedTRGB p; get_pixel(p); return p; }
 
-      Math::Vec3F get_pixel_rgb()  { Math::Vec3F p; get_pixel_rgb(p); return p; }
+      math::Vec3F get_pixel_rgb()  { math::Vec3F p; get_pixel_rgb(p); return p; }
 
-      Math::Vec4F get_pixel_rgba() { Math::Vec4F p; get_pixel_rgb(p); return p; };
+      math::Vec4F get_pixel_rgba() { math::Vec4F p; get_pixel_rgb(p); return p; };
 
       /**
        * Extract a block of pixels from the current reader position.
@@ -542,7 +542,7 @@ namespace archon
 
 
     template<class A, class B> template<typename T, class R, class I>
-    inline A &ReaderOps<A,B>::get_pixel_rgb(Math::VecMem<3,T,R,I> &v)
+    inline A &ReaderOps<A,B>::get_pixel_rgb(math::VecMem<3,T,R,I> &v)
     {
       ReaderBase::get_pixel_smart<T, false>(v.get(), 0);
       return static_cast<A &>(*this);
@@ -550,7 +550,7 @@ namespace archon
 
 
     template<class A, class B> template<typename T, class R, class I>
-    inline A &ReaderOps<A,B>::get_pixel_rgb(Math::VecMem<4,T,R,I> &v)
+    inline A &ReaderOps<A,B>::get_pixel_rgb(math::VecMem<4,T,R,I> &v)
     {
       ReaderBase::get_pixel_smart<T, true>(v.get(), 0);
       return static_cast<A &>(*this);

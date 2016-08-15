@@ -54,9 +54,9 @@ namespace archon
      */
     struct Scene
     {
-      virtual void translate(Math::Vec3 const &v) = 0;
+      virtual void translate(math::Vec3 const &v) = 0;
       virtual void add_sphere(double radius) = 0;
-      virtual void add_point_light(Math::Vec3 const &color) = 0;
+      virtual void add_point_light(math::Vec3 const &color) = 0;
 
       virtual ~Scene() {}
     };
@@ -69,7 +69,7 @@ namespace archon
        *
        * \return The color and opacity of the ray represented as RGBA.
        */
-//      virtual Math::Vec4 trace(Math::Line3 const &ray) const = 0;
+//      virtual math::Vec4 trace(math::Line3 const &ray) const = 0;
 
 
     /**
@@ -83,11 +83,11 @@ namespace archon
 /*
       static Ref newSceneBuilder();
 
-      virtual void translate(Math::Vec3 const &translation) = 0;
+      virtual void translate(math::Vec3 const &translation) = 0;
 
-      virtual void rotate(Math::Rotation3 const &rotation) = 0;
+      virtual void rotate(math::Rotation3 const &rotation) = 0;
 
-      virtual void scale(Math::Vec3 const &scaling) = 0;
+      virtual void scale(math::Vec3 const &scaling) = 0;
 */
       /**
        * Add the specified object whose geometry is interpreted
@@ -107,7 +107,7 @@ namespace archon
        * Set the background color for the scene. This color is used
        * for rays that does not intersect any geometry.
        */
-//      virtual void setBackgroundColor(Math::Vec4 const &color) = 0;
+//      virtual void setBackgroundColor(math::Vec4 const &color) = 0;
 
       /**
        * Get the scene built so far.

@@ -47,18 +47,18 @@ std::unique_ptr<Raytracer> make_raytracer();
 /// The methods of this class need not be tread safe.
 class Raytracer {
 public:
-    virtual int make_transform(const Math::CoordSystem3&) = 0;
+    virtual int make_transform(const math::CoordSystem3&) = 0;
 
     virtual void add_object(std::unique_ptr<Object> obj, int transform) = 0;
 
     virtual void add_light(std::unique_ptr<Light> light) = 0;
 
-    virtual void set_background_color(Math::Vec4 rgba) = 0;
+    virtual void set_background_color(math::Vec4 rgba) = 0;
 
     virtual void set_global_ambience(double intencity) = 0;
 
     /// Render the currently loaded scene to the specified image.
-    virtual void render(Imaging::Image::RefArg img, Math::Vec3 eye, Math::CoordSystem3x2 screen,
+    virtual void render(Imaging::Image::RefArg img, math::Vec3 eye, math::CoordSystem3x2 screen,
                         util::ProgressTracker *tracker, int supersampling_level = 0) const = 0;
 
     virtual ~Raytracer() {}

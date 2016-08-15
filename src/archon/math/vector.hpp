@@ -140,7 +140,7 @@
 
 namespace archon
 {
-  namespace Math
+  namespace math
   {
     namespace _VecImpl
     {
@@ -703,7 +703,7 @@ namespace archon
     namespace _VecImpl
     {
       /**
-       * This class is a minimalistic version of Math::BasicVec
+       * This class is a minimalistic version of math::BasicVec
        * allowing the definition of the latter to be postponed.
        */
       template<int N, class T>
@@ -1261,7 +1261,7 @@ namespace archon
     template<int N, class T, class R, class F>
     inline T sq_sum(VecVal<N,T,R,F> const &f)
     {
-      return Math::fold(Math::map(f, Sq<T>()), T(), std::plus<T>());
+      return math::fold(math::map(f, Sq<T>()), T(), std::plus<T>());
     }
 
 
@@ -1281,7 +1281,7 @@ namespace archon
     template<int N, class T, class R, class F>
     inline T min(VecVal<N,T,R,F> const &f)
     {
-      return Math::fold(f, std::numeric_limits<T>::is_integer ?
+      return math::fold(f, std::numeric_limits<T>::is_integer ?
                         std::numeric_limits<T>::max() :
                         std::numeric_limits<T>::infinity(), core::Min<T>());
     }
@@ -1293,7 +1293,7 @@ namespace archon
     template<int N, class T, class R, class F>
     inline T max(VecVal<N,T,R,F> const &f)
     {
-      return Math::fold(f, std::numeric_limits<T>::is_integer ?
+      return math::fold(f, std::numeric_limits<T>::is_integer ?
                         std::numeric_limits<T>::min() :
                         -std::numeric_limits<T>::infinity(), core::Max<T>());
     }
@@ -1321,7 +1321,7 @@ namespace archon
     template<class T, class R, class F>
     inline T ang(VecVal<2,T,R,F> const &f)
     {
-      return Math::pol_ang(f[0], f[1]);
+      return math::pol_ang(f[0], f[1]);
     }
 
 
@@ -1334,7 +1334,7 @@ namespace archon
     {
       _VecImpl::Operand<N,T,F, !F::_is_lval> _f(static_cast<F const &>(f));
       _VecImpl::Operand<N,T,G, !G::_is_lval> _g(static_cast<G const &>(g));
-      return std::acos(dot(_f.e, _g.e)/(Math::len(_f.e)*Math::len(_g.e)));
+      return std::acos(dot(_f.e, _g.e)/(math::len(_f.e)*math::len(_g.e)));
     }
 
 
@@ -1368,7 +1368,7 @@ namespace archon
     inline _VecImpl::Op<N, T, _VecImpl::UnMap<T, F, std::negate<T> > > const
     operator-(VecVal<N,T,R,F> const &f)
     {
-      return Math::map(f, std::negate<T>());
+      return math::map(f, std::negate<T>());
     }
 
 
@@ -1378,7 +1378,7 @@ namespace archon
     template<int N, class T, class R, class F>
     inline auto operator*(T g, const VecVal<N,T,R,F>& f)
     {
-      return Math::map(f, std::bind1st(std::multiplies<T>(), g));
+      return math::map(f, std::bind1st(std::multiplies<T>(), g));
     }
 
 
@@ -1388,7 +1388,7 @@ namespace archon
     template<int N, class T, class R, class F>
     inline auto operator*(const VecVal<N,T,R,F>& f, T g)
     {
-      return Math::map(f, std::bind2nd(std::multiplies<T>(), g));
+      return math::map(f, std::bind2nd(std::multiplies<T>(), g));
     }
 
 
@@ -1400,7 +1400,7 @@ namespace archon
     template<int N, class T, class R, class F>
     inline auto operator/(VecVal<N,T,R,F> const &f, T g)
     {
-      return Math::map(f, std::bind2nd(std::divides<T>(), g));
+      return math::map(f, std::bind2nd(std::divides<T>(), g));
     }
 
 
@@ -1415,7 +1415,7 @@ namespace archon
     inline _VecImpl::Op<N, T, _VecImpl::BinMap<T, F, G, std::plus<T> > > const
     operator+(VecVal<N,T,R,F> const &f, VecVal<N,T,S,G> const &g)
     {
-      return Math::map(f, g, std::plus<T>());
+      return math::map(f, g, std::plus<T>());
     }
 
 
@@ -1430,7 +1430,7 @@ namespace archon
     inline _VecImpl::Op<N, T, _VecImpl::BinMap<T, F, G, std::minus<T> > > const
     operator-(VecVal<N,T,R,F> const &f, VecVal<N,T,S,G> const &g)
     {
-      return Math::map(f, g, std::minus<T>());
+      return math::map(f, g, std::minus<T>());
     }
 
 
@@ -1855,7 +1855,7 @@ namespace archon
     template<int N, class T, class R, class E> template<class S, class F>
     inline E &VecBase<N,T,R,E>::proj(VecVal<N,T,S,F> const &f)
     {
-      return set(Math::proj(static_cast<E &>(*this), f));
+      return set(math::proj(static_cast<E &>(*this), f));
     }
 
     template<int N, class T, class R, class E> template<int M>

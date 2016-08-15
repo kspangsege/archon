@@ -182,7 +182,7 @@ namespace archon
        * EM-square in number of pixels. Note that the components need
        * not be integers.
        */
-      virtual Math::Vec2 get_fixed_size(int fixed_size_index) const = 0;
+      virtual math::Vec2 get_fixed_size(int fixed_size_index) const = 0;
 
 
       /**
@@ -459,7 +459,7 @@ namespace archon
        * by subsequent modifications of the glyph on the design
        * tablet.
        */
-      virtual Math::Vec2 get_glyph_bearing(bool vertical = false) const = 0;
+      virtual math::Vec2 get_glyph_bearing(bool vertical = false) const = 0;
 
 
       /**
@@ -470,7 +470,7 @@ namespace archon
        * grid fitting was requested when the glyph was
        * loaded. Otherwise they may have fractional values.
        */
-      virtual Math::Vec2 get_glyph_size() const = 0;
+      virtual math::Vec2 get_glyph_size() const = 0;
 
 
       /**
@@ -495,7 +495,7 @@ namespace archon
        * A positive first component moves the glyph towards the right,
        * and a positive second component moves the glyph upwards.
        */
-      virtual void translate_glyph(Math::Vec2 v) = 0;
+      virtual void translate_glyph(math::Vec2 v) = 0;
 
 
       /**

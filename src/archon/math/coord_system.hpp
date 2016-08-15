@@ -31,7 +31,7 @@
 
 namespace archon
 {
-  namespace Math
+  namespace math
   {
     template<int M, int N, class T> struct BasicCoordSystem;
 

@@ -51,8 +51,8 @@ public:
     /// The mapping to texture coordinates must reflect the canonical mapping,
     /// and must not include the effect of any texture coordinate
     /// transformation.
-    virtual void map(const Math::Vec3& point, Math::Vec3& normal,
-                     Math::Vec2* tex_point = nullptr) const = 0;
+    virtual void map(const math::Vec3& point, math::Vec3& normal,
+                     math::Vec2* tex_point = nullptr) const = 0;
 
     virtual ~Surface() {}
 };
@@ -64,7 +64,7 @@ public:
 /// light source.
 class Surface {
 public:
-    static ConstRef new_featureless_surface(const Math::Vec4& color,
+    static ConstRef new_featureless_surface(const math::Vec4& color,
                                             double ambientReflection = 0.1,
                                             double diffuseReflection = 0.5,
                                             double specularReflection = 0.5,
@@ -72,7 +72,7 @@ public:
                                             double reflectiveExponent = 20,
                                             double refractiveExponent = 20);
 
-    virtual Math::Vec4 map(const Math::Vec2& tex_point) const = 0;
+    virtual math::Vec4 map(const math::Vec2& tex_point) const = 0;
 
     /// \param light The light source.
     ///
@@ -86,11 +86,11 @@ public:
     /// light source. It must be a vector of unit length.
     ///
     /// \param surface_color The color of the surface at the surface point.
-    virtual Math::Vec3 shade(const Light* light,
-                             const Math::Vec3& normal,
-                             const Math::Vec3& view_direction,
-                             const Math::Vec3& light_direction,
-                             const Math::Vec4& surface_color) const = 0;
+    virtual math::Vec3 shade(const Light* light,
+                             const math::Vec3& normal,
+                             const math::Vec3& view_direction,
+                             const math::Vec3& light_direction,
+                             const math::Vec4& surface_color) const = 0;
 
     virtual ~Surface() {}
 };

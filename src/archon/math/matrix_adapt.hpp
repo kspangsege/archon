@@ -33,7 +33,7 @@
 
 namespace archon
 {
-  namespace Math
+  namespace math
   {
     namespace _Impl
     {

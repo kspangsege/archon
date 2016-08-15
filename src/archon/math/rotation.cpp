@@ -29,7 +29,7 @@
 
 namespace archon
 {
-  namespace Math
+  namespace math
   {
     Rotation3 &Rotation3::combine_with(const Rotation3 &r)
     {

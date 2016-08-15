@@ -49,24 +49,24 @@ protected:
     void do_begin_polygon() override;
     void do_end() override;
 
-    void do_set_normal(Math::Vec3) override;
-    void do_set_tex_coord(Math::Vec2) override;
-    void do_add_vertex(Math::Vec3) override;
+    void do_set_normal(math::Vec3) override;
+    void do_set_tex_coord(math::Vec2) override;
+    void do_add_vertex(math::Vec3) override;
 
     void do_push_matrix() override;
     void do_pop_matrix() override;
 
-    void do_translate(Math::Vec3) override;
-    void do_scale(Math::Vec3) override;
-    void do_rotate(Math::Rotation3) override;
+    void do_translate(math::Vec3) override;
+    void do_scale(math::Vec3) override;
+    void do_rotate(math::Rotation3) override;
 
     int do_make_texture(std::string, bool, bool) override;
     int do_make_texture(Imaging::Image::ConstRefArg, std::string, bool, bool) override;
 
     void do_bind_texture(int) override;
 
-    void do_tex_translate(Math::Vec2) override;
-    void do_tex_scale(Math::Vec2) override;
+    void do_tex_translate(math::Vec2) override;
+    void do_tex_scale(math::Vec2) override;
     void do_tex_rotate(double) override;
 
     void do_reset_tex_transform() override;

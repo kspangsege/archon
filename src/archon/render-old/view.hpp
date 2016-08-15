@@ -77,8 +77,8 @@ namespace archon
        *
        * This method thread-safe.
        */
-      virtual void set(Math::Vec3 const &center,
-                       Math::Vec3 const &x, Math::Vec3 const &y,
+      virtual void set(math::Vec3 const &center,
+                       math::Vec3 const &x, math::Vec3 const &y,
                        double halfWidth, double halfHeight) = 0;
 
       /**
@@ -124,7 +124,7 @@ namespace archon
        *
        * This method is thread-safe.
        */
-      virtual void set(Math::Vec3 position) = 0;
+      virtual void set(math::Vec3 position) = 0;
     };
 
 

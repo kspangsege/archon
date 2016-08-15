@@ -66,16 +66,16 @@ namespace archon
        * \return Angle of projection onto the screen of vector from
        * center of screen to origin of local OpenGL coordinate system.
        */
-      double rotate(Math::Vec3 const &rot_axis = Math::Vec3::zero());
+      double rotate(math::Vec3 const &rot_axis = math::Vec3::zero());
 
 
       /**
        * Both \a rot_axis and \a rot are specified in local
        * coordinates.
        */
-      void calculate_rotation(Math::Mat3 const &subframe_basis,
-                              Math::Vec3 const &subframe_origin,
-                              Math::Vec3 const &rot_axis, Math::Rotation3 &rot);
+      void calculate_rotation(math::Mat3 const &subframe_basis,
+                              math::Vec3 const &subframe_origin,
+                              math::Vec3 const &rot_axis, math::Rotation3 &rot);
     }
   }
 }

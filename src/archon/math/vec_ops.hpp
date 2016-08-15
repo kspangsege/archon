@@ -41,7 +41,7 @@
 
 namespace archon
 {
-  namespace Math
+  namespace math
   {
     /**
      * Map the components of the vector through the specified unary

@@ -36,7 +36,7 @@
 
 namespace archon
 {
-  namespace Math
+  namespace math
   {
     struct Quaternion
     {
@@ -178,7 +178,7 @@ namespace archon
 
     inline double Quaternion::sq_sum() const
     {
-      return w*w + Math::sq_sum(v);
+      return w*w + math::sq_sum(v);
     }
 
     inline double Quaternion::length() const

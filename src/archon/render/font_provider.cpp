@@ -37,7 +37,7 @@
 
 using namespace std;
 using namespace archon::core;
-using namespace archon::Math;
+using namespace archon::math;
 using namespace archon::util;
 using namespace archon::Imaging;
 using namespace archon::Font;
@@ -167,7 +167,7 @@ private:
 
 
 FontProvider::FontProvider(Font::FontCache::Arg f, TextureCache& t,
-                           const Math::Vec2F& r, bool m, bool s):
+                           const math::Vec2F& r, bool m, bool s):
     font_cache(f),
     texture_cache(t),
     desired_glyph_resol(r),

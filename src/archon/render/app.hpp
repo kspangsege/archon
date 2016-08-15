@@ -284,8 +284,8 @@ public:
     void set_fullscreen_enabled(bool enable);
     void set_headlight_enabled(bool enable);
     void set_frame_rate(double r);
-    void set_scene_orientation(Math::Rotation3 rot);
-    void set_scene_spin(Math::Rotation3 rot);
+    void set_scene_orientation(math::Rotation3 rot);
+    void set_scene_spin(math::Rotation3 rot);
     void set_detail_level(double level);
     void set_interest_size(double diameter);
     void set_zoom_factor(double zoom);
@@ -295,7 +295,7 @@ public:
     void set_wireframe_enabled(bool enable);
     void set_axes_display_enabled(bool enable);
     void set_global_ambience(double intencity);
-    void set_background_color(Math::Vec4 rgba);
+    void set_background_color(math::Vec4 rgba);
 
 
     void set_status(std::wstring text, core::Time timeout = core::Time());
@@ -333,7 +333,7 @@ public:
     /// current viewing frame/screen in global coordinates. The actual frame is
     /// the unit sqaure within the described 2-D coordinate system. The frame is
     /// guaranteed to be rectangular in 3-space.
-    void get_current_view(Math::Vec3& eye, Math::CoordSystem3x2& screen);
+    void get_current_view(math::Vec3& eye, math::CoordSystem3x2& screen);
 
     int get_window_width()
     {
@@ -351,7 +351,7 @@ public:
     {
         return global_ambience;
     }
-    Math::Vec4 get_background_color()
+    math::Vec4 get_background_color()
     {
         return background_color;
     }
@@ -448,9 +448,9 @@ private:
     bool wireframe_mode = false, wireframe_mode_prev = false, wireframe_mode_blocked = false;
     bool axes_display = false, axes_display_first = true, shift_left_down = false, terminate = false;
     double global_ambience;
-    Math::Vec4 background_color;
+    math::Vec4 background_color;
 
-    Math::Rotation3 initial_rotation;
+    math::Rotation3 initial_rotation;
     double initial_interest_size, initial_zoom_factor;
     bool first_run = true;
 

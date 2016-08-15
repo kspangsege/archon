@@ -346,7 +346,7 @@ namespace archon
        *
        * - Any other integer type: Same as <tt>unsigned long</tt>.
        *
-       * - <tt>Math::VecVal</tt>: Any vector value with 3 or 4
+       * - <tt>math::VecVal</tt>: Any vector value with 3 or 4
        *   components. Each component has a normalized range \c [0;1]
        *   where 0 is <i>off</i> and 1 is full intencity. If it has 3
        *   components, they will be interpreted as Red, Green, and
@@ -357,7 +357,7 @@ namespace archon
        * - <tt>double const *</tt>: Will be interpreted as a pointer
        *   to a buffer holding 4 <tt>double</tt>s. The interpretation
        *   of the values of these is the same as for
-       *   <tt>Math::VecVal</tt>.
+       *   <tt>math::VecVal</tt>.
        *
        * - Any other pointer type: Same as <tt>double const
        *   *</tt>. Pointers to non-const elements are also accepted.
@@ -920,7 +920,7 @@ namespace archon
         double q[4] = { p[0], p[1], p[2], p[3] };
         store(q,c,a);
       }
-      PixelOld(Math::BasicVector<4, double> const &p, ColorSpace const *c, bool a)
+      PixelOld(math::BasicVector<4, double> const &p, ColorSpace const *c, bool a)
       {
         if(a && c->is_rgb())
         {
@@ -930,13 +930,13 @@ namespace archon
         else cvt(&p[0], c, a);
       }
       template<typename T, class R, class F>
-      PixelOld(Math::_VecImpl::Base<3,T,R,F> const &p, ColorSpace const *c, bool a)
+      PixelOld(math::_VecImpl::Base<3,T,R,F> const &p, ColorSpace const *c, bool a)
       {
         double q[4] = { p[0], p[1], p[2], 1 };
         store(q,c,a);
       }
       template<typename T, class R, class F>
-      PixelOld(Math::_VecImpl::Base<4,T,R,F> const &p, ColorSpace const *c, bool a)
+      PixelOld(math::_VecImpl::Base<4,T,R,F> const &p, ColorSpace const *c, bool a)
       {
         double q[4] = { p[0], p[1], p[2], p[3] };
         store(q,c,a);

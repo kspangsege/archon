@@ -24,7 +24,7 @@
 
 #include <archon/util/color.hpp>
 
-using namespace archon::Math;
+using namespace archon::math;
 
 
 namespace archon {

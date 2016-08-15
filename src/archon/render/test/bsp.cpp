@@ -35,7 +35,7 @@
 
 using namespace std;
 using namespace archon::core;
-using namespace archon::Math;
+using namespace archon::math;
 using namespace archon::Render;
 
 namespace
@@ -135,8 +135,8 @@ namespace
     {
       void traverse(Node const *node)
       {
-        T const dist = Math::vec_dot(node->normal, node->normal + num_components, origin) + node->dist;
-        T const angle = std::acos(Math::vec_dot(node->normal, , dir));
+        T const dist = math::vec_dot(node->normal, node->normal + num_components, origin) + node->dist;
+        T const angle = std::acos(math::vec_dot(node->normal, , dir));
         if(dist > 0)
         {
           // Origin in front of the split plane

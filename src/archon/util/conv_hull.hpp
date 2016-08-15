@@ -49,7 +49,7 @@ namespace archon
       };
 
 
-      void compute(std::vector<Math::Vec3> const &points, TrifanHandler &handler, int max_depth = 0);
+      void compute(std::vector<math::Vec3> const &points, TrifanHandler &handler, int max_depth = 0);
 
 
 

@@ -42,7 +42,7 @@
 
 namespace archon
 {
-  namespace Math
+  namespace math
   {
     template<int M, int N, class T, class R, class E> struct MatVal;
     template<int M, int N, class T> struct BasicMat;
@@ -955,12 +955,12 @@ namespace archon
 
 
 
-    // Template definitions for:  namespace Math
+    // Template definitions for:  namespace math
 
 
     template<int N, class T, class R, class E> inline T tr(MatVal<N,N,T,R,E> const &e)
     {
-      return Math::fold(e.diag(), T(), std::plus<T>());
+      return math::fold(e.diag(), T(), std::plus<T>());
     }
 
 
@@ -972,7 +972,7 @@ namespace archon
       f.lu_decompose(pivots);
       int c = 0;
       for(typename M::size_type i=0; i<N; ++i) if(pivots[i] != i) ++c;
-      T v = Math::fold(f.diag(), T(1), std::multiplies<T>());
+      T v = math::fold(f.diag(), T(1), std::multiplies<T>());
       return c&1 ? -v : v;
     }
 

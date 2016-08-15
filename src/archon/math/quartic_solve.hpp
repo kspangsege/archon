@@ -30,7 +30,7 @@
 
 namespace archon
 {
-  namespace Math
+  namespace math
   {
     /**
      * Solve the general 4th order equation:

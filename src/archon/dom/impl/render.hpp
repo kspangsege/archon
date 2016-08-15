@@ -328,11 +328,11 @@ width is set to -1 if shrink_to_fit2
     // Alpha in output is copied from c1.
     static util::PackedTRGB color_interp(double x, double x1, double x2, util::PackedTRGB c1, util::PackedTRGB c2)
     {
-        Math::Vec4F rgba1, rgba2;
+        math::Vec4F rgba1, rgba2;
         util::PackedTRGB::unpack(c1, rgba1);
         util::PackedTRGB::unpack(c2, rgba2);
-        Math::Vec3 rgb1(rgba1[0], rgba1[1], rgba1[2]);
-        Math::Vec3 rgb2(rgba2[0], rgba2[1], rgba2[2]);
+        math::Vec3 rgb1(rgba1[0], rgba1[1], rgba1[2]);
+        math::Vec3 rgb2(rgba2[0], rgba2[1], rgba2[2]);
         rgb1 = Imaging::Color::interp(x, x1, x2, rgb1, rgb2);
         return util::PackedTRGB(float(rgb1[0]), float(rgb1[1]), float(rgb1[2]));
     }

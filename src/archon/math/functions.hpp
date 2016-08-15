@@ -39,7 +39,7 @@
 
 namespace archon
 {
-  namespace Math
+  namespace math
   {
     /**
      * Square the argument.
@@ -115,7 +115,7 @@ namespace archon
 
     template<typename T> struct Sq: std::unary_function<T,T>
     {
-      T operator()(T v) const { return Math::square(v); }
+      T operator()(T v) const { return math::square(v); }
     };
 
     template<typename T> struct Sqrt: std::unary_function<T,T>
@@ -125,7 +125,7 @@ namespace archon
 
     template<typename T> struct SqDiff: std::binary_function<T,T,T>
     {
-      T operator()(T v, T w) const { return Math::square(w - v); }
+      T operator()(T v, T w) const { return math::square(w - v); }
     };
 
     template<typename T> struct AddAlpha: std::binary_function<T,T,T>

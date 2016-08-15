@@ -82,14 +82,14 @@ this is not the case.
 
 using namespace std;
 using namespace archon::core;
-using namespace archon::Math;
+using namespace archon::math;
 using namespace archon::Font;
 
 
 namespace archon {
 namespace Font {
 
-Math::Vec2 TextFormatter::get_page_size(int page_index)
+math::Vec2 TextFormatter::get_page_size(int page_index)
 {
     flush_inbuf(false);
     const Page& page = pages.at(page_index);
@@ -698,7 +698,7 @@ void TextFormatter::do_word_wrap()
 }
 
 
-void TextFormatter::adjust_lateral_line_span(const Math::Interval& span, bool include)
+void TextFormatter::adjust_lateral_line_span(const math::Interval& span, bool include)
 {
     const bool wrap = page_wrap && 0 < max_major;
     int way = 0; // -1 for decrease, 1 for increase, 0 for same height.

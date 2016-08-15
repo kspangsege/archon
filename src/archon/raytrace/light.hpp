@@ -49,7 +49,7 @@ namespace archon
        *
        * This method must be thread-safe.
        */
-      virtual Math::Vec3 get_direction(Math::Vec3 point) const = 0;
+      virtual math::Vec3 get_direction(math::Vec3 point) const = 0;
 
       /**
        * Determine the distance between this light source and the
@@ -67,10 +67,10 @@ namespace archon
        *
        * This method must be thread-safe.
        */
-      virtual void get_distance_and_attenuation(Math::Vec3 point, double &distance,
+      virtual void get_distance_and_attenuation(math::Vec3 point, double &distance,
                                                 double &attenuation) const = 0;
 
-      virtual void get_specs(Math::Vec3 &color, double &ambience, double &intencity) const = 0;
+      virtual void get_specs(math::Vec3 &color, double &ambience, double &intencity) const = 0;
 
       virtual ~Light() {}
     };
@@ -83,13 +83,13 @@ namespace archon
       /**
        * The position must be specified in global coordinates.
        */
-      StandardLight(Math::Vec3 col, double ambi, double inten):
+      StandardLight(math::Vec3 col, double ambi, double inten):
         color(col), ambience(ambi), intencity(inten) {}
 
-      void get_specs(Math::Vec3 &color, double &ambience, double &intencity) const;
+      void get_specs(math::Vec3 &color, double &ambience, double &intencity) const;
 
     protected:
-      Math::Vec3 const color;
+      math::Vec3 const color;
       double const ambience, intencity;
     };
 
@@ -102,17 +102,17 @@ namespace archon
        * The direction must be specified in global coordinates, and it
        * must be a unit vector.
        */
-      DirectionalLight(Math::Vec3 dir, Math::Vec3 col = Math::Vec3(1),
+      DirectionalLight(math::Vec3 dir, math::Vec3 col = math::Vec3(1),
                        double ambi = 0, double inten = 1):
         StandardLight(col, ambi, inten), direction(dir) {}
 
-      Math::Vec3 get_direction(Math::Vec3 point) const;
+      math::Vec3 get_direction(math::Vec3 point) const;
 
-      void get_distance_and_attenuation(Math::Vec3 point, double &distance,
+      void get_distance_and_attenuation(math::Vec3 point, double &distance,
                                         double &attenuation) const;
 
     private:
-      Math::Vec3 const direction;
+      math::Vec3 const direction;
     };
 
 
@@ -123,18 +123,18 @@ namespace archon
       /**
        * The position must be specified in global coordinates.
        */
-      PointLight(Math::Vec3 pos, Math::Vec3 col = Math::Vec3(1), double ambi = 0, double inten = 1,
-                 Math::Vec3 atten = Math::Vec3(1,0,0)):
+      PointLight(math::Vec3 pos, math::Vec3 col = math::Vec3(1), double ambi = 0, double inten = 1,
+                 math::Vec3 atten = math::Vec3(1,0,0)):
         StandardLight(col, ambi, inten), position(pos), attenuation(atten) {}
 
-      Math::Vec3 get_direction(Math::Vec3 point) const;
+      math::Vec3 get_direction(math::Vec3 point) const;
 
-      void get_distance_and_attenuation(Math::Vec3 point, double &distance,
+      void get_distance_and_attenuation(math::Vec3 point, double &distance,
                                         double &attenuation) const;
 
     private:
-      Math::Vec3 const position;
-      Math::Vec3 const attenuation;
+      math::Vec3 const position;
+      math::Vec3 const attenuation;
     };
 
 
@@ -146,22 +146,22 @@ namespace archon
        * Both the position and the direction must be specified in
        * global coordinates. The direction must be a unit vector.
        */
-      SpotLight(Math::Vec3 pos, Math::Vec3 dir, double cutoff = M_PI/4, double hotspot = M_PI/2,
-                Math::Vec3 col = Math::Vec3(1), double ambi = 0, double inten = 1,
-                Math::Vec3 atten = Math::Vec3(1,0,0)):
+      SpotLight(math::Vec3 pos, math::Vec3 dir, double cutoff = M_PI/4, double hotspot = M_PI/2,
+                math::Vec3 col = math::Vec3(1), double ambi = 0, double inten = 1,
+                math::Vec3 atten = math::Vec3(1,0,0)):
         StandardLight(col, ambi, inten), position(pos), direction(dir),
         cutoff_angle(cutoff), hotspot_angle(hotspot), attenuation(atten) {}
 
-      Math::Vec3 get_direction(Math::Vec3 point) const;
+      math::Vec3 get_direction(math::Vec3 point) const;
 
-      void get_distance_and_attenuation(Math::Vec3 point, double &distance,
+      void get_distance_and_attenuation(math::Vec3 point, double &distance,
                                         double &attenuation) const;
 
     private:
-      Math::Vec3 const position;
-      Math::Vec3 const direction;
+      math::Vec3 const position;
+      math::Vec3 const direction;
       double const cutoff_angle, hotspot_angle;
-      Math::Vec3 const attenuation;
+      math::Vec3 const attenuation;
     };
   }
 }

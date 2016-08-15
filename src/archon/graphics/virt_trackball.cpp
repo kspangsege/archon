@@ -32,7 +32,7 @@
 
 using namespace std;
 using namespace archon::core;
-using namespace archon::Math;
+using namespace archon::math;
 
 namespace
 {
@@ -160,7 +160,7 @@ namespace archon
     VirtualTrackball::VirtualTrackball():
       half_viewport_size(1,1), radius(1), acquired(false), curve_mem(new FiniteCurveMemory<Vec2>)
     {
-      using namespace Math;
+      using namespace math;
       set_orientation(Rotation3::zero());
     }
 

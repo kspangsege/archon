@@ -34,7 +34,7 @@ using namespace std;
 
 namespace archon
 {
-  namespace Math
+  namespace math
   {
     bool intersect(Line3 const &ray, Hyperplane3 const &plane, bool front_to_back_only, double *dist)
     {
@@ -762,7 +762,7 @@ namespace archon
 
       double roots[4];
       int num_real_roots =
-	Math::quartic_solve(k3, k2, k1, k0, roots);
+	math::quartic_solve(k3, k2, k1, k0, roots);
 
       if(num_real_roots == 0) return false;
 

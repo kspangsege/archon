@@ -655,8 +655,8 @@ namespace archon
 	// non-empty intersection with the pixel tray. Call this
 	// intersection I.
 
-	int transferLeft   = Math::modulo<int>(left,   interestWidth);
-	int transferBottom = Math::modulo<int>(bottom, interestHeight);
+	int transferLeft   = math::modulo<int>(left,   interestWidth);
+	int transferBottom = math::modulo<int>(bottom, interestHeight);
 
 	int transferWidth  = interestWidth  - transferLeft;
 	int transferHeight = interestHeight - transferBottom;
@@ -887,8 +887,8 @@ namespace archon
 
 	// Find module coordinates of lower left corner of intersection
 
-	int const transferLeft   = Math::modulo<int>(left,   interestWidth);
-	int const transferBottom = Math::modulo<int>(bottom, interestHeight);
+	int const transferLeft   = math::modulo<int>(left,   interestWidth);
+	int const transferBottom = math::modulo<int>(bottom, interestHeight);
 
 	int transferWidth  = interestWidth  - transferLeft;
 	int transferHeight = interestHeight - transferBottom;
@@ -1069,8 +1069,8 @@ namespace archon
 
 	// Find module coordinates of lower left corner of intersection
 
-	int const partLeft   = Math::modulo<int>(left,   interestWidth);
-	int const partBottom = Math::modulo<int>(bottom, interestHeight);
+	int const partLeft   = math::modulo<int>(left,   interestWidth);
+	int const partBottom = math::modulo<int>(bottom, interestHeight);
 
 	int partWidth  = interestWidth  - partLeft;
 	int partHeight = interestHeight - partBottom;

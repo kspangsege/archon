@@ -522,7 +522,7 @@ namespace
 
 namespace archon
 {
-  namespace Math
+  namespace math
   {
     /**
      * Solve quartic equation using either

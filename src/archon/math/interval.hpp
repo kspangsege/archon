@@ -33,7 +33,7 @@
 
 namespace archon
 {
-  namespace Math
+  namespace math
   {
     /**
      * An abstract interval.

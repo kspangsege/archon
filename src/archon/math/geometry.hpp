@@ -34,7 +34,7 @@
 
 namespace archon
 {
-  namespace Math
+  namespace math
   {
     /**
      * Oriented line with origin, aka a ray or a 1-D subspace.

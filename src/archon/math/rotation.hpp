@@ -32,7 +32,7 @@
 
 namespace archon
 {
-  namespace Math
+  namespace math
   {
     /**
      * This kind of rotation can be described as an interaction

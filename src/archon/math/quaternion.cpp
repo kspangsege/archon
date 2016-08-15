@@ -32,7 +32,7 @@ using namespace std;
 
 namespace archon
 {
-  namespace Math
+  namespace math
   {
     Quaternion &Quaternion::operator*=(Quaternion const &q)
     {
@@ -47,7 +47,7 @@ namespace archon
 
     void Quaternion::get_rotation(Rotation3 &r) const
     {
-      double l = Math::sq_sum(v);
+      double l = math::sq_sum(v);
       if(l==0)
       {
         r.axis = Vec3(0, 1 ,0);

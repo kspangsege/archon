@@ -1525,7 +1525,7 @@ namespace archon
           }
           return;
         }
-        std::string const str = PackedTRGB::format(format, Math::Vec4F(red, green, blue, alpha),
+        std::string const str = PackedTRGB::format(format, math::Vec4F(red, green, blue, alpha),
                                                    ctx.get_color_parser_css_level());
         dom::str_append_port(out, str);
       }
@@ -1548,7 +1548,7 @@ namespace archon
           return true;
         }
         int named_index;
-        Math::Vec4F rgba;
+        math::Vec4F rgba;
         int const res = PackedTRGB::parse(str, named_index, rgba, css_level);
         switch (res) {
         case 0:
