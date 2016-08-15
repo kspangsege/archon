@@ -38,7 +38,7 @@
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     /**
      * This class implements a nullable string, that is, a string

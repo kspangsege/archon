@@ -79,7 +79,7 @@
 using namespace std;
 using namespace archon::core;
 using namespace archon::Math;
-using namespace archon::Util;
+using namespace archon::util;
 using namespace archon::Imaging;
 using namespace archon::Font;
 using namespace archon::Display;
@@ -142,7 +142,7 @@ browser/browser.h
 
 namespace archon::dom
 {
-  typedef Util::NullableString<core::CharUtf16> DOMString;
+  typedef util::NullableString<core::CharUtf16> DOMString;
 
 
   struct Document;

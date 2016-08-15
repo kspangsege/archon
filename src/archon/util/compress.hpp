@@ -33,7 +33,7 @@
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     /**
      * Variable-Length-Code LZW Compression with, 'clear' and 'eof'

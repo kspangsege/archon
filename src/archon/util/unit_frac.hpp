@@ -36,7 +36,7 @@
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     /**
      * Convert an integer representation of a fraction of unity from

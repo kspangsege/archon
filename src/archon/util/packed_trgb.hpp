@@ -38,7 +38,7 @@
 
 
 namespace archon {
-namespace Util {
+namespace util {
 
 /// Special packed 32-bit TRGB format.
 ///
@@ -226,10 +226,10 @@ inline PackedTRGB PackedTRGB::pack_rgba(const unsigned char* b)
 {
     int n = std::numeric_limits<unsigned char>::digits;
     value_type value =
-        value_type(       Util::frac_adjust_bit_width<unsigned>(b[0], n, 8)) << 16 |
-        value_type(       Util::frac_adjust_bit_width<unsigned>(b[1], n, 8)) <<  8 |
-        value_type(       Util::frac_adjust_bit_width<unsigned>(b[2], n, 8))       |
-        value_type(255u - Util::frac_adjust_bit_width<unsigned>(b[3], n, 8)) << 24;
+        value_type(       util::frac_adjust_bit_width<unsigned>(b[0], n, 8)) << 16 |
+        value_type(       util::frac_adjust_bit_width<unsigned>(b[1], n, 8)) <<  8 |
+        value_type(       util::frac_adjust_bit_width<unsigned>(b[2], n, 8))       |
+        value_type(255u - util::frac_adjust_bit_width<unsigned>(b[3], n, 8)) << 24;
     return PackedTRGB(value);
 }
 
@@ -286,10 +286,10 @@ inline PackedTRGB PackedTRGB::pack_rgba(const unsigned char* b)
 inline void PackedTRGB::unpack_rgba(unsigned char* b) const
 {
     int n = std::numeric_limits<unsigned char>::digits;
-    b[0] = Util::frac_adjust_bit_width(uint_red(m_value),   8, n);
-    b[1] = Util::frac_adjust_bit_width(uint_green(m_value), 8, n);
-    b[2] = Util::frac_adjust_bit_width(uint_blue(m_value),  8, n);
-    b[3] = Util::frac_adjust_bit_width(uint_alpha(m_value), 8, n);
+    b[0] = util::frac_adjust_bit_width(uint_red(m_value),   8, n);
+    b[1] = util::frac_adjust_bit_width(uint_green(m_value), 8, n);
+    b[2] = util::frac_adjust_bit_width(uint_blue(m_value),  8, n);
+    b[3] = util::frac_adjust_bit_width(uint_alpha(m_value), 8, n);
 }
 
 
@@ -384,7 +384,7 @@ inline std::basic_istream<Ch, Tr>& operator>>(std::basic_istream<Ch, Tr>& in,
     return in;
 }
 
-} // namespace Util
+} // namespace util
 } // namespace archon
 
 #endif // ARCHON_UTIL_PACKED_TRGB_HPP

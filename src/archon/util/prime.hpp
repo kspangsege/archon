@@ -30,7 +30,7 @@
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     /**
      * Get a prime number that is greater than, or equal to the

@@ -51,8 +51,8 @@ namespace archon
     struct ReaderBase
     {
     protected:
-      typedef Util::TupleGrid TupleGrid;
-      typedef Util::ConstTupleGrid ConstTupleGrid;
+      typedef util::TupleGrid TupleGrid;
+      typedef util::ConstTupleGrid ConstTupleGrid;
       typedef PixelConverter::Format PixelFormat;
 
       ReaderBase(Image::ConstRefArg image);
@@ -65,9 +65,9 @@ namespace archon
 
       void set_falloff(Falloff h, Falloff v) { horiz_falloff = h; vert_falloff = v; }
 
-      void set_color(Util::PackedTRGB color, bool foreground);
+      void set_color(util::PackedTRGB color, bool foreground);
 
-      Util::PackedTRGB get_pixel();
+      util::PackedTRGB get_pixel();
 
       /**
        * \param c If null, RGB is assumed.
@@ -90,7 +90,7 @@ namespace archon
 
       // 0 = nothing left (args are undefined), 1 = partial clip, 2 = nothing clipped (args are untouched)
       template<typename T>
-      void clip_tray(Util::BasicTupleGrid<T> &g, int &x, int &y, int &w, int &h);
+      void clip_tray(util::BasicTupleGrid<T> &g, int &x, int &y, int &w, int &h);
 
       char *get_color_ptr(bool foreground) const;
 
@@ -284,7 +284,7 @@ namespace archon
     }
 
 
-    inline void ReaderBase::set_color(Util::PackedTRGB color, bool foreground)
+    inline void ReaderBase::set_color(util::PackedTRGB color, bool foreground)
     {
       unsigned char b[4];
       color.unpack_rgba(b);
@@ -293,11 +293,11 @@ namespace archon
     }
 
 
-    inline Util::PackedTRGB ReaderBase::get_pixel()
+    inline util::PackedTRGB ReaderBase::get_pixel()
     {
       unsigned char rgba[4];
       get_pixel_smart<unsigned char, true>(rgba, 0);
-      return Util::PackedTRGB::pack_rgba(rgba);
+      return util::PackedTRGB::pack_rgba(rgba);
     }
 
 
@@ -310,7 +310,7 @@ namespace archon
       }
       else {
         get_pixel<false>(p, c, get_word_type_by_type<T>());
-        if(has_alpha) p[c ? c->get_num_primaries() : 3] = Util::frac_full<T>();
+        if(has_alpha) p[c ? c->get_num_primaries() : 3] = util::frac_full<T>();
       }
     }
 
@@ -356,7 +356,7 @@ namespace archon
       // first it is expanded by repeating the proto block, then it is
       // expanded further by repeating the edge of the previous
       // expansion. This expansion is handled conveniently by
-      // Util::BasicTupleGrid::extend.
+      // util::BasicTupleGrid::extend.
 
       // We assemble the proto block as follows: If the tray is both wider and taller than the clipping region, the proto block is the entire clipping region. Otherwise if the tray is narrower than the clipping region, 
 
@@ -684,7 +684,7 @@ namespace archon
 
 
     template<typename T>
-    inline void ReaderBase::clip_tray(Util::BasicTupleGrid<T> &g, int &x, int &y, int &w, int &h)
+    inline void ReaderBase::clip_tray(util::BasicTupleGrid<T> &g, int &x, int &y, int &w, int &h)
     {
       // Clip against left edge
       int d = clip_left - x;
@@ -743,8 +743,8 @@ namespace archon
       if(color_slot_buffer) return;
       color_slot_buffer.reset(2 * 4 * bytes_per_best_float +
                               num_color_slots * pixel_format.bytes_per_pixel);
-      set_color(Util::Color::transparent, false); // Background color
-      set_color(Util::Color::black, true);        // Foreground color
+      set_color(util::Color::transparent, false); // Background color
+      set_color(util::Color::black, true);        // Foreground color
     }
 
 

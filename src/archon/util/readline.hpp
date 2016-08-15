@@ -33,7 +33,7 @@
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     /**
      * Functions for reading lines of input from the users terminal

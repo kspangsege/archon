@@ -306,7 +306,7 @@ namespace
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     // FIXME: log2 is not in C++03
     long get_prime_not_under(long n)

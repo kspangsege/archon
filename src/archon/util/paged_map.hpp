@@ -34,7 +34,7 @@
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     /**
      * This map is much more efficient in terms of both memory

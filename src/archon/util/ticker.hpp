@@ -37,7 +37,7 @@
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     /**
      * The purpose of this class is to produce "out ticks" at a
@@ -94,7 +94,7 @@ namespace archon
     private:
       long const out_tick_threshold_millis, millis_per_check;
       long in_ticks_per_check, in_ticks_before_check, accum_in_ticks, accum_in_ticks_copy;
-      Util::WeightedMovingAverage<double, 10> millis_per_in_tick;
+      util::WeightedMovingAverage<double, 10> millis_per_in_tick;
       core::Time time_of_last_check, next_out_tick_threshold_time;
 
       bool check();

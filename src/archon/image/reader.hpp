@@ -244,7 +244,7 @@ namespace archon
        * \sa ReaderBase::falloff_Background
        * \sa WriterOps::clear
        */
-      Accessor &set_background_color(Util::PackedTRGB color);
+      Accessor &set_background_color(util::PackedTRGB color);
 
       /**
        * Set the foreground color. The default is fully opaque white.
@@ -254,7 +254,7 @@ namespace archon
        *
        * \sa WriterOps::fill
        */
-      Accessor &set_foreground_color(Util::PackedTRGB color);
+      Accessor &set_foreground_color(util::PackedTRGB color);
 
       /**
        * Get the color and transparency of the pixel at the current
@@ -267,7 +267,7 @@ namespace archon
        * \sa set_pos
        * \sa set_falloff
        */
-      Accessor &get_pixel(Util::PackedTRGB& pixel);
+      Accessor &get_pixel(util::PackedTRGB& pixel);
 
       /**
        * Same as the 4-argument version, except that this method does
@@ -280,7 +280,7 @@ namespace archon
       template<typename T> Accessor &get_pixel_rgb(T &red, T &green, T &blue);
 
       /**
-       * Same as get_pixel(Util::PackedTRGB&), except that the color and transparency is now
+       * Same as get_pixel(util::PackedTRGB&), except that the color and transparency is now
        * returned as separate red, green, blue, and alpha components.
        *
        * The retreived component values are affected by the choice of the type
@@ -296,7 +296,7 @@ namespace archon
 
       Accessor &get_pixel(void *tray, ColorSpace::ConstRefArg c, bool has_alpha, WordType t);
 
-      Util::PackedTRGB get_pixel() { Util::PackedTRGB p; get_pixel(p); return p; }
+      util::PackedTRGB get_pixel() { util::PackedTRGB p; get_pixel(p); return p; }
 
       Math::Vec3F get_pixel_rgb()  { Math::Vec3F p; get_pixel_rgb(p); return p; }
 
@@ -500,21 +500,21 @@ namespace archon
     }
 
 
-    template<class A, class B> inline A &ReaderOps<A,B>::set_background_color(Util::PackedTRGB c)
+    template<class A, class B> inline A &ReaderOps<A,B>::set_background_color(util::PackedTRGB c)
     {
       ReaderBase::set_color(c, false);
       return static_cast<A &>(*this);
     }
 
 
-    template<class A, class B> inline A &ReaderOps<A,B>::set_foreground_color(Util::PackedTRGB c)
+    template<class A, class B> inline A &ReaderOps<A,B>::set_foreground_color(util::PackedTRGB c)
     {
       ReaderBase::set_color(c, true);
       return static_cast<A &>(*this);
     }
 
 
-    template<class A, class B> inline A &ReaderOps<A,B>::get_pixel(Util::PackedTRGB &p)
+    template<class A, class B> inline A &ReaderOps<A,B>::get_pixel(util::PackedTRGB &p)
     {
       p = ReaderBase::get_pixel();
       return static_cast<A &>(*this);

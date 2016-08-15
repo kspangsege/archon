@@ -28,7 +28,7 @@ using namespace archon::Math;
 
 
 namespace archon {
-namespace Util {
+namespace util {
 namespace Color {
 
 /// Linear interpolation of RGB colors in the HSV space.
@@ -66,5 +66,5 @@ Vec3 interp(double x, double x1, double x2, const Vec3& y1, const Vec3& y2)
 }
 
 } // namespace Color
-} // namespace Util
+} // namespace util
 } // namespace archon

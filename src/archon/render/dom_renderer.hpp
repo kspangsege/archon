@@ -42,7 +42,7 @@ public:
 
     void set_viewport_height(int);
 
-    void filled_box(int x, int y, int width, int height, Util::PackedTRGB color) override;
+    void filled_box(int x, int y, int width, int height, util::PackedTRGB color) override;
     void border_box(int x, int y, int width, int height, const Border* sides) override;
 
 private:

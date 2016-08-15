@@ -38,7 +38,7 @@ using namespace archon::core;
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     AdaptiveTicker::AdaptiveTicker(long millis_per_out_tick,
                                    int checks_per_out_tick):

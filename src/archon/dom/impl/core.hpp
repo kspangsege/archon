@@ -2017,13 +2017,13 @@ private:
     struct ElemTypeHashFunc {
         static int hash(const ElemKey& k, int n)
         {
-            Util::Hash_FNV_1a_32 h;
+            util::Hash_FNV_1a_32 h;
             h.add_string(k.tag_name);
             return h.get_hash(n);
         }
     };
 
-    typedef Util::HashMap<ElemKey, ElemType*, ElemTypeHashFunc> ElemTypes;
+    typedef util::HashMap<ElemKey, ElemType*, ElemTypeHashFunc> ElemTypes;
     mutable ElemTypes elem_types;
 
     dom::DOMString document_uri;

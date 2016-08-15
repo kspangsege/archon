@@ -36,7 +36,7 @@
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     /**
      * \note Erasing an element is slow since it involved a linear

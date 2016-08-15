@@ -170,10 +170,10 @@ struct Renderer {
     struct Border {
         int width;
         BorderStyle style;
-        Util::PackedTRGB color;
+        util::PackedTRGB color;
     };
 
-    virtual void filled_box(int x, int y, int width, int height, Util::PackedTRGB color) = 0;
+    virtual void filled_box(int x, int y, int width, int height, util::PackedTRGB color) = 0;
 
     virtual void border_box(int x, int y, int width, int height, Border const *sides) = 0;
 
@@ -188,7 +188,7 @@ struct Renderer {
 /// be minimized. The same goes for all the other attachable style,
 /// such as RenderBorder.
 struct RenderBackground {
-    Util::PackedTRGB color;
+    util::PackedTRGB color;
 };
 
 
@@ -326,15 +326,15 @@ width is set to -1 if shrink_to_fit2
 
 /*
     // Alpha in output is copied from c1.
-    static Util::PackedTRGB color_interp(double x, double x1, double x2, Util::PackedTRGB c1, Util::PackedTRGB c2)
+    static util::PackedTRGB color_interp(double x, double x1, double x2, util::PackedTRGB c1, util::PackedTRGB c2)
     {
         Math::Vec4F rgba1, rgba2;
-        Util::PackedTRGB::unpack(c1, rgba1);
-        Util::PackedTRGB::unpack(c2, rgba2);
+        util::PackedTRGB::unpack(c1, rgba1);
+        util::PackedTRGB::unpack(c2, rgba2);
         Math::Vec3 rgb1(rgba1[0], rgba1[1], rgba1[2]);
         Math::Vec3 rgb2(rgba2[0], rgba2[1], rgba2[2]);
         rgb1 = Imaging::Color::interp(x, x1, x2, rgb1, rgb2);
-        return Util::PackedTRGB(float(rgb1[0]), float(rgb1[1]), float(rgb1[2]));
+        return util::PackedTRGB(float(rgb1[0]), float(rgb1[1]), float(rgb1[2]));
     }
 */
 };
@@ -815,7 +815,7 @@ inline void Box::render(int x, int y, Renderer *renderer)
             border->sides[1].width == w0 &&
             border->sides[2].width == w0 &&
             border->sides[3].width == w0) {
-            Util::PackedTRGB c[4] = {
+            util::PackedTRGB c[4] = {
                 border->sides[0].color,
                 border->sides[1].color,
                 border->sides[2].color,
@@ -867,11 +867,11 @@ inline void Box::render(int x, int y, Renderer *renderer)
                     // Gecko: Highlighted sides (right + bottom) are
                     // blended with 57% full white. Shadowed sides
                     // (top + left) are blended with 68% full black.
-                    Util::PackedTRGB c2[4] = {
-                        color_interp(68, 0, 100, Util::PackedTRGB::black, c[0]),
-                        color_interp(57, 0, 100, Util::PackedTRGB::white, c[1]),
-                        color_interp(57, 0, 100, Util::PackedTRGB::white, c[2]),
-                        color_interp(68, 0, 100, Util::PackedTRGB::black, c[3])
+                    util::PackedTRGB c2[4] = {
+                        color_interp(68, 0, 100, util::PackedTRGB::black, c[0]),
+                        color_interp(57, 0, 100, util::PackedTRGB::white, c[1]),
+                        color_interp(57, 0, 100, util::PackedTRGB::white, c[2]),
+                        color_interp(68, 0, 100, util::PackedTRGB::black, c[3])
                     };
                     renderer->border_box(x0, y0, w, h, w0, Renderer::border_style_Solid, c2);
             }

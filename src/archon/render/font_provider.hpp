@@ -181,7 +181,7 @@ private:
 
     typedef std::vector<StyleEntry> Styles;
     Styles styles;
-    Util::HashMap<Style, int, StyleHasher> style_map; // Value is one plus index in 'styles'.
+    util::HashMap<Style, int, StyleHasher> style_map; // Value is one plus index in 'styles'.
     std::vector<int> unused_styles; // One plus indexes into 'styles'
 
 
@@ -198,7 +198,7 @@ private:
     FontEntry* new_font(int font_id);
     Page* new_page(FontEntry* font, int page_idx);
     void new_texture(FontEntry* font, int page_idx, int tex_ord,
-                     core::UniquePtr<Util::RectanglePacker>& packer, core::UIntMin16& tex_idx);
+                     core::UniquePtr<util::RectanglePacker>& packer, core::UIntMin16& tex_idx);
     void render(const TextContainer& text) const;
     void release(TextContainer& text);
 
@@ -332,7 +332,7 @@ private:
 
     typedef std::map<int, TextContainer::Texture*> Textures;
     Textures textures;
-    typedef Util::RepMapLookupBooster<Textures, 4> TextureLookup;
+    typedef util::RepMapLookupBooster<Textures, 4> TextureLookup;
     TextureLookup texture_lookup;
     typedef std::pair<int, TextContainer::Texture*> StripTexture;
     typedef std::vector<StripTexture> StripTextures;
@@ -373,7 +373,7 @@ inline bool FontProvider::Style::operator==(const Style& s) const
 
 inline int FontProvider::StyleHasher::hash(const Style& s, int n)
 {
-    Util::Hash_FNV_1a_32 h;
+    util::Hash_FNV_1a_32 h;
     h.add_int(s.font_id);
     h.add_float(s.font_size[0]);
     h.add_float(s.font_size[1]);
@@ -427,7 +427,7 @@ public:
     Math::Vec2 texture_scale; // Inverse of texture resolution
     core::DeletingVector<Page> pages;
 
-    core::UniquePtr<Util::RectanglePacker> packer;
+    core::UniquePtr<util::RectanglePacker> packer;
     core::UIntMin16 open_texture_index; // Defined only if 'packer' is not null
     bool dirty_texture = false; // If new glyphs were rendered into the open texture, but the texture is not yet refreshed
 

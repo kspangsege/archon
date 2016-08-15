@@ -41,7 +41,7 @@
 
 using namespace std;
 using namespace archon::core;
-using namespace archon::Util;
+using namespace archon::util;
 
 namespace
 {
@@ -344,7 +344,7 @@ namespace
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     string const transcode_US_ASCII     = "US-ASCII";
     string const transcode_ISO_8859_1   = "ISO-8859-1";

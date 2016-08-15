@@ -184,7 +184,7 @@ namespace archon
      * values are clamped to the range [0,1] before they are
      * converted.
      *
-     * \sa Util::fracAnyToAny
+     * \sa util::fracAnyToAny
      */
     WordTypeConverter get_word_type_frac_converter(WordType source, WordType target);
 

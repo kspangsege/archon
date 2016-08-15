@@ -52,7 +52,7 @@
 #include <archon/util/job.hpp>
 
 
-using namespace archon::Util;
+using namespace archon::util;
 using namespace archon::Thread;
 
 
@@ -103,7 +103,7 @@ namespace
 
 namespace archon
 {
-  namespace Utilities
+  namespace utilities
   {
     using namespace std;
 

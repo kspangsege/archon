@@ -36,7 +36,7 @@
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     /**
      * Compare values for matching keys in two maps using a default

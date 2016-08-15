@@ -42,7 +42,7 @@
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     /**
      * An abstract kd-tree (or k-dimensional tree).

@@ -149,7 +149,7 @@ namespace archon
       {
 	if(!e->classes.empty()) throw std::invalid_argument("Named classes are not supported yet");
 
-        typedef Util::RangeMap<CharType, bool> RangeMap;
+        typedef util::RangeMap<CharType, bool> RangeMap;
 	RangeMap rangeMap;
         bool value = true;
 	if(e->invert)

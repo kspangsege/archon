@@ -38,7 +38,7 @@
 
 
 namespace archon {
-namespace Util {
+namespace util {
 
 /// Defines a number of functions related to color space conversions.
 ///
@@ -495,7 +495,7 @@ template<class T> const T CIE_Lab<T>::t0    = delta*delta*delta;
 template<class T> const T CIE_Lab<T>::a     = 1/(3*delta*delta);
 
 } // namespace Color
-} // namespace Util
+} // namespace util
 } // namespace archon
 
 #endif // ARCHON_UTIL_COLOR_HPP

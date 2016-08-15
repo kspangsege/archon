@@ -10,7 +10,7 @@ using namespace std;
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     namespace Unicode
     {

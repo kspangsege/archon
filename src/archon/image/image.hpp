@@ -271,7 +271,7 @@ namespace archon
       /**
        * Clear this image to black, and if it has an alpha channel,
        * then make it fully transparent. This is a shorthand for
-       * calling `fill(Util::Color::transparent)`.
+       * calling `fill(util::Color::transparent)`.
        *
        * \note Consider working through an \c ImageWriter instead,
        * since that provides greater flexibility and better
@@ -280,7 +280,7 @@ namespace archon
        *
        * \sa ImageWriter::clear
        */
-      void clear() { fill(Util::Color::transparent); }
+      void clear() { fill(util::Color::transparent); }
 
 
       /**
@@ -293,7 +293,7 @@ namespace archon
        *
        * \sa ImageWriter::fill
        */
-      void fill(Util::PackedTRGB color);
+      void fill(util::PackedTRGB color);
 
 
       /**
@@ -837,7 +837,7 @@ namespace archon
        * The source region is assumed to not be empty, and lie fully
        * within image area.
        */
-      virtual void decode(Util::TupleGrid const &g, int w, int h, int x, int y) const = 0;
+      virtual void decode(util::TupleGrid const &g, int w, int h, int x, int y) const = 0;
 
       /**
        * Write a block of pixels into the image at the specified
@@ -847,7 +847,7 @@ namespace archon
        * The target region is assumed to not be empty, and lie fully
        * within image area.
        */
-      virtual void encode(Util::ConstTupleGrid const &g, int w, int h, int x, int y) = 0;
+      virtual void encode(util::ConstTupleGrid const &g, int w, int h, int x, int y) = 0;
 
       /**
        * This method must be called to release the codec after

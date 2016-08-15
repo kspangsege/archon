@@ -59,7 +59,7 @@ namespace
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     namespace Base64
     {

@@ -106,7 +106,7 @@ namespace
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     UniquePtr<InputStream> make_slow_stream(InputStream &in,
                                             double mean_transfer_rate, double mean_chunk_size)

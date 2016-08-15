@@ -34,7 +34,7 @@
 using namespace std;
 using namespace archon::core;
 using namespace archon::Math;
-using namespace archon::Util;
+using namespace archon::util;
 
 
 namespace {
@@ -367,7 +367,7 @@ int parse_func_form(string str, int offset, Vec4F& color, bool allow_alpha)
 
 
 namespace archon {
-namespace Util {
+namespace util {
 
 string PackedTRGB::format(int type, const Vec4F& color, CssLevel css_level)
 {
@@ -608,5 +608,5 @@ string PackedTRGB::get_color_name(int index)
     return get_name_map().entries.at(index).name;
 }
 
-} // namespace Util
+} // namespace util
 } // namespace archon

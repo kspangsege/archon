@@ -36,7 +36,7 @@
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     /**
      * How to acheive the correct perspective in the rendered image

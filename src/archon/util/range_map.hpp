@@ -37,7 +37,7 @@
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     /**
      * The purpose of this class is to maintain a set of association

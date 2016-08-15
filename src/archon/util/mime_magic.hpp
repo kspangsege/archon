@@ -35,7 +35,7 @@
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     /**
      * A utility for determining the MIME type of files in the file

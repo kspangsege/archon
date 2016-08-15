@@ -59,7 +59,7 @@ public:
 
     /// Render the currently loaded scene to the specified image.
     virtual void render(Imaging::Image::RefArg img, Math::Vec3 eye, Math::CoordSystem3x2 screen,
-                        Util::ProgressTracker *tracker, int supersampling_level = 0) const = 0;
+                        util::ProgressTracker *tracker, int supersampling_level = 0) const = 0;
 
     virtual ~Raytracer() {}
 };

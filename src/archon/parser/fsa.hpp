@@ -757,7 +757,7 @@ namespace archon
          * in a range with the final symbol of that range and with the
          * set of reachable states.
          */
-        Util::RangeMap<CharType, StateSet> ranges;
+        util::RangeMap<CharType, StateSet> ranges;
 
         SentinelMap sentinels;
       };

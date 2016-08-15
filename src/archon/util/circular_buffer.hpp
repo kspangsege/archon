@@ -36,7 +36,7 @@
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     template<class T> struct CircularBuffer
     {

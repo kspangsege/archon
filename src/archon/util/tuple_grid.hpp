@@ -33,7 +33,7 @@
 
 
 namespace archon {
-namespace Util {
+namespace util {
 
 /// A flexible description of the layout of a 2-D grid of tuples within some
 /// simple underlying sequence of elements which normally is just raw memory.
@@ -411,7 +411,7 @@ inline void BasicTupleGrid<I>::extend_2(int width, int height,
     }
 }
 
-} // namespace Util
+} // namespace util
 } // namespace archon
 
 #endif // ARCHON_UTIL_TUPLE_GRID_HPP

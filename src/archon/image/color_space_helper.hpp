@@ -191,9 +191,9 @@ namespace archon
           {
             typedef typename core::FastestFloatCover<UInt>::type Float;
             Float s[P::source_color_channels], t[P::target_color_channels];
-            Util::frac_any_to_any(source, s, P::source_color_channels); // Int to float
+            util::frac_any_to_any(source, s, P::source_color_channels); // Int to float
             O<Float>::cvt(s,t);
-            Util::frac_any_to_any(t, target, P::target_color_channels); // Float to int
+            util::frac_any_to_any(t, target, P::target_color_channels); // Float to int
           }
         };
       };
@@ -213,7 +213,7 @@ namespace archon
             O<T>::cvt(s,t);
             if(P::target_has_alpha)
               t[P::target_color_channels] =
-                P::source_has_alpha ? s[P::source_color_channels] : Util::frac_any_to_any<double, T>(1);
+                P::source_has_alpha ? s[P::source_color_channels] : util::frac_any_to_any<double, T>(1);
             s += P::source_color_channels + (P::source_has_alpha ? 1 : 0);
             t += P::target_color_channels + (P::target_has_alpha ? 1 : 0);
           }
@@ -263,7 +263,7 @@ namespace archon
             s += N;
             t = std::copy(f, s, t);
             if(discard) ++s;
-            else *t++ = Util::frac_any_to_any<double, T>(1);
+            else *t++ = util::frac_any_to_any<double, T>(1);
           }
         }
       };

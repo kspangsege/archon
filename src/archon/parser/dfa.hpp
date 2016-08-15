@@ -230,7 +230,7 @@ namespace archon
          */
 	TokenId tokenId;
 
- 	Util::RangeMap<CharType, StateId> edgeRanges;
+ 	util::RangeMap<CharType, StateId> edgeRanges;
 
 	std::map<Sentinel, StateId> sentinelEdges;
 
@@ -240,7 +240,7 @@ namespace archon
       core::std::vector<StateRep *> states;
       std::vector<StateId> startStates; // State indices
 
-      typedef typename Util::RangeMap::RangeSeq::IterType           EdgeRangeRepIter;
+      typedef typename util::RangeMap::RangeSeq::IterType           EdgeRangeRepIter;
       typedef typename std::map<Sentinel, StateId>::const_iterator  SentinelEdgeRepIter;
       typedef typename std::vector<StateRep *>::const_iterator      StateRepIter;
 
@@ -410,7 +410,7 @@ std::cerr << "PartitionGroupCompare: " <<partition[a]<<" ["<<a<<"]"<<" == "<<par
       State const &t2 = states[s2];
       PartitionGroupCompare cmp(partition);
       return t1.edgeRanges.compare(t2.edgeRanges, partition.size()-1u, cmp) &&
-        Util::compare_maps(t1.sentinelEdges, t2.sentinelEdges, s1, cmp);
+        util::compare_maps(t1.sentinelEdges, t2.sentinelEdges, s1, cmp);
     }
 
 

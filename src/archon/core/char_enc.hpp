@@ -501,7 +501,7 @@ namespace archon
     /**
      * \todo Implement the stream creators. This is probably best done
      * by moving "inc_conv.hpp" from "util" to "core", and then basing
-     * it on <tt>Util::IncConvCodec</tt>.
+     * it on <tt>util::IncConvCodec</tt>.
      */
     template<typename Ch, typename Tr = LocaleCodecTraits<Ch> >
     struct BasicLocaleCodec: BasicCodec<Ch>

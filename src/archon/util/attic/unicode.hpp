@@ -13,7 +13,7 @@
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     /**
      * \sa http://www.research.att.com/~bs/3rd_loc.pdf

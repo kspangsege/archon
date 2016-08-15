@@ -253,7 +253,7 @@ namespace archon
         bool operator!=(AugmentedLength const &l) const { return !operator==(l); }
       };
 
-      typedef Util::PackedTRGB Color;
+      typedef util::PackedTRGB Color;
 
 
       // The 'font' group must always be applied first, such that
@@ -286,7 +286,7 @@ namespace archon
         AugmentedLength line_height;
         void init()
         {
-          color = Util::Color::white;
+          color = util::Color::white;
           line_height.state = AugmentedLength::state_Auto; // 'normal'
         }
       } text;
@@ -294,7 +294,7 @@ namespace archon
       struct Background
       {
         Color color;
-        void init() { color = Util::Color::transparent; }
+        void init() { color = util::Color::transparent; }
       } background;
 
       struct Border
@@ -570,13 +570,13 @@ namespace archon
           i == 0x09;   // tab             (U+0009)
       }
 
-      Util::PackedTRGB::CssLevel get_color_parser_css_level() const
+      util::PackedTRGB::CssLevel get_color_parser_css_level() const
       {
         switch (static_info.css_level) {
-        case css21: return Util::PackedTRGB::css21;
+        case css21: return util::PackedTRGB::css21;
         case css3:  break;
         }
-        return Util::PackedTRGB::css3;
+        return util::PackedTRGB::css3;
       }
 
       template<class T> void str_append_port(dom::DOMString &out, T const &v)
@@ -886,7 +886,7 @@ namespace archon
 
       void get_system_color(SystemColor, ComputedStyle::Color &color)
       {
-        color = Util::Color::silver; // FIXME: Implement this!
+        color = util::Color::silver; // FIXME: Implement this!
       }
 
       double get_std_border_width(NamedBorderWidth w) const
@@ -1503,7 +1503,7 @@ namespace archon
     {
       void format_value(dom::DOMString &out, StyleManipContext &ctx) const
       {
-        using Util::PackedTRGB;
+        using util::PackedTRGB;
 
         int format;
         switch (value_type) {
@@ -1532,7 +1532,7 @@ namespace archon
 
       bool parse_value(std::string const &str, StyleManipContext &ctx)
       {
-        using Util::PackedTRGB;
+        using util::PackedTRGB;
 
         PackedTRGB::CssLevel const css_level = ctx.get_color_parser_css_level();
         if (str.empty()) {
@@ -1606,7 +1606,7 @@ namespace archon
 
       void apply_to(StyleApplyee &applyee) const
       {
-        using Util::PackedTRGB;
+        using util::PackedTRGB;
 
         float r,g,b,a;
         switch (this->value_type) {
@@ -1777,7 +1777,7 @@ namespace archon
     {
       static bool const has_css21_transparent = false;
 
-      typedef Util::PackedTRGB used_value_type;
+      typedef util::PackedTRGB used_value_type;
 
       static used_value_type get_used_value(ComputedStyle::Color v, StyleApplyee const &)
       {

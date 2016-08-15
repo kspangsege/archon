@@ -538,13 +538,13 @@ namespace archon
       {
         static int hash(ElemTypeKey const &k, int n)
         {
-          Util::Hash_FNV_1a_32 h;
+          util::Hash_FNV_1a_32 h;
           h.add_sequence(k.tag_name.begin(), k.tag_name.end());
           return h.get_hash(n);
         }
       };
 
-      Util::HashMap<ElemTypeKey, ElemType *, ElemTypeHashFunc> elem_types;
+      util::HashMap<ElemTypeKey, ElemType *, ElemTypeHashFunc> elem_types;
 
       void unregister_elem_type(ElemTypeKey const &key)
       {

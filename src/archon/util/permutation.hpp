@@ -33,7 +33,7 @@
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     struct Parity
     {

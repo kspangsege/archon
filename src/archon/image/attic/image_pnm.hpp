@@ -24,7 +24,7 @@
 
 namespace archon
 {
-  namespace Utilities
+  namespace utilities
   {
     /**
      * The PNM image format used by Image by default.

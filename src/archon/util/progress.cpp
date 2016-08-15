@@ -37,7 +37,7 @@
 
 using namespace std;
 using namespace archon::core;
-using namespace archon::Util;
+using namespace archon::util;
 
 
 namespace
@@ -66,7 +66,7 @@ namespace
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     ProgressBar::ProgressBar(int width, string prefix, ostream &out):
       prefix(prefix), out(out), start_time(Time::now())

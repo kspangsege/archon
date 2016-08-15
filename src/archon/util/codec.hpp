@@ -35,7 +35,7 @@
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     /**
      * This codec wraps a stream in an envelope consisting of a

@@ -35,7 +35,7 @@
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     namespace ConvHull
     {

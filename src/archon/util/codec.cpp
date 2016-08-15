@@ -214,7 +214,7 @@ namespace
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     UniquePtr<Codec const> get_block_codec()
     {

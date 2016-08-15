@@ -29,7 +29,7 @@
 
 
 namespace archon {
-namespace Util {
+namespace util {
 namespace Color {
 
 constexpr PackedTRGB aliceblue            ( 240, 248, 255 );   // #f0f8ff
@@ -181,7 +181,7 @@ constexpr PackedTRGB yellow               ( 255, 255,   0 );   // #ffff00
 constexpr PackedTRGB transparent          (0,0,0,0);
 
 } // namespace Color
-} // namespace Util
+} // namespace util
 } // namespace archon
 
 #endif // ARCHON_UTIL_NAMED_COLORS_HPP

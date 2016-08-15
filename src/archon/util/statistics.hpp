@@ -32,7 +32,7 @@
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     /**
      * This class provides a means of maintaining the weighted moving

@@ -33,7 +33,7 @@
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     /**
      * A heuristic map lookup efficiency booster based on the

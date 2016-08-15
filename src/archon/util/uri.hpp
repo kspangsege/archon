@@ -37,7 +37,7 @@
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     namespace Uri
     {

@@ -30,7 +30,7 @@
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     /**
      * Reactor pattern.

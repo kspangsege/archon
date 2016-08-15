@@ -39,7 +39,7 @@
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     template<class Int> struct HashFuncInt
     {
@@ -92,7 +92,7 @@ namespace archon
 
       static int buckets(int current_num_buckets)
       {
-        return std::max<int>(Util::get_prime_not_under(min_growth_factor() * current_num_buckets),
+        return std::max<int>(util::get_prime_not_under(min_growth_factor() * current_num_buckets),
                              current_num_buckets+1);
       }
 

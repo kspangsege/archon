@@ -431,7 +431,7 @@ private:
     Display::Window::Ptr win;
     Display::Bind gl_binding;
 
-    Util::PerspectiveProjection proj;
+    util::PerspectiveProjection proj;
     Graphics::VirtualTrackball trackball;
 
     int max_gl_errors = 20; // Max OpenGL errors to be reported

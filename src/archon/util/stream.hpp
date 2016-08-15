@@ -35,7 +35,7 @@
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     /**
      * Create a new input stream that reads from the specified string.

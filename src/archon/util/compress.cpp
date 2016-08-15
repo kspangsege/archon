@@ -35,7 +35,7 @@
 
 using namespace std;
 using namespace archon::core;
-using namespace archon::Util;
+using namespace archon::util;
 
 namespace
 {
@@ -592,7 +592,7 @@ namespace
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     UniquePtr<Codec const> get_lempel_ziv_welch_codec(int bits_per_byte)
     {

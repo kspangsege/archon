@@ -56,7 +56,7 @@
 
 namespace archon
 {
-  namespace Utilities
+  namespace utilities
   {
     struct JobQueue
     {

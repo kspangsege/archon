@@ -131,7 +131,7 @@ namespace archon
        * \sa set_clip
        * \sa enable_blending
        */
-      Accessor &put_pixel(Util::PackedTRGB color);
+      Accessor &put_pixel(util::PackedTRGB color);
 
 
       /**
@@ -314,7 +314,7 @@ namespace archon
     }
 
 
-    template<class A, class B> inline A &WriterOps<A,B>::put_pixel(Util::PackedTRGB color)
+    template<class A, class B> inline A &WriterOps<A,B>::put_pixel(util::PackedTRGB color)
     {
       WriterBase::put_pixel(color);
       return static_cast<A &>(*this);

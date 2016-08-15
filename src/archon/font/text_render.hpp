@@ -69,13 +69,13 @@ struct TextRenderer: TextFormatter {
 
     // Set current text color. This affects any new text that is
     // written to the renderer. Default is black.
-    void set_text_color(Util::PackedTRGB color);
+    void set_text_color(util::PackedTRGB color);
 
     // Set the background color. This only affects the final rendering. Default is white.
-    void set_background_color(Util::PackedTRGB color);
+    void set_background_color(util::PackedTRGB color);
 
     // Set the border color. This only affects the final rendering. Default is black.
-    void set_border_color(Util::PackedTRGB color);
+    void set_border_color(util::PackedTRGB color);
 
     // Components will be rounded to nearest integer if grid fitting is enabled for the active session.
     // The default is (4,4,4,4).
@@ -121,14 +121,14 @@ private:
     std::vector<int> used_fonts;
     int default_font; // ID of default font, also added to used_fonts
 
-    Util::PackedTRGB text_color, background_color, border_color;
+    util::PackedTRGB text_color, background_color, border_color;
     double padding_top, padding_right, padding_bottom, padding_left;
     int border_top, border_right, border_bottom, border_left;
 
     struct Style {
         int font_id;
-        Util::PackedTRGB text_color; // TRGB
-        Style(int f, Util::PackedTRGB c): font_id(f), text_color(c) {}
+        util::PackedTRGB text_color; // TRGB
+        Style(int f, util::PackedTRGB c): font_id(f), text_color(c) {}
         bool operator==(const Style& s) const
         {
             return font_id == s.font_id && text_color == s.text_color;
@@ -138,7 +138,7 @@ private:
     struct StyleHasher {
         static int hash(const Style& s, int n)
         {
-            Util::Hash_FNV_1a_32 h;
+            util::Hash_FNV_1a_32 h;
             h.add_int(s.font_id);
             h.add_int(s.text_color.value());
             return h.get_hash(n);
@@ -146,7 +146,7 @@ private:
     };
 
     std::vector<Style> styles;
-    Util::HashMap<Style, int, StyleHasher> style_map; // Value is one plus index in 'styles'.
+    util::HashMap<Style, int, StyleHasher> style_map; // Value is one plus index in 'styles'.
 };
 
 
@@ -201,7 +201,7 @@ inline void TextRenderer::reset_font()
     font_id = -1; // Request new font
 }
 
-inline void TextRenderer::set_text_color(Util::PackedTRGB color)
+inline void TextRenderer::set_text_color(util::PackedTRGB color)
 {
     if (color == text_color)
         return;
@@ -209,12 +209,12 @@ inline void TextRenderer::set_text_color(Util::PackedTRGB color)
     text_color = color;
 }
 
-inline void TextRenderer::set_background_color(Util::PackedTRGB color)
+inline void TextRenderer::set_background_color(util::PackedTRGB color)
 {
     background_color = color;
 }
 
-inline void TextRenderer::set_border_color(Util::PackedTRGB color)
+inline void TextRenderer::set_border_color(util::PackedTRGB color)
 {
     border_color = color;
 }

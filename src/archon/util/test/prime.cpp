@@ -37,7 +37,7 @@
 
 using namespace std;
 using namespace archon::core;
-using namespace archon::Util;
+using namespace archon::util;
 
 
 int main() throw()

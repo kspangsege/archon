@@ -29,7 +29,7 @@
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     RectanglePacker::RectanglePacker(int width, int height, int spacing):
       spacing(spacing), root(0, 0, width - spacing, height < 0 ? -1 : height - spacing) {}

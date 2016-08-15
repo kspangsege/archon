@@ -55,7 +55,7 @@ namespace
       }
       out.fill('#');
       // FIXME: We really should have used
-      // Util::frac_adjust_denom(hist[i], max_count+1, max_bar+1)
+      // util::frac_adjust_denom(hist[i], max_count+1, max_bar+1)
       double const bar_scale  = 0 < max_count ? double(max_bar+1) / max_count : 0;
       out.width(min(int(n * bar_scale), max_bar));
       out << "";

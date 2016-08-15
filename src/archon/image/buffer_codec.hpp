@@ -95,7 +95,7 @@ namespace archon
        * equal to the height of the image minus the height of the
        * tray.
        */
-      virtual void decode(Util::TupleGrid const &g, int w, int h, int x, int y) const = 0;
+      virtual void decode(util::TupleGrid const &g, int w, int h, int x, int y) const = 0;
 
       /**
        * Write a rectangular block of pixels into the image
@@ -121,7 +121,7 @@ namespace archon
        * equal to the height of the image minus the height of the
        * tray.
        */
-      virtual void encode(Util::ConstTupleGrid const &g, int w, int h, int x, int y) = 0;
+      virtual void encode(util::ConstTupleGrid const &g, int w, int h, int x, int y) = 0;
 
 
       virtual ~BufferCodec() {}

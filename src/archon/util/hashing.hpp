@@ -37,7 +37,7 @@
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     /**
      * Fowler/Noll/Vo hash.

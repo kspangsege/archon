@@ -32,7 +32,7 @@
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     /**
      * Pack a number of small rectangles inside a larger rectangle.

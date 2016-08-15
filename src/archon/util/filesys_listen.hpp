@@ -35,7 +35,7 @@
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     /**
      * Listen for creation of new directory entries. Any such event

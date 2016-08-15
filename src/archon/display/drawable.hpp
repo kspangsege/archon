@@ -49,7 +49,7 @@ public:
     /// with the position of \a clip set to \a position and the size of \a area
     /// set to the size of \a image.
     void put_image(Imaging::Image::ConstRefArg image, Point position = Point(),
-                   Util::PackedTRGB background = Util::PackedTRGB());
+                   util::PackedTRGB background = util::PackedTRGB());
 
     /// Fill the specified area of this drawable with pixels from the specified
     /// source image. If parts of the specified area fall outside the image
@@ -71,7 +71,7 @@ public:
     /// that fall outsise the image boundary, and as background in transparent
     /// areas of the image.
     virtual void put_image(Imaging::Image::ConstRefArg image, Box clip, Point position = Point(),
-                           Util::PackedTRGB background = Util::PackedTRGB()) = 0;
+                           util::PackedTRGB background = util::PackedTRGB()) = 0;
 
     /// Get the index of the screen to which this drawable is tied.
     ///
@@ -93,7 +93,7 @@ public:
 // Implementation
 
 inline void Drawable::put_image(Imaging::Image::ConstRefArg image, Point position,
-                                Util::PackedTRGB background)
+                                util::PackedTRGB background)
 {
     Box clip;
     clip.x = position.x;

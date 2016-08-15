@@ -37,7 +37,7 @@
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     struct IncConvException: std::runtime_error
     {

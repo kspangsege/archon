@@ -75,7 +75,7 @@
 
 namespace archon
 {
-  namespace Util
+  namespace util
   {
     /**
      * Classical American 7-bit encoding.

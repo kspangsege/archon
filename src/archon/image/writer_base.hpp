@@ -53,7 +53,7 @@ namespace archon
       void fill(bool foreground);
 
 
-      void put_pixel(Util::PackedTRGB color);
+      void put_pixel(util::PackedTRGB color);
 
 
       /**
@@ -277,7 +277,7 @@ namespace archon
     }
 
 
-    inline void WriterBase::put_pixel(Util::PackedTRGB color)
+    inline void WriterBase::put_pixel(util::PackedTRGB color)
     {
       unsigned char b[4];
       color.unpack_rgba(b);
@@ -287,7 +287,7 @@ namespace archon
 
     template<typename T, bool has_alpha> inline void WriterBase::put_pixel_smart(T const *p, ColorSpace const *c)
     {
-      if(has_alpha && Util::frac_complement(p[c ? c->get_num_primaries() : 3]) ||
+      if(has_alpha && util::frac_complement(p[c ? c->get_num_primaries() : 3]) ||
          write_cvt_initialized && write_cvt_format.has_alpha &&
          write_cvt_format.color_space == (c ? c : rgb.get()))
       {
@@ -303,7 +303,7 @@ namespace archon
         if(n < 9) // We will handle up to 8 primaries
         {
           T b[8];
-          *std::copy(p, p+n, b) = Util::frac_full<T>();
+          *std::copy(p, p+n, b) = util::frac_full<T>();
           put_pixel<true>(b, c, get_word_type_by_type<T>());
           return;
         }

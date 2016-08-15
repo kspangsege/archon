@@ -305,7 +305,7 @@ namespace archon
        * longer have a reliable way of detecting errors. One examples
        * of such a implementation is a character transcoder where the
        * writing agent uses a multi-byte encoding. Another example is
-       * the Block codec available via Util::get_block_codec().
+       * the Block codec available via util::get_block_codec().
        *
        * \throw WriteException If flushing of any buffered data fails.
        *
