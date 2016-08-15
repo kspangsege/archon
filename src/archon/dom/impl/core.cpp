@@ -33,7 +33,7 @@
 
 using namespace std;
 using namespace archon::core;
-using namespace archon::DomImpl;
+using namespace archon::dom_impl;
 
 namespace dom = archon::dom;
 
@@ -88,7 +88,7 @@ public:
 
 
 namespace archon {
-namespace DomImpl {
+namespace dom_impl {
 
 Element* ElemType::create_element()
 {
@@ -1632,5 +1632,5 @@ DOMImplementation::DOMImplementation():
 }
 
 
-} // namespace DomImpl
+} // namespace dom_impl
 } // namespace archon

@@ -34,7 +34,7 @@ using namespace std;
 
 namespace archon
 {
-  namespace DomImpl
+  namespace dom_impl
   {
     dom::DOMString HTMLElement::getId() const throw ()
     {

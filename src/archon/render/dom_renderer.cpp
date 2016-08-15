@@ -122,14 +122,14 @@ void DomRenderer::border_box(int x, int y, int width, int height, const Border* 
 template<int side_idx>
 void DomRenderer::render_border(const Border& side, int s0, int s1, int s2, int s3, int t0, int t1)
 {
-    if (!side.width || side.style == DomImpl::borderStyle_None)
+    if (!side.width || side.style == dom_impl::borderStyle_None)
         return;
 
     Vec4F rgba;
     side.color.unpack_rgba(rgba);
     glColor4f(rgba[0], rgba[1], rgba[2], rgba[3]);
 
-    if (side.style == DomImpl::borderStyle_Solid) {
+    if (side.style == dom_impl::borderStyle_Solid) {
         glBegin(GL_QUADS);
         if (side_idx == 0 || side_idx == 2) {
             glVertex2i(s0, t0);
@@ -148,7 +148,7 @@ void DomRenderer::render_border(const Border& side, int s0, int s1, int s2, int 
     }
 
     double len;
-    if (side.style == DomImpl::borderStyle_Dashed) {
+    if (side.style == dom_impl::borderStyle_Dashed) {
         if (!m_dashed_texture)
             m_dashed_texture = m_dashed_texture_decl.acquire();
         m_dashed_texture.bind();

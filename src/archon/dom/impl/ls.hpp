@@ -33,7 +33,7 @@
 
 namespace archon
 {
-  namespace DomImpl
+  namespace dom_impl
   {
     struct DOMImplementationLS: virtual dom::ls::DOMImplementationLS, DOMImplementation
     {

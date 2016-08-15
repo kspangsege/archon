@@ -795,7 +795,7 @@ Two modes for handling general entities:
 
 namespace {
 
-using namespace archon::DomImpl;
+using namespace archon::dom_impl;
 using namespace HtmlParser;
 
 
@@ -3814,7 +3814,7 @@ private:
 
 
 namespace archon {
-namespace DomImpl {
+namespace dom_impl {
 namespace HtmlParser {
 
 
@@ -3925,5 +3925,5 @@ void Callbacks::proc_instr(const core::StringUtf16&)
 
 
 } // namespace HtmlParser
-} // namespace DomImpl
+} // namespace dom_impl
 } // namespace archon

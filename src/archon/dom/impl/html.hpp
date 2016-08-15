@@ -36,7 +36,7 @@
 
 namespace archon
 {
-  namespace DomImpl
+  namespace dom_impl
   {
     class HTMLImplementation;
 

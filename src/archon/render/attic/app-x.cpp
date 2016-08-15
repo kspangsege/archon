@@ -67,7 +67,7 @@ using namespace archon::font;
 using namespace archon::display;
 using namespace archon::render;
 namespace dom = archon::dom;
-//namespace DomImpl = archon::DomImpl;
+//namespace dom_impl = archon::DomImpl;
 
 
 namespace
@@ -233,9 +233,9 @@ cout << "*";
     TextLayout status_hud_text_layout;
 
 /*
-    DomImpl::HTMLImplementation *get_dom_impl()
+    dom_impl::HTMLImplementation *get_dom_impl()
     {
-      if (!dom_impl) dom_impl.reset(new DomImpl::HTMLImplementation);
+      if (!dom_impl) dom_impl.reset(new dom_impl::HTMLImplementation);
       return dom_impl.get();
     }
 */
@@ -311,7 +311,7 @@ cout << "*";
     UniquePtr<TextFormatter> text_formatter;
     TextureDecl dashed_texture_decl, dotted_texture_decl;
 
-//    dom::ref<DomImpl::HTMLImplementation> dom_impl;
+//    dom::ref<dom_impl::HTMLImplementation> dom_impl;
   };
 
 
@@ -401,7 +401,7 @@ cout << "*";
 
 
 
-  struct ModalHudDialogImpl: DialogImpl //, DomImpl::Renderer
+  struct ModalHudDialogImpl: DialogImpl //, dom_impl::Renderer
   {
     void show()
     {
@@ -469,7 +469,7 @@ cout << "*";
 
   private:
 /*
-    dom::ref<DomImpl::HTMLDocument> create_dom(PrivateApplicationState *s, double dpcm,
+    dom::ref<dom_impl::HTMLDocument> create_dom(PrivateApplicationState *s, double dpcm,
                                                PackedTRGB::CssLevel css_level);
 */
 
@@ -479,13 +479,13 @@ cout << "*";
     template<int side_idx> void render_border(Border const &side,
                                               int s0, int s1, int s2, int s3, int t0, int t1)
     {
-      if (!side.width || side.style == DomImpl::borderStyle_None) return;
+      if (!side.width || side.style == dom_impl::borderStyle_None) return;
 
       Vec4F rgba;
       PackedTRGB::unpack(side.color, rgba);
       glColor4f(rgba[0], rgba[1], rgba[2], rgba[3]);
 
-      if (side.style == DomImpl::borderStyle_Solid) {
+      if (side.style == dom_impl::borderStyle_Solid) {
         glBegin(GL_QUADS);
         if (side_idx == 0 || side_idx == 2) {
           glVertex2i(s0, t0);
@@ -504,7 +504,7 @@ cout << "*";
       }
 
       double len;
-      if (side.style == DomImpl::borderStyle_Dashed) {
+      if (side.style == dom_impl::borderStyle_Dashed) {
         if (!dashed_texture) dashed_texture = dashed_texture_decl.acquire();
         dashed_texture.bind();
         len = 2*3*side.width;
@@ -570,7 +570,7 @@ cout << "*";
       dashed_texture_decl(s->get_dashed_texture_decl()),
       dotted_texture_decl(s->get_dotted_texture_decl()) {}
 
-//    dom::ref<DomImpl::HTMLDocument> dom_doc;
+//    dom::ref<dom_impl::HTMLDocument> dom_doc;
 
     int viewport_height;
     TextureDecl const dashed_texture_decl;
@@ -584,10 +584,10 @@ cout << "*";
 
 
 /*
-  dom::ref<DomImpl::HTMLDocument> ModalHudDialogImpl::create_dom(PrivateApplicationState *s, double dpcm,
+  dom::ref<dom_impl::HTMLDocument> ModalHudDialogImpl::create_dom(PrivateApplicationState *s, double dpcm,
                                                                  PackedTRGB::CssLevel css_level)
   {
-    using namespace DomImpl;
+    using namespace dom_impl;
     dom::ref<HTMLDocument> const doc(new HTMLDocument(s->get_dom_impl(),
                                                       HTMLDocument::mode_HTML_Strict));
     dom::ref<dom::Element> const root = doc->createElement(dom::str_from_cloc(L"HTML"));

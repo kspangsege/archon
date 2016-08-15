@@ -33,7 +33,7 @@
 
 using namespace std;
 using namespace archon::core;
-using namespace archon::DomImpl;
+using namespace archon::dom_impl;
 
 namespace {
 

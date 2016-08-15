@@ -111,7 +111,7 @@ void DOMImplementationRegistry::addSource(const ref<DOMImplementationSource>& s)
 
 DOMImplementationRegistry::DOMImplementationRegistry()
 {
-    addSource(DomImpl::get_default_impl_src());
+    addSource(dom_impl::get_default_impl_src());
 }
 
 } // namespace bootstrap

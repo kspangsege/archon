@@ -122,7 +122,7 @@ HtmlAnchorAttribsRep: CssAttribsRep: (only when 'href' is specified) (questionab
 
 namespace archon
 {
-  namespace DomImpl
+  namespace dom_impl
   {
     template<class T> struct CreatRef
     {
@@ -635,7 +635,7 @@ namespace archon
 
 //       Document(core::SharedPtr<Implementation> const &i): impl(i), num_external_refs(0) {}
 
-//       ~Document() { std::cerr << "DomImpl::~Document()" << std::endl; }
+//       ~Document() { std::cerr << "dom_impl::~Document()" << std::endl; }
 
 //       void external_bind()
 //       {
@@ -681,7 +681,7 @@ namespace archon
 
 //       Implementation(): doc_node_name(FIXME) {}
 
-//       ~Implementation() { std::cerr << "DomImpl::~Implementation()" << std::endl; }
+//       ~Implementation() { std::cerr << "dom_impl::~Implementation()" << std::endl; }
 //     };
 
 
@@ -691,9 +691,9 @@ namespace archon
 // //HMM - How to handle multiple simultaneous bindings? JavaScript + C++ + Java  -  efficiency! hash_map?
 
 
-//   struct Document: virtual dom::Document, DomImpl::ExtDocRef
+//   struct Document: virtual dom::Document, dom_impl::ExtDocRef
 //   {
-//     static core::SharedPtr<Document> get(DomImpl::Doc *rep)
+//     static core::SharedPtr<Document> get(dom_impl::Doc *rep)
 //     {
 //       if (doc->ext_ref) {
 //         return doc->ext_ref->self();
@@ -708,10 +708,10 @@ namespace archon
 //     }
 
 //   private:
-//     Document(DomImpl::Doc *d): rep(d) {}
+//     Document(dom_impl::Doc *d): rep(d) {}
 
 //     core::WeakPtr<Document> self;
-//     DomImpl::Doc *const rep;
+//     dom_impl::Doc *const rep;
 //   };
 
 

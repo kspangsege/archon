@@ -35,7 +35,7 @@
 
 
 namespace archon {
-namespace DomImpl {
+namespace dom_impl {
 namespace HtmlParser {
 
 class Source;
@@ -269,7 +269,7 @@ private:
 
 
 } // namespace HtmlParser
-} // namespace DomImpl
+} // namespace dom_impl
 } // namespace archon
 
 #endif // ARCHON_DOM_IMPL_HTML_PARSER_HPP

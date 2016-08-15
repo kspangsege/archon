@@ -649,7 +649,7 @@ Alternative: Create an AttrManager that will allow a number of Attr's to persist
 
 
 namespace archon {
-namespace DomImpl {
+namespace dom_impl {
 
 class Node;
 class ParentNode;
@@ -2794,7 +2794,7 @@ inline bool DOMImplementation::is_whitespace(const dom::DOMString& s)
 }
 
 
-} // namespace DomImpl
+} // namespace dom_impl
 } // namespace archon
 
 #endif // ARCHON_DOM_IMPL_CORE_HPP

@@ -448,7 +448,7 @@ Traverse DOM:
 
 
 
-  namespace DomImpl
+  namespace dom_impl
   {
     struct NodeImpl;
     struct NodeListImpl;
@@ -1417,7 +1417,7 @@ Traverse DOM:
 
 
 
-    struct Document: ManipContext, DomImpl::DocumentImpl
+    struct Document: ManipContext, dom_impl::DocumentImpl
     {
       double get_dpcm() const { return dpcm; };
 
@@ -3162,7 +3162,7 @@ Traverse DOM:
 
 
     struct Element: dom::css::ElementCSSInlineStyle, dom::css::CSSStyleDeclaration,
-                    DomImpl::ElementImpl
+                    dom_impl::ElementImpl
     {
       dom::css::CSSStyleDeclaration *getStyle() throw ()
       {
@@ -3196,12 +3196,12 @@ Traverse DOM:
 
       Document *get_document() const throw ()
       {
-        return static_cast<Document *>(DomImpl::ElementImpl::get_document());
+        return static_cast<Document *>(dom_impl::ElementImpl::get_document());
       }
 
       ManipContext &get_manip_context() const { return *get_document(); }
 
-      Element(Document *doc): DomImpl::ElementImpl(doc) {}
+      Element(Document *doc): dom_impl::ElementImpl(doc) {}
 
     protected:
       // The 'font' group must always be applied first, such that
@@ -4080,7 +4080,7 @@ cerr << "FONT(style="<<StyleImpl::FontStyleEnum(font.style)<<", weight="<<StyleI
         typedef Children::const_iterator iter;
         iter const end = children_end();
         for (iter i=children_begin(); i!=end; ++i) {
-          if (DomImpl::TextImpl const *t = dynamic_cast<DomImpl::TextImpl const *>(&*i)) {
+          if (dom_impl::TextImpl const *t = dynamic_cast<dom_impl::TextImpl const *>(&*i)) {
             context.formatter.write(get_document()->decode_lenient(t->data));
             context.have_text = true;
           }
@@ -4171,7 +4171,7 @@ cerr << "FONT(style="<<StyleImpl::FontStyleEnum(font.style)<<", weight="<<StyleI
       {
         BlockElement::on_parent_changed();
         DocumentBase *const doc = get_document();
-        DomImpl::NodeImpl *const parent = get_parent();
+        dom_impl::NodeImpl *const parent = get_parent();
         if (parent && parent->get_parent() == doc) doc->on_body_elem_changed();
       }
 
@@ -4228,8 +4228,8 @@ cerr << "FONT(style="<<StyleImpl::FontStyleEnum(font.style)<<", weight="<<StyleI
 
       void setBody(dom::html::HTMLElement *new_body) throw ()
       {
-        DomImpl::NodeImpl *new_body2;
-        DomImpl::ElementImpl *root = get_root_elem();
+        dom_impl::NodeImpl *new_body2;
+        dom_impl::ElementImpl *root = get_root_elem();
         if (root) new_body2 = root->validate_new_child(new_body);
         else {
           root = add_root_elem(new Element_HTML(this));
@@ -4402,7 +4402,7 @@ cerr << "FONT(style="<<StyleImpl::FontStyleEnum(font.style)<<", weight="<<StyleI
       Document(locale const &loc, double dpcm, PackedTRGB::CssLevel css_level):
         DocumentBase(StaticInfo::get(), loc, dpcm, css_level), body_elem(0), dirty_body_elem(false)
       {
-        DomImpl::ElementImpl *const root = add_root_elem(new Element_HTML(this));
+        dom_impl::ElementImpl *const root = add_root_elem(new Element_HTML(this));
         root->append_child(new Element_BODY(this));
       }
 
@@ -4410,8 +4410,8 @@ cerr << "FONT(style="<<StyleImpl::FontStyleEnum(font.style)<<", weight="<<StyleI
       void find_body_elem()
       {
         Element_BODY *body;
-        if (DomImpl::ElementImpl *const root = get_root_elem()) {
-          typedef DomImpl::ElementImpl::child_iterator iter;
+        if (dom_impl::ElementImpl *const root = get_root_elem()) {
+          typedef dom_impl::ElementImpl::child_iterator iter;
           iter const end = root->children_end();
           for (iter i=root->children_begin(); i!=end; ++i) {
             if (Element_BODY *b = dynamic_cast<Element_BODY *>(&*i)) {

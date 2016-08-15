@@ -37,7 +37,7 @@ using namespace archon::core;
 namespace
 {
   namespace dom = archon::dom;
-  using namespace archon::DomImpl;
+  using namespace archon::dom_impl;
 
 
 
@@ -212,7 +212,7 @@ namespace
 
 namespace archon
 {
-  namespace DomImpl
+  namespace dom_impl
   {
     void StaticStyleInfo::add_props()
     {

@@ -36,7 +36,7 @@ namespace archon {
 namespace render {
 
 // FIXME: Overlaps with ModalHudDialogImpl in app.cpp
-class DomRenderer: public DomImpl::Renderer {
+class DomRenderer: public dom_impl::Renderer {
 public:
     DomRenderer(TextureCache& cache, const std::string& resource_dir);
 

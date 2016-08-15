@@ -32,7 +32,7 @@
 
 namespace archon
 {
-  namespace DomImpl
+  namespace dom_impl
   {
     dom::ref<dom::DOMImplementationSource> get_default_impl_src();
   }

@@ -35,7 +35,7 @@
 
 namespace archon
 {
-  namespace DomImpl
+  namespace dom_impl
   {
     /**
      * Perform full Unicode case folding (without the special 'T'

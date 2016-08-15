@@ -47,7 +47,7 @@
 
 
 using namespace archon::core;
-using namespace archon::DomImpl;
+using namespace archon::dom_impl;
 using namespace archon::display;
 using namespace archon::render;
 
@@ -245,8 +245,8 @@ private:
         if (level) {
             bool elem_cont_whitespace = level->is_element_content &&
                 DOMImplementation::is_whitespace(text_accum);
-            level->elem->append_child_for_parser(new archon::DomImpl::Text(doc.get(), text_accum,
-                                                                           elem_cont_whitespace));
+            level->elem->append_child_for_parser(new archon::dom_impl::Text(doc.get(), text_accum,
+                                                                            elem_cont_whitespace));
         }
         text_accum.clear();
     }

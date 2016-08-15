@@ -112,7 +112,7 @@ Error: Unknown encoding or bad start of XML file.
 namespace
 {
   namespace dom = archon::dom;
-  using namespace archon::DomImpl;
+  using namespace archon::dom_impl;
 
 
 
@@ -574,8 +574,8 @@ namespace
       ARCHON_ASSERT_1(doc, "Text before root element");
       bool const elem_cont_whitespace = level->is_element_content &&
         DOMImplementation::is_whitespace(text_accum);
-      level->elem->append_child_for_parser(new archon::DomImpl::Text(doc.get(), text_accum,
-                                                                     elem_cont_whitespace));
+      level->elem->append_child_for_parser(new archon::dom_impl::Text(doc.get(), text_accum,
+                                                                      elem_cont_whitespace));
       text_accum.clear();
     }
 
@@ -779,7 +779,7 @@ namespace
 
 namespace archon
 {
-  namespace DomImpl
+  namespace dom_impl
   {
 #ifdef ARCHON_HAVE_LIBEXPAT
     dom::ref<dom::ls::LSParser>

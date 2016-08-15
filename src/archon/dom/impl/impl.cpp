@@ -163,8 +163,8 @@ ref<Source> new_source()
 {
     Impls impls;
 
-    impls.push_back(Impl(new archon::DomImpl::DOMImplementationLS));
-    impls.push_back(Impl(new archon::DomImpl::HTMLImplementation));
+    impls.push_back(Impl(new archon::dom_impl::DOMImplementationLS));
+    impls.push_back(Impl(new archon::dom_impl::HTMLImplementation));
 
     return ref<Source>(new Source(impls));
 }
@@ -174,7 +174,7 @@ ref<Source> new_source()
 
 
 namespace archon {
-namespace DomImpl {
+namespace dom_impl {
 
 dom::ref<dom::DOMImplementationSource> get_default_impl_src()
 {
@@ -182,5 +182,5 @@ dom::ref<dom::DOMImplementationSource> get_default_impl_src()
     return source;
 }
 
-} // namespace DomImpl
+} // namespace dom_impl
 } // namespace archon
