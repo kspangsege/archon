@@ -40,7 +40,7 @@ using namespace archon::core;
 using namespace archon::math;
 using namespace archon::util;
 using namespace archon::Imaging;
-using namespace archon::Font;
+using namespace archon::font;
 using namespace archon::Render;
 
 
@@ -166,7 +166,7 @@ private:
 
 
 
-FontProvider::FontProvider(Font::FontCache::Arg f, TextureCache& t,
+FontProvider::FontProvider(font::FontCache::Arg f, TextureCache& t,
                            const math::Vec2F& r, bool m, bool s):
     font_cache(f),
     texture_cache(t),

@@ -381,7 +381,7 @@ protected:
                 const std::locale& loc = std::locale::classic(),
                 Display::Connection::Arg conn = Display::Connection::Ptr(),
                 TextureCache* texture_cache = nullptr,
-                Font::FontCache::Arg font_cache = Font::FontCache::Ptr());
+                font::FontCache::Arg font_cache = font::FontCache::Ptr());
 
 private:
     class InterruptException: public std::exception

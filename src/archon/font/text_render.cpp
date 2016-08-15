@@ -34,12 +34,12 @@ using namespace archon::core;
 using namespace archon::math;
 using namespace archon::util;
 using namespace archon::Imaging;
-using namespace archon::Font;
+using namespace archon::font;
 
 
 namespace archon
 {
-  namespace Font
+  namespace font
   {
     struct TextRenderer::TextProcessor: TextHandler
     {

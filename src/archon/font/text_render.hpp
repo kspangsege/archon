@@ -37,7 +37,7 @@
 
 
 namespace archon {
-namespace Font {
+namespace font {
 
 /**
  * Not thread-safe.
@@ -240,7 +240,7 @@ inline void TextRenderer::enable_grid_fitting(bool enabled)
     set_next_session_grid_fitting(enabled);
 }
 
-} // namespace Font
+} // namespace font
 } // namespace archon
 
 #endif // ARCHON_FONT_TEXT_RENDER_HPP

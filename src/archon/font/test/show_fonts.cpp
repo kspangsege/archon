@@ -35,7 +35,7 @@
 using namespace std;
 using namespace archon::core;
 using namespace archon::Imaging;
-using namespace archon::Font;
+using namespace archon::font;
 
 
 int main(int argc, char const *argv[]) throw()

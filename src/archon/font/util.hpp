@@ -38,7 +38,7 @@
 
 namespace archon
 {
-  namespace Font
+  namespace font
   {
     /**
      * Print out a descriptive table with an entry for each font

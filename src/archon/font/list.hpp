@@ -35,7 +35,7 @@
 
 namespace archon
 {
-  namespace Font
+  namespace font
   {
     /**
      * This class manages a list of font faces, and allows you to

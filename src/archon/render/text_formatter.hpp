@@ -59,7 +59,7 @@ class TextLayout;
 
 
 
-class TextFormatter: public Font::TextFormatter {
+class TextFormatter: public font::TextFormatter {
 public:
     /// Ownership of the font provider remains with the caller.
     TextFormatter(FontProvider*);
@@ -131,7 +131,7 @@ public:
     void format(TextLayout& target, int page_index = 0);
 
 
-    // Overriding Font::TextFormatter::clear()
+    // Overriding font::TextFormatter::clear()
     void clear();
 
     ~TextFormatter();
@@ -143,11 +143,11 @@ private:
     int acquire_style();
 
     void get_style_info(int style_id, bool vertical, bool grid_fitting,
-                        Font::FontCache::FontMetrics& metrics);
+                        font::FontCache::FontMetrics& metrics);
 
     void get_glyph_info(int style_id, bool vertical, bool grid_fitting,
-                        Font::FontCache::KernType kern, int num_chars,
-                        const wchar_t* chars, Font::FontCache::GlyphInfo* glyphs);
+                        font::FontCache::KernType kern, int num_chars,
+                        const wchar_t* chars, font::FontCache::GlyphInfo* glyphs);
 
     void release_used_styles() throw();
 

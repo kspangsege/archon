@@ -83,11 +83,11 @@ this is not the case.
 using namespace std;
 using namespace archon::core;
 using namespace archon::math;
-using namespace archon::Font;
+using namespace archon::font;
 
 
 namespace archon {
-namespace Font {
+namespace font {
 
 math::Vec2 TextFormatter::get_page_size(int page_index)
 {
@@ -765,5 +765,5 @@ archon::core::EnumAssoc TextFormatter::WordWrapSpec::map[] =
 };
 
 
-} // namespace Font
+} // namespace font
 } // namespace archon

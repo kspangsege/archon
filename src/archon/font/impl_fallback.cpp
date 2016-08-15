@@ -40,7 +40,7 @@ using namespace std;
 using namespace archon::core;
 using namespace archon::math;
 using namespace archon::Imaging;
-using namespace archon::Font;
+using namespace archon::font;
 
 
 namespace
@@ -361,7 +361,7 @@ namespace
 
 namespace archon
 {
-  namespace Font
+  namespace font
   {
     FontLoader::Ptr new_loader(string resource_dir)
     {

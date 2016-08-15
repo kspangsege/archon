@@ -38,7 +38,7 @@
 
 namespace archon
 {
-  namespace Font
+  namespace font
   {
     /**
      * Thrown if a font file could not be successfully processed.
@@ -51,7 +51,7 @@ namespace archon
      * font files.
      *
      * New loader instances are aquired by calling
-     * <tt>Font::new_font_loader</tt>.
+     * <tt>font::new_font_loader</tt>.
      *
      * Multiple threads can safly use the font loader as long as each
      * thread uses a separate loader instance. Indeed, if two threads

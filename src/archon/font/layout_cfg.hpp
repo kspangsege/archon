@@ -33,7 +33,7 @@
 
 namespace archon
 {
-  namespace Font
+  namespace font
   {
     struct LayoutConfig
     {

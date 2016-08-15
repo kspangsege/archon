@@ -37,7 +37,7 @@ using namespace std;
 using namespace archon::core;
 using namespace archon::math;
 using namespace archon::Imaging;
-using namespace archon::Font;
+using namespace archon::font;
 
 
 namespace
@@ -53,7 +53,7 @@ namespace
 
     ~CacheImpl()
     {
-      ARCHON_ASSERT_1(num_sizes == 0, "Font::~CacheImpl: Found unreleased fonts");
+      ARCHON_ASSERT_1(num_sizes == 0, "font::~CacheImpl: Found unreleased fonts");
     }
 
 
@@ -357,7 +357,7 @@ namespace
 
 namespace archon
 {
-  namespace Font
+  namespace font
   {
     FontCache::Ptr new_font_cache(FontList::Arg l)
     {

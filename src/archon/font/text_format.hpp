@@ -37,7 +37,7 @@
 
 
 namespace archon {
-namespace Font {
+namespace font {
 
 /// A powerfull, flexible, and efficient text formatter.
 ///
@@ -560,7 +560,7 @@ inline void TextFormatter::close_page()
     current_page = 0;
 }
 
-} // namespace Font
+} // namespace font
 } // namespace archon
 
 #endif // ARCHON_FONT_TEXT_FORMAT_HPP

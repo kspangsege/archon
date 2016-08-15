@@ -36,7 +36,7 @@ using namespace archon::core;
 
 namespace archon
 {
-  namespace Font
+  namespace font
   {
     void print_font_list(FontList::ConstArg l, ostream &out, bool enable_ansi_term_attr)
     {

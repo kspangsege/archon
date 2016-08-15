@@ -29,7 +29,7 @@
 using namespace std;
 using namespace archon::core;
 using namespace archon::math;
-using namespace archon::Font;
+using namespace archon::font;
 
 
 /*
@@ -67,8 +67,8 @@ For each glyph to be rendered by the TextProcessor:
 
 ========= New attempt ==========
 
-Make a new cache class in this namespace. Use it in this class almost the same way Font::TextRender uses Font::FontCache
-The new cache class shall be responsible for generating and managing textures containing glyphs. It will require a reference to a Font::FontCache.
+Make a new cache class in this namespace. Use it in this class almost the same way font::TextRender uses font::FontCache
+The new cache class shall be responsible for generating and managing textures containing glyphs. It will require a reference to a font::FontCache.
 The new cache renderes a strip of glyphs into an abstract placeholder which will be implemented by the renderer.
 
 Problem: how to represent the text layout in the placeholder such that a minimum number of texture switches are needed. Ideally we could achieve this while at the same time keep the intended glyph rendering order. Maybe this is impossible by definition.
@@ -212,12 +212,12 @@ void TextFormatter::clear()
     clear_vector(used_styles, 8, 32);
     if (style_id)
         used_styles.push_back(style_id);
-    archon::Font::TextFormatter::clear();
+    archon::font::TextFormatter::clear();
 }
 
 
 
-// Overriding archon::Font::TextFormatter::acquire_style
+// Overriding archon::font::TextFormatter::acquire_style
 int TextFormatter::acquire_style()
 {
     if (!style_id) {

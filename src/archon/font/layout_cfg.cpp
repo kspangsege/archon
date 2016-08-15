@@ -32,7 +32,7 @@ using namespace archon::core;
 
 namespace archon
 {
-  namespace Font
+  namespace font
   {
     void LayoutConfig::populate(ConfigBuilder &cfg)
     {

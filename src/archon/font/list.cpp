@@ -38,7 +38,7 @@
 using namespace std;
 using namespace archon::core;
 using namespace archon::math;
-using namespace archon::Font;
+using namespace archon::font;
 
 
 namespace
@@ -476,7 +476,7 @@ namespace
 
 namespace archon
 {
-  namespace Font
+  namespace font
   {
     void FontList::scan_dirs(string dir_paths, bool recursive)
     {

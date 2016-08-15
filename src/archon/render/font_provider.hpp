@@ -56,7 +56,7 @@ namespace Render {
  */
 class FontProvider {
 public:
-    FontProvider(Font::FontCache::Arg, TextureCache&,
+    FontProvider(font::FontCache::Arg, TextureCache&,
                  const math::Vec2F& desired_glyph_resol = math::Vec2F(64,64),
                  bool enable_mipmap = true, bool save_textures_to_disk = false);
 
@@ -142,10 +142,10 @@ public:
     };
 
 
-    void get_style_metrics(int style_id, bool vertical, Font::FontCache::FontMetrics& metrics);
+    void get_style_metrics(int style_id, bool vertical, font::FontCache::FontMetrics& metrics);
 
-    void get_glyph_info(int style_id, bool vertical, Font::FontCache::KernType kern,
-                        int num_chars, const wchar_t* chars, Font::FontCache::GlyphInfo* glyphs);
+    void get_glyph_info(int style_id, bool vertical, font::FontCache::KernType kern,
+                        int num_chars, const wchar_t* chars, font::FontCache::GlyphInfo* glyphs);
 
 
     ~FontProvider() throw ();
@@ -159,7 +159,7 @@ private:
     friend class TextContainer;
 
     struct Style {
-        int font_id; // As known to Font::FontCache
+        int font_id; // As known to font::FontCache
         math::Vec2F font_size;
         math::Vec4F text_color;
         Style()
@@ -190,7 +190,7 @@ private:
     class Page;
     class FontEntry;
 
-    int acquire_style(Font::FontCache::FontOwner& font, const math::Vec2F& font_size,
+    int acquire_style(font::FontCache::FontOwner& font, const math::Vec2F& font_size,
                       const math::Vec4F& text_color);
     void release_style_fast(int style_id);
     void provide(int style_id, int num_glyphs, const int* glyphs, const float* components,
@@ -202,7 +202,7 @@ private:
     void render(const TextContainer& text) const;
     void release(TextContainer& text);
 
-    const Font::FontCache::Ptr font_cache;
+    const font::FontCache::Ptr font_cache;
     TextureCache& texture_cache;
     const math::Vec2F desired_glyph_resol; // Ask cache for this rendering size
     const math::Vec2 size_of_pixel; // Inverse of desired glyph resolution
@@ -253,7 +253,7 @@ public:
 private:
     friend class FontProvider;
     FontProvider* provider = nullptr;
-    Font::FontCache::Direction layout_direction;
+    font::FontCache::Direction layout_direction;
 
     typedef std::pair<int, int> PageRef; // Page of glyps (cache_font_id, page_index)
     typedef std::vector<PageRef> PageRefs;
@@ -307,7 +307,7 @@ public:
      * \note You must make sure that two inserters never exist for the same
      * container at the same time.
      */
-    TextInserter(FontProvider*, TextContainer*, Font::FontCache::Direction);
+    TextInserter(FontProvider*, TextContainer*, font::FontCache::Direction);
 
     /**
      * \param font_id The ID of the style that the glyph indices refer to. The
@@ -388,9 +388,9 @@ class FontProvider::Texture {
 public:
     const FontEntry* const font;
     struct Glyph {
-        int index; // Index of glyph in font as known to Font::FontCache.
+        int index; // Index of glyph in font as known to font::FontCache.
         int img_x, img_y; // Position of glyph in texture image.
-        Font::FontCache::GlyphBoxInfo quad_info; // Size and position of GL quad. All distances specified relative to EM-square.
+        font::FontCache::GlyphBoxInfo quad_info; // Size and position of GL quad. All distances specified relative to EM-square.
         math::Vec2F tex_lower_left, tex_upper_right; // Position in relative coordinates of glyph in texture
     };
     std::vector<Glyph> glyphs;
@@ -419,7 +419,7 @@ public:
 
 class FontProvider::FontEntry {
 public:
-    const int id; // ID as known to Font::FontCache
+    const int id; // ID as known to font::FontCache
     std::string name;
     int num_glyphs = 0;
     bool grid_fitting;
@@ -463,10 +463,10 @@ inline void FontProvider::TextContainer::clear()
 
 
 inline FontProvider::TextInserter::TextInserter(FontProvider* p, TextContainer* t,
-                                                Font::FontCache::Direction d):
+                                                font::FontCache::Direction d):
     font_provider(p),
     text(t),
-    vertical(d == Font::FontCache::dir_BottomToTop || d == Font::FontCache::dir_TopToBottom),
+    vertical(d == font::FontCache::dir_BottomToTop || d == font::FontCache::dir_TopToBottom),
     texture_lookup(&textures)
 {
     t->clear();
