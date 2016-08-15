@@ -39,7 +39,10 @@ namespace archon
 {
   namespace core
   {
-    namespace _Impl { struct SharedPtrPrimaryCount; struct SharedPtrSecondaryCount; }
+    namespace _Impl {
+    struct SharedPtrPrimaryCount;
+    struct SharedPtrSecondaryCount;
+    }
 
     template<class T> struct WeakPtr;
     struct BadWeakPtr;

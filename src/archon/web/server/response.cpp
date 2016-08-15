@@ -18,81 +18,77 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #include <archon/web/server/response.hpp>
-
 
 using namespace archon::core;
 
 
-namespace archon
-{
-  namespace web
-  {
-    namespace Server
-    {
-      namespace _Impl
-      {
-        EnumAssoc StatusSpec::map[] =
-        {
-          // Informational
-          { status_100_Continue,                        "Continue"                        },
-          { status_101_Switching_Protocols,             "Switching Protocols"             },
+namespace archon {
+namespace web {
+namespace Server {
 
-          // Successful
-          { status_200_OK,                              "OK"                              },
-          { status_201_Created,                         "Created"                         },
-          { status_202_Accepted,                        "Accepted"                        },
-          { status_203_Non_Authoritative_Information,   "Non-Authoritative Information"   },
-          { status_204_No_Content,                      "No Content"                      },
-          { status_205_Reset_Content,                   "Reset Content"                   },
-          { status_206_Partial_Content,                 "Partial Content"                 },
+namespace _Impl {
 
-          // Redirection
-          { status_300_Multiple_Choices,                "Multiple Choices"                },
-          { status_301_Moved_Permanently,               "Moved Permanently"               },
-          { status_302_Found,                           "Found"                           },
-          { status_303_See_Other,                       "See Other"                       },
-          { status_304_Not_Modified,                    "Not Modified"                    },
-          { status_305_Use_Proxy,                       "Use Proxy"                       },
-          { status_307_Temporary_Redirect,              "Temporary Redirect"              },
+EnumAssoc StatusSpec::map[] = {
+    // Informational
+    { status_100_Continue,                        "Continue"                        },
+    { status_101_Switching_Protocols,             "Switching Protocols"             },
 
-          // Client error
-          { status_400_Bad_Request,                     "Bad Request"                     },
-          { status_401_Unauthorized,                    "Unauthorized"                    },
-          { status_402_Payment_Required,                "Payment Required"                },
-          { status_403_Forbidden,                       "Forbidden"                       },
-          { status_404_Not_Found,                       "Not Found"                       },
-          { status_405_Method_Not_Allowed,              "Method Not Allowed"              },
-          { status_406_Not_Acceptable,                  "Not Acceptable"                  },
-          { status_407_Proxy_Authentication_Required,   "Proxy Authentication Required"   },
-          { status_408_Request_Timeout,                 "Request Timeout"                 },
-          { status_409_Conflict,                        "Conflict"                        },
-          { status_410_Gone,                            "Gone"                            },
-          { status_411_Length_Required,                 "Length Required"                 },
-          { status_412_Precondition_Failed,             "Precondition Failed"             },
-          { status_413_Request_Entity_Too_Large,        "Request Entity Too Large"        },
-          { status_414_Request_URI_Too_Long,            "Request-URI Too Long"            },
-          { status_415_Unsupported_Media_Type,          "Unsupported Media Type"          },
-          { status_416_Requested_Range_Not_Satisfiable, "Requested Range Not Satisfiable" },
-          { status_417_Expectation_Failed,              "Expectation Failed"              },
+    // Successful
+    { status_200_OK,                              "OK"                              },
+    { status_201_Created,                         "Created"                         },
+    { status_202_Accepted,                        "Accepted"                        },
+    { status_203_Non_Authoritative_Information,   "Non-Authoritative Information"   },
+    { status_204_No_Content,                      "No Content"                      },
+    { status_205_Reset_Content,                   "Reset Content"                   },
+    { status_206_Partial_Content,                 "Partial Content"                 },
 
-          // Server error
-          { status_500_Internal_Server_Error,           "Internal Server Error"           },
-          { status_501_Not_Implemented,                 "Not Implemented"                 },
-          { status_502_Bad_Gateway,                     "Bad Gateway"                     },
-          { status_503_Service_Unavailable,             "Service Unavailable"             },
-          { status_504_Gateway_Timeout,                 "Gateway Timeout"                 },
-          { status_505_HTTP_VersionNot_Supported,       "HTTP Version Not Supported"      },
+    // Redirection
+    { status_300_Multiple_Choices,                "Multiple Choices"                },
+    { status_301_Moved_Permanently,               "Moved Permanently"               },
+    { status_302_Found,                           "Found"                           },
+    { status_303_See_Other,                       "See Other"                       },
+    { status_304_Not_Modified,                    "Not Modified"                    },
+    { status_305_Use_Proxy,                       "Use Proxy"                       },
+    { status_307_Temporary_Redirect,              "Temporary Redirect"              },
 
-          { 0, 0 }
-        };
-      }
-    }
-  }
-}
+    // Client error
+    { status_400_Bad_Request,                     "Bad Request"                     },
+    { status_401_Unauthorized,                    "Unauthorized"                    },
+    { status_402_Payment_Required,                "Payment Required"                },
+    { status_403_Forbidden,                       "Forbidden"                       },
+    { status_404_Not_Found,                       "Not Found"                       },
+    { status_405_Method_Not_Allowed,              "Method Not Allowed"              },
+    { status_406_Not_Acceptable,                  "Not Acceptable"                  },
+    { status_407_Proxy_Authentication_Required,   "Proxy Authentication Required"   },
+    { status_408_Request_Timeout,                 "Request Timeout"                 },
+    { status_409_Conflict,                        "Conflict"                        },
+    { status_410_Gone,                            "Gone"                            },
+    { status_411_Length_Required,                 "Length Required"                 },
+    { status_412_Precondition_Failed,             "Precondition Failed"             },
+    { status_413_Request_Entity_Too_Large,        "Request Entity Too Large"        },
+    { status_414_Request_URI_Too_Long,            "Request-URI Too Long"            },
+    { status_415_Unsupported_Media_Type,          "Unsupported Media Type"          },
+    { status_416_Requested_Range_Not_Satisfiable, "Requested Range Not Satisfiable" },
+    { status_417_Expectation_Failed,              "Expectation Failed"              },
+
+    // Server error
+    { status_500_Internal_Server_Error,           "Internal Server Error"           },
+    { status_501_Not_Implemented,                 "Not Implemented"                 },
+    { status_502_Bad_Gateway,                     "Bad Gateway"                     },
+    { status_503_Service_Unavailable,             "Service Unavailable"             },
+    { status_504_Gateway_Timeout,                 "Gateway Timeout"                 },
+    { status_505_HTTP_VersionNot_Supported,       "HTTP Version Not Supported"      },
+
+    { 0, 0 }
+};
+
+} // namespace _Impl
+
+} // namespace Server
+} // namespace web
+} // namespace archon

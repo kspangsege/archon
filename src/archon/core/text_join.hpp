@@ -18,11 +18,9 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #ifndef ARCHON_CORE_TEXT_JOIN_HPP
 #define ARCHON_CORE_TEXT_JOIN_HPP
@@ -32,80 +30,86 @@
 #include <sstream>
 
 
-namespace archon
+namespace archon {
+namespace core {
+
+namespace _Impl {
+
+template<class, class> class TextJoin;
+
+} // namespace _Impl
+
+
+/// Produce a character string by joining the elements of the specified sequence
+/// using the specified delimiter.
+///
+/// Examples of use:
+///
+/// <pre>
+///
+///   void func(const std::vector<int>& vec)
+///   {
+///       std::cout  << text_join(v.begin(), v.end(),  ",") << std::endl;
+///       std::wcout << text_join(v.begin(), v.end(), L",") << std::endl;
+///       std::string s = text_join(v.begin(), v.end(), ",");
+///   }
+///
+/// </pre>
+///
+/// Note that for the sake of efficiency no intermediate result is constructed
+/// from the joining when writing to a stream. The individual elements are
+/// written directly to the target stream.
+template<class FwdIn, class Delim>
+_Impl::TextJoin<FwdIn, Delim> text_join(FwdIn begin, FwdIn end, const Delim& delim);
+
+
+
+
+// Implementation
+
+namespace _Impl {
+
+template<class FwdIn, class Delim> class TextJoin {
+public:
+    TextJoin(FwdIn b, FwdIn e, const Delim& d):
+        begin(b),
+        end(e),
+        delim(d)
+    {
+    }
+    const FwdIn begin, end;
+    const Delim& delim;
+    template<class Ch> operator std::basic_string<Ch>() const
+    {
+        std::basic_stringstream<Ch> out;
+        out << *this;
+        return out.str();
+    }
+};
+
+template<class Ch, class Tr, class FwdIn, class Delim>
+inline std::basic_ostream<Ch, Tr>& operator<<(std::basic_ostream<Ch, Tr>& out,
+                                              const TextJoin<FwdIn, Delim>& join)
 {
-  namespace core
-  {
-    namespace _Impl { template<class, class> struct TextJoin; }
-
-
-    /**
-     * Produce a character string by joining the elements of the
-     * specified sequence using the specified delimiter.
-     *
-     * Examples of use:
-     *
-     * <pre>
-     *
-     *   void func(std::vector<int> const &vec)
-     *   {
-     *     cout  << text_join(v.begin(), v.end(),  ",") << endl;
-     *     wcout << text_join(v.begin(), v.end(), L",") << endl;
-     *     string s = text_join(v.begin(), v.end(), ",");
-     *   }
-     *
-     * </pre>
-     *
-     * Note that for the sake of efficiency no intermediate result is
-     * constructed from the joining when writing to a stream. The
-     * individual elements are written directly to the target stream.
-     */
-    template<class FwdIn, class Delim>
-    _Impl::TextJoin<FwdIn, Delim> text_join(FwdIn begin, FwdIn end, Delim const &delim);
-
-
-
-
-
-
-
-    // Implementation:
-
-    namespace _Impl
-    {
-      template<class FwdIn, class Delim> struct TextJoin
-      {
-        TextJoin(FwdIn b, FwdIn e, Delim const &d): begin(b), end(e), delim(d) {}
-        FwdIn const begin, end;
-        Delim const &delim;
-        template<class Ch> operator std::basic_string<Ch>() const
-        {
-          std::basic_stringstream<Ch> out;
-          out << *this;
-          return out.str();
-        }
-      };
-
-      template<class Ch, class Tr, class FwdIn, class Delim>
-      inline std::basic_ostream<Ch, Tr> &operator<<(std::basic_ostream<Ch, Tr> &out,
-                                                    TextJoin<FwdIn, Delim> const &join)
-      {
-        if(join.begin != join.end)
-        {
-          out << *join.begin;
-          FwdIn i = join.begin;
-          while(++i != join.end) out << join.delim << *i;
-        }
-        return out;
-      }
+    if (join.begin != join.end) {
+        out << *join.begin;
+        FwdIn i = join.begin;
+        while (++i != join.end)
+            out << join.delim << *i;
     }
-
-    template<class FwdIn, class Delim>
-    inline _Impl::TextJoin<FwdIn, Delim> text_join(FwdIn begin, FwdIn end, Delim const &delim)
-    {
-      return _Impl::TextJoin<FwdIn, Delim>(begin, end, delim);
-    }
-  }
+    return out;
 }
+
+} // namespace _Impl
+
+
+template<class FwdIn, class Delim>
+inline _Impl::TextJoin<FwdIn, Delim> text_join(FwdIn begin, FwdIn end, const Delim& delim)
+{
+    return _Impl::TextJoin<FwdIn, Delim>(begin, end, delim);
+}
+
+} // namespace core
+} // namespace archon
 
 #endif // ARCHON_CORE_TEXT_JOIN_HPP

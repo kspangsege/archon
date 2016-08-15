@@ -18,11 +18,9 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #ifndef ARCHON_CORE_UTF16_HPP
 #define ARCHON_CORE_UTF16_HPP
@@ -42,20 +40,31 @@
 namespace archon {
 namespace core {
 
-namespace _Impl { typedef UIntMin16 CharUtf16_int; }
+namespace _Impl {
+
+using CharUtf16_int = UIntMin16;
+
+} // namespace _Impl
 
 
 /// Replacement for \c char16_t in C++0x.
-struct CharUtf16 {
+class CharUtf16 {
+public:
     _Impl::CharUtf16_int val;
 
-    bool operator==(const CharUtf16& c) const { return val == c.val; }
-    bool operator!=(const CharUtf16& c) const { return val != c.val; }
+    bool operator==(const CharUtf16& c) const
+    {
+        return val == c.val;
+    }
+    bool operator!=(const CharUtf16& c) const
+    {
+        return val != c.val;
+    }
 };
 
 
 /// Replacement for std::u16string in C++0x.
-typedef std::basic_string<CharUtf16> StringUtf16;
+using StringUtf16 = std::basic_string<CharUtf16>;
 
 
 /// Construct a UTF-16 string from a null terminated multi-byte
@@ -152,31 +161,36 @@ inline std::wostream& operator<<(std::wostream&, CharUtf16);
 inline std::ostream&  operator<<(std::ostream&,  const StringUtf16&);
 inline std::wostream& operator<<(std::wostream&, const StringUtf16&);
 
-
 } // namespace core
 } // namespace archon
 
 
 
 
-
-
-
-
-// Implementation:
+// Implementation
 
 namespace std {
 
-template<> struct char_traits<archon::core::CharUtf16> {
-    typedef archon::core::CharUtf16 char_type;
-    typedef unsigned                int_type;
-    typedef std::streampos          pos_type;
-    typedef std::streamoff          off_type;
-    typedef std::mbstate_t          state_type;
+template<> class char_traits<archon::core::CharUtf16> {
+public:
+    using char_type  = archon::core::CharUtf16;
+    using int_type   = unsigned;
+    using pos_type   = std::streampos;
+    using off_type   = std::streamoff;
+    using state_type = std::mbstate_t;
 
-    static void assign(char_type& c1, const char_type& c2) { c1 = c2; }
-    static bool eq(const char_type& c1, const char_type& c2) { return c1.val == c2.val; }
-    static bool lt(const char_type& c1, const char_type& c2) { return c1.val <  c2.val; }
+    static void assign(char_type& c1, const char_type& c2)
+    {
+        c1 = c2;
+    }
+    static bool eq(const char_type& c1, const char_type& c2)
+    {
+        return c1.val == c2.val;
+    }
+    static bool lt(const char_type& c1, const char_type& c2)
+    {
+        return c1.val <  c2.val;
+    }
     static int compare(const char_type* s1, const char_type* s2, std::size_t n);
     static std::size_t length(const char_type* s);
     static const char_type* find(const char_type* s, std::size_t n, const char_type& a);
@@ -184,10 +198,22 @@ template<> struct char_traits<archon::core::CharUtf16> {
     static char_type *copy(char_type* s1, const char_type* s2, std::size_t n);
     static char_type *assign(char_type* s, std::size_t n, char_type a);
     static char_type to_char_type(const int_type& i);
-    static int_type to_int_type(const char_type& c) { return c.val; }
-    static bool eq_int_type(const int_type& i1, const int_type& i2) { return i1 == i2; }
-    static int_type eof() { return std::numeric_limits<int_type>::max(); }
-    static int_type not_eof(const int_type& i) { return i == eof() ? 0 : i; }
+    static int_type to_int_type(const char_type& c)
+    {
+        return c.val;
+    }
+    static bool eq_int_type(const int_type& i1, const int_type& i2)
+    {
+        return i1 == i2;
+    }
+    static int_type eof()
+    {
+        return std::numeric_limits<int_type>::max();
+    }
+    static int_type not_eof(const int_type& i)
+    {
+        return i == eof() ? 0 : i;
+    }
 };
 
 } // namespace std
