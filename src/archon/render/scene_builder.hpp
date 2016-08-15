@@ -61,7 +61,7 @@ protected:
     void do_rotate(math::Rotation3) override;
 
     int do_make_texture(std::string, bool, bool) override;
-    int do_make_texture(Imaging::Image::ConstRefArg, std::string, bool, bool) override;
+    int do_make_texture(image::Image::ConstRefArg, std::string, bool, bool) override;
 
     void do_bind_texture(int) override;
 

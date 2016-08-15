@@ -11,7 +11,7 @@
 
 namespace archon
 {
-  namespace Imaging
+  namespace image
   {
     struct BufferFormat: virtual core::CntRefObjectBase, core::CntRefDefs<BufferFormat>
     {

@@ -30,11 +30,11 @@
 
 using namespace std;
 using namespace archon::util;
-using namespace archon::Imaging;
+using namespace archon::image;
 
 namespace archon
 {
-  namespace Imaging
+  namespace image
   {
     void Image::fill(PackedTRGB color)
     {

@@ -26,7 +26,7 @@
 
 namespace archon
 {
-  namespace Imaging
+  namespace image
   {
 /*
 

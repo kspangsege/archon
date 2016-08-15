@@ -31,7 +31,7 @@
 
 using namespace std;
 using namespace archon::core;
-using namespace archon::Imaging;
+using namespace archon::image;
 using namespace archon::Render;
 
 namespace {

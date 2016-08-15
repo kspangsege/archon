@@ -63,7 +63,7 @@ namespace archon
      * \param no_interp Turn off linear interpolation between texture
      * pixels. In this case the nearest pixel is used.
      */
-    void load_texture(Imaging::Image::ConstRefArg, bool with_border = false,
+    void load_texture(image::Image::ConstRefArg, bool with_border = false,
                       bool no_interp = false);
 
 
@@ -72,7 +72,7 @@ namespace archon
      * them into the currently bound OpenGL texture object, and
      * configure it for mipmap operation.
      */
-    void load_mipmap(Imaging::Image::ConstRefArg);
+    void load_mipmap(image::Image::ConstRefArg);
 
 
     /**
@@ -113,7 +113,7 @@ namespace archon
      * will be taken to be equal to the effective value of
      * <tt>last</tt>.
      */
-    void load_mipmap_levels(Imaging::Image::ConstRefArg, int level,
+    void load_mipmap_levels(image::Image::ConstRefArg, int level,
                             int first = -1, int last = -1,
                             int min_avail = -1, int max_avail = -1);
 
@@ -126,7 +126,7 @@ namespace archon
 
     inline void load_texture(std::string image_path, bool no_interp)
     {
-      load_texture(Imaging::Image::load(image_path), no_interp);
+      load_texture(image::Image::load(image_path), no_interp);
     }
   }
 }

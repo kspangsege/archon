@@ -48,7 +48,7 @@ public:
     /// This is a shorthand for calling the 4-argument version of put_image()
     /// with the position of \a clip set to \a position and the size of \a area
     /// set to the size of \a image.
-    void put_image(Imaging::Image::ConstRefArg image, Point position = Point(),
+    void put_image(image::Image::ConstRefArg image, Point position = Point(),
                    util::PackedTRGB background = util::PackedTRGB());
 
     /// Fill the specified area of this drawable with pixels from the specified
@@ -70,7 +70,7 @@ public:
     /// \param background The background color. This color is used to fill areas
     /// that fall outsise the image boundary, and as background in transparent
     /// areas of the image.
-    virtual void put_image(Imaging::Image::ConstRefArg image, Box clip, Point position = Point(),
+    virtual void put_image(image::Image::ConstRefArg image, Box clip, Point position = Point(),
                            util::PackedTRGB background = util::PackedTRGB()) = 0;
 
     /// Get the index of the screen to which this drawable is tied.
@@ -92,7 +92,7 @@ public:
 
 // Implementation
 
-inline void Drawable::put_image(Imaging::Image::ConstRefArg image, Point position,
+inline void Drawable::put_image(image::Image::ConstRefArg image, Point position,
                                 util::PackedTRGB background)
 {
     Box clip;

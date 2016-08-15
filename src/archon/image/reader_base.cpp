@@ -29,7 +29,7 @@
 
 namespace archon
 {
-  namespace Imaging
+  namespace image
   {
     ReaderBase::ReaderCvtStepsSwitch ReaderBase::reader_cvt_steps_switch;
   }

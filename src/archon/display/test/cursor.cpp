@@ -33,7 +33,7 @@
 
 
 using namespace std;
-using namespace archon::Imaging;
+using namespace archon::image;
 using namespace archon::Display;
 
 namespace

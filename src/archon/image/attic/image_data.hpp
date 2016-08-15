@@ -18,7 +18,7 @@
 
 namespace archon
 {
-  namespace Imaging
+  namespace image
   {
     /**
      * A highly elaborate and configurable image data accessor with

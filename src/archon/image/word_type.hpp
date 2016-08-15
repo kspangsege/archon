@@ -38,7 +38,7 @@
 
 namespace archon
 {
-  namespace Imaging
+  namespace image
   {
     /**
      * \note Word type descriptors can be compared, and it can be

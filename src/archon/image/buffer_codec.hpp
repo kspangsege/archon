@@ -33,7 +33,7 @@
 
 namespace archon
 {
-  namespace Imaging
+  namespace image
   {
     /**
      * An abstract buffer codec. That is, an encapsulation of a

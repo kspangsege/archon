@@ -14,7 +14,7 @@ using namespace std;
 
 namespace archon
 {
-  namespace Imaging
+  namespace image
   {
     template<typename Float, typename Int>
     inline Int ImageData::normFloatToInt(Float v, int intBits)

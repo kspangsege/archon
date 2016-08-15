@@ -16,7 +16,7 @@
 
 namespace archon
 {
-  namespace Imaging
+  namespace image
   {
     /**
      * A description of a particular pixel format applicable when

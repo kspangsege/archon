@@ -33,7 +33,7 @@
 
 namespace archon
 {
-  namespace Imaging
+  namespace image
   {
     struct WriterBase: ImageReader
     {

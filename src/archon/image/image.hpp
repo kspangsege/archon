@@ -41,7 +41,7 @@
 
 namespace archon
 {
-  namespace Imaging
+  namespace image
   {
     /**
      * This class is an abstract representation of an image as a

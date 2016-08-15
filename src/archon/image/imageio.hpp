@@ -32,7 +32,7 @@
 
 namespace archon
 {
-  namespace Imaging
+  namespace image
   {
     /**
      * A collection of high-level image load / save methods.

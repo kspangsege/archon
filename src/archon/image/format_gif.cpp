@@ -46,7 +46,7 @@
 using namespace std;
 using namespace archon::core;
 using namespace archon::util;
-using namespace archon::Imaging;
+using namespace archon::image;
 
 namespace
 {
@@ -531,7 +531,7 @@ namespace
 
 namespace archon
 {
-  namespace Imaging
+  namespace image
   {
     FileFormat::ConstRef get_default_gif_file_format()
     {

@@ -114,7 +114,7 @@ int OpenGlSceneBuilder::do_make_texture(std::string image_path, bool h_rep, bool
     return make_texture(src, h_rep, v_rep);
 }
 
-int OpenGlSceneBuilder::do_make_texture(Imaging::Image::ConstRefArg img, std::string name,
+int OpenGlSceneBuilder::do_make_texture(image::Image::ConstRefArg img, std::string name,
                                         bool h_rep, bool v_rep)
 {
     UniquePtr<TextureSource> src(new TextureImageSource(img, name));

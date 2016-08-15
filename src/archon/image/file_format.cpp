@@ -33,13 +33,13 @@
 
 using namespace std;
 using namespace archon::core;
-using namespace archon::Imaging;
+using namespace archon::image;
 
 
 // Declarations of available defaul file format getters
 namespace archon
 {
-  namespace Imaging
+  namespace image
   {
     FileFormat::ConstRef get_default_gif_file_format();
 #ifdef ARCHON_HAVE_LIBPNG
@@ -103,7 +103,7 @@ namespace
 
 namespace archon
 {
-  namespace Imaging
+  namespace image
   {
     FileFormat::Registry::ConstRef FileFormat::Registry::get_default_registry()
     {

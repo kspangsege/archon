@@ -39,8 +39,8 @@
 using namespace std;
 using namespace archon::core;
 using namespace archon::util;
-using namespace archon::Imaging;
-namespace ImageImpl = archon::Imaging::_Impl;
+using namespace archon::image;
+namespace ImageImpl = archon::image::_Impl;
 
 
 namespace
@@ -361,7 +361,7 @@ namespace
 
 namespace archon
 {
-  namespace Imaging
+  namespace image
   {
     archon::core::EnumAssoc ColorSpace::TypeSpec::map[] =
     {

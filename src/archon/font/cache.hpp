@@ -196,7 +196,7 @@ public:
      */
     void render_text(int font_id, bool grid_fitting, Direction direction,
                      int num_glyphs, const int* glyphs, const float* components,
-                     Imaging::ImageWriter& img_writer);
+                     image::ImageWriter& img_writer);
 
 
 
@@ -220,7 +220,7 @@ public:
     virtual void render_glyphs(int font_id, bool grid_fitting,
                                BearingType bearing_type, CoordType coord_type,
                                int num_glyphs, const int* glyphs, const float* components,
-                               Imaging::ImageWriter& img_writer) = 0;
+                               image::ImageWriter& img_writer) = 0;
 
 
 
@@ -277,7 +277,7 @@ inline void FontCache::FontOwner::reset(int font_id)
 
 inline void FontCache::render_text(int font_id, bool grid_fitting, Direction dir,
                                    int num_glyphs, const int* glyphs, const float* components,
-                                   Imaging::ImageWriter& img_writer)
+                                   image::ImageWriter& img_writer)
 {
     BearingType bearing_type;
     CoordType coord_type;

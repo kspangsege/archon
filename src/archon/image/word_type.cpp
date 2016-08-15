@@ -36,7 +36,7 @@
 using namespace std;
 using namespace archon::core;
 using namespace archon::util;
-using namespace archon::Imaging;
+using namespace archon::image;
 
 
 namespace
@@ -157,7 +157,7 @@ namespace
 
 namespace archon
 {
-  namespace Imaging
+  namespace image
   {
     WordType get_word_type_by_minimum_bit_width(int width, bool floating_point)
     {

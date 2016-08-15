@@ -77,7 +77,7 @@ using namespace std;
 using namespace archon::core;
 using namespace archon::thread;
 using namespace archon::util;
-using namespace archon::Imaging;
+using namespace archon::image;
 using namespace archon::Display;
 
 using Arch_Time     = archon::core::Time;

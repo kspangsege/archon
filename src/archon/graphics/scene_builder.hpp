@@ -79,8 +79,8 @@ public:
 
     int make_texture(std::string image_path, bool repeat_s, bool repeat_t);
     int make_texture(std::string image_path, bool repeat = true);
-    int make_texture(Imaging::Image::ConstRefArg, std::string name, bool repeat);
-    int make_texture(Imaging::Image::ConstRefArg, std::string name,
+    int make_texture(image::Image::ConstRefArg, std::string name, bool repeat);
+    int make_texture(image::Image::ConstRefArg, std::string name,
                      bool repeat_s, bool vert_repeat_t);
 
     void bind_texture(int texture_index);
@@ -104,7 +104,7 @@ protected:
     virtual void do_rotate(math::Rotation3) = 0;
 
     virtual int do_make_texture(std::string image_path, bool repeat_s, bool repeat_t);
-    virtual int do_make_texture(Imaging::Image::ConstRefArg, std::string name,
+    virtual int do_make_texture(image::Image::ConstRefArg, std::string name,
                                 bool repeat_s, bool repeat_t) = 0;
 
     virtual void do_bind_texture(int texture_index) = 0;
@@ -332,13 +332,13 @@ inline int SpatialSceneBuilder::make_texture(std::string img_path, bool rep_s, b
     return do_make_texture(img_path, rep_s, rep_t);
 }
 
-inline int SpatialSceneBuilder::make_texture(Imaging::Image::ConstRefArg img,
+inline int SpatialSceneBuilder::make_texture(image::Image::ConstRefArg img,
                                              std::string name, bool rep)
 {
     return make_texture(img, name, rep, rep);
 }
 
-inline int SpatialSceneBuilder::make_texture(Imaging::Image::ConstRefArg img,
+inline int SpatialSceneBuilder::make_texture(image::Image::ConstRefArg img,
                                              std::string name, bool rep_s, bool rep_t)
 {
     return do_make_texture(img, name, rep_s, rep_t);
@@ -386,7 +386,7 @@ inline void SpatialSceneBuilder::reset_tex_transform()
 
 inline int SpatialSceneBuilder::do_make_texture(std::string image_path, bool rep_s, bool rep_t)
 {
-    return do_make_texture(Imaging::Image::load(image_path), image_path, rep_s, rep_t);
+    return do_make_texture(image::Image::load(image_path), image_path, rep_s, rep_t);
 }
 
 } // namespace Graphics

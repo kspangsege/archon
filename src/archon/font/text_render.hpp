@@ -95,7 +95,7 @@ struct TextRenderer: TextFormatter {
 
     // Returns null if the image size would have been zero.
     // Set debug to true if you want this method to render extra features that are helpful when debugging.
-    Imaging::Image::Ref render(int page_index = 0, bool debug = false);
+    image::Image::Ref render(int page_index = 0, bool debug = false);
 
     // Overriding TextFormatter::clear()
     void clear();

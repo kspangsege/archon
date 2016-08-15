@@ -8,7 +8,7 @@
 
 
 using namespace std;
-using namespace archon::Imaging;
+using namespace archon::image;
 
 
 namespace

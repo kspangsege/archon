@@ -36,7 +36,7 @@ using namespace archon::util;
 
 namespace archon
 {
-  namespace Imaging
+  namespace image
   {
     namespace ImageIO
     {

@@ -201,7 +201,7 @@ public:
      * (also counting the threads that access it indirectly through texture
      * binders).
      */
-    virtual Imaging::Image::ConstRef get_image() = 0;
+    virtual image::Image::ConstRef get_image() = 0;
 
     virtual ~TextureSource() {}
 };
@@ -218,7 +218,7 @@ public:
     {
         return path;
     }
-    Imaging::Image::ConstRef get_image();
+    image::Image::ConstRef get_image();
 
 private:
     std::string path;
@@ -228,18 +228,18 @@ private:
 
 class TextureImageSource: public TextureSource {
 public:
-    TextureImageSource(Imaging::Image::ConstRefArg img, std::string name);
+    TextureImageSource(image::Image::ConstRefArg img, std::string name);
     std::string get_name() const
     {
         return name;
     }
-    Imaging::Image::ConstRef get_image()
+    image::Image::ConstRef get_image()
     {
         return image;
     }
 
 private:
-    Imaging::Image::ConstRef image;
+    image::Image::ConstRef image;
     std::string name;
 };
 
@@ -476,7 +476,7 @@ public:
     bool fast_load; // Constant while used
 
     bool has_name, updated, postpone; // State flags (see above)
-    Imaging::Image::ConstRef image;
+    image::Image::ConstRef image;
 
     bool pending_load, pending_update; // On load_queue or update_queue and not yet processed
 
@@ -494,7 +494,7 @@ inline TextureDecl TextureCache::declare(core::UniquePtr<TextureSource> src,
     return TextureDecl(Ref(this, index));
 }
 
-inline TextureImageSource::TextureImageSource(Imaging::Image::ConstRefArg img,
+inline TextureImageSource::TextureImageSource(image::Image::ConstRefArg img,
                                               std::string name):
     image(img),
     name(name)
@@ -545,9 +545,9 @@ inline void TextureUse::Traits::unbind(const Ref& r)
     r->use_count_down();
 }
 
-inline Imaging::Image::ConstRef TextureFileSource::get_image()
+inline image::Image::ConstRef TextureFileSource::get_image()
 {
-    return Imaging::Image::load(path);
+    return image::Image::load(path);
 }
 
 } // namespace Render

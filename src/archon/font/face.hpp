@@ -585,7 +585,7 @@ namespace archon
        * max(orig, new). Then the original 'max(orig,new) intencity
        * stuff' can easily be reenabled.
        */
-      virtual void render_pixels_to(Imaging::ImageWriter &img) const = 0;
+      virtual void render_pixels_to(image::ImageWriter &img) const = 0;
 
 
       virtual ~FontFace() {}

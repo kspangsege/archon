@@ -307,7 +307,7 @@ public:
     /// \todo FIXME: Is it really reauired that a mouse be associated with a
     /// specific screen? This has to ve verified. If, not, there is no reason to
     /// pass a screen argument to this method.
-    virtual Cursor::Ptr new_cursor(Imaging::Image::Ref image,
+    virtual Cursor::Ptr new_cursor(image::Image::Ref image,
                                    int hotspot_x = 0, int hotspot_y = 0,
                                    int screen = -1) = 0;
 

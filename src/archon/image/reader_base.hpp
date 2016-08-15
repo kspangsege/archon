@@ -42,7 +42,7 @@
 
 namespace archon
 {
-  namespace Imaging
+  namespace image
   {
     /**
      * This class provides all the low-level reading features that are

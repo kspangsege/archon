@@ -39,7 +39,7 @@
 
 namespace archon
 {
-  namespace Imaging
+  namespace image
   {
     /**
      * This template class is provided to make it easy to implement a

@@ -38,7 +38,7 @@ namespace archon
   {
     struct Texture
     {
-      static core::SharedPtr<Texture> get_image_texture(Imaging::Image::ConstRefArg img,
+      static core::SharedPtr<Texture> get_image_texture(image::Image::ConstRefArg img,
                                                         bool repeat_s = true, bool repeat_t = true);
 
 

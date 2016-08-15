@@ -32,7 +32,7 @@
 
 namespace archon
 {
-  namespace Imaging
+  namespace image
   {
     struct Pixel
     {

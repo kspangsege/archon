@@ -33,7 +33,7 @@ using namespace archon::core;
 using namespace archon::math;
 using namespace archon::util;
 using namespace archon::Render;
-using namespace archon::Imaging;
+using namespace archon::image;
 
 
 namespace {

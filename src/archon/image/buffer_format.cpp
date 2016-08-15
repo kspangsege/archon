@@ -34,7 +34,7 @@ using namespace std;
 
 namespace archon
 {
-  namespace Imaging
+  namespace image
   {
     BufferFormat::Ref BufferFormat::get_default_format(int num_channels)
     {

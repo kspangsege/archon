@@ -41,7 +41,7 @@
 
 using namespace std;
 using namespace archon::core;
-using namespace archon::Imaging;
+using namespace archon::image;
 
 
 namespace
@@ -354,13 +354,13 @@ int main() throw()
     for(int i_word_type1=0; i_word_type1<num_word_types; ++i_word_type1)
     {
       WordType const word_type1 = get_word_type_by_index(i_word_type1);
-      if(archon::Imaging::is_floating_point(word_type1)) continue;
+      if(archon::image::is_floating_point(word_type1)) continue;
       int const bytes_per_word1 = get_bytes_per_word(word_type1);
 
       for(int i_word_type2=0; i_word_type2<num_word_types; ++i_word_type2)
       {
         WordType const word_type2 = get_word_type_by_index(i_word_type2);
-        if(archon::Imaging::is_floating_point(word_type2)) continue;
+        if(archon::image::is_floating_point(word_type2)) continue;
         int const bytes_per_word2 = get_bytes_per_word(word_type2);
 
         for(int bit_order=0; bit_order<4; ++bit_order)

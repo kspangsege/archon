@@ -37,7 +37,7 @@
 using namespace archon::core;
 using namespace archon::math;
 using namespace archon::util;
-using namespace archon::Imaging;
+using namespace archon::image;
 using namespace archon::Raytrace;
 
 

@@ -32,7 +32,7 @@
 
 namespace archon
 {
-  namespace Imaging
+  namespace image
   {
     /**
      * A abstract base class for images that are directly backed by a

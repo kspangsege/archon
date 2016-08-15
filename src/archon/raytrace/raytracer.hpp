@@ -58,7 +58,7 @@ public:
     virtual void set_global_ambience(double intencity) = 0;
 
     /// Render the currently loaded scene to the specified image.
-    virtual void render(Imaging::Image::RefArg img, math::Vec3 eye, math::CoordSystem3x2 screen,
+    virtual void render(image::Image::RefArg img, math::Vec3 eye, math::CoordSystem3x2 screen,
                         util::ProgressTracker *tracker, int supersampling_level = 0) const = 0;
 
     virtual ~Raytracer() {}

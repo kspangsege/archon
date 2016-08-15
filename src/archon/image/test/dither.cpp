@@ -47,7 +47,7 @@
 using namespace archon::core;
 using namespace archon::util;
 using namespace archon::math;
-using namespace archon::Imaging;
+using namespace archon::image;
 
 
 //bool palette_clamp(float const *pal, std::size_t pal_size, float *col);

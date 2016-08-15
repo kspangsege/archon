@@ -38,7 +38,7 @@
 
 namespace archon
 {
-  namespace Imaging
+  namespace image
   {
     /**
      * A buffer format where pixels are layed out in a sequence of
@@ -106,12 +106,12 @@ namespace archon
 
     inline bool WordBasedBufferFormat::is_floating_point_words() const
     {
-      return archon::Imaging::is_floating_point(get_word_type());
+      return archon::image::is_floating_point(get_word_type());
     }
 
     inline std::string WordBasedBufferFormat::get_word_type_name() const
     {
-      return archon::Imaging::get_word_type_name(get_word_type());
+      return archon::image::get_word_type_name(get_word_type());
     }
   }
 }

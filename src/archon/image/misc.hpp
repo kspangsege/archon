@@ -32,7 +32,7 @@
 
 namespace archon
 {
-  namespace Imaging
+  namespace image
   {
     /**
      * One of three ways to handle access beyond the clipping region

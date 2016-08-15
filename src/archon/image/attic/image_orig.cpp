@@ -24,7 +24,7 @@ using namespace std;
 
 namespace archon
 {
-  namespace Imaging
+  namespace image
   {
     namespace
     {

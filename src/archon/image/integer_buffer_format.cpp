@@ -47,7 +47,7 @@
 using namespace std;
 using namespace archon::core;
 using namespace archon::util;
-using namespace archon::Imaging;
+using namespace archon::image;
 
 
 namespace
@@ -113,7 +113,7 @@ namespace
 
 namespace archon
 {
-  namespace Imaging
+  namespace image
   {
     IntegerBufferFormat::Ref
     IntegerBufferFormat::get_format(WordType word_type, ChannelLayout const &channel_layout,
@@ -122,7 +122,7 @@ namespace archon
     {
       if(channel_layout.channels.empty()) throw invalid_argument("No channels");
 
-      int const bytes_per_word = Imaging::get_bytes_per_word(word_type);
+      int const bytes_per_word = image::get_bytes_per_word(word_type);
       int const bits_per_word  = bytes_per_word * numeric_limits<unsigned char>::digits;
       int const endianness_levels = find_most_sig_bit(bytes_per_word);
 
@@ -239,7 +239,7 @@ namespace archon
                                                       vector<bool> const &endianness,
                                                       bool most_sig_bit_first)
     {
-      int const bytes_per_word = Imaging::get_bytes_per_word(word_type);
+      int const bytes_per_word = image::get_bytes_per_word(word_type);
       int const endianness_levels = find_most_sig_bit(bytes_per_word);
       unsigned compact_endianness = 0;
       {
@@ -388,7 +388,7 @@ namespace archon
       else if(num_channels != color_space->get_num_channels(has_alpha))
         throw invalid_argument("Channel number mismatch");
 
-      int bytes_per_word = Imaging::get_bytes_per_word(word_type);
+      int bytes_per_word = image::get_bytes_per_word(word_type);
       int bits_per_word = bytes_per_word * numeric_limits<unsigned char>::digits;
       unsigned bit_seq_comp = derive_bit_seq_comp(word_type, endianness, most_sig_bit_first);
 

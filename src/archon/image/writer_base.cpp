@@ -29,7 +29,7 @@
 
 namespace archon
 {
-  namespace Imaging
+  namespace image
   {
     WriterBase::WriterCvtStepsSwitch WriterBase::writer_cvt_steps_switch;
   }

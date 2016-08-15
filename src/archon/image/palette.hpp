@@ -29,7 +29,7 @@
 
 
 namespace archon {
-namespace Imaging {
+namespace image {
 
 Image::ConstRef get_direct_color_view(Image::ConstRefArg indexImage, Image::ConstRefArg palette);
 
@@ -47,7 +47,7 @@ public:
     get_direct_color_view()
 };
 
-} // namespace Imaging
+} // namespace image
 } // namespace archon
 
 #endif // ARCHON_IMAGE_PALETTE_HPP

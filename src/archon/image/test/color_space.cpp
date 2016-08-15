@@ -38,7 +38,7 @@
 using namespace std;
 using namespace archon::core;
 using namespace archon::util;
-using namespace archon::Imaging;
+using namespace archon::image;
 
 
 /*
@@ -99,7 +99,7 @@ namespace
       // point components are not confined to the unit range, so the
       // errors are necessarily too grave.
       if((c == ColorSpace::get_XYZ() || c == ColorSpace::get_LAB()) &&
-         !archon::Imaging::is_floating_point(word_type)) continue;
+         !archon::image::is_floating_point(word_type)) continue;
 
       ColorSpace::ConstRef source_color_space = ColorSpace::get_RGB();
       ColorSpace::ConstRef target_color_space = c;

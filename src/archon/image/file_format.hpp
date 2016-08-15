@@ -37,7 +37,7 @@
 
 
 namespace archon {
-namespace Imaging {
+namespace image {
 
 /**
  * An abstract image file format codec. All methods must be
@@ -279,7 +279,7 @@ inline void FileFormat::ProgressTracker::defined(BufferedImage::ConstRefArg) thr
 {
 }
 
-} // namespace Imaging
+} // namespace image
 } // namespace archon
 
 #endif // ARCHON_IMAGE_FILE_FORMAT_HPP

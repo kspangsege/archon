@@ -35,7 +35,7 @@
 
 namespace archon
 {
-  namespace Imaging
+  namespace image
   {
     /**
      * This class represents a color space as used in image data. That

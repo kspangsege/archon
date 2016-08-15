@@ -39,7 +39,7 @@
 
 namespace archon
 {
-  namespace Imaging
+  namespace image
   {
     /**
      * A highly flexible buffer format implementation where pixels are

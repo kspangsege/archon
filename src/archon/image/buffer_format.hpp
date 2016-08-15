@@ -37,7 +37,7 @@
 
 namespace archon
 {
-  namespace Imaging
+  namespace image
   {
     /**
      * Thrown when the requested dimmensions, number of channels, and

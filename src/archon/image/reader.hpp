@@ -33,7 +33,7 @@
 
 namespace archon
 {
-  namespace Imaging
+  namespace image
   {
     /**
      * The purpose of this class is to provide the methods of the

@@ -333,7 +333,7 @@ width is set to -1 if shrink_to_fit2
         util::PackedTRGB::unpack(c2, rgba2);
         math::Vec3 rgb1(rgba1[0], rgba1[1], rgba1[2]);
         math::Vec3 rgb2(rgba2[0], rgba2[1], rgba2[2]);
-        rgb1 = Imaging::Color::interp(x, x1, x2, rgb1, rgb2);
+        rgb1 = image::Color::interp(x, x1, x2, rgb1, rgb2);
         return util::PackedTRGB(float(rgb1[0]), float(rgb1[1]), float(rgb1[2]));
     }
 */

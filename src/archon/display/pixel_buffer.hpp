@@ -51,7 +51,7 @@ public:
 
     void save(std::string image_path);
 
-    virtual Imaging::Image::Ref get_image() = 0;
+    virtual image::Image::Ref get_image() = 0;
 };
 
 

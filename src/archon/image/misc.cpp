@@ -29,7 +29,7 @@
 
 namespace archon
 {
-  namespace Imaging
+  namespace image
   {
     namespace _Impl
     {
