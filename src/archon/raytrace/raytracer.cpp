@@ -38,7 +38,7 @@ using namespace archon::core;
 using namespace archon::math;
 using namespace archon::util;
 using namespace archon::image;
-using namespace archon::Raytrace;
+using namespace archon::raytrace;
 
 
 /*
@@ -349,12 +349,12 @@ bool RaytracerImpl::eclipsed(const Line3& ray, double dist, const Object* object
 
 
 namespace archon {
-namespace Raytrace {
+namespace raytrace {
 
 std::unique_ptr<Raytracer> make_raytracer()
 {
     return std::make_unique<RaytracerImpl>();
 }
 
-} // namespace Raytrace
+} // namespace raytrace
 } // namespace archon

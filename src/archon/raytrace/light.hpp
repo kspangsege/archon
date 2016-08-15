@@ -32,7 +32,7 @@
 
 namespace archon
 {
-  namespace Raytrace
+  namespace raytrace
   {
     /**
      * An abstract light source.

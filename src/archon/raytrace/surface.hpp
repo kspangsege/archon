@@ -30,7 +30,7 @@
 
 
 namespace archon {
-namespace Raytrace {
+namespace raytrace {
 
 class Surface {
 public:
@@ -96,7 +96,7 @@ public:
 };
 */
 
-} // namespace Raytrace
+} // namespace raytrace
 } // namespace archon
 
 #endif // ARCHON_RAYTRACE_SURFACE_HPP

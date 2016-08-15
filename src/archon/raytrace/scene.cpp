@@ -38,7 +38,7 @@ using namespace std;
 using namespace archon::core;
 using namespace archon::math;
 //using namespace archon::image;
-using namespace archon::Raytrace;
+using namespace archon::raytrace;
 
 
 namespace
@@ -244,7 +244,7 @@ cerr << "*CLICK*" << endl;
 
 namespace archon
 {
-  namespace Raytrace
+  namespace raytrace
   {
     UniquePtr<Scene> new_scene()
     {

@@ -35,12 +35,12 @@ using namespace archon::core;
 using namespace archon::math;
 using namespace archon::graphics;
 using namespace archon::image;
-using namespace archon::Raytrace;
+using namespace archon::raytrace;
 
 
 namespace {
 
-class SceneBuilderImpl: public archon::Raytrace::SceneBuilder {
+class SceneBuilderImpl: public archon::raytrace::SceneBuilder {
 public:
     SceneBuilderImpl(Raytracer& raytracer, SpatialSceneBuilder* aux):
         m_raytracer(raytracer),
@@ -334,12 +334,12 @@ private:
 
 
 namespace archon {
-namespace Raytrace {
+namespace raytrace {
 
 std::unique_ptr<SceneBuilder> make_scene_builder(Raytracer& raytracer, SpatialSceneBuilder* aux_builder)
 {
     return std::make_unique<SceneBuilderImpl>(raytracer, aux_builder);
 }
 
-} // namespace Raytrace
+} // namespace raytrace
 } // namespace archon

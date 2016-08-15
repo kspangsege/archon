@@ -37,7 +37,7 @@
 
 namespace archon
 {
-  namespace Raytrace
+  namespace raytrace
   {
     struct Scene;
 

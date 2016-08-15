@@ -35,7 +35,7 @@
 
 
 namespace archon {
-namespace Raytrace {
+namespace raytrace {
 
 class Raytracer;
 
@@ -64,7 +64,7 @@ public:
     virtual ~Raytracer() {}
 };
 
-} // namespace Raytrace
+} // namespace raytrace
 } // namespace archon
 
 #endif // ARCHON_RAYTRACE_RAYTRACER_HPP

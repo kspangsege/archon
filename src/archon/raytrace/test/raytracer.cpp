@@ -51,7 +51,7 @@ using namespace archon::display;
 #ifdef ARCHON_HAVE_OPENGL
 using namespace archon::render;
 #endif
-using namespace archon::Raytrace;
+using namespace archon::raytrace;
 
 
 namespace {

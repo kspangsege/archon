@@ -32,7 +32,7 @@
 
 using namespace std;
 using namespace archon::math;
-using namespace archon::Raytrace;
+using namespace archon::raytrace;
 
 
 namespace
@@ -96,7 +96,7 @@ namespace
 
 namespace archon
 {
-  namespace Raytrace
+  namespace raytrace
   {
     Surface::ConstRef Surface::newFeaturelessSurface(Vec4 const &color,
                                                      double ambientReflection,

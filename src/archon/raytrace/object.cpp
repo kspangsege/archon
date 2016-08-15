@@ -32,7 +32,7 @@
 using namespace std;
 using namespace archon::core;
 using namespace archon::math;
-using namespace archon::Raytrace;
+using namespace archon::raytrace;
 
 
 namespace {
@@ -324,7 +324,7 @@ private:
 
 
 namespace archon {
-namespace Raytrace {
+namespace raytrace {
 
 std::unique_ptr<Object> Object::make_box(SharedPtr<Material>mat)
 {
@@ -351,5 +351,5 @@ std::unique_ptr<Object> Object::make_torus(SharedPtr<Material> mat, double major
     return std::make_unique<Torus>(std::move(mat), major_radius);
 }
 
-} // namespace Raytrace
+} // namespace raytrace
 } // namespace archon

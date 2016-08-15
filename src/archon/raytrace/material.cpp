@@ -50,7 +50,7 @@ Want to emulate OpenGL modulate mode
 
 namespace archon
 {
-  namespace Raytrace
+  namespace raytrace
   {
     SharedPtr<Material> Material::get_default()
     {

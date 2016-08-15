@@ -37,7 +37,7 @@ using namespace archon::core;
 using namespace archon::math;
 using namespace archon::util;
 using namespace archon::image;
-using namespace archon::Raytrace;
+using namespace archon::raytrace;
 
 
 namespace
@@ -153,7 +153,7 @@ namespace
 
 namespace archon
 {
-  namespace Raytrace
+  namespace raytrace
   {
     SharedPtr<Texture> Texture::get_image_texture(Image::ConstRefArg img, bool rep_s, bool rep_t)
     {

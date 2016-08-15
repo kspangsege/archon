@@ -34,7 +34,7 @@
 
 
 namespace archon {
-namespace Raytrace {
+namespace raytrace {
 
 class Object {
 public:
@@ -218,7 +218,7 @@ public:
     };
 */
 
-} // namespace Raytrace
+} // namespace raytrace
 } // namespace archon
 
 #endif // ARCHON_RAYTRACE_OBJECT_HPP
