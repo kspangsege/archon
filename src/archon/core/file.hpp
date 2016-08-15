@@ -120,23 +120,23 @@ namespace archon
        */
       struct Stat
       {
-	enum Type
-	{
-	  type_Regular,
-	  type_Directory,
-	  type_CharDev,
-	  type_BlockDev,
-	  type_Fifo,
-	  type_SymLink,
-	  type_Socket,
-	  type_Other
-	};
+        enum Type
+        {
+          type_Regular,
+          type_Directory,
+          type_CharDev,
+          type_BlockDev,
+          type_Fifo,
+          type_SymLink,
+          type_Socket,
+          type_Other
+        };
 
         /**
          * Get the type of the file system node that this \c Stat
          * object represents.
          */
-	Type get_type() const { return type; }
+        Type get_type() const { return type; }
 
         off_t get_size() const { return size; }
 
@@ -144,15 +144,15 @@ namespace archon
          * Get information about the directory entry which the
          * specified path designates.
          */
-	Stat(std::string path, bool follow_sym_links = true);
+        Stat(std::string path, bool follow_sym_links = true);
 
         /**
          * Get information about the specified open file descriptor.
          */
-	Stat(int fildes);
+        Stat(int fildes);
 
       private:
-	Type type;
+        Type type;
         off_t size;
       };
 

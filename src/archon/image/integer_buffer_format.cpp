@@ -428,16 +428,16 @@ namespace archon
       switch(word_type)
       {
       case word_type_UChar:
-	return choose_codec<unsigned char, unsigned int>(buffer, width, height);
+        return choose_codec<unsigned char, unsigned int>(buffer, width, height);
 
       case word_type_UShort:
-	return choose_codec<unsigned short, unsigned int>(buffer, width, height);
+        return choose_codec<unsigned short, unsigned int>(buffer, width, height);
 
       case word_type_UInt:
-	return choose_codec<unsigned int, unsigned int>(buffer, width, height);
+        return choose_codec<unsigned int, unsigned int>(buffer, width, height);
 
       case word_type_ULong:
-	return choose_codec<unsigned long, unsigned long>(buffer, width, height);
+        return choose_codec<unsigned long, unsigned long>(buffer, width, height);
 
       case word_type_Float:
       case word_type_Double:

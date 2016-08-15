@@ -735,53 +735,53 @@ namespace archon
 
       while(from_begin < from_end)
       {
-	switch(cvt.out(state, from_begin, from_end, from_pos,
-		       to_begin, to_end, to_pos))
-	{
-	case std::codecvt_base::ok:
-	  result.append(to_begin, to_pos);
-	  goto done;
+        switch(cvt.out(state, from_begin, from_end, from_pos,
+                       to_begin, to_end, to_pos))
+        {
+        case std::codecvt_base::ok:
+          result.append(to_begin, to_pos);
+          goto done;
 
-	case std::codecvt_base::partial:
-	  result.append(to_begin, to_pos);
-	  from_begin = from_pos;
-	  continue;
+        case std::codecvt_base::partial:
+          result.append(to_begin, to_pos);
+          from_begin = from_pos;
+          continue;
 
-	case std::codecvt_base::error:
-	  if(fail) throw EncodeException("");
-	  result.append(to_begin, to_pos);
-	  from_begin = from_pos + 1;
-	  // First attempt to write a wide replacement character. If
-	  // this fails, fall back to ASCII '?'.
-	  if(cvt.out(state, &replacement_char, &replacement_char+1, from_pos,
-		     to_begin, to_end, to_pos) != std::codecvt_base::ok)
-	  {
-	    CharType r = '?';
-	    if(cvt.out(state, &r, &r+1, from_pos,
-		       to_begin, to_end, to_pos) != std::codecvt_base::ok)
-	      throw std::runtime_error("Failed to convert replacement character");
-	  }
-	  result.append(to_begin, to_pos);
-	  continue;
+        case std::codecvt_base::error:
+          if(fail) throw EncodeException("");
+          result.append(to_begin, to_pos);
+          from_begin = from_pos + 1;
+          // First attempt to write a wide replacement character. If
+          // this fails, fall back to ASCII '?'.
+          if(cvt.out(state, &replacement_char, &replacement_char+1, from_pos,
+                     to_begin, to_end, to_pos) != std::codecvt_base::ok)
+          {
+            CharType r = '?';
+            if(cvt.out(state, &r, &r+1, from_pos,
+                       to_begin, to_end, to_pos) != std::codecvt_base::ok)
+              throw std::runtime_error("Failed to convert replacement character");
+          }
+          result.append(to_begin, to_pos);
+          continue;
 
-	case std::codecvt_base::noconv:
-	  // According to DR19 (TC) this can only happen if internal
-	  // and external character types are identical. In this case
-	  // we may use the direct copy method from the codec traits
-	  // class.
-	  //
-	  // According to DR19 when 'out' (or 'in') returns 'noconv',
-	  // 'from_pos' shall indicate the end of the initial input
-	  // sequence that need no conversion. However, there is some
-	  // confusion about this, and GNUs libstdc++ has adopted a
-	  // different notion where 'from_pos' is always set equal to
-	  // 'from_begin', so we need a workaround for this case.
-	  //
-	  // See also
-	  // http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-defects.html#19.
-	  if(from_pos == from_begin) from_pos = from_end;
-	  TraitsType::degen_encode(result, from_begin, from_pos);
-	}
+        case std::codecvt_base::noconv:
+          // According to DR19 (TC) this can only happen if internal
+          // and external character types are identical. In this case
+          // we may use the direct copy method from the codec traits
+          // class.
+          //
+          // According to DR19 when 'out' (or 'in') returns 'noconv',
+          // 'from_pos' shall indicate the end of the initial input
+          // sequence that need no conversion. However, there is some
+          // confusion about this, and GNUs libstdc++ has adopted a
+          // different notion where 'from_pos' is always set equal to
+          // 'from_begin', so we need a workaround for this case.
+          //
+          // See also
+          // http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-defects.html#19.
+          if(from_pos == from_begin) from_pos = from_end;
+          TraitsType::degen_encode(result, from_begin, from_pos);
+        }
       }
 
     done:
@@ -789,18 +789,18 @@ namespace archon
       for(;;) switch(cvt.unshift(state, to_begin, to_end, to_pos))
       {
       case std::codecvt_base::ok:
-	result.append(to_begin, to_pos);
-	return result;
+        result.append(to_begin, to_pos);
+        return result;
 
       case std::codecvt_base::partial:
-	result.append(to_begin, to_pos);
-	continue;
+        result.append(to_begin, to_pos);
+        continue;
 
       case std::codecvt_base::error:
-	throw std::runtime_error("Invalid encoding state");
+        throw std::runtime_error("Invalid encoding state");
 
       case std::codecvt_base::noconv:
-	return result;
+        return result;
       }
     }
 
@@ -825,43 +825,43 @@ namespace archon
 
       while(from_begin < from_end)
       {
-	switch(cvt.in(state, from_begin, from_end, from_pos,
+        switch(cvt.in(state, from_begin, from_end, from_pos,
                       to_begin, to_end, to_pos))
-	{
-	case std::codecvt_base::ok:
-	  result.append(to_begin, to_pos);
-	  goto done;
+        {
+        case std::codecvt_base::ok:
+          result.append(to_begin, to_pos);
+          goto done;
 
-	case std::codecvt_base::partial:
-	  result.append(to_begin, to_pos);
-	  from_begin = from_pos;
-	  continue;
+        case std::codecvt_base::partial:
+          result.append(to_begin, to_pos);
+          from_begin = from_pos;
+          continue;
 
-	case std::codecvt_base::error:
-	  if(fail) throw EncodeException("");
-	  result.append(to_begin, to_pos);
-	  result.append(1, replacement_char);
-	  from_begin = from_pos + 1;
-	  continue;
+        case std::codecvt_base::error:
+          if(fail) throw EncodeException("");
+          result.append(to_begin, to_pos);
+          result.append(1, replacement_char);
+          from_begin = from_pos + 1;
+          continue;
 
-	case std::codecvt_base::noconv:
-	  // According to DR19 (TC) this can only happen if internal
-	  // and external character types are identical. In this case
-	  // we may use the direct copy method from the codec traits
-	  // class.
-	  //
-	  // According to DR19 when 'out' (or 'in') returns 'noconv',
-	  // 'from_pos' shall indicate the end of the initial input
-	  // sequence that need no conversion. However, there is some
-	  // confusion about this, and GNUs libstdc++ has adopted a
-	  // different notion where 'from_pos' is always set equal to
-	  // 'from_begin', so we need a workaround for this case.
-	  //
-	  // See also
-	  // http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-defects.html#19.
-	  if(from_pos == from_begin) from_pos = from_end;
-	  TraitsType::degen_decode(result, from_begin, from_pos);
-	}
+        case std::codecvt_base::noconv:
+          // According to DR19 (TC) this can only happen if internal
+          // and external character types are identical. In this case
+          // we may use the direct copy method from the codec traits
+          // class.
+          //
+          // According to DR19 when 'out' (or 'in') returns 'noconv',
+          // 'from_pos' shall indicate the end of the initial input
+          // sequence that need no conversion. However, there is some
+          // confusion about this, and GNUs libstdc++ has adopted a
+          // different notion where 'from_pos' is always set equal to
+          // 'from_begin', so we need a workaround for this case.
+          //
+          // See also
+          // http://www.open-std.org/jtc1/sc22/wg21/docs/lwg-defects.html#19.
+          if(from_pos == from_begin) from_pos = from_end;
+          TraitsType::degen_decode(result, from_begin, from_pos);
+        }
       }
 
     done:
@@ -951,7 +951,7 @@ namespace archon
       t.reserve(s.size());
       typedef BasicLocaleCharMapper<Ch> This;
       std::transform(s.begin(), s.end(), std::back_inserter(t),
-		     std::bind1st(std::mem_fun<char, This, Ch>(&This::narrow), this));
+                     std::bind1st(std::mem_fun<char, This, Ch>(&This::narrow), this));
       return t;
     }
 
@@ -961,7 +961,7 @@ namespace archon
       StringType t;
       t.reserve(s.size());
       std::transform(s.begin(), s.end(), std::back_inserter(t),
-		     std::bind1st(std::mem_fun(&CtypeType::widen), &ctype));
+                     std::bind1st(std::mem_fun(&CtypeType::widen), &ctype));
       return t;
     }
 
@@ -981,7 +981,7 @@ namespace archon
       StringType t;
       t.reserve(s.size());
       std::transform(s.begin(), s.end(), std::back_inserter(t),
-		     std::bind1st(std::mem_fun(&CtypeType::toupper), &ctype));
+                     std::bind1st(std::mem_fun(&CtypeType::toupper), &ctype));
       return t;
     }
 
@@ -991,7 +991,7 @@ namespace archon
       StringType t;
       t.reserve(s.size());
       std::transform(s.begin(), s.end(), std::back_inserter(t),
-		     std::bind1st(std::mem_fun(&CtypeType::tolower), &ctype));
+                     std::bind1st(std::mem_fun(&CtypeType::tolower), &ctype));
       return t;
     }
 

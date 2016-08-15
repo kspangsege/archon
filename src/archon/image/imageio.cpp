@@ -105,9 +105,9 @@ namespace archon
 
 
       void save(Image::ConstRefArg image, OutputStream &out,
-		string target_name, string format_name,
-		Logger *logger, FileFormat::ProgressTracker *tracker,
-		FileFormat::Registry::ConstRefArg r)
+                string target_name, string format_name,
+                Logger *logger, FileFormat::ProgressTracker *tracker,
+                FileFormat::Registry::ConstRefArg r)
       {
         FileFormat::Registry::ConstRef registry = r;
         if(!registry) registry = FileFormat::Registry::get_default_registry();
@@ -147,8 +147,8 @@ namespace archon
 
       void save(Image::ConstRefArg image,
                 string file_path, string format_name,
-		Logger *logger, FileFormat::ProgressTracker *tracker,
-		FileFormat::Registry::ConstRefArg r)
+                Logger *logger, FileFormat::ProgressTracker *tracker,
+                FileFormat::Registry::ConstRefArg r)
       {
         save(image, *make_file_output_stream(file_path),
              file_path, format_name, logger, tracker, r);

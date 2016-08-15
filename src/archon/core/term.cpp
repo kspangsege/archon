@@ -53,24 +53,24 @@ namespace archon
 
       pair<int, int> get_terminal_size()
       {
-	int tty = open("/dev/tty", O_RDONLY);
-	if(tty < 0)
+        int tty = open("/dev/tty", O_RDONLY);
+        if(tty < 0)
         {
           int errnum = errno;
-	  throw NoTerminalException("Could not open "
+          throw NoTerminalException("Could not open "
                                     "/dev/tty: "+Sys::error(errnum));
         }
-	winsize s;
-	if(ioctl(tty, TIOCGWINSZ, reinterpret_cast<char *>(&s)) < 0)
+        winsize s;
+        if(ioctl(tty, TIOCGWINSZ, reinterpret_cast<char *>(&s)) < 0)
         {
           int errnum = errno;
-	  throw runtime_error("get_terminal_size(): Could not do "
+          throw runtime_error("get_terminal_size(): Could not do "
                               "TIOCGWINSZ on /dev/tty: "+Sys::error(errnum));
         }
-	if(close(tty) < 0)
+        if(close(tty) < 0)
         {
           int errnum = errno;
-	  throw runtime_error("get_terminal_size(): Could close "
+          throw runtime_error("get_terminal_size(): Could close "
                               "/dev/tty: " + Sys::error(errnum));
         }
         return pair<int,int>(s.ws_col, s.ws_row);
@@ -89,23 +89,23 @@ namespace archon
 
 Possible implementation on Windows using MinGW (http://rosettacode.org)
 
-	HANDLE console;
-	CONSOLE_SCREEN_BUFFER_INFO info;
-	short rows;
-	short columns;
-	// Create a handle to the console screen.
-	console = CreateFileW(L"CONOUT$", GENERIC_READ | GENERIC_WRITE,
-	    FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
-	    0, NULL);
-	if (console == INVALID_HANDLE_VALUE)
-		return 1;
+        HANDLE console;
+        CONSOLE_SCREEN_BUFFER_INFO info;
+        short rows;
+        short columns;
+        // Create a handle to the console screen.
+        console = CreateFileW(L"CONOUT$", GENERIC_READ | GENERIC_WRITE,
+            FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING,
+            0, NULL);
+        if (console == INVALID_HANDLE_VALUE)
+                return 1;
 
-	// Calculate the size of the console window.
-	if (GetConsoleScreenBufferInfo(console, &info) == 0)
-		return 1;
-	CloseHandle(console);
-	columns = info.srWindow.Right - info.srWindow.Left + 1;
-	rows = info.srWindow.Bottom - info.srWindow.Top + 1;    }
+        // Calculate the size of the console window.
+        if (GetConsoleScreenBufferInfo(console, &info) == 0)
+                return 1;
+        CloseHandle(console);
+        columns = info.srWindow.Right - info.srWindow.Left + 1;
+        rows = info.srWindow.Bottom - info.srWindow.Top + 1;    }
 */
     }
   }

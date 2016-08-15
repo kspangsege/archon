@@ -139,10 +139,10 @@ namespace archon
 
       enum ComponentSpecifier
       {
-	components_l    = 1, ///< Luminance (one channel)
-	components_la   = 2, ///< Luminance and alpha (two channels)
-	components_rgb  = 3, ///< Red, green and blue (three channels)
-	components_rgba = 4  ///< Red, green, blue and alpha (four channels)
+        components_l    = 1, ///< Luminance (one channel)
+        components_la   = 2, ///< Luminance and alpha (two channels)
+        components_rgb  = 3, ///< Red, green and blue (three channels)
+        components_rgba = 4  ///< Red, green, blue and alpha (four channels)
       };
 
       /**
@@ -158,9 +158,9 @@ namespace archon
        * Create an image with an uninitialized pixel buffer.
        */
       Image(unsigned width, unsigned height,
-	    ComponentSpecifier components = components_rgba,
-	    unsigned bitsPerComponent = 8,
-	    std::string comment = "");
+            ComponentSpecifier components = components_rgba,
+            unsigned bitsPerComponent = 8,
+            std::string comment = "");
 
       unsigned getWidth()             const { return r->width;             }
       unsigned getHeight()            const { return r->height;            }
@@ -185,120 +185,120 @@ namespace archon
        */
       void setComment(std::string c)
       {
-	r.mutate(); r->comment = c;
+        r.mutate(); r->comment = c;
       }
 
       char const *getPixelBuffer() const
       {
-	return r->getPixelBuffer();
+        return r->getPixelBuffer();
       }
 
       char *getPixelBuffer()
       {
-	r.leak();
-	return r->getPixelBuffer();
+        r.leak();
+        return r->getPixelBuffer();
       }
 
       char const *getPixelPtr(int x, int y) const
       {
-	return r->getPixelPtr(x, y);
+        return r->getPixelPtr(x, y);
       }
 
       char *getPixelPtr(int x, int y)
       {
-	r.leak();
-	return r->getPixelPtr(x, y);
+        r.leak();
+        return r->getPixelPtr(x, y);
       }
 
       void getPixel(int x, int y, unsigned &l) const
       {
-	r->getPixel(x, y, l);
+        r->getPixel(x, y, l);
       }
 
       void setPixel(int x, int y, unsigned l)
       {
-	r.mutate();
-	r->setPixel(x, y, l);
+        r.mutate();
+        r->setPixel(x, y, l);
       }
 
       void getPixel(int x, int y, unsigned &l, unsigned &a) const
       {
-	r->getPixel(x, y, l, a);
+        r->getPixel(x, y, l, a);
       }
 
       void setPixel(int x, int y, unsigned l, unsigned a)
       {
-	r.mutate();
-	r->setPixel(x, y, l, a);
+        r.mutate();
+        r->setPixel(x, y, l, a);
       }
 
       void getPixel(int x, int y, unsigned &r, unsigned &g, unsigned &b) const
       {
-	this->r->getPixel(x, y, r, g, b);
+        this->r->getPixel(x, y, r, g, b);
       }
 
       void setPixel(int x, int y, unsigned r, unsigned g, unsigned b)
       {
-	this->r.mutate();
-	this->r->setPixel(x, y, r, g, b);
+        this->r.mutate();
+        this->r->setPixel(x, y, r, g, b);
       }
 
       void getPixel(int x, int y, unsigned &r, unsigned &g,
-		    unsigned &b, unsigned &a) const
+                    unsigned &b, unsigned &a) const
       {
-	this->r->getPixel(x, y, r, g, b, a);
+        this->r->getPixel(x, y, r, g, b, a);
       }
 
       void setPixel(int x, int y, unsigned r, unsigned g,
-		    unsigned b, unsigned a)
+                    unsigned b, unsigned a)
       {
-	this->r.mutate();
-	this->r->setPixel(x, y, r, g, b, a);
+        this->r.mutate();
+        this->r->setPixel(x, y, r, g, b, a);
       }
 
       void getPixel(int x, int y, double &l) const
       {
-	r->getPixel(x, y, l);
+        r->getPixel(x, y, l);
       }
 
       void setPixel(int x, int y, double l)
       {
-	r.mutate();
-	r->setPixel(x, y, l);
+        r.mutate();
+        r->setPixel(x, y, l);
       }
 
       void getPixel(int x, int y, double &l, double &a) const
       {
-	r->getPixel(x, y, l, a);
+        r->getPixel(x, y, l, a);
       }
 
       void setPixel(int x, int y, double l, double a)
       {
-	r.mutate();
-	r->setPixel(x, y, l, a);
+        r.mutate();
+        r->setPixel(x, y, l, a);
       }
 
       void getPixel(int x, int y, double &r, double &g, double &b) const
       {
-	this->r->getPixel(x, y, r, g, b);
+        this->r->getPixel(x, y, r, g, b);
       }
 
       void setPixel(int x, int y, double r, double g, double b)
       {
-	this->r.mutate();
-	this->r->setPixel(x, y, r, g, b);
+        this->r.mutate();
+        this->r->setPixel(x, y, r, g, b);
       }
 
       void getPixel(int x, int y, double &r, double &g,
-		    double &b, double &a) const
+                    double &b, double &a) const
       {
-	this->r->getPixel(x, y, r, g, b, a);
+        this->r->getPixel(x, y, r, g, b, a);
       }
 
       void setPixel(int x, int y, double r, double g, double b, double a)
       {
-	this->r.mutate();
-	this->r->setPixel(x, y, r, g, b, a);
+        this->r.mutate();
+        this->r->setPixel(x, y, r, g, b, a);
       }
 
       /**
@@ -309,7 +309,7 @@ namespace archon
 
       struct FormatException: std::runtime_error
       {
-	FormatException(std::string m): std::runtime_error(m) {}
+        FormatException(std::string m): std::runtime_error(m) {}
       };
 
       /**
@@ -317,7 +317,7 @@ namespace archon
        */
       struct UnknownFormatException: formatException
       {
-	UnknownFormatException(std::string m): FormatException(m) {}
+        UnknownFormatException(std::string m): FormatException(m) {}
       };
 
       /**
@@ -326,12 +326,12 @@ namespace archon
        */
       struct InvalidFormatException: FormatException
       {
-	InvalidFormatException(std::string m): FormatException(m) {}
+        InvalidFormatException(std::string m): FormatException(m) {}
       };
 
       struct ProgressTracker
       {
-	virtual void progress(double fraction) throw() = 0;
+        virtual void progress(double fraction) throw() = 0;
         virtual ~ProgressTracker() {}
       };
 
@@ -346,54 +346,54 @@ namespace archon
        */
       struct Format
       {
-	/**
-	 * Must return the unique specifier for this image format. The
-	 * specifier is the sub-field of the MIME type. That is, the
-	 * part of the MIME type after "image/". This will normally
-	 * correspond to the file name suffix, but not always.
-	 */
-	virtual std::string getSpecifier() const = 0;
+        /**
+         * Must return the unique specifier for this image format. The
+         * specifier is the sub-field of the MIME type. That is, the
+         * part of the MIME type after "image/". This will normally
+         * correspond to the file name suffix, but not always.
+         */
+        virtual std::string getSpecifier() const = 0;
 
-	/**
-	 * Check if the initial characters from the passed stream
-	 * identifies the stream contents as being of this format.
-	 */
-	virtual bool checkSignature(Ref<Stream::Reader>) const = 0;
+        /**
+         * Check if the initial characters from the passed stream
+         * identifies the stream contents as being of this format.
+         */
+        virtual bool checkSignature(Ref<Stream::Reader>) const = 0;
 
-	/**
-	 * Check if the passed suffix is a proper file name suffix for
-	 * this format.
-	 *
-	 * \param suffix Is always converted to lowercase before
-	 * passed to this method.
-	 */
-	virtual bool checkSuffix(std::string suffix) const = 0;
+        /**
+         * Check if the passed suffix is a proper file name suffix for
+         * this format.
+         *
+         * \param suffix Is always converted to lowercase before
+         * passed to this method.
+         */
+        virtual bool checkSuffix(std::string suffix) const = 0;
 
-	virtual Image load(Ref<Stream::Reader>, ProgressTracker *, Logger *) const
-	  throw(InvalidFormatException, IOException, UnexpectedException) = 0;
+        virtual Image load(Ref<Stream::Reader>, ProgressTracker *, Logger *) const
+          throw(InvalidFormatException, IOException, UnexpectedException) = 0;
 
-	virtual void save(Image, Ref<Stream::Writer>, ProgressTracker *, Logger *) const
-	  throw(IOException, UnexpectedException) = 0;
+        virtual void save(Image, Ref<Stream::Writer>, ProgressTracker *, Logger *) const
+          throw(IOException, UnexpectedException) = 0;
 
-	/**
-	 * Ensures proper destruction of derived classes.
-	 */
-	virtual ~Format() {}
+        /**
+         * Ensures proper destruction of derived classes.
+         */
+        virtual ~Format() {}
 
       protected:
-	/**
-	 * A backdoor allowing loaders to get hold of a non-const
-	 * pointer to the pixel buffer without putting the Rep object
-	 * into the leaked state which would result in an otherwise
-	 * redundant copying of the image data.
-	 *
-	 * Please do not use this member function for any other
-	 * purpose.
-	 */
-	char *getPixelBufferNoLeak(Image const &i) const
-	{
-	  return const_cast<char *>(i.getPixelBuffer());
-	}
+        /**
+         * A backdoor allowing loaders to get hold of a non-const
+         * pointer to the pixel buffer without putting the Rep object
+         * into the leaked state which would result in an otherwise
+         * redundant copying of the image data.
+         *
+         * Please do not use this member function for any other
+         * purpose.
+         */
+        char *getPixelBufferNoLeak(Image const &i) const
+        {
+          return const_cast<char *>(i.getPixelBuffer());
+        }
       };
 
       /**
@@ -401,18 +401,18 @@ namespace archon
        */
       struct Context
       {
-	virtual size_t getNumberOfFormats() const = 0;
-	virtual Format const *getFormat(size_t index) const = 0;
+        virtual size_t getNumberOfFormats() const = 0;
+        virtual Format const *getFormat(size_t index) const = 0;
 
-	/**
-	 * Get the default image context
-	 */
-	static Context const *get();
+        /**
+         * Get the default image context
+         */
+        static Context const *get();
 
-	/**
-	 * Ensures proper destruction of derived classes.
-	 */
-	virtual ~Context() {}
+        /**
+         * Ensures proper destruction of derived classes.
+         */
+        virtual ~Context() {}
       };
 
       /**
@@ -437,12 +437,12 @@ namespace archon
        * during parsing of the stream contents.
        */
       Image(Ref<Stream::Reader> r,
-	    std::string sourceName, std::string formatSpecifier = "",
-	    Logger *l = Logger::get(), Context const *c = 0)
-	throw(UnknownFormatException, InvalidFormatException,
-	      IOException, UnexpectedException)
+            std::string sourceName, std::string formatSpecifier = "",
+            Logger *l = Logger::get(), Context const *c = 0)
+        throw(UnknownFormatException, InvalidFormatException,
+              IOException, UnexpectedException)
       {
-	_load(r, sourceName, formatSpecifier, 0, l, c);
+        _load(r, sourceName, formatSpecifier, 0, l, c);
       }
 
       /**
@@ -467,12 +467,12 @@ namespace archon
        * during parsing of the file contents.
        */
       explicit Image(std::string filePath, std::string formatSpecifier = "",
-		     Logger *l = Logger::get(), Context const *c = 0)
-	throw(UnknownFormatException, InvalidFormatException,
-	      IOException, UnexpectedException)
+                     Logger *l = Logger::get(), Context const *c = 0)
+        throw(UnknownFormatException, InvalidFormatException,
+              IOException, UnexpectedException)
       {
-	_load(Stream::makeFileReader(filePath),
-	      File::nameOf(filePath), formatSpecifier, 0, l, c);
+        _load(Stream::makeFileReader(filePath),
+              File::nameOf(filePath), formatSpecifier, 0, l, c);
       }
 
       /**
@@ -503,13 +503,13 @@ namespace archon
        * during parsing of the stream contents.
        */
       void load(Ref<Stream::Reader> r,
-		std::string sourceName, std::string formatSpecifier = "",
-		ProgressTracker *t = 0, Logger *l = Logger::get(),
-		Context const *c = 0)
-	throw(UnknownFormatException, InvalidFormatException,
-	      IOException, UnexpectedException)
+                std::string sourceName, std::string formatSpecifier = "",
+                ProgressTracker *t = 0, Logger *l = Logger::get(),
+                Context const *c = 0)
+        throw(UnknownFormatException, InvalidFormatException,
+              IOException, UnexpectedException)
       {
-	_load(r, sourceName, formatSpecifier, t, l, c);
+        _load(r, sourceName, formatSpecifier, t, l, c);
       }
 
       /**
@@ -538,13 +538,13 @@ namespace archon
        * during parsing of the file contents.
        */
       void load(std::string filePath, std::string formatSpecifier = "",
-		ProgressTracker *t = 0, Logger *l = Logger::get(),
-		Context const *c = 0)
-	throw(UnknownFormatException, InvalidFormatException,
-	      IOException, UnexpectedException)
+                ProgressTracker *t = 0, Logger *l = Logger::get(),
+                Context const *c = 0)
+        throw(UnknownFormatException, InvalidFormatException,
+              IOException, UnexpectedException)
       {
-	_load(Stream::makeFileReader(filePath),
-	      File::nameOf(filePath), formatSpecifier, t, l, c);
+        _load(Stream::makeFileReader(filePath),
+              File::nameOf(filePath), formatSpecifier, t, l, c);
       }
 
       /**
@@ -566,13 +566,13 @@ namespace archon
        * of the target name.
        */
       void save(Ref<Stream::Writer> w,
-		std::string targetName, std::string formatSpecifier = "",
-		ProgressTracker *t = 0, Logger *l = Logger::get(),
-		Context const *c = 0) const
-	throw(UnknownFormatException, IOException, UnexpectedException)
+                std::string targetName, std::string formatSpecifier = "",
+                ProgressTracker *t = 0, Logger *l = Logger::get(),
+                Context const *c = 0) const
+        throw(UnknownFormatException, IOException, UnexpectedException)
       {
-	if(!r) ARCHON_THROW1(StateException, "Null image");
-	_save(w, targetName, formatSpecifier, t, l, c);
+        if(!r) ARCHON_THROW1(StateException, "Null image");
+        _save(w, targetName, formatSpecifier, t, l, c);
       }
 
       /**
@@ -594,154 +594,154 @@ namespace archon
        * of the file name.
        */
       void save(std::string filePath, std::string formatSpecifier = "",
-		ProgressTracker *t = 0, Logger *l = Logger::get(),
-		Context const *c = 0) const
-	throw(UnknownFormatException, IOException, UnexpectedException)
+                ProgressTracker *t = 0, Logger *l = Logger::get(),
+                Context const *c = 0) const
+        throw(UnknownFormatException, IOException, UnexpectedException)
       {
-	if(!r) ARCHON_THROW1(StateException, "Null image");
-	_save(Stream::makeFileWriter(filePath),
-	      File::nameOf(filePath), formatSpecifier, t, l, c);
+        if(!r) ARCHON_THROW1(StateException, "Null image");
+        _save(Stream::makeFileWriter(filePath),
+              File::nameOf(filePath), formatSpecifier, t, l, c);
       }
 
     private:
       struct Rep: MutaRefObjectBase
       {
-	Rep(unsigned width, unsigned height,
-	    unsigned bitsPerComponent,
-	    unsigned charsPerPixel,
-	    unsigned charsPerRow,
-	    unsigned maxComponentValue,
-	    ComponentSpecifier components,
-	    std::string comment):
-	  width(width), height(height),
-	  bitsPerComponent(bitsPerComponent),
-	  charsPerPixel(charsPerPixel),
-	  charsPerRow(charsPerRow),
-	  maxComponentValue(maxComponentValue),
-	  components(components),
-	  comment(comment) {}
+        Rep(unsigned width, unsigned height,
+            unsigned bitsPerComponent,
+            unsigned charsPerPixel,
+            unsigned charsPerRow,
+            unsigned maxComponentValue,
+            ComponentSpecifier components,
+            std::string comment):
+          width(width), height(height),
+          bitsPerComponent(bitsPerComponent),
+          charsPerPixel(charsPerPixel),
+          charsPerRow(charsPerRow),
+          maxComponentValue(maxComponentValue),
+          components(components),
+          comment(comment) {}
 
-	unsigned width;
-	unsigned height;
-	unsigned bitsPerComponent;       // 1, 2, 4, 8, 16
-	unsigned charsPerPixel;
-	unsigned charsPerRow;
-	unsigned maxComponentValue;
-	ComponentSpecifier components;
-	std::string comment; // UTF-8
+        unsigned width;
+        unsigned height;
+        unsigned bitsPerComponent;       // 1, 2, 4, 8, 16
+        unsigned charsPerPixel;
+        unsigned charsPerRow;
+        unsigned maxComponentValue;
+        ComponentSpecifier components;
+        std::string comment; // UTF-8
 
-	Rep *refClone() const;
-	void refDelete() throw();
+        Rep *refClone() const;
+        void refDelete() throw();
 
-	char const *getPixelBuffer() const
-	{
-	  return reinterpret_cast<char const *>(this+1);
-	}
+        char const *getPixelBuffer() const
+        {
+          return reinterpret_cast<char const *>(this+1);
+        }
 
-	char *getPixelBuffer()
-	{
-	  return reinterpret_cast<char *>(this+1);
-	}
+        char *getPixelBuffer()
+        {
+          return reinterpret_cast<char *>(this+1);
+        }
 
-	char *getPixelPtr(int x, int y)
-	{
-	  return getPixelBuffer() + y*charsPerRow + x*charsPerPixel;
-	}
+        char *getPixelPtr(int x, int y)
+        {
+          return getPixelBuffer() + y*charsPerRow + x*charsPerPixel;
+        }
 
-	unsigned getComponent(char *pixel, unsigned component);
-	void setComponent(char *pixel, unsigned component, unsigned v);
+        unsigned getComponent(char *pixel, unsigned component);
+        void setComponent(char *pixel, unsigned component, unsigned v);
 
-	void getPixel(int x, int y, unsigned &l);
-	void setPixel(int x, int y, unsigned l);
-	void getPixel(int x, int y, unsigned &l, unsigned &a);
-	void setPixel(int x, int y, unsigned l, unsigned a);
-	void getPixel(int x, int y, unsigned &r, unsigned &g, unsigned &b);
-	void setPixel(int x, int y, unsigned r, unsigned g, unsigned b);
-	void getPixel(int x, int y, unsigned &r, unsigned &g,
-		      unsigned &b, unsigned &a);
-	void setPixel(int x, int y, unsigned r, unsigned g,
-		      unsigned b, unsigned a);
+        void getPixel(int x, int y, unsigned &l);
+        void setPixel(int x, int y, unsigned l);
+        void getPixel(int x, int y, unsigned &l, unsigned &a);
+        void setPixel(int x, int y, unsigned l, unsigned a);
+        void getPixel(int x, int y, unsigned &r, unsigned &g, unsigned &b);
+        void setPixel(int x, int y, unsigned r, unsigned g, unsigned b);
+        void getPixel(int x, int y, unsigned &r, unsigned &g,
+                      unsigned &b, unsigned &a);
+        void setPixel(int x, int y, unsigned r, unsigned g,
+                      unsigned b, unsigned a);
 
-	double toFloat(unsigned v)
-	{
-	  return double(v)/maxComponentValue;
-	}
+        double toFloat(unsigned v)
+        {
+          return double(v)/maxComponentValue;
+        }
 
-	unsigned fromFloat(double v)
-	{
-	  if(v<0) v=0;
-	  else if(v>1) v=1;
-	  return unsigned(v*maxComponentValue+0.5);
-	}
+        unsigned fromFloat(double v)
+        {
+          if(v<0) v=0;
+          else if(v>1) v=1;
+          return unsigned(v*maxComponentValue+0.5);
+        }
 
-	void getPixel(int x, int y, double &l)
-	{
-	  unsigned _l;
-	  getPixel(x, y, _l);
-	  l = toFloat(_l);
-	}
+        void getPixel(int x, int y, double &l)
+        {
+          unsigned _l;
+          getPixel(x, y, _l);
+          l = toFloat(_l);
+        }
 
-	void setPixel(int x, int y, double l)
-	{
-	  setPixel(x, y, fromFloat(l));
-	}
+        void setPixel(int x, int y, double l)
+        {
+          setPixel(x, y, fromFloat(l));
+        }
 
-	void getPixel(int x, int y, double &l, double &a)
-	{
-	  unsigned _l, _a;
-	  getPixel(x, y, _l, _a);
-	  l = toFloat(_l);
-	  a = toFloat(_a);
-	}
+        void getPixel(int x, int y, double &l, double &a)
+        {
+          unsigned _l, _a;
+          getPixel(x, y, _l, _a);
+          l = toFloat(_l);
+          a = toFloat(_a);
+        }
 
-	void setPixel(int x, int y, double l, double a)
-	{
-	  setPixel(x, y, fromFloat(l), fromFloat(a));
-	}
+        void setPixel(int x, int y, double l, double a)
+        {
+          setPixel(x, y, fromFloat(l), fromFloat(a));
+        }
 
-	void getPixel(int x, int y, double &r, double &g, double &b)
-	{
-	  unsigned _r, _g, _b;
-	  getPixel(x, y, _r, _g, _b);
-	  r = toFloat(_r);
-	  g = toFloat(_g);
-	  b = toFloat(_b);
-	}
+        void getPixel(int x, int y, double &r, double &g, double &b)
+        {
+          unsigned _r, _g, _b;
+          getPixel(x, y, _r, _g, _b);
+          r = toFloat(_r);
+          g = toFloat(_g);
+          b = toFloat(_b);
+        }
 
-	void setPixel(int x, int y, double r, double g, double b)
-	{
-	  setPixel(x, y, fromFloat(r), fromFloat(g), fromFloat(b));
-	}
+        void setPixel(int x, int y, double r, double g, double b)
+        {
+          setPixel(x, y, fromFloat(r), fromFloat(g), fromFloat(b));
+        }
 
-	void getPixel(int x, int y, double &r, double &g,
-		      double &b, double &a)
-	{
-	  unsigned _r, _g, _b, _a;
-	  getPixel(x, y, _r, _g, _b, _a);
-	  r = toFloat(_r);
-	  g = toFloat(_g);
-	  b = toFloat(_b);
-	  a = toFloat(_a);
-	}
+        void getPixel(int x, int y, double &r, double &g,
+                      double &b, double &a)
+        {
+          unsigned _r, _g, _b, _a;
+          getPixel(x, y, _r, _g, _b, _a);
+          r = toFloat(_r);
+          g = toFloat(_g);
+          b = toFloat(_b);
+          a = toFloat(_a);
+        }
 
-	void setPixel(int x, int y, double r, double g, double b, double a)
-	{
-	  setPixel(x, y, fromFloat(r), fromFloat(g), fromFloat(b), fromFloat(a));
-	}
+        void setPixel(int x, int y, double r, double g, double b, double a)
+        {
+          setPixel(x, y, fromFloat(r), fromFloat(g), fromFloat(b), fromFloat(a));
+        }
       };
 
       MutaRef<Rep> r;
 
       void _load(Ref<Stream::Reader>,
-		 std::string sourceName, std::string formatSpecifier,
-		 ProgressTracker *, Logger *, Context const *)
-	throw(UnknownFormatException, InvalidFormatException,
-	      IOException, UnexpectedException);
+                 std::string sourceName, std::string formatSpecifier,
+                 ProgressTracker *, Logger *, Context const *)
+        throw(UnknownFormatException, InvalidFormatException,
+              IOException, UnexpectedException);
 
       void _save(Ref<Stream::Writer>,
-		 std::string targetName, std::string formatSpecifier,
-		 ProgressTracker *, Logger *, Context const *) const
-	throw(UnknownFormatException, IOException, UnexpectedException);
+                 std::string targetName, std::string formatSpecifier,
+                 ProgressTracker *, Logger *, Context const *) const
+        throw(UnknownFormatException, IOException, UnexpectedException);
     };
   }
 }

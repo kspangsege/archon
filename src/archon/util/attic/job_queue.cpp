@@ -117,79 +117,79 @@ namespace archon
       unsigned long id;
 
       {
-	Mutex::Lock l(mutex);
-	id = nextThreadId++;
+        Mutex::Lock l(mutex);
+        id = nextThreadId++;
       }
 
       //log((string)"Job::Queue::worker(" + Text::toString(id) + "): started");
     
       for(;;)
       {
-	Mutex::Lock l(mutex);
+        Mutex::Lock l(mutex);
 
-	if(pendingJobs.empty())
-	{
-	  --activeThreads;
-	  idleThreads.push_back(id);
+        if(pendingJobs.empty())
+        {
+          --activeThreads;
+          idleThreads.push_back(id);
 
-	  if(activeThreads == 0) allDone.notifyAll();
+          if(activeThreads == 0) allDone.notifyAll();
 
-	  Time wakeup = Time::now();
-	  wakeup += maxIdleTime;
+          Time wakeup = Time::now();
+          wakeup += maxIdleTime;
 
-	  for(;;)
-	  {
-	    //log((string)"Job::Queue::worker(" + Text::toString(id) + "): going to sleep");
+          for(;;)
+          {
+            //log((string)"Job::Queue::worker(" + Text::toString(id) + "): going to sleep");
 
-	    const bool timedOut = newJob.timedWait(wakeup);
+            const bool timedOut = newJob.timedWait(wakeup);
 
-	    if(shutdown)
-	    {
-	      /*
-	       * Note that the contents of 'idleThreads' is undefined after
-	       * 'shutdown' is set to true. The only thing that can be relied on
-	       * is that the size of the list equals the number of threads that
-	       * still have not ended their duty.
-	       */
-	      idleThreads.pop_back();
-	      //log((string)"Job::Queue::worker(" + Text::toString(id) + "): terminated");
-	      threadQuit.notifyAll();
-	      return;
-	    }
+            if(shutdown)
+            {
+              /*
+               * Note that the contents of 'idleThreads' is undefined after
+               * 'shutdown' is set to true. The only thing that can be relied on
+               * is that the size of the list equals the number of threads that
+               * still have not ended their duty.
+               */
+              idleThreads.pop_back();
+              //log((string)"Job::Queue::worker(" + Text::toString(id) + "): terminated");
+              threadQuit.notifyAll();
+              return;
+            }
 
-	    if(timedOut)
-	    {
-	      idleThreads.erase(find(idleThreads.begin(), idleThreads.end(), id));
-	      if(!pendingJobs.empty()) break;
-	      //log((string)"Job::Queue::worker(" + Text::toString(id) + "): timed out");
-	      threadQuit.notifyAll();
-	      return;
-	    }
+            if(timedOut)
+            {
+              idleThreads.erase(find(idleThreads.begin(), idleThreads.end(), id));
+              if(!pendingJobs.empty()) break;
+              //log((string)"Job::Queue::worker(" + Text::toString(id) + "): timed out");
+              threadQuit.notifyAll();
+              return;
+            }
 
-	    if(pendingJobs.empty() || idleThreads.back() != id) continue;
-	    idleThreads.pop_back();
-	    break;
-	  }
+            if(pendingJobs.empty() || idleThreads.back() != id) continue;
+            idleThreads.pop_back();
+            break;
+          }
 
-	  ++activeThreads;
-	}
+          ++activeThreads;
+        }
 
-	Ref<Job> job = pendingJobs.front();
-	pendingJobs.pop_front();
+        Ref<Job> job = pendingJobs.front();
+        pendingJobs.pop_front();
 
-	job->thread = Thread::self().get();
+        job->thread = Thread::self().get();
 
-	l.release();
+        l.release();
 
-	//log((string)"Job::Queue::worker(" + Text::toString(id) + "): running new job");
-	job->main();
+        //log((string)"Job::Queue::worker(" + Text::toString(id) + "): running new job");
+        job->main();
 
-	{
-	  Mutex::Lock l(mutex);
-	  job->thread = 0;
-	}
+        {
+          Mutex::Lock l(mutex);
+          job->thread = 0;
+        }
 
-	Thread::selfResurrect();
+        Thread::selfResurrect();
       }
     }
 
@@ -232,8 +232,8 @@ namespace archon
       pendingJobs.push_back(j);
       if(idleThreads.empty() && activeThreads < maxThreads)
       {
-	++activeThreads;
-	Thread::run(workerEntry, this);
+        ++activeThreads;
+        Thread::run(workerEntry, this);
       }
       newJob.notifyAll();
     }
@@ -246,10 +246,10 @@ namespace archon
       Mutex::Lock l(mutex);
       if(j->thread)
       {
-	Ref<Thread> t(j->thread, RefSafeIncTag());
-	l.release();
-	if(!t) return;
-	t->terminate();
+        Ref<Thread> t(j->thread, RefSafeIncTag());
+        l.release();
+        if(!t) return;
+        t->terminate();
       }
       else pendingJobs.remove(j);
     }

@@ -63,7 +63,7 @@ namespace archon
 
       struct DefaultSymbolPrinter: SymbolPrinter
       {
-	StringType print(CharType const &c) const { return StringType(1, c); }
+        StringType print(CharType const &c) const { return StringType(1, c); }
       };
 
       static DefaultSymbolPrinter defaultSymbolPrinter;
@@ -113,24 +113,24 @@ namespace archon
       size_t i = 0;
       for(typename NfaType::StateSeq s = nfa->getStates(); s; ++s, ++i)
       {
-	table(i+1, 0) = valPrinter.print(s->getId());
+        table(i+1, 0) = valPrinter.print(s->getId());
         {
           typename StartStates::iterator j = stateStates.find(s->getId());
           if(j != stateStates.end()) table(i+1, 1) = valPrinter.print(j->second);
         }
-	if(s->getTokenId() != NfaType::TraitsType::noToken()) table(i+1, 2) = valPrinter.print(s->getTokenId());
+        if(s->getTokenId() != NfaType::TraitsType::noToken()) table(i+1, 2) = valPrinter.print(s->getTokenId());
 
-	for(typename NfaType::EdgeRangeSeq j = s->getEdgeRanges(); j; ++j)
-	{
-	  if(table(i+1, 3).size()) table(i+1, 3) += commaSpace;
-	  table(i+1, 3) += ping+symPrinter.print(j->getRange().first)+ping;
-	  if(j->getRange().first < j->getRange().second)
-	    table(i+1, 3) += dashPing+symPrinter.print(j->getRange().second)+ping;
-	  table(i+1, 3) += arrow+valPrinter.print(j->getTargetState());
-	}
+        for(typename NfaType::EdgeRangeSeq j = s->getEdgeRanges(); j; ++j)
+        {
+          if(table(i+1, 3).size()) table(i+1, 3) += commaSpace;
+          table(i+1, 3) += ping+symPrinter.print(j->getRange().first)+ping;
+          if(j->getRange().first < j->getRange().second)
+            table(i+1, 3) += dashPing+symPrinter.print(j->getRange().second)+ping;
+          table(i+1, 3) += arrow+valPrinter.print(j->getTargetState());
+        }
 
-	for(typename NfaType::SentinelEdgeSeq j = s->getSentinelEdges(); j; ++j)
-	{
+        for(typename NfaType::SentinelEdgeSeq j = s->getSentinelEdges(); j; ++j)
+        {
           StringType t;
           switch(j->getSentinel())
           {
@@ -139,16 +139,16 @@ namespace archon
           case NfaType::anchor_bow: t = bow; break;
           case NfaType::anchor_eow: t = eow; break;
           }
-	  if(table(i+1, 3).size()) table(i+1, 3) += commaSpace;
-	  table(i+1, 3) += t;
-	  table(i+1, 3) += arrow+valPrinter.print(j->getTargetState());
-	}
+          if(table(i+1, 3).size()) table(i+1, 3) += commaSpace;
+          table(i+1, 3) += t;
+          table(i+1, 3) += arrow+valPrinter.print(j->getTargetState());
+        }
 
-	for(typename NfaType::EpsilonEdgeSeq j = s->getEpsilonEdges(); j; ++j)
-	{
-	  if(table(i+1, 3).size()) table(i+1, 3) += commaSpace;
-	  table(i+1, 3) += arrow2+valPrinter.print(j->getTargetState());
-	}
+        for(typename NfaType::EpsilonEdgeSeq j = s->getEpsilonEdges(); j; ++j)
+        {
+          if(table(i+1, 3).size()) table(i+1, 3) += commaSpace;
+          table(i+1, 3) += arrow2+valPrinter.print(j->getTargetState());
+        }
       }
 
       return table.print(width, 3, true, loc);

@@ -41,8 +41,8 @@ int main() throw()
   vector<Nfa::StateSet> stateSets;
 
   Regex::Exp regex = Regex::juxta(Regex::star(Regex::altern(Regex::str(L"a"),
-							    Regex::str(L"b"))),
-				  Regex::str(L"abb"));
+                                                            Regex::str(L"b"))),
+                                  Regex::str(L"abb"));
 
   Nfa nfa(regex);
 

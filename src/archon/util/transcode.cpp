@@ -171,10 +171,10 @@ namespace
           continue;
         }
 
-	size_t n = iconv(iconv_state, const_cast<char **>(&in),
+        size_t n = iconv(iconv_state, const_cast<char **>(&in),
                          &inbytes, &out, &outbytes);
         dirty = true; // Reset sequence is now required
-	if(n != static_cast<size_t>(-1))
+        if(n != static_cast<size_t>(-1))
         {
           if(!eoi) return true; // Input exhausted
 
@@ -242,7 +242,7 @@ namespace
       need_replacement(true)
     {
       if(numeric_limits<unsigned char>::digits != 8)
-	throw runtime_error("Unsupported number of bits in char: " +
+        throw runtime_error("Unsupported number of bits in char: " +
                             Text::print(numeric_limits<unsigned char>::digits));
       string source_encoding = t.source_encoding;
       iconv_state = iconv_open(target_encoding.c_str(), source_encoding.c_str());
@@ -253,7 +253,7 @@ namespace
                                                 source_encoding+"' to '"+
                                                 target_encoding+"'");
         int errnum = errno;
-	throw runtime_error("Unexpected error from 'iconv_open': " +
+        throw runtime_error("Unexpected error from 'iconv_open': " +
                             Sys::error(errnum));
       }
     }

@@ -44,7 +44,7 @@ namespace
     Condition cond;
 
     T(): cond(mux) {}
-	
+        
     void main()
     {
       try
@@ -109,7 +109,7 @@ int main() throw()
 
   t->interrupt();
   cerr << "INTERRUPTION REQUESTED\n";
-	
+        
   t->wait();
   cerr << "TERMINATED\n";
 

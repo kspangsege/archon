@@ -103,18 +103,18 @@ namespace archon
        */
       struct Lock
       {
-	/**
-	 * Create a mutex lock holder that does not hold a lock
-	 * initally. A lock may later be acquired using the \c acquire
-	 * method.
-	 *
-	 * \sa acquire
-	 */
-	Lock() throw(): mutex(0) {}
+        /**
+         * Create a mutex lock holder that does not hold a lock
+         * initally. A lock may later be acquired using the \c acquire
+         * method.
+         *
+         * \sa acquire
+         */
+        Lock() throw(): mutex(0) {}
 
-	/**
-	 * Create a mutex lock holder and acquire a lock on the
-	 * specified mutex.
+        /**
+         * Create a mutex lock holder and acquire a lock on the
+         * specified mutex.
          *
          * \param m The mutex to lock.
          *
@@ -124,12 +124,12 @@ namespace archon
          *
          * \throw AlreadyLockedException If \c non_block was true and
          * the specified mutex was already locked.
-	 */
-	Lock(Mutex const &m, bool non_block = false);
+         */
+        Lock(Mutex const &m, bool non_block = false);
 
-	/**
-	 * Acquire a lock on the specified mutex. If another lock was
-	 * already held it is first released.
+        /**
+         * Acquire a lock on the specified mutex. If another lock was
+         * already held it is first released.
          *
          * \param m The mutex to lock.
          *
@@ -140,25 +140,25 @@ namespace archon
          * \throw AlreadyLockedException If \c non_block was true and
          * the specified mutex was already locked. In this case, a
          * previously held lock, will still be released.
-	 */
-	void acquire(Mutex const &m, bool non_block = false);
+         */
+        void acquire(Mutex const &m, bool non_block = false);
 
-	/**
-	 * Release the currently held mutex lock. If no lock was held,
-	 * nothing is done.
-	 */
-	void release() throw();
+        /**
+         * Release the currently held mutex lock. If no lock was held,
+         * nothing is done.
+         */
+        void release() throw();
 
         bool is_acquired() const throw() { return mutex; }
 
-	~Lock() throw();
+        ~Lock() throw();
 
       private:
 
-	Mutex const *mutex;
+        Mutex const *mutex;
 
-	Lock(Lock const &); // Hide
-	Lock &operator=(Lock const &); // Hide
+        Lock(Lock const &); // Hide
+        Lock &operator=(Lock const &); // Hide
       };
 
     private:

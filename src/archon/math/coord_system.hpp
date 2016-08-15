@@ -75,9 +75,9 @@ namespace archon
        */
       BasicCoordSystem<N,N,T> &inv()
       {
-	this->basis.inv();
-	this->origin = this->basis * this->origin;
-	this->origin.neg();
+        this->basis.inv();
+        this->origin = this->basis * this->origin;
+        this->origin.neg();
         return static_cast<BasicCoordSystem<N,N,T> &>(*this);
       }
     };
@@ -170,7 +170,7 @@ namespace archon
        */
       template<class R, class E> void translate(VecVal<N,T,R,E> const &v)
       {
-	this->origin += this->basis * v;
+        this->origin += this->basis * v;
       }
     };
 

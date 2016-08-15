@@ -600,7 +600,7 @@ namespace archon
       {
         T v;
         bool have_integer_part = false;
-	parse_stream.clear();
+        parse_stream.clear();
         parse_stream.str(str);
         {
           // Read integer part

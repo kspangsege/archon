@@ -51,12 +51,12 @@ namespace archon
 
       template<typename T> inline std::string type()
       {
-	return demangle(typeid(T).name());
+        return demangle(typeid(T).name());
       }
 
       template<typename T> inline std::string type(T const &v)
       {
-	return demangle(typeid(v).name());
+        return demangle(typeid(v).name());
       }
 
       void terminate_handler();

@@ -126,7 +126,7 @@ public:
          * value between 0 and 1. At the final call a value of 1 must
          * be passed for the \c fraction argument.
          */
-	virtual void progress(double fraction) throw() = 0;
+        virtual void progress(double fraction) throw() = 0;
 
         virtual ~ProgressTracker() {}
     };

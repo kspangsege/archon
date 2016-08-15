@@ -58,100 +58,100 @@ namespace archon
 
       struct Item
       {
-	int rule;
-	int production;
-	int position;
-	Item(int rule, int production, int position):
-	  rule(rule), production(production), position(position) {}
+        int rule;
+        int production;
+        int position;
+        Item(int rule, int production, int position):
+          rule(rule), production(production), position(position) {}
       };
 
       struct Symbol
       {
-	enum Type
-	{
-	  nil = 0,
-	  terminal,
-	  nonterminal,
-	  action
-	};
+        enum Type
+        {
+          nil = 0,
+          terminal,
+          nonterminal,
+          action
+        };
 
-	Type getType() const { return type; }
-	int getIndex() const { return index; }
-	std::vector<int> const &getArgs() const { return args; }
+        Type getType() const { return type; }
+        int getIndex() const { return index; }
+        std::vector<int> const &getArgs() const { return args; }
 
       private:
-	friend class Cfg;
-	friend class FirstSets;
-	friend class FollowSets;
+        friend class Cfg;
+        friend class FirstSets;
+        friend class FollowSets;
 
-	Type type;
-	int index; // -1 is 'null', -2 is 'copy' and -3 is 'concat'
-	std::vector<int> args; // For actions only
+        Type type;
+        int index; // -1 is 'null', -2 is 'copy' and -3 is 'concat'
+        std::vector<int> args; // For actions only
 
-	Symbol(): type(nil) {}
-	Symbol(Type type, int index): type(type), index(index) {}
-	Symbol(int index, std::vector<int> const &args):
-	  type(action), index(index), args(args) {}
+        Symbol(): type(nil) {}
+        Symbol(Type type, int index): type(type), index(index) {}
+        Symbol(int index, std::vector<int> const &args):
+          type(action), index(index), args(args) {}
       };
 
       struct Production
       {
-	int getNumberOfSymbols() const { return symbols.size(); }
-	Symbol const &getSymbol(int i) const { return symbols[i]; }
+        int getNumberOfSymbols() const { return symbols.size(); }
+        Symbol const &getSymbol(int i) const { return symbols[i]; }
 
       private:
-	friend class Cfg;
-	friend class Rule;
-	friend class FirstSets;
-	friend class FollowSets;
+        friend class Cfg;
+        friend class Rule;
+        friend class FirstSets;
+        friend class FollowSets;
 
-	Production() {}
-	Production(std::vector<Symbol> const &symbols): symbols(symbols) {}
+        Production() {}
+        Production(std::vector<Symbol> const &symbols): symbols(symbols) {}
 
-	std::vector<Symbol> symbols;
+        std::vector<Symbol> symbols;
       };
 
       struct Rule
       {
-	int getNumberOfProductions() const { return productions.size(); }
-	Production const &getProduction(int i) const { return productions[i]; }
+        int getNumberOfProductions() const { return productions.size(); }
+        Production const &getProduction(int i) const { return productions[i]; }
 
       private:
-	friend class Cfg;
-	friend class FirstSets;
-	friend class FollowSets;
+        friend class Cfg;
+        friend class FirstSets;
+        friend class FollowSets;
 
-	std::string name;
-	std::vector<Production> productions;
+        std::string name;
+        std::vector<Production> productions;
 
-	Rule(std::string const &name): name(name) {}
+        Rule(std::string const &name): name(name) {}
 
-	void addProduction(std::vector<Symbol> const &symbols)
-	{
-	  productions.push_back(Production(symbols));
-	}
+        void addProduction(std::vector<Symbol> const &symbols)
+        {
+          productions.push_back(Production(symbols));
+        }
       };
 
       struct Actor
       {
-	/**
-	 * Get the number of user-defined methods
-	 */
-	virtual int getNumberOfMethods() const = 0;
+        /**
+         * Get the number of user-defined methods
+         */
+        virtual int getNumberOfMethods() const = 0;
 
-	/**
-	 * @param methodIndex -3 for 'concat', -2 for 'copy' and -1 for 'null'
-	 * otherwise user-defined
-	 */
-	virtual int getMethodArity(int methodIndex) const = 0;
+        /**
+         * @param methodIndex -3 for 'concat', -2 for 'copy' and -1 for 'null'
+         * otherwise user-defined
+         */
+        virtual int getMethodArity(int methodIndex) const = 0;
 
-	/**
-	 * @param methodIndex -3 for 'concat', -2 for 'copy' and -1 for 'null'
-	 * otherwise user-defined
-	 */
-	virtual std::string getMethodName(int methodIndex) const = 0;
+        /**
+         * @param methodIndex -3 for 'concat', -2 for 'copy' and -1 for 'null'
+         * otherwise user-defined
+         */
+        virtual std::string getMethodName(int methodIndex) const = 0;
 
-	virtual ~Actor() {}
+        virtual ~Actor() {}
       };
 
 
@@ -168,15 +168,15 @@ namespace archon
 
       void addProd(int nontermIndex, std::vector<Symbol> const &);
       void addProd(int nontermIndex, Symbol=nil(), Symbol=nil(),
-		   Symbol=nil(), Symbol=nil(), Symbol=nil(),
-		   Symbol=nil(), Symbol=nil(), Symbol=nil());
+                   Symbol=nil(), Symbol=nil(), Symbol=nil(),
+                   Symbol=nil(), Symbol=nil(), Symbol=nil());
 
       /**
        * Make a terminal symbol from a terminal index
        */
       static Symbol term(int terminalIndex)
       {
-	return Symbol(Symbol::terminal, terminalIndex);
+        return Symbol(Symbol::terminal, terminalIndex);
       }
 
       /**
@@ -184,7 +184,7 @@ namespace archon
        */
       static Symbol nont(int nonterminalIndex)
       {
-	return Symbol(Symbol::nonterminal, nonterminalIndex);
+        return Symbol(Symbol::nonterminal, nonterminalIndex);
       }
 
       /**
@@ -196,9 +196,9 @@ namespace archon
        * is skipped and does not count as an argument.
        */
       static Symbol act(int methodIndex,
-			int arg1 = -2, int arg2 = -2, int arg3 = -2,
-			int arg4 = -2, int arg5 = -2, int arg6 = -2,
-			int arg7 = -2);
+                        int arg1 = -2, int arg2 = -2, int arg3 = -2,
+                        int arg4 = -2, int arg5 = -2, int arg6 = -2,
+                        int arg7 = -2);
 
       /**
        * Special action that return the null reference
@@ -217,34 +217,34 @@ namespace archon
 
       struct FirstSets
       {
-	FirstSets(Cfg const &);
+        FirstSets(Cfg const &);
 
-	/**
-	 * Add the first set of the symbols after the position in the
-	 * item to the argument set
-	 * @return true if the symbols after the item position can derive epsilon
-	 */
-	bool includeFirstSet(Item const &, std::set<int> &) const;
+        /**
+         * Add the first set of the symbols after the position in the
+         * item to the argument set
+         * @return true if the symbols after the item position can derive epsilon
+         */
+        bool includeFirstSet(Item const &, std::set<int> &) const;
 
-	std::string print(int width = 0) const;
+        std::string print(int width = 0) const;
 
       private:
-	friend struct FollowSets;
+        friend struct FollowSets;
 
-	Cfg const &grammar;
-	std::vector<std::set<int> > terminals; // One entry per nonterminal
-	std::vector<bool> nullable; // One entry per nonterminal
+        Cfg const &grammar;
+        std::vector<std::set<int> > terminals; // One entry per nonterminal
+        std::vector<bool> nullable; // One entry per nonterminal
       };
 
       struct FollowSets
       {
-	FollowSets(FirstSets const &);
-	std::set<int> const &get(int i) const { return terminals[i]; }
-	std::string print(int width = 0) const;
+        FollowSets(FirstSets const &);
+        std::set<int> const &get(int i) const { return terminals[i]; }
+        std::string print(int width = 0) const;
 
       private:
-	Cfg const &grammar;
-	std::vector<std::set<int> > terminals; // -1 represents EOI
+        Cfg const &grammar;
+        std::vector<std::set<int> > terminals; // -1 represents EOI
       };
 
       /**
@@ -376,11 +376,11 @@ namespace archon
       std::string chooseUniqueName(std::string, int);
       void findNullableNonTerminals(std::vector<bool> &, std::vector<std::vector<int> > &);
       void addNullableCombinations(unsigned, bool,
-				   Production const &,
-				   std::vector<bool> const &,
-				   std::vector<std::vector<int> > const &,
-				   std::vector<Symbol> &,
-				   std::vector<Production> &);
+                                   Production const &,
+                                   std::vector<bool> const &,
+                                   std::vector<std::vector<int> > const &,
+                                   std::vector<Symbol> &,
+                                   std::vector<Production> &);
       int eliminateCyclesVisit(int, std::vector<int> &, std::list<std::pair<int, int> > &);
       std::string printProductionRightSide(Production const &, int mark=-1) const;
 

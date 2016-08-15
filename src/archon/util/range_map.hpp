@@ -181,169 +181,169 @@ namespace archon
       // preceeding the interval referenced by 'i'.
       if(i != rep.begin())
       {
-	// We may now assume that 0 < range.first
+        // We may now assume that 0 < range.first
 
-	RepIter j = i;
-	--j;
-	if(first <= j->second.first)
-	{
-	  // The new interval has an overlap with the interval starting
-	  // before it
+        RepIter j = i;
+        --j;
+        if(first <= j->second.first)
+        {
+          // The new interval has an overlap with the interval starting
+          // before it
 
-	  // Split the existing interval into two pieces such that the
-	  // second piece starts where the incoming interval starts.
-	  rep.insert(i, std::make_pair(first, j->second));
-	  j->second.first = first-1;
+          // Split the existing interval into two pieces such that the
+          // second piece starts where the incoming interval starts.
+          rep.insert(i, std::make_pair(first, j->second));
+          j->second.first = first-1;
 
-	  // Let 'i' refer to the second of the two pieces resulting
-	  // from the split
-	  --i;
-	}
+          // Let 'i' refer to the second of the two pieces resulting
+          // from the split
+          --i;
+        }
       }
 
       // General loop
       for(;;)
       {
-	// Conditions:
-	//
-	// - 'i' references an existing interval or the virtual interval
-	// succeeding the last real interval. The virtual interval
-	// conceptually starts at positive infinity.
-	//
-	// - The remaining part of the incoming interval does not start
-	// after the start of the existing real/virtual interval
-	// referenced by 'i'.
-	//
-	// - The remaining part of the incoming interval does not
-	// overlap with the previous existing real interval 'i-1' if
-	// such an interval exists.
-	//
-	// - The remaining part of the incoming interval is not empty.
+        // Conditions:
+        //
+        // - 'i' references an existing interval or the virtual interval
+        // succeeding the last real interval. The virtual interval
+        // conceptually starts at positive infinity.
+        //
+        // - The remaining part of the incoming interval does not start
+        // after the start of the existing real/virtual interval
+        // referenced by 'i'.
+        //
+        // - The remaining part of the incoming interval does not
+        // overlap with the previous existing real interval 'i-1' if
+        // such an interval exists.
+        //
+        // - The remaining part of the incoming interval is not empty.
 
-	// Does the remaining part of the incloming interval start
-	// before the existing interval referenced by 'i'. In this case
-	// there is an uncovered range before the interval referenced by
-	// 'i'. In the following we refer to the uncovered range as the
-	// 'gap'.
-	if(i == rep.end() || first < i->first)
-	{
-	  // If the incoming interval is adjacent to the previous
-	  // interval 'i-1' and the epsilon closure of the incoming
-	  // state is equal to the state set of the previous interval
-	  // just expand the previous interval.
+        // Does the remaining part of the incloming interval start
+        // before the existing interval referenced by 'i'. In this case
+        // there is an uncovered range before the interval referenced by
+        // 'i'. In the following we refer to the uncovered range as the
+        // 'gap'.
+        if(i == rep.end() || first < i->first)
+        {
+          // If the incoming interval is adjacent to the previous
+          // interval 'i-1' and the epsilon closure of the incoming
+          // state is equal to the state set of the previous interval
+          // just expand the previous interval.
           Value value = Value();
           op(value);
-	  bool expanded = false;
-	  Key const gapEnd = i == rep.end() ? last :
+          bool expanded = false;
+          Key const gapEnd = i == rep.end() ? last :
             std::min(static_cast<Key>(i->first-1), last);
-	  if(i != rep.begin())
-	  {
-	    RepIter j = i;
-	    --j;
-	    // We may now assume that j->second.fist < range.first
-	    if(static_cast<Key>(first-1) == j->second.first &&
-	       value == j->second.second)
-	    {
-	      j->second.first = gapEnd;
-	      expanded = true;
-	    }
-	  }
+          if(i != rep.begin())
+          {
+            RepIter j = i;
+            --j;
+            // We may now assume that j->second.fist < range.first
+            if(static_cast<Key>(first-1) == j->second.first &&
+               value == j->second.second)
+            {
+              j->second.first = gapEnd;
+              expanded = true;
+            }
+          }
 
-	  if(!expanded)
-	    rep.insert(i, make_pair(first, std::make_pair(gapEnd, value)));
+          if(!expanded)
+            rep.insert(i, make_pair(first, std::make_pair(gapEnd, value)));
 
-	  // We may now assume that 'i-1' references a real interval
+          // We may now assume that 'i-1' references a real interval
 
-	  // Stop if the remaining part of the incoming interval ends in
-	  // the gap without being adjacent to the next interval (the
-	  // interval referenced by 'i')?
-	  if(i == rep.end() || last < static_cast<Key>(i->first-1)) break;
+          // Stop if the remaining part of the incoming interval ends in
+          // the gap without being adjacent to the next interval (the
+          // interval referenced by 'i')?
+          if(i == rep.end() || last < static_cast<Key>(i->first-1)) break;
 
-	  // We may now assume that 'i' references a real interval
+          // We may now assume that 'i' references a real interval
 
-	  // Merge intervals if the remaining part of the incoming
-	  // interval is adjacent to the next interval (the interval
-	  // referenced by 'i') and they have equal state sets?
-	  //
-	  // Regardless of state set equality if the remaining part of
-	  // the incoming interval is adjacent to the next interval
-	  // then stop.
-	  RepIter j = i;
-	  --j;
-	  if(last == static_cast<Key>(i->first-1))
-	  {
-	    if(j->second.second == i->second.second)
-	    {
-	      j->second.first = i->second.first;
-	      rep.erase(i);
-	    }
-	    break;
-	  }
+          // Merge intervals if the remaining part of the incoming
+          // interval is adjacent to the next interval (the interval
+          // referenced by 'i') and they have equal state sets?
+          //
+          // Regardless of state set equality if the remaining part of
+          // the incoming interval is adjacent to the next interval
+          // then stop.
+          RepIter j = i;
+          --j;
+          if(last == static_cast<Key>(i->first-1))
+          {
+            if(j->second.second == i->second.second)
+            {
+              j->second.first = i->second.first;
+              rep.erase(i);
+            }
+            break;
+          }
 
-	  // Shorten the incoming interval such that is starts where the
-	  // next existing interval starts (the interval referenced by
-	  // 'i').
-	  first = i->first;
-	}
+          // Shorten the incoming interval such that is starts where the
+          // next existing interval starts (the interval referenced by
+          // 'i').
+          first = i->first;
+        }
 
-	++i;
+        ++i;
 
-	// Conditions:
-	//
-	// - 'i' references an existing interval or the virtual interval
-	// succeeding the last real interval. The virtual interval
-	// conceptually starts at positive infinity.
-	//
-	// - The previous real interval exists.
-	//
-	// - The remaining part of the incoming interval starts where
-	// the previous existing interval does.
-	//
-	// - The remaining part of the incoming interval is not empty.
+        // Conditions:
+        //
+        // - 'i' references an existing interval or the virtual interval
+        // succeeding the last real interval. The virtual interval
+        // conceptually starts at positive infinity.
+        //
+        // - The previous real interval exists.
+        //
+        // - The remaining part of the incoming interval starts where
+        // the previous existing interval does.
+        //
+        // - The remaining part of the incoming interval is not empty.
 
-	// Handle overlap with next interval
-	RepIter j = i;
-	--j;
+        // Handle overlap with next interval
+        RepIter j = i;
+        --j;
 
-	bool done = false;
-	Value value = j->second.second;
-	if(op(value))
-	{
-	  if(last < j->second.first)
-	  {
-	    rep.insert(i, std::make_pair(static_cast<Key>(last+1), j->second));
-	    --i;
-	    j->second.first = last;
-	    done = true;
-	  }
-	  else
-	  {
-	    if(last == j->second.first) done = true;
-	    else first = j->second.first+1;
-	  }
-	  j->second.second = value;
-	}
-	else
-	{
-	  if(last <= j->second.first) done = true;
-	  else first = j->second.first+1;
-	}
+        bool done = false;
+        Value value = j->second.second;
+        if(op(value))
+        {
+          if(last < j->second.first)
+          {
+            rep.insert(i, std::make_pair(static_cast<Key>(last+1), j->second));
+            --i;
+            j->second.first = last;
+            done = true;
+          }
+          else
+          {
+            if(last == j->second.first) done = true;
+            else first = j->second.first+1;
+          }
+          j->second.second = value;
+        }
+        else
+        {
+          if(last <= j->second.first) done = true;
+          else first = j->second.first+1;
+        }
 
-	// Should we merge 'i-1' and 'i-2'?
-	if(j != rep.begin())
-	{
-	  RepIter k = j;
-	  --k;
+        // Should we merge 'i-1' and 'i-2'?
+        if(j != rep.begin())
+        {
+          RepIter k = j;
+          --k;
 
-	  if(k->second.first == static_cast<Key>(j->first-1) &&
-	     k->second.second == j->second.second)
-	  {
-	    k->second.first = j->second.first;
-	    rep.erase(j);
-	  }
-	}
+          if(k->second.first == static_cast<Key>(j->first-1) &&
+             k->second.second == j->second.second)
+          {
+            k->second.first = j->second.first;
+            rep.erase(j);
+          }
+        }
 
-	if(done) break;
+        if(done) break;
       }
     }
 

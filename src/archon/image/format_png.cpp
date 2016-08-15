@@ -483,7 +483,7 @@ public:
             png_textp text_ptr = nullptr;
             int num_text = 0;
             if (png_get_text(w.png_ptr, w.info_ptr, &text_ptr, &num_text) > 0) {
-		for (int i = 0; i < num_text; ++i) {
+                for (int i = 0; i < num_text; ++i) {
                     // ...
                 }
             }

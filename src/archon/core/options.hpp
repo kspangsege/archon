@@ -180,13 +180,13 @@ namespace archon
 /*
       template<class T, class D>
       void addConfig(std::string shortName, std::string longName,
-		     T &var, T val, std::string description,
-		     WantArg want_arg, D domainChecker)
-	throw(DefinitionException)
+                     T &var, T val, std::string description,
+                     WantArg want_arg, D domainChecker)
+        throw(DefinitionException)
       {
-	verify(shortName, longName);
+        verify(shortName, longName);
         core::UniquePtr<Def> d;
-	d.reset(new DefVar<T, ConfigCodec<T>, D>(false, shortName, longName, var, val,
+        d.reset(new DefVar<T, ConfigCodec<T>, D>(false, shortName, longName, var, val,
                                                  want_arg, ConfigCodec<T>(value_codec),
                                                  domainChecker, description));
         defs.append(d);
@@ -203,13 +203,13 @@ namespace archon
 /*
       template<class T>
       void addConfig(std::string shortName, std::string longName,
-		     T &var, T val, std::string description,
-		     WantArg want_arg = want_arg_Never)
-	throw(DefinitionException)
+                     T &var, T val, std::string description,
+                     WantArg want_arg = want_arg_Never)
+        throw(DefinitionException)
       {
-	verify(shortName, longName);
+        verify(shortName, longName);
         core::UniquePtr<Def> d;
-	d.reset(new DefVar<T, ConfigCodec<T>, Unrestricted<T> >
+        d.reset(new DefVar<T, ConfigCodec<T>, Unrestricted<T> >
                 (false, shortName, longName, var, val, want_arg,
                  ConfigCodec<T>(value_codec), Unrestricted<T>(), description));
         defs.append(d);
@@ -227,7 +227,7 @@ namespace archon
                       std::string description, bool accept_val = false)
       {
         core::UniquePtr<Def> o;
-	o.reset(new DefSwitchVar<T, ConfigCodec<T> >(dec(short_name), dec(long_name),
+        o.reset(new DefSwitchVar<T, ConfigCodec<T> >(dec(short_name), dec(long_name),
                                                      dec(description), accept_val, var,
                                                      val, ConfigCodec<T>(this)));
         add_switch(o);
@@ -240,7 +240,7 @@ namespace archon
                       std::string description, bool accept_val = false)
       {
         core::UniquePtr<Def> o;
-	o.reset(new DefSwitchMemb<T, Obj, ConfigCodec<T> >(dec(short_name), dec(long_name),
+        o.reset(new DefSwitchMemb<T, Obj, ConfigCodec<T> >(dec(short_name), dec(long_name),
                                                            dec(description), accept_val, memb, obj,
                                                            val, ConfigCodec<T>(this)));
         add_switch(o);

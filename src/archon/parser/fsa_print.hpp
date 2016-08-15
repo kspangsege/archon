@@ -64,7 +64,7 @@ namespace archon
 
       struct DefaultSymbolPrinter: SymbolPrinter
       {
-	StringType print(CharType const &c) const { return StringType(1, c); }
+        StringType print(CharType const &c) const { return StringType(1, c); }
       };
 
       static DefaultSymbolPrinter defaultSymbolPrinter;
@@ -114,26 +114,26 @@ namespace archon
       size_t i = 0;
       for(typename FsaType::StateSeq s = fsa.getStates(); s; ++s, ++i)
       {
-	table.get_cell(i+1, 0).set_text(valPrinter.print(s->getId()));
+        table.get_cell(i+1, 0).set_text(valPrinter.print(s->getId()));
         {
           typename StartStates::iterator j = stateStates.find(s->getId());
           if(j != stateStates.end()) table.get_cell(i+1, 1).set_text(valPrinter.print(j->second));
         }
-	if(s->getTokenId() != FsaType::TraitsType::noToken())
+        if(s->getTokenId() != FsaType::TraitsType::noToken())
           table.get_cell(i+1, 2).set_text(valPrinter.print(s->getTokenId()));
 
         StringType cell;
-	for(typename FsaType::EdgeRangeSeq j = s->getEdgeRanges(); j; ++j)
-	{
-	  if(cell.size()) cell += commaSpace;
-	  cell += ping+symPrinter.print(j->getRange().first)+ping;
-	  if(j->getRange().first < j->getRange().second)
-	    cell += dashPing+symPrinter.print(j->getRange().second)+ping;
-	  cell += arrow+valPrinter.print(j->getTargetState());
-	}
+        for(typename FsaType::EdgeRangeSeq j = s->getEdgeRanges(); j; ++j)
+        {
+          if(cell.size()) cell += commaSpace;
+          cell += ping+symPrinter.print(j->getRange().first)+ping;
+          if(j->getRange().first < j->getRange().second)
+            cell += dashPing+symPrinter.print(j->getRange().second)+ping;
+          cell += arrow+valPrinter.print(j->getTargetState());
+        }
 
-	for(typename FsaType::SentinelEdgeSeq j = s->getSentinelEdges(); j; ++j)
-	{
+        for(typename FsaType::SentinelEdgeSeq j = s->getSentinelEdges(); j; ++j)
+        {
           StringType t;
           switch(j->getSentinel())
           {
@@ -142,16 +142,16 @@ namespace archon
           case FsaType::anchor_bow: t = bow; break;
           case FsaType::anchor_eow: t = eow; break;
           }
-	  if(cell.size()) cell += commaSpace;
-	  cell += t;
-	  cell += arrow+valPrinter.print(j->getTargetState());
-	}
+          if(cell.size()) cell += commaSpace;
+          cell += t;
+          cell += arrow+valPrinter.print(j->getTargetState());
+        }
 
-	for(typename FsaType::EpsilonEdgeSeq j = s->getEpsilonEdges(); j; ++j)
-	{
-	  if(cell.size()) cell += commaSpace;
-	  cell += arrow2+valPrinter.print(j->getTargetState());
-	}
+        for(typename FsaType::EpsilonEdgeSeq j = s->getEpsilonEdges(); j; ++j)
+        {
+          if(cell.size()) cell += commaSpace;
+          cell += arrow2+valPrinter.print(j->getTargetState());
+        }
 
         table.get_cell(i+1, 3).set_text(cell);
       }

@@ -156,7 +156,7 @@ namespace archon
        */
       void addEdge(StateId origin, StateId target, CharType symbol)
       {
-	addEdgeRange(origin, target, CharRange(symbol, symbol));
+        addEdgeRange(origin, target, CharRange(symbol, symbol));
       }
 
       /**
@@ -208,8 +208,8 @@ namespace archon
        */
       void clear()
       {
-	startStates.clear();
-	states.clear();
+        startStates.clear();
+        states.clear();
       }
 
 
@@ -326,18 +326,18 @@ namespace archon
     private:
       struct EdgeRangeRep
       {
-	CharRange range;
-	StateId targetState;
-	EdgeRangeRep(CharRange range, StateId targetState):
-	  range(range), targetState(targetState) {}
+        CharRange range;
+        StateId targetState;
+        EdgeRangeRep(CharRange range, StateId targetState):
+          range(range), targetState(targetState) {}
       };
 
       struct SentinelEdgeRep
       {
-	Sentinel sentinel;
-	StateId targetState;
-	SentinelEdgeRep(Sentinel sentinel, StateId targetState):
-	  sentinel(sentinel), targetState(targetState) {}
+        Sentinel sentinel;
+        StateId targetState;
+        SentinelEdgeRep(Sentinel sentinel, StateId targetState):
+          sentinel(sentinel), targetState(targetState) {}
       };
 
       struct StateRep
@@ -346,27 +346,27 @@ namespace archon
          * Must be equal to \c TraitsType::noToken() for any
          * non-accepting state.
          */
-	TokenId tokenId;
+        TokenId tokenId;
 
         /**
          * We do not care about order or redundancy here. A vector was
          * chosen since it allows fast addition of new edges.
          */
-	std::vector<EdgeRangeRep> edgeRanges;
+        std::vector<EdgeRangeRep> edgeRanges;
 
         /**
          * We do not care about order or redundancy here. A vector was
          * chosen since it allows fast addition of new edges.
          */
-	std::vector<SentinelEdgeRep> sentinelEdges;
+        std::vector<SentinelEdgeRep> sentinelEdges;
 
         /**
          * We do not care about order or redundancy here. A vector was
          * chosen since it allows fast addition of new edges.
          */
-	std::vector<StateId> epsilonEdges;
+        std::vector<StateId> epsilonEdges;
 
-	StateRep(TokenId tokenId = TraitsType::noToken()): tokenId(tokenId) {}
+        StateRep(TokenId tokenId = TraitsType::noToken()): tokenId(tokenId) {}
       };
 
       std::vector<StateRep> states;
@@ -601,10 +601,10 @@ namespace archon
       uncheckedStates.push(state);
       while(!uncheckedStates.empty())
       {
-	StateRep const &s = states[uncheckedStates.top()];
-	uncheckedStates.pop();
-	for(typename std::vector<StateId>::const_iterator i=s.epsilonEdges.begin(); i!=s.epsilonEdges.end(); ++i)
-	  if(stateSet.insert(*i).second) uncheckedStates.push(*i);
+        StateRep const &s = states[uncheckedStates.top()];
+        uncheckedStates.pop();
+        for(typename std::vector<StateId>::const_iterator i=s.epsilonEdges.begin(); i!=s.epsilonEdges.end(); ++i)
+          if(stateSet.insert(*i).second) uncheckedStates.push(*i);
       }
       return true;
     }
@@ -616,8 +616,8 @@ namespace archon
       TokenId rule = TraitsType::noToken();
       for(typename StateSet::iterator i=stateSet.begin(); i!=stateSet.end(); ++i)
       {
-	TokenId r = states[*i].tokenId;
-	if(r != TraitsType::noToken() && (rule == TraitsType::noToken() || rule < r)) rule = r;
+        TokenId r = states[*i].tokenId;
+        if(r != TraitsType::noToken() && (rule == TraitsType::noToken() || rule < r)) rule = r;
       }
       return rule;
     }
@@ -637,11 +637,11 @@ namespace archon
     {
       for(typename StateSet::iterator i=s.begin(); i!=s.end(); ++i)
       {
-	StateRep const &s = states[*i];
-	for(typename std::vector<EdgeRangeRep>::const_iterator j=s.edgeRanges.begin(); j!=s.edgeRanges.end(); ++j)
-	  m.ranges.update(j->range.first, j->range.second, StateAdder(this, j->targetState));
-	for(typename std::vector<SentinelEdgeRep>::const_iterator j=s.sentinelEdges.begin(); j!=s.sentinelEdges.end(); ++j)
-	  closedAdd(j->targetState, m.sentinels[j->sentinel]);
+        StateRep const &s = states[*i];
+        for(typename std::vector<EdgeRangeRep>::const_iterator j=s.edgeRanges.begin(); j!=s.edgeRanges.end(); ++j)
+          m.ranges.update(j->range.first, j->range.second, StateAdder(this, j->targetState));
+        for(typename std::vector<SentinelEdgeRep>::const_iterator j=s.sentinelEdges.begin(); j!=s.sentinelEdges.end(); ++j)
+          closedAdd(j->targetState, m.sentinels[j->sentinel]);
       }
     }
   }

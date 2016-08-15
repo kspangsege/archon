@@ -108,12 +108,12 @@ namespace archon
     {
       struct AlreadyStartedException: std::runtime_error
       {
-	AlreadyStartedException(): std::runtime_error("") {}
+        AlreadyStartedException(): std::runtime_error("") {}
       };
 
       struct NotStartedException: std::runtime_error
       {
-	NotStartedException(): std::runtime_error("") {}
+        NotStartedException(): std::runtime_error("") {}
       };
 
 
@@ -476,11 +476,11 @@ namespace archon
       RefCntMethodVoidRunner(core::CntRef<Obj> o, void (Obj::*m)()): obj(o), meth(m) {}
       void main()
       {
-	// The swap is used to ensure that we do not hold on the the
-	// reference counted object any longer than we need to.
-	core::CntRef<Obj> o;
-	o.swap(obj);
-	(o.get()->*meth)();
+        // The swap is used to ensure that we do not hold on the the
+        // reference counted object any longer than we need to.
+        core::CntRef<Obj> o;
+        o.swap(obj);
+        (o.get()->*meth)();
       }
     };
 
@@ -504,16 +504,16 @@ namespace archon
 
       void main()
       {
-	// The first swap is used to ensure that we do not hold on the
-	// the reference counted object any longer than we need
-	// to. The second one is to ensure that when the argument owns
-	// some resource (e.g. if it is a smart pointer) then we do
-	// not hold on to that resource any longer that we need to.
-	core::CntRef<Obj> o;
-	Arg a;
-	o.swap(obj);
-	std::swap(a, arg);
-	(o.get()->*meth)(a);
+        // The first swap is used to ensure that we do not hold on the
+        // the reference counted object any longer than we need
+        // to. The second one is to ensure that when the argument owns
+        // some resource (e.g. if it is a smart pointer) then we do
+        // not hold on to that resource any longer that we need to.
+        core::CntRef<Obj> o;
+        Arg a;
+        o.swap(obj);
+        std::swap(a, arg);
+        (o.get()->*meth)(a);
       }
     };
 
@@ -554,12 +554,12 @@ namespace archon
 
       void main()
       {
-	// The swap is used to ensure that we do not hold on to
-	// resources any longer than we need to. This is especially
-	// relevant when the argument is some kind of smart pointer.
-	Arg a;
-	std::swap(a, arg);
-	(obj->*meth)(a);
+        // The swap is used to ensure that we do not hold on to
+        // resources any longer than we need to. This is especially
+        // relevant when the argument is some kind of smart pointer.
+        Arg a;
+        std::swap(a, arg);
+        (obj->*meth)(a);
       }
     };
 
@@ -596,12 +596,12 @@ namespace archon
       FuncArgRunner(void (*f)(Arg), Arg a): func(f), arg(a) {}
       void main()
       {
-	// The swap is used to ensure that we do not hold on to
-	// resources any longer than we need to. This is especially
-	// relevant when the argument is some kind of smart pointer.
-	Arg a;
-	std::swap(a, arg);
-	(*func)(a);
+        // The swap is used to ensure that we do not hold on to
+        // resources any longer than we need to. This is especially
+        // relevant when the argument is some kind of smart pointer.
+        Arg a;
+        std::swap(a, arg);
+        (*func)(a);
       }
     };
 

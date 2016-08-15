@@ -97,78 +97,78 @@ namespace archon
       // Add a DFA start state for each NFA start state.
       for(size_t i = 0; i < nfa->getStartStateRegistrySize(); ++i)
       {
-	Nfa::StateSet stateSet;
-	nfa->closedAdd(nfa->getStartState(i), stateSet);
+        Nfa::StateSet stateSet;
+        nfa->closedAdd(nfa->getStartState(i), stateSet);
         std::pair<StateMap::iterator, bool> r = stateMap.insert(std::make_pair(stateSet, Dfa::TraitsType::noState()));
-	if(r.second)
-	{
-	  r.first->second = dfa->addState(nfa->chooseFinalValue(stateSet));
-	  uncheckedStates.push(*r.first);
-	}
+        if(r.second)
+        {
+          r.first->second = dfa->addState(nfa->chooseFinalValue(stateSet));
+          uncheckedStates.push(*r.first);
+        }
         dfa->registerStartState(r.first->second);
       }
 
       while(!uncheckedStates.empty())
       {
-	StateBond const &stateBond = uncheckedStates.top();
-	NfaBase::EdgeMap edgeMap;
-	nfa->initEdgeMap(stateBond.first, edgeMap);
+        StateBond const &stateBond = uncheckedStates.top();
+        NfaBase::EdgeMap edgeMap;
+        nfa->initEdgeMap(stateBond.first, edgeMap);
 
 
 -->
 
 
-	// Anchor regret
-	if(anchorInfo)
-	{
-	  // Check if there are any anchor symbols among the edges
-	  // leavinge the current state set.
+        // Anchor regret
+        if(anchorInfo)
+        {
+          // Check if there are any anchor symbols among the edges
+          // leavinge the current state set.
 
           // Based on range starts find the first range that potentially contains an anchor symbol
-	  Nfa::EdgeMap::iterator i = edgeMap.lower_bound(anchorInfo->start);
-	  if(i != edgeMap.begin() && (i == edgeMap.end() || anchorInfo->start < i->first)) --i;
+          Nfa::EdgeMap::iterator i = edgeMap.lower_bound(anchorInfo->start);
+          if(i != edgeMap.begin() && (i == edgeMap.end() || anchorInfo->start < i->first)) --i;
 
-	  for(size_t j=0; j<anchorInfo->numberOf; ++j)
-	  {
-	    CharType anchor = anchorInfo->start + j;
-	    // If we stepped beyond the end of the current edge range,
-	    // then step to the next one.
-	    while(i != edgeMap.end() && i->second.first < anchor) ++i;
-	    if(i == edgeMap.end()) break;
-	    // Is the current anchor symbol within the current edge
-	    // range?
-	    if(i->first <= anchor)
-	    {
-	      for(Nfa::StateSet::iterator k=stateBond.first.begin(); k!=stateBond.first.end(); ++k)
-		nfa.updateEdgeMap(Nfa::Range(anchor, anchor), *k, edgeMap);
-	    }
-	  }
-	}
+          for(size_t j=0; j<anchorInfo->numberOf; ++j)
+          {
+            CharType anchor = anchorInfo->start + j;
+            // If we stepped beyond the end of the current edge range,
+            // then step to the next one.
+            while(i != edgeMap.end() && i->second.first < anchor) ++i;
+            if(i == edgeMap.end()) break;
+            // Is the current anchor symbol within the current edge
+            // range?
+            if(i->first <= anchor)
+            {
+              for(Nfa::StateSet::iterator k=stateBond.first.begin(); k!=stateBond.first.end(); ++k)
+                nfa.updateEdgeMap(Nfa::Range(anchor, anchor), *k, edgeMap);
+            }
+          }
+        }
 
-	StateId const state = stateBond.second;
-	uncheckedStates.pop();
+        StateId const state = stateBond.second;
+        uncheckedStates.pop();
 
         // Create new target DFA states for eny previously seen state
         // set in the edge map
-	for(Nfa::EdgeMap::iterator i=edgeMap.begin(); i!=edgeMap.end(); ++i)
-	{
-	  pair<StateMap::iterator, bool> r =
-	    stateMap.insert(make_pair(i->second.second, nonState));
-	  if(r.second)
-	  {
-	    r.first->second = addState(nfa.chooseFinalValue(r.first->first));
-	    uncheckedStates.push(*r.first);
-	  }
-	  addEdgeRange(i->first, i->second.first, state, r.first->second);
-	}
+        for(Nfa::EdgeMap::iterator i=edgeMap.begin(); i!=edgeMap.end(); ++i)
+        {
+          pair<StateMap::iterator, bool> r =
+            stateMap.insert(make_pair(i->second.second, nonState));
+          if(r.second)
+          {
+            r.first->second = addState(nfa.chooseFinalValue(r.first->first));
+            uncheckedStates.push(*r.first);
+          }
+          addEdgeRange(i->first, i->second.first, state, r.first->second);
+        }
       }
 
       if(stateSets)
       {
-	stateSets->clear();
-	stateSets->resize(states.size());
-	for(StateMap::iterator i=stateMap.begin(); i!=stateMap.end(); ++i)
-	  (*stateSets)[i->second] = i->first;
+        stateSets->clear();
+        stateSets->resize(states.size());
+        for(StateMap::iterator i=stateMap.begin(); i!=stateMap.end(); ++i)
+          (*stateSets)[i->second] = i->first;
       }
     }
   }

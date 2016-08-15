@@ -1380,7 +1380,7 @@ Traverse DOM:
       {
         T v;
         string u;
-	parse_stream.clear();
+        parse_stream.clear();
         parse_stream.str(str);
         parse_stream >> v >> noskipws >> u;
         if (parse_stream.fail() || parse_stream.bad() ||

@@ -247,17 +247,17 @@ void build_cone(SpatialObjectBuilder& builder, bool texture, bool bottom,
 
     // Bottom
     if(bottom) {
-	builder.set_normal(0, -1, 0);
-	builder.begin_polygon();
+        builder.set_normal(0, -1, 0);
+        builder.begin_polygon();
         double f = 1.0 / radial_steps;
-	for (int i = azimuth_steps-1; 0 <= i; --i) {
+        for (int i = azimuth_steps-1; 0 <= i; --i) {
             Vec2 r = roots[i];
             double x = f * r[1], z = f * r[0];
             if (texture)
                 builder.set_tex_coord((1+x)/2, (1+z)/2);
             builder.add_vertex(x, -1, z);
-	}
-	builder.end();
+        }
+        builder.end();
         for (int i = 1; i < radial_steps; ++i) {
             double f1 = (0+i) * f, f2 = (1+i) * f;
             builder.begin_quad_strip();
@@ -337,17 +337,17 @@ void build_cylinder(SpatialObjectBuilder& builder, bool texture, bool top, bool 
 
     // Top
     if (top) {
-	builder.set_normal(0, 1, 0);
-	builder.begin_polygon();
+        builder.set_normal(0, 1, 0);
+        builder.begin_polygon();
         double f = 1.0 / radial_steps;
-	for (int i = 0; i < azimuth_steps; ++i) {
+        for (int i = 0; i < azimuth_steps; ++i) {
             Vec2 r = roots[i];
             double x = f * r[1], z = f * r[0];
             if (texture)
                 builder.set_tex_coord((1+x)/2, (1-z)/2);
             builder.add_vertex(x, 1, z);
-	}
-	builder.end();
+        }
+        builder.end();
         for (int i = 1; i < radial_steps; ++i) {
             double f1 = (0+i) * f, f2 = (1+i) * f;
             builder.begin_quad_strip();
@@ -374,10 +374,10 @@ void build_cylinder(SpatialObjectBuilder& builder, bool texture, bool top, bool 
 
     // Bottom
     if (bottom) {
-	builder.set_normal(0, -1, 0);
-	builder.begin_polygon();
+        builder.set_normal(0, -1, 0);
+        builder.begin_polygon();
         double f = 1.0 / radial_steps;
-	for (int i = azimuth_steps-1; 0 <= i; --i) {
+        for (int i = azimuth_steps-1; 0 <= i; --i) {
             Vec2 r = roots[i];
             double x = f * r[1], z = f * r[0];
             if (texture)

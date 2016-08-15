@@ -137,7 +137,7 @@ namespace archon
        */
       Bind(Context::Arg c, Drawable::Arg d, bool block = true)
       {
-	acquire(c, d, block);
+        acquire(c, d, block);
       }
 
       /**
@@ -187,9 +187,9 @@ namespace archon
        */
       void acquire(Context::Arg c, Drawable::Arg d, bool block = true)
       {
-	if(context) release();
-	c->bind(d, block);
-	context = c;
+        if(context) release();
+        c->bind(d, block);
+        context = c;
         drawable = d;
       }
 
@@ -200,9 +200,9 @@ namespace archon
        */
       void release()
       {
-	if(!context) return;
-	context->unbind();
-	context.reset();
+        if(!context) return;
+        context->unbind();
+        context.reset();
         drawable.reset();
       }
 

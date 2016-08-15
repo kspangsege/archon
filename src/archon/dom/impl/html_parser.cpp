@@ -3607,7 +3607,7 @@ CharEnt html_char_entities[] = {
     { "amp",        38 }, // ampersand, U+0026 ISOnum
     { "lt",         60 }, // less-than sign, U+003C ISOnum
     { "gt",         62 }, // greater-than sign, U+003E ISOnum
-    { "apos",	    39 }, // apostrophe = APL quote, U+0027 ISOnum
+    { "apos",       39 }, // apostrophe = APL quote, U+0027 ISOnum
     { "OElig",     338 }, // latin capital ligature OE, U+0152 ISOlat2
     { "oelig",     339 }, // latin small ligature oe, U+0153 ISOlat2
     { "Scaron",    352 }, // latin capital letter S with caron, U+0160 ISOlat2

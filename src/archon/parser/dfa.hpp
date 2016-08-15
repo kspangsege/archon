@@ -139,7 +139,7 @@ namespace archon
        */
       void addEdge(StateId origin, StateId target, CharType symbol)
       {
-	addEdgeRange(origin, target, CharRange(symbol, symbol));
+        addEdgeRange(origin, target, CharRange(symbol, symbol));
       }
 
       /**
@@ -178,8 +178,8 @@ namespace archon
        */
       void clear()
       {
-	startStates.clear();
-	states.clear();
+        startStates.clear();
+        states.clear();
       }
 
 
@@ -216,10 +216,10 @@ namespace archon
 
       struct SentinelEdgeRep
       {
-	Sentinel sentinel;
-	StateId targetState;
-	SentinelEdgeRep(Sentinel sentinel, StateId targetState):
-	  sentinel(sentinel), targetState(targetState) {}
+        Sentinel sentinel;
+        StateId targetState;
+        SentinelEdgeRep(Sentinel sentinel, StateId targetState):
+          sentinel(sentinel), targetState(targetState) {}
       };
 
       struct StateRep
@@ -228,13 +228,13 @@ namespace archon
          * Must be equal to \c TraitsType::noToken() for any
          * non-accepting state.
          */
-	TokenId tokenId;
+        TokenId tokenId;
 
- 	util::RangeMap<CharType, StateId> edgeRanges;
+        util::RangeMap<CharType, StateId> edgeRanges;
 
-	std::map<Sentinel, StateId> sentinelEdges;
+        std::map<Sentinel, StateId> sentinelEdges;
 
-	StateRep(TokenId tokenId = TraitsType::noToken()): tokenId(tokenId) {}
+        StateRep(TokenId tokenId = TraitsType::noToken()): tokenId(tokenId) {}
       };
 
       core::std::vector<StateRep *> states;
@@ -473,14 +473,14 @@ std::cerr << "PartitionGroupCompare: " <<partition[a]<<" ["<<a<<"]"<<" == "<<par
       // final value.
       {
         std::map<FinalValue, GroupId> m;
-	// Force the group of non-accepting states to have ID = 0.
-	m[TraitsType::noToken()] = 0;
-	for(StateId i=0; i<states.size(); ++i)
-	{
-	  int const f = states[i].finalValue;
-	  partition1[i] = f == nonFinal ? 0 :
-	    m.insert(make_pair(f, m.size())).first->second;
-	}
+        // Force the group of non-accepting states to have ID = 0.
+        m[TraitsType::noToken()] = 0;
+        for(StateId i=0; i<states.size(); ++i)
+        {
+          int const f = states[i].finalValue;
+          partition1[i] = f == nonFinal ? 0 :
+            m.insert(make_pair(f, m.size())).first->second;
+        }
       }
 
       bool again;
@@ -489,84 +489,84 @@ std::cerr << "PartitionGroupCompare: " <<partition[a]<<" ["<<a<<"]"<<" == "<<par
       {
         Partition const &partition    = even ? partition1 : partition2;
         Partition       &newPartition = even ? partition2 : partition1;
-	even = !even;
-	again = false;
+        even = !even;
+        again = false;
 
-	// Generate a mapping from group ID to the list of states in
-	// that group
-	typedef std::list<StateId>        States;
-	typedef std::map<GroupId, States> Groups;
-	Groups groups;
-	// FIXME: We could as well construct these, one group at a time inside the subdivide loop
-	for(StateId i=0; i<partition.size(); ++i)
-	  groups[partition[i]].push_back(i);
+        // Generate a mapping from group ID to the list of states in
+        // that group
+        typedef std::list<StateId>        States;
+        typedef std::map<GroupId, States> Groups;
+        Groups groups;
+        // FIXME: We could as well construct these, one group at a time inside the subdivide loop
+        for(StateId i=0; i<partition.size(); ++i)
+          groups[partition[i]].push_back(i);
 
-	// Start at 1 since the first group (index 0) is always the
-	// dead one (the one containing the virtual dead state)
-	int newGroupId = 1;
+        // Start at 1 since the first group (index 0) is always the
+        // dead one (the one containing the virtual dead state)
+        int newGroupId = 1;
 
-	// Subdivide each group
-	for(typename Groups::iterator i=groups.begin(); i!=groups.end(); ++i)
-	{
-	  States &g = i->second;
+        // Subdivide each group
+        for(typename Groups::iterator i=groups.begin(); i!=groups.end(); ++i)
+        {
+          States &g = i->second;
 
-	  // Compare all physical states in group 0 with the virtual
-	  // dead state which is assumed to also be in group 0
-	  if(i->first == 0)
-	  {
-	    States::iterator j1 = g.begin();
-	    while(j1!=g.end())
-	    {
-	      States::iterator const j2 = j1;
-	      ++j1; // Must advance iterator before erasing current item
-	      vector<Edge> const &e = states[*j2].edges;
-	      vector<Edge>::const_iterator k=e.begin();
-	      while(k!=e.end())
-	      {
-		if(partition[k->targetState]) break;
-		++k;
-	      }
-	      if(k!=e.end())
-	      {
-		again = true;
-		continue;
-	      }
+          // Compare all physical states in group 0 with the virtual
+          // dead state which is assumed to also be in group 0
+          if(i->first == 0)
+          {
+            States::iterator j1 = g.begin();
+            while(j1!=g.end())
+            {
+              States::iterator const j2 = j1;
+              ++j1; // Must advance iterator before erasing current item
+              vector<Edge> const &e = states[*j2].edges;
+              vector<Edge>::const_iterator k=e.begin();
+              while(k!=e.end())
+              {
+                if(partition[k->targetState]) break;
+                ++k;
+              }
+              if(k!=e.end())
+              {
+                again = true;
+                continue;
+              }
 
-	      // This state stays in first group since it cannot yet
-	      // be distinguished from the virtual dead state.
+              // This state stays in first group since it cannot yet
+              // be distinguished from the virtual dead state.
               newPartition[*j2] = 0;
-	      g.erase(j2);
-	    }
-	  }
+              g.erase(j2);
+            }
+          }
 
           // While there is at least one state remaining in the
           // current group, extract it and any remaining state that is
           // equivalent to it and create a new group consisting of the
           // extracted states.
-	  while(!g.empty())
-	  {
-	    StateId s = g.front();
-	    g.pop_front();
+          while(!g.empty())
+          {
+            StateId s = g.front();
+            g.pop_front();
 
-	    States::iterator j1 = g.begin();
-	    while(j1!=g.end())
-	    {
-	      States::iterator const j2 = j1;
-	      ++j1; // Must advance iterator before erasing current item
-	      if(!testEquivalence(s, *j2, partition))
-	      {
-		again = true;
-		continue;
-	      }
+            States::iterator j1 = g.begin();
+            while(j1!=g.end())
+            {
+              States::iterator const j2 = j1;
+              ++j1; // Must advance iterator before erasing current item
+              if(!testEquivalence(s, *j2, partition))
+              {
+                again = true;
+                continue;
+              }
 
-	      newPartition[*j2] = newGroupId;
-	      g.erase(j2);
-	    }
+              newPartition[*j2] = newGroupId;
+              g.erase(j2);
+            }
 
-	    newPartition[s] = newGroupId;
-	    ++newGroupId;
-	  }
-	}
+            newPartition[s] = newGroupId;
+            ++newGroupId;
+          }
+        }
       }
       while(again);
 
@@ -574,59 +574,59 @@ std::cerr << "PartitionGroupCompare: " <<partition[a]<<" ["<<a<<"]"<<" == "<<par
       // of the old one.
       vector<GroupId> const &partition = even ? partition1 : partition2;
       {
-	map<GroupId, StateId> newStateMap; // Maps group ID to new state ID
-	stack<StateId> uncheckedStates;
+        map<GroupId, StateId> newStateMap; // Maps group ID to new state ID
+        stack<StateId> uncheckedStates;
 
         // FIXME: Assuming that we allow a DFA to have zero start
         // states, we should only add a tart state below if it is not
         // in group zero. A start state in group zero is a dead start
         // state in that it has no transition path to a final state.
 
-	// Add a new start state for each unique start group
-	for(size_t i=0; i<startStates.size(); ++i)
-	{
-	  StateId const s = startStates[i];
-	  if(newStateMap.insert(make_pair(partition[s], target.states.size())).second)
-	  {
-	    target.startStates.push_back(target.states.size());
-	    target.states.push_back(State(states[s].finalValue));
-	    uncheckedStates.push(s);
-	  }
-	}
+        // Add a new start state for each unique start group
+        for(size_t i=0; i<startStates.size(); ++i)
+        {
+          StateId const s = startStates[i];
+          if(newStateMap.insert(make_pair(partition[s], target.states.size())).second)
+          {
+            target.startStates.push_back(target.states.size());
+            target.states.push_back(State(states[s].finalValue));
+            uncheckedStates.push(s);
+          }
+        }
 
-	while(uncheckedStates.size())
-	{
+        while(uncheckedStates.size())
+        {
           // Fetch the representative state for this new group
-	  StateId const s = uncheckedStates.top();
-	  uncheckedStates.pop();
+          StateId const s = uncheckedStates.top();
+          uncheckedStates.pop();
 
-	  StateId const n = newStateMap[partition[s]];
-	  vector<Edge> const &v = states[s].edges;
-	  for(vector<Edge>::const_iterator e=v.begin(); e<v.end(); ++e)
-	  {
-	    GroupId const g = partition[e->targetState];
-	    // Dont ever jump to group 0 since at this point it
-	    // contains only dead states, ie. states from which you
-	    // can never reach an accepting state.
-	    if(!g) continue;
-	    pair<map<GroupId, StateId>::iterator, bool> r =
-	      newStateMap.insert(make_pair(g, target.states.size()));
-	    if(r.second)
-	    {
-	      target.states.push_back(State(states[e->targetState].finalValue));
-	      uncheckedStates.push(e->targetState);
-	    }
-	    // Edge ranges on new states are added from just one
-	    // original state (the representative) so we will never
-	    // get into trouble with incorrect range ordering. However
-	    // since the target states are partially collapsed we
-	    // might need to merge adjacent ranges.
-	    vector<Edge> &w = target.states[n].edges;
-	    if(w.size() && w.back().range.second == e->range.first-1 &&
-	       w.back().targetState == r.first->second) w.back().range.second = e->range.second;
-	    else w.push_back(Edge(e->range, r.first->second));
-	  }
-	}
+          StateId const n = newStateMap[partition[s]];
+          vector<Edge> const &v = states[s].edges;
+          for(vector<Edge>::const_iterator e=v.begin(); e<v.end(); ++e)
+          {
+            GroupId const g = partition[e->targetState];
+            // Dont ever jump to group 0 since at this point it
+            // contains only dead states, ie. states from which you
+            // can never reach an accepting state.
+            if(!g) continue;
+            pair<map<GroupId, StateId>::iterator, bool> r =
+              newStateMap.insert(make_pair(g, target.states.size()));
+            if(r.second)
+            {
+              target.states.push_back(State(states[e->targetState].finalValue));
+              uncheckedStates.push(e->targetState);
+            }
+            // Edge ranges on new states are added from just one
+            // original state (the representative) so we will never
+            // get into trouble with incorrect range ordering. However
+            // since the target states are partially collapsed we
+            // might need to merge adjacent ranges.
+            vector<Edge> &w = target.states[n].edges;
+            if(w.size() && w.back().range.second == e->range.first-1 &&
+               w.back().targetState == r.first->second) w.back().range.second = e->range.second;
+            else w.push_back(Edge(e->range, r.first->second));
+          }
+        }
       }
     }
   }

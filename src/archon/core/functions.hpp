@@ -201,15 +201,15 @@ namespace archon
     {
       if(x1 > x0)
       {
-	if(x2 > x1)      { i0 = 2; i1 = 1; i2 = 0; }
-	else if(x2 > x0) { i0 = 1; i1 = 2; i2 = 0; }
-	else             { i0 = 1; i1 = 0; i2 = 2; }
+        if(x2 > x1)      { i0 = 2; i1 = 1; i2 = 0; }
+        else if(x2 > x0) { i0 = 1; i1 = 2; i2 = 0; }
+        else             { i0 = 1; i1 = 0; i2 = 2; }
       }
       else
       {
-	if(x2 > x0)      { i0 = 2; i1 = 0; i2 = 1; }
-	else if(x2 > x1) { i0 = 0; i1 = 2; i2 = 1; }
-	else             { i0 = 0; i1 = 1; i2 = 2; }
+        if(x2 > x0)      { i0 = 2; i1 = 0; i2 = 1; }
+        else if(x2 > x1) { i0 = 0; i1 = 2; i2 = 1; }
+        else             { i0 = 0; i1 = 1; i2 = 2; }
       }
     }
 
@@ -575,13 +575,13 @@ namespace archon
       if(x<0 || x>=m)
       {
         std::div_t d = std::div(x, m);
-	x = d.rem;
-	n = d.quot;
-	if(x<0)
-	{
-	  x+=m;
-	  --n;
-	}
+        x = d.rem;
+        n = d.quot;
+        if(x<0)
+        {
+          x+=m;
+          --n;
+        }
       }
       else n = 0;
       return x;
@@ -592,13 +592,13 @@ namespace archon
       if(x<0 || x>=m)
       {
         std::div_t d = std::div(x, m);
-	x = d.rem;
-	n = d.quot;
-	if(x<0)
-	{
-	  x+=m;
-	  --n;
-	}
+        x = d.rem;
+        n = d.quot;
+        if(x<0)
+        {
+          x+=m;
+          --n;
+        }
       }
       else n = 0;
       return x;
@@ -609,13 +609,13 @@ namespace archon
       if(x<0 || x>=m)
       {
         std::ldiv_t d = std::div(x, m);
-	x = d.rem;
-	n = d.quot;
-	if(x<0)
-	{
-	  x+=m;
-	  --n;
-	}
+        x = d.rem;
+        n = d.quot;
+        if(x<0)
+        {
+          x+=m;
+          --n;
+        }
       }
       else n = 0;
       return x;

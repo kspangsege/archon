@@ -136,49 +136,49 @@ cerr << "surfaceColor=" << surfaceColor << endl;
         // geometry in the world. We can terminate the check
         // imediately, though, as soon as we encounter an
         // intersection, because this guarantees eclipse.
-	Vec3 lightDirection = (*i)->getPosition() - intersection;
-	double lightDist = len(lightDirection);
-	lightDirection /= lightDist;
-	Line3 rayToLight(intersection, lightDirection);
+        Vec3 lightDirection = (*i)->getPosition() - intersection;
+        double lightDist = len(lightDirection);
+        lightDirection /= lightDist;
+        Line3 rayToLight(intersection, lightDirection);
 
 cerr << "lightPosition=" << (*i)->getPosition() << endl;
 cerr << "lightDirection=" << lightDirection << endl;
 
         // Since in practice it always is so, that the intersected
-	// object shadows at least half of the world space from the
-	// point of view of the intersection point, it generally pays
-	// to check for eclipse by this object before checking other
-	// objects.
-	//
-	// Note that this check will be particularly simple for convex
-	// objects since in this case, if the angle between the surface
-	// normal and the light direction is greater than 90 degrees,
-	// then the light source is eclipsed.
-	double d;
-	if(dot(normal, lightDirection) < 0) continue;
+        // object shadows at least half of the world space from the
+        // point of view of the intersection point, it generally pays
+        // to check for eclipse by this object before checking other
+        // objects.
+        //
+        // Note that this check will be particularly simple for convex
+        // objects since in this case, if the angle between the surface
+        // normal and the light direction is greater than 90 degrees,
+        // then the light source is eclipsed.
+        double d;
+        if(dot(normal, lightDirection) < 0) continue;
 
 cerr << "*CLICK*" << endl;
 
-	// Check for eclipse by other objects.
-	bool eclipsed = false;
-	for(vector<Object::ConstRef>::const_iterator k = objects.begin(),
+        // Check for eclipse by other objects.
+        bool eclipsed = false;
+        for(vector<Object::ConstRef>::const_iterator k = objects.begin(),
               l = objects.end(); k != l; ++k)
-	{
-	  if((*k)->intersect(rayToLight, object, d) && d < lightDist)
+        {
+          if((*k)->intersect(rayToLight, object, d) && d < lightDist)
           {
             eclipsed = true;
             break;
           }
-	}
-	if(eclipsed) continue;
+        }
+        if(eclipsed) continue;
 
-	// Add color contribution to pixel
-	Vec3 c = surface->shade(i->get(), normal,
+        // Add color contribution to pixel
+        Vec3 c = surface->shade(i->get(), normal,
                                 -ray.direction,
                                 lightDirection, surfaceColor);
-	color[0] += c[0];
-	color[1] += c[1];
-	color[2] += c[2];
+        color[0] += c[0];
+        color[1] += c[1];
+        color[2] += c[2];
       }
 
       return Vec4(color, 1);

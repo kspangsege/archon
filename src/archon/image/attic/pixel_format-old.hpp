@@ -287,14 +287,14 @@ namespace archon
        */
       enum WordType
       {
-	std_char,        ///< Characters
-	std_short,       ///< Low precision integer numbers
-	std_int,         ///< Normal precision integer numbers
-	std_long,        ///< High precision integer numbers
-	std_max_int,     ///< Ultra precision integer numbers
-	std_float,       ///< Low precision floating point numbers
-	std_double,      ///< Normal precision floating point numbers
-	std_long_double  ///< High precision floating point number
+        std_char,        ///< Characters
+        std_short,       ///< Low precision integer numbers
+        std_int,         ///< Normal precision integer numbers
+        std_long,        ///< High precision integer numbers
+        std_max_int,     ///< Ultra precision integer numbers
+        std_float,       ///< Low precision floating point numbers
+        std_double,      ///< Normal precision floating point numbers
+        std_long_double  ///< High precision floating point number
       };
 
 
@@ -303,22 +303,22 @@ namespace archon
        */
       struct Channel
       {
-	/**
-	 * The channel offset in number of bits.
-	 */
-	int offset;
+        /**
+         * The channel offset in number of bits.
+         */
+        int offset;
 
-	/**
-	 * The channel width in number of bits.
-	 */
-	int width;
+        /**
+         * The channel width in number of bits.
+         */
+        int width;
 
-	Channel(int offset, int width): offset(offset), width(width) {}
+        Channel(int offset, int width): offset(offset), width(width) {}
 
-	bool operator==(Channel const &c) const
-	{
-	  return offset == c.offset && width == c.width;
-	}
+        bool operator==(Channel const &c) const
+        {
+          return offset == c.offset && width == c.width;
+        }
       };
 
 
@@ -329,7 +329,7 @@ namespace archon
        */
       struct InvalidFormatException: std::runtime_error
       {
-	InvalidFormatException(std::string m): std::runtime_error(m) {}
+        InvalidFormatException(std::string m): std::runtime_error(m) {}
       };
 
 
@@ -572,12 +572,12 @@ namespace archon
 /*
       bool operator==(PixelFormat const &f) const
       {
-	return
-	  wordType                 == f.wordType                 &&
-	  channelLayout            == f.channelLayout            &&
-	  bitsPerPixel             == f.bitsPerPixel             &&
-	  mostSignificantBitsFirst == f.mostSignificantBitsFirst &&
-	  colorSpace               == f.colorSpace;
+        return
+          wordType                 == f.wordType                 &&
+          channelLayout            == f.channelLayout            &&
+          bitsPerPixel             == f.bitsPerPixel             &&
+          mostSignificantBitsFirst == f.mostSignificantBitsFirst &&
+          colorSpace               == f.colorSpace;
       }
 */
 

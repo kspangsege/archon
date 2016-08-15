@@ -56,27 +56,27 @@ namespace archon
 #if __GNUC__ < 3 || __GNUC__ == 3 && __GNUC_MINOR__ < 2
         return n;
 #else
-	int s = 0;
-	char *r = abi::__cxa_demangle(n.c_str(), 0, 0, &s);
-	if(!r) return n;
-	string m = r;
-	free(r);
-	return m;
+        int s = 0;
+        char *r = abi::__cxa_demangle(n.c_str(), 0, 0, &s);
+        if(!r) return n;
+        string m = r;
+        free(r);
+        return m;
 #endif
       }
 
 
       void terminate_handler()
       {
-	try { throw; }
-	catch (exception &e) {
-	  cerr << "terminate called after throwing an instance of '" << type(e) << "'" << endl;
-	  cerr << "  what(): " << e.what() << endl;
-	}
-	catch (...) {
-	  cerr << "terminate called after throwing an instance of  an unknown type" << endl;
-	}
-	abort();
+        try { throw; }
+        catch (exception &e) {
+          cerr << "terminate called after throwing an instance of '" << type(e) << "'" << endl;
+          cerr << "  what(): " << e.what() << endl;
+        }
+        catch (...) {
+          cerr << "terminate called after throwing an instance of  an unknown type" << endl;
+        }
+        abort();
       }
     }
   }

@@ -49,16 +49,16 @@ namespace archon
     {
       for(unsigned i=0; i<rules.size(); ++i)
       {
-	Rule &r = rules[i];
-	for(unsigned j=0; j<r.productions.size(); ++j)
-	{
-	  Production &p = r.productions[j];
-	  for(unsigned k=0; k<p.symbols.size(); ++k)
-	  {
-	    Symbol &s = p.symbols[k];
-	    if(s.type == Symbol::nonterminal) s.index = oldToNewMap[s.index];
-	  }
-	}
+        Rule &r = rules[i];
+        for(unsigned j=0; j<r.productions.size(); ++j)
+        {
+          Production &p = r.productions[j];
+          for(unsigned k=0; k<p.symbols.size(); ++k)
+          {
+            Symbol &s = p.symbols[k];
+            if(s.type == Symbol::nonterminal) s.index = oldToNewMap[s.index];
+          }
+        }
       }
     }
 
@@ -66,94 +66,94 @@ namespace archon
     {
       if(enumerator < 0)
       {
-	while(nonterminalMap.find(stem) != nonterminalMap.end()) stem += "'";
-	return stem;
+        while(nonterminalMap.find(stem) != nonterminalMap.end()) stem += "'";
+        return stem;
       }
 
       for(;;)
       {
-	string n = stem + valPrinter.print(enumerator);
-	if(nonterminalMap.find(n) == nonterminalMap.end()) return n;
-	++enumerator;
+        string n = stem + valPrinter.print(enumerator);
+        if(nonterminalMap.find(n) == nonterminalMap.end()) return n;
+        ++enumerator;
       }
     }
 
     void Cfg::findNullableNonTerminals(vector<bool> &nullable,
-				       vector<vector<int> > &nullActions)
+                                       vector<vector<int> > &nullActions)
     {
       nullable.resize(rules.size());
       nullActions.resize(rules.size());
       bool again;
       do
       {
-	again = false;
-	for(unsigned i=0; i<rules.size(); ++i)
-	{
-	  if(nullable[i]) continue;
-	  Rule &r = rules[i];
-	  for(unsigned j=0; j<r.productions.size(); ++j)
-	  {
-	    Production &p = r.productions[j];
-	    unsigned k=0;
-	    vector<int> a;
-	    while(k<p.symbols.size())
-	    {
-	      Symbol &s = p.symbols[k];
-	      // Break if the current symbol is not nullable
-	      if(s.type == Symbol::terminal ||
-		 s.type == Symbol::nonterminal && !nullable[s.index]) break;
-	      if(s.type == Symbol::action) a.push_back(s.index);
-	      else
-	      {
-		vector<int> const &v = nullActions[s.index];
-		a.insert(a.end(), v.begin(), v.end());
-	      }
-	      ++k;
-	    }
-	    if(k == p.symbols.size())
-	    {
-	      // Detect ambiguous nullability
-	      if(nullable[i] && nullActions[i] != a)
-		throw invalid_argument("Ambiguous nullability for "
+        again = false;
+        for(unsigned i=0; i<rules.size(); ++i)
+        {
+          if(nullable[i]) continue;
+          Rule &r = rules[i];
+          for(unsigned j=0; j<r.productions.size(); ++j)
+          {
+            Production &p = r.productions[j];
+            unsigned k=0;
+            vector<int> a;
+            while(k<p.symbols.size())
+            {
+              Symbol &s = p.symbols[k];
+              // Break if the current symbol is not nullable
+              if(s.type == Symbol::terminal ||
+                 s.type == Symbol::nonterminal && !nullable[s.index]) break;
+              if(s.type == Symbol::action) a.push_back(s.index);
+              else
+              {
+                vector<int> const &v = nullActions[s.index];
+                a.insert(a.end(), v.begin(), v.end());
+              }
+              ++k;
+            }
+            if(k == p.symbols.size())
+            {
+              // Detect ambiguous nullability
+              if(nullable[i] && nullActions[i] != a)
+                throw invalid_argument("Ambiguous nullability for "
                                        "non-terminal '"+r.name+"'");
-	      nullable[i] = true;
-	      nullActions[i] = a;
-	      again = true;
-	    }
-	  }
-	}
+              nullable[i] = true;
+              nullActions[i] = a;
+              again = true;
+            }
+          }
+        }
       }
       while(again);
     }
 
     void Cfg::addNullableCombinations(unsigned i, bool epsilon,
-				      Production const &production,
-				      vector<bool> const &nullable,
-				      vector<vector<int> > const &nullActions,
-				      vector<Symbol> &prefix,
-				      vector<Production> &newProductions)
+                                      Production const &production,
+                                      vector<bool> const &nullable,
+                                      vector<vector<int> > const &nullActions,
+                                      vector<Symbol> &prefix,
+                                      vector<Production> &newProductions)
     {
       while(i<production.symbols.size())
       {
-	Symbol const &s = production.symbols[i];
-	++i;
-	if(s.type == Symbol::nonterminal && nullable[s.index])
-	{
-	  vector<Symbol> p = prefix;
-	  vector<int> const &v = nullActions[s.index];
-	  for(unsigned j=0; j<v.size(); ++j)
-	    p.push_back(act(v[j]));
-	  addNullableCombinations(i, epsilon, production, nullable,
-				  nullActions, p, newProductions);
-	}
-	prefix.push_back(s);
-	if(s.type != Symbol::action) epsilon = false;
+        Symbol const &s = production.symbols[i];
+        ++i;
+        if(s.type == Symbol::nonterminal && nullable[s.index])
+        {
+          vector<Symbol> p = prefix;
+          vector<int> const &v = nullActions[s.index];
+          for(unsigned j=0; j<v.size(); ++j)
+            p.push_back(act(v[j]));
+          addNullableCombinations(i, epsilon, production, nullable,
+                                  nullActions, p, newProductions);
+        }
+        prefix.push_back(s);
+        if(s.type != Symbol::action) epsilon = false;
       }
       if(!epsilon) newProductions.push_back(Production(prefix));
     }
 
     int Cfg::eliminateCyclesVisit(int ruleIndex, vector<int> &visitedRules,
-				  list<pair<int, int> > &cycle)
+                                  list<pair<int, int> > &cycle)
     {
       if(visitedRules[ruleIndex] == 1) return ruleIndex;
       if(visitedRules[ruleIndex] == 2) return -1;
@@ -164,39 +164,39 @@ namespace archon
 
       for(unsigned j=0; j<r.productions.size(); ++j)
       {
-	Production &p = r.productions[j];
+        Production &p = r.productions[j];
 
-	int targetNonTerminal = -1;
+        int targetNonTerminal = -1;
 
-	for(unsigned k=0; k<p.symbols.size(); ++k)
-	{
-	  Symbol &s = p.symbols[k];
-	  if(s.type == Symbol::nonterminal)
-	  {
-	    if(targetNonTerminal >= 0)
-	    {
-	      targetNonTerminal = -1;
-	      break;
-	    }
-	    targetNonTerminal = s.index;
-	  }
-	  else if(s.type == Symbol::terminal)
-	  {
-	    targetNonTerminal = -1;
-	    break;
-	  }
-	}
+        for(unsigned k=0; k<p.symbols.size(); ++k)
+        {
+          Symbol &s = p.symbols[k];
+          if(s.type == Symbol::nonterminal)
+          {
+            if(targetNonTerminal >= 0)
+            {
+              targetNonTerminal = -1;
+              break;
+            }
+            targetNonTerminal = s.index;
+          }
+          else if(s.type == Symbol::terminal)
+          {
+            targetNonTerminal = -1;
+            break;
+          }
+        }
 
-	if(targetNonTerminal < 0) continue;
+        if(targetNonTerminal < 0) continue;
 
-	int s = eliminateCyclesVisit(targetNonTerminal, visitedRules, cycle);
-	if(s == -2) return -2;
-	if(s == -1) continue;
-	if(p.symbols.size() > 1)
-	  throw invalid_argument("Ambiguous count for cycle production '"+r.name +
+        int s = eliminateCyclesVisit(targetNonTerminal, visitedRules, cycle);
+        if(s == -2) return -2;
+        if(s == -1) continue;
+        if(p.symbols.size() > 1)
+          throw invalid_argument("Ambiguous count for cycle production '"+r.name +
                                  " -> "+printProductionRightSide(p)+"'");
-	cycle.insert(cycle.begin(), make_pair(ruleIndex, j));
-	return s == ruleIndex ? -2 : s;
+        cycle.insert(cycle.begin(), make_pair(ruleIndex, j));
+        return s == ruleIndex ? -2 : s;
       }
 
       visitedRules[ruleIndex] = 2;
@@ -208,29 +208,29 @@ namespace archon
       string r;
       for(unsigned i=0; i<p.symbols.size(); ++i)
       {
-	if(static_cast<int>(i) == m) r += "·";
-	else if(i) r += " ";
-	Symbol const &s = p.symbols[i];
-	switch(s.type)
-	{
-	case Symbol::terminal:
-	  r += printTerminal(s.index);
-	  break;
-	case Symbol::nonterminal:
-	  r += printNonterminal(s.index);
-	  break;
-	case Symbol::action:
-	  r += ascii_tolower(actor->getMethodName(s.index)) + "(";
-	  for(unsigned j=0; j<s.args.size(); ++j)
-	  {
-	    if(j) r += ", ";
-	    r += s.args[j]<0 ? "_" : valPrinter.print(static_cast<int>(i)-s.args[j]);
-	  }
-	  r += ")";
-	  break;
-	case Symbol::nil:
-	  break;
-	}
+        if(static_cast<int>(i) == m) r += "·";
+        else if(i) r += " ";
+        Symbol const &s = p.symbols[i];
+        switch(s.type)
+        {
+        case Symbol::terminal:
+          r += printTerminal(s.index);
+          break;
+        case Symbol::nonterminal:
+          r += printNonterminal(s.index);
+          break;
+        case Symbol::action:
+          r += ascii_tolower(actor->getMethodName(s.index)) + "(";
+          for(unsigned j=0; j<s.args.size(); ++j)
+          {
+            if(j) r += ", ";
+            r += s.args[j]<0 ? "_" : valPrinter.print(static_cast<int>(i)-s.args[j]);
+          }
+          r += ")";
+          break;
+        case Symbol::nil:
+          break;
+        }
       }
       if(m == static_cast<int>(p.symbols.size())) r += "·";
       return r.size() ? r : "<epsilon>";
@@ -243,7 +243,7 @@ namespace archon
     int Cfg::defineTerminal(string const &name)
     {
       pair<map<string, int>::iterator, bool> r =
-	terminalMap.insert(make_pair(name, terminals.size()));
+        terminalMap.insert(make_pair(name, terminals.size()));
       if(!r.second) throw invalid_argument("Redefinition of terminal '"+name+"'");
       terminals.push_back(name);
       return terminals.size()-1;
@@ -252,7 +252,7 @@ namespace archon
     int Cfg::defineNonterminal(string const &name)
     {
       pair<map<string, int>::iterator, bool> r =
-	nonterminalMap.insert(make_pair(name, rules.size()));
+        nonterminalMap.insert(make_pair(name, rules.size()));
       if(!r.second) throw invalid_argument("Redefinition of non-terminal '"+name+"'");
       rules.push_back(Rule(name));
       return rules.size()-1;
@@ -262,35 +262,35 @@ namespace archon
     {
       for(unsigned i=0; i<symbols.size(); ++i)
       {
-	Symbol const &s = symbols[i];
-	switch(s.type)
-	{
-	case Symbol::terminal:
-	  if(s.index < 0 || s.index >= static_cast<int>(terminals.size()))
-	    throw invalid_argument("Illegal terminal index");
-	  break;
-	case Symbol::nonterminal:
-	  if(s.index < 0 || s.index >= static_cast<int>(rules.size()))
-	    throw invalid_argument("Illegal nonterminal index");
-	  break;
-	case Symbol::action:
-	  if(!actor)
-	    throw invalid_argument("Can't have actions without an actor");
-	  if(s.index < -3 || s.index >= actor->getNumberOfMethods())
-	    throw invalid_argument("Illegal method index");
-	  if(static_cast<int>(s.args.size()) != actor->getMethodArity(s.index))
-	    throw invalid_argument("Wrong number of arguments to '" +
+        Symbol const &s = symbols[i];
+        switch(s.type)
+        {
+        case Symbol::terminal:
+          if(s.index < 0 || s.index >= static_cast<int>(terminals.size()))
+            throw invalid_argument("Illegal terminal index");
+          break;
+        case Symbol::nonterminal:
+          if(s.index < 0 || s.index >= static_cast<int>(rules.size()))
+            throw invalid_argument("Illegal nonterminal index");
+          break;
+        case Symbol::action:
+          if(!actor)
+            throw invalid_argument("Can't have actions without an actor");
+          if(s.index < -3 || s.index >= actor->getNumberOfMethods())
+            throw invalid_argument("Illegal method index");
+          if(static_cast<int>(s.args.size()) != actor->getMethodArity(s.index))
+            throw invalid_argument("Wrong number of arguments to '" +
                                    actor->getMethodName(s.index)+"'");
-	  break;
-	case Symbol::nil:
-	  break;
-	}
+          break;
+        case Symbol::nil:
+          break;
+        }
       }
       rules[nontermIndex].addProduction(symbols);
     }
 
     void Cfg::addProd(int nontermIndex, Symbol s1, Symbol s2, Symbol s3,
-		      Symbol s4, Symbol s5, Symbol s6, Symbol s7, Symbol s8)
+                      Symbol s4, Symbol s5, Symbol s6, Symbol s7, Symbol s8)
     {
       vector<Symbol> symbols;
       if(s1.type) symbols.push_back(s1);
@@ -311,7 +311,7 @@ namespace archon
     }
 
     Cfg::Symbol Cfg::act(int methodIndex, int arg1, int arg2, int arg3,
-			 int arg4, int arg5, int arg6, int arg7)
+                         int arg4, int arg5, int arg6, int arg7)
     {
       vector<int> args;
       if(arg1>-2) args.push_back(arg1);
@@ -331,9 +331,9 @@ namespace archon
       typename set<T>::const_iterator j=right.begin();
       while(j!=right.end())
       {
-	if(i == left.end() || *j < *i) left.insert(i, *j++);
-	else if(*j == *i) ++j;
-	else ++i;
+        if(i == left.end() || *j < *i) left.insert(i, *j++);
+        else if(*j == *i) ++j;
+        else ++i;
       }
     }
 
@@ -344,19 +344,19 @@ namespace archon
       bool again;
       do
       {
-	again = false;
-	for(unsigned i=0; i<g.rules.size(); ++i)
-	{
-	  Rule const &r = g.rules[i];
-	  set<int> &t = terminals[i];
-	  for(unsigned j=0; j<r.productions.size(); ++j)
-	  {
-	    unsigned const n = t.size();
-	    Item item(i, j, 0);
-	    if(includeFirstSet(item, t) && !nullable[i]) again = nullable[i] = true;
-	    else if(t.size() > n) again = true;
-	  }
-	}
+        again = false;
+        for(unsigned i=0; i<g.rules.size(); ++i)
+        {
+          Rule const &r = g.rules[i];
+          set<int> &t = terminals[i];
+          for(unsigned j=0; j<r.productions.size(); ++j)
+          {
+            unsigned const n = t.size();
+            Item item(i, j, 0);
+            if(includeFirstSet(item, t) && !nullable[i]) again = nullable[i] = true;
+            else if(t.size() > n) again = true;
+          }
+        }
       }
       while(again);
     }
@@ -364,23 +364,23 @@ namespace archon
     bool Cfg::FirstSets::includeFirstSet(Item const &item, set<int> &t) const
     {
       Production const &p =
-	grammar.rules[item.rule].productions[item.production];
+        grammar.rules[item.rule].productions[item.production];
       unsigned i;
       for(i=item.position; i<p.symbols.size(); ++i)
       {
-	Symbol const &s = p.symbols[i];
+        Symbol const &s = p.symbols[i];
       
-	if(s.type == Symbol::terminal)
-	{
-	  t.insert(s.index);
-	  break;
-	}
+        if(s.type == Symbol::terminal)
+        {
+          t.insert(s.index);
+          break;
+        }
 
-	if(s.type == Symbol::nonterminal)
-	{
-	  set_include(terminals[s.index], t);
-	  if(!nullable[s.index]) break;
-	}
+        if(s.type == Symbol::nonterminal)
+        {
+          set_include(terminals[s.index], t);
+          if(!nullable[s.index]) break;
+        }
       }
       return i == p.symbols.size();
     }
@@ -399,14 +399,14 @@ namespace archon
     string Cfg::printProduction(int i, int j) const
     {
       return printNonterminal(i) + " -> " +
-	printProductionRightSide(rules[i].productions[j]);
+        printProductionRightSide(rules[i].productions[j]);
     }
 
     string Cfg::printItem(Item const &i) const
     {
       return printNonterminal(i.rule) + " -> " +
-	printProductionRightSide(rules[i.rule].productions[i.production],
-				 i.position);
+        printProductionRightSide(rules[i.rule].productions[i.production],
+                                 i.position);
     }
 
     string Cfg::FirstSets::print(int width) const
@@ -418,19 +418,19 @@ namespace archon
       table.get_cell(0,1).set_text("First set");
       for(unsigned i=0; i<terminals.size(); ++i)
       {
-	set<int> const &t = terminals[i];
-	table.get_cell(i+1, 0).set_text(grammar.printNonterminal(i));
+        set<int> const &t = terminals[i];
+        table.get_cell(i+1, 0).set_text(grammar.printNonterminal(i));
         string s;
-	for(set<int>::const_iterator j=t.begin(); j!=t.end(); ++j)
-	{
-	  if(j != t.begin()) s += " ";
-	  s += grammar.printTerminal(*j);
-	}
-	if(nullable[i])
-	{
-	  if(s.size()) s += " ";
-	  s += "<epsilon>";
-	}
+        for(set<int>::const_iterator j=t.begin(); j!=t.end(); ++j)
+        {
+          if(j != t.begin()) s += " ";
+          s += grammar.printTerminal(*j);
+        }
+        if(nullable[i])
+        {
+          if(s.size()) s += " ";
+          s += "<epsilon>";
+        }
         table.get_cell(i+1, 1).set_text(s);
       }
 
@@ -444,25 +444,25 @@ namespace archon
       bool again;
       do
       {
-	again = false;
-	for(unsigned i=0; i<grammar.rules.size(); ++i)
-	{
-	  Rule const &r = grammar.rules[i];
-	  for(unsigned j=0; j<r.productions.size(); ++j)
-	  {
-	    Production const &p = r.productions[j];
-	    for(unsigned k=0; k<p.symbols.size(); ++k)
-	    {
-	      Symbol const &s = p.symbols[k];
-	      if(s.type != Symbol::nonterminal) continue;
-	      set<int> &t = terminals[s.index];
-	      unsigned const n = t.size();
-	      Item item(i, j, k+1);
-	      if(f.includeFirstSet(item, t)) set_include(terminals[i], t);
-	      if(t.size() > n) again = true;
-	    }
-	  }
-	}
+        again = false;
+        for(unsigned i=0; i<grammar.rules.size(); ++i)
+        {
+          Rule const &r = grammar.rules[i];
+          for(unsigned j=0; j<r.productions.size(); ++j)
+          {
+            Production const &p = r.productions[j];
+            for(unsigned k=0; k<p.symbols.size(); ++k)
+            {
+              Symbol const &s = p.symbols[k];
+              if(s.type != Symbol::nonterminal) continue;
+              set<int> &t = terminals[s.index];
+              unsigned const n = t.size();
+              Item item(i, j, k+1);
+              if(f.includeFirstSet(item, t)) set_include(terminals[i], t);
+              if(t.size() > n) again = true;
+            }
+          }
+        }
       }
       while(again);
     }
@@ -476,20 +476,20 @@ namespace archon
       table.get_cell(0,1).set_text("Follow set");
       for(unsigned i=0; i<terminals.size(); ++i)
       {
-	set<int> const &t = terminals[i];
-	table.get_cell(i+1, 0).set_text(grammar.printNonterminal(i));
+        set<int> const &t = terminals[i];
+        table.get_cell(i+1, 0).set_text(grammar.printNonterminal(i));
         string s;
-	for(set<int>::const_iterator j=t.begin(); j!=t.end(); ++j)
-	{
-	  if(*j < 0) continue;
-	  if(s.size()) s += " ";
-	  s += grammar.printTerminal(*j);
-	}
-	if(t.size() && *t.begin()<0)
-	{
-	  if(t.size() > 1) s += " ";
-	  s += "<eoi>";
-	}
+        for(set<int>::const_iterator j=t.begin(); j!=t.end(); ++j)
+        {
+          if(*j < 0) continue;
+          if(s.size()) s += " ";
+          s += grammar.printTerminal(*j);
+        }
+        if(t.size() && *t.begin()<0)
+        {
+          if(t.size() > 1) s += " ";
+          s += "<eoi>";
+        }
         table.get_cell(i+1, 1).set_text(s);
       }
 
@@ -506,21 +506,21 @@ namespace archon
       int l = 0;
       for(unsigned i=0; i<rules.size(); ++i)
       {
-	if(i)
-	{
-	  table.get_cell(l,0).set_text(" ");
-	  ++l;
-	}
-	table.get_cell(l,0).set_text(printNonterminal(i));
-	table.get_cell(l,1).set_text("=");
-	Rule const &r = rules[i];
-	for(unsigned j=0; j<r.productions.size(); ++j)
-	{
-	  if(j) table.get_cell(l,1).set_text("|");
-	  table.get_cell(l,2).set_text(printProductionRightSide(r.productions[j]));
-	  ++l;
-	}
-	if(!r.productions.size()) ++l;
+        if(i)
+        {
+          table.get_cell(l,0).set_text(" ");
+          ++l;
+        }
+        table.get_cell(l,0).set_text(printNonterminal(i));
+        table.get_cell(l,1).set_text("=");
+        Rule const &r = rules[i];
+        for(unsigned j=0; j<r.productions.size(); ++j)
+        {
+          if(j) table.get_cell(l,1).set_text("|");
+          table.get_cell(l,2).set_text(printProductionRightSide(r.productions[j]));
+          ++l;
+        }
+        if(!r.productions.size()) ++l;
       }
 
       return table.print(width, 1);
@@ -547,53 +547,53 @@ namespace archon
       // hand side of any production
       if(nullable[0])
       {
-	for(unsigned i=0; i<rules.size(); ++i)
-	{
-	  Rule &r = rules[i];
-	  for(unsigned j=0; j<r.productions.size(); ++j)
-	  {
-	    Production &p = r.productions[j];
-	    for(unsigned k=0; k<p.symbols.size(); ++k)
-	    {
-	      Symbol &s = p.symbols[k];
-	      if(s.type == Symbol::nonterminal && s.index == 0)
-	      {
-		// Make a brand new start symbol
-		nullable.insert(nullable.begin(), true);
-		nullActions.insert(nullActions.begin(), nullActions[0]);
-		introduceNewStartSymbol();
-		i = rules.size();
-		j = r.productions.size();
-		break;
-	      }
-	    }
-	  }
-	}
+        for(unsigned i=0; i<rules.size(); ++i)
+        {
+          Rule &r = rules[i];
+          for(unsigned j=0; j<r.productions.size(); ++j)
+          {
+            Production &p = r.productions[j];
+            for(unsigned k=0; k<p.symbols.size(); ++k)
+            {
+              Symbol &s = p.symbols[k];
+              if(s.type == Symbol::nonterminal && s.index == 0)
+              {
+                // Make a brand new start symbol
+                nullable.insert(nullable.begin(), true);
+                nullActions.insert(nullActions.begin(), nullActions[0]);
+                introduceNewStartSymbol();
+                i = rules.size();
+                j = r.productions.size();
+                break;
+              }
+            }
+          }
+        }
       }
 
       // Rewrite each rule
       for(unsigned i=0; i<rules.size(); ++i)
       {
-	Rule &r = rules[i];
-	vector<Production> newProductions;
-	for(unsigned j=0; j<r.productions.size(); ++j)
-	{
-	  vector<Symbol> prefix;
-	  addNullableCombinations(0, true, r.productions[j], nullable,
-				  nullActions, prefix, newProductions);
-	}
+        Rule &r = rules[i];
+        vector<Production> newProductions;
+        for(unsigned j=0; j<r.productions.size(); ++j)
+        {
+          vector<Symbol> prefix;
+          addNullableCombinations(0, true, r.productions[j], nullable,
+                                  nullActions, prefix, newProductions);
+        }
 
-	r.productions = newProductions;
+        r.productions = newProductions;
       }
 
       // Is the start symbol nullable
       if(nullable[0])
       {
-	vector<Symbol> epsilon;
-	vector<int> const &v = nullActions[0];
-	for(unsigned j=0; j<v.size(); ++j)
-	  epsilon.push_back(act(v[j]));
-	addProd(0, epsilon);
+        vector<Symbol> epsilon;
+        vector<int> const &v = nullActions[0];
+        for(unsigned j=0; j<v.size(); ++j)
+          epsilon.push_back(act(v[j]));
+        addProd(0, epsilon);
       }
     }
 
@@ -604,58 +604,58 @@ namespace archon
       int cycles = 0;
       for(;;)
       {
-	// Find a cycle
-	list<pair<int, int> > cycle;
-	vector<int> visitedRules(g.rules.size()); // 0=unvisited, 1=in current path, 2=visited but no longer in current path
-	for(unsigned i=0; i<g.rules.size(); ++i)
-	  if(g.eliminateCyclesVisit(i, visitedRules, cycle) == -2) break;
-	if(!cycle.size()) break;
-	++cycles;
+        // Find a cycle
+        list<pair<int, int> > cycle;
+        vector<int> visitedRules(g.rules.size()); // 0=unvisited, 1=in current path, 2=visited but no longer in current path
+        for(unsigned i=0; i<g.rules.size(); ++i)
+          if(g.eliminateCyclesVisit(i, visitedRules, cycle) == -2) break;
+        if(!cycle.size()) break;
+        ++cycles;
 
-	cerr << "Found cycle: " << g.rules[cycle.front().first].name;
-	for(list<pair<int, int> >::iterator i=cycle.begin(); i!=cycle.end(); ++i)
-	  cerr << " -> " << g.printProductionRightSide(g.rules[i->first].productions[i->second]);
-	cerr << "\n";
+        cerr << "Found cycle: " << g.rules[cycle.front().first].name;
+        for(list<pair<int, int> >::iterator i=cycle.begin(); i!=cycle.end(); ++i)
+          cerr << " -> " << g.printProductionRightSide(g.rules[i->first].productions[i->second]);
+        cerr << "\n";
 
-	set<pair<int, int> > cycleProductions;
-	set<int> cycleNonTerminals;
-	for(list<pair<int, int> >::iterator i=cycle.begin(); i!=cycle.end(); ++i)
-	{
-	  cycleProductions.insert(*i);
-	  cycleNonTerminals.insert(i->first);
-	}
+        set<pair<int, int> > cycleProductions;
+        set<int> cycleNonTerminals;
+        for(list<pair<int, int> >::iterator i=cycle.begin(); i!=cycle.end(); ++i)
+        {
+          cycleProductions.insert(*i);
+          cycleNonTerminals.insert(i->first);
+        }
 
-	// Rewrite each rule to eliminate the cycle
-	for(unsigned i=0; i<g.rules.size(); ++i)
-	{
-	  Rule &r = g.rules[i];
-	  vector<Production> newProductions;
-	  for(unsigned j=0; j<r.productions.size(); ++j)
-	  {
-	    Production &p = r.productions[j];
+        // Rewrite each rule to eliminate the cycle
+        for(unsigned i=0; i<g.rules.size(); ++i)
+        {
+          Rule &r = g.rules[i];
+          vector<Production> newProductions;
+          for(unsigned j=0; j<r.productions.size(); ++j)
+          {
+            Production &p = r.productions[j];
 
-	    pair<int, int> const q = make_pair(i, j);
-	    if(cycleProductions.find(q) != cycleProductions.end())
-	    {
-	      if(q != cycle.back()) newProductions.push_back(p);
-	    }
-	    else
-	    {
-	      Production n;
-	      for(unsigned k=0; k<p.symbols.size(); ++k)
-	      {
-		Symbol &s = p.symbols[k];
-		if(s.type == Symbol::nonterminal &&
-		   cycleNonTerminals.find(s.index) != cycleNonTerminals.end())
-		  n.symbols.push_back(nont(cycle.front().first));
-		else n.symbols.push_back(s);
-	      }
-	      newProductions.push_back(n);
-	    }
-	  }
+            pair<int, int> const q = make_pair(i, j);
+            if(cycleProductions.find(q) != cycleProductions.end())
+            {
+              if(q != cycle.back()) newProductions.push_back(p);
+            }
+            else
+            {
+              Production n;
+              for(unsigned k=0; k<p.symbols.size(); ++k)
+              {
+                Symbol &s = p.symbols[k];
+                if(s.type == Symbol::nonterminal &&
+                   cycleNonTerminals.find(s.index) != cycleNonTerminals.end())
+                  n.symbols.push_back(nont(cycle.front().first));
+                else n.symbols.push_back(s);
+              }
+              newProductions.push_back(n);
+            }
+          }
 
-	  r.productions = newProductions;
-	}
+          r.productions = newProductions;
+        }
       }
 
       if(cycles) *this = g;
@@ -666,26 +666,26 @@ namespace archon
       unsigned const n = rules.size();
       for(unsigned i=0; i<n; ++i)
       {
-	Rule *r = &rules[i];
-	for(unsigned j=0; j<r->productions.size(); ++j)
-	{
-	  Production *p = &r->productions[j];
-	  for(unsigned k=0; k+1<p->symbols.size(); ++k)
-	  {
-	    Symbol *s = &p->symbols[k];
-	    if(s->type != Symbol::action) continue;
-	    int const a = defineNonterminal(chooseUniqueName("action", 1));
-	    // rules vector may be relocated so we need to aquire a new
-	    // pointers.
-	    r = &rules[i];
-	    p = &r->productions[j];
-	    s = &p->symbols[k];
-	    addProd(a, *s);
-	    s->type = Symbol::nonterminal;
-	    s->index = a;
-	    s->args.clear();
-	  }
-	}
+        Rule *r = &rules[i];
+        for(unsigned j=0; j<r->productions.size(); ++j)
+        {
+          Production *p = &r->productions[j];
+          for(unsigned k=0; k+1<p->symbols.size(); ++k)
+          {
+            Symbol *s = &p->symbols[k];
+            if(s->type != Symbol::action) continue;
+            int const a = defineNonterminal(chooseUniqueName("action", 1));
+            // rules vector may be relocated so we need to aquire a new
+            // pointers.
+            r = &rules[i];
+            p = &r->productions[j];
+            s = &p->symbols[k];
+            addProd(a, *s);
+            s->type = Symbol::nonterminal;
+            s->index = a;
+            s->args.clear();
+          }
+        }
       }
     }
   }

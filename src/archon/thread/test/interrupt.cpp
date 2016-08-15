@@ -65,7 +65,7 @@ int main() throw()
 
   t->interrupt();
   cerr << "INTERRUPTION REQUESTED\n";
-	
+        
   t->wait();
   cerr << "TERMINATED\n";
 

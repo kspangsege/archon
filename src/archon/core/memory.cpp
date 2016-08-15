@@ -103,27 +103,27 @@ namespace archon
       // For each level
       for(int i=0; i<levels; ++i)
       {
-	// Swap only if we have endianness disagreement on this level
-	if(native_endianness[i < static_cast<int>(native_endianness.size()) ?
+        // Swap only if we have endianness disagreement on this level
+        if(native_endianness[i < static_cast<int>(native_endianness.size()) ?
                              i : native_endianness.size()-1] ==
-	   endianness[i < static_cast<int>(endianness.size()) ?
+           endianness[i < static_cast<int>(endianness.size()) ?
                       i : endianness.size()-1]) continue;
 
-	int swapBlockSize = 1 << i+1;
-	int numberOfSwapBlocks = n / swapBlockSize;
-	int numberOfSwapsPerBlock = swapBlockSize / 2;
+        int swapBlockSize = 1 << i+1;
+        int numberOfSwapBlocks = n / swapBlockSize;
+        int numberOfSwapsPerBlock = swapBlockSize / 2;
 
-	// For each block that needs to be swapped
-	for(int j=0; j<numberOfSwapBlocks; ++j)
-	{
-	  // For each swap
-	  for(int k=0; k<numberOfSwapsPerBlock; ++k)
-	  {
-	    int offset = j * swapBlockSize + k;
+        // For each block that needs to be swapped
+        for(int j=0; j<numberOfSwapBlocks; ++j)
+        {
+          // For each swap
+          for(int k=0; k<numberOfSwapsPerBlock; ++k)
+          {
+            int offset = j * swapBlockSize + k;
             std::swap(permutation[offset],
                       permutation[offset+numberOfSwapsPerBlock]);
-	  }
-	}
+          }
+        }
       }
 
       return permutation;

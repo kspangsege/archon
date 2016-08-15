@@ -50,69 +50,69 @@ namespace archon
        */
       inline std::locale getUnicodeLocale()
       {
-	static std::locale l(std::locale::classic(), std::locale("en_US.UTF-8"), std::locale::ctype);
-	return l;
+        static std::locale l(std::locale::classic(), std::locale("en_US.UTF-8"), std::locale::ctype);
+        return l;
       }
 
       inline std::ctype<wchar_t> const *getUnicodeFacet()
       {
-	static std::ctype<wchar_t> const *f = &std::use_facet<std::ctype<wchar_t> >(getUnicodeLocale());
-	return f;
+        static std::ctype<wchar_t> const *f = &std::use_facet<std::ctype<wchar_t> >(getUnicodeLocale());
+        return f;
       }
 
       inline bool isspace(wchar_t c)
       {
-	return getUnicodeFacet()->is(std::ctype_base::space, c);
+        return getUnicodeFacet()->is(std::ctype_base::space, c);
       }
 
       inline bool isprint(wchar_t c)
       {
-	return getUnicodeFacet()->is(std::ctype_base::print, c);
+        return getUnicodeFacet()->is(std::ctype_base::print, c);
       }
 
       inline bool iscntrl(wchar_t c)
       {
-	return getUnicodeFacet()->is(std::ctype_base::cntrl, c);
+        return getUnicodeFacet()->is(std::ctype_base::cntrl, c);
       }
 
       inline bool isupper(wchar_t c)
       {
-	return getUnicodeFacet()->is(std::ctype_base::upper, c);
+        return getUnicodeFacet()->is(std::ctype_base::upper, c);
       }
 
       inline bool islower(wchar_t c)
       {
-	return getUnicodeFacet()->is(std::ctype_base::lower, c);
+        return getUnicodeFacet()->is(std::ctype_base::lower, c);
       }
 
       inline bool isalpha(wchar_t c)
       {
-	return getUnicodeFacet()->is(std::ctype_base::alpha, c);
+        return getUnicodeFacet()->is(std::ctype_base::alpha, c);
       }
 
       inline bool isdigit(wchar_t c)
       {
-	return getUnicodeFacet()->is(std::ctype_base::digit, c);
+        return getUnicodeFacet()->is(std::ctype_base::digit, c);
       }
 
       inline bool ispunct(wchar_t c)
       {
-	return getUnicodeFacet()->is(std::ctype_base::punct, c);
+        return getUnicodeFacet()->is(std::ctype_base::punct, c);
       }
 
       inline bool isxdigit(wchar_t c)
       {
-	return getUnicodeFacet()->is(std::ctype_base::xdigit, c);
+        return getUnicodeFacet()->is(std::ctype_base::xdigit, c);
       }
 
       inline bool isalnum(wchar_t c)
       {
-	return getUnicodeFacet()->is(std::ctype_base::alnum, c);
+        return getUnicodeFacet()->is(std::ctype_base::alnum, c);
       }
 
       inline bool isgraph(wchar_t c)
       {
-	return getUnicodeFacet()->is(std::ctype_base::graph, c);
+        return getUnicodeFacet()->is(std::ctype_base::graph, c);
       }
 
 

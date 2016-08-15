@@ -42,11 +42,11 @@ namespace archon
       if(k == 0 || k > 0 && front_to_back_only) return false; // backface culling!!
       if(dist)
       {
-	k = (dot(plane.normal, ray.origin) - plane.dist) / -k;
-	if(k <= 0) return false; // The ray either originates on the
-				 // plane or originates on the same
-				 // side as it extends to.
-	*dist = k;
+        k = (dot(plane.normal, ray.origin) - plane.dist) / -k;
+        if(k <= 0) return false; // The ray either originates on the
+                                 // plane or originates on the same
+                                 // side as it extends to.
+        *dist = k;
       }
       return true;
     }
@@ -192,7 +192,7 @@ namespace archon
      * By expanding the expression of the discriminant and then
      * reducing we get:
      *
-     *	 d/4 = (py*dz - pz*dy)² + (px*dy - py*dx)² - (pz*dx - px*dz)²
+     *   d/4 = (py*dz - pz*dy)² + (px*dy - py*dx)² - (pz*dx - px*dz)²
      *
      * From this we get the following:
      *
@@ -287,82 +287,82 @@ namespace archon
 
       if(a > 0)
       {
-	double d = b * b - 2 * a * c;
+        double d = b * b - 2 * a * c;
 
-	if(d < 0) return 0; // No real solutions
+        if(d < 0) return 0; // No real solutions
 
-	double sqrt_d = sqrt(d);
+        double sqrt_d = sqrt(d);
 
-	// Get the smallest of the two sollutions
-	double t = (b - sqrt_d) / a;
-	// Note that if b < 0 then t < 0 since a > 0
+        // Get the smallest of the two sollutions
+        double t = (b - sqrt_d) / a;
+        // Note that if b < 0 then t < 0 since a > 0
 
-	double y = rp[1] + rd[1] * t;
+        double y = rp[1] + rd[1] * t;
 
-	// First intersection with infinite extension of the double cone
-	// is below the apex, but since a > 0 this means that both
-	// intersections occur on the lower nappe. Since the lower nappe
-	// is not part of the original cone, it means that there is no
-	// intersection in this case.
-	if(y < 0) return 0;
+        // First intersection with infinite extension of the double cone
+        // is below the apex, but since a > 0 this means that both
+        // intersections occur on the lower nappe. Since the lower nappe
+        // is not part of the original cone, it means that there is no
+        // intersection in this case.
+        if(y < 0) return 0;
 
-	// First intersection with the infinite extension of the double cone is
-	// above the cap
-	if(y > bottom_radius)
-	{
-	  double t2 = (b + sqrt_d) / a;
-	  if(t2 <= 0) return 0; // No hit since no sollution is positive
-	  double y2 = rp[1] + t2 * rd[1];
-	  if(y2 > bottom_radius) return 0; // No hit since both intersections occure above the cap
+        // First intersection with the infinite extension of the double cone is
+        // above the cap
+        if(y > bottom_radius)
+        {
+          double t2 = (b + sqrt_d) / a;
+          if(t2 <= 0) return 0; // No hit since no sollution is positive
+          double y2 = rp[1] + t2 * rd[1];
+          if(y2 > bottom_radius) return 0; // No hit since both intersections occure above the cap
 
-	  // Ray is extending downwards
-	  if(bottom)
-	  {
-	    if(rp[1] > bottom_radius)
-	    {
-	      // Intersection with cap from outside
-	      dist = (bottom_radius - rp[1]) / rd[1];
-	      return 2;
-	    }
-	  }
+          // Ray is extending downwards
+          if(bottom)
+          {
+            if(rp[1] > bottom_radius)
+            {
+              // Intersection with cap from outside
+              dist = (bottom_radius - rp[1]) / rd[1];
+              return 2;
+            }
+          }
 
-	  if(enter_only || !side) return 0;
-	  // Intersection with side from inside via missing cap
-	  dist = t2;
-	  return 1;
-	}
+          if(enter_only || !side) return 0;
+          // Intersection with side from inside via missing cap
+          dist = t2;
+          return 1;
+        }
 
-	// The first intersection with the infinite extension of the
-	// cone is between the apex and the cap
+        // The first intersection with the infinite extension of the
+        // cone is between the apex and the cap
 
-	if(side)
-	{
-	  if(t>0)
-	  {
-	    // Intersection with side from outside
-	    dist = t;
-	    return 1;
-	  }
-	}
-	if(enter_only) return 0;
+        if(side)
+        {
+          if(t>0)
+          {
+            // Intersection with side from outside
+            dist = t;
+            return 1;
+          }
+        }
+        if(enter_only) return 0;
 
-	double t2 = (b + sqrt_d) / a;
-	if(t2 <= 0) return 0; // No hit since no sollution is positive
-	double y2 = rp[1] + t2 * rd[1];
-	if(y2 > bottom_radius)
-	{
-	  // Ray is extending upwards
-	  if(!bottom || rp[1] >= bottom_radius) return 0;
-	  // Intersection with cap from inside via side
-	  dist = (bottom_radius - rp[1]) / rd[1];
-	  return 2;
-	}
+        double t2 = (b + sqrt_d) / a;
+        if(t2 <= 0) return 0; // No hit since no sollution is positive
+        double y2 = rp[1] + t2 * rd[1];
+        if(y2 > bottom_radius)
+        {
+          // Ray is extending upwards
+          if(!bottom || rp[1] >= bottom_radius) return 0;
+          // Intersection with cap from inside via side
+          dist = (bottom_radius - rp[1]) / rd[1];
+          return 2;
+        }
 
-	if(!side) return 0;
+        if(!side) return 0;
 
-	// Intersection with side from inside via side
-	dist = t2;
-	return 1;
+        // Intersection with side from inside via side
+        dist = t2;
+        return 1;
       }
 
 
@@ -370,42 +370,42 @@ namespace archon
 
       if(rd[1] > 0)
       {
-	// Ray extends upward
+        // Ray extends upward
 
-	double t;
+        double t;
 
-	if(a == 0)
-	{
-	  if(b < 0) return 0; // Ray-line hits lower nappe only
-	  if(b == 0)
-	  {
-	    if(c != 0) return 0;
-	    t = -rp[1] / rd[1];
-	  }
-	  else t = c / b;
-	}
-	else t = (b - sqrt(b * b - 2 * a * c)) / a;
+        if(a == 0)
+        {
+          if(b < 0) return 0; // Ray-line hits lower nappe only
+          if(b == 0)
+          {
+            if(c != 0) return 0;
+            t = -rp[1] / rd[1];
+          }
+          else t = c / b;
+        }
+        else t = (b - sqrt(b * b - 2 * a * c)) / a;
 
-	if(t <= 0)
-	{
-	  // Ray originates inside the upper nappe
-	  if(rp[1] >= bottom_radius) return 0;
-	}
-	else
-	{
-	  double y = rp[1] + rd[1] * t;
-	  if(y > bottom_radius) return 0; // Intersection is above the cap
-	  if(side)
-	  {
-	    dist = t;
-	    return 1;
-	  }
-	}
+        if(t <= 0)
+        {
+          // Ray originates inside the upper nappe
+          if(rp[1] >= bottom_radius) return 0;
+        }
+        else
+        {
+          double y = rp[1] + rd[1] * t;
+          if(y > bottom_radius) return 0; // Intersection is above the cap
+          if(side)
+          {
+            dist = t;
+            return 1;
+          }
+        }
 
-	// Intersection with cap from inside via missing side
-	if(enter_only || !bottom) return 0;
-	dist = (bottom_radius - rp[1]) / rd[1];
-	return 2;
+        // Intersection with cap from inside via missing side
+        if(enter_only || !bottom) return 0;
+        dist = (bottom_radius - rp[1]) / rd[1];
+        return 2;
       }
 
       // rd[1] < 0
@@ -415,13 +415,13 @@ namespace archon
 
       if(a == 0)
       {
-	if(b > 0) return 0; // Ray-line hits lower nappe only
-	if(b == 0)
-	{
-	  if(c != 0) return 0;
-	  t = -rp[1] / rd[1];
-	}
-	else t = c / b;
+        if(b > 0) return 0; // Ray-line hits lower nappe only
+        if(b == 0)
+        {
+          if(c != 0) return 0;
+          t = -rp[1] / rd[1];
+        }
+        else t = c / b;
       }
       else t = (b + sqrt(b * b - 2 * a * c)) / a;
 
@@ -430,8 +430,8 @@ namespace archon
       if(y > bottom_radius) return 0; // Intersection is above the cap
       if(rp[1] > bottom_radius && bottom)
       {
-	dist = (bottom_radius - rp[1]) / rd[1];
-	return 2;
+        dist = (bottom_radius - rp[1]) / rd[1];
+        return 2;
       }
 
       if(enter_only || !side) return 0;
@@ -528,71 +528,71 @@ namespace archon
 
       if(h>=0)
       {
-	double y = rp[1] + rd[1] * t;
+        double y = rp[1] + rd[1] * t;
 
-	// First intersection with infinite extension of cylinder is
-	// below the bottom cap
-	if(y < -h)
-	{
-	  double t2 = a==0 ? numeric_limits<double>::max() : (b + sqrt_d) / a;
-	  if(t2 <= 0) return 0; // No hit since no sollution is positive
-	  double y2 = rp[1] + t2 * rd[1];
-	  if(y2 < -h) return 0; // No hit since both intersections occure below the bottom cap
-	  if(bottom)
-	  {
-	    if(rp[1] < -h)
-	    {
-	      // Intersection with bottom cap from outside
-	      dist = (-h - rp[1]) / rd[1];
-	      return 2;
-	    }
-	  }
-	  if(enter_only) return 0;
-	  // Assume non-solid
-	  if(y2 <= h)
-	  {
-	    if(!side) return 0;
-	    // Intersection with side from inside via missing bottom cap
-	    dist = t2;
-	    return 1;
-	  }
-	  if(!top || rp[1] >= h) return 0;
-	  // Intersection with top cap from inside via missing bottom cap
-	  dist = (h - rp[1]) / rd[1];
-	  return 3;
-	}
+        // First intersection with infinite extension of cylinder is
+        // below the bottom cap
+        if(y < -h)
+        {
+          double t2 = a==0 ? numeric_limits<double>::max() : (b + sqrt_d) / a;
+          if(t2 <= 0) return 0; // No hit since no sollution is positive
+          double y2 = rp[1] + t2 * rd[1];
+          if(y2 < -h) return 0; // No hit since both intersections occure below the bottom cap
+          if(bottom)
+          {
+            if(rp[1] < -h)
+            {
+              // Intersection with bottom cap from outside
+              dist = (-h - rp[1]) / rd[1];
+              return 2;
+            }
+          }
+          if(enter_only) return 0;
+          // Assume non-solid
+          if(y2 <= h)
+          {
+            if(!side) return 0;
+            // Intersection with side from inside via missing bottom cap
+            dist = t2;
+            return 1;
+          }
+          if(!top || rp[1] >= h) return 0;
+          // Intersection with top cap from inside via missing bottom cap
+          dist = (h - rp[1]) / rd[1];
+          return 3;
+        }
 
-	// First intersection with infinite extension of cylinder is
-	// above the top cap
-	if(y > h)
-	{
-	  double t2 = a==0 ? numeric_limits<double>::max() : (b + sqrt_d) / a;
-	  if(t2 <= 0) return 0; // No hit since no sollution is positive
-	  double y2 = rp[1] + t2 * rd[1];
-	  if(y2 > h) return 0; // No hit since both intersections occure above the top cap
-	  if(top)
-	  {
-	    if(rp[1] > h)
-	    {
-	      // Intersection with top cap from outside
-	      dist = (h - rp[1]) / rd[1];
-	      return 3;
-	    }
-	  }
-	  if(enter_only) return 0;
-	  // Assume non-solid
-	  if(y2 >= -h)
-	  {
-	    if(!side) return 0;
-	    // Intersection with side from inside via missing top cap
-	    dist = t2;
-	    return 1;
-	  }
-	  if(!bottom || rp[1] <= -h) return 0;
-	  // Intersection with bottom cap from inside via missing top cap
-	  dist = (-h - rp[1]) / rd[1];
-	  return 2;
-	}
+        // First intersection with infinite extension of cylinder is
+        // above the top cap
+        if(y > h)
+        {
+          double t2 = a==0 ? numeric_limits<double>::max() : (b + sqrt_d) / a;
+          if(t2 <= 0) return 0; // No hit since no sollution is positive
+          double y2 = rp[1] + t2 * rd[1];
+          if(y2 > h) return 0; // No hit since both intersections occure above the top cap
+          if(top)
+          {
+            if(rp[1] > h)
+            {
+              // Intersection with top cap from outside
+              dist = (h - rp[1]) / rd[1];
+              return 3;
+            }
+          }
+          if(enter_only) return 0;
+          // Assume non-solid
+          if(y2 >= -h)
+          {
+            if(!side) return 0;
+            // Intersection with side from inside via missing top cap
+            dist = t2;
+            return 1;
+          }
+          if(!bottom || rp[1] <= -h) return 0;
+          // Intersection with bottom cap from inside via missing top cap
+          dist = (-h - rp[1]) / rd[1];
+          return 2;
+        }
       }
 
       // First intersection with infinite extension of cylinder is
@@ -600,9 +600,9 @@ namespace archon
 
       if(side && t>0)
       {
-	// Intersection with side from outside
-	dist = t;
-	return 1;
+        // Intersection with side from outside
+        dist = t;
+        return 1;
       }
 
       if(enter_only) return 0;
@@ -611,21 +611,21 @@ namespace archon
       if(t2 <= 0) return 0; // No hit since no sollution is positive
       if(h>=0)
       {
-	double y2 = rp[1] + t2 * rd[1];
-	if(y2 < -h)
-	{
-	  if(!bottom || rp[1] <= -h) return 0;
-	  // Intersection with bottom cap from inside via side
-	  dist = (-h - rp[1]) / rd[1];	  
-	  return 2;
-	}
-	if(y2 > h)
-	{
-	  if(!top || rp[1] >= h) return 0;
-	  // Intersection with top cap from inside via side
-	  dist = (h - rp[1]) / rd[1];	  
-	  return 3;
-	}
+        double y2 = rp[1] + t2 * rd[1];
+        if(y2 < -h)
+        {
+          if(!bottom || rp[1] <= -h) return 0;
+          // Intersection with bottom cap from inside via side
+          dist = (-h - rp[1]) / rd[1];    
+          return 2;
+        }
+        if(y2 > h)
+        {
+          if(!top || rp[1] >= h) return 0;
+          // Intersection with top cap from inside via side
+          dist = (h - rp[1]) / rd[1];     
+          return 3;
+        }
       }
 
       if(!side) return 0;
@@ -762,7 +762,7 @@ namespace archon
 
       double roots[4];
       int num_real_roots =
-	math::quartic_solve(k3, k2, k1, k0, roots);
+        math::quartic_solve(k3, k2, k1, k0, roots);
 
       if(num_real_roots == 0) return false;
 
@@ -770,50 +770,50 @@ namespace archon
       // know that the root closest to zero should be regarded as zero
       if(surface_origin)
       {
-	int min_abs = -1;
-	for(int i=0; i<num_real_roots; ++i)
-	  if(min_abs == -1 || fabs(roots[i]) < fabs(roots[min_abs])) min_abs = i;
-	roots[min_abs] = 0;
+        int min_abs = -1;
+        for(int i=0; i<num_real_roots; ++i)
+          if(min_abs == -1 || fabs(roots[i]) < fabs(roots[min_abs])) min_abs = i;
+        roots[min_abs] = 0;
       }
 
       // Get rid of non-positive roots
       int num_positive_roots = 0;
       for(int i=0; i<num_real_roots; ++i)
-	if(roots[i] > 0) roots[num_positive_roots++] = roots[i];
+        if(roots[i] > 0) roots[num_positive_roots++] = roots[i];
 
       if(num_positive_roots == 0) return false;
 
       if(ext_to_int_only)
       {
-	switch(num_positive_roots)
-	{
-	case 1:
-	  return false;
-	case 2:
-	  dist = std::min(roots[0], roots[1]) / l;
-	  return true;
-	case 3:
+        switch(num_positive_roots)
+        {
+        case 1:
+          return false;
+        case 2:
+          dist = std::min(roots[0], roots[1]) / l;
+          return true;
+        case 3:
           // Find the middle root
           if(roots[0] > roots[1]) std::swap(roots[0], roots[1]);
           dist = (roots[2] < roots[0] ? roots[0] :
                   roots[2] > roots[1] ? roots[1] : roots[2]) / l;
-	  return true;
-	}
+          return true;
+        }
       }
       else
       {
-	switch(num_positive_roots)
-	{
-	case 1:
+        switch(num_positive_roots)
+        {
+        case 1:
           dist = roots[0] / l;
           return true;
-	case 2:
+        case 2:
           dist = std::min(roots[0], roots[1]) / l;
           return true;
-	case 3:
+        case 3:
           dist = std::min(std::min(roots[0], roots[1]), roots[2]) / l;
           return true;
-	}
+        }
       }
 
       // num_positive_roots == 4

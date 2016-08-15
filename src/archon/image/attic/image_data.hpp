@@ -283,9 +283,9 @@ namespace archon
        * \sa getMinimumBufferSizeInWords
        */
       ImageData(void *buffer, int pixelsPerStrip, int numberOfStrips,
-		BufferFormat::ConstRefArg bufferFormat = BufferFormat::newDefaultFormat(),
-		int left = 0, int bottom = 0, int width = 0, int height = 0,
-		std::vector<bool> const &endianness = std::vector<bool>());
+                BufferFormat::ConstRefArg bufferFormat = BufferFormat::newDefaultFormat(),
+                int left = 0, int bottom = 0, int width = 0, int height = 0,
+                std::vector<bool> const &endianness = std::vector<bool>());
 
       /**
        * Get the width of this image or more precisely, the width of
@@ -323,10 +323,10 @@ namespace archon
 
 /*
       ImageData getSubImage(int left = 0, int bottom = 0,
-			    int width = 0, int height = 0,
-			    std::vector<int> const &channelMap = std::vector<int>(),
-			    PixelFormat::ColorSpace colorSpace = PixelFormat::implied,
-			    bool hasAlphaChannel = false) const;
+                            int width = 0, int height = 0,
+                            std::vector<int> const &channelMap = std::vector<int>(),
+                            PixelFormat::ColorSpace colorSpace = PixelFormat::implied,
+                            bool hasAlphaChannel = false) const;
 */
 
       /**
@@ -372,7 +372,7 @@ namespace archon
        */
       void setBuffer(void *b)
       {
-	buffer = b;
+        buffer = b;
       }
 
       /**
@@ -399,43 +399,43 @@ namespace archon
        * we must perform conversion to RGB when required.
        */
       void interpolateLinear(double x, double y, long double *pixel,
-			     int horizontalRepeat = 0, int verticalRepeat = 0) const
+                             int horizontalRepeat = 0, int verticalRepeat = 0) const
       {
-	// Scale to image size and align with integer coordinats
-	x = x * interestWidth  - 0.5;
-	y = y * interestHeight - 0.5;
+        // Scale to image size and align with integer coordinats
+        x = x * interestWidth  - 0.5;
+        y = y * interestHeight - 0.5;
 
-	// Determine integer coordinates of lower left pixel of
-	// relevant 2x2 pixel array within image.
-	int const xi = static_cast<long>(floor(x));
-	int const yi = static_cast<long>(floor(y));
+        // Determine integer coordinates of lower left pixel of
+        // relevant 2x2 pixel array within image.
+        int const xi = static_cast<long>(floor(x));
+        int const yi = static_cast<long>(floor(y));
 
-	// Fetch all 4 pixels in the target 2x2 pixel array
-	int const n = numberOfChannels;
+        // Fetch all 4 pixels in the target 2x2 pixel array
+        int const n = numberOfChannels;
         core::Array<long double> tray(4*n);
-	getPixels(xi, yi, tray.get(), 2, 2, horizontalRepeat, verticalRepeat);
+        getPixels(xi, yi, tray.get(), 2, 2, horizontalRepeat, verticalRepeat);
 
-	// Get the fractional parts (intra pixel positions)
-	long double const xf1 = x - xi;
-	long double const yf1 = y - yi;
-	long double const xf0 = 1 - xf1;
-	long double const yf0 = 1 - yf1;
+        // Get the fractional parts (intra pixel positions)
+        long double const xf1 = x - xi;
+        long double const yf1 = y - yi;
+        long double const xf0 = 1 - xf1;
+        long double const yf0 = 1 - yf1;
 
-	// The weight w0 is determined as the area of intersection
-	// between the real pixel p0 = (xi, yi) and the virtual pixel p
-	// = (x, y).
-	long double const w0 = xf0 * yf0;
-	long double const w1 = xf1 * yf0;
-	long double const w2 = xf0 * yf1;
-	long double const w3 = xf1 * yf1;
+        // The weight w0 is determined as the area of intersection
+        // between the real pixel p0 = (xi, yi) and the virtual pixel p
+        // = (x, y).
+        long double const w0 = xf0 * yf0;
+        long double const w1 = xf1 * yf0;
+        long double const w2 = xf0 * yf1;
+        long double const w3 = xf1 * yf1;
 
-	// Produce the weighted mean color
-	long double *const c0 = tray.get();
-	long double *const c1 = c0+n;
-	long double *const c2 = c1+n;
-	long double *const c3 = c2+n;
-	for(int i=0; i<n; ++i)
-	  pixel[i] = w0 * c0[i] + w1 * c1[i] + w2 * c2[i] + w3 * c3[i];
+        // Produce the weighted mean color
+        long double *const c0 = tray.get();
+        long double *const c1 = c0+n;
+        long double *const c2 = c1+n;
+        long double *const c3 = c2+n;
+        for(int i=0; i<n; ++i)
+          pixel[i] = w0 * c0[i] + w1 * c1[i] + w2 * c2[i] + w3 * c3[i];
       }
 
       /**
@@ -457,51 +457,51 @@ namespace archon
        * we must perform conversion to RGB when required.
        */
       void interpolateCubic(double x, double y, long double *pixel,
-			     int horizontalRepeat = 0, int verticalRepeat = 0) const
+                             int horizontalRepeat = 0, int verticalRepeat = 0) const
       {
-	// Scale to image size and align with integer coordinats
-	x = x * interestWidth  - 0.5;
-	y = y * interestHeight - 0.5;
+        // Scale to image size and align with integer coordinats
+        x = x * interestWidth  - 0.5;
+        y = y * interestHeight - 0.5;
 
-	// Determine integer coordinates of principal pixel of
-	// relevant 4x4 pixel array within image.
-	int const xi = static_cast<long>(floor(x));
-	int const yi = static_cast<long>(floor(y));
+        // Determine integer coordinates of principal pixel of
+        // relevant 4x4 pixel array within image.
+        int const xi = static_cast<long>(floor(x));
+        int const yi = static_cast<long>(floor(y));
 
-	// Fetch all 16 pixels in the target 4x4 pixel array
-	int const n = numberOfChannels;
+        // Fetch all 16 pixels in the target 4x4 pixel array
+        int const n = numberOfChannels;
         core::Array<long double> tray(16*n);
-	getPixels(xi-1, yi-1, tray.get(), 4, 4,
-		  horizontalRepeat, verticalRepeat);
+        getPixels(xi-1, yi-1, tray.get(), 4, 4,
+                  horizontalRepeat, verticalRepeat);
 
-	// Get the fractional parts (intra pixel positions)
-	long double const xf = x - xi;
-	long double const yf = y - yi;
+        // Get the fractional parts (intra pixel positions)
+        long double const xf = x - xi;
+        long double const yf = y - yi;
 
-	// Cubic weights for the horizontal direction
-	long double const x0 = ((2-xf)*xf-1)*xf;    // -1
-	long double const x1 = (3*xf-5)*xf*xf+2;    //  0
-	long double const x2 = ((4-3*xf)*xf+1)*xf;  // +1
-	long double const x3 = (xf-1)*xf*xf;        // +2
+        // Cubic weights for the horizontal direction
+        long double const x0 = ((2-xf)*xf-1)*xf;    // -1
+        long double const x1 = (3*xf-5)*xf*xf+2;    //  0
+        long double const x2 = ((4-3*xf)*xf+1)*xf;  // +1
+        long double const x3 = (xf-1)*xf*xf;        // +2
 
-	// Cubic weights for the vertical direction
-	long double const y0 = ((2-yf)*yf-1)*yf;    // -1
-	long double const y1 = (3*yf-5)*yf*yf+2;    //  0
-	long double const y2 = ((4-3*yf)*yf+1)*yf;  // +1
-	long double const y3 = (yf-1)*yf*yf;        // +2
+        // Cubic weights for the vertical direction
+        long double const y0 = ((2-yf)*yf-1)*yf;    // -1
+        long double const y1 = (3*yf-5)*yf*yf+2;    //  0
+        long double const y2 = ((4-3*yf)*yf+1)*yf;  // +1
+        long double const y3 = (yf-1)*yf*yf;        // +2
 
-	for(int i=0; i<n; ++i)
-	{
-	  long double *t = tray.get() + i;
-	  long double const z0 = x0 * t[0*n] + x1 * t[1*n] + x2 * t[2*n] + x3 * t[3*n];
-	  t += 4*n;
-	  long double const z1 = x0 * t[0*n] + x1 * t[1*n] + x2 * t[2*n] + x3 * t[3*n];
-	  t += 4*n;
-	  long double const z2 = x0 * t[0*n] + x1 * t[1*n] + x2 * t[2*n] + x3 * t[3*n];
-	  t += 4*n;
-	  long double const z3 = x0 * t[0*n] + x1 * t[1*n] + x2 * t[2*n] + x3 * t[3*n];
-	  pixel[i] = 0.25 * (y0*z0 + y1*z1 + y2*z2 + y3*z3);
-	}
+        for(int i=0; i<n; ++i)
+        {
+          long double *t = tray.get() + i;
+          long double const z0 = x0 * t[0*n] + x1 * t[1*n] + x2 * t[2*n] + x3 * t[3*n];
+          t += 4*n;
+          long double const z1 = x0 * t[0*n] + x1 * t[1*n] + x2 * t[2*n] + x3 * t[3*n];
+          t += 4*n;
+          long double const z2 = x0 * t[0*n] + x1 * t[1*n] + x2 * t[2*n] + x3 * t[3*n];
+          t += 4*n;
+          long double const z3 = x0 * t[0*n] + x1 * t[1*n] + x2 * t[2*n] + x3 * t[3*n];
+          pixel[i] = 0.25 * (y0*z0 + y1*z1 + y2*z2 + y3*z3);
+        }
       }
 
       /**
@@ -547,561 +547,561 @@ namespace archon
        * </PRE>
        */
       void getPixels(int left, int bottom, long double *tray,
-		     int width = 1, int height = 1,
-		     int horizontalRepeat = 0,
-		     int verticalRepeat = 0) const
+                     int width = 1, int height = 1,
+                     int horizontalRepeat = 0,
+                     int verticalRepeat = 0) const
       {
-	int const pitch  = numberOfChannels;
-	int const stride = pitch * width;
+        int const pitch  = numberOfChannels;
+        int const stride = pitch * width;
 
-	// If pixel tray lies completely outside the repetition compound
-	// translate tray appropriately to produce a one pixel overlap
-	// with compound edge/corner.
+        // If pixel tray lies completely outside the repetition compound
+        // translate tray appropriately to produce a one pixel overlap
+        // with compound edge/corner.
 
-	// Distance from left edge of tray to left edge of
-	// compound/tray intersection
-	int leftFallOff = 0;
+        // Distance from left edge of tray to left edge of
+        // compound/tray intersection
+        int leftFallOff = 0;
 
-	// Distance from right edge of tray to right edge of
-	// compound/tray intersection
-	int rightFallOff = 0;
+        // Distance from right edge of tray to right edge of
+        // compound/tray intersection
+        int rightFallOff = 0;
 
-	// Distance from bottom edge of tray to bottom edge of
-	// compound/tray intersection
-	int bottomFallOff = 0;
+        // Distance from bottom edge of tray to bottom edge of
+        // compound/tray intersection
+        int bottomFallOff = 0;
 
-	// Distance from top edge of tray to top edge of compound/tray
-	// intersection
-	int topFallOff = 0;
+        // Distance from top edge of tray to top edge of compound/tray
+        // intersection
+        int topFallOff = 0;
 
-	if(horizontalRepeat)
-	{
-	  int fallOff = -left;
-	  if(0 < fallOff)
-	  {
-	    if(width <= fallOff)
-	    {
-	      leftFallOff = width - 1;
-	      width = 1;
-	    }
-	    else
-	    {
-	      leftFallOff = fallOff;
-	      width -= fallOff;
-	    }
-	    left = 0;
-	    tray += pitch * leftFallOff;
-	  }
+        if(horizontalRepeat)
+        {
+          int fallOff = -left;
+          if(0 < fallOff)
+          {
+            if(width <= fallOff)
+            {
+              leftFallOff = width - 1;
+              width = 1;
+            }
+            else
+            {
+              leftFallOff = fallOff;
+              width -= fallOff;
+            }
+            left = 0;
+            tray += pitch * leftFallOff;
+          }
 
-	  int const compound  = horizontalRepeat * interestWidth;
-	  fallOff = left + width - compound;
-	  if(0 < fallOff)
-	  {
-	    if(width <= fallOff)
-	    {
-	      rightFallOff = width - 1;
-	      left = compound - 1;
-	      width = 1;
-	    }
-	    else
-	    {
-	      rightFallOff = fallOff;
-	      width -= fallOff;
-	    }
-	  }
-	}
+          int const compound  = horizontalRepeat * interestWidth;
+          fallOff = left + width - compound;
+          if(0 < fallOff)
+          {
+            if(width <= fallOff)
+            {
+              rightFallOff = width - 1;
+              left = compound - 1;
+              width = 1;
+            }
+            else
+            {
+              rightFallOff = fallOff;
+              width -= fallOff;
+            }
+          }
+        }
 
-	if(verticalRepeat)
-	{
-	  int fallOff = -bottom;
-	  if(0 < fallOff)
-	  {
-	    if(height <= fallOff)
-	    {
-	      bottomFallOff = height - 1;
-	      height = 1;
-	    }
-	    else
-	    {
-	      bottomFallOff = fallOff;
-	      height -= fallOff;
-	    }
-	    bottom = 0;
-	    tray += stride * bottomFallOff;
-	  }
+        if(verticalRepeat)
+        {
+          int fallOff = -bottom;
+          if(0 < fallOff)
+          {
+            if(height <= fallOff)
+            {
+              bottomFallOff = height - 1;
+              height = 1;
+            }
+            else
+            {
+              bottomFallOff = fallOff;
+              height -= fallOff;
+            }
+            bottom = 0;
+            tray += stride * bottomFallOff;
+          }
 
-	  int const compound = verticalRepeat * interestHeight;
-	  fallOff = bottom + height - compound;
-	  if(0 < fallOff)
-	  {
-	    if(height <= fallOff)
-	    {
-	      topFallOff = height - 1;
-	      bottom = compound - 1;
-	      height = 1;
-	    }
-	    else
-	    {
-	      topFallOff = fallOff;
-	      height -= fallOff;
-	    }
-	  }
-	}
+          int const compound = verticalRepeat * interestHeight;
+          fallOff = bottom + height - compound;
+          if(0 < fallOff)
+          {
+            if(height <= fallOff)
+            {
+              topFallOff = height - 1;
+              bottom = compound - 1;
+              height = 1;
+            }
+            else
+            {
+              topFallOff = fallOff;
+              height -= fallOff;
+            }
+          }
+        }
 
-	// Now there is a non-empty intersection between the pixel
-	// tray and the repetition compound.
+        // Now there is a non-empty intersection between the pixel
+        // tray and the repetition compound.
 
-	// Considder the bottom most, left most pixel module that has a
-	// non-empty intersection with the pixel tray. Call this
-	// intersection I.
+        // Considder the bottom most, left most pixel module that has a
+        // non-empty intersection with the pixel tray. Call this
+        // intersection I.
 
-	int transferLeft   = math::modulo<int>(left,   interestWidth);
-	int transferBottom = math::modulo<int>(bottom, interestHeight);
+        int transferLeft   = math::modulo<int>(left,   interestWidth);
+        int transferBottom = math::modulo<int>(bottom, interestHeight);
 
-	int transferWidth  = interestWidth  - transferLeft;
-	int transferHeight = interestHeight - transferBottom;
+        int transferWidth  = interestWidth  - transferLeft;
+        int transferHeight = interestHeight - transferBottom;
 
-	int const protoWidth  = std::min(interestWidth,  width);
-	int const protoHeight = std::min(interestHeight, height);
+        int const protoWidth  = std::min(interestWidth,  width);
+        int const protoHeight = std::min(interestHeight, height);
 
-	int const w = protoWidth  - transferWidth;
-	int const h = protoHeight - transferHeight;
+        int const w = protoWidth  - transferWidth;
+        int const h = protoHeight - transferHeight;
 
-	if(w < 0) transferWidth  = protoWidth;
-	if(h < 0) transferHeight = protoHeight;
+        if(w < 0) transferWidth  = protoWidth;
+        if(h < 0) transferHeight = protoHeight;
 
-	// If I is not left-aligned with module and the compound has
-	// another module to the right and the intersection between
-	// this module and the tray is non-empty and right-aligned
-	// with the module then raise flag 'right' and step to the
-	// right (new I).
+        // If I is not left-aligned with module and the compound has
+        // another module to the right and the intersection between
+        // this module and the tray is non-empty and right-aligned
+        // with the module then raise flag 'right' and step to the
+        // right (new I).
 
-	int protoLeft = 0; // Distance from left edge of compound/tray intersection to left edge of proto frame
-	if(transferLeft && transferWidth + interestWidth <= width)
-	{
-	  protoLeft = transferWidth;
-	  transferLeft = 0;
-	  transferWidth = interestWidth;
-	  tray += pitch * protoLeft;
-	}
+        int protoLeft = 0; // Distance from left edge of compound/tray intersection to left edge of proto frame
+        if(transferLeft && transferWidth + interestWidth <= width)
+        {
+          protoLeft = transferWidth;
+          transferLeft = 0;
+          transferWidth = interestWidth;
+          tray += pitch * protoLeft;
+        }
 
-	// If I is not bottom-aligned with module and compound has
-	// another module above and the intersection between this
-	// module and the tray is non-empty and top-aligned with
-	// module then raise flag 'up' and step up (new I).
+        // If I is not bottom-aligned with module and compound has
+        // another module above and the intersection between this
+        // module and the tray is non-empty and top-aligned with
+        // module then raise flag 'up' and step up (new I).
 
-	int protoBottom = 0; // Distance from bottom edge of compound/tray intersection to bottom edge of proto frame
-	if(transferBottom && transferHeight + interestHeight <= height)
-	{
-	  protoBottom = transferHeight;
-	  transferBottom = 0;
-	  transferHeight = interestHeight;
-	  tray += stride * protoBottom;
-	}
+        int protoBottom = 0; // Distance from bottom edge of compound/tray intersection to bottom edge of proto frame
+        if(transferBottom && transferHeight + interestHeight <= height)
+        {
+          protoBottom = transferHeight;
+          transferBottom = 0;
+          transferHeight = interestHeight;
+          tray += stride * protoBottom;
+        }
 
-	// Transfer I to pixel tray.
+        // Transfer I to pixel tray.
 
-	decodePixelArray(transferLeft, transferBottom,
-			 transferWidth, transferHeight, tray, stride);
+        decodePixelArray(transferLeft, transferBottom,
+                         transferWidth, transferHeight, tray, stride);
 
-	// If flag 'right' is not raised and I is not left-aligned
-	// with module, and intersection to the right is non-empty then
-	// raise flag 'right2' and transfer pixels to tray but at most
-	// such that the total with of pixels transferred to tray
-	// becomes equal to module width.
+        // If flag 'right' is not raised and I is not left-aligned
+        // with module, and intersection to the right is non-empty then
+        // raise flag 'right2' and transfer pixels to tray but at most
+        // such that the total with of pixels transferred to tray
+        // becomes equal to module width.
 
-	// If flag 'up' is not raised and I is not bottom-aligned with
-	// module, and intersection above is non-empty then raise flag
-	// 'up2' and transfer pixels to tray but at most such that the
-	// total height of pixels transferred to tray becomes equal to
-	// module height.
+        // If flag 'up' is not raised and I is not bottom-aligned with
+        // module, and intersection above is non-empty then raise flag
+        // 'up2' and transfer pixels to tray but at most such that the
+        // total height of pixels transferred to tray becomes equal to
+        // module height.
 
-	// If both flags 'right2' and 'up2' are raised then transfer
-	// pixels to tray from module beyond the upper right corder of
-	// I.
+        // If both flags 'right2' and 'up2' are raised then transfer
+        // pixels to tray from module beyond the upper right corder of
+        // I.
 
-	if(!protoLeft && 0 < w)
-	{
-	  decodePixelArray(0, transferBottom, w, transferHeight,
-			   tray + pitch * transferWidth, stride);
+        if(!protoLeft && 0 < w)
+        {
+          decodePixelArray(0, transferBottom, w, transferHeight,
+                           tray + pitch * transferWidth, stride);
 
-	  if(!protoBottom && 0 < h)
-	  {
-	    long double *const t = tray + stride * transferHeight;
-	    decodePixelArray(transferLeft, 0, transferWidth, h, t, stride);
-	    decodePixelArray(0, 0, w, h, t + pitch * transferWidth, stride);
-	  }
-	}
-	else if(!protoBottom && 0 < h)
-	  decodePixelArray(transferLeft, 0, transferWidth, h,
-			   tray + stride * transferHeight, stride);
+          if(!protoBottom && 0 < h)
+          {
+            long double *const t = tray + stride * transferHeight;
+            decodePixelArray(transferLeft, 0, transferWidth, h, t, stride);
+            decodePixelArray(0, 0, w, h, t + pitch * transferWidth, stride);
+          }
+        }
+        else if(!protoBottom && 0 < h)
+          decodePixelArray(transferLeft, 0, transferWidth, h,
+                           tray + stride * transferHeight, stride);
 
-	// At this point we have stored a region R of pixels in the
-	// tray whose width is protoWidth, and whose height is
-	// protoHeight. Also 'tray' point to the tray pixel at the
-	// lower left corner of the R.
+        // At this point we have stored a region R of pixels in the
+        // tray whose width is protoWidth, and whose height is
+        // protoHeight. Also 'tray' point to the tray pixel at the
+        // lower left corner of the R.
 
-	// If flag 'right' was raised then copy tray pixels from R to
-	// fill gap to the left.
+        // If flag 'right' was raised then copy tray pixels from R to
+        // fill gap to the left.
 
-	if(protoLeft)
-	{
-	  long double *t = tray;
-	  size_t const n = pitch * protoWidth;
-	  size_t const m = pitch * protoLeft;
-	  for(int i=0; i<protoHeight; ++i)
-	  {
-	    repeatBackward(t, n, m);
-	    t += stride;
-	  }
-	}
+        if(protoLeft)
+        {
+          long double *t = tray;
+          size_t const n = pitch * protoWidth;
+          size_t const m = pitch * protoLeft;
+          for(int i=0; i<protoHeight; ++i)
+          {
+            repeatBackward(t, n, m);
+            t += stride;
+          }
+        }
 
-	// Handle left compound edge fall-offs by copying tray pixels
-	// from left compound edge.
+        // Handle left compound edge fall-offs by copying tray pixels
+        // from left compound edge.
 
-	if(leftFallOff)
-	{
-	  long double *t = tray - pitch * protoLeft;
-	  size_t const n = pitch;
-	  size_t const m = pitch * leftFallOff;
-	  for(int i=0; i<protoHeight; ++i)
-	  {
-	    repeatBackward(t, n, m);
-	    t += stride;
-	  }
-	}
+        if(leftFallOff)
+        {
+          long double *t = tray - pitch * protoLeft;
+          size_t const n = pitch;
+          size_t const m = pitch * leftFallOff;
+          for(int i=0; i<protoHeight; ++i)
+          {
+            repeatBackward(t, n, m);
+            t += stride;
+          }
+        }
 
-	// Copy tray pixels from R to fill up to the right tray-compond intersection edge.
+        // Copy tray pixels from R to fill up to the right tray-compond intersection edge.
 
-	int const protoRight = width - protoLeft - protoWidth;
-	if(protoRight)
-	{
-	  long double *t = tray;
-	  size_t const n = pitch * protoWidth;
-	  size_t const m = pitch * protoRight;
-	  for(int i=0; i<protoHeight; ++i)
-	  {
-	    repeatForward(t, n, m);
-	    t += stride;
-	  }
-	}
+        int const protoRight = width - protoLeft - protoWidth;
+        if(protoRight)
+        {
+          long double *t = tray;
+          size_t const n = pitch * protoWidth;
+          size_t const m = pitch * protoRight;
+          for(int i=0; i<protoHeight; ++i)
+          {
+            repeatForward(t, n, m);
+            t += stride;
+          }
+        }
 
-	// Handle right compound edge fall-offs by copying tray pixels
-	// from right compound edge.
+        // Handle right compound edge fall-offs by copying tray pixels
+        // from right compound edge.
 
-	if(rightFallOff)
-	{
-	  long double *t = tray + pitch * (protoWidth + protoRight - 1);
-	  size_t const n = pitch;
-	  size_t const m = pitch * rightFallOff;
-	  for(int i=0; i<protoHeight; ++i)
-	  {
-	    repeatForward(t, n, m);
-	    t += stride;
-	  }
-	}
+        if(rightFallOff)
+        {
+          long double *t = tray + pitch * (protoWidth + protoRight - 1);
+          size_t const n = pitch;
+          size_t const m = pitch * rightFallOff;
+          for(int i=0; i<protoHeight; ++i)
+          {
+            repeatForward(t, n, m);
+            t += stride;
+          }
+        }
 
-	// At this point we have stored a region R2 of pixels in the
-	// tray with full width.
+        // At this point we have stored a region R2 of pixels in the
+        // tray with full width.
 
-	tray -= pitch * (leftFallOff + protoLeft);
+        tray -= pitch * (leftFallOff + protoLeft);
 
-	// If flag 'up' was raised then copy tray pixels from R2 to
-	// fill gap below.
+        // If flag 'up' was raised then copy tray pixels from R2 to
+        // fill gap below.
 
-	if(protoBottom) repeatBackward(tray, stride * protoHeight,
-				       stride * protoBottom);
+        if(protoBottom) repeatBackward(tray, stride * protoHeight,
+                                       stride * protoBottom);
 
-	// Handle bottom compound edge fall-offs by copying tray pixels
-	// from bottom compound edge.
+        // Handle bottom compound edge fall-offs by copying tray pixels
+        // from bottom compound edge.
 
-	if(bottomFallOff) repeatBackward(tray - stride * protoBottom,
-					 stride, stride * bottomFallOff);
+        if(bottomFallOff) repeatBackward(tray - stride * protoBottom,
+                                         stride, stride * bottomFallOff);
 
-	// Copy tray pixels from R2 to fill up to the upper
-	// tray-compond intersection edge.
+        // Copy tray pixels from R2 to fill up to the upper
+        // tray-compond intersection edge.
 
-	int const protoTop = height - protoBottom - protoHeight;
-	if(protoTop) repeatForward(tray, stride * protoHeight,
-				   stride * protoTop);
+        int const protoTop = height - protoBottom - protoHeight;
+        if(protoTop) repeatForward(tray, stride * protoHeight,
+                                   stride * protoTop);
 
-	// Handle upper compound edge fall-offs by copying tray pixels
-	// from upper compound edge.
+        // Handle upper compound edge fall-offs by copying tray pixels
+        // from upper compound edge.
 
-	if(topFallOff) repeatForward(tray + stride*(protoHeight+protoTop-1),
-				     stride, stride * topFallOff);
+        if(topFallOff) repeatForward(tray + stride*(protoHeight+protoTop-1),
+                                     stride, stride * topFallOff);
 
-	// At this point we have filled the entire tray and we are
-	// done.
+        // At this point we have filled the entire tray and we are
+        // done.
       }
 
 
       void putPixels(int left, int bottom, long double const *tray,
-		     int width = 1, int height = 1,
-		     int horizontalRepeat = 0,
-		     int verticalRepeat = 0) const
+                     int width = 1, int height = 1,
+                     int horizontalRepeat = 0,
+                     int verticalRepeat = 0) const
       {
-	int const pitch  = numberOfChannels;
-	int const stride = pitch * width;
+        int const pitch  = numberOfChannels;
+        int const stride = pitch * width;
 
-	// Determine compound/tray intersection
+        // Determine compound/tray intersection
 
-	if(horizontalRepeat)
-	{
-	  if(left < 0)
-	  {
-	    width += left;
-	    if(width < 1) return;
-	    tray -= pitch * left;
-	    left = 0;
-	  }
+        if(horizontalRepeat)
+        {
+          if(left < 0)
+          {
+            width += left;
+            if(width < 1) return;
+            tray -= pitch * left;
+            left = 0;
+          }
 
-	  int const right = left + width - horizontalRepeat * interestWidth;
-	  if(0 < right)
-	  {
-	    width -= right;
-	    if(width < 1) return;
-	  }
-	}
+          int const right = left + width - horizontalRepeat * interestWidth;
+          if(0 < right)
+          {
+            width -= right;
+            if(width < 1) return;
+          }
+        }
 
-	if(verticalRepeat)
-	{
-	  if(bottom < 0)
-	  {
-	    height += bottom;
-	    if(height < 1) return;
-	    tray -= stride * bottom;
-	    bottom = 0;
-	  }
+        if(verticalRepeat)
+        {
+          if(bottom < 0)
+          {
+            height += bottom;
+            if(height < 1) return;
+            tray -= stride * bottom;
+            bottom = 0;
+          }
 
-	  int const top = bottom + height - verticalRepeat * interestHeight;
-	  if(0 < top)
-	  {
-	    height -= top;
-	    if(height < 1) return;
-	  }
-	}
+          int const top = bottom + height - verticalRepeat * interestHeight;
+          if(0 < top)
+          {
+            height -= top;
+            if(height < 1) return;
+          }
+        }
 
-	// Now there is a non-empty intersection between the pixel
-	// tray and the repetition compound.
+        // Now there is a non-empty intersection between the pixel
+        // tray and the repetition compound.
 
-	// Find module coordinates of lower left corner of intersection
+        // Find module coordinates of lower left corner of intersection
 
-	int const transferLeft   = math::modulo<int>(left,   interestWidth);
-	int const transferBottom = math::modulo<int>(bottom, interestHeight);
+        int const transferLeft   = math::modulo<int>(left,   interestWidth);
+        int const transferBottom = math::modulo<int>(bottom, interestHeight);
 
-	int transferWidth  = interestWidth  - transferLeft;
-	int transferHeight = interestHeight - transferBottom;
+        int transferWidth  = interestWidth  - transferLeft;
+        int transferHeight = interestHeight - transferBottom;
 
-	if(interestWidth  < width)  width  = interestWidth;
-	if(interestHeight < height) height = interestHeight;
+        if(interestWidth  < width)  width  = interestWidth;
+        if(interestHeight < height) height = interestHeight;
 
-	int const w = width  - transferWidth;
-	int const h = height - transferHeight;
+        int const w = width  - transferWidth;
+        int const h = height - transferHeight;
 
-	if(w < 0) transferWidth  = width;
-	if(h < 0) transferHeight = height;
+        if(w < 0) transferWidth  = width;
+        if(h < 0) transferHeight = height;
 
-	encodePixelArray(transferLeft, transferBottom,
-			 transferWidth, transferHeight, tray, stride);
+        encodePixelArray(transferLeft, transferBottom,
+                         transferWidth, transferHeight, tray, stride);
 
-	if(0 < w)
-	{
-	  encodePixelArray(0, transferBottom, w, transferHeight,
-			   tray + pitch * transferWidth, stride);
+        if(0 < w)
+        {
+          encodePixelArray(0, transferBottom, w, transferHeight,
+                           tray + pitch * transferWidth, stride);
 
-	  if(0 < h)
-	  {
-	    tray += stride * transferHeight;
-	    encodePixelArray(transferLeft, 0, transferWidth, h, tray, stride);
-	    encodePixelArray(0, 0, w, h, tray + pitch * transferWidth, stride);
-	  }
-	}
-	else if(0 < h)
-	  encodePixelArray(transferLeft, 0, transferWidth, h,
-			   tray + stride * transferHeight, stride);
+          if(0 < h)
+          {
+            tray += stride * transferHeight;
+            encodePixelArray(transferLeft, 0, transferWidth, h, tray, stride);
+            encodePixelArray(0, 0, w, h, tray + pitch * transferWidth, stride);
+          }
+        }
+        else if(0 < h)
+          encodePixelArray(transferLeft, 0, transferWidth, h,
+                           tray + stride * transferHeight, stride);
       }
 
 
 /*
       struct FramePartOperator
       {
-	void operator()(const ImageData *image,
-			int partLeft, int partBottom,
-			int partWidth, int partHeight,
-			int frameLeft, int frameBottom) const;
+        void operator()(const ImageData *image,
+                        int partLeft, int partBottom,
+                        int partWidth, int partHeight,
+                        int frameLeft, int frameBottom) const;
       };
 
       void forEachFramedPart(int left, int bottom,
-			     int width, int height,
-			     int horizontalRepeat,
-			     int verticalRepeat,
-			     FramePartOperator oper) const
+                             int width, int height,
+                             int horizontalRepeat,
+                             int verticalRepeat,
+                             FramePartOperator oper) const
       {
 //        IDEA IS TO USE THIS AS A BASIS OF BOTH putPixels AND NEW modifyPixels.
 
-//	NEED TO DEAL WITH FRAMES WHICH ARE DISJOINT WITH THE REPETITION COMPOUND - IN THIS CASE WE MUST MAKE A ONE PIXEL WIDE OVERLAP WITH COMPOUND - THIS IS NOT CURRENTLY DONE IN putPixels - IS THIS NOT AN ERROR?
+//      NEED TO DEAL WITH FRAMES WHICH ARE DISJOINT WITH THE REPETITION COMPOUND - IN THIS CASE WE MUST MAKE A ONE PIXEL WIDE OVERLAP WITH COMPOUND - THIS IS NOT CURRENTLY DONE IN putPixels - IS THIS NOT AN ERROR?
 
-	int frameLeft   = 0;
-	int frameBottom = 0;
+        int frameLeft   = 0;
+        int frameBottom = 0;
 
-	// Determine compound/frame intersection
+        // Determine compound/frame intersection
 
-	// If compound is horizontally finite
-	if(horizontalRepeat)
-	{
-	  int fallOff = -left;
-	  if(0 < fallOff)
-	  {
-	    if(width <= fallOff)
-	    {
-	      leftFallOff = width - 1;
-	      width = 1;
-	    }
-	    else
-	    {
-	      leftFallOff = fallOff;
-	      width -= fallOff;
-	    }
-	    left = 0;
-	    tray += pitch * leftFallOff;
-	  }
+        // If compound is horizontally finite
+        if(horizontalRepeat)
+        {
+          int fallOff = -left;
+          if(0 < fallOff)
+          {
+            if(width <= fallOff)
+            {
+              leftFallOff = width - 1;
+              width = 1;
+            }
+            else
+            {
+              leftFallOff = fallOff;
+              width -= fallOff;
+            }
+            left = 0;
+            tray += pitch * leftFallOff;
+          }
 
-	  int const compound  = horizontalRepeat * interestWidth;
-	  fallOff = left + width - compound;
-	  if(0 < fallOff)
-	  {
-	    if(width <= fallOff)
-	    {
-	      rightFallOff = width - 1;
-	      left = compound - 1;
-	      width = 1;
-	    }
-	    else
-	    {
-	      rightFallOff = fallOff;
-	      width -= fallOff;
-	    }
-	  }
-	}
+          int const compound  = horizontalRepeat * interestWidth;
+          fallOff = left + width - compound;
+          if(0 < fallOff)
+          {
+            if(width <= fallOff)
+            {
+              rightFallOff = width - 1;
+              left = compound - 1;
+              width = 1;
+            }
+            else
+            {
+              rightFallOff = fallOff;
+              width -= fallOff;
+            }
+          }
+        }
 
-	// If compound is vertically finite
-	if(verticalRepeat)
-	{
-	  int fallOff = -bottom;
-	  if(0 < fallOff)
-	  {
-	    if(height <= fallOff)
-	    {
-	      bottomFallOff = height - 1;
-	      height = 1;
-	    }
-	    else
-	    {
-	      bottomFallOff = fallOff;
-	      height -= fallOff;
-	    }
-	    bottom = 0;
-	    tray += stride * bottomFallOff;
-	  }
+        // If compound is vertically finite
+        if(verticalRepeat)
+        {
+          int fallOff = -bottom;
+          if(0 < fallOff)
+          {
+            if(height <= fallOff)
+            {
+              bottomFallOff = height - 1;
+              height = 1;
+            }
+            else
+            {
+              bottomFallOff = fallOff;
+              height -= fallOff;
+            }
+            bottom = 0;
+            tray += stride * bottomFallOff;
+          }
 
-	  int const compound = verticalRepeat * interestHeight;
-	  fallOff = bottom + height - compound;
-	  if(0 < fallOff)
-	  {
-	    if(height <= fallOff)
-	    {
-	      topFallOff = height - 1;
-	      bottom = compound - 1;
-	      height = 1;
-	    }
-	    else
-	    {
-	      topFallOff = fallOff;
-	      height -= fallOff;
-	    }
-	  }
-	}
+          int const compound = verticalRepeat * interestHeight;
+          fallOff = bottom + height - compound;
+          if(0 < fallOff)
+          {
+            if(height <= fallOff)
+            {
+              topFallOff = height - 1;
+              bottom = compound - 1;
+              height = 1;
+            }
+            else
+            {
+              topFallOff = fallOff;
+              height -= fallOff;
+            }
+          }
+        }
 
 
-	if(horizontalRepeat)
-	{
-	  if(left < 0)
-	  {
-	    width += left;
-	    frameLeft = -left;
-	    left = 0;
-	    if(width < 1) width = 1;
-	  }
+        if(horizontalRepeat)
+        {
+          if(left < 0)
+          {
+            width += left;
+            frameLeft = -left;
+            left = 0;
+            if(width < 1) width = 1;
+          }
 
-	  int const right = left + width - horizontalRepeat * interestWidth;
-	  if(0 < right)
-	  {
-	    width -= right;
-	    if(width < 1)
-	    {
-	      left
-	      width = 1;
-	    }
-	  }
-	}
+          int const right = left + width - horizontalRepeat * interestWidth;
+          if(0 < right)
+          {
+            width -= right;
+            if(width < 1)
+            {
+              left
+              width = 1;
+            }
+          }
+        }
 
-	if(verticalRepeat)
-	{
-	  if(bottom < 0)
-	  {
-	    height += bottom;
-	    if(height < 1) return;
-	    frameBottom = -bottom;
-	    bottom = 0;
-	  }
+        if(verticalRepeat)
+        {
+          if(bottom < 0)
+          {
+            height += bottom;
+            if(height < 1) return;
+            frameBottom = -bottom;
+            bottom = 0;
+          }
 
-	  int const top = bottom + height - verticalRepeat * interestHeight;
-	  if(0 < top)
-	  {
-	    height -= top;
-	    if(height < 1) return;
-	  }
-	}
+          int const top = bottom + height - verticalRepeat * interestHeight;
+          if(0 < top)
+          {
+            height -= top;
+            if(height < 1) return;
+          }
+        }
 
-	// Now there is a non-empty intersection between the pixel
-	// frame and the repetition compound.
+        // Now there is a non-empty intersection between the pixel
+        // frame and the repetition compound.
 
-	// Find module coordinates of lower left corner of intersection
+        // Find module coordinates of lower left corner of intersection
 
-	int const partLeft   = math::modulo<int>(left,   interestWidth);
-	int const partBottom = math::modulo<int>(bottom, interestHeight);
+        int const partLeft   = math::modulo<int>(left,   interestWidth);
+        int const partBottom = math::modulo<int>(bottom, interestHeight);
 
-	int partWidth  = interestWidth  - partLeft;
-	int partHeight = interestHeight - partBottom;
+        int partWidth  = interestWidth  - partLeft;
+        int partHeight = interestHeight - partBottom;
 
-	if(interestWidth  < width)  width  = interestWidth;
-	if(interestHeight < height) height = interestHeight;
+        if(interestWidth  < width)  width  = interestWidth;
+        if(interestHeight < height) height = interestHeight;
 
-	int const w = width  - partWidth;
-	int const h = height - partHeight;
+        int const w = width  - partWidth;
+        int const h = height - partHeight;
 
-	if(w < 0) partWidth  = width;
-	if(h < 0) partHeight = height;
+        if(w < 0) partWidth  = width;
+        if(h < 0) partHeight = height;
 
-	(this->*operation)(partLeft, partBottom, partWidth, partHeight,
-			   frameLeft, frameBottom);
+        (this->*operation)(partLeft, partBottom, partWidth, partHeight,
+                           frameLeft, frameBottom);
 
-	if(0 < w)
-	{
-	  (this->*operation)(0, partBottom, w, partHeight,
-			     frameLeft + partWidth, frameBottom);
+        if(0 < w)
+        {
+          (this->*operation)(0, partBottom, w, partHeight,
+                             frameLeft + partWidth, frameBottom);
 
-	  if(0 < h)
-	  {
-	    frameBottom += partHeight;
-	    (this->*operation)(partLeft, 0, partWidth, h, frameLeft, frameBottom);
-	    (this->*operation)(0, 0, w, h, frameLeft + partWidth, frameBottom);
-	  }
-	}
-	else if(0 < h)
-	  (this->*operation)(partLeft, 0, partWidth, h,
-			     frameLeft, frameBottom + partHeight);
+          if(0 < h)
+          {
+            frameBottom += partHeight;
+            (this->*operation)(partLeft, 0, partWidth, h, frameLeft, frameBottom);
+            (this->*operation)(0, 0, w, h, frameLeft + partWidth, frameBottom);
+          }
+        }
+        else if(0 < h)
+          (this->*operation)(partLeft, 0, partWidth, h,
+                             frameLeft, frameBottom + partHeight);
       }
 */
 
@@ -1113,145 +1113,145 @@ namespace archon
        * space.
        */
       void putImage(ImageData const *source,
-		    int targetLeft  = 0, int targetBottom = 0,
-		    int sourceLeft  = 0, int sourceBottom = 0,
-		    int sourceWidth = 0, int sourceHeight = 0,
-		    int sourceHorizontalRepeat = 0,
-		    int sourceVerticalRepeat   = 0,
-		    int targetHorizontalRepeat = 0,
-		    int targetVerticalRepeat   = 0) const
+                    int targetLeft  = 0, int targetBottom = 0,
+                    int sourceLeft  = 0, int sourceBottom = 0,
+                    int sourceWidth = 0, int sourceHeight = 0,
+                    int sourceHorizontalRepeat = 0,
+                    int sourceVerticalRepeat   = 0,
+                    int targetHorizontalRepeat = 0,
+                    int targetVerticalRepeat   = 0) const
       {
-	if(!sourceWidth)  sourceWidth  = source->interestWidth;
-	if(!sourceHeight) sourceHeight = source->interestHeight;
+        if(!sourceWidth)  sourceWidth  = source->interestWidth;
+        if(!sourceHeight) sourceHeight = source->interestHeight;
 
-	int const trayWidth  = std::min(sourceWidth,  32);
-	int const trayHeight = std::min(sourceHeight, 32);
+        int const trayWidth  = std::min(sourceWidth,  32);
+        int const trayHeight = std::min(sourceHeight, 32);
 
         core::Array<long double> sourceTray, intermediateTray, targetTray;
 
-	long double *effectiveSourceTray, *effectiveTargetTray;
+        long double *effectiveSourceTray, *effectiveTargetTray;
 
-	bool toRgba = false, fromRgba = false;
+        bool toRgba = false, fromRgba = false;
 
-	if(source->pixelFormat.colorSpace == pixelFormat.colorSpace &&
-	   source->pixelFormat.hasAlphaChannel == pixelFormat.hasAlphaChannel &&
-	   (pixelFormat.colorSpace != PixelFormat::custom ||
-	    source->numberOfChannels == numberOfChannels))
-	{
-	  // Compatible color spaces - only one tray is needed
-	  intermediateTray.reset(numberOfChannels*trayWidth*trayHeight);
-	  effectiveSourceTray = intermediateTray.get();
-	  effectiveTargetTray = intermediateTray.get();
-	}
-	else
-	{
-	  // Incompatible color spaces - an intermediate tray for RGBA is needed
-	  intermediateTray.reset(4*trayWidth*trayHeight);
-	  effectiveSourceTray = intermediateTray.get();
-	  effectiveTargetTray = intermediateTray.get();
-	  if(source->nativeToRgba)
-	  {
-	    // Source color space is not RGBA - conversion is needed
-	    sourceTray.reset(source->numberOfChannels*trayWidth*trayHeight);
-	    effectiveSourceTray = sourceTray.get();
-	    toRgba = true;
-	  }
-	  if(rgbaToNative)
-	  {
-	    // Target color space is not RGBA - conversion is needed
-	    targetTray.reset(numberOfChannels*trayWidth*trayHeight);
-	    effectiveTargetTray = targetTray.get();
-	    fromRgba = true;
-	  }
-	}
+        if(source->pixelFormat.colorSpace == pixelFormat.colorSpace &&
+           source->pixelFormat.hasAlphaChannel == pixelFormat.hasAlphaChannel &&
+           (pixelFormat.colorSpace != PixelFormat::custom ||
+            source->numberOfChannels == numberOfChannels))
+        {
+          // Compatible color spaces - only one tray is needed
+          intermediateTray.reset(numberOfChannels*trayWidth*trayHeight);
+          effectiveSourceTray = intermediateTray.get();
+          effectiveTargetTray = intermediateTray.get();
+        }
+        else
+        {
+          // Incompatible color spaces - an intermediate tray for RGBA is needed
+          intermediateTray.reset(4*trayWidth*trayHeight);
+          effectiveSourceTray = intermediateTray.get();
+          effectiveTargetTray = intermediateTray.get();
+          if(source->nativeToRgba)
+          {
+            // Source color space is not RGBA - conversion is needed
+            sourceTray.reset(source->numberOfChannels*trayWidth*trayHeight);
+            effectiveSourceTray = sourceTray.get();
+            toRgba = true;
+          }
+          if(rgbaToNative)
+          {
+            // Target color space is not RGBA - conversion is needed
+            targetTray.reset(numberOfChannels*trayWidth*trayHeight);
+            effectiveTargetTray = targetTray.get();
+            fromRgba = true;
+          }
+        }
 
-	int y = sourceHeight;
-	do
-	{
-	  int h = std::min(trayHeight, y);
-	  y -= h;
+        int y = sourceHeight;
+        do
+        {
+          int h = std::min(trayHeight, y);
+          y -= h;
 
-	  int x = sourceWidth;
-	  do
-	  {
-	    int w = std::min(trayWidth, x);
-	    x -= w;
+          int x = sourceWidth;
+          do
+          {
+            int w = std::min(trayWidth, x);
+            x -= w;
 
-	    source->getPixels(sourceLeft+x, sourceBottom+y,
-			      effectiveSourceTray, w, h,
-			      sourceHorizontalRepeat,
-			      sourceVerticalRepeat);
+            source->getPixels(sourceLeft+x, sourceBottom+y,
+                              effectiveSourceTray, w, h,
+                              sourceHorizontalRepeat,
+                              sourceVerticalRepeat);
 
-	    if(toRgba)
-	      (source->*source->nativeToRgba)(sourceTray.get(),
-					      intermediateTray.get(), w*h);
+            if(toRgba)
+              (source->*source->nativeToRgba)(sourceTray.get(),
+                                              intermediateTray.get(), w*h);
 
-	    if(fromRgba)
-	      (this->*rgbaToNative)(intermediateTray.get(),
-				    targetTray.get(), w*h);
+            if(fromRgba)
+              (this->*rgbaToNative)(intermediateTray.get(),
+                                    targetTray.get(), w*h);
 
-	    putPixels(targetLeft+x, targetBottom+y,
-		      effectiveTargetTray, w, h,
-		      targetHorizontalRepeat,
-		      targetVerticalRepeat);
-	  }
-	  while(x);
-	}
-	while(y);
+            putPixels(targetLeft+x, targetBottom+y,
+                      effectiveTargetTray, w, h,
+                      targetHorizontalRepeat,
+                      targetVerticalRepeat);
+          }
+          while(x);
+        }
+        while(y);
       }
 
     private:
 
       struct MemoryField
       {
-	/**
-	 * -1 indicates that this is an unused field
-	 */
-	int channelIndex;
+        /**
+         * -1 indicates that this is an unused field
+         */
+        int channelIndex;
 
-	int bitWidth;
+        int bitWidth;
 
-	/**
-	 * The value that maps to zero intensity for fields
-	 * representing floating point channels
-	 */
-	long double min;
+        /**
+         * The value that maps to zero intensity for fields
+         * representing floating point channels
+         */
+        long double min;
 
-	/**
-	 * The value that maps to full intensity for fields
-	 * representing floating point channels
-	 */
-	long double max;
+        /**
+         * The value that maps to full intensity for fields
+         * representing floating point channels
+         */
+        long double max;
 
-	MemoryField(int channelIndex = -1, int bitWidth = 0):
-	  channelIndex(channelIndex), bitWidth(bitWidth),
-	  min(0), max(1) {}
+        MemoryField(int channelIndex = -1, int bitWidth = 0):
+          channelIndex(channelIndex), bitWidth(bitWidth),
+          min(0), max(1) {}
       };
 
       template<typename T>
       static void repeatForward(T *begin, size_t n, size_t m)
       {
-	T *end = begin + n;
-	while(n < m)
-	{
-	  end = std::copy(begin, end, end);
-	  m -= n;
-	  n <<= 1;
-	}
-	std::copy(begin, begin+m, end);
+        T *end = begin + n;
+        while(n < m)
+        {
+          end = std::copy(begin, end, end);
+          m -= n;
+          n <<= 1;
+        }
+        std::copy(begin, begin+m, end);
       }
 
       template<typename T>
       static void repeatBackward(T *begin, size_t n, size_t m)
       {
-	T *end = begin + n;
-	while(n < m)
-	{
-	  begin = std::copy_backward(begin, end, begin);
-	  m -= n;
-	  n <<= 1;
-	}
-	std::copy_backward(end-m, end, begin);
+        T *end = begin + n;
+        while(n < m)
+        {
+          begin = std::copy_backward(begin, end, begin);
+          m -= n;
+          n <<= 1;
+        }
+        std::copy_backward(end-m, end, begin);
       }
 
 
@@ -1289,8 +1289,8 @@ namespace archon
        * \param n The number of pixels to transfer.
        */
       void (ImageData::*decoder)(void const *data, int wordBitOffset,
-				 long double *tray, int pitch,
-				 long n) const;
+                                 long double *tray, int pitch,
+                                 long n) const;
 
       /**
        * A reference to a method that tranfers a sequence pixels from
@@ -1326,8 +1326,8 @@ namespace archon
        * zero.
        */
       void (ImageData::*encoder)(long double const *tray,
-				 int pitch, long n,
-				 void *data, int wordBitOffset) const;
+                                 int pitch, long n,
+                                 void *data, int wordBitOffset) const;
 
       /**
        * Convert a pixel component in normalized floating point
@@ -1379,13 +1379,13 @@ namespace archon
 
       template<typename Word, bool nativeEndianness>
       void decodePixelSequenceDirect(void const *data, int,
-				     long double *pixels,
-				     int pitch, long n) const;
+                                     long double *pixels,
+                                     int pitch, long n) const;
 
       template<typename Word, bool nativeEndianness>
       void encodePixelSequenceDirect(long double const *pixels,
-				     int pitch, long n,
-				     void *data, int) const;
+                                     int pitch, long n,
+                                     void *data, int) const;
 
       /**
        * Decode a sequence of memory consecutive pixels for tight and
@@ -1394,10 +1394,10 @@ namespace archon
        * The parameters are explained elsewhere.
        */
       template<typename Word, typename WordAssemble,
-	       typename ChannelAssemble, bool nativeEndianness>
+               typename ChannelAssemble, bool nativeEndianness>
       void decodePixelSequencePackedTight(void const *data, int wordBitOffset,
-					  long double *pixels,
-					  int pitch, long n) const;
+                                          long double *pixels,
+                                          int pitch, long n) const;
 
       /**
        * Encode a sequence of memory consecutive pixels for tight and
@@ -1406,39 +1406,39 @@ namespace archon
        * The parameters are explained elsewhere.
        */
       template<typename Word, typename WordAssemble,
-	       typename ChannelAssemble, bool nativeEndianness>
+               typename ChannelAssemble, bool nativeEndianness>
       void encodePixelSequencePackedTight(long double const *pixels,
-					  int pitch, long n,
-					  void *data, int wordBitOffset) const;
+                                          int pitch, long n,
+                                          void *data, int wordBitOffset) const;
 
 
 
       void blendWithBackground(long double const *source,
-			       long double *target) const;
+                               long double *target) const;
 
       template<bool alpha, bool custom>
       void decodeFromRgb(long double const *source,
-			 long double *target, size_t n) const;
+                         long double *target, size_t n) const;
 
       template<bool alpha, bool custom>
       void encodeToRgb(long double const *source,
-		       long double *target, size_t n) const;
+                       long double *target, size_t n) const;
 
       template<bool alpha, bool custom>
       void decodeFromLuminance(long double const *source,
-			       long double *target, size_t n) const;
+                               long double *target, size_t n) const;
 
       template<bool alpha, bool custom>
       void encodeToLuminance(long double const *source,
-			     long double *target, size_t n) const;
+                             long double *target, size_t n) const;
 
       template<bool alpha>
       void decodeFromHsv(long double const *source,
-			 long double *target, size_t n) const;
+                         long double *target, size_t n) const;
 
       template<bool alpha>
       void encodeToHsv(long double const *source,
-		       long double *target, size_t n) const;
+                       long double *target, size_t n) const;
 
 
 

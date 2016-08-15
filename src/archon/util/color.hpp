@@ -187,32 +187,32 @@ template<class T> inline void cvt_HSV_to_RGB(const T* hsv, T* rgb)
     T c1 = hsv[2] * (1 - (hsv[1] * f));
     T c2 = hsv[2] * (1 - (hsv[1] * (1 - f)));
     switch (i) {
-	case 0:
+        case 0:
             rgb[0] = hsv[2];
             rgb[1] = c2;
             rgb[2] = c0;
             break;
-	case 1:
+        case 1:
             rgb[0] = c1;
             rgb[1] = hsv[2];
             rgb[2] = c0;
             break;
-	case 2:
+        case 2:
             rgb[0] = c0;
             rgb[1] = hsv[2];
             rgb[2] = c2;
             break;
-	case 3:
+        case 3:
             rgb[0] = c0;
             rgb[1] = c1;
             rgb[2] = hsv[2];
             break;
-	case 4:
+        case 4:
             rgb[0] = c2;
             rgb[1] = c0;
             rgb[2] = hsv[2];
             break;
-	default:
+        default:
             rgb[0] = hsv[2];
             rgb[1] = c0;
             rgb[2] = c1;

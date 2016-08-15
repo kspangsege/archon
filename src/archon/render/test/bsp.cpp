@@ -87,9 +87,9 @@ namespace
     {
     case polygon_ON_PLANE:
       if(dotProduct(&polygon->surface->plane.normal, &tree->splitPlane.normal)>0) // We might be able to get this info from clasifyPolygon
-	insertPolygonAtEndOfList(polygon, &tree->lastFrontPolygon);
+        insertPolygonAtEndOfList(polygon, &tree->lastFrontPolygon);
       else
-	insertPolygonAtEndOfList(polygon, &tree->lastBackPolygon);
+        insertPolygonAtEndOfList(polygon, &tree->lastBackPolygon);
 
 #ifdef PROFILING
       ++bsp_numberOfPolygons;

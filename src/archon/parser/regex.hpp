@@ -44,8 +44,8 @@ namespace parser {
 
 struct RegexBase {
     enum NamedClass {
-	alnum, alpha, blank, cntrl, digit, graph,
-	lower, print, punct, space, upper, xdigit
+        alnum, alpha, blank, cntrl, digit, graph,
+        lower, print, punct, space, upper, xdigit
     };
 };
 
@@ -372,7 +372,7 @@ inline BasicRegex<Ch>::Bra::Bra(RangeSeq r, ClassSeq c, bool inv): invert(inv)
 {
     for(; r; ++r)
     {
-	if(r->second < r->first) throw std::invalid_argument("Bad character range");
+        if(r->second < r->first) throw std::invalid_argument("Bad character range");
         ranges.push_back(*r);
     }
     for(; c; ++c) classes.push_back(*c);

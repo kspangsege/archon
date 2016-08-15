@@ -207,11 +207,11 @@ namespace
     ImageData data2 = getFormatOfImage(image2);
     
     data2.putImage(&data1,
-		   32, 32,
-		   32, 32,
-		   0, 0,
-		   1, 1,
-		   0, 0);
+                   32, 32,
+                   32, 32,
+                   0, 0,
+                   1, 1,
+                   0, 0);
 
     image2.save("out5.png");
   }
@@ -314,8 +314,8 @@ namespace
 cerr << "Default window depth: " << DefaultDepth(dpy, 0) << endl;
 
     Window win = XCreateWindow(dpy, RootWindow(dpy, 0), 0, 0, 512, 512, 0, DefaultDepth(dpy, 0) /* depth */,
-			       InputOutput, vis, CWEventMask|CWBackPixmap|
-			       CWBorderPixel|CWColormap, &swa);
+                               InputOutput, vis, CWEventMask|CWBackPixmap|
+                               CWBorderPixel|CWColormap, &swa);
 
 cerr << "Window created: " << win << endl;
 
@@ -338,13 +338,13 @@ cerr << "Window created: " << win << endl;
     XStringListToTextProperty(const_cast<char **>(&t), 1, &textProperty);
 
     XSetWMProperties(dpy, win,
-		     &textProperty, // Window title
-		     &textProperty, // Icon title
-		     0,             // argv (of application)
-		     0,             // argc (of application)
-		     &sizeHints,
-		     &wmHints,
-		     0);            // Class hints
+                     &textProperty, // Window title
+                     &textProperty, // Icon title
+                     0,             // argv (of application)
+                     0,             // argc (of application)
+                     &sizeHints,
+                     &wmHints,
+                     0);            // Class hints
     XFree(textProperty.value);
     */
 
@@ -359,27 +359,27 @@ cerr << "Window mapped" << endl;
 cerr << "Default byte order = " << (ImageByteOrder(dpy) == MSBFirst ? "MSBFirst" : ImageByteOrder(dpy) == LSBFirst ? "LSBFirst" : "Unknown") << endl;
 cerr << "Default visualid = " << vis->visualid << endl;
     XFlush(dpy); // It seems that a flush must be performed before
-		 // putting images into the window. OUCH - that is not
-		 // enough either - it improves the chance of a good
-		 // result but is is not perfect - sometimes the
-		 // window ends up only partially filled with the
-		 // image.
+                 // putting images into the window. OUCH - that is not
+                 // enough either - it improves the chance of a good
+                 // result but is is not perfect - sometimes the
+                 // window ends up only partially filled with the
+                 // image.
 
     Image image("a6007b-tester.png");
     XImage ximage;
     ximage.width = image.getWidth();
-    ximage.height = image.getHeight();		// size of image
-    ximage.xoffset = 0;		// number of pixels offset in X direction
-    ximage.format = ZPixmap;		// XYBitmap, XYPixmap, ZPixmap
+    ximage.height = image.getHeight();          // size of image
+    ximage.xoffset = 0;         // number of pixels offset in X direction
+    ximage.format = ZPixmap;            // XYBitmap, XYPixmap, ZPixmap
     ximage.data = image.getPixelBuffer(); // pointer to image data
-    ximage.byte_order = MSBFirst;	// data byte order, LSBFirst, MSBFirst
-    ximage.bitmap_unit = 8;		// quant. of scanline 8, 16, 32
+    ximage.byte_order = MSBFirst;       // data byte order, LSBFirst, MSBFirst
+    ximage.bitmap_unit = 8;             // quant. of scanline 8, 16, 32
     ximage.bitmap_bit_order = LSBFirst; // LSBFirst, MSBFirst
-    ximage.bitmap_pad = 32;		// 8, 16, 32 either XY or ZPixmap
+    ximage.bitmap_pad = 32;             // 8, 16, 32 either XY or ZPixmap
     ximage.depth = DefaultDepth(dpy, 0);// depth of image
     ximage.bytes_per_line = image.getCharsPerRow(); // accelerator to next scanline
     ximage.bits_per_pixel = 24; // bits per pixel (ZPixmap)
-    ximage.red_mask   = 0x3 << 0;	// bits in z arrangement
+    ximage.red_mask   = 0x3 << 0;       // bits in z arrangement
     ximage.green_mask = 0x3 << 2;
     ximage.blue_mask  = 0x3 << 4;
     XInitImage(&ximage);

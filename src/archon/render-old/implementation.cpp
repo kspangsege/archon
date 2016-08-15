@@ -304,7 +304,7 @@ namespace
           i->view->renderer->initOpenGlContext();
           initialized = true;
         }
-	i->render();
+        i->render();
       }
     }
 
@@ -352,16 +352,16 @@ namespace
       // Clear all windows
       for(Windows::const_iterator i = windows.begin(), j = windows.end(); i != j; ++i)
       {
-	Bind b(i->second->context, i->first);
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        Bind b(i->second->context, i->first);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
       }
 
       // Proceed slave threads
       {
-	Mutex::Lock l(sync_mutex);
+        Mutex::Lock l(sync_mutex);
         for(vector<Slave>::iterator i = slaves.begin(),
               j = slaves.end(); i != j; ++i) i->hold = false;
-	unfinished_slaves = slaves.size();
+        unfinished_slaves = slaves.size();
       }
       proceed.notify_all();
 
@@ -370,8 +370,8 @@ namespace
 
       // Sync with slave threads
       {
-	Mutex::Lock l(sync_mutex);
-	while(unfinished_slaves) slave_finished.wait();
+        Mutex::Lock l(sync_mutex);
+        while(unfinished_slaves) slave_finished.wait();
       }
 
       // Swap all buffers
@@ -411,7 +411,7 @@ namespace
     {
       Mutex::Lock l(syncMutex);
       for(Windows::iterator i=windows.begin(), j=windows.end(); i!=j; ++i)
-	if(i->first == d) return;
+        if(i->first == d) return;
       windows.push_back(make_pair(d, c));
     }
 
@@ -419,25 +419,25 @@ namespace
     {
       Context::Ref context;
       {
-	Mutex::Lock l(syncMutex);
-	context = slaves[index].context;
+        Mutex::Lock l(syncMutex);
+        context = slaves[index].context;
       }
 
       for(;;)
       {
-	{
-	  Mutex::Lock l(syncMutex);
-	  while(slaves[index].hold) proceed.wait();
-	  slaves[index].hold = true;
-	}
+        {
+          Mutex::Lock l(syncMutex);
+          while(slaves[index].hold) proceed.wait();
+          slaves[index].hold = true;
+        }
 
-	context->render();
+        context->render();
 
-	{
-	  Mutex::Lock l(syncMutex);
-	  --unfinishedSlaves;
-	}
-	slaveFinished.notifyAll();
+        {
+          Mutex::Lock l(syncMutex);
+          --unfinishedSlaves;
+        }
+        slaveFinished.notifyAll();
       }
     }
 
@@ -482,13 +482,13 @@ namespace
         dynamic_cast<ClipImpl const *>(clip.get());
 
       if(!_viewport || !_screen || !_eye || !_clip)
-	throw invalid_argument("Found channel component of foreign implementation");
+        throw invalid_argument("Found channel component of foreign implementation");
 
       ViewImpl const *_view = _viewport->view.get();
       if(_view !=   _screen->view.get() ||
-	 _view !=      _eye->view.get() ||
-	 _view !=     _clip->view.get())
-	throw invalid_argument("All channel objects are not associated with the same view");
+         _view !=      _eye->view.get() ||
+         _view !=     _clip->view.get())
+        throw invalid_argument("All channel objects are not associated with the same view");
 
       conductor->addWindow(window, context);
       context->addChannel(Channel(_view, window, _viewport, _screen, _eye, _clip));

@@ -147,14 +147,14 @@ namespace archon
 
       if(typename RegexType::Bra const *e = dynamic_cast<typename RegexType::Bra const *>(r.get()))
       {
-	if(!e->classes.empty()) throw std::invalid_argument("Named classes are not supported yet");
+        if(!e->classes.empty()) throw std::invalid_argument("Named classes are not supported yet");
 
         typedef util::RangeMap<CharType, bool> RangeMap;
-	RangeMap rangeMap;
+        RangeMap rangeMap;
         bool value = true;
-	if(e->invert)
-	{
-	  rangeMap.assign(std::numeric_limits<CharType>::min(), std::numeric_limits<CharType>::max(), true);
+        if(e->invert)
+        {
+          rangeMap.assign(std::numeric_limits<CharType>::min(), std::numeric_limits<CharType>::max(), true);
           value = false;
         }
         for(typename std::vector<typename RegexType::CharRange>::const_iterator i=e->ranges.begin(); i!=e->ranges.end(); ++i)
@@ -164,7 +164,7 @@ namespace archon
         for(typename RangeMap::RangeSeq i=rangeMap.get_ranges(); i; ++i)
           if(i->get_value()) ranges.push_back(typename FsaType::CharRange(i->get_first(), i->get_last()));
 
-	return a.rangesFragment(ranges.begin(), ranges.end());
+        return a.rangesFragment(ranges.begin(), ranges.end());
       }
 
       if(dynamic_cast<typename RegexType::Bol const *>(r.get())) return a.sentinelFragment(FsaType::anchor_bol);

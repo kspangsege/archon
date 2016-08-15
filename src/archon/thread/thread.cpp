@@ -72,9 +72,9 @@ namespace archon
     {
       if(!t) throw invalid_argument("Got null thread");
       {
-	Mutex::Lock l(t->mutex);
-	if(t->started) throw AlreadyStartedException();
-	t->started = true;
+        Mutex::Lock l(t->mutex);
+        if(t->started) throw AlreadyStartedException();
+        t->started = true;
       }
 
       pthread_attr_t attr;
@@ -92,7 +92,7 @@ namespace archon
       if(!error) return;
       deactivate(t.get()); // Break the self reference.
       if(error == EAGAIN)
-	throw runtime_error("Not enough system resources to create a new thread");
+        throw runtime_error("Not enough system resources to create a new thread");
       throw runtime_error("Could not create a new thread");
     }
 
@@ -168,7 +168,7 @@ namespace archon
       register_self(t);
       try
       {
-	t->main();
+        t->main();
       }
       catch(InterruptException &) {}
       return 0;
@@ -186,8 +186,8 @@ namespace archon
       int error = pthread_once(&self_key_once, &self_key_alloc);
       if(error)
       {
-	deactivate(t);
-	throw runtime_error("pthread_once failed");
+        deactivate(t);
+        throw runtime_error("pthread_once failed");
       }
       // If the following call succeeds, 'self_key_destroy' will be
       // called when this thread terminates, and will handle
@@ -198,10 +198,10 @@ namespace archon
       error = pthread_setspecific(self_key, reinterpret_cast<void *>(t));
       if(error)
       {
-	deactivate(t);
-	if(error == EINVAL)
-	  throw runtime_error("Invalid TSD key in pthread_setspecific");
-	throw runtime_error("pthread_setspecific failed");
+        deactivate(t);
+        if(error == EINVAL)
+          throw runtime_error("Invalid TSD key in pthread_setspecific");
+        throw runtime_error("pthread_setspecific failed");
       }
     }
 
@@ -214,9 +214,9 @@ namespace archon
       int error = pthread_key_create(&self_key, &Thread::self_key_destroy);
       if(error)
       {
-	if(error == EAGAIN)
-	  throw runtime_error("Too many TSD keys");
-	throw runtime_error("Could not create new TSD key");
+        if(error == EAGAIN)
+          throw runtime_error("Too many TSD keys");
+        throw runtime_error("Could not create new TSD key");
       }
     }
 
@@ -245,7 +245,7 @@ namespace archon
     {
       SelfThread()
       {
-	started = true;
+        started = true;
       }
 
       void main() {} // Dummy

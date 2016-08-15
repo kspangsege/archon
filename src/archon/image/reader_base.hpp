@@ -105,7 +105,7 @@ namespace archon
       {
         int x = r.get_block_pos_x(width);
         int y = r.get_block_pos_y(width);
-	w.put_image(r.codec.get(), r.pixel_format, x, y, width, height);
+        w.put_image(r.codec.get(), r.pixel_format, x, y, width, height);
       }
 
       Image::ConstRef const image;

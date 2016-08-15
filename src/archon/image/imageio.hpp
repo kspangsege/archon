@@ -185,10 +185,10 @@ namespace archon
        * \sa FileFormat::Registry::new_registry
        */
       void save(Image::ConstRefArg image, core::OutputStream &out,
-		std::string target_name, std::string format_name = "",
-		core::Logger *l = &core::Logger::get_default_logger(),
+                std::string target_name, std::string format_name = "",
+                core::Logger *l = &core::Logger::get_default_logger(),
                 FileFormat::ProgressTracker *t = 0,
-		FileFormat::Registry::ConstRefArg r =
+                FileFormat::Registry::ConstRefArg r =
                 core::CntRefNullTag());
 
 
@@ -233,9 +233,9 @@ namespace archon
        */
       void save(Image::ConstRefArg image,
                 std::string file_path, std::string format_name = "",
-		core::Logger *l = &core::Logger::get_default_logger(),
+                core::Logger *l = &core::Logger::get_default_logger(),
                 FileFormat::ProgressTracker *t = 0,
-		FileFormat::Registry::ConstRefArg r =
+                FileFormat::Registry::ConstRefArg r =
                 core::CntRefNullTag());
     }
 

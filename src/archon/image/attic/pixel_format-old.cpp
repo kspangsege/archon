@@ -207,13 +207,13 @@ namespace archon
       vector<Channel> channelLayout;
       int const n = channelWidths.size();
       for(int i=0; i<n; ++i)
-	channelLayout.push_back(Channel(0, channelWidths[i]));
+        channelLayout.push_back(Channel(0, channelWidths[i]));
       int offset = 0;
       for(int i=0; i<n; ++i)
       {
-	Channel &c = channelLayout[reverseChannelOrder ? n-i-1 : i];
-	c.offset = offset;
-	offset += c.width;
+        Channel &c = channelLayout[reverseChannelOrder ? n-i-1 : i];
+        c.offset = offset;
+        offset += c.width;
       }
       return PixelFormat::makeFormat(channelLayout,
                                      colorSpace,
@@ -236,7 +236,7 @@ namespace archon
     }
 
     PixelFormat::PixelFormat(vector<Channel> const &channelLayout,
-			     ColorSpace::ConstRefArg colorSpace,
+                             ColorSpace::ConstRefArg colorSpace,
                              int bitsPerWord, bool floatingPointWords,
                              bool mostSignificantBitsFirst, int bitsPerPixel)
     {
@@ -263,12 +263,12 @@ namespace archon
       }
       else
       {
-	switch(channelLayout.size())
-	{
-	case 1: this->colorSpace = ColorSpace::getLuminance();      break;
-	case 2: this->colorSpace = ColorSpace::getLuminanceAlpha(); break;
-	case 3: this->colorSpace = ColorSpace::getRgb();            break;
-	case 4: this->colorSpace = ColorSpace::getRgba();           break;
+        switch(channelLayout.size())
+        {
+        case 1: this->colorSpace = ColorSpace::getLuminance();      break;
+        case 2: this->colorSpace = ColorSpace::getLuminanceAlpha(); break;
+        case 3: this->colorSpace = ColorSpace::getRgb();            break;
+        case 4: this->colorSpace = ColorSpace::getRgba();           break;
         default: throw InvalidFormatException("An explicit color space is needed when the number of channels is greater than 4");
         }
       }
@@ -325,148 +325,148 @@ namespace archon
       PixelFormat expanded = getExpandedFormat();
       PixelFormat reduced = expanded.getReducedFormat();
       string s = expanded.formatType == packed ? "packed" :
-	expanded.formatType == tight ? "tight" : "direct";
+        expanded.formatType == tight ? "tight" : "direct";
 
       s += "_";
       s += reduced.wordType == custom_int ? "int" +
-	Text::print(expanded.bitsPerWord) :
-	reduced.wordType == custom_float ? "float" +
-	Text::print(expanded.bitsPerWord) :
-	getWordTypeDescriptor(reduced.wordType).tag;
+        Text::print(expanded.bitsPerWord) :
+        reduced.wordType == custom_float ? "float" +
+        Text::print(expanded.bitsPerWord) :
+        getWordTypeDescriptor(reduced.wordType).tag;
 
       s += "_";
       if(reduced.channelLayout.empty() && reduced.colorSpace == custom)
       {
-	// For straight layouts of custom channels
-	s += Text::print(reduced.pixelSize);
-	if(expanded.hasAlphaChannel) s += "a";
+        // For straight layouts of custom channels
+        s += Text::print(reduced.pixelSize);
+        if(expanded.hasAlphaChannel) s += "a";
       }
       else
       {
-	vector<int> channelMap(expanded.formatType == packed ?
-			       expanded.pixelSize*expanded.bitsPerWord :
-			       expanded.pixelSize, -1);
-	for(int i=0; i<static_cast<int>(expanded.channelLayout.size()); ++i)
-	  channelMap[expanded.channelLayout[i].offset] = i;
+        vector<int> channelMap(expanded.formatType == packed ?
+                               expanded.pixelSize*expanded.bitsPerWord :
+                               expanded.pixelSize, -1);
+        for(int i=0; i<static_cast<int>(expanded.channelLayout.size()); ++i)
+          channelMap[expanded.channelLayout[i].offset] = i;
 
-	vector<string> colorMap;
-	switch(expanded.colorSpace)
-	{
-	case implied: // Never
-	  break;
+        vector<string> colorMap;
+        switch(expanded.colorSpace)
+        {
+        case implied: // Never
+          break;
 
-	case custom:
-	  {
-	    int n = expanded.channelLayout.size();
-	    if(expanded.hasAlphaChannel) --n;
-	    for(int i=0; i<n; ++i) colorMap.push_back(Text::print(i+1)+"c");
-	  }
-	  break;
+        case custom:
+          {
+            int n = expanded.channelLayout.size();
+            if(expanded.hasAlphaChannel) --n;
+            for(int i=0; i<n; ++i) colorMap.push_back(Text::print(i+1)+"c");
+          }
+          break;
 
-	case luminance:
-	  colorMap.push_back("l");
-	  break;
+        case luminance:
+          colorMap.push_back("l");
+          break;
 
-	case rgb:
-	  colorMap.push_back("r");
-	  colorMap.push_back("g");
-	  colorMap.push_back("b");
-	  break;
+        case rgb:
+          colorMap.push_back("r");
+          colorMap.push_back("g");
+          colorMap.push_back("b");
+          break;
 
-	case hsv:
-	  colorMap.push_back("h");
-	  colorMap.push_back("s");
-	  colorMap.push_back("v");
-	  break;
-	}
-	colorMap.push_back("a");
-
-
-	// Can we use the condensed channel layout
-	bool condensedLayout = expanded.colorSpace != custom;
-	if(condensedLayout)
-	{
-	  // Detect precense of unused fields
-	  if(expanded.formatType == direct)
-	  {
-	    for(int i=0; i<static_cast<int>(channelMap.size()); ++i)
-	      if(channelMap[i] < 0)
-	    {
-	      condensedLayout = false;
-	      break;
-	    }
-	  }
-	  else // Packed and tight formats
-	  {
-	    int i=0;
-	    while(i < static_cast<int>(channelMap.size()))
-	    {
-	      int gapSize = 0;
-	      while(i+gapSize < static_cast<int>(channelMap.size()) &&
-		    channelMap[i+gapSize] < 0) ++gapSize;
-	      if(gapSize)
-	      {
-		// Do not output a small explicit final gaps for
-		// packed formats since pixels word-align anyway
-		if(i == static_cast<int>(channelMap.size()) &&
-		   gapSize < expanded.bitsPerWord &&
-		   expanded.formatType == packed) break;
-
-		condensedLayout = false;
-		break;
-	      }
-
-	      i += expanded.channelLayout[channelMap[i]].width;;
-	    }
-	  }
-	}
+        case hsv:
+          colorMap.push_back("h");
+          colorMap.push_back("s");
+          colorMap.push_back("v");
+          break;
+        }
+        colorMap.push_back("a");
 
 
-	// Generate channel layout
-	if(expanded.formatType == direct)
-	{
-	  for(int i=0; i<static_cast<int>(channelMap.size()); ++i)
-	  {
-	    if(i && !condensedLayout) s += "_";
-	    int j = channelMap[i];
-	    s += j < 0 ? "z" : colorMap[j];
-	    if(reduced.channelLayout.size())
-	    {
-	      int w = reduced.channelLayout[j].width;
-	      if(w) s+= Text::print(w);
-	    }
-	  }
-	}
-	else // Packed and tight formats
-	{
-	  int i=0;
-	  while(i < static_cast<int>(channelMap.size()))
-	  {
-	    // Is there a gap of unused bit here
-	    int w = 0;
-	    while(i+w < static_cast<int>(channelMap.size()) &&
-		  channelMap[i+w] < 0) ++w;
-	    if(w)
-	    {
-	      // Do not output a small explicit final gaps for packed
-	      // formats since pixels word-align anyway
-	      if(i == static_cast<int>(channelMap.size()) &&
-		 w < expanded.bitsPerWord &&
-		 expanded.formatType == packed) break;
+        // Can we use the condensed channel layout
+        bool condensedLayout = expanded.colorSpace != custom;
+        if(condensedLayout)
+        {
+          // Detect precense of unused fields
+          if(expanded.formatType == direct)
+          {
+            for(int i=0; i<static_cast<int>(channelMap.size()); ++i)
+              if(channelMap[i] < 0)
+            {
+              condensedLayout = false;
+              break;
+            }
+          }
+          else // Packed and tight formats
+          {
+            int i=0;
+            while(i < static_cast<int>(channelMap.size()))
+            {
+              int gapSize = 0;
+              while(i+gapSize < static_cast<int>(channelMap.size()) &&
+                    channelMap[i+gapSize] < 0) ++gapSize;
+              if(gapSize)
+              {
+                // Do not output a small explicit final gaps for
+                // packed formats since pixels word-align anyway
+                if(i == static_cast<int>(channelMap.size()) &&
+                   gapSize < expanded.bitsPerWord &&
+                   expanded.formatType == packed) break;
 
-	      if(i && !condensedLayout) s += "_";
-	      s += Text::print(w);
-	    }
-	    else // No gap this time
-	    {
-	      if(i && !condensedLayout) s += "_";
-	      int j = channelMap[i];
-	      w = expanded.channelLayout[j].width;
-	      s += colorMap[j] + Text::print(w);
-	    }
-	    i += w;
-	  }
-	}
+                condensedLayout = false;
+                break;
+              }
+
+              i += expanded.channelLayout[channelMap[i]].width;;
+            }
+          }
+        }
+
+
+        // Generate channel layout
+        if(expanded.formatType == direct)
+        {
+          for(int i=0; i<static_cast<int>(channelMap.size()); ++i)
+          {
+            if(i && !condensedLayout) s += "_";
+            int j = channelMap[i];
+            s += j < 0 ? "z" : colorMap[j];
+            if(reduced.channelLayout.size())
+            {
+              int w = reduced.channelLayout[j].width;
+              if(w) s+= Text::print(w);
+            }
+          }
+        }
+        else // Packed and tight formats
+        {
+          int i=0;
+          while(i < static_cast<int>(channelMap.size()))
+          {
+            // Is there a gap of unused bit here
+            int w = 0;
+            while(i+w < static_cast<int>(channelMap.size()) &&
+                  channelMap[i+w] < 0) ++w;
+            if(w)
+            {
+              // Do not output a small explicit final gaps for packed
+              // formats since pixels word-align anyway
+              if(i == static_cast<int>(channelMap.size()) &&
+                 w < expanded.bitsPerWord &&
+                 expanded.formatType == packed) break;
+
+              if(i && !condensedLayout) s += "_";
+              s += Text::print(w);
+            }
+            else // No gap this time
+            {
+              if(i && !condensedLayout) s += "_";
+              int j = channelMap[i];
+              w = expanded.channelLayout[j].width;
+              s += colorMap[j] + Text::print(w);
+            }
+            i += w;
+          }
+        }
       }
 
       if(mostSignificantBitsFirst) s += "_msb";

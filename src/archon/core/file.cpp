@@ -82,52 +82,52 @@ namespace archon
 
       string get_cwd()
       {
-	size_t buffer_size = 1024;
-	char *buffer;
-	for(;;) {
-	  buffer = new char[buffer_size];
-	  if (getcwd(buffer, buffer_size)) break;
-	  if (errno != ERANGE) {
+        size_t buffer_size = 1024;
+        char *buffer;
+        for(;;) {
+          buffer = new char[buffer_size];
+          if (getcwd(buffer, buffer_size)) break;
+          if (errno != ERANGE) {
             int errnum = errno;
-	    delete[] buffer;
-	    throw runtime_error("Utilities::File::get_cwd: 'getcwd' failed: " +
+            delete[] buffer;
+            throw runtime_error("Utilities::File::get_cwd: 'getcwd' failed: " +
                                 Sys::error(errnum));
-	  }
+          }
 
-	  delete[] buffer;
-	  buffer_size += 1024;
-	  if (buffer_size > max_cwd_buffer_size)
-	    throw runtime_error("System::File::get_cwd: Path is too long");
-	}
-	string result = buffer;
-	delete[] buffer;
+          delete[] buffer;
+          buffer_size += 1024;
+          if (buffer_size > max_cwd_buffer_size)
+            throw runtime_error("System::File::get_cwd: Path is too long");
+        }
+        string result = buffer;
+        delete[] buffer;
         if (result.empty() || result[result.size()-1] != '/') result += "/";
-	return result;
+        return result;
       }
 
 
       string get_home_dir()
       {
-	string s = Sys::getenv("HOME");
-	if (s.empty()) throw runtime_error("Could not determine home directory of "
+        string s = Sys::getenv("HOME");
+        if (s.empty()) throw runtime_error("Could not determine home directory of "
                                           "the logged in user");
         if (s.empty() || s[s.size()-1] != '/') s += "/";
-	return s;
+        return s;
       }
 
 
       string get_temp_dir()
       {
-	return "/tmp/";
+        return "/tmp/";
       }
 
 
       void make_dir(string path)
       {
-	int error = mkdir(path.c_str(), S_IRWXU|S_IRWXG|S_IRWXO);
-	if (error < 0) {
+        int error = mkdir(path.c_str(), S_IRWXU|S_IRWXG|S_IRWXO);
+        if (error < 0) {
           int errnum = errno;
-	  throw runtime_error("'mkdir "+path+"' failed: "+Sys::error(errnum));
+          throw runtime_error("'mkdir "+path+"' failed: "+Sys::error(errnum));
         }
       }
 
@@ -145,121 +145,121 @@ namespace archon
 
       Stat::Stat(string path, bool follow_sym_links)
       {
-	struct stat s;
-	if(follow_sym_links ? stat(path.c_str(), &s) : lstat(path.c_str(), &s))
+        struct stat s;
+        if(follow_sym_links ? stat(path.c_str(), &s) : lstat(path.c_str(), &s))
         {
           int const e = errno;
           throw_file_access_exception(e, "'stat' failed");
         }
 
-	type =
-	  S_ISREG(s.st_mode)  ? type_Regular :
-	  S_ISDIR(s.st_mode)  ? type_Directory :
-	  S_ISCHR(s.st_mode)  ? type_CharDev :
-	  S_ISBLK(s.st_mode)  ? type_BlockDev :
-	  S_ISFIFO(s.st_mode) ? type_Fifo :
-	  S_ISLNK(s.st_mode)  ? type_SymLink :
-	  S_ISSOCK(s.st_mode) ? type_Socket : type_Other;
+        type =
+          S_ISREG(s.st_mode)  ? type_Regular :
+          S_ISDIR(s.st_mode)  ? type_Directory :
+          S_ISCHR(s.st_mode)  ? type_CharDev :
+          S_ISBLK(s.st_mode)  ? type_BlockDev :
+          S_ISFIFO(s.st_mode) ? type_Fifo :
+          S_ISLNK(s.st_mode)  ? type_SymLink :
+          S_ISSOCK(s.st_mode) ? type_Socket : type_Other;
 
         size = s.st_size;
       }
 
       Stat::Stat(int fildes)
       {
-	struct stat s;
-	if(fstat(fildes, &s))
+        struct stat s;
+        if(fstat(fildes, &s))
         {
           int const e = errno;
-	  throw runtime_error("Utilities::File::Stat::Stat: 'stat "+
+          throw runtime_error("Utilities::File::Stat::Stat: 'stat "+
                               Text::print(fildes)+"' failed: "+Sys::error(e));
         }
 
-	type =
-	  S_ISREG(s.st_mode)  ? type_Regular :
-	  S_ISDIR(s.st_mode)  ? type_Directory :
-	  S_ISCHR(s.st_mode)  ? type_CharDev :
-	  S_ISBLK(s.st_mode)  ? type_BlockDev :
-	  S_ISFIFO(s.st_mode) ? type_Fifo :
-	  S_ISLNK(s.st_mode)  ? type_SymLink :
-	  S_ISSOCK(s.st_mode) ? type_Socket : type_Other;
+        type =
+          S_ISREG(s.st_mode)  ? type_Regular :
+          S_ISDIR(s.st_mode)  ? type_Directory :
+          S_ISCHR(s.st_mode)  ? type_CharDev :
+          S_ISBLK(s.st_mode)  ? type_BlockDev :
+          S_ISFIFO(s.st_mode) ? type_Fifo :
+          S_ISLNK(s.st_mode)  ? type_SymLink :
+          S_ISSOCK(s.st_mode) ? type_Socket : type_Other;
       }
 
       bool exists(string p)
       {
-	try
-	{
-	  Stat s(p);
-	  return true;
-	}
-	catch(exception &)
-	{
-	  return false;
-	}
+        try
+        {
+          Stat s(p);
+          return true;
+        }
+        catch(exception &)
+        {
+          return false;
+        }
       }
 
       bool is_regular(string p)
       {
-	try
-	{
-	  Stat s(p);
-	  return s.get_type() == Stat::type_Regular;
-	}
-	catch(exception &)
-	{
-	  return false;
-	}
+        try
+        {
+          Stat s(p);
+          return s.get_type() == Stat::type_Regular;
+        }
+        catch(exception &)
+        {
+          return false;
+        }
       }
 
       bool is_dir(string p)
       {
-	try
-	{
-	  Stat s(p);
-	  return s.get_type() == Stat::type_Directory;
-	}
-	catch(exception &)
-	{
-	  return false;
-	}
+        try
+        {
+          Stat s(p);
+          return s.get_type() == Stat::type_Directory;
+        }
+        catch(exception &)
+        {
+          return false;
+        }
       }
 
       bool is_sym_link(string p)
       {
-	try
-	{
-	  Stat s(p);
-	  return s.get_type() == Stat::type_SymLink;
-	}
-	catch(exception &)
-	{
-	  return false;
-	}
+        try
+        {
+          Stat s(p);
+          return s.get_type() == Stat::type_SymLink;
+        }
+        catch(exception &)
+        {
+          return false;
+        }
       }
 
       string name_of(string path)
       {
-	string::size_type p = path.rfind('/');
-	return p == string::npos ? path : string(path, p+1);
+        string::size_type p = path.rfind('/');
+        return p == string::npos ? path : string(path, p+1);
       }
 
       string dir_of(string path)
       {
-	string::size_type p = path.rfind('/');
-	return p == string::npos ? string() : string(path, 0, p+1);
+        string::size_type p = path.rfind('/');
+        return p == string::npos ? string() : string(path, 0, p+1);
       }
 
       string suffix_of(string path)
       {
-	string name = name_of(path);
-	string::size_type p = name.rfind('.');
-	return p == string::npos ? "" : string(name, p+1);
+        string name = name_of(path);
+        string::size_type p = name.rfind('.');
+        return p == string::npos ? "" : string(name, p+1);
       }
 
       string stem_of(string path)
       {
-	string name = name_of(path);
-	string::size_type p = name.rfind('.');
-	return p == string::npos ? name : string(name, 0, p);
+        string name = name_of(path);
+        string::size_type p = name.rfind('.');
+        return p == string::npos ? name : string(name, 0, p);
       }
 
 
@@ -323,23 +323,23 @@ namespace archon
 
       void throw_file_access_exception(int errnum, string m)
       {
-	switch(errnum)
-	{
-	case ENOENT:  // No such file or directory
-	case ENOTDIR: // Not a directory
-	  throw File::NotFoundException(m);
+        switch(errnum)
+        {
+        case ENOENT:  // No such file or directory
+        case ENOTDIR: // Not a directory
+          throw File::NotFoundException(m);
 
-	case EACCES:  // Permission denied
-	  throw File::PermissionException(m);
+        case EACCES:  // Permission denied
+          throw File::PermissionException(m);
 
           // Temporary lack of resources
-	case EMFILE:  // Too many open files
-	case ENFILE:  // File table overflow
-	case ENOMEM:  // Out of memory
+        case EMFILE:  // Too many open files
+        case ENFILE:  // File table overflow
+        case ENOMEM:  // Out of memory
 
           // Internal errors
-	default:
-	  throw runtime_error(m+" ("+Sys::error(errnum)+")");
+        default:
+          throw runtime_error(m+" ("+Sys::error(errnum)+")");
         }
       }
     }

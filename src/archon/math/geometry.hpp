@@ -224,9 +224,9 @@ namespace archon
        */
       VectorType get_size() const
       {
-	VectorType v = lower - upper;
+        VectorType v = lower - upper;
         for(int i=0; i<=N; ++i) if(v[i] < 0) v[i] = -v[i];
-	return v;
+        return v;
       }
 
 
@@ -302,13 +302,13 @@ namespace archon
       BasicSphere() {}
 
       BasicSphere(VectorType const &center, ScalarType radius):
-	center(center), radius(radius) {}
+        center(center), radius(radius) {}
 
       /**
        * Construct an origin centered sphere of the specified radius.
        */
       BasicSphere(ScalarType radius = 1):
-	center(Vec3::zero()), radius(radius) {}
+        center(Vec3::zero()), radius(radius) {}
     };
 
     typedef BasicSphere<2, double> Sphere2;

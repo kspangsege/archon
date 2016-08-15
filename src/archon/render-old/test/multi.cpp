@@ -542,7 +542,7 @@ namespace
     o.addConfig("D", "direct-rendering", opt_directRendering, opt_directRendering,
                 "Attempt to establist direct rendering contexts to gain performance.",
                 Options::wantArg_always);
-	
+        
     if(o.processCommandLine(argc, argv))
     {
       cerr << "Try --help\n";

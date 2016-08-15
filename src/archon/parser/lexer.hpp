@@ -51,16 +51,16 @@ namespace archon
 
       struct LexerException: std::runtime_error
       {
-	long lineNumber;
-	LexerException(std::string const &message, long lineNumber):
-	  std::runtime_error(message), lineNumber(lineNumber) {}
+        long lineNumber;
+        LexerException(std::string const &message, long lineNumber):
+          std::runtime_error(message), lineNumber(lineNumber) {}
       };
 
       struct Lexeme
       {
-	int type;
-	ValueType value;
-	Lexeme(int type = -1, ValueType value = ValueType()): type(type), value(value) {}
+        int type;
+        ValueType value;
+        Lexeme(int type = -1, ValueType value = ValueType()): type(type), value(value) {}
       };
 
       /**

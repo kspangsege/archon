@@ -133,15 +133,15 @@ namespace archon
 
       string error(int errnum)
       {
-	char buf[1024];
+        char buf[1024];
 #if _GNU_SOURCE // GNU-specific version
-	errno = 0;
-	char *m = strerror_r(errnum, buf, sizeof(buf));
-	if(!m || errno) return "Unknown error";
-	return m;
+        errno = 0;
+        char *m = strerror_r(errnum, buf, sizeof(buf));
+        if(!m || errno) return "Unknown error";
+        return m;
 #else // POSIX version
-	if(strerror_r(errnum, buf, sizeof(buf)) < 0) return "Unknown error";
-	return buf;
+        if(strerror_r(errnum, buf, sizeof(buf)) < 0) return "Unknown error";
+        return buf;
 #endif
       }
 
@@ -220,7 +220,7 @@ namespace archon
       void close(int fd) throw(WriteException, InterruptException)
       {
         int const r = ::close(fd);
-	if(r == 0) return;
+        if(r == 0) return;
         int const e = errno;
         if(e == EINTR || e == EAGAIN) throw InterruptException();
         throw WriteException(Sys::error(e));
@@ -229,15 +229,15 @@ namespace archon
 
       void nonblock(int fd)
       {
-	int f = fcntl(fd, F_GETFL, 0);
-	if(f == -1)
+        int f = fcntl(fd, F_GETFL, 0);
+        if(f == -1)
         {
           int const e = errno;
           throw runtime_error("'fcntl' failed: "+error(e));
         }
-	f |= O_NONBLOCK;
-	f = fcntl(fd, F_SETFL, f);
-	if(f == -1)
+        f |= O_NONBLOCK;
+        f = fcntl(fd, F_SETFL, f);
+        if(f == -1)
         {
           int const e = errno;
           throw runtime_error("'fcntl' failed: "+error(e));
@@ -247,297 +247,297 @@ namespace archon
 
       void daemon_init()
       {
-	errno = 0;
-	int m = sysconf(_SC_OPEN_MAX);
-	if(m < 0)
-	{
-	  if(errno)
+        errno = 0;
+        int m = sysconf(_SC_OPEN_MAX);
+        if(m < 0)
+        {
+          if(errno)
           {
             int const e = errno;
             throw runtime_error("'sysconf(_SC_OPEN_MAX)' failed: "+error(e));
           }
-	  throw runtime_error("'sysconf(_SC_OPEN_MAX)' failed: It's indeterminate");
-	}
-	int p = fork();
-	if(p < 0)
+          throw runtime_error("'sysconf(_SC_OPEN_MAX)' failed: It's indeterminate");
+        }
+        int p = fork();
+        if(p < 0)
         {
           int const e = errno;
           throw runtime_error("'fork' failed: "+error(e));
         }
-	if(p) _exit(0);
-	setsid();
-	int ret = chdir("/");
+        if(p) _exit(0);
+        setsid();
+        int ret = chdir("/");
         ARCHON_ASSERT(ret != -1);
-	umask(S_IWGRP|S_IWOTH);
-	for(int i=0; i<m; ++i) ::close(i);
+        umask(S_IWGRP|S_IWOTH);
+        for(int i=0; i<m; ++i) ::close(i);
       }
 
 
       string get_hostname()
       {
-	char b[1024];
-	if(gethostname(b, sizeof(b)-1)<0)
+        char b[1024];
+        if(gethostname(b, sizeof(b)-1)<0)
         {
           int const e = errno;
           throw runtime_error("'gethostname' failed: "+error(e));
         }
-    	b[sizeof(b)-1] = 0;
-	return b;
+        b[sizeof(b)-1] = 0;
+        return b;
       }
 
 
       namespace Signal
       {
-	Handler::Handler(void (*h)(int))
-	{
-	  sigemptyset(&act.sa_mask);
-	  act.sa_flags = 0;
-	  act.sa_handler = h;
-	}
+        Handler::Handler(void (*h)(int))
+        {
+          sigemptyset(&act.sa_mask);
+          act.sa_flags = 0;
+          act.sa_handler = h;
+        }
 
-	Handler set_handler(int signal, Handler h)
-	{
-	  Handler old;
-	  sigaction(signal,  &h.act, &old.act);
-	  return old;
-	}
+        Handler set_handler(int signal, Handler h)
+        {
+          Handler old;
+          sigaction(signal,  &h.act, &old.act);
+          return old;
+        }
 
-	Handler reset_handler(int signal)
+        Handler reset_handler(int signal)
         {
           return set_handler(signal, SIG_DFL);
         }
 
-	Handler ignore_signal(int signal)
+        Handler ignore_signal(int signal)
         {
           return set_handler(signal, SIG_IGN);
         }
 
-	Block::Block(std::set<int> const &signals)
-	{
-	  sigset_t sigset;
-	  sigemptyset(&sigset);
-	  for(set<int>::iterator i=signals.begin(); i!=signals.end();++i) sigaddset(&sigset, *i);
-	  pthread_sigmask(SIG_BLOCK, &sigset, &original_sigset);
-	}
+        Block::Block(std::set<int> const &signals)
+        {
+          sigset_t sigset;
+          sigemptyset(&sigset);
+          for(set<int>::iterator i=signals.begin(); i!=signals.end();++i) sigaddset(&sigset, *i);
+          pthread_sigmask(SIG_BLOCK, &sigset, &original_sigset);
+        }
 
-	Block::~Block()
-	{
-	  pthread_sigmask(SIG_SETMASK, &original_sigset, 0);
-	}
+        Block::~Block()
+        {
+          pthread_sigmask(SIG_SETMASK, &original_sigset, 0);
+        }
 
-	void block(std::set<int> const &signals)
-	{
-	  sigset_t sigset;
-	  sigemptyset(&sigset);
-	  for(set<int>::iterator i=signals.begin(); i!=signals.end();++i) sigaddset(&sigset, *i);
-	  pthread_sigmask(SIG_BLOCK, &sigset, 0);
-	}
+        void block(std::set<int> const &signals)
+        {
+          sigset_t sigset;
+          sigemptyset(&sigset);
+          for(set<int>::iterator i=signals.begin(); i!=signals.end();++i) sigaddset(&sigset, *i);
+          pthread_sigmask(SIG_BLOCK, &sigset, 0);
+        }
 
-	void unblock(std::set<int> const &signals)
-	{
-	  sigset_t sigset;
-	  sigemptyset(&sigset);
-	  for(set<int>::iterator i=signals.begin(); i!=signals.end();++i) sigaddset(&sigset, *i);
-	  pthread_sigmask(SIG_UNBLOCK, &sigset, 0);
-	}
+        void unblock(std::set<int> const &signals)
+        {
+          sigset_t sigset;
+          sigemptyset(&sigset);
+          for(set<int>::iterator i=signals.begin(); i!=signals.end();++i) sigaddset(&sigset, *i);
+          pthread_sigmask(SIG_UNBLOCK, &sigset, 0);
+        }
       }
 
       string Pipeline::run()
       {
-	if(cmds.empty()) return "";
+        if(cmds.empty()) return "";
 
-	// Start up processes in reverse order
-	int devnull = -1, child_read = -1, child_write = -1, parent_read = -1, parent_write = -1;
-	if(outputMode == out_discard || errorMode == err_discard)
-	{
-	  devnull = open("/dev/null", O_WRONLY);
-	  if(devnull < 0)
+        // Start up processes in reverse order
+        int devnull = -1, child_read = -1, child_write = -1, parent_read = -1, parent_write = -1;
+        if(outputMode == out_discard || errorMode == err_discard)
+        {
+          devnull = open("/dev/null", O_WRONLY);
+          if(devnull < 0)
           {
             int const e = errno;
             throw runtime_error("'open' for writing failed on '/dev/null': "+error(e));
           }
-	}
-	switch(outputMode)
-	{
-	case out_discard:
-	  child_write = dup(devnull);
-	  if(child_write < 0)
+        }
+        switch(outputMode)
+        {
+        case out_discard:
+          child_write = dup(devnull);
+          if(child_write < 0)
           {
             int const e = errno;
             throw runtime_error("'dup' failed: "+error(e));
           }
-	  break;
-	case out_stdout:
-	  child_write = dup(STDOUT_FILENO);
-	  if(child_write < 0)
+          break;
+        case out_stdout:
+          child_write = dup(STDOUT_FILENO);
+          if(child_write < 0)
           {
             int const e = errno;
             throw runtime_error("'dup' failed: "+error(e));
           }
-	  break;
-	case out_file:
-	  {
-	    child_write = open(outputFile.c_str(), O_WRONLY|O_CREAT|O_TRUNC,
+          break;
+        case out_file:
+          {
+            child_write = open(outputFile.c_str(), O_WRONLY|O_CREAT|O_TRUNC,
                                S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
-	    if(child_write < 0)
+            if(child_write < 0)
             {
               int const e = errno;
               throw runtime_error("'open' for writing failed on '"+outputFile+"': "+error(e));
             }
-	  }
-	  break;
-	case out_grab:
-	  {
-	    int p[2];
-	    if(pipe(p) < 0)
+          }
+          break;
+        case out_grab:
+          {
+            int p[2];
+            if(pipe(p) < 0)
             {
               int const e = errno;
               throw runtime_error("'pipe' failed: "+error(e));
             }
-	    parent_read = p[0];
-	    child_write = p[1];
-	  }
-	  break;
-	}
+            parent_read = p[0];
+            child_write = p[1];
+          }
+          break;
+        }
 
-	vector<int> pids;
-	pids.resize(cmds.size());
-	vector<int>::size_type j = cmds.size()-1u;
-	for(list<Command>::reverse_iterator i = cmds.rbegin(); i!=cmds.rend(); ++i, --j)
-	{
-	  if(j)
-	  {
-	    int p[2];
-	    if(pipe(p) < 0)
+        vector<int> pids;
+        pids.resize(cmds.size());
+        vector<int>::size_type j = cmds.size()-1u;
+        for(list<Command>::reverse_iterator i = cmds.rbegin(); i!=cmds.rend(); ++i, --j)
+        {
+          if(j)
+          {
+            int p[2];
+            if(pipe(p) < 0)
             {
               int const e = errno;
               throw runtime_error("'pipe' failed: "+error(e));
             }
-	    child_read = p[0];
-	    parent_write = p[1];
-	  }
-	  else
-	  {
-	    if(inputMode == in_devnull)
-	    {
-	      child_read = open("/dev/null", O_RDONLY);
-	      if(child_read < 0)
+            child_read = p[0];
+            parent_write = p[1];
+          }
+          else
+          {
+            if(inputMode == in_devnull)
+            {
+              child_read = open("/dev/null", O_RDONLY);
+              if(child_read < 0)
               {
                 int const e = errno;
                 throw runtime_error("'open' for reading failed on '/dev/null': "+error(e));
               }
-	    }
-	    else
-	    {
-	      child_read = dup(STDIN_FILENO);
-	      if(child_read < 0)
+            }
+            else
+            {
+              child_read = dup(STDIN_FILENO);
+              if(child_read < 0)
               {
                 int const e = errno;
                 throw runtime_error("'dup' failed: "+error(e));
               }
-	    }
-	  }
-	  int pid = fork();
-	  if(pid < 0)
+            }
+          }
+          int pid = fork();
+          if(pid < 0)
           {
             int const e = errno;
             throw runtime_error("'fork' failed: "+error(e));
           }
-	  if(!pid)
-	  {
-	    if(j) ::close(parent_write);
-	    if(outputMode == out_grab) ::close(parent_read);
+          if(!pid)
+          {
+            if(j) ::close(parent_write);
+            if(outputMode == out_grab) ::close(parent_read);
 
-	    // Input
-	    if(dup2(child_read, STDIN_FILENO) < 0)
-	    {
-	      int const e = errno;
-	      cerr << "'dup2' failed: "<<error(e)<<endl;
-	      _exit(1);
-	    }
-	    ::close(child_read);
+            // Input
+            if(dup2(child_read, STDIN_FILENO) < 0)
+            {
+              int const e = errno;
+              cerr << "'dup2' failed: "<<error(e)<<endl;
+              _exit(1);
+            }
+            ::close(child_read);
 
-	    // Output
-	    if(dup2(child_write, STDOUT_FILENO) < 0)
-	    {
-	      int const e = errno;
-	      cerr << "'dup2' failed: "<<error(e)<<endl;
-	      _exit(1);
-	    }
-	    ::close(child_write);
+            // Output
+            if(dup2(child_write, STDOUT_FILENO) < 0)
+            {
+              int const e = errno;
+              cerr << "'dup2' failed: "<<error(e)<<endl;
+              _exit(1);
+            }
+            ::close(child_write);
 
-	    // Error
-	    if(errorMode==err_discard && dup2(devnull, STDERR_FILENO) < 0)
-	    {
-	      int const e = errno;
-	      cerr << "'dup2' failed: "<<error(e)<<endl;
-	      _exit(1);
-	    }
-	    if(-1 < devnull) ::close(devnull);
+            // Error
+            if(errorMode==err_discard && dup2(devnull, STDERR_FILENO) < 0)
+            {
+              int const e = errno;
+              cerr << "'dup2' failed: "<<error(e)<<endl;
+              _exit(1);
+            }
+            if(-1 < devnull) ::close(devnull);
 
-	    char **argv = new char *[i->args.size()+2u];
-	    argv[0] = const_cast<char *>(i->cmd.c_str());
-	    for(vector<string>::size_type k=0; k<i->args.size(); ++k) argv[k+1u] = const_cast<char *>(i->args[k].c_str());
-	    argv[i->args.size()+1u] = 0;
-	    execvp(argv[0], argv);
-	    int const e = errno;
-	    cerr << "Failed to execute '"<<i->cmd<<"': "<<error(e)<<endl;
-	    _exit(1);
-	  }
+            char **argv = new char *[i->args.size()+2u];
+            argv[0] = const_cast<char *>(i->cmd.c_str());
+            for(vector<string>::size_type k=0; k<i->args.size(); ++k) argv[k+1u] = const_cast<char *>(i->args[k].c_str());
+            argv[i->args.size()+1u] = 0;
+            execvp(argv[0], argv);
+            int const e = errno;
+            cerr << "Failed to execute '"<<i->cmd<<"': "<<error(e)<<endl;
+            _exit(1);
+          }
 
-	  pids[j] = pid;
-	  ::close(child_read);
-	  ::close(child_write);
-	  if(j) child_write = parent_write;
-	}
-	if(-1 < devnull) ::close(devnull);
+          pids[j] = pid;
+          ::close(child_read);
+          ::close(child_write);
+          if(j) child_write = parent_write;
+        }
+        if(-1 < devnull) ::close(devnull);
 
-	ostringstream result;
+        ostringstream result;
 
-	// Read pipeline output if we must:
-	if(outputMode == out_grab)
-	{
-	  char buffer[4096];
-	  for(;;)
-	  {
-	    ssize_t n = read(parent_read, buffer, sizeof(buffer));
-	    if(!n) break;
-	    result.write(buffer, n);
-	  }
-	  ::close(parent_read);
-	}
+        // Read pipeline output if we must:
+        if(outputMode == out_grab)
+        {
+          char buffer[4096];
+          for(;;)
+          {
+            ssize_t n = read(parent_read, buffer, sizeof(buffer));
+            if(!n) break;
+            result.write(buffer, n);
+          }
+          ::close(parent_read);
+        }
 
-	// Wait for all childs to terminate:
-	string error;
-	j = cmds.size()-1u;
-	for(list<Command>::reverse_iterator i = cmds.rbegin(); i!=cmds.rend(); ++i, --j)
-	{
-	  int pid = pids[j], status;
-	  for(;;)
-	  {
-	    if(-1 < waitpid(pid, &status, 0)) break;
-	    if(errno != EINTR)
+        // Wait for all childs to terminate:
+        string error;
+        j = cmds.size()-1u;
+        for(list<Command>::reverse_iterator i = cmds.rbegin(); i!=cmds.rend(); ++i, --j)
+        {
+          int pid = pids[j], status;
+          for(;;)
+          {
+            if(-1 < waitpid(pid, &status, 0)) break;
+            if(errno != EINTR)
             {
               int const e = errno;
               throw runtime_error("'waitpid' failed: "+Sys::error(e));
             }
-	  }
-	  if(!status || !error.empty()) continue;
-	  ostringstream o;
-	  o << "Execution of '"<<i->cmd<<"' ";
-	  if(WIFSIGNALED(status))
-	  {
-	    o << "was terminated by signal "<<WTERMSIG(status);
-	    if(WCOREDUMP(status)) o << " (core dumped)";
-	  }
-	  else  o << "failed";
-	  if(WIFEXITED(status)) o << " (exit status: "<<WEXITSTATUS(status)<<")";
-	  error = o.str();
-	}
+          }
+          if(!status || !error.empty()) continue;
+          ostringstream o;
+          o << "Execution of '"<<i->cmd<<"' ";
+          if(WIFSIGNALED(status))
+          {
+            o << "was terminated by signal "<<WTERMSIG(status);
+            if(WCOREDUMP(status)) o << " (core dumped)";
+          }
+          else  o << "failed";
+          if(WIFEXITED(status)) o << " (exit status: "<<WEXITSTATUS(status)<<")";
+          error = o.str();
+        }
 
-	if(!error.empty()) throw runtime_error(error);
+        if(!error.empty()) throw runtime_error(error);
 
-	return result.str();
+        return result.str();
       }
     }
   }

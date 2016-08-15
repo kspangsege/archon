@@ -45,10 +45,10 @@ namespace archon
     {
       template<typename Ch> struct BasicTable
       {
-	typedef Ch CharType;
-	typedef std::basic_string<CharType> StringType;
+        typedef Ch CharType;
+        typedef std::basic_string<CharType> StringType;
 
-	BasicTable(bool enable_ansi_term_attr = true);
+        BasicTable(bool enable_ansi_term_attr = true);
 
 
       private:
@@ -179,21 +179,21 @@ namespace archon
         Attr &get_odd_col_attr() { return odd_col_attr; }
 
 
-	StringType print(int max_total_width = 0,
-			 int column_spacing = 2,
-			 bool header = false,
-			 std::locale const & = std::locale("")) const;
+        StringType print(int max_total_width = 0,
+                         int column_spacing = 2,
+                         bool header = false,
+                         std::locale const & = std::locale("")) const;
 
 
       private:
-	static int width(StringType, CharType);
-	static int height(StringType, CharType);
-	static StringType extract_line(StringType, int, CharType);
+        static int width(StringType, CharType);
+        static int height(StringType, CharType);
+        static StringType extract_line(StringType, int, CharType);
 
         bool const enable_ansi_term_attr;
         Attr table_attr, odd_row_attr, odd_col_attr;
-	std::vector<Col> columns;
-	std::vector<Row> rows;
+        std::vector<Col> columns;
+        std::vector<Row> rows;
       };
 
 
@@ -209,7 +209,7 @@ namespace archon
 
       template<typename Ch>
       BasicTable<Ch>::BasicTable(bool enable_ansi_term_attr):
-	enable_ansi_term_attr(enable_ansi_term_attr) {}
+        enable_ansi_term_attr(enable_ansi_term_attr) {}
 
       template<typename Ch> typename BasicTable<Ch>::StringType
       BasicTable<Ch>::print(int max_table_width, int col_spacing,
@@ -217,23 +217,23 @@ namespace archon
       {
         if(col_spacing < 0) col_spacing = 0;
 
-	// Widen some fixed strings
-	BasicLocaleCharMapper<CharType> mapper(loc);
+        // Widen some fixed strings
+        BasicLocaleCharMapper<CharType> mapper(loc);
         StringType const nl   = mapper.widen("\n");
         StringType const sp   = mapper.widen(" ");
         StringType const dash = mapper.widen("-");
 
         // Determine number of columns
         size_t cols = columns.size();
-	for(size_t i=0; i<rows.size(); ++i)
+        for(size_t i=0; i<rows.size(); ++i)
           if(cols < rows[i].cells.size()) cols = rows[i].cells.size();
 
-	if(!cols) return StringType();
+        if(!cols) return StringType();
 
         // Produce desired column width fractions
         double sum = 0;
         int n = 0;
-	for(size_t i=0; i<columns.size(); ++i)
+        for(size_t i=0; i<columns.size(); ++i)
           if(0 < columns[i].desired_width)
           {
             sum += columns[i].desired_width;
@@ -241,14 +241,14 @@ namespace archon
           }
         double average = n ? sum/n : 1;
         sum += (cols-n)*average;
-	std::vector<double> col_width_fracs(cols);
-	for(size_t i=0; i<cols; ++i)
+        std::vector<double> col_width_fracs(cols);
+        for(size_t i=0; i<cols; ++i)
           col_width_fracs[i] = (i<columns.size() &&  0 < columns[i].desired_width ?
                                 columns[i].desired_width : average)/sum;
 
-	// Calculate actual column widths
-	std::vector<int> col_widths(cols);
-	for(size_t i=0; i<rows.size(); ++i)
+        // Calculate actual column widths
+        std::vector<int> col_widths(cols);
+        for(size_t i=0; i<rows.size(); ++i)
         {
           Row const &r = rows[i];
           for(size_t j=0; j<r.cells.size(); ++j)
@@ -259,65 +259,65 @@ namespace archon
           }
         }
 
-	// Calculate total width
-	int cell_width_sum = 0;
-	for(size_t i=0; i<cols; ++i) cell_width_sum += col_widths[i];
+        // Calculate total width
+        int cell_width_sum = 0;
+        for(size_t i=0; i<cols; ++i) cell_width_sum += col_widths[i];
         int table_width = cell_width_sum + (cols-1) * col_spacing;
 
-	bool reformat = 0 < max_table_width && max_table_width < table_width;
-	if(reformat)
-	{
-	  // Calculate column excesses
-	  int max_cell_width_sum = max_table_width - int(cols-1) * col_spacing;
-	  std::vector<double> excess(cols);
-	  for(size_t i=0; i<cols; ++i)
-	    excess[i] = col_widths[i] - max_cell_width_sum * col_width_fracs[i];
-	  while(max_table_width < table_width)
-	  {
-	    // Find column with greatest excess
-	    double e = -std::numeric_limits<double>::infinity();
-	    int j = -1;
-	    for(size_t i=0; i<cols; ++i) if(e < excess[i]) e = excess[j = i];
-	    // Reduce column width by one character
-	    if(1 < col_widths[j]) --col_widths[j];
-	    --excess[j];
-	    --table_width;
-	  }
-	}
+        bool reformat = 0 < max_table_width && max_table_width < table_width;
+        if(reformat)
+        {
+          // Calculate column excesses
+          int max_cell_width_sum = max_table_width - int(cols-1) * col_spacing;
+          std::vector<double> excess(cols);
+          for(size_t i=0; i<cols; ++i)
+            excess[i] = col_widths[i] - max_cell_width_sum * col_width_fracs[i];
+          while(max_table_width < table_width)
+          {
+            // Find column with greatest excess
+            double e = -std::numeric_limits<double>::infinity();
+            int j = -1;
+            for(size_t i=0; i<cols; ++i) if(e < excess[i]) e = excess[j = i];
+            // Reduce column width by one character
+            if(1 < col_widths[j]) --col_widths[j];
+            --excess[j];
+            --table_width;
+          }
+        }
 
-	// Render table
-	StringType buffer;
+        // Render table
+        StringType buffer;
         Term::AnsiAttributes reset_attr, running_attr;
         if(enable_ansi_term_attr)
           buffer += mapper.widen(Term::AnsiAttributes::get_reset_seq());
 
-	for(size_t i=0; i<rows.size(); ++i)
-	{
+        for(size_t i=0; i<rows.size(); ++i)
+        {
           Row const &row = rows[i];
-	  std::vector<StringType> formatted_row(cols);
+          std::vector<StringType> formatted_row(cols);
 
           // Format each cell in the row, and determine number of text
           // lines required by this row. We want at least one line,
           // even when all the cells are empty.
-	  int h = 1;
-	  for(size_t j=0; j<cols; ++j)
-	  {
-	    StringType t = j<row.cells.size() ? row.cells[j].text : StringType();
+          int h = 1;
+          for(size_t j=0; j<cols; ++j)
+          {
+            StringType t = j<row.cells.size() ? row.cells[j].text : StringType();
             if(reformat) t = format(t, col_widths[j], loc);
             formatted_row[j] = t;
-	    int _h = height(t, nl[0]);
-	    if(h < _h) h = _h;
-	  }
+            int _h = height(t, nl[0]);
+            if(h < _h) h = _h;
+          }
 
           Term::AnsiAttributes row_attr;
           table_attr.apply_to(row_attr);
           if(!(i%2)) odd_row_attr.apply_to(row_attr);
           row.apply_to(row_attr);
 
-	  for(int l=0; l<h; ++l)
-	  {
-	    for(size_t j=0; j<cols; ++j)
-	    {
+          for(int l=0; l<h; ++l)
+          {
+            for(size_t j=0; j<cols; ++j)
+            {
               if(enable_ansi_term_attr)
               {
                 Term::AnsiAttributes a = row_attr;
@@ -327,8 +327,8 @@ namespace archon
                 buffer += mapper.widen(running_attr.update(a));
               }
 
-	      StringType cell_line = extract_line(formatted_row[j], l, nl[0]);
-	      buffer += cell_line;
+              StringType cell_line = extract_line(formatted_row[j], l, nl[0]);
+              buffer += cell_line;
 
               if(!enable_ansi_term_attr && j == cols-1) continue;
 
@@ -346,70 +346,70 @@ namespace archon
 
               // Output column spacing if this is not the last column
               if(j<cols-1) for(int k=0; k<col_spacing; ++k) buffer += sp;
-	    }
+            }
 
-	    buffer += nl;
-	  }
+            buffer += nl;
+          }
 
-	  if(header && !i)
-	  {
-	    for(int j=0; j<table_width; ++j) buffer += dash;
-	    buffer += nl;
-	  }
-	}
+          if(header && !i)
+          {
+            for(int j=0; j<table_width; ++j) buffer += dash;
+            buffer += nl;
+          }
+        }
 
-	return buffer;
+        return buffer;
       }
 
       template<typename Ch> int BasicTable<Ch>::width(StringType s, CharType nl)
       {
-	int w = 0;
+        int w = 0;
         size_t p = 0;
-	do
-	{
-	  size_t _p = s.find(nl, p);
-	  if(_p == StringType::npos) _p = s.size();
-	  int _w = _p - p;
-	  if(w < _w) w = _w;
-	  p = _p + 1;
-	}
-	while(p <= s.size());
-	return w;
+        do
+        {
+          size_t _p = s.find(nl, p);
+          if(_p == StringType::npos) _p = s.size();
+          int _w = _p - p;
+          if(w < _w) w = _w;
+          p = _p + 1;
+        }
+        while(p <= s.size());
+        return w;
       }
 
       template<typename Ch> int BasicTable<Ch>::height(StringType s, CharType nl)
       {
-	int h = 0, p = 0;
-	for(;;)
-	{
-	  size_t _p = s.find(nl, p);
-	  if(_p == StringType::npos)
-	  {
-	    if(0 < s.size() - p) ++h;
-	    break;
-	  }
-	  ++h;
-	  p = _p + 1;
-	}
+        int h = 0, p = 0;
+        for(;;)
+        {
+          size_t _p = s.find(nl, p);
+          if(_p == StringType::npos)
+          {
+            if(0 < s.size() - p) ++h;
+            break;
+          }
+          ++h;
+          p = _p + 1;
+        }
 
-	return h;
+        return h;
       }
 
       template<typename Ch> typename BasicTable<Ch>::StringType
       BasicTable<Ch>::extract_line(StringType s, int i, CharType nl)
       {
-	size_t p = 0;
-	while(0 < i)
-	{
-	  size_t _p = s.find(nl, p);
-	  if(_p == StringType::npos) return StringType(); // Actually we should throw an exception
-	  p = _p + 1;
-	  --i;
-	}
-	size_t q = s.find(nl, p);
-	if(q == StringType::npos) q = s.size();
-	if(p == s.size()) return StringType(); // Actually we should throw an exception
-	return s.substr(p, q-p);
+        size_t p = 0;
+        while(0 < i)
+        {
+          size_t _p = s.find(nl, p);
+          if(_p == StringType::npos) return StringType(); // Actually we should throw an exception
+          p = _p + 1;
+          --i;
+        }
+        size_t q = s.find(nl, p);
+        if(q == StringType::npos) q = s.size();
+        if(p == s.size()) return StringType(); // Actually we should throw an exception
+        return s.substr(p, q-p);
       }
     }
   }
