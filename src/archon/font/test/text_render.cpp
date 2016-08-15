@@ -110,20 +110,20 @@ int main(int argc, const char* argv[]) throw()
 
     if (opt_mixed) {
         renderer.write(L" ");
-        renderer.set_text_color(Color::red);
+        renderer.set_text_color(color::red);
         renderer.set_font_size(35, 35);
         renderer.set_font_boldness(1);
         renderer.write(L"Kristian ");
         renderer.set_letter_spacing(10);
         renderer.write(L"Kristian ");
 
-        renderer.set_text_color(Color::lime);
+        renderer.set_text_color(color::lime);
         renderer.set_font_size(25, 25);
         renderer.set_font_boldness(0);
         renderer.set_font_italicity(1);
         renderer.write(L"Spangsege ");
 
-        renderer.set_text_color(Color::fuchsia);
+        renderer.set_text_color(color::fuchsia);
         renderer.set_font_size(30, 30);
         renderer.set_font_italicity(0);
         renderer.set_font_family("URW Palladio L");
@@ -133,7 +133,7 @@ int main(int argc, const char* argv[]) throw()
         renderer.set_line_spacing(1);
         renderer.write(L"gh ");
 
-        renderer.set_text_color(Color::blue);
+        renderer.set_text_color(color::blue);
         renderer.set_font_size(45, 45);
         renderer.set_font_family("VL Gothic");
         renderer.write(L"Mandala");

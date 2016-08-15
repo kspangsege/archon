@@ -441,7 +441,7 @@ namespace
 
         vector<Vec3F> colors(num_colors);
         for(size_t i=0; i<num_colors; ++i)
-          colors[i] = Color::cvt_HSV_to_RGB(Vec3F(double(permutation[i])/num_colors, 0.3, 0.5));
+          colors[i] = color::cvt_HSV_to_RGB(Vec3F(double(permutation[i])/num_colors, 0.3, 0.5));
 
         for(size_t i=0; i<faces.size(); ++i) faces[i].color = colors[face_colors[i]];
       }

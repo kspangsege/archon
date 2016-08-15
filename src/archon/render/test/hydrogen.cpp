@@ -121,7 +121,7 @@ public:
             p.charge = elem_charge;
             p.mass   = prot_mass;
             p.radius = radius_scale * archon::math::cbrt(p.mass);
-            p.color  = Color::cvt_HSV_to_RGB(Vec3(double(i)/num_protons, 0.5, 1));
+            p.color  = color::cvt_HSV_to_RGB(Vec3(double(i)/num_protons, 0.5, 1));
         }
         for (int i = 0; i < num_electrons; ++i) {
             double loc = avg_elec_dist * lin_interp(i, 0, num_electrons-1, loc_range.begin, loc_range.end);
@@ -131,7 +131,7 @@ public:
             p.charge = -elem_charge;
             p.mass   = elec_mass;
             p.radius = radius_scale * archon::math::cbrt(p.mass);
-            p.color  = Color::cvt_HSV_to_RGB(Vec3(double(i)/num_electrons, 0.5, 1));
+            p.color  = color::cvt_HSV_to_RGB(Vec3(double(i)/num_electrons, 0.5, 1));
         }
 
         m_particles[num_protons].loc[2] = avg_elec_dist/20;
@@ -306,7 +306,7 @@ private:
         if (behind_before != behind_after) {
             double scale = 1000 / (6*avg_elec_dist);
             Vec3 v = track_elec_loc_before + (track_prot.loc[2] - track_elec_loc_before[2]) / (track_elec.loc[2] - track_elec_loc_before[2]) * (track_elec.loc - track_elec_loc_before);
-            m_image_writer.set_pos(500+scale*v[0], 500+scale*v[1]).put_pixel(Color::white);
+            m_image_writer.set_pos(500+scale*v[0], 500+scale*v[1]).put_pixel(color::white);
         }
     }
 

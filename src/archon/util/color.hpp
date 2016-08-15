@@ -51,7 +51,7 @@ namespace util {
 ///
 /// \sa http://www.rags-int-inc.com/PhotoTechStuff/DigitalFilm/ColorSpaces.html
 /// \sa http://www.w3.org/Graphics/Color/sRGB
-namespace Color {
+namespace color {
 
 /// This class defines a specific RGB color space by describing its gamut in the
 /// CIE XYZ reference color space.
@@ -494,7 +494,7 @@ template<class T> const T CIE_Lab<T>::delta = 3*b/2; // = 6/29
 template<class T> const T CIE_Lab<T>::t0    = delta*delta*delta;
 template<class T> const T CIE_Lab<T>::a     = 1/(3*delta*delta);
 
-} // namespace Color
+} // namespace color
 } // namespace util
 } // namespace archon
 

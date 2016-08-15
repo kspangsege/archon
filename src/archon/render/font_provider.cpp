@@ -121,7 +121,7 @@ struct FontProvider::TextureFontSource: TextureSource {
         const FontEntry* f = texture->font;
         Image::Ref img(Image::new_image(f->texture_width, f->texture_height, ColorSpace::get_Lum(), true));
         ImageWriter writer(img);
-        writer.set_foreground_color(Color::white);
+        writer.set_foreground_color(color::white);
         writer.set_background_color(PackedTRGB(0xFFFFFFFF)); // Fully transparent white
         writer.clear();
         writer.enable_color_mapping();

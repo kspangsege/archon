@@ -30,7 +30,7 @@
 
 namespace archon {
 namespace util {
-namespace Color {
+namespace color {
 
 constexpr PackedTRGB aliceblue            ( 240, 248, 255 );   // #f0f8ff
 constexpr PackedTRGB antiquewhite         ( 250, 235, 215 );   // #faebd7
@@ -180,7 +180,7 @@ constexpr PackedTRGB whitesmoke           ( 245, 245, 245 );   // #f5f5f5
 constexpr PackedTRGB yellow               ( 255, 255,   0 );   // #ffff00
 constexpr PackedTRGB transparent          (0,0,0,0);
 
-} // namespace Color
+} // namespace color
 } // namespace util
 } // namespace archon
 

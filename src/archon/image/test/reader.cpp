@@ -81,7 +81,7 @@ int main(int argc, const char *argv[]) throw()
     cout << "Buffer size = " << n * num_channels * sizeof *buffer.get() << endl;
 
     ImageReader r(in_file);
-    r.set_background_color(Color::red).set_clip(opt_clip[0], opt_clip[1], opt_clip[2], opt_clip[3]);
+    r.set_background_color(color::red).set_clip(opt_clip[0], opt_clip[1], opt_clip[2], opt_clip[3]);
     r.set_pos(opt_pos[0], opt_pos[1]).set_falloff(opt_falloff[0], opt_falloff[1]);
     r.get_block(buffer.get(), width, height, color_space, has_alpha);
 

@@ -1913,7 +1913,7 @@ Arch_Cursor::Ptr ConnectionImpl::new_cursor(Image::Ref image, int hotspot_x, int
             img_mask->put_image(Oper::pick_channel(image, image->get_num_channels()-1), 0, 0, false);
         }
         else {
-            img_mask->fill(Color::white);
+            img_mask->fill(color::white);
         }
 
         Pixmap base_pxm, mask_pxm;

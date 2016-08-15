@@ -271,7 +271,7 @@ namespace archon
       /**
        * Clear this image to black, and if it has an alpha channel,
        * then make it fully transparent. This is a shorthand for
-       * calling `fill(util::Color::transparent)`.
+       * calling `fill(util::color::transparent)`.
        *
        * \note Consider working through an \c ImageWriter instead,
        * since that provides greater flexibility and better
@@ -280,7 +280,7 @@ namespace archon
        *
        * \sa ImageWriter::clear
        */
-      void clear() { fill(util::Color::transparent); }
+      void clear() { fill(util::color::transparent); }
 
 
       /**

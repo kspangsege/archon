@@ -57,11 +57,11 @@ namespace
     static CanBlendWithBlack const can_blend_with_black = can_blend_with_black_Fast;
     template<typename Float> static void to_rgb(Float const *lum, Float *rgb)
     {
-      Color::cvt_Lum_to_RGB(lum[0], rgb);
+      color::cvt_Lum_to_RGB(lum[0], rgb);
     }
     template<typename Float> static void from_rgb(Float const *rgb, Float *lum)
     {
-      lum[0] = Color::cvt_RGB_to_Lum(rgb);
+      lum[0] = color::cvt_RGB_to_Lum(rgb);
     }
     template<typename Float>
     static void blend_with_black(Float const *lum1, Float *lum2, Float alpha)
@@ -105,11 +105,11 @@ namespace
     static CanBlendWithBlack const can_blend_with_black = can_blend_with_black_No;
     template<typename Float> static void to_rgb(Float const *xyz, Float *rgb)
     {
-      Color::cvt_XYZ_to_RGB(xyz, rgb);
+      color::cvt_XYZ_to_RGB(xyz, rgb);
     }
     template<typename Float> static void from_rgb(Float const *rgb, Float *xyz)
     {
-      Color::cvt_RGB_to_XYZ(rgb, xyz);
+      color::cvt_RGB_to_XYZ(rgb, xyz);
     }
   };
 
@@ -131,14 +131,14 @@ namespace
     template<typename Float> static void to_rgb(Float const *lab, Float *rgb)
     {
       Float xyz[3];
-      Color::CIE_Lab<Float>::to_xyz(lab, xyz);
-      Color::cvt_XYZ_to_RGB(xyz, rgb);
+      color::CIE_Lab<Float>::to_xyz(lab, xyz);
+      color::cvt_XYZ_to_RGB(xyz, rgb);
     }
     template<typename Float> static void from_rgb(Float const *rgb, Float *lab)
     {
       Float xyz[3];
-      Color::cvt_RGB_to_XYZ(rgb, xyz);
-      Color::CIE_Lab<Float>::from_xyz(xyz, lab);
+      color::cvt_RGB_to_XYZ(rgb, xyz);
+      color::CIE_Lab<Float>::from_xyz(xyz, lab);
     }
   };
 
@@ -159,11 +159,11 @@ namespace
     static CanBlendWithBlack const can_blend_with_black = can_blend_with_black_Fast;
     template<typename Float> static void to_rgb(Float const *hsv, Float *rgb)
     {
-      Color::cvt_HSV_to_RGB(hsv, rgb);
+      color::cvt_HSV_to_RGB(hsv, rgb);
     }
     template<typename Float> static void from_rgb(Float const *rgb, Float *hsv)
     {
-      Color::cvt_RGB_to_HSV(rgb, hsv);
+      color::cvt_RGB_to_HSV(rgb, hsv);
     }
     template<typename Float>
     static void blend_with_black(Float const *hsv1, Float *hsv2, Float alpha)
@@ -195,11 +195,11 @@ namespace
     static CanBlendWithBlack const can_blend_with_black = can_blend_with_black_No;
     template<typename Float> static void to_rgb(Float const *ycbcr, Float *rgb)
     {
-      Color::cvt_YCbCr_to_RGB(ycbcr, rgb);
+      color::cvt_YCbCr_to_RGB(ycbcr, rgb);
     }
     template<typename Float> static void from_rgb(Float const *rgb, Float *ycbcr)
     {
-      Color::cvt_RGB_to_YCbCr(rgb, ycbcr);
+      color::cvt_RGB_to_YCbCr(rgb, ycbcr);
     }
   };
 
@@ -220,11 +220,11 @@ namespace
     static CanBlendWithBlack const can_blend_with_black = can_blend_with_black_No;
     template<typename Float> static void to_rgb(Float const *cmyk, Float *rgb)
     {
-      Color::cvt_CMYK_to_RGB(cmyk, rgb);
+      color::cvt_CMYK_to_RGB(cmyk, rgb);
     }
     template<typename Float> static void from_rgb(Float const *rgb, Float *cmyk)
     {
-      Color::cvt_RGB_to_CMYK(rgb, cmyk);
+      color::cvt_RGB_to_CMYK(rgb, cmyk);
     }
   };
 

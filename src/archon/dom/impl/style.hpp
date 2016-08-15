@@ -286,7 +286,7 @@ namespace archon
         AugmentedLength line_height;
         void init()
         {
-          color = util::Color::white;
+          color = util::color::white;
           line_height.state = AugmentedLength::state_Auto; // 'normal'
         }
       } text;
@@ -294,7 +294,7 @@ namespace archon
       struct Background
       {
         Color color;
-        void init() { color = util::Color::transparent; }
+        void init() { color = util::color::transparent; }
       } background;
 
       struct Border
@@ -886,7 +886,7 @@ namespace archon
 
       void get_system_color(SystemColor, ComputedStyle::Color &color)
       {
-        color = util::Color::silver; // FIXME: Implement this!
+        color = util::color::silver; // FIXME: Implement this!
       }
 
       double get_std_border_width(NamedBorderWidth w) const

@@ -139,7 +139,7 @@ void build_scene(SceneBuilder& builder)
     builder.pop();
 
 /*
-    builder.set_color(Vec4(Color::red, 1));
+    builder.set_color(Vec4(color::red, 1));
 
     builder.push();
     builder.translate(Vec3(0, 0.5, 0));
@@ -147,7 +147,7 @@ void build_scene(SceneBuilder& builder)
     builder.add_sphere();
     builder.pop();
 
-    builder.set_color(Vec4(Color::green, 1));
+    builder.set_color(Vec4(color::green, 1));
 
     builder.push();
     builder.translate(Vec3(0, -0.5, 0));

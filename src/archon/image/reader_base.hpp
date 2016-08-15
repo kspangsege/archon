@@ -743,8 +743,8 @@ namespace archon
       if(color_slot_buffer) return;
       color_slot_buffer.reset(2 * 4 * bytes_per_best_float +
                               num_color_slots * pixel_format.bytes_per_pixel);
-      set_color(util::Color::transparent, false); // Background color
-      set_color(util::Color::black, true);        // Foreground color
+      set_color(util::color::transparent, false); // Background color
+      set_color(util::color::black, true);        // Foreground color
     }
 
 
