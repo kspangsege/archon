@@ -79,7 +79,7 @@ namespace
 
 namespace archon
 {
-  namespace Graphics
+  namespace graphics
   {
     template<class T> struct VirtualTrackball::FiniteCurveMemory
     {

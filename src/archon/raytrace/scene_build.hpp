@@ -40,7 +40,7 @@ namespace Raytrace {
 class SceneBuilder;
 
 std::unique_ptr<SceneBuilder>
-make_scene_builder(Raytracer&, Graphics::SpatialSceneBuilder* aux_builder = nullptr);
+make_scene_builder(Raytracer&, graphics::SpatialSceneBuilder* aux_builder = nullptr);
 
 
 /// A tool to help build new scenes for raytracing.

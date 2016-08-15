@@ -33,7 +33,7 @@
 
 
 namespace archon {
-namespace Graphics {
+namespace graphics {
 
 class SpatialObjectBuilder {
 public:
@@ -389,7 +389,7 @@ inline int SpatialSceneBuilder::do_make_texture(std::string image_path, bool rep
     return do_make_texture(image::Image::load(image_path), image_path, rep_s, rep_t);
 }
 
-} // namespace Graphics
+} // namespace graphics
 } // namespace archon
 
 #endif // ARCHON_GRAPHICS_SCENE_BUILDER_HPP

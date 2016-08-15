@@ -37,7 +37,7 @@
 namespace archon {
 namespace Render {
 
-class OpenGlSceneBuilder: public Graphics::SpatialSceneBuilder {
+class OpenGlSceneBuilder: public graphics::SpatialSceneBuilder {
 public:
     OpenGlSceneBuilder(GLuint list, TextureCache&, std::vector<TextureUse>* = nullptr,
                        bool mipmap = true);

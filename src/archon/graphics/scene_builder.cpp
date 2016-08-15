@@ -31,7 +31,7 @@
 
 using namespace std;
 using namespace archon::math;
-using namespace archon::Graphics;
+using namespace archon::graphics;
 
 
 namespace {
@@ -132,7 +132,7 @@ void build_mesh(SpatialObjectBuilder& builder, bool texture, int orient,
 
 
 namespace archon {
-namespace Graphics {
+namespace graphics {
 
 void build_xyz_mesh(SpatialObjectBuilder& builder, bool texture, bool reverse,
                     double x0, double x1, double y0, double y1, double z,
@@ -500,5 +500,5 @@ void build_torus(SpatialObjectBuilder& builder, bool texture,
     }
 }
 
-} // namespace Graphics
+} // namespace graphics
 } // namespace archon

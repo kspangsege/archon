@@ -38,7 +38,7 @@
 
 namespace archon
 {
-  namespace Graphics
+  namespace graphics
   {
     /**
      * The virtual trackball controls the orientation of the object
