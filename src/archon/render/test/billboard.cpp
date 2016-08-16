@@ -65,7 +65,7 @@ int main() throw()
   subframe_basis.col(2) = z;
   subframe_origin.set(ran.get_uniform(), ran.get_uniform(), ran.get_uniform());
 
-  Billboard::calculate_rotation(subframe_basis, subframe_origin, rot_axis, rot);
+  billboard::calculate_rotation(subframe_basis, subframe_origin, rot_axis, rot);
 
   cout << rot.axis << ":" << rot.angle << endl;
 

@@ -36,7 +36,7 @@ namespace archon
 {
   namespace render
   {
-    namespace Billboard
+    namespace billboard
     {
       /**
        * Rotate the local OpenGL coordinate system such that the

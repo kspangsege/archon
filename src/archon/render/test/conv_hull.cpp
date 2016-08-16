@@ -576,7 +576,7 @@ namespace
           Vec3 const &p = points[i];
           glPushMatrix();
           glTranslatef(p[0], p[1], p[2]);
-          double const angle = Billboard::rotate();
+          double const angle = billboard::rotate();
           glScalef(0.05, 0.05, 0.05);
           text_layout.set(&text_formatter, value_printer.print(i));
           Vec2 const size(text_layout.get_width(), text_layout.get_height());

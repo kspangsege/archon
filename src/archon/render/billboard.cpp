@@ -43,7 +43,7 @@ namespace archon
 {
   namespace render
   {
-    namespace Billboard
+    namespace billboard
     {
       double rotate(Vec3 const &rot_axis)
       {
