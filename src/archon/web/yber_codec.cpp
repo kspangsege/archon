@@ -58,7 +58,7 @@ namespace
         do
         {
           char c = s[i++];
-          int e = Base64::lookup_symbol(c);
+          int e = base64::lookup_symbol(c);
           if(0<=e)
           {
             t << '\0' << c;
@@ -69,7 +69,7 @@ namespace
           if(i==n) throw DecodeException("Unterminated escape sequence");
           if(f<3)
           {
-            e = Base64::value_from_symbol(s[i++]);
+            e = base64::value_from_symbol(s[i++]);
             t << '\0' << static_cast<unsigned char>(e+(f?f<2?128:192:e<45?0:e<47?1:e<54?11:e<58?37:e<59?38:64));
             continue;
           }
@@ -78,11 +78,11 @@ namespace
           else
           {
             if(i==n) throw DecodeException("Unterminated UTF-16 escape sequence");
-            m = Base64::value_from_symbol(s[i++]) + 3;
+            m = base64::value_from_symbol(s[i++]) + 3;
           }
           string::size_type const j = (m*4u + 2u) / 3u;
           if(n < i+j) throw DecodeException("Unterminated UTF-16 escape sequence");
-          string const l = Base64::decode(s.substr(i, j));
+          string const l = base64::decode(s.substr(i, j));
           char const p = l[0];
           for(string::size_type k=1; k<m; ++k) t << p << l[k];
           i += j;
@@ -90,7 +90,7 @@ namespace
         while(i<n);
         return transcode(t.str(), transcode_UTF_16BE, transcode_UTF_8);
       }
-      catch(Base64::BadCharException)
+      catch(base64::BadCharException)
       {
         throw DecodeException("Found bad base-64 character");
       }

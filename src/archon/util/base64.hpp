@@ -34,7 +34,7 @@ namespace archon
 {
   namespace util
   {
-    namespace Base64
+    namespace base64
     {
       /**
        * /return -1 if the specified symbol is not a base-64 symbol.

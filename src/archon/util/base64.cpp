@@ -61,7 +61,7 @@ namespace archon
 {
   namespace util
   {
-    namespace Base64
+    namespace base64
     {
       int lookup_symbol(char c)
       {
