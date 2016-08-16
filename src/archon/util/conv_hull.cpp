@@ -270,7 +270,7 @@ int const tri_dec[3] = { 2, 0, 1 };
 
 
 void generate_trifans_from_surface(size_t num_vertices, vector<Triangle> const &triangles,
-                                   size_t entry_triangle, ConvHull::TrifanHandler &handler)
+                                   size_t entry_triangle, conv_hull::TrifanHandler &handler)
 {
     vector<bool> seen_vertices(num_vertices);
     vector<bool> seen_triangles(triangles.size());
@@ -435,7 +435,7 @@ void validate_surface(vector<Facet> const &facets, size_t entry_facet,
 
 namespace archon {
 namespace util {
-namespace ConvHull {
+namespace conv_hull {
 
 /**
  * Quick hull
@@ -843,7 +843,7 @@ void TriangleHandler::close_trifan_set()
     state = 0;
 }
 
-} // namespace ConvHull
+} // namespace conv_hull
 } // namespace util
 } // namespace archon
 
@@ -876,7 +876,7 @@ namespace archon
 {
   namespace util
   {
-    namespace ConvHull
+    namespace conv_hull
     {
       void compute(vector<Vec3> const &points, TrifanHandler &handler)
       {

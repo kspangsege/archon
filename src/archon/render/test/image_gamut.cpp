@@ -49,7 +49,7 @@ using namespace archon::render;
 
 namespace
 {
-  struct TriangleSaver: ConvHull::TriangleHandler
+  struct TriangleSaver: conv_hull::TriangleHandler
   {
     void add_triangle(std::size_t a, std::size_t b, std::size_t c)
     {
@@ -126,7 +126,7 @@ int main(int argc, char const *argv[]) throw()
   Object object;
   {
     TriangleSaver triangles(points, object);
-    ConvHull::compute(points, triangles);
+    conv_hull::compute(points, triangles);
   }
 
   ofstream out("/tmp/out.obj");

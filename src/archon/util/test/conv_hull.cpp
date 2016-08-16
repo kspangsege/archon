@@ -49,7 +49,7 @@ Fail depth: 11
 
 namespace
 {
-  struct TrifanHandler: ConvHull::TrifanHandler
+  struct TrifanHandler: conv_hull::TrifanHandler
   {
     void add_vertex(size_t) {}
     void close_trifan() {}
@@ -81,7 +81,7 @@ int main(int argc, char const *argv[]) throw()
       for(int i=0; i<num_points; ++i) points.push_back(Vec3(random.get_uint<unsigned>(31)/31.0-0.5,
                                                             random.get_uint<unsigned>(31)/31.0-0.5,
                                                             random.get_uint<unsigned>(31)/31.0-0.5));
-      ConvHull::compute(points, trifan_handler, max_depth);
+      conv_hull::compute(points, trifan_handler, max_depth);
     }
   }
   catch(...)
@@ -94,7 +94,7 @@ int main(int argc, char const *argv[]) throw()
     {
       try
       {
-        ConvHull::compute(points, trifan_handler, i+1);
+        conv_hull::compute(points, trifan_handler, i+1);
       }
       catch(...)
       {

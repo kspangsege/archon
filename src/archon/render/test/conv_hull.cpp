@@ -128,7 +128,7 @@ namespace
   };
 
 
-  struct TrifanHandler: ConvHull::TrifanHandler
+  struct TrifanHandler: conv_hull::TrifanHandler
   {
     void add_vertex(size_t point_index)
     {
@@ -352,7 +352,7 @@ namespace
       trifan_sets.clear();
       error = false;
       TrifanHandler trifan_handler(&vertices, &trifans, &trifan_sets);
-      ConvHull::compute(points, trifan_handler, max_depth);
+      conv_hull::compute(points, trifan_handler, max_depth);
 
       size_t const num_faces = accumulate(trifans.begin(), trifans.end(), 0);
       faces.resize(num_faces);

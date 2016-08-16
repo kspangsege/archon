@@ -37,7 +37,7 @@ namespace archon
 {
   namespace util
   {
-    namespace ConvHull
+    namespace conv_hull
     {
       struct TrifanHandler
       {
