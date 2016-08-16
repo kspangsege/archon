@@ -48,7 +48,7 @@ int main(int argc, char const *argv[]) throw()
   opts.add_group<ListConfig>(font_cfg, "font");
   if(int stop = opts.process(argc, argv)) return stop == 2 ? 0 : 1;
 
-  FontList::Ptr const list = make_font_list(File::dir_of(argv[0])+"../../", font_cfg);
+  FontList::Ptr const list = make_font_list(file::dir_of(argv[0])+"../../", font_cfg);
   if(!list) return 1;
 
   wstring const text = 1 < argc ? env_decode<wchar_t>(argv[1]) :

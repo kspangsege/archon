@@ -130,7 +130,7 @@ namespace archon
 
     UniquePtr<InputStream> make_file_input_stream(string file_name)
     {
-      UniquePtr<InputStream> s(new FileInputStream(File::open(file_name), true));
+      UniquePtr<InputStream> s(new FileInputStream(file::open(file_name), true));
       return s;
     }
 
@@ -143,7 +143,7 @@ namespace archon
 
     UniquePtr<OutputStream> make_file_output_stream(string file_name)
     {
-      UniquePtr<OutputStream> s(new FileOutputStream(File::creat(file_name), true));
+      UniquePtr<OutputStream> s(new FileOutputStream(file::creat(file_name), true));
       return s;
     }
   }

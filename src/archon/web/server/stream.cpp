@@ -41,7 +41,7 @@ namespace archon
     {
       void FileInputStream::open(string p)
       {
-        fildes = File::open(p);
+        fildes = file::open(p);
         must_close = true;
         closed = false;
       }

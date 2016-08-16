@@ -303,22 +303,22 @@ namespace
         string name = scanner->next_entry();
         if(name.empty()) break;
         string path = dir+name;
-        File::Stat stat(path);
+        file::Stat stat(path);
         switch(stat.get_type())
         {
-        case File::Stat::type_Regular:
+        case file::Stat::type_Regular:
           {
             int const n = loader->check_file(path);
             for(int i=0; i<n; ++i) add_face_unchecked(path, i);
           }
           break;
-        case File::Stat::type_Directory:
+        case file::Stat::type_Directory:
           if(recurse)
             try
             {
               scan_dir(path+"/", true);
             }
-            catch(File::AccessException &) {}
+            catch(file::AccessException &) {}
           break;
         default:
           break;
@@ -484,7 +484,7 @@ namespace archon
       Text::SimpleTokenizer<char> tokenizer(in, ":", Text::SimpleTokenizer<char>::incl_empty,
                                             locale::classic());
       string dir;
-      while(tokenizer.generate(dir)) if(File::is_dir(dir)) scan_dir(dir, recursive);
+      while(tokenizer.generate(dir)) if(file::is_dir(dir)) scan_dir(dir, recursive);
     }
 
 

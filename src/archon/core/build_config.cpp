@@ -65,16 +65,16 @@ namespace archon
 
     void try_fix_preinstall_datadir(string argv0, string subdir)
     {
-      string dir = File::dir_of(argv0);
+      string dir = file::dir_of(argv0);
       if (dir.empty()) return;
-      dir = File::canonicalize_path(File::resolve_path(dir, File::get_cwd()));
+      dir = file::canonicalize_path(file::resolve_path(dir, file::get_cwd()));
 
       // A special hook to recognize and handle the case where the
       // executing program is invoked through a Libtool wrapper.
       string const libtool_dir = ".libs/";
       if (Text::is_suffix("/"+libtool_dir, dir)) {
         // The 'lt-' prefix appears to not always be used
-//        if (Text::is_prefix("lt-", File::name_of(argv0))) {
+//        if (Text::is_prefix("lt-", file::name_of(argv0))) {
           dir = Text::get_prefix(libtool_dir, dir, true);
 //        }
       }
@@ -84,7 +84,7 @@ namespace archon
         dir = Text::get_prefix(subdir, dir, true);
       }
 
-      if(File::exists(dir+"core/build_config.hpp")) {
+      if(file::exists(dir+"core/build_config.hpp")) {
         Mutex::Lock lock(mutex);
         data_dir = dir;
       }

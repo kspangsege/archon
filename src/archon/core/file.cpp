@@ -54,14 +54,14 @@ namespace archon
 {
   namespace core
   {
-    namespace File
+    namespace file
     {
       int open(string p) throw(AccessException)
       {
         int const fd = ::open(p.c_str(), O_RDONLY);
         if (fd < 0) {
           int const e = errno;
-          File::throw_file_access_exception(e, "Could not open \""+p+"\" for reading: "+
+          file::throw_file_access_exception(e, "Could not open \""+p+"\" for reading: "+
                                             sys::error(e));
         }
         return fd;
@@ -73,7 +73,7 @@ namespace archon
         int const fd = ::creat(p.c_str(), S_IRUSR|S_IWUSR|S_IRGRP|S_IWGRP|S_IROTH|S_IWOTH);
         if (fd < 0) {
           int const e = errno;
-          File::throw_file_access_exception(e, "Could not open \""+p+"\" for writing: "+
+          file::throw_file_access_exception(e, "Could not open \""+p+"\" for writing: "+
                                             sys::error(e));
         }
         return fd;
@@ -90,14 +90,14 @@ namespace archon
           if (errno != ERANGE) {
             int errnum = errno;
             delete[] buffer;
-            throw runtime_error("Utilities::File::get_cwd: 'getcwd' failed: " +
+            throw runtime_error("core::file::get_cwd: 'getcwd' failed: " +
                                 sys::error(errnum));
           }
 
           delete[] buffer;
           buffer_size += 1024;
           if (buffer_size > max_cwd_buffer_size)
-            throw runtime_error("System::File::get_cwd: Path is too long");
+            throw runtime_error("core::file::get_cwd: Path is too long");
         }
         string result = buffer;
         delete[] buffer;
@@ -170,7 +170,7 @@ namespace archon
         if(fstat(fildes, &s))
         {
           int const e = errno;
-          throw runtime_error("Utilities::File::Stat::Stat: 'stat "+
+          throw runtime_error("core::file::Stat::Stat: 'stat "+
                               Text::print(fildes)+"' failed: "+sys::error(e));
         }
 
@@ -327,10 +327,10 @@ namespace archon
         {
         case ENOENT:  // No such file or directory
         case ENOTDIR: // Not a directory
-          throw File::NotFoundException(m);
+          throw file::NotFoundException(m);
 
         case EACCES:  // Permission denied
-          throw File::PermissionException(m);
+          throw file::PermissionException(m);
 
           // Temporary lack of resources
         case EMFILE:  // Too many open files

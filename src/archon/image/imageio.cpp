@@ -67,7 +67,7 @@ namespace archon
         // Secondary auto-detection
         if(format_name.empty())
         {
-          string suffix = ascii_tolower(File::suffix_of(source_name));
+          string suffix = ascii_tolower(file::suffix_of(source_name));
           if(!suffix.empty())
             for(int i=0; i<registry->get_num_formats(); ++i)
             {
@@ -115,7 +115,7 @@ namespace archon
         if(format_name.empty())
         {
           // Determine format by suffix
-          string suffix = ascii_tolower(File::suffix_of(target_name));
+          string suffix = ascii_tolower(file::suffix_of(target_name));
           if(!suffix.empty())
             for(int i=0; i<registry->get_num_formats(); ++i)
             {

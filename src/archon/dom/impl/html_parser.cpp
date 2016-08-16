@@ -3873,7 +3873,7 @@ void DefaultResolver::resolve(const StringUtf16&,
         try {
             in.reset(make_file_input_stream(uri_decomp.get_path()).release());
         }
-        catch (File::AccessException &e) {
+        catch (file::AccessException &e) {
             throw ResolveException("Failed to open '"+uri_decomp.get_path()+"': " + e.what());
         }
     }

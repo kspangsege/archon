@@ -114,10 +114,10 @@ namespace
       path = base + path;
       try
       {
-        File::Stat stat(path);
+        file::Stat stat(path);
         switch(stat.get_type())
         {
-        case File::Stat::type_Regular:
+        case file::Stat::type_Regular:
           {
             string const type = mime_magic->check(path);
             r.reset(new FileResource(path, stat.get_size(), type));
@@ -128,7 +128,7 @@ namespace
           break;
         }
       }
-      catch(File::AccessException &e)
+      catch(file::AccessException &e)
       {
         throw RequestException(status_404_Not_Found,
                                "Unable to access '"+path+"': "+string(e.what()));

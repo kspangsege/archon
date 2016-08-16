@@ -150,7 +150,7 @@ struct FontProvider::TextureFontSource: TextureSource {
         }
 
         if (save) {
-            string p = File::get_temp_dir()+name+".png";
+            string p = file::get_temp_dir()+name+".png";
             img->save(p);
             cout << "Saved '"<<p<<"'" << endl;
         }

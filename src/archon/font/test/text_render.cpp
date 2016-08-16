@@ -90,7 +90,7 @@ int main(int argc, const char* argv[]) throw()
     if (int stop = opts.process(argc, argv))
         return stop == 2 ? 0 : 1;
 
-    FontList::Ptr list = make_font_list(File::dir_of(argv[0])+"../../", font_cfg);
+    FontList::Ptr list = make_font_list(file::dir_of(argv[0])+"../../", font_cfg);
     if (!list)
         return 1;
 

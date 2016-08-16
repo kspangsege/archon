@@ -75,7 +75,7 @@ int main(int argc, char const *argv[]) throw()
   opts.add_param("i", "image", opt_image, "Image to be written through the selected view");
   if(int stop = opts.process(argc, argv)) return stop == 2 ? 0 : 1;
 
-  if(opt_image.empty()) opt_image = File::dir_of(argv[0])+"../alley_baggett.png";
+  if(opt_image.empty()) opt_image = file::dir_of(argv[0])+"../alley_baggett.png";
 
   Image::Ref image = ImageIO::load(*make_stdin_stream(), "stream:in:std");
   Image::Ref view;

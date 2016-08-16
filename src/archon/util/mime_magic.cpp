@@ -77,7 +77,7 @@ namespace
       magic_close(cookie);
     }
 
-    string check(string p) const throw(File::AccessException)
+    string check(string p) const throw(file::AccessException)
     {
       string type;
       {
@@ -86,7 +86,7 @@ namespace
         if(!r)
         {
           int const e = magic_errno(cookie);
-          if(e != 0) File::throw_file_access_exception(e, "'magic_file' failed");
+          if(e != 0) file::throw_file_access_exception(e, "'magic_file' failed");
           throw runtime_error("'magic_file' failed: "+string(magic_error(cookie)));
         }
         type = r;
@@ -149,9 +149,9 @@ namespace
       types.insert(make_pair(ext, mime_type));
     }
 
-    string check(string p) const throw(File::AccessException)
+    string check(string p) const throw(file::AccessException)
     {
-      string const s = File::suffix_of(p);
+      string const s = file::suffix_of(p);
       if(s.empty()) return fallback;
       Types::const_iterator const i = types.find(ascii_tolower(s));
       if(i == types.end()) return fallback;
@@ -203,7 +203,7 @@ namespace
     MagicProxy()  { get_manager().acquire(); }
     ~MagicProxy() { get_manager().release(); }
 
-    string check(string p) const throw(File::AccessException)
+    string check(string p) const throw(file::AccessException)
     {
       return get_manager().checker->check(p);
     }

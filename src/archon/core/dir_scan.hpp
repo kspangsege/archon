@@ -51,10 +51,10 @@ namespace archon
        *
        * \return A new scanner object.
        *
-       * \throw File::NotFoundException When the directory could not
+       * \throw file::NotFoundException When the directory could not
        * be found or it was not a directory.
        *
-       * \throw File::PermissionException When access to the directory
+       * \throw file::PermissionException When access to the directory
        * is forbidden.
        *
        * \note Ownership of the returned scanner object is passed to

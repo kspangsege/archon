@@ -55,7 +55,7 @@ namespace archon
        * \return The MIME type of the specified file.
        */
       virtual std::string check(std::string filesys_path) const
-        throw(core::File::AccessException) = 0;
+        throw(core::file::AccessException) = 0;
 
       virtual ~MimeMagician() {}
     };

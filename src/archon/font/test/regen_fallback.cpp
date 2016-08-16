@@ -84,7 +84,7 @@ int main(int argc, char const *argv[]) throw()
   opts.add_group(font_cfg, "font");
   if(int stop = opts.process(argc, argv)) return stop == 2 ? 0 : 1;
 
-  UniquePtr<FontFace> face(load_font(File::dir_of(argv[0])+"../../", font_cfg).release());
+  UniquePtr<FontFace> face(load_font(file::dir_of(argv[0])+"../../", font_cfg).release());
   if(!face) return 1;
 
   string target_png  = "/tmp/fallback-font.png";

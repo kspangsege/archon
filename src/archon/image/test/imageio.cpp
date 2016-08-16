@@ -67,7 +67,7 @@ struct Tracker: FileFormat::ProgressTracker
 
 int main(int argc, const char *argv[]) throw()
 {
-  string in_file = argc < 2 ? File::dir_of(argv[0])+"../alley_baggett.png" : argv[1];
+  string in_file = argc < 2 ? file::dir_of(argv[0])+"../alley_baggett.png" : argv[1];
 
   Tracker tracker;
   Image::Ref image1 = ImageIO::load(in_file, "", &Logger::get_default_logger(), &tracker);

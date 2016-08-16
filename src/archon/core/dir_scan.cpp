@@ -135,7 +135,7 @@ namespace
       if(!dirp)
       {
         int errnum = errno;
-        File::throw_file_access_exception(errnum, "'opendir' failed: "+sys::error(errnum));
+        file::throw_file_access_exception(errnum, "'opendir' failed: "+sys::error(errnum));
       }
       size_t size = dirent_buf_size(dirp);
       if(!size) throw runtime_error("Cannot determine size of 'struct dirent'");

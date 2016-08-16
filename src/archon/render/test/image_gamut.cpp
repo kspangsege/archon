@@ -87,7 +87,7 @@ int main(int argc, char const *argv[]) throw()
   opts.check_num_args(0,1);
   if(int stop = opts.process(argc, argv)) return stop == 2 ? 0 : 1;
 
-  string in_file  = argc < 2 ? File::dir_of(argv[0])+"../alley_baggett.png" : argv[1];
+  string in_file  = argc < 2 ? file::dir_of(argv[0])+"../alley_baggett.png" : argv[1];
   Image::ConstRef image = Image::load(in_file);
 
   vector<Vec3> points;

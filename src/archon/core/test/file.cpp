@@ -29,8 +29,8 @@ using namespace archon::core;
 
 int main() throw()
 {
-  cout << "CWD  = '" << File::get_cwd() << "'\n";
-  cout << "HOME = '" << File::get_home_dir() << "'\n";
+  cout << "CWD  = '" << file::get_cwd() << "'\n";
+  cout << "HOME = '" << file::get_home_dir() << "'\n";
 
   return 0;
 }

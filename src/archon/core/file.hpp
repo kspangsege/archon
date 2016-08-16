@@ -42,7 +42,7 @@ namespace archon
     /**
      * Functions for working with the file system.
      */
-    namespace File
+    namespace file
     {
       struct AccessException: std::runtime_error
       {

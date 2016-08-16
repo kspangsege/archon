@@ -254,11 +254,11 @@ int main(int argc, const char* argv[]) throw()
     if (int stop = opts.process(argc, argv))
         return stop == 2 ? EXIT_SUCCESS : EXIT_FAILURE;
 
-    std::string in_file  = argc < 2 ? File::dir_of(argv[0])+"../alley_baggett.png" : argv[1];
+    std::string in_file  = argc < 2 ? file::dir_of(argv[0])+"../alley_baggett.png" : argv[1];
     Image::ConstRef image = Image::load(in_file);
 
-    out_prefix = "dither-" + File::stem_of(in_file);
-    out_prefix += "-" + (opt_palette.empty() ? "custom" : File::stem_of(opt_palette));
+    out_prefix = "dither-" + file::stem_of(in_file);
+    out_prefix += "-" + (opt_palette.empty() ? "custom" : file::stem_of(opt_palette));
     out_prefix += "-" + ascii_tolower(opt_color_space.str());
 
     std::string out_file = argc < 3 ? out_prefix+(opt_no_pal_clamp ? "-3-direct_dither.png" : "-5-final.png") : argv[2];

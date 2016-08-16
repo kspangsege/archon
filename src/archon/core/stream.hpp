@@ -416,10 +416,10 @@ namespace archon
      *
      * \param file_path The file system path of the file to read from.
      *
-     * \throw File::NotFoundException When the file could not be
+     * \throw file::NotFoundException When the file could not be
      * found or it was a directory.
      *
-     * \throw File::PermissionException When access to the directory
+     * \throw file::PermissionException When access to the directory
      * is forbidden.
      *
      * \note This implementation does not support thread

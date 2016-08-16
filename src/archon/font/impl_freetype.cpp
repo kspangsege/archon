@@ -618,13 +618,13 @@ namespace
     {
       // Some font files have extra "strap on" files with metrics and
       // kerning information
-      string const suffix = File::suffix_of(f);
+      string const suffix = file::suffix_of(f);
       if(suffix == "pfa" || suffix == "pfb") // Type 1 fonts (a.k.a. PostScript fonts)
       {
-        string const stem = File::dir_of(f)+File::stem_of(f)+".";
+        string const stem = file::dir_of(f)+file::stem_of(f)+".";
         string const afm = stem + "afm";
         // We don't care if it fails, this is entirely opportunistic
-        if(File::is_regular(afm)) FT_Attach_File(face, afm.c_str());
+        if(file::is_regular(afm)) FT_Attach_File(face, afm.c_str());
       }
 
       UniquePtr<FontFace> f(new FaceImpl(this, face, w, h));

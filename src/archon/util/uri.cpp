@@ -294,7 +294,7 @@ namespace archon
             }
           }
         }
-        if (normalize_path) path = File::canonicalize_path(path, false);
+        if (normalize_path) path = file::canonicalize_path(path, false);
       }
 
 

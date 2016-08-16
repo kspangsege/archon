@@ -40,7 +40,7 @@ using namespace archon::image;
 
 int main(int argc, const char *argv[]) throw()
 {
-  string in_file  = argc < 2 ? File::dir_of(argv[0])+"../alley_baggett.png" : argv[1];
+  string in_file  = argc < 2 ? file::dir_of(argv[0])+"../alley_baggett.png" : argv[1];
   string out_file = argc < 3 ? "/tmp/archon_image_writer.png" : argv[2];
 
   ColorSpace::ConstRef color_space = ColorSpace::get_YCbCr();
@@ -87,9 +87,9 @@ int main(int argc, const char *argv[]) throw()
   // Write entire images
   {
     vector<string> letters;
-    letters.push_back(File::dir_of(argv[0])+"../Q-small.png");
-    letters.push_back(File::dir_of(argv[0])+"../R-small.png");
-    letters.push_back(File::dir_of(argv[0])+"../S-small.png");
+    letters.push_back(file::dir_of(argv[0])+"../Q-small.png");
+    letters.push_back(file::dir_of(argv[0])+"../R-small.png");
+    letters.push_back(file::dir_of(argv[0])+"../S-small.png");
     w.set_clip().enable_blending();
     double x = 0.5, y = 0.5, r = 0.4;
     for(int i=0;i<24; ++i)
@@ -99,7 +99,7 @@ int main(int argc, const char *argv[]) throw()
     }
   }
 
-  w.set_rel_pos(0.5, 0.5).put_image(File::dir_of(argv[0])+"../16bit_gray_alpha.png");
+  w.set_rel_pos(0.5, 0.5).put_image(file::dir_of(argv[0])+"../16bit_gray_alpha.png");
 
   w.save(out_file);
   cout << "Image saved to: " << out_file << endl;
