@@ -37,7 +37,7 @@ using namespace archon::dom_impl;
 
 namespace {
 
-class Callbacks: public HtmlParser::Callbacks {
+class Callbacks: public html_parser::Callbacks {
 public:
     void doctype_begin(const StringUtf16& name,
                        const StringUtf16& public_id,
@@ -54,7 +54,7 @@ public:
     }
 
     void elem_begin(const StringUtf16& name,
-                    const vector<HtmlParser::Attr>& a) ARCHON_OVERRIDE
+                    const vector<html_parser::Attr>& a) ARCHON_OVERRIDE
     {
         cout << format_start_tag(name, a) << "\n";
     }
@@ -64,15 +64,15 @@ public:
         cout << "</" << encode(decode(name)) << ">\n";
     }
 
-    void script(const vector<HtmlParser::Attr>& a, InlineStream& inline_script,
-                HtmlParser::DocWriter& doc) ARCHON_OVERRIDE
+    void script(const vector<html_parser::Attr>& a, InlineStream& inline_script,
+                html_parser::DocWriter& doc) ARCHON_OVERRIDE
     {
         wstring s = decode(inline_script.read_all(70));
         cout << format_start_tag(utf16_from_port("SCRIPT"), a) << encode(s) << "</SCRIPT>\n";
         doc.write(utf16_from_port(" Odif\nRalf "));
     }
 
-    void style(const vector<HtmlParser::Attr>& a, InlineStream& inline_style) ARCHON_OVERRIDE
+    void style(const vector<html_parser::Attr>& a, InlineStream& inline_style) ARCHON_OVERRIDE
     {
         wstring s = decode(inline_style.read_all(70));
         cout << format_start_tag(utf16_from_port("STYLE"), a) << encode(s) << "</STYLE>\n";
@@ -100,10 +100,10 @@ public:
     }
 
 private:
-    string format_start_tag(const StringUtf16& name, const vector<HtmlParser::Attr>& a)
+    string format_start_tag(const StringUtf16& name, const vector<html_parser::Attr>& a)
     {
         string s = '<' + encode(decode(name));
-        typedef vector<HtmlParser::Attr>::const_iterator iter;
+        typedef vector<html_parser::Attr>::const_iterator iter;
         iter e = a.end();
         for (iter i = a.begin(); i != e; ++i) {
             s += ' ';
@@ -168,17 +168,17 @@ int main(int argc, const char* argv[]) throw ()
         return stop == 2 ? 0 : 1;
 
     UniquePtr<InputStream> in(make_stdin_stream().release());
-    HtmlParser::Source src(*in);
+    html_parser::Source src(*in);
     src.charenc = utf16_from_port(opt_Charenc);
     Callbacks cb;
-    HtmlParser::DefaultResolver resolv;
+    html_parser::DefaultResolver resolv;
     Logger* logger = &Logger::get_default_logger();
-    HtmlParser::Config config;
+    html_parser::Config config;
     config.treat_warnings_as_errors      = opt_TreatWarningsAsErrors;
     config.die_on_first_error            = opt_AbortOnError;
     config.case_insensitive              = opt_CaseInsens;
     config.accept_xml_1_0_names          = opt_XhtmlCompat;
     config.enable_meta_charenc_switching = opt_CharencSwitch;
     config.report_comments               = opt_ReportComments;
-    HtmlParser::parse_html(src, cb, resolv, logger, config);
+    html_parser::parse_html(src, cb, resolv, logger, config);
 }

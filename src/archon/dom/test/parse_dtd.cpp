@@ -38,7 +38,7 @@ using namespace archon::dom_impl;
 
 namespace {
 
-class Callbacks: public HtmlParser::Callbacks {
+class Callbacks: public html_parser::Callbacks {
 public:
     void proc_instr(const StringUtf16& text) ARCHON_OVERRIDE
     {
@@ -96,7 +96,7 @@ int main(int argc, const char* argv[]) throw ()
         return stop == 2 ? 0 : 1;
 
     UniquePtr<InputStream> in;
-    HtmlParser::DefaultResolver resolv;
+    html_parser::DefaultResolver resolv;
     StringUtf16 uri;
     StringUtf16 charenc;
     if (argc < 2) {
@@ -112,16 +112,16 @@ int main(int argc, const char* argv[]) throw ()
     }
     if (!opt_Charenc.empty())
         charenc = utf16_from_narrow(opt_Charenc, locale());
-    HtmlParser::Source src(*in);
+    html_parser::Source src(*in);
     src.system_ident = uri;
     src.charenc = charenc;
     src.base_uri = uri;
     Callbacks cb;
     Logger* logger = &Logger::get_default_logger();
-    HtmlParser::Config config;
+    html_parser::Config config;
     config.treat_warnings_as_errors = opt_TreatWarningsAsErrors;
     config.die_on_first_error       = opt_AbortOnError;
     config.case_insensitive         = opt_CaseInsens;
     config.accept_xml_1_0_names     = opt_AllowXml10Names;
-    HtmlParser::parse_dtd(src, cb, resolv, logger, config);
+    html_parser::parse_dtd(src, cb, resolv, logger, config);
 }

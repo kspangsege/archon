@@ -36,7 +36,7 @@
 
 namespace archon {
 namespace dom_impl {
-namespace HtmlParser {
+namespace html_parser {
 
 class Source;
 class Callbacks;
@@ -268,7 +268,7 @@ private:
 };
 
 
-} // namespace HtmlParser
+} // namespace html_parser
 } // namespace dom_impl
 } // namespace archon
 

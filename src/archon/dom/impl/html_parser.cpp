@@ -796,7 +796,7 @@ Two modes for handling general entities:
 namespace {
 
 using namespace archon::dom_impl;
-using namespace HtmlParser;
+using namespace html_parser;
 
 
 typedef std::char_traits<CharUtf16> TraitsU16;
@@ -3815,7 +3815,7 @@ private:
 
 namespace archon {
 namespace dom_impl {
-namespace HtmlParser {
+namespace html_parser {
 
 
 void parse_html(const Source& src, Callbacks& cb, Resolver& resolv, Logger* logger,
@@ -3924,6 +3924,6 @@ void Callbacks::proc_instr(const core::StringUtf16&)
 }
 
 
-} // namespace HtmlParser
+} // namespace html_parser
 } // namespace dom_impl
 } // namespace archon

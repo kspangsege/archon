@@ -56,7 +56,7 @@ namespace dom = archon::dom;
 
 namespace {
 
-class DomBuilder: public HtmlParser::Callbacks {
+class DomBuilder: public html_parser::Callbacks {
 public:
     DomBuilder(const dom::ref<HTMLImplementation>& i):
         impl(i),
@@ -90,7 +90,7 @@ public:
     }
 
     void elem_begin(const StringUtf16& name,
-                    const std::vector<HtmlParser::Attr>& attribs) override
+                    const std::vector<html_parser::Attr>& attribs) override
     {
         flush_text();
 
@@ -121,7 +121,7 @@ public:
         // Apply attributes
         {
             Element* elem = level->elem.get();
-            for (const HtmlParser::Attr& attr: attribs) {
+            for (const html_parser::Attr& attr: attribs) {
                 elem->setAttribute(attr.name, attr.value);
 /*
                 dom::DOMString ns2;
@@ -151,8 +151,8 @@ public:
         level = levels.empty() ? 0 : &levels.back();
     }
 
-    void script(const std::vector<HtmlParser::Attr>& attribs, InlineStream& inline_script,
-                HtmlParser::DocWriter& doc) override
+    void script(const std::vector<html_parser::Attr>& attribs, InlineStream& inline_script,
+                html_parser::DocWriter& doc) override
     {
         elem_begin(tag_script, attribs);
         std::cout << quote(decode(inline_script.read_all(70))) << "\n";
@@ -160,7 +160,7 @@ public:
         elem_end(tag_script);
     }
 
-    void style(const std::vector<HtmlParser::Attr>& attribs, InlineStream& inline_style) override
+    void style(const std::vector<html_parser::Attr>& attribs, InlineStream& inline_style) override
     {
         elem_begin(tag_style, attribs);
         std::cout << quote(decode(inline_style.read_all(70))) << "\n";
@@ -204,7 +204,7 @@ public:
             std::cout << "<?"<<encode(s)<<">\n";
 
         dom::DOMString target, data;
-        if (!HtmlParser::parse_xml_proc_instr(text, target, data))
+        if (!html_parser::parse_xml_proc_instr(text, target, data))
             data = text;
 
         if (doc) {
@@ -296,7 +296,7 @@ private:
     WideLocaleCodec codec;
     StringUtf16 tag_script, tag_style;
 
-    std::string format_start_tag(const StringUtf16& name, const std::vector<HtmlParser::Attr>& a)
+    std::string format_start_tag(const StringUtf16& name, const std::vector<html_parser::Attr>& a)
     {
         std::string s = '<' + encode(decode(name));
         auto e = a.end();
@@ -464,7 +464,7 @@ int main(int argc, const char* argv[])
     dom::ref<HTMLDocument> doc;
     {
         UniquePtr<InputStream> in;
-        HtmlParser::DefaultResolver resolv;
+        html_parser::DefaultResolver resolv;
         StringUtf16 uri;
         StringUtf16 charenc;
         if (argc < 2) {
@@ -480,20 +480,20 @@ int main(int argc, const char* argv[])
         }
         if (!opt_Charenc.empty())
             charenc = utf16_from_narrow(opt_Charenc, std::locale());
-        HtmlParser::Source src(*in);
+        html_parser::Source src(*in);
         src.system_ident = uri;
         src.charenc = charenc;
         dom::ref<HTMLImplementation> html_impl(new HTMLImplementation);
         DomBuilder dom_builder(html_impl);
         Logger* logger = &Logger::get_default_logger();
-        HtmlParser::Config config;
+        html_parser::Config config;
         config.treat_warnings_as_errors      = opt_TreatWarningsAsErrors;
         config.die_on_first_error            = opt_AbortOnError;
         config.case_insensitive              = opt_CaseInsens;
         config.accept_xml_1_0_names          = opt_XhtmlCompat;
         config.enable_meta_charenc_switching = opt_CharencSwitch;
         config.report_comments               = opt_ReportComments;
-        HtmlParser::parse_html(src, dom_builder, resolv, logger, config);
+        html_parser::parse_html(src, dom_builder, resolv, logger, config);
         doc = dom_builder.get_doc();
     }
 
