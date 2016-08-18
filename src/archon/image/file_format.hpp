@@ -182,7 +182,7 @@ public:
 
     /**
      * A container for a set of file formats allowing you to lookup
-     * a format by name. A registry is used by \c ImageIO.load as a
+     * a format by name. A registry is used by image::load() as a
      * basis for auto-detecting the format of the file or stream.
      *
      * With the exception of \c register_format, all the methods must
