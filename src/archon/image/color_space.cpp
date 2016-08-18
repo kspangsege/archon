@@ -40,7 +40,7 @@ using namespace std;
 using namespace archon::core;
 using namespace archon::util;
 using namespace archon::image;
-namespace ImageImpl = archon::image::_impl;
+namespace image_impl = archon::image::_impl;
 
 
 namespace
@@ -274,23 +274,23 @@ namespace
   };
 
   template<typename T>
-  struct CustToRGB: ImageImpl::AlphaSet<CustCvt<T, false, true, ColorSpace::alpha_No>,
-                                        CustCvt<T, false, true, ColorSpace::alpha_Keep>,
-                                        CustCvt<T, false, true, ColorSpace::alpha_Add>,
-                                        CustCvt<T, false, true, ColorSpace::alpha_Discard>,
-                                        CustCvt<T, false, true, ColorSpace::alpha_Merge> > {};
+  struct CustToRGB: image_impl::AlphaSet<CustCvt<T, false, true, ColorSpace::alpha_No>,
+                                         CustCvt<T, false, true, ColorSpace::alpha_Keep>,
+                                         CustCvt<T, false, true, ColorSpace::alpha_Add>,
+                                         CustCvt<T, false, true, ColorSpace::alpha_Discard>,
+                                         CustCvt<T, false, true, ColorSpace::alpha_Merge> > {};
   template<typename T>
-  struct CustFromRGB: ImageImpl::AlphaSet<CustCvt<T, true, false, ColorSpace::alpha_No>,
-                                          CustCvt<T, true, false, ColorSpace::alpha_Keep>,
-                                          CustCvt<T, true, false, ColorSpace::alpha_Add>,
-                                          CustCvt<T, true, false, ColorSpace::alpha_Discard>,
-                                          CustCvt<T, true, false, ColorSpace::alpha_Merge> > {};
+  struct CustFromRGB: image_impl::AlphaSet<CustCvt<T, true, false, ColorSpace::alpha_No>,
+                                           CustCvt<T, true, false, ColorSpace::alpha_Keep>,
+                                           CustCvt<T, true, false, ColorSpace::alpha_Add>,
+                                           CustCvt<T, true, false, ColorSpace::alpha_Discard>,
+                                           CustCvt<T, true, false, ColorSpace::alpha_Merge> > {};
   template<typename T>
-  struct CustToSelf: ImageImpl::AlphaSet<CustCvt<T, false, false, ColorSpace::alpha_No>,
-                                         CustCvt<T, false, false, ColorSpace::alpha_Keep>,
-                                         CustCvt<T, false, false, ColorSpace::alpha_Add>,
-                                         CustCvt<T, false, false, ColorSpace::alpha_Discard>,
-                                         CustCvt<T, false, false, ColorSpace::alpha_Merge> > {};
+  struct CustToSelf: image_impl::AlphaSet<CustCvt<T, false, false, ColorSpace::alpha_No>,
+                                          CustCvt<T, false, false, ColorSpace::alpha_Keep>,
+                                          CustCvt<T, false, false, ColorSpace::alpha_Add>,
+                                          CustCvt<T, false, false, ColorSpace::alpha_Discard>,
+                                          CustCvt<T, false, false, ColorSpace::alpha_Merge> > {};
 
   enum CustWay
   {

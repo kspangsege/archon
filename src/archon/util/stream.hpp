@@ -77,8 +77,6 @@ namespace archon
      * of input streams.
      *
      * It is legal to rewind even after having seen the end-of-input.
-     *
-     * \sa Image::ImageIO
      */
     template<class Ch> struct BasicRewindableStream: core::BasicInputStream<Ch>
     {

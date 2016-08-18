@@ -18,73 +18,76 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #include <limits>
 #include <iostream>
 #include <iomanip>
 
+#include <archon/core/cxx.hpp>
+#include <archon/core/build_config.hpp>
 #include <archon/core/text.hpp>
 #include <archon/core/file.hpp>
 #include <archon/image/imageio.hpp>
 #include <archon/image/writer.hpp>
 
 
-using namespace std;
 using namespace archon::core;
 using namespace archon::util;
 using namespace archon::image;
 
-struct Tracker: FileFormat::ProgressTracker
-{
-  void defined(BufferedImage::ConstRefArg i) throw()
-  {
-    cerr << "=================================================== Defined ===================================================" << endl;
-    image = i;
-  }
+class Tracker: public FileFormat::ProgressTracker {
+public:
+    void defined(BufferedImage::ConstRefArg i) throw()
+    {
+        std::cerr << "=================================================== Defined ===================================================\n";
+        image = i;
+    }
 
-  void progress(double fraction) throw()
-  {
-    ostringstream o1, o2;
-    o1 << fixed<<setprecision(0)<<setw(3)<<setfill('0')<<fraction*100<<"%";
-    string s = o1.str();
-    cerr << "=================================================== Progress "<<s<<"% ===================================================" << endl;
-    // o2 <<"/tmp/img-"<<setw(3)<<setfill('0')<<++counter<<"-"<<s<<".png";
-    // string path = o2.str();
-    // image->save(path);
-    // cout << "Saved: "<<path<< endl;
-  }
+    void progress(double fraction) throw()
+    {
+        std::ostringstream o1, o2;
+        o1 << std::fixed<<std::setprecision(0)<<std::setw(3)<<std::setfill('0')<<fraction*100<<"%";
+        std::string s = o1.str();
+        std::cerr << "=================================================== Progress "<<s<<"% ===================================================\n";
+        // o2 <<"/tmp/img-"<<std::setw(3)<<std::setfill('0')<<++counter<<"-"<<s<<".png";
+        // std::string path = o2.str();
+        // image->save(path);
+        // std::cout << "Saved: "<<path<< std::endl;
+    }
 
-  Tracker(): counter(0) {}
-
-  Image::ConstRef image;
-  int counter;
+    Image::ConstRef image;
+    int counter = 0;
 };
+
 
 int main(int argc, const char *argv[]) throw()
 {
-  string in_file = argc < 2 ? file::dir_of(argv[0])+"../alley_baggett.png" : argv[1];
+    std::set_terminate(&cxx::terminate_handler);
 
-  Tracker tracker;
-  Image::Ref image1 = ImageIO::load(in_file, "", &Logger::get_default_logger(), &tracker);
+    try_fix_preinstall_datadir(argv[0], "image/test/");
 
-  // Might be a good idea to have Libjpeg convert YCbCr to RGB by default, since it can do it before conversion to integer representation.
-//  Image::Ref image1 = Image::load("/home/kristian/persist/images/KimPossible/Kim_Possible_03.jpg");
-//  Image::Ref image1 = Image::load();
-//  Image::Ref image2 = Image::load("/home/kristian/persist/devel/local/archon/src/archon/image/test/dille2alpha.png");
+    std::string assets_dir = get_value_of(build_config_param_DataDir) + "image/test/";
 
-  ImageWriter(image1).set_clip(10, 10, 80, 80).set_foreground_color(PackedTRGB(0x80FFFF00)).fill();
+    std::string in_file = (argc < 2 ? assets_dir+"alley_baggett.png" : argv[1]);
 
-  cout << image1->get_color_space()->get_mnemonic(image1->has_alpha_channel()) << endl;
+    Tracker tracker;
+    Image::Ref image_1 = load_image(in_file, "", &Logger::get_default_logger(), &tracker);
 
-//  image1->put_image(image2->get_sub_view(-50, -50, 100, 100, 2, 2), 100, 100, 0, 0, 300, 300);
-  string const out_file = "/tmp/archon_image_imageio.png";
-  image1->save(out_file);
-  cout << "Image saved to: " << out_file << endl;
-  cout << get_word_type_name(image1->get_word_type()) << endl;
-  return 0;
+    // Might be a good idea to have Libjpeg convert YCbCr to RGB by default, since it can do it before conversion to integer representation.
+//    Image::Ref image_1 = Image::load(assets_dir+"kim_possible_3.jpg");
+//    Image::Ref image_1 = Image::load();
+//    Image::Ref image_2 = Image::load(assets_dir+"dille2alpha.png");
+
+    ImageWriter(image_1).set_clip(10, 10, 80, 80).set_foreground_color(PackedTRGB(0x80FFFF00)).fill();
+
+    std::cout << image_1->get_color_space()->get_mnemonic(image_1->has_alpha_channel()) << std::endl;
+
+//    image_1->put_image(image2->get_sub_view(-50, -50, 100, 100, 2, 2), 100, 100, 0, 0, 300, 300);
+    std::string out_file = "/tmp/archon_image_imageio.png";
+    image_1->save(out_file);
+    std::cout << "Image saved to: " << out_file << std::endl;
+    std::cout << get_word_type_name(image_1->get_word_type()) << std::endl;
 }
