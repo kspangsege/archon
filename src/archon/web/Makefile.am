@@ -1,5 +1,5 @@
-#SUBDIRS = . test server
-SUBDIRS = . test
+SUBDIRS = . test server
+#SUBDIRS = . test
 
 subincludedir = $(pkgincludedir)/web
 subinclude_HEADERS = yber_codec.hpp

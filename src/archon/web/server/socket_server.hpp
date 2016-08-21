@@ -64,7 +64,7 @@ namespace archon
         typedef core::DeletingMap<int, Connection> Connections;
         Connections connections;
         std::vector<int> pending_close;
-        Thread::SelectSpec select_spec;
+        thread::SelectSpec select_spec;
       };
 
 
@@ -97,12 +97,12 @@ namespace archon
         void resume_read();
         void resume_write();
 
-        void reset(Thread::SelectSpec *, Connection *, int fd);
+        void reset(thread::SelectSpec *, Connection *, int fd);
         bool process();
         void try_read();
         void try_write();
 
-        Thread::SelectSpec *select_spec;
+        thread::SelectSpec *select_spec;
         Connection *conn;
         int fildes;
         StreamState read_state, write_state;

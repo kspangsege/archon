@@ -22,8 +22,9 @@
 ///
 /// \author Kristian Spangsege
 
-#include <stdexcept>
+#include <algorithm>
 #include <iterator>
+#include <stdexcept>
 #include <sstream>
 #include <iostream>
 
@@ -49,11 +50,11 @@ namespace {
 void find_non_sp_ht(const std::string& s, std::string::size_type from,
                     std::string::size_type &begin, std::string::size_type &end)
 {
-    auto n = s.size();
-    for (auto i = from; i < n; ++i) {
+    std::string::size_type n = s.size(), i, j;
+    for (i = from; i < n; ++i) {
         char c = s[i];
         if (c != ' ' && c != '\t') {
-            for (auto j = n; i+1 < j; --j) {
+            for (j = n; i+1 < j; --j) {
                 char d = s[j-1];
                 if (d != ' ' && d != '\t')
                     break;
@@ -99,7 +100,7 @@ public:
             }
 
             const char* end = begin + n;
-            const char* pos = find(begin, end, '\r');
+            const char* pos = std::find(begin, end, '\r');
             if (pos != end) {
                 need_lf = true;
                 offset += pos+1 - begin;
@@ -167,7 +168,7 @@ public:
 private:
     ConnectionImpl* const conn;
     StatusEnum status;
-    string message;
+    std::string message;
     const char* data;
     size_t size, pos;
 };
@@ -202,11 +203,11 @@ public:
     std::string find_header(Header h) const
     {
         Headers::const_iterator i = headers.find(h);
-        return i == headers.end() ? string() : i->second;
+        return i == headers.end() ? std::string() : i->second;
     }
 
     MethodEnum   method;
-    string       uri;
+    std::string  uri;
     ProtocolEnum protocol;
     Headers      headers;
 };
@@ -272,7 +273,7 @@ public:
 
 class Context {
 public:
-    using SubContexts = DeletingMap<string, Context>;
+    using SubContexts = DeletingMap<std::string, Context>;
     SubContexts sub_contexts;
     Resolver* resolver = nullptr;
 };
@@ -479,7 +480,7 @@ void ServerImpl::register_context(std::string p, Resolver* r)
             Context* d = ctx.get();
             c->sub_contexts.set_at(q.substr(i, j-i), ctx);
             c = d;
-            if (j == string::npos)
+            if (j == std::string::npos)
                 break;
             i = j+1;
         }
@@ -501,7 +502,7 @@ Context& ServerImpl::resolve(std::string& p)
             return *c;
         }
         c = k->second;
-        if (j == string::npos) {
+        if (j == std::string::npos) {
             p.clear();
             return *c;
         }
@@ -618,7 +619,7 @@ void ConnectionImpl::parse_request_header()
             std::string t = line.substr(0, i);
             if (!request.method.parse(t))
                 throw RequestException("Unknown method '"+t+"'");
-            if (i == string::npos) {
+            if (i == std::string::npos) {
                 i = line.size();
             }
             else {
@@ -628,7 +629,7 @@ void ConnectionImpl::parse_request_header()
             i = line.find(' ', k);
             t = line.substr(k, i-k);
             request.uri = t;
-            if (i == string::npos) {
+            if (i == std::string::npos) {
                 i = line.size();
             }
             else {
@@ -700,7 +701,7 @@ void ConnectionImpl::parse_request_header()
 
                 // Extract name from first line of header field
                 auto i = line.find(':');
-                if (i == string::npos)
+                if (i == std::string::npos)
                     throw RequestException("Malformed request header '"+line+"'");
                 std::string::size_type j,k;
                 find_non_sp_ht(line, i+1, j, k);
@@ -724,7 +725,7 @@ void ConnectionImpl::request_header_flush()
     }
     else {
         std::pair<Headers::iterator, bool> r =
-            request.headers.insert(make_pair(header, string()));
+            request.headers.insert(make_pair(header, std::string()));
         if (r.second) {
             r.first->second = request_header_value;
         }

@@ -190,7 +190,7 @@ namespace archon
       }
 
 
-      void SocketServer::Stream::reset(Thread::SelectSpec *s, Connection *c, int fd)
+      void SocketServer::Stream::reset(thread::SelectSpec *s, Connection *c, int fd)
       {
         select_spec = s;
         conn = c;
