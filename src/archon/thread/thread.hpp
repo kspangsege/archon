@@ -318,7 +318,7 @@ namespace archon
        *
        * \note This method is thread-safe.
        */
-      static bool select(SelectSpec &s, core::Time timeout = 0);
+      static bool select(SelectSpec &s, core::Time timeout = core::Time{});
 
 
       /**
@@ -394,7 +394,7 @@ namespace archon
        * reached. If \c timeout was 0, this method will always return
        * false.
        */
-      static bool main_exit_wait(core::Time timeout = 0);
+      static bool main_exit_wait(core::Time timeout = core::Time{});
 
     protected:
       /**

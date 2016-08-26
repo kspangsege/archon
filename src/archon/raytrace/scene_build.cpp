@@ -101,7 +101,7 @@ public:
     void add_box() override
     {
         if (m_aux_builder)
-            build_box(*m_aux_builder, !m_texture_path.empty());
+            build_centered_box(*m_aux_builder, !m_texture_path.empty());
         ensure_material();
         add(Object::make_box(m_material));
     }
@@ -130,12 +130,12 @@ public:
         add(Object::make_sphere(m_material));
     }
 
-    void add_torus(double major_radius) override
+    void add_torus(double minor_radius) override
     {
         if (m_aux_builder)
-            build_torus(*m_aux_builder, !m_texture_path.empty(), major_radius);
+            build_torus(*m_aux_builder, !m_texture_path.empty(), minor_radius);
         ensure_material();
-        add(Object::make_torus(m_material, major_radius));
+        add(Object::make_torus(m_material, minor_radius));
     }
 
     void add_directional_light() override

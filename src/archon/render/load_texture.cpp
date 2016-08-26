@@ -18,11 +18,9 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #include <stdexcept>
 #include <limits>
@@ -31,7 +29,7 @@
 
 #include <GL/gl.h>
 #ifdef ARCHON_HAVE_GLU
-#include <GL/glu.h>
+#  include <GL/glu.h>
 #endif
 
 #include <archon/core/assert.hpp>
@@ -41,506 +39,542 @@
 #include <archon/render/load_texture.hpp>
 
 
-using namespace std;
 using namespace archon::core;
 using namespace archon::image;
 using namespace archon::render;
 
-namespace
-{
-  struct ImageHandler
-  {
+namespace {
+
+class ImageHandler {
+public:
     virtual void handle(GLint internal_format, GLenum format,
-                        GLenum type, GLvoid const *buffer) const = 0;
+                        GLenum type, const GLvoid* buffer) const = 0;
     virtual ~ImageHandler() {}
-  };
+};
 
 
-  struct TextureLoader: ImageHandler
-  {
-    void handle(GLint internal_format, GLenum format, GLenum type, GLvoid const *buffer) const
+class TextureLoader: public ImageHandler {
+public:
+    void handle(GLint internal_format, GLenum format, GLenum type, const GLvoid* buffer) const override
     {
-      glTexImage2D(GL_TEXTURE_2D, 0, internal_format, width, height,
-                   with_border ? 1 : 0, format, type, buffer);
+        glTexImage2D(GL_TEXTURE_2D, 0, internal_format, width, height,
+                     with_border ? 1 : 0, format, type, buffer);
     }
-    TextureLoader(int w, int h, bool b): width(w), height(h), with_border(b) {}
-    int const width, height;
-    bool const with_border;
-  };
+    TextureLoader(int w, int h, bool b):
+        width(w),
+        height(h),
+        with_border(b)
+    {
+    }
+    const int width, height;
+    const bool with_border;
+};
 
 
 #ifdef ARCHON_HAVE_GLU
-  struct MipmapLoader: ImageHandler
-  {
-    void handle(GLint internal_format, GLenum format, GLenum type, GLvoid const *buffer) const
+
+class MipmapLoader: public ImageHandler {
+public:
+    void handle(GLint internal_format, GLenum format, GLenum type, const GLvoid* buffer) const override
     {
-      gluBuild2DMipmaps(GL_TEXTURE_2D, internal_format, width, height, format, type, buffer);
+        gluBuild2DMipmaps(GL_TEXTURE_2D, internal_format, width, height, format, type, buffer);
     }
-    MipmapLoader(int w, int h): width(w), height(h) {}
-    int const width, height;
-  };
-#endif
-
-
-#ifdef ARCHON_HAVE_GLU
-  struct MipmapLevelLoader: ImageHandler
-  {
-    void handle(GLint internal_format, GLenum format, GLenum type, GLvoid const *buffer) const
+    MipmapLoader(int w, int h):
+        width(w),
+        height(h)
     {
-      gluBuild2DMipmapLevels(GL_TEXTURE_2D, internal_format, width, height,
-                             format, type, level, base, max, buffer);
+    }
+    const int width, height;
+};
+
+
+class MipmapLevelLoader: public ImageHandler {
+public:
+    void handle(GLint internal_format, GLenum format, GLenum type, const GLvoid* buffer) const override
+    {
+        gluBuild2DMipmapLevels(GL_TEXTURE_2D, internal_format, width, height,
+                               format, type, level, base, max, buffer);
     }
     MipmapLevelLoader(int w, int h, int l, int b, int m):
-      width(w), height(h), level(l), base(b), max(m) {}
-    int const width, height, level, base, max;
-  };
-#endif
+        width(w),
+        height(h),
+        level(l),
+        base(b),
+        max(m)
+    {
+    }
+    const int width, height, level, base, max;
+};
+
+#endif // ARCHON_HAVE_GLU
 
 
-
-
-  struct ImageLoadInfo
-  {
+class ImageLoadInfo {
+public:
     bool have_word_type_8bit, have_word_type_16bit, have_word_type_32bit;
     WordType word_type_8bit, word_type_16bit, word_type_32bit;
 
 
-    struct GlImgFmt
-    {
-      bool swap_bytes;
-      GLenum format;
-      GLenum type;
-      GlImgFmt(bool swap_bytes, GLenum format, GLenum type):
-        swap_bytes(swap_bytes), format(format), type(type) {}
+    struct GlImgFmt {
+        bool swap_bytes;
+        GLenum format;
+        GLenum type;
+        GlImgFmt(bool swap_bytes, GLenum format, GLenum type):
+            swap_bytes(swap_bytes),
+            format(format),
+            type(type)
+        {
+        }
     };
 
     IntegerBufferFormat::Map<GlImgFmt> format_map;
 
 
-    static ImageLoadInfo const &get()
+    static const ImageLoadInfo& get()
     {
-      static ImageLoadInfo const info;
-      return info;
+        static const ImageLoadInfo info;
+        return info;
     }
 
 
-  private:
-    typedef IntegerBufferFormat::Channel       Ch;
-    typedef IntegerBufferFormat::ChannelLayout Layout;
+private:
+    using Ch = IntegerBufferFormat::Channel;
+    using Layout = IntegerBufferFormat::ChannelLayout;
 
     ImageLoadInfo()
     {
-      try
-      {
-        have_word_type_8bit = false;
-        word_type_8bit = get_word_type_by_bit_width(8);
-        have_word_type_8bit = true;
-      }
-      catch(NoSuchWordTypeException &) {}
-      try
-      {
-        have_word_type_16bit = false;
-        word_type_16bit = get_word_type_by_bit_width(16);
-        have_word_type_16bit = true;
-      }
-      catch(NoSuchWordTypeException &) {}
-      try
-      {
-        have_word_type_32bit = false;
-        word_type_32bit = get_word_type_by_bit_width(32);
-        have_word_type_32bit = true;
-      }
-      catch(NoSuchWordTypeException &) {}
+        try {
+            have_word_type_8bit = false;
+            word_type_8bit = get_word_type_by_bit_width(8);
+            have_word_type_8bit = true;
+        }
+        catch(NoSuchWordTypeException&)
+        {
+        }
+        try {
+            have_word_type_16bit = false;
+            word_type_16bit = get_word_type_by_bit_width(16);
+            have_word_type_16bit = true;
+        }
+        catch(NoSuchWordTypeException&)
+        {
+        }
+        try {
+            have_word_type_32bit = false;
+            word_type_32bit = get_word_type_by_bit_width(32);
+            have_word_type_32bit = true;
+        }
+        catch(NoSuchWordTypeException&)
+        {
+        }
 
+        // Add packed formats first.
+        //
+        // The general interpretation rule for packed OpenGL types is as
+        // follows:
+        //
+        // The numbers in 'GL_UNSIGNED_INT_10_10_10_2' or
+        // 'GL_UNSIGNED_INT_10_10_10_2_REV' states how many bits are used for
+        // each channel. The first number always represent the first channel,
+        // the second number represent the second channel, and so forth.
+        //
+        // Meanings are assigned to channels by the 'format'. A format of
+        // 'GL_RGBA' states that the first channel is the red channel, and the
+        // final channel is the alpha channel. If format is 'GL_BGRA' then the
+        // first channel is instrad the blue channel, but the final channel is
+        // still the alpha channel.
+        //
+        // When there is no '_REV' suffix, then the first channel occupies the
+        // most significant bits of the pixel entity (32-bit integer in the
+        // example above), and in general the channels occupy bits in order of
+        // decreasing significance.
+        //
+        // On the other hand, when there is a '_REV' suffix, the the bit order
+        // is reversed, and the first channel now occupies the least significant
+        // bits of the pixel entity.
+        //
 
-      // Add packed formats first.
-      //
-      // The general interpretation rule for packed OpenGL types is as
-      // follows:
-      //
-      // The numbers in 'GL_UNSIGNED_INT_10_10_10_2' or
-      // 'GL_UNSIGNED_INT_10_10_10_2_REV' states how many bits are
-      // used for each channel. The first number always represent the
-      // first channel, the second number represent the second
-      // channel, and so forth.
-      //
-      // Meanings are assigned to channels by the 'format'. A format
-      // of 'GL_RGBA' states that the first channel is the red
-      // channel, and the final channel is the alpha channel. If
-      // format is 'GL_BGRA' then the first channel is instrad the
-      // blue channel, but the final channel is still the alpha
-      // channel.
-      //
-      // When there is no '_REV' suffix, then the first channel
-      // occupies the most significant bits of the pixel entity
-      // (32-bit integer in the example above), and in general the
-      // channels occupy bits in order of decreasing significance.
-      //
-      // On the other hand, when there is a '_REV' suffix, the the bit
-      // order is reversed, and the first channel now occupies the
-      // least significant bits of the pixel entity.
-      //
-
-      if(have_word_type_8bit)
-      {
+        if(have_word_type_8bit) {
 #if defined GL_UNSIGNED_BYTE_3_3_2 && defined GL_UNSIGNED_BYTE_2_3_3_REV
-        add_packed_block(word_type_8bit, Layout(3, 3, 2),
-                         Layout(Ch(6, 2), Ch(3, 3), Ch(0, 3)),
-                         GL_UNSIGNED_BYTE_3_3_2, GL_UNSIGNED_BYTE_2_3_3_REV);
+            add_packed_block(word_type_8bit, Layout(3, 3, 2),
+                             Layout(Ch(6, 2), Ch(3, 3), Ch(0, 3)),
+                             GL_UNSIGNED_BYTE_3_3_2, GL_UNSIGNED_BYTE_2_3_3_REV);
 #endif
-      }
+        }
 
-      if(have_word_type_16bit)
-      {
+        if(have_word_type_16bit) {
 #if defined GL_UNSIGNED_SHORT_5_6_5 && defined GL_UNSIGNED_SHORT_5_6_5_REV
-        add_packed_block(word_type_16bit, Layout(5, 6, 5),
-                         Layout(Ch(11, 5), Ch(5, 6), Ch(0, 5)),
-                         GL_UNSIGNED_SHORT_5_6_5, GL_UNSIGNED_SHORT_5_6_5_REV);
+            add_packed_block(word_type_16bit, Layout(5, 6, 5),
+                             Layout(Ch(11, 5), Ch(5, 6), Ch(0, 5)),
+                             GL_UNSIGNED_SHORT_5_6_5, GL_UNSIGNED_SHORT_5_6_5_REV);
 #endif
 
 #if defined GL_UNSIGNED_SHORT_4_4_4_4 && defined GL_UNSIGNED_SHORT_4_4_4_4_REV
-        add_packed_block(word_type_16bit, Layout(4, 4, 4, 4),
-                         Layout(Ch(8, 4), Ch(4, 4), Ch(0, 4), Ch(12, 4)),
-                         GL_UNSIGNED_SHORT_4_4_4_4, GL_UNSIGNED_SHORT_4_4_4_4_REV);
+            add_packed_block(word_type_16bit, Layout(4, 4, 4, 4),
+                             Layout(Ch(8, 4), Ch(4, 4), Ch(0, 4), Ch(12, 4)),
+                             GL_UNSIGNED_SHORT_4_4_4_4, GL_UNSIGNED_SHORT_4_4_4_4_REV);
 #endif
 
 #if defined GL_UNSIGNED_SHORT_5_5_5_1 && defined GL_UNSIGNED_SHORT_1_5_5_5_REV
-        add_packed_block(word_type_16bit, Layout(5, 5, 5, 1),
-                         Layout(Ch(10, 5), Ch(5, 5), Ch(0, 5), Ch(15, 1)),
-                         GL_UNSIGNED_SHORT_5_5_5_1, GL_UNSIGNED_SHORT_1_5_5_5_REV);
+            add_packed_block(word_type_16bit, Layout(5, 5, 5, 1),
+                             Layout(Ch(10, 5), Ch(5, 5), Ch(0, 5), Ch(15, 1)),
+                             GL_UNSIGNED_SHORT_5_5_5_1, GL_UNSIGNED_SHORT_1_5_5_5_REV);
 #endif
-      }
+        }
 
-      if(have_word_type_32bit)
-      {
+        if(have_word_type_32bit) {
 #if defined GL_UNSIGNED_INT_8_8_8_8 && defined GL_UNSIGNED_INT_8_8_8_8_REV
-        add_packed_block(word_type_32bit, Layout(8, 8, 8, 8),
-                         Layout(Ch(16, 8), Ch(8, 8), Ch(0, 8), Ch(24, 8)),
-                         GL_UNSIGNED_INT_8_8_8_8, GL_UNSIGNED_INT_8_8_8_8_REV);
+            add_packed_block(word_type_32bit, Layout(8, 8, 8, 8),
+                             Layout(Ch(16, 8), Ch(8, 8), Ch(0, 8), Ch(24, 8)),
+                             GL_UNSIGNED_INT_8_8_8_8, GL_UNSIGNED_INT_8_8_8_8_REV);
 #endif
 
 #if defined GL_UNSIGNED_INT_10_10_10_2 && defined GL_UNSIGNED_INT_2_10_10_10_REV
-        add_packed_block(word_type_32bit, Layout(10, 10, 10, 2),
-                         Layout(Ch(20, 10), Ch(10, 10), Ch(0, 10), Ch(30, 2)),
-                         GL_UNSIGNED_INT_10_10_10_2, GL_UNSIGNED_INT_2_10_10_10_REV);
+            add_packed_block(word_type_32bit, Layout(10, 10, 10, 2),
+                             Layout(Ch(20, 10), Ch(10, 10), Ch(0, 10), Ch(30, 2)),
+                             GL_UNSIGNED_INT_10_10_10_2, GL_UNSIGNED_INT_2_10_10_10_REV);
 #endif
-      }
+        }
 
 
-      // Add direct formats after the packed ones, such that if there
-      // are correspondences, then the packed variant will be used.
-      if(have_word_type_8bit)  add_direct_block(8,  word_type_8bit,  GL_UNSIGNED_BYTE);
-      if(have_word_type_16bit) add_direct_block(16, word_type_16bit, GL_UNSIGNED_SHORT);
-      if(have_word_type_32bit) add_direct_block(32, word_type_32bit, GL_UNSIGNED_INT);
+        // Add direct formats after the packed ones, such that if there are
+        // correspondences, then the packed variant will be used.
+        if (have_word_type_8bit)
+            add_direct_block(8, word_type_8bit,  GL_UNSIGNED_BYTE);
+        if (have_word_type_16bit)
+            add_direct_block(16, word_type_16bit, GL_UNSIGNED_SHORT);
+        if (have_word_type_32bit)
+            add_direct_block(32, word_type_32bit, GL_UNSIGNED_INT);
 
-//      format_map.dump_info(cerr);
+//        format_map.dump_info(std::cerr);
     }
 
-
-    void add_packed_block(WordType word_type, Layout const &rgb, Layout const &bgr,
+    void add_packed_block(WordType word_type, const Layout& rgb, const Layout& bgr,
                           GLenum gl_type, GLenum gl_type_rev)
     {
-      vector<bool> const &nat_end = native_endianness;
-      vector<bool> rev_end;
-      {
-        int const n = nat_end.size();
-        rev_end.resize(n);
-        for(int i=0; i<n; ++i) rev_end[i] = !nat_end[i];
-      }
-      bool const alpha = 3 < rgb.channels.size();
+        const std::vector<bool>& nat_end = native_endianness;
+        std::vector<bool> rev_end;
+        {
+            int n = nat_end.size();
+            rev_end.resize(n);
+            for (int i = 0; i < n; ++i)
+                rev_end[i] = !nat_end[i];
+        }
+        bool alpha = 3 < rgb.channels.size();
 
-      int i = format_map.add_channel_layout(rgb);
-      GLenum format = alpha ? GL_RGBA : GL_RGB;
-      format_map.add_format(word_type, nat_end, true,  i, GlImgFmt(false, format, gl_type));
-      format_map.add_format(word_type, nat_end, false, i, GlImgFmt(false, format, gl_type_rev));
-      format_map.add_format(word_type, rev_end, true,  i, GlImgFmt(true,  format, gl_type));
-      format_map.add_format(word_type, rev_end, false, i, GlImgFmt(true,  format, gl_type_rev));
+        int i = format_map.add_channel_layout(rgb);
+        GLenum format = alpha ? GL_RGBA : GL_RGB;
+        format_map.add_format(word_type, nat_end, true,  i, GlImgFmt(false, format, gl_type));
+        format_map.add_format(word_type, nat_end, false, i, GlImgFmt(false, format, gl_type_rev));
+        format_map.add_format(word_type, rev_end, true,  i, GlImgFmt(true,  format, gl_type));
+        format_map.add_format(word_type, rev_end, false, i, GlImgFmt(true,  format, gl_type_rev));
 
 #if defined GL_BGR && defined GL_BGRA
-      i = format_map.add_channel_layout(bgr);
-      format = alpha ? GL_BGRA : GL_BGR;
-      format_map.add_format(word_type, nat_end, true,  i, GlImgFmt(false, format, gl_type));
-      format_map.add_format(word_type, nat_end, false, i, GlImgFmt(false, format, gl_type_rev));
-      format_map.add_format(word_type, rev_end, true,  i, GlImgFmt(true,  format, gl_type));
-      format_map.add_format(word_type, rev_end, false, i, GlImgFmt(true,  format, gl_type_rev));
+        i = format_map.add_channel_layout(bgr);
+        format = alpha ? GL_BGRA : GL_BGR;
+        format_map.add_format(word_type, nat_end, true,  i, GlImgFmt(false, format, gl_type));
+        format_map.add_format(word_type, nat_end, false, i, GlImgFmt(false, format, gl_type_rev));
+        format_map.add_format(word_type, rev_end, true,  i, GlImgFmt(true,  format, gl_type));
+        format_map.add_format(word_type, rev_end, false, i, GlImgFmt(true,  format, gl_type_rev));
 #endif
     }
-
 
     void add_direct_block(int w, WordType word_type, GLenum gl_type)
     {
-      vector<bool> const &nat_end = native_endianness;
-      vector<bool> rev_end;
-      {
-        int const n = nat_end.size();
-        rev_end.resize(n);
-        for(int i=0; i<n; ++i) rev_end[i] = !nat_end[i];
-      }
-      IntegerBufferFormat::Map<GlImgFmt> &map = format_map;
+        const std::vector<bool>& nat_end = native_endianness;
+        std::vector<bool> rev_end;
+        {
+            int n = nat_end.size();
+            rev_end.resize(n);
+            for (int i = 0; i < n; ++i)
+                rev_end[i] = !nat_end[i];
+        }
+        IntegerBufferFormat::Map<GlImgFmt>& map = format_map;
 
-      int i = format_map.add_channel_layout(Layout(w));
-      map.add_format(word_type, nat_end, false, i, GlImgFmt(false, GL_LUMINANCE, gl_type));
-      map.add_format(word_type, rev_end, false, i, GlImgFmt(true,  GL_LUMINANCE, gl_type));
+        int i = format_map.add_channel_layout(Layout(w));
+        map.add_format(word_type, nat_end, false, i, GlImgFmt(false, GL_LUMINANCE, gl_type));
+        map.add_format(word_type, rev_end, false, i, GlImgFmt(true,  GL_LUMINANCE, gl_type));
 
-      i = format_map.add_channel_layout(Layout(w,w));
-      map.add_format(word_type, nat_end, false, i, GlImgFmt(false, GL_LUMINANCE_ALPHA, gl_type));
-      map.add_format(word_type, rev_end, false, i, GlImgFmt(true,  GL_LUMINANCE_ALPHA, gl_type));
+        i = format_map.add_channel_layout(Layout(w,w));
+        map.add_format(word_type, nat_end, false, i, GlImgFmt(false, GL_LUMINANCE_ALPHA, gl_type));
+        map.add_format(word_type, rev_end, false, i, GlImgFmt(true,  GL_LUMINANCE_ALPHA, gl_type));
 
-      i = format_map.add_channel_layout(Layout(w,w,w));
-      map.add_format(word_type, nat_end, false, i, GlImgFmt(false, GL_RGB, gl_type));
-      map.add_format(word_type, rev_end, false, i, GlImgFmt(true,  GL_RGB, gl_type));
+        i = format_map.add_channel_layout(Layout(w,w,w));
+        map.add_format(word_type, nat_end, false, i, GlImgFmt(false, GL_RGB, gl_type));
+        map.add_format(word_type, rev_end, false, i, GlImgFmt(true,  GL_RGB, gl_type));
 
-      i = format_map.add_channel_layout(Layout(w,w,w,w));
-      map.add_format(word_type, nat_end, false, i, GlImgFmt(false, GL_RGBA, gl_type));
-      map.add_format(word_type, rev_end, false, i, GlImgFmt(true,  GL_RGBA, gl_type));
+        i = format_map.add_channel_layout(Layout(w,w,w,w));
+        map.add_format(word_type, nat_end, false, i, GlImgFmt(false, GL_RGBA, gl_type));
+        map.add_format(word_type, rev_end, false, i, GlImgFmt(true,  GL_RGBA, gl_type));
 
 #ifdef GL_BGR
-      i = format_map.add_channel_layout(Layout(Ch(2*w, w), Ch(w, w), Ch(0, w)));
-      map.add_format(word_type, nat_end, false, i, GlImgFmt(false, GL_BGR, gl_type));
-      map.add_format(word_type, rev_end, false, i, GlImgFmt(true,  GL_BGR, gl_type));
+        i = format_map.add_channel_layout(Layout(Ch(2*w, w), Ch(w, w), Ch(0, w)));
+        map.add_format(word_type, nat_end, false, i, GlImgFmt(false, GL_BGR, gl_type));
+        map.add_format(word_type, rev_end, false, i, GlImgFmt(true,  GL_BGR, gl_type));
 #endif
 
 #ifdef GL_BGRA
-      i = format_map.add_channel_layout(Layout(Ch(2*w, w), Ch(w, w), Ch(0, w), Ch(3*w, w)));
-      map.add_format(word_type, nat_end, false, i, GlImgFmt(false, GL_BGRA, gl_type));
-      map.add_format(word_type, rev_end, false, i, GlImgFmt(true,  GL_BGRA, gl_type));
+        i = format_map.add_channel_layout(Layout(Ch(2*w, w), Ch(w, w), Ch(0, w), Ch(3*w, w)));
+        map.add_format(word_type, nat_end, false, i, GlImgFmt(false, GL_BGRA, gl_type));
+        map.add_format(word_type, rev_end, false, i, GlImgFmt(true,  GL_BGRA, gl_type));
 #endif
     }
-  };
+};
+
+} // unnamed namespace
+
+
+namespace archon {
+namespace render {
+
+void load_image(Image::ConstRefArg, int width, int height, const ImageHandler&);
+
+
+/// \todo FIXME: Some OpenGL implementations will only accept texture sizes
+/// whose width and height are \c 2**n+2*b where \c n is some non-negative
+/// integer and \c b is 1 if \c with_border is true, and 0 if it is false. In
+/// such cases we should manually resize the image.
+void load_texture(Image::ConstRefArg img, bool with_border, bool no_interp)
+{
+    int w = img->get_width(), h = img->get_height();
+    load_image(img, w, h, TextureLoader(w, h, with_border));
+
+    // Scale linearly when image is bigger than texture
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, no_interp ? GL_NEAREST : GL_LINEAR);
+    // Scale linearly when image is smaller than texture - disable mipmapping
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, no_interp ? GL_NEAREST : GL_LINEAR);
 }
 
 
+#ifdef ARCHON_HAVE_GLU
 
-
-namespace archon
+void load_mipmap(Image::ConstRefArg img)
 {
-  namespace render
-  {
-    void load_image(Image::ConstRefArg,
-                    int width, int height, ImageHandler const &);
+    int w = img->get_width(), h = img->get_height();
+    load_image(img, w, h, MipmapLoader(w,h));
+
+    // Scale linearly when image is bigger than texture
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    // Enable mipmapping when image is smaller than texture
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+}
+
+void load_mipmap_levels(Image::ConstRefArg img, int level,
+                        int first, int last, int min_avail, int max_avail)
+{
+    int w = img->get_width(), h = img->get_height();
+    if (w & w-1 != 0 || h & h-1 != 0)
+        throw std::invalid_argument("Image width or height is not a power of two");
+    if (first < 0)
+        first = level;
+    if (last  < 0)
+        last = first;
+    if (min_avail < 0)
+        min_avail = first;
+    if (max_avail < 0)
+        max_avail = last;
+    if (last < first || first < level)
+        throw std::invalid_argument("Bad level specification");
+    load_image(img, w, h, MipmapLevelLoader(w, h, level, first, last));
+
+    // Scale linearly when image is bigger than texture - disable mipmapping
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    // Scale linearly when image is smalled than texture - disable mipmapping
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+
+    // Set availble mipmap levels
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, min_avail);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL,  max_avail);
+}
+
+#else // !defined ARCHON_HAVE_GLU
+
+void load_mipmap(Image::ConstRefArg img)
+{
+    load_texture(img);
+}
+
+void load_mipmap_levels(Image::ConstRefArg img, int, int, int, int, int)
+{
+    load_texture(img);
+}
+
+#endif // !defined ARCHON_HAVE_GLU
 
 
-    /**
-     * \todo FIXME: Some OpenGL implementations will only accept
-     * texture sizes whose width and height are \c 2**n+2*b where \c n
-     * is some non-negative integer and \c b is 1 if \c with_border is
-     * true, and 0 if it is false. In such cases we should manually
-     * resize the image.
-     */
-    void load_texture(Image::ConstRefArg img, bool with_border, bool no_interp)
+void load_image(Image::ConstRefArg img, int width, int height, const ImageHandler& handler)
+{
+    Image::ConstRef img_keep_alive;
+
+    const ImageLoadInfo& info = ImageLoadInfo::get();
+
+    int num_channels;
+    bool swap_bytes;
+    int row_align_bytes;
+    GLenum gl_format;
+    GLenum gl_type;
+    const GLvoid* buffer;
+
+    // Use RGB if it the color space is neither Lum nor RGB.
+    ColorSpace::ConstRef color_space = img->get_color_space();
+    bool has_alpha = img->has_alpha_channel();
     {
-      int const w = img->get_width(), h = img->get_height();
-      load_image(img, w, h, TextureLoader(w, h, with_border));
-
-      // Scale linearly when image is bigger than texture
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, no_interp ? GL_NEAREST : GL_LINEAR);
-      // Scale linearly when image is smalled than texture - disable mipmapping
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, no_interp ? GL_NEAREST : GL_LINEAR);
-    }
-
-
-#ifdef ARCHON_HAVE_GLU
-    void load_mipmap(Image::ConstRefArg img)
-    {
-      int const w = img->get_width(), h = img->get_height();
-      load_image(img, w, h, MipmapLoader(w,h));
-
-      // Scale linearly when image is bigger than texture
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-      // Enable mipmapping when image is smaller than texture
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-    }
-#else
-    void load_mipmap(Image::ConstRefArg img)
-    {
-      load_texture(img);
-    }
-#endif
-
-
-#ifdef ARCHON_HAVE_GLU
-    void load_mipmap_levels(Image::ConstRefArg img, int level,
-                            int first, int last, int min_avail, int max_avail)
-    {
-      int const w = img->get_width(), h = img->get_height();
-      if(w & w-1 != 0 || h & h-1 != 0)
-        throw invalid_argument("Image width or height is not a power of two");
-      if(first < 0) first = level;
-      if(last  < 0) last  = first;
-      if(min_avail < 0) min_avail = first;
-      if(max_avail < 0) max_avail = last;
-      if(last < first || first < level) throw invalid_argument("Bad level specification");
-      load_image(img, w, h, MipmapLevelLoader(w, h, level, first, last));
-
-      // Scale linearly when image is bigger than texture - disable mipmapping
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-      // Scale linearly when image is smalled than texture - disable mipmapping
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-
-      // Set availble mipmap levels
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_BASE_LEVEL, min_avail);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL,  max_avail);
-    }
-#else
-    void load_mipmap_levels(Image::ConstRefArg img, int, int, int, int, int)
-    {
-      load_texture(img);
-    }
-#endif
-
-
-
-    void load_image(Image::ConstRefArg img, int width, int height,
-                    ImageHandler const &handler)
-    {
-      Image::ConstRef img_keep_alive;
-
-      ImageLoadInfo const &info = ImageLoadInfo::get();
-
-      int num_channels;
-      bool swap_bytes;
-      int row_align_bytes;
-      GLenum gl_format;
-      GLenum gl_type;
-      GLvoid const *buffer;
-
-      // Use RGB if it the color space is neither Lum nor RGB.
-      ColorSpace::ConstRef color_space = img->get_color_space();
-      bool const has_alpha = img->has_alpha_channel();
-      {
-        ColorSpace::Type const type = color_space->get_type();
-        if(type != ColorSpace::type_RGB && type != ColorSpace::type_Lum)
-        {
-          color_space = ColorSpace::get_RGB();
-          num_channels = has_alpha ? 4 : 3;
-
-          goto convert;
+        ColorSpace::Type type = color_space->get_type();
+        if (type != ColorSpace::type_RGB && type != ColorSpace::type_Lum) {
+            color_space = ColorSpace::get_RGB();
+            num_channels = has_alpha ? 4 : 3;
+            goto convert;
         }
-      }
-      num_channels = color_space->get_num_channels(has_alpha);
+    }
+    num_channels = color_space->get_num_channels(has_alpha);
 
-      // Check for a match against a format supported by OpenGL
-      if(BufferedImage const *const buf_img = dynamic_cast<BufferedImage const *>(img.get()))
-      {
-        BufferFormat::ConstRef const buf_fmt = buf_img->get_buffer_format();
-        if(IntegerBufferFormat const *const int_buf_fmt =
-           dynamic_cast<IntegerBufferFormat const *>(buf_fmt.get()))
-        {
-//cerr << "Detected buffer format '"<<int_buf_fmt->print(img->get_color_space(), has_alpha)<<"'" << endl;
+    // Check for a match against a format supported by OpenGL
+    if (const BufferedImage* buf_img = dynamic_cast<const BufferedImage*>(img.get()))
+    {
+        BufferFormat::ConstRef buf_fmt = buf_img->get_buffer_format();
+        const IntegerBufferFormat* int_buf_fmt =
+            dynamic_cast<const IntegerBufferFormat*>(buf_fmt.get());
+        if (int_buf_fmt) {
+//            std::cerr << "Detected buffer format '"<<int_buf_fmt->print(img->get_color_space(), has_alpha)<<"'\n";
 
-          // Check strip aligment if we have to
-          int align_bytes = 1;
-          if(1 < height)
-          {
-            int const bits_per_byte = numeric_limits<unsigned char>::digits;
-            int const bits_per_strip = int_buf_fmt->get_bits_per_strip(width);
-            if(int_buf_fmt->get_word_align_strips())
-            {
-              int const used = width * int_buf_fmt->get_bits_per_pixel();
-              int const skipped = bits_per_strip - used;
-              if(skipped < bits_per_byte)
-              {
-                if(bits_per_strip % bits_per_byte != 0) goto convert;
-              }
-              else if(skipped < 2*bits_per_byte)
-              {
-                if(bits_per_strip % 2*bits_per_byte != 0) goto convert;
-                align_bytes = 2;
-              }
-              else if(skipped < 4*bits_per_byte)
-              {
-                if(bits_per_strip % 4*bits_per_byte != 0) goto convert;
-                align_bytes = 4;
-              }
-              else if(skipped < 8*bits_per_byte)
-              {
-                if(bits_per_strip % 8*bits_per_byte != 0) goto convert;
-                align_bytes = 8;
-              }
-              else goto convert;
+            // Check strip aligment if we have to
+            int align_bytes = 1;
+            if (1 < height) {
+                int bits_per_byte = std::numeric_limits<unsigned char>::digits;
+                int bits_per_strip = int_buf_fmt->get_bits_per_strip(width);
+                if (int_buf_fmt->get_word_align_strips()) {
+                    int used = width * int_buf_fmt->get_bits_per_pixel();
+                    int skipped = bits_per_strip - used;
+                    if (skipped < bits_per_byte) {
+                        if (bits_per_strip % bits_per_byte != 0)
+                            goto convert;
+                    }
+                    else if (skipped < 2*bits_per_byte) {
+                        if (bits_per_strip % 2*bits_per_byte != 0)
+                            goto convert;
+                        align_bytes = 2;
+                    }
+                    else if (skipped < 4*bits_per_byte) {
+                        if (bits_per_strip % 4*bits_per_byte != 0)
+                            goto convert;
+                        align_bytes = 4;
+                    }
+                    else if (skipped < 8*bits_per_byte) {
+                        if (bits_per_strip % 8*bits_per_byte != 0)
+                            goto convert;
+                        align_bytes = 8;
+                    }
+                    else {
+                        goto convert;
+                    }
+                }
+                else if (bits_per_strip % bits_per_byte != 0) {
+                    goto convert;
+                }
             }
-            else if(bits_per_strip % bits_per_byte != 0) goto convert;
-          }
 
-          if(ImageLoadInfo::GlImgFmt const *gl_img_fmt =
-             info.format_map.find(IntegerBufferFormat::ConstRef(int_buf_fmt)))
-          {
-            swap_bytes      = gl_img_fmt->swap_bytes;
-            row_align_bytes = align_bytes;
-            gl_format       = gl_img_fmt->format;
-            gl_type         = gl_img_fmt->type;
-            buffer          = buf_img->get_buffer_ptr();
-            goto ready;
-          }
+            const ImageLoadInfo::GlImgFmt* gl_img_fmt =
+                info.format_map.find(IntegerBufferFormat::ConstRef(int_buf_fmt));
+            if (gl_img_fmt) {
+                swap_bytes      = gl_img_fmt->swap_bytes;
+                row_align_bytes = align_bytes;
+                gl_format       = gl_img_fmt->format;
+                gl_type         = gl_img_fmt->type;
+                buffer          = buf_img->get_buffer_ptr();
+                goto ready;
+            }
         }
-      }
+    }
 
-    convert: // Incoming image can not be used directly, must be converted.
-      {
+  convert: // Incoming image can not be used directly, must be converted.
+    {
         // Choose a word type based on the detected channel width and
         // the ability for strip alignment.
-        int const cps = width * num_channels;
-        int const bpb = numeric_limits<unsigned char>::digits;
+        int cps = width * num_channels;
+        int bpb = std::numeric_limits<unsigned char>::digits;
         int channel_width = img->get_channel_width();
-        if(channel_width <= 8)
-        {
-          if(info.have_word_type_8bit       && cps*8  % bpb == 0) channel_width =  8;
-          else if(info.have_word_type_16bit && cps*16 % bpb == 0) channel_width = 16;
-          else if(info.have_word_type_32bit && cps*32 % bpb == 0) channel_width = 32;
-          else throw runtime_error("No suitable word type");
+        if (channel_width <= 8) {
+            if (info.have_word_type_8bit && cps*8 % bpb == 0) {
+                channel_width = 8;
+            }
+            else if (info.have_word_type_16bit && cps*16 % bpb == 0) {
+                channel_width = 16;
+            }
+            else if (info.have_word_type_32bit && cps*32 % bpb == 0) {
+                channel_width = 32;
+            }
+            else {
+                throw std::runtime_error("No suitable word type");
+            }
         }
-        else if(channel_width <= 16)
-        {
-          if(info.have_word_type_16bit      && cps*16 % bpb == 0) channel_width = 16;
-          else if(info.have_word_type_32bit && cps*32 % bpb == 0) channel_width = 32;
-          else if(info.have_word_type_8bit  && cps*8  % bpb == 0) channel_width =  8;
-          else throw runtime_error("No suitable word type");
+        else if (channel_width <= 16) {
+            if (info.have_word_type_16bit && cps*16 % bpb == 0) {
+                channel_width = 16;
+            }
+            else if (info.have_word_type_32bit && cps*32 % bpb == 0) {
+                channel_width = 32;
+            }
+            else if (info.have_word_type_8bit && cps*8 % bpb == 0) {
+                channel_width =  8;
+            }
+            else {
+                throw std::runtime_error("No suitable word type");
+            }
         }
-        else
-        {
-          if(info.have_word_type_32bit      && cps*32 % bpb == 0) channel_width = 32;
-          else if(info.have_word_type_16bit && cps*16 % bpb == 0) channel_width = 16;
-          else if(info.have_word_type_8bit  && cps*8  % bpb == 0) channel_width =  8;
-          else throw runtime_error("No suitable word type");
+        else {
+            if (info.have_word_type_32bit && cps*32 % bpb == 0) {
+                channel_width = 32;
+            }
+            else if (info.have_word_type_16bit && cps*16 % bpb == 0) {
+                channel_width = 16;
+            }
+            else if (info.have_word_type_8bit && cps*8 % bpb == 0) {
+                channel_width =  8;
+            }
+            else {
+                throw std::runtime_error("No suitable word type");
+            }
         }
         WordType word_type = channel_width == 8 ? info.word_type_8bit :
-          channel_width == 16 ? info.word_type_16bit : info.word_type_32bit;
+            channel_width == 16 ? info.word_type_16bit : info.word_type_32bit;
 
         // Convert the image
         IntegerBufferFormat::ChannelLayout channel_layout;
-        for(int i=0; i<num_channels; ++i) channel_layout.add(channel_width);
-        IntegerBufferFormat::Ref const buf_fmt =
-          IntegerBufferFormat::get_format(word_type, channel_layout, false, false);
+        for (int i = 0; i < num_channels; ++i)
+            channel_layout.add(channel_width);
+        IntegerBufferFormat::Ref buf_fmt =
+            IntegerBufferFormat::get_format(word_type, channel_layout, false, false);
         BufferedImage::Ref buf_img =
-          BufferedImage::new_image(width, height, color_space, has_alpha, buf_fmt);
+            BufferedImage::new_image(width, height, color_space, has_alpha, buf_fmt);
         buf_img->put_image(img, 0, 0, false);
         img_keep_alive = buf_img; // To keep the new image 'alive'
 
         // Post the format for OpenGL
-        swap_bytes      = false;
+        swap_bytes = false;
         row_align_bytes = 1;
-        gl_format       = (num_channels == 4 ? GL_RGBA : num_channels == 3 ? GL_RGB :
-                           num_channels == 2 ? GL_LUMINANCE_ALPHA : GL_LUMINANCE);
-        gl_type         = (channel_width == 8 ? GL_UNSIGNED_BYTE :
-                           channel_width == 16 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT);
-        buffer          = buf_img->get_buffer_ptr();
+        gl_format = (num_channels == 4 ? GL_RGBA : num_channels == 3 ? GL_RGB :
+                     num_channels == 2 ? GL_LUMINANCE_ALPHA : GL_LUMINANCE);
+        gl_type = (channel_width == 8 ? GL_UNSIGNED_BYTE :
+                   channel_width == 16 ? GL_UNSIGNED_SHORT : GL_UNSIGNED_INT);
+        buffer = buf_img->get_buffer_ptr();
 
-//cerr << "Conversion to '"<<buf_fmt->print(color_space, has_alpha)<<"'" << endl;
-      }
-
-    ready:
-      // Do the actual loading
-      glPushClientAttrib(GL_CLIENT_PIXEL_STORE_BIT);
-      glPixelStorei(GL_UNPACK_SWAP_BYTES, swap_bytes);
-      glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-      glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
-      glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
-      glPixelStorei(GL_UNPACK_ALIGNMENT, row_align_bytes);
-
-      ARCHON_ASSERT_1(0 < num_channels && num_channels <= 4, "Wrong number of channels");
-      handler.handle(num_channels, gl_format, gl_type, buffer);
-
-      glPopClientAttrib();
+//        std::cerr << "Conversion to '"<<buf_fmt->print(color_space, has_alpha)<<"'\n";
     }
-  }
+
+  ready:
+    // Do the actual loading
+    glPushClientAttrib(GL_CLIENT_PIXEL_STORE_BIT);
+    glPixelStorei(GL_UNPACK_SWAP_BYTES, swap_bytes);
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+    glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
+    glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, row_align_bytes);
+
+    ARCHON_ASSERT_1(0 < num_channels && num_channels <= 4, "Wrong number of channels");
+    handler.handle(num_channels, gl_format, gl_type, buffer);
+
+    glPopClientAttrib();
 }
+
+} // namespace render
+} // namespace archon

@@ -18,11 +18,9 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #include <map>
 #include <iostream>
@@ -32,60 +30,68 @@
 #include <archon/util/ticker.hpp>
 
 
-using namespace std;
 using namespace archon::core;
 using namespace archon::util;
 
-namespace
-{
-  int const n = 10000;
-  long const m = 1000000000L/n;
+namespace {
 
-  unsigned test(int seq[], unsigned f(int), double &time, ProgressTicker *ticker)
-  {
+constexpr int n = 10000;
+constexpr long m = 1000000000L/n;
+
+unsigned test(int seq[], unsigned f(int), double& time, ProgressTicker* ticker)
+{
     unsigned v = 0;
     Time t = Time::now();
-    for(long j=0; j<m; ++j)
-    {
-      for(int i=0; i<n; ++i) v += f(seq[i]);
-      ticker->tick();
+    for (long j = 0; j < m; ++j) {
+        for (int i = 0; i < n; ++i)
+            v += f(seq[i]);
+        ticker->tick();
     }
     time = (Time::now()-t).get_as_seconds_float();
     return v;
-  }
-
-  typedef map<int, unsigned> Map;
-  Map the_map;
-  RepMapLookupBooster<Map> boost(&the_map);
-
-  unsigned f1(int i) { return i; }
-  unsigned f2(int i) { return the_map[i]; }
-  unsigned f3(int i) { return boost[i]; }
 }
+
+std::map<int, unsigned> the_map;
+RepMapLookupBooster<decltype(the_map)> boost(the_map);
+
+unsigned f1(int i)
+{
+    return i;
+}
+unsigned f2(int i)
+{
+    return the_map[i];
+}
+unsigned f3(int i)
+{
+    return boost[i];
+}
+
+} // unnamed namespace
 
 
 int main()
 {
-  int seq[n];
-  for(int i=0; i<n; ++i) seq[i] = i%2==0 ? 1 : 2;
-  for(int i=0; i<n; ++i) the_map[i] = i;
+    int seq[n];
+    for (int i = 0; i < n; ++i)
+        seq[i] = (i%2==0 ? 1 : 2);
+    for (int i = 0; i < n; ++i)
+        the_map[i] = i;
 
-  double t1, t2, t3;
-  unsigned v1, v2, v3;
+    double t1, t2, t3;
+    unsigned v1, v2, v3;
 
-  {
-    ProgressBar progress;
-    ProgressTicker ticker(&progress, 3*m);
-    v1 = test(seq, f1, t1, &ticker);
-    v2 = test(seq, f2, t2, &ticker);
-    v3 = test(seq, f3, t3, &ticker);
-  }
+    {
+        ProgressBar progress;
+        ProgressTicker ticker(&progress, 3*m);
+        v1 = test(seq, f1, t1, &ticker);
+        v2 = test(seq, f2, t2, &ticker);
+        v3 = test(seq, f3, t3, &ticker);
+    }
 
-  cout << "v1 = " << v1 << "  time = " << t1 << endl;
-  cout << "v2 = " << v2 << "  time = " << t2 << endl;
-  cout << "v3 = " << v3 << "  time = " << t3 << endl;
+    std::cout << "v1 = " << v1 << "  time = " << t1 << std::endl;
+    std::cout << "v2 = " << v2 << "  time = " << t2 << std::endl;
+    std::cout << "v3 = " << v3 << "  time = " << t3 << std::endl;
 
-  cout << (t2-t1) / (t3-t1) << endl;
-
-  return 0;
+    std::cout << (t2-t1) / (t3-t1) << std::endl;
 }

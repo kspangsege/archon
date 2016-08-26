@@ -25,6 +25,7 @@
 #include <GL/gl.h>
 #include <GL/glu.h>
 
+#include <cstdlib>
 #include <cmath>
 #include <stdexcept>
 #include <algorithm>
@@ -80,7 +81,7 @@ const double grav_const      = 6.67428E-11;        // Gravitational constant (me
 const double elem_charge     = 1.602176487E-19;    // coulombs
 const double elec_mass       = 9.10938215E-31;     // kilograms
 const double prot_mass       = 1.672621637E-27;    // kilograms
-const double radius_scale    = 0.1 / archon::math::cbrt(prot_mass);
+const double radius_scale    = 0.1 / std::cbrt(prot_mass);
 const double avg_elec_dist   = 37E-12;
 const double init_elec_speed = sqrt(2*(coul_const*square(elem_charge)/avg_elec_dist)/elec_mass) / 1.3;
 const double elec_orbit_time = M_PI * 2 * avg_elec_dist / init_elec_speed;
@@ -120,7 +121,7 @@ public:
             p.veloc  = Vec3(0,0,0);
             p.charge = elem_charge;
             p.mass   = prot_mass;
-            p.radius = radius_scale * archon::math::cbrt(p.mass);
+            p.radius = radius_scale * std::cbrt(p.mass);
             p.color  = color::cvt_HSV_to_RGB(Vec3(double(i)/num_protons, 0.5, 1));
         }
         for (int i = 0; i < num_electrons; ++i) {
@@ -130,7 +131,7 @@ public:
             p.veloc  = Vec3(init_elec_speed,0,0);
             p.charge = -elem_charge;
             p.mass   = elec_mass;
-            p.radius = radius_scale * archon::math::cbrt(p.mass);
+            p.radius = radius_scale * std::cbrt(p.mass);
             p.color  = color::cvt_HSV_to_RGB(Vec3(double(i)/num_electrons, 0.5, 1));
         }
 
@@ -155,7 +156,7 @@ public:
     }
 
 private:
-    void render_scene()
+    void render() override
     {
         int n = 1000; // Precision
         double time = 1.0/60 / time_scale / n;
@@ -320,7 +321,7 @@ private:
 } // unnamed namespace
 
 
-int main(int argc, char const *argv[]) throw()
+int main(int argc, const char* argv[])
 {
     std::set_terminate(&cxx::terminate_handler);
 

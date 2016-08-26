@@ -33,9 +33,8 @@ namespace archon {
 namespace render {
 
 OpenGlSceneBuilder::OpenGlSceneBuilder(GLuint list, TextureCache& texture_cache,
-                                       vector<TextureUse>* textures_ext, bool mipmapping):
+                                       vector<TextureUse>* textures_ext):
     m_list(list),
-    m_mipmapping(mipmapping),
     m_textures_ext(textures_ext),
     m_texture_cache(texture_cache)
 {
@@ -45,6 +44,8 @@ OpenGlSceneBuilder::OpenGlSceneBuilder(GLuint list, TextureCache& texture_cache,
 
 OpenGlSceneBuilder::~OpenGlSceneBuilder()
 {
+    reset_tex_transform();
+    set_matrix_mode(GL_MODELVIEW);
     glEndList();
 }
 
@@ -61,6 +62,13 @@ void OpenGlSceneBuilder::do_begin_polygon()
 void OpenGlSceneBuilder::do_end()
 {
     glEnd();
+}
+
+void OpenGlSceneBuilder::do_set_color(util::PackedTRGB color)
+{
+    Vec4F rgba;
+    color.unpack_rgba(rgba);
+    glColor4d(rgba[0], rgba[1], rgba[2], rgba[3]);
 }
 
 void OpenGlSceneBuilder::do_set_normal(Vec3 n)
@@ -110,15 +118,15 @@ void OpenGlSceneBuilder::do_rotate(Rotation3 r)
 
 int OpenGlSceneBuilder::do_make_texture(std::string image_path, bool h_rep, bool v_rep)
 {
-    UniquePtr<TextureSource> src(new TextureFileSource(image_path));
-    return make_texture(src, h_rep, v_rep);
+    std::unique_ptr<TextureSource> src = std::make_unique<TextureFileSource>(image_path);
+    return make_texture_helper(std::move(src), h_rep, v_rep);
 }
 
 int OpenGlSceneBuilder::do_make_texture(image::Image::ConstRefArg img, std::string name,
                                         bool h_rep, bool v_rep)
 {
-    UniquePtr<TextureSource> src(new TextureImageSource(img, name));
-    return make_texture(src, h_rep, v_rep);
+    std::unique_ptr<TextureSource> src = std::make_unique<TextureImageSource>(img, name);
+    return make_texture_helper(std::move(src), h_rep, v_rep);
 }
 
 void OpenGlSceneBuilder::do_bind_texture(int index)
@@ -152,12 +160,11 @@ void OpenGlSceneBuilder::do_reset_tex_transform()
     glPopMatrix();
 }
 
-int OpenGlSceneBuilder::make_texture(UniquePtr<TextureSource> src, bool rep_s, bool rep_t)
+int OpenGlSceneBuilder::make_texture_helper(std::unique_ptr<TextureSource> src, bool rep_s, bool rep_t)
 {
     GLenum wrap_s = rep_s ? GL_REPEAT : GL_CLAMP, wrap_t = rep_t ? GL_REPEAT : GL_CLAMP;
-    TextureCache::FilterMode filter_mode =
-        m_mipmapping ? TextureCache::filter_mode_Mipmap : TextureCache::filter_mode_Interp;
-    TextureUse use = m_texture_cache.declare(src, wrap_s, wrap_t, filter_mode).acquire();
+    TextureUse use = m_texture_cache.declare(std::move(src), wrap_s, wrap_t,
+                                             m_texture_filter_mode).acquire();
     int id = m_textures.size();
     m_textures.push_back(use);
     if (m_textures_ext)

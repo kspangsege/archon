@@ -18,11 +18,9 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #ifndef ARCHON_FONT_CACHE_HPP
 #define ARCHON_FONT_CACHE_HPP
@@ -43,18 +41,16 @@ core::SharedPtr<FontCache> new_font_cache(FontList::Arg l);
 
 
 
-/**
- * Thread safety: Instances are not thread safe, but the class is, as long as
- * each thread accesses a different instance, and no two instances are
- * associated with the same FontLoader instance via the associated FontList
- * instances. That is, you also need one FontList instance, and one FontLoader
- * instance per thread. See \ref ThreadSafety.
- *
- * \todo FIXME: The grid_fitting flag should be a fixed property of a particular
- * font and part of the font selection parameters along with the font
- * size. Thus, there shall be one grid fitted font, and another one that is the
- * same in all respects except that it is not grid fitted.
- */
+/// Thread safety: Instances are not thread safe, but the class is, as long as
+/// each thread accesses a different instance, and no two instances are
+/// associated with the same FontLoader instance via the associated FontList
+/// instances. That is, you also need one FontList instance, and one FontLoader
+/// instance per thread. See \ref ThreadSafety.
+///
+/// \todo FIXME: The grid_fitting flag should be a fixed property of a
+/// particular font and part of the font selection parameters along with the
+/// font size. Thus, there shall be one grid fitted font, and another one that
+/// is the same in all respects except that it is not grid fitted.
 class FontCache {
 public:
     using Ptr = core::SharedPtr<FontCache>;
@@ -96,20 +92,16 @@ public:
     virtual void release_font(int font_id) = 0;
 
 
-    /**
-     * Get the descriptor for the specified font. This can always be done
-     * without loading the face proper.
-     *
-     * The returned font size reflects the actual rendering size of the
-     * specified font, which may or may not be the same as the size that was
-     * originally requested.
-     */
+    /// Get the descriptor for the specified font. This can always be done
+    /// without loading the face proper.
+    ///
+    /// The returned font size reflects the actual rendering size of the
+    /// specified font, which may or may not be the same as the size that was
+    /// originally requested.
     virtual void get_font_desc(int font_id, FontDesc& desc) = 0;
 
 
-    /**
-     * RAII scheme (Resource acquisition is initialization) for font IDs.
-     */
+    /// RAII scheme (Resource acquisition is initialization) for font IDs.
     struct FontOwner {
         FontOwner(FontCache::Arg c, int font_id = -1) throw():
             cache(c),
@@ -182,18 +174,17 @@ public:
         dir_BottomToTop
     };
 
-    /**
-     * \param glyphs Glyph indices. If a negative index is
-     * encountered, it will be skipped, and so will the
-     * corresponding entry in <tt>components</tt>.
-     *
-     * \param components Glyph position components. If \c coord_type
-     * is coord_HoriLine then the first component is the common Y
-     * coordinate. If \c coord_type is coord_VertLine then the first
-     * component is the common X coordinate.
-     *
-     * \param img_writer The configured clipping region is respected. Blending setting is respected, but should generally be enabled, because glyphs can easily overlap.
-     */
+    /// \param glyphs Glyph indices. If a negative index is encountered, it will
+    /// be skipped, and so will the corresponding entry in <tt>components</tt>.
+    ///
+    /// \param components Glyph position components. If \c coord_type is
+    /// coord_HoriLine then the first component is the common Y coordinate. If
+    /// \c coord_type is coord_VertLine then the first component is the common X
+    /// coordinate.
+    ///
+    /// \param img_writer The configured clipping region is respected. Blending
+    /// setting is respected, but should generally be enabled, because glyphs
+    /// can easily overlap.
     void render_text(int font_id, bool grid_fitting, Direction direction,
                      int num_glyphs, const int* glyphs, const float* components,
                      image::ImageWriter& img_writer);
@@ -214,9 +205,7 @@ public:
         coord_Vert   ///< Each glyph consumes only an Y coordinate (vertical baseline).
     };
 
-    /**
-     * A slightly more flexible version of render_text().
-     */
+    /// A slightly more flexible version of render_text().
     virtual void render_glyphs(int font_id, bool grid_fitting,
                                BearingType bearing_type, CoordType coord_type,
                                int num_glyphs, const int* glyphs, const float* components,
@@ -224,24 +213,21 @@ public:
 
 
 
-    /**
-     * Holds information about the size and position of the axis
-     * aligned bounding box containing the glyph. The position is
-     * relative to the cursor position and also depends on the
-     * layout direction as follows:
-     *
-     * <pre>
-     *
-     *     Direction        Vector from cursor position to
-     *     of layout        lower left corner of glyph box
-     *   ---------------------------------------------------
-     *     left to right    hori_pos
-     *     right to left    (rev_pos[0], hori_pos[1])
-     *     bottom to top    vert_pos
-     *     top to bottom    (vert_pos[0], rev_pos[1])
-     *
-     * </pre>
-     */
+    /// Holds information about the size and position of the axis aligned
+    /// bounding box containing the glyph. The position is relative to the
+    /// cursor position and also depends on the layout direction as follows:
+    ///
+    /// <pre>
+    ///
+    ///     Direction        Vector from cursor position to
+    ///     of layout        lower left corner of glyph box
+    ///   ---------------------------------------------------
+    ///     left to right    hori_pos
+    ///     right to left    (rev_pos[0], hori_pos[1])
+    ///     bottom to top    vert_pos
+    ///     top to bottom    (vert_pos[0], rev_pos[1])
+    ///
+    /// </pre>
     struct GlyphBoxInfo {
         math::Vec2F size, hori_pos, vert_pos, rev_pos;
     };

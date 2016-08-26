@@ -18,52 +18,47 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- *
- * This file provides a number of utility codecs.
- */
+/// \file
+///
+/// \author Kristian Spangsege
+///
+/// This file provides a number of utility codecs.
 
 #ifndef ARCHON_UTIL_CODEC_HPP
 #define ARCHON_UTIL_CODEC_HPP
 
+#include <memory>
+
 #include <archon/core/codec.hpp>
-#include <archon/core/unique_ptr.hpp>
 
 
-namespace archon
-{
-  namespace util
-  {
-    /**
-     * This codec wraps a stream in an envelope consisting of a
-     * sequence of blocks of up to 255 bytes. Each block is preceeded
-     * by a byte that specifies the block size (number of bytes that
-     * follow). It has an explicit end-of-input marker in the form of
-     * a block of size zero. This is especially usefull when you want
-     * to embed one stream inside another, since it becomes possible
-     * to read the embedded stream without reading beyond the end of
-     * it, and thus destoying the ability to read the remainder of the
-     * outer stream.
-     *
-     * Unless the encoding output stream is flushed explicitely, all
-     * chunks, except the last one, will have a size of 255. Flushing
-     * the stream will in generall cause blocks of smaller size to be
-     * generated, thus causing an increased size-wise overhead.
-     *
-     * This output stream does not support writing after a
-     * flush. Thaat is, a flush is effectively a close.
-     *
-     * \note When closed, neither the decoding input stream nor the
-     * encoding output stream will close the wrapped stream.
-     *
-     * \note Currently only the decoding input stream and the encoding
-     * output stream is implemented.
-     */
-    core::UniquePtr<core::Codec const> get_block_codec();
-  }
-}
+namespace archon {
+namespace util {
+
+/// This codec wraps a stream in an envelope consisting of a sequence of blocks
+/// of up to 255 bytes. Each block is preceeded by a byte that specifies the
+/// block size (number of bytes that follow). It has an explicit end-of-input
+/// marker in the form of a block of size zero. This is especially usefull when
+/// you want to embed one stream inside another, since it becomes possible to
+/// read the embedded stream without reading beyond the end of it, and thus
+/// destoying the ability to read the remainder of the outer stream.
+///
+/// Unless the encoding output stream is flushed explicitely, all chunks, except
+/// the last one, will have a size of 255. Flushing the stream will in generall
+/// cause blocks of smaller size to be generated, thus causing an increased
+/// size-wise overhead.
+///
+/// This output stream does not support writing after a flush. Thaat is, a flush
+/// is effectively a close.
+///
+/// \note When closed, neither the decoding input stream nor the encoding output
+/// stream will close the wrapped stream.
+///
+/// \note Currently only the decoding input stream and the encoding output
+/// stream is implemented.
+std::unique_ptr<const core::Codec> get_block_codec();
+
+} // namespace util
+} // namespace archon
 
 #endif // ARCHON_UTIL_CODEC_HPP

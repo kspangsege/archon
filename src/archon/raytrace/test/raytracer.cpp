@@ -127,16 +127,20 @@ void build_scene(SceneBuilder& builder)
     builder.add_sphere();
 */
 
+    builder.set_texture(assets_dir+"kristian_text.png");
+    builder.add_sphere();
 
+/*
     // Torus
     builder.push();
     builder.set_texture(assets_dir+"spotty.png");
     builder.rotate(Vec3(0, 0, 1), -M_PI/36);
     builder.rotate(Vec3(0, 1, 0), -M_PI/9);
     builder.rotate(Vec3(1, 0, 0), M_PI/9);
-    builder.scale(Vec3(1, 2, 1));
-    builder.add_torus(3);
+    builder.scale(3.0 * Vec3(1, 2, 1));
+    builder.add_torus(1.0/3);
     builder.pop();
+*/
 
 /*
     builder.set_color(Vec4(color::red, 1));
@@ -196,7 +200,7 @@ public:
     }
 
 private:
-    void render_scene()
+    void render() override
     {
         glCallList(m_list_id);
     }
@@ -230,7 +234,7 @@ archon::display::Connection::Ptr try_get_display(bool insist = true)
 } // unnamed namespace
 
 
-int main(int argc, const char* argv[]) throw()
+int main(int argc, const char* argv[])
 {
     std::set_terminate(&cxx::terminate_handler);
 

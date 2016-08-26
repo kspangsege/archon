@@ -110,14 +110,14 @@ public:
     static std::unique_ptr<Object> make_sphere(core::SharedPtr<Material>);
 
     /// A torus centered at the local origin with axis of revolution coincident
-    /// with the Y-axis, and with a minor radius of 1, and a variable major
+    /// with the Y-axis, and with a major radius of 1, and a variable minor
     /// radius.
     ///
     /// The major radius describes a circle in the Z-X-plane centered at the
     /// origin of the local coordinate system. Any point on the surface of the
     /// torus can then be describes by a vector drawn from some point on this
     /// circle. Each such vector must be perpendicular to the circle at that
-    /// point and be as long as the minor radius.  Thus, the torus is centered
+    /// point and be as long as the minor radius. Thus, the torus is centered
     /// at the origin of the local coordinate system and has the Y-axis as the
     /// axis of revolution.  When textures are applied to a torus the texture
     /// X-coordinate is taken as the angle of the projection of the surface
@@ -128,7 +128,8 @@ public:
     /// the circle of revolution that is closest to the surface point. When seen
     /// from a point on the circle of revolution in the direction of revolution,
     /// the texture Y-coordinate increses clockwise.
-    static std::unique_ptr<Object> make_torus(core::SharedPtr<Material>, double major_radius = 2);
+    static std::unique_ptr<Object> make_torus(core::SharedPtr<Material>,
+                                              double minor_radius = 0.5);
 
     /// Must be thread-safe.
     ///

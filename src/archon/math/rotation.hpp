@@ -35,58 +35,54 @@ namespace archon
   namespace math
   {
     /**
-     * This kind of rotation can be described as an interaction
-     * between two degees of freedom, governed by a single scalar
-     * angle. The remaining degrees of freedom form an N-2 dimensional
-     * subspace which is unaffected by the rotation. In 3-D this is
-     * the rotation axis. In general, to describe the rotation
-     * uniquely, one must specify a particular orthonormal basis for
-     * the N-2 dimensional subspace.
+     * This kind of rotation can be described as an interaction between two
+     * degees of freedom, governed by a single scalar angle. The remaining
+     * degrees of freedom form an N-2 dimensional subspace which is unaffected
+     * by the rotation. In 3-D this is the rotation axis. In general, to
+     * describe the rotation uniquely, one must specify a particular orthonormal
+     * basis for the N-2 dimensional subspace.
      *
-     * Description of a rotatation in 3-D space around an arbitrary
-     * origin based axis, or a 1-D subspace if you like. The angle is
-     * specified in radians.
+     * Description of a rotatation in 3-D space around an arbitrary origin based
+     * axis, or a 1-D subspace if you like. The angle is specified in radians.
      *
      * The axis must be a unit vector.
      *
-     * This kind of rotation could be generalized to N dimensions in
-     * which case the axis would be an N by N-2 matrix. In 4-D it would
-     * be a rotation around a 2-D subspace, or a plane if you like. In
-     * 2-D the rotation would be around a 0-D subspace (ie. the
-     * origin) and thus it would be a degenerate case where the axis
-     * would vanish completely.
+     * This kind of rotation could be generalized to N dimensions in which case
+     * the axis would be an N by N-2 matrix. In 4-D it would be a rotation
+     * around a 2-D subspace, or a plane if you like. In 2-D the rotation would
+     * be around a 0-D subspace (ie. the origin) and thus it would be a
+     * degenerate case where the axis would vanish completely.
      *
-     * Another posibility would be to integrate the angle into the
-     * length of the axis vector.
+     * Another posibility would be to integrate the angle into the length of the
+     * axis vector.
      *
-     * In several contexts it would be beneficial to be able to
-     * produce a single axial rotation that when applied to the basis
-     * vectors of a coordinate system will orient it such that its
-     * negative z-axis is directed towards p and its x-axis is
-     * parallel with the x-z-place of the reference coordinate system.
+     * In several contexts it would be beneficial to be able to produce a single
+     * axial rotation that when applied to the basis vectors of a coordinate
+     * system will orient it such that its negative z-axis is directed towards p
+     * and its x-axis is parallel with the x-z-place of the reference coordinate
+     * system.
      *
-     * A sollution always exists but is never unique. As is always the
-     * case for angles we have an inifinite set of sollutions in that
-     * v is as good as 2pi-v and as good as 2pi+v. This is not a
-     * problem, we just choose the smalles one in an absolute
-     * sence. if the angle is pi exactly there is no unique smallest
-     * angle. In this case we choose the positive alternative.
+     * A solution always exists but is never unique. As is always the case for
+     * angles we have an inifinite set of solutions in that v is as good as
+     * 2pi-v and as good as 2pi+v. This is not a problem, we just choose the
+     * smalles one in an absolute sence. if the angle is pi exactly there is no
+     * unique smallest angle. In this case we choose the positive alternative.
      *
-     * Another case that generates even more results is when the
-     * resulting direction of the local z-axis becomes parallel to the
-     * reference y-axis. In this case the local x-axis will always be
-     * parallel to the x-z-place of the reference system and we need
-     * another way to constraint the result. A sensible choice in this
-     * case would be the rotation leading to the shortest angle.
+     * Another case that generates even more results is when the resulting
+     * direction of the local z-axis becomes parallel to the reference
+     * y-axis. In this case the local x-axis will always be parallel to the
+     * x-z-place of the reference system and we need another way to constraint
+     * the result. A sensible choice in this case would be the rotation leading
+     * to the shortest angle.
      *
-     * Again there is a special case where there is no unique rotation
-     * with a shortest angle - if you are looking staight down and you
-     * are asked to look straight up. In this case we should choose
-     * one of the two rotations that avoid yaw.
+     * Again there is a special case where there is no unique rotation with a
+     * shortest angle - if you are looking staight down and you are asked to
+     * look straight up. In this case we should choose one of the two rotations
+     * that avoid yaw.
      *
-     * Please note that in cases such as when pi and -pi both are
-     * sollutions it could make a big difference which one is chosen
-     * if the result is used in animation.
+     * Please note that in cases such as when pi and -pi both are solutions it
+     * could make a big difference which one is chosen if the result is used in
+     * animation.
      *
      * So, how can it be computed:
      *
@@ -98,18 +94,17 @@ namespace archon
      *
      *   b  be the direction from O to p.
      *
-     *   P  be a plane spanned by a and b and coincident with the local
-     *   origin.
+     *   P  be a plane spanned by a and b and coincident with the local origin.
      *
-     *   Q  be a plane that is perpendicular to P, coincident with O
-     *   and dividing the angle between a and b in half.
+     *   Q  be a plane that is perpendicular to P, coincident with O and
+     *      dividing the angle between a and b in half.
      *
-     * The primary constraint was to align a with b. Now, this can be
-     * achieved with any rotation-axis lying in Q.
+     * The primary constraint was to align a with b. Now, this can be achieved
+     * with any rotation-axis lying in Q.
      *
-     * For any such axis the proper rotation angle is determined as
-     * the smallest angle between the projections of a and b onto a
-     * plane perpendicular to the chosen rotation axis.
+     * For any such axis the proper rotation angle is determined as the smallest
+     * angle between the projections of a and b onto a plane perpendicular to
+     * the chosen rotation axis.
      *
      * But, how do we choose among the rotation axes in Q?
      *
@@ -125,8 +120,8 @@ namespace archon
      *
      *   r  be the direction of A, |r| = 1.
      *
-     * We must choose an axis in Q that at the same time it takes a to
-     * b, it takes c to d.
+     * We must choose an axis in Q that at the same time it takes a to b, it
+     * takes c to d.
      *
      * Let:
      *
@@ -148,9 +143,9 @@ namespace archon
      * (UNFINISHED!!!)
      *
      *
-     * Please note, it would also be possible to determine a sequence
-     * of simpler rotations and then combine them through quaternion
-     * math, but I belive this would be bad for efficiency.
+     * Please note, it would also be possible to determine a sequence of simpler
+     * rotations and then combine them through quaternion math, but I belive
+     * this would be bad for efficiency.
      *
      * \sa Quaternion
      */

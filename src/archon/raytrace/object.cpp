@@ -285,16 +285,16 @@ public:
 
 class Torus: public Object, public StdSurface {
 public:
-    Torus(SharedPtr<Material> m, double r):
-        StdSurface(std::move(m)),
-        m_major_radius(r)
+    Torus(SharedPtr<Material> material, double minor_radius):
+        StdSurface(std::move(material)),
+        m_minor_radius(minor_radius)
     {
     }
 
     bool intersect(const Line3& ray, double& dist,
                    const Object* origin_obj, const Surface** surface) const override
     {
-        bool i = intersect_torus(ray, dist, m_major_radius, 1, origin_obj == this);
+        bool i = intersect_torus(ray, dist, 1, m_minor_radius, origin_obj == this);
         if (i && surface)
             *surface = this;
         return i;
@@ -302,12 +302,12 @@ public:
 
     void map(const Vec3& point, Vec3& normal, Vec2* tex_point) const override
     {
-        // Length of projection onto Z-X-plane
-        double l = pol_len(point[0], point[2]);
-        double p = l - m_major_radius;
-        double f = p/l;
+        double major_radius = 1;
+        double l = pol_len(point[0], point[2]); // Length of projection onto Z-X-plane
+        double p = l - major_radius;
+        double f = p / l / m_minor_radius;
 
-        normal.set(f * point[0], point[1], f * point[2]);
+        normal.set(f * point[0], point[1] / m_minor_radius, f * point[2]);
 
         if (tex_point) {
             tex_point->set(pol_ang(point[2], point[0]) / (2*M_PI) + 0.5,
@@ -316,7 +316,7 @@ public:
     }
 
 private:
-    const double m_major_radius;
+    const double m_minor_radius;
 };
 
 } // unnamed namespace
@@ -346,9 +346,9 @@ std::unique_ptr<Object> Object::make_sphere(SharedPtr<Material> mat)
     return std::make_unique<Sphere>(std::move(mat));
 }
 
-std::unique_ptr<Object> Object::make_torus(SharedPtr<Material> mat, double major_radius)
+std::unique_ptr<Object> Object::make_torus(SharedPtr<Material> mat, double minor_radius)
 {
-    return std::make_unique<Torus>(std::move(mat), major_radius);
+    return std::make_unique<Torus>(std::move(mat), minor_radius);
 }
 
 } // namespace raytrace

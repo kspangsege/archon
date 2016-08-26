@@ -52,10 +52,25 @@ public:
         Application("archon::render::SceneBuilder", cfg),
         m_resource_dir(cfg.archon_datadir+"render/test/")
     {
-        register_key_handler(KeySym_Right, &SceneBuilderApp::next,
-                             "Go to next object.");
-        register_key_handler(KeySym_Left, &SceneBuilderApp::prev,
-                             "Go to previous object.");
+        auto next = [this](bool key_down) {
+            if (key_down) {
+                if (++m_list_idx == m_lists.size())
+                    m_list_idx = 0;
+                return true;
+            }
+            return false;
+        };
+        auto prev = [this](bool key_down) {
+            if (key_down) {
+                if (m_list_idx == 0)
+                    m_list_idx = m_lists.size();
+                --m_list_idx;
+                return true;
+            }
+            return false;
+        };
+        bind_key(KeySym_Right, std::move(next), "Go to next object."); // Throws
+        bind_key(KeySym_Left, std::move(prev), "Go to previous object."); // Throws
 
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_CULL_FACE);
@@ -76,7 +91,7 @@ public:
             GLuint list = glGenLists(1);
             OpenGlSceneBuilder builder(list, get_texture_cache(), &m_texture_use);
             seamless.bind();
-            build_box(builder);
+            build_centered_box(builder);
             m_lists.push_back(list);
         }
         {
@@ -110,31 +125,9 @@ public:
     }
 
 private:
-    void render_scene()
+    void render() override
     {
         glCallList(m_lists[m_list_idx]);
-    }
-
-    bool next(bool key_down)
-    {
-        if (key_down) {
-            if (++m_list_idx == m_lists.size())
-                m_list_idx = 0;
-            return true;
-        }
-        return false;
-    }
-
-
-    bool prev(bool key_down)
-    {
-        if (key_down) {
-            if (m_list_idx == 0)
-                m_list_idx = m_lists.size();
-            --m_list_idx;
-            return true;
-        }
-        return false;
     }
 
     const std::string m_resource_dir;
@@ -146,11 +139,11 @@ private:
 } // unnamed namespace
 
 
-int main(int argc, const char* argv[]) throw()
+int main(int argc, const char* argv[])
 {
     std::set_terminate(&cxx::terminate_handler);
-
     try_fix_preinstall_datadir(argv[0], "render/test/");
+
     Application::Config cfg;
     CommandlineOptions opts;
     opts.add_help("Test application for the scene builder feature");

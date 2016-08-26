@@ -18,12 +18,11 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
+#include <cstdlib>
 #include <cmath>
 #include <string>
 
@@ -37,206 +36,203 @@
 #include <archon/core/cxx.hpp>
 
 
-using namespace std;
 using namespace archon::core;
 using namespace archon::math;
 using namespace archon::thread;
 using namespace archon::render;
 
 
-namespace
-{
-  struct Render: Application
-  {
-    Render(Application::Config const &cfg):
-      Application("archon::render::Render", cfg)
+namespace {
+
+class Render: public Application {
+public:
+    Render(const Application::Config& cfg):
+        Application("archon::render::Render", cfg)
     {
 /*
-      set_scene_orientation(Rotation3(Vec3(1,0,0), M_PI/8));
-      set_scene_spin(Rotation3(Vec3(0,1,0), M_PI/16));
+        set_scene_orientation(Rotation3(Vec3(1,0,0), M_PI/8));
+        set_scene_spin(Rotation3(Vec3(0,1,0), M_PI/16));
 */
 
-      glEnable(GL_DEPTH_TEST);
-      glEnable(GL_CULL_FACE);
-      glEnable(GL_LIGHTING);
+        glEnable(GL_DEPTH_TEST);
+        glEnable(GL_CULL_FACE);
+        glEnable(GL_LIGHTING);
 
-      {
-        GLfloat params[] = { 1, 0, 0, 1 };
-        glLightfv(GL_LIGHT1, GL_DIFFUSE, params);
-      }
-      {
-        GLfloat params[] = { 1, 1, 1, 1 };
-        glLightfv(GL_LIGHT1, GL_SPECULAR, params);
-      }
+        {
+            GLfloat params[] = { 1, 0, 0, 1 };
+            glLightfv(GL_LIGHT1, GL_DIFFUSE, params);
+        }
+        {
+            GLfloat params[] = { 1, 1, 1, 1 };
+            glLightfv(GL_LIGHT1, GL_SPECULAR, params);
+        }
 
 /*
-      glEnable(GL_LIGHTING);
-      glEnable(GL_DEPTH_TEST);
-      glEnable(GL_COLOR_MATERIAL);
+        glEnable(GL_LIGHTING);
+        glEnable(GL_DEPTH_TEST);
+        glEnable(GL_COLOR_MATERIAL);
 
-      glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL, GL_SEPARATE_SPECULAR_COLOR);
-      glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, 1);
-      glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, 1);
+        glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL, GL_SEPARATE_SPECULAR_COLOR);
+        glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, 1);
+        glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, 1);
 */
 
-      quadric = gluNewQuadric();
+        quadric = gluNewQuadric();
     }
 
     virtual ~Render()
     {
-      gluDeleteQuadric(quadric);
+        gluDeleteQuadric(quadric);
     }
 
-  private:
-    void render_scene()
+private:
+    void render() override
     {
-      {
-        glPushMatrix();
-        glTranslated(-1, 0, 0);
-        glDisable(GL_LIGHT1);
-        gluSphere(quadric, 0.01, adjust_detail(32, 3), adjust_detail(32, 3));
-        glPushMatrix();
         {
-          GLfloat params[] = { 0, 0, 0, 1 };
-          glLightfv(GL_LIGHT1, GL_POSITION, params);
+            glPushMatrix();
+            glTranslated(-1, 0, 0);
+            glDisable(GL_LIGHT1);
+            gluSphere(quadric, 0.01, adjust_detail(32, 3), adjust_detail(32, 3));
+            glPushMatrix();
+            {
+                GLfloat params[] = { 0, 0, 0, 1 };
+                glLightfv(GL_LIGHT1, GL_POSITION, params);
+            }
+            {
+                GLfloat params[] = { 0.5 };
+                glLightfv(GL_LIGHT1, GL_LINEAR_ATTENUATION, params);
+            }
+            glPopMatrix();
+            glNormal3d(0, 0, 1);
+            glEnable(GL_LIGHT1);
+            int m = 20;
+            for (int i = 0; i < m; ++i) {
+                double r = (i+1) / double(m);
+                glBegin(GL_POLYGON);
+                int n = adjust_detail(32, 3);
+                for (int j = 0; j < n; ++j) {
+                    double a = j * (2*M_PI / n);
+                    glVertex3d(r*cos(a), r*sin(a), -(1+i));
+                }
+                glEnd();
+            }
+            glPopMatrix();
         }
         {
-          GLfloat params[] = { 0.5 };
-          glLightfv(GL_LIGHT1, GL_LINEAR_ATTENUATION, params);
+            glPushMatrix();
+            glTranslated(1, 0, 0);
+            glDisable(GL_LIGHT1);
+            gluSphere(quadric, 0.01, adjust_detail(32, 3), adjust_detail(32, 3));
+            glPushMatrix();
+            glScaled(0.1, 0.1, 0.1);
+            {
+                GLfloat params[] = { 0, 0, 0, 1 };
+                glLightfv(GL_LIGHT1, GL_POSITION, params);
+            }
+            {
+                GLfloat params[] = { 0.5 };
+                glLightfv(GL_LIGHT1, GL_LINEAR_ATTENUATION, params);
+            }
+            glPopMatrix();
+            glNormal3d(0, 0, 1);
+            glEnable(GL_LIGHT1);
+            int m = 20;
+            for (int i = 0; i < m; ++i) {
+                double r = (i+1) / double(m);
+                glBegin(GL_POLYGON);
+                int n = adjust_detail(32, 3);
+                for (int j = 0; j < n; ++j) {
+                    double a = j * (2*M_PI / n);
+                    glVertex3d(r*cos(a), r*sin(a), -(1+i));
+                }
+                glEnd();
+            }
+            glPopMatrix();
         }
-        glPopMatrix();
-        glNormal3d(0, 0, 1);
-        glEnable(GL_LIGHT1);
-        int const m = 20;
-        for(int i=0; i<m; ++i)
-        {
-          double const r = (i+1) / double(m);
-          glBegin(GL_POLYGON);
-          int const n = adjust_detail(32, 3);
-          for(int j=0; j<n; ++j)
-          {
-            double const a = j * (2*M_PI / n);
-            glVertex3d(r*cos(a), r*sin(a), -(1+i));
-          }
-          glEnd();
-        }
-        glPopMatrix();
-      }
-      {
-        glPushMatrix();
-        glTranslated(1, 0, 0);
-        glDisable(GL_LIGHT1);
-        gluSphere(quadric, 0.01, adjust_detail(32, 3), adjust_detail(32, 3));
-        glPushMatrix();
-        glScaled(0.1, 0.1, 0.1);
-        {
-          GLfloat params[] = { 0, 0, 0, 1 };
-          glLightfv(GL_LIGHT1, GL_POSITION, params);
-        }
-        {
-          GLfloat params[] = { 0.5 };
-          glLightfv(GL_LIGHT1, GL_LINEAR_ATTENUATION, params);
-        }
-        glPopMatrix();
-        glNormal3d(0, 0, 1);
-        glEnable(GL_LIGHT1);
-        int const m = 20;
-        for(int i=0; i<m; ++i)
-        {
-          double const r = (i+1) / double(m);
-          glBegin(GL_POLYGON);
-          int const n = adjust_detail(32, 3);
-          for(int j=0; j<n; ++j)
-          {
-            double const a = j * (2*M_PI / n);
-            glVertex3d(r*cos(a), r*sin(a), -(1+i));
-          }
-          glEnd();
-        }
-        glPopMatrix();
-      }
 
 
 /*
-      glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-      glColor3f(0.3, 0.8, 0.3);
-      gluSphere(quadric, 1, 50, 50);
-      glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+        glColor3f(0.3, 0.8, 0.3);
+        gluSphere(quadric, 1, 50, 50);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
-      glPushMatrix();
-      glColor3f(0.8, 0.3, 0.3);
-      glTranslated(-0.07, 0, -60.5);
-      gluCylinder(quadric, 0.02, 0.02, 64,
-                  adjust_detail(25, 3), adjust_detail(200, 1));
-      glPopMatrix();
+        glPushMatrix();
+        glColor3f(0.8, 0.3, 0.3);
+        glTranslated(-0.07, 0, -60.5);
+        gluCylinder(quadric, 0.02, 0.02, 64,
+                    adjust_detail(25, 3), adjust_detail(200, 1));
+        glPopMatrix();
 
-      glPushMatrix();
-      glColor3f(0.8, 0.3, 0.3);
-      glTranslated(+0.07, 0, -60.5);
-      gluCylinder(quadric, 0.02, 0.02, 64,
-                  adjust_detail(25, 3), adjust_detail(200, 1));
-      glPopMatrix();
+        glPushMatrix();
+        glColor3f(0.8, 0.3, 0.3);
+        glTranslated(+0.07, 0, -60.5);
+        gluCylinder(quadric, 0.02, 0.02, 64,
+                    adjust_detail(25, 3), adjust_detail(200, 1));
+        glPopMatrix();
 
-      glPushMatrix();
-      glColor3f(0.1, 0.9, 0.9);
-      glTranslated(0, 0, -16);
-      gluCylinder(quadric, 0.2, 0.2, 1.6,
-                  adjust_detail(50, 3), adjust_detail(25, 1));
-      glPopMatrix();
+        glPushMatrix();
+        glColor3f(0.1, 0.9, 0.9);
+        glTranslated(0, 0, -16);
+        gluCylinder(quadric, 0.2, 0.2, 1.6,
+                    adjust_detail(50, 3), adjust_detail(25, 1));
+        glPopMatrix();
 
-      glPushMatrix();
-      glColor3f(0.2, 0.2, 0.8);
-      glTranslated(0, 0, -12.5);
-      gluCylinder(quadric, 0.2, 0.2, 1.6,
-                  adjust_detail(50, 3), adjust_detail(25, 1));
-      glPopMatrix();
+        glPushMatrix();
+        glColor3f(0.2, 0.2, 0.8);
+        glTranslated(0, 0, -12.5);
+        gluCylinder(quadric, 0.2, 0.2, 1.6,
+                    adjust_detail(50, 3), adjust_detail(25, 1));
+        glPopMatrix();
 
-      glPushMatrix();
-      glColor3f(0.9, 0.1, 0.9);
-      glTranslated(0, 0, -9);
-      gluCylinder(quadric, 0.2, 0.2, 1.6,
-                  adjust_detail(50, 3), adjust_detail(25, 1));
-      glPopMatrix();
+        glPushMatrix();
+        glColor3f(0.9, 0.1, 0.9);
+        glTranslated(0, 0, -9);
+        gluCylinder(quadric, 0.2, 0.2, 1.6,
+                    adjust_detail(50, 3), adjust_detail(25, 1));
+        glPopMatrix();
 
-      glPushMatrix();
-      glColor3f(0.2, 0.2, 0.8);
-      glTranslated(0, 0, -5.5);
-      gluCylinder(quadric, 0.2, 0.2, 1.6,
-                  adjust_detail(50, 3), adjust_detail(25, 1));
-      glPopMatrix();
+        glPushMatrix();
+        glColor3f(0.2, 0.2, 0.8);
+        glTranslated(0, 0, -5.5);
+        gluCylinder(quadric, 0.2, 0.2, 1.6,
+                    adjust_detail(50, 3), adjust_detail(25, 1));
+        glPopMatrix();
 
-      glPushMatrix();
-      glColor3f(0.9, 0.9, 0.1);
-      glTranslated(0, 0, -2);
-      gluCylinder(quadric, 0.2, 0.2, 1.6,
-                  adjust_detail(50, 3), adjust_detail(25, 1));
-      glPopMatrix();
+        glPushMatrix();
+        glColor3f(0.9, 0.9, 0.1);
+        glTranslated(0, 0, -2);
+        gluCylinder(quadric, 0.2, 0.2, 1.6,
+                    adjust_detail(50, 3), adjust_detail(25, 1));
+        glPopMatrix();
 
-      glPushMatrix();
-      glColor3f(0.2, 0.2, 0.8);
-      glTranslated(0, 0, 1.5);
-      gluCylinder(quadric, 0.2, 0.2, 1.6,
-                  adjust_detail(50, 3), adjust_detail(25, 1));
-      glPopMatrix();
+        glPushMatrix();
+        glColor3f(0.2, 0.2, 0.8);
+        glTranslated(0, 0, 1.5);
+        gluCylinder(quadric, 0.2, 0.2, 1.6,
+                    adjust_detail(50, 3), adjust_detail(25, 1));
+        glPopMatrix();
 */
     }
 
-    GLUquadric *quadric;
-  };
-}
+    GLUquadric* quadric;
+};
 
-int main(int argc, char const *argv[]) throw()
+} // unnamed namespace
+
+
+int main(int argc, const char* argv[])
 {
-  set_terminate(&cxx::terminate_handler);
-    
-  try_fix_preinstall_datadir(argv[0], "render/test/");
-  Application::Config cfg;
-  CommandlineOptions opts;
-  opts.add_help("Test application for the rendering application foundation");
-  opts.check_num_args();
-  opts.add_group(cfg);
-  if(int stop = opts.process(argc, argv)) return stop == 2 ? 0 : 1;
-  Render(cfg).run();
-  Thread::main_exit_wait();
-  return 0;
+    std::set_terminate(&cxx::terminate_handler);
+    try_fix_preinstall_datadir(argv[0], "render/test/");
+
+    Application::Config cfg;
+    CommandlineOptions opts;
+    opts.add_help("Test application for the rendering application foundation");
+    opts.check_num_args();
+    opts.add_group(cfg);
+    if (int stop = opts.process(argc, argv))
+        return stop == 2 ? EXIT_SUCCESS : EXIT_FAILURE;
+    Render(cfg).run();
+    Thread::main_exit_wait();
 }

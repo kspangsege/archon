@@ -35,17 +35,17 @@ AC_DEFUN([_ARCHON_CHECK_LIB_1], [
 # $9 - pass 'no' to disallow manual specification of compiler and linker flags.
 #
 # If the checking code does not detect the library, it must set
-# 'archon_not_found' to 'yes', otherwise it must set 'archon_cflags',
-# and 'archon_libs' to appropriate values.
+# 'archon_not_found' to 'yes', otherwise it must set 'archon_cflags', and
+# 'archon_libs' to appropriate values.
 #
-# Assuming that the 'cflags' and 'libs' prefix is 'ARCHON_IMAGE_',
-# this macro will append the necessary compiler to the shell variable
-# 'ARCHON_IMAGE_CFLAGS', and linker flags to 'ARCHON_IMAGE_LIBS'. If
-# the prefix is set to the empty string, then this part is disabled.
+# Assuming that the 'cflags' and 'libs' prefix is 'ARCHON_IMAGE_', this macro
+# will append the necessary compiler flags to the shell variable
+# 'ARCHON_IMAGE_CFLAGS', and linker flags to 'ARCHON_IMAGE_LIBS'. If the prefix
+# is set to the empty string, then this part is disabled.
 #
-# Assuming that the single word lower case feature name is 'png', this
-# macro will set the shell variable 'archon_with_png' to 'yes' if the
-# library was available, otherwise it will set it to 'no'.
+# Assuming that the single word lower case feature name is 'png', this macro
+# will set the shell variable 'archon_with_png' to 'yes' if the library was
+# available, otherwise it will set it to 'no'.
 #
 AC_DEFUN([ARCHON_CHECK_LIB], [
   AC_ARG_WITH([$1], [AS_HELP_STRING([--with-$1]m4_if($9, [no], [], [m4_if($5, [], [], [(=LIBS(,CFLAGS))])]),

@@ -30,7 +30,6 @@
 #include <archon/core/build_config.hpp>
 #include <archon/core/char_enc.hpp>
 #include <archon/core/options.hpp>
-#include <archon/math/vector.hpp>
 #include <archon/font/util.hpp>
 #include <archon/font/layout_cfg.hpp>
 #include <archon/display/keysyms.hpp>
@@ -39,7 +38,6 @@
 #include <archon/core/cxx.hpp>
 
 
-using namespace std;
 using namespace archon::core;
 using namespace archon::math;
 using namespace archon::font;
@@ -98,56 +96,75 @@ struct TextFormatterApp: Application {
     };
 
 
-    TextFormatterApp(const Config& cfg, FontList::Arg font_list, wstring text):
-        Application("archon::render::TextFormatter", cfg, locale(""), Connection::Ptr(),
+    TextFormatterApp(const Config& cfg, FontList::Arg font_list, std::wstring text):
+        Application("archon::render::TextFormatter", cfg, std::locale(""), Connection::Ptr(),
                     nullptr, new_font_cache(font_list)),
-        text_formatter(get_font_provider())
+        m_text_formatter(get_font_provider())
     {
-        register_key_handler(KeySym_Page_Down, &TextFormatterApp::next_page,
-                             "Go to next page.");
-        register_key_handler(KeySym_Page_Up, &TextFormatterApp::prev_page,
-                             "Go to previous page.");
+        auto next_page = [this](bool key_down) {
+            if (key_down) {
+                if (++m_page_index == m_num_pages)
+                    m_page_index -= m_num_pages;
+                update_page();
+                set_int_status(L"Page ", (m_page_index+1));
+                return true;
+            }
+            return false;
+        };
+        auto prev_page = [this](bool key_down) {
+            if (key_down) {
+                if (m_page_index-- == 0)
+                    m_page_index += m_num_pages;
+                update_page();
+                set_int_status(L"Page ", (m_page_index+1));
+                return true;
+            }
+            return false;
+        };
 
-        text_formatter.set_page_width(Interval(0, cfg.page_size[0]));
-        text_formatter.set_page_height(Interval(0, cfg.page_size[1]));
-        text_formatter.set_font_size(cfg.font_size[0], cfg.font_size[1]);
-        text_formatter.set_text_color(cfg.text_color);
-        cfg.apply_to(text_formatter);
-        text_formatter.write(text);
+        bind_key(KeySym_Page_Down, std::move(next_page), "Go to next page.");
+        bind_key(KeySym_Page_Up, std::move(prev_page), "Go to previous page.");
+
+        m_text_formatter.set_page_width(Interval(0, cfg.page_size[0]));
+        m_text_formatter.set_page_height(Interval(0, cfg.page_size[1]));
+        m_text_formatter.set_font_size(cfg.font_size[0], cfg.font_size[1]);
+        m_text_formatter.set_text_color(cfg.text_color);
+        cfg.apply_to(m_text_formatter);
+        m_text_formatter.write(text);
 
         if (cfg.add_mixed) {
-            text_formatter.write(L" ");
-            text_formatter.set_text_color(Vec4F(1,0,0,1));
-            text_formatter.set_font_size(35/256.0, 35/256.0);
-            text_formatter.set_font_boldness(1);
-            text_formatter.write(L"Kristian ");
-            text_formatter.set_letter_spacing(10/256.0);
-            text_formatter.write(L"Kristian ");
+            m_text_formatter.write(L" ");
+            m_text_formatter.set_text_color(Vec4F(1,0,0,1));
+            m_text_formatter.set_font_size(35/256.0, 35/256.0);
+            m_text_formatter.set_font_boldness(1);
+            m_text_formatter.write(L"Kristian ");
+            m_text_formatter.set_letter_spacing(10/256.0);
+            m_text_formatter.write(L"Kristian ");
 
-            text_formatter.set_text_color(Vec4F(0,1,0,1));
-            text_formatter.set_font_size(25/256.0, 25/256.0);
-            text_formatter.set_font_boldness(0);
-            text_formatter.set_font_italicity(1);
-            text_formatter.write(L"Spangsege ");
+            m_text_formatter.set_text_color(Vec4F(0,1,0,1));
+            m_text_formatter.set_font_size(25/256.0, 25/256.0);
+            m_text_formatter.set_font_boldness(0);
+            m_text_formatter.set_font_italicity(1);
+            m_text_formatter.write(L"Spangsege ");
 
-            text_formatter.set_text_color(Vec4F(1,0,1,1));
-            text_formatter.set_font_size(30/256.0, 30/256.0);
-            text_formatter.set_font_italicity(0);
-            text_formatter.set_font_family("URW Palladio L");
-            text_formatter.write(L"h");
-            text_formatter.set_line_spacing(2);
-            text_formatter.write(L"I");
-            text_formatter.set_line_spacing(1);
-            text_formatter.write(L"gh ");
+            m_text_formatter.set_text_color(Vec4F(1,0,1,1));
+            m_text_formatter.set_font_size(30/256.0, 30/256.0);
+            m_text_formatter.set_font_italicity(0);
+            m_text_formatter.set_font_family("URW Palladio L");
+            m_text_formatter.write(L"h");
+            m_text_formatter.set_line_spacing(2);
+            m_text_formatter.write(L"I");
+            m_text_formatter.set_line_spacing(1);
+            m_text_formatter.write(L"gh ");
 
-            text_formatter.set_text_color(Vec4F(0,0,1,1));
-            text_formatter.set_font_size(45/256.0, 45/256.0);
-            text_formatter.set_font_family("VL Gothic");
-            text_formatter.write(L"Mandala");
+            m_text_formatter.set_text_color(Vec4F(0,0,1,1));
+            m_text_formatter.set_font_size(45/256.0, 45/256.0);
+            m_text_formatter.set_font_family("VL Gothic");
+            m_text_formatter.write(L"Mandala");
         }
 
-        page_index = cfg.page_num - 1;
-        num_pages = text_formatter.get_num_pages();
+        m_page_index = cfg.page_num - 1;
+        m_num_pages = m_text_formatter.get_num_pages();
 
         glEnable(GL_LIGHTING);
         glEnable(GL_DEPTH_TEST);
@@ -165,72 +182,45 @@ struct TextFormatterApp: Application {
 
 
 private:
-    void render_scene()
+    archon::render::TextFormatter m_text_formatter;
+    TextLayout m_text_layout;
+    int m_page_index, m_num_pages;
+
+    void render() override
     {
-        double w = text_layout.get_width(), h = text_layout.get_height();
+        double w = m_text_layout.get_width(), h = m_text_layout.get_height();
         glTranslated(-0.5*w, -0.5*h, 0);
 
 /*
-  glEnable(GL_COLOR_MATERIAL);
-  glNormal3f(0, 0, 1);
-  glColor3f(0,0.5,0.5);
-  const Vec2 p0(0,0);
-  const Vec2 p1(w,h);
-  glBegin(GL_QUADS);
-  glVertex3d(p1[0], p1[1], -0.001);
-  glVertex3d(p0[0], p1[1], -0.001);
-  glVertex3d(p0[0], p0[1], -0.001);
-  glVertex3d(p1[0], p0[1], -0.001);
-  glEnd();
+        glEnable(GL_COLOR_MATERIAL);
+        glNormal3f(0, 0, 1);
+        glColor3f(0,0.5,0.5);
+        Vec2 p0(0,0);
+        Vec2 p1(w,h);
+        glBegin(GL_QUADS);
+        glVertex3d(p1[0], p1[1], -0.001);
+        glVertex3d(p0[0], p1[1], -0.001);
+        glVertex3d(p0[0], p0[1], -0.001);
+        glVertex3d(p1[0], p0[1], -0.001);
+        glEnd();
 */
 
-        text_layout.render();
+        m_text_layout.render();
     }
-
-
-    bool next_page(bool key_down)
-    {
-        if (key_down) {
-            if (++page_index == num_pages)
-                page_index -= num_pages;
-            update_page();
-            return true;
-        }
-        return false;
-    }
-
-
-    bool prev_page(bool key_down)
-    {
-        if (key_down) {
-            if (page_index-- == 0)
-                page_index += num_pages;
-            update_page();
-            return true;
-        }
-        return false;
-    }
-
 
     void update_page()
     {
-        text_formatter.format(text_layout, page_index);
+        m_text_formatter.format(m_text_layout, m_page_index);
     }
-
-
-    archon::render::TextFormatter text_formatter;
-    TextLayout text_layout;
-    int page_index, num_pages;
 };
 
 } // unnamed namespace
 
 
 
-int main(int argc, const char* argv[]) throw()
+int main(int argc, const char* argv[])
 {
-    set_terminate(&cxx::terminate_handler);
-
+    std::set_terminate(&cxx::terminate_handler);
     try_fix_preinstall_datadir(argv[0], "render/test/");
 
     TextFormatterApp::Config app_cfg;
@@ -245,12 +235,12 @@ int main(int argc, const char* argv[]) throw()
     if (int stop = opts.process(argc, argv))
         return stop == 2 ? EXIT_SUCCESS : EXIT_FAILURE;
 
-    string font_resource_dir = app_cfg.archon_datadir+"font/";
+    std::string font_resource_dir = app_cfg.archon_datadir+"font/";
     FontList::Ptr font_list = make_font_list(font_resource_dir, font_cfg);
     if (!font_list)
         return 1;
 
-    wstring text = 1 < argc ? env_decode<wchar_t>(argv[1]) :
+    std::wstring text = 1 < argc ? env_decode<wchar_t>(argv[1]) :
         L"The quick brown fox jumps over the lazy dog";
 
     TextFormatterApp(app_cfg, font_list, text).run();

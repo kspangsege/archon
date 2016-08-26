@@ -18,34 +18,30 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- *
- * Testing the directory scanner.
- */
+/// \file
+///
+/// \author Kristian Spangsege
+///
+/// Testing the directory scanner.
 
 #include <iostream>
 
 #include <archon/core/dir_scan.hpp>
 
 
-using namespace std;
 using namespace archon::core;
 
-int main(int argc, char const *argv[]) throw()
+int main(int argc, const char* argv[])
 {
-  if(argc != 2) throw runtime_error("Wrong number of command line arguments");
+    if (argc != 2)
+        throw std::runtime_error("Wrong number of command line arguments");
 
-  UniquePtr<DirScanner> s(DirScanner::new_dir_scanner(argv[1]).release());
+    std::unique_ptr<DirScanner> s = DirScanner::new_dir_scanner(argv[1]);
 
-  for(;;)
-  {
-    string e = s->next_entry();
-    if(e.empty()) break;
-    cout << e << endl;
-  }
-
-  return 0;
+    for (;;) {
+        std::string e = s->next_entry();
+        if (e.empty())
+            break;
+        std::cout << e << std::endl;
+    }
 }

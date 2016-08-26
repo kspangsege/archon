@@ -75,7 +75,7 @@ DOMImplementationRegistry::getDOMImplementation(const DOMString& features) const
         if (ref<DOMImplementation> impl = (*i)->getDOMImplementation(features))
             return impl;
     }
-    return null;
+    return nullptr;
 }
 
 

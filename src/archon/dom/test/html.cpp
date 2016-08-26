@@ -41,7 +41,7 @@ int main() throw()
     ref<DOMImplementation> impl =
         registry->getDOMImplementation(str_from_cloc(L"CORE 3.0 HTML 2.0"));
 
-    ref<Document> doc = impl->createDocument(DOMString(), DOMString(), null);
+    ref<Document> doc = impl->createDocument(DOMString(), DOMString(), nullptr);
 
     ref<html::HTMLDocument> html_doc = dynamic_pointer_cast<html::HTMLDocument>(doc);
 

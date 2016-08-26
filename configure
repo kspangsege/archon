@@ -644,6 +644,10 @@ ARCHON_HAVE_LIBWWW_TRUE
 LIBWWW_CONFIG
 ARCHON_DISPLAY_LIBS
 ARCHON_DISPLAY_CFLAGS
+ARCHON_HAVE_XINPUT2_FALSE
+ARCHON_HAVE_XINPUT2_TRUE
+ARCHON_HAVE_X_GENERIC_EVENTS_FALSE
+ARCHON_HAVE_X_GENERIC_EVENTS_TRUE
 ARCHON_HAVE_XRENDER_FALSE
 ARCHON_HAVE_XRENDER_TRUE
 ARCHON_HAVE_GLX_FALSE
@@ -858,6 +862,8 @@ with_xquartz_gl
 with_glu
 with_glx
 with_xrender
+with_xgevent
+with_xinput2
 with_libwww
 '
       ac_precious_vars='build_alias
@@ -1566,8 +1572,12 @@ Optional Packages:
                           include support for GLX (OpenGL Extension to X)
                           [default=check]
   --with-xrender(=LIBS(,CFLAGS))
-                          include support XRender (X Rendering Extension)
+                          include support for XRender (X Rendering Extension)
                           [default=check]
+  --with-xgevent          include support for Generic Event Extension to X
+                          [default=check]
+  --with-xinput2(=LIBS(,CFLAGS))
+                          include support for XInput2 [default=check]
   --with-libwww(=LIBS(,CFLAGS))
                           include support for W3C Libwww [default=check]
 
@@ -20137,7 +20147,7 @@ fi
   ARCHON_DISPLAY_LIBS=""
 
 
-  # Check for X
+  # Check for Xlib
 
   if test "x$no_x" != xyes; then :
 
@@ -22421,6 +22431,249 @@ fi
 
 
 
+  # Check for the Generic Event Extension to X
+
+
+# Check whether --with-xgevent was given.
+if test "${with_xgevent+set}" = set; then :
+  withval=$with_xgevent; archon_with="$with_xgevent"
+else
+  archon_with=check
+fi
+
+
+  if test "x$archon_with" != xno; then :
+
+
+      if test "x$archon_with" != xyes -a "x$archon_with" != xcheck; then :
+
+
+        archon_cflags=`echo ",$archon_with," | $AWK 'BEGIN{FS=","}{print $3}'`
+        archon_libs=`echo ",$archon_with," | $AWK 'BEGIN{FS=","}{print $2}'`
+        archon_with=yes
+
+else
+
+
+  { archon_not_found=; unset archon_not_found;}
+  { archon_cflags=; unset archon_cflags;}
+  { archon_libs=; unset archon_libs;}
+
+    { $as_echo "$as_me:${as_lineno-$LINENO}: checking X Generic Event Extension availability" >&5
+$as_echo_n "checking X Generic Event Extension availability... " >&6; }
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+
+        #include <X11/Xlib.h>
+
+int
+main ()
+{
+
+        Display* display;
+        XEvent event;
+        XGenericEventCookie* cookie = &event.xcookie;
+        XNextEvent(display, &event);
+        XGetEventData(display, cookie);
+        XFreeEventData(display, cookie);
+
+  ;
+  return 0;
+}
+
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"; then :
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+
+else
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+      archon_not_found=yes
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+
+  if test "x$archon_not_found" != xyes; then :
+  archon_with=yes
+elif test "x$archon_with" = xyes; then :
+
+    as_fn_error 1 "the Generic Event Extension to X was not available" "$LINENO" 5
+
+else
+
+    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: the Generic Event Extension to X was not available" >&5
+$as_echo "$as_me: WARNING: the Generic Event Extension to X was not available" >&2;}
+    archon_with=no
+
+fi
+
+
+fi
+
+    if test "x$archon_with" = xyes; then :
+
+
+
+$as_echo "#define ARCHON_HAVE_X_GENERIC_EVENTS 1" >>confdefs.h
+
+
+
+
+fi
+
+fi
+   if test "x$archon_with" = xyes; then
+  ARCHON_HAVE_X_GENERIC_EVENTS_TRUE=
+  ARCHON_HAVE_X_GENERIC_EVENTS_FALSE='#'
+else
+  ARCHON_HAVE_X_GENERIC_EVENTS_TRUE='#'
+  ARCHON_HAVE_X_GENERIC_EVENTS_FALSE=
+fi
+
+  archon_with_xgevent="$archon_with"
+
+
+
+  # Check for the advanced input extension to X (Xinput2)
+
+
+# Check whether --with-xinput2 was given.
+if test "${with_xinput2+set}" = set; then :
+  withval=$with_xinput2; archon_with="$with_xinput2"
+else
+  archon_with=check
+fi
+
+
+  if test "x$archon_with" != xno; then :
+
+
+      if test "x$archon_with" != xyes -a "x$archon_with" != xcheck; then :
+
+
+        archon_cflags=`echo ",$archon_with," | $AWK 'BEGIN{FS=","}{print $3}'`
+        archon_libs=`echo ",$archon_with," | $AWK 'BEGIN{FS=","}{print $2}'`
+        archon_with=yes
+
+else
+
+
+  { archon_not_found=; unset archon_not_found;}
+  { archon_cflags=; unset archon_cflags;}
+  { archon_libs=; unset archon_libs;}
+
+    ac_fn_c_check_header_mongrel "$LINENO" "X11/extensions/XInput2.h" "ac_cv_header_X11_extensions_XInput2_h" "$ac_includes_default"
+if test "x$ac_cv_header_X11_extensions_XInput2_h" = xyes; then :
+
+      { $as_echo "$as_me:${as_lineno-$LINENO}: checking for XIQueryVersion in -lXi" >&5
+$as_echo_n "checking for XIQueryVersion in -lXi... " >&6; }
+if ${ac_cv_lib_Xi_XIQueryVersion+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  ac_check_lib_save_LIBS=$LIBS
+LIBS="-lXi $X_LIBS $LIBS"
+cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char XIQueryVersion ();
+int
+main ()
+{
+return XIQueryVersion ();
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"; then :
+  ac_cv_lib_Xi_XIQueryVersion=yes
+else
+  ac_cv_lib_Xi_XIQueryVersion=no
+fi
+rm -f core conftest.err conftest.$ac_objext \
+    conftest$ac_exeext conftest.$ac_ext
+LIBS=$ac_check_lib_save_LIBS
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_Xi_XIQueryVersion" >&5
+$as_echo "$ac_cv_lib_Xi_XIQueryVersion" >&6; }
+if test "x$ac_cv_lib_Xi_XIQueryVersion" = xyes; then :
+  archon_libs="-lXi"
+else
+  archon_not_found=yes
+fi
+
+
+else
+  archon_not_found=yes
+fi
+
+
+
+  if test "x$archon_not_found" != xyes; then :
+  archon_with=yes
+elif test "x$archon_with" = xyes; then :
+
+    as_fn_error 1 "the advanced input extension to X was not available" "$LINENO" 5
+
+else
+
+    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: the advanced input extension to X was not available" >&5
+$as_echo "$as_me: WARNING: the advanced input extension to X was not available" >&2;}
+    archon_with=no
+
+fi
+
+
+fi
+
+    if test "x$archon_with" = xyes; then :
+
+
+
+$as_echo "#define ARCHON_HAVE_XINPUT2 1" >>confdefs.h
+
+
+
+
+  if test "x$ARCHON_DISPLAY_CFLAGS" != x -a "x$archon_cflags" != x; then :
+  ARCHON_DISPLAY_CFLAGS="$archon_cflags $ARCHON_DISPLAY_CFLAGS"
+else
+  ARCHON_DISPLAY_CFLAGS="$archon_cflags$ARCHON_DISPLAY_CFLAGS"
+fi
+
+
+  if test "x$ARCHON_DISPLAY_LIBS" != x -a "x$archon_libs" != x; then :
+  ARCHON_DISPLAY_LIBS="$archon_libs $ARCHON_DISPLAY_LIBS"
+else
+  ARCHON_DISPLAY_LIBS="$archon_libs$ARCHON_DISPLAY_LIBS"
+fi
+
+
+
+fi
+
+fi
+   if test "x$archon_with" = xyes; then
+  ARCHON_HAVE_XINPUT2_TRUE=
+  ARCHON_HAVE_XINPUT2_FALSE='#'
+else
+  ARCHON_HAVE_XINPUT2_TRUE='#'
+  ARCHON_HAVE_XINPUT2_FALSE=
+fi
+
+  archon_with_xinput2="$archon_with"
+
+
+
 
 
 
@@ -22777,6 +23030,14 @@ Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${ARCHON_HAVE_XRENDER_TRUE}" && test -z "${ARCHON_HAVE_XRENDER_FALSE}"; then
   as_fn_error $? "conditional \"ARCHON_HAVE_XRENDER\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${ARCHON_HAVE_X_GENERIC_EVENTS_TRUE}" && test -z "${ARCHON_HAVE_X_GENERIC_EVENTS_FALSE}"; then
+  as_fn_error $? "conditional \"ARCHON_HAVE_X_GENERIC_EVENTS\" was never defined.
+Usually this means the macro was only invoked conditionally." "$LINENO" 5
+fi
+if test -z "${ARCHON_HAVE_XINPUT2_TRUE}" && test -z "${ARCHON_HAVE_XINPUT2_FALSE}"; then
+  as_fn_error $? "conditional \"ARCHON_HAVE_XINPUT2\" was never defined.
 Usually this means the macro was only invoked conditionally." "$LINENO" 5
 fi
 if test -z "${ARCHON_HAVE_LIBWWW_TRUE}" && test -z "${ARCHON_HAVE_LIBWWW_FALSE}"; then

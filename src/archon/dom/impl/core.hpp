@@ -627,7 +627,7 @@ void Attr::on_unreferenced() const ARCHON_NOEXCEPT
 
 dom::ref<dom::Node> Attr::getParentNode() const
 {
-    return dom::null;
+    return nullptr;
 }
 
 dom::ref<dom::Element> Attr::getOwnerElement() const
@@ -848,9 +848,9 @@ struct Node: virtual dom::Node {
 
     virtual dom::ref<dom::NodeList> getChildNodes() const throw ();
 
-    virtual dom::ref<dom::Node> getFirstChild() const throw () { return dom::null; }
+    virtual dom::ref<dom::Node> getFirstChild() const throw () { return nullptr; }
 
-    virtual dom::ref<dom::Node> getLastChild()  const throw () { return dom::null; }
+    virtual dom::ref<dom::Node> getLastChild()  const throw () { return nullptr; }
 
     virtual dom::ref<dom::Node> getPreviousSibling() const throw ();
 
@@ -1330,11 +1330,11 @@ private:
     struct Attr: ParentNode, virtual dom::Attr {
         virtual dom::DOMString getNodeName() const throw ();
 
-        virtual dom::ref<dom::Node> getParentNode() const throw () { return dom::null; }
+        virtual dom::ref<dom::Node> getParentNode() const throw () { return nullptr; }
 
-        virtual dom::ref<dom::Node> getPreviousSibling() const throw () { return dom::null; }
+        virtual dom::ref<dom::Node> getPreviousSibling() const throw () { return nullptr; }
 
-        virtual dom::ref<dom::Node> getNextSibling() const throw () { return dom::null; }
+        virtual dom::ref<dom::Node> getNextSibling() const throw () { return nullptr; }
 
         virtual dom::DOMString getName() const throw ();
 
@@ -1742,14 +1742,14 @@ struct DocumentType: Node, virtual dom::DocumentType {
 private:
     const dom::DOMString name, public_id, system_id;
 
-    core::UniquePtr<NodeType> node_type_entity, node_type_notation;
+    std::unique_ptr<NodeType> node_type_entity, node_type_notation;
 
-    const core::UniquePtr<NamedNodeMap> entities, notations;
+    const std::unique_ptr<NamedNodeMap> entities, notations;
 
     dom::DOMString internal_subset;
 
     class DegenChildList;
-    mutable core::UniquePtr<DegenChildList> degen_child_list;
+    mutable std::unique_ptr<DegenChildList> degen_child_list;
 
 
     // Overriding Node::on_referenced().
@@ -2019,7 +2019,7 @@ private:
         {
             util::Hash_FNV_1a_32 h;
             h.add_string(k.tag_name);
-            return h.get_hash(n);
+            return int(h.get_hash(n));
         }
     };
 

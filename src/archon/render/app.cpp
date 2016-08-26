@@ -41,6 +41,7 @@
 #  include <GL/glu.h>
 #endif
 
+#include <archon/features.h>
 #include <archon/core/functions.hpp>
 #include <archon/core/weak_ptr.hpp>
 #include <archon/core/sys.hpp>
@@ -71,13 +72,13 @@ namespace {
 typedef archon::render::TextFormatter TextFormatter; // Resolving ambiguity
 
 
-const double zoom_step = std::pow(2, 1.0 / 8); // 8 steps to double
-const double zoom_min  = 0.1;
-const double zoom_max  = 32;
+constexpr double g_zoom_step = std::pow(2, 1.0 / 8); // 8 steps to double
+constexpr double g_zoom_min  = 0.1;
+constexpr double g_zoom_max  = 32;
 
-const double camera_dist_step = std::pow(2, 1.0 / 8); // 8 steps to double
+constexpr double g_camera_dist_step = std::pow(2, 1.0 / 8); // 8 steps to double
 
-const long status_hud_linger_millis = 1000;
+constexpr long g_status_hud_linger_millis = 1000;
 
 
 
@@ -159,18 +160,18 @@ public:
     TextureDecl declare_texture(std::string image_path, bool repeat, TextureCache::FilterMode f)
     {
         ensure_texture_cache();
-        UniquePtr<TextureSource> src(new TextureFileSource(image_path));
+        std::unique_ptr<TextureSource> src = std::make_unique<TextureFileSource>(image_path);
         GLenum wrap = repeat ? GL_REPEAT : GL_CLAMP;
-        return m_texture_cache->declare(src, wrap, wrap, f);
+        return m_texture_cache->declare(std::move(src), wrap, wrap, f);
     }
 
     TextureDecl declare_texture(Image::ConstRefArg img, std::string name, bool repeat,
                                 TextureCache::FilterMode f)
     {
         ensure_texture_cache();
-        UniquePtr<TextureSource> src(new TextureImageSource(img, name));
+        std::unique_ptr<TextureSource> src = std::make_unique<TextureImageSource>(img, name);
         GLenum wrap = repeat ? GL_REPEAT : GL_CLAMP;
-        return m_texture_cache->declare(src, wrap, wrap, f);
+        return m_texture_cache->declare(std::move(src), wrap, wrap, f);
     }
 
     FontProvider* get_font_provider()
@@ -201,7 +202,7 @@ public:
             };
             Image::Ref img = Image::copy_image_from(buffer, 2, 1, ColorSpace::get_Lum(), true);
             dashed_texture_decl = declare_texture(img, "Dashed pattern", true,
-                                                  TextureCache::filter_mode_Nearest);
+                                                  TextureCache::FilterMode::nearest);
         }
         return dashed_texture_decl;
     }
@@ -211,7 +212,7 @@ public:
         if (!dotted_texture_decl) {
             Image::Ref img = Image::load(resource_dir + "render/dotted.png");
             dotted_texture_decl = declare_texture(img, "Dotted pattern", true,
-                                                  TextureCache::filter_mode_Mipmap);
+                                                  TextureCache::FilterMode::mipmap);
         }
         return dotted_texture_decl;
     }
@@ -694,214 +695,255 @@ private:
 
 void Application::set_window_size(int w, int h)
 {
-    win->set_size(w,h);
+    m_win->set_size(w,h);
 }
 
 
 void Application::set_window_pos(int x, int y)
 {
-    win->set_position(x,y);
-    win_x = x;
-    win_y = y;
-    win_pos_set = true;
+    m_win->set_position(x,y);
+    m_win_x = x;
+    m_win_y = y;
+    m_win_pos_set = true;
 }
 
 
 void Application::set_fullscreen_enabled(bool enable)
 {
-    fullscreen_mode = enable;
-    win->set_fullscreen_enabled(enable);
+    m_fullscreen_mode = enable;
+    m_win->set_fullscreen_enabled(enable);
 }
 
 
 void Application::set_headlight_enabled(bool enable)
 {
-    headlight = enable;
+    m_headlight = enable;
 }
 
 
 void Application::set_frame_rate(double r)
 {
-    frame_rate = r;
-    time_per_frame.set_as_seconds_float(1/frame_rate);
-//    std::cout << "Setting desired frame rate (f/s): " << frame_rate << std::endl;
+    m_frame_rate = r;
+    auto nanos_per_frame = std::chrono::nanoseconds::rep(std::floor(1E9 / m_frame_rate));
+    auto time_per_frame = std::chrono::nanoseconds(nanos_per_frame);
+    m_time_per_frame = std::chrono::duration_cast<clock::duration>(time_per_frame);
+//    std::cout << "Setting desired frame rate (f/s): " << m_frame_rate << std::endl;
 }
 
 
-void Application::set_scene_orientation(math::Rotation3 rot)
+void Application::set_scene_orientation(math::Rotation3 orientation)
 {
-    trackball.set_orientation(rot);
+    m_orientation = orientation;
+    m_trackball.set_orientation(orientation);
+    m_need_redraw = true;
 }
 
 
 void Application::set_scene_spin(math::Rotation3 rot)
 {
-    trackball.set_spin(rot, Time::now());
+    m_trackball.set_spin(rot, clock::now());
 }
 
 
 void Application::set_detail_level(double level)
 {
-    detail_level = level;
+    m_detail_level = level;
 }
 
 
 void Application::set_interest_size(double diameter)
 {
-    interest_size = diameter;
-    projection_needs_update = true;
+    m_interest_size = diameter;
+    m_projection_needs_update = true;
+    m_need_redraw = true;
 }
 
 
 void Application::set_zoom_factor(double zoom)
 {
-    proj.zoom_factor = clamp(zoom, zoom_min, zoom_max);
-    projection_needs_update = true;
+    m_proj.zoom_factor = clamp(zoom, g_zoom_min, g_zoom_max);
+    m_projection_needs_update = true;
+    m_need_redraw = true;
 }
 
 
 void Application::set_eye_screen_dist(double dist)
 {
-    proj.view_dist = dist;
-    projection_needs_update = true;
+    m_proj.view_dist = dist;
+    m_projection_needs_update = true;
+    m_need_redraw = true;
 }
 
 
 void Application::set_screen_dpcm(double horiz, double vert)
 {
     if (0 < horiz)
-        proj.horiz_dot_pitch = 0.01 / horiz;
+        m_proj.horiz_dot_pitch = 0.01 / horiz;
     if (0 < vert)
-        proj.vert_dot_pitch  = 0.01 / vert;
-    if (0 < horiz || 0 < vert)
-        projection_needs_update = true;
+        m_proj.vert_dot_pitch  = 0.01 / vert;
+    if (0 < horiz || 0 < vert) {
+        m_projection_needs_update = true;
+        m_need_redraw = true;
+    }
 /*
-    std::cout << "Horizontal dot pitch = " << proj.horiz_dot_pitch << " m/px  (" << proj.get_horiz_resol_dpi() << " dpi)" << std::endl;
-    std::cout << "Vertical dot pitch   = " << proj.vert_dot_pitch  << " m/px  (" << proj.get_vert_resol_dpi()  << " dpi)" << std::endl;
+    std::cout << "Horizontal dot pitch = " << m_proj.horiz_dot_pitch << " m/px  (" << m_proj.get_horiz_resol_dpi() << " dpi)" << std::endl;
+    std::cout << "Vertical dot pitch   = " << m_proj.vert_dot_pitch  << " m/px  (" << m_proj.get_vert_resol_dpi()  << " dpi)" << std::endl;
 */
 }
 
 
 void Application::set_depth_of_field(double ratio)
 {
-    proj.far_to_near_clip_ratio = ratio;
-    projection_needs_update = true;
+    m_proj.far_to_near_clip_ratio = ratio;
+    m_projection_needs_update = true;
+    m_need_redraw = true;
 }
 
 
 void Application::set_wireframe_enabled(bool enable)
 {
-    wireframe_mode = enable;
+    m_wireframe_mode = enable;
 }
 
 
 void Application::set_axes_display_enabled(bool enable)
 {
-    axes_display = enable;
+    m_axes_display = enable;
 }
 
 
 void Application::set_global_ambience(double intencity)
 {
-    global_ambience = intencity;
-    need_misc_update = true;
+    m_global_ambience = intencity;
+    m_need_misc_update = true;
+    m_need_redraw = true;
 }
 
 
 void Application::set_background_color(Vec4 rgba)
 {
-    background_color = rgba;
-    need_misc_update = true;
+    m_background_color = rgba;
+    m_need_misc_update = true;
+    m_need_redraw = true;
 }
-
 
 
 void Application::run()
 {
-    if (first_run) {
-        initial_rotation = trackball.get_orientation(Time::now());
-        initial_interest_size = interest_size;
-        initial_zoom_factor = proj.zoom_factor;
-        first_run = false;
+    if (m_first_run) {
+        m_initial_orientation = m_orientation;
+        m_initial_interest_size = m_interest_size;
+        m_initial_zoom_factor = m_proj.zoom_factor;
+        m_first_run = false;
     }
 
-    win->show();
-    if (win_pos_set || fullscreen_mode) {
-        conn->flush_output();
-        if (win_pos_set)
-            win->set_position(win_x, win_y);
-        if (fullscreen_mode)
-            win->set_fullscreen_enabled(true);
+    m_win->show();
+    if (m_win_pos_set || m_fullscreen_mode) {
+        m_conn->flush_output();
+        if (m_win_pos_set)
+            m_win->set_position(m_win_x, m_win_y);
+        if (m_fullscreen_mode)
+            m_win->set_fullscreen_enabled(true);
     }
 
 //    RateMeter rate_meter("Frame rate (f/s): ", 10000);
-    bool lagging_frames = false;
-    Time time = Time::now();
+//    want_redraw = true;
+    using time_point = clock::time_point;
+    time_point wakeup_time = clock::now();
+    time_point next_tick_time = wakeup_time + m_time_per_frame;
     for (;;) {
 //        rate_meter.tick();
 
-        if(need_misc_update) {
-            GLfloat params[] = { GLfloat(global_ambience),
-                                 GLfloat(global_ambience),
-                                 GLfloat(global_ambience), 1 };
-            glLightModelfv(GL_LIGHT_MODEL_AMBIENT, params);
-            glClearColor(background_color[0], background_color[1],
-                         background_color[2], background_color[3]);
-            need_misc_update = false;
+        // The distance is not known accurately until update_gl_projection() has
+        // been called.
+        if (ARCHON_UNLIKELY(m_status_hud_activate_cam_dist)) {
+            set_float_status(L"DIST = ", m_proj.camera_dist, 2, L"",
+                             m_status_hud_activate_cam_dist_timeout);
+            m_status_hud_activate_cam_dist = false;
         }
 
-        if (projection_needs_update) {
-            update_gl_projection();
-            projection_needs_update = false;
+        if (ARCHON_UNLIKELY(m_status_hud_active && m_status_hud_timeout <= wakeup_time)) {
+            m_status_hud_active = false;
+            m_need_redraw = true;
         }
 
-        // The distance is not known acurately until
-        // update_gl_projection() has been called.
-        if (status_hud_activate_cam_dist) {
-            set_float_status(L"DIST = ", proj.camera_dist, 2, L"", status_hud_activate_cam_dist_timeout);
-            status_hud_activate_cam_dist = false;
+        if (m_need_redraw) {
+            redraw();
+            m_need_redraw = false;
         }
 
-        render_frame(time);
-        win->swap_buffers(); // Implies glFlush
+        // Event handlers can request `want_redraw` or even `want_redraw_immediately`. If they want redraw immediately, before_sleep() must terminate the event processing immediately.
+        m_event_proc->process(next_tick_time);
+        if (m_terminate)
+            break;
+        wakeup_time = clock::now();
 
-        private_state->update();
+        if (wakeup_time < next_tick_time)
+            continue;
 
-        while (0 < max_gl_errors) {
-            GLenum error = glGetError();
-            if (!error)
-                break;
-            emit_gl_error(error, --max_gl_errors == 0);
-        }
-
-        time += time_per_frame;
-
-        Time now = Time::now();
-        if (time < now) {
-            time = now;
-            if (!lagging_frames) {
-//                std::cout << "Lagging frames" << std::endl;
-                lagging_frames = true;
+        next_tick_time += m_time_per_frame;
+        while (next_tick_time + m_time_per_frame < wakeup_time) {
+            next_tick_time += m_time_per_frame;
+            ++m_num_dropped_frames;
+            if (m_num_dropped_frames >= m_num_dropped_frames_report) {
+                auto n = m_num_dropped_frames;
+                const char* frames_text = (n == 1 ? "frame" : "frames");
+                std::cerr << ""<<n<<" "<<frames_text<<" dropped\n";
+                m_num_dropped_frames = 0;
+                m_num_dropped_frames_report *= 2;
             }
         }
-        else {
-            lagging_frames = false;
-        }
 
-        try {
-            event_proc->process(time);
-        }
-        catch (InterruptException&) {
-            if (terminate)
-                break;
-            time = Time::now();
-        }
+        internal_tick(wakeup_time);
+
+        if (tick(wakeup_time))
+            m_need_redraw = true;
     }
 
-    win_pos_set = false;
-    win->hide();
+    m_win_pos_set = false;
+    m_win->hide();
 }
 
+
+void Application::redraw()
+{
+    if (ARCHON_UNLIKELY(m_need_misc_update)) {
+        GLfloat params[] = { GLfloat(m_global_ambience),
+                             GLfloat(m_global_ambience),
+                             GLfloat(m_global_ambience), 1 };
+        glLightModelfv(GL_LIGHT_MODEL_AMBIENT, params);
+        glClearColor(m_background_color[0], m_background_color[1],
+                     m_background_color[2], m_background_color[3]);
+        m_need_misc_update = false;
+    }
+
+    if (ARCHON_UNLIKELY(m_projection_needs_update)) {
+        update_gl_projection();
+        m_projection_needs_update = false;
+    }
+
+    render_frame();
+    m_win->swap_buffers(); // Implies glFlush
+
+    m_private_state->update();
+
+    while (0 < m_max_gl_errors) {
+        GLenum error = glGetError();
+        if (!error)
+            break;
+        emit_gl_error(error, --m_max_gl_errors == 0);
+    }
+}
+
+
+void Application::internal_tick(clock::time_point time)
+{
+    Rotation3 orientation = m_trackball.get_orientation(time);
+    if (orientation != m_orientation) {
+        m_orientation = orientation;
+        m_need_redraw = true;
+    }
+}
 
 
 /// \todo FIXME: Lacks propper transcoding from ISO Latin 1 to the wide
@@ -929,28 +971,27 @@ void Application::emit_gl_error(GLenum error, bool last)
 }
 
 
-
 void Application::get_current_view(math::Vec3& eye, CoordSystem3x2& screen)
 {
     update_proj_and_trackball();
 
     Mat3 rot;
     {
-        Rotation3 r = trackball.get_orientation(Time::now());
+        Rotation3 r = m_orientation;
         r.neg();
         r.get_matrix(rot);
     }
-    eye = proj.camera_dist * rot.col(2);
+    eye = m_proj.camera_dist * rot.col(2);
 
-    // Describe the 2-D screen coordinate system relative to the 3-D
-    // view coordinate system
-    screen.basis.col(0).set(proj.get_near_clip_width(), 0, 0);
-    screen.basis.col(1).set(0, proj.get_near_clip_height(), 0);
-    screen.origin.set(0, 0, -proj.get_near_clip_dist());
+    // Describe the 2-D screen coordinate system relative to the 3-D view
+    // coordinate system
+    screen.basis.col(0).set(m_proj.get_near_clip_width(), 0, 0);
+    screen.basis.col(1).set(0, m_proj.get_near_clip_height(), 0);
+    screen.origin.set(0, 0, -m_proj.get_near_clip_dist());
     screen.translate(Vec2(-0.5));
 
-    // Rotate and translate the screen to reflect the actual viewing
-    // position and direction direction
+    // Rotate and translate the screen to reflect the actual viewing position
+    // and direction direction
     screen.pre_mult(CoordSystem3x3(rot, eye));
 }
 
@@ -958,52 +999,120 @@ void Application::get_current_view(math::Vec3& eye, CoordSystem3x2& screen)
 
 TextureDecl Application::declare_texture(std::string image_path, bool repeat, bool mipmap)
 {
-    TextureCache::FilterMode filter_mode =
-        mipmap ? TextureCache::filter_mode_Mipmap : TextureCache::filter_mode_Interp;
-    return private_state->declare_texture(image_path, repeat, filter_mode);
+    using FilterMode = TextureCache::FilterMode;
+    FilterMode filter_mode = (mipmap ? FilterMode::mipmap : FilterMode::interp);
+    return m_private_state->declare_texture(image_path, repeat, filter_mode);
 }
 
 
 TextureCache& Application::get_texture_cache()
 {
-    return private_state->get_texture_cache();
+    return m_private_state->get_texture_cache();
 }
 
 
 FontProvider* Application::get_font_provider()
 {
-    return private_state->get_font_provider();
+    return m_private_state->get_font_provider();
 }
 
 
 Application::Application(std::string title, const Config& cfg, const std::locale& loc,
                          Connection::Arg c, TextureCache* texture_cache,
                          FontCache::Arg font_cache):
-    conn(c),
-    private_state(PrivateState::create(cfg, loc, texture_cache, font_cache))
+    m_conn(c),
+    m_private_state(PrivateState::create(cfg, loc, texture_cache, font_cache))
 {
+    int key_handler_index =
+        register_builtin_key_handler(&Application::key_func_shift_modifier,
+                                     "Shift modifier mode",
+                                     BuiltinKeyHandler::shift_modifier); // Throws
+    bind_key(display::KeySym_Shift_L, key_handler_index); // Throws
+    bind_key(display::KeySym_Shift_R, key_handler_index); // Throws
+
+    key_handler_index =
+        register_builtin_key_handler(&Application::key_func_quit,
+                                     "Quit",
+                                     BuiltinKeyHandler::quit); // Throws
+    bind_key(display::KeySym_Escape, key_handler_index); // Throws
+    bind_key(display::KeySym_q, key_handler_index); // Throws
+
+    key_handler_index =
+        register_builtin_key_handler(&Application::key_func_reset_view,
+                                     "Reset view",
+                                     BuiltinKeyHandler::reset_view); // Throws
+    bind_key(display::KeySym_space, key_handler_index); // Throws
+
+    key_handler_index =
+        register_builtin_key_handler(&Application::key_func_inc_frame_rate,
+                                     "Increase frame rate",
+                                     BuiltinKeyHandler::inc_frame_rate); // Throws
+    bind_key(display::KeySym_KP_Add, key_handler_index); // Throws
+
+    key_handler_index =
+        register_builtin_key_handler(&Application::key_func_dec_frame_rate,
+                                     "Decrease frame rate",
+                                     BuiltinKeyHandler::dec_frame_rate); // Throws
+    bind_key(display::KeySym_KP_Subtract, key_handler_index); // Throws
+
+    key_handler_index =
+        register_builtin_key_handler(&Application::key_func_show_help,
+                                     "Show help",
+                                     BuiltinKeyHandler::show_help); // Throws
+    bind_key(display::KeySym_h, key_handler_index); // Throws
+
+    key_handler_index =
+        register_builtin_key_handler(&Application::key_func_toggle_headlight,
+                                     "Toggle headlight",
+                                     BuiltinKeyHandler::toggle_headlight); // Throws
+    bind_key(display::KeySym_l, key_handler_index); // Throws
+
+    key_handler_index =
+        register_builtin_key_handler(&Application::key_func_toggle_fullscreen,
+                                     "Toggle fullscreen mode",
+                                     BuiltinKeyHandler::toggle_fullscreen); // Throws
+    bind_key(display::KeySym_f, key_handler_index); // Throws
+
+    key_handler_index =
+        register_builtin_key_handler(&Application::key_func_toggle_wireframe,
+                                     "Toggle wireframe mode",
+                                     BuiltinKeyHandler::toggle_wireframe); // Throws
+    bind_key(display::KeySym_w, key_handler_index); // Throws
+
+    key_handler_index =
+        register_builtin_key_handler(&Application::key_func_toggle_show_axes,
+                                     "Toggle X,Y,Z axes display",
+                                     BuiltinKeyHandler::toggle_show_axes); // Throws
+    bind_key(display::KeySym_a, key_handler_index); // Throws
+
+    key_handler_index =
+        register_builtin_key_handler(&Application::key_func_toggle_status_hud,
+                                     "Toggle status HUD enable",
+                                     BuiltinKeyHandler::toggle_status_hud); // Throws
+    bind_key(display::KeySym_s, key_handler_index); // Throws
+
     if (title.empty())
         title = "Archon";
-    if (!conn)
-        conn = archon::display::get_default_implementation()->new_connection();
+    if (!m_conn)
+        m_conn = archon::display::get_default_implementation()->new_connection();
 
-    int vis = conn->choose_gl_visual();
+    int vis = m_conn->choose_gl_visual();
 
     int width = cfg.win_size[0], height = cfg.win_size[1];
-    win = conn->new_window(width, height, -1, vis);
-    win->set_title(title);
+    m_win = m_conn->new_window(width, height, -1, vis);
+    m_win->set_title(title);
 
-    cursor_normal =
-        conn->new_cursor(::Image::load(cfg.archon_datadir+"render/viewer_interact.png"),   7,  6);
-    cursor_trackball =
-        conn->new_cursor(::Image::load(cfg.archon_datadir+"render/viewer_trackball.png"), 14, 14);
-    win->set_cursor(cursor_normal);
+    m_cursor_normal =
+        m_conn->new_cursor(::Image::load(cfg.archon_datadir+"render/viewer_interact.png"),   7,  6);
+    m_cursor_trackball =
+        m_conn->new_cursor(::Image::load(cfg.archon_datadir+"render/viewer_trackball.png"), 14, 14);
+    m_win->set_cursor(*m_cursor_normal);
 
-    event_proc = conn->new_event_processor(this);
-    event_proc->register_window(win);
+    m_event_proc = m_conn->new_event_processor(this);
+    m_event_proc->register_window(m_win);
 
-    ctx = conn->new_gl_context(-1, vis, cfg.direct_render);
-//    std::cout << "Direct rendering context: " << (ctx->is_direct() ? "Yes" : "No") << std::endl;
+    m_ctx = m_conn->new_gl_context(-1, vis, cfg.direct_render);
+//    std::cout << "Direct rendering context: " << (m_ctx->is_direct() ? "Yes" : "No") << std::endl;
 
     set_viewport_size(width, height);
 
@@ -1011,8 +1120,8 @@ Application::Application(std::string title, const Config& cfg, const std::locale
     set_frame_rate(cfg.frame_rate);
     if (0 <= cfg.win_pos[0] && 0 <= cfg.win_pos[1])
         set_window_pos(cfg.win_pos[0], cfg.win_pos[1]);
-    set_screen_dpcm(cfg.scr_dpcm[0] < 1 ? 0.01 / conn->get_horiz_dot_pitch() : cfg.scr_dpcm[0],
-                    cfg.scr_dpcm[1] < 1 ? 0.01 / conn->get_vert_dot_pitch()  : cfg.scr_dpcm[1]);
+    set_screen_dpcm(cfg.scr_dpcm[0] < 1 ? 0.01 / m_conn->get_horiz_dot_pitch() : cfg.scr_dpcm[0],
+                    cfg.scr_dpcm[1] < 1 ? 0.01 / m_conn->get_vert_dot_pitch()  : cfg.scr_dpcm[1]);
     set_eye_screen_dist(cfg.eye_scr_dist);
     set_depth_of_field(cfg.depth_of_field);
     set_interest_size(cfg.interest_size);
@@ -1022,41 +1131,52 @@ Application::Application(std::string title, const Config& cfg, const std::locale
     set_global_ambience(cfg.ambience);
     set_background_color(cfg.bgcolor);
 
-    gl_binding.acquire(ctx, win);
+    m_gl_binding.acquire(m_ctx, m_win);
 }
 
 
 Application::~Application()
 {
-    if (one_axis_dpy_list)
-        glDeleteLists(one_axis_dpy_list, 2);
-    if (quadric)
-        gluDeleteQuadric(quadric);
-    if (status_hud_disp_list)
-        glDeleteLists(status_hud_disp_list, 1);
+    if (m_one_axis_dpy_list)
+        glDeleteLists(m_one_axis_dpy_list, 2);
+    if (m_quadric)
+        gluDeleteQuadric(m_quadric);
+    if (m_status_hud_disp_list)
+        glDeleteLists(m_status_hud_disp_list, 1);
+}
+
+
+void Application::render()
+{
+}
+
+
+bool Application::tick(clock::time_point)
+{
+    return false;
 }
 
 
 void Application::set_viewport_size(int w, int h)
 {
-    viewport_width  = w;
-    viewport_height = h;
-    projection_needs_update = true;
+    m_viewport_width  = w;
+    m_viewport_height = h;
+    m_projection_needs_update = true;
+    m_need_redraw = true;
 }
-
 
 
 void Application::update_gl_projection()
 {
     update_proj_and_trackball();
 
-    double view_plane_dist  = proj.get_near_clip_dist();
-    double view_plane_right = proj.get_near_clip_width()  / 2;
-    double view_plane_top   = proj.get_near_clip_height() / 2;
-    double far_clip_dist    = proj.get_far_clip_dist();
+    double view_plane_dist  = m_proj.get_near_clip_dist();
+    double view_plane_right = m_proj.get_near_clip_width()  / 2;
+    double view_plane_top   = m_proj.get_near_clip_height() / 2;
+    double far_clip_dist    = m_proj.get_far_clip_dist();
 
 /*
-    std::cout << "Camera distance     = " << proj.camera_dist << " obj" << std::endl;
+    std::cout << "Camera distance     = " << m_proj.camera_dist << " obj" << std::endl;
     std::cout << "Near clip distance  = " << view_plane_dist  << " obj" << std::endl;
     std::cout << "Far clip distance   = " << far_clip_dist    << " obj" << std::endl;
 */
@@ -1066,102 +1186,103 @@ void Application::update_gl_projection()
     glFrustum(-view_plane_right, view_plane_right,
               -view_plane_top, view_plane_top, view_plane_dist, far_clip_dist);
 
-    glViewport(0, 0, viewport_width, viewport_height);
+    glViewport(0, 0, m_viewport_width, m_viewport_height);
 }
 
 
 void Application::update_proj_and_trackball()
 {
-    proj.set_viewport_size_pixels(viewport_width, viewport_height);
-    proj.auto_dist(interest_size, proj.get_min_field_factor());
-    trackball.set_viewport_size(viewport_width, viewport_height);
+    m_proj.set_viewport_size_pixels(m_viewport_width, m_viewport_height);
+    m_proj.auto_dist(m_interest_size, m_proj.get_min_field_factor());
+    m_trackball.set_viewport_size(m_viewport_width, m_viewport_height);
 }
 
 
-
-void Application::render_frame(Time now)
+void Application::render_frame()
 {
     // Handle headlight feature
-    if (!headlight_blocked && headlight != headlight_prev) {
+    if (!m_headlight_blocked && m_headlight != m_headlight_prev) {
         GLboolean params[1];
         glGetBooleanv(GL_LIGHT0, params);
         GLfloat pos_params[4];
         glGetLightfv(GL_LIGHT0, GL_POSITION, pos_params);
         GLfloat pos_on_params[4]  = { 0, 0, 0, 1 };
         GLfloat pos_off_params[4] = { 0, 0, 1, 0 };
-        if (params[0] != (headlight_prev ? GL_TRUE : GL_FALSE) ||
-            !std::equal(pos_params, pos_params+4, headlight ? pos_off_params : pos_on_params)) {
+        if (params[0] != (m_headlight_prev ? GL_TRUE : GL_FALSE) ||
+            !std::equal(pos_params, pos_params+4, m_headlight ? pos_off_params : pos_on_params)) {
             std::cout << "Warning: Headlight feature blocked due to conflict with application." << std::endl;
-            headlight_blocked = true;
+            m_headlight_blocked = true;
         }
         else {
             // Make the headlight a point light source
-            glLightfv(GL_LIGHT0, GL_POSITION, headlight ? pos_on_params : pos_off_params);
-            if (headlight) {
+            glLightfv(GL_LIGHT0, GL_POSITION, m_headlight ? pos_on_params : pos_off_params);
+            if (m_headlight) {
                 glEnable(GL_LIGHT0);
             }
             else {
                 glDisable(GL_LIGHT0);
             }
-            headlight_prev = headlight;
+            m_headlight_prev = m_headlight;
         }
     }
 
     // Handle wireframe mode
-    if (!wireframe_mode_blocked && wireframe_mode != wireframe_mode_prev) {
+    if (!m_wireframe_mode_blocked && m_wireframe_mode != m_wireframe_mode_prev) {
         GLint params[2];
         glGetIntegerv(GL_POLYGON_MODE, params);
-        if (wireframe_mode_prev ?
+        if (m_wireframe_mode_prev ?
             params[0] != GL_LINE || params[1] != GL_LINE :
             params[0] != GL_FILL || params[1] != GL_FILL) {
             std::cout << "Warning: Wireframe mode blocked due to conflict with application." << std::endl;
-            wireframe_mode_blocked = true;
+            m_wireframe_mode_blocked = true;
         }
         else {
-            glPolygonMode(GL_FRONT_AND_BACK, wireframe_mode ? GL_LINE : GL_FILL);
-            wireframe_mode_prev = wireframe_mode;
+            glPolygonMode(GL_FRONT_AND_BACK, m_wireframe_mode ? GL_LINE : GL_FILL);
+            m_wireframe_mode_prev = m_wireframe_mode;
         }
     }
 
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
 
-    update_observer(now);
+    glTranslated(0, 0, -m_proj.camera_dist);
+    glRotated(180/M_PI*m_orientation.angle, m_orientation.axis[0],
+              m_orientation.axis[1], m_orientation.axis[2]);
 
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    if (axes_display) {
-        if (axes_display_first) {
-            axes_display_first = false;
-            if (!quadric) {
-                quadric = gluNewQuadric();
-                if (!quadric)
+    if (m_axes_display) {
+        if (m_axes_display_first) {
+            m_axes_display_first = false;
+            if (!m_quadric) {
+                m_quadric = gluNewQuadric();
+                if (!m_quadric)
                     throw std::bad_alloc();
             }
-            one_axis_dpy_list = glGenLists(2);
-            all_axes_dpy_list = one_axis_dpy_list+1;
-            if (!one_axis_dpy_list)
+            m_one_axis_dpy_list = glGenLists(2);
+            m_all_axes_dpy_list = m_one_axis_dpy_list+1;
+            if (!m_one_axis_dpy_list)
                 throw std::runtime_error("glGenLists failed");
 
             double back_len = 0.1, head_len = 0.1, shaft_radius = 0.005, head_radius = 0.022;
             int shaft_slices = adjust_detail(8, 3), head_slices = adjust_detail(16, 3),
                 shaft_stacks = adjust_detail(10, 1);
 
-            glNewList(one_axis_dpy_list, GL_COMPILE);
+            glNewList(m_one_axis_dpy_list, GL_COMPILE);
             glTranslated(0, 0, -back_len);
-            gluQuadricOrientation(quadric, GLU_INSIDE);
-            gluDisk(quadric, 0, shaft_radius, shaft_slices, 1);
-            gluQuadricOrientation(quadric, GLU_OUTSIDE);
-            gluCylinder(quadric, shaft_radius, shaft_radius, 1, shaft_slices, shaft_stacks);
+            gluQuadricOrientation(m_quadric, GLU_INSIDE);
+            gluDisk(m_quadric, 0, shaft_radius, shaft_slices, 1);
+            gluQuadricOrientation(m_quadric, GLU_OUTSIDE);
+            gluCylinder(m_quadric, shaft_radius, shaft_radius, 1, shaft_slices, shaft_stacks);
             glTranslated(0, 0, 1+back_len-head_len);
-            gluQuadricOrientation(quadric, GLU_INSIDE);
-            gluDisk(quadric, 0, head_radius, head_slices, 1);
-            gluQuadricOrientation(quadric, GLU_OUTSIDE);
-            gluCylinder(quadric, head_radius, 0, head_len, head_slices, 1);
+            gluQuadricOrientation(m_quadric, GLU_INSIDE);
+            gluDisk(m_quadric, 0, head_radius, head_slices, 1);
+            gluQuadricOrientation(m_quadric, GLU_OUTSIDE);
+            gluCylinder(m_quadric, head_radius, 0, head_len, head_slices, 1);
             glTranslated(0, 0, -1+head_len);
             glEndList();
 
-            glNewList(all_axes_dpy_list, GL_COMPILE_AND_EXECUTE);
+            glNewList(m_all_axes_dpy_list, GL_COMPILE_AND_EXECUTE);
             glPushAttrib(GL_CURRENT_BIT | GL_ENABLE_BIT | GL_LIGHTING_BIT | GL_POLYGON_BIT);
             glEnable(GL_LIGHTING);
             glEnable(GL_COLOR_MATERIAL);
@@ -1182,33 +1303,30 @@ void Application::render_frame(Time now)
             // X-axis
             glColor3f(0.9, 0.2, 0.2);
             glRotated(90, 0, 1, 0);
-            glCallList(one_axis_dpy_list);
+            glCallList(m_one_axis_dpy_list);
             glRotated(-90, 0, 1, 0);
             // Y-axis
             glColor3f(0.2, 0.9, 0.2);
             glRotated(90, -1, 0, 0);
-            glCallList(one_axis_dpy_list);
+            glCallList(m_one_axis_dpy_list);
             glRotated(-90, -1, 0, 0);
             // Z-axis
             glColor3f(0.2, 0.2, 0.9);
-            glCallList(one_axis_dpy_list);
+            glCallList(m_one_axis_dpy_list);
             glPopAttrib();
             glEndList();
         }
         else {
-            glCallList(all_axes_dpy_list);
+            glCallList(m_all_axes_dpy_list);
         }
     }
 
-    render_scene();
+    render();
 
     glPopMatrix();
 
-    if (status_hud_active || private_state->has_open_dialogs()) {
+    if (m_status_hud_active || m_private_state->has_open_dialogs())
         render_hud();
-        if (status_hud_timeout <= now)
-            status_hud_active = false;
-    }
 }
 
 
@@ -1219,7 +1337,7 @@ void Application::render_hud()
     glMatrixMode(GL_PROJECTION);
     glPushMatrix();
     glLoadIdentity();
-    glOrtho(0, viewport_width, 0, viewport_height, -1, 1);
+    glOrtho(0, m_viewport_width, 0, m_viewport_height, -1, 1);
     glMatrixMode(GL_MODELVIEW);
     glPushMatrix();
 
@@ -1234,31 +1352,31 @@ void Application::render_hud()
     GLint prev_tex;
     glGetIntegerv(GL_TEXTURE_BINDING_2D, &prev_tex);
 
-    private_state->render_hud(viewport_width, viewport_height);
+    m_private_state->render_hud(m_viewport_width, m_viewport_height);
 
-    if (status_hud_active) {
-        if (status_hud_dirty) {
-            TextFormatter& text_formatter = private_state->get_text_formatter();
+    if (m_status_hud_active) {
+        if (m_status_hud_dirty) {
+            TextFormatter& text_formatter = m_private_state->get_text_formatter();
             text_formatter.set_font_size(28);
             text_formatter.set_font_boldness(1);
             text_formatter.set_text_color(Vec4F(0.1, 0, 0.376, 1));
-            text_formatter.write(status_hud_text);
-            text_formatter.format(private_state->status_hud_text_layout);
+            text_formatter.write(m_status_hud_text);
+            text_formatter.format(m_private_state->status_hud_text_layout);
             text_formatter.clear();
 
             int margin = 16, padding_h = 4, padding_v = 1;
-            int width  = ceil(private_state->status_hud_text_layout.get_width())  + 2*padding_h;
-            int height = ceil(private_state->status_hud_text_layout.get_height()) + 2*padding_v;
-            int x = viewport_width - margin - width;
+            int width  = ceil(m_private_state->status_hud_text_layout.get_width())  + 2*padding_h;
+            int height = ceil(m_private_state->status_hud_text_layout.get_height()) + 2*padding_v;
+            int x = m_viewport_width - margin - width;
             int y = margin;
 
-            if (!status_hud_disp_list) {
-                status_hud_disp_list = glGenLists(1);
-                if (!status_hud_disp_list)
+            if (!m_status_hud_disp_list) {
+                m_status_hud_disp_list = glGenLists(1);
+                if (!m_status_hud_disp_list)
                     throw std::runtime_error("Failed to create a new OpenGL display list");
             }
 
-            glNewList(status_hud_disp_list, GL_COMPILE_AND_EXECUTE);
+            glNewList(m_status_hud_disp_list, GL_COMPILE_AND_EXECUTE);
             glTranslatef(x,y,0);
             glColor4f(1,1,0,0.7);
             glBegin(GL_QUADS);
@@ -1267,13 +1385,13 @@ void Application::render_hud()
             glVertex2i(width,      height);
             glVertex2i(-padding_h, height);
             glEnd();
-            private_state->status_hud_text_layout.render();
+            m_private_state->status_hud_text_layout.render();
             glEndList();
 
-            status_hud_dirty = false;
+            m_status_hud_dirty = false;
         }
         else {
-            glCallList(status_hud_disp_list);
+            glCallList(m_status_hud_disp_list);
         }
     }
 
@@ -1285,23 +1403,11 @@ void Application::render_hud()
 }
 
 
-
-void Application::update_observer(Time now)
-{
-    glTranslated(0, 0, -proj.camera_dist);
-
-    Rotation3 rot = trackball.get_orientation(now);
-    if (rot.angle)
-        glRotated(180/M_PI*rot.angle, rot.axis[0], rot.axis[1], rot.axis[2]);
-}
-
-
-
 void Application::modify_zoom(int diff)
 {
-    int level = archon_round(log(proj.zoom_factor) / log(zoom_step));
-    set_zoom_factor(pow(zoom_step, level + diff));
-    set_float_status(L"ZOOM = ", proj.zoom_factor, 2, L"x");
+    int level = archon_round(log(m_proj.zoom_factor) / log(g_zoom_step));
+    set_zoom_factor(pow(g_zoom_step, level + diff));
+    set_float_status(L"ZOOM = ", m_proj.zoom_factor, 2, L"x");
 }
 
 
@@ -1310,26 +1416,26 @@ void Application::modify_dist(int diff)
     // The distance modification comes about indirectly. We modify the
     // size of the sphere of interest, and the auto-distance feature
     // makes the corresponding change in distance.
-    int level = archon_round(log(interest_size) / log(camera_dist_step));
-    set_interest_size(pow(camera_dist_step, level + diff));
-    status_hud_activate_cam_dist = true;
-    status_hud_activate_cam_dist_timeout = get_status_hud_timout();
+    int level = archon_round(log(m_interest_size) / log(g_camera_dist_step));
+    set_interest_size(pow(g_camera_dist_step, level + diff));
+    m_status_hud_activate_cam_dist = true;
+    m_status_hud_activate_cam_dist_timeout = get_status_hud_timout();
 }
 
 
-void Application::set_status(std::wstring text, Time timeout)
+void Application::set_status(std::wstring text, clock::time_point timeout)
 {
-    if (!status_hud_enabled)
+    if (!m_status_hud_enabled)
         return;
-    status_hud_text = text;
-    status_hud_dirty = true;
+    m_status_hud_text = text;
+    m_status_hud_dirty = true;
     activate_status(timeout);
-    status_hud_activate_cam_dist = false;
+    m_status_hud_activate_cam_dist = false;
 }
 
-void Application::set_int_status(std::wstring prefix, int value, std::wstring suffix, Time timeout)
+void Application::set_int_status(std::wstring prefix, int value, std::wstring suffix, clock::time_point timeout)
 {
-    if (!status_hud_enabled)
+    if (!m_status_hud_enabled)
         return;
     std::wostringstream out; // FIXME: Must be imbued with a proper locale, or a reusable stream should be used
     out << prefix << value << suffix;
@@ -1337,198 +1443,139 @@ void Application::set_int_status(std::wstring prefix, int value, std::wstring su
 }
 
 void Application::set_float_status(std::wstring prefix, double value, int precision,
-                                   std::wstring suffix, Time timeout)
+                                   std::wstring suffix, clock::time_point timeout)
 {
-    if (!status_hud_enabled)
+    if (!m_status_hud_enabled)
         return;
     std::wostringstream out; // FIXME: Must be imbued with a proper locale, or a reusable stream should be used
     out << std::fixed << std::setprecision(precision) << prefix << value << suffix;
     set_status(out.str(), timeout);
 }
 
-void Application::set_on_off_status(std::wstring prefix, bool value, Time timeout)
+void Application::set_on_off_status(std::wstring prefix, bool value, clock::time_point timeout)
 {
-    if (!status_hud_enabled)
+    if (!m_status_hud_enabled)
         return;
     std::wostringstream out; // FIXME: Must be imbued with a proper locale, or a reusable stream should be used
     out << prefix << L" IS " << (value ? "ON" : "OFF");
     set_status(out.str(), timeout);
 }
 
-void Application::activate_status(Time timeout)
+void Application::activate_status(clock::time_point timeout)
 {
-    if (!status_hud_enabled)
+    if (!m_status_hud_enabled)
         return;
-    status_hud_active = true;
-    if (!timeout)
+    m_status_hud_active = true;
+    m_need_redraw = true;
+    if (timeout.time_since_epoch().count() == 0)
         timeout = get_status_hud_timout();
-    if (status_hud_timeout < timeout)
-        status_hud_timeout = timeout;
+    if (m_status_hud_timeout < timeout)
+        m_status_hud_timeout = timeout;
 }
 
-Time Application::get_status_hud_timout()
+
+int Application::get_builtin_key_handler(BuiltinKeyHandler ident) const noexcept
 {
-    return Time::now() + Time(status_hud_linger_millis, Time::millis);
+    return m_builtin_key_handlers.at(ident);
 }
 
+
+int Application::register_key_handler(std::function<bool(bool down)> callback,
+                                      std::string description)
+{
+    auto size = m_key_handlers.size();
+    if (size > std::numeric_limits<int>::max())
+        throw std::length_error("Too many key handlers");
+    int handler_index = int(size);
+    m_key_handlers.emplace_back(KeyHandler{std::move(callback), std::move(description)}); // Throws
+    return handler_index;
+}
 
 
 void Application::on_resize(const SizeEvent& e)
 {
     set_viewport_size(e.width, e.height);
-    need_refresh = true;
-    private_state->on_resize();
+    m_need_immediate_redraw = true;
+    m_private_state->on_resize();
 }
 
 
 void Application::on_close(const Event&)
 {
-    terminate = true;
-    throw InterruptException();
+    m_terminate = true;
 }
 
 
 void Application::on_keydown(const KeyEvent& e)
 {
-    switch(e.key_sym) {
-        case KeySym_Shift_L: // Modifier
-            shift_left_down = true;
-            break;
-
-        case KeySym_q:
-        case KeySym_Escape: // Quit event loop
-            on_close(e);
-            break;
-
-        case KeySym_space:  // Reset camera configuration
-            trackball.set_orientation(initial_rotation);
-            set_interest_size(initial_interest_size);
-            set_zoom_factor(initial_zoom_factor);
-            set_status(L"RESET VIEW");
-            need_refresh = true;
-            break;
-
-        case KeySym_KP_Add: // Increase frame rate
-            set_frame_rate(frame_rate * 2);
-            set_float_status(L"FRAME RATE = ", frame_rate);
-            need_refresh = true;
-            break;
-
-        case KeySym_KP_Subtract:   // Decrease frame rate
-            set_frame_rate(frame_rate / 2);
-            set_float_status(L"FRAME RATE = ", frame_rate);
-            need_refresh = true;
-            break;
-
-        case KeySym_h:      // Open help window
-            private_state->open_help_hud();
-            break;
-
-        case KeySym_l:      // Toggle headlight
-            set_on_off_status(L"HEADLIGHT", headlight ^= true);
-            need_refresh = true;
-            break;
-
-        case KeySym_f:      // Toggle fullscreen mode
-            win->set_fullscreen_enabled(fullscreen_mode ^= true);
-            need_refresh = true;
-            break;
-
-        case KeySym_w:      // Toggle wireframe mode
-            set_on_off_status(L"WIREFRAME", wireframe_mode ^= true);
-            need_refresh = true;
-            break;
-
-        case KeySym_a:      // Toggle X,Y,Z axes display
-            set_on_off_status(L"AXES", axes_display ^= true);
-            need_refresh = true;
-            break;
-
-        case KeySym_s:      // Toggle status HUD enable
-            if (status_hud_enabled) {
-                set_on_off_status(L"STATUS", false);
-                status_hud_enabled = false;
-            }
-            else {
-                status_hud_enabled = true;
-                set_on_off_status(L"STATUS", true);
-            }
-            need_refresh = true;
-            break;
-
-        default: {
-            KeyHandlers::iterator i = key_handlers.find(e.key_sym);
-            if (i != key_handlers.end() && i->second.first->handle(this, true))
-                need_refresh = true;
-            break;
-        }
-    }
+    bool down = true;
+    on_key_down_or_up(KeyIdent::from_key_sym(e.key_sym), down, e.timestamp); // Throws
 }
 
 
 void Application::on_keyup(const KeyEvent& e)
 {
-    switch(e.key_sym) {
-        case KeySym_Shift_L: // Modifier
-            shift_left_down = false;
-            break;
-        default: {
-            KeyHandlers::iterator i = key_handlers.find(e.key_sym);
-            if (i != key_handlers.end() && i->second.first->handle(this, false))
-                need_refresh = true;
-        }
-    }
+    bool down = false;
+    on_key_down_or_up(KeyIdent::from_key_sym(e.key_sym), down, e.timestamp); // Throws
 }
 
 
 void Application::on_mousedown(const MouseButtonEvent& e)
 {
     if (e.button == 1) {
-        but1_down = true;
-        win->set_cursor(cursor_trackball);
-        trackball.acquire(Time::now());
-        trackball.track(e.x, e.y, e.time);
+        m_but1_down = true;
+        m_win->set_cursor(*m_cursor_trackball);
+        m_trackball.acquire(clock::now());
+        m_trackball.track(e.x, e.y, e.timestamp);
+        return;
     }
     if (e.button == 4) { // Mouse wheel scroll up -> approach
-        if (shift_left_down) {
+        if (m_key_modifier == KeyModifier::shift) {
             modify_zoom(+1);
         }
         else {
             modify_dist(-1);
         }
-        need_refresh = true;
+        m_need_redraw = true;
+        return;
     }
     if (e.button == 5) { // Mouse wheel scroll down -> recede
-        if (shift_left_down) {
+        if (m_key_modifier == KeyModifier::shift) {
             modify_zoom(-1);
         }
         else {
             modify_dist(+1);
         }
-        need_refresh = true;
+        m_need_redraw = true;
+        return;
     }
+    bool down = true;
+    on_key_down_or_up(KeyIdent::from_button_number(e.button), down, e.timestamp); // Throws
 }
 
 
 void Application::on_mouseup(const MouseButtonEvent& e)
 {
     if (e.button == 1) {
-        trackball.track(e.x, e.y, e.time);
-        trackball.release(Time::now());
-        win->set_cursor(cursor_normal);
-        but1_down = false;
+        m_trackball.track(e.x, e.y, e.timestamp);
+        m_trackball.release(clock::now());
+        m_win->set_cursor(*m_cursor_normal);
+        m_but1_down = false;
+        return;
     }
+    bool down = false;
+    on_key_down_or_up(KeyIdent::from_button_number(e.button), down, e.timestamp); // Throws
 }
 
 
 void Application::on_mousemove(const MouseEvent& e)
 {
-    if (but1_down)
-        trackball.track(e.x, e.y, e.time);
+    if (m_but1_down)
+        m_trackball.track(e.x, e.y, e.timestamp);
 }
 
 
-void Application::on_show(const Event& )
+void Application::on_show(const Event&)
 {
 //    std::cerr << "SHOW\n";
 }
@@ -1542,33 +1589,271 @@ void Application::on_hide(const Event&)
 
 void Application::on_damage(const AreaEvent&)
 {
-    need_refresh = true;
+    m_need_immediate_redraw = true;
 }
 
 
-void Application::before_sleep()
+bool Application::before_sleep()
 {
-    if (need_refresh) {
-        need_refresh = false;
-        throw InterruptException();
+    if (ARCHON_UNLIKELY(m_terminate))
+        return false;
+    if (ARCHON_UNLIKELY(m_need_immediate_redraw)) {
+        m_need_immediate_redraw = false;
+        m_need_redraw = true;
+        return false;
+    }
+    return true;
+}
+
+
+Application::clock::time_point Application::get_status_hud_timout()
+{
+    return clock::now() + std::chrono::milliseconds(g_status_hud_linger_millis);
+}
+
+
+void Application::on_key_down_or_up(KeyIdent key, bool down, KeySlot::Timestamp time)
+{
+    auto i = m_key_bindings.find(key);
+    if (i == m_key_bindings.end())
+        return; // Key not bound
+    KeySlot& key_slot = i->second;
+    int handler_index = -1;
+    if (down) {
+        if (key_slot.down_handler_index >= 0)
+            return; // Key already down (a prior key-up event was missed)
+        ++key_slot.press_count;
+        KeySlot::Timestamp max_multipress_period = std::chrono::milliseconds{300};
+        bool connected = (key_slot.prev_press_multiplicity > 0 &&
+                          time - key_slot.prev_press_time <= max_multipress_period);
+        key_slot.prev_press_time = time;
+        int press_multiplicity = (connected ? key_slot.prev_press_multiplicity : 0) + 1;
+        key_slot.prev_press_multiplicity = press_multiplicity;
+        auto j = key_slot.modifiers.find(m_key_modifier);
+        if (j == key_slot.modifiers.end())
+            return; // Key not bound for modifier
+        KeyModifierSlot& mod_slot = j->second;
+        auto curr_press_count = key_slot.press_count;
+        auto press_count_offset = curr_press_count - press_multiplicity;
+        auto rend = mod_slot.multiplicities.rend();
+        for (auto k = mod_slot.multiplicities.rbegin(); k != rend; ++k) {
+            KeyPressMultiplicitySlot& mul_slot = k->second;
+            if (mul_slot.press_count_at_last_press > press_count_offset)
+                press_count_offset = mul_slot.press_count_at_last_press;
+            int effective_multiplicity = int(curr_press_count - press_count_offset);
+            if (k->first <= effective_multiplicity) {
+                mul_slot.press_count_at_last_press = curr_press_count;
+                handler_index = mul_slot.handler_index;
+                break;
+            }
+        }
+        if (handler_index == -1)
+            return; // Key not bound for press multiplicity
+    }
+    else { // up
+        if (key_slot.down_handler_index == -1)
+            return; // Key already up (a prior key-down event was missed)
+        handler_index = key_slot.down_handler_index;
+    }
+    const KeyHandler& handler = m_key_handlers[handler_index];
+    if (handler.callback(down))
+        m_need_redraw = true;
+    if (down) {
+        key_slot.down_handler_index = handler_index;
+    }
+    else {
+        key_slot.down_handler_index = -1;
+        if (key_slot.modifiers.empty())
+            m_key_bindings.erase(i);
     }
 }
 
 
-void Application::register_key_handler(KeySym key, UniquePtr<KeyHandlerBase> handler,
-                                       std::string descr)
+int Application::register_builtin_key_handler(bool (Application::*handler)(bool down),
+                                              std::string description, BuiltinKeyHandler ident)
 {
-    std::pair<KeyHandlers::iterator, bool> r =
-        key_handlers.insert(std::make_pair(key, std::make_pair(handler.get(), descr)));
-    if (!r.second)
-        throw KeyHandlerConflictException("Multiple registrations for key '"+
-                                          event_proc->get_key_sym_name(key)+"'");
-    try {
-        key_handler_owner.push_back(handler);
+    auto handler_2 = [this, handler](bool down) {
+        return (this->*handler)(down); // Throws
+    };
+    std::function<bool(bool down)> handler_3{std::move(handler_2)}; // Throws (type erasure)
+    int handler_index =
+        register_key_handler(std::move(handler_3), std::move(description)); // Throws
+    m_builtin_key_handlers[ident] = handler_index; // Throws
+    return handler_index;
+}
+
+
+void Application::do_bind_key(KeyIdent key, KeyModifier modifier, int press_multiplicity,
+                              int handler_index)
+{
+    KeySlot& key_slot = m_key_bindings[key]; // Throws
+    key_slot.prev_press_multiplicity = 0; // Multipress barrier
+    KeyModifierSlot& mod_slot = key_slot.modifiers[modifier]; // Throws
+    KeyPressMultiplicitySlot& mul_slot =
+        mod_slot.multiplicities[press_multiplicity]; // Throws
+    mul_slot.handler_index = handler_index;
+}
+
+
+int Application::do_unbind_key(KeyIdent key, KeyModifier modifier,
+                               int press_multiplicity) noexcept
+{
+    auto i = m_key_bindings.find(key);
+    if (i == m_key_bindings.end())
+        return -1; // Key not bound
+    KeySlot& key_slot = i->second;
+    auto j = key_slot.modifiers.find(modifier);
+    if (j == key_slot.modifiers.end())
+        return -1; // Key not bound for modifier
+    KeyModifierSlot& mod_slot = j->second;
+    auto k = mod_slot.multiplicities.find(press_multiplicity);
+    if (k == mod_slot.multiplicities.end())
+        return -1; // Key not bound for multiplicity
+    const KeyPressMultiplicitySlot& mul_slot = k->second;
+    int handler_index = mul_slot.handler_index;
+    mod_slot.multiplicities.erase(k);
+    if (mod_slot.multiplicities.empty())
+        key_slot.modifiers.erase(j);
+    if (key_slot.modifiers.empty() && key_slot.down_handler_index < 0)
+        m_key_bindings.erase(i);
+    key_slot.prev_press_multiplicity = 0; // Multipress barrier
+    return handler_index;
+}
+
+
+int Application::do_get_key_binding(KeyIdent key, KeyModifier modifier,
+                                    int press_multiplicity) noexcept
+{
+    auto i = m_key_bindings.find(key);
+    if (i == m_key_bindings.end())
+        return -1; // Key not bound
+    const KeySlot& key_slot = i->second;
+    auto j = key_slot.modifiers.find(modifier);
+    if (j == key_slot.modifiers.end())
+        return -1; // Key not bound for modifier
+    const KeyModifierSlot& mod_slot = j->second;
+    auto k = mod_slot.multiplicities.find(press_multiplicity);
+    if (k == mod_slot.multiplicities.end())
+        return -1; // Key not bound for multiplicity
+    const KeyPressMultiplicitySlot& mul_slot = k->second;
+    return mul_slot.handler_index;
+}
+
+
+bool Application::key_func_shift_modifier(bool down)
+{
+    m_key_modifier = (down ? KeyModifier::shift : KeyModifier::none);
+    return false;
+}
+
+
+bool Application::key_func_quit(bool down)
+{
+    if (down)
+        m_terminate = true;
+    return false;
+}
+
+
+bool Application::key_func_reset_view(bool down)
+{
+    if (down) {
+        m_trackball.set_orientation(m_initial_orientation);
+        set_interest_size(m_initial_interest_size);
+        set_zoom_factor(m_initial_zoom_factor);
+        set_status(L"RESET VIEW");
+        return true; // Need refresh
     }
-    catch (...) {
-        key_handlers.erase(r.first);
+    return false;
+}
+
+
+bool Application::key_func_inc_frame_rate(bool down)
+{
+    if (down) {
+        set_frame_rate(m_frame_rate * 2);
+        set_float_status(L"FRAME RATE = ", m_frame_rate);
+        return true; // Need refresh
     }
+    return false;
+}
+
+
+bool Application::key_func_dec_frame_rate(bool down)
+{
+    if (down) {
+        set_frame_rate(m_frame_rate / 2);
+        set_float_status(L"FRAME RATE = ", m_frame_rate);
+        return true; // Need refresh
+    }
+    return false;
+}
+
+
+bool Application::key_func_show_help(bool down)
+{
+    if (down) {
+        m_private_state->open_help_hud();
+        return false; // FIXME: Should this be true?
+    }
+    return false;
+}
+
+
+bool Application::key_func_toggle_headlight(bool down)
+{
+    if (down) {
+        set_on_off_status(L"HEADLIGHT", m_headlight ^= true);
+        return true; // Need refresh
+    }
+    return false;
+}
+
+
+bool Application::key_func_toggle_fullscreen(bool down)
+{
+    if (down) {
+        m_win->set_fullscreen_enabled(m_fullscreen_mode ^= true);
+        return true; // Need refresh
+    }
+    return false;
+}
+
+
+bool Application::key_func_toggle_wireframe(bool down)
+{
+    if (down) {
+        set_on_off_status(L"WIREFRAME", m_wireframe_mode ^= true);
+        return true; // Need refresh
+    }
+    return false;
+}
+
+
+bool Application::key_func_toggle_show_axes(bool down)
+{
+    if (down) {
+        set_on_off_status(L"AXES", m_axes_display ^= true);
+        return true; // Need refresh
+    }
+    return false;
+}
+
+
+bool Application::key_func_toggle_status_hud(bool down)
+{
+    if (down) {
+        if (m_status_hud_enabled) {
+            set_on_off_status(L"STATUS", false);
+            m_status_hud_enabled = false;
+        }
+        else {
+            m_status_hud_enabled = true;
+            set_on_off_status(L"STATUS", true);
+        }
+        return true; // Need refresh
+    }
+    return false;
 }
 
 

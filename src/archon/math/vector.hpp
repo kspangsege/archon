@@ -249,15 +249,15 @@ namespace archon
       /**
        * Read/write access to the element at the specified index.
        */
-      sub_type sub(size_type i) { return *(begin()+i); }
+      constexpr sub_type sub(size_type i) { return *(begin()+i); }
 
       /**
        * Retrieve the element at the specified index.
        */
-      const_sub_type sub(size_type i) const { return *(begin()+i); }
+      constexpr const_sub_type sub(size_type i) const { return *(begin()+i); }
 
-      sub_type       operator[](size_type i)       { return sub(i); }
-      const_sub_type operator[](size_type i) const { return sub(i); }
+      constexpr sub_type       operator[](size_type i)       { return sub(i); }
+      constexpr const_sub_type operator[](size_type i) const { return sub(i); }
 
       /**
        * Set all the elements of this vector equal to the specified
@@ -265,7 +265,7 @@ namespace archon
        *
        * \return A reference to this vector.
        */
-      Inst &set(T);
+      constexpr Inst &set(T);
 
       /**
        * Set the elements of this vector to the corresponding values
@@ -461,7 +461,7 @@ namespace archon
     private:
       friend struct VecLenSpec<N, T, Rep, Inst>;
 
-      VecBase() {}
+      constexpr VecBase() {}
       VecBase(Rep const &r): r(r) {}
 
       template<class Rep2, class Inst2>
@@ -496,7 +496,7 @@ namespace archon
     private:
       friend struct VecVal<N, T, Rep, Inst>;
 
-      VecLenSpec() {}
+      constexpr VecLenSpec() {}
       VecLenSpec(Rep const &r): B(r) {}
     };
 
@@ -515,7 +515,7 @@ namespace archon
        * Assign the specified values to the respective elements of
        * this 2-D vector.
        */
-      Inst &set(T,T);
+      constexpr Inst &set(T,T);
 
       /**
        * Turn this 2-D vector 90 degrees in the counterclockwise
@@ -529,7 +529,7 @@ namespace archon
     private:
       friend struct VecVal<2, T, Rep, Inst>;
 
-      VecLenSpec() {}
+      constexpr VecLenSpec() {}
       VecLenSpec(Rep const &r): B(r) {}
     };
 
@@ -548,7 +548,7 @@ namespace archon
        * Assign the specified values to the respective elements of
        * this 3-D vector.
        */
-      Inst &set(T,T,T);
+      constexpr Inst &set(T,T,T);
 
       /**
        * Set this 3-D vector to be the cross product of itself and the
@@ -563,7 +563,7 @@ namespace archon
     private:
       friend struct VecVal<3, T, Rep, Inst>;
 
-      VecLenSpec() {}
+      constexpr VecLenSpec() {}
       VecLenSpec(Rep const &r): B(r) {}
     };
 
@@ -582,7 +582,7 @@ namespace archon
        * Assign the specified values to the respective elements of
        * this 4-D vector.
        */
-      Inst &set(T,T,T,T);
+      constexpr Inst &set(T,T,T,T);
 
       using B::operator=;
       using B::set;
@@ -590,7 +590,7 @@ namespace archon
     private:
       friend struct VecVal<4, T, Rep, Inst>;
 
-      VecLenSpec() {}
+      constexpr VecLenSpec() {}
       VecLenSpec(Rep const &r): B(r) {}
     };
 
@@ -606,7 +606,7 @@ namespace archon
       using B::operator=;
 
     protected:
-      VecVal() {}
+      constexpr VecVal() {}
       VecVal(Rep const &r): B(r) {}
     };
 
@@ -636,7 +636,7 @@ namespace archon
       using B::operator=;
 
     protected:
-      VecMem() {}
+      constexpr VecMem() {}
       VecMem(Rep const &r): B(r) {}
     };
 
@@ -688,7 +688,7 @@ namespace archon
        * A statically allocated vector whose elements are
        * initialized to zero.
        */
-      static Inst const &zero();
+      static constexpr Inst zero();
 
     private:
       typedef VecMem<N, T, _VecImpl::RepBuf<N,T>, Inst> B;
@@ -967,7 +967,7 @@ namespace archon
         typedef typename B::size_type size_type;
         T const operator[](size_type i) const
         {
-          return i == 0 ? -f[1] : f[0];
+          return i == 0 ? -f.e[1] : f.e[0];
         }
         Perp(F const &f): f(f) {}
         bool safe(void const *p, bool) const
@@ -976,7 +976,7 @@ namespace archon
         }
 
       private:
-        F const &f;
+        Operand<2,T,F, !F::_is_lval> f;
       };
 
 
@@ -1121,7 +1121,7 @@ namespace archon
       /**
        * Initialize all elements with the specified value.
        */
-      explicit BasicVec(T);
+      explicit constexpr BasicVec(T);
 
       /**
        * Initialize the elements with the corresponding values of the
@@ -1570,13 +1570,13 @@ namespace archon
       /**
        * Initialize both elements with the specified value.
        */
-      explicit BasicVec(T);
+      explicit constexpr BasicVec(T);
 
       /**
        * Initialize the corresponding elements with the two specified
        * values.
        */
-      explicit BasicVec(T,T);
+      constexpr BasicVec(T,T);
 
       /**
        * Initialize the elements with the corresponding values of the
@@ -1619,13 +1619,13 @@ namespace archon
       /**
        * Initialize all three elements with the specified value.
        */
-      explicit BasicVec(T);
+      explicit constexpr BasicVec(T);
 
       /**
        * Initialize the corresponding elements with the three
        * specified values.
        */
-      explicit BasicVec(T,T,T);
+      constexpr BasicVec(T,T,T);
 
       /**
        * Initialize the elements with the corresponding values of the
@@ -1677,13 +1677,13 @@ namespace archon
       /**
        * Initialize all four elements with the specified value.
        */
-      explicit BasicVec(T);
+      explicit constexpr BasicVec(T);
 
       /**
        * Initialize the corresponding elements with the four specified
        * values.
        */
-      explicit BasicVec(T,T,T,T);
+      constexpr BasicVec(T,T,T,T);
 
       /**
        * Initialize the elements with the corresponding values of the
@@ -1720,6 +1720,27 @@ namespace archon
 
 
 
+
+
+// Transform 3-D vector from ordinary horizontal coordinate system bases
+// (horizontal XY-plane with Y pointing away from the viewer, X pointing
+// rightwards, and Z pointing upwards) to ordinary vertical coordinate system
+// (vertical XY-plane with Y pointing upwards, X pointing rightwards, and Z
+// pointing towards the viewer).
+constexpr Vec3 horiz_to_vert(Vec3 v)
+{
+    return Vec3{v[0], v[2], -v[1]};
+}
+
+// Transform 3-D vector from ordinary vertical coordinate system (vertical
+// XY-plane with Y pointing upwards, X pointing rightwards, and Z pointing
+// towards the viewer) to ordinary horizontal coordinate system basis
+// (horizontal XY-plane with Y pointing away from the viewer, X pointing
+// rightwards, and Z pointing upwards).
+constexpr Vec3 vert_to_horiz(Vec3 v)
+{
+    return Vec3{v[0], -v[2], v[1]};
+}
 
 
 
@@ -1765,7 +1786,7 @@ namespace archon
     }
 
     template<int N, class T, class R, class E>
-    inline E &VecBase<N,T,R,E>::set(T e)
+    constexpr E &VecBase<N,T,R,E>::set(T e)
     {
       std::fill(begin(), end(), e);
       return static_cast<E &>(*this);
@@ -1886,7 +1907,7 @@ namespace archon
     // Template definitions for:  _VecImpl::Spec
 
     template<class T, class R, class I>
-    inline I &VecLenSpec<2,T,R,I>::set(T e0, T e1)
+    constexpr I &VecLenSpec<2,T,R,I>::set(T e0, T e1)
     {
       this->sub(0) = e0;
       this->sub(1) = e1;
@@ -1904,7 +1925,7 @@ namespace archon
 
 
     template<class T, class R, class I>
-    inline I &VecLenSpec<3,T,R,I>::set(T e0, T e1, T e2)
+    constexpr I &VecLenSpec<3,T,R,I>::set(T e0, T e1, T e2)
     {
       this->sub(0) = e0;
       this->sub(1) = e1;
@@ -1921,7 +1942,7 @@ namespace archon
 
 
     template<class T, class R, class I>
-    inline I &VecLenSpec<4,T,R,I>::set(T e0, T e1, T e2, T e3)
+    constexpr I &VecLenSpec<4,T,R,I>::set(T e0, T e1, T e2, T e3)
     {
       this->sub(0) = e0;
       this->sub(1) = e1;
@@ -1942,10 +1963,9 @@ namespace archon
       template<int N, class T> bool const RepBuf<N,T>::is_lval;
     }
 
-    template<int N, class T, class I> inline I const &VecBuf<N,T,I>::zero()
+    template<int N, class T, class I> constexpr I VecBuf<N,T,I>::zero()
     {
-      static I const e((T()));
-      return e;
+      return I{T()};
     }
 
 
@@ -1979,7 +1999,7 @@ namespace archon
     // Template definitions for:  BasicVec
 
     template<int N, class T>
-    inline BasicVec<N,T>::BasicVec(T e)
+    constexpr BasicVec<N,T>::BasicVec(T e)
     {
       this->set(e);
     }
@@ -1998,13 +2018,13 @@ namespace archon
 
 
     template<class T>
-    inline BasicVec<2,T>::BasicVec(T e)
+    constexpr BasicVec<2,T>::BasicVec(T e)
     {
       this->set(e);
     }
 
     template<class T>
-    inline BasicVec<2,T>::BasicVec(T e0, T e1)
+    constexpr BasicVec<2,T>::BasicVec(T e0, T e1)
     {
       this->set(e0, e1);
     }
@@ -2023,13 +2043,13 @@ namespace archon
 
 
     template<class T>
-    inline BasicVec<3,T>::BasicVec(T e)
+    constexpr BasicVec<3,T>::BasicVec(T e)
     {
       this->set(e);
     }
 
     template<class T>
-    inline BasicVec<3,T>::BasicVec(T e0, T e1, T e2)
+    constexpr BasicVec<3,T>::BasicVec(T e0, T e1, T e2)
     {
       this->set(e0, e1, e2);
     }
@@ -2055,13 +2075,13 @@ namespace archon
 
 
     template<class T>
-    inline BasicVec<4,T>::BasicVec(T e)
+    constexpr BasicVec<4,T>::BasicVec(T e)
     {
       this->set(e);
     }
 
     template<class T>
-    inline BasicVec<4,T>::BasicVec(T e0, T e1, T e2, T e3)
+    constexpr BasicVec<4,T>::BasicVec(T e0, T e1, T e2, T e3)
     {
       this->set(e0, e1, e2, e3);
     }

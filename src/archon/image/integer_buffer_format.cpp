@@ -278,7 +278,7 @@ namespace archon
         hash.add_int(i->bit_width);
         hash.add_int(derive_canon_channel_offset(bit_seq_comp, *i));
       }
-      return hash.get_hash(strip_layout_hash_size);
+      return int(hash.get_hash(strip_layout_hash_size));
     }
 
 

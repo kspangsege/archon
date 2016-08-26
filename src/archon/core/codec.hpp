@@ -18,11 +18,9 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #ifndef ARCHON_CORE_CODEC_HPP
 #define ARCHON_CORE_CODEC_HPP
@@ -34,108 +32,98 @@
 #include <archon/core/stream.hpp>
 
 
-namespace archon
-{
-  namespace core
-  {
-    struct CodecException;
-    struct EncodeException;
-    struct DecodeException;
+namespace archon {
+namespace core {
 
-    /**
-     * Represents a specific codec, with the ability to encode and
-     * decode individual strings and create encoding or decoding
-     * stream wrappers.
-     *
-     * Thread safety: All methods must be thread safe.
-     */
-    template<typename Ch> struct BasicCodec
+class CodecException;
+class EncodeException;
+class DecodeException;
+
+/// Represents a specific codec, with the ability to encode and decode
+/// individual strings and create encoding or decoding stream wrappers.
+///
+/// Thread safety: All methods must be thread safe.
+template<class Ch> class BasicCodec {
+public:
+    using CharType = Ch;
+    using StringType = std::basic_string<CharType>;
+    using InputStreamType = BasicInputStream<CharType>;
+    using OutputStreamType = BasicOutputStream<CharType>;
+
+    /// Encode the specified string to a string of bytes.
+    ///
+    /// \throw EncodeException When the string could not be encoded.
+    virtual std::string encode(const StringType&) const = 0;
+
+    /// Decode the specified byte string string.
+    ///
+    /// \throw DecodeException When the string could not be encoded.
+    virtual StringType decode(const std::string&) const = 0;
+
+    /// Create a character output stream that accepts un-encoded characters, and
+    /// writes the encoded characters to the specified byte output stream.
+    virtual std::unique_ptr<OutputStreamType> get_enc_out_stream(OutputStream&) const = 0;
+
+    /// Create a character input stream that returns unencoded characters, and
+    /// reads the encoded characters from the specified byte input stream.
+    virtual std::unique_ptr<InputStreamType> get_dec_in_stream(InputStream&) const = 0;
+
+    /// Create a byte input stream that returns encoded characters, and reads
+    /// the un-encoded characters from the specified character input stream.
+    virtual std::unique_ptr<InputStream> get_enc_in_stream(InputStreamType&) const = 0;
+
+    /// Create a byte output stream that accepts encoded characters, and writes
+    /// the un-encoded characters to the specified character output stream.
+    virtual std::unique_ptr<OutputStream> get_dec_out_stream(OutputStreamType&) const = 0;
+
+
+    virtual std::unique_ptr<OutputStreamType>
+    get_enc_out_stream(const std::shared_ptr<OutputStream>&) const = 0;
+
+    virtual std::unique_ptr<InputStreamType>
+    get_dec_in_stream(const std::shared_ptr<InputStream>&) const = 0;
+
+    virtual std::unique_ptr<InputStream>
+    get_enc_in_stream(const std::shared_ptr<InputStreamType>&) const = 0;
+
+    virtual std::unique_ptr<OutputStream>
+    get_dec_out_stream(const std::shared_ptr<OutputStreamType>&) const = 0;
+
+    virtual ~BasicCodec() {}
+};
+
+
+using Codec = BasicCodec<char>;
+using WideCodec = BasicCodec<wchar_t>;
+
+
+
+
+class CodecException: public std::runtime_error {
+public:
+    CodecException(const std::string& message):
+        std::runtime_error(message)
     {
-      typedef Ch                          CharType;
-      typedef std::basic_string<CharType> StringType;
-      typedef BasicInputStream<CharType>  InputStreamType;
-      typedef BasicOutputStream<CharType> OutputStreamType;
+    }
+};
 
-      /**
-       * Encode the specified string to a string of bytes.
-       *
-       * \throw EncodeException When the string could not be encoded.
-       */
-      virtual std::string encode(StringType const &) const = 0;
-
-      /**
-       * Decode the specified byte string string.
-       *
-       * \throw DecodeException When the string could not be encoded.
-       */
-      virtual StringType decode(std::string const &) const = 0;
-
-      /**
-       * Create a character output stream that accepts un-encoded
-       * characters, and writes the encoded characters to the
-       * specified byte output stream.
-       */
-      virtual UniquePtr<OutputStreamType> get_enc_out_stream(OutputStream &) const = 0;
-
-      /**
-       * Create a character input stream that returns unencoded
-       * characters, and reads the encoded characters from the
-       * specified byte input stream.
-       */
-      virtual UniquePtr<InputStreamType> get_dec_in_stream(InputStream &) const = 0;
-
-      /**
-       * Create a byte input stream that returns encoded characters,
-       * and reads the un-encoded characters from the specified
-       * character input stream.
-       */
-      virtual UniquePtr<InputStream> get_enc_in_stream(InputStreamType &) const = 0;
-
-      /**
-       * Create a byte output stream that accepts encoded characters,
-       * and writes the un-encoded characters to the specified
-       * character output stream.
-       */
-      virtual UniquePtr<OutputStream> get_dec_out_stream(OutputStreamType &) const = 0;
-
-
-      virtual UniquePtr<OutputStreamType>
-      get_enc_out_stream(core::SharedPtr<OutputStream> const &) const = 0;
-
-      virtual UniquePtr<InputStreamType>
-      get_dec_in_stream(core::SharedPtr<InputStream> const &) const = 0;
-
-      virtual UniquePtr<InputStream>
-      get_enc_in_stream(core::SharedPtr<InputStreamType> const &) const = 0;
-
-      virtual UniquePtr<OutputStream>
-      get_dec_out_stream(core::SharedPtr<OutputStreamType> const &) const = 0;
-
-      virtual ~BasicCodec() {}
-    };
-
-
-    typedef BasicCodec<char>    Codec;
-    typedef BasicCodec<wchar_t> WideCodec;
-
-
-
-
-    struct CodecException: std::runtime_error
+class EncodeException: public CodecException {
+public:
+    EncodeException(const std::string& message):
+        CodecException(message)
     {
-      CodecException(std::string s): std::runtime_error(s) {}
-    };
+    }
+};
 
-    struct EncodeException: CodecException
+class DecodeException: public CodecException {
+public:
+    DecodeException(const std::string& message):
+        CodecException(message)
     {
-      EncodeException(std::string s): CodecException(s) {}
-    };
+    }
+};
 
-    struct DecodeException: CodecException
-    {
-      DecodeException(std::string s): CodecException(s) {}
-    };
-  }
-}
+} // namespace core
+} // namespace archon
 
 #endif // ARCHON_CORE_CODEC_HPP

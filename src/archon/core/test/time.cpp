@@ -18,32 +18,27 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- *
- * Testing the time representation.
- */
+/// \file
+///
+/// \author Kristian Spangsege
+///
+/// Testing the time representation.
 
 #include <iostream>
 
 #include <archon/core/time.hpp>
 
 
-using namespace std;
 using namespace archon::core;
 
 
-int main() throw()
+int main()
 {
-  Time t = 7;
+    Time t{7};
 
-  cout << "bool(Time(7)) == " << bool(t) << endl;
-  cout << "7 < 6 == " << (t < 6) << endl;
-  cout << "7 < 8 == " << (t < 8) << endl;
+    std::cout << "bool(Time(7)) == " << bool(t) << std::endl;
+    std::cout << "7 < 6 == " << (t < Time(6)) << std::endl;
+    std::cout << "7 < 8 == " << (t < Time(8)) << std::endl;
 
-  cout << "now = " << Time::now().format_rfc_1123() << endl;
-
-  return 0;
+    std::cout << "now = " << Time::now().format_rfc_1123() << std::endl;
 }

@@ -18,11 +18,9 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #ifndef ARCHON_UTIL_CONV_HULL_HPP
 #define ARCHON_UTIL_CONV_HULL_HPP
@@ -33,46 +31,40 @@
 #include <archon/math/vector.hpp>
 
 
-namespace archon
-{
-  namespace util
-  {
-    namespace conv_hull
-    {
-      struct TrifanHandler
-      {
-        virtual void add_vertex(std::size_t point_index) = 0; // The same index may get added multiple times
-        virtual void close_trifan() = 0;
-        virtual void close_trifan_set() = 0;
+namespace archon {
+namespace util {
+namespace conv_hull {
 
-        virtual ~TrifanHandler() {}
-      };
+class TrifanHandler {
+public:
+    virtual void add_vertex(std::size_t point_index) = 0; // The same index may get added multiple times
+    virtual void close_trifan() = 0;
+    virtual void close_trifan_set() = 0;
+
+    virtual ~TrifanHandler() {}
+};
 
 
-      void compute(std::vector<math::Vec3> const &points, TrifanHandler &handler, int max_depth = 0);
+void compute(const std::vector<math::Vec3>& points, TrifanHandler& handler, int max_depth = 0);
 
 
 
-      /**
-       * Translates triangle fans to triangles.
-       */
-      struct TriangleHandler: TrifanHandler
-      {
-        virtual void add_triangle(std::size_t a, std::size_t b, std::size_t c) = 0;
+/// Translates triangle fans to triangles.
+class TriangleHandler: public TrifanHandler {
+public:
+    virtual void add_triangle(std::size_t a, std::size_t b, std::size_t c) = 0;
 
-        void add_vertex(std::size_t i);
+    void add_vertex(std::size_t) override;
+    void close_trifan() override;
+    void close_trifan_set() override;
 
-        void close_trifan();
+private:
+    std::size_t m_vertex_0, m_vertex_1, m_vertex_2;
+    int m_state = 0;
+};
 
-        void close_trifan_set();
-
-        TriangleHandler(): state(0) {}
-
-        size_t vertex0, vertex1, vertex2;
-        int state;
-      };
-    }
-  }
-}
+} // namespace conv_hull
+} // namespace util
+} // namespace archon
 
 #endif // ARCHON_UTIL_CONV_HULL_HPP

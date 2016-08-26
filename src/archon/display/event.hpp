@@ -25,10 +25,11 @@
 #ifndef ARCHON_DISPLAY_EVENT_HPP
 #define ARCHON_DISPLAY_EVENT_HPP
 
+#include <utility>
+#include <chrono>
 #include <vector>
 #include <string>
 
-#include <archon/core/time.hpp>
 #include <archon/display/keysyms.hpp>
 #include <archon/display/window.hpp>
 
@@ -38,8 +39,8 @@ namespace display {
 
 /// The base class for all event objects. Event objects are created internally
 /// in the event processor and passed as arguments to your event handler
-/// methods. Most event object types are a derivative of this class, but it is
-/// used directly for a few types of events.
+/// methods. Most event object types are derivatives of this class, but a few
+/// use this class directly.
 ///
 /// \sa EventHandler
 /// \sa EventProcessor
@@ -52,7 +53,10 @@ public:
     /// it, if you need to.
     const int cookie;
 
-    Event(int cookie);
+protected:
+    Event(int cookie) noexcept;
+
+    friend class EventProcessor;
 };
 
 
@@ -66,7 +70,10 @@ public:
     /// application.
     const int width, height;
 
-    SizeEvent(int cookie, int w, int h);
+protected:
+    SizeEvent(int cookie, int w, int h) noexcept;
+
+    friend class EventProcessor;
 };
 
 
@@ -85,7 +92,10 @@ public:
     /// measured in pixels.
     const int width, height;
 
-    AreaEvent(int cookie, int x_, int y_, int w, int h);
+protected:
+    AreaEvent(int cookie, int x_, int y_, int w, int h) noexcept;
+
+    friend class EventProcessor;
 };
 
 
@@ -97,11 +107,19 @@ public:
 /// \sa EventHandler::on_mouseout
 class TimedEvent: public Event {
 public:
-    /// The time the event occured. The origin is arbitrary, but the same for
-    /// all events. Thus, it does _not_ represent the time since the UNIX Epoch.
-    const core::Time time;
+    using Timestamp = std::chrono::milliseconds;
 
-    TimedEvent(int cookie, core::Time t);
+    /// The point in time where the event occurred relative to a fixed, but
+    /// arbitrary origin (epoch). Note that the origin is not necessarily, and
+    /// most likely not equal to the beginning of the UNIX Epoch. For this
+    /// reason, these timestamps can only be used for measuring time between
+    /// events. All timestamps will be nonnegative.
+    const Timestamp timestamp;
+
+protected:
+    TimedEvent(int cookie, Timestamp) noexcept;
+
+    friend class EventProcessor;
 };
 
 
@@ -115,7 +133,10 @@ class KeyEvent: public TimedEvent {
 public:
     const KeySym key_sym;
 
-    KeyEvent(int cookie, core::Time t, KeySym s);
+protected:
+    KeyEvent(int cookie, Timestamp, KeySym s) noexcept;
+
+    friend class EventProcessor;
 };
 
 
@@ -128,10 +149,13 @@ public:
 class MouseEvent: public TimedEvent {
 public:
     /// Position of the mouse pointer at the time the event occured. Always
-    /// measured in pixels from the upper left corner of thw window.
+    /// measured in pixels from the upper left corner of the window.
     const int x,y;
 
-    MouseEvent(int cookie, core::Time t, int x, int y);
+protected:
+    MouseEvent(int cookie, Timestamp, int x, int y) noexcept;
+
+    friend class EventProcessor;
 };
 
 
@@ -148,23 +172,26 @@ public:
     /// 2 will be the middle button or the scroll wheel when used as a button.
     const int button;
 
-    MouseButtonEvent(int cookie, core::Time t, int x, int y, int button);
+protected:
+    MouseButtonEvent(int cookie, Timestamp, int x, int y, int button) noexcept;
+
+    friend class EventProcessor;
 };
 
 
 /// A base for window event handlers. Derive your event handler from this class
 /// and override the methods corresponding to those types of events in which you
-/// are interested. The pass it as argument to
-/// <tt>Connection::new_event_processor</tt>.
+/// are interested. Then pass it as argument to
+/// Connection::new_event_processor().
 ///
-/// It is legal for any of the event handler methods (and <tt>before_sleep</tt>)
-/// to throw exceptions, and this is indeed the recommended way to terminate the
+/// It is legal for any of the event handler methods (and before_sleep()) to
+/// throw exceptions, and this is indeed the recommended way to terminate the                
 /// event handling, and return control back to the caller of
-/// <tt>EventProcessor::process</tt>.
+/// EventProcessor::process().
 ///
-/// \sa Connection::new_event_processor
-/// \sa EventProcessor::process
-/// \sa before_sleep
+/// \sa Connection::new_event_processor()
+/// \sa EventProcessor::process()
+/// \sa before_sleep()
 class EventHandler {
 public:
     /// Called when a mouse button is pressed down over one of the windows with
@@ -235,20 +262,22 @@ public:
     /// clicked on the 'close' symbol of the window.
     virtual void on_close(const Event&);
 
-    /// Override this method if you want to take action after all currently
-    /// available events have been processed and just before the event processer
-    /// blocks itself waiting for new events to arrive.
+    /// Called when all currently available events have been processed and just
+    /// before the event processer blocks itself waiting for new events to
+    /// arrive.
+    ///
+    /// \return True to keep processing events, or false to stop event
+    /// processing and make EventProcessor::process() return.
     ///
     /// A good use of this method is to check if an update of the window
-    /// contents is required, and if it is, either redraw it directly, or throw
-    /// an exception such that the event processing loop is interrupted, and the
-    /// caller can perform the redraw. The latter technique is especially
-    /// usefull when the window contents is rendered in a frame based manner.
-    ///
-    /// \sa Connection::process_events
-    virtual void before_sleep();
+    /// contents is required, and if it is, either redraw it directly, or return
+    /// false to break out of the event processing loop, such that the caller of
+    /// EventProcessor::process() can perform the redraw. The latter technique
+    /// is especially usefull when the window contents is rendered in a frame
+    /// based manner.
+    virtual bool before_sleep();
 
-    virtual ~EventHandler();
+    virtual ~EventHandler() noexcept;
 };
 
 
@@ -257,22 +286,21 @@ public:
 /// the \c process method, then precious CPU and memory resources will be
 /// wasted, at least if the window generates many events.
 ///
-/// The event processor will only buffer a finite number of events. This number
+/// The event processor will only buffer a finite number of events. This number                   
 /// is currently 2000. For a high precision mouse, reporting at 500Hz, there
 /// will be room for only 4 seconds of mouse motion events. This means that if
 /// the \c process method returns, and more than 4 seconds pass before the \c
 /// process method is reinvoked, then events might get lost. It is however
 /// always the newest events that will be kept.
 ///
-/// \todo FIXME: The 'max 2000 events' feature is not yet implemented. This
+/// \todo FIXME: The 'max 2000 events' feature is not yet implemented. This                      
 /// means that memory consumption could grow uncontrollably.
 ///
 /// The methods of this object are not thread-safe. It is the intention that
 /// each thread that wishes to engage in event handling has its own instance of
 /// this class.
 ///
-/// New instances are aquired by calling
-/// <tt>Connection::new_event_processor</tt>.
+/// New instances are aquired by calling Connection::new_event_processor().
 class EventProcessor {
 public:
     typedef core::SharedPtr<EventProcessor> Ptr;
@@ -314,9 +342,8 @@ public:
     /// will be called, that is, the event handler that was specified when the
     /// event processor was created. Your event handler methods will always be
     /// executed by the same thread that calls this \c process method. The call
-    /// to \c process will not return unless one of the following events occur:
-    /// 1) A non-zero \c timeout argument was specified, and that timeout is
-    /// reached. 2) The calling thread is interrupted (see
+    /// to process() will not return until one of the following events occur: 1)
+    /// The specified timout is reached. 2) The calling thread is interrupted (see
     /// <tt>Thread::interrupt</tt>) either by some other thread, or by itself
     /// from one of the event handler methods. 3) One of the event handler
     /// methods throw an exception. The latter is the recommended way to
@@ -327,10 +354,11 @@ public:
     /// in time, and not a duration. If zero is specified (the default) the
     /// there will be no timeout condition.
     ///
-    /// \note This method is _not_ thread-safe.
+    /// \note This method is **not** thread-safe.
     ///
-    /// \sa EventHandler::before_sleep
-    virtual void process(core::Time timeout = 0) = 0;
+    /// \sa EventHandler::before_sleep()
+    virtual void process(std::chrono::steady_clock::time_point timeout =
+                         std::chrono::steady_clock::time_point()) = 0;
 
     /// Find the names of all the specified <tt>KeySym</tt>'s.
     ///
@@ -351,7 +379,10 @@ public:
     /// \sa get_key_sym_names
     std::string get_key_sym_name(KeySym key_sym);
 
-    virtual ~EventProcessor();
+    virtual ~EventProcessor() noexcept;
+
+protected:
+    template<class Event, class... Args> static Event make_event(Args&&... args) noexcept;
 };
 
 
@@ -359,49 +390,49 @@ public:
 
 // Implementation
 
-inline Event::Event(int c):
-    cookie(c)
+inline Event::Event(int c) noexcept:
+    cookie{c}
 {
 }
 
-inline SizeEvent::SizeEvent(int c, int w, int h):
-    Event(c),
-    width(w),
-    height(h)
+inline SizeEvent::SizeEvent(int c, int w, int h) noexcept:
+    Event{c},
+    width{w},
+    height{h}
 {
 }
 
-inline AreaEvent::AreaEvent(int c, int x_, int y_, int w, int h):
-    Event(c),
-    x(x_),
-    y(y_),
-    width(w),
-    height(h)
+inline AreaEvent::AreaEvent(int c, int x_2, int y_2, int w, int h) noexcept:
+    Event{c},
+    x{x_2},
+    y{y_2},
+    width{w},
+    height{h}
 {
 }
 
-inline TimedEvent::TimedEvent(int c, core::Time t):
-    Event(c),
-    time(t)
+inline TimedEvent::TimedEvent(int c, Timestamp t) noexcept:
+    Event{c},
+    timestamp{t}
 {
 }
 
-inline KeyEvent::KeyEvent(int c, core::Time t, KeySym s):
-    TimedEvent(c,t),
-    key_sym(s)
+inline KeyEvent::KeyEvent(int c, Timestamp t, KeySym s) noexcept:
+    TimedEvent{c,t},
+    key_sym{s}
 {
 }
 
-inline MouseEvent::MouseEvent(int c, core::Time t, int x_, int y_):
-    TimedEvent(c,t),
-    x(x_),
-    y(y_)
+inline MouseEvent::MouseEvent(int c, Timestamp t, int x_2, int y_2) noexcept:
+    TimedEvent{c,t},
+    x{x_2},
+    y{y_2}
 {
 }
 
-inline MouseButtonEvent::MouseButtonEvent(int c, core::Time t, int x, int y, int b):
-    MouseEvent(c,t,x,y),
-    button(b)
+inline MouseButtonEvent::MouseButtonEvent(int c, Timestamp t, int x, int y, int b) noexcept:
+    MouseEvent{c,t,x,y},
+    button{b}
 {
 }
 
@@ -461,8 +492,9 @@ inline void EventHandler::on_close(const Event&)
 {
 }
 
-inline void EventHandler::before_sleep()
+inline bool EventHandler::before_sleep()
 {
+    return true;
 }
 
 inline EventHandler::~EventHandler()
@@ -477,8 +509,14 @@ inline std::string EventProcessor::get_key_sym_name(KeySym key_sym)
     return out[0];
 }
 
-inline EventProcessor::~EventProcessor()
+inline EventProcessor::~EventProcessor() noexcept
 {
+}
+
+template<class Event, class... Args>
+inline Event EventProcessor::make_event(Args&&... args) noexcept
+{
+    return Event(std::forward<Args>(args)...);
 }
 
 } // namespace display

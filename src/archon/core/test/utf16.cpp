@@ -18,11 +18,9 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #include <stdexcept>
 #include <sstream>
@@ -31,26 +29,23 @@
 #include <archon/core/utf16.hpp>
 
 
-#define TEST(assertion)              if(!(assertion)) throw runtime_error("Test failed")
-#define TEST_MSG(assertion, message) if(!(assertion)) throw runtime_error(message)
+#define TEST(assertion)              if(!(assertion)) throw std::runtime_error("Test failed")
+#define TEST_MSG(assertion, message) if(!(assertion)) throw std::runtime_error(message)
 
 
-using namespace std;
 using namespace archon::core;
 
 
-int main() throw()
+int main()
 {
-  basic_ostringstream<CharUtf16> out;
+    std::basic_ostringstream<CharUtf16> out;
 
-  CharUtf16 c;
-  c.val = 10;
+    CharUtf16 c;
+    c.val = 10;
 
-  out << 77.9 << c;
+    out << 77.9 << c;
 
-  wcout << out.str().size() << endl;
+    std::wcout << out.str().size() << std::endl;
 
-  wcout << utf16_to_wide(out.str(), locale::classic()) << endl;
-
-  return 0;
+    std::wcout << utf16_to_wide(out.str(), std::locale::classic()) << std::endl;
 }

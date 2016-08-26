@@ -18,19 +18,17 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #include <archon/image/reader_base.hpp>
 
 
-namespace archon
-{
-  namespace image
-  {
-    ReaderBase::ReaderCvtStepsSwitch ReaderBase::reader_cvt_steps_switch;
-  }
-}
+namespace archon {
+namespace image {
+
+ReaderBase::ReaderCvtStepsSwitch ReaderBase::s_reader_cvt_steps_switch;
+
+} // namespace image
+} // namespace archon

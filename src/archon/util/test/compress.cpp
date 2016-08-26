@@ -18,52 +18,54 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- *
- * Testing compression codecs.
- */
+/// \file
+///
+/// \author Kristian Spangsege
+///
+/// Testing compression codecs.
 
 #include <string>
 
 #include <archon/core/options.hpp>
 #include <archon/util/compress.hpp>
 
-using namespace std;
 using namespace archon::core;
 using namespace archon::util;
 
-int main(int argc, char const *argv[]) throw()
+int main(int argc, const char* argv[])
 {
-  string opt_codec = "lzw";
-  bool opt_decode = false;
-  bool opt_input = false;
+    std::string opt_codec = "lzw";
+    bool opt_decode = false;
+    bool opt_input = false;
 
-  CommandlineOptions opts;
-  opts.add_help("Test application for utility codecs");
-  opts.check_num_args();
-  opts.add_param("c", "codec", opt_codec, "The codec to use.");
-  opts.add_param("d", "decode", opt_decode, "Decode rather than encode.");
-  opts.add_param("i", "input", opt_input,
-                 "Encode/decode using an input stream rather than an output stream.");
-  if(int stop = opts.process(argc, argv)) return stop == 2 ? 0 : 1;
+    CommandlineOptions opts;
+    opts.add_help("Test application for utility codecs");
+    opts.check_num_args();
+    opts.add_param("c", "codec", opt_codec, "The codec to use.");
+    opts.add_param("d", "decode", opt_decode, "Decode rather than encode.");
+    opts.add_param("i", "input", opt_input,
+                   "Encode/decode using an input stream rather than an output stream.");
+    if (int stop = opts.process(argc, argv))
+        return stop == 2 ? EXIT_SUCCESS : EXIT_FAILURE;
 
-  UniquePtr<Codec const> codec;
-  if(opt_codec == "lzw") codec.reset(get_lempel_ziv_welch_codec().release());
-  else throw invalid_argument("Unknown codec '"+opt_codec+"'");
+    std::unique_ptr<const Codec> codec;
+    if (opt_codec == "lzw") {
+        codec = get_lempel_ziv_welch_codec();
+    }
+    else {
+        throw std::invalid_argument("Unknown codec '"+opt_codec+"'");
+    }
 
-  SharedPtr<InputStream> in(make_stdin_stream().release());
-  SharedPtr<OutputStream> out(make_stdout_stream().release());
+    std::shared_ptr<InputStream> in = make_stdin_stream();
+    std::shared_ptr<OutputStream> out = make_stdout_stream();
 
-  if(opt_input) in.reset(opt_decode ? codec->get_dec_in_stream(in).release() :
-                         codec->get_enc_in_stream(in).release());
-  else out.reset(opt_decode ? codec->get_dec_out_stream(out).release() :
-                 codec->get_enc_out_stream(out).release());
+    if (opt_input) {
+        in = (opt_decode ? codec->get_dec_in_stream(in) : codec->get_enc_in_stream(in));
+    }
+    else {
+        out = (opt_decode ? codec->get_dec_out_stream(out) : codec->get_enc_out_stream(out));
+    }
 
-  out->write(*in);
-  out->flush();
-
-  return 0;
+    out->write(*in);
+    out->flush();
 }

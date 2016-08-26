@@ -73,7 +73,7 @@ public:
 
     virtual void add_sphere() = 0;
 
-    virtual void add_torus(double major_radius = 2) = 0;
+    virtual void add_torus(double minor_radius = 0.5) = 0;
 
     virtual void add_directional_light() = 0;
 

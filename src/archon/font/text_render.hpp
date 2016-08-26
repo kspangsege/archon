@@ -141,7 +141,7 @@ private:
             util::Hash_FNV_1a_32 h;
             h.add_int(s.font_id);
             h.add_int(s.text_color.value());
-            return h.get_hash(n);
+            return int(h.get_hash(n));
         }
     };
 

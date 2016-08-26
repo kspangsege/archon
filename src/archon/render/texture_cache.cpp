@@ -29,7 +29,6 @@
 #include <archon/render/texture_cache.hpp>
 
 
-using namespace std;
 using namespace archon::core;
 using namespace archon::image;
 using namespace archon::render;
@@ -38,60 +37,60 @@ namespace {
 
 class TextureCacheImpl: public TextureCache {
 public:
-    size_t decl(UniquePtr<TextureSource> src, GLenum wrap_s, GLenum wrap_t,
-                FilterMode filter_mode, bool wait, bool fast)
+    std::size_t decl(std::unique_ptr<TextureSource> src, GLenum wrap_s, GLenum wrap_t,
+                     FilterMode filter_mode, bool wait, bool fast)
     {
-        if (unused_slots.empty()) {
-            unused_slots.reserve(1);
-            size_t i = textures.size();
-            textures.resize(i+1);
-            unused_slots.push_back(i);
+        if (m_unused_slots.empty()) {
+            m_unused_slots.reserve(1); // Throws
+            std::size_t i = m_textures.size();
+            m_textures.resize(i+1); // Throws
+            m_unused_slots.push_back(i);
         }
-        size_t i = unused_slots.back();
-        textures[i].open(src, wrap_s, wrap_t, filter_mode, wait, fast);
-        unused_slots.pop_back();
+        std::size_t i = m_unused_slots.back();
+        m_textures[i].open(std::move(src), wrap_s, wrap_t, filter_mode, wait, fast); // Throws
+        m_unused_slots.pop_back();
         return i;
     }
 
 
-    void obtain_gl_name(size_t i)
+    void obtain_gl_name(std::size_t i)
     {
-        Texture* t = &textures[i];
+        Texture* t = &m_textures[i];
         glGenTextures(1, &t->gl_name);
         t->has_name = true;
         if (t->postpone)
             return;
         if (t->image) {
-            update_queue.push_back(i);
+            m_update_queue.push_back(i);
             t->pending_update = true;
         }
         else {
-            load_queue.push_back(i);
+            m_load_queue.push_back(i);
             t->pending_load = true;
         }
         t->show_state();
-        dirty = true; // signal to update()
+        m_dirty = true; // signal to update()
     }
 
 
-    void update2()
+    void update_2()
     {
-        while (!load_queue.empty()) {
-            size_t i = load_queue.back();
-            load_queue.pop_back();
-            Texture* t = &textures[i];
+        while (!m_load_queue.empty()) {
+            std::size_t i = m_load_queue.back();
+            m_load_queue.pop_back();
+            Texture* t = &m_textures[i];
             if (!t->pending_load)
                 continue;
             t->pending_load = false;
             t->image = t->source->get_image();
-            update_queue.push_back(i);
+            m_update_queue.push_back(i);
             t->pending_update = true;
             t->show_state();
         }
-        while (!update_queue.empty()) {
-            size_t i = update_queue.back();
-            update_queue.pop_back();
-            Texture* t = &textures[i];
+        while (!m_update_queue.empty()) {
+            std::size_t i = m_update_queue.back();
+            m_update_queue.pop_back();
+            Texture* t = &m_textures[i];
             if (!t->pending_update)
                 continue;
             {
@@ -100,11 +99,13 @@ public:
                 glBindTexture(GL_TEXTURE_2D, t->gl_name);
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, t->wrapping_s);
                 glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, t->wrapping_t);
-                if (t->filter_mode == filter_mode_Mipmap) {
+                if (t->filter_mode == FilterMode::mipmap) {
                     load_mipmap(t->image);
                 }
                 else {
-                    load_texture(t->image, false, t->filter_mode == filter_mode_Nearest);
+                    bool with_border = false;
+                    bool no_interp = (t->filter_mode == FilterMode::nearest);
+                    load_texture(t->image, with_border, no_interp);
                 }
                 glBindTexture(GL_TEXTURE_2D, prev);
             }
@@ -114,13 +115,13 @@ public:
                 t->image.reset();
             t->show_state();
         }
-        dirty = false;
+        m_dirty = false;
     }
 
 
-    void refresh_image(size_t i)
+    void refresh_image(std::size_t i)
     {
-        Texture* t = &textures[i];
+        Texture* t = &m_textures[i];
         if (t->has_name) {
             if (t->pending_load)
                 return;
@@ -128,9 +129,9 @@ public:
             t->image.reset();
             t->updated = t->postpone = false;
 
-            load_queue.push_back(i);
+            m_load_queue.push_back(i);
             t->pending_load = true;
-            dirty = true; // signal to update()
+            m_dirty = true; // signal to update()
         }
         else {
             t->image.reset();
@@ -139,18 +140,9 @@ public:
         t->show_state();
     }
 
-
-    ~TextureCacheImpl()
-    {
-        typedef vector<Texture>::const_iterator iter;
-        iter e = textures.end();
-        for (iter i = textures.begin(); i != e; ++i)
-            delete i->source;
-    }
-
-
-    vector<size_t> unused_slots;
-    vector<size_t> load_queue, update_queue;
+private:
+    std::vector<std::size_t> m_unused_slots;
+    std::vector<std::size_t> m_load_queue, m_update_queue;
 };
 
 } // unnamed namespace

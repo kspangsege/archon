@@ -18,51 +18,43 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- *
- * Testing utility codecs.
- */
+/// \file
+///
+/// \author Kristian Spangsege
+///
+/// Testing utility codecs.
 
 #include <stdexcept>
 #include <string>
 
 #include <archon/util/codec.hpp>
 
-using namespace std;
 using namespace archon::core;
 using namespace archon::util;
 
-int main(int argc, char const *argv[]) throw()
+int main(int argc, const char* argv[])
 {
-  if(argc != 2)
-    throw invalid_argument("Wrong number of command line arguments");
-  string type = argv[1];
+    if (argc != 2)
+        throw std::invalid_argument("Wrong number of command line arguments");
+    std::string type = argv[1];
 
-  UniquePtr<InputStream> in(make_stdin_stream().release());
-  UniquePtr<OutputStream> out(make_stdout_stream().release());
+    std::shared_ptr<InputStream> in = make_stdin_stream();
+    std::shared_ptr<OutputStream> out = make_stdout_stream();
 
-  if(type == "block-encode")
-  {
-    UniquePtr<OutputStream> out2(get_block_codec()->get_enc_out_stream(*out).release());
-    out.release();
-    out = out2;
-  }
-  else if(type == "block-decode")
-  {
-    UniquePtr<InputStream> in2(get_block_codec()->get_dec_in_stream(*in).release());
-    in.release();
-    in = in2;
-  }
-  else throw invalid_argument("Unrecognized encoding/decoding '"+type+"'");
+    if (type == "block-encode") {
+        out = get_block_codec()->get_enc_out_stream(out);
+    }
+    else if(type == "block-decode")
+    {
+        in = get_block_codec()->get_dec_in_stream(in);
+    }
+    else {
+        throw std::invalid_argument("Unrecognized encoding/decoding '"+type+"'");
+    }
 
-  out->write(string("Kristian"));
+    out->write(std::string("Kristian"));
 
-  out->flush();
+    out->flush();
 
-  out->write(*in);
-
-  return 0;
+    out->write(*in);
 }

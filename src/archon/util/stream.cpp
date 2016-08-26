@@ -18,11 +18,9 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #include <cmath>
 
@@ -34,85 +32,91 @@
 #include <archon/util/stream.hpp>
 
 
-using namespace std;
 using namespace archon::core;
 using namespace archon::thread;
 
-namespace
-{
-  struct SlowStream: InputStream
-  {
-    size_t read(char *b, size_t n)
+namespace {
+
+class SlowStream: public InputStream {
+public:
+    std::size_t read(char *b, std::size_t n) override
     {
-      if (first) {
+        if (first) {
+            time = Time::now();
+            first = false;
+        }
+
+        // Attempt to have at least 'max_chunk_size' bytes in buffer
+        std::size_t left = buffer_end - buffer_begin;
+        if (left < max_chunk_size && !eoi) {
+            if (left)
+                std::copy_backward(buffer_begin, buffer_end, buffer.get()+left);
+            std::size_t m = in.read(buffer.get()+left, max_chunk_size);
+            if (!m)
+                eoi = true;
+            left += m;
+            buffer_begin = buffer.get();
+            buffer_end   = buffer_begin + left;
+        }
+
+        // Randomly choose a chunk size
+        n = min3<std::size_t>(1+chunk_size_generator->get(), n, left);
+
+        if (b)
+            std::copy(buffer_begin, buffer_begin+n, b);
+        buffer_begin += n;
+
+        // Randomly choose a wait time
+        Time wait;
+        wait.set_as_millis(n * wait_time_generator->get());
+
+        time += wait;
+        Thread::sleep_until(time);
         time = Time::now();
-        first = false;
-      }
-
-      // Attempt to have at least 'max_chunk_size' bytes in buffer
-      size_t left = buffer_end - buffer_begin;
-      if (left < max_chunk_size && !eoi) {
-        if(left) copy_backward(buffer_begin, buffer_end, buffer.get()+left);
-        size_t m = in.read(buffer.get()+left, max_chunk_size);
-        if(!m) eoi = true;
-        left += m;
-        buffer_begin = buffer.get();
-        buffer_end   = buffer_begin + left;
-      }
-
-      // Randomly choose a chunk size
-      n = min3<size_t>(1+chunk_size_generator->get(), n, left);
-
-      if (b) copy(buffer_begin, buffer_begin+n, b);
-      buffer_begin += n;
-
-      // Randomly choose a wait time
-      Time wait;
-      wait.set_as_millis(n * wait_time_generator->get());
-
-      time += wait;
-      Thread::sleep_until(time);
-      time = Time::now();
-      return n;
+        return n;
     }
 
-    size_t discard(size_t n)
+/*
+    std::size_t discard(std::size_t n)
     {
-      return read(0, n);
+        return read(0, n);
+    }
+*/
+
+    SlowStream(InputStream& in, double mean_transfer_rate, double mean_chunk_size):
+        in(in),
+        max_chunk_size(std::min<std::size_t>(2048, std::ceil(mean_chunk_size +
+                                                             4.5 * std::sqrt(mean_chunk_size-1)))),
+        wait_time_generator(Random::get_poisson_distrib(1000/mean_transfer_rate)), // Throws
+        chunk_size_generator(Random::get_poisson_distrib(mean_chunk_size-1)), // Throws
+        buffer(std::make_unique<char[]>(2*max_chunk_size)) // Throws
+    {
     }
 
-    SlowStream(InputStream &in, double mean_transfer_rate, double mean_chunk_size):
-      in(in), max_chunk_size(min<size_t>(2048, ceil(mean_chunk_size +
-                                                    4.5 * sqrt(mean_chunk_size-1)))),
-      wait_time_generator(Random::get_poisson_distrib(1000/mean_transfer_rate).release()),
-      chunk_size_generator(Random::get_poisson_distrib(mean_chunk_size-1).release()),
-      buffer(2*max_chunk_size),
-      buffer_begin(buffer.get()), buffer_end(buffer_begin),
-      eoi(false), first(true) {}
-
-    InputStream &in;
-    size_t const max_chunk_size;
+    InputStream& in;
+    const std::size_t max_chunk_size;
     // Wait time per byte in milli seconds
-    UniquePtr<Random::Distribution> wait_time_generator;
+    std::unique_ptr<Random::Distribution> wait_time_generator;
     // Chunk size minus 1
-    UniquePtr<Random::Distribution> chunk_size_generator;
-    MemoryBuffer buffer;
-    char *buffer_begin, *buffer_end;
-    bool eoi, first;
+    std::unique_ptr<Random::Distribution> chunk_size_generator;
+    std::unique_ptr<char[]> buffer;
+    char* buffer_begin = buffer.get();
+    char* buffer_end = buffer.get();
+    bool eoi = false, first = true;
     Time time;
-  };
-}
+};
+
+} // unnamed namespace
 
 
-namespace archon
+namespace archon {
+namespace util {
+
+std::unique_ptr<InputStream> make_slow_stream(InputStream &in, double mean_transfer_rate,
+                                              double mean_chunk_size)
 {
-  namespace util
-  {
-    UniquePtr<InputStream> make_slow_stream(InputStream &in,
-                                            double mean_transfer_rate, double mean_chunk_size)
-    {
-      UniquePtr<InputStream> s(new SlowStream(in, mean_transfer_rate, mean_chunk_size));
-      return s;
-    }
-  }
+    return std::make_unique<SlowStream>(in, mean_transfer_rate, mean_chunk_size); // Throws
 }
+
+} // namespace util
+} // namespace archon

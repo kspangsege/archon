@@ -37,7 +37,7 @@ namespace core {
 
 namespace _impl {
 
-template<class T> struct ToNum;
+template<class T> class ToNum;
 
 } // namespace _impl
 

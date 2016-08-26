@@ -18,11 +18,9 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #ifndef ARCHON_RAYTRACE_TEXTURE_HPP
 #define ARCHON_RAYTRACE_TEXTURE_HPP
@@ -32,44 +30,42 @@
 #include <archon/raytrace/material.hpp>
 
 
-namespace archon
-{
-  namespace raytrace
-  {
-    struct Texture
+namespace archon {
+namespace raytrace {
+
+class Texture {
+public:
+    static core::SharedPtr<Texture> get_image_texture(image::Image::ConstRefArg img,
+                                                      bool repeat_s = true, bool repeat_t = true);
+
+    /// Must be thread-safe.
+    virtual void map(math::Vec2 point, math::Vec4& rgba) const = 0;
+
+    virtual ~Texture() noexcept {}
+};
+
+
+class TexturedPhongMaterial: public PhongMaterialBase {
+public:
+    TexturedPhongMaterial(const core::SharedPtr<Texture>& tex,
+                          math::CoordSystem2 xform = math::CoordSystem2::identity(),
+                          math::Vec3 emis_col = math::Vec3(0),
+                          math::Vec3 spec_col = math::Vec3(0),
+                          double ambi = 0.2, double shin = 0.2):
+        PhongMaterialBase{emis_col, spec_col, ambi, shin},
+        m_texture{tex},
+        m_transform{xform}
     {
-      static core::SharedPtr<Texture> get_image_texture(image::Image::ConstRefArg img,
-                                                        bool repeat_s = true, bool repeat_t = true);
+    }
 
+private:
+    void get_diffuse_color(math::Vec2 tex_point, math::Vec4 &rgba) const;
 
-      /**
-       * Must be thread-safe.
-       */
-      virtual void map(math::Vec2 point, math::Vec4 &rgba) const = 0;
+    const core::SharedPtr<Texture> m_texture;
+    const math::CoordSystem2 m_transform;
+};
 
-
-      virtual ~Texture() {}
-    };
-
-
-
-
-    struct TexturedPhongMaterial: PhongMaterialBase
-    {
-      TexturedPhongMaterial(core::SharedPtr<Texture> const &tex,
-                            math::CoordSystem2 xform = math::CoordSystem2::identity(),
-                            math::Vec3 emis_col = math::Vec3(0),
-                            math::Vec3 spec_col = math::Vec3(0),
-                            double ambi = 0.2, double shin = 0.2):
-        PhongMaterialBase(emis_col, spec_col, ambi, shin), texture(tex), transform(xform) {}
-
-    private:
-      void get_diffuse_color(math::Vec2 tex_point, math::Vec4 &rgba) const;
-
-      core::SharedPtr<Texture> const texture;
-      math::CoordSystem2 const transform;
-    };
-  }
-}
+} // namespace raytrace
+} // namespace archon
 
 #endif // ARCHON_RAYTRACE_TEXTURE_HPP

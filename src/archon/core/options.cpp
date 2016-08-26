@@ -87,13 +87,13 @@ namespace archon
 
     void CommandlineOptions::on_new_param(ParamBase *p)
     {
-      UniquePtr<Def> o(new DefConfigParam(p));
-      if(p->path.empty()) add_top_level_option(o);
-      else options.push_back(o);
+      std::unique_ptr<Def> o(new DefConfigParam(p));
+      if(p->path.empty()) add_top_level_option(std::move(o));
+      else options.push_back(std::move(o));
     }
 
 
-    void CommandlineOptions::add_switch(UniquePtr<Def> o)
+    void CommandlineOptions::add_switch(std::unique_ptr<Def> o)
     {
       bool const has_short_name = !o->short_name.empty();
       bool const has_long_name  = !o->long_name.empty();
@@ -105,11 +105,11 @@ namespace archon
                                     "unless there is also a non-numeric name");
       validate_short_name(o->short_name, "Short switch name");
       validate_local_name(o->long_name, "Long switch name");
-      add_top_level_option(o);
+      add_top_level_option(std::move(o));
     }
 
 
-    void CommandlineOptions::add_top_level_option(UniquePtr<Def> o)
+    void CommandlineOptions::add_top_level_option(std::unique_ptr<Def> o)
     {
       bool const has_short_name = !o->short_name.empty();
       bool const has_long_name  = !o->long_name.empty();
@@ -121,10 +121,10 @@ namespace archon
           top_level_short_map.insert(make_pair(o->short_name, options.size()));
         if(!r.second)
         {
-          Def const *const p = options[r.first->second];
+          const Def& p = *options[r.first->second];
           string msg = "Short option name '"+enc(o->short_name)+"' already in use.";
-          if(!p->long_name.empty())
-            msg += " Long name of first option is '"+enc(p->long_name)+"'.";
+          if(!p.long_name.empty())
+            msg += " Long name of first option is '"+enc(p.long_name)+"'.";
           if(has_long_name) msg += " Long name of second option is '"+enc(o->long_name)+"'.";
           throw ConfigDefineException(msg);
         }
@@ -138,10 +138,10 @@ namespace archon
         if(!r.second)
         {
           if(has_short_name) top_level_short_map.erase(short_i);
-          Def const *const p = options[r.first->second];
+          const Def& p = *options[r.first->second];
           string msg = "Long option name '"+enc(o->long_name)+"' already in use.";
-          if(!p->short_name.empty())
-            msg += " Short name of first option is '"+enc(p->short_name)+"'.";
+          if(!p.short_name.empty())
+            msg += " Short name of first option is '"+enc(p.short_name)+"'.";
           if(has_short_name) msg += " Short name of second option is '"+enc(o->short_name)+"'.";
           throw ConfigDefineException(msg);
         }
@@ -150,7 +150,7 @@ namespace archon
 
       try
       {
-        options.push_back(o);
+        options.push_back(std::move(o));
       }
       catch(...)
       {
@@ -202,11 +202,11 @@ namespace archon
 
     void CommandlineOptions::add_stop_opts(string short_name, string long_name)
     {
-      core::UniquePtr<Def> o;
+      std::unique_ptr<Def> o;
       o.reset(new DefStopOpts(dec(short_name), dec(long_name),
                               L"Stop any further command-line arguments "
                               L"from being intepreted as options", this));
-      add_switch(o);
+      add_switch(std::move(o));
     }
 
 
@@ -335,8 +335,8 @@ namespace archon
       size_t n = opts->options.size();
       for(size_t i=0; i<n; ++i)
       {
-        Def *const opt = opts->options[i];
-        wstring const long_name = opt->long_name;
+        const Def& opt = *opts->options[i];
+        wstring const long_name = opt.long_name;
 
         // Register the short name if it has not already been
         // registered, or overwrite the previous registration unless
@@ -344,7 +344,7 @@ namespace archon
         // the path of the new option. A proper prefix of S is a
         // prefix that is not equal to S.
         {
-          wstring const short_name = opt->short_name;
+          wstring const short_name = opt.short_name;
           // Do not add it if it is numeric, and we disallow numeric
           // names.
           if(!short_name.empty() &&
@@ -395,10 +395,10 @@ namespace archon
       bool optional_segments = false;
       for(size_t i=0; i<opts->options.size(); ++i)
       {
-        Def const *opt = opts->options[i];
-        wstring short_name = opt->short_name;
-        if(lookup_short(short_name) != opt) short_name.clear();
-        wstring const long_name = opt->long_name;
+        const Def& opt = *opts->options[i];
+        wstring short_name = opt.short_name;
+        if(lookup_short(short_name) != &opt) short_name.clear();
+        wstring const long_name = opt.long_name;
         {
           wstring s;
           if(!short_name.empty()) s = L"-"+short_name;
@@ -417,12 +417,12 @@ namespace archon
           }
           table.get_cell(i,0).set_text(s);
         }
-        wstring d = trimmer.trim(opt->description);
+        wstring d = trimmer.trim(opt.description);
         if(!d.empty() && opts->char_mapper.is(d[d.size()-1], ctype_base::alnum)) d += L".";
-        if(opt->accept_val)
+        if(opt.accept_val)
         {
           {
-            wstring s = opt->get_default_val();
+            wstring s = opt.get_default_val();
             wstring t = quoter.print(s);
             if(t.size() > max_val_len)
             {
@@ -437,9 +437,9 @@ namespace archon
             }
             d += L" (default: "+t+L")";
           }
-          if(!opt->has_default_val())
+          if(!opt.has_default_val())
           {
-            wstring s = opt->get_val();
+            wstring s = opt.get_val();
             wstring t = quoter.print(s);
             if(t.size() > max_val_len)
             {
@@ -466,7 +466,7 @@ namespace archon
     CommandlineOptions::Def *CommandlineOptions::Lookup::lookup_short(wstring name)
     {
       ShortMap::const_iterator const i = short_map.find(name);
-      return i == short_map.end() ? 0 : opts->options[i->second];
+      return i == short_map.end() ? 0 : opts->options[i->second].get();
     }
 
 
@@ -502,7 +502,7 @@ namespace archon
         if(0 <= node->opt_idx)
         {
           if(how) *how = unique;
-          return opts->options[node->opt_idx];
+          return opts->options[node->opt_idx].get();
         }
         ARCHON_ASSERT_1(!node->super_segments.empty(),
                         "Unexpected 'dead' leaf in reverse map of long options");

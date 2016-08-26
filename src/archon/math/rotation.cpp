@@ -33,12 +33,8 @@ namespace archon
   {
     Rotation3 &Rotation3::combine_with(const Rotation3 &r)
     {
-      Quaternion q1, q2;
-      q1.set_rotation(*this);
-      q2.set_rotation(r);
-      q2 *= q1;
-      q2.get_rotation(*this);
-      return *this;
+      Quaternion q_1{*this}, q_2{r};
+      return *this = Rotation3{q_2 * q_1};
     }
 
 
@@ -87,7 +83,7 @@ namespace archon
      *
      * Observations:
      *
-     * 1) The last matric has rank 2 in both cases.
+     * 1) The last matrix has rank 2 in both cases.
      *
      * 2) In both cases the last matrix is antisymmetric.
      *

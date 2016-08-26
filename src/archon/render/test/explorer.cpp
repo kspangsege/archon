@@ -18,12 +18,11 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
+#include <cstdlib>
 #include <stdexcept>
 #include <vector>
 #include <string>
@@ -42,61 +41,62 @@
 #include <archon/core/cxx.hpp>
 
 
-using namespace std;
 using namespace archon::core;
 using namespace archon::math;
 using namespace archon::image;
 using namespace archon::render;
 
 
-namespace
-{
-  struct Explorer: Application
-  {
-    Explorer(Application::Config const &cfg, Object const &obj):
-      Application("archon::render::Explorer", cfg), object(obj)
-    {
-      glEnable(GL_LIGHTING);
-      glEnable(GL_DEPTH_TEST);
-      glEnable(GL_TEXTURE_2D);
-      glEnable(GL_NORMALIZE);
-      glEnable(GL_CULL_FACE);
+namespace {
 
-      glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL, GL_SEPARATE_SPECULAR_COLOR);
-      glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, 1);
+class Explorer: public Application {
+public:
+    Explorer(const Application::Config& cfg, const Object& obj):
+        Application("archon::render::Explorer", cfg),
+        object(obj)
+    {
+        glEnable(GL_LIGHTING);
+        glEnable(GL_DEPTH_TEST);
+        glEnable(GL_TEXTURE_2D);
+        glEnable(GL_NORMALIZE);
+        glEnable(GL_CULL_FACE);
+
+        glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL, GL_SEPARATE_SPECULAR_COLOR);
+        glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, 1);
     }
 
-  private:
-    void render_scene()
+private:
+    void render() override
     {
-      object.render();
+        object.render();
     }
 
-    Object const &object;
-  };
-}
+    const Object& object;
+};
 
-int main(int argc, char const *argv[]) throw()
+} // unnamed namespace
+
+
+int main(int argc, const char* argv[])
 {
-  set_terminate(&cxx::terminate_handler);
-    
-  try_fix_preinstall_datadir(argv[0], "render/test/");
+    std::set_terminate(&cxx::terminate_handler);
+    try_fix_preinstall_datadir(argv[0], "render/test/");
 
-  Application::Config cfg;
-  CommandlineOptions opts;
-  opts.add_help("Test application for the archon::render library", "OBJECT-FILE");
-  opts.check_num_args(0,1);
-  opts.add_group(cfg);
-  if(int stop = opts.process(argc, argv)) return stop == 2 ? 0 : 1;
+    Application::Config cfg;
+    CommandlineOptions opts;
+    opts.add_help("Test application for the archon::render library", "OBJECT-FILE");
+    opts.check_num_args(0,1);
+    opts.add_group(cfg);
+    if (int stop = opts.process(argc, argv))
+        return stop == 2 ? EXIT_SUCCESS : EXIT_FAILURE;
 
-  string obj_file  = argc < 2 ? cfg.archon_datadir+"render/test/test.obj" : argv[1];
+    std::string obj_file  = argc < 2 ? cfg.archon_datadir+"render/test/test.obj" : argv[1];
 
-  Object obj;
-  {
-    ifstream in(obj_file.c_str());
-    obj.load(in);
-  }
+    Object obj;
+    {
+        std::ifstream in(obj_file.c_str());
+        obj.load(in);
+    }
 
-  Explorer(cfg, obj).run();
-  return 0;
+    Explorer(cfg, obj).run();
 }

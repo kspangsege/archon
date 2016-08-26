@@ -18,32 +18,28 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #ifndef ARCHON_WEB_YBER_CODEC_HPP
 #define ARCHON_WEB_YBER_CODEC_HPP
 
+#include <memory>
+
 #include <archon/core/codec.hpp>
-#include <archon/core/unique_ptr.hpp>
 
 
-namespace archon
-{
-  namespace web
-  {
-    /**
-     * Get the codec object for the Yber encoding. Internal encoding
-     * is UTF-8, that is, when you decode an Yber encoded string, you
-     * get a UTF-8 encoded string.
-     *
-     * \note The 'Y' is pronounced like the german U with an umlaut.
-     */
-    core::UniquePtr<core::Codec const> get_yber_codec();
-  }
-}
+namespace archon {
+namespace web {
+
+/// Get the codec object for the Yber encoding. Internal encoding is UTF-8, that
+/// is, when you decode an Yber encoded string, you get a UTF-8 encoded string.
+///
+/// \note The 'Y' is pronounced like the german U with an umlaut.
+std::unique_ptr<const core::Codec> get_yber_codec();
+
+} // namespace web
+} // namespace archon
 
 #endif // ARCHON_WEB_YBER_CODEC_HPP

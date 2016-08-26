@@ -232,7 +232,7 @@ namespace archon
        *
        * \sa Time
        */
-      bool wait(core::Time timeout = 0);
+      bool wait(core::Time timeout = core::Time{});
 
 
       /**
@@ -256,7 +256,7 @@ namespace archon
        * \sa Time
        * \sa sys::nonblock
        */
-      bool select(SelectSpec &s, core::Time timeout = 0);
+      bool select(SelectSpec &s, core::Time timeout = core::Time{});
 
 
     private:

@@ -68,7 +68,7 @@ namespace archon
        * \throw core::InterruptException If the waiting
        * thread is interrupted.
        */
-      virtual bool wait(core::Time timeout = 0) = 0;
+      virtual bool wait(core::Time timeout = core::Time{}) = 0;
 
       /**
        * Forget about past events.

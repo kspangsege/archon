@@ -18,27 +18,25 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- *
- * Reading a directory turns out to be quite a challenge when it must
- * be done safely and in a reasonably portable way. One must consider
- * both vulnerability to buffer overflow and thread safty.
- *
- * Ideally we should be able to read directly from an open file
- * descriptor, since that would provide the greatest flexibility, but
- * support for this is simply too sparse. The 'fdopendir' call
- * supported by Solaris seems to be the way we would want to go, but
- * for now we will have to stay with the ordinary 'path' argument.
- *
- * Thanks to Ben Hutchings <ben@decadentplace.org.uk> for his very
- * thorough treatment of these issues - most of the code below is
- * taken from his article "readdir_r considered harmful".
- *
- * \sa  http://womble.decadentplace.org.uk/readdir_r-advisory.html
- */
+/// \file
+///
+/// \author Kristian Spangsege
+///
+/// Reading a directory turns out to be quite a challenge when it must be done
+/// safely and in a reasonably portable way. One must consider both
+/// vulnerability to buffer overflow and thread safty.
+///
+/// Ideally we should be able to read directly from an open file descriptor,
+/// since that would provide the greatest flexibility, but support for this is
+/// simply too sparse. The 'fdopendir' call supported by Solaris seems to be the
+/// way we would want to go, but for now we will have to stay with the ordinary
+/// 'path' argument.
+///
+/// Thanks to Ben Hutchings <ben@decadentplace.org.uk> for his very thorough
+/// treatment of these issues - most of the code below is taken from his article
+/// "readdir_r considered harmful".
+///
+/// \sa  http://womble.decadentplace.org.uk/readdir_r-advisory.html
 
 #include <sys/types.h>
 #include <dirent.h>
@@ -58,112 +56,116 @@
 #include <archon/core/dir_scan.hpp>
 
 
-using namespace std;
 using namespace archon::core;
 
 
-namespace
-{
-  /**
-   * Calculate the required buffer size (in bytes) for directory
-   * entries read from the given directory handle.  Return -1 if this
-   * this cannot be done.
-   *
-   * This code does not trust values of NAME_MAX that are less than
-   * 255, since some systems (including at least HP-UX) incorrectly
-   * define it to be a smaller value.
-   *
-   * If you use autoconf, include fpathconf and dirfd in your
-   * AC_CHECK_FUNCS list.  Otherwise use some other method to detect
-   * and use them where available.
-   */
+namespace {
+
+/// Calculate the required buffer size (in bytes) for directory entries read
+/// from the given directory handle.  Return -1 if this this cannot be done.
+///
+/// This code does not trust values of NAME_MAX that are less than 255, since
+/// some systems (including at least HP-UX) incorrectly define it to be a
+/// smaller value.
+///
+/// If you use autoconf, include fpathconf and dirfd in your AC_CHECK_FUNCS
+/// list.  Otherwise use some other method to detect and use them where
+/// available.
 #if defined(HAVE_FPATHCONF) && defined(HAVE_DIRFD) && defined(_PC_NAME_MAX)
-  size_t dirent_buf_size(DIR *dirp)
-  {
+
+std::size_t dirent_buf_size(DIR* dirp)
+{
     ssize_t name_max;
     name_max = fpathconf(dirfd(dirp), _PC_NAME_MAX);
-    if(name_max == -1)
 #if defined(NAME_MAX)
-      name_max = max(NAME_MAX, 255);
+    if (name_max == -1)
+        name_max = std::max(NAME_MAX, 255);
 #else
-      return 0;
+    if (name_max == -1)
+        return 0;
 #endif
-    return max(offsetof(struct dirent, d_name) + name_max + 1, sizeof(struct dirent));
-  }
+    return std::max(offsetof(struct dirent, d_name) + name_max + 1, sizeof (struct dirent));
+}
+
 #elif defined(NAME_MAX)
-  size_t dirent_buf_size(DIR *)
-  {
-    ssize_t name_max = max(NAME_MAX, 255);
-    return max(offsetof(struct dirent, d_name) + name_max + 1, sizeof(struct dirent));
-  }
+
+std::size_t dirent_buf_size(DIR*)
+{
+    ssize_t name_max = std::max(NAME_MAX, 255);
+    return std::max(offsetof(struct dirent, d_name) + name_max + 1, sizeof (struct dirent));
+}
+
 #else
-#error "Cannot determone size of 'struct dirent'"
+#  error "Cannot determone size of 'struct dirent'"
 #endif
 
-  struct DirScannerImpl: DirScanner
-  {
+class DirScannerImpl: public DirScanner {
+public:
     int get_file_descriptor() const
     {
 #if defined(HAVE_DIRFD)
-      return dirfd(dirp);
+        return dirfd(dirp);
 #else
-      return -1;
+        return -1;
 #endif
     }
 
-    string next_entry()
+    std::string next_entry()
     {
-      if(!entry) return "";
-      struct dirent *result;
-    next:
-      int e = readdir_r(dirp, entry, &result);
-      if(e != 0) throw runtime_error("'readdir_r' failed: "+sys::error(e));
-      if(result)
-      {
-        string const n = result->d_name;
-        if(!include_special && (n == "." || n == "..")) goto next;
-        return n;
-      }
-      delete[] reinterpret_cast<char *>(entry);
-      entry = 0;
-      return "";
+        if (!entry)
+            return "";
+        struct dirent* result;
+      next:
+        int e = readdir_r(dirp, entry, &result);
+        if (e != 0)
+            throw std::runtime_error("'readdir_r' failed: "+sys::error(e));
+        if (result) {
+            std::string n = result->d_name;
+            if (!include_special && (n == "." || n == ".."))
+                goto next;
+            return n;
+        }
+        delete[] reinterpret_cast<char*>(entry);
+        entry = nullptr;
+        return "";
     }
 
-    DirScannerImpl(string p, bool include_special): include_special(include_special)
+    DirScannerImpl(std::string p, bool include_special):
+        include_special{include_special}
     {
-      dirp = opendir(p.c_str());
-      if(!dirp)
-      {
-        int errnum = errno;
-        file::throw_file_access_exception(errnum, "'opendir' failed: "+sys::error(errnum));
-      }
-      size_t size = dirent_buf_size(dirp);
-      if(!size) throw runtime_error("Cannot determine size of 'struct dirent'");
-      entry = reinterpret_cast<struct dirent *>(new char[size]);
+        dirp = opendir(p.c_str());
+        if (!dirp) {
+            int errnum = errno;
+            file::throw_file_access_exception(errnum, "'opendir' failed: "+sys::error(errnum));
+        }
+        std::size_t size = dirent_buf_size(dirp);
+        if (!size)
+            throw std::runtime_error("Cannot determine size of 'struct dirent'");
+        entry = reinterpret_cast<struct dirent*>(new char[size]);
     }
 
     ~DirScannerImpl()
     {
-      delete[] reinterpret_cast<char *>(entry);
-      int ret = closedir(dirp);
-      ARCHON_ASSERT(ret != -1);
+        delete[] reinterpret_cast<char*>(entry);
+        int ret = closedir(dirp);
+        ARCHON_ASSERT(ret != -1);
     }
 
-    bool const include_special;
-    DIR *dirp;
-    struct dirent *entry;
-  };
-}
+    const bool include_special;
+    DIR* dirp;
+    struct dirent* entry;
+};
+
+} // unnamed namespace
 
 
-namespace archon
+namespace archon {
+namespace core {
+
+std::unique_ptr<DirScanner> DirScanner::new_dir_scanner(std::string path, bool include_special)
 {
-  namespace core
-  {
-    UniquePtr<DirScanner> DirScanner::new_dir_scanner(string path, bool include_special)
-    {
-      UniquePtr<DirScanner> s(new DirScannerImpl(path, include_special));
-      return s;
-    }
-  }
+    return std::make_unique<DirScannerImpl>(path, include_special); // Throws
 }
+
+} // namespace core
+} // namespace archon

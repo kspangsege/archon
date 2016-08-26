@@ -18,13 +18,11 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- *
- * \todo FIXME: This test must be compiled only when OpenGL is available.
- */
+/// \file
+///
+/// \author Kristian Spangsege
+///
+/// \todo FIXME: This test must be compiled only when OpenGL is available.
 
 #include <iostream>
 
@@ -34,12 +32,11 @@
 #include <archon/display/implementation.hpp>
 
 
-using namespace std;
 using namespace archon::image;
 using namespace archon::display;
 
 
-int main() throw()
+int main()
 {
     Implementation::Ptr impl = get_default_implementation();
     Connection::Ptr conn = impl->new_connection();
@@ -69,6 +66,6 @@ int main() throw()
         glGetTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, &level_2);
     }
 
-    cerr << "Level 1: " << level_1 << "\n";
-    cerr << "Level 2: " << level_2 << "\n";
+    std::cerr << "Level 1: " << level_1 << "\n";
+    std::cerr << "Level 2: " << level_2 << "\n";
 }

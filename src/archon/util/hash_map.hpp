@@ -215,7 +215,7 @@ namespace archon
     {
       Hash_FNV_1a_32 h;
       h.add_float(f);
-      return h.get_hash(n);
+      return int(h.get_hash(n));
     }
 
 
@@ -223,7 +223,7 @@ namespace archon
     {
       Hash_FNV_1a_32 h;
       h.add_int(p);
-      return h.get_hash(n);
+      return int(h.get_hash(n));
     }
 
 
@@ -232,7 +232,7 @@ namespace archon
     {
       Hash_FNV_1a_32 h;
       h.add_string(s);
-      return h.get_hash(n);
+      return int(h.get_hash(n));
     }
 
 

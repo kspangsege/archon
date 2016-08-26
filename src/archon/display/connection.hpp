@@ -26,8 +26,8 @@
 #define ARCHON_DISPLAY_CONNECTION_HPP
 
 #include <exception>
+#include <memory>
 
-#include <archon/core/unique_ptr.hpp>
 #include <archon/image/image.hpp>
 #include <archon/display/window.hpp>
 #include <archon/display/pixel_buffer.hpp>
@@ -304,12 +304,12 @@ public:
     ///
     /// \sa Window::set_cursor
     ///
-    /// \todo FIXME: Is it really reauired that a mouse be associated with a
+    /// \todo FIXME: Is it really required that a mouse be associated with a
     /// specific screen? This has to ve verified. If, not, there is no reason to
     /// pass a screen argument to this method.
-    virtual Cursor::Ptr new_cursor(image::Image::Ref image,
-                                   int hotspot_x = 0, int hotspot_y = 0,
-                                   int screen = -1) = 0;
+    virtual std::unique_ptr<Cursor> new_cursor(image::Image::Ref image,
+                                               int hotspot_x = 0, int hotspot_y = 0,
+                                               int screen = -1) = 0;
 
     /// Flush the output queue.
     ///
@@ -407,7 +407,7 @@ public:
     /// \note This method is thread-safe.
     virtual int get_gl_buf_width(BufferType t, int screen = -1, int visual = -1) const = 0;
 
-    virtual ~Connection() {}
+    virtual ~Connection() noexcept {}
 };
 
 

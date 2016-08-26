@@ -78,7 +78,8 @@ PRE_UNINSTALL = :
 POST_UNINSTALL = :
 build_triplet = @build@
 host_triplet = @host@
-noinst_PROGRAMS = cursor$(EXEEXT) image$(EXEEXT) $(am__EXEEXT_1)
+noinst_PROGRAMS = cursor$(EXEEXT) relative_mouse_motion$(EXEEXT) \
+	image$(EXEEXT) $(am__EXEEXT_1)
 @ARCHON_HAVE_OPENGL_TRUE@am__append_1 = shared_textures
 subdir = src/archon/display/test
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
@@ -114,9 +115,9 @@ PROGRAMS = $(noinst_PROGRAMS)
 am_cursor_OBJECTS = cursor.$(OBJEXT)
 cursor_OBJECTS = $(am_cursor_OBJECTS)
 cursor_LDADD = $(LDADD)
-cursor_DEPENDENCIES = ../../util/libarchon_util.la \
-	../../image/libarchon_image.la ../libarchon_display.la \
-	../x11/libarchon_display_x11.la
+cursor_DEPENDENCIES = ../../core/libarchon_core.la \
+	../../util/libarchon_util.la ../../image/libarchon_image.la \
+	../libarchon_display.la ../x11/libarchon_display_x11.la
 AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
@@ -124,15 +125,21 @@ am__v_lt_1 =
 am_image_OBJECTS = image.$(OBJEXT)
 image_OBJECTS = $(am_image_OBJECTS)
 image_LDADD = $(LDADD)
-image_DEPENDENCIES = ../../util/libarchon_util.la \
-	../../image/libarchon_image.la ../libarchon_display.la \
-	../x11/libarchon_display_x11.la
+image_DEPENDENCIES = ../../core/libarchon_core.la \
+	../../util/libarchon_util.la ../../image/libarchon_image.la \
+	../libarchon_display.la ../x11/libarchon_display_x11.la
+am_relative_mouse_motion_OBJECTS = relative_mouse_motion.$(OBJEXT)
+relative_mouse_motion_OBJECTS = $(am_relative_mouse_motion_OBJECTS)
+relative_mouse_motion_LDADD = $(LDADD)
+relative_mouse_motion_DEPENDENCIES = ../../core/libarchon_core.la \
+	../../util/libarchon_util.la ../../image/libarchon_image.la \
+	../libarchon_display.la ../x11/libarchon_display_x11.la
 am_shared_textures_OBJECTS = shared_textures.$(OBJEXT)
 shared_textures_OBJECTS = $(am_shared_textures_OBJECTS)
 shared_textures_LDADD = $(LDADD)
-shared_textures_DEPENDENCIES = ../../util/libarchon_util.la \
-	../../image/libarchon_image.la ../libarchon_display.la \
-	../x11/libarchon_display_x11.la
+shared_textures_DEPENDENCIES = ../../core/libarchon_core.la \
+	../../util/libarchon_util.la ../../image/libarchon_image.la \
+	../libarchon_display.la ../x11/libarchon_display_x11.la
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -168,9 +175,9 @@ am__v_CXXLD_ = $(am__v_CXXLD_@AM_DEFAULT_V@)
 am__v_CXXLD_0 = @echo "  CXXLD   " $@;
 am__v_CXXLD_1 = 
 SOURCES = $(cursor_SOURCES) $(image_SOURCES) \
-	$(shared_textures_SOURCES)
+	$(relative_mouse_motion_SOURCES) $(shared_textures_SOURCES)
 DIST_SOURCES = $(cursor_SOURCES) $(image_SOURCES) \
-	$(shared_textures_SOURCES)
+	$(relative_mouse_motion_SOURCES) $(shared_textures_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -355,9 +362,10 @@ top_build_prefix = @top_build_prefix@
 top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 cursor_SOURCES = cursor.cpp
+relative_mouse_motion_SOURCES = relative_mouse_motion.cpp
 image_SOURCES = image.cpp
 shared_textures_SOURCES = shared_textures.cpp
-LDADD = ../../util/libarchon_util.la ../../image/libarchon_image.la ../libarchon_display.la ../x11/libarchon_display_x11.la
+LDADD = ../../core/libarchon_core.la ../../util/libarchon_util.la ../../image/libarchon_image.la ../libarchon_display.la ../x11/libarchon_display_x11.la
 AM_CPPFLAGS = -I$(top_srcdir)/src
 AM_CXXFLAGS = -Wold-style-cast
 all: all-am
@@ -412,6 +420,10 @@ image$(EXEEXT): $(image_OBJECTS) $(image_DEPENDENCIES) $(EXTRA_image_DEPENDENCIE
 	@rm -f image$(EXEEXT)
 	$(AM_V_CXXLD)$(CXXLINK) $(image_OBJECTS) $(image_LDADD) $(LIBS)
 
+relative_mouse_motion$(EXEEXT): $(relative_mouse_motion_OBJECTS) $(relative_mouse_motion_DEPENDENCIES) $(EXTRA_relative_mouse_motion_DEPENDENCIES) 
+	@rm -f relative_mouse_motion$(EXEEXT)
+	$(AM_V_CXXLD)$(CXXLINK) $(relative_mouse_motion_OBJECTS) $(relative_mouse_motion_LDADD) $(LIBS)
+
 shared_textures$(EXEEXT): $(shared_textures_OBJECTS) $(shared_textures_DEPENDENCIES) $(EXTRA_shared_textures_DEPENDENCIES) 
 	@rm -f shared_textures$(EXEEXT)
 	$(AM_V_CXXLD)$(CXXLINK) $(shared_textures_OBJECTS) $(shared_textures_LDADD) $(LIBS)
@@ -424,6 +436,7 @@ distclean-compile:
 
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/cursor.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/image.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/relative_mouse_motion.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/shared_textures.Po@am__quote@
 
 .cpp.o:

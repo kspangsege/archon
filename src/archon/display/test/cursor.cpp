@@ -18,63 +18,98 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #include <stdexcept>
 #include <string>
 #include <iostream>
 
+#include <archon/core/build_config.hpp>
+#include <archon/core/options.hpp>
 #include <archon/image/image.hpp>
 #include <archon/display/implementation.hpp>
 
 
-using namespace std;
+using namespace archon::core;
 using namespace archon::image;
 using namespace archon::display;
 
-namespace
-{
-  struct EventHandlerImpl: EventHandler
-  {
-    void on_close(Event const &) { throw exception(); }
-    void on_mousedown(MouseButtonEvent const &e)
+
+namespace {
+
+class CloseException: public std::exception {
+public:
+    const char* what() const noexcept override
     {
-      if(e.button == 1) win->set_cursor(cursor2);
+        return "Close";
     }
-    void on_mouseup(MouseButtonEvent const &e)
+};
+
+class EventHandlerImpl: public EventHandler {
+public:
+    void on_close(const Event&) override
     {
-      if(e.button == 1) win->set_cursor(cursor1);
+        throw CloseException{};
     }
-    EventHandlerImpl(Window::Arg w, Cursor::Arg c1, Cursor::Arg c2):
-      win(w), cursor1(c1), cursor2(c2) {}
-    Window::Ptr const win;
-    Cursor::Ptr const cursor1, cursor2;
-  };
-}
 
-int main(int argc, char const *argv[]) throw()
+    void on_mousedown(const MouseButtonEvent& e) override
+    {
+        if (e.button == 1)
+            m_win->set_cursor(*m_cursor);
+    }
+
+    void on_mouseup(const MouseButtonEvent& e) override
+    {
+        if (e.button == 1)
+            m_win->reset_cursor();
+    }
+
+    EventHandlerImpl(Window::Arg win, std::unique_ptr<Cursor> cursor):
+        m_win{win},
+        m_cursor{std::move(cursor)}
+    {
+    }
+
+private:
+    const Window::Ptr m_win;
+    const std::unique_ptr<Cursor> m_cursor;
+};
+
+} // unnamed namespace
+
+
+int main(int argc, const char* argv[])
 {
-  if(argc != 3) throw runtime_error("Please specify two images on the commandline");
-  string const path1 = argv[1], path2 = argv[2];
+    try_fix_preinstall_datadir(argv[0], "display/test/");
 
-  Implementation::Ptr const impl = archon::display::get_default_implementation();
-  Connection::Ptr const conn = impl->new_connection();
-  Cursor::Ptr const cursor1 = conn->new_cursor(Image::load(path1));
-  Cursor::Ptr const cursor2 = conn->new_cursor(Image::load(path2));
-  Window::Ptr const win = conn->new_window(256, 256);
-  win->set_title("archon::display::Cursor");
-  win->set_bg_color(0xCFDFBF);
-  win->set_cursor(cursor1);
-  win->show();
+    std::string path = get_value_of(build_config_param_DataDir) +
+        "/display/test/ring_cursor.png";
+    Series<2, int> opt_hotspot{16,16};
 
-  EventHandlerImpl event_handler(win, cursor1, cursor2);
-  EventProcessor::Ptr event_proc = conn->new_event_processor(&event_handler);
-  event_proc->register_window(win);
-  event_proc->process();
+    CommandlineOptions opts;
+    opts.add_help("archon::display::Cursor", "IMAGE");
+    opts.check_num_args(0,1);
+    opts.add_stop_opts();
+    opts.add_param("H", "hotspot", opt_hotspot, "Set the cursor hotspot relative to the upper "
+                   "right corner");
+    if (int stop = opts.process(argc, argv))
+        return stop == 2 ? EXIT_SUCCESS : EXIT_FAILURE;
+    if (argc >= 2)
+        path = argv[1];
 
-  return 0;
+    Implementation::Ptr impl = archon::display::get_default_implementation();
+    Connection::Ptr conn = impl->new_connection();
+    std::unique_ptr<Cursor> cursor =
+        conn->new_cursor(Image::load(path), opt_hotspot[0], opt_hotspot[1]);
+    Window::Ptr win = conn->new_window(256, 256);
+    win->set_title("archon::display::Cursor");
+    win->set_bg_color(0xCFDFBF);
+    win->show();
+
+    EventHandlerImpl event_handler{win, std::move(cursor)};
+    EventProcessor::Ptr event_proc = conn->new_event_processor(&event_handler);
+    event_proc->register_window(win);
+    event_proc->process();
 }

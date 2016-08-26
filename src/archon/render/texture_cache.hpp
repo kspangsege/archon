@@ -27,6 +27,7 @@
 #ifndef ARCHON_RENDER_TEXTURE_CACHE_HPP
 #define ARCHON_RENDER_TEXTURE_CACHE_HPP
 
+#include <utility>
 #include <memory>
 #include <stdexcept>
 #include <vector>
@@ -35,7 +36,6 @@
 #include <GL/gl.h>
 
 #include <archon/core/bind_ref.hpp>
-#include <archon/core/unique_ptr.hpp>
 #include <archon/image/image.hpp>
 
 
@@ -70,10 +70,10 @@ std::unique_ptr<TextureCache> make_texture_cache();
  */
 class TextureCache {
 public:
-    enum FilterMode {
-        filter_mode_Nearest,
-        filter_mode_Interp,
-        filter_mode_Mipmap
+    enum class FilterMode {
+        nearest, // magnification = GL_NEAREST, minification = GL_NEAREST
+        interp,  // magnification = GL_LINEAR,  minification = GL_LINEAR
+        mipmap,  // magnification = GL_LINEAR,  minification = GL_LINEAR_MIPMAP_LINEAR
     };
 
 
@@ -100,9 +100,14 @@ public:
      * handle. Otherwise the image will be retrieved as soon as somebody
      * acquires the texture by calling TextureDecl::acquire().
      */
-    TextureDecl declare(core::UniquePtr<TextureSource>,
+    TextureDecl declare(std::unique_ptr<TextureSource>,
                         GLenum wrap_s = GL_REPEAT, GLenum wrap_t = GL_REPEAT,
-                        FilterMode = filter_mode_Mipmap, bool wait_for_refresh = false,
+                        FilterMode = FilterMode::mipmap, bool wait_for_refresh = false,
+                        bool fast_image_retrieval = true);
+
+    TextureDecl declare(std::string path,
+                        GLenum wrap_s = GL_REPEAT, GLenum wrap_t = GL_REPEAT,
+                        FilterMode = FilterMode::mipmap, bool wait_for_refresh = false,
                         bool fast_image_retrieval = true);
 
 
@@ -118,14 +123,8 @@ public:
      */
     void update()
     {
-        if (dirty)
-            update2();
-    }
-
-
-    TextureCache():
-        dirty(false)
-    {
+        if (m_dirty)
+            update_2();
     }
 
     virtual ~TextureCache()
@@ -133,10 +132,10 @@ public:
     }
 
 protected:
-    virtual std::size_t decl(core::UniquePtr<TextureSource>, GLenum h_wrap, GLenum v_wrap,
+    virtual std::size_t decl(std::unique_ptr<TextureSource>, GLenum h_wrap, GLenum v_wrap,
                              FilterMode f, bool wait, bool fast) = 0;
     virtual void obtain_gl_name(std::size_t i) = 0; // Requires bound OpenGL context. Assumes Texture::has_name is false.
-    virtual void update2() = 0; // Requires bound OpenGL context.
+    virtual void update_2() = 0; // Requires bound OpenGL context.
     virtual void refresh_image(std::size_t i) = 0;
 
     friend class TextureDecl;
@@ -145,7 +144,7 @@ protected:
     class Texture;
     Texture* get_tex(std::size_t i)
     {
-        return &textures[i];
+        return &m_textures[i];
     }
 
     struct Ref {
@@ -167,9 +166,9 @@ protected:
         {
             return cache != r.cache || index != r.index;
         }
-        operator bool() const
+        explicit operator bool() const noexcept
         {
-            return cache;
+            return bool(cache);
         }
         Texture* get_tex() const
         {
@@ -181,9 +180,9 @@ protected:
         }
     };
 
-    std::vector<Texture> textures;
+    std::vector<Texture> m_textures;
 
-    bool dirty; // Set to true when update() has work to do
+    bool m_dirty = false; // Set to true when update() has work to do
 };
 
 
@@ -211,17 +210,17 @@ public:
 class TextureFileSource: public TextureSource {
 public:
     TextureFileSource(std::string path):
-        path(path)
+        m_path(std::move(path))
     {
     }
     std::string get_name() const
     {
-        return path;
+        return m_path;
     }
     image::Image::ConstRef get_image();
 
 private:
-    std::string path;
+    std::string m_path;
 };
 
 
@@ -231,16 +230,16 @@ public:
     TextureImageSource(image::Image::ConstRefArg img, std::string name);
     std::string get_name() const
     {
-        return name;
+        return m_name;
     }
     image::Image::ConstRef get_image()
     {
-        return image;
+        return m_image;
     }
 
 private:
-    image::Image::ConstRef image;
-    std::string name;
+    image::Image::ConstRef m_image;
+    std::string m_name;
 };
 
 
@@ -303,7 +302,7 @@ public:
      */
     explicit operator bool() const throw()
     {
-        return ref;
+        return bool(ref);
     }
 
 private:
@@ -424,10 +423,10 @@ private:
  */
 class TextureCache::Texture {
 public:
-    void open(core::UniquePtr<TextureSource> s, GLenum wrap_s, GLenum wrap_t,
+    void open(std::unique_ptr<TextureSource> s, GLenum wrap_s, GLenum wrap_t,
               FilterMode f, bool wait, bool fast)
     {
-        source = s.release();
+        source = std::move(s);
         wrapping_s = wrap_s;
         wrapping_t = wrap_t;
         filter_mode = f;
@@ -441,8 +440,7 @@ public:
 
     void close()
     {
-        delete source;
-        source = 0;
+        source.reset();
     }
 
     GLuint get_gl_name() const
@@ -470,7 +468,7 @@ public:
 
     void show_state();
 
-    TextureSource* source = nullptr; // Null when unused
+    std::unique_ptr<TextureSource> source; // Null when unused
     GLenum wrapping_s, wrapping_t; // Constant while used
     FilterMode filter_mode;
     bool fast_load; // Constant while used
@@ -486,18 +484,28 @@ public:
 };
 
 
-inline TextureDecl TextureCache::declare(core::UniquePtr<TextureSource> src,
+inline TextureDecl TextureCache::declare(std::unique_ptr<TextureSource> src,
                                          GLenum wrap_s, GLenum wrap_t,
                                          FilterMode f, bool wait, bool fast)
 {
-    std::size_t index = decl(src, wrap_s, wrap_t, f, wait, fast);
+    std::size_t index = decl(std::move(src), wrap_s, wrap_t, f, wait, fast);
     return TextureDecl(Ref(this, index));
+}
+
+inline TextureDecl TextureCache::declare(std::string path, GLenum wrap_s, GLenum wrap_t,
+                                         FilterMode filter_mode, bool wait_for_refresh,
+                                         bool fast_image_retrieval)
+{
+    std::unique_ptr<TextureSource> source =
+        std::make_unique<TextureFileSource>(std::move(path)); // Throws
+    return declare(std::move(source), wrap_s, wrap_t, filter_mode, wait_for_refresh,
+                   fast_image_retrieval); // Throws
 }
 
 inline TextureImageSource::TextureImageSource(image::Image::ConstRefArg img,
                                               std::string name):
-    image(img),
-    name(name)
+    m_image(img),
+    m_name(name)
 {
 }
 
@@ -547,7 +555,7 @@ inline void TextureUse::Traits::unbind(const Ref& r)
 
 inline image::Image::ConstRef TextureFileSource::get_image()
 {
-    return image::Image::load(path);
+    return image::Image::load(m_path);
 }
 
 } // namespace render

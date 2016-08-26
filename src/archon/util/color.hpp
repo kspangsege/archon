@@ -481,7 +481,7 @@ private:
     static const T b, delta, t0, a;
     static T f(T t)
     {
-        return t0 < t ? math::cbrt(t) : a*t + b;
+        return t0 < t ? std::cbrt(t) : a*t + b;
     }
     static T t(T f)
     {

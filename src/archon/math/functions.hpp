@@ -18,15 +18,13 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- *
- * Defines a number of fundamental mathematical functions. Some of the
- * standard library functions are reproduced in a template form such
- * that the name is independant of argument type.
- */
+/// \file
+///
+/// \author Kristian Spangsege
+///
+/// Defines a number of fundamental mathematical functions. Some of the
+/// standard library functions are reproduced in a template form such
+/// that the name is independant of argument type.
 
 #ifndef ARCHON_MATH_FUNCTIONS_HPP
 #define ARCHON_MATH_FUNCTIONS_HPP
@@ -37,111 +35,105 @@
 #include <algorithm>
 
 
-namespace archon
+namespace archon {
+namespace math {
+
+/// Square the argument.
+template<class T> inline constexpr T square(T v)
 {
-  namespace math
-  {
-    /**
-     * Square the argument.
-     */
-    template<typename T> inline T square(T v) { return v*v; }
-
-
-    /**
-     * Raise the argument to the power of three.
-     */
-    template<typename T> inline T cube(T v) { return v*v*v; }
-
-
-    /**
-     * Find the cubic root of the argument. This function is part of C99
-     * but not C++ as of Feb 22 2009.
-     */
-    inline double cbrt(double v)           { return ::cbrt(v); }
-    inline float cbrt(float v)             { return ::cbrtf(v); }
-    inline long double cbrt(long double v) { return ::cbrtl(v); }
-
-
-    /**
-     * Length of 2-D vector
-     */
-    template<typename T> inline T pol_len(T x, T y)
-    {
-      return std::sqrt(square(x) + square(y));
-    }
-
-
-
-    /**
-     * Angle of 2-D vector in range <tt>[-pi;pi]</tt>.
-     *
-     * <pre>
-     *
-     *   pol_ang( 1,  0) = 0
-     *   pol_ang( 1,  1) = pi/4
-     *   pol_ang( 0,  1) = pi/2
-     *   pol_ang(-1,  0) = pi
-     *   pol_ang(-1, -0) = -pi
-     *   pol_ang(-1, -1) = 3/2 pi
-     *
-     * </pre>
-     *
-     * \sa std::atan2
-     */
-    template<typename T> inline T pol_ang(T x, T y)
-    {
-      return std::atan2(y,x);
-    }
-
-
-
-    /**
-     * Linear interpolation (and extrapolation).
-     *
-     * Choose and return a value y such that the point (x,y) lies on
-     * the line spanned by (x1,y1) and (x2,y2).
-     */
-    template<typename T>
-    inline T lin_interp(double x, double x1, double x2, T y1, T y2)
-    {
-      return T(y1 + (x-x1)/(x2-x1)*(y2-y1));
-    }
-
-
-
-
-
-    // Function objects
-
-    template<typename T> struct Sq: std::unary_function<T,T>
-    {
-      T operator()(T v) const { return math::square(v); }
-    };
-
-    template<typename T> struct Sqrt: std::unary_function<T,T>
-    {
-      T operator()(T v) const { return sqrt(v); }
-    };
-
-    template<typename T> struct SqDiff: std::binary_function<T,T,T>
-    {
-      T operator()(T v, T w) const { return math::square(w - v); }
-    };
-
-    template<typename T> struct AddAlpha: std::binary_function<T,T,T>
-    {
-      T operator()(T v, T w) const { return v + a*w; }
-      AddAlpha(T a): a(a) {}
-      T a;
-    };
-
-    template<typename T> struct SubAlpha: std::binary_function<T,T,T>
-    {
-      T operator()(T v, T w) const { return v - a*w; }
-      SubAlpha(T a): a(a) {}
-      T a;
-    };
-  }
+    return v*v;
 }
+
+/// Raise the argument to the power of three.
+template<class T> inline constexpr T cube(T v)
+{
+    return v*v*v;
+}
+
+/// Length of 2-D vector
+template<class T> inline constexpr T pol_len(T x, T y)
+{
+    return std::sqrt(square(x) + square(y));
+}
+
+/// Angle of 2-D vector in range <tt>[-pi;pi]</tt>.
+///
+/// <pre>
+///
+///   pol_ang( 1,  0) = 0
+///   pol_ang( 1,  1) = pi/4
+///   pol_ang( 0,  1) = pi/2
+///   pol_ang(-1,  0) = pi
+///   pol_ang(-1, -0) = -pi
+///   pol_ang(-1, -1) = 3/2 pi
+///
+/// </pre>
+///
+/// \sa std::atan2
+template<class T> inline constexpr T pol_ang(T x, T y)
+{
+    return std::atan2(y,x);
+}
+
+/// Linear interpolation (and extrapolation).
+///
+/// Choose and return a value y such that the point (x,y) lies on
+/// the line spanned by (x1,y1) and (x2,y2).
+template<class T>
+inline constexpr T lin_interp(double x, double x1, double x2, T y1, T y2)
+{
+    return T(y1 + (x-x1)/(x2-x1)*(y2-y1));
+}
+
+
+// Function objects
+
+template<class T> struct Sq: std::unary_function<T,T> {
+    T operator()(T v) const
+    {
+        return math::square(v);
+    }
+};
+
+template<class T> struct Sqrt: std::unary_function<T,T> {
+    T operator()(T v) const
+    {
+        return std::sqrt(v);
+    }
+};
+
+template<class T> struct SqDiff: std::binary_function<T,T,T> {
+    T operator()(T v, T w) const
+    {
+        return math::square(w - v);
+    }
+};
+
+template<class T> struct AddAlpha: std::binary_function<T,T,T> {
+    T operator()(T v, T w) const
+    {
+        return v + a*w;
+    }
+    AddAlpha(T a):
+        a(a)
+    {
+    }
+    T a;
+};
+
+template<class T> struct SubAlpha: std::binary_function<T,T,T> {
+    T operator()(T v, T w) const
+    {
+        return v - a*w;
+    }
+    SubAlpha(T a):
+        a(a)
+    {
+    }
+    T a;
+};
+
+} // namespace math
+} // namespace archon
 
 #endif // ARCHON_MATH_FUNCTIONS_HPP

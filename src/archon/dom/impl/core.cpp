@@ -31,7 +31,6 @@
 #include <archon/dom/impl/core.hpp>
 
 
-using namespace std;
 using namespace archon::core;
 using namespace archon::dom_impl;
 
@@ -380,7 +379,7 @@ void ChildList::on_unreferenced() const throw ()
 dom::ref<dom::Node> ChildList::item(dom::uint32 index) const throw ()
 {
     if (!parent_node)
-        return dom::null;
+        return nullptr;
 
     dom::uint32 n;
     Node* child;
@@ -405,7 +404,7 @@ dom::ref<dom::Node> ChildList::item(dom::uint32 index) const throw ()
 
     for (;;) {
         if (!child)
-            return dom::null;
+            return nullptr;
         if (n == 0)
             break;
       forward:
@@ -545,7 +544,7 @@ dom::ref<dom::NodeList> Element::getElementsByTagName(const dom::DOMString&) con
     //   We do not have to clear the cache flag just because the caches are discarded.
     //   IMPORTANT: Start by finding the matching element type, then search for elements which has this type. The implcation is that there could be multiple types to look for.
     //   IMPORTANT: All caches must be discarded when the element hierachy changes, also if an element changes type.
-    return dom::null; // FIXME: Implement this!
+    return nullptr; // FIXME: Implement this!
 }
 
 
@@ -554,7 +553,7 @@ dom::ref<dom::NodeList> Element::getElementsByTagNameNS(const dom::DOMString&,
                                                         const dom::DOMString&) const
     throw (dom::DOMException)
 {
-    return dom::null; // FIXME: Implement this!
+    return nullptr; // FIXME: Implement this!
 }
 
 
@@ -699,8 +698,8 @@ public:
 
     virtual dom::ref<dom::Node> getNamedItem(const dom::DOMString& n) const throw ()
     {
-        Map::const_iterator i = node_map.find(n);
-        return dom::ref<dom::Node>(i == node_map.end() ? 0 : i->second);
+        auto i = node_map.find(n);
+        return (i == node_map.end() ? nullptr : dom::ref<dom::Node>(i->second));
     }
 
     virtual dom::ref<dom::Node> setNamedItem(const dom::ref<dom::Node>&)
@@ -716,7 +715,7 @@ public:
 
     virtual dom::ref<dom::Node> item(dom::uint32 i) const throw ()
     {
-        return dom::ref<dom::Node>(i < order.size() ? order[i] : 0);
+        return i < order.size() ? dom::ref<dom::Node>(order[i].get()) : nullptr;
     }
 
     virtual dom::uint32 getLength() const throw () { return order.size(); }
@@ -724,7 +723,7 @@ public:
     virtual dom::ref<dom::Node> getNamedItemNS(const dom::DOMString&, const dom::DOMString&) const
         throw (dom::DOMException)
     {
-        return dom::null;
+        return nullptr;
     }
 
     virtual dom::ref<dom::Node> setNamedItemNS(const dom::ref<dom::Node>&)
@@ -745,13 +744,12 @@ public:
     virtual ~NamedNodeMap() throw () {}
 
 
-    // The node must have no external references to it, and ownership
-    // of it is passed from the caller to the callee.
-    void add(const dom::DOMString& name, Node* n)
+    // The node must have no external references to it.
+    void add(const dom::DOMString& name, std::unique_ptr<Node> n)
     {
-        UniquePtr<Node> n2(n);
-        order.push_back(n2);
-        node_map[name] = n;
+        order.reserve(order.size()+1); // Throws
+        node_map[name] = n.get(); // Throws
+        order.emplace_back(std::move(n));
     }
 
 
@@ -760,9 +758,8 @@ private:
     friend class Notation;
 
 
-    core::DeletingVector<Node> order;
-    typedef map<dom::DOMString, Node*> Map;
-    Map node_map;
+    std::vector<std::unique_ptr<Node>> order;
+    std::map<dom::DOMString, Node*> node_map;
 
 
     // Overriding method in dom::DOMObject.
@@ -782,7 +779,7 @@ private:
 
 class DocumentType::DegenChildList: public virtual dom::NodeList {
 public:
-    virtual dom::ref<dom::Node> item(dom::uint32) const throw () { return dom::null; }
+    virtual dom::ref<dom::Node> item(dom::uint32) const throw () { return nullptr; }
 
     virtual dom::uint32 getLength() const throw () { return 0; }
 
@@ -886,10 +883,13 @@ void DocumentType::add_entity(const dom::DOMString& name, const dom::DOMString& 
         ARCHON_ASSERT(d);
         bool is_child_node = false;
         bool is_parent_node = true;
-        node_type_entity.reset(new NodeType(ENTITY_NODE, d, is_child_node, is_parent_node, true));
+        node_type_entity = std::make_unique<NodeType>(ENTITY_NODE+0, d, is_child_node,
+                                                      is_parent_node, true); // Throws
     }
-    entities->add(name, new Entity(node_type_entity.get(), entities.get(),
-                                   name, public_id, system_id, notation_name));
+    std::unique_ptr<Node> node;
+    node.reset(new Entity(node_type_entity.get(), entities.get(), name, public_id,
+                          system_id, notation_name)); // Throws
+    entities->add(name, std::move(node)); // Throws
 }
 
 
@@ -902,11 +902,13 @@ void DocumentType::add_notation(const dom::DOMString& name, const dom::DOMString
         ARCHON_ASSERT(d);
         bool is_child_node = false;
         bool is_parent_node = false;
-        node_type_notation.reset(new NodeType(NOTATION_NODE, d, is_child_node, is_parent_node,
-                                              true));
+        node_type_notation = std::make_unique<NodeType>(NOTATION_NODE+0, d, is_child_node,
+                                                        is_parent_node, true); // Throws
     }
-    notations->add(name, new Notation(node_type_notation.get(), notations.get(),
-                                      name, public_id, system_id));
+    std::unique_ptr<Node> node;
+    node.reset(new Notation(node_type_notation.get(), notations.get(),
+                            name, public_id, system_id)); // Throws
+    notations->add(name, std::move(node)); // Throws
 }
 
 
@@ -1073,7 +1075,7 @@ dom::DOMString Document::getNodeName() const throw ()
 
 dom::ref<dom::Document> Document::getOwnerDocument() const throw ()
 {
-    return dom::null;
+    return nullptr;
 }
 
 
@@ -1160,7 +1162,7 @@ Document::createProcessingInstruction(const dom::DOMString& t, const dom::DOMStr
 dom::ref<dom::NodeList> Document::getElementsByTagName(const dom::DOMString&) const
     throw ()
 {
-    return dom::null; // FIXME: Implement this!
+    return nullptr; // FIXME: Implement this!
 }
 
 
@@ -1178,7 +1180,7 @@ dom::ref<dom::NodeList> Document::getElementsByTagNameNS(const dom::DOMString&,
                                                          const dom::DOMString&) const
     throw ()
 {
-    return dom::null; // FIXME: Implement this!
+    return nullptr; // FIXME: Implement this!
 }
 
 
@@ -1219,7 +1221,7 @@ dom::DOMString Document::getXmlVersion() const throw ()
         case xml_ver_1_1:
             return impl->str_ver_1_1;
     }
-    throw runtime_error("Unexpected XML version");
+    throw std::runtime_error("Unexpected XML version");
 }
 
 
@@ -1278,7 +1280,7 @@ WHOOPS: What about degenerate child node lists?
 */
 
       // FIXME: Must also transfer degenerate child lists and other rare data registered with the document (node lists and attributes).
-    return dom::null; // FIXME: Implement this!!!!!!!!!!!!!
+    return nullptr; // FIXME: Implement this!!!!!!!!!!!!!
 }
 
 

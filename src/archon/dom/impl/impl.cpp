@@ -87,7 +87,7 @@ struct Source: DOMImplementationSource {
                 return impl;
         }
 
-        return null;
+        return nullptr;
     }
 
 

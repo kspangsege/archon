@@ -41,9 +41,9 @@ namespace {
 TextureDecl declare_texture(TextureCache& cache, Image::ConstRefArg img, const string& name,
                             bool repeat, TextureCache::FilterMode f)
 {
-    UniquePtr<TextureSource> src(new TextureImageSource(img, name));
+    std::unique_ptr<TextureSource> src = std::make_unique<TextureImageSource>(img, name);
     GLenum wrap = repeat ? GL_REPEAT : GL_CLAMP;
-    return cache.declare(src, wrap, wrap, f);
+    return cache.declare(std::move(src), wrap, wrap, f);
 }
 
 TextureDecl get_dashed_texture_decl(TextureCache& cache)
@@ -53,13 +53,13 @@ TextureDecl get_dashed_texture_decl(TextureCache& cache)
         0, 0
     };
     Image::Ref img = Image::copy_image_from(buffer, 2, 1, ColorSpace::get_Lum(), true);
-    return declare_texture(cache, img, "Dashed pattern", true, TextureCache::filter_mode_Nearest);
+    return declare_texture(cache, img, "Dashed pattern", true, TextureCache::FilterMode::nearest);
 }
 
 TextureDecl get_dotted_texture_decl(TextureCache& cache, const string& resource_dir)
 {
     Image::Ref const img = Image::load(resource_dir + "render/dotted.png");
-    return declare_texture(cache, img, "Dotted pattern", true, TextureCache::filter_mode_Mipmap);
+    return declare_texture(cache, img, "Dotted pattern", true, TextureCache::FilterMode::mipmap);
 }
 
 } // anonymous namespace

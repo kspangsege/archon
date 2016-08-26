@@ -18,11 +18,9 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #include <stdexcept>
 
@@ -33,62 +31,64 @@
 #include <archon/core/build_config.dyn.h>
 
 
-using namespace std;
 using namespace archon::core;
 
 
-namespace
-{
-  Mutex mutex;
-  string data_dir = ARCHON_BUILD_CONFIG_DATA_DIR; // Protected by 'mutex'
+namespace {
 
-  string get_data_dir()
-  {
-    Mutex::Lock lock(mutex);
-    return data_dir;
-  }
+Mutex g_mutex;
+std::string g_data_dir = ARCHON_BUILD_CONFIG_DATA_DIR; // Protected by `g_mutex`
+
+std::string get_data_dir()
+{
+    Mutex::Lock lock{g_mutex};
+    return g_data_dir;
+}
+
+} // unnamed namespace
+
+
+namespace archon {
+namespace core {
+
+std::string get_value_of(BuildConfigParam p)
+{
+    switch (p) {
+        case build_config_param_DataDir:
+            return get_data_dir();
+    }
+    throw std::runtime_error("Unexpected parameter");
 }
 
 
-namespace archon
+void try_fix_preinstall_datadir(std::string argv0, std::string subdir)
 {
-  namespace core
-  {
-    string get_value_of(BuildConfigParam p)
-    {
-      switch(p) {
-      case build_config_param_DataDir: return get_data_dir();
-      }
-      throw runtime_error("Unexpected parameter");
-    }
+    std::string dir = file::dir_of(argv0);
+    if (dir.empty())
+        return;
+    dir = file::canonicalize_path(file::resolve_path(dir, file::get_cwd()));
 
-
-    void try_fix_preinstall_datadir(string argv0, string subdir)
-    {
-      string dir = file::dir_of(argv0);
-      if (dir.empty()) return;
-      dir = file::canonicalize_path(file::resolve_path(dir, file::get_cwd()));
-
-      // A special hook to recognize and handle the case where the
-      // executing program is invoked through a Libtool wrapper.
-      string const libtool_dir = ".libs/";
-      if (Text::is_suffix("/"+libtool_dir, dir)) {
+    // A special hook to recognize and handle the case where the executing
+    // program is invoked through a Libtool wrapper.
+    std::string libtool_dir = ".libs/";
+    if (Text::is_suffix("/"+libtool_dir, dir)) {
         // The 'lt-' prefix appears to not always be used
 //        if (Text::is_prefix("lt-", file::name_of(argv0))) {
-          dir = Text::get_prefix(libtool_dir, dir, true);
+        dir = Text::get_prefix(libtool_dir, dir, true);
 //        }
-      }
-
-      if (!subdir.empty()) {
-        if (!Text::is_suffix("/"+subdir, dir)) return;
-        dir = Text::get_prefix(subdir, dir, true);
-      }
-
-      if(file::exists(dir+"core/build_config.hpp")) {
-        Mutex::Lock lock(mutex);
-        data_dir = dir;
-      }
     }
-  }
+
+    if (!subdir.empty()) {
+        if (!Text::is_suffix("/"+subdir, dir))
+            return;
+        dir = Text::get_prefix(subdir, dir, true);
+    }
+
+    if (file::exists(dir+"core/build_config.hpp")) {
+        Mutex::Lock lock{g_mutex};
+        g_data_dir = dir;
+    }
 }
 
+} // namespace core
+} // namespace archon

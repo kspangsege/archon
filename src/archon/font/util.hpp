@@ -18,141 +18,114 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #ifndef ARCHON_FONT_UTIL_HPP
 #define ARCHON_FONT_UTIL_HPP
 
+#include <memory>
 #include <string>
 #include <ostream>
 
-#include <archon/core/unique_ptr.hpp>
 #include <archon/core/series.hpp>
 #include <archon/core/config.hpp>
 #include <archon/font/list.hpp>
 
 
-namespace archon
-{
-  namespace font
-  {
-    /**
-     * Print out a descriptive table with an entry for each font
-     * face in the specified list.
-     *
-     * \paran l The list of font faces to print.
-     *
-     * \param out The target stream.
-     *
-     * \param enable_ansi_term_attr Set to false if the target
-     * stream is not an ANSI terminal, or if you do not want the
-     * output to be colored.
-     */
-    void print_font_list(FontList::ConstArg l, std::ostream &out, bool enable_ansi_term_attr = true);
+namespace archon {
+namespace font {
+
+/// Print out a descriptive table with an entry for each font face in the
+/// specified list.
+///
+/// \paran l The list of font faces to print.
+///
+/// \param out The target stream.
+///
+/// \param enable_ansi_term_attr Set to false if the target stream is not an
+/// ANSI terminal, or if you do not want the output to be colored.
+void print_font_list(FontList::ConstArg l, std::ostream& out, bool enable_ansi_term_attr = true);
 
 
+class ListConfig {
+public:
+    /// The nominal glyph size (width, height) in number of pixels (may be
+    /// fractional). If either component is less than or equal to zero, the
+    /// default size will be used.
+    ///
+    /// The default is (0,0).
+    core::Series<2, double> size;
 
-    struct ListConfig
-    {
-      /**
-       * The nominal glyph size (width, height) in number of pixels
-       * (may be fractional). If either component is less than or
-       * equal to zero, the default size will be used.
-       *
-       * The default is (0,0).
-       */
-      core::Series<2, double> size;
+    /// Set to true if you only want the list of available fonts to be
+    /// printed. No font face will be loaded.
+    ///
+    /// It is false by default.
+    bool list = false;
 
-      /**
-       * Set to true if you only want the list of available fonts to
-       * be printed. No font face will be loaded.
-       *
-       * It is false by default.
-       */
-      bool list;
+    /// A colon separated list of directories holding font files. Each mentioned
+    /// directory will be searched recursively.
+    ///
+    /// The default is "/usr/share/fonts".
+    std::string path;
 
-      /**
-       * A colon separated list of directories holding font
-       * files. Each mentioned directory will be searched recursively.
-       *
-       * The default is "/usr/share/fonts".
-       */
-      std::string path;
+    /// The file system path of the font file to load. When not the empty
+    /// string, the first font face in the specified file will be loaded, and
+    /// <tt>family</tt>, <tt>bold</tt>, and <tt>italic</tt> will be ignored.
+    ///
+    /// It is the empty string by default.
+    std::string file;
 
-      /**
-       * The file system path of the font file to load. When not the
-       * empty string, the first font face in the specified file will
-       * be loaded, and <tt>family</tt>, <tt>bold</tt>, and
-       * <tt>italic</tt> will be ignored.
-       *
-       * It is the empty string by default.
-       */
-      std::string file;
+    void populate(core::ConfigBuilder& cfg);
 
-      void populate(core::ConfigBuilder &cfg);
-
-      ListConfig();
-    };
+    ListConfig();
+};
 
 
-    struct FontConfig: ListConfig
-    {
-      /**
-       * The family name of the font face to load. If left empty, the
-       * name of the default font face will be used.
-       *
-       * It is empty by default.
-       */
-      std::string family;
+class FontConfig: public ListConfig {
+public:
+    /// The family name of the font face to load. If left empty, the name of the
+    /// default font face will be used.
+    ///
+    /// It is empty by default.
+    std::string family;
 
-      /**
-       * If set to true, the loaded font face will be bold.
-       *
-       * It is false by default.
-       */
-      bool bold;
+    /// If set to true, the loaded font face will be bold.
+    ///
+    /// It is false by default.
+    bool bold = false;
 
-      /**
-       * If set to true, the loaded font face will be italic/oblique.
-       *
-       * It is false by default.
-       */
-      bool italic;
+    /// If set to true, the loaded font face will be italic/oblique.
+    ///
+    /// It is false by default.
+    bool italic = false;
 
-      void populate(core::ConfigBuilder &cfg);
+    void populate(core::ConfigBuilder& cfg);
 
-      FontConfig();
-    };
+    FontConfig();
+};
 
 
-    /**
-     * Load a font face according to the specified configuration.
-     *
-     * If the desired font could not be found, an appropriate message
-     * is displayed on STDOUT/STDERR and NULL is returned.
-     *
-     * \param resource_dir The directory holding the font loader
-     * resources.
-     */
-    core::UniquePtr<FontFace> load_font(std::string resource_dir, FontConfig const &cfg);
+/// Load a font face according to the specified configuration.
+///
+/// If the desired font could not be found, an appropriate message is displayed
+/// on STDOUT/STDERR and NULL is returned.
+///
+/// \param resource_dir The directory holding the font loader resources.
+std::unique_ptr<FontFace> load_font(std::string resource_dir, const FontConfig& cfg);
 
 
-    /**
-     * Make a font list whose default font is selected according to
-     * the specified configuration.
-     *
-     * If the desired default font could not be found, an appropriate
-     * message is displayed on STDOUT/STDERR and NULL is returned.
-     *
-     * \param resource_dir The directory holding the font loader
-     * resources.
-     */
-    FontList::Ptr make_font_list(std::string resource_dir, FontConfig const &cfg);
-  }
-}
+/// Make a font list whose default font is selected according to the specified
+/// configuration.
+///
+/// If the desired default font could not be found, an appropriate message is
+/// displayed on STDOUT/STDERR and NULL is returned.
+///
+/// \param resource_dir The directory holding the font loader resources.
+FontList::Ptr make_font_list(std::string resource_dir, const FontConfig& cfg);
+
+} // namespace font
+} // namespace archon
 
 #endif // ARCHON_FONT_UTIL_HPP

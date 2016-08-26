@@ -297,7 +297,7 @@ namespace archon
         S &group_struct;
       };
 
-      void add_param(core::UniquePtr<ParamBase> p);
+      void add_param(std::unique_ptr<ParamBase>);
       void add_group(PublisherBase const &p, std::wstring name);
 
       std::string enc(std::wstring s) const;
@@ -340,8 +340,8 @@ namespace archon
     protected:
       virtual void on_new_param(ParamBase *) {}
 
-      ParamBase const *get_param(int idx) const { return params[idx]; }
-      ParamBase *get_param(int idx) { return params[idx]; }
+      ParamBase const *get_param(int idx) const { return params[idx].get(); }
+      ParamBase *get_param(int idx) { return params[idx].get(); }
 
       void validate_short_name(std::wstring name, std::string what) const;
       void validate_local_name(std::wstring name, std::string what) const;
@@ -357,9 +357,9 @@ namespace archon
       friend struct ConfigBuilder;
       template<class> friend struct ConfigCodec;
 
-      int register_param(core::UniquePtr<ParamBase> p);
+      int register_param(std::unique_ptr<ParamBase>);
 
-      DeletingVector<ParamBase> params;
+      std::vector<std::unique_ptr<ParamBase>> params;
     };
 
 
@@ -447,10 +447,10 @@ namespace archon
     inline void ConfigBuilder::add_param(std::string short_name, std::string long_name, T &var,
                                          std::string description)
     {
-      core::UniquePtr<ParamBase> p;
+      std::unique_ptr<ParamBase> p;
       p.reset(new ProxyParam<T, ConfigCodec<T> >(var, path, dec(short_name), dec(long_name),
                                                  dec(description), ConfigCodec<T>(config)));
-      add_param(p);
+      add_param(std::move(p));
     }
 
 

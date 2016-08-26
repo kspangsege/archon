@@ -23,7 +23,6 @@
  *
  * \author Kristian Spangsege
  */
-
 #ifndef ARCHON_CORE_UNIQUE_PTR_HPP
 #define ARCHON_CORE_UNIQUE_PTR_HPP
 
@@ -34,6 +33,8 @@ namespace archon
 {
   namespace core
   {
+  template<class> class FooFooFooBarFooFooFoo {};
+
     template<class T> struct DefaultDelete
     {
       void operator()(T *p) const { delete p; }
@@ -109,7 +110,7 @@ namespace archon
      * \sa http://www.boost.org/doc/libs/1_37_0/libs/smart_ptr/scoped_ptr.htm
      * \sa http://anubis.dkuug.dk/jtc1/sc22/wg21/docs/cwg_defects.html#84 (low relevance)
      */
-    template<class T, class D = DefaultDelete<T> > struct UniquePtr
+    template<class T, class D = DefaultDelete<T>> struct UniquePtr
     {
       typedef T *pointer;
       typedef T element_type;

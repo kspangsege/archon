@@ -26,28 +26,39 @@
 #include <string>
 #include <iostream>
 
+#include <archon/core/build_config.hpp>
+#include <archon/core/options.hpp>
 #include <archon/image/image.hpp>
 #include <archon/display/implementation.hpp>
 
 
-using namespace std;
+using namespace archon::core;
 using namespace archon::image;
 using namespace archon::display;
 
+
 namespace {
+
+class CloseException: public std::exception {
+public:
+    const char* what() const noexcept override
+    {
+        return "Close";
+    }
+};
 
 class EventHandlerImpl: public EventHandler {
 public:
-    void on_close(const Event&)
+    void on_close(const Event&) override
     {
-        throw exception();
+        throw CloseException{};
     }
 
-    void on_mousedown(const MouseButtonEvent&)
+    void on_mousedown(const MouseButtonEvent&) override
     {
     }
 
-    void on_damage(const AreaEvent& ev)
+    void on_damage(const AreaEvent& ev) override
     {
         std::cerr << ev.x<<","<<ev.y<<", "<<ev.width<<","<<ev.height<<"\n";
         Box clip;
@@ -55,27 +66,36 @@ public:
         clip.y = ev.y;
         clip.width = ev.width;
         clip.height = ev.height;
-        win->put_image(img, clip);
+        m_win->put_image(m_img, clip);
     }
 
-    EventHandlerImpl(Window::Ptr w, Image::Ref i):
-        win(w),
-        img(i)
+    EventHandlerImpl(Window::Ptr win, Image::Ref img):
+        m_win{win},
+        m_img{img}
     {
     }
 
-    const Window::Ptr win;
-    const Image::Ref img;
+private:
+    const Window::Ptr m_win;
+    const Image::Ref m_img;
 };
 
 } // unnamed namespace
 
 
-int main(int argc, const char* argv[]) throw()
+int main(int argc, const char* argv[])
 {
-    if (argc != 2)
-        throw runtime_error("Please specify an image on the commandline");
-    string path = argv[1];
+    try_fix_preinstall_datadir(argv[0], "display/test/");
+
+    CommandlineOptions opts;
+    opts.add_help("archon::display::Image", "IMAGE");
+    opts.check_num_args(0,1);
+    opts.add_stop_opts();
+    if (int stop = opts.process(argc, argv))
+        return stop == 2 ? EXIT_SUCCESS : EXIT_FAILURE;
+    std::string path = get_value_of(build_config_param_DataDir) + "/display/test/default.gif";
+    if (argc >= 2)
+        path = argv[1];
 
     Implementation::Ptr impl = archon::display::get_default_implementation();
     Connection::Ptr conn = impl->new_connection();
@@ -88,5 +108,9 @@ int main(int argc, const char* argv[]) throw()
     event_proc->register_window(win);
 
     win->show();
-    event_proc->process();
+    try {
+        event_proc->process();
+    }
+    catch (CloseException&) {
+    }
 }

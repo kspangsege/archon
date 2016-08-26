@@ -39,16 +39,21 @@ namespace render {
 
 class OpenGlSceneBuilder: public graphics::SpatialSceneBuilder {
 public:
-    OpenGlSceneBuilder(GLuint list, TextureCache&, std::vector<TextureUse>* = nullptr,
-                       bool mipmap = true);
+    OpenGlSceneBuilder(GLuint list, TextureCache&, std::vector<TextureUse>* = nullptr);
 
     ~OpenGlSceneBuilder() noexcept;
+
+    using TextureFilterMode = TextureCache::FilterMode;
+
+    /// Is TextureFilterMode::mipmap by default.
+    void set_texture_filter_mode(TextureFilterMode);
 
 protected:
     void do_begin_quad_strip() override;
     void do_begin_polygon() override;
     void do_end() override;
 
+    void do_set_color(util::PackedTRGB) override;
     void do_set_normal(math::Vec3) override;
     void do_set_tex_coord(math::Vec2) override;
     void do_add_vertex(math::Vec3) override;
@@ -72,19 +77,29 @@ protected:
     void do_reset_tex_transform() override;
 
 private:
-    int make_texture(core::UniquePtr<TextureSource>, bool, bool);
+    int make_texture_helper(std::unique_ptr<TextureSource>, bool, bool);
 
     void set_matrix_mode(GLint);
     void provide_tex_transform();
 
     const GLuint m_list;
-    const bool m_mipmapping;
     std::vector<TextureUse> m_textures;
     std::vector<TextureUse>* const m_textures_ext;
+    TextureFilterMode m_texture_filter_mode = TextureFilterMode::mipmap;
     TextureCache& m_texture_cache;
     GLint m_matrix_mode;
     bool m_has_tex_transform = false;
 };
+
+
+
+
+// Implementation
+
+inline void OpenGlSceneBuilder::set_texture_filter_mode(TextureFilterMode mode)
+{
+    m_texture_filter_mode = mode;
+}
 
 } // namespace render
 } // namespace archon

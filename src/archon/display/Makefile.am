@@ -6,7 +6,7 @@ SUBDIRS += . test
 
 subincludedir = $(pkgincludedir)/display
 subinclude_HEADERS = implementation.hpp geometry.hpp connection.hpp event.hpp drawable.hpp \
-window.hpp pixel_buffer.hpp context.hpp keysyms.hpp
+cursor.hpp window.hpp pixel_buffer.hpp context.hpp keysyms.hpp
 
 lib_LTLIBRARIES = libarchon_display.la
 

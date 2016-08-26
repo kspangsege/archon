@@ -18,15 +18,13 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #include <cstdio>
 #include <string>
-#include <vector>
+#include <stdexcept>
 #include <iostream>
 
 #include <png.h>
@@ -42,7 +40,6 @@
 #include <archon/image/integer_buffer_format.hpp>
 
 
-using namespace std;
 using namespace archon::core;
 using namespace archon::util;
 using namespace archon::image;
@@ -50,66 +47,59 @@ using namespace archon::image;
 
 namespace {
 
-struct Context {
-    double total_rows;
+class Context {
+public:
+    double total_rows = 0;
     FileFormat::ProgressTracker* tracker;
     Logger* logger; // For warnings
-    string error_message;  // For fatal errors
+    std::string error_message;  // For fatal errors
     // 0 for none, 1 for InterruptException, 2 for IOException, 3 for other
     // exceptions from the stream, 4 for libpng initiated error or invalid
     // format detected.
-    int error_type;
+    int error_type = 0;
     Context(FileFormat::ProgressTracker* tracker, Logger* logger):
-        total_rows(0),
-        tracker(tracker),
-        logger(logger),
-        error_type(0)
+        tracker{tracker},
+        logger{logger}
     {
     }
 };
 
-struct LoadContext: Context {
+class LoadContext: public Context {
+public:
     InputStream& in;
     LoadContext(InputStream& i, FileFormat::ProgressTracker* tracker, Logger* logger):
-        Context(tracker, logger),
-        in(i)
+        Context{tracker, logger},
+        in{i}
     {
     }
 };
 
-struct SaveContext: Context {
+class SaveContext: public Context {
+public:
     OutputStream& out;
     SaveContext(OutputStream& o, FileFormat::ProgressTracker* tracker, Logger* logger):
-        Context(tracker, logger),
-        out(o)
+        Context{tracker, logger},
+        out{o}
     {
     }
 };
 
-struct LoadWrapper {
-    png_structp png_ptr;
-    png_infop info_ptr;
-    LoadWrapper():
-        png_ptr(0),
-        info_ptr(0)
-    {
-    }
-    ~LoadWrapper()
+class LoadWrapper {
+public:
+    png_structp png_ptr = nullptr;
+    png_infop info_ptr = nullptr;
+    ~LoadWrapper() noexcept
     {
         if (png_ptr)
             png_destroy_read_struct(&png_ptr, info_ptr ? &info_ptr : nullptr, nullptr);
     }
 };
 
-struct SaveWrapper {
-    png_structp png_ptr;
-    png_infop info_ptr;
-    SaveWrapper():
-        png_ptr(0),
-        info_ptr(0)
-    {
-    }
-    ~SaveWrapper()
+class SaveWrapper {
+public:
+    png_structp png_ptr = nullptr;
+    png_infop info_ptr = nullptr;
+    ~SaveWrapper() noexcept
     {
         if (png_ptr)
             png_destroy_write_struct(&png_ptr, info_ptr ? &info_ptr : 0);
@@ -132,17 +122,15 @@ void warning_callback(png_structp png_ptr, png_const_charp message) throw()
     c->logger->log(message);
 }
 
-void progress_callback(png_structp png_ptr, png_uint_32 row, int /* pass */) throw()
+void progress_callback(png_structp png_ptr, png_uint_32 row, int) throw()
 {
     Context* c = static_cast<Context*>(png_get_error_ptr(png_ptr));
-//c->logger->log("Progress " + Text::print(row) + "/" + Text::print(c->total_rows) + " (pass = " + Text::print(pass) + ")");
+//    c->logger->log("Progress " + Text::print(row) + "/" + Text::print(c->total_rows) + " (pass = " + Text::print(pass) + ")");
     if (c->tracker && c->total_rows)
         c->tracker->progress(row/c->total_rows);
 }
 
-/**
- * \todo Verify that re-throwing works after long-jump
- */
+/// \todo Verify that re-throwing works after long-jump
 void read_callback(png_structp png_ptr, png_bytep data, png_size_t length) throw()
 {
     LoadContext* c = static_cast<LoadContext*>(png_get_error_ptr(png_ptr));
@@ -161,7 +149,7 @@ void read_callback(png_structp png_ptr, png_bytep data, png_size_t length) throw
         c->error_type = 2;
         c->error_message = e.what();
     }
-    catch (exception& e) {
+    catch (std::exception& e) {
         c->error_type = 3;
         c->error_message = e.what();
     }
@@ -183,7 +171,7 @@ void write_callback(png_structp png_ptr, png_bytep data, png_size_t length) thro
         c->error_type = 2;
         c->error_message = e.what();
     }
-    catch (exception& e) {
+    catch (std::exception& e) {
         c->error_type = 3;
         c->error_message = e.what();
     }
@@ -191,76 +179,70 @@ void write_callback(png_structp png_ptr, png_bytep data, png_size_t length) thro
     longjmp(png_jmpbuf(png_ptr), 1);
 }
 
-/**
- * \todo Should there not be a flush method in OutputStream?
- */
-void flush_callback(png_structp /* png_ptr */)
+/// \todo Should there not be a flush method in OutputStream?
+void flush_callback(png_structp)
 {
 }
 
 
 
-
-
-/**
- * An adaptor that allows the Archon image library to use the PNG file format by
- * using <tt><b>libpng</b></tt>.
- *
- * \sa http://www.libpng.org/pub/png
- *
- * Rewritten and tested against <tt><b>libpng</b></tt> version 1.2.8.
- *
- * Later rewritten and tested against <tt><b>libpng</b></tt> version 1.2.29
- *
- * Notes on using setjump/longjump in C++:
- *
- * Great care must be taken when using setjump/longjump in C++ context. The main
- * problem is that stack objects will not have their destructors called during a
- * long jump stack unwinding process.
- *
- * In this case we set up the long jump handler in a C++ function and then call
- * a number of C (not C++) functions, and it is only these C functions that can
- * potentially issue a long jump. This fact makes things a bit easier to
- * control.
- *
- * We should be safe as long as we stick to the following rules:
- *
- * <ol>
- *
- * <li> Keep the setjump/longjump construction on the following canonical form:
- *
- * <pre>
- *
- *   if (!setjmp(jmpbuf)) { // try
- *       // code that may potentially issue a long jump (throw)
- *   }
- *   else { // catch
- *       // code that handles the long jump (exception)
- *   }
- *
- * </pre>
- *
- * <li> Keep the try-scope completely free of declarations of variables whos
- * type have either an explicit or an implied destructor. This also applies to
- * any sub-scope through which a long jump may pass. A sub-scope through which a
- * long jump cannot pass, may safly define stack objects with destructors.
- *
- * <li> For each C function call that may lead to a long jump, make sure that
- * the surrounding expression does not involve creation of any temporary objects
- * of a type that has either an explicit or an implied destructor.
- *
- * <li> If any of the C function calls that may lead to a long jump calls a C++
- * function (eg. as a call back function) then make sure that the called C++
- * function does not issue a long jump or lead to one being issued in a place
- * where stack variables with destructors are "live".
- *
- * <li> Never long jump out of a C++ try block or catch block.
- *
- * </ul>
- */
+/// An adaptor that allows the Archon image library to use the PNG file format
+/// by using <tt><b>libpng</b></tt>.
+///
+/// \sa http://www.libpng.org/pub/png
+///
+/// Rewritten and tested against <tt><b>libpng</b></tt> version 1.2.8.
+///
+/// Later rewritten and tested against <tt><b>libpng</b></tt> version 1.2.29
+///
+/// Notes on using setjump/longjump in C++:
+///
+/// Great care must be taken when using setjump/longjump in C++ context. The
+/// main problem is that stack objects will not have their destructors called
+/// during a long jump stack unwinding process.
+///
+/// In this case we set up the long jump handler in a C++ function and then call
+/// a number of C (not C++) functions, and it is only these C functions that can
+/// potentially issue a long jump. This fact makes things a bit easier to
+/// control.
+///
+/// We should be safe as long as we stick to the following rules:
+///
+/// <ol>
+///
+/// <li> Keep the setjump/longjump construction on the following canonical form:
+///
+/// <pre>
+///
+///   if (!setjmp(jmpbuf)) { // try
+///       // code that may potentially issue a long jump (throw)
+///   }
+///   else { // catch
+///       // code that handles the long jump (exception)
+///   }
+///
+/// </pre>
+///
+/// <li> Keep the try-scope completely free of declarations of variables whos
+/// type have either an explicit or an implied destructor. This also applies to
+/// any sub-scope through which a long jump may pass. A sub-scope through which
+/// a long jump cannot pass, may safly define stack objects with destructors.
+///
+/// <li> For each C function call that may lead to a long jump, make sure that
+/// the surrounding expression does not involve creation of any temporary
+/// objects of a type that has either an explicit or an implied destructor.
+///
+/// <li> If any of the C function calls that may lead to a long jump calls a C++
+/// function (eg. as a call back function) then make sure that the called C++
+/// function does not issue a long jump or lead to one being issued in a place
+/// where stack variables with destructors are "live".
+///
+/// <li> Never long jump out of a C++ try block or catch block.
+///
+/// </ul>
 class FormatPng: public FileFormat {
 public:
-    string get_name() const override
+    std::string get_name() const override
     {
         return "png";
     }
@@ -272,16 +254,14 @@ public:
             !png_sig_cmp(reinterpret_cast<png_bytep>(header), 0, 8);
     }
 
-    bool check_suffix(string s) const override
+    bool check_suffix(std::string s) const override
     {
-        return s == "png";
+        return (s == "png");
     }
 
-    /**
-     * \todo FIXME: Read and sometimes transcode comments from image file.
-     *
-     * \todo FIXME: Read the comment.
-     */
+    /// \todo FIXME: Read and sometimes transcode comments from image file.
+    ///
+    /// \todo FIXME: Read the comment.
     BufferedImage::Ref load(InputStream& in, Logger* logger,
                             ProgressTracker* tracker) const override
     {
@@ -295,13 +275,13 @@ public:
         w.png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, &c,
                                            error_callback, warning_callback);
         if (!w.png_ptr)
-            throw runtime_error("PNG library was unable to allocate "
-                                "a 'png_struct' structure");
+            throw std::runtime_error("PNG library was unable to allocate "
+                                     "a 'png_struct' structure");
 
         w.info_ptr = png_create_info_struct(w.png_ptr);
         if (!w.info_ptr)
-            throw runtime_error("PNG library was unable to allocate "
-                                "first 'png_info' structure");
+            throw std::runtime_error("PNG library was unable to allocate "
+                                     "first 'png_info' structure");
 
         png_set_read_fn(w.png_ptr, 0, read_callback);
         png_set_read_status_fn(w.png_ptr, progress_callback);
@@ -310,16 +290,14 @@ public:
         IntegerBufferFormat::ChannelLayout channels;
         IntegerBufferFormat::ConstRef buf_fmt;
         BufferedImage::Ref image;
-        Array<png_byte*> row_pointers;
+        std::unique_ptr<png_byte*[]> row_pointers;
 
-        /*
-         * Handle termination and catch errors occuring in any of the
-         * following PNG-functions.
-         */
+        // Handle termination and catch errors occuring in any of the following
+        // PNG-functions.
         if (!setjmp(png_jmpbuf(w.png_ptr))) { // try
-            // CAUTION: No stack variables involving destructors may be
-            // defined in this scope, or any sub-scope where a longjump
-            // might pass through.
+            // CAUTION: No stack variables involving destructors may be defined
+            // in this scope, or any sub-scope where a longjump might pass
+            // through.
 
             png_set_sig_bytes(w.png_ptr, 8);
             png_read_info(w.png_ptr, w.info_ptr);
@@ -341,7 +319,7 @@ public:
             WordType word_type;
             int channel_pitch;
             bool most_sig_bit_first = false;
-            int bits_per_byte = numeric_limits<unsigned char>::digits;
+            int bits_per_byte = std::numeric_limits<unsigned char>::digits;
             if (bit_depth < 8) {
                 // If the channel bit depth is 1, 2, or 4 then there is only one
                 // channel per pixel and Libpng packs multiple pixels into one
@@ -430,8 +408,8 @@ public:
                     color_space = ColorSpace::get_RGB();
                     break;
                 default:
-                    throw runtime_error("Unexpected color space for PNG data "
-                                        "("+Text::print(static_cast<int>(color_type))+")");
+                    throw std::runtime_error("Unexpected color space for PNG data "
+                                             "("+Text::print(static_cast<int>(color_type))+")");
             }
 
             // We now create the buffer format where channels are always evenly
@@ -455,11 +433,11 @@ public:
             int bytes_per_strip = buf_fmt->get_bytes_per_strip(width);
             int bytes_per_strip2 = png_get_rowbytes(w.png_ptr, w.info_ptr);
             if (bytes_per_strip != bytes_per_strip2)
-                throw runtime_error("Mismatching bytes per strip reported by "
-                                    "Archon("+Text::print(bytes_per_strip)+") and Libpng"
-                                    "("+Text::print(bytes_per_strip2)+")");
+                throw std::runtime_error("Mismatching bytes per strip reported by "
+                                         "Archon("+Text::print(bytes_per_strip)+") and Libpng"
+                                         "("+Text::print(bytes_per_strip2)+")");
 
-//cerr << "---- LOAD PNG: "<<width<<"x"<<height<<" "<<buf_fmt->print(color_space, has_alpha)<< endl;
+//std::cerr << "---- LOAD PNG: "<<width<<"x"<<height<<" "<<buf_fmt->print(color_space, has_alpha)<<"\n";
 
             // Construct an image with an uninitialized pixel buffer
             image = BufferedImage::new_image(width, height, color_space, has_alpha, buf_fmt);
@@ -470,7 +448,7 @@ public:
 
             // Make row array
             png_byte* pix_buf = reinterpret_cast<png_byte*>(image->get_buffer_ptr());
-            row_pointers.reset(height);
+            row_pointers = std::make_unique<png_byte*[]>(height); // Throws
             for (int i = 0; i < height; ++i)
                 row_pointers[i] = pix_buf + (height-i-1)*bytes_per_strip;
 
@@ -498,7 +476,7 @@ public:
                 case 2:
                     throw ReadException(c.error_message);
                 case 3:
-                    throw runtime_error(c.error_message);
+                    throw std::runtime_error(c.error_message);
             }
             throw InvalidFormatException(c.error_message);
         }
@@ -507,13 +485,11 @@ public:
     }
 
 
-    /**
-     * \todo FIXME: Verify the correctness of comment compression.
-     *
-     * \todo FIXME: Try to prevent the buffer copy step. This can be done if the
-     * incoming image is buffered and the pixel format is compatible with
-     * Libpng.
-     */
+    /// \todo FIXME: Verify the correctness of comment compression.
+    ///
+    /// \todo FIXME: Try to prevent the buffer copy step. This can be done if
+    /// the incoming image is buffered and the pixel format is compatible with
+    /// Libpng.
     void save(Image::ConstRefArg image, OutputStream& out, Logger* logger,
               ProgressTracker* tracker) const override
     {
@@ -553,7 +529,7 @@ public:
         bool most_sig_bit_first = false;
         bool request_packing = false;
         bool request_byte_swap = false;
-        int bits_per_byte = numeric_limits<unsigned char>::digits;
+        int bits_per_byte = std::numeric_limits<unsigned char>::digits;
         if (channel_width < 8) {
             // In this case we would like to pack multiple pixels into a byte,
             // however that is only possible if a byte has 8 bits, since
@@ -643,8 +619,8 @@ public:
             buf_img = i;
         }
 
-//cerr << "---- SAVE PNG: "<<width<<"x"<<height<<" "<<buf_fmt->print(color_space, has_alpha)<<" "<<
-//  (buf_img == image ? "Can use incoming buffer" : "Can not use incoming buffer") << endl;
+//std::cerr << "---- SAVE PNG: "<<width<<"x"<<height<<" "<<buf_fmt->print(color_space, has_alpha)<<" "<<
+//  (buf_img == image ? "Can use incoming buffer" : "Can not use incoming buffer")<<"\n";
 
         png_byte color_type;
         switch (num_channels) {
@@ -661,13 +637,14 @@ public:
                 color_type = PNG_COLOR_TYPE_RGB_ALPHA;
                 break;
             default:
-                throw runtime_error("Unexpected number of channels " +
-                                    Text::print(num_channels));
+                throw std::runtime_error("Unexpected number of channels " +
+                                         Text::print(num_channels));
         };
 
         const png_byte* pix_buf =
             reinterpret_cast<const png_byte*>(buf_img->get_buffer_ptr());
-        Array<const png_byte*> row_pointers(height);
+        std::unique_ptr<const png_byte*[]> row_pointers =
+            std::make_unique<const png_byte*[]>(height); // Throws
         for (int i = 0; i < height; i++)
             row_pointers[i] = pix_buf + (height-i-1)*bytes_per_strip;
 
@@ -680,19 +657,19 @@ public:
         w.png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, &c,
                                             error_callback, warning_callback);
         if (!w.png_ptr)
-            throw runtime_error("PNG library was unable to allocate "
-                                "a 'png_struct' structure");
+            throw std::runtime_error("PNG library was unable to allocate "
+                                     "a 'png_struct' structure");
 
         w.info_ptr = png_create_info_struct(w.png_ptr);
         if (!w.info_ptr)
-            throw runtime_error("PNG library was unable to allocate "
-                                "first 'png_info' structure");
+            throw std::runtime_error("PNG library was unable to allocate "
+                                     "first 'png_info' structure");
 
         png_set_write_fn(w.png_ptr, 0, write_callback, flush_callback);
         png_set_write_status_fn(w.png_ptr, progress_callback);
 
         // Text to be inserted into image
-        string software = "The Archon image library";
+        std::string software = "The Archon image library";
         png_text text;
         if (software.empty()) {
             text.text = nullptr;
@@ -700,10 +677,10 @@ public:
         else {
             // Get rid of NUL characters in the comment. The PNG spec does not
             // allow them.
-            string::size_type i = 0;
+            std::string::size_type i = 0;
             for (;;) {
-                string::size_type p = software.find('\0');
-                if (p == string::npos)
+                auto p = software.find('\0');
+                if (p == std::string::npos)
                     break;
                 software.replace(i, 1, "\xEF\xBF\xBD"); // Unicode replacement character
             }
@@ -768,7 +745,7 @@ private:
                 case 2:
                     throw WriteException(c.error_message);
                 case 3:
-                    throw runtime_error(c.error_message);
+                    throw std::runtime_error(c.error_message);
             }
             throw InvalidFormatException(c.error_message);
         }

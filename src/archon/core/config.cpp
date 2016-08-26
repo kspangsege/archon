@@ -50,7 +50,7 @@ namespace archon
     }
 
 
-    void ConfigBuilder::add_param(UniquePtr<ParamBase> p)
+    void ConfigBuilder::add_param(std::unique_ptr<ParamBase> p)
     {
       config->validate_short_name(p->short_name, "Short parameter name");
       if(p->long_name.empty())
@@ -97,7 +97,7 @@ namespace archon
 
       try
       {
-        long_i->second = config->register_param(p);
+        long_i->second = config->register_param(std::move(p));
         if(has_short_name) short_i->second = long_i->second;
       }
       catch(...)
@@ -155,8 +155,8 @@ namespace archon
 
     wstring Config::get_param_long_name(int idx) const
     {
-      ParamBase const *const p = params.at(idx);
-      return p->path + p->long_name;
+      const ParamBase& p = *params.at(idx);
+      return p.path + p.long_name;
     }
 
     wstring Config::get_param_description(int idx) const
@@ -230,18 +230,16 @@ namespace archon
     }
 
 
-    int Config::register_param(UniquePtr<ParamBase> p)
+    int Config::register_param(std::unique_ptr<ParamBase> p)
     {
-      int const idx = params.size();
-      ParamBase *const q = p.get();
-      params.push_back(p);
-      try
-      {
-        on_new_param(q);
+      int idx = params.size();
+      ParamBase* q = p.get();
+      params.emplace_back(std::move(p)); // Throws
+      try {
+        on_new_param(q); // Throws
         return idx;
       }
-      catch(...)
-      {
+      catch (...) {
         params.pop_back();
         throw;
       }

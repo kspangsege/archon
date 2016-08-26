@@ -82,7 +82,8 @@ noinst_PROGRAMS = billboard$(EXEEXT) render$(EXEEXT) \
 	scene_builder$(EXEEXT) load_texture$(EXEEXT) \
 	text_formatter$(EXEEXT) multi_threaded$(EXEEXT) phys$(EXEEXT) \
 	hydrogen$(EXEEXT) explorer$(EXEEXT) conv_hull$(EXEEXT) \
-	image_gamut$(EXEEXT) bsp$(EXEEXT) html_browser$(EXEEXT)
+	image_gamut$(EXEEXT) bsp$(EXEEXT) html_browser$(EXEEXT) \
+	blocks$(EXEEXT) aviator$(EXEEXT)
 subdir = src/archon/render/test
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(top_srcdir)/config/depcomp
@@ -113,10 +114,10 @@ CONFIG_HEADER = $(top_builddir)/src/archon/config.h
 CONFIG_CLEAN_FILES =
 CONFIG_CLEAN_VPATH_FILES =
 PROGRAMS = $(noinst_PROGRAMS)
-am_billboard_OBJECTS = billboard.$(OBJEXT)
-billboard_OBJECTS = $(am_billboard_OBJECTS)
-billboard_LDADD = $(LDADD)
-billboard_DEPENDENCIES = ../../core/libarchon_core.la \
+am_aviator_OBJECTS = aviator.$(OBJEXT)
+aviator_OBJECTS = $(am_aviator_OBJECTS)
+aviator_LDADD = $(LDADD)
+aviator_DEPENDENCIES = ../../core/libarchon_core.la \
 	../../math/libarchon_math.la ../../thread/libarchon_thread.la \
 	../../util/libarchon_util.la ../../image/libarchon_image.la \
 	../../font/libarchon_font.la ../../dom/libarchon_dom.la \
@@ -127,6 +128,26 @@ AM_V_lt = $(am__v_lt_@AM_V@)
 am__v_lt_ = $(am__v_lt_@AM_DEFAULT_V@)
 am__v_lt_0 = --silent
 am__v_lt_1 = 
+am_billboard_OBJECTS = billboard.$(OBJEXT)
+billboard_OBJECTS = $(am_billboard_OBJECTS)
+billboard_LDADD = $(LDADD)
+billboard_DEPENDENCIES = ../../core/libarchon_core.la \
+	../../math/libarchon_math.la ../../thread/libarchon_thread.la \
+	../../util/libarchon_util.la ../../image/libarchon_image.la \
+	../../font/libarchon_font.la ../../dom/libarchon_dom.la \
+	../../graphics/libarchon_graphics.la \
+	../../display/libarchon_display.la ../libarchon_render.la \
+	../../dom/impl/libarchon_dom_impl.la
+am_blocks_OBJECTS = blocks.$(OBJEXT)
+blocks_OBJECTS = $(am_blocks_OBJECTS)
+blocks_LDADD = $(LDADD)
+blocks_DEPENDENCIES = ../../core/libarchon_core.la \
+	../../math/libarchon_math.la ../../thread/libarchon_thread.la \
+	../../util/libarchon_util.la ../../image/libarchon_image.la \
+	../../font/libarchon_font.la ../../dom/libarchon_dom.la \
+	../../graphics/libarchon_graphics.la \
+	../../display/libarchon_display.la ../libarchon_render.la \
+	../../dom/impl/libarchon_dom_impl.la
 am_bsp_OBJECTS = bsp.$(OBJEXT)
 bsp_OBJECTS = $(am_bsp_OBJECTS)
 bsp_LDADD = $(LDADD)
@@ -281,18 +302,19 @@ AM_V_CXXLD = $(am__v_CXXLD_@AM_V@)
 am__v_CXXLD_ = $(am__v_CXXLD_@AM_DEFAULT_V@)
 am__v_CXXLD_0 = @echo "  CXXLD   " $@;
 am__v_CXXLD_1 = 
-SOURCES = $(billboard_SOURCES) $(bsp_SOURCES) $(conv_hull_SOURCES) \
+SOURCES = $(aviator_SOURCES) $(billboard_SOURCES) $(blocks_SOURCES) \
+	$(bsp_SOURCES) $(conv_hull_SOURCES) $(explorer_SOURCES) \
+	$(html_browser_SOURCES) $(hydrogen_SOURCES) \
+	$(image_gamut_SOURCES) $(load_texture_SOURCES) \
+	$(multi_threaded_SOURCES) $(phys_SOURCES) $(render_SOURCES) \
+	$(scene_builder_SOURCES) $(text_formatter_SOURCES)
+DIST_SOURCES = $(aviator_SOURCES) $(billboard_SOURCES) \
+	$(blocks_SOURCES) $(bsp_SOURCES) $(conv_hull_SOURCES) \
 	$(explorer_SOURCES) $(html_browser_SOURCES) \
 	$(hydrogen_SOURCES) $(image_gamut_SOURCES) \
 	$(load_texture_SOURCES) $(multi_threaded_SOURCES) \
 	$(phys_SOURCES) $(render_SOURCES) $(scene_builder_SOURCES) \
 	$(text_formatter_SOURCES)
-DIST_SOURCES = $(billboard_SOURCES) $(bsp_SOURCES) \
-	$(conv_hull_SOURCES) $(explorer_SOURCES) \
-	$(html_browser_SOURCES) $(hydrogen_SOURCES) \
-	$(image_gamut_SOURCES) $(load_texture_SOURCES) \
-	$(multi_threaded_SOURCES) $(phys_SOURCES) $(render_SOURCES) \
-	$(scene_builder_SOURCES) $(text_formatter_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -489,6 +511,8 @@ conv_hull_SOURCES = conv_hull.cpp
 image_gamut_SOURCES = image_gamut.cpp
 bsp_SOURCES = bsp.cpp
 html_browser_SOURCES = html_browser.cpp
+blocks_SOURCES = blocks.cpp
+aviator_SOURCES = aviator.cpp
 LDADD = ../../core/libarchon_core.la ../../math/libarchon_math.la ../../thread/libarchon_thread.la ../../util/libarchon_util.la ../../image/libarchon_image.la ../../font/libarchon_font.la ../../dom/libarchon_dom.la ../../graphics/libarchon_graphics.la ../../display/libarchon_display.la ../libarchon_render.la ../../dom/impl/libarchon_dom_impl.la
 AM_CPPFLAGS = -I$(top_srcdir)/src
 AM_CXXFLAGS = -Wold-style-cast
@@ -536,9 +560,17 @@ clean-noinstPROGRAMS:
 	echo " rm -f" $$list; \
 	rm -f $$list
 
+aviator$(EXEEXT): $(aviator_OBJECTS) $(aviator_DEPENDENCIES) $(EXTRA_aviator_DEPENDENCIES) 
+	@rm -f aviator$(EXEEXT)
+	$(AM_V_CXXLD)$(CXXLINK) $(aviator_OBJECTS) $(aviator_LDADD) $(LIBS)
+
 billboard$(EXEEXT): $(billboard_OBJECTS) $(billboard_DEPENDENCIES) $(EXTRA_billboard_DEPENDENCIES) 
 	@rm -f billboard$(EXEEXT)
 	$(AM_V_CXXLD)$(CXXLINK) $(billboard_OBJECTS) $(billboard_LDADD) $(LIBS)
+
+blocks$(EXEEXT): $(blocks_OBJECTS) $(blocks_DEPENDENCIES) $(EXTRA_blocks_DEPENDENCIES) 
+	@rm -f blocks$(EXEEXT)
+	$(AM_V_CXXLD)$(CXXLINK) $(blocks_OBJECTS) $(blocks_LDADD) $(LIBS)
 
 bsp$(EXEEXT): $(bsp_OBJECTS) $(bsp_DEPENDENCIES) $(EXTRA_bsp_DEPENDENCIES) 
 	@rm -f bsp$(EXEEXT)
@@ -594,7 +626,9 @@ mostlyclean-compile:
 distclean-compile:
 	-rm -f *.tab.c
 
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/aviator.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/billboard.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/blocks.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/bsp.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/conv_hull.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/explorer.Po@am__quote@

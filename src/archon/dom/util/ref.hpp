@@ -36,11 +36,6 @@ namespace archon
 {
   namespace dom
   {
-    struct null_type {};
-    null_type const null = null_type();
-
-
-
     /**
      * All public members and functions defined here have the same
      * meaning as the corresponding members and functions defined for
@@ -48,40 +43,36 @@ namespace archon
      */
     template<class T> struct ref
     {
-      typedef T element_type;
+      using element_type = T;
 
+      constexpr ref() noexcept {}
+      constexpr ref(std::nullptr_t) noexcept {}
 
-      ref() throw () {}
-      ref(null_type) throw () {}
+      template<class U> explicit ref(U *r) noexcept: m_bond{r} {}
 
-      template<class U> explicit ref(U *r) throw (): bond(r) {}
+      ref(ref const &r) noexcept: m_bond{r.m_bond} {}
+      template<class U> ref(ref<U> const &r) noexcept: m_bond{r.m_bond} {}
 
-      ref(ref const &r) throw (): bond(r.bond) {}
-      template<class U> ref(ref<U> const &r) throw (): bond(r.bond) {}
+      explicit operator bool() const noexcept { return bool(m_bond); }
 
-      T *get() const throw () { return bond.get(); }
-      T &operator*() const throw () { return *bond.get(); }
-      T *operator->() const throw () { return bond.get(); }
+      T *get() const noexcept { return m_bond.get(); }
+      T &operator*() const noexcept { return *m_bond.get(); }
+      T *operator->() const noexcept { return m_bond.get(); }
 
-      void swap(ref &r) throw () { bond.swap(r.bond); }
+      void swap(ref &r) noexcept { m_bond.swap(r.m_bond); }
 
-      void reset() throw () { ref().swap(*this); }
+      void reset() noexcept { ref().swap(*this); }
       template<class U> void reset(U *r) throw () { ref(r).swap(*this); }
 
-      ref &operator=(ref const &r) throw () { bond = r.bond; return *this; }
-      template<class U> ref &operator=(ref<U> const &r) throw () { bond = r.bond; return *this; }
-
+      ref &operator=(ref const &r) noexcept { m_bond = r.m_bond; return *this; }
+      template<class U> ref &operator=(ref<U> const &r) noexcept { m_bond = r.m_bond; return *this; }
 
     private:
+      using Bond = core::BindRef<T *>;
+
+      Bond m_bond;
+
       template<class> friend struct ref;
-
-      typedef core::BindRef<T *> Bond;
-      typedef Bond ref::*unspecified_bool_type;
-
-      Bond bond;
-
-    public:
-      operator unspecified_bool_type() const throw () { return bond ? &ref::bond : 0; }
     };
 
 
@@ -92,7 +83,7 @@ namespace archon
 
     template<class T, class U> bool operator<(ref<T> const &p, ref<U> const &q);
 
-    template<class T> void swap(ref<T> &p, ref<T> &q) throw();
+    template<class T> void swap(ref<T> &p, ref<T> &q) noexcept;
 
     template<class T, class U> ref<T> static_pointer_cast(ref<U> const &p);
 

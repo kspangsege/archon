@@ -18,11 +18,9 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #include <vector>
 
@@ -30,55 +28,56 @@
 #include <archon/display/implementation.hpp>
 
 #ifdef ARCHON_HAVE_XLIB
-#include <archon/display/x11/implementation.hpp>
+#  include <archon/display/x11/implementation.hpp>
 #endif
 
 
-using namespace std;
 using namespace archon::display;
 
 
-namespace
-{
-  struct ImplementationRegistry
-  {
+namespace {
+
+class ImplementationRegistry {
+public:
     ImplementationRegistry()
     {
 #ifdef ARCHON_HAVE_XLIB
-      implementations.push_back(get_implementation_x11());
+        implementations.push_back(get_implementation_x11()); // Throws
 #endif
     }
 
-    vector<Implementation::Ptr> implementations;
-  };
+    std::vector<Implementation::Ptr> implementations;
+};
 
-  const ImplementationRegistry *get_impl_registry()
-  {
+const ImplementationRegistry* get_impl_registry()
+{
     static ImplementationRegistry registry;
     return &registry;
-  }
 }
 
+} // unnamed namespace
 
-namespace archon
+
+namespace archon {
+namespace display {
+
+Implementation::Ptr get_default_implementation()
 {
-  namespace display
-  {
-    Implementation::Ptr get_default_implementation() throw(NoImplementationException)
-    {
-      const ImplementationRegistry *r = get_impl_registry();
-      if(r->implementations.empty()) throw NoImplementationException();
-      return r->implementations[0];
-    }
-
-    int get_num_implementations()
-    {
-      return get_impl_registry()->implementations.size();
-    }
-
-    Implementation::Ptr get_implementation(int index) throw(out_of_range)
-    {
-      return get_impl_registry()->implementations.at(index);
-    }
-  }
+    const ImplementationRegistry* r = get_impl_registry();
+    if (r->implementations.empty())
+        throw NoImplementationException();
+    return r->implementations[0];
 }
+
+int get_num_implementations()
+{
+    return get_impl_registry()->implementations.size();
+}
+
+Implementation::Ptr get_implementation(int index) throw(std::out_of_range)
+{
+    return get_impl_registry()->implementations.at(index);
+}
+
+} // namespace display
+} // namespace archon

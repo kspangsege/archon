@@ -36,87 +36,91 @@
 #include <archon/util/kd_tree.hpp>
 
 
-using namespace std;
 using namespace archon::core;
 using namespace archon::math;
 using namespace archon::util;
 
 
-namespace
+namespace {
+
+template<class T> void test(int num_points, int num_components, int num_searches)
 {
-  template<typename T> void test(int num_points, int num_components, int num_searches)
-  {
-    cout << "test_dyn: Find "<<num_searches<<" points in cloud of "<<num_points<<" points "
-      "each with "<<num_components<<" components" << endl;
+    std::cout << "test_dyn: Find "<<num_searches<<" points in cloud of "<<num_points<<" points "
+        "each with "<<num_components<<" components" << std::endl;
 
-    KdTreeSet<T> kd(num_components);
+    KdTreeSet<T> kd{num_components};
 
-    cout << "Generating random points" << endl;
-    size_t m = num_points * size_t(num_components);
-    size_t n = num_searches * size_t(num_components);
-    Array<T> buffer(m+n);
+    std::cout << "Generating random points" << std::endl;
+    std::size_t m = num_points * size_t(num_components);
+    std::size_t n = num_searches * size_t(num_components);
+    std::unique_ptr<T[]> buffer = std::make_unique<T[]>(m+n);
     Random r;
-    for(size_t i=0; i<m+n; ++i) buffer[i] = r.get_uniform();
+    for (std::size_t i = 0; i < m+n; ++i)
+        buffer[i] = r.get_uniform();
 
-    T const *const points = buffer.get();
-    T const *const needles = points + m;
+    const T* points = buffer.get();
+    const T* needles = points + m;
 
-    cout << "Balancing kd-tree" << endl;
-    RowIter<T const *> begin(points, num_components);
+    std::cout << "Balancing kd-tree" << std::endl;
+    RowIter<const T*> begin{points, num_components};
     kd.add(begin, begin + num_points);
 
-    Array<T> const first_results(num_searches), second_results(num_searches);
+    std::unique_ptr<T[]> first_results = std::make_unique<T[]>(num_searches);
+    std::unique_ptr<T[]> second_results = std::make_unique<T[]>(num_searches);
 
-    cout << "Searching... " << flush;
+    std::cout << "Searching... " << std::flush;
     Time start = Time::now();
-    for(int i=0; i<num_searches; ++i)
-    {
-      T const *const needle = needles + i*size_t(num_components);
-      T const *const vec = kd.find_nearest(needle);
-      first_results[i] = vec_sq_dist(needle, needle + num_components, vec);
+    for (int i = 0; i < num_searches; ++i) {
+        const T* needle = needles + i*size_t(num_components);
+        const T* vec = kd.find_nearest(needle);
+        first_results[i] = vec_sq_dist(needle, needle + num_components, vec);
     }
     Time time_first = Time::now() - start;
-    cout << time_first.get_as_millis()<<"ms" << endl;
+    std::cout << time_first.get_as_millis()<<"ms" << std::endl;
 
 
-    cout << "Brute force check... " << flush;
+    std::cout << "Brute force check... " << std::flush;
     start = Time::now();
-    for(int i=0; i<num_searches; ++i)
-    {
-      T const *const needle = needles + i*size_t(num_components);
-      T min = vec_sq_dist(needle, needle + num_components, points);
-      for(int j=1; j<num_points; ++j)
-      {
-        T const d = vec_sq_dist(needle, needle + num_components,
-                                points + j*size_t(num_components));
-        if(d < min) min = d;
-      }
-      second_results[i] = min;
+    for (int i = 0; i < num_searches; ++i) {
+        const T* needle = needles + i*size_t(num_components);
+        T min = vec_sq_dist(needle, needle + num_components, points);
+        for (int j = 1; j < num_points; ++j) {
+            T d = vec_sq_dist(needle, needle + num_components,
+                              points + j*size_t(num_components));
+            if (d < min)
+                min = d;
+        }
+        second_results[i] = min;
     }
     Time time_second = Time::now() - start;
-    cout << time_second.get_as_millis()<<"ms" << endl;
+    std::cout << time_second.get_as_millis()<<"ms" << std::endl;
 
-    cout << "Speedup: " << (time_second.get_as_micros()/
-                            double(time_first.get_as_micros())) << endl;
+    std::cout << "Speedup: " << (time_second.get_as_micros()/
+                                 double(time_first.get_as_micros())) << std::endl;
 
 
     int failures = 0;
-    for(int i=0; i<num_searches; ++i)
-      if(first_results[i] != second_results[i])
-      {
-        ++failures;
-        if(failures <= 10) cout << "Failure "<<failures<<": "<<first_results[i]<<" != "<<second_results[i] << endl;
-      }
-    if(failures) cout << "FAILURES: "<<failures<<"/"<<num_searches << endl;
-    else cout << "SUCCESS!!!" << endl;
-  }
+    for (int i = 0; i < num_searches; ++i) {
+        if (first_results[i] != second_results[i]) {
+            ++failures;
+            if (failures <= 10)
+                std::cout << "Failure "<<failures<<": "
+                    ""<<first_results[i]<<" != "<<second_results[i] << std::endl;
+        }
+    }
+    if (failures) {
+        std::cout << "FAILURES: "<<failures<<"/"<<num_searches << std::endl;
+    }
+    else {
+        std::cout << "SUCCESS!!!" << std::endl;
+    }
 }
 
+} // unnamed namespace
 
-int main() throw()
+
+int main()
 {
-  test<double>(250000, 5, 5000);
-  test<float>(256, 3, 5000000);
-
-  return 0;
+    test<double>(250000, 5, 5000);
+    test<float>(256, 3, 5000000);
 }

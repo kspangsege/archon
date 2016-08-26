@@ -69,7 +69,7 @@ namespace archon
        * nanoseconds and must not be less than zero, nor greater than
        * 999,999,999.
        */
-      Time(std::time_t seconds, long nanos=0) { set_seconds_and_nanos(seconds, nanos); }
+      explicit Time(std::time_t seconds, long nanos=0) { set_seconds_and_nanos(seconds, nanos); }
 
 
       enum Unit { nanos, micros, millis, seconds, minutes, hours, days };

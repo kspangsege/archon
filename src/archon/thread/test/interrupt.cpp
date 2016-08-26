@@ -40,7 +40,7 @@ namespace
     {
       try
       {
-        Thread::sleep(10);
+        Thread::sleep(Time{10});
       }
       catch(InterruptException &)
       {
@@ -59,7 +59,7 @@ int main() throw()
 
   for(int i=0; i<3; ++i)
   {
-    Thread::sleep(1);
+    Thread::sleep(Time{1});
     cerr << "--" << i << "--\n";
   }
 

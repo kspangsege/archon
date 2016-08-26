@@ -95,7 +95,7 @@ Image::Ref color_quantize(Image::ConstRef image, Image::ConstRef palette,
         throw std::invalid_argument("Empty palette");
     bool pal_has_alpha = palette->has_alpha_channel();
     int num_cmp_channels = cmp_color_space->get_num_channels(pal_has_alpha);
-    Array<float> pal_buf((pal_size+2) * num_cmp_channels);
+    std::unique_ptr<float[]> pal_buf = std::make_unique<float[]>((pal_size+2) * num_cmp_channels);
     float* pal_min = pal_buf.get();
     float* pal_max = pal_min + num_cmp_channels;
     float* pal     = pal_max + num_cmp_channels;
@@ -144,14 +144,14 @@ Image::Ref color_quantize(Image::ConstRef image, Image::ConstRef palette,
     std::size_t err_stride = width * err_pitch;
     std::size_t err_buf_size = kern_rows * err_stride;
     std::size_t pix_buf_size = 2*num_cmp_channels + err_buf_size;
-    Array<float> pix_buf(pix_buf_size);
+    std::unique_ptr<float[]> pix_buf = std::make_unique<float[]>(pix_buf_size);
     float* pix1    = pix_buf.get();
     float* pix2    = pix1 + num_cmp_channels;
     float* err_buf = pix2 + num_cmp_channels;
 
     std::fill(err_buf, err_buf+err_buf_size, float());
 
-    MemoryBuffer idx_buf(get_bytes_per_word(idx_type));
+    std::unique_ptr<char[]> idx_buf =  std::make_unique<char[]>(get_bytes_per_word(idx_type));
     WordTypeConverter idx_cvt = get_word_type_clamp_converter(get_word_type_by_type<std::size_t>(), idx_type);
 //    Random r;
     AdaptiveTicker ticker(10000);
@@ -240,7 +240,7 @@ Image::Ref color_quantize(Image::ConstRef image, Image::ConstRef palette,
 } // unnamed namespace
 
 
-int main(int argc, const char* argv[]) throw()
+int main(int argc, const char* argv[])
 {
     CommandlineOptions opts;
     opts.add_help("Test application for image dithering feature", "SOURCE TARGET");

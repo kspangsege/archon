@@ -394,12 +394,14 @@ namespace
       view(view), sub_codec(view->orig->acquire_codec().release()),
       num_primaries(view->orig->get_color_space()->get_num_primaries()),
       num_channels(view->orig->get_num_channels()),
-      buffer(Image::Codec::get_max_pixels_per_block() * num_channels) {}
+      buffer(std::make_unique<T[]>(Image::Codec::get_max_pixels_per_block() * num_channels))
+    {
+    }
 
     InvertedView const *const view;
     Image::CodecPtr const sub_codec;
     int const num_primaries, num_channels;
-    Array<T> const buffer;
+    std::unique_ptr<T[]> const buffer;
   };
 
   template<typename T, WordType> struct InvertedView::CodecInstantiator
@@ -552,11 +554,14 @@ namespace
 
     ReinterpretedChannelsCodec(ReinterpretedChannelsView const *view):
       view(view), sub_codec(view->orig->acquire_codec().release()),
-      buffer(Image::Codec::get_max_pixels_per_block() * view->orig->get_num_channels()) {}
+      buffer(std::make_unique<T[]>(Image::Codec::get_max_pixels_per_block() *
+                                   view->orig->get_num_channels()))
+    {
+    }
 
     ReinterpretedChannelsView const *const view;
     Image::CodecPtr const sub_codec;
-    Array<T> const buffer;
+    std::unique_ptr<T[]> const buffer;
   };
 
   template<typename T, WordType> struct ReinterpretedChannelsView::CodecInstantiator
@@ -627,15 +632,17 @@ namespace
       palette_codec(view->palette->acquire_codec().release()),
       palette_width(view->palette->get_width()),
       palette_size(view->palette->get_height() * size_t(palette_width)),
-      buffer(Image::Codec::get_max_pixels_per_block()),
-      lum(ColorSpace::get_Lum()) {}
+      buffer(std::make_unique<unsigned char[]>(Image::Codec::get_max_pixels_per_block())),
+      lum(ColorSpace::get_Lum())
+    {
+    }
 
     ColorMappedView const *const view;
     mutable ImageReader orig_reader;
     Image::CodecConstPtr const palette_codec;
     int const palette_width;
     size_t const palette_size;
-    Array<unsigned char> buffer;
+    std::unique_ptr<unsigned char[]> buffer;
     ColorSpace::ConstRef const lum;
   };
 

@@ -185,12 +185,12 @@ namespace archon
 
 
 
-    template<class T> inline T min3(T a, T b, T c)
+    template<class T> inline constexpr T min3(T a, T b, T c)
     {
       return std::min(std::min(a,b), c);
     }
 
-    template<class T> inline T max3(T a, T b, T c)
+    template<class T> inline constexpr T max3(T a, T b, T c)
     {
       return std::max(std::max(a,b), c);
     }

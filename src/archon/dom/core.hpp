@@ -51,23 +51,23 @@ public:
     const int16 code;
 };
 
-const int16 INDEX_SIZE_ERR              =  1;
-const int16 DOMSTRING_SIZE_ERR          =  2;
-const int16 HIERARCHY_REQUEST_ERR       =  3;
-const int16 WRONG_DOCUMENT_ERR          =  4;
-const int16 INVALID_CHARACTER_ERR       =  5;
-const int16 NO_DATA_ALLOWED_ERR         =  6;
-const int16 NO_MODIFICATION_ALLOWED_ERR =  7;
-const int16 NOT_FOUND_ERR               =  8;
-const int16 NOT_SUPPORTED_ERR           =  9;
-const int16 INUSE_ATTRIBUTE_ERR         = 10;
-const int16 INVALID_STATE_ERR           = 11;
-const int16 SYNTAX_ERR                  = 12;
-const int16 INVALID_MODIFICATION_ERR    = 13;
-const int16 NAMESPACE_ERR               = 14;
-const int16 INVALID_ACCESS_ERR          = 15;
-const int16 VALIDATION_ERR              = 16;
-const int16 TYPE_MISMATCH_ERR           = 17;
+constexpr int16 INDEX_SIZE_ERR              =  1;
+constexpr int16 DOMSTRING_SIZE_ERR          =  2;
+constexpr int16 HIERARCHY_REQUEST_ERR       =  3;
+constexpr int16 WRONG_DOCUMENT_ERR          =  4;
+constexpr int16 INVALID_CHARACTER_ERR       =  5;
+constexpr int16 NO_DATA_ALLOWED_ERR         =  6;
+constexpr int16 NO_MODIFICATION_ALLOWED_ERR =  7;
+constexpr int16 NOT_FOUND_ERR               =  8;
+constexpr int16 NOT_SUPPORTED_ERR           =  9;
+constexpr int16 INUSE_ATTRIBUTE_ERR         = 10;
+constexpr int16 INVALID_STATE_ERR           = 11;
+constexpr int16 SYNTAX_ERR                  = 12;
+constexpr int16 INVALID_MODIFICATION_ERR    = 13;
+constexpr int16 NAMESPACE_ERR               = 14;
+constexpr int16 INVALID_ACCESS_ERR          = 15;
+constexpr int16 VALIDATION_ERR              = 16;
+constexpr int16 TYPE_MISMATCH_ERR           = 17;
 
 
 
@@ -93,18 +93,18 @@ public:
 
 class Node: public virtual DOMObject {
 public:
-    static const uint16 ELEMENT_NODE                =  1;
-    static const uint16 ATTRIBUTE_NODE              =  2;
-    static const uint16 TEXT_NODE                   =  3;
-    static const uint16 CDATA_SECTION_NODE          =  4;
-    static const uint16 ENTITY_REFERENCE_NODE       =  5;
-    static const uint16 ENTITY_NODE                 =  6;
-    static const uint16 PROCESSING_INSTRUCTION_NODE =  7;
-    static const uint16 COMMENT_NODE                =  8;
-    static const uint16 DOCUMENT_NODE               =  9;
-    static const uint16 DOCUMENT_TYPE_NODE          = 10;
-    static const uint16 DOCUMENT_FRAGMENT_NODE      = 11;
-    static const uint16 NOTATION_NODE               = 12;
+    static constexpr uint16 ELEMENT_NODE                =  1;
+    static constexpr uint16 ATTRIBUTE_NODE              =  2;
+    static constexpr uint16 TEXT_NODE                   =  3;
+    static constexpr uint16 CDATA_SECTION_NODE          =  4;
+    static constexpr uint16 ENTITY_REFERENCE_NODE       =  5;
+    static constexpr uint16 ENTITY_NODE                 =  6;
+    static constexpr uint16 PROCESSING_INSTRUCTION_NODE =  7;
+    static constexpr uint16 COMMENT_NODE                =  8;
+    static constexpr uint16 DOCUMENT_NODE               =  9;
+    static constexpr uint16 DOCUMENT_TYPE_NODE          = 10;
+    static constexpr uint16 DOCUMENT_FRAGMENT_NODE      = 11;
+    static constexpr uint16 NOTATION_NODE               = 12;
 
     virtual DOMString getNodeName() const throw () = 0;
 

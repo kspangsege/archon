@@ -461,9 +461,9 @@ namespace archon
 
       StylePropDef const *lookup_prop_def(dom::DOMString const &name) const
       {
-        PropMap::const_iterator const i = prop_map.find(name);
-        if (i == prop_map.end()) return 0;
-        return i->second;
+        auto i = prop_map.find(name);
+        if (i == prop_map.end()) return nullptr;
+        return i->second.get();
       }
 
       StaticStyleInfo(CssLevel l): css_level(l) { add_props(); }
@@ -475,17 +475,18 @@ namespace archon
 
       template<class ForceGroup, class Prop, class Group> StylePropDef &add2(Prop Group::*prop);
 
-      template<class P> P &add(std::string name, P *prop) { add2(name, prop); return *prop; }
-
-      StylePropDef &add2(std::string name, StylePropDef *prop)
+      template<class P> P &add(std::string name, std::unique_ptr<P> prop)
       {
-        core::UniquePtr<StylePropDef> p(prop);
-        prop_map.set_at(dom::str_from_port(name), p);
+        return static_cast<P&>(add2(name, std::move(prop))); // Throws
+      }
+
+      StylePropDef &add2(std::string name, std::unique_ptr<StylePropDef> prop)
+      {
+        prop_map[dom::str_from_port(name)] = std::move(prop); // Throws
         return *prop;
       }
 
-      typedef core::DeletingMap<dom::DOMString, StylePropDef const> PropMap;
-      PropMap prop_map;
+      std::map<dom::DOMString, std::unique_ptr<const StylePropDef>> prop_map;
     };
 
 
@@ -2989,7 +2990,8 @@ namespace archon
 
     template<class Prop, class Group> StylePropDef &StaticStyleInfo::add(Prop Group::*prop)
     {
-      return add(Prop::spec_type::get_name(), new LonghandPropDef<Prop, Group>(prop));
+      return add(Prop::spec_type::get_name(),
+                 std::make_unique<LonghandPropDef<Prop, Group>>(prop)); // Throws
     }
 
     template<class ForceGroup, class Prop, class Group>

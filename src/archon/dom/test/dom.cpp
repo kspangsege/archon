@@ -115,79 +115,79 @@ void check_children(ref<Node> parent, ref<Node> children[])
 
 void test_add_remove_child_1(ref<Document> doc, ref<Node> parent)
 {
-    { ref<Node> list[] = { null }; check_children(parent, list); }
+    { ref<Node> list[] = { nullptr }; check_children(parent, list); }
 
     // Add first
     ref<Node> child1 = doc->createComment(str_from_cloc(L"foo"));
     check_freestanding(child1);
     parent->appendChild(child1);
-    { ref<Node> list[] = { child1, null }; check_children(parent, list); }
+    { ref<Node> list[] = { child1, nullptr }; check_children(parent, list); }
 
     // Add second
     ref<Node> child2 = doc->createComment(str_from_cloc(L"bar"));
     parent->appendChild(child2);
-    { ref<Node> list[] = { child1, child2, null }; check_children(parent, list); }
+    { ref<Node> list[] = { child1, child2, nullptr }; check_children(parent, list); }
 
     // Remove first
     parent->removeChild(child1);
-    { ref<Node> list[] = { child2, null }; check_children(parent, list); }
+    { ref<Node> list[] = { child2, nullptr }; check_children(parent, list); }
     check_freestanding(child1);
 
     // Remove second
     parent->removeChild(child2);
-    { ref<Node> list[] = { null }; check_children(parent, list); }
+    { ref<Node> list[] = { nullptr }; check_children(parent, list); }
     check_freestanding(child2);
 
     // Add two then remove last
     parent->appendChild(child1);
     parent->appendChild(child2);
     parent->removeChild(child2);
-    { ref<Node> list[] = { child1, null }; check_children(parent, list); }
+    { ref<Node> list[] = { child1, nullptr }; check_children(parent, list); }
     check_freestanding(child2);
 
     // Add a child that is already a child of the same parent
     parent->appendChild(child1);
-    { ref<Node> list[] = { child1, null }; check_children(parent, list); }
+    { ref<Node> list[] = { child1, nullptr }; check_children(parent, list); }
     parent->appendChild(child2);
-    { ref<Node> list[] = { child1, child2, null }; check_children(parent, list); }
+    { ref<Node> list[] = { child1, child2, nullptr }; check_children(parent, list); }
     parent->appendChild(child1);
-    { ref<Node> list[] = { child2, child1, null }; check_children(parent, list); }
+    { ref<Node> list[] = { child2, child1, nullptr }; check_children(parent, list); }
     parent->appendChild(child1);
-    { ref<Node> list[] = { child2, child1, null }; check_children(parent, list); }
+    { ref<Node> list[] = { child2, child1, nullptr }; check_children(parent, list); }
 
     // Add a child that is already a child of another parent
     ref<Node> parent2 = doc->createElementNS(str_from_cloc(L"ns"), str_from_cloc(L"parent2"));
     parent2->appendChild(child1);
-    { ref<Node> list[] = { child2, null }; check_children(parent, list); }
-    { ref<Node> list[] = { child1, null }; check_children(parent2, list); }
+    { ref<Node> list[] = { child2, nullptr }; check_children(parent, list); }
+    { ref<Node> list[] = { child1, nullptr }; check_children(parent2, list); }
     parent->appendChild(child1);
-    { ref<Node> list[] = { child2, child1, null }; check_children(parent, list); }
-    { ref<Node> list[] = { null }; check_children(parent2, list); }
+    { ref<Node> list[] = { child2, child1, nullptr }; check_children(parent, list); }
+    { ref<Node> list[] = { nullptr }; check_children(parent2, list); }
     parent2->appendChild(child1);
     parent2->appendChild(child2);
-    { ref<Node> list[] = { null }; check_children(parent, list); }
-    { ref<Node> list[] = { child1, child2, null }; check_children(parent2, list); }
+    { ref<Node> list[] = { nullptr }; check_children(parent, list); }
+    { ref<Node> list[] = { child1, child2, nullptr }; check_children(parent2, list); }
 
     // Add a document fragment
     ref<Node> frag = doc->createDocumentFragment();
     TEST_MSG(frag->getNodeType() == Node::DOCUMENT_FRAGMENT_NODE,
              "Unexpected type ID of document fragment node");
     parent2->appendChild(frag);
-    { ref<Node> list[] = { child1, child2, null }; check_children(parent2, list); }
-    { ref<Node> list[] = { null }; check_children(frag, list); }
+    { ref<Node> list[] = { child1, child2, nullptr }; check_children(parent2, list); }
+    { ref<Node> list[] = { nullptr }; check_children(frag, list); }
     ref<Node> child3 = doc->createComment(str_from_cloc(L"baz"));
     frag->appendChild(child3);
-    { ref<Node> list[] = { child3, null }; check_children(frag, list); }
+    { ref<Node> list[] = { child3, nullptr }; check_children(frag, list); }
     parent2->appendChild(frag);
-    { ref<Node> list[] = { child1, child2, child3, null }; check_children(parent2, list); }
-    { ref<Node> list[] = { null }; check_children(frag, list); }
+    { ref<Node> list[] = { child1, child2, child3, nullptr }; check_children(parent2, list); }
+    { ref<Node> list[] = { nullptr }; check_children(frag, list); }
     frag->appendChild(child3);
     frag->appendChild(child1);
-    { ref<Node> list[] = { child2, null }; check_children(parent2, list); }
-    { ref<Node> list[] = { child3, child1, null }; check_children(frag, list); }
+    { ref<Node> list[] = { child2, nullptr }; check_children(parent2, list); }
+    { ref<Node> list[] = { child3, child1, nullptr }; check_children(frag, list); }
     parent2->appendChild(frag);
-    { ref<Node> list[] = { child2, child3, child1, null }; check_children(parent2, list); }
-    { ref<Node> list[] = { null }; check_children(frag, list); }
+    { ref<Node> list[] = { child2, child3, child1, nullptr }; check_children(parent2, list); }
+    { ref<Node> list[] = { nullptr }; check_children(frag, list); }
 
     // FIXME: Test insertBefore() incl NOT_FOUND_ERR
 
@@ -199,7 +199,7 @@ void test_add_remove_child_1(ref<Document> doc, ref<Node> parent)
     CHECK_EXCEPTION(HIERARCHY_REQUEST_ERR, parent2->appendChild(parent));
 
     ref<DOMImplementation> impl = doc->getImplementation();
-    ref<Document> doc2 = impl->createDocument(str_from_cloc(L"ns"), str_from_cloc(L"root2"), null);
+    ref<Document> doc2 = impl->createDocument(str_from_cloc(L"ns"), str_from_cloc(L"root2"), nullptr);
     ref<Node> foreign = doc2->createComment(str_from_cloc(L"foreign"));
     CHECK_EXCEPTION(WRONG_DOCUMENT_ERR, parent->appendChild(foreign));
 
@@ -319,7 +319,7 @@ void test()
 
     DOMString ns = str_from_cloc(L"my://namespace");
 
-    ref<Document> doc = impl->createDocument(ns, str_from_cloc(L"root"), null);
+    ref<Document> doc = impl->createDocument(ns, str_from_cloc(L"root"), nullptr);
 
     test_add_remove_child(doc);
     test_child_list(doc);
@@ -327,13 +327,13 @@ void test()
 }
 
 
-int main() throw()
+int main()
 {
     try {
         test();
         std::cout << "OK" << std::endl;
     }
-    catch (std::exception &e) {
+    catch (std::exception& e) {
         std::cout << "ERROR: " << e.what() << std::endl;
     }
 }

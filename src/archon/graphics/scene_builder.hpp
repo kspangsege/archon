@@ -29,6 +29,7 @@
 
 #include <archon/math/vector.hpp>
 #include <archon/math/rotation.hpp>
+#include <archon/util/packed_trgb.hpp>
 #include <archon/image/image.hpp>
 
 
@@ -40,6 +41,9 @@ public:
     void begin_quad_strip();
     void begin_polygon();
     void end();
+
+    /// Default color is fully opaque white
+    void set_color(util::PackedTRGB);
 
     void set_normal(math::Vec3); // Must be a unit vector
     void set_tex_coord(math::Vec2);
@@ -56,6 +60,7 @@ protected:
     virtual void do_begin_polygon() = 0;
     virtual void do_end() = 0;
 
+    virtual void do_set_color(util::PackedTRGB) = 0;
     virtual void do_set_normal(math::Vec3) = 0;
     virtual void do_set_tex_coord(math::Vec2) = 0;
     virtual void do_add_vertex(math::Vec3) = 0;
@@ -181,10 +186,29 @@ void build_zxy_mesh(SpatialObjectBuilder& builder,
 
 
 
-void build_box(SpatialObjectBuilder&, bool gen_texture_coords = true,
-               bool has_front = true, bool has_back = true, bool has_right = true,
-               bool has_left = true, bool has_top = true, bool has_bottom = true,
-               int x_steps = 12, int y_steps = 12, int z_steps = 12);
+/// Build a 2 by 2 by 2 axis-aligned rectangular box centered at the origin.
+///
+/// When texture coordinates are generated, the unit texture square is mapped on
+/// to each of the six faces. On the front face it is mappped such that the
+/// primary and secondary texture coordinate axes are codirectional with the
+/// spatial X and Y axes respectively. On the left, right, and back faces, the
+/// mapping is done such that it corresponds to rotations of the front face
+/// around the spatial Y axis. On the top and bottom faces, it is done such that
+/// it corresponds to rotations of the front face around the spatial X axis.
+void build_centered_box(SpatialObjectBuilder&, bool gen_texture_coords = true,
+                        bool has_front = true, bool has_back = true, bool has_right = true,
+                        bool has_left = true, bool has_top = true, bool has_bottom = true,
+                        int x_steps = 12, int y_steps = 12, int z_steps = 12);
+
+/// Build a 1 by 1 by 1 axis-aligned rectangular box with one corner in (0,0,0),
+/// and the opposite corner in (1,1,1).
+///
+/// Texture coordinates a generated in the same was as is done by
+/// build_centered_box().
+void build_unit_box(SpatialObjectBuilder&, bool gen_texture_coords = true,
+                    bool has_front = true, bool has_back = true, bool has_right = true,
+                    bool has_left = true, bool has_top = true, bool has_bottom = true,
+                    int x_steps = 12, int y_steps = 12, int z_steps = 12);
 
 
 
@@ -223,8 +247,9 @@ void build_sphere(SpatialObjectBuilder&, bool gen_texture_coords = true,
 
 
 
+/// Build a torus with major radius of 1.
 void build_torus(SpatialObjectBuilder&, bool gen_texture_coords = true,
-                 double major_radius = 2, int major_azimuth_steps = 36,
+                 double minor_radius = 0.5, int major_azimuth_steps = 36,
                  int minor_azimuth_steps = 18);
 
 
@@ -245,6 +270,11 @@ inline void SpatialObjectBuilder::begin_polygon()
 inline void SpatialObjectBuilder::end()
 {
     do_end();
+}
+
+inline void SpatialObjectBuilder::set_color(util::PackedTRGB color)
+{
+    do_set_color(color);
 }
 
 inline void SpatialObjectBuilder::set_normal(math::Vec3 n)

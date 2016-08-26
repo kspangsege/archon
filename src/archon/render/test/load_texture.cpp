@@ -22,6 +22,7 @@
 ///
 /// \author Kristian Spangsege
 
+#include <cstdlib>
 #include <string>
 #include <vector>
 
@@ -65,11 +66,27 @@ public:
             m_texture_decls.push_back(decl);
         }
 
-        register_key_handler(KeySym_Right, &LoadTexture::next_texture,
-                             "Go to next texture.");
-        register_key_handler(KeySym_Left, &LoadTexture::prev_texture,
-                             "Go to previous texture.");
+        auto next_texture = [this](bool key_down) {
+            if (key_down) {
+                if (++m_texture_index == m_texture_decls.size())
+                    m_texture_index = 0;
+                update_texture();
+                return true;
+            }
+            return false;
+        };
+        auto prev_texture = [this](bool key_down) {
+            if (key_down) {
+                if (m_texture_index-- == 0)
+                    m_texture_index += m_texture_decls.size();
+                update_texture();
+                return true;
+            }
+            return false;
+        };
 
+        bind_key(KeySym_Right, std::move(next_texture), "Go to next texture.");
+        bind_key(KeySym_Left, std::move(prev_texture), "Go to previous texture.");
 
         glEnable(GL_DEPTH_TEST);
         glEnable(GL_LIGHTING);
@@ -98,33 +115,9 @@ public:
     }
 
 private:
-    void render_scene()
+    void render() override
     {
         glCallList(m_list);
-    }
-
-
-    bool next_texture(bool key_down)
-    {
-        if (key_down) {
-            if (++m_texture_index == m_texture_decls.size())
-                m_texture_index = 0;
-            update_texture();
-            return true;
-        }
-        return false;
-    }
-
-
-    bool prev_texture(bool key_down)
-    {
-        if (key_down) {
-            if (m_texture_index-- == 0)
-                m_texture_index += m_texture_decls.size();
-            update_texture();
-            return true;
-        }
-        return false;
     }
 
 
@@ -143,7 +136,7 @@ private:
 } // unnamed namespace
 
 
-int main(int argc, const char* argv[]) throw()
+int main(int argc, const char* argv[])
 {
     std::set_terminate(&cxx::terminate_handler);
 

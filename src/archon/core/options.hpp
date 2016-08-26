@@ -185,11 +185,11 @@ namespace archon
         throw(DefinitionException)
       {
         verify(shortName, longName);
-        core::UniquePtr<Def> d;
+        std::unique_ptr<Def> d;
         d.reset(new DefVar<T, ConfigCodec<T>, D>(false, shortName, longName, var, val,
                                                  want_arg, ConfigCodec<T>(value_codec),
                                                  domainChecker, description));
-        defs.append(d);
+        defs.append(std::move(d));
       }
 */
 
@@ -208,11 +208,11 @@ namespace archon
         throw(DefinitionException)
       {
         verify(shortName, longName);
-        core::UniquePtr<Def> d;
+        std::unique_ptr<Def> d;
         d.reset(new DefVar<T, ConfigCodec<T>, Unrestricted<T> >
                 (false, shortName, longName, var, val, want_arg,
                  ConfigCodec<T>(value_codec), Unrestricted<T>(), description));
-        defs.append(d);
+        defs.append(std::move(d));
       }
 */
 
@@ -226,11 +226,11 @@ namespace archon
       void add_switch(std::string short_name, std::string long_name, T &var, T val,
                       std::string description, bool accept_val = false)
       {
-        core::UniquePtr<Def> o;
+        std::unique_ptr<Def> o;
         o.reset(new DefSwitchVar<T, ConfigCodec<T> >(dec(short_name), dec(long_name),
                                                      dec(description), accept_val, var,
                                                      val, ConfigCodec<T>(this)));
-        add_switch(o);
+        add_switch(std::move(o));
       }
 
 
@@ -239,11 +239,11 @@ namespace archon
                       T Obj::*memb, Obj *obj, T val,
                       std::string description, bool accept_val = false)
       {
-        core::UniquePtr<Def> o;
+        std::unique_ptr<Def> o;
         o.reset(new DefSwitchMemb<T, Obj, ConfigCodec<T> >(dec(short_name), dec(long_name),
                                                            dec(description), accept_val, memb, obj,
                                                            val, ConfigCodec<T>(this)));
-        add_switch(o);
+        add_switch(std::move(o));
       }
 
 
@@ -376,8 +376,8 @@ namespace archon
       struct Interpreter;
 
       void on_new_param(ParamBase *p); // Overriding Config::on_new_param
-      void add_switch(UniquePtr<Def>);
-      void add_top_level_option(UniquePtr<Def>);
+        void add_switch(std::unique_ptr<Def>);
+        void add_top_level_option(std::unique_ptr<Def>);
 
       bool const long_has_one_dash;
       bool const allow_numeric_names;
@@ -386,7 +386,7 @@ namespace archon
 
       std::wstring const long_prefix; // Either "-" or "--"
 
-      DeletingVector<Def> options;
+      std::vector<std::unique_ptr<Def>> options;
       NameMap top_level_short_map, top_level_long_map;
 
       bool opt_help;

@@ -18,11 +18,9 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #include <iostream>
 
@@ -31,43 +29,41 @@
 #include <archon/core/cxx.hpp>
 
 
-using namespace std;
 using namespace archon::core;
 using namespace archon::math;
 using namespace archon::render;
 
+
 int main() throw()
 {
-  set_terminate(&cxx::terminate_handler);
+    std::set_terminate(&cxx::terminate_handler);
 
-  double values[] = {
-    -1, +0, +0,
-    +0, -1, +0,
-    +0, +0, +1
-  };
+    double values[] = {
+        -1, +0, +0,
+        +0, -1, +0,
+        +0, +0, +1
+    };
 
-  Mat3 subframe_basis(values);
-  Vec3 subframe_origin(0, 0, -1);
-  Vec3 const rot_axis(0);
-  Rotation3 rot;
+    Mat3 subframe_basis(values);
+    Vec3 subframe_origin(0, 0, -1);
+    Vec3 rot_axis(0);
+    Rotation3 rot;
 
-  Random ran;
-  Vec3 x(ran.get_uniform(), ran.get_uniform(), ran.get_uniform());
-  x.unit();
-  Vec3 y(ran.get_uniform(), ran.get_uniform(), ran.get_uniform());
-  y.unit();
-  Vec3 z = x*y;
-  z.unit();
-  y = z*x;
+    Random ran;
+    Vec3 x(ran.get_uniform(), ran.get_uniform(), ran.get_uniform());
+    x.unit();
+    Vec3 y(ran.get_uniform(), ran.get_uniform(), ran.get_uniform());
+    y.unit();
+    Vec3 z = x*y;
+    z.unit();
+    y = z*x;
 
-  subframe_basis.col(0) = x;
-  subframe_basis.col(1) = y;
-  subframe_basis.col(2) = z;
-  subframe_origin.set(ran.get_uniform(), ran.get_uniform(), ran.get_uniform());
+    subframe_basis.col(0) = x;
+    subframe_basis.col(1) = y;
+    subframe_basis.col(2) = z;
+    subframe_origin.set(ran.get_uniform(), ran.get_uniform(), ran.get_uniform());
 
-  billboard::calculate_rotation(subframe_basis, subframe_origin, rot_axis, rot);
+    billboard::calculate_rotation(subframe_basis, subframe_origin, rot_axis, rot);
 
-  cout << rot.axis << ":" << rot.angle << endl;
-
-  return 0;
+    std::cout << rot.axis << ":" << rot.angle << std::endl;
 }

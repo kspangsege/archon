@@ -18,208 +18,212 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #include <stdexcept>
 
 #include <archon/util/codec.hpp>
 
 
-using namespace std;
 using namespace archon::core;
 
-namespace
-{
-  struct BlockDecodeInputStream: InputStream
-  {
-    size_t read(char_type *b, size_t n)
+namespace {
+
+class BlockDecodeInputStream: public InputStream {
+public:
+    std::size_t read(char_type* b, std::size_t n) override
     {
-      if(!n || eoi) return 0;
+        if (!n || eoi)
+            return 0;
 
-      size_t const n_orig = n;
-      for(;;)
-      {
-        // Transfer remaining bytes of current block
-        while(left)
-        {
-          size_t m = min(n, left);
-          size_t r = in.read(b, m);
-          if(!r) throw ReadException("BlockDecodeInputStream: "
-                                     "Premature end of input");
-          left -= r;
-          n -= r;
-          if(!n) return n_orig;
-          if(b) b += r;
-        }
+        std::size_t n_orig = n;
+        for (;;) {
+            // Transfer remaining bytes of current block
+            while (left) {
+                std::size_t m = std::min(n, left);
+                std::size_t r = in.read(b, m);
+                if (!r)
+                    throw ReadException("BlockDecodeInputStream: Premature end of input");
+                left -= r;
+                n -= r;
+                if (!n)
+                    return n_orig;
+                if (b)
+                    b += r;
+            }
 
-        // Get size of next block
-        {
-          char c;
-          size_t r = in.read(&c, 1);
-          if(!r) throw ReadException("BlockDecodeInputStream: "
-                                     "Premature end of input");
-          if(!c)
-          {
-            eoi = true;
-            return n_orig - n;
-          }
-          left = static_cast<unsigned char>(c);
+            // Get size of next block
+            {
+                char c;
+                std::size_t r = in.read(&c, 1);
+                if (!r)
+                    throw ReadException("BlockDecodeInputStream: Premature end of input");
+                if (!c) {
+                    eoi = true;
+                    return n_orig - n;
+                }
+                left = static_cast<unsigned char>(c);
+            }
         }
-      }
     }
 
-    BlockDecodeInputStream(InputStream &i, SharedPtr<InputStream> const &owner):
-      in(i), in_owner(owner), left(0), eoi(false) {}
+    BlockDecodeInputStream(InputStream& i, const std::shared_ptr<InputStream>& owner):
+        in(i),
+        in_owner(owner)
+    {
+    }
 
     InputStream &in;
-    SharedPtr<InputStream> const in_owner;
+    const std::shared_ptr<InputStream> in_owner;
 
-    size_t left;
-    bool eoi;
-  };
+    std::size_t left = 0;
+    bool eoi = false;
+};
 
 
-  struct BlockEncodeOutputStream: OutputStream
-  {
-    void write(char const *b, size_t n)
+class BlockEncodeOutputStream: public OutputStream {
+public:
+    void write(const char* b, std::size_t n) override
     {
-      if (!chunk) throw WriteException("Write after flush is not supported");
-      for(;;)
-      {
-        // Transfer callers data to buffer
-        size_t m = min(n, left);
-        char const *e = b + m;
-        copy(b, e, chunk_size - left + chunk);
-        left -= m;
-        n -= m;
-        if(!n) return;
-        b = e;
+        if (!chunk)
+            throw WriteException("Write after flush is not supported");
+        for (;;) {
+            // Transfer callers data to buffer
+            std::size_t m = std::min(n, left);
+            const char* e = b + m;
+            std::copy(b, e, s_chunk_size - left + chunk);
+            left -= m;
+            n -= m;
+            if (!n)
+                return;
+            b = e;
 
-        // Close the filled chunk, and go to next
-        chunk[0] = '\xFF';
-        chunk += chunk_size;
-        left = chunk_size-1;
+            // Close the filled chunk, and go to next
+            chunk[0] = '\xFF';
+            chunk += s_chunk_size;
+            left = s_chunk_size-1;
 
-        // Write to wrapped stream if buffer is full
-        if(chunk == buffer + sizeof(buffer))
-        {
-          out.write(buffer, sizeof(buffer));
-          chunk = buffer;
+            // Write to wrapped stream if buffer is full
+            if (chunk == buffer + sizeof buffer) {
+                out.write(buffer, sizeof buffer);
+                chunk = buffer;
+            }
         }
-      }
     }
 
-    void flush()
+    void flush() override
     {
-      if(!chunk) return;
-      flush2();
-      buffer[0] = '\0';
-      out.write(buffer, 1);
-      chunk = 0; // Force a fail on next write
+        if (!chunk)
+            return;
+        flush2();
+        buffer[0] = '\0';
+        out.write(buffer, 1);
+        chunk = 0; // Force a fail on next write
     }
 
     void flush2()
     {
-      size_t n = chunk_size-left-1;
-      // If n is zero, the buffer is empty
-      if(n)
-      {
-        chunk[0] = static_cast<unsigned char>(n);
-        out.write(buffer, chunk+(256-left) - buffer);
-        left = chunk_size-1;
-        chunk = buffer;
-      }
+        std::size_t n = s_chunk_size-left-1;
+        // If n is zero, the buffer is empty
+        if (n != 0) {
+            chunk[0] = static_cast<unsigned char>(n);
+            out.write(buffer, chunk+(256-left) - buffer);
+            left = s_chunk_size-1;
+            chunk = buffer;
+        }
     }
 
-    BlockEncodeOutputStream(OutputStream &o, SharedPtr<OutputStream> const &owner):
-      out(o), out_owner(owner), chunk(buffer), left(chunk_size-1) {}
+    BlockEncodeOutputStream(OutputStream& o, const std::shared_ptr<OutputStream>& owner):
+        out(o),
+        out_owner(owner)
+    {
+    }
 
     ~BlockEncodeOutputStream()
     {
-      try { flush(); } catch(...) {}
+        try {
+            flush();
+        }
+        catch (...) {
+        }
     }
 
-    static size_t const chunk_size = 256; // Must never exceed 256
+    static constexpr std::size_t s_chunk_size = 256; // Must never exceed 256
 
-    OutputStream &out;
-    SharedPtr<OutputStream> const out_owner;
+    OutputStream& out;
+    const std::shared_ptr<OutputStream> out_owner;
 
-    char buffer[4*chunk_size]; // Must be an integer multiple of chunk_size
-    char *chunk;
-    size_t left;
-  };
+    char buffer[4*s_chunk_size]; // Must be an integer multiple of chunk_size
+    char* chunk = buffer;
+    std::size_t left = s_chunk_size - 1;
+};
 
 
-  struct BlockCodec: Codec
-  {
-    string encode(string const &) const
+class BlockCodec: public Codec {
+public:
+    std::string encode(const std::string&) const
     {
-      throw runtime_error("Not implemented");
+        throw std::runtime_error("Not implemented");
     }
 
-    string decode(string const &) const
+    std::string decode(const std::string&) const
     {
-      throw runtime_error("Not implemented");
+        throw std::runtime_error("Not implemented");
     }
 
-    UniquePtr<OutputStream> get_enc_out_stream(OutputStream &out) const
+    std::unique_ptr<OutputStream> get_enc_out_stream(OutputStream& out) const
     {
-      UniquePtr<OutputStream> s(new BlockEncodeOutputStream(out, SharedPtr<OutputStream>()));
-      return s;
+        return std::make_unique<BlockEncodeOutputStream>(out, nullptr); // Throws
     }
 
-    UniquePtr<InputStream> get_dec_in_stream(InputStream &in) const
+    std::unique_ptr<InputStream> get_dec_in_stream(InputStream& in) const
     {
-      UniquePtr<InputStream> s(new BlockDecodeInputStream(in, SharedPtr<InputStream>()));
-      return s;
+        return std::make_unique<BlockDecodeInputStream>(in, nullptr); // Throws
     }
 
-    UniquePtr<InputStream> get_enc_in_stream(InputStream &) const
+    std::unique_ptr<InputStream> get_enc_in_stream(InputStream&) const
     {
-      throw runtime_error("Not implemented");
+        throw std::runtime_error("Not implemented");
     }
 
-    UniquePtr<OutputStream> get_dec_out_stream(OutputStream &) const
+    std::unique_ptr<OutputStream> get_dec_out_stream(OutputStream&) const
     {
-      throw runtime_error("Not implemented");
+        throw std::runtime_error("Not implemented");
     }
 
-    UniquePtr<OutputStream> get_enc_out_stream(SharedPtr<OutputStream> const &out) const
+    std::unique_ptr<OutputStream> get_enc_out_stream(const std::shared_ptr<OutputStream>& out) const
     {
-      UniquePtr<OutputStream> s(new BlockEncodeOutputStream(*out, out));
-      return s;
+        return std::make_unique<BlockEncodeOutputStream>(*out, out); // Throws
     }
 
-    UniquePtr<InputStream> get_dec_in_stream(SharedPtr<InputStream> const &in) const
+    std::unique_ptr<InputStream> get_dec_in_stream(const std::shared_ptr<InputStream>& in) const
     {
-      UniquePtr<InputStream> s(new BlockDecodeInputStream(*in, in));
-      return s;
+        return std::make_unique<BlockDecodeInputStream>(*in, in); // Throws
     }
 
-    UniquePtr<InputStream> get_enc_in_stream(SharedPtr<InputStream> const &) const
+    std::unique_ptr<InputStream> get_enc_in_stream(const std::shared_ptr<InputStream>&) const
     {
-      throw runtime_error("Not implemented");
+        throw std::runtime_error("Not implemented");
     }
 
-    UniquePtr<OutputStream> get_dec_out_stream(SharedPtr<OutputStream> const &) const
+    std::unique_ptr<OutputStream> get_dec_out_stream(const std::shared_ptr<OutputStream>&) const
     {
-      throw runtime_error("Not implemented");
+        throw std::runtime_error("Not implemented");
     }
-  };
-}
+};
 
-namespace archon
+} // unnamed namespace
+
+
+namespace archon {
+namespace util {
+
+std::unique_ptr<const Codec> get_block_codec()
 {
-  namespace util
-  {
-    UniquePtr<Codec const> get_block_codec()
-    {
-      UniquePtr<Codec const> c(new BlockCodec());
-      return c;
-    }
-  }
+    return std::make_unique<BlockCodec>();
 }
+
+} // namespace util
+} // namespace archon

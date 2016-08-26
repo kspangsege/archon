@@ -18,27 +18,23 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- *
- * Testing the Yber codec.
- */
+/// \file
+///
+/// \author Kristian Spangsege
+///
+/// Testing the Yber codec.
 
 #include <iostream>
 
 #include <archon/web/yber_codec.hpp>
 
-using namespace std;
 using namespace archon::web;
 using namespace archon::core;
 
-int main(int argc, char const *argv[]) throw()
+int main(int argc, const char* argv[])
 {
-  string s = argc < 2 ? "hest*eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" : argv[1];
-  UniquePtr<Codec const> yber(get_yber_codec().release());
-  cout << yber->decode(s) << endl;
-
-  return 0;
+    std::string s = (argc < 2 ? "hest*eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee" : argv[1]);
+    std::unique_ptr<const Codec> yber = get_yber_codec();
+    std::cout << yber->decode(s) << std::endl;
+    return 0;
 }

@@ -84,7 +84,7 @@ public:
     /// \note This method is thread-safe.
     virtual int get_visual() const = 0;
 
-    virtual ~Drawable() {}
+    virtual ~Drawable() noexcept {}
 };
 
 

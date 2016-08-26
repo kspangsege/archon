@@ -18,71 +18,62 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #ifndef ARCHON_CORE_DIR_SCAN_HPP
 #define ARCHON_CORE_DIR_SCAN_HPP
 
+#include <memory>
 #include <string>
 
-#include <archon/core/unique_ptr.hpp>
 #include <archon/core/file.hpp>
 
 
-namespace archon
-{
-  namespace core
-  {
-    struct DirScanner
-    {
-      struct Exception;
+namespace archon {
+namespace core {
 
-      /**
-       * Construct a new directory scanner.
-       *
-       * \param path The file system path of the directory to scan.
-       *
-       * \param include_special Set to true if you want the special
-       * entries "." and ".." to be included.
-       *
-       * \return A new scanner object.
-       *
-       * \throw file::NotFoundException When the directory could not
-       * be found or it was not a directory.
-       *
-       * \throw file::PermissionException When access to the directory
-       * is forbidden.
-       *
-       * \note Ownership of the returned scanner object is passed to
-       * the caller.
-       */
-      static UniquePtr<DirScanner> new_dir_scanner(std::string path, bool include_special=false);
+class DirScanner {
+public:
+    class Exception;
 
-      /**
-       * Get the underlying file descriptor if possible.
-       *
-       * \return The file descriptor or -1 if this information is not
-       * available.
-       */
-      virtual int get_file_descriptor() const = 0;
+    /// Construct a new directory scanner.
+    ///
+    /// \param path The file system path of the directory to scan.
+    ///
+    /// \param include_special Set to true if you want the special entries "."
+    /// and ".." to be included.
+    ///
+    /// \return A new scanner object.
+    ///
+    /// \throw file::NotFoundException When the directory could not be found or
+    /// it was not a directory.
+    ///
+    /// \throw file::PermissionException When access to the directory is
+    /// forbidden.
+    ///
+    /// \note Ownership of the returned scanner object is passed to the caller.
+    static std::unique_ptr<DirScanner> new_dir_scanner(std::string path,
+                                                       bool include_special = false);
 
-      /**
-       * Get the name of the next directory entry.
-       *
-       * \return The name of the next directory entry, or the empty
-       * string if all entries have been returned.
-       *
-       * \throw std::runtime_error If reading the directory fails.
-       */
-      virtual std::string next_entry() = 0;
+    /// Get the underlying file descriptor if possible.
+    ///
+    /// \return The file descriptor or -1 if this information is not available.
+    virtual int get_file_descriptor() const = 0;
 
-      virtual ~DirScanner() {}
-    };
-  }
-}
+    /// Get the name of the next directory entry.
+    ///
+    /// \return The name of the next directory entry, or the empty string if all
+    /// entries have been returned.
+    ///
+    /// \throw std::runtime_error If reading the directory fails.
+    virtual std::string next_entry() = 0;
+
+    virtual ~DirScanner() noexcept {}
+};
+
+} // namespace core
+} // namespace archon
 
 #endif // ARCHON_CORE_DIR_SCAN_HPP

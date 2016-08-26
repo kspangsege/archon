@@ -115,8 +115,8 @@ public:
      */
     struct StyleOwner {
         StyleOwner(FontProvider* p, int style_id = 0) throw():
-            provider(p),
-            style(style_id)
+            provider{p},
+            style{style_id}
         {
         }
         int get() const throw()
@@ -158,7 +158,8 @@ public:
 private:
     friend class TextContainer;
 
-    struct Style {
+    class Style {
+    public:
         int font_id; // As known to font::FontCache
         math::Vec2F font_size;
         math::Vec4F text_color;
@@ -169,23 +170,24 @@ private:
         bool operator==(const Style& s) const;
     };
 
-    struct StyleEntry {
+    class StyleEntry {
+    public:
         std::size_t use_count = 0;
         Style style;
         math::Vec2F font_scaling;
     };
 
-    struct StyleHasher {
+    class StyleHasher {
+    public:
         static int hash(const Style& s, int n);
     };
 
-    typedef std::vector<StyleEntry> Styles;
-    Styles styles;
+    std::vector<StyleEntry> styles;
     util::HashMap<Style, int, StyleHasher> style_map; // Value is one plus index in 'styles'.
     std::vector<int> unused_styles; // One plus indexes into 'styles'
 
 
-    struct TextureFontSource;
+    class TextureFontSource;
     class Texture;
     class Page;
     class FontEntry;
@@ -198,7 +200,7 @@ private:
     FontEntry* new_font(int font_id);
     Page* new_page(FontEntry* font, int page_idx);
     void new_texture(FontEntry* font, int page_idx, int tex_ord,
-                     core::UniquePtr<util::RectanglePacker>& packer, core::UIntMin16& tex_idx);
+                     std::unique_ptr<util::RectanglePacker>& packer, core::UIntMin16& tex_idx);
     void render(const TextContainer& text) const;
     void release(TextContainer& text);
 
@@ -209,10 +211,9 @@ private:
     const bool enable_mipmap; // Do mipmapping on textures
     const bool save_textures; // Save each of the generated textures as a PNG file in /tmp/
 
-    typedef std::map<int, FontEntry*> FontMap;
-    FontMap font_map;
-    core::DeletingVector<FontEntry> fonts;
-    core::DeletingVector<Texture> textures;
+    std::map<int, FontEntry*> font_map;
+    std::vector<std::unique_ptr<FontEntry>> fonts;
+    std::vector<std::unique_ptr<Texture>> textures;
 
     std::size_t used_pages = 0, used_textures = 0;
 };
@@ -251,15 +252,14 @@ public:
     }
 
 private:
-    friend class FontProvider;
     FontProvider* provider = nullptr;
     font::FontCache::Direction layout_direction;
 
-    typedef std::pair<int, int> PageRef; // Page of glyps (cache_font_id, page_index)
-    typedef std::vector<PageRef> PageRefs;
-    PageRefs page_refs;
+    using PageRef = std::pair<int, int>; // Page of glyps (cache_font_id, page_index)
+    std::vector<PageRef> page_refs;
 
-    struct Strip {
+    class Strip {
+    public:
         int style_idx; // Index in 'provider->styles' of style of this strip
         float lateral_pos; // Position of baseline
         int num_glyphs = 0;
@@ -269,7 +269,8 @@ private:
         {
         }
     };
-    struct Glyph {
+    class Glyph {
+    public:
         int index; // Index in texture
         float position;
         Glyph(int i, float p):
@@ -278,19 +279,19 @@ private:
         {
         }
     };
-    typedef std::vector<Strip> Strips;
-    typedef std::vector<Glyph> Glyphs;
-    struct Texture {
+    class Texture {
+    public:
         FontProvider::Texture* texture;
-        Strips  strips;
-        Glyphs glyphs;
+        std::vector<Strip> strips;
+        std::vector<Glyph> glyphs;
         Texture(FontProvider::Texture* t):
             texture(t)
         {
         }
     };
-    typedef std::list<Texture> Textures;
-    Textures textures;
+    std::list<Texture> textures;
+
+    friend class FontProvider;
 };
 
 
@@ -317,26 +318,24 @@ public:
     void insert_strip(int style_id, int num_glyphs, const int* glyphs, const float* components);
 
 private:
-    friend class FontProvider;
-
     FontProvider* const font_provider;
     TextContainer* const text;
     const bool vertical; // True iff the layout is vertical
 
-    typedef std::vector<bool> PageSet;
+    using PageSet = std::vector<bool>;
     std::map<int, PageSet> page_sets;
     // Only to speed up page_set lookups
     int last_font_id = -1;
     FontEntry* last_font;
     PageSet* last_page_set;
 
-    typedef std::map<int, TextContainer::Texture*> Textures;
+    using Textures = std::map<int, TextContainer::Texture*>;
     Textures textures;
-    typedef util::RepMapLookupBooster<Textures, 4> TextureLookup;
-    TextureLookup texture_lookup;
-    typedef std::pair<int, TextContainer::Texture*> StripTexture;
-    typedef std::vector<StripTexture> StripTextures;
-    StripTextures strip_textures;
+    util::RepMapLookupBooster<Textures, 4> texture_lookup;
+    using StripTexture = std::pair<int, TextContainer::Texture*>;
+    std::vector<StripTexture> strip_textures;
+
+    friend class FontProvider;
 };
 
 
@@ -381,7 +380,7 @@ inline int FontProvider::StyleHasher::hash(const Style& s, int n)
     h.add_float(s.text_color[1]);
     h.add_float(s.text_color[2]);
     h.add_float(s.text_color[3]);
-    return h.get_hash(n);
+    return int(h.get_hash(n));
 }
 
 class FontProvider::Texture {
@@ -400,7 +399,7 @@ public:
     int text_use_count = 0; // One for each TextContainer that refers to this texture.
     // Invariant: page_use_count == 0  ==>  text_use_count == 0
     Texture(const FontEntry* f):
-        font(f)
+        font{f}
     {
     }
 };
@@ -425,15 +424,15 @@ public:
     bool grid_fitting;
     int texture_width, texture_height;
     math::Vec2 texture_scale; // Inverse of texture resolution
-    core::DeletingVector<Page> pages;
+    std::vector<std::unique_ptr<Page>> pages;
 
-    core::UniquePtr<util::RectanglePacker> packer;
+    std::unique_ptr<util::RectanglePacker> packer;
     core::UIntMin16 open_texture_index; // Defined only if 'packer' is not null
     bool dirty_texture = false; // If new glyphs were rendered into the open texture, but the texture is not yet refreshed
 
     FontEntry(int i, std::string n):
-        id(i),
-        name(n)
+        id{i},
+        name{n}
     {
     }
 };
@@ -464,10 +463,10 @@ inline void FontProvider::TextContainer::clear()
 
 inline FontProvider::TextInserter::TextInserter(FontProvider* p, TextContainer* t,
                                                 font::FontCache::Direction d):
-    font_provider(p),
-    text(t),
-    vertical(d == font::FontCache::dir_BottomToTop || d == font::FontCache::dir_TopToBottom),
-    texture_lookup(&textures)
+    font_provider{p},
+    text{t},
+    vertical{d == font::FontCache::dir_BottomToTop || d == font::FontCache::dir_TopToBottom},
+    texture_lookup{textures}
 {
     t->clear();
     t->layout_direction = d;

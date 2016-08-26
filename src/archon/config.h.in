@@ -47,11 +47,19 @@
    ...) and want to use it. */
 #undef ARCHON_HAVE_TERM_SIZE
 
+/* Define to 1 if you have the advanced input extension to X and want to use
+   it. */
+#undef ARCHON_HAVE_XINPUT2
+
 /* Define to 1 if you have the X11 Library and want to use it. */
 #undef ARCHON_HAVE_XLIB
 
 /* Define to 1 if you have the X Rendering Extension and want to use it. */
 #undef ARCHON_HAVE_XRENDER
+
+/* Define to 1 if you have the Generic Event Extension to X and want to use
+   it. */
+#undef ARCHON_HAVE_X_GENERIC_EVENTS
 
 /* define if the compiler supports basic C++14 syntax */
 #undef HAVE_CXX14

@@ -414,7 +414,7 @@ top_srcdir = @top_srcdir@
 SUBDIRS = $(am__append_1) . test
 subincludedir = $(pkgincludedir)/display
 subinclude_HEADERS = implementation.hpp geometry.hpp connection.hpp event.hpp drawable.hpp \
-window.hpp pixel_buffer.hpp context.hpp keysyms.hpp
+cursor.hpp window.hpp pixel_buffer.hpp context.hpp keysyms.hpp
 
 lib_LTLIBRARIES = libarchon_display.la
 libarchon_display_la_SOURCES = implementation.cpp

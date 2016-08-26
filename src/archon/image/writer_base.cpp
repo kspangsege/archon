@@ -18,19 +18,17 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #include <archon/image/writer_base.hpp>
 
 
-namespace archon
-{
-  namespace image
-  {
-    WriterBase::WriterCvtStepsSwitch WriterBase::writer_cvt_steps_switch;
-  }
-}
+namespace archon {
+namespace image {
+
+WriterBase::WriterCvtStepsSwitch WriterBase::s_writer_cvt_steps_switch;
+
+} // namespace image
+} // namespace archon

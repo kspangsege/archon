@@ -4,5 +4,6 @@
 /*.o
 
 /cursor
+/relative_mouse_motion
 /image
 /shared_textures

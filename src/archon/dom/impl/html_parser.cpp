@@ -1110,7 +1110,8 @@ public:
 
             std::size_t num_u16_consumed = new_soft_end_u16 - last_buf_u16->begin;
 
-            Array<CharUtf16> dev_null(num_u16_consumed); // May throw
+            std::unique_ptr<CharUtf16[]> dev_null =
+                std::make_unique<CharUtf16[]>(num_u16_consumed); // Throws
 
             // This reverting of the "raw" buffer read position coupled
             // with the following truncated transcoding operation amounts

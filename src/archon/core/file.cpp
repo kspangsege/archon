@@ -134,7 +134,7 @@ namespace archon
 
       void scan_dir(string dir_path, vector<string> &result, bool include_special)
       {
-        UniquePtr<DirScanner> s(DirScanner::new_dir_scanner(dir_path, include_special).release());
+        std::unique_ptr<DirScanner> s = DirScanner::new_dir_scanner(dir_path, include_special);
         for (;;) {
           string n = s->next_entry();
           if (n.empty()) break;

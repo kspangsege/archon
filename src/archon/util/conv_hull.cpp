@@ -18,11 +18,9 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #include <limits>
 #include <algorithm>
@@ -38,7 +36,6 @@
 #include <archon/util/conv_hull.hpp>
 
 
-using namespace std;
 using namespace archon::core;
 using namespace archon::math;
 using namespace archon::util;
@@ -188,54 +185,59 @@ namespace {
 
 struct VertexSet {
     // The index of the associated facet.
-    size_t facet;
+    std::size_t facet;
 
-    // The index of the last vertex of the set of vertices associated
-    // with the facet, or numeric_limits<size_t>::max() if the set is
-    // empty. The first vertex in the set, next_vertex[last_vertex],
-    // is also the highest vertex above the hyperplane of the facet.
-    size_t last_vertex;
+    // The index of the last vertex of the set of vertices associated with the
+    // facet, or std::numeric_limits<std::size_t>::max() if the set is
+    // empty. The first vertex in the set, next_vertex[last_vertex], is also the
+    // highest vertex above the hyperplane of the facet.
+    std::size_t last_vertex;
 
-    VertexSet(size_t f, size_t l): facet(f), last_vertex(l) {}
+    VertexSet(std::size_t f, std::size_t l):
+        facet(f),
+        last_vertex(l)
+    {
+    }
 };
 
 
 // N-D description of an (N-1)-Simplex (for now, a 3-D description of a triangle)
 struct Facet {
-    void reset(size_t v0, size_t v1, size_t v2, size_t n0, size_t n1, size_t n2)
+    void reset(std::size_t v_0, std::size_t v_1, std::size_t v_2,
+               std::size_t n_0, std::size_t n_1, std::size_t n_2)
     {
-        vertices[0]  = v0;
-        vertices[1]  = v1;
-        vertices[2]  = v2;
-        neighbors[0] = n0;
-        neighbors[1] = n1;
-        neighbors[2] = n2;
+        vertices[0]  = v_0;
+        vertices[1]  = v_1;
+        vertices[2]  = v_2;
+        neighbors[0] = n_0;
+        neighbors[1] = n_1;
+        neighbors[2] = n_2;
     }
 
     // In counterclockwise order when viewed from the front
-    size_t vertices[3];
+    std::size_t vertices[3];
 
     // neighbors[0] is the neighboring facet across the edge from vertex 1 to vertex 2.
     // neighbors[1] is the neighboring facet across the edge from vertex 2 to vertex 0.
-    size_t neighbors[3];
+    std::size_t neighbors[3];
 };
 
-typedef Facet Triangle;
+using Triangle = Facet;
 
 /*
-  sturct BoundaryRidge {
+sturct BoundaryRidge {
   // neighbors[0] is the neighboring ridge across the second vertex
-  size_t neighbors[2];
+  std::size_t neighbors[2];
 
-  size_t facet;
+  std::size_t facet;
 
   int ridge_pos;
-  };
+};
 */
 
 
 template<class C, class T>
-basic_ostream<C,T> &operator<<(std::basic_ostream<C,T> &out, Facet const &f)
+std::basic_ostream<C,T> &operator<<(std::basic_ostream<C,T>& out, const Facet& f)
 {
     return out << out.widen('[') << text_join(f.vertices, f.vertices+3, out.widen(',')) <<
         out.widen(';') << text_join(f.neighbors, f.neighbors+3, out.widen(',')) << out.widen(']');
@@ -243,64 +245,70 @@ basic_ostream<C,T> &operator<<(std::basic_ostream<C,T> &out, Facet const &f)
 
 
 // FIXME: Make this a method of a class called DynamicIndexPartition (efficient: all operations have constant time complexity) (no dynamic memory allocation)
-inline size_t remove_vertex(size_t prev, size_t &last, vector<size_t> &next)
+inline std::size_t remove_vertex(std::size_t prev, std::size_t& last,
+                                 std::vector<std::size_t>& next)
 {
-    size_t const i = next[prev];
-    if(i == prev) last = numeric_limits<size_t>::max();
-    else
-    {
-        if(last == i) last = prev;
+    std::size_t i = next[prev];
+    if (i == prev) {
+        last = std::numeric_limits<std::size_t>::max();
+    }
+    else {
+        if (last == i)
+            last = prev;
         next[prev] = next[i];
     }
     return i;
 }
 
 
-inline size_t remove_front_vertex(size_t &last, vector<size_t> &next)
+inline std::size_t remove_front_vertex(std::size_t& last, std::vector<std::size_t>& next)
 {
-    size_t const first = next[last];
-    if(first == last) last = numeric_limits<size_t>::max();
-    else next[last] = next[first];
+    std::size_t first = next[last];
+    if (first == last) {
+        last = std::numeric_limits<std::size_t>::max();
+    }
+    else {
+        next[last] = next[first];
+    }
     return first;
 }
 
 
-int const tri_inc[3] = { 1, 2, 0 };
-int const tri_dec[3] = { 2, 0, 1 };
+const int tri_inc[3] = { 1, 2, 0 };
+const int tri_dec[3] = { 2, 0, 1 };
 
 
-void generate_trifans_from_surface(size_t num_vertices, vector<Triangle> const &triangles,
-                                   size_t entry_triangle, conv_hull::TrifanHandler &handler)
+void generate_trifans_from_surface(std::size_t num_vertices, const std::vector<Triangle>& triangles,
+                                   std::size_t entry_triangle, conv_hull::TrifanHandler& handler)
 {
-    vector<bool> seen_vertices(num_vertices);
-    vector<bool> seen_triangles(triangles.size());
-    vector<pair<size_t, int> > rim_stack;
-    size_t i = entry_triangle; // Index of next triangle to be processed
+    std::vector<bool> seen_vertices(num_vertices);
+    std::vector<bool> seen_triangles(triangles.size());
+    std::vector<std::pair<std::size_t, int>> rim_stack;
+    std::size_t i = entry_triangle; // Index of next triangle to be processed
     int d = 2; // Index in triangle of crossed edge, also index in triangle of next vertex to be added
-    Triangle const *t = &triangles[i];
+    const Triangle* t = &triangles[i];
     handler.add_vertex(t->vertices[0]);
     handler.add_vertex(t->vertices[1]);
     seen_vertices[t->vertices[0]] = true;
     seen_vertices[t->vertices[1]] = true;
-    for(;;)
-    {
+    for (;;) {
         seen_triangles[i] = true;
-        size_t const v = t->vertices[d];
+        std::size_t v = t->vertices[d];
         handler.add_vertex(v);
         int c = tri_dec[d]; // Edge to be crossed next
-        if(seen_vertices[v])
-        {
-            int const e = tri_inc[d];
-            bool const stop_fan =  seen_triangles[t->neighbors[c]];
-            bool const new_fan  = !seen_triangles[t->neighbors[e]];
-            if(stop_fan)
-            {
+        if (seen_vertices[v]) {
+            int e = tri_inc[d];
+            bool stop_fan =  seen_triangles[t->neighbors[c]];
+            bool new_fan  = !seen_triangles[t->neighbors[e]];
+            if (stop_fan) {
                 handler.close_trifan();
-                if(new_fan) c = e;
-                else
-                {
+                if (new_fan) {
+                    c = e;
+                }
+                else {
                     handler.close_trifan_set();
-                    if(rim_stack.empty()) break;
+                    if (rim_stack.empty())
+                        break;
                     i = rim_stack.back().first;
                     c = rim_stack.back().second;
                     rim_stack.pop_back();
@@ -309,94 +317,121 @@ void generate_trifans_from_surface(size_t num_vertices, vector<Triangle> const &
                     handler.add_vertex(t->vertices[tri_inc[c]]);
                 }
             }
-            else if(new_fan) rim_stack.push_back(make_pair(i,e));
+            else if (new_fan) {
+                rim_stack.push_back(std::make_pair(i,e));
+            }
         }
         seen_vertices[v] = true;
-        size_t const j = t->neighbors[c];
+        std::size_t j = t->neighbors[c];
         t = &triangles[j];
-        d = find(t->neighbors, t->neighbors+3, i) - t->neighbors;
+        d = std::find(t->neighbors, t->neighbors+3, i) - t->neighbors;
         i = j;
     }
 }
 
 
 template<class T> struct TempValOverride {
-    TempValOverride(T &var, T const &new_val): var(var), orig_val(var) { var = new_val; }
-    ~TempValOverride() { var = orig_val; }
+    TempValOverride(T &var, const T& new_val):
+        var(var),
+        orig_val(var)
+    {
+        var = new_val;
+    }
+    ~TempValOverride()
+    {
+        var = orig_val;
+    }
 private:
-    T &var;
-    T const orig_val;
+    T& var;
+    const T orig_val;
 };
 
 
 template<int N> struct Validator {
-    Validator(vector<Facet> const &f, wostream *logger = 0):
-        logger(logger), valid(true), facets(f), seen_facets(f.size()), num_facets_seen(0) {}
-
-    void validate(size_t start_facet, size_t num_facets_used)
+    Validator(const std::vector<Facet>& f, std::wostream* logger = 0):
+        logger(logger),
+        facets(f),
+        seen_facets(f.size())
     {
-        current_facet = current_neighbor = numeric_limits<size_t>::max();
-        if(!assert(start_facet < facets.size(),
-                   L"Index of start facet is out of range")) return;
+    }
+
+    void validate(std::size_t start_facet, std::size_t num_facets_used)
+    {
+        current_facet = current_neighbor = std::numeric_limits<std::size_t>::max();
+        if (!assert(start_facet < facets.size(), L"Index of start facet is out of range"))
+            return;
         validate_facet(start_facet);
         assert(num_facets_seen == num_facets_used, L"Mismatch in number of facets");
     }
 
-    bool is_valid() const { return valid; }
+    bool is_valid() const
+    {
+        return valid;
+    }
 
 private:
-    void validate_facet(size_t facet)
+    void validate_facet(std::size_t facet)
     {
-        TempValOverride<size_t> current_facet_override(current_facet, facet);
+        TempValOverride<std::size_t> current_facet_override(current_facet, facet);
         current_facet = facet;
         seen_facets[facet] = true;
         ++num_facets_seen;
-        Facet const &f = facets[facet];
-        for(int i=1; i<N; ++i)
-            if(!assert(f.vertices[i] != f.vertices[0], L"Non-distinct facet vertices")) break;
-        for(int i=1; i<N; ++i)
-            if(!assert(f.neighbors[i] != f.neighbors[0], L"Non-distinct facet neighbors")) break;
-        for(int i=0; i<N; ++i)
-            if(!assert(f.neighbors[i] != facet, L"Facet is its own neighbor")) break;
-        for(int i=0; i<N; ++i)
-        {
-            size_t const neighbor = f.neighbors[i];
-            if(!assert(neighbor < facets.size(),
-                       L"Index of facet neighbor is out of range")) continue;
-            if(!seen_facets[neighbor]) validate_facet(neighbor);
-            if(facet < neighbor) continue;
-            size_t ridge[N];
+        const Facet& f = facets[facet];
+        for (int i = 1; i < N; ++i) {
+            if (!assert(f.vertices[i] != f.vertices[0], L"Non-distinct facet vertices"))
+                break;
+        }
+        for (int i = 1; i < N; ++i) {
+            if (!assert(f.neighbors[i] != f.neighbors[0], L"Non-distinct facet neighbors"))
+                break;
+        }
+        for (int i = 0; i < N; ++i) {
+            if (!assert(f.neighbors[i] != facet, L"Facet is its own neighbor"))
+                break;
+        }
+        for (int i = 0; i < N; ++i) {
+            std::size_t neighbor = f.neighbors[i];
+            if (!assert(neighbor < facets.size(), L"Index of facet neighbor is out of range"))
+                continue;
+            if (!seen_facets[neighbor])
+                validate_facet(neighbor);
+            if (facet < neighbor)
+                continue;
+            std::size_t ridge[N];
             Parity parity;
             get_ridge(i, f, ridge, parity);
             validate_neigborship(facet, neighbor, ridge, parity);
         }
     }
 
-    void validate_neigborship(size_t origin, size_t neighbor, size_t const *ridge1, Parity parity1)
+    void validate_neigborship(std::size_t origin, std::size_t neighbor,
+                              const std::size_t* ridge1, Parity parity1)
     {
-        TempValOverride<size_t> current_neighbor_override(current_neighbor, neighbor);
-        Facet const &f = facets[neighbor];
-        int const i = find(f.neighbors, f.neighbors+N, origin) - f.neighbors;
-        if(!assert(i < N, L"Nonmutual facet neighborship")) return;
-        size_t ridge2[N];
+        TempValOverride<std::size_t> current_neighbor_override(current_neighbor, neighbor);
+        const Facet& f = facets[neighbor];
+        int i = std::find(f.neighbors, f.neighbors+N, origin) - f.neighbors;
+        if (!assert(i < N, L"Nonmutual facet neighborship"))
+            return;
+        std::size_t ridge2[N];
         Parity parity2;
         get_ridge(i, f, ridge2, parity2);
         // Determine the parity of the permutation that maps ridge1[0:N-1] to ridge2[0:N-1]
-        pair<Parity, size_t const *> const r =
+        std::pair<Parity, const std::size_t*> r =
             get_parity_of_permutation(ridge2, ridge2+(N-1), ridge1);
-        if(!assert(r.second == ridge1+(N-1), L"Facet neighbors disagree on shared ridge")) return;
-        Parity const total_parity = parity1 + r.first + parity2;
+        if (!assert(r.second == ridge1+(N-1), L"Facet neighbors disagree on shared ridge"))
+            return;
+        Parity total_parity = parity1 + r.first + parity2;
         assert(total_parity == Parity::odd, L"Front/back disagreement between facet neighbors");
     }
 
-    bool assert(bool cond, wstring message)
+    bool assert(bool cond, std::wstring message)
     {
-        if(cond) return true;
-        if(logger)
-        {
+        if (cond)
+            return true;
+        if (logger) {
             *logger << L"Surface validation error: " << message << "\n";
             *logger << L"FACET "<<current_facet<<": "<<facets[current_facet]<<"\n";
-            if(current_neighbor != numeric_limits<size_t>::max())
+            if (current_neighbor != std::numeric_limits<std::size_t>::max())
                 *logger << L"NEIGHBOR "<<current_neighbor<<": "<<facets[current_neighbor]<<"\n";
             logger->flush();
         }
@@ -404,28 +439,28 @@ private:
         return false;
     }
 
-    void get_ridge(int i, Facet const &f, size_t *ridge, Parity &parity)
+    void get_ridge(int i, const Facet& f, std::size_t* ridge, Parity& parity)
     {
         int n = (i+1) % N;
-        rotate_copy(f.vertices, f.vertices+n, f.vertices+N, ridge);
+        std::rotate_copy(f.vertices, f.vertices+n, f.vertices+N, ridge);
         parity = Parity(n * (N-1));
     }
 
-    wostream *const logger;
-    size_t current_facet;
-    size_t current_neighbor;
-    bool valid;
-    vector<Facet> const &facets;
-    vector<bool> seen_facets;
-    size_t num_facets_seen;
+    std::wostream* const logger;
+    std::size_t current_facet;
+    std::size_t current_neighbor;
+    bool valid = true;
+    const std::vector<Facet>& facets;
+    std::vector<bool> seen_facets;
+    std::size_t num_facets_seen = 0;
 };
 
 
 // Verification of soundness of surface structure
-void validate_surface(vector<Facet> const &facets, size_t entry_facet,
-                      size_t num_used_facets)
+void validate_surface(const std::vector<Facet>& facets, std::size_t entry_facet,
+                      std::size_t num_used_facets)
 {
-    Validator<3> v(facets, &wcerr);
+    Validator<3> v(facets, &std::wcerr);
     v.validate(entry_facet, num_used_facets);
     ARCHON_ASSERT_1(v.is_valid(), "Invalid surface");
 }
@@ -437,208 +472,228 @@ namespace archon {
 namespace util {
 namespace conv_hull {
 
-/**
- * Quick hull
- */
-void compute(vector<Vec3> const &vertices, TrifanHandler &handler, int max_depth)
+/// Quick hull
+void compute(const std::vector<Vec3>& vertices, TrifanHandler& handler, int max_depth)
 {
-    size_t const num_vertices = vertices.size();
-    cerr << "########################################### num_vertices = " << num_vertices << endl;
-    if(num_vertices < 1)
-    {
-        cerr << "Degenerate -1-D case" << endl;
+    std::size_t num_vertices = vertices.size();
+    std::cerr << "########################################### num_vertices = " << num_vertices << "\n";
+    if (num_vertices < 1) {
+        std::cerr << "Degenerate -1-D case\n";
         return; // FIXME: Degenerate -1-D case
     }
 
-    vector<Facet> facets;
-    vector<size_t> unused_facets;
-    size_t entry_facet = 0;
+    std::vector<Facet> facets;
+    std::vector<std::size_t> unused_facets;
+    std::size_t entry_facet = 0;
     {
-        vector<size_t> next_vertex(num_vertices);
-        generate(next_vertex.begin(), next_vertex.end()-1, make_inc_generator<size_t>(1));
+        std::vector<std::size_t> next_vertex(num_vertices);
+        generate(next_vertex.begin(), next_vertex.end()-1, make_inc_generator<std::size_t>(1));
         next_vertex.back() = 0;
-        size_t last_vertex = num_vertices - 1;
+        std::size_t last_vertex = num_vertices - 1;
 
-        size_t idx0 = 0, idx1 = 0;
+        std::size_t idx_0 = 0, idx_1 = 0;
         {
             Vec3 min(std::numeric_limits<double>::infinity()),
                 max(-std::numeric_limits<double>::infinity());
-            size_t min_x_j = 0, min_y_j = 0, min_z_j = 0, max_x_j = 0, max_y_j = 0, max_z_j = 0;
-            size_t j = last_vertex;
-            do
-            {
-                size_t const i = next_vertex[j];
-                Vec3 const &v = vertices[i];
-                if(v[0] < min[0]) { min[0] = v[0]; min_x_j = j; }
-                if(max[0] < v[0]) { max[0] = v[0]; max_x_j = j; }
-                if(v[1] < min[1]) { min[1] = v[1]; min_y_j = j; }
-                if(max[1] < v[1]) { max[1] = v[1]; max_y_j = j; }
-                if(v[2] < min[2]) { min[2] = v[2]; min_z_j = j; }
-                if(max[2] < v[2]) { max[2] = v[2]; max_z_j = j; }
+            std::size_t min_x_j = 0, min_y_j = 0, min_z_j = 0, max_x_j = 0, max_y_j = 0, max_z_j = 0;
+            std::size_t j = last_vertex;
+            do {
+                std::size_t i = next_vertex[j];
+                const Vec3& v = vertices[i];
+                if (v[0] < min[0]) {
+                    min[0] = v[0];
+                    min_x_j = j;
+                }
+                if (max[0] < v[0]) {
+                    max[0] = v[0];
+                    max_x_j = j;
+                }
+                if (v[1] < min[1]) {
+                    min[1] = v[1];
+                    min_y_j = j;
+                }
+                if (max[1] < v[1]) {
+                    max[1] = v[1];
+                    max_y_j = j;
+                }
+                if (v[2] < min[2]) {
+                    min[2] = v[2];
+                    min_z_j = j;
+                }
+                if (max[2] < v[2]) {
+                    max[2] = v[2];
+                    max_z_j = j;
+                }
                 j = i;
             }
-            while(j != last_vertex);
-            size_t j0 = 0, j1 = 0;
+            while (j != last_vertex);
+            std::size_t j_0 = 0, j_1 = 0;
             // FIXME: Choose the axis where the span is largest for stability reasons
-            if(min[0] < max[0])      { j0 = min_x_j; j1 = max_x_j; }
-            else if(min[1] < max[1]) { j0 = min_y_j; j1 = max_y_j; }
-            else if(min[2] < max[2]) { j0 = min_z_j; j1 = max_z_j; }
-            else
-            {
-                cerr << "Degenerate 0-D case" << endl;
+            if (min[0] < max[0]) {
+                j_0 = min_x_j;
+                j_1 = max_x_j;
+            }
+            else if (min[1] < max[1]) {
+                j_0 = min_y_j;
+                j_1 = max_y_j;
+            }
+            else if (min[2] < max[2]) {
+                j_0 = min_z_j;
+                j_1 = max_z_j;
+            }
+            else {
+                std::cerr << "Degenerate 0-D case\n";
                 return; // FIXME: Degenerate 0-D case
             }
-            idx0 = remove_vertex(j0,                   last_vertex, next_vertex);
-            idx1 = remove_vertex(j1 == idx0 ? j0 : j1, last_vertex, next_vertex);
+            idx_0 = remove_vertex(j_0,                      last_vertex, next_vertex);
+            idx_1 = remove_vertex(j_1 == idx_0 ? j_0 : j_1, last_vertex, next_vertex);
         }
 
-        size_t idx2 = 0;
+        std::size_t idx_2 = 0;
         {
-            Line3 const line(vertices[idx0], vertices[idx1] - vertices[idx0]);
+            Line3 line(vertices[idx_0], vertices[idx_1] - vertices[idx_0]);
             double max = 0;
-            size_t max_j = 0;
-            if(last_vertex != numeric_limits<size_t>::max())
-            {
-                size_t j = last_vertex;
-                do
-                {
-                    size_t const i = next_vertex[j];
-                    double const d = sq_sum(line.direction * (line.origin-vertices[i]));
-                    if(max < d)
-                    {
+            std::size_t max_j = 0;
+            if (last_vertex != std::numeric_limits<std::size_t>::max()) {
+                std::size_t j = last_vertex;
+                do {
+                    std::size_t i = next_vertex[j];
+                    double d = sq_sum(line.direction * (line.origin-vertices[i]));
+                    if (max < d) {
                         max = d;
                         max_j = j;
                     }
                     j = i;
                 }
-                while(j != last_vertex);
+                while (j != last_vertex);
             }
-            if(max == 0)
-            {
-                cerr << "Degenerate 1-D case" << endl;
+            if (max == 0) {
+                std::cerr << "Degenerate 1-D case\n";
                 return; // FIXME: Degenerate 1-D case
             }
-            idx2 = remove_vertex(max_j, last_vertex, next_vertex);
+            idx_2 = remove_vertex(max_j, last_vertex, next_vertex);
         }
 
-        size_t idx3 = 0;
+        std::size_t idx_3 = 0;
         {
-            Hyperplane3 const plane((vertices[idx1]-vertices[idx0]) *
-                                    (vertices[idx2]-vertices[idx0]), vertices[idx0]);
+            Hyperplane3 plane((vertices[idx_1]-vertices[idx_0]) *
+                              (vertices[idx_2]-vertices[idx_0]), vertices[idx_0]);
             double max = 0;
-            size_t max_j = 0;
+            std::size_t max_j = 0;
             bool max_pos = false;
-            if(last_vertex != numeric_limits<size_t>::max())
-            {
-                size_t j = last_vertex;
-                do
-                {
-                    size_t const i = next_vertex[j];
-                    double const h = plane.height(vertices[i]);
-                    double const d = abs(h);
-                    if(max < d)
-                    {
+            if (last_vertex != std::numeric_limits<std::size_t>::max()) {
+                std::size_t j = last_vertex;
+                do {
+                    std::size_t i = next_vertex[j];
+                    double h = plane.height(vertices[i]);
+                    double d = std::abs(h);
+                    if (max < d) {
                         max = d;
                         max_j = j;
-                        max_pos = 0 < h;
+                        max_pos = (0 < h);
                     }
                     j = i;
                 }
-                while(j != last_vertex);
+                while (j != last_vertex);
             }
-            if(max == 0)
-            {
-                cerr << "Degenerate 2-D case" << endl;
+            if (max == 0) {
+                std::cerr << "Degenerate 2-D case\n";
                 return; // FIXME: Degenerate 2-D case
             }
-            if(max_pos) swap(idx0, idx1);
-            idx3 = remove_vertex(max_j, last_vertex, next_vertex);
+            if (max_pos)
+                std::swap(idx_0, idx_1);
+            idx_3 = remove_vertex(max_j, last_vertex, next_vertex);
         }
 
         facets.resize(4);
-        facets[0].reset(idx0, idx1, idx2, 3, 1, 2);
-        facets[1].reset(idx0, idx2, idx3, 3, 2, 0);
-        facets[2].reset(idx0, idx3, idx1, 3, 0, 1);
-        facets[3].reset(idx1, idx3, idx2, 1, 0, 2);
+        facets[0].reset(idx_0, idx_1, idx_2, 3, 1, 2);
+        facets[1].reset(idx_0, idx_2, idx_3, 3, 2, 0);
+        facets[2].reset(idx_0, idx_3, idx_1, 3, 0, 1);
+        facets[3].reset(idx_1, idx_3, idx_2, 1, 0, 2);
 
-        vector<size_t> new_facets;
+        std::vector<std::size_t> new_facets;
         new_facets.push_back(0);
         new_facets.push_back(1);
         new_facets.push_back(2);
         new_facets.push_back(3);
 
-        vector<bool> seen_facets;
-        vector<size_t> removed_facets;
-        vector<VertexSet> vertex_sets;
-        // If 'i' is the index of a facet, then facet_vertex_sets[i]
-        // is the index the set of vertices associated with the
-        // facet, or it is numeric_limits<size_t>::max() if the
-        // facet has no associated vertex set.
-        vector<size_t> facet_vertex_sets(facets.size(), numeric_limits<size_t>::max());
-        // Pairs (origin, neighbor) of facet indices for each ridge
-        // that remains to be crossed.
+        std::vector<bool> seen_facets;
+        std::vector<std::size_t> removed_facets;
+        std::vector<VertexSet> vertex_sets;
+        // If 'i' is the index of a facet, then facet_vertex_sets[i] is the
+        // index the set of vertices associated with the facet, or it is
+        // std::numeric_limits<std::size_t>::max() if the facet has no
+        // associated vertex set.
+        std::vector<std::size_t> facet_vertex_sets(facets.size(), std::numeric_limits<std::size_t>::max());
+        // Pairs (origin, neighbor) of facet indices for each ridge that remains
+        // to be crossed.
+        //
         // FIXME: Would it not be better to store (origin, ridge_pos)?
-        vector<pair<size_t, size_t> > ridge_stack;
+        std::vector<std::pair<std::size_t, std::size_t>> ridge_stack;
 
         int depth = 0;
-        for(;;)
-        {
-            // Partition the current vertex set: For each of the new
-            // facets, there will be a part of the partition with all
-            // the vertices that lie in front of the facet. Finally,
-            // there will be a part of the partition with all the
-            // remaining vertices that do not lie in front of any of
-            // the new facets. Of course there is no unique way to
-            // construct this partition, since vertices may lie in
-            // front of multiple facets, but this is not a problem for
-            // the algorithm; we just put those vertices arbitrarily
-            // into one of the applicable partition parts.
+        for (;;) {
+            // Partition the current vertex set: For each of the new facets,
+            // there will be a part of the partition with all the vertices that
+            // lie in front of the facet. Finally, there will be a part of the
+            // partition with all the remaining vertices that do not lie in
+            // front of any of the new facets. Of course there is no unique way
+            // to construct this partition, since vertices may lie in front of
+            // multiple facets, but this is not a problem for the algorithm; we
+            // just put those vertices arbitrarily into one of the applicable
+            // partition parts.
             {
                 entry_facet = new_facets.front();
-                for(vector<size_t>::const_iterator k=new_facets.begin(); k!=new_facets.end(); ++k) cerr << "New facet ["<<*k<<"]: "<<facets[*k]<< endl;
-                if(0 < max_depth && ++depth == max_depth) goto output;
-                typedef vector<size_t>::const_iterator iter;
-                iter const e = new_facets.end();
-                for(iter k=new_facets.begin(); k!=e; ++k)
-                {
-                    if(last_vertex == numeric_limits<size_t>::max()) break;
-                    size_t const new_facet = *k;
-//cerr << "new_facet = " << new_facet << endl;
+                for (std::vector<std::size_t>::const_iterator k = new_facets.begin(); k != new_facets.end(); ++k)
+                    std::cerr << "New facet ["<<*k<<"]: "<<facets[*k]<<"\n";
+                if (0 < max_depth && ++depth == max_depth)
+                    goto output;
+                for (std::size_t new_facet: new_facets) {
+                    if (last_vertex == std::numeric_limits<std::size_t>::max())
+                        break;
+// std::cerr << "new_facet = "<<new_facet<<"\n";
                     Facet &f = facets[new_facet];
-                    size_t const i0 = f.vertices[0], i1 = f.vertices[1], i2 = f.vertices[2];
-// cerr << "i0 = " << i0 << ", i1 = " << i1 << ", i2 = " << i2 << endl;
-                    Vec3 const &v0 = vertices[i0], &v1 = vertices[i1], &v2 = vertices[i2];
-                    Hyperplane3 const plane(unit((v1-v0)*(v2-v0)), v0);
+                    std::size_t i_0 = f.vertices[0], i_1 = f.vertices[1], i_2 = f.vertices[2];
+// std::cerr << "i_0 = "<<i_0<<", i_1 = "<<i_1<<", i_2 = "<<i_2<<"\n";
+                    const Vec3& v_0 = vertices[i_0];
+                    const Vec3& v_1 = vertices[i_1];
+                    const Vec3& v_2 = vertices[i_2];
+                    Hyperplane3 plane(unit((v_1-v_0)*(v_2-v_0)), v_0);
                     double max = 0;
-                    size_t first_front = numeric_limits<size_t>::max(),
-                        prev_front = numeric_limits<size_t>::max(), max_prev;
-                    size_t j = last_vertex;
-                    for(;;)
-                    {
-                        size_t const i = next_vertex[j];
-                        bool const is_last = i == last_vertex;
-                        double const h = plane.height(vertices[i]);
+                    std::size_t first_front = std::numeric_limits<std::size_t>::max(),
+                        prev_front = std::numeric_limits<std::size_t>::max(), max_prev;
+                    std::size_t j = last_vertex;
+                    for (;;) {
+                        std::size_t i = next_vertex[j];
+                        bool is_last = (i == last_vertex);
+                        double h = plane.height(vertices[i]);
                         // FIXME: Make similar tests when constructing the initial simplex.
-                        if(h <= 0.5/256) // FIXME: Parameterize this
-                        {
-                            if(is_last) break;
+                        if (h <= 0.5/256) { // FIXME: Parameterize this
+                            if (is_last)
+                                break;
                             j = i;
                             continue;
                         }
-                        if(max < h)
-                        {
+                        if (max < h) {
                             max = h;
                             max_prev = prev_front;
                         }
                         remove_vertex(j, last_vertex, next_vertex);
-                        if(first_front == numeric_limits<size_t>::max()) first_front = i;
-                        else next_vertex[prev_front] = i;
+                        if (first_front == std::numeric_limits<std::size_t>::max()) {
+                            first_front = i;
+                        }
+                        else {
+                            next_vertex[prev_front] = i;
+                        }
                         prev_front = i;
-                        if(is_last) break;
+                        if (is_last)
+                            break;
                     }
-                    if(first_front == numeric_limits<size_t>::max()) continue;
+                    if (first_front == std::numeric_limits<std::size_t>::max())
+                        continue;
                     next_vertex[prev_front] = first_front;
-                    if(max_prev == numeric_limits<size_t>::max()) max_prev = prev_front;
+                    if (max_prev == std::numeric_limits<std::size_t>::max())
+                        max_prev = prev_front;
                     facet_vertex_sets[new_facet] = vertex_sets.size();
                     vertex_sets.push_back(VertexSet(new_facet, max_prev));
                 }
@@ -646,151 +701,144 @@ void compute(vector<Vec3> const &vertices, TrifanHandler &handler, int max_depth
             }
 
 
-            // Find a non-empty vertex set and its associated facet,
-            // look back at the hull from the vertex in the set that
-            // is heighest above the facet, remove all the hull facets
-            // that are visible from this vertex (find the horizon),
-            // and then add new facets connecting the horizon with the
-            // heighest vertex.
+            // Find a non-empty vertex set and its associated facet, look back
+            // at the hull from the vertex in the set that is heighest above the
+            // facet, remove all the hull facets that are visible from this
+            // vertex (find the horizon), and then add new facets connecting the
+            // horizon with the heighest vertex.
             {
-                size_t i0;
-                for(;;)
-                {
-                    if(vertex_sets.empty()) goto output;
-                    VertexSet &s = vertex_sets.back();
-                    if(s.last_vertex != numeric_limits<size_t>::max())
-                    {
-                        i0 = s.facet;
+                std::size_t i_0;
+                for (;;) {
+                    if (vertex_sets.empty())
+                        goto output;
+                    VertexSet& s = vertex_sets.back();
+                    if (s.last_vertex != std::numeric_limits<std::size_t>::max()) {
+                        i_0 = s.facet;
                         last_vertex = s.last_vertex;
                         vertex_sets.pop_back();
                         break;
                     }
                     vertex_sets.pop_back();
                 }
-                size_t prev_new_facet = numeric_limits<size_t>::max(), first_new_facet;
-                size_t prev_new_facet_third_vertex = 0, first_new_facet_second_vertex;
-                size_t const top_vertex = remove_front_vertex(last_vertex, next_vertex);
-                cerr << "=========== Decomposing facet "<<i0<<" "<<facets[i0]<<" using top_vertex = "<<top_vertex<<endl;
-                // When seen from the top point, we will discover the
-                // ridges of the horizon in a counter clockwise order
+                std::size_t prev_new_facet = std::numeric_limits<std::size_t>::max(), first_new_facet;
+                std::size_t prev_new_facet_third_vertex = 0, first_new_facet_second_vertex;
+                std::size_t top_vertex = remove_front_vertex(last_vertex, next_vertex);
+                std::cerr << "=========== Decomposing facet "<<i_0<<" "<<facets[i_0]<<" using top_vertex = "<<top_vertex<<"\n";
+                // When seen from the top point, we will discover the ridges of
+                // the horizon in a counter clockwise order
                 seen_facets.clear();
                 seen_facets.resize(facets.size());
-                seen_facets[i0] = true;
-                for(int e=0; e<3; ++e)
-                {
-                    size_t i = facets[i0].neighbors[e];
-                    if(seen_facets[i]) continue;
-                    size_t j = i0;
-                    for(;;)
-                    {
-                        Facet *f = &facets[i];
-                        int const e0 = find(f->neighbors, f->neighbors+3, j) - f->neighbors;
-                        ARCHON_ASSERT(e0 < 3); // FEXME: Remove me!
-                        int const e1 = tri_inc[e0];
-                        int const e2 = tri_dec[e0];
-//                  size_t const j0 = f->vertices[0], j1 = f->vertices[1], j2 = f->vertices[2];
-                        size_t const j0 = f->vertices[e0], j1 = f->vertices[e1], j2 = f->vertices[e2];
-                        Vec3 const &v0 = vertices[j0], &v1 = vertices[j1], &v2 = vertices[j2];
-                        cerr << "NORMAL ["<<i<<"] = "<<(v1-v0)*(v2-v0)<<"   DOT = "<<dot((v1-v0)*(v2-v0), vertices[top_vertex]-v0)<<endl;
-                        if(dot((v1-v0)*(v2-v0), vertices[top_vertex]-v0) <= 0)
-                        {
+                seen_facets[i_0] = true;
+                for (int e = 0; e < 3; ++e) {
+                    std::size_t i = facets[i_0].neighbors[e];
+                    if (seen_facets[i])
+                        continue;
+                    std::size_t j = i_0;
+                    for (;;) {
+                        Facet* f = &facets[i];
+                        int e_0 = std::find(f->neighbors, f->neighbors+3, j) - f->neighbors;
+                        ARCHON_ASSERT(e_0 < 3); // FIXME: Remove me!
+                        int e_1 = tri_inc[e_0];
+                        int e_2 = tri_dec[e_0];
+//                        std::size_t const j_0 = f->vertices[0], j_1 = f->vertices[1], j_2 = f->vertices[2];
+                        std::size_t j_0 = f->vertices[e_0], j_1 = f->vertices[e_1], j_2 = f->vertices[e_2];
+                        const Vec3& v_0 = vertices[j_0];
+                        const Vec3& v_1 = vertices[j_1];
+                        const Vec3& v_2 = vertices[j_2];
+                        std::cerr << "NORMAL ["<<i<<"] = "<<(v_1-v_0)*(v_2-v_0)<<"   DOT = "<<dot((v_1-v_0)*(v_2-v_0), vertices[top_vertex]-v_0)<<"\n";
+                        if (dot((v_1-v_0)*(v_2-v_0), vertices[top_vertex]-v_0) <= 0) {
                             // Boundary ridge detected
-                            cerr << "Boundary ["<<f->vertices[e2]<<","<<f->vertices[e1]<<"] due to ("<<j<<") "<<facets[j]<<" -> ("<<i<<") "<<facets[i]<<endl;
+                            std::cerr << "Boundary ["<<f->vertices[e_2]<<","<<f->vertices[e_1]<<"] due to ("<<j<<") "<<facets[j]<<" -> ("<<i<<") "<<facets[i]<<"\n";
                             // Allocate a new facet
-                            size_t new_facet;
-                            if(unused_facets.empty())
-                            {
+                            std::size_t new_facet;
+                            if (unused_facets.empty()) {
                                 new_facet = facets.size();
                                 facets.resize(new_facet+1);
-                                facet_vertex_sets.resize(new_facet+1, numeric_limits<size_t>::max());
-                                ARCHON_ASSERT(i < facets.size()); // FEXME: Remove me!
+                                facet_vertex_sets.resize(new_facet+1, std::numeric_limits<std::size_t>::max());
+                                ARCHON_ASSERT(i < facets.size()); // FIXME: Remove me!
                                 f = &facets[i]; // Since the vector may reallocate memory
                             }
-                            else
-                            {
+                            else {
                                 new_facet = unused_facets.back();
                                 unused_facets.pop_back();
-                                facet_vertex_sets[new_facet] = numeric_limits<size_t>::max();
+                                facet_vertex_sets[new_facet] = std::numeric_limits<std::size_t>::max();
                             }
-                            if(prev_new_facet == numeric_limits<size_t>::max())
+                            if (prev_new_facet == std::numeric_limits<std::size_t>::max())
                             {
                                 first_new_facet = new_facet;
-                                first_new_facet_second_vertex = f->vertices[e2];
-//                      first_new_facet_second_vertex = j2;
+                                first_new_facet_second_vertex = f->vertices[e_2];
+//                                first_new_facet_second_vertex = j_2;
                             }
-                            else
-                            {
-                                ARCHON_ASSERT_1(f->vertices[e2] == prev_new_facet_third_vertex, "Multiple horizons detected");
-//                      ARCHON_ASSERT_1(j2 == prev_new_facet_third_vertex, "Multiple horizons detected");
+                            else {
+                                ARCHON_ASSERT_1(f->vertices[e_2] == prev_new_facet_third_vertex, "Multiple horizons detected");
+//                                ARCHON_ASSERT_1(j_2 == prev_new_facet_third_vertex, "Multiple horizons detected");
                                 facets[prev_new_facet].neighbors[1] = new_facet;
                             }
-                            f->neighbors[e0] = new_facet; // Make the new facet a neighbor of the detected boundary facet
-                            facets[new_facet].reset(top_vertex, f->vertices[e2], f->vertices[e1],
-                                                    i, numeric_limits<size_t>::max(), prev_new_facet);
-//                    facets[new_facet].reset(top_vertex, j2, j1, i, numeric_limits<size_t>::max(), prev_new_facet);
+                            f->neighbors[e_0] = new_facet; // Make the new facet a neighbor of the detected boundary facet
+                            facets[new_facet].reset(top_vertex, f->vertices[e_2], f->vertices[e_1],
+                                                    i, std::numeric_limits<std::size_t>::max(), prev_new_facet);
+//                            facets[new_facet].reset(top_vertex, j_2, j_1, i, std::numeric_limits<std::size_t>::max(), prev_new_facet);
                             new_facets.push_back(new_facet);
                             prev_new_facet = new_facet;
-                            prev_new_facet_third_vertex = f->vertices[e1];
-//                    prev_new_facet_third_vertex = j1;
+                            prev_new_facet_third_vertex = f->vertices[e_1];
+//                            prev_new_facet_third_vertex = j_1;
                         }
-                        else
-                        {
-                            ARCHON_ASSERT(i < seen_facets.size()); // FEXME: Remove me!
+                        else {
+                            ARCHON_ASSERT(i < seen_facets.size()); // FIXME: Remove me!
                             seen_facets[i] = true;
-                            // Transfer all the vertices from the obsolete
-                            // facet to the accumulator point set
-                            size_t const vertex_set = facet_vertex_sets[i];
-                            if(vertex_set != numeric_limits<size_t>::max())
-                            {
-                                ARCHON_ASSERT(vertex_set < vertex_sets.size()); // FEXME: Remove me!
-                                VertexSet &s = vertex_sets[vertex_set];
-                                if(last_vertex == numeric_limits<size_t>::max()) last_vertex = s.last_vertex; // FIXME: Rename last_vertex to accum_last_vertex
-                                else
-                                {
-                                    ARCHON_ASSERT(s.last_vertex < next_vertex.size() && last_vertex < next_vertex.size()); // FEXME: Remove me!
-                                    swap(next_vertex[s.last_vertex], next_vertex[last_vertex]);
+                            // Transfer all the vertices from the obsolete facet
+                            // to the accumulator point set
+                            std::size_t vertex_set = facet_vertex_sets[i];
+                            if (vertex_set != std::numeric_limits<std::size_t>::max()) {
+                                ARCHON_ASSERT(vertex_set < vertex_sets.size()); // FIXME: Remove me!
+                                VertexSet& s = vertex_sets[vertex_set];
+                                if (last_vertex == std::numeric_limits<std::size_t>::max()) {
+                                    last_vertex = s.last_vertex; // FIXME: Rename last_vertex to accum_last_vertex
                                 }
-                                s.last_vertex = numeric_limits<size_t>::max();
+                                else {
+                                    ARCHON_ASSERT(s.last_vertex < next_vertex.size() && last_vertex < next_vertex.size()); // FIXME: Remove me!
+                                    std::swap(next_vertex[s.last_vertex], next_vertex[last_vertex]);
+                                }
+                                s.last_vertex = std::numeric_limits<std::size_t>::max();
                             }
-                            // Facet indices need to be unique over a
-                            // horizion search, so we cannot release facets
-                            // just yet
+                            // Facet indices need to be unique over a horizion
+                            // search, so we cannot release facets just yet
                             removed_facets.push_back(i);
-                            if(!seen_facets[f->neighbors[e1]])
-                            {
-                                ridge_stack.push_back(make_pair(f->neighbors[e2], i));
+                            if (!seen_facets[f->neighbors[e_1]]) {
+                                ridge_stack.push_back(std::make_pair(f->neighbors[e_2], i));
                                 j = i;
-                                i = f->neighbors[e1];
+                                i = f->neighbors[e_1];
                                 continue;
                             }
-                            else if(!seen_facets[f->neighbors[e2]])
-                            {
+                            else if (!seen_facets[f->neighbors[e_2]]) {
                                 j = i;
-                                i = f->neighbors[e2];
+                                i = f->neighbors[e_2];
                                 continue;
                             }
                         }
                       pop:
-                        if(ridge_stack.empty()) break;
+                        if (ridge_stack.empty())
+                            break;
                         i = ridge_stack.back().first;
                         j = ridge_stack.back().second;
                         ridge_stack.pop_back();
-                        if(seen_facets[i]) goto pop;
+                        if (seen_facets[i])
+                            goto pop;
                     }
                 }
                 ARCHON_ASSERT(prev_new_facet_third_vertex == first_new_facet_second_vertex);
                 // Connect first and last facet
-                ARCHON_ASSERT(first_new_facet < facets.size() && prev_new_facet < facets.size()); // FEXME: Remove me!
+                ARCHON_ASSERT(first_new_facet < facets.size() && prev_new_facet < facets.size()); // FIXME: Remove me!
                 facets[first_new_facet].neighbors[2] = prev_new_facet;
                 facets[prev_new_facet].neighbors[1]  = first_new_facet;
-                unused_facets.push_back(i0);
+                unused_facets.push_back(i_0);
                 // Delete stale facets
-                cerr << "Delete facet ["<<i0<<"]: "<<facets[i0]<< endl;
+                std::cerr << "Delete facet ["<<i_0<<"]: "<<facets[i_0]<<"\n";
                 {
-                    typedef vector<size_t>::const_iterator iter;
-                    iter const e = removed_facets.end();
-                    for(iter i=removed_facets.begin(); i!=e; ++i) unused_facets.push_back(*i);
-                    for(iter i=removed_facets.begin(); i!=e; ++i) cerr << "Delete facet ["<<*i<<"]: "<<facets[*i]<< endl;
+                    for (std::size_t i: removed_facets)
+                        unused_facets.push_back(i);
+                    for (std::size_t i: removed_facets)
+                        std::cerr << "Delete facet ["<<i<<"]: "<<facets[i]<<"\n";
                 }
                 removed_facets.clear();
             }
@@ -799,7 +847,7 @@ void compute(vector<Vec3> const &vertices, TrifanHandler &handler, int max_depth
 
   output:
     {
-        size_t const num_used_facets = facets.size() - unused_facets.size();
+        std::size_t num_used_facets = facets.size() - unused_facets.size();
         validate_surface(facets, entry_facet, num_used_facets);
     }
     generate_trifans_from_surface(num_vertices, facets, entry_facet, handler);
@@ -808,24 +856,29 @@ void compute(vector<Vec3> const &vertices, TrifanHandler &handler, int max_depth
 
 
 
-void TriangleHandler::add_vertex(size_t i)
+void TriangleHandler::add_vertex(std::size_t i)
 {
-    switch(state)
-    {
-        case 0: vertex0 = i; state = 1; break;
+    switch (m_state) {
+        case 0:
+            m_vertex_0 = i;
+            m_state = 1;
+            break;
 
-        case 1: vertex1 = i; state = 2; break;
+        case 1:
+            m_vertex_1 = i;
+            m_state = 2;
+            break;
 
         case 2:
-            vertex2 = i;
-            state = 3;
-            add_triangle(vertex0, vertex1, vertex2);
+            m_vertex_2 = i;
+            m_state = 3;
+            add_triangle(m_vertex_0, m_vertex_1, m_vertex_2);
             break;
 
         default:
-            vertex1 = vertex2;
-            vertex2 = i;
-            add_triangle(vertex0, vertex1, vertex2);
+            m_vertex_1 = m_vertex_2;
+            m_vertex_2 = i;
+            add_triangle(m_vertex_0, m_vertex_1, m_vertex_2);
             break;
     }
 }
@@ -833,14 +886,14 @@ void TriangleHandler::add_vertex(size_t i)
 
 void TriangleHandler::close_trifan()
 {
-    vertex0 = vertex2;
-    state = 2;
+    m_vertex_0 = m_vertex_2;
+    m_state = 2;
 }
 
 
 void TriangleHandler::close_trifan_set()
 {
-    state = 0;
+    m_state = 0;
 }
 
 } // namespace conv_hull

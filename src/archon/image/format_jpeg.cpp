@@ -18,17 +18,15 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #include <cstdio>
 #include <csetjmp>
 #include <limits>
 #include <string>
-#include <vector>
+#include <stdexcept>
 #include <iostream>
 
 #include <jpeglib.h>
@@ -42,7 +40,6 @@
 #include <archon/image/integer_buffer_format.hpp>
 
 
-using namespace std;
 using namespace archon::core;
 using namespace archon::util;
 using namespace archon::image;
@@ -50,7 +47,8 @@ using namespace archon::image;
 
 namespace {
 
-struct Context: jpeg_progress_mgr, jpeg_error_mgr {
+class Context: public jpeg_progress_mgr, public jpeg_error_mgr {
+public:
     FileFormat::ProgressTracker* tracker;
     Logger* logger;        // For warnings
     jmp_buf setjmp_buffer; // For aborting from the LIBJPEG.
@@ -58,8 +56,8 @@ struct Context: jpeg_progress_mgr, jpeg_error_mgr {
     // 3 for other exceptions from the stream, 4 for libjpeg initiated
     // error or invalid format detected.
     int error_type;
-    string error_message;  // For fatal errors
-    string error_location; // Source file location from exception
+    std::string error_message;  // For fatal errors
+    std::string error_location; // Source file location from exception
     Context(FileFormat::ProgressTracker* tracker, Logger* logger):
         tracker(tracker),
         logger(logger),
@@ -72,7 +70,7 @@ struct Context: jpeg_progress_mgr, jpeg_error_mgr {
         output_message   = warning_callback;
     }
 
-    void warning(string message)
+    void warning(std::string message)
     {
         if (logger)
             logger->log(message);
@@ -106,20 +104,18 @@ struct Context: jpeg_progress_mgr, jpeg_error_mgr {
     }
 };
 
-/**
- * The size of the buffers used for input/output streaming.
- */
-const int buffer_size = 4096;
+/// The size of the buffers used for input/output streaming.
+const int g_buffer_size = 4096;
 
-struct LoadContext: jpeg_source_mgr, Context {
-    Array<JOCTET> buffer;
-    bool start_of_file;        // have we gotten any data yet?
-    InputStream &in;
+class LoadContext: public jpeg_source_mgr, public Context {
+public:
+    std::unique_ptr<JOCTET[]> buffer;
+    bool start_of_file = true; // have we gotten any data yet?
+    InputStream& in;
     LoadContext(InputStream& i, FileFormat::ProgressTracker* tracker, Logger* logger):
-        Context(tracker, logger),
-        buffer(buffer_size),
-        start_of_file(true),
-        in(i)
+        Context{tracker, logger},
+        buffer{std::make_unique<JOCTET[]>(g_buffer_size)}, // Throws
+        in{i}
     {
         init_source       = init_callback;
         fill_input_buffer = read_callback;
@@ -130,58 +126,54 @@ struct LoadContext: jpeg_source_mgr, Context {
         next_input_byte   = 0;
     }
 
-    /**
-     * From LIBJPEG/example.c:
-     *
-     * Initialize source --- called by jpeg_read_header before any
-     * data is actually read.
-     */
-    static void init_callback(j_decompress_ptr /* cinfo */) throw()
+    /// From LIBJPEG/example.c:
+    ///
+    /// Initialize source --- called by jpeg_read_header before any data is
+    /// actually read.
+    static void init_callback(j_decompress_ptr) throw()
     {
     }
 
-    /**
-     * From LIBJPEG/example.c:
-     *
-     * Fill the input buffer --- called whenever buffer is emptied.
-     *
-     * In typical applications, this should read fresh data into the buffer
-     * (ignoring the current state of next_input_byte & bytes_in_buffer), reset
-     * the pointer & count to the start of the buffer, and return TRUE
-     * indicating that the buffer has been reloaded.  It is not necessary to
-     * fill the buffer entirely, only to obtain at least one more byte.
-     *
-     * There is no such thing as an EOF return.  If the end of the file has been
-     * reached, the routine has a choice of ERREXIT() or inserting fake data
-     * into the buffer.  In most cases, generating a warning message and
-     * inserting a fake EOI marker is the best course of action --- this will
-     * allow the decompressor to output however much of the image is there.
-     * However, the resulting error message is misleading if the real problem is
-     * an empty input file, so we handle that case specially.
-     *
-     * In applications that need to be able to suspend compression due to input
-     * not being available yet, a FALSE return indicates that no more data can
-     * be obtained right now, but more may be forthcoming later.  In this
-     * situation, the decompressor will return to its caller (with an indication
-     * of the number of scanlines it has read, if any).  The application should
-     * resume decompression after it has loaded more data into the input buffer.
-     * Note that there are substantial restrictions on the use of suspension ---
-     * see the documentation.
-     *
-     * When suspending, the decompressor will back up to a convenient restart
-     * point (typically the start of the current MCU). next_input_byte &
-     * bytes_in_buffer indicate where the restart point will be if the current
-     * call returns FALSE.  Data beyond this point must be rescanned after
-     * resumption, so move it to the front of the buffer rather than discarding
-     * it.
-     */
+    /// From LIBJPEG/example.c:
+    ///
+    /// Fill the input buffer --- called whenever buffer is emptied.
+    ///
+    /// In typical applications, this should read fresh data into the buffer
+    /// (ignoring the current state of next_input_byte & bytes_in_buffer), reset
+    /// the pointer & count to the start of the buffer, and return TRUE
+    /// indicating that the buffer has been reloaded.  It is not necessary to
+    /// fill the buffer entirely, only to obtain at least one more byte.
+    ///
+    /// There is no such thing as an EOF return.  If the end of the file has
+    /// been reached, the routine has a choice of ERREXIT() or inserting fake
+    /// data into the buffer.  In most cases, generating a warning message and
+    /// inserting a fake EOI marker is the best course of action --- this will
+    /// allow the decompressor to output however much of the image is there.
+    /// However, the resulting error message is misleading if the real problem
+    /// is an empty input file, so we handle that case specially.
+    ///
+    /// In applications that need to be able to suspend compression due to input
+    /// not being available yet, a FALSE return indicates that no more data can
+    /// be obtained right now, but more may be forthcoming later.  In this
+    /// situation, the decompressor will return to its caller (with an
+    /// indication of the number of scanlines it has read, if any).  The
+    /// application should resume decompression after it has loaded more data
+    /// into the input buffer.  Note that there are substantial restrictions on
+    /// the use of suspension --- see the documentation.
+    ///
+    /// When suspending, the decompressor will back up to a convenient restart
+    /// point (typically the start of the current MCU). next_input_byte &
+    /// bytes_in_buffer indicate where the restart point will be if the current
+    /// call returns FALSE.  Data beyond this point must be rescanned after
+    /// resumption, so move it to the front of the buffer rather than discarding
+    /// it.
     static int read_callback(j_decompress_ptr cinfo) throw()
     {
         LoadContext* c = static_cast<LoadContext*>(cinfo->src);
         int n = 0;
         try {
             n = c->in.read(reinterpret_cast<char*>(c->buffer.get()),
-                           buffer_size);
+                           g_buffer_size);
         }
         catch (InterruptException& e) {
             c->error_type = 1;
@@ -190,7 +182,7 @@ struct LoadContext: jpeg_source_mgr, Context {
             c->error_type    = 2;
             c->error_message = e.what();
         }
-        catch (exception& e) {
+        catch (std::exception& e) {
             c->error_type    = 3;
             c->error_message = e.what();
         }
@@ -222,120 +214,110 @@ struct LoadContext: jpeg_source_mgr, Context {
         return 1;
     }
 
-    /**
-     * From LIBJPEG/example.c:
-     *
-     * Skip data --- used to skip over a potentially large amount of
-     * uninteresting data (such as an APPn marker).
-     *
-     * Writers of suspendable-input applications must note that skip_input_data
-     * is not granted the right to give a suspension return.  If the skip
-     * extends beyond the data currently in the buffer, the buffer can be marked
-     * empty so that the next read will cause a fill_input_buffer call that can
-     * suspend.  Arranging for additional bytes to be discarded before reloading
-     * the input buffer is the application writer's problem.
-     */
+    /// From LIBJPEG/example.c:
+    ///
+    /// Skip data --- used to skip over a potentially large amount of
+    /// uninteresting data (such as an APPn marker).
+    ///
+    /// Writers of suspendable-input applications must note that skip_input_data
+    /// is not granted the right to give a suspension return.  If the skip
+    /// extends beyond the data currently in the buffer, the buffer can be
+    /// marked empty so that the next read will cause a fill_input_buffer call
+    /// that can suspend.  Arranging for additional bytes to be discarded before
+    /// reloading the input buffer is the application writer's problem.
     static void skip_callback(j_decompress_ptr cinfo, long num_bytes) throw()
     {
         LoadContext* c = static_cast<LoadContext*>(cinfo->src);
 
-        /* Just a dumb implementation for now.  Could use fseek() except it
-         * doesn't work on pipes.  Not clear that being smart is worth any
-         * trouble anyway --- large skips are infrequent.
-         */
+        // Just a dumb implementation for now.  Could use fseek() except it
+        // doesn't work on pipes.  Not clear that being smart is worth any
+        // trouble anyway --- large skips are infrequent.
         if (num_bytes > 0) {
             while (num_bytes > long(c->bytes_in_buffer)) {
                 num_bytes -= long(c->bytes_in_buffer);
                 read_callback(cinfo);
-                /* note we assume that fill_input_buffer will never return
-                 * FALSE, so suspension need not be handled.
-                 */
+                // Note: We assume that fill_input_buffer will never return
+                // FALSE, so suspension need not be handled.
             }
-            c->next_input_byte += size_t(num_bytes);
-            c->bytes_in_buffer -= size_t(num_bytes);
+            c->next_input_byte += std::size_t(num_bytes);
+            c->bytes_in_buffer -= std::size_t(num_bytes);
         }
     }
 
-    /*
-     * From LIBJPEG/example.c:
-     *
-     * An additional method that can be provided by data source modules is the
-     * resync_to_restart method for error recovery in the presence of RST
-     * markers.  For the moment, this source module just uses the default resync
-     * method provided by the JPEG library.  That method assumes that no
-     * backtracking is possible.
-     */
+    /// From LIBJPEG/example.c:
+    ///
+    /// An additional method that can be provided by data source modules is the
+    /// resync_to_restart method for error recovery in the presence of RST
+    /// markers.  For the moment, this source module just uses the default
+    /// resync method provided by the JPEG library.  That method assumes that no
+    /// backtracking is possible.
 
-    /**
-     * From LIBJPEG/example.c:
-     *
-     * Terminate source --- called by jpeg_finish_decompress after all data has
-     * been read. Often a no-op.
-     *
-     * NB: *not* called by jpeg_abort or jpeg_destroy; surrounding application
-     * must deal with any cleanup that should happen even for error exit.
-     */
+    /// From LIBJPEG/example.c:
+    ///
+    /// Terminate source --- called by jpeg_finish_decompress after all data has
+    /// been read. Often a no-op.
+    ///
+    /// NB: *not* called by jpeg_abort or jpeg_destroy; surrounding application
+    /// must deal with any cleanup that should happen even for error exit.
     static void term_callback(j_decompress_ptr /* cinfo */) throw() {}
 };
 
 
-struct SaveContext: jpeg_destination_mgr, Context {
-    Array<JOCTET> buffer;
+class SaveContext: public jpeg_destination_mgr, public Context {
+public:
+    std::unique_ptr<JOCTET[]> buffer;
     OutputStream& out;
     SaveContext(OutputStream& o, FileFormat::ProgressTracker* tracker, Logger* logger):
-        Context(tracker, logger),
-        buffer(buffer_size),
-        out(o)
+        Context{tracker, logger},
+        buffer{std::make_unique<JOCTET[]>(g_buffer_size)},
+        out{o}
     {
         init_destination    = init_callback;
         empty_output_buffer = write_callback;
         term_destination    = term_callback;
         next_output_byte    = buffer.get();
-        free_in_buffer      = buffer_size;
+        free_in_buffer      = g_buffer_size;
     }
 
-    /**
-     * From LIBJPEG/example.c:
-     *
-     * Initialize destination --- called by jpeg_start_compress before any data
-     * is actually written.
-     */
-    static void init_callback(j_compress_ptr /* cinfo */) throw()
+    /// From LIBJPEG/example.c:
+    ///
+    /// Initialize destination --- called by jpeg_start_compress before any data
+    /// is actually written.
+    static void init_callback(j_compress_ptr) throw()
     {
     }
 
-    /**
-     * From LIBJPEG/example.c:
-     *
-     * Empty the output buffer --- called whenever buffer fills up.
-     *
-     * In typical applications, this should write the entire output buffer
-     * (ignoring the current state of next_output_byte & free_in_buffer), reset
-     * the pointer & count to the start of the buffer, and return TRUE
-     * indicating that the buffer has been dumped.
-     *
-     * In applications that need to be able to suspend compression due to output
-     * overrun, a FALSE return indicates that the buffer cannot be emptied now.
-     * In this situation, the compressor will return to its caller (possibly
-     * with an indication that it has not accepted all the supplied scanlines).
-     * The application should resume compression after it has made more room in
-     * the output buffer.  Note that there are substantial restrictions on the
-     * use of suspension --- see the documentation.
-     *
-     * When suspending, the compressor will back up to a convenient restart
-     * point (typically the start of the current MCU). next_output_byte &
-     * free_in_buffer indicate where the restart point will be if the current
-     * call returns FALSE.  Data beyond this point will be regenerated after
-     * resumption, so do not write it out when emptying the buffer externally.
-     */
+    /// From LIBJPEG/example.c:
+    ///
+    /// Empty the output buffer --- called whenever buffer fills up.
+    ///
+    /// In typical applications, this should write the entire output buffer
+    /// (ignoring the current state of next_output_byte & free_in_buffer), reset
+    /// the pointer & count to the start of the buffer, and return TRUE
+    /// indicating that the buffer has been dumped.
+    ///
+    /// In applications that need to be able to suspend compression due to
+    /// output overrun, a FALSE return indicates that the buffer cannot be
+    /// emptied now.  In this situation, the compressor will return to its
+    /// caller (possibly with an indication that it has not accepted all the
+    /// supplied scanlines).  The application should resume compression after it
+    /// has made more room in the output buffer.  Note that there are
+    /// substantial restrictions on the use of suspension --- see the
+    /// documentation.
+    ///
+    /// When suspending, the compressor will back up to a convenient restart
+    /// point (typically the start of the current MCU). next_output_byte &
+    /// free_in_buffer indicate where the restart point will be if the current
+    /// call returns FALSE.  Data beyond this point will be regenerated after
+    /// resumption, so do not write it out when emptying the buffer externally.
     static int write_callback(j_compress_ptr cinfo) throw()
     {
         SaveContext* c = static_cast<SaveContext*>(cinfo->dest);
 
         try {
-            c->out.write(reinterpret_cast<const char*>(c->buffer.get()), buffer_size);
+            c->out.write(reinterpret_cast<const char*>(c->buffer.get()), g_buffer_size);
             c->next_output_byte = c->buffer.get();
-            c->free_in_buffer   = buffer_size;
+            c->free_in_buffer   = g_buffer_size;
             return 1;
         }
         catch (InterruptException& e) {
@@ -345,7 +327,7 @@ struct SaveContext: jpeg_destination_mgr, Context {
             c->error_type    = 2;
             c->error_message = e.what();
         }
-        catch (exception& e) {
+        catch (std::exception& e) {
             c->error_type    = 3;
             c->error_message = e.what();
         }
@@ -353,22 +335,20 @@ struct SaveContext: jpeg_destination_mgr, Context {
         longjmp(c->setjmp_buffer, 1);
     }
 
-    /**
-     * From LIBJPEG/example.c:
-     *
-     * Terminate destination --- called by jpeg_finish_compress after all data
-     * has been written.  Usually needs to flush buffer.
-     *
-     * NB: *not* called by jpeg_abort or jpeg_destroy; surrounding application
-     * must deal with any cleanup that should happen even for error exit.
-     */
+    /// From LIBJPEG/example.c:
+    ///
+    /// Terminate destination --- called by jpeg_finish_compress after all data
+    /// has been written.  Usually needs to flush buffer.
+    ///
+    /// NB: *not* called by jpeg_abort or jpeg_destroy; surrounding application
+    /// must deal with any cleanup that should happen even for error exit.
     static void term_callback(j_compress_ptr cinfo) throw()
     {
         SaveContext* c = static_cast<SaveContext*>(cinfo->dest);
 
         try {
             c->out.write(reinterpret_cast<const char*>(c->buffer.get()),
-                         buffer_size - c->free_in_buffer);
+                         g_buffer_size - c->free_in_buffer);
             return;
         }
         catch (InterruptException& e) {
@@ -378,7 +358,7 @@ struct SaveContext: jpeg_destination_mgr, Context {
             c->error_type    = 2;
             c->error_message = e.what();
         }
-        catch (exception& e) {
+        catch (std::exception& e) {
             c->error_type    = 3;
             c->error_message = e.what();
         }
@@ -388,18 +368,17 @@ struct SaveContext: jpeg_destination_mgr, Context {
 };
 
 
-/**
- * The jpeg_decompress_struct constructor \c jpeg_create_decompress is not
- * called here because it may fail and be aborted via a long jump. Consequently
- * the call to jpeg_create_decompress has to occur after setting up the jump
- * buffer. On the other hand, no stack object with a destructor may be defined
- * in a scope where a long jump might pass through, so we cannot delay the
- * construction of this object to the longjump catching (try) scope.
- *
- * It is crucial that the \c need_destruction flag is raised immediately before
- * \c jpeg_create_decompress is called in the longjump catching scope.
- */
-struct LoadWrapper {
+/// The jpeg_decompress_struct constructor \c jpeg_create_decompress is not
+/// called here because it may fail and be aborted via a long jump. Consequently
+/// the call to jpeg_create_decompress has to occur after setting up the jump
+/// buffer. On the other hand, no stack object with a destructor may be defined
+/// in a scope where a long jump might pass through, so we cannot delay the
+/// construction of this object to the longjump catching (try) scope.
+///
+/// It is crucial that the \c need_destruction flag is raised immediately before
+/// \c jpeg_create_decompress is called in the longjump catching scope.
+class LoadWrapper {
+public:
     LoadWrapper():
         need_destruction(false)
     {
@@ -416,10 +395,9 @@ struct LoadWrapper {
 };
 
 
-/**
- * See LoadWrapper. Same cautions apply.
- */
-struct SaveWrapper {
+/// See LoadWrapper. Same cautions apply.
+class SaveWrapper {
+public:
     SaveWrapper():
         need_destruction(false)
     {
@@ -440,104 +418,102 @@ struct SaveWrapper {
 
 
 
-/**
- * An adaptor that allows the Archon image library to use the JFIF file format
- * by using <tt><b>libjpeg</b></tt>.
- *
- * \sa  http://www.jpeg.org (ISO JPEG standards committee)
- * \sa  http://www.ijg.org (Independent JPEG Group)
- *
- * Rewritten and tested against <tt><b>libjpeg</b></tt> version 6b.
- *
- * \todo How do we handle progressive display during loading? The issue is that
- * of preventing concurrent reading and writing of the pixel data in a single
- * image. It is trivial for applications that does not need to load several
- * images concurrently, in this case we just read pixel data during the call to
- * to the ProgressTracker. The reading operation could eg. be a texture creation
- * function with the pixel buffer as input.
- *
- * \todo Loading multiple images concurrently with progressive display needs
- * more care. With the right thread safe API we might still be able to succeed
- * with only the ProgressTracker callback function. In most cases though, we
- * will have to bother about concurrency and re-entrance. There are at least two
- * different approaches one should considder. Either you would have each of the
- * progreass tracker callbacks compete for a critical region in which the image
- * data can be transfered safely to the destination buffer. This could be a call
- * to an OpenGL texture creation function, and in this case the GLXContext would
- * be the entity to protect.
- *
- * \todo A different approach to displaying multiple concurrently loading images
- * in a progressive manner is to have an extra thread that on regular intervals
- * consults each image and transfers its pixel data onto the display device. For
- * this to work, we need a way to synchronize access to the pixel data, since
- * the loader thread will need to access the pixel data too. An idea would be to
- * add a way for the image loading process to query the ProgressTracker object
- * for a mutex. The ProgressTracker object may report that there is no mutex, in
- * which case the loading process should not bother with synchronization. On the
- * other hand, if the ProgressTracker object does return a mutex reference, the
- * loading process shall acquire a lock on that mutex before accessing the image
- * data.
- *
- * \todo This appraoch will fit well into the common paradigme of having a frame
- * based rending thread with exclusive access to the rendering target
- * (GLXContext).
- *
- * \todo Considder adding the progressive flag to the Image API. This goes for
- * both loading and saving. In saving we have: If possible change the
- * compression strategy/file-layout to improve the perceived progressiveness
- * during the loading process potentally at the cost of system resources. For
- * loading we have: If possible use extra resources to improve the perceived
- * progressiveness of the loading process.
- *
- * Notes on using setjump/longjump in C++:
- *
- * Great care must be taken when using setjump/longjump in C++ context. The main
- * problem is that stack objects will not have their destructors called during a
- * long jump stack unwinding process.
- *
- * In this case we set up the long jump handler in a C++ function and then call
- * a number of C (not C++) functions, and it is only these C functions that can
- * potentially issue a long jump. This fact makes things a bit easier to
- * control.
- *
- * We should be safe as long as we stick to the following rules:
- *
- * <ol>
- *
- * <li> Keep the setjump/longjump construction on the following canonical form:
- *
- * <pre>
- *
- *   if(!setjmp(jmpbuf)) { // try
- *       // code that may potentially issue a long jump (throw)
- *   }
- *   else { // catch
- *       // code that handles the long jump (exception)
- *   }
- *
- * </pre>
- *
- * <li> Keep the try-scope completely free of declarations of variables whos
- * type have either an explicit or an implied destructor. This also applies to
- * any sub-scope through which a long jump may pass. A sub-scope through which a
- * long jump cannot pass, may safly define stack objects with destructors.
- *
- * <li> For each C function call that may lead to a long jump, make sure that
- * the surrounding expression does not involve creation of any temporary objects
- * of a type that has either an explicit or an implied destructor.
- *
- * <li> If any of the C function calls that may lead to a long jump calls a C++
- * function (eg. as a call back function) then make sure that the called C++
- * function does not issue a long jump or lead to one being issued in a place
- * where stack variables with destructors are "live".
- *
- * <li> Never long jump out of a C++ try block or catch block.
- *
- * </ul>
- */
+/// An adaptor that allows the Archon image library to use the JFIF file format
+/// by using <tt><b>libjpeg</b></tt>.
+///
+/// \sa http://www.jpeg.org (ISO JPEG standards committee) \sa
+/// http://www.ijg.org (Independent JPEG Group)
+///
+/// Rewritten and tested against <tt><b>libjpeg</b></tt> version 6b.
+///
+/// \todo How do we handle progressive display during loading? The issue is that
+/// of preventing concurrent reading and writing of the pixel data in a single
+/// image. It is trivial for applications that does not need to load several
+/// images concurrently, in this case we just read pixel data during the call to
+/// to the ProgressTracker. The reading operation could eg. be a texture
+/// creation function with the pixel buffer as input.
+///
+/// \todo Loading multiple images concurrently with progressive display needs
+/// more care. With the right thread safe API we might still be able to succeed
+/// with only the ProgressTracker callback function. In most cases though, we
+/// will have to bother about concurrency and re-entrance. There are at least
+/// two different approaches one should considder. Either you would have each of
+/// the progreass tracker callbacks compete for a critical region in which the
+/// image data can be transfered safely to the destination buffer. This could be
+/// a call to an OpenGL texture creation function, and in this case the
+/// GLXContext would be the entity to protect.
+///
+/// \todo A different approach to displaying multiple concurrently loading
+/// images in a progressive manner is to have an extra thread that on regular
+/// intervals consults each image and transfers its pixel data onto the display
+/// device. For this to work, we need a way to synchronize access to the pixel
+/// data, since the loader thread will need to access the pixel data too. An
+/// idea would be to add a way for the image loading process to query the
+/// ProgressTracker object for a mutex. The ProgressTracker object may report
+/// that there is no mutex, in which case the loading process should not bother
+/// with synchronization. On the other hand, if the ProgressTracker object does
+/// return a mutex reference, the loading process shall acquire a lock on that
+/// mutex before accessing the image data.
+///
+/// \todo This appraoch will fit well into the common paradigme of having a
+/// frame based rending thread with exclusive access to the rendering target
+/// (GLXContext).
+///
+/// \todo Considder adding the progressive flag to the Image API. This goes for
+/// both loading and saving. In saving we have: If possible change the
+/// compression strategy/file-layout to improve the perceived progressiveness
+/// during the loading process potentally at the cost of system resources. For
+/// loading we have: If possible use extra resources to improve the perceived
+/// progressiveness of the loading process.
+///
+/// Notes on using setjump/longjump in C++:
+///
+/// Great care must be taken when using setjump/longjump in C++ context. The
+/// main problem is that stack objects will not have their destructors called
+/// during a long jump stack unwinding process.
+///
+/// In this case we set up the long jump handler in a C++ function and then call
+/// a number of C (not C++) functions, and it is only these C functions that can
+/// potentially issue a long jump. This fact makes things a bit easier to
+/// control.
+///
+/// We should be safe as long as we stick to the following rules:
+///
+/// <ol>
+///
+/// <li> Keep the setjump/longjump construction on the following canonical form:
+///
+/// <pre>
+///
+///   if(!setjmp(jmpbuf)) { // try
+///       // code that may potentially issue a long jump (throw)
+///   }
+///   else { // catch
+///       // code that handles the long jump (exception)
+///   }
+///
+/// </pre>
+///
+/// <li> Keep the try-scope completely free of declarations of variables whos
+/// type have either an explicit or an implied destructor. This also applies to
+/// any sub-scope through which a long jump may pass. A sub-scope through which
+/// a long jump cannot pass, may safly define stack objects with destructors.
+///
+/// <li> For each C function call that may lead to a long jump, make sure that
+/// the surrounding expression does not involve creation of any temporary
+/// objects of a type that has either an explicit or an implied destructor.
+///
+/// <li> If any of the C function calls that may lead to a long jump calls a C++
+/// function (eg. as a call back function) then make sure that the called C++
+/// function does not issue a long jump or lead to one being issued in a place
+/// where stack variables with destructors are "live".
+///
+/// <li> Never long jump out of a C++ try block or catch block.
+///
+/// </ul>
 class FormatJpeg: public FileFormat {
 public:
-    string get_name() const override
+    std::string get_name() const override
     {
         return "jpeg";
     }
@@ -558,9 +534,9 @@ public:
         }
     }
 
-    bool check_suffix(string s) const override
+    bool check_suffix(std::string s) const override
     {
-        return s == "jpg" || s == "jpeg";
+        return (s == "jpg" || s == "jpeg");
     }
 
     BufferedImage::Ref load(InputStream& in, Logger* logger,
@@ -590,8 +566,8 @@ public:
         LoadWrapper w;
         w.cinfo.err = &c; // Downcast to jpeg_err_mgr
 
-        string comment;
-        Array<JSAMPROW> row_pointers;
+        std::string comment;
+        std::unique_ptr<JSAMPROW[]> row_pointers;
 
         ColorSpace::ConstRef color_space;
         IntegerBufferFormat::ChannelLayout channels;
@@ -662,14 +638,14 @@ public:
                     color_space = ColorSpace::get_CMYK();
                     break;
                 default:
-                    throw runtime_error("Unexpected color space for JPEG data "
-                                        "("+Text::print(static_cast<int>(color_type))+")");
+                    throw std::runtime_error("Unexpected color space for JPEG data "
+                                             "("+Text::print(static_cast<int>(color_type))+")");
             }
 
             // We now create the buffer format where channels are always evenly
             // spaced in terms of number of buffer pixels.
-            int bits_per_byte = numeric_limits<unsigned char>::digits;
-            int channel_pitch = sizeof(JSAMPLE)*bits_per_byte;
+            int bits_per_byte = std::numeric_limits<unsigned char>::digits;
+            int channel_pitch = sizeof (JSAMPLE) * bits_per_byte;
             WordType const word_type = get_word_type_by_bit_width(channel_pitch);
             int num_channels = w.cinfo.output_components;
             channels.bits_per_pixel = num_channels * channel_pitch;
@@ -689,7 +665,7 @@ public:
             int width  = w.cinfo.output_width;
             int bytes_per_strip = buf_fmt->get_bytes_per_strip(width);
 
-//cerr << "---- LOAD JPEG: "<<width<<"x"<<height<<" "<<buf_fmt->print(color_space, false)<< endl;
+//std::cerr << "---- LOAD JPEG: "<<width<<"x"<<height<<" "<<buf_fmt->print(color_space, false)<<"\n";
 
             // Construct an image with an uninitialized pixel buffer
             image = BufferedImage::new_image(width, height, color_space, false, buf_fmt);
@@ -700,7 +676,7 @@ public:
 
             // Make row array
             JSAMPROW pixel_buffer = reinterpret_cast<JSAMPROW>(image->get_buffer_ptr());
-            row_pointers.reset(height);
+            row_pointers = std::make_unique<JSAMPROW[]>(height); // Throws
             for (int i = 0; i < height; ++i)
                 row_pointers[i] = pixel_buffer + (height-i-1)*bytes_per_strip;
 
@@ -726,15 +702,15 @@ public:
                     // At this point we must....
                     switch (jpeg_consume_input(&w.cinfo)) {
                         case JPEG_REACHED_SOS:
-                            cerr << "JPEG_REACHED_SOS\n";
+                            std::cerr << "JPEG_REACHED_SOS\n";
                         case JPEG_REACHED_EOI:
-                            cerr << "JPEG_REACHED_EOI\n";
+                            std::cerr << "JPEG_REACHED_EOI\n";
                         case JPEG_ROW_COMPLETED:
-                            cerr << "JPEG_ROW_COMPLETED\n";
+                            std::cerr << "JPEG_ROW_COMPLETED\n";
                         case JPEG_SCAN_COMPLETED:
-                            cerr << "JPEG_SCAN_COMPLETED\n";
+                            std::cerr << "JPEG_SCAN_COMPLETED\n";
                         case JPEG_SUSPENDED:
-                            cerr << "JPEG_SUSPENDED\n";
+                            std::cerr << "JPEG_SUSPENDED\n";
                     }
 
                     bool final_pass = jpeg_input_complete(&w.cinfo);
@@ -766,9 +742,9 @@ public:
 
             jpeg_saved_marker_ptr text = w.cinfo.marker_list;
             while (text) {
-                string c =
-                    Text::line_trim_ascii(string(reinterpret_cast<char*>(text->data),
-                                                 text->data_length));
+                std::string c =
+                    Text::line_trim_ascii(std::string(reinterpret_cast<char*>(text->data),
+                                                      text->data_length));
                 if (!c.empty()) {
                     if (!comment.empty())
                         comment += "\n\n";
@@ -782,7 +758,7 @@ public:
             if (!comment.empty())
                 comment = transcode(comment, transcode_US_ASCII, transcode_UTF_8);
 
-//        cerr << "Comment: '"<<comment<<"'" << endl;
+//        std::cerr << "Comment: '"<<comment<<"'\n";
 
             jpeg_finish_decompress(&w.cinfo);
         }
@@ -793,7 +769,7 @@ public:
                 case 2:
                     throw ReadException(c.error_message);
                 case 3:
-                    throw runtime_error(c.error_message);
+                    throw std::runtime_error(c.error_message);
             }
             throw InvalidFormatException(c.error_message);
         }
@@ -843,7 +819,7 @@ public:
 
         // Libjpeg support only one channel width
         int channel_width = BITS_IN_JSAMPLE;
-        int bits_per_byte = numeric_limits<unsigned char>::digits;
+        int bits_per_byte = std::numeric_limits<unsigned char>::digits;
         int channel_pitch = sizeof (JSAMPLE) * bits_per_byte;
         WordType word_type = get_word_type_by_bit_width(channel_pitch);
         int num_channels = color_space->get_num_primaries();
@@ -877,16 +853,16 @@ public:
             buf_img = i;
         }
 
-//cerr << "---- SAVE JPEG: "<<width<<"x"<<height<<" "<<buf_fmt->print(color_space, false)<<" "<<
-//  (buf_img == image ? "Can use incoming buffer" : "Can not use incoming buffer") << endl;
+//std::cerr << "---- SAVE JPEG: "<<width<<"x"<<height<<" "<<buf_fmt->print(color_space, false)<<" "<<
+//  (buf_img == image ? "Can use incoming buffer" : "Can not use incoming buffer")<<"\n";
 
         // Make row array
         JSAMPROW pix_buf = reinterpret_cast<JSAMPROW>(const_cast<void*>(buf_img->get_buffer_ptr()));
-        Array<JSAMPROW> row_pointers(height);
+        std::unique_ptr<JSAMPROW[]> row_pointers = std::make_unique<JSAMPROW[]>(height); // Throws
         for (int i = 0; i < height; ++i)
             row_pointers[i] = pix_buf + (height-i-1)*bytes_per_strip;
 
-        string comment = "Created by the Archon image library";
+        std::string comment = "Created by the Archon image library";
         // Transcode comment to enforce 7-bit ASCII, which is all that the JFIF
         // file format allows
         comment = transcode(comment, transcode_UTF_8, transcode_US_ASCII);
@@ -949,7 +925,7 @@ private:
                 case 2:
                     throw WriteException(c.error_message);
                 case 3:
-                    throw runtime_error(c.error_message);
+                    throw std::runtime_error(c.error_message);
             }
             throw InvalidFormatException(c.error_message);
         }

@@ -18,11 +18,9 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #include <cstdlib>
 #include <string>
@@ -38,18 +36,17 @@
 #include <archon/image/reader.hpp>
 
 
-using namespace std;
 using namespace archon::core;
 using namespace archon::util;
 using namespace archon::image;
 
-int main(int argc, const char *argv[]) throw()
+int main(int argc, const char* argv[])
 {
     Series<4, int>         opt_clip(0, 0, -1, -1);
     Series<2, int>         opt_pos(0, 0);
     Series<2, FalloffEnum> opt_falloff(falloff_Background, falloff_Background);
     Series<2, int>         opt_block_size(1, 1);
-    string                 opt_save;
+    std::string            opt_save;
     bool                   opt_no_print(false);
 
     CommandlineOptions opts;
@@ -70,15 +67,15 @@ int main(int argc, const char *argv[]) throw()
     if (int stop = opts.process(argc, argv))
         return stop == 2 ? EXIT_SUCCESS : EXIT_FAILURE;
 
-    string in_file = argc < 2 ? file::dir_of(argv[0])+"../alley_baggett.png" : argv[1];
+    std::string in_file = argc < 2 ? file::dir_of(argv[0])+"../alley_baggett.png" : argv[1];
 
     ColorSpace::ConstRef color_space = ColorSpace::get_RGB();
     bool has_alpha = true;
     int num_channels = color_space->get_num_primaries() + (has_alpha?1:0);
     int width = opt_block_size[0], height = opt_block_size[1];
-    size_t n = height * size_t(width);
-    Array<unsigned char> buffer(n * num_channels);
-    cout << "Buffer size = " << n * num_channels * sizeof *buffer.get() << endl;
+    std::size_t n = height * std::size_t(width);
+    std::unique_ptr<unsigned char[]> buffer = std::make_unique<unsigned char[]>(n * num_channels);
+    std::cout << "Buffer size = " << n * num_channels * sizeof *buffer.get() << std::endl;
 
     ImageReader r(in_file);
     r.set_background_color(color::red).set_clip(opt_clip[0], opt_clip[1], opt_clip[2], opt_clip[3]);
@@ -95,14 +92,14 @@ int main(int argc, const char *argv[]) throw()
             table.get_cell(0, i+1).set_text(color_space->get_channel_name(i));
         for (int y = 0; y < height; ++y) {
             for(int x = 0; x < width; ++x) {
-                size_t j = y * size_t(width) + x;
+                std::size_t j = y * std::size_t(width) + x;
                 table.get_cell(j+1, 0).set_text(Text::print(x)+","+Text::print(y));
                 for (int i = 0; i < num_channels; ++i)
                     table.get_cell(j+1, i+1).set_val(to_num(buffer[j*num_channels + i]));
             }
         }
 
-        cout << table.print();
+        std::cout << table.print();
     }
 
     if (!opt_save.empty())

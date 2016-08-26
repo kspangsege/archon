@@ -58,7 +58,7 @@ namespace
         Mutex::Lock l(mux);
         for(;;)
         {
-          timeout += 4;
+          timeout += Time{4};
           for(;;)
           {
             bool const timed_out = cond.select(spec, timeout);
@@ -103,7 +103,7 @@ int main() throw()
 
   for(int i=0; i<10; ++i)
   {
-    Thread::sleep(1);
+    Thread::sleep(Time{1});
     cerr << "--" << (i+1) << "--\n";
   }
 

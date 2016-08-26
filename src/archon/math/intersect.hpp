@@ -311,8 +311,8 @@ int intersect_cylinder(const Line3&, double& dist, double height = 2, double rad
  * \note The ray is understood as originating at the fixed point of
  * the specified line.
  */
-bool intersect_torus(const Line3&, double& dist, double major_torus_radius = 2,
-                     double minor_torus_radius = 1, bool surface_origin = false,
+bool intersect_torus(const Line3&, double& dist, double major_torus_radius = 1,
+                     double minor_torus_radius = 0.5, bool surface_origin = false,
                      bool ext_to_int_only = true);
 
 

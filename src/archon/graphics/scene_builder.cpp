@@ -173,9 +173,9 @@ void build_zxy_mesh(SpatialObjectBuilder& builder, bool texture, bool reverse,
 }
 
 
-void build_box(SpatialObjectBuilder& builder, bool texture,
-               bool front, bool back, bool right, bool left, bool top, bool bottom,
-               int x_steps, int y_steps, int z_steps)
+void build_centered_box(SpatialObjectBuilder& builder, bool texture,
+                        bool front, bool back, bool right, bool left, bool top, bool bottom,
+                        int x_steps, int y_steps, int z_steps)
 {
     if (front)  //  X,  Y
         build_xyz_mesh(builder, texture, false, -1,  1, -1,  1,  1, x_steps, y_steps);
@@ -189,6 +189,25 @@ void build_box(SpatialObjectBuilder& builder, bool texture,
         build_zxy_mesh(builder, texture, true,   1, -1, -1,  1,  1, z_steps, x_steps);
     if (bottom) //  X,  Z
         build_zxy_mesh(builder, texture, true,  -1,  1, -1,  1, -1, z_steps, x_steps);
+}
+
+
+void build_unit_box(SpatialObjectBuilder& builder, bool texture,
+                    bool front, bool back, bool right, bool left, bool top, bool bottom,
+                    int x_steps, int y_steps, int z_steps)
+{
+    if (front)  //  X,  Y
+        build_xyz_mesh(builder, texture, false, 0, 1, 0, 1, 1, x_steps, y_steps);
+    if (back)   // -X,  Y
+        build_xyz_mesh(builder, texture, false, 1, 0, 0, 1, 0, x_steps, y_steps);
+    if (right)  // -Z,  Y
+        build_yzx_mesh(builder, texture, true,  0, 1, 1, 0, 1, y_steps, z_steps);
+    if (left)   //  Z,  Y
+        build_yzx_mesh(builder, texture, true,  0, 1, 0, 1, 0, y_steps, z_steps);
+    if (top)    //  X, -Z
+        build_zxy_mesh(builder, texture, true,  1, 0, 0, 1, 1, z_steps, x_steps);
+    if (bottom) //  X,  Z
+        build_zxy_mesh(builder, texture, true,  0, 1, 0, 1, 0, z_steps, x_steps);
 }
 
 
@@ -456,9 +475,9 @@ void build_sphere(SpatialObjectBuilder& builder, bool texture,
 
 
 void build_torus(SpatialObjectBuilder& builder, bool texture,
-                 double major_radius, int major_steps, int minor_steps)
+                 double minor_radius, int major_steps, int minor_steps)
 {
-    double minor_radius = 1;
+    double major_radius = 1;
 
     vector<Vec2> roots(major_steps);
     {

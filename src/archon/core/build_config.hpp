@@ -18,14 +18,12 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- *
- * Access to Archon library configuration paramters whose values are
- * fixed at build time.
- */
+/// \file
+///
+/// \author Kristian Spangsege
+///
+/// Access to Archon library configuration paramters whose values are fixed at
+/// build time.
 
 #ifndef ARCHON_CORE_BUILD_CONFIG_HPP
 #define ARCHON_CORE_BUILD_CONFIG_HPP
@@ -33,50 +31,42 @@
 #include <string>
 
 
-namespace archon
-{
-  namespace core
-  {
-    enum BuildConfigParam
-    {
-      /**
-       * The intended path to the directory holding idiosyncratic
-       * read-only architecture-independent data objects. Typically
-       * "/usr/share/archon/". You may assume that it always has a
-       * final slash.
-       */
-      build_config_param_DataDir
-    };
+namespace archon {
+namespace core {
 
-    std::string get_value_of(BuildConfigParam);
+enum BuildConfigParam {
+    /// The intended path to the directory holding idiosyncratic read-only
+    /// architecture-independent data objects. Typically
+    /// "/usr/share/archon/". You may assume that it always has a final slash.
+    build_config_param_DataDir
+};
+
+std::string get_value_of(BuildConfigParam);
 
 
-    /**
-     * Automatically detect when a program is executed from whithin
-     * the source tree, and possibly before installation, and in that
-     * case, update the value of 'DataDir' to reflect this fact.
-     *
-     * If the calling program selects a new directory as the
-     * current working directory, make sure it calls this function
-     * first, otherwise the result is unreliable.
-     *
-     * \param argv0 The value of \c argv[0] where \c argv is the
-     * second argument passed to main().
-     *
-     * \param subdir The relative path within the source tree to the
-     * subdirectory holding the executing program. It must be
-     * specified relative to the root of the source tree. The root of
-     * the source tree is the directory from which
-     * 'core/build_config.hpp' can be resolved. The path must either
-     * be empty (which means './') or contain a final slash. The path
-     * must never contain segments equal to '.' or '..'.
-     *
-     * \note This function is thread-safe, that is, it is safe to have
-     * some threads call this function while other threads call
-     * get_value_of().
-     */
-    void try_fix_preinstall_datadir(std::string argv0, std::string subdir);
-  }
-}
+/// Automatically detect when a program is executed from whithin the source
+/// tree, and possibly before installation, and in that case, update the value
+/// of 'DataDir' to reflect this fact.
+///
+/// If the calling program selects a new directory as the current working
+/// directory, make sure it calls this function first, otherwise the result is
+/// unreliable.
+///
+/// \param argv0 The value of \c argv[0] where \c argv is the second argument
+/// passed to main().
+///
+/// \param subdir The relative path within the source tree to the subdirectory
+/// holding the executing program. It must be specified relative to the root of
+/// the source tree. The root of the source tree is the directory from which
+/// 'core/build_config.hpp' can be resolved. The path must either be empty
+/// (which means './') or contain a final slash. The path must never contain
+/// segments equal to '.' or '..'.
+///
+/// \note This function is thread-safe, that is, it is safe to have some threads
+/// call this function while other threads call get_value_of().
+void try_fix_preinstall_datadir(std::string argv0, std::string subdir);
+
+} // namespace core
+} // namespace archon
 
 #endif // ARCHON_CORE_BUILD_CONFIG_HPP
