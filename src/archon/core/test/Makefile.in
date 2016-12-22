@@ -82,10 +82,9 @@ noinst_PROGRAMS = text_join$(EXEEXT) series$(EXEEXT) div_mod$(EXEEXT) \
 	bit_cast$(EXEEXT) bitscan$(EXEEXT) atomic$(EXEEXT) \
 	utf16$(EXEEXT) char_enc$(EXEEXT) enum$(EXEEXT) time$(EXEEXT) \
 	bind_ref$(EXEEXT) unique_ptr$(EXEEXT) refcnt$(EXEEXT) \
-	shared_ptr$(EXEEXT) weak_ptr$(EXEEXT) random$(EXEEXT) \
-	iterator$(EXEEXT) file$(EXEEXT) dir_scan$(EXEEXT) \
-	value_codec$(EXEEXT) text_table$(EXEEXT) config$(EXEEXT) \
-	options$(EXEEXT)
+	random$(EXEEXT) iterator$(EXEEXT) file$(EXEEXT) \
+	dir_scan$(EXEEXT) value_codec$(EXEEXT) text_table$(EXEEXT) \
+	config$(EXEEXT) options$(EXEEXT)
 subdir = src/archon/core/test
 DIST_COMMON = $(srcdir)/Makefile.in $(srcdir)/Makefile.am \
 	$(top_srcdir)/config/depcomp
@@ -180,10 +179,6 @@ am_series_OBJECTS = series.$(OBJEXT)
 series_OBJECTS = $(am_series_OBJECTS)
 series_LDADD = $(LDADD)
 series_DEPENDENCIES = ../libarchon_core.la
-am_shared_ptr_OBJECTS = shared_ptr.$(OBJEXT)
-shared_ptr_OBJECTS = $(am_shared_ptr_OBJECTS)
-shared_ptr_LDADD = $(LDADD)
-shared_ptr_DEPENDENCIES = ../libarchon_core.la
 am_text_join_OBJECTS = text_join.$(OBJEXT)
 text_join_OBJECTS = $(am_text_join_OBJECTS)
 text_join_LDADD = $(LDADD)
@@ -208,10 +203,6 @@ am_value_codec_OBJECTS = value_codec.$(OBJEXT)
 value_codec_OBJECTS = $(am_value_codec_OBJECTS)
 value_codec_LDADD = $(LDADD)
 value_codec_DEPENDENCIES = ../libarchon_core.la
-am_weak_ptr_OBJECTS = weak_ptr.$(OBJEXT)
-weak_ptr_OBJECTS = $(am_weak_ptr_OBJECTS)
-weak_ptr_LDADD = $(LDADD)
-weak_ptr_DEPENDENCIES = ../libarchon_core.la
 AM_V_P = $(am__v_P_@AM_V@)
 am__v_P_ = $(am__v_P_@AM_DEFAULT_V@)
 am__v_P_0 = false
@@ -251,17 +242,16 @@ SOURCES = $(atomic_SOURCES) $(bind_ref_SOURCES) $(bit_cast_SOURCES) \
 	$(dir_scan_SOURCES) $(div_mod_SOURCES) $(enum_SOURCES) \
 	$(file_SOURCES) $(iterator_SOURCES) $(options_SOURCES) \
 	$(random_SOURCES) $(refcnt_SOURCES) $(series_SOURCES) \
-	$(shared_ptr_SOURCES) $(text_join_SOURCES) \
-	$(text_table_SOURCES) $(time_SOURCES) $(unique_ptr_SOURCES) \
-	$(utf16_SOURCES) $(value_codec_SOURCES) $(weak_ptr_SOURCES)
+	$(text_join_SOURCES) $(text_table_SOURCES) $(time_SOURCES) \
+	$(unique_ptr_SOURCES) $(utf16_SOURCES) $(value_codec_SOURCES)
 DIST_SOURCES = $(atomic_SOURCES) $(bind_ref_SOURCES) \
 	$(bit_cast_SOURCES) $(bitscan_SOURCES) $(char_enc_SOURCES) \
 	$(config_SOURCES) $(dir_scan_SOURCES) $(div_mod_SOURCES) \
 	$(enum_SOURCES) $(file_SOURCES) $(iterator_SOURCES) \
 	$(options_SOURCES) $(random_SOURCES) $(refcnt_SOURCES) \
-	$(series_SOURCES) $(shared_ptr_SOURCES) $(text_join_SOURCES) \
-	$(text_table_SOURCES) $(time_SOURCES) $(unique_ptr_SOURCES) \
-	$(utf16_SOURCES) $(value_codec_SOURCES) $(weak_ptr_SOURCES)
+	$(series_SOURCES) $(text_join_SOURCES) $(text_table_SOURCES) \
+	$(time_SOURCES) $(unique_ptr_SOURCES) $(utf16_SOURCES) \
+	$(value_codec_SOURCES)
 am__can_run_installinfo = \
   case $$AM_UPDATE_INFO_DIR in \
     n|no|NO) false;; \
@@ -458,8 +448,6 @@ time_SOURCES = time.cpp
 bind_ref_SOURCES = bind_ref.cpp
 unique_ptr_SOURCES = unique_ptr.cpp
 refcnt_SOURCES = refcnt.cpp
-shared_ptr_SOURCES = shared_ptr.cpp
-weak_ptr_SOURCES = weak_ptr.cpp
 random_SOURCES = random.cpp
 iterator_SOURCES = iterator.cpp
 file_SOURCES = file.cpp
@@ -575,10 +563,6 @@ series$(EXEEXT): $(series_OBJECTS) $(series_DEPENDENCIES) $(EXTRA_series_DEPENDE
 	@rm -f series$(EXEEXT)
 	$(AM_V_CXXLD)$(CXXLINK) $(series_OBJECTS) $(series_LDADD) $(LIBS)
 
-shared_ptr$(EXEEXT): $(shared_ptr_OBJECTS) $(shared_ptr_DEPENDENCIES) $(EXTRA_shared_ptr_DEPENDENCIES) 
-	@rm -f shared_ptr$(EXEEXT)
-	$(AM_V_CXXLD)$(CXXLINK) $(shared_ptr_OBJECTS) $(shared_ptr_LDADD) $(LIBS)
-
 text_join$(EXEEXT): $(text_join_OBJECTS) $(text_join_DEPENDENCIES) $(EXTRA_text_join_DEPENDENCIES) 
 	@rm -f text_join$(EXEEXT)
 	$(AM_V_CXXLD)$(CXXLINK) $(text_join_OBJECTS) $(text_join_LDADD) $(LIBS)
@@ -603,10 +587,6 @@ value_codec$(EXEEXT): $(value_codec_OBJECTS) $(value_codec_DEPENDENCIES) $(EXTRA
 	@rm -f value_codec$(EXEEXT)
 	$(AM_V_CXXLD)$(CXXLINK) $(value_codec_OBJECTS) $(value_codec_LDADD) $(LIBS)
 
-weak_ptr$(EXEEXT): $(weak_ptr_OBJECTS) $(weak_ptr_DEPENDENCIES) $(EXTRA_weak_ptr_DEPENDENCIES) 
-	@rm -f weak_ptr$(EXEEXT)
-	$(AM_V_CXXLD)$(CXXLINK) $(weak_ptr_OBJECTS) $(weak_ptr_LDADD) $(LIBS)
-
 mostlyclean-compile:
 	-rm -f *.$(OBJEXT)
 
@@ -628,14 +608,12 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/random.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/refcnt.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/series.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/shared_ptr.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/text_join.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/text_table.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/time.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/unique_ptr.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/utf16.Po@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/value_codec.Po@am__quote@
-@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/weak_ptr.Po@am__quote@
 
 .cpp.o:
 @am__fastdepCXX_TRUE@	$(AM_V_CXX)$(CXXCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<

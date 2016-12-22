@@ -18,11 +18,9 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #ifndef ARCHON_RENDER_FONT_PROVIDER_HPP
 #define ARCHON_RENDER_FONT_PROVIDER_HPP
@@ -47,29 +45,26 @@
 namespace archon {
 namespace render {
 
-/**
- * A provider of text fonts for rendering text in OpenGL. The fonts are provided
- * as a set of textures, each one holding a set of glyphs.
- *
- * \param save_textures_to_disk This is only a debugging feature. Each generated
- * texture is saved as a PNG file in the directory for temporary files.
- */
+/// A provider of text fonts for rendering text in OpenGL. The fonts are
+/// provided as a set of textures, each one holding a set of glyphs.
+///
+/// \param save_textures_to_disk This is only a debugging feature. Each
+/// generated texture is saved as a PNG file in the directory for temporary
+/// files.
 class FontProvider {
 public:
-    FontProvider(font::FontCache::Arg, TextureCache&,
+    FontProvider(std::shared_ptr<font::FontCache>, TextureCache&,
                  const math::Vec2F& desired_glyph_resol = math::Vec2F(64,64),
                  bool enable_mipmap = true, bool save_textures_to_disk = false);
 
 
-    /**
-     * Fetch the default font style. The result is the same as one would get by
-     * calling acquire_style() passing a description of the default style.
-     *
-     * It is guaranteed that calling this method does not cause the associated
-     * FontList to scan through the font path for further font files.
-     *
-     * \sa acquire_style()
-     */
+    /// Fetch the default font style. The result is the same as one would get by
+    /// calling acquire_style() passing a description of the default style.
+    ///
+    /// It is guaranteed that calling this method does not cause the associated
+    /// FontList to scan through the font path for further font files.
+    ///
+    /// \sa acquire_style()
     int acquire_default_style();
 
 
@@ -81,38 +76,30 @@ public:
         bool operator==(const StyleDesc&) const throw();
     };
 
-    /**
-     * Will always succeed. The returned font, however, may not be exactly what
-     * you requested. To the greatest possible extent, it will be the best match
-     * among the available fonts.
-     *
-     * When the returned font ID is no longer needed, it must be released by
-     * passing it to release_style().
-     *
-     * \return A numerical identifier for the specified style. The returned
-     * value is never zero.
-     */
+    /// Will always succeed. The returned font, however, may not be exactly what
+    /// you requested. To the greatest possible extent, it will be the best
+    /// match among the available fonts.
+    ///
+    /// When the returned font ID is no longer needed, it must be released by
+    /// passing it to release_style().
+    ///
+    /// \return A numerical identifier for the specified style. The returned
+    /// value is never zero.
     int acquire_style(const StyleDesc&);
 
-    /**
-     * Tell the font provider that you are no longer interested in the specified
-     * font.
-     */
+    /// Tell the font provider that you are no longer interested in the
+    /// specified font.
     void release_style(int style_id)
     {
         release_style_fast(style_id);
     }
 
 
-    /**
-     * Get the descriptor for the specified style.
-     */
+    /// Get the descriptor for the specified style.
     void get_style_desc(int style_id, StyleDesc& desc);
 
 
-    /**
-     * RAII scheme (Resource acquisition is initialization) for style IDs.
-     */
+    /// RAII scheme (Resource acquisition is initialization) for style IDs.
     struct StyleOwner {
         StyleOwner(FontProvider* p, int style_id = 0) throw():
             provider{p},
@@ -204,7 +191,7 @@ private:
     void render(const TextContainer& text) const;
     void release(TextContainer& text);
 
-    const font::FontCache::Ptr font_cache;
+    const std::shared_ptr<font::FontCache> font_cache;
     TextureCache& texture_cache;
     const math::Vec2F desired_glyph_resol; // Ask cache for this rendering size
     const math::Vec2 size_of_pixel; // Inverse of desired glyph resolution
@@ -220,24 +207,20 @@ private:
 
 
 
-/**
- * Holds strips of glyphs.
- *
- * An instance of this class remains associated with the font provider that was
- * last passed to the TextInserter constructor alongside this text instance. For
- * this reason, the application must ensure that this instance is destroyed (or
- * cleared) before the font provider is.
- */
+/// Holds strips of glyphs.
+///
+/// An instance of this class remains associated with the font provider that was
+/// last passed to the TextInserter constructor alongside this text
+/// instance. For this reason, the application must ensure that this instance is
+/// destroyed (or cleared) before the font provider is.
 class FontProvider::TextContainer {
 public:
-    /**
-     * Render this text using the OpenGL context that is currently bound to the
-     * calling thread.
-     *
-     * You may embed this call in an OpenGL call list. If you do so, you must
-     * ensure that the text container remains unmodified for as long as the
-     * OpenGL call list.
-     */
+    /// Render this text using the OpenGL context that is currently bound to the
+    /// calling thread.
+    ///
+    /// You may embed this call in an OpenGL call list. If you do so, you must
+    /// ensure that the text container remains unmodified for as long as the
+    /// OpenGL call list.
     void render() const
     {
         if (provider)
@@ -298,23 +281,19 @@ private:
 
 class FontProvider::TextInserter {
 public:
-    /**
-     * This clears the specified text container.
-     *
-     * Application must ensure that neither the font provider nor the text
-     * object is destroyed before this object is. Ownership of both the provider
-     * and the text remains with the caller.
-     *
-     * \note You must make sure that two inserters never exist for the same
-     * container at the same time.
-     */
+    /// This clears the specified text container.
+    ///
+    /// Application must ensure that neither the font provider nor the text
+    /// object is destroyed before this object is. Ownership of both the
+    /// provider and the text remains with the caller.
+    ///
+    /// \note You must make sure that two inserters never exist for the same
+    /// container at the same time.
     TextInserter(FontProvider*, TextContainer*, font::FontCache::Direction);
 
-    /**
-     * \param font_id The ID of the style that the glyph indices refer to. The
-     * ID must have previously been obtained by calling
-     * FontProvider::acquire_style() in the associated FontProvider instance.
-     */
+    /// \param font_id The ID of the style that the glyph indices refer to. The
+    /// ID must have previously been obtained by calling
+    /// FontProvider::acquire_style() in the associated FontProvider instance.
     void insert_strip(int style_id, int num_glyphs, const int* glyphs, const float* components);
 
 private:

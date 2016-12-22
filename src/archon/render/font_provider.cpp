@@ -165,14 +165,14 @@ private:
 
 
 
-FontProvider::FontProvider(font::FontCache::Arg f, TextureCache& t,
+FontProvider::FontProvider(std::shared_ptr<font::FontCache> f, TextureCache& t,
                            const math::Vec2F& r, bool m, bool s):
-    font_cache(f),
-    texture_cache(t),
-    desired_glyph_resol(r),
-    size_of_pixel(1/r[0], 1/r[1]),
-    enable_mipmap(m),
-    save_textures(s)
+    font_cache{std::move(f)},
+    texture_cache{t},
+    desired_glyph_resol{r},
+    size_of_pixel{1/r[0], 1/r[1]},
+    enable_mipmap{m},
+    save_textures{s}
 {
 }
 
@@ -192,7 +192,7 @@ FontProvider::~FontProvider() throw ()
 int FontProvider::acquire_default_style()
 {
     Vec2F size = desired_glyph_resol;
-    FontCache::FontOwner font(font_cache, font_cache->acquire_default_font(size[0], size[1]));
+    FontCache::FontOwner font{font_cache, font_cache->acquire_default_font(size[0], size[1])};
     return acquire_style(font, Vec2F(1), Vec4F(1));
 }
 
@@ -204,7 +204,7 @@ int FontProvider::acquire_style(const StyleDesc& desc)
     font_desc.boldness  = desc.font_boldness;
     font_desc.italicity = desc.font_italicity;
     font_desc.size.set(desired_glyph_resol[0], desired_glyph_resol[1]);
-    FontCache::FontOwner font(font_cache, font_cache->acquire_font(font_desc));
+    FontCache::FontOwner font{font_cache, font_cache->acquire_font(font_desc)};
     return acquire_style(font, desc.font_size, desc.text_color);
 }
 
@@ -213,7 +213,7 @@ int FontProvider::acquire_style(FontCache::FontOwner& font, const Vec2F& font_si
                                 const Vec4F& text_color)
 {
     Vec2F scaling;
-    Style style(font.get(), font_size, text_color);
+    Style style{font.get(), font_size, text_color};
     int& i = style_map[style];
     StyleEntry* s;
     if (i) {

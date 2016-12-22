@@ -18,12 +18,11 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
+#include <cstdlib>
 #include <iostream>
 
 #include <archon/core/char_enc.hpp>
@@ -32,55 +31,52 @@
 #include <archon/font/util.hpp>
 #include <archon/font/text_render.hpp>
 
-using namespace std;
 using namespace archon::core;
 using namespace archon::image;
 using namespace archon::font;
 
 
-int main(int argc, char const *argv[]) throw()
+int main(int argc, const char* argv[])
 {
-  FontConfig font_cfg;
-  CommandlineOptions opts;
-  opts.add_help("Render the specified text using each available font", "TEXT");
-  opts.check_num_args(0,1);
-  opts.add_stop_opts();
-  opts.add_group<ListConfig>(font_cfg, "font");
-  if(int stop = opts.process(argc, argv)) return stop == 2 ? 0 : 1;
+    FontConfig font_cfg;
+    CommandlineOptions opts;
+    opts.add_help("Render the specified text using each available font", "TEXT");
+    opts.check_num_args(0,1);
+    opts.add_stop_opts();
+    opts.add_group<ListConfig>(font_cfg, "font");
+    if (int stop = opts.process(argc, argv))
+        return stop == 2 ? EXIT_SUCCESS : EXIT_FAILURE;
 
-  FontList::Ptr const list = make_font_list(file::dir_of(argv[0])+"../../", font_cfg);
-  if(!list) return 1;
+    std::shared_ptr<FontList> list = make_font_list(file::dir_of(argv[0])+"../../", font_cfg);
+    if (!list)
+        return EXIT_FAILURE;
 
-  wstring const text = 1 < argc ? env_decode<wchar_t>(argv[1]) :
-    L"0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz";
+    std::wstring text = (1 < argc ? env_decode<wchar_t>(argv[1]) :
+                         L"0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz");
 
-  TextRenderer renderer(new_font_cache(list));
+    TextRenderer renderer{new_font_cache(list)};
 
-  int const n = list->get_num_families();
-  for(int i=0; i<n; ++i)
-  {
-    wostringstream o;
-    o << i+1 << ": ";
-    renderer.write(o.str());
-    string name = list->get_family_name(i);
-    renderer.write(env_decode<wchar_t>(name.empty() ? "(no name)" : name));
-    renderer.write(L" \"");
-    renderer.set_font_family(name);
-    renderer.write(text);
-    renderer.reset_font();
-    renderer.write(L"\"\n");
-  }
+    int n = list->get_num_families();
+    for (int i = 0; i < n; ++i) {
+        std::wostringstream o;
+        o << i+1 << ": ";
+        renderer.write(o.str());
+        std::string name = list->get_family_name(i);
+        renderer.write(env_decode<wchar_t>(name.empty() ? "(no name)" : name));
+        renderer.write(L" \"");
+        renderer.set_font_family(name);
+        renderer.write(text);
+        renderer.reset_font();
+        renderer.write(L"\"\n");
+    }
 
-  Image::Ref const img = renderer.render();
-  if(!img)
-  {
-    cerr << "ERROR: No image!" << endl;
-    return 1;
-  }
+    Image::Ref img = renderer.render();
+    if (!img) {
+        std::cerr << "ERROR: No image!\n";
+        return EXIT_FAILURE;
+    }
 
-  string const out_file = "/tmp/archon_fonts.png";
-  img->save(out_file);
-  cout << "Result saved as: " << out_file << endl;
-
-  return 0;
+    std::string out_file = "/tmp/archon_fonts.png";
+    img->save(out_file);
+    std::cout << "Result saved as: " << out_file << std::endl;
 }

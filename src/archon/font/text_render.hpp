@@ -18,11 +18,9 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #ifndef ARCHON_FONT_TEXT_RENDER_HPP
 #define ARCHON_FONT_TEXT_RENDER_HPP
@@ -39,11 +37,10 @@
 namespace archon {
 namespace font {
 
-/**
- * Not thread-safe.
- */
-struct TextRenderer: TextFormatter {
-    TextRenderer(FontCache::Arg cache);
+/// Not thread-safe.
+class TextRenderer: public TextFormatter {
+public:
+    TextRenderer(std::shared_ptr<FontCache>);
 
     ~TextRenderer();
 
@@ -84,13 +81,10 @@ struct TextRenderer: TextFormatter {
     // Default is (0,0,0,0)
     void set_border_width(int top, int right, int bottom, int left);
 
-    /**
-     * If a layout session is already initiated, this setting will
-     * not have any effect until clear() is called and a new session
-     * is started.
-     *
-     * Grid fitting is enabled by default.
-     */
+    /// If a layout session is already initiated, this setting will not have any
+    /// effect until clear() is called and a new session is started.
+    ///
+    /// Grid fitting is enabled by default.
     void enable_grid_fitting(bool enabled);
 
     // Returns null if the image size would have been zero.
@@ -114,16 +108,18 @@ private:
 
     void release_used_fonts() throw();
 
-    const FontCache::Ptr cache;
+    const std::shared_ptr<FontCache> m_cache;
 
-    FontCache::FontDesc font_desc;
-    int font_id; // ID of currently used font, or -1 if none are used.
-    std::vector<int> used_fonts;
-    int default_font; // ID of default font, also added to used_fonts
+    FontCache::FontDesc m_font_desc;
+    int m_font_id = -1; // ID of currently used font, or -1 if none are used.
+    std::vector<int> m_used_fonts;
+    int m_default_font; // ID of default font, also added to used_fonts
 
-    util::PackedTRGB text_color, background_color, border_color;
-    double padding_top, padding_right, padding_bottom, padding_left;
-    int border_top, border_right, border_bottom, border_left;
+    util::PackedTRGB m_text_color       = util::PackedTRGB{0x000000};
+    util::PackedTRGB m_background_color = util::PackedTRGB{0xFFFFFF};
+    util::PackedTRGB m_border_color     = util::PackedTRGB{0x000000};
+    double m_padding_top = 4, m_padding_right = 4, m_padding_bottom = 4, m_padding_left = 4;
+    int m_border_top = 0, m_border_right = 0, m_border_bottom = 0, m_border_left = 0;
 
     struct Style {
         int font_id;
@@ -145,10 +141,9 @@ private:
         }
     };
 
-    std::vector<Style> styles;
-    util::HashMap<Style, int, StyleHasher> style_map; // Value is one plus index in 'styles'.
+    std::vector<Style> m_styles;
+    util::HashMap<Style, int, StyleHasher> m_style_map; // Value is one plus index in 'styles'.
 };
-
 
 
 
@@ -156,83 +151,83 @@ private:
 
 inline void TextRenderer::set_font_size(double width, double height)
 {
-    if (width == font_desc.size[0] && height == font_desc.size[1])
+    if (width == m_font_desc.size[0] && height == m_font_desc.size[1])
         return;
     request_style_update(true);
-    font_desc.size.set(width, height);
-    font_id = -1; // Request new font
+    m_font_desc.size.set(width, height);
+    m_font_id = -1; // Request new font
 }
 
 inline void TextRenderer::set_font_boldness(double boldness)
 {
-    if (boldness == font_desc.boldness)
+    if (boldness == m_font_desc.boldness)
         return;
     request_style_update(true);
-    font_desc.boldness = boldness;
-    font_id = -1; // Request new font
+    m_font_desc.boldness = boldness;
+    m_font_id = -1; // Request new font
 }
 
 inline void TextRenderer::set_font_italicity(double italicity)
 {
-    if (italicity == font_desc.italicity)
+    if (italicity == m_font_desc.italicity)
         return;
     request_style_update(true);
-    font_desc.italicity = italicity;
-    font_id = -1; // Request new font
+    m_font_desc.italicity = italicity;
+    m_font_id = -1; // Request new font
 }
 
 inline void TextRenderer::set_font_family(std::string family)
 {
-    if (family == font_desc.family)
+    if (family == m_font_desc.family)
         return;
     request_style_update(true);
-    font_desc.family = family;
-    font_id = -1; // Request new font
+    m_font_desc.family = family;
+    m_font_id = -1; // Request new font
 }
 
 inline void TextRenderer::reset_font()
 {
     FontCache::FontDesc desc;
-    cache->get_font_desc(default_font, desc);
-    if (desc == font_desc)
+    m_cache->get_font_desc(m_default_font, desc);
+    if (desc == m_font_desc)
         return;
     request_style_update(true);
-    font_desc = desc;
-    font_id = -1; // Request new font
+    m_font_desc = desc;
+    m_font_id = -1; // Request new font
 }
 
 inline void TextRenderer::set_text_color(util::PackedTRGB color)
 {
-    if (color == text_color)
+    if (color == m_text_color)
         return;
     request_style_update(false);
-    text_color = color;
+    m_text_color = color;
 }
 
 inline void TextRenderer::set_background_color(util::PackedTRGB color)
 {
-    background_color = color;
+    m_background_color = color;
 }
 
 inline void TextRenderer::set_border_color(util::PackedTRGB color)
 {
-    border_color = color;
+    m_border_color = color;
 }
 
 inline void TextRenderer::set_padding(double top, double right, double bottom, double left)
 {
-    padding_top    = top;
-    padding_right  = right;
-    padding_bottom = bottom;
-    padding_left   = left;
+    m_padding_top    = top;
+    m_padding_right  = right;
+    m_padding_bottom = bottom;
+    m_padding_left   = left;
 }
 
 inline void TextRenderer::set_border_width(int top, int right, int bottom, int left)
 {
-    border_top    = std::max(top,    0);
-    border_right  = std::max(right,  0);
-    border_bottom = std::max(bottom, 0);
-    border_left   = std::max(left,   0);
+    m_border_top    = std::max(top,    0);
+    m_border_right  = std::max(right,  0);
+    m_border_bottom = std::max(bottom, 0);
+    m_border_left   = std::max(left,   0);
 }
 
 inline void TextRenderer::enable_grid_fitting(bool enabled)

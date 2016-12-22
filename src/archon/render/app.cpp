@@ -25,8 +25,6 @@
  */
 
 #include <cstdlib>
-#include <cmath>
-#include <algorithm>
 #include <limits>
 #include <new>
 #include <list>
@@ -43,7 +41,6 @@
 
 #include <archon/features.h>
 #include <archon/core/functions.hpp>
-#include <archon/core/weak_ptr.hpp>
 #include <archon/core/sys.hpp>
 #include <archon/core/build_config.hpp>
 #include <archon/core/enum.hpp>
@@ -89,7 +86,7 @@ class PrivateApplicationState {
 public:
     void open_help_hud()
     {
-        Dialog::Ptr dialog = new_modal_hud_dialog();
+        std::shared_ptr<Dialog> dialog = new_modal_hud_dialog();
         using namespace dom;
         ref<html::HTMLDocument> doc = dialog->get_dom();
         ref<html::HTMLElement> body = doc->getBody();
@@ -133,10 +130,10 @@ public:
 */
     }
 
-    Dialog::Ptr new_modal_hud_dialog();
+    std::shared_ptr<Dialog> new_modal_hud_dialog();
 
-    void open_dialog(const SharedPtr<DialogImpl>&);
-    void close_dialog(const SharedPtr<DialogImpl>&);
+    void open_dialog(const std::shared_ptr<DialogImpl>&);
+    void close_dialog(const std::shared_ptr<DialogImpl>&);
 
     bool has_open_dialogs() const { return !open_dialogs.empty(); }
 
@@ -241,15 +238,15 @@ std::cout << "*";
     }
 
     PrivateApplicationState(const Application::Config& cfg, const std::locale& l,
-                            TextureCache* texture_cache, FontCache::Arg font):
-        resource_dir(cfg.archon_datadir),
-        loc(l),
-        utf16_string_codec(loc),
-        m_texture_cache(texture_cache),
-        font_cache(font),
-        glyph_resolution(cfg.glyph_resol),
-        glyph_mipmapping(cfg.glyph_mipmap),
-        save_glyph_textures(cfg.glyph_save)
+                            TextureCache* texture_cache, std::shared_ptr<FontCache> font):
+        resource_dir{cfg.archon_datadir},
+        loc{l},
+        utf16_string_codec{loc},
+        m_texture_cache{texture_cache},
+        font_cache{std::move(font)},
+        glyph_resolution{cfg.glyph_resol},
+        glyph_mipmapping{cfg.glyph_mipmap},
+        save_glyph_textures{cfg.glyph_save}
     {
     }
 
@@ -258,16 +255,16 @@ std::cout << "*";
         status_hud_text_layout.clear();
     }
 
-    const WeakPtr<PrivateApplicationState>& get_weak_self()
+    const std::weak_ptr<PrivateApplicationState>& get_weak_self()
     {
         return weak_self;
     }
 
 protected:
-    WeakPtr<PrivateApplicationState> weak_self;
+    std::weak_ptr<PrivateApplicationState> weak_self;
 
 private:
-    typedef std::list<SharedPtr<DialogImpl> > OpenDialogs;
+    typedef std::list<std::shared_ptr<DialogImpl>> OpenDialogs;
     OpenDialogs open_dialogs;
 
     std::vector<GLuint> available_display_lists;
@@ -298,9 +295,9 @@ private:
     void ensure_font_cache()
     {
         if (!font_cache) {
-            FontLoader::Ptr loader = new_font_loader(resource_dir + "font/");
-            FontList::Ptr list = new_font_list(loader);
-            font_cache = new_font_cache(list);
+            std::shared_ptr<FontLoader> loader = new_font_loader(resource_dir + "font/");
+            std::shared_ptr<FontList> list = new_font_list(std::move(loader));
+            font_cache = new_font_cache(std::move(list));
         }
     }
 
@@ -317,7 +314,7 @@ private:
     const CharEnc<CharUtf16> utf16_string_codec;
 
     TextureCache* m_texture_cache = nullptr;
-    FontCache::Ptr font_cache;
+    std::shared_ptr<FontCache> font_cache;
     const Vec2F glyph_resolution;
     const bool glyph_mipmapping, save_glyph_textures;
     UniquePtr<FontProvider> font_provider;
@@ -334,14 +331,14 @@ private:
 class DialogImpl: public Dialog {
 public:
     DialogImpl(PrivateApplicationState* s):
-        state(s->get_weak_self())
+        state{s->get_weak_self()}
     {
     }
 
     ~DialogImpl()
     {
         if (disp_list) {
-            if (SharedPtr<PrivateApplicationState> s = state.lock())
+            if (std::shared_ptr<PrivateApplicationState> s = state.lock())
                 s->recycle_display_list(disp_list);
         }
     }
@@ -351,7 +348,7 @@ protected:
 
     virtual void render(TextFormatter&, int viewport_width, int viewport_height) = 0;
 
-    const WeakPtr<PrivateApplicationState> state;
+    const std::weak_ptr<PrivateApplicationState> state;
 
 private:
     friend class PrivateApplicationState;
@@ -366,7 +363,7 @@ private:
 
 
 
-void PrivateApplicationState::open_dialog(const SharedPtr<DialogImpl>& d)
+void PrivateApplicationState::open_dialog(const std::shared_ptr<DialogImpl>& d)
 {
     if (d->is_open)
         return;
@@ -374,7 +371,7 @@ void PrivateApplicationState::open_dialog(const SharedPtr<DialogImpl>& d)
     d->is_open = true;
 }
 
-void PrivateApplicationState::close_dialog(const SharedPtr<DialogImpl>& d)
+void PrivateApplicationState::close_dialog(const std::shared_ptr<DialogImpl>& d)
 {
     if (!d->is_open)
         return;
@@ -429,15 +426,15 @@ class ModalHudDialogImpl: public DialogImpl, public dom_impl::Renderer {
 public:
     void show() override
     {
-        SharedPtr<DialogImpl> d(this->weak_self);
-        if (SharedPtr<PrivateApplicationState> s = state.lock())
+        std::shared_ptr<DialogImpl> d(this->weak_self);
+        if (std::shared_ptr<PrivateApplicationState> s = state.lock())
             s->open_dialog(d);
     }
 
     void hide() override
     {
-        SharedPtr<DialogImpl> d(this->weak_self);
-        if (SharedPtr<PrivateApplicationState> s = state.lock())
+        std::shared_ptr<DialogImpl> d(this->weak_self);
+        if (std::shared_ptr<PrivateApplicationState> s = state.lock())
             s->close_dialog(d);
     }
 
@@ -446,9 +443,9 @@ public:
         return dom_doc;
     }
 
-    static SharedPtr<ModalHudDialogImpl> create(PrivateApplicationState* s, double dpcm)
+    static std::shared_ptr<ModalHudDialogImpl> create(PrivateApplicationState* s, double dpcm)
     {
-        SharedPtr<ModalHudDialogImpl> d(new ModalHudDialogImpl(s, dpcm));
+        std::shared_ptr<ModalHudDialogImpl> d{new ModalHudDialogImpl{s, dpcm}};
         d->weak_self = d;
         return d;
     }
@@ -591,9 +588,12 @@ private:
     }
 
     ModalHudDialogImpl(PrivateApplicationState* s, double dpcm):
-        DialogImpl(s), dom_doc(create_dom(s, dpcm, PackedTRGB::css3)),
-        dashed_texture_decl(s->get_dashed_texture_decl()),
-        dotted_texture_decl(s->get_dotted_texture_decl()) {}
+        DialogImpl{s},
+        dom_doc{create_dom(s, dpcm, PackedTRGB::css3)},
+        dashed_texture_decl{s->get_dashed_texture_decl()},
+        dotted_texture_decl{s->get_dotted_texture_decl()}
+    {
+    }
 
     dom::ref<dom_impl::HTMLDocument> dom_doc;
 
@@ -603,7 +603,7 @@ private:
     const TextureDecl dotted_texture_decl;
     TextureUse dotted_texture;
 
-    WeakPtr<ModalHudDialogImpl> weak_self;
+    std::weak_ptr<ModalHudDialogImpl> weak_self;
 };
 
 
@@ -654,7 +654,7 @@ void ModalHudDialogImpl::render(TextFormatter& /*formatter*/,
 
 
 
-Dialog::Ptr PrivateApplicationState::new_modal_hud_dialog()
+std::shared_ptr<Dialog> PrivateApplicationState::new_modal_hud_dialog()
 {
     // FIXME: The calculation below is in accordance with CSS2.1, but
     // we should also support the true value which can be obtained
@@ -675,19 +675,20 @@ namespace render {
 
 class Application::PrivateState: public PrivateApplicationState {
 public:
-    static archon::core::SharedPtr<PrivateState>
-    create(const Config& cfg, const std::locale& loc,
-           TextureCache* texture_cache, FontCache::Arg font_cache)
+    static std::shared_ptr<PrivateState> create(const Config& cfg, const std::locale& loc,
+                                                TextureCache* texture_cache,
+                                                std::shared_ptr<FontCache> font_cache)
     {
-        SharedPtr<PrivateState> s(new PrivateState(cfg, loc, texture_cache, font_cache));
+        std::shared_ptr<PrivateState> s;
+        s.reset(new PrivateState{cfg, loc, texture_cache, std::move(font_cache)}); // Throws
         s->weak_self = s;
         return s;
     }
 
 private:
     PrivateState(const Config& cfg, const std::locale& loc,
-                 TextureCache* texture_cache, FontCache::Arg font_cache):
-        PrivateApplicationState(cfg, loc, texture_cache, font_cache)
+                 TextureCache* texture_cache, std::shared_ptr<FontCache> font_cache):
+        PrivateApplicationState{cfg, loc, texture_cache, std::move(font_cache)}
     {
     }
 };
@@ -1019,9 +1020,9 @@ FontProvider* Application::get_font_provider()
 
 Application::Application(std::string title, const Config& cfg, const std::locale& loc,
                          Connection::Arg c, TextureCache* texture_cache,
-                         FontCache::Arg font_cache):
-    m_conn(c),
-    m_private_state(PrivateState::create(cfg, loc, texture_cache, font_cache))
+                         std::shared_ptr<FontCache> font_cache):
+    m_conn{c},
+    m_private_state{PrivateState::create(cfg, loc, texture_cache, std::move(font_cache))}
 {
     int key_handler_index =
         register_builtin_key_handler(&Application::key_func_shift_modifier,

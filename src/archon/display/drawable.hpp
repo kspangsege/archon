@@ -25,7 +25,8 @@
 #ifndef ARCHON_DISPLAY_DRAWABLE_HPP
 #define ARCHON_DISPLAY_DRAWABLE_HPP
 
-#include <archon/core/shared_ptr.hpp>
+#include <memory>
+
 #include <archon/image/image.hpp>
 #include <archon/display/geometry.hpp>
 
@@ -39,8 +40,8 @@ namespace display {
 /// \sa PixelBuffer
 class Drawable {
 public:
-    typedef core::SharedPtr<Drawable> Ptr;
-    typedef const Ptr& Arg;
+    using Ptr = std::shared_ptr<Drawable>;
+    using Arg = const Ptr&;
 
     /// Write the pixels of the specified image to the specified position of
     /// this drawable.

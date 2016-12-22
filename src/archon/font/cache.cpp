@@ -41,13 +41,11 @@ namespace {
 
 class CacheImpl: public FontCache {
 public:
-    CacheImpl(FontList::Arg l):
-        list(l),
-        default_face_index(l->get_default_face()),
-        num_faces(0),
-        num_sizes(0)
+    CacheImpl(std::shared_ptr<FontList> l):
+        list{std::move(l)},
+        default_face_index{list->get_default_face()}
     {
-        l->get_init_size(default_width, default_height);
+        list->get_init_size(default_width, default_height);
     }
 
 
@@ -358,7 +356,7 @@ public:
     }
 
 
-    const FontList::Ptr list;
+    const std::shared_ptr<FontList> list;
 
     const int default_face_index; // The index of the default face of 'list'.
 
@@ -370,7 +368,7 @@ public:
 
     std::vector<int> unused_size_entries; // Indices od unused entries in 'sizes'
 
-    int num_faces, num_sizes;
+    int num_faces = 0, num_sizes = 0;
 };
 
 } // unnamed namespace
@@ -379,10 +377,9 @@ public:
 namespace archon {
 namespace font {
 
-FontCache::Ptr new_font_cache(FontList::Arg l)
+std::shared_ptr<FontCache> new_font_cache(std::shared_ptr<FontList> l)
 {
-    FontCache::Ptr c(new CacheImpl(l));
-    return c;
+    return std::make_shared<CacheImpl>(std::move(l)); // Throws
 }
 
 } // namespace font

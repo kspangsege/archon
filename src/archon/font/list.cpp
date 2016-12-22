@@ -340,7 +340,7 @@ public:
     }
 
 
-    ListImpl(FontLoader::Ptr l, double w, double h):
+    ListImpl(std::shared_ptr<FontLoader> l, double w, double h):
         loader{l},
         init_width{w},
         init_height{h}
@@ -399,7 +399,7 @@ private:
     using FamilyMap = std::map<std::string, Family>;
 
 
-    const FontLoader::Ptr loader;
+    const std::shared_ptr<FontLoader> loader;
     const double init_width, init_height;
 
     mutable Entries entries;
@@ -507,30 +507,32 @@ void FontList::scan_dirs(std::string dir_paths, bool recursive)
 }
 
 
-FontList::Ptr new_font_list(FontLoader::Ptr loader, std::string font_file, int face_index,
-                            double width, double height)
+std::shared_ptr<FontList> new_font_list(std::shared_ptr<FontLoader> loader, std::string font_file,
+                                        int face_index, double width, double height)
 {
-    FontList::Ptr list(new ListImpl(loader, width, height));
+    std::shared_ptr<FontList> list = std::make_shared<ListImpl>(loader, width, height);
     list->add_face(font_file, face_index);
     return list;
 }
 
 
-FontList::Ptr new_font_list(FontLoader::Ptr loader, std::string font_search_path,
-                            double width, double height)
+std::shared_ptr<FontList> new_font_list(std::shared_ptr<FontLoader> loader,
+                                        std::string font_search_path,
+                                        double width, double height)
 {
-    FontList::Ptr list(new ListImpl(loader, width, height));
+    std::shared_ptr<FontList> list = std::make_shared<ListImpl>(loader, width, height);
     list->add_face(loader->get_default_font_file(), loader->get_default_face_index());
     static_cast<ListImpl*>(list.get())->set_search_path(font_search_path);
     return list;
 }
 
 
-FontList::Ptr new_font_list(FontLoader::Ptr loader, std::string font_search_path,
-                            FontList::FindType find_type, std::string family,
-                            bool bold, bool italic, double width, double height)
+std::shared_ptr<FontList> new_font_list(std::shared_ptr<FontLoader> loader,
+                                        std::string font_search_path,
+                                        FontList::FindType find_type, std::string family,
+                                        bool bold, bool italic, double width, double height)
 {
-    FontList::Ptr list(new ListImpl(loader, width, height));
+    std::shared_ptr<FontList> list = std::make_shared<ListImpl>(loader, width, height);
     list->add_face(loader->get_default_font_file(), loader->get_default_face_index());
     static_cast<ListImpl*>(list.get())->set_search_path(font_search_path);
     if (family.empty())

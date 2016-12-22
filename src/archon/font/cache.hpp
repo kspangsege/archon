@@ -37,7 +37,7 @@ namespace font {
 
 struct FontCache;
 
-core::SharedPtr<FontCache> new_font_cache(FontList::Arg l);
+std::shared_ptr<FontCache> new_font_cache(std::shared_ptr<FontList>);
 
 
 
@@ -53,10 +53,6 @@ core::SharedPtr<FontCache> new_font_cache(FontList::Arg l);
 /// is the same in all respects except that it is not grid fitted.
 class FontCache {
 public:
-    using Ptr = core::SharedPtr<FontCache>;
-    using Arg = const Ptr&;
-
-
     // Fetch the default font
     // Font IDs are never negative.
     // Guarantees to not cause the associated list to scan through
@@ -79,7 +75,7 @@ public:
         std::string family;
         double boldness, italicity;
         math::Vec2 size;
-        bool operator==(const FontDesc&) const throw();
+        bool operator==(const FontDesc&) const noexcept;
     };
 
     // Will always succeed. The returned font, however, may not be exactly what
@@ -103,16 +99,16 @@ public:
 
     /// RAII scheme (Resource acquisition is initialization) for font IDs.
     struct FontOwner {
-        FontOwner(FontCache::Arg c, int font_id = -1) throw():
-            cache(c),
-            font(font_id)
+        FontOwner(std::shared_ptr<FontCache> c, int font_id = -1) noexcept:
+            cache{std::move(c)},
+            font{font_id}
         {
         }
-        int get() const throw()
+        int get() const noexcept
         {
             return font;
         }
-        int release() throw()
+        int release() noexcept
         {
             int f = font;
             font = -1;
@@ -126,7 +122,7 @@ public:
         }
     private:
         FontOwner(const FontOwner&);
-        const FontCache::Ptr cache;
+        const std::shared_ptr<FontCache> cache;
         int font;
     };
 

@@ -35,7 +35,7 @@ namespace raytrace {
 
 class Texture {
 public:
-    static core::SharedPtr<Texture> get_image_texture(image::Image::ConstRefArg img,
+    static std::shared_ptr<Texture> get_image_texture(image::Image::ConstRefArg img,
                                                       bool repeat_s = true, bool repeat_t = true);
 
     /// Must be thread-safe.
@@ -47,21 +47,21 @@ public:
 
 class TexturedPhongMaterial: public PhongMaterialBase {
 public:
-    TexturedPhongMaterial(const core::SharedPtr<Texture>& tex,
+    TexturedPhongMaterial(std::shared_ptr<Texture> tex,
                           math::CoordSystem2 xform = math::CoordSystem2::identity(),
                           math::Vec3 emis_col = math::Vec3(0),
                           math::Vec3 spec_col = math::Vec3(0),
                           double ambi = 0.2, double shin = 0.2):
         PhongMaterialBase{emis_col, spec_col, ambi, shin},
-        m_texture{tex},
+        m_texture{std::move(tex)},
         m_transform{xform}
     {
     }
 
 private:
-    void get_diffuse_color(math::Vec2 tex_point, math::Vec4 &rgba) const;
+    void get_diffuse_color(math::Vec2 tex_point, math::Vec4& rgba) const;
 
-    const core::SharedPtr<Texture> m_texture;
+    const std::shared_ptr<Texture> m_texture;
     const math::CoordSystem2 m_transform;
 };
 

@@ -25,14 +25,6 @@
 #ifndef ARCHON_DISPLAY_GEOMETRY_HPP
 #define ARCHON_DISPLAY_GEOMETRY_HPP
 
-#include <vector>
-#include <string>
-
-#include <archon/core/time.hpp>
-#include <archon/display/keysyms.hpp>
-#include <archon/display/window.hpp>
-
-
 namespace archon {
 namespace display {
 

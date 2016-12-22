@@ -38,8 +38,8 @@ namespace font {
 /// face by family name.
 ///
 /// New list instances are aquired by calling
-/// new_font_list(FontLoader::Ptr,std::string,double,double) or one of the other
-/// functions of the same name.
+/// new_font_list(std::shared_ptr<FontLoader>,std::string,double,double) or one
+/// of the other functions of the same name.
 ///
 /// A \c FontList instance is always associated with a \c FontLoader
 /// instance. This is the loader that was used to create the \c FontList
@@ -56,11 +56,6 @@ namespace font {
 /// FontLoader instance. That is, you also need one loader instance per thread.
 class FontList {
 public:
-    typedef core::SharedPtr<FontList> Ptr;
-    typedef Ptr const &Arg;
-    typedef core::SharedPtr<FontList const> ConstPtr;
-    typedef ConstPtr const &ConstArg;
-
     /// Used by find_default_size() and find_face() to report the result of
     /// searching for a matching fixed rendering size.
     struct SizeInfo {
@@ -225,8 +220,8 @@ public:
 /// FontFace::set_approx_size().
 ///
 /// \return The new font face list.
-FontList::Ptr new_font_list(FontLoader::Ptr loader, std::string font_file, int face_index,
-                            double width, double height);
+std::shared_ptr<FontList> new_font_list(std::shared_ptr<FontLoader> loader, std::string font_file,
+                                        int face_index, double width, double height);
 
 
 /// Create a new font face list that initally contains all the faces from all
@@ -247,20 +242,24 @@ FontList::Ptr new_font_list(FontLoader::Ptr loader, std::string font_file, int f
 /// will have its initial rendering size set as closely as possible to this
 /// size. The actual selection scheme is identical to that of
 /// FontFace::set_approx_size().
-FontList::Ptr new_font_list(FontLoader::Ptr loader, std::string font_search_path = "",
-                            double width = 12, double height = 12);
+std::shared_ptr<FontList> new_font_list(std::shared_ptr<FontLoader> loader,
+                                        std::string font_search_path = "",
+                                        double width = 12, double height = 12);
 
 
-/// Same as new_font_list(FontLoader::Ptr,std::string,double,double), but this
-/// method allows you to specify what the default font of the list should be.
+/// Same as
+/// new_font_list(std::shared_ptr<FontLoader>,std::string,double,double), but
+/// this method allows you to specify what the default font of the list should
+/// be.
 ///
 /// Sometimes there are multiple seperate font faces with the same family name,
 /// boldness and italicity, but they provide different fixed rendering sizes. In
 /// such cases, this method shall attempt to locate the face with the fixed size
 /// that most closely matches the specified size.
-FontList::Ptr new_font_list(FontLoader::Ptr loader, std::string font_search_path,
-                            FontList::FindType find_type, std::string family,
-                            bool bold, bool italic, double width, double height);
+std::shared_ptr<FontList> new_font_list(std::shared_ptr<FontLoader> loader,
+                                        std::string font_search_path, FontList::FindType find_type,
+                                        std::string family, bool bold, bool italic,
+                                        double width, double height);
 
 } // namespace font
 } // namespace archon

@@ -414,8 +414,8 @@ subincludedir = $(pkgincludedir)/core
 subinclude_HEADERS = assert.hpp terminate.hpp meta.hpp types.hpp type_list.hpp tuple.hpp bind.hpp \
 functions.hpp numeric.hpp text_join.hpp series.hpp blocking.hpp generate.hpp mutex.hpp atomic.hpp \
 codec.hpp utf16.hpp char_enc.hpp enum.hpp time.hpp sys.hpp term.hpp file.hpp dir_scan.hpp cxx.hpp \
-random.hpp memory.hpp logger.hpp bind_ref.hpp refcnt.hpp unique_ptr.hpp shared_ptr.hpp \
-weak_ptr.hpp iterator.hpp proxy_iter.hpp iseq.hpp stream_utils.hpp stream.hpp generator.hpp \
+random.hpp memory.hpp logger.hpp bind_ref.hpp refcnt.hpp unique_ptr.hpp \
+iterator.hpp proxy_iter.hpp iseq.hpp stream_utils.hpp stream.hpp generator.hpp \
 text.hpp text_table.hpp text_hist.hpp param_expand.hpp build_config.hpp config.hpp options.hpp
 
 lib_LTLIBRARIES = libarchon_core.la

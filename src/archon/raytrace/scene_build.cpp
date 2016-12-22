@@ -283,7 +283,7 @@ private:
         TexEntry& tex_entry = m_textures[m_texture_path];
         if (!tex_entry.texture) {
             Image::ConstRef img = Image::load(m_texture_path);
-            SharedPtr<Texture> texture =
+            std::shared_ptr<Texture> texture =
                 Texture::get_image_texture(img, m_tex_repeat_s, m_tex_repeat_t);
             if (m_aux_builder)
                 tex_entry.aux_id =
@@ -320,14 +320,14 @@ private:
     bool m_tex_repeat_s = true, m_tex_repeat_t = true;
 
     struct TexEntry {
-        SharedPtr<Texture> texture;
+        std::shared_ptr<Texture> texture;
         int aux_id;
     };
 
     std::map<std::string,  TexEntry> m_textures;
     CoordSystem2 m_tex_transform;
 
-    SharedPtr<Material> m_material;
+    std::shared_ptr<Material> m_material;
 };
 
 } // unnamed namespace

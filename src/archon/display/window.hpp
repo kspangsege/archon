@@ -54,8 +54,8 @@ namespace display {
 /// \sa http://www.x.org
 class Window: public virtual Drawable {
 public:
-    typedef core::SharedPtr<Window> Ptr;
-    typedef const Ptr& Arg;
+    using Ptr = std::shared_ptr<Window>;
+    using Arg = const Ptr&;
 
     /// Make it such that this window becomes visible on the selected display.
     ///

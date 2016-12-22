@@ -31,7 +31,6 @@
 #include <vector>
 #include <string>
 
-#include <archon/core/shared_ptr.hpp>
 #include <archon/font/face.hpp>
 
 
@@ -39,7 +38,7 @@ namespace archon {
 namespace font {
 
 /// Thrown if a font file could not be successfully processed.
-struct BadFontFileException;
+class BadFontFileException;
 
 
 /// This class represents a means of accessing font faces within font files.
@@ -55,9 +54,6 @@ struct BadFontFileException;
 /// \sa FontList
 class FontLoader {
 public:
-    typedef core::SharedPtr<FontLoader> Ptr;
-    typedef const Ptr& Arg;
-
     /// Load the default font face.
     ///
     /// \param width, height The returned font face will have its default
@@ -137,7 +133,7 @@ public:
 /// \param resource_dir The directory holding the font loader resources.
 ///
 /// \note This function is thread-safe.
-FontLoader::Ptr new_font_loader(std::string resource_dir);
+std::shared_ptr<FontLoader> new_font_loader(std::string resource_dir);
 
 
 

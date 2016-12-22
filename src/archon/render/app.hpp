@@ -29,6 +29,7 @@
 #include <stdexcept>
 #include <algorithm>
 #include <utility>
+#include <memory>
 #include <map>
 #include <locale>
 #include <string>
@@ -38,7 +39,6 @@
 
 #include <archon/core/series.hpp>
 #include <archon/core/unique_ptr.hpp>
-#include <archon/core/shared_ptr.hpp>
 #include <archon/core/memory.hpp>
 #include <archon/core/time.hpp>
 #include <archon/core/config.hpp>
@@ -426,7 +426,7 @@ protected:
                 const std::locale& loc = std::locale::classic(),
                 display::Connection::Arg conn = display::Connection::Ptr(),
                 TextureCache* texture_cache = nullptr,
-                font::FontCache::Arg font_cache = font::FontCache::Ptr());
+                std::shared_ptr<font::FontCache> font_cache = nullptr);
 
 private:
     int adjust(int val, int min, double f)
@@ -505,7 +505,7 @@ private:
     clock::time_point m_status_hud_activate_cam_dist_timeout; // Use this timeout when displaying the camera distance.
 
     class PrivateState;
-    const core::SharedPtr<PrivateState> m_private_state;
+    const std::shared_ptr<PrivateState> m_private_state;
 
     struct KeyHandler {
         std::function<bool(bool down)> callback;

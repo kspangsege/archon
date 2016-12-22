@@ -133,9 +133,8 @@ int main(int argc, const char* argv[])
         }
     }
 
-    using Glyphs = std::vector<Glyph>;
-    Glyphs glyphs;
-    glyphs.push_back(Glyph(0)); // Add replacement glyph first
+    std::vector<Glyph> glyphs;
+    glyphs.push_back(Glyph{0}); // Add replacement glyph first
     {
         using GlyphMap = std::map<int, int>;
         GlyphMap glyph_map;
@@ -184,7 +183,7 @@ int main(int argc, const char* argv[])
 
     // Sort according to height
     int n = glyphs.size();
-    std::vector<int> glyph_order{n};
+    std::vector<int> glyph_order(n);
     generate(glyph_order.begin(), glyph_order.end(), make_inc_generator<int>());
     std::sort(glyph_order.begin(), glyph_order.end(), GlyphHeightOrderCmp(glyphs));
 
@@ -201,7 +200,7 @@ int main(int argc, const char* argv[])
     }
 
     int width = std::max<int>(std::sqrt(double(area)), max_width);
-    RectanglePacker packer(width);
+    RectanglePacker packer{width};
     for (int i = 0; i < n; ++i) {
         int glyph_index = glyph_order[i];
         Glyph& g = glyphs[glyph_index];
@@ -218,11 +217,11 @@ int main(int argc, const char* argv[])
     std::cerr << "Glyphs per EM-square: "<<(face->get_width()*face->get_height()/(width*long(height)/glyphs.size()))<<"\n";
 
 
-    Image::Ref img(Image::new_image(width, height, ColorSpace::get_Lum()));
-    ImageWriter writer(img);
+    Image::Ref img{Image::new_image(width, height, ColorSpace::get_Lum())};
+    ImageWriter writer{img};
     writer.clear();
     for (const Glyph& g: glyphs) {
-        face->load_glyph(g.index, false);
+        face->load_glyph(g.index, true); // Request grid fitting
         face->set_target_origin(g.left, g.bottom);
         face->render_pixels_to(writer);
     }
@@ -230,7 +229,7 @@ int main(int argc, const char* argv[])
     std::cout << "Saved: "<<target_png<<std::endl;
 
     {
-        std::ofstream out(target_conf.c_str());
+        std::ofstream out{target_conf};
         out << face->get_family_name() << "\n";
         out << face->is_bold() << " " << face->is_italic() << " " << face->is_monospace() << "   ";
         out << face->get_width() << " " << face->get_height() << "   ";
@@ -238,8 +237,9 @@ int main(int argc, const char* argv[])
         out << face->get_baseline_spacing(false, true) << "   ";  // Grid fitting
         out << face->get_baseline_offset(true,   true) << " ";    // Grid fitting
         out << face->get_baseline_spacing(true,  true) << "\n";   // Grid fitting
-        Text::Table table(false);
-        for (std::size_t j = 0; j < glyphs.size(); ++j) {
+        Text::Table table{false};
+        std::size_t n = glyphs.size();
+        for (std::size_t j = 0; j < n; ++j) {
             const Glyph& g = glyphs[j];
             table.get_cell(j,  0).set_val(g.left);
             table.get_cell(j,  1).set_val(g.bottom);
@@ -251,11 +251,11 @@ int main(int argc, const char* argv[])
             table.get_cell(j,  9).set_val(g.vert_bearing_y);
             table.get_cell(j, 11).set_val(g.hori_advance);
             table.get_cell(j, 12).set_val(g.vert_advance);
-            int n = g.code_points.size();
-            if (n != 0) {
+            int m = g.code_points.size();
+            if (m != 0) {
                 std::ostringstream o;
                 o << g.code_points[0];
-                for (int i = 1; i < n; ++i)
+                for (int i = 1; i < m; ++i)
                     o << " " << g.code_points[i];
                 table.get_cell(j, 14).set_text(o.str());
             }

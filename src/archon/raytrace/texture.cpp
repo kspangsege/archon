@@ -156,9 +156,9 @@ public:
 namespace archon {
 namespace raytrace {
 
-SharedPtr<Texture> Texture::get_image_texture(Image::ConstRefArg img, bool rep_s, bool rep_t)
+std::shared_ptr<Texture> Texture::get_image_texture(Image::ConstRefArg img, bool rep_s, bool rep_t)
 {
-    return SharedPtr<Texture>(new ImageTexture(img, rep_s, rep_t));
+    return std::make_shared<ImageTexture>(img, rep_s, rep_t); // Throws
 }
 
 

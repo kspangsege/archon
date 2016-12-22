@@ -18,11 +18,9 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #include <cmath>
 
@@ -30,7 +28,6 @@
 #include <archon/raytrace/material.hpp>
 
 
-using namespace std;
 using namespace archon::core;
 using namespace archon::math;
 
@@ -48,46 +45,40 @@ Want to emulate OpenGL modulate mode
 
 */
 
-namespace archon
+namespace archon {
+namespace raytrace {
+
+std::shared_ptr<Material> Material::get_default()
 {
-  namespace raytrace
-  {
-    SharedPtr<Material> Material::get_default()
-    {
-      static SharedPtr<Material> m(new PhongMaterial());
-      return m;
-    }
-
-
-    /**
-     * Modeled after X3D.
-     *
-     * \sa http://www.web3d.org/x3d/specifications/ISO-IEC-19775-1.2-X3D-AbstractSpecification/Part01/components/lighting.html#Lightingequations
-     */
-    void PhongMaterialBase::shade(Vec2 texture_point, Vec3 normal, Vec3 view_dir,
-                                  vector<LightInfo> const &lights, double global_ambience,
-                                  Vec4 &rgba) const
-    {
-      Vec4 diffuse_color;
-      get_diffuse_color(texture_point, diffuse_color);
-      double const exponent = shininess * 128;
-      Vec3 color = emissive_color + global_ambience * ambience * diffuse_color.slice<3>();
-      typedef vector<LightInfo>::const_iterator light_iter;
-      light_iter const lights_end = lights.end();
-      for(light_iter i = lights.begin(); i!=lights_end; ++i)
-      {
-        double const diffuse_factor = dot(normal, i->direction);
-        double const specular_factor = pow(dot(normal, unit(view_dir + i->direction)), exponent);
-        for(int j=0; j<3; ++j)
-        {
-          double const ambient  = i->ambience  *  diffuse_color[j] * ambience;
-          double const diffuse  = i->intencity *  diffuse_color[j] * diffuse_factor;
-          double const specular = i->intencity * specular_color[j] * specular_factor;;
-          color[j] += i->color[j] * (ambient + diffuse + specular);
-        }
-      }
-
-      rgba.set(color[0], color[1], color[2], diffuse_color[3]);
-    }
-  }
+    static std::shared_ptr<Material> m = std::make_shared<PhongMaterial>();
+    return m;
 }
+
+
+/// Modeled after X3D.
+///
+/// \sa http://www.web3d.org/x3d/specifications/ISO-IEC-19775-1.2-X3D-AbstractSpecification/Part01/components/lighting.html#Lightingequations
+void PhongMaterialBase::shade(Vec2 texture_point, Vec3 normal, Vec3 view_dir,
+                              const std::vector<LightInfo>& lights, double global_ambience,
+                              Vec4& rgba) const
+{
+    Vec4 diffuse_color;
+    get_diffuse_color(texture_point, diffuse_color);
+    double exponent = m_shininess * 128;
+    Vec3 color = m_emissive_color + global_ambience * m_ambience * diffuse_color.slice<3>();
+    for (const LightInfo& light: lights) {
+        double diffuse_factor = dot(normal, light.direction);
+        double specular_factor = std::pow(dot(normal, unit(view_dir + light.direction)), exponent);
+        for (int i = 0; i < 3; ++i) {
+            double ambient  = light.ambience  *  diffuse_color[i] * m_ambience;
+            double diffuse  = light.intencity *  diffuse_color[i] * diffuse_factor;
+            double specular = light.intencity * m_specular_color[i] * specular_factor;;
+            color[i] += light.color[i] * (ambient + diffuse + specular);
+        }
+    }
+
+    rgba.set(color[0], color[1], color[2], diffuse_color[3]);
+}
+
+} // namespace raytrace
+} // namespace archon

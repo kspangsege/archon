@@ -25,7 +25,6 @@
 #ifndef ARCHON_RENDER_DIALOG_HPP
 #define ARCHON_RENDER_DIALOG_HPP
 
-#include <archon/core/shared_ptr.hpp>
 #include <archon/dom/html.hpp>
 
 
@@ -34,9 +33,6 @@ namespace render {
 
 class Dialog {
 public:
-    typedef core::SharedPtr<Dialog> Ptr;
-    typedef Ptr const &Arg;
-
     virtual void show() = 0;
     virtual void hide() = 0;
 

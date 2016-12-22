@@ -59,7 +59,6 @@ using Xlib_Drawable = Drawable;
 #include <archon/core/assert.hpp>
 #include <archon/core/iterator.hpp>
 #include <archon/core/memory.hpp>
-#include <archon/core/weak_ptr.hpp>
 #include <archon/core/text.hpp>
 #include <archon/core/sys.hpp>
 #include <archon/util/unit_frac.hpp>
@@ -511,9 +510,9 @@ public:
     // immutable.
     bool have_glx = false, have_xrender = false, have_xinput2 = false;
 
-    // Allows construction of SharedPtr's when 'this' is the only
-    // thing you've got. Is constant after construction.
-    WeakPtr<ConnectionImpl> weak_self;
+    // Allows construction of std::shared_ptr's when 'this' is the only thing
+    // you've got. Is constant after construction.
+    std::weak_ptr<ConnectionImpl> weak_self;
 
     Atom atom_del_win, atom_net_wm_state, atom_net_wm_state_fullscreen;
 
@@ -580,7 +579,7 @@ private:
     using KeyStates = std::bitset<256>;
 
     struct EventWinProps {
-        const WeakPtr<EventProcessorImpl> proc;
+        const std::weak_ptr<EventProcessorImpl> proc;
         const int cookie;
         int width = -1, height = -1; // Last seen size. Accessed only by master.
         bool mapped = false, visible = false; // Last seen visibility status. Accessed only by master.
@@ -590,10 +589,10 @@ private:
 
     struct EventWinPropsRef {
         EventWinProps* const props; // Null if there are no props for the window
-        const SharedPtr<EventProcessorImpl> proc;
-        EventWinPropsRef(EventWinProps* s, const SharedPtr<EventProcessorImpl>& p):
-            props(s),
-            proc(p)
+        const std::shared_ptr<EventProcessorImpl> proc;
+        EventWinPropsRef(EventWinProps* s, const std::shared_ptr<EventProcessorImpl>& p):
+            props{s},
+            proc{p}
         {
         }
     };
@@ -732,7 +731,7 @@ public:
             throw NoDisplayException("Could not connect to display '"+std::string(name_ptr)+"'");
 
         // FIXME: An out of memory would cause a leak of X resources.
-        SharedPtr<ConnectionImpl> c(new ConnectionImpl(dpy));
+        std::shared_ptr<ConnectionImpl> c = std::make_shared<ConnectionImpl>(dpy);
         c->weak_self = c;
         return c;
     }
@@ -785,7 +784,7 @@ private:
 
 class DrawableImpl: public virtual Arch_Drawable {
 public:
-    const SharedPtr<ConnectionImpl> conn;
+    const std::shared_ptr<ConnectionImpl> conn;
     Xlib_Display* const dpy;
     const int scr, vis;
 
@@ -804,10 +803,10 @@ public:
     virtual Xlib_Drawable get_xlib_drawable() const = 0;
 
     DrawableImpl(ConnectionImpl* c, int scr, int vis):
-        conn(c->weak_self),
-        dpy(c->dpy),
-        scr(scr),
-        vis(vis)
+        conn{c->weak_self},
+        dpy{c->dpy},
+        scr{scr},
+        vis{vis}
     {
     }
 
@@ -978,7 +977,7 @@ private:
     bool m_is_visible = false; // Protected by `g_xlib_mutex`
 
     std::mutex m_events_mutex;
-    WeakPtr<EventProcessorImpl> m_event_proc; // Protected by `m_events_mutex`
+    std::weak_ptr<EventProcessorImpl> m_event_proc; // Protected by `m_events_mutex`
     bool m_events_enabled = false;    // Protected by `m_events_mutex`
     bool m_mouse_motion_always = false; // Protected by `m_events_mutex`
 };
@@ -1040,7 +1039,7 @@ public:
 #ifdef ARCHON_HAVE_GLX
 class ContextImpl: public Context {
 public:
-    const SharedPtr<ConnectionImpl> conn;
+    const std::shared_ptr<ConnectionImpl> conn;
     Xlib_Display* const dpy;
     const int scr, vis;
     const GLXContext ctx;
@@ -1059,11 +1058,11 @@ public:
     }
 
     ContextImpl(ConnectionImpl* c, int s, int v, GLXContext ctx):
-        conn(c->weak_self),
-        dpy(c->dpy),
-        scr(s),
-        vis(v),
-        ctx(ctx)
+        conn{c->weak_self},
+        dpy{c->dpy},
+        scr{s},
+        vis{v},
+        ctx{ctx}
     {
     }
 
@@ -1160,16 +1159,16 @@ private:
 
 class EventProcessorImpl: public EventProcessor {
 public:
-    const SharedPtr<ConnectionImpl> conn;
+    const std::shared_ptr<ConnectionImpl> conn;
     EventHandler* const handler;
 
-    // Allows construction of SharedPtr's when 'this' is the only
-    // thing you've got. Is constant after construction.
-    WeakPtr<EventProcessorImpl> weak_self;
+    // Allows construction of std::shared_ptr's when 'this' is the only thing
+    // you've got. Is constant after construction.
+    std::weak_ptr<EventProcessorImpl> weak_self;
 
     void register_window(Arch_Window::Arg w, int cookie) override
     {
-        SharedPtr<WindowImpl> win = dynamic_pointer_cast<WindowImpl>(w);
+        std::shared_ptr<WindowImpl> win = std::dynamic_pointer_cast<WindowImpl>(w);
         if (!win)
             throw std::invalid_argument("Implementation mismatch in event window registration");
 
@@ -1212,7 +1211,7 @@ public:
         try {
             for (const auto& entry: m_windows) {
                 conn->unregister_event_window(entry.first);
-                if (SharedPtr<WindowImpl> w = entry.second.lock())
+                if (std::shared_ptr<WindowImpl> w = entry.second.lock())
                     w->unset_event_proc();
             }
         }
@@ -1279,7 +1278,7 @@ private:
     static constexpr int s_slots_per_buf = 128; // 128 gives a buffer size of 4KB assuming 32 bytes per slot.
 
     std::mutex m_windows_mutex;
-    std::map<Xlib_Window, WeakPtr<WindowImpl>> m_windows; // Protected by `m_windows_mutex`
+    std::map<Xlib_Window, std::weak_ptr<WindowImpl>> m_windows; // Protected by `m_windows_mutex`
 
 public:
     // 'buffers', 'committed', and 'waiter_cond' may be accessed only
@@ -1304,16 +1303,16 @@ public:
 
 class CursorImpl: public Arch_Cursor {
 public:
-    const SharedPtr<ConnectionImpl> conn;
+    const std::shared_ptr<ConnectionImpl> conn;
     Xlib_Display* const dpy;
     const int scr;
     const Xlib_Cursor cursor;
 
     CursorImpl(ConnectionImpl* c, int scr, Xlib_Cursor cur):
-        conn(c->weak_self),
-        dpy(c->dpy),
-        scr(scr),
-        cursor(cur)
+        conn{c->weak_self},
+        dpy{c->dpy},
+        scr{scr},
+        cursor{cur}
     {
     }
 
@@ -1790,8 +1789,7 @@ Arch_Window::Ptr ConnectionImpl::new_window(int width, int height, int scr, int 
     }
 
     // FIXME: An out of memory would cause a leak of X resources.
-    Arch_Window::Ptr w(new WindowImpl(this, scr, vis, win, colmap));
-    return w;
+    return std::make_shared<WindowImpl>(this, scr, vis, win, colmap);
 }
 
 void ConnectionImpl::new_window_helper(const VisualSpec& v, int width, int height,
@@ -1859,8 +1857,7 @@ PixelBuffer::Ptr ConnectionImpl::new_pixel_buffer(int width, int height, int scr
     }
 
     // FIXME: An out of memory would cause a leak of X resources.
-    PixelBuffer::Ptr b(new PixelBufferImpl(this, scr, vis, pxm, glx_pxm, width, height));
-    return b;
+    return std::make_shared<PixelBufferImpl>(this, scr, vis, pxm, glx_pxm, width, height);
 }
 
 void ConnectionImpl::new_pixel_buffer_helper(int width, int height, const VisualSpec& v,
@@ -1912,7 +1909,7 @@ Context::Ptr ConnectionImpl::new_gl_context(int scr, int vis, bool direct, Conte
     }
 
     // FIXME: An out of memory would cause a leak of X resources.
-    return Context::Ptr(new ContextImpl(this, scr, vis, ctx));
+    return std::make_shared<ContextImpl>(this, scr, vis, ctx);
 }
 
 void ConnectionImpl::new_gl_context_helper(const VisualSpec& v, GLXContext share_list, bool direct,
@@ -1932,7 +1929,7 @@ Context::Ptr ConnectionImpl::new_gl_context(int, int, bool, Context::Arg)
 
 EventProcessor::Ptr ConnectionImpl::new_event_processor(EventHandler* h)
 {
-    SharedPtr<EventProcessorImpl> p(new EventProcessorImpl(this, h));
+    std::shared_ptr<EventProcessorImpl> p = std::make_shared<EventProcessorImpl>(this, h);
     p->weak_self = p;
     return p;
 }
@@ -2378,7 +2375,7 @@ void ConnectionImpl::receive_events(EventProcessorImpl* proc,
                     auto i = props_ref_map.find(event.xany.window);
                     if (i == props_ref_map.end()) {
                         EventWinProps* s;
-                        SharedPtr<EventProcessorImpl> p;
+                        std::shared_ptr<EventProcessorImpl> p;
                         {
                             std::lock_guard<std::mutex> lock{m_event_wins_mutex};
                             auto j = m_event_wins.find(event.xany.window);
@@ -3289,7 +3286,7 @@ WindowImpl::~WindowImpl()
     catch (BadConnectionException&) {
         // Don't care
     }
-    SharedPtr<EventProcessorImpl> p = m_event_proc.lock();
+    std::shared_ptr<EventProcessorImpl> p = m_event_proc.lock();
     if (p)
         p->unregister_window(win);
 }
@@ -5196,7 +5193,7 @@ namespace display {
 
 Implementation::Ptr get_implementation_x11()
 {
-    static Implementation::Ptr impl(new ImplementationImpl());
+    static std::shared_ptr<ImplementationImpl> impl = std::make_shared<ImplementationImpl>();
     return impl;
 }
 

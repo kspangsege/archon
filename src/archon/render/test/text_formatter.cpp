@@ -96,10 +96,10 @@ struct TextFormatterApp: Application {
     };
 
 
-    TextFormatterApp(const Config& cfg, FontList::Arg font_list, std::wstring text):
-        Application("archon::render::TextFormatter", cfg, std::locale(""), Connection::Ptr(),
-                    nullptr, new_font_cache(font_list)),
-        m_text_formatter(get_font_provider())
+    TextFormatterApp(const Config& cfg, std::shared_ptr<FontList> font_list, std::wstring text):
+        Application("archon::render::TextFormatter", cfg, std::locale{""}, nullptr, nullptr,
+                    new_font_cache(std::move(font_list))),
+        m_text_formatter{get_font_provider()}
     {
         auto next_page = [this](bool key_down) {
             if (key_down) {
@@ -236,9 +236,9 @@ int main(int argc, const char* argv[])
         return stop == 2 ? EXIT_SUCCESS : EXIT_FAILURE;
 
     std::string font_resource_dir = app_cfg.archon_datadir+"font/";
-    FontList::Ptr font_list = make_font_list(font_resource_dir, font_cfg);
+    std::shared_ptr<FontList> font_list = make_font_list(font_resource_dir, font_cfg);
     if (!font_list)
-        return 1;
+        return EXIT_FAILURE;
 
     std::wstring text = 1 < argc ? env_decode<wchar_t>(argv[1]) :
         L"The quick brown fox jumps over the lazy dog";

@@ -303,8 +303,8 @@ public:
 /// New instances are aquired by calling Connection::new_event_processor().
 class EventProcessor {
 public:
-    typedef core::SharedPtr<EventProcessor> Ptr;
-    typedef const Ptr& Arg;
+    using Ptr = std::shared_ptr<EventProcessor>;
+    using Arg = const Ptr&;
 
     /// Register the specified window with this event processor. What this means
     /// is that all events originating from that window will be handled by this
@@ -384,7 +384,6 @@ public:
 protected:
     template<class Event, class... Args> static Event make_event(Args&&... args) noexcept;
 };
-
 
 
 

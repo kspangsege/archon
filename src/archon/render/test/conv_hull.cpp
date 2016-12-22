@@ -161,8 +161,8 @@ public:
 class ConvHullApp: public Application {
 public:
     ConvHullApp(const Application::Config& cfg):
-        Application("archon::render::ConvHull", cfg),
-        m_text_formatter(get_font_provider())
+        Application{"archon::render::ConvHull", cfg},
+        m_text_formatter{get_font_provider()}
     {
         auto toggle_points_display = [this](bool key_down) {
             if (key_down) {

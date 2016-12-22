@@ -25,9 +25,6 @@
 #ifndef ARCHON_DISPLAY_CURSOR_HPP
 #define ARCHON_DISPLAY_CURSOR_HPP
 
-#include <archon/core/shared_ptr.hpp>
-
-
 namespace archon {
 namespace display {
 

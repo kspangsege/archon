@@ -58,8 +58,8 @@ struct Bind;
 /// \sa http://www.mesa3d.org
 class Context {
 public:
-    typedef core::SharedPtr<Context> Ptr;
-    typedef const Ptr& Arg;
+    using Ptr = std::shared_ptr<Context>;
+    using Arg = const Ptr&;
 
     /// Tell whether direct rendering is enabled for this context. Direct
     /// rendering contexts offers better performance but generally works only on

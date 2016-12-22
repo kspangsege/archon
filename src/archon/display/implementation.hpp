@@ -50,8 +50,8 @@ class BadConnectionException;
 
 class Implementation {
 public:
-    typedef core::SharedPtr<Implementation> Ptr;
-    typedef const Ptr& Arg;
+    using Ptr = std::shared_ptr<Implementation>;
+    using Arg = const Ptr&;
 
     /// Get the mnemonic that identifies this display implementation.
     ///
@@ -129,7 +129,6 @@ int get_num_implementations();
 ///
 /// \sa Implementation
 Implementation::Ptr get_implementation(int index) throw(std::out_of_range);
-
 
 
 

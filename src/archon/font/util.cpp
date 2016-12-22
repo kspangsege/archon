@@ -34,7 +34,8 @@ using namespace archon::core;
 namespace archon {
 namespace font {
 
-void print_font_list(FontList::ConstArg l, std::ostream& out, bool enable_ansi_term_attr)
+void print_font_list(std::shared_ptr<const FontList> l, std::ostream& out,
+                     bool enable_ansi_term_attr)
 {
     Text::Table table(enable_ansi_term_attr);
     table.get_odd_row_attr().set_bg_color(Term::color_White);
@@ -102,20 +103,20 @@ FontConfig::FontConfig()
 
 std::unique_ptr<FontFace> load_font(std::string resource_dir, const FontConfig& cfg)
 {
-    if (FontList::Ptr list = make_font_list(resource_dir, cfg))
+    if (std::shared_ptr<FontList> list = make_font_list(resource_dir, cfg))
         return list->load_face();
     return nullptr;
 }
 
 
-FontList::Ptr make_font_list(std::string resource_dir, const FontConfig& cfg)
+std::shared_ptr<FontList> make_font_list(std::string resource_dir, const FontConfig& cfg)
 {
-    FontLoader::Ptr loader = new_font_loader(resource_dir);
+    std::shared_ptr<FontLoader> loader = new_font_loader(resource_dir);
     if (cfg.list) {
-        FontList::Ptr list = (cfg.file.empty() ? new_font_list(loader, cfg.path) :
-                              new_font_list(loader, cfg.file, 0, 12, 12));
+        std::shared_ptr<FontList> list = (cfg.file.empty() ? new_font_list(loader, cfg.path) :
+                                          new_font_list(loader, cfg.file, 0, 12, 12));
         print_font_list(list, std::cout);
-        return FontList::Ptr(); // Null
+        return nullptr;
     }
 
     double w = cfg.size[0], h = cfg.size[1];
@@ -125,8 +126,8 @@ FontList::Ptr make_font_list(std::string resource_dir, const FontConfig& cfg)
     if (!cfg.file.empty())
         return new_font_list(loader, cfg.file, 0, w, h);
 
-    FontList::Ptr list = new_font_list(loader, cfg.path, FontList::find_BestSize,
-                                       cfg.family, cfg.bold, cfg.italic, w, h);
+    std::shared_ptr<FontList> list = new_font_list(loader, cfg.path, FontList::find_BestSize,
+                                                   cfg.family, cfg.bold, cfg.italic, w, h);
     if (list)
         return list;
 
@@ -135,7 +136,7 @@ FontList::Ptr make_font_list(std::string resource_dir, const FontConfig& cfg)
     std::string style = (cfg.bold ? (cfg.italic ? "bold italic" : "bold") :
                          (cfg.italic ? "italic" : "regular"));
     std::cerr << "No font face with "<<name<<" and style '"<<style<<"'\n";
-    return FontList::Ptr(); // Null
+    return nullptr;
 }
 
 } // namespace font

@@ -18,12 +18,11 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
+#include <cstdlib>
 #include <iostream>
 
 #include <archon/core/char_enc.hpp>
@@ -34,7 +33,6 @@
 #include <archon/font/text_render.hpp>
 #include <archon/font/layout_cfg.hpp>
 
-using namespace std;
 using namespace archon::core;
 using namespace archon::math;
 using namespace archon::util;
@@ -42,7 +40,7 @@ using namespace archon::image;
 using namespace archon::font;
 
 
-int main(int argc, const char* argv[]) throw()
+int main(int argc, const char* argv[])
 {
     int               opt_page             = 1;
     Series<2, double> opt_size(512,512);
@@ -88,15 +86,15 @@ int main(int argc, const char* argv[]) throw()
     opts.add_param("M", "mixed", opt_mixed, "Add extra text using a bouquet of font styles "
                    "and colors.");
     if (int stop = opts.process(argc, argv))
-        return stop == 2 ? 0 : 1;
+        return stop == 2 ? EXIT_SUCCESS : EXIT_FAILURE;
 
-    FontList::Ptr list = make_font_list(file::dir_of(argv[0])+"../../", font_cfg);
+    std::shared_ptr<FontList> list = make_font_list(file::dir_of(argv[0])+"../../", font_cfg);
     if (!list)
-        return 1;
+        return EXIT_FAILURE;
 
-    wstring text = 1 < argc ? env_decode<wchar_t>(argv[1]) :
-        L"The quick brown fox jumps over the lazy dog";
-    TextRenderer renderer(new_font_cache(list));
+    std::wstring text = (1 < argc ? env_decode<wchar_t>(argv[1]) :
+                         L"The quick brown fox jumps over the lazy dog");
+    TextRenderer renderer{new_font_cache(list)};
     renderer.set_page_width(Interval(0, opt_size[0]));
     renderer.set_page_height(Interval(0, opt_size[1]));
     renderer.set_text_color(opt_color);
@@ -141,13 +139,12 @@ int main(int argc, const char* argv[]) throw()
 
     Image::Ref img = renderer.render(opt_page-1, opt_debug);
     if (!img) {
-        cerr << "ERROR: No image!" << endl;
-        return 1;
+        std::cerr << "ERROR: No image!\n";
+        return EXIT_FAILURE;
     }
 
-    string out_file = "/tmp/archon_font_text_render.png";
+    std::string out_file = "/tmp/archon_font_text_render.png";
     img->save(out_file);
-    cout << "Page "<<opt_page<<" of "<<renderer.get_num_pages()<<" saved to: " << out_file << endl;
-
-    return 0;
+    std::cout << "Page "<<opt_page<<" of "<<renderer.get_num_pages()<<" saved to: "
+        ""<<out_file<<std::endl;
 }

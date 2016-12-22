@@ -29,7 +29,6 @@
 #include <archon/math/intersect.hpp>
 #include <archon/raytrace/object.hpp>
 
-using namespace std;
 using namespace archon::core;
 using namespace archon::math;
 using namespace archon::raytrace;
@@ -39,8 +38,8 @@ namespace {
 
 class StdSurface: public Surface {
 public:
-    StdSurface(SharedPtr<Material> m):
-        m_material(std::move(m))
+    StdSurface(std::shared_ptr<Material> m):
+        m_material{std::move(m)}
     {
     }
 
@@ -50,15 +49,15 @@ public:
     }
 
 private:
-    const SharedPtr<Material> m_material;
+    const std::shared_ptr<Material> m_material;
 };
 
 
 
 template<int which> class StdFace: public StdSurface {
 public:
-    StdFace(SharedPtr<Material> m):
-        StdSurface(std::move(m))
+    StdFace(std::shared_ptr<Material> m):
+        StdSurface{std::move(m)}
     {
     }
 
@@ -103,13 +102,13 @@ public:
 
 class Box: public Object {
 public:
-    Box(SharedPtr<Material> m):
-        left(m),
-        right(m),
-        bottom(m),
-        top(m),
-        back(m),
-        front(m)
+    Box(std::shared_ptr<Material> m):
+        left{m},
+        right{m},
+        bottom{m},
+        top{m},
+        back{m},
+        front{m}
     {
     }
 
@@ -175,9 +174,9 @@ public:
 
 class Cone: public Object, public StdSurface {
 public:
-    Cone(SharedPtr<Material> m):
-        StdSurface(m),
-        bottom(m)
+    Cone(std::shared_ptr<Material> m):
+        StdSurface{m},
+        bottom{m}
     {
     }
 
@@ -217,10 +216,10 @@ public:
 
 class Cylinder: public Object, public StdSurface {
 public:
-    Cylinder(SharedPtr<Material> m):
-        StdSurface(m),
-        bottom(m),
-        top(m)
+    Cylinder(std::shared_ptr<Material> m):
+        StdSurface{m},
+        bottom{m},
+        top{m}
     {
     }
 
@@ -254,8 +253,8 @@ public:
 
 class Sphere: public Object, public StdSurface {
 public:
-    Sphere(SharedPtr<Material> m):
-        StdSurface(m)
+    Sphere(std::shared_ptr<Material> m):
+        StdSurface{m}
     {
     }
 
@@ -285,9 +284,9 @@ public:
 
 class Torus: public Object, public StdSurface {
 public:
-    Torus(SharedPtr<Material> material, double minor_radius):
-        StdSurface(std::move(material)),
-        m_minor_radius(minor_radius)
+    Torus(std::shared_ptr<Material> material, double minor_radius):
+        StdSurface{std::move(material)},
+        m_minor_radius{minor_radius}
     {
     }
 
@@ -326,27 +325,27 @@ private:
 namespace archon {
 namespace raytrace {
 
-std::unique_ptr<Object> Object::make_box(SharedPtr<Material>mat)
+std::unique_ptr<Object> Object::make_box(std::shared_ptr<Material> mat)
 {
     return std::make_unique<Box>(std::move(mat));
 }
 
-std::unique_ptr<Object> Object::make_cone(SharedPtr<Material> mat)
+std::unique_ptr<Object> Object::make_cone(std::shared_ptr<Material> mat)
 {
     return std::make_unique<Cone>(std::move(mat));
 }
 
-std::unique_ptr<Object> Object::make_cylinder(SharedPtr<Material> mat)
+std::unique_ptr<Object> Object::make_cylinder(std::shared_ptr<Material> mat)
 {
     return std::make_unique<Cylinder>(std::move(mat));
 }
 
-std::unique_ptr<Object> Object::make_sphere(SharedPtr<Material> mat)
+std::unique_ptr<Object> Object::make_sphere(std::shared_ptr<Material> mat)
 {
     return std::make_unique<Sphere>(std::move(mat));
 }
 
-std::unique_ptr<Object> Object::make_torus(SharedPtr<Material> mat, double minor_radius)
+std::unique_ptr<Object> Object::make_torus(std::shared_ptr<Material> mat, double minor_radius)
 {
     return std::make_unique<Torus>(std::move(mat), minor_radius);
 }

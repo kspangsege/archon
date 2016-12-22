@@ -1,6 +1,5 @@
 noinst_PROGRAMS = text_join series div_mod bit_cast bitscan atomic utf16 char_enc enum time \
-bind_ref unique_ptr refcnt shared_ptr weak_ptr random iterator file dir_scan value_codec \
-text_table config options
+bind_ref unique_ptr refcnt random iterator file dir_scan value_codec text_table config options
 
 text_join_SOURCES = text_join.cpp
 series_SOURCES = series.cpp
@@ -15,8 +14,6 @@ time_SOURCES = time.cpp
 bind_ref_SOURCES =  bind_ref.cpp
 unique_ptr_SOURCES = unique_ptr.cpp
 refcnt_SOURCES = refcnt.cpp
-shared_ptr_SOURCES = shared_ptr.cpp
-weak_ptr_SOURCES = weak_ptr.cpp
 random_SOURCES = random.cpp
 iterator_SOURCES = iterator.cpp
 file_SOURCES = file.cpp

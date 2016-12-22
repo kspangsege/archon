@@ -53,7 +53,7 @@ public:
     /// toward the origin with the +Z-axis as the view up direction, the texture
     /// is mapped onto the face with the same orientation as if the image were
     /// displayed normally in 2-D.
-    static std::unique_ptr<Object> make_box(core::SharedPtr<Material>);
+    static std::unique_ptr<Object> make_box(std::shared_ptr<Material>);
 
     /// A cone which is centered in the local coordinate system and whose
     /// central axis is aligned with the local Y-axis, and the apex pointing
@@ -70,7 +70,7 @@ public:
     /// such that the apex points in the direction of the negative Z-axis, the
     /// primary and secondary texture coordinate axes coincide with the local
     /// spatial X and Y-axis respectively.
-    static std::unique_ptr<Object> make_cone(core::SharedPtr<Material>);
+    static std::unique_ptr<Object> make_cone(std::shared_ptr<Material>);
 
     /// A capped cylinder centered at the origin of the local coordinate system
     /// and with a central axis oriented along the local Y-axis. The radius of
@@ -91,7 +91,7 @@ public:
     /// opposite direction, the primary and secondary texture coordinate axes of
     /// the top texture will coincide with the local spatial X and Y-axis
     /// respectively.
-    static std::unique_ptr<Object> make_cylinder(core::SharedPtr<Material>);
+    static std::unique_ptr<Object> make_cylinder(std::shared_ptr<Material>);
 
     /// A unit sphere, centered in the origin of the local coordinate
     /// system. The north pole of the sphere is in the direction of the positive
@@ -107,7 +107,7 @@ public:
     /// the canonical view). This corresponds to the left and right edge of the
     /// texture. The texture is wraped counter-clockwise around the sphere when
     /// seen from above, and has a "seam" at the back of the sphere.
-    static std::unique_ptr<Object> make_sphere(core::SharedPtr<Material>);
+    static std::unique_ptr<Object> make_sphere(std::shared_ptr<Material>);
 
     /// A torus centered at the local origin with axis of revolution coincident
     /// with the Y-axis, and with a major radius of 1, and a variable minor
@@ -128,7 +128,7 @@ public:
     /// the circle of revolution that is closest to the surface point. When seen
     /// from a point on the circle of revolution in the direction of revolution,
     /// the texture Y-coordinate increses clockwise.
-    static std::unique_ptr<Object> make_torus(core::SharedPtr<Material>,
+    static std::unique_ptr<Object> make_torus(std::shared_ptr<Material>,
                                               double minor_radius = 0.5);
 
     /// Must be thread-safe.

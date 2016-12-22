@@ -32,7 +32,6 @@
 
 #include <archon/core/types.hpp>
 #include <archon/core/assert.hpp>
-#include <archon/core/weak_ptr.hpp>
 #include <archon/core/file.hpp>
 #include <archon/util/unit_frac.hpp>
 #include <archon/font/loader.hpp>
@@ -109,7 +108,7 @@ public:
         FT_Done_FreeType(library);
     }
 
-    const WeakPtr<LoaderImpl> weak_self;
+    const std::weak_ptr<LoaderImpl> weak_self;
 
     const FT_Library library;
 
@@ -560,7 +559,7 @@ public:
     }
 
 private:
-    const SharedPtr<const LoaderImpl> loader;
+    const std::shared_ptr<const LoaderImpl> loader;
     const FT_Face face;
     const FT_GlyphSlot glyph;
     bool has_kerning;
@@ -626,20 +625,20 @@ std::unique_ptr<FontFace> LoaderImpl::load_face(std::string f, int i, double w, 
 namespace archon {
 namespace font {
 
-FontLoader::Ptr new_font_loader(std::string resource_dir)
+std::shared_ptr<FontLoader> new_font_loader(std::string resource_dir)
 {
     FT_Library library;
     if (FT_Init_FreeType(&library))
         throw std::runtime_error("Error initializing FreeType library");
-    SharedPtr<LoaderImpl> loader;
+    std::shared_ptr<LoaderImpl> loader;
     try {
-        loader.reset(new LoaderImpl(library, resource_dir));
+        loader = std::make_shared<LoaderImpl>(library, resource_dir); // Throws
     }
     catch (...) {
         FT_Done_FreeType(library);
         throw;
     }
-    const_cast<WeakPtr<LoaderImpl>&>(loader->weak_self) = loader;
+    const_cast<std::weak_ptr<LoaderImpl>&>(loader->weak_self) = loader;
     return loader;
 }
 
