@@ -40,7 +40,6 @@
 #include <archon/image/writer.hpp>
 
 
-using namespace std;
 using namespace archon::core;
 using namespace archon::util;
 using namespace archon::image;
@@ -50,30 +49,35 @@ namespace {
 
 struct Box {
     Box(int w, int h):
-        width(w),
-        height(h)
+        width{w},
+        height{h}
     {
     }
     int width, height;
     int x,y; // Position in image
 };
 
+// Order boxes according to decreasing height first, then by decreasing width.
 struct BoxHeightOrderCmp {
     bool operator()(int a, int b) const
     {
-        return boxes[b].height < boxes[a].height;
+        if (ARCHON_LIKELY(boxes[a].height > boxes[b].height))
+            return true;
+        if (ARCHON_LIKELY(boxes[a].height < boxes[b].height))
+            return false;
+        return boxes[a].width > boxes[b].width;
     }
-    BoxHeightOrderCmp(const vector<Box>& g):
-        boxes(g)
+    BoxHeightOrderCmp(const std::vector<Box>& b):
+        boxes{b}
     {
     }
-    const vector<Box>& boxes;
+    const std::vector<Box>& boxes;
 };
 
 } // unnamed namespace
 
 
-int main(int argc, const char* argv[]) throw()
+int main(int argc, const char* argv[])
 {
     int opt_num     = 400;
     int opt_width   =  40;
@@ -92,52 +96,54 @@ int main(int argc, const char* argv[]) throw()
 
     int n = opt_num;
 
-    typedef vector<Box> Boxes;
-    Boxes boxes;
+    std::vector<Box> boxes;
     {
-        int w1 = 3, h1 = 3;
-        int w2 = opt_width - (w1-1), h2 = opt_height - (h1-1);
+        int w_1 = 3, h_1 = 3;
+        int w_2 = opt_width - (w_1-1), h_2 = opt_height - (h_1-1);
         Random r;
-        for (int i = 0; i < n; ++i)
-            boxes.push_back(Box(w1 + floor(w2*r.get_uniform()), h1 + floor(h2*r.get_uniform())));
+        for (int i = 0; i < n; ++i) {
+            boxes.push_back(Box(w_1 + std::floor(w_2*r.get_uniform()),
+                                h_1 + std::floor(h_2*r.get_uniform())));
+        }
     }
 
-    // Sort according to height
-    vector<int> box_order(n);
+    // Sort according to decreasing height, then by decreasing width. The
+    // secondary criteron might not have any significant effect.
+    std::vector<int> box_order(n);
     generate(box_order.begin(), box_order.end(), make_inc_generator<int>());
 
-    sort(box_order.begin(), box_order.end(), BoxHeightOrderCmp(boxes));
+    sort(box_order.begin(), box_order.end(), BoxHeightOrderCmp{boxes});
 
     long area = 0;
     int max_width = 0;
-    for (Boxes::const_iterator g = boxes.begin(); g != boxes.end(); ++g) {
-        if (max_width < g->width)
-            max_width = g->width;
-        area += (g->height + opt_spacing) * long(g->width + opt_spacing);
+    for (const Box& box: boxes) {
+        if (max_width < box.width)
+            max_width = box.width;
+        area += (box.height + opt_spacing) * long(box.width + opt_spacing);
     }
 
-    int width = max<int>(sqrt(double(area)), max_width) + opt_spacing;
-    RectanglePacker packer(width, -1, opt_spacing);
-    for (int i=0; i<n; ++i) {
+    int width = std::max<int>(std::sqrt(double(area)), max_width) + opt_spacing;
+    RectanglePacker packer{width, -1, opt_spacing};
+    for (int i = 0; i < n; ++i) {
         int box_index = box_order[i];
-        Box& g = boxes[box_index];
-        if (!packer.insert(g.width, g.height, g.x, g.y))
-            throw runtime_error("Out of space in image");
+        Box& box = boxes[box_index];
+        if (!packer.insert(box.width, box.height, box.x, box.y))
+            throw std::runtime_error("Out of space in image");
     }
 
     int height = packer.get_height();
 
-    cerr << "Size: " << width << " x " << height << endl;
-    cerr << "Coverage: " << packer.get_coverage() << endl;
+    std::cout << "Size: " << width << " x " << height << std::endl;
+    std::cout << "Coverage: " << packer.get_coverage() << std::endl;
 
-    ImageWriter img(width, height);
+    ImageWriter img{width, height};
     Random random;
-    for (Boxes::const_iterator g = boxes.begin(); g != boxes.end(); ++g) {
-        img.set_clip(g->x, g->y, g->width, g->height);
+    for (const Box& box: boxes) {
+        img.set_clip(box.x, box.y, box.width, box.height);
         img.set_foreground_color(PackedTRGB(0x1000000UL*random.get_uniform()));
         img.fill();
     }
-    string out_file = "/tmp/archon_image_rect_packer.png";
+    std::string out_file = "/tmp/archon_image_rect_packer.png";
     img.save(out_file);
-    cout << "Result saved to: " << out_file << endl;
+    std::cout << "Result saved to: " << out_file << std::endl;
 }
