@@ -146,9 +146,9 @@ pre-line
 namespace archon {
 namespace dom_impl {
 
-struct Box;
-struct RenderElement;
-struct RenderDocument;
+class Box;
+class RenderElement;
+class RenderDocument;
 
 
 // SHOULD NON-RENDER ELEMENTS BE ALLOWED TO EXIST IN A RENDER DOCUMENT? IF NOT, ANY DERIVED CLASS MUST SOMEHOW BE FORCED TO ONLY CREATE RENDER ELEMS.
@@ -201,7 +201,8 @@ struct RenderBorder {
 
 
 
-struct Box: ContainingBlock {
+class Box: public ContainingBlock {
+public:
     int get_width()  { return width;  }
     int get_height() { return height; }
 
@@ -398,7 +399,8 @@ struct RenderElemUpdateState: StyleApplyee {
 
 
 
-struct RenderElement: StyledElement {
+class RenderElement: public StyledElement {
+public:
     RenderElement(StyledElemType *t): StyledElement(t), render_box(0) {}
 
     virtual ~RenderElement() throw ()
@@ -730,7 +732,8 @@ std::cerr << "ELEM: " << sssss << std::endl;
 
 
 
-struct RenderDocument: StyledDocument {
+class RenderDocument: public StyledDocument {
+public:
     void update_render_tree(int avail_width, int avail_height, bool shrink_to_fit)
     {
         if (root_box)

@@ -208,7 +208,7 @@ namespace archon
       string r;
       for(unsigned i=0; i<p.symbols.size(); ++i)
       {
-        if(static_cast<int>(i) == m) r += "·";
+        if(static_cast<int>(i) == m) r += "\u00B7";
         else if(i) r += " ";
         Symbol const &s = p.symbols[i];
         switch(s.type)
@@ -232,7 +232,7 @@ namespace archon
           break;
         }
       }
-      if(m == static_cast<int>(p.symbols.size())) r += "·";
+      if(m == static_cast<int>(p.symbols.size())) r += "\u00B7";
       return r.size() ? r : "<epsilon>";
     }
 

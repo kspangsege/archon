@@ -33,9 +33,9 @@
 namespace archon {
 namespace display {
 
-struct ContextAlreadyBoundException;
-struct NestedBindingException;
-struct Bind;
+class ContextAlreadyBoundException;
+class NestedBindingException;
+class Bind;
 
 
 /// The representation of an OpenGL rendering context. This can be thought of as
@@ -71,7 +71,7 @@ public:
     virtual ~Context() noexcept {}
 
 private:
-    friend struct Bind;
+    friend class Bind;
 
     virtual void bind(Drawable::Arg, bool block) = 0;
 

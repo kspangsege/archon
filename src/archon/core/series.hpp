@@ -55,6 +55,20 @@ namespace archon
       T v[N];
     };
 
+    template<class T> struct SeriesBase<0,T>
+    {
+      typedef T element_type;
+      static int const size = 0;
+
+      bool operator==(SeriesBase const &) { return true; }
+
+      T       *get()       { return nullptr; }
+      T const *get() const { return nullptr; }
+
+      void set(T)         {}
+      void set(T const *) {}
+    };
+
     /**
      * \todo FIXME: This class should be called <tt>Array</tt>, and
      * the class that is currently called Array should be

@@ -483,7 +483,7 @@ public:
     }
 
 
-    void save(Image::ConstRefArg, OutputStream&, Logger*, ProgressTracker*) const
+    void save(Image::ConstRefArg, OutputStream&, Logger*, ProgressTracker*) const override
     {
         /*
           Ideas:

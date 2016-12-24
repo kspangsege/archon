@@ -2065,7 +2065,7 @@ public:
     void parse_sgml();
 
 private:
-    struct ElemCdataInputStream;
+    class ElemCdataInputStream;
 
     const DocTypeDef& dtd;
     const StringUtf16 str_DOCTYPE_cf;

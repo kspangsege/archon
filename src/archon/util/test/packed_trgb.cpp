@@ -30,11 +30,10 @@
 #include <archon/util/packed_trgb.hpp>
 
 
-#define TEST(assertion)              if(!(assertion)) throw runtime_error("Test failed")
-#define TEST_MSG(assertion, message) if(!(assertion)) throw runtime_error(message)
+#define TEST(assertion)              if(!(assertion)) throw std::runtime_error("Test failed")
+#define TEST_MSG(assertion, message) if(!(assertion)) throw std::runtime_error(message)
 
 
-using namespace std;
 using namespace archon::core;
 using namespace archon::util;
 
@@ -43,9 +42,9 @@ int main() throw()
 {
 //   {
 //     PackedTRGB trgb;
-//     ostringstream out;
+//     std::ostringstream out;
 //     out << s1;
-//     istringstream in(out.str());
+//     std::istringstream in(out.str());
 //     Series<3, int> s2(-1, -2, -3);
 //     in >> s2;
 //     TEST_MSG(!in.fail() && !in.bad() && in.eof(), "Parse");
@@ -55,9 +54,9 @@ int main() throw()
 //   }
 //   {
 //     Series<3, int> s1(12, 31, 471);
-//     wostringstream out;
+//     std::wostringstream out;
 //     out << s1;
-//     wistringstream in(out.str());
+//     std::wistringstream in(out.str());
 //     Series<3, int> s2(-1, -2, -3);
 //     in >> s2;
 //     TEST_MSG(!in.fail() && !in.bad() && in.eof(), "Parse, wide");
@@ -69,14 +68,12 @@ int main() throw()
 
   PackedTRGB trgb;
 
-  cout << "TRGB: ";
-  cin >> trgb;
-  TEST_MSG(!cin.fail() && !cin.bad(), "Parse");
+  std::cout << "TRGB: ";
+  std::cin >> trgb;
+  TEST_MSG(!std::cin.fail() && !std::cin.bad(), "Parse");
 
-  cout << "IS REALLY: " << static_cast<unsigned long>(trgb) << "\n";
+  std::cout << "IS REALLY: " << static_cast<PackedTRGB::value_type>(trgb) << "\n";
 
-  cout << trgb;
-  cout << "\n";
-
-  return 0;
+  std::cout << trgb;
+  std::cout << "\n";
 }

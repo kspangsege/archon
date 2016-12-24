@@ -80,8 +80,9 @@ namespace archon
 
 
 
-      struct LSParser: virtual DOMObject
+      class LSParser: public virtual DOMObject
       {
+      public:
 //        virtual ref<DOMConfiguration> getDomConfig() const throw () = 0;
 //        virtual ref<LSParserFilter> getFilter() const throw () = 0;
 //        virtual void setFilter(ref<LSParserFilter> const &filter) throw () = 0;
@@ -110,8 +111,9 @@ namespace archon
 
 
 
-      struct LSInput: virtual DOMObject
+      class LSInput: public virtual DOMObject
       {
+      public:
         virtual std::istream *getByteStream() const throw () = 0;
 
         /**

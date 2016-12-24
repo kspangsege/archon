@@ -52,8 +52,9 @@ namespace archon
 
 
 
-      struct HTMLDocument: virtual Document
+      class HTMLDocument: public virtual Document
       {
+      public:
         virtual ref<HTMLElement> getBody() const throw () = 0;
 
         virtual void setBody(ref<HTMLElement> const &body) throw (DOMException) = 0;
@@ -61,8 +62,9 @@ namespace archon
 
 
 
-      struct HTMLElement: virtual Element
+      class HTMLElement: public virtual Element
       {
+      public:
         virtual DOMString getId() const throw () = 0;
 
         virtual void setId(DOMString const &id) throw (DOMException) = 0;
@@ -70,32 +72,33 @@ namespace archon
 
 
 
-      struct HTMLHtmlElement: virtual HTMLElement
+      class HTMLHtmlElement: public virtual HTMLElement
       {
       };
 
 
 
-      struct HTMLBodyElement: virtual HTMLElement
+      class HTMLBodyElement: public virtual HTMLElement
       {
       };
 
 
 
-      struct HTMLDivElement: virtual HTMLElement
+      class HTMLDivElement: public virtual HTMLElement
       {
       };
 
 
 
-      struct HTMLParagraphElement: virtual HTMLElement
+      class HTMLParagraphElement: public virtual HTMLElement
       {
       };
 
 
 
-      struct HTMLUListElement: virtual HTMLElement
+      class HTMLUListElement: public virtual HTMLElement
       {
+      public:
 //        virtual bool getCompact() const throw () = 0;
 
 //        virtual void setCompact(bool compact) throw () = 0;
@@ -107,8 +110,9 @@ namespace archon
 
 
 
-      struct HTMLLIElement: virtual HTMLElement
+      class HTMLLIElement: public virtual HTMLElement
       {
+      public:
 //        virtual DOMString getType() const throw () = 0;
 
 //        virtual void setType(DOMString const &type) throw () = 0;

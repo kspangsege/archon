@@ -133,7 +133,7 @@ Quaternion inv(const Quaternion&);
 /// The final rotation is obtained by first rotating by \a alpha around the
 /// Z-axis, then by \a beta around the new rotated X-axis, then finally by \a
 /// gamma around the new rotated Z-axis.
-constexpr Quaternion versor_from_proper_euler_angles(double alpha, double beta, double gamma);
+Quaternion versor_from_proper_euler_angles(double alpha, double beta, double gamma);
 
 
 /// @{ \brief Convert between horizontal and vertical coordinate bases.
@@ -361,7 +361,7 @@ inline Quaternion inv(const Quaternion& q)
     Quaternion r = q; return r.inv();
 }
 
-constexpr Quaternion versor_from_proper_euler_angles(double alpha, double beta, double gamma)
+inline Quaternion versor_from_proper_euler_angles(double alpha, double beta, double gamma)
 {
     double ca = std::cos(0.5 * alpha), sa = std::sin(0.5 * alpha);
     double cb = std::cos(0.5 * beta),  sb = std::sin(0.5 * beta);

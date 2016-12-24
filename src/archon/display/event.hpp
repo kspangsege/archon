@@ -496,7 +496,7 @@ inline bool EventHandler::before_sleep()
     return true;
 }
 
-inline EventHandler::~EventHandler()
+inline EventHandler::~EventHandler() noexcept
 {
 }
 

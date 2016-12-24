@@ -1727,20 +1727,14 @@ namespace archon
 // rightwards, and Z pointing upwards) to ordinary vertical coordinate system
 // (vertical XY-plane with Y pointing upwards, X pointing rightwards, and Z
 // pointing towards the viewer).
-constexpr Vec3 horiz_to_vert(Vec3 v)
-{
-    return Vec3{v[0], v[2], -v[1]};
-}
+constexpr Vec3 horiz_to_vert(Vec3);
 
 // Transform 3-D vector from ordinary vertical coordinate system (vertical
 // XY-plane with Y pointing upwards, X pointing rightwards, and Z pointing
 // towards the viewer) to ordinary horizontal coordinate system basis
 // (horizontal XY-plane with Y pointing away from the viewer, X pointing
 // rightwards, and Z pointing upwards).
-constexpr Vec3 vert_to_horiz(Vec3 v)
-{
-    return Vec3{v[0], -v[2], v[1]};
-}
+constexpr Vec3 vert_to_horiz(Vec3);
 
 
 
@@ -2103,6 +2097,21 @@ constexpr Vec3 vert_to_horiz(Vec3 v)
     {
       this->template slice<3>().set(e);
       this->sub(3) = f;
+    }
+
+
+
+
+
+
+    constexpr Vec3 horiz_to_vert(Vec3 v)
+    {
+      return Vec3{v[0], v[2], -v[1]};
+    }
+
+    constexpr Vec3 vert_to_horiz(Vec3 v)
+    {
+      return Vec3{v[0], -v[2], v[1]};
     }
   }
 }

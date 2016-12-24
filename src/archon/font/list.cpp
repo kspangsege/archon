@@ -359,7 +359,7 @@ public:
 
 
 private:
-    class Style;
+    struct Style;
 
     class Entry {
     public:

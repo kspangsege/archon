@@ -35,8 +35,9 @@ namespace archon
 {
   namespace dom_impl
   {
-    struct DOMImplementationLS: virtual dom::ls::DOMImplementationLS, DOMImplementation
+    class DOMImplementationLS: public virtual dom::ls::DOMImplementationLS, public DOMImplementation
     {
+    public:
       virtual dom::ref<dom::ls::LSParser>
       createLSParser(dom::uint16 mode, dom::DOMString const &schemaType) const
         throw (dom::DOMException);

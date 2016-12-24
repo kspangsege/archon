@@ -289,9 +289,9 @@ private:
     bool rev_minor;   // vertical ? !bottom_to_top :  right_to_left
     bool rev_major;   // vertical ?  right_to_left : !bottom_to_top
 
-    double major_advance; // Signed baseline spacing
-    double major_offset;  // Signed offset of baseline from "start" of line
-    double std_space_advance; // Advance value for space character as reported by style. Never grid fitted.
+//    double major_advance; // Signed baseline spacing
+//    double major_offset;  // Signed offset of baseline from "start" of line
+//    double std_space_advance; // Advance value for space character as reported by style. Never grid fitted.
     double word_spacing;   // Number of extra pixels to add to the width of space characters. Is integer if session is grid fitting.
     double letter_spacing; // Number of extra pixels between characters. Is integer if session is grid fitting.
 

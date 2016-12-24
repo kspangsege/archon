@@ -164,7 +164,7 @@ namespace archon
      *
      * \sa CntRef
      */
-    struct CntRefObjectBase
+    class CntRefObjectBase
     {
     protected:
       CntRefObjectBase() throw(): n(0) {}

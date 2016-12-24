@@ -477,9 +477,9 @@ namespace archon
       {
         switch(p.first)
         {
-        case way_ToRGB:   return   to_rgb.get_cvt(p.second);
-        case way_FromRGB: return from_rgb.get_cvt(p.second);
-        case way_ToSelf:  return  to_self.get_cvt(p.second);
+        case way_ToRGB:   return   this->to_rgb.get_cvt(p.second);
+        case way_FromRGB: return this->from_rgb.get_cvt(p.second);
+        case way_ToSelf:  return  this->to_self.get_cvt(p.second);
         }
         throw std::runtime_error("Unexpected color space conversion way");
       }

@@ -95,8 +95,8 @@ public:
     void clear();
 
 private:
-    struct TextProcessor;
-    struct StructProcessor;
+    class TextProcessor;
+    class StructProcessor;
 
     int acquire_style();
 

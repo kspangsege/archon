@@ -49,7 +49,7 @@ public:
      * Thrown when invalid data is encountered while reading a file
      * or a stream.
      */
-    struct InvalidFormatException;
+    class InvalidFormatException;
 
     /**
      * Must return the unique specifier for this image format. The

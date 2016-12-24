@@ -50,11 +50,12 @@ namespace archon
      *   http://www.wikipedia.com/wiki/Chomsky+Normal+Form
      *   http://muldoon.cipic.ucdavis.edu/~jchen007/UCD/ECS120/Notes/LectureNotes11.pdf
      */
-    struct Cfg
+    class Cfg
     {
-      struct Rule;
-      struct FirstSets;
-      struct FollowSets;
+    public:
+      class Rule;
+      class FirstSets;
+      class FollowSets;
 
       struct Item
       {
@@ -111,8 +112,9 @@ namespace archon
         std::vector<Symbol> symbols;
       };
 
-      struct Rule
+      class Rule
       {
+      public:
         int getNumberOfProductions() const { return productions.size(); }
         Production const &getProduction(int i) const { return productions[i]; }
 
@@ -215,8 +217,9 @@ namespace archon
        */
       static Symbol concat(int arg1, int arg2) { return act(-3, arg1, arg2); }
 
-      struct FirstSets
+      class FirstSets
       {
+      public:
         FirstSets(Cfg const &);
 
         /**
@@ -229,15 +232,16 @@ namespace archon
         std::string print(int width = 0) const;
 
       private:
-        friend struct FollowSets;
+        friend class FollowSets;
 
         Cfg const &grammar;
         std::vector<std::set<int> > terminals; // One entry per nonterminal
         std::vector<bool> nullable; // One entry per nonterminal
       };
 
-      struct FollowSets
+      class FollowSets
       {
+      public:
         FollowSets(FirstSets const &);
         std::set<int> const &get(int i) const { return terminals[i]; }
         std::string print(int width = 0) const;

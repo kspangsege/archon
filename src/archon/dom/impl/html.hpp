@@ -42,8 +42,9 @@ namespace archon
 
 
 
-    struct HTMLElement: virtual dom::html::HTMLElement, RenderElement
+    class HTMLElement: public virtual dom::html::HTMLElement, public RenderElement
     {
+    public:
       virtual dom::DOMString getId() const throw ();
 
       virtual void setId(dom::DOMString const &id) throw (dom::DOMException);
@@ -54,8 +55,9 @@ namespace archon
 
 
 
-    struct HtmlElemType: StyledElemType
+    class HtmlElemType: public StyledElemType
     {
+    public:
       // Overriding method in ElemType
       virtual HTMLElement *create_element();
 
@@ -67,8 +69,9 @@ namespace archon
 
 
 
-    struct HTMLDocument: dom::html::HTMLDocument, RenderDocument
+    class HTMLDocument: public dom::html::HTMLDocument, public RenderDocument
     {
+    public:
       enum Mode
       {
         /**
@@ -138,8 +141,9 @@ namespace archon
 
 
 
-    struct HTMLImplementation: StyledImplementation
+    class HTMLImplementation: public StyledImplementation
     {
+    public:
       dom::DOMString const str_feat_html;
       dom::DOMString const str_ns_xhtml;
 
@@ -197,8 +201,9 @@ namespace archon
 
 
 
-    struct HTMLHtmlElement: virtual dom::html::HTMLHtmlElement, HTMLElement
+    class HTMLHtmlElement: public virtual dom::html::HTMLHtmlElement, public HTMLElement
     {
+    public:
       struct ElemType: HtmlElemType
       {
         // Overriding method in ElemType
@@ -219,8 +224,9 @@ namespace archon
 
 
 
-    struct HTMLBodyElement: virtual dom::html::HTMLBodyElement, HTMLElement
+    class HTMLBodyElement: public virtual dom::html::HTMLBodyElement, public HTMLElement
     {
+    public:
       struct ElemType: HtmlElemType
       {
         // Overriding method in ElemType
@@ -241,8 +247,9 @@ namespace archon
 
 
 
-    struct HTMLDivElement: virtual dom::html::HTMLDivElement, HTMLElement
+    class HTMLDivElement: public virtual dom::html::HTMLDivElement, public HTMLElement
     {
+    public:
       struct ElemType: HtmlElemType
       {
         // Overriding method in ElemType
@@ -263,8 +270,9 @@ namespace archon
 
 
 
-    struct HTMLParagraphElement: virtual dom::html::HTMLParagraphElement, HTMLElement
+    class HTMLParagraphElement: public virtual dom::html::HTMLParagraphElement, public HTMLElement
     {
+    public:
       struct ElemType: HtmlElemType
       {
         // Overriding method in ElemType
@@ -285,8 +293,9 @@ namespace archon
 
 
 
-    struct HTMLUListElement: virtual dom::html::HTMLUListElement, HTMLElement
+    class HTMLUListElement: public virtual dom::html::HTMLUListElement, public HTMLElement
     {
+    public:
       struct ElemType: HtmlElemType
       {
         // Overriding method in ElemType
@@ -309,8 +318,9 @@ namespace archon
 
 
 
-    struct HTMLLIElement: virtual dom::html::HTMLLIElement, HTMLElement
+    class HTMLLIElement: public virtual dom::html::HTMLLIElement, public HTMLElement
     {
+    public:
       struct ElemType: HtmlElemType
       {
         // Overriding method in ElemType

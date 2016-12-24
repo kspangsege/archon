@@ -233,8 +233,9 @@ namespace archon
       /**
        * \todo FIXME: This class assumes UTF-8.
        */
-      struct Params
+      class Params
       {
+      public:
         /**
          * Parse a URI query string into an ordered list of key, value
          * pairs.

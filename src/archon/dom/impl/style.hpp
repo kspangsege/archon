@@ -778,8 +778,9 @@ namespace archon
 
 
 
-    struct StyleApplyee
+    class StyleApplyee
     {
+    public:
       bool has(StyleGroup g) const { return accum_dirty & 1ul<<g; }
 
       /**
@@ -2593,8 +2594,9 @@ namespace archon
 
 
 
-    struct ElemStyleDecl: virtual dom::css::CSSStyleDeclaration
+    class ElemStyleDecl: public virtual dom::css::CSSStyleDeclaration
     {
+    public:
       virtual dom::DOMString getCssText() const throw ();
 
       virtual dom::DOMString getPropertyValue(dom::DOMString const &propertyName) const throw ();
@@ -2641,8 +2643,9 @@ namespace archon
 
 
 
-    struct StyledElement: Element, virtual dom::css::ElementCSSInlineStyle
+    class StyledElement: public Element, public virtual dom::css::ElementCSSInlineStyle
     {
+    public:
       static int const flag_pos_Valid_style_decl = Element::flag_pos_End + 0;
       static int const flag_pos_End              = Element::flag_pos_End + 1;
 
@@ -2684,8 +2687,9 @@ namespace archon
 
 
 
-    struct StyledElemType: ElemType
+    class StyledElemType: public ElemType
     {
+    public:
       StyledElemType(StyledDocument *d, bool read_only, ElemKey const &k, ElemQual const &q);
 
       virtual StyledElement *create_element() = 0;
@@ -2694,8 +2698,9 @@ namespace archon
 
 
 
-    struct ElemStyleDeclManager
+    class ElemStyleDeclManager
     {
+    public:
       void discard_if_unref(StyledElement const *e) throw ()
       {
         ElemStyleDecl *const decl = e->get_rare_obj<ElemStyleDecl>();
@@ -2746,8 +2751,9 @@ namespace archon
 
 
 
-    struct StyledDocument: Document, StyleManipContext, StyleComputeContext
+    class StyledDocument: public Document, public StyleManipContext, public StyleComputeContext
     {
+    public:
       StyledDocument(StyledImplementation *i, double dpcm = get_default_dpcm());
 
       virtual ~StyledDocument() throw () {}
@@ -2773,8 +2779,9 @@ namespace archon
 
 
 
-    struct StyledImplementation: DOMImplementationLS, StaticStyleInfo
+    class StyledImplementation: public DOMImplementationLS, public StaticStyleInfo
     {
+    public:
       virtual RareNodeData *create_rare_node_data() const
       {
         return new RareStyledNodeData;

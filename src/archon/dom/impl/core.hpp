@@ -662,7 +662,8 @@ class DOMImplementation;
 
 
 
-struct NodeType {
+class NodeType {
+public:
     const dom::uint16 id; // E.g. dom::Node::ELEMENT_NODE
 
     /// Is null for a DocumentType that is not yet bound to a
@@ -682,7 +683,8 @@ struct NodeType {
 
 
 
-struct AttrType {
+class AttrType {
+public:
     // It seems that the spec mandates that a dynamically created
     // attribute is never an ID unless it is explicitely made so by
     // calling Element::setIdAttribute() - however, this is
@@ -726,7 +728,8 @@ struct ElemQual {
 // it. If NodeType::read_only is true, then the instance is
 // statically bound to a DocumentType, for example, and nothing
 // must happen when the reference count drops to zero.
-struct ElemType: NodeType {
+class ElemType: public NodeType {
+public:
     const ElemKey key;
     const ElemQual qual;
 
@@ -753,12 +756,13 @@ private:
 };
 
 
-typedef core::BindRef<ElemType*> ElemTypeRef;
+using ElemTypeRef = core::BindRef<ElemType*>;
 
 
 
 
-struct TextType: NodeType {
+class TextType: public NodeType {
+public:
     const bool elem_cont_whitespace;
 
     TextType(dom::uint16 i, Document* d, bool r, bool w):
@@ -773,7 +777,8 @@ struct TextType: NodeType {
 ///
 /// Invariant: If num_objs == 0, then all object pointers in this
 /// class, and in any derived class, are null.
-struct RareNodeData {
+class RareNodeData {
+public:
     RareNodeData(): num_objs(0), child_list(0) {}
 
     bool is_empty() const { return num_objs == 0; }
@@ -832,7 +837,8 @@ private:
 ///
 /// A node is destroyed when both of the following becomes true: Its
 /// reference count is zero, and it has no parent.
-struct Node: virtual dom::Node {
+class Node: public virtual dom::Node {
+public:
     // Some node types have no value
     virtual dom::DOMString getNodeValue() const throw ()
     {
@@ -990,7 +996,8 @@ private:
 
 
 // A parent node always has an associated document.
-struct ParentNode: Node {
+class ParentNode: public Node {
+public:
     static const int flag_pos_Valid_child_list = 0;
     static const int flag_pos_End              = 1;
 
@@ -1141,7 +1148,8 @@ private:
 
 
 
-struct ChildList: virtual dom::NodeList {
+class ChildList: public virtual dom::NodeList {
+public:
     virtual dom::ref<dom::Node> item(dom::uint32 index) const throw ();
 
     virtual dom::uint32 getLength() const throw ();
@@ -1199,7 +1207,8 @@ private:
 ///
 /// Invariant: A list that is bound to a node and is unreferenced, has
 /// a valid cache.
-struct ChildListManager {
+class ChildListManager {
+public:
     void invalidate(const ParentNode* p) throw ()
     {
         if (!p->has_flag(ParentNode::valid_child_list))
@@ -1282,7 +1291,8 @@ private:
 /// one document to another,) but at any time, the existence of an
 /// element must cause an increment in the reference count of the type
 /// that it is currently tied to.
-struct Element: ParentNode, virtual dom::Element {
+class Element: public ParentNode, public virtual dom::Element {
+public:
     static const int flag_pos_End = ParentNode::flag_pos_End + 0;
 
 
@@ -1325,7 +1335,7 @@ struct Element: ParentNode, virtual dom::Element {
 
 
 private:
-    friend struct Document;
+    friend class Document;
 
     struct Attr: ParentNode, virtual dom::Attr {
         virtual dom::DOMString getNodeName() const throw ();
@@ -1585,7 +1595,8 @@ private:
 
 
 
-struct DocumentFragment: ParentNode, virtual dom::DocumentFragment {
+class DocumentFragment: public ParentNode, public virtual dom::DocumentFragment {
+public:
     virtual dom::DOMString getNodeName() const throw ();
 
     DocumentFragment(Document*);
@@ -1594,7 +1605,8 @@ struct DocumentFragment: ParentNode, virtual dom::DocumentFragment {
 
 
 
-struct CharacterData: Node, virtual dom::CharacterData {
+class CharacterData: public Node, public virtual dom::CharacterData {
+public:
     virtual dom::DOMString getNodeValue() const throw ();
 
     virtual void setNodeValue(const dom::DOMString&) throw (dom::DOMException);
@@ -1623,7 +1635,8 @@ private:
 
 
 
-struct Text: virtual dom::Text, CharacterData {
+class Text: public virtual dom::Text, public CharacterData {
+public:
     virtual dom::DOMString getNodeName() const throw ();
 
     virtual bool isElementContentWhitespace() const throw ();
@@ -1642,7 +1655,8 @@ protected:
 
 
 
-struct Comment: virtual dom::Comment, CharacterData {
+class Comment: public virtual dom::Comment, public CharacterData {
+public:
     virtual dom::DOMString getNodeName() const throw ();
 
     Comment(Document*, const dom::DOMString&);
@@ -1651,7 +1665,8 @@ struct Comment: virtual dom::Comment, CharacterData {
 
 
 
-struct CDATASection: virtual dom::CDATASection, Text {
+class CDATASection: public virtual dom::CDATASection, public Text {
+public:
     virtual dom::DOMString getNodeName() const throw ();
 
     CDATASection(Document*, const dom::DOMString&, bool elem_cont_whitespace);
@@ -1660,7 +1675,8 @@ struct CDATASection: virtual dom::CDATASection, Text {
 
 
 
-struct ProcessingInstruction: Node, virtual dom::ProcessingInstruction {
+class ProcessingInstruction: public Node, public virtual dom::ProcessingInstruction {
+public:
     virtual dom::DOMString getNodeName() const throw ();
 
     virtual dom::DOMString getNodeValue() const throw ();
@@ -1694,8 +1710,9 @@ private:
 
 // Note that a document type node does not necessarily have an
 // associated document.
-struct DocumentType: Node, virtual dom::DocumentType {
-    struct NamedNodeMap;
+class DocumentType: public Node, public virtual dom::DocumentType {
+public:
+    class NamedNodeMap;
 
     const dom::ref<DOMImplementation> impl;
 
@@ -1762,7 +1779,8 @@ private:
 
 
 
-struct Entity: virtual dom::Entity, ParentNode {
+class Entity: public virtual dom::Entity, public ParentNode {
+public:
     virtual dom::DOMString getNodeName() const throw ();
 
     virtual dom::DOMString getPublicId() const throw ();
@@ -1803,7 +1821,8 @@ private:
 
 
 
-struct Notation: virtual dom::Notation, Node {
+class Notation: public virtual dom::Notation, public Node {
+public:
     virtual dom::DOMString getNodeName() const throw ();
 
     virtual dom::DOMString getPublicId() const throw ();
@@ -1836,7 +1855,8 @@ private:
 
 
 
-struct Document: virtual dom::Document, ParentNode {
+class Document: public virtual dom::Document, public ParentNode {
+public:
     const dom::ref<DOMImplementation> impl;
 
     NodeType node_type_doc, node_type_doc_frag, node_type_comment, node_type_proc_instr,
@@ -2107,7 +2127,8 @@ private:
 
 // All unprotected fields of an implementation must be constant to
 // ensure thread-safty.
-struct DOMImplementation: virtual dom::DOMImplementation {
+class DOMImplementation: public virtual dom::DOMImplementation {
+public:
     const dom::DOMString str_feat_core, str_feat_xml, str_feat_xml_ver;
     const dom::DOMString str_ver_1_0, str_ver_1_1, str_ver_2_0, str_ver_3_0;
     const dom::DOMString str_node_name_doc_frag, str_node_name_text, str_node_name_comment,

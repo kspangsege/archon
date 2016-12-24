@@ -35,7 +35,7 @@
 namespace archon {
 namespace font {
 
-struct FontCache;
+class FontCache;
 
 std::shared_ptr<FontCache> new_font_cache(std::shared_ptr<FontList>);
 
