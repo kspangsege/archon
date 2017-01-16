@@ -25,11 +25,11 @@
 #ifndef ARCHON_FONT_TEXT_FORMAT_HPP
 #define ARCHON_FONT_TEXT_FORMAT_HPP
 
+#include <cmath>
 #include <algorithm>
 #include <vector>
 #include <string>
 
-#include <archon/core/functions.hpp>
 #include <archon/core/enum.hpp>
 #include <archon/math/interval.hpp>
 #include <archon/math/vector.hpp>
@@ -130,7 +130,7 @@ public:
     };
 
     // Is effectively disabled if the page size is unbounded in the primary direction.
-    // The default word wrapping mode is <tt>word_wrap_Yes</tt>.
+    // The default word wrapping mode is `word_wrap_Yes`.
     void set_word_wrap_mode(WordWrapMode mode);
 
     // Break overlong lines into pieces. If word wrapping is also enabled, line wrapping kicks in afterwards, and breaks words that are too long to fit on a line by themselves.
@@ -176,7 +176,7 @@ private:
     struct WordWrapSpec { static core::EnumAssoc map[]; };
 
 public:
-    typedef core::Enum<WordWrapMode, WordWrapSpec> WordWrapEnum;
+    using WordWrapEnum = core::Enum<WordWrapMode, WordWrapSpec>;
 
 protected:
     TextFormatter();
@@ -195,7 +195,7 @@ protected:
     void request_style_update(bool kerning_barrier)
     {
         flush_inbuf(kerning_barrier);
-        current_style_id = 0;
+        m_current_style_id = 0;
     }
 
     /// Sub-classes must define what a style is. It is then your
@@ -246,6 +246,167 @@ protected:
     void process_page_struct(int page_index, math::Vec2 offset, StructHandler&);
 
 private:
+    math::Interval m_next_session_page_width  = {0,0}; // min, max
+    math::Interval m_next_session_page_height = {0,0}; // min, max
+    double m_next_session_alignment      = 0;
+    double m_next_session_word_spacing   = 0;
+    double m_next_session_letter_spacing = 0;
+    bool m_next_session_horizontal    = true;
+    bool m_next_session_left_to_right = true;
+    bool m_next_session_top_to_bottom = true;
+    bool m_next_session_grid_fitting  = true;
+
+    double m_alignment; // Line stack alignment, 0 = beginning, 0.5 = center, 1 = end
+    double m_line_spacing = 1; // Scaling factor for line (vertical ? width : height)
+    WordWrapMode m_word_wrap = word_wrap_Yes; // Do word wrapping and optionally justification
+    bool m_line_wrap = false; // Break overlong lines into pieces
+    bool m_page_wrap = false; // Break overlong pages into pieces
+    bool m_kerning = true; // Kerning enabled
+
+    // Settings that must remain constant over an entire layout session
+    bool m_grid_fitting; // Integer pixel layout
+    bool m_vertical;    // Baselines are vertical
+    double m_min_minor; // vertical ? height :  width (strictly positive or unbounded)
+    double m_min_major; // vertical ? width  : height (strictly positive or unbounded)
+    double m_max_minor; // vertical ? height :  width (strictly positive or unbounded)
+    double m_max_major; // vertical ? width  : height (strictly positive or unbounded)
+    bool m_rev_minor;   // vertical ? !bottom_to_top :  right_to_left
+    bool m_rev_major;   // vertical ?  right_to_left : !bottom_to_top
+
+//    double m_major_advance; // Signed baseline spacing
+//    double m_major_offset;  // Signed offset of baseline from "start" of line
+//    double m_std_space_advance; // Advance value for space character as reported by style. Never grid fitted.
+    double m_word_spacing;   // Number of extra pixels to add to the width of space characters. Is integer if session is grid fitting.
+    double m_letter_spacing; // Number of extra pixels between characters. Is integer if session is grid fitting.
+
+    static constexpr int s_inbuf_size = 128; // Must not be less than 2
+    wchar_t m_inbuf[s_inbuf_size];
+    wchar_t* const m_inbuf_end = m_inbuf + s_inbuf_size;
+    wchar_t* m_inbuf_pos;
+    bool m_ignore_inbuf_front;
+    FontCache::GlyphInfo m_glyph_info[s_inbuf_size];
+
+    bool m_in_session; // True iff the current layout is non-empty
+
+    int m_current_style_id; // Identifier for the currently selected style, or zero if none are currently selected.
+    math::Interval m_style_lateral_span;
+
+    bool m_have_space_advance;
+    double m_space_advance; // Baseline advance of space character in pixels. Is integer if session is grid fitting.
+
+    // A chunk 'c' consumes 'c.num_glyphs' elements from 'TextFormatter::m_glyph_indices' and the same number of elements from 'TextFormatter::m_advance_comps'.
+    // FIXME: Combine TextFormatter::m_glyph_indices and TextFormatter::m_advance_comps into a single vector. Might be unfortunate due to nature of process_page().
+    struct Chunk {
+        long num_glyphs; // The number of glyphs in this chunk.
+        int style_id;
+        Chunk(int s): num_glyphs(0), style_id(s) {}
+    };
+
+    // A line 'l' consumes 'l.num_glyphs' elements from 'TextFormatter::m_glyph_indices' and the same number of elements from 'TextFormatter::m_advance_comps'.
+    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    struct Line {
+        int num_glyphs = 0; // The number of glyphs on this line.
+        double length = 0; // Length along baseline, never negative. Start of line is indicated by the advance of the first glyph.
+        math::Interval lateral_span = {0,0}; // Positions of (vertical ? left and right : bottom and top) edges of line relative to baseline.
+        double lateral_pos; // Lateral position of leading edge of line box.
+        Line(double p): lateral_pos{p} {}
+        double get_lateral_trail_pos() const { return lateral_pos + lateral_span.get_length(); }
+    };
+
+    // A page 'p' consumes 'p.num_lines' elements from 'TextFormatter::m_lines'.
+    struct Page {
+        int num_lines = 0;  // The number of lines on this page.
+        long first_glyph; // Index in TextFormatter::m_glyph_indices and TextFormatter::m_advance_comps of the first glyph on this page.
+        int first_line;  // Index in TextFormatter::m_lines of the first line on this page.
+        int first_chunk; // Index in TextFormatter::m_chunks of the first chunk that intersects this page.
+        long first_glyph_in_chunk; // Number of glyphs of first_chunk that belong to pages that preceed this one.
+        Page(long g, int l, int c, long i):
+            first_glyph(g), first_line(l), first_chunk(c), first_glyph_in_chunk(i) {}
+        double get_length(const TextFormatter* f) const
+        {
+            return (0 < num_lines ?
+                    f->m_lines[first_line + num_lines - 1].get_lateral_trail_pos() : 0);
+        }
+        // Move start of page back by the specified number of glyphs. Must not
+        // go behind the start of the preceeding line.
+        void move_back_by_glyphs(const TextFormatter* f, int num_glyphs)
+        {
+            first_glyph -= num_glyphs;
+            while (first_glyph_in_chunk < num_glyphs) {
+                num_glyphs -= first_glyph_in_chunk;
+                first_glyph_in_chunk = f->m_chunks[--first_chunk].num_glyphs;
+            }
+            first_glyph_in_chunk -= num_glyphs;
+        }
+        // Move start of this page back by one line.
+        void move_back_one_line(const TextFormatter* f, Page* previous_page)
+        {
+            --previous_page->num_lines;
+            ++num_lines;
+            move_back_by_glyphs(f, f->m_lines[--first_line].num_glyphs);
+        }
+    };
+
+    std::vector<Page>   m_pages;
+    std::vector<Line>   m_lines;
+    std::vector<Chunk>  m_chunks;
+    std::vector<int>    m_glyph_indices; // A negative index means 'no glyph'.
+    std::vector<double> m_advance_comps; // Components of position advances. For a particular glyph, it expresses the distance from the cursor position of the previous glyph, to the cursor position of this glyph.
+
+    double m_longest_complete_line;
+
+    bool m_empty_line; // Only valid when m_current_line != nullptr
+    double m_last_minor_pos; // Position of last glyph on current line. Only valid when m_empty_line == false.
+    double m_last_minor_advance; // Advance/width of last glyph on current line. Only valid when m_empty_line == false.
+    Page* m_current_page;
+    Line* m_current_line;
+    Chunk* m_current_chunk;
+
+    long m_word_start_index; // Index within m_advance_comps of first glyph of last word on current line. Less than 0 until a space is seen on the current line. Only valid when m_current_line != nullptr
+    double m_word_sep_pos; // Position in primary direction of separator before last word on current line
+    double m_line_length_snapshot; // Length of line ending at glyph that preceeds the word separator that caused this snapshot
+    math::Interval m_lateral_span_snapshot; // Lateral span of line ending with the word separator that caused this snapshot
+    math::Interval m_word_lateral_span; // Lateral span of current word
+    std::vector<long> m_word_separators; // Indices within m_advance_comps of white-spaces of current line. This includes non-breaking spaces.
+    long m_num_word_separators; // Number of word separators preceeding the one that delimits the last word on the current line
+
+/*
+    int m_first_line_glyph; // Index into glyph list of first glyph on current line
+    std::vector<int> m_words; // One entry for each complete word on current line, each entry is the number of consecutive glyphs in the glyph list that are consumed by the word
+
+    int m_line_length; // Distance in pixels along the baseline from the bearing point of first glyph to the bearing point of last glyph plus the advance value of last glyph.
+*/
+
+    // A space terminates current word and causes a new current word to be initiated.
+    // The space is not added immediately to the line not the word.
+    // If the word
+/*
+    double m_word_length; // Length of current word
+    double m_cursor; // Position of cursor along baseline
+    Line* m_current_line;
+    Page* m_current_page;
+// No need      math::Box2 line_bbox; // Bounding box of current line
+// No need      math::Box2 page_bbox; // Bounding box of text on current page
+    Pages m_pages;
+*/
+
     void reset();
 
     void flush_inbuf(bool kerning_barrier);
@@ -262,165 +423,6 @@ private:
     void do_word_wrap();
 
     void adjust_lateral_line_span(const math::Interval& span, bool include);
-
-    math::Interval next_session_page_width, next_session_page_height; // min, max
-    double next_session_alignment;
-    double next_session_word_spacing, next_session_letter_spacing;
-    bool next_session_horizontal;
-    bool next_session_left_to_right;
-    bool next_session_top_to_bottom;
-    bool next_session_grid_fitting;
-
-
-    double alignment; // Line stack alignment, 0 = beginning, 0.5 = center, 1 = end
-    double line_spacing; // Scaling factor for line (vertical ? width :  height)
-    WordWrapMode word_wrap; // Do word wrapping and optionally justification
-    bool line_wrap; // Break overlong lines into pieces
-    bool page_wrap; // Break overlong pages into pieces
-    bool kerning;   // Kerning enabled
-
-    // Settings that must remain constant over an entire layout session
-    bool grid_fitting; // Integer pixel layout
-    bool vertical;    // Baselines are vertical
-    double min_minor; // vertical ? height :  width (strictly positive or unbounded)
-    double min_major; // vertical ? width  : height (strictly positive or unbounded)
-    double max_minor; // vertical ? height :  width (strictly positive or unbounded)
-    double max_major; // vertical ? width  : height (strictly positive or unbounded)
-    bool rev_minor;   // vertical ? !bottom_to_top :  right_to_left
-    bool rev_major;   // vertical ?  right_to_left : !bottom_to_top
-
-//    double major_advance; // Signed baseline spacing
-//    double major_offset;  // Signed offset of baseline from "start" of line
-//    double std_space_advance; // Advance value for space character as reported by style. Never grid fitted.
-    double word_spacing;   // Number of extra pixels to add to the width of space characters. Is integer if session is grid fitting.
-    double letter_spacing; // Number of extra pixels between characters. Is integer if session is grid fitting.
-
-    static const int inbuf_size = 128; // Must not be less than 2
-    wchar_t inbuf[inbuf_size];
-    wchar_t* const inbuf_end;
-    wchar_t* inbuf_pos;
-    bool ignore_inbuf_front;
-    FontCache::GlyphInfo glyph_info[inbuf_size];
-
-    bool in_session; // True iff the current layout is non-empty
-
-    int current_style_id; // Identifier for the currently selected style, or zero if none are currently selected.
-    math::Interval style_lateral_span;
-
-    bool have_space_advance;
-    double space_advance; // Baseline advance of space character in pixels. Is integer if session is grid fitting.
-
-    // A chunk 'c' consumes 'c.num_glyphs' elements from 'TextFormatter::glyph_indices' and the same number of elements from 'TextFormatter::advance_comps'.
-    // FIXME: Combine TextFormatter::glyph_indices and TextFormatter::advance_comps into a single vector. Might be unfortunate due to nature of process_page().
-    struct Chunk {
-        long num_glyphs; // The number of glyphs in this chunk.
-        int style_id;
-        Chunk(int s): num_glyphs(0), style_id(s) {}
-    };
-
-    // A line 'l' consumes 'l.num_glyphs' elements from 'TextFormatter::glyph_indices' and the same number of elements from 'TextFormatter::advance_comps'.
-    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    // FIXME: Change lateral_pos to lateral_advance!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-    struct Line
-    {
-        int num_glyphs; // The number of glyphs on this line.
-        double length; // Length along baseline, never negative. Start of line is indicated by the advance of the first glyph.
-        math::Interval lateral_span; // Positions of (vertical ? left and right : bottom and top) edges of line relative to baseline.
-        double lateral_pos; // Lateral position of leading edge of line box.
-        Line(double p): num_glyphs(0), length(0), lateral_span(0,0), lateral_pos(p) {}
-        double get_lateral_trail_pos() const { return lateral_pos + lateral_span.get_length(); }
-    };
-
-    // A page 'p' consumes 'p.num_lines' elements from 'TextFormatter::lines'.
-    struct Page {
-        int num_lines;  // The number of lines on this page.
-        long first_glyph; // Index in TextFormatter::glyph_indices and TextFormatter::advance_comps of the first glyph on this page.
-        int first_line;  // Index in TextFormatter::lines of the first line on this page.
-        int first_chunk; // Index in TextFormatter::chunks of the first chunk that intersects this page.
-        long first_glyph_in_chunk; // Number of glyphs of first_chunk that belong to pages that preceed this one.
-        Page(long g, int l, int c, long i):
-            num_lines(0), first_glyph(g), first_line(l), first_chunk(c), first_glyph_in_chunk(i) {}
-        double get_length(const TextFormatter* f) const
-        {
-            return 0 < num_lines ? f->lines[first_line + num_lines - 1].get_lateral_trail_pos() : 0;
-        }
-        // Move start of page back by the specified number of glyphs. Must not go behind the start of the preceeding line.
-        void move_back_by_glyphs(const TextFormatter* f, int num_glyphs)
-        {
-            first_glyph -= num_glyphs;
-            while (first_glyph_in_chunk < num_glyphs) {
-                num_glyphs -= first_glyph_in_chunk;
-                first_glyph_in_chunk = f->chunks[--first_chunk].num_glyphs;
-            }
-            first_glyph_in_chunk -= num_glyphs;
-        }
-        // Move start of this page back by one line.
-        void move_back_one_line(const TextFormatter* f, Page* previous_page)
-        {
-            --previous_page->num_lines;
-            ++num_lines;
-            move_back_by_glyphs(f, f->lines[--first_line].num_glyphs);
-        }
-    };
-
-    std::vector<Page>   pages;
-    std::vector<Line>   lines;
-    std::vector<Chunk>  chunks;
-    std::vector<int>    glyph_indices; // A negative index means 'no glyph'.
-    std::vector<double> advance_comps; // Components of position advances. For a particular glyph, it expresses the distance from the cursor position of the previous glyph, to the cursor position of this glyph.
-
-    double longest_complete_line;
-
-    bool empty_line; // Only valid when current_line != 0
-    double last_minor_pos; // Position of last glyph on current line. Only valid when empty_line == false.
-    double last_minor_advance; // Advance/width of last glyph on current line. Only valid when empty_line == false.
-    Page* current_page;
-    Line* current_line;
-    Chunk* current_chunk;
-
-    long word_start_index; // Index within advance_comps of first glyph of last word on current line. Less than 0 until a space is seen on the current line. Only valid when current_line != 0
-    double word_sep_pos; // Position in primary direction of separator before last word on current line
-    double line_length_snapshot; // Length of line ending at glyph that preceeds the word separator that caused this snapshot
-    math::Interval lateral_span_snapshot; // Lateral span of line ending with the word separator that caused this snapshot
-    math::Interval word_lateral_span; // Lateral span of current word
-    std::vector<long> word_separators; // Indices within advance_comps of white-spaces of current line. This includes non-breaking spaces.
-    long num_word_separators; // Number of word separators preceeding the one that delimits the last word on the current line
-
-/*
-    int first_line_glyph; // Index into glyph list of first glyph on current line
-    std::vector<int> words; // One entry for each complete word on current line, each entry is the number of consecutive glyphs in the glyph list that are consumed by the word
-
-    int line_length; // Distance in pixels along the baseline from the bearing point of first glyph to the bearing point of last glyph plus the advance value of last glyph.
-*/
-
-    // A space terminates current word and causes a new current word to be initiated.
-    // The space is not added immediately to the line not the word.
-    // If the word
-/*
-    double word_length; // Length of current word
-    double cursor; // Position of cursor along baseline
-    Line* current_line;
-    Page* current_page;
-// No need      math::Box2 line_bbox; // Bounding box of current line
-// No need      math::Box2 page_bbox; // Bounding box of text on current page
-    Pages pages;
-*/
 };
 
 
@@ -431,9 +433,9 @@ private:
 inline void TextFormatter::write(const wchar_t* text, size_t n)
 {
     while (n) {
-        size_t m = inbuf_end - inbuf_pos;
+        std::size_t m = m_inbuf_end - m_inbuf_pos;
         bool not_full = n < m;
-        inbuf_pos = std::copy(text, text+(not_full?n:m), inbuf_pos);
+        m_inbuf_pos = std::copy(text, text+(not_full?n:m), m_inbuf_pos);
         if (not_full)
             return;
         flush_inbuf(false);
@@ -445,119 +447,119 @@ inline void TextFormatter::write(const wchar_t* text, size_t n)
 inline int TextFormatter::get_num_pages()
 {
     flush_inbuf(false);
-    return pages.size();
+    return m_pages.size();
 }
 
 inline void TextFormatter::set_page_width(const math::Interval& width)
 {
     flush_inbuf(false);
-    next_session_page_width = width;
+    m_next_session_page_width = width;
 }
 
 inline void TextFormatter::set_page_height(const math::Interval& height)
 {
     flush_inbuf(false);
-    next_session_page_height = height;
+    m_next_session_page_height = height;
 }
 
 inline void TextFormatter::set_page_size(const math::Vec2& size)
 {
     flush_inbuf(false);
-    next_session_page_width.set(size[0], size[0]);
-    next_session_page_height.set(size[1], size[1]);
+    m_next_session_page_width.set(size[0], size[0]);
+    m_next_session_page_height.set(size[1], size[1]);
 }
 
 inline void TextFormatter::set_alignment(double v)
 {
     flush_inbuf(false);
-    next_session_alignment = v;
+    m_next_session_alignment = v;
 }
 
 inline void TextFormatter::set_word_wrap_mode(WordWrapMode mode)
 {
     flush_inbuf(false);
-    word_wrap = mode;
+    m_word_wrap = mode;
 }
 
 inline void TextFormatter::enable_line_wrapping(bool enabled)
 {
     flush_inbuf(false);
-    line_wrap = enabled;
+    m_line_wrap = enabled;
 }
 
 inline void TextFormatter::enable_page_wrapping(bool enabled)
 {
     flush_inbuf(false);
-    page_wrap = enabled;
+    m_page_wrap = enabled;
 }
 
 inline void TextFormatter::set_line_spacing(double factor)
 {
     flush_inbuf(false);
-    line_spacing = factor;
-    current_style_id = 0; // Request new style
+    m_line_spacing = factor;
+    m_current_style_id = 0; // Request new style
 }
 
 inline void TextFormatter::set_word_spacing(double extra_pixels)
 {
     flush_inbuf(false);
-    next_session_word_spacing = extra_pixels;
-    if (in_session)
-        word_spacing = grid_fitting ? core::archon_round(extra_pixels) : extra_pixels;
+    m_next_session_word_spacing = extra_pixels;
+    if (m_in_session)
+        m_word_spacing = (m_grid_fitting ? std::round(extra_pixels) : extra_pixels);
 }
 
 inline void TextFormatter::set_letter_spacing(double extra_pixels)
 {
     flush_inbuf(false);
-    next_session_letter_spacing = extra_pixels;
-    if (in_session)
-        letter_spacing = grid_fitting ? core::archon_round(extra_pixels) : extra_pixels;
+    m_next_session_letter_spacing = extra_pixels;
+    if (m_in_session)
+        m_letter_spacing = (m_grid_fitting ? std::round(extra_pixels) : extra_pixels);
 }
 
 inline void TextFormatter::set_layout_direction(bool horizontal, bool l_to_r, bool t_to_b)
 {
     flush_inbuf(false);
-    next_session_horizontal = horizontal;
-    next_session_left_to_right = l_to_r;
-    next_session_top_to_bottom = t_to_b;
+    m_next_session_horizontal = horizontal;
+    m_next_session_left_to_right = l_to_r;
+    m_next_session_top_to_bottom = t_to_b;
 }
 
 inline void TextFormatter::enable_kerning(bool enabled)
 {
     flush_inbuf(false);
-    kerning = enabled;
+    m_kerning = enabled;
 }
 
 inline void TextFormatter::set_next_session_grid_fitting(bool enabled)
 {
     flush_inbuf(false);
-    next_session_grid_fitting = enabled;
+    m_next_session_grid_fitting = enabled;
 }
 
 inline void TextFormatter::get_session_info(SessionInfo& info)
 {
     flush_inbuf(true);
-    info.grid_fitting     = grid_fitting;
-    info.layout_direction = vertical ?
-        rev_minor ? FontCache::dir_TopToBottom : FontCache::dir_BottomToTop :
-        rev_minor ? FontCache::dir_RightToLeft : FontCache::dir_LeftToRight;
+    info.grid_fitting     = m_grid_fitting;
+    info.layout_direction = m_vertical ?
+        m_rev_minor ? FontCache::dir_TopToBottom : FontCache::dir_BottomToTop :
+        m_rev_minor ? FontCache::dir_RightToLeft : FontCache::dir_LeftToRight;
 }
 
 inline void TextFormatter::close_line()
 {
-    if (current_line == 0)
+    if (!m_current_line)
         return;
-    if (longest_complete_line < current_line->length)
-        longest_complete_line = current_line->length;
-    current_line = 0;
+    if (m_longest_complete_line < m_current_line->length)
+        m_longest_complete_line = m_current_line->length;
+    m_current_line = nullptr;
 }
 
 inline void TextFormatter::close_page()
 {
-    if (current_page == 0)
+    if (!m_current_page)
         return;
     close_line();
-    current_page = 0;
+    m_current_page = nullptr;
 }
 
 } // namespace font

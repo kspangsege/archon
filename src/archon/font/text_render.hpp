@@ -147,6 +147,7 @@ private:
 
 
 
+
 // Implementation
 
 inline void TextRenderer::set_font_size(double width, double height)

@@ -216,32 +216,6 @@ namespace archon
 
 
     /**
-     * Emulate the behavious of C99's <tt>round</tt>.
-     */
-    inline float archon_round(float v)
-    {
-      return v < 0 ? std::ceil(v - 0.5F) : std::floor(v + 0.5F);
-    }
-
-    /**
-     * Emulate the behavious of C99's <tt>round</tt>.
-     */
-    inline double archon_round(double v)
-    {
-      return v < 0 ? std::ceil(v - 0.5) : std::floor(v + 0.5);
-    }
-
-    /**
-     * Emulate the behavious of C99's <tt>round</tt>.
-     */
-    inline long double archon_round(long double v)
-    {
-      return v < 0 ? std::ceil(v - 0.5L) : std::floor(v + 0.5L);
-    }
-
-
-
-    /**
      * Convert the specified floating point value to an integer. The
      * result is the representable integer that is closest to the
      * integer part of the floating point value.

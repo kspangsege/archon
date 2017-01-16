@@ -22,6 +22,7 @@
 ///
 /// \author Kristian Spangsege
 
+#include <cmath>
 #include <cstdlib>
 #include <limits>
 #include <algorithm>
@@ -183,7 +184,8 @@ public:
     {
         if (i < 0 || face->num_fixed_sizes <= i)
             throw std::out_of_range("fixed_size_index");
-        return 1/64.0 * Vec2(face->available_sizes[i].x_ppem, face->available_sizes[i].y_ppem);
+        return 1/64.0 * Vec2(double(face->available_sizes[i].x_ppem),
+                             double(face->available_sizes[i].y_ppem));
     }
 
     void set_fixed_size(int i) override
@@ -219,12 +221,12 @@ public:
 
             for (int i = 0; i < face->num_fixed_sizes; ++i) {
                 const FT_Bitmap_Size& s = face->available_sizes[i];
-                fixed_sizes[1/64.0 * Vec2(s.x_ppem, s.y_ppem)] = i;
+                fixed_sizes[1/64.0 * Vec2{double(s.x_ppem), double(s.y_ppem)}] = i;
             }
         }
 
         // First check for an exact match
-        Vec2 size(width, height);
+        Vec2 size{width, height};
         auto i = fixed_sizes.find(size);
         if (i != fixed_sizes.end()) {
             set_fixed_size(i->second);
@@ -278,9 +280,9 @@ public:
         hori_baseline_spacing    = space_h;
         vert_baseline_offset     = (space_v - max_v - min_v) / 2;
         vert_baseline_spacing    = space_v;
-        hori_baseline_offset_gf  = archon_round((space_h_gf - max_h_gf - min_h_gf) / 2.0);
+        hori_baseline_offset_gf  = std::round((space_h_gf - max_h_gf - min_h_gf) / 2.0);
         hori_baseline_spacing_gf = space_h_gf;
-        vert_baseline_offset_gf  = archon_round((space_v_gf - max_v_gf - min_v_gf) / 2.0);
+        vert_baseline_offset_gf  = std::round((space_v_gf - max_v_gf - min_v_gf) / 2.0);
         vert_baseline_spacing_gf = space_v_gf;
     }
 
@@ -356,11 +358,11 @@ public:
         // configurable, the rounding is repeated here. Fortunately rounding is
         // an idempotent operation.
         if (grid_fitting) {
-            hori_glyph_advance = archon_round(hori_glyph_advance);
-            left   = floor(left);
-            bottom = floor(bottom);
-            right  = ceil(right);
-            top    = ceil(top);
+            hori_glyph_advance = std::round(hori_glyph_advance);
+            left   = std::floor(left);
+            bottom = std::floor(bottom);
+            right  = std::ceil(right);
+            top    = std::ceil(top);
         }
 
         // Vector from bearing point of vertical layout to bearing point of
@@ -380,15 +382,15 @@ public:
                                  glyph->metrics.vertAdvance -
                                  glyph->metrics.vertBearingY - glyph->metrics.horiBearingY);
             if (grid_fitting) {
-                vert_glyph_advance = archon_round(vert_glyph_advance);
-                v2h[0] = archon_round(v2h[0]);
-                v2h[1] = archon_round(v2h[1]);
+                vert_glyph_advance = std::round(vert_glyph_advance);
+                v2h[0] = std::round(v2h[0]);
+                v2h[1] = std::round(v2h[1]);
             }
         }
         else { // Emulated vertical metrics
             if (grid_fitting) {
                 vert_glyph_advance = hori_baseline_spacing_gf;
-                v2h.set(archon_round(-0.5 * hori_glyph_advance), hori_baseline_offset_gf);
+                v2h.set(std::round(-0.5 * hori_glyph_advance), hori_baseline_offset_gf);
             }
             else {
                 vert_glyph_advance = hori_baseline_spacing;
@@ -406,12 +408,12 @@ public:
 
     double get_glyph_advance(bool vertical) const override
     {
-        return vertical ? vert_glyph_advance : hori_glyph_advance;
+        return (vertical ? vert_glyph_advance : hori_glyph_advance);
     }
 
     Vec2 get_glyph_bearing(bool vertical) const override
     {
-        return vertical ? vert_glyph_bearing : hori_glyph_bearing;
+        return (vertical ? vert_glyph_bearing : hori_glyph_bearing);
     }
 
     Vec2 get_glyph_size() const override
@@ -427,16 +429,16 @@ public:
     void get_glyph_pixel_box(int& left, int& right, int& bottom, int& top) const override
     {
         if (glyph->format == FT_GLYPH_FORMAT_BITMAP) {
-            left   = archon_round(glyph_translation[0]);
-            bottom = archon_round(glyph_translation[1]);
+            left   = std::round(glyph_translation[0]);
+            bottom = std::round(glyph_translation[1]);
             right = left   + glyph->bitmap.width;
             top   = bottom + glyph->bitmap.rows;
         }
         else {
-            left   = floor(glyph_translation[0]);
-            bottom = floor(glyph_translation[1]);
-            right  = ceil(glyph_translation[0] + glyph_size[0]);
-            top    = ceil(glyph_translation[1] + glyph_size[1]);
+            left   = std::floor(glyph_translation[0]);
+            bottom = std::floor(glyph_translation[1]);
+            right  = std::ceil(glyph_translation[0] + glyph_size[0]);
+            top    = std::ceil(glyph_translation[1] + glyph_size[1]);
         }
     }
 

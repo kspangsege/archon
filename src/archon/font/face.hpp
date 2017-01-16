@@ -233,8 +233,8 @@ public:
     /// for a horizontal valyout. If the layout is vertical, it is the
     /// displacement relative to the left side of the line. The value is
     /// normally positive, meaning that the baseline lies within the line
-    /// box. If the basline happens to lie outside, then the value will be
-    /// negative. It is measured in number of pixels.
+    /// box. If the basline happens to lie outside, then the value may be
+    /// negative (depending on side). It is measured in number of pixels.
     ///
     /// If grid fitting mode is enabled, the returned value is always an
     /// integer, otherwise the value may be fractional.

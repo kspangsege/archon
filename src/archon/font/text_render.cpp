@@ -95,7 +95,7 @@ public:
 
     void baseline(double pos, bool vertical, bool before, int type)
     {
-        int x = 0, y = archon_round(pos);
+        int x = 0, y = std::round(pos);
         int w = vertical ? img_writer.get_height() : img_writer.get_width(), h = 1;
         if (before)
             --y;
@@ -109,10 +109,10 @@ public:
 
     void fill_rect(const Vec2& pos, const Vec2& size, PackedTRGB color)
     {
-        int x = archon_round(pos[0]);
-        int y = archon_round(pos[1]);
-        int w = int(archon_round(pos[0] + size[0])) - x;
-        int h = int(archon_round(pos[1] + size[1])) - y;
+        int x = std::round(pos[0]);
+        int y = std::round(pos[1]);
+        int w = int(std::round(pos[0] + size[0])) - x;
+        int h = int(std::round(pos[1] + size[1])) - y;
         img_writer.set_clip(x,y,w,h).set_foreground_color(color).fill();
     }
 
@@ -135,10 +135,10 @@ Image::Ref TextRenderer::render(int page_index, bool debug)
     Vec2 offset;
     int width, height;
     if (info.grid_fitting) {
-        offset[0] = archon_round(m_padding_left);
-        offset[1] = archon_round(m_padding_bottom);
-        width  = offset[0] + page_size[0] + archon_round(m_padding_right);
-        height = offset[1] + page_size[1] + archon_round(m_padding_top);
+        offset[0] = std::round(m_padding_left);
+        offset[1] = std::round(m_padding_bottom);
+        width  = offset[0] + page_size[0] + std::round(m_padding_right);
+        height = offset[1] + page_size[1] + std::round(m_padding_top);
     }
     else {
         double w = m_padding_left   + page_size[0] + m_padding_right;
@@ -233,7 +233,7 @@ TextRenderer::~TextRenderer()
 
 
 
-// Overriding TextFormatter::acquire_style
+// Overriding TextFormatter::acquire_style()
 int TextRenderer::acquire_style()
 {
     if (m_font_id < 0) {
@@ -253,7 +253,7 @@ int TextRenderer::acquire_style()
 }
 
 
-// Overriding TextFormatter::get_style_info
+// Overriding TextFormatter::get_style_info()
 void TextRenderer::get_style_info(int style_id, bool vertical, bool grid_fitting,
                                   FontCache::FontMetrics& info)
 {
@@ -261,7 +261,7 @@ void TextRenderer::get_style_info(int style_id, bool vertical, bool grid_fitting
 }
 
 
-// Overriding TextFormatter::get_glyph_info
+// Overriding TextFormatter::get_glyph_info()
 void TextRenderer::get_glyph_info(int style_id, bool vertical, bool grid_fitting,
                                   FontCache::KernType kern, int num_chars,
                                   const wchar_t* chars, FontCache::GlyphInfo* glyphs)

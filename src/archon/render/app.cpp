@@ -1406,8 +1406,8 @@ void Application::render_hud()
 
 void Application::modify_zoom(int diff)
 {
-    int level = archon_round(log(m_proj.zoom_factor) / log(g_zoom_step));
-    set_zoom_factor(pow(g_zoom_step, level + diff));
+    int level = std::round(std::log(m_proj.zoom_factor) / std::log(g_zoom_step));
+    set_zoom_factor(std::pow(g_zoom_step, level + diff));
     set_float_status(L"ZOOM = ", m_proj.zoom_factor, 2, L"x");
 }
 
@@ -1417,8 +1417,8 @@ void Application::modify_dist(int diff)
     // The distance modification comes about indirectly. We modify the
     // size of the sphere of interest, and the auto-distance feature
     // makes the corresponding change in distance.
-    int level = archon_round(log(m_interest_size) / log(g_camera_dist_step));
-    set_interest_size(pow(g_camera_dist_step, level + diff));
+    int level = std::round(std::log(m_interest_size) / std::log(g_camera_dist_step));
+    set_interest_size(std::pow(g_camera_dist_step, level + diff));
     m_status_hud_activate_cam_dist = true;
     m_status_hud_activate_cam_dist_timeout = get_status_hud_timout();
 }

@@ -331,8 +331,8 @@ public:
 
     void get_glyph_pixel_box(int& left, int& right, int& bottom, int& top) const override
     {
-        left   = archon_round(glyph_translation[0]);
-        bottom = archon_round(glyph_translation[1]);
+        left   = std::round(glyph_translation[0]);
+        bottom = std::round(glyph_translation[1]);
         right = left   + glyph->width;
         top   = bottom + glyph->height;
     }
@@ -345,9 +345,9 @@ public:
 
     void render_pixels_to(ImageWriter& image_writer) const override
     {
-        loader->glyph_image_reader.set_clip(glyph->left, glyph->bottom, glyph->width, glyph->height);
-        image_writer.set_pos(target_origin_x + archon_round(glyph_translation[0]),
-                             target_origin_y + archon_round(glyph_translation[1]));
+        loader->glyph_image_reader.set_pos(glyph->left, glyph->bottom);
+        image_writer.set_pos(target_origin_x + std::round(glyph_translation[0]),
+                             target_origin_y + std::round(glyph_translation[1]));
         image_writer.put_image(loader->glyph_image_reader, glyph->width, glyph->height);
     }
 

@@ -25,10 +25,9 @@
 #ifndef ARCHON_UTIL_PERSPECT_PROJ_HPP
 #define ARCHON_UTIL_PERSPECT_PROJ_HPP
 
-#include<cmath>
-#include<algorithm>
+#include <cmath>
+#include <algorithm>
 
-#include <archon/core/functions.hpp>
 #include <archon/math/functions.hpp>
 
 
@@ -407,12 +406,12 @@ public:
 
     int get_viewport_width_pixels()
     {
-        return core::archon_round(get_viewport_width_meters() / horiz_dot_pitch);
+        return std::round(get_viewport_width_meters() / horiz_dot_pitch);
     }
 
     int get_viewport_height_pixels()
     {
-        return core::archon_round(get_viewport_height_meters() / vert_dot_pitch);
+        return std::round(get_viewport_height_meters() / vert_dot_pitch);
     }
 
     void set_viewport_size_pixels(int width, int height)
@@ -525,7 +524,8 @@ public:
     /// \sa auto_zoom
     void auto_dist(double interest, double f = 1)
     {
-        camera_dist = interest * std::sqrt(0.25 + math::square(/*zoom_factor*/1 / neutral_fov / f));
+        double zoom_factor = 1;
+        camera_dist = interest * std::sqrt(0.25 + math::square(zoom_factor / neutral_fov / f));
     }
 
     /// Adjust the zoom factor such that the sphere of interest fits perfectly
