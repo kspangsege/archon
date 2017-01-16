@@ -300,7 +300,8 @@ public:
     /// its axis-aligned bounding box is coincident with the origin of the
     /// tablet. The unit of measurement on both coordinate axes is 'pixels'.
     ///
-    /// The initially loaded glyph is the replacement glyph whose index is zero.
+    /// The initially loaded glyph is the replacement glyph whose index is zero,
+    /// and it is loaded with grid fitting enabled.
     ///
     /// A side effect of grid fitting is that all glyph metrics will attain
     /// integer values. This applies to the glyph advance, and the glyph bearing

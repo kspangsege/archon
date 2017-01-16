@@ -4,9 +4,14 @@ AC_DEFUN([ARCHON_CHECK_IMAGE_LIBS], [
   ARCHON_IMAGE_LIBS=
 
   ARCHON_CHECK_LIB([png], [support for PNG images], [the PNG library], [ARCHON_HAVE_LIBPNG],  [ARCHON_IMAGE_], [
-    AC_CHECK_HEADER([png.h], [
-      AC_CHECK_LIB([png], [png_create_read_struct], [archon_libs="-lpng -lm -lz"], [archon_not_found=yes], [-lm -lz])
-    ], [archon_not_found=yes])
+    PKG_CHECK_EXISTS([libpng], [
+      archon_cflags="`$PKG_CONFIG --cflags libpng`"
+      archon_libs="`$PKG_CONFIG --libs libpng`"
+    ], [
+      AC_CHECK_HEADER([png.h], [
+        AC_CHECK_LIB([png], [png_create_read_struct], [archon_libs="-lpng -lm -lz"], [archon_not_found=yes], [-lm -lz])
+      ], [archon_not_found=yes])
+    ])
   ])
 
   ARCHON_CHECK_LIB([tiff], [support for TIFF images], [the TIFF library], [ARCHON_HAVE_LIBTIFF], [ARCHON_IMAGE_], [
@@ -15,7 +20,7 @@ AC_DEFUN([ARCHON_CHECK_IMAGE_LIBS], [
     ], [archon_not_found=yes])
   ])
 
-  ARCHON_CHECK_LIB([pnm], [support for PNM images],  [the PNM library], [ARCHON_HAVE_LIBPNM],  [ARCHON_IMAGE_], [
+  ARCHON_CHECK_LIB([pnm], [support for PNM images], [the PNM library], [ARCHON_HAVE_LIBPNM],  [ARCHON_IMAGE_], [
     AC_CHECK_HEADER([pam.h], [
       AC_CHECK_LIB([netpbm], [pm_init], [archon_libs="-lnetpbm"], [archon_not_found=yes])
     ],[archon_not_found=yes])

@@ -705,11 +705,11 @@ NOTE: THESE ARE ALMOST ALL RIGTH UNDER THE ASSUMPTION THAT THE STRINGS CONTAIN A
       private:
         CharPtrPair delim_search(CharPtr, CharPtr);
 
-        StringType const delims;
-        bool const combine_delims;
-        CharPtr const delims_begin, delims_end;
-        std::locale const loc;
-        std::ctype<CharType> const *const ctype;
+        StringType const m_delims;
+        bool const m_combine_delims;
+        CharPtr const m_delims_begin, m_delims_end;
+        std::locale const m_loc;
+        std::ctype<CharType> const *const m_ctype;
       };
 
 
@@ -1352,25 +1352,30 @@ NOTE: THESE ARE ALMOST ALL RIGTH UNDER THE ASSUMPTION THAT THE STRINGS CONTAIN A
       template<class Ch>
       inline SimpleTokenizer<Ch>::SimpleTokenizer(StreamType &in, StringType const &delims,
                                                   DelimMode mode, std::locale const &l):
-        InputSplitter<Ch>(in, mode == incl_delims || mode == delims_empty || mode == comb_delims,
-                          mode == incl_empty || mode == delims_empty),
-        delims(delims), combine_delims(mode == regular || mode == comb_delims),
-        delims_begin(delims.data()), delims_end(delims_begin+delims.size()),
-        loc(l), ctype(delims.empty() ? &std::use_facet<std::ctype<CharType> >(loc): 0) {}
+        InputSplitter<Ch>{in, mode == incl_delims || mode == delims_empty || mode == comb_delims,
+                          mode == incl_empty || mode == delims_empty},
+        m_delims{delims},
+        m_combine_delims{mode == regular || mode == comb_delims},
+        m_delims_begin{m_delims.data()},
+        m_delims_end{m_delims_begin+m_delims.size()},
+        m_loc{l},
+        m_ctype{m_delims.empty() ? &std::use_facet<std::ctype<CharType> >(m_loc): nullptr}
+      {
+      }
 
       template<class Ch> inline typename SimpleTokenizer<Ch>::CharPtrPair
       SimpleTokenizer<Ch>::delim_search(CharPtr begin, CharPtr end)
       {
-        CharPtr const d = ctype ? ctype->scan_is(std::ctype_base::space, begin, end) :
-          std::find_first_of(begin, end, delims_begin, delims_end);
+        CharPtr const d = m_ctype ? m_ctype->scan_is(std::ctype_base::space, begin, end) :
+          std::find_first_of(begin, end, m_delims_begin, m_delims_end);
         if(d == end) return CharPtrPair(end, CharPtr(0));
         CharPtr e = d+1;
-        if(combine_delims)
+        if(m_combine_delims)
         {
-          if(ctype) e = ctype->scan_not(std::ctype_base::space, e, end);
+          if(m_ctype) e = m_ctype->scan_not(std::ctype_base::space, e, end);
           else while(e < end)
           {
-            if(delims.find(*e) == StringType::npos) break;
+            if(m_delims.find(*e) == StringType::npos) break;
             ++e;
           }
         }
@@ -1379,7 +1384,9 @@ NOTE: THESE ARE ALMOST ALL RIGTH UNDER THE ASSUMPTION THAT THE STRINGS CONTAIN A
 
 
       template<class Ch> inline LineReader<Ch>::LineReader(StreamType &in, std::locale const &l):
-        SimpleTokenizer<Ch>(in, env_widen<Ch>("\n"), SimpleTokenizer<Ch>::incl_empty, l) {}
+        SimpleTokenizer<Ch>{in, env_widen<Ch>("\n"), SimpleTokenizer<Ch>::incl_empty, l}
+      {
+      }
 
 
 

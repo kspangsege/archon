@@ -125,7 +125,7 @@ public:
         conf_file{resource_dir+"fallback-font.conf"},
         glyph_image_reader{resource_dir+"fallback-font.png"}
     {
-        std::wifstream in(conf_file.c_str());
+        std::wifstream in{conf_file};
         if (!in)
             throw std::runtime_error("Unable to open '"+conf_file+"' for reading");
         Text::LineReader<wchar_t> line_reader{in, std::locale{""}};
@@ -140,7 +140,9 @@ public:
                 continue;
             }
 
-            std::wistringstream i{line};
+            // FIXME: Adding space to work around bug in libc++'s implementation of std::ws
+            std::wistringstream i{line + L" "};                              
+            i.imbue(std::locale::classic());
 
             if (line_num == 2) {
                 i >> bold >> italic >> monospace;
@@ -148,7 +150,7 @@ public:
                 i >> hori_baseline_offset >> hori_baseline_spacing;
                 i >> vert_baseline_offset >> vert_baseline_spacing >> std::ws;
                 if (i.bad() || i.fail() || !i.eof())
-                    throw std::runtime_error("Failed to parse first line of '"+conf_file+"'");
+                    throw std::runtime_error("Failed to parse second line of '"+conf_file+"'");
                 continue;
             }
 

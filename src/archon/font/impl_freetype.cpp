@@ -550,7 +550,11 @@ public:
 */
 
         set_approx_size(w,h);
-        static_cast<FontFace*>(this)->load_glyph(0);
+
+        // Implementation is obliged to load the replacement glyph initially
+        int glyph_index = 0;
+        bool grid_fitting = true;
+        load_glyph(glyph_index, grid_fitting);
     }
 
     ~FaceImpl() noexcept override

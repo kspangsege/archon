@@ -41,9 +41,14 @@ AC_DEFUN([ARCHON_CHECK_DISPLAY_LIBS], [
 
   # Check for the OpenGL Extension to X (GLX)
   ARCHON_CHECK_LIB([glx], [support for GLX (OpenGL Extension to X)], [the OpenGL Extension to X], [ARCHON_HAVE_GLX], [ARCHON_DISPLAY_], [
-    AC_CHECK_HEADER([GL/glx.h], [
-      AC_CHECK_LIB([GL], [glXQueryExtension], [archon_libs="-lGL"], [archon_not_found=yes], [$X_LIBS])
-    ], [archon_not_found=yes])
+    AX_CHECK_GLX
+    AS_IF([test "x$no_glx" = xyes], [archon_not_found=yes], [
+      archon_cflags="$GLX_CFLAGS"
+      archon_libs="$GLX_LIBS"
+    ])
+#    AC_CHECK_HEADER([GL/glx.h], [
+#      AC_CHECK_LIB([GL], [glXQueryExtension], [archon_libs="-lGL"], [archon_not_found=yes], [$X_LIBS])
+#    ], [archon_not_found=yes])
   ], [test "x$archon_with_xlib" = xyes -a "x$archon_with_opengl" = xyes])
 
 

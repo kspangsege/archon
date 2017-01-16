@@ -517,8 +517,6 @@ public:
     Atom atom_del_win, atom_net_wm_state, atom_net_wm_state_fullscreen;
 
 
-    struct ScreenSpec;
-
     struct VisualSpec {
         XVisualInfo* info;
 #ifdef ARCHON_HAVE_GLX
@@ -2982,7 +2980,7 @@ ConnectionImpl::ConnectionImpl(Xlib_Display* d):
 }
 
 
-ConnectionImpl::~ConnectionImpl()
+ConnectionImpl::~ConnectionImpl() noexcept
 {
     try {
         std::lock_guard<std::mutex> lock{g_xlib_mutex};
@@ -3271,7 +3269,7 @@ void WindowImpl::set_fullscreen_enabled(bool enable)
 }
 
 
-WindowImpl::~WindowImpl()
+WindowImpl::~WindowImpl() noexcept
 {
     try {
         std::lock_guard<std::mutex> lock{g_xlib_mutex};
