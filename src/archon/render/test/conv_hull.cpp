@@ -79,10 +79,15 @@ Vec2 calc_point_label_pos(double excl_radius, double angle, Vec2 size, double co
     Vec2 dir{std::cos(angle), std::sin(angle)};
     double slope = dir[1] / dir[0];
     double abs_slope = std::abs(slope);
-    Vec2 half_size(0.5 * size);
-    double w_in  = half_size[0] - corner_radius;
+    Vec2 half_size{0.5 * size};
+    double cr = corner_radius;
+    if (cr > half_size[0])
+        cr = half_size[0];
+    if (cr > half_size[1])
+        cr = half_size[1];
+    double w_in  = half_size[0] - cr;
     double w_out = half_size[0] + excl_radius;
-    double h_in  = half_size[1] - corner_radius;
+    double h_in  = half_size[1] - cr;
     double h_out = half_size[1] + excl_radius;
     double low_slope  = h_in / w_out;
     double high_slope = h_out / w_in;
@@ -99,7 +104,7 @@ Vec2 calc_point_label_pos(double excl_radius, double angle, Vec2 size, double co
 
     double dist;
     Vec2 corner{(dir[0] < 0 ? -w_in : w_in), (dir[1] < 0 ? -h_in : h_in)};
-    intersect_sphere<true>(Line2{-corner, dir}, dist, excl_radius + corner_radius);
+    intersect_sphere<true>(Line2{-corner, dir}, dist, excl_radius + cr);
     return dist * dir - half_size;
 }
 
@@ -353,6 +358,7 @@ public:
                                         random.get_uint<unsigned>(31)/31.0-0.5,
                                         random.get_uint<unsigned>(31)/31.0-0.5));
             }
+//            m_points.push_back(Vec3(0.001, 0.01, -0.5));
         }
 
 
