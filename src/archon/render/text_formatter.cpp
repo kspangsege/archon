@@ -173,20 +173,21 @@ public:
 
 
 
-TextFormatter::TextFormatter(FontProvider* p): font_provider(p)
+TextFormatter::TextFormatter(FontProvider& fp):
+    m_font_provider{fp}
 {
-    used_styles.reserve(8);
-    FontProvider::StyleOwner style(font_provider, font_provider->acquire_default_style());
-    font_provider->get_style_desc(style.get(), style_desc);
-    used_styles.push_back(style.get());
-    style_id = default_style = style.release();
+    m_used_styles.reserve(8);
+    FontProvider::StyleOwner style{m_font_provider, m_font_provider.acquire_default_style()};
+    m_font_provider.get_style_desc(style.get(), m_style_desc);
+    m_used_styles.push_back(style.get());
+    m_style_id = m_default_style = style.release();
     set_next_session_grid_fitting(false);
 }
 
 
 TextFormatter::~TextFormatter()
 {
-    style_id = 0; // Release everything
+    m_style_id = 0; // Release everything
     release_used_styles();
 }
 
@@ -197,9 +198,9 @@ void TextFormatter::format(TextLayout& layout, int page_index)
     SessionInfo info;
     get_session_info(info);
 
-    layout.size = get_page_size(page_index);
+    layout.m_size = get_page_size(page_index);
 
-    FontProvider::TextInserter inserter(font_provider, &layout.text, info.layout_direction);
+    FontProvider::TextInserter inserter{m_font_provider, layout.m_text_container, info.layout_direction};
     TextProcessor proc(&inserter);
     process_page(page_index, Vec2(0,0), proc);
 }
@@ -209,9 +210,9 @@ void TextFormatter::format(TextLayout& layout, int page_index)
 void TextFormatter::clear()
 {
     release_used_styles();
-    clear_vector(used_styles, 8, 32);
-    if (style_id)
-        used_styles.push_back(style_id);
+    clear_vector(m_used_styles, 8, 32);
+    if (m_style_id)
+        m_used_styles.push_back(m_style_id);
     archon::font::TextFormatter::clear();
 }
 
@@ -220,12 +221,12 @@ void TextFormatter::clear()
 // Overriding archon::font::TextFormatter::acquire_style
 int TextFormatter::acquire_style()
 {
-    if (!style_id) {
-        FontProvider::StyleOwner style(font_provider, font_provider->acquire_style(style_desc));
-        used_styles.push_back(style.get());
-        style_id = style.release();
+    if (!m_style_id) {
+        FontProvider::StyleOwner style{m_font_provider, m_font_provider.acquire_style(m_style_desc)};
+        m_used_styles.push_back(style.get());
+        m_style_id = style.release();
     }
-    return style_id;
+    return m_style_id;
 }
 
 
@@ -233,7 +234,7 @@ int TextFormatter::acquire_style()
 void TextFormatter::get_style_info(int style_id, bool vertical, bool /*grid_fitting*/,
                                    FontCache::FontMetrics& metrics)
 {
-    font_provider->get_style_metrics(style_id, vertical, metrics);
+    m_font_provider.get_style_metrics(style_id, vertical, metrics);
 }
 
 
@@ -241,7 +242,7 @@ void TextFormatter::get_glyph_info(int style_id, bool vertical, bool /*grid_fitt
                                    FontCache::KernType kern, int num_chars, const wchar_t* chars,
                                    FontCache::GlyphInfo* glyphs)
 {
-    font_provider->get_glyph_info(style_id, vertical, kern, num_chars, chars, glyphs);
+    m_font_provider.get_glyph_info(style_id, vertical, kern, num_chars, chars, glyphs);
 }
 
 
@@ -249,11 +250,11 @@ void TextFormatter::get_glyph_info(int style_id, bool vertical, bool /*grid_fitt
 // Does not release the one that is currently used
 void TextFormatter::release_used_styles() throw()
 {
-    while (!used_styles.empty()) {
-        int id = used_styles.back();
-        used_styles.pop_back();
-        if (id != style_id)
-            font_provider->release_style(id);
+    while (!m_used_styles.empty()) {
+        int id = m_used_styles.back();
+        m_used_styles.pop_back();
+        if (id != m_style_id)
+            m_font_provider.release_style(id);
     }
 }
 

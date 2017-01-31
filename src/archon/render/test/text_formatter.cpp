@@ -136,20 +136,20 @@ struct TextFormatterApp: Application {
             m_text_formatter.write(L" ");
             m_text_formatter.set_text_color(Vec4F(1,0,0,1));
             m_text_formatter.set_font_size(35/256.0, 35/256.0);
-            m_text_formatter.set_font_boldness(1);
+            m_text_formatter.set_font_weight(1); // Bold
             m_text_formatter.write(L"Kristian ");
             m_text_formatter.set_letter_spacing(10/256.0);
             m_text_formatter.write(L"Kristian ");
 
             m_text_formatter.set_text_color(Vec4F(0,1,0,1));
             m_text_formatter.set_font_size(25/256.0, 25/256.0);
-            m_text_formatter.set_font_boldness(0);
-            m_text_formatter.set_font_italicity(1);
+            m_text_formatter.set_font_weight(0); // Not bold
+            m_text_formatter.set_font_style(1); // Italic
             m_text_formatter.write(L"Spangsege ");
 
             m_text_formatter.set_text_color(Vec4F(1,0,1,1));
             m_text_formatter.set_font_size(30/256.0, 30/256.0);
-            m_text_formatter.set_font_italicity(0);
+            m_text_formatter.set_font_style(0); // Not italic
             m_text_formatter.set_font_family("URW Palladio L");
             m_text_formatter.write(L"h");
             m_text_formatter.set_line_spacing(2);

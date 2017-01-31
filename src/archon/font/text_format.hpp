@@ -63,25 +63,25 @@ namespace font {
 /// clipping.
 class TextFormatter {
 public:
-    /// FIXME: Must instead take a StringUtf32 or std::u32string as
-    /// argument. We can also provide a version that takes a wide
-    /// string, but it must then also take a locale. For now it is the
-    /// assumption that the specified string is encoded according to
-    /// the classic locale.
-    void write(std::wstring s) { write(s.data(), s.size()); }
+    /// FIXME: Must instead take a StringUtf32 or std::u32string as argument. We
+    /// can also provide a version that takes a wide string, but it must then
+    /// also take a locale. For now it is the assumption that the specified
+    /// string is encoded according to the classic locale.
+    void write(std::wstring);
 
     /// Like write(std::wstring) but adds a trailing newline.
-    void writeln(std::wstring s) { write(s); write(L"\n"); }
+    void writeln(std::wstring);
 
     void write(const wchar_t* text, size_t n);
 
-    // Note: Some settings do not take effect immediately if a layout
-    // session was already started. In all such cases the setting will
-    // take effect on a layout session initiated after this method is
-    // called.  Sub-classes should override this method if they need
-    // to do extra clearing, but this method must be called from the
-    // overriding method.
-    virtual void clear() { reset(); }
+    /// Discard all previously written text, but keep all formatter settings.
+    ///
+    /// Note: Some settings do not take effect immediately if a layout session
+    /// was already started. In all such cases the setting will take effect on a
+    /// layout session initiated after this method is called. Sub-classes should
+    /// override this method if they need to do extra clearing, but this method
+    /// must be called from the overriding method.
+    virtual void clear();
 
     // Get the number of pages in use by the current layout.
     int get_num_pages();
@@ -429,6 +429,22 @@ private:
 
 
 // Implementation
+
+inline void TextFormatter::write(std::wstring s)
+{
+    write(s.data(), s.size());
+}
+
+inline void TextFormatter::writeln(std::wstring s)
+{
+    write(s);
+    write(L"\n");
+}
+
+inline void TextFormatter::clear()
+{
+    reset();
+}
 
 inline void TextFormatter::write(const wchar_t* text, size_t n)
 {

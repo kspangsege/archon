@@ -91,20 +91,20 @@ public:
     // Set debug to true if you want this method to render extra features that are helpful when debugging.
     image::Image::Ref render(int page_index = 0, bool debug = false);
 
-    // Overriding TextFormatter::clear()
-    void clear();
+    void clear() override;
 
 private:
     class TextProcessor;
     class StructProcessor;
 
-    int acquire_style();
+    int acquire_style() override;
 
     void get_style_info(int style_id, bool vertical, bool grid_fitting,
-                        FontCache::FontMetrics& info);
+                        FontCache::FontMetrics& info) override;
 
     void get_glyph_info(int style_id, bool vertical, bool grid_fitting, FontCache::KernType kern,
-                        int num_chars, const wchar_t* chars, FontCache::GlyphInfo* glyphs);
+                        int num_chars, const wchar_t* chars,
+                        FontCache::GlyphInfo* glyphs) override;
 
     void release_used_fonts() throw();
 

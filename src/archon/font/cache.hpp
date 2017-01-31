@@ -37,6 +37,7 @@ namespace font {
 
 class FontCache;
 
+/// FIXME: Return std::unique_ptr<> and require that application ensures that FontCache object outlives all associated FontCache::Font objects.
 std::shared_ptr<FontCache> new_font_cache(std::shared_ptr<FontList>);
 
 
@@ -53,23 +54,23 @@ std::shared_ptr<FontCache> new_font_cache(std::shared_ptr<FontList>);
 /// is the same in all respects except that it is not grid fitted.
 class FontCache {
 public:
-    // Fetch the default font
-    // Font IDs are never negative.
-    // Guarantees to not cause the associated list to scan through
-    // the font path for further font files.
-    // The returned ID must be released when no longer needed (see FontOwner)
+    /// Fetch the default font. Guarantees to not cause the associated list to
+    /// scan through the font path for further font files.
+    ///
+    /// Font IDs are never negative. The returned ID must be released when no
+    /// longer needed (see FontOwner).
     virtual int acquire_default_font() = 0;
 
-    // Fetch a font of the specified size from the default family and with the default style.
-    // Will always succeed. The returned font, however, may not be the exact size you requested.
-    // Font IDs are never negative.
-    // Guarantees to not cause the associated list to scan through
-    // the font path for further font files. On the other hand, it
-    // does not guarantee to find a matching fixed size, if that
-    // size is only available after scanning the font path.
-    // The returned ID must be released when no longer needed (see FontOwner)
+    /// Fetch a font of the specified size from the default family and with the
+    /// default style. Will always succeed. The returned font, however, may not
+    /// be the exact size you requested. Guarantees to not cause the associated
+    /// list to scan through the font path for further font files. On the other
+    /// hand, it does not guarantee to find a matching fixed size, if that size
+    /// is only available after scanning the font path.
+    ///
+    /// Font IDs are never negative. The returned ID must be released when no
+    /// longer needed (see FontOwner).
     virtual int acquire_default_font(double width, double height) = 0;
-
 
     struct FontDesc {
         std::string family;
@@ -78,15 +79,15 @@ public:
         bool operator==(const FontDesc&) const noexcept;
     };
 
-    // Will always succeed. The returned font, however, may not be exactly what
-    // you requested. To the greatest possible extent, it will be the best match
-    // among the available fonts.  Font IDs are never negative.  The returned ID
-    // must be released when no longer needed (see FontOwner)
+    /// Will always succeed. The returned font, however, may not be exactly what
+    /// you requested. To the greatest possible extent, it will be the best
+    /// match among the available fonts.
+    ///
+    /// Font IDs are never negative. The returned ID must be released when no
+    /// longer needed (see FontOwner).
     virtual int acquire_font(const FontDesc&) = 0;
 
-
     virtual void release_font(int font_id) = 0;
-
 
     /// Get the descriptor for the specified font. This can always be done
     /// without loading the face proper.
@@ -94,8 +95,7 @@ public:
     /// The returned font size reflects the actual rendering size of the
     /// specified font, which may or may not be the same as the size that was
     /// originally requested.
-    virtual void get_font_desc(int font_id, FontDesc& desc) = 0;
-
+    virtual void get_font_desc(int font_id, FontDesc&) = 0;
 
     /// RAII scheme (Resource acquisition is initialization) for font IDs.
     struct FontOwner {
@@ -126,7 +126,6 @@ public:
         int font;
     };
 
-
     struct FontInfo {
         std::string name; // Descriptive name of the specified font. Each font_id should map to a unique name, but it is recommended to not rely in it.
         int num_glyphs; // Number of glyphs provided by the specified font.
@@ -134,15 +133,12 @@ public:
 
     virtual void get_font_info(int font_id, FontInfo& info) = 0;
 
-
     struct FontMetrics {
         math::Interval lateral_span; // For horizontal layouts, this is known as the fonts descender and ascender.
     };
 
     virtual void get_font_metrics(int font_id, bool vertical, bool grid_fitting,
                                   FontMetrics& metrics) = 0;
-
-
 
     struct GlyphInfo {
         int index;
@@ -160,8 +156,6 @@ public:
     // Must also handle the curious case of "T.V.Smith" where T and V could get too close due to kerning.
     virtual void get_glyph_info(int font_id, bool vertical, bool grid_fitting, KernType kern,
                                 int num_chars, const wchar_t* chars, GlyphInfo* glyphs) = 0;
-
-
 
     enum Direction {
         dir_LeftToRight,
@@ -185,8 +179,6 @@ public:
                      int num_glyphs, const int* glyphs, const float* components,
                      image::ImageWriter& img_writer);
 
-
-
     enum BearingType {
         bearing_None,  ///< Bearing point is at the lower left corner of the bounding box of the glyph
         bearing_Above, ///< Bearing point is above the glyph on a vertical baseline
@@ -207,8 +199,6 @@ public:
                                int num_glyphs, const int* glyphs, const float* components,
                                image::ImageWriter& img_writer) = 0;
 
-
-
     /// Holds information about the size and position of the axis aligned
     /// bounding box containing the glyph. The position is relative to the
     /// cursor position and also depends on the layout direction as follows:
@@ -228,10 +218,8 @@ public:
         math::Vec2F size, hori_pos, vert_pos, rev_pos;
     };
 
-
     virtual void get_glyph_box_info(int font_id, bool grid_fitting, int num_glyphs,
                                     const int* glyphs, GlyphBoxInfo* info) = 0;
-
 
     virtual ~FontCache() {}
 };
@@ -247,7 +235,6 @@ inline bool FontCache::FontDesc::operator==(const FontDesc& d) const throw()
         italicity == d.italicity && size == d.size;
 }
 
-
 inline void FontCache::FontOwner::reset(int font_id)
 {
     int f = font;
@@ -255,7 +242,6 @@ inline void FontCache::FontOwner::reset(int font_id)
     if (0 <= f)
         cache->release_font(f);
 }
-
 
 inline void FontCache::render_text(int font_id, bool grid_fitting, Direction dir,
                                    int num_glyphs, const int* glyphs, const float* components,

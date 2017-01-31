@@ -57,7 +57,6 @@ public:
                  const math::Vec2F& desired_glyph_resol = math::Vec2F(64,64),
                  bool enable_mipmap = true, bool save_textures_to_disk = false);
 
-
     /// Fetch the default font style. The result is the same as one would get by
     /// calling acquire_style() passing a description of the default style.
     ///
@@ -66,7 +65,6 @@ public:
     ///
     /// \sa acquire_style()
     int acquire_default_style();
-
 
     struct StyleDesc {
         std::string font_family;
@@ -89,58 +87,36 @@ public:
 
     /// Tell the font provider that you are no longer interested in the
     /// specified font.
-    void release_style(int style_id)
-    {
-        release_style_fast(style_id);
-    }
-
+    void release_style(int style_id);
 
     /// Get the descriptor for the specified style.
     void get_style_desc(int style_id, StyleDesc& desc);
 
-
-    /// RAII scheme (Resource acquisition is initialization) for style IDs.
-    struct StyleOwner {
-        StyleOwner(FontProvider* p, int style_id = 0) throw():
-            provider{p},
-            style{style_id}
-        {
-        }
-        int get() const throw()
-        {
-            return style;
-        }
-        int release() throw()
-        {
-            int s = style;
-            style = 0;
-            return s;
-        }
-        void reset(int style_id = -1);
-        ~StyleOwner()
-        {
-            if (style)
-                provider->release_style(style);
-        }
+    /// RAII scheme for style IDs.
+    class StyleOwner {
+    public:
+        StyleOwner() noexcept;
+        StyleOwner(FontProvider&, int style_id) noexcept;
+        StyleOwner(const StyleOwner&) = delete;
+        int get() const noexcept;
+        int release() noexcept;
+        void reset() noexcept;
+        void reset(FontProvider&, int style_id) noexcept;
+        ~StyleOwner();
     private:
-        StyleOwner(const StyleOwner&);
-        FontProvider* const provider;
-        int style;
+        FontProvider* m_font_provider = nullptr;
+        int m_style_id = 0;
     };
-
 
     void get_style_metrics(int style_id, bool vertical, font::FontCache::FontMetrics& metrics);
 
     void get_glyph_info(int style_id, bool vertical, font::FontCache::KernType kern,
                         int num_chars, const wchar_t* chars, font::FontCache::GlyphInfo* glyphs);
 
-
-    ~FontProvider() throw ();
-
+    ~FontProvider();
 
     class TextContainer;
     class TextInserter;
-
 
 private:
     friend class TextContainer;
@@ -150,9 +126,7 @@ private:
         int font_id; // As known to font::FontCache
         math::Vec2F font_size;
         math::Vec4F text_color;
-        Style()
-        {
-        }
+        Style();
         Style(int font_id, const math::Vec2F& font_size, const math::Vec4F& text_color);
         bool operator==(const Style& s) const;
     };
@@ -173,11 +147,23 @@ private:
     util::HashMap<Style, int, StyleHasher> style_map; // Value is one plus index in 'styles'.
     std::vector<int> unused_styles; // One plus indexes into 'styles'
 
-
     class TextureFontSource;
     class Texture;
     class Page;
     class FontEntry;
+
+    const std::shared_ptr<font::FontCache> font_cache;
+    TextureCache& texture_cache;
+    const math::Vec2F m_desired_glyph_resol; // Ask cache for this rendering size
+    const math::Vec2 size_of_pixel; // Inverse of desired glyph resolution
+    const bool enable_mipmap; // Do mipmapping on textures
+    const bool save_textures; // Save each of the generated textures as a PNG file in /tmp/
+
+    std::map<int, FontEntry*> font_map;
+    std::vector<std::unique_ptr<FontEntry>> fonts;
+    std::vector<std::unique_ptr<Texture>> textures;
+
+    std::size_t used_pages = 0, used_textures = 0;
 
     int acquire_style(font::FontCache::FontOwner& font, const math::Vec2F& font_size,
                       const math::Vec4F& text_color);
@@ -190,19 +176,6 @@ private:
                      std::unique_ptr<util::RectanglePacker>& packer, core::UIntMin16& tex_idx);
     void render(const TextContainer& text) const;
     void release(TextContainer& text);
-
-    const std::shared_ptr<font::FontCache> font_cache;
-    TextureCache& texture_cache;
-    const math::Vec2F desired_glyph_resol; // Ask cache for this rendering size
-    const math::Vec2 size_of_pixel; // Inverse of desired glyph resolution
-    const bool enable_mipmap; // Do mipmapping on textures
-    const bool save_textures; // Save each of the generated textures as a PNG file in /tmp/
-
-    std::map<int, FontEntry*> font_map;
-    std::vector<std::unique_ptr<FontEntry>> fonts;
-    std::vector<std::unique_ptr<Texture>> textures;
-
-    std::size_t used_pages = 0, used_textures = 0;
 };
 
 
@@ -284,12 +257,11 @@ public:
     /// This clears the specified text container.
     ///
     /// Application must ensure that neither the font provider nor the text
-    /// object is destroyed before this object is. Ownership of both the
-    /// provider and the text remains with the caller.
+    /// object is destroyed before this object is.
     ///
     /// \note You must make sure that two inserters never exist for the same
     /// container at the same time.
-    TextInserter(FontProvider*, TextContainer*, font::FontCache::Direction);
+    TextInserter(FontProvider&, TextContainer&, font::FontCache::Direction);
 
     /// \param font_id The ID of the style that the glyph indices refer to. The
     /// ID must have previously been obtained by calling
@@ -297,22 +269,22 @@ public:
     void insert_strip(int style_id, int num_glyphs, const int* glyphs, const float* components);
 
 private:
-    FontProvider* const font_provider;
-    TextContainer* const text;
-    const bool vertical; // True iff the layout is vertical
+    FontProvider& m_font_provider;
+    TextContainer& m_text_container;
+    const bool m_vertical; // True iff the layout is vertical
 
     using PageSet = std::vector<bool>;
-    std::map<int, PageSet> page_sets;
+    std::map<int, PageSet> m_page_sets;
     // Only to speed up page_set lookups
-    int last_font_id = -1;
-    FontEntry* last_font;
-    PageSet* last_page_set;
+    int m_last_font_id = -1;
+    FontEntry* m_last_font;
+    PageSet* m_last_page_set;
 
     using Textures = std::map<int, TextContainer::Texture*>;
-    Textures textures;
-    util::RepMapLookupBooster<Textures, 4> texture_lookup;
+    Textures m_textures;
+    util::RepMapLookupBooster<Textures, 4> m_texture_lookup;
     using StripTexture = std::pair<int, TextContainer::Texture*>;
-    std::vector<StripTexture> strip_textures;
+    std::vector<StripTexture> m_strip_textures;
 
     friend class FontProvider;
 };
@@ -329,18 +301,59 @@ inline bool FontProvider::StyleDesc::operator==(const StyleDesc& d) const throw(
         text_color == d.text_color;
 }
 
-inline void FontProvider::StyleOwner::reset(int style_id)
+inline void FontProvider::release_style(int style_id)
 {
-    int s = style;
-    style = style_id;
-    if (s)
-        provider->release_style(s);
+    release_style_fast(style_id);
 }
 
-inline FontProvider::Style::Style(int i, const math::Vec2F& s, const math::Vec4F& c):
-    font_id(i),
-    font_size(s),
-    text_color(c)
+inline FontProvider::StyleOwner::StyleOwner() noexcept
+{
+}
+
+inline FontProvider::StyleOwner::StyleOwner(FontProvider& fp, int style_id) noexcept
+{
+    reset(fp, style_id);
+}
+
+inline int FontProvider::StyleOwner::get() const noexcept
+{
+    return m_style_id;
+}
+
+inline int FontProvider::StyleOwner::release() noexcept
+{
+    m_font_provider = nullptr;
+    return m_style_id;
+}
+
+inline void FontProvider::StyleOwner::reset() noexcept
+{
+    if (m_font_provider) {
+        m_font_provider->release_style(m_style_id);
+        m_font_provider = nullptr;
+    }
+}
+
+inline FontProvider::StyleOwner::~StyleOwner()
+{
+    reset();
+}
+
+inline void FontProvider::StyleOwner::reset(FontProvider& fp, int style_id) noexcept
+{
+    reset();
+    m_font_provider = &fp;
+    m_style_id = style_id;
+}
+
+inline FontProvider::Style::Style()
+{
+}
+
+inline FontProvider::Style::Style(int fi, const math::Vec2F& fs, const math::Vec4F& tc):
+    font_id{fi},
+    font_size{fs},
+    text_color{tc}
 {
 }
 
@@ -440,16 +453,16 @@ inline void FontProvider::TextContainer::clear()
 }
 
 
-inline FontProvider::TextInserter::TextInserter(FontProvider* p, TextContainer* t,
+inline FontProvider::TextInserter::TextInserter(FontProvider& fp, TextContainer& tc,
                                                 font::FontCache::Direction d):
-    font_provider{p},
-    text{t},
-    vertical{d == font::FontCache::dir_BottomToTop || d == font::FontCache::dir_TopToBottom},
-    texture_lookup{textures}
+    m_font_provider{fp},
+    m_text_container{tc},
+    m_vertical{d == font::FontCache::dir_BottomToTop || d == font::FontCache::dir_TopToBottom},
+    m_texture_lookup{m_textures}
 {
-    t->clear();
-    t->layout_direction = d;
-    t->provider = p;
+    tc.clear();
+    tc.layout_direction = d;
+    tc.provider = &fp;
 }
 
 
@@ -457,7 +470,7 @@ inline void FontProvider::TextInserter::insert_strip(int style_id, int num_glyph
                                                      const int* glyphs,
                                                      const float* components)
 {
-    font_provider->provide(style_id, num_glyphs, glyphs, components, *this);
+    m_font_provider.provide(style_id, num_glyphs, glyphs, components, *this);
 }
 
 } // namespace render

@@ -37,23 +37,22 @@ namespace font {
 /// This class manages a list of font faces, and allows you to retreive a font
 /// face by family name.
 ///
-/// New list instances are aquired by calling
-/// new_font_list(std::shared_ptr<FontLoader>,std::string,double,double) or one
-/// of the other functions of the same name.
+/// New list instances are created by new_font_list().
 ///
 /// A \c FontList instance is always associated with a \c FontLoader
 /// instance. This is the loader that was used to create the \c FontList
 /// instance.
 ///
-/// Faces are identified by their index within the list, and a negative index
-/// always indicates the default face of this list. The fact that a list can
-/// never be empty, guarantees that there is always at least a default font
-/// available.
+/// Faces are identified by their index within this list, and a negative index
+/// always indicates the default face. The fact that a list can never be empty,
+/// guarantees that there is always at least a default font available. Note, the
+/// face at index zero is not necessarily the default face.
 ///
-/// The methods of this class are not thread-safe. It is safe, however, for
-/// multiple threads to use this class simultaneously, as long as they access
-/// different instances, and no two instances are associated with the same \c
-/// FontLoader instance. That is, you also need one loader instance per thread.
+/// It is safe for different threads to use different FontList instances, as
+/// long as they are associated with different FontLoader instances. It is
+/// unsafe for two threads to use the same FontList instance, or for two threads
+/// to use different FontList instances associated with the same FontLoader
+/// instance.
 class FontList {
 public:
     /// Used by find_default_size() and find_face() to report the result of
@@ -220,6 +219,8 @@ public:
 /// FontFace::set_approx_size().
 ///
 /// \return The new font face list.
+///
+/// This function is thread-safe.
 std::shared_ptr<FontList> new_font_list(std::shared_ptr<FontLoader> loader, std::string font_file,
                                         int face_index, double width, double height);
 
@@ -242,6 +243,8 @@ std::shared_ptr<FontList> new_font_list(std::shared_ptr<FontLoader> loader, std:
 /// will have its initial rendering size set as closely as possible to this
 /// size. The actual selection scheme is identical to that of
 /// FontFace::set_approx_size().
+///
+/// This function is thread-safe.
 std::shared_ptr<FontList> new_font_list(std::shared_ptr<FontLoader> loader,
                                         std::string font_search_path = "",
                                         double width = 12, double height = 12);
@@ -256,6 +259,8 @@ std::shared_ptr<FontList> new_font_list(std::shared_ptr<FontLoader> loader,
 /// boldness and italicity, but they provide different fixed rendering sizes. In
 /// such cases, this method shall attempt to locate the face with the fixed size
 /// that most closely matches the specified size.
+///
+/// This function is thread-safe.
 std::shared_ptr<FontList> new_font_list(std::shared_ptr<FontLoader> loader,
                                         std::string font_search_path, FontList::FindType find_type,
                                         std::string family, bool bold, bool italic,

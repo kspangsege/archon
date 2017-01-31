@@ -388,7 +388,7 @@ public:
     TextureDecl declare_texture(std::string image_path, bool repeat = true, bool mipmap = true);
     TextureUse load_texture(std::string image_path, bool repeat = true, bool mipmap = true);
     TextureCache& get_texture_cache();
-    FontProvider* get_font_provider();
+    FontProvider& get_font_provider();
 
     virtual ~Application();
 

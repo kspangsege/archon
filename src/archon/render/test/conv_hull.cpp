@@ -698,7 +698,7 @@ private:
                 double angle = billboard::rotate();
                 glScalef(0.05, 0.05, 0.05);
                 m_text_layout.set(&m_text_formatter, m_value_printer.print(i));
-                Vec2 size(m_text_layout.get_width(), m_text_layout.get_height());
+                Vec2 size{m_text_layout.get_width(), m_text_layout.get_height()};
                 double excl_radius = 0.75;
                 double corner_radius = 0.25;
                 Vec2 q = calc_point_label_pos(excl_radius, angle, size, corner_radius);

@@ -171,22 +171,23 @@ public:
         return m_texture_cache->declare(std::move(src), wrap, wrap, f);
     }
 
-    FontProvider* get_font_provider()
+    FontProvider& get_font_provider()
     {
-        if (!font_provider) {
+        if (!m_font_provider) {
             ensure_font_cache();
             ensure_texture_cache();
-            font_provider.reset(new FontProvider(font_cache, *m_texture_cache, glyph_resolution,
-                                                 glyph_mipmapping, save_glyph_textures));
+            m_font_provider =
+                std::make_unique<FontProvider>(font_cache, *m_texture_cache, glyph_resolution,
+                                               glyph_mipmapping, save_glyph_textures); // Throws
         }
-        return font_provider.get();
+        return *m_font_provider;
     }
 
     TextFormatter& get_text_formatter()
     {
-        if (!text_formatter)
-            text_formatter.reset(new TextFormatter(get_font_provider()));
-        return *text_formatter;
+        if (!m_text_formatter)
+            m_text_formatter = std::make_unique<TextFormatter>(get_font_provider()); // Throws
+        return *m_text_formatter;
     }
 
     TextureDecl get_dashed_texture_decl()
@@ -317,8 +318,8 @@ private:
     std::shared_ptr<FontCache> font_cache;
     const Vec2F glyph_resolution;
     const bool glyph_mipmapping, save_glyph_textures;
-    UniquePtr<FontProvider> font_provider;
-    UniquePtr<TextFormatter> text_formatter;
+    std::unique_ptr<FontProvider> m_font_provider;
+    std::unique_ptr<TextFormatter> m_text_formatter;
     TextureDecl dashed_texture_decl, dotted_texture_decl;
 
     dom::ref<dom_impl::HTMLImplementation> dom_impl;
@@ -1012,7 +1013,7 @@ TextureCache& Application::get_texture_cache()
 }
 
 
-FontProvider* Application::get_font_provider()
+FontProvider& Application::get_font_provider()
 {
     return m_private_state->get_font_provider();
 }
@@ -1359,7 +1360,7 @@ void Application::render_hud()
         if (m_status_hud_dirty) {
             TextFormatter& text_formatter = m_private_state->get_text_formatter();
             text_formatter.set_font_size(28);
-            text_formatter.set_font_boldness(1);
+            text_formatter.set_font_weight(1);
             text_formatter.set_text_color(Vec4F(0.1, 0, 0.376, 1));
             text_formatter.write(m_status_hud_text);
             text_formatter.format(m_private_state->status_hud_text_layout);

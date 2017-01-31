@@ -114,7 +114,7 @@ am_raytracer_OBJECTS = raytracer.$(OBJEXT)
 raytracer_OBJECTS = $(am_raytracer_OBJECTS)
 raytracer_DEPENDENCIES = ../../core/libarchon_core.la \
 	../../math/libarchon_math.la ../../util/libarchon_util.la \
-	../../image/libarchon_image.la \
+	../../image/libarchon_image.la ../../font/libarchon_font.la \
 	../../display/libarchon_display.la \
 	../../render/libarchon_render.la ../libarchon_raytrace.la
 AM_V_lt = $(am__v_lt_@AM_V@)
@@ -345,7 +345,7 @@ top_builddir = @top_builddir@
 top_srcdir = @top_srcdir@
 raytracer_SOURCES = raytracer.cpp
 LDADD = ../libarchon_raytrace.la
-raytracer_LDADD = ../../core/libarchon_core.la ../../math/libarchon_math.la ../../util/libarchon_util.la ../../image/libarchon_image.la ../../display/libarchon_display.la ../../render/libarchon_render.la ../libarchon_raytrace.la 
+raytracer_LDADD = ../../core/libarchon_core.la ../../math/libarchon_math.la ../../util/libarchon_util.la ../../image/libarchon_image.la ../../font/libarchon_font.la ../../display/libarchon_display.la ../../render/libarchon_render.la ../libarchon_raytrace.la
 AM_CPPFLAGS = -I$(top_srcdir)/src
 AM_CXXFLAGS = -Wold-style-cast
 all: all-am

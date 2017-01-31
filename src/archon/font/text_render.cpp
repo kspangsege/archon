@@ -214,8 +214,8 @@ void TextRenderer::clear()
 
 
 
-TextRenderer::TextRenderer(std::shared_ptr<FontCache> c):
-    m_cache{std::move(c)}
+TextRenderer::TextRenderer(std::shared_ptr<FontCache> cache):
+    m_cache{std::move(cache)}
 {
     m_used_fonts.reserve(8);
     FontCache::FontOwner font{m_cache, m_cache->acquire_default_font()};
@@ -225,15 +225,13 @@ TextRenderer::TextRenderer(std::shared_ptr<FontCache> c):
 }
 
 
-TextRenderer::~TextRenderer()
+TextRenderer::~TextRenderer() noexcept
 {
     m_font_id = -1; // Release everything
     release_used_fonts();
 }
 
 
-
-// Overriding TextFormatter::acquire_style()
 int TextRenderer::acquire_style()
 {
     if (m_font_id < 0) {
@@ -253,7 +251,6 @@ int TextRenderer::acquire_style()
 }
 
 
-// Overriding TextFormatter::get_style_info()
 void TextRenderer::get_style_info(int style_id, bool vertical, bool grid_fitting,
                                   FontCache::FontMetrics& info)
 {
@@ -261,7 +258,6 @@ void TextRenderer::get_style_info(int style_id, bool vertical, bool grid_fitting
 }
 
 
-// Overriding TextFormatter::get_glyph_info()
 void TextRenderer::get_glyph_info(int style_id, bool vertical, bool grid_fitting,
                                   FontCache::KernType kern, int num_chars,
                                   const wchar_t* chars, FontCache::GlyphInfo* glyphs)

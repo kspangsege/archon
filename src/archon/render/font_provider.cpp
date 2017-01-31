@@ -169,7 +169,7 @@ FontProvider::FontProvider(std::shared_ptr<font::FontCache> f, TextureCache& t,
                            const math::Vec2F& r, bool m, bool s):
     font_cache{std::move(f)},
     texture_cache{t},
-    desired_glyph_resol{r},
+    m_desired_glyph_resol{r},
     size_of_pixel{1/r[0], 1/r[1]},
     enable_mipmap{m},
     save_textures{s}
@@ -177,21 +177,18 @@ FontProvider::FontProvider(std::shared_ptr<font::FontCache> f, TextureCache& t,
 }
 
 
-FontProvider::~FontProvider() throw ()
+FontProvider::~FontProvider()
 {
-    if (0 < used_pages)
-        throw std::runtime_error("~FontProvider: Unreleased pages detected");
-    if (0 < used_textures)
-        throw std::runtime_error("~FontProvider: Unreleased textures detected");
-    if (unused_styles.size() < styles.size())
-        throw std::runtime_error("~FontProvider: Unreleased styles detected");
+    ARCHON_ASSERT(used_pages == 0);
+    ARCHON_ASSERT(used_textures == 0);
+    ARCHON_ASSERT(unused_styles.size() >= styles.size());
 }
 
 
 
 int FontProvider::acquire_default_style()
 {
-    Vec2F size = desired_glyph_resol;
+    Vec2F size = m_desired_glyph_resol;
     FontCache::FontOwner font{font_cache, font_cache->acquire_default_font(size[0], size[1])};
     return acquire_style(font, Vec2F(1), Vec4F(1));
 }
@@ -203,7 +200,7 @@ int FontProvider::acquire_style(const StyleDesc& desc)
     font_desc.family    = desc.font_family;
     font_desc.boldness  = desc.font_boldness;
     font_desc.italicity = desc.font_italicity;
-    font_desc.size.set(desired_glyph_resol[0], desired_glyph_resol[1]);
+    font_desc.size.set(m_desired_glyph_resol[0], m_desired_glyph_resol[1]);
     FontCache::FontOwner font{font_cache, font_cache->acquire_font(font_desc)};
     return acquire_style(font, desc.font_size, desc.text_color);
 }
@@ -216,7 +213,7 @@ int FontProvider::acquire_style(FontCache::FontOwner& font, const Vec2F& font_si
     Style style{font.get(), font_size, text_color};
     int& i = style_map[style];
     StyleEntry* s;
-    if (i) {
+    if (i != 0) {
         s = &styles[i-1];
     }
     else { // New
@@ -296,7 +293,7 @@ void FontProvider::provide(int style_id, int num_glyphs, const int* glyphs,
         ++first;
     }
 
-    auto& strip_textures = inserter.strip_textures;
+    auto& strip_textures = inserter.m_strip_textures;
     strip_textures.clear();
     strip_textures.reserve(4);
 
@@ -306,9 +303,9 @@ void FontProvider::provide(int style_id, int num_glyphs, const int* glyphs,
 
     FontEntry* font;
     TextInserter::PageSet* page_set;
-    if (font_id == inserter.last_font_id) {
-        font     = inserter.last_font;
-        page_set = inserter.last_page_set;
+    if (font_id == inserter.m_last_font_id) {
+        font     = inserter.m_last_font;
+        page_set = inserter.m_last_page_set;
     }
     else {
         // We are going to add at least one glyph for this font,
@@ -321,20 +318,20 @@ void FontProvider::provide(int style_id, int num_glyphs, const int* glyphs,
             font = new_font(font_id);
         }
 
-        page_set = &inserter.page_sets[font_id];
+        page_set = &inserter.m_page_sets[font_id];
         if (page_set->empty()) {
             // Initialize page set
             page_set->resize(font->num_glyphs);
         }
 
-        inserter.last_font_id  = font_id;
-        inserter.last_font     = font; // This is safe since num_glyphs > 0 so the Font entry   
-        inserter.last_page_set = page_set;
+        inserter.m_last_font_id  = font_id;
+        inserter.m_last_font     = font; // This is safe since num_glyphs > 0 so the Font entry   
+        inserter.m_last_page_set = page_set;
     }
 
     // Process each glyph in turn
     int num_font_glyphs = font->num_glyphs;
-    TextContainer& text = *inserter.text;
+    TextContainer& text = inserter.m_text_container;
     float lateral_pos = *components++;
     for (int i = first; i < num_glyphs; ++i) {
         int glyph_idx = glyphs[i];
@@ -379,7 +376,7 @@ void FontProvider::provide(int style_id, int num_glyphs, const int* glyphs,
                 }
             }
 
-            TextContainer::Texture** t = &inserter.texture_lookup[tex_idx];
+            TextContainer::Texture** t = &inserter.m_texture_lookup[tex_idx];
             if (!*t) {
                 // Start new texture in text container
                 text.textures.push_back(TextContainer::Texture(texture));

@@ -41,52 +41,54 @@ namespace {
 
 class CacheImpl: public FontCache {
 public:
-    CacheImpl(std::shared_ptr<FontList> l):
-        list{std::move(l)},
-        default_face_index{list->get_default_face()}
+    std::weak_ptr<FontCache> weak_self;
+
+    CacheImpl(std::shared_ptr<FontList> list):
+        m_list{std::move(list)},
+        m_default_face_index{m_list->get_default_face()}
     {
-        list->get_init_size(default_width, default_height);
+        m_list->get_init_size(m_default_width, m_default_height);
     }
 
 
-    ~CacheImpl() noexcept
+    ~CacheImpl() noexcept override final
     {
-        ARCHON_ASSERT_1(num_sizes == 0, "font::~CacheImpl: Found unreleased fonts");
+        ARCHON_ASSERT(m_num_sizes == 0);
     }
 
 
-    int acquire_default_font()
+    int acquire_default_font() override final
     {
-        return acquire_default_font(default_width, default_height);
+        return acquire_default_font(m_default_width, m_default_height);
     }
 
 
-    int acquire_default_font(double width, double height)
+    int acquire_default_font(double width, double height) override final
     {
         FontList::SizeInfo size_info;
-        list->find_default_size(width, height, size_info);
+        m_list->find_default_size(width, height, size_info);
         if (!size_info.exact) {
             const FontLoader::FaceInfo::FixedSize& s =
-                list->get_face_info(default_face_index).fixed_sizes[size_info.fixed_size_index];
+                m_list->get_face_info(m_default_face_index).fixed_sizes[size_info.fixed_size_index];
             width  = s.first;
             height = s.second;
         }
-//std::cerr << "MAP: DEFAULT --> '"<<list->get_face_info(default_face_index).family<<"'\n";
-        return acquire_font(default_face_index, Vec2(width, height), size_info.fixed_size_index);
+//std::cerr << "MAP: DEFAULT --> '"<<m_list->get_face_info(m_default_face_index).family<<"'\n";
+        return acquire_font(m_default_face_index, Vec2(width, height), size_info.fixed_size_index);
     }
 
 
-    int acquire_font(const FontDesc& desc)
+    int acquire_font(const FontDesc& desc) override final
     {
         FontList::SizeInfo size_info;
         int list_index =
-            list->find_face(FontList::find_BestFace, desc.family,
-                            0.5 <= desc.boldness, 0.5 <= desc.italicity,
-                            desc.size[0], desc.size[1], &size_info);
+            m_list->find_face(FontList::find_BestFace, desc.family,
+                              0.5 <= desc.boldness, 0.5 <= desc.italicity,
+                              desc.size[0], desc.size[1], &size_info);
         Vec2 size = desc.size;
         if (!size_info.exact) {
             const FontLoader::FaceInfo::FixedSize& s =
-                list->get_face_info(list_index).fixed_sizes[size_info.fixed_size_index];
+                m_list->get_face_info(list_index).fixed_sizes[size_info.fixed_size_index];
             size.set(s.first, s.second);
         }
 //std::cerr << "MAP: family '"<<desc.family<<"' --> '"<<list->get_face_info(list_index).family<<"'\n";
@@ -99,21 +101,21 @@ public:
     // size
     int acquire_font(int face_index, Vec2 size, int fixed_size_index)
     {
-        if (faces.size() <= size_t(face_index))
-            faces.resize(face_index + 1); // Throws
-        std::unique_ptr<FaceEntry>& e = faces[face_index];
+        if (m_faces.size() <= std::size_t(face_index))
+            m_faces.resize(face_index + 1); // Throws
+        std::unique_ptr<FaceEntry>& e = m_faces[face_index];
         if (!e) {
             e = std::make_unique<FaceEntry>(face_index); // Throws
-            ++num_faces;
-//std::cerr << "Adding face "<<face_index<<" for a total of "<<num_faces<<" faces"<<"\n";
+            ++m_num_faces;
+//std::cerr << "Adding face "<<face_index<<" for a total of "<<m_num_faces<<" faces"<<"\n";
         }
         auto r = e->size_map.insert(std::make_pair(size, 0));
         int i;
         if (r.second) {
-            if (unused_size_entries.empty()) {
-                i = sizes.size();
+            if (m_unused_size_entries.empty()) {
+                i = m_sizes.size();
                 try {
-                    sizes.push_back(SizeEntry(e.get(), size, fixed_size_index));
+                    m_sizes.push_back(SizeEntry(e.get(), size, fixed_size_index));
                 }
                 catch (...) {
                     e->size_map.erase(size);
@@ -121,46 +123,46 @@ public:
                 }
             }
             else {
-                i = unused_size_entries.back();
-                unused_size_entries.pop_back();
-                SizeEntry& s = sizes[i];
+                i = m_unused_size_entries.back();
+                m_unused_size_entries.pop_back();
+                SizeEntry& s = m_sizes[i];
                 s.face = e.get();
                 s.size = size;
                 s.fixed_size_index = fixed_size_index;
                 ++s.use_count;
             }
             r.first->second = i;
-            ++num_sizes;
-//std::cerr << "Adding size "<<size<<" to face "<<face_index<<" for a total of "<<num_sizes<<" sizes ("<<double(num_sizes)/num_faces<<" sizes per face on average)\n";
+            ++m_num_sizes;
+//std::cerr << "Adding size "<<size<<" to face "<<face_index<<" for a total of "<<m_num_sizes<<" sizes ("<<double(m_num_sizes)/m_num_faces<<" sizes per face on average)\n";
         }
         else {
             i = r.first->second;
-            SizeEntry& s = sizes[i];
+            SizeEntry& s = m_sizes[i];
             ++s.use_count;
         }
-//std::cerr << "Acquiring face "<<face_index<<" of size "<<size<<" for a total use count of "<<sizes[i].use_count<<"\n";
+//std::cerr << "Acquiring face "<<face_index<<" of size "<<size<<" for a total use count of "<<m_sizes[i].use_count<<"\n";
         return i;
     }
 
 
-    void release_font(int font_id)
+    void release_font(int font_id) override final
     {
         SizeEntry& s = get_size(font_id);
 //std::cerr << "Releasing face "<<s.face->list_index<<" of size "<<s.size<<" for a total use count of "<<(s.use_count-1)<<"\n";
         if (0 < --s.use_count)
             return;
-        --num_sizes;
+        --m_num_sizes;
         s.face->size_map.erase(s.size);
-        unused_size_entries.push_back(font_id); // May throw
-//std::cerr << "Removing size "<<s.size<<" from face "<<s.face->list_index<<" for a total of "<<num_sizes<<" sizes ("<<double(num_sizes)/num_faces<<" sizes per face on average)\n";
+        m_unused_size_entries.push_back(font_id); // May throw
+//std::cerr << "Removing size "<<s.size<<" from face "<<s.face->list_index<<" for a total of "<<m_num_sizes<<" sizes ("<<double(m_num_sizes)/m_num_faces<<" sizes per face on average)\n";
     }
 
 
-    void get_font_desc(int font_id, FontDesc& desc)
+    void get_font_desc(int font_id, FontDesc& desc) override final
     {
         SizeEntry& s = get_size(font_id);
         FaceEntry& f = *s.face;
-        const FontLoader::FaceInfo& info = list->get_face_info(f.list_index);
+        const FontLoader::FaceInfo& info = m_list->get_face_info(f.list_index);
         desc.family    = info.family;
         desc.boldness  = info.bold   ? 1 : 0;
         desc.italicity = info.italic ? 1 : 0;
@@ -168,11 +170,11 @@ public:
     }
 
 
-    void get_font_info(int font_id, FontInfo& info)
+    void get_font_info(int font_id, FontInfo& info) override final
     {
         SizeEntry& s = get_size(font_id);
         FaceEntry& f = *s.face;
-        const FontLoader::FaceInfo& i = list->get_face_info(f.list_index);
+        const FontLoader::FaceInfo& i = m_list->get_face_info(f.list_index);
         std::ostringstream o;
         o.imbue(std::locale::classic());
         o << i.family <<
@@ -180,12 +182,13 @@ public:
             s.size[0] << "x" << s.size[1];
         info.name = o.str();
         if (!f.face)
-            f.face.reset(list->load_face(f.list_index).release());
+            f.face = m_list->load_face(f.list_index);
         info.num_glyphs = f.face->get_num_glyphs();
     };
 
 
-    void get_font_metrics(int font_id, bool vertical, bool grid_fitting, FontMetrics& metrics)
+    void get_font_metrics(int font_id, bool vertical, bool grid_fitting,
+                          FontMetrics& metrics) override final
     {
         FontFace* face = get_face(font_id);
         metrics.lateral_span.begin = -face->get_baseline_offset(vertical, grid_fitting);
@@ -194,14 +197,8 @@ public:
     }
 
 
-    int get_num_glyphs(int font_id)
-    {
-        return get_face(font_id)->get_num_glyphs();
-    }
-
-
     void get_glyph_info(int font_id, bool vertical, bool grid_fitting, KernType kern,
-                        int num_chars, const wchar_t* chars, GlyphInfo* glyphs)
+                        int num_chars, const wchar_t* chars, GlyphInfo* glyphs) override final
     {
         FontFace* face = get_face(font_id);
         int prev_glyph = 0;
@@ -227,7 +224,7 @@ public:
     void render_glyphs(int font_id, bool grid_fitting,
                        BearingType bearing_type, CoordType coord_type,
                        int num_glyphs, const int* glyphs, const float* components,
-                       ImageWriter& img_writer)
+                       ImageWriter& img_writer) override final
     {
         FontFace* face = get_face(font_id);
 
@@ -276,7 +273,7 @@ public:
 
 
     void get_glyph_box_info(int font_id, bool grid_fitting, int num_glyphs,
-                            const int* glyphs, GlyphBoxInfo* info)
+                            const int* glyphs, GlyphBoxInfo* info) override final
     {
         FontFace* face = get_face(font_id);
         for (int i = 0; i < num_glyphs; ++i, ++glyphs, ++info) {
@@ -299,7 +296,7 @@ public:
         SizeEntry& s = get_size(font_id);
         FaceEntry& f = *s.face;
         if (!f.face)
-            f.face.reset(list->load_face(f.list_index).release());
+            f.face = m_list->load_face(f.list_index);
         if (!f.current_size_valid || f.current_size != s.size) {
             if (s.fixed_size_index < 0) {
                 f.face->set_scaled_size(s.size[0], s.size[1]);
@@ -321,7 +318,7 @@ public:
         std::unique_ptr<FontFace> face;
         Vec2 current_size;
         bool current_size_valid = false;
-        std::map<Vec2, int> size_map; // Values are indices into CacheImpl::sizes
+        std::map<Vec2, int> size_map; // Values are indices into CacheImpl::m_sizes
 
         FaceEntry(int i):
             list_index(i)
@@ -347,28 +344,28 @@ public:
 
     SizeEntry& get_size(int font_id)
     {
-        if (font_id < 0 || sizes.size() <= std::size_t(font_id))
+        if (font_id < 0 || m_sizes.size() <= std::size_t(font_id))
             throw std::invalid_argument("Bad font ID");
-        SizeEntry& s = sizes[font_id];
+        SizeEntry& s = m_sizes[font_id];
         if (s.use_count == 0)
             throw std::invalid_argument("Bad font ID");
         return s;
     }
 
 
-    const std::shared_ptr<FontList> list;
+    const std::shared_ptr<FontList> m_list;
 
-    const int default_face_index; // The index of the default face of 'list'.
+    const int m_default_face_index; // The index of the default face of 'm_list'.
 
-    double default_width, default_height; // The initial rendering size that the list applies to any face after loading it.
+    double m_default_width, m_default_height; // The initial rendering size that the list applies to any face after loading it.
 
-    std::vector<std::unique_ptr<FaceEntry>> faces; // Indexed as 'list'
+    std::vector<std::unique_ptr<FaceEntry>> m_faces; // Indexed as 'm_list'
 
-    std::vector<SizeEntry> sizes;
+    std::vector<SizeEntry> m_sizes;
 
-    std::vector<int> unused_size_entries; // Indices od unused entries in 'sizes'
+    std::vector<int> m_unused_size_entries; // Indices od unused entries in 'm_sizes'
 
-    int num_faces = 0, num_sizes = 0;
+    int m_num_faces = 0, m_num_sizes = 0;
 };
 
 } // unnamed namespace
@@ -377,9 +374,11 @@ public:
 namespace archon {
 namespace font {
 
-std::shared_ptr<FontCache> new_font_cache(std::shared_ptr<FontList> l)
+std::shared_ptr<FontCache> new_font_cache(std::shared_ptr<FontList> list)
 {
-    return std::make_shared<CacheImpl>(std::move(l)); // Throws
+    auto cache = std::make_shared<CacheImpl>(std::move(list)); // Throws
+    cache->weak_self = cache;
+    return cache;
 }
 
 } // namespace font
