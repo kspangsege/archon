@@ -64,10 +64,9 @@ public:
     /// Ownership of the font provider remains with the caller.
     TextFormatter(FontProvider&);
 
-    /// Set nominal width and height of individual glyphs. A value of (1,1)
-    /// means that the EM-square corresponding with the desired glyph resolution
-    /// would appear with the same size as a 1-by-1 square rendered using
-    /// ordinary OpenGL primitives.
+    /// Set the size of the desired font. A value of (1,1) means that the
+    /// EM-square of the the font, had it been visible, would appear with the
+    /// same size as a 1-by-1 square rendered using ordinary OpenGL primitives.
     ///
     /// If \a height is less than or equal to 0, then it will be set equal to \a
     /// width.
@@ -99,6 +98,8 @@ public:
     /// Reset the font size, style, and family to the default. The currently
     /// chosen text color is not affected.
     void reset_font();
+
+    void set_text_color(util::PackedTRGB trgb);
 
     /// Set current text color (RGB + Alpha). This affects any new text that is
     /// written to the formatter.
@@ -194,7 +195,6 @@ inline void TextFormatter::set_font_size(double width, double height)
     m_style_id = 0; // Request new style
 }
 
-
 inline void TextFormatter::set_font_weight(double boldness)
 {
     if (boldness == m_style_desc.font_boldness)
@@ -203,7 +203,6 @@ inline void TextFormatter::set_font_weight(double boldness)
     m_style_desc.font_boldness = boldness;
     m_style_id = 0; // Request new style
 }
-
 
 inline void TextFormatter::set_font_style(double italicity)
 {
@@ -214,7 +213,6 @@ inline void TextFormatter::set_font_style(double italicity)
     m_style_id = 0; // Request new style
 }
 
-
 inline void TextFormatter::set_font_family(std::string family)
 {
     if (family == m_style_desc.font_family)
@@ -223,7 +221,6 @@ inline void TextFormatter::set_font_family(std::string family)
     m_style_desc.font_family = family;
     m_style_id = 0; // Request new style
 }
-
 
 inline void TextFormatter::reset_font()
 {
@@ -236,6 +233,12 @@ inline void TextFormatter::reset_font()
     m_style_id = 0; // Request new style
 }
 
+inline void TextFormatter::set_text_color(util::PackedTRGB trgb)
+{
+    math::Vec4F rgba;
+    trgb.unpack_rgba(rgba);
+    set_text_color(rgba);
+}
 
 inline void TextFormatter::set_text_color(const math::Vec4F& rgba)
 {
@@ -246,24 +249,20 @@ inline void TextFormatter::set_text_color(const math::Vec4F& rgba)
     m_style_id = 0; // Request new style
 }
 
-
 inline math::Vec4F TextFormatter::get_text_color() const
 {
     return m_style_desc.text_color;
 }
-
 
 inline TextLayout::TextLayout()
 {
     clear();
 }
 
-
 inline TextLayout::TextLayout(TextFormatter* formatter, std::wstring text, int page_idx)
 {
     set(formatter, text, page_idx);
 }
-
 
 inline void TextLayout::set(TextFormatter* formatter, std::wstring text, int page_idx)
 {
@@ -272,31 +271,26 @@ inline void TextLayout::set(TextFormatter* formatter, std::wstring text, int pag
     formatter->format(*this, page_idx);
 }
 
-
 inline double TextLayout::get_width()  const
 {
     return m_size[0];
 }
-
 
 inline double TextLayout::get_height() const
 {
     return m_size[1];
 }
 
-
 inline void TextLayout::render() const
 {
     m_text_container.render();
 }
-
 
 inline void TextLayout::clear()
 {
     m_text_container.clear();
     m_size.set(0,0);
 }
-
 
 } // namespace render
 } // namespace archon

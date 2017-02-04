@@ -158,6 +158,13 @@ public:
     }
 
 
+    Vec2 get_font_size(int font_id) override final
+    {
+        SizeEntry& s = get_size(font_id);
+        return s.size;
+    }
+
+
     void get_font_desc(int font_id, FontDesc& desc) override final
     {
         SizeEntry& s = get_size(font_id);

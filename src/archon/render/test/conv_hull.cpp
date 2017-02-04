@@ -46,6 +46,7 @@
 #include <archon/math/intersect.hpp>
 #include <archon/util/conv_hull.hpp>
 #include <archon/util/color.hpp>
+#include <archon/util/named_colors.hpp>
 #include <archon/font/util.hpp>
 #include <archon/display/keysyms.hpp>
 #include <archon/render/billboard.hpp>
@@ -167,7 +168,7 @@ class ConvHullApp: public Application {
 public:
     ConvHullApp(const Application::Config& cfg):
         Application{"archon::render::ConvHull", cfg},
-        m_text_formatter{get_font_provider()}
+        m_label_formatter{get_font_provider()}
     {
         auto toggle_points_display = [this](bool key_down) {
             if (key_down) {
@@ -267,7 +268,7 @@ public:
         bind_key(KeySym_Page_Down, std::move(dec_max_depth),
                  "Decrease maximum depth of algorithm.");
 
-        m_text_formatter.set_text_color(Vec4F(1,1,0,1));
+        m_label_formatter.set_text_color(color::yellow);
 
         init();
 
@@ -515,8 +516,8 @@ public:
 
 private:
     // Text rendering
-    archon::render::TextFormatter m_text_formatter;
-    TextLayout m_text_layout;
+    archon::render::TextFormatter m_label_formatter;
+    TextLayout m_label_layout;
     Text::WideValuePrinter m_value_printer;
 
 
@@ -697,13 +698,13 @@ private:
                 glTranslatef(p[0], p[1], p[2]);
                 double angle = billboard::rotate();
                 glScalef(0.05, 0.05, 0.05);
-                m_text_layout.set(&m_text_formatter, m_value_printer.print(i));
-                Vec2 size{m_text_layout.get_width(), m_text_layout.get_height()};
+                m_label_layout.set(&m_label_formatter, m_value_printer.print(i));
+                Vec2 size{m_label_layout.get_width(), m_label_layout.get_height()};
                 double excl_radius = 0.75;
                 double corner_radius = 0.25;
                 Vec2 q = calc_point_label_pos(excl_radius, angle, size, corner_radius);
                 glTranslatef(q[0], q[1], 0);
-                m_text_layout.render();
+                m_label_layout.render();
                 glPopMatrix();
             }
             glPolygonMode(GL_FRONT, params[0]);

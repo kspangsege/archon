@@ -168,7 +168,7 @@ namespace archon
      * <h1>Representation</h1>
      *
      * The representation of the vector is defined by a separate
-     * class, This call must be passed as the template argument,
+     * class, This class must be passed as the template argument,
      * <tt>R</tt>. It must define the type \c size_type as the type
      * used for element subscription and the iterator types \c
      * iterator and \c cont_iterator which must be random access
@@ -187,7 +187,7 @@ namespace archon
      * </pre>
      *
      * The \c iter methods must return an iterator to the first
-     * element of the represented vector value. For a L-value
+     * element of the represented vector value. For an L-value
      * expression, the \c lval_rep method must return the pointer to
      * the directly or indirectly wrapped representation object that
      * directly defines the storage for the elements, and it must also
@@ -284,8 +284,8 @@ namespace archon
        *
        * \return A reference to this vector.
        */
-      template<class Rep2, class Inst2>
-      Inst &set(VecBase<N, T, Rep2, Inst2> const &);
+      template<class U, class Rep2, class Inst2>
+      Inst &set(VecBase<N, U, Rep2, Inst2> const &);
 
       /**
        * Set this vector equal to the specified one.
@@ -295,8 +295,8 @@ namespace archon
       /**
        * Set this vector equal to the specified one.
        */
-      template<class Rep2, class Inst2>
-      Inst &operator=(VecVal<N, T, Rep2, Inst2> const &);
+      template<class U, class Rep2, class Inst2>
+      Inst &operator=(VecVal<N, U, Rep2, Inst2> const &);
 
       template<class S, class F> void swap(VecBase<N,T,S,F> &f);
 
@@ -464,8 +464,8 @@ namespace archon
       constexpr VecBase() {}
       VecBase(Rep const &r): r(r) {}
 
-      template<class Rep2, class Inst2>
-      bool safe_assign(VecBase<N, T, Rep2, Inst2> const &) const;
+      template<class U, class Rep2, class Inst2>
+      bool safe_assign(VecBase<N, U, Rep2, Inst2> const &) const;
 
       Rep r;
     };
@@ -784,7 +784,7 @@ namespace archon
 
         static bool const is_lval = false;
 
-        void const *lval_rep(bool &) const { return 0; }
+        void const *lval_rep(bool &) const { return nullptr; }
       };
 
 
@@ -1793,11 +1793,11 @@ constexpr Vec3 vert_to_horiz(Vec3);
       return static_cast<E &>(*this);
     }
 
-    template<int N, class T, class R, class E> template<class S, class F>
-    inline E &VecBase<N,T,R,E>::set(VecBase<N,T,S,F> const &f)
+    template<int N, class T, class R, class E> template<class U, class S, class F>
+    inline E &VecBase<N,T,R,E>::set(VecBase<N,U,S,F> const &f)
     {
       if(safe_assign(f)) std::copy(f.begin(), f.end(), begin());
-      else set(_VecImpl::Cache<N,T>(f));
+      else set(_VecImpl::Cache<N,U>(f));
       return static_cast<E &>(*this);
     }
 
@@ -1807,8 +1807,8 @@ constexpr Vec3 vert_to_horiz(Vec3);
       return set(f);
     }
 
-    template<int N, class T, class R, class E> template<class S, class F>
-    inline E &VecBase<N,T,R,E>::operator=(VecVal<N,T,S,F> const &f)
+    template<int N, class T, class R, class E> template<class U, class S, class F>
+    inline E &VecBase<N,T,R,E>::operator=(VecVal<N,U,S,F> const &f)
     {
       return set(f);
     }
@@ -1885,8 +1885,8 @@ constexpr Vec3 vert_to_horiz(Vec3);
       return _VecImpl::Slice<M,1,T, E const>(static_cast<E const &>(*this), i);
     }
 
-    template<int N, class T, class R, class E> template<class S, class F>
-    inline bool VecBase<N,T,R,E>::safe_assign(VecBase<N,T,S,F> const &f) const
+    template<int N, class T, class R, class E> template<class U, class S, class F>
+    inline bool VecBase<N,T,R,E>::safe_assign(VecBase<N,U,S,F> const &f) const
     {
       bool x = false;
       void const *p = _lval_rep(x);

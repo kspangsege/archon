@@ -103,30 +103,31 @@ namespace render {
 class FontProvider::TextureFontSource: public TextureSource {
 public:
     TextureFontSource(FontCache* c, Texture* t, std::string n, bool s):
-        font_cache{c},
-        texture{t},
-        name{n},
-        save{s}
+        m_font_cache{c},
+        m_texture{t},
+        m_name{n},
+        m_save{s}
     {
     }
 
     std::string get_name() const
     {
-        return name;
+        return m_name;
     }
 
     Image::ConstRef get_image()
     {
-        const FontEntry* f = texture->font;
-        Image::Ref img(Image::new_image(f->texture_width, f->texture_height, ColorSpace::get_Lum(), true));
-        ImageWriter writer(img);
+        const FontEntry* f = m_texture->font;
+        Image::Ref img(Image::new_image(f->texture_width, f->texture_height,
+                                        ColorSpace::get_Lum(), true));
+        ImageWriter writer{img};
         writer.set_foreground_color(color::white);
         writer.set_background_color(PackedTRGB(0xFFFFFFFF)); // Fully transparent white
         writer.clear();
         writer.enable_color_mapping();
 
-        const FontEntry* font = texture->font;
-        int num_glyphs = texture->glyphs.size();
+        const FontEntry* font = m_texture->font;
+        int num_glyphs = m_texture->glyphs.size();
         const int max_glyphs_per_chunk = 128;
         int glyphs[max_glyphs_per_chunk];
         float components[2*max_glyphs_per_chunk];
@@ -137,19 +138,19 @@ public:
             int* g = glyphs;
             float* c = components;
             for (int i = begin; i < end; ++i) {
-                const Texture::Glyph& h = texture->glyphs[i];
+                const Texture::Glyph& h = m_texture->glyphs[i];
                 *g++ = h.index;
                 *c++ = h.img_x;
                 *c++ = h.img_y;
             }
-            font_cache->render_glyphs(font->id, font->grid_fitting,
-                                      FontCache::bearing_None, FontCache::coord_Cloud,
-                                      n, glyphs, components, writer);
+            m_font_cache->render_glyphs(font->id, font->grid_fitting,
+                                        FontCache::bearing_None, FontCache::coord_Cloud,
+                                        n, glyphs, components, writer);
             begin = end;
         }
 
-        if (save) {
-            std::string p = file::get_temp_dir()+name+".png";
+        if (m_save) {
+            std::string p = file::get_temp_dir()+m_name+".png";
             img->save(p);
             std::cout << "Saved '"<<p<<"'" << std::endl;
         }
@@ -157,31 +158,30 @@ public:
     }
 
 private:
-    FontCache* const font_cache;
-    const FontProvider::Texture* const texture;
-    const std::string name;
-    bool save;
+    FontCache* const m_font_cache;
+    const FontProvider::Texture* const m_texture;
+    const std::string m_name;
+    bool m_save;
 };
 
 
 
 FontProvider::FontProvider(std::shared_ptr<font::FontCache> f, TextureCache& t,
                            const math::Vec2F& r, bool m, bool s):
-    font_cache{std::move(f)},
-    texture_cache{t},
+    m_font_cache{std::move(f)},
+    m_texture_cache{t},
     m_desired_glyph_resol{r},
-    size_of_pixel{1/r[0], 1/r[1]},
-    enable_mipmap{m},
-    save_textures{s}
+    m_enable_mipmap{m},
+    m_save_textures{s}
 {
 }
 
 
 FontProvider::~FontProvider()
 {
-    ARCHON_ASSERT(used_pages == 0);
-    ARCHON_ASSERT(used_textures == 0);
-    ARCHON_ASSERT(unused_styles.size() >= styles.size());
+    ARCHON_ASSERT(m_used_pages == 0);
+    ARCHON_ASSERT(m_used_textures == 0);
+    ARCHON_ASSERT(m_unused_styles.size() >= m_styles.size());
 }
 
 
@@ -189,7 +189,7 @@ FontProvider::~FontProvider()
 int FontProvider::acquire_default_style()
 {
     Vec2F size = m_desired_glyph_resol;
-    FontCache::FontOwner font{font_cache, font_cache->acquire_default_font(size[0], size[1])};
+    FontCache::FontOwner font{m_font_cache, m_font_cache->acquire_default_font(size[0], size[1])};
     return acquire_style(font, Vec2F(1), Vec4F(1));
 }
 
@@ -200,8 +200,8 @@ int FontProvider::acquire_style(const StyleDesc& desc)
     font_desc.family    = desc.font_family;
     font_desc.boldness  = desc.font_boldness;
     font_desc.italicity = desc.font_italicity;
-    font_desc.size.set(m_desired_glyph_resol[0], m_desired_glyph_resol[1]);
-    FontCache::FontOwner font{font_cache, font_cache->acquire_font(font_desc)};
+    font_desc.size      = m_desired_glyph_resol;
+    FontCache::FontOwner font{m_font_cache, m_font_cache->acquire_font(font_desc)};
     return acquire_style(font, desc.font_size, desc.text_color);
 }
 
@@ -209,27 +209,27 @@ int FontProvider::acquire_style(const StyleDesc& desc)
 int FontProvider::acquire_style(FontCache::FontOwner& font, const Vec2F& font_size,
                                 const Vec4F& text_color)
 {
-    Vec2F scaling;
     Style style{font.get(), font_size, text_color};
-    int& i = style_map[style];
+    int& i = m_style_map[style];
     StyleEntry* s;
     if (i != 0) {
-        s = &styles[i-1];
+        s = &m_styles[i-1];
     }
     else { // New
-        if (unused_styles.empty()) {
-            std::size_t n = styles.size() + 1;
-            styles.reserve(n);
-            unused_styles.push_back(n);
-            styles.resize(n);
+        if (m_unused_styles.empty()) {
+            std::size_t n = m_styles.size() + 1;
+            m_styles.reserve(n);
+            m_unused_styles.push_back(n);
+            m_styles.resize(n);
         }
-        i = unused_styles.back();
-        s = &styles[i-1];
+        i = m_unused_styles.back();
+        s = &m_styles[i-1];
         s->style = style;
-        s->font_scaling.set(font_size[0] * size_of_pixel[0],
-                            font_size[1] * size_of_pixel[1]);
+        Vec2 font_resol = m_font_cache->get_font_size(font.get());
+        s->font_scaling.set(font_size[0] / font_resol[0],
+                            font_size[1] / font_resol[1]);
         font.release();
-        unused_styles.pop_back();
+        m_unused_styles.pop_back();
     }
     ++s->use_count;
     return i;
@@ -238,9 +238,9 @@ int FontProvider::acquire_style(FontCache::FontOwner& font, const Vec2F& font_si
 
 void FontProvider::get_style_desc(int style_id, StyleDesc& desc)
 {
-    const Style& style = styles[style_id-1].style;
+    const Style& style = m_styles[style_id-1].style;
     FontCache::FontDesc font_desc;
-    font_cache->get_font_desc(style.font_id, font_desc);
+    m_font_cache->get_font_desc(style.font_id, font_desc);
     desc.font_family    = font_desc.family;
     desc.font_boldness  = font_desc.boldness;
     desc.font_italicity = font_desc.italicity;
@@ -253,9 +253,9 @@ void FontProvider::get_style_desc(int style_id, StyleDesc& desc)
 void FontProvider::get_style_metrics(int style_id, bool vertical,
                                      FontCache::FontMetrics& metrics)
 {
-    const StyleEntry& style = styles[style_id-1];
+    const StyleEntry& style = m_styles[style_id-1];
     bool grid_fitting = false;
-    font_cache->get_font_metrics(style.style.font_id, vertical, grid_fitting, metrics);
+    m_font_cache->get_font_metrics(style.style.font_id, vertical, grid_fitting, metrics);
     metrics.lateral_span *= style.font_scaling[vertical?0:1];
 }
 
@@ -264,10 +264,10 @@ void FontProvider::get_glyph_info(int style_id, bool vertical, FontCache::KernTy
                                   int num_chars, const wchar_t* chars,
                                   FontCache::GlyphInfo* glyphs)
 {
-    const StyleEntry& style = styles[style_id-1];
+    const StyleEntry& style = m_styles[style_id-1];
     bool grid_fitting = false;
-    font_cache->get_glyph_info(style.style.font_id, vertical, grid_fitting, kern,
-                               num_chars, chars, glyphs);
+    m_font_cache->get_glyph_info(style.style.font_id, vertical, grid_fitting, kern,
+                                 num_chars, chars, glyphs);
 
     double scaling = style.font_scaling[vertical?1:0];
     for (int i = 0; i < num_chars; ++i) {
@@ -298,7 +298,7 @@ void FontProvider::provide(int style_id, int num_glyphs, const int* glyphs,
     strip_textures.reserve(4);
 
     int style_idx = style_id - 1;
-    StyleEntry& style = styles[style_idx];
+    StyleEntry& style = m_styles[style_idx];
     int font_id = style.style.font_id;
 
     FontEntry* font;
@@ -312,7 +312,7 @@ void FontProvider::provide(int style_id, int num_glyphs, const int* glyphs,
         // which will guarantee that this font entry will remain
         // in existence, and therefore that the pointer stored in
         // inserter.last_font will remain valid.
-        font = font_map[font_id];
+        font = m_font_map[font_id];
         if (!font) {
             // Initialize font entry
             font = new_font(font_id);
@@ -346,15 +346,15 @@ void FontProvider::provide(int style_id, int num_glyphs, const int* glyphs,
             page = new_page(font, page_idx); // Throws
         }
         if (!(*page_set)[page_idx]) {
-            text.page_refs.push_back(std::make_pair(font_id, page_idx));
+            text.m_page_refs.push_back(std::make_pair(font_id, page_idx));
             if (++page->text_use_count == 1)
-                ++used_pages;
+                ++m_used_pages;
             (*page_set)[page_idx] = true;
         }
         const Page::Glyph& glyph = page->glyphs[glyph_idx & g_glyphs_per_page-1];
 
         int tex_idx = glyph.texture;
-        Texture* texture = textures[tex_idx].get();
+        Texture* texture = m_textures[tex_idx].get();
 
         // Find corresponding texture entry in TextContainer
         TextContainer::Texture* texture2;
@@ -379,12 +379,12 @@ void FontProvider::provide(int style_id, int num_glyphs, const int* glyphs,
             TextContainer::Texture** t = &inserter.m_texture_lookup[tex_idx];
             if (!*t) {
                 // Start new texture in text container
-                text.textures.push_back(TextContainer::Texture(texture));
+                text.m_textures.push_back(TextContainer::Texture(texture));
                 if (++texture->text_use_count == 1) {
                     texture->use = texture->decl.acquire();
-                    ++used_textures;
+                    ++m_used_textures;
                 }
-                *t = &text.textures.back();
+                *t = &text.m_textures.back();
             }
             texture2 = *t;
 
@@ -407,7 +407,7 @@ void FontProvider::provide(int style_id, int num_glyphs, const int* glyphs,
 FontProvider::FontEntry* FontProvider::new_font(int font_id)
 {
     FontCache::FontInfo info;
-    font_cache->get_font_info(font_id, info);
+    m_font_cache->get_font_info(font_id, info);
     std::unique_ptr<FontEntry> font = std::make_unique<FontEntry>(font_id, info.name); // Throws
     font->pages.resize((info.num_glyphs + (g_glyphs_per_page-1)) >> g_num_page_bits);
     font->grid_fitting = false;
@@ -415,9 +415,9 @@ FontProvider::FontEntry* FontProvider::new_font(int font_id)
     font->texture_scale.set(1.0/font->texture_width, 1.0/font->texture_height);
     font->num_glyphs = info.num_glyphs;
     FontEntry* f = font.get();
-    fonts.reserve(fonts.size()+1); // Throws
-    font_map[font_id] = f; // Throws
-    fonts.emplace_back(std::move(font));
+    m_fonts.reserve(m_fonts.size()+1); // Throws
+    m_font_map[font_id] = f; // Throws
+    m_fonts.emplace_back(std::move(font));
     return f;
 }
 
@@ -439,7 +439,7 @@ FontProvider::Page* FontProvider::new_page(FontEntry* font, int page_idx)
     generate(glyphs.get(), glyphs.get()+num_glyphs, make_inc_generator(begin));
     std::unique_ptr<FontCache::GlyphBoxInfo[]> info =
         std::make_unique<FontCache::GlyphBoxInfo[]>(num_glyphs); // Throws
-    font_cache->get_glyph_box_info(font->id, false, num_glyphs, glyphs.get(), info.get());
+    m_font_cache->get_glyph_box_info(font->id, false, num_glyphs, glyphs.get(), info.get());
 
     // Sort according to glyph height
     std::vector<int> glyph_order(num_glyphs);
@@ -475,7 +475,7 @@ FontProvider::Page* FontProvider::new_page(FontEntry* font, int page_idx)
                 new_texture(font, page_idx, tex_ord++, secondary_packer, secondary_texture_index);
             if (!secondary_packer->insert(w,h,x,y)) {
                 if (primary_dirty)
-                    textures[font->open_texture_index]->decl.refresh();
+                    m_textures[font->open_texture_index]->decl.refresh();
                 font->packer = std::move(secondary_packer);
                 secondary_packer.reset();
                 font->open_texture_index = secondary_texture_index;
@@ -487,7 +487,7 @@ FontProvider::Page* FontProvider::new_page(FontEntry* font, int page_idx)
             secondary_dirty = true;
         }
 
-        Texture& texture = *textures[tex_idx];
+        Texture& texture = *m_textures[tex_idx];
         UIntMin16 idx = texture.glyphs.size();
         texture.glyphs.push_back(Texture::Glyph());
         Page::Glyph& g = page->glyphs[glyph_idx];
@@ -509,11 +509,11 @@ FontProvider::Page* FontProvider::new_page(FontEntry* font, int page_idx)
     }
 
     if (primary_dirty)
-        textures[font->open_texture_index]->decl.refresh();
+        m_textures[font->open_texture_index]->decl.refresh();
     if (secondary_packer) {
         font->packer = std::move(secondary_packer);
         font->open_texture_index = secondary_texture_index;
-        textures[secondary_texture_index]->decl.refresh();
+        m_textures[secondary_texture_index]->decl.refresh();
     }
 
     Page* page_2 = page.get();
@@ -534,15 +534,16 @@ void FontProvider::new_texture(FontEntry* font, int page_idx, int tex_ord,
     out.imbue(std::locale::classic());
     out << font->name << " " << page_idx << ":" << tex_ord;
     std::unique_ptr<TextureSource> src =
-        std::make_unique<TextureFontSource>(font_cache.get(), t.get(), out.str(), save_textures);
+        std::make_unique<TextureFontSource>(m_font_cache.get(), t.get(), out.str(),
+                                            m_save_textures);
     using FilterMode = TextureCache::FilterMode;
-    FilterMode filter_mode = (enable_mipmap ? FilterMode::mipmap : FilterMode::interp);
+    FilterMode filter_mode = (m_enable_mipmap ? FilterMode::mipmap : FilterMode::interp);
     bool wait_for_refresh = true;
     bool fast_image_retrieval = true;
-    t->decl = texture_cache.declare(std::move(src), GL_CLAMP, GL_CLAMP, filter_mode,
-                                    wait_for_refresh, fast_image_retrieval);
-    UIntMin16 i = textures.size();
-    textures.emplace_back(std::move(t));
+    t->decl = m_texture_cache.declare(std::move(src), GL_CLAMP, GL_CLAMP, filter_mode,
+                                      wait_for_refresh, fast_image_retrieval);
+    UIntMin16 i = m_textures.size();
+    m_textures.emplace_back(std::move(t));
     packer  = std::move(p);
     tex_idx = i;
 }
@@ -552,8 +553,8 @@ void FontProvider::new_texture(FontEntry* font, int page_idx, int tex_ord,
 void FontProvider::render(const TextContainer& text) const
 {
     bool vert =
-        text.layout_direction == FontCache::dir_BottomToTop ||
-        text.layout_direction == FontCache::dir_TopToBottom;
+        text.m_layout_direction == FontCache::dir_BottomToTop ||
+        text.m_layout_direction == FontCache::dir_TopToBottom;
 
     glPushAttrib(GL_COLOR_BUFFER_BIT | GL_ENABLE_BIT | GL_LIGHTING_BIT);
 
@@ -568,7 +569,7 @@ void FontProvider::render(const TextContainer& text) const
     int prev_style = -1;
     Vec4F prev_color;
     Vec2 scaling;
-    for (const TextContainer::Texture& t: text.textures) {
+    for (const TextContainer::Texture& t: text.m_textures) {
         const Texture& texture = *t.texture;
         texture.use.bind();
         glBegin(GL_QUADS);
@@ -577,8 +578,8 @@ void FontProvider::render(const TextContainer& text) const
             // FIXME: Skip rendering this strip if the color is completely
             // transparent.
             if (s.style_idx != prev_style) {
-                const StyleEntry& style = styles[s.style_idx];
-                scaling.set(style.font_scaling[0], style.font_scaling[1]);
+                const StyleEntry& style = m_styles[s.style_idx];
+                scaling = style.font_scaling;
                 if (prev_style < 0 || style.style.text_color != prev_color) {
                     Vec4F color = style.style.text_color;
                     glColor4f(color[0], color[1], color[2], color[3]);
@@ -591,12 +592,12 @@ void FontProvider::render(const TextContainer& text) const
             for (auto g = glyphs_begin; g != glyphs_end; ++g) {
                 const Texture::Glyph& glyph = texture.glyphs[g->index];
 
-                Vec2 p(g->position, lateral_pos);
+                Vec2 p_0{g->position, lateral_pos};
                 if (vert)
-                    std::swap(p[0], p[1]);
+                    std::swap(p_0[0], p_0[1]);
                 const FontCache::GlyphBoxInfo& i = glyph.quad_info;
                 Vec2F q;
-                switch (text.layout_direction) {
+                switch (text.m_layout_direction) {
                     case FontCache::dir_LeftToRight:
                         q.set(i.hori_pos[0], i.hori_pos[1]);
                         break;
@@ -611,22 +612,22 @@ void FontProvider::render(const TextContainer& text) const
                         break;
                 }
 
-                Vec2 p0 = p + Vec2(scaling[0] * q[0], scaling[1] * q[1]);
-                Vec2 p1 = p0 + Vec2(scaling[0] * i.size[0], scaling[1] * i.size[1]);
-                Vec2F t0 = glyph.tex_lower_left;
-                Vec2F t1 = glyph.tex_upper_right;
+                Vec2 p_1 = p_0 + Vec2(scaling[0] *      q[0], scaling[1] *      q[1]);
+                Vec2 p_2 = p_1 + Vec2(scaling[0] * i.size[0], scaling[1] * i.size[1]);
+                Vec2F t_1 = glyph.tex_lower_left;
+                Vec2F t_2 = glyph.tex_upper_right;
 
-                glTexCoord2f (t1[0], t1[1]);
-                glVertex2d   (p1[0], p1[1]);
+                glTexCoord2f (t_2[0], t_2[1]);
+                glVertex2d   (p_2[0], p_2[1]);
 
-                glTexCoord2f (t0[0], t1[1]);
-                glVertex2d   (p0[0], p1[1]);
+                glTexCoord2f (t_1[0], t_2[1]);
+                glVertex2d   (p_1[0], p_2[1]);
 
-                glTexCoord2f (t0[0], t0[1]);
-                glVertex2d   (p0[0], p0[1]);
+                glTexCoord2f (t_1[0], t_1[1]);
+                glVertex2d   (p_1[0], p_1[1]);
 
-                glTexCoord2f (t1[0], t0[1]);
-                glVertex2d   (p1[0], p0[1]);
+                glTexCoord2f (t_2[0], t_1[1]);
+                glVertex2d   (p_2[0], p_1[1]);
             }
             glyphs_begin = glyphs_end;
         }
@@ -642,17 +643,17 @@ void FontProvider::release(TextContainer& text)
 {
     // Release pages
     {
-        RepMapLookupBooster<decltype(font_map)> booster{font_map};
-        for (TextContainer::PageRef r: text.page_refs) {
+        RepMapLookupBooster<decltype(m_font_map)> booster{m_font_map};
+        for (TextContainer::PageRef r: text.m_page_refs) {
             if (--booster[r.first]->pages[r.second]->text_use_count == 0)
-                --used_pages;
+                --m_used_pages;
         }
     }
     // Release textures
     {
-        for (const TextContainer::Texture& t: text.textures) {
+        for (const TextContainer::Texture& t: text.m_textures) {
             if (--t.texture->text_use_count == 0) {
-                --used_textures;
+                --m_used_textures;
                 t.texture->use.clear();
             }
 

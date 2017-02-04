@@ -89,6 +89,9 @@ public:
 
     virtual void release_font(int font_id) = 0;
 
+    /// Returns FontDesc::size as returned by get_font_desc().
+    virtual math::Vec2 get_font_size(int font_id) = 0;
+
     /// Get the descriptor for the specified font. This can always be done
     /// without loading the face proper.
     ///

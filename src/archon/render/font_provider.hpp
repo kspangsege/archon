@@ -69,7 +69,7 @@ public:
     struct StyleDesc {
         std::string font_family;
         double font_boldness, font_italicity;
-        math::Vec2F font_size;
+        math::Vec2F font_size; // Size of EM-square in object coordinates
         math::Vec4F text_color;
         bool operator==(const StyleDesc&) const throw();
     };
@@ -135,7 +135,7 @@ private:
     public:
         std::size_t use_count = 0;
         Style style;
-        math::Vec2F font_scaling;
+        math::Vec2F font_scaling; // Scaled texel size
     };
 
     class StyleHasher {
@@ -143,27 +143,26 @@ private:
         static int hash(const Style& s, int n);
     };
 
-    std::vector<StyleEntry> styles;
-    util::HashMap<Style, int, StyleHasher> style_map; // Value is one plus index in 'styles'.
-    std::vector<int> unused_styles; // One plus indexes into 'styles'
+    std::vector<StyleEntry> m_styles;
+    util::HashMap<Style, int, StyleHasher> m_style_map; // Value is one plus index in `m_styles`.
+    std::vector<int> m_unused_styles; // One plus indexes into `m_styles`
 
     class TextureFontSource;
     class Texture;
     class Page;
     class FontEntry;
 
-    const std::shared_ptr<font::FontCache> font_cache;
-    TextureCache& texture_cache;
+    const std::shared_ptr<font::FontCache> m_font_cache;
+    TextureCache& m_texture_cache;
     const math::Vec2F m_desired_glyph_resol; // Ask cache for this rendering size
-    const math::Vec2 size_of_pixel; // Inverse of desired glyph resolution
-    const bool enable_mipmap; // Do mipmapping on textures
-    const bool save_textures; // Save each of the generated textures as a PNG file in /tmp/
+    const bool m_enable_mipmap; // Do mipmapping on textures
+    const bool m_save_textures; // Save each of the generated textures as a PNG file in /tmp/
 
-    std::map<int, FontEntry*> font_map;
-    std::vector<std::unique_ptr<FontEntry>> fonts;
-    std::vector<std::unique_ptr<Texture>> textures;
+    std::map<int, FontEntry*> m_font_map;
+    std::vector<std::unique_ptr<FontEntry>> m_fonts;
+    std::vector<std::unique_ptr<Texture>> m_textures;
 
-    std::size_t used_pages = 0, used_textures = 0;
+    std::size_t m_used_pages = 0, m_used_textures = 0;
 
     int acquire_style(font::FontCache::FontOwner& font, const math::Vec2F& font_size,
                       const math::Vec4F& text_color);
@@ -196,8 +195,8 @@ public:
     /// OpenGL call list.
     void render() const
     {
-        if (provider)
-            provider->render(*this);
+        if (m_provider)
+            m_provider->render(*this);
     }
 
     void clear();
@@ -208,15 +207,15 @@ public:
     }
 
 private:
-    FontProvider* provider = nullptr;
-    font::FontCache::Direction layout_direction;
+    FontProvider* m_provider = nullptr;
+    font::FontCache::Direction m_layout_direction;
 
     using PageRef = std::pair<int, int>; // Page of glyps (cache_font_id, page_index)
-    std::vector<PageRef> page_refs;
+    std::vector<PageRef> m_page_refs;
 
     class Strip {
     public:
-        int style_idx; // Index in 'provider->styles' of style of this strip
+        int style_idx; // Index in 'm_provider->m_styles' of style of this strip
         float lateral_pos; // Position of baseline
         int num_glyphs = 0;
         Strip(int s, float p):
@@ -245,7 +244,7 @@ private:
         {
         }
     };
-    std::list<Texture> textures;
+    std::list<Texture> m_textures;
 
     friend class FontProvider;
 };
@@ -433,22 +432,22 @@ public:
 
 inline void FontProvider::release_style_fast(int style_id)
 {
-    StyleEntry& style = styles[style_id-1];
+    StyleEntry& style = m_styles[style_id-1];
     if (0 < --style.use_count)
         return;
-    style_map.erase(style.style);
-    font_cache->release_font(style.style.font_id);
-    unused_styles.push_back(style_id);
+    m_style_map.erase(style.style);
+    m_font_cache->release_font(style.style.font_id);
+    m_unused_styles.push_back(style_id);
 }
 
 
 inline void FontProvider::TextContainer::clear()
 {
-    if (provider) {
-        provider->release(*this);
-        provider = 0;
-        page_refs.clear();
-        textures.clear();
+    if (m_provider) {
+        m_provider->release(*this);
+        m_provider = nullptr;
+        m_page_refs.clear();
+        m_textures.clear();
     }
 }
 
@@ -461,8 +460,8 @@ inline FontProvider::TextInserter::TextInserter(FontProvider& fp, TextContainer&
     m_texture_lookup{m_textures}
 {
     tc.clear();
-    tc.layout_direction = d;
-    tc.provider = &fp;
+    tc.m_layout_direction = d;
+    tc.m_provider = &fp;
 }
 
 
