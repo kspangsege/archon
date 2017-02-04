@@ -370,7 +370,7 @@ void TextFormatter::flush_inbuf(bool kerning_barrier)
         int style_id = acquire_style();
 
         FontCache::FontMetrics info;
-        get_style_info(style_id, m_vertical, false, info);
+        get_style_info(style_id, m_vertical, m_grid_fitting, info);
         m_style_lateral_span = info.lateral_span;
         // FIXME: Negative values of m_line_spacing gives unexpected results.
         double a = m_style_lateral_span.get_length(), b = m_line_spacing * a;
