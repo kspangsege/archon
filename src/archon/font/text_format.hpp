@@ -41,15 +41,14 @@ namespace font {
 
 /// A powerfull, flexible, and efficient text formatter.
 ///
-/// This is an abstract class that has no clue about how the formatted
-/// text is to be presented. It only knows how to format it.
+/// This is an abstract class that has no clue about how the formatted text is
+/// to be rendered. It only knows how to format it.
 ///
-/// The layout is constructed by first assembling characters into
-/// words. Words are then assembled into lines, which in turn are
-/// assembled into pages.
+/// The layout is constructed by first assembling characters into words. Words
+/// are then assembled into lines, which in turn are assembled into pages.
 ///
-/// Words are separated by white space, which in this context is one
-/// of the following three ASCII characters:
+/// Words are separated by white space, which in this context is one of the
+/// following three ASCII characters:
 ///
 ///     SP  Space     (word break)
 ///     NL  New line  (line break)
@@ -59,8 +58,7 @@ namespace font {
 ///
 /// Not thread-safe.
 ///
-/// FIXME: Implement an adjustable displacement property and consider
-/// clipping.
+/// FIXME: Implement an adjustable displacement property and consider clipping.
 class TextFormatter {
 public:
     /// FIXME: Must instead take a StringUtf32 or std::u32string as argument. We
@@ -324,7 +322,7 @@ private:
     struct Line {
         int num_glyphs = 0; // The number of glyphs on this line.
         double length = 0; // Length along baseline, never negative. Start of line is indicated by the advance of the first glyph.
-        math::Interval lateral_span = {0,0}; // Positions of (vertical ? left and right : bottom and top) edges of line relative to baseline.
+        math::Interval lateral_span = {0,0}; // Positions of (vertical ? (left and right) : (bottom and top)) edges of line relative to baseline.
         double lateral_pos; // Lateral position of leading edge of line box.
         Line(double p): lateral_pos{p} {}
         double get_lateral_trail_pos() const { return lateral_pos + lateral_span.get_length(); }

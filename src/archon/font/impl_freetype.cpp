@@ -335,9 +335,15 @@ public:
     {
         if (i < 0 || face->num_glyphs <= i)
             throw std::out_of_range("glyph_index");
-        FT_Int32 flags = FT_LOAD_CROP_BITMAP | FT_LOAD_TARGET_NORMAL;
-        if (!grid_fitting)
+        FT_Int32 flags = FT_LOAD_CROP_BITMAP;
+        if (grid_fitting) {
+            // Optimize grid fitting for gray-scale rendering (as opposed to
+            // pure black and white)
+            flags |= FT_LOAD_TARGET_NORMAL;
+        }
+        else {
             flags |= FT_LOAD_NO_HINTING;
+        }
         if (FT_Load_Glyph(face, i, flags))
             throw std::runtime_error("FT_Load_Glyph failed");
 
@@ -371,9 +377,9 @@ public:
         // FIXME: It seems that in some cases such as "Liberation Serif", the
         // vertical metrics are set to appropriate values even when the
         // underlying font face does not provide any. If that were always the
-        // case, ther would be no point in emulating those metrics
+        // case, there would be no point in emulating those metrics
         // below. Problem is, according to the documentation, the vertical
-        // metrics musr be considered unrelibale when FT_HAS_VERTICAL(face)
+        // metrics must be considered unrelibale when FT_HAS_VERTICAL(face)
         // returns false.
         Vec2 v2h;
         if (FT_HAS_VERTICAL(face)) {

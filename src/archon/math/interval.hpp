@@ -19,128 +19,166 @@
  */
 
 /**
- * \file
- *
- * \author Kristian Spangsege
+/// \file
+///
+/// \author Kristian Spangsege
  */
 
 #ifndef ARCHON_MATH_INTERVAL_HPP
 #define ARCHON_MATH_INTERVAL_HPP
 
 #include <cmath>
+#include <type_traits>
 #include <algorithm>
+#include <ostream>
 
 
-namespace archon
+namespace archon {
+namespace math {
+
+/// An abstract interval.
+template<class T> class BasicInterval {
+public:
+    static_assert(std::is_nothrow_default_constructible<T>::value, "");
+    static_assert(std::is_nothrow_destructible<T>::value, "");
+    static_assert(noexcept(T() == T() && T() != T()), "");
+
+    T begin = T(), end = T();
+
+    /// Set beginning and end to zero.
+    BasicInterval() noexcept;
+
+    BasicInterval(const T& begin, const T& end);
+
+    /// Construct an origin centered interval of the specified size.
+    explicit BasicInterval(const T& size);
+
+    BasicInterval& set(const T& begin, const T& end);
+
+    /// Get the center of this interval.
+    T get_center() const;
+
+    /// Get the length of this interval.
+    T get_length() const;
+
+    /// Translate this interval by the specified amount. This does not change
+    /// the length of the interval, only its location.
+    BasicInterval& translate(const T&);
+
+    /// Reflect this interval about the origin.
+    BasicInterval& reflect();
+
+    /// Expand this interval just enough to cover the specified one.
+    ///
+    /// That is, make this interval the least interval that includes both itself
+    /// and the specified interval.
+    BasicInterval& include(const BasicInterval&);
+
+    /// Scale this interval by the specified scaling factor.
+    BasicInterval& operator*=(const T&);
+
+    bool operator==(const BasicInterval&) const noexcept;
+    bool operator!=(const BasicInterval&) const noexcept;
+};
+
+
+template<class C, class T, class U>
+std::basic_ostream<C,T>& operator<<(std::basic_ostream<C,T>&, const BasicInterval<U>&);
+
+
+using Interval  = BasicInterval<double>;
+using IntervalF = BasicInterval<float>;
+using IntervalL = BasicInterval<long double>;
+
+
+
+
+// Implementation
+
+template<class T> inline BasicInterval<T>::BasicInterval() noexcept
 {
-  namespace math
-  {
-    /**
-     * An abstract interval.
-     */
-    template<class T> struct BasicInterval
-    {
-      T begin, end;
-
-      /**
-       * Set beginning and end to zero.
-       */
-      BasicInterval(): begin(T()), end(T()) {}
-
-      BasicInterval(T const &b, T const &e): begin(b), end(e) {}
-
-      /**
-       * Construct an origin centered interval of the specified size.
-       */
-      explicit BasicInterval(T const &size): begin(-0.5*size), end(0.5*size) {}
-
-
-      BasicInterval &set(T const &b, T const &e) { begin = b; end = e; return *this; }
-
-
-      /**
-       * Get the center of this interval.
-       */
-      T get_center() const { return 0.5*(begin + end); }
-
-
-      /**
-       * Get the length of this interval.
-       */
-      T get_length() const;
-
-
-      /**
-       * Translate this interval by the specified amount. This does not
-       * change the length of the interval, only its location.
-       */
-      void translate(T const &v);
-
-
-      /**
-       * Reflect this interval about the origin.
-       */
-      void reflect();
-
-
-      /**
-       * Expand this interval just enough to cover the specified one.
-       *
-       * That is, make this interval the least interval that includes
-       * both itself and the specified interval.
-       */
-      void include(BasicInterval const &i);
-
-
-      /**
-       * Scale this interval by the specified scaling factor.
-       */
-      BasicInterval &operator*=(T const &v) { begin *= v; end *= v; return *this; }
-
-
-      bool operator==(BasicInterval const &i) const { return begin == i.begin && end == i.end; }
-      bool operator!=(BasicInterval const &i) const { return begin != i.begin || end != i.end; }
-    };
-
-
-    typedef BasicInterval<double>      Interval;
-    typedef BasicInterval<float>       IntervalF;
-    typedef BasicInterval<long double> IntervalL;
-
-
-
-
-
-    // Implementation:
-
-    template<class T> inline T BasicInterval<T>::get_length() const
-    {
-      using std::abs;
-      return abs(end - begin);
-    }
-
-    template<class T> inline void BasicInterval<T>::translate(T const &v)
-    {
-      begin += v;
-      end   += v;
-    }
-
-    template<class T> inline void BasicInterval<T>::reflect()
-    {
-      using std::swap;
-      swap(begin, end);
-      begin = -begin;
-      end   = -end;
-    }
-
-    template<class T> inline void BasicInterval<T>::include(BasicInterval<T> const &i)
-    {
-      using std::min;
-      using std::max;
-      begin = min(begin, i.begin);
-      end   = max(end,   i.end);
-    }
-  }
 }
+
+template<class T> inline BasicInterval<T>::BasicInterval(const T& b, const T& e):
+    begin(b),
+    end(e)
+{
+}
+
+template<class T> inline BasicInterval<T>::BasicInterval(const T& size):
+    begin(-0.5*size),
+    end(0.5*size)
+{
+}
+
+template<class T> inline BasicInterval<T>& BasicInterval<T>::set(const T& b, const T& e)
+{
+    begin = b;
+    end = e;
+    return *this;
+}
+
+template<class T> inline T BasicInterval<T>::get_center() const
+{
+    return 0.5*(begin + end);
+}
+
+template<class T> inline T BasicInterval<T>::get_length() const
+{
+    using std::abs;
+    return abs(end - begin);
+}
+
+template<class T> inline BasicInterval<T>& BasicInterval<T>::translate(const T& v)
+{
+    begin += v;
+    end   += v;
+    return *this;
+}
+
+template<class T> inline BasicInterval<T>& BasicInterval<T>::reflect()
+{
+    using std::swap;
+    swap(begin, end);
+    begin = -begin;
+    end   = -end;
+    return *this;
+}
+
+template<class T> inline BasicInterval<T>& BasicInterval<T>::include(BasicInterval<T> const &i)
+{
+    using std::min;
+    using std::max;
+    begin = min(begin, i.begin);
+    end   = max(end,   i.end);
+    return *this;
+}
+
+template<class T> inline BasicInterval<T>& BasicInterval<T>::operator*=(const T& v)
+{
+    begin *= v;
+    end *= v;
+    return *this;
+}
+
+template<class T> inline bool BasicInterval<T>::operator==(const BasicInterval& i) const noexcept
+{
+    return begin == i.begin && end == i.end;
+}
+
+template<class T> inline bool BasicInterval<T>::operator!=(const BasicInterval& i) const noexcept
+{
+    return begin != i.begin || end != i.end;
+}
+
+template<class C, class T, class U>
+inline std::basic_ostream<C,T>& operator<<(std::basic_ostream<C,T>& out, const BasicInterval<U>& i)
+{
+    out << '[' << i.begin << ", " << i.end << ']';
+    return out;
+}
+
+} // namespace math
+} // namespace archon
 
 #endif // ARCHON_MATH_INTERVAL_HPP

@@ -371,11 +371,11 @@ public:
     /// Tecnically it is not necessary to translate a glyph unless at least one
     /// component has a non-integer value. This is because the resulting block
     /// of pixels will be essentially the same for any integer translation, and
-    /// the effect of the translation could as weel be achieved by modifying the
-    /// target origin (see set_target_origin()). However, if you are rendeing a
-    /// string of glyphs, it is probably easiest to set a fixed target origin,
-    /// and then translate each glyph by the sum of the cursor position and the
-    /// negative of the relevant glyph bearing point position.
+    /// the effect of the translation could as well have been achieved by
+    /// modifying the target origin (see set_target_origin()). However, if you
+    /// are rendeing a string of glyphs, it is probably easiest to set a fixed
+    /// target origin, and then translate each glyph by the sum of the cursor
+    /// position and the negative of the relevant glyph bearing point position.
     ///
     /// It is <em>not</em> recommended to translate a grid fitted glyph by a
     /// fractional number of pixels. This is expected to produce a particularly
@@ -455,7 +455,7 @@ public:
     ///
     /// \todo FIXME: It might be attractive to offer alternative blending
     /// modes/functions. One could simply be channel = max(orig, new). Then the
-    /// original 'max(orig,new) intencity stuff' can easily be reenabled.
+    /// original 'max(orig,new) intensity stuff' can easily be reenabled.
     virtual void render_pixels_to(image::ImageWriter &img) const = 0;
 
     virtual ~FontFace() {}

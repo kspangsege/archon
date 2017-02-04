@@ -295,33 +295,30 @@ void TextFormatter::reset()
 
 
 
-// It is important that the currently buffered input is processed
-// before changing most of the formatter parameters, such that the
-// changes can can be applied starting at the intended position in the
-// text.
+// It is important that the currently buffered input is processed before
+// changing most of the formatter parameters, such that the changes can can be
+// applied starting at the intended position in the text.
 //
-// Set kerning_barrier to true if the input is flushed due to a change
-// that would cause a kerning adjustment of the next glyph to be
-// meaningless. One example is a change in font face.
+// Set kerning_barrier to true if the input is flushed due to a change that
+// would cause a kerning adjustment of the next glyph to be meaningless. One
+// obvious example is a change in font face.
 //
-// FIXME: We can probably do away with the kerning_barrier and simply
-// assume that it is never true. But only if there is another way that
-// we can forcefully nullify the kerning adjustment when the style
-// changes.
+// FIXME: We can probably do away with the kerning_barrier and simply assume
+// that it is never true. But only if there is another way that we can
+// forcefully nullify the kerning adjustment when the style changes.
 //
-// FIXME: LINE AND WORD WRAPPING MODES MAY PROBABLY NOT CHANGE DURING
-// THE CONSTRUCTION OF THE LINE. MAYBE THE RELEVANT FLAGS SHOULD BE
-// SNAPSHOTTED AT EACH OPENING OF A NEW LINE. NO - THIS IDEA IS NOT
-// NECESSARY AFTER ALL. INSTEAD IT WILL SUFICE TO KEEP A SNAPSHOT OF
-// THE LINE LATERAL SPAN AND UPDATE IT ON EVERY SPACE CHARACTER. ALSO
-// A WORD LATERAL SPAN NEEDS TO BE MAINTAINED IN PARELLEL, AND USED
-// WHEN THE WORD IS PUSHED TO NEXT LINE. WHEN THAT HAPPENS, THE
-// REMAINING LINE MUST BE CLOSED, AND ITS LATERAL SPAN REVERTED TO THE
-// LAST SNAPSHOT, WHICH MAY CAUSE IT TO SNAP BACK TO THE PREVIOUS
-// PAGE. IN THAT CASE THE NEW LINE MAY OR MAY NOT ALSO FIT ON THE
-// PREVIOUS PAGE. IF IT DOES, THE LAST PAGE MUST BE DELETED. SO UNDER
-// EXTREEME CIRCUMSTANCES, THE ADDITION OF A GLYPH MAY ACTUALLY REDUCE
-// THE NUMBER OP PAGES BY ONE.
+// FIXME: LINE AND WORD WRAPPING MODES MAY PROBABLY NOT CHANGE DURING THE
+// CONSTRUCTION OF THE LINE. MAYBE THE RELEVANT FLAGS SHOULD BE SNAPSHOTTED AT
+// EACH OPENING OF A NEW LINE. NO - THIS IDEA IS NOT NECESSARY AFTER
+// ALL. INSTEAD IT WILL SUFICE TO KEEP A SNAPSHOT OF THE LINE LATERAL SPAN AND
+// UPDATE IT ON EVERY SPACE CHARACTER. ALSO A WORD LATERAL SPAN NEEDS TO BE
+// MAINTAINED IN PARELLEL, AND USED WHEN THE WORD IS PUSHED TO NEXT LINE. WHEN
+// THAT HAPPENS, THE REMAINING LINE MUST BE CLOSED, AND ITS LATERAL SPAN
+// REVERTED TO THE LAST SNAPSHOT, WHICH MAY CAUSE IT TO SNAP BACK TO THE
+// PREVIOUS PAGE. IN THAT CASE THE NEW LINE MAY OR MAY NOT ALSO FIT ON THE
+// PREVIOUS PAGE. IF IT DOES, THE LAST PAGE MUST BE DELETED. SO UNDER EXTREEME
+// CIRCUMSTANCES, THE ADDITION OF A GLYPH MAY ACTUALLY REDUCE THE NUMBER OP
+// PAGES BY ONE.
 void TextFormatter::flush_inbuf(bool kerning_barrier)
 {
     int inbuf_num = m_inbuf_pos - m_inbuf;
@@ -626,7 +623,7 @@ void TextFormatter::open_line()
     open_page();
 
     // Open new line
-    m_lines.push_back(Line(pos));
+    m_lines.push_back(Line{pos});
     m_current_line = &m_lines.back();
     m_current_line->lateral_span = m_style_lateral_span;
     ++m_current_page->num_lines;
