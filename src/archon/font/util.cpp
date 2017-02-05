@@ -34,10 +34,9 @@ using namespace archon::core;
 namespace archon {
 namespace font {
 
-void print_font_list(std::shared_ptr<const FontList> l, std::ostream& out,
-                     bool enable_ansi_term_attr)
+void print_font_list(const FontList& font_list, std::ostream& out, bool enable_ansi_term_attr)
 {
-    Text::Table table(enable_ansi_term_attr);
+    Text::Table table{enable_ansi_term_attr};
     table.get_odd_row_attr().set_bg_color(Term::color_White);
     table.get_odd_col_attr().set_bold();
     table.get_row(0).set_bg_color(Term::color_Default).set_reverse().set_bold();
@@ -46,18 +45,18 @@ void print_font_list(std::shared_ptr<const FontList> l, std::ostream& out,
     table.get_cell(0,3).set_text("Italic");
     table.get_cell(0,4).set_text("Monospace");
     table.get_cell(0,5).set_text("Scalable");
-    int n = l->get_num_faces();
+    int n = font_list.get_num_faces();
     for (int i = 0; i < n; ++i) {
-        const FontLoader::FaceInfo& f = l->get_face_info(i);
+        const FontLoader::FaceInfo& face_info = font_list.get_face_info(i);
         table.get_cell(i+1, 0).set_val(i);
-        table.get_cell(i+1, 1).set_val(f.family);
-        if (f.bold)
+        table.get_cell(i+1, 1).set_val(face_info.family);
+        if (face_info.bold)
             table.get_cell(i+1, 2).set_text("B");
-        if (f.italic)
+        if (face_info.italic)
             table.get_cell(i+1, 3).set_text("I");
-        if (f.monospace)
+        if (face_info.monospace)
             table.get_cell(i+1, 4).set_text("M");
-        if (f.scalable)
+        if (face_info.scalable)
             table.get_cell(i+1, 5).set_text("S");
     }
     out << table.print();
@@ -101,21 +100,26 @@ FontConfig::FontConfig()
 }
 
 
-std::unique_ptr<FontFace> load_font(std::string resource_dir, const FontConfig& cfg)
+std::unique_ptr<FontFace> load_font(const std::string& resource_dir, const FontConfig& cfg)
 {
-    if (std::shared_ptr<FontList> list = make_font_list(resource_dir, cfg))
+    if (std::unique_ptr<FontList> list = new_font_list(resource_dir, cfg))
         return list->load_face();
     return nullptr;
 }
 
 
-std::shared_ptr<FontList> make_font_list(std::string resource_dir, const FontConfig& cfg)
+std::unique_ptr<FontList> new_font_list(const std::string& resource_dir, const FontConfig& cfg)
 {
     std::shared_ptr<FontLoader> loader = new_font_loader(resource_dir);
     if (cfg.list) {
-        std::shared_ptr<FontList> list = (cfg.file.empty() ? new_font_list(loader, cfg.path) :
-                                          new_font_list(loader, cfg.file, 0, 12, 12));
-        print_font_list(list, std::cout);
+        std::unique_ptr<FontList> list;
+        if (cfg.file.empty()) {
+            list = new_font_list(std::move(loader), cfg.path);
+        }
+        else {
+            list = new_font_list(std::move(loader), cfg.file, 0, 12, 12);
+        }
+        print_font_list(*list, std::cout);
         return nullptr;
     }
 
@@ -124,10 +128,11 @@ std::shared_ptr<FontList> make_font_list(std::string resource_dir, const FontCon
         w = h = 12;
 
     if (!cfg.file.empty())
-        return new_font_list(loader, cfg.file, 0, w, h);
+        return new_font_list(std::move(loader), cfg.file, 0, w, h);
 
-    std::shared_ptr<FontList> list = new_font_list(loader, cfg.path, FontList::find_BestSize,
-                                                   cfg.family, cfg.bold, cfg.italic, w, h);
+    std::unique_ptr<FontList> list =
+        new_font_list(std::move(loader), cfg.path, FontList::find_BestSize,
+                      cfg.family, cfg.bold, cfg.italic, w, h);
     if (list)
         return list;
 

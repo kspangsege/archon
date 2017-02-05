@@ -273,6 +273,7 @@ private:
     const CharEnc<CharUtf16> m_utf16_string_codec;
 
     TextureCache* m_texture_cache = nullptr;
+    std::unique_ptr<FontList> m_font_list;
     std::unique_ptr<FontCache> m_font_cache;
     const Vec2F m_glyph_resolution;
     const bool m_glyph_mipmapping, m_save_glyph_textures;
@@ -310,9 +311,10 @@ private:
     void ensure_font_cache()
     {
         if (!m_font_cache) {
-            std::shared_ptr<FontLoader> loader = new_font_loader(m_resource_dir + "font/");
-            std::shared_ptr<FontList> list = new_font_list(std::move(loader));
-            m_font_cache = new_font_cache(std::move(list));
+            std::shared_ptr<FontLoader> loader =
+                new_font_loader(m_resource_dir + "font/"); // Throws
+            m_font_list = new_font_list(std::move(loader)); // Throws
+            m_font_cache = new_font_cache(*m_font_list); // Throws
         }
     }
 

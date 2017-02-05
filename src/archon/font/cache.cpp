@@ -41,11 +41,11 @@ namespace {
 
 class CacheImpl: public FontCache {
 public:
-    CacheImpl(std::shared_ptr<FontList> list):
-        m_list{std::move(list)},
-        m_default_face_index{m_list->get_default_face()}
+    CacheImpl(const FontList& font_list):
+        m_font_list{font_list},
+        m_default_face_index{m_font_list.get_default_face()}
     {
-        m_list->get_init_size(m_default_width, m_default_height);
+        m_font_list.get_init_size(m_default_width, m_default_height);
     }
 
 
@@ -64,14 +64,16 @@ public:
     int acquire_default_font(double width, double height) override final
     {
         FontList::SizeInfo size_info;
-        m_list->find_default_size(width, height, size_info);
+        m_font_list.find_default_size(width, height, size_info);
         if (!size_info.exact) {
-            const FontLoader::FaceInfo::FixedSize& s =
-                m_list->get_face_info(m_default_face_index).fixed_sizes[size_info.fixed_size_index];
-            width  = s.first;
-            height = s.second;
+            const FontLoader::FaceInfo& face_info =
+                m_font_list.get_face_info(m_default_face_index);
+            const FontLoader::FaceInfo::FixedSize& fixed_size =
+                face_info.fixed_sizes[size_info.fixed_size_index];
+            width  = fixed_size.first;
+            height = fixed_size.second;
         }
-//std::cerr << "MAP: DEFAULT --> '"<<m_list->get_face_info(m_default_face_index).family<<"'\n";
+//        std::cerr << "MAP: DEFAULT --> '"<<m_font_list.get_face_info(m_default_face_index).family<<"'\n";
         return acquire_font(m_default_face_index, Vec2(width, height), size_info.fixed_size_index);
     }
 
@@ -80,13 +82,13 @@ public:
     {
         FontList::SizeInfo size_info;
         int list_index =
-            m_list->find_face(FontList::find_BestFace, desc.family,
-                              0.5 <= desc.boldness, 0.5 <= desc.italicity,
-                              desc.size[0], desc.size[1], &size_info);
+            m_font_list.find_face(FontList::find_BestFace, desc.family,
+                                  0.5 <= desc.boldness, 0.5 <= desc.italicity,
+                                  desc.size[0], desc.size[1], &size_info);
         Vec2 size = desc.size;
         if (!size_info.exact) {
             const FontLoader::FaceInfo::FixedSize& s =
-                m_list->get_face_info(list_index).fixed_sizes[size_info.fixed_size_index];
+                m_font_list.get_face_info(list_index).fixed_sizes[size_info.fixed_size_index];
             size.set(s.first, s.second);
         }
 //std::cerr << "MAP: family '"<<desc.family<<"' --> '"<<list->get_face_info(list_index).family<<"'\n";
@@ -167,7 +169,7 @@ public:
     {
         SizeEntry& s = get_size(font_id);
         FaceEntry& f = *s.face;
-        const FontLoader::FaceInfo& info = m_list->get_face_info(f.list_index);
+        const FontLoader::FaceInfo& info = m_font_list.get_face_info(f.list_index);
         desc.family    = info.family;
         desc.boldness  = info.bold   ? 1 : 0;
         desc.italicity = info.italic ? 1 : 0;
@@ -179,7 +181,7 @@ public:
     {
         SizeEntry& s = get_size(font_id);
         FaceEntry& f = *s.face;
-        const FontLoader::FaceInfo& i = m_list->get_face_info(f.list_index);
+        const FontLoader::FaceInfo& i = m_font_list.get_face_info(f.list_index);
         std::ostringstream o;
         o.imbue(std::locale::classic());
         o << i.family <<
@@ -187,7 +189,7 @@ public:
             s.size[0] << "x" << s.size[1];
         info.name = o.str();
         if (!f.face)
-            f.face = m_list->load_face(f.list_index);
+            f.face = m_font_list.load_face(f.list_index);
         info.num_glyphs = f.face->get_num_glyphs();
     };
 
@@ -301,7 +303,7 @@ public:
         SizeEntry& s = get_size(font_id);
         FaceEntry& f = *s.face;
         if (!f.face)
-            f.face = m_list->load_face(f.list_index);
+            f.face = m_font_list.load_face(f.list_index);
         if (!f.current_size_valid || f.current_size != s.size) {
             if (s.fixed_size_index < 0) {
                 f.face->set_scaled_size(s.size[0], s.size[1]);
@@ -358,17 +360,17 @@ public:
     }
 
 
-    const std::shared_ptr<FontList> m_list;
+    const FontList& m_font_list;
 
-    const int m_default_face_index; // The index of the default face of 'm_list'.
+    const int m_default_face_index; // The index of the default face of `m_font_list`.
 
     double m_default_width, m_default_height; // The initial rendering size that the list applies to any face after loading it.
 
-    std::vector<std::unique_ptr<FaceEntry>> m_faces; // Indexed as 'm_list'
+    std::vector<std::unique_ptr<FaceEntry>> m_faces; // Indexed as `m_font_list`
 
     std::vector<SizeEntry> m_sizes;
 
-    std::vector<int> m_unused_size_entries; // Indices od unused entries in 'm_sizes'
+    std::vector<int> m_unused_size_entries; // Indices od unused entries in `m_sizes`
 
     int m_num_faces = 0, m_num_sizes = 0;
 };
@@ -379,9 +381,9 @@ public:
 namespace archon {
 namespace font {
 
-std::unique_ptr<FontCache> new_font_cache(std::shared_ptr<FontList> list)
+std::unique_ptr<FontCache> new_font_cache(const FontList& font_list)
 {
-    return std::make_unique<CacheImpl>(std::move(list)); // Throws
+    return std::make_unique<CacheImpl>(font_list); // Throws
 }
 
 } // namespace font

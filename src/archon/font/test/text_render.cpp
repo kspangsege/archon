@@ -88,13 +88,14 @@ int main(int argc, const char* argv[])
     if (int stop = opts.process(argc, argv))
         return stop == 2 ? EXIT_SUCCESS : EXIT_FAILURE;
 
-    std::shared_ptr<FontList> list = make_font_list(file::dir_of(argv[0])+"../../", font_cfg);
-    if (!list)
+    std::string resource_dir = file::dir_of(argv[0])+"../../";
+    std::unique_ptr<FontList> font_list = new_font_list(resource_dir, font_cfg);
+    if (!font_list)
         return EXIT_FAILURE;
 
     std::wstring text = (1 < argc ? env_decode<wchar_t>(argv[1]) :
                          L"The quick brown fox jumps over the lazy dog");
-    std::unique_ptr<FontCache> font_cache = new_font_cache(std::move(list));
+    std::unique_ptr<FontCache> font_cache = new_font_cache(*font_list);
     TextRenderer renderer{*font_cache};
     renderer.set_page_width(Interval(0, opt_size[0]));
     renderer.set_page_height(Interval(0, opt_size[1]));

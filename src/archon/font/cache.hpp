@@ -38,7 +38,7 @@ namespace font {
 
 class FontCache;
 
-std::unique_ptr<FontCache> new_font_cache(std::shared_ptr<FontList>);
+std::unique_ptr<FontCache> new_font_cache(const FontList&);
 
 
 

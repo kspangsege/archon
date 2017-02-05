@@ -47,22 +47,23 @@ int main(int argc, const char* argv[])
     if (int stop = opts.process(argc, argv))
         return stop == 2 ? EXIT_SUCCESS : EXIT_FAILURE;
 
-    std::shared_ptr<FontList> list = make_font_list(file::dir_of(argv[0])+"../../", font_cfg);
-    if (!list)
+    std::string resource_dir = file::dir_of(argv[0])+"../../";
+    std::unique_ptr<FontList> font_list = new_font_list(resource_dir, font_cfg);
+    if (!font_list)
         return EXIT_FAILURE;
 
     std::wstring text = (1 < argc ? env_decode<wchar_t>(argv[1]) :
                          L"0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz");
 
-    std::unique_ptr<FontCache> font_cache = new_font_cache(std::move(list));
+    std::unique_ptr<FontCache> font_cache = new_font_cache(*font_list);
     TextRenderer renderer{*font_cache};
 
-    int n = list->get_num_families();
+    int n = font_list->get_num_families();
     for (int i = 0; i < n; ++i) {
         std::wostringstream o;
         o << i+1 << ": ";
         renderer.write(o.str());
-        std::string name = list->get_family_name(i);
+        std::string name = font_list->get_family_name(i);
         renderer.write(env_decode<wchar_t>(name.empty() ? "(no name)" : name));
         renderer.write(L" \"");
         renderer.set_font_family(name);

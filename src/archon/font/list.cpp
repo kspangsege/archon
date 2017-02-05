@@ -42,7 +42,7 @@ namespace {
 
 class ListImpl: public FontList {
 public:
-    void find_default_size(double width, double height, SizeInfo& info) const
+    void find_default_size(double width, double height, SizeInfo& info) const override final
     {
         Vec2 size(width, height);
         const Entry& e = get_entry(-1);
@@ -77,9 +77,8 @@ public:
         info.exact = false;
     }
 
-
     int find_face(FindType find_type, std::string family_name, bool bold, bool italic,
-                  double width, double height, SizeInfo* size_info) const
+                  double width, double height, SizeInfo* size_info) const override final
     {
         int num_style = make_style(bold, italic);
         Vec2 size{width, height};
@@ -89,16 +88,16 @@ public:
       family:
         // Find font family
         {
-            auto i = family_map.find(family_name);
-            if (i == family_map.end()) {
-                if (!unbooted.empty() || !search_path.empty())
+            auto i = m_family_map.find(family_name);
+            if (i == m_family_map.end()) {
+                if (!m_unbooted.empty() || !m_search_path.empty())
                     goto boot;
                 if (find_type != find_BestFace)
                     return -1; // Not found
-                ARCHON_ASSERT_1(!family_map.empty(), "No font families");
+                ARCHON_ASSERT_1(!m_family_map.empty(), "No font families");
                 // FIXME: We may want to search more intellignetly for an
                 // appropriate family name.
-                family = &family_map[get_entry(-1).info.family];
+                family = &m_family_map[get_entry(-1).info.family];
             }
             else {
                 family = &i->second;
@@ -110,7 +109,7 @@ public:
         {
             auto i = family->styles.find(num_style);
             if (i == family->styles.end()) {
-                if (!unbooted.empty() || !search_path.empty())
+                if (!m_unbooted.empty() || !m_search_path.empty())
                     goto boot;
                 if (find_type == find_Exact || find_type == find_BestSize)
                     return -1; // Not found
@@ -153,7 +152,7 @@ public:
             }
 
             // Face is not scalable
-            if (!unbooted.empty() || !search_path.empty())
+            if (!m_unbooted.empty() || !m_search_path.empty())
                 goto boot;
             if (find_type == find_Exact)
                 return -1; // Not found
@@ -182,11 +181,11 @@ public:
         // If there are unbooted entries, try to boot those first. Then, if
         // there is still no exact match and we have an outstanding scan, do
         // that scan now.
-        if (unbooted.empty())
+        if (m_unbooted.empty())
             scan();
 
-        while (!unbooted.empty()) {
-            Entry &e = entries[*unbooted.begin()];
+        while (!m_unbooted.empty()) {
+            Entry &e = m_entries[*m_unbooted.begin()];
             boot(e);
             if (e.info.family == family_name && e.info.bold == bold && e.info.italic == italic) {
                 if (e.info.scalable) {
@@ -219,60 +218,55 @@ public:
         goto size;
     }
 
-
-    std::unique_ptr<FontFace> load_face(int i) const
+    std::unique_ptr<FontFace> load_face(int i) const override final
     {
         const Entry& entry = get_entry(i);
-        return loader->load_face(entry.file_path, entry.file_face_index, init_width, init_height);
+        return m_loader->load_face(entry.file_path, entry.file_face_index,
+                                   m_init_width, m_init_height);
     }
 
-
-    int get_num_faces() const
+    int get_num_faces() const override final
     {
-        if (!search_path.empty())
+        if (!m_search_path.empty())
             scan();
-        return entries.size();
+        return m_entries.size();
     }
 
-
-    const FontLoader::FaceInfo& get_face_info(int i) const
+    const FontLoader::FaceInfo& get_face_info(int i) const override final
     {
         return get_entry(i).info;
     }
 
-
-    int get_num_families() const
+    int get_num_families() const override final
     {
-        if (!search_path.empty())
+        if (!m_search_path.empty())
             scan();
-        while (!unbooted.empty()) {
-            Entry& e = entries[*unbooted.begin()];
+        while (!m_unbooted.empty()) {
+            Entry& e = m_entries[*m_unbooted.begin()];
             boot(e);
         }
-        while (family_check_end < entries.size()) {
-            auto i = family_map.find(entries[family_check_end++].info.family);
+        while (m_family_check_end < m_entries.size()) {
+            auto i = m_family_map.find(m_entries[m_family_check_end++].info.family);
             if (i->second.fresh) {
-                families.push_back(i);
+                m_families.push_back(i);
                 i->second.fresh = false;
             }
         }
-        return families.size();
+        return m_families.size();
     }
 
-
-    std::string get_family_name(int family_index) const
+    std::string get_family_name(int family_index) const override final
     {
-        if (int(families.size()) <= family_index)
-            get_num_families(); // Force update of 'families'
-        return families.at(family_index)->first;
+        if (int(m_families.size()) <= family_index)
+            get_num_families(); // Force update of `m_families`
+        return m_families.at(family_index)->first;
     }
 
-
-    void add_face(std::string f, int i)
+    void add_face(std::string f, int i) override final
     {
-        if (!search_path.empty())
+        if (!m_search_path.empty())
             scan();
-        int n = loader->check_file(f);
+        int n = m_loader->check_file(f);
         if (n < 1)
             throw BadFontFileException("Failed to recognize \""+f+"\" as a font file");
         if (i < 0) {
@@ -286,10 +280,9 @@ public:
         }
     }
 
-
-    void scan_dir(std::string dir, bool recurse)
+    void scan_dir(std::string dir, bool recurse) override final
     {
-        if (!search_path.empty())
+        if (!m_search_path.empty())
             scan();
         if (dir.empty()) {
             dir = "./";
@@ -306,7 +299,7 @@ public:
             file::Stat stat{path};
             switch (stat.get_type()) {
                 case file::Stat::type_Regular: {
-                    int n = loader->check_file(path);
+                    int n = m_loader->check_file(path);
                     for (int i = 0; i < n; ++i)
                         add_face_unchecked(path, i);
                     break;
@@ -326,37 +319,33 @@ public:
         }
     }
 
-
-    void get_init_size(double& width, double& height) const
+    void get_init_size(double& width, double& height) const override final
     {
-        width  = init_width;
-        height = init_height;
+        width  = m_init_width;
+        height = m_init_height;
     }
 
-
-    int get_default_face() const
+    int get_default_face() const override final
     {
-        return default_index;
+        return m_default_index;
     }
-
 
     ListImpl(std::shared_ptr<FontLoader> l, double w, double h):
-        loader{l},
-        init_width{w},
-        init_height{h}
+        m_loader{l},
+        m_init_width{w},
+        m_init_height{h}
     {
     }
-
 
     void set_search_path(std::string p)
     {
-        search_path = p;
-    }
-    void set_default_index(int i)
-    {
-        default_index = i;
+        m_search_path = p;
     }
 
+    void set_default_index(int i)
+    {
+        m_default_index = i;
+    }
 
 private:
     struct Style;
@@ -392,67 +381,62 @@ private:
     using StyleMap = std::map<int, Style>;
 
     struct Family {
-        bool fresh = true; // True until this family is added to 'families'
+        bool fresh = true; // True until this family is added to `m_families`
         StyleMap styles;
     };
 
     using FamilyMap = std::map<std::string, Family>;
 
+    const std::shared_ptr<FontLoader> m_loader;
+    const double m_init_width, m_init_height;
 
-    const std::shared_ptr<FontLoader> loader;
-    const double init_width, init_height;
+    mutable Entries m_entries;
+    mutable std::set<int> m_unbooted;
+    mutable FamilyMap m_family_map;
+    mutable std::vector<FamilyMap::iterator> m_families;
 
-    mutable Entries entries;
-    mutable std::set<int> unbooted;
-    mutable FamilyMap family_map;
-    mutable std::vector<FamilyMap::iterator> families;
+    mutable std::size_t m_family_check_end = 0; // Next entry to check for addition of family to `m_families`
 
-    mutable std::size_t family_check_end = 0; // Next entry to check for addition of family to 'families'
-
-    int default_index = 0;
-    mutable std::string search_path; // A scan is pending if this is non-empty
-
+    int m_default_index = 0;
+    mutable std::string m_search_path; // A scan is pending if this is non-empty
 
     static int make_style(bool bold, bool italic)
     {
         return (bold ? 1 : 0) | (italic ? 2 : 0);
     }
 
-
     const Entry& get_entry(int i) const
     {
         if (i < 0) {
-            i = default_index;
+            i = m_default_index;
         }
-        else if(!search_path.empty() && entries.size() <= std::size_t(i)) {
+        else if(!m_search_path.empty() && m_entries.size() <= std::size_t(i)) {
             scan();
         }
-        Entry& entry = entries.at(i);
+        Entry& entry = m_entries.at(i);
         if (!entry.style)
             boot(entry);
         return entry;
     }
 
-
     void add_face_unchecked(std::string f, int i)
     {
-        int j = entries.size();
-        auto k = unbooted.insert(j).first;
+        int j = m_entries.size();
+        auto k = m_unbooted.insert(j).first;
         try {
-            entries.push_back(Entry(j,f,i));
+            m_entries.push_back(Entry(j,f,i));
         }
         catch (...) {
-            unbooted.erase(k);
+            m_unbooted.erase(k);
             throw;
         }
     }
 
-
     void boot(Entry& e) const
     {
-        loader->load_face_info(e.file_path, e.file_face_index, e.info);
+        m_loader->load_face_info(e.file_path, e.file_face_index, e.info);
 
-        Family& family = family_map[e.info.family];
+        Family& family = m_family_map[e.info.family];
         Style& style = family.styles[make_style(e.info.bold, e.info.italic)];
         if (e.info.scalable)
             style.scalable = e.list_index;
@@ -476,14 +460,13 @@ private:
         }
 
         e.style = &style;
-        unbooted.erase(e.list_index);
+        m_unbooted.erase(e.list_index);
     }
-
 
     void scan() const
     {
         std::string p;
-        swap(p, search_path);
+        swap(p, m_search_path);
         const_cast<ListImpl*>(this)->scan_dirs(p, true);
     }
 };
@@ -507,42 +490,44 @@ void FontList::scan_dirs(std::string dir_paths, bool recursive)
 }
 
 
-std::shared_ptr<FontList> new_font_list(std::shared_ptr<FontLoader> loader, std::string font_file,
+std::unique_ptr<FontList> new_font_list(std::shared_ptr<FontLoader> loader, std::string font_file,
                                         int face_index, double width, double height)
 {
-    std::shared_ptr<FontList> list = std::make_shared<ListImpl>(loader, width, height);
+    std::unique_ptr<ListImpl> list = std::make_unique<ListImpl>(std::move(loader), width, height);
     list->add_face(font_file, face_index);
     return list;
 }
 
 
-std::shared_ptr<FontList> new_font_list(std::shared_ptr<FontLoader> loader,
+std::unique_ptr<FontList> new_font_list(std::shared_ptr<FontLoader> loader,
                                         std::string font_search_path,
                                         double width, double height)
 {
-    std::shared_ptr<FontList> list = std::make_shared<ListImpl>(loader, width, height);
-    list->add_face(loader->get_default_font_file(), loader->get_default_face_index());
-    static_cast<ListImpl*>(list.get())->set_search_path(font_search_path);
+    FontLoader& loader_2 = *loader;
+    std::unique_ptr<ListImpl> list = std::make_unique<ListImpl>(std::move(loader), width, height);
+    list->add_face(loader_2.get_default_font_file(), loader_2.get_default_face_index());
+    list->set_search_path(font_search_path);
     return list;
 }
 
 
-std::shared_ptr<FontList> new_font_list(std::shared_ptr<FontLoader> loader,
+std::unique_ptr<FontList> new_font_list(std::shared_ptr<FontLoader> loader,
                                         std::string font_search_path,
                                         FontList::FindType find_type, std::string family,
                                         bool bold, bool italic, double width, double height)
 {
-    std::shared_ptr<FontList> list = std::make_shared<ListImpl>(loader, width, height);
-    list->add_face(loader->get_default_font_file(), loader->get_default_face_index());
-    static_cast<ListImpl*>(list.get())->set_search_path(font_search_path);
+    FontLoader& loader_2 = *loader;
+    std::unique_ptr<ListImpl> list = std::make_unique<ListImpl>(std::move(loader), width, height);
+    list->add_face(loader_2.get_default_font_file(), loader_2.get_default_face_index());
+    list->set_search_path(font_search_path);
     if (family.empty())
-        family = list->get_face_info().family;
-    int i = list->find_face(find_type, family, bold, italic, width, height);
+        family = list->get_face_info(-1).family;
+    int i = list->find_face(find_type, family, bold, italic, width, height, nullptr);
     if (i < 0) {
         list.reset();
     }
     else {
-        static_cast<ListImpl*>(list.get())->set_default_index(i);
+        list->set_default_index(i);
     }
     return list;
 }

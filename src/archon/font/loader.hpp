@@ -133,7 +133,7 @@ public:
 /// \param resource_dir The directory holding the font loader resources.
 ///
 /// \note This function is thread-safe.
-std::shared_ptr<FontLoader> new_font_loader(std::string resource_dir);
+std::shared_ptr<FontLoader> new_font_loader(const std::string& resource_dir);
 
 
 

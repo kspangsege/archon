@@ -98,7 +98,7 @@ public:
         return default_index;
     }
 
-    LoaderImpl(FT_Library l, std::string resource_dir):
+    LoaderImpl(FT_Library l, const std::string& resource_dir):
         library{l},
         default_file{resource_dir+"LiberationSerif-Regular.ttf"}
     {
@@ -637,7 +637,7 @@ std::unique_ptr<FontFace> LoaderImpl::load_face(std::string f, int i, double w, 
 namespace archon {
 namespace font {
 
-std::shared_ptr<FontLoader> new_font_loader(std::string resource_dir)
+std::shared_ptr<FontLoader> new_font_loader(const std::string& resource_dir)
 {
     FT_Library library;
     if (FT_Init_FreeType(&library))

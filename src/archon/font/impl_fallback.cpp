@@ -121,7 +121,7 @@ public:
         return 0;
     }
 
-    LoaderImpl(std::string resource_dir):
+    LoaderImpl(const std::string& resource_dir):
         conf_file{resource_dir+"fallback-font.conf"},
         glyph_image_reader{resource_dir+"fallback-font.png"}
     {
@@ -377,7 +377,7 @@ std::unique_ptr<FontFace> LoaderImpl::load_default_face(double, double) const
 namespace archon {
 namespace font {
 
-std::shared_ptr<FontLoader> new_font_loader(std::string resource_dir)
+std::shared_ptr<FontLoader> new_font_loader(const std::string& resource_dir)
 {
     std::shared_ptr<LoaderImpl> l = std::make_shared<LoaderImpl>(resource_dir);
     const_cast<std::weak_ptr<LoaderImpl> &>(l->weak_self) = l;

@@ -40,14 +40,13 @@ namespace font {
 /// Print out a descriptive table with an entry for each font face in the
 /// specified list.
 ///
-/// \paran l The list of font faces to print.
+/// \paran list The list of font faces to print.
 ///
 /// \param out The target stream.
 ///
 /// \param enable_ansi_term_attr Set to false if the target stream is not an
 /// ANSI terminal, or if you do not want the output to be colored.
-void print_font_list(std::shared_ptr<const FontList> l, std::ostream& out,
-                     bool enable_ansi_term_attr = true);
+void print_font_list(const FontList& list, std::ostream& out, bool enable_ansi_term_attr = true);
 
 
 class ListConfig {
@@ -114,7 +113,7 @@ public:
 /// on STDOUT/STDERR and NULL is returned.
 ///
 /// \param resource_dir The directory holding the font loader resources.
-std::unique_ptr<FontFace> load_font(std::string resource_dir, const FontConfig& cfg);
+std::unique_ptr<FontFace> load_font(const std::string& resource_dir, const FontConfig& cfg);
 
 
 /// Make a font list whose default font is selected according to the specified
@@ -124,7 +123,7 @@ std::unique_ptr<FontFace> load_font(std::string resource_dir, const FontConfig& 
 /// displayed on STDOUT/STDERR and NULL is returned.
 ///
 /// \param resource_dir The directory holding the font loader resources.
-std::shared_ptr<FontList> make_font_list(std::string resource_dir, const FontConfig& cfg);
+std::unique_ptr<FontList> new_font_list(const std::string& resource_dir, const FontConfig& cfg);
 
 } // namespace font
 } // namespace archon

@@ -221,7 +221,7 @@ public:
 /// \return The new font face list.
 ///
 /// This function is thread-safe.
-std::shared_ptr<FontList> new_font_list(std::shared_ptr<FontLoader> loader, std::string font_file,
+std::unique_ptr<FontList> new_font_list(std::shared_ptr<FontLoader> loader, std::string font_file,
                                         int face_index, double width, double height);
 
 
@@ -245,7 +245,7 @@ std::shared_ptr<FontList> new_font_list(std::shared_ptr<FontLoader> loader, std:
 /// FontFace::set_approx_size().
 ///
 /// This function is thread-safe.
-std::shared_ptr<FontList> new_font_list(std::shared_ptr<FontLoader> loader,
+std::unique_ptr<FontList> new_font_list(std::shared_ptr<FontLoader> loader,
                                         std::string font_search_path = "",
                                         double width = 12, double height = 12);
 
@@ -261,7 +261,7 @@ std::shared_ptr<FontList> new_font_list(std::shared_ptr<FontLoader> loader,
 /// that most closely matches the specified size.
 ///
 /// This function is thread-safe.
-std::shared_ptr<FontList> new_font_list(std::shared_ptr<FontLoader> loader,
+std::unique_ptr<FontList> new_font_list(std::shared_ptr<FontLoader> loader,
                                         std::string font_search_path, FontList::FindType find_type,
                                         std::string family, bool bold, bool italic,
                                         double width, double height);
