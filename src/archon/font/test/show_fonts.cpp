@@ -58,8 +58,8 @@ int main(int argc, const char* argv[])
     std::unique_ptr<FontCache> font_cache = new_font_cache(*font_list);
     TextRenderer renderer{*font_cache};
 
-    int n = font_list->get_num_families();
-    for (int i = 0; i < n; ++i) {
+    int num_families = font_list->get_num_families();
+    for (int i = 0; i < num_families; ++i) {
         std::wostringstream o;
         o << i+1 << ": ";
         renderer.write(o.str());

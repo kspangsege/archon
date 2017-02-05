@@ -113,7 +113,7 @@ public:
 /// on STDOUT/STDERR and NULL is returned.
 ///
 /// \param resource_dir The directory holding the font loader resources.
-std::unique_ptr<FontFace> load_font(const std::string& resource_dir, const FontConfig& cfg);
+std::unique_ptr<FontFace> load_font(const std::string& resource_dir, const FontConfig& cfg = {});
 
 
 /// Make a font list whose default font is selected according to the specified
@@ -123,7 +123,7 @@ std::unique_ptr<FontFace> load_font(const std::string& resource_dir, const FontC
 /// displayed on STDOUT/STDERR and NULL is returned.
 ///
 /// \param resource_dir The directory holding the font loader resources.
-std::unique_ptr<FontList> new_font_list(const std::string& resource_dir, const FontConfig& cfg);
+std::unique_ptr<FontList> new_font_list(const std::string& resource_dir, const FontConfig& cfg = {});
 
 } // namespace font
 } // namespace archon

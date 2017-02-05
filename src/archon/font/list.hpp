@@ -140,8 +140,8 @@ public:
 
     /// Get the number of font faces in this list.
     ///
-    /// Because the first font face in any list, is the default font face of the
-    /// associated loader, this number will always be at least 1.
+    /// Every font list contains at least a default face (get_default_face()), so
+    /// this number will always be at least 1.
     ///
     /// \return The number of font faces.
     virtual int get_num_faces() const = 0;

@@ -40,6 +40,7 @@
 
 using namespace archon::core;
 using namespace archon::math;
+using namespace archon::util;
 using namespace archon::font;
 using namespace archon::display;
 using namespace archon::render;
@@ -47,8 +48,6 @@ using namespace archon::render;
 
 
 /*
-
-Fix font/impl_fallback.cpp.
 
 Page height must go to maximum when page wrapping occurs, but not when done manually.
 
@@ -65,18 +64,14 @@ namespace {
 
 struct TextFormatterApp: Application {
     struct Config: Application::Config, LayoutConfig {
-        int page_num;
-        Vec2 page_size;
-        Vec2 font_size;
-        bool mipmap;
-        bool save_textures;
-        Vec4F text_color;
-        Vec2 glyph_resol;
-        bool add_mixed;
-
-        Config():
-            page_num(1), page_size(2), font_size(0.1), mipmap(true),
-            save_textures(false), text_color(1), glyph_resol(64), add_mixed(0) {}
+        int page_num = 1;
+        Vec2 page_size = Vec2{2};
+        Vec2 font_size = Vec2{0.1};
+        bool mipmap = true;
+        bool save_textures = false;
+        PackedTRGB text_color = color::white;
+        Vec2 glyph_resol = Vec2{64};
+        bool add_mixed = false;
 
         void populate(ConfigBuilder &cfg)
         {
@@ -123,7 +118,7 @@ struct TextFormatterApp: Application {
         };
 
         bind_key(KeySym_Page_Down, std::move(next_page), "Go to next page.");
-        bind_key(KeySym_Page_Up, std::move(prev_page), "Go to previous page.");
+        bind_key(KeySym_Page_Up,   std::move(prev_page), "Go to previous page.");
 
         m_text_formatter.set_page_width(Interval(0, cfg.page_size[0]));
         m_text_formatter.set_page_height(Interval(0, cfg.page_size[1]));
@@ -240,8 +235,9 @@ int main(int argc, const char* argv[])
     if (!font_list)
         return EXIT_FAILURE;
 
-    std::wstring text = 1 < argc ? env_decode<wchar_t>(argv[1]) :
-        L"The quick brown fox jumps over the lazy dog";
+    std::wstring text = (1 < argc ? env_decode<wchar_t>(argv[1]) :
+                         L"The quick brown fox jumps over the lazy dog");
 
-    TextFormatterApp(app_cfg, *font_list, text).run();
+    TextFormatterApp app{app_cfg, *font_list, text};
+    app.run();
 }

@@ -45,8 +45,10 @@ void print_font_list(const FontList& font_list, std::ostream& out, bool enable_a
     table.get_cell(0,3).set_text("Italic");
     table.get_cell(0,4).set_text("Monospace");
     table.get_cell(0,5).set_text("Scalable");
-    int n = font_list.get_num_faces();
-    for (int i = 0; i < n; ++i) {
+    table.get_cell(0,6).set_text("Default");
+    int num_faces = font_list.get_num_faces();
+    int default_face = font_list.get_default_face();
+    for (int i = 0; i < num_faces; ++i) {
         const FontLoader::FaceInfo& face_info = font_list.get_face_info(i);
         table.get_cell(i+1, 0).set_val(i);
         table.get_cell(i+1, 1).set_val(face_info.family);
@@ -58,6 +60,8 @@ void print_font_list(const FontList& font_list, std::ostream& out, bool enable_a
             table.get_cell(i+1, 4).set_text("M");
         if (face_info.scalable)
             table.get_cell(i+1, 5).set_text("S");
+        if (i == default_face)
+            table.get_cell(i+1, 6).set_text("D");
     }
     out << table.print();
 }

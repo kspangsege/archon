@@ -1357,7 +1357,6 @@ void Application::render_hud()
         if (m_status_hud_dirty) {
             TextFormatter& text_formatter = m_private_state->get_text_formatter();
             text_formatter.set_font_size(28);
-            text_formatter.set_font_weight(1);
             text_formatter.set_text_color(Vec4F(0.1, 0, 0.376, 1));
             text_formatter.write(m_status_hud_text);
             text_formatter.format(m_private_state->status_hud_text_layout);
