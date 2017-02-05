@@ -41,8 +41,6 @@ namespace {
 
 class CacheImpl: public FontCache {
 public:
-    std::weak_ptr<FontCache> weak_self;
-
     CacheImpl(std::shared_ptr<FontList> list):
         m_list{std::move(list)},
         m_default_face_index{m_list->get_default_face()}
@@ -381,11 +379,9 @@ public:
 namespace archon {
 namespace font {
 
-std::shared_ptr<FontCache> new_font_cache(std::shared_ptr<FontList> list)
+std::unique_ptr<FontCache> new_font_cache(std::shared_ptr<FontList> list)
 {
-    auto cache = std::make_shared<CacheImpl>(std::move(list)); // Throws
-    cache->weak_self = cache;
-    return cache;
+    return std::make_unique<CacheImpl>(std::move(list)); // Throws
 }
 
 } // namespace font

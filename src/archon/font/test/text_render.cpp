@@ -94,7 +94,8 @@ int main(int argc, const char* argv[])
 
     std::wstring text = (1 < argc ? env_decode<wchar_t>(argv[1]) :
                          L"The quick brown fox jumps over the lazy dog");
-    TextRenderer renderer{new_font_cache(list)};
+    std::unique_ptr<FontCache> font_cache = new_font_cache(std::move(list));
+    TextRenderer renderer{*font_cache};
     renderer.set_page_width(Interval(0, opt_size[0]));
     renderer.set_page_height(Interval(0, opt_size[1]));
     renderer.set_text_color(opt_color);

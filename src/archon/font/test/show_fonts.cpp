@@ -54,7 +54,8 @@ int main(int argc, const char* argv[])
     std::wstring text = (1 < argc ? env_decode<wchar_t>(argv[1]) :
                          L"0123456789 ABCDEFGHIJKLMNOPQRSTUVWXYZ abcdefghijklmnopqrstuvwxyz");
 
-    TextRenderer renderer{new_font_cache(list)};
+    std::unique_ptr<FontCache> font_cache = new_font_cache(std::move(list));
+    TextRenderer renderer{*font_cache};
 
     int n = list->get_num_families();
     for (int i = 0; i < n; ++i) {

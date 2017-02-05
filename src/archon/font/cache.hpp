@@ -25,6 +25,7 @@
 #ifndef ARCHON_FONT_CACHE_HPP
 #define ARCHON_FONT_CACHE_HPP
 
+#include <memory>
 #include <string>
 
 #include <archon/math/interval.hpp>
@@ -37,8 +38,7 @@ namespace font {
 
 class FontCache;
 
-/// FIXME: Return std::unique_ptr<> and require that application ensures that FontCache object outlives all associated FontCache::Font objects.
-std::shared_ptr<FontCache> new_font_cache(std::shared_ptr<FontList>);
+std::unique_ptr<FontCache> new_font_cache(std::shared_ptr<FontList>);
 
 
 
@@ -102,31 +102,31 @@ public:
 
     /// RAII scheme (Resource acquisition is initialization) for font IDs.
     struct FontOwner {
-        FontOwner(std::shared_ptr<FontCache> c, int font_id = -1) noexcept:
-            cache{std::move(c)},
-            font{font_id}
+        FontOwner(FontCache& font_cache, int font_id = -1) noexcept:
+            m_font_cache{font_cache},
+            m_font_id{font_id}
         {
         }
         int get() const noexcept
         {
-            return font;
+            return m_font_id;
         }
         int release() noexcept
         {
-            int f = font;
-            font = -1;
+            int f = m_font_id;
+            m_font_id = -1;
             return f;
         }
         void reset(int font_id = -1);
         ~FontOwner()
         {
-            if (0 <= font)
-                cache->release_font(font);
+            if (0 <= m_font_id)
+                m_font_cache.release_font(m_font_id);
         }
     private:
         FontOwner(const FontOwner&);
-        const std::shared_ptr<FontCache> cache;
-        int font;
+        FontCache& m_font_cache;
+        int m_font_id;
     };
 
     struct FontInfo {
@@ -240,10 +240,10 @@ inline bool FontCache::FontDesc::operator==(const FontDesc& d) const throw()
 
 inline void FontCache::FontOwner::reset(int font_id)
 {
-    int f = font;
-    font = font_id;
+    int f = m_font_id;
+    m_font_id = font_id;
     if (0 <= f)
-        cache->release_font(f);
+        m_font_cache.release_font(f);
 }
 
 inline void FontCache::render_text(int font_id, bool grid_fitting, Direction dir,

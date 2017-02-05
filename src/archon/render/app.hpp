@@ -426,7 +426,7 @@ protected:
                 const std::locale& loc = std::locale::classic(),
                 display::Connection::Arg conn = display::Connection::Ptr(),
                 TextureCache* texture_cache = nullptr,
-                std::shared_ptr<font::FontCache> font_cache = nullptr);
+                std::unique_ptr<font::FontCache> font_cache = nullptr);
 
 private:
     int adjust(int val, int min, double f)

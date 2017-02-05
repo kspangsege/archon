@@ -102,11 +102,11 @@ namespace render {
 
 class FontProvider::TextureFontSource: public TextureSource {
 public:
-    TextureFontSource(FontCache* c, Texture* t, std::string n, bool s):
-        m_font_cache{c},
-        m_texture{t},
-        m_name{n},
-        m_save{s}
+    TextureFontSource(FontCache& font_cache, Texture* texture, std::string name, bool save):
+        m_font_cache{font_cache},
+        m_texture{texture},
+        m_name{name},
+        m_save{save}
     {
     }
 
@@ -143,9 +143,9 @@ public:
                 *c++ = h.img_x;
                 *c++ = h.img_y;
             }
-            m_font_cache->render_glyphs(font->id, font->grid_fitting,
-                                        FontCache::bearing_None, FontCache::coord_Cloud,
-                                        n, glyphs, components, writer);
+            m_font_cache.render_glyphs(font->id, font->grid_fitting,
+                                       FontCache::bearing_None, FontCache::coord_Cloud,
+                                       n, glyphs, components, writer);
             begin = end;
         }
 
@@ -158,7 +158,7 @@ public:
     }
 
 private:
-    FontCache* const m_font_cache;
+    FontCache& m_font_cache;
     const FontProvider::Texture* const m_texture;
     const std::string m_name;
     bool m_save;
@@ -166,13 +166,14 @@ private:
 
 
 
-FontProvider::FontProvider(std::shared_ptr<font::FontCache> f, TextureCache& t,
-                           const math::Vec2F& r, bool m, bool s):
-    m_font_cache{std::move(f)},
-    m_texture_cache{t},
-    m_desired_glyph_resol{r},
-    m_enable_mipmap{m},
-    m_save_textures{s}
+FontProvider::FontProvider(FontCache& font_cache, TextureCache& texture_cache,
+                           const math::Vec2F& desired_glyp_resol, bool enable_mipmap,
+                           bool save_textures):
+    m_font_cache{font_cache},
+    m_texture_cache{texture_cache},
+    m_desired_glyph_resol{desired_glyp_resol},
+    m_enable_mipmap{enable_mipmap},
+    m_save_textures{save_textures}
 {
 }
 
@@ -189,7 +190,7 @@ FontProvider::~FontProvider()
 int FontProvider::acquire_default_style()
 {
     Vec2F size = m_desired_glyph_resol;
-    FontCache::FontOwner font{m_font_cache, m_font_cache->acquire_default_font(size[0], size[1])};
+    FontCache::FontOwner font{m_font_cache, m_font_cache.acquire_default_font(size[0], size[1])};
     return acquire_style(font, Vec2F(1), Vec4F(1));
 }
 
@@ -201,7 +202,7 @@ int FontProvider::acquire_style(const StyleDesc& desc)
     font_desc.boldness  = desc.font_boldness;
     font_desc.italicity = desc.font_italicity;
     font_desc.size      = m_desired_glyph_resol;
-    FontCache::FontOwner font{m_font_cache, m_font_cache->acquire_font(font_desc)};
+    FontCache::FontOwner font{m_font_cache, m_font_cache.acquire_font(font_desc)};
     return acquire_style(font, desc.font_size, desc.text_color);
 }
 
@@ -225,7 +226,7 @@ int FontProvider::acquire_style(FontCache::FontOwner& font, const Vec2F& font_si
         i = m_unused_styles.back();
         s = &m_styles[i-1];
         s->style = style;
-        Vec2 font_resol = m_font_cache->get_font_size(font.get());
+        Vec2 font_resol = m_font_cache.get_font_size(font.get());
         s->font_scaling.set(font_size[0] / font_resol[0],
                             font_size[1] / font_resol[1]);
         font.release();
@@ -240,7 +241,7 @@ void FontProvider::get_style_desc(int style_id, StyleDesc& desc)
 {
     const Style& style = m_styles[style_id-1].style;
     FontCache::FontDesc font_desc;
-    m_font_cache->get_font_desc(style.font_id, font_desc);
+    m_font_cache.get_font_desc(style.font_id, font_desc);
     desc.font_family    = font_desc.family;
     desc.font_boldness  = font_desc.boldness;
     desc.font_italicity = font_desc.italicity;
@@ -255,7 +256,7 @@ void FontProvider::get_style_metrics(int style_id, bool vertical,
 {
     const StyleEntry& style = m_styles[style_id-1];
     bool grid_fitting = false;
-    m_font_cache->get_font_metrics(style.style.font_id, vertical, grid_fitting, metrics);
+    m_font_cache.get_font_metrics(style.style.font_id, vertical, grid_fitting, metrics);
     metrics.lateral_span *= style.font_scaling[vertical?0:1];
 }
 
@@ -266,8 +267,8 @@ void FontProvider::get_glyph_info(int style_id, bool vertical, FontCache::KernTy
 {
     const StyleEntry& style = m_styles[style_id-1];
     bool grid_fitting = false;
-    m_font_cache->get_glyph_info(style.style.font_id, vertical, grid_fitting, kern,
-                                 num_chars, chars, glyphs);
+    m_font_cache.get_glyph_info(style.style.font_id, vertical, grid_fitting, kern,
+                                num_chars, chars, glyphs);
 
     double scaling = style.font_scaling[vertical?1:0];
     for (int i = 0; i < num_chars; ++i) {
@@ -407,7 +408,7 @@ void FontProvider::provide(int style_id, int num_glyphs, const int* glyphs,
 FontProvider::FontEntry* FontProvider::new_font(int font_id)
 {
     FontCache::FontInfo info;
-    m_font_cache->get_font_info(font_id, info);
+    m_font_cache.get_font_info(font_id, info);
     std::unique_ptr<FontEntry> font = std::make_unique<FontEntry>(font_id, info.name); // Throws
     font->pages.resize((info.num_glyphs + (g_glyphs_per_page-1)) >> g_num_page_bits);
     font->grid_fitting = false;
@@ -439,7 +440,7 @@ FontProvider::Page* FontProvider::new_page(FontEntry* font, int page_idx)
     generate(glyphs.get(), glyphs.get()+num_glyphs, make_inc_generator(begin));
     std::unique_ptr<FontCache::GlyphBoxInfo[]> info =
         std::make_unique<FontCache::GlyphBoxInfo[]>(num_glyphs); // Throws
-    m_font_cache->get_glyph_box_info(font->id, false, num_glyphs, glyphs.get(), info.get());
+    m_font_cache.get_glyph_box_info(font->id, false, num_glyphs, glyphs.get(), info.get());
 
     // Sort according to glyph height
     std::vector<int> glyph_order(num_glyphs);
@@ -534,8 +535,7 @@ void FontProvider::new_texture(FontEntry* font, int page_idx, int tex_ord,
     out.imbue(std::locale::classic());
     out << font->name << " " << page_idx << ":" << tex_ord;
     std::unique_ptr<TextureSource> src =
-        std::make_unique<TextureFontSource>(m_font_cache.get(), t.get(), out.str(),
-                                            m_save_textures);
+        std::make_unique<TextureFontSource>(m_font_cache, t.get(), out.str(), m_save_textures);
     using FilterMode = TextureCache::FilterMode;
     FilterMode filter_mode = (m_enable_mipmap ? FilterMode::mipmap : FilterMode::interp);
     bool wait_for_refresh = true;

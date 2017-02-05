@@ -135,7 +135,7 @@ public:
     void open_dialog(const std::shared_ptr<DialogImpl>&);
     void close_dialog(const std::shared_ptr<DialogImpl>&);
 
-    bool has_open_dialogs() const { return !open_dialogs.empty(); }
+    bool has_open_dialogs() const { return !m_open_dialogs.empty(); }
 
     void render_hud(int viewport_width, int viewport_height);
 
@@ -145,7 +145,7 @@ public:
     /// bound.
     void recycle_display_list(GLuint disp_list)
     {
-        available_display_lists.push_back(disp_list);
+        m_available_display_lists.push_back(disp_list);
     }
 
     TextureCache& get_texture_cache()
@@ -177,8 +177,9 @@ public:
             ensure_font_cache();
             ensure_texture_cache();
             m_font_provider =
-                std::make_unique<FontProvider>(font_cache, *m_texture_cache, glyph_resolution,
-                                               glyph_mipmapping, save_glyph_textures); // Throws
+                std::make_unique<FontProvider>(*m_font_cache, *m_texture_cache,
+                                               m_glyph_resolution, m_glyph_mipmapping,
+                                               m_save_glyph_textures); // Throws
         }
         return *m_font_provider;
     }
@@ -192,37 +193,35 @@ public:
 
     TextureDecl get_dashed_texture_decl()
     {
-        if (!dashed_texture_decl) {
+        if (!m_dashed_texture_decl) {
             unsigned char buffer[4] = {
                 std::numeric_limits<unsigned char>::max(),
                 std::numeric_limits<unsigned char>::max(),
                 0, 0
             };
             Image::Ref img = Image::copy_image_from(buffer, 2, 1, ColorSpace::get_Lum(), true);
-            dashed_texture_decl = declare_texture(img, "Dashed pattern", true,
-                                                  TextureCache::FilterMode::nearest);
+            m_dashed_texture_decl = declare_texture(img, "Dashed pattern", true,
+                                                    TextureCache::FilterMode::nearest);
         }
-        return dashed_texture_decl;
+        return m_dashed_texture_decl;
     }
 
     TextureDecl get_dotted_texture_decl()
     {
-        if (!dotted_texture_decl) {
-            Image::Ref img = Image::load(resource_dir + "render/dotted.png");
-            dotted_texture_decl = declare_texture(img, "Dotted pattern", true,
-                                                  TextureCache::FilterMode::mipmap);
+        if (!m_dotted_texture_decl) {
+            Image::Ref img = Image::load(m_resource_dir + "render/dotted.png");
+            m_dotted_texture_decl = declare_texture(img, "Dotted pattern", true,
+                                                    TextureCache::FilterMode::mipmap);
         }
-        return dotted_texture_decl;
+        return m_dotted_texture_decl;
     }
 
     // Called with bound OpenGL context
     void update()
     {
-        typedef std::vector<GLuint>::iterator iter;
-        iter end = available_display_lists.end();
-        for (iter i = available_display_lists.begin(); i != end; ++i) {
+        for (GLuint list: m_available_display_lists) {
 std::cout << "*";
-            glDeleteLists(*i, 1);
+            glDeleteLists(list, 1);
         }
 
         if (m_texture_cache)
@@ -233,21 +232,21 @@ std::cout << "*";
 
     dom_impl::HTMLImplementation* get_dom_impl()
     {
-        if (!dom_impl)
-            dom_impl.reset(new dom_impl::HTMLImplementation);
-        return dom_impl.get();
+        if (!m_dom_impl)
+            m_dom_impl.reset(new dom_impl::HTMLImplementation);
+        return m_dom_impl.get();
     }
 
-    PrivateApplicationState(const Application::Config& cfg, const std::locale& l,
-                            TextureCache* texture_cache, std::shared_ptr<FontCache> font):
-        resource_dir{cfg.archon_datadir},
-        loc{l},
-        utf16_string_codec{loc},
+    PrivateApplicationState(const Application::Config& cfg, const std::locale& locale,
+                            TextureCache* texture_cache, std::unique_ptr<FontCache> font_cache):
+        m_resource_dir{cfg.archon_datadir},
+        m_locale{locale},
+        m_utf16_string_codec{m_locale},
         m_texture_cache{texture_cache},
-        font_cache{std::move(font)},
-        glyph_resolution{cfg.glyph_resol},
-        glyph_mipmapping{cfg.glyph_mipmap},
-        save_glyph_textures{cfg.glyph_save}
+        m_font_cache{std::move(font_cache)},
+        m_glyph_resolution{cfg.glyph_resol},
+        m_glyph_mipmapping{cfg.glyph_mipmap},
+        m_save_glyph_textures{cfg.glyph_save}
     {
     }
 
@@ -258,29 +257,44 @@ std::cout << "*";
 
     const std::weak_ptr<PrivateApplicationState>& get_weak_self()
     {
-        return weak_self;
+        return m_weak_self;
     }
 
 protected:
-    std::weak_ptr<PrivateApplicationState> weak_self;
+    std::weak_ptr<PrivateApplicationState> m_weak_self;
 
 private:
-    typedef std::list<std::shared_ptr<DialogImpl>> OpenDialogs;
-    OpenDialogs open_dialogs;
+    std::list<std::shared_ptr<DialogImpl>> m_open_dialogs;
 
-    std::vector<GLuint> available_display_lists;
+    std::vector<GLuint> m_available_display_lists;
+
+    const std::string m_resource_dir;
+    const std::locale m_locale;
+    const CharEnc<CharUtf16> m_utf16_string_codec;
+
+    TextureCache* m_texture_cache = nullptr;
+    std::unique_ptr<FontCache> m_font_cache;
+    const Vec2F m_glyph_resolution;
+    const bool m_glyph_mipmapping, m_save_glyph_textures;
+    std::unique_ptr<FontProvider> m_font_provider;
+    std::unique_ptr<TextFormatter> m_text_formatter;
+    TextureDecl m_dashed_texture_decl, m_dotted_texture_decl;
+
+    dom::ref<dom_impl::HTMLImplementation> m_dom_impl;
+
+    std::unique_ptr<TextureCache> m_texture_cache_owner;
 
     StringUtf16 u16(const std::string& s) const
     {
         StringUtf16 t;
-        utf16_string_codec.encode_narrow(s,t);
+        m_utf16_string_codec.encode_narrow(s,t);
         return t;
     }
 
     StringUtf16 u16(const std::wstring& s) const
     {
         StringUtf16 t;
-        if (!utf16_string_codec.encode(s,t))
+        if (!m_utf16_string_codec.encode(s,t))
             throw std::runtime_error("UTF-16 encode");
         return t;
     }
@@ -288,17 +302,17 @@ private:
     std::string narrow_from_u16(const StringUtf16& s) const
     {
         std::string t;
-        if (!utf16_string_codec.decode_narrow(s,t))
+        if (!m_utf16_string_codec.decode_narrow(s,t))
             throw std::runtime_error("UTF-16 decode");
         return t;
     }
 
     void ensure_font_cache()
     {
-        if (!font_cache) {
-            std::shared_ptr<FontLoader> loader = new_font_loader(resource_dir + "font/");
+        if (!m_font_cache) {
+            std::shared_ptr<FontLoader> loader = new_font_loader(m_resource_dir + "font/");
             std::shared_ptr<FontList> list = new_font_list(std::move(loader));
-            font_cache = new_font_cache(std::move(list));
+            m_font_cache = new_font_cache(std::move(list));
         }
     }
 
@@ -309,22 +323,6 @@ private:
             m_texture_cache = m_texture_cache_owner.get();
         }
     }
-
-    const std::string resource_dir;
-    const std::locale loc;
-    const CharEnc<CharUtf16> utf16_string_codec;
-
-    TextureCache* m_texture_cache = nullptr;
-    std::shared_ptr<FontCache> font_cache;
-    const Vec2F glyph_resolution;
-    const bool glyph_mipmapping, save_glyph_textures;
-    std::unique_ptr<FontProvider> m_font_provider;
-    std::unique_ptr<TextFormatter> m_text_formatter;
-    TextureDecl dashed_texture_decl, dotted_texture_decl;
-
-    dom::ref<dom_impl::HTMLImplementation> dom_impl;
-
-    std::unique_ptr<TextureCache> m_texture_cache_owner;
 };
 
 
@@ -332,76 +330,76 @@ private:
 class DialogImpl: public Dialog {
 public:
     DialogImpl(PrivateApplicationState* s):
-        state{s->get_weak_self()}
+        m_state{s->get_weak_self()}
     {
     }
 
     ~DialogImpl()
     {
-        if (disp_list) {
-            if (std::shared_ptr<PrivateApplicationState> s = state.lock())
-                s->recycle_display_list(disp_list);
+        if (m_disp_list) {
+            if (std::shared_ptr<PrivateApplicationState> s = m_state.lock())
+                s->recycle_display_list(m_disp_list);
         }
     }
 
 protected:
-    void mark_dirty() { dirty = true; }
+    void mark_dirty()
+    {
+        m_dirty = true;
+    }
 
     virtual void render(TextFormatter&, int viewport_width, int viewport_height) = 0;
 
-    const std::weak_ptr<PrivateApplicationState> state;
+    const std::weak_ptr<PrivateApplicationState> m_state;
 
 private:
     friend class PrivateApplicationState;
 
-    bool is_open = false;
-    bool dirty = true;
+    bool m_is_open = false;
+    bool m_dirty = true;
 
     // Name of the OpenGL display list that renders this HUD dialog,
     // or zero if no list has been created yet.
-    GLuint disp_list = 0;
+    GLuint m_disp_list = 0;
 };
 
 
 
 void PrivateApplicationState::open_dialog(const std::shared_ptr<DialogImpl>& d)
 {
-    if (d->is_open)
+    if (d->m_is_open)
         return;
-    open_dialogs.push_back(d);
-    d->is_open = true;
+    m_open_dialogs.push_back(d);
+    d->m_is_open = true;
 }
 
 void PrivateApplicationState::close_dialog(const std::shared_ptr<DialogImpl>& d)
 {
-    if (!d->is_open)
+    if (!d->m_is_open)
         return;
-    open_dialogs.remove(d);
-    d->is_open = false;
+    m_open_dialogs.remove(d);
+    d->m_is_open = false;
 }
 
 
 void PrivateApplicationState::render_hud(int viewport_width, int viewport_height)
 {
-    typedef OpenDialogs::iterator iter;
-    iter end = open_dialogs.end();
-    for (iter i = open_dialogs.begin(); i != end; ++i) {
-        DialogImpl* dlg = i->get();
-        if (dlg->dirty) {
-            if (!dlg->disp_list) {
-                dlg->disp_list = glGenLists(1);
-                if (!dlg->disp_list)
+    for (const auto& dialog: m_open_dialogs) {
+        if (dialog->m_dirty) {
+            if (!dialog->m_disp_list) {
+                dialog->m_disp_list = glGenLists(1);
+                if (!dialog->m_disp_list)
                     throw std::runtime_error("Failed to create a new OpenGL display list");
             }
 
-            glNewList(dlg->disp_list, GL_COMPILE_AND_EXECUTE);
-            dlg->render(get_text_formatter(), viewport_width, viewport_height);
+            glNewList(dialog->m_disp_list, GL_COMPILE_AND_EXECUTE);
+            dialog->render(get_text_formatter(), viewport_width, viewport_height);
             glEndList();
 
-            dlg->dirty = false;
+            dialog->m_dirty = false;
         }
         else {
-            glCallList(dlg->disp_list);
+            glCallList(dialog->m_disp_list);
         }
     }
 }
@@ -409,10 +407,8 @@ void PrivateApplicationState::render_hud(int viewport_width, int viewport_height
 
 void PrivateApplicationState::on_resize()
 {
-    typedef OpenDialogs::iterator iter;
-    iter end = open_dialogs.end();
-    for (iter i = open_dialogs.begin(); i != end; ++i)
-        i->get()->dirty = true;
+    for (const auto& dialog: m_open_dialogs)
+        dialog->m_dirty = true;
 }
 
 
@@ -427,27 +423,27 @@ class ModalHudDialogImpl: public DialogImpl, public dom_impl::Renderer {
 public:
     void show() override
     {
-        std::shared_ptr<DialogImpl> d(this->weak_self);
-        if (std::shared_ptr<PrivateApplicationState> s = state.lock())
+        std::shared_ptr<DialogImpl> d(m_weak_self);
+        if (std::shared_ptr<PrivateApplicationState> s = m_state.lock())
             s->open_dialog(d);
     }
 
     void hide() override
     {
-        std::shared_ptr<DialogImpl> d(this->weak_self);
-        if (std::shared_ptr<PrivateApplicationState> s = state.lock())
+        std::shared_ptr<DialogImpl> d(m_weak_self);
+        if (std::shared_ptr<PrivateApplicationState> s = m_state.lock())
             s->close_dialog(d);
     }
 
     dom::ref<dom::html::HTMLDocument> get_dom() override
     {
-        return dom_doc;
+        return m_dom_doc;
     }
 
     static std::shared_ptr<ModalHudDialogImpl> create(PrivateApplicationState* s, double dpcm)
     {
         std::shared_ptr<ModalHudDialogImpl> d{new ModalHudDialogImpl{s, dpcm}};
-        d->weak_self = d;
+        d->m_weak_self = d;
         return d;
     }
 
@@ -459,7 +455,7 @@ public:
         glColor4f(rgba[0], rgba[1], rgba[2], rgba[3]);
         int x1 = x;
         int x2 = x1 + width;
-        int y2 = viewport_height - y;
+        int y2 = m_viewport_height - y;
         int y1 = y2 - height;
         glBegin(GL_QUADS);
         glVertex2i(x1, y1);
@@ -473,7 +469,7 @@ public:
     {
         int ox1 = x;
         int ox2 = ox1 + width;
-        int oy2 = viewport_height - y;
+        int oy2 = m_viewport_height - y;
         int oy1 = oy2 - height;
 
         const Border& top    = sides[0];
@@ -493,6 +489,16 @@ public:
     }
 
 private:
+    dom::ref<dom_impl::HTMLDocument> m_dom_doc;
+
+    int m_viewport_height;
+    const TextureDecl m_dashed_texture_decl;
+    TextureUse m_dashed_texture;
+    const TextureDecl m_dotted_texture_decl;
+    TextureUse m_dotted_texture;
+
+    std::weak_ptr<ModalHudDialogImpl> m_weak_self;
+
     dom::ref<dom_impl::HTMLDocument> create_dom(PrivateApplicationState* s, double dpcm,
                                                 PackedTRGB::CssLevel css_level);
 
@@ -528,15 +534,15 @@ private:
 
         double len;
         if (side.style == dom_impl::borderStyle_Dashed) {
-            if (!dashed_texture)
-                dashed_texture = dashed_texture_decl.acquire();
-            dashed_texture.bind();
+            if (!m_dashed_texture)
+                m_dashed_texture = m_dashed_texture_decl.acquire();
+            m_dashed_texture.bind();
             len = 2*3*side.width;
         }
         else {
-            if (!dotted_texture)
-                dotted_texture = dotted_texture_decl.acquire();
-            dotted_texture.bind();
+            if (!m_dotted_texture)
+                m_dotted_texture = m_dotted_texture_decl.acquire();
+            m_dotted_texture.bind();
             len = 2*side.width;
         }
         glEnable(GL_TEXTURE_2D);
@@ -590,21 +596,11 @@ private:
 
     ModalHudDialogImpl(PrivateApplicationState* s, double dpcm):
         DialogImpl{s},
-        dom_doc{create_dom(s, dpcm, PackedTRGB::css3)},
-        dashed_texture_decl{s->get_dashed_texture_decl()},
-        dotted_texture_decl{s->get_dotted_texture_decl()}
+        m_dom_doc{create_dom(s, dpcm, PackedTRGB::css3)},
+        m_dashed_texture_decl{s->get_dashed_texture_decl()},
+        m_dotted_texture_decl{s->get_dotted_texture_decl()}
     {
     }
-
-    dom::ref<dom_impl::HTMLDocument> dom_doc;
-
-    int viewport_height;
-    const TextureDecl dashed_texture_decl;
-    TextureUse dashed_texture;
-    const TextureDecl dotted_texture_decl;
-    TextureUse dotted_texture;
-
-    std::weak_ptr<ModalHudDialogImpl> weak_self;
 };
 
 
@@ -623,8 +619,7 @@ dom::ref<dom_impl::HTMLDocument> ModalHudDialogImpl::create_dom(PrivateApplicati
 
 
 
-void ModalHudDialogImpl::render(TextFormatter& /*formatter*/,
-                                int viewport_width, int viewport_height)
+void ModalHudDialogImpl::render(TextFormatter&, int viewport_width, int viewport_height)
 {
 /*
     Each Element may or may not have an associcated Box.
@@ -643,14 +638,14 @@ void ModalHudDialogImpl::render(TextFormatter& /*formatter*/,
 */
 
     bool shrink_to_fit = true;
-    dom_doc->update_render_tree(viewport_width, viewport_height, shrink_to_fit);
-    int width  = dom_doc->get_root_box_width();
-    int height = dom_doc->get_root_box_height();
+    m_dom_doc->update_render_tree(viewport_width, viewport_height, shrink_to_fit);
+    int width  = m_dom_doc->get_root_box_width();
+    int height = m_dom_doc->get_root_box_height();
     int x = (viewport_width  - width)  / 2;
     int y = (viewport_height - height) / 2;
-    this->viewport_height = viewport_height;
-    dashed_texture = dotted_texture = TextureUse(); // Clear
-    dom_doc->render(this, x, y);
+    m_viewport_height = viewport_height;
+    m_dashed_texture = m_dotted_texture = TextureUse(); // Clear
+    m_dom_doc->render(this, x, y);
 }
 
 
@@ -676,20 +671,20 @@ namespace render {
 
 class Application::PrivateState: public PrivateApplicationState {
 public:
-    static std::shared_ptr<PrivateState> create(const Config& cfg, const std::locale& loc,
+    static std::shared_ptr<PrivateState> create(const Config& cfg, const std::locale& locale,
                                                 TextureCache* texture_cache,
-                                                std::shared_ptr<FontCache> font_cache)
+                                                std::unique_ptr<FontCache> font_cache)
     {
-        std::shared_ptr<PrivateState> s;
-        s.reset(new PrivateState{cfg, loc, texture_cache, std::move(font_cache)}); // Throws
-        s->weak_self = s;
+        std::shared_ptr<PrivateState> s =
+            std::make_shared<PrivateState>(cfg, locale, texture_cache,
+                                           std::move(font_cache)); // Throws
+        s->m_weak_self = s;
         return s;
     }
 
-private:
-    PrivateState(const Config& cfg, const std::locale& loc,
-                 TextureCache* texture_cache, std::shared_ptr<FontCache> font_cache):
-        PrivateApplicationState{cfg, loc, texture_cache, std::move(font_cache)}
+    PrivateState(const Config& cfg, const std::locale& locale,
+                 TextureCache* texture_cache, std::unique_ptr<FontCache> font_cache):
+        PrivateApplicationState{cfg, locale, texture_cache, std::move(font_cache)}
     {
     }
 };
@@ -1019,11 +1014,11 @@ FontProvider& Application::get_font_provider()
 }
 
 
-Application::Application(std::string title, const Config& cfg, const std::locale& loc,
+Application::Application(std::string title, const Config& cfg, const std::locale& locale,
                          Connection::Arg c, TextureCache* texture_cache,
-                         std::shared_ptr<FontCache> font_cache):
+                         std::unique_ptr<FontCache> font_cache):
     m_conn{c},
-    m_private_state{PrivateState::create(cfg, loc, texture_cache, std::move(font_cache))}
+    m_private_state{PrivateState::create(cfg, locale, texture_cache, std::move(font_cache))}
 {
     int key_handler_index =
         register_builtin_key_handler(&Application::key_func_shift_modifier,

@@ -43,8 +43,8 @@ public:
     {
         const Style& s = renderer.m_styles[style_id - 1];
         set_color(s.text_color);
-        renderer.m_cache->render_text(s.font_id, grid_fitting, layout_direction,
-                                      num_glyphs, glyphs, components, img_writer);
+        renderer.m_font_cache.render_text(s.font_id, grid_fitting, layout_direction,
+                                          num_glyphs, glyphs, components, img_writer);
     }
 
     TextProcessor(const TextRenderer& r, const SessionInfo& info, ImageWriter& w):
@@ -214,12 +214,12 @@ void TextRenderer::clear()
 
 
 
-TextRenderer::TextRenderer(std::shared_ptr<FontCache> cache):
-    m_cache{std::move(cache)}
+TextRenderer::TextRenderer(FontCache& font_cache):
+    m_font_cache{font_cache}
 {
     m_used_fonts.reserve(8);
-    FontCache::FontOwner font{m_cache, m_cache->acquire_default_font()};
-    m_cache->get_font_desc(font.get(), m_font_desc);
+    FontCache::FontOwner font{m_font_cache, m_font_cache.acquire_default_font()};
+    m_font_cache.get_font_desc(font.get(), m_font_desc);
     m_used_fonts.push_back(font.get());
     m_default_font = font.release();
 }
@@ -235,7 +235,7 @@ TextRenderer::~TextRenderer() noexcept
 int TextRenderer::acquire_style()
 {
     if (m_font_id < 0) {
-        FontCache::FontOwner f{m_cache, m_cache->acquire_font(m_font_desc)};
+        FontCache::FontOwner f{m_font_cache, m_font_cache.acquire_font(m_font_desc)};
         m_used_fonts.push_back(f.get());
         m_font_id = f.release();
     }
@@ -254,7 +254,7 @@ int TextRenderer::acquire_style()
 void TextRenderer::get_style_info(int style_id, bool vertical, bool grid_fitting,
                                   FontCache::FontMetrics& info)
 {
-    m_cache->get_font_metrics(m_styles[style_id-1].font_id, vertical, grid_fitting, info);
+    m_font_cache.get_font_metrics(m_styles[style_id-1].font_id, vertical, grid_fitting, info);
 }
 
 
@@ -262,8 +262,8 @@ void TextRenderer::get_glyph_info(int style_id, bool vertical, bool grid_fitting
                                   FontCache::KernType kern, int num_chars,
                                   const wchar_t* chars, FontCache::GlyphInfo* glyphs)
 {
-    m_cache->get_glyph_info(m_styles[style_id-1].font_id, vertical, grid_fitting, kern,
-                            num_chars, chars, glyphs);
+    m_font_cache.get_glyph_info(m_styles[style_id-1].font_id, vertical, grid_fitting, kern,
+                                num_chars, chars, glyphs);
 }
 
 
@@ -274,7 +274,7 @@ void TextRenderer::release_used_fonts() noexcept
         int id = m_used_fonts.back();
         m_used_fonts.pop_back();
         if (id != m_font_id)
-            m_cache->release_font(id);
+            m_font_cache.release_font(id);
     }
 }
 

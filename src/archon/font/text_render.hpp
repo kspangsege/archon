@@ -40,7 +40,9 @@ namespace font {
 /// Not thread-safe.
 class TextRenderer: public TextFormatter {
 public:
-    TextRenderer(std::shared_ptr<FontCache>);
+    /// The application must ensure that the specified FontCache object remains
+    /// alive throughout the life of the new TextRenderer object.
+    TextRenderer(FontCache&);
 
     ~TextRenderer();
 
@@ -108,7 +110,7 @@ private:
 
     void release_used_fonts() throw();
 
-    const std::shared_ptr<FontCache> m_cache;
+    FontCache& m_font_cache;
 
     FontCache::FontDesc m_font_desc;
     int m_font_id = -1; // ID of currently used font, or -1 if none are used.
@@ -189,7 +191,7 @@ inline void TextRenderer::set_font_family(std::string family)
 inline void TextRenderer::reset_font()
 {
     FontCache::FontDesc desc;
-    m_cache->get_font_desc(m_default_font, desc);
+    m_font_cache.get_font_desc(m_default_font, desc);
     if (desc == m_font_desc)
         return;
     request_style_update(true);

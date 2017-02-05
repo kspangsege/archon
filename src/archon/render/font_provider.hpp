@@ -32,7 +32,6 @@
 #include <map>
 
 #include <archon/core/types.hpp>
-#include <archon/core/unique_ptr.hpp>
 #include <archon/core/memory.hpp>
 #include <archon/math/vector.hpp>
 #include <archon/util/hash_map.hpp>
@@ -53,7 +52,9 @@ namespace render {
 /// files.
 class FontProvider {
 public:
-    FontProvider(std::shared_ptr<font::FontCache>, TextureCache&,
+    /// The application must ensure that the specified font::FontCache object
+    /// remains alive throughout the life of the new FontProvider object.
+    FontProvider(font::FontCache&, TextureCache&,
                  const math::Vec2F& desired_glyph_resol = math::Vec2F(64,64),
                  bool enable_mipmap = true, bool save_textures_to_disk = false);
 
@@ -119,8 +120,6 @@ public:
     class TextInserter;
 
 private:
-    friend class TextContainer;
-
     class Style {
     public:
         int font_id; // As known to font::FontCache
@@ -152,7 +151,7 @@ private:
     class Page;
     class FontEntry;
 
-    const std::shared_ptr<font::FontCache> m_font_cache;
+    font::FontCache& m_font_cache;
     TextureCache& m_texture_cache;
     const math::Vec2F m_desired_glyph_resol; // Ask cache for this rendering size
     const bool m_enable_mipmap; // Do mipmapping on textures
@@ -184,7 +183,7 @@ private:
 /// An instance of this class remains associated with the font provider that was
 /// last passed to the TextInserter constructor alongside this text
 /// instance. For this reason, the application must ensure that this instance is
-/// destroyed (or cleared) before the font provider is.
+/// destroyed (or cleared) before the font provider is destroyed.
 class FontProvider::TextContainer {
 public:
     /// Render this text using the OpenGL context that is currently bound to the
@@ -436,7 +435,7 @@ inline void FontProvider::release_style_fast(int style_id)
     if (0 < --style.use_count)
         return;
     m_style_map.erase(style.style);
-    m_font_cache->release_font(style.style.font_id);
+    m_font_cache.release_font(style.style.font_id);
     m_unused_styles.push_back(style_id);
 }
 
