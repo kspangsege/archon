@@ -1162,6 +1162,7 @@ void Application::set_viewport_size(int w, int h)
     m_viewport_height = h;
     m_projection_needs_update = true;
     m_need_redraw = true;
+    m_status_hud_dirty = true;
 }
 
 
@@ -1363,8 +1364,10 @@ void Application::render_hud()
             text_formatter.clear();
 
             int margin = 16, padding_h = 4, padding_v = 1;
-            int width  = ceil(m_private_state->status_hud_text_layout.get_width())  + 2*padding_h;
-            int height = ceil(m_private_state->status_hud_text_layout.get_height()) + 2*padding_v;
+            int width  = std::ceil(m_private_state->status_hud_text_layout.get_width()) +
+                2*padding_h;
+            int height = std::ceil(m_private_state->status_hud_text_layout.get_height()) +
+                2*padding_v;
             int x = m_viewport_width - margin - width;
             int y = margin;
 
