@@ -217,15 +217,12 @@ public:
     }
 
     // Called with bound OpenGL context
-    void update()
+    bool update()
     {
-        for (GLuint list: m_available_display_lists) {
-std::cout << "*";
+        for (GLuint list: m_available_display_lists)
             glDeleteLists(list, 1);
-        }
 
-        if (m_texture_cache)
-            m_texture_cache->update();
+        return m_texture_cache && m_texture_cache->update();
     }
 
     TextLayout status_hud_text_layout;
@@ -897,6 +894,9 @@ void Application::run()
 
         if (tick(wakeup_time))
             m_need_redraw = true;
+
+        if (m_private_state->update())
+            m_need_redraw = true;
     }
 
     m_win_pos_set = false;
@@ -923,8 +923,6 @@ void Application::redraw()
 
     render_frame();
     m_win->swap_buffers(); // Implies glFlush
-
-    m_private_state->update();
 
     while (0 < m_max_gl_errors) {
         GLenum error = glGetError();

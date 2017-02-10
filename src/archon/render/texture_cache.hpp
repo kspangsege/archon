@@ -18,11 +18,9 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #ifndef ARCHON_RENDER_TEXTURE_CACHE_HPP
 #define ARCHON_RENDER_TEXTURE_CACHE_HPP
@@ -53,21 +51,19 @@ std::unique_ptr<TextureCache> make_texture_cache();
 
 
 
-/**
- * Notes on sharing texture objects between multiple OpenGL contexts: Texture
- * objects (names) created in one OpenGL context is available in another
- * context, if, and only if the two contexts are configured to share display
- * lists and texture objects. Also, deleting a texture object in either context
- * will delete it from both contexts.
- *
- *
- *
- * \todo FIXME: Currently, GL texture names are never freed.
- *
- * \todo FIXME: Test that a texture can be defined in one OpenGL rendering
- * context and then afterwards used in multiple contexts that are configured to
- * share textures.
- */
+/// Notes on sharing texture objects between multiple OpenGL contexts: Texture
+/// objects (names) created in one OpenGL context is available in another
+/// context, if, and only if the two contexts are configured to share display
+/// lists and texture objects. Also, deleting a texture object in either context
+/// will delete it from both contexts.
+///
+///
+///
+/// \todo FIXME: Currently, GL texture names are never freed.
+///
+/// \todo FIXME: Test that a texture can be defined in one OpenGL rendering
+/// context and then afterwards used in multiple contexts that are configured to
+/// share textures.
 class TextureCache {
 public:
     enum class FilterMode {
@@ -76,30 +72,27 @@ public:
         mipmap,  // magnification = GL_LINEAR,  minification = GL_LINEAR_MIPMAP_LINEAR
     };
 
-
-    /**
-     * Declare a source of texture data. This process simply registers the
-     * source and assigns a handle to it. It does not invoke OpenGL at all. To
-     * allocate an OpenGL texture name for this texture source, you must call
-     * the acquire() method on the returned handle object.
-     *
-     * The calling thread need not be bound to an OpenGL rendering context.
-     *
-     * This method may be called during the building of an OpenGL display list.
-     *
-     * \param wrap_s, wrap_t The texture coordinate wrapping modes in the
-     * primary (horizontal) and secondary (vertical) directions
-     * respectively. Pass \c GL_REPEAT to produce an infinite repetition of the
-     * base texture, or GL_CLAMP to extend the base texture by its edge
-     * colors. See the decumentation of glTexParameter() under \c
-     * GL_TEXTURE_WRAP_S for further details.
-     *
-     * \param wait_for_refresh If true, the retrieval of the image from the
-     * texture source will be postponed until some time after the
-     * TextureDecl::refresh() has been called at least once on the returned
-     * handle. Otherwise the image will be retrieved as soon as somebody
-     * acquires the texture by calling TextureDecl::acquire().
-     */
+    /// Declare a source of texture data. This process simply registers the
+    /// source and assigns a handle to it. It does not invoke OpenGL at all. To
+    /// allocate an OpenGL texture name for this texture source, you must call
+    /// the acquire() method on the returned handle object.
+    ///
+    /// The calling thread need not be bound to an OpenGL rendering context.
+    ///
+    /// This method may be called during the building of an OpenGL display list.
+    ///
+    /// \param wrap_s, wrap_t The texture coordinate wrapping modes in the
+    /// primary (horizontal) and secondary (vertical) directions
+    /// respectively. Pass \c GL_REPEAT to produce an infinite repetition of the
+    /// base texture, or GL_CLAMP to extend the base texture by its edge
+    /// colors. See the decumentation of glTexParameter() under \c
+    /// GL_TEXTURE_WRAP_S for further details.
+    ///
+    /// \param wait_for_refresh If true, the retrieval of the image from the
+    /// texture source will be postponed until some time after the
+    /// TextureDecl::refresh() has been called at least once on the returned
+    /// handle. Otherwise the image will be retrieved as soon as somebody
+    /// acquires the texture by calling TextureDecl::acquire().
     TextureDecl declare(std::unique_ptr<TextureSource>,
                         GLenum wrap_s = GL_REPEAT, GLenum wrap_t = GL_REPEAT,
                         FilterMode = FilterMode::mipmap, bool wait_for_refresh = false,
@@ -111,20 +104,19 @@ public:
                         bool fast_image_retrieval = true);
 
 
-    /**
-     * Carry out any outstanding duties relating to the texture image updating.
-     *
-     * It is intended that this method be called regularly, for example once per
-     * frame in a frame based renderer.
-     *
-     * The calling thread must be bound to an OpenGL rendering context.
-     *
-     * Do not call this method during the building of an OpenGL display list.
-     */
-    void update()
+    /// Carry out any outstanding duties relating to the texture image updating.
+    ///
+    /// It is intended that this method be called regularly, for example once
+    /// per frame in a frame based renderer. It returns true if any of the
+    /// texture objects were affected, which generally means that the scene
+    /// needs to be redrawn.
+    ///
+    /// The calling thread must be bound to an OpenGL rendering context.
+    ///
+    /// Do not call this method during the building of an OpenGL display list.
+    bool update()
     {
-        if (m_dirty)
-            update_2();
+        return m_dirty && update_2();
     }
 
     virtual ~TextureCache()
@@ -135,7 +127,7 @@ protected:
     virtual std::size_t decl(std::unique_ptr<TextureSource>, GLenum h_wrap, GLenum v_wrap,
                              FilterMode f, bool wait, bool fast) = 0;
     virtual void obtain_gl_name(std::size_t i) = 0; // Requires bound OpenGL context. Assumes Texture::has_name is false.
-    virtual void update_2() = 0; // Requires bound OpenGL context.
+    virtual bool update_2() = 0; // Requires bound OpenGL context.
     virtual void refresh_image(std::size_t i) = 0;
 
     friend class TextureDecl;
@@ -189,17 +181,13 @@ protected:
 
 class TextureSource {
 public:
-    /**
-     * Get the name of the source. If the source id a file system path, then
-     * that path is the name. If it is a URL, it is that URL.
-     */
+    /// Get the name of the source. If the source id a file system path, then
+    /// that path is the name. If it is a URL, it is that URL.
     virtual std::string get_name() const = 0;
 
-    /**
-     * Must be thread-safe if the cache instance is used by more than one thread
-     * (also counting the threads that access it indirectly through texture
-     * binders).
-     */
+    /// Must be thread-safe if the cache instance is used by more than one
+    /// thread (also counting the threads that access it indirectly through
+    /// texture binders).
     virtual image::Image::ConstRef get_image() = 0;
 
     virtual ~TextureSource() {}
@@ -244,62 +232,53 @@ private:
 
 
 
-/**
- * A handle to a declared/registered source of texture data. The existance of
- * such a handle does not imply that the texture currently has an allocated
- * OpenGL texture name associated with it, however, through the acquire() method
- * it provides a means of acquiring an OpenGL texture name for this source.
- */
+/// A handle to a declared/registered source of texture data. The existance of
+/// such a handle does not imply that the texture currently has an allocated
+/// OpenGL texture name associated with it, however, through the acquire()
+/// method it provides a means of acquiring an OpenGL texture name for this
+/// source.
 class TextureDecl {
 public:
-    /**
-     * This method ensures that there is a unique OpenGL texture name assocated
-     * with this texture source. A texture name may already have been allocated,
-     * otherwise it is allocated now. The returned handle represents the
-     * availability of the texture name. If this method is called multiple times
-     * for the same texture source, all the returned handles will refer to the
-     * same texture, but not necessarily to the same OpenGL texture name. In any
-     * case, when all the returned handles have been destroyed (including all
-     * the copies of those handles,) the texture cache may free/reuse the
-     * allocated texture names.
-     *
-     * This method may or may not also initiate the image loading process
-     * depending on the arguments passed to TextureCache::declare(), however,
-     * the actual loading will never be done directly by this method. That is
-     * supposed to happens as a consequence of repeatedly calling
-     * TextureCache::update().
-     *
-     * This method must be called by a thread that is bound to an OpenGL
-     * rendering context.
-     *
-     * This method may be called during the building of an OpenGL display list,
-     * since it is guaranteed to never call an OpenGL function that can enter a
-     * display list.
-     */
+    /// This method ensures that there is a unique OpenGL texture name assocated
+    /// with this texture source. A texture name may already have been
+    /// allocated, otherwise it is allocated now. The returned handle represents
+    /// the availability of the texture name. If this method is called multiple
+    /// times for the same texture source, all the returned handles will refer
+    /// to the same texture, but not necessarily to the same OpenGL texture
+    /// name. In any case, when all the returned handles have been destroyed
+    /// (including all the copies of those handles,) the texture cache may
+    /// free/reuse the allocated texture names.
+    ///
+    /// This method may or may not also initiate the image loading process
+    /// depending on the arguments passed to TextureCache::declare(), however,
+    /// the actual loading will never be done directly by this method. That is
+    /// supposed to happens as a consequence of repeatedly calling
+    /// TextureCache::update().
+    ///
+    /// This method must be called by a thread that is bound to an OpenGL
+    /// rendering context.
+    ///
+    /// This method may be called during the building of an OpenGL display list,
+    /// since it is guaranteed to never call an OpenGL function that can enter a
+    /// display list.
     TextureUse acquire() const;
 
-    /**
-     * Discard any previously obtained image obtained from the texture
-     * source. If the texture is already acquired, a new image will be retrieved
-     * immediately, otherwise a new image will be retrieved when the texture is
-     * acquired.
-     */
+    /// Discard any previously obtained image obtained from the texture
+    /// source. If the texture is already acquired, a new image will be
+    /// retrieved immediately, otherwise a new image will be retrieved when the
+    /// texture is acquired.
     void refresh() const;
 
     std::string get_source_name() const;
 
-    /**
-     * Creates a null declaration.
-     */
+    /// Creates a null declaration.
     TextureDecl()
     {
     }
 
-    /**
-     * Test if this is a proper declaration, that is, not a null declaration.
-     *
-     * \return False iff this is a null reference.
-     */
+    /// Test if this is a proper declaration, that is, not a null declaration.
+    ///
+    /// \return False iff this is a null reference.
     explicit operator bool() const throw()
     {
         return bool(ref);
@@ -321,12 +300,10 @@ private:
 
 
 
-/**
- * This is a handle to a texture that has an allocated OpenGL texture name
- * associated with it. The OpenGL texture name can be retrieved using
- * get_gl_name(). When the handle and all its copies are destroyed, the OpenGL
- * texture name is freed, and thus must no longer be considered valid.
- */
+/// This is a handle to a texture that has an allocated OpenGL texture name
+/// associated with it. The OpenGL texture name can be retrieved using
+/// get_gl_name(). When the handle and all its copies are destroyed, the OpenGL
+/// texture name is freed, and thus must no longer be considered valid.
 class TextureUse {
 public:
     // Must be called by a thread that is bound to an OpenGL rendering context.
@@ -343,18 +320,14 @@ public:
         ref.reset();
     }
 
-    /**
-     * Creates a null texture use.
-     */
+    /// Creates a null texture use.
     TextureUse()
     {
     }
 
-    /**
-     * Test if this is a proper texture use, that is, not a null texture nuse.
-     *
-     * \return False iff this is a null reference.
-     */
+    /// Test if this is a proper texture use, that is, not a null texture nuse.
+    ///
+    /// \return False iff this is a null reference.
     explicit operator bool() const throw()
     {
         return ref;
@@ -379,48 +352,46 @@ private:
 
 // Implementation
 
-/**
- * <pre>
- *
- *   has_name   has_image  updated   postpone    State
- *  ------------------------------------------------------------------
- *   no         no         no         no         NeedName   (static)
- *   no         no         no         yes        Postponed  (static)
- *   no         yes        no         no         ImageOnly  (static)
- *   yes        no         no         no         Loading
- *   yes        no         no         yes        Postponed2 (static)
- *   yes        no         yes        no         NoImage    (static)
- *   yes        yes        no         no         Updating
- *   yes        yes        yes        no         Ready      (static)
- *
- *
- *   Event            State transitions
- *  -------------------------------------------------------------------
- *   init             -->  NeedName | Postponed
- *
- *   refresh          Postponed | ImageOnly  -->  NeedName
- *                    Loading                -->  NeedName -->  Loading   (abort loading, start loading)
- *                    Updating                             -->  Loading   (abort updating, start loading)
- *                    Postponed2 | NoImage | Ready         -->  Loading   (start loading)
- *
- *   obtain_name      NeedName   -->  Loading    (start loading)
- *                    Postponed  -->  Postponed2
- *                    ImageOnly  -->  Updating   (start updating)
- *
- *   discard_name     Postponed2  -->  Postponed
- *                    Ready       -->  NeedName | ImageOnly
- *                    Updating    -->  NeedName | ImageOnly  (abort updating)
- *                    NoImage     -->  NeedName
- *                    Loading     -->  NeedName (abort loading)
- *
- *   finish_load      Loading  -->  Updating
- *
- *   finish_update    Updating  -->  Ready | NoImage
- *
- *   (Keep the image if it is considered a slow or heavy operation to optain it)
- *
- * </pre>
- */
+/// <pre>
+///
+///   has_name   has_image  updated   postpone    State
+///  ------------------------------------------------------------------
+///   no         no         no         no         NeedName   (static)
+///   no         no         no         yes        Postponed  (static)
+///   no         yes        no         no         ImageOnly  (static)
+///   yes        no         no         no         Loading
+///   yes        no         no         yes        Postponed2 (static)
+///   yes        no         yes        no         NoImage    (static)
+///   yes        yes        no         no         Updating
+///   yes        yes        yes        no         Ready      (static)
+///
+///
+///   Event            State transitions
+///  -------------------------------------------------------------------
+///   init             -->  NeedName | Postponed
+///
+///   refresh          Postponed | ImageOnly  -->  NeedName
+///                    Loading                -->  NeedName -->  Loading   (abort loading, start loading)
+///                    Updating                             -->  Loading   (abort updating, start loading)
+///                    Postponed2 | NoImage | Ready         -->  Loading   (start loading)
+///
+///   obtain_name      NeedName   -->  Loading    (start loading)
+///                    Postponed  -->  Postponed2
+///                    ImageOnly  -->  Updating   (start updating)
+///
+///   discard_name     Postponed2  -->  Postponed
+///                    Ready       -->  NeedName | ImageOnly
+///                    Updating    -->  NeedName | ImageOnly  (abort updating)
+///                    NoImage     -->  NeedName
+///                    Loading     -->  NeedName (abort loading)
+///
+///   finish_load      Loading  -->  Updating
+///
+///   finish_update    Updating  -->  Ready | NoImage
+///
+///   (Keep the image if it is considered a slow or heavy operation to optain it)
+///
+/// </pre>
 class TextureCache::Texture {
 public:
     void open(std::unique_ptr<TextureSource> s, GLenum wrap_s, GLenum wrap_t,

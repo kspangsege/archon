@@ -18,11 +18,9 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #include <archon/core/mutex.hpp>
 #include <archon/render/load_texture.hpp>
@@ -73,7 +71,7 @@ public:
     }
 
 
-    void update_2()
+    bool update_2()
     {
         while (!m_load_queue.empty()) {
             std::size_t i = m_load_queue.back();
@@ -87,6 +85,7 @@ public:
             t->pending_update = true;
             t->show_state();
         }
+        bool change = false;
         while (!m_update_queue.empty()) {
             std::size_t i = m_update_queue.back();
             m_update_queue.pop_back();
@@ -108,6 +107,7 @@ public:
                     load_texture(t->image, with_border, no_interp);
                 }
                 glBindTexture(GL_TEXTURE_2D, prev);
+                change = true;
             }
             t->pending_update = false;
             t->updated = true;
@@ -116,6 +116,7 @@ public:
             t->show_state();
         }
         m_dirty = false;
+        return change;
     }
 
 
@@ -161,7 +162,7 @@ std::unique_ptr<TextureCache> make_texture_cache()
 void TextureCache::Texture::show_state()
 {
 /*
-    string s;
+    std::string s;
     switch ((has_name ? 8 : 0) + (image ? 4 : 0) + (updated ? 2 : 0) + (postpone ? 1 : 0)) {
         case 0:
             s = "NeedName";
@@ -191,7 +192,7 @@ void TextureCache::Texture::show_state()
             s = "(invalid)";
             break;
     }
-    cerr << "State: '"<<source->get_name()<<"': "<<s << endl;
+    std::cerr << "State: '"<<source->get_name()<<"': "<<s<<"\n";
 */
 }
 
