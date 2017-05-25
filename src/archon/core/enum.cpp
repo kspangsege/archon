@@ -18,47 +18,43 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #include <utility>
 
+#include <archon/core/string.hpp>
 #include <archon/core/enum.hpp>
 #include <archon/core/char_enc.hpp>
 #include <archon/core/text.hpp>
-
-
-using namespace std;
 
 
 namespace archon {
 namespace core {
 namespace _impl {
 
-EnumMapper::EnumMapper(EnumAssoc const *m, bool ignore_case)
+EnumMapper::EnumMapper(const EnumAssoc* m, bool ignore_case)
 {
-    if(!m) return;
-    while(m->name)
-    {
-        string const name = m->name;
-        if(!val2name.insert(pair<int, string>(m->value, name)).second)
-            throw runtime_error("Multiple names for value "+Text::print(m->value));
-        if(!name2val.insert(pair<string, int>(ignore_case ? ascii_tolower(name) : name,
-                                              m->value)).second)
-            throw runtime_error("Multiple values for name '"+name+"'");
+    if (!m)
+        return;
+    while (m->name) {
+        std::string name = m->name;
+        if (!val2name.insert(std::pair<int, std::string>(m->value, name)).second)
+            throw std::runtime_error("Multiple names for value "+format_value(m->value));
+        if (!name2val.insert(std::pair<std::string, int>(ignore_case ? ascii_tolower(name) : name,
+                                                         m->value)).second)
+            throw std::runtime_error("Multiple values for name '"+name+"'");
         ++m;
     }
 }
 
 
-bool EnumMapper::parse(string s, int &val, bool ignore_case) const
+bool EnumMapper::parse(std::string s, int &val, bool ignore_case) const
 {
-    std::map<std::string, int>::const_iterator const i =
-        name2val.find(ignore_case ? ascii_tolower(s) : s);
-    if(i == name2val.end()) return false;
+    auto i = name2val.find(ignore_case ? ascii_tolower(s) : s); // Throws
+    if (i == name2val.end())
+        return false;
     val = i->second;
     return true;
 }

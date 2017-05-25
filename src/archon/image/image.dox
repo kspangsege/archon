@@ -1,4 +1,4 @@
-/** \namespace Archon::Imaging
+/** \namespace archon::image
 
 Holds an image (pixel array) abstraction layer with a high-level API
 for writing and extracting pixels. It has the ability to load from,

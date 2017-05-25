@@ -18,11 +18,9 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #ifndef ARCHON_PARSER_FSA_PRINT_HPP
 #define ARCHON_PARSER_FSA_PRINT_HPP
@@ -38,138 +36,147 @@
 
 #include <archon/parser/fsa.hpp>
 
-namespace archon
-{
-  namespace parser
-  {
-    template<typename Ch, typename Tok = short unsigned, typename Tr = FsaTraits<Ch, Tok> >
-    struct BasicFsaPrinter
-    {
-      typedef BasicFsa<Ch, Tok, Tr>        FsaType;
-      typedef typename FsaType::CharType   CharType;
-      typedef typename FsaType::StringType StringType;
-      typedef typename FsaType::TokenId    TokenId;
+namespace archon {
+namespace parser {
 
-      typedef core::Text::PrinterBase<CharType, CharType> SymbolPrinter;
+template<typename Ch, typename Tok = short unsigned, typename Tr = FsaTraits<Ch, Tok>>
+class BasicFsaPrinter {
+public:
+    using FsaType    = BasicFsa<Ch, Tok, Tr>;
+    using CharType   = typename FsaType::CharType;
+    using StringType = typename FsaType::StringType;
+    using TokenId    = typename FsaType::TokenId;
 
-      StringType print(FsaType const &) const;
+    using SymbolPrinter = core::Text::PrinterBase<CharType, CharType>;
 
-      BasicFsaPrinter(size_t width = 0, SymbolPrinter const & = defaultSymbolPrinter, std::locale const & = std::locale(""));
+    StringType print(FsaType const &) const;
 
-    private:
-      size_t width;
-      SymbolPrinter const &symPrinter;
-      std::locale loc;
-      core::Text::BasicValuePrinter<CharType> valPrinter;
+    BasicFsaPrinter(std::size_t width = 0, const SymbolPrinter& = s_default_symbol_printer,
+                    const std::locale& = std::locale::classic());
 
-      struct DefaultSymbolPrinter: SymbolPrinter
-      {
-        StringType print(CharType const &c) const { return StringType(1, c); }
-      };
+private:
+    std::size_t m_width;
+    const SymbolPrinter& m_sym_printer;
+    std::locale m_locale;
 
-      static DefaultSymbolPrinter defaultSymbolPrinter;
+    class DefaultSymbolPrinter: public SymbolPrinter {
+    public:
+        StringType print(const CharType& c) const { return StringType(1,c); }
     };
 
-
-    typedef BasicFsaPrinter<char>    FsaPrinter;
-    typedef BasicFsaPrinter<wchar_t> WideFsaPrinter;
-
+    static DefaultSymbolPrinter s_default_symbol_printer;
+};
 
 
+using FsaPrinter     = BasicFsaPrinter<char>;
+using WideFsaPrinter = BasicFsaPrinter<wchar_t>;
 
-    // Template implementations:
 
 
-    template<typename Ch, typename Tok, typename Tr>
-    typename BasicFsaPrinter<Ch, Tok, Tr>::StringType
-    BasicFsaPrinter<Ch, Tok, Tr>::print(FsaType const &fsa) const
-    {
-      // Widen some fixed strings
-      core::BasicLocaleCharMapper<CharType> mapper(loc);
-      StringType const ping       = mapper.widen("'");
-      StringType const dashPing   = mapper.widen("-'");
-      StringType const commaSpace = mapper.widen(", ");
-      StringType const arrow      = mapper.widen(" -> ");
-      StringType const arrow2     = mapper.widen("-> ");
-      StringType const bol        = mapper.widen("BOL");
-      StringType const eol        = mapper.widen("EOL");
-      StringType const bow        = mapper.widen("BOW");
-      StringType const eow        = mapper.widen("EOW");
+// Implementation
 
-      core::Text::BasicTable<CharType> table;
-      table.get_col(0).set_width(1);
-      table.get_col(1).set_width(1);
-      table.get_col(2).set_width(1);
-      table.get_col(3).set_width(8);
-      table.get_cell(0,0).set_text(mapper.widen("State"));
-      table.get_cell(0,1).set_text(mapper.widen("Start index"));
-      table.get_cell(0,2).set_text(mapper.widen("Token ID"));
-      table.get_cell(0,3).set_text(mapper.widen("FSA transitions"));
+template<typename Ch, typename Tok, typename Tr>
+typename BasicFsaPrinter<Ch, Tok, Tr>::StringType
+BasicFsaPrinter<Ch, Tok, Tr>::print(const FsaType& fsa) const
+{
+    // Widen some fixed strings
+    core::BasicLocaleCharMapper<CharType> mapper(m_locale);
+    StringType ping        = mapper.widen("'");
+    StringType dash_ping   = mapper.widen("-'");
+    StringType comma_space = mapper.widen(", ");
+    StringType arrow       = mapper.widen(" -> ");
+    StringType arrow_2     = mapper.widen("-> ");
+    StringType bol         = mapper.widen("BOL");
+    StringType eol         = mapper.widen("EOL");
+    StringType bow         = mapper.widen("BOW");
+    StringType eow         = mapper.widen("EOW");
 
-      typedef std::map<typename FsaType::StateId, typename FsaType::SizeType> StartStates;
-      StartStates stateStates;
-      for(typename FsaType::SizeType i = 0; i < fsa.getStartStateRegistrySize(); ++i)
-        stateStates[fsa.getStartState(i)] = i;
+    core::Text::BasicTable<CharType> table;
+    table.get_col(0).set_width(1);
+    table.get_col(1).set_width(1);
+    table.get_col(2).set_width(1);
+    table.get_col(3).set_width(8);
+    table.get_cell(0,0).set_text(mapper.widen("State"));
+    table.get_cell(0,1).set_text(mapper.widen("Start index"));
+    table.get_cell(0,2).set_text(mapper.widen("Token ID"));
+    table.get_cell(0,3).set_text(mapper.widen("FSA transitions"));
 
-      size_t i = 0;
-      for(typename FsaType::StateSeq s = fsa.getStates(); s; ++s, ++i)
-      {
-        table.get_cell(i+1, 0).set_text(valPrinter.print(s->getId()));
+    using StartStates = std::map<typename FsaType::StateId, typename FsaType::SizeType>;
+    StartStates state_states;
+    for (typename FsaType::SizeType i = 0; i < fsa.getStartStateRegistrySize(); ++i)
+        state_states[fsa.getStartState(i)] = i;
+
+    std::size_t i = 0;
+    for (typename FsaType::StateSeq s = fsa.getStates(); s; ++s, ++i) {
+        table.get_cell(i+1, 0).set_text(core::format_int<CharType>(s->getId(), m_locale));
         {
-          typename StartStates::iterator j = stateStates.find(s->getId());
-          if(j != stateStates.end()) table.get_cell(i+1, 1).set_text(valPrinter.print(j->second));
+            auto j = state_states.find(s->getId());
+            if (j != state_states.end())
+                table.get_cell(i+1, 1).set_text(core::format_int<CharType>(j->second, m_locale));
         }
-        if(s->getTokenId() != FsaType::TraitsType::noToken())
-          table.get_cell(i+1, 2).set_text(valPrinter.print(s->getTokenId()));
+        if (s->getTokenId() != FsaType::TraitsType::noToken())
+            table.get_cell(i+1, 2).set_text(core::format_int<CharType>(s->getTokenId(), m_locale));
 
         StringType cell;
-        for(typename FsaType::EdgeRangeSeq j = s->getEdgeRanges(); j; ++j)
-        {
-          if(cell.size()) cell += commaSpace;
-          cell += ping+symPrinter.print(j->getRange().first)+ping;
-          if(j->getRange().first < j->getRange().second)
-            cell += dashPing+symPrinter.print(j->getRange().second)+ping;
-          cell += arrow+valPrinter.print(j->getTargetState());
+        for (typename FsaType::EdgeRangeSeq j = s->getEdgeRanges(); j; ++j) {
+            if (cell.size())
+                cell += comma_space;
+            cell += ping+m_sym_printer.print(j->getRange().first)+ping;
+            if (j->getRange().first < j->getRange().second)
+                cell += dash_ping+m_sym_printer.print(j->getRange().second)+ping;
+            cell += arrow+core::format_int<CharType>(j->getTargetState(), m_locale);
         }
 
-        for(typename FsaType::SentinelEdgeSeq j = s->getSentinelEdges(); j; ++j)
-        {
-          StringType t;
-          switch(j->getSentinel())
-          {
-          case FsaType::anchor_bol: t = bol; break;
-          case FsaType::anchor_eol: t = eol; break;
-          case FsaType::anchor_bow: t = bow; break;
-          case FsaType::anchor_eow: t = eow; break;
-          }
-          if(cell.size()) cell += commaSpace;
-          cell += t;
-          cell += arrow+valPrinter.print(j->getTargetState());
+        for (typename FsaType::SentinelEdgeSeq j = s->getSentinelEdges(); j; ++j) {
+            StringType t;
+            switch (j->getSentinel()) {
+                case FsaType::anchor_bol:
+                    t = bol;
+                    break;
+                case FsaType::anchor_eol:
+                    t = eol;
+                    break;
+                case FsaType::anchor_bow:
+                    t = bow;
+                    break;
+                case FsaType::anchor_eow:
+                    t = eow;
+                    break;
+            }
+            if (cell.size())
+                cell += comma_space;
+            cell += t;
+            cell += arrow+core::format_int<CharType>(j->getTargetState(), m_locale);
         }
 
-        for(typename FsaType::EpsilonEdgeSeq j = s->getEpsilonEdges(); j; ++j)
-        {
-          if(cell.size()) cell += commaSpace;
-          cell += arrow2+valPrinter.print(j->getTargetState());
+        for (typename FsaType::EpsilonEdgeSeq j = s->getEpsilonEdges(); j; ++j) {
+            if (cell.size())
+                cell += comma_space;
+            cell += arrow_2+core::format_int<CharType>(j->getTargetState(), m_locale);
         }
 
         table.get_cell(i+1, 3).set_text(cell);
-      }
-
-      return table.print(width, 3, true, loc);
     }
 
-
-    template<typename Ch, typename Tok, typename Tr>
-    BasicFsaPrinter<Ch, Tok, Tr>::BasicFsaPrinter(size_t w, SymbolPrinter const &s, std::locale const &l):
-      width(w), symPrinter(s), loc(l)
-    {
-    }
-
-
-    template<typename Ch, typename Tok, typename Tr>
-    typename BasicFsaPrinter<Ch, Tok, Tr>::DefaultSymbolPrinter BasicFsaPrinter<Ch, Tok, Tr>::defaultSymbolPrinter;
-  }
+    return table.print(m_width, 3, true, m_locale);
 }
+
+
+template<typename Ch, typename Tok, typename Tr>
+BasicFsaPrinter<Ch, Tok, Tr>::BasicFsaPrinter(std::size_t width, const SymbolPrinter& sym_printer,
+                                              const std::locale& locale):
+    m_width{width},
+    m_sym_printer{sym_printer},
+    m_locale(locale)
+{
+}
+
+
+template<typename Ch, typename Tok, typename Tr>
+typename BasicFsaPrinter<Ch, Tok, Tr>::DefaultSymbolPrinter
+BasicFsaPrinter<Ch, Tok, Tr>::s_default_symbol_printer;
+
+} // namespace parser
+} // namespace archon
 
 #endif // ARCHON_PARSER_FSA_PRINT_HPP

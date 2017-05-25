@@ -32,6 +32,7 @@
 #include <string>
 #include <vector>
 
+#include <archon/core/string.hpp>
 #include <archon/core/char_enc.hpp>
 #include <archon/core/text.hpp>
 #include <archon/core/term.hpp>
@@ -114,7 +115,7 @@ namespace archon
 
           template<typename T> Cell &set_val(T t)
           {
-            text = Text::print(t);
+            text = format_value(t);
             return *this;
           }
 

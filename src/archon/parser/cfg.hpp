@@ -18,11 +18,9 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #ifndef ARCHON_PARSER_CFG_HPP
 #define ARCHON_PARSER_CFG_HPP
@@ -34,371 +32,337 @@
 #include <set>
 #include <list>
 
-#include <archon/core/text.hpp>
+namespace archon {
+namespace parser {
 
-namespace archon
-{
-  namespace parser
-  {
-    /**
-     * Context free grammars
-     *
-     * The start symbol is always the left hand side of the first rule.
-     *
-     * Still to be done:
-     *  Conversion to Chomsky Normal Form
-     *   http://www.wikipedia.com/wiki/Chomsky+Normal+Form
-     *   http://muldoon.cipic.ucdavis.edu/~jchen007/UCD/ECS120/Notes/LectureNotes11.pdf
-     */
-    class Cfg
-    {
-    public:
-      class Rule;
-      class FirstSets;
-      class FollowSets;
+/// Context free grammars
+///
+/// The start symbol is always the left hand side of the first rule.
+///
+/// Still to be done:
+///   - Conversion to Chomsky Normal Form
+///       http://www.wikipedia.com/wiki/Chomsky+Normal+Form
+///       http://muldoon.cipic.ucdavis.edu/~jchen007/UCD/ECS120/Notes/LectureNotes11.pdf
+class Cfg {
+public:
+    class Rule;
+    class FirstSets;
+    class FollowSets;
 
-      struct Item
-      {
+    struct Item {
         int rule;
         int production;
         int position;
-        Item(int rule, int production, int position):
-          rule(rule), production(production), position(position) {}
-      };
+    };
 
-      struct Symbol
-      {
-        enum Type
-        {
-          nil = 0,
-          terminal,
-          nonterminal,
-          action
+    class Symbol {
+    public:
+        enum Type {
+            nil = 0,
+            terminal,
+            nonterminal,
+            action
         };
 
-        Type getType() const { return type; }
-        int getIndex() const { return index; }
-        std::vector<int> const &getArgs() const { return args; }
+        Type get_type() const { return m_type; }
+        int get_index() const { return m_index; }
+        const std::vector<int>& get_args() const { return m_args; }
 
-      private:
+    private:
+        Type m_type;
+        int m_index; // -1 is 'null', -2 is 'copy' and -3 is 'concat'
+        std::vector<int> m_args; // For actions only
+
+        Symbol() noexcept: m_type(nil) {}
+        Symbol(Type type, int index): m_type(type), m_index(index) {}
+        Symbol(int index, const std::vector<int>& args):
+            m_type(action), m_index(index), m_args(args) {}
+
         friend class Cfg;
         friend class FirstSets;
         friend class FollowSets;
+    };
 
-        Type type;
-        int index; // -1 is 'null', -2 is 'copy' and -3 is 'concat'
-        std::vector<int> args; // For actions only
+    class Production {
+    public:
+        Production(const std::vector<Symbol>& symbols): m_symbols(symbols) {}
 
-        Symbol(): type(nil) {}
-        Symbol(Type type, int index): type(type), index(index) {}
-        Symbol(int index, std::vector<int> const &args):
-          type(action), index(index), args(args) {}
-      };
+        int get_num_symbols() const { return m_symbols.size(); }
+        const Symbol& get_symbol(int i) const { return m_symbols[i]; }
 
-      struct Production
-      {
-        int getNumberOfSymbols() const { return symbols.size(); }
-        Symbol const &getSymbol(int i) const { return symbols[i]; }
+    private:
+        Production() {}
 
-      private:
+        std::vector<Symbol> m_symbols;
+
         friend class Cfg;
         friend class Rule;
         friend class FirstSets;
         friend class FollowSets;
+    };
 
-        Production() {}
-        Production(std::vector<Symbol> const &symbols): symbols(symbols) {}
+    class Rule {
+    public:
+        Rule(const std::string& name): m_name(name) {}
 
-        std::vector<Symbol> symbols;
-      };
+        int get_num_productions() const { return m_productions.size(); }
+        const Production& get_production(int i) const { return m_productions[i]; }
 
-      class Rule
-      {
-      public:
-        int getNumberOfProductions() const { return productions.size(); }
-        Production const &getProduction(int i) const { return productions[i]; }
+    private:
+        std::string m_name;
+        std::vector<Production> m_productions;
 
-      private:
+        void add_production(const std::vector<Symbol>& symbols)
+        {
+            m_productions.emplace_back(symbols);
+        }
+
         friend class Cfg;
         friend class FirstSets;
         friend class FollowSets;
+    };
 
-        std::string name;
-        std::vector<Production> productions;
+    class Actor {
+    public:
+        /// Get the number of user-defined methods.
+        virtual int get_num_methods() const = 0;
 
-        Rule(std::string const &name): name(name) {}
+        /// \param method_index -3 for 'concat', -2 for 'copy' and -1 for 'null'
+        /// otherwise user-defined.
+        virtual int get_method_arity(int method_index) const = 0;
 
-        void addProduction(std::vector<Symbol> const &symbols)
-        {
-          productions.push_back(Production(symbols));
-        }
-      };
-
-      struct Actor
-      {
-        /**
-         * Get the number of user-defined methods
-         */
-        virtual int getNumberOfMethods() const = 0;
-
-        /**
-         * @param methodIndex -3 for 'concat', -2 for 'copy' and -1 for 'null'
-         * otherwise user-defined
-         */
-        virtual int getMethodArity(int methodIndex) const = 0;
-
-        /**
-         * @param methodIndex -3 for 'concat', -2 for 'copy' and -1 for 'null'
-         * otherwise user-defined
-         */
-        virtual std::string getMethodName(int methodIndex) const = 0;
+        /// \param method_index -3 for 'concat', -2 for 'copy' and -1 for 'null'
+        /// otherwise user-defined.
+        virtual std::string get_method_name(int method_index) const = 0;
 
         virtual ~Actor() {}
-      };
+    };
 
 
-      Cfg(Actor const *a=0): actor(a) {}
+    Cfg(const Actor* = nullptr, std::locale = std::locale::classic());
 
-      int getNumberOfTerminals() const { return terminals.size(); }
-      int getNumberOfRules() const { return rules.size(); }
-      Rule const &getRule(int i) const { return rules[i]; }
+    int get_num_terminals() const { return m_terminals.size(); }
+    int get_num_rules() const { return m_rules.size(); }
+    const Rule& get_rule(int i) const { return m_rules[i]; }
 
-      int defineTerminal(std::string const &name);
-      int defineNonterminal(std::string const &name);
+    int define_terminal(const std::string& name);
+    int define_nonterminal(const std::string& name);
 
-      static Symbol const &nil();
+    static Symbol nil() noexcept { return {}; }
 
-      void addProd(int nontermIndex, std::vector<Symbol> const &);
-      void addProd(int nontermIndex, Symbol=nil(), Symbol=nil(),
-                   Symbol=nil(), Symbol=nil(), Symbol=nil(),
-                   Symbol=nil(), Symbol=nil(), Symbol=nil());
+    void add_prod(int nonterm_index, const std::vector<Symbol>&);
+    void add_prod(int nonterm_index, Symbol=nil(), Symbol=nil(),
+                 Symbol=nil(), Symbol=nil(), Symbol=nil(),
+                 Symbol=nil(), Symbol=nil(), Symbol=nil());
 
-      /**
-       * Make a terminal symbol from a terminal index
-       */
-      static Symbol term(int terminalIndex)
-      {
-        return Symbol(Symbol::terminal, terminalIndex);
-      }
+    /// Make a terminal symbol from a terminal index.
+    static Symbol term(int terminal_index)
+    {
+        return Symbol{Symbol::terminal, terminal_index};
+    }
 
-      /**
-       * Make a nonterminal symbol from a nonterminal index
-       */
-      static Symbol nont(int nonterminalIndex)
-      {
-        return Symbol(Symbol::nonterminal, nonterminalIndex);
-      }
+    /// Make a nonterminal symbol from a nonterminal index.
+    static Symbol nont(int nonterminal_index)
+    {
+        return Symbol{Symbol::nonterminal, nonterminal_index};
+    }
 
-      /**
-       * Make an action symbol from a method index and argument
-       * references. An argument reference of zero refers to the symbol
-       * imediately preceeding this action. A value of 1 refers to the
-       * symbol before that one and so on. A value of -1 indicates that
-       * a null argument should be passed to the method. A value of -2
-       * is skipped and does not count as an argument.
-       */
-      static Symbol act(int methodIndex,
-                        int arg1 = -2, int arg2 = -2, int arg3 = -2,
-                        int arg4 = -2, int arg5 = -2, int arg6 = -2,
-                        int arg7 = -2);
+    /// Make an action symbol from a method index and argument references. An
+    /// argument reference of zero refers to the symbol immediately preceding
+    /// this action. A value of 1 refers to the symbol before that one and so
+    /// on. A value of -1 indicates that a null argument should be passed to the
+    /// method. A value of -2 is skipped and does not count as an argument.
+    static Symbol act(int method_index,
+                      int arg_1 = -2, int arg_2 = -2, int arg_3 = -2,
+                      int arg_4 = -2, int arg_5 = -2, int arg_6 = -2,
+                      int arg_7 = -2);
 
-      /**
-       * Special action that return the null reference
-       */
-      static Symbol null() { return act(-1); }
+    /// Special action that return the null reference.
+    static Symbol null() { return act(-1); }
 
-      /**
-       * Special action that copies attributes
-       */
-      static Symbol copy(int arg) { return act(-2, arg); }
+    /// Special action that copies attributes.
+    static Symbol copy(int arg) { return act(-2, arg); }
 
-      /**
-       * Special action that concattenates strings
-       */
-      static Symbol concat(int arg1, int arg2) { return act(-3, arg1, arg2); }
+    /// Special action that concattenates strings.
+    static Symbol concat(int arg1, int arg2) { return act(-3, arg1, arg2); }
 
-      class FirstSets
-      {
-      public:
-        FirstSets(Cfg const &);
+    class FirstSets {
+    public:
+        FirstSets(const Cfg&);
 
-        /**
-         * Add the first set of the symbols after the position in the
-         * item to the argument set
-         * @return true if the symbols after the item position can derive epsilon
-         */
-        bool includeFirstSet(Item const &, std::set<int> &) const;
+        /// Add the first set of the symbols after the position in the item to
+        /// the argument set.
+        ///
+        /// \return true if the symbols after the item position can derive
+        /// epsilon.
+        bool include_first_set(const Item&, std::set<int>&) const;
 
         std::string print(int width = 0) const;
-
-      private:
-        friend class FollowSets;
-
-        Cfg const &grammar;
-        std::vector<std::set<int> > terminals; // One entry per nonterminal
-        std::vector<bool> nullable; // One entry per nonterminal
-      };
-
-      class FollowSets
-      {
-      public:
-        FollowSets(FirstSets const &);
-        std::set<int> const &get(int i) const { return terminals[i]; }
-        std::string print(int width = 0) const;
-
-      private:
-        Cfg const &grammar;
-        std::vector<std::set<int> > terminals; // -1 represents EOI
-      };
-
-      /**
-       * \param index A negative value will be interpreted as the
-       * imaginary EOI terminal.
-       */
-      std::string printTerminal(int index) const;
-
-      std::string printNonterminal(int index) const;
-      std::string printProduction(int rule, int production) const;
-      std::string printItem(Item const &) const;
-      std::string print(int width = 0) const;
-
-      void introduceNewStartSymbol();
-
-      /**
-       * CURRENTLY DOES NOT REWRITE ACTIONS PROPERLY!!!!!
-       *
-       * Convert the grammar into an equivalent epsilon-free grammar.
-       *
-       * We say that a grammar is epsilon-free if either it has no
-       * epsilon productions or there is exactly one epsilon production
-       * for the start symbol and then the start symbol does not appear
-       * on the right side of any production.
-       *
-       * The new grammar will accept exactly the same language and the
-       * sequence of semantic actions that are to be evaluated for any
-       * given derivation will not be changed.
-       *
-       * This operation may introduce a new start symbol.
-       *
-       * This operation may leave the grammar with non-terminals that
-       * cannot produce anything, so you might want to run the
-       * 'eliminateDeadNonTerminals' method afterwards.
-       *
-       * This operation also may leave the grammar with duplicate
-       * productions, so you also might want to run the
-       * 'eliminateDuplicateProductions' method afterwards.
-       *
-       *
-       * Ambiguous nullability:
-       *
-       * This operation will fail if any non-terminal has ambiguous
-       * nullability, that is if there among the ways to derive null
-       * from the non-terminal are some that result in different
-       * sequences of actions to be performed. An example would be:
-       *
-       *  A -> B | C
-       *  B -> {action1} | b
-       *  C -> {action2} | c
-       *
-       * Note that both B nad C have epsilon productions but with
-       * different actions associated to them.
-       */
-      void eliminateEpsilonProductions();
-
-      /**
-       * CURRENTLY DOES NOT REWRITE ACTIONS PROPERLY!!!!!
-       *
-       * Convert the grammar into an equivalent cycle-free grammar.
-       *
-       * A grammar is cycle free if it has no cycles at all. A grammar has
-       * a cycle if for some non-terminal A there is a possible derivation
-       * A =>+ A. That is, a derivation from A to itself in one or more
-       * steps.
-       *
-       * Elimination procedure:
-       *
-       * To simplify things we will start this operation by deriving an
-       * epsilon-free grammar. From such a garmmar it is reasonably simple
-       * to find and eliminate cycles. In the search for cycles we only
-       * need to considder productions that have no terminal symbols and
-       * have exactly one non-terminal on the right side.
-       *
-       * A cycle in an unambiguous epsilon-free grammar always has the
-       * form:
-       *
-       *  A0 -> A1
-       *  A1 -> A2
-       *  .
-       *  .
-       *  .
-       *  An-1 -> An
-       *  An -> A0
-       *
-       * That is, the right sides consist of nothing but one non-terminal.
-       *
-       * One could imagine a cycle where one or more of the involved
-       * productions had semantic actions in them, but in that case the
-       * grammar would be ambiguous. If any such cycle exists in the
-       * grammar this method will report failure.
-       *
-       * To eliminate the cycle shown above from an epsilon-free grammar
-       * we need only to choose an Ai among the cyclic non-terminals then
-       * remove the production Ai-1 -> Ai or An -> A0 if i = 0 and then
-       * fix all productions that are not part of the cycle by replacing
-       * any occurance of Aj by Ai where 0 <= j <= n and j != i.
-       *
-       * What about productions like A2 -> A1 or A2 -> B and B -> A3?
-       *
-       * A cycle may never contain a non-terminal twice.
-       */
-      void eliminateCycles();
-
-      /**
-       * Remove non-terminals that produce nothing and non-terminals
-       * that are not reachable from the starting symbol.
-       */
-
-      // void eliminateDeadNonTerminals();
-
-      /**
-       * Rewrite
-       *
-       *  A -> B C f(1) D E g(2, 5) F G h(3, 8)
-       *
-       * to
-       *
-       *  A -> B C M D E N F G h(3, 8)
-       *  M -> f(-1)
-       *  N -> g(-3, 0)
-       */
-      void eliminateMidRuleActions();
-
-      ~Cfg();
 
     private:
-      void updateRuleIndices(std::vector<int> const &);
-      std::string chooseUniqueName(std::string, int);
-      void findNullableNonTerminals(std::vector<bool> &, std::vector<std::vector<int> > &);
-      void addNullableCombinations(unsigned, bool,
-                                   Production const &,
-                                   std::vector<bool> const &,
-                                   std::vector<std::vector<int> > const &,
-                                   std::vector<Symbol> &,
-                                   std::vector<Production> &);
-      int eliminateCyclesVisit(int, std::vector<int> &, std::list<std::pair<int, int> > &);
-      std::string printProductionRightSide(Production const &, int mark=-1) const;
+        const Cfg& m_grammar;
+        std::vector<std::set<int> > m_terminals; // One entry per nonterminal
+        std::vector<bool> m_nullable; // One entry per nonterminal
 
-      std::vector<std::string> terminals;
-      std::vector<Rule> rules;
-
-      std::map<std::string, int> terminalMap;    // Maps terminal names to terminal indices.
-      std::map<std::string, int> nonterminalMap; // Maps non-terminal names to rule indices.
-
-      Actor const *actor; // Defines the known methods and knows how to call them. Is optional.
-
-      core::Text::ValuePrinter valPrinter;
+        friend class FollowSets;
     };
-  }
+
+    class FollowSets {
+    public:
+        FollowSets(const FirstSets&);
+        const std::set<int>& get(int i) const { return m_terminals[i]; }
+        std::string print(int width = 0) const;
+
+    private:
+        const Cfg& m_grammar;
+        std::vector<std::set<int>> m_terminals; // -1 represents EOI
+    };
+
+    /// \param index A negative value will be interpreted as the imaginary EOI
+    /// terminal.
+    std::string print_terminal(int index) const;
+
+    std::string print_nonterminal(int index) const;
+    std::string print_production(int rule, int production) const;
+    std::string print_item(const Item&) const;
+    std::string print(int width = 0) const;
+
+    void introduce_new_start_symbol();
+
+    /// CURRENTLY DOES NOT REWRITE ACTIONS PROPERLY!!!!!
+    ///
+    /// Convert the grammar into an equivalent epsilon-free grammar.
+    ///
+    /// We say that a grammar is epsilon-free if either it has no epsilon
+    /// productions or there is exactly one epsilon production for the start
+    /// symbol and then the start symbol does not appear on the right side of
+    /// any production.
+    ///
+    /// The new grammar will accept exactly the same language and the sequence
+    /// of semantic actions that are to be evaluated for any given derivation
+    /// will not be changed.
+    ///
+    /// This operation may introduce a new start symbol.
+    ///
+    /// This operation may leave the grammar with non-terminals that cannot
+    /// produce anything, so you might want to run the
+    /// 'eliminateDeadNonTerminals' method afterwards.
+    ///
+    /// This operation also may leave the grammar with duplicate productions, so
+    /// you also might want to run the 'eliminateDuplicateProductions' method
+    /// afterwards.
+    ///
+    ///
+    /// Ambiguous nullability:
+    ///
+    /// This operation will fail if any non-terminal has ambiguous nullability,
+    /// that is if there among the ways to derive null from the non-terminal are
+    /// some that result in different sequences of actions to be performed. An
+    /// example would be:
+    ///
+    ///  A -> B | C
+    ///  B -> {action1} | b
+    ///  C -> {action2} | c
+    ///
+    /// Note that both B nad C have epsilon productions but with different
+    /// actions associated to them.
+    void eliminate_epsilon_productions();
+
+    /// CURRENTLY DOES NOT REWRITE ACTIONS PROPERLY!!!!!
+    ///
+    /// Convert the grammar into an equivalent cycle-free grammar.
+    ///
+    /// A grammar is cycle free if it has no cycles at all. A grammar has a
+    /// cycle if for some non-terminal A there is a possible derivation
+    /// A =>+ A. That is, a derivation from A to itself in one or more steps.
+    ///
+    /// Elimination procedure:
+    ///
+    /// To simplify things we will start this operation by deriving an
+    /// epsilon-free grammar. From such a garmmar it is reasonably simple to
+    /// find and eliminate cycles. In the search for cycles we only need to
+    /// considder productions that have no terminal symbols and have exactly one
+    /// non-terminal on the right side.
+    ///
+    /// A cycle in an unambiguous epsilon-free grammar always has the form:
+    ///
+    ///  A0 -> A1
+    ///  A1 -> A2
+    ///  .
+    ///  .
+    ///  .
+    ///  An-1 -> An
+    ///  An -> A0
+    ///
+    /// That is, the right sides consist of nothing but one non-terminal.
+    ///
+    /// One could imagine a cycle where one or more of the involved productions
+    /// had semantic actions in them, but in that case the grammar would be
+    /// ambiguous. If any such cycle exists in the grammar this method will
+    /// report failure.
+    ///
+    /// To eliminate the cycle shown above from an epsilon-free grammar we need
+    /// only to choose an Ai among the cyclic non-terminals then remove the
+    /// production Ai-1 -> Ai or An -> A0 if i = 0 and then fix all productions
+    /// that are not part of the cycle by replacing any occurance of Aj by Ai
+    /// where 0 <= j <= n and j != i.
+    ///
+    /// What about productions like A2 -> A1 or A2 -> B and B -> A3?
+    ///
+    /// A cycle may never contain a non-terminal twice.
+    void eliminate_cycles();
+
+    /// Remove non-terminals that produce nothing and non-terminals that are not
+    /// reachable from the starting symbol.
+
+    // void eliminateDeadNonTerminals();
+
+    /// Rewrite
+    ///
+    ///  A -> B C f(1) D E g(2, 5) F G h(3, 8)
+    ///
+    /// to
+    ///
+    ///  A -> B C M D E N F G h(3, 8)
+    ///  M -> f(-1)
+    ///  N -> g(-3, 0)
+    void eliminate_midrule_actions();
+
+private:
+    void update_rule_indices(const std::vector<int>&);
+    std::string choose_unique_name(std::string, int);
+    void find_nullable_nonterminals(std::vector<bool>&, std::vector<std::vector<int>>&);
+    void add_nullable_combinations(unsigned, bool,
+                                   const Production&,
+                                   const std::vector<bool>&,
+                                   const std::vector<std::vector<int>>&,
+                                   std::vector<Symbol>&,
+                                   std::vector<Production>&);
+    int eliminate_cycles_visit(int, std::vector<int>&, std::list<std::pair<int, int>>&);
+    std::string print_production_right_side(const Production&, int mark = -1) const;
+
+    std::vector<std::string> m_terminals;
+    std::vector<Rule> m_rules;
+
+    std::map<std::string, int> m_terminal_map;    // Maps terminal names to terminal indices.
+    std::map<std::string, int> m_nonterminal_map; // Maps nonterminal names to rule indices.
+
+    const Actor* m_actor; // Defines the known methods and knows how to call them. Is optional.
+
+    std::locale m_locale; // Needed for integer formatting
+};
+
+
+
+// Implementation:
+
+inline Cfg::Cfg(const Actor* actor, std::locale locale):
+    m_actor{actor},
+    m_locale{std::move(locale)}
+{
 }
+
+} // namespace parser
+} // namespace archon
 
 #endif // ARCHON_PARSER_CFG_HPP

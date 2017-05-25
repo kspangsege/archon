@@ -182,8 +182,7 @@ namespace archon
     };
 
 
-    template<class T> 
-    struct CntRefDefs
+    template<class T> struct CntRefDefs
     {
       typedef CntRef<T>        Ref;
       typedef CntRef<T const>  ConstRef;

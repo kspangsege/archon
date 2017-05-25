@@ -518,8 +518,6 @@ private:
     // Text rendering
     archon::render::TextFormatter m_label_formatter;
     TextLayout m_label_layout;
-    Text::WideValuePrinter m_value_printer;
-
 
     // Convex hull input
     std::vector<Vec3> m_points;
@@ -687,6 +685,8 @@ private:
         }
 
         if (m_point_labels_display_on) {
+            std::wstring buffer;
+            const std::locale& locale = get_locale();
             GLint params[2];
             glGetIntegerv(GL_POLYGON_MODE, params);
             glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
@@ -698,7 +698,8 @@ private:
                 glTranslatef(p[0], p[1], p[2]);
                 double angle = billboard::rotate();
                 glScalef(0.05, 0.05, 0.05);
-                m_label_layout.set(&m_label_formatter, m_value_printer.print(i));
+                format_int(i, buffer, locale);
+                m_label_layout.set(m_label_formatter, buffer);
                 Vec2 size{m_label_layout.get_width(), m_label_layout.get_height()};
                 double excl_radius = 0.75;
                 double corner_radius = 0.25;

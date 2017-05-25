@@ -622,15 +622,8 @@ namespace
           }
           else if((i=request.headers.find(header_Content_Length)) != request.headers.end())
           {
-            try
-            {
-              request_body_remain = value_parser.parse<size_t>(i->second);
-            }
-            catch(Text::ParseException &e)
-            {
-              throw RequestException("Bad value of Content-Length header '"+i->second+"': "
-                                     ""+e.what());
-            }
+              if (!value_parser.parse(i->second, request_body_remain))
+                  throw RequestException("Bad value of Content-Length header '"+i->second);
           }
           else
           {

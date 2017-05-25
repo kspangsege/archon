@@ -28,10 +28,12 @@
 #define ARCHON_PARSER_REGEX_PRINT_HPP
 
 #include <cwchar>
+#include <utility>
 #include <stdexcept>
 #include <vector>
 #include <locale>
 
+#include <archon/core/string.hpp>
 #include <archon/core/codec.hpp>
 #include <archon/core/text.hpp>
 
@@ -77,10 +79,11 @@ namespace archon
        */
       StringType print(ExpArg regex, short unsigned contextPrecedence = 0) const;
 
-      BasicRegexPrinter(std::locale loc = std::locale(""))
+      BasicRegexPrinter(std::locale locale = std::locale::classic()):
+        m_locale{std::move(locale)}
       {
         // Widen some fixed strings
-        core::BasicLocaleCharMapper<CharType> mapper(loc);
+        core::BasicLocaleCharMapper<CharType> mapper(m_locale);
 
         lpar      = mapper.widen("(");
         rpar      = mapper.widen(")");
@@ -121,7 +124,7 @@ namespace archon
       }
 
     private:
-      core::Text::BasicValuePrinter<CharType> s;
+      std::locale m_locale;
 
       StringType lpar;
       StringType rpar;
@@ -188,11 +191,14 @@ namespace archon
 
       if(typename RegexType::Rep const *f = dynamic_cast<typename RegexType::Rep const *>(e.get()))
       {
+        auto format = [this](std::size_t value) {
+          return core::format_int<CharType>(value, m_locale);
+        };
         StringType t = print(f->e, 2) +
-          (f->min == 0 ? f->max == 0 ? star : f->max == 1 ? opt : lbrace+s.print(0)+comma+s.print(f->max)+rbrace :
-           f->min == 1 ? f->max == 0 ? plus : f->max == 1 ? lbrace+s.print(1)+rbrace : lbrace+s.print(1)+comma+s.print(f->max)+rbrace :
-           f->max == f->min ? lbrace+s.print(f->min)+rbrace : f->max == 0 ? lbrace+s.print(f->min)+comma+rbrace :
-           lbrace+s.print(f->min)+comma+s.print(f->max)+rbrace);
+          (f->min == 0 ? f->max == 0 ? star : f->max == 1 ? opt : lbrace+format(0)+comma+format(f->max)+rbrace :
+           f->min == 1 ? f->max == 0 ? plus : f->max == 1 ? lbrace+format(1)+rbrace : lbrace+format(1)+comma+format(f->max)+rbrace :
+           f->max == f->min ? lbrace+format(f->min)+rbrace : f->max == 0 ? lbrace+format(f->min)+comma+rbrace :
+           lbrace+format(f->min)+comma+format(f->max)+rbrace);
         return 2<p ? lpar+t+rpar : t;
       }
 

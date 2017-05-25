@@ -26,13 +26,14 @@
  * Testing the fraction representation conversion functions.
  */
 
+#include <cmath>
 #include <stdexcept>
 #include <iostream>
 #include <limits>
 
 #include <archon/core/types.hpp>
 #include <archon/core/cxx.hpp>
-#include <archon/core/text.hpp>
+#include <archon/core/string.hpp>
 #include <archon/util/unit_frac.hpp>
 
 
@@ -81,11 +82,11 @@ namespace
       Int const a = frac_adjust_bit_width(w,n,m);
       Int const b = frac_float_to_int<Float, Int>(frac_int_to_float<Int, Float>(w, denom1), denom2);
       if((a < b ? b - a : a - b) / fuzzy_factor == 0) continue;
-      TEST_MSG(false, "Mismatch for "+Text::print(to_num(w))+": "
-               ""+Text::print(n)+" bits -> "+Text::print(m)+" bits"", "
+      TEST_MSG(false, "Mismatch for "+format_value(to_num(w))+": "
+               ""+format_value(n)+" bits -> "+format_value(m)+" bits"", "
                "int type = '"+cxx::type<Int>()+"', float type = '"+cxx::type<Float>()+"', "
-               "fuzzy factor = "+Text::print(fuzzy_factor)+", "
-               ""+Text::print(to_num(a))+" (shift) != "+Text::print(to_num(b))+" (float)");
+               "fuzzy factor = "+format_value(fuzzy_factor)+", "
+               ""+format_value(to_num(a))+" (shift) != "+format_value(to_num(b))+" (float)");
     }
   }
 

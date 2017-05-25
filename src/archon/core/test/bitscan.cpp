@@ -32,6 +32,7 @@
 
 #include <archon/core/functions.hpp>
 #include <archon/core/random.hpp>
+#include <archon/core/string.hpp>
 #include <archon/core/text.hpp>
 #include <archon/core/cxx.hpp>
 
@@ -122,10 +123,10 @@ namespace
       {
         U above = 2*v+1 << i;
         U below = (U(1)<<n-1)+v >> i;
-        TEST_MSG(find_least_sig_bit(change_type<U,S>(above)) == i,     "random signed above "   + Text::print(i));
-        TEST_MSG(find_least_sig_bit(change_type<U,U>(above)) == i,     "random unsigned above " + Text::print(i));
-        TEST_MSG(find_most_sig_bit(change_type<U,S>(below))  == n-1-i, "random signed below "   + Text::print(i));
-        TEST_MSG(find_most_sig_bit(change_type<U,U>(below))  == n-1-i, "random unsigned below " + Text::print(i));
+        TEST_MSG(find_least_sig_bit(change_type<U,S>(above)) == i,     "random signed above "   + format_value(i));
+        TEST_MSG(find_least_sig_bit(change_type<U,U>(above)) == i,     "random unsigned above " + format_value(i));
+        TEST_MSG(find_most_sig_bit(change_type<U,S>(below))  == n-1-i, "random signed below "   + format_value(i));
+        TEST_MSG(find_most_sig_bit(change_type<U,U>(below))  == n-1-i, "random unsigned below " + format_value(i));
       }
     }
   }

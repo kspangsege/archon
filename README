@@ -34,12 +34,12 @@ exceptions being stopped by a 'throws' restriction.
 Prerequisites
 -------------
 
-Ubuntu 13.04, 13.10
+Ubuntu 13.04, 13.10, 16.04
 
-    sudo apt-get install build-essential automake libtool libreadline-dev libpng12-dev
-    sudo apt-get install libreadline-dev libtiff5-dev libmagic-dev libnetpbm10-dev libmozjs185-dev
-    sudo apt-get install libfreetype6-dev mesa-common-dev libgl1-mesa-dev libglu1-mesa-dev
-    sudo apt-get install libxrender-dev
+    sudo apt-get install build-essential automake libtool
+    sudo apt-get install libreadline-dev libmagic-dev libfreetype6-dev
+    sudo apt-get install libpng12-dev libtiff5-dev libnetpbm10-dev libmozjs185-dev
+    sudo apt-get install mesa-common-dev libgl1-mesa-dev libglu1-mesa-dev libxrender-dev libxi-dev
 
 Ubuntu 10.04
 

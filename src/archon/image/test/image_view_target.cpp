@@ -27,6 +27,7 @@
 
 #include <archon/core/cxx.hpp>
 #include <archon/core/build_config.hpp>
+#include <archon/core/string.hpp>
 #include <archon/core/text.hpp>
 #include <archon/core/options.hpp>
 #include <archon/core/file.hpp>
@@ -55,7 +56,7 @@ bool check_view(std::string name, std::string opt, std::vector<int>& params)
     Text::SimpleTokenizer<char> tokenizer(i, ",", Text::SimpleTokenizer<char>::incl_empty);
     std::string s;
     while (tokenizer.generate(s))
-        params.push_back(Text::parse<int>(s));
+        params.push_back(parse_value<int>(s));
     if (params.empty())
         throw std::invalid_argument("Syntax error in view params");
     return true;

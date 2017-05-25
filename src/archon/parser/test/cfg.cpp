@@ -18,59 +18,54 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- *
- * Testing the nondeterministic finite automata (NFA) implementation.
- */
+/// \file
+///
+/// \author Kristian Spangsege
+///
+/// Testing the nondeterministic finite automata (NFA) implementation.
 
 #include <string>
 #include <iostream>
 
 #include <archon/parser/cfg.hpp>
 
-using namespace std;
-using namespace archon::core;
+//using namespace archon::core;
 using namespace archon::parser;
 
-struct MyActor: Cfg::Actor
-{
-  int getNumberOfMethods() const
-  {
-    return 0;
-  }
+class MyActor: public Cfg::Actor {
+public:
+    int get_num_methods() const
+    {
+        return 0;
+    }
 
-  int getMethodArity(int) const
-  {
-    return 1;
-  }
+    int get_method_arity(int) const
+    {
+        return 1;
+    }
 
-  string getMethodName(int) const
-  {
-    return "hest";
-  }
+    std::string get_method_name(int) const
+    {
+        return "hest";
+    }
 };
 
-int main() throw()
+int main()
 {
-  MyActor a;
-  Cfg g(&a);
+    MyActor a;
+    Cfg g{&a};
 
-  int t_a = g.defineTerminal("A");
-  int t_b = g.defineTerminal("B");
+    int t_a = g.define_terminal("A");
+    int t_b = g.define_terminal("B");
 
-  int n_a = g.defineNonterminal("a");
-  int n_b = g.defineNonterminal("b");
+    int n_a = g.define_nonterminal("a");
+    int n_b = g.define_nonterminal("b");
 
-  g.addProd(n_a, Cfg::nont(n_b), Cfg::term(t_a));
-  g.addProd(n_a, Cfg::nont(n_b), Cfg::term(t_b));
-  g.addProd(n_b, Cfg::term(t_a), Cfg::copy(1), Cfg::nont(n_a), Cfg::term(t_b));
+    g.add_prod(n_a, Cfg::nont(n_b), Cfg::term(t_a));
+    g.add_prod(n_a, Cfg::nont(n_b), Cfg::term(t_b));
+    g.add_prod(n_b, Cfg::term(t_a), Cfg::copy(1), Cfg::nont(n_a), Cfg::term(t_b));
 
-  g.eliminateMidRuleActions();
+    g.eliminate_midrule_actions();
 
-  cout << g.print() << endl;
-
-  return 0;
+    std::cout << g.print() << "\n";
 }

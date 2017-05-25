@@ -30,6 +30,7 @@
 #include <iostream>
 
 #include <archon/core/memory.hpp>
+#include <archon/core/string.hpp>
 #include <archon/core/text.hpp>
 #include <archon/util/codec.hpp>
 #include <archon/util/transcode.hpp>
@@ -276,7 +277,7 @@ public:
                         }
                         default:
                             logger->log("WARNING: Unexpected extension type '"+
-                                        Text::print(extension_type)+"', attempting to skip");
+                                        format_int(extension_type)+"', attempting to skip");
                             discard_rest(*block_codec->get_dec_in_stream(in));
                     }
                     break;
@@ -416,8 +417,8 @@ public:
                                 // Also skip pixels with invalid color indices
                                 if (num_colors <= index) {
                                     if (max_pixel_warnings) {
-                                        logger->log("WARNING: Color index "+Text::print(index)+
-                                                    "/"+Text::print(num_colors-1)+" out of range");
+                                        logger->log("WARNING: Color index "+format_int(index)+
+                                                    "/"+format_int(num_colors-1)+" out of range");
                                         --max_pixel_warnings;
                                     }
                                     continue;
@@ -477,7 +478,7 @@ public:
 
                 default:
                     throw InvalidFormatException("Unexpected block type '"+
-                                                 Text::print(block_type)+"'");
+                                                 format_int(block_type)+"'");
             }
         }
     }

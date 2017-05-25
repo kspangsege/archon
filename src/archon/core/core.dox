@@ -1,4 +1,4 @@
-/** \namespace Archon::Core
+/** \namespace archon::core
 
 A collection of common functions and classes that are used frequently
 by the other libraries/namepsaces.

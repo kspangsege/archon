@@ -36,8 +36,8 @@
 
 #include <archon/platform.hpp> // Never include in other header files
 #include <archon/core/memory.hpp>
-#include <archon/core/text.hpp>
 #include <archon/core/functions.hpp>
+#include <archon/core/string.hpp>
 #include <archon/util/hashing.hpp>
 #include <archon/util/range_map.hpp>
 #include <archon/util/unit_frac.hpp>
@@ -128,7 +128,7 @@ namespace archon
 
       if(bytes_per_word != 1<<endianness_levels)
         throw runtime_error("Cannot handle word types with number of bytes "
-                            "("+Text::print(bytes_per_word)+") not being "
+                            "("+format_int(bytes_per_word)+") not being "
                             "a power of two");
 
       if(static_cast<int>(native_endianness.size()) < endianness_levels)

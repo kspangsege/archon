@@ -33,7 +33,7 @@
 #include <jerror.h>
 
 #include <archon/core/memory.hpp>
-#include <archon/core/text.hpp>
+#include <archon/core/string.hpp>
 #include <archon/core/blocking.hpp>
 #include <archon/util/transcode.hpp>
 #include <archon/image/file_format.hpp>
@@ -639,7 +639,7 @@ public:
                     break;
                 default:
                     throw std::runtime_error("Unexpected color space for JPEG data "
-                                             "("+Text::print(static_cast<int>(color_type))+")");
+                                             "("+format_int(static_cast<int>(color_type))+")");
             }
 
             // We now create the buffer format where channels are always evenly

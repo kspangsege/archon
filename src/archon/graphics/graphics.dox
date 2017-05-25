@@ -1,4 +1,4 @@
-/** \namespace Archon::Graphics
+/** \namespace archon::graphics
 
 Various generic utilities for working with spatial graphics.
 

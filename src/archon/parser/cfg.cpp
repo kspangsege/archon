@@ -18,11 +18,9 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 
 
@@ -34,659 +32,662 @@
 
 #include <algorithm>
 
+#include <archon/core/string.hpp>
 #include <archon/core/char_enc.hpp>
 #include <archon/core/text_table.hpp>
 #include <archon/parser/cfg.hpp>
 
-using namespace std;
 using namespace archon::core;
+using namespace archon::parser;
 
-namespace archon
+namespace {
+
+template<class T> void set_include(const std::set<T>& right, std::set<T>& left)
 {
-  namespace parser
-  {
-    void Cfg::updateRuleIndices(vector<int> const &oldToNewMap)
-    {
-      for(unsigned i=0; i<rules.size(); ++i)
-      {
-        Rule &r = rules[i];
-        for(unsigned j=0; j<r.productions.size(); ++j)
-        {
-          Production &p = r.productions[j];
-          for(unsigned k=0; k<p.symbols.size(); ++k)
-          {
-            Symbol &s = p.symbols[k];
-            if(s.type == Symbol::nonterminal) s.index = oldToNewMap[s.index];
-          }
+    auto i = left.cbegin();
+    auto j = right.begin();
+    auto end = right.end();
+    while (j != end) {
+        if (i == left.end() || *j < *i) {
+            left.insert(i, *j++);
         }
-      }
+        else if(*j == *i) {
+            ++j;
+        }
+        else {
+            ++i;
+        }
     }
+}
 
-    string Cfg::chooseUniqueName(string stem, int enumerator)
-    {
-      if(enumerator < 0)
-      {
-        while(nonterminalMap.find(stem) != nonterminalMap.end()) stem += "'";
+} // unnamed namespace
+
+
+void Cfg::update_rule_indices(const std::vector<int>& old_to_new_map)
+{
+    for (Rule& rule: m_rules) {
+        for (Production& prod: rule.m_productions) {
+            for(Symbol& sym: prod.m_symbols) {
+                if (sym.m_type == Symbol::nonterminal)
+                    sym.m_index = old_to_new_map[sym.m_index];
+            }
+        }
+    }
+}
+
+
+std::string Cfg::choose_unique_name(std::string stem, int enumerator)
+{
+    if (enumerator < 0) {
+        while (m_nonterminal_map.find(stem) != m_nonterminal_map.end())
+            stem += "'";
         return stem;
-      }
+    }
 
-      for(;;)
-      {
-        string n = stem + valPrinter.print(enumerator);
-        if(nonterminalMap.find(n) == nonterminalMap.end()) return n;
+    for (;;) {
+        std::string n = stem + core::format_int(enumerator, m_locale);
+        if (m_nonterminal_map.find(n) == m_nonterminal_map.end())
+            return n;
         ++enumerator;
-      }
     }
+}
 
-    void Cfg::findNullableNonTerminals(vector<bool> &nullable,
-                                       vector<vector<int> > &nullActions)
-    {
-      nullable.resize(rules.size());
-      nullActions.resize(rules.size());
-      bool again;
-      do
-      {
+
+void Cfg::find_nullable_nonterminals(std::vector<bool>& nullable,
+                                     std::vector<std::vector<int>>& null_actions)
+{
+    nullable.resize(m_rules.size());
+    null_actions.resize(m_rules.size());
+    bool again;
+    do {
         again = false;
-        for(unsigned i=0; i<rules.size(); ++i)
-        {
-          if(nullable[i]) continue;
-          Rule &r = rules[i];
-          for(unsigned j=0; j<r.productions.size(); ++j)
-          {
-            Production &p = r.productions[j];
-            unsigned k=0;
-            vector<int> a;
-            while(k<p.symbols.size())
-            {
-              Symbol &s = p.symbols[k];
-              // Break if the current symbol is not nullable
-              if(s.type == Symbol::terminal ||
-                 s.type == Symbol::nonterminal && !nullable[s.index]) break;
-              if(s.type == Symbol::action) a.push_back(s.index);
-              else
-              {
-                vector<int> const &v = nullActions[s.index];
-                a.insert(a.end(), v.begin(), v.end());
-              }
-              ++k;
+        for (unsigned i = 0; i < m_rules.size(); ++i) {
+            if (nullable[i])
+                continue;
+            Rule& rule = m_rules[i];
+            for (Production& prod: rule.m_productions) {
+                bool skip = false;
+                std::vector<int> a;
+                for (Symbol& sym: prod.m_symbols) {
+                    // Skip production if the current symbol is not nullable
+                    skip = sym.m_type == Symbol::terminal ||
+                        (sym.m_type == Symbol::nonterminal && !nullable[sym.m_index]);
+                    if (skip)
+                        break;
+                    if(sym.m_type == Symbol::action) {
+                        a.push_back(sym.m_index);
+                    }
+                    else {
+                        const std::vector<int>& v = null_actions[sym.m_index];
+                        a.insert(a.end(), v.begin(), v.end());
+                    }
+                }
+                if (skip)
+                    continue;
+                // Detect ambiguous nullability
+                if (nullable[i] && null_actions[i] != a)
+                    throw std::invalid_argument("Ambiguous nullability for "
+                                                "nonterminal '"+rule.m_name+"'");
+                nullable[i] = true;
+                null_actions[i] = a;
+                again = true;
             }
-            if(k == p.symbols.size())
-            {
-              // Detect ambiguous nullability
-              if(nullable[i] && nullActions[i] != a)
-                throw invalid_argument("Ambiguous nullability for "
-                                       "non-terminal '"+r.name+"'");
-              nullable[i] = true;
-              nullActions[i] = a;
-              again = true;
-            }
-          }
         }
-      }
-      while(again);
     }
+    while (again);
+}
 
-    void Cfg::addNullableCombinations(unsigned i, bool epsilon,
-                                      Production const &production,
-                                      vector<bool> const &nullable,
-                                      vector<vector<int> > const &nullActions,
-                                      vector<Symbol> &prefix,
-                                      vector<Production> &newProductions)
-    {
-      while(i<production.symbols.size())
-      {
-        Symbol const &s = production.symbols[i];
+
+void Cfg::add_nullable_combinations(unsigned i, bool epsilon,
+                                    const Production& production,
+                                    const std::vector<bool>& nullable,
+                                    const std::vector<std::vector<int>>& null_actions,
+                                    std::vector<Symbol>& prefix,
+                                    std::vector<Production>& new_productions)
+{
+    while (i < production.m_symbols.size()) {
+        const Symbol& sym = production.m_symbols[i];
         ++i;
-        if(s.type == Symbol::nonterminal && nullable[s.index])
-        {
-          vector<Symbol> p = prefix;
-          vector<int> const &v = nullActions[s.index];
-          for(unsigned j=0; j<v.size(); ++j)
-            p.push_back(act(v[j]));
-          addNullableCombinations(i, epsilon, production, nullable,
-                                  nullActions, p, newProductions);
+        if (sym.m_type == Symbol::nonterminal && nullable[sym.m_index]) {
+            std::vector<Symbol> p = prefix;
+            for (int a: null_actions[sym.m_index])
+                p.push_back(act(a));
+            add_nullable_combinations(i, epsilon, production, nullable,
+                                      null_actions, p, new_productions);
         }
-        prefix.push_back(s);
-        if(s.type != Symbol::action) epsilon = false;
-      }
-      if(!epsilon) newProductions.push_back(Production(prefix));
+        prefix.push_back(sym);
+        if (sym.m_type != Symbol::action)
+            epsilon = false;
     }
+    if (!epsilon)
+        new_productions.emplace_back(prefix);
+}
 
-    int Cfg::eliminateCyclesVisit(int ruleIndex, vector<int> &visitedRules,
-                                  list<pair<int, int> > &cycle)
-    {
-      if(visitedRules[ruleIndex] == 1) return ruleIndex;
-      if(visitedRules[ruleIndex] == 2) return -1;
 
-      visitedRules[ruleIndex] = 1;
+int Cfg::eliminate_cycles_visit(int rule_index, std::vector<int>& visited_rules,
+                                std::list<std::pair<int, int> >& cycle)
+{
+    if (visited_rules[rule_index] == 1)
+        return rule_index;
+    if (visited_rules[rule_index] == 2)
+        return -1;
 
-      Rule &r = rules[ruleIndex];
+    visited_rules[rule_index] = 1;
 
-      for(unsigned j=0; j<r.productions.size(); ++j)
-      {
-        Production &p = r.productions[j];
+    Rule &rule = m_rules[rule_index];
 
-        int targetNonTerminal = -1;
+    for (unsigned i = 0; i < rule.m_productions.size(); ++i) {
+        Production &prod = rule.m_productions[i];
 
-        for(unsigned k=0; k<p.symbols.size(); ++k)
-        {
-          Symbol &s = p.symbols[k];
-          if(s.type == Symbol::nonterminal)
-          {
-            if(targetNonTerminal >= 0)
-            {
-              targetNonTerminal = -1;
-              break;
+        int target_nonterminal = -1;
+
+        for (Symbol& sym: prod.m_symbols) {
+            if (sym.m_type == Symbol::nonterminal) {
+                if (target_nonterminal >= 0) {
+                    target_nonterminal = -1;
+                    break;
+                }
+                target_nonterminal = sym.m_index;
             }
-            targetNonTerminal = s.index;
-          }
-          else if(s.type == Symbol::terminal)
-          {
-            targetNonTerminal = -1;
-            break;
-          }
-        }
-
-        if(targetNonTerminal < 0) continue;
-
-        int s = eliminateCyclesVisit(targetNonTerminal, visitedRules, cycle);
-        if(s == -2) return -2;
-        if(s == -1) continue;
-        if(p.symbols.size() > 1)
-          throw invalid_argument("Ambiguous count for cycle production '"+r.name +
-                                 " -> "+printProductionRightSide(p)+"'");
-        cycle.insert(cycle.begin(), make_pair(ruleIndex, j));
-        return s == ruleIndex ? -2 : s;
-      }
-
-      visitedRules[ruleIndex] = 2;
-      return -1;
-    }
-
-    string Cfg::printProductionRightSide(Production const &p, int m) const
-    {
-      string r;
-      for(unsigned i=0; i<p.symbols.size(); ++i)
-      {
-        if(static_cast<int>(i) == m) r += "\u00B7";
-        else if(i) r += " ";
-        Symbol const &s = p.symbols[i];
-        switch(s.type)
-        {
-        case Symbol::terminal:
-          r += printTerminal(s.index);
-          break;
-        case Symbol::nonterminal:
-          r += printNonterminal(s.index);
-          break;
-        case Symbol::action:
-          r += ascii_tolower(actor->getMethodName(s.index)) + "(";
-          for(unsigned j=0; j<s.args.size(); ++j)
-          {
-            if(j) r += ", ";
-            r += s.args[j]<0 ? "_" : valPrinter.print(static_cast<int>(i)-s.args[j]);
-          }
-          r += ")";
-          break;
-        case Symbol::nil:
-          break;
-        }
-      }
-      if(m == static_cast<int>(p.symbols.size())) r += "\u00B7";
-      return r.size() ? r : "<epsilon>";
-    }
-
-    Cfg::~Cfg()
-    {{ // The extra scope is needed to work around gcc3.2 bug #8287
-    }}
-
-    int Cfg::defineTerminal(string const &name)
-    {
-      pair<map<string, int>::iterator, bool> r =
-        terminalMap.insert(make_pair(name, terminals.size()));
-      if(!r.second) throw invalid_argument("Redefinition of terminal '"+name+"'");
-      terminals.push_back(name);
-      return terminals.size()-1;
-    }
-
-    int Cfg::defineNonterminal(string const &name)
-    {
-      pair<map<string, int>::iterator, bool> r =
-        nonterminalMap.insert(make_pair(name, rules.size()));
-      if(!r.second) throw invalid_argument("Redefinition of non-terminal '"+name+"'");
-      rules.push_back(Rule(name));
-      return rules.size()-1;
-    }
-
-    void Cfg::addProd(int nontermIndex, vector<Symbol> const &symbols)
-    {
-      for(unsigned i=0; i<symbols.size(); ++i)
-      {
-        Symbol const &s = symbols[i];
-        switch(s.type)
-        {
-        case Symbol::terminal:
-          if(s.index < 0 || s.index >= static_cast<int>(terminals.size()))
-            throw invalid_argument("Illegal terminal index");
-          break;
-        case Symbol::nonterminal:
-          if(s.index < 0 || s.index >= static_cast<int>(rules.size()))
-            throw invalid_argument("Illegal nonterminal index");
-          break;
-        case Symbol::action:
-          if(!actor)
-            throw invalid_argument("Can't have actions without an actor");
-          if(s.index < -3 || s.index >= actor->getNumberOfMethods())
-            throw invalid_argument("Illegal method index");
-          if(static_cast<int>(s.args.size()) != actor->getMethodArity(s.index))
-            throw invalid_argument("Wrong number of arguments to '" +
-                                   actor->getMethodName(s.index)+"'");
-          break;
-        case Symbol::nil:
-          break;
-        }
-      }
-      rules[nontermIndex].addProduction(symbols);
-    }
-
-    void Cfg::addProd(int nontermIndex, Symbol s1, Symbol s2, Symbol s3,
-                      Symbol s4, Symbol s5, Symbol s6, Symbol s7, Symbol s8)
-    {
-      vector<Symbol> symbols;
-      if(s1.type) symbols.push_back(s1);
-      if(s2.type) symbols.push_back(s2);
-      if(s3.type) symbols.push_back(s3);
-      if(s4.type) symbols.push_back(s4);
-      if(s5.type) symbols.push_back(s5);
-      if(s6.type) symbols.push_back(s6);
-      if(s7.type) symbols.push_back(s7);
-      if(s8.type) symbols.push_back(s8);
-      addProd(nontermIndex, symbols);
-    }
-
-    Cfg::Symbol const &Cfg::nil()
-    {
-      static Symbol s;
-      return s;
-    }
-
-    Cfg::Symbol Cfg::act(int methodIndex, int arg1, int arg2, int arg3,
-                         int arg4, int arg5, int arg6, int arg7)
-    {
-      vector<int> args;
-      if(arg1>-2) args.push_back(arg1);
-      if(arg2>-2) args.push_back(arg2);
-      if(arg3>-2) args.push_back(arg3);
-      if(arg4>-2) args.push_back(arg4);
-      if(arg5>-2) args.push_back(arg5);
-      if(arg6>-2) args.push_back(arg6);
-      if(arg7>-2) args.push_back(arg7);
-      return Symbol(methodIndex, args);
-    }
-
-    template<typename T>
-    void set_include(set<T> const &right, set<T> &left)
-    {
-      typename set<T>::iterator i=left.begin();
-      typename set<T>::const_iterator j=right.begin();
-      while(j!=right.end())
-      {
-        if(i == left.end() || *j < *i) left.insert(i, *j++);
-        else if(*j == *i) ++j;
-        else ++i;
-      }
-    }
-
-    Cfg::FirstSets::FirstSets(Cfg const &g): grammar(g)
-    {
-      terminals.resize(g.rules.size());
-      nullable.resize(g.rules.size());
-      bool again;
-      do
-      {
-        again = false;
-        for(unsigned i=0; i<g.rules.size(); ++i)
-        {
-          Rule const &r = g.rules[i];
-          set<int> &t = terminals[i];
-          for(unsigned j=0; j<r.productions.size(); ++j)
-          {
-            unsigned const n = t.size();
-            Item item(i, j, 0);
-            if(includeFirstSet(item, t) && !nullable[i]) again = nullable[i] = true;
-            else if(t.size() > n) again = true;
-          }
-        }
-      }
-      while(again);
-    }
-
-    bool Cfg::FirstSets::includeFirstSet(Item const &item, set<int> &t) const
-    {
-      Production const &p =
-        grammar.rules[item.rule].productions[item.production];
-      unsigned i;
-      for(i=item.position; i<p.symbols.size(); ++i)
-      {
-        Symbol const &s = p.symbols[i];
-      
-        if(s.type == Symbol::terminal)
-        {
-          t.insert(s.index);
-          break;
-        }
-
-        if(s.type == Symbol::nonterminal)
-        {
-          set_include(terminals[s.index], t);
-          if(!nullable[s.index]) break;
-        }
-      }
-      return i == p.symbols.size();
-    }
-
-    string Cfg::printTerminal(int i) const
-    {
-      if(i < 0) return "<eoi>";
-      return ascii_toupper(terminals[i]);
-    }
-
-    string Cfg::printNonterminal(int i) const
-    {
-      return ascii_tolower(rules[i].name);
-    }
-
-    string Cfg::printProduction(int i, int j) const
-    {
-      return printNonterminal(i) + " -> " +
-        printProductionRightSide(rules[i].productions[j]);
-    }
-
-    string Cfg::printItem(Item const &i) const
-    {
-      return printNonterminal(i.rule) + " -> " +
-        printProductionRightSide(rules[i.rule].productions[i.production],
-                                 i.position);
-    }
-
-    string Cfg::FirstSets::print(int width) const
-    {
-      Text::Table table;
-      table.get_col(0).set_width(1);
-      table.get_col(1).set_width(4);
-      table.get_cell(0,0).set_text("Nonterminal");
-      table.get_cell(0,1).set_text("First set");
-      for(unsigned i=0; i<terminals.size(); ++i)
-      {
-        set<int> const &t = terminals[i];
-        table.get_cell(i+1, 0).set_text(grammar.printNonterminal(i));
-        string s;
-        for(set<int>::const_iterator j=t.begin(); j!=t.end(); ++j)
-        {
-          if(j != t.begin()) s += " ";
-          s += grammar.printTerminal(*j);
-        }
-        if(nullable[i])
-        {
-          if(s.size()) s += " ";
-          s += "<epsilon>";
-        }
-        table.get_cell(i+1, 1).set_text(s);
-      }
-
-      return table.print(width, 2, true);
-    }
-
-    Cfg::FollowSets::FollowSets(FirstSets const &f): grammar(f.grammar)
-    {
-      terminals.resize(grammar.rules.size());
-      terminals[0].insert(-1);
-      bool again;
-      do
-      {
-        again = false;
-        for(unsigned i=0; i<grammar.rules.size(); ++i)
-        {
-          Rule const &r = grammar.rules[i];
-          for(unsigned j=0; j<r.productions.size(); ++j)
-          {
-            Production const &p = r.productions[j];
-            for(unsigned k=0; k<p.symbols.size(); ++k)
-            {
-              Symbol const &s = p.symbols[k];
-              if(s.type != Symbol::nonterminal) continue;
-              set<int> &t = terminals[s.index];
-              unsigned const n = t.size();
-              Item item(i, j, k+1);
-              if(f.includeFirstSet(item, t)) set_include(terminals[i], t);
-              if(t.size() > n) again = true;
-            }
-          }
-        }
-      }
-      while(again);
-    }
-
-    string Cfg::FollowSets::print(int width) const
-    {
-      Text::Table table;
-      table.get_col(0).set_width(1);
-      table.get_col(1).set_width(4);
-      table.get_cell(0,0).set_text("Nonterminal");
-      table.get_cell(0,1).set_text("Follow set");
-      for(unsigned i=0; i<terminals.size(); ++i)
-      {
-        set<int> const &t = terminals[i];
-        table.get_cell(i+1, 0).set_text(grammar.printNonterminal(i));
-        string s;
-        for(set<int>::const_iterator j=t.begin(); j!=t.end(); ++j)
-        {
-          if(*j < 0) continue;
-          if(s.size()) s += " ";
-          s += grammar.printTerminal(*j);
-        }
-        if(t.size() && *t.begin()<0)
-        {
-          if(t.size() > 1) s += " ";
-          s += "<eoi>";
-        }
-        table.get_cell(i+1, 1).set_text(s);
-      }
-
-      return table.print(width, 2, true);      
-    }
-
-    string Cfg::print(int width) const
-    {
-      Text::Table table;
-      table.get_col(0).set_width(10);
-      table.get_col(1).set_width( 1);
-      table.get_col(2).set_width(39);
-      
-      int l = 0;
-      for(unsigned i=0; i<rules.size(); ++i)
-      {
-        if(i)
-        {
-          table.get_cell(l,0).set_text(" ");
-          ++l;
-        }
-        table.get_cell(l,0).set_text(printNonterminal(i));
-        table.get_cell(l,1).set_text("=");
-        Rule const &r = rules[i];
-        for(unsigned j=0; j<r.productions.size(); ++j)
-        {
-          if(j) table.get_cell(l,1).set_text("|");
-          table.get_cell(l,2).set_text(printProductionRightSide(r.productions[j]));
-          ++l;
-        }
-        if(!r.productions.size()) ++l;
-      }
-
-      return table.print(width, 1);
-    }
-
-    void Cfg::introduceNewStartSymbol()
-    {
-      if(!rules.size()) throw invalid_argument("Original grammar must have "
-                                               "at least one nonterminal");
-      vector<int> m(rules.size());
-      for(unsigned l=0; l<rules.size(); ++l) m[l] = l+1;
-      updateRuleIndices(m);
-      rules.insert(rules.begin(), Rule(chooseUniqueName(rules[0].name, -1)));
-      addProd(0, nont(1));
-    }
-
-    void Cfg::eliminateEpsilonProductions()
-    {
-      vector<bool> nullable;
-      vector<vector<int> > nullActions;
-      findNullableNonTerminals(nullable, nullActions);
-
-      // If the start symbol is nullable it may not occur on the right
-      // hand side of any production
-      if(nullable[0])
-      {
-        for(unsigned i=0; i<rules.size(); ++i)
-        {
-          Rule &r = rules[i];
-          for(unsigned j=0; j<r.productions.size(); ++j)
-          {
-            Production &p = r.productions[j];
-            for(unsigned k=0; k<p.symbols.size(); ++k)
-            {
-              Symbol &s = p.symbols[k];
-              if(s.type == Symbol::nonterminal && s.index == 0)
-              {
-                // Make a brand new start symbol
-                nullable.insert(nullable.begin(), true);
-                nullActions.insert(nullActions.begin(), nullActions[0]);
-                introduceNewStartSymbol();
-                i = rules.size();
-                j = r.productions.size();
+            else if (sym.m_type == Symbol::terminal) {
+                target_nonterminal = -1;
                 break;
-              }
             }
-          }
-        }
-      }
-
-      // Rewrite each rule
-      for(unsigned i=0; i<rules.size(); ++i)
-      {
-        Rule &r = rules[i];
-        vector<Production> newProductions;
-        for(unsigned j=0; j<r.productions.size(); ++j)
-        {
-          vector<Symbol> prefix;
-          addNullableCombinations(0, true, r.productions[j], nullable,
-                                  nullActions, prefix, newProductions);
         }
 
-        r.productions = newProductions;
-      }
+        if (target_nonterminal < 0)
+            continue;
 
-      // Is the start symbol nullable
-      if(nullable[0])
-      {
-        vector<Symbol> epsilon;
-        vector<int> const &v = nullActions[0];
-        for(unsigned j=0; j<v.size(); ++j)
-          epsilon.push_back(act(v[j]));
-        addProd(0, epsilon);
-      }
+        int s = eliminate_cycles_visit(target_nonterminal, visited_rules, cycle);
+        if (s == -2)
+            return -2;
+        if (s == -1)
+            continue;
+        if (prod.m_symbols.size() > 1)
+            throw std::invalid_argument("Ambiguous count for cycle production '"+rule.m_name +
+                                        " -> "+print_production_right_side(prod)+"'");
+        cycle.insert(cycle.begin(), std::make_pair(rule_index, i));
+        return (s == rule_index ? -2 : s);
     }
 
-    void Cfg::eliminateCycles()
-    {
-      Cfg g = *this;
-      g.eliminateEpsilonProductions();
-      int cycles = 0;
-      for(;;)
-      {
+    visited_rules[rule_index] = 2;
+    return -1;
+}
+
+
+std::string Cfg::print_production_right_side(const Production& prod, int m) const
+{
+    std::string r;
+    for (unsigned i = 0; i < prod.m_symbols.size(); ++i) {
+        if (int(i) == m) {
+            r += "\u00B7";
+        }
+        else if (i != 0) {
+            r += " ";
+        }
+        const Symbol& sym = prod.m_symbols[i];
+        switch (sym.m_type) {
+            case Symbol::terminal:
+                r += print_terminal(sym.m_index);
+                break;
+            case Symbol::nonterminal:
+                r += print_nonterminal(sym.m_index);
+                break;
+            case Symbol::action:
+                r += ascii_tolower(m_actor->get_method_name(sym.m_index)) + "(";
+                for (unsigned j = 0; j < sym.m_args.size(); ++j) {
+                    if (j != 0)
+                        r += ", ";
+                    r += (sym.m_args[j] < 0 ? "_" :
+                          core::format_int(int(i) - sym.m_args[j], m_locale));
+                }
+                r += ")";
+                break;
+            case Symbol::nil:
+                break;
+        }
+    }
+    if (m == int(prod.m_symbols.size()))
+        r += "\u00B7";
+    return (r.empty() ? "<epsilon>" : r);
+}
+
+
+int Cfg::define_terminal(const std::string& name)
+{
+    auto p = m_terminal_map.insert(std::make_pair(name, m_terminals.size()));
+    if (!p.second)
+        throw std::invalid_argument("Redefinition of terminal '"+name+"'");
+    m_terminals.push_back(name);
+    return m_terminals.size() - 1;
+}
+
+
+int Cfg::define_nonterminal(const std::string& name)
+{
+    auto p = m_nonterminal_map.insert(std::make_pair(name, m_rules.size()));
+    if (!p.second)
+        throw std::invalid_argument("Redefinition of non-terminal '"+name+"'");
+    m_rules.emplace_back(name);
+    return m_rules.size() - 1;
+}
+
+
+void Cfg::add_prod(int nonterm_index, const std::vector<Symbol>& symbols)
+{
+    for (const Symbol& sym: symbols) {
+        switch (sym.m_type) {
+            case Symbol::terminal:
+                if (sym.m_index < 0 || sym.m_index >= int(m_terminals.size()))
+                    throw std::invalid_argument("Illegal terminal index");
+                break;
+            case Symbol::nonterminal:
+                if (sym.m_index < 0 || sym.m_index >= int(m_rules.size()))
+                    throw std::invalid_argument("Illegal nonterminal index");
+                break;
+            case Symbol::action:
+                if (!m_actor)
+                    throw std::invalid_argument("Can't have actions without an actor");
+                if (sym.m_index < -3 || sym.m_index >= m_actor->get_num_methods())
+                    throw std::invalid_argument("Illegal method index");
+                if (int(sym.m_args.size()) != m_actor->get_method_arity(sym.m_index))
+                    throw std::invalid_argument("Wrong number of arguments to '" +
+                                                m_actor->get_method_name(sym.m_index)+"'");
+                break;
+            case Symbol::nil:
+                break;
+        }
+    }
+    m_rules[nonterm_index].add_production(symbols);
+}
+
+
+void Cfg::add_prod(int nonterm_index, Symbol s_1, Symbol s_2, Symbol s_3, Symbol s_4,
+                   Symbol s_5, Symbol s_6, Symbol s_7, Symbol s_8)
+{
+    std::vector<Symbol> symbols;
+    if (s_1.m_type)
+        symbols.push_back(s_1);
+    if (s_2.m_type)
+        symbols.push_back(s_2);
+    if (s_3.m_type)
+        symbols.push_back(s_3);
+    if (s_4.m_type)
+        symbols.push_back(s_4);
+    if (s_5.m_type)
+        symbols.push_back(s_5);
+    if (s_6.m_type)
+        symbols.push_back(s_6);
+    if (s_7.m_type)
+        symbols.push_back(s_7);
+    if (s_8.m_type)
+        symbols.push_back(s_8);
+    add_prod(nonterm_index, symbols);
+}
+
+
+Cfg::Symbol Cfg::act(int method_index, int arg_1, int arg_2, int arg_3,
+                     int arg_4, int arg_5, int arg_6, int arg_7)
+{
+    std::vector<int> args;
+    if (arg_1 > -2)
+        args.push_back(arg_1);
+    if (arg_2 > -2)
+        args.push_back(arg_2);
+    if (arg_3 > -2)
+        args.push_back(arg_3);
+    if (arg_4 > -2)
+        args.push_back(arg_4);
+    if (arg_5 > -2)
+        args.push_back(arg_5);
+    if (arg_6 > -2)
+        args.push_back(arg_6);
+    if (arg_7 > -2)
+        args.push_back(arg_7);
+    return Symbol{method_index, args};
+}
+
+
+Cfg::FirstSets::FirstSets(const Cfg& g):
+    m_grammar{g}
+{
+    m_terminals.resize(g.m_rules.size());
+    m_nullable.resize(g.m_rules.size());
+    bool again;
+    do {
+        again = false;
+        for (unsigned i = 0; i < g.m_rules.size(); ++i) {
+            const Rule& r = g.m_rules[i];
+            std::set<int> &t = m_terminals[i];
+            for (unsigned j = 0; j < r.m_productions.size(); ++j) {
+                unsigned n = t.size();
+                Item item{int(i), int(j), 0};
+                if (include_first_set(item, t) && !m_nullable[i]) {
+                    again = m_nullable[i] = true;
+                }
+                else if (t.size() > n) {
+                    again = true;
+                }
+            }
+        }
+    }
+    while (again);
+}
+
+
+bool Cfg::FirstSets::include_first_set(const Item& item, std::set<int>& t) const
+{
+    const Production& prod = m_grammar.m_rules[item.rule].m_productions[item.production];
+    unsigned i;
+    for (i = item.position; i < prod.m_symbols.size(); ++i) {
+        const Symbol& sym = prod.m_symbols[i];
+        if (sym.m_type == Symbol::terminal) {
+            t.insert(sym.m_index);
+            break;
+        }
+        if (sym.m_type == Symbol::nonterminal) {
+            set_include(m_terminals[sym.m_index], t);
+            if (!m_nullable[sym.m_index])
+                break;
+        }
+    }
+    return (i == prod.m_symbols.size());
+}
+
+
+std::string Cfg::print_terminal(int i) const
+{
+    if (i < 0)
+        return "<eoi>";
+    return ascii_toupper(m_terminals[i]);
+}
+
+
+std::string Cfg::print_nonterminal(int i) const
+{
+    return ascii_tolower(m_rules[i].m_name);
+}
+
+
+std::string Cfg::print_production(int i, int j) const
+{
+    return print_nonterminal(i) + " -> " + print_production_right_side(m_rules[i].m_productions[j]);
+}
+
+
+std::string Cfg::print_item(const Item& i) const
+{
+    return print_nonterminal(i.rule) + " -> " +
+        print_production_right_side(m_rules[i.rule].m_productions[i.production], i.position);
+}
+
+
+std::string Cfg::FirstSets::print(int width) const
+{
+    Text::Table table;
+    table.get_col(0).set_width(1);
+    table.get_col(1).set_width(4);
+    table.get_cell(0,0).set_text("Nonterminal");
+    table.get_cell(0,1).set_text("First set");
+    for (unsigned i = 0; i < m_terminals.size(); ++i) {
+        const std::set<int>& t = m_terminals[i];
+        table.get_cell(i+1, 0).set_text(m_grammar.print_nonterminal(i));
+        std::string s;
+        for (auto j = t.begin(); j != t.end(); ++j) {
+            if (j != t.begin())
+                s += " ";
+            s += m_grammar.print_terminal(*j);
+        }
+        if (m_nullable[i]) {
+            if (s.size())
+                s += " ";
+            s += "<epsilon>";
+        }
+        table.get_cell(i+1, 1).set_text(s);
+    }
+
+    return table.print(width, 2, true);
+}
+
+
+Cfg::FollowSets::FollowSets(const FirstSets& f):
+    m_grammar(f.m_grammar)
+{
+    m_terminals.resize(m_grammar.m_rules.size());
+    m_terminals[0].insert(-1);
+    bool again;
+    do {
+        again = false;
+        for (unsigned i = 0; i < m_grammar.m_rules.size(); ++i) {
+            const Rule& rule = m_grammar.m_rules[i];
+            for (unsigned j = 0; j < rule.m_productions.size(); ++j) {
+                const Production& prod = rule.m_productions[j];
+                for (unsigned k = 0; k < prod.m_symbols.size(); ++k) {
+                    const Symbol& sym = prod.m_symbols[k];
+                    if (sym.m_type != Symbol::nonterminal)
+                        continue;
+                    std::set<int>& t = m_terminals[sym.m_index];
+                    unsigned n = t.size();
+                    Item item{int(i), int(j), int(k+1)};
+                    if (f.include_first_set(item, t))
+                        set_include(m_terminals[i], t);
+                    if (t.size() > n)
+                        again = true;
+                }
+            }
+        }
+    }
+    while (again);
+}
+
+
+std::string Cfg::FollowSets::print(int width) const
+{
+    Text::Table table;
+    table.get_col(0).set_width(1);
+    table.get_col(1).set_width(4);
+    table.get_cell(0,0).set_text("Nonterminal");
+    table.get_cell(0,1).set_text("Follow set");
+    for (unsigned i = 0; i < m_terminals.size(); ++i) {
+        const std::set<int>& t = m_terminals[i];
+        table.get_cell(i+1, 0).set_text(m_grammar.print_nonterminal(i));
+        std::string s;
+        for (int term: t) {
+            if (term < 0)
+                continue;
+            if (!s.empty())
+                s += " ";
+            s += m_grammar.print_terminal(term);
+        }
+        if (!t.empty() && *t.begin() < 0) {
+            if (t.size() > 1)
+                s += " ";
+            s += "<eoi>";
+        }
+        table.get_cell(i+1, 1).set_text(s);
+    }
+
+    return table.print(width, 2, true);
+}
+
+
+std::string Cfg::print(int width) const
+{
+    Text::Table table;
+    table.get_col(0).set_width(10);
+    table.get_col(1).set_width( 1);
+    table.get_col(2).set_width(39);
+
+    int l = 0;
+    for (unsigned i = 0; i < m_rules.size(); ++i) {
+        if (i > 0) {
+            table.get_cell(l,0).set_text(" ");
+            ++l;
+        }
+        table.get_cell(l,0).set_text(print_nonterminal(i));
+        table.get_cell(l,1).set_text("=");
+        const Rule& rule = m_rules[i];
+        for (unsigned j = 0; j < rule.m_productions.size(); ++j) {
+            if (j > 0)
+                table.get_cell(l,1).set_text("|");
+            table.get_cell(l,2).set_text(print_production_right_side(rule.m_productions[j]));
+            ++l;
+        }
+        if (!rule.m_productions.size())
+            ++l;
+    }
+
+    return table.print(width, 1);
+}
+
+
+void Cfg::introduce_new_start_symbol()
+{
+    if (!m_rules.size())
+        throw std::invalid_argument("Original grammar must have "
+                                    "at least one nonterminal");
+    std::vector<int> m(m_rules.size());
+    for (unsigned l = 0; l < m_rules.size(); ++l)
+        m[l] = l+1;
+    update_rule_indices(m);
+    m_rules.insert(m_rules.begin(), Rule{choose_unique_name(m_rules[0].m_name, -1)});
+    add_prod(0, nont(1));
+}
+
+
+void Cfg::eliminate_epsilon_productions()
+{
+    std::vector<bool> nullable;
+    std::vector<std::vector<int> > null_actions;
+    find_nullable_nonterminals(nullable, null_actions);
+
+    // If the start symbol is nullable it may not occur on the right hand side
+    // of any production
+    if (nullable[0]) {
+        for (Rule& rule: m_rules) {
+            for (Production& prod: rule.m_productions) {
+                for (Symbol& sym: prod.m_symbols) {
+                    if (sym.m_type == Symbol::nonterminal && sym.m_index == 0) {
+                        // Make a brand new start symbol
+                        nullable.insert(nullable.begin(), true);
+                        null_actions.insert(null_actions.begin(), null_actions[0]);
+                        introduce_new_start_symbol();
+                        goto rewrite;
+                    }
+                }
+            }
+        }
+    }
+
+    // Rewrite each rule
+  rewrite:
+    for (Rule &rule: m_rules) {
+        std::vector<Production> new_productions;
+        for (Production& prod: rule.m_productions) {
+            std::vector<Symbol> prefix;
+            add_nullable_combinations(0, true, prod, nullable, null_actions, prefix,
+                                      new_productions);
+        }
+        rule.m_productions = new_productions;
+    }
+
+    // Is the start symbol nullable
+    if (nullable[0]) {
+        std::vector<Symbol> epsilon;
+        for (int a: null_actions[0])
+            epsilon.push_back(act(a));
+        add_prod(0, epsilon);
+    }
+}
+
+
+void Cfg::eliminate_cycles()
+{
+    Cfg g = *this;
+    g.eliminate_epsilon_productions();
+    int cycles = 0;
+    for (;;) {
         // Find a cycle
-        list<pair<int, int> > cycle;
-        vector<int> visitedRules(g.rules.size()); // 0=unvisited, 1=in current path, 2=visited but no longer in current path
-        for(unsigned i=0; i<g.rules.size(); ++i)
-          if(g.eliminateCyclesVisit(i, visitedRules, cycle) == -2) break;
-        if(!cycle.size()) break;
+        std::list<std::pair<int, int>> cycle;
+        // 0=unvisited, 1=in current path, 2=visited but no longer in current path
+        std::vector<int> visited_rules(g.m_rules.size());
+        for (int i = 0; i < int(g.m_rules.size()); ++i) {
+            if (g.eliminate_cycles_visit(i, visited_rules, cycle) == -2)
+                break;
+        }
+        if (!cycle.size())
+            break;
         ++cycles;
 
-        cerr << "Found cycle: " << g.rules[cycle.front().first].name;
-        for(list<pair<int, int> >::iterator i=cycle.begin(); i!=cycle.end(); ++i)
-          cerr << " -> " << g.printProductionRightSide(g.rules[i->first].productions[i->second]);
-        cerr << "\n";
+        std::cerr << "Found cycle: " << g.m_rules[cycle.front().first].m_name;
+        for (auto& p: cycle)
+            std::cerr << " -> " << g.print_production_right_side(g.m_rules[p.first].m_productions[p.second]);
+        std::cerr << "\n";
 
-        set<pair<int, int> > cycleProductions;
-        set<int> cycleNonTerminals;
-        for(list<pair<int, int> >::iterator i=cycle.begin(); i!=cycle.end(); ++i)
-        {
-          cycleProductions.insert(*i);
-          cycleNonTerminals.insert(i->first);
+        std::set<std::pair<int, int>> cycle_productions;
+        std::set<int> cycle_nonterminals;
+        for (auto& p: cycle) {
+            cycle_productions.insert(p);
+            cycle_nonterminals.insert(p.first);
         }
 
         // Rewrite each rule to eliminate the cycle
-        for(unsigned i=0; i<g.rules.size(); ++i)
-        {
-          Rule &r = g.rules[i];
-          vector<Production> newProductions;
-          for(unsigned j=0; j<r.productions.size(); ++j)
-          {
-            Production &p = r.productions[j];
-
-            pair<int, int> const q = make_pair(i, j);
-            if(cycleProductions.find(q) != cycleProductions.end())
-            {
-              if(q != cycle.back()) newProductions.push_back(p);
+        for (int i = 0; i < int(g.m_rules.size()); ++i) {
+            Rule& rule = g.m_rules[i];
+            std::vector<Production> new_productions;
+            for (int j = 0; j < int(rule.m_productions.size()); ++j) {
+                Production& prod = rule.m_productions[j];
+                auto q = std::make_pair(i,j);
+                if (cycle_productions.find(q) != cycle_productions.end()) {
+                    if (q != cycle.back())
+                        new_productions.push_back(prod);
+                }
+                else {
+                    Production n;
+                    for (Symbol& sym: prod.m_symbols) {
+                        if (   (sym.m_type == Symbol::nonterminal &&
+                                cycle_nonterminals.find(sym.m_index) != cycle_nonterminals.end())) {
+                            n.m_symbols.push_back(nont(cycle.front().first));
+                        }
+                        else {
+                            n.m_symbols.push_back(sym);
+                        }
+                    }
+                    new_productions.push_back(n);
+                }
             }
-            else
-            {
-              Production n;
-              for(unsigned k=0; k<p.symbols.size(); ++k)
-              {
-                Symbol &s = p.symbols[k];
-                if(s.type == Symbol::nonterminal &&
-                   cycleNonTerminals.find(s.index) != cycleNonTerminals.end())
-                  n.symbols.push_back(nont(cycle.front().first));
-                else n.symbols.push_back(s);
-              }
-              newProductions.push_back(n);
-            }
-          }
 
-          r.productions = newProductions;
+            rule.m_productions = new_productions;
         }
-      }
-
-      if(cycles) *this = g;
     }
 
-    void Cfg::eliminateMidRuleActions()
-    {
-      unsigned const n = rules.size();
-      for(unsigned i=0; i<n; ++i)
-      {
-        Rule *r = &rules[i];
-        for(unsigned j=0; j<r->productions.size(); ++j)
-        {
-          Production *p = &r->productions[j];
-          for(unsigned k=0; k+1<p->symbols.size(); ++k)
-          {
-            Symbol *s = &p->symbols[k];
-            if(s->type != Symbol::action) continue;
-            int const a = defineNonterminal(chooseUniqueName("action", 1));
-            // rules vector may be relocated so we need to aquire a new
-            // pointers.
-            r = &rules[i];
-            p = &r->productions[j];
-            s = &p->symbols[k];
-            addProd(a, *s);
-            s->type = Symbol::nonterminal;
-            s->index = a;
-            s->args.clear();
-          }
+    if (cycles != 0)
+        *this = g;
+}
+
+
+void Cfg::eliminate_midrule_actions()
+{
+    unsigned n = m_rules.size();
+    for (unsigned i = 0; i < n; ++i) {
+        Rule* r = &m_rules[i];
+        for (unsigned j = 0; j < r->m_productions.size(); ++j) {
+            Production* p = &r->m_productions[j];
+            for (unsigned k = 0; k+1 < p->m_symbols.size(); ++k) {
+                Symbol* s = &p->m_symbols[k];
+                if (s->m_type != Symbol::action)
+                    continue;
+                int a = define_nonterminal(choose_unique_name("action", 1));
+                // rules vector may be relocated so we need to aquire a new
+                // pointers.
+                r = &m_rules[i];
+                p = &r->m_productions[j];
+                s = &p->m_symbols[k];
+                add_prod(a, *s);
+                s->m_type = Symbol::nonterminal;
+                s->m_index = a;
+                s->m_args.clear();
+            }
         }
-      }
     }
-  }
 }

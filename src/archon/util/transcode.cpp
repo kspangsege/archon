@@ -31,7 +31,7 @@
 #include <algorithm>
 
 #include <archon/core/sys.hpp>
-#include <archon/core/text.hpp>
+#include <archon/core/string.hpp>
 #include <archon/core/memory.hpp>
 #include <archon/util/inc_conv.hpp>
 #include <archon/util/transcode.hpp>
@@ -236,7 +236,7 @@ public:
     {
         if (std::numeric_limits<unsigned char>::digits != 8)
             throw std::runtime_error("Unsupported number of bits in char: " +
-                                     Text::print(std::numeric_limits<unsigned char>::digits));
+                                     format_value(std::numeric_limits<unsigned char>::digits));
         std::string source_encoding = t.source_encoding;
         iconv_state = iconv_open(target_encoding.c_str(), source_encoding.c_str());
         if (iconv_state==reinterpret_cast<iconv_t>(-1)) {

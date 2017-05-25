@@ -59,7 +59,7 @@ using Xlib_Drawable = Drawable;
 #include <archon/core/assert.hpp>
 #include <archon/core/iterator.hpp>
 #include <archon/core/memory.hpp>
-#include <archon/core/text.hpp>
+#include <archon/core/string.hpp>
 #include <archon/core/sys.hpp>
 #include <archon/util/unit_frac.hpp>
 #include <archon/image/writer.hpp>
@@ -319,7 +319,7 @@ private:
     {
         if (arch_key_sym == KeySym_None) {
             throw std::runtime_error("Invalid mapping from X KeySym '"+
-                                     Text::print(long(xlib_key_sym))+"' to 'None'");
+                                     format_int(long(xlib_key_sym))+"' to 'None'");
         }
         // Prepare update of map from Xlib to Archon
         Arch_KeySym* arch_sym;
@@ -333,7 +333,7 @@ private:
             arch_sym = &page[xlib_key_sym & 255];
             if (*arch_sym != KeySym_None) {
                 throw std::runtime_error("Redefinition of Xlib KeySym '"+
-                                         Text::print(long(xlib_key_sym))+"'");
+                                         format_int(long(xlib_key_sym))+"'");
             }
         }
         // Update map from Archon to Xlib
@@ -348,7 +348,7 @@ private:
             xlib_sym = &page[arch_key_sym & 255];
             if (*xlib_sym != NoSymbol) {
                 throw std::runtime_error("Redefinition of Archon KeySym '"+
-                                         Text::print(long(arch_key_sym))+"'");
+                                         format_int(long(arch_key_sym))+"'");
             }
         }
 

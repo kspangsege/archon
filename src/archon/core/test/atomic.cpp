@@ -36,6 +36,7 @@
 #include <archon/core/atomic.hpp>
 #include <archon/core/term.hpp>
 #include <archon/core/random.hpp>
+#include <archon/core/string.hpp>
 #include <archon/core/text.hpp>
 
 
@@ -273,7 +274,7 @@ namespace
       count = false;
     }
     --r;
-    TEST_MSG(0 <= r && r < inc_if_not_zero_threads, "Bad orig value "+Text::print(r));
+    TEST_MSG(0 <= r && r < inc_if_not_zero_threads, "Bad orig value "+format_value(r));
     inc_if_not_zero_flags[r].inc();
     return 0;
   }

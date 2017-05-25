@@ -202,7 +202,8 @@ namespace archon
 
     Config::Config(locale const &loc):
       ConfigBuilder(this, L""), char_codec(true, loc), char_mapper(loc),
-      value_codec(locale::classic()) {}
+      value_parser(locale::classic()),
+      value_formatter(locale::classic()) {}
 
 
 

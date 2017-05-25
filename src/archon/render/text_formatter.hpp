@@ -154,9 +154,11 @@ public:
     /// Create a layout of the specified text using the specified formatter.
     ///
     /// \sa TextFormatter::format()
-    TextLayout(TextFormatter* formatter, std::wstring text, int page_idx = 0);
+    TextLayout(TextFormatter& formatter, std::wstring text, int page_idx = 0);
 
-    void set(TextFormatter* formatter, std::wstring text, int page_idx = 0);
+    void set(TextFormatter& formatter, std::wstring text, int page_idx = 0);
+
+    void set(TextFormatter& formatter, const wchar_t* begin, const wchar_t* end, int page_idx = 0);
 
     double get_width()  const;
     double get_height() const;
@@ -259,16 +261,25 @@ inline TextLayout::TextLayout()
     clear();
 }
 
-inline TextLayout::TextLayout(TextFormatter* formatter, std::wstring text, int page_idx)
+inline TextLayout::TextLayout(TextFormatter& formatter, std::wstring text, int page_idx)
 {
-    set(formatter, text, page_idx);
+    set(formatter, text, page_idx); // Throws
 }
 
-inline void TextLayout::set(TextFormatter* formatter, std::wstring text, int page_idx)
+inline void TextLayout::set(TextFormatter& formatter, std::wstring text, int page_idx)
 {
-    formatter->clear();
-    formatter->write(text);
-    formatter->format(*this, page_idx);
+    formatter.clear(); // Throws
+    formatter.write(text); // Throws
+    formatter.format(*this, page_idx); // Throws
+}
+
+inline void TextLayout::set(TextFormatter& formatter, const wchar_t* begin, const wchar_t* end,
+                            int page_idx)
+{
+    formatter.clear(); // Throws
+    std::size_t n = std::size_t(end - begin);
+    formatter.write(begin, n); // Throws
+    formatter.format(*this, page_idx); // Throws
 }
 
 inline double TextLayout::get_width()  const

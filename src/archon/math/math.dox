@@ -1,4 +1,4 @@
-/** \namespace Archon::Math
+/** \namespace archon::math
 
 Holds the Archon math library which, among others, provide
 comprehensive vector and matrix classes.

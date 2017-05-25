@@ -428,6 +428,8 @@ protected:
                 TextureCache* texture_cache = nullptr,
                 std::unique_ptr<font::FontCache> font_cache = nullptr);
 
+    const std::locale& get_locale() const noexcept;
+
 private:
     int adjust(int val, int min, double f)
     {

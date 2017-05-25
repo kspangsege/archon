@@ -26,7 +26,7 @@
 #include <algorithm>
 #include <map>
 
-#include <archon/core/text.hpp>
+#include <archon/core/string.hpp>
 #include <archon/util/unit_frac.hpp>
 #include <archon/image/word_type.hpp>
 
@@ -178,7 +178,7 @@ WordType get_word_type_by_minimum_bit_width(int width, bool floating_point)
     if (i != m.end())
         return i->second;
     throw NoSuchWordTypeException("No "+string(floating_point?"floating point":"integer")+
-                                  " types of at least "+Text::print(width)+" bits exist on this "
+                                  " types of at least "+format_int(width)+" bits exist on this "
                                   "platform");
 }
 
@@ -195,7 +195,7 @@ WordType get_word_type_by_bit_width(int width, bool floating_point, bool at_leas
             return i->second;
     }
     throw NoSuchWordTypeException("No "+string(floating_point?"floating point":"integer")+
-                                  " types of "+Text::print(width)+" bits exist on this "
+                                  " types of "+format_int(width)+" bits exist on this "
                                   "platform");
 }
 

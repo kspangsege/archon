@@ -1,4 +1,4 @@
-/** \namespace Archon::Display
+/** \namespace archon::display
 
 Holds the Archon display API. The main purpose of the display API is
 to provide a platform independant way of opening windows of a kind

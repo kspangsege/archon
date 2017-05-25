@@ -32,7 +32,7 @@
 #include <iostream>
 
 #include <archon/core/series.hpp>
-#include <archon/core/text.hpp>
+#include <archon/core/string.hpp>
 
 
 #define TEST(assertion)              if(!(assertion)) throw runtime_error("Test failed")
@@ -44,9 +44,10 @@ using namespace archon::core;
 
 int main() throw()
 {
-  Text::WideValueCodec codec;
+  BasicValueFormatter<wchar_t> formatter;
+  BasicValueParser<wchar_t> parser;
   Series<3, int> s1(12, 31, 471);
-  Series<3, int> s2 = codec.parse<Series<3, int> >(codec.print(s1));
+  Series<3, int> s2 = parser.parse<Series<3, int> >(formatter.format(s1));
   TEST_MSG(s1[0] == s2[0], "First component, wide");
   TEST_MSG(s1[1] == s2[1], "Second component, wide");
   TEST_MSG(s1[2] == s2[2], "Third component, wide");

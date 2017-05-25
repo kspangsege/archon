@@ -18,11 +18,9 @@
  * <http://www.gnu.org/licenses/>.
  */
 
-/**
- * \file
- *
- * \author Kristian Spangsege
- */
+/// \file
+///
+/// \author Kristian Spangsege
 
 #ifndef ARCHON_CORE_ENUM_HPP
 #define ARCHON_CORE_ENUM_HPP
@@ -38,57 +36,55 @@
 namespace archon {
 namespace core {
 
-/**
- * This template class allows you to endow a fundamental \c enum type
- * with information about how to print out the individual values, and
- * how to parse them.
- *
- * Here is an example:
- *
- * <pre>
- *
- *   // Module header
- *
- *   enum Color { orange, purple, brown };
- *
- *   struct ColorSpec { static EnumAssoc map[]; };
- *   typedef Enum<Color, ColorSpec> ColorEnum;
- *
- *
- *   // Module implementation
- *
- *   EnumAssoc ColorSpec::map[] =
- *   {
- *     { orange, "orange" },
- *     { purple, "purple" },
- *     { brown,  "brown"  },
- *     { 0, 0 }
- *   };
- *
- *
- *   // Application
- *
- *   ColorEnum color = violet;
- *
- *   cout << color;  // Write a color
- *   cin  >> color;  // Read a color
- *
- * </pre>
- */
-template<class E, class S, bool ignore_case = false> struct Enum {
-    typedef E base_enum_type;
+/// This template class allows you to endow a fundamental `enum` type with
+/// information about how to print out the individual values, and how to parse
+/// them.
+///
+/// Here is an example:
+///
+/// <pre>
+///
+///   // Module header
+///
+///   enum Color { orange, purple, brown };
+///
+///   struct ColorSpec { static EnumAssoc map[]; };
+///   using ColorEnum = Enum<Color, ColorSpec>;
+///
+///
+///   // Module implementation
+///
+///   EnumAssoc ColorSpec::map[] = {
+///       { orange, "orange" },
+///       { purple, "purple" },
+///       { brown,  "brown"  },
+///       { 0, 0 }
+///   };
+///
+///
+///   // Application
+///
+///   ColorEnum color = violet;
+///
+///   std::cout << color;  // Write a color
+///   std::cin  >> color;  // Read a color
+///
+/// </pre>
+template<class E, class S, bool ignore_case = false> class Enum {
+public:
+    using base_enum_type = E;
 
-    Enum() {}
-    Enum(E v): value(v) {}
+    Enum(E = {}) noexcept;
 
-    operator E() const { return value; }
+    operator E() const noexcept;
 
     std::string str() const;
 
-    bool parse(std::string s); ///< \return True iff successful
+    /// \return True iff successful
+    bool parse(std::string s);
 
 private:
-    E value;
+    E m_value;
 };
 
 template<class C, class T, class E, class S, bool ignore_case>
@@ -100,7 +96,10 @@ std::basic_istream<C,T> &operator>>(std::basic_istream<C,T> &,
                                     Enum<E, S, ignore_case> &);
 
 
-struct EnumAssoc { const int value; const char* const name; };
+struct EnumAssoc {
+    const int value;
+    const char* const name;
+};
 
 
 
@@ -108,7 +107,9 @@ struct EnumAssoc { const int value; const char* const name; };
 // Implementation
 
 namespace _impl {
-struct EnumMapper {
+
+class EnumMapper {
+public:
     EnumMapper(const EnumAssoc*, bool ignore_case);
 
     bool parse(std::string s, int& val, bool ignore_case) const;
@@ -119,26 +120,37 @@ struct EnumMapper {
 
 template<class S, bool ignore_case> const EnumMapper& get_enum_mapper()
 {
-    static EnumMapper m(S::map, ignore_case);
-    return m;
+    static EnumMapper mapper{S::map, ignore_case}; // Throws
+    return mapper;
 }
 
 } // namespace _impl
 
+template<class E, class S, bool ignore_case>
+inline Enum<E, S, ignore_case>::Enum(E v) noexcept:
+    m_value{v}
+{
+}
+
+template<class E, class S, bool ignore_case>
+inline Enum<E, S, ignore_case>::operator E() const noexcept
+{
+    return m_value;
+}
 
 template<class E, class S, bool ignore_case>
 inline std::string Enum<E, S, ignore_case>::str() const
 {
-    return _impl::get_enum_mapper<S, ignore_case>().val2name.at(value);
+    return _impl::get_enum_mapper<S, ignore_case>().val2name.at(m_value); // Throws
 }
 
 template<class E, class S, bool ignore_case>
 inline bool Enum<E, S, ignore_case>::parse(std::string s)
 {
     int v;
-    if (!_impl::get_enum_mapper<S, ignore_case>().parse(s, v, ignore_case))
+    if (!_impl::get_enum_mapper<S, ignore_case>().parse(s, v, ignore_case)) // Throws
         return false;
-    value = E(v);
+    m_value = E(v);
     return true;
 }
 
@@ -149,8 +161,7 @@ inline std::basic_ostream<C,T>& operator<<(std::basic_ostream<C,T>& o,
     try {
         o << BasicLocaleCodec<C>(true, o.getloc()).decode(e.str());
     }
-    catch(std::out_of_range&)
-    {
+    catch (std::out_of_range&) {
         o << E(e);
     }
     return o;
@@ -187,7 +198,7 @@ std::basic_istream<C,T>& operator>>(std::basic_istream<C,T>& i,
         }
         s += c;
     }
-    if (!e.parse(BasicLocaleCodec<C>(true, i.getloc()).encode(s)))
+    if (!e.parse(BasicLocaleCodec<C>(true, i.getloc()).encode(s))) // Throws
         i.setstate(std::ios_base::badbit);
     return i;
 }

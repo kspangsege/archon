@@ -33,7 +33,7 @@
 #include <csetjmp>
 
 #include <archon/core/memory.hpp>
-#include <archon/core/text.hpp>
+#include <archon/core/string.hpp>
 #include <archon/core/blocking.hpp>
 #include <archon/util/transcode.hpp>
 #include <archon/image/file_format.hpp>
@@ -125,7 +125,7 @@ void warning_callback(png_structp png_ptr, png_const_charp message) throw()
 void progress_callback(png_structp png_ptr, png_uint_32 row, int) throw()
 {
     Context* c = static_cast<Context*>(png_get_error_ptr(png_ptr));
-//    c->logger->log("Progress " + Text::print(row) + "/" + Text::print(c->total_rows) + " (pass = " + Text::print(pass) + ")");
+//    c->logger->log("Progress " + format_int(row) + "/" + format_int(c->total_rows) + " (pass = " + format_int(pass) + ")");
     if (c->tracker && c->total_rows)
         c->tracker->progress(row/c->total_rows);
 }
@@ -409,7 +409,7 @@ public:
                     break;
                 default:
                     throw std::runtime_error("Unexpected color space for PNG data "
-                                             "("+Text::print(static_cast<int>(color_type))+")");
+                                             "("+format_int(static_cast<int>(color_type))+")");
             }
 
             // We now create the buffer format where channels are always evenly
@@ -434,8 +434,8 @@ public:
             int bytes_per_strip2 = png_get_rowbytes(w.png_ptr, w.info_ptr);
             if (bytes_per_strip != bytes_per_strip2)
                 throw std::runtime_error("Mismatching bytes per strip reported by "
-                                         "Archon("+Text::print(bytes_per_strip)+") and Libpng"
-                                         "("+Text::print(bytes_per_strip2)+")");
+                                         "Archon("+format_int(bytes_per_strip)+") and Libpng"
+                                         "("+format_int(bytes_per_strip2)+")");
 
 //std::cerr << "---- LOAD PNG: "<<width<<"x"<<height<<" "<<buf_fmt->print(color_space, has_alpha)<<"\n";
 
@@ -638,7 +638,7 @@ public:
                 break;
             default:
                 throw std::runtime_error("Unexpected number of channels " +
-                                         Text::print(num_channels));
+                                         format_int(num_channels));
         };
 
         const png_byte* pix_buf =

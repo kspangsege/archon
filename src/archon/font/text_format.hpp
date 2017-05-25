@@ -70,7 +70,7 @@ public:
     /// Like write(std::wstring) but adds a trailing newline.
     void writeln(std::wstring);
 
-    void write(const wchar_t* text, size_t n);
+    void write(const wchar_t* text, std::size_t n);
 
     /// Discard all previously written text, but keep all formatter settings.
     ///
@@ -444,7 +444,7 @@ inline void TextFormatter::clear()
     reset();
 }
 
-inline void TextFormatter::write(const wchar_t* text, size_t n)
+inline void TextFormatter::write(const wchar_t* text, std::size_t n)
 {
     while (n) {
         std::size_t m = m_inbuf_end - m_inbuf_pos;

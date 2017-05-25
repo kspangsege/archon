@@ -23,6 +23,7 @@
 /// \author Kristian Spangsege
 
 #include <archon/core/memory.hpp>
+#include <archon/core/string.hpp>
 #include <archon/core/text.hpp>
 #include <archon/core/text_table.hpp>
 #include <archon/image/buffered_image.hpp>
@@ -50,8 +51,8 @@ void read_tray(Image::ConstRefArg image, int left, int bottom, int width, int he
     WordType component_type = image->get_word_type();
     int num_channels = image->get_num_channels();
     int pixel_size = num_channels * get_bytes_per_word(component_type);
-    size_t num_pixels = height * size_t(width);
-    size_t num_components = num_pixels * num_channels;
+    std::size_t num_pixels = height * std::size_t(width);
+    std::size_t num_components = num_pixels * num_channels;
     std::unique_ptr<char[]> tray = std::make_unique<char[]>(num_pixels * pixel_size);
     std::unique_ptr<float[]> floats = std::make_unique<float[]>(num_components);
 
@@ -73,7 +74,7 @@ void read_tray(Image::ConstRefArg image, int left, int bottom, int width, int he
             for (int k = 0; k < num_channels; ++k) {
                 if (!v.empty())
                     v += ", ";
-                v += Text::print(floats[(i*size_t(width)+j) * num_channels + k]);
+                v += format_value(floats[(i*std::size_t(width)+j) * num_channels + k]);
             }
             table.get_cell(i,j).set_text("("+v+")");
         }
@@ -258,10 +259,10 @@ void test_3()
     Image image2("../../../../scenes/img/alley_baggett.jpg");
     ImageData data2 = get_format_of_image(image2);
 
-    size_t w = 128;
-    size_t h = 128;
-    size_t n = w*h;
-    size_t m = image1.get_component_specifier();
+    std::size_t w = 128;
+    std::size_t h = 128;
+    std::size_t n = w*h;
+    std::size_t m = image1.get_component_specifier();
     std::unique_ptr<double[]> tray = std::make_unique<double[]>(n*m);
 
     data1.get_pixels(-32, -32, tray.get(), w, h, 1, 1);

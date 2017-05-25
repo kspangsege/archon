@@ -31,6 +31,7 @@
 
 #include <archon/core/term.hpp>
 #include <archon/core/random.hpp>
+#include <archon/core/string.hpp>
 #include <archon/core/text.hpp>
 #include <archon/core/text_hist.hpp>
 #include <archon/core/series.hpp>
@@ -51,14 +52,14 @@ namespace
     istringstream i(opt.substr(name.size()+1));
     Text::SimpleTokenizer<char> tokenizer(i, ",", Text::SimpleTokenizer<char>::incl_empty);
     string s;
-    while(tokenizer.generate(s)) params.push_back(Text::parse<double>(s));
+    while(tokenizer.generate(s)) params.push_back(parse_value<double>(s));
     if(params.empty()) throw invalid_argument("Syntax error in distribution params");
     return true;
   }
 }
 
 
-int main(int argc, char const *argv[]) throw()
+int main(int argc, char const *argv[])
 {
   pair<int, int> term_size(80, 25);
   try { term_size = Term::get_terminal_size(); }
@@ -86,14 +87,14 @@ int main(int argc, char const *argv[]) throw()
   double a, b;
   vector<double> params;
   Random random;
-  UniquePtr<Random::Distribution> distribution;
+  std::unique_ptr<Random::Distribution> distribution;
   bool discrete = false;
   if(check_distrib("uniform", opt_distribution, params))
   {
     if(2 < params.size()) throw invalid_argument("Too many distribution params");
     a = params.size() < 1 ? 0 : params[0];
     b = params.size() < 2 ? 1 : params[1];
-    distribution.reset(new Random::UniformDistrib(&random, a, b));
+    distribution = std::make_unique<Random::UniformDistrib>(&random, a, b);
   }
   else if(check_distrib("normal", opt_distribution, params))
   {
@@ -128,6 +129,4 @@ int main(int argc, char const *argv[]) throw()
   Histogram hist(a,b,n);
   for(int i=0; i<opt_iterations; ++i) hist.add(distribution->get());
   hist.print(cout, false, opt_size[0]);
-
-  return 0;
 }

@@ -35,8 +35,8 @@
 #include <string>
 
 #include <archon/core/meta.hpp>
-#include <archon/core/unique_ptr.hpp>
 #include <archon/core/memory.hpp>
+#include <archon/core/string.hpp>
 #include <archon/core/char_enc.hpp>
 #include <archon/core/text.hpp>
 
@@ -351,7 +351,8 @@ namespace archon
 
       WideLocaleCodec const char_codec;
       WideLocaleCharMapper const char_mapper;
-      Text::WideValueCodec const value_codec;
+      mutable BasicValueParser<wchar_t> value_parser;
+      mutable BasicValueFormatter<wchar_t> value_formatter;
 
     private:
       friend struct ConfigBuilder;
@@ -373,10 +374,11 @@ namespace archon
       std::wstring encode(T const &v) const;
       void decode(std::wstring s, T &v) const;
 
-      ConfigCodec(Config const *c): codec(c->value_codec) {}
+      ConfigCodec(Config const *c): parser(c->value_parser), formatter(c->value_formatter) {}
 
     private:
-      Text::WideValueCodec const &codec;
+      BasicValueParser<wchar_t> &parser;
+      BasicValueFormatter<wchar_t> &formatter;
     };
 
 
@@ -464,19 +466,13 @@ namespace archon
 
     template<class T> inline std::wstring ConfigCodec<T>::encode(T const &v) const
     {
-      return codec.print(v);
+      return formatter.format(v);
     }
 
     template<class T> inline void ConfigCodec<T>::decode(std::wstring s, T &v) const
     {
-      try
-      {
-        v = codec.parse<T>(s);
-      }
-      catch(Text::ParseException &e)
-      {
-        throw ConfigDecodeException(e.what());
-      }
+        if (!parser.parse(s,v))
+            throw ConfigDecodeException{"Bad value"};
     }
 
 

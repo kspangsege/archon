@@ -28,6 +28,7 @@
 
 #include <GL/gl.h>
 
+#include <archon/core/string.hpp>
 #include <archon/core/build_config.hpp>
 #include <archon/core/options.hpp>
 #include <archon/thread/thread.hpp>
@@ -48,7 +49,7 @@ namespace {
 class Facet: public Thread, public Application {
 public:
     Facet(const Application::Config& cfg, Connection::Arg c, int i, double m):
-        Application("archon::render::MultiThreaded #"+Text::print(i+1), cfg, std::locale::classic(), c)
+        Application("archon::render::MultiThreaded #"+format_int(i+1), cfg, std::locale::classic(), c)
     {
         set_scene_spin(Rotation3(Vec3(0,1,0), m));
 

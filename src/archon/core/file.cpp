@@ -35,6 +35,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
+#include <archon/core/string.hpp>
 #include <archon/core/sys.hpp>
 #include <archon/core/file.hpp>
 #include <archon/core/dir_scan.hpp>
@@ -171,7 +172,7 @@ namespace archon
         {
           int const e = errno;
           throw runtime_error("core::file::Stat::Stat: 'stat "+
-                              Text::print(fildes)+"' failed: "+sys::error(e));
+                              format_value(fildes)+"' failed: "+sys::error(e));
         }
 
         type =

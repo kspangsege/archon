@@ -36,7 +36,7 @@ using namespace std;
 using namespace archon::core;
 using namespace archon::util;
 
-int main(int argc, char const *argv[]) throw()
+int main(int argc, char const *argv[])
 {
   double opt_rate  = 3.3;
   double opt_size  = 3.3;
@@ -50,10 +50,8 @@ int main(int argc, char const *argv[]) throw()
                  "Set average chunk size");
   if(int stop = opts.process(argc, argv)) return stop == 2 ? 0 : 1;
 
-  UniquePtr<InputStream>  in(make_stdin_stream().release());
-  UniquePtr<OutputStream> out(make_stdout_stream().release());
+  std::unique_ptr<InputStream>  in  = make_stdin_stream();
+  std::unique_ptr<OutputStream> out = make_stdout_stream();
 
   out->write(*make_slow_stream(*in, opt_rate, opt_size));
-
-  return 0;
 }

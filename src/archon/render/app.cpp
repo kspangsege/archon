@@ -257,6 +257,11 @@ public:
         return m_weak_self;
     }
 
+    const std::locale& get_locale() const noexcept
+    {
+        return m_locale;
+    }
+
 protected:
     std::weak_ptr<PrivateApplicationState> m_weak_self;
 
@@ -1140,6 +1145,12 @@ Application::~Application()
         gluDeleteQuadric(m_quadric);
     if (m_status_hud_disp_list)
         glDeleteLists(m_status_hud_disp_list, 1);
+}
+
+
+const std::locale& Application::get_locale() const noexcept
+{
+    return m_private_state->get_locale();
 }
 
 

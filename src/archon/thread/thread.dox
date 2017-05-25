@@ -1,4 +1,4 @@
-/** \namespace Archon::Thread
+/** \namespace archon::thread
 
 A wrapper of POSIX threads adding many convenience features.
 

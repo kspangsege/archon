@@ -30,6 +30,7 @@
 #include <archon/core/enum.hpp>
 #include <archon/core/series.hpp>
 #include <archon/core/memory.hpp>
+#include <archon/core/string.hpp>
 #include <archon/core/text_table.hpp>
 #include <archon/core/options.hpp>
 #include <archon/core/file.hpp>
@@ -67,7 +68,7 @@ int main(int argc, const char* argv[])
     if (int stop = opts.process(argc, argv))
         return stop == 2 ? EXIT_SUCCESS : EXIT_FAILURE;
 
-    std::string in_file = argc < 2 ? file::dir_of(argv[0])+"../alley_baggett.png" : argv[1];
+    std::string in_file = (argc < 2 ? file::dir_of(argv[0])+"../alley_baggett.png" : argv[1]);
 
     ColorSpace::ConstRef color_space = ColorSpace::get_RGB();
     bool has_alpha = true;
@@ -93,7 +94,7 @@ int main(int argc, const char* argv[])
         for (int y = 0; y < height; ++y) {
             for(int x = 0; x < width; ++x) {
                 std::size_t j = y * std::size_t(width) + x;
-                table.get_cell(j+1, 0).set_text(Text::print(x)+","+Text::print(y));
+                table.get_cell(j+1, 0).set_text(format_int(x)+","+format_int(y));
                 for (int i = 0; i < num_channels; ++i)
                     table.get_cell(j+1, i+1).set_val(to_num(buffer[j*num_channels + i]));
             }

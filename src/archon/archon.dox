@@ -1,131 +1,118 @@
-/** \namespace Archon
+/** \namespace archon
 
-A collection of libraries and applications mostly focussed towards 3-D
-graphics.
+A collection of libraries and applications mostly focussed towards 3-D graphics.
 
 */
 
 /** \page ThreadSafety Thread Safety
 
-This page describes several different notions of thread-safety that
-are relevant in the context of the Archon framework.
+This page describes several different notions of thread-safety that are relevant
+in the context of the Archon framework.
 
-A thread-safe function is a function that may safely be executed
-concurrently by multiple threads.
+A thread-safe function is a function that may safely be executed concurrently by
+multiple threads.
 
-A set of functions is mutually thread-safe if all of the functions can
-safely be executed concurrently.
+A set of functions is mutually thread-safe if all of the functions can safely be
+executed concurrently.
 
-A strongly thread-safe (or simply 'thread-safe') class is a class
-where all the public functions are individually and mutually thread
-safe. This includes both static and nonstatic functions, and it
-includes any available operation on public data members.
+A strongly thread-safe (or simply 'thread-safe') class is a class where all the
+public functions are individually and mutually thread safe. This includes both
+static and nonstatic functions, and it includes any available operation on
+public data members.
 
-A weakly thread-safe class is a class where the constructor and all
-the public static functions are individually and mutually thread safe,
-and where it is safe for multiple threads to arbitrarily access and
-manipulate instances of the class, as long as those instances are
-distinct.
+A weakly thread-safe class is a class where the constructor and all the public
+static functions are individually and mutually thread safe, and where it is safe
+for multiple threads to arbitrarily access and manipulate instances of the
+class, as long as those instances are distinct.
 
-A strongly thread-safe class is, of course, also a weakly thread-safe
-class.
+A strongly thread-safe class is, of course, also a weakly thread-safe class.
 
-Unless something else is explicitly and clearly stated in the
-documentation of a class, it may be assumed that it is at least weakly
-thread-safe. NOTE: This is currently not true. That is, there are some
-classes that are not even weakly thread-safe, and where the
-documentation does not reflect that fact. It is a high priority to fix
-the documentation of those classes.
+Unless something else is explicitly and clearly stated in the documentation of a
+class, it may be assumed that it is at least weakly thread-safe. NOTE: This is
+currently not true. That is, there are some classes that are not even weakly
+thread-safe, and where the documentation does not reflect that fact. It is a
+high priority to fix the documentation of those classes.
 
-When smart pointers are involved, one must remember to consider not
-only the thread-safety of the referenced object, but also the
-thread-safety of the smart pointer itself.
+When smart pointers are involved, one must remember to consider not only the
+thread-safety of the referenced object, but also the thread-safety of the smart
+pointer itself.
 
-Smart pointers are generally weakly thread-safe. In particular,
-Core::UniquePtr and Core::SharedPtr are weakly thread-safe. That is,
-two threads may not access the same pointer object concurrently, but
-if each thread has its own pointer object, the threads may safely
-access their own pointer object concurrently, even when the two
-pointers point to the same object. On the other hand, knowing that a
-pointer object is weakly thread-safe, does not imply anything about
-the thread-safety of the referenced object.
+Smart pointers are generally weakly thread-safe. In particular, Core::UniquePtr
+and Core::SharedPtr are weakly thread-safe. That is, two threads may not access
+the same pointer object concurrently, but if each thread has its own pointer
+object, the threads may safely access their own pointer object concurrently,
+even when the two pointers point to the same object. On the other hand, knowing
+that a pointer object is weakly thread-safe, does not imply anything about the
+thread-safety of the referenced object.
 
-Special care must be taken when dealing with intrusive smart pointers,
-because in this case the thread-safety of the pointer object may
-depend on the referenced class.
+Special care must be taken when dealing with intrusive smart pointers, because
+in this case the thread-safety of the pointer object may depend on the
+referenced class.
 
-A node reference of the Archon DOM API is an example of a
-smart-pointer that is not even weakly thread-safe. This is due to
-performance issues.
+A node reference of the Archon DOM API is an example of a smart-pointer that is
+not even weakly thread-safe. This is due to performance issues.
 
 */
 
 /** \page CharEnc Character Encoding
 
-This page describes the various assumtions about character encoding
-that are made throughout all of the Archon libraries.
+This page describes the various assumptions about character encoding that are
+made throughout the Archon library source code.
 
-There are two kinds encodings that we are concerned about below: A
-multi-byte encoding, and a wide-character encoding. Both are fixed by
-the locale. In the multi-byte encoding, each logical character is
-encoded as one or more bytes (byte=char). In the wide character
-encoding, each logical character is encoded as one or more elements of
-type 'wchar_t'. POSIX states that each logical character must use at
-most one element of type 'wchar_t', but to remain compatible with
-Microsoft Windows, we shall not assume this.
+There are two kinds of encodings that we are concerned about below: A multi-byte
+encoding, and a wide-character encoding. Both are fixed by the locale. In the
+multi-byte encoding, each logical character is encoded as one or more bytes
+(byte=char). In the wide character encoding, each logical character is encoded
+as one or more elements of type 'wchar_t'. POSIX states that each logical
+character must use at most one element of type 'wchar_t', but to remain
+compatible with Microsoft Windows, we shall not assume this.
 
 The following requirements from POSIX are assumed:
 
- - Every character in the portable character set has both a multi-byte
-   and a wide-character encoding in every locale.
+ - Every character in the portable character set has both a multi-byte and a
+   wide-character encoding in every locale.
 
- - The multi-byte encoding of a character from the portable character
-   set never uses more than one byte (byte=char). This is true in every
-   locale.
+ - The multi-byte encoding of a character from the portable character set never
+   uses more than one byte (byte=char). This is true in every locale.
 
- - The encoded value of the multi-byte encoding of any character from
-   the portable character set can always be stored in a 'char' as a
-   non-negative number. This does not imply, however, that the value
-   is less than 128. This is true in every locale.
-
- - The null char '\0' is encoded in the multi-byte encoding as a null
-   byte with all bits set to zero. This is true in every locale.
-
- - The wide null char L'\0' is encoded in the multi-byte encoding as a
-   value of type 'wchar_t' with all bits set to zero. This is true in
-   every locale.
-
- - The encoded values of the multi-byte encoding associated with the
-   digits 0 to 9 is such that the value of each character after 0
-   shall be one greater than the value of the previous character. This
+ - The encoded value of the multi-byte encoding of any character from the
+   portable character set can always be stored in a 'char' as a non-negative
+   number. This does not imply, however, that the value is less than 128. This
    is true in every locale.
 
-Characters from the portable character set (as defined by POSIX) have
-the same multi-byte encoding (always one byte) across all
-locales. However, they are not necessarily encoded according to
-ANSI_X3.4-1968 (ASCII).
+ - The null char '\0' is encoded in the multi-byte encoding as a null byte with
+   all bits set to zero. This is true in every locale.
 
-The wide character encoding of a character from the portable character
-set uses at most one element of type 'wchar_t'.
+ - The wide null char L'\0' is encoded in the multi-byte encoding as a value of
+   type 'wchar_t' with all bits set to zero. This is true in every locale.
 
-It shall not be assumed that the wide-character encoding of the
-portable character set is invariant across locales. It follows from
-this, that we also will not assume that characters from the portable
-character set have the same encoded value in the multi-byte and the
-wide-character encodings.
+ - The encoded values of the multi-byte encoding associated with the digits 0 to
+   9 is such that the value of each character after 0 shall be one greater than
+   the value of the previous character. This is true in every locale.
 
-A regular character or string literal that contains characters from
-the portable character set only, has a multibyte encoding that is
-identical to the one it would have in the C locale (or any other
-locale).
+Characters from the portable character set (as defined by POSIX) have the same
+multi-byte encoding (always one byte) across all locales. However, they are not
+necessarily encoded according to ANSI_X3.4-1968 (ASCII).
 
-A wide character or wide string literal that contains characters from
-the portable character set only, has a wide character encoding that is
-identical to the one it would have in the C locale.
+The wide character encoding of a character from the portable character set uses
+at most one element of type 'wchar_t'.
 
-Among other things, when these assumptions are met, the follow code
-always produces the desired result (because we only use characters
-from the portable character set):
+It shall not be assumed that the wide-character encoding of the portable
+character set is invariant across locales. It follows from this, that we also
+will not assume that characters from the portable character set have the same
+encoded value in the multi-byte and the wide-character encodings.
+
+A regular character or string literal that contains characters from the portable
+character set only, has a multibyte encoding that is identical to the one it
+would have in the C locale (or any other locale).
+
+A wide character or wide string literal that contains characters from the
+portable character set only, has a wide character encoding that is identical to
+the one it would have in the C locale.
+
+Among other things, when these assumptions are met, the follow code always
+produces the desired result (because we only use characters from the portable
+character set):
 
 \code
 std::ios_base::sync_with_stdio(false);
@@ -136,8 +123,8 @@ std::wcout << "Alpha" << std::endl; // Implicit widen
 std::wcout << std::cout.widen('x') << std::endl; // Explicit widen
 \endcode
 
-In particular, if the selected locale is the "C" locale, the the
-following code always produces the desired result:
+In particular, if the selected locale is the "C" locale, then the following code
+always produces the desired result:
 
 \code
 std::wcout << L"Alpha" << std::endl;
@@ -155,9 +142,9 @@ std::wcout << std::wstring(buf, end) << std::endl;
 
 For reference, here are some notes about the basic character set:
 
-To be truely portable, source code (including string and char
-litterals) must use only the "basic character set"
-which consists of the following 96 characters:
+To be truely portable, source code (including string and char litterals) must
+use only the "basic character set" which consists of the following 96
+characters:
 
 <pre>
   A B C D E F G H I J K L M N O P Q R S T U V W X Y Z         ( 26 )
@@ -167,15 +154,14 @@ which consists of the following 96 characters:
   space, newline, horizontal tab, vertical tab, form feed     (  5 )
 </pre>
 
-These characters are guaranteed to exists on both the compilation
-environment and the execution environment. Neither of these
-environments are required to represent them by the same values as
-ASCII does, and if they are represented differently in the two
-environments, it is the responsibility of the compiler/run-time to
-make the translation.
+These characters are guaranteed to exists on both the compilation environment
+and the execution environment. Neither of these environments are required to
+represent them by the same values as ASCII does, and if they are represented
+differently in the two environments, it is the responsibility of the
+compiler/run-time to make the translation.
 
-Besides the 96 characters mentioned above, the execution environment
-is guranteed to also include the following 4:
+Besides the 96 characters mentioned above, the execution environment is
+guranteed to also include the following 4:
 
 <pre>
   null, alert, backspace, carriage return
@@ -185,15 +171,14 @@ Thus, the 'basic execution character set' contains 100 characters.
 
 See http://www.glenmccl.com/charset.htm
 
-POSIX defines the 'portable character set' with 103 named
-characters. It contains all of the 100 characters of the basic
-execution character set plus DOLLAR SIGN ($), COMMERCIAL AT (@), and
-GRAVE ACCENT (`). It does not, however, state which encoding is used
-for any of these characters.
+POSIX defines the 'portable character set' with 103 named characters. It
+contains all of the 100 characters of the basic execution character set plus
+DOLLAR SIGN ($), COMMERCIAL AT (@), and GRAVE ACCENT (`). It does not, however,
+state which encoding is used for any of these characters.
 
-The portable character set is a subset of the characters included in
-ASCII. The portable character contains all of the 95 printable
-characters of ASCII, but still, POSIX does not mandate any particular
-encoding of any of these characters.
+The portable character set is a subset of the characters included in ASCII. The
+portable character contains all of the 95 printable characters of ASCII, but
+still, POSIX does not mandate any particular encoding of any of these
+characters.
 
 */

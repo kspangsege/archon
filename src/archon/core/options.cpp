@@ -730,15 +730,8 @@ namespace archon
     {
       if(stop_opts || arg.empty() || arg[0] != L'-' || arg.size() == 1) return true;
       if(opts->allow_numeric_names) return false;
-      try
-      {
-        opts->value_codec.parse<double>(arg);
-        return true;
-      }
-      catch(Text::ParseException &)
-      {
-        return false;
-      }
+      double dummy;
+      return opts->value_parser.parse(arg, dummy);
     }
 
 
