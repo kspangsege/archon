@@ -1,0 +1,5 @@
+*~
+/build
+/doxygen
+/tmp
+.gdb_history
