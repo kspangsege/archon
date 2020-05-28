@@ -1,0 +1,401 @@
+// This file is part of the Archon project, a suite of C++ libraries.
+//
+// Copyright (C) 2020 Kristian Spangsege <kristian.spangsege@gmail.com>
+//
+// Permission is hereby granted, free of charge, to any person obtaining a copy
+// of this software and associated documentation files (the "Software"), to deal
+// in the Software without restriction, including without limitation the rights
+// to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+// copies of the Software, and to permit persons to whom the Software is
+// furnished to do so, subject to the following conditions:
+//
+// The above copyright notice and this permission notice shall be included in
+// all copies or substantial portions of the Software.
+//
+// THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+// IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+// FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+// AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+// LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+// OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+// SOFTWARE.
+
+
+/// \file
+
+#ifndef ARCHON__BASE__MEMORY_HPP
+#define ARCHON__BASE__MEMORY_HPP
+
+#include <cstddef>
+#include <type_traits>
+#include <limits>
+#include <algorithm>
+#include <memory>
+#include <utility>
+
+#include <archon/base/features.h>
+#include <archon/base/type_traits.hpp>
+#include <archon/base/integer.hpp>
+
+
+namespace archon::base {
+
+
+/// \brief Suggest a new buffer size.
+///
+/// Suggest an appropriate new buffer size while taking the current buffer size
+/// into account, and while respecting the specified minimum size.
+///
+/// If the current size is already greater than, or equal to the specified
+/// minimum size, the current size is returned. Otherwise, the returned size is
+/// generally 50% more than the current size, if that is greater than, or equal
+/// to the specified minimum size. Otherwsie this function returns the specified
+/// minimum size.
+///
+std::size_t suggest_new_buffer_size(std::size_t current_size, std::size_t minimum_size) noexcept;
+
+
+
+template<class T, class... A> void uninit_create(T* uninit, A&&... args);
+template<class T> void uninit_destroy(T* data, std::size_t size) noexcept;
+template<class T> void uninit_safe_fill(std::size_t size, T* uninit);
+template<class T> void uninit_safe_fill(std::size_t size, const T& value, T* uninit);
+template<class I, class T> void uninit_safe_copy(I begin, I end, T* uninit);
+template<class T> void uninit_safe_move_or_copy(T* data, std::size_t size, T* uninit);
+
+
+
+/// \brief A slab of memory adjacent objects.
+///
+/// A Slab object owns a single chunk of dynamically allocated memory with
+/// enough space for the requested number of objects. This memory will never be
+/// realloced, other than through explicit invocation of \ref recreate(), so any
+/// pointers to contained objects will remain valid as long as \ref recreate()
+/// and \ref operator=() are not called, even across move construction and move
+/// assignment.
+///
+/// The slab has a maximum size (the \p capacity argument passed to the
+/// constructor), and a current size (\ref size()). The size increases by one
+/// every time \ref add() is called. Behaviour is undefined if \ref add() is
+/// called at a time where the current size is equal to the capacity.
+///
+/// When the slab is destroyed, the objects will be destroyed in reverse
+/// order. That is, the object, that was added last, will be destroyed first.
+///
+template<class T> class Slab {
+public:
+    static_assert(std::is_nothrow_destructible_v<T>);
+
+    Slab() noexcept = default;
+    explicit Slab(std::size_t capacity);
+    Slab(Slab&&) noexcept;
+    ~Slab() noexcept;
+
+    Slab& operator=(Slab&&) noexcept;
+
+    void recreate(std::size_t capacity);
+
+    template<class... A> T& add(A&&... args) noexcept(std::is_nothrow_constructible_v<T, A...>);
+
+    T* data() noexcept;
+    const T* data() const noexcept;
+    std::size_t size() const noexcept;
+
+private:
+    using strut_type = Strut<T>;
+    std::unique_ptr<strut_type[]> m_memory;
+    std::size_t m_size = 0;
+
+    void destroy() noexcept;
+};
+
+
+
+
+
+
+
+
+// Implementation
+
+
+inline std::size_t suggest_new_buffer_size(std::size_t current_size,
+                                           std::size_t minimum_size) noexcept
+{
+    std::size_t new_size = current_size;
+    if (ARCHON_LIKELY(new_size >= minimum_size))
+        return new_size;
+
+    // Use growth factor 1.5.
+    if (ARCHON_UNLIKELY(!base::try_int_add(new_size, new_size / 2)))
+        new_size = std::numeric_limits<std::size_t>::max();
+
+    if (minimum_size > new_size)
+        new_size = minimum_size;
+
+    return new_size;
+}
+
+
+namespace detail {
+
+
+template<class T, bool is_trivial> struct Uninit_0 {};
+
+template<class T> struct Uninit_0<T, false> {
+    template<class... A> static void create(T* uninit, A&&... args)
+    {
+        new (uninit) T(std::forward<A>(args)...); // Throws
+    }
+
+    static void destroy(T* data, std::size_t size) noexcept
+    {
+        for (std::size_t i = 0; i < size; ++i)
+            data[i].~T();
+    }
+
+    static void safe_fill(std::size_t size, T* uninit)
+    {
+        std::size_t i = 0;
+        try {
+            while (i < size) {
+                new (&uninit[i]) T(); // Throws
+                ++i;
+            }
+        }
+        catch (...) {
+            // If an exception was thrown above, we need to back out by
+            // destroying the instances that were already created.
+            while (i > 0) {
+                --i;
+                uninit[i].~T();
+            }
+            throw;
+        }
+    }
+
+    static void safe_fill(std::size_t size, const T& value, T* uninit)
+    {
+        std::size_t i = 0;
+        try {
+            while (i < size) {
+                new (&uninit[i]) T(value); // Throws
+                ++i;
+            }
+        }
+        catch (...) {
+            // If an exception was thrown above, we need to back out by
+            // destroying the copies that were already made.
+            while (i > 0) {
+                --i;
+                uninit[i].~T();
+            }
+            throw;
+        }
+    }
+
+    template<class I> static void safe_copy(I begin, I end, T* uninit)
+    {
+        std::size_t i = 0;
+        I j = begin;
+        try {
+            while (j != end) {
+                new (&uninit[i]) T(*j); // Throws
+                ++i;
+                ++j;
+            }
+        }
+        catch (...) {
+            // If an exception was thrown above, we need to back out by
+            // destroying the copies that were already made.
+            while (i > 0) {
+                --i;
+                uninit[i].~T();
+            }
+            throw;
+        }
+    }
+
+    static void safe_move_or_copy(T* data, std::size_t size, T* uninit)
+    {
+        // Move elements to new buffer if move constructor cannot throw,
+        // otherwise fall back to copying elements instead.
+        std::size_t i = 0;
+        try {
+            while (i < size) {
+                new (&uninit[i]) T(std::move_if_noexcept(data[i])); // Throws
+                ++i;
+            }
+        }
+        catch (...) {
+            // If an exception was thrown above, we know that elements were
+            // copied, and not moved (assuming that T is copy constructable if
+            // it is not nothrow move constructible), so we need to back out by
+            // destroying the copies that were already made.
+            while (i > 0) {
+                --i;
+                uninit[i].~T();
+            }
+            throw;
+        }
+    }
+};
+
+
+template<class T> struct Uninit_0<T, true> {
+    template<class... A> static void create(T* uninit, A&&... args)
+    {
+        *uninit = T(std::forward<A>(args)...); // Throws
+    }
+
+    static void destroy(T*, std::size_t) noexcept
+    {
+    }
+
+    static void safe_fill(std::size_t size, T* uninit) noexcept
+    {
+        std::fill_n(uninit, size, T());
+    }
+
+    static void safe_fill(std::size_t size, const T& value, T* uninit) noexcept
+    {
+        std::fill_n(uninit, size, value);
+    }
+
+    template<class I> static void safe_copy(I begin, I end, T* uninit) noexcept
+    {
+        std::copy(begin, end, uninit);
+    }
+
+    static void safe_move_or_copy(T* data, std::size_t size, T* uninit) noexcept
+    {
+        std::copy_n(data, size, uninit);
+    }
+};
+
+
+template<class T> struct Uninit : Uninit_0<T, std::is_trivial_v<T>> {
+    static_assert(std::is_nothrow_destructible_v<T>);
+};
+
+
+} // namespace detail
+
+
+template<class T, class... A> void uninit_create(T* uninit, A&&... args)
+{
+    detail::Uninit<T>::create(uninit, std::forward<A>(args)...); // Throws
+}
+
+
+template<class T> inline void uninit_destroy(T* data, std::size_t size) noexcept
+{
+    detail::Uninit<T>::destroy(data, size);
+}
+
+
+template<class T> inline void uninit_safe_fill(std::size_t size, T* uninit)
+{
+    detail::Uninit<T>::safe_fill(size, uninit); // Throws
+}
+
+
+template<class T> inline void uninit_safe_fill(std::size_t size, const T& value, T* uninit)
+{
+    detail::Uninit<T>::safe_fill(size, value, uninit); // Throws
+}
+
+
+template<class I, class T> inline void uninit_safe_copy(I begin, I end, T* uninit)
+{
+    detail::Uninit<T>::safe_copy(begin, end, uninit); // Throws
+}
+
+
+template<class T> inline void uninit_safe_move_or_copy(T* data, std::size_t size, T* uninit)
+{
+    detail::Uninit<T>::safe_move_or_copy(data, size, uninit); // Throws
+}
+
+
+// ============================ Slab ============================
+
+
+template<class T> inline Slab<T>::Slab(std::size_t capacity) :
+    m_memory(std::make_unique<strut_type[]>(capacity)) // Throws
+{
+}
+
+
+template<class T> inline Slab<T>::Slab(Slab&& other) noexcept :
+    m_memory(std::move(other.m_memory)),
+    m_size(other.m_size)
+{
+    other.m_size = 0;
+}
+
+
+template<class T> Slab<T>::~Slab() noexcept
+{
+    destroy();
+}
+
+
+template<class T> inline auto Slab<T>::operator=(Slab&& other) noexcept -> Slab&
+{
+    destroy();
+    m_memory = std::move(other.m_memory);
+    m_size = other.m_size;
+    other.m_size = 0;
+}
+
+
+template<class T> inline void Slab<T>::recreate(std::size_t capacity)
+{
+    destroy();
+    m_memory = std::make_unique<strut_type[]>(capacity); // Throws
+}
+
+
+template<class T> template<class... A>
+inline T& Slab<T>::add(A&&... args) noexcept(std::is_nothrow_constructible_v<T, A...>)
+{
+    T* ptr = data() + m_size;
+    new (ptr) T(std::forward<A>(args)...); // Throws
+    ++m_size;
+    return *ptr;
+}
+
+
+template<class T> inline T* Slab<T>::data() noexcept
+{
+    return const_cast<T*>(std::as_const(*this).data());
+}
+
+
+template<class T> inline const T* Slab<T>::data() const noexcept
+{
+    return static_cast<T*>(static_cast<void*>(m_memory.get()));
+}
+
+
+template<class T> inline std::size_t Slab<T>::size() const noexcept
+{
+    return m_size;
+}
+
+
+template<class T> void Slab<T>::destroy() noexcept
+{
+    T* base = data();
+    T* ptr = base + m_size;
+    while (ptr != base) {
+        --ptr;
+        ptr->~T();
+    }
+}
+
+
+} // namespace archon::base
+
+#endif // ARCHON__BASE__MEMORY_HPP
