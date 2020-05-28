@@ -1,0 +1,53 @@
+add_library(CoreTest OBJECT
+  test_is_constexpr.cpp
+  test_utility.cpp
+  test_type.cpp
+  test_type_list.cpp
+  test_integer.cpp
+  test_float.cpp
+  test_endianness.cpp
+  test_scope_exit.cpp
+  test_value_reset_guard.cpp
+  test_circular_buffer.cpp
+  test_flat_map.cpp
+  test_typed_object_registry.cpp
+  test_memory_input_stream.cpp
+  test_memory_output_stream.cpp
+  test_stream_output.cpp
+  test_integer_formatter.cpp
+  test_integer_parser.cpp
+  test_value_parser.cpp
+  test_as_list.cpp
+  test_format_as.cpp
+  test_format_with.cpp
+  test_format.cpp
+  test_quote.cpp
+  test_enum.cpp
+  test_hex_dump.cpp
+  test_base64.cpp
+  test_string_template.cpp
+  test_string_matcher.cpp
+  word_wrap_knuth_alt.cpp
+  test_word_wrap.cpp
+  test_text_formatter.cpp
+  test_super_int.cpp
+  test_mul_prec_int.cpp
+  test_random.cpp
+  test_file.cpp
+  test_file_source.cpp
+  test_newline_codec.cpp
+  test_impl_codecvt_quirks.cpp
+  test_char_codec.cpp
+  stateful_char_codec.cpp
+  test_text_codec.cpp
+  test_impl_prim_text_file_impl.cpp
+  test_impl_text_file_impl.cpp
+  test_text_file.cpp
+  test_buffered_text_file.cpp
+  test_text_file_stream.cpp
+)
+
+target_link_libraries(CoreTest
+  Core
+  Check
+)
