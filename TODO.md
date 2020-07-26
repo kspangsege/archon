@@ -1,5 +1,12 @@
 
 TODO:
+- Back out of using leading underscore in implementation macro names (`_ARCHON_BAR` -> `X_ARCHON_BAR`). Adjust Doxygen config file.
+- Back out of using double underscores in header include guard macro names (`FOO__BAR` -> `FOO_X_BAR`).
+
+
+
+TODO:
+- Issue with multiple test file/dir path guards using same name in nested scopes / function invocations: Consider adding line number to name. Maybe impossible to robustly prevent. Consider just adding a warning in the documentation.
 - Fix newline transformations on Windows
 
 
@@ -45,6 +52,48 @@ Windows needs newline translation:
 
 
 Gold linker: https://github.com/frobware/c-hacks/blob/master/cmake/use-gold-linker.cmake
+
+
+Test harness: See if the function of `ARCHON_CHECK_EQUAL_SEQ()` could instead be merged into `ARCHON_CHECK_EQUAL()` by detecting the applicability of `std::begin()` and `std::end()`.
+
+Test harness: Consider adding `ARCHON_TEST_TRAIL(parent_test_context, trail_segment)` defines a new `text_context` variable. Consider using it in unit test `Base_Integer_Mask`.
+
+Base64 unit test <-- cases from RFC
+
+
+Seems like there are lots of checks in test_integer.cpp with bad assumptions about sizes of types.
+
+
+Unit test: Compare lists of comparable element types, and formatting of lists in truncated form. Seems I need size limiting version of base::as_list() similarly to base::quote().
+
+
+test_utf8.cpp ???
+test_util_uri.cpp ???
+
+
+Continue porting `unit_test.hpp` / `unit_test.cpp`
+- Use base::FileStream for output from XML reporter.
+- Add commandline option for XML reporter output.
+- Move `ensure_subdir()` from `unit_test/run.cpp` to `base/filesystem.hpp`.
+
+
+
+Unit testing:
+- Maybe reuse unit tests from circular buffer for array seeded vector.
+
+
+Extra unit testing features:
+- Easy exec from main() front end with env vars
+- Install signal handlers for unit testing to be able to get current set of running tests.
+- Report relative progress during unit testing.
+- Report top-5 time users using specialized reporter.
+
+
+Unit testing future improvements:
+- Show sequence difference when using ARCHON_CHECK_EQUAL_SEQ().
+- Configurable timestamp format
+- Configurable maximum size of quoted forms of strings
+- Allow all threads to log to same log file. This should be enabled when none of  `@i`, `@n`, `@I` or `@N` are used in the template. In this case, threads must still have log message prefixes.
 
 
 Consider package structure:
