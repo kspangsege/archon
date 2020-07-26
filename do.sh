@@ -22,7 +22,7 @@ if [ "$mode" = "clean" ]; then
 fi
 
 case "$mode" in
-    "build"|"asan"|"tsan")
+    "build"|"asan"|"tsan"|"check"|"check-asan"|"check-tsan"|"memcheck"|"gdb")
         mode="$mode-release"
         ;;
 esac
@@ -30,6 +30,21 @@ esac
 case "$mode" in
     "build-"*)
         mode="$(printf "%s\n" "$mode" | cut -d "-" -f "2-")" || exit 1
+        ;;
+esac
+
+case "$mode" in
+    "check-"*)
+        mode="$(printf "%s\n" "$mode" | cut -d "-" -f "2-")" || exit 1
+        check="plain"
+        ;;
+    "memcheck-release"|"memcheck-debug")
+        mode="$(printf "%s\n" "$mode" | cut -d "-" -f "2-")" || exit 1
+        check="valgrind"
+        ;;
+    "gdb-release"|"gdb-debug")
+        mode="$(printf "%s\n" "$mode" | cut -d "-" -f "2-")" || exit 1
+        check="gdb"
         ;;
 esac
 
@@ -79,12 +94,27 @@ Must be one of:
     tsan
     tsan-release
     tsan-debug
+    check
+    check-release
+    check-debug
+    check-asan
+    check-asan-release
+    check-asan-debug
+    check-tsan
+    check-tsan-release
+    check-tsan-debug
+    memcheck
+    memcheck-release
+    memcheck-debug
+    gdb
+    gdb-release
+    gdb-debug
 EOF
         exit 1
         ;;
 esac
 
-if [ $# -gt 0 ]; then
+if [ -z "$check" -a $# -gt 0 ]; then
     cat >&2 <<EOF
 ERROR: Too many command-line arguments
 
@@ -107,3 +137,16 @@ fi
 build_subdir="$build_dir/$build_subdir_name"
 cmake -S "$root_dir" -B "$build_subdir" -D CMAKE_BUILD_TYPE="$build_type" -D ARCHON_ASAN="$asan" -D ARCHON_TSAN="$tsan" || exit 1
 cmake --build "$build_subdir" || exit 1
+
+check_path="$build_subdir/src/archon/test"
+case "$check" in
+    "plain")
+        "$check_path" "$@" || exit 1
+        ;;
+    "valgrind")
+        valgrind --quiet --track-origins=yes --leak-check=yes --leak-resolution=low --num-callers=24 "$check_path" "$@" || exit 1
+        ;;
+    "gdb")
+        gdb --args "$check_path" "$@" || exit 1
+        ;;
+esac
