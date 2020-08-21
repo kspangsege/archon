@@ -25,6 +25,7 @@ add_executable(Test
                base/test/test_quote.cpp
                base/test/test_enum.cpp
                base/test/test_hex_dump.cpp
+               base/test/test_base64.cpp
                base/test/test_string_template.cpp
                base/test/test_random.cpp
                base/test/test_file.cpp
