@@ -8,6 +8,7 @@ TODO:
 TODO:
 - Issue with multiple test file/dir path guards using same name in nested scopes / function invocations: Consider adding line number to name. Maybe impossible to robustly prevent. Consider just adding a warning in the documentation.
 - Fix newline transformations on Windows
+- Finish Base64
 
 
 
