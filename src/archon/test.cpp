@@ -40,7 +40,7 @@ std::string_view test_order[] = {
 
 int main(int argc, char* argv[])
 {
-//    std::locale::global(std::locale(""));
+    std::locale::global(std::locale("en_US.utf8"));     
 
     std::string_view argv0 = argv[0];
     base::BuildEnvironment build_env;

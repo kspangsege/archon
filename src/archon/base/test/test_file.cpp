@@ -24,6 +24,9 @@
 #include <archon/base/file.hpp>
 #include <archon/unit_test.hpp>
 
+#include <archon/base/string_codec.hpp>            
+#include <archon/base/hex_dump.hpp>            
+
 
 using namespace archon;
 
@@ -192,4 +195,65 @@ ARCHON_TEST(Base_File_OffsetIndependance)
     }
     std::string string = base::File::load(path);
     ARCHON_CHECK_EQUAL(string, "alpha kappa iota delta omicron theta zeta");
+}
+
+
+/*
+ARCHON_TEST(Base_File_StreamInput)
+{
+    ARCHON_TEST_FILE(path);
+    base::File::save(path, std::string_view("6723 6364 7735"));
+    base::File file(path);
+    base::File::Streambuf::Buffers<3> buffers;
+    base::File::Streambuf streambuf(std::move(file), buffers);
+    std::istream in(&streambuf);
+    int a = 0, b = 0, c = 0;
+    ARCHON_CHECK(in >> a >> b >> c);
+    ARCHON_CHECK(in.eof());
+    ARCHON_CHECK_EQUAL(a, 6723);
+    ARCHON_CHECK_EQUAL(b, 6364);
+    ARCHON_CHECK_EQUAL(c, 7735);
+}
+*/
+
+
+ARCHON_TEST(Base_File_Foo)
+{
+    log_info("Global  locale: %s", std::locale().name());
+    log_info("Classic locale: %s", std::locale::classic().name());
+    log_info("Environ locale: %s", std::locale("").name());
+//    log_info("English locale: %s", std::locale("en_US").name());
+    log_info("English locale: %s", std::locale("en_US.utf8").name());
+    log_info("1: <<<\U00000041>>>");
+    log_info("1: <<<\U000000C5>>>");
+    log_info("1: <<<\U00002022>>>");
+    log_info("1: <<<\U0001F64F>>>");
+    log_info("Width of wchar_t is %s", base::get_int_width<wchar_t>());
+    // Windows -> UTF-16LE
+    // UTF-16 -> high ten bits first: 0xD800–0xDBFF
+    // UTF-16 -> low  ten bits last:  0xDC00–0xDFFF
+    // Example: D83D DE4F
+    std::locale locale;
+    base::WideStringEncoder encoder(locale);
+    log_info("2: <<<%s>>>", encoder.encode(L"\U00000041"));
+    log_info("2: <<<%s>>>", encoder.encode(L"\U000000C5"));
+    log_info("2: <<<%s>>>", encoder.encode(L"\U00002022"));
+    log_info("2: <<<%s>>>", encoder.encode(L"\U0001F64F"));
+    using codecvt_type = std::codecvt<wchar_t, char, std::mbstate_t>;
+    const codecvt_type& codecvt = std::use_facet<codecvt_type>(locale);
+    {
+        std::array<wchar_t, 2> data { 0xD83D, 0xDE4F };
+        std::mbstate_t state = {};
+        const wchar_t* from_next = nullptr;
+        std::array<char, 256> buffer;
+        char* to_next = nullptr;
+        codecvt_type::result result =
+            codecvt.out(state, data.data(), data.data() + data.size(), from_next,
+                        buffer.data(), buffer.data() + buffer.size(), to_next);
+        ARCHON_CHECK_EQUAL(result, codecvt_type::ok);
+        ARCHON_CHECK_EQUAL(from_next, data.data() + data.size());
+        ARCHON_CHECK_EQUAL(to_next, buffer.data() + 4);
+        std::array<char, 4> expected { char(0xF0), char(0x9F), char(0x99), char(0x8F) };
+        ARCHON_CHECK_EQUAL_SEQ(base::Span(buffer).subspan(0, 4), expected);
+    }
 }

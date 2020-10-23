@@ -31,6 +31,8 @@
 #include <string>
 #include <system_error>
 
+#include <iostream>                                                                                                  
+
 #include <archon/base/features.h>
 #include <archon/base/assert.hpp>
 #include <archon/base/span.hpp>
@@ -57,6 +59,11 @@ namespace archon::base {
 ///
 class File {
 public:
+    template<class C, class T = std::char_traits<C>> class BasicStreambuf;
+
+    using Streambuf = BasicStreambuf<char>;
+    using WideStreambuf = BasicStreambuf<wchar_t>;
+
     /// \brief Major access modes.
     ///
     /// These are the major modes in which a file can be opened, and they can be
@@ -602,11 +609,57 @@ private:
 
 
 
+///                                  
+/// Only for text (newline translation on Windows).
+/// No seeking support (for now).
+template<class C, class T> class File::BasicStreambuf :
+        public std::basic_streambuf<C, T> {
+public:
+    template<std::size_t size> class Buffers;
+
+    using char_type = typename std::basic_streambuf<C, T>::char_type;
+    using int_type  = typename std::basic_streambuf<C, T>::int_type;
+    using pos_type  = typename std::basic_streambuf<C, T>::pos_type;
+    using off_type  = typename std::basic_streambuf<C, T>::off_type;
+
+    template<std::size_t size> BasicStreambuf(File, Buffers<size>&) noexcept;
+
+protected:
+    void imbue(const std::locale&) override;
+
+    int sync() override;
+
+//    std::streamsize showmanyc() override;
+    int_type underflow() override;
+//    int_type uflow() override;
+//    std::streamsize xsgetn(char_type*, std::streamsize) override;
+
+    std::streamsize xsputn(const char_type*, std::streamsize) override;
+    int_type overflow(int_type) override;
+
+    int_type pbackfail(int_type) override;
+
+private:
+    File m_file;
+    base::Span<C> m_buffer;
+};
+
+
+template<class C, class T> template<std::size_t size> class File::BasicStreambuf<C,T>::Buffers {
+    
+};
+
+
+
+
 
 
 
 
 // Implementation
+
+
+// ============================ File ============================
 
 
 inline File::File(base::FilesystemPathRef path, Mode mode)
@@ -877,6 +930,64 @@ inline void File::steal_from(File& other) noexcept
     m_holds_lock = other.m_holds_lock;
 #endif
     other.m_handle = s_null_handle;
+}
+
+
+
+// ============================ File::BasicStreambuf ============================
+
+
+template<class C, class T> template<std::size_t size>
+inline File::BasicStreambuf<C, T>::BasicStreambuf(File file, Buffers<size>&) noexcept :
+    m_file(std::move(file))
+{
+}
+
+
+template<class C, class T> void File::BasicStreambuf<C, T>::imbue(const std::locale& loc)
+{
+    static_cast<void>(loc);
+    std::cerr << "imbue()\n";                   
+}
+
+
+template<class C, class T> int File::BasicStreambuf<C, T>::sync()
+{
+    std::cerr << "sync()\n";                   
+    return 0;   
+}
+
+
+template<class C, class T> auto File::BasicStreambuf<C, T>::underflow() -> int_type
+{
+    std::cerr << "underflow()\n";                   
+    return T::eof();   
+}
+
+
+template<class C, class T>
+std::streamsize File::BasicStreambuf<C, T>::xsputn(const char_type* data, std::streamsize size)
+{
+    static_cast<void>(data);
+    static_cast<void>(size);
+    std::cerr << "xsputn()\n";                   
+    return 0;   
+}
+
+
+template<class C, class T> auto File::BasicStreambuf<C, T>::overflow(int_type ch) -> int_type
+{
+    static_cast<void>(ch);
+    std::cerr << "overflow()\n";                   
+    return T::eof();   
+}
+
+
+template<class C, class T> auto File::BasicStreambuf<C, T>::pbackfail(int_type ch) -> int_type
+{
+    static_cast<void>(ch);
+    std::cerr << "pbackfail()\n";                   
+    return T::eof();   
 }
 
 

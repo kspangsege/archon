@@ -6,9 +6,11 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_CXX_EXTENSIONS False)
 
-if(NOT MSVC)
+if (MSVC)
+  add_compile_options(/utf-8)
+else ()
   add_compile_options(-Wall -Wextra -pedantic)
-endif()
+endif ()
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
