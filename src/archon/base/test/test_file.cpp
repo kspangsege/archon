@@ -217,6 +217,7 @@ ARCHON_TEST(Base_File_StreamInput)
 */
 
 
+/*
 ARCHON_TEST(Base_File_Foo)
 {
     log_info("Global  locale: %s", std::locale().name());
@@ -256,4 +257,131 @@ ARCHON_TEST(Base_File_Foo)
         std::array<char, 4> expected { char(0xF0), char(0x9F), char(0x99), char(0x8F) };
         ARCHON_CHECK_EQUAL_SEQ(base::Span(buffer).subspan(0, 4), expected);
     }
+}
+*/
+
+
+
+
+namespace {
+
+
+template<class C, class T = std::char_traits<C>>
+class BasicTextCodec {
+public:
+    using char_type   = C;
+    using traits_type = T;
+
+    using string_view_type = std::basic_string_view<C, T>;
+
+    auto encode(string_view_type, base::SeedMemoryBuffer<char>&) -> base::Span<const char>;
+
+    auto decode(base::Span<const char>, base::SeedMemoryBuffer<C>&) -> string_view_type;
+
+    class State;
+
+    bool encode(State&, const C*& data_begin, const C* data_end, bool flush,
+                char*& buffer_begin, char* buffer_end) noexcept;
+
+    bool decode(State&, const char*& data_begin, const char* data_end, bool flush,
+                C*& buffer_begin, C* buffer_end) noexcept;
+
+private:
+    using codecvt_type = std::codecvt<C, char, std::mbstate_t>;
+
+    const std::locale m_locale;
+    const codecvt_type& m_codecvt;
+};
+
+
+using TextCodec     = BasicTextCodec<char>;
+using WideTextCodec = BasicTextCodec<wchar_t>;
+
+
+
+
+template<class C, class T> class BasicTextCodec<C, T>::State {
+public:
+    template<std::size_t size> struct Buffer;
+
+    template<std::size_t size> State(Buffer<size>&) noexcept;
+
+private:
+    base::Span<C> m_buffer;
+};
+
+
+
+
+#if ARCHON_WINDOWS
+
+template<class C, class T>
+template<std::size_t size> struct BasicTextCodec<C, T>::State::Buffer : std::array<C, size> {};
+
+#else // !ARCHON_WINDOWS
+
+template<class C, class T>
+template<std::size_t size> struct BasicTextCodec<C, T>::State::Buffer {};
+
+#endif // !ARCHON_WINDOWS
+
+
+
+
+
+
+
+
+// Implementation
+
+
+template<class C, class T>
+auto BasicTextCodec<C, T>::encode(string_view_type string, base::SeedMemoryBuffer<char>& buffer) ->
+    base::Span<const char>
+{
+    const C* data_begin = string.data();
+    const C* data_end   = string.data() + string.size();
+    typename State::Buffer<256> buffer_2;
+    State state(buffer_2);
+    std::size_t used_size = 0;
+    if (ARCHON_LIKELY(buffer.size() > 0))
+        goto encode;
+    for (;;) {
+        buffer.reserve_extra(256, used_size);
+      encode:
+        bool flush = true;
+        char* buffer_begin = buffer.data() + used_size;
+        char* buffer_end   = buffer.data() + buffer.size();
+        EncodeStatus status = encode(state, data_begin, data_end, flush, buffer_begin, buffer_end);
+        used_size = std::size_t(buffer_begin - buffer.data());
+        switch (status) {
+            case EncodeStatus::complete:
+                break;
+            case EncodeStatus::error:
+                
+        }
+        if (ARCHON_LIKELY(complete))
+            break;
+    }
+    return { buffer.data(), used_size };
+}
+
+
+template<class C, class T>
+template<std::size_t size> BasicTextCodec<C, T>::State::State(Buffer<size>& buffer) noexcept :
+    m_buffer(buffer)
+{
+}
+
+
+} // unnamed namespace
+
+
+
+
+ARCHON_TEST(Base_File_Foo)
+{
+    TextCodec codec;
+    base::Span<const char> bytes = codec.encode("");
+    log_info("-----------> %s", as_hex_dump(bytes));
 }
