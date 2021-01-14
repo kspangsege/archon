@@ -44,6 +44,7 @@ template<int n, class F> struct LeastUnsignedWithBits;
 template<int n, class F> struct FastestSignedWithBits;
 template<int n, class F> struct FastestUnsignedWithBits;
 template<class T> struct RemoveOptionalHelper;
+template<class T> struct FuncDecay;
 } // namespace detail
 
 
@@ -134,6 +135,14 @@ template<class T> using RemoveOptional = typename detail::RemoveOptionalHelper<T
 
 
 
+/// \brief 
+///
+/// 
+///
+template<class T> using FuncDecay = typename detail::FuncDecay<T>::type;
+
+
+
 
 
 
@@ -192,12 +201,37 @@ public:
 };
 
 
+
 template<class T> struct RemoveOptionalHelper {
     using type = T;
 };
 
 template<class T> struct RemoveOptionalHelper<std::optional<T>> {
     using type = T;
+};
+
+
+
+template<class> struct FuncDecay1;
+
+template<class R, class C, class... A> struct FuncDecay1<R(C::*)(A...) const> {
+    using type = R(A...);
+};
+
+template<class R, class C, class... A> struct FuncDecay1<R(C::*)(A...)> {
+    using type = R(A...);
+};
+
+template<class T> struct FuncDecay2 {
+    using type = typename FuncDecay1<decltype(&T::operator())>::type;
+};
+
+template<class R, class... A> struct FuncDecay2<R(*)(A...)> {
+    using type = R(A...);
+};
+
+template<class F> struct FuncDecay {
+    using type = typename FuncDecay2<typename std::decay<F>::type>::type;
 };
 
 

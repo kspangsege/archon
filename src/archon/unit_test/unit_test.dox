@@ -4,6 +4,6 @@
 
 \brief The Archon Unit Testing Support library.
 
-This is the Archon Unit Testing Support library.
+This namespace contains the Archon Unit Testing Support library.
 
 */

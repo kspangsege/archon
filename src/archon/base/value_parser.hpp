@@ -65,10 +65,10 @@ public:
     /// string view) attempts to parse the specified string as a value of the
     /// type of the specified \p value argument. Parsing happens by way of
     /// stream input (`in >> value` where `in` is of type `std::basic_istream<C,
-    /// T>`). When the type of the parsed value is some unsigned integer type,
-    /// however, negative values will be rejected (strings with a leading dash
-    /// (`-`)). The plain stream input operator for unsigned integer types is
-    /// required by the C++ standard to accept negative values.
+    /// T>`). When the type of the parsed value is an unsigned integer type,
+    /// however, strings with a leading dash (`-`), i.e., all negative values,
+    /// will be rejected. The plain stream input operator for unsigned integer
+    /// types is required by the C++ standard to accept negative values.
     ///
     /// The second and third function overloads (second argument is a string
     /// view and a string respectively) simply assign \p string to \p value. In

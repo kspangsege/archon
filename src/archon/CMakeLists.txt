@@ -1,4 +1,5 @@
 add_subdirectory(base)
+add_subdirectory(cli)
 add_subdirectory(unit_test)
 
 configure_file(config.h.in config.h)
@@ -37,3 +38,10 @@ set_target_properties(Test PROPERTIES
 target_link_libraries(Test PUBLIC
                       Base
                       UnitTest)
+
+add_executable(CliTest
+               cli_test.cpp)
+set_target_properties(CliTest PROPERTIES
+                      OUTPUT_NAME "cli-test")
+target_link_libraries(CliTest PUBLIC Base)
+
