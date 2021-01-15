@@ -18,8 +18,9 @@ int main(int argc, char* argv[])
 
     // FIXME: Explain implicit option specifications and the the associated rules                  
 
-    // FIXME: Make sure it is impossible for a pattern to refer to an option form that is also mentioned in a short circuit option specification.                  
-
+    opt("--", "", cli::end_of_options, spec,
+        "Do not interpret subsequent command-line arguments as options, even if they "
+        "look like options."); // Throws
     opt("-h --help", "", cli::short_circuit, spec,
         "Show command synopsis and the list of available options.",
         [&] {

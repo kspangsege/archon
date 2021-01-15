@@ -39,6 +39,7 @@
 #include <archon/base/format.hpp>
 #include <archon/base/format_enc.hpp>
 #include <archon/base/format_as.hpp>
+#include <archon/cli/option_attributes.hpp>
 #include <archon/cli/exception.hpp>
 #include <archon/cli/detail/pattern_action.hpp>
 #include <archon/cli/detail/option_action.hpp>
@@ -224,6 +225,10 @@ std::size_t Spec<C, T>::ensure_pattern_option(OptionForm form, std::size_t patte
         const Option& option = m_options[proto.option_index];
         if (ARCHON_UNLIKELY(option.arg.allow))
             error("Reference to option (%s) that takes argument", form.lexeme); // Throws
+        if (ARCHON_UNLIKELY((option.attr & short_circuit) != 0))
+            error("Reference to 'short circuit' option (%s)", form.lexeme); // Throws
+        if (ARCHON_UNLIKELY((option.attr & end_of_options) != 0))
+            error("Reference to 'end of options' option (%s)", form.lexeme); // Throws
     }
     if (proto.pattern_index == std::size_t(-1))
         proto.pattern_index = pattern_index;
@@ -340,9 +345,18 @@ void Spec<C, T>::add_option(base::Span<const OptionForm> forms, ArgSpec arg, int
         // Promotion
         ProtoOption& proto = m_proto_options[proto_index];
         ARCHON_ASSERT(proto.pattern_index != std::size_t(-1));
-        if (ARCHON_UNLIKELY(arg.allow))
+        if (ARCHON_UNLIKELY(arg.allow)) {
             error("Option argument not allowed for options that are part of a pattern (%s in %s "
                   "pattern)", proto_lexeme, base::as_ordinal(proto.pattern_index + 1)); // Throws
+        }
+        if (ARCHON_UNLIKELY((attr & short_circuit) != 0)) {
+            error("A 'short circuit' option cannot be used in a pattern (%s in %s pattern)",
+                  proto_lexeme, base::as_ordinal(proto.pattern_index + 1)); // Throws
+        }
+        if (ARCHON_UNLIKELY((attr & end_of_options) != 0)) {
+            error("An 'end of options' option cannot be used in a pattern (%s in %s pattern)",
+                  proto_lexeme, base::as_ordinal(proto.pattern_index + 1)); // Throws
+        }
         proto.option_index = option_index;
     }
 
