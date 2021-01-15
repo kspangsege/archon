@@ -28,7 +28,6 @@
 
 #include <cstddef>
 #include <utility>
-#include <stdexcept>
 #include <string_view>
 #include <string>
 #include <vector>
@@ -41,6 +40,8 @@
 #include <archon/base/format.hpp>
 #include <archon/base/format_enc.hpp>
 #include <archon/base/format_as.hpp>
+#include <archon/cli/exception.hpp>
+#include <archon/cli/detail/pattern_symbol.hpp>
 #include <archon/cli/detail/spec.hpp>
 
 
@@ -53,12 +54,15 @@ public:
     using char_type        = C;
     using traits_type      = T;
     using string_view_type = std::basic_string_view<C, T>;
+    using spec_type        = Spec<C, T>;
 
-    using OptionForm = typename Spec<C, T>::OptionForm;
-    using ArgSpec    = typename Spec<C, T>::ArgSpec;
+    using OptionForm = typename spec_type::OptionForm;
+    using ArgSpec    = typename spec_type::ArgSpec;
 
     SpecParser(const std::locale&);
 
+    void parse_pattern(string_view_type pattern, spec_type&, std::size_t pattern_ndx,
+                       bool is_deleg);
     auto parse_option_forms(std::size_t option_index, string_view_type forms,
                             base::SeedMemoryBuffer<OptionForm>&) -> base::Span<OptionForm>;
     auto parse_option_arg(std::size_t option_index, string_view_type arg) -> ArgSpec;
@@ -124,6 +128,11 @@ private:
     bool get_option_forms(std::size_t node_index,
                           base::SeedMemoryBufferContents<OptionForm>&) const;
     bool get_option_arg_spec(std::size_t node_index, bool optional, ArgSpec&) const noexcept;
+    NfaResult pattern_to_nfa(std::size_t node_index, spec_type&, std::size_t pattern_index);
+    void register_followpos(PositionSet, std::size_t, spec_type&) const;
+    void register_followpos(PositionSet, PositionSet, spec_type&) const;
+    PositionSet make_position_set(std::size_t pos);
+    PositionSet position_set_union(PositionSet, PositionSet);
 };
 
 
@@ -145,6 +154,37 @@ template<class C, class T> inline SpecParser<C, T>::SpecParser(const std::locale
     m_dot(this->widen('.')), // Throws
     m_greater_than(this->widen('>')) // Throws
 {
+}
+
+
+template<class C, class T>
+void SpecParser<C, T>::parse_pattern(string_view_type pattern, spec_type& spec,
+                                     std::size_t pattern_ndx, bool is_deleg)
+{
+    PatternSymbol symbol = {}; // The value has no meaning in this case (final state)
+    string_view_type lexeme;
+    if (reset({ pattern_ndx, "pattern", "pattern" }, pattern)) { // Throws
+        Result result = parse(); // Throws
+        if (result.precedence == 0)
+            error("Unparenthesized disjunction not allowed"); // Throws
+        if (m_has_value_slot && is_deleg)
+            error("Value slots are not allowed in delegating patterns"); // Throws
+        NfaResult result_2 = pattern_to_nfa(result.node_index, spec, pattern_ndx); // Throws
+        PositionSet firstpos = result_2.firstpos;
+        PositionSet lastpos  = result_2.lastpos;
+        for (std::size_t i = firstpos.first; i < firstpos.second; ++i) {
+            std::size_t pos = m_position_set_elems[i];
+            spec.register_startpos(pos); // Throws
+        }
+        std::size_t term_pos = spec.create_position(pattern_ndx, symbol, lexeme); // Throws
+        if (result_2.nullable)
+            spec.register_startpos(term_pos); // Throws
+        register_followpos(lastpos, term_pos, spec); // Throws
+    }
+    else {
+        std::size_t term_pos = spec.create_position(pattern_ndx, symbol, lexeme); // Throws
+        spec.register_startpos(term_pos); // Throws
+    }
 }
 
 
@@ -397,8 +437,12 @@ template<class C, class T> void SpecParser<C, T>::extract_next_token()
     }
 
     if (m_ctype.is(std::ctype_base::alnum, ch)) {
-        do i = m_ctype.scan_not(std::ctype_base::alnum, i + 1, m_end);
-        while (i != m_end && *i == m_dash);
+        for (;;) {
+            i = m_ctype.scan_not(std::ctype_base::alnum, i, m_end);
+            if (ARCHON_LIKELY(i == m_end || *i != m_dash))
+                break;
+            ++i;
+        }
         token.type = Token::Type::keyword;
         goto good;
     }
@@ -423,7 +467,7 @@ inline void SpecParser<C, T>::error(const char* message, const P&... params) con
                                     base::as_ordinal(m_error_qualifier.index + 1),
                                     m_error_qualifier.entity, m_error_qualifier.component,
                                     base::formatted(message, params...)); // Throws
-    throw std::invalid_argument(std::move(message_2));
+    throw BadCommandLineInterfaceSpec(std::move(message_2));
 }
 
 
@@ -479,6 +523,179 @@ bool SpecParser<C, T>::get_option_arg_spec(std::size_t node_index, bool optional
             break;
     }
     return false;
+}
+
+
+template<class C, class T>
+auto SpecParser<C, T>::pattern_to_nfa(std::size_t node_index, spec_type& spec,
+                                      std::size_t pattern_index) -> NfaResult
+{
+    const Node& node = m_nodes[node_index];
+    string_view_type lexeme = node.lexeme;
+    bool is_long = false;
+    PatternSymbol symbol;
+    switch (node.type) {
+        case Node::Type::keyword: {
+            std::size_t index = spec.ensure_keyword(lexeme); // Throws
+            symbol = PatternSymbol::keyword(index);
+            goto leaf;
+        }
+        case Node::Type::short_option: {
+            goto option;
+        }
+        case Node::Type::long_option: {
+            is_long = true;
+            goto option;
+        }
+        case Node::Type::value_slot: {
+            symbol = PatternSymbol::value();
+            goto leaf;
+        }
+        case Node::Type::optional: {
+            NfaResult result = pattern_to_nfa(node.left, spec, pattern_index); // Throws
+            result.nullable = true;
+            return result;
+        }
+        case Node::Type::repetition: {
+            NfaResult result = pattern_to_nfa(node.left, spec, pattern_index); // Throws
+            register_followpos(result.lastpos, result.firstpos, spec); // Throws
+            return result;
+        }
+        case Node::Type::concatenation: {
+            NfaResult result_1 = pattern_to_nfa(node.left, spec, pattern_index); // Throws
+            NfaResult result_2 = pattern_to_nfa(node.right, spec, pattern_index); // Throws
+            register_followpos(result_1.lastpos, result_2.firstpos, spec); // Throws
+            NfaResult result;
+            result.nullable = (result_1.nullable && result_2.nullable);
+            if (!result_1.nullable) {
+                result.firstpos = result_1.firstpos;
+            }
+            else {
+                result.firstpos =
+                    position_set_union(result_1.firstpos, result_2.firstpos); // Throws
+            }
+            if (!result_2.nullable) {
+                result.lastpos = result_2.lastpos;
+            }
+            else {
+                result.lastpos =
+                    position_set_union(result_1.lastpos, result_2.lastpos); // Throws
+            }
+            return result;
+        }
+        case Node::Type::disjunction: {
+            NfaResult result_1 = pattern_to_nfa(node.left, spec, pattern_index); // Throws
+            NfaResult result_2 = pattern_to_nfa(node.right, spec, pattern_index); // Throws
+            NfaResult result;
+            result.nullable = (result_1.nullable || result_2.nullable);
+            result.firstpos = position_set_union(result_1.firstpos, result_2.firstpos); // Throws
+            result.lastpos  = position_set_union(result_1.lastpos, result_2.lastpos); // Throws
+            return result;
+        }
+    }
+    return {};
+
+  option:
+    {
+        std::size_t index =
+            spec.ensure_pattern_option({ is_long, lexeme }, pattern_index); // Throws
+        symbol = PatternSymbol::proto_option(index);
+    }
+
+  leaf:
+    std::size_t pos = spec.create_position(pattern_index, symbol, lexeme); // Throws
+    NfaResult result;
+    result.nullable = false;
+    result.firstpos = make_position_set(pos); // Throws
+    result.lastpos  = result.firstpos;
+    return result;
+}
+
+
+template<class C, class T>
+inline void SpecParser<C, T>::register_followpos(PositionSet a, std::size_t b,
+                                                 spec_type& spec) const
+{
+    for (std::size_t i = a.first; i < a.second; ++i) {
+        std::size_t pos_1 = m_position_set_elems[i];
+        std::size_t pos_2 = b;
+        spec.register_followpos(pos_1, pos_2); // Throws
+    }
+}
+
+
+template<class C, class T>
+void SpecParser<C, T>::register_followpos(PositionSet a, PositionSet b, spec_type& spec) const
+{
+    for (std::size_t i = a.first; i < a.second; ++i) {
+        std::size_t pos_1 = m_position_set_elems[i];
+        for (std::size_t j = b.first; j < b.second; ++j) {
+            std::size_t pos_2 = m_position_set_elems[j];
+            spec.register_followpos(pos_1, pos_2); // Throws
+        }
+    }
+}
+
+
+template<class C, class T>
+inline auto SpecParser<C, T>::make_position_set(std::size_t pos) -> PositionSet
+{
+    std::size_t pos_set_begin = m_position_set_elems.size();
+    m_position_set_elems.push_back(pos); // Throws
+    std::size_t pos_set_end = m_position_set_elems.size();
+    return { pos_set_begin, pos_set_end };
+}
+
+
+template<class C, class T>
+auto SpecParser<C, T>::position_set_union(PositionSet a, PositionSet b) -> PositionSet
+{
+    std::size_t pos_set_begin = m_position_set_elems.size();
+    std::size_t i = a.first, j = b.first;
+    std::size_t pos_1, pos_2;
+  begin_1:
+    if (i == a.second)
+        goto end_1;
+    pos_1 = m_position_set_elems[i];
+  begin_2:
+    if (j == b.second)
+        goto end_2;
+    pos_2 = m_position_set_elems[j];
+  begin_3:
+    if (pos_1 < pos_2) {
+        m_position_set_elems.push_back(pos_1); // Throws
+        ++i;
+        if (i == a.second)
+            goto end_1;
+        pos_1 = m_position_set_elems[i];
+        goto begin_3;
+    }
+    if (pos_1 > pos_2) {
+        m_position_set_elems.push_back(pos_2); // Throws
+        ++j;
+        goto begin_2;
+    }
+    m_position_set_elems.push_back(pos_1); // Throws
+    ++i;
+    ++j;
+    goto begin_1;
+  end_1:
+    while (j < b.second) {
+        std::size_t pos = m_position_set_elems[j];
+        m_position_set_elems.push_back(pos); // Throws
+        ++j;
+    }
+    goto end_3;
+  end_2:
+    while (i < a.second) {
+        std::size_t pos = m_position_set_elems[i];
+        m_position_set_elems.push_back(pos); // Throws
+        ++i;
+    }
+    goto end_3;
+  end_3:
+    std::size_t pos_set_end = m_position_set_elems.size();
+    return { pos_set_begin, pos_set_end };
 }
 
 

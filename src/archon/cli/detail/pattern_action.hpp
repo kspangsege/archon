@@ -26,6 +26,11 @@
 /// \file
 
 
+#include <utility>
+#include <memory>
+#include <functional>
+
+#include <archon/base/type_traits.hpp>
 #include <archon/base/assert.hpp>
 #include <archon/cli/command_line.hpp>
 
@@ -35,8 +40,8 @@ namespace archon::cli::detail {
 
 template<class C, class T> class PatternAction {
 public:
-    using char_type         = C;
-    using traits_type       = T;
+    using char_type   = C;
+    using traits_type = T;
 
     const bool is_deleg;
 
@@ -46,8 +51,12 @@ public:
     virtual int deleg(const CommandLine&);
 
 protected:
-    PatternAction(bool is_deleg);
+    PatternAction(bool is_deleg) noexcept;
 };
+
+
+
+template<class C, class T, class F> std::unique_ptr<PatternAction<C, T>> make_pattern_action(F&& func);
 
 
 
@@ -74,9 +83,141 @@ template<class C, class T> inline int PatternAction<C, T>::deleg(const CommandLi
 }
 
 
-template<class C, class T> inline PatternAction<C, T>::PatternAction(bool d) :
+template<class C, class T> inline PatternAction<C, T>::PatternAction(bool d) noexcept :
     is_deleg(d)
 {
+}
+
+
+
+// ============================ FuncPatternExecAction ============================
+
+
+template<class C, class T, class F> class FuncPatternExecAction;
+
+
+template<class C, class T> class FuncPatternExecAction<C, T, void()> :
+        public PatternAction<C, T> {
+public:
+    using func_type = std::function<void()>;
+
+    FuncPatternExecAction(func_type func) :
+        PatternAction<C, T>(false),
+        m_func(std::move(func))
+    {
+    }
+
+    int enact() override final
+    {
+        m_func(); // Throws
+        return 0;
+    }
+
+private:
+    const func_type m_func;
+};
+
+
+template<class C, class T, class R> class FuncPatternExecAction<C, T, R()> :
+        public PatternAction<C, T> {
+public:
+    using func_type = std::function<R()>;
+
+    FuncPatternExecAction(func_type func) :
+        PatternAction<C, T>(false),
+        m_func(std::move(func))
+    {
+    }
+
+    int enact() override final
+    {
+        return m_func(); // Throws
+    }
+
+private:
+    const func_type m_func;
+};
+
+
+
+// ============================ DelegPatternAction ============================
+
+
+template<class C, class T, class R> class DelegPatternAction;
+
+
+template<class C, class T> class DelegPatternAction<C, T, void> :
+        public PatternAction<C, T> {
+public:
+    using func_type = std::function<void(const CommandLine&)>;
+
+    DelegPatternAction(func_type func) :
+        PatternAction<C, T>(true),
+        m_func(std::move(func))
+    {
+    }
+
+    int deleg(const CommandLine& command_line) override final
+    {
+        m_func(command_line); // Throws
+        return 0;
+    }
+
+private:
+    const func_type m_func;
+};
+
+
+template<class C, class T> class DelegPatternAction<C, T, int> :
+    public PatternAction<C, T> {
+public:
+    using func_type = std::function<int(const CommandLine&)>;
+
+    DelegPatternAction(func_type func) :
+        PatternAction<C, T>(true),
+        m_func(std::move(func))
+    {
+    }
+
+    int deleg(const CommandLine& command_line) override final
+    {
+        return m_func(command_line); // Throws
+    }
+
+private:
+    const func_type m_func;
+};
+
+
+
+// ============================ MakePatternAction ============================
+
+
+template<class C, class T, class G> struct MakePatternAction {
+    template<class F> static auto make(F&& func)
+    {
+        return std::make_unique<FuncPatternExecAction<C, T, G>>(std::forward<F>(func)); // Throws
+    }
+};
+
+
+template<class C, class T, class R> struct MakePatternAction<C, T, R(const CommandLine&)> {
+    template<class F> static auto make(F&& func)
+    {
+        return std::make_unique<DelegPatternAction<C, T, R>>(std::forward<F>(func)); // Throws
+    }
+};
+
+
+
+// ============================ make_pattern_action() ============================
+
+
+template<class C, class T, class F>
+std::unique_ptr<PatternAction<C, T>> make_pattern_action(F&& func)
+{
+    using G = base::FuncDecay<F>;
+    return MakePatternAction<C, T, G>::make(std::forward<F>(func)); // Throws
 }
 
 

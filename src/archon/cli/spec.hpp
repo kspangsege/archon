@@ -74,7 +74,38 @@ public:
 
     /// \{
     ///
-    /// \brief Add command line options.
+    /// \brief Add command line pattern.
+    ///
+    /// FIXME: By default, that is, if no patterns are added explicitely, \ref
+    /// process() acts as if one empty pattern was added with no associated
+    /// action.
+    ///
+    /// The function passed as pattern action must have return type `void` or
+    /// `int`. If it has return type `void`, then \ref process() will return
+    /// `EXIT_SUCCESS` as its exit status when that pattern gets
+    /// executed. Otherwise, the value returned by the pattern action function
+    /// will be returned as exit status by \ref process().
+    ///
+    /// FIXME: Explain: Unparenthesized disjunctions are not allowed. This is
+    /// because show_help() needs to be able to construct an unambiguous
+    /// synopsis by taking the pattern string, exactly as it is specified, then
+    /// prepend the program name (`argv[0]`) followed by a single space. This
+    /// gives the application straightforward control over the exact appearance
+    /// of the synopsis as it will be displayed by show_help().
+    ///
+    /// \sa \ref pat().      
+    ///
+    void add_pattern(const char* pattern, const char* descr);
+    template<class A>
+    void add_pattern(const char* pattern, const char* descr, A&& action);
+    void add_pattern(string_view_type pattern, string_view_type descr);
+    template<class A>
+    void add_pattern(string_view_type pattern, string_view_type descr, A&& action);
+    /// \}
+
+    /// \{
+    ///
+    /// \brief Add command line option.
     ///
     /// FIXME: Describe valid forms:                                          
     ///   Short: `-x` where `x` is a single character other than `-`.
@@ -121,6 +152,7 @@ private:
     using OptionForm = typename detail::Spec<C, T>::OptionForm;
     using ArgSpec    = typename detail::Spec<C, T>::ArgSpec;
 
+    using pattern_action_type    = detail::PatternAction<C, T>;
     using option_action_type     = detail::OptionAction<C, T>;
     using string_chunk_type      = base::Buffer<char_type>;
     using option_form_chunk_type = base::Buffer<OptionForm>;
@@ -131,6 +163,12 @@ private:
     detail::SpecParser<C, T> m_spec_parser;
     detail::Spec<C, T> m_rep;
 
+    void do_add_pattern(const char* pattern, const char* descr,
+                        std::unique_ptr<pattern_action_type>);
+    void do_add_pattern(string_view_type pattern, string_view_type descr,
+                        std::unique_ptr<pattern_action_type>);
+    void do_add_pattern_2(string_view_type pattern, string_view_type descr,
+                          std::unique_ptr<pattern_action_type>);
     void do_add_option(const char* forms, const char* arg, int attr, const char* descr,
                        std::unique_ptr<option_action_type>);
     void do_add_option(string_view_type forms, string_view_type arg, int attr,
@@ -150,7 +188,41 @@ using WideSpec = BasicSpec<wchar_t>;
 
 /// \{
 ///
-/// \brief Add command line options.
+/// \brief Add command line pattern.
+///
+/// These functions have the same effect as the corresponding `add_pattern()`
+/// functions in `BasicSpec` (\ref BasicSpec::add_pattern()). The advantage of
+/// these functions over those in `BasicSpec` is that they increase the amount
+/// of space available per line of arguments when code is formatted in the style
+/// shown here:
+///
+/// \code{.cpp}
+///
+///    archon::cli::Spec spec;
+///    pat("copy <source path> <target path>", spec,
+///        "Copy the file at the specified source path to specified target part.",
+///        [&](...) {                                                                              
+///            // ...
+///        });
+///
+/// \endcode
+///
+template<class C, class T>
+void pat(const char* pattern, BasicSpec<C, T>&, const char* descr);
+template<class C, class T, class A>
+void pat(const char* pattern, BasicSpec<C, T>&, const char* descr, A&& action);
+template<class C, class T>
+void pat(typename base::Wrap<std::basic_string_view<C, T>>::type pattern, BasicSpec<C, T>&,
+         typename base::Wrap<std::basic_string_view<C, T>>::type descr);
+template<class C, class T, class A>
+void pat(typename base::Wrap<std::basic_string_view<C, T>>::type pattern, BasicSpec<C, T>&,
+         typename base::Wrap<std::basic_string_view<C, T>>::type descr, A&& action);
+/// \}
+
+
+/// \{
+///
+/// \brief Add command line option.
 ///
 /// These functions have the same effect as the corresponding `add_otion()`
 /// functions in `BasicSpec` (\ref BasicSpec::add_option()). The advantage of
@@ -201,6 +273,38 @@ template<class C, class T> inline BasicSpec<C, T>::BasicSpec(const std::locale& 
 
 
 template<class C, class T>
+void BasicSpec<C, T>::add_pattern(const char* pattern, const char* descr)
+{
+    do_add_pattern(pattern, descr, nullptr); // Throws
+}
+
+
+template<class C, class T> template<class A>
+void BasicSpec<C, T>::add_pattern(const char* pattern, const char* descr, A&& action)
+{
+    std::unique_ptr<pattern_action_type> action_2 =
+        detail::make_pattern_action<C, T>(std::forward<A>(action)); // Throws
+    do_add_pattern(pattern, descr, std::move(action_2)); // Throws
+}
+
+
+template<class C, class T>
+void BasicSpec<C, T>::add_pattern(string_view_type pattern, string_view_type descr)
+{
+    do_add_pattern(pattern, descr, nullptr); // Throws
+}
+
+
+template<class C, class T> template<class A>
+void BasicSpec<C, T>::add_pattern(string_view_type pattern, string_view_type descr, A&& action)
+{
+    std::unique_ptr<pattern_action_type> action_2 =
+        detail::make_pattern_action<C, T>(std::forward<A>(action)); // Throws
+    do_add_pattern(pattern, descr, std::move(action_2)); // Throws
+}
+
+
+template<class C, class T>
 void BasicSpec<C, T>::add_option(const char* forms, const char* arg, int attr, const char* descr)
 {
     do_add_option(forms, arg, attr, descr, nullptr); // Throws
@@ -240,6 +344,41 @@ void BasicSpec<C, T>::show_help(const CommandLine&, ostream_type& out, long widt
 {
     static_cast<void>(width);             
     out << "*CLICK*\n";   
+}
+
+
+template<class C, class T>
+inline void BasicSpec<C, T>::do_add_pattern(const char* pattern, const char* descr,
+                                            std::unique_ptr<pattern_action_type> action)
+{
+    string_view_type pattern_2, descr_2;
+    typename base::BasicStringWidener<C, T>::Entry entries[] = {
+        { pattern, &pattern_2 },
+        { descr,   &descr_2   }
+    };
+    m_widener.widen(entries); // Throws
+    do_add_pattern(pattern_2, descr_2, std::move(action)); // Throws
+}
+
+
+template<class C, class T>
+void BasicSpec<C, T>::do_add_pattern(string_view_type pattern, string_view_type descr,
+                                     std::unique_ptr<pattern_action_type> action)
+{
+    string_view_type pattern_2 = pattern;
+    string_view_type descr_2   = descr;
+    intern({ &pattern_2, &descr_2 }); // Throws
+    do_add_pattern_2(pattern_2, descr_2, std::move(action)); // Throws
+}
+
+
+template<class C, class T>
+inline void BasicSpec<C, T>::do_add_pattern_2(string_view_type pattern, string_view_type descr,
+                                              std::unique_ptr<pattern_action_type> action)
+{
+    std::size_t ndx = m_rep.get_num_patterns();
+    m_spec_parser.parse_pattern(pattern, m_rep, ndx, action && action->is_deleg); // Throws
+    m_rep.add_pattern(pattern, descr, std::move(action)); // Throws
 }
 
 
@@ -303,6 +442,35 @@ void BasicSpec<C, T>::intern(std::initializer_list<string_view_type*> strings)
         data = data_2;
     }
     m_string_chunks.push_back(std::move(chunk)); // Throws
+}
+
+
+template<class C, class T> void pat(const char* pattern, BasicSpec<C, T>& spec, const char* descr)
+{
+    spec.add_pattern(pattern, descr); // Throws
+}
+
+
+template<class C, class T, class A>
+void pat(const char* pattern, BasicSpec<C, T>& spec, const char* descr, A&& action)
+{
+    spec.add_pattern(pattern, descr, std::forward<A>(action)); // Throws
+}
+
+
+template<class C, class T>
+void pat(typename base::Wrap<std::basic_string_view<C, T>>::type pattern, BasicSpec<C, T>& spec,
+         typename base::Wrap<std::basic_string_view<C, T>>::type descr)
+{
+    spec.add_pattern(pattern, descr); // Throws
+}
+
+
+template<class C, class T, class A>
+void pat(typename base::Wrap<std::basic_string_view<C, T>>::type pattern, BasicSpec<C, T>& spec,
+         typename base::Wrap<std::basic_string_view<C, T>>::type descr, A&& action)
+{
+    spec.add_pattern(pattern, descr, std::forward<A>(action)); // Throws
 }
 
 

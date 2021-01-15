@@ -2,8 +2,8 @@
 
 \namespace archon::cli
 
-\brief The Archon Command Line Interface library.
+\brief The Archon command-line interface library.
 
-This namespace contains the Archon Command Line Interface library.
+This namespace contains the Archon command-line interface library.
 
 */

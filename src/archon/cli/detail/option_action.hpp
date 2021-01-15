@@ -29,6 +29,8 @@
 #include <memory>
 #include <utility>
 #include <functional>
+#include <string_view>
+#include <ostream>
 
 #include <archon/base/type_traits.hpp>
 #include <archon/cli/option_actions.hpp>
@@ -54,66 +56,6 @@ public:
     virtual bool enact_with_arg(string_view_type, value_parser_type&);
     virtual bool format_orig_val(ostream_type&) const;
     virtual bool format_default_arg(ostream_type&) const;
-};
-
-
-
-template<class C, class T, class U> class OptionAssignAction :
-        public OptionAction<C, T> {
-public:
-    using string_view_type  = std::basic_string_view<C, T>;
-    using value_parser_type = ValueParser<C, T>;
-    using ostream_type      = std::basic_ostream<C, T>;
-
-    explicit OptionAssignAction(Assign<U>&&);
-
-    bool allow_arg() const noexcept override final;
-    void enact_without_arg() override final;
-    bool enact_with_arg(string_view_type, value_parser_type&) override final;
-    bool format_orig_val(ostream_type&) const override final;
-    bool format_default_arg(ostream_type&) const override final;
-
-private:
-    const Assign<U> m_assign;
-};
-
-
-
-template<class C, class T, class U> class OptionExecAction;
-
-
-template<class C, class T> class OptionExecAction<C, T, void()> :
-        public OptionAction<C, T> {
-public:
-    using string_view_type  = std::basic_string_view<C, T>;
-    using value_parser_type = ValueParser<C, T>;
-
-    using F = std::function<void()>;
-    explicit OptionExecAction(F func);
-
-    void enact_without_arg() override final;
-    bool enact_with_arg(string_view_type, value_parser_type&) override final;
-
-private:
-    const F m_func;
-};
-
-
-template<class C, class T, class R, class U> class OptionExecAction<C, T, R(U)> :
-        public OptionAction<C, T> {
-public:
-    using string_view_type  = std::basic_string_view<C, T>;
-    using value_parser_type = ValueParser<C, T>;
-
-    using F = std::function<R(U)>;
-    explicit OptionExecAction(F func);
-
-    bool allow_arg() const noexcept override final;
-    void enact_without_arg() override final;
-    bool enact_with_arg(string_view_type, value_parser_type&) override final;
-
-private:
-    const F m_func;
 };
 
 
@@ -168,113 +110,123 @@ template<class C, class T> inline bool OptionAction<C, T>::format_default_arg(os
 // ============================ OptionAssignAction ============================
 
 
-template<class C, class T, class U>
-inline OptionAssignAction<C, T, U>::OptionAssignAction(Assign<U>&& assign) :
-    m_assign(std::move(assign)) // Throws
-{
-}
+template<class C, class T, class U> class OptionAssignAction :
+        public OptionAction<C, T> {
+public:
+    using string_view_type  = std::basic_string_view<C, T>;
+    using value_parser_type = ValueParser<C, T>;
+    using ostream_type      = std::basic_ostream<C, T>;
 
+    explicit OptionAssignAction(Assign<U>&& assign) :
+        m_assign(std::move(assign)) // Throws
+    {
+    }
 
-template<class C, class T, class U>
-inline bool OptionAssignAction<C, T, U>::allow_arg() const noexcept
-{
-    return true;
-}
-
-
-template<class C, class T, class U>
-inline void OptionAssignAction<C, T, U>::enact_without_arg()
-{
-    *m_assign.var = m_assign.default_arg; // Throws
-}
-
-
-template<class C, class T, class U>
-inline bool OptionAssignAction<C, T, U>::enact_with_arg(string_view_type arg,
-                                                        value_parser_type& parser)
-{
-    U val = U(); // Throws
-    if (ARCHON_LIKELY(parser.parse(arg, val))) { // Throws
-        *m_assign.var = std::move(val); // Throws
+    bool allow_arg() const noexcept override final
+    {
         return true;
     }
-    return false;
-}
 
+    void enact_without_arg() override final
+    {
+        *m_assign.var = m_assign.default_arg; // Throws
+    }
 
-template<class C, class T, class U>
-inline bool OptionAssignAction<C, T, U>::format_orig_val(ostream_type& out) const
-{
-    out << *m_assign.var; // Throws
-    return true;
-}
+    bool enact_with_arg(string_view_type arg, value_parser_type& parser) override final
+    {
+        U val = U(); // Throws
+        if (ARCHON_LIKELY(parser.parse(arg, val))) { // Throws
+            *m_assign.var = std::move(val); // Throws
+            return true;
+        }
+        return false;
+    }
 
+    bool format_orig_val(ostream_type& out) const override final
+    {
+        out << *m_assign.var; // Throws
+        return true;
+    }
 
-template<class C, class T, class U>
-inline bool OptionAssignAction<C, T, U>::format_default_arg(ostream_type& out) const
-{
-    out << m_assign.default_arg; // Throws
-    return true;
-}
+    bool format_default_arg(ostream_type& out) const override final
+    {
+        out << m_assign.default_arg; // Throws
+        return true;
+    }
 
-
-
-// ============================ OptionExecAction<void()> ============================
-
-
-template<class C, class T> inline OptionExecAction<C, T, void()>::OptionExecAction(F func) :
-    m_func(std::move(func)) // Throws
-{
-}
-
-
-template<class C, class T> inline void OptionExecAction<C, T, void()>::enact_without_arg()
-{
-    m_func(); // Throws
-}
-
-
-template<class C, class T>
-inline bool OptionExecAction<C, T, void()>::enact_with_arg(string_view_type, value_parser_type&)
-{
-    return false;
-}
+private:
+    const Assign<U> m_assign;
+};
 
 
 
-// ============================ OptionExecAction<R(U)> ============================
+// ============================ OptionExecAction ============================
 
 
-template<class C, class T, class R, class U>
-inline OptionExecAction<C, T, R(U)>::OptionExecAction(F func) :
-    m_func(std::move(func)) // Throws
-{
-}
+template<class C, class T, class U> class OptionExecAction;
 
 
-template<class C, class T, class R, class U>
-inline bool OptionExecAction<C, T, R(U)>::allow_arg() const noexcept
-{
-    return true;
-}
+template<class C, class T> class OptionExecAction<C, T, void()> :
+        public OptionAction<C, T> {
+public:
+    using string_view_type  = std::basic_string_view<C, T>;
+    using value_parser_type = ValueParser<C, T>;
+    using func_type         = std::function<void()>;
+
+    explicit OptionExecAction(func_type func) :
+        m_func(std::move(func))
+    {
+    }
+
+    void enact_without_arg() override final
+    {
+        m_func(); // Throws
+    }
+
+    bool enact_with_arg(string_view_type, value_parser_type&) override final
+    {
+        return false;
+    }
+
+private:
+    const func_type m_func;
+};
 
 
-template<class C, class T, class R, class U>
-inline void OptionExecAction<C, T, R(U)>::enact_without_arg()
-{
-    m_func(U()); // Throws
-}
 
+template<class C, class T, class R, class U> class OptionExecAction<C, T, R(U)> :
+        public OptionAction<C, T> {
+public:
+    using string_view_type  = std::basic_string_view<C, T>;
+    using value_parser_type = ValueParser<C, T>;
+    using func_type         = std::function<R(U)>;
 
-template<class C, class T, class R, class U>
-inline bool OptionExecAction<C, T, R(U)>::enact_with_arg(string_view_type arg,
-                                                         value_parser_type& parser)
-{
-    U val = U(); // Throws
-    if (ARCHON_LIKELY(parser.parse(arg, val))) // Throws
-        return call(m_func, std::move(val)); // Throws
-    return false;
-}
+    explicit OptionExecAction(func_type func) :
+        m_func(std::move(func)) // Throws
+    {
+    }
+
+    bool allow_arg() const noexcept override final
+    {
+        return true;
+    }
+
+    void enact_without_arg() override final
+    {
+        m_func(U()); // Throws
+    }
+
+    bool enact_with_arg(string_view_type arg, value_parser_type& parser) override final
+    {
+        U val = U(); // Throws
+        if (ARCHON_LIKELY(parser.parse(arg, val))) // Throws
+            return call(m_func, std::move(val)); // Throws
+        return false;
+    }
+
+private:
+    const func_type m_func;
+};
 
 
 
