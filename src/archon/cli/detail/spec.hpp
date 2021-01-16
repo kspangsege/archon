@@ -44,7 +44,6 @@
 #include <archon/cli/detail/pattern_action.hpp>
 #include <archon/cli/detail/option_action.hpp>
 #include <archon/cli/detail/pattern_symbol.hpp>
-#include <archon/cli/detail/position_nfa.hpp>
 
 
 namespace archon::cli::detail {
@@ -70,10 +69,6 @@ public:
     std::size_t ensure_keyword(string_view_type lexeme);
     std::size_t ensure_pattern_option(OptionForm, std::size_t pattern_index);
 
-    std::size_t create_position(std::size_t pattern_index, PatternSymbol, string_view_type lexeme);
-    void register_startpos(std::size_t pos);
-    void register_followpos(std::size_t pos_1, std::size_t pos_2);
-
     void add_pattern(string_view_type pattern, string_view_type descr,
                      std::unique_ptr<pattern_action_type>);
     void add_option(base::Span<const OptionForm> forms, ArgSpec arg, int attr,
@@ -93,8 +88,6 @@ private:
     std::map<string_view_type, std::size_t> m_keyword_map;        // Index into `m_keywords`
     std::map<char_type,        std::size_t> m_short_option_forms; // Index into `m_proto_option`
     std::map<string_view_type, std::size_t> m_long_option_forms;  // Index into `m_proto_option`
-
-    PositionNfa m_position_nfa;
 };
 
 
@@ -217,7 +210,7 @@ std::size_t Spec<C, T>::ensure_pattern_option(OptionForm form, std::size_t patte
     auto error = [&](const char* message, const auto&... params) {
         std::string message_2 =
             base::format_enc<char_type>(m_locale, "Error in %s pattern specification: %s",
-                                        base::as_ordinal(pattern_index + 1),
+                                        base::as_ordinal(1 + pattern_index),
                                         base::formatted(message, params...)); // Throws
         throw BadCommandLineInterfaceSpec(std::move(message_2));
     };
@@ -237,28 +230,6 @@ std::size_t Spec<C, T>::ensure_pattern_option(OptionForm form, std::size_t patte
 
 
 template<class C, class T>
-inline std::size_t Spec<C, T>::create_position(std::size_t pattern_index, PatternSymbol symbol,
-                                               string_view_type lexeme)
-{
-    static_cast<void>(lexeme);                                                    
-    return m_position_nfa.create_position(pattern_index, symbol); // Throws
-}
-
-
-template<class C, class T> inline void Spec<C, T>::register_startpos(std::size_t pos)
-{
-    m_position_nfa.register_startpos(pos); // Throws
-}
-
-
-template<class C, class T>
-inline void Spec<C, T>::register_followpos(std::size_t pos_1, std::size_t pos_2)
-{
-    m_position_nfa.register_followpos(pos_1, pos_2); // Throws
-}
-
-
-template<class C, class T>
 inline void Spec<C, T>::add_pattern(string_view_type pattern, string_view_type descr,
                                     std::unique_ptr<pattern_action_type> action)
 {
@@ -274,7 +245,7 @@ void Spec<C, T>::add_option(base::Span<const OptionForm> forms, ArgSpec arg, int
     auto error = [&](const char* message, const auto&... params) {
         std::string message_2 =
             base::format_enc<char_type>(m_locale, "Error in %s option specification: %s",
-                                        base::as_ordinal(option_index + 1),
+                                        base::as_ordinal(1 + option_index),
                                         base::formatted(message, params...)); // Throws
         throw BadCommandLineInterfaceSpec(std::move(message_2));
     };
@@ -328,7 +299,7 @@ void Spec<C, T>::add_option(base::Span<const OptionForm> forms, ArgSpec arg, int
                   proto_lexeme, form.lexeme); // Throws
         }
         error("Option form %s also used in %s option specification", form.lexeme,
-              base::as_ordinal(proto.option_index + 1)); // Throws
+              base::as_ordinal(1 + proto.option_index)); // Throws
     }
 
     // Register option
@@ -347,15 +318,15 @@ void Spec<C, T>::add_option(base::Span<const OptionForm> forms, ArgSpec arg, int
         ARCHON_ASSERT(proto.pattern_index != std::size_t(-1));
         if (ARCHON_UNLIKELY(arg.allow)) {
             error("Option argument not allowed for options that are part of a pattern (%s in %s "
-                  "pattern)", proto_lexeme, base::as_ordinal(proto.pattern_index + 1)); // Throws
+                  "pattern)", proto_lexeme, base::as_ordinal(1 + proto.pattern_index)); // Throws
         }
         if (ARCHON_UNLIKELY((attr & short_circuit) != 0)) {
             error("A 'short circuit' option cannot be used in a pattern (%s in %s pattern)",
-                  proto_lexeme, base::as_ordinal(proto.pattern_index + 1)); // Throws
+                  proto_lexeme, base::as_ordinal(1 + proto.pattern_index)); // Throws
         }
         if (ARCHON_UNLIKELY((attr & end_of_options) != 0)) {
             error("An 'end of options' option cannot be used in a pattern (%s in %s pattern)",
-                  proto_lexeme, base::as_ordinal(proto.pattern_index + 1)); // Throws
+                  proto_lexeme, base::as_ordinal(1 + proto.pattern_index)); // Throws
         }
         proto.option_index = option_index;
     }

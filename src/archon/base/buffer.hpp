@@ -178,9 +178,9 @@ template<class T> Buffer(Span<T>) -> Buffer<std::remove_const_t<T>>;
 
 
 
-/// While the the stream buffer object exists, the associated buffer (`Buffer`)
-/// may not be accessed in any other way that can cause the underlying memory to
-/// be reallocted. Doing so leads to undefined behaviour, and probable memory
+/// While the stream buffer object exists, the associated buffer (`Buffer`) may
+/// not be accessed in any other way that can cause the underlying memory to be
+/// reallocted. Doing so leads to undefined behaviour, and probable memory
 /// corruption.
 ///
 template<class C, class T = std::char_traits<C>> class BasicBufferOutputStreambuf :

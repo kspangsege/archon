@@ -20,8 +20,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef ARCHON_X_CLI_X_DETAIL_X_POSITION_NFA_HPP
-#define ARCHON_X_CLI_X_DETAIL_X_POSITION_NFA_HPP
+#ifndef ARCHON_X_CLI_X_DETAIL_X_PATTERN_POSITION_NFA_HPP
+#define ARCHON_X_CLI_X_DETAIL_X_PATTERN_POSITION_NFA_HPP
 
 /// \file
 
@@ -36,17 +36,24 @@
 namespace archon::cli::detail {
 
 
-class PositionNfa {
+// NFA over pattern positions.
+//
+// FIXME: Explain what this means. Refer to literature.                 
+//
+class PatternPositionNfa {
 public:
-    std::size_t create_position(std::size_t pattern_index, PatternSymbol symbol);
-    void register_startpos(std::size_t pos);
-    void register_followpos(std::size_t pos_1, std::size_t pos_2);
-
-private:
     struct Position;
 
     using PositionSet = std::set<std::size_t>;
 
+    std::size_t create_position(std::size_t pattern_index, PatternSymbol symbol);
+    void register_startpos(std::size_t pos);
+    void register_followpos(std::size_t pos_1, std::size_t pos_2);
+
+    const PositionSet& get_start_positions() const noexcept;
+    const Position& get_position(std::size_t pos) const noexcept;
+
+private:
     std::vector<Position> m_positions;
     PositionSet m_start_positions;
 };
@@ -54,7 +61,8 @@ private:
 
 // This is a final position (state) when, and only when `followpos` is empty. In
 // a final position, the value of `symbol` has no meaning.
-struct PositionNfa::Position {
+//
+struct PatternPositionNfa::Position {
     std::size_t pattern_index;
     PatternSymbol symbol;
     PositionSet followpos;
@@ -70,7 +78,8 @@ struct PositionNfa::Position {
 // Implementation
 
 
-inline std::size_t PositionNfa::create_position(std::size_t pattern_index, PatternSymbol symbol)
+inline std::size_t PatternPositionNfa::create_position(std::size_t pattern_index,
+                                                       PatternSymbol symbol)
 {
     std::size_t pos = m_positions.size();
     m_positions.push_back({ pattern_index, symbol, {} }); // Throws
@@ -78,19 +87,31 @@ inline std::size_t PositionNfa::create_position(std::size_t pattern_index, Patte
 }
 
 
-inline void PositionNfa::register_startpos(std::size_t pos)
+inline void PatternPositionNfa::register_startpos(std::size_t pos)
 {
     m_start_positions.insert(pos); // Throws
 }
 
 
-void PositionNfa::register_followpos(std::size_t pos_1, std::size_t pos_2)
+inline void PatternPositionNfa::register_followpos(std::size_t pos_1, std::size_t pos_2)
 {
     Position& pos = m_positions[pos_1];
     pos.followpos.insert(pos_2); // Throws
 }
 
 
+inline auto PatternPositionNfa::get_start_positions() const noexcept -> const PositionSet&
+{
+    return m_start_positions;
+}
+
+
+inline auto PatternPositionNfa::get_position(std::size_t pos) const noexcept -> const Position&
+{
+    return m_positions[pos];
+}
+
+
 } // namespace archon::cli::detail
 
-#endif // ARCHON_X_CLI_X_DETAIL_X_POSITION_NFA_HPP
+#endif // ARCHON_X_CLI_X_DETAIL_X_PATTERN_POSITION_NFA_HPP

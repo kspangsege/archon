@@ -34,8 +34,8 @@ enum OptionAttributes {
 
     /// \brief 
     ///
-    /// If a *short circuit* option appears on the command line, processing of
-    /// the command line stops immediately with success indication after the
+    /// If a *short circuit* option appears on the command line, parsing of the
+    /// command line stops immediately with 'success' indication after the
     /// execution of the action for that option. Command line parse errors are
     /// not reported in this case, even if they occur earlier on the command
     /// line. This attribute is intended to be used with options such as

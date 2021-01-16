@@ -1,5 +1,7 @@
+#include <locale>
 #include <iostream>
 
+#include <archon/base/features.h>
 #include <archon/cli.hpp>
 
 
@@ -15,8 +17,6 @@ int main(int argc, char* argv[])
     long width = 80;
 
     cli::WideSpec spec(locale); // Throws
-
-    // FIXME: Explain implicit option specifications and the the associated rules                  
 
     opt("--", "", cli::end_of_options, spec,
         "Do not interpret subsequent command-line arguments as options, even if they "
@@ -35,4 +35,12 @@ int main(int argc, char* argv[])
         []() {
             std::cerr << "Files\n"; // Throws
         }); // Throws
+
+    {
+        int exit_status = 0;
+        if (ARCHON_UNLIKELY(!spec.parse(command_line, exit_status))) // Throws
+            return exit_status;
+    }
+
+    std::wcout << "GOOD\n";
 }

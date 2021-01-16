@@ -28,8 +28,10 @@
 
 #include <string_view>
 #include <stdexcept>
+#include <vector>
 
 #include <archon/base/features.h>
+#include <archon/base/seed_memory_output_stream.hpp>
 
 
 namespace archon::cli {
@@ -61,7 +63,8 @@ private:
     CommandLine(const char* const* args_begin, const char* const* args_end,
                 const Parent&) noexcept;
 
-    template<class, class> friend class BasicSpec;
+    // FIXME: Just use appropriate getters instead of friendship     
+    template<class, class> friend class BasicSpec;                
 };
 
 
@@ -72,6 +75,25 @@ private:
 
 
 // Implementation
+
+
+// The number of errors is the number of entries in `ends`. The message
+// associated with the error at index `i` is a range of characters in
+// `out.view()`. If `i` is zero, then the message begins at the beginning of
+// `out.view()`. Otherwise it begins before the character referred to by the
+// index in `ends[i-1]`. It always ends before the character referred to by
+// `ends[i]`.
+//
+struct CommandLine::PendingErrors {
+    base::SeedMemoryOutputStream out; // FIXME: What aout locale?                                                                                               
+    std::vector<std::size_t> ends;
+};
+
+struct CommandLine::Parent {
+    PendingErrors& errors;
+    const CommandLine& command_line;
+    std::string_view pattern;
+};
 
 
 inline CommandLine::CommandLine(int argc, const char* const argv[])
