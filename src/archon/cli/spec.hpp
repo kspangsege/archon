@@ -98,7 +98,8 @@ public:
     using string_view_type = std::basic_string_view<C, T>;
     using ostream_type     = std::basic_ostream<C, T>;
 
-    BasicSpec(const std::locale& = std::locale());
+    BasicSpec(SpecConfig = {});
+    BasicSpec(const std::locale&, SpecConfig = {});
 
     /// \{
     ///
@@ -205,6 +206,7 @@ private:
     using option_form_chunk_type = base::Buffer<OptionForm>;
 
     const std::locale m_locale;
+    const SpecConfig m_config;
     base::BasicStringWidener<C, T> m_widener;
     std::vector<string_chunk_type> m_string_chunks;
     std::vector<option_form_chunk_type> m_option_form_chunks;
@@ -313,8 +315,16 @@ void opt(typename base::Wrap<std::basic_string_view<C, T>>::type forms,
 // Implementation
 
 
-template<class C, class T> inline BasicSpec<C, T>::BasicSpec(const std::locale& locale) :
+template<class C, class T> inline BasicSpec<C, T>::BasicSpec(SpecConfig config) :
+    BasicSpec(std::locale(), std::move(config)) // Throws
+{
+}
+
+
+template<class C, class T>
+inline BasicSpec<C, T>::BasicSpec(const std::locale& locale, SpecConfig config) :
     m_locale(locale),
+    m_config(std::move(config)),
     m_widener(locale), // Throws
     m_spec_parser(locale), // Throws
     m_spec_rep(locale)
@@ -401,7 +411,13 @@ template<class C, class T> int BasicSpec<C, T>::parse(const CommandLine& command
     CommandLine::PendingErrors& errors_2 = (parent ? parent->errors : errors);
     {
         detail::ValueParser<C, T> value_parser(m_locale); // Throws
-        detail::PatternMatcher pattern_matcher(m_spec_rep, m_pattern_position_nfa); // Throws
+
+        using pattern_matcher_type = detail::PatternMatcher<C, T>;
+        typename pattern_matcher_type::Config config;
+        config.allow_cross_pattern_ambiguity    = m_config.allow_cross_pattern_ambiguity;
+        config.allow_internal_pattern_ambiguity = m_config.allow_internal_pattern_ambiguity;
+        pattern_matcher_type pattern_matcher(m_locale, m_spec_rep, m_pattern_position_nfa,
+                                               config); // Throws
 
         const char* arg_1  = nullptr;
         const char* arg_2  = nullptr;
@@ -506,7 +522,7 @@ template<class C, class T> int BasicSpec<C, T>::parse(const CommandLine& command
             opt_name = { subarg, 1 };
             subarg = opt_name.end();
             {
-                std::size_t proto_index = m_spec_rep.find_proto_option({ false, arg_1 });
+                std::size_t proto_index = m_spec_rep.find_proto_option(opt_name);
                 if (ARCHON_LIKELY(proto_index != std::size_t(-1))) {
                     unpack_option(proto_index, opt_in_pattern, opt_ndx, opt);
                     if (!opt->arg.allow) {
@@ -541,13 +557,9 @@ template<class C, class T> int BasicSpec<C, T>::parse(const CommandLine& command
             opt_name = { subarg, std::strcspn(subarg, "=") };
             subarg = opt_name.end();
             {
-                std::size_t proto_index = m_spec_rep.find_proto_option({ true, arg_1 });     
+                std::size_t proto_index = m_spec_rep.find_proto_option(opt_name);
                 if (ARCHON_LIKELY(proto_index != std::size_t(-1))) {
                     unpack_option(proto_index, opt_in_pattern, opt_ndx, opt);
-                auto j = m_long_forms.find(opt_name);
-                if (ARCHON_LIKELY(j != m_long_forms.end())) {
-                    opt_ndx = j->second;
-                    opt = &m_options[opt_ndx];
                     if (*subarg == '\0') {
                         if (!opt->arg.need)
                             goto option_without_arg;
@@ -581,7 +593,7 @@ template<class C, class T> int BasicSpec<C, T>::parse(const CommandLine& command
                 return EXIT_SUCCESS;
             if (ARCHON_UNLIKELY((opt->attr & end_of_options) != 0))
                 no_more_options = true;
-            if (opt->in_pattern && !has_pattern_match_error) {
+            if (opt_in_pattern && !has_pattern_match_error) {
                 if (ARCHON_UNLIKELY(!pattern_matcher.consume_option(opt_ndx)))
                     goto rejected_pattern_arg;
             }
@@ -589,7 +601,7 @@ template<class C, class T> int BasicSpec<C, T>::parse(const CommandLine& command
 
           option_with_arg:
             ARCHON_ASSERT(opt->action);
-            ARCHON_ASSERT(!opt->in_pattern);
+            ARCHON_ASSERT(!opt_in_pattern);
             opt_val = { subarg };
             if (ARCHON_LIKELY(opt->action->enact_with_arg(opt_val, value_parser))) // Throws
                 goto next_arg;
@@ -619,13 +631,13 @@ template<class C, class T> int BasicSpec<C, T>::parse(const CommandLine& command
             goto next_arg;
 
           bad_option_arg:
-            error("Bad argument %s for command-line option %s in %s", quoted(opt_val),
+            error("Bad argument %s for command-line option %s in %s", base::quoted(opt_val),
                   build_opt_form(), build_opt_context()); // Throws
             goto next_arg;
 
           no_option_arg_allowed:
             error("No argument (not even %s) allowed for command-line option %s in %s",
-                  quoted(opt_val), build_opt_form(), build_opt_context()); // Throws
+                  base::quoted(opt_val), build_opt_form(), build_opt_context()); // Throws
             goto next_arg;
 
           rejected_pattern_arg:
@@ -667,7 +679,7 @@ template<class C, class T> int BasicSpec<C, T>::parse(const CommandLine& command
   error:
     {
         // Display pending error messages
-        const char* data = errors_2.message_buffer.data();
+        const char* data = errors_2.out.view().data();
         std::size_t begin = 0;
         for (std::size_t end : errors_2.ends) {
             std::string_view message(data + begin, end - begin);
@@ -675,7 +687,6 @@ template<class C, class T> int BasicSpec<C, T>::parse(const CommandLine& command
             begin = end;
         }
     }
-*/
     return EXIT_FAILURE; // FIXME: Allow for alternative return values (ProcessConfig)                  
 }
 

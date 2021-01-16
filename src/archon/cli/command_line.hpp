@@ -41,11 +41,11 @@ namespace archon::cli {
 ///
 /// 
 ///
-class CommandLine {
+template<class C, class T = std::char_traits<C>> class BasicCommandLine {
 public:
-    CommandLine(int argc, const char* const argv[]);
-    CommandLine(int argc, const char* const argv[], std::string_view argv0_override,
-                bool argv0_strip_dir = false);
+    BasicCommandLine(int argc, const char* const argv[]);
+    BasicCommandLine(int argc, const char* const argv[], std::string_view argv0_override,
+                     bool argv0_strip_dir = false);
 
 private:
     struct PendingErrors;

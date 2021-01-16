@@ -54,6 +54,10 @@ public:
     struct OptionForm;
     struct ArgSpec;
 
+    struct ProtoOption;
+    struct Pattern;
+    struct Option;
+
     using char_type        = C;
     using traits_type      = T;
     using string_view_type = std::basic_string_view<C, T>;
@@ -75,10 +79,6 @@ public:
                     string_view_type descr, std::unique_ptr<option_action_type>);
 
 private:
-    struct ProtoOption;
-    struct Pattern;
-    struct Option;
-
     const std::locale m_locale;
     std::vector<string_view_type> m_keywords;
     std::vector<ProtoOption> m_proto_options;
@@ -104,21 +104,14 @@ template<class C, class T> struct Spec<C, T>::ArgSpec {
 };
 
 
-
-
-
-
-
-
-// Implementation
-
-
-// If `pattern_index` is specified, this proto option is referenced from at
-// least one pattern, and `pattern_index` refers to the first one.
-//
-// If `options_index` is specified, this proto option is associated with an
-// explicitely specified option and `option_index` refers to that option.
-//
+/// \brief       
+///
+/// If `pattern_index` is specified, this proto option is referenced from at
+/// least one pattern, and `pattern_index` refers to the first one.
+///
+/// If `options_index` is specified, this proto option is associated with an
+/// explicitely specified option and `option_index` refers to that option.
+///
 template<class C, class T> struct Spec<C, T>::ProtoOption {
     std::size_t pattern_index = std::size_t(-1); // Index into `m_patterns`
     std::size_t option_index = std::size_t(-1); // Index into `m_options`
@@ -139,6 +132,15 @@ template<class C, class T> struct Spec<C, T>::Option {
     string_view_type descr;
     std::unique_ptr<option_action_type> action;
 };
+
+
+
+
+
+
+
+
+// Implementation
 
 
 template<class C, class T> inline Spec<C, T>::Spec(const std::locale& locale) noexcept :
