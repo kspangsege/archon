@@ -59,7 +59,7 @@ int main(int argc, char* argv[])
     test_config.data_root_dir = build_env.get_relative_source_root(); // Throws
     test_config.log_file_base_dir = build_env.get_relative_project_root(); // Throws
     test_config.test_file_base_dir = build_env.get_relative_project_root(); // Throws
-    std::string_view filter;
+    std::string_view filter = "Foo";
     bool xml = false;
     std::string_view suite_name = "default";
 
