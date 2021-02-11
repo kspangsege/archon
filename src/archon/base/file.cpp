@@ -253,6 +253,7 @@ bool File::try_read(base::Span<char> buffer, std::size_t& n, std::error_code& ec
         n = std::size_t(buffer_2.data() + n_2 - buffer.data());
         return true;
     }
+    n = std::size_t(buffer_2.data() - buffer.data());
     return false;
 }
 
@@ -269,9 +270,10 @@ bool File::try_write(base::Span<const char> data, std::size_t& n, std::error_cod
             data_2 = data_2.subspan(n_2);
             goto again;
         }
-        n = std::size_t(data_2.data() + n_2 - data.data());
+        n = data.size();
         return true;
     }
+    n = std::size_t(data_2.data() - data.data());
     return false;
 }
 

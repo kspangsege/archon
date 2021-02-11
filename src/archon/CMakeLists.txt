@@ -29,7 +29,7 @@ add_executable(Test
                base/test/test_string_template.cpp
                base/test/test_random.cpp
                base/test/test_file.cpp
-               base/test/test_foo.cpp
+               base/test/test_bar_2.cpp
                unit_test/test/test_random_seed.cpp
                unit_test/test/test_unit_test.cpp
                test.cpp)

@@ -106,8 +106,8 @@ public:
     /// greater than \p min_size, or if `min_size - copy_to < copy_end -
     /// copy_begin`.
     ///
-    /// This function returns to new offset of the retained section, which is \p
-    /// copy_to if a new memory chunk was allocated, and \p used_begin
+    /// This function returns the new offset of the retained section, which is
+    /// \p copy_to if a new memory chunk was allocated, and \p used_begin
     /// otherwise. If this function throws, nothing will have changed.
     ///
     std::size_t reserve(std::size_t min_size, std::size_t used_begin, std::size_t used_end,

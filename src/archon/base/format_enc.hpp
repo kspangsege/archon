@@ -41,8 +41,8 @@ namespace archon::base {
 ///
 /// \brief Format and encode string in global locale.
 ///
-/// This function formats the specified parameterized string as if by
-/// `format(string, params...)`, then leniently encodes the result as if by \ref
+/// These functions format the specified parameterized string as if by
+/// `format(string, params...)`, then leniently encode the result as if by \ref
 /// encode_string() using the global locale.
 ///
 /// When specifying a null-terminated parameterized string (\p c_str), if the
@@ -66,8 +66,8 @@ std::string format_enc(std::basic_string_view<C, T> string, const P&... params);
 ///
 /// \brief Format and encode string in specified locale.
 ///
-/// This function formats the specified parameterized string as if by
-/// `format(locale, string, params...)`, then leniently encodes the result as if
+/// These functions format the specified parameterized string as if by
+/// `format(locale, string, params...)`, then leniently encode the result as if
 /// by \ref encode_string() using the specied locale.
 ///
 /// When specifying a null-terminated parameterized string (\p c_str), if the
@@ -101,7 +101,7 @@ std::string format_enc(const std::locale& locale, std::basic_string_view<C, T> s
 template<class C, class... P> std::string format_enc(const char* c_str, const P&... params)
 {
     std::locale locale; // Global locale
-    return format_enc(locale, c_str, params...); // Throws
+    return format_enc<C>(locale, c_str, params...); // Throws
 }
 
 

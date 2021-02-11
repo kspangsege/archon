@@ -188,6 +188,10 @@ public:
     /// success, it returns the number of bytes placed in the buffer, and, on
     /// failure, it throws an exception of type `std::system_error`.
     ///
+    /// Note that on failure, some bytes may have been read from the file and
+    /// placed into the specified buffer. Consider using \ref try_read() if you
+    /// need to know how many bytes were read, even in the event of a failure.
+    ///
     std::size_t read(base::Span<char> buffer);
 
     /// \brief Write a chunk of data.
@@ -197,6 +201,10 @@ public:
     ///
     /// This function has the same effect as \ref try_write() except that, on
     /// failure, it throws an exception of type `std::system_error`.
+    ///
+    /// Note that on failure, some if the specified bytes may have been written
+    /// to the file. Consider using \ref try_write() if you need to know how
+    /// many bytes were written, even in the event of a failure.
     ///
     void write(base::Span<const char> data);
 
@@ -292,6 +300,14 @@ public:
     /// continues reading until the buffer is full or the end of input is
     /// reached.
     ///
+    /// On success, if \p n is less than `buffer.size()`, it means that the end
+    /// of input has been reached. On failure, \p n will always be less than
+    /// `buffer.size()` (provided that `buffer.size()` is greater than zero),
+    /// and it will indicate how much was read, and placed into the buffer
+    /// before the failure occurred.
+    ///
+    /// On success, \p ec is left untouched.
+    ///
     [[nodiscard]] bool try_read(base::Span<char> buffer, std::size_t& n,
                                 std::error_code& ec) noexcept;
 
@@ -302,6 +318,13 @@ public:
     ///
     /// This function has the same effect as \ref try_write_some() except that
     /// it continues writing until all of the specified data has been written.
+    ///
+    /// On success, \p n will always be equal to `data.size()`. On failure, \p n
+    /// will always be less than `data.size()` (provided that `data.size()` is
+    /// greater than zero), and it will indicate how much was written before the
+    /// failure occurred.
+    ///
+    /// On success, \p ec is left untouched.
     ///
     [[nodiscard]] bool try_write(base::Span<const char> data, std::size_t& n,
                                  std::error_code& ec) noexcept;
@@ -318,6 +341,12 @@ public:
     /// on interruption due to recepetion of a system signal, reading is
     /// automatically resumed.
     ///
+    /// On success, if \p n is zero and the size of the specified buffer is
+    /// greater than zero, it means that the end of input has been reached.
+    ///
+    /// On success, \p ec is left untouched. On failure \p n is left untouched,
+    /// and no bytes will have been read from the stream.
+    ///
     [[nodiscard]] bool try_read_some(base::Span<char> buffer, std::size_t& n,
                                      std::error_code& ec) noexcept;
 
@@ -331,6 +360,12 @@ public:
     /// This function has the same effect as \ref try_write_some_a() except
     /// that, on interruption due to recepetion of a system signal, writing is
     /// automatically resumed.
+    ///
+    /// On success, \p n will always be greater than zero provided `data.size()`
+    /// is greater than zero.
+    ///
+    /// On success, \p ec is left untouched. On failure \p n is left untouched,
+    /// and no bytes will have been written to the stream.
     ///
     [[nodiscard]] bool try_write_some(base::Span<const char> data, std::size_t& n,
                                       std::error_code& ec) noexcept;
@@ -353,9 +388,9 @@ public:
     /// interrupted to `false` and \p ec to an error code that reflects the
     /// cause of the failure, and then it returns `false`.
     ///
-    /// On POSIX systems, if the calling thread was blocked waiting for bytes to
-    /// become immmediately readable, and the wait is interrupted due to
-    /// reception of a system signal, this function sets \p interrupted to
+    /// On POSIX systems, if the calling thread was blocked waiting for the
+    /// opportunity to read at least one byte, and the wait was interrupted due
+    /// to reception of a system signal, this function sets \p interrupted to
     /// `true` and then returns `false`.
     ///
     /// On success, if \p n is zero and the size of the specified buffer is
@@ -390,9 +425,9 @@ public:
     /// \p ec to an error code that reflects the cause of the failure, and then
     /// it returns `false`.
     ///
-    /// On POSIX systems, if the calling thread was blocked waiting for bytes to
-    /// become immmediately writable, and the wait is interrupted due to
-    /// reception of a system signal, this function sets \p interrupted to
+    /// On POSIX systems, if the calling thread was blocked waiting for the
+    /// opportunity to write at least one byte, and the wait was interrupted due
+    /// to reception of a system signal, this function sets \p interrupted to
     /// `true` and then returns `false`.
     ///
     /// On success, \p n will always be greater than zero provided `data.size()`

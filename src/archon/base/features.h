@@ -123,6 +123,16 @@
 #endif
 
 
+// Detect GNU libstdc++, the GNU implementation of the C++ standard library. See
+// https://gcc.gnu.org/onlinedocs/libstdc++/manual/using_macros.html.
+//
+#if defined __GLIBCXX__
+#  define ARCHON_GNU_LIBCXX 1
+#else
+#  define ARCHON_GNU_LIBCXX 0
+#endif
+
+
 // Detect LLVM libc++, the LLVM implementation of the C++ standard library. See
 // https://libcxx.llvm.org/docs.
 //
