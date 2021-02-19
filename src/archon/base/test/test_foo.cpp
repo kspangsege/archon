@@ -48,6 +48,12 @@ private:
 typedef BasicStringView<char> StringView;
 typedef BasicStringView<wchar_t> WideStringView;
 
+bool is_initial_2(const std::mbstate_t& state)
+{
+    std::mbstate_t initial = std::mbstate_t();
+    return (std::memcmp(&state, &initial, sizeof (std::mbstate_t)) == 0);
+}
+
 
 } // unnamed namespace
 
@@ -80,6 +86,7 @@ ARCHON_TEST(Foo)
             std::cout << "input consumed  = " << (from_next - from) << "\n";
             std::cout << "output produced = " << (to_next - to) << "\n";
             std::cout << "in initial state = " << std::mbsinit(&state) << "\n";
+            std::cout << "in initial state 2 = " << is_initial_2(state) << "\n";
             was_ok_1 = (result == std::codecvt_base::ok);
         }
         std::cout << "-------------------------\n";
@@ -95,6 +102,7 @@ ARCHON_TEST(Foo)
             std::cout << "input consumed  = " << (from_next - from) << "\n";
             std::cout << "output produced = " << (to_next - to) << "\n";
             std::cout << "in initial state = " << std::mbsinit(&state) << "\n";
+            std::cout << "in initial state 2 = " << is_initial_2(state) << "\n";
             was_ok_2 = (result == std::codecvt_base::ok);
         }
         std::cout << "AGREE WITH STANDARD: " << (was_ok_1 == was_ok_2 ? "YES" : "NO") << "\n";
@@ -117,6 +125,7 @@ ARCHON_TEST(Foo)
         std::cout << "input consumed  = " << (from_next - from) << "\n";
         std::cout << "output produced = " << (to_next - to) << "\n";
         std::cout << "in initial state = " << std::mbsinit(&state) << "\n";
+        std::cout << "in initial state 2 = " << is_initial_2(state) << "\n";
     }
     std::cout << "-------------------------\n";
     {
@@ -135,6 +144,7 @@ ARCHON_TEST(Foo)
         std::cout << "input consumed  = " << (from_next - from) << "\n";
         std::cout << "output produced = " << (to_next - to) << "\n";
         std::cout << "in initial state = " << std::mbsinit(&state) << "\n";
+        std::cout << "in initial state 2 = " << is_initial_2(state) << "\n";
     }
     std::cout << "-------------------------\n";
     {
@@ -153,6 +163,7 @@ ARCHON_TEST(Foo)
         std::cout << "input consumed  = " << (from_next - from) << "\n";
         std::cout << "output produced = " << (to_next - to) << "\n";
         std::cout << "in initial state = " << std::mbsinit(&state) << "\n";
+        std::cout << "in initial state 2 = " << is_initial_2(state) << "\n";
     }
     std::cout << "-------------------------\n";
     {
@@ -171,6 +182,7 @@ ARCHON_TEST(Foo)
         std::cout << "input consumed  = " << (from_next - from) << "\n";
         std::cout << "output produced = " << (to_next - to) << "\n";
         std::cout << "in initial state = " << std::mbsinit(&state) << "\n";
+        std::cout << "in initial state 2 = " << is_initial_2(state) << "\n";
     }
     std::cout << "---------------------------------- C ----------------------------------\n";
     // Invalid decoding
@@ -190,6 +202,7 @@ ARCHON_TEST(Foo)
         std::cout << "input consumed  = " << (from_next - from) << "\n";
         std::cout << "output produced = " << (to_next - to) << "\n";
         std::cout << "in initial state = " << std::mbsinit(&state) << "\n";
+        std::cout << "in initial state 2 = " << is_initial_2(state) << "\n";
     }
     std::cout << "-------------------------\n";
     {
@@ -208,6 +221,7 @@ ARCHON_TEST(Foo)
         std::cout << "input consumed  = " << (from_next - from) << "\n";
         std::cout << "output produced = " << (to_next - to) << "\n";
         std::cout << "in initial state = " << std::mbsinit(&state) << "\n";
+        std::cout << "in initial state 2 = " << is_initial_2(state) << "\n";
     }
     std::cout << "-------------------------\n";
     {
@@ -226,6 +240,7 @@ ARCHON_TEST(Foo)
         std::cout << "input consumed  = " << (from_next - from) << "\n";
         std::cout << "output produced = " << (to_next - to) << "\n";
         std::cout << "in initial state = " << std::mbsinit(&state) << "\n";
+        std::cout << "in initial state 2 = " << is_initial_2(state) << "\n";
     }
     std::cout << "-------------------------\n";
     {
@@ -244,6 +259,7 @@ ARCHON_TEST(Foo)
         std::cout << "input consumed  = " << (from_next - from) << "\n";
         std::cout << "output produced = " << (to_next - to) << "\n";
         std::cout << "in initial state = " << std::mbsinit(&state) << "\n";
+        std::cout << "in initial state 2 = " << is_initial_2(state) << "\n";
     }
     std::cout << "-------------------------\n";
     {
@@ -268,6 +284,7 @@ ARCHON_TEST(Foo)
         std::cout << "input consumed  = " << (from_next - string.data()) << "\n";
         std::cout << "output produced = " << (to_next - buffer.data()) << "\n";
         std::cout << "in initial state = " << std::mbsinit(&state) << "\n";
+        std::cout << "in initial state 2 = " << is_initial_2(state) << "\n";
     }
     std::cout << "---------------------------------- D ----------------------------------\n";
     // Encoding
@@ -287,6 +304,7 @@ ARCHON_TEST(Foo)
         std::cout << "input consumed  = " << (from_next - from) << "\n";
         std::cout << "output produced = " << (to_next - to) << "\n";
         std::cout << "in initial state = " << std::mbsinit(&state) << "\n";
+        std::cout << "in initial state 2 = " << is_initial_2(state) << "\n";
     }
     std::cout << "-------------------------\n";
     {
@@ -305,6 +323,7 @@ ARCHON_TEST(Foo)
         std::cout << "input consumed  = " << (from_next - from) << "\n";
         std::cout << "output produced = " << (to_next - to) << "\n";
         std::cout << "in initial state = " << std::mbsinit(&state) << "\n";
+        std::cout << "in initial state 2 = " << is_initial_2(state) << "\n";
     }
     std::cout << "-------------------------\n";
     {
@@ -323,6 +342,7 @@ ARCHON_TEST(Foo)
         std::cout << "input consumed  = " << (from_next - from) << "\n";
         std::cout << "output produced = " << (to_next - to) << "\n";
         std::cout << "in initial state = " << std::mbsinit(&state) << "\n";
+        std::cout << "in initial state 2 = " << is_initial_2(state) << "\n";
     }
     std::cout << "---------------------------------- E ----------------------------------\n";
     {
@@ -341,6 +361,7 @@ ARCHON_TEST(Foo)
         std::cout << "input consumed  = " << (from_next - from) << "\n";
         std::cout << "output produced = " << (to_next - to) << "\n";
         std::cout << "in initial state = " << std::mbsinit(&state) << "\n";
+        std::cout << "in initial state 2 = " << is_initial_2(state) << "\n";
         bool sane = (result == std::codecvt_base::ok);
         std::cout << "SANE = " << (sane ? "YES" : "NO") << "\n";
     }
@@ -361,6 +382,7 @@ ARCHON_TEST(Foo)
         std::cout << "input consumed  = " << (from_next - from) << "\n";
         std::cout << "output produced = " << (to_next - to) << "\n";
         std::cout << "in initial state = " << std::mbsinit(&state) << "\n";
+        std::cout << "in initial state 2 = " << is_initial_2(state) << "\n";
     }
     std::cout << "-------------------------\n";
     {
@@ -379,6 +401,7 @@ ARCHON_TEST(Foo)
         std::cout << "input consumed  = " << (from_next - from) << "\n";
         std::cout << "output produced = " << (to_next - to) << "\n";
         std::cout << "in initial state = " << std::mbsinit(&state) << "\n";
+        std::cout << "in initial state 2 = " << is_initial_2(state) << "\n";
         bool sane = (result == std::codecvt_base::ok);
         std::cout << "SANE = " << (sane ? "YES" : "NO") << "\n";
     }
