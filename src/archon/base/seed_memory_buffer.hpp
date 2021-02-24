@@ -72,29 +72,41 @@ public:
     /// \brief Ensure extra buffer capacity.
     ///
     /// This function is a shorthand for calling `reserve(used_size +
-    /// min_extra_size, used_size)`, except that, if the sum overflows, this
-    /// function throws `std::length_error`.
+    /// min_extra_size, used_size, max_size)`, except that, if the sum
+    /// overflows, this function throws `std::length_error`.
     ///
-    void reserve_extra(std::size_t min_extra_size, std::size_t used_size);
+    void reserve_extra(std::size_t min_extra_size, std::size_t used_size,
+                       std::size_t max_size = -1);
+
+    /// \brief Expand buffer.
+    ///
+    /// This function is a shorthand for calling `reserve(size() +
+    /// min_extra_size, used_size, max_size)`, except that, if the sum
+    /// overflows, this function throws `std::length_error`.
+    ///
+    void expand(std::size_t min_extra_size, std::size_t used_size,
+                std::size_t max_size = -1);
 
     /// \brief Ensure buffer capacity.
     ///
-    /// This function is a shorthand for calling `reserve(min_size, 0,
-    /// used_size, 0)`.
+    /// This function is a shorthand for calling `reserve_a(min_size, 0,
+    /// used_size, 0, max_size)`.
     ///
-    void reserve(std::size_t min_size, std::size_t used_size = 0);
+    void reserve(std::size_t min_size, std::size_t used_size = 0, std::size_t max_size = -1);
 
     /// \brief Ensure buffer capacity.
     ///
     /// If the current size of this buffer is greater than, or equal to the
     /// specified minimum size (\p min_size), this function does
-    /// nothing. Otherwise, it allocates a new larger chunk of memory and copies
-    /// contents from the old chunk into the new one as specified.
+    /// nothing. Otherwise, if the specified minimum size (\p max_size) is
+    /// larger than the specified maximum size, this function throws
+    /// `std::length_error`. Otherwise, this function allocates a new larger
+    /// chunk of memory and copies contents from the old chunk into the new one
+    /// as specified (\p used_begin, \p used_end, \p copy_to). The new buffer
+    /// size is determined as if by `base::suggest_new_buffer_size(size(),
+    /// min_size, max_size)` (see \ref base::suggest_new_buffer_size()).
     ///
-    /// The new buffer size is determined as if by \ref
-    /// base::suggest_new_buffer_size().
-    ///
-    /// \param new_size Specifies the required minimum size of the buffer.
+    /// \param min_size Specifies the required minimum size of the buffer.
     ///
     /// \param used_begin, used_end Specifies the range of elements that must be
     /// copied to the new memory chunk if one is allocated. Behaviour is
@@ -106,12 +118,14 @@ public:
     /// greater than \p min_size, or if `min_size - copy_to < copy_end -
     /// copy_begin`.
     ///
+    /// \param max_size Specifies the allowed maximum size of the buffer.
+    ///
     /// This function returns the new offset of the retained section, which is
     /// \p copy_to if a new memory chunk was allocated, and \p used_begin
     /// otherwise. If this function throws, nothing will have changed.
     ///
-    std::size_t reserve(std::size_t min_size, std::size_t used_begin, std::size_t used_end,
-                        std::size_t copy_to);
+    std::size_t reserve_a(std::size_t min_size, std::size_t used_begin, std::size_t used_end,
+                          std::size_t copy_to, std::size_t max_size = -1);
 
     // No copying
     SeedMemoryBuffer(const SeedMemoryBuffer&) = delete;
@@ -121,9 +135,11 @@ private:
     std::unique_ptr<T[]> m_memory_owner;
     base::Span<T> m_memory;
 
-    void do_reserve_extra(std::size_t min_extra_size, std::size_t used_size);
+    void do_reserve_extra(std::size_t min_extra_size, std::size_t used_size, std::size_t max_size);
+    void do_reserve_a(std::size_t min_size, std::size_t used_begin, std::size_t used_end,
+                      std::size_t copy_to, std::size_t max_size);
     void do_reserve(std::size_t min_size, std::size_t used_begin, std::size_t used_end,
-                    std::size_t copy_to);
+                    std::size_t copy_to, std::size_t max_size);
 };
 
 
@@ -305,45 +321,81 @@ template<class T> inline auto SeedMemoryBuffer<T>::end() const noexcept -> const
 
 
 template<class T>
-inline void SeedMemoryBuffer<T>::reserve_extra(std::size_t min_extra_size, std::size_t used_size)
+inline void SeedMemoryBuffer<T>::reserve_extra(std::size_t min_extra_size, std::size_t used_size,
+                                               std::size_t max_size)
 {
     ARCHON_ASSERT(used_size <= m_memory.size());
     if (ARCHON_LIKELY(min_extra_size <= std::size_t(m_memory.size() - used_size)))
         return;
-    do_reserve_extra(min_extra_size, used_size); // Throws
+    do_reserve_extra(min_extra_size, used_size, max_size); // Throws
 }
 
 
 template<class T>
-inline void SeedMemoryBuffer<T>::reserve(std::size_t min_size, std::size_t used_size)
+void SeedMemoryBuffer<T>::expand(std::size_t min_extra_size, std::size_t used_size,
+                                 std::size_t max_size)
+{
+    if (ARCHON_LIKELY(min_extra_size > 0)) {
+        std::size_t cur_size = m_memory.size();
+        if (ARCHON_LIKELY(cur_size <= max_size && min_extra_size <= max_size - cur_size)) {
+            std::size_t min_size   = cur_size + min_extra_size;
+            std::size_t used_begin = 0;
+            std::size_t used_end   = used_size;
+            std::size_t copy_to    = 0;
+            do_reserve(min_size, used_begin, used_end, copy_to, max_size); // Throws
+            return;
+        }
+        throw std::length_error("Buffer size");
+    }
+}
+
+
+template<class T>
+inline void SeedMemoryBuffer<T>::reserve(std::size_t min_size, std::size_t used_size,
+                                         std::size_t max_size)
 {
     std::size_t used_begin = 0;
     std::size_t used_end   = used_size;
     std::size_t copy_to    = 0;
-    reserve(min_size, used_begin, used_end, copy_to); // Throws
+    reserve_a(min_size, used_begin, used_end, copy_to, max_size); // Throws
 }
 
 
 template<class T>
-inline std::size_t SeedMemoryBuffer<T>::reserve(std::size_t min_size, std::size_t used_begin,
-                                                std::size_t used_end, std::size_t copy_to)
+inline std::size_t SeedMemoryBuffer<T>::reserve_a(std::size_t min_size, std::size_t used_begin,
+                                                  std::size_t used_end, std::size_t copy_to,
+                                                  std::size_t max_size)
 {
     if (ARCHON_LIKELY(min_size <= m_memory.size()))
         return used_begin;
-    do_reserve(min_size, used_begin, used_end, copy_to); // Throws
+    do_reserve_a(min_size, used_begin, used_end, copy_to, max_size); // Throws
     return copy_to;
 }
 
 
 template<class T>
-void SeedMemoryBuffer<T>::do_reserve_extra(std::size_t min_extra_size, std::size_t used_size)
+void SeedMemoryBuffer<T>::do_reserve_extra(std::size_t min_extra_size, std::size_t used_size,
+                                           std::size_t max_size)
 {
-    std::size_t min_size = used_size;
-    if (ARCHON_LIKELY(base::try_int_add(min_size, min_extra_size))) {
+    if (ARCHON_LIKELY(used_size <= max_size && min_extra_size <= max_size - used_size)) {
+        std::size_t min_size   = used_size + min_extra_size;
         std::size_t used_begin = 0;
         std::size_t used_end   = used_size;
         std::size_t copy_to    = 0;
-        do_reserve(min_size, used_begin, used_end, copy_to); // Throws
+        do_reserve(min_size, used_begin, used_end, copy_to, max_size); // Throws
+        return;
+    }
+    throw std::length_error("Buffer size");
+}
+
+
+template<class T>
+void SeedMemoryBuffer<T>::do_reserve_a(std::size_t min_size, std::size_t used_begin,
+                                       std::size_t used_end, std::size_t copy_to,
+                                       std::size_t max_size)
+{
+    if (ARCHON_LIKELY(min_size <= max_size)) {
+        do_reserve(min_size, used_begin, used_end, copy_to, max_size); // Throws
         return;
     }
     throw std::length_error("Buffer size");
@@ -352,13 +404,14 @@ void SeedMemoryBuffer<T>::do_reserve_extra(std::size_t min_extra_size, std::size
 
 template<class T>
 void SeedMemoryBuffer<T>::do_reserve(std::size_t min_size, std::size_t used_begin,
-                                     std::size_t used_end, std::size_t copy_to)
+                                     std::size_t used_end, std::size_t copy_to,
+                                     std::size_t max_size)
 {
     ARCHON_ASSERT(used_begin <= used_end);
     ARCHON_ASSERT(used_end <= m_memory.size());
     ARCHON_ASSERT(copy_to <= min_size);
     ARCHON_ASSERT(used_end - used_begin <= min_size - copy_to);
-    std::size_t new_size = base::suggest_new_buffer_size(m_memory.size(), min_size);
+    std::size_t new_size = base::suggest_new_buffer_size(m_memory.size(), min_size, max_size);
     std::unique_ptr<T[]> memory_owner = std::make_unique<T[]>(new_size); // Throws
     std::copy(m_memory.data() + used_begin, m_memory.data() + used_end,
               memory_owner.get() + copy_to);

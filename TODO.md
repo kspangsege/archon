@@ -7,6 +7,10 @@ TODO:
 
 
 
+Consider: Add `base::SeedMemoryBuffer::SeedMemoryBuffer(std::unique_ptr<T[]> memory, std::size_t size) noexcept` and `std::unique_ptr<T[]> base::SeedMemoryBuffer::release() noexcept` in order to make `base::SeedMemoryBuffer` further render `base::Buffer` obsolete. `release()` will return null until the buffer no longer uses the specified (nonowned) seed memory.
+Consider: Rename `base::Buffer` -> `base::SimpleBuffer` and `base::SeedMemoryBuffer` -> `base::Buffer`.
+
+
 
 
 ```

@@ -98,7 +98,7 @@ public:
 
     /// \brief Ensure buffer capacity.
     ///
-    /// This function is a shorthand for calling `reserve(min_size, 0,
+    /// This function is a shorthand for calling `reserve_a(min_size, 0,
     /// used_size, 0)`.
     ///
     void reserve(std::size_t min_size, std::size_t used_size = 0);
@@ -116,8 +116,8 @@ public:
     /// copy_to if \ref resize() was called, and \p used_begin otherwise. If
     /// this function throws, nothing will have changed.
     ///
-    std::size_t reserve(std::size_t min_size, std::size_t used_begin, std::size_t used_end,
-                        std::size_t copy_to);
+    std::size_t reserve_a(std::size_t min_size, std::size_t used_begin, std::size_t used_end,
+                          std::size_t copy_to);
 
     /// \brief Resize the buffer while retaining a part of it.
     ///
@@ -344,13 +344,13 @@ template<class T> inline void Buffer<T>::reserve(std::size_t min_size, std::size
     std::size_t used_begin = 0;
     std::size_t used_end   = used_size;
     std::size_t copy_to    = 0;
-    reserve(min_size, used_begin, used_end, copy_to); // Throws
+    reserve_a(min_size, used_begin, used_end, copy_to); // Throws
 }
 
 
 template<class T>
-inline std::size_t Buffer<T>::reserve(std::size_t min_size, std::size_t used_begin,
-                                      std::size_t used_end, std::size_t copy_to)
+inline std::size_t Buffer<T>::reserve_a(std::size_t min_size, std::size_t used_begin,
+                                        std::size_t used_end, std::size_t copy_to)
 {
     if (ARCHON_LIKELY(min_size <= m_size))
         return used_begin;

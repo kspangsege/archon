@@ -8,6 +8,28 @@
 
 
 
+
+
+
+
+
+
+
+
+// Consideer: make its such that codec decode only returns true if eof arg is true and conversion is complete (in order to deal with quirks of std::codecvt in libstdc++ and libc++)              
+
+
+
+
+
+
+
+
+
+
+
+
+
 // Consider introducing BasicTextFile<C, T, F>, and then build BasicTextFileStreambuf<C, T, F> on top of it. Here F is the underlying file type, which is base::PrimitiveTextFile by default. base::PrimitiveTextFile is an alias for base::PrimitivePosixTextFile on POSIX, and an alias for base::PrimitiveWindowsTextFile on Windows. base::PrimitiveWindowsTextFile is buffered. base::PrimitivePosixTextFile is unbuffered.                                 
 
 
@@ -227,6 +249,25 @@ public:
                     base::Span<char> buffer, std::size_t& buffer_offset) ->
         std::codecvt_base::result;
 
+    /// \brief   
+    ///
+    /// It is an error if the difference between `data.size()` and \p
+    /// data_offset (prior to invocation) is more than \ref
+    /// max_simulate_decode_size().
+    ///
+    /// It is an error if \p buffer_size is greater than the increase in
+    /// `buffer_offset` that would be cuased by an invocation of \ref
+    /// inc_decode() given the same state and span of data.
+    ///
+    void simulate_inc_decode(std::mbstate_t&, base::Span<const char> data,
+                             std::size_t& data_offset, std::size_t buffer_size) noexcept;
+
+    /// \brief   
+    ///
+    /// See \ref simulate_inc_decode().
+    ///
+    static constexpr std::size_t max_simulate_decode_size() noexcept;
+
 private:
     using codecvt_type = std::codecvt<C, char, std::mbstate_t>;
 
@@ -365,6 +406,32 @@ auto BasicCharCodec<C, T>::inc_encode(std::mbstate_t& state, base::Span<const C>
     data_offset   = std::size_t(from_next - data.data());
     buffer_offset = std::size_t(to_next - buffer.data());
     return result;
+}
+
+
+template<class C, class T>
+void  BasicCharCodec<C, T>::simulate_inc_decode(std::mbstate_t& state, base::Span<const char> data,
+                                                std::size_t& data_offset,
+                                                std::size_t buffer_size) noexcept
+{
+    ARCHON_ASSERT(data_offset <= data.size());
+    ARCHON_ASSERT(std::size_t(data.size() - data_offset) <= max_simulate_decode_size());
+    const char* begin = data.data() + data_offset;
+    const char* end   = data.data() + data.size();
+    int n = m_codecvt.length(state, begin, end, buffer_size);
+    ARCHON_ASSERT(n >= 0);
+    data_offset += std::size_t(n);
+}
+
+
+template<class C, class T> constexpr std::size_t BasicCharCodec<C, T>::max_simulate_decode_size() noexcept
+{
+    std::size_t max_1 = std::numeric_limits<std::size_t>::max();
+    int max_2 = std::numeric_limits<int>::max();
+    using uint = unsigned int;
+    if (max_1 >= uint(max_2))
+        return max_1;
+    return std::size_t(max_2);
 }
 
 
@@ -690,12 +757,7 @@ inline bool PrimitiveWindowsTextFileCore::try_seek(offset_type offset,
 
 inline void PrimitiveWindowsTextFileCore::expand_buffer()
 {
-    std::size_t size = m_buffer.size();
-    if (ARCHON_LIKELY(base::try_int_add(size, 1))) {
-        m_buffer.reserve(size, m_end); // Throws
-        return;
-    }
-    throw std::length_error("Buffer size");
+    m_buffer.expand(1, m_end); // Throws
 }
 
 
@@ -930,8 +992,10 @@ private:
     bool m_writing = false;
 #endif
 
-    bool try_shallow_flush(std::error_code&);
+    static base::SeedMemoryBuffer<char> make_buffer(const Config&);
+    static constexpr std::size_t max_buffer_size() noexcept;
 
+    bool try_shallow_flush(std::error_code&);
     void expand_buffer();
 };
 
@@ -1089,8 +1153,10 @@ bool TextFileCore<C, T, P>::try_revert(std::size_t offset, std::error_code& ec)
     base::Span data = base::Span(m_buffer).first(m_begin);
     std::mbstate_t state = m_prev_state;
     std::size_t data_offset = m_prev_begin;
-    bool success = m_codec.simulate_inc_decode(state, data, data_offset, offset); // Throws
-    ARCHON_ASSERT(success);
+    // The difference between `data_offset` and `data.size()` cannot be greater
+    // than the size of `m_buffer`, and the buffer cannot grow larger than
+    // `m_codec.max_simulate_decode_size()`
+    m_codec.simulate_inc_decode(state, data, data_offset, offset); // Throws
     ARCHON_ASSERT(data_offset <= m_begin);
     if (ARCHON_LIKELY(m_primitive_core.try_revert(data_offset, ec))) {
         m_prev_begin = 0;
@@ -1135,6 +1201,26 @@ inline bool TextFileCore<C, T, P>::try_seek(offset_type offset, std::error_code&
 
 
 template<class C, class T, class P>
+auto TextFileCore<C, T, P>::make_buffer(const Config& config) -> base::SeedMemoryBuffer<char>
+{
+    base::Span<char> seed_memory = config.char_codec_buffer_memory;
+    if (ARCHON_UNLIKELY(seed_memory.size() > max_buffer_size()))
+        seed_memory = seed_memory.subspan(0, max_buffer_size());
+    std::size_t size = config.char_codec_buffer_size;
+    if (ARCHON_UNLIKELY(size > max_buffer_size()))
+        size = max_buffer_size();
+    return base::SeedMemoryBuffer<char>(seed_memory, size); // Throws
+}
+
+
+template<class C, class T, class P>
+constexpr std::size_t TextFileCore<C, T, P>::max_buffer_size() noexcept
+{
+    return decltype(m_codec)::max_simulate_decode_size();
+}
+
+
+template<class C, class T, class P>
 bool TextFileCore<C, T, P>::try_shallow_flush(std::error_code& ec)
 {
 #if ARCHON_DEBUG
@@ -1157,12 +1243,7 @@ bool TextFileCore<C, T, P>::try_shallow_flush(std::error_code& ec)
 
 template<class C, class T, class P> inline void TextFileCore<C, T, P>::expand_buffer()
 {
-    std::size_t size = m_buffer.size();
-    if (ARCHON_LIKELY(base::try_int_add(size, 1))) {
-        m_buffer.reserve(size, m_end); // Throws
-        return;
-    }
-    throw std::length_error("Buffer size");
+    m_buffer.expand(1, m_end, max_buffer_size()); // Throws
 }
 
 
@@ -1303,4 +1384,30 @@ ARCHON_TEST(Base_TextFile_WindowsCore)
     success = text_file_core.try_revert(5, ec);
     log(" success = %s", success);
     log("      ec = %s", ec);
+
+    log("------ try_write ------");
+    success = text_file_core.try_write(std::wstring_view(L"o"), n, ec);
+    log(" success = %s", success);
+    log("       n = %s", n);
+    log("      ec = %s", ec);
+
+    log("------ try_flush ------");
+    success = text_file_core.try_flush(ec);
+    log(" success = %s", success);
+    log("      ec = %s", ec);
+
+    log("------ try_seek ------");
+    success = text_file_core.try_seek(0, ec);
+    log(" success = %s", success);
+    log("      ec = %s", ec);
+
+    log("------ try_read ------");
+    success = text_file_core.try_read(buffer, n, ec);
+    log(" success = %s", success);
+    log("       n = %s", n);
+    log("      ec = %s", ec);
+    if (success)
+        log("contents = %s", base::format_enc<wchar_t>(locale, "%s", base::quoted(std::wstring_view(buffer.data(), n))));
+
+    // FIXME: Also check dynamic_eof   
 }

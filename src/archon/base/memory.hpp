@@ -34,6 +34,7 @@
 #include <utility>
 
 #include <archon/base/features.h>
+#include <archon/base/assert.hpp>
 #include <archon/base/type_traits.hpp>
 #include <archon/base/integer.hpp>
 
@@ -48,11 +49,14 @@ namespace archon::base {
 ///
 /// If the current size is already greater than, or equal to the specified
 /// minimum size, the current size is returned. Otherwise, the returned size is
-/// generally 50% more than the current size, if that is greater than, or equal
-/// to the specified minimum size. Otherwsie this function returns the specified
-/// minimum size.
+/// generally 50% more than the current size, although at least as big as the
+/// specified minimum size, and not bigger than specified maximum size.
 ///
-std::size_t suggest_new_buffer_size(std::size_t current_size, std::size_t minimum_size) noexcept;
+/// The specified maximum size must be greater than, or equal to the greater of
+/// the current size and the minimum size.
+///
+std::size_t suggest_new_buffer_size(std::size_t cur_size, std::size_t min_size,
+                                    std::size_t max_size = -1) noexcept;
 
 
 
@@ -119,21 +123,25 @@ private:
 // Implementation
 
 
-inline std::size_t suggest_new_buffer_size(std::size_t current_size,
-                                           std::size_t minimum_size) noexcept
+inline std::size_t suggest_new_buffer_size(std::size_t cur_size, std::size_t min_size,
+                                           std::size_t max_size) noexcept
 {
-    std::size_t new_size = current_size;
-    if (ARCHON_LIKELY(new_size >= minimum_size))
+    ARCHON_ASSERT(max_size >= cur_size);
+    ARCHON_ASSERT(max_size >= min_size);
+
+    std::size_t new_size = cur_size;
+    if (ARCHON_LIKELY(new_size >= min_size))
         return new_size;
 
     // Use growth factor 1.5.
-    if (ARCHON_UNLIKELY(!base::try_int_add(new_size, new_size / 2)))
-        new_size = std::numeric_limits<std::size_t>::max();
-
-    if (minimum_size > new_size)
-        new_size = minimum_size;
-
-    return new_size;
+    std::size_t half = new_size / 2;
+    if (ARCHON_LIKELY(half <= std::size_t(max_size - new_size))) {
+        new_size += half;
+        if (ARCHON_LIKELY(new_size >= min_size))
+            return new_size;
+        return min_size;
+    }
+    return max_size;
 }
 
 
