@@ -30,7 +30,7 @@
 
 
 
-// Consider introducing BasicTextFile<C, T, F>, and then build BasicTextFileStreambuf<C, T, F> on top of it. Here F is the underlying file type, which is base::PrimitiveTextFile by default. base::PrimitiveTextFile is an alias for base::PrimitivePosixTextFile on POSIX, and an alias for base::PrimitiveWindowsTextFile on Windows. base::PrimitiveWindowsTextFile is buffered. base::PrimitivePosixTextFile is unbuffered.                                 
+// Consider introducing BasicTextFile<C, T, F>, and then build BasicTextFileStreambuf<C, T, F> on top of it. Here F is the underlying file type, which is base::PrimTextFile by default. base::PrimTextFile is an alias for base::PrimPosixTextFile on POSIX, and an alias for base::PrimWindowsTextFile on Windows. base::PrimWindowsTextFile is buffered. base::PrimPosixTextFile is unbuffered.                                 
 
 
 
@@ -463,7 +463,7 @@ using WideExtendedCharCodec = BasicExtendedCharCodec<wchar_t>;
 
 
 
-// ============================================================================================ primitive_text_file_core.hpp ============================================================================================
+// ============================================================================================ prim_text_file_core.hpp ============================================================================================
 
 
 namespace archon::base {
@@ -473,7 +473,7 @@ namespace archon::base {
 ///
 /// \brief Files with support for newline translation on select platforms.
 ///
-/// Concept: PrimitiveTextFileCore
+/// Concept: PrimTextFileCore
 /// ------------------------------
 ///
 /// A file is in one of three modes, neutral, reading, or writing. Initially, it
@@ -510,20 +510,20 @@ namespace archon::base {
 /// mode. After a successful invocation of try_seek(), the file is in neutral
 /// mode. After a failed invocation of try_seek(), the mode is unchanged.
 ///
-class PrimitivePosixTextFileCore;
-class PrimitiveWindowsTextFileCore;
+class PrimPosixTextFileCore;
+class PrimWindowsTextFileCore;
 /// \}
 
 
 #if ARCHON_WINDOWS
-using PrimitiveTextFileCore = PrimitiveWindowsTextFileCore;
+using PrimTextFileCore = PrimWindowsTextFileCore;
 #else
-using PrimitiveTextFileCore = PrimitivePosixTextFileCore;
+using PrimTextFileCore = PrimPosixTextFileCore;
 #endif
 
 
 
-struct PrimitiveTextFileCoreConfig {
+struct PrimTextFileCoreConfig {
     static constexpr std::size_t default_newline_codec_buffer_size = 1024;
 
     // GENERIC:
@@ -536,12 +536,12 @@ struct PrimitiveTextFileCoreConfig {
 
 
 
-class PrimitivePosixTextFileCore {
+class PrimPosixTextFileCore {
 public:
-    using Config = PrimitiveTextFileCoreConfig;
+    using Config = PrimTextFileCoreConfig;
     using offset_type = base::File::offset_type;
 
-    PrimitivePosixTextFileCore(base::File&, Config) noexcept;
+    PrimPosixTextFileCore(base::File&, Config) noexcept;
 
     [[nodiscard]] bool try_read(base::Span<char> buffer, bool dynamic_eof, std::size_t& n,
                                 std::error_code&);
@@ -571,12 +571,12 @@ private:
 
 
 
-class PrimitiveWindowsTextFileCore {
+class PrimWindowsTextFileCore {
 public:
-    using Config = PrimitiveTextFileCoreConfig;
+    using Config = PrimTextFileCoreConfig;
     using offset_type = base::File::offset_type;
 
-    PrimitiveWindowsTextFileCore(base::File&, Config);
+    PrimWindowsTextFileCore(base::File&, Config);
 
     [[nodiscard]] bool try_read(base::Span<char> buffer, bool dynamic_eof, std::size_t& n,
                                 std::error_code&);
@@ -641,17 +641,17 @@ private:
 // Implementation
 
 
-// ============================ PrimitivePosixTextFileCore ============================
+// ============================ PrimPosixTextFileCore ============================
 
 
-inline PrimitivePosixTextFileCore::PrimitivePosixTextFileCore(base::File& file, Config) noexcept :
+inline PrimPosixTextFileCore::PrimPosixTextFileCore(base::File& file, Config) noexcept :
     m_file(file)
 {
 }
 
 
-inline bool PrimitivePosixTextFileCore::try_read(base::Span<char> buffer, bool, std::size_t& n,
-                                                 std::error_code& ec)
+inline bool PrimPosixTextFileCore::try_read(base::Span<char> buffer, bool, std::size_t& n,
+                                            std::error_code& ec)
 {
 #if ARCHON_DEBUG
     ARCHON_ASSERT(!m_writing);
@@ -673,8 +673,8 @@ inline bool PrimitivePosixTextFileCore::try_read(base::Span<char> buffer, bool, 
 }
 
 
-inline bool PrimitivePosixTextFileCore::try_write(base::Span<const char> data, std::size_t& n,
-                                                  std::error_code& ec) noexcept
+inline bool PrimPosixTextFileCore::try_write(base::Span<const char> data, std::size_t& n,
+                                             std::error_code& ec) noexcept
 {
 #if ARCHON_DEBUG
     ARCHON_ASSERT(!m_reading);
@@ -685,7 +685,7 @@ inline bool PrimitivePosixTextFileCore::try_write(base::Span<const char> data, s
 }
 
 
-inline void PrimitivePosixTextFileCore::advance(std::size_t n) noexcept
+inline void PrimPosixTextFileCore::advance(std::size_t n) noexcept
 {
 #if ARCHON_DEBUG
     ARCHON_ASSERT(!m_writing);
@@ -696,7 +696,7 @@ inline void PrimitivePosixTextFileCore::advance(std::size_t n) noexcept
 }
 
 
-inline bool PrimitivePosixTextFileCore::try_discard(std::error_code&) noexcept
+inline bool PrimPosixTextFileCore::try_discard(std::error_code&) noexcept
 {
 #if ARCHON_DEBUG
     ARCHON_ASSERT(!m_writing);
@@ -708,7 +708,7 @@ inline bool PrimitivePosixTextFileCore::try_discard(std::error_code&) noexcept
 }
 
 
-inline bool PrimitivePosixTextFileCore::try_revert(std::size_t offset, std::error_code& ec) noexcept
+inline bool PrimPosixTextFileCore::try_revert(std::size_t offset, std::error_code& ec) noexcept
 {
 #if ARCHON_DEBUG
     ARCHON_ASSERT(!m_writing);
@@ -731,7 +731,7 @@ inline bool PrimitivePosixTextFileCore::try_revert(std::size_t offset, std::erro
 }
 
 
-inline bool PrimitivePosixTextFileCore::try_flush(std::error_code&) noexcept
+inline bool PrimPosixTextFileCore::try_flush(std::error_code&) noexcept
 {
 #if ARCHON_DEBUG
     ARCHON_ASSERT(!m_reading);
@@ -741,7 +741,7 @@ inline bool PrimitivePosixTextFileCore::try_flush(std::error_code&) noexcept
 }
 
 
-inline bool PrimitivePosixTextFileCore::try_seek(offset_type offset, std::error_code& ec) noexcept
+inline bool PrimPosixTextFileCore::try_seek(offset_type offset, std::error_code& ec) noexcept
 {
 #if ARCHON_DEBUG
     ARCHON_ASSERT(!m_writing);
@@ -760,18 +760,17 @@ inline bool PrimitivePosixTextFileCore::try_seek(offset_type offset, std::error_
 
 
 
-// ============================ PrimitiveWindowsTextFileCore ============================
+// ============================ PrimWindowsTextFileCore ============================
 
 
-inline PrimitiveWindowsTextFileCore::PrimitiveWindowsTextFileCore(base::File& file,
-                                                                  Config config) :
+inline PrimWindowsTextFileCore::PrimWindowsTextFileCore(base::File& file, Config config) :
     m_file(file),
     m_buffer(config.newline_codec_buffer_memory, config.newline_codec_buffer_size) // Throws
 {
 }
 
 
-inline bool PrimitiveWindowsTextFileCore::try_discard(std::error_code& ec) noexcept
+inline bool PrimWindowsTextFileCore::try_discard(std::error_code& ec) noexcept
 {
     ARCHON_ASSERT(m_begin <= m_end);
     std::size_t n = std::size_t(m_end - m_begin);
@@ -779,7 +778,7 @@ inline bool PrimitiveWindowsTextFileCore::try_discard(std::error_code& ec) noexc
 }
 
 
-inline bool PrimitiveWindowsTextFileCore::try_revert(std::size_t offset, std::error_code& ec) noexcept
+inline bool PrimWindowsTextFileCore::try_revert(std::size_t offset, std::error_code& ec) noexcept
 {
     ARCHON_ASSERT(m_retain_begin <= m_begin);
     ARCHON_ASSERT(m_begin <= m_end);
@@ -793,8 +792,7 @@ inline bool PrimitiveWindowsTextFileCore::try_revert(std::size_t offset, std::er
 }
 
 
-inline bool PrimitiveWindowsTextFileCore::try_seek(offset_type offset,
-                                                   std::error_code& ec) noexcept
+inline bool PrimWindowsTextFileCore::try_seek(offset_type offset, std::error_code& ec) noexcept
 {
 #if ARCHON_DEBUG
     ARCHON_ASSERT(!m_writing);
@@ -816,7 +814,7 @@ inline bool PrimitiveWindowsTextFileCore::try_seek(offset_type offset,
 }
 
 
-inline void PrimitiveWindowsTextFileCore::expand_buffer()
+inline void PrimWindowsTextFileCore::expand_buffer()
 {
     m_buffer.expand(1, m_end); // Throws
 }
@@ -827,14 +825,14 @@ inline void PrimitiveWindowsTextFileCore::expand_buffer()
 
 
 
-// ============================================================================================ primitive_text_file_core.cpp ============================================================================================
+// ============================================================================================ prim_text_file_core.cpp ============================================================================================
 
 
 namespace archon::base {
 
 
-bool PrimitiveWindowsTextFileCore::try_read(base::Span<char> buffer, bool dynamic_eof,
-                                            std::size_t& n, std::error_code& ec)
+bool PrimWindowsTextFileCore::try_read(base::Span<char> buffer, bool dynamic_eof, std::size_t& n,
+                                       std::error_code& ec)
 {
 #if ARCHON_DEBUG
     ARCHON_ASSERT(!m_writing);
@@ -882,8 +880,8 @@ bool PrimitiveWindowsTextFileCore::try_read(base::Span<char> buffer, bool dynami
 }
 
 
-bool PrimitiveWindowsTextFileCore::try_write(base::Span<const char> data, std::size_t& n,
-                                             std::error_code& ec)
+bool PrimWindowsTextFileCore::try_write(base::Span<const char> data, std::size_t& n,
+                                        std::error_code& ec)
 {
 #if ARCHON_DEBUG
     ARCHON_ASSERT(!m_reading);
@@ -907,7 +905,7 @@ bool PrimitiveWindowsTextFileCore::try_write(base::Span<const char> data, std::s
 }
 
 
-inline void PrimitiveWindowsTextFileCore::advance(std::size_t n) noexcept
+void PrimWindowsTextFileCore::advance(std::size_t n) noexcept
 {
 #if ARCHON_DEBUG
     ARCHON_ASSERT(!m_writing);
@@ -931,7 +929,7 @@ inline void PrimitiveWindowsTextFileCore::advance(std::size_t n) noexcept
 }
 
 
-bool PrimitiveWindowsTextFileCore::try_flush(std::error_code& ec) noexcept
+bool PrimWindowsTextFileCore::try_flush(std::error_code& ec) noexcept
 {
 #if ARCHON_DEBUG
     ARCHON_ASSERT(!m_reading);
@@ -956,7 +954,7 @@ bool PrimitiveWindowsTextFileCore::try_flush(std::error_code& ec) noexcept
 }
 
 
-bool PrimitiveWindowsTextFileCore::do_try_discard(std::size_t n, std::error_code& ec) noexcept
+bool PrimWindowsTextFileCore::do_try_discard(std::size_t n, std::error_code& ec) noexcept
 {
 #if ARCHON_DEBUG
     ARCHON_ASSERT(!m_writing);
@@ -987,23 +985,23 @@ bool PrimitiveWindowsTextFileCore::do_try_discard(std::size_t n, std::error_code
 
 
 
-// ============================================================================================ primitive_text_file.hpp ============================================================================================
+// ============================================================================================ prim_text_file.hpp ============================================================================================
 
 
 namespace archon::base {
 
 
-struct PrimitiveTextFileConfig;
+struct PrimTextFileConfig;
 
 
-template<class C> class BasicPrimitiveTextFile {
+template<class C> class BasicPrimTextFile {
 public:
-    using Config = PrimitiveTextFileConfig;
+    using Config = PrimTextFileConfig;
     using Mode        = base::File::Mode;
     using offset_type = base::File::offset_type;
 
-    BasicPrimitiveTextFile(base::FilesystemPathRef, Mode = Mode::read);
-    BasicPrimitiveTextFile(base::FilesystemPathRef, Mode, Config);
+    BasicPrimTextFile(base::FilesystemPathRef, Mode = Mode::read);
+    BasicPrimTextFile(base::FilesystemPathRef, Mode, Config);
 
     std::size_t read(base::Span<char> buffer);
 
@@ -1029,12 +1027,12 @@ private:
 };
 
 
-using PrimitiveTextFile        = BasicPrimitiveTextFile<base::PrimitiveTextFileCore>;
-using PrimitivePosixTextFile   = BasicPrimitiveTextFile<base::PrimitivePosixTextFileCore>;
-using PrimitiveWindowsTextFile = BasicPrimitiveTextFile<base::PrimitiveWindowsTextFileCore>;
+using PrimTextFile        = BasicPrimTextFile<base::PrimTextFileCore>;
+using PrimPosixTextFile   = BasicPrimTextFile<base::PrimPosixTextFileCore>;
+using PrimWindowsTextFile = BasicPrimTextFile<base::PrimWindowsTextFileCore>;
 
 
-struct PrimitiveTextFileConfig : public base::PrimitiveTextFileCoreConfig {
+struct PrimTextFileConfig : public base::PrimTextFileCoreConfig {
     bool dynamic_eof = false;
 };
 
@@ -1048,15 +1046,15 @@ struct PrimitiveTextFileConfig : public base::PrimitiveTextFileCoreConfig {
 
 
 template<class C>
-inline BasicPrimitiveTextFile<C>::BasicPrimitiveTextFile(base::FilesystemPathRef path, Mode mode) :
-    BasicPrimitiveTextFile(path, mode, {}) // Throws
+inline BasicPrimTextFile<C>::BasicPrimTextFile(base::FilesystemPathRef path, Mode mode) :
+    BasicPrimTextFile(path, mode, {}) // Throws
 {
 }
 
 
 template<class C>
-inline BasicPrimitiveTextFile<C>::BasicPrimitiveTextFile(base::FilesystemPathRef path, Mode mode,
-                                                         Config config) :
+inline BasicPrimTextFile<C>::BasicPrimTextFile(base::FilesystemPathRef path, Mode mode,
+                                               Config config) :
     m_file(path, mode), // Throws
     m_core(m_file, std::move(config)), // Throws
     m_dynamic_eof(config.dynamic_eof)
@@ -1064,7 +1062,7 @@ inline BasicPrimitiveTextFile<C>::BasicPrimitiveTextFile(base::FilesystemPathRef
 }
 
 
-template<class C> inline std::size_t BasicPrimitiveTextFile<C>::read(base::Span<char> buffer)
+template<class C> inline std::size_t BasicPrimTextFile<C>::read(base::Span<char> buffer)
 {
     std::size_t n = 0;
     std::error_code ec;
@@ -1074,7 +1072,7 @@ template<class C> inline std::size_t BasicPrimitiveTextFile<C>::read(base::Span<
 }
 
 
-template<class C> inline void BasicPrimitiveTextFile<C>::write(base::Span<const char> data)
+template<class C> inline void BasicPrimTextFile<C>::write(base::Span<const char> data)
 {
     std::size_t n; // Dummy
     std::error_code ec;
@@ -1084,7 +1082,7 @@ template<class C> inline void BasicPrimitiveTextFile<C>::write(base::Span<const 
 }
 
 
-template<class C> inline void BasicPrimitiveTextFile<C>::seek(offset_type offset)
+template<class C> inline void BasicPrimTextFile<C>::seek(offset_type offset)
 {
     std::error_code ec;
     if (ARCHON_LIKELY(try_seek(offset, ec)))
@@ -1094,8 +1092,8 @@ template<class C> inline void BasicPrimitiveTextFile<C>::seek(offset_type offset
 
 
 template<class C>
-inline bool BasicPrimitiveTextFile<C>::try_read(base::Span<char> buffer, std::size_t& n,
-                                                std::error_code& ec)
+inline bool BasicPrimTextFile<C>::try_read(base::Span<char> buffer, std::size_t& n,
+                                           std::error_code& ec)
 {
     if (ARCHON_LIKELY(!m_writing || try_stop_writing(ec))) { // Throws
         m_reading = true;
@@ -1107,8 +1105,8 @@ inline bool BasicPrimitiveTextFile<C>::try_read(base::Span<char> buffer, std::si
 
 
 template<class C>
-inline bool BasicPrimitiveTextFile<C>::try_write(base::Span<const char> data, std::size_t& n,
-                                                 std::error_code& ec)
+inline bool BasicPrimTextFile<C>::try_write(base::Span<const char> data, std::size_t& n,
+                                            std::error_code& ec)
 {
     if (ARCHON_LIKELY(!m_reading || try_stop_reading(ec))) { // Throws
         m_writing = true;
@@ -1120,7 +1118,7 @@ inline bool BasicPrimitiveTextFile<C>::try_write(base::Span<const char> data, st
 
 
 template<class C>
-inline bool BasicPrimitiveTextFile<C>::try_seek(offset_type offset, std::error_code& ec)
+inline bool BasicPrimTextFile<C>::try_seek(offset_type offset, std::error_code& ec)
 {
     if (ARCHON_LIKELY(!m_writing || try_stop_writing(ec))) { // Throws
         if (ARCHON_LIKELY(m_core.try_seek(offset, ec))) {// Throws
@@ -1132,7 +1130,7 @@ inline bool BasicPrimitiveTextFile<C>::try_seek(offset_type offset, std::error_c
 }
 
 
-template<class C> bool BasicPrimitiveTextFile<C>::try_stop_reading(std::error_code& ec)
+template<class C> bool BasicPrimTextFile<C>::try_stop_reading(std::error_code& ec)
 {
     ARCHON_ASSERT(m_reading);
     ARCHON_ASSERT(!m_writing);
@@ -1144,7 +1142,7 @@ template<class C> bool BasicPrimitiveTextFile<C>::try_stop_reading(std::error_co
 }
 
 
-template<class C> bool BasicPrimitiveTextFile<C>::try_stop_writing(std::error_code& ec)
+template<class C> bool BasicPrimTextFile<C>::try_stop_writing(std::error_code& ec)
 {
     ARCHON_ASSERT(!m_reading);
     ARCHON_ASSERT(m_writing);
@@ -1208,7 +1206,7 @@ public:
     [[nodiscard]] bool try_seek(offset_type, std::error_code&);
 
 private:
-    P m_primitive_core;
+    P m_prim_core;
     base::BasicCharCodec<C, T> m_codec;
     base::SeedMemoryBuffer<char> m_buffer;
     std::mbstate_t m_prev_state = {};
@@ -1231,7 +1229,7 @@ private:
 
 
 template<class C, class T, class P> struct TextFileCore<C, T, P>::Config :
-        base::PrimitiveTextFileCoreConfig {
+        base::PrimTextFileCoreConfig {
     static constexpr std::size_t default_char_codec_buffer_size = 1024;
 
     // GENERIC:
@@ -1255,7 +1253,7 @@ template<class C, class T, class P> struct TextFileCore<C, T, P>::Config :
 template<class C, class T, class P>
 inline TextFileCore<C, T, P>::TextFileCore(base::File& file, const std::locale& locale,
                                            Config config) :
-    m_primitive_core(file, std::move(config)), // Throws
+    m_prim_core(file, std::move(config)), // Throws
     m_codec(locale), // Throws
     m_buffer(make_buffer(config)) // Throws
 {
@@ -1291,7 +1289,7 @@ bool TextFileCore<C, T, P>::try_read(base::Span<C> buffer, std::size_t& n, std::
             }
             ARCHON_ASSERT(!end_of_file);
             // Move any retained data to start of buffer
-            m_primitive_core.advance(m_begin);
+            m_prim_core.advance(m_begin);
             char* base = m_buffer.data();
             std::copy(base + m_begin, base + m_end, base);
             m_end -= m_begin;
@@ -1302,8 +1300,7 @@ bool TextFileCore<C, T, P>::try_read(base::Span<C> buffer, std::size_t& n, std::
                 expand_buffer(); // Throws
             std::size_t n_2 = 0;
             base::Span<char> buffer_2 = base::Span(m_buffer).subspan(m_end);
-            // overlong line below -> consider renaming primitive -> prim                        
-            if (ARCHON_LIKELY(m_primitive_core.try_read(buffer_2, dynamic_eof, n_2, ec))) { // Throws
+            if (ARCHON_LIKELY(m_prim_core.try_read(buffer_2, dynamic_eof, n_2, ec))) { // Throws
                 if (ARCHON_LIKELY(n_2 > 0)) {
                     m_end += n_2;
                     continue;
@@ -1389,7 +1386,7 @@ bool TextFileCore<C, T, P>::try_revert(std::size_t offset, std::error_code& ec)
     // `m_codec.max_simulate_decode_size()`
     m_codec.simulate_inc_decode(state, data, data_offset, offset); // Throws
     ARCHON_ASSERT(data_offset <= m_begin);
-    if (ARCHON_LIKELY(m_primitive_core.try_revert(data_offset, ec))) { // Throws
+    if (ARCHON_LIKELY(m_prim_core.try_revert(data_offset, ec))) { // Throws
         m_prev_begin = 0;
         m_begin = 0;
         m_end   = 0;
@@ -1409,7 +1406,7 @@ inline bool TextFileCore<C, T, P>::try_flush(std::error_code& ec)
     ARCHON_ASSERT(!m_reading);
 #endif
 
-    if (ARCHON_LIKELY(try_shallow_flush(ec) && m_primitive_core.try_flush(ec))) { // Throws
+    if (ARCHON_LIKELY(try_shallow_flush(ec) && m_prim_core.try_flush(ec))) { // Throws
 #if ARCHON_DEBUG
         m_writing = false;
 #endif
@@ -1426,7 +1423,7 @@ inline bool TextFileCore<C, T, P>::try_seek(offset_type offset, std::error_code&
     ARCHON_ASSERT(!m_writing);
 #endif
 
-    if (ARCHON_LIKELY(m_primitive_core.try_seek(offset, ec))) { // Throws
+    if (ARCHON_LIKELY(m_prim_core.try_seek(offset, ec))) { // Throws
         m_prev_begin = 0;
         m_begin = 0;
         m_end   = 0;
@@ -1470,7 +1467,7 @@ bool TextFileCore<C, T, P>::try_shallow_flush(std::error_code& ec)
     ARCHON_ASSERT(m_begin <= m_end);
     base::Span data = base::Span(m_buffer).first(m_end).subspan(m_begin);
     std::size_t n = 0;
-    if (ARCHON_LIKELY(m_primitive_core.try_write(data, n, ec))) { // Throws
+    if (ARCHON_LIKELY(m_prim_core.try_write(data, n, ec))) { // Throws
         m_begin = 0;
         m_end = 0;
         return true;
@@ -1506,16 +1503,16 @@ template<class C, class T, class P> inline void TextFileCore<C, T, P>::expand_bu
 using namespace archon;
 
 
-ARCHON_TEST(Base_PrimitiveTextFileCore_Windows)
+ARCHON_TEST(Base_PrimTextFileCore_Windows)
 {
     // FIXME: Make similar test for POSIX variant  
 
     // FIXME: Use proper test file    
     std::locale locale = std::locale::classic();
     base::File file(base::make_fs_path_generic("/tmp/foo", locale), base::File::Mode::write);
-    base::PrimitiveTextFileCoreConfig config;
+    base::PrimTextFileCoreConfig config;
     config.newline_codec_buffer_size = 16;
-    base::PrimitiveWindowsTextFileCore text_file_core(file, std::move(config));
+    base::PrimWindowsTextFileCore text_file_core(file, std::move(config));
     bool success;
     std::error_code ec;
 
@@ -1579,14 +1576,14 @@ ARCHON_TEST(Base_PrimitiveTextFileCore_Windows)
 }
 
 
-ARCHON_TEST(Base_PrimitiveTextFile_Windows)
+ARCHON_TEST(Base_PrimTextFile_Windows)
 {
     // FIXME: Make similar test for POSIX variant  
 
     ARCHON_TEST_FILE(path);
-    base::PrimitiveTextFileConfig config;
+    base::PrimTextFileConfig config;
     config.newline_codec_buffer_size = 16;
-    base::PrimitiveWindowsTextFile text_file(path, base::File::Mode::write, std::move(config));
+    base::PrimWindowsTextFile text_file(path, base::File::Mode::write, std::move(config));
 
     std::array<char, 64> buffer;
     std::size_t n;
@@ -1613,7 +1610,7 @@ ARCHON_TEST(Base_TextFileCore_Windows)
     // FIXME: Use proper test file    
     std::locale locale = std::locale::classic();
     base::File file(base::make_fs_path_generic("/tmp/bar", locale), base::File::Mode::write);
-    using text_file_core_type = base::TextFileCore<wchar_t, std::char_traits<wchar_t>, base::PrimitiveWindowsTextFileCore>;
+    using text_file_core_type = base::TextFileCore<wchar_t, std::char_traits<wchar_t>, base::PrimWindowsTextFileCore>;
     text_file_core_type::Config config;
     config.char_codec_buffer_size = 16;
     text_file_core_type text_file_core(file, locale, std::move(config));
