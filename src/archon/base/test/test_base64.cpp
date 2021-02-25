@@ -119,7 +119,7 @@ ARCHON_TEST(Base_Base64_Encode)
     base64::EncodeConfig config;
     config.use_padding = false;
     config.line_size = 0;
-    const std::locale& locale = test_context.thread_context.root_context.locale;
+    const std::locale& locale = test_context.get_locale();
     ARCHON_CHECK_EQUAL(base64::encode(data, buffer, locale, config),
                        "ICsXeT8mIlwHGnEdWyArews/JiIKBxpxF1E");
 }

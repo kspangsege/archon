@@ -37,7 +37,7 @@ namespace {
 
 template<class C> void check_width(unit_test::TestContext& test_context)
 {
-    const std::locale& locale = test_context.thread_context.root_context.locale;
+    const std::locale& locale = test_context.get_locale();
     std::array<C, 4> buffer;
     base::BasicMemoryOutputStream out(buffer);
     out.exceptions(std::ios_base::badbit | std::ios_base::failbit);

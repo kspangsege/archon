@@ -39,7 +39,7 @@ using namespace archon;
 ARCHON_TEST(UnitTest_RandomSeed_StreamOutput)
 {
     using value_type = unit_test::RandomSeed::value_type;
-    const std::locale& locale = test_context.thread_context.root_context.locale;
+    const std::locale& locale = test_context.get_locale();
     base::ValueFormatter formatter(locale);
 
     auto test = [&](std::initializer_list<value_type> values, std::string_view string) {
@@ -67,7 +67,7 @@ ARCHON_TEST(UnitTest_RandomSeed_StreamOutput)
 ARCHON_TEST(UnitTest_RandomSeed_StreamInput)
 {
     using value_type = unit_test::RandomSeed::value_type;
-    const std::locale& locale = test_context.thread_context.root_context.locale;
+    const std::locale& locale = test_context.get_locale();
     base::ValueParser parser(locale);
 
     auto test = [&](std::string_view string, std::initializer_list<value_type> values) {
@@ -83,7 +83,7 @@ ARCHON_TEST(UnitTest_RandomSeed_StreamInput)
 ARCHON_TEST(UnitTest_RandomSeed_RandomizedStreamInputOutput)
 {
     using value_type = unit_test::RandomSeed::value_type;
-    const std::locale& locale = test_context.thread_context.root_context.locale;
+    const std::locale& locale = test_context.get_locale();
     base::ValueFormatter formatter(locale);
     base::WideValueFormatter wformatter(locale);
     base::ValueParser parser(locale);
@@ -130,7 +130,7 @@ namespace {
 
 template<class C> void check_output_stream_field_width(unit_test::TestContext& test_context)
 {
-    const std::locale& locale = test_context.thread_context.root_context.locale;
+    const std::locale& locale = test_context.get_locale();
     unit_test::RandomSeed seed;
     std::array<C, 256> buffer;
     base::BasicMemoryOutputStream out(buffer);

@@ -36,27 +36,6 @@ using namespace archon;
 using namespace archon::unit_test;
 
 
-TestContext::TestContext(detail::ThreadContextImpl& tc, const TestDetails& td,
-                         std::string_view mfp, std::size_t ti, int ri, base::Logger& report_logger,
-                         base::Logger& inner_logger) noexcept :
-    thread_context(tc),
-    test_details(td),
-    mapped_file_path(mfp),
-    test_index(ti),
-    recurrence_index(ri),
-    logger(inner_logger),
-    m_thread_context(tc),
-    m_report_logger(report_logger)
-{
-}
-
-
-void TestContext::check_succeeded() noexcept
-{
-    ++m_thread_context.num_checks;
-}
-
-
 unit_test::SeedSeq& TestContext::seed_seq() const noexcept
 {
     detail::RootContextImpl& root_context = m_thread_context.get_root_context();
@@ -64,10 +43,23 @@ unit_test::SeedSeq& TestContext::seed_seq() const noexcept
 }
 
 
+auto TestContext::get_data_path(std::string_view subdir_path, std::string_view path) ->
+    std::filesystem::path
+{
+    const std::locale& locale = get_locale();
+    namespace fs = std::filesystem;
+    fs::path subdir_path_2 = base::make_fs_path_generic(subdir_path, locale); // Throws
+    fs::path path_2 = base::make_fs_path_generic(path, locale); // Throws
+    const detail::RootContextImpl& root_context = m_thread_context.get_root_context();
+    fs::path path_3 = root_context.get_data_root_dir() / subdir_path_2 / path_2; // Throws
+    return path_3;
+}
+
+
 std::filesystem::path TestContext::make_test_path(std::string_view suffix) const
 {
     std::array<char, 512> seed_memory;
-    const std::locale& locale = thread_context.root_context.locale;
+    const std::locale& locale = get_locale();
     base::StringFormatter formatter(seed_memory, locale); // Throws
     std::string_view path_1 = formatter.format("%s.%s%s", test_details.name,
                                                base::as_dec_int(recurrence_index + 1),
@@ -87,16 +79,24 @@ bool TestContext::keep_test_files() const noexcept
 }
 
 
-auto TestContext::get_data_path(std::string_view subdir_path, std::string_view path) ->
-    std::filesystem::path
+void TestContext::check_succeeded() noexcept
 {
-    const std::locale& locale = thread_context.root_context.locale;
-    namespace fs = std::filesystem;
-    fs::path subdir_path_2 = base::make_fs_path_generic(subdir_path, locale); // Throws
-    fs::path path_2 = base::make_fs_path_generic(path, locale); // Throws
-    const detail::RootContextImpl& root_context = m_thread_context.get_root_context();
-    fs::path path_3 = root_context.get_data_root_dir() / subdir_path_2 / path_2; // Throws
-    return path_3;
+    ++m_thread_context.num_checks;
+}
+
+
+TestContext::TestContext(detail::ThreadContextImpl& tc, const TestDetails& td,
+                         std::string_view mfp, std::size_t ti, int ri, base::Logger& report_logger,
+                         base::Logger& inner_logger) noexcept :
+    thread_context(tc),
+    test_details(td),
+    mapped_file_path(mfp),
+    test_index(ti),
+    recurrence_index(ri),
+    logger(inner_logger),
+    m_thread_context(tc),
+    m_report_logger(report_logger)
+{
 }
 
 
@@ -116,7 +116,7 @@ void TestContext::cond_failed(Location location, std::string_view macro_name,
                               std::string_view cond_text)
 {
     std::array<char, 1024> seed_memory;
-    const std::locale& locale = thread_context.root_context.locale;
+    const std::locale& locale = get_locale();
     base::StringFormatter formatter(seed_memory, locale); // Throws
     std::string_view message = formatter.format("%s(%s) failed", macro_name, cond_text); // Throws
     check_failed(location, message); // Throws
@@ -128,7 +128,7 @@ void TestContext::compare_failed_2(Location location, std::string_view macro_nam
                                    std::string_view a_val, std::string_view b_val)
 {
     std::array<char, 1024> seed_memory;
-    const std::locale& locale = thread_context.root_context.locale;
+    const std::locale& locale = get_locale();
     base::StringFormatter formatter(seed_memory, locale); // Throws
     std::string_view message = formatter.format("%s(%s, %s) failed with (%s, %s)", macro_name,
                                                 a_text, b_text, a_val, b_val); // Throws
@@ -142,7 +142,7 @@ void TestContext::inexact_compare_failed(Location location, std::string_view mac
                                          long double eps)
 {
     std::array<char, 1024> seed_memory;
-    const std::locale& locale = thread_context.root_context.locale;
+    const std::locale& locale = get_locale();
     base::StringFormatter formatter(seed_memory, locale); // Throws
     int precision = std::numeric_limits<long double>::digits10 + 1;
     std::string_view message = formatter.format("%s(%s, %s, %s) failed with (%s, %s, %s)",
@@ -159,7 +159,7 @@ void TestContext::check_throw_failed_2(Location location, std::string_view expr_
                                        std::string_view exception_name)
 {
     std::array<char, 1024> seed_memory;
-    const std::locale& locale = thread_context.root_context.locale;
+    const std::locale& locale = get_locale();
     base::StringFormatter formatter(seed_memory, locale); // Throws
     std::string_view message = formatter.format("ARCHON_CHECK_THROW(%s, %s) failed: Did not throw",
                                                 expr_text, exception_name); // Throws
@@ -172,7 +172,7 @@ void TestContext::check_throw_ex_failed_2(Location location, std::string_view ex
                                           std::string_view exception_cond_text)
 {
     std::array<char, 1024> seed_memory;
-    const std::locale& locale = thread_context.root_context.locale;
+    const std::locale& locale = get_locale();
     base::StringFormatter formatter(seed_memory, locale); // Throws
     std::string_view message = formatter.format("ARCHON_CHECK_THROW_EX(%s, %s, %s) failed: "
                                                 "Did not throw", expr_text, exception_name,
@@ -186,7 +186,7 @@ void TestContext::check_throw_ex_cond_failed_2(Location location, std::string_vi
                                                std::string_view exception_cond_text)
 {
     std::array<char, 1024> seed_memory;
-    const std::locale& locale = thread_context.root_context.locale;
+    const std::locale& locale = get_locale();
     base::StringFormatter formatter(seed_memory, locale); // Throws
     std::string_view message = formatter.format("ARCHON_CHECK_THROW_EX(%s, %s, %s) failed: "
                                                 "Did throw, but condition failed", expr_text,
@@ -198,7 +198,7 @@ void TestContext::check_throw_ex_cond_failed_2(Location location, std::string_vi
 void TestContext::check_throw_any_failed_2(Location location, std::string_view expr_text)
 {
     std::array<char, 1024> seed_memory;
-    const std::locale& locale = thread_context.root_context.locale;
+    const std::locale& locale = get_locale();
     base::StringFormatter formatter(seed_memory, locale); // Throws
     std::string_view message = formatter.format("ARCHON_CHECK_THROW_ANY(%s) failed: Did not throw",
                                                 expr_text); // Throws
@@ -210,7 +210,7 @@ void TestContext::check_nothrow_failed_2(Location location, std::string_view exp
                                          std::exception* exc)
 {
     std::array<char, 1024> seed_memory;
-    const std::locale& locale = thread_context.root_context.locale;
+    const std::locale& locale = get_locale();
     base::StringFormatter formatter(seed_memory, locale); // Throws
     std::string_view message;
     if (exc) {
@@ -229,7 +229,7 @@ void TestContext::check_equal_seq_failed(Location location, std::string_view a_t
                                          std::string_view b_text)
 {
     std::array<char, 1024> seed_memory;
-    const std::locale& locale = thread_context.root_context.locale;
+    const std::locale& locale = get_locale();
     base::StringFormatter formatter(seed_memory, locale); // Throws
     std::string_view message = formatter.format("ARCHON_CHECK_EQUAL_SEQ(%s, %s) failed",
                                                 a_text, b_text); // Throws

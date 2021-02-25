@@ -38,7 +38,7 @@ namespace {
 
 template<class C> void check_output_stream_field_width(unit_test::TestContext& test_context)
 {
-    const std::locale& locale = test_context.thread_context.root_context.locale;
+    const std::locale& locale = test_context.get_locale();
     std::array<C, 8> seed_memory_1;
     base::BasicValueFormatter formatter(seed_memory_1, locale);
     std::array<C, 8> seed_memory_2;

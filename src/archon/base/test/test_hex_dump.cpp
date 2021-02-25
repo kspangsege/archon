@@ -174,7 +174,7 @@ namespace {
 
 template<class C> void check_output_stream_field_width(unit_test::TestContext& test_context)
 {
-    const std::locale& locale = test_context.thread_context.root_context.locale;
+    const std::locale& locale = test_context.get_locale();
     const char data[] = { 0 };
     std::array<C, 8> buffer;
     base::BasicMemoryOutputStream out(buffer);

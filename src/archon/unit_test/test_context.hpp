@@ -167,6 +167,93 @@ public:
     ///
     base::Logger& logger;
 
+    /// \brief Get configured locale.
+    ///
+    /// This function returns a reference to
+    /// `thread_context.root_context.locale` (\ref thread_context, \ref
+    /// ThreadContext::root_context).
+    ///
+    const std::locale& get_locale() const noexcept;
+
+    /// \brief Entropy for seeding of pseudo random number genrators.
+    ///
+    /// This function offers a seed sequence that can be used to seed pseudo
+    /// random number generators used in unit tests. The offered seed sequence
+    /// can be controlled through \ref TestConfig::random_seed.
+    ///
+    /// A non-const reference is returned in order to allow compact constructs
+    /// like this:
+    ///
+    /// \code{.cpp}
+    ///
+    ///   ARCHON_TEST(Foo)
+    ///   {
+    ///       std::mt19937_64 random(test_context.seed_seq());
+    ///       // ...
+    ///   }
+    ///
+    /// \endcode
+    ///
+    /// In reality, the returned object cannot be mutated (\ref
+    /// unit_test::SeedSeq::generate() is `const`), so it is safe to use it for
+    /// seeding from multiple threads concurrently.
+    ///
+    unit_test::SeedSeq& seed_seq() const noexcept;
+
+    /// \brief Get filesystem path of data file.
+    ///
+    /// This function constructs the filesystem path required to reach a data
+    /// file residing in the source directory, or residing in a reflection of
+    /// the source directory (somewhere with the same directory substructure and
+    /// containing all the relevant data files).
+    ///
+    /// This function first resolves \p subdir_path against the root directory
+    /// path specified by \ref TestConfig::data_root_dir, and then resolves \p
+    /// path against that.
+    ///
+    /// \param subdir_path The filesystem path of the caller relative to the
+    /// root of the source directory structure. The intention is that this is
+    /// the directory that contains the source file that conatins the calling
+    /// code. It must be specified in the generic format as understood by
+    /// `std::filesystem::path`. Use an empty string to specify the root of the
+    /// source directory structure.
+    ///
+    /// \param path The filesystem path of a data file or directory in the
+    /// source directory structure specified relative to \p subdir_path. It must
+    /// be specified in the generic format as understood by
+    /// `std::filesystem::path`. Use an empty string to get the directory (or
+    /// file) referred to be \p subdir_path.
+    ///
+    std::filesystem::path get_data_path(std::string_view subdir_path, std::string_view path);
+
+    /// \brief Construct path for test file or test directory.
+    ///
+    /// This function constructs a filesystem path for a test file or a test
+    /// directory using, as ingredients, the name of this test, its execution
+    /// recurrance index, and the specified suffix.
+    ///
+    /// The directory part of the returned path will depend on configuration
+    /// parameters \ref TestConfig::test_file_subdir and \ref
+    /// TestConfig::test_file_base_dir.
+    ///
+    /// This function is used by the standard test file guards, \ref
+    /// TestFileGuard and \ref TestDirGuard. Custom test file guards should use
+    /// this function to produce appropriate filesystem paths.
+    ///
+    std::filesystem::path make_test_path(std::string_view suffix) const;
+
+    /// \brief Keep test files.
+    ///
+    /// This function returns the value of TestConfig::keep_test_files in the
+    /// configuration object passed to \ref TestList::run().
+    ///
+    /// This function is used by the standard test file guards, \ref
+    /// TestFileGuard and \ref TestDirGuard. Custom test file guards should call
+    /// this function to determine whether the files should be deleted or left
+    /// in place after end of use.
+    ///
+    bool keep_test_files() const noexcept;
+
     /// \{
     ///
     /// \brief Checks of arbitrary conditions.
@@ -273,85 +360,6 @@ public:
                          const char* a_text, const char* b_text);
     /// \}
 
-    /// \brief Entropy for seeding of pseudo random number genrators.
-    ///
-    /// This function offers a seed sequence that can be used to seed pseudo
-    /// random number generators used in unit tests. The offered seed sequence
-    /// can be controlled through \ref TestConfig::random_seed.
-    ///
-    /// A non-const reference is returned in order to allow compact constructs
-    /// like this:
-    ///
-    /// \code{.cpp}
-    ///
-    ///   ARCHON_TEST(Foo)
-    ///   {
-    ///       std::mt19937_64 random(test_context.seed_seq());
-    ///       // ...
-    ///   }
-    ///
-    /// \endcode
-    ///
-    /// In reality, the returned object cannot be mutated (\ref
-    /// unit_test::SeedSeq::generate() is `const`), so it is safe to use it for
-    /// seeding from multiple threads concurrently.
-    ///
-    unit_test::SeedSeq& seed_seq() const noexcept;
-
-    /// \brief Construct path for test file or test directory.
-    ///
-    /// This function constructs a filesystem path for a test file or a test
-    /// directory using, as ingredients, the name of this test, its execution
-    /// recurrance index, and the specified suffix.
-    ///
-    /// The directory part of the returned path will depend on configuration
-    /// parameters \ref TestConfig::test_file_subdir and \ref
-    /// TestConfig::test_file_base_dir.
-    ///
-    /// This function is used by the standard test file guards, \ref
-    /// TestFileGuard and \ref TestDirGuard. Custom test file guards should use
-    /// this function to produce appropriate filesystem paths.
-    ///
-    std::filesystem::path make_test_path(std::string_view suffix) const;
-
-    /// \brief Keep test files.
-    ///
-    /// This function returns the value of TestConfig::keep_test_files in the
-    /// configuration object passed to \ref TestList::run().
-    ///
-    /// This function is used by the standard test file guards, \ref
-    /// TestFileGuard and \ref TestDirGuard. Custom test file guards should call
-    /// this function to determine whether the files should be deleted or left
-    /// in place after end of use.
-    ///
-    bool keep_test_files() const noexcept;
-
-    /// \brief Get filesystem path of data file.
-    ///
-    /// This function constructs the filesystem path required to reach a data
-    /// file residing in the source directory, or residing in a reflection of
-    /// the source directory (somewhere with the same directory substructure and
-    /// containing all the relevant data files).
-    ///
-    /// This function first resolves \p subdir_path against the root directory
-    /// path specified by \ref TestConfig::data_root_dir, and then resolves \p
-    /// path against that.
-    ///
-    /// \param subdir_path The filesystem path of the caller relative to the
-    /// root of the source directory structure. The intention is that this is
-    /// the directory that contains the source file that conatins the calling
-    /// code. It must be specified in the generic format as understood by
-    /// `std::filesystem::path`. Use an empty string to specify the root of the
-    /// source directory structure.
-    ///
-    /// \param path The filesystem path of a data file or directory in the
-    /// source directory structure specified relative to \p subdir_path. It must
-    /// be specified in the generic format as understood by
-    /// `std::filesystem::path`. Use an empty string to get the directory (or
-    /// file) referred to be \p subdir_path.
-    ///
-    std::filesystem::path get_data_path(std::string_view subdir_path, std::string_view path);
-
     TestContext(const TestContext&) = delete;
     TestContext& operator=(const TestContext&) = delete;
 
@@ -430,6 +438,12 @@ private:
 
 
 // Implementation
+
+
+inline auto TestContext::get_locale() const noexcept -> const std::locale&
+{
+    return thread_context.root_context.locale;
+}
 
 
 inline bool TestContext::check(bool cond, const char* file_path, long line_number,
@@ -690,7 +704,7 @@ void TestContext::compare_failed(Location location, std::string_view macro_name,
     std::array<char, 512> seed_memory;
     base::SeedMemoryOutputStream out(seed_memory); // Throws
     out.exceptions(std::ios_base::badbit | std::ios_base::failbit); // Throws
-    out.imbue(thread_context.root_context.locale); // Throws
+    out.imbue(get_locale()); // Throws
     format_value(out, a); // Throws
     std::size_t i = out.streambuf().size();
     format_value(out, b); // Throws

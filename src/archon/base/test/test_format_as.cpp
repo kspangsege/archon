@@ -38,7 +38,7 @@ namespace {
 
 template<class C> void check_list(unit_test::TestContext& test_context)
 {
-    const std::locale& locale = test_context.thread_context.root_context.locale;
+    const std::locale& locale = test_context.get_locale();
     std::array<C, 16> seed_memory_1;
     base::BasicValueFormatter formatter(seed_memory_1, locale);
     int list[] = { 1, 2, 3 };
@@ -53,7 +53,7 @@ template<class C> void check_list(unit_test::TestContext& test_context)
 
 template<class C> void check_ordinal(unit_test::TestContext& test_context)
 {
-    const std::locale& locale = test_context.thread_context.root_context.locale;
+    const std::locale& locale = test_context.get_locale();
     std::array<C, 8> seed_memory_1;
     base::BasicValueFormatter formatter(seed_memory_1, locale);
     std::array<C, 8> seed_memory_2;
@@ -67,7 +67,7 @@ template<class C> void check_ordinal(unit_test::TestContext& test_context)
 
 template<class C> void check_num_of(unit_test::TestContext& test_context)
 {
-    const std::locale& locale = test_context.thread_context.root_context.locale;
+    const std::locale& locale = test_context.get_locale();
     std::array<C, 12> seed_memory_1;
     base::BasicValueFormatter formatter(seed_memory_1, locale);
     std::array<C, 12> seed_memory_2;
@@ -82,7 +82,7 @@ template<class C> void check_num_of(unit_test::TestContext& test_context)
 
 template<class C> void check_time(unit_test::TestContext& test_context)
 {
-    const std::locale& locale = test_context.thread_context.root_context.locale;
+    const std::locale& locale = test_context.get_locale();
     std::array<C, 8> seed_memory_1;
     base::BasicValueFormatter formatter(seed_memory_1, locale);
     std::array<C, 8> seed_memory_2;
@@ -104,7 +104,7 @@ template<class C> void check_time(unit_test::TestContext& test_context)
 
 template<class C> void check_byte_size(unit_test::TestContext& test_context)
 {
-    const std::locale& locale = test_context.thread_context.root_context.locale;
+    const std::locale& locale = test_context.get_locale();
     std::array<C, 12> seed_memory_1;
     base::BasicValueFormatter formatter(seed_memory_1, locale);
     std::array<C, 12> seed_memory_2;
@@ -122,7 +122,7 @@ template<class C> void check_byte_size(unit_test::TestContext& test_context)
 
 template<class C> void check_quant(unit_test::TestContext& test_context)
 {
-    const std::locale& locale = test_context.thread_context.root_context.locale;
+    const std::locale& locale = test_context.get_locale();
     std::array<C, 12> seed_memory_1;
     base::BasicValueFormatter formatter(seed_memory_1, locale);
     std::array<C, 12> seed_memory_2;
@@ -140,7 +140,7 @@ template<class C> void check_quant(unit_test::TestContext& test_context)
 
 template<class C> void check_quant_bin(unit_test::TestContext& test_context)
 {
-    const std::locale& locale = test_context.thread_context.root_context.locale;
+    const std::locale& locale = test_context.get_locale();
     std::array<C, 12> seed_memory_1;
     base::BasicValueFormatter formatter(seed_memory_1, locale);
     std::array<C, 12> seed_memory_2;
@@ -158,7 +158,7 @@ template<class C> void check_quant_bin(unit_test::TestContext& test_context)
 
 template<class C> void check_format_func(unit_test::TestContext& test_context)
 {
-    const std::locale& locale = test_context.thread_context.root_context.locale;
+    const std::locale& locale = test_context.get_locale();
     std::array<C, 4> seed_memory_1;
     base::BasicValueFormatter formatter(seed_memory_1, locale);
     std::array<C, 4> seed_memory_2;
