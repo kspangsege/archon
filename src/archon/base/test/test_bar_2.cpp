@@ -10,9 +10,10 @@
 
 
 
-// Issue with m_retain_clear not be calculated correctly when clear is zero. Consider changing scheme to having simulate() modify m_retain_clear via reference arg                                                                                                                                    
+// Get rid of `try_` from cores   
 
 
+// Consider renaming Core -> Impl   
 
 
 
@@ -77,16 +78,25 @@
 namespace archon::base::newline_crlf {
 
 
-// FIXME: Consider adding non-incremental convenience functions  
+// FIXME: Add non-incremental convenience functions and use them in unit test root file / STDERR logger     
 
 
-// Returns first position in the buffer such that all subsequent bytes placed there underwent trivial, that is, identity conversion.
-std::size_t inc_decode(base::Span<const char> data, std::size_t& data_offset,
-                       base::Span<char> buffer, std::size_t& buffer_offset,
-                       bool end_of_data) noexcept;
+/// \brief Advance incremental newline decoding process.
+///
+/// \param clear_offset, clear If any newline decoding takes place, \p clear is
+/// set to the sum of \p clear_offset and the position in the buffer following
+/// the last decoded newline character. Otherwise, \p clear is left untouched.
+///
+void inc_decode(base::Span<const char> data, std::size_t& data_offset, base::Span<char> buffer,
+                std::size_t& buffer_offset, std::size_t clear_offset, std::size_t& clear,
+                bool end_of_data) noexcept;
 
+
+/// \brief Advance incremental newline encoding process.
+///
 void inc_encode(base::Span<const char> data, std::size_t& data_offset,
                 base::Span<char> buffer, std::size_t& buffer_offset) noexcept;
+
 
 bool simulate_inc_decode(base::Span<const char> data, std::size_t& data_offset,
                          std::size_t buffer_size) noexcept;
@@ -104,9 +114,9 @@ bool simulate_inc_decode(base::Span<const char> data, std::size_t& data_offset,
 namespace archon::base::newline_crlf {
 
 
-std::size_t inc_decode(base::Span<const char> data, std::size_t& data_offset,
-                       base::Span<char> buffer, std::size_t& buffer_offset,
-                       bool end_of_data) noexcept
+void inc_decode(base::Span<const char> data, std::size_t& data_offset, base::Span<char> buffer,
+                std::size_t& buffer_offset, std::size_t clear_offset, std::size_t& clear,
+                bool end_of_data) noexcept
 {
     ARCHON_ASSERT(data_offset <= data.size());
     ARCHON_ASSERT(buffer_offset <= buffer.size());
@@ -114,7 +124,7 @@ std::size_t inc_decode(base::Span<const char> data, std::size_t& data_offset,
     // CR+LF -> NL
     std::size_t i = data_offset, i_2;
     std::size_t j = buffer_offset;
-    std::size_t k = j;
+    std::size_t k = clear;
     while (ARCHON_LIKELY(i < data.size() && j < buffer.size())) {
         char ch = data[i];
         if (ARCHON_LIKELY(ch != '\r')) {
@@ -128,7 +138,7 @@ std::size_t inc_decode(base::Span<const char> data, std::size_t& data_offset,
             char ch_2 = data[i_2];
             if (ARCHON_LIKELY(ch_2 == '\n')) {
                 buffer[j++] = '\n';
-                k = j;
+                k = clear_offset + j;
                 i = i_2 + 1;
                 continue;
             }
@@ -140,7 +150,7 @@ std::size_t inc_decode(base::Span<const char> data, std::size_t& data_offset,
     }
     data_offset   = i;
     buffer_offset = j;
-    return k;
+    clear         = k;
 }
 
 
@@ -872,9 +882,9 @@ bool PrimWindowsTextFileCore::try_read(base::Span<char> buffer, bool dynamic_eof
     for (;;) {
         base::Span data = base::Span(m_buffer).first(m_end);
         std::size_t buffer_offset = 0;
-        std::size_t clear =
-            base::newline_crlf::inc_decode(data, m_begin, buffer, buffer_offset, end_of_file);
-        m_retain_clear = m_retain_size + clear;
+        std::size_t clear_offset = m_retain_size;
+        base::newline_crlf::inc_decode(data, m_begin, buffer, buffer_offset,
+                                       clear_offset, m_retain_clear, end_of_file);
         m_retain_size += buffer_offset;
         if (ARCHON_LIKELY(buffer_offset > 0 || buffer.size() == 0)) {
             n = buffer_offset;
