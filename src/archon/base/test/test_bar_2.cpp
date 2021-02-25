@@ -10,7 +10,7 @@
 
 
 
-
+// Issue with m_retain_clear not be calculated correctly when clear is zero. Consider changing scheme to having simulate() modify m_retain_clear via reference arg                                                                                                                                    
 
 
 
@@ -22,7 +22,7 @@
 
 
 
-
+// Consider: BuffredFile, BasicBufferedPrimTextFile, BasicBufferedTextFile
 
 
 
@@ -480,16 +480,12 @@ namespace archon::base {
 /// is in neutral mode.
 ///
 /// A precondition for calling try_read(), is that the file is not in writing
-/// mode. After a successful invocation of try_read(), the file is in reading
-/// mode. After a failed invocation of try_read(), the file is in reading mode
-/// if it was in reading mode before. Otherwise, it is either in neutral, or in
-/// reading mode.
+/// mode. After an invocation of try_read(), the file is in reading mode, even
+/// if the operation fails.
 ///
 /// A precondition for calling try_write(), is that the file is not in reading
-/// mode. After a successful invocation of try_write(), the file is in writing
-/// mode. After a failed invocation of try_write(), the file is in writing mode
-/// if it was in writing mode before. Otherwise, it is either in neutral, or in
-/// writing mode.
+/// mode. After an invocation of try_write(), the file is in writing mode, even
+/// if the operation fails.
 ///
 /// A precondition of calling advance() is that the file is not in writing
 /// mode. After an invocation of advance(), the mode is unchanged.
@@ -549,6 +545,7 @@ public:
     [[nodiscard]] bool try_write(base::Span<const char> data, std::size_t& n,
                                  std::error_code&) noexcept;
 
+    void advance() noexcept;
     void advance(std::size_t n) noexcept;
 
     [[nodiscard]] bool try_discard(std::error_code&) noexcept;
@@ -578,15 +575,35 @@ public:
 
     PrimWindowsTextFileCore(base::File&, Config);
 
+    // GENERIC:
+    //
+    // "Read some" with retaining semantics.
+    //
+    // On success, if \p n is zero and the size of the specified buffer is
+    // greater than zero, it means that the end of input has been reached.
+    //
+    // On success, \p ec is left untouched. On failure \p n is left untouched,
+    // and no characters will have been read from the stream.
+    //
     [[nodiscard]] bool try_read(base::Span<char> buffer, bool dynamic_eof, std::size_t& n,
                                 std::error_code&);
 
+    // GENERIC:
+    //
+    // On success, \p n will always be equal to `data.size()`. On failure, \p n
+    // will always be less than `data.size()` (provided that `data.size()` is
+    // greater than zero), and it will indicate how many characters were written
+    // before the failure occurred.
+    //
+    // On success, \p ec is left untouched.
+    //
     [[nodiscard]] bool try_write(base::Span<const char> data, std::size_t& n, std::error_code&);
 
     // GENERIC:
     //
     // `noexcept` is important here   
     //
+    void advance() noexcept;
     void advance(std::size_t n) noexcept;
 
     [[nodiscard]] bool try_discard(std::error_code&) noexcept;
@@ -666,10 +683,11 @@ inline bool PrimPosixTextFileCore::try_read(base::Span<char> buffer, bool, std::
         buffer_size = max;
     }
 
-    n = 0;
-    bool success = m_file.try_read_some({ buffer.data(), buffer_size }, n, ec);
-    m_retain_size += n;
-    return success;
+    if (ARCHON_LIKELY(m_file.try_read_some({ buffer.data(), buffer_size }, n, ec))) {
+        m_retain_size += n;
+        return true;
+    }
+    return false;
 }
 
 
@@ -682,6 +700,16 @@ inline bool PrimPosixTextFileCore::try_write(base::Span<const char> data, std::s
 #endif
 
     return m_file.try_write(data, n, ec);
+}
+
+
+inline void PrimPosixTextFileCore::advance() noexcept
+{
+#if ARCHON_DEBUG
+    ARCHON_ASSERT(!m_writing);
+#endif
+
+    m_retain_size = 0;
 }
 
 
@@ -816,6 +844,7 @@ inline bool PrimWindowsTextFileCore::try_seek(offset_type offset, std::error_cod
 
 inline void PrimWindowsTextFileCore::expand_buffer()
 {
+    std::cout << "=============================> CLICK\n";                                                             
     m_buffer.expand(1, m_end); // Throws
 }
 
@@ -867,14 +896,14 @@ bool PrimWindowsTextFileCore::try_read(base::Span<char> buffer, bool dynamic_eof
                 m_end += n_2;
                 continue;
             }
-            if (ARCHON_LIKELY(m_end == 0 || dynamic_eof)) {
+            if (ARCHON_LIKELY(m_end == m_begin || dynamic_eof)) {
+                // Signal end of file
                 n = 0;
                 return true;
             }
             end_of_file = true;
             continue;
         }
-        n = 0;
         return false;
     }
 }
@@ -902,6 +931,19 @@ bool PrimWindowsTextFileCore::try_write(base::Span<const char> data, std::size_t
         }
         expand_buffer(); // Throws
     }
+}
+
+
+void PrimWindowsTextFileCore::advance() noexcept
+{
+#if ARCHON_DEBUG
+    ARCHON_ASSERT(!m_writing);
+#endif
+
+    ARCHON_ASSERT(m_retain_begin <= m_begin);
+    m_retain_begin = m_begin;
+    m_retain_size  = 0;
+    m_retain_clear = 0;
 }
 
 
@@ -1005,9 +1047,13 @@ public:
 
     std::size_t read(base::Span<char> buffer);
 
+    std::size_t read_some(base::Span<char> buffer);
+
     void write(base::Span<const char> data);
 
     void seek(offset_type);
+
+    [[nodiscard]] bool try_read_some(base::Span<char> buffer, std::size_t& n, std::error_code&);
 
     [[nodiscard]] bool try_read(base::Span<char> buffer, std::size_t& n, std::error_code&);
 
@@ -1024,6 +1070,7 @@ private:
 
     bool try_stop_reading(std::error_code&);
     bool try_stop_writing(std::error_code&);
+    bool do_try_read_some(base::Span<char> buffer, std::size_t& n, std::error_code&);
 };
 
 
@@ -1072,6 +1119,16 @@ template<class C> inline std::size_t BasicPrimTextFile<C>::read(base::Span<char>
 }
 
 
+template<class C> inline std::size_t BasicPrimTextFile<C>::read_some(base::Span<char> buffer)
+{
+    std::size_t n = 0;
+    std::error_code ec;
+    if (ARCHON_LIKELY(try_read_some(buffer, n, ec)))
+        return n; // Success
+    throw std::system_error(ec, "Failed to read from file");
+}
+
+
 template<class C> inline void BasicPrimTextFile<C>::write(base::Span<const char> data)
 {
     std::size_t n; // Dummy
@@ -1092,14 +1149,37 @@ template<class C> inline void BasicPrimTextFile<C>::seek(offset_type offset)
 
 
 template<class C>
-inline bool BasicPrimTextFile<C>::try_read(base::Span<char> buffer, std::size_t& n,
-                                           std::error_code& ec)
+inline bool BasicPrimTextFile<C>::try_read_some(base::Span<char> buffer, std::size_t& n,
+                                                std::error_code& ec)
 {
     if (ARCHON_LIKELY(!m_writing || try_stop_writing(ec))) { // Throws
         m_reading = true;
-        return m_core.try_read(buffer, m_dynamic_eof, n, ec); // Throws
+        return do_try_read_some(buffer, n, ec); // Throws
     }
-    n = 0;
+    return false;
+}
+
+
+template<class C>
+inline bool BasicPrimTextFile<C>::try_read(base::Span<char> buffer, std::size_t& n,
+                                           std::error_code& ec)
+{
+    base::Span<char> buffer_2 = buffer;
+    if (ARCHON_LIKELY(!m_writing || try_stop_writing(ec))) { // Throws
+        m_reading = true;
+        std::size_t n_2 = 0;
+      again:
+        if (ARCHON_LIKELY(do_try_read_some(buffer_2, n_2, ec))) {
+            ARCHON_ASSERT(n_2 <= buffer_2.size());
+            if (ARCHON_LIKELY(n_2 != 0 && n_2 < buffer_2.size())) {
+                buffer_2 = buffer_2.subspan(n_2);
+                goto again;
+            }
+            n = std::size_t(buffer_2.data() + n_2 - buffer.data());
+            return true;
+        }
+    }
+    n = std::size_t(buffer_2.data() - buffer.data());
     return false;
 }
 
@@ -1153,6 +1233,18 @@ template<class C> bool BasicPrimTextFile<C>::try_stop_writing(std::error_code& e
     return false;
 }
 
+
+template<class C>
+inline bool BasicPrimTextFile<C>::do_try_read_some(base::Span<char> buffer, std::size_t& n,
+                                                   std::error_code& ec)
+{
+    ARCHON_ASSERT(!m_writing);
+    if (ARCHON_LIKELY(m_core.try_read(buffer, m_dynamic_eof, n, ec))) { // Throws
+        m_core.advance();
+        return true;
+    }
+    return false;
+}
 
 
 } // namespace archon::base
@@ -1282,11 +1374,11 @@ bool TextFileCore<C, T, P>::try_read(base::Span<C> buffer, std::size_t& n, std::
             error = true;                   
         bool complete =
             m_codec.inc_decode(m_state, data, m_begin, buffer, buffer_offset, error);
+        if (ARCHON_LIKELY(buffer_offset > 0 || buffer.size() == 0)) {
+            n = buffer_offset;
+            return true;
+        }
         if (!error) {
-            if (ARCHON_LIKELY(buffer_offset > 0 || buffer.size() == 0)) {
-                n = buffer_offset;
-                return true;
-            }
             ARCHON_ASSERT(!end_of_file);
             // Move any retained data to start of buffer
             m_prim_core.advance(m_begin);
@@ -1313,12 +1405,10 @@ bool TextFileCore<C, T, P>::try_read(base::Span<C> buffer, std::size_t& n, std::
                 end_of_file = true;
                 continue;
             }
-            n = 0;
             return false;
         }
         // FIXME: Should introduce new error codes.  
         // FIXME: Report EILSEQ / std::errc::illegal_byte_sequence when not in lenient mode       
-        n = buffer_offset;
         ec = std::make_error_code(std::errc::illegal_byte_sequence);                  
         return false;
     }
@@ -1536,6 +1626,7 @@ ARCHON_TEST(Base_PrimTextFileCore_Windows)
     log("------ try_read ------");
     std::array<char, 64> buffer;
     bool dynamic_eof = false;
+    n = 0;
     success = text_file_core.try_read(buffer, dynamic_eof, n, ec);
     log(" success = %s", success);
     log("       n = %s", n);
@@ -1565,6 +1656,7 @@ ARCHON_TEST(Base_PrimTextFileCore_Windows)
     log("      ec = %s", ec);
 
     log("------ try_read ------");
+    n = 0;
     success = text_file_core.try_read(buffer, dynamic_eof, n, ec);
     log(" success = %s", success);
     log("       n = %s", n);
@@ -1598,6 +1690,29 @@ ARCHON_TEST(Base_PrimTextFile_Windows)
     ARCHON_CHECK_EQUAL(std::string_view(buffer.data(), n), "foo\nbar\nboz\n");
 
     // Must test some alternating read and write, especially read to write      
+
+    // Must test flush  
+
+    // One time: Check that (crlf<->nl) buffer does not grow if initial size is 2 and whole file (size > 2 bytes) is read        
+}
+
+
+// TEMPORARY                                                                           
+ARCHON_TEST(Base_PrimTextFile_WindowsFoo)
+{
+    ARCHON_TEST_FILE(path);
+    {
+        base::File file(path, base::File::Mode::write);
+        file.write(std::string_view("abcdefghijklmnopqrstuvwxyz"));
+    }
+    {
+        base::PrimTextFileConfig config;
+        config.newline_codec_buffer_size = 1;
+        base::PrimWindowsTextFile text_file(path, base::File::Mode::read, std::move(config));
+        std::array<char, 64> buffer;
+        std::size_t n = text_file.read(buffer);
+        log("contents = %s", base::quoted(std::string_view(buffer.data(), n)));
+    }
 }
 
 
@@ -1636,6 +1751,7 @@ ARCHON_TEST(Base_TextFileCore_Windows)
 
     log("------ try_read ------");
     std::array<wchar_t, 64> buffer;
+    n = 0;
     success = text_file_core.try_read(buffer, n, ec);
     log(" success = %s", success);
     log("       n = %s", n);
@@ -1665,6 +1781,7 @@ ARCHON_TEST(Base_TextFileCore_Windows)
     log("      ec = %s", ec);
 
     log("------ try_read ------");
+    n = 0;
     success = text_file_core.try_read(buffer, n, ec);
     log(" success = %s", success);
     log("       n = %s", n);

@@ -246,7 +246,7 @@ bool File::try_read(base::Span<char> buffer, std::size_t& n, std::error_code& ec
   again:
     if (ARCHON_LIKELY(try_read_some(buffer_2, n_2, ec))) {
         ARCHON_ASSERT(n_2 <= buffer_2.size());
-        if (n_2 != 0 && n_2 < buffer_2.size()) {
+        if (ARCHON_LIKELY(n_2 != 0 && n_2 < buffer_2.size())) {
             buffer_2 = buffer_2.subspan(n_2);
             goto again;
         }
@@ -266,7 +266,7 @@ bool File::try_write(base::Span<const char> data, std::size_t& n, std::error_cod
   again:
     if (ARCHON_LIKELY(try_write_some(data_2, n_2, ec))) {
         ARCHON_ASSERT(n_2 <= data_2.size());
-        if (n_2 < data_2.size()) {
+        if (ARCHON_LIKELY(n_2 < data_2.size())) {
             data_2 = data_2.subspan(n_2);
             goto again;
         }

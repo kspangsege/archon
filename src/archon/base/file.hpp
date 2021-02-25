@@ -303,8 +303,8 @@ public:
     /// On success, if \p n is less than `buffer.size()`, it means that the end
     /// of input has been reached. On failure, \p n will always be less than
     /// `buffer.size()` (provided that `buffer.size()` is greater than zero),
-    /// and it will indicate how much was read, and placed into the buffer
-    /// before the failure occurred.
+    /// and it will indicate how many bytes were read, and placed into the
+    /// buffer before the failure occurred.
     ///
     /// On success, \p ec is left untouched.
     ///
@@ -321,8 +321,8 @@ public:
     ///
     /// On success, \p n will always be equal to `data.size()`. On failure, \p n
     /// will always be less than `data.size()` (provided that `data.size()` is
-    /// greater than zero), and it will indicate how much was written before the
-    /// failure occurred.
+    /// greater than zero), and it will indicate how many bytes were written
+    /// before the failure occurred.
     ///
     /// On success, \p ec is left untouched.
     ///
