@@ -25,24 +25,26 @@ Idea:
 
 change
 - There are three file positions to keep track of, the logical read/write position, the read ahead position, and the actual read/write position.
-- The logical read/write position is the start position for the next read or write operation (\ref read_some(), \ref write()).
-- The read ahead position is the start position for the next read ahead operation.
+- The logical read/write position is the start position for the next write operation (\ref write()) and the initial position for the read ahead position after switching to read mode.
+- The read ahead position is the start position for the next read ahead operation (\ref read_ahead()).
 - The actual read/write position is the read/write position recognized by \ref base::File. POSIX calls this, the file offset.
 - While in netral mode, all three positions coincide.
 - While in reading mode, the read ahead position is always greater than, or equal to the logical read/write position, and the actual read/write position is always greater than, or equal to the read ahead position.
 - While in writing mode, the read ahead position is undefined, and the logical read/write position is always greater than, or equal to the actual read/write position.
 
-- Rename Impl::read() to Impl::read_ahead()
-- Introduce Impl::read_some() which immediately advances after a succesful read ahead.
 - Introduce Impl::tell_read() which determines logical read/write position while in neutral, or in reading mode.
 - Introduce Impl::tell_write() which determines logical read/write position while in writing mode. This one effectively flushes all the way to, but not including the lowest level.
 
 - Impl::read_some() and Impl::write() advance the logical read/write position.
 - Impl::read_ahead() advances the read ahead position, not the logical read/write position.
-- Impl::advance() advances the logical read/write position while not in writing mode, although, it cannot advance it beyong the current "read ahead" position.
-- Impl::flush() makes the actual read/write position coincide with the logical read/write position.
+- Impl::advance(), without arguments, moves the logical read/write position to the current read ahead position.
+- Impl::advance(), with an argument, moves the logical read/write position to the direction of the current read ahead position, but it cannot move it beyond the current read ahead position.
+- Impl::flush() causes the actual read/write position to be moved to the current logical read/write position (by way of flushing).
 
 - WRONG: Impl::discard() makes the actual read/write position coincide with the logical read/write position.                                                                                                                                                                                     
+
+- Impl::discard() ???  
+- Impl::revert() ???  
 
 */
 
@@ -525,9 +527,9 @@ namespace archon::base {
 /// A file is in one of three modes, neutral, reading, or writing. Initially, it
 /// is in neutral mode.
 ///
-/// A precondition for calling read(), is that the file is not in writing
-/// mode. After an invocation of read(), the file is in reading mode, even if
-/// the operation fails.
+/// A precondition for calling read_ahead(), is that the file is not in writing
+/// mode. After an invocation of read_ahead(), the file is in reading mode, even
+/// if the operation fails.
 ///
 /// A precondition for calling write(), is that the file is not in reading
 /// mode. After an invocation of write(), the file is in writing mode, even if
@@ -591,8 +593,8 @@ public:
 
     PrimPosixTextFileImpl(base::File&, Config) noexcept;
 
-    [[nodiscard]] bool read(base::Span<char> buffer, bool dynamic_eof, std::size_t& n,
-                            std::error_code&);
+    [[nodiscard]] bool read_ahead(base::Span<char> buffer, bool dynamic_eof, std::size_t& n,
+                                  std::error_code&);
 
     [[nodiscard]] bool write(base::Span<const char> data, std::size_t& n,
                              std::error_code&) noexcept;
@@ -641,8 +643,8 @@ public:
     // On success, \p ec is left untouched. On failure \p n is left untouched,
     // and no characters will have been read from the stream.
     //
-    [[nodiscard]] bool read(base::Span<char> buffer, bool dynamic_eof, std::size_t& n,
-                            std::error_code&);
+    [[nodiscard]] bool read_ahead(base::Span<char> buffer, bool dynamic_eof, std::size_t& n,
+                                  std::error_code&);
 
     // GENERIC:
     //
@@ -671,14 +673,14 @@ public:
     // The explanation below is no longer correct               
     //
     // On success, the file offset is reverted to where it would have been if
-    // the size of the caller's buffer during the last invocation of read() had
-    // been `offset`, and the read operation had resulted in a situation where
-    // no data was pre-loaded.
+    // the size of the caller's buffer during the last invocation of
+    // read_ahead() had been `offset`, and the read operation had resulted in a
+    // situation where no data was pre-loaded.
     //
     // When in reading mode, `offset` must be less than, or equal to the size of
-    // the extracted chunk during the last invocation of read(), which is zero
-    // if that read operation failed. When in neutral mode, `offset` must be
-    // zero.
+    // the extracted chunk during the last invocation of read_ahead(), which is
+    // zero if that read operation failed. When in neutral mode, `offset` must
+    // be zero.
     //
     [[nodiscard]] bool revert(std::size_t offset, std::error_code&) noexcept;
 
@@ -727,8 +729,8 @@ inline PrimPosixTextFileImpl::PrimPosixTextFileImpl(base::File& file, Config) no
 }
 
 
-inline bool PrimPosixTextFileImpl::read(base::Span<char> buffer, bool, std::size_t& n,
-                                        std::error_code& ec)
+inline bool PrimPosixTextFileImpl::read_ahead(base::Span<char> buffer, bool, std::size_t& n,
+                                              std::error_code& ec)
 {
 #if ARCHON_DEBUG
     ARCHON_ASSERT(!m_writing);
@@ -950,8 +952,8 @@ inline void PrimWindowsTextFileImpl::expand_buffer()
 namespace archon::base {
 
 
-bool PrimWindowsTextFileImpl::read(base::Span<char> buffer, bool dynamic_eof, std::size_t& n,
-                                   std::error_code& ec)
+bool PrimWindowsTextFileImpl::read_ahead(base::Span<char> buffer, bool dynamic_eof, std::size_t& n,
+                                         std::error_code& ec)
 {
 #if ARCHON_DEBUG
     ARCHON_ASSERT(!m_writing);
@@ -1417,7 +1419,7 @@ inline bool BasicPrimTextFile<I>::do_read_some(base::Span<char> buffer, std::siz
                                                std::error_code& ec)
 {
     ARCHON_ASSERT(!m_writing);
-    if (ARCHON_LIKELY(m_impl.read(buffer, m_dynamic_eof, n, ec))) { // Throws
+    if (ARCHON_LIKELY(m_impl.read_ahead(buffer, m_dynamic_eof, n, ec))) { // Throws
         m_impl.advance();
         return true;
     }
@@ -1448,8 +1450,8 @@ public:
 
     TextFileImpl(base::File&, const std::locale&, Config);
 
-    [[nodiscard]] bool read(base::Span<C> buffer, bool dynamic_eof, std::size_t& n,
-                            std::error_code&);
+    [[nodiscard]] bool read_ahead(base::Span<C> buffer, bool dynamic_eof, std::size_t& n,
+                                  std::error_code&);
 
     [[nodiscard]] bool write(string_view_type data, std::size_t& n, std::error_code&);
 
@@ -1461,13 +1463,13 @@ public:
     //
     // On success, the byte-level file offset is reverted to where it would have
     // been if the size of the caller's buffer during the last invocation of
-    // read() had been `offset`, and the read operation had resulted in a
+    // read_ahead() had been `offset`, and the read operation had resulted in a
     // situation where no data was pre-loaded.
     //
     // When in reading mode, `offset` must be less than, or equal to the size of
-    // the extracted chunk during the last invocation of read(), which is zero
-    // if that read operation failed. When in neutral mode, `offset` must be
-    // zero.
+    // the extracted chunk during the last invocation of read_ahead(), which is
+    // zero if that read operation failed. When in neutral mode, `offset` must
+    // be zero.
     //
     [[nodiscard]] bool revert(std::size_t offset, std::error_code&);
 
@@ -1531,8 +1533,8 @@ inline TextFileImpl<C, T, P>::TextFileImpl(base::File& file, const std::locale& 
 
 
 template<class C, class T, class P>
-bool TextFileImpl<C, T, P>::read(base::Span<C> buffer, bool dynamic_eof, std::size_t& n,
-                                 std::error_code& ec)
+bool TextFileImpl<C, T, P>::read_ahead(base::Span<C> buffer, bool dynamic_eof, std::size_t& n,
+                                       std::error_code& ec)
 {
 #if ARCHON_DEBUG
     ARCHON_ASSERT(!m_writing);
@@ -1570,7 +1572,7 @@ bool TextFileImpl<C, T, P>::read(base::Span<C> buffer, bool dynamic_eof, std::si
                 expand_buffer(); // Throws
             std::size_t n_2 = 0;
             base::Span<char> buffer_2 = base::Span(m_buffer).subspan(m_end);
-            if (ARCHON_LIKELY(m_prim_impl.read(buffer_2, dynamic_eof, n_2, ec))) { // Throws
+            if (ARCHON_LIKELY(m_prim_impl.read_ahead(buffer_2, dynamic_eof, n_2, ec))) { // Throws
                 if (ARCHON_LIKELY(n_2 > 0)) {
                     m_end += n_2;
                     continue;
@@ -1809,7 +1811,7 @@ ARCHON_TEST(Base_PrimTextFileImpl_Windows)
 
     log("------ read ------");
     n = 0;
-    success = text_file_impl.read(buffer, dynamic_eof, n, ec);
+    success = text_file_impl.read_ahead(buffer, dynamic_eof, n, ec);
     log(" success = %s", success);
     log("       n = %s", n);
     log("      ec = %s", ec);
@@ -1839,7 +1841,7 @@ ARCHON_TEST(Base_PrimTextFileImpl_Windows)
 
     log("------ read ------");
     n = 0;
-    success = text_file_impl.read(buffer, dynamic_eof, n, ec);
+    success = text_file_impl.read_ahead(buffer, dynamic_eof, n, ec);
     log(" success = %s", success);
     log("       n = %s", n);
     log("      ec = %s", ec);
@@ -1997,7 +1999,7 @@ ARCHON_TEST(Base_PrimTextFile_Windows)
 }
 
 
-// Do this genuinely at the impl level by introducing method for seeing the current size of the buffer                
+// Impossible: Do this genuinely at the impl level by introducing method for seeing the current size of the buffer                                                                                                                                                    
 ARCHON_TEST(Base_PrimTextFile_WindowsFoo)
 {
     ARCHON_TEST_FILE(path);
@@ -2059,7 +2061,7 @@ ARCHON_TEST(Base_TextFileImpl_Windows)
 
     log("------ read ------");
     n = 0;
-    success = text_file_impl.read(buffer, dynamic_eof, n, ec);
+    success = text_file_impl.read_ahead(buffer, dynamic_eof, n, ec);
     log(" success = %s", success);
     log("       n = %s", n);
     log("      ec = %s", ec);
@@ -2089,7 +2091,7 @@ ARCHON_TEST(Base_TextFileImpl_Windows)
 
     log("------ read ------");
     n = 0;
-    success = text_file_impl.read(buffer, dynamic_eof, n, ec);
+    success = text_file_impl.read_ahead(buffer, dynamic_eof, n, ec);
     log(" success = %s", success);
     log("       n = %s", n);
     log("      ec = %s", ec);
