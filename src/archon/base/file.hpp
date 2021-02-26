@@ -266,8 +266,10 @@ public:
 
     /// \brief Manipulate current read/write position.
     ///
-    /// This function manipulates the position that controls where the next read
-    /// or write operation takes place.
+    /// This function manipulates the read/write position associated with the
+    /// file descriptor contained in this file object. This is the position that
+    /// controls where the next read or write operation takes place. POSIX calls
+    /// this, the "file offset".
     ///
     /// This function has the same effect as \ref try_seek() except that, on
     /// success, the resulting read/write position is returned, and, on failure,

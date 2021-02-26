@@ -7,6 +7,49 @@
 #include <archon/unit_test.hpp>
 
 
+// Max possible file size seems to be 17592186040320 on my Linux box (11111111111111111111111111111111000000000000 in binary) (44 bits) (~16TiB)
+
+
+// Probably not (seems to be needed):
+//   Consider getting rid of neutral mode in Impl (merge neutral mode into reading mode), Do we ever need to distinguish at the Impl level?
+//   --> Rule: Neutral mode is reading mode where both read aheead position and actual read/write position conincide with logical read/write position
+
+
+
+
+
+
+/*
+
+Idea:
+
+change
+- There are three file positions to keep track of, the logical read/write position, the read ahead position, and the actual read/write position.
+- The logical read/write position is the start position for the next read or write operation (\ref read_some(), \ref write()).
+- The read ahead position is the start position for the next read ahead operation.
+- The actual read/write position is the read/write position recognized by \ref base::File. POSIX calls this, the file offset.
+- While in netral mode, all three positions coincide.
+- While in reading mode, the read ahead position is always greater than, or equal to the logical read/write position, and the actual read/write position is always greater than, or equal to the read ahead position.
+- While in writing mode, the read ahead position is undefined, and the logical read/write position is always greater than, or equal to the actual read/write position.
+
+- Rename Impl::read() to Impl::read_ahead()
+- Introduce Impl::read_some() which immediately advances after a succesful read ahead.
+- Introduce Impl::tell_read() which determines logical read/write position while in neutral, or in reading mode.
+- Introduce Impl::tell_write() which determines logical read/write position while in writing mode. This one effectively flushes all the way to, but not including the lowest level.
+
+- Impl::read_some() and Impl::write() advance the logical read/write position.
+- Impl::read_ahead() advances the read ahead position, not the logical read/write position.
+- Impl::advance() advances the logical read/write position while not in writing mode, although, it cannot advance it beyong the current "read ahead" position.
+- Impl::flush() makes the actual read/write position coincide with the logical read/write position.
+
+- WRONG: Impl::discard() makes the actual read/write position coincide with the logical read/write position.                                                                                                                                                                                     
+
+*/
+
+
+
+
+
 
 // Consideer: make its such that codec decode only returns true if eof arg is true and conversion is complete (in order to deal with quirks of std::codecvt in libstdc++ and libc++)              
 
@@ -505,6 +548,12 @@ namespace archon::base {
 /// mode. After a successful invocation of flush(), the file is in neutral
 /// mode. After a failed invocation of flush(), the mode is unchanged.
 ///
+/// A precondition for calling tell_read(), is that the file is not in writing
+/// mode. After an invocation of tell_read() the mode is unchanged.
+///
+/// A precondition for calling tell_write(), is that the file is in writing
+/// mode. After an invocation of tell_write() the mode is unchanged.
+///
 /// A precondition for calling seek(), is that the file is not in writing
 /// mode. After a successful invocation of seek(), the file is in neutral
 /// mode. After a failed invocation of seek(), the mode is unchanged.
@@ -556,6 +605,10 @@ public:
     [[nodiscard]] bool revert(std::size_t offset, std::error_code&) noexcept;
 
     [[nodiscard]] bool flush(std::error_code&) noexcept;
+
+    [[nodiscard]] bool tell_read(offset_type&, std::error_code&) noexcept;
+
+    [[nodiscard]] bool tell_write(offset_type&, std::error_code&) noexcept;
 
     [[nodiscard]] bool seek(offset_type, std::error_code&) noexcept;
 
@@ -630,6 +683,10 @@ public:
     [[nodiscard]] bool revert(std::size_t offset, std::error_code&) noexcept;
 
     [[nodiscard]] bool flush(std::error_code&) noexcept;
+
+    [[nodiscard]] bool tell_read(offset_type&, std::error_code&) noexcept;
+
+    [[nodiscard]] bool tell_write(offset_type&, std::error_code&) noexcept;
 
     [[nodiscard]] bool seek(offset_type, std::error_code&) noexcept;
 
@@ -769,6 +826,37 @@ inline bool PrimPosixTextFileImpl::flush(std::error_code&) noexcept
     m_writing = false;
 #endif
     return true;
+}
+
+
+inline bool PrimPosixTextFileImpl::tell_read(offset_type& offset, std::error_code& ec) noexcept
+{
+#if ARCHON_DEBUG
+    ARCHON_ASSERT(!m_writing);
+#endif
+
+    offset_type result;
+    if (ARCHON_LIKELY(m_file.try_seek(0, base::File::Whence::cur, result, ec))) {
+        if (ARCHON_LIKELY(base::try_int_sub(result, m_retain_size))) {
+            offset = result;
+            return true;
+        }
+        // We only get here if the actual read/write position was manipulated
+        // outside the control of this text file object.
+        offset = 0;
+        return true;
+    }
+    return false;
+}
+
+
+inline bool PrimPosixTextFileImpl::tell_write(offset_type& offset, std::error_code& ec) noexcept
+{
+#if ARCHON_DEBUG
+    ARCHON_ASSERT(m_writing);
+#endif
+
+    return m_file.try_seek(0, base::File::Whence::cur, offset, ec);
 }
 
 
@@ -998,6 +1086,46 @@ bool PrimWindowsTextFileImpl::flush(std::error_code& ec) noexcept
 }
 
 
+bool PrimWindowsTextFileImpl::tell_read(offset_type& offset, std::error_code& ec) noexcept
+{
+#if ARCHON_DEBUG
+    ARCHON_ASSERT(!m_writing);
+#endif
+
+    ARCHON_ASSERT(m_retain_begin <= m_end);
+    offset_type result;
+    if (ARCHON_LIKELY(m_file.try_seek(0, base::File::Whence::cur, result, ec))) {
+        if (ARCHON_LIKELY(base::try_int_sub(result, m_end - m_retain_begin))) {
+            offset = result;
+            return true;
+        }
+        // We only get here if the actual read/write position was manipulated
+        // outside the control of this text file object.
+        offset = 0;
+        return true;
+    }
+    return false;
+}
+
+
+bool PrimWindowsTextFileImpl::tell_write(offset_type& offset, std::error_code& ec) noexcept
+{
+#if ARCHON_DEBUG
+    ARCHON_ASSERT(m_writing);
+#endif
+
+    offset_type result;
+    if (ARCHON_LIKELY(m_file.try_seek(0, base::File::Whence::cur, result, ec))) {
+        if (ARCHON_LIKELY(base::try_int_add(result, m_end - m_begin))) {
+            offset = result;
+            return true;
+        }
+        ec = make_error_code(std::errc::file_too_large);
+    }
+    return false;
+}
+
+
 bool PrimWindowsTextFileImpl::do_discard(std::size_t n, std::error_code& ec) noexcept
 {
 #if ARCHON_DEBUG
@@ -1055,6 +1183,10 @@ public:
 
     void flush();
 
+    // Get position of logical file pointer in terms of actual bytes in the underlying file (base::File). The logical file pointer corresponds to the end of the last read or write operation, and this will not always agree with the actual file pointer because of buffering. Hmm                         
+    offset_type tell();
+
+    // Set position of logical file pointer in terms of actual bytes in the underlying file (base::File). Hmm                        
     void seek(offset_type);
 
     [[nodiscard]] bool try_read_some(base::Span<char> buffer, std::size_t& n, std::error_code&);
@@ -1064,6 +1196,8 @@ public:
     [[nodiscard]] bool try_write(base::Span<const char> data, std::size_t& n, std::error_code&);
 
     [[nodiscard]] bool try_flush(std::error_code&);
+
+    [[nodiscard]] bool try_tell(offset_type&, std::error_code&);
 
     [[nodiscard]] bool try_seek(offset_type, std::error_code&);
 
@@ -1154,12 +1288,22 @@ template<class I> inline void BasicPrimTextFile<I>::flush()
 }
 
 
+template<class I> inline auto BasicPrimTextFile<I>::tell() -> offset_type
+{
+    offset_type offset = 0;
+    std::error_code ec;
+    if (ARCHON_LIKELY(try_tell(offset, ec)))
+        return offset; // Success
+    throw std::system_error(ec, "Failed to determine read/write position");
+}
+
+
 template<class I> inline void BasicPrimTextFile<I>::seek(offset_type offset)
 {
     std::error_code ec;
     if (ARCHON_LIKELY(try_seek(offset, ec)))
         return; // Success
-    throw std::system_error(ec, "Failed to seek");
+    throw std::system_error(ec, "Failed to update read/write position");
 }
 
 
@@ -1220,6 +1364,15 @@ inline bool BasicPrimTextFile<I>::try_flush(std::error_code& ec)
         return true;
     }
     return false;
+}
+
+
+template<class I>
+inline bool BasicPrimTextFile<I>::try_tell(offset_type& offset, std::error_code& ec)
+{
+    if (ARCHON_LIKELY(m_writing))
+        return m_impl.tell_write(offset, ec); // Throws
+    return m_impl.tell_read(offset, ec); // Throws
 }
 
 
@@ -1617,6 +1770,12 @@ template<class C, class T, class P> inline void TextFileImpl<C, T, P>::expand_bu
 using namespace archon;
 
 
+
+
+
+// ============================================================================================ test_prim_text_file_impl.hpp ============================================================================================
+
+
 ARCHON_TEST(Base_PrimTextFileImpl_Windows)
 {
     // FIXME: Make similar test for POSIX variant  
@@ -1691,6 +1850,12 @@ ARCHON_TEST(Base_PrimTextFileImpl_Windows)
 }
 
 
+
+
+
+// ============================================================================================ test_prim_text_file.hpp ============================================================================================
+
+
 ARCHON_TEST(Base_PrimTextFile_PosixRead)
 {
     ARCHON_TEST_FILE(path);
@@ -1717,6 +1882,31 @@ ARCHON_TEST(Base_PrimTextFile_PosixWriteAndFlush)
     std::array<char, 64> buffer;
     std::size_t n = file.read(buffer);
     ARCHON_CHECK_EQUAL(std::string_view(buffer.data(), n), "foo\nbar\nbaz\n");
+}
+
+
+ARCHON_TEST(Base_PrimTextFile_PosixTellAndSeek)
+{
+    ARCHON_TEST_FILE(path);
+    base::PrimPosixTextFile text_file(path, base::File::Mode::write);
+    ARCHON_CHECK_EQUAL(text_file.tell(), 0);
+    text_file.write(std::string_view("foo\nbar"));
+    auto offset = text_file.tell();
+    ARCHON_CHECK_EQUAL(text_file.tell(), offset);
+    ARCHON_CHECK_EQUAL(offset, 7);
+    text_file.write(std::string_view("\nbaz\n"));
+    ARCHON_CHECK_EQUAL(text_file.tell(), 12);
+    text_file.seek(offset);
+    ARCHON_CHECK_EQUAL(text_file.tell(), offset);
+    text_file.seek(0);
+    ARCHON_CHECK_EQUAL(text_file.tell(), 0);
+    text_file.seek(offset);
+    ARCHON_CHECK_EQUAL(text_file.tell(), offset);
+    text_file.seek(0);
+    text_file.seek(offset);
+    std::array<char, 64> buffer;
+    std::size_t n = text_file.read(buffer);
+    ARCHON_CHECK_EQUAL(std::string_view(buffer.data(), n), "\nbaz\n");
 }
 
 
@@ -1753,6 +1943,31 @@ ARCHON_TEST(Base_PrimTextFile_WindowsWriteAndFlush)
 }
 
 
+ARCHON_TEST(Base_PrimTextFile_WindowsTellAndSeek)
+{
+    ARCHON_TEST_FILE(path);
+    base::PrimWindowsTextFile text_file(path, base::File::Mode::write);
+    ARCHON_CHECK_EQUAL(text_file.tell(), 0);
+    text_file.write(std::string_view("foo\nbar"));
+    auto offset = text_file.tell();
+    ARCHON_CHECK_EQUAL(text_file.tell(), offset);
+    ARCHON_CHECK_EQUAL(offset, 8);
+    text_file.write(std::string_view("\nbaz\n"));
+    ARCHON_CHECK_EQUAL(text_file.tell(), 15);
+    text_file.seek(offset);
+    ARCHON_CHECK_EQUAL(text_file.tell(), offset);
+    text_file.seek(0);
+    ARCHON_CHECK_EQUAL(text_file.tell(), 0);
+    text_file.seek(offset);
+    ARCHON_CHECK_EQUAL(text_file.tell(), offset);
+    text_file.seek(0);
+    text_file.seek(offset);
+    std::array<char, 64> buffer;
+    std::size_t n = text_file.read(buffer);
+    ARCHON_CHECK_EQUAL(std::string_view(buffer.data(), n), "\nbaz\n");
+}
+
+
 ARCHON_TEST(Base_PrimTextFile_Windows)
 {
     // FIXME: Make similar test for POSIX variant  
@@ -1782,7 +1997,7 @@ ARCHON_TEST(Base_PrimTextFile_Windows)
 }
 
 
-// TEMPORARY                                                                           
+// Do this genuinely at the impl level by introducing method for seeing the current size of the buffer                
 ARCHON_TEST(Base_PrimTextFile_WindowsFoo)
 {
     ARCHON_TEST_FILE(path);
@@ -1799,6 +2014,12 @@ ARCHON_TEST(Base_PrimTextFile_WindowsFoo)
         log("contents = %s", base::quoted(std::string_view(buffer.data(), n)));
     }
 }
+
+
+
+
+
+// ============================================================================================ test_text_file_impl.hpp ============================================================================================
 
 
 ARCHON_TEST(Base_TextFileImpl_Windows)
