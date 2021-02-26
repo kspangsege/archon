@@ -8,9 +8,6 @@
 
 
 
-// Add basic Read and Write+Flush unit tests for primitive windows text file        
-
-
 // Consideer: make its such that codec decode only returns true if eof arg is true and conversion is complete (in order to deal with quirks of std::codecvt in libstdc++ and libc++)              
 
 
@@ -1050,11 +1047,13 @@ public:
     BasicPrimTextFile(base::FilesystemPathRef, Mode = Mode::read);
     BasicPrimTextFile(base::FilesystemPathRef, Mode, Config);
 
-    std::size_t read(base::Span<char> buffer);
-
     std::size_t read_some(base::Span<char> buffer);
 
+    std::size_t read(base::Span<char> buffer);
+
     void write(base::Span<const char> data);
+
+    void flush();
 
     void seek(offset_type);
 
@@ -1063,6 +1062,8 @@ public:
     [[nodiscard]] bool try_read(base::Span<char> buffer, std::size_t& n, std::error_code&);
 
     [[nodiscard]] bool try_write(base::Span<const char> data, std::size_t& n, std::error_code&);
+
+    [[nodiscard]] bool try_flush(std::error_code&);
 
     [[nodiscard]] bool try_seek(offset_type, std::error_code&);
 
@@ -1114,21 +1115,21 @@ inline BasicPrimTextFile<I>::BasicPrimTextFile(base::FilesystemPathRef path, Mod
 }
 
 
-template<class I> inline std::size_t BasicPrimTextFile<I>::read(base::Span<char> buffer)
-{
-    std::size_t n = 0;
-    std::error_code ec;
-    if (ARCHON_LIKELY(try_read(buffer, n, ec)))
-        return n; // Success
-    throw std::system_error(ec, "Failed to read from file");
-}
-
-
 template<class I> inline std::size_t BasicPrimTextFile<I>::read_some(base::Span<char> buffer)
 {
     std::size_t n = 0;
     std::error_code ec;
     if (ARCHON_LIKELY(try_read_some(buffer, n, ec)))
+        return n; // Success
+    throw std::system_error(ec, "Failed to read from file");
+}
+
+
+template<class I> inline std::size_t BasicPrimTextFile<I>::read(base::Span<char> buffer)
+{
+    std::size_t n = 0;
+    std::error_code ec;
+    if (ARCHON_LIKELY(try_read(buffer, n, ec)))
         return n; // Success
     throw std::system_error(ec, "Failed to read from file");
 }
@@ -1141,6 +1142,15 @@ template<class I> inline void BasicPrimTextFile<I>::write(base::Span<const char>
     if (ARCHON_LIKELY(try_write(data, n, ec)))
         return; // Success
     throw std::system_error(ec, "Failed to write to file");
+}
+
+
+template<class I> inline void BasicPrimTextFile<I>::flush()
+{
+    std::error_code ec;
+    if (ARCHON_LIKELY(try_flush(ec)))
+        return; // Success
+    throw std::system_error(ec, "Failed to flush");
 }
 
 
@@ -1203,13 +1213,23 @@ inline bool BasicPrimTextFile<I>::try_write(base::Span<const char> data, std::si
 
 
 template<class I>
+inline bool BasicPrimTextFile<I>::try_flush(std::error_code& ec)
+{
+    if (ARCHON_LIKELY(!m_writing || m_impl.flush(ec))) { // Throws
+        m_writing = false;
+        return true;
+    }
+    return false;
+}
+
+
+template<class I>
 inline bool BasicPrimTextFile<I>::try_seek(offset_type offset, std::error_code& ec)
 {
-    if (ARCHON_LIKELY(!m_writing || stop_writing(ec))) { // Throws
-        if (ARCHON_LIKELY(m_impl.seek(offset, ec))) { // Throws
-            m_reading = false;
-            return true;
-        }
+    bool success = ((!m_writing || stop_writing(ec)) && m_impl.seek(offset, ec)); // Throws
+    if (ARCHON_LIKELY(success)) {
+        m_reading = false;
+        return true;
     }
     return false;
 }
@@ -1668,6 +1688,68 @@ ARCHON_TEST(Base_PrimTextFileImpl_Windows)
         log("contents = %s", base::quoted(std::string_view(buffer.data(), n)));
 
     // FIXME: Also check dynamic_eof   
+}
+
+
+ARCHON_TEST(Base_PrimTextFile_PosixRead)
+{
+    ARCHON_TEST_FILE(path);
+    {
+        base::File file(path, base::File::Mode::write);
+        file.write(std::string_view("foo\r\nbar\r\nbaz\r\n"));
+    }
+    base::PrimPosixTextFile text_file(path);
+    std::array<char, 64> buffer;
+    std::size_t n = text_file.read(buffer);
+    ARCHON_CHECK_EQUAL(std::string_view(buffer.data(), n), "foo\r\nbar\r\nbaz\r\n");
+}
+
+
+ARCHON_TEST(Base_PrimTextFile_PosixWriteAndFlush)
+{
+    ARCHON_TEST_FILE(path);
+    {
+        base::PrimPosixTextFile text_file(path, base::File::Mode::write);
+        text_file.write(std::string_view("foo\nbar\nbaz\n"));
+        text_file.flush();
+    }
+    base::File file(path);
+    std::array<char, 64> buffer;
+    std::size_t n = file.read(buffer);
+    ARCHON_CHECK_EQUAL(std::string_view(buffer.data(), n), "foo\nbar\nbaz\n");
+}
+
+
+ARCHON_TEST(Base_PrimTextFile_WindowsRead)
+{
+    ARCHON_TEST_FILE(path);
+    {
+        base::File file(path, base::File::Mode::write);
+        file.write(std::string_view("foo\r\nbar\r\nbaz\r\n"));
+    }
+    base::PrimTextFileConfig config;
+    config.newline_codec_buffer_size = 3;
+    base::PrimWindowsTextFile text_file(path, base::File::Mode::read, std::move(config));
+    std::array<char, 64> buffer;
+    std::size_t n = text_file.read(buffer);
+    ARCHON_CHECK_EQUAL(std::string_view(buffer.data(), n), "foo\nbar\nbaz\n");
+}
+
+
+ARCHON_TEST(Base_PrimTextFile_WindowsWriteAndFlush)
+{
+    ARCHON_TEST_FILE(path);
+    {
+        base::PrimTextFileConfig config;
+        config.newline_codec_buffer_size = 3;
+        base::PrimWindowsTextFile text_file(path, base::File::Mode::write, std::move(config));
+        text_file.write(std::string_view("foo\nbar\nbaz\n"));
+        text_file.flush();
+    }
+    base::File file(path);
+    std::array<char, 64> buffer;
+    std::size_t n = file.read(buffer);
+    ARCHON_CHECK_EQUAL(std::string_view(buffer.data(), n), "foo\r\nbar\r\nbaz\r\n");
 }
 
 
