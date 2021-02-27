@@ -7,13 +7,57 @@
 #include <archon/unit_test.hpp>
 
 
+
+// Generic rule for non-primitive impl: Must be in reading mode if the subfile is in reading mode.
+// Generic rule for non-primitive impl: Must be in writing mode if the subfile is in writing mode.
+
+
+
+/*
+
+Idea for enabling decoupled advance on subfile while in reading mode:
+
+         --> m_offset  logical read/write position from point of view of primitive file implementation
+m_begin  --> m_begin
+m_curr   --> m_curr
+m_end    --> m_end
+
+
+This should lead to the possibility of replacing two-arg advance_and_discard() with simpley discard(). The one-arg advance_and_discard() is superflous strictly speaking, but still usefull becasue it can be made particularly efficient.    
+
+*/
+
+
+// Next:
+
+// - Degenerate specialization of BasicTextFileImpl when char type is `char`.
+// - Hideaway Impl in detail namespace.
+
+
+
+
+
+// BasicPrimTextFile will probably end up being completely redundant, as it will be effecively identidcal to BasicTextFile using `char` as character type.
+
+
+
+// Consider adding constructor to BasicTextFile::BasicTextFile(base::File&, std::mbstate_t initial_state = {})
+
+
+
+// Consider adding `write(const C* c_str)` and `try_write(const C* c_str, ...)` overloads to non-impl test files.
+
+
+
+
+
+
+
+
+
+
+
 // Max possible file size seems to be 17592186040320 on my Linux box (11111111111111111111111111111111000000000000 in binary) (44 bits) (~16TiB)
-
-
-// Probably not (seems to be needed):
-//   Consider getting rid of neutral mode in Impl (merge neutral mode into reading mode), Do we ever need to distinguish at the Impl level?
-//   --> Rule: Neutral mode is reading mode where both read aheead position and actual read/write position conincide with logical read/write position
-
 
 
 
@@ -538,13 +582,10 @@ namespace archon::base {
 /// A precondition of calling advance() is that the file is not in writing
 /// mode. After an invocation of advance(), the mode is unchanged.
 ///
-/// A precondition of calling discard() is that the file is not in writing
-/// mode. After a successful invocation of discard(), the file is in neutral
-/// mode. After a failed invocation of discard(), the mode is unchanged.
-///
-/// A precondition of calling revert() is that the file is not in writing
-/// mode. After a successful invocation of revert(), the file is in neutral
-/// mode. After a failed invocation of revert(), the mode is unchanged.
+/// A precondition of calling advance_and_discard() is that the file is not in
+/// writing mode. After a successful invocation of advance_and_discard(), the
+/// file is in neutral mode. After a failed invocation of advance_and_discard(),
+/// the mode is unchanged.
 ///
 /// A precondition of calling flush() is that the file is not in reading
 /// mode. After a successful invocation of flush(), the file is in neutral
@@ -553,7 +594,7 @@ namespace archon::base {
 /// A precondition for calling tell_read(), is that the file is not in writing
 /// mode. After an invocation of tell_read() the mode is unchanged.
 ///
-/// A precondition for calling tell_write(), is that the file is in writing
+/// A precondition for calling tell_write(), is that the file is not in reading
 /// mode. After an invocation of tell_write() the mode is unchanged.
 ///
 /// A precondition for calling seek(), is that the file is not in writing
@@ -589,7 +630,7 @@ struct PrimTextFileImplConfig {
 class PrimPosixTextFileImpl {
 public:
     using Config = PrimTextFileImplConfig;
-    using offset_type = base::File::offset_type;
+    using pos_type = base::File::offset_type;
 
     PrimPosixTextFileImpl(base::File&, Config) noexcept;
 
@@ -602,17 +643,15 @@ public:
     void advance() noexcept;
     void advance(std::size_t n) noexcept;
 
-    [[nodiscard]] bool discard(std::error_code&) noexcept;
-
-    [[nodiscard]] bool revert(std::size_t offset, std::error_code&) noexcept;
+    [[nodiscard]] bool advance_and_discard(std::error_code&) noexcept;
+    [[nodiscard]] bool advance_and_discard(std::size_t n, std::error_code&) noexcept;
 
     [[nodiscard]] bool flush(std::error_code&) noexcept;
 
-    [[nodiscard]] bool tell_read(offset_type&, std::error_code&) noexcept;
+    [[nodiscard]] bool tell_read(pos_type&, std::error_code&) noexcept;
+    [[nodiscard]] bool tell_write(pos_type&, std::error_code&) noexcept;
 
-    [[nodiscard]] bool tell_write(offset_type&, std::error_code&) noexcept;
-
-    [[nodiscard]] bool seek(offset_type, std::error_code&) noexcept;
+    [[nodiscard]] bool seek(pos_type, std::error_code&) noexcept;
 
 private:
     base::File& m_file;
@@ -628,8 +667,8 @@ private:
 
 class PrimWindowsTextFileImpl {
 public:
-    using Config = PrimTextFileImplConfig;
-    using offset_type = base::File::offset_type;
+    using Config   = PrimTextFileImplConfig;
+    using pos_type = base::File::offset_type;
 
     PrimWindowsTextFileImpl(base::File&, Config);
 
@@ -659,54 +698,55 @@ public:
 
     // GENERIC:
     //
-    // `noexcept` is important here   
+    // `noexcept` is important here, but only for the zero-arg version (all other functions must be considered throwing from a generic point of view)                                                 
     //
     void advance() noexcept;
     void advance(std::size_t n) noexcept;
 
-    [[nodiscard]] bool discard(std::error_code&) noexcept;
-
     // GENERIC:
     //
-    // BRIEF: Revert file offset and discard pre-loaded data.
+    // Advance logical read/write position, then revert read-ahead and actual read/write positions to coincide with the advanced logical read/write position.
     //
-    // The explanation below is no longer correct               
+    // Same effect as advance() followed by advance_and_discard(n=0), except that the advancement takes place only of the discard operation succeeds.
     //
-    // On success, the file offset is reverted to where it would have been if
-    // the size of the caller's buffer during the last invocation of
-    // read_ahead() had been `offset`, and the read operation had resulted in a
-    // situation where no data was pre-loaded.
+    // One-argument version has same effect as two-argument if X is passed for n, where X is the number of characters that were read ahead (i.e., total number of characters returned by read_ahead() minus total advance).
     //
-    // When in reading mode, `offset` must be less than, or equal to the size of
-    // the extracted chunk during the last invocation of read_ahead(), which is
-    // zero if that read operation failed. When in neutral mode, `offset` must
-    // be zero.
-    //
-    [[nodiscard]] bool revert(std::size_t offset, std::error_code&) noexcept;
+    [[nodiscard]] bool advance_and_discard(std::error_code&) noexcept;
+    [[nodiscard]] bool advance_and_discard(std::size_t n, std::error_code&) noexcept;
 
     [[nodiscard]] bool flush(std::error_code&) noexcept;
 
-    [[nodiscard]] bool tell_read(offset_type&, std::error_code&) noexcept;
+    [[nodiscard]] bool tell_read(pos_type&, std::error_code&) noexcept;
+    [[nodiscard]] bool tell_write(pos_type&, std::error_code&) noexcept;
 
-    [[nodiscard]] bool tell_write(offset_type&, std::error_code&) noexcept;
-
-    [[nodiscard]] bool seek(offset_type, std::error_code&) noexcept;
+    [[nodiscard]] bool seek(pos_type, std::error_code&) noexcept;
 
 private:
     base::File& m_file;
     base::SeedMemoryBuffer<char> m_buffer;
-    std::size_t m_retain_begin = 0; // Zero in neutral and writing modes
-    std::size_t m_begin = 0; // Zero in neutral mode
-    std::size_t m_end   = 0; // Zero in neutral mode
-    std::size_t m_retain_size  = 0; // Zero in neutral and writing modes
-    std::size_t m_retain_clear = 0; // Zero in neutral and writing modes
+
+    // Beginning and end of the current contents of the buffer. In neutral mode,
+    // both are zero. In reading mode, `m_begin` corresponds to the logical
+    // read/write position, and `m_end` corresponds to the actual read/write
+    // position. In writing mode, it is the other way around.
+    std::size_t m_begin = 0;
+    std::size_t m_end   = 0;
+
+    // Position in buffer corresponding to the read ahead position. In neutral
+    // mode, and in writing mode, it is always zero.
+    std::size_t m_curr = 0;
+
+    // Both are zero in neutral mode, and in writing mode.
+    std::size_t m_retain_size  = 0;
+    std::size_t m_retain_clear = 0;
 
 #if ARCHON_DEBUG
     bool m_reading = false;
     bool m_writing = false;
 #endif
 
-    bool do_discard(std::size_t n, std::error_code& ec) noexcept;
+    bool do_advance_and_discard(std::size_t begin, std::error_code&) noexcept;
+    bool do_flush(std::error_code&) noexcept;
     void expand_buffer();
 };
 
@@ -741,7 +781,7 @@ inline bool PrimPosixTextFileImpl::read_ahead(base::Span<char> buffer, bool, std
     std::size_t max = std::size_t(std::numeric_limits<std::size_t>::max() - m_retain_size);
     if (ARCHON_UNLIKELY(buffer_size > max)) {
         if (ARCHON_UNLIKELY(max == 0))
-            throw std::length_error("Revert distance");
+            throw std::length_error("Retain size");
         buffer_size = max;
     }
 
@@ -786,7 +826,7 @@ inline void PrimPosixTextFileImpl::advance(std::size_t n) noexcept
 }
 
 
-inline bool PrimPosixTextFileImpl::discard(std::error_code&) noexcept
+inline bool PrimPosixTextFileImpl::advance_and_discard(std::error_code&) noexcept
 {
 #if ARCHON_DEBUG
     ARCHON_ASSERT(!m_writing);
@@ -798,19 +838,17 @@ inline bool PrimPosixTextFileImpl::discard(std::error_code&) noexcept
 }
 
 
-inline bool PrimPosixTextFileImpl::revert(std::size_t offset, std::error_code& ec) noexcept
+inline bool PrimPosixTextFileImpl::advance_and_discard(std::size_t n, std::error_code& ec) noexcept
 {
 #if ARCHON_DEBUG
     ARCHON_ASSERT(!m_writing);
 #endif
 
-    ARCHON_ASSERT(offset <= m_retain_size);
-    std::size_t n = std::size_t(m_retain_size - offset);
+    ARCHON_ASSERT(n <= m_retain_size);
+    std::size_t n_2 = std::size_t(m_retain_size - n);
     auto whence = base::File::Whence::cur;
-    offset_type result; // Dummy
-    // Avoid actual seeking when n is zero, such that writing can be enabled for
-    // an underlying file that does not support seeking, e.g., STDOUT.
-    if (ARCHON_LIKELY(n == 0 || m_file.try_seek(-offset_type(n), whence, result, ec))) {
+    pos_type result; // Dummy
+    if (ARCHON_LIKELY(m_file.try_seek(-pos_type(n_2), whence, result, ec))) {
         m_retain_size = 0;
 #if ARCHON_DEBUG
         m_reading = false;
@@ -831,45 +869,45 @@ inline bool PrimPosixTextFileImpl::flush(std::error_code&) noexcept
 }
 
 
-inline bool PrimPosixTextFileImpl::tell_read(offset_type& offset, std::error_code& ec) noexcept
+inline bool PrimPosixTextFileImpl::tell_read(pos_type& pos, std::error_code& ec) noexcept
 {
 #if ARCHON_DEBUG
     ARCHON_ASSERT(!m_writing);
 #endif
 
-    offset_type result;
+    pos_type result;
     if (ARCHON_LIKELY(m_file.try_seek(0, base::File::Whence::cur, result, ec))) {
         if (ARCHON_LIKELY(base::try_int_sub(result, m_retain_size))) {
-            offset = result;
+            pos = result;
             return true;
         }
         // We only get here if the actual read/write position was manipulated
         // outside the control of this text file object.
-        offset = 0;
+        pos = 0;
         return true;
     }
     return false;
 }
 
 
-inline bool PrimPosixTextFileImpl::tell_write(offset_type& offset, std::error_code& ec) noexcept
+inline bool PrimPosixTextFileImpl::tell_write(pos_type& pos, std::error_code& ec) noexcept
 {
 #if ARCHON_DEBUG
-    ARCHON_ASSERT(m_writing);
+    ARCHON_ASSERT(!m_reading);
 #endif
 
-    return m_file.try_seek(0, base::File::Whence::cur, offset, ec);
+    return m_file.try_seek(0, base::File::Whence::cur, pos, ec);
 }
 
 
-inline bool PrimPosixTextFileImpl::seek(offset_type offset, std::error_code& ec) noexcept
+inline bool PrimPosixTextFileImpl::seek(pos_type pos, std::error_code& ec) noexcept
 {
 #if ARCHON_DEBUG
     ARCHON_ASSERT(!m_writing);
 #endif
 
-    offset_type result; // Dummy
-    if (ARCHON_LIKELY(m_file.try_seek(offset, base::File::Whence::set, result, ec))) {
+    pos_type result; // Dummy
+    if (ARCHON_LIKELY(m_file.try_seek(pos, base::File::Whence::set, result, ec))) {
         m_retain_size = 0;
 #if ARCHON_DEBUG
         m_reading = false;
@@ -891,39 +929,52 @@ inline PrimWindowsTextFileImpl::PrimWindowsTextFileImpl(base::File& file, Config
 }
 
 
-inline bool PrimWindowsTextFileImpl::discard(std::error_code& ec) noexcept
+inline bool PrimWindowsTextFileImpl::advance_and_discard(std::error_code& ec) noexcept
 {
-    ARCHON_ASSERT(m_begin <= m_end);
-    std::size_t n = std::size_t(m_end - m_begin);
-    return do_discard(n, ec);
+    return do_advance_and_discard(m_curr, ec);
 }
 
 
-inline bool PrimWindowsTextFileImpl::revert(std::size_t offset, std::error_code& ec) noexcept
+inline bool PrimWindowsTextFileImpl::advance_and_discard(std::size_t n,
+                                                         std::error_code& ec) noexcept
 {
-    ARCHON_ASSERT(m_retain_begin <= m_begin);
-    ARCHON_ASSERT(m_begin <= m_end);
-    base::Span data = base::Span(m_buffer).first(m_begin);
-    std::size_t data_offset = m_retain_begin;
-    bool success = base::newline_crlf::simulate_inc_decode(data, data_offset, offset);
+    ARCHON_ASSERT(n <= m_retain_size);
+    ARCHON_ASSERT(m_begin <= m_curr);
+    base::Span data = base::Span(m_buffer).first(m_curr);
+    std::size_t data_offset = m_begin;
+    bool success = base::newline_crlf::simulate_inc_decode(data, data_offset, n);
     ARCHON_ASSERT(success);
-    ARCHON_ASSERT(data_offset <= m_begin);
-    std::size_t n = std::size_t(m_end - data_offset);
-    return do_discard(n, ec);
+    ARCHON_ASSERT(data_offset <= m_curr);
+    return do_advance_and_discard(data_offset, ec);
 }
 
 
-inline bool PrimWindowsTextFileImpl::seek(offset_type offset, std::error_code& ec) noexcept
+inline bool PrimWindowsTextFileImpl::flush(std::error_code& ec) noexcept
+{
+    ARCHON_ASSERT(m_curr == 0);
+    ARCHON_ASSERT(m_retain_size  == 0);
+    ARCHON_ASSERT(m_retain_clear == 0);
+    if (ARCHON_LIKELY(do_flush(ec))) {
+#if ARCHON_DEBUG
+        m_writing = false;
+#endif
+        return true;
+    }
+    return false;
+}
+
+
+inline bool PrimWindowsTextFileImpl::seek(pos_type pos, std::error_code& ec) noexcept
 {
 #if ARCHON_DEBUG
     ARCHON_ASSERT(!m_writing);
 #endif
 
-    offset_type result; // Dummy
-    if (ARCHON_LIKELY(m_file.try_seek(offset, base::File::Whence::set, result, ec))) {
-        m_retain_begin = 0;
+    pos_type result; // Dummy
+    if (ARCHON_LIKELY(m_file.try_seek(pos, base::File::Whence::set, result, ec))) {
         m_begin = 0;
         m_end   = 0;
+        m_curr  = 0;
         m_retain_size  = 0;
         m_retain_clear = 0;
 #if ARCHON_DEBUG
@@ -965,7 +1016,7 @@ bool PrimWindowsTextFileImpl::read_ahead(base::Span<char> buffer, bool dynamic_e
         base::Span data = base::Span(m_buffer).first(m_end);
         std::size_t buffer_offset = 0;
         std::size_t clear_offset = m_retain_size;
-        base::newline_crlf::inc_decode(data, m_begin, buffer, buffer_offset,
+        base::newline_crlf::inc_decode(data, m_curr, buffer, buffer_offset,
                                        clear_offset, m_retain_clear, end_of_file);
         m_retain_size += buffer_offset;
         if (ARCHON_LIKELY(buffer_offset > 0 || buffer.size() == 0)) {
@@ -974,21 +1025,22 @@ bool PrimWindowsTextFileImpl::read_ahead(base::Span<char> buffer, bool dynamic_e
         }
         ARCHON_ASSERT(!end_of_file);
         // Move retained data to start of buffer
-        ARCHON_ASSERT(m_retain_begin <= m_begin);
+        ARCHON_ASSERT(m_begin <= m_curr);
         char* base = m_buffer.data();
-        std::copy(base + m_retain_begin, base + m_end, base);
-        m_begin -= m_retain_begin;
-        m_end   -= m_retain_begin;
-        m_retain_begin = 0;
+        std::copy(base + m_begin, base + m_end, base);
+        m_curr -= m_begin;
+        m_end  -= m_begin;
+        m_begin = 0;
         if (ARCHON_UNLIKELY(m_end == m_buffer.size()))
             expand_buffer(); // Throws
         std::size_t n_2 = 0;
-        if (ARCHON_LIKELY(m_file.try_read_some(base::Span(m_buffer).subspan(m_end), n_2, ec))) {
+        base::Span buffer_2 = base::Span(m_buffer).subspan(m_end);
+        if (ARCHON_LIKELY(m_file.try_read_some(buffer_2, n_2, ec))) {
             if (ARCHON_LIKELY(n_2 > 0)) {
                 m_end += n_2;
                 continue;
             }
-            if (ARCHON_LIKELY(m_end == m_begin || dynamic_eof)) {
+            if (ARCHON_LIKELY(m_end == m_curr || dynamic_eof)) {
                 // Signal end of file
                 n = 0;
                 return true;
@@ -1017,7 +1069,7 @@ bool PrimWindowsTextFileImpl::write(base::Span<const char> data, std::size_t& n,
             return true;
         }
         if (ARCHON_LIKELY(m_end > 0)) {
-            if (ARCHON_LIKELY(flush(ec)))
+            if (ARCHON_LIKELY(do_flush(ec)))
                 continue;
             return false;
         }
@@ -1032,8 +1084,8 @@ void PrimWindowsTextFileImpl::advance() noexcept
     ARCHON_ASSERT(!m_writing);
 #endif
 
-    ARCHON_ASSERT(m_retain_begin <= m_begin);
-    m_retain_begin = m_begin;
+    ARCHON_ASSERT(m_begin <= m_curr);
+    m_begin = m_curr;
     m_retain_size  = 0;
     m_retain_clear = 0;
 }
@@ -1046,80 +1098,55 @@ void PrimWindowsTextFileImpl::advance(std::size_t n) noexcept
 #endif
 
     ARCHON_ASSERT(n <= m_retain_size);
-    ARCHON_ASSERT(m_retain_begin <= m_begin);
-    ARCHON_ASSERT(m_begin <= m_end);
+    ARCHON_ASSERT(m_begin <= m_curr);
+    ARCHON_ASSERT(m_curr <= m_end);
     if (ARCHON_LIKELY(n >= m_retain_clear)) {
-        m_retain_begin = std::size_t(m_begin - (m_retain_size - n));
+        m_begin = std::size_t(m_curr - (m_retain_size - n));
         m_retain_size -= n;
         m_retain_clear = 0;
         return;
     }
-    base::Span data = base::Span(m_buffer).first(m_begin);
-    bool success = base::newline_crlf::simulate_inc_decode(data, m_retain_begin, n);
+    base::Span data = base::Span(m_buffer).first(m_curr);
+    bool success = base::newline_crlf::simulate_inc_decode(data, m_begin, n);
     ARCHON_ASSERT(success);
-    ARCHON_ASSERT(m_retain_begin <= m_begin);
+    ARCHON_ASSERT(m_begin <= m_curr);
     m_retain_size  -= n;
     m_retain_clear -= n;
 }
 
 
-bool PrimWindowsTextFileImpl::flush(std::error_code& ec) noexcept
-{
-#if ARCHON_DEBUG
-    ARCHON_ASSERT(!m_reading);
-#endif
-
-    ARCHON_ASSERT(m_retain_begin == 0);
-    ARCHON_ASSERT(m_begin <= m_end);
-    ARCHON_ASSERT(m_retain_size == 0);
-    ARCHON_ASSERT(m_retain_clear == 0);
-    base::Span data = base::Span(m_buffer).first(m_end).subspan(m_begin);
-    std::size_t n = 0;
-    if (ARCHON_LIKELY(m_file.try_write(data, n, ec))) {
-        m_begin = 0;
-        m_end = 0;
-#if ARCHON_DEBUG
-        m_writing = false;
-#endif
-        return true;
-    }
-    m_begin += n;
-    return false;
-}
-
-
-bool PrimWindowsTextFileImpl::tell_read(offset_type& offset, std::error_code& ec) noexcept
+bool PrimWindowsTextFileImpl::tell_read(pos_type& pos, std::error_code& ec) noexcept
 {
 #if ARCHON_DEBUG
     ARCHON_ASSERT(!m_writing);
 #endif
 
-    ARCHON_ASSERT(m_retain_begin <= m_end);
-    offset_type result;
+    ARCHON_ASSERT(m_begin <= m_end);
+    pos_type result;
     if (ARCHON_LIKELY(m_file.try_seek(0, base::File::Whence::cur, result, ec))) {
-        if (ARCHON_LIKELY(base::try_int_sub(result, m_end - m_retain_begin))) {
-            offset = result;
+        if (ARCHON_LIKELY(base::try_int_sub(result, m_end - m_begin))) {
+            pos = result;
             return true;
         }
         // We only get here if the actual read/write position was manipulated
         // outside the control of this text file object.
-        offset = 0;
+        pos = 0;
         return true;
     }
     return false;
 }
 
 
-bool PrimWindowsTextFileImpl::tell_write(offset_type& offset, std::error_code& ec) noexcept
+bool PrimWindowsTextFileImpl::tell_write(pos_type& pos, std::error_code& ec) noexcept
 {
 #if ARCHON_DEBUG
-    ARCHON_ASSERT(m_writing);
+    ARCHON_ASSERT(!m_reading);
 #endif
 
-    offset_type result;
+    pos_type result;
     if (ARCHON_LIKELY(m_file.try_seek(0, base::File::Whence::cur, result, ec))) {
         if (ARCHON_LIKELY(base::try_int_add(result, m_end - m_begin))) {
-            offset = result;
+            pos = result;
             return true;
         }
         ec = make_error_code(std::errc::file_too_large);
@@ -1128,20 +1155,20 @@ bool PrimWindowsTextFileImpl::tell_write(offset_type& offset, std::error_code& e
 }
 
 
-bool PrimWindowsTextFileImpl::do_discard(std::size_t n, std::error_code& ec) noexcept
+bool PrimWindowsTextFileImpl::do_advance_and_discard(std::size_t begin, std::error_code& ec) noexcept
 {
 #if ARCHON_DEBUG
     ARCHON_ASSERT(!m_writing);
 #endif
 
+    ARCHON_ASSERT(begin <= m_end);
+    std::size_t n = std::size_t(m_end - begin);
     auto whence = base::File::Whence::cur;
-    offset_type result; // Dummy
-    // Avoid actual seeking when n is zero, such that writing can be enabled for
-    // an underlying file that does not support seeking, e.g., STDOUT.
-    if (ARCHON_LIKELY(n == 0 || m_file.try_seek(-offset_type(n), whence, result, ec))) {
-        m_retain_begin = 0;
+    pos_type result; // Dummy
+    if (ARCHON_LIKELY(m_file.try_seek(-pos_type(n), whence, result, ec))) {
         m_begin = 0;
         m_end   = 0;
+        m_curr  = 0;
         m_retain_size  = 0;
         m_retain_clear = 0;
 #if ARCHON_DEBUG
@@ -1149,6 +1176,25 @@ bool PrimWindowsTextFileImpl::do_discard(std::size_t n, std::error_code& ec) noe
 #endif
         return true;
     }
+    return false;
+}
+
+
+bool PrimWindowsTextFileImpl::do_flush(std::error_code& ec) noexcept
+{
+#if ARCHON_DEBUG
+    ARCHON_ASSERT(!m_reading);
+#endif
+
+    ARCHON_ASSERT(m_begin <= m_end);
+    base::Span data = base::Span(m_buffer).first(m_end).subspan(m_begin);
+    std::size_t n = 0;
+    if (ARCHON_LIKELY(m_file.try_write(data, n, ec))) {
+        m_begin = 0;
+        m_end   = 0;
+        return true;
+    }
+    m_begin += n;
     return false;
 }
 
@@ -1170,9 +1216,9 @@ struct PrimTextFileConfig;
 
 template<class I> class BasicPrimTextFile {
 public:
-    using Config = PrimTextFileConfig;
-    using Mode        = base::File::Mode;
-    using offset_type = base::File::offset_type;
+    using Config   = PrimTextFileConfig;
+    using Mode     = base::File::Mode;
+    using pos_type = base::File::offset_type;
 
     BasicPrimTextFile(base::FilesystemPathRef, Mode = Mode::read);
     BasicPrimTextFile(base::FilesystemPathRef, Mode, Config);
@@ -1185,11 +1231,11 @@ public:
 
     void flush();
 
-    // Get position of logical file pointer in terms of actual bytes in the underlying file (base::File). The logical file pointer corresponds to the end of the last read or write operation, and this will not always agree with the actual file pointer because of buffering. Hmm                         
-    offset_type tell();
+    // Bad phrasing: Get position of logical file pointer in terms of actual bytes in the underlying file (base::File). The logical file pointer corresponds to the end of the last read or write operation, and this will not always agree with the actual file pointer because of buffering. Hmm                         
+    pos_type tell();
 
-    // Set position of logical file pointer in terms of actual bytes in the underlying file (base::File). Hmm                        
-    void seek(offset_type);
+    // Bad phrasing: Set position of logical file pointer in terms of actual bytes in the underlying file (base::File). Hmm                        
+    void seek(pos_type);
 
     [[nodiscard]] bool try_read_some(base::Span<char> buffer, std::size_t& n, std::error_code&);
 
@@ -1199,9 +1245,9 @@ public:
 
     [[nodiscard]] bool try_flush(std::error_code&);
 
-    [[nodiscard]] bool try_tell(offset_type&, std::error_code&);
+    [[nodiscard]] bool try_tell(pos_type&, std::error_code&);
 
-    [[nodiscard]] bool try_seek(offset_type, std::error_code&);
+    [[nodiscard]] bool try_seek(pos_type, std::error_code&);
 
 private:
     base::File m_file;
@@ -1224,6 +1270,7 @@ using PrimWindowsTextFile = BasicPrimTextFile<base::PrimWindowsTextFileImpl>;
 struct PrimTextFileConfig : public base::PrimTextFileImplConfig {
     bool dynamic_eof = false;
 };
+
 
 
 
@@ -1290,20 +1337,20 @@ template<class I> inline void BasicPrimTextFile<I>::flush()
 }
 
 
-template<class I> inline auto BasicPrimTextFile<I>::tell() -> offset_type
+template<class I> inline auto BasicPrimTextFile<I>::tell() -> pos_type
 {
-    offset_type offset = 0;
+    pos_type pos = {};
     std::error_code ec;
-    if (ARCHON_LIKELY(try_tell(offset, ec)))
-        return offset; // Success
+    if (ARCHON_LIKELY(try_tell(pos, ec)))
+        return pos; // Success
     throw std::system_error(ec, "Failed to determine read/write position");
 }
 
 
-template<class I> inline void BasicPrimTextFile<I>::seek(offset_type offset)
+template<class I> inline void BasicPrimTextFile<I>::seek(pos_type pos)
 {
     std::error_code ec;
-    if (ARCHON_LIKELY(try_seek(offset, ec)))
+    if (ARCHON_LIKELY(try_seek(pos, ec)))
         return; // Success
     throw std::system_error(ec, "Failed to update read/write position");
 }
@@ -1370,18 +1417,18 @@ inline bool BasicPrimTextFile<I>::try_flush(std::error_code& ec)
 
 
 template<class I>
-inline bool BasicPrimTextFile<I>::try_tell(offset_type& offset, std::error_code& ec)
+inline bool BasicPrimTextFile<I>::try_tell(pos_type& pos, std::error_code& ec)
 {
-    if (ARCHON_LIKELY(m_writing))
-        return m_impl.tell_write(offset, ec); // Throws
-    return m_impl.tell_read(offset, ec); // Throws
+    if (ARCHON_LIKELY(!m_reading))
+        return m_impl.tell_write(pos, ec); // Throws
+    return m_impl.tell_read(pos, ec); // Throws
 }
 
 
 template<class I>
-inline bool BasicPrimTextFile<I>::try_seek(offset_type offset, std::error_code& ec)
+inline bool BasicPrimTextFile<I>::try_seek(pos_type pos, std::error_code& ec)
 {
-    bool success = ((!m_writing || stop_writing(ec)) && m_impl.seek(offset, ec)); // Throws
+    bool success = ((!m_writing || stop_writing(ec)) && m_impl.seek(pos, ec)); // Throws
     if (ARCHON_LIKELY(success)) {
         m_reading = false;
         return true;
@@ -1394,7 +1441,7 @@ template<class I> bool BasicPrimTextFile<I>::stop_reading(std::error_code& ec)
 {
     ARCHON_ASSERT(m_reading);
     ARCHON_ASSERT(!m_writing);
-    if (ARCHON_LIKELY(m_impl.discard(ec))) { // Throws
+    if (ARCHON_LIKELY(m_impl.advance_and_discard(ec))) { // Throws
         m_reading = false;
         return true;
     }
@@ -1439,55 +1486,66 @@ inline bool BasicPrimTextFile<I>::do_read_some(base::Span<char> buffer, std::siz
 namespace archon::base {
 
 
-template<class C, class T, class P> class TextFileImpl {
-public:
-    struct Config;
+struct TextFileImplConfig;
 
+
+template<class C, class T = std::char_traits<C>, class P = base::PrimTextFileImpl>
+class TextFileImpl {
+public:
+    using Config = TextFileImplConfig;
     using char_type   = C;
     using traits_type = T;
-    using string_view_type = std::basic_string_view<C, T>;
-    using offset_type = typename P::offset_type;
+    using pos_type = typename T::pos_type;
 
-    TextFileImpl(base::File&, const std::locale&, Config);
+    TextFileImpl(base::File&, Config);
 
     [[nodiscard]] bool read_ahead(base::Span<C> buffer, bool dynamic_eof, std::size_t& n,
                                   std::error_code&);
 
-    [[nodiscard]] bool write(string_view_type data, std::size_t& n, std::error_code&);
+    [[nodiscard]] bool write(base::Span<const C> data, std::size_t& n, std::error_code&);
 
-    // GENERIC:
-    //
-    // BRIEF: Revert file offset and discard pre-loaded data.
-    //
-    // Maybe change description below like at primitive level                   
-    //
-    // On success, the byte-level file offset is reverted to where it would have
-    // been if the size of the caller's buffer during the last invocation of
-    // read_ahead() had been `offset`, and the read operation had resulted in a
-    // situation where no data was pre-loaded.
-    //
-    // When in reading mode, `offset` must be less than, or equal to the size of
-    // the extracted chunk during the last invocation of read_ahead(), which is
-    // zero if that read operation failed. When in neutral mode, `offset` must
-    // be zero.
-    //
-    [[nodiscard]] bool revert(std::size_t offset, std::error_code&);
+    void advance() noexcept;
+    void advance(std::size_t n);
+
+    [[nodiscard]] bool advance_and_discard(std::error_code&);
+    [[nodiscard]] bool advance_and_discard(std::size_t n, std::error_code&);
 
     [[nodiscard]] bool flush(std::error_code&);
 
-    [[nodiscard]] bool seek(offset_type, std::error_code&);
+    [[nodiscard]] bool tell_read(pos_type&, std::error_code&);
+    [[nodiscard]] bool tell_write(pos_type&, std::error_code&);
+
+    [[nodiscard]] bool seek(pos_type, std::error_code&);
 
 private:
     P m_prim_impl;
     base::BasicCharCodec<C, T> m_codec;
     base::SeedMemoryBuffer<char> m_buffer;
-    std::mbstate_t m_prev_state = {};
+
+    // `m_state` is always the state at the logical read/write position.
+    // In reading mode, `m_state_2` is the state at the read ahead position.
+    // In writing mode, the value of `m_state_2` in undefined.
     std::mbstate_t m_state = {};
-    std::size_t m_prev_begin = 0;
+    std::mbstate_t m_state_2 = {};
+
+    // Beginning and end of the current contents of the buffer. In neutral mode,
+    // both are zero. In reading mode, `m_begin` corresponds to the logical
+    // read/write position, and `m_end` corresponds to the actual read/write
+    // position. In writing mode, it is the other way around.
     std::size_t m_begin = 0;
     std::size_t m_end   = 0;
 
+    // Position in buffer corresponding to the logical read/write position from
+    // point of view of the primitive file implementation (`m_prim_impl`). In
+    // neutral mode, and in writing mode, it is always zero.
+    std::size_t m_offset = 0;
+
+    // Position in buffer corresponding to the read ahead position. In neutral
+    // mode, and in writing mode, it is always zero.
+    std::size_t m_curr = 0;
+
 #if ARCHON_DEBUG
+    std::size_t m_retain_size = 0; // Zero in neutral and writing modes
     bool m_reading = false;
     bool m_writing = false;
 #endif
@@ -1500,9 +1558,18 @@ private:
 };
 
 
-template<class C, class T, class P> struct TextFileImpl<C, T, P>::Config :
+template<class C, class T = std::char_traits<C>>
+using PosixTextFileImpl = TextFileImpl<C, T, base::PrimPosixTextFileImpl>;
+
+template<class C, class T = std::char_traits<C>>
+using WindowsTextFileImpl = TextFileImpl<C, T, base::PrimWindowsTextFileImpl>;
+
+
+struct TextFileImplConfig :
         base::PrimTextFileImplConfig {
     static constexpr std::size_t default_char_codec_buffer_size = 1024;
+
+    std::locale locale;
 
     // GENERIC:
     //
@@ -1523,10 +1590,9 @@ template<class C, class T, class P> struct TextFileImpl<C, T, P>::Config :
 
 
 template<class C, class T, class P>
-inline TextFileImpl<C, T, P>::TextFileImpl(base::File& file, const std::locale& locale,
-                                           Config config) :
+inline TextFileImpl<C, T, P>::TextFileImpl(base::File& file, Config config) :
     m_prim_impl(file, std::move(config)), // Throws
-    m_codec(locale), // Throws
+    m_codec(std::move(config.locale)), // Throws    
     m_buffer(make_buffer(config)) // Throws
 {
 }
@@ -1541,11 +1607,7 @@ bool TextFileImpl<C, T, P>::read_ahead(base::Span<C> buffer, bool dynamic_eof, s
     m_reading = true;
 #endif
 
-    // Tend to m_state management    
-
     bool end_of_file = false;
-    m_prev_state = m_state;
-    m_prev_begin = m_begin;
     for (;;) {
         base::Span data = base::Span(m_buffer).first(m_end);
         std::size_t buffer_offset = 0;
@@ -1553,7 +1615,10 @@ bool TextFileImpl<C, T, P>::read_ahead(base::Span<C> buffer, bool dynamic_eof, s
         if (end_of_file)
             error = true;                   
         bool complete =
-            m_codec.inc_decode(m_state, data, m_begin, buffer, buffer_offset, error);
+            m_codec.inc_decode(m_state_2, data, m_curr, buffer, buffer_offset, error);
+#if ARCHON_DEBUG
+        m_retain_size += buffer_offset;
+#endif
         if (ARCHON_LIKELY(buffer_offset > 0 || buffer.size() == 0)) {
             n = buffer_offset;
             return true;
@@ -1561,17 +1626,18 @@ bool TextFileImpl<C, T, P>::read_ahead(base::Span<C> buffer, bool dynamic_eof, s
         if (!error) {
             ARCHON_ASSERT(!end_of_file);
             // Move any retained data to start of buffer
-            m_prim_impl.advance(m_begin);
+            ARCHON_ASSERT(m_offset <= m_begin);
+            m_prim_impl.advance(std::size_t(m_begin - m_offset)); // Throws
             char* base = m_buffer.data();
             std::copy(base + m_begin, base + m_end, base);
-            m_end -= m_begin;
-            m_begin = 0;
-            m_prev_state = m_state;
-            m_prev_begin = 0;
+            m_end  -= m_begin;
+            m_curr -= m_begin;
+            m_begin  = 0;
+            m_offset = 0;
             if (ARCHON_UNLIKELY(m_end == m_buffer.size()))
                 expand_buffer(); // Throws
             std::size_t n_2 = 0;
-            base::Span<char> buffer_2 = base::Span(m_buffer).subspan(m_end);
+            base::Span buffer_2 = base::Span(m_buffer).subspan(m_end);
             if (ARCHON_LIKELY(m_prim_impl.read_ahead(buffer_2, dynamic_eof, n_2, ec))) { // Throws
                 if (ARCHON_LIKELY(n_2 > 0)) {
                     m_end += n_2;
@@ -1596,7 +1662,7 @@ bool TextFileImpl<C, T, P>::read_ahead(base::Span<C> buffer, bool dynamic_eof, s
 
 
 template<class C, class T, class P>
-bool TextFileImpl<C, T, P>::write(string_view_type data, std::size_t& n, std::error_code& ec)
+bool TextFileImpl<C, T, P>::write(base::Span<const C> data, std::size_t& n, std::error_code& ec)
 {
 #if ARCHON_DEBUG
     ARCHON_ASSERT(!m_reading);
@@ -1639,28 +1705,95 @@ bool TextFileImpl<C, T, P>::write(string_view_type data, std::size_t& n, std::er
 }
 
 
-template<class C, class T, class P>
-bool TextFileImpl<C, T, P>::revert(std::size_t offset, std::error_code& ec)
+template<class C, class T, class P> void TextFileImpl<C, T, P>::advance() noexcept
 {
 #if ARCHON_DEBUG
     ARCHON_ASSERT(!m_writing);
 #endif
 
-    ARCHON_ASSERT(m_prev_begin <= m_begin);
-    ARCHON_ASSERT(m_begin <= m_end);
-    base::Span data = base::Span(m_buffer).first(m_begin);
-    std::mbstate_t state = m_prev_state;
-    std::size_t data_offset = m_prev_begin;
-    // The difference between `data_offset` and `data.size()` cannot be greater
-    // than the size of `m_buffer`, and the buffer cannot grow larger than
-    // `m_codec.max_simulate_decode_size()`
-    m_codec.simulate_inc_decode(state, data, data_offset, offset); // Throws
-    ARCHON_ASSERT(data_offset <= m_begin);
-    if (ARCHON_LIKELY(m_prim_impl.revert(data_offset, ec))) { // Throws
-        m_prev_begin = 0;
-        m_begin = 0;
-        m_end   = 0;
+    ARCHON_ASSERT(m_begin <= m_curr);
+    m_state = m_state_2;
+    m_begin = m_curr;
 #if ARCHON_DEBUG
+    m_retain_size = 0;
+#endif
+}
+
+
+template<class C, class T, class P> void TextFileImpl<C, T, P>::advance(std::size_t n)
+{
+#if ARCHON_DEBUG
+    ARCHON_ASSERT(!m_writing);
+    ARCHON_ASSERT(n <= m_retain_size);
+#endif
+
+    ARCHON_ASSERT(m_begin <= m_curr);
+    ARCHON_ASSERT(m_curr <= m_end);
+    base::Span data = base::Span(m_buffer).first(m_curr);
+    // The difference between `m_begin` and `data.size()` cannot be greater
+    // than the size of `m_buffer`, and the buffer is not allowed to grow larger
+    // than `m_codec.max_simulate_decode_size()`
+    m_codec.simulate_inc_decode(m_state, data, m_begin, n); // Throws
+    ARCHON_ASSERT(m_begin <= m_curr);
+#if ARCHON_DEBUG
+    m_retain_size -= n;
+#endif
+}
+
+
+template<class C, class T, class P>
+bool TextFileImpl<C, T, P>::advance_and_discard(std::error_code& ec)
+{
+#if ARCHON_DEBUG
+    ARCHON_ASSERT(!m_writing);
+#endif
+
+    ARCHON_ASSERT(m_offset <= m_curr);
+    std::size_t n = std::size_t(m_curr - m_offset);
+    if (ARCHON_LIKELY(m_prim_impl.advance_and_discard(n, ec))) { // Throws
+        m_state   = m_state_2;
+        m_begin   = 0;
+        m_end     = 0;
+        m_offset  = 0;
+        m_curr    = 0;
+#if ARCHON_DEBUG
+        m_retain_size = 0;
+        m_reading = false;
+#endif
+        return true;
+    }
+    return false;
+}
+
+
+template<class C, class T, class P>
+bool TextFileImpl<C, T, P>::advance_and_discard(std::size_t n, std::error_code& ec)
+{
+#if ARCHON_DEBUG
+    ARCHON_ASSERT(!m_writing);
+    ARCHON_ASSERT(n <= m_retain_size);
+#endif
+
+    ARCHON_ASSERT(m_begin <= m_curr);
+    base::Span data = base::Span(m_buffer).first(m_curr);
+    std::mbstate_t state = m_state;
+    std::size_t data_offset = m_begin;
+    // The difference between `data_offset` and `data.size()` cannot be greater
+    // than the size of `m_buffer`, and the buffer is not allowed to grow larger
+    // than `m_codec.max_simulate_decode_size()`
+    m_codec.simulate_inc_decode(state, data, data_offset, n); // Throws
+    ARCHON_ASSERT(m_offset <= data_offset);
+    ARCHON_ASSERT(data_offset <= m_curr);
+    std::size_t n_2 = std::size_t(data_offset - m_offset);
+    if (ARCHON_LIKELY(m_prim_impl.advance_and_discard(n_2, ec))) { // Throws
+        m_state   = state;
+        m_state_2 = m_state;
+        m_begin   = 0;
+        m_end     = 0;
+        m_offset  = 0;
+        m_curr    = 0;
+#if ARCHON_DEBUG
+        m_retain_size = 0;
         m_reading = false;
 #endif
         return true;
@@ -1673,10 +1806,13 @@ template<class C, class T, class P>
 inline bool TextFileImpl<C, T, P>::flush(std::error_code& ec)
 {
 #if ARCHON_DEBUG
-    ARCHON_ASSERT(!m_reading);
+    ARCHON_ASSERT(m_retain_size  == 0);
 #endif
 
+    ARCHON_ASSERT(m_offset == 0);
+    ARCHON_ASSERT(m_curr   == 0);
     if (ARCHON_LIKELY(shallow_flush(ec) && m_prim_impl.flush(ec))) { // Throws
+        m_state_2 = m_state;
 #if ARCHON_DEBUG
         m_writing = false;
 #endif
@@ -1687,17 +1823,65 @@ inline bool TextFileImpl<C, T, P>::flush(std::error_code& ec)
 
 
 template<class C, class T, class P>
-inline bool TextFileImpl<C, T, P>::seek(offset_type offset, std::error_code& ec)
+bool TextFileImpl<C, T, P>::tell_read(pos_type& pos, std::error_code& ec)
 {
 #if ARCHON_DEBUG
     ARCHON_ASSERT(!m_writing);
 #endif
 
-    if (ARCHON_LIKELY(m_prim_impl.seek(offset, ec))) { // Throws
-        m_prev_begin = 0;
-        m_begin = 0;
-        m_end   = 0;
+    ARCHON_ASSERT(m_offset <= m_begin);
+    m_prim_impl.advance(std::size_t(m_begin - m_offset)); // Throw
+    m_offset = m_begin;
+    typename P::pos_type pos_2 = {};
+    if (ARCHON_LIKELY(m_prim_impl.tell_read(pos_2, ec))) { // Throws
+        pos = pos_type(pos_2);
+        pos.state(m_state);
+        return true;
+    }
+    return false;
+}
+
+
+template<class C, class T, class P>
+bool TextFileImpl<C, T, P>::tell_write(pos_type& pos, std::error_code& ec)
+{
 #if ARCHON_DEBUG
+    ARCHON_ASSERT(!m_reading);
+#endif
+
+    typename P::pos_type pos_2 = {};
+    // Take care to not invoke write() on `m_prim_impl` unless there is actually
+    // somethig to write. This is necesary to avoid ending up in a situation
+    // where `m_prim_impl` is in writing mode, but this file object is in
+    // neutral mode.
+    bool success = ((m_begin == m_end || shallow_flush(ec)) &&
+                    m_prim_impl.tell_write(pos_2, ec)); // Throws
+    if (ARCHON_LIKELY(success)) {
+        pos = pos_type(pos_2);
+        pos.state(m_state);
+        return true;
+    }
+    return false;
+}
+
+
+template<class C, class T, class P>
+inline bool TextFileImpl<C, T, P>::seek(pos_type pos, std::error_code& ec)
+{
+#if ARCHON_DEBUG
+    ARCHON_ASSERT(!m_writing);
+#endif
+
+    auto pos_2 = typename P::pos_type(pos);
+    if (ARCHON_LIKELY(m_prim_impl.seek(pos_2, ec))) { // Throws
+        m_state   = pos.state();
+        m_state_2 = m_state;
+        m_begin   = 0;
+        m_end     = 0;
+        m_offset  = 0;
+        m_curr    = 0;
+#if ARCHON_DEBUG
+        m_retain_size = 0;
         m_reading = false;
 #endif
         return true;
@@ -1732,13 +1916,12 @@ template<class C, class T, class P> bool TextFileImpl<C, T, P>::shallow_flush(st
     ARCHON_ASSERT(!m_reading);
 #endif
 
-    ARCHON_ASSERT(m_prev_begin == 0);
     ARCHON_ASSERT(m_begin <= m_end);
     base::Span data = base::Span(m_buffer).first(m_end).subspan(m_begin);
     std::size_t n = 0;
     if (ARCHON_LIKELY(m_prim_impl.write(data, n, ec))) { // Throws
         m_begin = 0;
-        m_end = 0;
+        m_end   = 0;
         return true;
     }
     m_begin += n;
@@ -1749,6 +1932,293 @@ template<class C, class T, class P> bool TextFileImpl<C, T, P>::shallow_flush(st
 template<class C, class T, class P> inline void TextFileImpl<C, T, P>::expand_buffer()
 {
     m_buffer.expand(1, m_end, max_buffer_size()); // Throws
+}
+
+
+} // namespace archon::base
+
+
+
+
+
+// ============================================================================================ text_file.hpp ============================================================================================
+
+
+namespace archon::base {
+
+
+struct TextFileConfig;
+
+
+template<class C, class T = std::char_traits<C>, class I = base::TextFileImpl<C, T>>
+class BasicTextFile {
+public:
+    using Config   = TextFileConfig;
+    using Mode     = base::File::Mode;
+    using pos_type = typename T::pos_type;
+
+    BasicTextFile(base::FilesystemPathRef, Mode = Mode::read);
+    BasicTextFile(base::FilesystemPathRef, Mode, Config);
+
+    std::size_t read_some(base::Span<C> buffer);
+
+    std::size_t read(base::Span<C> buffer);
+
+    void write(base::Span<const C> data);
+
+    void flush();
+
+    pos_type tell();
+
+    void seek(pos_type);
+
+    [[nodiscard]] bool try_read_some(base::Span<C> buffer, std::size_t& n, std::error_code&);
+
+    [[nodiscard]] bool try_read(base::Span<C> buffer, std::size_t& n, std::error_code&);
+
+    [[nodiscard]] bool try_write(base::Span<const C> data, std::size_t& n, std::error_code&);
+
+    [[nodiscard]] bool try_flush(std::error_code&);
+
+    [[nodiscard]] bool try_tell(pos_type&, std::error_code&);
+
+    [[nodiscard]] bool try_seek(pos_type, std::error_code&);
+
+private:
+    base::File m_file;
+    I m_impl;
+    bool m_dynamic_eof;
+    bool m_reading = false;
+    bool m_writing = false;
+
+    bool stop_reading(std::error_code&);
+    bool stop_writing(std::error_code&);
+    bool do_read_some(base::Span<C> buffer, std::size_t& n, std::error_code&);
+};
+
+
+template<class C, class T = std::char_traits<C>>
+using BasicPosixTextFile = BasicTextFile<C, T, base::PosixTextFileImpl<C, T>>;
+
+template<class C, class T = std::char_traits<C>>
+using BasicWindowsTextFile = BasicTextFile<C, T, base::WindowsTextFileImpl<C, T>>;
+
+
+using TextFile        = BasicTextFile<char>;
+using PosixTextFile   = BasicPosixTextFile<char>;
+using WindowsTextFile = BasicWindowsTextFile<char>;
+
+using WideTextFile        = BasicTextFile<wchar_t>;
+using WidePosixTextFile   = BasicPosixTextFile<wchar_t>;
+using WideWindowsTextFile = BasicWindowsTextFile<wchar_t>;
+
+
+struct TextFileConfig : public base::TextFileImplConfig {
+    bool dynamic_eof = false;
+};
+
+
+
+
+
+
+
+// Implementation
+
+
+template<class C, class T, class I>
+inline BasicTextFile<C, T, I>::BasicTextFile(base::FilesystemPathRef path, Mode mode) :
+    BasicTextFile(path, mode, {}) // Throws
+{
+}
+
+
+template<class C, class T, class I>
+inline BasicTextFile<C, T, I>::BasicTextFile(base::FilesystemPathRef path, Mode mode,
+                                             Config config) :
+    m_file(path, mode), // Throws
+    m_impl(m_file, std::move(config)), // Throws
+    m_dynamic_eof(config.dynamic_eof)
+{
+}
+
+
+template<class C, class T, class I>
+inline std::size_t BasicTextFile<C, T, I>::read_some(base::Span<C> buffer)
+{
+    std::size_t n = 0;
+    std::error_code ec;
+    if (ARCHON_LIKELY(try_read_some(buffer, n, ec)))
+        return n; // Success
+    throw std::system_error(ec, "Failed to read from file");
+}
+
+
+template<class C, class T, class I>
+inline std::size_t BasicTextFile<C, T, I>::read(base::Span<C> buffer)
+{
+    std::size_t n = 0;
+    std::error_code ec;
+    if (ARCHON_LIKELY(try_read(buffer, n, ec)))
+        return n; // Success
+    throw std::system_error(ec, "Failed to read from file");
+}
+
+
+template<class C, class T, class I>
+inline void BasicTextFile<C, T, I>::write(base::Span<const C> data)
+{
+    std::size_t n; // Dummy
+    std::error_code ec;
+    if (ARCHON_LIKELY(try_write(data, n, ec)))
+        return; // Success
+    throw std::system_error(ec, "Failed to write to file");
+}
+
+
+template<class C, class T, class I> inline void BasicTextFile<C, T, I>::flush()
+{
+    std::error_code ec;
+    if (ARCHON_LIKELY(try_flush(ec)))
+        return; // Success
+    throw std::system_error(ec, "Failed to flush");
+}
+
+
+template<class C, class T, class I> inline auto BasicTextFile<C, T, I>::tell() -> pos_type
+{
+    pos_type pos;
+    std::error_code ec;
+    if (ARCHON_LIKELY(try_tell(pos, ec)))
+        return pos; // Success
+    throw std::system_error(ec, "Failed to determine read/write position");
+}
+
+
+template<class C, class T, class I> inline void BasicTextFile<C, T, I>::seek(pos_type pos)
+{
+    std::error_code ec;
+    if (ARCHON_LIKELY(try_seek(pos, ec)))
+        return; // Success
+    throw std::system_error(ec, "Failed to update read/write position");
+}
+
+
+template<class C, class T, class I>
+inline bool BasicTextFile<C, T, I>::try_read_some(base::Span<C> buffer, std::size_t& n,
+                                                  std::error_code& ec)
+{
+    if (ARCHON_LIKELY(!m_writing || stop_writing(ec))) { // Throws
+        m_reading = true;
+        return do_read_some(buffer, n, ec); // Throws
+    }
+    return false;
+}
+
+
+template<class C, class T, class I>
+inline bool BasicTextFile<C, T, I>::try_read(base::Span<C> buffer, std::size_t& n,
+                                             std::error_code& ec)
+{
+    base::Span<C> buffer_2 = buffer;
+    if (ARCHON_LIKELY(!m_writing || stop_writing(ec))) { // Throws
+        m_reading = true;
+        std::size_t n_2 = 0;
+      again:
+        if (ARCHON_LIKELY(do_read_some(buffer_2, n_2, ec))) {
+            ARCHON_ASSERT(n_2 <= buffer_2.size());
+            if (ARCHON_LIKELY(n_2 != 0 && n_2 < buffer_2.size())) {
+                buffer_2 = buffer_2.subspan(n_2);
+                goto again;
+            }
+            n = std::size_t(buffer_2.data() + n_2 - buffer.data());
+            return true;
+        }
+    }
+    n = std::size_t(buffer_2.data() - buffer.data());
+    return false;
+}
+
+
+template<class C, class T, class I>
+inline bool BasicTextFile<C, T, I>::try_write(base::Span<const C> data, std::size_t& n,
+                                              std::error_code& ec)
+{
+    if (ARCHON_LIKELY(!m_reading || stop_reading(ec))) { // Throws
+        m_writing = true;
+        return m_impl.write(data, n, ec); // Throws
+    }
+    n = 0;
+    return false;
+}
+
+
+template<class C, class T, class I>
+inline bool BasicTextFile<C, T, I>::try_flush(std::error_code& ec)
+{
+    if (ARCHON_LIKELY(!m_writing || m_impl.flush(ec))) { // Throws
+        m_writing = false;
+        return true;
+    }
+    return false;
+}
+
+
+template<class C, class T, class I>
+inline bool BasicTextFile<C, T, I>::try_tell(pos_type& pos, std::error_code& ec)
+{
+    if (ARCHON_LIKELY(!m_reading))
+        return m_impl.tell_write(pos, ec); // Throws
+    return m_impl.tell_read(pos, ec); // Throws
+}
+
+
+template<class C, class T, class I>
+inline bool BasicTextFile<C, T, I>::try_seek(pos_type pos, std::error_code& ec)
+{
+    bool success = ((!m_writing || stop_writing(ec)) && m_impl.seek(pos, ec)); // Throws
+    if (ARCHON_LIKELY(success)) {
+        m_reading = false;
+        return true;
+    }
+    return false;
+}
+
+
+template<class C, class T, class I> bool BasicTextFile<C, T, I>::stop_reading(std::error_code& ec)
+{
+    ARCHON_ASSERT(m_reading);
+    ARCHON_ASSERT(!m_writing);
+    if (ARCHON_LIKELY(m_impl.advance_and_discard(ec))) { // Throws
+        m_reading = false;
+        return true;
+    }
+    return false;
+}
+
+
+template<class C, class T, class I> bool BasicTextFile<C, T, I>::stop_writing(std::error_code& ec)
+{
+    ARCHON_ASSERT(!m_reading);
+    ARCHON_ASSERT(m_writing);
+    if (ARCHON_LIKELY(m_impl.flush(ec))) { // Throws
+        m_writing = false;
+        return true;
+    }
+    return false;
+}
+
+
+template<class C, class T, class I>
+inline bool BasicTextFile<C, T, I>::do_read_some(base::Span<C> buffer, std::size_t& n,
+                                                 std::error_code& ec)
+{
+    ARCHON_ASSERT(!m_writing);
+    if (ARCHON_LIKELY(m_impl.read_ahead(buffer, m_dynamic_eof, n, ec))) { // Throws
+        m_impl.advance();
+        return true;
+    }
+    return false;
 }
 
 
@@ -1818,8 +2288,8 @@ ARCHON_TEST(Base_PrimTextFileImpl_Windows)
     if (success)
         log("contents = %s", base::quoted(std::string_view(buffer.data(), n)));
 
-    log("------ revert ------");
-    success = text_file_impl.revert(5, ec);
+    log("------ advance_and_discard ------");
+    success = text_file_impl.advance_and_discard(5, ec);
     log(" success = %s", success);
     log("      ec = %s", ec);
 
@@ -1893,19 +2363,19 @@ ARCHON_TEST(Base_PrimTextFile_PosixTellAndSeek)
     base::PrimPosixTextFile text_file(path, base::File::Mode::write);
     ARCHON_CHECK_EQUAL(text_file.tell(), 0);
     text_file.write(std::string_view("foo\nbar"));
-    auto offset = text_file.tell();
-    ARCHON_CHECK_EQUAL(text_file.tell(), offset);
-    ARCHON_CHECK_EQUAL(offset, 7);
+    auto pos = text_file.tell();
+    ARCHON_CHECK_EQUAL(text_file.tell(), pos);
+    ARCHON_CHECK_EQUAL(pos, 7);
     text_file.write(std::string_view("\nbaz\n"));
     ARCHON_CHECK_EQUAL(text_file.tell(), 12);
-    text_file.seek(offset);
-    ARCHON_CHECK_EQUAL(text_file.tell(), offset);
+    text_file.seek(pos);
+    ARCHON_CHECK_EQUAL(text_file.tell(), pos);
     text_file.seek(0);
     ARCHON_CHECK_EQUAL(text_file.tell(), 0);
-    text_file.seek(offset);
-    ARCHON_CHECK_EQUAL(text_file.tell(), offset);
+    text_file.seek(pos);
+    ARCHON_CHECK_EQUAL(text_file.tell(), pos);
     text_file.seek(0);
-    text_file.seek(offset);
+    text_file.seek(pos);
     std::array<char, 64> buffer;
     std::size_t n = text_file.read(buffer);
     ARCHON_CHECK_EQUAL(std::string_view(buffer.data(), n), "\nbaz\n");
@@ -1947,23 +2417,25 @@ ARCHON_TEST(Base_PrimTextFile_WindowsWriteAndFlush)
 
 ARCHON_TEST(Base_PrimTextFile_WindowsTellAndSeek)
 {
+    // Write using base::File                                                
+
     ARCHON_TEST_FILE(path);
     base::PrimWindowsTextFile text_file(path, base::File::Mode::write);
     ARCHON_CHECK_EQUAL(text_file.tell(), 0);
     text_file.write(std::string_view("foo\nbar"));
-    auto offset = text_file.tell();
-    ARCHON_CHECK_EQUAL(text_file.tell(), offset);
-    ARCHON_CHECK_EQUAL(offset, 8);
+    auto pos = text_file.tell();
+    ARCHON_CHECK_EQUAL(text_file.tell(), pos);
+    ARCHON_CHECK_EQUAL(pos, 8);
     text_file.write(std::string_view("\nbaz\n"));
     ARCHON_CHECK_EQUAL(text_file.tell(), 15);
-    text_file.seek(offset);
-    ARCHON_CHECK_EQUAL(text_file.tell(), offset);
+    text_file.seek(pos);
+    ARCHON_CHECK_EQUAL(text_file.tell(), pos);
     text_file.seek(0);
     ARCHON_CHECK_EQUAL(text_file.tell(), 0);
-    text_file.seek(offset);
-    ARCHON_CHECK_EQUAL(text_file.tell(), offset);
+    text_file.seek(pos);
+    ARCHON_CHECK_EQUAL(text_file.tell(), pos);
     text_file.seek(0);
-    text_file.seek(offset);
+    text_file.seek(pos);
     std::array<char, 64> buffer;
     std::size_t n = text_file.read(buffer);
     ARCHON_CHECK_EQUAL(std::string_view(buffer.data(), n), "\nbaz\n");
@@ -2032,11 +2504,11 @@ ARCHON_TEST(Base_TextFileImpl_Windows)
 
     ARCHON_TEST_FILE(path);
     base::File file(path, base::File::Mode::write);
-    using text_file_impl_type = base::TextFileImpl<wchar_t, std::char_traits<wchar_t>, base::PrimWindowsTextFileImpl>;
-    const std::locale& locale = test_context.get_locale();         
-    text_file_impl_type::Config config;
+    base::TextFileImplConfig config;
+    config.locale = test_context.get_locale();
     config.char_codec_buffer_size = 16;
-    text_file_impl_type text_file_impl(file, locale, std::move(config));
+    config.newline_codec_buffer_size = 16;
+    base::WindowsTextFileImpl<wchar_t> text_file_impl(file, std::move(config));
     std::array<wchar_t, 64> buffer;
     bool dynamic_eof = false;
     std::size_t n = 0;
@@ -2066,10 +2538,10 @@ ARCHON_TEST(Base_TextFileImpl_Windows)
     log("       n = %s", n);
     log("      ec = %s", ec);
     if (success)
-        log("contents = %s", base::format_enc<wchar_t>(locale, "%s", base::quoted(std::wstring_view(buffer.data(), n))));
+        log("contents = %s", base::format_enc<wchar_t>(test_context.get_locale(), "%s", base::quoted(std::wstring_view(buffer.data(), n))));
 
-    log("------ revert ------");
-    success = text_file_impl.revert(5, ec);
+    log("------ advance_and_discard ------");
+    success = text_file_impl.advance_and_discard(5, ec);
     log(" success = %s", success);
     log("      ec = %s", ec);
 
@@ -2096,7 +2568,160 @@ ARCHON_TEST(Base_TextFileImpl_Windows)
     log("       n = %s", n);
     log("      ec = %s", ec);
     if (success)
-        log("contents = %s", base::format_enc<wchar_t>(locale, "%s", base::quoted(std::wstring_view(buffer.data(), n))));
+        log("contents = %s", base::format_enc<wchar_t>(test_context.get_locale(), "%s", base::quoted(std::wstring_view(buffer.data(), n))));
 
     // FIXME: Also check dynamic_eof   
+}
+
+
+
+
+
+// ============================================================================================ test_text_file.hpp ============================================================================================
+
+
+ARCHON_TEST(Base_TextFile_PosixRead)
+{
+    // FIXME: Do this for both narrow and wide character types  
+
+    ARCHON_TEST_FILE(path);
+    {
+        base::File file(path, base::File::Mode::write);
+        file.write(std::string_view("foo\r\nbar\r\nbaz\r\n"));
+    }
+    base::TextFileConfig config;
+    config.locale = test_context.get_locale();
+    config.char_codec_buffer_size = 3;
+    base::WidePosixTextFile text_file(path, base::File::Mode::read, std::move(config));
+    std::array<wchar_t, 64> buffer;
+    std::size_t n = text_file.read(buffer);
+    ARCHON_CHECK_EQUAL(std::wstring_view(buffer.data(), n), L"foo\r\nbar\r\nbaz\r\n");
+}
+
+
+ARCHON_TEST(Base_TextFile_PosixWriteAndFlush)
+{
+    // FIXME: Do this for both narrow and wide character types  
+
+    ARCHON_TEST_FILE(path);
+    {
+        base::TextFileConfig config;
+        config.locale = test_context.get_locale();
+        config.char_codec_buffer_size = 3;
+        base::WidePosixTextFile text_file(path, base::File::Mode::write, std::move(config));
+        text_file.write(std::wstring_view(L"foo\nbar\nbaz\n"));
+        text_file.flush();
+    }
+    base::File file(path);
+    std::array<char, 64> buffer;
+    std::size_t n = file.read(buffer);
+    ARCHON_CHECK_EQUAL(std::string_view(buffer.data(), n), "foo\nbar\nbaz\n");
+}
+
+
+ARCHON_TEST(Base_TextFile_PosixTellAndSeek)
+{
+    // FIXME: Do this for both narrow and wide character types  
+
+    // Write using base::File                                                
+
+    ARCHON_TEST_FILE(path);
+    base::TextFileConfig config;
+    config.locale = test_context.get_locale();
+    config.char_codec_buffer_size = 3;
+    base::WidePosixTextFile text_file(path, base::File::Mode::write, std::move(config));
+    using pos_type = decltype(text_file)::pos_type;
+    ARCHON_CHECK_EQUAL(text_file.tell(), pos_type(0));
+    text_file.write(std::wstring_view(L"foo\nbar"));
+    pos_type pos = text_file.tell();
+    ARCHON_CHECK_EQUAL(text_file.tell(), pos);
+    ARCHON_CHECK_EQUAL(pos, pos_type(7));
+    text_file.write(std::wstring_view(L"\nbaz\n"));
+    ARCHON_CHECK_EQUAL(text_file.tell(), pos_type(12));
+    text_file.seek(pos);
+    ARCHON_CHECK_EQUAL(text_file.tell(), pos);
+    text_file.seek(0);
+    ARCHON_CHECK_EQUAL(text_file.tell(), pos_type(0));
+    text_file.seek(pos);
+    ARCHON_CHECK_EQUAL(text_file.tell(), pos);
+    text_file.seek(0);
+    text_file.seek(pos);
+    std::array<wchar_t, 64> buffer;
+    std::size_t n = text_file.read(buffer);
+    ARCHON_CHECK_EQUAL(std::wstring_view(buffer.data(), n), L"\nbaz\n");
+}
+
+
+ARCHON_TEST(Base_TextFile_WindowsRead)
+{
+    // FIXME: Do this for both narrow and wide character types  
+
+    ARCHON_TEST_FILE(path);
+    {
+        base::File file(path, base::File::Mode::write);
+        file.write(std::string_view("foo\r\nbar\r\nbaz\r\n"));
+    }
+    base::TextFileConfig config;
+    config.locale = test_context.get_locale();
+    config.char_codec_buffer_size = 3;
+    config.newline_codec_buffer_size = 3;
+    base::WideWindowsTextFile text_file(path, base::File::Mode::read, std::move(config));
+    std::array<wchar_t, 64> buffer;
+    std::size_t n = text_file.read(buffer);
+    ARCHON_CHECK_EQUAL(std::wstring_view(buffer.data(), n), L"foo\nbar\nbaz\n");
+}
+
+
+ARCHON_TEST(Base_TextFile_WindowsWriteAndFlush)
+{
+    // FIXME: Do this for both narrow and wide character types  
+
+    ARCHON_TEST_FILE(path);
+    {
+        base::TextFileConfig config;
+        config.locale = test_context.get_locale();
+        config.char_codec_buffer_size = 3;
+        config.newline_codec_buffer_size = 3;
+        base::WideWindowsTextFile text_file(path, base::File::Mode::write, std::move(config));
+        text_file.write(std::wstring_view(L"foo\nbar\nbaz\n"));
+        text_file.flush();
+    }
+    base::File file(path);
+    std::array<char, 64> buffer;
+    std::size_t n = file.read(buffer);
+    ARCHON_CHECK_EQUAL(std::string_view(buffer.data(), n), "foo\r\nbar\r\nbaz\r\n");
+}
+
+
+ARCHON_TEST(Base_TextFile_WindowsTellAndSeek)
+{
+    // FIXME: Do this for both narrow and wide character types  
+
+    // Write using base::File                                                
+
+    ARCHON_TEST_FILE(path);
+    base::TextFileConfig config;
+    config.locale = test_context.get_locale();
+    config.char_codec_buffer_size = 3;
+    config.newline_codec_buffer_size = 3;
+    base::WideWindowsTextFile text_file(path, base::File::Mode::write, std::move(config));
+    using pos_type = decltype(text_file)::pos_type;
+    ARCHON_CHECK_EQUAL(text_file.tell(), pos_type(0));
+    text_file.write(std::wstring_view(L"foo\nbar"));
+    pos_type pos = text_file.tell();
+    ARCHON_CHECK_EQUAL(text_file.tell(), pos);
+    ARCHON_CHECK_EQUAL(pos, pos_type(8));
+    text_file.write(std::wstring_view(L"\nbaz\n"));
+    ARCHON_CHECK_EQUAL(text_file.tell(), pos_type(15));
+    text_file.seek(pos);
+    ARCHON_CHECK_EQUAL(text_file.tell(), pos);
+    text_file.seek(0);
+    ARCHON_CHECK_EQUAL(text_file.tell(), pos_type(0));
+    text_file.seek(pos);
+    ARCHON_CHECK_EQUAL(text_file.tell(), pos);
+    text_file.seek(0);
+    text_file.seek(pos);
+    std::array<wchar_t, 64> buffer;
+    std::size_t n = text_file.read(buffer);
+    ARCHON_CHECK_EQUAL(std::wstring_view(buffer.data(), n), L"\nbaz\n");
 }
