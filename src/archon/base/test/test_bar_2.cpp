@@ -11,17 +11,9 @@
 
 
 
-// General rule: read_some() will only block if there is nothing more that can be read at any level without blocking.    
-
-
-
-// Generic rule for non-primitive impl: Must be in reading mode if the subfile is in reading mode.
-// Generic rule for non-primitive impl: Must be in writing mode if the subfile is in writing mode.
-
-
-
 // Next:
 
+// - Introduce new error codes for invalid multi-byte character, and for invalid wide character at level of TextFileImpl.                    
 // - Degenerate specialization of BasicTextFileImpl when char type is `char`.
 // - NO: Hideaway Impl in detail namespace.
 // - Tend to load and save --> there should probably not be a load_and_chomp on base::File.
@@ -30,30 +22,23 @@
 
 
 
-// BasicPrimTextFile will probably end up being completely redundant, as it will be effecively identidcal to BasicTextFile using `char` as character type.
+// General rule: read_some() will only block if there is nothing more that can be read at any level without blocking.
 
+
+// Generic rule for non-primitive impl: Must be in reading mode if the subfile is in reading mode.
+// Generic rule for non-primitive impl: Must be in writing mode if the subfile is in writing mode.
+
+
+// BasicPrimTextFile will probably end up being completely redundant, as it will be effecively identidcal to BasicTextFile using `char` as character type.
 
 
 // Consider adding constructor to BasicTextFile::BasicTextFile(base::File&, std::mbstate_t initial_state = {})
 
 
-
 // Consider adding `write(const C* c_str)` and `try_write(const C* c_str, ...)` overloads to non-impl test files.
 
 
-
-
-
-
-
-
-
-
-
 // Max possible file size seems to be 17592186040320 on my Linux box (11111111111111111111111111111111000000000000 in binary) (44 bits) (~16TiB)
-
-
-
 
 
 /*
@@ -96,17 +81,16 @@ change
 // Consider: NO: Put Impl in detail namespace and source files in impl (or detail) subdir
 
 
-// Consider: BufferedFile, (NO) BasicBufferedPrimTextFile, (NO) BasicBufferedTextFile ---> But yes to buffered implementation
-
-
-// FIXME: Introduce new error codes for invalid multi-byte character, and for invalid wide character at level of TextFileImpl.                    
+// Consider: BufferedFile for binary stuff
 
 
 
 
 
 
-// Consider introducing BasicTextFile<C, T, F>, and then build BasicTextFileStreambuf<C, T, F> on top of it. Here F is the underlying file type, which is base::PrimTextFile by default. base::PrimTextFile is an alias for base::PrimPosixTextFile on POSIX, and an alias for base::PrimWindowsTextFile on Windows. base::PrimWindowsTextFile is buffered. base::PrimPosixTextFile is unbuffered.                                 
+
+
+// This started the whole thing: Consider introducing BasicTextFile<C, T, F>, and then build BasicTextFileStreambuf<C, T, F> on top of it. Here F is the underlying file type, which is base::PrimTextFile by default. base::PrimTextFile is an alias for base::PrimPosixTextFile on POSIX, and an alias for base::PrimWindowsTextFile on Windows. base::PrimWindowsTextFile is buffered. base::PrimPosixTextFile is unbuffered.                                 
 
 
 
