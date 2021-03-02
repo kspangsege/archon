@@ -28,6 +28,7 @@
 
 #include <archon/unit_test/test_context.hpp>
 #include <archon/unit_test/test_macros.hpp>
+#include <archon/unit_test/test_batch_macros.hpp>
 #include <archon/unit_test/check_macros.hpp>
 #include <archon/unit_test/test_path.hpp>
 #include <archon/unit_test/test_trail.hpp>

@@ -101,7 +101,7 @@ bool unit_test::run(TestConfig config)
     if (config.num_repetitions < 0)
         throw std::runtime_error("Bad number of repetitions");
 
-    // Filter, check for name clashes, and map file paths
+    // Map file paths, and check for name clashes, and filter tests
     const TestList& test_list =
         (config.test_list ? *config.test_list : TestList::get_default_list());
     using Test = detail::RootContextImpl::Test;
@@ -112,20 +112,29 @@ bool unit_test::run(TestConfig config)
     {
         std::map<std::string_view, const TestList::Entry*> map;
         for (const TestList::Entry& entry : test_list) {
+            std::string_view mapped_file_path;
+            {
+                std::string_view path_1 = entry.details.location.file_path;
+                auto p = mapped_file_paths.emplace(path_1, std::string()); // Throws
+                bool was_inserted = p.second;
+                if (was_inserted) {
+                    fs::path path_2 = base::make_fs_path_auto(path_1, config.locale); // Throws
+                    if (config.source_path_mapper)
+                        config.source_path_mapper->map(path_2); // Throws
+                    p.first->second = base::path_to_string_native(path_2, config.locale); // Throws
+                }
+                mapped_file_path = p.first->second;
+            }
             {
                 auto p = map.emplace(entry.details.name, &entry); // Throws
                 bool was_inserted = p.second;
                 if (ARCHON_UNLIKELY(!was_inserted)) {
-                    const TestList::Entry& first = *p.first->second;
-                    fs::path path_1 = base::make_fs_path_auto(first.details.location.file_path,
-                                                              config.locale); // Throws
-                    fs::path path_2 = base::make_fs_path_auto(entry.details.location.file_path,
-                                                              config.locale); // Throws
-                    if (config.source_path_mapper) {
-                        config.source_path_mapper->map(path_1); // Throws
-                        config.source_path_mapper->map(path_2); // Throws
-                    }
-                    long line_1 = first.details.location.line_number;
+                    const TestList::Entry& other = *p.first->second;
+                    auto i = mapped_file_paths.find(other.details.location.file_path);
+                    ARCHON_ASSERT(i != mapped_file_paths.end());
+                    std::string_view path_1 = i->second;
+                    std::string_view path_2 = mapped_file_path;
+                    long line_1 = other.details.location.line_number;
                     long line_2 = entry.details.location.line_number;
                     std::string message =
                         base::format(config.locale, "Multiple unit tests with name `%s` (`%s:%s` "
@@ -142,19 +151,6 @@ bool unit_test::run(TestConfig config)
             ++num_enabled;
             if (config.filter && !config.filter->include(entry.details))
                 continue;
-            std::string_view mapped_file_path;
-            {
-                std::string_view path_1 = entry.details.location.file_path;
-                auto p = mapped_file_paths.emplace(path_1, std::string()); // Throws
-                bool was_inserted = p.second;
-                if (was_inserted) {
-                    fs::path path_2 = base::make_fs_path_auto(path_1, config.locale); // Throws
-                    if (config.source_path_mapper)
-                        config.source_path_mapper->map(path_2); // Throws
-                    p.first->second = base::path_to_string_native(path_2, config.locale); // Throws
-                }
-                mapped_file_path = p.first->second;
-            }
             included_tests.push_back({ &entry, mapped_file_path }); // Throws
         }
     }

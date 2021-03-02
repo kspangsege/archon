@@ -4,4 +4,5 @@
          (fill-column . 80)
          (c-file-style . "ellemtel")
          (c-file-offsets . ((innamespace . 0) (inlambda . 0)))
+	 (c-noise-macro-names . "constexpr")
          (show-trailing-whitespace . t))))

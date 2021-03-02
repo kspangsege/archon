@@ -28,13 +28,16 @@
 
 #include <string_view>
 
+#include <archon/base/features.h>
 #include <archon/unit_test/test_list.hpp>
 
 
 /// \brief Define and register a unit test.
 ///
 /// This macro is a shorthard for defining a function and registering it as a
-/// unit test (\ref archon::unit_test::TestList::add()).
+/// unit test (\ref archon::unit_test::TestList::add()). See also \ref
+/// ARCHON_TEST_BATCH() for a way to easily define and register an entire batch
+/// of similar unit tests.
 ///
 /// For example, a unit test named `Foo` can be defined and registered like
 /// this:
@@ -48,10 +51,14 @@
 ///       log("<%s|%s>", a, b);
 ///   }
 ///
+///   int main()
+///   {
+///       archon::unit_test::run();
+///   }
+///
 /// \endcode
 ///
-/// This is equivalent to the following, where `line_number` is assumed to be
-/// the line number of `foo()`:
+/// This is roughly equivalent to the following:
 ///
 /// \code{.cpp}
 ///
@@ -64,8 +71,9 @@
 ///
 ///   int main()
 ///   {
-///       archon::unit_test::TestList::get_default_list().add("Foo", __FILE__, line_number, &foo);
-///       // ...
+///       auto& list = archon::unit_test::TestList::get_default_list();
+///       list.add("Foo", __FILE__, __LINE__, &foo);
+///       archon::unit_test::run();
 ///   }
 ///
 /// \endcode
@@ -90,7 +98,8 @@
 /// The log level limit that applies when logging from inside unit tests is
 /// determined by \ref archon::unit_test::TestConfig::inner_log_level_limit.
 ///
-/// It is an error to register two tests with the same name in the same list.
+/// It is an error to register two tests with the same name in the same
+/// list. Doing so will cause an exception to be thrown by \ref run().
 ///
 /// All files created by, or on behalf of unit tests should be managed by a test
 /// file guards. Among other things, this ensures that they will be deleted when
@@ -98,8 +107,9 @@
 /// details.
 ///
 /// \sa \ref ARCHON_TEST_IF()
-/// \sa \ref ARCHON_NONCONCURRENT_TEST()
+/// \sa \ref ARCHON_NONCONC_TEST()
 /// \sa \ref ARCHON_TEST_EX()
+/// \sa \ref run()
 ///
 #define ARCHON_TEST(name)                       \
     ARCHON_TEST_IF(name, true)
@@ -115,7 +125,7 @@
 /// condition on global variables which can then be adjusted before calling \ref
 /// archon::unit_test::TestList::run().
 ///
-/// \sa \ref ARCHON_NONCONCURRENT_TEST_IF()
+/// \sa \ref ARCHON_NONCONC_TEST_IF()
 ///
 #define ARCHON_TEST_IF(name, enabled)                                   \
     ARCHON_TEST_EX(archon::unit_test::TestList::get_default_list(), name, enabled, true)
@@ -133,10 +143,10 @@
 /// Nonconcurrent tests will always be executed by the thread that calls \ref
 /// archon::unit_test::TestList::run().
 ///
-/// \sa \ref ARCHON_NONCONCURRENT_TEST_IF()
+/// \sa \ref ARCHON_NONCONC_TEST_IF()
 ///
-#define ARCHON_NONCONCURRENT_TEST(name)         \
-    ARCHON_NONCONCURRENT_TEST_IF(name, true)
+#define ARCHON_NONCONC_TEST(name)         \
+    ARCHON_NONCONC_TEST_IF(name, true)
 
 
 /// \brief Define, register, and conditionally enable a nonconcurrent unit test.
@@ -144,13 +154,13 @@
 /// This macro is like \ref ARCHON_TEST() except that it declares the unit test
 /// to be of the "nonconcurrent" type, and that it allows you to control whether
 /// the test will be enabled or disabled at runtime. See \ref ARCHON_TEST_IF()
-/// and \ref ARCHON_NONCONCURRENT_TEST() for details.
+/// and \ref ARCHON_NONCONC_TEST() for details.
 ///
-#define ARCHON_NONCONCURRENT_TEST_IF(name, enabled)                     \
+#define ARCHON_NONCONC_TEST_IF(name, enabled)                     \
     ARCHON_TEST_EX(archon::unit_test::TestList::get_default_list(), name, enabled, false)
 
 
-/// \brief Define and register a unit test.
+/// \brief Define and register a unit test with full control.
 ///
 /// This macro is like \ref ARCHON_TEST() except that it allows you to specify
 /// which list the test is to be added to (\p list), to control whether the test
@@ -162,10 +172,10 @@
 /// not take a \p list argument, add the unit test to the default list, which is
 /// \ref archon::unit_test::TestList::get_default_list().
 ///
-/// \sa \ref ARCHON_TEST_IF() and \ref ARCHON_NONCONCURRENT_TEST().
+/// \sa \ref ARCHON_TEST_IF() and \ref ARCHON_NONCONC_TEST().
 ///
 #define ARCHON_TEST_EX(list, name, enabled, allow_concur)       \
-    X_ARCHON_TEST_EX(list, name, enabled, allow_concur)
+    X_ARCHON_TEST(list, name, enabled, allow_concur)
 
 
 
@@ -177,32 +187,34 @@
 // Implementation
 
 
-#define X_ARCHON_TEST_EX(list, name, enabled, allow_concur)             \
+#define X_ARCHON_TEST(list, name, enabled, allow_concur)                \
+    X_ARCHON_TEST_2(list, name, enabled, allow_concur,                  \
+                    ARCHON_CONCAT_4(Archon_UnitTest_, __LINE__, _, name), \
+                    ARCHON_CONCAT_4(archon_unit_test_reg_, __LINE__, _, name))
+
+
+#define X_ARCHON_TEST_2(list, name, enabled, allow_concur, cname, vname) \
     namespace {                                                         \
-    class Archon_UnitTest_##name :                                      \
-            public archon::unit_test::detail::TestBase {                \
+    class cname : archon::unit_test::detail::TestBase {                 \
     public:                                                             \
-        static bool test_enabled()                                      \
+        static bool archon_unit_test_enabled()                          \
         {                                                               \
             return bool(enabled);                                       \
         }                                                               \
-        Archon_UnitTest_##name(archon::unit_test::TestContext& c) noexcept : \
-            TestBase(c)                                                 \
-        {                                                               \
-        }                                                               \
-        void test_run();                                                \
+        using archon::unit_test::detail::TestBase::TestBase;            \
+        void archon_unit_test_run();                                    \
     };                                                                  \
-    archon::unit_test::detail::RegisterTest<Archon_UnitTest_##name>     \
-        archon_unit_test_reg_##name(list, #name, __FILE__, __LINE__, allow_concur); \
+    archon::unit_test::detail::RegisterTest<cname>                      \
+    vname(list, #name, __FILE__, __LINE__, allow_concur);               \
     }                                                                   \
-    void Archon_UnitTest_##name::test_run()
+    void cname::archon_unit_test_run()
 
 
 namespace archon::unit_test::detail {
 
 
 class TestBase {
-protected:
+public:
     TestContext& test_context;
 
     template<class... P> void log(const char* message, const P&... params)
@@ -252,19 +264,20 @@ protected:
 };
 
 
-template<class Test> class RegisterTest {
+template<class T> void run_test(TestContext& test_context)
+{
+    T test(test_context);
+    test.archon_unit_test_run(); // Throws
+}
+
+
+template<class T> class RegisterTest {
 public:
     RegisterTest(TestList& list, std::string_view name, const char* file_path, long line_number,
                  bool allow_concur)
     {
-        list.add(name, file_path, line_number, &RegisterTest::run_test,
-                 &Test::test_enabled, allow_concur); // Throws
-    }
-
-    static void run_test(TestContext& test_context)
-    {
-        Test test(test_context);
-        test.test_run(); // Throws
+        list.add(name, file_path, line_number, &run_test<T>, &T::archon_unit_test_enabled,
+                 allow_concur); // Throws
     }
 };
 

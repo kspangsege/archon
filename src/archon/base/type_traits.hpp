@@ -47,6 +47,9 @@ template<class T> struct RemoveOptionalHelper;
 } // namespace detail
 
 
+struct Empty {};
+
+
 template<class T> struct Wrap {
     using type = T;
 };

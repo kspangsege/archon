@@ -36,10 +36,12 @@ namespace archon::unit_test {
 ///
 /// This function executes a number of unit tests. The list of unit tests to
 /// consider for execution is specified via \ref TestConfig::test_list. The
-/// tests that are enabled and match the specified filter (\ref
+/// tests that are enabled, and match the specified filter (\ref
 /// TestConfig::filter) will be executed. When the default configuration is
 /// used, then all the tests in the list returned by \ref
 /// TestList::get_default_list() will be executed.
+///
+/// See \ref ARCHON_TEST() for an example of how to use it.
 ///
 /// \return `true` if all tests succeed, else `false`.
 ///

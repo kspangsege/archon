@@ -35,11 +35,17 @@
 #endif
 
 
-#define ARCHON_STRINGIFY(x) ARCHON_STRINGIFY_2(x)
-#define ARCHON_STRINGIFY_2(x) #x
+#define ARCHON_STRINGIFY(x) ARCHON_STRINGIFY_IMPL(x)
+#define ARCHON_STRINGIFY_IMPL(x) #x
 
-#define ARCHON_CONCAT(x, y) ARCHON_CONCAT_2(x, y)
-#define ARCHON_CONCAT_2(x, y) x ## y
+#define ARCHON_CONCAT(a, b) ARCHON_CONCAT_IMPL(a, b)
+#define ARCHON_CONCAT_IMPL(a, b) a ## b
+
+#define ARCHON_CONCAT_3(a, b, c) ARCHON_CONCAT_3_IMPL(a, b, c)
+#define ARCHON_CONCAT_3_IMPL(a, b, c) a ## b ## c
+
+#define ARCHON_CONCAT_4(a, b, c, d) ARCHON_CONCAT_4_IMPL(a, b, c, d)
+#define ARCHON_CONCAT_4_IMPL(a, b, c, d) a ## b ## c ## d
 
 
 // Debug mode

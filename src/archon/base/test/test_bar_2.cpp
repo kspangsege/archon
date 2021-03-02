@@ -1,10 +1,17 @@
 #include <streambuf>
 #include <iostream>
 
+#include <archon/base/demangle.hpp>
 #include <archon/base/seed_memory_buffer.hpp>
 #include <archon/base/format_enc.hpp>
 #include <archon/base/file.hpp>
 #include <archon/unit_test.hpp>
+
+
+
+
+
+// General rule: read_some() will only block if there is nothing more that can be read at any level without blocking.    
 
 
 
@@ -16,7 +23,8 @@
 // Next:
 
 // - Degenerate specialization of BasicTextFileImpl when char type is `char`.
-// - Hideaway Impl in detail namespace.
+// - NO: Hideaway Impl in detail namespace.
+// - Tend to load and save --> there should probably not be a load_and_chomp on base::File.
 
 
 
@@ -85,10 +93,10 @@ change
 // Consideer: make its such that codec decode only returns true if eof arg is true and conversion is complete (in order to deal with quirks of std::codecvt in libstdc++ and libc++)              
 
 
-// Consider: Put Impl in detail namespace and source files in impl (or detail) subdir
+// Consider: NO: Put Impl in detail namespace and source files in impl (or detail) subdir
 
 
-// Consider: BufferedFile, BasicBufferedPrimTextFile, BasicBufferedTextFile
+// Consider: BufferedFile, (NO) BasicBufferedPrimTextFile, (NO) BasicBufferedTextFile ---> But yes to buffered implementation
 
 
 // FIXME: Introduce new error codes for invalid multi-byte character, and for invalid wide character at level of TextFileImpl.                    
@@ -613,8 +621,10 @@ struct PrimTextFileImplConfig {
 
 class PrimPosixTextFileImpl {
 public:
-    using Config = PrimTextFileImplConfig;
+    using Config   = PrimTextFileImplConfig;
     using pos_type = base::File::offset_type;
+
+    static constexpr bool has_windows_newline_codec = false;
 
     PrimPosixTextFileImpl(base::File&, Config) noexcept;
 
@@ -652,6 +662,8 @@ class PrimWindowsTextFileImpl {
 public:
     using Config   = PrimTextFileImplConfig;
     using pos_type = base::File::offset_type;
+
+    static constexpr bool has_windows_newline_codec = true;
 
     PrimWindowsTextFileImpl(base::File&, Config);
 
@@ -1435,13 +1447,17 @@ namespace archon::base {
 struct TextFileImplConfig;
 
 
-template<class C, class T = std::char_traits<C>, class P = base::PrimTextFileImpl>
-class TextFileImpl {
+template<class C, class T, class P = base::PrimTextFileImpl> class TextFileImpl {
 public:
     using Config = TextFileImplConfig;
-    using char_type   = C;
-    using traits_type = T;
-    using pos_type = typename T::pos_type;
+
+    using char_type      = C;
+    using traits_type    = T;
+    using prim_impl_type = P;
+    using pos_type       = typename T::pos_type;
+
+    static constexpr bool is_buffered = false;
+    static constexpr bool has_windows_newline_codec = prim_impl_type::has_windows_newline_codec;
 
     TextFileImpl(base::File&, Config);
 
@@ -1463,7 +1479,7 @@ public:
     [[nodiscard]] bool seek(pos_type, std::error_code&);
 
 private:
-    P m_prim_impl;
+    prim_impl_type m_prim_impl;
     base::BasicCharCodec<C, T> m_codec;
     base::SeedMemoryBuffer<char> m_buffer;
 
@@ -1673,7 +1689,6 @@ template<class C, class T, class P> inline void TextFileImpl<C, T, P>::advance(s
 #endif
 
     ARCHON_ASSERT(m_begin <= m_curr);
-    ARCHON_ASSERT(m_curr <= m_end);
     base::Span data = base::Span(m_buffer).first(m_curr);
     // The difference between `m_begin` and `data.size()` cannot be greater
     // than the size of `m_buffer`, and the buffer is not allowed to grow larger
@@ -1712,8 +1727,7 @@ template<class C, class T, class P> bool TextFileImpl<C, T, P>::discard(std::err
 }
 
 
-template<class C, class T, class P>
-inline bool TextFileImpl<C, T, P>::flush(std::error_code& ec)
+template<class C, class T, class P> inline bool TextFileImpl<C, T, P>::flush(std::error_code& ec)
 {
 #if ARCHON_DEBUG
     ARCHON_ASSERT(m_retain_size  == 0);
@@ -1722,7 +1736,7 @@ inline bool TextFileImpl<C, T, P>::flush(std::error_code& ec)
     ARCHON_ASSERT(m_offset == 0);
     ARCHON_ASSERT(m_curr   == 0);
     if (ARCHON_LIKELY(shallow_flush(ec) && m_prim_impl.flush(ec))) { // Throws
-        m_state_2 = m_state;
+        m_state_2 = m_state; // Part of transitioning to neutral mode
 #if ARCHON_DEBUG
         m_writing = false;
 #endif
@@ -1742,7 +1756,7 @@ bool TextFileImpl<C, T, P>::tell_read(pos_type& pos, std::error_code& ec)
     ARCHON_ASSERT(m_offset <= m_begin);
     m_prim_impl.advance(std::size_t(m_begin - m_offset)); // Throw
     m_offset = m_begin;
-    typename P::pos_type pos_2 = {};
+    typename prim_impl_type::pos_type pos_2 = {};
     if (ARCHON_LIKELY(m_prim_impl.tell_read(pos_2, ec))) { // Throws
         pos = pos_type(pos_2);
         pos.state(m_state);
@@ -1759,11 +1773,11 @@ bool TextFileImpl<C, T, P>::tell_write(pos_type& pos, std::error_code& ec)
     ARCHON_ASSERT(!m_reading);
 #endif
 
-    typename P::pos_type pos_2 = {};
+    typename prim_impl_type::pos_type pos_2 = {};
     // Take care to not invoke write() on `m_prim_impl` unless there is actually
     // somethig to write. This is necesary to avoid ending up in a situation
-    // where `m_prim_impl` is in writing mode, but this file object is in
-    // neutral mode.
+    // where `m_prim_impl` is in writing mode, but this file implementation
+    // object is in neutral mode.
     bool success = ((m_begin == m_end || shallow_flush(ec)) &&
                     m_prim_impl.tell_write(pos_2, ec)); // Throws
     if (ARCHON_LIKELY(success)) {
@@ -1782,7 +1796,7 @@ inline bool TextFileImpl<C, T, P>::seek(pos_type pos, std::error_code& ec)
     ARCHON_ASSERT(!m_writing);
 #endif
 
-    auto pos_2 = typename P::pos_type(pos);
+    auto pos_2 = typename prim_impl_type::pos_type(pos);
     if (ARCHON_LIKELY(m_prim_impl.seek(pos_2, ec))) { // Throws
         m_state   = pos.state();
         m_state_2 = m_state;
@@ -1850,6 +1864,341 @@ template<class C, class T, class P> inline void TextFileImpl<C, T, P>::expand_bu
 
 
 
+// ============================================================================================ buffered_text_file_impl.hpp ============================================================================================
+
+
+namespace archon::base {
+
+
+template<class C, class T, class I> class BufferedTextFileImpl {
+public:
+    struct Config;
+
+    using char_type    = C;
+    using traits_type  = T;
+    using subimpl_type = I;
+    using pos_type     = typename I::pos_type;
+
+    static constexpr bool is_buffered = true;
+    static constexpr bool has_windows_newline_codec = subimpl_type::has_windows_newline_codec;
+
+    BufferedTextFileImpl(base::File&, Config);
+
+    [[nodiscard]] bool read_ahead(base::Span<C> buffer, bool dynamic_eof, std::size_t& n,
+                                  std::error_code&);
+
+    [[nodiscard]] bool write(base::Span<const C> data, std::size_t& n, std::error_code&);
+
+    void advance() noexcept;
+    void advance(std::size_t n);
+
+    [[nodiscard]] bool discard(std::error_code&);
+
+    [[nodiscard]] bool flush(std::error_code&);
+
+    [[nodiscard]] bool tell_read(pos_type&, std::error_code&);
+    [[nodiscard]] bool tell_write(pos_type&, std::error_code&);
+
+    [[nodiscard]] bool seek(pos_type, std::error_code&);
+
+private:
+    subimpl_type m_subimpl;
+    base::SeedMemoryBuffer<C> m_buffer;
+
+    // Beginning and end of the current contents of the buffer. In neutral mode,
+    // both are zero. In reading mode, `m_begin` corresponds to the logical
+    // read/write position, and `m_end` corresponds to the subimplementation's
+    // read ahead position (`m_subimpl`). In writing mode, `m_end` corresponds
+    // to the logical read/write position, and `m_begin` corresponds to the
+    // subimplementation's logical read/write position.    FIXME: Adopt this explanation CRIT FIX at lower levels (regular and primitive)                                                          
+    std::size_t m_begin = 0;
+    std::size_t m_end   = 0;
+
+    // In neutral mode, and in reading mode, this is the position in the buffer
+    // that corresponds to the subimplementation's logical read/write position
+    // (`m_subimpl`). In writing mode, it has no meaning. It is always zero in
+    // neutral mode, and in writing mode.    FIXME: Adopt this explanation fix at lower levels (regular and primitive)                                                          
+    std::size_t m_offset = 0;
+
+    // In neutral mode, and in reading mode, this is the position in the buffer
+    // that corresponds to the read ahead position. In writing mode, it has no
+    // meaning. It is always zero in neutral mode, and in writing mode.    FIXME: Adopt this explanation fix at lower levels (regular and primitive)                                                          
+    std::size_t m_curr = 0;
+
+#if ARCHON_DEBUG
+    bool m_reading = false;
+    bool m_writing = false;
+#endif
+
+    bool shallow_flush(std::error_code&);
+    void expand_buffer();
+};
+
+
+template<class C, class T, class I> struct BufferedTextFileImpl<C, T, I>::Config :
+        base::TextFileImplConfig {
+    static constexpr std::size_t default_buffer_size = 1024;
+
+    // GENERIC:
+    //
+    // Buffer will be automatically expanded if necessary.              
+    //
+    std::size_t buffer_size = default_buffer_size;
+    base::Span<C> buffer_memory;
+};
+
+
+
+
+
+
+
+
+// Implementation
+
+
+template<class C, class T, class I>
+inline BufferedTextFileImpl<C, T, I>::BufferedTextFileImpl(base::File& file, Config config) :
+    m_subimpl(file, std::move(config)), // Throws
+    m_buffer(config.buffer_memory, config.buffer_size) // Throws
+{
+    // Buffer must not be empty
+    m_buffer.reserve(1); // Throws
+}
+
+
+template<class C, class T, class I>
+bool BufferedTextFileImpl<C, T, I>::read_ahead(base::Span<C> buffer, bool dynamic_eof,
+                                               std::size_t& n, std::error_code& ec)
+{
+#if ARCHON_DEBUG
+    ARCHON_ASSERT(!m_writing);
+    m_reading = true;
+#endif
+
+    if (ARCHON_LIKELY(buffer.size() > 0)) {
+        if (ARCHON_LIKELY(m_curr < m_end)) {
+          copy:
+            std::size_t n_2 = std::min(buffer.size(), std::size_t(m_end - m_curr));
+            std::copy_n(m_buffer.data() + m_curr, n_2, buffer.data());
+            m_curr += n_2;
+            n = n_2;
+            ARCHON_ASSERT(n > 0);
+            return true;
+        }
+        {
+            // Move any retained data to start of buffer
+            ARCHON_ASSERT(m_offset <= m_begin);
+            m_subimpl.advance(std::size_t(m_begin - m_offset)); // Throws
+            C* base = m_buffer.data();
+            std::copy(base + m_begin, base + m_end, base);
+            m_end  -= m_begin;
+            m_curr -= m_begin;
+            m_begin  = 0;
+            m_offset = 0;
+            if (ARCHON_UNLIKELY(m_end == m_buffer.size()))
+                expand_buffer(); // Throws
+            std::size_t n_2 = 0;
+            base::Span buffer_2 = base::Span(m_buffer).subspan(m_end);
+            if (ARCHON_LIKELY(m_subimpl.read_ahead(buffer_2, dynamic_eof, n_2, ec))) { // Throws
+                if (ARCHON_LIKELY(n_2 > 0)) {
+                    m_end += n_2;
+                    goto copy;
+                }
+                // Signal end of file
+            }
+        }
+    }
+    n = 0;
+    return true;
+}
+
+
+template<class C, class T, class I>
+bool BufferedTextFileImpl<C, T, I>::write(base::Span<const C> data, std::size_t& n,
+                                          std::error_code& ec)
+{
+#if ARCHON_DEBUG
+    ARCHON_ASSERT(!m_reading);
+    m_writing = true;
+#endif
+
+    const C* i     = data.data();
+    const C* i_end = i + data.size();
+
+    ARCHON_ASSERT(m_buffer.size() > 0);
+    C* base  = m_buffer.data();
+    C* j     = base + m_end;
+    C* j_end = base + m_buffer.size();
+
+    while (ARCHON_LIKELY(i != i_end)) {
+        if (ARCHON_LIKELY(j != j_end)) {
+          resume:
+            *j++ = *i++;
+            continue;
+        }
+        goto flush;
+    }
+    m_end = std::size_t(j - base);
+    n = data.size();
+    return true;
+
+  flush:
+    m_end = std::size_t(j - base);
+    if (ARCHON_LIKELY(shallow_flush(ec))) { // Throws
+        ARCHON_ASSERT(m_end == 0);
+        j = m_buffer.data();
+        goto resume;
+    }
+    n = std::size_t(i - data.data());
+    return false;
+}
+
+
+template<class C, class T, class I> inline void BufferedTextFileImpl<C, T, I>::advance() noexcept
+{
+#if ARCHON_DEBUG
+    ARCHON_ASSERT(!m_writing);
+#endif
+
+    ARCHON_ASSERT(m_begin <= m_curr);
+    m_begin = m_curr;
+}
+
+
+template<class C, class T, class I>
+inline void BufferedTextFileImpl<C, T, I>::advance(std::size_t n)
+{
+#if ARCHON_DEBUG
+    ARCHON_ASSERT(!m_writing);
+#endif
+
+    ARCHON_ASSERT(m_begin <= m_curr);
+    ARCHON_ASSERT(n <= std::size_t(m_curr - m_begin));
+    m_begin += n;
+}
+
+
+template<class C, class T, class I>
+bool BufferedTextFileImpl<C, T, I>::discard(std::error_code& ec)
+{
+#if ARCHON_DEBUG
+    ARCHON_ASSERT(!m_writing);
+#endif
+
+    ARCHON_ASSERT(m_offset <= m_begin);
+    std::size_t n = std::size_t(m_begin - m_offset);
+    m_subimpl.advance(n);
+    m_offset = m_begin;
+    if (ARCHON_LIKELY(m_subimpl.discard(ec))) { // Throws
+        m_begin   = 0;
+        m_end     = 0;
+        m_offset  = 0;
+        m_curr    = 0;
+#if ARCHON_DEBUG
+        m_reading = false;
+#endif
+        return true;
+    }
+    return false;
+}
+
+
+template<class C, class T, class I>
+inline bool BufferedTextFileImpl<C, T, I>::flush(std::error_code& ec)
+{
+    ARCHON_ASSERT(m_offset == 0);
+    ARCHON_ASSERT(m_curr   == 0);
+    if (ARCHON_LIKELY(shallow_flush(ec) && m_subimpl.flush(ec))) { // Throws
+#if ARCHON_DEBUG
+        m_writing = false;
+#endif
+        return true;
+    }
+    return false;
+}
+
+
+template<class C, class T, class I>
+bool BufferedTextFileImpl<C, T, I>::tell_read(pos_type& pos, std::error_code& ec)
+{
+#if ARCHON_DEBUG
+    ARCHON_ASSERT(!m_writing);
+#endif
+
+    ARCHON_ASSERT(m_offset <= m_begin);
+    m_subimpl.advance(std::size_t(m_begin - m_offset)); // Throw
+    m_offset = m_begin;
+    return m_subimpl.tell_read(pos, ec); // Throws
+}
+
+
+template<class C, class T, class I>
+bool BufferedTextFileImpl<C, T, I>::tell_write(pos_type& pos, std::error_code& ec)
+{
+#if ARCHON_DEBUG
+    ARCHON_ASSERT(!m_reading);
+#endif
+
+    // Take care to not invoke write() on `m_subimpl` unless there is actually
+    // somethig to write. This is necesary to avoid ending up in a situation
+    // where `m_subimpl` is in writing mode, but this file implementation object
+    // is in neutral mode.
+    return ((m_begin == m_end || shallow_flush(ec)) && m_subimpl.tell_write(pos, ec)); // Throws
+}
+
+
+template<class C, class T, class I>
+inline bool BufferedTextFileImpl<C, T, I>::seek(pos_type pos, std::error_code& ec)
+{
+#if ARCHON_DEBUG
+    ARCHON_ASSERT(!m_writing);
+#endif
+
+    if (ARCHON_LIKELY(m_subimpl.seek(pos, ec))) { // Throws
+        m_begin   = 0;
+        m_end     = 0;
+        m_offset  = 0;
+        m_curr    = 0;
+#if ARCHON_DEBUG
+        m_reading = false;
+#endif
+        return true;
+    }
+    return false;
+}
+
+
+template<class C, class T, class I> bool BufferedTextFileImpl<C, T, I>::shallow_flush(std::error_code& ec)
+{
+#if ARCHON_DEBUG
+    ARCHON_ASSERT(!m_reading);
+#endif
+
+    ARCHON_ASSERT(m_begin <= m_end);
+    base::Span data = base::Span(m_buffer).first(m_end).subspan(m_begin);
+    std::size_t n = 0;
+    if (ARCHON_LIKELY(m_subimpl.write(data, n, ec))) { // Throws
+        m_begin = 0;
+        m_end   = 0;
+        return true;
+    }
+    m_begin += n;
+    return false;
+}
+
+
+template<class C, class T, class I> inline void BufferedTextFileImpl<C, T, I>::expand_buffer()
+{
+    m_buffer.expand(1, m_end); // Throws
+}
+
+
+} // namespace archon::base
+
+
+
+
 
 // ============================================================================================ text_file.hpp ============================================================================================
 
@@ -1857,15 +2206,18 @@ template<class C, class T, class P> inline void TextFileImpl<C, T, P>::expand_bu
 namespace archon::base {
 
 
-struct TextFileConfig;
 
 
 template<class C, class T = std::char_traits<C>, class I = base::TextFileImpl<C, T>>
 class BasicTextFile {
 public:
-    using Config   = TextFileConfig;
-    using Mode     = base::File::Mode;
-    using pos_type = typename T::pos_type;
+    struct Config;
+
+    using char_type   = C;
+    using traits_type = T;
+    using impl_type   = I;
+    using pos_type    = typename T::pos_type;
+    using Mode        = base::File::Mode;
 
     BasicTextFile(base::FilesystemPathRef, Mode = Mode::read);
     BasicTextFile(base::FilesystemPathRef, Mode, Config);
@@ -1896,7 +2248,7 @@ public:
 
 private:
     base::File m_file;
-    I m_impl;
+    impl_type m_impl;
     bool m_dynamic_eof;
     bool m_reading = false;
     bool m_writing = false;
@@ -1913,6 +2265,15 @@ using BasicPosixTextFile = BasicTextFile<C, T, base::PosixTextFileImpl<C, T>>;
 template<class C, class T = std::char_traits<C>>
 using BasicWindowsTextFile = BasicTextFile<C, T, base::WindowsTextFileImpl<C, T>>;
 
+template<class C, class T = std::char_traits<C>, class I = base::TextFileImpl<C, T>>
+using BasicBufferedTextFile = BasicTextFile<C, T, base::BufferedTextFileImpl<C, T, I>>;
+
+template<class C, class T = std::char_traits<C>>
+using BasicBufferedPosixTextFile = BasicBufferedTextFile<C, T, base::PosixTextFileImpl<C, T>>;
+
+template<class C, class T = std::char_traits<C>>
+using BasicBufferedWindowsTextFile = BasicBufferedTextFile<C, T, base::WindowsTextFileImpl<C, T>>;
+
 
 using TextFile        = BasicTextFile<char>;
 using PosixTextFile   = BasicPosixTextFile<char>;
@@ -1922,10 +2283,20 @@ using WideTextFile        = BasicTextFile<wchar_t>;
 using WidePosixTextFile   = BasicPosixTextFile<wchar_t>;
 using WideWindowsTextFile = BasicWindowsTextFile<wchar_t>;
 
+using BufferedTextFile        = BasicBufferedTextFile<char>;
+using BufferedPosixTextFile   = BasicBufferedPosixTextFile<char>;
+using BufferedWindowsTextFile = BasicBufferedWindowsTextFile<char>;
 
-struct TextFileConfig : public base::TextFileImplConfig {
+using WideBufferedTextFile        = BasicBufferedTextFile<wchar_t>;
+using WideBufferedPosixTextFile   = BasicBufferedPosixTextFile<wchar_t>;
+using WideBufferedWindowsTextFile = BasicBufferedWindowsTextFile<wchar_t>;
+
+
+template<class C, class T, class I> struct BasicTextFile<C, T, I>::Config :
+        public I::Config {
     bool dynamic_eof = false;
 };
+
 
 
 
@@ -2155,7 +2526,7 @@ using namespace archon;
 
 
 
-// ============================================================================================ test_prim_text_file_impl.hpp ============================================================================================
+// ============================================================================================ test_prim_text_file_impl.cpp ============================================================================================
 
 
 ARCHON_TEST(Base_PrimTextFileImpl_Windows)
@@ -2236,7 +2607,7 @@ ARCHON_TEST(Base_PrimTextFileImpl_Windows)
 
 
 
-// ============================================================================================ test_prim_text_file.hpp ============================================================================================
+// ============================================================================================ test_prim_text_file.cpp ============================================================================================
 
 
 ARCHON_TEST(Base_PrimTextFile_PosixRead)
@@ -2328,8 +2699,6 @@ ARCHON_TEST(Base_PrimTextFile_WindowsWriteAndFlush)
 
 ARCHON_TEST(Base_PrimTextFile_WindowsTellAndSeek)
 {
-    // Write using base::File                                                
-
     ARCHON_TEST_FILE(path);
     base::PrimWindowsTextFile text_file(path, base::File::Mode::write);
     ARCHON_CHECK_EQUAL(text_file.tell(), 0);
@@ -2404,7 +2773,7 @@ ARCHON_TEST(Base_PrimTextFile_WindowsFoo)
 
 
 
-// ============================================================================================ test_text_file_impl.hpp ============================================================================================
+// ============================================================================================ test_text_file_impl.cpp ============================================================================================
 
 
 ARCHON_TEST(Base_TextFileImpl_Windows)
@@ -2489,142 +2858,127 @@ ARCHON_TEST(Base_TextFileImpl_Windows)
 
 
 
-// ============================================================================================ test_text_file.hpp ============================================================================================
+// ============================================================================================ test_text_file.cpp ============================================================================================
 
 
-ARCHON_TEST(Base_TextFile_PosixRead)
+/*                                                                                                         
+ARCHON_TEST_VARIANTS(variants,
+                     ARCHON_TEST_TYPE(base::PosixTextFile,               Posix),
+                     ARCHON_TEST_TYPE(base::WindowsTextFile,             Windows),
+                     ARCHON_TEST_TYPE(base::WidePosixTextFile,           WidePosix),
+                     ARCHON_TEST_TYPE(base::WideWindowsTextFile,         WideWindows),
+                     ARCHON_TEST_TYPE(base::BufferedPosixTextFile,       BufferedPosix),
+                     ARCHON_TEST_TYPE(base::BufferedWindowsTextFile,     BufferedWindows),
+                     ARCHON_TEST_TYPE(base::WideBufferedPosixTextFile,   WideBufferedPosix),
+                     ARCHON_TEST_TYPE(base::WideBufferedWindowsTextFile, WideBufferedWindows));
+*/
+
+
+ARCHON_TEST_VARIANTS(variants,
+                     ARCHON_TEST_TYPE(base::WidePosixTextFile,           WidePosix),
+                     ARCHON_TEST_TYPE(base::WideWindowsTextFile,         WideWindows),
+                     ARCHON_TEST_TYPE(base::WideBufferedPosixTextFile,   WideBufferedPosix),
+                     ARCHON_TEST_TYPE(base::WideBufferedWindowsTextFile, WideBufferedWindows));
+
+
+ARCHON_TEST_BATCH(Base_TextFile_Read, variants)
 {
-    // FIXME: Do this for both narrow and wide character types  
-
     ARCHON_TEST_FILE(path);
     {
         base::File file(path, base::File::Mode::write);
         file.write(std::string_view("foo\r\nbar\r\nbaz\r\n"));
     }
-    base::TextFileConfig config;
-    config.locale = test_context.get_locale();
-    config.char_codec_buffer_size = 3;
-    base::WidePosixTextFile text_file(path, base::File::Mode::read, std::move(config));
-    std::array<wchar_t, 64> buffer;
-    std::size_t n = text_file.read(buffer);
-    ARCHON_CHECK_EQUAL(std::wstring_view(buffer.data(), n), L"foo\r\nbar\r\nbaz\r\n");
-}
-
-
-ARCHON_TEST(Base_TextFile_PosixWriteAndFlush)
-{
-    // FIXME: Do this for both narrow and wide character types  
-
-    ARCHON_TEST_FILE(path);
-    {
-        base::TextFileConfig config;
-        config.locale = test_context.get_locale();
-        config.char_codec_buffer_size = 3;
-        base::WidePosixTextFile text_file(path, base::File::Mode::write, std::move(config));
-        text_file.write(std::wstring_view(L"foo\nbar\nbaz\n"));
-        text_file.flush();
-    }
-    base::File file(path);
-    std::array<char, 64> buffer;
-    std::size_t n = file.read(buffer);
-    ARCHON_CHECK_EQUAL(std::string_view(buffer.data(), n), "foo\nbar\nbaz\n");
-}
-
-
-ARCHON_TEST(Base_TextFile_PosixTellAndSeek)
-{
-    // FIXME: Do this for both narrow and wide character types  
-
-    // Write using base::File                                                
-
-    ARCHON_TEST_FILE(path);
-    base::TextFileConfig config;
-    config.locale = test_context.get_locale();
-    config.char_codec_buffer_size = 3;
-    base::WidePosixTextFile text_file(path, base::File::Mode::write, std::move(config));
-    using pos_type = decltype(text_file)::pos_type;
-    ARCHON_CHECK_EQUAL(text_file.tell(), pos_type(0));
-    text_file.write(std::wstring_view(L"foo\nbar"));
-    pos_type pos = text_file.tell();
-    ARCHON_CHECK_EQUAL(text_file.tell(), pos);
-    ARCHON_CHECK_EQUAL(pos, pos_type(7));
-    text_file.write(std::wstring_view(L"\nbaz\n"));
-    ARCHON_CHECK_EQUAL(text_file.tell(), pos_type(12));
-    text_file.seek(pos);
-    ARCHON_CHECK_EQUAL(text_file.tell(), pos);
-    text_file.seek(0);
-    ARCHON_CHECK_EQUAL(text_file.tell(), pos_type(0));
-    text_file.seek(pos);
-    ARCHON_CHECK_EQUAL(text_file.tell(), pos);
-    text_file.seek(0);
-    text_file.seek(pos);
-    std::array<wchar_t, 64> buffer;
-    std::size_t n = text_file.read(buffer);
-    ARCHON_CHECK_EQUAL(std::wstring_view(buffer.data(), n), L"\nbaz\n");
-}
-
-
-ARCHON_TEST(Base_TextFile_WindowsRead)
-{
-    // FIXME: Do this for both narrow and wide character types  
-
-    ARCHON_TEST_FILE(path);
-    {
-        base::File file(path, base::File::Mode::write);
-        file.write(std::string_view("foo\r\nbar\r\nbaz\r\n"));
-    }
-    base::TextFileConfig config;
-    config.locale = test_context.get_locale();
+    const std::locale& locale = test_context.get_locale();
+    using text_file_type = test_type;
+    using char_type = typename text_file_type::char_type;
+    using string_view_type = std::basic_string_view<char_type>;
+    typename text_file_type::Config config;
+    config.locale = locale;
     config.char_codec_buffer_size = 3;
     config.newline_codec_buffer_size = 3;
-    base::WideWindowsTextFile text_file(path, base::File::Mode::read, std::move(config));
-    std::array<wchar_t, 64> buffer;
+    if constexpr (text_file_type::impl_type::is_buffered)
+        config.buffer_size = 3;
+    text_file_type text_file(path, base::File::Mode::read, std::move(config));
+    std::array<char_type, 64> buffer;
     std::size_t n = text_file.read(buffer);
-    ARCHON_CHECK_EQUAL(std::wstring_view(buffer.data(), n), L"foo\nbar\nbaz\n");
+    string_view_type data(buffer.data(), n);
+    std::array<char_type, 64> seed_memory;
+    base::BasicStringWidener<char_type> widener(locale, seed_memory);
+    if constexpr (text_file_type::impl_type::has_windows_newline_codec) {
+        ARCHON_CHECK_EQUAL(data, widener.widen("foo\nbar\nbaz\n"));
+    }
+    else {
+        ARCHON_CHECK_EQUAL(data, widener.widen("foo\r\nbar\r\nbaz\r\n"));
+    }
 }
 
 
-ARCHON_TEST(Base_TextFile_WindowsWriteAndFlush)
+ARCHON_TEST_BATCH(Base_TextFile_WriteAndFlush, variants)
 {
-    // FIXME: Do this for both narrow and wide character types  
-
+    using text_file_type = test_type;
     ARCHON_TEST_FILE(path);
     {
-        base::TextFileConfig config;
-        config.locale = test_context.get_locale();
+        const std::locale& locale = test_context.get_locale();
+        using char_type = typename text_file_type::char_type;
+        typename text_file_type::Config config;
+        config.locale = locale;
         config.char_codec_buffer_size = 3;
         config.newline_codec_buffer_size = 3;
-        base::WideWindowsTextFile text_file(path, base::File::Mode::write, std::move(config));
-        text_file.write(std::wstring_view(L"foo\nbar\nbaz\n"));
+        if constexpr (text_file_type::impl_type::is_buffered)
+            config.buffer_size = 3;
+        text_file_type text_file(path, base::File::Mode::write, std::move(config));
+        std::array<char_type, 64> seed_memory;
+        base::BasicStringWidener<char_type> widener(locale, seed_memory);
+        text_file.write(widener.widen("foo\nbar\nbaz\n"));
         text_file.flush();
     }
     base::File file(path);
     std::array<char, 64> buffer;
     std::size_t n = file.read(buffer);
-    ARCHON_CHECK_EQUAL(std::string_view(buffer.data(), n), "foo\r\nbar\r\nbaz\r\n");
+    std::string_view data(buffer.data(), n);
+    if constexpr (text_file_type::impl_type::has_windows_newline_codec) {
+        ARCHON_CHECK_EQUAL(data, "foo\r\nbar\r\nbaz\r\n");
+    }
+    else {
+        ARCHON_CHECK_EQUAL(data, "foo\nbar\nbaz\n");
+    }
 }
 
 
-ARCHON_TEST(Base_TextFile_WindowsTellAndSeek)
+ARCHON_TEST_BATCH(Base_TextFile_TellAndSeek, variants)
 {
-    // FIXME: Do this for both narrow and wide character types  
-
-    // Write using base::File                                                
-
     ARCHON_TEST_FILE(path);
-    base::TextFileConfig config;
-    config.locale = test_context.get_locale();
+    const std::locale& locale = test_context.get_locale();
+    using text_file_type = test_type;
+    using char_type = typename text_file_type::char_type;
+    using string_view_type = std::basic_string_view<char_type>;
+    typename text_file_type::Config config;
+    config.locale = locale;
     config.char_codec_buffer_size = 3;
     config.newline_codec_buffer_size = 3;
-    base::WideWindowsTextFile text_file(path, base::File::Mode::write, std::move(config));
-    using pos_type = decltype(text_file)::pos_type;
+    if constexpr (text_file_type::impl_type::is_buffered)
+        config.buffer_size = 3;
+    text_file_type text_file(path, base::File::Mode::write, std::move(config));
+    std::array<char_type, 64> seed_memory;
+    base::BasicStringWidener<char_type> widener(locale, seed_memory);
+    using pos_type = typename text_file_type::pos_type;
     ARCHON_CHECK_EQUAL(text_file.tell(), pos_type(0));
-    text_file.write(std::wstring_view(L"foo\nbar"));
+    text_file.write(string_view_type(widener.widen("foo\nbar")));
     pos_type pos = text_file.tell();
     ARCHON_CHECK_EQUAL(text_file.tell(), pos);
-    ARCHON_CHECK_EQUAL(pos, pos_type(8));
-    text_file.write(std::wstring_view(L"\nbaz\n"));
-    ARCHON_CHECK_EQUAL(text_file.tell(), pos_type(15));
+    if constexpr (text_file_type::impl_type::has_windows_newline_codec) {
+        ARCHON_CHECK_EQUAL(pos, pos_type(8));
+    }
+    else {
+        ARCHON_CHECK_EQUAL(pos, pos_type(7));
+    }
+    text_file.write(widener.widen("\nbaz\n"));
+    if constexpr (text_file_type::impl_type::has_windows_newline_codec) {
+        ARCHON_CHECK_EQUAL(text_file.tell(), pos_type(15));
+    }
+    else {
+        ARCHON_CHECK_EQUAL(text_file.tell(), pos_type(12));
+    }
     text_file.seek(pos);
     ARCHON_CHECK_EQUAL(text_file.tell(), pos);
     text_file.seek(0);
@@ -2633,7 +2987,7 @@ ARCHON_TEST(Base_TextFile_WindowsTellAndSeek)
     ARCHON_CHECK_EQUAL(text_file.tell(), pos);
     text_file.seek(0);
     text_file.seek(pos);
-    std::array<wchar_t, 64> buffer;
+    std::array<char_type, 64> buffer;
     std::size_t n = text_file.read(buffer);
-    ARCHON_CHECK_EQUAL(std::wstring_view(buffer.data(), n), L"\nbaz\n");
+    ARCHON_CHECK_EQUAL(string_view_type(buffer.data(), n), widener.widen("\nbaz\n"));
 }
