@@ -61,11 +61,19 @@ public:
 
     /// \brief Register function as unit test.
     ///
-    /// This function registers a function as a unit test. It is called
-    /// automatically when you use the \ref ARCHON_TEST() macro (or one of its
-    /// friends).
+    /// This function registers the specified function (\p func) as a unit
+    /// test. It is called automatically when you use the \ref ARCHON_TEST()
+    /// macro (or one of its friends).
     ///
-    void add(std::string_view name, const char* file_path, long line_number, RunFunc*,
+    /// The caller must ensure that the memory, pointed to by \p name and \p
+    /// file_path, is not destroyed while the test list is still in use. Here,
+    /// "in use" covers any invocation of a member function, other than the
+    /// destructor, as well as any access to contained entries (\ref Entry). It
+    /// is, on the other hand, safe for the memory, pointed to by \p name and \p
+    /// file_path, to be destroyed before the destruction of the list, as long
+    /// as the previously mentioned rule is adhered to.
+    ///
+    void add(std::string_view name, const char* file_path, long line_number, RunFunc* func,
              IsEnabledFunc* = nullptr, bool allow_concur = true);
 
     /// \brief Number of unit tests in list.

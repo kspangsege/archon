@@ -9,12 +9,10 @@
 
 
 
-
-
 // Next:
 
 // - Introduce new error codes for invalid multi-byte character, and for invalid wide character at level of TextFileImpl.                    
-// - Degenerate specialization of BasicTextFileImpl when char type is `char`.
+// - Add BasicTextFileStreambuf<C, T, I> based on unnbuffered impl, but adding its own buffer.
 // - NO: Hideaway Impl in detail namespace.
 // - Tend to load and save --> there should probably not be a load_and_chomp on base::File.
 
@@ -621,7 +619,7 @@ public:
     void advance() noexcept;
     void advance(std::size_t n) noexcept;
 
-    [[nodiscard]] bool discard(std::error_code&) noexcept;
+    [[nodiscard]] bool discard(std::error_code&);
 
     [[nodiscard]] bool flush(std::error_code&) noexcept;
 
@@ -686,7 +684,7 @@ public:
     //
     // Revert read-ahead position, and actual read/write position to coincide with the current logical read/write position.
     //
-    [[nodiscard]] bool discard(std::error_code&) noexcept;
+    [[nodiscard]] bool discard(std::error_code&);
 
     [[nodiscard]] bool flush(std::error_code&) noexcept;
 
@@ -742,30 +740,6 @@ inline PrimPosixTextFileImpl::PrimPosixTextFileImpl(base::File& file, Config) no
 }
 
 
-inline bool PrimPosixTextFileImpl::read_ahead(base::Span<char> buffer, bool, std::size_t& n,
-                                              std::error_code& ec)
-{
-#if ARCHON_DEBUG
-    ARCHON_ASSERT(!m_writing);
-    m_reading = true;
-#endif
-
-    std::size_t buffer_size = buffer.size();
-    std::size_t max = std::size_t(std::numeric_limits<std::size_t>::max() - m_retain_size);
-    if (ARCHON_UNLIKELY(buffer_size > max)) {
-        if (ARCHON_UNLIKELY(max == 0))
-            throw std::length_error("Retain size");
-        buffer_size = max;
-    }
-
-    if (ARCHON_LIKELY(m_file.try_read_some({ buffer.data(), buffer_size }, n, ec))) {
-        m_retain_size += n;
-        return true;
-    }
-    return false;
-}
-
-
 inline bool PrimPosixTextFileImpl::write(base::Span<const char> data, std::size_t& n,
                                          std::error_code& ec) noexcept
 {
@@ -796,27 +770,6 @@ inline void PrimPosixTextFileImpl::advance(std::size_t n) noexcept
 
     ARCHON_ASSERT(n <= m_retain_size);
     m_retain_size -= n;
-}
-
-
-inline bool PrimPosixTextFileImpl::discard(std::error_code& ec) noexcept
-{
-#if ARCHON_DEBUG
-    ARCHON_ASSERT(!m_writing);
-#endif
-
-    std::size_t n = m_retain_size;
-    auto whence = base::File::Whence::cur;
-    pos_type result; // Dummy
-    // FIXME: Assert that value of `n` can be represented in `pos_type` and explain why it must be true (`m_end` cannot be larger than file size ???? )                                        
-    if (ARCHON_LIKELY(n == 0 || m_file.try_seek(-pos_type(n), whence, result, ec))) {
-        m_retain_size = 0;
-#if ARCHON_DEBUG
-        m_reading = false;
-#endif
-        return true;
-    }
-    return false;
 }
 
 
@@ -890,32 +843,6 @@ inline PrimWindowsTextFileImpl::PrimWindowsTextFileImpl(base::File& file, Config
 }
 
 
-inline bool PrimWindowsTextFileImpl::discard(std::error_code& ec) noexcept
-{
-#if ARCHON_DEBUG
-    ARCHON_ASSERT(!m_writing);
-#endif
-
-    ARCHON_ASSERT(m_begin <= m_end);
-    std::size_t n = std::size_t(m_end - m_begin);
-    auto whence = base::File::Whence::cur;
-    pos_type result; // Dummy
-    // FIXME: Assert that value of `n` can be represented in `pos_type` and explain why it must be true (`m_end` cannot be larger than file size ???? )                                        
-    if (ARCHON_LIKELY(n == 0 || m_file.try_seek(-pos_type(n), whence, result, ec))) {
-        m_begin = 0;
-        m_end   = 0;
-        m_curr  = 0;
-        m_retain_size  = 0;
-        m_retain_clear = 0;
-#if ARCHON_DEBUG
-        m_reading = false;
-#endif
-        return true;
-    }
-    return false;
-}
-
-
 inline bool PrimWindowsTextFileImpl::flush(std::error_code& ec) noexcept
 {
     ARCHON_ASSERT(m_curr == 0);
@@ -968,6 +895,60 @@ inline void PrimWindowsTextFileImpl::expand_buffer()
 
 
 namespace archon::base {
+
+
+// ============================ PrimPosixTextFileImpl ============================
+
+
+bool PrimPosixTextFileImpl::read_ahead(base::Span<char> buffer, bool, std::size_t& n,
+                                       std::error_code& ec)
+{
+#if ARCHON_DEBUG
+    ARCHON_ASSERT(!m_writing);
+    m_reading = true;
+#endif
+
+    std::size_t buffer_size = buffer.size();
+    std::size_t max = std::size_t(std::numeric_limits<std::size_t>::max() - m_retain_size);
+    if (ARCHON_UNLIKELY(buffer_size > max)) {
+        if (ARCHON_UNLIKELY(max == 0))
+            throw std::length_error("Retain size");
+        buffer_size = max;
+    }
+
+    if (ARCHON_LIKELY(m_file.try_read_some({ buffer.data(), buffer_size }, n, ec))) {
+        m_retain_size += n;
+        return true;
+    }
+    return false;
+}
+
+
+bool PrimPosixTextFileImpl::discard(std::error_code& ec)
+{
+#if ARCHON_DEBUG
+    ARCHON_ASSERT(!m_writing);
+#endif
+
+    pos_type n = 0;
+    if (ARCHON_LIKELY(base::try_int_cast(m_retain_size, n))) {
+        auto whence = base::File::Whence::cur;
+        pos_type result; // Dummy
+        if (ARCHON_LIKELY(n == 0 || m_file.try_seek(-n, whence, result, ec))) {
+            m_retain_size = 0;
+#if ARCHON_DEBUG
+            m_reading = false;
+#endif
+            return true;
+        }
+        return false;
+    }
+    throw std::length_error("Retain size");
+}
+
+
+
+// ============================ PrimWindowsTextFileImpl ============================
 
 
 bool PrimWindowsTextFileImpl::read_ahead(base::Span<char> buffer, bool dynamic_eof, std::size_t& n,
@@ -1079,6 +1060,34 @@ void PrimWindowsTextFileImpl::advance(std::size_t n) noexcept
     ARCHON_ASSERT(m_begin <= m_curr);
     m_retain_size  -= n;
     m_retain_clear -= n;
+}
+
+
+bool PrimWindowsTextFileImpl::discard(std::error_code& ec)
+{
+#if ARCHON_DEBUG
+    ARCHON_ASSERT(!m_writing);
+#endif
+
+    ARCHON_ASSERT(m_begin <= m_end);
+    pos_type n = 0;
+    if (ARCHON_LIKELY(base::try_int_cast(m_end - m_begin, n))) {
+        auto whence = base::File::Whence::cur;
+        pos_type result; // Dummy
+        if (ARCHON_LIKELY(n == 0 || m_file.try_seek(-n, whence, result, ec))) {
+            m_begin = 0;
+            m_end   = 0;
+            m_curr  = 0;
+            m_retain_size  = 0;
+            m_retain_clear = 0;
+#if ARCHON_DEBUG
+            m_reading = false;
+#endif
+            return true;
+        }
+        return false;
+    }
+    throw std::length_error("Retain size");
 }
 
 
@@ -1503,6 +1512,42 @@ private:
 };
 
 
+template<class T, class P> class TextFileImpl<char, T, P> {
+public:
+    using Config = TextFileImplConfig;
+
+    using char_type      = char;
+    using traits_type    = T;
+    using prim_impl_type = P;
+    using pos_type       = typename T::pos_type;
+
+    static constexpr bool is_buffered = false;
+    static constexpr bool has_windows_newline_codec = prim_impl_type::has_windows_newline_codec;
+
+    TextFileImpl(base::File&, Config);
+
+    [[nodiscard]] bool read_ahead(base::Span<char> buffer, bool dynamic_eof, std::size_t& n,
+                                  std::error_code&);
+
+    [[nodiscard]] bool write(base::Span<const char> data, std::size_t& n, std::error_code&);
+
+    void advance() noexcept;
+    void advance(std::size_t n);
+
+    [[nodiscard]] bool discard(std::error_code&);
+
+    [[nodiscard]] bool flush(std::error_code&);
+
+    [[nodiscard]] bool tell_read(pos_type&, std::error_code&);
+    [[nodiscard]] bool tell_write(pos_type&, std::error_code&);
+
+    [[nodiscard]] bool seek(pos_type, std::error_code&);
+
+private:
+    prim_impl_type m_prim_impl;
+};
+
+
 template<class C, class T = std::char_traits<C>>
 using PosixTextFileImpl = TextFileImpl<C, T, base::PrimPosixTextFileImpl>;
 
@@ -1532,6 +1577,9 @@ struct TextFileImplConfig :
 
 
 // Implementation
+
+
+// ============================ TextFileImpl<C, T, P> ============================
 
 
 template<class C, class T, class P>
@@ -1840,6 +1888,89 @@ template<class C, class T, class P> bool TextFileImpl<C, T, P>::shallow_flush(st
 template<class C, class T, class P> inline void TextFileImpl<C, T, P>::expand_buffer()
 {
     m_buffer.expand(1, m_end, max_buffer_size()); // Throws
+}
+
+
+
+// ============================ TextFileImpl<char, T, P> ============================
+
+
+template<class T, class P>
+inline TextFileImpl<char, T, P>::TextFileImpl(base::File& file, Config config) :
+    m_prim_impl(file, std::move(config)) // Throws
+{
+}
+
+
+template<class T, class P>
+inline bool TextFileImpl<char, T, P>::read_ahead(base::Span<char> buffer, bool dynamic_eof,
+                                                 std::size_t& n, std::error_code& ec)
+{
+    return m_prim_impl.read_ahead(buffer, dynamic_eof, n, ec); // Throws
+}
+
+
+template<class T, class P>
+inline bool TextFileImpl<char, T, P>::write(base::Span<const char> data, std::size_t& n,
+                                            std::error_code& ec)
+{
+    return m_prim_impl.write(data, n, ec); // Throws
+}
+
+
+template<class T, class P> inline void TextFileImpl<char, T, P>::advance() noexcept
+{
+    m_prim_impl.advance();
+}
+
+
+template<class T, class P> inline void TextFileImpl<char, T, P>::advance(std::size_t n)
+{
+    m_prim_impl.advance(n); // Throws
+}
+
+
+template<class T, class P> inline bool TextFileImpl<char, T, P>::discard(std::error_code& ec)
+{
+    return m_prim_impl.discard(ec); // Throws
+}
+
+
+template<class T, class P> inline bool TextFileImpl<char, T, P>::flush(std::error_code& ec)
+{
+    return m_prim_impl.flush(ec); // Throws
+}
+
+
+template<class T, class P>
+inline bool TextFileImpl<char, T, P>::tell_read(pos_type& pos, std::error_code& ec)
+{
+    typename prim_impl_type::pos_type pos_2 = {};
+    if (ARCHON_LIKELY(m_prim_impl.tell_read(pos_2, ec))) { // Throws
+        pos = pos_type(pos_2);
+        return true;
+    }
+    return false;
+}
+
+
+template<class T, class P>
+inline bool TextFileImpl<char, T, P>::tell_write(pos_type& pos, std::error_code& ec)
+{
+    typename prim_impl_type::pos_type pos_2 = {};
+    if (ARCHON_LIKELY(m_prim_impl.tell_write(pos_2, ec))) { // Throws
+        pos = pos_type(pos_2);
+        return true;
+    }
+    return false;
+}
+
+
+template<class T, class P>
+inline bool TextFileImpl<char, T, P>::seek(pos_type pos, std::error_code& ec)
+{
+    auto pos_2 = typename prim_impl_type::pos_type(pos);
+    return m_prim_impl.seek(pos_2, ec); // Throws
 }
 
 
@@ -2228,6 +2359,7 @@ public:
 
     [[nodiscard]] bool try_tell(pos_type&, std::error_code&);
 
+    // FIXME: State somewhere that "state" part of pos arg is ignored when char type is `char`                                                                
     [[nodiscard]] bool try_seek(pos_type, std::error_code&);
 
 private:
@@ -2845,7 +2977,6 @@ ARCHON_TEST(Base_TextFileImpl_Windows)
 // ============================================================================================ test_text_file.cpp ============================================================================================
 
 
-/*                                                                                                         
 ARCHON_TEST_VARIANTS(variants,
                      ARCHON_TEST_TYPE(base::PosixTextFile,               Posix),
                      ARCHON_TEST_TYPE(base::WindowsTextFile,             Windows),
@@ -2853,14 +2984,6 @@ ARCHON_TEST_VARIANTS(variants,
                      ARCHON_TEST_TYPE(base::WideWindowsTextFile,         WideWindows),
                      ARCHON_TEST_TYPE(base::BufferedPosixTextFile,       BufferedPosix),
                      ARCHON_TEST_TYPE(base::BufferedWindowsTextFile,     BufferedWindows),
-                     ARCHON_TEST_TYPE(base::WideBufferedPosixTextFile,   WideBufferedPosix),
-                     ARCHON_TEST_TYPE(base::WideBufferedWindowsTextFile, WideBufferedWindows));
-*/
-
-
-ARCHON_TEST_VARIANTS(variants,
-                     ARCHON_TEST_TYPE(base::WidePosixTextFile,           WidePosix),
-                     ARCHON_TEST_TYPE(base::WideWindowsTextFile,         WideWindows),
                      ARCHON_TEST_TYPE(base::WideBufferedPosixTextFile,   WideBufferedPosix),
                      ARCHON_TEST_TYPE(base::WideBufferedWindowsTextFile, WideBufferedWindows));
 
