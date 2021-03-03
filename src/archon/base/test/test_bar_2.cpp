@@ -1726,7 +1726,7 @@ bool TextFileImpl<C, T, P>::read_ahead(base::Span<C> buffer, bool dynamic_eof, s
 
     bool end_of_file = false;
     for (;;) {
-        base::Span data = base::Span(m_buffer).first(m_end);
+        base::Span data = base::Span<char>(m_buffer).first(m_end);
         std::size_t buffer_offset = 0;
         bool error = false;
         if (end_of_file)
@@ -1752,7 +1752,7 @@ bool TextFileImpl<C, T, P>::read_ahead(base::Span<C> buffer, bool dynamic_eof, s
             if (ARCHON_UNLIKELY(m_end == m_buffer.size()))
                 expand_buffer(); // Throws
             std::size_t n_2 = 0;
-            base::Span buffer_2 = base::Span(m_buffer).subspan(m_end);
+            base::Span buffer_2 = base::Span<char>(m_buffer).subspan(m_end);
             if (ARCHON_LIKELY(m_prim_impl.read_ahead(buffer_2, dynamic_eof, n_2, ec))) { // Throws
                 if (ARCHON_LIKELY(n_2 > 0)) {
                     m_end += n_2;
@@ -1845,7 +1845,7 @@ template<class C, class T, class P> inline void TextFileImpl<C, T, P>::advance(s
         m_retain_size = 0;
         return;
     }
-    base::Span data = base::Span(m_buffer).first(m_curr);
+    base::Span data = base::Span<char>(m_buffer).first(m_curr);
     // The difference between `m_begin` and `data.size()` cannot be greater
     // than the size of `m_buffer`, and the buffer is not allowed to grow larger
     // than `m_codec.max_simulate_decode_size()`
@@ -2002,7 +2002,7 @@ template<class C, class T, class P> bool TextFileImpl<C, T, P>::shallow_flush(st
 #endif
 
     ARCHON_ASSERT(m_begin <= m_end);
-    base::Span data = base::Span(m_buffer).first(m_end).subspan(m_begin);
+    base::Span data = base::Span<char>(m_buffer).first(m_end).subspan(m_begin);
     std::size_t n = 0;
     if (ARCHON_LIKELY(m_prim_impl.write(data, n, ec))) { // Throws
         m_begin = 0;
@@ -2287,7 +2287,7 @@ bool BufferedTextFileImpl<C, T, I>::read_ahead(base::Span<C> buffer, bool dynami
             if (ARCHON_UNLIKELY(m_end == m_buffer.size()))
                 expand_buffer(); // Throws
             std::size_t n_2 = 0;
-            base::Span buffer_2 = base::Span(m_buffer).subspan(m_end);
+            base::Span buffer_2 = base::Span<C>(m_buffer).subspan(m_end);
             if (ARCHON_LIKELY(m_subimpl.read_ahead(buffer_2, dynamic_eof, n_2, ec))) { // Throws
                 if (ARCHON_LIKELY(n_2 > 0)) {
                     m_end += n_2;
@@ -2468,7 +2468,7 @@ template<class C, class T, class I> bool BufferedTextFileImpl<C, T, I>::shallow_
 #endif
 
     ARCHON_ASSERT(m_begin <= m_end);
-    base::Span data = base::Span(m_buffer).first(m_end).subspan(m_begin);
+    base::Span data = base::Span<C>(m_buffer).first(m_end).subspan(m_begin);
     std::size_t n = 0;
     if (ARCHON_LIKELY(m_subimpl.write(data, n, ec))) { // Throws
         m_begin = 0;
