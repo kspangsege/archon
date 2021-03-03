@@ -3457,14 +3457,16 @@ const char* candidate_locales[] = { "C", "C.UTF-8", ".UTF8", "en_US", "en_US.UTF
 
 ARCHON_TEST(Base_TextFile_AsciiCodecError_CHECK)                       
 {
+    // FIXME: Need to understand why macOS (and maybe Windows) returns `partial`, and not `error` when decoding and data is just the single char(-1).                   
     using codecvt_type = std::codecvt<wchar_t, char, std::mbstate_t>;
     auto test_decode = [](const std::locale& locale) {
         const codecvt_type& codecvt = std::use_facet<codecvt_type>(locale);
-        char ch = -1;
+        char data[] = { char(-1), 'x' };
+        base::Span data_2(data);
         std::array<wchar_t, 1> buffer;
         std::mbstate_t state = {};
-        const char* from     = &ch;
-        const char* from_end = from + 1;
+        const char* from     = data_2.data();
+        const char* from_end = from + data_2.size();
         const char* from_next;
         wchar_t* to     = buffer.data();
         wchar_t* to_end = to + buffer.size();
@@ -3484,15 +3486,16 @@ ARCHON_TEST(Base_TextFile_AsciiCodecError_CHECK)
     };
     auto test_encode = [](const std::locale& locale) {
         const codecvt_type& codecvt = std::use_facet<codecvt_type>(locale);
-        wchar_t ch = -1;
+        wchar_t data[] = { wchar_t(-1), L'x' };
+        base::Span data_2(data);
         std::array<char, 8> buffer;
         std::mbstate_t state = {};
-        const wchar_t* from     = &ch;
-        const wchar_t* from_end = from + 1;
-        const wchar_t* from_next;
+        const wchar_t* from     = data_2.data();
+        const wchar_t* from_end = from + data_2.size();
+        const wchar_t* from_next = nullptr;
         char* to     = buffer.data();
         char* to_end = to + buffer.size();
-        char* to_next;
+        char* to_next = nullptr;
         auto result = codecvt.out(state, from, from_end, from_next, to, to_end, to_next);
         if (result == std::codecvt_base::error)
             return 'e';
