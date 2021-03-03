@@ -8,10 +8,50 @@
 #include <archon/unit_test.hpp>
 
 
+/*               
+
+add encode test
+
+VARY BUFFER SIZES RANDOMLY, especially in Base_TextFile_EncodeError
+hmmmmmmm    a bit of a problem that unit test repetition does not try many different random seeds
+---> Solution: Always compute a new seed sequence when a unit test ask for one, and do it in a way that combines the command line specified seed as well as the index into the repetition sequence. Then also provide a command line option to override the index into the repetition sequence as it is used for the random seed.
+
+
+GENERAL RULE ALL THE WAY FROM basic text file down for base::File is that if write()/try_write() fails, then n is strictly less than data.size()                  
+----> Similarly, if read() fails, then n is strictly less than buffer.size()
+
+
+OOOOOOOPS, apparently we cannot assume that when write() fails, `n` is the position of the failure (buffering destroys this) Be sure that the documentation doe not promise too much   
+--> generic guarantee: On failure, at least all the characters that preceed the position of the error will have been written, so the position of the error is less than, or equal to `n`.   
+
+
+
+
+Want: ARCHON_CHECK_IN_RANGE(var, min, max)
+Want: ARCHON_CHECK_IN_SET(var, a, b, c, ...)
+
+*/
+
+
+
+// Make note about flush(), that when it fails and, the reason is that a character could not be encoded, it still promises to flush everything up to that character.
+
+
+
+// Consider: Char codec decode never error if input consumed or output produced, and return error flag, not completion flag ---> hmm
+
+
+
+
+
+
+// FIXME: Figure out whether ARCHON_C_LOCALE_IS_ASCII should be true on other platforms, such as macOS and Windows. AND FIX FIXME IN feature.h                   
+
+
+
 
 // Next:
 
-// - Introduce new error codes for invalid multi-byte character, and for invalid wide character at level of TextFileImpl.                    
 // - Add BasicTextFileStreambuf<C, T, I> based on unnbuffered impl, but adding its own buffer.
 // - NO: Hideaway Impl in detail namespace.
 // - Tend to load and save --> there should probably not be a load_and_chomp on base::File.
@@ -441,6 +481,7 @@ bool BasicCharCodec<C, T>::inc_decode(std::mbstate_t& state, base::Span<const ch
             break;
     }
     ARCHON_ASSERT_UNREACHABLE;
+    return false;
 }
 
 
@@ -708,7 +749,11 @@ private:
     // mode, and in writing mode, it is always zero.
     std::size_t m_curr = 0;
 
-    // Both are zero in neutral mode, and in writing mode.
+    // In reading mode, `m_retain_size` is the number of decoded characters
+    // between the logical read/write position and the read ahead position, and
+    // `m_retain_clear` is the number of decoded characters that needs to be
+    // advanced by in order to clear all newline conversions in the retained
+    // part. Both are zero in neutral mode, and in writing mode.
     std::size_t m_retain_size  = 0;
     std::size_t m_retain_clear = 0;
 
@@ -1330,7 +1375,7 @@ inline bool BasicPrimTextFile<I>::try_read(base::Span<char> buffer, std::size_t&
       again:
         if (ARCHON_LIKELY(do_read_some(buffer_2, n_2, ec))) {
             ARCHON_ASSERT(n_2 <= buffer_2.size());
-            if (ARCHON_LIKELY(n_2 != 0 && n_2 < buffer_2.size())) {
+            if (ARCHON_LIKELY(n_2 > 0 && n_2 < buffer_2.size())) {
                 buffer_2 = buffer_2.subspan(n_2);
                 goto again;
             }
@@ -1498,8 +1543,12 @@ private:
     // mode, and in writing mode, it is always zero.
     std::size_t m_curr = 0;
 
+    // In reading mode, this is the number of decoded characters between the
+    // logical read/write position and the read ahead position. It is always
+    // zero in neutral mode, and in writing mode.
+    std::size_t m_retain_size  = 0;
+
 #if ARCHON_DEBUG
-    std::size_t m_retain_size = 0; // Zero in neutral and writing modes
     bool m_reading = false;
     bool m_writing = false;
 #endif
@@ -1510,6 +1559,7 @@ private:
     bool shallow_flush(std::error_code&);
     void expand_buffer();
 };
+
 
 
 template<class T, class P> class TextFileImpl<char, T, P> {
@@ -1548,11 +1598,13 @@ private:
 };
 
 
+
 template<class C, class T = std::char_traits<C>>
 using PosixTextFileImpl = TextFileImpl<C, T, base::PrimPosixTextFileImpl>;
 
 template<class C, class T = std::char_traits<C>>
 using WindowsTextFileImpl = TextFileImpl<C, T, base::PrimWindowsTextFileImpl>;
+
 
 
 struct TextFileImplConfig :
@@ -1568,6 +1620,78 @@ struct TextFileImplConfig :
     std::size_t char_codec_buffer_size = default_char_codec_buffer_size;
     base::Span<char> char_codec_buffer_memory;
 };
+
+
+
+/// \brief Errors that can be generated through the use of text files.
+///
+/// These are errors that can be generated through use of \ref TextFileImpl.
+///
+enum class TextFileError {
+    /// \brief Invalid byte sequence while trying to decode character.
+    ///
+    /// A character could not be decoded, because the presented byte sequence
+    /// was not a valid encoding of any character.
+    ///
+    invalid_byte_seq = 1,
+
+    /// \brief Invalid character value while trying to encode character.
+    ///
+    /// A character could not be encoded, because its value was outside the
+    /// range of valid character values.
+    ///
+    invalid_char = 2,
+};
+
+
+
+/// \brief Text file error category.
+///
+/// This is the error category associated with \ref TextFileError. The name of
+/// this category is `archon:base:text_file`.
+///
+class TextFileErrorCategory :
+        public std::error_category {
+public:
+    const char* name() const noexcept override final;
+    std::string message(int) const override final;
+};
+
+
+/// \brief Text file error category singleton.
+///
+/// This is the error category object that must be used when constructing error
+/// code objects associated with the text file error category.
+///
+extern TextFileErrorCategory text_file_error_category;
+
+
+/// \brief Make text file error code object.
+///
+/// This function makes a text file error code object. Together with the
+/// specialization of `std::is_error_code_enum<T>` for \ref TextFileError, this
+/// allows for implicit conversion from an enum value to an error code object.
+///
+inline std::error_code make_error_code(TextFileError err)
+{
+    return std::error_code(int(err), text_file_error_category);
+}
+
+
+} // namespace archon::base
+
+namespace std {
+
+
+template<> class is_error_code_enum<archon::base::TextFileError> {
+public:
+    static constexpr bool value = true;
+};
+
+
+} // namespace std
+
+namespace archon::base {
 
 
 
@@ -1609,9 +1733,7 @@ bool TextFileImpl<C, T, P>::read_ahead(base::Span<C> buffer, bool dynamic_eof, s
             error = true;                   
         bool complete =
             m_codec.inc_decode(m_state_2, data, m_curr, buffer, buffer_offset, error);
-#if ARCHON_DEBUG
         m_retain_size += buffer_offset;
-#endif
         if (ARCHON_LIKELY(buffer_offset > 0 || buffer.size() == 0)) {
             n = buffer_offset;
             return true;
@@ -1646,9 +1768,8 @@ bool TextFileImpl<C, T, P>::read_ahead(base::Span<C> buffer, bool dynamic_eof, s
             }
             return false;
         }
-        // FIXME: Should introduce new error codes.  
-        // FIXME: Report EILSEQ / std::errc::illegal_byte_sequence when not in lenient mode       
-        ec = std::make_error_code(std::errc::illegal_byte_sequence);                  
+        // FIXME: Only when not in lenient mode            
+        ec = TextFileError::invalid_byte_seq;
         return false;
     }
 }
@@ -1683,10 +1804,9 @@ bool TextFileImpl<C, T, P>::write(base::Span<const C> data, std::size_t& n, std:
                 expand_buffer(); // Throws
                 continue;
             case std::codecvt_base::error:
-                // FIXME: Should introduce new error codes.  
-                // FIXME: Report EDOM / std::errc::argument_out_of_domain when not in lenient mode       
+                // FIXME: Only when not in lenient mode            
                 n = data_offset;
-                ec = std::make_error_code(std::errc::argument_out_of_domain);                  
+                ec = TextFileError::invalid_char;
                 return false;
             case std::codecvt_base::noconv:
                 break;
@@ -1707,9 +1827,7 @@ template<class C, class T, class P> inline void TextFileImpl<C, T, P>::advance()
     ARCHON_ASSERT(m_begin <= m_curr);
     m_state = m_state_2;
     m_begin = m_curr;
-#if ARCHON_DEBUG
     m_retain_size = 0;
-#endif
 }
 
 
@@ -1717,19 +1835,23 @@ template<class C, class T, class P> inline void TextFileImpl<C, T, P>::advance(s
 {
 #if ARCHON_DEBUG
     ARCHON_ASSERT(!m_writing);
-    ARCHON_ASSERT(n <= m_retain_size);
 #endif
 
+    ARCHON_ASSERT(n <= m_retain_size);
     ARCHON_ASSERT(m_begin <= m_curr);
+    if (ARCHON_LIKELY(n == m_retain_size)) {
+        m_state = m_state_2;
+        m_begin = m_curr;
+        m_retain_size = 0;
+        return;
+    }
     base::Span data = base::Span(m_buffer).first(m_curr);
     // The difference between `m_begin` and `data.size()` cannot be greater
     // than the size of `m_buffer`, and the buffer is not allowed to grow larger
     // than `m_codec.max_simulate_decode_size()`
     m_codec.simulate_inc_decode(m_state, data, m_begin, n); // Throws
     ARCHON_ASSERT(m_begin <= m_curr);
-#if ARCHON_DEBUG
     m_retain_size -= n;
-#endif
 }
 
 
@@ -1744,13 +1866,13 @@ template<class C, class T, class P> bool TextFileImpl<C, T, P>::discard(std::err
     m_prim_impl.advance(n);
     m_offset = m_begin;
     if (ARCHON_LIKELY(m_prim_impl.discard(ec))) { // Throws
-        m_state_2 = m_state;
-        m_begin   = 0;
-        m_end     = 0;
-        m_offset  = 0;
-        m_curr    = 0;
-#if ARCHON_DEBUG
+        m_state_2     = m_state;
+        m_begin       = 0;
+        m_end         = 0;
+        m_offset      = 0;
+        m_curr        = 0;
         m_retain_size = 0;
+#if ARCHON_DEBUG
         m_reading = false;
 #endif
         return true;
@@ -1761,19 +1883,26 @@ template<class C, class T, class P> bool TextFileImpl<C, T, P>::discard(std::err
 
 template<class C, class T, class P> inline bool TextFileImpl<C, T, P>::flush(std::error_code& ec)
 {
-#if ARCHON_DEBUG
+    ARCHON_ASSERT(m_offset       == 0);
+    ARCHON_ASSERT(m_curr         == 0);
     ARCHON_ASSERT(m_retain_size  == 0);
-#endif
-
-    ARCHON_ASSERT(m_offset == 0);
-    ARCHON_ASSERT(m_curr   == 0);
-    if (ARCHON_LIKELY(shallow_flush(ec) && m_prim_impl.flush(ec))) { // Throws
-        m_state_2 = m_state; // Part of transitioning to neutral mode
+    if (ARCHON_LIKELY(shallow_flush(ec))) { // Throws
+        if (ARCHON_LIKELY(m_prim_impl.flush(ec))) { // Throws
+            m_state_2 = m_state; // Part of transitioning to neutral mode
 #if ARCHON_DEBUG
-        m_writing = false;
+            m_writing = false;
 #endif
-        return true;
+            return true;
+        }
+        return false;
     }
+
+    // Even when everything in the local buffer could not be written, an attempt
+    // to recursively flush the part, that could be writen, must still be
+    // made. If the recursive flush also fails, it doesn't really matter which
+    // error code is passed back. The choice here is to let the lowest level
+    // error win.
+    static_cast<void>(m_prim_impl.flush(ec));
     return false;
 }
 
@@ -1830,14 +1959,14 @@ inline bool TextFileImpl<C, T, P>::seek(pos_type pos, std::error_code& ec)
 
     auto pos_2 = typename prim_impl_type::pos_type(pos);
     if (ARCHON_LIKELY(m_prim_impl.seek(pos_2, ec))) { // Throws
-        m_state   = pos.state();
-        m_state_2 = m_state;
-        m_begin   = 0;
-        m_end     = 0;
-        m_offset  = 0;
-        m_curr    = 0;
-#if ARCHON_DEBUG
+        m_state       = pos.state();
+        m_state_2     = m_state;
+        m_begin       = 0;
+        m_end         = 0;
+        m_offset      = 0;
+        m_curr        = 0;
         m_retain_size = 0;
+#if ARCHON_DEBUG
         m_reading = false;
 #endif
         return true;
@@ -1975,6 +2104,50 @@ inline bool TextFileImpl<char, T, P>::seek(pos_type pos, std::error_code& ec)
 
 
 } // namespace archon::base
+
+
+
+
+
+// ============================================================================================ text_file_impl.cpp ============================================================================================
+
+
+using namespace archon;
+
+namespace {
+
+
+const char* get_error_message(base::TextFileError err) noexcept
+{
+    switch (err) {
+        case base::TextFileError::invalid_byte_seq:
+            return "Invalid byte sequence while trying to decode character";
+        case base::TextFileError::invalid_char:
+            return "Invalid character value while trying to encode character";
+    }
+    ARCHON_ASSERT_UNREACHABLE;
+    return nullptr;
+}
+
+
+} // unnamed namespace
+
+
+
+base::TextFileErrorCategory base::text_file_error_category;
+
+
+const char* base::TextFileErrorCategory::name() const noexcept
+{
+    return "archon:base:text_file";
+}
+
+
+std::string base::TextFileErrorCategory::message(int err) const
+{
+    return std::string(get_error_message(TextFileError(err))); // Throws
+}
+
 
 
 
@@ -2122,6 +2295,9 @@ bool BufferedTextFileImpl<C, T, I>::read_ahead(base::Span<C> buffer, bool dynami
                 }
                 // Signal end of file
             }
+            else {
+                return false;
+            }
         }
     }
     n = 0;
@@ -2138,35 +2314,25 @@ bool BufferedTextFileImpl<C, T, I>::write(base::Span<const C> data, std::size_t&
     m_writing = true;
 #endif
 
-    const C* i     = data.data();
-    const C* i_end = i + data.size();
-
     ARCHON_ASSERT(m_buffer.size() > 0);
-    C* base  = m_buffer.data();
-    C* j     = base + m_end;
-    C* j_end = base + m_buffer.size();
-
-    while (ARCHON_LIKELY(i != i_end)) {
-        if (ARCHON_LIKELY(j != j_end)) {
-          resume:
-            *j++ = *i++;
+    base::Span data_2 = data;
+    for (;;) {
+        std::size_t capacity = std::size_t(m_buffer.size() - m_end);
+        std::size_t n_2 = std::min(data_2.size(), capacity);
+        std::copy_n(data_2.data(), n_2, m_buffer.data() + m_end);
+        m_end += n_2;
+        if (ARCHON_LIKELY(data_2.size() <= capacity)) {
+            n = data.size();
+            return true;
+        }
+        data_2 = data_2.subspan(n_2);
+        if (ARCHON_LIKELY(shallow_flush(ec))) { // Throws
+            ARCHON_ASSERT(m_end == 0);
             continue;
         }
-        goto flush;
+        n = std::size_t(data.size() - data_2.size());
+        return false;
     }
-    m_end = std::size_t(j - base);
-    n = data.size();
-    return true;
-
-  flush:
-    m_end = std::size_t(j - base);
-    if (ARCHON_LIKELY(shallow_flush(ec))) { // Throws
-        ARCHON_ASSERT(m_end == 0);
-        j = m_buffer.data();
-        goto resume;
-    }
-    n = std::size_t(i - data.data());
-    return false;
 }
 
 
@@ -2224,12 +2390,23 @@ inline bool BufferedTextFileImpl<C, T, I>::flush(std::error_code& ec)
 {
     ARCHON_ASSERT(m_offset == 0);
     ARCHON_ASSERT(m_curr   == 0);
-    if (ARCHON_LIKELY(shallow_flush(ec) && m_subimpl.flush(ec))) { // Throws
+
+    if (ARCHON_LIKELY(shallow_flush(ec))) { // Throws
+        if (ARCHON_LIKELY(m_subimpl.flush(ec))) { // Throws
 #if ARCHON_DEBUG
-        m_writing = false;
+            m_writing = false;
 #endif
-        return true;
+            return true;
+        }
+        return false;
     }
+
+    // Even when everything in the local buffer could not be written, an attempt
+    // to recursively flush the part, that could be writen, must still be
+    // made. If the recursive flush also fails, it doesn't really matter which
+    // error code is passed back. The choice here is to let the lowest level
+    // error win.
+    static_cast<void>(m_subimpl.flush(ec));
     return false;
 }
 
@@ -2524,7 +2701,7 @@ inline bool BasicTextFile<C, T, I>::try_read(base::Span<C> buffer, std::size_t& 
       again:
         if (ARCHON_LIKELY(do_read_some(buffer_2, n_2, ec))) {
             ARCHON_ASSERT(n_2 <= buffer_2.size());
-            if (ARCHON_LIKELY(n_2 != 0 && n_2 < buffer_2.size())) {
+            if (ARCHON_LIKELY(n_2 > 0 && n_2 < buffer_2.size())) {
                 buffer_2 = buffer_2.subspan(n_2);
                 goto again;
             }
@@ -3097,4 +3274,161 @@ ARCHON_TEST_BATCH(Base_TextFile_TellAndSeek, variants)
     std::array<char_type, 64> buffer;
     std::size_t n = text_file.read(buffer);
     ARCHON_CHECK_EQUAL(string_view_type(buffer.data(), n), widener.widen("\nbaz\n"));
+}
+
+
+// It is possible to have a locale where there is no such thing as an invalid
+// byte sequence (e.g., ISO-8859-1). Requiring ASCII is one way of making sure
+// that at least one invalid byte sequence exists (any byte with a value outside
+// the range 0 -> 127).
+//
+ARCHON_TEST_BATCH_IF(Base_TextFile_DecodeError, variants, ARCHON_C_LOCALE_IS_ASCII)
+{
+    std::string string_1 = "foo\nbar\nbaz\n";
+    string_1[9] = char(-1); // Invalid byte at offset 9
+    std::string string_2 = "foo\r\nbar\r\nbaz\r\n";
+    string_2[11] = char(-1); // Invalid byte at offset 11
+    ARCHON_TEST_FILE(path);
+    {
+        base::File file(path, base::File::Mode::write);
+        file.write(string_2);
+    }
+    const std::locale& locale = std::locale::classic();
+    using text_file_type = test_type;
+    using char_type = typename text_file_type::char_type;
+    using string_view_type = std::basic_string_view<char_type>;
+    typename text_file_type::Config config;
+    config.locale = locale;
+    config.char_codec_buffer_size = 3;
+    config.newline_codec_buffer_size = 3;
+    if constexpr (text_file_type::impl_type::is_buffered)
+        config.buffer_size = 3;
+    text_file_type text_file(path, base::File::Mode::read, std::move(config));
+    std::array<char_type, 64> buffer;
+    std::size_t n = 0;
+    std::error_code ec;
+    if constexpr (std::is_same_v<char_type, char>) {
+        if (ARCHON_CHECK(text_file.try_read(buffer, n, ec))) {
+            if constexpr (text_file_type::impl_type::has_windows_newline_codec) {
+                if (ARCHON_CHECK_EQUAL(n, 12)) {
+                    std::string_view data(buffer.data(), n);
+                    ARCHON_CHECK_EQUAL(data, string_1);
+                }
+            }
+            else {
+                if (ARCHON_CHECK_EQUAL(n, 15)) {
+                    std::string_view data(buffer.data(), n);
+                    ARCHON_CHECK_EQUAL(data, string_2);
+                }
+            }
+            ARCHON_CHECK_NOT(ec);
+        }
+    }
+    else {
+        std::array<char_type, 64> seed_memory;
+        base::BasicStringWidener<char_type> widener(locale, seed_memory);
+        if (ARCHON_CHECK_NOT(text_file.try_read(buffer, n, ec))) {
+            if constexpr (text_file_type::impl_type::has_windows_newline_codec) {
+                if (ARCHON_CHECK_EQUAL(n, 9)) {
+                    string_view_type data(buffer.data(), n);
+                    ARCHON_CHECK_EQUAL(data, widener.widen("foo\nbar\nb"));
+                }
+            }
+            else {
+                if (ARCHON_CHECK_EQUAL(n, 11)) {
+                    string_view_type data(buffer.data(), n);
+                    ARCHON_CHECK_EQUAL(data, widener.widen("foo\r\nbar\r\nb"));
+                }
+            }
+            ARCHON_CHECK_EQUAL(ec, base::TextFileError::invalid_byte_seq);
+        }
+    }
+}
+
+
+// It is possible to have a locale where there is no such thing as a character
+// with an invalid value. Requiring ASCII is one way of making sure that at
+// least one invalid character value exists (any value outside the range 0 ->
+// 127).
+//
+ARCHON_TEST_BATCH_IF(Base_TextFile_EncodeError, variants, ARCHON_C_LOCALE_IS_ASCII)
+{
+    ARCHON_TEST_FILE(path);
+    const std::locale& locale = std::locale::classic();
+    using text_file_type = test_type;
+    using char_type = typename text_file_type::char_type;
+    using string_type = std::basic_string<char_type>;
+    std::array<char_type, 64> seed_memory;
+    base::BasicStringWidener<char_type> widener(locale, seed_memory);
+    string_type string_1(widener.widen("foo\nbar\nbaz\n"));
+    string_1[9] = char_type(-1); // Invalid byte at offset 9
+    string_type string_2(widener.widen("foo\r\nbar\r\nbaz\r\n"));
+    string_2[11] = char_type(-1); // Invalid byte at offset 11
+    {
+        typename text_file_type::Config config;
+        config.locale = locale;
+        config.char_codec_buffer_size = 3;
+        config.newline_codec_buffer_size = 3;
+        if constexpr (text_file_type::impl_type::is_buffered)
+            config.buffer_size = 3;
+        text_file_type text_file(path, base::File::Mode::write, std::move(config));
+        std::size_t n = 0;
+        std::error_code ec, ec_2;
+        if constexpr (std::is_same_v<char_type, char>) {
+            bool good = (ARCHON_CHECK(text_file.try_write(string_1, n, ec)) &&
+                         ARCHON_CHECK_EQUAL(n, 12) &&
+                         ARCHON_CHECK_NOT(ec) &&
+                         ARCHON_CHECK(text_file.try_flush(ec)) &&
+                         ARCHON_CHECK_NOT(ec));
+            if (!good)
+                return;
+        }
+        else {
+            if (text_file.try_write(string_1, n, ec)) {
+                bool good = (ARCHON_CHECK_EQUAL(n, 12) &&
+                             ARCHON_CHECK_NOT(ec) &&
+                             ARCHON_CHECK_NOT(text_file.try_flush(ec)) &&
+                             ARCHON_CHECK_EQUAL(ec, base::TextFileError::invalid_char));
+                if (!good)
+                    return;
+            }
+            else if (n > 9) {
+                bool good = (ARCHON_CHECK_GREATER_EQUAL(n, 10) &&
+                             ARCHON_CHECK_LESS_EQUAL(n, 11) &&
+                             ARCHON_CHECK_EQUAL(ec, base::TextFileError::invalid_char) &&
+                             ARCHON_CHECK_NOT(text_file.try_flush(ec_2)) &&
+                             ARCHON_CHECK_EQUAL(ec_2, base::TextFileError::invalid_char));
+                if (!good)
+                    return;
+            }
+            else {
+                bool good = (ARCHON_CHECK_EQUAL(n, 9) &&
+                             ARCHON_CHECK_EQUAL(ec, base::TextFileError::invalid_char) &&
+                             ARCHON_CHECK(text_file.try_flush(ec_2)) &&
+                             ARCHON_CHECK_NOT(ec_2));
+                if (!good)
+                    return;
+            }
+        }
+    }
+    base::File file(path);
+    std::array<char, 64> buffer;
+    std::size_t n = file.read(buffer);
+    std::string_view data(buffer.data(), n);
+    if constexpr (std::is_same_v<char_type, char>) {
+        if constexpr (text_file_type::impl_type::has_windows_newline_codec) {
+            ARCHON_CHECK_EQUAL(data, string_2);
+        }
+        else {
+            ARCHON_CHECK_EQUAL(data, string_1);
+        }
+    }
+    else {
+        if constexpr (text_file_type::impl_type::has_windows_newline_codec) {
+            ARCHON_CHECK_EQUAL(data, "foo\r\nbar\r\nb");
+        }
+        else {
+            ARCHON_CHECK_EQUAL(data, "foo\nbar\nb");
+        }
+    }
 }

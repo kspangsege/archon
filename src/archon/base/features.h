@@ -69,6 +69,39 @@
 #endif
 
 
+// Unix platform
+//
+#if !defined ARCHON_UNIX
+#  if defined __unix__ && __unix__
+#    define ARCHON_UNIX 1
+#  else
+#    define ARCHON_UNIX 0
+#  endif
+#endif
+
+
+// POSIX platform
+//
+#if !defined ARCHON_POSIX
+#  if defined _POSIX_VERSION
+#    define ARCHON_POSIX 1
+#  else
+#    define ARCHON_POSIX 0
+#  endif
+#endif
+
+
+// Linux platform
+//
+#if !defined ARCHON_LINUX
+#  if defined __linux__ && __linux__
+#    define ARCHON_LINUX 1
+#  else
+#    define ARCHON_LINUX 0
+#  endif
+#endif
+
+
 // Windows platform
 //
 #if !defined ARCHON_WINDOWS
@@ -180,9 +213,20 @@
 #endif
 
 
-// If `ARCHON_WCHAR_IS_UNICODE` is true, it means that we should assume that the
-// STL locale facilities assume that the character encoding for `wchar_t` is UCS
-// in all locales.
+// If `ARCHON_C_LOCALE_IS_ASCII` is true, we can assume that the C locale uses
+// US-ASCII as the external character encoding.
+//
+// FIXME: Figure out whether this is true on other platforms, such as macOS and Windows.                   
+//
+#if ARCHON_LINUX
+#  define ARCHON_C_LOCALE_IS_ASCII 1
+#else
+#  define ARCHON_C_LOCALE_IS_ASCII 0
+#endif
+
+
+// If `ARCHON_WCHAR_IS_UNICODE` is true, it means that we can assume that the
+// character encoding for `wchar_t` is UCS in all locales.
 //
 #if defined __STDC_ISO_10646__
 #  define ARCHON_WCHAR_IS_UNICODE 1

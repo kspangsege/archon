@@ -173,11 +173,11 @@ void base::get_platform_info(PlatformInfo& info)
     info_3.osname  = "NetBSD"; // Throws (copy)
 #elif defined __OpenBSD__
     info_3.osname  = "OpenBSD"; // Throws (copy)
-#elif __linux__
+#elif ARCHON_LINUX
     info_3.osname  = "Linux"; // Throws (copy)
-#elif defined _POSIX_VERSION
+#elif ARCHON_POSIX
     info_3.osname  = "POSIX"; // Throws (copy)
-#elif __unix__
+#elif ARCHON_UNIX
     info_3.osname  = "Unix"; // Throws (copy)
 #else
     info_3.osname  = "unknown"; // Throws (copy)
