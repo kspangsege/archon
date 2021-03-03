@@ -364,7 +364,7 @@ template<class C, class T>
 std::basic_ostream<C, T>& operator<<(std::basic_ostream<C, T>& out, const RandomSeed& seed)
 {
     return base::ostream_sentry(out, [&](base::BasicStreamOutputHelper<C, T>& helper) {
-        base::BasicCharMapper char_mapper(out); // Throws
+        base::BasicCharMapper<C, T> char_mapper(out); // Throws
         C sep = char_mapper.widen('-');
         const auto* seed_data = seed.data();
         std::array<char, 33> encode_buffer;

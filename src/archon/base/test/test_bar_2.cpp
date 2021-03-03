@@ -10,6 +10,13 @@
 
 /*               
 
+
+
+
+Linux ---> C.UTF-8
+
+
+
 add encode test
 
 VARY BUFFER SIZES RANDOMLY, especially in Base_TextFile_EncodeError
@@ -3434,12 +3441,25 @@ ARCHON_TEST_BATCH_IF(Base_TextFile_EncodeError, variants, ARCHON_C_LOCALE_IS_ASC
 }
 
 
+bool has_locale(const char* name)
+{
+    locale_t loc = ::newlocale(LC_ALL_MASK, name, 0);
+    if (loc != 0) {
+        ::freelocale(loc);
+        return true;
+    }
+    return false;
+}
+
+
+const char* candidate_locales[] = { "C", "C.UTF-8", ".UTF8", "en_US", "en_US.UTF-8", "" };
+
+
 ARCHON_TEST(Base_TextFile_AsciiCodecError_CHECK)                       
 {
-    const std::locale& locale = std::locale::classic();
     using codecvt_type = std::codecvt<wchar_t, char, std::mbstate_t>;
-    const codecvt_type& codecvt = std::use_facet<codecvt_type>(locale);
-    {
+    auto test_decode = [](const std::locale& locale) {
+        const codecvt_type& codecvt = std::use_facet<codecvt_type>(locale);
         char ch = -1;
         std::array<wchar_t, 1> buffer;
         std::mbstate_t state = {};
@@ -3449,10 +3469,11 @@ ARCHON_TEST(Base_TextFile_AsciiCodecError_CHECK)
         wchar_t* to     = buffer.data();
         wchar_t* to_end = to + buffer.size();
         wchar_t* to_next;
-        auto decode_result = codecvt.in(state, from, from_end, from_next, to, to_end, to_next);
-        ARCHON_CHECK_EQUAL(decode_result, std::codecvt_base::error);
-    }
-    {
+        auto result = codecvt.in(state, from, from_end, from_next, to, to_end, to_next);
+        return (result == std::codecvt_base::error);
+    };
+    auto test_encode = [](const std::locale& locale) {
+        const codecvt_type& codecvt = std::use_facet<codecvt_type>(locale);
         wchar_t ch = -1;
         std::array<char, 8> buffer;
         std::mbstate_t state = {};
@@ -3462,7 +3483,26 @@ ARCHON_TEST(Base_TextFile_AsciiCodecError_CHECK)
         char* to     = buffer.data();
         char* to_end = to + buffer.size();
         char* to_next;
-        auto encode_result = codecvt.out(state, from, from_end, from_next, to, to_end, to_next);
-        ARCHON_CHECK_EQUAL(encode_result, std::codecvt_base::error);
+        auto result = codecvt.out(state, from, from_end, from_next, to, to_end, to_next);
+        return (result == std::codecvt_base::error);
+    };
+
+    for (const char* name : candidate_locales) {
+        std::locale locale;
+        bool has_1 = false;
+        try {
+            locale = std::locale(name);
+            has_1 = true;
+        }
+        catch (std::runtime_error&) {}
+        bool has_2 = has_locale(name);
+        if (has_1) {
+            bool decode = test_decode(locale);
+            bool encode = test_encode(locale);
+            log("has %s %s     decode %s     encode %s    %s", has_1, has_2, decode, encode, locale.name());
+        }
+        else {
+            log("has %s %s                              %s", has_1, has_2, locale.name());
+        }
     }
 }
