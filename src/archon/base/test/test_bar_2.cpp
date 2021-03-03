@@ -3432,3 +3432,37 @@ ARCHON_TEST_BATCH_IF(Base_TextFile_EncodeError, variants, ARCHON_C_LOCALE_IS_ASC
         }
     }
 }
+
+
+ARCHON_TEST(Base_TextFile_AsciiCodecError_CHECK)                       
+{
+    const std::locale& locale = std::locale::classic();
+    using codecvt_type = std::codecvt<wchar_t, char, std::mbstate_t>;
+    const codecvt_type& codecvt = std::use_facet<codecvt_type>(locale);
+    {
+        char ch = -1;
+        std::array<wchar_t, 1> buffer;
+        std::mbstate_t state = {};
+        const char* from     = &ch;
+        const char* from_end = from + 1;
+        const char* from_next;
+        wchar_t* to     = buffer.data();
+        wchar_t* to_end = to + buffer.size();
+        wchar_t* to_next;
+        auto result = codecvt.in(state, from, from_end, from_next, to, to_end, to_next);
+        ARCHON_CHECK_EQUAL(result, std::codecvt_base::error);
+    }
+    {
+        wchar_t ch = -1;
+        std::array<char, 8> buffer;
+        std::mbstate_t state = {};
+        const wchar_t* from     = &ch;
+        const wchar_t* from_end = from + 1;
+        const wchar_t* from_next;
+        char* to     = buffer.data();
+        char* to_end = to + buffer.size();
+        char* to_next;
+        auto result = codecvt.out(state, from, from_end, from_next, to, to_end, to_next);
+        ARCHON_CHECK_EQUAL(result, std::codecvt_base::error);
+    }
+}

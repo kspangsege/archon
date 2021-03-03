@@ -218,7 +218,7 @@
 //
 // FIXME: Figure out whether this is true on other platforms, such as macOS and Windows.                   
 //
-#if ARCHON_LINUX
+#if ARCHON_LINUX || ARCHON_MACOS || ARCHON_WINDOWS
 #  define ARCHON_C_LOCALE_IS_ASCII 1
 #else
 #  define ARCHON_C_LOCALE_IS_ASCII 0
