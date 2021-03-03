@@ -3463,7 +3463,7 @@ ARCHON_TEST(Base_TextFile_AsciiCodecError_CHECK)
         const codecvt_type& codecvt = std::use_facet<codecvt_type>(locale);
         char data[] = { char(-1), 'x' };
         base::Span data_2(data);
-        std::array<wchar_t, 1> buffer;
+        std::array<wchar_t, 8> buffer;
         std::mbstate_t state = {};
         const char* from     = data_2.data();
         const char* from_end = from + data_2.size();
@@ -3480,8 +3480,10 @@ ARCHON_TEST(Base_TextFile_AsciiCodecError_CHECK)
             return 'L';
         if (result == std::codecvt_base::partial && from_next == from)
             return 'p';
-        if (result == std::codecvt_base::partial && from_next > from)
+        if (result == std::codecvt_base::partial && from_next == from + 1)
             return 'q';
+        if (result == std::codecvt_base::partial && from_next > from + 1)
+            return 'r';
         return 'W';
     };
     auto test_encode = [](const std::locale& locale) {
