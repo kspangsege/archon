@@ -7,6 +7,8 @@
 #include <archon/base/file.hpp>
 #include <archon/unit_test.hpp>
 
+#include <locale.h>
+
 
 /*               
 
@@ -3443,12 +3445,21 @@ ARCHON_TEST_BATCH_IF(Base_TextFile_EncodeError, variants, ARCHON_C_LOCALE_IS_ASC
 
 bool has_locale(const char* name)
 {
+#if ARCHON_WINDOWS
+    _locale_t loc = ::_create_locale(LC_ALL, name);
+    if (loc) {
+        ::_free_locale(loc);
+        return true;
+    }
+    return false;
+#else
     locale_t loc = ::newlocale(LC_ALL_MASK, name, 0);
     if (loc != 0) {
         ::freelocale(loc);
         return true;
     }
     return false;
+#endif
 }
 
 
@@ -3458,7 +3469,8 @@ const char* candidate_locales[] = { "C", "C.UTF-8", ".UTF8", "en_US", "en_US.UTF
 ARCHON_TEST(Base_TextFile_AsciiCodecError_CHECK)                       
 {
     // FIXME: Need to understand why macOS (and maybe Windows) returns `partial`, and not `error` when decoding and data is just the single char(-1).                   
-    // ---> Apparently, macOS returns partial but does not advance `from`.
+    // ---> Apparently, macOS returns partial and leaves `from_next` to point at the bad char. Is this behavior also displayed in `codecvt-test-cases` branch?                   
+
     using codecvt_type = std::codecvt<wchar_t, char, std::mbstate_t>;
     auto test_decode = [](const std::locale& locale) {
         const codecvt_type& codecvt = std::use_facet<codecvt_type>(locale);
