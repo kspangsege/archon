@@ -3470,7 +3470,17 @@ ARCHON_TEST(Base_TextFile_AsciiCodecError_CHECK)
         wchar_t* to_end = to + buffer.size();
         wchar_t* to_next;
         auto result = codecvt.in(state, from, from_end, from_next, to, to_end, to_next);
-        return (result == std::codecvt_base::error);
+        if (result == std::codecvt_base::error)
+            return 'e';
+        if (result == std::codecvt_base::ok && from_next == from)
+            return 'K';
+        if (result == std::codecvt_base::ok && from_next > from)
+            return 'L';
+        if (result == std::codecvt_base::partial && from_next == from)
+            return 'p';
+        if (result == std::codecvt_base::partial && from_next > from)
+            return 'q';
+        return 'W';
     };
     auto test_encode = [](const std::locale& locale) {
         const codecvt_type& codecvt = std::use_facet<codecvt_type>(locale);
@@ -3484,7 +3494,17 @@ ARCHON_TEST(Base_TextFile_AsciiCodecError_CHECK)
         char* to_end = to + buffer.size();
         char* to_next;
         auto result = codecvt.out(state, from, from_end, from_next, to, to_end, to_next);
-        return (result == std::codecvt_base::error);
+        if (result == std::codecvt_base::error)
+            return 'e';
+        if (result == std::codecvt_base::ok && from_next == from)
+            return 'K';
+        if (result == std::codecvt_base::ok && from_next > from)
+            return 'L';
+        if (result == std::codecvt_base::partial && from_next == from)
+            return 'p';
+        if (result == std::codecvt_base::partial && from_next > from)
+            return 'q';
+        return 'W';
     };
 
     for (const char* name : candidate_locales) {
@@ -3497,12 +3517,12 @@ ARCHON_TEST(Base_TextFile_AsciiCodecError_CHECK)
         catch (std::runtime_error&) {}
         bool has_2 = has_locale(name);
         if (has_1) {
-            bool decode = test_decode(locale);
-            bool encode = test_encode(locale);
+            char decode = test_decode(locale);
+            char encode = test_encode(locale);
             log("has %s %s     decode %s     encode %s    %s", has_1, has_2, decode, encode, locale.name());
         }
         else {
-            log("has %s %s                              %s", has_1, has_2, locale.name());
+            log("has %s %s                              %s", has_1, has_2, name);
         }
     }
 }
