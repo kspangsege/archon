@@ -3458,10 +3458,11 @@ const char* candidate_locales[] = { "C", "C.UTF-8", ".UTF8", "en_US", "en_US.UTF
 ARCHON_TEST(Base_TextFile_AsciiCodecError_CHECK)                       
 {
     // FIXME: Need to understand why macOS (and maybe Windows) returns `partial`, and not `error` when decoding and data is just the single char(-1).                   
+    // ---> Apparently, macOS returns partial but does not advance `from`.
     using codecvt_type = std::codecvt<wchar_t, char, std::mbstate_t>;
     auto test_decode = [](const std::locale& locale) {
         const codecvt_type& codecvt = std::use_facet<codecvt_type>(locale);
-        char data[] = { char(-1), 'x' };
+        char data[] = { 'x', char(-1), 'x' };
         base::Span data_2(data);
         std::array<wchar_t, 8> buffer;
         std::mbstate_t state = {};
@@ -3474,21 +3475,21 @@ ARCHON_TEST(Base_TextFile_AsciiCodecError_CHECK)
         auto result = codecvt.in(state, from, from_end, from_next, to, to_end, to_next);
         if (result == std::codecvt_base::error)
             return 'e';
-        if (result == std::codecvt_base::ok && from_next == from)
+        if (result == std::codecvt_base::ok && from_next == from + 1)
             return 'K';
-        if (result == std::codecvt_base::ok && from_next > from)
+        if (result == std::codecvt_base::ok && from_next > from + 1)
             return 'L';
-        if (result == std::codecvt_base::partial && from_next == from)
-            return 'p';
         if (result == std::codecvt_base::partial && from_next == from + 1)
+            return 'p';
+        if (result == std::codecvt_base::partial && from_next == from + 2)
             return 'q';
-        if (result == std::codecvt_base::partial && from_next > from + 1)
+        if (result == std::codecvt_base::partial && from_next > from + 2)
             return 'r';
         return 'W';
     };
     auto test_encode = [](const std::locale& locale) {
         const codecvt_type& codecvt = std::use_facet<codecvt_type>(locale);
-        wchar_t data[] = { wchar_t(-1), L'x' };
+        wchar_t data[] = { L'x', wchar_t(-1), L'x' };
         base::Span data_2(data);
         std::array<char, 8> buffer;
         std::mbstate_t state = {};
@@ -3501,13 +3502,13 @@ ARCHON_TEST(Base_TextFile_AsciiCodecError_CHECK)
         auto result = codecvt.out(state, from, from_end, from_next, to, to_end, to_next);
         if (result == std::codecvt_base::error)
             return 'e';
-        if (result == std::codecvt_base::ok && from_next == from)
+        if (result == std::codecvt_base::ok && from_next == from + 1)
             return 'K';
-        if (result == std::codecvt_base::ok && from_next > from)
+        if (result == std::codecvt_base::ok && from_next > from + 1)
             return 'L';
-        if (result == std::codecvt_base::partial && from_next == from)
+        if (result == std::codecvt_base::partial && from_next == from + 1)
             return 'p';
-        if (result == std::codecvt_base::partial && from_next > from)
+        if (result == std::codecvt_base::partial && from_next > from + 1)
             return 'q';
         return 'W';
     };
