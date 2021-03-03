@@ -3449,8 +3449,8 @@ ARCHON_TEST(Base_TextFile_AsciiCodecError_CHECK)
         wchar_t* to     = buffer.data();
         wchar_t* to_end = to + buffer.size();
         wchar_t* to_next;
-        auto result = codecvt.in(state, from, from_end, from_next, to, to_end, to_next);
-        ARCHON_CHECK_EQUAL(result, std::codecvt_base::error);
+        auto decode_result = codecvt.in(state, from, from_end, from_next, to, to_end, to_next);
+        ARCHON_CHECK_EQUAL(decode_result, std::codecvt_base::error);
     }
     {
         wchar_t ch = -1;
@@ -3462,7 +3462,7 @@ ARCHON_TEST(Base_TextFile_AsciiCodecError_CHECK)
         char* to     = buffer.data();
         char* to_end = to + buffer.size();
         char* to_next;
-        auto result = codecvt.out(state, from, from_end, from_next, to, to_end, to_next);
-        ARCHON_CHECK_EQUAL(result, std::codecvt_base::error);
+        auto encode_result = codecvt.out(state, from, from_end, from_next, to, to_end, to_next);
+        ARCHON_CHECK_EQUAL(encode_result, std::codecvt_base::error);
     }
 }
