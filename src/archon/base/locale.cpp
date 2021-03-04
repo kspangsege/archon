@@ -33,6 +33,10 @@
 #  include <unistd.h>
 #endif
 
+#if ARCHON_MACOS
+#  include <xlocale.h>
+#endif
+
 
 bool archon::base::has_locale(const char* name)
 {
