@@ -7,6 +7,7 @@ add_library(Base
             platform_support.cpp
             platform_info.cpp
             resource_limits.cpp
+            locale.cpp
             time.cpp
             random.cpp
             terminal.cpp

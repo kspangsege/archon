@@ -2,6 +2,7 @@
 #include <iostream>
 
 #include <archon/base/demangle.hpp>
+#include <archon/base/locale.hpp>
 #include <archon/base/seed_memory_buffer.hpp>
 #include <archon/base/format_enc.hpp>
 #include <archon/base/file.hpp>
@@ -3443,33 +3444,21 @@ ARCHON_TEST_BATCH_IF(Base_TextFile_EncodeError, variants, ARCHON_C_LOCALE_IS_ASC
 }
 
 
-bool has_locale(const char* name)
-{
-#if ARCHON_WINDOWS
-    _locale_t loc = ::_create_locale(LC_ALL, name);
-    if (loc) {
-        ::_free_locale(loc);
-        return true;
-    }
-    return false;
-#else
-    locale_t loc = ::newlocale(LC_ALL_MASK, name, 0);
-    if (loc != 0) {
-        ::freelocale(loc);
-        return true;
-    }
-    return false;
-#endif
-}
-
-
 const char* candidate_locales[] = { "C", "C.UTF-8", ".UTF8", "en_US", "en_US.UTF-8", "" };
 
 
 ARCHON_TEST(Base_TextFile_AsciiCodecError_CHECK)                       
 {
-    // FIXME: Need to understand why macOS (and maybe Windows) returns `partial`, and not `error` when decoding and data is just the single char(-1).                   
-    // ---> Apparently, macOS returns partial and leaves `from_next` to point at the bad char. Is this behavior also displayed in `codecvt-test-cases` branch?                   
+    // Both macOS and Windows accept byte values outside 0 -> 127 when decoding in C locale.
+    // In UTF-8 locale, on bad byte while decoding, macOS returns partial and leaves `from_next` to point at the bad char.
+    //  -----> Is this behavior also borne out in `codecvt-test-cases` branch?                    
+    //  -----> What are the consequenses of this quirk from the point of view of the codec implementation above?      
+
+    
+
+    // STRATEGY: Individually for decode and encode, run through list of candicate locales and look for one where char(-1) cannot be decoded or wchar_t(-1) cannot be encoded.      
+
+
 
     using codecvt_type = std::codecvt<wchar_t, char, std::mbstate_t>;
     auto test_decode = [](const std::locale& locale) {
@@ -3526,21 +3515,14 @@ ARCHON_TEST(Base_TextFile_AsciiCodecError_CHECK)
     };
 
     for (const char* name : candidate_locales) {
-        std::locale locale;
-        bool has_1 = false;
-        try {
-            locale = std::locale(name);
-            has_1 = true;
-        }
-        catch (std::runtime_error&) {}
-        bool has_2 = has_locale(name);
-        if (has_1) {
+        if (base::has_locale(name)) {
+            std::locale locale(name);
             char decode = test_decode(locale);
             char encode = test_encode(locale);
-            log("has %s %s     decode %s     encode %s    %s", has_1, has_2, decode, encode, locale.name());
+            log("has 1     decode %s     encode %s    %s", decode, encode, locale.name());
         }
         else {
-            log("has %s %s                              %s", has_1, has_2, name);
+            log("has 0                              %s", name);
         }
     }
 }

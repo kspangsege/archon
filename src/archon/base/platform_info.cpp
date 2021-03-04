@@ -175,7 +175,7 @@ void base::get_platform_info(PlatformInfo& info)
     info_3.osname  = "OpenBSD"; // Throws (copy)
 #elif ARCHON_LINUX
     info_3.osname  = "Linux"; // Throws (copy)
-#elif ARCHON_POSIX
+#elif defined _POSIX_VERSION
     info_3.osname  = "POSIX"; // Throws (copy)
 #elif ARCHON_UNIX
     info_3.osname  = "Unix"; // Throws (copy)

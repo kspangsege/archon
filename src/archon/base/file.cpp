@@ -39,7 +39,7 @@
 #  include <fcntl.h>
 #  include <sys/stat.h>
 #  include <sys/file.h> // BSD / Linux flock()
-#  if defined(_POSIX_C_SOURCE) && _POSIX_C_SOURCE >= 200809L // POSIX.1-2008
+#  if defined _POSIX_VERSION && _POSIX_VERSION >= 200809L // POSIX.1-2008
 #    define HAVE_POSIX_FUTIMENS 1
 #  else
 #    define HAVE_POSIX_FUTIMENS 0

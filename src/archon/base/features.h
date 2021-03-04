@@ -80,17 +80,6 @@
 #endif
 
 
-// POSIX platform
-//
-#if !defined ARCHON_POSIX
-#  if defined _POSIX_VERSION
-#    define ARCHON_POSIX 1
-#  else
-#    define ARCHON_POSIX 0
-#  endif
-#endif
-
-
 // Linux platform
 //
 #if !defined ARCHON_LINUX
