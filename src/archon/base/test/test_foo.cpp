@@ -420,6 +420,82 @@ ARCHON_TEST(Foo)
     std::cout << "------------ C13 ------------\n";
     {
         std::mbstate_t state = std::mbstate_t();
+        StringView string = "\x86xxxxxxx";
+        const char* from      = string.data();
+        const char* from_end  = string.data() + string.size();
+        const char* from_next = 0;
+        Array<wchar_t, 256> buffer;
+        wchar_t* to      = buffer.data();
+        wchar_t* to_end  = buffer.data() + buffer.size();
+        wchar_t* to_next = 0;
+        result_type result = codecvt.in(state, from, from_end, from_next, to, to_end, to_next);
+        std::cout << "is ok      = " << (result == std::codecvt_base::ok) << "\n";
+        std::cout << "is partial = " << (result == std::codecvt_base::partial) << "\n";
+        std::cout << "input consumed  = " << (from_next - from) << "\n";
+        std::cout << "output produced = " << (to_next - to) << "\n";
+        std::cout << "in initial state = " << std::mbsinit(&state) << "\n";
+        std::cout << "in initial state 2 = " << is_initial_2(state) << "\n";
+    }
+    std::cout << "------------ C14 ------------\n";
+    {
+        std::mbstate_t state = std::mbstate_t();
+        StringView string = "x\x86xxxxxxx";
+        const char* from      = string.data();
+        const char* from_end  = string.data() + string.size();
+        const char* from_next = 0;
+        Array<wchar_t, 256> buffer;
+        wchar_t* to      = buffer.data();
+        wchar_t* to_end  = buffer.data() + buffer.size();
+        wchar_t* to_next = 0;
+        result_type result = codecvt.in(state, from, from_end, from_next, to, to_end, to_next);
+        std::cout << "is ok      = " << (result == std::codecvt_base::ok) << "\n";
+        std::cout << "is partial = " << (result == std::codecvt_base::partial) << "\n";
+        std::cout << "input consumed  = " << (from_next - from) << "\n";
+        std::cout << "output produced = " << (to_next - to) << "\n";
+        std::cout << "in initial state = " << std::mbsinit(&state) << "\n";
+        std::cout << "in initial state 2 = " << is_initial_2(state) << "\n";
+    }
+    std::cout << "------------ C15 ------------\n";
+    {
+        std::mbstate_t state = std::mbstate_t();
+        StringView string = "\xC3xxxxxxx";
+        const char* from      = string.data();
+        const char* from_end  = string.data() + string.size();
+        const char* from_next = 0;
+        Array<wchar_t, 256> buffer;
+        wchar_t* to      = buffer.data();
+        wchar_t* to_end  = buffer.data() + buffer.size();
+        wchar_t* to_next = 0;
+        result_type result = codecvt.in(state, from, from_end, from_next, to, to_end, to_next);
+        std::cout << "is ok      = " << (result == std::codecvt_base::ok) << "\n";
+        std::cout << "is partial = " << (result == std::codecvt_base::partial) << "\n";
+        std::cout << "input consumed  = " << (from_next - from) << "\n";
+        std::cout << "output produced = " << (to_next - to) << "\n";
+        std::cout << "in initial state = " << std::mbsinit(&state) << "\n";
+        std::cout << "in initial state 2 = " << is_initial_2(state) << "\n";
+    }
+    std::cout << "------------ C16 ------------\n";
+    {
+        std::mbstate_t state = std::mbstate_t();
+        StringView string = "x\xC3xxxxxxx";
+        const char* from      = string.data();
+        const char* from_end  = string.data() + string.size();
+        const char* from_next = 0;
+        Array<wchar_t, 256> buffer;
+        wchar_t* to      = buffer.data();
+        wchar_t* to_end  = buffer.data() + buffer.size();
+        wchar_t* to_next = 0;
+        result_type result = codecvt.in(state, from, from_end, from_next, to, to_end, to_next);
+        std::cout << "is ok      = " << (result == std::codecvt_base::ok) << "\n";
+        std::cout << "is partial = " << (result == std::codecvt_base::partial) << "\n";
+        std::cout << "input consumed  = " << (from_next - from) << "\n";
+        std::cout << "output produced = " << (to_next - to) << "\n";
+        std::cout << "in initial state = " << std::mbsinit(&state) << "\n";
+        std::cout << "in initial state 2 = " << is_initial_2(state) << "\n";
+    }
+    std::cout << "------------ C17 ------------\n";
+    {
+        std::mbstate_t state = std::mbstate_t();
         StringView string = "x\xC3x";
         const char* from      = string.data();
         const char* from_end  = string.data() + 2;
