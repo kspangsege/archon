@@ -3287,6 +3287,46 @@ ARCHON_TEST_BATCH(Base_TextFile_TellAndSeek, variants)
 }
 
 
+/*
+namespace {
+
+
+class FindCodecErrorLocale {
+public:
+    const char* decode_error_locale = nullptr;
+    const char* encode_error_locale = nullptr;
+
+    FindCodecErrorLocale()
+    {
+        // Find decode error locale
+        for (const char* name : candidates) {
+            if (base::has_locale(name)) {
+                std::locale locale(name);
+                
+            }
+    }
+
+private:
+    const char* candidates[] = { "C", "C.UTF-8", ".UTF8", "en_US", "en_US.UTF-8", "" };
+};
+
+const FindCodecErrorLocale g_find_codec_error_locale;
+
+inline bool has_decode_error_locale()
+{
+    retirn (g_find_codec_error_locale.decode_error_locale != nullptr);
+}
+
+inline bool has_encode_error_locale()
+{
+    retirn (g_find_codec_error_locale.encode_error_locale != nullptr);
+}
+
+
+// unnamed namespace
+*/
+
+
 // It is possible to have a locale where there is no such thing as an invalid
 // byte sequence (e.g., ISO-8859-1). Requiring ASCII is one way of making sure
 // that at least one invalid byte sequence exists (any byte with a value outside
