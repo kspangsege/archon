@@ -65,7 +65,8 @@ ARCHON_TEST(Foo)
     typedef std::codecvt<wchar_t, char, std::mbstate_t> codecvt_type;
     typedef std::codecvt_base::result result_type;
     const codecvt_type& codecvt = std::use_facet<codecvt_type>(locale);
-    std::cout << "encoding = " << codecvt.encoding() << "\n";
+    std::cout << "encoding   = " << codecvt.encoding() << "\n";
+    std::cout << "max_length = " << codecvt.max_length() << "\n";
     std::cout << "---------------------------------- A ----------------------------------\n";
     // Trivial decoding with and without enough output buffer space
     {
