@@ -427,8 +427,8 @@ bool BasicCharCodec<C, T>::inc_decode(std::mbstate_t& state, base::Span<const ch
                                       std::size_t& data_offset, base::Span<C> buffer,
                                       std::size_t& buffer_offset, bool& error)
 {
-    // Deal with bug in GNU libstdc++ causing m_codecvt.in() to return "ok"
-    // when the buffer size is zero. The bug is present in GCC 10.2.0. See also
+    // Deal with bug in GNU libstdc++ causing m_codecvt.in() to return "ok" when
+    // the buffer size is zero. This bug is present in GCC 10.2.0. See also
     // https://gcc.gnu.org/bugzilla/show_bug.cgi?id=37475.
 #if ARCHON_GNU_LIBCXX
     bool has_buffer_space = (buffer_offset < buffer.size());
@@ -3491,10 +3491,16 @@ ARCHON_TEST(Base_TextFile_AsciiCodecError_CHECK)
 {
     // Both macOS and Windows accept byte values outside 0 -> 127 when decoding in C locale.
     // In UTF-8 locale, on bad byte while decoding, macOS returns partial and leaves `from_next` to point at the bad char.
-    //  -----> Is this behavior also borne out in `codecvt-test-cases` branch?                    
+    //  -----> Is this behavior also borne out in `codecvt-test-cases` branch? YES                    
     //  -----> What are the consequenses of this quirk from the point of view of the codec implementation above?      
 
-    
+    // libstdc++ has quirk in that it reports errors difefrently depending on whether it has enough context to see the error. If it sees only one byte, and it is good, it consumes it even though the next byte might be bad. On the other hand, if it sees both bytes at once, it does not consume anything.
+
+    // No quirks in behavior std::codecvt found on Windows
+
+    // Still need to check behavior on macOS when amount of input starting from beginning of bad byte seq is greater than, or equal to max_length(). Done. Nothing changes.
+
+    // It seams that, at least on macOS, when decoding result is partial, it is necessary to check whether the remaining amount of presented input was greater than, or equal to max_length(), and if it was, treat the situation as an error.           
 
     // STRATEGY: Individually for decode and encode, run through list of candicate locales and look for one where char(-1) cannot be decoded or wchar_t(-1) cannot be encoded.      
 
