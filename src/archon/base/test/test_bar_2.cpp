@@ -16,6 +16,18 @@
 
 
 
+Current plan:
+
+- While searching for decode error locale, be prepared to add an arbitrary tail of 'x'es based on what codecvt.max_length() returns.
+
+
+
+
+
+
+
+
+
 Linux ---> C.UTF-8
 
 
@@ -2812,6 +2824,26 @@ inline bool BasicTextFile<C, T, I>::do_read_some(base::Span<C> buffer, std::size
 
 
 
+// ============================================================================================ text_file_stream.hpp ============================================================================================
+
+
+
+template<class C, class T = std::char_traits<C>, class I = base::TextFileImpl<C, T>>
+class BasicTextFileStreambuf :
+    public std::basic_streambuf<C, T> {
+public:
+    using char_type   = C;
+    using traits_type = T;
+
+private:
+    I m_text_file_impl;
+};
+
+
+
+
+
+
 
 
 
@@ -3571,4 +3603,20 @@ ARCHON_TEST(Base_TextFile_AsciiCodecError_CHECK)
             log("has 0                              %s", name);
         }
     }
+}
+
+
+
+
+
+// ============================================================================================ test_text_file_stream.cpp ============================================================================================
+
+
+ARCHON_TEST(Base_TextFileStream_Basics)
+{
+    ARCHON_TEST_FILE(path);
+
+    base::TextFileStream out(path);
+    out << "Hej\n";
+    out.flush();
 }
