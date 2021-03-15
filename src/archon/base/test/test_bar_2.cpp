@@ -16,19 +16,19 @@
 
 
 
-Current plan:
-
-- While searching for decode error locale, be prepared to add an arbitrary tail of 'x'es based on what codecvt.max_length() returns.
-
-
-
-
-
 
 
 CAREFUL WITH ARCHON_LIKELY() OVER COMPOUND CONDITIONS                                            
 
 
+
+
+
+
+
+Current plan:
+
+- While searching for decode error locale, be prepared to add an arbitrary tail of 'x'es based on what codecvt.max_length() returns.
 
 
 
@@ -1529,7 +1529,7 @@ public:
     static constexpr bool is_buffered = false;
     static constexpr bool has_windows_newline_codec = prim_impl_type::has_windows_newline_codec;
 
-    TextFileImpl(base::File&, Config);
+    TextFileImpl(base::File&, std::locale, Config);
 
     [[nodiscard]] bool read_ahead(base::Span<C> buffer, bool dynamic_eof, std::size_t& n,
                                   std::error_code&);
@@ -1610,7 +1610,7 @@ public:
     static constexpr bool is_buffered = false;
     static constexpr bool has_windows_newline_codec = prim_impl_type::has_windows_newline_codec;
 
-    TextFileImpl(base::File&, Config);
+    TextFileImpl(base::File&, std::locale, Config);
 
     [[nodiscard]] bool read_ahead(base::Span<char> buffer, bool dynamic_eof, std::size_t& n,
                                   std::error_code&);
@@ -1648,8 +1648,6 @@ using WindowsTextFileImpl = TextFileImpl<C, T, base::PrimWindowsTextFileImpl>;
 struct TextFileImplConfig :
         base::PrimTextFileImplConfig {
     static constexpr std::size_t default_char_codec_buffer_size = 4096;
-
-    std::locale locale;
 
     // GENERIC:
     //
@@ -1745,9 +1743,9 @@ namespace archon::base {
 
 
 template<class C, class T, class P>
-inline TextFileImpl<C, T, P>::TextFileImpl(base::File& file, Config config) :
+inline TextFileImpl<C, T, P>::TextFileImpl(base::File& file, std::locale locale, Config config) :
     m_prim_impl(file, std::move(config)), // Throws
-    m_codec(std::move(config.locale)), // Throws    
+    m_codec(locale), // Throws
     m_buffer(make_buffer(config)) // Throws
 {
 }
@@ -2077,7 +2075,7 @@ template<class C, class T, class P> inline void TextFileImpl<C, T, P>::expand_bu
 
 
 template<class T, class P>
-inline TextFileImpl<char, T, P>::TextFileImpl(base::File& file, Config config) :
+inline TextFileImpl<char, T, P>::TextFileImpl(base::File& file, std::locale, Config config) :
     m_prim_impl(file, std::move(config)) // Throws
 {
 }
@@ -2155,6 +2153,12 @@ inline bool TextFileImpl<char, T, P>::seek(pos_type pos, std::error_code& ec)
 }
 
 
+template<class T, class P>
+inline void TextFileImpl<char, T, P>::imbue(const std::locale&, std::mbstate_t)
+{
+}
+
+
 } // namespace archon::base
 
 
@@ -2222,7 +2226,7 @@ public:
     static constexpr bool is_buffered = true;
     static constexpr bool has_windows_newline_codec = subimpl_type::has_windows_newline_codec;
 
-    BufferedTextFileImpl(base::File&, Config);
+    BufferedTextFileImpl(base::File&, std::locale, Config);
 
     [[nodiscard]] bool read_ahead(base::Span<C> buffer, bool dynamic_eof, std::size_t& n,
                                   std::error_code&);
@@ -2298,8 +2302,9 @@ template<class C, class T, class I> struct BufferedTextFileImpl<C, T, I>::Config
 
 
 template<class C, class T, class I>
-inline BufferedTextFileImpl<C, T, I>::BufferedTextFileImpl(base::File& file, Config config) :
-    m_subimpl(file, std::move(config)), // Throws
+inline BufferedTextFileImpl<C, T, I>::BufferedTextFileImpl(base::File& file, std::locale locale,
+                                                           Config config) :
+    m_subimpl(file, std::move(locale), std::move(config)), // Throws
     m_buffer(config.buffer_memory, config.buffer_size) // Throws
 {
     // Buffer must not be empty
@@ -2641,6 +2646,7 @@ using WideBufferedWindowsTextFile = BasicBufferedWindowsTextFile<wchar_t>;
 
 template<class C, class T, class I> struct BasicTextFile<C, T, I>::Config :
         public I::Config {
+    std::locale locale;
     bool dynamic_eof = false;
 };
 
@@ -2665,7 +2671,7 @@ template<class C, class T, class I>
 inline BasicTextFile<C, T, I>::BasicTextFile(base::FilesystemPathRef path, Mode mode,
                                              Config config) :
     m_file(path, mode), // Throws
-    m_impl(m_file, std::move(config)), // Throws
+    m_impl(m_file, std::move(config.locale), std::move(config)), // Throws
     m_dynamic_eof(config.dynamic_eof)
 {
 }
@@ -2903,15 +2909,12 @@ using WideWindowsTextFileStream = BasicWindowsTextFileStream<wchar_t>;
 
 ///   
 ///
-/// IMBUE: imbue() on m_text_file_impl is only allowed in neutral mode.
-///
 /// FIXME: Implement showmanyc() such that istream::readsome() works, but this requires an nb (nonblocking) flag parameter on impl.read_some().     
 /// FIXME: Implement xsputn() for improved efficiency (avoid call from virtual to vitual).    
 /// FIXME: Implement xsgetn() for improved efficiency (avoid call from virtual to vitual).    
 /// FIXME: Implement uflow() for improved efficiency (avoid call from virtual to vitual).    
 ///
 /// FIXME: Document that pubsetbuf() has no effect.   
-/// FIXME: Document constraints on pubimbue(): Has an effect only up until the first read, write, or seek operation.
 /// FIXME: Document that pbackfail() always fails, which means that unget() and putback() can only be relied on once immediately after having extracted a character, and only of passing correct character to putback().
 ///
 /// Looks like libstdc++ returns error from pbackfail() if wide character type and locale is not C (maybe if codecvt::encoding() >= 1)
@@ -2939,7 +2942,7 @@ public:
     using pos_type    = typename T::pos_type;
 
     BasicTextFileStreambuf(base::File&);
-    BasicTextFileStreambuf(base::File&, Config);
+    BasicTextFileStreambuf(base::File&, std::locale, Config);
 
 protected:
     void imbue(const std::locale&) override;
@@ -3018,9 +3021,8 @@ template<class C, class T, class I>
 inline BasicTextFileStream<C, T, I>::BasicTextFileStream(base::FilesystemPathRef path, Mode mode,
                                                          Config config) :
     m_file(path, mode), // Throws
-    m_streambuf(m_file, (this->imbue(config.locale), std::move(config))) // Throws
+    m_streambuf(m_file, this->getloc(), std::move(config)) // Throws
 {
-    // Note that this->imbue() has been called at this time
     this->rdbuf(&m_streambuf); // Throws
 }
 
@@ -3031,14 +3033,15 @@ inline BasicTextFileStream<C, T, I>::BasicTextFileStream(base::FilesystemPathRef
 
 template<class C, class T, class I>
 inline BasicTextFileStreambuf<C, T, I>::BasicTextFileStreambuf(base::File& file) :
-    BasicTextFileStreambuf(file, {}) // Throws
+    BasicTextFileStreambuf(file, {}, {}) // Throws
 {
 }
 
 
 template<class C, class T, class I>
-inline BasicTextFileStreambuf<C, T, I>::BasicTextFileStreambuf(base::File& file, Config config) :
-    m_text_file_impl(file, std::move(config)), // Throws
+inline BasicTextFileStreambuf<C, T, I>::BasicTextFileStreambuf(base::File& file,
+                                                               std::locale locale, Config config) :
+    m_text_file_impl(file, std::move(locale), std::move(config)), // Throws
     m_buffer(config.buffer_memory, config.buffer_size), // Throws
     m_dynamic_eof(config.dynamic_eof)
 {
@@ -3545,11 +3548,11 @@ ARCHON_TEST(Base_TextFileImpl_Windows)
 
     ARCHON_TEST_FILE(path);
     base::File file(path, base::File::Mode::write);
+    const std::locale& locale = test_context.get_locale();
     base::TextFileImplConfig config;
-    config.locale = test_context.get_locale();
     config.char_codec_buffer_size = 16;
     config.newline_codec_buffer_size = 16;
-    base::WindowsTextFileImpl<wchar_t> text_file_impl(file, std::move(config));
+    base::WindowsTextFileImpl<wchar_t> text_file_impl(file, locale, std::move(config));
     std::array<wchar_t, 64> buffer;
     bool dynamic_eof = false;
     std::size_t n = 0;
@@ -4042,11 +4045,11 @@ ARCHON_TEST(Base_TextFileStream_Basics)
 {
     ARCHON_TEST_FILE(path);
     base::WideTextFileStream::Config config;
-    config.locale = std::locale::classic();
     config.buffer_size = 3;
     config.char_codec_buffer_size = 3;
     config.newline_codec_buffer_size = 3;
     base::WideTextFileStream text_file(path, base::File::Mode::write, std::move(config));
+    text_file.imbue(std::locale::classic());
     ARCHON_CHECK(text_file);
     ARCHON_CHECK_EQUAL(text_file.tellp(), 0);
     text_file << 4689;
