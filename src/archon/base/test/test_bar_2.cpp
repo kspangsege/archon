@@ -3018,8 +3018,9 @@ template<class C, class T, class I>
 inline BasicTextFileStream<C, T, I>::BasicTextFileStream(base::FilesystemPathRef path, Mode mode,
                                                          Config config) :
     m_file(path, mode), // Throws
-    m_streambuf(m_file, std::move(config)) // Throws
+    m_streambuf(m_file, (this->imbue(config.locale), std::move(config))) // Throws
 {
+    // Note that this->imbue() has been called at this time
     this->rdbuf(&m_streambuf); // Throws
 }
 
@@ -4040,8 +4041,12 @@ ARCHON_TEST(Base_TextFile_AsciiCodecError_CHECK)
 ARCHON_TEST(Base_TextFileStream_Basics)
 {
     ARCHON_TEST_FILE(path);
-    base::WideTextFileStream text_file(path, base::File::Mode::write);
-    text_file.imbue(test_context.get_locale());
+    base::WideTextFileStream::Config config;
+    config.locale = std::locale::classic();
+    config.buffer_size = 3;
+    config.char_codec_buffer_size = 3;
+    config.newline_codec_buffer_size = 3;
+    base::WideTextFileStream text_file(path, base::File::Mode::write, std::move(config));
     ARCHON_CHECK(text_file);
     ARCHON_CHECK_EQUAL(text_file.tellp(), 0);
     text_file << 4689;
