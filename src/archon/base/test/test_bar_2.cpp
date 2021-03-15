@@ -26,6 +26,11 @@ Current plan:
 
 
 
+CAREFUL WITH ARCHON_LIKELY() OVER COMPOUND CONDITIONS                                            
+
+
+
+
 
 
 Linux ---> C.UTF-8
@@ -397,14 +402,19 @@ public:
     ///
     static constexpr std::size_t max_simulate_decode_size() noexcept;
 
+    /// \{
+    ///
+    /// Copyability    
+    BasicCharCodec(const BasicCharCodec&) noexcept = default;
+    BasicCharCodec& operator=(const BasicCharCodec&) noexcept = default;
+    /// \}
+
 private:
     using codecvt_type = std::codecvt<C, char, std::mbstate_t>;
 
-    const std::locale m_locale;
-    const codecvt_type& m_codecvt;
-    const bool m_stateful = (m_codecvt.encoding() == -1);
-
-    BasicCharCodec(const std::locale&, const codecvt_type&, bool lenient) noexcept;
+    std::locale m_locale;
+    const codecvt_type* m_codecvt;
+    bool m_stateful = (m_codecvt->encoding() == -1);
 };
 
 
@@ -423,7 +433,7 @@ using WideCharCodec = BasicCharCodec<wchar_t>;
 
 template<class C, class T> inline BasicCharCodec<C, T>::BasicCharCodec(const std::locale& locale) :
     m_locale(locale),
-    m_codecvt(std::use_facet<codecvt_type>(m_locale)) // Throws
+    m_codecvt(&std::use_facet<codecvt_type>(m_locale)) // Throws
 {
 }
 
@@ -456,7 +466,7 @@ bool BasicCharCodec<C, T>::inc_decode(std::mbstate_t& state, base::Span<const ch
     C* to_end  = buffer.data() + buffer.size();
     C* to_next = nullptr;
     std::codecvt_base::result result =
-        m_codecvt.in(state, from, from_end, from_next, to, to_end, to_next);
+        m_codecvt->in(state, from, from_end, from_next, to, to_end, to_next);
     data_offset   = std::size_t(from_next - data.data());
     buffer_offset = std::size_t(to_next - buffer.data());
     // Cases:
@@ -513,7 +523,7 @@ auto BasicCharCodec<C, T>::inc_encode(std::mbstate_t& state, base::Span<const C>
                                       std::size_t& data_offset, base::Span<char> buffer,
                                       std::size_t& buffer_offset) -> std::codecvt_base::result
 {
-    // Deal with bug in GNU libstdc++ causing m_codecvt.out() to return "ok"
+    // Deal with bug in GNU libstdc++ causing m_codecvt->out() to return "ok"
     // when the buffer size is zero. The bug is present in GCC 10.2.0. See also
     // https://gcc.gnu.org/bugzilla/show_bug.cgi?id=37475.
 #if ARCHON_GNU_LIBCXX
@@ -532,7 +542,7 @@ auto BasicCharCodec<C, T>::inc_encode(std::mbstate_t& state, base::Span<const C>
     char* to_end  = buffer.data() + buffer.size();
     char* to_next = nullptr;
     std::codecvt_base::result result =
-        m_codecvt.out(state, from, from_end, from_next, to, to_end, to_next);
+        m_codecvt->out(state, from, from_end, from_next, to, to_end, to_next);
     data_offset   = std::size_t(from_next - data.data());
     buffer_offset = std::size_t(to_next - buffer.data());
     return result;
@@ -548,7 +558,7 @@ void  BasicCharCodec<C, T>::simulate_inc_decode(std::mbstate_t& state, base::Spa
     ARCHON_ASSERT(std::size_t(data.size() - data_offset) <= max_simulate_decode_size());
     const char* begin = data.data() + data_offset;
     const char* end   = data.data() + data.size();
-    int n = m_codecvt.length(state, begin, end, buffer_size);
+    int n = m_codecvt->length(state, begin, end, buffer_size);
     ARCHON_ASSERT(n >= 0);
     data_offset += std::size_t(n);
 }
@@ -652,7 +662,7 @@ using PrimTextFileImpl = PrimPosixTextFileImpl;
 
 
 struct PrimTextFileImplConfig {
-    static constexpr std::size_t default_newline_codec_buffer_size = 1024;
+    static constexpr std::size_t default_newline_codec_buffer_size = 4096;
 
     // GENERIC:
     //
@@ -1538,14 +1548,18 @@ public:
 
     [[nodiscard]] bool seek(pos_type, std::error_code&);
 
+    /// The file implementation must be in neutral mode when this function is called.
+    void imbue(const std::locale&, std::mbstate_t);
+
 private:
     prim_impl_type m_prim_impl;
     base::BasicCharCodec<C, T> m_codec;
     base::SeedMemoryBuffer<char> m_buffer;
 
-    // `m_state` is always the state at the logical read/write position.
-    // In reading mode, `m_state_2` is the state at the read ahead position.
-    // In writing mode, the value of `m_state_2` in undefined.
+    // `m_state` is always the state at the logical read/write position. In
+    // neutral mode, `m_state_2` is equal to `m_state`. In reading mode,
+    // `m_state_2` is the state at the read ahead position.  In writing mode,
+    // the value of `m_state_2` in undefined.
     std::mbstate_t m_state = {};
     std::mbstate_t m_state_2 = {};
 
@@ -1615,6 +1629,8 @@ public:
 
     [[nodiscard]] bool seek(pos_type, std::error_code&);
 
+    void imbue(const std::locale&, std::mbstate_t);
+
 private:
     prim_impl_type m_prim_impl;
 };
@@ -1631,7 +1647,7 @@ using WindowsTextFileImpl = TextFileImpl<C, T, base::PrimWindowsTextFileImpl>;
 
 struct TextFileImplConfig :
         base::PrimTextFileImplConfig {
-    static constexpr std::size_t default_char_codec_buffer_size = 1024;
+    static constexpr std::size_t default_char_codec_buffer_size = 4096;
 
     std::locale locale;
 
@@ -1997,6 +2013,20 @@ inline bool TextFileImpl<C, T, P>::seek(pos_type pos, std::error_code& ec)
 }
 
 
+template<class C, class T, class P>
+inline void TextFileImpl<C, T, P>::imbue(const std::locale& locale, std::mbstate_t state)
+{
+#if ARCHON_DEBUG
+    ARCHON_ASSERT(!m_reading);
+    ARCHON_ASSERT(!m_writing);
+#endif
+
+    m_codec = base::BasicCharCodec<C, T>(locale); // Throws
+    m_state   = state;
+    m_state_2 = state;
+}
+
+
 template<class C, class T, class P> auto TextFileImpl<C, T, P>::make_buffer(Config& config) ->
     base::SeedMemoryBuffer<char>
 {
@@ -2247,7 +2277,7 @@ private:
 
 template<class C, class T, class I> struct BufferedTextFileImpl<C, T, I>::Config :
         base::TextFileImplConfig {
-    static constexpr std::size_t default_buffer_size = 1024;
+    static constexpr std::size_t default_buffer_size = 4096;
 
     // GENERIC:
     //
@@ -2520,8 +2550,10 @@ template<class C, class T, class I> inline void BufferedTextFileImpl<C, T, I>::e
 namespace archon::base {
 
 
-
-
+///  
+///
+/// FIXME: Consider replacing flush() with sync() which will also revert file position and discard buffered data in reading mode.          
+///
 template<class C, class T = std::char_traits<C>, class I = base::TextFileImpl<C, T>>
 class BasicTextFile {
 public:
@@ -2827,21 +2859,414 @@ inline bool BasicTextFile<C, T, I>::do_read_some(base::Span<C> buffer, std::size
 // ============================================================================================ text_file_stream.hpp ============================================================================================
 
 
+namespace archon::base {
 
+
+template<class C, class T, class I> class BasicTextFileStreambuf;
+
+
+
+template<class C, class T = std::char_traits<C>, class I = base::TextFileImpl<C, T>>
+class BasicTextFileStream :
+    public std::basic_iostream<C, T> {
+public:
+    using char_type   = C;
+    using traits_type = T;
+    using Mode        = base::File::Mode;
+    using Config      = typename BasicTextFileStreambuf<C, T, I>::Config;
+
+    BasicTextFileStream(base::FilesystemPathRef, Mode = Mode::read);
+    BasicTextFileStream(base::FilesystemPathRef, Mode, Config);
+
+private:
+    base::File m_file;
+    BasicTextFileStreambuf<C, T, I> m_streambuf;
+};
+
+
+template<class C, class T = std::char_traits<C>>
+using BasicPosixTextFileStream = BasicTextFileStream<C, T, base::PosixTextFileImpl<C, T>>;
+
+template<class C, class T = std::char_traits<C>>
+using BasicWindowsTextFileStream = BasicTextFileStream<C, T, base::WindowsTextFileImpl<C, T>>;
+
+using TextFileStream        = BasicTextFileStream<char>;
+using PosixTextFileStream   = BasicPosixTextFileStream<char>;
+using WindowsTextFileStream = BasicWindowsTextFileStream<char>;
+
+using WideTextFileStream        = BasicTextFileStream<wchar_t>;
+using WidePosixTextFileStream   = BasicPosixTextFileStream<wchar_t>;
+using WideWindowsTextFileStream = BasicWindowsTextFileStream<wchar_t>;
+
+
+
+
+///   
+///
+/// IMBUE: imbue() on m_text_file_impl is only allowed in neutral mode.
+///
+/// FIXME: Implement showmanyc() such that istream::readsome() works, but this requires an nb (nonblocking) flag parameter on impl.read_some().     
+/// FIXME: Implement xsputn() for improved efficiency (avoid call from virtual to vitual).    
+/// FIXME: Implement xsgetn() for improved efficiency (avoid call from virtual to vitual).    
+/// FIXME: Implement uflow() for improved efficiency (avoid call from virtual to vitual).    
+///
+/// FIXME: Document that pubsetbuf() has no effect.   
+/// FIXME: Document constraints on pubimbue(): Has an effect only up until the first read, write, or seek operation.
+/// FIXME: Document that pbackfail() always fails, which means that unget() and putback() can only be relied on once immediately after having extracted a character, and only of passing correct character to putback().
+///
+/// Looks like libstdc++ returns error from pbackfail() if wide character type and locale is not C (maybe if codecvt::encoding() >= 1)
+/// Is the story in GCC similar with seeking / telling?
+///
+/// Consider swapping (C++11)
+/// Consider move semantics
+///
+/// This implementation assumes that `setg()` and `setp()` in
+/// `std::basic_streambuf` never throw. While this is not currently guaranteed
+/// by the standard (C++17), it is deemed very likely to be the case in
+/// practice. This assumption is necessary in order to uphold critical
+/// invariants.
+///
 template<class C, class T = std::char_traits<C>, class I = base::TextFileImpl<C, T>>
 class BasicTextFileStreambuf :
     public std::basic_streambuf<C, T> {
 public:
+    struct Config;
+
     using char_type   = C;
     using traits_type = T;
+    using int_type    = typename T::int_type;
+    using off_type    = typename T::off_type;
+    using pos_type    = typename T::pos_type;
+
+    BasicTextFileStreambuf(base::File&);
+    BasicTextFileStreambuf(base::File&, Config);
+
+protected:
+    void imbue(const std::locale&) override;
+    int_type underflow() override;
+    int_type overflow(int_type) override;
+    int sync() override;
+    pos_type seekoff(off_type, std::ios_base::seekdir, std::ios_base::openmode) override;
+    pos_type seekpos(pos_type, std::ios_base::openmode) override;
 
 private:
     I m_text_file_impl;
+    base::SeedMemoryBuffer<C> m_buffer;
+    C* m_base;
+    bool m_dynamic_eof;
+    bool m_reading = false;
+    bool m_writing = false;
+
+    bool do_sync(std::error_code&);
+    bool discard(std::error_code&);
+    void advance();
+    bool flush(std::error_code&);
+    bool shallow_flush(std::error_code&);
+};
+
+
+template<class C, class T = std::char_traits<C>>
+using BasicPosixTextFileStreambuf = BasicTextFileStreambuf<C, T, base::PosixTextFileImpl<C, T>>;
+
+template<class C, class T = std::char_traits<C>>
+using BasicWindowsTextFileStreambuf = BasicTextFileStreambuf<C, T, base::WindowsTextFileImpl<C, T>>;
+
+using TextFileStreambuf        = BasicTextFileStreambuf<char>;
+using PosixTextFileStreambuf   = BasicPosixTextFileStreambuf<char>;
+using WindowsTextFileStreambuf = BasicWindowsTextFileStreambuf<char>;
+
+using WideTextFileStreambuf        = BasicTextFileStreambuf<wchar_t>;
+using WidePosixTextFileStreambuf   = BasicPosixTextFileStreambuf<wchar_t>;
+using WideWindowsTextFileStreambuf = BasicWindowsTextFileStreambuf<wchar_t>;
+
+
+template<class C, class T, class I> struct BasicTextFileStreambuf<C, T, I>::Config :
+        public I::Config {
+    static constexpr std::size_t default_buffer_size = 4096;
+
+    bool dynamic_eof = false;
+
+    // GENERIC:
+    //
+    // Buffer will be automatically expanded if necessary.              
+    //
+    std::size_t buffer_size = default_buffer_size;
+    base::Span<C> buffer_memory;
 };
 
 
 
 
+
+
+
+
+// Implementation
+
+
+// ============================ BasicTextFileStream ============================
+
+
+template<class C, class T, class I>
+inline BasicTextFileStream<C, T, I>::BasicTextFileStream(base::FilesystemPathRef path, Mode mode) :
+    BasicTextFileStream(path, mode, {}) // Throws
+{
+}
+
+
+template<class C, class T, class I>
+inline BasicTextFileStream<C, T, I>::BasicTextFileStream(base::FilesystemPathRef path, Mode mode,
+                                                         Config config) :
+    m_file(path, mode), // Throws
+    m_streambuf(m_file, std::move(config)) // Throws
+{
+    this->rdbuf(&m_streambuf); // Throws
+}
+
+
+
+// ============================ BasicTextFileStreambuf ============================
+
+
+template<class C, class T, class I>
+inline BasicTextFileStreambuf<C, T, I>::BasicTextFileStreambuf(base::File& file) :
+    BasicTextFileStreambuf(file, {}) // Throws
+{
+}
+
+
+template<class C, class T, class I>
+inline BasicTextFileStreambuf<C, T, I>::BasicTextFileStreambuf(base::File& file, Config config) :
+    m_text_file_impl(file, std::move(config)), // Throws
+    m_buffer(config.buffer_memory, config.buffer_size), // Throws
+    m_dynamic_eof(config.dynamic_eof)
+{
+    // Buffer must not be empty
+    m_buffer.reserve(1); // Throws
+
+    // Start out in neutral mode
+    m_base = m_buffer.data();
+    this->setg(m_base, m_base, m_base);
+    this->setp(m_base, m_base);
+}
+
+
+template<class C, class T, class I>
+void BasicTextFileStreambuf<C, T, I>::imbue(const std::locale& loc)
+{
+    // Ideally, this function should not have had any failure modes, because it
+    // is called from `std::basic_ios<C, T>::imbue()`, and after that function
+    // has made changes that are not guaranteed to be reversible. But,
+    // eliminating all failure modes from this function is essentially
+    // impossible. Ignoring practical limitations, one resolution would be to
+    // modify the C++ standard by introducing a two-phase commit protocol for
+    // changing the locale in a stream.
+
+    std::error_code ec;
+    if (ARCHON_LIKELY(do_sync(ec))) {
+        ARCHON_ASSERT(!m_reading);
+        ARCHON_ASSERT(!m_writing);
+        std::mbstate_t state = {}; // Best guess
+        m_text_file_impl.imbue(loc, state); // Throws
+        return;
+    }
+    throw std::system_error(ec, "Failed to synchronize");
+}
+
+
+template<class C, class T, class I> auto BasicTextFileStreambuf<C, T, I>::underflow() -> int_type
+{
+    ARCHON_ASSERT(this->gptr() == this->egptr());
+
+    std::error_code ec; // Dummy
+    if (ARCHON_LIKELY(!m_writing)) {
+        m_text_file_impl.advance();
+        m_base = m_buffer.data();
+        this->setg(m_base, m_base, m_base);
+
+      read:
+        // Enter into reading mode
+        m_reading = true;
+
+        std::size_t n = 0;
+        if (m_text_file_impl.read_ahead(m_buffer, m_dynamic_eof, n, ec)) { // Throws
+            if (ARCHON_LIKELY(n > 0)) {
+                this->setg(m_base, m_base, m_base + n);
+                C ch = *this->gptr(); // Throws
+                return T::to_int_type(ch);
+            }
+            return T::eof(); // End of file
+        }
+        return T::eof(); // Failure to read
+    }
+
+    if (ARCHON_LIKELY(flush(ec))) // Throws
+        goto read;
+
+    return T::eof(); // Failure to stop writing
+}
+
+
+template<class C, class T, class I>
+auto BasicTextFileStreambuf<C, T, I>::overflow(int_type ch) -> int_type
+{
+    ARCHON_ASSERT(this->pptr() == this->epptr());
+
+    std::error_code ec; // Dummy
+    if (ARCHON_LIKELY(m_writing)) {
+        if (ARCHON_LIKELY(shallow_flush(ec))) { // Throws
+          write_1:
+            if (!T::eq_int_type(ch, T::eof())) {
+                ARCHON_ASSERT(this->pptr() < this->epptr());
+                *this->pptr() = T::to_char_type(ch); // Throws
+                this->pbump(1); // Throws
+            }
+            return T::not_eof(ch); // Success
+        }
+        return T::eof(); // Failure to flush
+    }
+
+    if (ARCHON_LIKELY(!m_reading)) {
+      write_2:
+        // Enter into writing mode
+        ARCHON_ASSERT(m_buffer.size() > 0);
+        this->setp(m_base, m_base + m_buffer.size());
+        m_writing = true;
+
+        goto write_1;
+    }
+
+    if (ARCHON_LIKELY(discard(ec))) // Throws
+        goto write_2;
+
+    return T::eof(); // Failure to stop reading
+}
+
+
+template<class C, class T, class I> int BasicTextFileStreambuf<C, T, I>::sync()
+{
+    std::error_code ec; // Dummy
+    if (ARCHON_LIKELY(do_sync(ec))) // Throws
+        return 0; // Success
+    return -1; // Failure
+}
+
+
+template<class C, class T, class I>
+auto BasicTextFileStreambuf<C, T, I>::seekoff(off_type off, std::ios_base::seekdir dir,
+                                              std::ios_base::openmode) -> pos_type
+{
+    if (ARCHON_LIKELY(off == 0 && dir == std::ios_base::cur)) {
+        pos_type pos = off_type(0);
+        std::error_code ec; // Dummy
+        if (ARCHON_LIKELY(m_writing)) {
+            if (ARCHON_LIKELY(shallow_flush(ec))) { // Throws
+                if (ARCHON_LIKELY(m_text_file_impl.tell_write(pos, ec))) // Throws
+                    return pos; // Success
+            }
+        }
+        else {
+            advance(); // Throws
+            if (ARCHON_LIKELY(m_text_file_impl.tell_read(pos, ec))) // Throws
+                return pos; // Success
+        }
+    }
+    return pos_type(off_type(-1)); // Failure
+}
+
+
+template<class C, class T, class I>
+auto BasicTextFileStreambuf<C, T, I>::seekpos(pos_type pos, std::ios_base::openmode) -> pos_type
+{
+    std::error_code ec; // Dummy
+    if (ARCHON_LIKELY(!m_writing)) {
+      seek:
+        if (ARCHON_LIKELY(m_text_file_impl.seek(pos, ec))) { // Throws
+            // Enter into neutral mode (or stay there)
+            m_base = m_buffer.data();
+            this->setg(m_base, m_base, m_base);
+            m_reading = false;
+            return pos; // Success
+        }
+    }
+    else {
+        if (ARCHON_LIKELY(flush(ec))) // Throws
+            goto seek;
+    }
+    return pos_type(off_type(-1)); // Failure
+}
+
+
+template<class C, class T, class I>
+inline bool BasicTextFileStreambuf<C, T, I>::do_sync(std::error_code& ec)
+{
+    if (ARCHON_LIKELY(m_writing))
+        return flush(ec); // Throws
+    if (ARCHON_LIKELY(!m_reading))
+        return true;
+    return discard(ec); // Throws
+}
+
+
+template<class C, class T, class I> bool BasicTextFileStreambuf<C, T, I>::discard(std::error_code& ec)
+{
+    advance(); // Throws
+    if (ARCHON_LIKELY(m_text_file_impl.discard(ec))) { // Throws
+        // Enter into neutral mode (or stay there)
+        m_base = m_buffer.data();
+        this->setg(m_base, m_base, m_base);
+        m_reading = false;
+        return true;
+    }
+    return false;
+}
+
+
+template<class C, class T, class I> inline void BasicTextFileStreambuf<C, T, I>::advance()
+{
+    ARCHON_ASSERT(!m_writing);
+    ARCHON_ASSERT(this->gptr() >= m_base);
+    std::size_t n = std::size_t(this->gptr() - m_base);
+    m_text_file_impl.advance(n); // Throws
+    m_base = this->gptr();
+}
+
+
+template<class C, class T, class I>
+inline bool BasicTextFileStreambuf<C, T, I>::flush(std::error_code& ec)
+{
+    if (ARCHON_LIKELY(shallow_flush(ec))) { // Throws
+        if (ARCHON_LIKELY(m_text_file_impl.flush(ec))) { // Throws
+            // Enter into neutral mode
+            m_base = m_buffer.data();
+            this->setp(m_base, m_base);
+            m_writing = false;
+            return true;
+        }
+    }
+    return false; // Failure
+}
+
+
+template<class C, class T, class I>
+inline bool BasicTextFileStreambuf<C, T, I>::shallow_flush(std::error_code& ec)
+{
+    ARCHON_ASSERT(m_writing);
+    ARCHON_ASSERT(this->pptr() >= m_base);
+    base::Span data = base::Span<C>(m_base, this->pptr());
+    std::size_t n = 0;
+    if (ARCHON_LIKELY(m_text_file_impl.write(data, n, ec))) { // Throws
+        ARCHON_ASSERT(m_buffer.size() > 0);
+        m_base = m_buffer.data();
+        this->setp(m_base, m_base + m_buffer.size());
+        return true;
+    }
+    m_base += n;
+    return false;
+}
+
+
+} // namespace archon::base
 
 
 
@@ -3615,8 +4040,21 @@ ARCHON_TEST(Base_TextFile_AsciiCodecError_CHECK)
 ARCHON_TEST(Base_TextFileStream_Basics)
 {
     ARCHON_TEST_FILE(path);
-
-    base::TextFileStream out(path);
-    out << "Hej\n";
-    out.flush();
+    base::WideTextFileStream text_file(path, base::File::Mode::write);
+    text_file.imbue(test_context.get_locale());
+    ARCHON_CHECK(text_file);
+    ARCHON_CHECK_EQUAL(text_file.tellp(), 0);
+    text_file << 4689;
+    ARCHON_CHECK(text_file);
+    ARCHON_CHECK_EQUAL(text_file.tellp(), 4);
+    text_file.flush();
+    ARCHON_CHECK(text_file);
+    text_file.seekg(0);
+    ARCHON_CHECK(text_file);
+    ARCHON_CHECK_EQUAL(text_file.tellp(), 0);
+    int value = 0;
+    text_file >> value;
+    ARCHON_CHECK(text_file);
+    ARCHON_CHECK_EQUAL(value, 4689);
+    ARCHON_CHECK_EQUAL(text_file.tellp(), 4);
 }
