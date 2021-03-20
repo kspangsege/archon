@@ -15,9 +15,6 @@
 
 
 
-
-
-
 CAREFUL WITH ARCHON_LIKELY() OVER COMPOUND CONDITIONS                                            
 
 
@@ -2907,21 +2904,32 @@ using WideWindowsTextFileStream = BasicWindowsTextFileStream<wchar_t>;
 
 
 
+/// \brief Stream buffer for text file streams.
+///
 ///   
 ///
-/// FIXME: Implement showmanyc() such that istream::readsome() works, but this requires an nb (nonblocking) flag parameter on impl.read_some().     
 /// FIXME: Implement xsputn() for improved efficiency (avoid call from virtual to vitual).    
 /// FIXME: Implement xsgetn() for improved efficiency (avoid call from virtual to vitual).    
 /// FIXME: Implement uflow() for improved efficiency (avoid call from virtual to vitual).    
 ///
-/// FIXME: Document that pubsetbuf() has no effect.   
-/// FIXME: Document that pbackfail() always fails, which means that unget() and putback() can only be relied on once immediately after having extracted a character, and only of passing correct character to putback().
+/// With this implementation, `seekoff()` fails unless the spcified offset is
+/// zero and the specified direction is `std::ios_base::cur`. This means that
+/// relative seeking is unsupported, and that `seekoff()` can only be used for
+/// the purpose of telling the current read/write position.
 ///
-/// Looks like libstdc++ returns error from pbackfail() if wide character type and locale is not C (maybe if codecvt::encoding() >= 1)
-/// Is the story in GCC similar with seeking / telling?
+/// With this implementation, `setbuf()` has no effect. To use a custom buffer,
+/// specify it through \ref Config::buffer_memory.
 ///
-/// Consider swapping (C++11)
-/// Consider move semantics
+/// With this implementation, `showmanyc()` always returns 0, which means that
+/// `in_avail()`, and, in turn, `std::basic_istream<C, T>::readsome()` will
+/// generally not work in a useful way, and it is not clear that there is any
+/// way to remedy the situation. See \ref BasicTextFile<C, T>::read_some() for a
+/// working alternative.
+///
+/// With this implementation, `pbackfail()` always fails (returns `T::eof()`),
+/// so `sungetc()` and `sputbackc()` (`unget()` and `putback()` in
+/// `std::basic_istream`) can only be relied on immediately after advancing the
+/// read position, such as through `sbumpc()`.
 ///
 /// This implementation assumes that `setg()` and `setp()` in
 /// `std::basic_streambuf` never throw. While this is not currently guaranteed
@@ -4041,28 +4049,84 @@ ARCHON_TEST(Base_TextFile_AsciiCodecError_CHECK)
 // ============================================================================================ test_text_file_stream.cpp ============================================================================================
 
 
-ARCHON_TEST(Base_TextFileStream_Basics)
+ARCHON_TEST_VARIANTS(stream_variants,
+                     ARCHON_TEST_TYPE(base::PosixTextFileStream,       Posix),
+                     ARCHON_TEST_TYPE(base::WindowsTextFileStream,     Windows),
+                     ARCHON_TEST_TYPE(base::WidePosixTextFileStream,   WidePosix),
+                     ARCHON_TEST_TYPE(base::WideWindowsTextFileStream, WideWindows));
+
+
+ARCHON_TEST_BATCH(Base_TextFileStream_Read, stream_variants)
 {
     ARCHON_TEST_FILE(path);
-    base::WideTextFileStream::Config config;
+    {
+        base::TextFile text_file(path, base::File::Mode::write);
+        text_file.write("4689");
+        text_file.flush();
+    }
+    using stream_type = test_type;
+    typename stream_type::Config config;
     config.buffer_size = 3;
     config.char_codec_buffer_size = 3;
     config.newline_codec_buffer_size = 3;
-    base::WideTextFileStream text_file(path, base::File::Mode::write, std::move(config));
-    text_file.imbue(std::locale::classic());
-    ARCHON_CHECK(text_file);
-    ARCHON_CHECK_EQUAL(text_file.tellp(), 0);
-    text_file << 4689;
-    ARCHON_CHECK(text_file);
-    ARCHON_CHECK_EQUAL(text_file.tellp(), 4);
-    text_file.flush();
-    ARCHON_CHECK(text_file);
-    text_file.seekg(0);
-    ARCHON_CHECK(text_file);
-    ARCHON_CHECK_EQUAL(text_file.tellp(), 0);
+    stream_type stream(path, base::File::Mode::read, std::move(config));
+    stream.imbue(std::locale::classic());
+    ARCHON_CHECK(stream);
     int value = 0;
-    text_file >> value;
-    ARCHON_CHECK(text_file);
+    stream >> value;
+    ARCHON_CHECK(stream);
     ARCHON_CHECK_EQUAL(value, 4689);
-    ARCHON_CHECK_EQUAL(text_file.tellp(), 4);
+}
+
+
+ARCHON_TEST_BATCH(Base_TextFileStream_WriteAndFlush, stream_variants)
+{
+    ARCHON_TEST_FILE(path);
+    {
+        using stream_type = test_type;
+        typename stream_type::Config config;
+        config.buffer_size = 3;
+        config.char_codec_buffer_size = 3;
+        config.newline_codec_buffer_size = 3;
+        stream_type stream(path, base::File::Mode::write, std::move(config));
+        stream.imbue(std::locale::classic());
+        ARCHON_CHECK(stream);
+        stream << 4689;
+        ARCHON_CHECK(stream);
+        stream.flush();
+        ARCHON_CHECK(stream);
+    }
+    base::TextFile text_file(path, base::File::Mode::read);
+    std::array<char, 64> buffer;
+    std::size_t n = text_file.read(buffer);
+    std::string_view data(buffer.data(), n);
+    ARCHON_CHECK_EQUAL(data, "4689");
+}
+
+
+ARCHON_TEST_BATCH(Base_TextFileStream_TellAndSeek, stream_variants)
+{
+    ARCHON_TEST_FILE(path);
+    using stream_type = test_type;
+    typename stream_type::Config config;
+    config.buffer_size = 3;
+    config.char_codec_buffer_size = 3;
+    config.newline_codec_buffer_size = 3;
+    stream_type stream(path, base::File::Mode::write, std::move(config));
+    stream.imbue(std::locale::classic());
+    ARCHON_CHECK(stream);
+    ARCHON_CHECK_EQUAL(stream.tellp(), 0);
+    stream << 4689;
+    ARCHON_CHECK(stream);
+    ARCHON_CHECK_EQUAL(stream.tellp(), 4);
+    stream.flush();
+    ARCHON_CHECK(stream);
+    stream.seekg(0);
+    ARCHON_CHECK(stream);
+    ARCHON_CHECK_EQUAL(stream.tellp(), 0);
+    int value = 0;
+    stream >> value;
+    ARCHON_CHECK(stream);
+    ARCHON_CHECK_EQUAL(value, 4689);
+    ARCHON_CHECK_EQUAL(stream.tellp(), 4);
 }
