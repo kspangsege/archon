@@ -14,15 +14,6 @@
 /*               
 
 
-
-CAREFUL WITH ARCHON_LIKELY() OVER COMPOUND CONDITIONS                                            
-
-
-
-
-
-
-
 Current plan:
 
 - While searching for decode error locale, be prepared to add an arbitrary tail of 'x'es based on what codecvt.max_length() returns.
@@ -1008,14 +999,18 @@ bool PrimPosixTextFileImpl::discard(std::error_code& ec)
     if (ARCHON_LIKELY(base::try_int_cast(m_retain_size, n))) {
         auto whence = base::File::Whence::cur;
         pos_type result; // Dummy
-        if (ARCHON_LIKELY(n == 0 || m_file.try_seek(-n, whence, result, ec))) {
-            m_retain_size = 0;
-#if ARCHON_DEBUG
-            m_reading = false;
-#endif
-            return true;
+        if (ARCHON_LIKELY(n > 0)) {
+            if (ARCHON_LIKELY(m_file.try_seek(-n, whence, result, ec))) {
+                m_retain_size = 0;
+                goto proceed;
+            }
+            return false; // Failure
         }
-        return false;
+      proceed:
+#if ARCHON_DEBUG
+        m_reading = false;
+#endif
+        return true; // Success
     }
     throw std::length_error("Retain size");
 }
@@ -1148,18 +1143,21 @@ bool PrimWindowsTextFileImpl::discard(std::error_code& ec)
     if (ARCHON_LIKELY(base::try_int_cast(m_end - m_begin, n))) {
         auto whence = base::File::Whence::cur;
         pos_type result; // Dummy
-        if (ARCHON_LIKELY(n == 0 || m_file.try_seek(-n, whence, result, ec))) {
-            m_begin = 0;
-            m_end   = 0;
-            m_curr  = 0;
-            m_retain_size  = 0;
-            m_retain_clear = 0;
-#if ARCHON_DEBUG
-            m_reading = false;
-#endif
-            return true;
+        if (ARCHON_LIKELY(n > 0)) {
+            if (ARCHON_LIKELY(m_file.try_seek(-n, whence, result, ec)))
+                goto proceed;
+            return false; // Failure
         }
-        return false;
+      proceed:
+        m_begin = 0;
+        m_end   = 0;
+        m_curr  = 0;
+        m_retain_size  = 0;
+        m_retain_clear = 0;
+#if ARCHON_DEBUG
+        m_reading = false;
+#endif
+        return true; // Success
     }
     throw std::length_error("Retain size");
 }
@@ -2679,7 +2677,7 @@ inline std::size_t BasicTextFile<C, T, I>::read_some(base::Span<C> buffer)
 {
     std::size_t n = 0;
     std::error_code ec;
-    if (ARCHON_LIKELY(try_read_some(buffer, n, ec)))
+    if (ARCHON_LIKELY(try_read_some(buffer, n, ec))) // Throws
         return n; // Success
     throw std::system_error(ec, "Failed to read from file");
 }
@@ -2690,7 +2688,7 @@ inline std::size_t BasicTextFile<C, T, I>::read(base::Span<C> buffer)
 {
     std::size_t n = 0;
     std::error_code ec;
-    if (ARCHON_LIKELY(try_read(buffer, n, ec)))
+    if (ARCHON_LIKELY(try_read(buffer, n, ec))) // Throws
         return n; // Success
     throw std::system_error(ec, "Failed to read from file");
 }
@@ -2701,7 +2699,7 @@ inline void BasicTextFile<C, T, I>::write(base::Span<const C> data)
 {
     std::size_t n; // Dummy
     std::error_code ec;
-    if (ARCHON_LIKELY(try_write(data, n, ec)))
+    if (ARCHON_LIKELY(try_write(data, n, ec))) // Throws
         return; // Success
     throw std::system_error(ec, "Failed to write to file");
 }
@@ -2710,7 +2708,7 @@ inline void BasicTextFile<C, T, I>::write(base::Span<const C> data)
 template<class C, class T, class I> inline void BasicTextFile<C, T, I>::flush()
 {
     std::error_code ec;
-    if (ARCHON_LIKELY(try_flush(ec)))
+    if (ARCHON_LIKELY(try_flush(ec))) // Throws
         return; // Success
     throw std::system_error(ec, "Failed to flush");
 }
@@ -2720,7 +2718,7 @@ template<class C, class T, class I> inline auto BasicTextFile<C, T, I>::tell() -
 {
     pos_type pos;
     std::error_code ec;
-    if (ARCHON_LIKELY(try_tell(pos, ec)))
+    if (ARCHON_LIKELY(try_tell(pos, ec))) // Throws
         return pos; // Success
     throw std::system_error(ec, "Failed to determine read/write position");
 }
@@ -2729,7 +2727,7 @@ template<class C, class T, class I> inline auto BasicTextFile<C, T, I>::tell() -
 template<class C, class T, class I> inline void BasicTextFile<C, T, I>::seek(pos_type pos)
 {
     std::error_code ec;
-    if (ARCHON_LIKELY(try_seek(pos, ec)))
+    if (ARCHON_LIKELY(try_seek(pos, ec))) // Throws
         return; // Success
     throw std::system_error(ec, "Failed to update read/write position");
 }
@@ -2739,11 +2737,14 @@ template<class C, class T, class I>
 inline bool BasicTextFile<C, T, I>::try_read_some(base::Span<C> buffer, std::size_t& n,
                                                   std::error_code& ec)
 {
-    if (ARCHON_LIKELY(!m_writing || stop_writing(ec))) { // Throws
+    if (ARCHON_LIKELY(!m_writing)) {
+      proceed:
         m_reading = true;
         return do_read_some(buffer, n, ec); // Throws
     }
-    return false;
+    if (ARCHON_LIKELY(stop_writing(ec))) // Throws
+        goto proceed;
+    return false; // Failure to stop writing
 }
 
 
@@ -2751,23 +2752,27 @@ template<class C, class T, class I>
 inline bool BasicTextFile<C, T, I>::try_read(base::Span<C> buffer, std::size_t& n,
                                              std::error_code& ec)
 {
-    base::Span<C> buffer_2 = buffer;
-    if (ARCHON_LIKELY(!m_writing || stop_writing(ec))) { // Throws
+    if (ARCHON_LIKELY(!m_writing)) {
+      proceed:
         m_reading = true;
+        base::Span<C> buffer_2 = buffer;
         std::size_t n_2 = 0;
-      again:
-        if (ARCHON_LIKELY(do_read_some(buffer_2, n_2, ec))) {
+        while (ARCHON_LIKELY(do_read_some(buffer_2, n_2, ec))) {
             ARCHON_ASSERT(n_2 <= buffer_2.size());
             if (ARCHON_LIKELY(n_2 > 0 && n_2 < buffer_2.size())) {
                 buffer_2 = buffer_2.subspan(n_2);
-                goto again;
+                continue;
             }
             n = std::size_t(buffer_2.data() + n_2 - buffer.data());
-            return true;
+            return true; // Success
         }
+        n = std::size_t(buffer_2.data() - buffer.data());
+        return false; // Failure to read
     }
-    n = std::size_t(buffer_2.data() - buffer.data());
-    return false;
+    if (ARCHON_LIKELY(stop_writing(ec))) // Throws
+        goto proceed;
+    n = 0;
+    return false; // Failure to stop writing
 }
 
 
@@ -2775,23 +2780,29 @@ template<class C, class T, class I>
 inline bool BasicTextFile<C, T, I>::try_write(base::Span<const C> data, std::size_t& n,
                                               std::error_code& ec)
 {
-    if (ARCHON_LIKELY(!m_reading || stop_reading(ec))) { // Throws
+    if (ARCHON_LIKELY(!m_reading)) {
+      proceed:
         m_writing = true;
         return m_impl.write(data, n, ec); // Throws
     }
+    if (ARCHON_LIKELY(stop_reading(ec))) // Throws
+        goto proceed;
     n = 0;
-    return false;
+    return false; // Failure to stop reading
 }
 
 
 template<class C, class T, class I>
 inline bool BasicTextFile<C, T, I>::try_flush(std::error_code& ec)
 {
-    if (ARCHON_LIKELY(!m_writing || m_impl.flush(ec))) { // Throws
-        m_writing = false;
-        return true;
+    if (ARCHON_LIKELY(m_writing)) {
+        if (ARCHON_LIKELY(m_impl.flush(ec))) { // Throws
+            m_writing = false;
+            return true; // Success
+        }
+        return false; // Failure
     }
-    return false;
+    return true; // Trivial success
 }
 
 
@@ -2807,12 +2818,17 @@ inline bool BasicTextFile<C, T, I>::try_tell(pos_type& pos, std::error_code& ec)
 template<class C, class T, class I>
 inline bool BasicTextFile<C, T, I>::try_seek(pos_type pos, std::error_code& ec)
 {
-    bool success = ((!m_writing || stop_writing(ec)) && m_impl.seek(pos, ec)); // Throws
-    if (ARCHON_LIKELY(success)) {
-        m_reading = false;
-        return true;
+    if (ARCHON_LIKELY(m_writing)) {
+        if (ARCHON_LIKELY(stop_writing(ec))) // Throws
+            goto proceed;
+        return false; // Failure to stop writing
     }
-    return false;
+  proceed:
+    if (ARCHON_LIKELY(m_impl.seek(pos, ec))) { // Throws
+        m_reading = false;
+        return true; // Success
+    }
+    return false; // Failure
 }
 
 
