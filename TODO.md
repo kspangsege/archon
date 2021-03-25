@@ -1,4 +1,10 @@
 
+
+Hmm, why does `CC=gcc-10 CXX=g++-10 sh ./do.sh check -f "Base_TextCodec_EncodePosix" -l off -n 10000000 -t 1` run in half the time of `CC=gcc-10 CXX=g++-10 sh ./do.sh check -f "Base_TextCodec_EncodePosix" -l off -n 10000000 -t 24`? Can something be done about it (maybe using atomic test index)?
+
+
+
+
 TODO:
 - Issue with multiple test file/dir path guards using same name in nested scopes / function invocations: Consider adding line number to name. Maybe impossible to robustly prevent. Consider just adding a warning in the documentation.
 - Fix newline transformations on Windows

@@ -11,7 +11,31 @@
 #include <locale.h>
 
 
+
+template<class P, class D> class Base {
+};
+
+template<class P, class D> class Impl {
+};
+
+
 /*               
+
+
+
+Finish implementation of BasicTextCodec:
+- Implement decoding and encoding involving char codec.
+- Verify that it is possible to plug in a custom char codec.
+- Find a way to express short-circuiting API (e.g., std::string_view encode_sc(D&& data, base::SeedMemoryBuffer<C>&)).
+- Add BasicTextEncoder and BasicTextDecoder classes as wrappers around BasicTextCodec. These will contain the target buffer when, and only when the codec is nontrivial, and only offer short-circuiting API variant.
+
+
+
+
+
+
+
+
 
 
 Current plan:
@@ -36,7 +60,7 @@ GENERAL RULE ALL THE WAY FROM basic text file down for base::File is that if wri
 ----> Similarly, if read() fails, then n is strictly less than buffer.size()
 
 
-OOOOOOOPS, apparently we cannot assume that when write() fails, `n` is the position of the failure (buffering destroys this) Be sure that the documentation doe not promise too much   
+OOOOOOOPS, apparently we cannot assume that when write() fails, `n` is the position of the failure (buffering destroys this) Be sure that the documentation does not promise too much   
 --> generic guarantee: On failure, at least all the characters that preceed the position of the error will have been written, so the position of the error is less than, or equal to `n`.   
 
 
@@ -88,7 +112,8 @@ Want: ARCHON_CHECK_IN_SET(var, a, b, c, ...)
 // Consider adding constructor to BasicTextFile::BasicTextFile(base::File&, std::mbstate_t initial_state = {})
 
 
-// Consider adding `write(const C* c_str)` and `try_write(const C* c_str, ...)` overloads to non-impl test files.
+// Consider adding `write(const C* c_str)` and `try_write(const C* c_str, ...)` overloads to non-impl text files.
+// ----------> RATHER: Use base::span_from_string() as in BasicTextCodec::encode() <----------                       
 
 
 // Max possible file size seems to be 17592186040320 on my Linux box (11111111111111111111111111111111000000000000 in binary) (44 bits) (~16TiB)
@@ -348,6 +373,8 @@ public:
     using char_type   = C;
     using traits_type = T;
 
+    static constexpr bool is_nontrivial = !std::is_same_v<C, char>;
+
     BasicCharCodec(const std::locale&);
 
     bool stateful() const noexcept;
@@ -382,7 +409,7 @@ public:
     /// inc_decode() given the same state and span of data.
     ///
     void simulate_inc_decode(std::mbstate_t&, base::Span<const char> data,
-                             std::size_t& data_offset, std::size_t buffer_size) noexcept;
+                             std::size_t& data_offset, std::size_t buffer_size);
 
     /// \brief   
     ///
@@ -539,8 +566,7 @@ auto BasicCharCodec<C, T>::inc_encode(std::mbstate_t& state, base::Span<const C>
 
 template<class C, class T>
 void  BasicCharCodec<C, T>::simulate_inc_decode(std::mbstate_t& state, base::Span<const char> data,
-                                                std::size_t& data_offset,
-                                                std::size_t buffer_size) noexcept
+                                                std::size_t& data_offset, std::size_t buffer_size)
 {
     ARCHON_ASSERT(data_offset <= data.size());
     ARCHON_ASSERT(std::size_t(data.size() - data_offset) <= max_simulate_decode_size());
@@ -578,6 +604,9 @@ namespace archon::base {
 // Adds support for leniency mode                     
 template<class C, class T = std::char_traits<C>> class BasicExtendedCharCodec {
 public:
+    using char_type   = C;
+    using traits_type = T;
+
 };
 
 
@@ -587,6 +616,737 @@ using WideExtendedCharCodec = BasicExtendedCharCodec<wchar_t>;
 
 } // namespace archon::base
 */
+
+
+
+
+// ============================================================================================ detail/text_codec_impl.hpp ============================================================================================
+
+
+namespace archon::base::detail {
+
+
+
+template<class C, class T, class P, class I> class TextCodecImpl1 :
+        private P {
+public:
+    static constexpr bool is_nontrivial = P::is_nontrivial;
+
+    using decoder_type = typename P::decoder_type;
+    using encoder_type = typename P::encoder_type;
+
+    TextCodecImpl1(const std::locale&) noexcept;
+
+    template<class J> static const J& up_cast(const I&) noexcept;
+};
+
+
+
+template<class C, class T, class P, class D, class I> class TextCodecImpl2 :
+        private P {
+private:
+    class Decoder;
+    class Encoder;
+    template<class E> class CompoundEncoder;
+
+public:
+    static constexpr bool is_nontrivial = true;
+
+    using decoder_type = typename P::template build_decoder_type<Decoder>;
+    using encoder_type = typename P::template build_encoder_type<Encoder, CompoundEncoder>;
+
+    TextCodecImpl2(const std::locale&);
+
+    template<class J> static const J& up_cast(const I&) noexcept;
+    template<class J> static const I& down_cast(const J&) noexcept;
+
+private:
+    D m_char_codec;
+};
+
+
+
+template<class C, class T, class P, class D, class I, bool N> class TextCodecImpl3 :
+        public TextCodecImpl1<C, T, P, I> {
+public:
+    using TextCodecImpl1<C, T, P, I>::TextCodecImpl1;
+};
+
+template<class C, class T, class P, class D, class I> class TextCodecImpl3<C, T, P, D, I, true> :
+        public TextCodecImpl2<C, T, P, D, I> {
+public:
+    using TextCodecImpl2<C, T, P, D, I>::TextCodecImpl2;
+};
+
+
+
+template<class C, class T, class P, class D> class TextCodecImpl :
+        public TextCodecImpl3<C, T, P, D, TextCodecImpl<C, T, P, D>, D::is_nontrivial> {
+public:
+    using TextCodecImpl3<C, T, P, D, TextCodecImpl, D::is_nontrivial>::TextCodecImpl3;
+};
+
+
+
+class PrimPosixTextCodecImpl {
+private:
+    class Copier;
+    class Decoder;
+    class Encoder;
+
+public:
+    static constexpr bool is_nontrivial = false;
+
+    using decoder_type = Decoder;
+    using encoder_type = Encoder;
+
+    template<class E> using build_decoder_type = E;
+    template<class E, template<class> class> using build_encoder_type = E;
+
+    template<class I> static const I& up_cast(const PrimPosixTextCodecImpl&) noexcept;
+};
+
+
+
+class PrimWindowsTextCodecImpl {
+private:
+    class Decoder;
+    class Encoder;
+    template<class E> class CompoundDecoder;
+
+public:
+    static constexpr bool is_nontrivial = true;
+
+    using decoder_type = Decoder;
+    using encoder_type = Encoder;
+
+    template<class E> using build_decoder_type = CompoundDecoder<E>;
+    template<class, template<class> class E> using build_encoder_type = E<Encoder>;
+
+    template<class I> static const I& up_cast(const PrimWindowsTextCodecImpl&) noexcept;
+    template<class I> static const PrimWindowsTextCodecImpl& down_cast(const I&) noexcept;
+};
+
+
+
+#if ARCHON_WINDOWS
+using PrimTextCodecImpl = PrimWindowsTextCodecImpl;
+#else
+using PrimTextCodecImpl = PrimPosixTextCodecImpl;
+#endif
+
+
+
+
+
+
+
+
+// Implementation
+
+
+// ============================ TextCodecImpl1 ============================
+
+
+template<class C, class T, class P, class I>
+inline TextCodecImpl1<C, T, P, I>::TextCodecImpl1(const std::locale&) noexcept
+{
+}
+
+
+template<class C, class T, class P, class I> template<class J>
+inline auto TextCodecImpl1<C, T, P, I>::up_cast(const I& impl) noexcept -> const J&
+{
+    if constexpr (std::is_same_v<J, I>) {
+        return impl;
+    }
+    else {
+        return P::template up_cast<J>(impl);
+    }
+}
+
+
+
+// ============================ TextCodecImpl2 ============================
+
+
+template<class C, class T, class P, class D, class I>
+class TextCodecImpl2<C, T, P, D, I>::Decoder {
+public:
+    using impl_type = I;
+
+    Decoder(const I& impl, base::SeedMemoryBuffer<C>& buffer,
+            std::size_t& buffer_offset) noexcept :
+        m_char_codec(impl.m_char_codec),
+        m_buffer(buffer),
+        m_buffer_offset(buffer_offset)
+    {
+    }
+
+    bool decode(base::Span<const char> data, std::size_t& data_offset, bool end_of_data)
+    {
+        static_cast<void>(data);                                                     
+        static_cast<void>(data_offset);                                                     
+        static_cast<void>(end_of_data);                                                     
+        return false;
+    }
+
+private:
+    const D& m_char_codec;
+    base::SeedMemoryBuffer<C>& m_buffer;
+    std::size_t& m_buffer_offset;
+};
+
+
+template<class C, class T, class P, class D, class I>
+class TextCodecImpl2<C, T, P, D, I>::Encoder {
+public:
+    using impl_type = I;
+
+    Encoder(const I& impl, base::SeedMemoryBuffer<char>& buffer,
+            std::size_t& buffer_offset) noexcept :
+        m_char_codec(impl.m_char_codec),
+        m_buffer(buffer),
+        m_buffer_offset(buffer_offset)
+    {
+    }
+
+    bool encode(base::Span<const C> data)
+    {
+        static_cast<void>(data);                                                     
+        return false;
+    }
+
+private:
+    const D& m_char_codec;
+    base::SeedMemoryBuffer<char>& m_buffer;
+    std::size_t& m_buffer_offset;
+};
+
+
+template<class C, class T, class P, class D, class I>
+template<class E> class TextCodecImpl2<C, T, P, D, I>::CompoundEncoder :
+        private E {
+public:
+    using impl_type = I;
+
+    CompoundEncoder(const I& impl, base::SeedMemoryBuffer<char>& buffer,
+                    std::size_t& buffer_offset) :
+        E(I::template up_cast<typename E::impl_type>(impl), buffer, buffer_offset), // Throws
+        m_char_codec(impl.m_char_codec)
+    {
+    }
+
+    bool encode(base::Span<const C> data)
+    {
+        static_cast<void>(data);                                                     
+        return false;
+    }
+
+private:
+    const D& m_char_codec;
+};
+
+
+template<class C, class T, class P, class D, class I>
+inline TextCodecImpl2<C, T, P, D, I>::TextCodecImpl2(const std::locale& locale) :
+    m_char_codec(locale) // Throws
+{
+}
+
+
+template<class C, class T, class P, class D, class I> template<class J>
+inline auto TextCodecImpl2<C, T, P, D, I>::up_cast(const I& impl) noexcept -> const J&
+{
+    if constexpr (std::is_same_v<J, I>) {
+        return impl;
+    }
+    else {
+        return P::template up_cast<J>(impl);
+    }
+}
+
+
+template<class C, class T, class P, class D, class I> template<class J>
+inline auto TextCodecImpl2<C, T, P, D, I>::down_cast(const J& impl) noexcept -> const I&
+{
+    if constexpr (std::is_same_v<J, I>) {
+        return impl;
+    }
+    else {
+        return static_cast<const I&>(P::down_cast(impl));
+    }
+}
+
+
+/*
+template<class C, class T>
+bool TextCodecImpl<C, T>::decode(base::Span<const char> data, base::SeedMemoryBuffer<C>& buffer,
+                                 std::size_t& buffer_offset)
+{
+        std::array<C, 512> buffer_2;
+        state_type state = {};
+        for (;;) {
+            std::size_t buffer_offset_2 = 0;
+            bool end_of_data = true;
+            std::codecvt_base::result result =
+                m_char_codec.inc_decode(state, data, data_offset, buffer_2, buffer_offset_2,
+                                        end_of_data); // Throws
+            base::Span<const char> data_2 = { buffer_2.data(), buffer_offset_2 };
+            m_subimpl.encode(data_2, buffer, buffer_offset); // Throws
+            switch (result) {
+                case std::codecvt_base::ok:
+                    return true; // Success
+                case std::codecvt_base::partial:
+                    continue;
+                case std::codecvt_base::error:
+                    return false; // Failure
+                case std::codecvt_base::noconv:
+                    // Not possible, because of specialization for `char`       
+                    break;
+            }
+            ARCHON_ASSERT_UNREACHABLE;
+        }
+}
+
+
+template<class C, class T>
+bool TextCodecImpl<C, T>::encode(base::Span<const C> data, bool end_of_data,
+                                 base::SeedMemoryBuffer<char>& buffer, std::size_t& buffer_offset)
+{
+    state_type state = {};
+    if constexpr (P::is_trivial) {
+        for (;;) {
+            std::codecvt_base::result result =
+                m_char_codec.inc_encode(state, data, data_offset, buffer, buffer_offset,
+                                        end_of_data); // Throws
+            switch (result) {
+                case std::codecvt_base::ok:
+                    return true; // Success
+                case std::codecvt_base::partial:
+                    buffer.expand(1, buffer_offset); // Throws
+                    continue;
+                case std::codecvt_base::error:
+                    return false; // Failure
+                case std::codecvt_base::noconv:
+                    // Not possible, because of specialization for `char`
+                    break;
+            }
+            ARCHON_ASSERT_UNREACHABLE;
+        }
+    }
+    else {
+        std::array<char, 512> buffer_2;
+        for (;;) {
+            std::size_t buffer_offset_2 = 0;
+            std::codecvt_base::result result =
+                m_char_codec.inc_encode(state, data, data_offset, buffer_2, buffer_offset_2,
+                                        end_of_data); // Throws
+            base::Span<const char> data_2 = { buffer_2.data(), buffer_offset_2 };
+            m_prim_impl.encode(data_2, buffer, buffer_offset); // Throws
+            switch (result) {
+                case std::codecvt_base::ok:
+                    return true; // Success
+                case std::codecvt_base::partial:
+                    continue;
+                case std::codecvt_base::error:
+                    return false; // Failure
+                case std::codecvt_base::noconv:
+                    // Not possible, because of specialization for `char`
+                    break;
+            }
+            ARCHON_ASSERT_UNREACHABLE;
+        }
+    }
+}
+*/
+
+
+
+// ============================ PrimPosixTextCodecImpl ============================
+
+
+class PrimPosixTextCodecImpl::Copier {
+public:
+    void copy(base::Span<const char> data)
+    {
+        m_buffer.reserve_extra(data.size(), m_buffer_offset); // Throws
+        char* base = m_buffer.data();
+        char* i = std::copy_n(data.data(), data.size(), base + m_buffer_offset);
+        m_buffer_offset = std::size_t(i - base);
+    }
+
+protected:
+    Copier(base::SeedMemoryBuffer<char>& buffer, std::size_t& buffer_offset) noexcept :
+        m_buffer(buffer),
+        m_buffer_offset(buffer_offset)
+    {
+    }
+
+    ~Copier() noexcept = default;
+
+private:
+    base::SeedMemoryBuffer<char>& m_buffer;
+    std::size_t& m_buffer_offset;
+};
+
+
+class PrimPosixTextCodecImpl::Decoder :
+    private Copier {
+public:
+    using impl_type = PrimPosixTextCodecImpl;
+
+    Decoder(const PrimPosixTextCodecImpl&, base::SeedMemoryBuffer<char>& buffer,
+            std::size_t& buffer_offset) noexcept :
+        Copier(buffer, buffer_offset)
+    {
+    }
+
+    bool decode(base::Span<const char> data, std::size_t& data_offset, bool)
+    {
+        copy(data); // Throws
+        data_offset = data.size();
+        return true;
+    }
+};
+
+
+class PrimPosixTextCodecImpl::Encoder :
+    private Copier {
+public:
+    using impl_type = PrimPosixTextCodecImpl;
+
+    Encoder(const PrimPosixTextCodecImpl&, base::SeedMemoryBuffer<char>& buffer,
+            std::size_t& buffer_offset) noexcept :
+        Copier(buffer, buffer_offset)
+    {
+    }
+
+    bool encode(base::Span<const char> data)
+    {
+        copy(data); // Throws
+        return true;
+    }
+};
+
+
+template<class I>
+inline auto PrimPosixTextCodecImpl::up_cast(const PrimPosixTextCodecImpl& impl) noexcept ->
+    const I&
+{
+    return impl;
+}
+
+
+
+// ============================ PrimWindowsTextCodecImpl ============================
+
+
+class PrimWindowsTextCodecImpl::Decoder {
+public:
+    using impl_type = PrimWindowsTextCodecImpl;
+
+    Decoder(const PrimWindowsTextCodecImpl&, base::SeedMemoryBuffer<char>& buffer,
+            std::size_t& buffer_offset) noexcept :
+        m_buffer(buffer),
+        m_buffer_offset(buffer_offset)
+    {
+    }
+
+    bool decode(base::Span<const char> data, std::size_t& data_offset, bool end_of_data)
+    {
+        std::size_t clear_offset = 0; // Dummy
+        std::size_t clear; // Dummy
+        for (;;) {
+            newline_crlf::inc_decode(data, data_offset, m_buffer, m_buffer_offset,
+                                     clear_offset, clear, end_of_data);
+            if (ARCHON_LIKELY(data_offset == data.size() || m_buffer_offset < m_buffer.size()))
+                return true;
+            m_buffer.reserve_extra(1, m_buffer.size()); // Throws
+        }
+    }
+
+private:
+    base::SeedMemoryBuffer<char>& m_buffer;
+    std::size_t& m_buffer_offset;
+};
+
+
+class PrimWindowsTextCodecImpl::Encoder {
+public:
+    using impl_type = PrimWindowsTextCodecImpl;
+
+    Encoder(const PrimWindowsTextCodecImpl&, base::SeedMemoryBuffer<char>& buffer,
+            std::size_t& buffer_offset) noexcept :
+        m_buffer(buffer),
+        m_buffer_offset(buffer_offset)
+    {
+    }
+
+    bool encode(base::Span<const char> data)
+    {
+        std::size_t data_offset = 0;
+        for (;;) {
+            newline_crlf::inc_encode(data, data_offset, m_buffer, m_buffer_offset);
+            if (ARCHON_LIKELY(data_offset == data.size()))
+                return true;
+            m_buffer.expand(1, m_buffer_offset); // Throws
+        }
+    }
+
+private:
+    base::SeedMemoryBuffer<char>& m_buffer;
+    std::size_t& m_buffer_offset;
+};
+
+
+template<class E> class PrimWindowsTextCodecImpl::CompoundDecoder :
+     private E {
+public:
+    using impl_type = PrimWindowsTextCodecImpl;
+
+    template<class C>
+    CompoundDecoder(const PrimWindowsTextCodecImpl& impl, base::SeedMemoryBuffer<C>& buffer,
+                    std::size_t& buffer_offset) :
+        E(E::impl_type::down_cast(impl), buffer, buffer_offset) // Throws
+    {
+    }
+
+    bool decode(base::Span<const char> data, std::size_t& data_offset, bool end_of_data)
+    {
+        std::size_t clear; // Dummy
+        for (;;) {
+            std::size_t clear_offset = 0; // Dummy
+            newline_crlf::inc_decode(data, data_offset, m_buffer, m_buffer_offset,
+                                     clear_offset, clear, end_of_data);
+            base::Span<const char> data_2(m_buffer.data(), m_buffer_offset);
+            std::size_t data_offset_2 = 0;
+            bool end_of_data_2 = (end_of_data && data_offset == data.size());
+            bool success = E::decode(data_2, data_offset_2, end_of_data_2); // Throws
+            if (ARCHON_LIKELY(success)) {
+                // Move any remaining data to start of buffer
+                char* base = m_buffer.data();
+                char* i = std::copy(base + data_offset_2, base + m_buffer_offset, base);
+                bool done = (data_offset == data.size() || m_buffer_offset < m_buffer.size());
+                m_buffer_offset = std::size_t(i - base);
+                if (ARCHON_LIKELY(done))
+                    return true;
+                m_buffer.reserve_extra(1, m_buffer_offset); // Throws
+                continue;
+            }
+            return false;
+        }
+    }
+
+private:
+    base::ArraySeededBuffer<char, 512> m_buffer;
+    std::size_t m_buffer_offset = 0;
+};
+
+
+template<class I>
+inline auto PrimWindowsTextCodecImpl::up_cast(const PrimWindowsTextCodecImpl& impl) noexcept ->
+    const I&
+{
+    return impl;
+}
+
+
+template<class I> inline auto PrimWindowsTextCodecImpl::down_cast(const I& impl) noexcept ->
+    const PrimWindowsTextCodecImpl&
+{
+    return impl;
+}
+
+
+} // namespace archon::base::detail
+
+
+
+
+
+// ============================================================================================ text_codec.hpp ============================================================================================
+
+
+namespace archon::base {
+
+
+/// \{
+///
+/// \brief 
+///
+/// Explain requirements for character codec type `D`.             
+///
+/// All three types are empty classes unless D::is_nontrivial is true.
+///
+template<class C, class T, class D = base::BasicCharCodec<C, T>> using TextCodecImpl =
+    detail::TextCodecImpl<C, T, detail::PrimTextCodecImpl, D>;
+template<class C, class T, class D = base::BasicCharCodec<C, T>> using PosixTextCodecImpl =
+    detail::TextCodecImpl<C, T, detail::PrimPosixTextCodecImpl, D>;
+template<class C, class T, class D = base::BasicCharCodec<C, T>> using WindowsTextCodecImpl =
+    detail::TextCodecImpl<C, T, detail::PrimWindowsTextCodecImpl, D>;
+/// \}
+
+
+
+/// \brief 
+///
+/// Explain requirements for text codec implementation type `I`.             
+///
+/// This class is an empty class if I is an empty class.
+///
+template<class C, class T = std::char_traits<C>, class I = base::TextCodecImpl<C, T>>
+class BasicTextCodec : private I {
+public:
+    using char_type   = C;
+    using traits_type = T;
+    using impl_type   = I;
+
+    using string_view_type = std::basic_string_view<C, T>;
+
+    static constexpr bool is_nontrivial = I::is_nontrivial;
+
+    BasicTextCodec(const std::locale&);
+
+    template<class D> string_view_type decode(D&& data, base::SeedMemoryBuffer<C>&) const;
+    template<class D> std::string_view encode(D&& data, base::SeedMemoryBuffer<char>&) const;
+
+    template<class D> bool try_decode(D&& data, base::SeedMemoryBuffer<C>&,
+                                      std::size_t& buffer_offset) const;
+    template<class D> bool try_encode(D&& data, base::SeedMemoryBuffer<char>&,
+                                      std::size_t& buffer_offset) const;
+
+private:
+    string_view_type do_decode(base::Span<const char> data, base::SeedMemoryBuffer<C>&) const;
+    bool do_try_decode(base::Span<const char> data, base::SeedMemoryBuffer<C>&,
+                       std::size_t& buffer_offset) const;
+
+    std::string_view do_encode(base::Span<const C> data, base::SeedMemoryBuffer<char>&) const;
+    bool do_try_encode(base::Span<const C> data, base::SeedMemoryBuffer<char>&,
+                       std::size_t& buffer_offset) const;
+};
+
+
+template<class C, class T = std::char_traits<C>> using BasicPosixTextCodec =
+    BasicTextCodec<C, T, PosixTextCodecImpl<C, T>>;
+template<class C, class T = std::char_traits<C>> using BasicWindowsTextCodec =
+    BasicTextCodec<C, T, WindowsTextCodecImpl<C, T>>;
+
+using TextCodec        = BasicTextCodec<char>;
+using PosixTextCodec   = BasicPosixTextCodec<char>;
+using WindowsTextCodec = BasicWindowsTextCodec<char>;
+
+using WideTextCodec        = BasicTextCodec<wchar_t>;
+using WidePosixTextCodec   = BasicPosixTextCodec<wchar_t>;
+using WideWindowsTextCodec = BasicWindowsTextCodec<wchar_t>;
+
+
+
+
+
+
+
+
+// Implementation
+
+
+template<class C, class T, class I>
+inline BasicTextCodec<C, T, I>::BasicTextCodec(const std::locale& locale) :
+    I(locale) // Throws
+{
+}
+
+
+template<class C, class T, class I> template<class D>
+inline auto BasicTextCodec<C, T, I>::decode(D&& data,
+                                            base::SeedMemoryBuffer<C>& buffer) const ->
+    string_view_type
+{
+    return do_decode(base::span_from_string<char>(data), buffer); // Throws
+}
+
+
+template<class C, class T, class I> template<class D>
+inline auto BasicTextCodec<C, T, I>::encode(D&& data,
+                                            base::SeedMemoryBuffer<char>& buffer) const ->
+    std::string_view
+{
+    return do_encode(base::span_from_string<C>(data), buffer); // Throws
+}
+
+
+template<class C, class T, class I> template<class D>
+inline bool BasicTextCodec<C, T, I>::try_decode(D&& data, base::SeedMemoryBuffer<C>& buffer,
+                                                std::size_t& buffer_offset) const
+{
+    return do_try_decode(base::span_from_string<char>(data), buffer, buffer_offset); // Throws
+}
+
+
+template<class C, class T, class I> template<class D>
+inline bool BasicTextCodec<C, T, I>::try_encode(D&& data, base::SeedMemoryBuffer<char>& buffer,
+                                                std::size_t& buffer_offset) const
+{
+    return do_try_encode(base::span_from_string<C>(data), buffer, buffer_offset); // Throws
+}
+
+
+template<class C, class T, class I>
+inline auto BasicTextCodec<C, T, I>::do_decode(base::Span<const char> data,
+                                               base::SeedMemoryBuffer<C>& buffer) const ->
+    string_view_type
+{
+    std::size_t buffer_offset = 0;
+    if (ARCHON_LIKELY(do_try_decode(data, buffer, buffer_offset))) // Throws
+        return { buffer.data(), buffer_offset };
+    throw std::runtime_error("Decoding failed");
+}
+
+
+template<class C, class T, class I>
+bool BasicTextCodec<C, T, I>::do_try_decode(base::Span<const char> data,
+                                            base::SeedMemoryBuffer<C>& buffer,
+                                            std::size_t& buffer_offset) const
+{
+    using decoder_type = typename I::decoder_type;
+    using decoder_impl_type = typename decoder_type::impl_type;
+    const decoder_impl_type& impl = I::template up_cast<decoder_impl_type>(*this);
+    decoder_type decoder(impl, buffer, buffer_offset); // Throws
+    std::size_t data_offset = 0;
+    bool end_of_data = true;
+    bool success = decoder.decode(data, data_offset, end_of_data); // Throws
+    ARCHON_ASSERT(!success || data_offset == data.size());
+    return success;
+}
+
+
+template<class C, class T, class I>
+inline auto BasicTextCodec<C, T, I>::do_encode(base::Span<const C> data,
+                                               base::SeedMemoryBuffer<char>& buffer) const ->
+    std::string_view
+{
+    std::size_t buffer_offset = 0;
+    if (ARCHON_LIKELY(do_try_encode(data, buffer, buffer_offset))) // Throws
+        return { buffer.data(), buffer_offset };
+    throw std::runtime_error("Encoding failed");
+}
+
+
+template<class C, class T, class I>
+bool BasicTextCodec<C, T, I>::do_try_encode(base::Span<const C> data,
+                                            base::SeedMemoryBuffer<char>& buffer,
+                                            std::size_t& buffer_offset) const
+{
+    using encoder_type = typename I::encoder_type;
+    using encoder_impl_type = typename encoder_type::impl_type;
+    const encoder_impl_type& impl = I::template up_cast<encoder_impl_type>(*this);
+    encoder_type encoder(impl, buffer, buffer_offset); // Throws
+    return encoder.encode(data); // Throws
+}
+
+
+} // namespace archon::base
+
 
 
 
@@ -1817,7 +2577,7 @@ bool TextFileImpl<C, T, P>::write(base::Span<const C> data, std::size_t& n, std:
     std::size_t data_offset = 0;
     for (;;) {
         std::codecvt_base::result result =
-            m_codec.inc_encode(m_state, data, data_offset, m_buffer, m_end);
+            m_codec.inc_encode(m_state, data, data_offset, m_buffer, m_end); // Throws
         switch (result) {
             case std::codecvt_base::ok:
                 // All specified input has been converted, unshift is still
@@ -3314,6 +4074,60 @@ using namespace archon;
 
 
 
+// ============================================================================================ test_text_codec.cpp ============================================================================================
+
+
+static_assert(std::is_empty_v<base::TextCodec>);
+static_assert(std::is_empty_v<base::PosixTextCodec>);
+static_assert(std::is_empty_v<base::WindowsTextCodec>);
+
+static_assert(!std::is_empty_v<base::WideTextCodec>);
+static_assert(!std::is_empty_v<base::WidePosixTextCodec>);
+static_assert(!std::is_empty_v<base::WideWindowsTextCodec>);
+
+static_assert(!base::PosixTextCodec::is_nontrivial);
+static_assert(base::WindowsTextCodec::is_nontrivial);
+static_assert(base::WidePosixTextCodec::is_nontrivial);
+static_assert(base::WideWindowsTextCodec::is_nontrivial);
+
+
+ARCHON_TEST_VARIANTS(codec_variants,
+                     ARCHON_TEST_TYPE(base::PosixTextCodec,       Posix),
+                     ARCHON_TEST_TYPE(base::WindowsTextCodec,     Windows),
+                     ARCHON_TEST_TYPE(base::WidePosixTextCodec,   WidePosix),
+                     ARCHON_TEST_TYPE(base::WideWindowsTextCodec, WideWindows));
+
+
+ARCHON_TEST_BATCH(Base_TextCodec_Decode, codec_variants)
+{
+    const std::locale& locale = test_context.get_locale();
+    using text_codec_type = test_type;
+    text_codec_type codec(locale);
+    using char_type = typename text_codec_type::char_type;
+    base::SeedMemoryBuffer<char_type> buffer;
+    std::basic_string_view<char_type> result = codec.decode("foo", buffer);
+    std::array<char_type, 64> seed_memory;
+    base::BasicStringWidener<char_type> widener(locale, seed_memory);
+    ARCHON_CHECK_EQUAL(result, widener.widen("foo"));
+}
+
+
+ARCHON_TEST_BATCH(Base_TextCodec_Encode, codec_variants)
+{
+    const std::locale& locale = test_context.get_locale();
+    using text_codec_type = test_type;
+    text_codec_type codec(locale);
+    base::SeedMemoryBuffer<char> buffer;
+    using char_type = typename text_codec_type::char_type;
+    std::array<char_type, 64> seed_memory;
+    base::BasicStringWidener<char_type> widener(locale, seed_memory);
+    std::string_view result = codec.encode(widener.widen("foo"), buffer);
+    ARCHON_CHECK_EQUAL(result, "foo");
+}
+
+
+
+
 // ============================================================================================ test_prim_text_file_impl.cpp ============================================================================================
 
 
@@ -4077,7 +4891,7 @@ ARCHON_TEST_BATCH(Base_TextFileStream_Read, stream_variants)
     ARCHON_TEST_FILE(path);
     {
         base::TextFile text_file(path, base::File::Mode::write);
-        text_file.write("4689");
+        text_file.write(std::string_view("4689"));
         text_file.flush();
     }
     using stream_type = test_type;

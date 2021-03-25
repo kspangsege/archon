@@ -31,6 +31,7 @@
 #include <string>
 
 #include <archon/base/features.h>
+#include <archon/base/span.hpp>
 #include <archon/base/integer.hpp>
 
 
@@ -49,6 +50,41 @@ std::basic_string<C, T> concat(std::basic_string_view<C, T>, std::basic_string_v
 template<class C, class T, class F>
 void for_each_word(std::basic_string_view<C, T> string, F func)
     noexcept(noexcept(func(std::basic_string_view<C, T>())));
+
+
+/// \brief Create span for specified string of any type.
+///
+/// This function converts the specified object to a span (`base::Span<const
+/// C>`) via a conversion to a string view (`std::basic_string_view<C>`) when
+/// applicable.
+///
+/// If the conversion to string view is possible, the string view is
+/// constructed, and the span is then constructed from the string
+/// view. Otherwise, this function will attempt to construct the span directly
+/// from the specified object.
+///
+/// In any case, all of the involved conversions must be non-throwing. If they
+/// are not, compilation fails.
+///
+/// The purpose of this function is to make it easy to to write other functions
+/// that can safely accept both string literals and spans, including things that
+/// are convertible to a span. For example:
+///
+/// \code{.cpp}
+///
+///   template<class T> void encode(T&& string)
+///   {
+///       do_encode(archon::base::span_from_string<char>(string));
+///   }
+///
+///   void do_encode(archon::base::Span<const char> string)
+///   {
+///       // ...
+///   }
+///
+/// \endcode
+///
+template<class C, class T> base::Span<const C> span_from_string(T&& string) noexcept;
 
 
 
@@ -103,6 +139,19 @@ template<class C, class T, class F> void for_each_word(std::basic_string_view<C,
     if (ARCHON_LIKELY(i < n)) {
         ++i;
         goto find_word_begin;
+    }
+}
+
+
+template<class C, class T> inline base::Span<const C> span_from_string(T&& string) noexcept
+{
+    if constexpr (std::is_convertible_v<T, std::basic_string_view<C>>) {
+        static_assert(noexcept(std::basic_string_view<C>(string)));
+        return std::basic_string_view<C>(string); // Throws
+    }
+    else {
+        static_assert(noexcept(base::Span<const C>(string)));
+        return base::Span<const C>(string); // Throws
     }
 }
 
