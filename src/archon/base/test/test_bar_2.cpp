@@ -785,6 +785,30 @@ public:
 
     bool decode(base::Span<const char> data, std::size_t& data_offset, bool end_of_data)
     {
+/*
+        for (;;) {
+            // FIXME: Understanding: `ok` means: All input, possibly with the exception of a final incomplete, but valid byte sequence, has been consumed, and all the corresponding output has been produced.                                                  
+            // -----------> Hmm, probably not possible to uphold this due to baroque quirk in libc++ (LLVM) of never reporting decoding errors.
+            std::codecvt_base::result result =
+                m_char_codec.inc_decode(data, data_offset, end_of_data,
+                                        m_buffer, m_buffer_offset); // Throws
+            switch (result) {
+                case std::codecvt_base::ok:
+                    return true; // Success
+                case std::codecvt_base::partial:
+                    ARCHON_ASSERT(m_buffer_offset == m_buffer.size());
+                    m_buffer.reserve_extra(1, m_buffer.size()); // Throws
+                    continue;
+                case std::codecvt_base::error:
+                    return false; // Failure
+                case std::codecvt_base::noconv:
+                    // Not possible, because trivial case is handled by TextCodecImpl1
+                    break;
+            }
+            ARCHON_ASSERT_UNREACHABLE;
+        }
+*/
+
         static_cast<void>(data);                                                     
         static_cast<void>(data_offset);                                                     
         static_cast<void>(end_of_data);                                                     
