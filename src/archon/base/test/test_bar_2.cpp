@@ -3830,6 +3830,7 @@ inline BasicTextFileStream<C, T, I>::BasicTextFileStream(base::FilesystemPathRef
 template<class C, class T, class I>
 inline BasicTextFileStream<C, T, I>::BasicTextFileStream(base::FilesystemPathRef path, Mode mode,
                                                          Config config) :
+    std::basic_iostream<C, T>(nullptr), // Throws
     m_file(path, mode), // Throws
     m_streambuf(m_file, this->getloc(), std::move(config)) // Throws
 {
