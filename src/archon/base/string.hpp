@@ -27,6 +27,7 @@
 
 
 #include <cstddef>
+#include <utility>
 #include <string_view>
 #include <string>
 
@@ -63,9 +64,6 @@ void for_each_word(std::basic_string_view<C, T> string, F func)
 /// view. Otherwise, this function will attempt to construct the span directly
 /// from the specified object.
 ///
-/// In any case, all of the involved conversions must be non-throwing. If they
-/// are not, compilation fails.
-///
 /// The purpose of this function is to make it easy to to write other functions
 /// that can safely accept both string literals and spans, including things that
 /// are convertible to a span. For example:
@@ -74,7 +72,7 @@ void for_each_word(std::basic_string_view<C, T> string, F func)
 ///
 ///   template<class T> void encode(T&& string)
 ///   {
-///       do_encode(archon::base::span_from_string<char>(string));
+///       do_encode(archon::base::span_from_string<char>(std::forward<T>(string)));
 ///   }
 ///
 ///   void do_encode(archon::base::Span<const char> string)
@@ -84,7 +82,7 @@ void for_each_word(std::basic_string_view<C, T> string, F func)
 ///
 /// \endcode
 ///
-template<class C, class T> base::Span<const C> span_from_string(T&& string) noexcept;
+template<class C, class T> base::Span<const C> span_from_string(T&& string);
 
 
 
@@ -143,15 +141,13 @@ template<class C, class T, class F> void for_each_word(std::basic_string_view<C,
 }
 
 
-template<class C, class T> inline base::Span<const C> span_from_string(T&& string) noexcept
+template<class C, class T> inline base::Span<const C> span_from_string(T&& string)
 {
     if constexpr (std::is_convertible_v<T, std::basic_string_view<C>>) {
-        static_assert(noexcept(std::basic_string_view<C>(string)));
-        return std::basic_string_view<C>(string); // Throws
+        return std::basic_string_view<C>(std::forward<T>(string)); // Throws
     }
     else {
-        static_assert(noexcept(base::Span<const C>(string)));
-        return base::Span<const C>(string); // Throws
+        return base::Span<const C>(std::forward<T>(string)); // Throws
     }
 }
 

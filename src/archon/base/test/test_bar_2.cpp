@@ -1286,7 +1286,7 @@ inline auto BasicTextCodec<C, T, I>::decode(D&& data,
                                             base::SeedMemoryBuffer<C>& buffer) const ->
     string_view_type
 {
-    return do_decode(base::span_from_string<char>(data), buffer); // Throws
+    return do_decode(base::span_from_string<char>(std::forward<D>(data)), buffer); // Throws
 }
 
 
@@ -1295,7 +1295,7 @@ inline auto BasicTextCodec<C, T, I>::encode(D&& data,
                                             base::SeedMemoryBuffer<char>& buffer) const ->
     std::string_view
 {
-    return do_encode(base::span_from_string<C>(data), buffer); // Throws
+    return do_encode(base::span_from_string<C>(std::forward<D>(data)), buffer); // Throws
 }
 
 
@@ -1303,7 +1303,8 @@ template<class C, class T, class I> template<class D>
 inline bool BasicTextCodec<C, T, I>::try_decode(D&& data, base::SeedMemoryBuffer<C>& buffer,
                                                 std::size_t& buffer_offset) const
 {
-    return do_try_decode(base::span_from_string<char>(data), buffer, buffer_offset); // Throws
+    return do_try_decode(base::span_from_string<char>(std::forward<D>(data)),
+                         buffer, buffer_offset); // Throws
 }
 
 
@@ -1311,7 +1312,8 @@ template<class C, class T, class I> template<class D>
 inline bool BasicTextCodec<C, T, I>::try_encode(D&& data, base::SeedMemoryBuffer<char>& buffer,
                                                 std::size_t& buffer_offset) const
 {
-    return do_try_encode(base::span_from_string<C>(data), buffer, buffer_offset); // Throws
+    return do_try_encode(base::span_from_string<C>(std::forward<D>(data)),
+                         buffer, buffer_offset); // Throws
 }
 
 
@@ -4817,7 +4819,7 @@ ARCHON_TEST(Base_TextFile_AsciiCodecError_CHECK)
     //  -----> Is this behavior also borne out in `codecvt-test-cases` branch? YES                    
     //  -----> What are the consequenses of this quirk from the point of view of the codec implementation above?      
 
-    // libstdc++ has quirk in that it reports errors difefrently depending on whether it has enough context to see the error. If it sees only one byte, and it is good, it consumes it even though the next byte might be bad. On the other hand, if it sees both bytes at once, it does not consume anything.
+    // libstdc++ has quirk in that it reports errors differently depending on whether it has enough context to see the error. If it sees only one byte, and it is good, it consumes it even though the next byte might be bad. On the other hand, if it sees both bytes at once, it does not consume anything.
 
     // No quirks in behavior std::codecvt found on Windows
 
