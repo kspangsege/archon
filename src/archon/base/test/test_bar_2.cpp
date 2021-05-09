@@ -23,6 +23,97 @@ template<class P, class D> class Impl {
 
 
 
+
+
+Basic incremental decoding (BasicCharCodec):
+
+
+General questions about std::codecvt::in():
+- What is the meaning of `ok`? (just all input consumed, or all input consumed and all output produced)
+- What is the meaning of `partial`?
+- What is the meaning of `error`?
+- What is the meaning of `noconv`?
+- If a bad byte is identified, will from_next point to beginning of byte sequence, or to the bad byte (will state have already absorbed good bytes)?
+- 
+
+
+List of quirks in implementations of std::codecvt::in():
+- LLVM libc++ std::codecvt.in() never reports decoding errors?????                
+- GNU libstdc++ std::codecvt.in(),  std::codecvt.out() return "ok" when the buffer size is zero. This bug is present in GCC 10.2.0. See also https://gcc.gnu.org/bugzilla/show_bug.cgi?id=37475
+-
+
+
+Decoding cases:
+- Complete cases:
+  - no input, no output space (expect ok)
+  - no input, plenty of output space (expect ok)
+  - end of input after one valid single-byte char, no output space (expect ??)        
+  - end of input after one valid single-byte char, only enough output space for one character (expect ok)
+  - end of input after one valid single-byte char, plenty of output space (expect ok)
+  - end of input after one valid multi-byte char, no output space (UTF-8) (expect ??)        
+  - end of input after one valid multi-byte char, only enough output space for one character (UTF-8) (expect ok)
+  - end of input after one valid multi-byte char, plenty of output space (UTF-8) (expect ok)
+- Partial cases:
+  - end of input after 1st byte of multi-byte char, no output space (UTF-8)
+  - end of input after 1st byte of multi-byte char, plenty of output space (UTF-8)
+  - end of input after complete char followed by 1st byte of multi-byte char, no output space (UTF-8)
+  - end of input after complete char followed by 1st byte of multi-byte char, only enough output space for one character (UTF-8)
+  - end of input after complete char followed by 1st byte of multi-byte char, plenty of output space (UTF-8)
+- Bad byte cases:
+  - 1st byte of 1st character is a bad byte, no output space (UTF-8)
+  - 1st byte of 1st character is a bad byte, plenty of output space (UTF-8)
+  - 2nd byte of 1st character is a bad byte, no output space (UTF-8)
+  - 2nd byte of 1st character is a bad byte, plenty of output space (UTF-8)
+  - 1st byte of 2nd character is a bad byte, no output space (UTF-8)
+  - 1st byte of 2nd character is a bad byte, only enough output space for one character (UTF-8)
+  - 1st byte of 2nd character is a bad byte, plenty of output space (UTF-8)
+  - 2nd byte of 2nd character is a bad byte, no output space (UTF-8)
+  - 2nd byte of 2nd character is a bad byte, only enough output space for one character (UTF-8)
+  - 2nd byte of 2nd character is a bad byte, plenty of output space (UTF-8)
+
+
+
+
+bool inc_decode(std::mbstate_t&, base::Span<const char> data, std::size_t& data_offset,
+                base::Span<C> buffer, std::size_t& buffer_offset, bool& error);
+
+
+
+If this function returns true, the decoding operation completed succesfully. If it returns false, it did not.
+
+When false is returned, \p error is set to true if the reason for the incompleteness is invalid input, and to false otherwise. BUT WHERE IS THE INVALID INPUT? AND HOW TO RESUME?
+
+When false is returned, and \p error is set to false, and buffer_offset is equal to the size of the specified buffer upon return, additional buffer space is required in order for decoding to proceed.
+
+When false is returned, and \p error is set to false, and buffer_offset is less than the size of the specified buffer upon return, additional input (\p data) is required in order for decoding to proceed.
+
+In any case, data_offset and buffer_offset are updated to reflect the how far decoding has progressed.
+
+If an exception is thrown, more data may have been written to the buffer than indicated by the final value of buffer_offset.
+
+
+
+How to test:
+    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 Finish implementation of BasicTextCodec:
 - Implement decoding and encoding involving char codec.
 - Verify that it is possible to plug in a custom char codec.
@@ -837,7 +928,7 @@ public:
 
     bool encode(base::Span<const C> data)
     {
-        static_cast<void>(data);                                                     
+        static_cast<void>(data);                                                                                                                                                                
         return false;
     }
 
@@ -4986,4 +5077,68 @@ ARCHON_TEST_BATCH(Base_TextFileStream_TellAndSeek, stream_variants)
     ARCHON_CHECK(stream);
     ARCHON_CHECK_EQUAL(value, 4689);
     ARCHON_CHECK_EQUAL(stream.tellp(), 4);
+}
+
+
+/*
+Decoding cases:
+- Complete cases:
+  - no input, no output space (expect ok)
+  - no input, plenty of output space (expect ok)
+  - end of input after one valid single-byte char, no output space (expect ??)        
+  - end of input after one valid single-byte char, only enough output space for one character (expect ok)
+  - end of input after one valid single-byte char, plenty of output space (expect ok)
+  - end of input after one valid multi-byte char, no output space (UTF-8) (expect ??)        
+  - end of input after one valid multi-byte char, only enough output space for one character (UTF-8) (expect ok)
+  - end of input after one valid multi-byte char, plenty of output space (UTF-8) (expect ok)
+- Partial cases:
+  - end of input after 1st byte of multi-byte char, no output space (UTF-8)
+  - end of input after 1st byte of multi-byte char, plenty of output space (UTF-8)
+  - end of input after complete char followed by 1st byte of multi-byte char, no output space (UTF-8)
+  - end of input after complete char followed by 1st byte of multi-byte char, only enough output space for one character (UTF-8)
+  - end of input after complete char followed by 1st byte of multi-byte char, plenty of output space (UTF-8)
+- Bad byte cases:
+  - 1st byte of 1st character is a bad byte, no output space (UTF-8)
+  - 1st byte of 1st character is a bad byte, plenty of output space (UTF-8)
+  - 2nd byte of 1st character is a bad byte, no output space (UTF-8)
+  - 2nd byte of 1st character is a bad byte, plenty of output space (UTF-8)
+  - 1st byte of 2nd character is a bad byte, no output space (UTF-8)
+  - 1st byte of 2nd character is a bad byte, only enough output space for one character (UTF-8)
+  - 1st byte of 2nd character is a bad byte, plenty of output space (UTF-8)
+  - 2nd byte of 2nd character is a bad byte, no output space (UTF-8)
+  - 2nd byte of 2nd character is a bad byte, only enough output space for one character (UTF-8)
+  - 2nd byte of 2nd character is a bad byte, plenty of output space (UTF-8)
+*/
+
+ARCHON_TEST(CodecvtDecodeBaseline)
+{
+    base::ArraySeededBuffer<wchar_t, 10> buffer;
+    for (const char* name : candidate_locales) {
+        if (base::has_locale(name)) {
+            std::locale locale(name);
+            bool is_utf8 = base::assume_utf8_locale(locale);
+            log("LOCALE ----------------------> %s  (utf8:%s)", locale.name(), is_utf8);    
+            using codecvt_type = std::codecvt<wchar_t, char, std::mbstate_t>;
+            const codecvt_type& codecvt = std::use_facet<codecvt_type>(locale);
+            auto test = [&](std::string_view data, std::size_t buffer_size,
+                            std::codecvt_base::result expected_result) {
+                buffer.reserve(buffer_size);
+                std::mbstate_t state = {};
+                const char* from = data.data();
+                const char* from_end = from + data.size();
+                const char* from_next = nullptr;
+                wchar_t* to = buffer.data();
+                wchar_t* to_end = to + buffer_size;
+                wchar_t* to_next = nullptr;
+                std::codecvt_base::result result =
+                    codecvt.in(state, from, from_end, from_next, to, to_end, to_next);
+                return (result == expected_result);
+            };
+            ARCHON_CHECK(test("",   0, std::codecvt_base::ok));
+            ARCHON_CHECK(test("",  10, std::codecvt_base::ok));
+            ARCHON_CHECK(test("x",  0, std::codecvt_base::ok));    
+            ARCHON_CHECK(test("x",  1, std::codecvt_base::ok));
+            ARCHON_CHECK(test("x", 10, std::codecvt_base::ok));
+        }
+    }
 }

@@ -39,6 +39,26 @@
 namespace archon::base {
 
 
+/// \{
+///
+/// \brief Check if string conntains prefix, suffix, or substring.
+///
+/// These functions are replacements for functions of the same name added to
+/// std::basic_string_view in C++20 and C++23 respectively.
+///
+template<class C, class T> bool starts_with(std::basic_string_view<C, T> string,
+                                            std::basic_string_view<C, T> prefix) noexcept;
+template<class C, class T> bool starts_with(std::basic_string_view<C, T> string, const C* prefix);
+template<class C, class T> bool ends_with(std::basic_string_view<C, T> string,
+                                          std::basic_string_view<C, T> suffix) noexcept;
+template<class C, class T> bool ends_with(std::basic_string_view<C, T> string, const C* suffix);
+template<class C, class T> bool contains(std::basic_string_view<C, T> string,
+                                         std::basic_string_view<C, T> substr) noexcept;
+template<class C, class T> bool contains(std::basic_string_view<C, T> string, const C* substr);
+/// \}
+
+
+
 /// \brief Concatenate strings using one allocation.
 ///
 /// This function constructs the concatenation of the two specified strings
@@ -48,9 +68,11 @@ template<class C, class T>
 std::basic_string<C, T> concat(std::basic_string_view<C, T>, std::basic_string_view<C, T>);
 
 
+
 template<class C, class T, class F>
 void for_each_word(std::basic_string_view<C, T> string, F func)
     noexcept(noexcept(func(std::basic_string_view<C, T>())));
+
 
 
 /// \brief Create span for specified string of any type.
@@ -92,6 +114,54 @@ template<class C, class T> base::Span<const C> span_from_string(T&& string);
 
 
 // Implementation
+
+
+template<class C, class T>
+inline bool starts_with(std::basic_string_view<C, T> string,
+                        std::basic_string_view<C, T> prefix) noexcept
+{
+    std::size_t size = prefix.size();
+    return (string.size() >= size && T::compare(string.data(), prefix.data(), size) == 0);
+}
+
+
+template<class C, class T>
+inline bool starts_with(std::basic_string_view<C, T> string, const C* prefix)
+{
+    return starts_with(string, std::basic_string_view<C, T>(prefix)); // Throws
+}
+
+
+template<class C, class T>
+inline bool ends_with(std::basic_string_view<C, T> string,
+                      std::basic_string_view<C, T> suffix) noexcept
+{
+    std::size_t size = suffix.size();
+    return (string.size() >= size &&
+            T::compare(string.data() + (string.size() - size), suffix.data(), size) == 0);
+}
+
+
+template<class C, class T>
+inline bool ends_with(std::basic_string_view<C, T> string, const C* suffix)
+{
+    return ends_with(string, std::basic_string_view<C, T>(suffix)); // Throws
+}
+
+
+template<class C, class T>
+inline bool contains(std::basic_string_view<C, T> string,
+                     std::basic_string_view<C, T> substr) noexcept
+{
+    return (string.find(substr) != std::basic_string_view<C, T>::npos);
+}
+
+
+template<class C, class T>
+inline bool contains(std::basic_string_view<C, T> string, const C* substr)
+{
+    return contains(string, std::basic_string_view<C, T>(substr)); // Throws
+}
 
 
 template<class C, class T>

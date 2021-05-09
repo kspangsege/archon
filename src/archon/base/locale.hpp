@@ -26,6 +26,30 @@
 /// \file
 
 
+#include <string_view>
+#include <locale>
+
+#include <archon/base/string.hpp>
+
+/// \def ARCHON_ASSUME_UTF8_LOCALE
+///
+/// \brief Select how to detect UTF-8 locales.
+///
+/// The value assigned to this macro controls the behavior of \ref
+/// assume_utf8_locale(). The default value (if none is specified), is `1`.
+///
+///   | Value  | Meaning
+///   |--------|------------------------------------------------------------
+///   | 0 (<1) | Do not assume that any locales are UTF-8 locales.
+///   | 1      | Auto-detect (see \ref assume_utf8_locale()).
+///   | 2 (>1) | Assume that all locales are UTF-8 locales.
+///
+
+#if !defined ARCHON_ASSUME_UTF8_LOCALE
+#  define ARCHON_ASSUME_UTF8_LOCALE 1
+#endif
+
+
 namespace archon::base {
 
 
@@ -42,6 +66,44 @@ namespace archon::base {
 ///
 bool has_locale(const char* name);
 
+
+
+/// \brief Detect UTF-8 locale.
+///
+/// Depending on the value of \ref ARCHON_ASSUME_UTF8_LOCALE, this function
+/// either returns `false` for all locales, `true` for all locales, or attempts
+/// to automatically detect whether the specified locale is a UTF-8 locale
+/// (generally, if its name ends with `.UTF-8`). Here, a UTF-8 locale is to be
+/// understood as one whose external (multi-byte) encoding is UTF-8.
+///
+/// \sa \ref ARCHON_ASSUME_UTF8_LOCALE.
+///
+bool assume_utf8_locale(const std::locale&);
+
+
+
+
+
+
+
+
+// Implementation
+
+
+inline bool assume_utf8_locale(const std::locale& locale)
+{
+    static_cast<void>(locale);
+#if ARCHON_ASSUME_UTF8_LOCALE < 1
+    return false;
+#elif ARCHON_ASSUME_UTF8_LOCALE > 1
+    return true;
+#else
+    std::string name = locale.name(); // Throws
+    std::string_view name_2 = name;
+    // The ".UTF8" form is for Windows compatibility.
+    return (base::ends_with(name_2, ".UTF-8") || base::ends_with(name_2, ".UTF8")); // Throws
+#endif
+}
 
 } // namespace archon::base
 
