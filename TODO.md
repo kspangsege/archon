@@ -58,7 +58,7 @@ Gold linker: https://github.com/frobware/c-hacks/blob/master/cmake/use-gold-link
 
 Test harness: See if the function of `ARCHON_CHECK_EQUAL_SEQ()` could instead be merged into `ARCHON_CHECK_EQUAL()` by detecting the applicability of `std::begin()` and `std::end()`. NO, NOT A GOOD IDEA.
 
-Test harness: Consider adding `ARCHON_TEST_TRAIL(parent_test_context, trail_segment)` defines a new `text_context` variable. Consider using it in unit test `Base_Integer_Mask`.
+Test harness: Breadcrumb trail: Consider adding `ARCHON_TEST_TRAIL(parent_test_context, trail_segment)` defines a new `text_context` variable. Consider using it in unit test `Base_Integer_Mask`.
 
 Base64 unit test <-- cases from RFC
 
