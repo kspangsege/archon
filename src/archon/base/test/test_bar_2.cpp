@@ -5122,6 +5122,12 @@ inline constexpr bool codecvt_quirk_ok_on_empty_buffer = false;
 #endif
 
 #if ARCHON_GNU_LIBCXX || ARCHON_LLVM_LIBCXX
+inline constexpr bool codecvt_quirk_ok_on_partial_char = true;
+#else
+inline constexpr bool codecvt_quirk_ok_on_partial_char = false;
+#endif
+
+#if ARCHON_GNU_LIBCXX || ARCHON_LLVM_LIBCXX
 inline constexpr bool codecvt_quirk_consume_partial_char = true;
 #else
 inline constexpr bool codecvt_quirk_consume_partial_char = false;
@@ -5172,45 +5178,47 @@ ARCHON_TEST(CodecvtDecodeBaseline)
         };
 
         bool quirk1 = base::detail::codecvt_quirk_ok_on_empty_buffer;
-        bool quirk2 = base::detail::codecvt_quirk_consume_partial_char;
-        bool quirk3 = base::detail::codecvt_quirk_consume_partial_char_makes_noninit_state;
+        bool quirk2 = base::detail::codecvt_quirk_ok_on_partial_char;
+        bool quirk3 = base::detail::codecvt_quirk_consume_partial_char;
+        bool quirk4 = base::detail::codecvt_quirk_consume_partial_char_makes_noninit_state;
 
-        subtest("",    0, 0, 0, std::codecvt_base::ok, true);
-        subtest("",   10, 0, 0, std::codecvt_base::ok, true);
+        std::codecvt_base::result ok      = std::codecvt_base::ok;
+        std::codecvt_base::result partial = std::codecvt_base::partial;
+        std::codecvt_base::result quirk_1_result = (quirk1 ? ok : partial);
+        std::codecvt_base::result quirk_2_result = (quirk2 ? ok : partial);
 
-        subtest("x",   0, 0, 0, (quirk1 ? std::codecvt_base::ok :
-                                 std::codecvt_base::partial), true);
-        subtest("x",   1, 1, 1, std::codecvt_base::ok, true);
-        subtest("x",  10, 1, 1, std::codecvt_base::ok, true);
+        subtest("",    0, 0, 0, ok, true);
+        subtest("",   10, 0, 0, ok, true);
 
-        subtest("xx",  0, 0, 0, (quirk1 ? std::codecvt_base::ok :
-                                 std::codecvt_base::partial), true);
-        subtest("xx",  1, 1, 1, std::codecvt_base::partial, true);
-        subtest("xx",  2, 2, 2, std::codecvt_base::ok, true);
-        subtest("xx", 10, 2, 2, std::codecvt_base::ok, true);
+        subtest("x",   0, 0, 0, quirk_1_result, true);
+        subtest("x",   1, 1, 1, ok,             true);
+        subtest("x",  10, 1, 1, ok,             true);
+
+        subtest("xx",  0, 0, 0, quirk_1_result, true);
+        subtest("xx",  1, 1, 1, partial,        true);
+        subtest("xx",  2, 2, 2, ok,             true);
+        subtest("xx", 10, 2, 2, ok,             true);
 
         if (is_utf8) {
-            subtest("\xC3\xA6",   0, 0, 0, (quirk1 ? std::codecvt_base::ok :
-                                            std::codecvt_base::partial), true);
-            subtest("\xC3\xA6",   1, 2, 1, std::codecvt_base::ok, true);
-            subtest("\xC3\xA6",  10, 2, 1, std::codecvt_base::ok, true);
+            subtest("\xC3\xA6",   0, 0, 0, quirk_1_result, true);
+            subtest("\xC3\xA6",   1, 2, 1, ok,             true);
+            subtest("\xC3\xA6",  10, 2, 1, ok,             true);
 
-            subtest("x\xC3\xA6",  0, 0, 0, (quirk1 ? std::codecvt_base::ok :
-                                            std::codecvt_base::partial), true);
-            subtest("x\xC3\xA6",  1, 1, 1, std::codecvt_base::partial, true);
-            subtest("x\xC3\xA6",  2, 3, 2, std::codecvt_base::ok, true);
-            subtest("x\xC3\xA6", 10, 3, 2, std::codecvt_base::ok, true);
+            subtest("x\xC3\xA6",  0, 0, 0, quirk_1_result, true);
+            subtest("x\xC3\xA6",  1, 1, 1, partial,        true);
+            subtest("x\xC3\xA6",  2, 3, 2, ok,             true);
+            subtest("x\xC3\xA6", 10, 3, 2, ok,             true);
 
-            subtest("\xC3",   0, 0, 0, (quirk1 ? std::codecvt_base::ok :
-                                        std::codecvt_base::partial), true);
-            subtest("\xC3",   1, (quirk2 ? 1 : 0), 0, std::codecvt_base::ok, !quirk3);  
-            subtest("\xC3",  10, (quirk2 ? 1 : 0), 0, std::codecvt_base::ok, !quirk3);  
+            subtest("\xC3",   0, 0,                0, quirk_1_result, true);
+            subtest("\xC3",   1, (quirk3 ? 1 : 0), 0, quirk_2_result, !quirk4);
+            subtest("\xC3",  10, (quirk3 ? 1 : 0), 0, quirk_2_result, !quirk4);
 
-            subtest("x\xC3",  0, 0, 0, (quirk1 ? std::codecvt_base::ok :
-                                        std::codecvt_base::partial), true);
-            subtest("x\xC3",  1, 1, 1, std::codecvt_base::partial, true);
-            subtest("x\xC3",  2, (quirk2 ? 2 : 1), 1, std::codecvt_base::ok, !quirk3);  
-            subtest("x\xC3", 10, (quirk2 ? 2 : 1), 1, std::codecvt_base::ok, !quirk3);  
+            subtest("x\xC3",  0, 0,                0, quirk_1_result, true);
+            subtest("x\xC3",  1, 1,                1, partial,        true);
+            subtest("x\xC3",  2, (quirk3 ? 2 : 1), 1, quirk_2_result, !quirk4);
+            subtest("x\xC3", 10, (quirk3 ? 2 : 1), 1, quirk_2_result, !quirk4);
+
+            
         }
     };
     for (const char* name : candidate_locales) {
