@@ -5110,35 +5110,52 @@ Decoding cases:
   - 2nd byte of 2nd character is a bad byte, plenty of output space (UTF-8)
 */
 
+
+#include <archon/base/quote.hpp>
+
+
 ARCHON_TEST(CodecvtDecodeBaseline)
 {
+    std::array<char, 16> seed_memory;
+    base::StringFormatter formatter(seed_memory, test_context.get_locale());
     base::ArraySeededBuffer<wchar_t, 10> buffer;
+    auto subtest = [&, &parent_test_context = test_context](const std::locale& locale) {
+        ARCHON_TEST_TRAIL(parent_test_context,
+                          formatter.format("%s", base::quoted(std::string_view(locale.name()))));
+        bool is_utf8 = base::assume_utf8_locale(locale);
+        using codecvt_type = std::codecvt<wchar_t, char, std::mbstate_t>;
+        const codecvt_type& codecvt = std::use_facet<codecvt_type>(locale);
+        auto subtest = [&, &parent_test_context =
+                        test_context](std::string_view data, std::size_t buffer_size,
+                                      std::size_t from_advance, std::size_t to_advance,
+                                      std::codecvt_base::result expected_result) {
+            ARCHON_TEST_TRAIL(parent_test_context,
+                              formatter.format("%s, %s", base::quoted(data), buffer_size));
+            buffer.reserve(buffer_size);
+            std::mbstate_t state = {};
+            const char* from = data.data();
+            const char* from_end = from + data.size();
+            const char* from_next = nullptr;
+            wchar_t* to = buffer.data();
+            wchar_t* to_end = to + buffer_size;
+            wchar_t* to_next = nullptr;
+            std::codecvt_base::result result =
+                codecvt.in(state, from, from_end, from_next, to, to_end, to_next);
+            ARCHON_CHECK_EQUAL(result, expected_result);
+            ARCHON_CHECK_EQUAL(from_next - from, from_advance);
+            ARCHON_CHECK_EQUAL(to_next - to, to_advance);
+            ARCHON_CHECK(std::mbsinit(&state) != 0);
+        };
+        subtest("",   0, 0, 0, std::codecvt_base::ok);
+        subtest("",  10, 0, 0, std::codecvt_base::ok);
+        subtest("x",  0, 0, 0, std::codecvt_base::ok);
+        subtest("x",  1, 1, 1, std::codecvt_base::ok);
+        subtest("x", 10, 1, 1, std::codecvt_base::ok);
+    };
     for (const char* name : candidate_locales) {
         if (base::has_locale(name)) {
             std::locale locale(name);
-            bool is_utf8 = base::assume_utf8_locale(locale);
-            log("LOCALE ----------------------> %s  (utf8:%s)", locale.name(), is_utf8);    
-            using codecvt_type = std::codecvt<wchar_t, char, std::mbstate_t>;
-            const codecvt_type& codecvt = std::use_facet<codecvt_type>(locale);
-            auto test = [&](std::string_view data, std::size_t buffer_size,
-                            std::codecvt_base::result expected_result) {
-                buffer.reserve(buffer_size);
-                std::mbstate_t state = {};
-                const char* from = data.data();
-                const char* from_end = from + data.size();
-                const char* from_next = nullptr;
-                wchar_t* to = buffer.data();
-                wchar_t* to_end = to + buffer_size;
-                wchar_t* to_next = nullptr;
-                std::codecvt_base::result result =
-                    codecvt.in(state, from, from_end, from_next, to, to_end, to_next);
-                return (result == expected_result);
-            };
-            ARCHON_CHECK(test("",   0, std::codecvt_base::ok));
-            ARCHON_CHECK(test("",  10, std::codecvt_base::ok));
-            ARCHON_CHECK(test("x",  0, std::codecvt_base::ok));    
-            ARCHON_CHECK(test("x",  1, std::codecvt_base::ok));
-            ARCHON_CHECK(test("x", 10, std::codecvt_base::ok));
+            subtest(locale);
         }
     }
 }
