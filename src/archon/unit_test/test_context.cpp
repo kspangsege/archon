@@ -37,14 +37,16 @@ using namespace archon::unit_test;
 
 
 TestContext::TestContext(detail::ThreadContextImpl& tc, const TestDetails& td,
-                         std::string_view mfp, std::size_t ti, int ri) noexcept :
+                         std::string_view mfp, std::size_t ti, int ri, base::Logger& report_logger,
+                         base::Logger& inner_logger) noexcept :
     thread_context(tc),
     test_details(td),
     mapped_file_path(mfp),
     test_index(ti),
     recurrence_index(ri),
-    logger(tc.get_inner_logger()),
-    m_thread_context(tc)
+    logger(inner_logger),
+    m_thread_context(tc),
+    m_report_logger(report_logger)
 {
 }
 
@@ -106,7 +108,7 @@ void TestContext::test_failed(std::string_view message)
 
 void TestContext::check_failed(Location location, std::string_view message)
 {
-    m_thread_context.check_failed(*this, location, message); // Throws
+    m_thread_context.check_failed(*this, location, message, m_report_logger); // Throws
 }
 
 

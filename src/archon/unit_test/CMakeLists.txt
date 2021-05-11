@@ -1,6 +1,7 @@
 add_library(UnitTest
             random_seed.cpp
             test_context.cpp
+            test_trail.cpp
             reporter.cpp
             test_list.cpp
             noinst/test_level_report_logger.cpp

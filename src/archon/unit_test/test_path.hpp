@@ -40,7 +40,7 @@
 /// type `TestContext&` is available (see \ref ARCHON_TEST()).
 ///
 #define ARCHON_TEST_FILE(var_name)                                      \
-    X_ARCHON_TEST_PATH(archon::unit_test::TestFileGuard, var_name, "");
+    X_ARCHON_TEST_PATH(archon::unit_test::TestFileGuard, var_name, "")
 
 
 /// \brief Declaration of test file guard with custom file name extension.
@@ -53,7 +53,7 @@
 /// type `TestContext&` is available (see \ref ARCHON_TEST()).
 ///
 #define ARCHON_TEST_FILE_EX(var_name, file_name_extension)              \
-    X_ARCHON_TEST_PATH(archon::unit_test::TestFileGuard, var_name, "." file_name_extension);
+    X_ARCHON_TEST_PATH(archon::unit_test::TestFileGuard, var_name, "." file_name_extension)
 
 
 /// \brief Declaration of test directory guard.
@@ -66,7 +66,7 @@
 /// type `TestContext&` is available (see \ref ARCHON_TEST()).
 ///
 #define ARCHON_TEST_DIR(var_name)                                       \
-    X_ARCHON_TEST_PATH(archon::unit_test::TestDirGuard, var_name, "");
+    X_ARCHON_TEST_PATH(archon::unit_test::TestDirGuard, var_name, "")
 
 
 

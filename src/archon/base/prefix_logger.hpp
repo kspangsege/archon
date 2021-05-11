@@ -44,23 +44,23 @@ public:
 
     using string_view_type = typename logger_type::string_view_type;
     using ostream_type     = typename logger_type::ostream_type;
+    using string_type      = std::basic_string<C, T>;
 
     BasicPrefixLogger(logger_type& base_logger, const char* prefix);
     BasicPrefixLogger(logger_type& base_logger, string_view_type prefix);
+    BasicPrefixLogger(logger_type& base_logger, string_type&& prefix) noexcept;
     BasicPrefixLogger(logger_type& base_logger, const char* prefix, std::string_view channel);
     BasicPrefixLogger(logger_type& base_logger, string_view_type prefix, std::string_view channel);
+    BasicPrefixLogger(logger_type& base_logger, string_type&& prefix, std::string_view channel);
 
 private:
     using Prefix  = typename logger_type::Prefix;
     using Channel = typename logger_type::Channel;
 
-    using string_type  = std::basic_string<C, T>;
-
     const Prefix& m_parent_prefix;
     const string_type m_prefix;
 
-    BasicPrefixLogger(logger_type& base_logger, Channel&, const char* prefix);
-    BasicPrefixLogger(logger_type& base_logger, Channel&, string_type prefix) noexcept;
+    BasicPrefixLogger(logger_type& base_logger, Channel&, string_type&& prefix) noexcept;
 
     static string_type widen(std::string_view prefix, const logger_type& base_logger);
 
@@ -84,7 +84,7 @@ using WidePrefixLogger = BasicPrefixLogger<wchar_t>;
 
 template<class C, class T>
 inline BasicPrefixLogger<C, T>::BasicPrefixLogger(logger_type& base_logger, const char* prefix) :
-    BasicPrefixLogger(base_logger, base_logger.get_channel(), prefix) // Throws
+    BasicPrefixLogger(base_logger, widen(prefix, base_logger)) // Throws
 {
 }
 
@@ -92,7 +92,15 @@ inline BasicPrefixLogger<C, T>::BasicPrefixLogger(logger_type& base_logger, cons
 template<class C, class T>
 inline BasicPrefixLogger<C, T>::BasicPrefixLogger(logger_type& base_logger,
                                                   string_view_type prefix) :
-    BasicPrefixLogger(base_logger, base_logger.get_channel(), string_type(prefix)) // Throws
+    BasicPrefixLogger(base_logger, string_type(prefix)) // Throws
+{
+}
+
+
+template<class C, class T>
+inline BasicPrefixLogger<C, T>::BasicPrefixLogger(logger_type& base_logger,
+                                                  string_type&& prefix) noexcept :
+    BasicPrefixLogger(base_logger, base_logger.get_channel(), std::move(prefix))
 {
 }
 
@@ -100,7 +108,7 @@ inline BasicPrefixLogger<C, T>::BasicPrefixLogger(logger_type& base_logger,
 template<class C, class T>
 inline BasicPrefixLogger<C, T>::BasicPrefixLogger(logger_type& base_logger, const char* prefix,
                                                   std::string_view channel) :
-    BasicPrefixLogger(base_logger, base_logger.find_channel(channel), prefix) // Throws
+    BasicPrefixLogger(base_logger, widen(prefix, base_logger), channel) // Throws
 {
 }
 
@@ -109,23 +117,23 @@ template<class C, class T>
 inline BasicPrefixLogger<C, T>::BasicPrefixLogger(logger_type& base_logger,
                                                   string_view_type prefix,
                                                   std::string_view channel) :
-    BasicPrefixLogger(base_logger, base_logger.find_channel(channel),
-                      string_type(prefix)) // Throws
+    BasicPrefixLogger(base_logger, string_type(prefix), channel) // Throws
 {
 }
 
 
 template<class C, class T>
-inline BasicPrefixLogger<C, T>::BasicPrefixLogger(logger_type& base_logger, Channel& channel,
-                                                  const char* prefix) :
-    BasicPrefixLogger(base_logger, channel, widen(prefix, base_logger)) // Throws
+inline BasicPrefixLogger<C, T>::BasicPrefixLogger(logger_type& base_logger,
+                                                  string_type&& prefix,
+                                                  std::string_view channel) :
+    BasicPrefixLogger(base_logger, base_logger.find_channel(channel), std::move(prefix)) // Throws
 {
 }
 
 
 template<class C, class T>
 BasicPrefixLogger<C, T>::BasicPrefixLogger(logger_type& base_logger, Channel& channel,
-                                           string_type prefix) noexcept :
+                                           string_type&& prefix) noexcept :
     logger_type(*this, channel, base_logger.get_map()),
     m_parent_prefix(base_logger.get_prefix()),
     m_prefix(std::move(prefix))

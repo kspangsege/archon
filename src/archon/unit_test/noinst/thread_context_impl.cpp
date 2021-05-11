@@ -97,7 +97,8 @@ void ThreadContextImpl::run(RootContextImpl::Exec exec, std::unique_lock<std::mu
     using Test = RootContextImpl::Test;
     const Test& test = m_root_context.tests[exec.test_index];
     TestContext test_context(*this, test.list_entry->details, test.mapped_file_path,
-                             exec.test_index, exec.recurrence_index);
+                             exec.test_index, exec.recurrence_index, m_test_level_report_logger,
+                             m_inner_logger_2);
     m_test_level_report_logger.test_context = &test_context;
     m_test_level_report_logger.file_path    = test.mapped_file_path;
     m_test_level_report_logger.line_number  = test.list_entry->details.location.line_number;
@@ -162,7 +163,7 @@ void ThreadContextImpl::test_failed(const TestContext& test_context, std::string
 
 
 void ThreadContextImpl::check_failed(const TestContext& test_context, Location location,
-                                     std::string_view message)
+                                     std::string_view message, base::Logger& report_logger)
 {
     ++num_checks;
     {
@@ -189,7 +190,7 @@ void ThreadContextImpl::check_failed(const TestContext& test_context, Location l
         m_test_level_report_logger.file_path   = mapped_file_path;
         m_test_level_report_logger.line_number = location.line_number;
         FailContext fail_context(test_context, location, mapped_file_path);
-        m_root_context.reporter.fail(fail_context, message, m_test_level_report_logger); // Throws
+        m_root_context.reporter.fail(fail_context, message, report_logger); // Throws
         if (ARCHON_UNLIKELY(m_root_context.abort_on_failure()))
             abort();
     }

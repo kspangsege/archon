@@ -20,16 +20,15 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef ARCHON_X_UNIT_TEST_HPP
-#define ARCHON_X_UNIT_TEST_HPP
 
-/// \file
-
-
-#include <archon/unit_test/test_context.hpp>
-#include <archon/unit_test/test_macros.hpp>
-#include <archon/unit_test/check_macros.hpp>
-#include <archon/unit_test/test_path.hpp>
 #include <archon/unit_test/test_trail.hpp>
 
-#endif // ARCHON_X_UNIT_TEST_HPP
+
+using archon::unit_test::SubtestContext;
+
+
+void SubtestContext::PrefixLogger::format_prefix(std::ostream& out) const
+{
+    m_parent_prefix.format_prefix(out); // Throws
+    out << m_subtest_context.m_trail_segment << ": "; // Throws
+}

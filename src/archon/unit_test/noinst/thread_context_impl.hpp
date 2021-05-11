@@ -49,8 +49,6 @@ public:
     ThreadContextImpl(RootContextImpl& root_context, int thread_index, base::Logger& logger,
                       base::LogLevel inner_log_level_limit);
 
-    base::Logger& get_inner_logger() noexcept;
-
     void run();
     void nonconcur_run();
 
@@ -58,7 +56,11 @@ public:
     void finalize(std::unique_lock<std::mutex>&);
 
     void test_failed(const TestContext&, std::string_view message);
-    void check_failed(const TestContext&, Location, std::string_view message);
+
+    // Specified report logger must be `m_test_level_report_logger`, or a logger
+    // that is derived from it.
+    void check_failed(const TestContext&, Location, std::string_view message,
+                      base::Logger& report_logger);
 
     RootContextImpl& get_root_context() noexcept;
 
@@ -85,12 +87,6 @@ private:
 
 
 // Implementation
-
-
-inline base::Logger& ThreadContextImpl::get_inner_logger() noexcept
-{
-    return m_inner_logger_2;
-}
 
 
 inline RootContextImpl& ThreadContextImpl::get_root_context() noexcept

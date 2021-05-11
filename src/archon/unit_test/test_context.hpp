@@ -355,14 +355,23 @@ public:
     TestContext(const TestContext&) = delete;
     TestContext& operator=(const TestContext&) = delete;
 
+protected:
+    static detail::ThreadContextImpl& get_thread_context_impl(TestContext&) noexcept;
+    static base::Logger& get_report_logger(TestContext&) noexcept;
+
+    TestContext(detail::ThreadContextImpl&, const TestDetails&,
+                std::string_view mapped_file_path, std::size_t test_index,
+                int recurrence_index, base::Logger& report_logger,
+                base::Logger& inner_logger) noexcept;
+
 private:
     static constexpr std::size_t s_max_quoted_string_size = 72;
 
     detail::ThreadContextImpl& m_thread_context;
 
-    TestContext(detail::ThreadContextImpl&, const TestDetails&,
-                std::string_view mapped_file_path, std::size_t test_index,
-                int recurrence_index) noexcept;
+    // Refers to `m_thread_context.m_test_level_report_logger`, or to a logger
+    // that is derived from it.
+    base::Logger& m_report_logger;
 
     void test_failed(std::string_view message);
 
@@ -657,6 +666,19 @@ bool TestContext::check_equal_seq(const A& a, const B& b, const char* file_path,
         check_equal_seq_failed(location, a_text, b_text); // Throws
     }
     return cond;
+}
+
+
+inline auto TestContext::get_thread_context_impl(TestContext& test_context) noexcept ->
+    detail::ThreadContextImpl&
+{
+    return test_context.m_thread_context;
+}
+
+
+inline auto TestContext::get_report_logger(TestContext& test_context) noexcept -> base::Logger&
+{
+    return test_context.m_report_logger;
 }
 
 
