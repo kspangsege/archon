@@ -5088,8 +5088,9 @@ ARCHON_TEST_BATCH(Base_TextFileStream_TellAndSeek, stream_variants)
 
 namespace archon::base::detail {
 
-// std::codecvt::in() reports an `ok` result if the size of the specified output
-// buffer is zero, even when presented with a nonzero amount of input.
+// std::codecvt::out() and std::codecvt::in() report an `ok` result if the size
+// of the specified output buffer is zero, even when presented with a nonzero
+// amount of input.
 #if ARCHON_GNU_LIBCXX
 inline constexpr bool codecvt_quirk_ok_on_empty_buffer = true;
 #else
@@ -5148,7 +5149,7 @@ static_assert(!codecvt_quirk_consume_partial_char_but_not_good_bytes_on_error ||
 } // namespace archon::base::detail
 
 
-ARCHON_TEST(CodecvtDecodeBaseline)
+ARCHON_TEST(CharCodec_CodecvtBaseline)
 {
     bool quirk_1 = base::detail::codecvt_quirk_ok_on_empty_buffer;
     bool quirk_2 = base::detail::codecvt_quirk_ok_on_partial_char;
@@ -5165,31 +5166,64 @@ ARCHON_TEST(CodecvtDecodeBaseline)
     std::codecvt_base::result quirk_2_result = (quirk_2 ? ok : partial);
     std::codecvt_base::result quirk_3_result = (quirk_3 ? partial : error);
 
-    std::array<char, 16> seed_memory;
-    base::StringFormatter formatter(seed_memory, test_context.get_locale());
-    base::ArraySeededBuffer<wchar_t, 10> buffer;
+    std::array<char, 16> seed_memory_1;
+    base::StringFormatter formatter(seed_memory_1, test_context.get_locale());
+    std::array<wchar_t, 16> seed_memory_2;
+    base::WideStringFormatter wformatter(seed_memory_2, test_context.get_locale());
+    std::array<char, 32> seed_memory_3;
+    base::WideStringEncoder encoder(test_context.get_locale(), seed_memory_3);
+    base::ArraySeededBuffer<char, 20> encode_buffer;
+    base::ArraySeededBuffer<wchar_t, 10> decode_buffer;
+
     auto subtest = [&, &parent_test_context = test_context](const std::locale& locale) {
         ARCHON_TEST_TRAIL(parent_test_context,
                           formatter.format("%s", base::quoted(std::string_view(locale.name()))));
-        bool is_utf8 = base::assume_utf8_locale(locale);
+        bool is_utf8 = (base::assume_utf8_locale(locale) && ARCHON_WCHAR_IS_UNICODE);
         using codecvt_type = std::codecvt<wchar_t, char, std::mbstate_t>;
         const codecvt_type& codecvt = std::use_facet<codecvt_type>(locale);
-        auto subtest = [&, &parent_test_context =
-                        test_context](std::string_view data, std::size_t split_pos,
-                                      std::size_t buffer_size,
-                                      std::size_t expected_from_advance,
-                                      std::size_t expected_to_advance,
-                                      std::codecvt_base::result expected_result,
-                                      bool expect_final_empty_state) {
+
+        auto encode = [&, &parent_test_context =
+                       test_context](base::Span<const wchar_t> data, std::size_t buffer_size,
+                                     std::size_t expected_from_advance,
+                                     std::size_t expected_to_advance,
+                                     std::codecvt_base::result expected_result) {
+            std::wstring_view data_2(data.data(), data.size());
             ARCHON_TEST_TRAIL(parent_test_context,
-                              formatter.format("%s, %s, %s", base::quoted(data), split_pos,
+                              encoder.encode(wformatter.format("encode(L%s, %s)",
+                                                               base::quoted(data_2),
+                                                               buffer_size)));
+            encode_buffer.reserve(buffer_size);
+            std::mbstate_t state = {};
+            const wchar_t* from = data.data();
+            const wchar_t* from_end = from + data.size();
+            const wchar_t* from_next = nullptr;
+            char* to = encode_buffer.data();
+            char* to_end = to + buffer_size;
+            char* to_next = nullptr;
+            std::codecvt_base::result result =
+                codecvt.out(state, from, from_end, from_next, to, to_end, to_next);
+            ARCHON_CHECK_EQUAL(result, expected_result);
+            ARCHON_CHECK_EQUAL(from_next - from, expected_from_advance);
+            ARCHON_CHECK_EQUAL(to_next - to, expected_to_advance);
+            ARCHON_CHECK(std::mbsinit(&state) != 0);
+        };
+
+        auto decode = [&, &parent_test_context =
+                       test_context](std::string_view data, std::size_t split_pos,
+                                     std::size_t buffer_size,
+                                     std::size_t expected_from_advance,
+                                     std::size_t expected_to_advance,
+                                     std::codecvt_base::result expected_result,
+                                     bool expect_final_initial_state) {
+            ARCHON_TEST_TRAIL(parent_test_context,
+                              formatter.format("decode(%s, %s, %s)", base::quoted(data), split_pos,
                                                buffer_size));
-            buffer.reserve(buffer_size);
+            decode_buffer.reserve(buffer_size);
             std::mbstate_t state = {};
             const char* from = data.data();
             const char* from_end = from + data.size();
             const char* from_next = nullptr;
-            wchar_t* to = buffer.data();
+            wchar_t* to = decode_buffer.data();
             wchar_t* to_end = to + buffer_size;
             wchar_t* to_next = nullptr;
             if (split_pos > 0) {
@@ -5211,95 +5245,144 @@ ARCHON_TEST(CodecvtDecodeBaseline)
                 codecvt.in(state, from, from_end, from_next, to, to_end, to_next);
             ARCHON_CHECK_EQUAL(result, expected_result);
             ARCHON_CHECK_EQUAL(from_next - data.data(), expected_from_advance);
-            ARCHON_CHECK_EQUAL(to_next - buffer.data(), expected_to_advance);
-            ARCHON_CHECK_EQUAL(std::mbsinit(&state) != 0, expect_final_empty_state);
+            ARCHON_CHECK_EQUAL(to_next - decode_buffer.data(), expected_to_advance);
+            ARCHON_CHECK_EQUAL(std::mbsinit(&state) != 0, expect_final_initial_state);
         };
 
+        base::WideCharMapper mapper(locale);
+        wchar_t hash = mapper.widen('#');
+
         if (true) {
-            subtest("",             0,  0, 0,                 0, ok,             true);
-            subtest("",             0, 10, 0,                 0, ok,             true);
+            encode(std::array<wchar_t, 0> {},  0, 0, 0, ok);
+            encode(std::array<wchar_t, 0> {}, 10, 0, 0, ok);
 
-            subtest("#",            0,  0, 0,                 0, quirk_1_result, true);
-            subtest("#",            0,  1, 1,                 1, ok,             true);
-            subtest("#",            0, 10, 1,                 1, ok,             true);
+            encode(std::array { hash },        0, 0, 0, quirk_1_result);
+            encode(std::array { hash },        1, 1, 1, ok);
+            encode(std::array { hash },       10, 1, 1, ok);
 
-            subtest("##",           0,  0, 0,                 0, quirk_1_result, true);
-            subtest("##",           0,  1, 1,                 1, partial,        true);
-            subtest("##",           0,  2, 2,                 2, ok,             true);
-            subtest("##",           0, 10, 2,                 2, ok,             true);
+            encode(std::array { hash, hash },  0, 0, 0, quirk_1_result);
+            encode(std::array { hash, hash },  1, 1, 1, partial);
+            encode(std::array { hash, hash },  2, 2, 2, ok);
+            encode(std::array { hash, hash }, 10, 2, 2, ok);
         }
 
         if (is_utf8) {
-            subtest("\xC3\xA6",     0,  0, 0,                 0, quirk_1_result, true);
-            subtest("\xC3\xA6",     0,  1, 2,                 1, ok,             true);
-            subtest("\xC3\xA6",     0, 10, 2,                 1, ok,             true);
+            bool click = false;
+            ARCHON_CHECK(click);
 
-            subtest("\xE2\x82\xAC", 0,  0, 0,                 0, quirk_1_result, true);
-            subtest("\xE2\x82\xAC", 0,  1, 3,                 1, ok,             true);
-            subtest("\xE2\x82\xAC", 0, 10, 3,                 1, ok,             true);
+            wchar_t cent = wchar_t(0x00A2);
+            wchar_t euro = wchar_t(0x20AC);
 
-            subtest("#\xC3\xA6",    0,  0, 0,                 0, quirk_1_result, true);
-            subtest("#\xC3\xA6",    0,  1, 1,                 1, partial,        true);
-            subtest("#\xC3\xA6",    0,  2, 3,                 2, ok,             true);
-            subtest("#\xC3\xA6",    0, 10, 3,                 2, ok,             true);
+            encode(std::array { cent },        0, 0, 0, quirk_1_result);
+            encode(std::array { cent },        1, 0, 0, partial);
+            encode(std::array { cent },        2, 1, 2, ok);
+            encode(std::array { cent },       10, 1, 2, ok);
+
+            encode(std::array { hash, cent },  0, 0, 0, quirk_1_result);
+            encode(std::array { hash, cent },  1, 1, 1, partial);
+            encode(std::array { hash, cent },  2, 1, 1, partial);
+            encode(std::array { hash, cent },  3, 2, 3, ok);
+            encode(std::array { hash, cent }, 10, 2, 3, ok);
+
+            encode(std::array { euro },        0, 0, 0, quirk_1_result);
+            encode(std::array { euro },        1, 0, 0, partial);
+            encode(std::array { euro },        2, 0, 0, partial);
+            encode(std::array { euro },        3, 1, 3, ok);
+            encode(std::array { euro },       10, 1, 3, ok);
+
+            encode(std::array { hash, euro },  0, 0, 0, quirk_1_result);
+            encode(std::array { hash, euro },  1, 1, 1, partial);
+            encode(std::array { hash, euro },  2, 1, 1, partial);
+            encode(std::array { hash, euro },  3, 1, 1, partial);
+            encode(std::array { hash, euro },  4, 2, 4, ok);
+            encode(std::array { hash, euro }, 10, 2, 4, ok);
+        }
+
+        if (true) {
+            decode("",             0,  0, 0,                 0, ok,             true);
+            decode("",             0, 10, 0,                 0, ok,             true);
+
+            decode("#",            0,  0, 0,                 0, quirk_1_result, true);
+            decode("#",            0,  1, 1,                 1, ok,             true);
+            decode("#",            0, 10, 1,                 1, ok,             true);
+
+            decode("##",           0,  0, 0,                 0, quirk_1_result, true);
+            decode("##",           0,  1, 1,                 1, partial,        true);
+            decode("##",           0,  2, 2,                 2, ok,             true);
+            decode("##",           0, 10, 2,                 2, ok,             true);
+        }
+
+        if (is_utf8) {
+            decode("\xC2\xA2",     0,  0, 0,                 0, quirk_1_result, true);
+            decode("\xC2\xA2",     0,  1, 2,                 1, ok,             true);
+            decode("\xC2\xA2",     0, 10, 2,                 1, ok,             true);
+
+            decode("\xE2\x82\xAC", 0,  0, 0,                 0, quirk_1_result, true);
+            decode("\xE2\x82\xAC", 0,  1, 3,                 1, ok,             true);
+            decode("\xE2\x82\xAC", 0, 10, 3,                 1, ok,             true);
+
+            decode("#\xC2\xA2",    0,  0, 0,                 0, quirk_1_result, true);
+            decode("#\xC2\xA2",    0,  1, 1,                 1, partial,        true);
+            decode("#\xC2\xA2",    0,  2, 3,                 2, ok,             true);
+            decode("#\xC2\xA2",    0, 10, 3,                 2, ok,             true);
 
             // Only 1 byte of multi-byte char
-            subtest("\xC3",         0,  0, 0,                 0, quirk_1_result, true);
-            subtest("\xC3",         0,  1, (quirk_4 ? 1 : 0), 0, quirk_2_result, !quirk_5);
-            subtest("\xC3",         0, 10, (quirk_4 ? 1 : 0), 0, quirk_2_result, !quirk_5);
+            decode("\xC2",         0,  0, 0,                 0, quirk_1_result, true);
+            decode("\xC2",         0,  1, (quirk_4 ? 1 : 0), 0, quirk_2_result, !quirk_5);
+            decode("\xC2",         0, 10, (quirk_4 ? 1 : 0), 0, quirk_2_result, !quirk_5);
 
             // Only 2 bytes of multi-byte char
-            subtest("\xE2\x82",     0,  0, 0,                 0, quirk_1_result, true);
-            subtest("\xE2\x82",     0,  1, (quirk_4 ? 2 : 0), 0, quirk_2_result, !quirk_5);
-            subtest("\xE2\x82",     0, 10, (quirk_4 ? 2 : 0), 0, quirk_2_result, !quirk_5);
+            decode("\xE2\x82",     0,  0, 0,                 0, quirk_1_result, true);
+            decode("\xE2\x82",     0,  1, (quirk_4 ? 2 : 0), 0, quirk_2_result, !quirk_5);
+            decode("\xE2\x82",     0, 10, (quirk_4 ? 2 : 0), 0, quirk_2_result, !quirk_5);
 
             // Only 2 bytes of multi-byte char, with split
-            subtest("\xE2\x82",     1,  0, 0,                 0, quirk_1_result, true);
-            subtest("\xE2\x82",     1,  1, (quirk_4 ? 2 : 0), 0, quirk_2_result, !quirk_5);
-            subtest("\xE2\x82",     1, 10, (quirk_4 ? 2 : 0), 0, quirk_2_result, !quirk_5);
+            decode("\xE2\x82",     1,  0, 0,                 0, quirk_1_result, true);
+            decode("\xE2\x82",     1,  1, (quirk_4 ? 2 : 0), 0, quirk_2_result, !quirk_5);
+            decode("\xE2\x82",     1, 10, (quirk_4 ? 2 : 0), 0, quirk_2_result, !quirk_5);
 
             // Partial char after full char
-            subtest("#\xC3",        0,  0, 0,                 0, quirk_1_result, true);
-            subtest("#\xC3",        0,  1, 1,                 1, partial,        true);
-            subtest("#\xC3",        0,  2, (quirk_4 ? 2 : 1), 1, quirk_2_result, !quirk_5);
-            subtest("#\xC3",        0, 10, (quirk_4 ? 2 : 1), 1, quirk_2_result, !quirk_5);
+            decode("#\xC2",        0,  0, 0,                 0, quirk_1_result, true);
+            decode("#\xC2",        0,  1, 1,                 1, partial,        true);
+            decode("#\xC2",        0,  2, (quirk_4 ? 2 : 1), 1, quirk_2_result, !quirk_5);
+            decode("#\xC2",        0, 10, (quirk_4 ? 2 : 1), 1, quirk_2_result, !quirk_5);
 
             // 1st byte of 1st char is bad
-            subtest("\xA6",         0,  0, 0,                 0, quirk_1_result, true);
-            subtest("\xA6",         0,  1, 0,                 0, quirk_3_result, true);
-            subtest("\xA6",         0, 10, 0,                 0, quirk_3_result, true);
+            decode("\xA2",         0,  0, 0,                 0, quirk_1_result, true);
+            decode("\xA2",         0,  1, 0,                 0, quirk_3_result, true);
+            decode("\xA2",         0, 10, 0,                 0, quirk_3_result, true);
 
             // 2nd byte of 1st char is bad
-            subtest("\xC3#",        0,  0, 0,                 0, quirk_1_result, true);
-            subtest("\xC3#",        0,  1, (quirk_7 ? 1 : 0), 0, quirk_3_result, true);
-            subtest("\xC3#",        0, 10, (quirk_7 ? 1 : 0), 0, quirk_3_result, true);
+            decode("\xC2#",        0,  0, 0,                 0, quirk_1_result, true);
+            decode("\xC2#",        0,  1, (quirk_7 ? 1 : 0), 0, quirk_3_result, true);
+            decode("\xC2#",        0, 10, (quirk_7 ? 1 : 0), 0, quirk_3_result, true);
 
             // 2nd byte of 1st char is bad, with split
-            subtest("\xC3#",        1,  0, 0,                 0, quirk_1_result, true);
-            subtest("\xC3#",        1,  1, (quirk_4 ? 1 : 0), 0, quirk_3_result, !quirk_5);
-            subtest("\xC3#",        1, 10, (quirk_4 ? 1 : 0), 0, quirk_3_result, !quirk_5);
+            decode("\xC2#",        1,  0, 0,                 0, quirk_1_result, true);
+            decode("\xC2#",        1,  1, (quirk_4 ? 1 : 0), 0, quirk_3_result, !quirk_5);
+            decode("\xC2#",        1, 10, (quirk_4 ? 1 : 0), 0, quirk_3_result, !quirk_5);
 
             // 3rd byte of 1st char is bad
-            subtest("\xE2\x82#",    0,  0, 0,                 0, quirk_1_result, true);
-            subtest("\xE2\x82#",    0,  1, (quirk_7 ? 2 : 0), 0, quirk_3_result, true);
-            subtest("\xE2\x82#",    0, 10, (quirk_7 ? 2 : 0), 0, quirk_3_result, true);
+            decode("\xE2\x82#",    0,  0, 0,                 0, quirk_1_result, true);
+            decode("\xE2\x82#",    0,  1, (quirk_7 ? 2 : 0), 0, quirk_3_result, true);
+            decode("\xE2\x82#",    0, 10, (quirk_7 ? 2 : 0), 0, quirk_3_result, true);
 
             // 3rd byte of 1st char is bad, with split
-            subtest("\xE2\x82#",    1,  0, 0,                 0, quirk_1_result, true);
-            subtest("\xE2\x82#",    1,  1, (quirk_4 ? 1 : 0), 0, quirk_3_result, !quirk_5);
-            subtest("\xE2\x82#",    1, 10, (quirk_4 ? 1 : 0), 0, quirk_3_result, !quirk_5);
+            decode("\xE2\x82#",    1,  0, 0,                 0, quirk_1_result, true);
+            decode("\xE2\x82#",    1,  1, (quirk_4 ? 1 : 0), 0, quirk_3_result, !quirk_5);
+            decode("\xE2\x82#",    1, 10, (quirk_4 ? 1 : 0), 0, quirk_3_result, !quirk_5);
 
             // 1st byte of 2nd char is bad
-            subtest("#\xA6",        0,  0, 0,                 0, quirk_1_result, true);
-            subtest("#\xA6",        0,  1, 1,                 1, partial,        true);
-            subtest("#\xA6",        0,  2, 1,                 1, quirk_3_result, true);
-            subtest("#\xA6",        0, 10, 1,                 1, quirk_3_result, true);
+            decode("#\xA2",        0,  0, 0,                 0, quirk_1_result, true);
+            decode("#\xA2",        0,  1, 1,                 1, partial,        true);
+            decode("#\xA2",        0,  2, 1,                 1, quirk_3_result, true);
+            decode("#\xA2",        0, 10, 1,                 1, quirk_3_result, true);
 
             // 2nd byte of 2nd char is bad
-            subtest("#\xC3#",       0,  0, 0,                 0, quirk_1_result, true);
-            subtest("#\xC3#",       0,  1, 1,                 1, partial,        true);
-            subtest("#\xC3#",       0,  2, (quirk_7 ? 2 : 1), 1, quirk_3_result, true);
-            subtest("#\xC3#",       0, 10, (quirk_7 ? 2 : 1), 1, quirk_3_result, true);
+            decode("#\xC2#",       0,  0, 0,                 0, quirk_1_result, true);
+            decode("#\xC2#",       0,  1, 1,                 1, partial,        true);
+            decode("#\xC2#",       0,  2, (quirk_7 ? 2 : 1), 1, quirk_3_result, true);
+            decode("#\xC2#",       0, 10, (quirk_7 ? 2 : 1), 1, quirk_3_result, true);
         }
     };
     for (const char* name : candidate_locales) {
