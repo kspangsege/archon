@@ -5184,6 +5184,7 @@ ARCHON_TEST(CodecvtDecodeBaseline)
 
         std::codecvt_base::result ok      = std::codecvt_base::ok;
         std::codecvt_base::result partial = std::codecvt_base::partial;
+        std::codecvt_base::result error   = std::codecvt_base::error;
         std::codecvt_base::result quirk_1_result = (quirk1 ? ok : partial);
         std::codecvt_base::result quirk_2_result = (quirk2 ? ok : partial);
 
@@ -5218,7 +5219,36 @@ ARCHON_TEST(CodecvtDecodeBaseline)
             subtest("x\xC3",  2, (quirk3 ? 2 : 1), 1, quirk_2_result, !quirk4);
             subtest("x\xC3", 10, (quirk3 ? 2 : 1), 1, quirk_2_result, !quirk4);
 
-            
+            // 1st byte of 1st char is bad
+            subtest("\xA6",   0, 0, 0, quirk_1_result, true);
+            subtest("\xA6",   1, 0, 0, error,          true);
+            subtest("\xA6",  10, 0, 0, error,          true);
+
+            // 2nd byte of 1st char is bad
+            subtest("\xC3x",  0, 0, 0, quirk_1_result, true);
+            subtest("\xC3x",  1, 0, 0, error,          true);
+            subtest("\xC3x", 10, 0, 0, error,          true);
+
+            // 1st byte of 2nd char is bad
+            subtest("x\xA6",  0, 0, 0, quirk_1_result, true);
+            subtest("x\xA6",  1, 1, 1, partial,        true);
+            subtest("x\xA6",  2, 1, 1, error,          true);
+            subtest("x\xA6", 10, 1, 1, error,          true);
+
+            // 2nd byte of 2nd char is bad
+            subtest("x\xC3x",  0, 0, 0, quirk_1_result, true);
+            subtest("x\xC3x",  1, 1, 1, partial,        true);
+            subtest("x\xC3x",  2, 1, 1, error,          true);
+            subtest("x\xC3x", 10, 1, 1, error,          true);
+
+            // Extra quirk with libstdc++: Leading valid bytes of invalid byte sequence are not consumed, but only when the invalid part is part of the presented input. This in spite of the fact that libstdc++ normally does consume partial byte sequences.
+            // What about case where one valid leading byte is good and already consumed during previous invocation of std::codecvt::in(), but in the input presented to second invocation of std::codecvt::in(), there is one more good byte, and then a bad byte. Will the good byte be consumed? Probably not.
+
+/*            
+            subtest("\xC3", "x",  0, 0, 0, quirk_1_result, true);
+            subtest("\xC3", "x",  1, 0, 0, error,          true);
+            subtest("\xC3", "x", 10, 0, 0, error,          true);
+*/            
         }
     };
     for (const char* name : candidate_locales) {
