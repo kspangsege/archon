@@ -5172,6 +5172,7 @@ ARCHON_TEST(CharCodec_CodecvtBaseline)
     base::WideStringFormatter wformatter(seed_memory_2, test_context.get_locale());
     std::array<char, 32> seed_memory_3;
     base::WideStringEncoder encoder(test_context.get_locale(), seed_memory_3);
+
     base::ArraySeededBuffer<char, 20> encode_buffer;
     base::ArraySeededBuffer<wchar_t, 10> decode_buffer;
 
@@ -5190,7 +5191,7 @@ ARCHON_TEST(CharCodec_CodecvtBaseline)
                                      std::codecvt_base::result expected_result) {
             std::wstring_view data_2(data.data(), data.size());
             ARCHON_TEST_TRAIL(parent_test_context,
-                              encoder.encode(wformatter.format("encode(L%s, %s)",
+                              encoder.encode(wformatter.format("encode(%s, %s)",
                                                                base::quoted(data_2),
                                                                buffer_size)));
             encode_buffer.reserve(buffer_size);
@@ -5251,141 +5252,203 @@ ARCHON_TEST(CharCodec_CodecvtBaseline)
         };
 
         base::WideCharMapper mapper(locale);
-        wchar_t hash = mapper.widen('#');
+        wchar_t dollar = mapper.widen('$');
+
+        wchar_t enc_err = wchar_t(-1);
+        bool good_enc_err = false;
+        {
+            std::array<char, 32> buffer;
+            std::mbstate_t state = {};
+            const wchar_t* from = &enc_err;
+            const wchar_t* from_end = from + 1;
+            const wchar_t* from_next = nullptr;
+            char* to = buffer.data();
+            char* to_end = to + buffer.size();
+            char* to_next = nullptr;
+            std::codecvt_base::result result =
+                codecvt.out(state, from, from_end, from_next, to, to_end, to_next);
+            if (result == error)
+                good_enc_err = true;
+        }
 
         if (true) {
-            encode(std::array<wchar_t, 0> {},  0, 0, 0, ok);
-            encode(std::array<wchar_t, 0> {}, 10, 0, 0, ok);
+            encode(std::array<wchar_t, 0> {},       0, 0, 0, ok);
+            encode(std::array<wchar_t, 0> {},      10, 0, 0, ok);
 
-            encode(std::array { hash },        0, 0, 0, quirk_1_result);
-            encode(std::array { hash },        1, 1, 1, ok);
-            encode(std::array { hash },       10, 1, 1, ok);
+            encode(std::array { dollar },           0, 0, 0, quirk_1_result);
+            encode(std::array { dollar },           1, 1, 1, ok);
+            encode(std::array { dollar },          10, 1, 1, ok);
 
-            encode(std::array { hash, hash },  0, 0, 0, quirk_1_result);
-            encode(std::array { hash, hash },  1, 1, 1, partial);
-            encode(std::array { hash, hash },  2, 2, 2, ok);
-            encode(std::array { hash, hash }, 10, 2, 2, ok);
+            encode(std::array { dollar, dollar },   0, 0, 0, quirk_1_result);
+            encode(std::array { dollar, dollar },   1, 1, 1, partial);
+            encode(std::array { dollar, dollar },   2, 2, 2, ok);
+            encode(std::array { dollar, dollar },  10, 2, 2, ok);
+        }
+
+        if (good_enc_err) {
+            bool click_enc = false;
+            ARCHON_CHECK(click_enc);  
+
+            encode(std::array { enc_err },          0, 0, 0, quirk_1_result);
+            encode(std::array { enc_err },          1, 0, 0, error);
+            encode(std::array { enc_err },         10, 0, 0, error);
+
+            encode(std::array { dollar, enc_err },  0, 0, 0, quirk_1_result);
+            encode(std::array { dollar, enc_err },  1, 1, 1, partial);
+            encode(std::array { dollar, enc_err },  2, 1, 1, error);
+            encode(std::array { dollar, enc_err }, 10, 1, 1, error);
         }
 
         if (is_utf8) {
-            bool click = false;
-            ARCHON_CHECK(click);
-
             wchar_t cent = wchar_t(0x00A2);
             wchar_t euro = wchar_t(0x20AC);
 
-            encode(std::array { cent },        0, 0, 0, quirk_1_result);
-            encode(std::array { cent },        1, 0, 0, partial);
-            encode(std::array { cent },        2, 1, 2, ok);
-            encode(std::array { cent },       10, 1, 2, ok);
+            encode(std::array { cent },             0, 0, 0, quirk_1_result);
+            encode(std::array { cent },             1, 0, 0, partial);
+            encode(std::array { cent },             2, 1, 2, ok);
+            encode(std::array { cent },            10, 1, 2, ok);
 
-            encode(std::array { hash, cent },  0, 0, 0, quirk_1_result);
-            encode(std::array { hash, cent },  1, 1, 1, partial);
-            encode(std::array { hash, cent },  2, 1, 1, partial);
-            encode(std::array { hash, cent },  3, 2, 3, ok);
-            encode(std::array { hash, cent }, 10, 2, 3, ok);
+            encode(std::array { dollar, cent },     0, 0, 0, quirk_1_result);
+            encode(std::array { dollar, cent },     1, 1, 1, partial);
+            encode(std::array { dollar, cent },     2, 1, 1, partial);
+            encode(std::array { dollar, cent },     3, 2, 3, ok);
+            encode(std::array { dollar, cent },    10, 2, 3, ok);
 
-            encode(std::array { euro },        0, 0, 0, quirk_1_result);
-            encode(std::array { euro },        1, 0, 0, partial);
-            encode(std::array { euro },        2, 0, 0, partial);
-            encode(std::array { euro },        3, 1, 3, ok);
-            encode(std::array { euro },       10, 1, 3, ok);
+            encode(std::array { euro },             0, 0, 0, quirk_1_result);
+            encode(std::array { euro },             1, 0, 0, partial);
+            encode(std::array { euro },             2, 0, 0, partial);
+            encode(std::array { euro },             3, 1, 3, ok);
+            encode(std::array { euro },            10, 1, 3, ok);
 
-            encode(std::array { hash, euro },  0, 0, 0, quirk_1_result);
-            encode(std::array { hash, euro },  1, 1, 1, partial);
-            encode(std::array { hash, euro },  2, 1, 1, partial);
-            encode(std::array { hash, euro },  3, 1, 1, partial);
-            encode(std::array { hash, euro },  4, 2, 4, ok);
-            encode(std::array { hash, euro }, 10, 2, 4, ok);
+            encode(std::array { dollar, euro },     0, 0, 0, quirk_1_result);
+            encode(std::array { dollar, euro },     1, 1, 1, partial);
+            encode(std::array { dollar, euro },     2, 1, 1, partial);
+            encode(std::array { dollar, euro },     3, 1, 1, partial);
+            encode(std::array { dollar, euro },     4, 2, 4, ok);
+            encode(std::array { dollar, euro },    10, 2, 4, ok);
+        }
+
+        char dec_err = char(-1);
+        bool good_dec_err = false;
+        {
+            std::array<wchar_t, 1> buffer;
+            std::mbstate_t state = {};
+            const char* from = &dec_err;
+            const char* from_end = from + 1;
+            const char* from_next = nullptr;
+            wchar_t* to = buffer.data();
+            wchar_t* to_end = to + buffer.size();
+            wchar_t* to_next = nullptr;
+            std::codecvt_base::result result =
+                codecvt.in(state, from, from_end, from_next, to, to_end, to_next);
+            if (result == quirk_3_result)
+                good_dec_err = true;
         }
 
         if (true) {
-            decode("",             0,  0, 0,                 0, ok,             true);
-            decode("",             0, 10, 0,                 0, ok,             true);
+            decode("",               0,  0, 0,                 0, ok,             true);
+            decode("",               0, 10, 0,                 0, ok,             true);
 
-            decode("#",            0,  0, 0,                 0, quirk_1_result, true);
-            decode("#",            0,  1, 1,                 1, ok,             true);
-            decode("#",            0, 10, 1,                 1, ok,             true);
+            decode("$",              0,  0, 0,                 0, quirk_1_result, true);
+            decode("$",              0,  1, 1,                 1, ok,             true);
+            decode("$",              0, 10, 1,                 1, ok,             true);
 
-            decode("##",           0,  0, 0,                 0, quirk_1_result, true);
-            decode("##",           0,  1, 1,                 1, partial,        true);
-            decode("##",           0,  2, 2,                 2, ok,             true);
-            decode("##",           0, 10, 2,                 2, ok,             true);
+            decode("$$",             0,  0, 0,                 0, quirk_1_result, true);
+            decode("$$",             0,  1, 1,                 1, partial,        true);
+            decode("$$",             0,  2, 2,                 2, ok,             true);
+            decode("$$",             0, 10, 2,                 2, ok,             true);
+        }
+
+        if (good_dec_err) {
+            bool click_dec = false;
+            ARCHON_CHECK(click_dec);  
+
+            char data[] { '$', dec_err };
+
+            decode({ data + 1, 1 },  0,  0, 0,                 0, quirk_1_result, true);
+            decode({ data + 1, 1 },  0,  1, 0,                 0, quirk_3_result, true);
+            decode({ data + 1, 1 },  0, 10, 0,                 0, quirk_3_result, true);
+
+            decode({ data + 0, 2 },  0,  0, 0,                 0, quirk_1_result, true);
+            decode({ data + 0, 2 },  0,  1, 1,                 1, partial,        true);
+            decode({ data + 0, 2 },  0,  2, 1,                 1, quirk_3_result, true);
+            decode({ data + 0, 2 },  0, 10, 1,                 1, quirk_3_result, true);
         }
 
         if (is_utf8) {
-            decode("\xC2\xA2",     0,  0, 0,                 0, quirk_1_result, true);
-            decode("\xC2\xA2",     0,  1, 2,                 1, ok,             true);
-            decode("\xC2\xA2",     0, 10, 2,                 1, ok,             true);
+            decode("\xC2\xA2",       0,  0, 0,                 0, quirk_1_result, true);
+            decode("\xC2\xA2",       0,  1, 2,                 1, ok,             true);
+            decode("\xC2\xA2",       0, 10, 2,                 1, ok,             true);
 
-            decode("\xE2\x82\xAC", 0,  0, 0,                 0, quirk_1_result, true);
-            decode("\xE2\x82\xAC", 0,  1, 3,                 1, ok,             true);
-            decode("\xE2\x82\xAC", 0, 10, 3,                 1, ok,             true);
+            decode("\xE2\x82\xAC",   0,  0, 0,                 0, quirk_1_result, true);
+            decode("\xE2\x82\xAC",   0,  1, 3,                 1, ok,             true);
+            decode("\xE2\x82\xAC",   0, 10, 3,                 1, ok,             true);
 
-            decode("#\xC2\xA2",    0,  0, 0,                 0, quirk_1_result, true);
-            decode("#\xC2\xA2",    0,  1, 1,                 1, partial,        true);
-            decode("#\xC2\xA2",    0,  2, 3,                 2, ok,             true);
-            decode("#\xC2\xA2",    0, 10, 3,                 2, ok,             true);
+            decode("$\xC2\xA2",      0,  0, 0,                 0, quirk_1_result, true);
+            decode("$\xC2\xA2",      0,  1, 1,                 1, partial,        true);
+            decode("$\xC2\xA2",      0,  2, 3,                 2, ok,             true);
+            decode("$\xC2\xA2",      0, 10, 3,                 2, ok,             true);
 
             // Only 1 byte of multi-byte char
-            decode("\xC2",         0,  0, 0,                 0, quirk_1_result, true);
-            decode("\xC2",         0,  1, (quirk_4 ? 1 : 0), 0, quirk_2_result, !quirk_5);
-            decode("\xC2",         0, 10, (quirk_4 ? 1 : 0), 0, quirk_2_result, !quirk_5);
+            decode("\xC2",           0,  0, 0,                 0, quirk_1_result, true);
+            decode("\xC2",           0,  1, (quirk_4 ? 1 : 0), 0, quirk_2_result, !quirk_5);
+            decode("\xC2",           0, 10, (quirk_4 ? 1 : 0), 0, quirk_2_result, !quirk_5);
 
             // Only 2 bytes of multi-byte char
-            decode("\xE2\x82",     0,  0, 0,                 0, quirk_1_result, true);
-            decode("\xE2\x82",     0,  1, (quirk_4 ? 2 : 0), 0, quirk_2_result, !quirk_5);
-            decode("\xE2\x82",     0, 10, (quirk_4 ? 2 : 0), 0, quirk_2_result, !quirk_5);
+            decode("\xE2\x82",       0,  0, 0,                 0, quirk_1_result, true);
+            decode("\xE2\x82",       0,  1, (quirk_4 ? 2 : 0), 0, quirk_2_result, !quirk_5);
+            decode("\xE2\x82",       0, 10, (quirk_4 ? 2 : 0), 0, quirk_2_result, !quirk_5);
 
             // Only 2 bytes of multi-byte char, with split
-            decode("\xE2\x82",     1,  0, 0,                 0, quirk_1_result, true);
-            decode("\xE2\x82",     1,  1, (quirk_4 ? 2 : 0), 0, quirk_2_result, !quirk_5);
-            decode("\xE2\x82",     1, 10, (quirk_4 ? 2 : 0), 0, quirk_2_result, !quirk_5);
+            decode("\xE2\x82",       1,  0, 0,                 0, quirk_1_result, true);
+            decode("\xE2\x82",       1,  1, (quirk_4 ? 2 : 0), 0, quirk_2_result, !quirk_5);
+            decode("\xE2\x82",       1, 10, (quirk_4 ? 2 : 0), 0, quirk_2_result, !quirk_5);
 
             // Partial char after full char
-            decode("#\xC2",        0,  0, 0,                 0, quirk_1_result, true);
-            decode("#\xC2",        0,  1, 1,                 1, partial,        true);
-            decode("#\xC2",        0,  2, (quirk_4 ? 2 : 1), 1, quirk_2_result, !quirk_5);
-            decode("#\xC2",        0, 10, (quirk_4 ? 2 : 1), 1, quirk_2_result, !quirk_5);
+            decode("$\xC2",          0,  0, 0,                 0, quirk_1_result, true);
+            decode("$\xC2",          0,  1, 1,                 1, partial,        true);
+            decode("$\xC2",          0,  2, (quirk_4 ? 2 : 1), 1, quirk_2_result, !quirk_5);
+            decode("$\xC2",          0, 10, (quirk_4 ? 2 : 1), 1, quirk_2_result, !quirk_5);
 
             // 1st byte of 1st char is bad
-            decode("\xA2",         0,  0, 0,                 0, quirk_1_result, true);
-            decode("\xA2",         0,  1, 0,                 0, quirk_3_result, true);
-            decode("\xA2",         0, 10, 0,                 0, quirk_3_result, true);
+            decode("\xA2",           0,  0, 0,                 0, quirk_1_result, true);
+            decode("\xA2",           0,  1, 0,                 0, quirk_3_result, true);
+            decode("\xA2",           0, 10, 0,                 0, quirk_3_result, true);
 
             // 2nd byte of 1st char is bad
-            decode("\xC2#",        0,  0, 0,                 0, quirk_1_result, true);
-            decode("\xC2#",        0,  1, (quirk_7 ? 1 : 0), 0, quirk_3_result, true);
-            decode("\xC2#",        0, 10, (quirk_7 ? 1 : 0), 0, quirk_3_result, true);
+            decode("\xC2$",          0,  0, 0,                 0, quirk_1_result, true);
+            decode("\xC2$",          0,  1, (quirk_7 ? 1 : 0), 0, quirk_3_result, true);
+            decode("\xC2$",          0, 10, (quirk_7 ? 1 : 0), 0, quirk_3_result, true);
 
             // 2nd byte of 1st char is bad, with split
-            decode("\xC2#",        1,  0, 0,                 0, quirk_1_result, true);
-            decode("\xC2#",        1,  1, (quirk_4 ? 1 : 0), 0, quirk_3_result, !quirk_5);
-            decode("\xC2#",        1, 10, (quirk_4 ? 1 : 0), 0, quirk_3_result, !quirk_5);
+            decode("\xC2$",          1,  0, 0,                 0, quirk_1_result, true);
+            decode("\xC2$",          1,  1, (quirk_4 ? 1 : 0), 0, quirk_3_result, !quirk_5);
+            decode("\xC2$",          1, 10, (quirk_4 ? 1 : 0), 0, quirk_3_result, !quirk_5);
 
             // 3rd byte of 1st char is bad
-            decode("\xE2\x82#",    0,  0, 0,                 0, quirk_1_result, true);
-            decode("\xE2\x82#",    0,  1, (quirk_7 ? 2 : 0), 0, quirk_3_result, true);
-            decode("\xE2\x82#",    0, 10, (quirk_7 ? 2 : 0), 0, quirk_3_result, true);
+            decode("\xE2\x82$",      0,  0, 0,                 0, quirk_1_result, true);
+            decode("\xE2\x82$",      0,  1, (quirk_7 ? 2 : 0), 0, quirk_3_result, true);
+            decode("\xE2\x82$",      0, 10, (quirk_7 ? 2 : 0), 0, quirk_3_result, true);
 
             // 3rd byte of 1st char is bad, with split
-            decode("\xE2\x82#",    1,  0, 0,                 0, quirk_1_result, true);
-            decode("\xE2\x82#",    1,  1, (quirk_4 ? 1 : 0), 0, quirk_3_result, !quirk_5);
-            decode("\xE2\x82#",    1, 10, (quirk_4 ? 1 : 0), 0, quirk_3_result, !quirk_5);
+            decode("\xE2\x82$",      1,  0, 0,                 0, quirk_1_result, true);
+            decode("\xE2\x82$",      1,  1, (quirk_4 ? 1 : 0), 0, quirk_3_result, !quirk_5);
+            decode("\xE2\x82$",      1, 10, (quirk_4 ? 1 : 0), 0, quirk_3_result, !quirk_5);
 
             // 1st byte of 2nd char is bad
-            decode("#\xA2",        0,  0, 0,                 0, quirk_1_result, true);
-            decode("#\xA2",        0,  1, 1,                 1, partial,        true);
-            decode("#\xA2",        0,  2, 1,                 1, quirk_3_result, true);
-            decode("#\xA2",        0, 10, 1,                 1, quirk_3_result, true);
+            decode("$\xA2",          0,  0, 0,                 0, quirk_1_result, true);
+            decode("$\xA2",          0,  1, 1,                 1, partial,        true);
+            decode("$\xA2",          0,  2, 1,                 1, quirk_3_result, true);
+            decode("$\xA2",          0, 10, 1,                 1, quirk_3_result, true);
 
             // 2nd byte of 2nd char is bad
-            decode("#\xC2#",       0,  0, 0,                 0, quirk_1_result, true);
-            decode("#\xC2#",       0,  1, 1,                 1, partial,        true);
-            decode("#\xC2#",       0,  2, (quirk_7 ? 2 : 1), 1, quirk_3_result, true);
-            decode("#\xC2#",       0, 10, (quirk_7 ? 2 : 1), 1, quirk_3_result, true);
+            decode("$\xC2$",         0,  0, 0,                 0, quirk_1_result, true);
+            decode("$\xC2$",         0,  1, 1,                 1, partial,        true);
+            decode("$\xC2$",         0,  2, (quirk_7 ? 2 : 1), 1, quirk_3_result, true);
+            decode("$\xC2$",         0, 10, (quirk_7 ? 2 : 1), 1, quirk_3_result, true);
         }
     };
+
     for (const char* name : candidate_locales) {
         if (base::has_locale(name)) {
             std::locale locale(name);
