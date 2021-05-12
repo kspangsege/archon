@@ -5178,7 +5178,8 @@ ARCHON_TEST(CharCodec_CodecvtBaseline)
     auto subtest = [&, &parent_test_context = test_context](const std::locale& locale) {
         ARCHON_TEST_TRAIL(parent_test_context,
                           formatter.format("%s", base::quoted(std::string_view(locale.name()))));
-        bool is_utf8 = (base::assume_utf8_locale(locale) && ARCHON_WCHAR_IS_UNICODE);
+        bool is_utf8 = (base::assume_utf8_locale(locale) &&
+                        (base::assume_unicode_locale(locale) || ARCHON_WINDOWS));
         using codecvt_type = std::codecvt<wchar_t, char, std::mbstate_t>;
         const codecvt_type& codecvt = std::use_facet<codecvt_type>(locale);
 
