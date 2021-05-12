@@ -5080,35 +5080,8 @@ ARCHON_TEST_BATCH(Base_TextFileStream_TellAndSeek, stream_variants)
 }
 
 
-/*
-Decoding cases:
-- Complete cases:
-  - no input, no output space (expect ok)
-  - no input, plenty of output space (expect ok)
-  - end of input after one valid single-byte char, no output space (expect ??)        
-  - end of input after one valid single-byte char, only enough output space for one character (expect ok)
-  - end of input after one valid single-byte char, plenty of output space (expect ok)
-  - end of input after one valid multi-byte char, no output space (UTF-8) (expect ??)        
-  - end of input after one valid multi-byte char, only enough output space for one character (UTF-8) (expect ok)
-  - end of input after one valid multi-byte char, plenty of output space (UTF-8) (expect ok)
-- Partial cases:
-  - end of input after 1st byte of multi-byte char, no output space (UTF-8)
-  - end of input after 1st byte of multi-byte char, plenty of output space (UTF-8)
-  - end of input after complete char followed by 1st byte of multi-byte char, no output space (UTF-8)
-  - end of input after complete char followed by 1st byte of multi-byte char, only enough output space for one character (UTF-8)
-  - end of input after complete char followed by 1st byte of multi-byte char, plenty of output space (UTF-8)
-- Bad byte cases:
-  - 1st byte of 1st character is a bad byte, no output space (UTF-8)
-  - 1st byte of 1st character is a bad byte, plenty of output space (UTF-8)
-  - 2nd byte of 1st character is a bad byte, no output space (UTF-8)
-  - 2nd byte of 1st character is a bad byte, plenty of output space (UTF-8)
-  - 1st byte of 2nd character is a bad byte, no output space (UTF-8)
-  - 1st byte of 2nd character is a bad byte, only enough output space for one character (UTF-8)
-  - 1st byte of 2nd character is a bad byte, plenty of output space (UTF-8)
-  - 2nd byte of 2nd character is a bad byte, no output space (UTF-8)
-  - 2nd byte of 2nd character is a bad byte, only enough output space for one character (UTF-8)
-  - 2nd byte of 2nd character is a bad byte, plenty of output space (UTF-8)
-*/
+
+
 
 
 #include <archon/base/quote.hpp>
@@ -5127,6 +5100,12 @@ inline constexpr bool codecvt_quirk_ok_on_partial_char = true;
 inline constexpr bool codecvt_quirk_ok_on_partial_char = false;
 #endif
 
+#if ARCHON_LLVM_LIBCXX
+inline constexpr bool codecvt_quirk_partial_on_error = true;
+#else
+inline constexpr bool codecvt_quirk_partial_on_error = false;
+#endif
+
 #if ARCHON_GNU_LIBCXX || ARCHON_LLVM_LIBCXX
 inline constexpr bool codecvt_quirk_consume_partial_char = true;
 #else
@@ -5139,11 +5118,38 @@ inline constexpr bool codecvt_quirk_consume_partial_char_makes_noninit_state = t
 inline constexpr bool codecvt_quirk_consume_partial_char_makes_noninit_state = false;
 #endif
 
+#if ARCHON_GNU_LIBCXX || ARCHON_LLVM_LIBCXX
+inline constexpr bool codecvt_quirk_consume_partial_char_but_not_good_bytes_on_error = true;
+#else
+inline constexpr bool codecvt_quirk_consume_partial_char_but_not_good_bytes_on_error = false;
+#endif
+
+static_assert(!codecvt_quirk_consume_partial_char_makes_noninit_state ||
+              codecvt_quirk_consume_partial_char);
+
+static_assert(!codecvt_quirk_consume_partial_char_but_not_good_bytes_on_error ||
+              codecvt_quirk_consume_partial_char);
+
 } // namespace archon::base::detail
 
 
 ARCHON_TEST(CodecvtDecodeBaseline)
 {
+    bool quirk_1 = base::detail::codecvt_quirk_ok_on_empty_buffer;
+    bool quirk_2 = base::detail::codecvt_quirk_ok_on_partial_char;
+    bool quirk_3 = base::detail::codecvt_quirk_partial_on_error;
+    bool quirk_4 = base::detail::codecvt_quirk_consume_partial_char;
+    bool quirk_5 = base::detail::codecvt_quirk_consume_partial_char_makes_noninit_state;
+    bool quirk_6 = base::detail::codecvt_quirk_consume_partial_char_but_not_good_bytes_on_error;
+    bool quirk_7 = (quirk_4 && !quirk_6);
+
+    std::codecvt_base::result ok      = std::codecvt_base::ok;
+    std::codecvt_base::result partial = std::codecvt_base::partial;
+    std::codecvt_base::result error   = std::codecvt_base::error;
+    std::codecvt_base::result quirk_1_result = (quirk_1 ? ok : partial);
+    std::codecvt_base::result quirk_2_result = (quirk_2 ? ok : partial);
+    std::codecvt_base::result quirk_3_result = (quirk_3 ? partial : error);
+
     std::array<char, 16> seed_memory;
     base::StringFormatter formatter(seed_memory, test_context.get_locale());
     base::ArraySeededBuffer<wchar_t, 10> buffer;
@@ -5154,13 +5160,15 @@ ARCHON_TEST(CodecvtDecodeBaseline)
         using codecvt_type = std::codecvt<wchar_t, char, std::mbstate_t>;
         const codecvt_type& codecvt = std::use_facet<codecvt_type>(locale);
         auto subtest = [&, &parent_test_context =
-                        test_context](std::string_view data, std::size_t buffer_size,
+                        test_context](std::string_view data, std::size_t split_pos,
+                                      std::size_t buffer_size,
                                       std::size_t expected_from_advance,
                                       std::size_t expected_to_advance,
                                       std::codecvt_base::result expected_result,
                                       bool expect_final_empty_state) {
             ARCHON_TEST_TRAIL(parent_test_context,
-                              formatter.format("%s, %s", base::quoted(data), buffer_size));
+                              formatter.format("%s, %s, %s", base::quoted(data), split_pos,
+                                               buffer_size));
             buffer.reserve(buffer_size);
             std::mbstate_t state = {};
             const char* from = data.data();
@@ -5169,86 +5177,116 @@ ARCHON_TEST(CodecvtDecodeBaseline)
             wchar_t* to = buffer.data();
             wchar_t* to_end = to + buffer_size;
             wchar_t* to_next = nullptr;
+            if (split_pos > 0) {
+                ARCHON_ASSERT(split_pos < data.size());
+                std::codecvt_base::result result =
+                    codecvt.in(state, from, from + split_pos, from_next, to, to_end, to_next);
+                if (!ARCHON_CHECK(result == ok || result == partial))
+                    return;
+                if (!ARCHON_CHECK(from_next >= from && from_next <= from_end))
+                    return;
+                if (!ARCHON_CHECK(to_next >= to && to_next <= to_end))
+                    return;
+                from = from_next;
+                to   = to_next;
+                from_next = nullptr;
+                to_next   = nullptr;
+            }
             std::codecvt_base::result result =
                 codecvt.in(state, from, from_end, from_next, to, to_end, to_next);
             ARCHON_CHECK_EQUAL(result, expected_result);
-            ARCHON_CHECK_EQUAL(from_next - from, expected_from_advance);
-            ARCHON_CHECK_EQUAL(to_next - to,     expected_to_advance);
+            ARCHON_CHECK_EQUAL(from_next - data.data(), expected_from_advance);
+            ARCHON_CHECK_EQUAL(to_next - buffer.data(), expected_to_advance);
             ARCHON_CHECK_EQUAL(std::mbsinit(&state) != 0, expect_final_empty_state);
         };
 
-        bool quirk1 = base::detail::codecvt_quirk_ok_on_empty_buffer;
-        bool quirk2 = base::detail::codecvt_quirk_ok_on_partial_char;
-        bool quirk3 = base::detail::codecvt_quirk_consume_partial_char;
-        bool quirk4 = base::detail::codecvt_quirk_consume_partial_char_makes_noninit_state;
+        if (true) {
+            subtest("",          0,  0, 0,                 0, ok,             true);
+            subtest("",          0, 10, 0,                 0, ok,             true);
 
-        std::codecvt_base::result ok      = std::codecvt_base::ok;
-        std::codecvt_base::result partial = std::codecvt_base::partial;
-        std::codecvt_base::result error   = std::codecvt_base::error;
-        std::codecvt_base::result quirk_1_result = (quirk1 ? ok : partial);
-        std::codecvt_base::result quirk_2_result = (quirk2 ? ok : partial);
+            subtest("#",         0,  0, 0,                 0, quirk_1_result, true);
+            subtest("#",         0,  1, 1,                 1, ok,             true);
+            subtest("#",         0, 10, 1,                 1, ok,             true);
 
-        subtest("",    0, 0, 0, ok, true);
-        subtest("",   10, 0, 0, ok, true);
-
-        subtest("x",   0, 0, 0, quirk_1_result, true);
-        subtest("x",   1, 1, 1, ok,             true);
-        subtest("x",  10, 1, 1, ok,             true);
-
-        subtest("xx",  0, 0, 0, quirk_1_result, true);
-        subtest("xx",  1, 1, 1, partial,        true);
-        subtest("xx",  2, 2, 2, ok,             true);
-        subtest("xx", 10, 2, 2, ok,             true);
+            subtest("##",        0,  0, 0,                 0, quirk_1_result, true);
+            subtest("##",        0,  1, 1,                 1, partial,        true);
+            subtest("##",        0,  2, 2,                 2, ok,             true);
+            subtest("##",        0, 10, 2,                 2, ok,             true);
+        }
 
         if (is_utf8) {
-            subtest("\xC3\xA6",   0, 0, 0, quirk_1_result, true);
-            subtest("\xC3\xA6",   1, 2, 1, ok,             true);
-            subtest("\xC3\xA6",  10, 2, 1, ok,             true);
+            subtest("\xC3\xA6",  0,  0, 0,                 0, quirk_1_result, true);
+            subtest("\xC3\xA6",  0,  1, 2,                 1, ok,             true);
+            subtest("\xC3\xA6",  0, 10, 2,                 1, ok,             true);
 
-            subtest("x\xC3\xA6",  0, 0, 0, quirk_1_result, true);
-            subtest("x\xC3\xA6",  1, 1, 1, partial,        true);
-            subtest("x\xC3\xA6",  2, 3, 2, ok,             true);
-            subtest("x\xC3\xA6", 10, 3, 2, ok,             true);
+            subtest("#\xC3\xA6", 0,  0, 0,                 0, quirk_1_result, true);
+            subtest("#\xC3\xA6", 0,  1, 1,                 1, partial,        true);
+            subtest("#\xC3\xA6", 0,  2, 3,                 2, ok,             true);
+            subtest("#\xC3\xA6", 0, 10, 3,                 2, ok,             true);
 
-            subtest("\xC3",   0, 0,                0, quirk_1_result, true);
-            subtest("\xC3",   1, (quirk3 ? 1 : 0), 0, quirk_2_result, !quirk4);
-            subtest("\xC3",  10, (quirk3 ? 1 : 0), 0, quirk_2_result, !quirk4);
+            // Only 1 byte of multi-byte char
+            subtest("\xC3",      0,  0, 0,                 0, quirk_1_result, true);
+            subtest("\xC3",      0,  1, (quirk_4 ? 1 : 0), 0, quirk_2_result, !quirk_5);
+            subtest("\xC3",      0, 10, (quirk_4 ? 1 : 0), 0, quirk_2_result, !quirk_5);
 
-            subtest("x\xC3",  0, 0,                0, quirk_1_result, true);
-            subtest("x\xC3",  1, 1,                1, partial,        true);
-            subtest("x\xC3",  2, (quirk3 ? 2 : 1), 1, quirk_2_result, !quirk4);
-            subtest("x\xC3", 10, (quirk3 ? 2 : 1), 1, quirk_2_result, !quirk4);
+            // Only 2 bytes of multi-byte char
+            subtest("\xE2\x82",  0,  0, 0,                 0, quirk_1_result, true);
+            subtest("\xE2\x82",  0,  1, (quirk_4 ? 2 : 0), 0, quirk_2_result, !quirk_5);
+            subtest("\xE2\x82",  0, 10, (quirk_4 ? 2 : 0), 0, quirk_2_result, !quirk_5);
+
+            // Partial char after full char
+            subtest("#\xC3",     0,  0, 0,                 0, quirk_1_result, true);
+            subtest("#\xC3",     0,  1, 1,                 1, partial,        true);
+            subtest("#\xC3",     0,  2, (quirk_4 ? 2 : 1), 1, quirk_2_result, !quirk_5);
+            subtest("#\xC3",     0, 10, (quirk_4 ? 2 : 1), 1, quirk_2_result, !quirk_5);
 
             // 1st byte of 1st char is bad
-            subtest("\xA6",   0, 0, 0, quirk_1_result, true);
-            subtest("\xA6",   1, 0, 0, error,          true);
-            subtest("\xA6",  10, 0, 0, error,          true);
+            subtest("\xA6",      0,  0, 0,                 0, quirk_1_result, true);
+            subtest("\xA6",      0,  1, 0,                 0, quirk_3_result, true);
+            subtest("\xA6",      0, 10, 0,                 0, quirk_3_result, true);
 
             // 2nd byte of 1st char is bad
-            subtest("\xC3x",  0, 0, 0, quirk_1_result, true);
-            subtest("\xC3x",  1, 0, 0, error,          true);
-            subtest("\xC3x", 10, 0, 0, error,          true);
+            subtest("\xC3#",     0,  0, 0,                 0, quirk_1_result, true);
+            subtest("\xC3#",     0,  1, (quirk_7 ? 1 : 0), 0, quirk_3_result, true);
+            subtest("\xC3#",     0, 10, (quirk_7 ? 1 : 0), 0, quirk_3_result, true);
+
+            // 3rd byte of 1st char is bad
+            subtest("\xE2\x82#", 0,  0, 0,                 0, quirk_1_result, true);
+            subtest("\xE2\x82#", 0,  1, (quirk_7 ? 2 : 0), 0, quirk_3_result, true);
+            subtest("\xE2\x82#", 0, 10, (quirk_7 ? 2 : 0), 0, quirk_3_result, true);
 
             // 1st byte of 2nd char is bad
-            subtest("x\xA6",  0, 0, 0, quirk_1_result, true);
-            subtest("x\xA6",  1, 1, 1, partial,        true);
-            subtest("x\xA6",  2, 1, 1, error,          true);
-            subtest("x\xA6", 10, 1, 1, error,          true);
+            subtest("#\xA6",     0,  0, 0,                 0, quirk_1_result, true);
+            subtest("#\xA6",     0,  1, 1,                 1, partial,        true);
+            subtest("#\xA6",     0,  2, 1,                 1, quirk_3_result, true);
+            subtest("#\xA6",     0, 10, 1,                 1, quirk_3_result, true);
 
             // 2nd byte of 2nd char is bad
-            subtest("x\xC3x",  0, 0, 0, quirk_1_result, true);
-            subtest("x\xC3x",  1, 1, 1, partial,        true);
-            subtest("x\xC3x",  2, 1, 1, error,          true);
-            subtest("x\xC3x", 10, 1, 1, error,          true);
+            subtest("#\xC3#",    0,  0, 0,                 0, quirk_1_result, true);
+            subtest("#\xC3#",    0,  1, 1,                 1, partial,        true);
+            subtest("#\xC3#",    0,  2, (quirk_7 ? 2 : 1), 1, quirk_3_result, true);
+            subtest("#\xC3#",    0, 10, (quirk_7 ? 2 : 1), 1, quirk_3_result, true);
 
+
+            
             // Extra quirk with libstdc++: Leading valid bytes of invalid byte sequence are not consumed, but only when the invalid part is part of the presented input. This in spite of the fact that libstdc++ normally does consume partial byte sequences.
             // What about case where one valid leading byte is good and already consumed during previous invocation of std::codecvt::in(), but in the input presented to second invocation of std::codecvt::in(), there is one more good byte, and then a bad byte. Will the good byte be consumed? Probably not.
 
-/*            
-            subtest("\xC3", "x",  0, 0, 0, quirk_1_result, true);
-            subtest("\xC3", "x",  1, 0, 0, error,          true);
-            subtest("\xC3", "x", 10, 0, 0, error,          true);
-*/            
+
+              
+            // 2nd byte of 1st char is bad
+            subtest("\xC3#",     1,  0, 0,                 0, quirk_1_result, true);
+            subtest("\xC3#",     1,  1, (quirk_4 ? 1 : 0), 0, quirk_3_result, !quirk_5);
+            subtest("\xC3#",     1, 10, (quirk_4 ? 1 : 0), 0, quirk_3_result, !quirk_5);
+
+// E2 82 AC
+
+              
+            // 2nd byte of 1st char is bad
+            subtest("\xE2\x82#", 1,  0, 0,                 0, quirk_1_result, true);
+            subtest("\xE2\x82#", 1,  1, (quirk_4 ? 1 : 0), 0, quirk_3_result, !quirk_5);
+            subtest("\xE2\x82#", 1, 10, (quirk_4 ? 1 : 0), 0, quirk_3_result, !quirk_5);
+
         }
     };
     for (const char* name : candidate_locales) {
