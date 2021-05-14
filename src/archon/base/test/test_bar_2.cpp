@@ -22,6 +22,29 @@ template<class P, class D> class Impl {
 /*               
 
 
+General principles:
+- Input to the decoding process is understood as a series of byte sequences. If the codec is stateless, each byte sequence yields exactly one decoded character. If the encoding is statefull, a byte sequence may, or may not yield a decoded character.
+- Talk more about stateless vs statefull -> a particular valid sequence of byte values always produces the same decoded character           
+- Decoding can happen one byte-sequence at a time, meaning that in order for any byte sequence to be consumed, it is never necessary to present any bytes from the subsequent byte sequence.
+- No byte sequence can be longer than Codec::max_xxx           
+
+
+This function returns true if, and only if decoding of the specified input chunk (\p data) has completed, with the meaning of "completed" depending on the value of \p end_of_input.
+If \p end_of_input is false, decoding of the specified input chunk is considered complete when it contains ---- crappy crap from here --------  no more when the input decoding process has been advanced to a point where additional data would have to be provided in order to make further progress.
+
+additional input data would need to be provided in order for the decoding of the complete input to advance 
+
+
+
+New idea for inc_decode(): If `end_of_data` is false, this function returns true, if, and only if it consumed as much as it could of the specified data, and, in order to advance the decoding process, additional data will have to be provided.   ......                  
+                           If `end_of_data` is true, the function returns true, if, and only if it consumed all of the specified data, input did not end with an incomplete byte-sequence, and it was able to fit all the corresponding output in the specified buffer.
+
+Maybe also for inc_decode() in crlf codec?
+
+Maybe also for inc_encode()?
+
+
+
 
 
 
@@ -41,35 +64,6 @@ List of quirks in implementations of std::codecvt::in():
 - LLVM libc++ std::codecvt.in() never reports decoding errors?????                
 - GNU libstdc++ std::codecvt.in(),  std::codecvt.out() return "ok" when the buffer size is zero. This bug is present in GCC 10.2.0. See also https://gcc.gnu.org/bugzilla/show_bug.cgi?id=37475
 -
-
-
-Decoding cases:
-- Complete cases:
-  - no input, no output space (expect ok)
-  - no input, plenty of output space (expect ok)
-  - end of input after one valid single-byte char, no output space (expect ??)        
-  - end of input after one valid single-byte char, only enough output space for one character (expect ok)
-  - end of input after one valid single-byte char, plenty of output space (expect ok)
-  - end of input after one valid multi-byte char, no output space (UTF-8) (expect ??)        
-  - end of input after one valid multi-byte char, only enough output space for one character (UTF-8) (expect ok)
-  - end of input after one valid multi-byte char, plenty of output space (UTF-8) (expect ok)
-- Partial cases:
-  - end of input after 1st byte of multi-byte char, no output space (UTF-8)
-  - end of input after 1st byte of multi-byte char, plenty of output space (UTF-8)
-  - end of input after complete char followed by 1st byte of multi-byte char, no output space (UTF-8)
-  - end of input after complete char followed by 1st byte of multi-byte char, only enough output space for one character (UTF-8)
-  - end of input after complete char followed by 1st byte of multi-byte char, plenty of output space (UTF-8)
-- Bad byte cases:
-  - 1st byte of 1st character is a bad byte, no output space (UTF-8)
-  - 1st byte of 1st character is a bad byte, plenty of output space (UTF-8)
-  - 2nd byte of 1st character is a bad byte, no output space (UTF-8)
-  - 2nd byte of 1st character is a bad byte, plenty of output space (UTF-8)
-  - 1st byte of 2nd character is a bad byte, no output space (UTF-8)
-  - 1st byte of 2nd character is a bad byte, only enough output space for one character (UTF-8)
-  - 1st byte of 2nd character is a bad byte, plenty of output space (UTF-8)
-  - 2nd byte of 2nd character is a bad byte, no output space (UTF-8)
-  - 2nd byte of 2nd character is a bad byte, only enough output space for one character (UTF-8)
-  - 2nd byte of 2nd character is a bad byte, plenty of output space (UTF-8)
 
 
 
@@ -315,9 +309,9 @@ namespace archon::base::newline_crlf {
 /// set to the sum of \p clear_offset and the position in the buffer following
 /// the last decoded newline character. Otherwise, \p clear is left untouched.
 ///
-void inc_decode(base::Span<const char> data, std::size_t& data_offset, base::Span<char> buffer,
-                std::size_t& buffer_offset, std::size_t clear_offset, std::size_t& clear,
-                bool end_of_data) noexcept;
+void inc_decode(base::Span<const char> data, std::size_t& data_offset, bool end_of_data,
+                base::Span<char> buffer, std::size_t& buffer_offset,
+                std::size_t clear_offset, std::size_t& clear) noexcept;
 
 
 /// \brief Advance incremental newline encoding process.
@@ -342,9 +336,9 @@ bool simulate_inc_decode(base::Span<const char> data, std::size_t& data_offset,
 namespace archon::base::newline_crlf {
 
 
-void inc_decode(base::Span<const char> data, std::size_t& data_offset, base::Span<char> buffer,
-                std::size_t& buffer_offset, std::size_t clear_offset, std::size_t& clear,
-                bool end_of_data) noexcept
+void inc_decode(base::Span<const char> data, std::size_t& data_offset, bool end_of_data,
+                base::Span<char> buffer, std::size_t& buffer_offset,
+                std::size_t clear_offset, std::size_t& clear) noexcept
 {
     ARCHON_ASSERT(data_offset <= data.size());
     ARCHON_ASSERT(buffer_offset <= buffer.size());
@@ -472,18 +466,19 @@ public:
 
     // If this function returns true, the decoding operation completed succesfully. If it returns false, it did not.
     //
-    // When false is returned, \p error is set to true if the reason for the incompleteness is invalid input, and to false otherwise.
+    // When false is returned, \p error is set to true if the reason for the incompleteness is invalid input, and to false otherwise.    But what does data_offset point to?               
     //
     // When false is returned, and \p error is set to false, and buffer_offset is equal to the size of the specified buffer upon return, additional buffer space is required in order for decoding to proceed.
     //
     // When false is returned, and \p error is set to false, and buffer_offset is less than the size of the specified buffer upon return, additional input (\p data) is required in order for decoding to proceed.
     //
-    // In any case, data_offset and buffer_offset are updated to reflect the how far decoding has progressed.
+    // In any case, data_offset and buffer_offset are updated to reflect how far decoding has progressed.    But how far can input consumption be ahead of output production?              
     //
-    // If an exception is thrown, more data may have been written to the buffer than indicated by the final value of buffer_offset.
+    // If an exception is thrown, more data may have been written to the buffer than indicated by the final value of buffer_offset.   ????
     //
     bool inc_decode(std::mbstate_t&, base::Span<const char> data, std::size_t& data_offset,
-                    base::Span<C> buffer, std::size_t& buffer_offset, bool& error);
+                    bool end_of_data, base::Span<C> buffer, std::size_t& buffer_offset,
+                    bool& error);
 
     auto inc_encode(std::mbstate_t&, base::Span<const C> data, std::size_t& data_offset,
                     base::Span<char> buffer, std::size_t& buffer_offset) ->
@@ -537,6 +532,69 @@ using WideCharCodec = BasicCharCodec<wchar_t>;
 // Implementation
 
 
+namespace detail {
+
+// std::codecvt::out() and std::codecvt::in() report an `ok` result if the size
+// of the specified output buffer is zero, even when presented with a nonzero
+// amount of input. See also https://gcc.gnu.org/bugzilla/show_bug.cgi?id=37475.
+#if ARCHON_GNU_LIBCXX
+inline constexpr bool codecvt_quirk_ok_on_zero_size_buffer = true;
+#else
+inline constexpr bool codecvt_quirk_ok_on_zero_size_buffer = false;
+#endif
+
+// std::codecvt::in() reports an `ok` result, rather than a `partial` result
+// when presented with an incomplete byte sequence.
+#if ARCHON_GNU_LIBCXX || ARCHON_LLVM_LIBCXX
+inline constexpr bool codecvt_quirk_ok_on_partial_char = true;
+#else
+inline constexpr bool codecvt_quirk_ok_on_partial_char = false;
+#endif
+
+// std::codecvt::in() reports a partial result, rather than an error when
+// presented with an invalid byte sequence.
+#if ARCHON_LLVM_LIBCXX
+inline constexpr bool codecvt_quirk_partial_on_invalid_byte_sequence = true;
+#else
+inline constexpr bool codecvt_quirk_partial_on_invalid_byte_sequence = false;
+#endif
+
+// When the presented part of the input ends part way through a valid byte
+// sequence, and the output buffer is not full, the presented part of the input
+// is consumed.
+#if ARCHON_GNU_LIBCXX || ARCHON_LLVM_LIBCXX
+inline constexpr bool codecvt_quirk_consume_partial_char = true;
+#else
+inline constexpr bool codecvt_quirk_consume_partial_char = false;
+#endif
+
+// Partial byte sequences are generally consumed, but after a partial byte
+// sequence has been consumed, the state is no longer an initial state (as
+// reported by std::mbsinit()).
+#if ARCHON_GNU_LIBCXX
+inline constexpr bool codecvt_quirk_consume_partial_char_makes_noninit_state = true;
+#else
+inline constexpr bool codecvt_quirk_consume_partial_char_makes_noninit_state = false;
+#endif
+
+// Even though partial byte sequences are generally consumed, leading valid
+// bytes of an invalid byte sequence are not consumed when the presented part of
+// the intput contains enough bytes to expose the invalidity.
+#if ARCHON_GNU_LIBCXX || ARCHON_LLVM_LIBCXX
+inline constexpr bool codecvt_quirk_consume_partial_char_but_not_good_bytes_on_error = true;
+#else
+inline constexpr bool codecvt_quirk_consume_partial_char_but_not_good_bytes_on_error = false;
+#endif
+
+static_assert(!codecvt_quirk_consume_partial_char_makes_noninit_state ||
+              codecvt_quirk_consume_partial_char);
+
+static_assert(!codecvt_quirk_consume_partial_char_but_not_good_bytes_on_error ||
+              codecvt_quirk_consume_partial_char);
+
+} // namespace detail
+
+
 template<class C, class T> inline BasicCharCodec<C, T>::BasicCharCodec(const std::locale& locale) :
     m_locale(locale),
     m_codecvt(&std::use_facet<codecvt_type>(m_locale)) // Throws
@@ -552,19 +610,22 @@ template<class C, class T> inline bool BasicCharCodec<C, T>::stateful() const no
 
 template<class C, class T>
 bool BasicCharCodec<C, T>::inc_decode(std::mbstate_t& state, base::Span<const char> data,
-                                      std::size_t& data_offset, base::Span<C> buffer,
-                                      std::size_t& buffer_offset, bool& error)
+                                      std::size_t& data_offset, bool end_of_data,
+                                      base::Span<C> buffer, std::size_t& buffer_offset,
+                                      bool& error)
 {
-    // Deal with bug in GNU libstdc++ causing m_codecvt.in() to return "ok" when
-    // the buffer size is zero. This bug is present in GCC 10.2.0. See also
-    // https://gcc.gnu.org/bugzilla/show_bug.cgi?id=37475.
-#if ARCHON_GNU_LIBCXX
-    bool has_buffer_space = (buffer_offset < buffer.size());
-    if (ARCHON_UNLIKELY(!has_buffer_space))
-        return std::codecvt_base::partial;
-#endif
+    if constexpr (detail::codecvt_quirk_ok_on_zero_size_buffer) {
+        bool has_buffer_space = (buffer_offset < buffer.size());
+        if (ARCHON_UNLIKELY(!has_buffer_space)) {
+            bool has_data = (data_offset < data.size());
+            if (ARCHON_LIKELY(has_data)) {
+                error = false;
+                return false;
+            }
+            return true;
+        }
+    }
 
-    // FIXME: IS THIS RIGHT (CHECK PLATFORMS)???                                                                                                                         
     const char* from      = data.data() + data_offset;
     const char* from_end  = data.data() + data.size();
     const char* from_next = nullptr;
@@ -573,52 +634,47 @@ bool BasicCharCodec<C, T>::inc_decode(std::mbstate_t& state, base::Span<const ch
     C* to_next = nullptr;
     std::codecvt_base::result result =
         m_codecvt->in(state, from, from_end, from_next, to, to_end, to_next);
+
     data_offset   = std::size_t(from_next - data.data());
     buffer_offset = std::size_t(to_next - buffer.data());
-    // Cases:
-    //    Everything is consumed, and all output is produced
-    //       result:   ok
-    //       reaction: success if buffer_offset > 0 || buffer.size() == 0, else try to read more
-    //       platform: ?  
-    //
-    //    Everything is consumed, but more input is needed to complete the partially consumed byte sequence
-    //       result:   partial ---------------> NO, not with libstdc++ and libc++                                                              
-    //       reaction: success if buffer_offset > 0 || buffer.size() == 0, else try to read more
-    //       platform: ?  
-    //
-    //    Everything is consumed, but there is not enough space in output buffer to complete conversion
-    //       result:   partial
-    //       reaction: success if buffer_offset > 0 || buffer.size() == 0, else try to read more
-    //       platform: ?  
-    //
-    //    Not everything is consumed, because the next unconsumed byte is the first byte of an incomplete character
-    //       result:   partial (, ok)  
-    //
-    //    Not everything is consumed, because there is not enough space in output buffer to convert the next unconsumed character
-    //       result:   partial (, ok)
-    //       reaction: 
-    //
-    //    Not everything is consumed, because there is not enough space in output buffer to convert the last consumed character
-    //
-    //    Not everything is consumed, because the next byte is the first byte of a byte sequence that does not correspond to a character (error)
-    //
-    //    Not everything is consumed, because the next byte is not a valid continuation of the parially consumed byte sequence (error)
-    //
+
+    // We can deal with the "partial instead of error" quirk only if the "ok
+    // instead of partial" quirk is also present. Otherwise, we would not know
+    // whether "partial" means "partial" or "error".
+    static_assert(!detail::codecvt_quirk_partial_on_invalid_byte_sequence ||
+                  detail::codecvt_quirk_ok_on_partial_char);
+
     switch (result) {
         case std::codecvt_base::ok:
+            if constexpr (!detail::codecvt_quirk_ok_on_partial_char)
+                return true;
             if (ARCHON_LIKELY(data_offset == data.size()))
                 return true;
-            [[fallthrough]];
+            goto partial;
         case std::codecvt_base::partial:
-            error = false;
-            return false;
+            if constexpr (!detail::codecvt_quirk_partial_on_invalid_byte_sequence)
+                goto partial;
+            goto error;
         case std::codecvt_base::error:
-            error = true;
-            return false;
+            goto error;
         case std::codecvt_base::noconv:
+            // Since std::codecvt_base::noconv implies that the internal
+            // character type is `char`, and since BasicCharCodec is spezialized
+            // for that case, we can never get here.
+            bool noconv_case = true;
+            ARCHON_ASSERT(!noconv_case);
             break;
     }
-    ARCHON_ASSERT_UNREACHABLE;
+    goto error;
+
+  partial:
+    if (!end_of_data) {
+        error = false;
+        return false;
+    }
+
+  error:
+    error = true;
     return false;
 }
 
@@ -629,14 +685,11 @@ auto BasicCharCodec<C, T>::inc_encode(std::mbstate_t& state, base::Span<const C>
                                       std::size_t& data_offset, base::Span<char> buffer,
                                       std::size_t& buffer_offset) -> std::codecvt_base::result
 {
-    // Deal with bug in GNU libstdc++ causing m_codecvt->out() to return "ok"
-    // when the buffer size is zero. The bug is present in GCC 10.2.0. See also
-    // https://gcc.gnu.org/bugzilla/show_bug.cgi?id=37475.
-#if ARCHON_GNU_LIBCXX
-    bool has_buffer_space = (buffer_offset < buffer.size());
-    if (ARCHON_UNLIKELY(!has_buffer_space))
-        return std::codecvt_base::partial;
-#endif
+    if constexpr (detail::codecvt_quirk_ok_on_zero_size_buffer) {
+        bool has_buffer_space = (buffer_offset < buffer.size());
+        if (ARCHON_UNLIKELY(!has_buffer_space))
+            return std::codecvt_base::partial;               
+    }
 
     // FIXME: What about unshifting on end of input?          
 
@@ -876,6 +929,16 @@ public:
 
     bool decode(base::Span<const char> data, std::size_t& data_offset, bool end_of_data)
     {
+        for (;;) {
+            bool error = false;
+            bool complete = m_char_codec.inc_decode(m_state, data, data_offset, end_of_data,
+                                                    m_buffer, m_buffer_offset, error); // Throws
+            // Check error                                                                                                                                                                                   
+            if (ARCHON_LIKELY(complete || m_buffer_offset < m_buffer.size()))                                                                                                                                
+                return true;
+            m_buffer.reserve_extra(1, m_buffer.size()); // Throws
+        }
+        
 /*
         for (;;) {
             // FIXME: Understanding: `ok` means: All input, possibly with the exception of a final incomplete, but valid byte sequence, has been consumed, and all the corresponding output has been produced.                                                  
@@ -908,6 +971,7 @@ public:
 
 private:
     const D& m_char_codec;
+    std::mbstate_t m_state = {};
     base::SeedMemoryBuffer<C>& m_buffer;
     std::size_t& m_buffer_offset;
 };
@@ -1173,8 +1237,8 @@ public:
         std::size_t clear_offset = 0; // Dummy
         std::size_t clear; // Dummy
         for (;;) {
-            newline_crlf::inc_decode(data, data_offset, m_buffer, m_buffer_offset,
-                                     clear_offset, clear, end_of_data);
+            base::newline_crlf::inc_decode(data, data_offset, end_of_data, m_buffer,
+                                           m_buffer_offset, clear_offset, clear);
             if (ARCHON_LIKELY(data_offset == data.size() || m_buffer_offset < m_buffer.size()))
                 return true;
             m_buffer.reserve_extra(1, m_buffer.size()); // Throws
@@ -1202,7 +1266,7 @@ public:
     {
         std::size_t data_offset = 0;
         for (;;) {
-            newline_crlf::inc_encode(data, data_offset, m_buffer, m_buffer_offset);
+            base::newline_crlf::inc_encode(data, data_offset, m_buffer, m_buffer_offset);
             if (ARCHON_LIKELY(data_offset == data.size()))
                 return true;
             m_buffer.expand(1, m_buffer_offset); // Throws
@@ -1232,8 +1296,8 @@ public:
         std::size_t clear; // Dummy
         for (;;) {
             std::size_t clear_offset = 0; // Dummy
-            newline_crlf::inc_decode(data, data_offset, m_buffer, m_buffer_offset,
-                                     clear_offset, clear, end_of_data);
+            base::newline_crlf::inc_decode(data, data_offset, end_of_data, m_buffer,
+                                           m_buffer_offset, clear_offset, clear);
             base::Span<const char> data_2(m_buffer.data(), m_buffer_offset);
             std::size_t data_offset_2 = 0;
             bool end_of_data_2 = (end_of_data && data_offset == data.size());
@@ -1910,8 +1974,8 @@ bool PrimWindowsTextFileImpl::read_ahead(base::Span<char> buffer, bool dynamic_e
         base::Span data = base::Span(m_buffer).first(m_end);
         std::size_t buffer_offset = 0;
         std::size_t clear_offset = m_retain_size;
-        base::newline_crlf::inc_decode(data, m_curr, buffer, buffer_offset,
-                                       clear_offset, m_retain_clear, end_of_file);
+        base::newline_crlf::inc_decode(data, m_curr, end_of_file, buffer, buffer_offset,
+                                       clear_offset, m_retain_clear);
         m_retain_size += buffer_offset;
         if (ARCHON_LIKELY(buffer_offset > 0 || buffer.size() == 0)) {
             n = buffer_offset;
@@ -2637,10 +2701,8 @@ bool TextFileImpl<C, T, P>::read_ahead(base::Span<C> buffer, bool dynamic_eof, s
         base::Span data = base::Span<char>(m_buffer).first(m_end);
         std::size_t buffer_offset = 0;
         bool error = false;
-        if (end_of_file)
-            error = true;                   
-        bool complete =
-            m_codec.inc_decode(m_state_2, data, m_curr, buffer, buffer_offset, error);
+        bool complete = m_codec.inc_decode(m_state_2, data, m_curr, end_of_file,
+                                           buffer, buffer_offset, error); // Throws
         m_retain_size += buffer_offset;
         if (ARCHON_LIKELY(buffer_offset > 0 || buffer.size() == 0)) {
             n = buffer_offset;
@@ -4749,6 +4811,8 @@ inline bool has_encode_error_locale()
 // that at least one invalid byte sequence exists (any byte with a value outside
 // the range 0 -> 127).
 //
+// FIXME: Instead of relying on ARCHON_C_LOCALE_IS_ASCII, adopt scheme from CharCodec_CodecvtBaseline                                                                         
+//
 ARCHON_TEST_BATCH_IF(Base_TextFile_DecodeError, variants, ARCHON_C_LOCALE_IS_ASCII)
 {
     std::string string_1 = "foo\nbar\nbaz\n";
@@ -4817,6 +4881,8 @@ ARCHON_TEST_BATCH_IF(Base_TextFile_DecodeError, variants, ARCHON_C_LOCALE_IS_ASC
 // with an invalid value. Requiring ASCII is one way of making sure that at
 // least one invalid character value exists (any value outside the range 0 ->
 // 127).
+//
+// FIXME: Instead of relying on ARCHON_C_LOCALE_IS_ASCII, adopt scheme from CharCodec_CodecvtBaseline                                                                         
 //
 ARCHON_TEST_BATCH_IF(Base_TextFile_EncodeError, variants, ARCHON_C_LOCALE_IS_ASCII)
 {
@@ -4902,93 +4968,6 @@ ARCHON_TEST_BATCH_IF(Base_TextFile_EncodeError, variants, ARCHON_C_LOCALE_IS_ASC
 
 
 const char* candidate_locales[] = { "C", "C.UTF-8", ".UTF8", "en_US", "en_US.UTF-8", "" };
-
-
-ARCHON_TEST(Base_TextFile_AsciiCodecError_CHECK)                       
-{
-    // Both macOS and Windows accept byte values outside 0 -> 127 when decoding in C locale.
-    // In UTF-8 locale, on bad byte while decoding, macOS returns partial and leaves `from_next` to point at the bad char.
-    //  -----> Is this behavior also borne out in `codecvt-test-cases` branch? YES                    
-    //  -----> What are the consequenses of this quirk from the point of view of the codec implementation above?      
-
-    // libstdc++ has quirk in that it reports errors differently depending on whether it has enough context to see the error. If it sees only one byte, and it is good, it consumes it even though the next byte might be bad. On the other hand, if it sees both bytes at once, it does not consume anything.
-
-    // No quirks in behavior std::codecvt found on Windows
-
-    // Still need to check behavior on macOS when amount of input starting from beginning of bad byte seq is greater than, or equal to max_length(). Done. Nothing changes.
-
-    // It seams that, at least on macOS, when decoding result is partial, it is necessary to check whether the remaining amount of presented input was greater than, or equal to max_length(), and if it was, treat the situation as an error.           
-
-    // STRATEGY: Individually for decode and encode, run through list of candicate locales and look for one where char(-1) cannot be decoded or wchar_t(-1) cannot be encoded.      
-
-
-
-    using codecvt_type = std::codecvt<wchar_t, char, std::mbstate_t>;
-    auto test_decode = [](const std::locale& locale) {
-        const codecvt_type& codecvt = std::use_facet<codecvt_type>(locale);
-        char data[] = { 'x', char(-1), 'x' };
-        base::Span data_2(data);
-        std::array<wchar_t, 8> buffer;
-        std::mbstate_t state = {};
-        const char* from     = data_2.data();
-        const char* from_end = from + data_2.size();
-        const char* from_next;
-        wchar_t* to     = buffer.data();
-        wchar_t* to_end = to + buffer.size();
-        wchar_t* to_next;
-        auto result = codecvt.in(state, from, from_end, from_next, to, to_end, to_next);
-        if (result == std::codecvt_base::error)
-            return 'e';
-        if (result == std::codecvt_base::ok && from_next == from + 1)
-            return 'K';
-        if (result == std::codecvt_base::ok && from_next > from + 1)
-            return 'L';
-        if (result == std::codecvt_base::partial && from_next == from + 1)
-            return 'p';
-        if (result == std::codecvt_base::partial && from_next == from + 2)
-            return 'q';
-        if (result == std::codecvt_base::partial && from_next > from + 2)
-            return 'r';
-        return 'W';
-    };
-    auto test_encode = [](const std::locale& locale) {
-        const codecvt_type& codecvt = std::use_facet<codecvt_type>(locale);
-        wchar_t data[] = { L'x', wchar_t(-1), L'x' };
-        base::Span data_2(data);
-        std::array<char, 8> buffer;
-        std::mbstate_t state = {};
-        const wchar_t* from     = data_2.data();
-        const wchar_t* from_end = from + data_2.size();
-        const wchar_t* from_next = nullptr;
-        char* to     = buffer.data();
-        char* to_end = to + buffer.size();
-        char* to_next = nullptr;
-        auto result = codecvt.out(state, from, from_end, from_next, to, to_end, to_next);
-        if (result == std::codecvt_base::error)
-            return 'e';
-        if (result == std::codecvt_base::ok && from_next == from + 1)
-            return 'K';
-        if (result == std::codecvt_base::ok && from_next > from + 1)
-            return 'L';
-        if (result == std::codecvt_base::partial && from_next == from + 1)
-            return 'p';
-        if (result == std::codecvt_base::partial && from_next > from + 1)
-            return 'q';
-        return 'W';
-    };
-
-    for (const char* name : candidate_locales) {
-        if (base::has_locale(name)) {
-            std::locale locale(name);
-            char decode = test_decode(locale);
-            char encode = test_encode(locale);
-            log("has 1     decode %s     encode %s    %s", decode, encode, locale.name());
-        }
-        else {
-            log("has 0                              %s", name);
-        }
-    }
-}
 
 
 
@@ -5086,72 +5065,10 @@ ARCHON_TEST_BATCH(Base_TextFileStream_TellAndSeek, stream_variants)
 
 #include <archon/base/quote.hpp>
 
-namespace archon::base::detail {
-
-// std::codecvt::out() and std::codecvt::in() report an `ok` result if the size
-// of the specified output buffer is zero, even when presented with a nonzero
-// amount of input.
-#if ARCHON_GNU_LIBCXX
-inline constexpr bool codecvt_quirk_ok_on_empty_buffer = true;
-#else
-inline constexpr bool codecvt_quirk_ok_on_empty_buffer = false;
-#endif
-
-// std::codecvt::in() reports an `ok` result, rather than a `partial` result
-// when presented with an incomplete byte sequence.
-#if ARCHON_GNU_LIBCXX || ARCHON_LLVM_LIBCXX
-inline constexpr bool codecvt_quirk_ok_on_partial_char = true;
-#else
-inline constexpr bool codecvt_quirk_ok_on_partial_char = false;
-#endif
-
-// std::codecvt::in() reports a partial result, rather than an error when
-// presented with an invalid byte sequence.
-#if ARCHON_LLVM_LIBCXX
-inline constexpr bool codecvt_quirk_partial_on_invalid_byte_sequence = true;
-#else
-inline constexpr bool codecvt_quirk_partial_on_invalid_byte_sequence = false;
-#endif
-
-// When the presented part of the input ends part way through a valid byte
-// sequence, and the output buffer is not full, the presented part of the input
-// is consumed.
-#if ARCHON_GNU_LIBCXX || ARCHON_LLVM_LIBCXX
-inline constexpr bool codecvt_quirk_consume_partial_char = true;
-#else
-inline constexpr bool codecvt_quirk_consume_partial_char = false;
-#endif
-
-// Partial byte sequences are generally consumed, but after a partial byte
-// sequence has been consumed, the state is no longer an initial state (as
-// reported by std::mbsinit()).
-#if ARCHON_GNU_LIBCXX
-inline constexpr bool codecvt_quirk_consume_partial_char_makes_noninit_state = true;
-#else
-inline constexpr bool codecvt_quirk_consume_partial_char_makes_noninit_state = false;
-#endif
-
-// Even though partial byte sequences are generally consumed, leading valid
-// bytes of an invalid byte sequence are not consumed when the presented part of
-// the intput contains enough bytes to expose the invalidity.
-#if ARCHON_GNU_LIBCXX || ARCHON_LLVM_LIBCXX
-inline constexpr bool codecvt_quirk_consume_partial_char_but_not_good_bytes_on_error = true;
-#else
-inline constexpr bool codecvt_quirk_consume_partial_char_but_not_good_bytes_on_error = false;
-#endif
-
-static_assert(!codecvt_quirk_consume_partial_char_makes_noninit_state ||
-              codecvt_quirk_consume_partial_char);
-
-static_assert(!codecvt_quirk_consume_partial_char_but_not_good_bytes_on_error ||
-              codecvt_quirk_consume_partial_char);
-
-} // namespace archon::base::detail
-
 
 ARCHON_TEST(CharCodec_CodecvtBaseline)
 {
-    bool quirk_1 = base::detail::codecvt_quirk_ok_on_empty_buffer;
+    bool quirk_1 = base::detail::codecvt_quirk_ok_on_zero_size_buffer;
     bool quirk_2 = base::detail::codecvt_quirk_ok_on_partial_char;
     bool quirk_3 = base::detail::codecvt_quirk_partial_on_invalid_byte_sequence;
     bool quirk_4 = base::detail::codecvt_quirk_consume_partial_char;
@@ -5173,8 +5090,8 @@ ARCHON_TEST(CharCodec_CodecvtBaseline)
     std::array<char, 32> seed_memory_3;
     base::WideStringEncoder encoder(test_context.get_locale(), seed_memory_3);
 
-    base::ArraySeededBuffer<char, 20> encode_buffer;
     base::ArraySeededBuffer<wchar_t, 10> decode_buffer;
+    base::ArraySeededBuffer<char, 20> encode_buffer;
 
     auto subtest = [&, &parent_test_context = test_context](const std::locale& locale) {
         ARCHON_TEST_TRAIL(parent_test_context,
@@ -5183,32 +5100,6 @@ ARCHON_TEST(CharCodec_CodecvtBaseline)
                         (base::assume_unicode_locale(locale) || ARCHON_WINDOWS));
         using codecvt_type = std::codecvt<wchar_t, char, std::mbstate_t>;
         const codecvt_type& codecvt = std::use_facet<codecvt_type>(locale);
-
-        auto encode = [&, &parent_test_context =
-                       test_context](base::Span<const wchar_t> data, std::size_t buffer_size,
-                                     std::size_t expected_from_advance,
-                                     std::size_t expected_to_advance,
-                                     std::codecvt_base::result expected_result) {
-            std::wstring_view data_2(data.data(), data.size());
-            ARCHON_TEST_TRAIL(parent_test_context,
-                              encoder.encode(wformatter.format("encode(%s, %s)",
-                                                               base::quoted(data_2),
-                                                               buffer_size)));
-            encode_buffer.reserve(buffer_size);
-            std::mbstate_t state = {};
-            const wchar_t* from = data.data();
-            const wchar_t* from_end = from + data.size();
-            const wchar_t* from_next = nullptr;
-            char* to = encode_buffer.data();
-            char* to_end = to + buffer_size;
-            char* to_next = nullptr;
-            std::codecvt_base::result result =
-                codecvt.out(state, from, from_end, from_next, to, to_end, to_next);
-            ARCHON_CHECK_EQUAL(result, expected_result);
-            ARCHON_CHECK_EQUAL(from_next - from, expected_from_advance);
-            ARCHON_CHECK_EQUAL(to_next - to, expected_to_advance);
-            ARCHON_CHECK(std::mbsinit(&state) != 0);
-        };
 
         auto decode = [&, &parent_test_context =
                        test_context](std::string_view data, std::size_t split_pos,
@@ -5251,83 +5142,6 @@ ARCHON_TEST(CharCodec_CodecvtBaseline)
             ARCHON_CHECK_EQUAL(std::mbsinit(&state) != 0, expect_final_initial_state);
         };
 
-        base::WideCharMapper mapper(locale);
-        wchar_t dollar = mapper.widen('$');
-
-        wchar_t enc_err = wchar_t(-1);
-        bool good_enc_err = false;
-        {
-            std::array<char, 32> buffer;
-            std::mbstate_t state = {};
-            const wchar_t* from = &enc_err;
-            const wchar_t* from_end = from + 1;
-            const wchar_t* from_next = nullptr;
-            char* to = buffer.data();
-            char* to_end = to + buffer.size();
-            char* to_next = nullptr;
-            std::codecvt_base::result result =
-                codecvt.out(state, from, from_end, from_next, to, to_end, to_next);
-            if (result == error)
-                good_enc_err = true;
-        }
-
-        if (true) {
-            encode(std::array<wchar_t, 0> {},       0, 0, 0, ok);
-            encode(std::array<wchar_t, 0> {},      10, 0, 0, ok);
-
-            encode(std::array { dollar },           0, 0, 0, quirk_1_result);
-            encode(std::array { dollar },           1, 1, 1, ok);
-            encode(std::array { dollar },          10, 1, 1, ok);
-
-            encode(std::array { dollar, dollar },   0, 0, 0, quirk_1_result);
-            encode(std::array { dollar, dollar },   1, 1, 1, partial);
-            encode(std::array { dollar, dollar },   2, 2, 2, ok);
-            encode(std::array { dollar, dollar },  10, 2, 2, ok);
-        }
-
-        if (good_enc_err) {
-            bool click_enc = false;
-            ARCHON_CHECK(click_enc);  
-
-            encode(std::array { enc_err },          0, 0, 0, quirk_1_result);
-            encode(std::array { enc_err },          1, 0, 0, error);
-            encode(std::array { enc_err },         10, 0, 0, error);
-
-            encode(std::array { dollar, enc_err },  0, 0, 0, quirk_1_result);
-            encode(std::array { dollar, enc_err },  1, 1, 1, partial);
-            encode(std::array { dollar, enc_err },  2, 1, 1, error);
-            encode(std::array { dollar, enc_err }, 10, 1, 1, error);
-        }
-
-        if (is_utf8) {
-            wchar_t cent = wchar_t(0x00A2);
-            wchar_t euro = wchar_t(0x20AC);
-
-            encode(std::array { cent },             0, 0, 0, quirk_1_result);
-            encode(std::array { cent },             1, 0, 0, partial);
-            encode(std::array { cent },             2, 1, 2, ok);
-            encode(std::array { cent },            10, 1, 2, ok);
-
-            encode(std::array { dollar, cent },     0, 0, 0, quirk_1_result);
-            encode(std::array { dollar, cent },     1, 1, 1, partial);
-            encode(std::array { dollar, cent },     2, 1, 1, partial);
-            encode(std::array { dollar, cent },     3, 2, 3, ok);
-            encode(std::array { dollar, cent },    10, 2, 3, ok);
-
-            encode(std::array { euro },             0, 0, 0, quirk_1_result);
-            encode(std::array { euro },             1, 0, 0, partial);
-            encode(std::array { euro },             2, 0, 0, partial);
-            encode(std::array { euro },             3, 1, 3, ok);
-            encode(std::array { euro },            10, 1, 3, ok);
-
-            encode(std::array { dollar, euro },     0, 0, 0, quirk_1_result);
-            encode(std::array { dollar, euro },     1, 1, 1, partial);
-            encode(std::array { dollar, euro },     2, 1, 1, partial);
-            encode(std::array { dollar, euro },     3, 1, 1, partial);
-            encode(std::array { dollar, euro },     4, 2, 4, ok);
-            encode(std::array { dollar, euro },    10, 2, 4, ok);
-        }
-
         char dec_err = char(-1);
         bool good_dec_err = false;
         {
@@ -5360,9 +5174,6 @@ ARCHON_TEST(CharCodec_CodecvtBaseline)
         }
 
         if (good_dec_err) {
-            bool click_dec = false;
-            ARCHON_CHECK(click_dec);  
-
             char data[] { '$', dec_err };
 
             decode({ data + 1, 1 },  0,  0, 0,                 0, quirk_1_result, true);
@@ -5446,6 +5257,106 @@ ARCHON_TEST(CharCodec_CodecvtBaseline)
             decode("$\xC2$",         0,  1, 1,                 1, partial,        true);
             decode("$\xC2$",         0,  2, (quirk_7 ? 2 : 1), 1, quirk_3_result, true);
             decode("$\xC2$",         0, 10, (quirk_7 ? 2 : 1), 1, quirk_3_result, true);
+        }
+
+        auto encode = [&, &parent_test_context =
+                       test_context](base::Span<const wchar_t> data, std::size_t buffer_size,
+                                     std::size_t expected_from_advance,
+                                     std::size_t expected_to_advance,
+                                     std::codecvt_base::result expected_result) {
+            std::wstring_view data_2(data.data(), data.size());
+            ARCHON_TEST_TRAIL(parent_test_context,
+                              encoder.encode(wformatter.format("encode(%s, %s)",
+                                                               base::quoted(data_2),
+                                                               buffer_size)));
+            encode_buffer.reserve(buffer_size);
+            std::mbstate_t state = {};
+            const wchar_t* from = data.data();
+            const wchar_t* from_end = from + data.size();
+            const wchar_t* from_next = nullptr;
+            char* to = encode_buffer.data();
+            char* to_end = to + buffer_size;
+            char* to_next = nullptr;
+            std::codecvt_base::result result =
+                codecvt.out(state, from, from_end, from_next, to, to_end, to_next);
+            ARCHON_CHECK_EQUAL(result, expected_result);
+            ARCHON_CHECK_EQUAL(from_next - from, expected_from_advance);
+            ARCHON_CHECK_EQUAL(to_next - to, expected_to_advance);
+            ARCHON_CHECK(std::mbsinit(&state) != 0);
+        };
+
+        base::WideCharMapper mapper(locale);
+        wchar_t dollar = mapper.widen('$');
+
+        wchar_t enc_err = wchar_t(-1);
+        bool good_enc_err = false;
+        {
+            std::array<char, 32> buffer;
+            std::mbstate_t state = {};
+            const wchar_t* from = &enc_err;
+            const wchar_t* from_end = from + 1;
+            const wchar_t* from_next = nullptr;
+            char* to = buffer.data();
+            char* to_end = to + buffer.size();
+            char* to_next = nullptr;
+            std::codecvt_base::result result =
+                codecvt.out(state, from, from_end, from_next, to, to_end, to_next);
+            if (result == error)
+                good_enc_err = true;
+        }
+
+        if (true) {
+            encode(std::array<wchar_t, 0> {},       0, 0, 0, ok);
+            encode(std::array<wchar_t, 0> {},      10, 0, 0, ok);
+
+            encode(std::array { dollar },           0, 0, 0, quirk_1_result);
+            encode(std::array { dollar },           1, 1, 1, ok);
+            encode(std::array { dollar },          10, 1, 1, ok);
+
+            encode(std::array { dollar, dollar },   0, 0, 0, quirk_1_result);
+            encode(std::array { dollar, dollar },   1, 1, 1, partial);
+            encode(std::array { dollar, dollar },   2, 2, 2, ok);
+            encode(std::array { dollar, dollar },  10, 2, 2, ok);
+        }
+
+        if (good_enc_err) {
+            encode(std::array { enc_err },          0, 0, 0, quirk_1_result);
+            encode(std::array { enc_err },          1, 0, 0, error);
+            encode(std::array { enc_err },         10, 0, 0, error);
+
+            encode(std::array { dollar, enc_err },  0, 0, 0, quirk_1_result);
+            encode(std::array { dollar, enc_err },  1, 1, 1, partial);
+            encode(std::array { dollar, enc_err },  2, 1, 1, error);
+            encode(std::array { dollar, enc_err }, 10, 1, 1, error);
+        }
+
+        if (is_utf8) {
+            wchar_t cent = wchar_t(0x00A2);
+            wchar_t euro = wchar_t(0x20AC);
+
+            encode(std::array { cent },             0, 0, 0, quirk_1_result);
+            encode(std::array { cent },             1, 0, 0, partial);
+            encode(std::array { cent },             2, 1, 2, ok);
+            encode(std::array { cent },            10, 1, 2, ok);
+
+            encode(std::array { dollar, cent },     0, 0, 0, quirk_1_result);
+            encode(std::array { dollar, cent },     1, 1, 1, partial);
+            encode(std::array { dollar, cent },     2, 1, 1, partial);
+            encode(std::array { dollar, cent },     3, 2, 3, ok);
+            encode(std::array { dollar, cent },    10, 2, 3, ok);
+
+            encode(std::array { euro },             0, 0, 0, quirk_1_result);
+            encode(std::array { euro },             1, 0, 0, partial);
+            encode(std::array { euro },             2, 0, 0, partial);
+            encode(std::array { euro },             3, 1, 3, ok);
+            encode(std::array { euro },            10, 1, 3, ok);
+
+            encode(std::array { dollar, euro },     0, 0, 0, quirk_1_result);
+            encode(std::array { dollar, euro },     1, 1, 1, partial);
+            encode(std::array { dollar, euro },     2, 1, 1, partial);
+            encode(std::array { dollar, euro },     3, 1, 1, partial);
+            encode(std::array { dollar, euro },     4, 2, 4, ok);
+            encode(std::array { dollar, euro },    10, 2, 4, ok);
         }
     };
 
