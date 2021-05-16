@@ -22,11 +22,18 @@ template<class P, class D> class Impl {
 /*               
 
 
+Meta idea: Start by specifying general behaviour, then explain the meaning of return value and arguments in terms of what was previously explained.
+
+
 General principles:
+- For a stateless codes, each valid byte sequence consumed by inc_decode() produces exactly one decoded character, and a particular valid sequence of byte values will always produce the same decoded character.
+- For a statefull codec, a byte sequence may, or may not
+
 - Input to the decoding process is understood as a series of byte sequences. If the codec is stateless, each byte sequence yields exactly one decoded character. If the encoding is statefull, a byte sequence may, or may not yield a decoded character.
 - Talk more about stateless vs statefull -> a particular valid sequence of byte values always produces the same decoded character           
-- Decoding can happen one byte-sequence at a time, meaning that in order for any byte sequence to be consumed, it is never necessary to present any bytes from the subsequent byte sequence.
+- Decoding can happen one byte-sequence at a time, meaning that inc_decode() is guaranteed to fully consume a particular byte sequence without being presented with any bytes from the next byte sequence  -------  in order for any byte sequence to be consumed, it is never necessary to present any bytes from the subsequent byte sequence.
 - No byte sequence can be longer than Codec::max_xxx           
+- inc_decode() is guaranteed to discover an error in the next byte sequence (the one that may already be partially consumed) when being presented with no more than Codec::max_xxx bytes.   
 
 
 This function returns true if, and only if decoding of the specified input chunk (\p data) has completed, with the meaning of "completed" depending on the value of \p end_of_input.
