@@ -32,7 +32,7 @@ One way to fix this (also helps fix text code point to start of char on error), 
 
 BETTER: Another way to fix it, might be to change advance() to use backtrack() on the codec.    
 --------> The problem here, is that it makes advance() a throwing function, and it is used in places that does not allow exceptions.    
-
+-------------------> advance() is now allowed to throw     
 
 
 
@@ -1703,7 +1703,7 @@ public:
 
     // GENERIC:
     //
-    // `noexcept` is important here, but only for the zero-arg version (all other functions must be considered throwing from a generic point of view)                                                 
+    // `noexcept` is not guaranteed on any of these (all text file impl functions must be considered throwing from a generic point of view)                                                 
     //
     void advance() noexcept;
     void advance(std::size_t n) noexcept;
@@ -1711,6 +1711,8 @@ public:
     // GENERIC:                 
     //
     // Revert read-ahead position, and actual read/write position to coincide with the current logical read/write position.
+    //
+    // If this function throws, nothing, that is observable by the caller, will have changed.
     //
     [[nodiscard]] bool discard(std::error_code&);
 
@@ -2413,6 +2415,7 @@ inline bool BasicPrimTextFile<I>::try_tell(pos_type& pos, std::error_code& ec)
 {
     if (ARCHON_LIKELY(!m_reading))
         return m_impl.tell_write(pos, ec); // Throws
+    m_impl.advance(); // Throws
     return m_impl.tell_read(pos, ec); // Throws
 }
 
@@ -2433,6 +2436,7 @@ template<class I> bool BasicPrimTextFile<I>::stop_reading(std::error_code& ec)
 {
     ARCHON_ASSERT(m_reading);
     ARCHON_ASSERT(!m_writing);
+    m_impl.advance(); // Throws
     if (ARCHON_LIKELY(m_impl.discard(ec))) { // Throws
         m_reading = false;
         return true;
@@ -2458,11 +2462,8 @@ inline bool BasicPrimTextFile<I>::do_read_some(base::Span<char> buffer, std::siz
                                                std::error_code& ec)
 {
     ARCHON_ASSERT(!m_writing);
-    if (ARCHON_LIKELY(m_impl.read_ahead(buffer, m_dynamic_eof, n, ec))) { // Throws
-        m_impl.advance();
-        return true;
-    }
-    return false;
+    m_impl.advance(); // Throws
+    return m_impl.read_ahead(buffer, m_dynamic_eof, n, ec); // Throws
 }
 
 
@@ -2500,7 +2501,7 @@ public:
 
     [[nodiscard]] bool write(base::Span<const C> data, std::size_t& n, std::error_code&);
 
-    void advance() noexcept;
+    void advance();
     void advance(std::size_t n);
 
     [[nodiscard]] bool discard(std::error_code&);
@@ -2581,7 +2582,7 @@ public:
 
     [[nodiscard]] bool write(base::Span<const char> data, std::size_t& n, std::error_code&);
 
-    void advance() noexcept;
+    void advance();
     void advance(std::size_t n);
 
     [[nodiscard]] bool discard(std::error_code&);
@@ -2817,7 +2818,7 @@ bool TextFileImpl<C, T, P>::write(base::Span<const C> data, std::size_t& n, std:
 }
 
 
-template<class C, class T, class P> inline void TextFileImpl<C, T, P>::advance() noexcept
+template<class C, class T, class P> inline void TextFileImpl<C, T, P>::advance()
 {
 #if ARCHON_DEBUG
     ARCHON_ASSERT(!m_writing);
@@ -2830,7 +2831,7 @@ template<class C, class T, class P> inline void TextFileImpl<C, T, P>::advance()
 
 /*
     state = m_state_2;
-    m_codec.backtrack_decode(state) // Throws                                                                           
+    m_codec.backtrack_decode(state) // Throws                                                                                                                                         
 */
 }
 
@@ -2867,7 +2868,7 @@ template<class C, class T, class P> bool TextFileImpl<C, T, P>::discard(std::err
 
     ARCHON_ASSERT(m_offset <= m_begin);
     std::size_t n = std::size_t(m_begin - m_offset);
-    m_prim_impl.advance(n);
+    m_prim_impl.advance(n); // Throws
     m_offset = m_begin;
     if (ARCHON_LIKELY(m_prim_impl.discard(ec))) { // Throws
         m_state_2     = m_state;
@@ -3065,9 +3066,9 @@ inline bool TextFileImpl<char, T, P>::write(base::Span<const char> data, std::si
 }
 
 
-template<class T, class P> inline void TextFileImpl<char, T, P>::advance() noexcept
+template<class T, class P> inline void TextFileImpl<char, T, P>::advance()
 {
-    m_prim_impl.advance();
+    m_prim_impl.advance(); // Throws
 }
 
 
@@ -3202,7 +3203,7 @@ public:
     [[nodiscard]] bool write(base::Span<const C> data, std::size_t& n, std::error_code&);
 
     void advance() noexcept;
-    void advance(std::size_t n);
+    void advance(std::size_t n) noexcept;
 
     [[nodiscard]] bool discard(std::error_code&);
 
@@ -3373,7 +3374,7 @@ template<class C, class T, class I> inline void BufferedTextFileImpl<C, T, I>::a
 
 
 template<class C, class T, class I>
-inline void BufferedTextFileImpl<C, T, I>::advance(std::size_t n)
+inline void BufferedTextFileImpl<C, T, I>::advance(std::size_t n) noexcept
 {
 #if ARCHON_DEBUG
     ARCHON_ASSERT(!m_writing);
@@ -3394,7 +3395,7 @@ bool BufferedTextFileImpl<C, T, I>::discard(std::error_code& ec)
 
     ARCHON_ASSERT(m_offset <= m_begin);
     std::size_t n = std::size_t(m_begin - m_offset);
-    m_subimpl.advance(n);
+    m_subimpl.advance(n); // Throws
     m_offset = m_begin;
     if (ARCHON_LIKELY(m_subimpl.discard(ec))) { // Throws
         m_begin   = 0;
@@ -3784,6 +3785,7 @@ inline bool BasicTextFile<C, T, I>::try_tell(pos_type& pos, std::error_code& ec)
 {
     if (ARCHON_LIKELY(!m_reading))
         return m_impl.tell_write(pos, ec); // Throws
+    m_impl.advance(); // Throws
     return m_impl.tell_read(pos, ec); // Throws
 }
 
@@ -3809,6 +3811,7 @@ template<class C, class T, class I> bool BasicTextFile<C, T, I>::stop_reading(st
 {
     ARCHON_ASSERT(m_reading);
     ARCHON_ASSERT(!m_writing);
+    m_impl.advance(); // Throws
     if (ARCHON_LIKELY(m_impl.discard(ec))) { // Throws
         m_reading = false;
         return true;
@@ -3834,11 +3837,8 @@ inline bool BasicTextFile<C, T, I>::do_read_some(base::Span<C> buffer, std::size
                                                  std::error_code& ec)
 {
     ARCHON_ASSERT(!m_writing);
-    if (ARCHON_LIKELY(m_impl.read_ahead(buffer, m_dynamic_eof, n, ec))) { // Throws
-        m_impl.advance();
-        return true;
-    }
-    return false;
+    m_impl.advance(); // Throws
+    return m_impl.read_ahead(buffer, m_dynamic_eof, n, ec); // Throws
 }
 
 
@@ -4082,7 +4082,7 @@ template<class C, class T, class I> auto BasicTextFileStreambuf<C, T, I>::underf
 
     std::error_code ec; // Dummy
     if (ARCHON_LIKELY(!m_writing)) {
-        m_text_file_impl.advance();
+        m_text_file_impl.advance(); // Throws
         m_base = m_buffer.data();
         this->setg(m_base, m_base, m_base);
 
