@@ -22,12 +22,91 @@ template<class P, class D> class Impl {
 /*               
 
 
+
+
+
+
+FAILURE IN                      Base_TextFileImpl_Foo                                                        
+
+One way to fix this (also helps fix text code point to start of char on error), is to make sure that inc_decode() never consumes partial byte sequences by checking and backtracking if std::codecvt::in() does.                      
+
+BETTER: Another way to fix it, might be to change advance() to use backtrack() on the codec.    
+--------> The problem here, is that it makes advance() a throwing function, and it is used in places that does not allow exceptions.    
+
+
+
+
+
+
+
+Possible solution for PrimWindowsTextCodecImpl::CompoundDecoder: Backtrack before proceeding to next chunk
+
+
+
+dynamic_eof -> If set to false, a partial character at the end of the file will result in a read error. This mode makes sense for files that remain static while being read. Its advantage is that it prevents a final partial byte from going unnoticed.
+dynamic_eof -> If set to true, a partial character at the end of the file will cause end of file to be reported as though the partial character was not there. Later on, if more data is added to the file, reading can be resumed without missing any bytes. This mode makes sense for files that are read while also being appended to.
+
+
+
+TEND TO REVERSION TO BEGINNING OF INVALID BYTE SEQUENCE IN TEXT CODEC            
+
+TEND TO REVERSION TO BEGINNING OF INVALID BYTE SEQUENCE IN TEXT FILE            
+
+
+
+ADD TEST SUITE FOR CHAR CODEC
+
+
+
+Wanted behaviour of inc_decode():
+
+If `inc_decode()` returns `true`, the decoding process completeed sucessfully, or more data is needed in order for the decoding process to advance. If \p end_of_data is `true`, `inc_decode()` only returns `true` if the decoding process completeed sucessfully. If more data would need to be provided, but no more data is available, it will be treated as an error.
+
+If `inc_decode()` returns `false`, and \p error is `false`, it means that there is insufficient space in the buffer for the decoding process to proceed. Since characters are decoded one at a time, this implies that the there is no space left in the buffer.
+
+If `inc_decode()` returns `false`, and \p error is `true`, it means that an invalid or incomplete byte sequence has been detected. In this cases, the caller can call XXXXXXXXXXXXXXX() in order to determine the position of the first byte of the invalid or incomplete byte sequence. While \p end_of_data is `false`, incomplete byte sequences cannot be detected.
+
+When `true` is returned, \p error is untouched.
+
+Upon return, ragardles of return value, \p state, \p data_offset, and \p buffer_offset will have been updated to reflect the point to which the decoding process has progressed.
+
+If throws, no ref arg has been changed.
+
+
+
+
+
+
+
+
+If `end_of_data` is `true`:
+- If `inc_decode()` returns `true`, it means that the decoding process completed successfully.
+- If `inc_decode()` returns `false`, and `error` is `true`, it means that an invalid or incomplete byte sequence has been detected. In this cases, the caller can call XXXXXXXXXXXXXXX() in order to determine the position of the first byte of the invalid or incomplete byte sequence.
+
+If `end_of_data` is `false`:
+- If `inc_decode()` returns `true`, it means that more data needs to be provided in order for the decoding process to be able to advance, or detect an invalid byte sequence. Alternatively, if there is no more data, `end_of_data` must be set to true.  ---> Say something about the limit on how many bytes the caller can be asked to present simultaneously.        
+- If `inc_decode()` returns `false`, and `error` is `true`, it means that an invalid byte sequence has been detected. In this cases, the caller can call XXXXXXXXXXXXXXX() in order to determine the position of the first byte of the invalid byte sequence.
+
+If `inc_decode()` returns `false`, and `error` is `false`, it means that there is insufficient space in the buffer for the decoding process to proceed. ---> This implies that the there is **zero** space in the buffer.
+
+
+
+
+
+
+
+
+
+
+
 Meta idea: Start by specifying general behaviour, then explain the meaning of return value and arguments in terms of what was previously explained.
 
 
 General principles:
-- For a stateless codes, each valid byte sequence consumed by inc_decode() produces exactly one decoded character, and a particular valid sequence of byte values will always produce the same decoded character.
-- For a statefull codec, a byte sequence may, or may not
+- 
+
+- For a stateless codec, each valid byte sequence consumed by inc_decode() produces exactly one decoded character, and a particular valid sequence of byte values will always produce the same decoded character.
+- For a statefull codec, a byte sequence may, or may not produce a decoded character, and a particular valid sequence of byte values may produce different decoded characters depending on the previously consumed byte-sequences.
 
 - Input to the decoding process is understood as a series of byte sequences. If the codec is stateless, each byte sequence yields exactly one decoded character. If the encoding is statefull, a byte sequence may, or may not yield a decoded character.
 - Talk more about stateless vs statefull -> a particular valid sequence of byte values always produces the same decoded character           
@@ -49,66 +128,6 @@ New idea for inc_decode(): If `end_of_data` is false, this function returns true
 Maybe also for inc_decode() in crlf codec?
 
 Maybe also for inc_encode()?
-
-
-
-
-
-
-Basic incremental decoding (BasicCharCodec):
-
-
-General questions about std::codecvt::in():
-- What is the meaning of `ok`? (just all input consumed, or all input consumed and all output produced)
-- What is the meaning of `partial`?
-- What is the meaning of `error`?
-- What is the meaning of `noconv`?
-- If a bad byte is identified, will from_next point to beginning of byte sequence, or to the bad byte (will state have already absorbed good bytes)?
-- 
-
-
-List of quirks in implementations of std::codecvt::in():
-- LLVM libc++ std::codecvt.in() never reports decoding errors?????                
-- GNU libstdc++ std::codecvt.in(),  std::codecvt.out() return "ok" when the buffer size is zero. This bug is present in GCC 10.2.0. See also https://gcc.gnu.org/bugzilla/show_bug.cgi?id=37475
--
-
-
-
-
-bool inc_decode(std::mbstate_t&, base::Span<const char> data, std::size_t& data_offset,
-                base::Span<C> buffer, std::size_t& buffer_offset, bool& error);
-
-
-
-If this function returns true, the decoding operation completed succesfully. If it returns false, it did not.
-
-When false is returned, \p error is set to true if the reason for the incompleteness is invalid input, and to false otherwise. BUT WHERE IS THE INVALID INPUT? AND HOW TO RESUME?
-
-When false is returned, and \p error is set to false, and buffer_offset is equal to the size of the specified buffer upon return, additional buffer space is required in order for decoding to proceed.
-
-When false is returned, and \p error is set to false, and buffer_offset is less than the size of the specified buffer upon return, additional input (\p data) is required in order for decoding to proceed.
-
-In any case, data_offset and buffer_offset are updated to reflect the how far decoding has progressed.
-
-If an exception is thrown, more data may have been written to the buffer than indicated by the final value of buffer_offset.
-
-
-
-How to test:
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
@@ -137,7 +156,6 @@ Current plan:
 
 
 
-Linux ---> C.UTF-8
 
 
 
@@ -166,10 +184,6 @@ Want: ARCHON_CHECK_IN_SET(var, a, b, c, ...)
 
 
 // Make note about flush(), that when it fails and, the reason is that a character could not be encoded, it still promises to flush everything up to that character.
-
-
-
-// Consider: Char codec decode never error if input consumed or output produced, and return error flag, not completion flag ---> hmm
 
 
 
@@ -469,8 +483,11 @@ public:
 
     BasicCharCodec(const std::locale&);
 
-    bool stateful() const noexcept;
+    bool is_stateful() const noexcept;
 
+
+    // NOT NECESSARILY RIGHT: SEE BEGINNING OF FILE     
+    //
     // If this function returns true, the decoding operation completed succesfully. If it returns false, it did not.
     //
     // When false is returned, \p error is set to true if the reason for the incompleteness is invalid input, and to false otherwise.    But what does data_offset point to?               
@@ -485,10 +502,10 @@ public:
     //
     bool inc_decode(std::mbstate_t&, base::Span<const char> data, std::size_t& data_offset,
                     bool end_of_data, base::Span<C> buffer, std::size_t& buffer_offset,
-                    bool& error);
+                    bool& error) const;
 
     auto inc_encode(std::mbstate_t&, base::Span<const C> data, std::size_t& data_offset,
-                    base::Span<char> buffer, std::size_t& buffer_offset) ->
+                    base::Span<char> buffer, std::size_t& buffer_offset) const ->
         std::codecvt_base::result;
 
     /// \brief   
@@ -502,7 +519,7 @@ public:
     /// inc_decode() given the same state and span of data.
     ///
     void simulate_inc_decode(std::mbstate_t&, base::Span<const char> data,
-                             std::size_t& data_offset, std::size_t buffer_size);
+                             std::size_t& data_offset, std::size_t buffer_size) const;
 
     /// \brief   
     ///
@@ -522,7 +539,9 @@ private:
 
     std::locale m_locale;
     const codecvt_type* m_codecvt;
-    bool m_stateful = (m_codecvt->encoding() == -1);
+    bool m_is_stateful = (m_codecvt->encoding() == -1);
+
+    bool has_consumed_partial_byte_seq(const std::mbstate_t&) const noexcept;
 };
 
 
@@ -545,25 +564,27 @@ namespace detail {
 // of the specified output buffer is zero, even when presented with a nonzero
 // amount of input. See also https://gcc.gnu.org/bugzilla/show_bug.cgi?id=37475.
 #if ARCHON_GNU_LIBCXX
-inline constexpr bool codecvt_quirk_ok_on_zero_size_buffer = true;
+inline constexpr bool codecvt_quirk_ok_result_on_zero_size_buffer = true;
 #else
-inline constexpr bool codecvt_quirk_ok_on_zero_size_buffer = false;
+inline constexpr bool codecvt_quirk_ok_result_on_zero_size_buffer = false;
 #endif
 
-// std::codecvt::in() reports an `ok` result, rather than a `partial` result
-// when presented with an incomplete byte sequence.
-#if ARCHON_GNU_LIBCXX || ARCHON_LLVM_LIBCXX
-inline constexpr bool codecvt_quirk_ok_on_partial_char = true;
+// std::codecvt::in() reports a `partial` result, rather than an `ok` result
+// when presented with an incomplete byte sequence (regardless of whether none,
+// some, or all of the incomplete byte sequence has been consumed), and there is
+// plenty of available space in the buffer.
+#if ARCHON_MSVC_LIBCXX
+inline constexpr bool codecvt_quirk_partial_result_on_partial_char = true;
 #else
-inline constexpr bool codecvt_quirk_ok_on_partial_char = false;
+inline constexpr bool codecvt_quirk_partial_result_on_partial_char = false;
 #endif
 
 // std::codecvt::in() reports a partial result, rather than an error when
 // presented with an invalid byte sequence.
 #if ARCHON_LLVM_LIBCXX
-inline constexpr bool codecvt_quirk_partial_on_invalid_byte_sequence = true;
+inline constexpr bool codecvt_quirk_partial_result_on_invalid_byte_seq = true;
 #else
-inline constexpr bool codecvt_quirk_partial_on_invalid_byte_sequence = false;
+inline constexpr bool codecvt_quirk_partial_result_on_invalid_byte_seq = false;
 #endif
 
 // When the presented part of the input ends part way through a valid byte
@@ -609,9 +630,9 @@ template<class C, class T> inline BasicCharCodec<C, T>::BasicCharCodec(const std
 }
 
 
-template<class C, class T> inline bool BasicCharCodec<C, T>::stateful() const noexcept
+template<class C, class T> inline bool BasicCharCodec<C, T>::is_stateful() const noexcept
 {
-    return m_stateful;
+    return m_is_stateful;
 }
 
 
@@ -619,9 +640,9 @@ template<class C, class T>
 bool BasicCharCodec<C, T>::inc_decode(std::mbstate_t& state, base::Span<const char> data,
                                       std::size_t& data_offset, bool end_of_data,
                                       base::Span<C> buffer, std::size_t& buffer_offset,
-                                      bool& error)
+                                      bool& error) const
 {
-    if constexpr (detail::codecvt_quirk_ok_on_zero_size_buffer) {
+    if constexpr (detail::codecvt_quirk_ok_result_on_zero_size_buffer) {
         bool has_buffer_space = (buffer_offset < buffer.size());
         if (ARCHON_UNLIKELY(!has_buffer_space)) {
             bool has_data = (data_offset < data.size());
@@ -633,6 +654,7 @@ bool BasicCharCodec<C, T>::inc_decode(std::mbstate_t& state, base::Span<const ch
         }
     }
 
+    std::mbstate_t state_2 = state;
     const char* from      = data.data() + data_offset;
     const char* from_end  = data.data() + data.size();
     const char* from_next = nullptr;
@@ -640,28 +662,33 @@ bool BasicCharCodec<C, T>::inc_decode(std::mbstate_t& state, base::Span<const ch
     C* to_end  = buffer.data() + buffer.size();
     C* to_next = nullptr;
     std::codecvt_base::result result =
-        m_codecvt->in(state, from, from_end, from_next, to, to_end, to_next);
+        m_codecvt->in(state_2, from, from_end, from_next, to, to_end, to_next); // Throws
 
+    state = state_2;
     data_offset   = std::size_t(from_next - data.data());
     buffer_offset = std::size_t(to_next - buffer.data());
 
-    // We can deal with the "partial instead of error" quirk only if the "ok
-    // instead of partial" quirk is also present. Otherwise, we would not know
-    // whether "partial" means "partial" or "error".
-    static_assert(!detail::codecvt_quirk_partial_on_invalid_byte_sequence ||
-                  detail::codecvt_quirk_ok_on_partial_char);
+    // If both the "partial result instead of ok result" and "partial result
+    // instead of error result" quirks were present, we would not know whether
+    // "partial" means "ok" or "error".
+    static_assert(!detail::codecvt_quirk_partial_result_on_partial_char ||
+                  !detail::codecvt_quirk_partial_result_on_invalid_byte_seq);
 
     switch (result) {
         case std::codecvt_base::ok:
-            if constexpr (!detail::codecvt_quirk_ok_on_partial_char)
-                return true;
-            if (ARCHON_LIKELY(data_offset == data.size()))
-                return true;
-            goto partial;
+            goto ok;
         case std::codecvt_base::partial:
-            if constexpr (!detail::codecvt_quirk_partial_on_invalid_byte_sequence)
-                goto partial;
-            goto error;
+            if constexpr (detail::codecvt_quirk_partial_result_on_partial_char) {
+                if (buffer_offset < buffer.size())
+                    goto ok;
+            }
+            else if constexpr (!detail::codecvt_quirk_partial_result_on_invalid_byte_seq) {
+                if (buffer_offset < buffer.size())
+                    goto error;
+            }
+            ARCHON_ASSERT(buffer_offset == buffer.size());
+            error = false;
+            return false;
         case std::codecvt_base::error:
             goto error;
         case std::codecvt_base::noconv:
@@ -674,11 +701,10 @@ bool BasicCharCodec<C, T>::inc_decode(std::mbstate_t& state, base::Span<const ch
     }
     goto error;
 
-  partial:
-    if (!end_of_data) {
-        error = false;
-        return false;
-    }
+  ok:
+    if (ARCHON_LIKELY(!end_of_data ||
+                      (data_offset == data.size() && !has_consumed_partial_byte_seq(state))))
+        return true;
 
   error:
     error = true;
@@ -690,9 +716,10 @@ bool BasicCharCodec<C, T>::inc_decode(std::mbstate_t& state, base::Span<const ch
 template<class C, class T>
 auto BasicCharCodec<C, T>::inc_encode(std::mbstate_t& state, base::Span<const C> data,
                                       std::size_t& data_offset, base::Span<char> buffer,
-                                      std::size_t& buffer_offset) -> std::codecvt_base::result
+                                      std::size_t& buffer_offset) const ->
+    std::codecvt_base::result
 {
-    if constexpr (detail::codecvt_quirk_ok_on_zero_size_buffer) {
+    if constexpr (detail::codecvt_quirk_ok_result_on_zero_size_buffer) {
         bool has_buffer_space = (buffer_offset < buffer.size());
         if (ARCHON_UNLIKELY(!has_buffer_space))
             return std::codecvt_base::partial;               
@@ -717,7 +744,8 @@ auto BasicCharCodec<C, T>::inc_encode(std::mbstate_t& state, base::Span<const C>
 
 template<class C, class T>
 void  BasicCharCodec<C, T>::simulate_inc_decode(std::mbstate_t& state, base::Span<const char> data,
-                                                std::size_t& data_offset, std::size_t buffer_size)
+                                                std::size_t& data_offset,
+                                                std::size_t buffer_size) const
 {
     ARCHON_ASSERT(data_offset <= data.size());
     ARCHON_ASSERT(std::size_t(data.size() - data_offset) <= max_simulate_decode_size());
@@ -729,7 +757,8 @@ void  BasicCharCodec<C, T>::simulate_inc_decode(std::mbstate_t& state, base::Spa
 }
 
 
-template<class C, class T> constexpr std::size_t BasicCharCodec<C, T>::max_simulate_decode_size() noexcept
+template<class C, class T>
+constexpr std::size_t BasicCharCodec<C, T>::max_simulate_decode_size() noexcept
 {
     std::size_t max_1 = std::numeric_limits<std::size_t>::max();
     int max_2 = std::numeric_limits<int>::max();
@@ -737,6 +766,21 @@ template<class C, class T> constexpr std::size_t BasicCharCodec<C, T>::max_simul
     if (max_1 >= uint(max_2))
         return max_1;
     return std::size_t(max_2);
+}
+
+
+template<class C, class T>
+inline bool BasicCharCodec<C, T>::has_consumed_partial_byte_seq(const std::mbstate_t& state)
+    const noexcept
+{
+    // FIXME:    If partial bytes are consumed at all, we need to be able to rely in state not being initial to tell us whether a partial byte sequence was consumed, however, if the encoding is stateful, we wouldn't be bale to tell. Therefore, Creation of a statefull codec must fail if quirk(partial byte sequences are consumed)                                                  
+    if constexpr (!detail::codecvt_quirk_consume_partial_char)
+        return false;
+    ARCHON_ASSERT(!is_stateful());
+    if constexpr (detail::codecvt_quirk_consume_partial_char_makes_noninit_state)
+        return (std::mbsinit(&state) == 0);
+    std::mbstate_t initial = {};
+    return (std::memcmp(&state, &initial, sizeof (std::mbstate_t)) == 0); // FIXME: In baseline check, aslo check that state is equal to a newly iitialized state when expected                                            
 }
 
 
@@ -936,44 +980,18 @@ public:
 
     bool decode(base::Span<const char> data, std::size_t& data_offset, bool end_of_data)
     {
+        bool error = false;
         for (;;) {
-            bool error = false;
             bool complete = m_char_codec.inc_decode(m_state, data, data_offset, end_of_data,
                                                     m_buffer, m_buffer_offset, error); // Throws
-            // Check error                                                                                                                                                                                   
-            if (ARCHON_LIKELY(complete || m_buffer_offset < m_buffer.size()))                                                                                                                                
+            if (ARCHON_LIKELY(complete))
                 return true;
-            m_buffer.reserve_extra(1, m_buffer.size()); // Throws
-        }
-        
-/*
-        for (;;) {
-            // FIXME: Understanding: `ok` means: All input, possibly with the exception of a final incomplete, but valid byte sequence, has been consumed, and all the corresponding output has been produced.                                                  
-            // -----------> Hmm, probably not possible to uphold this due to baroque quirk in libc++ (LLVM) of never reporting decoding errors.
-            std::codecvt_base::result result =
-                m_char_codec.inc_decode(data, data_offset, end_of_data,
-                                        m_buffer, m_buffer_offset); // Throws
-            switch (result) {
-                case std::codecvt_base::ok:
-                    return true; // Success
-                case std::codecvt_base::partial:
-                    ARCHON_ASSERT(m_buffer_offset == m_buffer.size());
-                    m_buffer.reserve_extra(1, m_buffer.size()); // Throws
-                    continue;
-                case std::codecvt_base::error:
-                    return false; // Failure
-                case std::codecvt_base::noconv:
-                    // Not possible, because trivial case is handled by TextCodecImpl1
-                    break;
+            if (ARCHON_LIKELY(!error)) {
+                m_buffer.reserve_extra(1, m_buffer.size()); // Throws
+                continue;
             }
-            ARCHON_ASSERT_UNREACHABLE;
+            return false;
         }
-*/
-
-        static_cast<void>(data);                                                     
-        static_cast<void>(data_offset);                                                     
-        static_cast<void>(end_of_data);                                                     
-        return false;
     }
 
 private:
@@ -1298,6 +1316,7 @@ public:
     {
     }
 
+    // FIXME: Rename to process()  
     bool decode(base::Span<const char> data, std::size_t& data_offset, bool end_of_data)
     {
         std::size_t clear; // Dummy
@@ -1988,6 +2007,7 @@ bool PrimWindowsTextFileImpl::read_ahead(base::Span<char> buffer, bool dynamic_e
             n = buffer_offset;
             return true;
         }
+        // FIXME: Assumption: A non-zero number of bytes cannot turn into nothing when setting end_of_file to true                
         ARCHON_ASSERT(!end_of_file);
         // Move retained data to start of buffer
         ARCHON_ASSERT(m_begin <= m_curr);
@@ -2005,6 +2025,7 @@ bool PrimWindowsTextFileImpl::read_ahead(base::Span<char> buffer, bool dynamic_e
                 m_end += n_2;
                 continue;
             }
+            // FIXME: Assumption: m_end == m_curr if, and only if decoding is complete             
             if (ARCHON_LIKELY(m_end == m_curr || dynamic_eof)) {
                 // Signal end of file
                 n = 0;
@@ -2715,37 +2736,38 @@ bool TextFileImpl<C, T, P>::read_ahead(base::Span<C> buffer, bool dynamic_eof, s
             n = buffer_offset;
             return true;
         }
-        if (!error) {
-            ARCHON_ASSERT(!end_of_file);
-            // Move any retained data to start of buffer
-            ARCHON_ASSERT(m_offset <= m_begin);
-            m_prim_impl.advance(std::size_t(m_begin - m_offset)); // Throws
-            char* base = m_buffer.data();
-            std::copy(base + m_begin, base + m_end, base);
-            m_end  -= m_begin;
-            m_curr -= m_begin;
-            m_begin  = 0;
-            m_offset = 0;
-            if (ARCHON_UNLIKELY(m_end == m_buffer.size()))
-                expand_buffer(); // Throws
-            std::size_t n_2 = 0;
-            base::Span buffer_2 = base::Span<char>(m_buffer).subspan(m_end);
-            if (ARCHON_LIKELY(m_prim_impl.read_ahead(buffer_2, dynamic_eof, n_2, ec))) { // Throws
-                if (ARCHON_LIKELY(n_2 > 0)) {
-                    m_end += n_2;
+        if (ARCHON_LIKELY(!error)) {
+            if (ARCHON_LIKELY(!end_of_file)) {
+                // Move any retained data to start of buffer
+                ARCHON_ASSERT(m_offset <= m_begin);
+                m_prim_impl.advance(std::size_t(m_begin - m_offset)); // Throws
+                char* base = m_buffer.data();
+                std::copy(base + m_begin, base + m_end, base);
+                m_end  -= m_begin;
+                m_curr -= m_begin;
+                m_begin  = 0;
+                m_offset = 0;
+                if (ARCHON_UNLIKELY(m_end == m_buffer.size()))
+                    expand_buffer(); // Throws
+                std::size_t n_2 = 0;
+                base::Span buffer_2 = base::Span<char>(m_buffer).subspan(m_end);
+                if (ARCHON_LIKELY(m_prim_impl.read_ahead(buffer_2, dynamic_eof, n_2,
+                                                         ec))) { // Throws
+                    if (ARCHON_LIKELY(n_2 > 0)) {
+                        m_end += n_2;
+                        continue;
+                    }
+                    if (ARCHON_LIKELY((end_of_file && complete) || dynamic_eof))
+                        goto end_of_file;
+                    end_of_file = true;
                     continue;
                 }
-                if (ARCHON_LIKELY(complete || dynamic_eof)) {
-                    // Signal end of file
-                    n = 0;
-                    return true;
-                }
-                end_of_file = true;
-                continue;
+                return false;
             }
-            return false;
+          end_of_file:
+            n = 0;
+            return true;
         }
-        // FIXME: Only when not in lenient mode            
         ec = TextFileError::invalid_byte_seq;
         return false;
     }
@@ -2805,6 +2827,11 @@ template<class C, class T, class P> inline void TextFileImpl<C, T, P>::advance()
     m_state = m_state_2;
     m_begin = m_curr;
     m_retain_size = 0;
+
+/*
+    state = m_state_2;
+    m_codec.backtrack_decode(state) // Throws                                                                           
+*/
 }
 
 
@@ -4644,6 +4671,97 @@ ARCHON_TEST(Base_TextFileImpl_Windows)
 }
 
 
+/*
+File stream test case:
+
+- No cr-lf shananigans
+- Raw file contents is 'x' followed by first two bytes (1, 2) of 3-byte sequence.
+- First invocation of read_some() reads first 2 raw bytes.
+- During next invocation of read_some():
+  - Advance to partially consumed byte sequence (one byte consumed)
+  - Read final byte
+  - Report end of file
+- Read phys file pos -> should be 1 (after 'x')
+
+The worry is that something bad happens when "reference state" is beyond the logical read-write position
+
+Expressed in terms of text_file_impl:
+
+std::array<wchar_t, 1> buffer;
+std::size:_t n = 0;
+if (ARCHON_CHECK(text_file_impl.read_ahead(buffer, dynamic_eof, n, ec))) {
+    ARCHON_CHECK_EAUAL(n, 1);
+}
+*/
+
+
+const char* candidate_locales[] = { "C", "C.UTF-8", ".UTF8", "en_US", "en_US.UTF-8", "" };
+
+
+// ASSUMES UTF-8                            
+ARCHON_TEST(Base_TextFileImpl_Foo)
+{
+    std::array<char, 16> seed_memory;
+    base::StringFormatter formatter(seed_memory, test_context.get_locale());
+
+    ARCHON_TEST_FILE(path);
+    {
+        base::File file(path, base::File::Mode::write);
+        file.write(std::string_view("$\xE2\x82"));
+    }
+    auto subtest = [&, &parent_test_context = test_context](const std::locale& locale) {
+        ARCHON_TEST_TRAIL(parent_test_context,
+                          formatter.format("%s", base::quoted(std::string_view(locale.name()))));
+
+        base::BasicCharMapper<wchar_t> char_mapper(locale);
+
+        base::File file(path);
+        base::TextFileImplConfig config;
+        config.char_codec_buffer_size = 2;
+        base::PosixTextFileImpl<wchar_t> text_file_impl(file, locale, std::move(config));
+
+        std::array<wchar_t, 2> buffer;
+        bool dynamic_eof = true;
+        std::size_t n = 0;
+        bool success;
+        std::error_code ec;
+
+        success = text_file_impl.read_ahead(buffer, dynamic_eof, n, ec);
+        if (ARCHON_UNLIKELY(!ARCHON_CHECK(success)))
+            return;
+        if (ARCHON_UNLIKELY(!ARCHON_CHECK_EQUAL(n, 1)))
+            return;
+        if (ARCHON_UNLIKELY(!ARCHON_CHECK_EQUAL(buffer[0], char_mapper.widen('$'))))
+            return;
+        if (ARCHON_UNLIKELY(!ARCHON_CHECK_EQUAL(file.get_offset(), 2)))
+            return;
+
+        text_file_impl.advance();
+        success = text_file_impl.read_ahead(buffer, dynamic_eof, n, ec);
+        if (ARCHON_UNLIKELY(!ARCHON_CHECK(success)))
+            return;
+        if (ARCHON_UNLIKELY(!ARCHON_CHECK_EQUAL(n, 0)))
+            return;
+        if (ARCHON_UNLIKELY(!ARCHON_CHECK_EQUAL(file.get_offset(), 3)))
+            return;
+
+        base::PosixTextFileImpl<wchar_t>::pos_type pos = 0;
+        success = text_file_impl.tell_read(pos, ec);
+        if (ARCHON_UNLIKELY(!ARCHON_CHECK(success)))
+            return;
+        ARCHON_CHECK_EQUAL(pos, 1);
+    };
+
+    for (const char* name : candidate_locales) {
+        if (base::has_locale(name)) {
+            std::locale locale(name);
+            bool is_utf8 = (base::assume_utf8_locale(locale) &&
+                            (base::assume_unicode_locale(locale) || ARCHON_WINDOWS));
+            if (is_utf8)
+                subtest(locale);
+        }
+    }
+}
 
 
 
@@ -4974,9 +5092,6 @@ ARCHON_TEST_BATCH_IF(Base_TextFile_EncodeError, variants, ARCHON_C_LOCALE_IS_ASC
 }
 
 
-const char* candidate_locales[] = { "C", "C.UTF-8", ".UTF8", "en_US", "en_US.UTF-8", "" };
-
-
 
 
 
@@ -5075,9 +5190,9 @@ ARCHON_TEST_BATCH(Base_TextFileStream_TellAndSeek, stream_variants)
 
 ARCHON_TEST(CharCodec_CodecvtBaseline)
 {
-    bool quirk_1 = base::detail::codecvt_quirk_ok_on_zero_size_buffer;
-    bool quirk_2 = base::detail::codecvt_quirk_ok_on_partial_char;
-    bool quirk_3 = base::detail::codecvt_quirk_partial_on_invalid_byte_sequence;
+    bool quirk_1 = base::detail::codecvt_quirk_ok_result_on_zero_size_buffer;
+    bool quirk_2 = base::detail::codecvt_quirk_partial_result_on_partial_char;
+    bool quirk_3 = base::detail::codecvt_quirk_partial_result_on_invalid_byte_seq;
     bool quirk_4 = base::detail::codecvt_quirk_consume_partial_char;
     bool quirk_5 = base::detail::codecvt_quirk_consume_partial_char_makes_noninit_state;
     bool quirk_6 = base::detail::codecvt_quirk_consume_partial_char_but_not_good_bytes_on_error;
@@ -5087,7 +5202,7 @@ ARCHON_TEST(CharCodec_CodecvtBaseline)
     std::codecvt_base::result partial = std::codecvt_base::partial;
     std::codecvt_base::result error   = std::codecvt_base::error;
     std::codecvt_base::result quirk_1_result = (quirk_1 ? ok : partial);
-    std::codecvt_base::result quirk_2_result = (quirk_2 ? ok : partial);
+    std::codecvt_base::result quirk_2_result = (quirk_2 ? partial : ok);
     std::codecvt_base::result quirk_3_result = (quirk_3 ? partial : error);
 
     std::array<char, 16> seed_memory_1;
@@ -5114,7 +5229,7 @@ ARCHON_TEST(CharCodec_CodecvtBaseline)
                                      std::size_t expected_from_advance,
                                      std::size_t expected_to_advance,
                                      std::codecvt_base::result expected_result,
-                                     bool expect_final_initial_state) {
+                                     bool expect_final_state_is_init) {
             ARCHON_TEST_TRAIL(parent_test_context,
                               formatter.format("decode(%s, %s, %s)", base::quoted(data), split_pos,
                                                buffer_size));
@@ -5146,7 +5261,7 @@ ARCHON_TEST(CharCodec_CodecvtBaseline)
             ARCHON_CHECK_EQUAL(result, expected_result);
             ARCHON_CHECK_EQUAL(from_next - data.data(), expected_from_advance);
             ARCHON_CHECK_EQUAL(to_next - decode_buffer.data(), expected_to_advance);
-            ARCHON_CHECK_EQUAL(std::mbsinit(&state) != 0, expect_final_initial_state);
+            ARCHON_CHECK_EQUAL(std::mbsinit(&state) != 0, expect_final_state_is_init);
         };
 
         char dec_err = char(-1);
@@ -5194,14 +5309,17 @@ ARCHON_TEST(CharCodec_CodecvtBaseline)
         }
 
         if (is_utf8) {
+            // 2-byte char (cent)
             decode("\xC2\xA2",       0,  0, 0,                 0, quirk_1_result, true);
             decode("\xC2\xA2",       0,  1, 2,                 1, ok,             true);
             decode("\xC2\xA2",       0, 10, 2,                 1, ok,             true);
 
+            // 3-byte char (euro)
             decode("\xE2\x82\xAC",   0,  0, 0,                 0, quirk_1_result, true);
             decode("\xE2\x82\xAC",   0,  1, 3,                 1, ok,             true);
             decode("\xE2\x82\xAC",   0, 10, 3,                 1, ok,             true);
 
+            // Something followed by 2-byte char (cent)
             decode("$\xC2\xA2",      0,  0, 0,                 0, quirk_1_result, true);
             decode("$\xC2\xA2",      0,  1, 1,                 1, partial,        true);
             decode("$\xC2\xA2",      0,  2, 3,                 2, ok,             true);
@@ -5222,7 +5340,7 @@ ARCHON_TEST(CharCodec_CodecvtBaseline)
             decode("\xE2\x82",       1,  1, (quirk_4 ? 2 : 0), 0, quirk_2_result, !quirk_5);
             decode("\xE2\x82",       1, 10, (quirk_4 ? 2 : 0), 0, quirk_2_result, !quirk_5);
 
-            // Partial char after full char
+            // Something followed by partial char
             decode("$\xC2",          0,  0, 0,                 0, quirk_1_result, true);
             decode("$\xC2",          0,  1, 1,                 1, partial,        true);
             decode("$\xC2",          0,  2, (quirk_4 ? 2 : 1), 1, quirk_2_result, !quirk_5);

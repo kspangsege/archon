@@ -171,6 +171,17 @@
 #endif
 
 
+// Detect Microsoft's implementation of the C++ Standard Library as used in
+// Visual Studio. See
+// https://docs.microsoft.com/en-us/cpp/preprocessor/predefined-macros.
+//
+#if defined _MSVC_LANG
+#  define ARCHON_MSVC_LIBCXX 1
+#else
+#  define ARCHON_MSVC_LIBCXX 0
+#endif
+
+
 #if __GNUC__
 #  define ARCHON_UNLIKELY(expr) __builtin_expect(!!(expr), 0)
 #  define ARCHON_LIKELY(expr)   __builtin_expect(!!(expr), 1)
