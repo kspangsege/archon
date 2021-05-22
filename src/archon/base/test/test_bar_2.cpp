@@ -2830,8 +2830,10 @@ template<class C, class T, class P> inline void TextFileImpl<C, T, P>::advance()
     m_retain_size = 0;
 
 /*
-    state = m_state_2;
-    m_codec.backtrack_decode(state) // Throws                                                                                                                                         
+    // FIXME: Mention invariant that m_state+m_begin always refer to the beginning of a byte-sequence (m_state_2+m_curr, on the other hand, may refer to a position inside a byte-sequence)                 
+    std::mbstate_t state = m_state_2;
+    m_codec.backtrack_decode(state) // Throws                                                                                                                                                              
+    m_state = state;
 */
 }
 
