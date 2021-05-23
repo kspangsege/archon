@@ -527,6 +527,9 @@ public:
     ///
     static constexpr std::size_t max_simulate_decode_size() noexcept;
 
+    
+    void backtrack_decode(const char* data, const std::mbstate_t& aligned_state, std::size_t aligned_data_offset, std::size_t m_retain_size, state, curr); // Throws                                                   
+
     /// \{
     ///
     /// Copyability    
@@ -2525,6 +2528,8 @@ private:
     // neutral mode, `m_state_2` is equal to `m_state`. In reading mode,
     // `m_state_2` is the state at the read ahead position.  In writing mode,
     // the value of `m_state_2` in undefined.
+    //
+    // Say something about alignment to byte sequence boundary                
     std::mbstate_t m_state = {};
     std::mbstate_t m_state_2 = {};
 
@@ -2532,6 +2537,8 @@ private:
     // both are zero. In reading mode, `m_begin` corresponds to the logical
     // read/write position, and `m_end` corresponds to the actual read/write
     // position. In writing mode, it is the other way around.
+    //
+    // In reading mode, m_begin is always aligned on a byte sequence boundary (hmm, what about when switching from writing to reading mode, ok, that seems to guarantee that we are on a boundary, as characters can only be written one complete byte sequence at a time)                          
     std::size_t m_begin = 0;
     std::size_t m_end   = 0;
 
@@ -2542,6 +2549,8 @@ private:
 
     // Position in buffer corresponding to the read ahead position. In neutral
     // mode, and in writing mode, it is always zero.
+    //
+    // Not necessarily aligned on byte-sequence boundary                                    
     std::size_t m_curr = 0;
 
     // In reading mode, this is the number of decoded characters between the
@@ -2825,16 +2834,14 @@ template<class C, class T, class P> inline void TextFileImpl<C, T, P>::advance()
 #endif
 
     ARCHON_ASSERT(m_begin <= m_curr);
-    m_state = m_state_2;
-    m_begin = m_curr;
-    m_retain_size = 0;
-
-/*
-    // FIXME: Mention invariant that m_state+m_begin always refer to the beginning of a byte-sequence (m_state_2+m_curr, on the other hand, may refer to a position inside a byte-sequence)                 
+    // FIXME: Mention invariant that m_state+m_begin always refer to the beginning of a byte-sequence (m_state_2+m_curr, on the other hand, may refer to a position inside a byte-sequence)
+    const char* data = m_buffer.data();
     std::mbstate_t state = m_state_2;
-    m_codec.backtrack_decode(state) // Throws                                                                                                                                                              
+    std::size_t curr = m_curr;
+    m_codec.backtrack_decode(data, m_state, m_begin, m_retain_size, state, curr); // Throws                                                   
     m_state = state;
-*/
+    m_begin = curr;
+    m_retain_size = 0;
 }
 
 
