@@ -22,6 +22,19 @@ With C++20, and when `__cpp_lib_bitops` is present, utilize functions offered in
 - Maybe use `std::has_single_bit()` in `core::int_is_power_of_two()`.
 
 
+IDEA: Introduce 3 distinct models for `unit_frac`: "Standard" (no suffix), "alternate" (suffix `_a`), and "hybrid" (suffix `_h`).
+Standard model:
+- Int -> float: i -> i / max_int
+- Float -> int: f -> round(f * max_int)
+Alternate model:
+- Int -> float: i -> i / (max_int + 1) + 0.5
+- Float -> int: f -> round(f * (max_int + 1))
+Hybrid model:
+- Int -> float: Same as standard model
+- Float -> int: Same as alternate model
+NOTE: The current explanation of the alternate model can then be used as a basis for the new explanation of the hybrid model.
+
+
 Test log::BasicStreamLogger
 
 

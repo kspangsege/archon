@@ -220,6 +220,13 @@ EOF
     exit 1
 fi
 
+if [ -z "$CMAKE_TOOLCHAIN_FILE" ]; then
+    if [ "$OS" = "Windows_NT" ]; then
+        # Asuming that Vcpkg is installed, and that it is installed under c:/src/vcpkg
+        export CMAKE_TOOLCHAIN_FILE="c:/src/vcpkg/scripts/buildsystems/vcpkg.cmake"
+    fi
+fi
+
 build_subdir="$build_dir/$build_subdir_name"
 cmake -S "$root_dir" -B "$build_subdir" -D CMAKE_BUILD_TYPE="$build_type" -D ARCHON_ASAN="$asan" -D ARCHON_TSAN="$tsan" -D ARCHON_UBSAN="$ubsan" || exit 1
 cmake --build "$build_subdir" --config "$build_type" -j || exit 1

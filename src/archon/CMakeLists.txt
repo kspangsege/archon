@@ -2,6 +2,10 @@ add_subdirectory(core)
 add_subdirectory(log)
 add_subdirectory(cli)
 add_subdirectory(check)
+add_subdirectory(math)
+add_subdirectory(util)
+add_subdirectory(image)
+add_subdirectory(font)
 
 configure_file(impl/config.h.in impl/config.h)
 
@@ -13,6 +17,10 @@ target_link_libraries(Test PUBLIC
   CoreTest
   CliTest
   CheckTest
+  MathTest
+  UtilTest
+  ImageTest
+  FontTest
   Core
   Check
 )

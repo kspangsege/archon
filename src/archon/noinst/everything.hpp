@@ -35,3 +35,10 @@
 #include <archon/check.hpp>
 #include <archon/check/noinst/everything.hpp>
 #include <archon/core/test/everything.hpp>
+
+#include <archon/math/noinst/everything.hpp>
+#include <archon/util/noinst/everything.hpp>
+#include <archon/image.hpp>
+#include <archon/image/noinst/everything.hpp>
+#include <archon/font.hpp>
+#include <archon/font/noinst/everything.hpp>
