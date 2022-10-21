@@ -28,7 +28,7 @@ jobs:
     steps:
     - name: Install dependencies
       run: |
-        sudo apt install libpng-dev libfreetype-dev
+        sudo apt install libpng-dev libfreetype-dev libx11-dev libsdl2-dev
 
     - name: Checkout
       uses: actions/checkout@v3
@@ -64,7 +64,7 @@ jobs:
     steps:
     - name: Install dependencies
       run: |
-        brew install libpng freetype
+        brew install libpng freetype sdl2
 
     - name: Checkout
       uses: actions/checkout@v3
@@ -101,7 +101,7 @@ jobs:
     steps:
     - name: Install dependencies
       run: |
-        vcpkg install libpng:x64-windows freetype:x64-windows
+        vcpkg install libpng:x64-windows freetype:x64-windows sdl2:x64-windows
 
     - name: Checkout
       uses: actions/checkout@v3

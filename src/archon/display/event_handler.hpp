@@ -1,6 +1,6 @@
 // This file is part of the Archon project, a suite of C++ libraries.
 //
-// Copyright (C) 2020 Kristian Spangsege <kristian.spangsege@gmail.com>
+// Copyright (C) 2022 Kristian Spangsege <kristian.spangsege@gmail.com>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this
 // software and associated documentation files (the "Software"), to deal in the Software
@@ -18,29 +18,37 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
+#ifndef ARCHON_X_DISPLAY_X_EVENT_HANDLER_HPP
+#define ARCHON_X_DISPLAY_X_EVENT_HANDLER_HPP
 
-// Do not include this header file. It exists only to specify the canonical header order,
-// which is a topological dependency ordering of all the header files of the Archon Core
-// Library, including any that must never be included by applications.
-#error "Do not include this header file"
+/// \file
 
 
-#include <archon/impl/config.h>
-#include <archon/core/noinst/everything.hpp>
-#include <archon/version.hpp>
-#include <archon/log.hpp>
-#include <archon/log/noinst/everything.hpp>
-#include <archon/cli.hpp>
-#include <archon/cli/noinst/everything.hpp>
-#include <archon/check.hpp>
-#include <archon/check/noinst/everything.hpp>
-#include <archon/core/test/everything.hpp>
+#include <archon/display/event.hpp>
 
-#include <archon/math/noinst/everything.hpp>
-#include <archon/util/noinst/everything.hpp>
-#include <archon/image.hpp>
-#include <archon/image/noinst/everything.hpp>
-#include <archon/font.hpp>
-#include <archon/font/noinst/everything.hpp>
-#include <archon/display.hpp>
-#include <archon/display/noinst/everything.hpp>
+
+namespace archon::display {
+
+
+/// \brief    
+///
+///    
+///
+/// If an event handler function returns `false`, event processing will be terminated.
+///
+class EventHandler {
+public:
+    /// \brief    
+    ///
+    /// Called when a key is pressed down and the window, that has focus, is one of the
+    /// windows with which this event handler is associated.
+    ///
+    virtual bool on_keydown(const display::KeyEvent&);
+
+    virtual ~EventHandler() noexcept = default;
+};
+
+
+} // namespace archon::display
+
+#endif // ARCHON_X_DISPLAY_X_EVENT_HANDLER_HPP

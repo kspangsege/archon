@@ -12,6 +12,7 @@ The Archon project consists of a number of general purpose libraries:
   | Util    | Special purpose utilities
   | Image   | Load, save, and manipulate images
   | Font    | Font rendering
+  | Display | OS GUI integration
 
 
 ## Prerequisites for building
@@ -19,35 +20,37 @@ The Archon project consists of a number of general purpose libraries:
 Here is the list of dependencies for the various libraries of the Archon project:
 
   | Name     | Archon library | Optional | Description
-  |----------|----------------|----------|------------------------------------------
+  |----------|----------------|----------|-----------------------------------------------
   | `libpng` | Image          | Yes      | Image format (Portable Network Graphics)
   | FreeType | Font           | Yes      | Font rendering facilities
+  | Xlib     | Display        | Yes      | X Window System protocol client library
+  | SDL      | Display        | Yes      | OS GUI integration (Simple DirectMedia Layer)
 
 See below for information on how to install these dependencies on various platforms.
 
 ### Ubuntu Linux
 
-Run this command to install `libpng` and FreeType:
+Run this command to install `libpng`, FreeType, Xlib, and SDL:
 
 ```sh
-apt install libpng-dev libfreetype-dev
+apt install libpng-dev libfreetype-dev libx11-dev libsdl2-dev
 ```
 
 ### macOS
 
-Run this command to install `libpng` and FreeType:
+Run this command to install `libpng`, FreeType, and SDL:
 
 ```sh
-brew install libpng freetype
+brew install libpng freetype sdl2
 ```
 
 ### Windows
 
-Run this command to install `libpng` and FreeType using [Vcpkg][vcpkg]:
+Run this command to install `libpng`, FreeType, and SDL using [Vcpkg][vcpkg]:
 
 
 ```sh
-c:\src\vcpkg\vcpkg.exe install libpng:x64-windows freetype:x64-windows
+c:\src\vcpkg\vcpkg.exe install libpng:x64-windows freetype:x64-windows sdl2:x64-windows
 ```
 
 If Vcpkg in not already installed, you can install it by running these commands:
