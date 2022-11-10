@@ -41,8 +41,8 @@ AM_INIT_AUTOMAKE([nostdinc])
 AX_PTHREAD
 
 # Default set of CFLAGS (override this with ./configure CFLAGS=foo)
-CFLAGS=${CFLAGS:=-Wall -Wextra -Werror -Wno-parentheses -Wnon-virtual-dtor -pedantic -ggdb -O0}
-CXXFLAGS=${CXXFLAGS:=-Wall -Wextra -Werror -Wno-parentheses -Wnon-virtual-dtor -pedantic -ggdb -O0}
+CFLAGS=${CFLAGS:=-Wall -Wextra -Wno-parentheses -Wnon-virtual-dtor -pedantic -ggdb -O0}
+CXXFLAGS=${CXXFLAGS:=-Wall -Wextra -Wno-parentheses -Wnon-virtual-dtor -pedantic -ggdb -O0}
 #CFLAGS=${CFLAGS:=-O3 -DNDEBUG -DARCHON_NDEBUG}
 #CXXFLAGS=${CXXFLAGS:=-O3 -DNDEBUG -DARCHON_NDEBUG}
 

@@ -164,7 +164,7 @@ public:
                 i >> std::ws;
                 if (!i.eof()) {
                     throw std::runtime_error("Garbage after replacement/first glyph "
-                                             "at '"+conf_file+":"+Text::print(line_num)+"'");
+                                             "at '"+conf_file+":");
                 }
             }
             else {
@@ -173,11 +173,10 @@ public:
                     i >> code_point >> std::ws;
                     if (i.bad() || i.fail()) {
                         throw std::runtime_error("Failed to parse line "
-                                                 "at '"+conf_file+":"+Text::print(line_num)+"'");
+                                                 "at '"+conf_file+":");
                     }
                     if (!char_map.insert(std::make_pair(code_point, glyph_index)).second) {
-                        throw std::runtime_error("Multiple glyphs for code point "+
-                                                 Text::print(code_point));
+                        throw std::runtime_error("Multiple glyphs for code point ");
                     }
                 }
                 while (!i.eof());
