@@ -1,14 +1,8 @@
-add_subdirectory(core)
-add_subdirectory(log)
-add_subdirectory(cli)
-add_subdirectory(check)
 add_subdirectory(math)
 add_subdirectory(util)
 add_subdirectory(image)
 add_subdirectory(font)
 add_subdirectory(display)
-
-configure_file(impl/config.h.in impl/config.h)
 
 add_executable(Test test.cpp)
 

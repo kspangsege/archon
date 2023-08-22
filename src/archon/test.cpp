@@ -19,8 +19,8 @@
 // DEALINGS IN THE SOFTWARE.
 
 
+#include <archon/core/archon_version.hpp>
 #include <archon/core/build_environment.hpp>
-#include <archon/version.hpp>
 #include <archon/check/command.hpp>
 
 
