@@ -1,5 +1,3 @@
-add_subdirectory(display)
-
 add_executable(Test test.cpp)
 
 set_target_properties(Test PROPERTIES OUTPUT_NAME "test")

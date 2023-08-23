@@ -9,5 +9,6 @@ include(math.cmake)
 include(util.cmake)
 include(image.cmake)
 include(font.cmake)
+include(display.cmake)
 
 add_subdirectory(archon)
