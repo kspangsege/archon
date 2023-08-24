@@ -49,6 +49,10 @@ if(ARCHON_UBSAN)
   endif()
 endif()
 
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
 include(CTest)
+
+set(INCLUDE_INSTALL_DIR ${CMAKE_INSTALL_INCLUDEDIR} CACHE PATH "Location of header files")
 
 add_subdirectory(src)
