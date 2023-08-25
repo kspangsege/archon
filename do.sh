@@ -233,7 +233,7 @@ cmake --build "$build_subdir" --config "$build_type" -j || exit 1
 
 if [ "$run" ]; then
     if [ -z "$run_path" ]; then
-        run_path="src/archon/test"
+        run_path="src/test"
     fi
 
     if [ "$OS" = "Windows_NT" ]; then

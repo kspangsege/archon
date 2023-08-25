@@ -18,13 +18,13 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-#ifndef ARCHON_X_VERSION_HPP
-#define ARCHON_X_VERSION_HPP
+#ifndef ARCHON_X_CORE_X_ARCHON_VERSION_HPP
+#define ARCHON_X_CORE_X_ARCHON_VERSION_HPP
 
 /// \file
 
 
-#include <archon/impl/config.h>
+#include <archon/core/impl/config.h>
 #include <archon/core/features.h>
 
 
@@ -43,4 +43,4 @@
 #define ARCHON_VERSION_EX "Archon " ARCHON_VERSION
 
 
-#endif // ARCHON_X_VERSION_HPP
+#endif // ARCHON_X_CORE_X_ARCHON_VERSION_HPP
