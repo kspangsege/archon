@@ -51,8 +51,8 @@ int main(int argc, char* argv[])
 {
     core::BuildEnvironment::Params params;
     params.file_path = __FILE__;
-    params.bin_path  = "archon/test"; // Relative to build reflection of source root
-    params.src_path  = "archon/test.cpp"; // Relative to source root
+    params.bin_path  = "test"; // Relative to build reflection of source root
+    params.src_path  = "test.cpp"; // Relative to source root
     params.src_root  = "src"; // Relative to project root
     params.source_from_build_path = core::archon_source_from_build_path;
 
