@@ -106,8 +106,14 @@ auto Writer::fill(const image::Box& area, ColorSlot slot) -> Writer&
         for (int i = 0; i < num_channels_ext; ++i)
             workspace[i] = opacity * color[i];
         ensure_palette_kdtree(); // Throws
-        image::comp_type<image::color_index_repr> index = do_reverse_palette_lookup(workspace.data()); // Throws
-        get_image().fill(box, &index); // Throws
+        std::size_t index_1 = do_reverse_palette_lookup(workspace.data()); // Throws
+        // No overlow is possible here because palette size is clamped to available range of
+        // index representation.
+        //
+        // FIXME: Index representation should be made varyable                        
+        auto index_2 = image::unpacked_comp_type<image::color_index_repr>(index_1);
+        image::comp_type<image::color_index_repr> index_3 = image::comp_repr_pack<image::color_index_repr>(index_2);
+        get_image().fill(box, &index_3); // Throws
         return *this;
     }
 
@@ -316,8 +322,12 @@ void Writer::write(image::Pos pos, const image::Tray<const image::float_type>& t
     for (int y = 0; y < tray.size.height; ++y) {
         for (int x = 0; x < tray.size.width; ++x) {
             const image::float_type* color = tray(x, y);
-            index_comp_type index = do_reverse_palette_lookup(color); // Throws
-            tray_2(x, y)[0] = index;
+            std::size_t index_1 = do_reverse_palette_lookup(color); // Throws
+            // No overlow is possible here because palette size is clamped to available
+            // range of index representation.
+            auto index_2 = image::unpacked_comp_type<index_repr>(index_1);
+            index_comp_type index_3 = image::comp_repr_pack<index_repr>(index_2);
+            tray_2(x, y)[0] = index_3;
         }
     }
     get_image().write(pos, tray_2); // Throws
@@ -330,15 +340,14 @@ void Writer::instantiate_palette_kdtree()
 
     const image::float_type* float_components = ensure_palette_cache_f(); // Throws
     std::size_t palette_size = get_palette_size();
-    auto kdtree = std::make_unique<image::comp_type<image::color_index_repr>[]>(palette_size); // Throws
-    constexpr int bit_width = image::comp_repr_bit_width<image::color_index_repr>();
+    auto kdtree = std::make_unique<std::size_t[]>(palette_size); // Throws
     for (std::size_t i = 0; i < palette_size; ++i)
-        kdtree[i] = image::pack_int<image::comp_type<image::color_index_repr>, bit_width>(i);
+        kdtree[i] = i;
 
     int num_channels_ext = m_num_channels_ext;
-    auto get_comp = [&](image::comp_type<image::color_index_repr> index, int i) noexcept {
-        std::size_t j = std::size_t(index * std::size_t(num_channels_ext) + i);
-        return float_components[j];
+    auto get_comp = [&](std::size_t color_index, int comp_index) noexcept {
+        std::size_t i = std::size_t(color_index * num_channels_ext + comp_index);
+        return float_components[i];
     };
 
     int k = get_num_channels();
@@ -354,10 +363,8 @@ void Writer::instantiate_palette_kdtree()
 auto Writer::do_reverse_palette_lookup_a(const image::float_type* color) -> std::size_t
 {
     if (ARCHON_LIKELY(has_indexed_color())) {
-        // FIXME: The kd-tree must be changed to store indexes using std::size and not using a type that is dependent on the representation scheme used for color indexes by the referenced image.                                                
-        ensure_palette_kdtree(); // <Throws
-        image::comp_type<image::color_index_repr> comp = do_reverse_palette_lookup(color); // Throws
-        return std::size_t(image::comp_repr_unpack<image::color_index_repr>(comp));
+        ensure_palette_kdtree(); // Throws
+        return do_reverse_palette_lookup(color); // Throws
     }
     return 0;
 }

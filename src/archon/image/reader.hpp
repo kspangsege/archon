@@ -154,7 +154,13 @@ public:
     /// colors in the associated palette (\ref get_palette()). If the attached image uses
     /// direct color, this function returns zero.
     ///
-    /// FIXME: When support of varying index representations is added, add note about returned palette size having been clamped to maximum index value plus one.                                     
+    /// The number of colors in the palette is the number of pixels in the image used as
+    /// palette clamped to the smaller of N and 2^M where N is the maximum representable
+    /// value in `std::size_t` and M is the number of available bits in the component
+    /// representation used to store color indexes in the attached image
+    /// (`image::comp_repr_int_bit_width(image::color_index_repr)`).
+    ///
+    /// FIXME: Adjust text above when support of varying index representations is added.                                           
     ///
     auto get_palette_size() const noexcept -> std::size_t;
 
@@ -501,7 +507,7 @@ private:
     // `std::ptrdiff_t` and in `std::size_t`.
     void verify_max_num_components() const;
 
-    static auto determine_palette_size(const image::Image* palette) -> std::size_t;
+    static auto determine_palette_size(const image::Image* palette) noexcept -> std::size_t;
 
     // Whether current color in color slot is solid. Clobbers primary workspace buffer (may
     // clobber contents, and may reallocate memory).
@@ -725,7 +731,7 @@ inline Reader::Reader(const image::Image& image)
     : m_image(image)
     , m_image_size(image.get_size())
     , m_palette(image.get_palette())
-    , m_palette_size(determine_palette_size(m_palette)) // Throws
+    , m_palette_size(determine_palette_size(m_palette))
     , m_transfer_info(image.get_transfer_info()) // Throws
     , m_num_channels(m_transfer_info.get_num_channels())
     , m_num_channels_ext(m_num_channels + int(!m_transfer_info.has_alpha))

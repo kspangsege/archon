@@ -404,8 +404,9 @@ public:
                         const image::ColorSpace& color_space_2, bool has_alpha_2) -> image::float_type;
 
 private:
-    // FIXME: Should be in terms of `std::size_t`                                                                 
-    std::unique_ptr<image::comp_type<image::color_index_repr>[]> m_palette_kdtree;
+    // When preset, each entry is a color index, and the entries are sorted by
+    // util::kdtree_sort().
+    std::unique_ptr<std::size_t[]> m_palette_kdtree;
 
     bool m_blending_enabled = false;
     image::float_type m_opacity = 1;
@@ -436,7 +437,7 @@ private:
     // native color space and with an alpha component included.
     //
     // FIXME: Consider allowing use of custom color space (CIELAB) for color comparison                       
-    auto do_reverse_palette_lookup(const image::float_type* color) -> image::comp_type<image::color_index_repr>;
+    auto do_reverse_palette_lookup(const image::float_type* color) -> std::size_t;
 
     // The number of components in the specified buffer must not be less than `max(n, m)`,
     // where `n` is the number of channels in the origin color
@@ -711,21 +712,20 @@ inline void Writer::ensure_palette_kdtree()
 }
 
 
-inline auto Writer::do_reverse_palette_lookup(const image::float_type* color) ->
-    image::comp_type<image::color_index_repr>
+inline auto Writer::do_reverse_palette_lookup(const image::float_type* color) -> std::size_t
 {
     ARCHON_ASSERT(m_palette_kdtree); // Must have called ensure_palette_kdtree()
     const image::float_type* float_components = get_palette_cache_f();
     int num_channels_ext = m_num_channels_ext;
-    auto get_comp = [&](image::comp_type<image::color_index_repr> index, int i) noexcept {
-        std::size_t j = std::size_t(index * std::size_t(num_channels_ext) + i);
-        return float_components[j];
+    auto get_comp = [&](std::size_t color_index, int comp_index) noexcept {
+        std::size_t i = std::size_t(color_index * num_channels_ext + comp_index);
+        return float_components[i];
     };
     int k = get_num_channels();
     auto begin = m_palette_kdtree.get();
     auto end = begin + get_palette_size();
     std::optional<image::float_type> max_dist = {}; // No max dist
-    image::comp_type<image::color_index_repr> index = 0;
+    std::size_t index = 0;
     image::float_type dist = 0;
     // If no color is found, because the palette is empty, we will use an index of zero,
     // which is alright, because indexes that are out of range are allowed, and will be
