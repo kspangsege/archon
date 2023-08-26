@@ -45,15 +45,17 @@ using namespace archon;
 using image::Reader;
 
 
-auto Reader::determine_palette_size(const image::Image* palette) -> std::size_t
+auto Reader::determine_palette_size(const image::Image* palette) noexcept -> std::size_t
 {
     if (ARCHON_LIKELY(!palette))
         return 0;
 
     image::Size palette_image_size = palette->get_size();
     std::size_t palette_size = 1;
-    core::int_mul(palette_size, palette_image_size.width); // Throws
-    core::int_mul(palette_size, palette_image_size.height); // Throws
+    bool overflow = (!core::try_int_mul(palette_size, std::max(palette_image_size.width, 0)) ||
+                     !core::try_int_mul(palette_size, std::max(palette_image_size.height, 0)));
+    if (ARCHON_UNLIKELY(overflow))
+        palette_size = core::int_max<std::size_t>();
 
     // Clamp palette size to available index range
     image::CompRepr index_repr = image::color_index_repr; // FIXME: Should be made varyable, and be provided through TransferInfo                            
