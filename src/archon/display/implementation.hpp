@@ -27,6 +27,7 @@
 #include <memory>
 #include <string_view>
 
+#include <archon/display/mandates.hpp>
 #include <archon/display/connection.hpp>
 
 
@@ -35,12 +36,12 @@ namespace archon::display {
 
 /// \brief    
 ///
-///    
+/// An implmentation object can be obtained by calling \ref
+/// display::get_default_implementation(), \ref display::get_implementation(), or \ref
+/// display::lookup_implementation().
 ///
 class Implementation {
 public:
-    struct Mandates;
-
     /// \brief    
     ///
     ///    
@@ -51,36 +52,17 @@ public:
     ///
     ///    
     ///
-    virtual bool is_available(const Mandates&) const noexcept = 0;
+    virtual bool is_available(const display::Mandates&) const noexcept = 0;
 
     /// \brief    
     ///
     ///    
     ///
-    virtual auto new_connection(const std::locale&, const Mandates&) const -> std::unique_ptr<display::Connection> = 0;
+    virtual auto new_connection(const std::locale&, const display::Mandates&) const ->
+        std::unique_ptr<display::Connection> = 0;
 
 protected:
     ~Implementation() noexcept = default;
-};
-
-
-/// \brief    
-///
-///    
-///
-struct ExclusiveSDLMandate {};
-
-
-/// \brief    
-///
-///    
-///
-struct Implementation::Mandates {
-    /// \brief    
-    ///
-    ///    
-    ///
-    const display::ExclusiveSDLMandate* exclusive_sdl_mandate = nullptr;
 };
 
 
@@ -98,8 +80,7 @@ struct Implementation::Mandates {
 ///
 /// If there are no available implementations, this function returns null.
 ///
-auto get_default_implementation(const display::Implementation::Mandates& mandates) noexcept ->
-    const display::Implementation*;
+auto get_default_implementation(const display::Mandates& mandates) noexcept -> const display::Implementation*;
 
 
 /// \brief Number of display implementations.

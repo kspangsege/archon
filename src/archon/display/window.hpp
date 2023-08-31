@@ -34,12 +34,14 @@
 namespace archon::display {
 
 
-/// \brief    
+/// \brief Representation of window of platform's graphical user interface.
 ///
-///    
+/// New windows can be created by calling \ref display::Connection::new_window().
 ///
 class Window {
 public:
+    struct Config;
+
     /// \{
     ///
     /// \brief Show or hide window.
@@ -79,14 +81,48 @@ public:
     ///
     virtual void put_texture(const display::Texture&) = 0;
 
-
     /// \brief    
     ///
     ///    
     ///
     virtual void present() = 0;
 
+    /// \brief Bind OpenGL context of this window to the calling thread.
+    ///
+    /// This window is associated with an OpenGL rendering context. This function binds the
+    /// calling thread to that rendering context, such that OpenGL rendering performed by
+    /// the calling thread is directed at this window. On an X11 platform, this corresponds
+    /// to `glXMakeCurrent()`.
+    ///
+    virtual void opengl_make_current() = 0;
+
+    /// \brief Exchange front and back buffers for OpenGL rendering.
+    ///
+    /// This function swaps front and back buffers for OpenGL rendering in this window. On
+    /// an X11 platform, this corresponds to `glXSwapBuffers()`.
+    ///
+    virtual void opengl_swap_buffers() = 0;
+
     virtual ~Window() noexcept = default;
+};
+
+
+/// \brief Window configuration parameters.
+///
+/// These are the available parameters for configuring a window.
+///
+struct Window::Config {
+    /// \brief    
+    ///
+    /// FIXME: Explain cookie (identify origin window when multiple windows use same event handler)      
+    ///
+    int cookie = 0;
+
+    /// \brief Enable OpenGL rendering.
+    ///
+    /// If set to `true`, the window will be configured to support OpenGL rendering.
+    ///
+    bool enable_opengl = false;
 };
 
 

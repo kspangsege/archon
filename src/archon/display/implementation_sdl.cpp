@@ -31,6 +31,7 @@
 
 #include <archon/core/features.h>
 #include <archon/core/assert.hpp>
+#include <archon/core/integer.hpp>
 #include <archon/core/flat_map.hpp>
 #include <archon/core/literal_hash_map.hpp>
 #include <archon/core/format.hpp>
@@ -41,6 +42,7 @@
 #include <archon/display/event.hpp>
 #include <archon/display/keysyms.hpp>
 #include <archon/display/event_handler.hpp>
+#include <archon/display/mandates.hpp>
 #include <archon/display/connection.hpp>
 #include <archon/display/implementation.hpp>
 #include <archon/display/implementation_sdl.hpp>
@@ -92,8 +94,8 @@ public:
     mutable bool have_connection = false;
 
     auto ident() const noexcept -> std::string_view override final;
-    bool is_available(const display::Implementation::Mandates&) const noexcept override final;
-    auto new_connection(const std::locale&, const display::Implementation::Mandates&) const ->
+    bool is_available(const display::Mandates&) const noexcept override final;
+    auto new_connection(const std::locale&, const display::Mandates&) const ->
         std::unique_ptr<display::Connection> override final;
 };
 
@@ -112,10 +114,10 @@ public:
     void unregister_window(Uint32 id) noexcept;
     auto map_timestamp(Uint32 timestamp) -> display::TimedEvent::Timestamp;
 
-    auto new_window(std::string_view, display::Size, display::EventHandler&, int) ->
+    auto new_window(std::string_view, display::Size, display::EventHandler&, display::Window::Config) ->
         std::unique_ptr<display::Window> override final;
-    void wait() override final;
-    void process_events(bool&) override final;
+    void process_events() override final;
+    bool process_events(time_point_type) override final;
     int get_num_screens() const override final;
     auto get_screen_bounds(int) const -> display::Box override final;
     auto get_screen_resolution(int) const -> display::Resolution override final;
@@ -136,6 +138,10 @@ private:
     std::int_fast64_t m_timestamp_major = 0;
 
     int get_display_index(int screen) const noexcept;
+
+    bool process_outstanding_events();
+    void wait_for_events();
+    bool wait_for_events(time_point_type deadline);
 };
 
 
@@ -147,7 +153,7 @@ public:
     WindowImpl(ConnectionImpl&) noexcept;
     ~WindowImpl() noexcept override;
 
-    void create(std::string_view title, display::Size size, display::EventHandler&, int cookie);
+    void create(std::string_view title, display::Size size, display::EventHandler&, Config);
     auto ensure_renderer() -> SDL_Renderer*;
 
     void show() override final;
@@ -156,11 +162,14 @@ public:
     auto new_texture(display::Size) -> std::unique_ptr<display::Texture> override final;
     void put_texture(const display::Texture&) override final;
     void present() override final;
+    void opengl_make_current() override final;
+    void opengl_swap_buffers() override final;
 
 private:
     SDL_Window* m_win = nullptr;
     Uint32 m_id = 0; // If nonzero, this window has been registered in the connection object
     SDL_Renderer* m_renderer = nullptr;
+    SDL_GLContext m_gl_context = nullptr;
 
     auto create_renderer() -> SDL_Renderer*;
 };
@@ -190,14 +199,13 @@ auto ImplementationImpl::ident() const noexcept -> std::string_view
 }
 
 
-bool ImplementationImpl::is_available(const display::Implementation::Mandates& mandates) const noexcept
+bool ImplementationImpl::is_available(const display::Mandates& mandates) const noexcept
 {
     return bool(mandates.exclusive_sdl_mandate);
 }
 
 
-auto ImplementationImpl::new_connection(const std::locale& locale,
-                                        const display::Implementation::Mandates& mandates) const ->
+auto ImplementationImpl::new_connection(const std::locale& locale, const display::Mandates& mandates) const ->
     std::unique_ptr<display::Connection>
 {
     if (ARCHON_LIKELY(is_available(mandates))) {
@@ -274,54 +282,33 @@ auto ConnectionImpl::map_timestamp(Uint32 timestamp) -> display::TimedEvent::Tim
 
 
 auto ConnectionImpl::new_window(std::string_view title, display::Size size, display::EventHandler& event_handler,
-                                int cookie) -> std::unique_ptr<display::Window>
+                                display::Window::Config config) -> std::unique_ptr<display::Window>
 {
     auto win = std::make_unique<WindowImpl>(*this); // Throws
-    win->create(title, size, event_handler, cookie); // Throws
+    win->create(title, size, event_handler, config); // Throws
     return win;
 }
 
 
-void ConnectionImpl::wait()
+void ConnectionImpl::process_events()
 {
-    SDL_Event* event = nullptr;
-    int ret = SDL_WaitEvent(event);
-    if (ARCHON_LIKELY(ret == 1))
-        return;
-    ARCHON_ASSERT(ret == 0);
-    throw_sdl_error(locale, "SDL_WaitEvent() failed"); // Throws
+  again:
+    if (ARCHON_LIKELY(process_outstanding_events())) { // Throws
+        wait_for_events(); // Throws
+        goto again;
+    }
 }
 
 
-void ConnectionImpl::process_events(bool& quit)
+bool ConnectionImpl::process_events(time_point_type deadline)
 {
-    for (;;) {
-        SDL_Event event;
-        int ret = SDL_PollEvent(&event);
-        if (ARCHON_LIKELY(ret == 0))
-            break;
-        ARCHON_ASSERT(ret == 1);
-        switch (event.type) {
-            case SDL_KEYDOWN: {
-                // FIXME: What, if anything, ensures that event.key.windowID refers to the window that is currently registered under than identifier, and not to some earlier window that was also identified by that value?                         
-                // FIXME: Expect same window as before            
-                auto i = m_windows.find(event.key.windowID);
-                ARCHON_ASSERT(i != m_windows.end());
-                const WindowEntry& entry = i->second;
-                display::KeyEvent event_2;
-                event_2.cookie = entry.cookie;
-                event_2.timestamp = map_timestamp(event.key.timestamp);
-                event_2.key_sym = map_key(event.key.keysym.sym);
-                if (ARCHON_LIKELY(entry.event_handler.on_keydown(event_2))) // Throws
-                    break;
-                quit = true;
-                return;
-            }
-            case SDL_QUIT:
-                quit = true;
-                return;
-        }
+  again:
+    if (ARCHON_LIKELY(process_outstanding_events())) { // Throws
+        if (ARCHON_LIKELY(wait_for_events(deadline))) // Throws
+            goto again;
+        return true; // Deadline expired
     }
+    return false; // QUIT event occurred
 }
 
 
@@ -394,6 +381,86 @@ inline int ConnectionImpl::get_display_index(int screen) const noexcept
 }
 
 
+bool ConnectionImpl::process_outstanding_events()
+{
+    for (;;) {
+        SDL_Event event;
+        int ret = SDL_PollEvent(&event);
+        if (ARCHON_LIKELY(ret == 0))
+            break;
+        ARCHON_ASSERT(ret == 1);
+        switch (event.type) {
+            case SDL_KEYDOWN: {
+                // FIXME: What, if anything, ensures that event.key.windowID refers to the window that is currently registered under than identifier, and not to some earlier window that was also identified by that value?                         
+                // FIXME: Expect same window as before            
+                auto i = m_windows.find(event.key.windowID);
+                ARCHON_ASSERT(i != m_windows.end());
+                const WindowEntry& entry = i->second;
+                display::KeyEvent event_2;
+                event_2.cookie = entry.cookie;
+                event_2.timestamp = map_timestamp(event.key.timestamp);
+                event_2.key_sym = map_key(event.key.keysym.sym);
+                if (ARCHON_LIKELY(entry.event_handler.on_keydown(event_2))) // Throws
+                    break;
+                return false; // Quit
+            }
+            case SDL_QUIT:
+                return false; // Quit
+        }
+    }
+    return true; // Events are ready to be processed
+}
+
+
+void ConnectionImpl::wait_for_events()
+{
+    SDL_Event* event = nullptr;
+    int ret = SDL_WaitEvent(event);
+    if (ARCHON_LIKELY(ret == 1))
+        return;
+    ARCHON_ASSERT(ret == 0);
+    throw_sdl_error(locale, "SDL_WaitEvent() failed"); // Throws
+}
+
+
+bool ConnectionImpl::wait_for_events(time_point_type deadline)
+{
+    time_point_type now;
+  again:
+    now = clock_type::now();
+    if (ARCHON_LIKELY(deadline > now)) {
+        int timeout = core::int_max<int>();
+        bool complete = false;
+        auto duration = std::chrono::ceil<std::chrono::milliseconds>(deadline - now).count();
+        if (ARCHON_LIKELY(core::int_less_equal(duration, timeout))) {
+            timeout = int(duration);
+            complete = true;
+        }
+        // FIXME: When SDL_WaitEventTimeout() returns zero, we need to determine whether it
+        // was because an error occurred or the timeout was reached, but how? The
+        // documentation for SDL_GetError() strongly discourages using that function as a
+        // way of checking whether an error has occurred (for good reason). Using the
+        // discouraged method for now. See
+        // https://discourse.libsdl.org/t/proposal-for-sdl-3-return-value-improvement-for-sdl-waiteventtimeout/45743
+        SDL_ClearError();
+        SDL_Event* event = nullptr;
+        int ret = SDL_WaitEventTimeout(event, timeout);
+        if (ARCHON_LIKELY(ret == 1))
+            return true;
+        ARCHON_ASSERT(ret == 0);
+        bool error_occurred = (SDL_GetError()[0] != '\0');
+        if (ARCHON_LIKELY(!error_occurred)) {
+            if (ARCHON_LIKELY(complete))
+                goto expired;
+            goto again;
+        }
+        throw_sdl_error(locale, "SDL_WaitEventTimeout() failed"); // Throws
+    }
+  expired:
+    return false;
+}
+
+
 inline WindowImpl::WindowImpl(ConnectionImpl& conn_2) noexcept
     : conn(conn_2)
 {
@@ -407,12 +474,15 @@ WindowImpl::~WindowImpl() noexcept
             conn.unregister_window(m_id);
         if (m_renderer)
             SDL_DestroyRenderer(m_renderer);
+        if (m_gl_context)
+            SDL_GL_DeleteContext(m_gl_context);
         SDL_DestroyWindow(m_win);
     }
 }
 
 
-void WindowImpl::create(std::string_view title, display::Size size, display::EventHandler& event_handler, int cookie)
+void WindowImpl::create(std::string_view title, display::Size size, display::EventHandler& event_handler,
+                        Config config)
 {
     std::string title_2 = std::string(title); // Throws
     int x = SDL_WINDOWPOS_UNDEFINED;
@@ -420,12 +490,14 @@ void WindowImpl::create(std::string_view title, display::Size size, display::Eve
     int w = size.width;
     int h = size.height;
     Uint32 flags = SDL_WINDOW_HIDDEN;
+    if (config.enable_opengl)
+        flags |= SDL_WINDOW_OPENGL;
     SDL_Window* win = SDL_CreateWindow(title_2.c_str(), x, y, w, h, flags);
     if (ARCHON_LIKELY(win)) {
         m_win = win;
         Uint32 id = SDL_GetWindowID(m_win);
         if (ARCHON_LIKELY(id > 0)) {
-            conn.register_window(id, event_handler, cookie); // Throws
+            conn.register_window(id, event_handler, config.cookie); // Throws
             m_id = id;
             return;
         }
@@ -491,6 +563,29 @@ void WindowImpl::present()
 {
     SDL_Renderer* renderer = ensure_renderer(); // Throws
     SDL_RenderPresent(renderer);
+}
+
+
+void WindowImpl::opengl_make_current()
+{
+    if (ARCHON_LIKELY(m_gl_context)) {
+        int ret = SDL_GL_MakeCurrent(m_win, m_gl_context);
+        if (ARCHON_LIKELY(ret == 0))
+            return;
+        throw_sdl_error(conn.locale, "SDL_GL_MakeCurrent() failed"); // Throws
+    }
+    SDL_GLContext ret = SDL_GL_CreateContext(m_win);
+    if (ARCHON_LIKELY(ret)) {
+        m_gl_context = ret;
+        return;
+    }
+    throw_sdl_error(conn.locale, "SDL_GL_CreateContext() failed"); // Throws
+}
+
+
+void WindowImpl::opengl_swap_buffers()
+{
+    SDL_GL_SwapWindow(m_win);
 }
 
 
@@ -620,8 +715,8 @@ class ImplementationImpl
     : public display::Implementation {
 public:
     auto ident() const noexcept -> std::string_view override final;
-    bool is_available(const display::Implementation::Mandates&) const noexcept override final;
-    auto new_connection(const std::locale&, const display::Implementation::Mandates&) const ->
+    bool is_available(const display::Mandates&) const noexcept override final;
+    auto new_connection(const std::locale&, const display::Mandates&) const ->
         std::unique_ptr<display::Connection> override final;
 };
 
@@ -632,14 +727,13 @@ auto ImplementationImpl::ident() const noexcept -> std::string_view
 }
 
 
-bool ImplementationImpl::is_available(const display::Implementation::Mandates&) const noexcept
+bool ImplementationImpl::is_available(const display::Mandates&) const noexcept
 {
     return false;
 }
 
 
-auto ImplementationImpl::new_connection(const std::locale&,
-                                        const display::Implementation::Mandates&) const ->
+auto ImplementationImpl::new_connection(const std::locale&, const display::Mandates&) const ->
     std::unique_ptr<display::Connection>
 {
     return nullptr;

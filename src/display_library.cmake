@@ -15,6 +15,7 @@ add_subdirectory(archon/display/probe)
 
 add_library(Display
   archon/display/event_handler.cpp
+  archon/display/connection.cpp
   archon/display/implementation.cpp
   archon/display/implementation_sdl.cpp
 )
@@ -46,6 +47,7 @@ target_sources(Display PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" 
   archon/display/event.hpp
   archon/display/keysyms.hpp
   archon/display/event_handler.hpp
+  archon/display/mandates.hpp
   archon/display/connection.hpp
   archon/display/implementation.hpp
   archon/display/implementation_sdl.hpp

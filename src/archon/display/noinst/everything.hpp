@@ -33,6 +33,7 @@
 #include <archon/display/event.hpp>
 #include <archon/display/keysyms.hpp>
 #include <archon/display/event_handler.hpp>
+#include <archon/display/mandates.hpp>
 #include <archon/display/connection.hpp>
 #include <archon/display/implementation.hpp>
 #include <archon/display/implementation_sdl.hpp>

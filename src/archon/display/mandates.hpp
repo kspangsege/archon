@@ -18,21 +18,35 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-#ifndef ARCHON_X_DISPLAY_HPP
-#define ARCHON_X_DISPLAY_HPP
+#ifndef ARCHON_X_DISPLAY_X_MANDATES_HPP
+#define ARCHON_X_DISPLAY_X_MANDATES_HPP
 
 /// \file
 
 
-#include <archon/display/types.hpp>
-#include <archon/display/texture.hpp>
-#include <archon/display/window.hpp>
-#include <archon/display/event.hpp>
-#include <archon/display/keysyms.hpp>
-#include <archon/display/event_handler.hpp>
-#include <archon/display/mandates.hpp>
-#include <archon/display/connection.hpp>
-#include <archon/display/implementation.hpp>
+namespace archon::display {
 
 
-#endif // ARCHON_X_DISPLAY_HPP
+/// \brief    
+///
+///    
+///
+struct ExclusiveSDLMandate {};
+
+
+/// \brief    
+///
+///    
+///
+struct Mandates {
+    /// \brief    
+    ///
+    ///    
+    ///
+    const display::ExclusiveSDLMandate* exclusive_sdl_mandate = nullptr;
+};
+
+
+} // namespace archon::display
+
+#endif // ARCHON_X_DISPLAY_X_MANDATES_HPP

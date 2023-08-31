@@ -101,7 +101,7 @@ jobs:
     steps:
     - name: Install dependencies
       run: |
-        vcpkg install libpng:x64-windows freetype:x64-windows sdl2:x64-windows
+        vcpkg install --triplet x64-windows libpng freetype sdl2
 
     - name: Checkout
       uses: actions/checkout@v3

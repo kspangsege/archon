@@ -43,22 +43,17 @@ using namespace archon;
 namespace {
 
 
-class Context
+class EventLoop
     : public display::EventHandler {
 public:
-    Context(display::Connection& conn) noexcept
+    EventLoop(display::Connection& conn) noexcept
         : m_conn(conn)
     {
     }
 
     void process_events()
     {
-        bool quit = false;
-        do {
-            m_conn.wait(); // Throws
-            m_conn.process_events(quit); // Throws
-        }
-        while (!quit);
+        m_conn.process_events(); // Throws
     }
 
     bool on_keydown(const display::KeyEvent& ev) override final
@@ -131,10 +126,10 @@ int main(int argc, char* argv[])
 
     // Promise that this application does not use the SDL library (Simple DirectMedia Layer)                                                                 
     // in any way other than through the Archon Display Library, neither directly nor
-    // indirectly. This makes the SDL-based display implementation available.
+    // indirectly. This promise makes the SDL-based display implementation available.
     display::ExclusiveSDLMandate exclusive_sdl_mandate;
 
-    display::Implementation::Mandates mandates;
+    display::Mandates mandates;
     mandates.exclusive_sdl_mandate = &exclusive_sdl_mandate;
 
     const display::Implementation* impl;
@@ -176,9 +171,9 @@ int main(int argc, char* argv[])
         }
     }
 
-    Context context(*conn);
+    EventLoop event_loop(*conn);
     image::Size size = img->get_size();
-    std::unique_ptr<display::Window> win = conn->new_window("Archon Image Viewer", size, context); // Throws
+    std::unique_ptr<display::Window> win = conn->new_window("Archon Image Viewer", size, event_loop); // Throws
 
     std::unique_ptr<display::Texture> tex = win->new_texture(size); // Throws
     tex->put_image(*img); // Throws
@@ -186,5 +181,5 @@ int main(int argc, char* argv[])
     win->put_texture(*tex); // Throws
     win->present(); // Throws
 
-    context.process_events(); // Throws
+    event_loop.process_events(); // Throws
 }

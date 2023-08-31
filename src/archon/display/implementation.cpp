@@ -24,6 +24,7 @@
 #include <stdexcept>
 
 #include <archon/core/features.h>
+#include <archon/display/mandates.hpp>
 #include <archon/display/implementation.hpp>
 #include <archon/display/implementation_sdl.hpp>
 
@@ -48,8 +49,7 @@ constexpr int g_num_implementations = int(std::size(g_implementations));
 } // unnamed namespace
 
 
-auto display::get_default_implementation(const display::Implementation::Mandates& mandates) noexcept ->
-    const display::Implementation*
+auto display::get_default_implementation(const display::Mandates& mandates) noexcept -> const display::Implementation*
 {
     int n = g_num_implementations;
     for (int i = 0; i < n; ++i) {
