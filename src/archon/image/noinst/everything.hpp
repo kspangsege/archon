@@ -28,9 +28,7 @@
 // Foundation
 #include <archon/image/image_namespace.hpp>
 #include <archon/image/impl/config.h>
-#include <archon/image/size.hpp>
-#include <archon/image/pos.hpp>
-#include <archon/image/box.hpp>
+#include <archon/image/geom.hpp>
 #include <archon/image/iter.hpp>
 #include <archon/image/tray.hpp>
 #include <archon/image/impl/bit_medium.hpp>

@@ -35,9 +35,7 @@
 #include <archon/core/buffer.hpp>
 #include <archon/core/enum.hpp>
 #include <archon/util/color.hpp>
-#include <archon/image/size.hpp>
-#include <archon/image/pos.hpp>
-#include <archon/image/box.hpp>
+#include <archon/image/geom.hpp>
 #include <archon/image/iter.hpp>
 #include <archon/image/tray.hpp>
 #include <archon/image/bit_medium.hpp>

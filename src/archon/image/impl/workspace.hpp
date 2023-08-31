@@ -32,7 +32,7 @@
 #include <archon/core/span.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/buffer.hpp>
-#include <archon/image/size.hpp>
+#include <archon/image/geom.hpp>
 #include <archon/image/iter.hpp>
 #include <archon/image/tray.hpp>
 

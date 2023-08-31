@@ -24,8 +24,7 @@
 /// \file
 
 
-#include <archon/image/size.hpp>
-#include <archon/image/pos.hpp>
+#include <archon/image/geom.hpp>
 #include <archon/image/tray.hpp>
 #include <archon/image/comp_types.hpp>
 #include <archon/image/comp_repr.hpp>

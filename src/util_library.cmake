@@ -16,6 +16,9 @@ target_sources(Util PUBLIC FILE_SET HEADERS FILES
   archon/util/colors.hpp
   archon/util/css_color.hpp
   archon/util/as_css_color.hpp
+  archon/util/pixel_size.hpp
+  archon/util/pixel_pos.hpp
+  archon/util/pixel_box.hpp
   archon/util/perlin_noise.hpp
   archon/util/rectangle_packer.hpp
 )

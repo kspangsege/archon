@@ -32,8 +32,7 @@
 #include <archon/core/random.hpp>
 #include <archon/core/endianness.hpp>
 #include <archon/check.hpp>
-#include <archon/image/size.hpp>
-#include <archon/image/box.hpp>
+#include <archon/image/geom.hpp>
 #include <archon/image/iter.hpp>
 #include <archon/image/tray.hpp>
 #include <archon/image/comp_types.hpp>

@@ -24,7 +24,7 @@
 /// \file
 
 
-#include <archon/image/size.hpp>
+#include <archon/image/geom.hpp>
 #include <archon/image/image.hpp>
 
 

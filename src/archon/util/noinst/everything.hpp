@@ -33,5 +33,8 @@
 #include <archon/util/colors.hpp>
 #include <archon/util/css_color.hpp>
 #include <archon/util/as_css_color.hpp>
+#include <archon/util/pixel_size.hpp>
+#include <archon/util/pixel_pos.hpp>
+#include <archon/util/pixel_box.hpp>
 #include <archon/util/perlin_noise.hpp>
 #include <archon/util/rectangle_packer.hpp>

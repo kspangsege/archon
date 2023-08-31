@@ -28,9 +28,7 @@
 
 #include <archon/core/format.hpp>
 #include <archon/core/with_modified_locale.hpp>
-#include <archon/image/size.hpp>
-#include <archon/image/pos.hpp>
-#include <archon/image/box.hpp>
+#include <archon/image/geom.hpp>
 
 
 namespace archon::display {

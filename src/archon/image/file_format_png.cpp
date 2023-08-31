@@ -45,8 +45,7 @@
 #include <archon/core/sink.hpp>
 #include <archon/log/logger.hpp>
 #include <archon/image/impl/config.h>
-#include <archon/image/size.hpp>
-#include <archon/image/pos.hpp>
+#include <archon/image/geom.hpp>
 #include <archon/image/bit_field.hpp>
 #include <archon/image/buffer_format.hpp>
 #include <archon/image/image.hpp>    

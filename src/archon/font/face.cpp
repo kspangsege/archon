@@ -23,8 +23,7 @@
 #include <algorithm>
 
 #include <archon/core/integer.hpp>
-#include <archon/image/pos.hpp>
-#include <archon/image/box.hpp>
+#include <archon/image/geom.hpp>
 #include <archon/image/writer.hpp>
 #include <archon/font/face.hpp>
 

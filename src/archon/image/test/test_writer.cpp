@@ -29,7 +29,7 @@
 #include <archon/util/color.hpp>
 #include <archon/util/colors.hpp>
 #include <archon/util/as_css_color.hpp>
-#include <archon/image/size.hpp>
+#include <archon/image/geom.hpp>
 #include <archon/image/comp_types.hpp>
 #include <archon/image/gamma.hpp>
 #include <archon/image/pixel.hpp>

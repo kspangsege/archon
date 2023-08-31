@@ -28,8 +28,7 @@
 #include <utility>
 
 #include <archon/core/type.hpp>
-#include <archon/image/size.hpp>
-#include <archon/image/pos.hpp>
+#include <archon/image/geom.hpp>
 #include <archon/image/tray.hpp>
 #include <archon/image/comp_repr.hpp>
 #include <archon/image/color_space.hpp>

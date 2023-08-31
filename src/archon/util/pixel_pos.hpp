@@ -18,8 +18,8 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-#ifndef ARCHON_X_IMAGE_X_POS_HPP
-#define ARCHON_X_IMAGE_X_POS_HPP
+#ifndef ARCHON_X_UTIL_X_PIXEL_POS_HPP
+#define ARCHON_X_UTIL_X_PIXEL_POS_HPP
 
 /// \file
 
@@ -33,10 +33,10 @@
 #include <archon/core/value_parser.hpp>
 #include <archon/core/as_int.hpp>
 #include <archon/core/as_list.hpp>
-#include <archon/image/size.hpp>
+#include <archon/util/pixel_size.hpp>
 
 
-namespace archon::image {
+namespace archon::util::pixel {
 
 
 /// \brief Pixel position on X and Y axes.
@@ -107,9 +107,9 @@ struct Pos {
     ///
     /// This function computes the difference between this position and the specified
     /// position (\p other). The difference is returned in the form of a size (\ref
-    /// image::Size).
+    /// pixel::Size).
     ///
-    constexpr auto operator-(Pos other) const noexcept -> image::Size;
+    constexpr auto operator-(Pos other) const noexcept -> pixel::Size;
 
     /// \{
     ///
@@ -118,8 +118,8 @@ struct Pos {
     /// These functions return the results of adding a size (\p size) to, and subtracting a
     /// size from this position.
     ///
-    constexpr auto operator+(image::Size size) const noexcept -> Pos;
-    constexpr auto operator-(image::Size size) const noexcept -> Pos;
+    constexpr auto operator+(pixel::Size size) const noexcept -> Pos;
+    constexpr auto operator-(pixel::Size size) const noexcept -> Pos;
     /// \}
 
     /// \{
@@ -129,8 +129,8 @@ struct Pos {
     /// These functions respectively add the specified size (\p size) to, and subtract the
     /// specified size from this position.
     ///
-    constexpr auto operator+=(image::Size size) noexcept -> Pos&;
-    constexpr auto operator-=(image::Size size) noexcept -> Pos&;
+    constexpr auto operator+=(pixel::Size size) noexcept -> Pos&;
+    constexpr auto operator-=(pixel::Size size) noexcept -> Pos&;
     /// \}
 
     /// \{
@@ -160,20 +160,20 @@ struct Pos {
 /// \brief Write textual representation of position to output stream.
 ///
 /// This stream output operator writes a textual representation of the specified position
-/// (\p pos) to the specified output stream (\p out). See \ref image::Pos for information on
+/// (\p pos) to the specified output stream (\p out). See \ref pixel::Pos for information on
 /// the format of the textual representation.
 ///
-template<class C, class T> auto operator<<(std::basic_ostream<C, T>& out, image::Pos pos) -> std::basic_ostream<C, T>&;
+template<class C, class T> auto operator<<(std::basic_ostream<C, T>& out, pixel::Pos pos) -> std::basic_ostream<C, T>&;
 
 
 /// \brief Read textual representation of position from source.
 ///
 /// This function reads a textual representation of a position (\p pos) from the specified
-/// value parser source (\p src). See \ref image::Pos for information on the format of the
+/// value parser source (\p src). See \ref pixel::Pos for information on the format of the
 /// textual representation. This function is intended to be invoked by a value parser, see
 /// \ref core::BasicValueParser for more information.
 ///
-template<class C, class T> bool parse_value(core::BasicValueParserSource<C, T>& src, image::Pos& pos);
+template<class C, class T> bool parse_value(core::BasicValueParserSource<C, T>& src, pixel::Pos& pos);
 
 
 /// \brief Combine X coordinate from one position with Y coordinate from other position.
@@ -181,7 +181,7 @@ template<class C, class T> bool parse_value(core::BasicValueParserSource<C, T>& 
 /// This function constructs a new position with the X coordinate taken from the first
 /// argument (\p x) and the Y coordinate taken from the second argument (\p y).
 ///
-auto splice(image::Pos x, image::Pos y) noexcept -> image::Pos;
+auto splice(pixel::Pos x, pixel::Pos y) noexcept -> pixel::Pos;
 
 
 
@@ -248,31 +248,31 @@ constexpr bool Pos::operator>=(Pos other) const noexcept
 }
 
 
-constexpr auto Pos::operator-(Pos other) const noexcept -> image::Size
+constexpr auto Pos::operator-(Pos other) const noexcept -> pixel::Size
 {
     return { x - other.x, y - other.y };
 }
 
 
-constexpr auto Pos::operator+(image::Size size) const noexcept -> Pos
+constexpr auto Pos::operator+(pixel::Size size) const noexcept -> Pos
 {
     return { x + size.width, y + size.height };
 }
 
 
-constexpr auto Pos::operator-(image::Size size) const noexcept -> Pos
+constexpr auto Pos::operator-(pixel::Size size) const noexcept -> Pos
 {
     return { x - size.width, y - size.height };
 }
 
 
-constexpr auto Pos::operator+=(image::Size size) noexcept -> Pos&
+constexpr auto Pos::operator+=(pixel::Size size) noexcept -> Pos&
 {
     return *this = *this + size;
 }
 
 
-constexpr auto Pos::operator-=(image::Size size) noexcept -> Pos&
+constexpr auto Pos::operator-=(pixel::Size size) noexcept -> Pos&
 {
     return *this = *this - size;
 }
@@ -303,7 +303,7 @@ constexpr auto Pos::with_y(int y_2) const noexcept -> Pos
 
 
 template<class C, class T>
-inline auto operator<<(std::basic_ostream<C, T>& out, image::Pos pos) -> std::basic_ostream<C, T>&
+inline auto operator<<(std::basic_ostream<C, T>& out, pixel::Pos pos) -> std::basic_ostream<C, T>&
 {
     std::array<int, 2> components = { pos.x, pos.y };
     auto func = [](const int& val) {
@@ -315,7 +315,7 @@ inline auto operator<<(std::basic_ostream<C, T>& out, image::Pos pos) -> std::ba
 }
 
 
-template<class C, class T> inline bool parse_value(core::BasicValueParserSource<C, T>& src, image::Pos& pos)
+template<class C, class T> inline bool parse_value(core::BasicValueParserSource<C, T>& src, pixel::Pos& pos)
 {
     std::array<int, 2> components = {};
     auto func = [](int& val) {
@@ -332,12 +332,12 @@ template<class C, class T> inline bool parse_value(core::BasicValueParserSource<
 }
 
 
-inline auto splice(image::Pos x, image::Pos y) noexcept -> image::Pos
+inline auto splice(pixel::Pos x, pixel::Pos y) noexcept -> pixel::Pos
 {
     return { x.x, y.y };
 }
 
 
-} // namespace archon::image
+} // namespace archon::util::pixel
 
-#endif // ARCHON_X_IMAGE_X_POS_HPP
+#endif // ARCHON_X_UTIL_X_PIXEL_POS_HPP

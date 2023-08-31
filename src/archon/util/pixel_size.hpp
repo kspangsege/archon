@@ -18,8 +18,8 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-#ifndef ARCHON_X_IMAGE_X_SIZE_HPP
-#define ARCHON_X_IMAGE_X_SIZE_HPP
+#ifndef ARCHON_X_UTIL_X_PIXEL_SIZE_HPP
+#define ARCHON_X_UTIL_X_PIXEL_SIZE_HPP
 
 /// \file
 
@@ -36,7 +36,7 @@
 #include <archon/core/as_list.hpp>
 
 
-namespace archon::image {
+namespace archon::util::pixel {
 
 
 /// \brief Size in pixels along X and Y axes.
@@ -57,7 +57,7 @@ namespace archon::image {
 /// as `16,17`.
 ///
 /// When a size is parsed, if there is only one value, that value is used for both
-/// components. If there are two value, they must be separated by a comma `,`. Space is
+/// components. If there are two values, they must be separated by a comma `,`. Space is
 /// allowed between the comma and the second component.
 ///
 struct Size {
@@ -169,7 +169,7 @@ struct Size {
 /// This function returns the specified size (\p size) scaled by the specified integer
 /// factor (\p f).
 ///
-constexpr auto operator*(int factor, image::Size size) noexcept -> image::Size;
+constexpr auto operator*(int factor, pixel::Size size) noexcept -> pixel::Size;
 
 
 /// \{
@@ -179,29 +179,29 @@ constexpr auto operator*(int factor, image::Size size) noexcept -> image::Size;
 /// These function compute the component-wise minimum and maximum of the two specified sizes
 /// (\p a and \p b).
 ///
-constexpr auto min(image::Size a, image::Size b) noexcept -> image::Size;
-constexpr auto max(image::Size a, image::Size b) noexcept -> image::Size;
+constexpr auto min(pixel::Size a, pixel::Size b) noexcept -> pixel::Size;
+constexpr auto max(pixel::Size a, pixel::Size b) noexcept -> pixel::Size;
 /// \}
 
 
 /// \brief Write textual representation of size to output stream.
 ///
 /// This stream output operator writes a textual representation of the specified size (\p
-/// size) to the specified output stream (\p out). See \ref image::Size for information on
+/// size) to the specified output stream (\p out). See \ref pixel::Size for information on
 /// the format of the textual representation.
 ///
-template<class C, class T> auto operator<<(std::basic_ostream<C, T>& out, image::Size size) ->
+template<class C, class T> auto operator<<(std::basic_ostream<C, T>& out, pixel::Size size) ->
     std::basic_ostream<C, T>&;
 
 
 /// \brief Read textual representation of size from source.
 ///
 /// This function reads a textual representation of a size (\p size) from the specified
-/// value parser source (\p src). See \ref image::Size for information on the format of the
+/// value parser source (\p src). See \ref pixel::Size for information on the format of the
 /// textual representation. This function is intended to be invoked by a value parser, see
 /// \ref core::BasicValueParser for more information.
 ///
-template<class C, class T> bool parse_value(core::BasicValueParserSource<C, T>& src, image::Size& size);
+template<class C, class T> bool parse_value(core::BasicValueParserSource<C, T>& src, pixel::Size& size);
 
 
 /// \brief Combine width from one size with height from other size.
@@ -209,7 +209,7 @@ template<class C, class T> bool parse_value(core::BasicValueParserSource<C, T>& 
 /// This function constructs a new size with the width component taken from the first
 /// argument (\p x) and the height component taken from the second argument (\p y).
 ///
-auto splice(image::Size x, image::Size y) noexcept -> image::Size;
+auto splice(pixel::Size x, pixel::Size y) noexcept -> pixel::Size;
 
 
 
@@ -343,7 +343,7 @@ constexpr auto Size::with_height(int height_2) const noexcept -> Size
 }
 
 
-constexpr auto operator*(int factor, image::Size size) noexcept -> image::Size
+constexpr auto operator*(int factor, pixel::Size size) noexcept -> pixel::Size
 {
     return {
         factor * size.width,
@@ -352,7 +352,7 @@ constexpr auto operator*(int factor, image::Size size) noexcept -> image::Size
 }
 
 
-constexpr auto min(image::Size a, image::Size b) noexcept -> image::Size
+constexpr auto min(pixel::Size a, pixel::Size b) noexcept -> pixel::Size
 {
     return {
         std::min(a.width, b.width),
@@ -361,7 +361,7 @@ constexpr auto min(image::Size a, image::Size b) noexcept -> image::Size
 }
 
 
-constexpr auto max(image::Size a, image::Size b) noexcept -> image::Size
+constexpr auto max(pixel::Size a, pixel::Size b) noexcept -> pixel::Size
 {
     return {
         std::max(a.width, b.width),
@@ -371,7 +371,7 @@ constexpr auto max(image::Size a, image::Size b) noexcept -> image::Size
 
 
 template<class C, class T>
-inline auto operator<<(std::basic_ostream<C, T>& out, image::Size size) -> std::basic_ostream<C, T>&
+inline auto operator<<(std::basic_ostream<C, T>& out, pixel::Size size) -> std::basic_ostream<C, T>&
 {
     std::array<int, 2> components = { size.width, size.height };
     std::size_t min_elems = 1;
@@ -386,7 +386,7 @@ inline auto operator<<(std::basic_ostream<C, T>& out, image::Size size) -> std::
 }
 
 
-template<class C, class T> inline bool parse_value(core::BasicValueParserSource<C, T>& src, image::Size& size)
+template<class C, class T> inline bool parse_value(core::BasicValueParserSource<C, T>& src, pixel::Size& size)
 {
     std::array<int, 2> components = {};
     std::size_t min_elems = 1;
@@ -406,12 +406,12 @@ template<class C, class T> inline bool parse_value(core::BasicValueParserSource<
 }
 
 
-inline auto splice(image::Size x, image::Size y) noexcept -> image::Size
+inline auto splice(pixel::Size x, pixel::Size y) noexcept -> pixel::Size
 {
     return { x.width, y.height };
 }
 
 
-} // namespace archon::image
+} // namespace archon::util::pixel
 
-#endif // ARCHON_X_IMAGE_X_SIZE_HPP
+#endif // ARCHON_X_UTIL_X_PIXEL_SIZE_HPP

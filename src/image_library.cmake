@@ -30,9 +30,7 @@ configure_file(archon/image/impl/config.h.in archon/image/impl/config.h)
 
 target_sources(Image PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "${ARCHON_SOURCE_ROOT}" FILES
   "${CMAKE_CURRENT_BINARY_DIR}/archon/image/impl/config.h"
-  archon/image/size.hpp
-  archon/image/pos.hpp
-  archon/image/box.hpp
+  archon/image/geom.hpp
   archon/image/iter.hpp
   archon/image/tray.hpp
   archon/image/impl/bit_medium.hpp

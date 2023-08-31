@@ -32,9 +32,7 @@
 #include <archon/core/features.h>
 #include <archon/core/span.hpp>
 #include <archon/core/endianness.hpp>
-#include <archon/image/size.hpp>
-#include <archon/image/pos.hpp>
-#include <archon/image/box.hpp>
+#include <archon/image/geom.hpp>
 #include <archon/image/tray.hpp>
 #include <archon/image/comp_types.hpp>
 #include <archon/image/comp_repr.hpp>

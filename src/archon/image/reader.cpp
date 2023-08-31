@@ -29,8 +29,7 @@
 #include <archon/core/integer.hpp>
 #include <archon/util/color.hpp>
 #include <archon/util/colors.hpp>
-#include <archon/image/size.hpp>
-#include <archon/image/pos.hpp>
+#include <archon/image/geom.hpp>
 #include <archon/image/iter.hpp>
 #include <archon/image/tray.hpp>
 #include <archon/image/comp_types.hpp>

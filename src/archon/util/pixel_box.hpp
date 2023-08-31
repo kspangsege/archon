@@ -18,8 +18,8 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-#ifndef ARCHON_X_IMAGE_X_BOX_HPP
-#define ARCHON_X_IMAGE_X_BOX_HPP
+#ifndef ARCHON_X_UTIL_X_PIXEL_BOX_HPP
+#define ARCHON_X_UTIL_X_PIXEL_BOX_HPP
 
 /// \file
 
@@ -29,11 +29,11 @@
 
 #include <archon/core/features.h>
 #include <archon/core/format.hpp>
-#include <archon/image/size.hpp>
-#include <archon/image/pos.hpp>
+#include <archon/util/pixel_size.hpp>
+#include <archon/util/pixel_pos.hpp>
 
 
-namespace archon::image {
+namespace archon::util::pixel {
 
 
 /// \brief Rectangular area within pixel grid.
@@ -52,13 +52,13 @@ struct Box {
     /// This is the position of the upper-right corner of the rectangular area that is this
     /// box.
     ///
-    image::Pos pos;
+    pixel::Pos pos;
 
     /// \brief Size of box.
     ///
     /// This is the size of the rectangular area that is this box.
     ///
-    image::Size size;
+    pixel::Size size;
 
     /// \{
     ///
@@ -69,8 +69,8 @@ struct Box {
     ///
     /// `Box(size)` is a shorthand for `Box({}, size)`, which sets the position to 0,0.
     ///
-    constexpr Box(image::Size size = 0) noexcept;
-    constexpr Box(image::Pos pos, image::Size size) noexcept;
+    constexpr Box(pixel::Size size = 0) noexcept;
+    constexpr Box(pixel::Pos pos, pixel::Size size) noexcept;
     /// \}
 
     /// \brief Whether box is empty.
@@ -122,10 +122,10 @@ struct Box {
 /// \brief Write textual representation of box to output stream.
 ///
 /// This stream output operator writes a textual representation of the specified box (\p
-/// box) to the specified output stream (\p out). See \ref image::Box for information on the
+/// box) to the specified output stream (\p out). See \ref pixel::Box for information on the
 /// format of the textual representation.
 ///
-template<class C, class T> auto operator<<(std::basic_ostream<C, T>& out, const image::Box& box) ->
+template<class C, class T> auto operator<<(std::basic_ostream<C, T>& out, const pixel::Box& box) ->
     std::basic_ostream<C, T>&;
 
 
@@ -135,7 +135,7 @@ template<class C, class T> auto operator<<(std::basic_ostream<C, T>& out, const 
 /// from the first argument (\p x) and with the Y coordinate of the position and the height
 /// taken from the second argument (\p y).
 ///
-auto splice(const image::Box& x, const image::Box& y) noexcept -> image::Box;
+auto splice(const pixel::Box& x, const pixel::Box& y) noexcept -> pixel::Box;
 
 
 
@@ -147,13 +147,13 @@ auto splice(const image::Box& x, const image::Box& y) noexcept -> image::Box;
 // Implementation
 
 
-constexpr Box::Box(image::Size size) noexcept
+constexpr Box::Box(pixel::Size size) noexcept
     : Box({}, size)
 {
 }
 
 
-constexpr Box::Box(image::Pos pos_2, image::Size size_2) noexcept
+constexpr Box::Box(pixel::Pos pos_2, pixel::Size size_2) noexcept
     : pos(pos_2)
     , size(size_2)
 {
@@ -178,8 +178,8 @@ constexpr bool Box::contained_in(const Box& other) const noexcept
 
 constexpr bool Box::clip(Box& other) const noexcept
 {
-    image::Pos pos_2   = other.pos;
-    image::Size size_2 = other.size;
+    pixel::Pos pos_2   = other.pos;
+    pixel::Size size_2 = other.size;
 
     if (ARCHON_LIKELY(pos_2.x >= pos.x)) {
         int discr = size.width - (pos_2.x - pos.x);
@@ -251,19 +251,19 @@ constexpr bool Box::operator>=(const Box& other) const noexcept
 
 
 template<class C, class T>
-inline auto operator<<(std::basic_ostream<C, T>& out, const image::Box& box) -> std::basic_ostream<C, T>&
+inline auto operator<<(std::basic_ostream<C, T>& out, const pixel::Box& box) -> std::basic_ostream<C, T>&
 {
     core::format(out, "%s;%s", box.pos, box.size); // Throws
     return out;
 }
 
 
-inline auto splice(const image::Box& x, const image::Box& y) noexcept -> image::Box
+inline auto splice(const pixel::Box& x, const pixel::Box& y) noexcept -> pixel::Box
 {
     return { splice(x.pos, y.pos), splice(x.size, y.size) };
 }
 
 
-} // namespace archon::image
+} // namespace archon::util::pixel
 
-#endif // ARCHON_X_IMAGE_X_BOX_HPP
+#endif // ARCHON_X_UTIL_X_PIXEL_BOX_HPP

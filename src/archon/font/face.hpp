@@ -28,8 +28,7 @@
 
 #include <archon/core/buffer.hpp>
 #include <archon/math/vec.hpp>
-#include <archon/image/size.hpp>
-#include <archon/image/pos.hpp>
+#include <archon/image/geom.hpp>
 #include <archon/image/iter.hpp>
 #include <archon/image/writer.hpp>
 #include <archon/font/size.hpp>

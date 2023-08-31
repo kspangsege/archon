@@ -29,9 +29,7 @@
 #include <archon/core/math.hpp>
 #include <archon/core/buffer.hpp>
 #include <archon/util/kdtree.hpp>
-#include <archon/image/size.hpp>
-#include <archon/image/pos.hpp>
-#include <archon/image/box.hpp>
+#include <archon/image/geom.hpp>
 #include <archon/image/tray.hpp>
 #include <archon/image/bit_medium.hpp>
 #include <archon/image/comp_types.hpp>

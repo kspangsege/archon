@@ -27,7 +27,7 @@
 #include <archon/core/format.hpp>
 #include <archon/core/quote.hpp>
 #include <archon/log.hpp>
-#include <archon/image/size.hpp>
+#include <archon/image/geom.hpp>
 #include <archon/display/impl/config.h>
 
 #if ARCHON_DISPLAY_HAVE_SDL

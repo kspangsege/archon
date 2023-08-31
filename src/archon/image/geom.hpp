@@ -18,20 +18,32 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
+#ifndef ARCHON_X_IMAGE_X_GEOM_HPP
+#define ARCHON_X_IMAGE_X_GEOM_HPP
 
-#include <archon/image/geom.hpp>
-#include <archon/image/image.hpp>
-#include <archon/image/writable_image.hpp>
-#include <archon/image/writer.hpp>
-
-
-using namespace archon;
-using image::WritableImage;
+/// \file
 
 
-void WritableImage::put_image(image::Pos pos, const Image& image, bool blend)
-{
-    image::Writer writer(*this); // Throws
-    writer.set_blending_enabled(blend);
-    writer.put_image(pos, image); // Throws
-}
+#include <archon/util/pixel_size.hpp>
+#include <archon/util/pixel_pos.hpp>
+#include <archon/util/pixel_box.hpp>
+
+
+namespace archon::image {
+
+
+/// \{
+///
+/// \brief Lorem ipsum.
+///
+/// Lorem ipsum. Lorem ipsum.
+///
+using Size = util::pixel::Size;
+using Pos  = util::pixel::Pos;
+using Box  = util::pixel::Box;
+/// \}
+
+
+} // namespace archon::image
+
+#endif // ARCHON_X_IMAGE_X_GEOM_HPP

@@ -28,9 +28,7 @@
 #include <algorithm>
 
 #include <archon/core/assert.hpp>
-#include <archon/image/size.hpp>
-#include <archon/image/pos.hpp>
-#include <archon/image/box.hpp>
+#include <archon/image/geom.hpp>
 
 
 namespace archon::image {

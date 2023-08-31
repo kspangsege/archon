@@ -31,8 +31,7 @@
 #include <archon/core/random.hpp>
 #include <archon/check.hpp>
 #include <archon/util/colors.hpp>
-#include <archon/image/size.hpp>
-#include <archon/image/pos.hpp>
+#include <archon/image/geom.hpp>
 #include <archon/image/comp_types.hpp>
 #include <archon/image/gamma.hpp>
 #include <archon/image/comp_repr.hpp>
