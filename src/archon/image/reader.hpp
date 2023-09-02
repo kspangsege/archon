@@ -580,7 +580,7 @@ private:
 
     template<image::CompRepr R, image::CompRepr S>
     void convert_1(image::const_tray_type<R> origin, bool origin_has_alpha, image::iter_type<S> destin,
-                   bool destin_has_alpha);
+                   bool destin_has_alpha) noexcept;
 
     // Clobbers primary workspace buffer (may clobber contents, and may reallocate memory)
     template<image::CompRepr R, image::CompRepr S>
@@ -1474,7 +1474,7 @@ template<image::CompRepr R> void Reader::read(image::Pos pos, const image::tray_
                     m_image.read(pos, tray_2); // Throws
                     bool origin_has_alpha = has_alpha_channel();
                     bool destin_has_alpha = (origin_has_alpha || ensure_alpha);
-                    convert_1<repr, float_repr>(tray_2, origin_has_alpha, tray.iter, destin_has_alpha); // Throws
+                    convert_1<repr, float_repr>(tray_2, origin_has_alpha, tray.iter, destin_has_alpha);
                 }); // Throws
                 return;
             }
@@ -1614,7 +1614,7 @@ template<image::CompRepr R> void Reader::init_color_slot_r(ColorSlot slot)
         bool destin_has_alpha = true;
         int num_color_space_channels = m_num_channels_ext - 1;
         image::pixel_convert<float_repr, repr>(origin, origin_has_alpha, destin, destin_has_alpha,
-                                               num_color_space_channels); // Throws
+                                               num_color_space_channels);
     }
     ctrl.have_restricted_native = true;
 }
@@ -1689,7 +1689,7 @@ template<image::CompRepr R> void Reader::init_color_slot_u(ColorSlot slot)
     image::float_type* origin = get_color_slot_f(slot);
     comp_type* destin = get_color_slot_u<repr>(slot);
     bool has_alpha = true;
-    image::comp_repr_convert<float_repr, repr>(origin, destin, m_num_channels_ext, has_alpha); // Throws
+    image::comp_repr_convert<float_repr, repr>(origin, destin, m_num_channels_ext, has_alpha);
     ctrl.have_unrestricted_native = true;
 }
 
@@ -1815,13 +1815,13 @@ inline auto Reader::get_palette_cache_f() -> const image::float_type*
 
 template<image::CompRepr R, image::CompRepr S>
 void Reader::convert_1(image::const_tray_type<R> origin, bool origin_has_alpha, image::iter_type<S> destin,
-                       bool destin_has_alpha)
+                       bool destin_has_alpha) noexcept
 {
     int num_color_space_channels = m_num_channels_ext - 1;
     for (int y = 0; y < origin.size.height; ++y) {
         for (int x = 0; x < origin.size.width; ++x) {
             image::pixel_convert<R, S>(origin(x, y), origin_has_alpha, destin(x, y), destin_has_alpha,
-                                       num_color_space_channels); // Throws
+                                       num_color_space_channels);
         }
     }
 }

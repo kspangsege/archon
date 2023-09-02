@@ -820,7 +820,7 @@ private:
     auto prep_format_units(std::size_t chars_begin, std::size_t chars_end,
                            std::size_t words_begin, std::size_t words_end) -> std::size_t;
     void justify_fragment(std::size_t units_begin, std::size_t units_end, std::size_t trailing_space_size,
-                          std::size_t old_size, std::size_t new_size);
+                          std::size_t old_size, std::size_t new_size) noexcept;
     void do_set_format(const FormatRep&);
     void on_format_changed() noexcept;
     void verify_no_open_section();
@@ -2741,7 +2741,7 @@ void BasicTextFormatter<C, T>::format_line(std::size_t chars_begin, std::size_t 
                 if (justify) {
                     std::size_t new_fragment_size = inner_size;
                     justify_fragment(units_begin, units_end, trailing_space_size_2,
-                                     fragment_size, new_fragment_size); // Throws
+                                     fragment_size, new_fragment_size);
                     fragment_size = new_fragment_size;
                 }
                 if (align) {
@@ -3001,7 +3001,7 @@ auto BasicTextFormatter<C, T>::prep_format_units(std::size_t chars_begin, std::s
 template<class C, class T>
 void BasicTextFormatter<C, T>::justify_fragment(std::size_t units_begin, std::size_t units_end,
                                                 std::size_t trailing_space_size,
-                                                std::size_t old_size, std::size_t new_size)
+                                                std::size_t old_size, std::size_t new_size) noexcept
 {
     ARCHON_ASSERT(units_begin <= units_end);
     ARCHON_ASSERT(std::size_t(units_end - units_begin) >= 2);

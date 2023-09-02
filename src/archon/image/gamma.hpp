@@ -33,18 +33,25 @@
 namespace archon::image {
 
 
-/// \brief    
+/// \brief Recover component value from gamma-compressed integer representation.
 ///
-///    
+/// This function recovers a component value from its gamma-compressed integer
+/// representation form. Gamma decompression occurs as in sRGB. The specified integer value
+/// is first converted to floating point form as if by \ref image::int_to_float(), and the
+/// result is then gamma decompressed.
 ///
-template<int N, class T> auto compressed_int_to_float(T) -> image::float_type;
+template<int N, class T> auto compressed_int_to_float(T) noexcept -> image::float_type;
 
 
-/// \brief    
+/// \brief Convert component value to gamma-compressed integer representation.
 ///
-///    
+/// This function converts the specified component value to a gamma-compressed integer
+/// representation. Gamma compression occurs as in sRGB. After gamma compression, the
+/// resulting value is converted to integer representation as if by \ref
+/// image::float_to_int().
 ///
-template<class T, int N> auto float_to_compressed_int(image::float_type) -> T;
+template<class T, int N> auto float_to_compressed_int(image::float_type) noexcept -> T;
+
 
 
 
@@ -79,25 +86,25 @@ inline double srgb_gamma_expand(double val) noexcept
 struct GammaDecompressTable8 {
     image::float_type table[256] = {};
 
-    GammaDecompressTable8()
+    GammaDecompressTable8() noexcept
     {
         for (int i = 0; i < 256; ++i) {
-            double val = image::int_to_float<8, double>(i); // Throws
+            double val = image::int_to_float<8, double>(i);
             table[i] = image::float_type(impl::srgb_gamma_expand(val));
         }
     }
 };
 
-inline GammaDecompressTable8 g_gamma_decompress_table_8 = {}; // Throws
+inline GammaDecompressTable8 g_gamma_decompress_table_8 = {};
 
 
 } // namespace impl
 
 
-template<int N, class T> inline auto compressed_int_to_float(T val) -> image::float_type
+template<int N, class T> inline auto compressed_int_to_float(T val) noexcept -> image::float_type
 {
     if constexpr (N == 1) {
-        return image::int_to_float<1, image::float_type>(val); // Throws
+        return image::int_to_float<1, image::float_type>(val);
     }
     else if constexpr (N <= 8) {
         int val_2 = image::int_to_int<N, int, 8>(val);
@@ -105,16 +112,16 @@ template<int N, class T> inline auto compressed_int_to_float(T val) -> image::fl
     }
     else {
         // FIXME: Must find more efficient way to do this. Maybe just lookup the two adjacent values from the 8-bit table, and then interpolate between them.                                                            
-        double val_2 = image::int_to_float<N, double>(val); // Throws
+        double val_2 = image::int_to_float<N, double>(val);
         return image::float_type(impl::srgb_gamma_expand(val_2));
     }
 }
 
 
-template<class T, int N> inline auto float_to_compressed_int(image::float_type val) -> T
+template<class T, int N> inline auto float_to_compressed_int(image::float_type val) noexcept -> T
 {
     // FIXME: Must find more efficient way to do this.                                         
-    return image::float_to_int<T, N>(impl::srgb_gamma_compress(double(val))); // Throws
+    return image::float_to_int<T, N>(impl::srgb_gamma_compress(double(val)));
 }
 
 

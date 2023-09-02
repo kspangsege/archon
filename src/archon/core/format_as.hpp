@@ -39,6 +39,7 @@
 #include <archon/core/assert.hpp>
 #include <archon/core/scope_exit.hpp>
 #include <archon/core/integer.hpp>
+#include <archon/core/float.hpp>
 #include <archon/core/stream_output.hpp>
 #include <archon/core/format.hpp>
 #include <archon/core/as_int.hpp>
@@ -448,10 +449,10 @@ auto operator<<(std::basic_ostream<C, T>& out, const impl::AsPercent& pod) -> st
 template<class C, class T> auto operator<<(std::basic_ostream<C, T>& out, AsTime pod) -> std::basic_ostream<C, T>&
 {
     auto round = [](double value) {
-        return std::uint_fast64_t(std::floor(value + 0.5));
+        return core::float_to_int<std::uint_fast64_t>(std::floor(value + 0.5)); // Throws
     };
     double value = std::abs(pod.value);
-    std::int_fast64_t minutes = round(value / 60);
+    std::int_fast64_t minutes = round(value / 60); // Throws
     if (minutes >= 60) {
         // 1h0m -> inf
         std::int_fast64_t hours     = minutes / 60;
@@ -464,7 +465,7 @@ template<class C, class T> auto operator<<(std::basic_ostream<C, T>& out, AsTime
         helper.flush(); // Throws
         return out;
     }
-    std::int_fast64_t seconds = round(value);
+    std::int_fast64_t seconds = round(value); // Throws
     if (seconds >= 60) {
         // 1m0s -> 59m59s
         std::int_fast64_t minutes   = seconds / 60;

@@ -22,6 +22,7 @@
 #include <limits>
 
 #include <archon/check.hpp>
+#include <archon/math/vector.hpp>
 #include <archon/util/unit_frac.hpp>
 #include <archon/util/color_space.hpp>
 #include <archon/util/color.hpp>
@@ -36,15 +37,13 @@ ARCHON_TEST(Util_ColorSpace_HSL)
 {
     auto test_1 = [&, &parent_test_context = test_context](util::Color c) {
         ARCHON_TEST_TRAIL(parent_test_context, core::formatted("test_1(%s)", util::as_css_color(c)));
-        double rgb[3] = {
+        math::Vector3 rgb = {
             util::unit_frac::int_to_flt<double>(c.red(),   255),
             util::unit_frac::int_to_flt<double>(c.green(), 255),
             util::unit_frac::int_to_flt<double>(c.blue(),  255),
         };
-        double hsl[3];
-        util::cvt_sRGB_to_HSL(rgb, hsl);
-        double rgb_2[3];
-        util::cvt_HSL_to_sRGB(hsl, rgb_2);
+        math::Vector3 hsl = util::cvt_sRGB_to_HSL(rgb);
+        math::Vector3 rgb_2 = util::cvt_HSL_to_sRGB(hsl);
         using comp_type = util::Color::comp_type;
         ARCHON_CHECK_EQUAL(util::unit_frac::flt_to_int<comp_type>(rgb_2[0]), c.red());
         ARCHON_CHECK_EQUAL(util::unit_frac::flt_to_int<comp_type>(rgb_2[1]), c.green());
@@ -60,13 +59,12 @@ ARCHON_TEST(Util_ColorSpace_HSL)
     auto test_2 = [&, &parent_test_context = test_context](util::Color c, double h, double s, double l) {
         ARCHON_TEST_TRAIL(parent_test_context,
                           core::formatted("test_2(%s, %s, %s, %s)", util::as_css_color(c), h, s, l));
-        double rgb[3] = {
+        math::Vector3 rgb = {
             util::unit_frac::int_to_flt<double>(c.red(),   255),
             util::unit_frac::int_to_flt<double>(c.green(), 255),
             util::unit_frac::int_to_flt<double>(c.blue(),  255),
         };
-        double hsl[3];
-        util::cvt_sRGB_to_HSL(rgb, hsl);
+        math::Vector3 hsl = util::cvt_sRGB_to_HSL(rgb);
         auto comp = [](double x, double y) {
             return std::abs(x - y) < 0.00003;
         };
@@ -94,15 +92,13 @@ ARCHON_TEST(Util_ColorSpace_HSV)
 {
     auto test_1 = [&, &parent_test_context = test_context](util::Color c) {
         ARCHON_TEST_TRAIL(parent_test_context, core::formatted("test_1(%s)", util::as_css_color(c)));
-        double rgb[3] = {
+        math::Vector3 rgb = {
             util::unit_frac::int_to_flt<double>(c.red(),   255),
             util::unit_frac::int_to_flt<double>(c.green(), 255),
             util::unit_frac::int_to_flt<double>(c.blue(),  255),
         };
-        double hsv[3];
-        util::cvt_sRGB_to_HSV(rgb, hsv);
-        double rgb_2[3];
-        util::cvt_HSV_to_sRGB(hsv, rgb_2);
+        math::Vector3 hsv = util::cvt_sRGB_to_HSV(rgb);
+        math::Vector3 rgb_2 = util::cvt_HSV_to_sRGB(hsv);
         using comp_type = util::Color::comp_type;
         ARCHON_CHECK_EQUAL(util::unit_frac::flt_to_int<comp_type>(rgb_2[0]), c.red());
         ARCHON_CHECK_EQUAL(util::unit_frac::flt_to_int<comp_type>(rgb_2[1]), c.green());
@@ -119,13 +115,12 @@ ARCHON_TEST(Util_ColorSpace_HSV)
                                                            double v) {
         ARCHON_TEST_TRAIL(parent_test_context,
                           core::formatted("test_2(%s, %s, %s, %s)", util::as_css_color(c), h, s, v));
-        double rgb[3] = {
+        math::Vector3 rgb = {
             util::unit_frac::int_to_flt<double>(c.red(),   255),
             util::unit_frac::int_to_flt<double>(c.green(), 255),
             util::unit_frac::int_to_flt<double>(c.blue(),  255),
         };
-        double hsv[3];
-        util::cvt_sRGB_to_HSV(rgb, hsv);
+        math::Vector3 hsv = util::cvt_sRGB_to_HSV(rgb);
         auto comp = [](double x, double y) {
             return std::abs(x - y) < 0.00003;
         };
@@ -152,14 +147,14 @@ ARCHON_TEST(Util_ColorSpace_HSV)
 namespace {
 
 
-auto color_compare(long double eps)
+auto color_compare(long double eps) noexcept
 {
     return [eps](const auto& x, const auto& y)
     {
         using x_type = std::decay_t<decltype(x)>;
         using y_type = std::decay_t<decltype(y)>;
         static_assert(x_type::size == y_type::size);
-        for (std::size_t i = 0; i < x.size; ++i) {
+        for (int i = 0; i < x.size; ++i) {
             if (ARCHON_LIKELY(std::abs(x[i] - y[i]) < eps))
                 continue;
             return false;
@@ -174,11 +169,10 @@ auto color_compare(long double eps)
 
 ARCHON_TEST(Util_ColorSpace_XYZ)
 {
-    math::Vec3F rgb = { 0.3f, 0.5f, 0.7f };
-    math::Vec3F xyz;
-    util::cvt_sRGB_to_XYZ(rgb.components().data(), xyz.components().data());
-    ARCHON_CHECK_COMPARE(xyz, math::Vec3F(0.1876f, 0.2010f, 0.4527f), color_compare(0.0001));
-    util::cvt_XYZ_to_sRGB(xyz.components().data(), rgb.components().data());
+    math::Vector3F rgb = { 0.3f, 0.5f, 0.7f };
+    math::Vector3F xyz = util::cvt_sRGB_to_XYZ(rgb);
+    ARCHON_CHECK_COMPARE(xyz, math::Vector3F(0.1876f, 0.2010f, 0.4527f), color_compare(0.0001));
+    math::Vector3F rgb_2 = util::cvt_XYZ_to_sRGB(xyz);
     float eps = std::numeric_limits<float>::epsilon();
-    ARCHON_CHECK_COMPARE(rgb, math::Vec3F(0.3f, 0.5f, 0.7f), color_compare(100 * eps));
+    ARCHON_CHECK_COMPARE(rgb_2, rgb, color_compare(100 * eps));
 }

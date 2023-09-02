@@ -106,7 +106,7 @@ public:
     bool get_if(RgbP&) const noexcept;
     bool get_if(Hsl&) const noexcept;
 
-    auto get_as_hex() const -> Hex;
+    auto get_as_hex() const noexcept -> Hex;
 
     static auto get_named_color(const Name&) noexcept -> Hex;
     static bool find_named_color_by_name(std::string_view name, Name&) noexcept;

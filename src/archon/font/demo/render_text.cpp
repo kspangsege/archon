@@ -207,11 +207,11 @@ int main(int argc, char* argv[])
     std::unique_ptr<font::Face> face = loader->load_default_face(); // Throws
     face->set_approx_size(font_size); // Throws
 
-    using float_type = font::Face::float_type;
-    using vec_type   = font::Face::vec_type;
-    vec_type length_direction  = (!vertical ? vec_type(1, 0) : vec_type(0,  1));
-    vec_type breadth_direction = (!vertical ? vec_type(0, 1) : vec_type(1,  0));
-    vec_type layout_direction  = (!vertical ? vec_type(1, 0) : vec_type(0, -1));
+    using float_type  = font::Face::float_type;
+    using vector_type = font::Face::vector_type;
+    vector_type length_direction  = (!vertical ? vector_type(1, 0) : vector_type(0,  1));
+    vector_type breadth_direction = (!vertical ? vector_type(0, 1) : vector_type(1,  0));
+    vector_type layout_direction  = (!vertical ? vector_type(1, 0) : vector_type(0, -1));
     if (reverse)
         layout_direction = -layout_direction;
 
@@ -245,7 +245,7 @@ int main(int argc, char* argv[])
     float_type baseline_spacing = face->get_baseline_spacing(vertical, grid_fitting);
     float_type baseline_offset = face->get_baseline_offset(vertical, grid_fitting);
 
-    vec_type line_box_size = (line_length * length_direction + baseline_spacing * breadth_direction);
+    vector_type line_box_size = (line_length * length_direction + baseline_spacing * breadth_direction);
 
     image::Size image_size = {
         int(std::ceil(line_box_size[0] + 2 * padding)),
@@ -256,19 +256,19 @@ int main(int argc, char* argv[])
     image::Pos target_pos = { 0, image_size.height };
     face->set_target_pos(target_pos);
 
-    vec_type line_box_pos = {
+    vector_type line_box_pos = {
         (float_type(image_size.width)  - line_box_size[0]) / 2,
         (float_type(image_size.height) - line_box_size[1]) / 2,
     };
     if (grid_fitting) {
-        line_box_pos = vec_type {
+        line_box_pos = vector_type {
             std::round(line_box_pos[0]),
             std::round(line_box_pos[1]),
         };
     }
 
-    vec_type cursor_start_pos = (line_box_pos + int(vertical != reverse) * line_length * length_direction +
-                                 baseline_offset * breadth_direction);
+    vector_type cursor_start_pos = (line_box_pos + int(vertical != reverse) * line_length * length_direction +
+                                    baseline_offset * breadth_direction);
 
     std::unique_ptr<image::WritableImage> image;
     if (background_color.is_opaque()) {
@@ -308,7 +308,7 @@ int main(int argc, char* argv[])
     for (std::size_t i = 0; i < n; ++i) {
         Glyph glyph = glyphs[i];
         face->load_glyph(glyph.index, grid_fitting); // Throws
-        vec_type bearing = face->get_glyph_bearing(vertical);
+        vector_type bearing = face->get_glyph_bearing(vertical);
         if (!vertical) {
             if (reverse)
                 bearing[0] += face->get_glyph_advance(false);
@@ -317,7 +317,7 @@ int main(int argc, char* argv[])
             if (!reverse)
                 bearing[1] += face->get_glyph_advance(true);
         }
-        vec_type cursor_pos = cursor_start_pos + glyph.pos * layout_direction;
+        vector_type cursor_pos = cursor_start_pos + glyph.pos * layout_direction;
         face->translate_glyph(cursor_pos - bearing);
         face->render_glyph_mask(writer); // Throws
     }

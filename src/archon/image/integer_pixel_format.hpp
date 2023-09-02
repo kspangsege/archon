@@ -176,11 +176,11 @@ public:
     bool try_describe(image::BufferFormat&) const;
     auto get_transfer_info() const noexcept -> image::Image::TransferInfo;
     static void read(const word_type* buffer, image::Size image_size, image::Pos,
-                     const image::Tray<transf_comp_type>&);
+                     const image::Tray<transf_comp_type>&) noexcept;
     static void write(word_type* buffer, image::Size image_size, image::Pos,
-                      const image::Tray<const transf_comp_type>&);
+                      const image::Tray<const transf_comp_type>&) noexcept;
     static void fill(word_type* buffer, image::Size image_size, const image::Box& area,
-                     const transf_comp_type* color);
+                     const transf_comp_type* color) noexcept;
     /// \}
 
     /// \brief Number of words per row of pixels.
@@ -196,11 +196,11 @@ private:
     static auto get_pixel_ptr(word_type* buffer, int image_width, image::Pos pos) -> word_type*;
     static auto get_pixel_ptr(const word_type* buffer, int image_width, image::Pos pos) -> const word_type*;
 
-    static void read_pixel(const word_type* source, transf_comp_type* target);
-    static void write_pixel(const transf_comp_type* source, word_type* target);
+    static void read_pixel(const word_type* source, transf_comp_type* target) noexcept;
+    static void write_pixel(const transf_comp_type* source, word_type* target) noexcept;
 
-    static auto read_comp(const word_type* pixel_ptr, int channel) -> transf_comp_type;
-    static void write_comp(transf_comp_type, word_type* pixel_ptr, int channel);
+    static auto read_comp(const word_type* pixel_ptr, int channel) noexcept -> transf_comp_type;
+    static void write_comp(transf_comp_type, word_type* pixel_ptr, int channel) noexcept;
 
     static constexpr bool is_transf_repr_match() noexcept;
 
@@ -293,7 +293,7 @@ auto IntegerPixelFormat<C, W, B, S, D, E, F, G>::get_transfer_info() const noexc
 
 template<class C, class W, int B, class S, int D, core::Endianness E, bool F, bool G>
 void IntegerPixelFormat<C, W, B, S, D, E, F, G>::read(const word_type* buffer, image::Size image_size, image::Pos pos,
-                                                      const image::Tray<transf_comp_type>& tray)
+                                                      const image::Tray<transf_comp_type>& tray) noexcept
 {
     ARCHON_ASSERT(image::Box(pos, tray.size).contained_in(image_size));
     for (int y = 0; y < tray.size.height; ++y) {
@@ -301,7 +301,7 @@ void IntegerPixelFormat<C, W, B, S, D, E, F, G>::read(const word_type* buffer, i
         const word_type* source = get_pixel_ptr(buffer, image_size.width, pos_2);
         for (int x = 0; x < tray.size.width; ++x) {
             transf_comp_type* target = tray(x, y);
-            read_pixel(source, target); // Throws
+            read_pixel(source, target);
             source += words_per_pixel;
         }
     }
@@ -310,7 +310,7 @@ void IntegerPixelFormat<C, W, B, S, D, E, F, G>::read(const word_type* buffer, i
 
 template<class C, class W, int B, class S, int D, core::Endianness E, bool F, bool G>
 void IntegerPixelFormat<C, W, B, S, D, E, F, G>::write(word_type* buffer, image::Size image_size, image::Pos pos,
-                                                       const image::Tray<const transf_comp_type>& tray)
+                                                       const image::Tray<const transf_comp_type>& tray) noexcept
 {
     ARCHON_ASSERT(image::Box(pos, tray.size).contained_in(image_size));
     for (int y = 0; y < tray.size.height; ++y) {
@@ -318,7 +318,7 @@ void IntegerPixelFormat<C, W, B, S, D, E, F, G>::write(word_type* buffer, image:
         word_type* target = get_pixel_ptr(buffer, image_size.width, pos_2);
         for (int x = 0; x < tray.size.width; ++x) {
             const transf_comp_type* source = tray(x, y);
-            write_pixel(source, target); // Throws
+            write_pixel(source, target);
             target += words_per_pixel;
         }
     }
@@ -327,11 +327,11 @@ void IntegerPixelFormat<C, W, B, S, D, E, F, G>::write(word_type* buffer, image:
 
 template<class C, class W, int B, class S, int D, core::Endianness E, bool F, bool G>
 void IntegerPixelFormat<C, W, B, S, D, E, F, G>::fill(word_type* buffer, image::Size image_size,
-                                                      const image::Box& area, const transf_comp_type* color)
+                                                      const image::Box& area, const transf_comp_type* color) noexcept
 {
     ARCHON_ASSERT(area.contained_in(image_size));
     word_type color_2[words_per_pixel];
-    write_pixel(color, color_2); // Throws
+    write_pixel(color, color_2);
     image::Pos begin = area.pos;
     image::Pos end = begin + area.size;
     for (int y = begin.y; y < end.y; ++y) {
@@ -373,29 +373,30 @@ inline auto IntegerPixelFormat<C, W, B, S, D, E, F, G>::get_pixel_ptr(const word
 
 
 template<class C, class W, int B, class S, int D, core::Endianness E, bool F, bool G>
-void IntegerPixelFormat<C, W, B, S, D, E, F, G>::read_pixel(const word_type* source, transf_comp_type* target)
+void IntegerPixelFormat<C, W, B, S, D, E, F, G>::read_pixel(const word_type* source, transf_comp_type* target) noexcept
 {
     if constexpr (!std::is_floating_point_v<transf_comp_type> || !has_alpha_channel) {
         for (int i = 0; i < num_channels; ++i)
-            target[i] = read_comp(source, i); // Throws
+            target[i] = read_comp(source, i);
     }
     else {
         // Do premultiplied alpha
         int last = num_channels - 1;
-        transf_comp_type alpha = read_comp(source, last); // Throws
+        transf_comp_type alpha = read_comp(source, last);
         for (int i = 0; i < last; ++i)
-            target[i] = alpha * read_comp(source, i); // Throws
+            target[i] = alpha * read_comp(source, i);
         target[last] = alpha;
     }
 }
 
 
 template<class C, class W, int B, class S, int D, core::Endianness E, bool F, bool G>
-void IntegerPixelFormat<C, W, B, S, D, E, F, G>::write_pixel(const transf_comp_type* source, word_type* target)
+void IntegerPixelFormat<C, W, B, S, D, E, F, G>::write_pixel(const transf_comp_type* source,
+                                                             word_type* target) noexcept
 {
     if constexpr (!std::is_floating_point_v<transf_comp_type> || !has_alpha_channel) {
         for (int i = 0; i < num_channels; ++i)
-            write_comp(source[i], target, i); // Throws
+            write_comp(source[i], target, i);
     }
     else {
         // Undo premultiplied alpha
@@ -403,14 +404,15 @@ void IntegerPixelFormat<C, W, B, S, D, E, F, G>::write_pixel(const transf_comp_t
         transf_comp_type alpha = source[last];
         transf_comp_type inv_alpha = (alpha != 0 ? 1 / alpha : 0);
         for (int i = 0; i < last; ++i)
-            write_comp(inv_alpha * source[i], target, i); // Throws
-        write_comp(alpha, target, last); // Throws
+            write_comp(inv_alpha * source[i], target, i);
+        write_comp(alpha, target, last);
     }
 }
 
 
 template<class C, class W, int B, class S, int D, core::Endianness E, bool F, bool G>
-auto IntegerPixelFormat<C, W, B, S, D, E, F, G>::read_comp(const word_type* pixel_ptr, int channel) -> transf_comp_type
+auto IntegerPixelFormat<C, W, B, S, D, E, F, G>::read_comp(const word_type* pixel_ptr,
+                                                           int channel) noexcept -> transf_comp_type
 {
     const word_type* channel_ptr = pixel_ptr + map_channel_index(channel) * words_per_channel;
     if constexpr (is_transf_repr_match()) {
@@ -431,15 +433,16 @@ auto IntegerPixelFormat<C, W, B, S, D, E, F, G>::read_comp(const word_type* pixe
             static_assert(std::is_same_v<transf_comp_type, image::float_type>);
             bool is_alpha = (has_alpha_channel && channel == num_channels - 1);
             if (ARCHON_LIKELY(!is_alpha))
-                return image::compressed_int_to_float<bit_depth>(comp); // Throws
-            return image::int_to_float<bit_depth, transf_comp_type>(comp); // Throws
+                return image::compressed_int_to_float<bit_depth>(comp);
+            return image::int_to_float<bit_depth, transf_comp_type>(comp);
         }
     }
 }
 
 
 template<class C, class W, int B, class S, int D, core::Endianness E, bool F, bool G>
-void IntegerPixelFormat<C, W, B, S, D, E, F, G>::write_comp(transf_comp_type val, word_type* pixel_ptr, int channel)
+void IntegerPixelFormat<C, W, B, S, D, E, F, G>::write_comp(transf_comp_type val, word_type* pixel_ptr,
+                                                            int channel) noexcept
 {
     word_type* channel_ptr = pixel_ptr + map_channel_index(channel) * words_per_channel;
     if constexpr (is_transf_repr_match()) {
@@ -455,10 +458,10 @@ void IntegerPixelFormat<C, W, B, S, D, E, F, G>::write_comp(transf_comp_type val
             static_assert(std::is_same_v<transf_comp_type, image::float_type>);
             bool is_alpha = (has_alpha_channel && channel == num_channels - 1);
             if (ARCHON_LIKELY(!is_alpha)) {
-                comp = image::float_to_compressed_int<unpacked_comp_type, bit_depth>(val); // Throws
+                comp = image::float_to_compressed_int<unpacked_comp_type, bit_depth>(val);
             }
             else {
-                comp = image::float_to_int<unpacked_comp_type, bit_depth>(val); // Throws
+                comp = image::float_to_int<unpacked_comp_type, bit_depth>(val);
             }
         }
         for (int i = 0; i < words_per_channel; ++i) {

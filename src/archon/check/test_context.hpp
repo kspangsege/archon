@@ -670,11 +670,11 @@ template<class A, class B> inline bool TestContext::equal(const A& a, const B& b
         return core::int_equal(a, b);
     }
     else if constexpr (float_vs_int) {
-        return core::float_equal_int(a, b); // Throws
+        return core::float_equal_int(a, b);
     }
     else if constexpr (int_vs_float) {
         // Note: Reverse argument order
-        return core::float_equal_int(b, a); // Throws
+        return core::float_equal_int(b, a);
     }
     else {
         return (a == b); // Throws
@@ -691,11 +691,11 @@ template<class A, class B> inline bool TestContext::less(const A& a, const B& b)
         return core::int_less(a, b);
     }
     else if constexpr (float_vs_int) {
-        return core::float_less_int(a, b); // Throws
+        return core::float_less_int(a, b);
     }
     else if constexpr (int_vs_float) {
         // Note: Reverse argument order
-        return core::float_greater_int(b, a); // Throws
+        return core::float_greater_int(b, a);
     }
     else {
         return (a < b); // Throws
@@ -712,11 +712,11 @@ template<class A, class B> inline bool TestContext::less_equal(const A& a, const
         return core::int_less_equal(a, b);
     }
     else if constexpr (float_vs_int) {
-        return core::float_less_equal_int(a, b); // Throws
+        return core::float_less_equal_int(a, b);
     }
     else if constexpr (int_vs_float) {
         // Note: Reverse argument order
-        return core::float_greater_equal_int(b, a); // Throws
+        return core::float_greater_equal_int(b, a);
     }
     else {
         return (a <= b); // Throws

@@ -49,7 +49,7 @@ namespace archon::image {
 ///
 template<image::CompRepr R, image::CompRepr S>
 void pixel_convert(const image::comp_type<R>* origin, bool origin_has_alpha, image::comp_type<S>* destin,
-                   bool destin_has_alpha, int num_color_space_channels);
+                   bool destin_has_alpha, int num_color_space_channels) noexcept;
 
 
 
@@ -95,15 +95,15 @@ namespace impl {
 
 template<image::CompRepr R, image::CompRepr S>
 void pixel_convert_remove_alpha(const image::comp_type<R>* origin, image::comp_type<S>* destin,
-                                int num_color_space_channels)
+                                int num_color_space_channels) noexcept
 {
     ARCHON_ASSERT(R != image::CompRepr::float_);
     // Blend with black (color OVER black)
     int n = num_color_space_channels;
-    image::float_type alpha = image::alpha_comp_to_float<R>(origin[n]); // Throws
+    image::float_type alpha = image::alpha_comp_to_float<R>(origin[n]);
     for (int i = 0; i < n; ++i) {
-        image::float_type comp = image::color_comp_to_float<R>(origin[i]); // Throws
-        destin[i] = image::color_comp_from_float<S>(alpha * comp); // Throws
+        image::float_type comp = image::color_comp_to_float<R>(origin[i]);
+        destin[i] = image::color_comp_from_float<S>(alpha * comp);
     }
 }
 
@@ -113,7 +113,7 @@ void pixel_convert_remove_alpha(const image::comp_type<R>* origin, image::comp_t
 
 template<image::CompRepr R, image::CompRepr S>
 inline void pixel_convert(const image::comp_type<R>* origin, bool origin_has_alpha, image::comp_type<S>* destin,
-                          bool destin_has_alpha, int num_color_space_channels)
+                          bool destin_has_alpha, int num_color_space_channels) noexcept
 {
     bool origin_is_float (R == image::CompRepr::float_);
     bool add_alpha = (!origin_has_alpha && destin_has_alpha);
@@ -130,12 +130,12 @@ inline void pixel_convert(const image::comp_type<R>* origin, bool origin_has_alp
             num_channels = num_color_space_channels;
             has_alpha = false;
         }
-        image::comp_repr_convert<R, S>(origin, destin, num_channels, has_alpha); // Throws
+        image::comp_repr_convert<R, S>(origin, destin, num_channels, has_alpha);
         if (add_alpha)
             destin[num_color_space_channels] = image::comp_repr_max<S>();
         return;
     }
-    impl::pixel_convert_remove_alpha<R, S>(origin, destin, num_color_space_channels); // Throws
+    impl::pixel_convert_remove_alpha<R, S>(origin, destin, num_color_space_channels);
 }
 
 
@@ -188,8 +188,7 @@ inline void pixel_convert_a(const image::comp_type<R>* origin, const image::Colo
 
     // Convert to floating point component representation scheme
     constexpr image::CompRepr float_comp_repr = image::CompRepr::float_;
-    image::comp_repr_convert<origin_comp_repr, float_comp_repr>(origin, interm, origin_num_channels,
-                                                                origin_has_alpha); // Throws
+    image::comp_repr_convert<origin_comp_repr, float_comp_repr>(origin, interm, origin_num_channels, origin_has_alpha);
 
     // Convert to destination color space
     {
@@ -202,8 +201,7 @@ inline void pixel_convert_a(const image::comp_type<R>* origin, const image::Colo
     }
 
     // Convert to destination component representation scheme
-    image::comp_repr_convert<float_comp_repr, destin_comp_repr>(interm, destin, destin_num_channels,
-                                                                destin_has_alpha); // Throws
+    image::comp_repr_convert<float_comp_repr, destin_comp_repr>(interm, destin, destin_num_channels, destin_has_alpha);
 }
 
 

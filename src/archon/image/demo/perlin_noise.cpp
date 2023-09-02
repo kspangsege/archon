@@ -32,7 +32,7 @@
 #include <archon/core/as_list.hpp>
 #include <archon/core/random.hpp>
 #include <archon/cli.hpp>
-#include <archon/math/vec.hpp>
+#include <archon/math/vector.hpp>
 #include <archon/util/perlin_noise.hpp>
 #include <archon/image.hpp>
 #include <archon/image/computed_image.hpp>
@@ -48,8 +48,8 @@ int main(int argc, char* argv[])
     namespace fs = std::filesystem;
     image::Size image_size;
     fs::path path;
-    math::Vec2 feature_size = { 16, 16 };
-    math::Vec2 feature_shift = { 0, 0 };
+    math::Vector2 feature_size = { 16, 16 };
+    math::Vector2 feature_shift = { 0, 0 };
 
     cli::Spec spec;
     pat("<size>  <path>", cli::no_attributes, spec,
@@ -78,9 +78,8 @@ int main(int argc, char* argv[])
     vec_type grid_pos;
     size_type grid_size;
     for (int i = 0; i < 2; ++i) {
-        grid_pos[i] = core::periodic_mod(feature_shift[i], -feature_size[i]); // Throws
-        core::float_to_int(std::ceil((image_size.width - grid_pos[i]) / feature_size[i]),
-                           grid_size[i]); // Throws
+        grid_pos[i] = core::periodic_mod(feature_shift[i], -feature_size[i]);
+        core::float_to_int(std::ceil((image_size.width - grid_pos[i]) / feature_size[i]), grid_size[i]);
     }
     std::mt19937_64 random;
     core::seed_prng_nondeterministically(random); // Throws
@@ -89,7 +88,7 @@ int main(int argc, char* argv[])
     noise_type noise(grid_size, grid_gauge, grid_pos, gradients.get());
 
     image::ComputedImage image(image_size, [&](image::Pos pos) {
-        math::Vec2 pos_2 = { double(pos.x), double(pos.y) };
+        math::Vector2 pos_2 = { double(pos.x), double(pos.y) };
         double val = noise(pos_2, 0, 1);
         return image::Pixel_Lum_F({ image::float_type(val) });
     }); // Throws

@@ -266,7 +266,7 @@ template<image::CompRepr R> auto comp_repr_unpack(image::comp_type<R> comp) noex
 /// \sa \ref image::alpha_comp_to_float()
 /// \sa \ref image::color_comp_from_float()
 ///
-template<image::CompRepr R> auto color_comp_to_float(image::comp_type<R> comp) -> image::float_type;
+template<image::CompRepr R> auto color_comp_to_float(image::comp_type<R> comp) noexcept -> image::float_type;
 
 
 
@@ -282,7 +282,7 @@ template<image::CompRepr R> auto color_comp_to_float(image::comp_type<R> comp) -
 /// \sa \ref image::color_comp_to_float()
 /// \sa \ref image::alpha_comp_from_float()
 ///
-template<image::CompRepr R> auto alpha_comp_to_float(image::comp_type<R> comp) -> image::float_type;
+template<image::CompRepr R> auto alpha_comp_to_float(image::comp_type<R> comp) noexcept -> image::float_type;
 
 
 
@@ -298,7 +298,7 @@ template<image::CompRepr R> auto alpha_comp_to_float(image::comp_type<R> comp) -
 /// \sa \ref image::alpha_comp_from_float()
 /// \sa \ref image::color_comp_to_float()
 ///
-template<image::CompRepr R> auto color_comp_from_float(image::float_type comp) -> image::comp_type<R>;
+template<image::CompRepr R> auto color_comp_from_float(image::float_type comp) noexcept -> image::comp_type<R>;
 
 
 
@@ -313,7 +313,7 @@ template<image::CompRepr R> auto color_comp_from_float(image::float_type comp) -
 /// \sa \ref image::color_comp_from_float()
 /// \sa \ref image::alpha_comp_to_float()
 ///
-template<image::CompRepr R> auto alpha_comp_from_float(image::float_type comp) -> image::comp_type<R>;
+template<image::CompRepr R> auto alpha_comp_from_float(image::float_type comp) noexcept -> image::comp_type<R>;
 
 
 
@@ -377,17 +377,7 @@ template<image::CompRepr R> constexpr bool comp_repr_less(image::comp_type<R> a,
 ///
 template<image::CompRepr R, image::CompRepr S>
 void comp_repr_convert(const image::comp_type<R>* origin, image::comp_type<S>* destin, int num_channels,
-                       bool has_alpha);
-
-
-/// \brief Convert array of pixels between component representation schemes.
-///
-/// This function converts an array of pixels from one component representation scheme (\p
-/// R) to another (\p S). Each pixel is converted as if by \ref image::comp_repr_convert().
-///
-template<image::CompRepr R, image::CompRepr S>
-void comp_repr_convert_a(const image::const_tray_type<R>& origin, const image::iter_type<S>& destin,
-                         int num_channels, bool has_alpha);
+                       bool has_alpha) noexcept;
 
 
 /// \brief Choose suitable component representation scheme for bit depth.
@@ -492,12 +482,12 @@ template<image::CompRepr R> auto comp_repr_unpack(image::comp_type<R> comp) noex
 }
 
 
-template<image::CompRepr R> inline auto color_comp_to_float(image::comp_type<R> comp) -> image::float_type
+template<image::CompRepr R> inline auto color_comp_to_float(image::comp_type<R> comp) noexcept -> image::float_type
 {
     using comp_type = image::comp_type<R>;
     if constexpr (std::is_integral_v<comp_type>) {
         constexpr int depth = image::comp_repr_bit_width<R>();
-        return image::compressed_int_to_float<depth>(comp); // Throws
+        return image::compressed_int_to_float<depth>(comp);
     }
     else {
         static_assert(std::is_floating_point_v<comp_type>);
@@ -506,12 +496,12 @@ template<image::CompRepr R> inline auto color_comp_to_float(image::comp_type<R> 
 }
 
 
-template<image::CompRepr R> inline auto alpha_comp_to_float(image::comp_type<R> comp) -> image::float_type
+template<image::CompRepr R> inline auto alpha_comp_to_float(image::comp_type<R> comp) noexcept -> image::float_type
 {
     using comp_type = image::comp_type<R>;
     if constexpr (std::is_integral_v<comp_type>) {
         constexpr int depth = image::comp_repr_bit_width<R>();
-        return image::int_to_float<depth, image::float_type>(comp); // Throws
+        return image::int_to_float<depth, image::float_type>(comp);
     }
     else {
         static_assert(std::is_floating_point_v<comp_type>);
@@ -520,12 +510,12 @@ template<image::CompRepr R> inline auto alpha_comp_to_float(image::comp_type<R> 
 }
 
 
-template<image::CompRepr R> inline auto color_comp_from_float(image::float_type comp) -> image::comp_type<R>
+template<image::CompRepr R> inline auto color_comp_from_float(image::float_type comp) noexcept -> image::comp_type<R>
 {
     using comp_type = image::comp_type<R>;
     if constexpr (std::is_integral_v<comp_type>) {
         constexpr int depth = image::comp_repr_bit_width<R>();
-        return image::float_to_compressed_int<comp_type, depth>(comp); // Throws
+        return image::float_to_compressed_int<comp_type, depth>(comp);
     }
     else {
         static_assert(std::is_floating_point_v<comp_type>);
@@ -534,12 +524,12 @@ template<image::CompRepr R> inline auto color_comp_from_float(image::float_type 
 }
 
 
-template<image::CompRepr R> inline auto alpha_comp_from_float(image::float_type comp) -> image::comp_type<R>
+template<image::CompRepr R> inline auto alpha_comp_from_float(image::float_type comp) noexcept -> image::comp_type<R>
 {
     using comp_type = image::comp_type<R>;
     if constexpr (std::is_integral_v<comp_type>) {
         constexpr int depth = image::comp_repr_bit_width<R>();
-        return image::float_to_int<comp_type, depth>(comp); // Throws
+        return image::float_to_int<comp_type, depth>(comp);
     }
     else {
         static_assert(std::is_floating_point_v<comp_type>);
@@ -606,7 +596,7 @@ template<image::CompRepr R> constexpr bool comp_repr_less(image::comp_type<R> a,
 
 template<image::CompRepr R, image::CompRepr S>
 inline void comp_repr_convert(const image::comp_type<R>* origin, image::comp_type<S>* destin, int num_channels,
-                              bool has_alpha)
+                              bool has_alpha) noexcept
 {
     constexpr image::CompRepr repr_1 = R;
     constexpr image::CompRepr repr_2 = S;
@@ -626,7 +616,7 @@ inline void comp_repr_convert(const image::comp_type<R>* origin, image::comp_typ
         constexpr int depth = image::comp_repr_bit_width<repr_2>();
         if (!has_alpha) {
             for (int i = 0; i < num_channels; ++i)
-                destin[i] = image::float_to_compressed_int<comp_type_2, depth>(origin[i]); // Throws
+                destin[i] = image::float_to_compressed_int<comp_type_2, depth>(origin[i]);
         }
         else {
             // Undo premultiplication of alpha
@@ -635,9 +625,9 @@ inline void comp_repr_convert(const image::comp_type<R>* origin, image::comp_typ
             auto inv_alpha = (alpha != 0 ? 1.0 / alpha : 0.0);
             for (int i = 0; i < last; ++i) {
                 comp_type_1 value = comp_type_1(inv_alpha * origin[i]);
-                destin[i] = image::float_to_compressed_int<comp_type_2, depth>(value); // Throws
+                destin[i] = image::float_to_compressed_int<comp_type_2, depth>(value);
             }
-            destin[last] = image::float_to_int<comp_type_2, depth>(alpha); // Throws
+            destin[last] = image::float_to_int<comp_type_2, depth>(alpha);
         }
     }
     else if constexpr (is_float_2) {
@@ -646,14 +636,14 @@ inline void comp_repr_convert(const image::comp_type<R>* origin, image::comp_typ
         constexpr int depth = image::comp_repr_bit_width<repr_1>();
         if (!has_alpha) {
             for (int i = 0; i < num_channels; ++i)
-                destin[i] = image::compressed_int_to_float<depth>(origin[i]); // Throws
+                destin[i] = image::compressed_int_to_float<depth>(origin[i]);
         }
         else {
             // Premultiply alpha
             int last = num_channels - 1;
-            comp_type_2 alpha = image::int_to_float<depth, comp_type_2>(origin[last]); // Throws
+            comp_type_2 alpha = image::int_to_float<depth, comp_type_2>(origin[last]);
             for (int i = 0; i < last; ++i)
-                destin[i] = alpha * image::compressed_int_to_float<depth>(origin[i]); // Throws
+                destin[i] = alpha * image::compressed_int_to_float<depth>(origin[i]);
             destin[last] = alpha;
         }
     }
@@ -663,25 +653,6 @@ inline void comp_repr_convert(const image::comp_type<R>* origin, image::comp_typ
         constexpr int depth_2 = image::comp_repr_bit_width<repr_2>();
         for (int i = 0; i < num_channels; ++i)
             destin[i] = image::int_to_int<depth_1, comp_type_2, depth_2>(origin[i]);
-    }
-}
-
-
-template<image::CompRepr R, image::CompRepr S>
-void comp_repr_convert_a(const image::const_tray_type<R>& origin, const image::iter_type<S>& destin,
-                         int num_channels, bool has_alpha)
-{
-    constexpr image::CompRepr repr_1 = R;
-    constexpr image::CompRepr repr_2 = S;
-    using comp_type_1 = image::comp_type<repr_1>;
-    using comp_type_2 = image::comp_type<repr_2>;
-
-    for (int y = 0; y < origin.size.height; ++y) {
-        for (int x = 0; x < origin.size.width; ++x) {
-            const comp_type_1* origin_2 = origin(x, y);
-            comp_type_2* destin_2 = destin(x, y);
-            image::comp_repr_convert<repr_1, repr_2>(origin_2, destin_2, num_channels, has_alpha); // Throws
-        }
     }
 }
 

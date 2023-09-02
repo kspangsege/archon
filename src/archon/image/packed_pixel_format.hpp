@@ -187,11 +187,11 @@ public:
     bool try_describe(image::BufferFormat&) const;
     auto get_transfer_info() const noexcept -> image::Image::TransferInfo;
     static void read(const word_type* buffer, image::Size image_size, image::Pos,
-                     const image::Tray<transf_comp_type>&);
+                     const image::Tray<transf_comp_type>&) noexcept;
     static void write(word_type* buffer, image::Size image_size, image::Pos,
-                      const image::Tray<const transf_comp_type>&);
+                      const image::Tray<const transf_comp_type>&) noexcept;
     static void fill(word_type* buffer, image::Size image_size, const image::Box& area,
-                     const transf_comp_type* color);
+                     const transf_comp_type* color) noexcept;
     /// \}
 
     static constexpr int get_pack_width();
@@ -225,11 +225,11 @@ private:
     static auto get_pixel_ptr(word_type* buffer, int image_width, image::Pos pos) -> word_type*;
     static auto get_pixel_ptr(const word_type* buffer, int image_width, image::Pos pos) -> const word_type*;
 
-    static void read_pixel(const word_type* source, transf_comp_type* target);
-    static void write_pixel(const transf_comp_type* source, word_type* target);
+    static void read_pixel(const word_type* source, transf_comp_type* target) noexcept;
+    static void write_pixel(const transf_comp_type* source, word_type* target) noexcept;
 
-    template<int I> static auto get_component(value_type pixel) -> transf_comp_type;
-    template<int I> static void set_component(value_type& pixel, transf_comp_type value);
+    template<int I> static auto get_component(value_type pixel) noexcept -> transf_comp_type;
+    template<int I> static void set_component(value_type& pixel, transf_comp_type value) noexcept;
 
     static constexpr int map_channel_index(int) noexcept;
     static constexpr int map_word_index(int) noexcept;
@@ -307,7 +307,8 @@ auto PackedPixelFormat<C, S, P, W, B, D, E, F, G>::get_transfer_info() const noe
 
 template<class C, class S, class P, class W, int B, int D, core::Endianness E, bool F, bool G>
 void PackedPixelFormat<C, S, P, W, B, D, E, F, G>::read(const word_type* buffer, image::Size image_size,
-                                                        image::Pos pos, const image::Tray<transf_comp_type>& tray)
+                                                        image::Pos pos,
+                                                        const image::Tray<transf_comp_type>& tray) noexcept
 {
     ARCHON_ASSERT(image::Box(pos, tray.size).contained_in(image_size));
     for (int y = 0; y < tray.size.height; ++y) {
@@ -324,7 +325,7 @@ void PackedPixelFormat<C, S, P, W, B, D, E, F, G>::read(const word_type* buffer,
 
 template<class C, class S, class P, class W, int B, int D, core::Endianness E, bool F, bool G>
 void PackedPixelFormat<C, S, P, W, B, D, E, F, G>::write(word_type* buffer, image::Size image_size, image::Pos pos,
-                                                         const image::Tray<const transf_comp_type>& tray)
+                                                         const image::Tray<const transf_comp_type>& tray) noexcept
 {
     ARCHON_ASSERT(image::Box(pos, tray.size).contained_in(image_size));
     for (int y = 0; y < tray.size.height; ++y) {
@@ -332,7 +333,7 @@ void PackedPixelFormat<C, S, P, W, B, D, E, F, G>::write(word_type* buffer, imag
         word_type* target = get_pixel_ptr(buffer, image_size.width, pos_2);
         for (int x = 0; x < tray.size.width; ++x) {
             const transf_comp_type* source = tray(x, y);
-            write_pixel(source, target); // Throws
+            write_pixel(source, target);
             target += words_per_pixel;
         }
     }
@@ -341,11 +342,11 @@ void PackedPixelFormat<C, S, P, W, B, D, E, F, G>::write(word_type* buffer, imag
 
 template<class C, class S, class P, class W, int B, int D, core::Endianness E, bool F, bool G>
 void PackedPixelFormat<C, S, P, W, B, D, E, F, G>::fill(word_type* buffer, image::Size image_size,
-                                                        const image::Box& area, const transf_comp_type* color)
+                                                        const image::Box& area, const transf_comp_type* color) noexcept
 {
     ARCHON_ASSERT(area.contained_in(image_size));
     word_type color_2[words_per_pixel];
-    write_pixel(color, color_2); // Throws
+    write_pixel(color, color_2);
     image::Pos begin = area.pos;
     image::Pos end = begin + area.size;
     for (int y = begin.y; y < end.y; ++y) {
@@ -415,7 +416,8 @@ inline auto PackedPixelFormat<C, S, P, W, B, D, E, F, G>::get_pixel_ptr(const wo
 
 
 template<class C, class S, class P, class W, int B, int D, core::Endianness E, bool F, bool G>
-void PackedPixelFormat<C, S, P, W, B, D, E, F, G>::read_pixel(const word_type* source, transf_comp_type* target)
+void PackedPixelFormat<C, S, P, W, B, D, E, F, G>::read_pixel(const word_type* source,
+                                                              transf_comp_type* target) noexcept
 {
     // Assemble bit compound from words
     value_type pixel = 0;
@@ -428,31 +430,32 @@ void PackedPixelFormat<C, S, P, W, B, D, E, F, G>::read_pixel(const word_type* s
     if constexpr (!std::is_floating_point_v<transf_comp_type> || !has_alpha_channel) {
         core::for_each_int<int, num_channels>([&](auto obj) noexcept {
             constexpr int i = obj.value;
-            target[i] = get_component<i>(pixel); // Throws
+            target[i] = get_component<i>(pixel);
         });
     }
     else {
         // Do premultiplied alpha
         constexpr int last = num_channels - 1;
-        transf_comp_type alpha = get_component<last>(pixel); // Throws
-        core::for_each_int<int, last>([&](auto obj) {
+        transf_comp_type alpha = get_component<last>(pixel);
+        core::for_each_int<int, last>([&](auto obj) noexcept {
             constexpr int i = obj.value;
-            target[i] = alpha * get_component<i>(pixel); // Throws
-        }); // Throws
+            target[i] = alpha * get_component<i>(pixel);
+        });
         target[last] = alpha;
     }
 }
 
 
 template<class C, class S, class P, class W, int B, int D, core::Endianness E, bool F, bool G>
-void PackedPixelFormat<C, S, P, W, B, D, E, F, G>::write_pixel(const transf_comp_type* source, word_type* target)
+void PackedPixelFormat<C, S, P, W, B, D, E, F, G>::write_pixel(const transf_comp_type* source,
+                                                               word_type* target) noexcept
 {
     // Pack components
     value_type pixel = 0;
     if constexpr (!std::is_floating_point_v<transf_comp_type> || !has_alpha_channel) {
         core::for_each_int<int, num_channels>([&](auto obj) noexcept {
             constexpr int i = obj.value;
-            set_component<i>(pixel, source[i]); // Throw
+            set_component<i>(pixel, source[i]);
         });
     }
     else {
@@ -462,9 +465,9 @@ void PackedPixelFormat<C, S, P, W, B, D, E, F, G>::write_pixel(const transf_comp
         transf_comp_type inv_alpha = (alpha != 0 ? 1 / alpha : 0);
         core::for_each_int<int, last>([&](auto obj) noexcept {
             constexpr int i = obj.value;
-            set_component<i>(pixel, inv_alpha * source[i]); // Throw
+            set_component<i>(pixel, inv_alpha * source[i]);
         });
-        set_component<last>(pixel, alpha); // Throw
+        set_component<last>(pixel, alpha);
     }
 
     // Split bit compound into words
@@ -477,7 +480,7 @@ void PackedPixelFormat<C, S, P, W, B, D, E, F, G>::write_pixel(const transf_comp
 
 
 template<class C, class S, class P, class W, int B, int D, core::Endianness E, bool F, bool G>
-template<int I> inline auto PackedPixelFormat<C, S, P, W, B, D, E, F, G>::get_component(value_type pixel) ->
+template<int I> inline auto PackedPixelFormat<C, S, P, W, B, D, E, F, G>::get_component(value_type pixel) noexcept ->
     transf_comp_type
 {
     constexpr int channel_index = I;
@@ -494,16 +497,17 @@ template<int I> inline auto PackedPixelFormat<C, S, P, W, B, D, E, F, G>::get_co
         static_assert(std::is_same_v<transf_comp_type, image::float_type>);
         constexpr bool is_alpha = (has_alpha_channel && channel_index == num_channels - 1);
         if constexpr (!is_alpha) {
-            return image::compressed_int_to_float<width>(value); // Throws
+            return image::compressed_int_to_float<width>(value);
         }
-        return image::int_to_float<width, transf_comp_type>(value); // Throws
+        return image::int_to_float<width, transf_comp_type>(value);
     }
 }
 
 
 template<class C, class S, class P, class W, int B, int D, core::Endianness E, bool F, bool G>
-template<int I> inline void PackedPixelFormat<C, S, P, W, B, D, E, F, G>::set_component(value_type& pixel,
-                                                                                        transf_comp_type value)
+template<int I>
+inline void PackedPixelFormat<C, S, P, W, B, D, E, F, G>::set_component(value_type& pixel,
+                                                                        transf_comp_type value) noexcept
 {
     constexpr int channel_index = I;
 
@@ -519,10 +523,10 @@ template<int I> inline void PackedPixelFormat<C, S, P, W, B, D, E, F, G>::set_co
         static_assert(std::is_same_v<transf_comp_type, image::float_type>);
         constexpr bool is_alpha = (has_alpha_channel && channel_index == num_channels - 1);
         if constexpr (!is_alpha) {
-            value_2 = image::float_to_compressed_int<value_type, width>(value); // Throws
+            value_2 = image::float_to_compressed_int<value_type, width>(value);
         }
         else {
-            value_2 = image::float_to_int<value_type, width>(value); // Throws
+            value_2 = image::float_to_int<value_type, width>(value);
         }
     }
 

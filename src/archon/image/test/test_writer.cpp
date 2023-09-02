@@ -18,27 +18,34 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-                 
+
+#include <cstddef>
 #include <cmath>
-#include <array>
+#include <type_traits>
+#include <algorithm>
+#include <random>
 
 #include <archon/core/span.hpp>
-#include <archon/core/demangle.hpp>
+#include <archon/core/integer.hpp>
+#include <archon/core/math.hpp>
 #include <archon/core/format.hpp>
+#include <archon/core/random.hpp>
 #include <archon/check.hpp>
 #include <archon/util/color.hpp>
 #include <archon/util/colors.hpp>
 #include <archon/util/as_css_color.hpp>
 #include <archon/image/geom.hpp>
+#include <archon/image/tray.hpp>
 #include <archon/image/comp_types.hpp>
-#include <archon/image/gamma.hpp>
+#include <archon/image/comp_repr.hpp>
+#include <archon/image/color_space.hpp>
+#include <archon/image/pixel_repr.hpp>
 #include <archon/image/pixel.hpp>
 #include <archon/image/block.hpp>
+#include <archon/image/palette_image.hpp>
 #include <archon/image/tray_image.hpp>
 #include <archon/image/indexed_tray_image.hpp>
-#include <archon/image/indexed_pixel_format.hpp>
-#include <archon/image/buffered_image.hpp>
-#include <archon/image/palettes.hpp>
+#include <archon/image/reader.hpp>
 #include <archon/image/writer.hpp>
 #include <archon/image/test/box_utils.hpp>
 #include <archon/image/test/comp_repr_utils.hpp>

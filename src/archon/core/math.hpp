@@ -41,9 +41,7 @@ namespace archon::core {
 /// alternative implementation of `std::abs()`. The alternative implementation does not
 /// change `-0` to `0`, and does not necessarily change `-nan` to `nan`.
 ///
-/// FIXME: Should be possible to make non-throwing              
-///
-template<class T> constexpr auto abs(T) -> T;
+template<class T> constexpr auto abs(T) noexcept -> T;
 
 
 
@@ -67,7 +65,7 @@ template<class T> constexpr auto abs(T) -> T;
 ///
 /// FIXME: Add test case for this function (only the floating-point part needs testing here).                    
 ///
-template<class T, class U> auto periodic_mod(T a, U b) -> U;
+template<class T, class U> auto periodic_mod(T a, U b) noexcept -> U;
 
 
 
@@ -76,7 +74,7 @@ template<class T, class U> auto periodic_mod(T a, U b) -> U;
 /// This function returns the result of multiplying the specified value by itself. This
 /// function works for all numeric types with a suitable multiplication operator.
 ///
-template<class T> constexpr auto square(T val) noexcept(noexcept(val * val));
+template<class T> constexpr auto square(T val) noexcept;
 
 
 
@@ -84,7 +82,19 @@ template<class T> constexpr auto square(T val) noexcept(noexcept(val * val));
 ///
 /// This function is a shorthand for `(1 - t) * a + t * b`.
 ///
-template<class T, class U> auto lerp(T a, T b, U t);
+template<class T, class U> auto lerp(T a, T b, U t) noexcept;
+
+
+
+/// \brief Convert angle from degrees to radians.
+///
+/// This function converts an angle from the specified number of degrees to the
+/// corresponding number of radians. The return type will be \p T if \p T is one of the
+/// standard floating point types (`std::is_floating_point`). Otherwise it will be
+/// `decltype(T() + double())`. For example, `deg_to_rad(90)` produces `math::pi<double>() /
+/// 2`.
+///
+template<class T> auto deg_to_rad(T) noexcept;
 
 
 
@@ -96,7 +106,7 @@ template<class T, class U> auto lerp(T a, T b, U t);
 /// FIXME: In C++20, set to `std::numbers::pi_v<T>` and make `constexpr`. This will also
 /// make it possible to convert it into a variable template.
 ///
-template<class T> auto pi() -> T;
+template<class T> auto pi() noexcept -> T;
 
 
 
@@ -109,9 +119,9 @@ template<class T> auto pi() -> T;
 /// FIXME: In C++20, set `golden_ratio()` to `std::numbers::phi_v<T>` and make all three
 /// `constexpr`. This will also make it possible to convert these into variable templates.
 ///
-template<class T> auto golden_ratio() -> T;
-template<class T> auto golden_fraction() -> T;
-template<class T> auto golden_angle() -> T;
+template<class T> auto golden_ratio() noexcept -> T;
+template<class T> auto golden_fraction() noexcept -> T;
+template<class T> auto golden_angle() noexcept -> T;
 /// \}
 
 
@@ -124,10 +134,10 @@ template<class T> auto golden_angle() -> T;
 // Implementation
 
 
-template<class T> constexpr auto abs(T x) -> T
+template<class T> constexpr auto abs(T x) noexcept -> T
 {
     if constexpr (ARCHON_IS_CONSTEXPR(std::abs(T())))
-        return std::abs(x); // Throws
+        return std::abs(x);
     return (x < 0 ? -x : x);
 }
 
@@ -135,10 +145,10 @@ template<class T> constexpr auto abs(T x) -> T
 namespace impl {
 
 
-template<class T> inline auto periodic_mod(T a, T b) -> T
+template<class T> inline auto periodic_mod(T a, T b) noexcept -> T
 {
     static_assert(std::is_floating_point_v<T>);
-    T c = std::fmod(a, b); // Throws
+    T c = std::fmod(a, b);
     if (ARCHON_LIKELY(b >= 0)) {
         if (ARCHON_LIKELY(c >= 0))
             return c;
@@ -162,7 +172,7 @@ template<class T> inline auto periodic_mod(T a, T b) -> T
 } // namespace impl
 
 
-template<class T, class U> inline auto periodic_mod(T a, U b) -> U
+template<class T, class U> inline auto periodic_mod(T a, U b) noexcept -> U
 {
     if constexpr (core::is_integer<T>() && core::is_integer<U>()) {
         return core::int_periodic_mod(a, b);
@@ -171,44 +181,57 @@ template<class T, class U> inline auto periodic_mod(T a, U b) -> U
         static_assert(std::is_integral_v<T> || std::is_floating_point_v<T>);
         static_assert(std::is_integral_v<U> || std::is_floating_point_v<U>);
         using type = std::common_type_t<T, U>;
-        return U(impl::periodic_mod(type(a), type(b))); // Throws
+        return U(impl::periodic_mod(type(a), type(b)));
     }
 }
 
 
-template<class T> constexpr auto square(T val) noexcept(noexcept(val * val))
+template<class T> constexpr auto square(T val) noexcept
 {
+    static_assert(noexcept(val * val));
     return val * val;
 }
 
 
-template<class T, class U> auto lerp(T a, T b, U t)
+template<class T, class U> auto lerp(T a, T b, U t) noexcept
 {
+    static_assert(noexcept((1 - t) * a + t * b));
     return (1 - t) * a + t * b;
 }
 
 
-template<class T> inline auto pi() -> T
+template<class T> auto deg_to_rad(T angle) noexcept
 {
-    return T(4 * std::atan(T(1))); // Throws
+    using type = std::conditional_t<std::is_floating_point_v<T>, T, double>;
+    return core::pi<type>() / 180 * angle;
 }
 
 
-template<class T> inline auto golden_ratio() -> T
+template<class T> inline auto pi() noexcept -> T
 {
-    return T((1 + std::sqrt(T(5))) / 2); // Throws
+    static_assert(std::is_floating_point_v<T>);
+    return T(4 * std::atan(T(1)));
 }
 
 
-template<class T> inline auto golden_fraction() -> T
+template<class T> inline auto golden_ratio() noexcept -> T
 {
-    return T(1 - 1 / core::golden_ratio<T>()); // Throws
+    static_assert(std::is_floating_point_v<T>);
+    return T((1 + std::sqrt(T(5))) / 2);
 }
 
 
-template<class T> inline auto golden_angle() -> T
+template<class T> inline auto golden_fraction() noexcept -> T
 {
-    return T(2 * core::pi<T>() * core::golden_fraction<T>()); // Throws
+    static_assert(std::is_floating_point_v<T>);
+    return T(1 - 1 / core::golden_ratio<T>());
+}
+
+
+template<class T> inline auto golden_angle() noexcept -> T
+{
+    static_assert(std::is_floating_point_v<T>);
+    return T(2 * core::pi<T>() * core::golden_fraction<T>());
 }
 
 

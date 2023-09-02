@@ -5,6 +5,7 @@ add_library(CoreTest OBJECT
   test_type_list.cpp
   test_integer.cpp
   test_float.cpp
+  test_math.cpp
   test_endianness.cpp
   test_scope_exit.cpp
   test_value_reset_guard.cpp
@@ -27,9 +28,6 @@ add_library(CoreTest OBJECT
   test_base64.cpp
   test_string_template.cpp
   test_string_matcher.cpp
-  word_wrap_knuth_alt.cpp
-  test_word_wrap.cpp
-  test_text_formatter.cpp
   test_super_int.cpp
   test_mul_prec_int.cpp
   test_random.cpp
@@ -45,6 +43,10 @@ add_library(CoreTest OBJECT
   test_text_file.cpp
   test_buffered_text_file.cpp
   test_text_file_stream.cpp
+  test_histogram.cpp
+  word_wrap_knuth_alt.cpp
+  test_word_wrap.cpp
+  test_text_formatter.cpp
 )
 
 target_link_libraries(CoreTest

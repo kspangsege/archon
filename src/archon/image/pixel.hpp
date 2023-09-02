@@ -104,7 +104,7 @@ public:
     ///
     /// \sa \ref convert()
     ///
-    template<class S> explicit Pixel(const Pixel<S>& other);
+    template<class S> explicit Pixel(const Pixel<S>& other) noexcept;
 
     explicit Pixel(util::Color);
     explicit operator util::Color() const;
@@ -171,7 +171,7 @@ public:
     /// passed as the first pixel argument, and the specified pixel passed as the second
     /// pixel argument.
     ///
-    auto blend(const Pixel& pixel, image::BlendMode mode, image::float_type opacity = 1) -> Pixel;
+    auto blend(const Pixel& pixel, image::BlendMode mode, image::float_type opacity = 1) noexcept -> Pixel;
 
     /// \brief Promoted pixel type.
     ///
@@ -186,7 +186,7 @@ public:
     /// it always has an alpha channel component. The promoted type and the type of this
     /// pixel are similar pixel types (same color space).
     ///
-    auto promote() const -> promoted_pixel_type;
+    auto promote() const noexcept -> promoted_pixel_type;
 
 private:
     std::array<comp_type, num_channels> m_components = {};
@@ -225,7 +225,7 @@ using Pixel_RGBA_F  = image::Pixel<image::RGBA_F>;
 ///
 /// \sa \ref image::operator*(image::float_type, const image::Pixel<R>&)
 ///
-template<class R, class S> auto operator+(const image::Pixel<R>& a, const Pixel<S>& b) ->
+template<class R, class S> auto operator+(const image::Pixel<R>& a, const Pixel<S>& b) noexcept ->
     image::Pixel<typename R::promoted_type>;
 
 
@@ -238,7 +238,7 @@ template<class R, class S> auto operator+(const image::Pixel<R>& a, const Pixel<
 ///
 /// \sa \ref image::operator+(const image::Pixel<R>, const image::Pixel<S>&)
 ///
-template<class R> auto operator*(image::float_type alpha, const image::Pixel<R>& pixel) ->
+template<class R> auto operator*(image::float_type alpha, const image::Pixel<R>& pixel) noexcept ->
     image::Pixel<typename R::promoted_type>;
 
 
@@ -286,13 +286,13 @@ inline Pixel<R>::Pixel(std::array<comp_type, num_channels> components) noexcept
 
 
 template<class R>
-template<class S> inline Pixel<R>::Pixel(const Pixel<S>& other)
+template<class S> inline Pixel<R>::Pixel(const Pixel<S>& other) noexcept
 {
     using other_type = Pixel<S>;
     static_assert(color_space_tag == other_type::color_space_tag);
     constexpr int num_color_space_channels = image::get_num_channels(color_space_tag);
     image::pixel_convert<S::comp_repr, comp_repr>(other.data(), other_type::has_alpha, data(), has_alpha,
-                                                  num_color_space_channels); // Throws
+                                                  num_color_space_channels);
 }
 
 
@@ -454,40 +454,40 @@ template<class S> inline auto Pixel<R>::convert(const image::ColorSpaceConverter
 
 
 template<class R>
-auto Pixel<R>::blend(const Pixel& other, image::BlendMode mode, image::float_type opacity) -> Pixel
+auto Pixel<R>::blend(const Pixel& other, image::BlendMode mode, image::float_type opacity) noexcept -> Pixel
 {
-    promoted_pixel_type a = promote(); // Throws
-    promoted_pixel_type b = other.promote(); // Throws
+    promoted_pixel_type a = promote();
+    promoted_pixel_type b = other.promote();
     int n = promoted_pixel_type::num_channels;
     for (int i = 0; i < n; ++i)
         a[i] *= opacity;
     promoted_pixel_type c;
-    image::blend(a.data(), b.data(), c.data(), n, mode); // Throws
+    image::blend(a.data(), b.data(), c.data(), n, mode);
     return Pixel(c);
 }
 
 
 template<class R>
-inline auto Pixel<R>::promote() const -> promoted_pixel_type
+inline auto Pixel<R>::promote() const noexcept -> promoted_pixel_type
 {
-    return promoted_pixel_type(*this); // Throws
+    return promoted_pixel_type(*this);
 }
 
 
-template<class R, class S> inline auto operator+(const Pixel<R>& a, const Pixel<S>& b) ->
+template<class R, class S> inline auto operator+(const Pixel<R>& a, const Pixel<S>& b) noexcept ->
     image::Pixel<typename R::promoted_type>
 {
-    return a.promote().blend(b.promote(), image::BlendMode::over); // Throws
+    return a.promote().blend(b.promote(), image::BlendMode::over);
 }
 
 
-template<class R> inline auto operator*(image::float_type alpha, const image::Pixel<R>& pixel) ->
+template<class R> inline auto operator*(image::float_type alpha, const image::Pixel<R>& pixel) noexcept ->
     image::Pixel<typename R::promoted_type>
 {
     using promoted_pixel_type = image::Pixel<typename R::promoted_type>;
-    promoted_pixel_type pixel_2 = pixel.promote(); // Throws
+    promoted_pixel_type pixel_2 = pixel.promote();
     for (int i = 0; i < promoted_pixel_type::num_channels; ++i)
-        pixel_2[i] *= alpha; // Throws
+        pixel_2[i] *= alpha;
     return pixel_2;
 }
 

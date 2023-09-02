@@ -26,6 +26,7 @@
 
 #include <cstddef>
 #include <cmath>
+#include <type_traits>
 #include <memory>
 #include <utility>
 #include <array>
@@ -37,7 +38,7 @@
 #include <archon/core/float.hpp>
 #include <archon/core/math.hpp>
 #include <archon/core/random.hpp>
-#include <archon/math/vec.hpp>
+#include <archon/math/vector.hpp>
 
 
 namespace archon::util {
@@ -72,6 +73,9 @@ struct PerlinNoiseBase {
 /// Given an instance of this class, one computes the noise value at a given location using
 /// \ref operator().
 ///
+/// The specified value type (\p T) must be one of the standard floating-point types
+/// (`std::is_floating_point`).
+///
 template<int N = 2, class T = double, PerlinNoiseBase::Interp I = PerlinNoiseBase::Interp::linear>
 class PerlinNoise
     : public PerlinNoiseBase {
@@ -81,10 +85,11 @@ public:
     static constexpr int num_dims = N;
     static constexpr PerlinNoiseBase::Interp interp = I;
 
+    static_assert(std::is_floating_point_v<value_type>);
     static_assert(num_dims > 0);
 
     using size_type = std::array<int, num_dims>;
-    using vec_type = math::Vec<num_dims, value_type>;
+    using vec_type = math::Vector<num_dims, value_type>;
 
     /// \brief Total number of gradients for particular grid size.
     ///
@@ -134,7 +139,7 @@ public:
     /// `PerlinNoise`, and `pos` is a position, then the result of `noise(pos)` is between
     /// `-a` and `a`, both inclusive.
     ///
-    static value_type amplitude();
+    static auto amplitude() noexcept -> value_type;
 
     /// \brief Construct Perlin noise configuration.
     ///
@@ -173,8 +178,8 @@ public:
     /// information about the extent of the grid), the returned value is the value at the
     /// closes point on the boundary of the grid.
     ///
-    auto operator()(const vec_type pos) -> value_type;
-    auto operator()(const vec_type pos, value_type from, value_type to) -> value_type;
+    auto operator()(const vec_type pos) noexcept -> value_type;
+    auto operator()(const vec_type pos, value_type from, value_type to) noexcept -> value_type;
     /// \}
 
 private:
@@ -183,7 +188,7 @@ private:
     vec_type m_grid_pos;
     const vec_type* m_gradients;
 
-    static auto interpolate(value_type a, value_type b, value_type t) -> value_type;
+    static auto interpolate(value_type a, value_type b, value_type t) noexcept -> value_type;
 };
 
 
@@ -225,14 +230,14 @@ template<class E> void PerlinNoise<N, T, I>::init_gradients(size_type grid_size,
 {
     std::size_t n = num_gradients(grid_size); // Throws
     for (std::size_t i = 0; i < n; ++i)
-        core::rand_unit_vec(random_engine, gradients[i].components()); // Throws
+        core::rand_unit_vec(random_engine, core::Span(gradients[i].components())); // Throws
 }
 
 
 template<int N, class T, PerlinNoiseBase::Interp I>
-inline auto PerlinNoise<N, T, I>::amplitude() -> value_type
+inline auto PerlinNoise<N, T, I>::amplitude() noexcept -> value_type
 {
-    return std::sqrt(value_type(num_dims) / 4); // Throws
+    return std::sqrt(value_type(num_dims) / 4);
 }
 
 
@@ -249,7 +254,7 @@ inline PerlinNoise<N, T, I>::PerlinNoise(size_type grid_size, vec_type grid_gaug
 
 
 template<int N, class T, PerlinNoiseBase::Interp I>
-auto PerlinNoise<N, T, I>::operator()(const vec_type pos) -> value_type
+auto PerlinNoise<N, T, I>::operator()(const vec_type pos) noexcept -> value_type
 {
     vec_type vec = pos - m_grid_pos;
     std::size_t index = 0;
@@ -261,8 +266,8 @@ auto PerlinNoise<N, T, I>::operator()(const vec_type pos) -> value_type
             value_type val_2 = 0; // Fractional part
             int val_3 = 0; // Integer part
             if (ARCHON_LIKELY(val_1 >= 0)) {
-                if (ARCHON_LIKELY(core::float_less_int(val_1, m_grid_size[i]))) { // Throws
-                    value_type val = std::trunc(val_1); // Throws
+                if (ARCHON_LIKELY(core::float_less_int(val_1, m_grid_size[i]))) {
+                    value_type val = std::trunc(val_1);
                     val_2 = val_1 - val;
                     val_3 = int(val);
                 }
@@ -287,7 +292,7 @@ auto PerlinNoise<N, T, I>::operator()(const vec_type pos) -> value_type
 
   enter:
     dim = 0;
-    val = math::dot(m_gradients[index], vec - vec_shift); // Throws
+    val = math::dot(m_gradients[index], vec - vec_shift);
 
   leave:
     if (ARCHON_LIKELY(dim < num_dims)) {
@@ -299,7 +304,7 @@ auto PerlinNoise<N, T, I>::operator()(const vec_type pos) -> value_type
         }
         index -= index_shifts[dim];
         vec_shift[dim] = 0;
-        val = interpolate(stack[dim], val, vec[dim]); // Throws
+        val = interpolate(stack[dim], val, vec[dim]);
         dim += 1;
         goto leave;
     }
@@ -308,16 +313,16 @@ auto PerlinNoise<N, T, I>::operator()(const vec_type pos) -> value_type
 
 
 template<int N, class T, PerlinNoiseBase::Interp I>
-inline auto PerlinNoise<N, T, I>::operator()(const vec_type pos, value_type from, value_type to) -> value_type
+inline auto PerlinNoise<N, T, I>::operator()(const vec_type pos, value_type from, value_type to) noexcept -> value_type
 {
     // FIXME: Document that returned value may overflow slightly due to numerical imprecision                        
-    value_type val = (1 + operator()(pos) / amplitude()) / 2; // Throws
+    value_type val = (1 + operator()(pos) / amplitude()) / 2;
     return from + val * (to - from);
 }
 
 
 template<int N, class T, PerlinNoiseBase::Interp I>
-inline auto PerlinNoise<N, T, I>::interpolate(value_type a, value_type b, value_type t) -> value_type
+inline auto PerlinNoise<N, T, I>::interpolate(value_type a, value_type b, value_type t) noexcept -> value_type
 {
     using promoted_value_type = decltype(std::declval<value_type>() + std::declval<double>());
     promoted_value_type u = t;
@@ -331,7 +336,7 @@ inline auto PerlinNoise<N, T, I>::interpolate(value_type a, value_type b, value_
             u = (t * (t * 6.0 - 15.0) + 10.0) * t * t * t;
             break;
     }
-    return value_type(core::lerp<promoted_value_type>(a, b, u)); // Throws
+    return value_type(core::lerp<promoted_value_type>(a, b, u));
 }
 
 

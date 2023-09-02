@@ -31,7 +31,7 @@
 #include <archon/core/inexact_compare.hpp>
 #include <archon/core/random.hpp>
 #include <archon/check.hpp>
-#include <archon/math/vec.hpp>
+#include <archon/math/vector.hpp>
 #include <archon/util/kdtree.hpp>
 
 
@@ -124,10 +124,10 @@ ARCHON_TEST(Util_Kdtree_Randomized)
     std::mt19937_64 random(test_context.seed_seq());
 
     constexpr std::size_t num_points = 16;
-    std::array<math::Vec3, num_points> points;
+    std::array<math::Vector3, num_points> points;
 
     for (std::size_t i = 0; i < num_points; ++i) {
-        math::Vec3 point;
+        math::Vector3 point;
         for (std::size_t i = 0; i < 3; ++i)
             point[i] = core::rand_float<double>(random);
         points[i] = point;
@@ -146,7 +146,7 @@ ARCHON_TEST(Util_Kdtree_Randomized)
     std::vector<std::size_t> candidates;
     constexpr int num_lookups = 128;
     for (int i = 0; i < num_lookups; ++i) {
-        math::Vec3 point;
+        math::Vector3 point;
         for (std::size_t i = 0; i < 3; ++i)
             point[i] = core::rand_float<double>(random);
 

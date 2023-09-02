@@ -96,7 +96,8 @@ namespace archon::util::unit_frac {
 ///
 /// \sa \ref util::flt_to_int(), \ref util::flt_to_int_a()
 ///
-template<class F, class I> constexpr auto int_to_flt(I int_val, core::Type<I> max_int = core::int_max<I>()) -> F;
+template<class F, class I>
+constexpr auto int_to_flt(I int_val, core::Type<I> max_int = core::int_max<I>()) noexcept -> F;
 
 
 /// \{
@@ -126,8 +127,10 @@ template<class F, class I> constexpr auto int_to_flt(I int_val, core::Type<I> ma
 ///
 /// \sa \ref util::int_to_flt()
 ///
-template<class I, class F> constexpr auto flt_to_int(F flt_val, core::Type<I> max_int = core::int_max<I>())   -> I;
-template<class I, class F> constexpr auto flt_to_int_a(F flt_val, core::Type<I> max_int = core::int_max<I>()) -> I;
+template<class I, class F>
+constexpr auto flt_to_int(F flt_val, core::Type<I> max_int = core::int_max<I>()) noexcept -> I;
+template<class I, class F>
+constexpr auto flt_to_int_a(F flt_val, core::Type<I> max_int = core::int_max<I>()) noexcept -> I;
 /// \}
 
 
@@ -163,7 +166,7 @@ namespace impl {
 
 
 template<class I, bool alt, class F>
-constexpr auto flt_to_int(F flt_val, core::Type<I> max_int) -> I
+constexpr auto flt_to_int(F flt_val, core::Type<I> max_int) noexcept -> I
 {
     // Max value for type is must be odd, so that we can be sure below that it is possible
     // to add 1 when the value is even.
@@ -182,9 +185,9 @@ constexpr auto flt_to_int(F flt_val, core::Type<I> max_int) -> I
             v += F(1) / 2;
         }
         // Avoid undefined behavior in the conversion from floating point to integer.
-        F max_flt = core::max_float_for_int<F, I>(); // Throws
+        F max_flt = core::max_float_for_int<F, I>();
         if (ARCHON_LIKELY(v <= max_flt)) {
-            I w = core::float_to_int_a<I>(v); // Throws
+            I w = core::float_to_int_a<I>(v);
             if (ARCHON_LIKELY(w <= max_int))
                 return w;
         }
@@ -197,23 +200,23 @@ constexpr auto flt_to_int(F flt_val, core::Type<I> max_int) -> I
 } // namespace impl
 
 
-template<class F, class I> constexpr auto int_to_flt(I int_val, core::Type<I> max_int) -> F
+template<class F, class I> constexpr auto int_to_flt(I int_val, core::Type<I> max_int) noexcept -> F
 {
     return F(F(int_val) / F(max_int));
 }
 
 
-template<class I, class F> constexpr auto flt_to_int(F flt_val, core::Type<I> max_int) -> I
+template<class I, class F> constexpr auto flt_to_int(F flt_val, core::Type<I> max_int) noexcept -> I
 {
     constexpr bool alt = false;
-    return impl::flt_to_int<I, alt>(flt_val, max_int); // Throws
+    return impl::flt_to_int<I, alt>(flt_val, max_int);
 }
 
 
-template<class I, class F> constexpr auto flt_to_int_a(F flt_val, core::Type<I> max_int) -> I
+template<class I, class F> constexpr auto flt_to_int_a(F flt_val, core::Type<I> max_int) noexcept -> I
 {
     constexpr bool alt = true;
-    return impl::flt_to_int<I, alt>(flt_val, max_int); // Throws
+    return impl::flt_to_int<I, alt>(flt_val, max_int);
 }
 
 

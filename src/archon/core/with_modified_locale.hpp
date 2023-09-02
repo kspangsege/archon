@@ -35,8 +35,53 @@
 namespace archon::core {
 
 
-template<class R> auto with_modified_locale(R&& ref, const std::locale&, std::locale::category);
-template<class R> auto with_reverted_locale(R&& ref, std::locale::category);
+/// \brief Format or parse value with modified locale.
+///
+/// This function returns an object that, if allowed by the type of the referenced value (\p
+/// ref) and by the type of reference, can be used for both formatting and parsing of such
+/// values, but with the effective locale temporarily modified.
+///
+/// If \p ref refers to an object that can be written to an output stream, then this
+/// function returns an object that, if written to an output stream, writes the referenced
+/// object to that output stream, but with the locale of the stream temporarily modified as
+/// specified (see below).
+///
+/// If \p ref refers to an object of a type that can be parsed by a value parser (\ref
+/// core::BasicValueParser), and the reference is non-`const`, then this function returns an
+/// object that, if passed to a value parser, has the same effect as passing the referenced
+/// object (\p ref) to that value parser, but with the locale of the value parser
+/// temporarily modified as specified (see below).
+///
+/// The locale of the stream (when formatting) or value parser (when parsing) will have
+/// those facets, that correspond to the specified category (\p cat), replaced by those of
+/// the specified locale (\p loc). The effective locale will be as if constructed by
+/// `std::locale(orig_loc, loc, cat)` where `orig_loc` is the original locale of the stream
+/// or value parser.
+///
+template<class R> auto with_modified_locale(R&& ref, const std::locale& loc, std::locale::category cat);
+
+
+/// \brief Format or parse value with specific facets reverted to the classic locale.
+///
+/// This function returns an object that, if allowed by the type of the referenced value (\p
+/// ref) and by the type of reference, can be used for both formatting and parsing of such
+/// values, but with the specified facets (\p cat) reverted to the classic locale.
+///
+/// This function is shorthand for calling \ref core::with_modified_locale() with
+/// `std::locale::classic()` passed for \p loc.
+///
+template<class R> auto with_reverted_locale(R&& ref, std::locale::category cat);
+
+
+/// \brief Format or parse value with numeric facets reverted to the classic locale.
+///
+/// This function returns an object that, if allowed by the type of the referenced value (\p
+/// ref) and by the type of reference, can be used for both formatting and parsing of such
+/// values, but with numeric facets reverted to the classic locale.
+///
+/// This function is shorthand for calling \ref core::with_reverted_locale() with
+/// `std::locale::numeric` passed for \p cat.
+///
 template<class R> auto with_reverted_numerics(R&& ref);
 
 

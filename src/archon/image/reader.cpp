@@ -212,15 +212,15 @@ void Reader::init_color_slot_f(ColorSlot slot)
 
   convert:
     ensure_color_slots_f(); // Throws
-    repr_dispatch([&](auto tag) {
+    repr_dispatch([&](auto tag) noexcept {
         constexpr image::CompRepr repr = tag.comp_repr;
         constexpr image::CompRepr float_repr = image::CompRepr::float_;
         using comp_type = image::comp_type<repr>;
         comp_type* origin = get_color_slot_u<repr>(slot);
         image::float_type* destin = get_color_slot_f(slot);
         bool has_alpha = true;
-        image::comp_repr_convert<repr, float_repr>(origin, destin, m_num_channels_ext, has_alpha); // Throws
-    }); // Throws
+        image::comp_repr_convert<repr, float_repr>(origin, destin, m_num_channels_ext, has_alpha);
+    });
     ctrl.have_neutral = true;
 }
 
@@ -289,9 +289,9 @@ void Reader::instantiate_palette_cache_f()
                 // Premultiply alpha
                 constexpr int bit_width = image::comp_repr_bit_width<repr>();
                 int last = k - 1;
-                image::float_type alpha = image::int_to_float<bit_width, image::float_type>(source[last]); // Throws
+                image::float_type alpha = image::int_to_float<bit_width, image::float_type>(source[last]);
                 for (int i = 0; i < last; ++i)
-                    destin[i] = alpha * image::compressed_int_to_float<bit_width>(source[i]); // Throws
+                    destin[i] = alpha * image::compressed_int_to_float<bit_width>(source[i]);
                 destin[last] = alpha;
             }
             source += k;

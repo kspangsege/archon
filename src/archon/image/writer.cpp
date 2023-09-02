@@ -88,7 +88,7 @@ auto Writer::fill(const image::Box& area, ColorSlot slot) -> Writer&
                 impl::Workspace<comp_type> workspace_2(seed_mem_2, m_workspace_buffer_2, num_channels); // Throws
                 constexpr image::CompRepr float_repr = image::CompRepr::float_;
                 image::comp_repr_convert<float_repr, repr>(workspace_1.data(), workspace_2.data(), num_channels,
-                                                           has_alpha_channel()); // Throws
+                                                           has_alpha_channel());
                 get_image().fill(box, workspace_2.data()); // Throws
             }); // Throws
             return *this;
@@ -138,7 +138,7 @@ auto Writer::fill(const image::Box& area, ColorSlot slot) -> Writer&
                 const image::float_type* right = tray(x, y);
                 image::float_type* destin = tray(x, y);
                 auto mode = image::BlendMode::over;
-                image::blend(left, right, destin, num_channels_ext, mode); // Throws
+                image::blend(left, right, destin, num_channels_ext, mode);
             }
         }
         write(subbox.pos, tray); // Throws
@@ -238,7 +238,7 @@ auto Writer::put_block_mask(image::Pos pos, const const_int8_tray_type& tray) ->
                 image::float_type* destin = tray_2(x, y);
                 // destin = opacity * ((mask * fg) + bg)
                 mask_comp_type val = origin[0];
-                image::float_type mask = image::alpha_comp_to_float<mask_comp_repr>(val); // Throws
+                image::float_type mask = image::alpha_comp_to_float<mask_comp_repr>(val);
                 image::float_type alpha = mask * fg_alpha;
                 image::float_type beta = (1 - alpha);
                 for (int i = 0; i < num_channels_ext; ++i) {
@@ -277,7 +277,7 @@ void Writer::write_b(image::Pos pos, const image::Tray<const image::float_type>&
             const image::float_type* right = tray_2(x, y);
             image::float_type* destin = tray_2(x, y);
             auto mode = image::BlendMode::over;
-            image::blend(left, right, destin, num_channels_ext, mode); // Throws
+            image::blend(left, right, destin, num_channels_ext, mode);
         }
     }
     // FIXME: Explain how it makes sense that alpha channel may be ignored here                                
@@ -300,7 +300,7 @@ void Writer::write(image::Pos pos, const image::Tray<const image::float_type>& t
                 constexpr image::CompRepr float_repr = image::CompRepr::float_;
                 bool origin_has_alpha = true;
                 bool destin_has_alpha = has_alpha_channel();
-                convert_1<float_repr, repr>(tray, origin_has_alpha, tray_2.iter, destin_has_alpha); // Throws
+                convert_1<float_repr, repr>(tray, origin_has_alpha, tray_2.iter, destin_has_alpha);
                 get_image().write(pos, tray_2); // Throws
             }); // Throws
             return;
@@ -368,12 +368,12 @@ auto Writer::do_reverse_palette_lookup_a(const image::float_type* color) -> std:
 }
 
 
-auto Writer::do_color_sqdist_a(image::float_type* a, image::float_type* b) -> image::float_type
+auto Writer::do_color_sqdist_a(image::float_type* a, image::float_type* b) noexcept -> image::float_type
 {
     // FIXME: Must take configured comparison color space into account when that feature is added                          
     double sqdist = 0;
     int n = m_num_channels_ext;
     for (int i = 0; i < n; ++i)
-        sqdist += core::square(double(a[i]) - double(b[i])); // Throws
-    return image::float_type(sqdist); // Throws
+        sqdist += core::square(double(a[i]) - double(b[i]));
+    return image::float_type(sqdist);
 }

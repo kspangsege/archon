@@ -25,32 +25,12 @@
 #error "Do not include this header file"
 
 
-// Foundation
 #include <archon/math/math_namespace.hpp>
 #include <archon/math/type_traits.hpp>
-
-// Vector
-#include <archon/math/vec_fwd.hpp>
-#include <archon/math/vec_val.hpp>
-#include <archon/math/impl/vec_adapt_rep.hpp>
-#include <archon/math/vec_adapt.hpp>
-#include <archon/math/impl/vec_rep.hpp>
-#include <archon/math/vec_var.hpp>
-#include <archon/math/vec_ops.hpp>
-#include <archon/math/vec_misc.hpp>
-#include <archon/math/vec.hpp>
-
-// Matrix
-#include <archon/math/mat_fwd.hpp>
-#include <archon/math/mat_val.hpp>
-#include <archon/math/mat_adapt_fwd.hpp>
-#include <archon/math/impl/mat_adapt_rep.hpp>
-#include <archon/math/mat_adapt.hpp>
-#include <archon/math/impl/mat_rep.hpp>
-#include <archon/math/mat_var.hpp>
-#include <archon/math/mat_ops.hpp>
-#include <archon/math/mat_misc.hpp>
-#include <archon/math/mat.hpp>
-
-// Testing
+#include <archon/math/vector_base.hpp>
+#include <archon/math/vector.hpp>
+#include <archon/math/matrix_base.hpp>
+#include <archon/math/matrix.hpp>
+#include <archon/math/quaternion.hpp>
+#include <archon/math/rotation.hpp>
 #include <archon/math/test/util.hpp>
