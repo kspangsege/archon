@@ -123,8 +123,8 @@ template<class I, int N, class F> constexpr auto float_to_int(F val) noexcept ->
 /// it is the largest width, N, such that \p T would be a bit medium of with N (see \ref
 /// image::is_bit_medium_of_width). For unsigned types, this is always the number of value
 /// bits in the type. For signed types, it is always either the number of value bits, or the
-/// number of value bits plus one. Since C++20, it is the number of value bits plus one for
-/// all standard and extended signed integer types.
+/// number of value bits plus one. Since C++20, if \p T is one of the standard or extended
+/// signed integer types, this is the number of value bits plus one.
 ///
 /// For floating-point types, this is the number of bits across the mantissa and the
 /// exponent.
