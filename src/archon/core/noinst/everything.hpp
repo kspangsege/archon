@@ -39,7 +39,6 @@
 #include <archon/core/assert.hpp>
 #include <archon/core/impl/utility.hpp>
 #include <archon/core/utility.hpp>
-#include <archon/core/is_constexpr.hpp>
 #include <archon/core/scope_exit.hpp>
 #include <archon/core/value_reset_guard.hpp>
 #include <archon/core/string_span.hpp>

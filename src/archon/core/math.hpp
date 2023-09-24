@@ -27,7 +27,6 @@
 #include <cmath>
 #include <type_traits>
 
-#include <archon/core/is_constexpr.hpp>
 #include <archon/core/integer.hpp>
 
 
@@ -36,10 +35,12 @@ namespace archon::core {
 
 /// \brief Absolute value.
 ///
-/// If `std::abs()` is a `constexpr` function (which it is starting from C++23), this
-/// function simply calls `std::abs()`. Otherwise, this function is a `constexpr` enabled
-/// alternative implementation of `std::abs()`. The alternative implementation does not
-/// change `-0` to `0`, and does not necessarily change `-nan` to `nan`.
+/// This function is a `constexpr` enabled alternative implementation of `std::abs()`. This
+/// implementation does not change `-0` to `0`, and does not necessarily change `-nan` to
+/// `nan`.
+///
+/// FIXME: In C++23, `std::abs()` becomes `constexpr`, so the need for this function
+/// vanishes.
 ///
 template<class T> constexpr auto abs(T) noexcept -> T;
 
@@ -136,8 +137,6 @@ template<class T> auto golden_angle() noexcept -> T;
 
 template<class T> constexpr auto abs(T x) noexcept -> T
 {
-    if constexpr (ARCHON_IS_CONSTEXPR(std::abs(T())))
-        return std::abs(x);
     return (x < 0 ? -x : x);
 }
 

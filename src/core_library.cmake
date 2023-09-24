@@ -55,7 +55,6 @@ target_sources(Core PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "${
   archon/core/assert.hpp
   archon/core/impl/utility.hpp
   archon/core/utility.hpp
-  archon/core/is_constexpr.hpp
   archon/core/scope_exit.hpp
   archon/core/value_reset_guard.hpp
   archon/core/string_span.hpp
