@@ -51,10 +51,10 @@ namespace archon::core {
 /// (e.g. `std::numeric_limits<double>::epsilon()`). As a general rule, a longer and more
 /// complex computation needs a higher multiple of the machine epsilon.
 ///
-bool approximately_equal(long double a, long double b, long double epsilon);
-bool essentially_equal(long double a, long double b, long double epsilon);
-bool definitely_less(long double a, long double b, long double epsilon);
-bool definitely_greater(long double a, long double b, long double epsilon);
+bool approximately_equal(long double a, long double b, long double epsilon) noexcept;
+bool essentially_equal(long double a, long double b, long double epsilon) noexcept;
+bool definitely_less(long double a, long double b, long double epsilon) noexcept;
+bool definitely_greater(long double a, long double b, long double epsilon) noexcept;
 /// \}
 
 
@@ -67,27 +67,27 @@ bool definitely_greater(long double a, long double b, long double epsilon);
 // Implementation
 
 
-inline bool approximately_equal(long double a, long double b, long double epsilon)
+inline bool approximately_equal(long double a, long double b, long double epsilon) noexcept
 {
-    return (std::abs(a - b) <= std::max(std::abs(a), std::abs(b)) * epsilon); // Throws
+    return (std::abs(a - b) <= std::max(std::abs(a), std::abs(b)) * epsilon);
 }
 
 
-inline bool essentially_equal(long double a, long double b, long double epsilon)
+inline bool essentially_equal(long double a, long double b, long double epsilon) noexcept
 {
-    return (std::abs(a - b) <= std::min(std::abs(a), std::abs(b)) * epsilon); // Throws
+    return (std::abs(a - b) <= std::min(std::abs(a), std::abs(b)) * epsilon);
 }
 
 
-inline bool definitely_less(long double a, long double b, long double epsilon)
+inline bool definitely_less(long double a, long double b, long double epsilon) noexcept
 {
-    return (b - a > std::max(std::abs(a), std::abs(b)) * epsilon); // Throws
+    return (b - a > std::max(std::abs(a), std::abs(b)) * epsilon);
 }
 
 
-inline bool definitely_greater(long double a, long double b, long double epsilon)
+inline bool definitely_greater(long double a, long double b, long double epsilon) noexcept
 {
-    return core::definitely_less(b, a, epsilon); // Throws
+    return core::definitely_less(b, a, epsilon);
 }
 
 

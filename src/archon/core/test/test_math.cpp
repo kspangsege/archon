@@ -1,6 +1,6 @@
 // This file is part of the Archon project, a suite of C++ libraries.
 //
-// Copyright (C) 2022 Kristian Spangsege <kristian.spangsege@gmail.com>
+// Copyright (C) 2020 Kristian Spangsege <kristian.spangsege@gmail.com>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this
 // software and associated documentation files (the "Software"), to deal in the Software
@@ -18,15 +18,21 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-#ifndef ARCHON_X_MATH_X_MAT_HPP
-#define ARCHON_X_MATH_X_MAT_HPP
 
-/// \file
+#include <limits>
+
+#include <archon/core/math.hpp>
+#include <archon/check.hpp>
 
 
-#include <archon/math/mat_val.hpp>
-#include <archon/math/mat_var.hpp>
-#include <archon/math/mat_ops.hpp>
-#include <archon/math/mat_misc.hpp>
+using namespace archon;
 
-#endif // ARCHON_X_MATH_X_MAT_HPP
+
+ARCHON_TEST(Core_Math_DegreesToRadians)
+{
+    double eps = std::numeric_limits<double>::epsilon();
+    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::deg_to_rad(0 * 90), 0 * core::pi<double>() / 2, 10 * eps);
+    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::deg_to_rad(1 * 90), 1 * core::pi<double>() / 2, 10 * eps);
+    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::deg_to_rad(2 * 90), 2 * core::pi<double>() / 2, 10 * eps);
+    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::deg_to_rad(3 * 90), 3 * core::pi<double>() / 2, 10 * eps);
+}

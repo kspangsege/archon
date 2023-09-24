@@ -28,6 +28,7 @@ jobs:
     steps:
     - name: Install dependencies
       run: |
+        sudo apt update
         sudo apt install libpng-dev libfreetype-dev libx11-dev libsdl2-dev
 
     - name: Checkout

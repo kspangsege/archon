@@ -110,7 +110,7 @@ inline bool parse_value(core::BasicValueParserSource<C, T>& src, const impl::AsC
     std::string_view string = char_mapper.narrow(src.string(), replacement, buffer); // Throws
     util::CssColor css_color;
     if (ARCHON_LIKELY(css_color.parse(string))) { // Throws
-        CssColor::Hex hex = css_color.get_as_hex(); // Throws
+        CssColor::Hex hex = css_color.get_as_hex();
         pod.color = util::Color(hex.r, hex.g, hex.b, hex.a);
         return true;
     }

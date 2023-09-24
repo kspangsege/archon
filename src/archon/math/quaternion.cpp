@@ -1,6 +1,6 @@
 // This file is part of the Archon project, a suite of C++ libraries.
 //
-// Copyright (C) 2022 Kristian Spangsege <kristian.spangsege@gmail.com>
+// Copyright (C) 2023 Kristian Spangsege <kristian.spangsege@gmail.com>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this
 // software and associated documentation files (the "Software"), to deal in the Software
@@ -18,21 +18,29 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-#ifndef ARCHON_X_MATH_X_VEC_FWD_HPP
-#define ARCHON_X_MATH_X_VEC_FWD_HPP
 
-/// \file
+#include <archon/math/quaternion.hpp>
 
 
-#include <cstddef>
+using namespace archon;
+using Quaternion = math::Quaternion;
 
 
-namespace archon::math {
+auto Quaternion::from_proper_euler_angles(comp_type alpha, comp_type beta, comp_type gamma) noexcept -> Quaternion
+{
+    comp_type ca = std::cos(0.5 * alpha), sa = std::sin(0.5 * alpha);
+    comp_type cb = std::cos(0.5 * beta),  sb = std::sin(0.5 * beta);
+    comp_type cg = std::cos(0.5 * gamma), sg = std::sin(0.5 * gamma);
 
+    comp_type cc = ca * cg;
+    comp_type ss = sa * sg;
+    comp_type sc = sa * cg;
+    comp_type cs = ca * sg;
 
-template<std::size_t N, class T> class Vec;
+    comp_type w = (cc - ss) * cb;
+    comp_type x = (cc + ss) * sb;
+    comp_type y = (sc - cs) * sb;
+    comp_type z = (sc + cs) * cb;
 
-
-} // namespace archon::math
-
-#endif // ARCHON_X_MATH_X_VEC_FWD_HPP
+    return { w, x, y, z };
+}

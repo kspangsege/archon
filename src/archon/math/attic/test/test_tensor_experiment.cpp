@@ -99,6 +99,6 @@ auto outer(Tensor<R, T> a, Tensor<S, U> b)
 } // unnamed namespace
 
 
-ARCHON_TEST(Math_Vec_TensorExperiment)
+ARCHON_TEST(Math_TensorExperiment)
 {
 }

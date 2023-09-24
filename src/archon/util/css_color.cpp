@@ -19,20 +19,29 @@
 // DEALINGS IN THE SOFTWARE.
 
 
+#include <cstddef>
+#include <cstdint>
+#include <stdexcept>
 #include <algorithm>
 #include <array>
 #include <tuple>
 #include <string_view>
 #include <locale>
 
+#include <archon/core/features.h>
+#include <archon/core/assert.hpp>
+#include <archon/core/string_span.hpp>
 #include <archon/core/algorithm.hpp>
+#include <archon/core/buffer.hpp>
 #include <archon/core/string_buffer_contents.hpp>
+#include <archon/core/char_mapper.hpp>
 #include <archon/core/integer_formatter.hpp>
 #include <archon/core/integer_parser.hpp>
 #include <archon/core/value_parser.hpp>
 #include <archon/core/string_formatter.hpp>
 #include <archon/util/unit_frac.hpp>
 #include <archon/util/color_space.hpp>
+#include <archon/util/color.hpp>
 #include <archon/util/colors.hpp>
 #include <archon/util/css_color.hpp>
 
@@ -69,43 +78,40 @@ constexpr auto to_rgba(int_comp_type r, int_comp_type g, int_comp_type b, int_co
 // as much precision as the single-precision type specified by IEEE 754.
 
 
-auto to_hex(flt_comp_type r, flt_comp_type g, flt_comp_type b, flt_comp_type a) -> util::CssColor::Hex
+auto to_hex(flt_comp_type r, flt_comp_type g, flt_comp_type b, flt_comp_type a) noexcept -> util::CssColor::Hex
 {
-    int_comp_type r_2 = util::unit_frac::flt_to_int<int_comp_type>(r, 255); // Throws
-    int_comp_type g_2 = util::unit_frac::flt_to_int<int_comp_type>(g, 255); // Throws
-    int_comp_type b_2 = util::unit_frac::flt_to_int<int_comp_type>(b, 255); // Throws
-    int_comp_type a_2 = util::unit_frac::flt_to_int<int_comp_type>(a, 255); // Throws
+    int_comp_type r_2 = util::unit_frac::flt_to_int<int_comp_type>(r, 255);
+    int_comp_type g_2 = util::unit_frac::flt_to_int<int_comp_type>(g, 255);
+    int_comp_type b_2 = util::unit_frac::flt_to_int<int_comp_type>(b, 255);
+    int_comp_type a_2 = util::unit_frac::flt_to_int<int_comp_type>(a, 255);
     return { r_2, g_2, b_2, a_2 };
 }
 
 
-auto to_hex(util::CssColor::Rgb rgb) -> util::CssColor::Hex
+auto to_hex(util::CssColor::Rgb rgb) noexcept -> util::CssColor::Hex
 {
     return to_hex(rgb.r / 255,
                   rgb.g / 255,
                   rgb.b / 255,
-                  rgb.a); // Throws
+                  rgb.a);
 }
 
 
-auto to_hex(util::CssColor::RgbP rgb) -> util::CssColor::Hex
+auto to_hex(util::CssColor::RgbP rgb) noexcept -> util::CssColor::Hex
 {
     return to_hex(rgb.r / 100,
                   rgb.g / 100,
                   rgb.b / 100,
-                  rgb.a); // Throws
+                  rgb.a);
 }
 
 
-auto to_hex(util::CssColor::Hsl hsl) -> util::CssColor::Hex
+auto to_hex(util::CssColor::Hsl hsl) noexcept -> util::CssColor::Hex
 {
-    flt_comp_type hsl_2[3] { hsl.h / 360, hsl.s / 100, hsl.l / 100 };
-    flt_comp_type rgb[3];
-    util::cvt_HSL_to_sRGB(hsl_2, rgb);
-    return to_hex(rgb[0],
-                  rgb[1],
-                  rgb[2],
-                  hsl.a); // Throws
+    using vector_type = math::Vector<3, flt_comp_type>;
+    vector_type hsl_2 = { hsl.h / 360, hsl.s / 100, hsl.l / 100 };
+    vector_type rgb = util::cvt_HSL_to_sRGB(hsl_2);
+    return to_hex(rgb[0], rgb[1], rgb[2], hsl.a);
 }
 
 
@@ -620,7 +626,7 @@ auto CssColor::name(std::size_t index) -> CssColor
 }
 
 
-auto CssColor::get_as_hex() const -> Hex
+auto CssColor::get_as_hex() const noexcept -> Hex
 {
     switch (m_form) {
         case Form::hex:
@@ -628,11 +634,11 @@ auto CssColor::get_as_hex() const -> Hex
         case Form::name:
             return get_named_color(m_name);
         case Form::rgb:
-            return to_hex(m_rgb); // Throws
+            return to_hex(m_rgb);
         case Form::rgb_p:
-            return to_hex(m_rgb_p); // Throws
+            return to_hex(m_rgb_p);
         case Form::hsl:
-            return to_hex(m_hsl); // Throws
+            return to_hex(m_hsl);
     }
     ARCHON_ASSERT_UNREACHABLE();
     return {};

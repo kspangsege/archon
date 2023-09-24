@@ -96,7 +96,7 @@ template<int M, class I, int N, class J> constexpr auto int_to_int(J val) noexce
 /// \tparam F The type of the returned value. This must be a standard floating-point type
 /// (`std::is_floating_point`).
 ///
-template<int N, class F, class I> constexpr auto int_to_float(I val) -> F;
+template<int N, class F, class I> constexpr auto int_to_float(I val) noexcept -> F;
 
 
 
@@ -113,7 +113,7 @@ template<int N, class F, class I> constexpr auto int_to_float(I val) -> F;
 /// \tparam I The type of the returned value. This must be one of the standard integer types
 /// (`std::is_integral`) that is a bit medium of width N.
 ///
-template<class I, int N, class F> constexpr auto float_to_int(F val) -> I;
+template<class I, int N, class F> constexpr auto float_to_int(F val) noexcept -> I;
 
 
 
@@ -158,7 +158,7 @@ template<int M, class I, int N, class J> constexpr auto int_to_int(J val) noexce
 }
 
 
-template<int N, class F, class I> constexpr auto int_to_float(I val) -> F
+template<int N, class F, class I> constexpr auto int_to_float(I val) noexcept -> F
 {
     // Conversion to floating point is only guaranteed to work if I is a standard integer
     // type and F is a standard floating-point type
@@ -168,11 +168,11 @@ template<int N, class F, class I> constexpr auto int_to_float(I val) -> F
     type val_2 = image::unpack_int<N>(val);
     constexpr type max = core::int_mask<type>(N);
     namespace uf = util::unit_frac;
-    return uf::int_to_flt<F>(val_2, max); // Throws
+    return uf::int_to_flt<F>(val_2, max);
 }
 
 
-template<class I, int N, class F> constexpr auto float_to_int(F val) -> I
+template<class I, int N, class F> constexpr auto float_to_int(F val) noexcept -> I
 {
     // Conversion from floating point is only guaranteed to work if I is a standard integer
     // type and F is a standard floating-point type
@@ -181,7 +181,7 @@ template<class I, int N, class F> constexpr auto float_to_int(F val) -> I
     using type = image::unpacked_type<I, N>;
     constexpr type max = core::int_mask<type>(N);
     namespace uf = util::unit_frac;
-    return image::pack_int<I, N>(uf::flt_to_int<type>(val, max)); // Throws
+    return image::pack_int<I, N>(uf::flt_to_int<type>(val, max));
 }
 
 

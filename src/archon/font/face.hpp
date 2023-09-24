@@ -27,7 +27,7 @@
 #include <cstddef>
 
 #include <archon/core/buffer.hpp>
-#include <archon/math/vec.hpp>
+#include <archon/math/vector.hpp>
 #include <archon/image/geom.hpp>
 #include <archon/image/iter.hpp>
 #include <archon/image/writer.hpp>
@@ -58,7 +58,7 @@ class Face {
 public:
     using char_type = font::CodePoint::char_type;
     using float_type = font::Size::comp_type;
-    using vec_type = math::Vec<2, float_type>;
+    using vector_type = math::Vector<2, float_type>;
 
     virtual ~Face() noexcept = default;
 
@@ -335,7 +335,7 @@ public:
     /// loaded. That is, it is not affected by subsequent modifications of the glyph on the
     /// design tablet.
     ///
-    virtual auto get_glyph_bearing(bool vertical = false) noexcept -> vec_type = 0;
+    virtual auto get_glyph_bearing(bool vertical = false) noexcept -> vector_type = 0;
 
     /// \brief Change position of glyph on design tablet.
     ///
@@ -350,7 +350,7 @@ public:
     /// A positive first component moves the glyph towards the right. A positive second
     /// component moves the glyph upwards.
     ///
-    virtual void translate_glyph(vec_type) = 0;
+    virtual void translate_glyph(vector_type) = 0;
 
     /// \brief Get size of glyph's pixel-aligned bounding box.
     ///

@@ -55,7 +55,9 @@ void impl::ColorSpaceLum::from_rgb(const comp_type* rgb, comp_type* native, comp
     // Conversion between RGB and Lum is linear, so alpha premultiplication does not have to
     // be undone.
     static_cast<void>(alpha);
-    util::cvt_RGB_to_Lum(rgb, native);
+
+    comp_type lum = util::cvt_RGB_to_Lum<comp_type>({ rgb[0], rgb[1], rgb[2] });
+    native[0] = lum;
 }
 
 
@@ -64,7 +66,11 @@ void impl::ColorSpaceLum::to_rgb(const comp_type* native, comp_type* rgb, comp_t
     // Conversion between RGB and Lum is linear, so alpha premultiplication does not have to
     // be undone.
     static_cast<void>(alpha);
-    util::cvt_Lum_to_RGB(native, rgb);
+
+    comp_type lum = native[0];
+    math::Vector<3, comp_type> rgb_2 = util::cvt_Lum_to_RGB(lum);
+    for (int i = 0; i < 3; ++i)
+        rgb[i] = rgb_2[i];
 }
 
 

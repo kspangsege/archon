@@ -1,10 +1,8 @@
 add_library(MathTest OBJECT
-  test_vec.cpp
-  test_vec_adapt.cpp
-  test_vec_ops.cpp
-  test_mat.cpp
-  test_mat_ops.cpp
-  test_tensor_experiment.cpp
+  test_vector.cpp
+  test_matrix.cpp
+  test_quaternion.cpp
+  test_rotation.cpp
 )
 
 target_link_libraries(MathTest

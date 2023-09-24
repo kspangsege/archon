@@ -41,11 +41,15 @@ namespace archon::core {
 ///
 /// \brief Maximum and minimum over values of heterogeneous type.
 ///
-/// These functions are shorthands for calling `std::min()` and `std::max()` respectively
-/// with arguments cast to the common type as determined by `std::common_type_t<T...>`.
+/// So long as all argument types are arithmetic types (`std::is_arithmetic`), these
+/// functions are shorthands for calling `std::min()` and `std::max()` respectively with
+/// arguments cast to the common type as determined by `std::common_type_t<T...>`.
 ///
-template<class... T> constexpr auto hetero_min(T&&...);
-template<class... T> constexpr auto hetero_max(T&&...);
+/// \warning These functions can have counterintuitive behavior when some of the specified
+/// values are not representable in the common type.
+///
+template<class... T> constexpr auto hetero_min(T...) noexcept;
+template<class... T> constexpr auto hetero_max(T...) noexcept;
 /// \}
 
 
@@ -325,17 +329,19 @@ template<class T, T N, class F> auto for_each_int(F&& func) noexcept(core::for_e
 // Implementation
 
 
-template<class... T> constexpr auto hetero_min(T&&... values)
+template<class... T> constexpr auto hetero_min(T... values) noexcept
 {
+    static_assert(std::conjunction_v<std::is_arithmetic<T>...>);
     using type = std::common_type_t<T...>;
-    return std::min({ type(std::forward<T>(values))... }); // Throws
+    return std::min({ type(values)... });
 }
 
 
-template<class... T> constexpr auto hetero_max(T&&... values)
+template<class... T> constexpr auto hetero_max(T... values) noexcept
 {
+    static_assert(std::conjunction_v<std::is_arithmetic<T>...>);
     using type = std::common_type_t<T...>;
-    return std::max({ type(std::forward<T>(values))... }); // Throws
+    return std::max({ type(values)... });
 }
 
 

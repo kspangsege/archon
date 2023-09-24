@@ -58,7 +58,6 @@
 #include <archon/core/buffered_text_file.hpp>
 #include <archon/core/text_parser.hpp>
 #include <archon/log.hpp>
-#include <archon/math/vec.hpp>
 #include <archon/util/rectangle_packer.hpp>
 #include <archon/image.hpp>
 #include <archon/font/size.hpp>
@@ -500,7 +499,7 @@ public:
     {
         if (ARCHON_LIKELY(glyph_index < m_font.spec.glyphs.size())) {
             m_glyph = &m_font.spec.glyphs[glyph_index];
-            m_glyph_translation = vec_type(); // Throws
+            m_glyph_translation = vector_type(); // Throws
             return;
         }
         throw std::out_of_range("glyph index");
@@ -513,14 +512,14 @@ public:
         return float_type(m_glyph->vert_advance);
     }
 
-    auto get_glyph_bearing(bool vertical) noexcept -> vec_type override final
+    auto get_glyph_bearing(bool vertical) noexcept -> vector_type override final
     {
         if (ARCHON_LIKELY(!vertical))
             return { float_type(m_glyph->horz_bearing_x), float_type(m_glyph->horz_bearing_y) };
         return { float_type(m_glyph->vert_bearing_x), float_type(m_glyph->vert_bearing_y) };
     }
 
-    void translate_glyph(vec_type dist) override final
+    void translate_glyph(vector_type dist) override final
     {
         m_glyph_translation += dist;
     }
@@ -568,7 +567,7 @@ private:
     const Font& m_font;
     image::Reader m_image_reader;
     const Glyph* m_glyph = nullptr;
-    vec_type m_glyph_translation;
+    vector_type m_glyph_translation;
 
     int get_glyph_translation_x() const
     {
@@ -727,10 +726,10 @@ void font::regen_fallback_font(font::Face& face, bool try_keep_orig_font_size,
             Glyph2 glyph = {};
             glyph.index = index;
             glyph.box.size = face.get_glyph_pa_size(); // Throws
-            font::Face::vec_type horz_bearing = face.get_glyph_bearing(false); // Throws
+            font::Face::vector_type horz_bearing = face.get_glyph_bearing(false); // Throws
             glyph.horz_bearing_x = int(horz_bearing[0]);
             glyph.horz_bearing_y = int(horz_bearing[1]);
-            font::Face::vec_type vert_bearing = face.get_glyph_bearing(true); // Throws
+            font::Face::vector_type vert_bearing = face.get_glyph_bearing(true); // Throws
             glyph.vert_bearing_x = int(vert_bearing[0]);
             glyph.vert_bearing_y = int(vert_bearing[1]);
             glyph.horz_advance = int(face.get_glyph_advance(false)); // Throws

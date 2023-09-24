@@ -447,7 +447,7 @@ private:
 
     auto do_reverse_palette_lookup_a(const image::float_type* color) -> std::size_t;
 
-    auto do_color_sqdist_a(image::float_type* a, image::float_type* b) -> image::float_type;
+    auto do_color_sqdist_a(image::float_type* a, image::float_type* b) noexcept -> image::float_type;
 };
 
 
@@ -698,7 +698,7 @@ auto Writer::color_sqdist_a(const image::comp_type<R>* components_1, const image
     image::float_type* buffer_2 = buffer_1 + n_1;
     color_to_promoted_native<R>(components_1, color_space_1, has_alpha_1, buffer_1); // Throws
     color_to_promoted_native<S>(components_2, color_space_2, has_alpha_2, buffer_2); // Throws
-    return do_color_sqdist_a(buffer_1, buffer_2); // Throws
+    return do_color_sqdist_a(buffer_1, buffer_2);
 }
 
 
@@ -740,7 +740,7 @@ void Writer::color_to_promoted_native(const image::comp_type<R>* components, con
     constexpr image::CompRepr repr_1 = R;
     constexpr image::CompRepr repr_2 = image::CompRepr::float_;
     int num_channels = color_space.get_num_channels() + int(has_alpha);
-    image::comp_repr_convert<repr_1, repr_2>(components, buffer, num_channels, has_alpha); // Throws
+    image::comp_repr_convert<repr_1, repr_2>(components, buffer, num_channels, has_alpha);
     image::float_type alpha = (has_alpha ? buffer[num_channels - 1] : image::float_type(1));
     const image::ColorSpace& destin_color_space = get_color_space();
     const image::ColorSpaceConverter* custom_converter = find_color_space_converter(color_space, destin_color_space);

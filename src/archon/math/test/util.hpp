@@ -33,7 +33,15 @@
 namespace archon::math::test {
 
 
-auto matrix_compare(long double eps);
+auto scalar_compare(long double eps) noexcept;
+
+auto vector_compare(long double eps) noexcept;
+
+auto matrix_compare(long double eps) noexcept;
+
+auto quaternion_compare(long double eps) noexcept;
+
+auto rotation_compare(long double eps) noexcept;
 
 
 
@@ -45,22 +53,65 @@ auto matrix_compare(long double eps);
 // Implementation
 
 
-inline auto matrix_compare(long double eps)
+inline auto scalar_compare(long double eps) noexcept
 {
-    return [eps](const auto& x, const auto& y)
-    {
+    return [eps](auto x, auto y) noexcept {
+        return std::abs(x - y) < eps;
+    };
+}
+
+
+inline auto vector_compare(long double eps) noexcept
+{
+    return [eps](const auto& x, const auto& y) noexcept {
+        using x_type = std::decay_t<decltype(x)>;
+        using y_type = std::decay_t<decltype(y)>;
+        static_assert(x_type::size == y_type::size);
+        for (int i = 0; i < x.size; ++i) {
+            if (ARCHON_LIKELY(std::abs(x[i] - y[i]) < eps))
+                continue;
+            return false;
+        }
+        return true;
+    };
+}
+
+
+inline auto matrix_compare(long double eps) noexcept
+{
+    return [eps](const auto& x, const auto& y) noexcept {
         using x_type = std::decay_t<decltype(x)>;
         using y_type = std::decay_t<decltype(y)>;
         static_assert(x_type::num_rows == y_type::num_rows);
         static_assert(x_type::num_cols == y_type::num_cols);
-        for (std::size_t i = 0; i < x.num_rows; ++i) {
-            for (std::size_t j = 0; j < x.num_cols; ++j) {
+        for (int i = 0; i < x.num_rows; ++i) {
+            for (int j = 0; j < x.num_cols; ++j) {
                 if (ARCHON_LIKELY(std::abs(x[i][j] - y[i][j]) < eps))
                     continue;
                 return false;
             }
         }
         return true;
+    };
+}
+
+
+inline auto quaternion_compare(long double eps) noexcept
+{
+    return [eps](const auto& x, const auto& y) noexcept {
+        if (ARCHON_LIKELY(std::abs(x.w - y.w) < eps))
+            return test::vector_compare(eps)(x.v, y.v);
+        return false;
+    };
+}
+
+
+inline auto rotation_compare(long double eps) noexcept
+{
+    return [eps](const auto& x, const auto& y) noexcept {
+        if (ARCHON_LIKELY(test::vector_compare(eps)(x.axis, y.axis)))
+            return std::abs(x.angle - y.angle) < eps;
+        return false;
     };
 }
 

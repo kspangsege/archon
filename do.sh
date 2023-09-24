@@ -6,6 +6,38 @@ if [ "$root_dir" != "." ]; then
 fi
 build_dir="${root_prefix}build"
 
+no_parallel=""
+fatal_errors=""
+warnings_are_errors=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        "-"*)
+            case "$1" in
+                "-n"|"--no-parallel")
+                    no_parallel="1"
+                    ;;
+                "-s"|"--stop-on-error")
+                    stop_on_error="1"
+                    ;;
+                "-e"|"--warnings-are-errors")
+                    warnings_are_errors="1"
+                    ;;
+                *)
+                    cat >&2 <<EOF
+ERROR: Unrecognized option (\`$1\`)!
+Try \`sh  $0  help\`.
+EOF
+                    exit 1
+                    ;;
+            esac
+            shift
+            ;;
+        *)
+            break
+            ;;
+    esac
+done
+
 if [ $# -gt 0 ]; then
     action="$1"
     shift
@@ -26,7 +58,7 @@ esac
 case "$action" in
     "run-"*)
         action="check-$(printf "%s\n" "$action" | cut -d "-" -f "2-")" || exit 1
-        need_run_path=1
+        need_run_path="1"
         ;;
 esac
 
@@ -227,9 +259,32 @@ if [ -z "$CMAKE_TOOLCHAIN_FILE" ]; then
     fi
 fi
 
+parallel_option="-j"
+if [ "$no_parallel" ]; then
+    parallel_option=""
+fi
+
+add_cxxflag()
+{
+    local flag
+    flag="$1"
+    if [ "$CXXFLAGS" ]; then
+        CXXFLAGS="$CXXFLAGS $flag"
+    else
+        CXXFLAGS="$flag"
+    fi
+    export CXXFLAGS
+}
+if [ "$stop_on_error" ]; then
+    add_cxxflag "-Wfatal-errors"
+fi
+if [ "$warnings_are_errors" ]; then
+    add_cxxflag "-Werror"
+fi
+
 build_subdir="$build_dir/$build_subdir_name"
 cmake -S "$root_dir" -B "$build_subdir" -D CMAKE_BUILD_TYPE="$build_type" -D ARCHON_ASAN="$asan" -D ARCHON_TSAN="$tsan" -D ARCHON_UBSAN="$ubsan" || exit 1
-cmake --build "$build_subdir" --config "$build_type" -j || exit 1
+cmake --build "$build_subdir" --config "$build_type" $parallel_option || exit 1
 
 if [ "$run" ]; then
     if [ -z "$run_path" ]; then

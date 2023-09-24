@@ -69,9 +69,9 @@ inline auto fixed_26p6_to_float(FT_F26Dot6 val) noexcept -> font::Face::float_ty
     return (font::Face::float_type(1) / 64) * val;
 }
 
-inline auto float_to_fixed_26p6(font::Face::float_type val) -> FT_F26Dot6
+inline auto float_to_fixed_26p6(font::Face::float_type val) noexcept -> FT_F26Dot6
 {
-    return core::clamped_float_to_int<FT_F26Dot6>(std::round(64 * val)); // Throws
+    return core::clamped_float_to_int<FT_F26Dot6>(std::round(64 * val));
 }
 
 
@@ -257,8 +257,8 @@ public:
     void set_scaled_size(font::Size size) override final
     {
         if (ARCHON_LIKELY(!FT_IS_SCALABLE(m_face.face))) {
-            FT_F26Dot6 width  = float_to_fixed_26p6(size.width); // Throws
-            FT_F26Dot6 height = float_to_fixed_26p6(size.height); // Throws
+            FT_F26Dot6 width  = float_to_fixed_26p6(size.width);
+            FT_F26Dot6 height = float_to_fixed_26p6(size.height);
             do_set_scaled_size(width, height); // Throws
             return;
         }
@@ -270,8 +270,8 @@ public:
         ensure_fixed_sizes_map(); // Throws
 
         // First, check for an exact match on a fixed size
-        FT_F26Dot6 width  = float_to_fixed_26p6(size.width); // Throws
-        FT_F26Dot6 height = float_to_fixed_26p6(size.height); // Throws
+        FT_F26Dot6 width  = float_to_fixed_26p6(size.width);
+        FT_F26Dot6 height = float_to_fixed_26p6(size.height);
         FixedSizeKey key = { width, height };
         auto i = m_fixed_sizes_map.find(key);
         if (i != m_fixed_sizes_map.end()) {
@@ -419,10 +419,10 @@ public:
         // problematic to use glyph-level vertical metrics provided by FreeType, even if
         // FT_HAS_VERTICAL(m_face.face) is true.                                                          
         //
-        vec_type vert_to_horz;
+        vector_type vert_to_horz;
         if (FT_HAS_VERTICAL(m_face.face)) {                                                                                    
             m_vert_glyph_advance = fixed_26p6_to_float(m_glyph->metrics.vertAdvance);
-            vert_to_horz = vec_type {
+            vert_to_horz = vector_type {
                 fixed_26p6_to_float(m_glyph->metrics.vertBearingX - m_glyph->metrics.horiBearingX),
                 fixed_26p6_to_float(m_glyph->metrics.vertAdvance - m_glyph->metrics.vertBearingY -
                                     m_glyph->metrics.horiBearingY),
@@ -438,26 +438,26 @@ public:
             float_type half = float_type(0.5);
             if (grid_fitting) {
                 m_vert_glyph_advance = m_horz_baseline_spacing_gf;
-                vert_to_horz = vec_type {
+                vert_to_horz = vector_type {
                     std::round(-half * m_horz_glyph_advance),
                     m_horz_baseline_offset_gf,
                 };
             }
             else {
                 m_vert_glyph_advance = m_horz_baseline_spacing;
-                vert_to_horz = vec_type {
+                vert_to_horz = vector_type {
                     -half * m_horz_glyph_advance,
                     m_horz_baseline_offset,
                 };
             }
         }
 
-        m_glyph_size = vec_type(right - left, top - bottom);
-        m_horz_glyph_bearing = vec_type(-left, -bottom);
+        m_glyph_size = vector_type(right - left, top - bottom);
+        m_horz_glyph_bearing = vector_type(-left, -bottom);
         m_vert_glyph_bearing = m_horz_glyph_bearing - vert_to_horz;
         m_prev_glyph_translation_x = m_glyph->metrics.horiBearingX;
         m_prev_glyph_translation_y = m_glyph->metrics.horiBearingY - m_glyph->metrics.height;
-        m_glyph_translation = vec_type(0, 0);
+        m_glyph_translation = vector_type(0, 0);
     }
 
     auto get_glyph_advance(bool vertical) noexcept -> float_type override final
@@ -465,12 +465,12 @@ public:
         return (!vertical ? m_horz_glyph_advance : m_vert_glyph_advance);
     }
 
-    auto get_glyph_bearing(bool vertical) noexcept -> vec_type override final
+    auto get_glyph_bearing(bool vertical) noexcept -> vector_type override final
     {
         return (!vertical ? m_horz_glyph_bearing : m_vert_glyph_bearing);
     }
 
-    void translate_glyph(vec_type vec) override final
+    void translate_glyph(vector_type vec) override final
     {
         m_glyph_translation += vec;
     }
@@ -523,8 +523,8 @@ protected:
         //
         // Translate glyph                             
         {
-            FT_F26Dot6 x = float_to_fixed_26p6(m_glyph_translation[0]); // Throws
-            FT_F26Dot6 y = float_to_fixed_26p6(m_glyph_translation[1]); // Throws
+            FT_F26Dot6 x = float_to_fixed_26p6(m_glyph_translation[0]);
+            FT_F26Dot6 y = float_to_fixed_26p6(m_glyph_translation[1]);
             if (x != m_prev_glyph_translation_x || y != m_prev_glyph_translation_y) {
                 FT_Outline_Translate(&m_glyph->outline,
                                      x - m_prev_glyph_translation_x,
@@ -608,8 +608,8 @@ private:
 
     // These are initialized by `load_glyph()`
     float_type m_horz_glyph_advance, m_vert_glyph_advance;
-    vec_type m_horz_glyph_bearing, m_vert_glyph_bearing;
-    vec_type m_glyph_size, m_glyph_translation;
+    vector_type m_horz_glyph_bearing, m_vert_glyph_bearing;
+    vector_type m_glyph_size, m_glyph_translation;
     FT_F26Dot6 m_prev_glyph_translation_x, m_prev_glyph_translation_y;
 
     void ensure_fixed_sizes_map()

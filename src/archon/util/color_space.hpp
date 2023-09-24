@@ -27,11 +27,11 @@
 #include <cmath>
 #include <algorithm>
 
+#include <archon/core/features.h>
 #include <archon/core/utility.hpp>
 #include <archon/core/math.hpp>
-#include <archon/math/vec.hpp>
-#include <archon/math/mat_ops.hpp>
-#include <archon/math/mat.hpp>
+#include <archon/math/vector.hpp>
+#include <archon/math/matrix.hpp>
 
 
 namespace archon::util {
@@ -47,8 +47,8 @@ namespace archon::util {
 ///
 /// \tparam T Must be a floating-point type.
 ///
-template<class T> void cvt_sRGB_to_HSL(const T* rgb, T* hsl);
-template<class T> void cvt_HSL_to_sRGB(const T* hsl, T* rgb);
+template<class T> auto cvt_sRGB_to_HSL(const math::Vector<3, T>& rgb) noexcept -> math::Vector<3, T>;
+template<class T> auto cvt_HSL_to_sRGB(const math::Vector<3, T>& hsl) noexcept -> math::Vector<3, T>;
 /// \}
 
 
@@ -62,8 +62,8 @@ template<class T> void cvt_HSL_to_sRGB(const T* hsl, T* rgb);
 ///
 /// \tparam T Must be a floating-point type.
 ///
-template<class T> void cvt_sRGB_to_HSV(const T* rgb, T* hsv);
-template<class T> void cvt_HSV_to_sRGB(const T* hsv, T* rgb);
+template<class T> auto cvt_sRGB_to_HSV(const math::Vector<3, T>& rgb) noexcept -> math::Vector<3, T>;
+template<class T> auto cvt_HSV_to_sRGB(const math::Vector<3, T>& hsv) noexcept -> math::Vector<3, T>;
 /// \}
 
 
@@ -87,8 +87,8 @@ template<class T> void cvt_HSV_to_sRGB(const T* hsv, T* rgb);
 ///
 /// \tparam T Must be a floating-point type.
 ///
-template<class T> void cvt_sRGB_to_XYZ(const T* rgb, T* xyz);
-template<class T> void cvt_XYZ_to_sRGB(const T* xyz, T* rgb);
+template<class T> auto cvt_sRGB_to_XYZ(const math::Vector<3, T>& rgb) noexcept -> math::Vector<3, T>;
+template<class T> auto cvt_XYZ_to_sRGB(const math::Vector<3, T>& xyz) noexcept -> math::Vector<3, T>;
 /// \}
 
 
@@ -116,8 +116,8 @@ template<class T> void cvt_XYZ_to_sRGB(const T* xyz, T* rgb);
 ///
 /// \tparam T Must be a floating-point type.
 ///
-template<class T> void cvt_RGB_to_Lum(const T* rgb, T* lum);
-template<class T> void cvt_Lum_to_RGB(const T* lum, T* rgb);
+template<class T> auto cvt_RGB_to_Lum(const math::Vector<3, T>& rgb) noexcept -> T;
+template<class T> auto cvt_Lum_to_RGB(T lum) noexcept -> math::Vector<3, T>;
 /// \}
 
 
@@ -134,9 +134,10 @@ class CIE_RGB_PrimSpec {
 public:
     /// Coordinates of the primaries and the white point within the CIE 1931 xy chromaticity
     /// diagram.
-    const math::Vec2F red, green, blue, white;
+    const math::Vector2F red, green, blue, white;
 
-    constexpr CIE_RGB_PrimSpec(math::Vec2F red, math::Vec2F green, math::Vec2F blue, math::Vec2F white) noexcept;
+    constexpr CIE_RGB_PrimSpec(math::Vector2F red, math::Vector2F green, math::Vector2F blue,
+                               math::Vector2F white) noexcept;
 };
 
 
@@ -149,95 +150,94 @@ public:
 // Implementation
 
 
-template<class T> void cvt_sRGB_to_HSL(const T* rgb, T* hsl)
+template<class T> auto cvt_sRGB_to_HSL(const math::Vector<3, T>& rgb) noexcept -> math::Vector<3, T>
 {
     T r = rgb[0], g = rgb[1], b = rgb[2];
     T min = std::min({ r, g, b });
     T max = std::max({ r, g, b });
-    T h = 0, s = 0, l = T((max + min) / 2); // Throws
-    auto d = max - min; // Throws
-    auto e = (l > 0.5 ? 2 - (max + min) : max + min); // Throws
+    T h = 0, s = 0, l = T((max + min) / 2);
+    auto d = max - min;
+    auto e = (l > 0.5 ? 2 - (max + min) : max + min);
     if (ARCHON_LIKELY(e != 0))
-        s = T(d / e); // Throws
+        s = T(d / e);
     if (ARCHON_LIKELY(d != 0)) {
         if (max == r) {
-            h = T(((g - b) / d + (g < b ? 6 : 0)) / 6); // Throws
+            h = T(((g - b) / d + (g < b ? 6 : 0)) / 6);
         }
         else if (max == g) {
-            h = T(((b - r) / d + 2) / 6); // Throws
+            h = T(((b - r) / d + 2) / 6);
         }
         else {
-            h = T(((r - g) / d + 4) / 6); // Throws
+            h = T(((r - g) / d + 4) / 6);
         }
     }
-    hsl[0] = h;
-    hsl[1] = s;
-    hsl[2] = l;
+    return { h, s, l };
 }
 
 
-template<class T> void cvt_HSL_to_sRGB(const T* hsl, T* rgb)
+template<class T> auto cvt_HSL_to_sRGB(const math::Vector<3, T>& hsl) noexcept -> math::Vector<3, T>
 {
-    auto hue   = core::periodic_mod(hsl[0] * 360, T(360)); // Throws
-    auto sat   = hsl[1];
-    auto light = hsl[2];
+    auto h = core::periodic_mod(hsl[0] * 360, T(360));
+    auto s = hsl[1];
+    auto l = hsl[2];
 
-    auto f = [=](T n) {
-        auto k = std::fmod(n + hue / 30, 12); // Throws
-        auto a = sat * core::hetero_min(light, 1 - light); // Throws
-        return T(light - a * core::hetero_max(-1, core::hetero_min(k - 3, 9 - k, 1))); // Throws
+    auto f = [&](T n) noexcept {
+        auto k = std::fmod(n + h / 30, 12);
+        auto a = s * core::hetero_min(l, 1 - l);
+        return T(l - a * core::hetero_max(-1, core::hetero_min(k - 3, 9 - k, 1)));
     };
 
-    rgb[0] = f(0); // Throws
-    rgb[1] = f(8); // Throws
-    rgb[2] = f(4); // Throws
+    T r = f(0);
+    T g = f(8);
+    T b = f(4);
+    return { r, g, b };
 }
 
 
-template<class T> void cvt_sRGB_to_HSV(const T* rgb, T* hsv)
+template<class T> auto cvt_sRGB_to_HSV(const math::Vector<3, T>& rgb) noexcept -> math::Vector<3, T>
 {
     T r = rgb[0], g = rgb[1], b = rgb[2];
     T min = std::min({ r, g, b });
     T max = std::max({ r, g, b });
     T h = 0, s = 0, v = max;
-    auto d = max - min; // Throws
+    auto d = max - min;
     if (ARCHON_LIKELY(v != 0))
-        s = T(d / v); // Throws
+        s = T(d / v);
     if (ARCHON_LIKELY(d != 0)) {
         if (max == r) {
-            h = T(((g - b) / d + (g < b ? 6 : 0)) / 6); // Throws
+            h = T(((g - b) / d + (g < b ? 6 : 0)) / 6);
         }
         else if (max == g) {
-            h = T(((b - r) / d + 2) / 6); // Throws
+            h = T(((b - r) / d + 2) / 6);
         }
         else {
-            h = T(((r - g) / d + 4) / 6); // Throws
+            h = T(((r - g) / d + 4) / 6);
         }
     }
-    hsv[0] = h;
-    hsv[1] = s;
-    hsv[2] = v;
+    return { h, s, v };
 }
 
 
-template<class T> void cvt_HSV_to_sRGB(const T* hsv, T* rgb)
+template<class T> auto cvt_HSV_to_sRGB(const math::Vector<3, T>& hsv) noexcept -> math::Vector<3, T>
 {
-    auto hue = core::periodic_mod(hsv[0] * 360, T(360)); // Throws
-    auto sat = hsv[1];
-    auto val = hsv[2];
+    auto h = core::periodic_mod(hsv[0] * 360, T(360));
+    auto s = hsv[1];
+    auto v = hsv[2];
 
-    auto f = [=](T n) {
-        auto k = std::fmod(n + hue / 60, 6); // Throws
-        return val - val * sat * core::hetero_max(0, core::hetero_min(k, 4 - k, 1)); // Throws
+    auto f = [&](T n) {
+        auto k = std::fmod(n + h / 60, 6);
+        return T(v - v * s * core::hetero_max(0, core::hetero_min(k, 4 - k, 1)));
     };
 
-    rgb[0] = f(5); // Throws
-    rgb[1] = f(3); // Throws
-    rgb[2] = f(1); // Throws
+    T r = f(5);
+    T g = f(3);
+    T b = f(1);
+    return { r, g, b };
 }
 
 
-constexpr CIE_RGB_PrimSpec::CIE_RGB_PrimSpec(math::Vec2F r, math::Vec2F g, math::Vec2F b, math::Vec2F w) noexcept :
+constexpr CIE_RGB_PrimSpec::CIE_RGB_PrimSpec(math::Vector2F r, math::Vector2F g, math::Vector2F b,
+                                             math::Vector2F w) noexcept :
     red(r),
     green(g),
     blue(b),
@@ -250,10 +250,10 @@ namespace impl {
 
 
 // See https://en.wikipedia.org/wiki/SRGB
-constexpr util::CIE_RGB_PrimSpec g_srgb_prim_spec(math::Vec2F(0.6400F, 0.3300F),  // Red
-                                                  math::Vec2F(0.3000F, 0.6000F),  // Green
-                                                  math::Vec2F(0.1500F, 0.0600F),  // Blue
-                                                  math::Vec2F(0.3127F, 0.3290F)); // White
+constexpr util::CIE_RGB_PrimSpec g_srgb_prim_spec(math::Vector2F(0.6400F, 0.3300F),  // Red
+                                                  math::Vector2F(0.3000F, 0.6000F),  // Green
+                                                  math::Vector2F(0.1500F, 0.0600F),  // Blue
+                                                  math::Vector2F(0.3127F, 0.3290F)); // White
 
 
 // See https://en.wikipedia.org/wiki/SRGB
@@ -264,110 +264,111 @@ public:
     static constexpr T gamma = 2.4F;
     static constexpr T k_0 = 0.040448236276987F;
 
-    static T get_phi()
+    static auto get_phi() noexcept -> T
     {
         // Approx 12.92
-        return k_0 / std::pow((k_0 + a) / (1 + a), gamma); // Throws
+        return k_0 / std::pow((k_0 + a) / (1 + a), gamma);
     }
 
-    static T gamma_enc(T v)
+    static auto gamma_enc(T v) noexcept -> T
     {
-        return (k_0 / get_phi() < v ? (1 + a) * std::pow(v, 1 / gamma) - a : get_phi() * v); // Throws
+        return (k_0 / get_phi() < v ? (1 + a) * std::pow(v, 1 / gamma) - a : get_phi() * v);
     }
 
-    static T gamma_dec(T v)
+    static auto gamma_dec(T v) noexcept -> T
     {
-        return (k_0 < v ? std::pow((v + a) / (1 + a), gamma) : v / get_phi()); // Throws
+        return (k_0 < v ? std::pow((v + a) / (1 + a), gamma) : v / get_phi());
     }
 
-    static constexpr math::Vec<3, T> get_white()
+    static constexpr auto get_white() noexcept -> math::Vector<3, T>
     {
-        constexpr math::Vec2F w = impl::g_srgb_prim_spec.white;
-        return math::Vec<3, T>(T(w[0]) / w[1], 1, (1 - (T(w[0]) + w[1])) / w[1]); // Throws
+        constexpr math::Vector2F w = impl::g_srgb_prim_spec.white;
+        return math::Vector<3, T>(T(w[0]) / w[1], 1, (1 - (T(w[0]) + w[1])) / w[1]);
     }
 
-    static constexpr math::Mat<3, 3, T> get_to_xyz()
+    static constexpr auto get_to_xyz() noexcept -> math::Matrix<3, 3, T>
     {
-        constexpr math::Vec2F r = impl::g_srgb_prim_spec.red;
-        constexpr math::Vec2F g = impl::g_srgb_prim_spec.green;
-        constexpr math::Vec2F b = impl::g_srgb_prim_spec.blue;
+        constexpr math::Vector2F r = impl::g_srgb_prim_spec.red;
+        constexpr math::Vector2F g = impl::g_srgb_prim_spec.green;
+        constexpr math::Vector2F b = impl::g_srgb_prim_spec.blue;
 
-        math::Mat<3, 3, T> mat;
-        mat.row(0) = math::Vec<3, T>(r[0], g[0], b[0]);
-        mat.row(1) = math::Vec<3, T>(r[1], g[1], b[1]);
-        mat.row(2) = math::Vec<3, T>(1) - (mat.row(0) + mat.row(1)); // Throws
+        math::Matrix<3, 3, T> mat;
+        mat[0] = math::Vector<3, T>(r[0], g[0], b[0]);
+        mat[1] = math::Vector<3, T>(r[1], g[1], b[1]);
+        mat[2] = math::Vector<3, T>(1) - (mat[0] + mat[1]);
 
-        mat.scale_cols(math::inv(mat) * white); // Throws
+        math::Vector scales = math::inv(mat) * white;
+        for (int i = 0; i< 3; ++i)
+            mat.set_col(i, scales[i] * mat.get_col(i));
         return mat;
     }
 
-    static constexpr math::Vec<3, T> white = get_white(); // Throws
-    static constexpr math::Mat<3, 3, T> to_xyz = get_to_xyz(); // Throws
-    static constexpr math::Mat<3, 3, T> fr_xyz = math::inv(to_xyz); // Throws
+    static constexpr math::Vector<3, T> white = get_white();
+    static constexpr math::Matrix<3, 3, T> to_xyz = get_to_xyz();
+    static constexpr math::Matrix<3, 3, T> fr_xyz = math::inv(to_xyz);
 };
 
 
-template<class T> inline void cvt_sRGB_to_RGB(const T* rgb, T* lin)
+template<class T> inline auto cvt_sRGB_to_RGB(const math::Vector<3, T>& rgb) noexcept -> math::Vector<3, T>
 {
     // FIXME: Should the standardized simplified sRGB gamma curve be used instead?                                                 
-    std::transform(rgb, rgb + 3, lin, [](T v) {
-        return impl::sRGB<T>::gamma_dec(v); // Throws
-    }); // Throws
+    math::Vector<3, T> lin;
+    for (int i = 0; i < 3; ++i)
+        lin[i] = impl::sRGB<T>::gamma_dec(rgb[i]);
+    return lin;
 }
 
 
-template<class T> inline void cvt_RGB_to_sRGB(const T* lin, T* rgb)
+template<class T> inline auto cvt_RGB_to_sRGB(const math::Vector<3, T>& lin) noexcept -> math::Vector<3, T>
 {
     // FIXME: Should the standardized simplified sRGB gamma curve be used instead?                                                 
-    std::transform(lin, lin + 3, rgb, [](T v) {
-        return impl::sRGB<T>::gamma_enc(v); // Throws
-    }); // Throws
+    math::Vector<3, T> rgb;
+    for (int i = 0; i < 3; ++i)
+        rgb[i] = impl::sRGB<T>::gamma_enc(lin[i]);
+    return rgb;
 }
 
 
-template<class T> inline void cvt_RGB_to_XYZ(const T* lin, T* xyz)
+template<class T> inline auto cvt_RGB_to_XYZ(const math::Vector<3, T>& lin) noexcept -> math::Vector<3, T>
 {
-    math::vec3_adapt(xyz) = impl::sRGB<T>::to_xyz * math::vec3_adapt(lin); // Throws
+    return impl::sRGB<T>::to_xyz * lin;
 }
 
 
-template<class T> inline void cvt_XYZ_to_RGB(const T* xyz, T* lin)
+template<class T> inline auto cvt_XYZ_to_RGB(const math::Vector<3, T>& xyz) noexcept -> math::Vector<3, T>
 {
-    math::vec3_adapt(lin) = impl::sRGB<T>::fr_xyz * math::vec3_adapt(xyz); // Throws
+    return impl::sRGB<T>::fr_xyz * xyz;
 }
 
 
 } // namespace impl
 
 
-template<class T> inline void cvt_sRGB_to_XYZ(const T* rgb, T* xyz)
+template<class T> inline auto cvt_sRGB_to_XYZ(const math::Vector<3, T>& rgb) noexcept -> math::Vector<3, T>
 {
-    T lin[3];
-    impl::cvt_sRGB_to_RGB(rgb, lin); // Throws
-    impl::cvt_RGB_to_XYZ(lin, xyz); // Throws
+    return impl::cvt_RGB_to_XYZ(impl::cvt_sRGB_to_RGB(rgb));
 }
 
 
-template<class T> inline void cvt_XYZ_to_sRGB(const T* xyz, T* rgb)
+template<class T> inline auto cvt_XYZ_to_sRGB(const math::Vector<3, T>& xyz) noexcept -> math::Vector<3, T>
 {
-    T lin[3];
-    impl::cvt_XYZ_to_RGB(xyz, lin); // Throws
-    impl::cvt_RGB_to_sRGB(lin, rgb); // Throws
+    return impl::cvt_RGB_to_sRGB(impl::cvt_XYZ_to_RGB(xyz));
 }
 
 
-template<class T> inline void cvt_RGB_to_Lum(const T* rgb, T* lum)
+template<class T> inline auto cvt_RGB_to_Lum(const math::Vector<3, T>& rgb) noexcept -> T
 {
     T r = rgb[0], g = rgb[1], b = rgb[2];
-    lum[0] = T(0.2126 * r + 0.7152 * g + 0.0722 * b); // Throws
+    return T(0.2126 * r + 0.7152 * g + 0.0722 * b);
 }
 
 
-template<class T> inline void cvt_Lum_to_RGB(const T* lum, T* rgb)
+template<class T> inline auto cvt_Lum_to_RGB(T lum) noexcept -> math::Vector<3, T>
 {
-    rgb[0] = lum[0];
-    rgb[1] = lum[0];
-    rgb[2] = lum[0];
+    T r = lum;
+    T g = lum;
+    T b = lum;
+    return { r, g, b };
 }
 
 

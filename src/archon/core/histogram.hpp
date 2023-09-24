@@ -26,6 +26,7 @@
 
 #include <cstddef>
 #include <cmath>
+#include <type_traits>
 #include <limits>
 #include <algorithm>
 #include <memory>
@@ -58,6 +59,8 @@ namespace archon::core {
 ///
 template<class T> class Histogram {
 public:
+    static_assert(std::is_floating_point_v<T>);
+
     using value_type = T;
 
     /// \brief Construct histogram object.
@@ -72,7 +75,7 @@ public:
     ///
     /// This function add the specified value the the aggregated record.
     ///
-    void add(value_type);
+    void add(value_type) noexcept;
 
     /// \brief Print histogram to STDOUT.
     ///
@@ -138,12 +141,12 @@ Histogram<T>::Histogram(value_type from, value_type to, std::size_t num_bins)
 
 
 template<class T>
-void Histogram<T>::add(value_type val)
+void Histogram<T>::add(value_type val) noexcept
 {
     value_type val_2 = m_scale * (val - m_base);
     if (ARCHON_LIKELY(val_2 >= 0)) {
         value_type val_3 = std::trunc(val_2);
-        value_type max = core::max_float_for_int<value_type, std::size_t>(); // Throws
+        value_type max = core::max_float_for_int<value_type, std::size_t>();
         std::size_t val_4 = std::size_t(val_2);
         if (ARCHON_LIKELY(val_3 <= max && val_4 < m_num_bins)) {
             m_bins[val_4] += 1;

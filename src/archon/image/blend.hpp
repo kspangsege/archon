@@ -51,7 +51,7 @@ enum class BlendMode {
 /// FIXME: Explain: `c` is allowed to alias `a` or `b` (or both)        
 ///
 void blend(const image::float_type* a, const image::float_type* b, image::float_type* c, int num_channels,
-           image::BlendMode mode);
+           image::BlendMode mode) noexcept;
 
 
 
@@ -64,7 +64,7 @@ void blend(const image::float_type* a, const image::float_type* b, image::float_
 
 
 inline void blend(const image::float_type* a, const image::float_type* b, image::float_type* c, int num_channels,
-                  image::BlendMode mode)
+                  image::BlendMode mode) noexcept
 {
     switch (mode) {
         case image::BlendMode::over:

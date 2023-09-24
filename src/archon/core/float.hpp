@@ -82,11 +82,11 @@ template<class F> constexpr bool is_float() noexcept;
 ///
 /// FIXME: Make constexpr in C++23
 ///
-template<class F, class I> bool float_equal_int(F float_val, I int_val);
-template<class F, class I> bool float_less_int(F float_val, I int_val);
-template<class F, class I> bool float_greater_int(F float_val, I int_val);
-template<class F, class I> bool float_less_equal_int(F float_val, I int_val);
-template<class F, class I> bool float_greater_equal_int(F float_val, I int_val);
+template<class F, class I> bool float_equal_int(F float_val, I int_val) noexcept;
+template<class F, class I> bool float_less_int(F float_val, I int_val) noexcept;
+template<class F, class I> bool float_greater_int(F float_val, I int_val) noexcept;
+template<class F, class I> bool float_less_equal_int(F float_val, I int_val) noexcept;
+template<class F, class I> bool float_greater_equal_int(F float_val, I int_val) noexcept;
 /// \}
 
 
@@ -121,7 +121,7 @@ template<class F, class I> bool float_greater_equal_int(F float_val, I int_val);
 ///
 /// FIXME: Make constexpr in C++23
 ///
-template<class I, class F> auto clamped_float_to_int(F val) -> I;
+template<class I, class F> auto clamped_float_to_int(F val) noexcept -> I;
 
 
 /// \brief Try to convert floating-point value to integer value.
@@ -149,15 +149,22 @@ template<class I, class F> auto clamped_float_to_int(F val) -> I;
 ///
 /// FIXME: Make constexpr in C++23
 ///
-template<class F, class I> bool try_float_to_int(F float_val, I& int_val);
+template<class F, class I> bool try_float_to_int(F float_val, I& int_val) noexcept;
 
 
+/// \{
+///
 /// \brief Checked conversion of floating-point to integer.
 ///
 /// `float_to_int(f, i)` has the same effect as `try_float_to_int(f, i)` except that the
 /// former throws `std::overflow_error` when, and only when the latter returns `false`.
 ///
+/// If `i` is a modifiable l-value of type `I`, then `i = float_to_int<I>(f)` has the same
+/// affect as `float_to_int<I>(f, i)`.
+///
 template<class F, class I> void float_to_int(F float_val, I& int_val);
+template<class I, class F> auto float_to_int(F float_val) -> I;
+/// \}
 
 
 /// \brief Cast floating-point value to integer, or boolean type.
@@ -185,7 +192,7 @@ template<class F, class I> void float_to_int(F float_val, I& int_val);
 ///
 /// \sa \ref core::clamped_float_to_int(), \ref core::try_float_to_int()
 ///
-template<class I, class F> constexpr auto float_to_int_a(F val) -> I;
+template<class I, class F> constexpr auto float_to_int_a(F val) noexcept -> I;
 
 
 /// \{
@@ -219,8 +226,8 @@ template<class I, class F> constexpr auto float_to_int_a(F val) -> I;
 ///
 /// FIXME: Make constexpr in C++23
 ///
-template<class F, class I> auto min_float_for_int() -> F;
-template<class F, class I> auto max_float_for_int() -> F;
+template<class F, class I> auto min_float_for_int() noexcept -> F;
+template<class F, class I> auto max_float_for_int() noexcept -> F;
 /// \}
 
 
@@ -249,8 +256,8 @@ template<class F, class I> auto max_float_for_int() -> F;
 ///
 /// FIXME: Make constexpr in C++23
 ///
-template<class F, class I> auto min_float_not_below_nonpos_int(I i) -> F;
-template<class F, class I> auto max_float_not_above_nonneg_int(I i) -> F;
+template<class F, class I> auto min_float_not_below_nonpos_int(I i) noexcept -> F;
+template<class F, class I> auto max_float_not_above_nonneg_int(I i) noexcept -> F;
 /// \}
 
 
@@ -270,95 +277,90 @@ template<class F> constexpr bool is_float() noexcept
 }
 
 
-template<class F, class I> inline bool float_equal_int(F float_val, I int_val)
+template<class F, class I> inline bool float_equal_int(F float_val, I int_val) noexcept
 {
     if (ARCHON_LIKELY(float_val >= (core::min_float_for_int<F, I>()) &&
-                      float_val <= (core::max_float_for_int<F, I>()))) // Throws
-        return (std::trunc(float_val) == float_val &&
-                core::float_to_int_a<I>(float_val) == int_val); // Throws
+                      float_val <= (core::max_float_for_int<F, I>())))
+        return (std::trunc(float_val) == float_val && core::float_to_int_a<I>(float_val) == int_val);
     return false;
 }
 
 
-template<class F, class I> inline bool float_less_int(F float_val, I int_val)
+template<class F, class I> inline bool float_less_int(F float_val, I int_val) noexcept
 {
     if (ARCHON_UNLIKELY(float_val < F(0))) {
         if constexpr (core::is_signed<I>()) {
-            F float_val_2 = std::nextafter(float_val, F(0)); // Throws
-            return (float_val < core::min_float_for_int<F, I>() ||
-                    core::float_to_int_a<I>(float_val_2) <= int_val); // Throws
+            using float_traits_type = core::FloatTraits<F>;
+            F float_val_2 = float_traits_type::nextafter(float_val, F(0));
+            return (float_val < core::min_float_for_int<F, I>() || core::float_to_int_a<I>(float_val_2) <= int_val);
         }
         return (float_val < F(0)); // Catch NaN
     }
-    return (float_val <= core::max_float_for_int<F, I>() &&
-            core::float_to_int_a<I>(float_val) < int_val); // Throws
+    return (float_val <= core::max_float_for_int<F, I>() && core::float_to_int_a<I>(float_val) < int_val);
 }
 
 
-template<class F, class I> inline bool float_greater_int(F float_val, I int_val)
+template<class F, class I> inline bool float_greater_int(F float_val, I int_val) noexcept
 {
     if (ARCHON_LIKELY(float_val > F(0))) {
-        F float_val_2 = std::nextafter(float_val, F(0)); // Throws
-        return (float_val > core::max_float_for_int<F, I>() ||
-                core::float_to_int_a<I>(float_val_2) >= int_val); // Throws
+        using float_traits_type = core::FloatTraits<F>;
+        F float_val_2 = float_traits_type::nextafter(float_val, F(0));
+        return (float_val > core::max_float_for_int<F, I>() || core::float_to_int_a<I>(float_val_2) >= int_val);
     }
     if constexpr (core::is_signed<I>()) {
-        return (float_val >= core::min_float_for_int<F, I>() &&
-                core::float_to_int_a<I>(float_val) > int_val); // Throws
+        return (float_val >= core::min_float_for_int<F, I>() && core::float_to_int_a<I>(float_val) > int_val);
     }
     return (float_val > F(0)); // Catch NaN
 }
 
 
-template<class F, class I> inline bool float_less_equal_int(F float_val, I int_val)
+template<class F, class I> inline bool float_less_equal_int(F float_val, I int_val) noexcept
 {
     if (ARCHON_UNLIKELY(float_val <= F(0))) {
         if constexpr (core::is_signed<I>()) {
-            return (float_val < core::min_float_for_int<F, I>() ||
-                    core::float_to_int_a<I>(float_val) <= int_val); // Throws
+            return (float_val < core::min_float_for_int<F, I>() || core::float_to_int_a<I>(float_val) <= int_val);
         }
         return (float_val <= F(0)); // Catch NaN
     }
-    F float_val_2 = std::nextafter(float_val, F(0)); // Throws
-    return (float_val <= core::max_float_for_int<F, I>() &&
-            core::float_to_int_a<I>(float_val_2) < int_val); // Throws
+    using float_traits_type = core::FloatTraits<F>;
+    F float_val_2 = float_traits_type::nextafter(float_val, F(0));
+    return (float_val <= core::max_float_for_int<F, I>() && core::float_to_int_a<I>(float_val_2) < int_val);
 }
 
 
-template<class F, class I> inline bool float_greater_equal_int(F float_val, I int_val)
+template<class F, class I> inline bool float_greater_equal_int(F float_val, I int_val) noexcept
 {
     if (ARCHON_LIKELY(float_val >= F(0)))
-        return (float_val > core::max_float_for_int<F, I>() ||
-                core::float_to_int_a<I>(float_val) >= int_val); // Throws
+        return (float_val > core::max_float_for_int<F, I>() || core::float_to_int_a<I>(float_val) >= int_val);
     if constexpr (core::is_signed<I>()) {
-        F float_val_2 = std::nextafter(float_val, F(0)); // Throws
-        return (float_val >= core::min_float_for_int<F, I>() &&
-                core::float_to_int_a<I>(float_val_2) > int_val); // Throws
+        using float_traits_type = core::FloatTraits<F>;
+        F float_val_2 = float_traits_type::nextafter(float_val, F(0));
+        return (float_val >= core::min_float_for_int<F, I>() && core::float_to_int_a<I>(float_val_2) > int_val);
     }
     return (float_val >= F(0)); // Catch NaN
 }
 
 
-template<class I, class F> inline auto clamped_float_to_int(F val) -> I
+template<class I, class F> inline auto clamped_float_to_int(F val) noexcept -> I
 {
     // Making sure comparisons are done such that NaN is converted to zero.
-    if (ARCHON_LIKELY(val >= (core::min_float_for_int<F, I>()))) { // Throws
-        if (ARCHON_LIKELY(val <= (core::max_float_for_int<F, I>()))) // Throws
-            return core::float_to_int_a<I>(val); // Throws
+    if (ARCHON_LIKELY(val >= (core::min_float_for_int<F, I>()))) {
+        if (ARCHON_LIKELY(val <= (core::max_float_for_int<F, I>())))
+            return core::float_to_int_a<I>(val);
         return core::int_max<I>();
     }
-    if (ARCHON_LIKELY(val < (core::min_float_for_int<F, I>()))) // Throws
+    if (ARCHON_LIKELY(val < (core::min_float_for_int<F, I>())))
         return core::int_min<I>();
     return I(0); // NaN
 }
 
 
-template<class F, class I> inline bool try_float_to_int(F float_val, I& int_val)
+template<class F, class I> inline bool try_float_to_int(F float_val, I& int_val) noexcept
 {
     // Making sure comparisons are done such that NaN is rejected.
     if (ARCHON_LIKELY(float_val >= (core::min_float_for_int<F, I>()) &&
-                      float_val <= (core::max_float_for_int<F, I>()))) { // Throws
-        int_val = core::float_to_int_a<I>(float_val); // Throws
+                      float_val <= (core::max_float_for_int<F, I>()))) {
+        int_val = core::float_to_int_a<I>(float_val);
         return true;
     }
     return false;
@@ -373,7 +375,15 @@ template<class F, class I> inline void float_to_int(F float_val, I& int_val)
 }
 
 
-template<class I, class F> constexpr auto float_to_int_a(F val) -> I
+template<class I, class F> inline auto float_to_int(F float_val) -> I
+{
+    I int_val = {};
+    core::float_to_int(float_val, int_val); // Throws
+    return int_val;
+}
+
+
+template<class I, class F> constexpr auto float_to_int_a(F val) noexcept -> I
 {
     using int_type   = I;
     using float_type = F;
@@ -386,21 +396,21 @@ template<class I, class F> constexpr auto float_to_int_a(F val) -> I
 }
 
 
-template<class F, class I> inline auto min_float_for_int() -> F
+template<class F, class I> inline auto min_float_for_int() noexcept -> F
 {
     I min_int = std::numeric_limits<I>::min();
-    return core::min_float_not_below_nonpos_int<F>(min_int); // Throws
+    return core::min_float_not_below_nonpos_int<F>(min_int);
 }
 
 
-template<class F, class I> inline auto max_float_for_int() -> F
+template<class F, class I> inline auto max_float_for_int() noexcept -> F
 {
     I max_int = std::numeric_limits<I>::max();
-    return core::max_float_not_above_nonneg_int<F>(max_int); // Throws
+    return core::max_float_not_above_nonneg_int<F>(max_int);
 }
 
 
-template<class F, class I> inline auto min_float_not_below_nonpos_int(I i) -> F
+template<class F, class I> inline auto min_float_not_below_nonpos_int(I i) noexcept -> F
 {
     // The proof for the correct behavior of this function proceeds exactly as
     // for `max_float_not_above_nonneg_int()` except for sign inversion.
@@ -421,11 +431,11 @@ template<class F, class I> inline auto min_float_not_below_nonpos_int(I i) -> F
     bool not_below = (core::int_greater_equal(i, -1) || promoted_int_type(f / r) >= core::promote(i) / r);
     if (ARCHON_LIKELY(not_below))
         return f;
-    return float_traits_type::nextafter(f, float_type(0)); // Throws
+    return float_traits_type::nextafter(f, float_type(0));
 }
 
 
-template<class F, class I> inline auto max_float_not_above_nonneg_int(I i) -> F
+template<class F, class I> inline auto max_float_not_above_nonneg_int(I i) noexcept -> F
 {
     // A proof for the correct behavior of this function:
     //
@@ -515,7 +525,7 @@ template<class F, class I> inline auto max_float_not_above_nonneg_int(I i) -> F
     bool not_above = (core::int_less_equal(i, 1) || promoted_int_type(f / r) <= core::promote(i) / r);
     if (ARCHON_LIKELY(not_above))
         return f;
-    return float_traits_type::nextafter(f, float_type(0)); // Throws
+    return float_traits_type::nextafter(f, float_type(0));
 }
 
 
