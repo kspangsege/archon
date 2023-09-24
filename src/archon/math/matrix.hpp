@@ -151,12 +151,12 @@ public:
     /// is lexicographical in terms of the rows of the two matrices, when the rows are
     /// considered as vectors.
     ///
-    template<class U> constexpr bool operator==(const math::Matrix<M, N, U>&) const;
-    template<class U> constexpr bool operator!=(const math::Matrix<M, N, U>&) const;
-    template<class U> constexpr bool operator< (const math::Matrix<M, N, U>&) const;
-    template<class U> constexpr bool operator<=(const math::Matrix<M, N, U>&) const;
-    template<class U> constexpr bool operator> (const math::Matrix<M, N, U>&) const;
-    template<class U> constexpr bool operator>=(const math::Matrix<M, N, U>&) const;
+    template<class U> constexpr bool operator==(const Matrix<M, N, U>&) const;
+    template<class U> constexpr bool operator!=(const Matrix<M, N, U>&) const;
+    template<class U> constexpr bool operator< (const Matrix<M, N, U>&) const;
+    template<class U> constexpr bool operator<=(const Matrix<M, N, U>&) const;
+    template<class U> constexpr bool operator> (const Matrix<M, N, U>&) const;
+    template<class U> constexpr bool operator>=(const Matrix<M, N, U>&) const;
     /// \}
 
     /// \brief Get column as vector.
@@ -664,7 +664,7 @@ template<class O> constexpr auto Matrix<M, N, T>::operator/=(const O& other) noe
 
 
 template<int M, int N, class T>
-template<class U> constexpr bool Matrix<M, N, T>::operator==(const math::Matrix<M, N, U>& other) const
+template<class U> constexpr bool Matrix<M, N, T>::operator==(const Matrix<M, N, U>& other) const
 {
     auto& a = this->rows();
     auto& b = other.rows();
@@ -673,14 +673,14 @@ template<class U> constexpr bool Matrix<M, N, T>::operator==(const math::Matrix<
 
 
 template<int M, int N, class T>
-template<class U> constexpr bool Matrix<M, N, T>::operator!=(const math::Matrix<M, N, U>& other) const
+template<class U> constexpr bool Matrix<M, N, T>::operator!=(const Matrix<M, N, U>& other) const
 {
     return !(*this == other);
 }
 
 
 template<int M, int N, class T>
-template<class U> constexpr bool Matrix<M, N, T>::operator<(const math::Matrix<M, N, U>& other) const
+template<class U> constexpr bool Matrix<M, N, T>::operator<(const Matrix<M, N, U>& other) const
 {
     auto& a = this->rows();
     auto& b = other.rows();
@@ -689,21 +689,21 @@ template<class U> constexpr bool Matrix<M, N, T>::operator<(const math::Matrix<M
 
 
 template<int M, int N, class T>
-template<class U> constexpr bool Matrix<M, N, T>::operator<=(const math::Matrix<M, N, U>& other) const
+template<class U> constexpr bool Matrix<M, N, T>::operator<=(const Matrix<M, N, U>& other) const
 {
     return !(other < *this);
 }
 
 
 template<int M, int N, class T>
-template<class U> constexpr bool Matrix<M, N, T>::operator>(const math::Matrix<M, N, U>& other) const
+template<class U> constexpr bool Matrix<M, N, T>::operator>(const Matrix<M, N, U>& other) const
 {
     return (other < *this);
 }
 
 
 template<int M, int N, class T>
-template<class U> constexpr bool Matrix<M, N, T>::operator>=(const math::Matrix<M, N, U>& other) const
+template<class U> constexpr bool Matrix<M, N, T>::operator>=(const Matrix<M, N, U>& other) const
 {
     return !(*this < other);
 }

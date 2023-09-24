@@ -101,6 +101,18 @@ public:
 
     /// \{
     ///
+    /// \brief    
+    ///
+    ///    
+    ///
+    template<class U, class = std::enable_if_t<math::is_lossless_conv<U, T>>>
+    constexpr Vector(const Vector<N, U>&) noexcept;
+    template<class U, class = std::enable_if_t<!math::is_lossless_conv<T, U>>>
+    explicit constexpr operator Vector<N, U>() noexcept;
+    /// \}
+
+    /// \{
+    ///
     /// \brief Access specific component of vector.
     ///
     /// These subscription operators provide access to the component at the specified index.
@@ -138,12 +150,12 @@ public:
     /// These comparison operators compare this vector with the specified vector. Comparison
     /// is lexicographical in terms of the components of the two vectors.
     ///
-    template<class U> constexpr bool operator==(const math::Vector<N, U>&) const noexcept;
-    template<class U> constexpr bool operator!=(const math::Vector<N, U>&) const noexcept;
-    template<class U> constexpr bool operator< (const math::Vector<N, U>&) const noexcept;
-    template<class U> constexpr bool operator<=(const math::Vector<N, U>&) const noexcept;
-    template<class U> constexpr bool operator> (const math::Vector<N, U>&) const noexcept;
-    template<class U> constexpr bool operator>=(const math::Vector<N, U>&) const noexcept;
+    template<class U> constexpr bool operator==(const Vector<N, U>&) const noexcept;
+    template<class U> constexpr bool operator!=(const Vector<N, U>&) const noexcept;
+    template<class U> constexpr bool operator< (const Vector<N, U>&) const noexcept;
+    template<class U> constexpr bool operator<=(const Vector<N, U>&) const noexcept;
+    template<class U> constexpr bool operator> (const Vector<N, U>&) const noexcept;
+    template<class U> constexpr bool operator>=(const Vector<N, U>&) const noexcept;
     /// \}
 };
 
@@ -355,6 +367,20 @@ constexpr auto inner(const math::Vector<N, T>& a, const math::Vector<N, U>& b) n
 
 
 template<int N, class T>
+template<class U, class> constexpr Vector<N, T>::Vector(const Vector<N, U>& vec) noexcept
+    : Vector(vec.components())
+{
+}
+
+
+template<int N, class T>
+template<class U, class> constexpr Vector<N, T>::operator Vector<N, U>() noexcept
+{
+    
+}
+
+
+template<int N, class T>
 constexpr auto Vector<N, T>::operator[](int i) noexcept -> comp_type&
 {
     return this->components()[i];
@@ -397,7 +423,7 @@ template<class O> constexpr auto Vector<N, T>::operator/=(const O& other) noexce
 
 
 template<int N, class T>
-template<class U> constexpr bool Vector<N, T>::operator==(const math::Vector<N, U>& other) const noexcept
+template<class U> constexpr bool Vector<N, T>::operator==(const Vector<N, U>& other) const noexcept
 {
     auto& a = this->components();
     auto& b = other.components();
@@ -406,14 +432,14 @@ template<class U> constexpr bool Vector<N, T>::operator==(const math::Vector<N, 
 
 
 template<int N, class T>
-template<class U> constexpr bool Vector<N, T>::operator!=(const math::Vector<N, U>& other) const noexcept
+template<class U> constexpr bool Vector<N, T>::operator!=(const Vector<N, U>& other) const noexcept
 {
     return !(*this == other);
 }
 
 
 template<int N, class T>
-template<class U> constexpr bool Vector<N, T>::operator<(const math::Vector<N, U>& other) const noexcept
+template<class U> constexpr bool Vector<N, T>::operator<(const Vector<N, U>& other) const noexcept
 {
     auto& a = this->components();
     auto& b = other.components();
@@ -422,21 +448,21 @@ template<class U> constexpr bool Vector<N, T>::operator<(const math::Vector<N, U
 
 
 template<int N, class T>
-template<class U> constexpr bool Vector<N, T>::operator<=(const math::Vector<N, U>& other) const noexcept
+template<class U> constexpr bool Vector<N, T>::operator<=(const Vector<N, U>& other) const noexcept
 {
     return !(other < *this);
 }
 
 
 template<int N, class T>
-template<class U> constexpr bool Vector<N, T>::operator>(const math::Vector<N, U>& other) const noexcept
+template<class U> constexpr bool Vector<N, T>::operator>(const Vector<N, U>& other) const noexcept
 {
     return (other < *this);
 }
 
 
 template<int N, class T>
-template<class U> constexpr bool Vector<N, T>::operator>=(const math::Vector<N, U>& other) const noexcept
+template<class U> constexpr bool Vector<N, T>::operator>=(const Vector<N, U>& other) const noexcept
 {
     return !(*this < other);
 }
