@@ -31,8 +31,8 @@ using namespace archon;
 ARCHON_TEST(Core_Math_DegreesToRadians)
 {
     double eps = std::numeric_limits<double>::epsilon();
-    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::deg_to_rad(0 * 90), 0 * core::pi<double>() / 2, 10 * eps);
-    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::deg_to_rad(1 * 90), 1 * core::pi<double>() / 2, 10 * eps);
-    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::deg_to_rad(2 * 90), 2 * core::pi<double>() / 2, 10 * eps);
-    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::deg_to_rad(3 * 90), 3 * core::pi<double>() / 2, 10 * eps);
+    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::deg_to_rad(0 * 90), 0 * core::pi<double> / 2, 10 * eps);
+    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::deg_to_rad(1 * 90), 1 * core::pi<double> / 2, 10 * eps);
+    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::deg_to_rad(2 * 90), 2 * core::pi<double> / 2, 10 * eps);
+    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::deg_to_rad(3 * 90), 3 * core::pi<double> / 2, 10 * eps);
 }

@@ -35,7 +35,7 @@ namespace archon::core {
 /// This function performs the same sorting operation as `std::stable_sort()` but in a way
 /// that can occur at compile time.
 ///
-/// FIXME: In C++20, `std::stable_sort()` became `constexpr`, which makes this function
+/// FIXME: In C++26, `std::stable_sort()` becomes `constexpr`, which makes this function
 /// superfluous.
 ///
 template<class I, class C> constexpr void stable_sort(I begin, I end, C compare);

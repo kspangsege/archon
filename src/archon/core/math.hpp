@@ -26,6 +26,7 @@
 
 #include <cmath>
 #include <type_traits>
+#include <numbers>
 
 #include <archon/core/integer.hpp>
 
@@ -92,7 +93,7 @@ template<class T, class U> auto lerp(T a, T b, U t) noexcept;
 /// This function converts an angle from the specified number of degrees to the
 /// corresponding number of radians. The return type will be \p T if \p T is one of the
 /// standard floating point types (`std::is_floating_point`). Otherwise it will be
-/// `decltype(T() + double())`. For example, `deg_to_rad(90)` produces `math::pi<double>() /
+/// `decltype(T() + double())`. For example, `deg_to_rad(90)` produces `core::pi<double> /
 /// 2`.
 ///
 template<class T> auto deg_to_rad(T) noexcept;
@@ -104,10 +105,7 @@ template<class T> auto deg_to_rad(T) noexcept;
 /// This is the mathematical constant that is the ratio of a circle's circumference to its
 /// diameter.
 ///
-/// FIXME: In C++20, set to `std::numbers::pi_v<T>` and make `constexpr`. This will also
-/// make it possible to convert it into a variable template.
-///
-template<class T> auto pi() noexcept -> T;
+template<class T> constexpr T pi = std::numbers::pi_v<T>;
 
 
 
@@ -117,12 +115,9 @@ template<class T> auto pi() noexcept -> T;
 ///
 /// These are the golden ratio and its friends.
 ///
-/// FIXME: In C++20, set `golden_ratio()` to `std::numbers::phi_v<T>` and make all three
-/// `constexpr`. This will also make it possible to convert these into variable templates.
-///
-template<class T> auto golden_ratio() noexcept -> T;
-template<class T> auto golden_fraction() noexcept -> T;
-template<class T> auto golden_angle() noexcept -> T;
+template<class T> constexpr T golden_ratio = std::numbers::phi_v<T>;
+template<class T> constexpr T golden_fraction = T(1 - 1 / core::golden_ratio<T>);
+template<class T> constexpr T golden_angle = T(2 * core::pi<T> * core::golden_fraction<T>);
 /// \}
 
 
@@ -202,35 +197,7 @@ template<class T, class U> auto lerp(T a, T b, U t) noexcept
 template<class T> auto deg_to_rad(T angle) noexcept
 {
     using type = std::conditional_t<std::is_floating_point_v<T>, T, double>;
-    return core::pi<type>() / 180 * angle;
-}
-
-
-template<class T> inline auto pi() noexcept -> T
-{
-    static_assert(std::is_floating_point_v<T>);
-    return T(4 * std::atan(T(1)));
-}
-
-
-template<class T> inline auto golden_ratio() noexcept -> T
-{
-    static_assert(std::is_floating_point_v<T>);
-    return T((1 + std::sqrt(T(5))) / 2);
-}
-
-
-template<class T> inline auto golden_fraction() noexcept -> T
-{
-    static_assert(std::is_floating_point_v<T>);
-    return T(1 - 1 / core::golden_ratio<T>());
-}
-
-
-template<class T> inline auto golden_angle() noexcept -> T
-{
-    static_assert(std::is_floating_point_v<T>);
-    return T(2 * core::pi<T>() * core::golden_fraction<T>());
+    return core::pi<type> / 180 * angle;
 }
 
 

@@ -343,7 +343,7 @@ ARCHON_TEST_BATCH(Image_Reader_GetBlock_Falloff, pixel_repr_variants)
         for (std::size_t i = 0; i < image_buffer.size(); ++i) {
             constexpr int bit_width = image::comp_repr_bit_width<comp_repr>();
             image_buffer[i] = image::float_to_int<comp_type, bit_width>(frac);
-            frac = std::fmod(frac + core::golden_fraction<double>(), 1.0);
+            frac = std::fmod(frac + core::golden_fraction<double>, 1.0);
         }
 
         auto get_expected_pixel = [&](image::Pos pos, image::Reader::FalloffMode horz_mode,

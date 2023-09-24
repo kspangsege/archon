@@ -3033,7 +3033,7 @@ void BasicTextFormatter<C, T>::justify_fragment(std::size_t units_begin, std::si
     std::size_t last_new_left = std::size_t(last_left + stretch);
     last_unit.space_size = std::size_t(last_new_left - prev_new_right);
     ARCHON_ASSERT(last_unit.space_size >= 1);
-    m_round_frac = std::fmod(m_round_frac + core::golden_fraction<double>(), 1.0);
+    m_round_frac = std::fmod(m_round_frac + core::golden_fraction<double>, 1.0);
 }
 
 
