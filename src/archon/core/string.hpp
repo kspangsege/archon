@@ -40,17 +40,11 @@ namespace archon::core {
 
 /// \{
 ///
-/// \brief Check if string contains prefix, suffix, or substring.
+/// \brief Check if string contains substring.
 ///
-/// These functions are replacements for functions of the same name added to
-/// `std::basic_string` and `std::basic_string_view` in C++20 and C++23.
+/// These functions are replacements for member functions of the same name added to
+/// `std::basic_string_view` in C++23.
 ///
-template<class C, class T> bool starts_with(std::basic_string_view<C, T> string,
-                                            std::basic_string_view<C, T> prefix) noexcept;
-template<class C, class T> bool starts_with(std::basic_string_view<C, T> string, const C* prefix);
-template<class C, class T> bool ends_with(std::basic_string_view<C, T> string,
-                                          std::basic_string_view<C, T> suffix) noexcept;
-template<class C, class T> bool ends_with(std::basic_string_view<C, T> string, const C* suffix);
 template<class C, class T> bool contains(std::basic_string_view<C, T> string,
                                          std::basic_string_view<C, T> substr) noexcept;
 template<class C, class T> bool contains(std::basic_string_view<C, T> string, const C* substr);
@@ -186,36 +180,6 @@ using WideStringSplitter = BasicStringSplitter<wchar_t>;
 
 
 // Implementation
-
-
-template<class C, class T>
-inline bool starts_with(std::basic_string_view<C, T> string, std::basic_string_view<C, T> prefix) noexcept
-{
-    std::size_t size = prefix.size();
-    return (string.size() >= size && T::compare(string.data(), prefix.data(), size) == 0);
-}
-
-
-template<class C, class T>
-inline bool starts_with(std::basic_string_view<C, T> string, const C* prefix)
-{
-    return starts_with(string, std::basic_string_view<C, T>(prefix)); // Throws
-}
-
-
-template<class C, class T>
-inline bool ends_with(std::basic_string_view<C, T> string, std::basic_string_view<C, T> suffix) noexcept
-{
-    std::size_t size = suffix.size();
-    return (string.size() >= size && T::compare(string.data() + (string.size() - size), suffix.data(), size) == 0);
-}
-
-
-template<class C, class T>
-inline bool ends_with(std::basic_string_view<C, T> string, const C* suffix)
-{
-    return ends_with(string, std::basic_string_view<C, T>(suffix)); // Throws
-}
 
 
 template<class C, class T>

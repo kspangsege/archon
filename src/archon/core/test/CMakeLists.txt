@@ -1,5 +1,4 @@
 add_library(CoreTest OBJECT
-  test_is_constexpr.cpp
   test_utility.cpp
   test_type.cpp
   test_type_list.cpp

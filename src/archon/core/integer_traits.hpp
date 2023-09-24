@@ -25,6 +25,7 @@
 
 
 #include <type_traits>
+#include <bit>
 #include <limits>
 #include <utility>
 #include <array>
@@ -206,50 +207,9 @@ constexpr auto IntegerTraits<T, true>::from_parts(std::array<part_type, num_part
 template<class T>
 constexpr int IntegerTraits<T, true>::find_msb_pos(T val) noexcept
 {
-    bool is_negative = false;
-    if constexpr (is_signed)
-        is_negative = val < 0;
-    if (ARCHON_LIKELY(!is_negative)) {
-        using type = std::make_unsigned_t<promoted_type>;
-        type val_2 = type(+val);
-#if ARCHON_GCC_OR_GCC_EMUL && ARCHON_ENABLE_PLATFORM_OPTIMIZATIONS
-        int max_pos = std::numeric_limits<type>::digits - 1;
-        if constexpr (std::is_same_v<type, unsigned>) {
-            if (ARCHON_LIKELY(val_2 != 0))
-                return max_pos - __builtin_clz(val_2);
-            return -1;
-        }
-        if constexpr (std::is_same_v<type, unsigned long>) {
-            if (ARCHON_LIKELY(val_2 != 0))
-                return max_pos - __builtin_clzl(val_2);
-            return -1;
-        }
-        if constexpr (std::is_same_v<type, unsigned long long>) {
-            if (ARCHON_LIKELY(val_2 != 0))
-                return max_pos - __builtin_clzll(val_2);
-            return -1;
-        }
-#endif
-        type v = val_2;
-        int i = 0;
-        int j = lim_type::digits;
-        for (;;) {
-            int n = (j - i) / 2;
-            if (ARCHON_LIKELY(n > 0)) {
-                type w = type(v >> n);
-                if (ARCHON_LIKELY(w != 0)) {
-                    i += n;
-                    v = w;
-                }
-                else {
-                    j = i + n;
-                }
-                continue;
-            }
-            return (v != 0 ? i : i - 1);
-        }
-    }
-    return lim_type::digits;
+    constexpr int n = std::numeric_limits<unsigned_type>::digits;
+    static_assert(n == width); // Guaranteed by C++20 since T is one of the standard, or extended integer types.
+    return (n - 1) - std::countl_zero(unsigned_type(val));
 }
 
 

@@ -438,9 +438,9 @@ public:
 };
 
 
-inline ARCHON_CONSTINIT const ColorSpaceDegen g_color_space_degen;
-inline ARCHON_CONSTINIT const ColorSpaceLum g_color_space_lum;
-inline ARCHON_CONSTINIT const ColorSpaceRGB g_color_space_rgb;
+inline constinit const ColorSpaceDegen g_color_space_degen;
+inline constinit const ColorSpaceLum g_color_space_lum;
+inline constinit const ColorSpaceRGB g_color_space_rgb;
 
 
 } // namespace impl

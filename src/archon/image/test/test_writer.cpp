@@ -198,7 +198,7 @@ ARCHON_TEST_BATCH(Image_Writer_Fill_IndirectColor, pixel_repr_variants)
                 // We can use alpha-type representation for all channels here, because we
                 // are pseudo-randomizing after all.
                 palette_colors[j][i] = image::alpha_comp_from_float<palette_comp_repr>(image::float_type(frac));
-                frac = std::fmod(frac + core::golden_fraction<double>(), 1.0);
+                frac = std::fmod(frac + core::golden_fraction<double>, 1.0);
             }
         }
     }
@@ -507,7 +507,7 @@ ARCHON_TEST_BATCH(Image_Writer_PutBlock_IndirectColor, pixel_repr_variants)
                 // We can use alpha-type representation for all channels here, because we
                 // are pseudo-randomizing after all.
                 palette_colors[j][i] = image::alpha_comp_from_float<palette_comp_repr>(image::float_type(frac));
-                frac = std::fmod(frac + core::golden_fraction<double>(), 1.0);
+                frac = std::fmod(frac + core::golden_fraction<double>, 1.0);
             }
         }
     }
@@ -800,7 +800,7 @@ ARCHON_TEST_BATCH(Image_Writer_PutBlockMask_IndirectColor, pixel_repr_variants)
                 // We can use alpha-type representation for all channels here, because we
                 // are pseudo-randomizing after all.
                 palette_colors[j][i] = image::alpha_comp_from_float<palette_comp_repr>(image::float_type(frac));
-                frac = std::fmod(frac + core::golden_fraction<double>(), 1.0);
+                frac = std::fmod(frac + core::golden_fraction<double>, 1.0);
             }
         }
     }
@@ -1011,7 +1011,7 @@ ARCHON_TEST_BATCH(Image_Writer_PutImage_IndirectColor, pixel_repr_variants)
                 // We can use alpha-type representation for all channels here, because we
                 // are pseudo-randomizing after all.
                 palette_colors[j][i] = image::alpha_comp_from_float<palette_comp_repr>(image::float_type(frac));
-                frac = std::fmod(frac + core::golden_fraction<double>(), 1.0);
+                frac = std::fmod(frac + core::golden_fraction<double>, 1.0);
             }
         }
     }
@@ -1206,7 +1206,7 @@ ARCHON_TEST_BATCH(Image_Writer_PutImage_Falloff, pixel_repr_variants)
                 static_assert(std::is_floating_point_v<comp_type>);
                 image_buffer[i] = comp_type(frac);
             }
-            frac = std::fmod(frac + core::golden_fraction<double>(), 1.0);
+            frac = std::fmod(frac + core::golden_fraction<double>, 1.0);
         }
 
         auto get_expected_pixel = [&](image::Pos pos, image::Reader::FalloffMode horz_mode,

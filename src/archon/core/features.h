@@ -24,14 +24,7 @@
 /// \file
 
 
-// Obtaining definitions of implementation-specific STL library version macros.
-//
-#if __has_include(<version>) // C++20
-#  include <version>
-#else
-#  include <ciso646>
-#endif
-
+#include <version>
 #include <cstdint>
 
 
@@ -241,15 +234,6 @@
 #  define ARCHON_NOINLINE __declspec(noinline)
 #else
 #  define ARCHON_NOINLINE
-#endif
-
-
-// Assert that variable has static initialization
-//
-#if defined __cpp_constinit && __cpp_constinit
-#  define ARCHON_CONSTINIT constinit
-#else
-#  define ARCHON_CONSTINIT
 #endif
 
 
