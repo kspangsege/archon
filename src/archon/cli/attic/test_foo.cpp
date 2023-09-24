@@ -797,10 +797,10 @@ public:
     Sym(std::string_view lexeme)
         : m_lexeme(std::move(lexeme))
     {
-        if (core::starts_with(m_lexeme, "-")) {
+        if (m_lexeme.starts_with("-"sv)) {
             m_type = Symbol::Type::option;
         }
-        else if (core::starts_with(m_lexeme, "<")) {
+        else if (m_lexeme.starts_with("<"sv)) {
             m_type = Symbol::Type::value;
         }
         else {

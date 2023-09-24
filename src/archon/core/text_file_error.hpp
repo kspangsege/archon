@@ -95,7 +95,7 @@ public:
 };
 
 
-inline ARCHON_CONSTINIT const impl::TextFileErrorCategory g_text_file_error_category;
+inline constinit const impl::TextFileErrorCategory g_text_file_error_category;
 
 
 } // namespace impl

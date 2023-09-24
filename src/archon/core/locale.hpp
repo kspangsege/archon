@@ -218,7 +218,8 @@ inline bool assume_utf8_locale(const std::locale& loc)
     std::string name = loc.name(); // Throws
     std::string_view name_2 = name;
     // The ".UTF8" form is for Windows compatibility.
-    return (core::ends_with(name_2, ".UTF-8") || core::ends_with(name_2, ".UTF8")); // Throws
+    using namespace std::literals;
+    return (name_2.ends_with(".UTF-8"sv) || name_2.ends_with(".UTF8"sv));
 #endif
 }
 

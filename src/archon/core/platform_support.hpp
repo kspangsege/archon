@@ -103,7 +103,7 @@ public:
     auto message(int) const -> std::string override final;
 };
 
-inline ARCHON_CONSTINIT const impl::WindowsSystemErrorCategory g_windows_system_error_category;
+inline constinit const impl::WindowsSystemErrorCategory g_windows_system_error_category;
 
 
 #endif // ARCHON_WINDOWS

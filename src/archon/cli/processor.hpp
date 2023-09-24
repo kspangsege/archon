@@ -521,7 +521,7 @@ void BasicProcessor<C, T>::show_help(ostream_type& out, help_config_type help_co
             char_type buffer[size];
             char_mapper.widen(suffix, buffer); // Throws
             string_view_type suffix_2 = { buffer, size }; // Throws
-            if (ARCHON_LIKELY(core::ends_with(argv0, suffix_2)))
+            if (ARCHON_LIKELY(argv0.ends_with(suffix_2)))
                 argv0.remove_suffix(size);
         }
 #endif

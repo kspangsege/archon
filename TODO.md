@@ -17,11 +17,6 @@ ARCHON_TEST_BATCH(Core_MulPrecInt_MultiLevel, signedness_variants)
 ```
 
 
-With C++20, and when `__cpp_lib_bitops` is present, utilize functions offered in `<bits>` header:
-- Use `std::countl_zero()` in `core::int_find_msb_pos()`.
-- Maybe use `std::has_single_bit()` in `core::int_is_power_of_two()`.
-
-
 IDEA: Introduce 3 distinct models for `unit_frac`: "Standard" (no suffix), "alternate" (suffix `_a`), and "hybrid" (suffix `_h`).
 Standard model:
 - Int -> float: i -> i / max_int

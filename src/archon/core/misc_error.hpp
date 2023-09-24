@@ -104,7 +104,7 @@ public:
 };
 
 
-inline ARCHON_CONSTINIT const impl::MiscErrorCategory g_misc_error_category;
+inline constinit const impl::MiscErrorCategory g_misc_error_category;
 
 
 } // namespace impl

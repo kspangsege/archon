@@ -115,7 +115,7 @@ public:
 };
 
 
-inline ARCHON_CONSTINIT const impl::ErrorCategory g_error_category;
+inline constinit const impl::ErrorCategory g_error_category;
 
 
 } // namespace impl
