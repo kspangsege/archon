@@ -2,12 +2,12 @@ cmake_minimum_required(VERSION 3.23.0)
 
 project(Archon VERSION 0.1)
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_CXX_EXTENSIONS False)
 
 if(MSVC)
-  add_compile_options(/Zc:lambda /constexpr:steps10000000)
+  add_compile_options(/constexpr:steps10000000)
 else()
   add_compile_options(-pedantic -Wall -Wextra -Wundef -Wold-style-cast -Wextra-semi -Wunreachable-code -Wno-redundant-move)
 endif()
