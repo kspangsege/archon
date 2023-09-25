@@ -99,17 +99,11 @@ public:
 
     using math::VectorBase2<N, T>::VectorBase2;
 
-    /// \{
-    ///
     /// \brief    
     ///
     ///    
     ///
-    template<class U, class = std::enable_if_t<math::is_lossless_conv<U, T>>>
-    constexpr Vector(const Vector<N, U>&) noexcept;
-    template<class U, class = std::enable_if_t<!math::is_lossless_conv<T, U>>>
-    explicit constexpr operator Vector<N, U>() noexcept;
-    /// \}
+    template<class U> explicit(!math::is_lossless_conv<T, U>) constexpr operator Vector<N, U>() noexcept;
 
     /// \{
     ///
@@ -367,16 +361,9 @@ constexpr auto inner(const math::Vector<N, T>& a, const math::Vector<N, U>& b) n
 
 
 template<int N, class T>
-template<class U, class> constexpr Vector<N, T>::Vector(const Vector<N, U>& vec) noexcept
-    : Vector(vec.components())
+template<class U> constexpr Vector<N, T>::operator Vector<N, U>() noexcept
 {
-}
-
-
-template<int N, class T>
-template<class U, class> constexpr Vector<N, T>::operator Vector<N, U>() noexcept
-{
-    
+    return Vector<N, U>(this->components());
 }
 
 
