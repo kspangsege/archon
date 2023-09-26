@@ -99,12 +99,6 @@ public:
 
     using math::VectorBase2<N, T>::VectorBase2;
 
-    /// \brief    
-    ///
-    ///    
-    ///
-    template<class U> explicit(!math::is_lossless_conv<T, U>) constexpr operator Vector<N, U>() noexcept;
-
     /// \{
     ///
     /// \brief Access specific component of vector.
@@ -151,6 +145,14 @@ public:
     template<class U> constexpr bool operator> (const Vector<N, U>&) const noexcept;
     template<class U> constexpr bool operator>=(const Vector<N, U>&) const noexcept;
     /// \}
+
+    /// \brief Convert between component types.
+    ///
+    /// This conversion operator allows for conversion between different numeric component
+    /// types. Note that the conversion operation must be explicit unless the component
+    /// conversion is lossless (see \ref math::is_lossless_conv).
+    ///
+    template<class U> explicit(!math::is_lossless_conv<T, U>) constexpr operator Vector<N, U>() const noexcept;
 };
 
 template<std::size_t N, class T> Vector(T (&)[N]) -> Vector<N, std::remove_const_t<T>>;
@@ -361,13 +363,6 @@ constexpr auto inner(const math::Vector<N, T>& a, const math::Vector<N, U>& b) n
 
 
 template<int N, class T>
-template<class U> constexpr Vector<N, T>::operator Vector<N, U>() noexcept
-{
-    return Vector<N, U>(this->components());
-}
-
-
-template<int N, class T>
 constexpr auto Vector<N, T>::operator[](int i) noexcept -> comp_type&
 {
     return this->components()[i];
@@ -452,6 +447,13 @@ template<int N, class T>
 template<class U> constexpr bool Vector<N, T>::operator>=(const Vector<N, U>& other) const noexcept
 {
     return !(*this < other);
+}
+
+
+template<int N, class T>
+template<class U> constexpr Vector<N, T>::operator Vector<N, U>() const noexcept
+{
+    return Vector<N, U>(this->components());
 }
 
 

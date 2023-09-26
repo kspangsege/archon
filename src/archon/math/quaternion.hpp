@@ -498,19 +498,6 @@ constexpr auto conj(const math::Quaternion& a, const math::Quaternion& b) noexce
         (sbw + sbv) * a.w,
         (sbw - sbv) * a.v + 2 * math::dot(a.v, b.v) * b.v - 2 * b.w * math::cross(a.v, b.v),
     };
-
-    // c = { b.w * a.w - math::dot(b.v, a.v), b.v * a.w + b.w * a.v + math::cross(b.v, a.v) }
-    // d = { b.w, -b.v }
-
-    // e = { c.w * d.w - math::dot(c.v, d.v), c.v * d.w + c.w * d.v + math::cross(c.v, d.v) }
-
-    // e.w = c.w * d.w - math::dot(c.v, d.v)
-    // e.w = (b.w * a.w - math::dot(b.v, a.v)) * b.w - math::dot(b.v * a.w + b.w * a.v + math::cross(b.v, a.v), -b.v)
-    // e.w = a.w * sq(b.w) - b.w * math::dot(a.v, b.v) + math::dot(b.v * a.w + b.w * a.v + math::cross(b.v, a.v), b.v)
-    // e.w = a.w * sq(b.w) - b.w * math::dot(a.v, b.v) + math::dot(b.v * a.w, b.v) + math::dot(b.w * a.v, b.v) + math::dot(math::cross(b.v, a.v), b.v)
-    // e.w = a.w * sq(b.w) + a.w * math::sq_sum(b.v) + math::dot(math::cross(b.v, a.v), b.v)
-    // e.w = a.w * sq(b.w) + a.w * math::sq_sum(b.v) + math::dot(a.v, math::cross(b.v, b.v))
-    // e.w = a.w * (sq(b.w) + math::sq_sum(b.v))
 }
 
 

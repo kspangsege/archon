@@ -27,6 +27,7 @@
 #include <type_traits>
 #include <array>
 
+#include <archon/math/type_traits.hpp>
 #include <archon/math/vector.hpp>
 
 
@@ -56,12 +57,6 @@ public:
     ///
     constexpr MatrixBase1() noexcept = default;
 
-    /// \brief Construct matrix with all rows set to specific row vector.
-    ///
-    /// This constructor sets all the rows of the matrix equal to the specified row vector.
-    ///
-    constexpr MatrixBase1(const row_type&) noexcept;
-
     /// \{
     ///
     /// \brief Construct matrix from array of row vectors.
@@ -69,8 +64,8 @@ public:
     /// These constructors set the rows of the matrix equal to the row vectors of the
     /// specified array.
     ///
-    template<class R> constexpr MatrixBase1(R (& rows)[M]) noexcept;
-    template<class R> constexpr MatrixBase1(const std::array<R, M>& rows) noexcept;
+    template<class U> explicit(!math::is_lossless_conv<U, T>) constexpr MatrixBase1(math::Vector<N, U> (& rows)[M]) noexcept;
+    template<class U> explicit(!math::is_lossless_conv<U, T>) constexpr MatrixBase1(const std::array<math::Vector<N, U>, M>& rows) noexcept;
     /// \}
 
     /// \{
@@ -184,28 +179,18 @@ public:
 
 
 template<int M, int N, class T>
-constexpr MatrixBase1<M, N, T>::MatrixBase1(const row_type& row) noexcept
+template<class U> constexpr MatrixBase1<M, N, T>::MatrixBase1(math::Vector<N, U> (& rows)[M]) noexcept
 {
-    for (int i = 0; i < M; ++i)
-        m_rows[i] = row;
-}
-
-
-template<int M, int N, class T>
-template<class R> constexpr MatrixBase1<M, N, T>::MatrixBase1(R (& rows)[M]) noexcept
-{
-    static_assert(noexcept(row_type(rows[int()])));
     for (int i = 0; i < M; ++i)
         m_rows[i] = row_type(rows[i]);
 }
 
 
 template<int M, int N, class T>
-template<class R> constexpr MatrixBase1<M, N, T>::MatrixBase1(const std::array<R, M>& rows) noexcept
+template<class U> constexpr MatrixBase1<M, N, T>::MatrixBase1(const std::array<math::Vector<N, U>, M>& rows) noexcept
 {
-    static_assert(noexcept(row_type(rows[int()])));
     for (int i = 0; i < M; ++i)
-        m_rows[i] = rows[i];
+        m_rows[i] = row_type(rows[i]);
 }
 
 

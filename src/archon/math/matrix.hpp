@@ -159,6 +159,14 @@ public:
     template<class U> constexpr bool operator>=(const Matrix<M, N, U>&) const;
     /// \}
 
+    /// \brief Convert between component types.
+    ///
+    /// This conversion operator allows for conversion between different numeric component
+    /// types. Note that the conversion operation must be explicit unless the component
+    /// conversion is lossless (see \ref math::is_lossless_conv).
+    ///
+    template<class U> explicit(!math::is_lossless_conv<T, U>) constexpr operator Matrix<M, N, U>() const noexcept;
+
     /// \brief Get column as vector.
     ///
     /// This function returns the column at the specified index (\p i) as an M-vector.
@@ -706,6 +714,13 @@ template<int M, int N, class T>
 template<class U> constexpr bool Matrix<M, N, T>::operator>=(const Matrix<M, N, U>& other) const
 {
     return !(*this < other);
+}
+
+
+template<int M, int N, class T>
+template<class U> constexpr Matrix<M, N, T>::operator Matrix<M, N, U>() const noexcept
+{
+    return Matrix<M, N, U>(this->rows());
 }
 
 

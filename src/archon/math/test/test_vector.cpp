@@ -154,18 +154,6 @@ ARCHON_TEST(Math_Vector_CopyAssign)
 }
 
 
-ARCHON_TEST(Math_Vector_ComponentTypeConversion)
-{
-    math::Vector<2, float> vec_1;
-    // Lossless copy construct and copy assign from different component type
-    math::Vector<2, double> vec_2 = vec_1;
-    vec_2 = vec_1;
-    // Lossy copy construct and copy assign from different component type
-    math::Vector<2, float> vec_3 = math::Vector<2, float>(vec_2);
-    vec_3 = math::Vector<2, float>(vec_2);
-}
-
-
 ARCHON_TEST(Math_Vector_Components)
 {
     math::Vector3 vec = { 1, 2, 3 };
@@ -203,6 +191,30 @@ ARCHON_TEST(Math_Vector_Comparison)
     ARCHON_CHECK(vec_1 >= vec_2);
     ARCHON_CHECK(vec_1 >= vec_3);
     ARCHON_CHECK_NOT(vec_1 >= vec_4);
+}
+
+
+ARCHON_TEST(Math_Vector_ComponentTypeConversion)
+{
+    // Lossless copy construct and copy assign from different component type
+    {
+        math::Vector<2, float> vec_1 = { 1, 2 };
+        math::Vector<2, float> vec_2 = { 3, 4 };
+        math::Vector<2, double> vec_3 = vec_1;
+        ARCHON_CHECK_EQUAL(vec_3, vec_1);
+        vec_3 = vec_2;
+        ARCHON_CHECK_EQUAL(vec_3, vec_2);
+    }
+
+    // Lossy copy construct and copy assign from different component type
+    {
+        math::Vector<2, double> vec_1 = { 1, 2 };
+        math::Vector<2, double> vec_2 = { 3, 4 };
+        math::Vector<2, float> vec_3 = math::Vector<2, float>(vec_1);
+        ARCHON_CHECK_EQUAL(vec_3, vec_1);
+        vec_3 = math::Vector<2, float>(vec_2);
+        ARCHON_CHECK_EQUAL(vec_3, vec_2);
+    }
 }
 
 

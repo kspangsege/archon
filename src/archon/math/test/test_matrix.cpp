@@ -153,6 +153,34 @@ ARCHON_TEST(Math_Matrix_Compare)
 }
 
 
+ARCHON_TEST(Math_Matrix_ComponentTypeConversion)
+{
+    // Lossless copy construct and copy assign from different component type
+    {
+        math::Matrix<2, 2, float> mat_1 = {{ 1, 2 },
+                                           { 3, 4 }};
+        math::Matrix<2, 2, float> mat_2 = {{ 5, 6 },
+                                           { 7, 8 }};
+        math::Matrix<2, 2, double> mat_3 = mat_1;
+        ARCHON_CHECK_EQUAL(mat_3, mat_1);
+        mat_3 = mat_2;
+        ARCHON_CHECK_EQUAL(mat_3, mat_2);
+    }
+
+    // Lossy copy construct and copy assign from different component type
+    {
+        math::Matrix<2, 2, double> mat_1 = {{ 1, 2 },
+                                            { 3, 4 }};
+        math::Matrix<2, 2, double> mat_2 = {{ 5, 6 },
+                                            { 7, 8 }};
+        math::Matrix<2, 2, float> mat_3 = math::Matrix<2, 2, float>(mat_1);
+        ARCHON_CHECK_EQUAL(mat_3, mat_1);
+        mat_3 = math::Matrix<2, 2, float>(mat_2);
+        ARCHON_CHECK_EQUAL(mat_3, mat_2);
+    }
+}
+
+
 ARCHON_TEST(Math_Matrix_Generate)
 {
     math::Matrix x  = math::Matrix<3, 4>::generate([](int i, int j) noexcept {
