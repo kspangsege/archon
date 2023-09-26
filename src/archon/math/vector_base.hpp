@@ -27,6 +27,8 @@
 #include <type_traits>
 #include <array>
 
+#include <archon/math/type_traits.hpp>
+
 
 namespace archon::math {
 
@@ -51,13 +53,6 @@ public:
     ///
     constexpr VectorBase1() noexcept = default;
 
-    /// \brief Construct vector with all components set to specific value.
-    ///
-    /// This constructor sets all the components of the vector equal to the specified
-    /// component value.
-    ///
-    constexpr VectorBase1(comp_type) noexcept;
-
     /// \{
     ///
     /// \brief Construct vector from array of component values.
@@ -65,8 +60,8 @@ public:
     /// These constructors set the components of the vector equal to the components of the
     /// specified array.
     ///
-    template<class U> constexpr VectorBase1(U (& components)[N]) noexcept;
-    template<class U> constexpr VectorBase1(const std::array<U, N>& components) noexcept;
+    template<class U> explicit(!math::is_lossless_conv<U, T>) constexpr VectorBase1(U (& components)[N]) noexcept;
+    template<class U> explicit(!math::is_lossless_conv<U, T>) constexpr VectorBase1(const std::array<U, N>& components) noexcept;
     /// \}
 
     /// \{
@@ -174,14 +169,6 @@ public:
 
 
 // ============================ VectorBase1 ============================
-
-
-template<int N, class T>
-constexpr VectorBase1<N, T>::VectorBase1(comp_type comp) noexcept
-{
-    for (int i = 0; i < N; ++i)
-        m_components[i] = comp;
-}
 
 
 template<int N, class T>

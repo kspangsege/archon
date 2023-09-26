@@ -295,7 +295,7 @@ public:
         math::Matrix<3, 3, T> mat;
         mat[0] = math::Vector<3, T>(r[0], g[0], b[0]);
         mat[1] = math::Vector<3, T>(r[1], g[1], b[1]);
-        mat[2] = math::Vector<3, T>(1) - (mat[0] + mat[1]);
+        mat[2] = math::Vector<3, T>(1, 1, 1) - (mat[0] + mat[1]);
 
         math::Vector scales = math::inv(mat) * white;
         for (int i = 0; i< 3; ++i)

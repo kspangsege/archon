@@ -151,13 +151,21 @@ public:
     /// is lexicographical in terms of the rows of the two matrices, when the rows are
     /// considered as vectors.
     ///
-    template<class U> constexpr bool operator==(const math::Matrix<M, N, U>&) const;
-    template<class U> constexpr bool operator!=(const math::Matrix<M, N, U>&) const;
-    template<class U> constexpr bool operator< (const math::Matrix<M, N, U>&) const;
-    template<class U> constexpr bool operator<=(const math::Matrix<M, N, U>&) const;
-    template<class U> constexpr bool operator> (const math::Matrix<M, N, U>&) const;
-    template<class U> constexpr bool operator>=(const math::Matrix<M, N, U>&) const;
+    template<class U> constexpr bool operator==(const Matrix<M, N, U>&) const;
+    template<class U> constexpr bool operator!=(const Matrix<M, N, U>&) const;
+    template<class U> constexpr bool operator< (const Matrix<M, N, U>&) const;
+    template<class U> constexpr bool operator<=(const Matrix<M, N, U>&) const;
+    template<class U> constexpr bool operator> (const Matrix<M, N, U>&) const;
+    template<class U> constexpr bool operator>=(const Matrix<M, N, U>&) const;
     /// \}
+
+    /// \brief Convert between component types.
+    ///
+    /// This conversion operator allows for conversion between different numeric component
+    /// types. Note that the conversion operation must be explicit unless the component
+    /// conversion is lossless (see \ref math::is_lossless_conv).
+    ///
+    template<class U> explicit(!math::is_lossless_conv<T, U>) constexpr operator Matrix<M, N, U>() const noexcept;
 
     /// \brief Get column as vector.
     ///
@@ -664,7 +672,7 @@ template<class O> constexpr auto Matrix<M, N, T>::operator/=(const O& other) noe
 
 
 template<int M, int N, class T>
-template<class U> constexpr bool Matrix<M, N, T>::operator==(const math::Matrix<M, N, U>& other) const
+template<class U> constexpr bool Matrix<M, N, T>::operator==(const Matrix<M, N, U>& other) const
 {
     auto& a = this->rows();
     auto& b = other.rows();
@@ -673,14 +681,14 @@ template<class U> constexpr bool Matrix<M, N, T>::operator==(const math::Matrix<
 
 
 template<int M, int N, class T>
-template<class U> constexpr bool Matrix<M, N, T>::operator!=(const math::Matrix<M, N, U>& other) const
+template<class U> constexpr bool Matrix<M, N, T>::operator!=(const Matrix<M, N, U>& other) const
 {
     return !(*this == other);
 }
 
 
 template<int M, int N, class T>
-template<class U> constexpr bool Matrix<M, N, T>::operator<(const math::Matrix<M, N, U>& other) const
+template<class U> constexpr bool Matrix<M, N, T>::operator<(const Matrix<M, N, U>& other) const
 {
     auto& a = this->rows();
     auto& b = other.rows();
@@ -689,23 +697,30 @@ template<class U> constexpr bool Matrix<M, N, T>::operator<(const math::Matrix<M
 
 
 template<int M, int N, class T>
-template<class U> constexpr bool Matrix<M, N, T>::operator<=(const math::Matrix<M, N, U>& other) const
+template<class U> constexpr bool Matrix<M, N, T>::operator<=(const Matrix<M, N, U>& other) const
 {
     return !(other < *this);
 }
 
 
 template<int M, int N, class T>
-template<class U> constexpr bool Matrix<M, N, T>::operator>(const math::Matrix<M, N, U>& other) const
+template<class U> constexpr bool Matrix<M, N, T>::operator>(const Matrix<M, N, U>& other) const
 {
     return (other < *this);
 }
 
 
 template<int M, int N, class T>
-template<class U> constexpr bool Matrix<M, N, T>::operator>=(const math::Matrix<M, N, U>& other) const
+template<class U> constexpr bool Matrix<M, N, T>::operator>=(const Matrix<M, N, U>& other) const
 {
     return !(*this < other);
+}
+
+
+template<int M, int N, class T>
+template<class U> constexpr Matrix<M, N, T>::operator Matrix<M, N, U>() const noexcept
+{
+    return Matrix<M, N, U>(this->rows());
 }
 
 

@@ -33,6 +33,9 @@ template<class T> constexpr bool is_scalar = std::is_arithmetic_v<T>;
 template<class T, class U = T> using scalar_arith_type = decltype(T() + U());
 
 
+template<class T, class U> constexpr bool is_lossless_conv = std::is_same_v<scalar_arith_type<T, U>, U>;
+
+
 } // namespace archon::math
 
 #endif // ARCHON_X_MATH_X_TYPE_TRAITS_HPP
