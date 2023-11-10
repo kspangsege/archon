@@ -18,18 +18,18 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         build_type: [Release, Debug]
-        c_compiler: [gcc, clang]
+        c_compiler: [gcc, clang-15]
         include:
           - c_compiler: gcc
             cpp_compiler: g++
-          - c_compiler: clang
-            cpp_compiler: clang++
+          - c_compiler: clang-15
+            cpp_compiler: clang++-15
 
     steps:
     - name: Install dependencies
       run: |
         sudo apt update
-        sudo apt install libpng-dev libfreetype-dev libx11-dev libsdl2-dev
+        sudo apt install libpng-dev libfreetype-dev libx11-dev libsdl2-dev clang-15
 
     - name: Checkout
       uses: actions/checkout@v3
