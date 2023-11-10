@@ -1,6 +1,6 @@
 // This file is part of the Archon project, a suite of C++ libraries.
 //
-// Copyright (C) 2020 Kristian Spangsege <kristian.spangsege@gmail.com>
+// Copyright (C) 2022 Kristian Spangsege <kristian.spangsege@gmail.com>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this
 // software and associated documentation files (the "Software"), to deal in the Software
@@ -19,41 +19,42 @@
 // DEALINGS IN THE SOFTWARE.
 
 
-#include <memory>
+#include <string_view>
 
-#include <archon/core/features.h>
-#include <archon/core/flat_map.hpp>
-#include <archon/check.hpp>
+#include <archon/render/opengl.hpp>
 
 
 using namespace archon;
 
 
-ARCHON_TEST(Core_FlatMap_IncompleteValueType)
+auto render::get_opengl_error_message(GLenum error) noexcept -> std::string_view
 {
-    struct Foo;
-    struct Bar {
-        core::FlatMap<int, Foo> vec;
-    };
-    struct Foo {};
-    Bar bar;
-    static_cast<void>(bar);
-}
+#if ARCHON_RENDER_HAVE_OPENGL
 
-
-ARCHON_TEST(Core_FlatMap_NoncopiableValue)
-{
-    core::FlatMap<int, std::unique_ptr<int>> map;
-    map.emplace(7, std::make_unique<int>(17));
-    map.emplace(2, std::make_unique<int>(12));
-    if (ARCHON_LIKELY(ARCHON_CHECK_EQUAL(map.size(), 2))) {
-        auto i = map.begin();
-        ARCHON_CHECK_EQUAL(i->first, 2);
-        if (ARCHON_LIKELY(ARCHON_CHECK(i->second)))
-            ARCHON_CHECK_EQUAL(*i->second, 12);
-        ++i;
-        ARCHON_CHECK_EQUAL(i->first, 7);
-        if (ARCHON_LIKELY(ARCHON_CHECK(i->second)))
-            ARCHON_CHECK_EQUAL(*i->second, 17);
+    switch (error) {
+        case GL_INVALID_ENUM:
+            return "An unacceptable value is specified for an enumerated argument";
+        case GL_INVALID_VALUE:
+            return "A numeric argument is out of range";
+        case GL_INVALID_OPERATION:
+            return "A specified operation is not allowed in the current state";
+#  ifdef GL_INVALID_FRAMEBUFFER_OPERATION
+        case GL_INVALID_FRAMEBUFFER_OPERATION:
+            return "The framebuffer object is not complete";
+#  endif
+        case GL_OUT_OF_MEMORY:
+            return "Out of memory";
+        case GL_STACK_UNDERFLOW:
+            return "Stack underflow";
+        case GL_STACK_OVERFLOW:
+            return "Stack overflow";
     }
+
+#else // !ARCHON_RENDER_HAVE_OPENGL
+
+    static_cast<void>(error);
+
+#endif // !ARCHON_RENDER_HAVE_OPENGL
+
+    return "Unknown error";
 }

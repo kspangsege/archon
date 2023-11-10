@@ -102,11 +102,15 @@ public:
     /// The initial position of the window is determined by the platform and / or
     /// implementation.
     ///
+    /// The destruction of the returned window object must happen before the destruction of
+    /// this connection object.
+    ///
+    /// If the application chooses to provide the display guarantee, \ref
+    /// display::Guarantees::main_thread_exclusive, then these functions must be called only
+    /// by the main thread. Further more, the returned window must be used only by the main
+    /// thread. This includes the destruction of the window object.
+    ///
     /// FIXME: When an X11-based implementation is added, state this: When using the X11-based implementation (\ref display::get_x11_implementation()), the initial position is generally determined by a window manager.                   
-    ///
-    /// FIXME: What are the constraints on allowed object lifetime?                                               
-    ///
-    /// FIXME: Make note about the requirement that the destruction of the returned unique pointer must happen on the main thread if the display implementation in use requires \ref display::Guarantees::main_thread_exclusive               
     ///
     virtual auto new_window(std::string_view title, display::Size size, display::WindowEventHandler&,
                             display::Window::Config = {}) -> std::unique_ptr<display::Window> = 0;
@@ -153,10 +157,10 @@ public:
     ///
     /// FIXME: When an X11-based implementation is added, state this: When using the X11-based implementation (\ref display::get_x11_implementation()), each X screen becomes a display.                            
     ///
-    /// When using the SDL-based implementation (\ref display::get_sdl_implementation()),
-    /// only one display will be exposed. If SDL bridges to the X Window System, the
-    /// `DISPLAY` environment variable can be used to select which of the X screens to
-    /// expose.
+    /// When using the SDL-based implementation (\ref
+    /// display::get_sdl_implementation_slot()), only one display will be exposed. When SDL
+    /// bridges to the X Window System, the `DISPLAY` environment variable can be used to
+    /// select which of the X screens to target.
     ///
     /// \sa \ref get_default_display()
     ///
@@ -219,14 +223,18 @@ auto new_connection(const std::locale&, const display::Guarantees&) -> std::uniq
 /// \brief Establish display connection using default implementation if available.
 ///
 /// This function establishes a connection to the display using the default underlying
-/// implementation. The function is a shorthand for calling \ref
-/// display::Implementation::new_connection_a() on the implementation object returned by
-/// \ref display::get_default_implementation(). If no default implementation is available,
+/// implementation. It is a shorthand for calling \ref
+/// display::Implementation::new_connection() on the implementation object returned by \ref
+/// display::get_default_implementation_a(). If no default implementations are available,
 /// this function returns null.
 ///
-/// FIXME: Make note about the requirements that at most one connection is allowed to exists at any time if the default display implementation requires \ref display::Guarantees::only_one_connection               
+/// Note that if \p guarantees include \ref display::Guarantees::only_one_connection, then
+/// at most one connection may be created per process of the operating system.
 ///
-/// FIXME: Make note about the requirement that the destruction of the returned unique pointer must happen on the main thread if the default display implementation requires \ref display::Guarantees::main_thread_exclusive               
+/// Note that if \p guarantees include \ref display::Guarantees::main_thread_exclusive, then
+/// this function must be called only by the main thread. Further more, the returned
+/// connection must be used only by the main thread. This includes the destruction of the
+/// connection returned by this function.
 ///
 auto new_connection_a(const std::locale&, const display::Guarantees&) -> std::unique_ptr<display::Connection>;
 

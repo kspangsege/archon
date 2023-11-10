@@ -1,6 +1,6 @@
 // This file is part of the Archon project, a suite of C++ libraries.
 //
-// Copyright (C) 2022 Kristian Spangsege <kristian.spangsege@gmail.com>
+// Copyright (C) 2023 Kristian Spangsege <kristian.spangsege@gmail.com>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this
 // software and associated documentation files (the "Software"), to deal in the Software
@@ -19,22 +19,23 @@
 // DEALINGS IN THE SOFTWARE.
 
 
+#include <cstddef>
 #include <cstdlib>
+#include <utility>
 #include <memory>
-#include <tuple>
 #include <optional>
 #include <string_view>
 #include <string>
-#include <system_error>
 #include <locale>
-#include <filesystem>
 
 #include <archon/core/features.h>
+#include <archon/core/buffer.hpp>
+#include <archon/core/format_as.hpp>
 #include <archon/core/quote.hpp>
 #include <archon/core/file.hpp>
 #include <archon/log.hpp>
 #include <archon/cli.hpp>
-#include <archon/image.hpp>
+#include <archon/util/colors.hpp>
 #include <archon/display.hpp>
 
 
@@ -47,20 +48,16 @@ namespace {
 class EventLoop
     : public display::WindowEventHandler {
 public:
-    EventLoop(display::Connection& conn, int display) noexcept
+    EventLoop(display::Connection& conn, log::Logger& logger) noexcept
         : m_impl(conn.get_implementation())
         , m_conn(conn)
-        , m_display(display)
+        , m_logger(logger)
     {
     }
 
-    void init(const image::Image& img)
+    void set_window(std::unique_ptr<display::Window> win) noexcept
     {
-        image::Size size = img.get_size();
-        m_win = m_conn.new_window(m_display, "Archon Image Viewer", size, *this); // Throws
-        m_tex = m_win->new_texture(size); // Throws
-        m_tex->put_image(img); // Throws
-        m_win->show(); // Throws
+        m_win = std::move(win);
     }
 
     void process_events()
@@ -70,6 +67,7 @@ public:
 
     bool on_keydown(const display::KeyEvent& ev) override final
     {
+        m_logger.info("Key: %s", display::as_key_name (ev.key_code, m_impl));
         display::Key key = {};
         if (ARCHON_LIKELY(m_impl.try_map_key_code_to_key(ev.key_code, key))) { // Throws
             if (ARCHON_UNLIKELY(key == display::Key::escape))
@@ -80,17 +78,17 @@ public:
 
     bool on_expose(const display::WindowEvent&) override final
     {
-        m_win->put_texture(*m_tex); // Throws
+        m_win->fill(util::colors::green); // Throws
         m_win->present(); // Throws
+        m_logger.info("Expose");
         return true;
     }
 
 private:
     const display::Implementation& m_impl;
     display::Connection& m_conn;
-    const int m_display;
     std::unique_ptr<display::Window> m_win;
-    std::unique_ptr<display::Texture> m_tex;
+    log::Logger& m_logger;
 };
 
 
@@ -102,16 +100,14 @@ int main(int argc, char* argv[])
 {
     std::locale locale(""); // Throws
 
-    namespace fs = std::filesystem;
-    fs::path path;
     bool list_display_implementations = false;
-    log::LogLevel log_level_limit = log::LogLevel::warn;
+    log::LogLevel log_level_limit = log::LogLevel::info;
     std::optional<std::string> optional_display_implementation;
 
     cli::Spec spec;
-    pat("<path>", cli::no_attributes, spec,
+    pat("", cli::no_attributes, spec,
         "Lorem ipsum.",
-        std::tie(path)); // Throws
+        cli::no_action); // Throws
 
     pat("--list-display-implementations", cli::no_attributes, spec,
         "List known display implementations.",
@@ -190,21 +186,30 @@ int main(int argc, char* argv[])
         }
     }
 
-    std::unique_ptr<image::WritableImage> img;
+    std::unique_ptr<display::Connection> conn = impl->new_connection(locale); // Throws
+    int display = conn->get_default_display();
+    logger.info("Number of displays: %s", conn->get_num_displays()); // Throws
+    logger.info("Default display:    %s", display); // Throws
     {
-        image::LoadConfig load_config;
-        log::PrefixLogger load_logger(logger, "Load: "); // Throws
-        load_config.logger = &load_logger;
-        std::error_code ec;
-        if (!image::try_load(path, img, locale, load_config, ec)) { // Throws
-            logger.error("Failed to load image: %s", ec.message()); // Throws
-            return EXIT_FAILURE;
+        core::Buffer<display::Screen> screens;
+        core::Buffer<char> strings;
+        std::size_t num_screens = 0;
+        if (conn->try_get_display_conf(display, screens, strings, num_screens)) {
+            for (std::size_t i = 0; i < num_screens; ++i) {
+                const display::Screen& screen = screens[i];
+                logger.info("Screen %s/%s: ouput_name=%s, bounds=%s, resolution=%s, refresh_rate=%s", i + 1,
+                            num_screens, core::quoted(screen.output_name), screen.bounds,
+                            core::as_optional(screen.resolution, "unknown"),
+                            core::as_optional(screen.refresh_rate, "unknown")); // Throws
+            }
         }
     }
 
-    std::unique_ptr<display::Connection> conn = impl->new_connection(locale); // Throws
-    int display = conn->get_default_display();
-    EventLoop event_loop(*conn, display);
-    event_loop.init(*img); // throws
+    EventLoop event_loop(*conn, logger);
+    display::Size size = 256;
+    std::unique_ptr<display::Window> win =
+        conn->new_window(display, "Archon Display Snooper", size, event_loop); // Throws
+    win->show(); // Throws
+    event_loop.set_window(std::move(win));
     event_loop.process_events(); // Throws
 }

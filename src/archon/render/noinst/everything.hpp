@@ -1,6 +1,6 @@
 // This file is part of the Archon project, a suite of C++ libraries.
 //
-// Copyright (C) 2020 Kristian Spangsege <kristian.spangsege@gmail.com>
+// Copyright (C) 2023 Kristian Spangsege <kristian.spangsege@gmail.com>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this
 // software and associated documentation files (the "Software"), to deal in the Software
@@ -19,41 +19,19 @@
 // DEALINGS IN THE SOFTWARE.
 
 
-#include <memory>
-
-#include <archon/core/features.h>
-#include <archon/core/flat_map.hpp>
-#include <archon/check.hpp>
-
-
-using namespace archon;
+// Do not include this header file. It exists only to specify the canonical header order,
+// which is a topological dependency ordering of all the header files of the Archon Core
+// Library, including any that must never be included by applications.
+#error "Do not include this header file"
 
 
-ARCHON_TEST(Core_FlatMap_IncompleteValueType)
-{
-    struct Foo;
-    struct Bar {
-        core::FlatMap<int, Foo> vec;
-    };
-    struct Foo {};
-    Bar bar;
-    static_cast<void>(bar);
-}
-
-
-ARCHON_TEST(Core_FlatMap_NoncopiableValue)
-{
-    core::FlatMap<int, std::unique_ptr<int>> map;
-    map.emplace(7, std::make_unique<int>(17));
-    map.emplace(2, std::make_unique<int>(12));
-    if (ARCHON_LIKELY(ARCHON_CHECK_EQUAL(map.size(), 2))) {
-        auto i = map.begin();
-        ARCHON_CHECK_EQUAL(i->first, 2);
-        if (ARCHON_LIKELY(ARCHON_CHECK(i->second)))
-            ARCHON_CHECK_EQUAL(*i->second, 12);
-        ++i;
-        ARCHON_CHECK_EQUAL(i->first, 7);
-        if (ARCHON_LIKELY(ARCHON_CHECK(i->second)))
-            ARCHON_CHECK_EQUAL(*i->second, 17);
-    }
-}
+#include <archon/render/render_namespace.hpp>
+#include <archon/render/impl/config.h>
+#include <archon/render/opengl.hpp>
+#include <archon/render/impl/finite_sequence_memory.hpp>
+#include <archon/render/impl/finite_curve_memory.hpp>
+#include <archon/render/virt_trackball.hpp>
+#include <archon/render/key_binding_support.hpp>
+#include <archon/render/impl/key_bindings.hpp>
+#include <archon/render/engine.hpp>
+#include <archon/render/noinst/engine_impl.hpp>

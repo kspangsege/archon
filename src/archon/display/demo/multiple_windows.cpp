@@ -19,7 +19,7 @@
 // DEALINGS IN THE SOFTWARE.
 
 
-#include <cstddef>
+#include <cstdlib>
 #include <utility>
 #include <memory>
 #include <optional>
@@ -29,11 +29,8 @@
 #include <locale>
 
 #include <archon/core/features.h>
-#include <archon/core/assert.hpp>
 #include <archon/core/math.hpp>
-#include <archon/core/buffer.hpp>
 #include <archon/core/format.hpp>
-#include <archon/core/format_as.hpp>
 #include <archon/core/quote.hpp>
 #include <archon/core/file.hpp>
 #include <archon/log.hpp>
@@ -250,19 +247,6 @@ int main(int argc, char* argv[])
     if (ARCHON_UNLIKELY(cli::process(argc, argv, spec, exit_status, locale))) // Throws
         return exit_status;
 
-    if (list_display_implementations) {
-        log::FileLogger stdout_logger(core::File::get_cout(), locale); // Throws
-        int n = display::get_num_implementations();
-        for (int i = 0; i < n; ++i) {
-            const display::Implementation& impl = display::get_implementation(i); // Throws
-            stdout_logger.info("%s", impl.ident()); // Throws
-        }
-        return EXIT_SUCCESS;
-    }
-
-    log::FileLogger root_logger(core::File::get_cerr(), locale); // Throws
-    log::LimitLogger logger(root_logger, log_level_limit); // Throws
-
     display::Guarantees guarantees;
 
     // Promise to not open more than one display connection at a time.
@@ -276,15 +260,34 @@ int main(int argc, char* argv[])
     // indirect use of anything that would conflict with use of SDL.
     guarantees.no_other_use_of_sdl = true;
 
+    if (list_display_implementations) {
+        log::FileLogger stdout_logger(core::File::get_cout(), locale); // Throws
+        int n = display::get_num_implementation_slots();
+        for (int i = 0; i < n; ++i) {
+            const display::Implementation::Slot& slot = display::get_implementation_slot(i); // Throws
+            if (slot.is_available(guarantees)) {
+                stdout_logger.info("%s", slot.ident()); // Throws
+            }
+            else {
+                stdout_logger.info("%s (unavailable)", slot.ident()); // Throws
+            }
+        }
+        return EXIT_SUCCESS;
+    }
+
+    log::FileLogger root_logger(core::File::get_cerr(), locale); // Throws
+    log::LimitLogger logger(root_logger, log_level_limit); // Throws
+
     const display::Implementation* impl;
     if (optional_display_implementation.has_value()) {
         std::string_view ident = optional_display_implementation.value();
-        impl = display::lookup_implementation(ident);
-        if (ARCHON_UNLIKELY(!impl)) {
+        const display::Implementation::Slot* slot = display::lookup_implementation(ident);
+        if (ARCHON_UNLIKELY(!slot)) {
             logger.error("Unknown display implementation (%s)", core::quoted(ident)); // Throws
             return EXIT_FAILURE;
         }
-        if (ARCHON_UNLIKELY(!impl->is_available(guarantees))) {
+        impl = slot->get_implementation_a(guarantees);
+        if (ARCHON_UNLIKELY(!impl)) {
             logger.error("Unavailable display implementation (%s)", core::quoted(ident)); // Throws
             return EXIT_FAILURE;
         }
@@ -296,26 +299,9 @@ int main(int argc, char* argv[])
             return EXIT_FAILURE;
         }
     }
-    std::unique_ptr<display::Connection> conn = impl->new_connection(locale, guarantees); // Throws
-    ARCHON_ASSERT(conn);
-    int display = conn->get_default_display();
-    logger.detail("Number of displays: %s", conn->get_num_displays()); // Throws
-    logger.detail("Default display:    %s", display); // Throws
-    {
-        core::Buffer<display::Screen> screens;
-        core::Buffer<char> strings;
-        std::size_t num_screens = 0;
-        if (conn->try_get_display_conf(display, screens, strings, num_screens)) {
-            for (std::size_t i = 0; i < num_screens; ++i) {
-                const display::Screen& screen = screens[i];
-                logger.detail("Screen %s/%s: ouput_name=%s, bounds=%s, resolution=%s, refresh_rate=%s", i + 1,
-                              num_screens, core::quoted(screen.output_name), screen.bounds,
-                              core::as_optional(screen.resolution, "unknown"),
-                              core::as_optional(screen.refresh_rate, "unknown")); // Throws
-            }
-        }
-    }
 
+    std::unique_ptr<display::Connection> conn = impl->new_connection(locale); // Throws
+    int display = conn->get_default_display();
     EventLoop event_loop(*conn, display);
 
     int num_windows = 2;

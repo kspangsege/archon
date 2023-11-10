@@ -1,3 +1,19 @@
+add_executable(DisplaySnooper
+  display_snooper.cpp
+)
+
+set_target_properties(DisplaySnooper PROPERTIES
+  OUTPUT_NAME "archon-display-snooper"
+)
+
+target_link_libraries(DisplaySnooper PUBLIC
+  Core
+  Log
+  Cli
+  Display
+)
+
+
 add_executable(ImageViewer
   image_viewer.cpp
 )

@@ -93,7 +93,8 @@ auto suggest_new_buffer_size(std::size_t cur_size, std::size_t min_size, std::si
 /// uninitialized.
 ///
 /// `uninit_destroy(data, size)` destroys the \p size objects stored in the array pointed to
-/// by \p data. Afterwards, the referenced memory must be considered uninitialized.
+/// by \p data. Afterwards, the referenced memory must be considered uninitialized. This
+/// function requires \p T to have a non-throwing destructor.
 ///
 /// `uninit_safe_fill(size, uninit)` and `uninit_safe_fill(size, value, uninit)` construct
 /// objects of type \p T in the uninitialized memory pointed to by \p uninit. One object is
@@ -102,28 +103,31 @@ auto suggest_new_buffer_size(std::size_t cur_size, std::size_t min_size, std::si
 /// of the objects fail, then all previously constructed objects will be destroyed before
 /// control is returned to the caller. For the two-argument version, the objects are
 /// default-constructed. For the three-argument version, the objects are copy-constructed
-/// from \p value.
+/// from \p value. These functions require \p T to have a non-throwing destructor.
 ///
 /// `uninit_safe_copy(begin, end, uninit)` constructs objects of type \p T in the
 /// uninitialized memory pointed to by \p uninit. One object is constructed for each object
 /// in the range \p begin to \p end (\p N is the number of objects in that range). This
 /// operation is exception safe in the sense that if the construction of any of the objects
 /// fail, then all previously constructed objects will be destroyed before control is
-/// returned to the caller.
+/// returned to the caller. This function requires \p T to have a non-throwing destructor.
 ///
 /// `uninit_safe_move_or_copy(data, size, uninit)` constructs objects of type \p T in the
 /// uninitialized memory pointed to by \p uninit. One object is constructed for each object
 /// in the array pointed to be \p data. The number of objects in that array is \p size (\p N
 /// is \p size). If \p T has a non-throwing move-constructor, then the objects are
 /// move-constructed from those in \p data. Otherwise they are copy-constructed. This
-/// function does not destroy the original objects.
+/// function does not destroy the original objects. This function requires \p T to have a
+/// non-throwing destructor, and also that \p T either has a non-throwing move-constructor
+/// or is copy-constructible.
 ///
 /// `uninit_move_downwards(data, size, dist)` and `uninit_move_upwards(data, size, dist)`
 /// move an array of objects of type \p T towards lower and higher memory addresses
 /// respectively. In contrast to `uninit_safe_move_or_copy()`, these functions allow for the
 /// destination memory region to overlap with the origin region, but they can be used only
-/// when \p T has a non-throwing move constructor. Also, and in contrast to
-/// `uninit_safe_move_or_copy()` these functions destroy the original objects.
+/// when \p T has a non-throwing move-constructor. Also, and in contrast to
+/// `uninit_safe_move_or_copy()` these functions destroy the original objects. These
+/// functions require \p T to have a non-throwing destructor.
 ///
 template<class T, class... A> void uninit_create(T* uninit, A&&... args);
 template<class T> void uninit_destroy(T* data, std::size_t size) noexcept;
@@ -271,6 +275,7 @@ template<class T> struct Uninit_0<T, false> {
 
     static void destroy(T* data, std::size_t size) noexcept
     {
+        static_assert(std::is_nothrow_destructible_v<T>);
         for (std::size_t i = 0; i < size; ++i)
             data[i].~T();
     }
@@ -289,6 +294,7 @@ template<class T> struct Uninit_0<T, false> {
             // instances that were already created.
             while (i > 0) {
                 --i;
+                static_assert(std::is_nothrow_destructible_v<T>);
                 uninit[i].~T();
             }
             throw;
@@ -309,6 +315,7 @@ template<class T> struct Uninit_0<T, false> {
             // copies that were already made.
             while (i > 0) {
                 --i;
+                static_assert(std::is_nothrow_destructible_v<T>);
                 uninit[i].~T();
             }
             throw;
@@ -331,6 +338,7 @@ template<class T> struct Uninit_0<T, false> {
             // copies that were already made.
             while (i > 0) {
                 --i;
+                static_assert(std::is_nothrow_destructible_v<T>);
                 uninit[i].~T();
             }
             throw;
@@ -355,6 +363,7 @@ template<class T> struct Uninit_0<T, false> {
             // already made.
             while (i > 0) {
                 --i;
+                static_assert(std::is_nothrow_destructible_v<T>);
                 uninit[i].~T();
             }
             throw;
@@ -366,6 +375,7 @@ template<class T> struct Uninit_0<T, false> {
         // Move elements towards lower addresses. This is only safe when the elements are
         // nothrow move constructible.
         static_assert(std::is_nothrow_move_constructible_v<T>);
+        static_assert(std::is_nothrow_destructible_v<T>);
         T* data_2 = data - dist;
         for (std::size_t i = 0; i < size; ++i) {
             new (&data_2[i]) T(std::move(data[i]));
@@ -378,6 +388,7 @@ template<class T> struct Uninit_0<T, false> {
         // Move elements towards higher addresses. This is only safe when the elements are
         // nothrow move constructible.
         static_assert(std::is_nothrow_move_constructible_v<T>);
+        static_assert(std::is_nothrow_destructible_v<T>);
         T* data_2 = data + dist;
         for (std::size_t i = 0; i < size; ++i) {
             std::size_t j = std::size_t((size - 1) - i);
@@ -471,14 +482,12 @@ template<class I, class T> inline void uninit_safe_copy(I begin, I end, T* unini
 
 template<class T> inline void uninit_safe_move_or_copy(T* data, std::size_t size, T* uninit)
 {
-    static_assert(std::is_move_constructible_v<T> || std::is_copy_constructible_v<T>);
     impl::Uninit<T>::safe_move_or_copy(data, size, uninit); // Throws
 }
 
 
 template<class T> inline void uninit_move_downwards(T* data, std::size_t size, std::size_t dist) noexcept
 {
-    static_assert(std::is_nothrow_move_constructible_v<T>);
     ARCHON_ASSERT(dist > 0);
     impl::Uninit<T>::move_downwards(data, size, dist);
 }
@@ -486,7 +495,6 @@ template<class T> inline void uninit_move_downwards(T* data, std::size_t size, s
 
 template<class T> inline void uninit_move_upwards(T* data, std::size_t size, std::size_t dist) noexcept
 {
-    static_assert(std::is_nothrow_move_constructible_v<T>);
     ARCHON_ASSERT(dist > 0);
     impl::Uninit<T>::move_upwards(data, size, dist);
 }

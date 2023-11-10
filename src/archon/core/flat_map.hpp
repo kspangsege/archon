@@ -29,6 +29,7 @@
 #include <utility>
 #include <iterator>
 
+#include <archon/core/pair.hpp>
 #include <archon/core/impl/flat_map_impl.hpp>
 
 
@@ -51,17 +52,20 @@ namespace archon::core {
 /// Another disadvantage compared to `std::map` is that map iterators and pointers to stored
 /// values are invalidated after every modifying operation.
 ///
-/// Requirement: The key type (\p K) must have a non-throwing copy constructor
-/// (`std::is_nothrow_copy_constructible`).
+/// Requirement: Both the key type (\p K) and the value type (\p V) must have a non-throwing
+/// move constructor (`std::is_nothrow_move_constructible`) and a non-throwing destructor
+/// (`std::is_nothrow_destructible`).
 ///
-/// Requirement: The value type (\p V) must have a non-throwing move constructor
-/// (`std::is_nothrow_move_constructible`).
-///
-/// Requirement: If `a` and `b` are keys (values of type \p K), `a < b` must be a
-/// non-throwing expression (`noexcept`).
+/// Requirement: If `a` and `b` are `const`-references to keys (`const K&`), then `a < b`
+/// must be a non-throwing operation, i.e., `noexcept(a < b)` must be `true`.
 ///
 /// An initial capacity can be made statically available inside the map object. The number
-/// of entries of initial static capcity is specified by \p N.
+/// of entries of initial static capacity is specified by \p N.
+///
+/// So long as \p N is zero, a flat map type can be instantiated for an incomplete key and /
+/// or value type (\p K and \p V). Instantiation of the member functions of a flat map type,
+/// on the other hand, can generally only happen once both the key and the value types are
+/// complete.
 ///
 template<class K, class V, std::size_t N = 0> class FlatMap {
 public:
@@ -70,10 +74,7 @@ public:
 
     static constexpr std::size_t static_capacity = N;
 
-    static_assert(std::is_nothrow_copy_constructible_v<key_type>);
-    static_assert(std::is_nothrow_move_constructible_v<mapped_type>);
-
-    using value_type      = std::pair<const key_type, mapped_type>;
+    using value_type      = core::Pair<const key_type, mapped_type>;
     using size_type       = std::size_t;
     using difference_type = std::ptrdiff_t;
 

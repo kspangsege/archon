@@ -30,20 +30,30 @@
 
 
 using namespace archon;
+using display::Implementation;
+
+
+auto Implementation::Slot::get_implementation(const display::Guarantees& guarantees) const -> const Implementation&
+{
+    const Implementation* impl = get_implementation_a(guarantees);
+    if (ARCHON_LIKELY(impl))
+        return *impl;
+    throw std::runtime_error("Unavailable display implementation");
+}
 
 
 namespace {
 
 
-using impl_getter_type = auto (*)() noexcept -> const display::Implementation&;
+using slot_getter_type = auto (*)() noexcept -> const display::Implementation::Slot&;
 
 
-constexpr impl_getter_type g_implementations[] {
-    &display::get_sdl_implementation,
+constexpr slot_getter_type g_implementation_slots[] {
+    &display::get_sdl_implementation_slot,
 };
 
 
-constexpr int g_num_implementations = int(std::size(g_implementations));
+constexpr int g_num_implementation_slots = int(std::size(g_implementation_slots));
 
 
 } // unnamed namespace
@@ -54,46 +64,47 @@ auto display::get_default_implementation(const display::Guarantees& guarantees) 
     const display::Implementation* impl = get_default_implementation_a(guarantees);
     if (ARCHON_LIKELY(impl))
         return *impl;
-    throw std::runtime_error("No available display implementation");
+    throw std::runtime_error("No available display implementations");
 }
 
 
 auto display::get_default_implementation_a(const display::Guarantees& guarantees) noexcept ->
     const display::Implementation*
 {
-    int n = g_num_implementations;
+    int n = g_num_implementation_slots;
     for (int i = 0; i < n; ++i) {
-        const display::Implementation& impl = (*g_implementations[i])();
-        if (ARCHON_LIKELY(!impl.is_available(guarantees)))
+        const display::Implementation::Slot& slot = (*g_implementation_slots[i])();
+        const display::Implementation* impl = slot.get_implementation_a(guarantees);
+        if (ARCHON_LIKELY(!impl))
             continue;
-        return &impl;
+        return impl;
     }
     return nullptr;
 }
 
 
-int display::get_num_implementations() noexcept
+int display::get_num_implementation_slots() noexcept
 {
-    return g_num_implementations;
+    return g_num_implementation_slots;
 }
 
 
-auto display::get_implementation(int index) -> const display::Implementation&
+auto display::get_implementation_slot(int index) -> const display::Implementation::Slot&
 {
-    if (ARCHON_LIKELY(index >= 0 && index < g_num_implementations))
-        return (*g_implementations[index])();
-    throw std::out_of_range("Implementation index");
+    if (ARCHON_LIKELY(index >= 0 && index < g_num_implementation_slots))
+        return (*g_implementation_slots[index])();
+    throw std::out_of_range("Implementation slot index");
 }
 
 
-auto display::lookup_implementation(std::string_view ident) noexcept -> const display::Implementation*
+auto display::lookup_implementation(std::string_view ident) noexcept -> const display::Implementation::Slot*
 {
-    int n = g_num_implementations;
+    int n = g_num_implementation_slots;
     for (int i = 0; i < n; ++i) {
-        const display::Implementation& impl = (*g_implementations[i])();
-        if (ARCHON_LIKELY(impl.ident() != ident))
+        const display::Implementation::Slot& slot = (*g_implementation_slots[i])();
+        if (ARCHON_LIKELY(slot.ident() != ident))
             continue;
-        return &impl;
+        return &slot;
     }
     return nullptr;
 }

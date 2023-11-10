@@ -34,7 +34,7 @@ auto display::new_connection(const std::locale& locale,
                              const display::Guarantees& guarantees) -> std::unique_ptr<display::Connection>
 {
     const display::Implementation& impl = display::get_default_implementation(guarantees); // Throws
-    return impl.new_connection(locale, guarantees); // Throws
+    return impl.new_connection(locale); // Throws
 }
 
 
@@ -42,6 +42,6 @@ auto display::new_connection_a(const std::locale& locale,
                                const display::Guarantees& guarantees) -> std::unique_ptr<display::Connection>
 {
     if (const display::Implementation* impl = display::get_default_implementation_a(guarantees))
-        return impl->new_connection(locale, guarantees); // Throws
+        return impl->new_connection(locale); // Throws
     return nullptr;
 }

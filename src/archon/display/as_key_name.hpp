@@ -84,7 +84,7 @@ auto operator<<(std::basic_ostream<C, T>& out, const impl::AsKeyName& pod) -> st
 } // namespace impl
 
 
-auto as_key_name(display::KeyCode code, const display::Implementation& impl) noexcept
+inline auto as_key_name(display::KeyCode code, const display::Implementation& impl) noexcept
 {
     return impl::AsKeyName { code, impl };
 }

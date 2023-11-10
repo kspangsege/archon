@@ -32,14 +32,18 @@ namespace archon::display {
 
 /// \brief Display implementation based on the Simple DirectMedia Layer (SDL).
 ///
-/// If enabled at build time, this function returns the display implmentation that is based
-/// on the Simple DirectMedia Layer (SDL). If disabled at compile time, it returns a
-/// degenerate implementation where \ref display::Implementation::is_available() returns
-/// `false` regardless of the specified guarantees (\ref display::Guarantees).
+/// This function returns the display implementation slot for the implementation that is
+/// based on the Simple DirectMedia Layer (SDL).
+///
+/// This implementation is available if enabled at compile time (`ARCHON_DISPLAY_HAVE_SDL`)
+/// and the set of specified display guarantees include \ref
+/// display::Guarantees::only_one_connection, \ref
+/// display::Guarantees::main_thread_exclusive, and \ref
+/// display::Guarantees::no_other_use_of_sdl.
 ///
 /// \sa https://www.libsdl.org
 ///
-auto get_sdl_implementation() noexcept -> const display::Implementation&;
+auto get_sdl_implementation_slot() noexcept -> const display::Implementation::Slot&;
 
 
 } // namespace archon::display
