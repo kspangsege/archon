@@ -27,13 +27,16 @@
 namespace archon::display {
 
 
-/// \brief Well known keys.
+/// \brief Well-known keys.
 ///
-/// This is a set of "well known" keys. These enumerants can be used to refer to keys in a
+/// This is a set of "well-known" keys. These enumerants can be used to refer to keys in a
 /// manner that is independent of the underlying display implementation.
 ///
-/// A key code (\ref display::KeyCode) can be mapped to the corresponding well known key
-/// using display::Implementation::try_map_key_code_to_key().
+/// A well-known key can be mapped to the corresponding key code (\ref display::KeyCode), if
+/// one exists, using \ref display::Implementation::try_map_key_to_key_code().
+///
+/// A key code (\ref display::KeyCode) can be mapped to the corresponding well-known key, if
+/// one exists, using display::Implementation::try_map_key_code_to_key().
 ///
 /// \sa \ref display::KeyCode
 ///
@@ -146,6 +149,13 @@ enum class Key {
 
     shift_left,           ///< Left side shift
     shift_right,          ///< Right side shift
+    ctrl_left,            ///< Left side control
+    ctrl_right,           ///< Right side control
+    alt_left,             ///< Left side alt
+    alt_right,            ///< Right side alt (or "Alt Gr")
+    meta_left,            ///< Left side meta (Windows / Apple / command)
+    meta_right,           ///< Right side meta (Windows / Apple / command)
+    menu,                 ///< Menu
 
     keypad_plus_sign,     ///< Plus sign on keypad
     keypad_minus_sign,    ///< Minus sign on keypad

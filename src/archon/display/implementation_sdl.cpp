@@ -97,13 +97,30 @@ public:
     mutable std::mutex mutex;
     mutable bool have_connection = false;
 
-    auto ident() const noexcept -> std::string_view override final;
-    bool is_available(const display::Guarantees&) const noexcept override final;
-    auto new_connection(const std::locale&, const display::Guarantees&) const ->
-        std::unique_ptr<display::Connection> override final;
+    ImplementationImpl(Slot&) noexcept;
+
+    auto new_connection(const std::locale&) const -> std::unique_ptr<display::Connection> override final;
     bool try_map_key_to_key_code(display::Key, display::KeyCode&) const override final;
     bool try_map_key_code_to_key(display::KeyCode, display::Key&) const override final;
     bool try_get_key_name(display::KeyCode, std::string_view&) const override final;
+    auto get_slot() const noexcept -> const Slot& override final;
+
+private:
+    const Slot& m_slot;
+};
+
+
+class SlotImpl
+    : public display::Implementation::Slot {
+public:
+    SlotImpl() noexcept;
+
+    auto ident() const noexcept -> std::string_view override final;
+    auto get_implementation_a(const display::Guarantees&) const noexcept ->
+        const display::Implementation* override final;
+
+private:
+    ImplementationImpl m_impl;
 };
 
 
@@ -212,29 +229,18 @@ private:
 };
 
 
-auto ImplementationImpl::ident() const noexcept -> std::string_view
+
+inline ImplementationImpl::ImplementationImpl(Slot& slot) noexcept
+    : m_slot(slot)
 {
-    return g_implementation_ident;
 }
 
 
-bool ImplementationImpl::is_available(const display::Guarantees& guarantees) const noexcept
+auto ImplementationImpl::new_connection(const std::locale& locale) const -> std::unique_ptr<display::Connection>
 {
-    return (guarantees.no_other_use_of_sdl &&
-            guarantees.main_thread_exclusive &&
-            guarantees.only_one_connection);
-}
-
-
-auto ImplementationImpl::new_connection(const std::locale& locale, const display::Guarantees& guarantees) const ->
-    std::unique_ptr<display::Connection>
-{
-    if (ARCHON_LIKELY(is_available(guarantees))) {
-        auto conn = std::make_unique<ConnectionImpl>(*this, locale); // Throws
-        conn->open(); // Throws
-        return conn;
-    }
-    return nullptr;
+    auto conn = std::make_unique<ConnectionImpl>(*this, locale); // Throws
+    conn->open(); // Throws
+    return conn;
 }
 
 
@@ -260,6 +266,38 @@ bool ImplementationImpl::try_get_key_name(display::KeyCode key_code, std::string
     }
     return false;
 }
+
+
+auto ImplementationImpl::get_slot() const noexcept -> const Slot&
+{
+    return m_slot;
+}
+
+
+
+inline SlotImpl::SlotImpl() noexcept
+    : m_impl(*this)
+{
+}
+
+
+auto SlotImpl::ident() const noexcept -> std::string_view
+{
+    return g_implementation_ident;
+}
+
+
+auto SlotImpl::get_implementation_a(const display::Guarantees& guarantees) const noexcept ->
+    const display::Implementation*
+{
+    bool is_available = (guarantees.no_other_use_of_sdl &&
+                         guarantees.main_thread_exclusive &&
+                         guarantees.only_one_connection);
+    if (ARCHON_LIKELY(is_available))
+        return &m_impl;
+    return nullptr;
+}
+
 
 
 inline ConnectionImpl::ConnectionImpl(const ImplementationImpl& impl_2, const std::locale& locale_2) noexcept
@@ -389,7 +427,7 @@ bool ConnectionImpl::try_get_display_conf(int display, core::Buffer<display::Scr
 
 auto ConnectionImpl::get_implementation() const noexcept -> const display::Implementation&
 {
-    return display::get_sdl_implementation();
+    return impl;
 }
 
 
@@ -750,6 +788,7 @@ auto ConnectionImpl::map_next_timestamp(Uint32 timestamp) -> display::TimedWindo
 }
 
 
+
 inline WindowImpl::WindowImpl(ConnectionImpl& conn_2) noexcept
     : conn(conn_2)
 {
@@ -931,6 +970,7 @@ auto WindowImpl::create_renderer() -> SDL_Renderer*
 }
 
 
+
 inline TextureImpl::TextureImpl(WindowImpl& win_2) noexcept
     : win(win_2)
 {
@@ -997,6 +1037,7 @@ If list contains RGB888, use that
     }
     throw_sdl_error(win.conn.locale, "SDL_UpdateTexture() failed"); // Throws
 }
+
 
 
 constexpr std::pair<SDL_Keycode, display::Key> key_assocs[] {
@@ -1077,6 +1118,13 @@ constexpr std::pair<SDL_Keycode, display::Key> key_assocs[] {
 
     { SDLK_LSHIFT,       display::Key::shift_left           },
     { SDLK_RSHIFT,       display::Key::shift_right          },
+    { SDLK_LCTRL,        display::Key::ctrl_left            },
+    { SDLK_RCTRL,        display::Key::ctrl_right           },
+    { SDLK_LALT,         display::Key::alt_left             },
+    { SDLK_RALT,         display::Key::alt_right            },
+    { SDLK_LGUI,         display::Key::meta_left            },
+    { SDLK_RGUI,         display::Key::meta_right           },
+    { SDLK_MENU,         display::Key::menu                 },
 
     { SDLK_KP_PLUS,      display::Key::keypad_plus_sign     },
     { SDLK_KP_MINUS,     display::Key::keypad_minus_sign    },
@@ -1127,46 +1175,23 @@ inline auto map_mouse_button(Uint8 button) noexcept -> display::MouseButton
 #else // !ARCHON_DISPLAY_HAVE_SDL
 
 
-class ImplementationImpl
-    : public display::Implementation {
+class SlotImpl
+    : public display::Implementation::Slot {
 public:
     auto ident() const noexcept -> std::string_view override final;
-    bool is_available(const display::Guarantees&) const noexcept override final;
-    auto new_connection(const std::locale&, const display::Guarantees&) const ->
-        std::unique_ptr<display::Connection> override final;
-    bool try_map_key_code_to_key(display::KeyCode, display::Key&) const override final;
-    bool try_get_key_name(display::KeyCode, std::string_view&) const override final;
+    auto get_implementation_a(const display::Guarantees&) const noexcept -> const Implementation* override final;
 };
 
 
-auto ImplementationImpl::ident() const noexcept -> std::string_view
+auto SlotImpl::ident() const noexcept -> std::string_view
 {
     return g_implementation_ident;
 }
 
 
-bool ImplementationImpl::is_available(const display::Guarantees&) const noexcept
-{
-    return false;
-}
-
-
-auto ImplementationImpl::new_connection(const std::locale&, const display::Guarantees&) const ->
-    std::unique_ptr<display::Connection>
+auto SlotImpl::get_implementation_a(const display::Guarantees& guarantees) const noexcept -> const Implementation*
 {
     return nullptr;
-}
-
-
-bool ImplementationImpl::try_map_key_code_to_key(display::KeyCode, display::Key&) const
-{
-    return false;
-}
-
-
-bool ImplementationImpl::try_get_key_name(display::KeyCode, std::string_view&) const
-{
-    return false;
 }
 
 
@@ -1176,8 +1201,8 @@ bool ImplementationImpl::try_get_key_name(display::KeyCode, std::string_view&) c
 } // unnamed namespace
 
 
-auto display::get_sdl_implementation() noexcept -> const display::Implementation&
+auto display::get_sdl_implementation_slot() noexcept -> const display::Implementation::Slot&
 {
-    static ImplementationImpl impl;
-    return impl;
+    static SlotImpl slot;
+    return slot;
 }

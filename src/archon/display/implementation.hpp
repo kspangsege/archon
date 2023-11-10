@@ -47,25 +47,14 @@ namespace archon::display {
 /// display connection. See \ref new_connection().
 ///
 /// An implementation object can be obtained by calling \ref
-/// display::get_default_implementation(), \ref display::get_implementation(), or \ref
-/// display::lookup_implementation().
+/// display::get_default_implementation() or \ref Slot::get_implementation().
+///
+/// \sa \ref display::get_default_implementation()
+/// \sa \ref Slot::get_implementation()
 ///
 class Implementation {
 public:
-    /// \brief Unique identifier for implementation.
-    ///
-    /// This function returns the unique identifier for this display implementation. It is a
-    /// short name composed of lower case letters, digits, and hyphens.
-    ///
-    virtual auto ident() const noexcept -> std::string_view = 0;
-
-    /// \brief Whether implementation is available given particular set of guarantees.
-    ///
-    /// This function returns `false` if the implementation was disabled at compile time, or
-    /// if an insufficient set of guarantees were given (\p guarantees). Otherwise it
-    /// returns `true`.
-    ///
-    virtual bool is_available(const display::Guarantees& guarantees) const noexcept = 0;
+    class Slot;
 
     /// \brief Connect to display.
     ///
@@ -73,12 +62,17 @@ public:
     /// particular display, or in some cases, to a particular set of displays (a number of
     /// "screens" using the terminology of the X Window System).
     ///
-    /// FIXME: Make note about the requirements that at most one connection is allowed to exists at any time if the display implementation requires \ref display::Guarantees::only_one_connection               
+    /// Note that if the application chooses to provide the display guarantee, \ref
+    /// display::Guarantees::only_one_connection, then at most one connection may be created
+    /// per process of the operating system.
     ///
-    /// FIXME: Make note about the requirement that the destruction of the returned unique pointer must happen on the main thread if the display implementation requires \ref display::Guarantees::main_thread_exclusive               
+    /// Note that if the application chooses to provide the display guarantee, \ref
+    /// display::Guarantees::main_thread_exclusive, then this function must be called only
+    /// by the main thread. Further more, the returned connection must be used only by the
+    /// main thread. This includes the destruction of the connection returned by this
+    /// function.
     ///
-    virtual auto new_connection(const std::locale&, const display::Guarantees&) const ->
-        std::unique_ptr<display::Connection> = 0;
+    virtual auto new_connection(const std::locale&) const -> std::unique_ptr<display::Connection> = 0;
 
     /// \brief Map well-known key to key code.
     ///
@@ -109,6 +103,12 @@ public:
     ///
     virtual bool try_get_key_name(display::KeyCode key_code, std::string_view& name) const = 0;
 
+    /// \brief Get slot for this implementation.
+    ///
+    /// This function returns the implementation slot for this implementation.
+    ///
+    virtual auto get_slot() const noexcept -> const Slot& = 0;
+
 protected:
     ~Implementation() noexcept = default;
 };
@@ -130,8 +130,8 @@ auto get_default_implementation(const display::Guarantees& guarantees) -> const 
 /// (\p guarantees) if one exists.
 ///
 /// The default implementation is the first available implementation in the list of
-/// implementations as exposed by \ref display::get_num_implementations() and \ref
-/// display::get_implementation().
+/// implementation slots as exposed by \ref display::get_num_implementation_slots() and \ref
+/// display::get_implementation_slot().
 ///
 /// An implementation is available if \ref display::Implementation::is_available() would return
 /// `true` for the specified guarantees (\p guarantees).
@@ -143,35 +143,116 @@ auto get_default_implementation(const display::Guarantees& guarantees) -> const 
 auto get_default_implementation_a(const display::Guarantees& guarantees) noexcept -> const display::Implementation*;
 
 
-/// \brief Number of display implementations.
+
+/// \brief Slots for individual display implementations.
 ///
-/// This function returns the number of known display implementations (see \ref
-/// display::Implementation). Each one can be accessed using \ref
-/// display::get_implementation().
+/// Every display implementation is associated with an implementation slot. While a
+/// particular implementation may or may not be available on a particular platform, and
+/// given a particular set of display guarantees, the corresponding slot is always
+/// available. Slots can therefore be used to inquire about an implementation even when it
+/// is not available. An application can also iterator over all implementation slots using
+/// \ref display::get_num_implementation_slots() and \ref
+/// display::get_implementatio_slot(). A particular slot can be looked up by implementation
+/// name using \ref display::lookup_implementation().
 ///
-int get_num_implementations() noexcept;
+/// A particular display implementation is unavailable for a particular set of display
+/// guarantees (\ref display::Guarantees) if \ref get_implementation_a() returns null for
+/// that set of guarantees. Otherwise, that display implementation is available for that set
+/// of guarantees.
+///
+class Implementation::Slot {
+public:
+    /// \brief Unique identifier for implementation.
+    ///
+    /// This function returns the unique identifier for the implementation in this slot
+    /// regardless of whether the implementation is available. This is a short name composed
+    /// of lower case letters, digits, and hyphens.
+    ///
+    virtual auto ident() const noexcept -> std::string_view = 0;
+
+    /// \brief Whether implementation is available for given guarantees.
+    ///
+    /// This function returns `true` when, and only when the implementation in this slot is
+    /// available.
+    ///
+    /// If `slot` is a display implementation slot, then `slot.is_available(guarantees)` is
+    /// shorthand for `bool(slot.get_implementation_a(guarantees))`.
+    ///
+    bool is_available(const display::Guarantees& guarantees) const noexcept;
+
+    /// \brief Get implementation.
+    ///
+    /// This function returns the implementation in this slot if it is available for the
+    /// specified guarantees. Otherwise, this function throws.
+    ///
+    /// \sa \ref get_implementation_a()
+    ///
+    auto get_implementation(const display::Guarantees& guarantees) const -> const Implementation&;
+
+    /// \brief Get implementation if available for given guarantees.
+    ///
+    /// If the implementation in this slot is available for the specified guarantees, this
+    /// function returns a pointer to the implementation. Otherwise this function returns
+    /// null.
+    ///
+    /// \sa \ref get_implementation_a()
+    ///
+    virtual auto get_implementation_a(const display::Guarantees& guarantees) const noexcept ->
+        const Implementation* = 0;
+
+protected:
+    ~Slot() noexcept = default;
+};
 
 
-/// \brief Get display implementation by index.
+/// \brief Number of display implementation slots.
 ///
-/// This function returns the specified display implementation (\ref
-/// display::Implementation). The implementation is specified in terms of its index within
-/// the list of known implementations. The number of implementations in this list can be
-/// obtained by calling \ref display::get_num_implementations().
+/// This function returns the number of display implementation slots (see \ref
+/// display::Implementation::Slot). Each one can be accessed using \ref
+/// display::get_implementation_slot().
 ///
-/// An implementation is not necessarily available. Call \ref
-/// display::Implementation::is_available() to see whether it is available.
+/// \sa \ref display::Implementation::Slot
+/// \sa \ref display::get_implementation_slot()
 ///
-auto get_implementation(int index) -> const display::Implementation&;
+int get_num_implementation_slots() noexcept;
+
+
+/// \brief Get display implementation slot by index.
+///
+/// This function returns the specified display implementation slot (\ref
+/// display::Implementation::Slot). The slot is specified in terms of its index within the
+/// built-in list of implementation slots. The number of slots in this list can be obtained
+/// by calling \ref display::get_num_implementation_slots().
+///
+/// \sa \ref display::Implementation::Slot
+/// \sa \ref display::get_num_implementation_slots()
+///
+auto get_implementation_slot(int index) -> const display::Implementation::Slot&;
 
 
 /// \brief Lookup display implementation by identifier.
 ///
 /// If the specified identifier matches one of the known display implementations (\ref
-/// display::Implementation), this function returns that implementation. Otherwise, this
+/// display::Implementation), then this function returns the implementation slot of that
+/// implementation regardless of whether that implementation is available. Otherwise, this
 /// function returns null.
 ///
-auto lookup_implementation(std::string_view ident) noexcept -> const display::Implementation*;
+auto lookup_implementation(std::string_view ident) noexcept -> const display::Implementation::Slot*;
+
+
+
+
+
+
+
+
+// Implementation
+
+
+inline bool Implementation::Slot::is_available(const display::Guarantees& guarantees) const noexcept
+{
+    return bool(get_implementation_a(guarantees));
+}
 
 
 } // namespace archon::display

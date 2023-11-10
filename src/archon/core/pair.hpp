@@ -24,24 +24,41 @@
 /// \file
 
 
+#include <type_traits>
+#include <utility>
+
+
 namespace archon::core {
 
 
 /// \brief Pair concept with strong exception guarantees.
 ///
-/// This class serves purposes similar to that of std::pair but provides stronger exception
-/// guarantees.
+/// This class serves purposes similar to those of `std::pair` but provides stronger
+/// exception guarantees.
 ///
-template<class T, class U> struct Pair {
-    T first;
-    U second;
+template<class T, class U> class Pair {
+public:
+    using first_type  = T;
+    using second_type = U;
 
-    /// \brief Comparison operator.
+    /// \{
     ///
-    /// This operator compares the two pairs. It allows for pairs to be sorted, and to be
-    /// used as keys in maps.
+    /// \brief Components of pair.
     ///
-    constexpr bool operator<(const Pair& other) const noexcept;
+    /// These are the two components of the pair.
+    ///
+    first_type  first;
+    second_type second;
+    /// \}
+
+    /// \brief Construct pair from two components.
+    ///
+    /// This constructor constructs a pair from its two components.
+    ///
+    template<class V, class W> constexpr Pair(V&&, W&&)
+        noexcept(std::is_nothrow_constructible_v<T, V&&> && std::is_nothrow_constructible_v<U, W&&>);
+
+    auto operator<=>(const Pair&) const = default;
 };
 
 
@@ -54,12 +71,12 @@ template<class T, class U> struct Pair {
 // Implementation
 
 
-template<class T, class U> constexpr bool Pair<T, U>::operator<(const Pair& other) const noexcept
+template<class T, class U>
+template<class V, class W> constexpr Pair<T, U>::Pair(V&& f, W&& s)
+    noexcept(std::is_nothrow_constructible_v<T, V&&> && std::is_nothrow_constructible_v<U, W&&>)
+    : first(std::forward<V>(f)) // Throws
+    , second(std::forward<W>(s)) // Throws
 {
-    static_assert(noexcept(first < other.first));
-    static_assert(noexcept(first == other.first));
-    static_assert(noexcept(second < other.second));
-    return (first < other.first || (first == other.first && second < other.second));
 }
 
 

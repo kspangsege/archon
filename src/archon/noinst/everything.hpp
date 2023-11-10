@@ -42,3 +42,5 @@
 #include <archon/font/noinst/everything.hpp>
 #include <archon/display.hpp>
 #include <archon/display/noinst/everything.hpp>
+#include <archon/render.hpp>
+#include <archon/render/noinst/everything.hpp>

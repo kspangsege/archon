@@ -45,12 +45,10 @@ namespace archon::core::impl {
 
 template<class T> class VectorImpl {
 public:
-    static_assert(std::is_move_constructible_v<T> || std::is_copy_constructible_v<T>);
-    static_assert(std::is_nothrow_destructible_v<T>);
-
     ~VectorImpl() noexcept;
 
-    void init(void* static_memory, std::size_t static_capacity) noexcept;
+    void reset(void* static_memory, std::size_t static_capacity) noexcept;
+    void move(VectorImpl&& other) noexcept;
 
     void verify_index(std::size_t) const;
 
@@ -107,11 +105,34 @@ inline VectorImpl<T>::~VectorImpl() noexcept
 
 
 template<class T>
-inline void VectorImpl<T>::init(void* static_memory, std::size_t static_capacity) noexcept
+inline void VectorImpl<T>::reset(void* static_memory, std::size_t static_capacity) noexcept
 {
-    m_data     = static_cast<T*>(static_memory);
-    m_capacity = static_capacity;
-    m_size     = 0;
+    destroy();
+    m_owned_memory = {};
+    m_data         = static_cast<T*>(static_memory);
+    m_capacity     = static_capacity;
+    m_size         = 0;
+}
+
+
+template<class T>
+void VectorImpl<T>::move(VectorImpl&& other) noexcept
+{
+    ARCHON_ASSERT(!m_owned_memory);
+    ARCHON_ASSERT(m_size == 0);
+    if (ARCHON_LIKELY(!other.m_owned_memory)) {
+        core::uninit_safe_move_or_copy(other.m_data, other.m_size, m_data);
+        core::uninit_destroy(other.m_data, other.m_size);
+    }
+    else {
+        m_owned_memory = std::move(other.m_owned_memory);
+        m_data = other.m_data;
+        other.m_data = nullptr;
+    }
+    m_capacity = other.m_capacity;
+    m_size     = other.m_size;
+    other.m_capacity = 0;
+    other.m_size     = 0;
 }
 
 

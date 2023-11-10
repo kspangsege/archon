@@ -24,9 +24,6 @@
 /// \file
 
 
-#include <utility>
-
-
 namespace archon::display {
 
 
@@ -45,9 +42,9 @@ namespace archon::display {
 struct Guarantees {
     /// \brief No overlapping display connections.
     ///
-    /// The application may set this field to `true` if it promises to never open more than
-    /// one display connection at a time (\ref display::Implementation::new_connection())
-    /// from the same display implementation, or from different display implementations.
+    /// The application may set this field to `true` if it promises that within a single
+    /// process of the operating system, there will never be more than one display
+    /// connection open at the same time (\ref display::Implementation::new_connection()).
     ///
     bool only_one_connection = false;
 
@@ -70,53 +67,7 @@ struct Guarantees {
     /// would conflict with use of SDL.
     ///
     bool no_other_use_of_sdl = false;
-
-    /// \brief Default constructor.
-    ///
-    /// This default constructor constructs an initially empty set of guarantees (all
-    /// guarantees are absent).
-    ///
-    Guarantees() noexcept = default;
-
-    /// \{
-    ///
-    /// \brief Moveability, but no copyability.
-    ///
-    /// A set of guarantees is movable, but not copyable.
-    ///
-    Guarantees(Guarantees&&) noexcept;
-    auto operator=(Guarantees&&) noexcept -> Guarantees&;
-    /// \}
 };
-
-
-
-
-
-
-
-
-// Implementation
-
-
-inline Guarantees::Guarantees(Guarantees&& other) noexcept
-{
-    *this = std::move(other);
-}
-
-
-inline auto Guarantees::operator=(Guarantees&& other) noexcept -> Guarantees&
-{
-    only_one_connection   = other.only_one_connection;
-    main_thread_exclusive = other.main_thread_exclusive;
-    no_other_use_of_sdl   = other.no_other_use_of_sdl;
-
-    other.only_one_connection   = false;
-    other.main_thread_exclusive = false;
-    other.no_other_use_of_sdl   = false;
-
-    return *this;
-}
 
 
 } // namespace archon::display

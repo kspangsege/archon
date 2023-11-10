@@ -52,16 +52,30 @@ namespace archon::core {
 /// available inside the vector object (see \p N). It meets the requirements of
 /// `ContiguousContainer` as defined by C++17.
 ///
-/// \p T must either be move-constructible or copy-constructible
-/// (`std::is_move_constructible`, `std::is_copy_constructible`). \p T must also have a
-/// non-throwing destructor (`std::is_nothrow_destrucible`).
+/// \p T must either have a non-throwing move-constructor
+/// (`std::is_nothrow_move_constructible`) or be copy-constructible
+/// (`std::is_copy_constructible`). \p T must also have a non-throwing destructor
+/// (`std::is_nothrow_destrucible`).
 ///
-/// Positioned insertion and removal (`emplace()` and `erase()`) is only supported when \p T
-/// has a non-throwing move constructor (`std::is_nothrow_move_constructible`).
+/// Move-construction and move-assignment (`Vector(Vector&&)` and `operator=(Vector&&)`), as
+/// well as positioned insertion and removal (`emplace()` and `erase()`) are only supported
+/// when \p T has a non-throwing move constructor (`std::is_nothrow_move_constructible`).
 ///
 /// If `v` is a vector and `s` is `v.size()`, then `v.reserve_extra(n)` has the same effect
 /// as `v.reserve(s + n)` except that if `s + n` overflows, then `v.reserve_extra(n)` throws
 /// `std::length_error`.
+///
+/// When discounting move-construction, a newly constructed vector has a capacity equal to
+/// `max(N, M)` where `N` is the capacity made statically available and `M` is the number of
+/// elements associated with the construction operation. For default construction, `N` is
+/// zero. For construction from initializer list, `N` is the size of the initializer
+/// list. For `Vector(size_type size)` and `Vector(size_type size, const T& value)`, `N` is
+/// `size`. For `Vector(I begin, I end)`, `N` is `std::distance(begin, end)`. For
+/// move-construction, the capacity is equal to the capacity of the origin vector.
+///
+/// While the vector remains backed by the statically provided capacity, `shrink_to_fit()`
+/// has no effect. On the other hand, when the vector owns dynamically allocated memory,
+/// `shrink_to_fit()` will always reduce the capacity to the current size.
 ///
 /// Some modifying operations may cause reallocation of memory. When memory is reallocated,
 /// all iterators and pointers to stored values are invalidated.
@@ -74,7 +88,7 @@ namespace archon::core {
 /// (`pop_back()`, `erase()`, `clear()`) never cause memory reallocation. Explicit
 /// reallocation functions (`reserve_extra()`, `reserve()`, and `shrink_to_fit()`) do not
 /// count as modifying operations here. Assignment and resize operations do count
-/// (`operator=()`, `assign()`, `resize()`).
+/// (`assign()`, `resize()`).
 ///
 /// After an operation that inserts one or more elements (`push_back()`, `emplace_back()`,
 /// `append()`, and `emplace()`, `resize()`) and does not cause reallocation of memory,
@@ -103,6 +117,13 @@ namespace archon::core {
 /// includes `clear()`). An operation, that removes elements elsewhere, is guaranteed to not
 /// throw so long as \p T has a non-throwing move-constructor.
 ///
+/// The only operations that can reduce the capacity of a vector are move-assignment
+/// (`operator=(Vector&&)`) and `shrink_to_fit()`.
+///
+/// So long as \p N is zero, a vector type can be instantiated for an incomplete value
+/// type. Instantiation of the member functions of a vector type, on the other hand, can
+/// generally only happen once the value type is complete.
+///
 template<class T, std::size_t N = 0> class Vector {
 public:
     using value_type = T;
@@ -124,14 +145,13 @@ public:
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
     Vector() noexcept;
-    Vector(const Vector&) = delete;
+    Vector(Vector&&) noexcept;
     Vector(std::initializer_list<T>);
     explicit Vector(size_type size);
     Vector(size_type size, const T& value);
     template<class I, class = core::NeedIter<I>> Vector(I begin, I end);
 
-    auto operator=(const Vector&)            -> Vector& = delete;
-    auto operator=(std::initializer_list<T>) -> Vector&;
+    auto operator=(Vector&&) noexcept -> Vector&;
 
     void assign(std::initializer_list<T>);
     void assign(size_type size, const T& value);
@@ -257,7 +277,15 @@ private:
 template<class T, std::size_t N>
 inline Vector<T, N>::Vector() noexcept
 {
-    impl().init(static_mem(), N);
+    impl().reset(static_mem(), N);
+}
+
+
+template<class T, std::size_t N>
+inline Vector<T, N>::Vector(Vector&& other) noexcept
+    : Vector()
+{
+    impl().move(std::move(other.impl()));
 }
 
 
@@ -294,9 +322,10 @@ template<class I, class> inline Vector<T, N>::Vector(I begin, I end)
 
 
 template<class T, std::size_t N>
-inline auto Vector<T, N>::operator=(std::initializer_list<T> list) -> Vector&
+inline auto Vector<T, N>::operator=(Vector&& other) noexcept -> Vector&
 {
-    assign(list); // Throws
+    impl().reset(static_mem(), N);
+    impl().move(std::move(other.impl()));
     return *this;
 }
 

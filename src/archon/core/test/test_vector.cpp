@@ -34,33 +34,15 @@
 using namespace archon;
 
 
-ARCHON_TEST(Core_Vector_Size)
+ARCHON_TEST(Core_Vector_IncompleteValueType)
 {
-    core::Vector<int> vec;
-    ARCHON_CHECK(vec.empty());
-    ARCHON_CHECK_EQUAL(vec.size(), 0);
-    vec.push_back(1);
-    ARCHON_CHECK_NOT(vec.empty());
-    ARCHON_CHECK_EQUAL(vec.size(), 1);
-}
-
-
-ARCHON_TEST(Core_Vector_Capacity)
-{
-    core::Vector<int> vec;
-    vec.push_back(1);
-    std::size_t capacity = vec.capacity();
-    ARCHON_CHECK_GREATER_EQUAL(capacity, 1);
-    vec.reserve(capacity);
-    ARCHON_CHECK_EQUAL(vec.capacity(), capacity);
-    std::size_t extra_capacity = std::size_t(capacity - vec.size());
-    vec.reserve_extra(extra_capacity);
-    ARCHON_CHECK_EQUAL(vec.capacity(), capacity);
-    vec.append(extra_capacity, 2);
-    ARCHON_CHECK_EQUAL(vec.capacity(), capacity);
-    vec.reserve_extra(1);
-    ARCHON_CHECK_GREATER(vec.capacity(), capacity);
-    ARCHON_CHECK_THROW(vec.reserve_extra(core::int_max<std::size_t>()), std::length_error);
+    struct Foo;
+    struct Bar {
+        core::Vector<Foo> vec;
+    };
+    struct Foo {};
+    Bar bar;
+    static_cast<void>(bar);
 }
 
 
@@ -73,6 +55,534 @@ ARCHON_TEST(Core_Vector_StaticMem)
     vec.append(7, 2);
     int* base_2 = vec.data();
     ARCHON_CHECK_EQUAL(base_1, base_2);
+    ARCHON_CHECK_EQUAL(vec.capacity(), 8);
+}
+
+
+ARCHON_TEST(Core_Vector_DefaultConstruct)
+{
+    {
+        core::Vector<int> vec;
+        ARCHON_CHECK(vec.empty());
+        ARCHON_CHECK_EQUAL(vec.size(), 0);
+        ARCHON_CHECK_EQUAL(vec.capacity(), 0);
+    } {
+        core::Vector<int, 3> vec;
+        ARCHON_CHECK(vec.empty());
+        ARCHON_CHECK_EQUAL(vec.size(), 0);
+        ARCHON_CHECK_EQUAL(vec.capacity(), 3);
+    }
+}
+
+
+ARCHON_TEST(Core_Vector_MoveConstruct)
+{
+    {
+        core::Vector<int> vec = { 1, 2, 3 };
+        auto data = vec.data();
+        auto capacity = vec.capacity();
+        core::Vector<int> vec_2 = std::move(vec);
+        ARCHON_CHECK_EQUAL(vec_2.data(), data);
+        ARCHON_CHECK_EQUAL(vec_2.capacity(), capacity);
+        ARCHON_CHECK_EQUAL_SEQ(vec_2, (std::vector { 1, 2, 3 }));
+    } {
+        core::Vector<int, 3> vec = { 4, 5, 6 };
+        auto data = vec.data();
+        auto capacity = vec.capacity();
+        core::Vector<int, 3> vec_2 = std::move(vec);
+        ARCHON_CHECK_NOT_EQUAL(vec_2.data(), data);
+        ARCHON_CHECK_EQUAL(vec_2.capacity(), capacity);
+        ARCHON_CHECK_EQUAL_SEQ(vec_2, (std::vector { 4, 5, 6 }));
+    } {
+        core::Vector<int, 2> vec = { 7, 8, 9 };
+        auto data = vec.data();
+        auto capacity = vec.capacity();
+        core::Vector<int, 2> vec_2 = std::move(vec);
+        ARCHON_CHECK_EQUAL(vec_2.data(), data);
+        ARCHON_CHECK_EQUAL(vec_2.capacity(), capacity);
+        ARCHON_CHECK_EQUAL_SEQ(vec_2, (std::vector { 7, 8, 9 }));
+    }
+}
+
+
+ARCHON_TEST(Core_Vector_ConstructFromInitializerList)
+{
+    {
+        core::Vector<int> vec = { 1, 2, 3 };
+        ARCHON_CHECK_NOT(vec.empty());
+        ARCHON_CHECK_EQUAL(vec.capacity(), 3);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 1, 2, 3 }));
+    } {
+        core::Vector<int, 4> vec = { 4, 5, 6 };
+        ARCHON_CHECK_NOT(vec.empty());
+        ARCHON_CHECK_EQUAL(vec.capacity(), 4);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 4, 5, 6 }));
+    }
+}
+
+
+ARCHON_TEST(Core_Vector_ConstructFromSize)
+{
+    {
+        core::Vector<int> vec(3);
+        ARCHON_CHECK_NOT(vec.empty());
+        ARCHON_CHECK_EQUAL(vec.capacity(), 3);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 0, 0, 0 }));
+    } {
+        core::Vector<int, 4> vec(3);
+        ARCHON_CHECK_NOT(vec.empty());
+        ARCHON_CHECK_EQUAL(vec.capacity(), 4);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 0, 0, 0 }));
+    }
+}
+
+
+ARCHON_TEST(Core_Vector_ConstructFromSizeAndValue)
+{
+    {
+        core::Vector<int> vec(3, 7);
+        ARCHON_CHECK_NOT(vec.empty());
+        ARCHON_CHECK_EQUAL(vec.capacity(), 3);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 7, 7, 7 }));
+    } {
+        core::Vector<int, 4> vec(3, 8);
+        ARCHON_CHECK_NOT(vec.empty());
+        ARCHON_CHECK_EQUAL(vec.capacity(), 4);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 8, 8, 8 }));
+    }
+}
+
+
+ARCHON_TEST(Core_Vector_ConstructFromIteratorPair)
+{
+    // Random access iterators
+    {
+        std::vector ref = { 1, 2, 3 };
+        core::Vector<int> vec(ref.begin(), ref.end());
+        ARCHON_CHECK_EQUAL(vec.capacity(), 3);
+        ARCHON_CHECK_EQUAL_SEQ(vec, ref);
+    } {
+        std::vector ref = { 4, 5, 6 };
+        core::Vector<int, 4> vec(ref.begin(), ref.end());
+        ARCHON_CHECK_EQUAL(vec.capacity(), 4);
+        ARCHON_CHECK_EQUAL_SEQ(vec, ref);
+    }
+
+    // Non-random access iterators
+    {
+        std::list ref = { 1, 2, 3 };
+        core::Vector<int> vec(ref.begin(), ref.end());
+        ARCHON_CHECK_EQUAL(vec.capacity(), 3);
+        ARCHON_CHECK_EQUAL_SEQ(vec, ref);
+    } {
+        std::list ref = { 4, 5, 6 };
+        core::Vector<int, 4> vec(ref.begin(), ref.end());
+        ARCHON_CHECK_EQUAL(vec.capacity(), 4);
+        ARCHON_CHECK_EQUAL_SEQ(vec, ref);
+    }
+}
+
+
+ARCHON_TEST(Core_Vector_MoveAssign)
+{
+    {
+        core::Vector<int> vec = { 1, 2, 3 };
+        auto data = vec.data();
+        auto capacity = vec.capacity();
+        core::Vector<int> vec_2 = { 4, 5, 6, 7 };
+        vec_2 = std::move(vec);
+        ARCHON_CHECK_EQUAL(vec_2.data(), data);
+        ARCHON_CHECK_EQUAL(vec_2.capacity(), capacity);
+        ARCHON_CHECK_EQUAL_SEQ(vec_2, (std::vector { 1, 2, 3 }));
+    } {
+        core::Vector<int, 5> vec = { 1, 2, 3 };
+        auto data = vec.data();
+        auto capacity = vec.capacity();
+        core::Vector<int, 5> vec_2 = { 4, 5, 6, 7 };
+        vec_2 = std::move(vec);
+        ARCHON_CHECK_NOT_EQUAL(vec_2.data(), data);
+        ARCHON_CHECK_EQUAL(vec_2.capacity(), capacity);
+        ARCHON_CHECK_EQUAL_SEQ(vec_2, (std::vector { 1, 2, 3 }));
+    } {
+        core::Vector<int, 3> vec = { 1, 2, 3 };
+        auto data = vec.data();
+        auto capacity = vec.capacity();
+        core::Vector<int, 3> vec_2 = { 4, 5, 6, 7 };
+        vec_2 = std::move(vec);
+        ARCHON_CHECK_NOT_EQUAL(vec_2.data(), data);
+        ARCHON_CHECK_EQUAL(vec_2.capacity(), capacity);
+        ARCHON_CHECK_EQUAL_SEQ(vec_2, (std::vector { 1, 2, 3 }));
+    } {
+        core::Vector<int, 3> vec = { 1, 2, 3, 4 };
+        auto data = vec.data();
+        auto capacity = vec.capacity();
+        core::Vector<int, 3> vec_2 = { 5, 6, 7 };
+        vec_2 = std::move(vec);
+        ARCHON_CHECK_EQUAL(vec_2.data(), data);
+        ARCHON_CHECK_EQUAL(vec_2.capacity(), capacity);
+        ARCHON_CHECK_EQUAL_SEQ(vec_2, (std::vector { 1, 2, 3, 4 }));
+    }
+}
+
+
+ARCHON_TEST(Core_Vector_AssignFromInitializerList)
+{
+    {
+        core::Vector<int> vec;
+        auto data = vec.data();
+        vec.assign({ 1, 2, 3 });
+        ARCHON_CHECK_NOT_EQUAL(vec.data(), data);
+        ARCHON_CHECK_GREATER_EQUAL(vec.capacity(), 3);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 1, 2, 3 }));
+        vec.assign({ 4, 5, 6, 7, 8 });
+        ARCHON_CHECK_GREATER_EQUAL(vec.capacity(), 5);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 4, 5, 6, 7, 8 }));
+        data = vec.data();
+        auto capacity = vec.capacity();
+        vec.assign({ 9, 10 });
+        ARCHON_CHECK_EQUAL(vec.data(), data);
+        ARCHON_CHECK_EQUAL(vec.capacity(), capacity);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 9, 10 }));
+    } {
+        core::Vector<int, 4> vec;
+        auto data = vec.data();
+        vec.assign({ 1, 2, 3 });
+        ARCHON_CHECK_EQUAL(vec.data(), data);
+        ARCHON_CHECK_EQUAL(vec.capacity(), 4);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 1, 2, 3 }));
+        vec.assign({ 4, 5, 6, 7, 8 });
+        ARCHON_CHECK_NOT_EQUAL(vec.data(), data);
+        ARCHON_CHECK_GREATER_EQUAL(vec.capacity(), 5);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 4, 5, 6, 7, 8 }));
+        data = vec.data();
+        auto capacity = vec.capacity();
+        vec.assign({ 9, 10 });
+        ARCHON_CHECK_EQUAL(vec.data(), data);
+        ARCHON_CHECK_EQUAL(vec.capacity(), capacity);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 9, 10 }));
+    }
+}
+
+
+ARCHON_TEST(Core_Vector_AssignFromSizeAndValue)
+{
+    {
+        core::Vector<int> vec;
+        auto data = vec.data();
+        vec.assign(3, 7);
+        ARCHON_CHECK_NOT_EQUAL(vec.data(), data);
+        ARCHON_CHECK_GREATER_EQUAL(vec.capacity(), 3);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 7, 7, 7 }));
+        vec.assign(5, 8);
+        ARCHON_CHECK_GREATER_EQUAL(vec.capacity(), 5);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 8, 8, 8, 8, 8 }));
+        data = vec.data();
+        auto capacity = vec.capacity();
+        vec.assign(2, 9);
+        ARCHON_CHECK_EQUAL(vec.data(), data);
+        ARCHON_CHECK_EQUAL(vec.capacity(), capacity);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 9, 9 }));
+    } {
+        core::Vector<int, 4> vec;
+        auto data = vec.data();
+        vec.assign(3, 7);
+        ARCHON_CHECK_EQUAL(vec.data(), data);
+        ARCHON_CHECK_EQUAL(vec.capacity(), 4);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 7, 7, 7 }));
+        vec.assign(5, 8);
+        ARCHON_CHECK_NOT_EQUAL(vec.data(), data);
+        ARCHON_CHECK_GREATER_EQUAL(vec.capacity(), 5);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 8, 8, 8, 8, 8 }));
+        data = vec.data();
+        auto capacity = vec.capacity();
+        vec.assign(2, 9);
+        ARCHON_CHECK_EQUAL(vec.data(), data);
+        ARCHON_CHECK_EQUAL(vec.capacity(), capacity);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 9, 9 }));
+    }
+}
+
+
+ARCHON_TEST(Core_Vector_AssignFromIteratorPair)
+{
+    // Random access iterators
+    {
+        std::vector ref = { 1, 2, 3 };
+        core::Vector<int> vec = { 4, 5 };
+        vec.assign(ref.begin(), ref.end());
+        ARCHON_CHECK_GREATER_EQUAL(vec.capacity(), 3);
+        ARCHON_CHECK_EQUAL_SEQ(vec, ref);
+    } {
+        std::vector ref = { 1, 2, 3 };
+        core::Vector<int, 4> vec = { 4, 5 };
+        vec.assign(ref.begin(), ref.end());
+        ARCHON_CHECK_EQUAL(vec.capacity(), 4);
+        ARCHON_CHECK_EQUAL_SEQ(vec, ref);
+    }
+
+    // Non-random access iterators
+    {
+        std::list ref = { 1, 2, 3 };
+        core::Vector<int> vec = { 4, 5 };
+        vec.assign(ref.begin(), ref.end());
+        ARCHON_CHECK_GREATER_EQUAL(vec.capacity(), 3);
+        ARCHON_CHECK_EQUAL_SEQ(vec, ref);
+    } {
+        std::list ref = { 1, 2, 3 };
+        core::Vector<int, 4> vec = { 4, 5 };
+        vec.assign(ref.begin(), ref.end());
+        ARCHON_CHECK_EQUAL(vec.capacity(), 4);
+        ARCHON_CHECK_EQUAL_SEQ(vec, ref);
+    }
+}
+
+
+ARCHON_TEST(Core_Vector_Subscribe)
+{
+    core::Vector<int> vec;
+    vec.push_back(1);
+    ARCHON_CHECK_EQUAL(vec[0], 1);
+    vec.push_back(2);
+    ARCHON_CHECK_EQUAL(vec[0], 1);
+    ARCHON_CHECK_EQUAL(vec[1], 2);
+}
+
+
+ARCHON_TEST(Core_Vector_RangeCheckingSubscribe)
+{
+    core::Vector<int> vec;
+    ARCHON_CHECK_THROW(vec.at(0), std::out_of_range);
+    vec.push_back(1);
+    ARCHON_CHECK_EQUAL(vec.at(0), 1);
+    ARCHON_CHECK_THROW(vec.at(1), std::out_of_range);
+    vec.push_back(2);
+    ARCHON_CHECK_EQUAL(vec.at(0), 1);
+    ARCHON_CHECK_EQUAL(vec.at(1), 2);
+    ARCHON_CHECK_THROW(vec.at(2), std::out_of_range);
+    ARCHON_CHECK_THROW(vec.at(std::size_t(-1)), std::out_of_range);
+}
+
+
+ARCHON_TEST(Core_Vector_FrontAndBack)
+{
+    {
+        core::Vector<int> vec = { 1, 2, 3 };
+        ARCHON_CHECK_EQUAL(vec.front(), 1);
+        ARCHON_CHECK_EQUAL(vec.back(), 3);
+    } {
+        core::Vector<int, 4> vec = { 1, 2, 3 };
+        ARCHON_CHECK_EQUAL(vec.front(), 1);
+        ARCHON_CHECK_EQUAL(vec.back(), 3);
+    }
+}
+
+
+ARCHON_TEST(Core_Vector_DataAndSize)
+{
+    {
+        core::Vector<int> vec;
+        ARCHON_CHECK_EQUAL_SEQ(core::Span(vec.data(), vec.size()), (std::vector<int> {}));
+        vec.assign({ 1, 2, 3 });
+        ARCHON_CHECK_EQUAL_SEQ(core::Span(vec.data(), vec.size()), (std::vector { 1, 2, 3 }));
+        vec.assign({ 4, 5 });
+        ARCHON_CHECK_EQUAL_SEQ(core::Span(vec.data(), vec.size()), (std::vector { 4, 5 }));
+    } {
+        core::Vector<int, 4> vec;
+        ARCHON_CHECK_EQUAL_SEQ(core::Span(vec.data(), vec.size()), (std::vector<int> {}));
+        vec.assign({ 1, 2, 3 });
+        ARCHON_CHECK_EQUAL_SEQ(core::Span(vec.data(), vec.size()), (std::vector { 1, 2, 3 }));
+        vec.assign({ 4, 5 });
+        ARCHON_CHECK_EQUAL_SEQ(core::Span(vec.data(), vec.size()), (std::vector { 4, 5 }));
+    }
+}
+
+
+ARCHON_TEST(Core_Vector_Span)
+{
+    {
+        core::Vector<int> vec;
+        ARCHON_CHECK_EQUAL_SEQ(vec.span(), (std::vector<int> {}));
+        vec.assign({ 1, 2, 3 });
+        ARCHON_CHECK_EQUAL_SEQ(vec.span(), (std::vector { 1, 2, 3 }));
+        vec.assign({ 4, 5 });
+        ARCHON_CHECK_EQUAL_SEQ(vec.span(), (std::vector { 4, 5 }));
+    } {
+        core::Vector<int, 4> vec;
+        ARCHON_CHECK_EQUAL_SEQ(vec.span(), (std::vector<int> {}));
+        vec.assign({ 1, 2, 3 });
+        ARCHON_CHECK_EQUAL_SEQ(vec.span(), (std::vector { 1, 2, 3 }));
+        vec.assign({ 4, 5 });
+        ARCHON_CHECK_EQUAL_SEQ(vec.span(), (std::vector { 4, 5 }));
+    }
+}
+
+
+ARCHON_TEST(Core_Vector_BeginEnd)
+{
+    {
+        std::vector ref = { 1, 2, 3 };
+        core::Vector<int> vec = { 1, 2, 3 };
+        const core::Vector<int>& cvec = vec;
+        ARCHON_CHECK(std::equal(vec.begin(),   vec.end(),   ref.begin(),  ref.end()));
+        ARCHON_CHECK(std::equal(cvec.begin(),  cvec.end(),  ref.begin(),  ref.end()));
+        ARCHON_CHECK(std::equal(vec.cbegin(),  vec.cend(),  ref.begin(),  ref.end()));
+        ARCHON_CHECK(std::equal(vec.rbegin(),  vec.rend(),  ref.rbegin(), ref.rend()));
+        ARCHON_CHECK(std::equal(cvec.rbegin(), cvec.rend(), ref.rbegin(), ref.rend()));
+        ARCHON_CHECK(std::equal(vec.crbegin(), vec.crend(), ref.rbegin(), ref.rend()));
+    } {
+        std::vector ref = { 1, 2, 3 };
+        core::Vector<int, 4> vec = { 1, 2, 3 };
+        const core::Vector<int, 4>& cvec = vec;
+        ARCHON_CHECK(std::equal(vec.begin(),   vec.end(),   ref.begin(),  ref.end()));
+        ARCHON_CHECK(std::equal(cvec.begin(),  cvec.end(),  ref.begin(),  ref.end()));
+        ARCHON_CHECK(std::equal(vec.cbegin(),  vec.cend(),  ref.begin(),  ref.end()));
+        ARCHON_CHECK(std::equal(vec.rbegin(),  vec.rend(),  ref.rbegin(), ref.rend()));
+        ARCHON_CHECK(std::equal(cvec.rbegin(), cvec.rend(), ref.rbegin(), ref.rend()));
+        ARCHON_CHECK(std::equal(vec.crbegin(), vec.crend(), ref.rbegin(), ref.rend()));
+    }
+}
+
+
+ARCHON_TEST(Core_Vector_Empty)
+{
+    {
+        core::Vector<int> vec;
+        ARCHON_CHECK(vec.empty());
+        vec.push_back(1);
+        ARCHON_CHECK_NOT(vec.empty());
+    } {
+        core::Vector<int, 2> vec;
+        ARCHON_CHECK(vec.empty());
+        vec.push_back(1);
+        ARCHON_CHECK_NOT(vec.empty());
+    }
+}
+
+
+ARCHON_TEST(Core_Vector_MaxSize)
+{
+    core::Vector<int> vec;
+    ARCHON_CHECK_GREATER(vec.max_size(), 0);
+}
+
+
+ARCHON_TEST(Core_Vector_CapacityAndReserve)
+{
+    {
+        core::Vector<int> vec;
+        ARCHON_CHECK_EQUAL(vec.capacity(), 0);
+        vec.push_back(1);
+        std::size_t capacity = vec.capacity();
+        ARCHON_CHECK_GREATER_EQUAL(capacity, 1);
+        vec.reserve(capacity);
+        ARCHON_CHECK_EQUAL(vec.capacity(), capacity);
+        std::size_t extra_capacity = std::size_t(capacity - vec.size());
+        vec.reserve_extra(extra_capacity);
+        ARCHON_CHECK_EQUAL(vec.capacity(), capacity);
+        vec.append(extra_capacity, 2);
+        ARCHON_CHECK_EQUAL(vec.capacity(), capacity);
+        ARCHON_CHECK_EQUAL(vec.size(), capacity);
+        vec.reserve_extra(1);
+        ARCHON_CHECK_GREATER(vec.capacity(), capacity);
+        ARCHON_CHECK_THROW(vec.reserve_extra(core::int_max<std::size_t>()), std::length_error);
+    } {
+        core::Vector<int, 4> vec;
+        std::size_t capacity = vec.capacity();
+        ARCHON_CHECK_EQUAL(capacity, 4);
+        vec.push_back(1);
+        ARCHON_CHECK_EQUAL(vec.capacity(), capacity);
+        vec.reserve(capacity);
+        ARCHON_CHECK_EQUAL(vec.capacity(), capacity);
+        std::size_t extra_capacity = std::size_t(capacity - vec.size());
+        vec.reserve_extra(extra_capacity);
+        ARCHON_CHECK_EQUAL(vec.capacity(), capacity);
+        vec.append(extra_capacity, 2);
+        ARCHON_CHECK_EQUAL(vec.capacity(), capacity);
+        ARCHON_CHECK_EQUAL(vec.size(), capacity);
+        vec.reserve_extra(1);
+        ARCHON_CHECK_GREATER(vec.capacity(), capacity);
+        ARCHON_CHECK_THROW(vec.reserve_extra(core::int_max<std::size_t>()), std::length_error);
+    }
+}
+
+
+ARCHON_TEST(Core_Vector_ShrinkToFit)
+{
+    {
+        core::Vector<int> vec;
+        vec.shrink_to_fit();
+        ARCHON_CHECK(vec.empty());
+        ARCHON_CHECK_EQUAL(vec.capacity(), 0);
+
+        vec.push_back(1);
+        vec.shrink_to_fit();
+        ARCHON_CHECK_EQUAL(vec.capacity(), 1);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 1 }));
+        vec.shrink_to_fit();
+        ARCHON_CHECK_EQUAL(vec.capacity(), 1);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 1 }));
+
+        vec.push_back(2);
+        vec.shrink_to_fit();
+        ARCHON_CHECK_EQUAL(vec.capacity(), 2);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 1, 2 }));
+        vec.shrink_to_fit();
+        ARCHON_CHECK_EQUAL(vec.capacity(), 2);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 1, 2 }));
+
+        vec.push_back(3);
+        vec.shrink_to_fit();
+        ARCHON_CHECK_EQUAL(vec.capacity(), 3);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 1, 2, 3 }));
+        vec.shrink_to_fit();
+        ARCHON_CHECK_EQUAL(vec.capacity(), 3);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 1, 2, 3 }));
+
+        vec.push_back(4);
+        vec.shrink_to_fit();
+        ARCHON_CHECK_EQUAL(vec.capacity(), 4);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 1, 2, 3, 4 }));
+        vec.shrink_to_fit();
+        ARCHON_CHECK_EQUAL(vec.capacity(), 4);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 1, 2, 3, 4 }));
+    } {
+        core::Vector<int, 2> vec;
+        vec.shrink_to_fit();
+        ARCHON_CHECK(vec.empty());
+        ARCHON_CHECK_EQUAL(vec.capacity(), 2);
+
+        vec.push_back(1);
+        vec.shrink_to_fit();
+        ARCHON_CHECK_EQUAL(vec.capacity(), 2);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 1 }));
+        vec.shrink_to_fit();
+        ARCHON_CHECK_EQUAL(vec.capacity(), 2);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 1 }));
+
+        vec.push_back(2);
+        vec.shrink_to_fit();
+        ARCHON_CHECK_EQUAL(vec.capacity(), 2);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 1, 2 }));
+        vec.shrink_to_fit();
+        ARCHON_CHECK_EQUAL(vec.capacity(), 2);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 1, 2 }));
+
+        vec.push_back(3);
+        vec.shrink_to_fit();
+        ARCHON_CHECK_EQUAL(vec.capacity(), 3);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 1, 2, 3 }));
+        vec.shrink_to_fit();
+        ARCHON_CHECK_EQUAL(vec.capacity(), 3);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 1, 2, 3 }));
+
+        vec.push_back(4);
+        vec.shrink_to_fit();
+        ARCHON_CHECK_EQUAL(vec.capacity(), 4);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 1, 2, 3, 4 }));
+        vec.shrink_to_fit();
+        ARCHON_CHECK_EQUAL(vec.capacity(), 4);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 1, 2, 3, 4 }));
+    }
 }
 
 
@@ -118,78 +628,202 @@ ARCHON_TEST(Core_Vector_PushPopBack)
 }
 
 
-ARCHON_TEST(Core_Vector_Subscribe)
+ARCHON_TEST(Core_Vector_EmplaceBack)
 {
-    core::Vector<int> vec;
-    vec.push_back(1);
-    ARCHON_CHECK_EQUAL(vec[0], 1);
-    vec.push_back(2);
-    ARCHON_CHECK_EQUAL(vec[0], 1);
-    ARCHON_CHECK_EQUAL(vec[1], 2);
+    struct Foo {
+        int a, b;
+        Foo(int a_2, int b_2) noexcept
+            : a(a_2)
+            , b(b_2)
+        {
+        }
+    };
+    {
+        core::Vector<Foo> vec;
+        vec.emplace_back(1, 2);
+        ARCHON_CHECK_EQUAL(vec.back().a, 1);
+        ARCHON_CHECK_EQUAL(vec.back().b, 2);
+        vec.emplace_back(3, 4);
+        ARCHON_CHECK_EQUAL(vec.front().a, 1);
+        ARCHON_CHECK_EQUAL(vec.front().b, 2);
+        ARCHON_CHECK_EQUAL(vec.back().a, 3);
+        ARCHON_CHECK_EQUAL(vec.back().b, 4);
+    } {
+        core::Vector<Foo, 2> vec;
+        vec.emplace_back(1, 2);
+        ARCHON_CHECK_EQUAL(vec.back().a, 1);
+        ARCHON_CHECK_EQUAL(vec.back().b, 2);
+        vec.emplace_back(3, 4);
+        ARCHON_CHECK_EQUAL(vec.front().a, 1);
+        ARCHON_CHECK_EQUAL(vec.front().b, 2);
+        ARCHON_CHECK_EQUAL(vec.back().a, 3);
+        ARCHON_CHECK_EQUAL(vec.back().b, 4);
+    }
 }
 
 
-ARCHON_TEST(Core_Vector_RangeCheckingSubscribe)
+ARCHON_TEST(Core_Vector_Append)
 {
     core::Vector<int> vec;
-    ARCHON_CHECK_THROW(vec.at(0), std::out_of_range);
-    vec.push_back(1);
-    ARCHON_CHECK_EQUAL(vec.at(0), 1);
-    ARCHON_CHECK_THROW(vec.at(1), std::out_of_range);
-    vec.push_back(2);
-    ARCHON_CHECK_EQUAL(vec.at(0), 1);
-    ARCHON_CHECK_EQUAL(vec.at(1), 2);
-    ARCHON_CHECK_THROW(vec.at(2), std::out_of_range);
-    ARCHON_CHECK_THROW(vec.at(std::size_t(-1)), std::out_of_range);
+    vec.append({ 1, 2, 3 });
+    ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 1, 2, 3 }));
+    vec.append({ 4, 5, 6 });
+    ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 1, 2, 3, 4, 5, 6 }));
+    vec.clear();
+    vec.append(3, 1);
+    ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 1, 1, 1 }));
+    vec.append(3, 2);
+    ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 1, 1, 1, 2, 2, 2 }));
+    vec.clear();
+    std::vector<int> ref { 1, 2, 3 };
+    vec.append(ref.begin(), ref.end());
+    ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 1, 2, 3 }));
+    vec.append(ref.begin(), ref.end());
+    ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 1, 2, 3, 1, 2, 3 }));
+    vec.clear();
+    std::list<int> ref_2 { 3, 2, 1 };
+    vec.append(ref_2.begin(), ref_2.end());
+    ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 3, 2, 1 }));
+    vec.append(ref_2.begin(), ref_2.end());
+    ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 3, 2, 1, 3, 2, 1 }));
 }
 
 
-ARCHON_TEST(Core_Vector_ConstructFromInitializerList)
+ARCHON_TEST(Core_Vector_Emplace)
 {
-    core::Vector<int> vec { 1, 2, 3 };
-    ARCHON_CHECK_NOT(vec.empty());
-    ARCHON_CHECK_EQUAL(vec.size(), 3);
-    ARCHON_CHECK_GREATER_EQUAL(vec.capacity(), 3);
-    ARCHON_CHECK_EQUAL(vec[0], 1);
-    ARCHON_CHECK_EQUAL(vec[1], 2);
-    ARCHON_CHECK_EQUAL(vec[2], 3);
+    core::Vector<int> vec;
+    vec.emplace(vec.begin(), 1);
+    ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 1 }));
+    vec.emplace(vec.begin(), 2);
+    ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 2, 1 }));
+    vec.emplace(vec.begin() + 1, 3);
+    ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 2, 3, 1 }));
+    vec.emplace(vec.end(), 4);
+    ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 2, 3, 1, 4 }));
 }
 
 
-ARCHON_TEST(Core_Vector_AssignFromInitializerList)
+ARCHON_TEST(Core_Vector_Erase)
 {
-    core::Vector<int> vec;
-    vec = { 1, 2, 3 };
-    ARCHON_CHECK_NOT(vec.empty());
-    ARCHON_CHECK_EQUAL(vec.size(), 3);
-    ARCHON_CHECK_GREATER_EQUAL(vec.capacity(), 3);
-    ARCHON_CHECK_EQUAL(vec[0], 1);
-    ARCHON_CHECK_EQUAL(vec[1], 2);
-    ARCHON_CHECK_EQUAL(vec[2], 3);
-    vec.assign({ 4, 5, 6, 7 });
-    ARCHON_CHECK_NOT(vec.empty());
-    ARCHON_CHECK_EQUAL(vec.size(), 4);
-    ARCHON_CHECK_GREATER_EQUAL(vec.capacity(), 4);
-    ARCHON_CHECK_EQUAL(vec[0], 4);
-    ARCHON_CHECK_EQUAL(vec[1], 5);
-    ARCHON_CHECK_EQUAL(vec[2], 6);
-    ARCHON_CHECK_EQUAL(vec[3], 7);
+    core::Vector<int> vec = { 1, 2, 3, 4 };
+    vec.erase(vec.begin());
+    ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 2, 3, 4 }));
+    vec.erase(vec.begin() + 1 );
+    ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 2, 4 }));
+    vec.erase(vec.begin() + 1);
+    ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 2 }));
+    vec.erase(vec.begin());
+    ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector<int> {}));
+
+    vec.assign({ 1, 2, 3, 4 });
+    vec.erase(vec.begin() + 1, vec.begin() + 1);
+    ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 1, 2, 3, 4 }));
+    vec.erase(vec.begin() + 1, vec.begin() + 3);
+    ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 1, 4 }));
+    vec.erase(vec.begin() + 1, vec.begin() + 2);
+    ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 1 }));
 }
 
 
 ARCHON_TEST(Core_Vector_Clear)
 {
-    core::Vector<int> vec { 1, 2, 3 };
-    std::size_t capacity = vec.capacity();
-    vec.clear();
-    ARCHON_CHECK(vec.empty());
-    ARCHON_CHECK_EQUAL(vec.size(), 0);
-    ARCHON_CHECK_EQUAL(vec.capacity(), capacity);
-    vec = { 2, 3 };
-    vec.clear();
-    ARCHON_CHECK(vec.empty());
-    ARCHON_CHECK_EQUAL(vec.size(), 0);
-    ARCHON_CHECK_EQUAL(vec.capacity(), capacity);
+    {
+        core::Vector<int> vec = { 1, 2, 3 };
+        std::size_t capacity = vec.capacity();
+        vec.clear();
+        ARCHON_CHECK(vec.empty());
+        ARCHON_CHECK_EQUAL(vec.size(), 0);
+        ARCHON_CHECK_EQUAL(vec.capacity(), capacity);
+        vec.assign({ 2, 3 });
+        vec.clear();
+        ARCHON_CHECK(vec.empty());
+        ARCHON_CHECK_EQUAL(vec.size(), 0);
+        ARCHON_CHECK_EQUAL(vec.capacity(), capacity);
+    } {
+        core::Vector<int, 4> vec = { 1, 2, 3 };
+        std::size_t capacity = vec.capacity();
+        vec.clear();
+        ARCHON_CHECK(vec.empty());
+        ARCHON_CHECK_EQUAL(vec.size(), 0);
+        ARCHON_CHECK_EQUAL(vec.capacity(), capacity);
+        vec.assign({ 2, 3 });
+        vec.clear();
+        ARCHON_CHECK(vec.empty());
+        ARCHON_CHECK_EQUAL(vec.size(), 0);
+        ARCHON_CHECK_EQUAL(vec.capacity(), capacity);
+    }
+}
+
+
+ARCHON_TEST(Core_Vector_Resize)
+{
+    {
+        core::Vector<int> vec;
+        vec.resize(0);
+        ARCHON_CHECK(vec.empty());
+        vec.resize(0, 7);
+        ARCHON_CHECK(vec.empty());
+        vec.resize(3);
+        std::size_t cap = vec.capacity();
+        ARCHON_CHECK_GREATER_EQUAL(cap, 3);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 0, 0, 0 }));
+        vec.resize(1);
+        ARCHON_CHECK_EQUAL(vec.capacity(), cap);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 0 }));
+        vec.resize(0, 7);
+        ARCHON_CHECK_EQUAL(vec.capacity(), cap);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector<int> {}));
+        vec.resize(3, 7);
+        ARCHON_CHECK_EQUAL(vec.capacity(), cap);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 7, 7, 7 }));
+        vec.resize(4, 8);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 7, 7, 7, 8 }));
+        cap = vec.capacity();
+        ARCHON_CHECK_GREATER_EQUAL(cap, 4);
+        vec.erase(vec.begin());
+        vec.resize(4, 9);
+        ARCHON_CHECK_EQUAL(vec.capacity(), cap);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 7, 7, 8, 9 }));
+        vec.resize(2, 10);
+        ARCHON_CHECK_EQUAL(vec.capacity(), cap);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 7, 7 }));
+        vec.resize(3);
+        ARCHON_CHECK_EQUAL(vec.capacity(), cap);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 7, 7, 0 }));
+    } {
+        core::Vector<int, 3> vec;
+        vec.resize(0);
+        ARCHON_CHECK(vec.empty());
+        vec.resize(0, 7);
+        ARCHON_CHECK(vec.empty());
+        vec.resize(3);
+        std::size_t cap = vec.capacity();
+        ARCHON_CHECK_EQUAL(cap, 3);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 0, 0, 0 }));
+        vec.resize(1);
+        ARCHON_CHECK_EQUAL(vec.capacity(), cap);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 0 }));
+        vec.resize(0, 7);
+        ARCHON_CHECK_EQUAL(vec.capacity(), cap);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector<int> {}));
+        vec.resize(3, 7);
+        ARCHON_CHECK_EQUAL(vec.capacity(), cap);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 7, 7, 7 }));
+        vec.resize(4, 8);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 7, 7, 7, 8 }));
+        cap = vec.capacity();
+        ARCHON_CHECK_GREATER_EQUAL(cap, 4);
+        vec.erase(vec.begin());
+        vec.resize(4, 9);
+        ARCHON_CHECK_EQUAL(vec.capacity(), cap);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 7, 7, 8, 9 }));
+        vec.resize(2, 10);
+        ARCHON_CHECK_EQUAL(vec.capacity(), cap);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 7, 7 }));
+        vec.resize(3);
+        ARCHON_CHECK_EQUAL(vec.capacity(), cap);
+        ARCHON_CHECK_EQUAL_SEQ(vec, (std::vector { 7, 7, 0 }));
+    }
 }
 
 
@@ -232,123 +866,6 @@ ARCHON_TEST(Core_Vector_Comparison)
 }
 
 
-ARCHON_TEST(Core_Vector_BeginEnd)
-{
-    std::vector<int> ref { 1, 2, 3 };
-    core::Vector<int> vec { 1, 2, 3 };
-    const core::Vector<int>& cvec = vec;
-    ARCHON_CHECK(std::equal(ref.begin(),  ref.end(),  vec.begin(),   vec.end()));
-    ARCHON_CHECK(std::equal(ref.begin(),  ref.end(),  cvec.begin(),  cvec.end()));
-    ARCHON_CHECK(std::equal(ref.begin(),  ref.end(),  vec.cbegin(),  vec.cend()));
-    ARCHON_CHECK(std::equal(ref.rbegin(), ref.rend(), vec.rbegin(),  vec.rend()));
-    ARCHON_CHECK(std::equal(ref.rbegin(), ref.rend(), cvec.rbegin(), cvec.rend()));
-    ARCHON_CHECK(std::equal(ref.rbegin(), ref.rend(), vec.crbegin(), vec.crend()));
-}
-
-
-ARCHON_TEST(Core_Vector_ConstructFromSize)
-{
-    core::Vector<int> vec(3);
-    ARCHON_CHECK_EQUAL(vec.size(), 3);
-    ARCHON_CHECK_GREATER_EQUAL(vec.capacity(), 3);
-    ARCHON_CHECK(std::all_of(vec.begin(), vec.end(), [](int value) {
-        return (value == 0);
-    }));
-}
-
-
-ARCHON_TEST(Core_Vector_ConstructFromSizeAndValue)
-{
-    core::Vector<int> vec(3, 7);
-    ARCHON_CHECK_EQUAL(vec.size(), 3);
-    ARCHON_CHECK_GREATER_EQUAL(vec.capacity(), 3);
-    ARCHON_CHECK(std::all_of(vec.begin(), vec.end(), [](int value) {
-        return (value == 7);
-    }));
-}
-
-
-ARCHON_TEST(Core_Vector_AssignFromSizeAndValue)
-{
-    core::Vector<int> vec;
-    vec.assign(3, 7);
-    ARCHON_CHECK_EQUAL(vec.size(), 3);
-    ARCHON_CHECK_GREATER_EQUAL(vec.capacity(), 3);
-    ARCHON_CHECK(std::all_of(vec.begin(), vec.end(), [](int value) {
-        return (value == 7);
-    }));
-}
-
-
-ARCHON_TEST(Core_Vector_ConstructFromNonrandomAccessIterator)
-{
-    std::list<int> ref { 1, 2, 3 };
-    core::Vector<int> vec(ref.begin(), ref.end());
-    ARCHON_CHECK_EQUAL(vec.size(), 3);
-    ARCHON_CHECK_GREATER_EQUAL(vec.capacity(), 3);
-    ARCHON_CHECK(std::equal(vec.begin(), vec.end(), ref.begin(), ref.end()));
-}
-
-
-ARCHON_TEST(Core_Vector_ConstructFromRandomAccessIterator)
-{
-    std::vector<int> ref { 1, 2, 3 };
-    core::Vector<int> vec(ref.begin(), ref.end());
-    ARCHON_CHECK_EQUAL(vec.size(), 3);
-    ARCHON_CHECK_GREATER_EQUAL(vec.capacity(), 3);
-    ARCHON_CHECK(std::equal(vec.begin(), vec.end(), ref.begin(), ref.end()));
-}
-
-
-ARCHON_TEST(Core_Vector_AssignFromNonrandomAccessIterator)
-{
-    std::list<int> ref { 1, 2, 3 };
-    core::Vector<int> vec { 4, 5, 6 };
-    vec.assign(ref.begin(), ref.end());
-    ARCHON_CHECK_EQUAL(vec.size(), 3);
-    ARCHON_CHECK_GREATER_EQUAL(vec.capacity(), 3);
-    ARCHON_CHECK(std::equal(vec.begin(), vec.end(), ref.begin(), ref.end()));
-}
-
-
-ARCHON_TEST(Core_Vector_AssignFromRandomAccessIterator)
-{
-    std::vector<int> ref { 1, 2, 3 };
-    core::Vector<int> vec { 4, 5, 6 };
-    vec.assign(ref.begin(), ref.end());
-    ARCHON_CHECK_EQUAL(vec.size(), 3);
-    ARCHON_CHECK_GREATER_EQUAL(vec.capacity(), 3);
-    ARCHON_CHECK(std::equal(vec.begin(), vec.end(), ref.begin(), ref.end()));
-}
-
-
-ARCHON_TEST(Core_Vector_Append)
-{
-    core::Vector<int> vec;
-    vec.append({ 1, 2, 3 });
-    ARCHON_CHECK(vec == core::Vector<int>({ 1, 2, 3 }));
-    vec.append({ 4, 5, 6 });
-    ARCHON_CHECK(vec == core::Vector<int>({ 1, 2, 3, 4, 5, 6 }));
-    vec.clear();
-    vec.append(3, 1);
-    ARCHON_CHECK(vec == core::Vector<int>({ 1, 1, 1 }));
-    vec.append(3, 2);
-    ARCHON_CHECK(vec == core::Vector<int>({ 1, 1, 1, 2, 2, 2 }));
-    vec.clear();
-    std::vector<int> ref { 1, 2, 3 };
-    vec.append(ref.begin(), ref.end());
-    ARCHON_CHECK(vec == core::Vector<int>({ 1, 2, 3 }));
-    vec.append(ref.begin(), ref.end());
-    ARCHON_CHECK(vec == core::Vector<int>({ 1, 2, 3, 1, 2, 3 }));
-    vec.clear();
-    std::list<int> ref_2 { 3, 2, 1 };
-    vec.append(ref_2.begin(), ref_2.end());
-    ARCHON_CHECK(vec == core::Vector<int>({ 3, 2, 1 }));
-    vec.append(ref_2.begin(), ref_2.end());
-    ARCHON_CHECK(vec == core::Vector<int>({ 3, 2, 1, 3, 2, 1 }));
-}
-
-
 ARCHON_TEST(Core_Vector_IteratorEquality)
 {
     core::Vector<int> vec;
@@ -387,115 +904,10 @@ ARCHON_TEST(Core_Vector_IteratorEquality)
 
 ARCHON_TEST(Core_Vector_IteratorOperations)
 {
-    core::Vector<int> vec { 1, 2, 3 };
+    core::Vector<int> vec = { 1, 2, 3 };
     auto i_1 = vec.begin();
     auto i_2 = 1 + i_1;
     ARCHON_CHECK_EQUAL(*i_2, 2);
-}
-
-
-ARCHON_TEST(Core_Vector_Emplace)
-{
-    core::Vector<int> vec;
-    vec.emplace(vec.begin(), 1);
-    ARCHON_CHECK(vec == core::Vector<int>({ 1 }));
-    vec.emplace(vec.begin(), 2);
-    ARCHON_CHECK(vec == core::Vector<int>({ 2, 1 }));
-    vec.emplace(vec.begin() + 1, 3);
-    ARCHON_CHECK(vec == core::Vector<int>({ 2, 3, 1 }));
-    vec.emplace(vec.end(), 4);
-    ARCHON_CHECK(vec == core::Vector<int>({ 2, 3, 1, 4 }));
-}
-
-
-ARCHON_TEST(Core_Vector_Erase)
-{
-    core::Vector<int> vec { 1, 2, 3, 4 };
-    vec.erase(vec.begin());
-    ARCHON_CHECK(vec == core::Vector<int>({ 2, 3, 4 }));
-    vec.erase(vec.begin() + 1 );
-    ARCHON_CHECK(vec == core::Vector<int>({ 2, 4 }));
-    vec.erase(vec.begin() + 1);
-    ARCHON_CHECK(vec == core::Vector<int>({ 2 }));
-    vec.erase(vec.begin());
-    ARCHON_CHECK(vec == core::Vector<int>({}));
-
-    vec = { 1, 2, 3, 4 };
-    vec.erase(vec.begin() + 1, vec.begin() + 1);
-    ARCHON_CHECK(vec == core::Vector<int>({ 1, 2, 3, 4 }));
-    vec.erase(vec.begin() + 1, vec.begin() + 3);
-    ARCHON_CHECK(vec == core::Vector<int>({ 1, 4 }));
-    vec.erase(vec.begin() + 1, vec.begin() + 2);
-    ARCHON_CHECK(vec == core::Vector<int>({ 1 }));
-}
-
-
-ARCHON_TEST(Core_Vector_Resize)
-{
-    core::Vector<int> vec;
-    vec.resize(0);
-    ARCHON_CHECK(vec.empty());
-    vec.resize(0, 7);
-    ARCHON_CHECK(vec.empty());
-    vec.resize(3);
-    std::size_t cap = vec.capacity();
-    ARCHON_CHECK_GREATER_EQUAL(cap, 3);
-    ARCHON_CHECK(vec == core::Vector<int>({ 0, 0, 0 }));
-    vec.resize(1);
-    ARCHON_CHECK_EQUAL(vec.capacity(), cap);
-    ARCHON_CHECK(vec == core::Vector<int>({ 0 }));
-    vec.resize(0, 7);
-    ARCHON_CHECK_EQUAL(vec.capacity(), cap);
-    ARCHON_CHECK(vec == core::Vector<int>());
-    vec.resize(3, 7);
-    ARCHON_CHECK_EQUAL(vec.capacity(), cap);
-    ARCHON_CHECK(vec == core::Vector<int>({ 7, 7, 7 }));
-    vec.resize(4, 8);
-    ARCHON_CHECK(vec == core::Vector<int>({ 7, 7, 7, 8 }));
-    vec.erase(vec.begin());
-    vec.resize(4, 9);
-    ARCHON_CHECK(vec == core::Vector<int>({ 7, 7, 8, 9 }));
-    vec.resize(2, 10);
-    ARCHON_CHECK(vec == core::Vector<int>({ 7, 7 }));
-    vec.resize(3);
-    ARCHON_CHECK(vec == core::Vector<int>({ 7, 7, 0 }));
-}
-
-
-ARCHON_TEST(Core_Vector_ShrinkToFit)
-{
-    core::Vector<int> vec;
-    vec.shrink_to_fit();
-    ARCHON_CHECK(vec.empty());
-    vec.push_back(1);
-    vec.shrink_to_fit();
-    ARCHON_CHECK_EQUAL(vec.size(), 1);
-    ARCHON_CHECK_GREATER_EQUAL(vec.capacity(), 1);
-    vec.shrink_to_fit();
-    ARCHON_CHECK_EQUAL(vec.size(), 1);
-    ARCHON_CHECK_GREATER_EQUAL(vec.capacity(), 1);
-    vec.push_back(2);
-    vec.shrink_to_fit();
-    ARCHON_CHECK_EQUAL(vec.size(), 2);
-    ARCHON_CHECK_GREATER_EQUAL(vec.capacity(), 2);
-    vec.shrink_to_fit();
-    ARCHON_CHECK_EQUAL(vec.size(), 2);
-    ARCHON_CHECK_GREATER_EQUAL(vec.capacity(), 2);
-    vec.push_back(3);
-    vec.shrink_to_fit();
-    ARCHON_CHECK_EQUAL(vec.size(), 3);
-    ARCHON_CHECK_GREATER_EQUAL(vec.capacity(), 3);
-    vec.shrink_to_fit();
-    ARCHON_CHECK_EQUAL(vec.size(), 3);
-    ARCHON_CHECK_GREATER_EQUAL(vec.capacity(), 3);
-    vec.push_back(4);
-    vec.shrink_to_fit();
-    ARCHON_CHECK_EQUAL(vec.size(), 4);
-    ARCHON_CHECK_GREATER_EQUAL(vec.capacity(), 4);
-    vec.shrink_to_fit();
-    ARCHON_CHECK_EQUAL(vec.size(), 4);
-    ARCHON_CHECK_GREATER_EQUAL(vec.capacity(), 4);
-    ARCHON_CHECK(vec == core::Vector<int>({ 1, 2, 3, 4 }));
 }
 
 

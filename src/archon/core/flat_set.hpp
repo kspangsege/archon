@@ -47,22 +47,25 @@ namespace archon::core {
 /// The major disadvantage, relative to `std::set`, is that insertion is slower. Insertion
 /// complexity is O(N) for this set implementation, and O(log N) for `std::set`.
 ///
-/// Requirement: The element type (\p K) must have a non-throwing copy constructor
-/// (`std::is_nothrow_copy_constructible`).
+/// Requirement: The element type (\p K) must have a non-throwing move constructor
+/// (`std::is_nothrow_move_constructible`) and a non-throwing destructor
+/// (`std::is_nothrow_destructible`).
 ///
-/// Requirement: If `a` and `b` are elements (values of type \p K), `a < b` must be a
-/// non-throwing expression (`noexcept`).
+/// Requirement: If `a` and `b` are `const`-references to elements (`const K&`), then `a <
+/// b` must be a non-throwing operation, i.e., `noexcept(a < b)` must be `true`.
 ///
 /// An initial capacity can be made statically available inside the set object. The number
-/// of elements of initial static capcity is specified by \p N.
+/// of elements of initial static capacity is specified by \p N.
+///
+/// So long as \p N is zero, a flat set type can be instantiated for an incomplete element
+/// type (\p K). Instantiation of the member functions of a flat set type, on the other
+/// hand, can generally only happen once both the element type is complete.
 ///
 template<class K, std::size_t N = 0> class FlatSet {
 public:
     using key_type = K;
 
     static constexpr std::size_t static_capacity = N;
-
-    static_assert(std::is_nothrow_copy_constructible_v<key_type>);
 
     using value_type      = key_type;
     using size_type       = std::size_t;

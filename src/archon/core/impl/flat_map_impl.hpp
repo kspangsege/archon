@@ -29,6 +29,7 @@
 #include <utility>
 
 #include <archon/core/features.h>
+#include <archon/core/pair.hpp>
 #include <archon/core/vector.hpp>
 
 
@@ -42,9 +43,7 @@ public:
 
     static constexpr bool is_set = std::is_same_v<value_type, void>;
 
-    using entry_type = std::conditional_t<is_set, const key_type, std::pair<const key_type, value_type>>;
-
-    static_assert(std::is_nothrow_move_constructible_v<entry_type>);
+    using entry_type = std::conditional_t<is_set, const key_type, core::Pair<const key_type, value_type>>;
 
     bool empty() const noexcept;
     auto size() const noexcept -> std::size_t;
@@ -194,7 +193,6 @@ auto FlatMapImpl<K, V, N>::erase(const key_type& key) noexcept -> std::size_t
     entry_type* base = m_entries.data();
     entry_type* begin = base + pair.first;
     entry_type* end   = base + pair.second;
-    static_assert(noexcept(m_entries.erase(begin, end)));
     m_entries.erase(begin, end);
     return std::size_t(end - begin);
 }

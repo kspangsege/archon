@@ -1,6 +1,6 @@
 // This file is part of the Archon project, a suite of C++ libraries.
 //
-// Copyright (C) 2022 Kristian Spangsege <kristian.spangsege@gmail.com>
+// Copyright (C) 2023 Kristian Spangsege <kristian.spangsege@gmail.com>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this
 // software and associated documentation files (the "Software"), to deal in the Software
@@ -19,23 +19,25 @@
 // DEALINGS IN THE SOFTWARE.
 
 
-#include <cstdlib>
-#include <memory>
-#include <tuple>
+#include <utility>
 #include <optional>
+#include <tuple>
 #include <string_view>
 #include <string>
-#include <system_error>
 #include <locale>
 #include <filesystem>
 
 #include <archon/core/features.h>
+#include <archon/core/math.hpp>
 #include <archon/core/quote.hpp>
 #include <archon/core/file.hpp>
 #include <archon/log.hpp>
 #include <archon/cli.hpp>
-#include <archon/image.hpp>
+#include <archon/math/vector.hpp>
+#include <archon/math/rotation.hpp>
 #include <archon/display.hpp>
+#include <archon/render/opengl.hpp>
+#include <archon/render/engine.hpp>
 
 
 using namespace archon;
@@ -43,59 +45,91 @@ using namespace archon;
 
 namespace {
 
-
-class EventLoop
-    : public display::WindowEventHandler {
+class BallScene
+    : public render::Engine::Scene {
 public:
-    EventLoop(display::Connection& conn, int display) noexcept
-        : m_impl(conn.get_implementation())
-        , m_conn(conn)
-        , m_display(display)
-    {
-    }
-
-    void init(const image::Image& img)
-    {
-        image::Size size = img.get_size();
-        m_win = m_conn.new_window(m_display, "Archon Image Viewer", size, *this); // Throws
-        m_tex = m_win->new_texture(size); // Throws
-        m_tex->put_image(img); // Throws
-        m_win->show(); // Throws
-    }
-
-    void process_events()
-    {
-        m_conn.process_events(); // Throws
-    }
-
-    bool on_keydown(const display::KeyEvent& ev) override final
-    {
-        display::Key key = {};
-        if (ARCHON_LIKELY(m_impl.try_map_key_code_to_key(ev.key_code, key))) { // Throws
-            if (ARCHON_UNLIKELY(key == display::Key::escape))
-                return false;
-        }
-        return true;
-    }
-
-    bool on_expose(const display::WindowEvent&) override final
-    {
-        m_win->put_texture(*m_tex); // Throws
-        m_win->present(); // Throws
-        return true;
-    }
-
-private:
-    const display::Implementation& m_impl;
-    display::Connection& m_conn;
-    const int m_display;
-    std::unique_ptr<display::Window> m_win;
-    std::unique_ptr<display::Texture> m_tex;
+    void init() override final;
+    void render() override final;
 };
 
 
-} // unnamed namespace
+void BallScene::init()
+{
+#if ARCHON_RENDER_HAVE_OPENGL
 
+    glEnable(GL_CULL_FACE);
+    glEnable(GL_LIGHTING);
+
+#ifdef GL_LIGHT_MODEL_COLOR_CONTROL
+    glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL, GL_SEPARATE_SPECULAR_COLOR);
+#endif
+#ifdef GL_LIGHT_MODEL_LOCAL_VIEWER
+    glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, 1);
+#endif
+
+#endif // ARCHON_RENDER_HAVE_OPENGL
+}
+
+
+void BallScene::render()
+{
+#if ARCHON_RENDER_HAVE_OPENGL
+
+    float scale_factor = 0.5;
+    math::Vector3F a = scale_factor * math::Vector3F(-1, -1, -1);
+    math::Vector3F b = scale_factor * math::Vector3F(+1, +1, +1);
+
+    glBegin(GL_QUADS);
+
+    // Left side of box
+    glNormal3f(-1, 0, 0);
+    glVertex3f(a[0], a[1], a[2]);
+    glVertex3f(a[0], a[1], b[2]);
+    glVertex3f(a[0], b[1], b[2]);
+    glVertex3f(a[0], b[1], a[2]);
+
+    // Right side of box
+    glNormal3f(+1, 0, 0);
+    glVertex3f(b[0], a[1], a[2]);
+    glVertex3f(b[0], b[1], a[2]);
+    glVertex3f(b[0], b[1], b[2]);
+    glVertex3f(b[0], a[1], b[2]);
+
+    // Bottom of box
+    glNormal3f(0, -1, 0);
+    glVertex3f(a[0], a[1], a[2]);
+    glVertex3f(b[0], a[1], a[2]);
+    glVertex3f(b[0], a[1], b[2]);
+    glVertex3f(a[0], a[1], b[2]);
+
+    // Top of box
+    glNormal3f(0, +1, 0);
+    glVertex3f(a[0], b[1], a[2]);
+    glVertex3f(a[0], b[1], b[2]);
+    glVertex3f(b[0], b[1], b[2]);
+    glVertex3f(b[0], b[1], a[2]);
+
+    // Back side of box
+    glNormal3f(0, 0, -1);
+    glVertex3f(a[0], a[1], a[2]);
+    glVertex3f(a[0], b[1], a[2]);
+    glVertex3f(b[0], b[1], a[2]);
+    glVertex3f(b[0], a[1], a[2]);
+
+    // Front side of box
+    glNormal3f(0, 0, +1);
+    glVertex3f(a[0], a[1], b[2]);
+    glVertex3f(b[0], a[1], b[2]);
+    glVertex3f(b[0], b[1], b[2]);
+    glVertex3f(a[0], b[1], b[2]);
+
+    glEnd();
+
+#endif // ARCHON_RENDER_HAVE_OPENGL
+}
+
+
+} // unnamed namespace
 
 
 int main(int argc, char* argv[])
@@ -103,15 +137,16 @@ int main(int argc, char* argv[])
     std::locale locale(""); // Throws
 
     namespace fs = std::filesystem;
-    fs::path path;
     bool list_display_implementations = false;
+    display::Size window_size = 512;
     log::LogLevel log_level_limit = log::LogLevel::warn;
     std::optional<std::string> optional_display_implementation;
+    render::Engine::Config engine_config;
 
     cli::Spec spec;
-    pat("<path>", cli::no_attributes, spec,
+    pat("", cli::no_attributes, spec,
         "Lorem ipsum.",
-        std::tie(path)); // Throws
+        std::tie()); // Throws
 
     pat("--list-display-implementations", cli::no_attributes, spec,
         "List known display implementations.",
@@ -121,6 +156,20 @@ int main(int argc, char* argv[])
 
     opt(cli::help_tag, spec); // Throws
     opt(cli::stop_tag, spec); // Throws
+
+    opt("-r, --frame-rate", "<rate>", cli::no_attributes, spec,
+        "The initial frame rate. The frame rate marks the upper limit of number of frames per second. The default "
+        "rate is @V.",
+        cli::assign(engine_config.frame_rate)); // Throws
+
+    opt("-s, --window-size", "<size>", cli::no_attributes, spec,
+        "Set the window size in number of pixels. \"@A\" can be specified either as a pair \"<width>,<height>\", or "
+        "as a single value, which is then used as both width and height. The default size is @V.",
+        cli::assign(window_size)); // Throws
+
+    opt("-f, --fullscreen", "", cli::no_attributes, spec,
+        "Open window in fullscreen mode.",
+        cli::raise_flag(engine_config.fullscreen_mode)); // Throws
 
     opt("-l, --log-level", "<level>", cli::no_attributes, spec,
         "Set the log level limit. The possible levels are \"off\", \"fatal\", \"error\", \"warn\", \"info\", "
@@ -146,7 +195,7 @@ int main(int argc, char* argv[])
     guarantees.main_thread_exclusive = true;
 
     // Promise that there is no direct or indirect use of SDL (Simple DirectMedia Layer)
-    // other than through the Archon display library, and that there is also no direct or
+    // other than through the Archon Display Library, and that there is also no direct or
     // indirect use of anything that would conflict with use of SDL.
     guarantees.no_other_use_of_sdl = true;
 
@@ -168,7 +217,7 @@ int main(int argc, char* argv[])
     log::FileLogger root_logger(core::File::get_cerr(), locale); // Throws
     log::LimitLogger logger(root_logger, log_level_limit); // Throws
 
-    const display::Implementation* impl;
+    const display::Implementation::Slot* display_implementation;
     if (optional_display_implementation.has_value()) {
         std::string_view ident = optional_display_implementation.value();
         const display::Implementation::Slot* slot = display::lookup_implementation(ident);
@@ -176,35 +225,39 @@ int main(int argc, char* argv[])
             logger.error("Unknown display implementation (%s)", core::quoted(ident)); // Throws
             return EXIT_FAILURE;
         }
-        impl = slot->get_implementation_a(guarantees);
-        if (ARCHON_UNLIKELY(!impl)) {
+        if (ARCHON_UNLIKELY(!slot->is_available(guarantees))) {
             logger.error("Unavailable display implementation (%s)", core::quoted(ident)); // Throws
             return EXIT_FAILURE;
         }
+        display_implementation = slot;
     }
     else {
-        impl = display::get_default_implementation_a(guarantees);
+        const display::Implementation* impl = display::get_default_implementation_a(guarantees);
         if (ARCHON_UNLIKELY(!impl)) {
             logger.error("No display implementations are available"); // Throws
             return EXIT_FAILURE;
         }
+        display_implementation = &impl->get_slot();
     }
 
-    std::unique_ptr<image::WritableImage> img;
-    {
-        image::LoadConfig load_config;
-        log::PrefixLogger load_logger(logger, "Load: "); // Throws
-        load_config.logger = &load_logger;
-        std::error_code ec;
-        if (!image::try_load(path, img, locale, load_config, ec)) { // Throws
-            logger.error("Failed to load image: %s", ec.message()); // Throws
-            return EXIT_FAILURE;
+    engine_config.display_implementation = display_implementation;
+    engine_config.display_guarantees = guarantees;
+    engine_config.allow_window_resize = true;
+    engine_config.logger = &logger;
+
+    render::Engine engine("Archon Box", window_size, locale, engine_config); // Throws
+    BallScene ball_scene;
+    engine.set_scene(ball_scene);
+    engine.set_base_spin(math::Rotation({ 0, 1, 0 }, core::deg_to_rad(90))); // Throws
+
+    engine.bind_key(display::Key::lower_case_s, "Spin", [&](bool down) {
+        if (down) {
+            engine.set_spin(math::Rotation({ 0, 1, 0 }, core::deg_to_rad(90))); // Throws
         }
-    }
+        else {
+            engine.set_spin(math::Rotation({ 0, 1, 0 }, core::deg_to_rad(0))); // Throws
+        }
+    }); // Throws
 
-    std::unique_ptr<display::Connection> conn = impl->new_connection(locale); // Throws
-    int display = conn->get_default_display();
-    EventLoop event_loop(*conn, display);
-    event_loop.init(*img); // throws
-    event_loop.process_events(); // Throws
+    engine.run(); // Throws
 }

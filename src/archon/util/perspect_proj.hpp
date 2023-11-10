@@ -642,211 +642,211 @@ public:
 // Implementation
 
 
-double PerspectiveProjection::get_horz_resol_dpcm() noexcept
+inline double PerspectiveProjection::get_horz_resol_dpcm() noexcept
 {
     return 0.01 / horz_dot_pitch;
 }
 
 
-double PerspectiveProjection::get_vert_resol_dpcm() noexcept
+inline double PerspectiveProjection::get_vert_resol_dpcm() noexcept
 {
     return 0.01 / vert_dot_pitch;
 }
 
 
-void PerspectiveProjection::set_resol_dpcm(double horz, double vert) noexcept
+inline void PerspectiveProjection::set_resol_dpcm(double horz, double vert) noexcept
 {
     horz_dot_pitch = 0.01 / horz;
     vert_dot_pitch = 0.01 / vert;
 }
 
 
-double PerspectiveProjection::get_horz_resol_dpi() noexcept
+inline double PerspectiveProjection::get_horz_resol_dpi() noexcept
 {
     return 0.0254 / horz_dot_pitch;
 }
 
 
-double PerspectiveProjection::get_vert_resol_dpi() noexcept
+inline double PerspectiveProjection::get_vert_resol_dpi() noexcept
 {
     return 0.0254 / vert_dot_pitch;
 }
 
 
-void PerspectiveProjection::set_resol_dpi(double h, double v) noexcept
+inline void PerspectiveProjection::set_resol_dpi(double h, double v) noexcept
 {
     horz_dot_pitch = 0.0254 / h;
     vert_dot_pitch = 0.0254 / v;
 }
 
 
-double PerspectiveProjection::get_viewport_width_meters() noexcept
+inline double PerspectiveProjection::get_viewport_width_meters() noexcept
 {
     return  view_dist * get_neutral_fov(get_horz_field_factor());
 }
 
 
-double PerspectiveProjection::get_viewport_height_meters() noexcept
+inline double PerspectiveProjection::get_viewport_height_meters() noexcept
 {
     return  view_dist * get_neutral_fov(get_vert_field_factor());
 }
 
 
-void PerspectiveProjection::set_viewport_size_meters(double width, double height) noexcept
+inline void PerspectiveProjection::set_viewport_size_meters(double width, double height) noexcept
 {
     aspect_ratio = width / height;
     mean_neutral_fov  = std::sqrt(width * height) / view_dist;
 }
 
 
-int PerspectiveProjection::get_viewport_width_pixels() noexcept
+inline int PerspectiveProjection::get_viewport_width_pixels() noexcept
 {
     return core::clamped_float_to_int<int>(std::round(get_viewport_width_meters() / horz_dot_pitch));
 }
 
 
-int PerspectiveProjection::get_viewport_height_pixels() noexcept
+inline int PerspectiveProjection::get_viewport_height_pixels() noexcept
 {
     return core::clamped_float_to_int<int>(std::round(get_viewport_height_meters() / vert_dot_pitch));
 }
 
 
-void PerspectiveProjection::set_viewport_size_pixels(int width, int height) noexcept
+inline void PerspectiveProjection::set_viewport_size_pixels(int width, int height) noexcept
 {
     set_viewport_size_meters(double(width) * horz_dot_pitch, double(height) * vert_dot_pitch);
 }
 
 
-double PerspectiveProjection::get_near_clip_dist() noexcept
+inline double PerspectiveProjection::get_near_clip_dist() noexcept
 {
     return camera_dist / std::sqrt(far_to_near_clip_ratio);
 }
 
 
-double PerspectiveProjection::get_far_clip_dist() noexcept
+inline double PerspectiveProjection::get_far_clip_dist() noexcept
 {
     return get_near_clip_dist() * far_to_near_clip_ratio;
 }
 
 
-double PerspectiveProjection::get_near_clip_width() noexcept
+inline double PerspectiveProjection::get_near_clip_width() noexcept
 {
     return get_near_clip_dist() * get_effective_fov(get_horz_field_factor());
 }
 
 
-double PerspectiveProjection::get_near_clip_height() noexcept
+inline double PerspectiveProjection::get_near_clip_height() noexcept
 {
     return get_near_clip_dist() * get_effective_fov(get_vert_field_factor());
 }
 
 
-void PerspectiveProjection::auto_dist(double interest_size, double field_factor) noexcept
+inline void PerspectiveProjection::auto_dist(double interest_size, double field_factor) noexcept
 {
     double zoom_factor = 1;
     camera_dist = interest_size * std::sqrt(0.25 + core::square(zoom_factor / mean_neutral_fov / field_factor));
 }
 
 
-void PerspectiveProjection::auto_zoom(double interest_size, double field_factor) noexcept
+inline void PerspectiveProjection::auto_zoom(double interest_size, double field_factor) noexcept
 {
     zoom_factor = mean_neutral_fov * field_factor * std::sqrt(core::square(camera_dist / interest_size) - 0.25);
 }
 
 
-double PerspectiveProjection::get_neutral_fov(double field_factor) noexcept
+inline double PerspectiveProjection::get_neutral_fov(double field_factor) noexcept
 {
     return mean_neutral_fov * field_factor;
 }
 
 
-double PerspectiveProjection::get_effective_fov(double field_factor) noexcept
+inline double PerspectiveProjection::get_effective_fov(double field_factor) noexcept
 {
     return get_neutral_fov(field_factor) / zoom_factor;
 }
 
 
-double PerspectiveProjection::get_neutral_solid_angle_of_view() noexcept
+inline double PerspectiveProjection::get_neutral_solid_angle_of_view() noexcept
 {
     return 4 * std::atan(1 / std::sqrt(4 / core::square(mean_neutral_fov) + aspect_ratio + 1 / aspect_ratio));
 }
 
 
-void PerspectiveProjection::set_neutral_solid_angle_of_view(double solid_angle) noexcept
+inline void PerspectiveProjection::set_neutral_solid_angle_of_view(double solid_angle) noexcept
 {
     mean_neutral_fov = std::sqrt(4 / (core::square(1 / std::tan(solid_angle / 4)) - aspect_ratio - 1 / aspect_ratio));
 }
 
 
-double PerspectiveProjection::get_effective_solid_angle_of_view() noexcept
+inline double PerspectiveProjection::get_effective_solid_angle_of_view() noexcept
 {
     return 4 * std::atan(1 / std::sqrt(4 / core::square(mean_neutral_fov / zoom_factor) + aspect_ratio +
                                        1 / aspect_ratio));
 }
 
 
-void PerspectiveProjection::set_effective_solid_angle_of_view(double solid_angle) noexcept
+inline void PerspectiveProjection::set_effective_solid_angle_of_view(double solid_angle) noexcept
 {
     mean_neutral_fov = zoom_factor * std::sqrt(4 / (core::square(1 / std::tan(solid_angle / 4)) - aspect_ratio -
                                                     1 / aspect_ratio));
 }
 
 
-double PerspectiveProjection::get_neutral_angle_of_view(double field_factor) noexcept
+inline double PerspectiveProjection::get_neutral_angle_of_view(double field_factor) noexcept
 {
     return 2 * std::atan(field_factor * mean_neutral_fov / 2);
 }
 
 
-void PerspectiveProjection::set_neutral_angle_of_view(double angle, double field_factor) noexcept
+inline void PerspectiveProjection::set_neutral_angle_of_view(double angle, double field_factor) noexcept
 {
     mean_neutral_fov = 2 * std::tan(angle / 2) / field_factor;
 }
 
 
-double PerspectiveProjection::get_effective_angle_of_view(double field_factor) noexcept
+inline double PerspectiveProjection::get_effective_angle_of_view(double field_factor) noexcept
 {
     return 2 * std::atan(field_factor * mean_neutral_fov / zoom_factor / 2);
 }
 
 
-void PerspectiveProjection::set_effective_angle_of_view(double angle, double field_factor) noexcept
+inline void PerspectiveProjection::set_effective_angle_of_view(double angle, double field_factor) noexcept
 {
     mean_neutral_fov = 2 * zoom_factor * std::tan(angle / 2) / field_factor;
 }
 
 
-double PerspectiveProjection::get_mean_field_factor() noexcept
+inline double PerspectiveProjection::get_mean_field_factor() noexcept
 {
     return 1;
 }
 
 
-double PerspectiveProjection::get_horz_field_factor() noexcept
+inline double PerspectiveProjection::get_horz_field_factor() noexcept
 {
     return std::sqrt(aspect_ratio);
 }
 
 
-double PerspectiveProjection::get_vert_field_factor() noexcept
+inline double PerspectiveProjection::get_vert_field_factor() noexcept
 {
     return 1 / std::sqrt(aspect_ratio);
 }
 
 
-double PerspectiveProjection::get_diag_field_factor() noexcept
+inline double PerspectiveProjection::get_diag_field_factor() noexcept
 {
     return std::sqrt(aspect_ratio + 1 / aspect_ratio);
 }
 
 
-double PerspectiveProjection::get_min_field_factor() noexcept
+inline double PerspectiveProjection::get_min_field_factor() noexcept
 {
     return std::sqrt(std::min(aspect_ratio, 1 / aspect_ratio));
 }
 
 
-double PerspectiveProjection::get_max_field_factor() noexcept
+inline double PerspectiveProjection::get_max_field_factor() noexcept
 {
     return std::sqrt(std::max(aspect_ratio, 1 / aspect_ratio));
 }
