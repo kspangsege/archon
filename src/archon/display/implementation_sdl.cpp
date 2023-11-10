@@ -35,14 +35,16 @@
 #include <archon/core/flat_map.hpp>
 #include <archon/core/literal_hash_map.hpp>
 #include <archon/core/format.hpp>
+#include <archon/util/color.hpp>
 #include <archon/util/colors.hpp>                 
 #include <archon/image.hpp>
 #include <archon/display/impl/config.h>
-#include <archon/display/window.hpp>
+#include <archon/display/key.hpp>
+#include <archon/display/key_code.hpp>
 #include <archon/display/event.hpp>
-#include <archon/display/keysyms.hpp>
 #include <archon/display/event_handler.hpp>
-#include <archon/display/mandates.hpp>
+#include <archon/display/guarantees.hpp>
+#include <archon/display/window.hpp>
 #include <archon/display/connection.hpp>
 #include <archon/display/implementation.hpp>
 #include <archon/display/implementation_sdl.hpp>
@@ -84,7 +86,9 @@ auto get_sdl_error(const std::locale& locale, std::string_view message) -> std::
 }
 
 
-auto map_key(SDL_Keycode key_sym) noexcept -> display::KeyEvent::KeySym;
+auto map_mouse_button(Uint8 button) noexcept -> display::MouseButton;
+bool map_key(display::KeyCode, display::Key&) noexcept;
+bool rev_map_key(display::Key, display::KeyCode&) noexcept;
 
 
 class ImplementationImpl
@@ -94,14 +98,18 @@ public:
     mutable bool have_connection = false;
 
     auto ident() const noexcept -> std::string_view override final;
-    bool is_available(const display::Mandates&) const noexcept override final;
-    auto new_connection(const std::locale&, const display::Mandates&) const ->
+    bool is_available(const display::Guarantees&) const noexcept override final;
+    auto new_connection(const std::locale&, const display::Guarantees&) const ->
         std::unique_ptr<display::Connection> override final;
+    bool try_map_key_to_key_code(display::Key, display::KeyCode&) const override final;
+    bool try_map_key_code_to_key(display::KeyCode, display::Key&) const override final;
+    bool try_get_key_name(display::KeyCode, std::string_view&) const override final;
 };
 
 
 class ConnectionImpl
-    : public display::Connection {
+    : private display::ConnectionEventHandler
+    , public display::Connection {
 public:
     const ImplementationImpl& impl;
     const std::locale locale;
@@ -110,38 +118,46 @@ public:
     ~ConnectionImpl() noexcept override;
 
     void open();
-    void register_window(Uint32 id, display::EventHandler&, int cookie);
+    void register_window(Uint32 id, display::WindowEventHandler&, int cookie);
     void unregister_window(Uint32 id) noexcept;
-    auto map_timestamp(Uint32 timestamp) -> display::TimedEvent::Timestamp;
 
-    auto new_window(std::string_view, display::Size, display::EventHandler&, display::Window::Config) ->
+    auto new_window(std::string_view, display::Size, display::WindowEventHandler&, display::Window::Config) ->
         std::unique_ptr<display::Window> override final;
-    void process_events() override final;
-    bool process_events(time_point_type) override final;
-    int get_num_screens() const override final;
-    auto get_screen_bounds(int) const -> display::Box override final;
-    auto get_screen_resolution(int) const -> display::Resolution override final;
-    int get_num_screen_visuals(int) const override final;
-    int get_default_screen() const override final;
+    auto new_window(int, std::string_view, display::Size, display::WindowEventHandler&, display::Window::Config) ->
+        std::unique_ptr<display::Window> override final;
+    void process_events(display::ConnectionEventHandler*) override final;
+    bool process_events(time_point_type, display::ConnectionEventHandler*) override final;
+    int get_num_displays() const override final;
+    int get_default_display() const override final;
+    bool try_get_display_conf(int, core::Buffer<display::Screen>&, core::Buffer<char>&,
+                              std::size_t&) const override final;
+    auto get_implementation() const noexcept -> const display::Implementation& override final;
 
 private:
+    using millis_type = std::chrono::milliseconds;
+
     bool m_was_opened = false;
 
     struct WindowEntry {
-        display::EventHandler& event_handler;
+        display::WindowEventHandler& event_handler;
         int cookie;
     };
 
     core::FlatMap<Uint32, WindowEntry> m_windows;
 
+    Uint32 m_curr_window_id = 0;
+    const WindowEntry* m_curr_window_entry = nullptr;
+    bool m_have_prev_timestamp = false;
     Uint32 m_prev_timestamp = 0;
-    std::int_fast64_t m_timestamp_major = 0;
+    time_point_type m_prev_timestamp_2 = {};
+    millis_type::rep m_timestamp_offset = 0;
 
-    int get_display_index(int screen) const noexcept;
-
-    bool process_outstanding_events();
+    bool process_outstanding_events(display::ConnectionEventHandler&);
     void wait_for_events();
     bool wait_for_events(time_point_type deadline);
+
+    auto lookup_window_entry(Uint32 window_id) noexcept -> const WindowEntry*;
+    auto map_next_timestamp(Uint32 timestamp) -> display::TimedWindowEvent::Timestamp;
 };
 
 
@@ -153,12 +169,15 @@ public:
     WindowImpl(ConnectionImpl&) noexcept;
     ~WindowImpl() noexcept override;
 
-    void create(std::string_view title, display::Size size, display::EventHandler&, Config);
+    void create(std::string_view title, display::Size size, display::WindowEventHandler&, Config);
     auto ensure_renderer() -> SDL_Renderer*;
 
     void show() override final;
     void hide() override final;
     void set_title(std::string_view) override final;
+    void set_size(display::Size) override final;
+    void set_fullscreen_mode(bool) override final;
+    void fill(util::Color) override final;
     auto new_texture(display::Size) -> std::unique_ptr<display::Texture> override final;
     void put_texture(const display::Texture&) override final;
     void present() override final;
@@ -199,21 +218,47 @@ auto ImplementationImpl::ident() const noexcept -> std::string_view
 }
 
 
-bool ImplementationImpl::is_available(const display::Mandates& mandates) const noexcept
+bool ImplementationImpl::is_available(const display::Guarantees& guarantees) const noexcept
 {
-    return bool(mandates.exclusive_sdl_mandate);
+    return (guarantees.no_other_use_of_sdl &&
+            guarantees.main_thread_exclusive &&
+            guarantees.only_one_connection);
 }
 
 
-auto ImplementationImpl::new_connection(const std::locale& locale, const display::Mandates& mandates) const ->
+auto ImplementationImpl::new_connection(const std::locale& locale, const display::Guarantees& guarantees) const ->
     std::unique_ptr<display::Connection>
 {
-    if (ARCHON_LIKELY(is_available(mandates))) {
+    if (ARCHON_LIKELY(is_available(guarantees))) {
         auto conn = std::make_unique<ConnectionImpl>(*this, locale); // Throws
         conn->open(); // Throws
         return conn;
     }
     return nullptr;
+}
+
+
+bool ImplementationImpl::try_map_key_to_key_code(display::Key key, display::KeyCode& key_code) const
+{
+    return ::rev_map_key(key, key_code);
+}
+
+
+bool ImplementationImpl::try_map_key_code_to_key(display::KeyCode key_code, display::Key& key) const
+{
+    return ::map_key(key_code, key);
+}
+
+
+bool ImplementationImpl::try_get_key_name(display::KeyCode key_code, std::string_view& name) const
+{
+    SDL_Keycode code = core::cast_from_twos_compl_a<SDL_Keycode>(key_code.code);
+    const char* name_2 = SDL_GetKeyName(code);
+    if (ARCHON_LIKELY(name_2)) {
+        name = std::string_view(name_2); // Throws
+        return true;
+    }
+    return false;
 }
 
 
@@ -252,36 +297,29 @@ void ConnectionImpl::open()
 }
 
 
-inline void ConnectionImpl::register_window(Uint32 id, display::EventHandler& event_handler, int cookie)
+inline void ConnectionImpl::register_window(Uint32 id, display::WindowEventHandler& event_handler, int cookie)
 {
     WindowEntry entry = { event_handler, cookie };
     auto i = m_windows.emplace(id, entry); // Throws
     bool was_inserted = i.second;
     ARCHON_ASSERT(was_inserted);
+    // Inserting into `m_windows` will generally invalidate `m_curr_window_entry`, so it
+    // needs to be reset here.
+    m_curr_window_id = id;
+    m_curr_window_entry = &i.first->second;
 }
 
 
 inline void ConnectionImpl::unregister_window(Uint32 id) noexcept
 {
     m_windows.erase(id);
+    if (ARCHON_LIKELY(id == m_curr_window_id))
+        m_curr_window_entry = nullptr;
 }
 
 
-auto ConnectionImpl::map_timestamp(Uint32 timestamp) -> display::TimedEvent::Timestamp
-{
-    // Try to fix wrap-around "disaster" after 49 days. This assumes that SDL timestamps
-    // originate from a steady / monotonic clock.
-    bool wrapped_around = (timestamp < m_prev_timestamp &&
-                           (m_prev_timestamp & std::uint_fast32_t(1) << 31) != 0);
-    if (ARCHON_UNLIKELY(wrapped_around))
-        m_timestamp_major += (std::int_fast64_t(1) << 32);
-    m_prev_timestamp = timestamp;
-    auto value = std::chrono::milliseconds::rep(m_timestamp_major + timestamp);
-    return std::chrono::milliseconds(value);
-}
-
-
-auto ConnectionImpl::new_window(std::string_view title, display::Size size, display::EventHandler& event_handler,
+auto ConnectionImpl::new_window(std::string_view title, display::Size size,
+                                display::WindowEventHandler& event_handler,
                                 display::Window::Config config) -> std::unique_ptr<display::Window>
 {
     auto win = std::make_unique<WindowImpl>(*this); // Throws
@@ -290,98 +328,72 @@ auto ConnectionImpl::new_window(std::string_view title, display::Size size, disp
 }
 
 
-void ConnectionImpl::process_events()
+auto ConnectionImpl::new_window(int display, std::string_view title, display::Size size,
+                                display::WindowEventHandler& event_handler,
+                                display::Window::Config config) -> std::unique_ptr<display::Window>
 {
+    if (ARCHON_UNLIKELY(display != 0))
+        throw std::invalid_argument("Bad display index");
+    return new_window(title, size, event_handler, std::move(config)); // Throws
+}
+
+
+void ConnectionImpl::process_events(display::ConnectionEventHandler* connection_event_handler)
+{
+    display::ConnectionEventHandler& connection_event_handler_2 =
+        (connection_event_handler ? *connection_event_handler : *this);
   again:
-    if (ARCHON_LIKELY(process_outstanding_events())) { // Throws
+    if (ARCHON_LIKELY(process_outstanding_events(connection_event_handler_2))) { // Throws
         wait_for_events(); // Throws
         goto again;
     }
 }
 
 
-bool ConnectionImpl::process_events(time_point_type deadline)
+bool ConnectionImpl::process_events(time_point_type deadline,
+                                    display::ConnectionEventHandler* connection_event_handler)
 {
+    display::ConnectionEventHandler& connection_event_handler_2 =
+        (connection_event_handler ? *connection_event_handler : *this);
   again:
-    if (ARCHON_LIKELY(process_outstanding_events())) { // Throws
+    if (ARCHON_LIKELY(process_outstanding_events(connection_event_handler_2))) { // Throws
         if (ARCHON_LIKELY(wait_for_events(deadline))) // Throws
             goto again;
-        return true; // Deadline expired
+        return true;
     }
-    return false; // QUIT event occurred
+    return false;
 }
 
 
-int ConnectionImpl::get_num_screens() const
+int ConnectionImpl::get_num_displays() const
 {
-    int ret = SDL_GetNumVideoDisplays();
-    if (ARCHON_LIKELY(ret >= 0)) {
-        ARCHON_ASSERT(ret >= 1);
-        return ret;
-    }
-    throw_sdl_error(locale, "SDL_GetNumVideoDisplays() failed"); // Throws
+    // SDL does not provide access to more than one display (X screen) at a time.
+    return 1;
 }
 
 
-auto ConnectionImpl::get_screen_bounds(int screen) const -> display::Box
+int ConnectionImpl::get_default_display() const
 {
-    int display_index = get_display_index(screen);
-    SDL_Rect rect;
-    int ret = SDL_GetDisplayBounds(display_index, &rect);
-    if (ARCHON_LIKELY(ret >= 0)) {
-        ARCHON_ASSERT(ret == 0);
-        return { display::Pos(rect.x, rect.y), display::Size(rect.w, rect.h) };
-    }
-    throw_sdl_error(locale, "SDL_GetDisplayBounds() failed"); // Throws
-}
-
-
-auto ConnectionImpl::get_screen_resolution(int screen) const -> display::Resolution
-{
-    int display_index = get_display_index(screen);
-    float* ddpi = nullptr;
-    float hdpi = 0, vdpi = 0;
-    int ret = SDL_GetDisplayDPI(display_index, ddpi, &hdpi, &vdpi);
-    if (ARCHON_LIKELY(ret >= 0)) {
-        ARCHON_ASSERT(ret == 0);
-        auto ppi_to_ppcm = [](double val) {
-            return 1/2.54 * val;
-        };
-        return { ppi_to_ppcm(hdpi), ppi_to_ppcm(vdpi) };
-    }
-    throw_sdl_error(locale, "SDL_GetDisplayDPI() failed"); // Throws
-}
-
-
-int ConnectionImpl::get_num_screen_visuals(int screen) const
-{
-    int display_index = get_display_index(screen);
-    int ret = SDL_GetNumDisplayModes(display_index);
-    if (ARCHON_LIKELY(ret >= 0)) {
-        ARCHON_ASSERT(ret >= 1);
-        return ret;
-    }
-    throw_sdl_error(locale, "SDL_GetNumDisplayModes() failed"); // Throws
-}
-
-
-int ConnectionImpl::get_default_screen() const
-{
-    // SDL claims that 0 refers to the "primary display". It makes sense to use this as the
-    // default screen.
     return 0;
 }
 
 
-inline int ConnectionImpl::get_display_index(int screen) const noexcept
+bool ConnectionImpl::try_get_display_conf(int display, core::Buffer<display::Screen>&, core::Buffer<char>&,
+                                          std::size_t&) const
 {
-    if (screen > 0)
-        return screen;
-    return get_default_screen();
+    if (ARCHON_UNLIKELY(display != 0))
+        throw std::invalid_argument("Bad display index");
+    return false;
 }
 
 
-bool ConnectionImpl::process_outstanding_events()
+auto ConnectionImpl::get_implementation() const noexcept -> const display::Implementation&
+{
+    return display::get_sdl_implementation();
+}
+
+
+bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler& connection_event_handler)
 {
     for (;;) {
         SDL_Event event;
@@ -390,25 +402,243 @@ bool ConnectionImpl::process_outstanding_events()
             break;
         ARCHON_ASSERT(ret == 1);
         switch (event.type) {
-            case SDL_KEYDOWN: {
-                // FIXME: What, if anything, ensures that event.key.windowID refers to the window that is currently registered under than identifier, and not to some earlier window that was also identified by that value?                         
-                // FIXME: Expect same window as before            
-                auto i = m_windows.find(event.key.windowID);
-                ARCHON_ASSERT(i != m_windows.end());
-                const WindowEntry& entry = i->second;
-                display::KeyEvent event_2;
-                event_2.cookie = entry.cookie;
-                event_2.timestamp = map_timestamp(event.key.timestamp);
-                event_2.key_sym = map_key(event.key.keysym.sym);
-                if (ARCHON_LIKELY(entry.event_handler.on_keydown(event_2))) // Throws
+            case SDL_MOUSEMOTION: {
+                if (ARCHON_LIKELY(event.motion.state == 0))
                     break;
-                return false; // Quit
+                const WindowEntry* entry = lookup_window_entry(event.motion.windowID);
+                if (ARCHON_LIKELY(entry)) {
+                    display::MouseButtonEvent event_2;
+                    event_2.cookie = entry->cookie;
+                    event_2.timestamp = map_next_timestamp(event.motion.timestamp); // Throws
+                    event_2.pos = { event.motion.x, event.motion.y };
+                    bool proceed = entry->event_handler.on_mousemove(event_2); // Throws
+                    if (ARCHON_LIKELY(proceed))
+                        break;
+                    return false; // Interrupt
+                }
+                break;
             }
-            case SDL_QUIT:
-                return false; // Quit
+            case SDL_MOUSEWHEEL: {
+                const WindowEntry* entry = lookup_window_entry(event.wheel.windowID);
+                if (ARCHON_LIKELY(entry)) {
+                    display::ScrollEvent event_2;
+                    event_2.cookie = entry->cookie;
+                    event_2.timestamp = map_next_timestamp(event.wheel.timestamp); // Throws
+                    event_2.amount = { event.wheel.preciseX, event.wheel.preciseY };
+                    bool proceed = entry->event_handler.on_scroll(event_2); // Throws
+                    if (ARCHON_LIKELY(proceed))
+                        break;
+                    return false; // Interrupt
+                }
+                break;
+            }
+            case SDL_MOUSEBUTTONDOWN: {
+                const WindowEntry* entry = lookup_window_entry(event.button.windowID);
+                if (ARCHON_LIKELY(entry)) {
+                    display::MouseButtonEvent event_2;
+                    event_2.cookie = entry->cookie;
+                    event_2.timestamp = map_next_timestamp(event.button.timestamp); // Throws
+                    event_2.pos = { event.button.x, event.button.y };
+                    event_2.button = map_mouse_button(event.button.button);
+                    bool proceed = entry->event_handler.on_mousedown(event_2); // Throws
+                    if (ARCHON_LIKELY(proceed))
+                        break;
+                    return false; // Interrupt
+                }
+                break;
+            }
+            case SDL_MOUSEBUTTONUP: {
+                const WindowEntry* entry = lookup_window_entry(event.button.windowID);
+                if (ARCHON_LIKELY(entry)) {
+                    display::MouseButtonEvent event_2;
+                    event_2.cookie = entry->cookie;
+                    event_2.timestamp = map_next_timestamp(event.button.timestamp); // Throws
+                    event_2.pos = { event.button.x, event.button.y };
+                    event_2.button = map_mouse_button(event.button.button);
+                    bool proceed = entry->event_handler.on_mouseup(event_2); // Throws
+                    if (ARCHON_LIKELY(proceed))
+                        break;
+                    return false; // Interrupt
+                }
+                break;
+            }
+            case SDL_KEYDOWN: {
+                if (ARCHON_LIKELY(event.key.repeat == 0)) {
+                    const WindowEntry* entry = lookup_window_entry(event.key.windowID);
+                    if (ARCHON_LIKELY(entry)) {
+                        display::KeyEvent event_2;
+                        event_2.cookie = entry->cookie;
+                        event_2.timestamp = map_next_timestamp(event.key.timestamp); // Throws
+                        event_2.key_code = { display::KeyCode::code_type(event.key.keysym.sym) };
+                        bool proceed = entry->event_handler.on_keydown(event_2); // Throws
+                        if (ARCHON_LIKELY(proceed))
+                            break;
+                        return false; // Interrupt
+                    }
+                }
+                break;
+            }
+            case SDL_KEYUP: {
+                const WindowEntry* entry = lookup_window_entry(event.key.windowID);
+                if (ARCHON_LIKELY(entry)) {
+                    display::KeyEvent event_2;
+                    event_2.cookie = entry->cookie;
+                    event_2.timestamp = map_next_timestamp(event.key.timestamp); // Throws
+                    event_2.key_code = { display::KeyCode::code_type(event.key.keysym.sym) };
+                    bool proceed = entry->event_handler.on_keyup(event_2); // Throws
+                    if (ARCHON_LIKELY(proceed))
+                        break;
+                    return false; // Interrupt
+                }
+                break;
+            }
+            case SDL_WINDOWEVENT:
+                switch (event.window.event) {
+                    case SDL_WINDOWEVENT_ENTER: {
+                        const WindowEntry* entry = lookup_window_entry(event.window.windowID);
+                        if (ARCHON_LIKELY(entry)) {
+                            display::TimedWindowEvent event_2;
+                            event_2.cookie = entry->cookie;
+                            event_2.timestamp = map_next_timestamp(event.window.timestamp); // Throws
+                            bool proceed = entry->event_handler.on_mouseover(event_2); // Throws
+                            if (ARCHON_LIKELY(proceed))
+                                break;
+                            return false; // Interrupt
+                        }
+                        break;
+                    }
+                    case SDL_WINDOWEVENT_LEAVE: {
+                        const WindowEntry* entry = lookup_window_entry(event.window.windowID);
+                        if (ARCHON_LIKELY(entry)) {
+                            display::TimedWindowEvent event_2;
+                            event_2.cookie = entry->cookie;
+                            event_2.timestamp = map_next_timestamp(event.window.timestamp); // Throws
+                            bool proceed = entry->event_handler.on_mouseout(event_2); // Throws
+                            if (ARCHON_LIKELY(proceed))
+                                break;
+                            return false; // Interrupt
+                        }
+                        break;
+                    }
+                    case SDL_WINDOWEVENT_FOCUS_GAINED: {
+                        const WindowEntry* entry = lookup_window_entry(event.window.windowID);
+                        if (ARCHON_LIKELY(entry)) {
+                            display::TimedWindowEvent event_2;
+                            event_2.cookie = entry->cookie;
+                            event_2.timestamp = map_next_timestamp(event.window.timestamp); // Throws
+                            bool proceed = entry->event_handler.on_focus(event_2); // Throws
+                            if (ARCHON_LIKELY(proceed))
+                                break;
+                            return false; // Interrupt
+                        }
+                        break;
+                    }
+                    case SDL_WINDOWEVENT_FOCUS_LOST: {
+                        const WindowEntry* entry = lookup_window_entry(event.window.windowID);
+                        if (ARCHON_LIKELY(entry)) {
+                            display::TimedWindowEvent event_2;
+                            event_2.cookie = entry->cookie;
+                            event_2.timestamp = map_next_timestamp(event.window.timestamp); // Throws
+                            bool proceed = entry->event_handler.on_blur(event_2); // Throws
+                            if (ARCHON_LIKELY(proceed))
+                                break;
+                            return false; // Interrupt
+                        }
+                        break;
+                    }
+                    case SDL_WINDOWEVENT_EXPOSED: {
+                        const WindowEntry* entry = lookup_window_entry(event.window.windowID);
+                        if (ARCHON_LIKELY(entry)) {
+                            display::WindowEvent event_2;
+                            event_2.cookie = entry->cookie;
+                            bool proceed = entry->event_handler.on_expose(event_2); // Throws
+                            if (ARCHON_LIKELY(proceed))
+                                break;
+                            return false; // Interrupt
+                        }
+                        break;
+                    }
+                    case SDL_WINDOWEVENT_SIZE_CHANGED: {
+                        const WindowEntry* entry = lookup_window_entry(event.window.windowID);
+                        if (ARCHON_LIKELY(entry)) {
+                            display::WindowSizeEvent event_2;
+                            event_2.cookie = entry->cookie;
+                            core::int_cast(event.window.data1, event_2.size.width); // Throws
+                            core::int_cast(event.window.data2, event_2.size.height); // Throws
+                            bool proceed = entry->event_handler.on_resize(event_2); // Throws
+                            if (ARCHON_LIKELY(proceed))
+                                break;
+                            return false; // Interrupt
+                        }
+                        break;
+                    }
+                    case SDL_WINDOWEVENT_CLOSE: {
+                        const WindowEntry* entry = lookup_window_entry(event.window.windowID);
+                        if (ARCHON_LIKELY(entry)) {
+                            display::TimedWindowEvent event_2;
+                            event_2.cookie = entry->cookie;
+                            event_2.timestamp = map_next_timestamp(event.window.timestamp); // Throws
+                            bool proceed = entry->event_handler.on_close(event_2); // Throws
+                            if (ARCHON_LIKELY(proceed))
+                                break;
+                            return false; // Interrupt
+                        }
+                        break;
+                    }
+                }
+                break;
+/*
+            case SDL_DISPLAYEVENT: {
+                // Fetch updated display information          
+                // Call on_display_change(screens) where screens is span of ScreenInfo objects
+                // ScreenInfo has fields `name`, `bounds`, `resolution`, and `primary`
+                // Question: How does SDL_GetDisplayUsableBounds() work with X11? --> See X11_GetDisplayUsableBounds()                                                                                                                                                         
+                int ret = SDL_GetNumVideoDisplays();
+                if (ARCHON_LIKELY(ret >= 0)) {
+                    ARCHON_ASSERT(ret >= 1);
+                    int n = ret;
+                    for (int i = 0; i < n; ++i) {
+                        const char* name = SDL_GetDisplayName(i);
+                        if (ARCHON_UNLIKELY(!name))
+                            throw_sdl_error(locale, "SDL_GetDisplayName() failed"); // Throws
+                        SDL_Rect rect = {};
+                        ret = SDL_GetDisplayBounds(i, &rect);
+                        if (ARCHON_UNLIKELY(ret < 0))
+                            throw_sdl_error(locale, "SDL_GetDisplayBounds() failed"); // Throws
+                        ARCHON_ASSERT(ret == 0);
+                        display::Box bounds = { display::Pos(rect.x, rect.y), display::Size(rect.w, rect.h) };
+                        SDL_DisplayMode mode = {};
+                        ret = SDL_GetDesktopDisplayMode(i, &mode);
+                        if (ARCHON_UNLIKELY(ret < 0))
+                            throw_sdl_error(locale, "SDL_GetDesktopDisplayMode() failed"); // Throws
+                        ARCHON_ASSERT(ret == 0);
+                        log::info("SCREEN[%s]: name = %s, bounds = %s, resolution = ?, frame_rate = %s, ", i + 1, name, bounds, mode.refresh_rate);              
+                    }
+                    break;
+                }
+                throw_sdl_error(locale, "SDL_GetNumVideoDisplays() failed"); // Throws
+                break;
+            }
+*/
+            case SDL_QUIT: {
+                bool proceed = connection_event_handler.on_quit(); // Throws
+                if (ARCHON_LIKELY(proceed))
+                    break;
+                return false; // Interrupt
+            }
         }
     }
-    return true; // Events are ready to be processed
+    if (m_windows.empty()) {
+        bool proceed = connection_event_handler.on_quit(); // Throws
+        if (ARCHON_UNLIKELY(!proceed))
+            return false; // Interrupt
+    }
+    {
+        bool proceed = connection_event_handler.before_sleep(); // Throws
+        if (ARCHON_UNLIKELY(!proceed))
+            return false; // Interrupt
+    }
+    return true; // Wait for more events to occur
 }
 
 
@@ -436,28 +666,73 @@ bool ConnectionImpl::wait_for_events(time_point_type deadline)
             timeout = int(duration);
             complete = true;
         }
-        // FIXME: When SDL_WaitEventTimeout() returns zero, we need to determine whether it
-        // was because an error occurred or the timeout was reached, but how? The
-        // documentation for SDL_GetError() strongly discourages using that function as a
-        // way of checking whether an error has occurred (for good reason). Using the
-        // discouraged method for now. See
-        // https://discourse.libsdl.org/t/proposal-for-sdl-3-return-value-improvement-for-sdl-waiteventtimeout/45743
-        SDL_ClearError();
+        // FIXME: There is something broken about the design of
+        // SDL_WaitEventTimeout(). According to the documentation, when that function
+        // returns zero, it means that an error occurred or the timeout was reached, But,
+        // unfortunately, there is no way to tell which of the two happened. The only viable
+        // resolution seems to be to assume that the function can never fail, and that zero
+        // always means that the timeout was reached. Calling SDL_WaitEventTimeout() to see
+        // if an error occured is not an option, as it will sometimes report errors when
+        // none occurred even if SDL_ClearError() is called before calling
+        // SDL_WaitEventTimeout().
+        //
+        // See also https://discourse.libsdl.org/t/proposal-for-sdl-3-return-value-improvement-for-sdl-waiteventtimeout/45743
+        //
         SDL_Event* event = nullptr;
         int ret = SDL_WaitEventTimeout(event, timeout);
         if (ARCHON_LIKELY(ret == 1))
             return true;
         ARCHON_ASSERT(ret == 0);
-        bool error_occurred = (SDL_GetError()[0] != '\0');
-        if (ARCHON_LIKELY(!error_occurred)) {
-            if (ARCHON_LIKELY(complete))
-                goto expired;
-            goto again;
-        }
-        throw_sdl_error(locale, "SDL_WaitEventTimeout() failed"); // Throws
+        if (ARCHON_LIKELY(complete))
+            goto expired;
+        goto again;
     }
   expired:
     return false;
+}
+
+
+auto ConnectionImpl::lookup_window_entry(Uint32 window_id) noexcept -> const WindowEntry*
+{
+    // FIXME: What, if anything, ensures that event.key.windowID refers to the window that is currently registered under that identifier, and not to some earlier window that was also identified by that value?
+    // These expectation should be that there is a type of event the marks the end of the use of a window identifier               
+
+    if (ARCHON_LIKELY(window_id == m_curr_window_id))
+        return m_curr_window_entry;
+
+    const WindowEntry* entry = nullptr;
+    auto i = m_windows.find(window_id);
+    if (ARCHON_LIKELY(i != m_windows.end()))
+        entry = &i->second;
+    m_curr_window_id = window_id;
+    m_curr_window_entry = entry;
+    return entry;
+}
+
+
+auto ConnectionImpl::map_next_timestamp(Uint32 timestamp) -> display::TimedWindowEvent::Timestamp
+{
+    // Try to fix wrap-around "disaster", which occurs after 49 days when Uint32 is a 32-bit
+    // integer.
+    //
+    // Assumptions:
+    // - SDL timestamps originate from a steady / monotonic clock
+    // - SDL timestamps is N lowest order bits of true timestamp where N is number of value
+    //   bits in Uint32
+    //
+    if constexpr (core::int_width<Uint32>() < core::int_width<millis_type::rep>()) {
+        constexpr millis_type::rep module = millis_type::rep(1) << core::int_width<Uint32>();
+        time_point_type timestamp_2 = clock_type::now();
+        if (ARCHON_LIKELY(m_have_prev_timestamp)) {
+            millis_type::rep millis = std::chrono::round<millis_type>(timestamp_2 - m_prev_timestamp_2).count();
+            core::int_add(millis, module / 2 - (timestamp - m_prev_timestamp)); // Throws
+            core::int_add(m_timestamp_offset, (millis / module) * module); // Throws
+        }
+        m_prev_timestamp = timestamp;
+        m_prev_timestamp_2 = timestamp_2;
+        m_have_prev_timestamp = true;
+    }
+    return millis_type(millis_type::rep(m_timestamp_offset + timestamp));
 }
 
 
@@ -469,6 +744,7 @@ inline WindowImpl::WindowImpl(ConnectionImpl& conn_2) noexcept
 
 WindowImpl::~WindowImpl() noexcept
 {
+    // FIXME: Maybe safer to inject a custom event here such that the following can be carried out in the context of the event handler                                                               
     if (ARCHON_LIKELY(m_win)) {
         if (m_id > 0)
             conn.unregister_window(m_id);
@@ -481,7 +757,7 @@ WindowImpl::~WindowImpl() noexcept
 }
 
 
-void WindowImpl::create(std::string_view title, display::Size size, display::EventHandler& event_handler,
+void WindowImpl::create(std::string_view title, display::Size size, display::WindowEventHandler& event_handler,
                         Config config)
 {
     std::string title_2 = std::string(title); // Throws
@@ -490,6 +766,10 @@ void WindowImpl::create(std::string_view title, display::Size size, display::Eve
     int w = size.width;
     int h = size.height;
     Uint32 flags = SDL_WINDOW_HIDDEN;
+    if (config.resizable)
+        flags |= SDL_WINDOW_RESIZABLE;
+    if (config.fullscreen)
+        flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
     if (config.enable_opengl)
         flags |= SDL_WINDOW_OPENGL;
     SDL_Window* win = SDL_CreateWindow(title_2.c_str(), x, y, w, h, flags);
@@ -531,6 +811,40 @@ void WindowImpl::set_title(std::string_view title)
 {
     std::string title_2 = std::string(title); // Throws
     SDL_SetWindowTitle(m_win, title_2.c_str());
+}
+
+
+void WindowImpl::set_size(display::Size size)
+{
+    SDL_SetWindowSize(m_win, size.width, size.height);
+}
+
+
+void WindowImpl::set_fullscreen_mode(bool on)
+{
+    int ret = SDL_SetWindowFullscreen(m_win, (on ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
+    if (ARCHON_LIKELY(ret >= 0)) {
+        ARCHON_ASSERT(ret == 0);
+        return;
+    }
+    throw_sdl_error(conn.locale, "SDL_SetWindowFullscreen() failed"); // Throws
+}
+
+
+void WindowImpl::fill(util::Color color)
+{
+    SDL_Renderer* renderer = ensure_renderer(); // Throws
+    int ret = SDL_SetRenderDrawColor(renderer, color.red(), color.green(), color.blue(), color.alpha());
+    if (ARCHON_LIKELY(ret >= 0)) {
+        ARCHON_ASSERT(ret == 0);
+        ret = SDL_RenderClear(renderer);
+        if (ARCHON_LIKELY(ret >= 0)) {
+            ARCHON_ASSERT(ret == 0);
+            return;
+        }
+        throw_sdl_error(conn.locale, "SDL_RenderClear() failed"); // Throws
+    }
+    throw_sdl_error(conn.locale, "SDL_SetRenderDrawColor() failed"); // Throws
 }
 
 
@@ -671,40 +985,128 @@ If list contains RGB888, use that
 }
 
 
-constexpr std::pair<SDL_Keycode, display::KeyEvent::KeySym> key_assocs[] {
-    { SDLK_BACKSPACE,  display::key_BackSpace  },
-    { SDLK_TAB,        display::key_Tab        },
-    { SDLK_CLEAR,      display::key_Clear      },
-    { SDLK_RETURN,     display::key_Return     },
-    { SDLK_PAUSE,      display::key_Pause      },
-    { SDLK_SCROLLLOCK, display::key_ScrollLock },
-    { SDLK_SYSREQ,     display::key_SysReq     },
-    { SDLK_ESCAPE,     display::key_Escape     },
-    { SDLK_DELETE,     display::key_Delete     },
+constexpr std::pair<SDL_Keycode, display::Key> key_assocs[] {
+    { SDLK_BACKSPACE,    display::Key::backspace            },
+    { SDLK_TAB,          display::Key::tab                  },
+    { SDLK_CLEAR,        display::Key::clear                },
+    { SDLK_RETURN,       display::Key::return_              },
+    { SDLK_PAUSE,        display::Key::pause                },
+    { SDLK_SCROLLLOCK,   display::Key::scroll_lock          },
+    { SDLK_SYSREQ,       display::Key::sys_req              },
+    { SDLK_ESCAPE,       display::Key::escape               },
+    { SDLK_SPACE,        display::Key::space                },
+    { SDLK_EXCLAIM,      display::Key::exclamation_mark     },
+    { SDLK_QUOTEDBL,     display::Key::quotation_mark       },
+    { SDLK_HASH,         display::Key::hash_mark            },
+    { SDLK_DOLLAR,       display::Key::dollar_sign          },
+    { SDLK_PERCENT,      display::Key::percent_sign         },
+    { SDLK_AMPERSAND,    display::Key::ampersand            },
+    { SDLK_QUOTE,        display::Key::apostrophe           },
+    { SDLK_LEFTPAREN,    display::Key::left_parenthesis     },
+    { SDLK_RIGHTPAREN,   display::Key::right_parenthesis    },
+    { SDLK_ASTERISK,     display::Key::asterisk             },
+    { SDLK_PLUS,         display::Key::plus_sign            },
+    { SDLK_COMMA,        display::Key::comma                },
+    { SDLK_MINUS,        display::Key::minus_sign           },
+    { SDLK_PERIOD,       display::Key::period               },
+    { SDLK_SLASH,        display::Key::slash                },
+    { SDLK_0,            display::Key::digit_0              },
+    { SDLK_1,            display::Key::digit_1              },
+    { SDLK_2,            display::Key::digit_2              },
+    { SDLK_3,            display::Key::digit_3              },
+    { SDLK_4,            display::Key::digit_4              },
+    { SDLK_5,            display::Key::digit_5              },
+    { SDLK_6,            display::Key::digit_6              },
+    { SDLK_7,            display::Key::digit_7              },
+    { SDLK_8,            display::Key::digit_8              },
+    { SDLK_9,            display::Key::digit_9              },
+    { SDLK_COLON,        display::Key::colon                },
+    { SDLK_SEMICOLON,    display::Key::semicolon            },
+    { SDLK_LESS,         display::Key::less_than_sign       },
+    { SDLK_EQUALS,       display::Key::equal_sign           },
+    { SDLK_GREATER,      display::Key::greater_than_sign    },
+    { SDLK_QUESTION,     display::Key::question_mark        },
+    { SDLK_AT,           display::Key::at_sign              },
+    { SDLK_LEFTBRACKET,  display::Key::left_square_bracket  },
+    { SDLK_BACKSLASH,    display::Key::backslash            },
+    { SDLK_RIGHTBRACKET, display::Key::right_square_bracket },
+    { SDLK_CARET,        display::Key::circumflex_accent    },
+    { SDLK_UNDERSCORE,   display::Key::underscore           },
+    { SDLK_BACKQUOTE,    display::Key::grave_accent         },
+    { SDLK_a,            display::Key::lower_case_a         },
+    { SDLK_b,            display::Key::lower_case_b         },
+    { SDLK_c,            display::Key::lower_case_c         },
+    { SDLK_d,            display::Key::lower_case_d         },
+    { SDLK_e,            display::Key::lower_case_e         },
+    { SDLK_f,            display::Key::lower_case_f         },
+    { SDLK_g,            display::Key::lower_case_g         },
+    { SDLK_h,            display::Key::lower_case_h         },
+    { SDLK_i,            display::Key::lower_case_i         },
+    { SDLK_j,            display::Key::lower_case_j         },
+    { SDLK_k,            display::Key::lower_case_k         },
+    { SDLK_l,            display::Key::lower_case_l         },
+    { SDLK_m,            display::Key::lower_case_m         },
+    { SDLK_n,            display::Key::lower_case_n         },
+    { SDLK_o,            display::Key::lower_case_o         },
+    { SDLK_p,            display::Key::lower_case_p         },
+    { SDLK_q,            display::Key::lower_case_q         },
+    { SDLK_r,            display::Key::lower_case_r         },
+    { SDLK_s,            display::Key::lower_case_s         },
+    { SDLK_t,            display::Key::lower_case_t         },
+    { SDLK_u,            display::Key::lower_case_u         },
+    { SDLK_v,            display::Key::lower_case_v         },
+    { SDLK_w,            display::Key::lower_case_w         },
+    { SDLK_x,            display::Key::lower_case_x         },
+    { SDLK_y,            display::Key::lower_case_y         },
+    { SDLK_z,            display::Key::lower_case_z         },
+    { SDLK_DELETE,       display::Key::delete_              },
 
-                                                                               
-    { SDLK_0,          display::key_Digit0     },
-    { SDLK_1,          display::key_Digit1     },
-    { SDLK_2,          display::key_Digit2     },
-    { SDLK_3,          display::key_Digit3     },
-    { SDLK_4,          display::key_Digit4     },
-    { SDLK_5,          display::key_Digit5     },
-    { SDLK_6,          display::key_Digit6     },
-    { SDLK_7,          display::key_Digit7     },
-    { SDLK_8,          display::key_Digit8     },
-    { SDLK_9,          display::key_Digit9     },
+    { SDLK_LSHIFT,       display::Key::shift_left           },
+    { SDLK_RSHIFT,       display::Key::shift_right          },
+
+    { SDLK_KP_PLUS,      display::Key::keypad_plus_sign     },
+    { SDLK_KP_MINUS,     display::Key::keypad_minus_sign    },
 };
 
 
 constexpr core::LiteralHashMap g_key_map     = core::make_literal_hash_map(key_assocs);
-//constexpr core::LiteralHashMap g_rev_key_map = core::make_rev_literal_hash_map(key_assocs);     
+constexpr core::LiteralHashMap g_rev_key_map = core::make_rev_literal_hash_map(key_assocs);
 
 
-inline auto map_key(SDL_Keycode key_sym) noexcept -> display::KeyEvent::KeySym
+inline bool map_key(display::KeyCode key_code, display::Key& key) noexcept
 {
-    display::KeyEvent::KeySym key_sym_2 = display::key_Unknown;
-    g_key_map.find(key_sym, key_sym_2);
-    return key_sym_2;
+    SDL_Keycode code = core::cast_from_twos_compl_a<SDL_Keycode>(key_code.code);
+    return g_key_map.find(code, key);
+}
+
+
+inline bool rev_map_key(display::Key key, display::KeyCode& key_code) noexcept
+{
+    SDL_Keycode code = {};
+    if (ARCHON_LIKELY(g_rev_key_map.find(key, code))) {
+        key_code = { display::KeyCode::code_type(code) };
+        return true;
+    }
+    return false;
+}
+
+
+inline auto map_mouse_button(Uint8 button) noexcept -> display::MouseButton
+{
+    switch (button) {
+        case SDL_BUTTON_LEFT:
+            return display::MouseButton::left;
+        case SDL_BUTTON_MIDDLE:
+            return display::MouseButton::middle;
+        case SDL_BUTTON_RIGHT:
+            return display::MouseButton::right;
+        case SDL_BUTTON_X1:
+            return display::MouseButton::x1;
+        case SDL_BUTTON_X2:
+            return display::MouseButton::x2;
+    }
+    ARCHON_ASSERT_UNREACHABLE();
+    return {};
 }
 
 
@@ -715,9 +1117,11 @@ class ImplementationImpl
     : public display::Implementation {
 public:
     auto ident() const noexcept -> std::string_view override final;
-    bool is_available(const display::Mandates&) const noexcept override final;
-    auto new_connection(const std::locale&, const display::Mandates&) const ->
+    bool is_available(const display::Guarantees&) const noexcept override final;
+    auto new_connection(const std::locale&, const display::Guarantees&) const ->
         std::unique_ptr<display::Connection> override final;
+    bool try_map_key_code_to_key(display::KeyCode, display::Key&) const override final;
+    bool try_get_key_name(display::KeyCode, std::string_view&) const override final;
 };
 
 
@@ -727,16 +1131,28 @@ auto ImplementationImpl::ident() const noexcept -> std::string_view
 }
 
 
-bool ImplementationImpl::is_available(const display::Mandates&) const noexcept
+bool ImplementationImpl::is_available(const display::Guarantees&) const noexcept
 {
     return false;
 }
 
 
-auto ImplementationImpl::new_connection(const std::locale&, const display::Mandates&) const ->
+auto ImplementationImpl::new_connection(const std::locale&, const display::Guarantees&) const ->
     std::unique_ptr<display::Connection>
 {
     return nullptr;
+}
+
+
+bool ImplementationImpl::try_map_key_code_to_key(display::KeyCode, display::Key&) const
+{
+    return false;
+}
+
+
+bool ImplementationImpl::try_get_key_name(display::KeyCode, std::string_view&) const
+{
+    return false;
 }
 
 

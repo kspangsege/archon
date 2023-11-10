@@ -1,6 +1,6 @@
 // This file is part of the Archon project, a suite of C++ libraries.
 //
-// Copyright (C) 2022 Kristian Spangsege <kristian.spangsege@gmail.com>
+// Copyright (C) 2023 Kristian Spangsege <kristian.spangsege@gmail.com>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this
 // software and associated documentation files (the "Software"), to deal in the Software
@@ -18,35 +18,33 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-#ifndef ARCHON_X_DISPLAY_X_MANDATES_HPP
-#define ARCHON_X_DISPLAY_X_MANDATES_HPP
+#ifndef ARCHON_X_CORE_X_CONCEPTS_HPP
+#define ARCHON_X_CORE_X_CONCEPTS_HPP
 
 /// \file
 
 
-namespace archon::display {
+#include <type_traits>
+#include <functional>
 
 
-/// \brief    
+namespace archon::core {
+
+
+/// \brief Type must be function compatible with specific signature.
 ///
-///    
+/// This concept requires \p T to be an enumeration type as determined by `std::is_enum<T>`.
 ///
-struct ExclusiveSDLMandate {};
+template<class T> concept enum_type = std::is_enum_v<T>;
 
 
-/// \brief    
+/// \brief Type must be function compatible with specific signature.
 ///
-///    
+/// This concept requires \p T to be convertible to `std::function<F>`.
 ///
-struct Mandates {
-    /// \brief    
-    ///
-    ///    
-    ///
-    const display::ExclusiveSDLMandate* exclusive_sdl_mandate = nullptr;
-};
+template<class T, class F> concept func_type = std::is_convertible_v<T, std::function<F>>;
 
 
-} // namespace archon::display
+} // namespace archon::core
 
-#endif // ARCHON_X_DISPLAY_X_MANDATES_HPP
+#endif // ARCHON_X_CORE_X_CONCEPTS_HPP

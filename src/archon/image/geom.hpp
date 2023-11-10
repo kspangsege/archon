@@ -34,9 +34,12 @@ namespace archon::image {
 
 /// \{
 ///
-/// \brief Lorem ipsum.
+/// \brief Pixel geometry utility types.
 ///
-/// Lorem ipsum. Lorem ipsum.
+/// These types respectively represent a size in pixels, a position within a pixel
+/// coordinate system, and a rectangular area within a pixel coordinate system. See \ref
+/// util::pixel::Size, \ref util::pixel::Pos, and \ref util::pixel::Box for more
+/// information.
 ///
 using Size = util::pixel::Size;
 using Pos  = util::pixel::Pos;

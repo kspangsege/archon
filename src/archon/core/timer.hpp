@@ -41,7 +41,7 @@ namespace archon::core {
 ///
 /// \code{.cpp}
 ///
-///   Timer timer;
+///   archon::core::Timer timer;
 ///   // Do stuf here ...
 ///   std::cout << "Elapsed time: " << timer << "\n";
 ///
@@ -53,14 +53,14 @@ namespace archon::core {
 ///
 /// \code{.cpp}
 ///
-///   Timer timer;
+///   archon::core::Timer timer;
 ///   // Do stuf here ...
 ///   double time = timer.get_elapsed_time();
-///   std::cout << "Elapsed time: " << as_time(time) << "\n";
+///   std::cout << "Elapsed time: " << archon::core::as_time_a(time) << "\n";
 ///
 /// \endcode
 ///
-/// \sa \ref as_time().
+/// \sa \ref core::as_time_a().
 ///
 class Timer {
 public:
@@ -185,10 +185,10 @@ private:
 /// \brief Write elapsed time to output stream.
 ///
 /// This function first requests the amount of elapsed time by calling \ref
-/// Timer::get_elapsed_time(), then it uses \ref as_time() to write the formatted time to
-/// the specified output stream.
+/// core::Timer::get_elapsed_time(), then it uses \ref core::as_time_a() to write the
+/// formatted time to the specified output stream.
 ///
-template<class C, class T> auto operator<<(std::basic_ostream<C, T>&, const Timer&) -> std::basic_ostream<C, T>&;
+template<class C, class T> auto operator<<(std::basic_ostream<C, T>&, const core::Timer&) -> std::basic_ostream<C, T>&;
 
 
 
@@ -225,9 +225,9 @@ inline Timer::Init::Init() noexcept
 
 
 template<class C, class T> inline auto operator<<(std::basic_ostream<C, T>& out,
-                                                  const Timer& timer) -> std::basic_ostream<C, T>&
+                                                  const core::Timer& timer) -> std::basic_ostream<C, T>&
 {
-    out << core::as_time(timer.get_elapsed_time()); // Throws
+    out << core::as_time_a(timer.get_elapsed_time()); // Throws
     return out;
 }
 

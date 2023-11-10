@@ -32,6 +32,7 @@
 #include <utility>
 #include <array>
 #include <stdexcept>
+#include <chrono>
 #include <ios>
 #include <ostream>
 
@@ -47,6 +48,18 @@
 
 
 namespace archon::core {
+
+
+
+/// \brief Format an optional value.
+///
+/// This function returns an object that, if written to an output stream, formats the
+/// specified optional value (\p value) onto that output stream. If the value is present,
+/// the formatted value is the same as it would be if that value was formatted directly. If
+/// the value is absent, the formatted value will be the specified "absent" text (\p
+/// absent_text).
+///
+template<class T> auto as_optional(const std::optional<T>& value, const char* absent_text) noexcept;
 
 
 
@@ -114,18 +127,30 @@ template<class T> auto as_percent(T val, int num_decimals = 0);
 
 
 
+/// \brief Format an amount of time (alternate version).
+///
+/// This function is a shortcut for `core::as_time_a(value)` where `value` is
+/// `std::chrono::duration<double>(duration).count())`.
+///
+/// \sa \ref as_time_a()
+///
+template<class R, class P> auto as_time(std::chrono::duration<R, P> duration);
+
+
+
 /// \brief Format an amount of time.
 ///
 /// Construct an object that, if written to an output stream, formats an amount of time
 /// using various forms depending on magnitude. The time is specified as a number of
 /// seconds. If the time is less than a minute, it will be formatted as if by
-/// `as_quant(value, "s")`. Otherwise, if it is less than an our, it will be formatted as
+/// `as_quant(value, "s")`. Otherwise, if it is less than an hour, it will be formatted as
 /// "minutes and seconds", such as in `3m17s`. Otherwise, it will be formatted as "hours and
 /// minutes", such as in `9h41m`.
 ///
 /// \sa \ref as_quant()
+/// \sa \ref as_time()
 ///
-template<class T> auto as_time(double value) noexcept;
+auto as_time_a(double value) noexcept;
 
 
 
@@ -258,6 +283,12 @@ template<class F> auto as_format_func(F func);
 namespace impl {
 
 
+template<class T> struct AsOptional {
+    const std::optional<T>* value;
+    const char* absent_text;
+};
+
+
 template<class T> struct AsOrdinal {
     T value;
 };
@@ -305,6 +336,12 @@ template<class F> struct AsFormatFunc {
 } // namespace impl
 
 
+template<class T> inline auto as_optional(const std::optional<T>& value, const char* absent_text) noexcept
+{
+    return impl::AsOptional<T> { &value, absent_text };
+}
+
+
 template<class T> inline auto as_ordinal(T value) noexcept
 {
     static_assert(core::is_integer<T>());
@@ -328,7 +365,13 @@ template<class T> inline auto as_percent(T value, int num_decimals)
 }
 
 
-inline auto as_time(double value) noexcept
+template<class R, class P> inline auto as_time(std::chrono::duration<R, P> duration)
+{
+    return impl::AsTime { std::chrono::duration<double>(duration).count() }; // Throws
+}
+
+
+inline auto as_time_a(double value) noexcept
 {
     return impl::AsTime { value };
 }
@@ -376,6 +419,15 @@ namespace impl {
 constexpr double as_quant_limit() noexcept
 {
     return 999.5;
+}
+
+
+template<class C, class T, class U>
+auto operator<<(std::basic_ostream<C, T>& out, const impl::AsOptional<U>& pod) -> std::basic_ostream<C, T>&
+{
+    if (pod.value->has_value())
+        return out << pod.value->value(); // Throws
+    return out << pod.absent_text; // Throws
 }
 
 

@@ -41,10 +41,11 @@ namespace archon::util {
 
 /// \brief Format and parse colors according to CSS syntax.
 ///
-/// The specified color must be an object of type \ref util::Color. If a reference to a
-/// non-const color object is specfied, the object returned by `as_css_color()` can be used
-/// both for formatting (passed to stream output operator) and for parsing (passed to \ref
-/// BasicValueParser::parse()).
+/// This function can be used to format and parse colors of type \ref util::Color.
+///
+/// The function returns an object that, if written to an output stream, formats the
+/// specified color, and if passed to a value parser, parses a color and assigns it to the
+/// specified color object. Parsing is available only if the passed reference is non-const.
 ///
 /// Actual formatting and parsing is delegated to \ref util::CssColor. When formatting, if
 /// the color is equal to a named color, the result is that name; otherwise, if the color is

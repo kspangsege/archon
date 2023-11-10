@@ -35,7 +35,7 @@ namespace archon::display {
 /// If enabled at build time, this function returns the display implmentation that is based
 /// on the Simple DirectMedia Layer (SDL). If disabled at compile time, it returns a
 /// degenerate implementation where \ref display::Implementation::is_available() returns
-/// `false` regardless of specified mandates.
+/// `false` regardless of the specified guarantees (\ref display::Guarantees).
 ///
 /// \sa https://www.libsdl.org
 ///

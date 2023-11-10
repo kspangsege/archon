@@ -145,14 +145,6 @@ private:
 
 
 
-/// \brief 
-///
-///    
-///
-template<class D> auto as_css_color(D&& color);
-
-
-
 
 
 

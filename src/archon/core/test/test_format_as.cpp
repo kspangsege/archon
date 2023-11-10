@@ -42,6 +42,25 @@ ARCHON_TEST_VARIANTS(variants,
 } // unnamed namespace
 
 
+ARCHON_TEST_BATCH(Core_FormatAs_Optional, variants)
+{
+    using value_formatter_type = test_type;
+    using char_type   = typename value_formatter_type::char_type;
+    using traits_type = typename value_formatter_type::traits_type;
+    using string_widener_type = core::BasicStringWidener<char_type, traits_type>;
+
+    std::array<char_type, 16> seed_memory_1;
+    value_formatter_type formatter(seed_memory_1, test_context.locale);
+    std::array<char_type, 16> seed_memory_2;
+    string_widener_type widener(test_context.locale, seed_memory_2);
+
+    ARCHON_CHECK_EQUAL(formatter.format(core::as_optional(std::optional<int>(7), "unknown")),
+                       widener.widen("7"));
+    ARCHON_CHECK_EQUAL(formatter.format(core::as_optional(std::optional<int>(), "unknown")),
+                       widener.widen("unknown"));
+}
+
+
 ARCHON_TEST_BATCH(Core_FormatAs_Ordinal, variants)
 {
     using value_formatter_type = test_type;
@@ -116,6 +135,33 @@ ARCHON_TEST_BATCH(Core_FormatAs_Percent, variants)
 }
 
 
+ARCHON_TEST_BATCH(Core_FormatAs_TimeA, variants)
+{
+    using value_formatter_type = test_type;
+    using char_type   = typename value_formatter_type::char_type;
+    using traits_type = typename value_formatter_type::traits_type;
+    using string_widener_type = core::BasicStringWidener<char_type, traits_type>;
+
+    std::array<char_type, 12> seed_memory_1;
+    value_formatter_type formatter(seed_memory_1, test_context.locale);
+    std::array<char_type, 12> seed_memory_2;
+    string_widener_type widener(test_context.locale, seed_memory_2);
+
+    ARCHON_CHECK_EQUAL(formatter.format(core::as_time_a(7)),
+                       widener.widen("7s"));
+    ARCHON_CHECK_EQUAL(formatter.format(core::with_width(core::as_time_a(7), 4)),
+                       widener.widen("  7s"));
+    ARCHON_CHECK_EQUAL(formatter.format(core::as_time_a(427)),
+                       widener.widen("7m7s"));
+    ARCHON_CHECK_EQUAL(formatter.format(core::with_width(core::as_time_a(427), 6)),
+                       widener.widen("  7m7s"));
+    ARCHON_CHECK_EQUAL(formatter.format(core::as_time_a(25627)),
+                       widener.widen("7h7m"));
+    ARCHON_CHECK_EQUAL(formatter.format(core::with_width(core::as_time_a(25627), 6)),
+                       widener.widen("  7h7m"));
+}
+
+
 ARCHON_TEST_BATCH(Core_FormatAs_Time, variants)
 {
     using value_formatter_type = test_type;
@@ -123,23 +169,16 @@ ARCHON_TEST_BATCH(Core_FormatAs_Time, variants)
     using traits_type = typename value_formatter_type::traits_type;
     using string_widener_type = core::BasicStringWidener<char_type, traits_type>;
 
-    std::array<char_type, 8> seed_memory_1;
+    std::array<char_type, 12> seed_memory_1;
     value_formatter_type formatter(seed_memory_1, test_context.locale);
-    std::array<char_type, 8> seed_memory_2;
+    std::array<char_type, 12> seed_memory_2;
     string_widener_type widener(test_context.locale, seed_memory_2);
 
-    ARCHON_CHECK_EQUAL(formatter.format(core::as_time(7)),
-                       widener.widen("7s"));
-    ARCHON_CHECK_EQUAL(formatter.format(core::with_width(core::as_time(7), 4)),
-                       widener.widen("  7s"));
-    ARCHON_CHECK_EQUAL(formatter.format(core::as_time(427)),
-                       widener.widen("7m7s"));
-    ARCHON_CHECK_EQUAL(formatter.format(core::with_width(core::as_time(427), 6)),
-                       widener.widen("  7m7s"));
-    ARCHON_CHECK_EQUAL(formatter.format(core::as_time(25627)),
-                       widener.widen("7h7m"));
-    ARCHON_CHECK_EQUAL(formatter.format(core::with_width(core::as_time(25627), 6)),
-                       widener.widen("  7h7m"));
+    using namespace std::chrono_literals;
+    ARCHON_CHECK_EQUAL(formatter.format(core::as_time(3ms)), widener.widen("3ms"));
+    ARCHON_CHECK_EQUAL(formatter.format(core::as_time(4s)), widener.widen("4s"));
+    ARCHON_CHECK_EQUAL(formatter.format(core::as_time(5min)), widener.widen("5m0s"));
+    ARCHON_CHECK_EQUAL(formatter.format(core::as_time(6h)), widener.widen("6h0m"));
 }
 
 

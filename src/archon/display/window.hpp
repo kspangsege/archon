@@ -27,7 +27,8 @@
 #include <memory>
 #include <string_view>
 
-#include <archon/display/types.hpp>
+#include <archon/util/color.hpp>
+#include <archon/display/geometry.hpp>
 #include <archon/display/texture.hpp>
 
 
@@ -46,7 +47,7 @@ public:
     ///
     /// \brief Show or hide window.
     ///
-    /// A window is either in the "hiden" or in the "unhidden" state. `show()` puts the
+    /// A window is either in the "hidden" or in the "unhidden" state. `show()` puts the
     /// window into the "unhidden" state. `hide()` puts the window into the "hidden" state.
     ///
     /// When the window is in the "unhidden" state, `show()` has no effect. When the window
@@ -63,11 +64,32 @@ public:
     /// This function changes the title in the title bar of this window to the specified
     /// string (\p title).
     ///
-    /// \note This method is thread-safe.                                   
-    ///
     /// FIXME: Is this specified using a UTF-8 encoded string?                                   
     ///
     virtual void set_title(std::string_view title) = 0;
+
+    /// \brief Resize window.
+    ///
+    /// This function resizes the window to the specified size (\p size). This will cause a
+    /// "resize" event to be generated (\ref display::WindowEventHandler::on_resize()).
+    ///
+    virtual void set_size(display::Size size) = 0;
+
+    /// \brief Turn fullscreen mode on or off.
+    ///
+    /// This function turns fullscreen mode on or off for the window.
+    ///
+    /// More than one window can be in fullscreen mode at the same time, but the exact
+    /// behavior depends on the implementation and the underlying platform.
+    ///
+    virtual void set_fullscreen_mode(bool on) = 0;
+
+    /// \brief Fill window with color.
+    ///
+    /// This function fills the window with the specified color. Call \ref present() to
+    /// present the result.
+    ///
+    virtual void fill(util::Color color) = 0;
 
     /// \brief     
     ///
@@ -89,7 +111,7 @@ public:
 
     /// \brief Bind OpenGL context of this window to the calling thread.
     ///
-    /// This window is associated with an OpenGL rendering context. This function binds the
+    /// Every window is associated with an OpenGL rendering context. This function binds the
     /// calling thread to that rendering context, such that OpenGL rendering performed by
     /// the calling thread is directed at this window. On an X11 platform, this corresponds
     /// to `glXMakeCurrent()`.
@@ -112,11 +134,26 @@ public:
 /// These are the available parameters for configuring a window.
 ///
 struct Window::Config {
-    /// \brief    
+    /// \brief Cookie value to be passed to window event handlers.
     ///
-    /// FIXME: Explain cookie (identify origin window when multiple windows use same event handler)      
+    /// The value specified here will be passed faithfully by the event processor (\ref
+    /// display::Connection::process_events()) to all handlers of events that originate from
+    /// a window that was created using this configuration. See also \ref
+    /// display::WindowEvent::cookie.
     ///
     int cookie = 0;
+
+    /// \brief Allow for window to be resized.
+    ///
+    /// If set to `true`, the window will be made resizable.
+    ///
+    bool resizable = false;
+
+    /// \brief start out in fullscreen mode.
+    ///
+    /// If set to `true`, the window will start out in fullscreen mode.
+    ///
+    bool fullscreen = false;
 
     /// \brief Enable OpenGL rendering.
     ///

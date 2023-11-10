@@ -14,8 +14,13 @@ target_link_libraries(ProbeX11 PUBLIC
 )
 
 if (X11_FOUND)
-  target_include_directories(ProbeX11 PRIVATE ${X11_INCLUDE_DIR})
-  target_link_libraries(ProbeX11 PRIVATE ${X11_LIBRARIES})
+  target_link_libraries(ProbeX11 PRIVATE X11::X11)
+  if (X11_Xrender_FOUND)
+    target_link_libraries(ProbeX11 PRIVATE X11::Xrender)
+  endif()
+  if (X11_Xrandr_FOUND)
+    target_link_libraries(ProbeX11 PRIVATE X11::Xrandr)
+  endif()
 endif()
 
 add_executable(ProbeSDL

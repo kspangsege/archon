@@ -46,9 +46,11 @@ target_sources(Core PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "${
   "${CMAKE_CURRENT_BINARY_DIR}/archon/core/impl/config.h"
   archon/core/features.h
   archon/core/archon_version.hpp
+  archon/core/pair.hpp
   archon/core/span.hpp
   archon/core/type_list.hpp
   archon/core/type.hpp
+  archon/core/concepts.hpp
   archon/core/demangle.hpp
   archon/core/formattable_value_ref.hpp
   archon/core/terminate.hpp

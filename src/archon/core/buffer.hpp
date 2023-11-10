@@ -126,6 +126,10 @@ public:
     /// `reserve(used_size + min_extra_size, used_size, max_size)`, except that, if the sum
     /// overflows, this function throws `std::length_error`.
     ///
+    /// This function offers a strong exception guarantee, which means that if it fails,
+    /// which it does when it thrown an exception, then the buffer is left unchanged (both
+    /// buffer address and contents remain unchanged).
+    ///
     void reserve_extra(std::size_t min_extra_size, std::size_t used_size, std::size_t max_size = -1);
 
     /// \brief Ensure buffer capacity.
@@ -141,7 +145,28 @@ public:
     ///
     /// \endcode
     ///
+    /// This function offers a strong exception guarantee, which means that if it fails,
+    /// which it does when it thrown an exception, then the buffer is left unchanged (both
+    /// buffer address and contents remain unchanged).
+    ///
     void reserve(std::size_t min_size, std::size_t used_size = 0, std::size_t max_size = -1);
+
+    /// \brief Ensure capacity and perform custom operation when memory is re-allocated.
+    ///
+    /// This function performs the same operation as \ref reserve(), except that when new
+    /// memory is allocated, the specified function (\p func) is called before the buffer
+    /// contents is copied to the new memory location. The specified function will be called
+    /// with one argument of type `span_type` referring to the new memory. The old memory is
+    /// available to the function through \ref data() and \ref size(). The specified
+    /// function is not allowed to modify the buffer object, nor the contents of the
+    /// buffer. If the specified function throws, the reserve operation fails and leaves the
+    /// buffer unchanged.
+    ///
+    /// This function offers a strong exception guarantee, which means that if it fails,
+    /// which it does when it thrown an exception, then the buffer is left unchanged (both
+    /// buffer address and contents remain unchanged).
+    ///
+    template<class F> void reserve_f(std::size_t min_size, std::size_t used_size, F&& func, std::size_t max_size = -1);
 
     /// \brief Expand buffer.
     ///
@@ -149,6 +174,10 @@ public:
     /// `buffer.expand(min_extra_size, used_size, max_size)` has the same effect as
     /// `buffer.reserve(buffer.size() + min_extra_size, used_size, max_size)`, except that,
     /// if the sum overflows, this function throws `std::length_error`.
+    ///
+    /// This function offers a strong exception guarantee, which means that if it fails,
+    /// which it does when it thrown an exception, then the buffer is left unchanged (both
+    /// buffer address and contents remain unchanged).
     ///
     void expand(std::size_t min_extra_size, std::size_t used_size, std::size_t max_size = -1);
 
@@ -159,6 +188,10 @@ public:
     /// `reserve_extra_a(min_extra_size, used_size, copy_func, max_size)` has the same
     /// effect as `reserve_a(used_size + min_extra_size, used_size, copy_func, max_size)`,
     /// except that, if the sum overflows, this function throws `std::length_error`.
+    ///
+    /// This function offers a strong exception guarantee, which means that if it fails,
+    /// which it does when it thrown an exception, then the buffer is left unchanged (both
+    /// buffer address and contents remain unchanged).
     ///
     template<class F> void reserve_extra_a(std::size_t min_extra_size, std::size_t used_size, F&& copy_func,
                                            std::size_t max_size = -1);
@@ -174,11 +207,16 @@ public:
     /// invoked with one argument of type `span_type` referring to the new memory chunk. The
     /// address and size of the old memory chunk is available as \ref data() and \ref size()
     /// respectively. The new memory chunk will never be smaller than that old one. The copy
-    /// function will be invoked at most once. If the copy function throws, the reservation
-    /// operation fails and leaves the buffer unchanged. After a return from the copy
-    /// function, `reserve_a()` is guaranteed to succeed. The new buffer size is determined
-    /// as if by `core::suggest_new_buffer_size(size(), min_size, max_size)` (see \ref
-    /// core::suggest_new_buffer_size()).
+    /// function will be invoked at most once. The copy function is not allowed to modify
+    /// the buffer object, nor the contents of the buffer. If the copy function throws, the
+    /// reservation operation fails and leaves the buffer unchanged. After a return from the
+    /// copy function, `reserve_a()` is guaranteed to succeed. The new buffer size is
+    /// determined as if by `core::suggest_new_buffer_size(size(), min_size, max_size)` (see
+    /// \ref core::suggest_new_buffer_size()).
+    ///
+    /// This function offers a strong exception guarantee, which means that if it fails,
+    /// which it does when it thrown an exception, then the buffer is left unchanged (both
+    /// buffer address and contents remain unchanged).
     ///
     template<class F> void reserve_a(std::size_t min_size, F&& copy_func, std::size_t max_size = -1);
 
@@ -515,7 +553,7 @@ template<class T>
 inline void Buffer<T>::reserve_extra(std::size_t min_extra_size, std::size_t used_size, std::size_t max_size)
 {
     reserve_extra_a(min_extra_size, used_size, [&](span_type new_mem) noexcept {
-        std::copy_n(data(), used_size, new_mem.data());
+        std::copy_n(data(), used_size, new_mem.data()); // Throws
     }, max_size); // Throws
 }
 
@@ -524,7 +562,18 @@ template<class T>
 inline void Buffer<T>::reserve(std::size_t min_size, std::size_t used_size, std::size_t max_size)
 {
     reserve_a(min_size, [&](span_type new_mem) noexcept {
-        std::copy_n(data(), used_size, new_mem.data());
+        std::copy_n(data(), used_size, new_mem.data()); // Throws
+    }, max_size); // Throws
+}
+
+
+template<class T>
+template<class F> inline void Buffer<T>::reserve_f(std::size_t min_size, std::size_t used_size, F&& func,
+                                                   std::size_t max_size)
+{
+    reserve_a(min_size, [&](span_type new_mem) noexcept {
+        func(new_mem); // Throws
+        std::copy_n(data(), used_size, new_mem.data()); // Throws
     }, max_size); // Throws
 }
 
@@ -533,7 +582,7 @@ template<class T>
 inline void Buffer<T>::expand(std::size_t min_extra_size, std::size_t used_size, std::size_t max_size)
 {
     reserve_extra_a(min_extra_size, size(), [&](span_type new_mem) noexcept {
-        std::copy_n(data(), used_size, new_mem.data());
+        std::copy_n(data(), used_size, new_mem.data()); // Throws
     }, max_size); // Throws
 }
 
@@ -616,10 +665,8 @@ template<class T>
 template<class F>
 void Buffer<T>::do_reserve(std::size_t min_size, std::size_t min_extra_size, F&& copy_func, std::size_t max_size)
 {
-    if (ARCHON_LIKELY(min_size <= max_size &&
-                      min_extra_size <= std::size_t(max_size - min_size))) {
-        std::size_t new_size =
-            core::suggest_new_buffer_size(m_memory.size(), min_size + min_extra_size, max_size);
+    if (ARCHON_LIKELY(min_size <= max_size && min_extra_size <= std::size_t(max_size - min_size))) {
+        std::size_t new_size = core::suggest_new_buffer_size(m_memory.size(), min_size + min_extra_size, max_size);
         std::unique_ptr<T[]> new_memory_owner = std::make_unique<T[]>(new_size); // Throws
         span_type new_memory = { new_memory_owner.get(), new_size };
         copy_func(new_memory); // Throws

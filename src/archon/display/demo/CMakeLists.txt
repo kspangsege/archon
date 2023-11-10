@@ -13,3 +13,19 @@ target_link_libraries(ImageViewer PUBLIC
   Image
   Display
 )
+
+
+add_executable(MultipleWindows
+  multiple_windows.cpp
+)
+
+set_target_properties(MultipleWindows PROPERTIES
+  OUTPUT_NAME "archon-multiple-windows"
+)
+
+target_link_libraries(MultipleWindows PUBLIC
+  Core
+  Log
+  Cli
+  Display
+)

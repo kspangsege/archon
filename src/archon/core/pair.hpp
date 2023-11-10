@@ -1,6 +1,6 @@
 // This file is part of the Archon project, a suite of C++ libraries.
 //
-// Copyright (C) 2022 Kristian Spangsege <kristian.spangsege@gmail.com>
+// Copyright (C) 2023 Kristian Spangsege <kristian.spangsege@gmail.com>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this
 // software and associated documentation files (the "Software"), to deal in the Software
@@ -18,28 +18,51 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
+#ifndef ARCHON_X_CORE_X_PAIR_HPP
+#define ARCHON_X_CORE_X_PAIR_HPP
 
-// Do not include this header file. It exists only to specify the canonical header order,
-// which is a topological dependency ordering of all the header files of the Archon Core
-// Library, including any that must never be included by applications.
-#error "Do not include this header file"
+/// \file
 
 
-#include <archon/display/display_namespace.hpp>
-#include <archon/display/impl/config.h>
-#include <archon/display/implementation_fwd.hpp>
-#include <archon/display/geometry.hpp>
-#include <archon/display/key.hpp>
-#include <archon/display/key_code.hpp>
-#include <archon/display/mouse_button.hpp>
-#include <archon/display/event.hpp>
-#include <archon/display/event_handler.hpp>
-#include <archon/display/resolution.hpp>
-#include <archon/display/screen.hpp>
-#include <archon/display/guarantees.hpp>
-#include <archon/display/texture.hpp>
-#include <archon/display/window.hpp>
-#include <archon/display/connection.hpp>
-#include <archon/display/implementation.hpp>
-#include <archon/display/implementation_sdl.hpp>
-#include <archon/display/as_key_name.hpp>
+namespace archon::core {
+
+
+/// \brief Pair concept with strong exception guarantees.
+///
+/// This class serves purposes similar to that of std::pair but provides stronger exception
+/// guarantees.
+///
+template<class T, class U> struct Pair {
+    T first;
+    U second;
+
+    /// \brief Comparison operator.
+    ///
+    /// This operator compares the two pairs. It allows for pairs to be sorted, and to be
+    /// used as keys in maps.
+    ///
+    constexpr bool operator<(const Pair& other) const noexcept;
+};
+
+
+
+
+
+
+
+
+// Implementation
+
+
+template<class T, class U> constexpr bool Pair<T, U>::operator<(const Pair& other) const noexcept
+{
+    static_assert(noexcept(first < other.first));
+    static_assert(noexcept(first == other.first));
+    static_assert(noexcept(second < other.second));
+    return (first < other.first || (first == other.first && second < other.second));
+}
+
+
+} // namespace archon::core
+
+#endif // ARCHON_X_CORE_X_PAIR_HPP

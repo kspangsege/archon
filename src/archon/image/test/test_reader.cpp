@@ -112,7 +112,7 @@ ARCHON_TEST_BATCH(Image_Reader_GetBlock_ShortCircuitSameFormat, channel_spec_var
 }
 
 
-ARCHON_TEST_BATCH(Image_Reader_GetBlock_ShortCircuirAddAlpha, color_space_variants)
+ARCHON_TEST_BATCH(Image_Reader_GetBlock_ShortCircuitAddAlpha, color_space_variants)
 {
     constexpr image::ColorSpace::Tag color_space_tag = test_value;
     constexpr bool has_alpha_1 = false;

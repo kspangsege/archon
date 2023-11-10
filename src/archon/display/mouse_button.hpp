@@ -18,28 +18,54 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
+#ifndef ARCHON_X_DISPLAY_X_MOUSE_BUTTON_HPP
+#define ARCHON_X_DISPLAY_X_MOUSE_BUTTON_HPP
 
-// Do not include this header file. It exists only to specify the canonical header order,
-// which is a topological dependency ordering of all the header files of the Archon Core
-// Library, including any that must never be included by applications.
-#error "Do not include this header file"
+/// \file
 
 
-#include <archon/display/display_namespace.hpp>
-#include <archon/display/impl/config.h>
-#include <archon/display/implementation_fwd.hpp>
-#include <archon/display/geometry.hpp>
-#include <archon/display/key.hpp>
-#include <archon/display/key_code.hpp>
-#include <archon/display/mouse_button.hpp>
-#include <archon/display/event.hpp>
-#include <archon/display/event_handler.hpp>
-#include <archon/display/resolution.hpp>
-#include <archon/display/screen.hpp>
-#include <archon/display/guarantees.hpp>
-#include <archon/display/texture.hpp>
-#include <archon/display/window.hpp>
-#include <archon/display/connection.hpp>
-#include <archon/display/implementation.hpp>
-#include <archon/display/implementation_sdl.hpp>
-#include <archon/display/as_key_name.hpp>
+#include <archon/core/enum.hpp>
+
+
+namespace archon::display {
+
+
+/// \brief Mouse buttons.
+///
+/// These are the mouse buttons recognized by the Archon Display Library.
+///
+/// A specialization of \ref core::EnumTraits is provided, making stream input and output
+/// readily available.
+///
+/// \sa \ref display::MouseButtonEvent
+///
+enum class MouseButton {
+    left,
+    middle,
+    right,
+    x1,
+    x2,
+};
+
+
+} // namespace archon::display
+
+namespace archon::core {
+
+template<> struct EnumTraits<display::MouseButton> {
+    static constexpr bool is_specialized = true;
+    struct Spec {
+        static constexpr core::EnumAssoc map[] = {
+            { int(display::MouseButton::left),   "left"   },
+            { int(display::MouseButton::middle), "middle" },
+            { int(display::MouseButton::right),  "right"  },
+            { int(display::MouseButton::x1),     "x1"     },
+            { int(display::MouseButton::x2),     "x2"     },
+        };
+    };
+    static constexpr bool ignore_case = true;
+};
+
+} // namespace archon::core
+
+#endif // ARCHON_X_DISPLAY_X_MOUSE_BUTTON_HPP

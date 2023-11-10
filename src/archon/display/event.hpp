@@ -26,74 +26,149 @@
 
 #include <chrono>
 
+#include <archon/math/vector.hpp>
+#include <archon/display/geometry.hpp>
+#include <archon/display/key_code.hpp>
+#include <archon/display/mouse_button.hpp>
+
 
 namespace archon::display {
 
 
-/// \brief    
+/// \brief Common base for all window-specific events.
 ///
-/// The base class for all event objects. Event objects are created internally in the event                       
-/// processor and passed as arguments to your event handler methods. Most event object types
-/// are derivatives of this class, but a few use this class directly.
+/// This is a common base for all window-specific types of events.
 ///
-/// \sa \ref display::TimedEvent
+/// \sa \ref display::TimedWindowEvent
 ///
-struct Event {
-    /// \brief    
+struct WindowEvent {
+    /// \brief General purpose context value useful as window identifier.
     ///
-    /// This attribute is supposed to identify the source window of this event. It will                              
-    /// carry the value that you specified when you registered the window that generated
-    /// this event. This library will not interpret this value in any way. It is entirely up
-    /// to you to decide how to utilize it, if you need to.
+    /// This general purpose field can be used to identify the window from which the event
+    /// originated. It will carry the value that was specified when the origin window was
+    /// created (\ref display::Window::Config::cookie). The display library will not
+    /// interpret this value in any way at all.
     ///
     int cookie;
 };
 
 
 
-/// \brief    
+/// \brief Common base for events carrying timestamps.
 ///
-/// This event type is used for events that carry a time-stamp indicating when the event
-/// occured relative to other timed events. Note that the timestampts are not necessarily
-/// UNIX Epoch based.
+/// This is a common base for those types of events that carry a timestamp. Examples are
+/// \ref display::KeyEvent and \ref display::MouseEvent.
 ///
-/// \sa \ref display::KeyEvent
-///
-struct TimedEvent : display::Event {
+struct TimedWindowEvent : display::WindowEvent {
+    /// \brief Type used for timestamps.
+    ///
+    /// This is the type used for timestamps (\ref timestamp).
+    ///
     using Timestamp = std::chrono::milliseconds;
 
-    /// \brief    
+    /// \brief Time of event.
     ///
-    /// The point in time where the event occurred relative to a fixed, but arbitrary origin
-    /// (epoch). Note that the origin is not necessarily, and most likely not equal to the
+    /// The point in time where the event occurred relative to a fixed, but arbitrary
+    /// origin. Note that the origin is not necessarily, and most likely not equal to the
     /// beginning of the UNIX Epoch. For this reason, these timestamps can only be used for
-    /// measuring time between events. All timestamps will be nonnegative.
+    /// measuring time between events. All timestamps will be non-negative.
     ///
     Timestamp timestamp;
 };
 
 
 
-/// \brief    
+/// \brief When keyboard key is pressed or released.
 ///
-/// This event type is generated whenever a key is pressed down or released. It is generated
-/// in the context of the window that is in focus when the event occurs.
+/// This type of event is generated whenever a key on the keyboard is pressed down or
+/// released. It is generated in the context of the window that is in focus when the event
+/// occurs.
 ///
-/// \sa \ref display::EventHandler::on_keydown()
-/// \sa \ref display::EventHandler::on_keyup()
+/// \sa \ref display::WindowEventHandler::on_keydown()
+/// \sa \ref display::WindowEventHandler::on_keyup()
 ///
-struct KeyEvent : display::TimedEvent {
-    /// \brief    
+struct KeyEvent : display::TimedWindowEvent {
+    /// \brief The key that was pressed or released.
     ///
-    ///    
+    /// This key code identifies the key that was pressed or released.
     ///
-    using KeySym = int;
+    display::KeyCode key_code;
+};
 
-    /// \brief    
+
+
+/// \brief When mouse moves or mouse button is pressed or released.
+///
+/// This type of event is generated both when the mouse moves and when a mouse button is
+/// pressed or released. In the case of button activity, the actual event type will be \ref
+/// display::MouseButtonEvent.
+///
+/// \sa \ref display::WindowEventHandler::on_mousemove()
+/// \sa \ref display::MouseButtonEvent
+///
+struct MouseEvent : display::TimedWindowEvent {
+    /// \brief Position of mouse.
     ///
-    ///    
+    /// This is the position of the mouse at the time that the event was generated. The
+    /// position is relative to the top-left corner of the screen.
     ///
-    KeySym key_sym;
+    display::Pos pos;
+};
+
+
+
+/// \brief When mouse button is pressed or released.
+///
+/// This type of event is generated both when a mouse button is pressed or released.
+///
+/// \sa \ref display::WindowEventHandler::on_mousedown()
+/// \sa \ref display::WindowEventHandler::on_mouseup()
+///
+struct MouseButtonEvent : display::MouseEvent {
+    /// \brief Concerned mouse button.
+    ///
+    /// This value specifies which mouse button the event concerns.
+    ///
+    display::MouseButton button;
+};
+
+
+
+/// \brief When scroll wheel is moved.
+///
+/// This type of event is generated when the scroll wheel is moved.
+///
+/// \sa \ref display::WindowEventHandler::on_scroll()
+///
+struct ScrollEvent : display::TimedWindowEvent {
+    /// \brief Amount of scroll wheel motion.
+    ///
+    /// This is the amount of the motion of the scroll wheel. A positive Y-coordinate
+    /// corresponds to an upwards scroll, i.e., towards the top of the scrolled
+    /// medium. Likewise, a positive X-coordinate corresponds to a rightwards scroll, i.e.,
+    /// towards the right side the scrolled medium.
+    ///
+    /// When the scroll wheel turns in discrete steps (detents), the unit of motion is
+    /// generally one such step. When the scroll wheel turns freely, the unit is generally
+    /// chosen to match that of a wheel that turns in discrete steps.
+    ///
+    math::Vector2F amount;
+};
+
+
+
+/// \brief When a window is resized.
+///
+/// This type of event is generated when a window changes size.
+///
+/// \sa \ref display::WindowEventHandler::on_resize()
+///
+struct WindowSizeEvent : display::WindowEvent {
+    /// \brief Size of window.
+    ///
+    /// This is the size of the window at the time the event was generated.
+    ///
+    display::Size size;
 };
 
 

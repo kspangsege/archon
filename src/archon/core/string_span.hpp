@@ -59,6 +59,8 @@ public:
 
     constexpr StringSpan(const C* data, std::size_t size) noexcept;
 
+    constexpr StringSpan(const C* begin, const C* end) noexcept;
+
     template<class D, class = decltype(std::declval<D>().data() + std::declval<D>().size())>
     constexpr StringSpan(const D& container) noexcept(noexcept(container.data() + container.size()));
 };
@@ -76,6 +78,13 @@ public:
 template<class C>
 constexpr StringSpan<C>::StringSpan(const C* data, std::size_t size) noexcept
     : core::Span<const C>(data, size)
+{
+}
+
+
+template<class C>
+constexpr StringSpan<C>::StringSpan(const C* begin, const C* end) noexcept
+    : core::Span<const C>(begin, end)
 {
 }
 

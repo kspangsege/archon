@@ -18,42 +18,20 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-#ifndef ARCHON_X_DISPLAY_X_TYPES_HPP
-#define ARCHON_X_DISPLAY_X_TYPES_HPP
+#ifndef ARCHON_X_DISPLAY_X_RESOLUTION_HPP
+#define ARCHON_X_DISPLAY_X_RESOLUTION_HPP
 
 /// \file
 
 
 #include <ostream>
 
+#include <archon/core/features.h>
 #include <archon/core/format.hpp>
 #include <archon/core/with_modified_locale.hpp>
-#include <archon/image/geom.hpp>
 
 
 namespace archon::display {
-
-
-/// \brief    
-///
-///    
-///
-using Size = image::Size;
-
-
-/// \brief    
-///
-///    
-///
-using Pos = image::Pos;
-
-
-/// \brief    
-///
-///    
-///
-using Box = image::Box;
-
 
 
 /// \brief Horizontal and vertical screen resolution.
@@ -79,10 +57,26 @@ struct Resolution {
     /// This field specifies the number of pixels per centimeter in the vertical direction.
     ///
     double vert_ppcm;
+
+    /// \{
+    ///
+    /// \brief Compare two resolutions.
+    ///
+    /// These operators compare this resolution with the specified one (\p
+    /// other). Comparison happens lexicographically on \ref horz_ppcm followed by \ref
+    /// vert_ppcm.
+    ///
+    constexpr bool operator==(const Resolution& other) const noexcept;
+    constexpr bool operator!=(const Resolution& other) const noexcept;
+    constexpr bool operator< (const Resolution& other) const noexcept;
+    constexpr bool operator<=(const Resolution& other) const noexcept;
+    constexpr bool operator> (const Resolution& other) const noexcept;
+    constexpr bool operator>=(const Resolution& other) const noexcept;
+    /// \}
 };
 
 
-template<class C, class T> auto operator<<(std::basic_ostream<C, T>&, display::Resolution) ->
+template<class C, class T> auto operator<<(std::basic_ostream<C, T>&, const display::Resolution&) ->
     std::basic_ostream<C, T>&;
 
 
@@ -95,14 +89,51 @@ template<class C, class T> auto operator<<(std::basic_ostream<C, T>&, display::R
 // Implementation
 
 
-template<class C, class T>
-inline auto operator<<(std::basic_ostream<C, T>& out, display::Resolution resl) -> std::basic_ostream<C, T>&
+constexpr bool Resolution::operator==(const Resolution& other) const noexcept
 {
-    out << core::with_reverted_numerics(core::formatted("%s,%s", resl.horz_ppcm, resl.vert_ppcm)); // Throws
-    return out;
+    return (horz_ppcm == other.horz_ppcm && vert_ppcm == other.vert_ppcm);
+}
+
+
+constexpr bool Resolution::operator!=(const Resolution& other) const noexcept
+{
+    return !(*this == other);
+}
+
+
+constexpr bool Resolution::operator<(const Resolution& other) const noexcept
+{
+    return (horz_ppcm < other.horz_ppcm || (horz_ppcm == other.horz_ppcm && vert_ppcm < other.vert_ppcm));
+}
+
+
+constexpr bool Resolution::operator<=(const Resolution& other) const noexcept
+{
+    return !(*this > other);
+}
+
+
+constexpr bool Resolution::operator>(const Resolution& other) const noexcept
+{
+    return (other < *this);
+}
+
+
+constexpr bool Resolution::operator>=(const Resolution& other) const noexcept
+{
+    return  !(*this < other);
+}
+
+
+template<class C, class T>
+inline auto operator<<(std::basic_ostream<C, T>& out, const display::Resolution& resl) -> std::basic_ostream<C, T>&
+{
+    if (ARCHON_LIKELY(resl.vert_ppcm == resl.horz_ppcm))
+        return out << core::with_reverted_numerics(resl.horz_ppcm); // Throws
+    return out << core::with_reverted_numerics(core::formatted("%s,%s", resl.horz_ppcm, resl.vert_ppcm)); // Throws
 }
 
 
 } // namespace archon::display
 
-#endif // ARCHON_X_DISPLAY_X_TYPES_HPP
+#endif // ARCHON_X_DISPLAY_X_RESOLUTION_HPP

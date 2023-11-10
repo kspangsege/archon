@@ -35,7 +35,13 @@
 namespace archon::core {
 
 
+/// \brief Buffer contents tracker.
 ///
+/// An object of this type is used to track the size of the contents in a particular buffer
+/// (\ref core::Buffer). It offers methods for appending to the contents and expanding the
+/// underlying buffer as necessary.
+///
+/// \sa \ref core::Buffer.
 /// \sa \ref core::StringBufferContents.
 ///
 template<class T> class BufferContents {

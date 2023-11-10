@@ -31,8 +31,57 @@ using namespace archon;
 ARCHON_TEST(Core_Math_DegreesToRadians)
 {
     double eps = std::numeric_limits<double>::epsilon();
-    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::deg_to_rad(0 * 90), 0 * core::pi<double> / 2, 10 * eps);
-    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::deg_to_rad(1 * 90), 1 * core::pi<double> / 2, 10 * eps);
-    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::deg_to_rad(2 * 90), 2 * core::pi<double> / 2, 10 * eps);
-    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::deg_to_rad(3 * 90), 3 * core::pi<double> / 2, 10 * eps);
+    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::deg_to_rad(0 * 45), 0 * core::pi<double> / 4, 10 * eps);
+    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::deg_to_rad(1 * 45), 1 * core::pi<double> / 4, 10 * eps);
+    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::deg_to_rad(2 * 45), 2 * core::pi<double> / 4, 10 * eps);
+    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::deg_to_rad(3 * 45), 3 * core::pi<double> / 4, 10 * eps);
+    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::deg_to_rad(4 * 45), 4 * core::pi<double> / 4, 10 * eps);
+    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::deg_to_rad(5 * 45), 5 * core::pi<double> / 4, 10 * eps);
+    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::deg_to_rad(6 * 45), 6 * core::pi<double> / 4, 10 * eps);
+    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::deg_to_rad(7 * 45), 7 * core::pi<double> / 4, 10 * eps);
+}
+
+
+ARCHON_TEST(Core_Math_RadiansToDegrees)
+{
+    auto test = [](check::TestContext& parent_test_context, double deg) {
+        ARCHON_TEST_TRAIL(parent_test_context, deg);
+        auto rad = core::deg_to_rad(deg);
+        double eps = std::numeric_limits<double>::epsilon();
+        ARCHON_CHECK_APPROXIMATELY_EQUAL(core::rad_to_deg(rad), deg, 10 * eps);
+    };
+    test(test_context, 0 * 45);
+    test(test_context, 1 * 45);
+    test(test_context, 2 * 45);
+    test(test_context, 3 * 45);
+    test(test_context, 4 * 45);
+    test(test_context, 5 * 45);
+    test(test_context, 6 * 45);
+    test(test_context, 7 * 45);
+}
+
+
+ARCHON_TEST(Core_Math_Lerp)
+{
+    double eps = std::numeric_limits<double>::epsilon();
+    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::lerp(-1, 5, -1 * 1.0 / 4), -1 + -1 * 6.0 / 4, 10 * eps);
+    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::lerp(-1, 5,  0 * 1.0 / 4), -1 +  0 * 6.0 / 4, 10 * eps);
+    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::lerp(-1, 5, +1 * 1.0 / 4), -1 + +1 * 6.0 / 4, 10 * eps);
+    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::lerp(-1, 5, +2 * 1.0 / 4), -1 + +2 * 6.0 / 4, 10 * eps);
+    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::lerp(-1, 5, +3 * 1.0 / 4), -1 + +3 * 6.0 / 4, 10 * eps);
+    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::lerp(-1, 5, +4 * 1.0 / 4), -1 + +4 * 6.0 / 4, 10 * eps);
+    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::lerp(-1, 5, +5 * 1.0 / 4), -1 + +5 * 6.0 / 4, 10 * eps);
+}
+
+
+ARCHON_TEST(Core_Math_LerpA)
+{
+    double eps = std::numeric_limits<double>::epsilon();
+    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::lerp_a(-3, -1, 1, 5, -3 + -1), -1 + -1 * 6.0 / 4, 10 * eps);
+    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::lerp_a(-3, -1, 1, 5, -3 +  0), -1 +  0 * 6.0 / 4, 10 * eps);
+    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::lerp_a(-3, -1, 1, 5, -3 + +1), -1 + +1 * 6.0 / 4, 10 * eps);
+    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::lerp_a(-3, -1, 1, 5, -3 + +2), -1 + +2 * 6.0 / 4, 10 * eps);
+    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::lerp_a(-3, -1, 1, 5, -3 + +3), -1 + +3 * 6.0 / 4, 10 * eps);
+    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::lerp_a(-3, -1, 1, 5, -3 + +4), -1 + +4 * 6.0 / 4, 10 * eps);
+    ARCHON_CHECK_APPROXIMATELY_EQUAL(core::lerp_a(-3, -1, 1, 5, -3 + +5), -1 + +5 * 6.0 / 4, 10 * eps);
 }

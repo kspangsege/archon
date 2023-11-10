@@ -40,6 +40,14 @@ public:
 };
 
 
+template<class E> class HashEnum {
+public:
+    using argument_type = E;
+
+    constexpr auto operator()(const argument_type& arg) const noexcept -> std::size_t;
+};
+
+
 
 
 
@@ -54,6 +62,15 @@ constexpr auto HashInt<T>::operator()(const argument_type& arg) const noexcept -
 {
     core::Hash_FNV_1a_32 hash;
     hash.add_int(arg);
+    return hash.get();
+}
+
+
+template<class E>
+constexpr auto HashEnum<E>::operator()(const argument_type& arg) const noexcept -> std::size_t
+{
+    core::Hash_FNV_1a_32 hash;
+    hash.add_int(std::underlying_type_t<E>(arg));
     return hash.get();
 }
 

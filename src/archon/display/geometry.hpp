@@ -18,28 +18,35 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
+#ifndef ARCHON_X_DISPLAY_X_GEOMETRY_HPP
+#define ARCHON_X_DISPLAY_X_GEOMETRY_HPP
 
-// Do not include this header file. It exists only to specify the canonical header order,
-// which is a topological dependency ordering of all the header files of the Archon Core
-// Library, including any that must never be included by applications.
-#error "Do not include this header file"
+/// \file
 
 
-#include <archon/display/display_namespace.hpp>
-#include <archon/display/impl/config.h>
-#include <archon/display/implementation_fwd.hpp>
-#include <archon/display/geometry.hpp>
-#include <archon/display/key.hpp>
-#include <archon/display/key_code.hpp>
-#include <archon/display/mouse_button.hpp>
-#include <archon/display/event.hpp>
-#include <archon/display/event_handler.hpp>
-#include <archon/display/resolution.hpp>
-#include <archon/display/screen.hpp>
-#include <archon/display/guarantees.hpp>
-#include <archon/display/texture.hpp>
-#include <archon/display/window.hpp>
-#include <archon/display/connection.hpp>
-#include <archon/display/implementation.hpp>
-#include <archon/display/implementation_sdl.hpp>
-#include <archon/display/as_key_name.hpp>
+#include <archon/util/pixel_size.hpp>
+#include <archon/util/pixel_pos.hpp>
+#include <archon/util/pixel_box.hpp>
+
+
+namespace archon::display {
+
+
+/// \{
+///
+/// \brief Pixel geometry utility types.
+///
+/// These types respectively represent a size in pixels, a position within a pixel
+/// coordinate system, and a rectangular area within a pixel coordinate system. See \ref
+/// util::pixel::Size, \ref util::pixel::Pos, and \ref util::pixel::Box for more
+/// information.
+///
+using Size = util::pixel::Size;
+using Pos  = util::pixel::Pos;
+using Box  = util::pixel::Box;
+/// \}
+
+
+} // namespace archon::display
+
+#endif // ARCHON_X_DISPLAY_X_GEOMETRY_HPP

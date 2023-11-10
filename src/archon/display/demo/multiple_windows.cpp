@@ -1,6 +1,6 @@
 // This file is part of the Archon project, a suite of C++ libraries.
 //
-// Copyright (C) 2022 Kristian Spangsege <kristian.spangsege@gmail.com>
+// Copyright (C) 2023 Kristian Spangsege <kristian.spangsege@gmail.com>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this
 // software and associated documentation files (the "Software"), to deal in the Software
@@ -20,23 +20,27 @@
 
 
 #include <cstddef>
-#include <cstdlib>
-#include <tuple>
+#include <utility>
+#include <memory>
 #include <optional>
+#include <string_view>
+#include <string>
+#include <map>
 #include <locale>
-#include <filesystem>
-#include <chrono>
-#include <thread>
 
 #include <archon/core/features.h>
 #include <archon/core/assert.hpp>
+#include <archon/core/math.hpp>
 #include <archon/core/buffer.hpp>
+#include <archon/core/format.hpp>
 #include <archon/core/format_as.hpp>
 #include <archon/core/quote.hpp>
 #include <archon/core/file.hpp>
 #include <archon/log.hpp>
 #include <archon/cli.hpp>
-#include <archon/image.hpp>
+#include <archon/math/vector.hpp>
+#include <archon/util/color_space.hpp>
+#include <archon/util/color.hpp>
 #include <archon/display.hpp>
 
 
@@ -44,6 +48,10 @@ using namespace archon;
 
 
 namespace {
+
+
+display::Size g_small = 256;
+display::Size g_large = { 512, 384 };
 
 
 class EventLoop
@@ -56,13 +64,21 @@ public:
     {
     }
 
-    void init(const image::Image& img)
+    void add_window()
     {
-        image::Size size = img.get_size();
-        m_win = m_conn.new_window(m_display, "Archon Image Viewer", size, *this); // Throws
-        m_tex = m_win->new_texture(size); // Throws
-        m_tex->put_image(img); // Throws
-        m_win->show(); // Throws
+        int id = m_prev_window_id + 1;
+        m_prev_window_id = id;
+        std::string title = core::format("Window #%s", id); // Throws
+        display::Window::Config config;
+        config.cookie = id;
+        config.resizable = true;
+        std::unique_ptr<display::Window> win =
+            m_conn.new_window(m_display, title, g_small, *this, std::move(config)); // Throws
+        win->show(); // Throws
+        math::Vector<3, double> hsv = { m_next_hue, 0.3, 0.5 };
+        m_next_hue = core::periodic_mod(m_next_hue + core::golden_fraction<double>, 1.0);
+        math::Vector rgb = util::cvt_HSV_to_sRGB(hsv);
+        m_windows[id] = { std::move(win), util::Color::from_vec(rgb) }; // Throws
     }
 
     void process_events()
@@ -74,25 +90,122 @@ public:
     {
         display::Key key = {};
         if (ARCHON_LIKELY(m_impl.try_map_key_code_to_key(ev.key_code, key))) { // Throws
-            if (ARCHON_UNLIKELY(key == display::Key::escape))
-                return false;
+            switch (key) {
+                case display::Key::digit_1: {
+                    m_target_window = 1;
+                    break;
+                }
+                case display::Key::digit_2: {
+                    m_target_window = 2;
+                    break;
+                }
+                case display::Key::digit_3: {
+                    m_target_window = 3;
+                    break;
+                }
+                default:
+                    break;
+            }
         }
         return true;
     }
 
-    bool on_expose(const display::WindowEvent&) override final
+    bool on_keyup(const display::KeyEvent& ev) override final
     {
-        m_win->put_texture(*m_tex); // Throws
-        m_win->present(); // Throws
+        display::Key key = {};
+        if (ARCHON_LIKELY(m_impl.try_map_key_code_to_key(ev.key_code, key))) { // Throws
+            switch (key) {
+                case display::Key::digit_1: {
+                    if (m_target_window == 1)
+                        m_target_window = 0;
+                    break;
+                }
+                case display::Key::digit_2: {
+                    if (m_target_window == 2)
+                        m_target_window = 0;
+                    break;
+                }
+                case display::Key::digit_3: {
+                    if (m_target_window == 3)
+                        m_target_window = 0;
+                    break;
+                }
+                case display::Key::lower_case_s: {
+                    int window_id = ev.cookie;
+                    if (m_target_window != 0)
+                        window_id = m_target_window;
+                    auto i = m_windows.find(window_id);
+                    if (ARCHON_LIKELY(i != m_windows.end())) {
+                        WindowEntry& entry = i->second;
+                        entry.large = !entry.large;
+                        entry.window->set_size(entry.large ? g_large : g_small); // Throws
+                    }
+                    break;
+                }
+                case display::Key::lower_case_f: {
+                    int window_id = ev.cookie;
+                    if (m_target_window != 0)
+                        window_id = m_target_window;
+                    auto i = m_windows.find(window_id);
+                    if (ARCHON_LIKELY(i != m_windows.end())) {
+                        WindowEntry& entry = i->second;
+                        entry.fullscreen = !entry.fullscreen;
+                        entry.window->set_fullscreen_mode(entry.fullscreen); // Throws
+                    }
+                    break;
+                }
+                case display::Key::lower_case_o: {
+                    add_window(); // Throws
+                    break;
+                }
+                case display::Key::escape: {
+                    m_windows.erase(ev.cookie);
+                    break;
+                }
+                default:
+                    break;
+            }
+        }
+        return true;
+    }
+
+    bool on_expose(const display::WindowEvent& ev) override final
+    {
+        auto i = m_windows.find(ev.cookie);
+        if (ARCHON_LIKELY(i != m_windows.end())) {
+            WindowEntry& entry = i->second;
+            entry.fill(); // Throws
+        }
+        return true;
+    }
+
+    bool on_close(const display::TimedWindowEvent& ev) override final
+    {
+        m_windows.erase(ev.cookie);
         return true;
     }
 
 private:
+    struct WindowEntry {
+        std::unique_ptr<display::Window> window;
+        util::Color color;
+        bool large = false;
+        bool fullscreen = false;
+
+        void fill()
+        {
+            window->fill(color); // Throws
+            window->present(); // Throws
+        }
+    };
+
     const display::Implementation& m_impl;
     display::Connection& m_conn;
     const int m_display;
-    std::unique_ptr<display::Window> m_win;
-    std::unique_ptr<display::Texture> m_tex;
+    int m_prev_window_id = 0;
+    double m_next_hue = 0;
+    std::map<int, WindowEntry> m_windows;
+    int m_target_window = 0;
 };
 
 
@@ -104,16 +217,14 @@ int main(int argc, char* argv[])
 {
     std::locale locale(""); // Throws
 
-    namespace fs = std::filesystem;
-    fs::path path;
     bool list_display_implementations = false;
     log::LogLevel log_level_limit = log::LogLevel::warn;
     std::optional<std::string> optional_display_implementation;
 
     cli::Spec spec;
-    pat("<path>", cli::no_attributes, spec,
+    pat("", cli::no_attributes, spec,
         "Lorem ipsum.",
-        std::tie(path)); // Throws
+        cli::no_action); // Throws
 
     pat("--list-display-implementations", cli::no_attributes, spec,
         "List known display implementations.",
@@ -205,19 +316,11 @@ int main(int argc, char* argv[])
         }
     }
 
-    std::unique_ptr<image::WritableImage> img;
-    {
-        image::LoadConfig load_config;
-        log::PrefixLogger load_logger(logger, "Load: "); // Throws
-        load_config.logger = &load_logger;
-        std::error_code ec;
-        if (!image::try_load(path, img, locale, load_config, ec)) { // Throws
-            logger.error("Failed to load image: %s", ec.message()); // Throws
-            return EXIT_FAILURE;
-        }
-    }
-
     EventLoop event_loop(*conn, display);
-    event_loop.init(*img); // throws
+
+    int num_windows = 2;
+    for (int i = 0; i < num_windows; ++i)
+        event_loop.add_window(); // Throws
+
     event_loop.process_events(); // Throws
 }

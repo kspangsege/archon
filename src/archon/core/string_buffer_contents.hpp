@@ -34,7 +34,13 @@
 namespace archon::core {
 
 
+/// \brief String buffer contents tracker.
 ///
+/// An object of this type is used to track the size of the contents in a particular string
+/// buffer (\ref core::Buffer). It offers methods for appending to the contents and
+/// expanding the underlying buffer as necessary.
+///
+/// \sa \ref core::Buffer.
 /// \sa \ref core::BufferContents.
 ///
 template<class C> class StringBufferContents {
@@ -49,7 +55,7 @@ public:
     /// \brief Construct string buffer contents tracker.
     ///
     /// \param size The initial size of the buffer contents. Behavior is undefined if the
-    /// specified value is greater than the size of the specified buffer.
+    /// specified value is greater than the current size of the specified buffer.
     ///
     explicit StringBufferContents(buffer_type& buffer, std::size_t size = 0) noexcept;
 

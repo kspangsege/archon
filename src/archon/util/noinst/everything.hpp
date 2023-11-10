@@ -38,3 +38,4 @@
 #include <archon/util/pixel_box.hpp>
 #include <archon/util/perlin_noise.hpp>
 #include <archon/util/rectangle_packer.hpp>
+#include <archon/util/perspect_proj.hpp>

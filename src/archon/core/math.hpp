@@ -84,7 +84,17 @@ template<class T> constexpr auto square(T val) noexcept;
 ///
 /// This function is a shorthand for `(1 - t) * a + t * b`.
 ///
-template<class T, class U> auto lerp(T a, T b, U t) noexcept;
+template<class T, class U> constexpr auto lerp(T a, T b, U t) noexcept;
+
+
+
+/// \brief Interpolate linearly between two points.
+///
+/// This function is a shorthand for `core::lerp(y_1, y_2, t)` with `t` being `(x - x_1) /
+/// (x_2 - x_1)` excpet that `x_1` is promoted to at least `double`. Therefore, it is safe
+/// to use this function even when \p T and/or \p U are integer types.
+///
+template<class T, class U> constexpr auto lerp_a(T x_1, U y_1, T x_2, U y_2, T x) noexcept;
 
 
 
@@ -96,7 +106,16 @@ template<class T, class U> auto lerp(T a, T b, U t) noexcept;
 /// `decltype(T() + double())`. For example, `deg_to_rad(90)` produces `core::pi<double> /
 /// 2`.
 ///
-template<class T> auto deg_to_rad(T) noexcept;
+template<class T> constexpr auto deg_to_rad(T) noexcept;
+
+
+/// \brief Convert angle from radians to degrees.
+///
+/// This function converts an angle from the specified number of radians to the
+/// corresponding number of degrees. The type of the specified value (\p T) must be one of
+/// the standard floating point types (`std::is_floating_point`).
+///
+template<class T> constexpr auto rad_to_deg(T) noexcept -> T;
 
 
 
@@ -187,17 +206,32 @@ template<class T> constexpr auto square(T val) noexcept
 }
 
 
-template<class T, class U> auto lerp(T a, T b, U t) noexcept
+template<class T, class U> constexpr auto lerp(T a, T b, U t) noexcept
 {
     static_assert(noexcept((1 - t) * a + t * b));
     return (1 - t) * a + t * b;
 }
 
 
-template<class T> auto deg_to_rad(T angle) noexcept
+template<class T, class U> constexpr auto lerp_a(T x_1, U y_1, T x_2, U y_2, T x) noexcept
+{
+    auto x_3 = x_1 * double(1); // Promote to `double`
+    auto t = (x - x_3) / (x_2 - x_3);
+    return core::lerp(y_1, y_2, t);
+}
+
+
+template<class T> constexpr auto deg_to_rad(T angle) noexcept
 {
     using type = std::conditional_t<std::is_floating_point_v<T>, T, double>;
-    return core::pi<type> / 180 * angle;
+    return (core::pi<type> / 180) * angle;
+}
+
+
+template<class T> constexpr auto rad_to_deg(T angle) noexcept -> T
+{
+    static_assert(std::is_floating_point_v<T>);
+    return (180 / core::pi<T>) * angle;
 }
 
 

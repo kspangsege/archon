@@ -24,7 +24,7 @@
 #include <stdexcept>
 
 #include <archon/core/features.h>
-#include <archon/display/mandates.hpp>
+#include <archon/display/guarantees.hpp>
 #include <archon/display/implementation.hpp>
 #include <archon/display/implementation_sdl.hpp>
 
@@ -49,12 +49,22 @@ constexpr int g_num_implementations = int(std::size(g_implementations));
 } // unnamed namespace
 
 
-auto display::get_default_implementation(const display::Mandates& mandates) noexcept -> const display::Implementation*
+auto display::get_default_implementation(const display::Guarantees& guarantees) -> const display::Implementation&
+{
+    const display::Implementation* impl = get_default_implementation_a(guarantees);
+    if (ARCHON_LIKELY(impl))
+        return *impl;
+    throw std::runtime_error("No available display implementation");
+}
+
+
+auto display::get_default_implementation_a(const display::Guarantees& guarantees) noexcept ->
+    const display::Implementation*
 {
     int n = g_num_implementations;
     for (int i = 0; i < n; ++i) {
         const display::Implementation& impl = (*g_implementations[i])();
-        if (ARCHON_LIKELY(!impl.is_available(mandates)))
+        if (ARCHON_LIKELY(!impl.is_available(guarantees)))
             continue;
         return &impl;
     }

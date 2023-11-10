@@ -23,10 +23,101 @@
 
 
 using namespace archon;
-using EventHandler = display::EventHandler;
+using display::WindowEventHandler;
+using display::ConnectionEventHandler;
 
 
-bool EventHandler::on_keydown(const display::KeyEvent&)
+bool WindowEventHandler::on_keydown(const display::KeyEvent&)
 {
-    return true; // Do not terminate event processing
+    return true; // Do not interrupt event processing
+}
+
+
+bool WindowEventHandler::on_keyup(const display::KeyEvent&)
+{
+    return true; // Do not interrupt event processing
+}
+
+
+bool WindowEventHandler::on_mousedown(const display::MouseButtonEvent&)
+{
+    return true; // Do not interrupt event processing
+}
+
+
+bool WindowEventHandler::on_mouseup(const display::MouseButtonEvent&)
+{
+    return true; // Do not interrupt event processing
+}
+
+
+bool WindowEventHandler::on_mousemove(const display::MouseEvent&)
+{
+    return true; // Do not interrupt event processing
+}
+
+
+bool WindowEventHandler::on_scroll(const display::ScrollEvent&)
+{
+    return true; // Do not interrupt event processing
+}
+
+
+bool WindowEventHandler::on_mouseover(const display::TimedWindowEvent&)
+{
+    return true; // Do not interrupt event processing
+}
+
+
+bool WindowEventHandler::on_mouseout(const display::TimedWindowEvent&)
+{
+    return true; // Do not interrupt event processing
+}
+
+
+bool WindowEventHandler::on_focus(const display::TimedWindowEvent&)
+{
+    return true; // Do not interrupt event processing
+}
+
+
+bool WindowEventHandler::on_expose(const display::WindowEvent&)
+{
+    return true; // Do not interrupt event processing
+}
+
+
+bool WindowEventHandler::on_resize(const display::WindowSizeEvent&)
+{
+    return true; // Do not interrupt event processing
+}
+
+
+bool WindowEventHandler::on_blur(const display::TimedWindowEvent&)
+{
+    return true; // Do not interrupt event processing
+}
+
+
+bool WindowEventHandler::on_close(const display::TimedWindowEvent&)
+{
+    return true; // Do not interrupt event processing
+}
+
+
+bool ConnectionEventHandler::on_display_change(int)
+{
+    return true; // Do not interrupt event processing
+}
+
+
+bool ConnectionEventHandler::before_sleep()
+{
+    return true; // Do not interrupt event processing
+}
+
+
+bool ConnectionEventHandler::on_quit()
+{
+    return false; // Interrupt event processing
 }

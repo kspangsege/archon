@@ -67,6 +67,18 @@ template<class C, class T> auto concat(std::basic_string_view<C, T>, std::basic_
 
 
 
+/// \brief Modify string view to refer to new location of string data.
+///
+/// When string data is copied / moved to a new location in memory, this function can be
+/// used to update a string view accordingly. More specifically, if \p str refers to a
+/// string at a particular offset in a memory chunk based at \p old_base, then \p str is
+/// changed to refer to a string of the same length and same offset in a memory chunk based
+/// at \p new_base.
+///
+template<class C, class T> void rebase_string(std::basic_string_view<C, T>& str, const C* old_base, const C* new_base);
+
+
+
 /// \{
 ///
 /// \brief Remove leading and trailing sequences of space or other delimiter.
@@ -227,6 +239,14 @@ auto concat(std::basic_string_view<C, T> a, std::basic_string_view<C, T> b, std:
         }
     }
     throw std::length_error("String size");
+}
+
+
+template<class C, class T> inline void rebase_string(std::basic_string_view<C, T>& str, const C* old_base,
+                                                     const C* new_base)
+{
+    std::ptrdiff_t offset = str.data() - old_base;
+    str = { new_base + offset, str.size() }; // Throws
 }
 
 

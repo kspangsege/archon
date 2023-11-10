@@ -24,15 +24,18 @@
 /// \file
 
 
-#include <archon/display/types.hpp>
+#include <archon/display/geometry.hpp>
+#include <archon/display/key.hpp>
+#include <archon/display/key_code.hpp>
+#include <archon/display/mouse_button.hpp>
+#include <archon/display/event.hpp>
+#include <archon/display/event_handler.hpp>
+#include <archon/display/guarantees.hpp>
 #include <archon/display/texture.hpp>
 #include <archon/display/window.hpp>
-#include <archon/display/event.hpp>
-#include <archon/display/keysyms.hpp>
-#include <archon/display/event_handler.hpp>
-#include <archon/display/mandates.hpp>
 #include <archon/display/connection.hpp>
 #include <archon/display/implementation.hpp>
+#include <archon/display/as_key_name.hpp>
 
 
 #endif // ARCHON_X_DISPLAY_HPP

@@ -22,7 +22,7 @@
 #include <memory>
 #include <locale>
 
-#include <archon/display/mandates.hpp>
+#include <archon/display/guarantees.hpp>
 #include <archon/display/connection.hpp>
 #include <archon/display/implementation.hpp>
 
@@ -30,10 +30,18 @@
 using namespace archon;
 
 
-auto display::new_connection(const std::locale& locale, const display::Mandates& mandates) ->
-    std::unique_ptr<display::Connection>
+auto display::new_connection(const std::locale& locale,
+                             const display::Guarantees& guarantees) -> std::unique_ptr<display::Connection>
 {
-    if (const display::Implementation* impl = display::get_default_implementation(mandates))
-        return impl->new_connection(locale, mandates); // Throws
+    const display::Implementation& impl = display::get_default_implementation(guarantees); // Throws
+    return impl.new_connection(locale, guarantees); // Throws
+}
+
+
+auto display::new_connection_a(const std::locale& locale,
+                               const display::Guarantees& guarantees) -> std::unique_ptr<display::Connection>
+{
+    if (const display::Implementation* impl = display::get_default_implementation_a(guarantees))
+        return impl->new_connection(locale, guarantees); // Throws
     return nullptr;
 }

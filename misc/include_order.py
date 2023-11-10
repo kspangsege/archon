@@ -197,6 +197,8 @@ def check_dependency_ordering(header_path):
     return True
 
 
+# Check that all header files under `dir_path` are directly or indirectly included by the
+# header file at `header_path`.
 def check_coverage(header_path, dir_path, exclude_test, insert):
     coverage = set()
     for incl_path in get_include_order(header_path):

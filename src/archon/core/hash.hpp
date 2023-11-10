@@ -24,6 +24,7 @@
 /// \file
 
 
+#include <archon/core/concepts.hpp>
 #include <archon/core/impl/hash.hpp>
 
 
@@ -37,6 +38,7 @@ namespace archon::core {
 /// from `std::hash`.
 ///
 template<class T> class Hash;
+
 
 /// \{
 ///
@@ -62,6 +64,14 @@ template<> class Hash<unsigned long>      : public core::impl::HashInt<unsigned 
 template<> class Hash<long long>          : public core::impl::HashInt<long long> {};
 template<> class Hash<unsigned long long> : public core::impl::HashInt<unsigned long long> {};
 /// \}
+
+
+/// \brief Hash function specialization for enumeration types.
+///
+/// This is the enumeration type specialization of the hash function that can be used at
+/// compile time. This specialization is implemented in terms of \ref core::Hash_FNV_1a_32.
+///
+template<core::enum_type E> class Hash<E> : public core::impl::HashEnum<E> {};
 
 
 } // namespace archon::core

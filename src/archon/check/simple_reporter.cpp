@@ -119,7 +119,7 @@ void SimpleReporter::root_end(const check::RootContext& context, const check::Su
                     summary.num_failed_checks,
                     core::as_num_of(summary.num_checks, checks_spec)); // Throws
     }
-    logger.info("Test time: %s", core::as_time(summary.elapsed_seconds)); // Throws
+    logger.info("Test time: %s", core::as_time_a(summary.elapsed_seconds)); // Throws
     if (summary.num_excluded_tests >= 1) {
         if (summary.num_excluded_tests == 1) {
             logger.info("Note: One test case was excluded!"); // Throws
