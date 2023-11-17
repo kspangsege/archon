@@ -37,6 +37,7 @@
 #include <archon/core/features.h>
 #include <archon/core/span.hpp>
 #include <archon/core/type.hpp>
+#include <archon/core/memory.hpp>
 #include <archon/core/impl/vector_impl.hpp>
 
 
@@ -45,10 +46,62 @@ namespace archon::core {
 
 /// \brief Alternative vector implementation.
 ///
-/// This is an alternative implementation of a vector. It is similar in function to
-/// `std::vector`, but it offers stronger exception guarantees. It also allows for an
-/// arbitrary initial capacity to be made statically available inside the vector object (see
-/// \p N).
+/// This is an implementation of a dynamically sized array that stores elements contiguously
+/// in memory. It is similar in function to `std::vector`, but it offers stronger exception
+/// guarantees. It also allows for an arbitrary initial capacity to be made statically
+/// available inside the vector object (see \p N). It meets the requirements of
+/// `ContiguousContainer` as defined by C++17.
+///
+/// \p T must either be move-constructible or copy-constructible
+/// (`std::is_move_constructible`, `std::is_copy_constructible`). \p T must also have a
+/// non-throwing destructor (`std::is_nothrow_destrucible`).
+///
+/// Positioned insertion and removal (`emplace()` and `erase()`) is only supported when \p T
+/// has a non-throwing move constructor (`std::is_nothrow_move_constructible`).
+///
+/// If `v` is a vector and `s` is `v.size()`, then `v.reserve_extra(n)` has the same effect
+/// as `v.reserve(s + n)` except that if `s + n` overflows, then `v.reserve_extra(n)` throws
+/// `std::length_error`.
+///
+/// Some modifying operations may cause reallocation of memory. When memory is reallocated,
+/// all iterators and pointers to stored values are invalidated.
+///
+/// A modifying operation is guaranteed to not cause a reallocation of memory if the final
+/// size of the vector (`size()`) is less than, or equal to the original capacity
+/// (`capacity()`). If the operation fails, memory is still guaranteed to not have been
+/// reallocated so long as the final size of the vector would have been less than, or equal
+/// to the original capacity. It follows from this that element removing operations
+/// (`pop_back()`, `erase()`, `clear()`) never cause memory reallocation. Explicit
+/// reallocation functions (`reserve_extra()`, `reserve()`, and `shrink_to_fit()`) do not
+/// count as modifying operations here. Assignment and resize operations do count
+/// (`operator=()`, `assign()`, `resize()`).
+///
+/// After an operation that inserts one or more elements (`push_back()`, `emplace_back()`,
+/// `append()`, and `emplace()`, `resize()`) and does not cause reallocation of memory,
+/// iterators and pointers to stored elements beyond the point of insertion are
+/// invalidated. This includes the end-iterator. Iterators and pointers to stored elements
+/// before the point of insertion are not invalidated. This also applies to resize
+/// operations where the specified size is greater than the current size.
+///
+/// After an operation that removes one or more elements (`pop_back()`, `erase()`,
+/// `clear()`, `resize()`), iterators and pointers to stored elements in and beyond the
+/// removed range are invalidated. This includes the end-iterator. Iterators and pointers to
+/// stored elements before the removed range are not invalidated.
+///
+/// A reserve operation (`reserve_extra()`, `reserve()`) specifying a total capacity less
+/// than, or equal to the current capacity is guaranteed to not cause reallocation of
+/// memory, and therefore also guaranteed to not invalidate any iterators or pointers to
+/// stored elements.
+///
+/// An operation, that inserts elements at the end and does not cause memory to be
+/// reallocated, is guaranteed to not throw so long as the construction of the elements does
+/// not throw. An operation, that inserts elements elsewhere, is guaranteed to not throw so
+/// long as the construction of the elements does not throw and \p T has a non-throwing
+/// move-constructor.
+///
+/// An operation, that removes elements at the end, is guaranteed to not throw (this
+/// includes `clear()`). An operation, that removes elements elsewhere, is guaranteed to not
+/// throw so long as \p T has a non-throwing move-constructor.
 ///
 template<class T, std::size_t N = 0> class Vector {
 public:
@@ -70,15 +123,12 @@ public:
     using reverse_iterator       = std::reverse_iterator<iterator>;
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
-    static constexpr bool has_shifting_modifiers = std::is_nothrow_move_constructible_v<value_type>;
-
     Vector() noexcept;
     Vector(const Vector&) = delete;
     Vector(std::initializer_list<T>);
     explicit Vector(size_type size);
     Vector(size_type size, const T& value);
     template<class I, class = core::NeedIter<I>> Vector(I begin, I end);
-    ~Vector() noexcept;
 
     auto operator=(const Vector&)            -> Vector& = delete;
     auto operator=(std::initializer_list<T>) -> Vector&;
@@ -149,12 +199,9 @@ public:
     void append(size_type size, const T& value);
     template<class I, class = NeedIter<I>> void append(I begin, I end);
 
-    template<class... A, class = std::enable_if_t<has_shifting_modifiers>>
-    auto emplace(const_iterator pos, A&&... args) -> iterator;
+    template<class... A> auto emplace(const_iterator pos, A&&... args) -> iterator;
 
-    template<class = std::enable_if_t<has_shifting_modifiers>>
     auto erase(const_iterator) noexcept -> iterator;
-    template<class = std::enable_if_t<has_shifting_modifiers>>
     auto erase(const_iterator begin, const_iterator end) noexcept -> iterator;
 
     void clear() noexcept;
@@ -178,10 +225,10 @@ public:
 
 private:
     using Impl = impl::VectorImpl<T>;
-    using strut_type = typename Impl::strut_type;
+    using aligned_storage_type = core::AlignedStorage<T, N>;
 
     class StaticMemAndImpl
-        : public std::array<strut_type, N> {
+        : public aligned_storage_type {
     public:
         Impl impl;
     };
@@ -191,7 +238,7 @@ private:
     template<class I> void do_append(I begin, I end, std::input_iterator_tag);
     template<class I> void do_append(I begin, I end, std::random_access_iterator_tag);
 
-    auto static_mem() noexcept -> strut_type*;
+    auto static_mem() noexcept -> void*;
 
     auto impl() noexcept       -> Impl&;
     auto impl() const noexcept -> const Impl&;
@@ -243,13 +290,6 @@ template<class I, class> inline Vector<T, N>::Vector(I begin, I end)
     : Vector()
 {
     append(begin, end); // Throws
-}
-
-
-template<class T, std::size_t N>
-inline Vector<T, N>::~Vector() noexcept
-{
-    impl().dealloc(static_mem());
 }
 
 
@@ -486,21 +526,21 @@ inline auto Vector<T, N>::capacity() const noexcept -> size_type
 template<class T, std::size_t N>
 inline void Vector<T, N>::reserve_extra(size_type min_extra_capacity)
 {
-    impl().reserve_extra(static_mem(), min_extra_capacity); // Throws
+    impl().reserve_extra(min_extra_capacity); // Throws
 }
 
 
 template<class T, std::size_t N>
 inline void Vector<T, N>::reserve(size_type min_capacity)
 {
-    impl().reserve(static_mem(), min_capacity); // Throws
+    impl().reserve(min_capacity); // Throws
 }
 
 
 template<class T, std::size_t N>
 inline void Vector<T, N>::shrink_to_fit()
 {
-    impl().shrink_to_fit(static_mem(), N); // Throws
+    impl().shrink_to_fit(); // Throws
 }
 
 
@@ -521,7 +561,7 @@ inline auto Vector<T, N>::push_back(T&& value) -> T&
 template<class T, std::size_t N>
 template<class... A> inline auto Vector<T, N>::emplace_back(A&&... args) -> T&
 {
-    impl().emplace_back(static_mem(), std::forward<A>(args)...); // Throws
+    impl().emplace_back(std::forward<A>(args)...); // Throws
     return back();
 }
 
@@ -555,18 +595,18 @@ template<class I, class> inline void Vector<T, N>::append(I begin, I end)
 
 
 template<class T, std::size_t N>
-template<class... A, class> auto Vector<T, N>::emplace(const_iterator i, A&&... args) -> iterator
+template<class... A> auto Vector<T, N>::emplace(const_iterator i, A&&... args) -> iterator
 {
     T* base = data();
     std::size_t offset = std::size_t(i - base);
-    impl().insert(offset, static_mem(), std::forward<A>(args)...); // Throws
+    impl().insert(offset, std::forward<A>(args)...); // Throws
     base = data(); // May have changed due to reallocation
     return base + offset;
 }
 
 
 template<class T, std::size_t N>
-template<class> inline auto Vector<T, N>::erase(const_iterator i) noexcept -> iterator
+inline auto Vector<T, N>::erase(const_iterator i) noexcept -> iterator
 {
     T* base = data();
     std::size_t offset = std::size_t(i - base);
@@ -577,7 +617,7 @@ template<class> inline auto Vector<T, N>::erase(const_iterator i) noexcept -> it
 
 
 template<class T, std::size_t N>
-template<class> inline auto Vector<T, N>::erase(const_iterator begin, const_iterator end) noexcept -> iterator
+inline auto Vector<T, N>::erase(const_iterator begin, const_iterator end) noexcept -> iterator
 {
     T* base = data();
     std::size_t offset = std::size_t(begin - base);
@@ -598,14 +638,14 @@ inline void Vector<T, N>::clear() noexcept
 template<class T, std::size_t N>
 inline void Vector<T, N>::resize(size_type size)
 {
-    impl().resize(static_mem(), size); // throws
+    impl().resize(size); // throws
 }
 
 
 template<class T, std::size_t N>
 inline void Vector<T, N>::resize(size_type size, const T& value)
 {
-    impl().resize(static_mem(), size, value); // throws
+    impl().resize(size, value); // throws
 }
 
 
@@ -682,14 +722,14 @@ template<class I> inline void Vector<T, N>::do_append(I begin, I end, std::input
 template<class T, std::size_t N>
 template<class I> inline void Vector<T, N>::do_append(I begin, I end, std::random_access_iterator_tag)
 {
-    impl().append(static_mem(), begin, end); // Throws
+    impl().append(begin, end); // Throws
 }
 
 
 template<class T, std::size_t N>
-inline auto Vector<T, N>::static_mem() noexcept -> strut_type*
+inline auto Vector<T, N>::static_mem() noexcept -> void*
 {
-    return m_static_mem_and_impl.data();
+    return m_static_mem_and_impl.addr();
 }
 
 

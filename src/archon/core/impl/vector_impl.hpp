@@ -41,17 +41,16 @@
 namespace archon::core::impl {
 
 
-// The vector implementation. It provides a minimal, but inconvenient API. It is designed to
-// avoid having to know the size of the statically sized chunk of memory at compile time,
-// which means that the same code can be used for different choices of the size of that
-// chunk.
+// The vector implementation. It provides a minimal, but less convenient API.
 
 template<class T> class VectorImpl {
 public:
-    using strut_type = core::Strut<T>;
+    static_assert(std::is_move_constructible_v<T> || std::is_copy_constructible_v<T>);
+    static_assert(std::is_nothrow_destructible_v<T>);
 
-    void init(strut_type* static_mem, std::size_t static_capacity) noexcept;
-    void dealloc(strut_type* static_mem) noexcept;
+    ~VectorImpl() noexcept;
+
+    void init(void* static_memory, std::size_t static_capacity) noexcept;
 
     void verify_index(std::size_t) const;
 
@@ -60,33 +59,34 @@ public:
     auto size() const noexcept     -> std::size_t;
     auto capacity() const noexcept -> std::size_t;
 
-    void reserve_extra(strut_type* static_mem, std::size_t min_extra_capacity);
-    void reserve(strut_type* static_mem, std::size_t min_capacity);
-    void shrink_to_fit(strut_type* static_mem, std::size_t static_capacity);
+    void reserve_extra(std::size_t min_extra_capacity);
+    void reserve(std::size_t min_capacity);
+    void shrink_to_fit();
 
-    template<class... A> void emplace_back(strut_type* static_mem, A&&... args);
+    template<class... A> void emplace_back(A&&... args);
     void pop_back() noexcept;
 
-    void append(strut_type* static_mem, std::size_t size, const T& value);
-    template<class I> void append(strut_type* static_mem, I begin, I end);
+    void append(std::size_t size, const T& value);
+    template<class I> void append(I begin, I end);
 
-    template<class... A> void insert(std::size_t offset, strut_type* static_mem, A&&... args);
-
+    // Only supported when T has a non-throwing move constructor
+    template<class... A> void insert(std::size_t offset, A&&... args);
     void erase(std::size_t offset, std::size_t n) noexcept;
 
-    void resize(strut_type* static_mem, std::size_t size);
-    void resize(strut_type* static_mem, std::size_t size, const T& value);
+    void resize(std::size_t size);
+    void resize(std::size_t size, const T& value);
 
 private:
-    strut_type* m_mem;
-    std::size_t m_capacity;
-    std::size_t m_size;
+    std::unique_ptr<std::byte[]> m_owned_memory;
+    T* m_data = nullptr;
+    std::size_t m_capacity = 0;
+    std::size_t m_size = 0;
 
-    void do_reserve_extra(strut_type* static_mem, std::size_t min_extra_capacity);
-    void do_reserve(strut_type* static_mem, std::size_t min_capacity);
+    void do_reserve_extra(std::size_t min_extra_capacity);
+    void do_reserve(std::size_t min_capacity);
 
-    bool has_allocation(strut_type* static_mem) const noexcept;
-    void realloc(strut_type* static_mem, std::size_t new_capacity);
+    void realloc(std::size_t new_capacity);
+    void destroy() noexcept;
 };
 
 
@@ -100,28 +100,25 @@ private:
 
 
 template<class T>
-inline void VectorImpl<T>::init(strut_type* static_mem, std::size_t static_capacity) noexcept
+inline VectorImpl<T>::~VectorImpl() noexcept
 {
-    m_mem      = static_mem;
+    destroy();
+}
+
+
+template<class T>
+inline void VectorImpl<T>::init(void* static_memory, std::size_t static_capacity) noexcept
+{
+    m_data     = static_cast<T*>(static_memory);
     m_capacity = static_capacity;
     m_size     = 0;
 }
 
 
 template<class T>
-inline void VectorImpl<T>::dealloc(strut_type* static_mem) noexcept
-{
-    core::uninit_destroy(data(), m_size);
-    if (!has_allocation(static_mem))
-        return;
-    delete[] m_mem;
-}
-
-
-template<class T>
 inline void VectorImpl<T>::verify_index(std::size_t i) const
 {
-    if (ARCHON_LIKELY(i <= size()))
+    if (ARCHON_LIKELY(i < size()))
         return;
     throw std::out_of_range("Vector element index");
 }
@@ -130,14 +127,14 @@ inline void VectorImpl<T>::verify_index(std::size_t i) const
 template<class T>
 inline auto VectorImpl<T>::data() noexcept -> T*
 {
-    return static_cast<T*>(static_cast<void*>(m_mem));
+    return m_data;
 }
 
 
 template<class T>
 inline auto VectorImpl<T>::data() const noexcept -> const T*
 {
-    return static_cast<T*>(static_cast<void*>(m_mem));
+    return m_data;
 }
 
 
@@ -156,47 +153,37 @@ inline auto VectorImpl<T>::capacity() const noexcept -> std::size_t
 
 
 template<class T>
-inline void VectorImpl<T>::reserve_extra(strut_type* static_mem, std::size_t min_extra_capacity)
+inline void VectorImpl<T>::reserve_extra(std::size_t min_extra_capacity)
 {
     if (ARCHON_LIKELY(min_extra_capacity <= std::size_t(m_capacity - m_size)))
         return;
-    do_reserve_extra(static_mem, min_extra_capacity); // Throws
+    do_reserve_extra(min_extra_capacity); // Throws
 }
 
 
 template<class T>
-inline void VectorImpl<T>::reserve(strut_type* static_mem, std::size_t min_capacity)
+inline void VectorImpl<T>::reserve(std::size_t min_capacity)
 {
     if (ARCHON_LIKELY(min_capacity <= m_capacity))
         return;
-    do_reserve_extra(static_mem, min_capacity); // Throws
+    do_reserve_extra(min_capacity); // Throws
 }
 
 
 template<class T>
-void VectorImpl<T>::shrink_to_fit(strut_type* static_mem, std::size_t static_capacity)
+void VectorImpl<T>::shrink_to_fit()
 {
-    if (m_size <= static_capacity) {
-        if (!has_allocation(static_mem))
-            return;
-        T* new_data = static_cast<T*>(static_cast<void*>(static_mem));
-        core::uninit_safe_move_or_copy(data(), m_size, new_data); // Throws
-        dealloc(static_mem);
-        m_mem      = static_mem;
-        m_capacity = static_capacity;
-        return;
-    }
-    if (m_capacity > m_size) {
+    if (m_owned_memory && m_size < m_capacity) {
         std::size_t new_capacity = m_size;
-        realloc(static_mem, m_size, new_capacity); // Throws
+        realloc(new_capacity); // Throws
     }
 }
 
 
 template<class T>
-template<class... A> void VectorImpl<T>::emplace_back(strut_type* static_mem, A&&... args)
+template<class... A> void VectorImpl<T>::emplace_back(A&&... args)
 {
-    reserve_extra(static_mem, 1); // Throws
+    reserve_extra(1); // Throws
     core::uninit_create(data() + m_size, std::forward<A>(args)...); // Throws
     m_size += 1;
 }
@@ -213,30 +200,30 @@ inline void VectorImpl<T>::pop_back() noexcept
 
 
 template<class T>
-void VectorImpl<T>::append(strut_type* static_mem, std::size_t size, const T& value)
+void VectorImpl<T>::append(std::size_t size, const T& value)
 {
-    reserve_extra(static_mem, size); // Throws
+    reserve_extra(size); // Throws
     core::uninit_safe_fill(size, value, data() + m_size); // Throws
     m_size += size;
 }
 
 
 template<class T>
-template<class I> void VectorImpl<T>::append(strut_type* static_mem, I begin, I end)
+template<class I> void VectorImpl<T>::append(I begin, I end)
 {
     static_assert(std::is_convertible_v<typename std::iterator_traits<I>::iterator_category,
                   std::random_access_iterator_tag>);
     std::size_t size = std::size_t(end - begin);
-    reserve_extra(static_mem, size); // Throws
+    reserve_extra(size); // Throws
     core::uninit_safe_copy(begin, end, data() + m_size); // Throws
     m_size += size;
 }
 
 
 template<class T>
-template<class... A> void VectorImpl<T>::insert(std::size_t offset, strut_type* static_mem, A&&... args)
+template<class... A> void VectorImpl<T>::insert(std::size_t offset, A&&... args)
 {
-    reserve_extra(static_mem, 1); // Throws
+    reserve_extra(1); // Throws
     T* base = data();
     std::size_t move_size = std::size_t(m_size - offset);
     std::size_t move_dist = 1;
@@ -268,13 +255,13 @@ void VectorImpl<T>::erase(std::size_t offset, std::size_t n) noexcept
 
 
 template<class T>
-void VectorImpl<T>::resize(strut_type* static_mem, std::size_t size)
+void VectorImpl<T>::resize(std::size_t size)
 {
     if (size <= m_size) {
         core::uninit_destroy(data() + size, m_size - size);
     }
     else {
-        reserve(static_mem, size); // Throws
+        reserve(size); // Throws
         core::uninit_safe_fill(size, data() + m_size);
     }
     m_size = size;
@@ -282,13 +269,13 @@ void VectorImpl<T>::resize(strut_type* static_mem, std::size_t size)
 
 
 template<class T>
-void VectorImpl<T>::resize(strut_type* static_mem, std::size_t size, const T& value)
+void VectorImpl<T>::resize(std::size_t size, const T& value)
 {
     if (size <= m_size) {
         core::uninit_destroy(data() + size, m_size - size);
     }
     else {
-        reserve(static_mem, size); // Throws
+        reserve(size); // Throws
         core::uninit_safe_fill(size, value, data() + m_size);
     }
     m_size = size;
@@ -296,42 +283,46 @@ void VectorImpl<T>::resize(strut_type* static_mem, std::size_t size, const T& va
 
 
 template<class T>
-void VectorImpl<T>::do_reserve_extra(strut_type* static_mem, std::size_t min_extra_capacity)
+void VectorImpl<T>::do_reserve_extra(std::size_t min_extra_capacity)
 {
     std::size_t min_capacity = m_size;
     if (ARCHON_LIKELY(core::try_int_add(min_capacity, min_extra_capacity))) {
-        do_reserve(static_mem, min_capacity); // Throws
+        do_reserve(min_capacity); // Throws
         return;
     }
-    throw std::length_error("Vector size");
+    throw std::length_error("Vector capacity");
 }
 
 
 template<class T>
-inline void VectorImpl<T>::do_reserve(strut_type* static_mem, std::size_t min_capacity)
+inline void VectorImpl<T>::do_reserve(std::size_t min_capacity)
 {
     std::size_t new_capacity = core::suggest_new_buffer_size(m_capacity, min_capacity);
-    realloc(static_mem, new_capacity); // Throws
+    realloc(new_capacity); // Throws
 }
 
 
 template<class T>
-inline bool VectorImpl<T>::has_allocation(strut_type* static_mem) const noexcept
-{
-    return (m_mem != static_mem);
-}
-
-
-template<class T>
-void VectorImpl<T>::realloc(strut_type* static_mem, std::size_t new_capacity)
+void VectorImpl<T>::realloc(std::size_t new_capacity)
 {
     ARCHON_ASSERT(new_capacity >= m_size);
-    std::unique_ptr<strut_type[]> new_mem = std::make_unique<strut_type[]>(new_capacity); // Throws
-    T* new_data = static_cast<T*>(static_cast<void*>(new_mem.get()));
+    std::size_t num_bytes = new_capacity;
+    if (ARCHON_UNLIKELY(!core::try_int_mul(num_bytes, sizeof (T))))
+        throw std::length_error("Vector capacity");
+    std::unique_ptr<std::byte[]> new_owned_memory = std::make_unique<std::byte[]>(num_bytes); // Throws
+    T* new_data = reinterpret_cast<T*>(new_owned_memory.get());
     core::uninit_safe_move_or_copy(data(), m_size, new_data); // Throws
-    dealloc(static_mem);
-    m_mem      = new_mem.release();
+    destroy();
+    m_owned_memory = std::move(new_owned_memory);
+    m_data = new_data;
     m_capacity = new_capacity;
+}
+
+
+template<class T>
+void VectorImpl<T>::destroy() noexcept
+{
+    core::uninit_destroy(m_data, m_size);
 }
 
 

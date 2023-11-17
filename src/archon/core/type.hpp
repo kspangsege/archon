@@ -67,10 +67,6 @@ template<class T> using Type = typename core::Wrap<T>::type;
 
 
 
-template<class T> using Strut = std::aligned_storage_t<sizeof (T), alignof (T)>;
-
-
-
 template<class T, class U> using NotVoidOr = std::conditional_t<!std::is_same_v<T, void>, T, U>;
 
 

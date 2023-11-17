@@ -1587,7 +1587,7 @@ template<image::CompRepr R> inline auto Reader::get_color_slot_r(ColorSlot slot)
     constexpr image::CompRepr repr = R;
     ARCHON_ASSERT(m_color_slots_r);
     using comp_type = image::comp_type<repr>;
-    comp_type* components = static_cast<comp_type*>(static_cast<void*>(m_color_slots_r));
+    comp_type* components = static_cast<comp_type*>(m_color_slots_r);
     int slot_index = int(slot);
     ARCHON_ASSERT(slot_index >= 0 && slot_index < s_num_color_slots);
     return components + slot_index * m_num_channels_ext;
@@ -1660,7 +1660,7 @@ template<image::CompRepr R> inline auto Reader::get_color_slot_u(ColorSlot slot)
     constexpr image::CompRepr repr = R;
     ARCHON_ASSERT(m_color_slots_u);
     using comp_type = image::comp_type<repr>;
-    comp_type* components = static_cast<comp_type*>(static_cast<void*>(m_color_slots_u));
+    comp_type* components = static_cast<comp_type*>(m_color_slots_u);
     int slot_index = int(slot);
     ARCHON_ASSERT(slot_index >= 0 && slot_index < s_num_color_slots);
     return components + slot_index * m_num_channels_ext;

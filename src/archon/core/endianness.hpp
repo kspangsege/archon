@@ -142,13 +142,13 @@ template<class T> bool try_get_byte_order(core::Endianness& byte_order) noexcept
     }
     else if constexpr (core::int_width<T>() == n * m) {
         T val = T(1);
-        const char* bytes = static_cast<const char*>(static_cast<const void*>(&val));
-        if (bytes[n - 1] == char(1)) {
+        const std::byte* bytes = reinterpret_cast<const std::byte*>(&val);
+        if (bytes[n - 1] == std::byte(1)) {
             // Probably big endian
             int i = 1;
             for (;;) {
                 val = core::int_cast_a<T>(core::promote(T(1)) << i * m);
-                if (ARCHON_LIKELY(bytes[n - 1 - i] == char(1))) {
+                if (ARCHON_LIKELY(bytes[n - 1 - i] == std::byte(1))) {
                     ++i;
                     if (ARCHON_LIKELY(i < n))
                         continue;
@@ -158,12 +158,12 @@ template<class T> bool try_get_byte_order(core::Endianness& byte_order) noexcept
                 return false;
             }
         }
-        else if (bytes[0] == char(1)) {
+        else if (bytes[0] == std::byte(1)) {
             // Probably little endian
             int i = 1;
             for (;;) {
                 val = core::int_cast_a<T>(core::promote(T(1)) << i * m);
-                if (ARCHON_LIKELY(bytes[i] == char(1))) {
+                if (ARCHON_LIKELY(bytes[i] == std::byte(1))) {
                     ++i;
                     if (ARCHON_LIKELY(i < n))
                         continue;

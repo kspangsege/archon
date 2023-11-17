@@ -25,6 +25,7 @@
 #include <utility>
 #include <stdexcept>
 #include <vector>
+#include <list>
 
 #include <archon/core/circular_buffer.hpp>
 #include <archon/check.hpp>
@@ -39,6 +40,8 @@ ARCHON_TEST(Core_CircularBuffer_Empty)
     ARCHON_CHECK(buffer.empty());
     ARCHON_CHECK_EQUAL(buffer.size(), 0);
     ARCHON_CHECK_EQUAL(buffer.capacity(), 0);
+    buffer.push_back(1);
+    ARCHON_CHECK_NOT(buffer.empty());
 }
 
 
@@ -246,6 +249,17 @@ ARCHON_TEST(Core_CircularBuffer_PushPopFrontBack)
 }
 
 
+ARCHON_TEST(Core_CircularBuffer_Subscribe)
+{
+    core::CircularBuffer<int> buffer;
+    buffer.push_back(1);
+    ARCHON_CHECK_EQUAL(buffer[0], 1);
+    buffer.push_back(2);
+    ARCHON_CHECK_EQUAL(buffer[0], 1);
+    ARCHON_CHECK_EQUAL(buffer[1], 2);
+}
+
+
 ARCHON_TEST(Core_CircularBuffer_RangeCheckingSubscribe)
 {
     core::CircularBuffer<int> buffer;
@@ -258,6 +272,7 @@ ARCHON_TEST(Core_CircularBuffer_RangeCheckingSubscribe)
     ARCHON_CHECK_EQUAL(buffer.at(0), 1);
     ARCHON_CHECK_EQUAL(buffer.at(1), 2);
     ARCHON_CHECK_THROW(buffer.at(2), std::out_of_range);
+    ARCHON_CHECK_THROW(buffer.at(std::size_t(-1)), std::out_of_range);
 }
 
 
@@ -266,7 +281,7 @@ ARCHON_TEST(Core_CircularBuffer_ConstructFromInitializerList)
     core::CircularBuffer<int> buffer { 1, 2, 3 };
     ARCHON_CHECK_NOT(buffer.empty());
     ARCHON_CHECK_EQUAL(buffer.size(), 3);
-    ARCHON_CHECK_EQUAL(buffer.capacity(), 3);
+    ARCHON_CHECK_GREATER_EQUAL(buffer.capacity(), 3);
     ARCHON_CHECK_EQUAL(buffer[0], 1);
     ARCHON_CHECK_EQUAL(buffer[1], 2);
     ARCHON_CHECK_EQUAL(buffer[2], 3);
@@ -279,7 +294,7 @@ ARCHON_TEST(Core_CircularBuffer_AssignFromInitializerList)
     buffer = { 1, 2, 3 };
     ARCHON_CHECK_NOT(buffer.empty());
     ARCHON_CHECK_EQUAL(buffer.size(), 3);
-    ARCHON_CHECK_EQUAL(buffer.capacity(), 3);
+    ARCHON_CHECK_GREATER_EQUAL(buffer.capacity(), 3);
     ARCHON_CHECK_EQUAL(buffer[0], 1);
     ARCHON_CHECK_EQUAL(buffer[1], 2);
     ARCHON_CHECK_EQUAL(buffer[2], 3);
@@ -302,20 +317,50 @@ ARCHON_TEST(Core_CircularBuffer_Clear)
     ARCHON_CHECK(buffer.empty());
     ARCHON_CHECK_EQUAL(buffer.size(), 0);
     ARCHON_CHECK_EQUAL(buffer.capacity(), capacity);
+    buffer = { 2, 3 };
+    buffer.clear();
+    ARCHON_CHECK(buffer.empty());
+    ARCHON_CHECK_EQUAL(buffer.size(), 0);
+    ARCHON_CHECK_EQUAL(buffer.capacity(), capacity);
 }
 
 
-ARCHON_TEST(Core_CircularBuffer_Equality)
+ARCHON_TEST(Core_CircularBuffer_Comparison)
 {
-    core::CircularBuffer<int> buffer_1 { 1, 2, 3 };
+    core::CircularBuffer<int> buffer_1 { 1, 2 };
     core::CircularBuffer<int> buffer_2 { 1, 2, 3 };
     core::CircularBuffer<int> buffer_3 { 1, 2, 4 };
-    ARCHON_CHECK(buffer_1 == buffer_2);
-    ARCHON_CHECK(buffer_1 != buffer_3);
-    ARCHON_CHECK(buffer_2 != buffer_3);
-    ARCHON_CHECK_NOT(buffer_1 != buffer_2);
-    ARCHON_CHECK_NOT(buffer_1 == buffer_3);
+    core::CircularBuffer<int> buffer_4 { 1, 2, 4 };
+
+    ARCHON_CHECK_NOT(buffer_1 == buffer_2);
     ARCHON_CHECK_NOT(buffer_2 == buffer_3);
+    ARCHON_CHECK(buffer_3 == buffer_4);
+    ARCHON_CHECK_NOT(buffer_4 == buffer_1);
+
+    ARCHON_CHECK(buffer_1 != buffer_2);
+    ARCHON_CHECK(buffer_2 != buffer_3);
+    ARCHON_CHECK_NOT(buffer_3 != buffer_4);
+    ARCHON_CHECK(buffer_4 != buffer_1);
+
+    ARCHON_CHECK(buffer_1 < buffer_2);
+    ARCHON_CHECK(buffer_2 < buffer_3);
+    ARCHON_CHECK_NOT(buffer_3 < buffer_4);
+    ARCHON_CHECK_NOT(buffer_4 < buffer_1);
+
+    ARCHON_CHECK(buffer_1 <= buffer_2);
+    ARCHON_CHECK(buffer_2 <= buffer_3);
+    ARCHON_CHECK(buffer_3 <= buffer_4);
+    ARCHON_CHECK_NOT(buffer_4 <= buffer_1);
+
+    ARCHON_CHECK_NOT(buffer_1 > buffer_2);
+    ARCHON_CHECK_NOT(buffer_2 > buffer_3);
+    ARCHON_CHECK_NOT(buffer_3 > buffer_4);
+    ARCHON_CHECK(buffer_4 > buffer_1);
+
+    ARCHON_CHECK_NOT(buffer_1 >= buffer_2);
+    ARCHON_CHECK_NOT(buffer_2 >= buffer_3);
+    ARCHON_CHECK(buffer_3 >= buffer_4);
+    ARCHON_CHECK(buffer_4 >= buffer_1);
 }
 
 
@@ -323,9 +368,7 @@ ARCHON_TEST(Core_CircularBuffer_CopyConstruct)
 {
     core::CircularBuffer<int> buffer_1 { 1, 2, 3 };
     core::CircularBuffer<int> buffer_2 = buffer_1;
-    ARCHON_CHECK_NOT(buffer_2.empty());
     ARCHON_CHECK_EQUAL(buffer_2.size(), 3);
-    ARCHON_CHECK_EQUAL(buffer_2.capacity(), 3);
     ARCHON_CHECK(buffer_2 == buffer_1);
 }
 
@@ -335,24 +378,22 @@ ARCHON_TEST(Core_CircularBuffer_CopyAssign)
     core::CircularBuffer<int> buffer_1 { 1, 2, 3 };
     core::CircularBuffer<int> buffer_2 { 4, 5, 6 };
     buffer_2 = buffer_1; // Copy assign
-    ARCHON_CHECK_NOT(buffer_2.empty());
     ARCHON_CHECK_EQUAL(buffer_2.size(), 3);
-    ARCHON_CHECK_EQUAL(buffer_2.capacity(), 3);
     ARCHON_CHECK(buffer_2 == buffer_1);
 }
 
 
 ARCHON_TEST(Core_CircularBuffer_BeginEnd)
 {
-    std::vector<int> vector { 1, 2, 3 };
+    std::vector<int> ref { 1, 2, 3 };
     core::CircularBuffer<int> buffer { 1, 2, 3 };
     const core::CircularBuffer<int>& cbuffer = buffer;
-    ARCHON_CHECK(std::equal(vector.begin(),  vector.end(),  buffer.begin(),   buffer.end()));
-    ARCHON_CHECK(std::equal(vector.begin(),  vector.end(),  cbuffer.begin(),  cbuffer.end()));
-    ARCHON_CHECK(std::equal(vector.begin(),  vector.end(),  buffer.cbegin(),  buffer.cend()));
-    ARCHON_CHECK(std::equal(vector.rbegin(), vector.rend(), buffer.rbegin(),  buffer.rend()));
-    ARCHON_CHECK(std::equal(vector.rbegin(), vector.rend(), cbuffer.rbegin(), cbuffer.rend()));
-    ARCHON_CHECK(std::equal(vector.rbegin(), vector.rend(), buffer.crbegin(), buffer.crend()));
+    ARCHON_CHECK(std::equal(ref.begin(),  ref.end(),  buffer.begin(),   buffer.end()));
+    ARCHON_CHECK(std::equal(ref.begin(),  ref.end(),  cbuffer.begin(),  cbuffer.end()));
+    ARCHON_CHECK(std::equal(ref.begin(),  ref.end(),  buffer.cbegin(),  buffer.cend()));
+    ARCHON_CHECK(std::equal(ref.rbegin(), ref.rend(), buffer.rbegin(),  buffer.rend()));
+    ARCHON_CHECK(std::equal(ref.rbegin(), ref.rend(), cbuffer.rbegin(), cbuffer.rend()));
+    ARCHON_CHECK(std::equal(ref.rbegin(), ref.rend(), buffer.crbegin(), buffer.crend()));
 }
 
 
@@ -360,17 +401,18 @@ ARCHON_TEST(Core_CircularBuffer_ConstructFromSize)
 {
     core::CircularBuffer<int> buffer(3);
     ARCHON_CHECK_EQUAL(buffer.size(), 3);
-    ARCHON_CHECK_EQUAL(buffer.capacity(), 3);
+    ARCHON_CHECK_GREATER_EQUAL(buffer.capacity(), 3);
     ARCHON_CHECK(std::all_of(buffer.begin(), buffer.end(), [](int value) {
         return (value == 0);
     }));
 }
 
+
 ARCHON_TEST(Core_CircularBuffer_ConstructFromSizeAndValue)
 {
     core::CircularBuffer<int> buffer(3, 7);
     ARCHON_CHECK_EQUAL(buffer.size(), 3);
-    ARCHON_CHECK_EQUAL(buffer.capacity(), 3);
+    ARCHON_CHECK_GREATER_EQUAL(buffer.capacity(), 3);
     ARCHON_CHECK(std::all_of(buffer.begin(), buffer.end(), [](int value) {
         return (value == 7);
     }));
@@ -391,43 +433,43 @@ ARCHON_TEST(Core_CircularBuffer_AssignFromSizeAndValue)
 
 ARCHON_TEST(Core_CircularBuffer_ConstructFromNonrandomAccessIterator)
 {
-    std::list<int> list { 1, 2, 3 };
-    core::CircularBuffer<int> buffer(list.begin(), list.end());
+    std::list<int> ref { 1, 2, 3 };
+    core::CircularBuffer<int> buffer(ref.begin(), ref.end());
     ARCHON_CHECK_EQUAL(buffer.size(), 3);
-    ARCHON_CHECK_EQUAL(buffer.capacity(), 3);
-    ARCHON_CHECK(std::equal(list.begin(), list.end(), buffer.begin(), buffer.end()));
+    ARCHON_CHECK_GREATER_EQUAL(buffer.capacity(), 3);
+    ARCHON_CHECK(std::equal(buffer.begin(), buffer.end(), ref.begin(), ref.end()));
 }
 
 
 ARCHON_TEST(Core_CircularBuffer_ConstructFromRandomAccessIterator)
 {
-    std::vector<int> vector { 1, 2, 3 };
-    core::CircularBuffer<int> buffer(vector.begin(), vector.end());
+    std::vector<int> ref { 1, 2, 3 };
+    core::CircularBuffer<int> buffer(ref.begin(), ref.end());
     ARCHON_CHECK_EQUAL(buffer.size(), 3);
-    ARCHON_CHECK_EQUAL(buffer.capacity(), 3);
-    ARCHON_CHECK(std::equal(vector.begin(), vector.end(), buffer.begin(), buffer.end()));
+    ARCHON_CHECK_GREATER_EQUAL(buffer.capacity(), 3);
+    ARCHON_CHECK(std::equal(buffer.begin(), buffer.end(), ref.begin(), ref.end()));
 }
 
 
 ARCHON_TEST(Core_CircularBuffer_AssignFromNonrandomAccessIterator)
 {
-    std::list<int> list { 1, 2, 3 };
+    std::list<int> ref { 1, 2, 3 };
     core::CircularBuffer<int> buffer { 4, 5, 6 };
-    buffer.assign(list.begin(), list.end());
+    buffer.assign(ref.begin(), ref.end());
     ARCHON_CHECK_EQUAL(buffer.size(), 3);
-    ARCHON_CHECK_EQUAL(buffer.capacity(), 3);
-    ARCHON_CHECK(std::equal(list.begin(), list.end(), buffer.begin(), buffer.end()));
+    ARCHON_CHECK_GREATER_EQUAL(buffer.capacity(), 3);
+    ARCHON_CHECK(std::equal(buffer.begin(), buffer.end(), ref.begin(), ref.end()));
 }
 
 
 ARCHON_TEST(Core_CircularBuffer_AssignFromRandomAccessIterator)
 {
-    std::vector<int> vector { 1, 2, 3 };
+    std::vector<int> ref { 1, 2, 3 };
     core::CircularBuffer<int> buffer { 4, 5, 6 };
-    buffer.assign(vector.begin(), vector.end());
+    buffer.assign(ref.begin(), ref.end());
     ARCHON_CHECK_EQUAL(buffer.size(), 3);
-    ARCHON_CHECK_EQUAL(buffer.capacity(), 3);
-    ARCHON_CHECK(std::equal(vector.begin(), vector.end(), buffer.begin(), buffer.end()));
+    ARCHON_CHECK_GREATER_EQUAL(buffer.capacity(), 3);
+    ARCHON_CHECK(std::equal(buffer.begin(), buffer.end(), ref.begin(), ref.end()));
 }
 
 
@@ -437,8 +479,6 @@ ARCHON_TEST(Core_CircularBuffer_MoveConstruct)
     core::CircularBuffer<int> buffer_2(std::move(buffer_1));
     ARCHON_CHECK_EQUAL(buffer_1.size(), 0);
     ARCHON_CHECK_EQUAL(buffer_2.size(), 3);
-    ARCHON_CHECK_EQUAL(buffer_1.capacity(), 0);
-    ARCHON_CHECK_EQUAL(buffer_2.capacity(), 3);
     ARCHON_CHECK_EQUAL(buffer_2[0], 1);
     ARCHON_CHECK_EQUAL(buffer_2[1], 2);
     ARCHON_CHECK_EQUAL(buffer_2[2], 3);
@@ -452,8 +492,6 @@ ARCHON_TEST(Core_CircularBuffer_MoveAssign)
     buffer_2 = std::move(buffer_1);
     ARCHON_CHECK_EQUAL(buffer_1.size(), 0);
     ARCHON_CHECK_EQUAL(buffer_2.size(), 3);
-    ARCHON_CHECK_EQUAL(buffer_1.capacity(), 0);
-    ARCHON_CHECK_EQUAL(buffer_2.capacity(), 3);
     ARCHON_CHECK_EQUAL(buffer_2[0], 1);
     ARCHON_CHECK_EQUAL(buffer_2[1], 2);
     ARCHON_CHECK_EQUAL(buffer_2[2], 3);
@@ -473,16 +511,16 @@ ARCHON_TEST(Core_CircularBuffer_Append)
     buffer.append(3, 2);
     ARCHON_CHECK(buffer == core::CircularBuffer<int>({ 1, 1, 1, 2, 2, 2 }));
     buffer.clear();
-    std::vector<int> v { 1, 2, 3 };
-    buffer.append(v.begin(), v.end());
+    std::vector<int> ref { 1, 2, 3 };
+    buffer.append(ref.begin(), ref.end());
     ARCHON_CHECK(buffer == core::CircularBuffer<int>({ 1, 2, 3 }));
-    buffer.append(v.begin(), v.end());
+    buffer.append(ref.begin(), ref.end());
     ARCHON_CHECK(buffer == core::CircularBuffer<int>({ 1, 2, 3, 1, 2, 3 }));
     buffer.clear();
-    std::list<int> l { 3, 2, 1 };
-    buffer.append(l.begin(), l.end());
+    std::list<int> ref_2 { 3, 2, 1 };
+    buffer.append(ref_2.begin(), ref_2.end());
     ARCHON_CHECK(buffer == core::CircularBuffer<int>({ 3, 2, 1 }));
-    buffer.append(l.begin(), l.end());
+    buffer.append(ref_2.begin(), ref_2.end());
     ARCHON_CHECK(buffer == core::CircularBuffer<int>({ 3, 2, 1, 3, 2, 1 }));
 }
 
@@ -542,16 +580,17 @@ ARCHON_TEST(Core_CircularBuffer_Resize)
     ARCHON_CHECK(buffer.empty());
     ARCHON_CHECK_EQUAL(buffer.capacity(), 0);
     buffer.resize(3);
-    ARCHON_CHECK_EQUAL(buffer.capacity(), 3);
+    std::size_t cap = buffer.capacity();
+    ARCHON_CHECK_GREATER_EQUAL(cap, 3);
     ARCHON_CHECK(buffer == core::CircularBuffer<int>({ 0, 0, 0 }));
     buffer.resize(1);
-    ARCHON_CHECK_EQUAL(buffer.capacity(), 3);
+    ARCHON_CHECK_EQUAL(buffer.capacity(), cap);
     ARCHON_CHECK(buffer == core::CircularBuffer<int>({ 0 }));
     buffer.resize(0, 7);
-    ARCHON_CHECK_EQUAL(buffer.capacity(), 3);
+    ARCHON_CHECK_EQUAL(buffer.capacity(), cap);
     ARCHON_CHECK(buffer == core::CircularBuffer<int>());
     buffer.resize(3, 7);
-    ARCHON_CHECK_EQUAL(buffer.capacity(), 3);
+    ARCHON_CHECK_EQUAL(buffer.capacity(), cap);
     ARCHON_CHECK(buffer == core::CircularBuffer<int>({ 7, 7, 7 }));
     buffer.resize(4, 8);
     ARCHON_CHECK(buffer == core::CircularBuffer<int>({ 7, 7, 7, 8 }));
@@ -569,27 +608,35 @@ ARCHON_TEST(Core_CircularBuffer_ShrinkToFit)
 {
     core::CircularBuffer<int> buffer;
     buffer.shrink_to_fit();
-    ARCHON_CHECK_EQUAL(buffer.capacity(), 0);
+    ARCHON_CHECK(buffer.empty());
     buffer.push_back(1);
     buffer.shrink_to_fit();
-    ARCHON_CHECK_EQUAL(buffer.capacity(), 1);
+    ARCHON_CHECK_EQUAL(buffer.size(), 1);
+    ARCHON_CHECK_GREATER_EQUAL(buffer.capacity(), 1);
     buffer.shrink_to_fit();
-    ARCHON_CHECK_EQUAL(buffer.capacity(), 1);
+    ARCHON_CHECK_EQUAL(buffer.size(), 1);
+    ARCHON_CHECK_GREATER_EQUAL(buffer.capacity(), 1);
     buffer.push_back(2);
     buffer.shrink_to_fit();
-    ARCHON_CHECK_EQUAL(buffer.capacity(), 2);
+    ARCHON_CHECK_EQUAL(buffer.size(), 2);
+    ARCHON_CHECK_GREATER_EQUAL(buffer.capacity(), 2);
     buffer.shrink_to_fit();
-    ARCHON_CHECK_EQUAL(buffer.capacity(), 2);
+    ARCHON_CHECK_EQUAL(buffer.size(), 2);
+    ARCHON_CHECK_GREATER_EQUAL(buffer.capacity(), 2);
     buffer.push_back(3);
     buffer.shrink_to_fit();
-    ARCHON_CHECK_EQUAL(buffer.capacity(), 3);
+    ARCHON_CHECK_EQUAL(buffer.size(), 3);
+    ARCHON_CHECK_GREATER_EQUAL(buffer.capacity(), 3);
     buffer.shrink_to_fit();
-    ARCHON_CHECK_EQUAL(buffer.capacity(), 3);
+    ARCHON_CHECK_EQUAL(buffer.size(), 3);
+    ARCHON_CHECK_GREATER_EQUAL(buffer.capacity(), 3);
     buffer.push_back(4);
     buffer.shrink_to_fit();
-    ARCHON_CHECK_EQUAL(buffer.capacity(), 4);
+    ARCHON_CHECK_EQUAL(buffer.size(), 4);
+    ARCHON_CHECK_GREATER_EQUAL(buffer.capacity(), 4);
     buffer.shrink_to_fit();
-    ARCHON_CHECK_EQUAL(buffer.capacity(), 4);
+    ARCHON_CHECK_EQUAL(buffer.size(), 4);
+    ARCHON_CHECK_GREATER_EQUAL(buffer.capacity(), 4);
     ARCHON_CHECK(buffer == core::CircularBuffer<int>({ 1, 2, 3, 4 }));
 }
 
@@ -607,13 +654,14 @@ ARCHON_TEST(Core_CircularBuffer_Swap)
 ARCHON_TEST(Core_CircularBuffer_ExceptionSafetyInConstructFromIteratorPair)
 {
     struct Context {
-        int num_instances = 0;
+        bool start_counting_copy_ops = false;
         int num_copy_ops = 0;
+        int num_instances = 0;
     };
 
     class X {
     public:
-        X(Context& context)
+        explicit X(Context& context)
             : m_context(context)
         {
             ++m_context.num_instances;
@@ -621,8 +669,10 @@ ARCHON_TEST(Core_CircularBuffer_ExceptionSafetyInConstructFromIteratorPair)
         X(const X& x)
             : m_context(x.m_context)
         {
-            if (++m_context.num_copy_ops == 2)
-                throw std::bad_alloc();
+            if (m_context.start_counting_copy_ops) {
+                if (++m_context.num_copy_ops == 2)
+                    throw std::bad_alloc();
+            }
             ++m_context.num_instances;
         }
         ~X()
@@ -677,19 +727,13 @@ ARCHON_TEST(Core_CircularBuffer_ExceptionSafetyInConstructFromIteratorPair)
 
     Context context;
     {
-        std::aligned_storage_t<sizeof (X), alignof (X)> mem[3];
-        X* init = new (&mem[0]) X(context);
-        new (&mem[1]) X(context);
-        new (&mem[2]) X(context);
-        Iter i_1(init), i_2(init + 3);
-        try {
-            core::CircularBuffer<X>(i_1, i_2);
-        }
-        catch (std::bad_alloc&) {
-        }
-        init[0].~X();
-        init[1].~X();
-        init[2].~X();
+        X arr[3] = {
+            X(context),
+            X(context),
+            X(context),
+        };
+        context.start_counting_copy_ops = true;
+        ARCHON_CHECK_THROW(core::CircularBuffer<X>(Iter(arr), Iter(arr + 3)), std::bad_alloc);
     }
     ARCHON_CHECK_EQUAL(context.num_instances, 0);
 }

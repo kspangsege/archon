@@ -45,8 +45,11 @@ namespace archon::core {
 /// localized memory access pattern. It also allows for stronger exception guarantees
 /// compared to `std::map`.
 ///
-/// The major disadvantage, relative to `std::map`, is that insertion is slower. Insertion
+/// The major disadvantage relative to `std::map` is that insertion is slower. Insertion
 /// complexity is O(N) for this map implementation, and O(log N) for `std::map`.
+///
+/// Another disadvantage compared to `std::map` is that map iterators and pointers to stored
+/// values are invalidated after every modifying operation.
 ///
 /// Requirement: The key type (\p K) must have a non-throwing copy constructor
 /// (`std::is_nothrow_copy_constructible`).

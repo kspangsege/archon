@@ -1,7 +1,4 @@
 
-Deal with deprecation of `std::aligned_storage` and `std::aligned_storage_t` in C++23.
-
-
 Consider adding the following (requires upgrade of arithmetic in MulPrecInt):
 
 ```
@@ -31,9 +28,6 @@ NOTE: The current explanation of the alternate model can then be used as a basis
 
 
 Test log::BasicStreamLogger
-
-
-Rename ArraySeededVector to MemorySeededVector
 
 
 Adopts new cli features from cli/test/test_foo.cpp
@@ -106,10 +100,6 @@ test_util_uri.cpp ???
 
 Move `ensure_subdir()` from `check/test_runner.cpp` to `core/filesystem.hpp`.
 
-
-
-Testing:
-- Maybe reuse test cases from circular buffer for array seeded vector.
 
 
 Extra testing features:

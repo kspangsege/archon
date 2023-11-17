@@ -30,12 +30,14 @@
 #include <algorithm>
 #include <memory>
 #include <utility>
+#include <stdexcept>
 
 #include <archon/core/features.h>
 #include <archon/core/span.hpp>
 #include <archon/core/type.hpp>
 #include <archon/core/assert.hpp>
 #include <archon/core/integer.hpp>
+#include <archon/core/impl/memory.hpp>
 
 
 namespace archon::core {
@@ -59,6 +61,70 @@ auto suggest_new_buffer_size(std::size_t cur_size, std::size_t min_size, std::si
 
 
 
+/// \{
+///
+/// \brief Functions for working with uninitialized memory.
+///
+/// These functions are useful for working with uninitialized memory for storage of objects
+/// of non-trivial type. When \p T is a trivial type (`std::is_trivial`), these functions
+/// generally change into a simpler more efficient form.
+///
+/// \param uninit Pointer to uninitialized storage for \p N objects of type \p T. Here, \p N
+/// depends on the operation in question (see below). If `bytes` refers to an array of bytes
+/// long enough and suitably aligned to store \p N objects of type \p T, then \p uninit can
+/// be `reinterpret_cast<T*>(bytes)`. In general, storage must be considered uninitialized
+/// if it is not already explicitly initialized to hold representations of objects of type
+/// \p T.
+///
+/// \param args Arguments passed to constructor when constructing an object of type \p T.
+///
+/// \param data Pointer to one or more objects of type \p T.
+///
+/// \param size The number of objects of type \p T dealt with by the operation.
+///
+/// \param begin, end Range of objects from which to create objects of type \p T.
+///
+/// \param dist Distance of movement in number of objects of type \p T for moving
+/// operations. This distance must be strictly greater than zero.
+///
+/// `uninit_create(uninit, args)` constructs one object (\p N is 1) of type `T` in the
+/// uninitialized memory pointed to by \p uninit. The object is constructed from the
+/// specified arguments (\p args). On success, the referenced memory is no longer
+/// uninitialized.
+///
+/// `uninit_destroy(data, size)` destroys the \p size objects stored in the array pointed to
+/// by \p data. Afterwards, the referenced memory must be considered uninitialized.
+///
+/// `uninit_safe_fill(size, uninit)` and `uninit_safe_fill(size, value, uninit)` construct
+/// objects of type \p T in the uninitialized memory pointed to by \p uninit. One object is
+/// constructed for each of the objects pointed to be \p data, which is \p size (\p N is \p
+/// size). These operation are exception safe in the sense that if the construction of any
+/// of the objects fail, then all previously constructed objects will be destroyed before
+/// control is returned to the caller. For the two-argument version, the objects are
+/// default-constructed. For the three-argument version, the objects are copy-constructed
+/// from \p value.
+///
+/// `uninit_safe_copy(begin, end, uninit)` constructs objects of type \p T in the
+/// uninitialized memory pointed to by \p uninit. One object is constructed for each object
+/// in the range \p begin to \p end (\p N is the number of objects in that range). This
+/// operation is exception safe in the sense that if the construction of any of the objects
+/// fail, then all previously constructed objects will be destroyed before control is
+/// returned to the caller.
+///
+/// `uninit_safe_move_or_copy(data, size, uninit)` constructs objects of type \p T in the
+/// uninitialized memory pointed to by \p uninit. One object is constructed for each object
+/// in the array pointed to be \p data. The number of objects in that array is \p size (\p N
+/// is \p size). If \p T has a non-throwing move-constructor, then the objects are
+/// move-constructed from those in \p data. Otherwise they are copy-constructed. This
+/// function does not destroy the original objects.
+///
+/// `uninit_move_downwards(data, size, dist)` and `uninit_move_upwards(data, size, dist)`
+/// move an array of objects of type \p T towards lower and higher memory addresses
+/// respectively. In contrast to `uninit_safe_move_or_copy()`, these functions allow for the
+/// destination memory region to overlap with the origin region, but they can be used only
+/// when \p T has a non-throwing move constructor. Also, and in contrast to
+/// `uninit_safe_move_or_copy()` these functions destroy the original objects.
+///
 template<class T, class... A> void uninit_create(T* uninit, A&&... args);
 template<class T> void uninit_destroy(T* data, std::size_t size) noexcept;
 template<class T> void uninit_safe_fill(std::size_t size, T* uninit);
@@ -67,20 +133,21 @@ template<class I, class T> void uninit_safe_copy(I begin, I end, T* uninit);
 template<class T> void uninit_safe_move_or_copy(T* data, std::size_t size, T* uninit);
 template<class T> void uninit_move_downwards(T* data, std::size_t size, std::size_t dist) noexcept;
 template<class T> void uninit_move_upwards(T* data, std::size_t size, std::size_t dist) noexcept;
+/// \}
 
 
 
 /// \brief A slab of memory adjacent objects.
 ///
-/// A Slab object owns a single chunk of dynamically allocated memory with enough space for
-/// the requested number of objects. This memory will never be realloced, other than through
-/// explicit invocation of \ref recreate(), so any pointers to contained objects will remain
-/// valid as long as \ref recreate() and \ref operator=() are not called, even across move
-/// construction and move assignment.
+/// A slab object owns a single chunk of dynamically allocated memory with enough space for
+/// the requested number of objects. This memory will never be reallocated, other than
+/// through explicit invocation of \ref recreate(), so any pointers to contained objects
+/// will remain valid as long as \ref recreate() and \ref operator=() are not called, even
+/// across move construction and move assignment.
 ///
 /// The slab has a maximum size (the \p capacity argument passed to the constructor), and a
 /// current size (\ref size()). The size increases by one every time \ref add() is
-/// called. Behaviour is undefined if \ref add() is called at a time where the current size
+/// called. Behavior is undefined if \ref add() is called at a time where the current size
 /// is equal to the capacity.
 ///
 /// When the slab is destroyed, the objects will be destroyed in reverse order. That is, the
@@ -125,8 +192,7 @@ public:
     auto end() const noexcept   -> const T*;
 
 private:
-    using strut_type = core::Strut<T>;
-    std::unique_ptr<strut_type[]> m_memory;
+    std::unique_ptr<std::byte[]> m_memory;
     std::size_t m_size = 0;
 
     void destroy() noexcept;
@@ -134,6 +200,31 @@ private:
 
 
 template<class T> Slab(core::Span<T>) -> Slab<std::remove_const_t<T>>;
+
+
+
+/// \brief Provide aligned storage for array of objects.
+///
+/// An object of this type contains an array of bytes long enough and sufficiently aligned
+/// to act as storage for an array of \p N objects of type \p T. The length of the array of
+/// bytes is at least `N * sizeof (T)`. The array of bytes is directly contained in this
+/// class, meaning that the size of this class accounts for the size of the array. The
+/// pointer to the array of bytes is returned by \ref addr(). If \p N is zero, this class is
+/// guaranteed to be an empty class and \ref addr() will return null.
+///
+template<class T, std::size_t N> class AlignedStorage
+    : private impl::AlignedStorage<T, N> {
+public:
+    using value_type = T;
+    static constexpr std::size_t size = N;
+
+    /// \brief Get pointer to array of bytes.
+    ///
+    /// If \p N is greater than zero, this function returns a pointer to the first byte in
+    /// the contained array of bytes. Otherwise this function returns null.
+    ///
+    auto addr() noexcept -> void*;
+};
 
 
 
@@ -259,7 +350,7 @@ template<class T> struct Uninit_0<T, false> {
         }
         catch (...) {
             // If an exception was thrown above, we know that elements were copied, and not
-            // moved (assuming that T is copy constructable if it is not nothrow move
+            // moved (assuming that T is copy-constructible if it is not nothrow move
             // constructible), so we need to back out by destroying the copies that were
             // already made.
             while (i > 0) {
@@ -274,6 +365,7 @@ template<class T> struct Uninit_0<T, false> {
     {
         // Move elements towards lower addresses. This is only safe when the elements are
         // nothrow move constructible.
+        static_assert(std::is_nothrow_move_constructible_v<T>);
         T* data_2 = data - dist;
         for (std::size_t i = 0; i < size; ++i) {
             new (&data_2[i]) T(std::move(data[i]));
@@ -285,6 +377,7 @@ template<class T> struct Uninit_0<T, false> {
     {
         // Move elements towards higher addresses. This is only safe when the elements are
         // nothrow move constructible.
+        static_assert(std::is_nothrow_move_constructible_v<T>);
         T* data_2 = data + dist;
         for (std::size_t i = 0; i < size; ++i) {
             std::size_t j = std::size_t((size - 1) - i);
@@ -337,7 +430,8 @@ template<class T> struct Uninit_0<T, true> {
 };
 
 
-template<class T> struct Uninit : Uninit_0<T, std::is_trivial_v<T>> {
+template<class T> struct Uninit : Uninit_0<T, std::is_trivial_v<T> && std::is_copy_constructible_v<T> &&
+                                           std::is_copy_assignable_v<T>> {
     static_assert(std::is_nothrow_destructible_v<T>);
 };
 
@@ -377,7 +471,7 @@ template<class I, class T> inline void uninit_safe_copy(I begin, I end, T* unini
 
 template<class T> inline void uninit_safe_move_or_copy(T* data, std::size_t size, T* uninit)
 {
-    static_assert(std::is_nothrow_move_constructible_v<T> || std::is_copy_constructible_v<T>);
+    static_assert(std::is_move_constructible_v<T> || std::is_copy_constructible_v<T>);
     impl::Uninit<T>::safe_move_or_copy(data, size, uninit); // Throws
 }
 
@@ -404,8 +498,11 @@ template<class T> inline void uninit_move_upwards(T* data, std::size_t size, std
 
 template<class T>
 inline Slab<T>::Slab(std::size_t capacity)
-    : m_memory(std::make_unique<strut_type[]>(capacity)) // Throws
 {
+    std::size_t num_bytes = capacity;
+    if (ARCHON_UNLIKELY(!core::try_int_mul(num_bytes, sizeof (T))))
+        throw std::length_error("Slab capacity");
+    m_memory = std::make_unique<std::byte[]>(num_bytes); // Throws
 }
 
 
@@ -516,14 +613,14 @@ inline auto Slab<T>::size() const noexcept -> std::size_t
 template<class T>
 inline auto Slab<T>::data() noexcept -> T*
 {
-    return const_cast<T*>(std::as_const(*this).data());
+    return reinterpret_cast<T*>(m_memory.get());
 }
 
 
 template<class T>
 inline auto Slab<T>::data() const noexcept -> const T*
 {
-    return static_cast<T*>(static_cast<void*>(m_memory.get()));
+    return reinterpret_cast<T*>(m_memory.get());
 }
 
 
@@ -564,6 +661,17 @@ void Slab<T>::destroy() noexcept
         --ptr;
         ptr->~T();
     }
+}
+
+
+
+// ============================ AlignedStorage ============================
+
+
+template<class T, std::size_t N>
+inline auto AlignedStorage<T, N>::addr() noexcept -> void*
+{
+    return impl::AlignedStorage<T, N>::addr();
 }
 
 

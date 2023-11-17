@@ -52,21 +52,19 @@ namespace archon::core {
 ///
 /// As opposed to std::deque, this container allows for reservation of buffer space, such
 /// that value insertion can be guaranteed to not reallocate buffer memory, and to not
-/// throw.
-///
-/// More specifically, a single insert operation, that inserts zero or more values at either
-/// end, is guaranteed to not reallocate buffer memory if the prior capacity (capacity()) is
-/// greater than, or equal to the prior size (size()) plus the number of inserted
-/// values. Further more, such an operation is guaranteed to not throw if the capacity is
-/// sufficient, and the relevant constructor of the value type does not throw, and, in the
-/// case of inserting a range of values specified as a pair of iterators, if no exception is
-/// thrown while operating on those iterators.
+/// throw. More specifically, a single insert operation, that inserts zero or more values at
+/// either end, is guaranteed to not reallocate buffer memory if the prior capacity
+/// (capacity()) is greater than, or equal to the prior size (size()) plus the number of
+/// inserted values. Further more, such an operation is guaranteed to not throw if the
+/// capacity is sufficient, and the relevant constructor of the value type does not throw,
+/// and, in the case of inserting a range of values specified as a pair of iterators, if no
+/// exception is thrown while operating on those iterators.
 ///
 /// This container uses a single contiguous chunk of memory as backing storage, but it
 /// allows for the logical sequence of values to wrap around from the end, to the beginning
 /// of that chunk. Because the logical sequence of values can have a storage-wise
 /// discontinuity of this kind, this container does not meet the requirements of
-/// `ContiguousContainer` (as defined by C++17).
+/// `ContiguousContainer` as defined by C++17.
 ///
 /// When the first element is removed (pop_front()), iterators pointing to the removed
 /// element will be invalidated. All other iterators, including "end iterators" (end()),
@@ -211,8 +209,7 @@ public:
         noexcept(noexcept(std::declval<T>() < std::declval<U>()));
 
 private:
-    using strut_type = core::Strut<T>;
-    std::unique_ptr<strut_type[]> m_memory_owner;
+    std::unique_ptr<std::byte[]> m_memory;
 
     // Index of first element in allocated memory chunk.
     //
@@ -454,7 +451,7 @@ inline CircularBuffer<T>::CircularBuffer(const CircularBuffer& buffer)
 
 template<class T>
 inline CircularBuffer<T>::CircularBuffer(CircularBuffer&& buffer) noexcept
-    : m_memory_owner(std::move(buffer.m_memory_owner))
+    : m_memory(std::move(buffer.m_memory))
     , m_begin(buffer.m_begin)
     , m_size(buffer.m_size)
     , m_allocated_size(buffer.m_allocated_size)
@@ -517,7 +514,7 @@ template<class T>
 inline auto CircularBuffer<T>::operator=(CircularBuffer&& buffer) noexcept -> CircularBuffer&
 {
     destroy();
-    m_memory_owner   = std::move(buffer.m_memory_owner);
+    m_memory         = std::move(buffer.m_memory);
     m_begin          = buffer.m_begin;
     m_size           = buffer.m_size;
     m_allocated_size = buffer.m_allocated_size;
@@ -767,7 +764,7 @@ inline void CircularBuffer<T>::shrink_to_fit()
             realloc(new_allocated_size); // Throws
     }
     else {
-        m_memory_owner.reset();
+        m_memory.reset();
         m_begin = 0;
         m_allocated_size = 0;
     }
@@ -817,7 +814,7 @@ template<class... A> inline auto CircularBuffer<T>::emplace_front(A&&... args) -
     ARCHON_ASSERT(m_allocated_size > 0);
     T* base = get_base();
     size_type i = circular_dec(m_begin);
-    uninit_create(base + i, std::forward<A>(args)...); // Throws
+    core::uninit_create(base + i, std::forward<A>(args)...); // Throws
     m_begin = i;
     m_size = new_size;
     return base[i];
@@ -832,7 +829,7 @@ template<class... A> inline auto CircularBuffer<T>::emplace_back(A&&... args) ->
     ARCHON_ASSERT(m_allocated_size > 0);
     T* base = get_base();
     size_type i = wrap(m_size);
-    uninit_create(base + i, std::forward<A>(args)...); // Throws
+    core::uninit_create(base + i, std::forward<A>(args)...); // Throws
     m_size = new_size;
     return base[i];
 }
@@ -844,7 +841,7 @@ inline void CircularBuffer<T>::pop_front() noexcept
     ARCHON_ASSERT(m_size > 0);
     T* base = get_base();
     size_type i = m_begin;
-    uninit_destroy(base + i, 1);
+    core::uninit_destroy(base + i, 1);
     m_begin = circular_inc(m_begin);
     --m_size;
 }
@@ -857,7 +854,7 @@ inline void CircularBuffer<T>::pop_back() noexcept
     T* base = get_base();
     size_type new_size = m_size - 1;
     size_type i = wrap(new_size);
-    uninit_destroy(base + i, 1);
+    core::uninit_destroy(base + i, 1);
     m_size = new_size;
 }
 
@@ -921,7 +918,7 @@ inline void CircularBuffer<T>::resize(size_type size, const T& value)
 template<class T>
 inline void CircularBuffer<T>::swap(CircularBuffer& buffer) noexcept
 {
-    std::swap(m_memory_owner,   buffer.m_memory_owner);
+    std::swap(m_memory,         buffer.m_memory);
     std::swap(m_begin,          buffer.m_begin);
     std::swap(m_size,           buffer.m_size);
     std::swap(m_allocated_size, buffer.m_allocated_size);
@@ -991,10 +988,10 @@ inline void CircularBuffer<T>::destroy(size_type offset) noexcept
     std::size_t offset_2 = wrap(offset);
     std::size_t top = m_allocated_size - offset_2;
     if (size > top) {
-        uninit_destroy(base, size - top);
+        core::uninit_destroy(base, size - top);
         size = top;
     }
-    uninit_destroy(base + offset_2, size);
+    core::uninit_destroy(base + offset_2, size);
 }
 
 
@@ -1003,25 +1000,28 @@ void CircularBuffer<T>::realloc(size_type new_allocated_size)
 {
     ARCHON_ASSERT(new_allocated_size > 1);
     ARCHON_ASSERT(new_allocated_size > m_size);
-    std::unique_ptr<strut_type[]> new_memory_owner = std::make_unique<strut_type[]>(new_allocated_size); // Throws
+    std::size_t num_bytes = new_allocated_size;
+    if (ARCHON_UNLIKELY(!core::try_int_mul(num_bytes, sizeof (T))))
+        throw std::length_error("Buffer capacity");
+    std::unique_ptr<std::byte[]> new_memory = std::make_unique<std::byte[]>(num_bytes); // Throws
     T* base = get_base();
-    T* new_base = static_cast<T*>(static_cast<void*>(new_memory_owner.get()));
-    std::size_t top = m_allocated_size - m_begin;
+    T* new_base = reinterpret_cast<T*>(new_memory.get());
+    std::size_t top = std::size_t(m_allocated_size - m_begin);
     if (m_size <= top) {
-        uninit_safe_move_or_copy(base + m_begin, m_size, new_base); // Throws
+        core::uninit_safe_move_or_copy(base + m_begin, m_size, new_base); // Throws
     }
     else {
-        uninit_safe_move_or_copy(base + m_begin, top, new_base); // Throws
+        core::uninit_safe_move_or_copy(base + m_begin, top, new_base); // Throws
         try {
-            uninit_safe_move_or_copy(base, m_size - top, new_base + top); // Throws
+            core::uninit_safe_move_or_copy(base, m_size - top, new_base + top); // Throws
         }
         catch (...) {
-            uninit_destroy(new_base, top);
+            core::uninit_destroy(new_base, top);
             throw;
         }
     }
     destroy();
-    m_memory_owner = std::move(new_memory_owner);
+    m_memory = std::move(new_memory);
     m_begin = 0;
     m_allocated_size = new_allocated_size;
 }
@@ -1035,15 +1035,15 @@ inline void CircularBuffer<T>::do_append_1(std::size_t size)
     std::size_t offset = wrap(m_size);
     std::size_t top = m_allocated_size - offset;
     if (size <= top) {
-        uninit_safe_fill(size, base + offset); // Throws
+        core::uninit_safe_fill(size, base + offset); // Throws
     }
     else {
-        uninit_safe_fill(top, base + offset); // Throws
+        core::uninit_safe_fill(top, base + offset); // Throws
         try {
-            uninit_safe_fill(size - top, base); // Throws
+            core::uninit_safe_fill(size - top, base); // Throws
         }
         catch (...) {
-            uninit_destroy(base + offset, top);
+            core::uninit_destroy(base + offset, top);
             throw;
         }
     }
@@ -1059,15 +1059,15 @@ inline void CircularBuffer<T>::do_append_1(std::size_t size, const T& value)
     std::size_t offset = wrap(m_size);
     std::size_t top = m_allocated_size - offset;
     if (size <= top) {
-        uninit_safe_fill(size, value, base + offset); // Throws
+        core::uninit_safe_fill(size, value, base + offset); // Throws
     }
     else {
-        uninit_safe_fill(top, value, base + offset); // Throws
+        core::uninit_safe_fill(top, value, base + offset); // Throws
         try {
-            uninit_safe_fill(size - top, value, base); // Throws
+            core::uninit_safe_fill(size - top, value, base); // Throws
         }
         catch (...) {
-            uninit_destroy(base + offset, top);
+            core::uninit_destroy(base + offset, top);
             throw;
         }
     }
@@ -1100,15 +1100,15 @@ template<class I> void CircularBuffer<T>::do_append_2(I begin, I end, std::rando
     std::size_t offset = wrap(m_size);
     std::size_t top = m_allocated_size - offset;
     if (size <= top) {
-        uninit_safe_copy(begin, end, base + offset); // Throws
+        core::uninit_safe_copy(begin, end, base + offset); // Throws
     }
     else {
-        uninit_safe_copy(begin, begin + top, base + offset); // Throws
+        core::uninit_safe_copy(begin, begin + top, base + offset); // Throws
         try {
-            uninit_safe_copy(begin + top, end, base); // Throws
+            core::uninit_safe_copy(begin + top, end, base); // Throws
         }
         catch (...) {
-            uninit_destroy(base + offset, top);
+            core::uninit_destroy(base + offset, top);
             throw;
         }
     }
@@ -1119,7 +1119,7 @@ template<class I> void CircularBuffer<T>::do_append_2(I begin, I end, std::rando
 template<class T>
 inline auto CircularBuffer<T>::get_base() noexcept -> T*
 {
-    return static_cast<T*>(static_cast<void*>(m_memory_owner.get()));
+    return reinterpret_cast<T*>(m_memory.get());
 }
 
 

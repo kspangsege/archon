@@ -55,6 +55,7 @@
 #include <archon/core/inexact_compare.hpp>
 #include <archon/core/impl/type_ident_impl.hpp>
 #include <archon/core/type_ident.hpp>
+#include <archon/core/impl/memory.hpp>
 #include <archon/core/memory.hpp>
 #include <archon/core/time.hpp>
 

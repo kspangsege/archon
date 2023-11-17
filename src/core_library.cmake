@@ -69,6 +69,7 @@ target_sources(Core PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "${
   archon/core/inexact_compare.hpp
   archon/core/impl/type_ident_impl.hpp
   archon/core/type_ident.hpp
+  archon/core/impl/memory.hpp
   archon/core/memory.hpp
   archon/core/time.hpp
   archon/core/index_iterator.hpp

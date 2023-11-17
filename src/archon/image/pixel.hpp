@@ -501,7 +501,7 @@ template<class C, class T, class R> auto operator<<(std::basic_ostream<C, T>& ou
     core::AsListConfig config;
     config.bracketed = true;
     config.space = core::AsListSpace::tight;
-    return out << core::as_list(core::Span(pixel), [](comp_type comp) {
+    return out << core::as_list(core::Span(pixel), [](const comp_type& comp) {
         if constexpr (std::is_integral_v<comp_type>) {
             return core::as_int(image::comp_repr_unpack<comp_repr>(comp));
         }

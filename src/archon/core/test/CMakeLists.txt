@@ -5,10 +5,12 @@ add_library(CoreTest OBJECT
   test_integer.cpp
   test_float.cpp
   test_math.cpp
+  test_memory.cpp
   test_endianness.cpp
   test_scope_exit.cpp
   test_value_reset_guard.cpp
   test_circular_buffer.cpp
+  test_vector.cpp
   test_flat_map.cpp
   test_typed_object_registry.cpp
   test_memory_input_stream.cpp
