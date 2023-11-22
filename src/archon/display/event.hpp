@@ -166,9 +166,27 @@ struct ScrollEvent : display::TimedWindowEvent {
 struct WindowSizeEvent : display::WindowEvent {
     /// \brief Size of window.
     ///
-    /// This is the size of the window at the time the event was generated.
+    /// This is the size of the contents area of the window at the time the event was
+    /// generated.
     ///
     display::Size size;
+};
+
+
+
+/// \brief When a window is repositioned.
+///
+/// This type of event is generated when a window changes position.
+///
+/// \sa \ref display::WindowEventHandler::on_reposition()
+///
+struct WindowPosEvent : display::WindowEvent {
+    /// \brief Position of window.
+    ///
+    /// This is the position of the upper-left corner of the contents area of the window at
+    /// the time the event was generated.
+    ///
+    display::Pos pos;
 };
 
 

@@ -102,6 +102,7 @@ jobs:
     steps:
     - name: Install dependencies
       run: |
+        (cd C:\vcpkg && git pull)
         vcpkg install --triplet x64-windows libpng freetype sdl2
 
     - name: Checkout

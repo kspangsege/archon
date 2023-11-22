@@ -39,6 +39,12 @@ namespace archon::display {
 ///
 /// New windows can be created by calling \ref display::Connection::new_window().
 ///
+/// Visually, a window consists of a rectangular area of contents optionally surrounded by
+/// decorations (frame and title bar). The size of a window (\ref set_size(), \ref
+/// display::WindowSizeEvent::size) generally refers to the size of the contents area, and
+/// the position of a window (\ref display::WindowPosEvent::pos) generally refers to the
+/// position of the upper-left corner of the contents area.
+///
 class Window {
 public:
     struct Config;
@@ -70,8 +76,12 @@ public:
 
     /// \brief Resize window.
     ///
-    /// This function resizes the window to the specified size (\p size). This will cause a
-    /// "resize" event to be generated (\ref display::WindowEventHandler::on_resize()).
+    /// This function generates a request to resize the window such that the size of the
+    /// contents area is as specified (\p size). The platform may, or may not honor this
+    /// request. It may also choose to set a different size than the one specified. In any
+    /// case, if the size of the window changes, a "resize" event will be generated (\ref
+    /// display::WindowEventHandler::on_resize()), and it will specify the actual new size
+    /// of the window.
     ///
     virtual void set_size(display::Size size) = 0;
 

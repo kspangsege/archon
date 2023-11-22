@@ -191,6 +191,16 @@ public:
     ///
     virtual bool on_resize(const display::WindowSizeEvent&);
 
+    /// \brief The position of a window changed.
+    ///
+    /// This function is called when a "reposition" event is generated for one of the
+    /// windows that are associated with the event handler. A "reposition" event is
+    /// generated for a particular window when that window is moved.
+    ///
+    /// The default implementation of this function does nothing other than return `true`.
+    ///
+    virtual bool on_reposition(const display::WindowPosEvent&);
+
     /// \brief Request to close a window.
     ///
     /// This function is called when the "close" event is generated for one of the windows

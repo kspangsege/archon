@@ -93,6 +93,12 @@ bool WindowEventHandler::on_resize(const display::WindowSizeEvent&)
 }
 
 
+bool WindowEventHandler::on_reposition(const display::WindowPosEvent&)
+{
+    return true; // Do not interrupt event processing
+}
+
+
 bool WindowEventHandler::on_blur(const display::TimedWindowEvent&)
 {
     return true; // Do not interrupt event processing

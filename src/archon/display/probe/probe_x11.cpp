@@ -849,8 +849,10 @@ int main(int argc, char* argv[])
     // Set window name
     const char* window_name = "X11 Probe";
     XTextProperty window_name_2;
-    Status status = XStringListToTextProperty(const_cast<char **>(&window_name), 1, &window_name_2);
-    ARCHON_STEADY_ASSERT(status != 0);
+    {
+        Status status = XStringListToTextProperty(const_cast<char **>(&window_name), 1, &window_name_2);
+        ARCHON_STEADY_ASSERT(status != 0);
+    }
     XSetWMName(display, window, &window_name_2);
     XFree(window_name_2.value);
 
@@ -1039,6 +1041,9 @@ int main(int argc, char* argv[])
                         break;
                     case ConfigureNotify:
                         if (ev.xconfigure.window == window) {
+                            // Real configure notify events are relative to the parent, synthetic events are absolute
+                            if (ev.xconfigure.send_event)
+                                logger.info("POS: %s", display::Pos(ev.xconfigure.x, ev.xconfigure.y));                         
                             int w = ev.xconfigure.width;
                             int h = ev.xconfigure.height;
                             if (w != win_width || h != win_height) {

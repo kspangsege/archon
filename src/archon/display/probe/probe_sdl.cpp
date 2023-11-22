@@ -26,9 +26,11 @@
 #include <archon/core/features.h>
 #include <archon/core/format.hpp>
 #include <archon/core/quote.hpp>
+#include <archon/core/file.hpp>
 #include <archon/log.hpp>
-#include <archon/image/geom.hpp>
+#include <archon/cli.hpp>
 #include <archon/display/impl/config.h>
+#include <archon/display/geometry.hpp>
 
 #if ARCHON_DISPLAY_HAVE_SDL
 #  if ARCHON_CLANG
@@ -150,30 +152,50 @@ auto pixel_format_name(Uint32 format) -> const char*
 }
 
 
-void show_renderer_info(const SDL_RendererInfo& info)
+void show_renderer_info(const SDL_RendererInfo& info, log::Logger& logger)
 {
-    log::info("  Name: %s", core::quoted(info.name));
-    log::info("  Flags:");
+    logger.info("  Name: %s", core::quoted(info.name));
+    logger.info("  Flags:");
     if ((info.flags & SDL_RENDERER_SOFTWARE) != 0)
-        log::info("    SOFTWARE");
+        logger.info("    SOFTWARE");
     if ((info.flags & SDL_RENDERER_ACCELERATED) != 0)
-        log::info("    ACCELERATED");
+        logger.info("    ACCELERATED");
     if ((info.flags & SDL_RENDERER_PRESENTVSYNC) != 0)
-        log::info("    PRESENTVSYNC");
+        logger.info("    PRESENTVSYNC");
     if ((info.flags & SDL_RENDERER_TARGETTEXTURE) != 0)
-        log::info("    TARGETTEXTURE");
-    log::info("  Pixel formats:");
+        logger.info("    TARGETTEXTURE");
+    logger.info("  Pixel formats:");
     for (int i = 0; i < int(info.num_texture_formats); ++i)
-        log::info("    %s", pixel_format_name(info.texture_formats[i]));
-    log::info("  Max texture size: %s", image::Size(info.max_texture_width, info.max_texture_height));
+        logger.info("    %s", pixel_format_name(info.texture_formats[i]));
+    logger.info("  Max texture size: %s", display::Size(info.max_texture_width, info.max_texture_height));
 }
 
 
 } // unnamed namespace
 
 
-void func()
+int main(int argc, char* argv[])
 {
+    std::locale locale("");
+
+    log::LogLevel log_level_limit = log::LogLevel::warn;
+
+    cli::Spec spec;
+    opt(cli::help_tag, spec); // Throws
+    opt(cli::stop_tag, spec); // Throws
+
+    opt("-l, --log-level", "<level>", cli::no_attributes, spec,
+        "Set the log level limit. The possible levels are \"off\", \"fatal\", \"error\", \"warn\", \"info\", "
+        "\"detail\", \"debug\", \"trace\", and \"all\". The default limit is \"@V\".",
+        cli::assign(log_level_limit)); // Throws
+
+    int exit_status = 0;
+    if (ARCHON_UNLIKELY(cli::process(argc, argv, spec, exit_status, locale))) // Throws
+        return exit_status;
+
+    log::FileLogger root_logger(core::File::get_cout(), locale); // Throws
+    log::LimitLogger logger(root_logger, log_level_limit); // Throws
+
     {
         int ret = SDL_Init(SDL_INIT_VIDEO);
         if (ret < 0)
@@ -186,14 +208,14 @@ void func()
             throw_sdl_error("SDL_GetNumRenderDrivers()");
         num_drivers = ret;
     }
-    log::info("num_drivers = %s", num_drivers);
+    logger.info("num_drivers = %s", num_drivers);
     for (int i = 0; i < num_drivers; ++i) {
         SDL_RendererInfo info;
         int ret = SDL_GetRenderDriverInfo(i, &info);
         if (ret < 0)
             throw_sdl_error("SDL_GetRenderDriverInfo() failed");
-        log::info("Driver %s:", i);
-        show_renderer_info(info);
+        logger.info("Driver %s:", i);
+        show_renderer_info(info, logger);
     }
     SDL_Window* win;
     {
@@ -215,8 +237,8 @@ void func()
         int ret = SDL_GetRendererInfo(rend, &info);
         if (ret < 0)
             throw_sdl_error("SDL_GetRenderInfo() failed");
-        log::info("Renderer:");
-        show_renderer_info(info);
+        logger.info("Renderer:");
+        show_renderer_info(info, logger);
     }
     {
         Uint8 r = 255;
@@ -234,23 +256,31 @@ void func()
     }
     SDL_RenderPresent(rend);
     SDL_Event event;
-    for (;;) {
+    bool quit = false;
+    while (!quit) {
         if (SDL_WaitEvent(&event)) {
-            if (event.type == SDL_QUIT)
-                break;
+            switch (event.type) {
+                case SDL_KEYDOWN:
+                    if (event.key.keysym.sym == SDLK_ESCAPE) {
+                        quit = true;
+                        break;
+                    }
+                    break;
+                case SDL_WINDOWEVENT:
+                    switch (event.window.event) {
+                        case SDL_WINDOWEVENT_MOVED:
+                            logger.info("POS: %s", display::Pos(int(event.window.data1), int(event.window.data2)));     
+                            break;
+                    }
+                    break;
+                case SDL_QUIT:
+                    quit = true;
+                    break;
+            }
         }
     }
     SDL_DestroyWindow(win);
     SDL_Quit();
-}
-
-int main()
-{
-    SDL_SetMainReady();
-    std::thread thread([] {
-        func();
-    });
-    thread.join();
 }
 
 #else // !ARCHON_DISPLAY_HAVE_SDL

@@ -572,6 +572,20 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
                         }
                         break;
                     }
+                    case SDL_WINDOWEVENT_MOVED: {
+                        const WindowEntry* entry = lookup_window_entry(event.window.windowID);
+                        if (ARCHON_LIKELY(entry)) {
+                            display::WindowPosEvent event_2;
+                            event_2.cookie = entry->cookie;
+                            core::int_cast(event.window.data1, event_2.pos.x); // Throws
+                            core::int_cast(event.window.data2, event_2.pos.y); // Throws
+                            bool proceed = entry->event_handler.on_reposition(event_2); // Throws
+                            if (ARCHON_LIKELY(proceed))
+                                break;
+                            return false; // Interrupt
+                        }
+                        break;
+                    }
                     case SDL_WINDOWEVENT_CLOSE: {
                         const WindowEntry* entry = lookup_window_entry(event.window.windowID);
                         if (ARCHON_LIKELY(entry)) {
