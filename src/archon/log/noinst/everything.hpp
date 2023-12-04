@@ -25,6 +25,9 @@
 #error "Do not include this header file"
 
 
+// Dependencies
+#include <archon/core/noinst/everything.hpp>
+
 // Foundation
 #include <archon/log/log_namespace.hpp>
 #include <archon/log/log_level.hpp>
