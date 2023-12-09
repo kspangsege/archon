@@ -25,6 +25,10 @@
 #error "Do not include this header file"
 
 
+// Dependencies
+#include <archon/core/noinst/everything.hpp>
+#include <archon/log/noinst/everything.hpp>
+
 // Foundation
 #include <archon/cli/cli_namespace.hpp>
 #include <archon/cli/impl/call.hpp>

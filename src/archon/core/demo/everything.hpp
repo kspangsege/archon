@@ -1,6 +1,6 @@
 // This file is part of the Archon project, a suite of C++ libraries.
 //
-// Copyright (C) 2022 Kristian Spangsege <kristian.spangsege@gmail.com>
+// Copyright (C) 2020 Kristian Spangsege <kristian.spangsege@gmail.com>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this
 // software and associated documentation files (the "Software"), to deal in the Software
@@ -23,18 +23,3 @@
 // which is a topological dependency ordering of all the header files of the Archon Core
 // Library, including any that must never be included by applications.
 #error "Do not include this header file"
-
-
-// Dependencies
-#include <archon/core/noinst/everything.hpp>
-#include <archon/log/noinst/everything.hpp>
-
-#include <archon/math/math_namespace.hpp>
-#include <archon/math/type_traits.hpp>
-#include <archon/math/vector_base.hpp>
-#include <archon/math/vector.hpp>
-#include <archon/math/matrix_base.hpp>
-#include <archon/math/matrix.hpp>
-#include <archon/math/quaternion.hpp>
-#include <archon/math/rotation.hpp>
-#include <archon/math/test/util.hpp>

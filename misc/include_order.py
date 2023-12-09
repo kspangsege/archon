@@ -334,24 +334,14 @@ class InclusionCache:
 
     #        
     #
-    def get_subdir_exclusions(self, header_path, reduced_domain):
-        # Determine set of reference headers that should not give rise to subdirectory
-        # exclusion
-        disregard = set() # Include paths
-        if reduced_domain:
-            disregard.add(self._path_mapper.to_include_path(header_path))
-        else:
-            recurse = True
-            for reference_header in self.get_reference_headers(header_path, recurse):
-                disregard.add(self._path_mapper.to_include_path(reference_header.header_path))
-
+    def get_subdir_exclusions(self, header_path):
         reference_header = self._path_mapper.get_as_reference_header(header_path)
         exclusions = [] # Include paths
         for header_path_2 in self._file_structure_cache.find_header_files(reference_header.assoc_dir_path):
             reference_header_2 = self._path_mapper.try_get_as_reference_header(header_path_2)
             if not reference_header_2:
                 continue
-            if self._path_mapper.to_include_path(header_path_2) in disregard:
+            if self._path_mapper.are_same_paths(header_path_2, header_path):
                 continue
             dir_path = reference_header_2.assoc_dir_path
             skip = False
@@ -374,8 +364,8 @@ class InclusionCache:
 
 
 # This function performs the following check: If R is the specified reference header
-# (`header_path`) and D is the reduced domain of R, check that all header files in D are
-# directly included in R.
+# (`header_path`) and D is the domain of R, check that all header files in D are directly
+# included in R.
 #
 # If `recurse` is true, this check is performed for all reference headers in the reference
 # closure of the specified reference header.
@@ -384,15 +374,14 @@ class InclusionCache:
 # into the reference header. Such a change needs to be reviewed and adjusted by a human
 # operator.
 #
-# FIXME: Should this function also check that everything directly included by the reference header is in its reduced domain or is another reference header                            
+# FIXME: Should this function also check that everything directly included by the reference header is in its domain or is another reference header                            
 #
 def check_reference_cover(header_path, recurse, insert, path_mapper, file_structure_cache, inclusion_cache):
     error_occurred = False
     for reference_header in inclusion_cache.get_reference_headers(header_path, recurse):
         subdir_exclusions = set()
         subdir_exclusions_alt = []
-        reduced_domain = True
-        for path in inclusion_cache.get_subdir_exclusions(reference_header.header_path, reduced_domain):
+        for path in inclusion_cache.get_subdir_exclusions(reference_header.header_path):
             subdir_exclusions.add(path_mapper.to_include_path(path))
             subdir_exclusions_alt.append(os.path.relpath(path, reference_header.assoc_dir_path))
 
@@ -545,20 +534,12 @@ def check_reference_order(header_path, recurse, verbose, path_mapper, inclusion_
 #
 # FIXME: Explain how the "fixup" feature requires extra regularity of inclusions                                             
 #
-# FIXME: There is serious problem with the notion of domain! It does not geenrally make sense to think of a reference header, other than the root reference header, as applying to the source files in its domain, because those source files will likely contain includes that are uncovered by the reference header. Is this fixable?                        
-# ----> IDEA: Allow for reference headers to be included by more than one other reference header. Then have any reference header refer to enough other reference headers that it fully covers the source files in its domain                        
-# ----> Issues to think about:
-#       - How to allow for a reference header to sit inside src/archon/core/demo, and what about src/archon/core/util?
-# ----> Looks like solution is to simply allow for one directory to be the associated directory of more than one reference header               
-# ----> Second thoughts: Looks like it should not be allowed, and that it can be detected: 
-#
 def check_include_order(header_path, verbose, fixup, path_mapper, file_structure_cache, inclusion_cache):
     reference_header = path_mapper.get_as_reference_header(header_path)
 
     subdir_exclusions = set()
     subdir_exclusions_alt = []
-    reduced_domain = False
-    for path in inclusion_cache.get_subdir_exclusions(header_path, reduced_domain):
+    for path in inclusion_cache.get_subdir_exclusions(header_path):
         subdir_exclusions.add(path_mapper.to_include_path(path))
         subdir_exclusions_alt.append(os.path.relpath(path, reference_header.assoc_dir_path))
 
@@ -602,15 +583,19 @@ def check_include_order(header_path, verbose, fixup, path_mapper, file_structure
         for inclusion in inclusions:
             index = headers.get(inclusion.incl_path)
             if index is None:
-                print("%s:%s: ERROR: Uncovered inclusion <%s>" % (source_path, inclusion.line_no, inclusion.incl_path))
+                print("%s:%s: ERROR: Inclusion of <%s> not covered by reference order" %
+                      (source_path, inclusion.line_no, inclusion.incl_path))
                 error_occurred = True
             else:
                 if prev_index is not None and index <= prev_index:
                     if fixup:
                         need_rewrite = True
                     else:
-                        print("%s:%s: ERROR: Out of order inclusion <%s>" %
-                              (source_path, inclusion.line_no, inclusion.incl_path))
+                        for inclusion_2 in inclusions:
+                            index_2 = headers.get(inclusion_2.incl_path)
+                            if index_2 > index:
+                                print("%s:%s: ERROR: Out of order inclusion of <%s> (must be included before <%s>)" %
+                                      (source_path, inclusion.line_no, inclusion.incl_path, inclusion_2.incl_path))
                         error_occurred = True
                 prev_index = index
         if need_rewrite:
