@@ -346,8 +346,8 @@ class PathMapper:
     #        
     #
     class ReferenceHeader:
-        def __init__(self, header_path, assoc_dir_path, is_full):
-            self.header_path = header_path       # Path to reference header file
+        def __init__(self, path, assoc_dir_path, is_full):
+            self.path = path                     # Path to reference header file
             self.assoc_dir_path = assoc_dir_path # Path to associated source (sub)directory
             self.is_full = is_full               # Not a partial reference header
 
@@ -462,7 +462,7 @@ class DomainCache:
             reference_header_2 = self._path_mapper.try_get_as_reference_header(header_path)
             if not reference_header_2 or not reference_header_2.is_full:
                 continue
-            if self._path_mapper.are_sibling_paths(header_path, reference_header.header_path):
+            if self._path_mapper.are_sibling_paths(header_path, reference_header.path):
                 continue
             dir_path = reference_header_2.assoc_dir_path
             skip = False
@@ -530,72 +530,170 @@ class InclusionCache:
     #
     class Inclusion:
         def __init__(self, line_no, incl_path, line):
-            self.line_no = line_no     # Line number in includer
-            self.incl_path = incl_path # Include path of included header
-            self.line = line           # Full line of include statement without termination
+            self.line_no = line_no         # Line number in includer
+            self.incl_path = incl_path     # Include path of included header
+            self.line = line               # Full line of include statement without termination
 
     # This function returns a list of reference header objects
     # (`PathMapper.ReferenceHeader`) corresponding to full reference headers reachable from
-    # the specified full reference header. If `recurse` is false, this list contains only
-    # the specified reference header. Otherwise it contains all the full reference headers
-    # in its reference closure. When multiple reference headers are returned, they are
-    # returned in depth-first post-order (child before parent).
+    # the specified reference header, which must be a full reference header. If `recurse` is
+    # false, this list contains only the specified reference header. Otherwise it contains
+    # all the full reference headers that are reachable from the specified one by following
+    # inclusions.
+    #
+    # The reference header objects are returned in post-order (child before parent) with
+    # respect to a top-to-bottom depth-first travsersal of include statements starting from
+    # the specified reference header. Repeated inclusions of reference headers will be
+    # silently ignored, and inclusion cycles will be silently broken where they are
+    # detected.
     #
     def get_full_reference_headers(self, reference_header, recurse):
         assert reference_header.is_full
+        marked = set() # Cycle and repetition detection
         reference_headers = []
-        if recurse:
-            marked = set() # Cycle and duplicate detection
-            def traverse(reference_header):
-                for inclusion in self.get_inclusions(reference_header.header_path):
-                    header_path = self._path_mapper.from_include_path(inclusion.incl_path)
-                    reference_header_2 = self._path_mapper.try_get_as_reference_header(header_path)
-                    if reference_header_2:
-                        if inclusion.incl_path in marked:
-                            return
-                        marked.add(inclusion.incl_path)
+        def traverse(reference_header):
+            incl_path = self._path_mapper.to_include_path(reference_header.path)
+            if incl_path in marked:
+                return
+            marked.add(incl_path)
+            for inclusion in self.get_inclusions(reference_header.path):
+                path = self._path_mapper.from_include_path(inclusion.incl_path)
+                reference_header_2 = self._path_mapper.try_get_as_reference_header(path)
+                if reference_header_2:
                         traverse(reference_header_2)
-                        if reference_header_2.is_full:
-                            reference_headers.append(reference_header_2)
-            marked.add(self._path_mapper.to_include_path(reference_header.header_path))
+            if reference_header.is_full:
+                reference_headers.append(reference_header)
+        if recurse:
             traverse(reference_header)
-        reference_headers.append(reference_header)
+        else:
+            reference_headers.append(reference_header)
+        return reference_headers
+
+    # This function returns a list of reference header objects
+    # (`PathMapper.ReferenceHeader`), one for each of the reference headers in the
+    # association-closure of the specified reference header, which must be a full reference
+    # header.
+    #
+    # The reference header objects are returned in post-order (child before parent) with
+    # respect to a top-to-bottom depth-first travsersal of include statements starting from
+    # the specified reference header. Repeated inclusions of reference headers will be
+    # silently ignored, and inclusion cycles will be silently broken where they are
+    # detected.
+    #
+    def get_local_reference_headers(self, reference_header):
+        assert reference_header.is_full
+        marked = set() # Cycle and repetition detection
+        reference_headers = []
+        def traverse(reference_header):
+            incl_path = self._path_mapper.to_include_path(reference_header.path)
+            if incl_path in marked:
+                return
+            marked.add(incl_path)
+            for inclusion in self.get_inclusions(reference_header.path):
+                path = self._path_mapper.from_include_path(inclusion.incl_path)
+                reference_header_2 = self._path_mapper.try_get_as_reference_header(path)
+                if reference_header_2:
+                    if self._path_mapper.are_sibling_paths(path, reference_header.path):
+                        traverse(reference_header_2)
+            reference_headers.append(reference_header)
+        traverse(reference_header)
         return reference_headers
 
     # This function returns a list of include paths corresponding to the reference order
-    # defined by the specified reference header (`header_path`), which must be a full
-    # reference header. This list does not contain any reference headers.
+    # defined by the specified reference header, which must be a full reference header. This
+    # list does not contain any reference headers.
     #
     # Let R be the specified full reference header. Then, if `local_only` is true, the
-    # returned list only covers the part of the reference order that is directly specified
+    # returned list covers only the part of the reference order that is directly specified
     # by R and R's associated partial reference headers, if any. If `local_only` is false,
     # the list covers the full order as specified by all reference headers in the reference
     # closure of R.
     #
-    def get_reference_order(self, header_path, local_only = False):
-        reference_header = self._path_mapper.get_as_reference_header(header_path)
+    def get_reference_order(self, reference_header, local_only = False):
         assert reference_header.is_full
+        full_reference_header_path = reference_header.path
         incl_paths = []
         marked = set() # Cycle and duplicate detection
-        marked.add(self._path_mapper.to_include_path(header_path))
+        marked.add(self._path_mapper.to_include_path(full_reference_header_path))
         def traverse(reference_header):
-            for inclusion in self.get_inclusions(reference_header.header_path):
+            for inclusion in self.get_inclusions(reference_header.path):
                 if inclusion.incl_path in marked:
                     continue
                 marked.add(inclusion.incl_path)
-                header_path_2 = self._path_mapper.from_include_path(inclusion.incl_path)
-                reference_header_2 = self._path_mapper.try_get_as_reference_header(header_path_2)
+                header_path = self._path_mapper.from_include_path(inclusion.incl_path)
+                reference_header_2 = self._path_mapper.try_get_as_reference_header(header_path)
                 if not reference_header_2:
                     incl_paths.append(inclusion.incl_path)
                     continue
-                if local_only:
-                    if reference_header_2.is_full:
-                        continue
-                    if not self._path_mapper.are_sibling_paths(header_path_2, header_path):
-                        continue
+                if local_only and not self._path_mapper.are_sibling_paths(header_path, full_reference_header_path):
+                    continue
                 traverse(reference_header_2)
         traverse(reference_header)
         return incl_paths
+
+    # This function returns a list of inclusion objects (`Inclusion`) corresponding to the
+    # include statements occurring in the specified reference header and all the reference
+    # readers that are reachable from the specified reference by following inclusions. The
+    # specified reference header must be a full reference header.
+    #
+    #             
+    #
+    # The returned inclusions will be ordered according to a top-to-bottom, depth-first
+    # traversal of include statements. Repeated inclusions of reference headers will be
+    # silently ignored, and inclusion cycles will be silently broken where they are
+    # detected.
+    #
+    # FIXME: Extra rule in order to simplify the enumeration and ordering of reachable reference headers: A partial referance header must be directly or indirectly included in its associated reference header, and in at most one way.                                            
+    #
+    def get_reference_order_inclusions(self, reference_header):
+        assert reference_header.is_full
+
+        def record(reference_header):
+            
+
+        def expand():
+            pass
+
+
+
+
+        
+        # assert reference_header.is_full                
+        # marked = set() # Cycle and repetition detection
+        # inclusions = []
+        # def traverse(reference_header):
+        #     incl_path = self._path_mapper.to_include_path(reference_header.path)
+        #     if incl_path in marked:
+        #         return
+        #     marked.add(incl_path)
+        #     for inclusion in self.get_inclusions(reference_header.path):
+        #         path = self._path_mapper.from_include_path(inclusion.incl_path)
+        #         reference_header_2 = self._path_mapper.try_get_as_reference_header(path)
+        #         if reference_header_2:
+        #             if self._path_mapper.are_sibling_paths(path, reference_header.path):
+        #                 traverse(reference_header_2)
+        #     reference_headers.append(reference_header)
+        # traverse(reference_header)
+        # return reference_headers
+
+        assert reference_header.is_full
+        full_reference_header_path = reference_header.path
+        inclusions = []
+        marked = set() # Cycle and duplicate detection
+        marked.add(self._path_mapper.to_include_path(full_reference_header_path))
+        def traverse(reference_header):
+            for inclusion in self.get_inclusions(reference_header.path):
+                if inclusion.incl_path in marked:
+                    continue
+                marked.add(inclusion.incl_path)
+                header_path = self._path_mapper.from_include_path(inclusion.incl_path)
+                reference_header_2 = self._path_mapper.try_get_as_reference_header(header_path)
+                if reference_header_2 and self._path_mapper.are_sibling_paths(header_path, full_reference_header_path):
+                    traverse(reference_header_2)
+                    continue
+                inclusions.append(inclusion)
+        traverse(reference_header)
+        return inclusions
 
     # This function discards any part of the cache that is affected by the contents of the
     # file at the specified path.
@@ -713,12 +811,12 @@ class Checker:
     def check_reference_consistency(self, reference_header):
         assert reference_header.is_full
         self._logger.info("Checking consistency of referenece order rooted at <%s>",
-                          self._path_mapper.to_include_path(reference_header.header_path))
+                          self._path_mapper.to_include_path(reference_header.path))
 
         class Includer:
-            def __init__(self, header_path, line_no):
-                self.header_path = header_path # Path to includer
-                self.line_no = line_no         # Line number in includer
+            def __init__(self, path, line_no):
+                self.path = path       # Path to includer
+                self.line_no = line_no # Line number in includer
 
         marked = set() # Cycle detection
         includers = {}
@@ -726,8 +824,8 @@ class Checker:
 
         def traverse(reference_header):
             nonlocal errors_occurred
-            logger = FileContextLogger(self._logger, reference_header.header_path)
-            domain = self._domain_cache.get(reference_header.header_path)
+            logger = FileContextLogger(self._logger, reference_header.path)
+            domain = self._domain_cache.get(reference_header.path)
             prev_reference_header_inclusion = None
 
             def check_regular_inclusion(inclusion, header_path):
@@ -741,11 +839,11 @@ class Checker:
                 includer = includers.get(inclusion.incl_path)
                 if includer:
                     logger.error("Multiple inclusions of <%s> (see context below)", inclusion.incl_path)
-                    logger_2 = logger.for_alt_context(includer.header_path, includer.line_no)
+                    logger_2 = logger.for_alt_context(includer.path, includer.line_no)
                     logger_2.error("Context: Prior inclusion of <%s>", inclusion.incl_path)
                     errors_occurred = True
                     return True
-                includers[inclusion.incl_path] = Includer(reference_header.header_path, inclusion.line_no)
+                includers[inclusion.incl_path] = Includer(reference_header.path, inclusion.line_no)
                 return True
 
             def check_reference_inclusion(inclusion, reference_header_2):
@@ -754,7 +852,7 @@ class Checker:
                 logger.detail("Checking inclusion of reference header <%s>", inclusion.incl_path)
                 if inclusion.incl_path in marked:
                     rev_inclusion_path = []
-                    includer = Includer(reference_header.header_path, inclusion.line_no)
+                    includer = Includer(reference_header.path, inclusion.line_no)
                     incl_path = inclusion.incl_path
                     class Inclusion:
                         def __init__(self, incl_path, line_no):
@@ -762,7 +860,7 @@ class Checker:
                             self.line_no = line_no
                     while True:
                         rev_inclusion_path.append(Inclusion(incl_path, includer.line_no))
-                        incl_path = self._path_mapper.to_include_path(includer.header_path)
+                        incl_path = self._path_mapper.to_include_path(includer.path)
                         if incl_path == inclusion.incl_path:
                             break
                         includer = includers[incl_path]
@@ -780,7 +878,7 @@ class Checker:
                     return False
                 includer = includers.get(inclusion.incl_path)
                 if not includer:
-                    includer = Includer(reference_header.header_path, inclusion.line_no)
+                    includer = Includer(reference_header.path, inclusion.line_no)
                     includers[inclusion.incl_path] = includer
                     if not traverse(reference_header_2):
                         return False
@@ -791,7 +889,7 @@ class Checker:
                         includer_2 = includer
                         while includer_2:
                             rev_includer_path.append(includer_2)
-                            incl_path = self._path_mapper.to_include_path(includer_2.header_path)
+                            incl_path = self._path_mapper.to_include_path(includer_2.path)
                             includer_2 = includers.get(incl_path)
                         return list(reversed(rev_includer_path))
                     includer_path_1 = get_includer_path(prev_includer)
@@ -800,8 +898,7 @@ class Checker:
                     while True:
                         assert len(includer_path_1) > i
                         assert len(includer_path_2) > i
-                        assert self._path_mapper.are_same_paths(includer_path_1[i].header_path,
-                                                                includer_path_2[i].header_path)
+                        assert self._path_mapper.are_same_paths(includer_path_1[i].path, includer_path_2[i].path)
                         if includer_path_1[i].line_no != includer_path_2[i].line_no:
                             break
                         i += 1
@@ -815,18 +912,16 @@ class Checker:
                                      "by direct or indirect inclusion of one in the other (see context below)",
                                      inclusion.incl_path, prev_inclusion.incl_path)
                         if includes_1_2:
-                            logger_2 = logger.for_alt_context(includer_path_2[i].header_path,
-                                                              includer_path_2[i].line_no)
+                            logger_2 = logger.for_alt_context(includer_path_2[i].path, includer_path_2[i].line_no)
                             logger_2.error("Context: Unordered relationship established here by direct or indirect "
                                            "inclusion of <%s>", inclusion.incl_path)
                         else:
-                            logger_2 = logger.for_alt_context(includer_path_1[i].header_path,
-                                                              includer_path_1[i].line_no)
+                            logger_2 = logger.for_alt_context(includer_path_1[i].path, includer_path_1[i].line_no)
                             logger_2.error("Context: Unordered relationship established here by direct or indirect "
                                            "inclusion of <%s>", prev_inclusion.incl_path)
                         errors_occurred = True
                     elif includer_path_1[i].line_no > includer_path_2[i].line_no:
-                        nearest_common_includer_path = includer_path_1[i].header_path
+                        nearest_common_includer_path = includer_path_1[i].path
                         logger.error("Inclusion of <%s> after <%s> conflicts with order established in <%s> "
                                      "(see context below)", inclusion.incl_path, prev_inclusion.incl_path,
                                      self._path_mapper.to_include_path(nearest_common_includer_path))
@@ -842,9 +937,9 @@ class Checker:
                 prev_reference_header_inclusion = (inclusion, includer)
                 return True
 
-            incl_path = self._path_mapper.to_include_path(reference_header.header_path)
+            incl_path = self._path_mapper.to_include_path(reference_header.path)
             marked.add(incl_path)
-            for inclusion in self._inclusion_cache.get_inclusions(reference_header.header_path):
+            for inclusion in self._inclusion_cache.get_inclusions(reference_header.path):
                 logger.set_line_no(inclusion.line_no)
                 header_path = self._path_mapper.from_include_path(inclusion.incl_path)
                 reference_header_2 = self._path_mapper.try_get_as_reference_header(header_path)
@@ -882,14 +977,14 @@ class Checker:
         assert reference_header.is_full
         errors_occurred = False
         for reference_header in self._inclusion_cache.get_full_reference_headers(reference_header, recurse):
-            domain = self._domain_cache.get(reference_header.header_path)
+            domain = self._domain_cache.get(reference_header.path)
             self._logger.info("Checking coverage by reference header <%s> of %s",
-                              self._path_mapper.to_include_path(reference_header.header_path),
+                              self._path_mapper.to_include_path(reference_header.path),
                               self._path_mapper.describe_domain(domain))
 
             coverage = set()
             local_only = True
-            for incl_path in self._inclusion_cache.get_reference_order(reference_header.header_path, local_only):
+            for incl_path in self._inclusion_cache.get_reference_order(reference_header, local_only):
                 coverage.add(incl_path)
 
             missing_inclusions = []
@@ -906,12 +1001,12 @@ class Checker:
 
             if insert and missing_inclusions and not errors_occurred:
                 sorted_missing_inclusions = self._inclusion_cache.sort_topologically(missing_inclusions)
-                with open(reference_header.header_path, "a") as file:
+                with open(reference_header.path, "a") as file:
                     file.write("\n// Inserted\n")
                     for incl_path in sorted_missing_inclusions:
                         self._logger.info("Inserting missing inclusion <%s>", incl_path)
                         file.write("#include <%s>\n" % incl_path)
-                    self._inclusion_cache.invalidate(reference_header.header_path)
+                    self._inclusion_cache.invalidate(reference_header.path)
 
         if errors_occurred:
             return False
@@ -933,89 +1028,101 @@ class Checker:
     # If `verbose` is true, a log statement is generated for every inclusion in every checked
     # reference header.
     #
-    # FIXME: Would it be possible to have a "auto fix" option for this function?                           
+    # FIXME: Should emission of error context be opt-in?            
     #
     def check_reference_order(self, reference_header, recurse):
         assert reference_header.is_full
+        errors_occurred = True
 
-        class Includer:
-            def __init__(self, incl_path, line_no):
-                self.incl_path = incl_path # Include path of includer
-                self.line_no = line_no     # Line number in includer
+        def check_reference_header(reference_header):
+            nonlocal errors_occurred
+            self._logger.info("Checking dependency-before-dependant order in reference header <%s>",
+                              self._path_mapper.to_include_path(reference_header.path))
+            logger = FileContextLogger(self._logger, reference_header.path)
 
-        errors_occurred = False
+            class Includer:
+                def __init__(self, path, line_no):
+                    self.path = path       # Path of includer
+                    self.line_no = line_no # Line number in includer
 
-        for reference_header in self._inclusion_cache.get_full_reference_headers(reference_header, recurse):
-            self._logger.info("Checking topological order in reference header <%s>",
-                              self._path_mapper.to_include_path(reference_header.header_path))
-
-            marked = {} # Maps includers of current traversal path to inclusion depth (cycle detection)
-            curr_inclusions = [] # Inclusions corresponding to current traversal path
             first_includers = {} # Maps included headers to their first includer
 
-            def traverse(header_path, at_root):
+            def check_inclusion(inclusion):
                 nonlocal errors_occurred
-                logger = FileContextLogger(self._logger, header_path)
-                incl_path = self._path_mapper.to_include_path(header_path)
-
-                def check_inclusion(inclusion):
-                    nonlocal errors_occurred
-                    offset = marked.get(inclusion.incl_path)
-                    if offset is not None:
-                        n = len(curr_inclusions) - offset
-                        logger.fatal("Inclusion cycle of length %s detected (see context below)", n)
-                        incl_path_2 = inclusion.incl_path
-                        for i in range(n):
-                            inclusion_2 = curr_inclusions[offset + i]
-                            logger_2 = logger.for_alt_context(self._path_mapper.from_include_path(incl_path_2),
-                                                              inclusion_2.line_no)
-                            logger_2.fatal("Context: Step %s of %s of include cycle: Inclusion of <%s>", i + 1, n,
-                                           inclusion_2.incl_path)
-                            incl_path_2 = inclusion_2.incl_path
-                        errors_occurred = True
-                        return False
-                    if at_root:
-                        logger.detail("Checking inclusion of <%s>", inclusion.incl_path)
-                    includer = first_includers.get(inclusion.incl_path)
-                    if includer:
-                        if at_root:
-                            logger.error("Improper dependency ordering: <%s> was already directly or indirectly "
-                                         "included (see context below)", inclusion.incl_path)
-                            rev_inclusions = []
-                            incl_path_2 = inclusion.incl_path
-                            while True:
-                                rev_inclusions.append(InclusionCache.Inclusion(includer.line_no, incl_path_2, ""))
-                                incl_path_2 = includer.incl_path
-                                if incl_path_2 == incl_path:
-                                    break
-                                includer = first_includers.get(incl_path_2)
-                            n = len(rev_inclusions)
-                            for i in range(n):
-                                inclusion_2 = rev_inclusions[n - 1 - i]
-                                logger_2 = logger.for_alt_context(self._path_mapper.from_include_path(incl_path_2),
-                                                                  inclusion_2.line_no)
-                                logger_2.error("Context: Step %s of %s: Inclusion of <%s>", i + 1, n,
-                                               inclusion_2.incl_path)
-                                incl_path_2 = inclusion_2.incl_path
-                            errors_occurred = True
-                    else:
-                        first_includers[inclusion.incl_path] = Includer(incl_path, inclusion.line_no)
-                        if not traverse(self._path_mapper.from_include_path(inclusion.incl_path), False):
-                            return False
+                includer = first_includers.get(inclusion.incl_path)
+                if not includer:
                     return True
 
-                marked[incl_path] = len(curr_inclusions)
-                for inclusion in self._inclusion_cache.get_inclusions(header_path):
-                    logger.set_line_no(inclusion.line_no)
-                    curr_inclusions.append(inclusion)
-                    if not check_inclusion(inclusion):
-                        return False
-                    curr_inclusions.pop()
-                del marked[incl_path]
+                class Inclusion:
+                    def __init__(self, line_no, incl_path):
+                        self.line_no = line_no     # Line number in includer
+                        self.incl_path = incl_path # Include path of included header
+
+                rev_inclusion_path = []
+                incl_path = inclusion.incl_path
+                while includer:
+                    rev_includer_path.append(Inclusion(includer.line_no, incl_path))
+                    incl_path = self._path_mapper.to_include_path(includer.path)
+                    includer = first_includers.get(incl_path)
+                logger.error("Dependency <%s> occurs after dependant <%s> (see context below)", inclusion.inc_path,
+                             rev_inclusion_path[-1].incl_path)
+
+                # Context: Dependant's inclusion of dependency
+                n = len(rev_inclusion_path)
+                i = 0
+                includer_path = reference_header.path
+                for inclusion_2 in reversed(rev_inclusion_path):
+                    logger_2 = logger.for_alt_context(includer_path, inclusion_2.line_no)
+                    logger_2.error("Context: Step %s of %s of dependant's inclusion of dependency: Inclusion of <%s>",
+                                   i + 1, n, inclusion_2.incl_path)
+                    i += 1
+                    includer_path = self._path_mapper.from_include_path(inclusion_2.incl_path)
+
+                # Context: Subsequent inclusion of dependency
+                if inclusion.parent:
+                    rev_inclusion_path = []
+                    inclusion_2 = inclusion
+                    while inclusion_2:
+                        rev_inclusion_path.append(inclusion_2)
+                        inclusion_2 = inclusion_2.parent
+                    n = len(rev_inclusion_path)
+                    i = 0
+                    includer_path = reference_header.path
+                    for inclusion_2 in reversed(rev_inclusion_path):
+                        logger_2 = logger.for_alt_context(includer_path, inclusion_2.line_no)
+                        logger_2.error("Context: Step %s of %s of subsequent inclusion of dependency: "
+                                       "Inclusion of <%s>", i + 1, n, inclusion_2.incl_path)
+                        i += 1
+                        includer_path = self._path_mapper.from_include_path(inclusion_2.incl_path)
+
+                errors_occurred = True
                 return True
 
-            if not traverse(reference_header.header_path, True):
-                return False
+            def integrate_inclusion(includer_path, inclusion):
+                assert inclusion.incl_path not in first_includers
+                first_includers[inclusion.incl_path] = Includer(includer_path, inclusion.line_no)
+                includer_path_2 = self._path_mapper.from_include_path(inclusion.incl_path)
+                for inclusion_2 in self._inclusion_cache.get_inclusions(includer_path_2):
+                    if inclusion_2.incl_path not in first_includers:
+                        integrate(includer_path_2, inclusion_2)
+
+            for inclusion in self._inclusion_cache.get_inclusions(reference_header.path):
+                logger.set_line_no(inclusion.line_no)
+                path = self._path_mapper.from_include_path(inclusion.incl_path)
+                if not self._path_mapper.is_reference_header(path):
+                    if not check_inclusion(inclusion):
+                        return False
+                else:
+                    for inclusion_2 in self._inclusion_cache.get_reference_order_inclusions(path):
+                        if not check_inclusion(inclusion_2):
+                            return False
+                integrate_inclusion(reference_header_2.path, inclusion)
+            return True
+
+        for reference_header in self._inclusion_cache.get_full_reference_headers(reference_header, recurse):
+            for reference_header_2 in self._inclusion_cache.get_local_reference_headers(reference_header):
+                if not check_reference_header(reference_header_2):
+                    return False
 
         if errors_occurred:
             return False
