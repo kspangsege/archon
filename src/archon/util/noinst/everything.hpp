@@ -25,6 +25,11 @@
 #error "Do not include this header file"
 
 
+// Dependencies
+#include <archon/noinst/everything_base.hpp>
+#include <archon/noinst/everything_math.hpp>
+
+// Local headers
 #include <archon/util/util_namespace.hpp>
 #include <archon/util/unit_frac.hpp>
 #include <archon/util/kdtree.hpp>

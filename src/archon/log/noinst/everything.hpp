@@ -26,7 +26,7 @@
 
 
 // Dependencies
-#include <archon/core/noinst/everything.hpp>
+#include <archon/noinst/everything_core.hpp>
 
 // Foundation
 #include <archon/log/log_namespace.hpp>

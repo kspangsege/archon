@@ -1,6 +1,6 @@
 // This file is part of the Archon project, a suite of C++ libraries.
 //
-// Copyright (C) 2020 Kristian Spangsege <kristian.spangsege@gmail.com>
+// Copyright (C) 2023 Kristian Spangsege <kristian.spangsege@gmail.com>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this
 // software and associated documentation files (the "Software"), to deal in the Software
@@ -25,6 +25,11 @@
 #error "Do not include this header file"
 
 
+// Dependencies
+#include <archon/noinst/everything_core.hpp>
+#include <archon/noinst/everything_check.hpp>
+
+// Local headers
 #include <archon/core/test/integer_tests.hpp>
 #include <archon/core/test/stateful_char_codec.hpp>
 #include <archon/core/test/locale_utils.hpp>

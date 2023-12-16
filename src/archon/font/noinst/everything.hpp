@@ -25,6 +25,13 @@
 #error "Do not include this header file"
 
 
+// Dependencies
+#include <archon/noinst/everything_base.hpp>
+#include <archon/noinst/everything_math.hpp>
+#include <archon/noinst/everything_util.hpp>
+#include <archon/noinst/everything_image.hpp>
+
+// Local headers
 #include <archon/font/font_namespace.hpp>
 #include <archon/font/impl/config.h>
 #include <archon/font/size.hpp>

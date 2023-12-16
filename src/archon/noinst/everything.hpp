@@ -25,20 +25,38 @@
 #error "Do not include this header file"
 
 
-#include <archon/core/noinst/everything.hpp>
-#include <archon/log.hpp>
-#include <archon/log/noinst/everything.hpp>
-#include <archon/cli.hpp>
-#include <archon/cli/noinst/everything.hpp>
-#include <archon/check.hpp>
-#include <archon/check/noinst/everything.hpp>
-#include <archon/core/test/everything.hpp>
+// Base libraries
+#include <archon/noinst/everything_base.hpp>
 
-#include <archon/math/noinst/everything.hpp>
-#include <archon/util/noinst/everything.hpp>
-#include <archon/image.hpp>
-#include <archon/image/noinst/everything.hpp>
-#include <archon/font.hpp>
-#include <archon/font/noinst/everything.hpp>
-#include <archon/display.hpp>
-#include <archon/display/noinst/everything.hpp>
+// Testing of base libraries
+#include <archon/core/test/everything.hpp>
+#include <archon/cli/test/everything.hpp>
+#include <archon/check/test/everything.hpp>
+
+// Demoing of base libraries
+#include <archon/core/demo/everything.hpp>
+#include <archon/cli/demo/everything.hpp>
+
+// Math library
+#include <archon/noinst/everything_math.hpp>
+#include <archon/math/test/everything.hpp>
+
+// Utilities library
+#include <archon/noinst/everything_util.hpp>
+#include <archon/util/test/everything.hpp>
+
+// Image library
+#include <archon/noinst/everything_image.hpp>
+#include <archon/image/test/everything.hpp>
+#include <archon/image/demo/everything.hpp>
+
+// Font library
+#include <archon/noinst/everything_font.hpp>
+#include <archon/font/test/everything.hpp>
+#include <archon/font/tools/everything.hpp>
+#include <archon/font/demo/everything.hpp>
+
+// Display library
+#include <archon/noinst/everything_display.hpp>
+#include <archon/display/probe/everything.hpp>
+#include <archon/display/demo/everything.hpp>

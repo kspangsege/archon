@@ -1,6 +1,6 @@
 // This file is part of the Archon project, a suite of C++ libraries.
 //
-// Copyright (C) 2022 Kristian Spangsege <kristian.spangsege@gmail.com>
+// Copyright (C) 2023 Kristian Spangsege <kristian.spangsege@gmail.com>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this
 // software and associated documentation files (the "Software"), to deal in the Software
@@ -25,15 +25,5 @@
 #error "Do not include this header file"
 
 
-// Dependencies
-#include <archon/noinst/everything_base.hpp>
-
-// Local headers
-#include <archon/math/math_namespace.hpp>
-#include <archon/math/type_traits.hpp>
-#include <archon/math/vector_base.hpp>
-#include <archon/math/vector.hpp>
-#include <archon/math/matrix_base.hpp>
-#include <archon/math/matrix.hpp>
-#include <archon/math/quaternion.hpp>
-#include <archon/math/rotation.hpp>
+#include <archon/image.hpp>
+#include <archon/image/noinst/everything.hpp>

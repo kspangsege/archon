@@ -25,6 +25,11 @@
 #error "Do not include this header file"
 
 
+// Dependencies
+#include <archon/noinst/everything_base.hpp>
+#include <archon/noinst/everything_math.hpp>
+#include <archon/noinst/everything_util.hpp>
+
 // Foundation
 #include <archon/image/image_namespace.hpp>
 #include <archon/image/impl/config.h>
@@ -86,8 +91,3 @@
 #include <archon/image/error.hpp>
 #include <archon/image/load.hpp>
 #include <archon/image/save.hpp>
-
-// Testing
-#include <archon/image/test/box_utils.hpp>
-#include <archon/image/test/comp_repr_utils.hpp>
-#include <archon/image/test/pixel_utils.hpp>

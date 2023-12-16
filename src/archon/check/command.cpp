@@ -29,12 +29,7 @@
 #include <archon/core/platform_info.hpp>
 #include <archon/core/file.hpp>
 #include <archon/core/text_file_stream.hpp>
-#include <archon/cli/string_holder.hpp>
-#include <archon/cli/option_actions.hpp>
-#include <archon/cli/attributes.hpp>
-#include <archon/cli/spec_support.hpp>
-#include <archon/cli/spec.hpp>
-#include <archon/cli/process.hpp>
+#include <archon/cli.hpp>
 #include <archon/check/test_config.hpp>
 #include <archon/check/test_runner.hpp>
 #include <archon/check/command.hpp>
