@@ -166,16 +166,7 @@ struct Format {
     png_byte bit_depth;
     png_byte color_type;
 
-    bool operator==(Format other) const noexcept
-    {
-        return (bit_depth == other.bit_depth &&
-                color_type == other.color_type);
-    }
-
-    bool operator!=(Format other) const noexcept
-    {
-        return !(*this == other);
-    }
+    constexpr auto operator<=>(const Format&) const noexcept = default;
 };
 
 

@@ -27,6 +27,7 @@
 #include <cstddef>
 #include <type_traits>
 #include <limits>
+#include <compare>
 #include <memory>
 #include <iterator>
 #include <algorithm>
@@ -197,16 +198,8 @@ public:
 
     template<class U> bool operator==(const CircularBuffer<U>&) const
         noexcept(noexcept(std::declval<T>() == std::declval<U>()));
-    template<class U> bool operator!=(const CircularBuffer<U>&) const
-        noexcept(noexcept(std::declval<T>() == std::declval<U>()));
-    template<class U> bool operator<(const CircularBuffer<U>&) const
-        noexcept(noexcept(std::declval<T>() < std::declval<U>()));
-    template<class U> bool operator>(const CircularBuffer<U>&) const
-        noexcept(noexcept(std::declval<T>() < std::declval<U>()));
-    template<class U> bool operator<=(const CircularBuffer<U>&) const
-        noexcept(noexcept(std::declval<T>() < std::declval<U>()));
-    template<class U> bool operator>=(const CircularBuffer<U>&) const
-        noexcept(noexcept(std::declval<T>() < std::declval<U>()));
+    template<class U> auto operator<=>(const CircularBuffer<U>&) const
+        noexcept(noexcept(std::declval<T>() <=> std::declval<U>())) -> std::weak_ordering;
 
 private:
     std::unique_ptr<std::byte[]> m_memory;
@@ -395,32 +388,12 @@ public:
         return (m_index == i.m_index);
     }
 
-    template<class V> bool operator!=(const Iter<V>& i) const noexcept
-    {
-        return !operator==(i);
-    }
-
-    template<class V> bool operator<(const Iter<V>& i) const noexcept
+    template<class V> auto operator<=>(const Iter<V>& i) const noexcept -> std::weak_ordering
     {
         ARCHON_ASSERT(m_buffer == i.m_buffer);
         size_type i_1 = m_buffer->unwrap(m_index);
         size_type i_2 = i.m_buffer->unwrap(i.m_index);
-        return (i_1 < i_2);
-    }
-
-    template<class V> bool operator>(const Iter<V>& i) const noexcept
-    {
-        return (i < *this);
-    }
-
-    template<class V> bool operator<=(const Iter<V>& i) const noexcept
-    {
-        return !operator>(i);
-    }
-
-    template<class V> bool operator>=(const Iter<V>& i) const noexcept
-    {
-        return !operator<(i);
+        return (i_1 <=> i_2);
     }
 
 private:
@@ -936,46 +909,10 @@ inline bool CircularBuffer<T>::operator==(const CircularBuffer<U>& buffer) const
 
 template<class T>
 template<class U>
-inline bool CircularBuffer<T>::operator!=(const CircularBuffer<U>& buffer) const
-    noexcept(noexcept(std::declval<T>() == std::declval<U>()))
+inline auto CircularBuffer<T>::operator<=>(const CircularBuffer<U>& buffer) const
+    noexcept(noexcept(std::declval<T>() <=> std::declval<U>())) -> std::weak_ordering
 {
-    return !operator==(buffer); // Throws
-}
-
-
-template<class T>
-template<class U>
-inline bool CircularBuffer<T>::operator<(const CircularBuffer<U>& buffer) const
-    noexcept(noexcept(std::declval<T>() < std::declval<U>()))
-{
-    return std::lexicographical_compare(begin(), end(), buffer.begin(), buffer.end()); // Throws
-}
-
-
-template<class T>
-template<class U>
-inline bool CircularBuffer<T>::operator>(const CircularBuffer<U>& buffer) const
-    noexcept(noexcept(std::declval<T>() < std::declval<U>()))
-{
-    return (buffer < *this); // Throws
-}
-
-
-template<class T>
-template<class U>
-inline bool CircularBuffer<T>::operator<=(const CircularBuffer<U>& buffer) const
-    noexcept(noexcept(std::declval<T>() < std::declval<U>()))
-{
-    return !operator>(buffer); // Throws
-}
-
-
-template<class T>
-template<class U>
-inline bool CircularBuffer<T>::operator>=(const CircularBuffer<U>& buffer) const
-    noexcept(noexcept(std::declval<T>() < std::declval<U>()))
-{
-    return !operator<(buffer); // Throws
+    return std::lexicographical_compare_three_way(begin(), end(), buffer.begin(), buffer.end()); // Throws
 }
 
 

@@ -64,16 +64,8 @@ public:
 
     template<class J, class U> bool operator==(const ProxyIterator<J, U>&) const
         noexcept(noexcept(std::declval<I>() == std::declval<J>()));
-    template<class J, class U> bool operator!=(const ProxyIterator<J, U>&) const
-        noexcept(noexcept(std::declval<I>() != std::declval<J>()));
-    template<class J, class U> bool operator<(const ProxyIterator<J, U>&) const
-        noexcept(noexcept(std::declval<I>() < std::declval<J>()));
-    template<class J, class U> bool operator>(const ProxyIterator<J, U>&) const
-        noexcept(noexcept(std::declval<I>() > std::declval<J>()));
-    template<class J, class U> bool operator<=(const ProxyIterator<J, U>&) const
-        noexcept(noexcept(std::declval<I>() <= std::declval<J>()));
-    template<class J, class U> bool operator>=(const ProxyIterator<J, U>&) const
-        noexcept(noexcept(std::declval<I>() >= std::declval<J>()));
+    template<class J, class U> auto operator<=>(const ProxyIterator<J, U>&) const
+        noexcept(noexcept(std::declval<I>() <=> std::declval<J>()));
 
 private:
     I m_iter;
@@ -199,46 +191,10 @@ inline bool ProxyIterator<I, T>::operator==(const ProxyIterator<J, U>& other) co
 
 template<class I, class T>
 template<class J, class U>
-inline bool ProxyIterator<I, T>::operator!=(const ProxyIterator<J, U>& other) const
-    noexcept(noexcept(std::declval<I>() != std::declval<J>()))
+inline auto ProxyIterator<I, T>::operator<=>(const ProxyIterator<J, U>& other) const
+    noexcept(noexcept(std::declval<I>() <=> std::declval<J>()))
 {
-    return (m_iter != other.m_iter); // Throws
-}
-
-
-template<class I, class T>
-template<class J, class U>
-inline bool ProxyIterator<I, T>::operator<(const ProxyIterator<J, U>& other) const
-    noexcept(noexcept(std::declval<I>() < std::declval<J>()))
-{
-    return (m_iter < other.m_iter); // Throws
-}
-
-
-template<class I, class T>
-template<class J, class U>
-inline bool ProxyIterator<I, T>::operator>(const ProxyIterator<J, U>& other) const
-    noexcept(noexcept(std::declval<I>() > std::declval<J>()))
-{
-    return (m_iter > other.m_iter); // Throws
-}
-
-
-template<class I, class T>
-template<class J, class U>
-inline bool ProxyIterator<I, T>::operator<=(const ProxyIterator<J, U>& other) const
-    noexcept(noexcept(std::declval<I>() <= std::declval<J>()))
-{
-    return (m_iter <= other.m_iter); // Throws
-}
-
-
-template<class I, class T>
-template<class J, class U>
-inline bool ProxyIterator<I, T>::operator>=(const ProxyIterator<J, U>& other) const
-    noexcept(noexcept(std::declval<I>() >= std::declval<J>()))
-{
-    return (m_iter >= other.m_iter); // Throws
+    return (m_iter <=> other.m_iter); // Throws
 }
 
 

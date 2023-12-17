@@ -26,6 +26,7 @@
 
 #include <cstdint>
 #include <limits>
+#include <compare>
 #include <utility>
 #include <array>
 #include <ostream>
@@ -106,12 +107,8 @@ public:
     constexpr auto operator<<=(int) noexcept -> SuperInt&;
     constexpr auto operator>>=(int) noexcept -> SuperInt&;
 
-    constexpr bool operator==(SuperInt) const noexcept;
-    constexpr bool operator!=(SuperInt) const noexcept;
-    constexpr bool operator< (SuperInt) const noexcept;
-    constexpr bool operator<=(SuperInt) const noexcept;
-    constexpr bool operator> (SuperInt) const noexcept;
-    constexpr bool operator>=(SuperInt) const noexcept;
+    constexpr bool operator==(const SuperInt&) const noexcept = default;
+    constexpr auto operator<=>(SuperInt) const noexcept -> std::strong_ordering;
 
     constexpr bool add_with_overflow_detect(SuperInt) noexcept;
     constexpr bool subtract_with_overflow_detect(SuperInt) noexcept;
@@ -442,51 +439,15 @@ constexpr auto SuperInt::operator>>=(int n) noexcept -> SuperInt&
 }
 
 
-constexpr bool SuperInt::operator==(SuperInt other) const noexcept
+constexpr auto SuperInt::operator<=>(SuperInt other) const noexcept -> std::strong_ordering
 {
-    SuperInt a = *this, b = other;
-    return (a.m_value == b.m_value && a.m_sign_bit == b.m_sign_bit);
-}
-
-
-constexpr bool SuperInt::operator!=(SuperInt other) const noexcept
-{
-    SuperInt a = *this, b = other;
-    return !(a == b);
-}
-
-
-constexpr bool SuperInt::operator<(SuperInt other) const noexcept
-{
-    SuperInt a = *this, b = other;
+    const SuperInt& a = *this;
+    const SuperInt& b = other;
     if (a.m_sign_bit > b.m_sign_bit)
-        return true;
-    if (a.m_sign_bit == b.m_sign_bit) {
-        if (a.m_value < b.m_value)
-            return true;
-    }
-    return false;
-}
-
-
-constexpr bool SuperInt::operator<=(SuperInt other) const noexcept
-{
-    SuperInt a = *this, b = other;
-    return !(b < a);
-}
-
-
-constexpr bool SuperInt::operator>(SuperInt other) const noexcept
-{
-    SuperInt a = *this, b = other;
-    return (b < a);
-}
-
-
-constexpr bool SuperInt::operator>=(SuperInt other) const noexcept
-{
-    SuperInt a = *this, b = other;
-    return !(a < b);
+        return std::strong_ordering::less;
+    if (a.m_sign_bit < b.m_sign_bit)
+        return std::strong_ordering::greater;
+    return a.m_value <=> b.m_value;
 }
 
 

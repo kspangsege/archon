@@ -27,6 +27,7 @@
 #include <cstddef>
 #include <type_traits>
 #include <limits>
+#include <compare>
 #include <algorithm>
 #include <iterator>
 #include <utility>
@@ -232,16 +233,8 @@ public:
 
     template<class U, std::size_t M> bool operator==(const Vector<U, M>&) const
         noexcept(noexcept(std::declval<T>() == std::declval<U>()));
-    template<class U, std::size_t M> bool operator!=(const Vector<U, M>&) const
-        noexcept(noexcept(std::declval<T>() == std::declval<U>()));
-    template<class U, std::size_t M> bool operator<(const Vector<U, M>&) const
-        noexcept(noexcept(std::declval<T>() < std::declval<U>()));
-    template<class U, std::size_t M> bool operator>(const Vector<U, M>&) const
-        noexcept(noexcept(std::declval<T>() < std::declval<U>()));
-    template<class U, std::size_t M> bool operator<=(const Vector<U, M>&) const
-        noexcept(noexcept(std::declval<T>() < std::declval<U>()));
-    template<class U, std::size_t M> bool operator>=(const Vector<U, M>&) const
-        noexcept(noexcept(std::declval<T>() < std::declval<U>()));
+    template<class U, std::size_t M> auto operator<=>(const Vector<U, M>&) const
+        noexcept(noexcept(std::declval<T>() <=> std::declval<U>())) -> std::weak_ordering;
 
 private:
     using Impl = impl::VectorImpl<T>;
@@ -689,46 +682,10 @@ inline bool Vector<T, N>::operator==(const Vector<U, M>& vector) const
 
 template<class T, std::size_t N>
 template<class U, std::size_t M>
-inline bool Vector<T, N>::operator!=(const Vector<U, M>& vector) const
-    noexcept(noexcept(std::declval<T>() == std::declval<U>()))
+inline auto Vector<T, N>::operator<=>(const Vector<U, M>& vector) const
+    noexcept(noexcept(std::declval<T>() <=> std::declval<U>())) -> std::weak_ordering
 {
-    return !operator==(vector); // Throws
-}
-
-
-template<class T, std::size_t N>
-template<class U, std::size_t M>
-inline bool Vector<T, N>::operator<(const Vector<U, M>& vector) const
-    noexcept(noexcept(std::declval<T>() < std::declval<U>()))
-{
-    return std::lexicographical_compare(begin(), end(), vector.begin(), vector.end()); // Throws
-}
-
-
-template<class T, std::size_t N>
-template<class U, std::size_t M>
-inline bool Vector<T, N>::operator>(const Vector<U, M>& vector) const
-    noexcept(noexcept(std::declval<T>() < std::declval<U>()))
-{
-    return (vector < *this); // Throws
-}
-
-
-template<class T, std::size_t N>
-template<class U, std::size_t M>
-inline bool Vector<T, N>::operator<=(const Vector<U, M>& vector) const
-    noexcept(noexcept(std::declval<T>() < std::declval<U>()))
-{
-    return !operator>(vector); // Throws
-}
-
-
-template<class T, std::size_t N>
-template<class U, std::size_t M>
-inline bool Vector<T, N>::operator>=(const Vector<U, M>& vector) const
-    noexcept(noexcept(std::declval<T>() < std::declval<U>()))
-{
-    return !operator<(vector); // Throws
+    return std::lexicographical_compare_three_way(begin(), end(), vector.begin(), vector.end()); // Throws
 }
 
 
