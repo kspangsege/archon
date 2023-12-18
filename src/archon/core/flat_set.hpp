@@ -80,6 +80,9 @@ public:
     using reverse_iterator       = std::reverse_iterator<iterator>;
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
+    FlatSet() noexcept = default;
+    FlatSet(std::initializer_list<value_type>);
+
     // Iterators
 
     auto begin() const noexcept  -> const_iterator;
@@ -107,14 +110,26 @@ public:
 
     // Modifiers
 
+    template<class... A> auto emplace(A&&... args) -> std::pair<iterator, bool>;
+
     auto insert(const value_type&) -> std::pair<iterator, bool>;
     template<class I> void insert(I begin, I end);
+
     auto erase(const key_type&) noexcept -> size_type;
     void clear() noexcept;
 
     // Lookup
 
     bool contains(const key_type&) const noexcept;
+
+    auto lower_bound(const key_type&) noexcept       -> iterator;
+    auto lower_bound(const key_type&) const noexcept -> const_iterator;
+
+    auto upper_bound(const key_type&) noexcept       -> iterator;
+    auto upper_bound(const key_type&) const noexcept -> const_iterator;
+
+    auto equal_range(const key_type&) noexcept       -> std::pair<iterator, iterator>;
+    auto equal_range(const key_type&) const noexcept -> std::pair<const_iterator, const_iterator>;
 
 private:
     impl::FlatMapImpl<K, void, N> m_impl;
@@ -128,6 +143,14 @@ private:
 
 
 // Implementation
+
+
+template<class K, std::size_t N>
+inline FlatSet<K, N>::FlatSet(std::initializer_list<value_type> entries)
+    : FlatSet()
+{
+    insert(entries.begin(), entries.end()); // Throws
+}
 
 
 template<class K, std::size_t N>
@@ -236,6 +259,13 @@ inline void FlatSet<K, N>::shrink_to_fit()
 
 
 template<class K, std::size_t N>
+template<class... A> inline auto FlatSet<K, N>::emplace(A&&... args) -> std::pair<iterator, bool>
+{
+    return m_impl.insert(std::forward<A>(args)...); // Throws
+}
+
+
+template<class K, std::size_t N>
 inline auto FlatSet<K, N>::insert(const value_type& elem) -> std::pair<iterator, bool>
 {
     return m_impl.insert(elem); // Throws
@@ -269,6 +299,54 @@ inline bool FlatSet<K, N>::contains(const key_type& key) const noexcept
 {
     std::size_t i = m_impl.find(key);
     return (i != size());
+}
+
+
+template<class K, std::size_t N>
+auto FlatSet<K, N>::lower_bound(const key_type& key) noexcept -> iterator
+{
+    std::size_t i = m_impl.lower_bound(key);
+    return m_impl.data() + i;
+}
+
+
+template<class K, std::size_t N>
+auto FlatSet<K, N>::lower_bound(const key_type& key) const noexcept -> const_iterator
+{
+    std::size_t i = m_impl.lower_bound(key);
+    return m_impl.data() + i;
+}
+
+
+template<class K, std::size_t N>
+auto FlatSet<K, N>::upper_bound(const key_type& key) noexcept -> iterator
+{
+    std::size_t i = m_impl.upper_bound(key);
+    return m_impl.data() + i;
+}
+
+
+template<class K, std::size_t N>
+auto FlatSet<K, N>::upper_bound(const key_type& key) const noexcept -> const_iterator
+{
+    std::size_t i = m_impl.upper_bound(key);
+    return m_impl.data() + i;
+}
+
+
+template<class K, std::size_t N>
+auto FlatSet<K, N>::equal_range(const key_type& key) noexcept -> std::pair<iterator, iterator>
+{
+    std::pair<std::size_t, std::size_t> p = m_impl.equal_range(key);
+    return { m_impl.data() + p.first, m_impl.data() + p.second };
+}
+
+
+template<class K, std::size_t N>
+auto FlatSet<K, N>::equal_range(const key_type& key) const noexcept -> std::pair<const_iterator, const_iterator>
+{
+    std::pair<std::size_t, std::size_t> p = m_impl.equal_range(key);
+    return { m_impl.data() + p.first, m_impl.data() + p.second };
 }
 
 

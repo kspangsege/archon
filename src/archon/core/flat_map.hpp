@@ -87,6 +87,9 @@ public:
     using reverse_iterator       = std::reverse_iterator<iterator>;
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
+    FlatMap() noexcept = default;
+    FlatMap(std::initializer_list<value_type>);
+
     // Element access
 
     auto at(const key_type&)       -> mapped_type&;
@@ -127,6 +130,9 @@ public:
 
     template<class... A> auto emplace(A&&... args) -> std::pair<iterator, bool>;
 
+    auto insert(const value_type&) -> std::pair<iterator, bool>;
+    template<class I> void insert(I begin, I end);
+
     auto erase(const key_type&) noexcept -> size_type;
     void clear() noexcept;
 
@@ -134,6 +140,15 @@ public:
 
     auto find(const key_type&) noexcept       -> iterator;
     auto find(const key_type&) const noexcept -> const_iterator;
+
+    auto lower_bound(const key_type&) noexcept       -> iterator;
+    auto lower_bound(const key_type&) const noexcept -> const_iterator;
+
+    auto upper_bound(const key_type&) noexcept       -> iterator;
+    auto upper_bound(const key_type&) const noexcept -> const_iterator;
+
+    auto equal_range(const key_type&) noexcept       -> std::pair<iterator, iterator>;
+    auto equal_range(const key_type&) const noexcept -> std::pair<const_iterator, const_iterator>;
 
 private:
     impl::FlatMapImpl<K, V, N> m_impl;
@@ -147,6 +162,14 @@ private:
 
 
 // Implementation
+
+
+template<class K, class V, std::size_t N>
+inline FlatMap<K, V, N>::FlatMap(std::initializer_list<value_type> entries)
+    : FlatMap()
+{
+    insert(entries.begin(), entries.end()); // Throws
+}
 
 
 template<class K, class V, std::size_t N>
@@ -311,14 +334,29 @@ inline void FlatMap<K, V, N>::shrink_to_fit()
 
 
 template<class K, class V, std::size_t N>
-template<class... A> auto FlatMap<K, V, N>::emplace(A&&... args) -> std::pair<iterator, bool>
+template<class... A> inline auto FlatMap<K, V, N>::emplace(A&&... args) -> std::pair<iterator, bool>
 {
     return m_impl.insert(std::forward<A>(args)...); // Throws
 }
 
 
 template<class K, class V, std::size_t N>
-auto FlatMap<K, V, N>::erase(const key_type& key) noexcept -> size_type
+inline auto FlatMap<K, V, N>::insert(const value_type& entry) -> std::pair<iterator, bool>
+{
+    return m_impl.insert(entry); // Throws
+}
+
+
+template<class K, class V, std::size_t N>
+template<class I> void FlatMap<K, V, N>::insert(I begin, I end)
+{
+    for (I i = begin; i != end; ++i)
+        insert(*i); // Throws
+}
+
+
+template<class K, class V, std::size_t N>
+inline auto FlatMap<K, V, N>::erase(const key_type& key) noexcept -> size_type
 {
     return m_impl.erase(key);
 }
@@ -344,6 +382,54 @@ inline auto FlatMap<K, V, N>::find(const key_type& key) const noexcept -> const_
 {
     std::size_t i = m_impl.find(key);
     return m_impl.data() + i;
+}
+
+
+template<class K, class V, std::size_t N>
+auto FlatMap<K, V, N>::lower_bound(const key_type& key) noexcept -> iterator
+{
+    std::size_t i = m_impl.lower_bound(key);
+    return m_impl.data() + i;
+}
+
+
+template<class K, class V, std::size_t N>
+auto FlatMap<K, V, N>::lower_bound(const key_type& key) const noexcept -> const_iterator
+{
+    std::size_t i = m_impl.lower_bound(key);
+    return m_impl.data() + i;
+}
+
+
+template<class K, class V, std::size_t N>
+auto FlatMap<K, V, N>::upper_bound(const key_type& key) noexcept -> iterator
+{
+    std::size_t i = m_impl.upper_bound(key);
+    return m_impl.data() + i;
+}
+
+
+template<class K, class V, std::size_t N>
+auto FlatMap<K, V, N>::upper_bound(const key_type& key) const noexcept -> const_iterator
+{
+    std::size_t i = m_impl.upper_bound(key);
+    return m_impl.data() + i;
+}
+
+
+template<class K, class V, std::size_t N>
+auto FlatMap<K, V, N>::equal_range(const key_type& key) noexcept -> std::pair<iterator, iterator>
+{
+    std::pair<std::size_t, std::size_t> p = m_impl.equal_range(key);
+    return { m_impl.data() + p.first, m_impl.data() + p.second };
+}
+
+
+template<class K, class V, std::size_t N>
+auto FlatMap<K, V, N>::equal_range(const key_type& key) const noexcept -> std::pair<const_iterator, const_iterator>
+{
+    std::pair<std::size_t, std::size_t> p = m_impl.equal_range(key);
+    return { m_impl.data() + p.first, m_impl.data() + p.second };
 }
 
 

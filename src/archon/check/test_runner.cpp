@@ -157,7 +157,7 @@ bool TestRunner::run() const
                     std::string_view path_2 = mapped_file_path;
                     long line_1 = other.details.location.line_number;
                     long line_2 = entry.details.location.line_number;
-                    std::string message = core::format(m_locale, "Multiple check tests with name `%s` (`%s:%s` and "
+                    std::string message = core::format(m_locale, "Multiple test cases with name `%s` (`%s:%s` and "
                                                        "`%s:%s`)", entry.details.name, path_1, line_1, path_2,
                                                        line_2); // Throws
                     throw std::runtime_error(message);

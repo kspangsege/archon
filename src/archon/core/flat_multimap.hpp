@@ -88,6 +88,9 @@ public:
     using reverse_iterator       = std::reverse_iterator<iterator>;
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
+    FlatMultimap() noexcept = default;
+    FlatMultimap(std::initializer_list<value_type>);
+
     // Iterators
 
     auto begin() noexcept        -> iterator;
@@ -121,6 +124,9 @@ public:
 
     template<class... A> auto emplace(A&&... args) -> iterator;
 
+    auto insert(const value_type&) -> iterator;
+    template<class I> void insert(I begin, I end);
+
     auto erase(const key_type&) noexcept -> size_type;
     void clear() noexcept;
 
@@ -147,6 +153,14 @@ private:
 
 
 // Implementation
+
+
+template<class K, class V, std::size_t N>
+inline FlatMultimap<K, V, N>::FlatMultimap(std::initializer_list<value_type> entries)
+    : FlatMultimap()
+{
+    insert(entries.begin(), entries.end()); // Throws
+}
 
 
 template<class K, class V, std::size_t N>
@@ -283,14 +297,29 @@ inline void FlatMultimap<K, V, N>::shrink_to_fit()
 
 
 template<class K, class V, std::size_t N>
-template<class... A> auto FlatMultimap<K, V, N>::emplace(A&&... args) -> iterator
+template<class... A> inline auto FlatMultimap<K, V, N>::emplace(A&&... args) -> iterator
 {
     return m_impl.insert_multi(std::forward<A>(args)...); // Throws
 }
 
 
 template<class K, class V, std::size_t N>
-auto FlatMultimap<K, V, N>::erase(const key_type& key) noexcept -> size_type
+inline auto FlatMultimap<K, V, N>::insert(const value_type& entry) -> iterator
+{
+    return m_impl.insert_multi(entry); // Throws
+}
+
+
+template<class K, class V, std::size_t N>
+template<class I> void FlatMultimap<K, V, N>::insert(I begin, I end)
+{
+    for (I i = begin; i != end; ++i)
+        insert(*i); // Throws
+}
+
+
+template<class K, class V, std::size_t N>
+inline auto FlatMultimap<K, V, N>::erase(const key_type& key) noexcept -> size_type
 {
     return m_impl.erase(key);
 }
@@ -307,8 +336,7 @@ template<class K, class V, std::size_t N>
 inline auto FlatMultimap<K, V, N>::lower_bound(const key_type& key) noexcept -> iterator
 {
     std::size_t i = m_impl.lower_bound(key);
-    iterator base = m_impl.data();
-    return base + i;
+    return m_impl.data() + i;
 }
 
 
@@ -316,8 +344,7 @@ template<class K, class V, std::size_t N>
 inline auto FlatMultimap<K, V, N>::lower_bound(const key_type& key) const noexcept -> const_iterator
 {
     std::size_t i = m_impl.lower_bound(key);
-    const_iterator base = m_impl.data();
-    return base + i;
+    return m_impl.data() + i;
 }
 
 
@@ -325,8 +352,7 @@ template<class K, class V, std::size_t N>
 inline auto FlatMultimap<K, V, N>::upper_bound(const key_type& key) noexcept -> iterator
 {
     std::size_t i = m_impl.upper_bound(key);
-    iterator base = m_impl.data();
-    return base + i;
+    return m_impl.data() + i;
 }
 
 
@@ -334,19 +360,15 @@ template<class K, class V, std::size_t N>
 inline auto FlatMultimap<K, V, N>::upper_bound(const key_type& key) const noexcept -> const_iterator
 {
     std::size_t i = m_impl.upper_bound(key);
-    const_iterator base = m_impl.data();
-    return base + i;
+    return m_impl.data() + i;
 }
 
 
 template<class K, class V, std::size_t N>
 inline auto FlatMultimap<K, V, N>::equal_range(const key_type& key) noexcept -> std::pair<iterator, iterator>
 {
-    auto pair = m_impl.equal_range(key);
-    iterator base = m_impl.data();
-    iterator begin = base + pair.first;
-    iterator end   = base + pair.second;
-    return { begin, end };
+    std::pair<std::size_t, std::size_t> p = m_impl.equal_range(key);
+    return { m_impl.data() + p.first, m_impl.data() + p.second };
 }
 
 
@@ -354,11 +376,8 @@ template<class K, class V, std::size_t N>
 inline auto FlatMultimap<K, V, N>::equal_range(const key_type& key) const noexcept ->
     std::pair<const_iterator, const_iterator>
 {
-    auto pair = m_impl.equal_range(key);
-    const_iterator base = m_impl.data();
-    const_iterator begin = base + pair.first;
-    const_iterator end   = base + pair.second;
-    return { begin, end };
+    std::pair<std::size_t, std::size_t> p = m_impl.equal_range(key);
+    return { m_impl.data() + p.first, m_impl.data() + p.second };
 }
 
 
