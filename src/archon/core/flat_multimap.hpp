@@ -53,9 +53,15 @@ namespace archon::core {
 /// slower. Insertion complexity is O(N) for this map implementation, and O(log N) for
 /// `std::multimap`.
 ///
-/// Requirement: Both the key type (\p K) and the value type (\p V) must have a non-throwing
-/// move constructor (`std::is_nothrow_move_constructible`) and a non-throwing destructor
-/// (`std::is_nothrow_destructible`).
+/// Requirement: Keys (objects of type \p K) must be copy-constructible and
+/// copy-construction must be a non-throwing operation
+/// (`std::is_nothrow_copy_constructible`). The key type must also have a non-throwing
+/// destructor (`std::is_nothrow_destructible`).
+///
+/// Requirement: Values (objects of type \p V) must be move-constructible and
+/// move-construction must be a non-throwing operation
+/// (`std::is_nothrow_move_constructible`). The value type must also have a non-throwing
+/// destructor (`std::is_nothrow_destructible`).
 ///
 /// Requirement: If `a` and `b` are `const`-references to keys (`const K&`), then `a < b`
 /// must be a non-throwing operation, i.e., `noexcept(a < b)` must be `true`.
@@ -125,12 +131,19 @@ public:
     template<class... A> auto emplace(A&&... args) -> iterator;
 
     auto insert(const value_type&) -> iterator;
+    auto insert(value_type&&) -> iterator;
     template<class I> void insert(I begin, I end);
 
     auto erase(const key_type&) noexcept -> size_type;
     void clear() noexcept;
 
     // Lookup
+
+    bool contains(const key_type&) const noexcept;
+    auto count(const key_type&) const noexcept -> size_type;
+
+    auto find(const key_type&) noexcept       -> iterator;
+    auto find(const key_type&) const noexcept -> const_iterator;
 
     auto lower_bound(const key_type&) noexcept       -> iterator;
     auto lower_bound(const key_type&) const noexcept -> const_iterator;
@@ -311,6 +324,13 @@ inline auto FlatMultimap<K, V, N>::insert(const value_type& entry) -> iterator
 
 
 template<class K, class V, std::size_t N>
+inline auto FlatMultimap<K, V, N>::insert(value_type&& entry) -> iterator
+{
+    return m_impl.insert_multi(std::move(entry)); // Throws
+}
+
+
+template<class K, class V, std::size_t N>
 template<class I> void FlatMultimap<K, V, N>::insert(I begin, I end)
 {
     for (I i = begin; i != end; ++i)
@@ -329,6 +349,38 @@ template<class K, class V, std::size_t N>
 inline void FlatMultimap<K, V, N>::clear() noexcept
 {
     m_impl.clear();
+}
+
+
+template<class K, class V, std::size_t N>
+inline bool FlatMultimap<K, V, N>::contains(const key_type& key) const noexcept
+{
+    std::size_t i = m_impl.find(key);
+    return (i != size());
+}
+
+
+template<class K, class V, std::size_t N>
+inline auto FlatMultimap<K, V, N>::count(const key_type& key) const noexcept -> size_type
+{
+    std::pair<std::size_t, std::size_t> p = m_impl.equal_range(key);
+    return std::size_t(p.second - p.first);
+}
+
+
+template<class K, class V, std::size_t N>
+inline auto FlatMultimap<K, V, N>::find(const key_type& key) noexcept -> iterator
+{
+    std::size_t i = m_impl.find(key);
+    return m_impl.data() + i;
+}
+
+
+template<class K, class V, std::size_t N>
+inline auto FlatMultimap<K, V, N>::find(const key_type& key) const noexcept -> const_iterator
+{
+    std::size_t i = m_impl.find(key);
+    return m_impl.data() + i;
 }
 
 

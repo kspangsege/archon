@@ -19,6 +19,7 @@
 // DEALINGS IN THE SOFTWARE.
 
 
+#include <compare>
 #include <iterator>
 #include <memory>
 
@@ -28,6 +29,57 @@
 
 
 using namespace archon;
+
+
+ARCHON_TEST(Core_FlatMap_Contains)
+{
+    core::FlatMap<int, int> map = {
+        { 1, 0 },
+        { 2, 0 },
+        { 4, 0 },
+    };
+
+    ARCHON_CHECK_NOT(map.contains(0));
+    ARCHON_CHECK(map.contains(1));
+    ARCHON_CHECK(map.contains(2));
+    ARCHON_CHECK_NOT(map.contains(3));
+    ARCHON_CHECK(map.contains(4));
+    ARCHON_CHECK_NOT(map.contains(5));
+}
+
+
+ARCHON_TEST(Core_FlatMap_Count)
+{
+    core::FlatMap<int, int> map = {
+        { 1, 0 },
+        { 2, 0 },
+        { 4, 0 },
+    };
+
+    ARCHON_CHECK_EQUAL(map.count(0), 0);
+    ARCHON_CHECK_EQUAL(map.count(1), 1);
+    ARCHON_CHECK_EQUAL(map.count(2), 1);
+    ARCHON_CHECK_EQUAL(map.count(3), 0);
+    ARCHON_CHECK_EQUAL(map.count(4), 1);
+    ARCHON_CHECK_EQUAL(map.count(5), 0);
+}
+
+
+ARCHON_TEST(Core_FlatMap_Find)
+{
+    core::FlatMap<int, int> map = {
+        { 1, 0 },
+        { 2, 0 },
+        { 4, 0 },
+    };
+
+    ARCHON_CHECK_EQUAL(std::distance(map.begin(), map.find(0)), 3);
+    ARCHON_CHECK_EQUAL(std::distance(map.begin(), map.find(1)), 0);
+    ARCHON_CHECK_EQUAL(std::distance(map.begin(), map.find(2)), 1);
+    ARCHON_CHECK_EQUAL(std::distance(map.begin(), map.find(3)), 3);
+    ARCHON_CHECK_EQUAL(std::distance(map.begin(), map.find(4)), 2);
+    ARCHON_CHECK_EQUAL(std::distance(map.begin(), map.find(5)), 3);
+}
 
 
 ARCHON_TEST(Core_FlatMap_LowerUpperBound)
@@ -68,15 +120,27 @@ ARCHON_TEST(Core_FlatMap_EqualRange)
 }
 
 
+ARCHON_TEST(Core_FlatMap_IncompleteKeyType)
+{
+    struct Key;
+    struct Foo {
+        core::FlatMap<Key, int> map;
+    };
+    struct Key {};
+    Foo foo;
+    static_cast<void>(foo);
+}
+
+
 ARCHON_TEST(Core_FlatMap_IncompleteValueType)
 {
-    struct Foo;
-    struct Bar {
-        core::FlatMap<int, Foo> vec;
+    struct Val;
+    struct Foo {
+        core::FlatMap<int, Val> map;
     };
-    struct Foo {};
-    Bar bar;
-    static_cast<void>(bar);
+    struct Val {};
+    Foo foo;
+    static_cast<void>(foo);
 }
 
 

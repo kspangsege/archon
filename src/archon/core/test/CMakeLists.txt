@@ -1,5 +1,5 @@
 add_library(CoreTest OBJECT
-  test_utility.cpp
+  test_pair.cpp
   test_type.cpp
   test_type_list.cpp
   test_integer.cpp
@@ -7,6 +7,7 @@ add_library(CoreTest OBJECT
   test_math.cpp
   test_memory.cpp
   test_endianness.cpp
+  test_utility.cpp
   test_scope_exit.cpp
   test_value_reset_guard.cpp
   test_circular_buffer.cpp

@@ -55,8 +55,24 @@ public:
     ///
     /// This constructor constructs a pair from its two components.
     ///
-    template<class V, class W> constexpr Pair(V&&, W&&)
-        noexcept(std::is_nothrow_constructible_v<T, V&&> && std::is_nothrow_constructible_v<U, W&&>);
+    template<class V, class W> constexpr Pair(V&&, W&&) noexcept(std::is_nothrow_constructible_v<T, V&&> &&
+                                                                 std::is_nothrow_constructible_v<U, W&&>);
+
+    /// \{
+    ///
+    /// \brief Construct pair from compatible pair type.
+    ///
+    /// These constructors construct a pair from another compatible pair type.
+    ///
+    template<class V, class W>
+    explicit(!std::is_convertible_v<T, V> || !std::is_convertible_v<U, W>)
+    constexpr Pair(const Pair<V, W>&) noexcept(std::is_nothrow_constructible_v<T, const V&> &&
+                                               std::is_nothrow_constructible_v<U, const W&>);
+    template<class V, class W>
+    explicit(!std::is_convertible_v<T, V> || !std::is_convertible_v<U, W>)
+    constexpr Pair(Pair<V, W>&&) noexcept(std::is_nothrow_constructible_v<T, V&&> &&
+                                          std::is_nothrow_constructible_v<U, W&&>);
+    /// \}
 
     auto operator<=>(const Pair&) const = default;
 };
@@ -72,10 +88,30 @@ public:
 
 
 template<class T, class U>
-template<class V, class W> constexpr Pair<T, U>::Pair(V&& f, W&& s)
-    noexcept(std::is_nothrow_constructible_v<T, V&&> && std::is_nothrow_constructible_v<U, W&&>)
+template<class V, class W> constexpr Pair<T, U>::Pair(V&& f, W&& s) noexcept(std::is_nothrow_constructible_v<T, V&&> &&
+                                                                             std::is_nothrow_constructible_v<U, W&&>)
     : first(std::forward<V>(f)) // Throws
     , second(std::forward<W>(s)) // Throws
+{
+}
+
+
+template<class T, class U>
+template<class V, class W>
+constexpr Pair<T, U>::Pair(const Pair<V, W>& other) noexcept(std::is_nothrow_constructible_v<T, const V&> &&
+                                                             std::is_nothrow_constructible_v<U, const W&>)
+    : first(other.first) // Throws
+    , second(other.second) // Throws
+{
+}
+
+
+template<class T, class U>
+template<class V, class W>
+constexpr Pair<T, U>::Pair(Pair<V, W>&& other) noexcept(std::is_nothrow_constructible_v<T, V&&> &&
+                                                        std::is_nothrow_constructible_v<U, W&&>)
+    : first(std::move(other.first)) // Throws
+    , second(std::move(other.second)) // Throws
 {
 }
 

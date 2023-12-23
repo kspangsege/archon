@@ -19,15 +19,65 @@
 // DEALINGS IN THE SOFTWARE.
 
 
+#include <compare>
 #include <iterator>
 #include <memory>
 
 #include <archon/core/features.h>
+#include <archon/core/pair.hpp>
 #include <archon/core/flat_set.hpp>
 #include <archon/check.hpp>
 
 
 using namespace archon;
+
+
+ARCHON_TEST(Core_FlatSet_Emplace)
+{
+    core::FlatSet<core::Pair<int, int>> set;
+    set.emplace(3, 5);
+    set.emplace(1, 7);
+    ARCHON_CHECK_EQUAL_SEQ(set, (std::vector<core::Pair<int, int>> {{ 1, 7 }, { 3, 5 }}));
+}
+
+
+ARCHON_TEST(Core_FlatSet_Contains)
+{
+    core::FlatSet<int> set = { 1, 2, 4 };
+
+    ARCHON_CHECK_NOT(set.contains(0));
+    ARCHON_CHECK(set.contains(1));
+    ARCHON_CHECK(set.contains(2));
+    ARCHON_CHECK_NOT(set.contains(3));
+    ARCHON_CHECK(set.contains(4));
+    ARCHON_CHECK_NOT(set.contains(5));
+}
+
+
+ARCHON_TEST(Core_FlatSet_Count)
+{
+    core::FlatSet<int> set = { 1, 2, 4 };
+
+    ARCHON_CHECK_EQUAL(set.count(0), 0);
+    ARCHON_CHECK_EQUAL(set.count(1), 1);
+    ARCHON_CHECK_EQUAL(set.count(2), 1);
+    ARCHON_CHECK_EQUAL(set.count(3), 0);
+    ARCHON_CHECK_EQUAL(set.count(4), 1);
+    ARCHON_CHECK_EQUAL(set.count(5), 0);
+}
+
+
+ARCHON_TEST(Core_FlatSet_Find)
+{
+    core::FlatSet<int> set = { 1, 2, 4 };
+
+    ARCHON_CHECK_EQUAL(std::distance(set.begin(), set.find(0)), 3);
+    ARCHON_CHECK_EQUAL(std::distance(set.begin(), set.find(1)), 0);
+    ARCHON_CHECK_EQUAL(std::distance(set.begin(), set.find(2)), 1);
+    ARCHON_CHECK_EQUAL(std::distance(set.begin(), set.find(3)), 3);
+    ARCHON_CHECK_EQUAL(std::distance(set.begin(), set.find(4)), 2);
+    ARCHON_CHECK_EQUAL(std::distance(set.begin(), set.find(5)), 3);
+}
 
 
 ARCHON_TEST(Core_FlatSet_LowerUpperBound)
@@ -60,37 +110,13 @@ ARCHON_TEST(Core_FlatSet_EqualRange)
 }
 
 
-ARCHON_TEST(Core_FlatSet_IncompleteValueType)
+ARCHON_TEST(Core_FlatSet_IncompleteKeyType)
 {
-    struct Foo;
-    struct Bar {
-        core::FlatSet<Foo> set;
-    };
-    struct Foo {};
-    Bar bar;
-    static_cast<void>(bar);
-}
-
-
-ARCHON_TEST(Core_FlatSet_NoncopyableValue)
-{
+    struct Key;
     struct Foo {
-        int i;
-        Foo(int i_2) noexcept
-            : i(i_2)
-        {
-        }
-        Foo(Foo&&) noexcept = default;
-        auto operator=(Foo&&) noexcept -> Foo& = default;
-        auto operator<=>(const Foo&) const noexcept = default;
+        core::FlatSet<Key> set;
     };
-    core::FlatSet<Foo> set;
-    set.emplace(Foo{17});              
-    set.emplace(Foo{12});
-    if (ARCHON_LIKELY(ARCHON_CHECK_EQUAL(set.size(), 2))) {
-        auto i = set.begin();
-        ARCHON_CHECK_EQUAL(i->i, 12);
-        ++i;
-        ARCHON_CHECK_EQUAL(i->i, 17);
-    }
+    struct Key {};
+    Foo foo;
+    static_cast<void>(foo);
 }

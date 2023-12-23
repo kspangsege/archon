@@ -40,6 +40,7 @@
 
 #include <archon/core/features.h>
 #include <archon/core/span.hpp>
+#include <archon/core/type.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/float.hpp>
 #include <archon/core/string_codec.hpp>
@@ -919,8 +920,14 @@ template<class T, class... U>
 inline void TestContext::process_check_args(core::SeedMemoryOutputStream& out, std::string_view* texts,
                                             std::size_t* ends, check::CheckArg<T> arg, check::CheckArg<U>... args)
 {
-    format_value(out, arg.value); // Throws
-    *texts = arg.text;
+    if constexpr (check::CheckArg<T>::is_formattable) {
+        format_value(out, arg.get_value()); // Throws
+    }
+    else {
+        struct Unformattable {};
+        format_value(out, Unformattable()); // Throws
+    }
+    *texts = arg.get_text();
     *ends = out.streambuf().size();
     process_check_args(out, texts + 1, ends + 1, args...); // Throws
 }
@@ -1023,8 +1030,11 @@ template<class T> inline void TestContext::format_value(std::ostream& out, const
         out << core::formatted("0x%s", core::as_hex_int(std::uintptr_t(value), min_num_digits)); // Throws
     }
 #endif
-    else {
+    else if constexpr (core::has_stream_output_operator<T, char>) {
         out << value; // Throws
+    }
+    else {
+        out << "?"; // Throws
     }
 }
 

@@ -44,7 +44,6 @@ public:
     static constexpr bool is_set = std::is_same_v<value_type, void>;
 
     using entry_type = std::conditional_t<is_set, const key_type, core::Pair<const key_type, value_type>>;
-    using nonconst_entry_type = std::remove_const_t<entry_type>;
 
     bool empty() const noexcept;
     auto size() const noexcept -> std::size_t;
@@ -73,7 +72,7 @@ private:
 
     auto do_upper_bound(const key_type&, std::size_t) const noexcept -> std::size_t;
     bool do_find(const key_type&, std::size_t&) const noexcept;
-    static auto get_key(const entry_type&) noexcept -> const key_type&;
+    template<class E> static auto get_key(const E&) noexcept -> const key_type&;
     static bool less(const key_type&, const key_type&) noexcept;
 };
 
@@ -164,7 +163,7 @@ inline auto FlatMapImpl<K, V, N>::equal_range(const key_type& key) const noexcep
 template<class K, class V, std::size_t N>
 template<class... A> auto FlatMapImpl<K, V, N>::insert(A&&... args) -> std::pair<entry_type*, bool>
 {
-    nonconst_entry_type entry(std::forward<A>(args)...); // Throws
+    entry_type entry(std::forward<A>(args)...); // Throws
     const key_type& key = get_key(entry);
     entry_type* base = m_entries.data();
     std::size_t i = 0;
@@ -179,7 +178,7 @@ template<class... A> auto FlatMapImpl<K, V, N>::insert(A&&... args) -> std::pair
 template<class K, class V, std::size_t N>
 template<class... A> inline auto FlatMapImpl<K, V, N>::insert_multi(A&&... args) -> entry_type*
 {
-    nonconst_entry_type entry(std::forward<A>(args)...); // Throws
+    entry_type entry(std::forward<A>(args)...); // Throws
     const key_type& key = get_key(entry);
     std::size_t i = upper_bound(key);
     entry_type* base = m_entries.data();
@@ -270,7 +269,7 @@ inline bool FlatMapImpl<K, V, N>::do_find(const key_type& key, std::size_t& i) c
 
 
 template<class K, class V, std::size_t N>
-inline auto FlatMapImpl<K, V, N>::get_key(const entry_type& entry) noexcept -> const key_type&
+template<class E> inline auto FlatMapImpl<K, V, N>::get_key(const E& entry) noexcept -> const key_type&
 {
     if constexpr (is_set) {
         return entry;
@@ -284,8 +283,10 @@ inline auto FlatMapImpl<K, V, N>::get_key(const entry_type& entry) noexcept -> c
 template<class K, class V, std::size_t N>
 inline bool FlatMapImpl<K, V, N>::less(const key_type& a, const key_type& b) noexcept
 {
-    static_assert(noexcept(a < b));
     return (a < b);
+    // This static assertion has to occur after the invocation of the less-than operator due
+    // to a bug in GCC: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=113063
+    static_assert(noexcept(a < b));
 }
 
 

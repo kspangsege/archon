@@ -52,9 +52,15 @@ namespace archon::core {
 /// Another disadvantage compared to `std::map` is that map iterators and pointers to stored
 /// values are invalidated after every modifying operation.
 ///
-/// Requirement: Both the key type (\p K) and the value type (\p V) must have a non-throwing
-/// move constructor (`std::is_nothrow_move_constructible`) and a non-throwing destructor
-/// (`std::is_nothrow_destructible`).
+/// Requirement: Keys (objects of type \p K) must be copy-constructible and
+/// copy-construction must be a non-throwing operation
+/// (`std::is_nothrow_copy_constructible`). The key type must also have a non-throwing
+/// destructor (`std::is_nothrow_destructible`).
+///
+/// Requirement: Values (objects of type \p V) must be move-constructible and
+/// move-construction must be a non-throwing operation
+/// (`std::is_nothrow_move_constructible`). The value type must also have a non-throwing
+/// destructor (`std::is_nothrow_destructible`).
 ///
 /// Requirement: If `a` and `b` are `const`-references to keys (`const K&`), then `a < b`
 /// must be a non-throwing operation, i.e., `noexcept(a < b)` must be `true`.
@@ -131,12 +137,16 @@ public:
     template<class... A> auto emplace(A&&... args) -> std::pair<iterator, bool>;
 
     auto insert(const value_type&) -> std::pair<iterator, bool>;
+    auto insert(value_type&&) -> std::pair<iterator, bool>;
     template<class I> void insert(I begin, I end);
 
     auto erase(const key_type&) noexcept -> size_type;
     void clear() noexcept;
 
     // Lookup
+
+    bool contains(const key_type&) const noexcept;
+    auto count(const key_type&) const noexcept -> size_type;
 
     auto find(const key_type&) noexcept       -> iterator;
     auto find(const key_type&) const noexcept -> const_iterator;
@@ -348,6 +358,13 @@ inline auto FlatMap<K, V, N>::insert(const value_type& entry) -> std::pair<itera
 
 
 template<class K, class V, std::size_t N>
+inline auto FlatMap<K, V, N>::insert(value_type&& entry) -> std::pair<iterator, bool>
+{
+    return m_impl.insert(std::move(entry)); // Throws
+}
+
+
+template<class K, class V, std::size_t N>
 template<class I> void FlatMap<K, V, N>::insert(I begin, I end)
 {
     for (I i = begin; i != end; ++i)
@@ -370,6 +387,21 @@ inline void FlatMap<K, V, N>::clear() noexcept
 
 
 template<class K, class V, std::size_t N>
+inline bool FlatMap<K, V, N>::contains(const key_type& key) const noexcept
+{
+    std::size_t i = m_impl.find(key);
+    return (i != size());
+}
+
+
+template<class K, class V, std::size_t N>
+inline auto FlatMap<K, V, N>::count(const key_type& key) const noexcept -> size_type
+{
+    return size_type(int(contains(key)));
+}
+
+
+template<class K, class V, std::size_t N>
 inline auto FlatMap<K, V, N>::find(const key_type& key) noexcept -> iterator
 {
     std::size_t i = m_impl.find(key);
@@ -386,7 +418,7 @@ inline auto FlatMap<K, V, N>::find(const key_type& key) const noexcept -> const_
 
 
 template<class K, class V, std::size_t N>
-auto FlatMap<K, V, N>::lower_bound(const key_type& key) noexcept -> iterator
+inline auto FlatMap<K, V, N>::lower_bound(const key_type& key) noexcept -> iterator
 {
     std::size_t i = m_impl.lower_bound(key);
     return m_impl.data() + i;
@@ -394,7 +426,7 @@ auto FlatMap<K, V, N>::lower_bound(const key_type& key) noexcept -> iterator
 
 
 template<class K, class V, std::size_t N>
-auto FlatMap<K, V, N>::lower_bound(const key_type& key) const noexcept -> const_iterator
+inline auto FlatMap<K, V, N>::lower_bound(const key_type& key) const noexcept -> const_iterator
 {
     std::size_t i = m_impl.lower_bound(key);
     return m_impl.data() + i;
@@ -402,7 +434,7 @@ auto FlatMap<K, V, N>::lower_bound(const key_type& key) const noexcept -> const_
 
 
 template<class K, class V, std::size_t N>
-auto FlatMap<K, V, N>::upper_bound(const key_type& key) noexcept -> iterator
+inline auto FlatMap<K, V, N>::upper_bound(const key_type& key) noexcept -> iterator
 {
     std::size_t i = m_impl.upper_bound(key);
     return m_impl.data() + i;
@@ -410,7 +442,7 @@ auto FlatMap<K, V, N>::upper_bound(const key_type& key) noexcept -> iterator
 
 
 template<class K, class V, std::size_t N>
-auto FlatMap<K, V, N>::upper_bound(const key_type& key) const noexcept -> const_iterator
+inline auto FlatMap<K, V, N>::upper_bound(const key_type& key) const noexcept -> const_iterator
 {
     std::size_t i = m_impl.upper_bound(key);
     return m_impl.data() + i;
@@ -418,7 +450,7 @@ auto FlatMap<K, V, N>::upper_bound(const key_type& key) const noexcept -> const_
 
 
 template<class K, class V, std::size_t N>
-auto FlatMap<K, V, N>::equal_range(const key_type& key) noexcept -> std::pair<iterator, iterator>
+inline auto FlatMap<K, V, N>::equal_range(const key_type& key) noexcept -> std::pair<iterator, iterator>
 {
     std::pair<std::size_t, std::size_t> p = m_impl.equal_range(key);
     return { m_impl.data() + p.first, m_impl.data() + p.second };
@@ -426,7 +458,8 @@ auto FlatMap<K, V, N>::equal_range(const key_type& key) noexcept -> std::pair<it
 
 
 template<class K, class V, std::size_t N>
-auto FlatMap<K, V, N>::equal_range(const key_type& key) const noexcept -> std::pair<const_iterator, const_iterator>
+inline auto FlatMap<K, V, N>::equal_range(const key_type& key) const noexcept ->
+    std::pair<const_iterator, const_iterator>
 {
     std::pair<std::size_t, std::size_t> p = m_impl.equal_range(key);
     return { m_impl.data() + p.first, m_impl.data() + p.second };

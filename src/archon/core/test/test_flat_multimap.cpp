@@ -19,6 +19,7 @@
 // DEALINGS IN THE SOFTWARE.
 
 
+#include <compare>
 #include <iterator>
 #include <memory>
 
@@ -28,6 +29,54 @@
 
 
 using namespace archon;
+
+
+ARCHON_TEST(Core_FlatMultimap_Contains)
+{
+    core::FlatMultimap<int, int> map = {
+        { 1, 0 },
+        { 3, 0 },
+        { 3, 0 },
+    };
+
+    ARCHON_CHECK_NOT(map.contains(0));
+    ARCHON_CHECK(map.contains(1));
+    ARCHON_CHECK_NOT(map.contains(2));
+    ARCHON_CHECK(map.contains(3));
+    ARCHON_CHECK_NOT(map.contains(4));
+}
+
+
+ARCHON_TEST(Core_FlatMultimap_Count)
+{
+    core::FlatMultimap<int, int> map = {
+        { 1, 0 },
+        { 3, 0 },
+        { 3, 0 },
+    };
+
+    ARCHON_CHECK_EQUAL(map.count(0), 0);
+    ARCHON_CHECK_EQUAL(map.count(1), 1);
+    ARCHON_CHECK_EQUAL(map.count(2), 0);
+    ARCHON_CHECK_EQUAL(map.count(3), 2);
+    ARCHON_CHECK_EQUAL(map.count(4), 0);
+}
+
+
+ARCHON_TEST(Core_FlatMultimap_Find)
+{
+    core::FlatMultimap<int, int> map = {
+        { 1, 0 },
+        { 3, 0 },
+        { 3, 0 },
+    };
+
+    ARCHON_CHECK_EQUAL(std::distance(map.begin(), map.find(0)), 3);
+    ARCHON_CHECK_EQUAL(std::distance(map.begin(), map.find(1)), 0);
+    ARCHON_CHECK_EQUAL(std::distance(map.begin(), map.find(2)), 3);
+    ARCHON_CHECK_EQUAL(std::distance(map.begin(), map.find(3)), 1);
+    ARCHON_CHECK_EQUAL(std::distance(map.begin(), map.find(4)), 3);
+}
 
 
 ARCHON_TEST(Core_FlatMultimap_LowerUpperBound)
@@ -66,15 +115,27 @@ ARCHON_TEST(Core_FlatMultimap_EqualRange)
 }
 
 
+ARCHON_TEST(Core_FlatMultimap_IncompleteKeyType)
+{
+    struct Key;
+    struct Foo {
+        core::FlatMultimap<Key, int> map;
+    };
+    struct Key {};
+    Foo foo;
+    static_cast<void>(foo);
+}
+
+
 ARCHON_TEST(Core_FlatMultimap_IncompleteValueType)
 {
-    struct Foo;
-    struct Bar {
-        core::FlatMultimap<int, Foo> vec;
+    struct Val;
+    struct Foo {
+        core::FlatMultimap<int, Val> map;
     };
-    struct Foo {};
-    Bar bar;
-    static_cast<void>(bar);
+    struct Val {};
+    Foo foo;
+    static_cast<void>(foo);
 }
 
 

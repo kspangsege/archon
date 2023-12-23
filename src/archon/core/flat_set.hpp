@@ -47,9 +47,10 @@ namespace archon::core {
 /// The major disadvantage, relative to `std::set`, is that insertion is slower. Insertion
 /// complexity is O(N) for this set implementation, and O(log N) for `std::set`.
 ///
-/// Requirement: The element type (\p K) must have a non-throwing move constructor
-/// (`std::is_nothrow_move_constructible`) and a non-throwing destructor
-/// (`std::is_nothrow_destructible`).
+/// Requirement: Elements (objects of type \p K) must be copy-constructible and
+/// copy-construction must be a non-throwing operation
+/// (`std::is_nothrow_copy_constructible`). The element type must also have a non-throwing
+/// destructor (`std::is_nothrow_destructible`).
 ///
 /// Requirement: If `a` and `b` are `const`-references to elements (`const K&`), then `a <
 /// b` must be a non-throwing operation, i.e., `noexcept(a < b)` must be `true`.
@@ -113,6 +114,7 @@ public:
     template<class... A> auto emplace(A&&... args) -> std::pair<iterator, bool>;
 
     auto insert(const value_type&) -> std::pair<iterator, bool>;
+    auto insert(value_type&&) -> std::pair<iterator, bool>;
     template<class I> void insert(I begin, I end);
 
     auto erase(const key_type&) noexcept -> size_type;
@@ -121,6 +123,10 @@ public:
     // Lookup
 
     bool contains(const key_type&) const noexcept;
+    auto count(const key_type&) const noexcept -> size_type;
+
+    auto find(const key_type&) noexcept       -> iterator;
+    auto find(const key_type&) const noexcept -> const_iterator;
 
     auto lower_bound(const key_type&) noexcept       -> iterator;
     auto lower_bound(const key_type&) const noexcept -> const_iterator;
@@ -273,6 +279,13 @@ inline auto FlatSet<K, N>::insert(const value_type& elem) -> std::pair<iterator,
 
 
 template<class K, std::size_t N>
+inline auto FlatSet<K, N>::insert(value_type&& elem) -> std::pair<iterator, bool>
+{
+    return m_impl.insert(std::move(elem)); // Throws
+}
+
+
+template<class K, std::size_t N>
 template<class I> void FlatSet<K, N>::insert(I begin, I end)
 {
     for (I i = begin; i != end; ++i)
@@ -303,7 +316,30 @@ inline bool FlatSet<K, N>::contains(const key_type& key) const noexcept
 
 
 template<class K, std::size_t N>
-auto FlatSet<K, N>::lower_bound(const key_type& key) noexcept -> iterator
+inline auto FlatSet<K, N>::count(const key_type& key) const noexcept -> size_type
+{
+    return size_type(int(contains(key)));
+}
+
+
+template<class K, std::size_t N>
+inline auto FlatSet<K, N>::find(const key_type& key) noexcept -> iterator
+{
+    std::size_t i = m_impl.find(key);
+    return m_impl.data() + i;
+}
+
+
+template<class K, std::size_t N>
+inline auto FlatSet<K, N>::find(const key_type& key) const noexcept -> const_iterator
+{
+    std::size_t i = m_impl.find(key);
+    return m_impl.data() + i;
+}
+
+
+template<class K, std::size_t N>
+inline auto FlatSet<K, N>::lower_bound(const key_type& key) noexcept -> iterator
 {
     std::size_t i = m_impl.lower_bound(key);
     return m_impl.data() + i;
@@ -311,7 +347,7 @@ auto FlatSet<K, N>::lower_bound(const key_type& key) noexcept -> iterator
 
 
 template<class K, std::size_t N>
-auto FlatSet<K, N>::lower_bound(const key_type& key) const noexcept -> const_iterator
+inline auto FlatSet<K, N>::lower_bound(const key_type& key) const noexcept -> const_iterator
 {
     std::size_t i = m_impl.lower_bound(key);
     return m_impl.data() + i;
@@ -319,7 +355,7 @@ auto FlatSet<K, N>::lower_bound(const key_type& key) const noexcept -> const_ite
 
 
 template<class K, std::size_t N>
-auto FlatSet<K, N>::upper_bound(const key_type& key) noexcept -> iterator
+inline auto FlatSet<K, N>::upper_bound(const key_type& key) noexcept -> iterator
 {
     std::size_t i = m_impl.upper_bound(key);
     return m_impl.data() + i;
@@ -327,7 +363,7 @@ auto FlatSet<K, N>::upper_bound(const key_type& key) noexcept -> iterator
 
 
 template<class K, std::size_t N>
-auto FlatSet<K, N>::upper_bound(const key_type& key) const noexcept -> const_iterator
+inline auto FlatSet<K, N>::upper_bound(const key_type& key) const noexcept -> const_iterator
 {
     std::size_t i = m_impl.upper_bound(key);
     return m_impl.data() + i;
@@ -335,7 +371,7 @@ auto FlatSet<K, N>::upper_bound(const key_type& key) const noexcept -> const_ite
 
 
 template<class K, std::size_t N>
-auto FlatSet<K, N>::equal_range(const key_type& key) noexcept -> std::pair<iterator, iterator>
+inline auto FlatSet<K, N>::equal_range(const key_type& key) noexcept -> std::pair<iterator, iterator>
 {
     std::pair<std::size_t, std::size_t> p = m_impl.equal_range(key);
     return { m_impl.data() + p.first, m_impl.data() + p.second };
@@ -343,7 +379,7 @@ auto FlatSet<K, N>::equal_range(const key_type& key) noexcept -> std::pair<itera
 
 
 template<class K, std::size_t N>
-auto FlatSet<K, N>::equal_range(const key_type& key) const noexcept -> std::pair<const_iterator, const_iterator>
+inline auto FlatSet<K, N>::equal_range(const key_type& key) const noexcept -> std::pair<const_iterator, const_iterator>
 {
     std::pair<std::size_t, std::size_t> p = m_impl.equal_range(key);
     return { m_impl.data() + p.first, m_impl.data() + p.second };

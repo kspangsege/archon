@@ -49,6 +49,7 @@ target_sources(Core PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "${
   archon/core/pair.hpp
   archon/core/span.hpp
   archon/core/type_list.hpp
+  archon/core/impl/type.hpp
   archon/core/type.hpp
   archon/core/concepts.hpp
   archon/core/demangle.hpp
