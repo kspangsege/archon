@@ -284,15 +284,18 @@ public:
 
     /// \brief Basis for checks of special conditions.
     ///
-    /// This function is the basis for check macro \ref ARCHON_CHECK_EQUAL() and a number of
-    /// other check macros involving comparisons. It can also serve as the basis of
-    /// application defined check macros whose failure reports should take on the same form.
+    /// This function is the basis for \ref ARCHON_CHECK_EQUAL() and a number of other check
+    /// macros involving comparisons. It can also serve as the basis of application defined
+    /// check macros whose failure reports should take on the same form.
     ///
     /// Failures of checks of this kind are reported as `"<macro name>(<arg texts>) failed
     /// with (<arg values>)"` where `<macro name>` is the string passed as \p macro_name,
     /// `<arg texts>` is a comma-separated list of the values of \ref check::CheckArg::text
     /// of the specified arguments, and `<arg values>` is a comma-separated list of strings
-    /// resulting from formatting \ref check::CheckArg::value of the specified arguments.
+    /// resulting from formatting \ref check::CheckArg::value of the specified
+    /// arguments. Check arguments of non-formattable types are formatted as `?`. If `val`
+    /// is the value of a check argument and `out` is an object of type `std::ostream`, then
+    /// that check argument is formattable if, and only if `out << val` is well-formed.
     ///
     /// Applications can define a custom check macro like this, where `foo(cond)` can be
     /// anything that depends on `cond`:
