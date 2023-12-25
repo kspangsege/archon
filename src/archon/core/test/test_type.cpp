@@ -67,3 +67,26 @@ static_assert(std::is_same_v<core::FuncDecay<decltype(&Func1::baz)>, void()>);
 
 static_assert(std::is_same_v<core::FuncDecay<Func2>, void()>);
 static_assert(std::is_same_v<core::FuncDecay<Func3>, void()>);
+
+
+namespace {
+
+struct NoStreamOutput {};
+
+struct NoWideStreamOutput {};
+
+auto operator<<(std::ostream& out, NoWideStreamOutput) -> std::ostream&
+{
+    return out;
+}
+
+} // unnamed namespace
+
+static_assert(core::has_stream_output_operator<int, char>);
+static_assert(core::has_stream_output_operator<int, wchar_t>);
+
+static_assert(core::has_stream_output_operator<NoWideStreamOutput, char>);
+static_assert(!core::has_stream_output_operator<NoWideStreamOutput, wchar_t>);
+
+static_assert(!core::has_stream_output_operator<NoStreamOutput, char>);
+static_assert(!core::has_stream_output_operator<NoStreamOutput, wchar_t>);
