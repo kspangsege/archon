@@ -82,6 +82,7 @@
 #include <archon/core/flat_map.hpp>
 #include <archon/core/flat_multimap.hpp>
 #include <archon/core/flat_set.hpp>
+#include <archon/core/flat_multiset.hpp>
 #include <archon/core/literal_hash_map.hpp>
 #include <archon/core/range_map.hpp>
 #include <archon/core/frozen_sets.hpp>

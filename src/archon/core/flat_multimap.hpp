@@ -49,9 +49,12 @@ namespace archon::core {
 /// localized memory access pattern. It also allows for stronger exception guarantees
 /// compared to `std::multimap`.
 ///
-/// The major disadvantage, relative to `std::multimap`, is that insertion is
-/// slower. Insertion complexity is O(N) for this map implementation, and O(log N) for
-/// `std::multimap`.
+/// One disadvantage relative to `std::multimap` is that insertion is slower (`insert()` and
+/// `emplace()`). Insertion complexity is O(N) for this multi-map implementation, and O(log
+/// N) for `std::multimap` where N is the number of entries in the multi-map.
+///
+/// Another disadvantage compared to `std::multimap` is that iterators and pointers
+/// referring to stored entries are invalidated after every modifying operation.
 ///
 /// Requirement: Keys (objects of type \p K) must be copy-constructible and
 /// copy-construction must be a non-throwing operation
@@ -66,8 +69,8 @@ namespace archon::core {
 /// Requirement: If `a` and `b` are `const`-references to keys (`const K&`), then `a < b`
 /// must be a non-throwing operation, i.e., `noexcept(a < b)` must be `true`.
 ///
-/// An initial capacity can be made statically available inside the map object. The number
-/// of entries of initial static capacity is specified by \p N.
+/// An initial capacity can be made statically available inside the multi-map object. The
+/// number of entries of initial static capacity is specified by \p N.
 ///
 /// So long as \p N is zero, a flat multi-map type can be instantiated for an incomplete key
 /// and / or value type (\p K and \p V). Instantiation of the member functions of a flat
@@ -364,7 +367,7 @@ template<class K, class V, std::size_t N>
 inline auto FlatMultimap<K, V, N>::count(const key_type& key) const noexcept -> size_type
 {
     std::pair<std::size_t, std::size_t> p = m_impl.equal_range(key);
-    return std::size_t(p.second - p.first);
+    return size_type(p.second - p.first);
 }
 
 

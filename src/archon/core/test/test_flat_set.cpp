@@ -35,9 +35,22 @@ using namespace archon;
 ARCHON_TEST(Core_FlatSet_Emplace)
 {
     core::FlatSet<core::Pair<int, int>> set;
-    set.emplace(3, 5);
+    set.emplace(3, 7);
     set.emplace(1, 7);
-    ARCHON_CHECK_EQUAL_SEQ(set, (std::vector<core::Pair<int, int>> {{ 1, 7 }, { 3, 5 }}));
+    set.emplace(3, 4);
+    set.emplace(3, 7);
+    ARCHON_CHECK_EQUAL_SEQ(set, (std::vector<core::Pair<int, int>> {{ 1, 7 }, { 3, 4 }, { 3, 7 }}));
+}
+
+
+ARCHON_TEST(Core_FlatSet_Insert)
+{
+    core::FlatSet<int> set;
+    set.insert(3);
+    set.insert(1);
+    set.insert(4);
+    set.insert(3);
+    ARCHON_CHECK_EQUAL_SEQ(set, (std::vector<int> { 1, 3, 4 }));
 }
 
 

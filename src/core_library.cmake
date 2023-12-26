@@ -90,6 +90,7 @@ target_sources(Core PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "${
   archon/core/flat_map.hpp
   archon/core/flat_multimap.hpp
   archon/core/flat_set.hpp
+  archon/core/flat_multiset.hpp
   archon/core/literal_hash_map.hpp
   archon/core/range_map.hpp
   archon/core/frozen_sets.hpp

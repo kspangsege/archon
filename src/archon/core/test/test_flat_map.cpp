@@ -31,6 +31,28 @@
 using namespace archon;
 
 
+ARCHON_TEST(Core_FlatMap_Emplace)
+{
+    core::FlatMap<int, int> map;
+    map.emplace(3, 7);
+    map.emplace(1, 7);
+    map.emplace(3, 4);
+    map.emplace(2, 8);
+    ARCHON_CHECK_EQUAL_SEQ(map, (std::vector<core::Pair<int, int>> {{ 1, 7 }, { 2, 8 }, { 3, 7 }}));
+}
+
+
+ARCHON_TEST(Core_FlatMap_Insert)
+{
+    core::FlatMap<int, int> map;
+    map.insert({ 3, 7 });
+    map.insert({ 1, 7 });
+    map.insert({ 3, 4 });
+    map.insert({ 2, 8 });
+    ARCHON_CHECK_EQUAL_SEQ(map, (std::vector<core::Pair<int, int>> {{ 1, 7 }, { 2, 8 }, { 3, 7 }}));
+}
+
+
 ARCHON_TEST(Core_FlatMap_Contains)
 {
     core::FlatMap<int, int> map = {
