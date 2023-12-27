@@ -27,6 +27,8 @@
 #include <type_traits>
 #include <utility>
 
+#include <archon/core/type.hpp>
+
 
 namespace archon::core {
 
@@ -74,7 +76,23 @@ public:
                                           std::is_nothrow_constructible_v<U, W&&>);
     /// \}
 
-    auto operator<=>(const Pair&) const = default;
+    /// \brief Heterogeneous equality comparison.
+    ///
+    /// This operator performs a heterogeneous equality comparison between this pair and the
+    /// specified one (\p other).
+    ///
+    template<class V, class W>
+    constexpr auto operator==(const Pair<V, W>& other) const noexcept(core::are_nothrow_equality_comparable<T, V> &&
+                                                                      core::are_nothrow_equality_comparable<U, W>);
+
+    /// \brief Heterogeneous three-way comparison.
+    ///
+    /// This operator performs a heterogeneous three-way comparison between this pair and the
+    /// specified one (\p other).
+    ///
+    template<class V, class W>
+    constexpr auto operator<=>(const Pair<V, W>& other) const noexcept(core::are_nothrow_three_way_comparable<T, V> &&
+                                                                       core::are_nothrow_three_way_comparable<U, W>);
 };
 
 
@@ -113,6 +131,26 @@ constexpr Pair<T, U>::Pair(Pair<V, W>&& other) noexcept(std::is_nothrow_construc
     : first(std::move(other.first)) // Throws
     , second(std::move(other.second)) // Throws
 {
+}
+
+
+template<class T, class U>
+template<class V, class W> constexpr auto Pair<T, U>::operator==(const Pair<V, W>& other) const
+    noexcept(core::are_nothrow_equality_comparable<T, V> && core::are_nothrow_equality_comparable<U, W>)
+{
+    return (first == other.first && second == other.second); // Throws
+}
+
+
+template<class T, class U>
+template<class V, class W> constexpr auto Pair<T, U>::operator<=>(const Pair<V, W>& other) const
+    noexcept(core::are_nothrow_three_way_comparable<T, V> && core::are_nothrow_three_way_comparable<U, W>)
+{
+    using result_type_1 = decltype(first <=> other.first);
+    using result_type_2 = decltype(second <=> other.second);
+    using result_type = std::common_comparison_category_t<result_type_1, result_type_2>;
+    result_type result = (first <=> other.first); // Throws
+    return (result != 0 ? result : second <=> other.second); // Throws
 }
 
 

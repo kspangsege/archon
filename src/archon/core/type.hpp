@@ -232,14 +232,32 @@ template<int N, class F = void> using FastestSignedWithBits = typename impl::Fas
 template<int N, class F = void> using FastestUnsignedWithBits = typename impl::FastestUnsignedWithBits<N, F>::type;
 
 
+/// \brief Whether equality comparison between two given types is non-throwing.
+///
+/// This constant is `true` when, and only when the equality comparison between an object of
+/// type \p T and an object of type \p U is a declared non-throwing operation (`noexcept`).
+///
+template<class T, class U> constexpr bool are_nothrow_equality_comparable =
+    noexcept(std::declval<T>() == std::declval<U>());
+
+
+/// \brief Whether three-way comparison between two given types is non-throwing.
+///
+/// This constant is `true` when, and only when the three-way comparison between an object
+/// of type \p T and an object of type \p U is a declared non-throwing operation (`noexcept`).
+///
+template<class T, class U> constexpr bool are_nothrow_three_way_comparable =
+    noexcept(std::declval<T>() <=> std::declval<U>());
+
+
 /// \brief Whether a stream output operator exists for given value and character type.
 ///
-/// This function returns `true` when there is a stream output operator (`<<`) for an object
-/// of type \p T and an output stream whose character type is \p C.
+/// This constant is `true` when there is a stream output operator (`<<`) for an object of
+/// type \p T and an output stream whose character type is \p C.
 ///
 /// More precisely, if `out` is an object of type `std::basic_ostream<C>` and `val` is an
-/// object of type `T`, then this function returns `true` when, and only when the expression
-/// `out << val` is well formed.
+/// object of type `T`, then this constant is `true` when, and only when the expression `out
+/// << val` is well formed.
 ///
 template<class T, class C, class U = std::char_traits<C>> constexpr bool has_stream_output_operator =
     impl::has_stream_output_operator<T, C, U>(int());

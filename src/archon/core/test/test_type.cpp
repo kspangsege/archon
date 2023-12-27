@@ -73,12 +73,18 @@ namespace {
 
 struct NoStreamOutput {};
 
-struct NoWideStreamOutput {};
+#if ARCHON_CLANG
+#  pragma clang diagnostic push
+#  pragma clang diagnostic ignored "-Wunneeded-internal-declaration"
+#endif
 
-auto operator<<(std::ostream& out, NoWideStreamOutput) -> std::ostream&
-{
-    return out;
-}
+struct NoWideStreamOutput {
+    friend auto operator<<(std::ostream&, NoWideStreamOutput) -> std::ostream&;
+};
+
+#if ARCHON_CLANG
+#  pragma clang diagnostic pop
+#endif
 
 } // unnamed namespace
 
