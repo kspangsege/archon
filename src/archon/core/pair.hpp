@@ -138,7 +138,7 @@ template<class T, class U>
 template<class V, class W> constexpr auto Pair<T, U>::operator==(const Pair<V, W>& other) const
     noexcept(core::are_nothrow_equality_comparable<T, V> && core::are_nothrow_equality_comparable<U, W>)
 {
-    return (first == other.first && second == other.second); // Throws
+    return (this->first == other.first && this->second == other.second); // Throws
 }
 
 
@@ -149,8 +149,8 @@ template<class V, class W> constexpr auto Pair<T, U>::operator<=>(const Pair<V, 
     using result_type_1 = decltype(first <=> other.first);
     using result_type_2 = decltype(second <=> other.second);
     using result_type = std::common_comparison_category_t<result_type_1, result_type_2>;
-    result_type result = (first <=> other.first); // Throws
-    return (result != 0 ? result : second <=> other.second); // Throws
+    result_type result = (this->first <=> other.first); // Throws
+    return (result != 0 ? result : this->second <=> other.second); // Throws
 }
 
 
