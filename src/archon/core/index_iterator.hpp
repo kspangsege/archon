@@ -25,6 +25,7 @@
 
 
 #include <type_traits>
+#include <compare>
 #include <utility>
 #include <iterator>
 
@@ -69,11 +70,7 @@ public:
     template<class D, class T> auto operator-(const IndexIterator<D, T>&) const noexcept -> std::ptrdiff_t;
 
     template<class D, class T> bool operator==(const IndexIterator<D, T>&) const noexcept;
-    template<class D, class T> bool operator!=(const IndexIterator<D, T>&) const noexcept;
-    template<class D, class T> bool operator<(const IndexIterator<D, T>&) const noexcept;
-    template<class D, class T> bool operator>(const IndexIterator<D, T>&) const noexcept;
-    template<class D, class T> bool operator<=(const IndexIterator<D, T>&) const noexcept;
-    template<class D, class T> bool operator>=(const IndexIterator<D, T>&) const noexcept;
+    template<class D, class T> auto operator<=>(const IndexIterator<D, T>&) const noexcept -> std::weak_ordering;
 
 private:
     C* m_container;
@@ -201,42 +198,15 @@ inline auto IndexIterator<C, S>::operator-(const IndexIterator<D, T>& other) con
 template<class C, class S>
 template<class D, class T> inline bool IndexIterator<C, S>::operator==(const IndexIterator<D, T>& other) const noexcept
 {
-    return (m_index == other.m_index);
+    return m_index == other.m_index;
 }
 
 
 template<class C, class S>
-template<class D, class T> inline bool IndexIterator<C, S>::operator!=(const IndexIterator<D, T>& other) const noexcept
+template<class D, class T>
+inline auto IndexIterator<C, S>::operator<=>(const IndexIterator<D, T>& other) const noexcept -> std::weak_ordering
 {
-    return (m_index != other.m_index);
-}
-
-
-template<class C, class S>
-template<class D, class T> inline bool IndexIterator<C, S>::operator<(const IndexIterator<D, T>& other) const noexcept
-{
-    return (m_index < other.m_index);
-}
-
-
-template<class C, class S>
-template<class D, class T> inline bool IndexIterator<C, S>::operator>(const IndexIterator<D, T>& other) const noexcept
-{
-    return (m_index > other.m_index);
-}
-
-
-template<class C, class S>
-template<class D, class T> inline bool IndexIterator<C, S>::operator<=(const IndexIterator<D, T>& other) const noexcept
-{
-    return (m_index <= other.m_index);
-}
-
-
-template<class C, class S>
-template<class D, class T> inline bool IndexIterator<C, S>::operator>=(const IndexIterator<D, T>& other) const noexcept
-{
-    return (m_index >= other.m_index);
+    return m_index <=> other.m_index;
 }
 
 

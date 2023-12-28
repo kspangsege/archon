@@ -117,20 +117,12 @@ public:
 
     constexpr auto size() const noexcept -> std::size_t;
 
-    /// \{
-    ///
     /// \brief Compare two pixels.
     ///
-    /// These operators compare this pixel with the specified pixel (\p other). Comparison
-    /// happens lexicographically in terms of components.
+    /// This operator compares this pixel with the specified pixel (\p other). Comparison
+    /// is lexicographical in terms of components.
     ///
-    bool operator==(const Pixel& other) const noexcept;
-    bool operator!=(const Pixel& other) const noexcept;
-    bool operator< (const Pixel& other) const noexcept;
-    bool operator<=(const Pixel& other) const noexcept;
-    bool operator> (const Pixel& other) const noexcept;
-    bool operator>=(const Pixel& other) const noexcept;
-    /// \}
+    constexpr auto operator<=>(const Pixel&) const noexcept = default;
 
     /// \brief Get implicit or explicit alpha component of this pixel.
     ///
@@ -372,49 +364,6 @@ template<class R>
 constexpr auto Pixel<R>::size() const noexcept -> std::size_t
 {
     return m_components.size();
-}
-
-
-template<class R>
-inline bool Pixel<R>::operator==(const Pixel& other) const noexcept
-{
-    return std::equal(data(), data() + size(), other.data());
-}
-
-
-template<class R>
-inline bool Pixel<R>::operator!=(const Pixel& other) const noexcept
-{
-    return !(*this == other);
-}
-
-
-template<class R>
-inline bool Pixel<R>::operator<(const Pixel& other) const noexcept
-{
-    std::size_t n = num_channels;
-    return std::lexicographical_compare(data(), data() + n, other.data(), other.data() + n);
-}
-
-
-template<class R>
-inline bool Pixel<R>::operator<=(const Pixel& other) const noexcept
-{
-    return !(*this > other);
-}
-
-
-template<class R>
-inline bool Pixel<R>::operator>(const Pixel& other) const noexcept
-{
-    return (other < *this);
-}
-
-
-template<class R>
-inline bool Pixel<R>::operator>=(const Pixel& other) const noexcept
-{
-    return  !(*this < other);
 }
 
 

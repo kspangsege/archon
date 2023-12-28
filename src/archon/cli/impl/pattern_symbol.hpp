@@ -40,13 +40,11 @@ public:
     Type type;
     std::size_t index;
 
-    static auto keyword(std::size_t keyword_index) noexcept -> PatternSymbol;
-    static auto proto_option(std::size_t proto_index) noexcept -> PatternSymbol;
-    static auto value_slot() noexcept -> PatternSymbol;
+    static constexpr auto keyword(std::size_t keyword_index) noexcept -> PatternSymbol;
+    static constexpr auto proto_option(std::size_t proto_index) noexcept -> PatternSymbol;
+    static constexpr auto value_slot() noexcept -> PatternSymbol;
 
-    bool operator==(PatternSymbol) const noexcept;
-    bool operator!=(PatternSymbol) const noexcept;
-    bool operator<(PatternSymbol) const noexcept;
+    constexpr auto operator<=>(const PatternSymbol&) const noexcept = default;
 };
 
 
@@ -59,39 +57,21 @@ public:
 // Implementation
 
 
-inline auto PatternSymbol::keyword(std::size_t keyword_index) noexcept -> PatternSymbol
+constexpr auto PatternSymbol::keyword(std::size_t keyword_index) noexcept -> PatternSymbol
 {
     return { Type::keyword, keyword_index };
 }
 
 
-inline auto PatternSymbol::proto_option(std::size_t proto_index) noexcept -> PatternSymbol
+constexpr auto PatternSymbol::proto_option(std::size_t proto_index) noexcept -> PatternSymbol
 {
     return { Type::proto_option, proto_index };
 }
 
 
-inline auto PatternSymbol::value_slot() noexcept -> PatternSymbol
+constexpr auto PatternSymbol::value_slot() noexcept -> PatternSymbol
 {
     return { Type::value_slot, 0 };
-}
-
-
-inline bool PatternSymbol::operator==(PatternSymbol s) const noexcept
-{
-    return (type == s.type && index == s.index);
-}
-
-
-inline bool PatternSymbol::operator!=(PatternSymbol s) const noexcept
-{
-    return (type != s.type || index != s.index);
-}
-
-
-inline bool PatternSymbol::operator<(PatternSymbol s) const noexcept
-{
-    return (type < s.type || (type == s.type && index < s.index));
 }
 
 

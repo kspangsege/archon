@@ -65,16 +65,8 @@ public:
 
     template<class J> bool operator==(const StrideIterator<J, S>&) const
         noexcept(noexcept(std::declval<const I&>() == std::declval<const J&>()));
-    template<class J> bool operator!=(const StrideIterator<J, S>&) const
-        noexcept(noexcept(std::declval<const I&>() != std::declval<const J&>()));
-    template<class J> bool operator< (const StrideIterator<J, S>&) const
-        noexcept(noexcept(std::declval<const I&>() <  std::declval<const J&>()));
-    template<class J> bool operator> (const StrideIterator<J, S>&) const
-        noexcept(noexcept(std::declval<const I&>() >  std::declval<const J&>()));
-    template<class J> bool operator<=(const StrideIterator<J, S>&) const
-        noexcept(noexcept(std::declval<const I&>() <= std::declval<const J&>()));
-    template<class J> bool operator>=(const StrideIterator<J, S>&) const
-        noexcept(noexcept(std::declval<const I&>() >= std::declval<const J&>()));
+    template<class J> auto operator<=>(const StrideIterator<J, S>&) const
+        noexcept(noexcept(std::declval<const I&>() <=> std::declval<const J&>()));
 
 private:
     I m_iter;
@@ -213,42 +205,10 @@ template<class J> inline bool StrideIterator<I, S>::operator==(const StrideItera
 
 
 template<class I, std::size_t S>
-template<class J> inline bool StrideIterator<I, S>::operator!=(const StrideIterator<J, S>& other) const
-    noexcept(noexcept(std::declval<const I&>() != std::declval<const J&>()))
+template<class J> inline auto StrideIterator<I, S>::operator<=>(const StrideIterator<J, S>& other) const
+    noexcept(noexcept(std::declval<const I&>() <=> std::declval<const J&>()))
 {
-    return m_iter != other.m_iter; // Throws
-}
-
-
-template<class I, std::size_t S>
-template<class J> inline bool StrideIterator<I, S>::operator<(const StrideIterator<J, S>& other) const
-    noexcept(noexcept(std::declval<const I&>() <  std::declval<const J&>()))
-{
-    return m_iter < other.m_iter; // Throws
-}
-
-
-template<class I, std::size_t S>
-template<class J> inline bool StrideIterator<I, S>::operator>(const StrideIterator<J, S>& other) const
-    noexcept(noexcept(std::declval<const I&>() >  std::declval<const J&>()))
-{
-    return m_iter > other.m_iter; // Throws
-}
-
-
-template<class I, std::size_t S>
-template<class J> inline bool StrideIterator<I, S>::operator<=(const StrideIterator<J, S>& other) const
-    noexcept(noexcept(std::declval<const I&>() <= std::declval<const J&>()))
-{
-    return m_iter <= other.m_iter; // Throws
-}
-
-
-template<class I, std::size_t S>
-template<class J> inline bool StrideIterator<I, S>::operator>=(const StrideIterator<J, S>& other) const
-    noexcept(noexcept(std::declval<const I&>() >= std::declval<const J&>()))
-{
-    return m_iter >= other.m_iter; // Throws
+    return m_iter <=> other.m_iter; // Throws
 }
 
 
