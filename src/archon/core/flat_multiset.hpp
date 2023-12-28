@@ -55,13 +55,13 @@ namespace archon::core {
 /// Another disadvantage compared to `std::multiset` is that iterators and pointers
 /// referring to stored elements are invalidated after every modifying operation.
 ///
+/// Requirement: Elements (objects of type \p K) must be less-than comparable, and the
+/// less-than comparison operation must be a declared non-throwing operation (`noexcept`).
+///
 /// Requirement: Elements (objects of type \p K) must be copy-constructible and
 /// copy-construction must be a non-throwing operation
 /// (`std::is_nothrow_copy_constructible`). The element type must also have a non-throwing
 /// destructor (`std::is_nothrow_destructible`).
-///
-/// Requirement: If `a` and `b` are `const`-references to elements (`const K&`), then `a <
-/// b` must be a non-throwing operation, i.e., `noexcept(a < b)` must be `true`.
 ///
 /// An initial capacity can be made statically available inside the multi-set object. The
 /// number of elements of initial static capacity is specified by \p N.

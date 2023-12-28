@@ -24,6 +24,8 @@
 /// \file
 
 
+#include <compare>
+
 #include <archon/display/key.hpp>
 #include <archon/display/key_code.hpp>
 #include <archon/display/mouse_button.hpp>

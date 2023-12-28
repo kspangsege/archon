@@ -53,18 +53,18 @@ namespace archon::core {
 /// Another disadvantage compared to `std::map` is that iterators and pointers referring to
 /// stored entries are invalidated after every modifying operation.
 ///
+/// Requirement: Keys (objects of type \p K) must be less-than comparable, and the less-than
+/// comparison operation must be a declared non-throwing operation (`noexcept`).
+///
 /// Requirement: Keys (objects of type \p K) must be copy-constructible and
-/// copy-construction must be a non-throwing operation
+/// copy-construction must be a declared non-throwing operation
 /// (`std::is_nothrow_copy_constructible`). The key type must also have a non-throwing
 /// destructor (`std::is_nothrow_destructible`).
 ///
 /// Requirement: Values (objects of type \p V) must be move-constructible and
-/// move-construction must be a non-throwing operation
+/// move-construction must be a declared non-throwing operation
 /// (`std::is_nothrow_move_constructible`). The value type must also have a non-throwing
 /// destructor (`std::is_nothrow_destructible`).
-///
-/// Requirement: If `a` and `b` are `const`-references to keys (`const K&`), then `a < b`
-/// must be a non-throwing operation, i.e., `noexcept(a < b)` must be `true`.
 ///
 /// An initial capacity can be made statically available inside the map object. The number
 /// of entries of initial static capacity is specified by \p N.
