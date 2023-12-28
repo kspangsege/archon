@@ -27,8 +27,8 @@
 #include <locale>
 #include <ios>
 
-#include <archon/core/span.hpp>
 #include <archon/core/type.hpp>
+#include <archon/core/span.hpp>
 
 
 namespace archon::core::test {

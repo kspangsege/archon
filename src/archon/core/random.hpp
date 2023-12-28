@@ -39,8 +39,8 @@
 #include <vector>
 
 #include <archon/core/features.h>
-#include <archon/core/span.hpp>
 #include <archon/core/type.hpp>
+#include <archon/core/span.hpp>
 #include <archon/core/assert.hpp>
 #include <archon/core/integer_traits.hpp>
 #include <archon/core/integer.hpp>

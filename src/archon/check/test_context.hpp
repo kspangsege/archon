@@ -39,8 +39,8 @@
 #include <filesystem>
 
 #include <archon/core/features.h>
-#include <archon/core/span.hpp>
 #include <archon/core/type.hpp>
+#include <archon/core/span.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/float.hpp>
 #include <archon/core/string_codec.hpp>
