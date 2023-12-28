@@ -39,6 +39,7 @@
 #include <filesystem>
 
 #include <archon/core/features.h>
+#include <archon/core/type.hpp>
 #include <archon/core/span.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/float.hpp>
@@ -283,15 +284,18 @@ public:
 
     /// \brief Basis for checks of special conditions.
     ///
-    /// This function is the basis for check macro \ref ARCHON_CHECK_EQUAL() and a number of
-    /// other check macros involving comparisons. It can also serve as the basis of
-    /// application defined check macros whose failure reports should take on the same form.
+    /// This function is the basis for \ref ARCHON_CHECK_EQUAL() and a number of other check
+    /// macros involving comparisons. It can also serve as the basis of application defined
+    /// check macros whose failure reports should take on the same form.
     ///
     /// Failures of checks of this kind are reported as `"<macro name>(<arg texts>) failed
     /// with (<arg values>)"` where `<macro name>` is the string passed as \p macro_name,
     /// `<arg texts>` is a comma-separated list of the values of \ref check::CheckArg::text
     /// of the specified arguments, and `<arg values>` is a comma-separated list of strings
-    /// resulting from formatting \ref check::CheckArg::value of the specified arguments.
+    /// resulting from formatting \ref check::CheckArg::value of the specified
+    /// arguments. Check arguments of non-formattable types are formatted as `?`. If `val`
+    /// is the value of a check argument and `out` is an object of type `std::ostream`, then
+    /// that check argument is formattable if, and only if `out << val` is well-formed.
     ///
     /// Applications can define a custom check macro like this, where `foo(cond)` can be
     /// anything that depends on `cond`:
@@ -919,8 +923,14 @@ template<class T, class... U>
 inline void TestContext::process_check_args(core::SeedMemoryOutputStream& out, std::string_view* texts,
                                             std::size_t* ends, check::CheckArg<T> arg, check::CheckArg<U>... args)
 {
-    format_value(out, arg.value); // Throws
-    *texts = arg.text;
+    if constexpr (check::CheckArg<T>::is_formattable) {
+        format_value(out, arg.get_value()); // Throws
+    }
+    else {
+        struct Unformattable {};
+        format_value(out, Unformattable()); // Throws
+    }
+    *texts = arg.get_text();
     *ends = out.streambuf().size();
     process_check_args(out, texts + 1, ends + 1, args...); // Throws
 }
@@ -1023,8 +1033,11 @@ template<class T> inline void TestContext::format_value(std::ostream& out, const
         out << core::formatted("0x%s", core::as_hex_int(std::uintptr_t(value), min_num_digits)); // Throws
     }
 #endif
-    else {
+    else if constexpr (core::has_stream_output_operator<T, char>) {
         out << value; // Throws
+    }
+    else {
+        out << "?"; // Throws
     }
 }
 

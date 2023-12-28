@@ -49,19 +49,28 @@ namespace archon::core {
 /// localized memory access pattern. It also allows for stronger exception guarantees
 /// compared to `std::multimap`.
 ///
-/// The major disadvantage, relative to `std::multimap`, is that insertion is
-/// slower. Insertion complexity is O(N) for this map implementation, and O(log N) for
-/// `std::multimap`.
+/// One disadvantage relative to `std::multimap` is that insertion is slower (`insert()` and
+/// `emplace()`). Insertion complexity is O(N) for this multi-map implementation, and O(log
+/// N) for `std::multimap` where N is the number of entries in the multi-map.
 ///
-/// Requirement: Both the key type (\p K) and the value type (\p V) must have a non-throwing
-/// move constructor (`std::is_nothrow_move_constructible`) and a non-throwing destructor
-/// (`std::is_nothrow_destructible`).
+/// Another disadvantage compared to `std::multimap` is that iterators and pointers
+/// referring to stored entries are invalidated after every modifying operation.
 ///
-/// Requirement: If `a` and `b` are `const`-references to keys (`const K&`), then `a < b`
-/// must be a non-throwing operation, i.e., `noexcept(a < b)` must be `true`.
+/// Requirement: Keys (objects of type \p K) must be less-than comparable, and the less-than
+/// comparison operation must be a declared non-throwing operation (`noexcept`).
 ///
-/// An initial capacity can be made statically available inside the map object. The number
-/// of entries of initial static capacity is specified by \p N.
+/// Requirement: Keys (objects of type \p K) must be copy-constructible and
+/// copy-construction must be a non-throwing operation
+/// (`std::is_nothrow_copy_constructible`). The key type must also have a non-throwing
+/// destructor (`std::is_nothrow_destructible`).
+///
+/// Requirement: Values (objects of type \p V) must be move-constructible and
+/// move-construction must be a non-throwing operation
+/// (`std::is_nothrow_move_constructible`). The value type must also have a non-throwing
+/// destructor (`std::is_nothrow_destructible`).
+///
+/// An initial capacity can be made statically available inside the multi-map object. The
+/// number of entries of initial static capacity is specified by \p N.
 ///
 /// So long as \p N is zero, a flat multi-map type can be instantiated for an incomplete key
 /// and / or value type (\p K and \p V). Instantiation of the member functions of a flat
@@ -87,6 +96,9 @@ public:
     using const_iterator         = const_pointer;
     using reverse_iterator       = std::reverse_iterator<iterator>;
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
+
+    FlatMultimap() noexcept = default;
+    FlatMultimap(std::initializer_list<value_type>);
 
     // Iterators
 
@@ -121,10 +133,20 @@ public:
 
     template<class... A> auto emplace(A&&... args) -> iterator;
 
+    auto insert(const value_type&) -> iterator;
+    auto insert(value_type&&) -> iterator;
+    template<class I> void insert(I begin, I end);
+
     auto erase(const key_type&) noexcept -> size_type;
     void clear() noexcept;
 
     // Lookup
+
+    bool contains(const key_type&) const noexcept;
+    auto count(const key_type&) const noexcept -> size_type;
+
+    auto find(const key_type&) noexcept       -> iterator;
+    auto find(const key_type&) const noexcept -> const_iterator;
 
     auto lower_bound(const key_type&) noexcept       -> iterator;
     auto lower_bound(const key_type&) const noexcept -> const_iterator;
@@ -147,6 +169,14 @@ private:
 
 
 // Implementation
+
+
+template<class K, class V, std::size_t N>
+inline FlatMultimap<K, V, N>::FlatMultimap(std::initializer_list<value_type> entries)
+    : FlatMultimap()
+{
+    insert(entries.begin(), entries.end()); // Throws
+}
 
 
 template<class K, class V, std::size_t N>
@@ -283,14 +313,36 @@ inline void FlatMultimap<K, V, N>::shrink_to_fit()
 
 
 template<class K, class V, std::size_t N>
-template<class... A> auto FlatMultimap<K, V, N>::emplace(A&&... args) -> iterator
+template<class... A> inline auto FlatMultimap<K, V, N>::emplace(A&&... args) -> iterator
 {
     return m_impl.insert_multi(std::forward<A>(args)...); // Throws
 }
 
 
 template<class K, class V, std::size_t N>
-auto FlatMultimap<K, V, N>::erase(const key_type& key) noexcept -> size_type
+inline auto FlatMultimap<K, V, N>::insert(const value_type& entry) -> iterator
+{
+    return m_impl.insert_multi(entry); // Throws
+}
+
+
+template<class K, class V, std::size_t N>
+inline auto FlatMultimap<K, V, N>::insert(value_type&& entry) -> iterator
+{
+    return m_impl.insert_multi(std::move(entry)); // Throws
+}
+
+
+template<class K, class V, std::size_t N>
+template<class I> void FlatMultimap<K, V, N>::insert(I begin, I end)
+{
+    for (I i = begin; i != end; ++i)
+        insert(*i); // Throws
+}
+
+
+template<class K, class V, std::size_t N>
+inline auto FlatMultimap<K, V, N>::erase(const key_type& key) noexcept -> size_type
 {
     return m_impl.erase(key);
 }
@@ -304,11 +356,42 @@ inline void FlatMultimap<K, V, N>::clear() noexcept
 
 
 template<class K, class V, std::size_t N>
+inline bool FlatMultimap<K, V, N>::contains(const key_type& key) const noexcept
+{
+    std::size_t i = m_impl.find(key);
+    return (i != size());
+}
+
+
+template<class K, class V, std::size_t N>
+inline auto FlatMultimap<K, V, N>::count(const key_type& key) const noexcept -> size_type
+{
+    std::pair<std::size_t, std::size_t> p = m_impl.equal_range(key);
+    return size_type(p.second - p.first);
+}
+
+
+template<class K, class V, std::size_t N>
+inline auto FlatMultimap<K, V, N>::find(const key_type& key) noexcept -> iterator
+{
+    std::size_t i = m_impl.find(key);
+    return m_impl.data() + i;
+}
+
+
+template<class K, class V, std::size_t N>
+inline auto FlatMultimap<K, V, N>::find(const key_type& key) const noexcept -> const_iterator
+{
+    std::size_t i = m_impl.find(key);
+    return m_impl.data() + i;
+}
+
+
+template<class K, class V, std::size_t N>
 inline auto FlatMultimap<K, V, N>::lower_bound(const key_type& key) noexcept -> iterator
 {
     std::size_t i = m_impl.lower_bound(key);
-    iterator base = m_impl.data();
-    return base + i;
+    return m_impl.data() + i;
 }
 
 
@@ -316,8 +399,7 @@ template<class K, class V, std::size_t N>
 inline auto FlatMultimap<K, V, N>::lower_bound(const key_type& key) const noexcept -> const_iterator
 {
     std::size_t i = m_impl.lower_bound(key);
-    const_iterator base = m_impl.data();
-    return base + i;
+    return m_impl.data() + i;
 }
 
 
@@ -325,8 +407,7 @@ template<class K, class V, std::size_t N>
 inline auto FlatMultimap<K, V, N>::upper_bound(const key_type& key) noexcept -> iterator
 {
     std::size_t i = m_impl.upper_bound(key);
-    iterator base = m_impl.data();
-    return base + i;
+    return m_impl.data() + i;
 }
 
 
@@ -334,19 +415,15 @@ template<class K, class V, std::size_t N>
 inline auto FlatMultimap<K, V, N>::upper_bound(const key_type& key) const noexcept -> const_iterator
 {
     std::size_t i = m_impl.upper_bound(key);
-    const_iterator base = m_impl.data();
-    return base + i;
+    return m_impl.data() + i;
 }
 
 
 template<class K, class V, std::size_t N>
 inline auto FlatMultimap<K, V, N>::equal_range(const key_type& key) noexcept -> std::pair<iterator, iterator>
 {
-    auto pair = m_impl.equal_range(key);
-    iterator base = m_impl.data();
-    iterator begin = base + pair.first;
-    iterator end   = base + pair.second;
-    return { begin, end };
+    std::pair<std::size_t, std::size_t> p = m_impl.equal_range(key);
+    return { m_impl.data() + p.first, m_impl.data() + p.second };
 }
 
 
@@ -354,11 +431,8 @@ template<class K, class V, std::size_t N>
 inline auto FlatMultimap<K, V, N>::equal_range(const key_type& key) const noexcept ->
     std::pair<const_iterator, const_iterator>
 {
-    auto pair = m_impl.equal_range(key);
-    const_iterator base = m_impl.data();
-    const_iterator begin = base + pair.first;
-    const_iterator end   = base + pair.second;
-    return { begin, end };
+    std::pair<std::size_t, std::size_t> p = m_impl.equal_range(key);
+    return { m_impl.data() + p.first, m_impl.data() + p.second };
 }
 
 

@@ -1008,19 +1008,19 @@ void CircularBuffer<T>::realloc(size_type new_allocated_size)
     T* new_base = reinterpret_cast<T*>(new_memory.get());
     std::size_t top = std::size_t(m_allocated_size - m_begin);
     if (m_size <= top) {
-        core::uninit_safe_move_or_copy(base + m_begin, m_size, new_base); // Throws
+        core::uninit_safe_move(base + m_begin, m_size, new_base); // Throws
     }
     else {
-        core::uninit_safe_move_or_copy(base + m_begin, top, new_base); // Throws
+        core::uninit_safe_move_a(base + m_begin, top, new_base); // Throws
         try {
-            core::uninit_safe_move_or_copy(base, m_size - top, new_base + top); // Throws
+            core::uninit_safe_move(base, m_size - top, new_base + top); // Throws
         }
         catch (...) {
             core::uninit_destroy(new_base, top);
             throw;
         }
+        core::uninit_destroy(base + m_begin, top);
     }
-    destroy();
     m_memory = std::move(new_memory);
     m_begin = 0;
     m_allocated_size = new_allocated_size;

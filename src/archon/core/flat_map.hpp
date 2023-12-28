@@ -46,18 +46,25 @@ namespace archon::core {
 /// localized memory access pattern. It also allows for stronger exception guarantees
 /// compared to `std::map`.
 ///
-/// The major disadvantage relative to `std::map` is that insertion is slower. Insertion
-/// complexity is O(N) for this map implementation, and O(log N) for `std::map`.
+/// One disadvantage relative to `std::map` is that insertion is slower (`insert()` and
+/// `emplace()`). Insertion complexity is O(N) for this map implementation, and O(log N) for
+/// `std::map` where N is the number of entries in the map.
 ///
-/// Another disadvantage compared to `std::map` is that map iterators and pointers to stored
-/// values are invalidated after every modifying operation.
+/// Another disadvantage compared to `std::map` is that iterators and pointers referring to
+/// stored entries are invalidated after every modifying operation.
 ///
-/// Requirement: Both the key type (\p K) and the value type (\p V) must have a non-throwing
-/// move constructor (`std::is_nothrow_move_constructible`) and a non-throwing destructor
-/// (`std::is_nothrow_destructible`).
+/// Requirement: Keys (objects of type \p K) must be less-than comparable, and the less-than
+/// comparison operation must be a declared non-throwing operation (`noexcept`).
 ///
-/// Requirement: If `a` and `b` are `const`-references to keys (`const K&`), then `a < b`
-/// must be a non-throwing operation, i.e., `noexcept(a < b)` must be `true`.
+/// Requirement: Keys (objects of type \p K) must be copy-constructible and
+/// copy-construction must be a declared non-throwing operation
+/// (`std::is_nothrow_copy_constructible`). The key type must also have a non-throwing
+/// destructor (`std::is_nothrow_destructible`).
+///
+/// Requirement: Values (objects of type \p V) must be move-constructible and
+/// move-construction must be a declared non-throwing operation
+/// (`std::is_nothrow_move_constructible`). The value type must also have a non-throwing
+/// destructor (`std::is_nothrow_destructible`).
 ///
 /// An initial capacity can be made statically available inside the map object. The number
 /// of entries of initial static capacity is specified by \p N.
@@ -86,6 +93,9 @@ public:
     using const_iterator         = const_pointer;
     using reverse_iterator       = std::reverse_iterator<iterator>;
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
+
+    FlatMap() noexcept = default;
+    FlatMap(std::initializer_list<value_type>);
 
     // Element access
 
@@ -127,13 +137,29 @@ public:
 
     template<class... A> auto emplace(A&&... args) -> std::pair<iterator, bool>;
 
+    auto insert(const value_type&) -> std::pair<iterator, bool>;
+    auto insert(value_type&&) -> std::pair<iterator, bool>;
+    template<class I> void insert(I begin, I end);
+
     auto erase(const key_type&) noexcept -> size_type;
     void clear() noexcept;
 
     // Lookup
 
+    bool contains(const key_type&) const noexcept;
+    auto count(const key_type&) const noexcept -> size_type;
+
     auto find(const key_type&) noexcept       -> iterator;
     auto find(const key_type&) const noexcept -> const_iterator;
+
+    auto lower_bound(const key_type&) noexcept       -> iterator;
+    auto lower_bound(const key_type&) const noexcept -> const_iterator;
+
+    auto upper_bound(const key_type&) noexcept       -> iterator;
+    auto upper_bound(const key_type&) const noexcept -> const_iterator;
+
+    auto equal_range(const key_type&) noexcept       -> std::pair<iterator, iterator>;
+    auto equal_range(const key_type&) const noexcept -> std::pair<const_iterator, const_iterator>;
 
 private:
     impl::FlatMapImpl<K, V, N> m_impl;
@@ -147,6 +173,14 @@ private:
 
 
 // Implementation
+
+
+template<class K, class V, std::size_t N>
+inline FlatMap<K, V, N>::FlatMap(std::initializer_list<value_type> entries)
+    : FlatMap()
+{
+    insert(entries.begin(), entries.end()); // Throws
+}
 
 
 template<class K, class V, std::size_t N>
@@ -311,14 +345,36 @@ inline void FlatMap<K, V, N>::shrink_to_fit()
 
 
 template<class K, class V, std::size_t N>
-template<class... A> auto FlatMap<K, V, N>::emplace(A&&... args) -> std::pair<iterator, bool>
+template<class... A> inline auto FlatMap<K, V, N>::emplace(A&&... args) -> std::pair<iterator, bool>
 {
     return m_impl.insert(std::forward<A>(args)...); // Throws
 }
 
 
 template<class K, class V, std::size_t N>
-auto FlatMap<K, V, N>::erase(const key_type& key) noexcept -> size_type
+inline auto FlatMap<K, V, N>::insert(const value_type& entry) -> std::pair<iterator, bool>
+{
+    return m_impl.insert(entry); // Throws
+}
+
+
+template<class K, class V, std::size_t N>
+inline auto FlatMap<K, V, N>::insert(value_type&& entry) -> std::pair<iterator, bool>
+{
+    return m_impl.insert(std::move(entry)); // Throws
+}
+
+
+template<class K, class V, std::size_t N>
+template<class I> void FlatMap<K, V, N>::insert(I begin, I end)
+{
+    for (I i = begin; i != end; ++i)
+        insert(*i); // Throws
+}
+
+
+template<class K, class V, std::size_t N>
+inline auto FlatMap<K, V, N>::erase(const key_type& key) noexcept -> size_type
 {
     return m_impl.erase(key);
 }
@@ -328,6 +384,21 @@ template<class K, class V, std::size_t N>
 inline void FlatMap<K, V, N>::clear() noexcept
 {
     m_impl.clear();
+}
+
+
+template<class K, class V, std::size_t N>
+inline bool FlatMap<K, V, N>::contains(const key_type& key) const noexcept
+{
+    std::size_t i = m_impl.find(key);
+    return (i != size());
+}
+
+
+template<class K, class V, std::size_t N>
+inline auto FlatMap<K, V, N>::count(const key_type& key) const noexcept -> size_type
+{
+    return size_type(int(contains(key)));
 }
 
 
@@ -344,6 +415,55 @@ inline auto FlatMap<K, V, N>::find(const key_type& key) const noexcept -> const_
 {
     std::size_t i = m_impl.find(key);
     return m_impl.data() + i;
+}
+
+
+template<class K, class V, std::size_t N>
+inline auto FlatMap<K, V, N>::lower_bound(const key_type& key) noexcept -> iterator
+{
+    std::size_t i = m_impl.lower_bound(key);
+    return m_impl.data() + i;
+}
+
+
+template<class K, class V, std::size_t N>
+inline auto FlatMap<K, V, N>::lower_bound(const key_type& key) const noexcept -> const_iterator
+{
+    std::size_t i = m_impl.lower_bound(key);
+    return m_impl.data() + i;
+}
+
+
+template<class K, class V, std::size_t N>
+inline auto FlatMap<K, V, N>::upper_bound(const key_type& key) noexcept -> iterator
+{
+    std::size_t i = m_impl.upper_bound(key);
+    return m_impl.data() + i;
+}
+
+
+template<class K, class V, std::size_t N>
+inline auto FlatMap<K, V, N>::upper_bound(const key_type& key) const noexcept -> const_iterator
+{
+    std::size_t i = m_impl.upper_bound(key);
+    return m_impl.data() + i;
+}
+
+
+template<class K, class V, std::size_t N>
+inline auto FlatMap<K, V, N>::equal_range(const key_type& key) noexcept -> std::pair<iterator, iterator>
+{
+    std::pair<std::size_t, std::size_t> p = m_impl.equal_range(key);
+    return { m_impl.data() + p.first, m_impl.data() + p.second };
+}
+
+
+template<class K, class V, std::size_t N>
+inline auto FlatMap<K, V, N>::equal_range(const key_type& key) const noexcept ->
+    std::pair<const_iterator, const_iterator>
+{
+    std::pair<std::size_t, std::size_t> p = m_impl.equal_range(key);
+    return { m_impl.data() + p.first, m_impl.data() + p.second };
 }
 
 

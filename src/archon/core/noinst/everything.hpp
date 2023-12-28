@@ -30,11 +30,12 @@
 #include <archon/core/impl/config.h>
 #include <archon/core/features.h>
 #include <archon/core/archon_version.hpp>
-#include <archon/core/pair.hpp>
-#include <archon/core/span.hpp>
 #include <archon/core/type_list.hpp>
+#include <archon/core/impl/type.hpp>
 #include <archon/core/type.hpp>
 #include <archon/core/concepts.hpp>
+#include <archon/core/pair.hpp>
+#include <archon/core/span.hpp>
 #include <archon/core/demangle.hpp>
 #include <archon/core/formattable_value_ref.hpp>
 #include <archon/core/terminate.hpp>
@@ -81,6 +82,7 @@
 #include <archon/core/flat_map.hpp>
 #include <archon/core/flat_multimap.hpp>
 #include <archon/core/flat_set.hpp>
+#include <archon/core/flat_multiset.hpp>
 #include <archon/core/literal_hash_map.hpp>
 #include <archon/core/range_map.hpp>
 #include <archon/core/frozen_sets.hpp>

@@ -72,7 +72,7 @@ private:
 
     auto do_upper_bound(const key_type&, std::size_t) const noexcept -> std::size_t;
     bool do_find(const key_type&, std::size_t&) const noexcept;
-    static auto get_key(const entry_type&) noexcept -> const key_type&;
+    template<class E> static auto get_key(const E&) noexcept -> const key_type&;
     static bool less(const key_type&, const key_type&) noexcept;
 };
 
@@ -269,7 +269,7 @@ inline bool FlatMapImpl<K, V, N>::do_find(const key_type& key, std::size_t& i) c
 
 
 template<class K, class V, std::size_t N>
-inline auto FlatMapImpl<K, V, N>::get_key(const entry_type& entry) noexcept -> const key_type&
+template<class E> inline auto FlatMapImpl<K, V, N>::get_key(const E& entry) noexcept -> const key_type&
 {
     if constexpr (is_set) {
         return entry;
@@ -283,8 +283,10 @@ inline auto FlatMapImpl<K, V, N>::get_key(const entry_type& entry) noexcept -> c
 template<class K, class V, std::size_t N>
 inline bool FlatMapImpl<K, V, N>::less(const key_type& a, const key_type& b) noexcept
 {
-    static_assert(noexcept(a < b));
     return (a < b);
+    // This static assertion has to occur after the invocation of the less-than operator due
+    // to a bug in GCC: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=113063
+    static_assert(noexcept(a < b));
 }
 
 

@@ -1,5 +1,5 @@
 add_library(CoreTest OBJECT
-  test_utility.cpp
+  test_pair.cpp
   test_type.cpp
   test_type_list.cpp
   test_integer.cpp
@@ -7,11 +7,15 @@ add_library(CoreTest OBJECT
   test_math.cpp
   test_memory.cpp
   test_endianness.cpp
+  test_utility.cpp
   test_scope_exit.cpp
   test_value_reset_guard.cpp
   test_circular_buffer.cpp
   test_vector.cpp
   test_flat_map.cpp
+  test_flat_multimap.cpp
+  test_flat_set.cpp
+  test_flat_multiset.cpp
   test_typed_object_registry.cpp
   test_memory_input_stream.cpp
   test_memory_output_stream.cpp

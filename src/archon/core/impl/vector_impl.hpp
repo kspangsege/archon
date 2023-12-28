@@ -121,8 +121,8 @@ void VectorImpl<T>::move(VectorImpl&& other) noexcept
     ARCHON_ASSERT(!m_owned_memory);
     ARCHON_ASSERT(m_size == 0);
     if (ARCHON_LIKELY(!other.m_owned_memory)) {
-        core::uninit_safe_move_or_copy(other.m_data, other.m_size, m_data);
-        core::uninit_destroy(other.m_data, other.m_size);
+        static_assert(std::is_nothrow_move_constructible_v<T>);
+        core::uninit_safe_move(other.m_data, other.m_size, m_data);
     }
     else {
         m_owned_memory = std::move(other.m_owned_memory);
@@ -332,8 +332,7 @@ void VectorImpl<T>::realloc(std::size_t new_capacity)
         throw std::length_error("Vector capacity");
     std::unique_ptr<std::byte[]> new_owned_memory = std::make_unique<std::byte[]>(num_bytes); // Throws
     T* new_data = reinterpret_cast<T*>(new_owned_memory.get());
-    core::uninit_safe_move_or_copy(data(), m_size, new_data); // Throws
-    destroy();
+    core::uninit_safe_move(data(), m_size, new_data); // Throws
     m_owned_memory = std::move(new_owned_memory);
     m_data = new_data;
     m_capacity = new_capacity;

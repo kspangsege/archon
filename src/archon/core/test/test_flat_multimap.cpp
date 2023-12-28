@@ -1,6 +1,6 @@
 // This file is part of the Archon project, a suite of C++ libraries.
 //
-// Copyright (C) 2020 Kristian Spangsege <kristian.spangsege@gmail.com>
+// Copyright (C) 2023 Kristian Spangsege <kristian.spangsege@gmail.com>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this
 // software and associated documentation files (the "Software"), to deal in the Software
@@ -26,129 +26,124 @@
 
 #include <archon/core/features.h>
 #include <archon/core/pair.hpp>
-#include <archon/core/flat_map.hpp>
+#include <archon/core/flat_multimap.hpp>
 #include <archon/check.hpp>
 
 
 using namespace archon;
 
 
-ARCHON_TEST(Core_FlatMap_Emplace)
+ARCHON_TEST(Core_FlatMultimap_Emplace)
 {
-    core::FlatMap<int, int> map;
+    core::FlatMultimap<int, int> map;
     map.emplace(3, 7);
     map.emplace(1, 7);
     map.emplace(3, 4);
     map.emplace(2, 8);
-    ARCHON_CHECK_EQUAL_SEQ(map, (std::vector<core::Pair<int, int>> {{ 1, 7 }, { 2, 8 }, { 3, 7 }}));
+    ARCHON_CHECK_EQUAL_SEQ(map, (std::vector<core::Pair<int, int>> {{ 1, 7 }, { 2, 8 }, { 3, 7 }, { 3, 4 }}));
 }
 
 
-ARCHON_TEST(Core_FlatMap_Insert)
+ARCHON_TEST(Core_FlatMultimap_Insert)
 {
-    core::FlatMap<int, int> map;
+    core::FlatMultimap<int, int> map;
     map.insert({ 3, 7 });
     map.insert({ 1, 7 });
     map.insert({ 3, 4 });
     map.insert({ 2, 8 });
-    ARCHON_CHECK_EQUAL_SEQ(map, (std::vector<core::Pair<int, int>> {{ 1, 7 }, { 2, 8 }, { 3, 7 }}));
+    ARCHON_CHECK_EQUAL_SEQ(map, (std::vector<core::Pair<int, int>> {{ 1, 7 }, { 2, 8 }, { 3, 7 }, { 3, 4 }}));
 }
 
 
-ARCHON_TEST(Core_FlatMap_Contains)
+ARCHON_TEST(Core_FlatMultimap_Contains)
 {
-    core::FlatMap<int, int> map = {
+    core::FlatMultimap<int, int> map = {
         { 1, 0 },
-        { 2, 0 },
-        { 4, 0 },
+        { 3, 0 },
+        { 3, 0 },
     };
 
     ARCHON_CHECK_NOT(map.contains(0));
     ARCHON_CHECK(map.contains(1));
-    ARCHON_CHECK(map.contains(2));
-    ARCHON_CHECK_NOT(map.contains(3));
-    ARCHON_CHECK(map.contains(4));
-    ARCHON_CHECK_NOT(map.contains(5));
+    ARCHON_CHECK_NOT(map.contains(2));
+    ARCHON_CHECK(map.contains(3));
+    ARCHON_CHECK_NOT(map.contains(4));
 }
 
 
-ARCHON_TEST(Core_FlatMap_Count)
+ARCHON_TEST(Core_FlatMultimap_Count)
 {
-    core::FlatMap<int, int> map = {
+    core::FlatMultimap<int, int> map = {
         { 1, 0 },
-        { 2, 0 },
-        { 4, 0 },
+        { 3, 0 },
+        { 3, 0 },
     };
 
     ARCHON_CHECK_EQUAL(map.count(0), 0);
     ARCHON_CHECK_EQUAL(map.count(1), 1);
-    ARCHON_CHECK_EQUAL(map.count(2), 1);
-    ARCHON_CHECK_EQUAL(map.count(3), 0);
-    ARCHON_CHECK_EQUAL(map.count(4), 1);
-    ARCHON_CHECK_EQUAL(map.count(5), 0);
+    ARCHON_CHECK_EQUAL(map.count(2), 0);
+    ARCHON_CHECK_EQUAL(map.count(3), 2);
+    ARCHON_CHECK_EQUAL(map.count(4), 0);
 }
 
 
-ARCHON_TEST(Core_FlatMap_Find)
+ARCHON_TEST(Core_FlatMultimap_Find)
 {
-    core::FlatMap<int, int> map = {
+    core::FlatMultimap<int, int> map = {
         { 1, 0 },
-        { 2, 0 },
-        { 4, 0 },
+        { 3, 0 },
+        { 3, 0 },
     };
 
     ARCHON_CHECK_EQUAL(std::distance(map.begin(), map.find(0)), 3);
     ARCHON_CHECK_EQUAL(std::distance(map.begin(), map.find(1)), 0);
-    ARCHON_CHECK_EQUAL(std::distance(map.begin(), map.find(2)), 1);
-    ARCHON_CHECK_EQUAL(std::distance(map.begin(), map.find(3)), 3);
-    ARCHON_CHECK_EQUAL(std::distance(map.begin(), map.find(4)), 2);
-    ARCHON_CHECK_EQUAL(std::distance(map.begin(), map.find(5)), 3);
+    ARCHON_CHECK_EQUAL(std::distance(map.begin(), map.find(2)), 3);
+    ARCHON_CHECK_EQUAL(std::distance(map.begin(), map.find(3)), 1);
+    ARCHON_CHECK_EQUAL(std::distance(map.begin(), map.find(4)), 3);
 }
 
 
-ARCHON_TEST(Core_FlatMap_LowerUpperBound)
+ARCHON_TEST(Core_FlatMultimap_LowerUpperBound)
 {
-    core::FlatMap<int, int> map = {
+    core::FlatMultimap<int, int> map = {
         { 1, 0 },
         { 2, 0 },
-        { 3, 0 },
+        { 2, 0 },
     };
 
     ARCHON_CHECK_EQUAL(std::distance(map.begin(), map.lower_bound(0)), 0);
     ARCHON_CHECK_EQUAL(std::distance(map.begin(), map.lower_bound(1)), 0);
     ARCHON_CHECK_EQUAL(std::distance(map.begin(), map.lower_bound(2)), 1);
-    ARCHON_CHECK_EQUAL(std::distance(map.begin(), map.lower_bound(3)), 2);
-    ARCHON_CHECK_EQUAL(std::distance(map.begin(), map.lower_bound(4)), 3);
+    ARCHON_CHECK_EQUAL(std::distance(map.begin(), map.lower_bound(3)), 3);
 
     ARCHON_CHECK_EQUAL(std::distance(map.begin(), map.upper_bound(0)), 0);
     ARCHON_CHECK_EQUAL(std::distance(map.begin(), map.upper_bound(1)), 1);
-    ARCHON_CHECK_EQUAL(std::distance(map.begin(), map.upper_bound(2)), 2);
+    ARCHON_CHECK_EQUAL(std::distance(map.begin(), map.upper_bound(2)), 3);
     ARCHON_CHECK_EQUAL(std::distance(map.begin(), map.upper_bound(3)), 3);
-    ARCHON_CHECK_EQUAL(std::distance(map.begin(), map.upper_bound(4)), 3);
 }
 
 
-ARCHON_TEST(Core_FlatMap_EqualRange)
+ARCHON_TEST(Core_FlatMultimap_EqualRange)
 {
-    core::FlatMap<int, int> map = {
+    core::FlatMultimap<int, int> map = {
         { 1, 0 },
         { 2, 0 },
-        { 3, 0 },
+        { 2, 0 },
     };
 
     check::TestContext& parent_test_context = test_context;
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < 4; ++i) {
         ARCHON_TEST_TRAIL(parent_test_context, i);
         ARCHON_CHECK(map.equal_range(i) == std::make_pair(map.lower_bound(i), map.upper_bound(i)));
     }
 }
 
 
-ARCHON_TEST(Core_FlatMap_IncompleteKeyType)
+ARCHON_TEST(Core_FlatMultimap_IncompleteKeyType)
 {
     struct Key;
     struct Foo {
-        core::FlatMap<Key, int> map;
+        core::FlatMultimap<Key, int> map;
     };
     struct Key {};
     Foo foo;
@@ -156,11 +151,11 @@ ARCHON_TEST(Core_FlatMap_IncompleteKeyType)
 }
 
 
-ARCHON_TEST(Core_FlatMap_IncompleteValueType)
+ARCHON_TEST(Core_FlatMultimap_IncompleteValueType)
 {
     struct Val;
     struct Foo {
-        core::FlatMap<int, Val> map;
+        core::FlatMultimap<int, Val> map;
     };
     struct Val {};
     Foo foo;
@@ -168,9 +163,9 @@ ARCHON_TEST(Core_FlatMap_IncompleteValueType)
 }
 
 
-ARCHON_TEST(Core_FlatMap_NoncopyableValue)
+ARCHON_TEST(Core_FlatMultimap_NoncopyableValue)
 {
-    core::FlatMap<int, std::unique_ptr<int>> map;
+    core::FlatMultimap<int, std::unique_ptr<int>> map;
     map.emplace(7, std::make_unique<int>(17));
     map.emplace(2, std::make_unique<int>(12));
     if (ARCHON_LIKELY(ARCHON_CHECK_EQUAL(map.size(), 2))) {

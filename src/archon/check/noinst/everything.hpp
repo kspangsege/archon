@@ -32,6 +32,7 @@
 
 // Support
 #include <archon/check/test_details.hpp>
+#include <archon/check/impl/check_arg.hpp>
 #include <archon/check/check_arg.hpp>
 
 // Main
