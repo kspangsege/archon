@@ -15,6 +15,7 @@ add_library(CoreTest OBJECT
   test_flat_map.cpp
   test_flat_multimap.cpp
   test_flat_set.cpp
+  test_flat_multiset.cpp
   test_typed_object_registry.cpp
   test_memory_input_stream.cpp
   test_memory_output_stream.cpp

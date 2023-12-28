@@ -19,11 +19,13 @@
 // DEALINGS IN THE SOFTWARE.
 
 
-#include <compare>
 #include <iterator>
+#include <utility>
 #include <memory>
+#include <vector>
 
 #include <archon/core/features.h>
+#include <archon/core/pair.hpp>
 #include <archon/core/flat_map.hpp>
 #include <archon/check.hpp>
 
