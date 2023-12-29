@@ -64,6 +64,7 @@ EngineImpl::EngineImpl(std::string_view window_title, display::Size window_size,
                        const Config& config)
     : m_locale(locale)
     , m_logger(config.logger ? *config.logger : instantiate_fallback_logger(m_fallback_logger, locale)) // Throws
+    , m_display_logger(m_logger, "Display: ") // Throws
     , m_display_implementation(determine_display_implementation(config.display_implementation,
                                                                 config.display_guarantees)) // Throws
     , m_headlight_feature_enabled(!config.disable_headlight_feature)
@@ -78,6 +79,10 @@ EngineImpl::EngineImpl(std::string_view window_title, display::Size window_size,
 #if !ARCHON_RENDER_HAVE_OPENGL
     throw std::runtime_error("OpenGL not available");
 #endif
+    display::Connection::Config connection_config;
+    connection_config.logger = &m_display_logger;
+    m_display_connection = m_display_implementation.new_connection(m_locale, connection_config); // Throws
+
     set_viewport_size(window_size);
     set_frame_rate(config.frame_rate); // Throws
     set_background_color(util::colors::black); // Throws
@@ -114,25 +119,25 @@ EngineImpl::EngineImpl(std::string_view window_title, display::Size window_size,
                                            "Quit application",
                                            &EngineImpl::key_func_quit); // Throws
     bind_key(display::Key::escape, handler); // Throws
-    bind_key(display::Key::lower_case_q, handler); // Throws
+    bind_key(display::Key::small_q, handler); // Throws
 
     if (!config.disable_frame_rate_control) {
         handler = register_builtin_key_handler(BuiltinKeyHandler::inc_frame_rate,
                                                "Increase frame rate",
                                                &EngineImpl::key_func_inc_frame_rate); // Throws
-        bind_key(display::Key::keypad_plus_sign, handler); // Throws
+        bind_key(display::Key::keypad_add, handler); // Throws
 
         handler = register_builtin_key_handler(BuiltinKeyHandler::dec_frame_rate,
                                                "Decrease frame rate",
                                                &EngineImpl::key_func_dec_frame_rate); // Throws
-        bind_key(display::Key::keypad_minus_sign, handler); // Throws
+        bind_key(display::Key::keypad_subtract, handler); // Throws
     }
 
     if (config.allow_window_resize) {
         handler = register_builtin_key_handler(BuiltinKeyHandler::toggle_fullscreen,
                                                "Toggle fullscreen mode",
                                                &EngineImpl::key_func_toggle_fullscreen); // Throws
-        bind_key(display::Key::lower_case_f, handler); // Throws
+        bind_key(display::Key::small_f, handler); // Throws
     }
 
     handler = register_builtin_key_handler(BuiltinKeyHandler::reset_view,
@@ -144,34 +149,36 @@ EngineImpl::EngineImpl(std::string_view window_title, display::Size window_size,
         handler = register_builtin_key_handler(BuiltinKeyHandler::toggle_headlight,
                                                "Toggle headlight",
                                                &EngineImpl::key_func_toggle_headlight); // Throws
-        bind_key(display::Key::lower_case_l, handler); // Throws
+        bind_key(display::Key::small_l, handler); // Throws
     }
 
     if (!config.disable_wireframe_feature) {
         handler = register_builtin_key_handler(BuiltinKeyHandler::toggle_wireframe,
                                                "Toggle wireframe mode",
                                                &EngineImpl::key_func_toggle_wireframe); // Throws
-        bind_key(display::Key::lower_case_w, handler); // Throws
+        bind_key(display::Key::small_w, handler); // Throws
     }
 
-    m_connection = m_display_implementation.new_connection(m_locale); // Throws
     display::Window::Config window_config;
     window_config.resizable = config.allow_window_resize;
     window_config.fullscreen = config.fullscreen_mode;
-    window_config.enable_opengl = true;
-    m_window = m_connection->new_window(window_title, window_size, m_event_handler, window_config); // Throws
+    window_config.enable_opengl_rendering = true;
+    m_window = m_display_connection->new_window(window_title, window_size, window_config); // Throws
+    m_window->set_event_handler(m_event_handler); // Throws
     m_fullscreen_mode = config.fullscreen_mode;
 }
 
 
 void EngineImpl::run()
 {
+    ARCHON_ASSERT(!m_started);
+
 /*                  
     int screen = -1; // ???                               
-    std::optional<display::Resolution> resolution = m_connection->get_screen_resolution(screen); // Throws
+    std::optional<display::Resolution> resolution = m_display_connection->get_screen_resolution(screen); // Throws
     if (resolution.has_value()) {
         display::Resolution resolution_2 = resolution.value();
-        display::Box bounds = m_connection->get_screen_bounds(screen); // Throws
+        display::Box bounds = m_display_connection->get_screen_bounds(screen); // Throws
         m_logger.trace("Screen resolution (ppcm):  %s", resolution_2); // Throws
         m_logger.trace("Screen size (pixels):      %s", bounds.size); // Throws
         m_logger.trace("Physical screen size (cm): %s x %s", bounds.size.width / resolution_2.horz_ppcm, bounds.size.height / resolution_2.vert_ppcm); // Throws           
@@ -205,7 +212,7 @@ void EngineImpl::run()
 
         m_interrupt_before_sleep = false;
         m_refresh_rate_changed = false;
-        bool expired = m_connection->process_events(deadline, &m_event_handler); // Throws
+        bool expired = process_events(deadline); // Throws
         if (!expired) {
             if (ARCHON_UNLIKELY(m_quit))
                 break;
@@ -406,6 +413,17 @@ bool EngineImpl::EventHandler::on_scroll(const display::ScrollEvent& ev)
 }
 
 
+bool EngineImpl::EventHandler::on_blur(const display::WindowEvent&)
+{
+    // Note: Because we invoke impl::KeyBindings::on_blur(), we are obligated to ensure that
+    // impl::KeyBindings::resume_incomplete_on_blur() gets invoked before any subsequent
+    // invocation of impl::KeyBindings::on_keydown(), impl::KeyBindings::on_keyup(), or
+    // impl::KeyBindings::on_blur(). This happens in process_events().
+
+    return m_engine.m_key_bindings.on_blur(); // Throws
+}
+
+
 bool EngineImpl::EventHandler::on_expose(const display::WindowEvent&)
 {
     m_engine.m_need_redraw = true;
@@ -428,6 +446,13 @@ bool EngineImpl::EventHandler::on_reposition(const display::WindowPosEvent& ev)
 }
 
 
+bool EngineImpl::EventHandler::on_close(const display::WindowEvent&)
+{
+    m_engine.m_quit = true;
+    return false; // Interrupt event processing
+}
+
+
 bool EngineImpl::EventHandler::before_sleep()
 {
     return !m_engine.m_interrupt_before_sleep;
@@ -437,7 +462,7 @@ bool EngineImpl::EventHandler::before_sleep()
 bool EngineImpl::EventHandler::on_quit()
 {
     m_engine.m_quit = true;
-    return false;
+    return false; // Interrupt event processing
 }
 
 
@@ -466,7 +491,7 @@ bool EngineImpl::map_key_ident(const render::KeyIdent& key, impl::KeyBindings::K
     display::MouseButton mouse_button = {};
     switch (key.get(key_2, key_code, mouse_button)) {
         case render::KeyIdent::Type::key: {
-            bool found = m_display_implementation.try_map_key_to_key_code(key_2, key_code); // Throws
+            bool found = m_display_connection->try_map_key_to_key_code(key_2, key_code); // Throws
             if (ARCHON_LIKELY(found)) {
                 ident = impl::KeyBindings::KeyIdent(key_code);
                 return true;
@@ -679,6 +704,18 @@ void EngineImpl::redraw()
                 m_logger.error("No more OpenGL error will be reported"); // Throws
         }
     }
+}
+
+
+inline bool EngineImpl::process_events(Clock::time_point deadline)
+{
+    // See also EventHandler::on_blur()
+    bool proceed = m_key_bindings.resume_incomplete_on_blur_if_any(); // Throws
+
+    if (ARCHON_LIKELY(proceed))
+        return m_display_connection->process_events(deadline, &m_event_handler); // Throws
+
+    return false; // Interrupt (no expiration yet)
 }
 
 

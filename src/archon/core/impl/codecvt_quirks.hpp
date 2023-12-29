@@ -21,8 +21,6 @@
 #ifndef ARCHON_X_CORE_X_IMPL_X_CODECVT_QUIRKS_HPP
 #define ARCHON_X_CORE_X_IMPL_X_CODECVT_QUIRKS_HPP
 
-/// \file
-
 
 #include <archon/core/features.h>
 
@@ -41,8 +39,8 @@ inline constexpr bool codecvt_quirk_ok_result_on_zero_size_buffer = false;
 
 // std::codecvt::in() reports a `partial` result, rather than an `ok` result when presented
 // with an incomplete byte sequence (regardless of whether none, some, or all of the
-// incomplete byte sequence has been consumed), and there is plenty of available space in
-// the buffer.
+// incomplete byte sequence has been consumed), and there is enough available space in the
+// output buffer to decode another character.
 #if ARCHON_MSVC_LIBCXX
 inline constexpr bool codecvt_quirk_partial_result_on_partial_char = true;
 #else

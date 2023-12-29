@@ -80,20 +80,20 @@ int main(int argc, char* argv[])
 
     opt("-f, --falloff", "<mode>", cli::no_attributes, spec,
         "Set horizontal and vertical falloff modes when reading from the 'over' image. This has the same effect as "
-        "setting both modes individually using \"--horz-falloff\" and \"--vert-falloff\".",
+        "setting both modes individually using --horz-falloff and --vert-falloff.",
         [&](image::Reader::FalloffMode mode) {
             horz_falloff_mode = mode;
             vert_falloff_mode = mode;
         });
 
     opt("-H, --horz-falloff", "<mode>", cli::no_attributes, spec,
-        "Set the horizontal falloff mode to apply when reading from the 'over' image. \"@A\" can be \"background\", "
-        "\"edge\", or \"repeat\". The default horizontal mode is @Q.",
+        "Set the horizontal falloff mode to apply when reading from the 'over' image. @A can be @H. The default "
+        "horizontal mode is @Q.",
         cli::assign(horz_falloff_mode));
 
     opt("-V, --vert-falloff", "<mode>", cli::no_attributes, spec,
-        "Set the vertical falloff mode to apply when reading from the 'over' image. \"@A\" can be \"background\", "
-        "\"edge\", or \"repeat\". The default vertical mode is @Q.",
+        "Set the vertical falloff mode to apply when reading from the 'over' image. @A can be @H. The default "
+        "vertical mode is @Q.",
         cli::assign(vert_falloff_mode));
 
     opt("-b, --blend", "", cli::no_attributes, spec,
@@ -105,8 +105,7 @@ int main(int argc, char* argv[])
         cli::assign(opacity)); // Throws
 
     opt("-l, --log-level", "<level>", cli::no_attributes, spec,
-        "Set the log level limit. The possible levels are \"off\", \"fatal\", \"error\", \"warn\", \"info\", "
-        "\"detail\", \"debug\", \"trace\", and \"all\". The default limit is \"@V\".",
+        "Set the log level limit. The possible levels are @G. The default limit is @Q.",
         cli::assign(log_level_limit)); // Throws
 
     int exit_status = 0;

@@ -21,8 +21,6 @@
 #ifndef ARCHON_X_CLI_X_IMPL_X_OPTION_OCCURRENCE_HPP
 #define ARCHON_X_CLI_X_IMPL_X_OPTION_OCCURRENCE_HPP
 
-/// \file
-
 
 #include <cstddef>
 

@@ -503,7 +503,7 @@ template<class T> bool PatternFuncChecker::check_tuple(const Seq& seq) const noe
             }
         }
         ARCHON_ASSERT(param_index == num_params);
-        return core::for_each_type_a<param_types, ParamFunc>(*this, param_elems);
+        return core::for_each_type_alt_a<param_types, ParamFunc>(*this, param_elems);
     }
     return false;
 }
@@ -563,7 +563,7 @@ template<class... T> inline bool PatternFuncChecker::check_alt_param(const Elem&
         const std::size_t num_branches = sizeof... (T);
         if (ARCHON_LIKELY(alt.num_seqs == num_branches)) {
             using branch_types = core::TypeList<T...>;
-            return core::for_each_type_a<branch_types, BranchFunc>(*this, alt.seqs_offset);
+            return core::for_each_type_alt_a<branch_types, BranchFunc>(*this, alt.seqs_offset);
         }
     }
     return false;

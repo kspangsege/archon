@@ -165,7 +165,7 @@ public:
     ///
     /// This function computes the result of blending this pixel with the specified pixel
     /// (\p pixel) using the specified blend mode (\p mode). The specified opacity (\p
-    /// opacity) will be used to modulate the opacity of the specified pixel.
+    /// opacity) will be used to modulate the opacity of this pixel.
     ///
     /// The actual blend operation is performed by \ref image::blend() with this pixel
     /// passed as the first pixel argument, and the specified pixel passed as the second

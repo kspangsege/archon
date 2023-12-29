@@ -37,17 +37,43 @@ namespace archon::display {
 
 /// \brief Representation of window of platform's graphical user interface.
 ///
-/// New windows can be created by calling \ref display::Connection::new_window().
+/// An instance of this class represents a window of platform's graphical user
+/// interface. New windows can be created by calling \ref display::Connection::new_window().
+///
+/// For window events to be processed, the application must set an event handler for the
+/// window using \ref set_event_handler(). To avoid loosing events, it is important that the
+/// application sets the event handler before the next invocation of \ref
+/// display::Connection::process_events() on the connection associated with the window.
 ///
 /// Visually, a window consists of a rectangular area of contents optionally surrounded by
-/// decorations (frame and title bar). The size of a window (\ref set_size(), \ref
-/// display::WindowSizeEvent::size) generally refers to the size of the contents area, and
-/// the position of a window (\ref display::WindowPosEvent::pos) generally refers to the
-/// position of the upper-left corner of the contents area.
+/// decorations (frame and title bar). The rectangular area of contents inside the
+/// decorations is referred to as the window's *contents area* in the rest of the
+/// documentation of the Archon Display Library.
+///
+/// The size of a window (\ref set_size(), \ref display::WindowSizeEvent::size) generally
+/// refers to the size of the contents area, and the position of a window (\ref
+/// display::WindowPosEvent::pos) generally refers to the position of the upper-left corner
+/// of the contents area.
 ///
 class Window {
 public:
     struct Config;
+
+    /// \brief Set new event handler for window.
+    ///
+    /// This function sets a new event handler for the window. Events generated on behalf of
+    /// this window will be reported through the specified event handler. Elsewhere in the
+    /// documentation, this is referred to as the window's *associated event handler*.
+    ///
+    /// The event handler, that is initially the window's associated event handler, does
+    /// what an instance of \ref display::WindowEventHandler would do, i.e., it ignores all
+    /// events except "close" events which will cause event processing to be terminated.
+    ///
+    /// It is important that a proper event handler is set before the event processor is
+    /// invoked again, that is, before the next invocation of \ref
+    /// display::Connection::process_events(). Otherwise, events are likely to be lost.
+    ///
+    virtual void set_event_handler(display::WindowEventHandler&) = 0;
 
     /// \{
     ///
@@ -94,24 +120,59 @@ public:
     ///
     virtual void set_fullscreen_mode(bool on) = 0;
 
-    /// \brief Fill window with color.
+    /// \{
     ///
-    /// This function fills the window with the specified color. Call \ref present() to
-    /// present the result.
+    /// \brief Fill area with color.
+    ///
+    /// These function fill an area of the window with the specified color (\p color). The
+    /// overload that takes an area argument (\p area) fills that area. The other overload
+    /// fills the entire window. When a fill area is specified (\p area), it must be a valid
+    /// box (\ref display::Box::is_valid()).
+    ///
+    /// Call \ref present() to present the result.     
     ///
     virtual void fill(util::Color color) = 0;
+    virtual void fill(util::Color color, const display::Box& area) = 0;
+    /// \}
 
-    /// \brief     
+    /// \brief Create new texture of specific size.
     ///
-    /// FIXME: What are the constraints on allowed object lifetime?                                               
+    /// This function creates a new texture of the specified size. A texture is an array of
+    /// pixels and can act as a source for efficient and repeated copying of pixels to the
+    /// window (see \ref put_texture()).
+    ///
+    /// The application must ensure that the returned texture object is destroyed before
+    /// this window is destroyed.
+    ///
+    /// The initial contents of the texture is undefined.
+    ///
+    /// The contents of the texture can be set using \ref display::Texture::put_image().
+    ///
+    /// \sa \ref display::Texture::put_image()
+    /// \sa \ref put_texture()
     ///
     virtual auto new_texture(display::Size size) -> std::unique_ptr<display::Texture> = 0;
 
-    /// \brief    
+    /// \{
     ///
-    ///    
+    /// \brief Copy pixels from texture to window.
     ///
-    virtual void put_texture(const display::Texture&) = 0;
+    /// These functions copy pixels from the specified texture (\p tex) to this window. The
+    /// overload that takes a source area argument (\p source_area) copies the pixels from
+    /// that area of the texture. The source are must be confined to the texture
+    /// boundary. The other overload copies the entire texture. The specified position (\p
+    /// pos) is the upper-left corner of the target area in the window.
+    ///
+    /// Call \ref present() to present the result.     
+    ///
+    /// The specified texture must be associated with the same display connection as this
+    /// window, i.e., the texture and the window must have been created from the same
+    /// connection object.
+    ///
+    virtual void put_texture(const display::Texture& tex, const display::Pos& pos = {}) = 0;
+    virtual void put_texture(const display::Texture& tex, const display::Box& source_area,
+                             const display::Pos& pos) = 0;
+    /// \}
 
     /// \brief    
     ///
@@ -121,10 +182,14 @@ public:
 
     /// \brief Bind OpenGL context of this window to the calling thread.
     ///
-    /// Every window is associated with an OpenGL rendering context. This function binds the
-    /// calling thread to that rendering context, such that OpenGL rendering performed by
-    /// the calling thread is directed at this window. On an X11 platform, this corresponds
-    /// to `glXMakeCurrent()`.
+    /// A window, that is configured for OpenGL rendering (\ref
+    /// Config::enable_opengl_rendering), is associated with an OpenGL rendering
+    /// context. This function binds the calling thread to that rendering context, such that
+    /// OpenGL rendering performed by the calling thread is directed onto this window. On an
+    /// X11 platform, this corresponds to `glXMakeCurrent()`.
+    ///
+    /// Behavior is undefined if this function is called on a window that is not configured
+    /// for OpenGL rendering.
     ///
     virtual void opengl_make_current() = 0;
 
@@ -132,6 +197,9 @@ public:
     ///
     /// This function swaps front and back buffers for OpenGL rendering in this window. On
     /// an X11 platform, this corresponds to `glXSwapBuffers()`.
+    ///
+    /// Behavior is undefined if this function is called on a window that is not configured
+    /// for OpenGL rendering (\ref Config::enable_opengl_rendering).
     ///
     virtual void opengl_swap_buffers() = 0;
 
@@ -144,12 +212,28 @@ public:
 /// These are the available parameters for configuring a window.
 ///
 struct Window::Config {
+    /// \brief Display on which window must appear.
+    ///
+    /// If specified, that is, if the specified value is non-negative, this is the index of
+    /// the display on which the window must appear. It is an index into the list of
+    /// displays accessible through the connection from which the window is created. See
+    /// \ref display::Connection for general information about connections and displays. The
+    /// number of displays is returned by \ref display::Connection::get_num_displays() and
+    /// the index of the default display is returned by \ref
+    /// display::Connection::get_default_display().
+    ///
+    /// When the display is not specified, i.e., when the specified value is negative, the
+    /// window will be opened on the default display.
+    ///
+    int display = -1;
+
     /// \brief Cookie value to be passed to window event handlers.
     ///
-    /// The value specified here will be passed faithfully by the event processor (\ref
-    /// display::Connection::process_events()) to all handlers of events that originate from
-    /// a window that was created using this configuration. See also \ref
-    /// display::WindowEvent::cookie.
+    /// The value specified here will be passed faithfully in \ref
+    /// display::WindowEvent::cookie to event handlers that handle events from
+    /// windows created using this configuration.
+    ///
+    /// \sa \ref set_event_handler()
     ///
     int cookie = 0;
 
@@ -159,17 +243,29 @@ struct Window::Config {
     ///
     bool resizable = false;
 
-    /// \brief start out in fullscreen mode.
+    /// \brief Start out in fullscreen mode.
     ///
     /// If set to `true`, the window will start out in fullscreen mode.
     ///
     bool fullscreen = false;
 
-    /// \brief Enable OpenGL rendering.
+    /// \brief Enable OpenGL-based rendering.
     ///
     /// If set to `true`, the window will be configured to support OpenGL rendering.
     ///
-    bool enable_opengl = false;
+    bool enable_opengl_rendering = false;
+
+    /// \brief Enforce minimum size of window
+    ///
+    /// If set, and the window is made resizable (\ref resizable), the window will be kept
+    /// no smaller than the specified minimum size. This applies separately in each
+    /// direction, horizontally and vertically. If the specified initial size of the window
+    /// is smaller than the minimum size, the initial size will be automatically increased
+    /// to equal the minimum size.
+    ///
+    /// If the window is made non-resizable (\ref resizable), `minimum_size` has no meaning.
+    ///
+    std::optional<display::Size> minimum_size;
 };
 
 

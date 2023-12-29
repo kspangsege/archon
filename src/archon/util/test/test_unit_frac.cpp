@@ -184,19 +184,19 @@ struct TestChangeBitWidth {
 
 ARCHON_TEST(Util_UnitFrac_FltToInt)
 {
-    core::for_each_type<core::TypeListProduct<FltTypes, IntTypes>, TestFltToInt>(test_context);
+    core::for_each_type_alt<core::TypeListProduct<FltTypes, IntTypes>, TestFltToInt>(test_context);
 }
 
 
 ARCHON_TEST(Util_UnitFrac_IntToFltToInt)
 {
     std::mt19937_64 random(test_context.seed_seq());
-    core::for_each_type<core::TypeListProduct<IntTypes, FltTypes>, TestIntToFltToInt>(test_context, random);
+    core::for_each_type_alt<core::TypeListProduct<IntTypes, FltTypes>, TestIntToFltToInt>(test_context, random);
 }
 
 
 ARCHON_TEST(Util_UnitFrac_ChangeBitWidth)
 {
     std::mt19937_64 random(test_context.seed_seq());
-    core::for_each_type<IntTypes, TestChangeBitWidth>(test_context, random);
+    core::for_each_type_alt<IntTypes, TestChangeBitWidth>(test_context, random);
 }

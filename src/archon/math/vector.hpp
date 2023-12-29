@@ -155,7 +155,7 @@ public:
     template<class U> explicit(!math::is_lossless_conv<T, U>) constexpr operator Vector<N, U>() const noexcept;
 };
 
-template<std::size_t N, class T> Vector(T (&)[N]) -> Vector<N, std::remove_const_t<T>>;
+template<std::size_t N, class T> Vector(T(&)[N]) -> Vector<N, std::remove_const_t<T>>;
 template<std::size_t N, class T> Vector(const std::array<T, N>&) -> Vector<N, std::remove_const_t<T>>;
 
 

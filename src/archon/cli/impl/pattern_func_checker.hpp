@@ -21,8 +21,6 @@
 #ifndef ARCHON_X_CLI_X_IMPL_X_PATTERN_FUNC_CHECKER_HPP
 #define ARCHON_X_CLI_X_IMPL_X_PATTERN_FUNC_CHECKER_HPP
 
-/// \file
-
 
 #include <cstddef>
 #include <type_traits>
@@ -35,7 +33,7 @@
 
 #include <archon/core/features.h>
 #include <archon/core/type_list.hpp>
-#include <archon/core/type.hpp>
+#include <archon/core/type_traits.hpp>
 #include <archon/core/span.hpp>
 #include <archon/core/assert.hpp>
 #include <archon/cli/impl/pattern_structure.hpp>
@@ -314,7 +312,7 @@ template<class U> bool PatternFuncChecker<C, T>::check_tuple(const Seq& seq) con
             }
         }
         ARCHON_ASSERT(param_index == num_params);
-        return core::for_each_type_a<param_types, ParamFunc>(*this, param_elems);
+        return core::for_each_type_alt_a<param_types, ParamFunc>(*this, param_elems);
     }
     return false;
 }
@@ -377,7 +375,7 @@ template<class... U> inline bool PatternFuncChecker<C, T>::check_alt_param(const
         const std::size_t num_branches = sizeof... (U);
         if (ARCHON_LIKELY(alt.num_seqs == num_branches)) {
             using branch_types = core::TypeList<U...>;
-            return core::for_each_type_a<branch_types, BranchFunc>(*this, alt.seqs_offset);
+            return core::for_each_type_alt_a<branch_types, BranchFunc>(*this, alt.seqs_offset);
         }
     }
     return false;

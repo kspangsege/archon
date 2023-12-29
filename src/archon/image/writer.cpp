@@ -109,9 +109,8 @@ auto Writer::fill(const image::Box& area, ColorSlot slot) -> Writer&
         // index representation.
         //
         // FIXME: Index representation should be made varyable                        
-        auto index_2 = image::unpacked_comp_type<image::color_index_repr>(index_1);
-        image::comp_type<image::color_index_repr> index_3 = image::comp_repr_pack<image::color_index_repr>(index_2);
-        get_image().fill(box, &index_3); // Throws
+        image::comp_type<image::color_index_repr> index_2 = image::comp_repr_pack<image::color_index_repr>(index_1);
+        get_image().fill(box, &index_2); // Throws
         return *this;
     }
 
@@ -323,9 +322,8 @@ void Writer::write(image::Pos pos, const image::Tray<const image::float_type>& t
             std::size_t index_1 = do_reverse_palette_lookup(color); // Throws
             // No overlow is possible here because palette size is clamped to available
             // range of index representation.
-            auto index_2 = image::unpacked_comp_type<index_repr>(index_1);
-            index_comp_type index_3 = image::comp_repr_pack<index_repr>(index_2);
-            tray_2(x, y)[0] = index_3;
+            index_comp_type index_2 = image::comp_repr_pack<index_repr>(index_1);
+            tray_2(x, y)[0] = index_2;
         }
     }
     get_image().write(pos, tray_2); // Throws

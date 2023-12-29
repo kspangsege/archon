@@ -146,8 +146,7 @@ int main(int argc, char* argv[])
         cli::assign(optional_implementation)); // Throws
 
     opt("-l, --log-level", "<level>", cli::no_attributes, spec,
-        "Set the log level limit. The possible levels are \"off\", \"fatal\", \"error\", \"warn\", \"info\", "
-        "\"detail\", \"debug\", \"trace\", and \"all\". The default limit is \"@V\".",
+        "Set the log level limit. The possible levels are @G. The default limit is @Q.",
         cli::assign(log_level_limit)); // Throws
 
     int exit_status = 0;

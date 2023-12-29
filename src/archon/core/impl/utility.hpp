@@ -21,8 +21,6 @@
 #ifndef ARCHON_X_CORE_X_IMPL_X_UTILITY_HPP
 #define ARCHON_X_CORE_X_IMPL_X_UTILITY_HPP
 
-/// \file
-
 
 #include <cstddef>
 #include <type_traits>
@@ -68,9 +66,9 @@ template<class F, std::size_t... I> constexpr auto make_dispatch_array(std::inde
 
 
 
-template<std::size_t, class, class...> struct GetArgTypeAt;
+template<std::size_t I, class... A> struct GetArgTypeAt;
 
-template<std::size_t I, class A, class... B> struct GetArgTypeAt {
+template<std::size_t I, class A, class... B> struct GetArgTypeAt<I, A, B...> {
     using type = typename GetArgTypeAt<I - 1, B...>::type;
 };
 

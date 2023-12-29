@@ -94,7 +94,6 @@ Base64 test cases <-- cases from RFC
 Test case: Compare lists of comparable element types, and formatting of lists in truncated form. Seems I need size limiting version of core::as_list() similarly to core::quote().
 
 
-test_utf8.cpp ???
 test_util_uri.cpp ???
 
 
@@ -179,7 +178,6 @@ Continue porting file.hpp
 - all file addendums
 - shunting_yard_parser.hpp
 - alg_expr_serializer.hpp
-- utf-8<->utf-16
 - Check old list of fixes
 
 

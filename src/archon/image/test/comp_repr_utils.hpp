@@ -35,11 +35,6 @@
 namespace archon::image::test {
 
 
-template<image::CompRepr R> struct CompReprTag {
-    static constexpr image::CompRepr comp_repr = R;
-};
-
-
 auto get_comp_repr_name(image::CompRepr repr) -> std::string_view;
 
 

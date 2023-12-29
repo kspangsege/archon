@@ -20,12 +20,14 @@ target_link_libraries(Test PUBLIC
   Core
   Check
   CoreTest
+  LogTest
   CliTest
   CheckTest
   MathTest
   UtilTest
   ImageTest
   FontTest
+  DisplayTest
 )
 
 add_test(NAME Test

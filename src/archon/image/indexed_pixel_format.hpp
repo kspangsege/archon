@@ -585,7 +585,7 @@ void IndexedPixelFormat<S, M, N, A, W, B, D, E, H>::get_pixel(value_type compoun
 {
     value_type value = ((compound >> (map_pixel_pos(pos) * bits_per_pixel)) &
                         core::int_mask<value_type>(bits_per_pixel));
-    *target = image::pack_int<transf_comp_type, bits_per_pixel>(value);
+    *target = image::comp_repr_pack<transf_repr>(value);
 }
 
 
@@ -593,7 +593,7 @@ template<class S, int M, int N, core::Endianness A, class W, int B, int D, core:
 void IndexedPixelFormat<S, M, N, A, W, B, D, E, H>::set_pixel(const transf_comp_type* source, value_type& compound,
                                                               int pos) noexcept
 {
-    value_type value = value_type(image::unpack_int<bits_per_pixel>(*source));
+    value_type value = value_type(image::comp_repr_unpack<transf_repr>(*source));
     int shift = map_pixel_pos(pos) * bits_per_pixel;
     compound &= (core::int_mask<value_type>(bits_per_compound) ^
                  (core::int_mask<value_type>(bits_per_pixel) << shift));

@@ -81,11 +81,21 @@ struct Predicate4 {
 };
 
 
-struct Function {
+struct Function1 {
     template<class T, std::size_t I>
     static void exec(std::vector<std::pair<const std::type_info*, std::size_t>>& types)
     {
         types.emplace_back(&typeid(T), I);
+    }
+};
+
+
+template<class U> struct Function2 {
+    template<class T, std::size_t I>
+    static bool exec(std::vector<std::pair<const std::type_info*, std::size_t>>& types)
+    {
+        types.emplace_back(&typeid(T), I);
+        return !std::is_same_v<T, U>;
     }
 };
 
@@ -95,33 +105,98 @@ struct Function {
 
 ARCHON_TEST(Core_TypeList_HasTypeA)
 {
-    std::vector<std::pair<const std::type_info*, std::size_t>> types_1;
-    ARCHON_CHECK((core::has_type_a<Types1, Predicate3>(types_1)));
+    std::vector<std::pair<const std::type_info*, std::size_t>> seen_1;
+    ARCHON_CHECK((core::has_type_a<Types1, Predicate3>(seen_1)));
     std::vector expected_1 {
         std::pair(&typeid(short), std::size_t(0)),
         std::pair(&typeid(int),   std::size_t(1))
     };
-    ARCHON_CHECK(types_1 == expected_1);
-    std::vector<std::pair<const std::type_info*, std::size_t>> types_2;
-    ARCHON_CHECK_NOT((core::has_type_a<Types1, Predicate4>(types_2)));
+    ARCHON_CHECK(seen_1 == expected_1);
+    std::vector<std::pair<const std::type_info*, std::size_t>> seen_2;
+    ARCHON_CHECK_NOT((core::has_type_a<Types1, Predicate4>(seen_2)));
     std::vector expected_2 {
         std::pair(&typeid(short),    std::size_t(0)),
         std::pair(&typeid(int),      std::size_t(1)),
-        std::pair(&typeid(unsigned), std::size_t(2))
+        std::pair(&typeid(unsigned), std::size_t(2)),
     };
-    ARCHON_CHECK(types_2 == expected_2);
+    ARCHON_CHECK(seen_2 == expected_2);
 }
 
 
 ARCHON_TEST(Core_TypeList_ForEachType)
 {
-    // FIXME: Also test core::for_each_type_a()      
-    std::vector<std::pair<const std::type_info*, std::size_t>> types;
-    core::for_each_type<Types1, Function>(types);
+    using types = core::TypeList<short, int, long>;
+    std::vector<std::pair<const std::type_info*, std::size_t>> seen;
+    core::for_each_type<types>([&](auto tag, std::size_t i) {
+        using type = typename decltype(tag)::type;
+        seen.emplace_back(&typeid(type), i);
+    });
+    std::vector expected {
+        std::pair(&typeid(short), std::size_t(0)),
+        std::pair(&typeid(int),   std::size_t(1)),
+        std::pair(&typeid(long),  std::size_t(2)),
+    };
+    ARCHON_CHECK(seen == expected);
+}
+
+
+ARCHON_TEST(Core_TypeList_ForEachTypeA)
+{
+    using types = core::TypeList<short, int, long>;
+    std::vector<std::pair<const std::type_info*, std::size_t>> seen_1;
+    ARCHON_CHECK(core::for_each_type_a<types>([&](auto tag, std::size_t i) {
+        using type = typename decltype(tag)::type;
+        seen_1.emplace_back(&typeid(type), i);
+        return true;
+    }));
+    std::vector expected_1 {
+        std::pair(&typeid(short), std::size_t(0)),
+        std::pair(&typeid(int),   std::size_t(1)),
+        std::pair(&typeid(long),  std::size_t(2)),
+    };
+    ARCHON_CHECK(seen_1 == expected_1);
+    std::vector<std::pair<const std::type_info*, std::size_t>> seen_2;
+    ARCHON_CHECK_NOT(core::for_each_type_a<types>([&](auto tag, std::size_t i) {
+        using type = typename decltype(tag)::type;
+        seen_2.emplace_back(&typeid(type), i);
+        return !std::is_same_v<type, int>;
+    }));
+    std::vector expected_2 {
+        std::pair(&typeid(short), std::size_t(0)),
+        std::pair(&typeid(int),   std::size_t(1)),
+    };
+    ARCHON_CHECK(seen_2 == expected_2);
+}
+
+
+ARCHON_TEST(Core_TypeList_ForEachTypeAlt)
+{
+    std::vector<std::pair<const std::type_info*, std::size_t>> seen;
+    core::for_each_type_alt<Types1, Function1>(seen);
     std::vector expected {
         std::pair(&typeid(short),    std::size_t(0)),
         std::pair(&typeid(int),      std::size_t(1)),
-        std::pair(&typeid(unsigned), std::size_t(2))
+        std::pair(&typeid(unsigned), std::size_t(2)),
     };
-    ARCHON_CHECK(types == expected);
+    ARCHON_CHECK(seen == expected);
+}
+
+
+ARCHON_TEST(Core_TypeList_ForEachTypeAltA)
+{
+    std::vector<std::pair<const std::type_info*, std::size_t>> seen_1;
+    ARCHON_CHECK((core::for_each_type_alt_a<Types1, Function2<long>>(seen_1)));
+    std::vector expected_1 {
+        std::pair(&typeid(short),    std::size_t(0)),
+        std::pair(&typeid(int),      std::size_t(1)),
+        std::pair(&typeid(unsigned), std::size_t(2)),
+    };
+    ARCHON_CHECK(seen_1 == expected_1);
+    std::vector<std::pair<const std::type_info*, std::size_t>> seen_2;
+    ARCHON_CHECK_NOT((core::for_each_type_alt_a<Types1, Function2<int>>(seen_2)));
+    std::vector expected_2 {
+        std::pair(&typeid(short), std::size_t(0)),
+        std::pair(&typeid(int),   std::size_t(1)),
+    };
+    ARCHON_CHECK(seen_2 == expected_2);
 }

@@ -14,7 +14,7 @@ target_link_libraries(Display PUBLIC
 
 set(ARCHON_RENDER_HAVE_OPENGL 0)
 find_package(OpenGL)
-if (OPENGL_FOUND)
+if(OPENGL_FOUND)
   set(ARCHON_RENDER_HAVE_OPENGL 1)
   target_link_libraries(Render INTERFACE OpenGL::GL)
 endif()

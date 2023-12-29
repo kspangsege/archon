@@ -40,7 +40,7 @@ using render::impl::KeyBindings;
 
 
 struct KeyBindings::KeyHandler {
-    std::function<bool(bool)> func;
+    std::function<bool(bool down)> func;
     std::string label;
 };
 
@@ -72,6 +72,7 @@ struct KeyBindings::KeySlot {
     int handler_index = -1;
 
     void on_reconfigured() noexcept;
+    void reset_key_state() noexcept;
 };
 
 
@@ -85,7 +86,8 @@ KeyBindings::~KeyBindings() noexcept
 }
 
 
-auto KeyBindings::register_handler(std::string_view label, std::function<bool(bool)> func) -> render::KeyHandlerIdent
+auto KeyBindings::register_handler(std::string_view label, std::function<bool(bool down)> func) ->
+    render::KeyHandlerIdent
 {
     decltype(render::KeyHandlerIdent::value) handler_index = {};
     core::int_cast(m_handlers.size(), handler_index); // Throws
@@ -127,14 +129,14 @@ template<bool down> inline bool KeyBindings::on_key(const KeyIdent& key_ident, T
     auto i = m_key_slots.find(key_ident);
     if (ARCHON_UNLIKELY(i == m_key_slots.end())) {
         // Nothing registered for this key
-        return true;
+        return true; // Allow event processing to proceed
     }
 
     KeySlot& slot = i->second;
     if constexpr (down) {
         if (ARCHON_UNLIKELY(slot.is_pressed)) {
             // Key already pressed (a prior "key up" event was missed)
-            return true;
+            return true; // Allow event processing to proceed
         }
         constexpr auto max_multipress_period = std::chrono::milliseconds(250);
         bool connected_to_prev = (slot.multiplicity > 0 &&
@@ -154,7 +156,7 @@ template<bool down> inline bool KeyBindings::on_key(const KeyIdent& key_ident, T
         if (ARCHON_UNLIKELY(j == slot.handlers.end())) {
             // Key not bound for current modifier mode and multiplicity
             slot.handler_index = -1;
-            return true;
+            return true; // Allow event processing to proceed
         }
 
         slot.handler_index = j->second;
@@ -162,14 +164,14 @@ template<bool down> inline bool KeyBindings::on_key(const KeyIdent& key_ident, T
     else {
         if (ARCHON_UNLIKELY(!slot.is_pressed)) {
             // Key already released (a prior "key down" event was missed)
-            return true;
+            return true; // Allow event processing to proceed
         }
 
         slot.is_pressed = false;
 
         if (ARCHON_UNLIKELY(slot.handler_index < 0)) {
             // No handler was selected when key was pressed down
-            return true;
+            return true; // Allow event processing to proceed
         }
     }
 
@@ -179,16 +181,47 @@ template<bool down> inline bool KeyBindings::on_key(const KeyIdent& key_ident, T
 }
 
 
+bool KeyBindings::resume_incomplete_on_blur()
+{
+    ARCHON_ASSERT(m_on_blur_in_progress);
+
+    for (auto& entry : m_key_slots) {
+        KeySlot& slot = entry.second;
+        bool was_pressed = slot.is_pressed;
+        int handler_index = slot.handler_index;
+        slot.reset_key_state();
+        if (ARCHON_LIKELY(!was_pressed || handler_index < 0))
+            continue;
+        const KeyHandler& handler = m_handlers[handler_index];
+        bool down = false;
+        bool proceed = handler.func(down); // Throws
+        if (ARCHON_LIKELY(proceed))
+            continue;
+        return false; // Interrupt event processing
+    }
+
+    m_on_blur_in_progress = false;
+    return true; // Allow event processing to proceed
+}
+
+
 
 void KeyBindings::KeySlot::on_reconfigured() noexcept
 {
-    multiplicity = 0;
+    reset_key_state();
     max_multiplicity = 0;
     for (const auto& entry : handlers) {
         const Subkey& subkey = entry.first;
-        render::KeyPressMultiplicity multiplicity = subkey.second;
-        if (multiplicity.value <= max_multiplicity)
+        render::KeyPressMultiplicity multiplicity_2 = subkey.second;
+        if (multiplicity_2.value <= max_multiplicity)
             continue;
-        max_multiplicity = multiplicity.value;
+        max_multiplicity = multiplicity_2.value;
     }
+}
+
+
+inline void KeyBindings::KeySlot::reset_key_state() noexcept
+{
+    is_pressed = false;
+    multiplicity = 0;
 }

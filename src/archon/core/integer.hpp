@@ -58,6 +58,76 @@ template<class T> struct IntDivMod;
 template<class T> constexpr bool is_integer() noexcept;
 
 
+/// \brief Suitable common integer type for arithmetic.
+///
+/// This is a type that can generally be regarded as suitable for performing arithmetic that
+/// involves objects of all of the specified integer types (\p T, \p U...). It plays a
+/// similar role to `std::common_type_t`, but the two are generally not identical, even for
+/// fundamental integer types. `core::common_int_type` generally provides a stronger
+/// value-preservation guarantee than `std::common_type_t`, even for the fundamental integer
+/// types (see below).
+///
+/// The specified types (\p T, \p U...) must conform to the integer concept (\ref
+/// Concept_Archon_Core_Integer).
+///
+/// Since the availability of mixed-type arithmetic operators are not guaranteed by \ref
+/// Concept_Archon_Core_Integer, "maximally" generic arithmetic should probably take the
+/// following form:
+///
+/// \code{.cpp}
+///
+///    auto func(T a, T b, U c, U d)
+///    {
+///        using type = core::common_int_type<int, T, U>;
+///        return (core::int_cast_a<type>(a) * core::int_cast_a<type>(c) +
+///                core::int_cast_a<type>(b) * core::int_cast_a<type>(d));
+///    }
+///
+/// \endcode
+///
+/// When two types, `A` and `B`, are specified, the common type is chosen as follows:
+///
+///   - If both `A` and `B` are unsigned, `core::common_int_type<A, B>` is the widest one,
+///     or `A` if they are the same width (same number of value bits).
+///
+///   - If both `A` and `B` are signed, `core::common_int_type<A, B>` is the widest one. If
+///     they have the same number of value bits, the one with the lowest minimum value is
+///     chosen. If they have the same minimum value, `A` is chosen.
+///
+///   - If `A` is signed and `B` is unsigned, `core::common_int_type<A, B>` is `A` (the
+///     signed type) if `A` has at least as many value bits as `B` (the unsigned
+///     type). Otherwise, `core::common_int_type<A, B>` is `B`.
+///
+///   - If `A` is unsigned and `B` is signed, `core::common_int_type<A, B>` is the same type
+///     as `core::common_int_type<B, A>`.
+///
+/// Note that `core::common_int_type<A, B>` is always either `A` or `B`.
+///
+/// When only one type, `A`, is specified, `core::common_int_type<A>` is `A`.
+///
+/// When more than two types, `A`, `B`, `C...`, are specified, `core::common_int_type<A, B,
+/// C...>` is `core::common_int_type<A, core::common_int_type<B, C...>>`.
+///
+/// If `a` is an object of type `A`, `b` is an object of type `B`, and `C` is
+/// `core::common_int_type<A, B>`, then `core::int_cast_a<C>(a)` and
+/// `core::int_cast_a<C>(b)` are guaranteed to be a value preserving conversions if `a` and
+/// `b` are not negative.
+///
+/// If `a` is negative, `C(a)` is still a value preserving conversion except when `A` is
+/// signed, and `B` is unsigned, and `B` has more value bits than `A`. However, even in this
+/// case, there is a guarantee of no information loss, because the conversion to `B` of the
+/// negative value will fully preserve that value using two's complement representation in
+/// `B`.
+///
+/// Similarly, if `b` is negative, `C(b)` is still a value preserving conversion except when
+/// `B` is signed, and `A` is unsigned, and `A` has more value bits than `B`. However, as
+/// before, even in this case, there is a guarantee of no information loss, because the
+/// conversion to `A` of the negative value will fully preserve that value using two's
+/// complement representation in `A`.
+///
+template<class T, class... U> using common_int_type = typename impl::CommonIntType<T, U...>::type;
+
+
 /// \brief Type of result of promotion operation.
 ///
 /// This is the type of the result of the promotion operation on a value of the specified
@@ -69,11 +139,34 @@ template<class T> constexpr bool is_integer() noexcept;
 template<class T> using promoted_type = decltype(+std::declval<T>());
 
 
+/// \brief Type of result of strong promotion operation.
+///
+/// This is the type of the result of the strong promotion operation on a value of the
+/// specified type (\p T). See \ref core::promote_strongly().
+///
+/// The specified type (\p T) must conform to the integer concept (\ref
+/// Concept_Archon_Core_Integer).
+///
+template<class T> using strongly_promoted_type = core::common_int_type<int, core::promoted_type<T>>;
+
+
 /// \brief Promote specified integer value.
 ///
-/// This function returns the result of `+val`. For fundamental integer types, this
-/// corresponds to the ordinary promotion operation. It is always a value-preserving
-/// operation. The return type is `declval(+val)`.
+/// This function returns the result of `+val`. For the standard integer types
+/// (`std::is_integral`), this corresponds to the ordinary promotion operation. For standard
+/// and non-standard integer types, it is a value-preserving operation. The return type is
+/// `declval(+val)`.
+///
+/// Promotion is idempotent in the sense that if `val_2` is the result of `promote(val)` and
+/// `val_3` is the result of `promote(val_2)`, then `val_3` has the same type as `val_2`.
+///
+/// When \p T is a standard integer type (`std::is_integral`), `core::promoted_type<T>` is
+/// guaranteed to cover the entire value range of `int` if \p T is signed. If \p T is an
+/// unsigned standard integer type, then `core::promoted_type<T>` is guaranteed to cover the
+/// entire non-negative range of `int`. While, for regular promotion, these guarantees do
+/// not extend to non-standard integer types, there is an alternative notion of promotion,
+/// namely *strong promotion* (see \ref core::promote_strongly()), that does extend these
+/// guarantees to all integer types that satisfy \ref Concept_Archon_Core_Integer.
 ///
 /// The type of the specified value (\p T) must conform to the integer concept (\ref
 /// Concept_Archon_Core_Integer).
@@ -86,16 +179,31 @@ template<class T> constexpr auto promote(T val) noexcept -> core::promoted_type<
 /// \brief Strongly promote specified integer value.
 ///
 /// This function returns the result of `core::int_cast_a<U>(val)` where `U` is
-/// `core::common_int_type<int, T>`. It is always a value-preserving operation, and the
-/// return type is guaranteed to be able to represent all non-negative values that are
-/// representable in `int`.
+/// `core::common_int_type<int, core::promoted_type<T>>`. It is always a value-preserving
+/// operation, and it is always idempotent in the sense that if `val_2` is the result of
+/// `promote_strongly(val)` and `val_3` is the result of `promote_strongly(val_2)`, then
+/// `val_3` has the same type as `val_2`.
+///
+/// A strongly promoted value is also regularly promoted (\ref core::promote()), so if
+/// `val_2` is the result of `promote_strongly(val)` and `val_3` is the result of
+/// `promote(val_2)`, then `val_3` has the same type as `val_2`.
+///
+/// If \p T is signed, `core::strongly_promoted_type<T>` is guaranteed to cover the entire
+/// value range of `int`. If \p T is unsigned, `core::strongly_promoted_type<T>` is
+/// guaranteed to cover the entire non-negative range of `int`. It follows, therefore, that
+/// `core::strongly_promoted_type<T>` will cover the entire non-negative range of `int`
+/// regardless of whether \p T is signed or unsigned.
+///
+/// Note that \ref core::promote() offers the same `int` coverage guarantees, but only when
+/// \p T is one of the standard integer types (`std::is_integral`). Strong promotion differs
+/// from regular promotion by extending these guarantees to non-standard integer types.
 ///
 /// The type of the specified value (\p T) must conform to the integer concept (\ref
 /// Concept_Archon_Core_Integer).
 ///
 /// \sa \ref core::promote()
 ///
-template<class T> constexpr auto promote_strongly(T val) noexcept;
+template<class T> constexpr auto promote_strongly(T val) noexcept -> core::strongly_promoted_type<T>;
 
 
 /// \brief Corresponding unsigned type for specified integer type.
@@ -120,10 +228,10 @@ template<class T> using unsigned_type = typename core::IntegerTraits<T>::unsigne
 
 /// \brief Cast specified integer value to unsigned type.
 ///
-/// This function casts the specified integer value to the corresponding unsigned type (\ref core::unsigned_type). If
-/// the specified integer value has unsigned type, this function returns the specified value
-/// unchanged, and without changing its type. For non-negative values of signed type, this
-/// function is a value-preserving operation.
+/// This function casts the specified integer value to the corresponding unsigned type (\ref
+/// core::unsigned_type). If the specified integer value has unsigned type, this function
+/// returns the specified value unchanged, and without changing its type. For non-negative
+/// values of signed type, this function is a value-preserving operation.
 ///
 /// The type of the specified value (\p T) must conform to the integer concept (\ref
 /// Concept_Archon_Core_Integer).
@@ -207,81 +315,6 @@ template<class T> constexpr bool is_unsigned() noexcept;
 template<class T> constexpr auto int_min() noexcept -> T;
 template<class T> constexpr auto int_max() noexcept -> T;
 /// \}
-
-
-/// \brief Suitable common integer type for arithmetic.
-///
-/// This is a type that can generally be regarded as suitable for performing arithmetic that
-/// involves objects of all of the specified integer types (\p T, \p U...). It plays a
-/// similar role to `std::common_type_t`, but the two are generally not identical, even for
-/// fundamental integer types. `core::common_int_type` generally provides a stronger
-/// value-preservation guarantee than `std::common_type_t`, even for the fundamental integer
-/// types (see below).
-///
-/// The specified types (\p T, \p U...) must conform to the integer concept (\ref
-/// Concept_Archon_Core_Integer).
-///
-/// Since the availability of mixed-type arithmetic operators are not guaranteed by \ref
-/// Concept_Archon_Core_Integer, "maximally" generic arithmetic should probably take the
-/// following form:
-///
-/// \code{.cpp}
-///
-///    auto func(T a, T b, U c, U d)
-///    {
-///        using type = core::common_int_type<int, T, U>;
-///        return (core::int_cast_a<type>(a) * core::int_cast_a<type>(c) +
-///                core::int_cast_a<type>(b) * core::int_cast_a<type>(d));
-///    }
-///
-/// \endcode
-///
-/// When `int` is included in the list of types passed to `core::common_int_type`, further
-/// promotion of the resulting type has no effect. To be more precise, if `V` is
-/// `core::common_int_type<T, U...>`, and `int` is among `T, U...`, then
-/// `core::promoted_type<V>` is `V`.
-///
-/// When two types, `A` and `B`, are specified, the common type is chosen as follows:
-///
-///   - If both `A` and `B` are unsigned, `core::common_int_type<A, B>` is the widest one,
-///     or `A` if they are the same width (same number of value bits).
-///
-///   - If both `A` and `B` are signed, `core::common_int_type<A, B>` is the widest one. If
-///     they have the same number of value bits, the one with the lowest minimum value is
-///     chosen. If they have the same minimum value, `A` is chosen.
-///
-///   - If `A` is signed and `B` is unsigned, `core::common_int_type<A, B>` is `A` (the
-///     signed type) if `A` has at least as many value bits as `B` (the unsigned
-///     type). Otherwise, `core::common_int_type<A, B>` is `B`.
-///
-///   - If `A` is unsigned and `B` is signed, `core::common_int_type<A, B>` is the same type
-///     as `core::common_int_type<B, A>`.
-///
-/// Note that `core::common_int_type<A, B>` is always either `A` or `B`.
-///
-/// When only one type, `A`, is specified, `core::common_int_type<A>` is `A`.
-///
-/// When more than two types, `A`, `B`, `C...`, are specified, `core::common_int_type<A, B,
-/// C...>` is `core::common_int_type<A, core::common_int_type<B, C...>>`.
-///
-/// If `a` is an object of type `A`, `b` is an object of type `B`, and `C` is
-/// `core::common_int_type<A, B>`, then `core::int_cast_a<C>(a)` and
-/// `core::int_cast_a<C>(b)` are guaranteed to be a value preserving conversions if `a` and
-/// `b` are not negative.
-///
-/// If `a` is negative, `C(a)` is still a value preserving conversion except when `A` is
-/// signed, and `B` is unsigned, and `B` has more value bits than `A`. However, even in this
-/// case, there is a guarantee of no information loss, because the conversion to `B` of the
-/// negative value will fully preserve that value using two's complement representation in
-/// `B`.
-///
-/// Similarly, if `b` is negative, `C(b)` is still a value preserving conversion except when
-/// `B` is signed, and `A` is unsigned, and `A` has more value bits than `B`. However, as
-/// before, even in this case, there is a guarantee of no information loss, because the
-/// conversion to `A` of the negative value will fully preserve that value using two's
-/// complement representation in `A`.
-///
-template<class T, class... U> using common_int_type = typename impl::CommonIntType<T, U...>::type;
 
 
 /// \brief Determine if integer is power of two.
@@ -696,6 +729,24 @@ template<class T> constexpr void int_logic_shift_right(T& lval, int i) noexcept;
 
 /// \{
 ///
+/// \brief Whether sum, difference, or product of two values is representable in type of
+/// first value.
+///
+/// These functions have the same affect as \ref core::try_int_add(), \ref
+/// core::try_int_sub(), or \ref core::try_int_mul() respectively, except that the result of
+/// the addition, subtraction, or multiplication is thrown away.
+///
+/// \sa \ref core::can_int_add(), \ref core::can_int_sub(), \ref core::can_int_mul()
+/// \sa \ref core::try_int_add(), \ref core::try_int_sub(), \ref core::try_int_mul()
+///
+template<class L, class R> constexpr bool can_int_add(L lval, R rval) noexcept;
+template<class L, class R> constexpr bool can_int_sub(L lval, R rval) noexcept;
+template<class L, class R> constexpr bool can_int_mul(L lval, R rval) noexcept;
+/// \}
+
+
+/// \{
+///
 /// \brief Try to add, subtract, or multiply heterogeneously typed integer values while
 /// checking for overflow.
 ///
@@ -711,6 +762,9 @@ template<class T> constexpr void int_logic_shift_right(T& lval, int i) noexcept;
 ///
 /// In terms of efficiency, these functions are especially well suited for cases where \p
 /// rval is a compile-time constant.
+///
+/// \sa \ref core::can_int_add(), \ref core::can_int_sub(), \ref core::can_int_mul()
+/// \sa \ref core::try_int_add(), \ref core::try_int_sub(), \ref core::try_int_mul()
 ///
 template<class L, class R> constexpr bool try_int_add(L& lval, R rval) noexcept;
 template<class L, class R> constexpr bool try_int_sub(L& lval, R rval) noexcept;
@@ -799,13 +853,27 @@ template<class T> constexpr auto int_divmod(T a, T b) noexcept -> core::IntDivMo
 /// \brief Integer division with upwards rounding.
 ///
 /// This function divides \p a by \p b and returns the least integer that is greater than,
-/// or equal to the result. Both \p a and \p b must be non-negative integers. If \p b is
-/// zero, the effect is the same as it would be for the expression `a / b`.
+/// or equal to the true untruncated result. Both \p a and \p b must be non-negative
+/// integers. If \p b is zero, the effect is the same as it would be for the expression `a /
+/// b`.
 ///
 /// The types of the specified values (\p T and \p U) must conform to the integer concept
 /// (\ref Concept_Archon_Core_Integer).
 ///
 template<class T, class U> constexpr auto int_div_round_up(T a, U b) noexcept -> T;
+
+
+/// \brief Integer division with half-down rounding behavior.
+///
+/// This function divides \p a by \p b and returns the result rounded to the nearest
+/// integer, or if the result is half way between two integers, rounded down. Both \p a and
+/// \p b must be non-negative integers. If \p b is zero, the effect is the same as it would
+/// be for the expression `a / b`.
+///
+/// The types of the specified values (\p T and \p U) must conform to the integer concept
+/// (\ref Concept_Archon_Core_Integer).
+///
+template<class T, class U> constexpr auto int_div_round_half_down(T a, U b) noexcept -> T;
 
 
 /// \brief Performs periodic modulo operation.
@@ -933,9 +1001,9 @@ template<class T> constexpr auto promote(T val) noexcept -> core::promoted_type<
 }
 
 
-template<class T> constexpr auto promote_strongly(T val) noexcept
+template<class T> constexpr auto promote_strongly(T val) noexcept -> core::strongly_promoted_type<T>
 {
-    using type = core::common_int_type<int, T>;
+    using type = core::strongly_promoted_type<T>;
     return core::int_cast_a<type>(val);
 }
 
@@ -1484,7 +1552,7 @@ template<class T> constexpr auto twos_compl_sign_extend(T val, int from_width) n
 
 template<class A, class B> constexpr bool int_equal(A a, B b) noexcept
 {
-    using type = core::common_int_type<int, A, B>;
+    using type = core::promoted_type<core::common_int_type<A, B>>;
     if constexpr (!core::is_signed<A>()) {
         if constexpr (!core::is_signed<B>()) {
             // Unsigned vs unsigned
@@ -1516,7 +1584,7 @@ template<class A, class B> constexpr bool int_not_equal(A a, B b) noexcept
 
 template<class A, class B> constexpr bool int_less(A a, B b) noexcept
 {
-    using type = core::common_int_type<int, A, B>;
+    using type = core::promoted_type<core::common_int_type<A, B>>;
     if constexpr (!core::is_signed<A>()) {
         if constexpr (!core::is_signed<B>()) {
             // Unsigned vs unsigned
@@ -1623,6 +1691,24 @@ template<class T> constexpr void int_logic_shift_right(T& lval, int i) noexcept
     else {
         lval = 0;
     }
+}
+
+
+template<class L, class R> constexpr bool can_int_add(L lval, R rval) noexcept
+{
+    return core::try_int_add(lval, rval);
+}
+
+
+template<class L, class R> constexpr bool can_int_sub(L lval, R rval) noexcept
+{
+    return core::try_int_sub(lval, rval);
+}
+
+
+template<class L, class R> constexpr bool can_int_mul(L lval, R rval) noexcept
+{
+    return core::try_int_mul(lval, rval);
 }
 
 
@@ -1963,13 +2049,27 @@ template<class T, class U> constexpr auto int_div_round_up(T a, U b) noexcept ->
 {
     ARCHON_ASSERT(!core::is_negative(a));
     ARCHON_ASSERT(!core::is_negative(b));
-    using type = core::common_int_type<int, T, U>;
+    using type = core::promoted_type<core::common_int_type<T, U>>;
     type a_2 = core::int_cast_a<type>(a);
     type b_2 = core::int_cast_a<type>(b);
     core::IntDivMod<type> res = core::int_divmod(a_2, b_2);
     if (ARCHON_LIKELY(res.rem != type(0)))
         return core::int_cast_a<T>(res.quot + type(1));
     return core::int_cast_a<T>(res.quot);
+}
+
+
+template<class T, class U> constexpr auto int_div_round_half_down(T a, U b) noexcept -> T
+{
+    ARCHON_ASSERT(!core::is_negative(a));
+    ARCHON_ASSERT(!core::is_negative(b));
+    using type = core::promoted_type<core::common_int_type<T, U>>;
+    type a_2 = core::int_cast_a<type>(a);
+    type b_2 = core::int_cast_a<type>(b);
+    core::IntDivMod<type> res = core::int_divmod(a_2, b_2);
+    if (ARCHON_LIKELY(res.rem <= type(b / 2)))
+        return core::int_cast_a<T>(res.quot);
+    return core::int_cast_a<T>(res.quot + type(1));
 }
 
 
@@ -2010,7 +2110,7 @@ template<class T, class U> constexpr auto int_periodic_mod(T a, U b) noexcept ->
 {
     static_assert(core::is_integer<T>());
     static_assert(core::is_integer<U>());
-    using type = core::common_int_type<int, T, U>;
+    using type = core::promoted_type<core::common_int_type<T, U>>;
     type a_2 = core::int_cast_a<type>(a);
     type b_2 = core::int_cast_a<type>(b);
 

@@ -40,7 +40,7 @@
 #include <archon/core/span.hpp>
 #include <archon/core/assert.hpp>
 #include <archon/core/memory.hpp>
-#include <archon/core/circular_buffer.hpp>
+#include <archon/core/deque.hpp>
 #include <archon/core/range_map.hpp>
 #include <archon/core/frozen_sets.hpp>
 #include <archon/core/char_mapper.hpp>
@@ -179,7 +179,7 @@ private:
     std::set<std::size_t> m_start_positions;
     std::vector<State> m_states;
     std::vector<Transition> m_transitions;
-    core::CircularBuffer<PositionSet> m_unchecked_position_sets;
+    core::Deque<PositionSet> m_unchecked_position_sets;
     core::FrozenSets<std::size_t> m_position_sets_1;
     core::FrozenSets<std::size_t> m_position_sets_2;
 

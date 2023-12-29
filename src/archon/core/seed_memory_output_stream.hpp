@@ -71,7 +71,7 @@ private:
 };
 
 
-template<class C, std::size_t N> explicit BasicSeedMemoryOutputStream(C (&)[N]) -> BasicSeedMemoryOutputStream<C>;
+template<class C, std::size_t N> explicit BasicSeedMemoryOutputStream(C(&)[N]) -> BasicSeedMemoryOutputStream<C>;
 template<class C, std::size_t N> explicit BasicSeedMemoryOutputStream(std::array<C, N>&) ->
     BasicSeedMemoryOutputStream<C>;
 
@@ -128,7 +128,7 @@ private:
 };
 
 
-template<class C, std::size_t N> explicit BasicSeedMemoryStreambuf(C (&)[N]) -> BasicSeedMemoryStreambuf<C>;
+template<class C, std::size_t N> explicit BasicSeedMemoryStreambuf(C(&)[N]) -> BasicSeedMemoryStreambuf<C>;
 template<class C, std::size_t N> explicit BasicSeedMemoryStreambuf(std::array<C, N>&) -> BasicSeedMemoryStreambuf<C>;
 
 

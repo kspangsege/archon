@@ -21,8 +21,6 @@
 #ifndef ARCHON_X_RENDER_X_IMPL_X_FINITE_SEQUENCE_MEMORY_HPP
 #define ARCHON_X_RENDER_X_IMPL_X_FINITE_SEQUENCE_MEMORY_HPP
 
-/// \file
-
 
 #include <cstddef>
 #include <memory>

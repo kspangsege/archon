@@ -241,7 +241,7 @@ ARCHON_TEST(Core_Quote_Escape)
     bool found_oct_escape_char = false;
     bool found_hex_escape_char = false;
     constexpr int char_width = core::int_width<wchar_t>();
-    using uint_type = core::FastestUnsignedWithBits<char_width, std::uintmax_t>;
+    using uint_type = core::fast_unsigned_int_type<char_width, std::uintmax_t>;
     uint_type mask = core::int_mask<uint_type>(char_width);
     {
         std::set<wchar_t> specials;

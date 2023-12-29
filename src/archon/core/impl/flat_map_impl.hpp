@@ -21,14 +21,13 @@
 #ifndef ARCHON_X_CORE_X_IMPL_X_FLAT_MAP_IMPL_HPP
 #define ARCHON_X_CORE_X_IMPL_X_FLAT_MAP_IMPL_HPP
 
-/// \file
-
 
 #include <cstddef>
 #include <type_traits>
 #include <utility>
 
 #include <archon/core/features.h>
+#include <archon/core/type_traits.hpp>
 #include <archon/core/pair.hpp>
 #include <archon/core/vector.hpp>
 
@@ -50,14 +49,15 @@ public:
     auto data() noexcept -> entry_type*;
     auto data() const noexcept -> const entry_type*;
 
-    auto find(const key_type&) const noexcept -> std::size_t;
-    auto lower_bound(const key_type&) const noexcept -> std::size_t;
-    auto upper_bound(const key_type&) const noexcept -> std::size_t;
-    auto equal_range(const key_type&) const noexcept -> std::pair<std::size_t, std::size_t>;
+    auto find(const key_type&) const noexcept(core::is_nothrow_less_comparable<K>) -> std::size_t;
+    auto lower_bound(const key_type&) const noexcept(core::is_nothrow_less_comparable<K>) -> std::size_t;
+    auto upper_bound(const key_type&) const noexcept(core::is_nothrow_less_comparable<K>) -> std::size_t;
+    auto equal_range(const key_type&) const noexcept(core::is_nothrow_less_comparable<K>) ->
+        std::pair<std::size_t, std::size_t>;
 
     template<class... A> auto insert(A&&... args) -> std::pair<entry_type*, bool>;
     template<class... A> auto insert_multi(A&&... args) -> entry_type*;
-    auto erase(const key_type&) noexcept -> std::size_t;
+    auto erase(const key_type&) noexcept(core::is_nothrow_less_comparable<K>) -> std::size_t;
     void clear() noexcept;
 
     auto capacity() const noexcept -> std::size_t;
@@ -70,10 +70,11 @@ public:
 private:
     core::Vector<std::remove_const_t<entry_type>, N> m_entries;
 
-    auto do_upper_bound(const key_type&, std::size_t) const noexcept -> std::size_t;
-    bool do_find(const key_type&, std::size_t&) const noexcept;
+    auto do_upper_bound(const key_type&, std::size_t) const noexcept(core::is_nothrow_less_comparable<K>) ->
+        std::size_t;
+    bool do_find(const key_type&, std::size_t&) const noexcept(core::is_nothrow_less_comparable<K>);
     template<class E> static auto get_key(const E&) noexcept -> const key_type&;
-    static bool less(const key_type&, const key_type&) noexcept;
+    static bool less(const key_type&, const key_type&) noexcept(core::is_nothrow_less_comparable<K>);
 };
 
 
@@ -115,24 +116,26 @@ inline auto FlatMapImpl<K, V, N>::data() const noexcept -> const entry_type*
 
 
 template<class K, class V, std::size_t N>
-inline auto FlatMapImpl<K, V, N>::find(const key_type& key) const noexcept -> std::size_t
+inline auto FlatMapImpl<K, V, N>::find(const key_type& key) const noexcept(core::is_nothrow_less_comparable<K>) ->
+    std::size_t
 {
     std::size_t i = 0;
-    if (ARCHON_LIKELY(do_find(key, i)))
+    if (ARCHON_LIKELY(do_find(key, i))) // Throws
         return i;
     return size();
 }
 
 
 template<class K, class V, std::size_t N>
-auto FlatMapImpl<K, V, N>::lower_bound(const key_type& key) const noexcept -> std::size_t
+auto FlatMapImpl<K, V, N>::lower_bound(const key_type& key) const noexcept(core::is_nothrow_less_comparable<K>) ->
+    std::size_t
 {
     const entry_type* base = m_entries.data();
     const entry_type* begin = base;
     const entry_type* end = begin + size();
     while (ARCHON_LIKELY(begin != end)) {
         const entry_type* mid = begin + (end - begin) / 2;
-        if (less(get_key(*mid), key)) {
+        if (less(get_key(*mid), key)) { // Throws
             begin = mid + 1;
         }
         else {
@@ -144,18 +147,19 @@ auto FlatMapImpl<K, V, N>::lower_bound(const key_type& key) const noexcept -> st
 
 
 template<class K, class V, std::size_t N>
-inline auto FlatMapImpl<K, V, N>::upper_bound(const key_type& key) const noexcept -> std::size_t
+inline auto FlatMapImpl<K, V, N>::upper_bound(const key_type& key) const
+    noexcept(core::is_nothrow_less_comparable<K>) -> std::size_t
 {
-    return do_upper_bound(key, 0);
+    return do_upper_bound(key, 0); // Throws
 }
 
 
 template<class K, class V, std::size_t N>
-inline auto FlatMapImpl<K, V, N>::equal_range(const key_type& key) const noexcept ->
-    std::pair<std::size_t, std::size_t>
+inline auto FlatMapImpl<K, V, N>::equal_range(const key_type& key) const
+    noexcept(core::is_nothrow_less_comparable<K>) -> std::pair<std::size_t, std::size_t>
 {
-    std::size_t begin = lower_bound(key);
-    std::size_t end   = do_upper_bound(key, begin);
+    std::size_t begin = lower_bound(key); // Throws
+    std::size_t end   = do_upper_bound(key, begin); // Throws
     return { begin, end };
 }
 
@@ -167,7 +171,7 @@ template<class... A> auto FlatMapImpl<K, V, N>::insert(A&&... args) -> std::pair
     const key_type& key = get_key(entry);
     entry_type* base = m_entries.data();
     std::size_t i = 0;
-    if (ARCHON_LIKELY(!do_find(key, i))) {
+    if (ARCHON_LIKELY(!do_find(key, i))) { // Throws
         entry_type* j = m_entries.emplace(base + i, std::move(entry)); // Throws
         return { j, true }; // Inserted
     }
@@ -180,16 +184,16 @@ template<class... A> inline auto FlatMapImpl<K, V, N>::insert_multi(A&&... args)
 {
     entry_type entry(std::forward<A>(args)...); // Throws
     const key_type& key = get_key(entry);
-    std::size_t i = upper_bound(key);
+    std::size_t i = upper_bound(key); // Throws
     entry_type* base = m_entries.data();
     return m_entries.emplace(base + i, std::move(entry)); // Throws
 }
 
 
 template<class K, class V, std::size_t N>
-auto FlatMapImpl<K, V, N>::erase(const key_type& key) noexcept -> std::size_t
+auto FlatMapImpl<K, V, N>::erase(const key_type& key) noexcept(core::is_nothrow_less_comparable<K>) -> std::size_t
 {
-    auto pair = equal_range(key);
+    auto pair = equal_range(key); // Throws
     entry_type* base = m_entries.data();
     entry_type* begin = base + pair.first;
     entry_type* end   = base + pair.second;
@@ -241,14 +245,15 @@ inline auto FlatMapImpl<K, V, N>::max_size() const noexcept -> std::size_t
 
 
 template<class K, class V, std::size_t N>
-auto FlatMapImpl<K, V, N>::do_upper_bound(const key_type& key, std::size_t i) const noexcept -> std::size_t
+auto FlatMapImpl<K, V, N>::do_upper_bound(const key_type& key, std::size_t i) const
+    noexcept(core::is_nothrow_less_comparable<K>) -> std::size_t
 {
     const entry_type* base = m_entries.data();
     const entry_type* begin = base + i;
     const entry_type* end   = base + size();
     while (ARCHON_LIKELY(begin != end)) {
         const entry_type* mid = begin + (end - begin) / 2;
-        if (!less(key, get_key(*mid))) {
+        if (!less(key, get_key(*mid))) { // Throws
             begin = mid + 1;
         }
         else {
@@ -260,10 +265,11 @@ auto FlatMapImpl<K, V, N>::do_upper_bound(const key_type& key, std::size_t i) co
 
 
 template<class K, class V, std::size_t N>
-inline bool FlatMapImpl<K, V, N>::do_find(const key_type& key, std::size_t& i) const noexcept
+inline bool FlatMapImpl<K, V, N>::do_find(const key_type& key, std::size_t& i) const
+    noexcept(core::is_nothrow_less_comparable<K>)
 {
-    i = lower_bound(key);
-    bool was_found = (i < size() && !less(key, get_key(m_entries[i])));
+    i = lower_bound(key); // Throws
+    bool was_found = (i < size() && !less(key, get_key(m_entries[i]))); // Throws
     return was_found;
 }
 
@@ -281,12 +287,11 @@ template<class E> inline auto FlatMapImpl<K, V, N>::get_key(const E& entry) noex
 
 
 template<class K, class V, std::size_t N>
-inline bool FlatMapImpl<K, V, N>::less(const key_type& a, const key_type& b) noexcept
+inline bool FlatMapImpl<K, V, N>::less(const key_type& a, const key_type& b)
+    noexcept(core::is_nothrow_less_comparable<K>)
 {
+    static_assert(noexcept(a < b) == core::is_nothrow_less_comparable<K>);
     return (a < b);
-    // This static assertion has to occur after the invocation of the less-than operator due
-    // to a bug in GCC: https://gcc.gnu.org/bugzilla/show_bug.cgi?id=113063
-    static_assert(noexcept(a < b));
 }
 
 

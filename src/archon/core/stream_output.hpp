@@ -217,7 +217,7 @@ public:
 };
 
 
-template<class C, class T, std::size_t N> BasicStreamOutputAltHelper(std::basic_ostream<C, T>&, C (&)[N]) ->
+template<class C, class T, std::size_t N> BasicStreamOutputAltHelper(std::basic_ostream<C, T>&, C(&)[N]) ->
     BasicStreamOutputAltHelper<C, T>;
 template<class C, class T, std::size_t N> BasicStreamOutputAltHelper(std::basic_ostream<C, T>&, std::array<C, N>&) ->
     BasicStreamOutputAltHelper<C, T>;

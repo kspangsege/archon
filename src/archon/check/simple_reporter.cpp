@@ -109,7 +109,8 @@ void SimpleReporter::root_end(const check::RootContext& context, const check::Su
                         core::as_num_of(summary.num_checks, checks_spec)); // Throws
         }
         else {
-            logger.info("Success: The test passed (%s)", core::as_num_of(summary.num_checks, checks_spec)); // Throws
+            logger.info("Success: The %s passed (%s)", test_case_executions_spec.singular_form,
+                        core::as_num_of(summary.num_checks, checks_spec)); // Throws
         }
     }
     else {

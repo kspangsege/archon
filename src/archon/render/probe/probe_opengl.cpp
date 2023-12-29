@@ -54,17 +54,17 @@ namespace {
 class EventLoop
     : public display::WindowEventHandler {
 public:
-    EventLoop(display::Connection& conn) noexcept
-        : m_impl(conn.get_implementation())
-        , m_conn(conn)
+    EventLoop(display::Connection& conn, display::Window& win) noexcept
+        : m_conn(conn)
+        , m_win(win)
     {
     }
 
     void render_frame();
 
-    void run(display::Window& win)
+    void run()
     {
-        win.opengl_make_current(); // Throws
+        m_win.opengl_make_current(); // Throws
 
         using clock_type      = display::Connection::clock_type;
         using duration_type   = clock_type::duration;
@@ -80,7 +80,7 @@ public:
                 deadline = now;
 
             render_frame(); // Throws
-            win.opengl_swap_buffers(); // Throws
+            m_win.opengl_swap_buffers(); // Throws
         }
         while (m_conn.process_events(deadline)); // Throws
     }
@@ -88,7 +88,7 @@ public:
     bool on_keydown(const display::KeyEvent& ev) override final
     {
         display::Key key = {};
-        if (ARCHON_LIKELY(m_impl.try_map_key_code_to_key(ev.key_code, key))) { // Throws
+        if (ARCHON_LIKELY(m_conn.try_map_key_code_to_key(ev.key_code, key))) { // Throws
             if (ARCHON_UNLIKELY(key == display::Key::escape))
                 return false;
         }
@@ -96,8 +96,8 @@ public:
     }
 
 private:
-    const display::Implementation& m_impl;
     display::Connection& m_conn;
+    display::Window& m_win;
     double m_angle = 0;
 };
 
@@ -148,6 +148,10 @@ int main()
     // Promise that all use of the display API happens on behalf of the main thread.
     guarantees.main_thread_exclusive = true;
 
+    // Promise that there is no direct or indirect use of the Xlib library (X Window System
+    // client library) other than through the Archon display library.
+    guarantees.no_other_use_of_x11 = true;
+
     // Promise that there is no direct or indirect use of SDL (Simple DirectMedia Layer)
     // other than through the Archon display library, and that there is also no direct or
     // indirect use of anything that would conflict with use of SDL.
@@ -155,12 +159,13 @@ int main()
 
     std::locale locale(""); // Throws
     std::unique_ptr<display::Connection> conn = display::new_connection(locale, guarantees); // Throws
-    EventLoop event_loop(*conn);
     display::Window::Config config;
-    config.enable_opengl = true;
-    std::unique_ptr<display::Window> win = conn->new_window("Probe OpenGL", 512, event_loop, config); // Throws
+    config.enable_opengl_rendering = true;
+    std::unique_ptr<display::Window> win = conn->new_window("Probe OpenGL", 512, config); // Throws
+    EventLoop event_loop(*conn, *win);
+    win->set_event_handler(event_loop); // throws
     win->show(); // Throws
-    event_loop.run(*win); // Throws
+    event_loop.run(); // Throws
 }
 
 

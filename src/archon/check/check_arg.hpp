@@ -26,39 +26,18 @@
 
 #include <string_view>
 
-#include <archon/core/type.hpp>
-#include <archon/check/impl/check_arg.hpp>
-
-
-/// \brief Construct CheckArg object for check macro argument.
-///
-/// The purpose of this macro is to make it easy to construct objects of type \ref
-/// check::CheckArg. See \ref check::TestContext::check_special_cond() for an example of its
-/// intended use.
-///
-#define ARCHON_CHECK_ARG(arg) archon::check::CheckArg(#arg, arg)
-
 
 namespace archon::check {
 
 
 /// \brief Carrier of information about check macro argument.
 ///
-/// An object of this type is intended to carry information about an argument of a check
-/// macro (e.g., \ref ARCHON_CHECK_EQUAL()) to a function such as \ref
+/// Objects of this type are used to carry information about arguments of a check macro
+/// (e.g., \ref ARCHON_CHECK_EQUAL()) to a function such as \ref
 /// check::TestContext::check_special_cond().
-///
-/// Ordinarily, objects of this type will be created using \ref ARCHON_CHECK_ARG().
 ///
 template<class T> class CheckArg {
 public:
-    /// \brief Whether check argument can and should be formatted.
-    ///
-    /// If this constant `false`, the check argument is of a type that cannot or should not
-    /// be formatted.
-    ///
-    static constexpr bool is_formattable = core::has_stream_output_operator<T, char>;
-
     /// \brief Construct check argument.
     ///
     /// This constructor constructs a check argument from the specified text string (\p
@@ -74,16 +53,15 @@ public:
     ///
     auto get_text() const noexcept -> std::string_view;
 
-    /// \brief Get value reference for formattable check argument.
+    /// \brief Get value reference.
     ///
-    /// If \ref is_formattable is `true`, this function returns a reference to the value of
-    /// the check argument. If \ref is_formattable is `false` this function is
-    /// uninstantiable.
+    /// This function returns a reference to the value of the check argument.
     ///
     auto get_value() const noexcept -> const T&;
 
 private:
-    impl::CheckArg<T, is_formattable> m_impl;
+    std::string_view m_text;
+    const T& m_value;
 };
 
 
@@ -98,7 +76,8 @@ private:
 
 template<class T>
 inline CheckArg<T>::CheckArg(std::string_view text, const T& value) noexcept
-    : m_impl(text, value)
+    : m_text(text)
+    , m_value(value)
 {
 }
 
@@ -106,14 +85,14 @@ inline CheckArg<T>::CheckArg(std::string_view text, const T& value) noexcept
 template<class T>
 inline auto CheckArg<T>::get_text() const noexcept -> std::string_view
 {
-    return m_impl.get_text();
+    return m_text;
 }
 
 
 template<class T>
 inline auto CheckArg<T>::get_value() const noexcept -> const T&
 {
-    return m_impl.get_value();
+    return m_value;
 }
 
 

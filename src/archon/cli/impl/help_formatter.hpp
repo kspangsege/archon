@@ -21,8 +21,6 @@
 #ifndef ARCHON_X_CLI_X_IMPL_X_HELP_FORMATTER_HPP
 #define ARCHON_X_CLI_X_IMPL_X_HELP_FORMATTER_HPP
 
-/// \file
-
 
 #include <cstddef>
 #include <utility>
@@ -96,6 +94,7 @@ private:
     void format_options();
     bool format_option_orig_val(ostream_type&, const Option&, bool& has_value);
     bool format_option_default_arg(ostream_type&, const Option&, bool& has_value);
+    bool format_option_enum_values(ostream_type&, const Option&, bool disjunctive, bool quote);
     void format_absent_value(ostream_type&);
 
     static auto map_template_parse_error(TemplateParseError) -> cli::HelpSpecError;
@@ -278,6 +277,38 @@ void HelpFormatter<C, T>::format_options()
         descr_error(cli::HelpSpecError::illegal_combination,
                     "Illegal parameter reference `@R`: Option action does not provide a 'default argument'"); // Throws
     }; // Throws
+    params["E"] = [&](ostream_type& out, const Option& opt) {
+        bool disjunctive = false;
+        bool quote = false;
+        if (ARCHON_LIKELY(format_option_enum_values(out, opt, disjunctive, quote))) // Throws
+            return;
+        descr_error(cli::HelpSpecError::illegal_combination,
+                    "Illegal parameter reference `@E`: Option value is not of enumeration type"); // Throws
+    }; // Throws
+    params["F"] = [&](ostream_type& out, const Option& opt) {
+        bool disjunctive = true;
+        bool quote = false;
+        if (ARCHON_LIKELY(format_option_enum_values(out, opt, disjunctive, quote))) // Throws
+            return;
+        descr_error(cli::HelpSpecError::illegal_combination,
+                    "Illegal parameter reference `@E`: Option value is not of enumeration type"); // Throws
+    }; // Throws
+    params["G"] = [&](ostream_type& out, const Option& opt) {
+        bool disjunctive = false;
+        bool quote = true;
+        if (ARCHON_LIKELY(format_option_enum_values(out, opt, disjunctive, quote))) // Throws
+            return;
+        descr_error(cli::HelpSpecError::illegal_combination,
+                    "Illegal parameter reference `@E`: Option value is not of enumeration type"); // Throws
+    }; // Throws
+    params["H"] = [&](ostream_type& out, const Option& opt) {
+        bool disjunctive = true;
+        bool quote = true;
+        if (ARCHON_LIKELY(format_option_enum_values(out, opt, disjunctive, quote))) // Throws
+            return;
+        descr_error(cli::HelpSpecError::illegal_combination,
+                    "Illegal parameter reference `@E`: Option value is not of enumeration type"); // Throws
+    }; // Throws
 
     m_text_formatter.write("Options:\n"); // Throws
     m_text_formatter.push_format(); // Throws
@@ -347,6 +378,14 @@ template<class C, class T>
 inline bool HelpFormatter<C, T>::format_option_default_arg(ostream_type& out, const Option& opt, bool& has_value)
 {
     return opt.action.format_default_arg(out, m_value_formatter, has_value); // Throws
+}
+
+
+template<class C, class T>
+inline bool HelpFormatter<C, T>::format_option_enum_values(ostream_type& out, const Option& opt,
+                                                           bool disjunctive, bool quote)
+{
+    return opt.action.format_enum_values(out, m_value_formatter, disjunctive, quote); // Throws
 }
 
 

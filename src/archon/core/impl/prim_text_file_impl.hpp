@@ -21,8 +21,6 @@
 #ifndef ARCHON_X_CORE_X_IMPL_X_PRIM_TEXT_FILE_IMPL_HPP
 #define ARCHON_X_CORE_X_IMPL_X_PRIM_TEXT_FILE_IMPL_HPP
 
-/// \file
-
 
 #include <cstddef>
 #include <system_error>
@@ -335,7 +333,7 @@ inline bool PrimWindowsTextFileImpl::seek(pos_type pos, std::error_code& ec) noe
 
 inline void PrimWindowsTextFileImpl::expand_buffer()
 {
-    m_buffer.expand(1, m_end); // Throws
+    m_buffer.expand(m_end); // Throws
 }
 
 

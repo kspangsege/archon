@@ -90,6 +90,19 @@ struct Pos {
 
     /// \{
     ///
+    /// \brief Whether size can be added to, or subtracted from position without overflow.
+    ///
+    /// `pos.can_add(size)` returns `true` if, and only if `size` can be added to `pos`
+    /// without causing arithmetic overflow in the horizontal or vertical
+    /// direction. Likewise, `pos.can_sub(size)` returns `true` if, and only if `size` can
+    /// be subtracted from `pos` without causing arithmetic overflow.
+    ///
+    constexpr bool can_add(pixel::Size size) const noexcept;
+    constexpr bool can_sub(pixel::Size size) const noexcept;
+    /// \}
+
+    /// \{
+    ///
     /// \brief Compare two boxes.
     ///
     /// These operators compare this position with the specified position (\p
@@ -209,6 +222,18 @@ constexpr Pos::Pos(int x_2, int y_2) noexcept
 constexpr bool Pos::is_zero() const noexcept
 {
     return (x == 0 && y == 0);
+}
+
+
+constexpr bool Pos::can_add(pixel::Size size) const noexcept
+{
+    return (core::can_int_add(x, size.width) && core::can_int_add(y, size.height));
+}
+
+
+constexpr bool Pos::can_sub(pixel::Size size) const noexcept
+{
+    return (core::can_int_sub(x, size.width) && core::can_int_sub(y, size.height));
 }
 
 

@@ -93,14 +93,14 @@ namespace impl {
 // The idea is to forward to std::system_category() for everything other than retrieval of
 // error messages.
 //
-class WindowsSystemErrorCategory
+class WindowsSystemErrorCategory final
     : public std::error_category {
 public:
-    auto name() const noexcept -> const char* override final;
-    auto default_error_condition(int) const noexcept -> std::error_condition override final;
-    bool equivalent(int, const std::error_condition&) const noexcept override final;
-    bool equivalent(const std::error_code&, int) const noexcept override final;
-    auto message(int) const -> std::string override final;
+    auto name() const noexcept -> const char* override;
+    auto default_error_condition(int) const noexcept -> std::error_condition override;
+    bool equivalent(int, const std::error_condition&) const noexcept override;
+    bool equivalent(const std::error_code&, int) const noexcept override;
+    auto message(int) const -> std::string override;
 };
 
 inline constinit const impl::WindowsSystemErrorCategory g_windows_system_error_category;

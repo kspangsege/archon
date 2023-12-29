@@ -67,9 +67,11 @@ template<class... T> constexpr auto hetero_max(T...) noexcept;
 ///
 /// `HiddenBase<B>` is constructible from any set of arguments that `B` is constructible
 /// from. Even when `B` is an empty class, an object of type `B` is constructed, but then
-/// thrown away.
+/// thrown away. Construction of `HiddenBase<B>` is `noexcept` when, and only when the
+/// construction of `B` from the same arguments is `noexcept`.
 ///
-/// When \p B is an empty class, it must be default constructible at compile time.
+/// When \p B is an empty class, it must be default constructible, and the default
+/// construction must be `noexcept`.
 ///
 template<class B> using HiddenBase = impl::HiddenBase<B, std::is_empty_v<B>>;
 
@@ -119,11 +121,11 @@ template<std::size_t I, class... A> constexpr auto get_arg_at(A&&... args) noexc
 /// \brief Check template parameter pack for type satisfying predicate.
 ///
 /// If `A...` is a template parameter pack of types and `P` is a predicate, then `has_arg<P,
-/// A...>() GetArgTypeAt<I, A...>` returns `true` if, and only if the predicate is `true`
-/// for at least one of the elements in the parameter pack. The predicate must be a class
-/// template with one parameter such that `P<T>::value` is a compile-time constant that is
-/// convertible to `bool` for any of the types in `A...`. The predicate evaluates to `true`
-/// for `T` if, and only if `P<T>::value` evaluates to `true`.
+/// A...>()` returns `true` if, and only if the predicate is `true` for at least one of the
+/// types in the parameter pack. The predicate must be a class template with one parameter
+/// such that `P<T>::value` is a compile-time constant that is convertible to `bool` for any
+/// of the types in `A...`. The predicate evaluates to `true` for `T` if, and only if
+/// `P<T>::value` evaluates to `true`.
 ///
 /// \sa \ref core::has_unique_arg().
 /// \sa \ref core::find_first_arg().

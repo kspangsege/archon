@@ -21,8 +21,6 @@
 #ifndef ARCHON_X_IMAGE_X_IMPL_X_COMP_TYPES_HPP
 #define ARCHON_X_IMAGE_X_IMPL_X_COMP_TYPES_HPP
 
-/// \file
-
 
 #include <type_traits>
 #include <limits>

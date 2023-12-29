@@ -106,7 +106,7 @@ ARCHON_TEST_BATCH(Image_Writer_Fill_DirectColor, pixel_repr_variants)
         image::Writer writer(image);
         writer.set_opacity(opacity);
         writer.set_blending_enabled(blending);
-        writer.set_foreground_color(fill_color);
+        writer.set_foreground_color_a(fill_color);
         writer.fill(subbox);
 
         using promoted_image_pixel_type = typename image_pixel_type::promoted_pixel_type;
@@ -231,7 +231,7 @@ ARCHON_TEST_BATCH(Image_Writer_Fill_IndirectColor, pixel_repr_variants)
         image::Writer writer(image);
         writer.set_opacity(opacity);
         writer.set_blending_enabled(blending);
-        writer.set_foreground_color(fill_color);
+        writer.set_foreground_color_a(fill_color);
         writer.fill(subbox);
 
         using promoted_palette_pixel_type = typename palette_pixel_type::promoted_pixel_type;
@@ -329,7 +329,7 @@ ARCHON_TEST_BATCH(Image_Writer_Fill_Lossless, pixel_repr_variants)
 
         std::copy_n(image_buffer_2.data(), image_buffer_2.size(), image_buffer_1.data());
         image::Writer writer(image);
-        writer.set_foreground_color(fill_color);
+        writer.set_foreground_color_a(fill_color);
         writer.fill(subbox);
 
         image_pixel_type fill_color_2 = image_pixel_type(fill_color);
@@ -718,8 +718,8 @@ ARCHON_TEST_BATCH(Image_Writer_PutBlockMask_DirectColor, pixel_repr_variants)
         auto bg_2 = promoted_pixel_type(bg);
         auto fg_2 = promoted_pixel_type(fg);
         image::Writer writer(image);
-        writer.set_background_color(bg_2);
-        writer.set_foreground_color(fg_2);
+        writer.set_background_color_a(bg_2);
+        writer.set_foreground_color_a(fg_2);
         writer.set_opacity(opacity);
         writer.set_blending_enabled(blending);
         image::Tray tray = mask_block.tray().subtray(subbox.size);
@@ -834,8 +834,8 @@ ARCHON_TEST_BATCH(Image_Writer_PutBlockMask_IndirectColor, pixel_repr_variants)
         auto bg_2 = promoted_pixel_type(bg);
         auto fg_2 = promoted_pixel_type(fg);
         image::Writer writer(image);
-        writer.set_background_color(bg_2);
-        writer.set_foreground_color(fg_2);
+        writer.set_background_color_a(bg_2);
+        writer.set_foreground_color_a(fg_2);
         writer.set_opacity(opacity);
         writer.set_blending_enabled(blending);
         image::Tray tray = mask_block.tray().subtray(subbox.size);
@@ -1242,7 +1242,7 @@ ARCHON_TEST_BATCH(Image_Writer_PutImage_Falloff, pixel_repr_variants)
 
         image::TrayImage image(image_block);
         image::Reader reader(image);
-        reader.set_background_color(background_color);
+        reader.set_background_color_a(background_color);
 
         image::Size max_falloff = max(2 * image_size, image::Size(1));
         image::Size block_size = image_size + 2 * max_falloff;

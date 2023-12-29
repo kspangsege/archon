@@ -21,8 +21,6 @@
 #ifndef ARCHON_X_CLI_X_IMPL_X_OPTION_INVOCATION_HPP
 #define ARCHON_X_CLI_X_IMPL_X_OPTION_INVOCATION_HPP
 
-/// \file
-
 
 #include <archon/cli/impl/option_action.hpp>
 #include <archon/cli/impl/option_occurrence.hpp>

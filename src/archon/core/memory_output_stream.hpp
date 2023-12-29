@@ -84,7 +84,7 @@ private:
 };
 
 
-template<class C, std::size_t N> explicit BasicMemoryOutputStream(C (&)[N]) -> BasicMemoryOutputStream<C>;
+template<class C, std::size_t N> explicit BasicMemoryOutputStream(C(&)[N]) -> BasicMemoryOutputStream<C>;
 template<class C, std::size_t N> explicit BasicMemoryOutputStream(std::array<C, N>&) -> BasicMemoryOutputStream<C>;
 
 
@@ -192,7 +192,7 @@ private:
 };
 
 
-template<class C, std::size_t N> explicit BasicMemoryOutputStreambuf(C (&)[N]) -> BasicMemoryOutputStreambuf<C>;
+template<class C, std::size_t N> explicit BasicMemoryOutputStreambuf(C(&)[N]) -> BasicMemoryOutputStreambuf<C>;
 template<class C, std::size_t N> explicit BasicMemoryOutputStreambuf(std::array<C, N>&) ->
     BasicMemoryOutputStreambuf<C>;
 

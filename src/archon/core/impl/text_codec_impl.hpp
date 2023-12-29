@@ -21,8 +21,6 @@
 #ifndef ARCHON_X_CORE_X_IMPL_X_TEXT_CODEC_IMPL_HPP
 #define ARCHON_X_CORE_X_IMPL_X_TEXT_CODEC_IMPL_HPP
 
-/// \file
-
 
 #include <cstddef>
 #include <type_traits>
@@ -222,7 +220,7 @@ public:
             if (ARCHON_LIKELY(complete))
                 return true;
             if (ARCHON_LIKELY(!error)) {
-                m_buffer.reserve_extra(1, m_buffer.size()); // Throws
+                m_buffer.expand(m_buffer_offset); // Throws
                 continue;
             }
             return false;
@@ -258,7 +256,7 @@ public:
             if (ARCHON_LIKELY(complete))
                 return true;
             if (ARCHON_LIKELY(!error)) {
-                m_buffer.reserve_extra(1, m_buffer.size()); // Throws
+                m_buffer.expand(m_buffer_offset); // Throws
                 continue;
             }
             return false;
@@ -271,7 +269,7 @@ public:
             bool complete = m_char_codec.unshift(m_state, m_buffer, m_buffer_offset); // Throws
             if (ARCHON_LIKELY(complete))
                 return true;
-            m_buffer.reserve_extra(1, m_buffer.size()); // Throws
+            m_buffer.expand(m_buffer_offset); // Throws
         }
     }
 
@@ -312,7 +310,7 @@ public:
                 if (ARCHON_LIKELY(!error)) {
                     if (buffer_offset == 0) {
                         std::size_t used_size = 0;
-                        m_buffer.expand(1, used_size); // Throws
+                        m_buffer.expand(used_size); // Throws
                     }
                     continue;
                 }
@@ -335,7 +333,7 @@ public:
                     return true;
                 if (buffer_offset == 0) {
                     std::size_t used_size = 0;
-                    m_buffer.expand(1, used_size); // Throws
+                    m_buffer.expand(used_size); // Throws
                 }
                 continue;
             }
@@ -484,7 +482,7 @@ public:
                                         clear_offset, clear);
             if (ARCHON_LIKELY(data_offset == data.size() || m_buffer_offset < m_buffer.size()))
                 return true;
-            m_buffer.reserve_extra(1, m_buffer.size()); // Throws
+            m_buffer.expand(m_buffer_offset); // Throws
         }
     }
 
@@ -510,7 +508,7 @@ public:
             core::newline_codec::encode(data, data_offset, m_buffer, m_buffer_offset);
             if (ARCHON_LIKELY(data_offset == data.size()))
                 return true;
-            m_buffer.expand(1, m_buffer_offset); // Throws
+            m_buffer.expand(m_buffer_offset); // Throws
         }
     }
 

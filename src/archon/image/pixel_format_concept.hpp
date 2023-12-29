@@ -8,10 +8,10 @@ can be used with \ref archon::image::BufferedImage. Examples of implementations 
 archon::image::IntegerPixelFormat, \ref archon::image::PackedPixelFormat, \ref
 archon::image::SubwordPixelFormat, and \ref archon::image::IndexedPixelFormat.
 
-A pixel format defines how a two dimmensional block of pixels is represented within an array
+A pixel format defines how a two dimensional block of pixels is represented within an array
 of memory words of integer or floating-point type. The "word type" is specified by the pixel
 format (see `F::word_type`). Memory used to store pixels according to this format will be
-accessed in terms of words of this type. How pixels are layed out within a sequence of words
+accessed in terms of words of this type. How pixels are laid out within a sequence of words
 is mostly up to the pixel format. One format could choose to use multiple words per channel
 component while another could choose to pack multiple channels, or even multiple pixels
 inside each word.
@@ -19,7 +19,7 @@ inside each word.
 A pixel format must choose a *pixel transfer representation* to be used when pixels are
 passed to it (see `write()` and `fill()`) or from it (see `read()`). This transfer
 representation must be based on one of the component representation schemes offered through
-\ref image::CompRepr (see `F::get_transfer_repr()`).
+\ref image::CompRepr (see `F::transf_repr`).
 
 As part of choosing a pixel transfer representation, a pixel format must choose between
 using direct or indexed color when transferring pixels (see `F::is_indexed_color`). If it
@@ -56,10 +56,9 @@ requirements are met:
   - `F::word_type` must be the type of the words that this pixel format is defined in terms
     of (see description above).
 
-  - `F::get_transfer_repr()` must be a valid function invocation that can be evaluated at
-    compile time. The invocation must be `noexcept` operation. The result must be of type
-    \ref archon::image::CompRepr. It must specify the component representation scheme used
-    in the pixel transfer representation (see descrition above).
+  - `F::transf_repr` must be a static compile-time constant expression of type \ref
+    archon::image::CompRepr. It must specify the component representation scheme used in the
+    pixel transfer representation (see description above).
 
   - `f.get_buffer_size(image_size)` must be a valid function invocation. The result must be
     of type `std::size_t`, and it must specify the size, in number of words of type
@@ -83,22 +82,22 @@ requirements are met:
 
   - `f.read(buffer, image_size, pos, tray)` must be a valid function invocations if `buffer`
     is a pointer to an array of `const` words of type `F::word_type`, and `tray` is an
-    object of type `image::tray_type<R>` where `R` is `F::get_transfer_repr()`. If \p buffer
-    holds an image stored according to this pixel format, and \p image_size is the size of
-    that image, then this operation must read a rectangular block of pixels from the image
-    and place those pixels on the specified tray with components represented as specified by
-    `R` (see \ref image::CompRepr for details). The size of the block is determined by the
-    size of the specified tray (\ref archon::image::Tray::size). The position within the
-    image of the top-left corner of the block is determined by the specified position (\p
-    pos). The caller must ensure that the block falls fully inside the image area.
+    object of type `image::tray_type<R>` where `R` is `F::transf_repr`. If \p buffer holds
+    an image stored according to this pixel format, and \p image_size is the size of that
+    image, then this operation must read a rectangular block of pixels from the image and
+    place those pixels on the specified tray with components represented as specified by `R`
+    (see \ref image::CompRepr for details). The size of the block is determined by the size
+    of the specified tray (\ref archon::image::Tray::size). The position within the image of
+    the top-left corner of the block is determined by the specified position (\p pos). The
+    caller must ensure that the block falls fully inside the image area.
 
   - `f.write(buffer, image_size, pos, tray)` must be a valid function invocations if
     `buffer` is a pointer to an array of words of type `F::word_type`, and `tray` is an
-    object of type `image::const_tray_type<R>` where `R` is `F::get_transfer_repr()`. If \p
-    buffer holds an image stored according to this pixel format, and \p image_size is the
-    size of that image, then this operation must write a rectangular block of pixels to the
-    image taking those pixels from the specified tray whose components must be represented
-    as specified by `R` (see \ref image::CompRepr for details). The size of the block is
+    object of type `image::const_tray_type<R>` where `R` is `F::transf_repr`. If \p buffer
+    holds an image stored according to this pixel format, and \p image_size is the size of
+    that image, then this operation must write a rectangular block of pixels to the image
+    taking those pixels from the specified tray whose components must be represented as
+    specified by `R` (see \ref image::CompRepr for details). The size of the block is
     determined by the size of the specified tray (\ref archon::image::Tray::size). The
     position within the image of the top-left corner of the block is determined by the
     specified position (\p pos). The caller must ensure that the block falls fully inside
@@ -107,9 +106,9 @@ requirements are met:
   - `f.fill(buffer, image_size, area, color)` must be a valid function invocations if
     `buffer` is a pointer to an array of words of type `F::word_type`, and `color` is a
     pointer to an array of words of type `const image::comp_type<R>` where `R` is
-    `F::get_transfer_repr()`. If \p buffer holds an image stored according to this pixel
-    format, and \p image_size is the size of that image, then this operation must fill the
-    specified rectangular area of the image (\p area) with pixels of the specified color (\p
+    `F::transf_repr`. If \p buffer holds an image stored according to this pixel format, and
+    \p image_size is the size of that image, then this operation must fill the specified
+    rectangular area of the image (\p area) with pixels of the specified color (\p
     color). The caller must ensure that the area to be filled falls fully inside the image
     area. The representation of the fill color (\p color) is as specified by `R` (see \ref
     image::CompRepr for details).

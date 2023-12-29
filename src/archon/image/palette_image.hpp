@@ -44,7 +44,7 @@ namespace archon::image {
 /// \brief Present array of colors as image useful as palette.
 ///
 /// This class allows for an array of colors to be presented as an image in a way that makes
-/// that image useful as a palatte (\ref image::Image::get_palette()).
+/// that image useful as a palette (\ref image::Image::get_palette()).
 ///
 /// Palettes (images functioning as palettes) can be used with images that use an indexed
 /// pixel format. For example, a buffered image (\ref image::BufferedImage) using a pixel
@@ -76,19 +76,26 @@ public:
     using pixel_type = image::Pixel<repr_type>;
     using span_type  = core::Span<const pixel_type>;
 
+    /// \{
+    ///
     /// \brief Construct palette image from specified colors.
     ///
-    /// This function constructs a palette image from the specified colors.
+    /// These constructors construct a palette image from the specified colors.
     ///
-    /// The constructed palette image will contain a copy of the referece to the specified
-    /// array of colors, and not a copy of the colors themselves, so the caller must ensure
-    /// that the array stays alive for as long as the palette image remains in
-    /// use. Destruction of the palette image is allowed to happen after the destruction of
-    /// the array of colors.
+    /// When a span of colors is passed to the single-argument overload, this ownership of
+    /// the colors remains with the caller. When the two-argument overload is used, the
+    /// ownership of the colors is passed to the palette image.
     ///
-    /// The number of colors must not exceed the largest value representable in `int`.
+    /// When the ownership remains with the caller, the caller must ensure that the colors
+    /// stay alive for as long as the palette image remains in use. Destruction of the
+    /// palette image is allowed to happen after the destruction of the colors.
+    ///
+    /// The number of colors must not exceed the largest value representable in `int`. If it
+    /// does, an exception will be thrown.
     ///
     PaletteImage(span_type colors);
+    PaletteImage(std::unique_ptr<pixel_type[]> colors, std::size_t num_colors);
+    /// \}
 
     /// \brief Get colors of palette.
     ///
@@ -104,13 +111,15 @@ public:
     void read(image::Pos, const image::Tray<void>&) const override final;
 
 private:
+    std::unique_ptr<pixel_type[]> m_colors_owner;
     span_type m_colors;
 
+    void verify_size();
     auto do_get_size() const noexcept -> image::Size;
 };
 
-template<class R, std::size_t N> PaletteImage(image::Pixel<R> (&)[N]) -> PaletteImage<R>;
-template<class R, std::size_t N> PaletteImage(const image::Pixel<R> (&)[N]) -> PaletteImage<R>;
+template<class R, std::size_t N> PaletteImage(image::Pixel<R>(&)[N]) -> PaletteImage<R>;
+template<class R, std::size_t N> PaletteImage(const image::Pixel<R>(&)[N]) -> PaletteImage<R>;
 template<class R> PaletteImage(core::Span<image::Pixel<R>>) -> PaletteImage<R>;
 
 
@@ -143,9 +152,16 @@ template<class R>
 inline PaletteImage<R>::PaletteImage(core::Span<const pixel_type> colors)
     : m_colors(colors)
 {
-    // Verify that the number of colors is no greater than the maximum width of an image.
-    int size; // Dummy
-    core::int_cast(colors.size(), size); // Throws
+    verify_size(); // Throws
+}
+
+
+template<class R>
+inline PaletteImage<R>::PaletteImage(std::unique_ptr<pixel_type[]> colors, std::size_t num_colors)
+    : m_colors_owner(std::move(colors))
+    , m_colors({ m_colors_owner.get(), num_colors })
+{
+    verify_size(); // Throws
 }
 
 
@@ -198,6 +214,15 @@ void PaletteImage<R>::read(image::Pos pos, const image::Tray<void>& tray) const
             std::copy(origin, origin + num_channels, destin);
         }
     }
+}
+
+
+template<class R>
+inline void PaletteImage<R>::verify_size()
+{
+    // Verify that the number of colors is no greater than the maximum width of an image.
+    int size; // Dummy
+    core::int_cast(m_colors.size(), size); // Throws
 }
 
 

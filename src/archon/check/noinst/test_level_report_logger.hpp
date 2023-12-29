@@ -21,8 +21,6 @@
 #ifndef ARCHON_X_CHECK_X_NOINST_X_TEST_LEVEL_REPORT_LOGGER_HPP
 #define ARCHON_X_CHECK_X_NOINST_X_TEST_LEVEL_REPORT_LOGGER_HPP
 
-/// \file
-
 
 #include <string_view>
 

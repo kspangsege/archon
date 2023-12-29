@@ -21,8 +21,6 @@
 #ifndef ARCHON_X_CORE_X_IMPL_X_CHAR_CODEC_HPP
 #define ARCHON_X_CORE_X_IMPL_X_CHAR_CODEC_HPP
 
-/// \file
-
 
 #include <cstddef>
 #include <cwchar>
@@ -76,8 +74,8 @@ public:
 
     bool unshift(std::mbstate_t&, core::Span<char> buffer, std::size_t& buffer_offset) const noexcept;
 
-    void  simul_decode(std::mbstate_t&, core::Span<const char> data, std::size_t& data_offset,
-                       std::size_t buffer_size) const noexcept;
+    void simul_decode(std::mbstate_t&, core::Span<const char> data, std::size_t& data_offset,
+                      std::size_t buffer_size) const noexcept;
 
     static constexpr auto max_simul_decode_size() noexcept -> std::size_t;
 };
@@ -113,8 +111,8 @@ public:
 
     bool unshift(std::mbstate_t&, core::Span<char> buffer, std::size_t& buffer_offset) const;
 
-    void  simul_decode(std::mbstate_t&, core::Span<const char> data, std::size_t& data_offset,
-                       std::size_t buffer_size) const;
+    void simul_decode(std::mbstate_t&, core::Span<const char> data, std::size_t& data_offset,
+                      std::size_t buffer_size) const;
 
     static constexpr auto max_simul_decode_size() noexcept -> std::size_t;
 
@@ -423,6 +421,12 @@ bool CharCodec2<C, T>::decode(std::mbstate_t& state, core::Span<const char> data
             error = false;
             return false;
         case std::codecvt_base::error:
+            ARCHON_ASSERT(from_next < from_end);
+            // Assumption: So long as the state passed to std::codecvt::in() is the
+            // zero-initialized state or is the result of decoding a number of complete and
+            // valid input sequences, std::codecvt::in() will never have consumed part of an
+            // input sequence when it reports an error, so, in this case, what lies between
+            // `from` and `from_next` is zero or more complete and valid input sequences.
             goto error;
         case std::codecvt_base::noconv:
             // Since std::codecvt_base::noconv implies that the internal character type is
@@ -437,6 +441,17 @@ bool CharCodec2<C, T>::decode(std::mbstate_t& state, core::Span<const char> data
   ok:
     // Revert back to end of last completely consumed byte sequence
     {
+        // Assumption: So long as the input passed to std::codecvt::length() is some prefix
+        // of valid input, and so long as the `max` argument passed to
+        // std::codecvt::length() is less than, or equal to the number of logical characters
+        // present in that prefix, std::codecvt::length() will never consume a partial input
+        // sequence.
+        //
+        // In particular, for a stateful encoding, if the input prefix is a complete
+        // sequence corresponding to one logical character followed by half of a
+        // state-changing sequence, then std::codecvt::length() will end its consumption of
+        // input before the partial state-changing sequence when `max` is 1.
+        //
         ARCHON_ASSERT(std::size_t(from_end - from) <= max_simul_decode_size());
         int n = m_codecvt->length(state_2, from, from_end, std::size_t(to_next - to)); // Throws
         from_next = from + n;
@@ -448,15 +463,16 @@ bool CharCodec2<C, T>::decode(std::mbstate_t& state, core::Span<const char> data
             buffer_offset = std::size_t(to_next - buffer.data());
             return true;
         }
+        goto error;
     }
-    else {
+    {
         std::size_t new_data_offset = std::size_t(from_next - data.data());
         if (ARCHON_LIKELY(new_data_offset < data_offset_2)) {
             data_offset_2 = new_data_offset;
             goto again;
         }
-        throw std::runtime_error("Unexpected lack of decoding progress");
     }
+    throw std::runtime_error("Unexpected lack of decoding progress");
 
   error:
     state = state_2;

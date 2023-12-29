@@ -21,8 +21,6 @@
 #ifndef ARCHON_X_CLI_X_IMPL_X_SPEC_PARSER_HPP
 #define ARCHON_X_CLI_X_IMPL_X_SPEC_PARSER_HPP
 
-/// \file
-
 
 #include <cstddef>
 #include <algorithm>
@@ -35,6 +33,7 @@
 
 #include <archon/core/features.h>
 #include <archon/core/assert.hpp>
+#include <archon/core/index_range.hpp>
 #include <archon/core/buffer_contents.hpp>
 #include <archon/core/array_seeded_buffer.hpp>
 #include <archon/core/char_mapper.hpp>
@@ -63,14 +62,13 @@ public:
     using spec_type              = impl::Spec<C, T>;
 
     using OptionForm = typename spec_type::OptionForm;
-    using IndexRange = typename spec_type::IndexRange;
     using ArgSpec    = typename spec_type::ArgSpec;
 
     SpecParser(const std::locale&, const char_mapper_type&);
 
     auto parse_pattern(string_view_type pattern, pattern_structure_type&, spec_type&, std::size_t pattern_index,
                        bool is_deleg) -> std::size_t;
-    auto parse_option_forms(string_view_type forms, spec_type&, std::size_t option_index) -> IndexRange;
+    auto parse_option_forms(string_view_type forms, spec_type&, std::size_t option_index) -> core::IndexRange;
     auto parse_option_arg(string_view_type arg, std::size_t option_index) -> ArgSpec;
 
 private:
@@ -253,7 +251,7 @@ auto SpecParser<C, T>::parse_pattern(string_view_type pattern, pattern_structure
 
 template<class C, class T>
 auto SpecParser<C, T>::parse_option_forms(string_view_type forms, spec_type& spec, std::size_t option_index) ->
-    IndexRange
+    core::IndexRange
 {
     core::ArraySeededBuffer<OptionForm, 6> buffer;
     core::BufferContents forms_2(buffer);

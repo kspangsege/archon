@@ -30,15 +30,33 @@
 namespace archon::display {
 
 
-/// \brief    
+/// \brief Image stored for fast transfer of pixels to associated window.
 ///
-///    
+/// A texture is an image that is stored in a way that makes it fast and efficient to copy
+/// pixels between it and its associated window. A texture is created by \ref
+/// display::Window::new_texture(), and the texture's associated window is the window from
+/// which it was created. Textures of any size can be created.
+///
+/// Pixels can be efficiently copied from the texture to its associated window using \ref
+/// display::Window::put_texture().
+///
+/// The contents of a texture can be set using \ref put_image(). The initial contents of a
+/// texture is undefined.
+///
+/// Once a texture has been created, the application must ensure that the destruction of the
+/// associated window does not happen until after the destruction of the texture. Behavior
+/// is undefined if the window is destroyed before the texture.
 ///
 class Texture {
 public:
-    /// \brief    
+    /// \brief Reset texture contents using image.
     ///
-    ///    
+    /// This function sets the contents of the texture using the specified image. Any part
+    /// of the specified image that extends beyond the boundary of the texture is
+    /// unused. Any part of the texture that is not convered by the specified image is made
+    /// black, or fully transparent black if the texture has an alpha channel.
+    ///
+    /// FIXME: Clarify when and how transparency is supported                         
     ///
     virtual void put_image(const image::Image&) = 0;
 

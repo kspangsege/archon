@@ -69,6 +69,13 @@ public:
     ///
     constexpr bool is_opaque() const noexcept;
 
+    /// \brief Whether all color components are equal.
+    ///
+    /// This function returns `true` if, and only if the three color components (red, green,
+    /// and blue) are equal.
+    ///
+    constexpr bool is_gray() const noexcept;
+
     constexpr auto red()   const noexcept -> comp_type;
     constexpr auto green() const noexcept -> comp_type;
     constexpr auto blue()  const noexcept -> comp_type;
@@ -176,6 +183,12 @@ template<class T> constexpr void Color::to_vec(math::Vector<4, T>& rgba) const n
 constexpr bool Color::is_opaque() const noexcept
 {
     return (alpha() == 255);
+}
+
+
+constexpr bool Color::is_gray() const noexcept
+{
+    return (red() == green() && red() == blue());
 }
 
 

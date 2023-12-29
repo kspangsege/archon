@@ -49,18 +49,40 @@ namespace archon::image {
 /// The integer types are each guaranteed to be bit media of particular widths (see \ref
 /// image::is_bit_medium_of_width):
 ///
-///   | Integer type | Guaranteed bit medium width
-///   |--------------|-----------------------------
-///   | `int8_type`  |  8
-///   | `int16_type` | 16
-///   | `int32_type` | 32
-///   | `int64_type` | 64
+///   | Integer type | Unpacked type         | Guaranteed bit medium width
+///   |--------------|-----------------------|-----------------------------
+///   | `int8_type`  | `unpacked_int8_type`  |  8
+///   | `int16_type` | `unpacked_int8_type`  | 16
+///   | `int32_type` | `unpacked_int8_type`  | 32
+///   | `int64_type` | `unpacked_int8_type`  | 64
+///
+/// \sa \ref image::unpacked_int8_type
 ///
 using int8_type  = char;
 using int16_type = std::int_least16_t;
 using int32_type = std::int_least32_t;
 using int64_type = std::int_least64_t;
 using float_type = float;
+/// \}
+
+
+
+/// \{
+///
+/// \brief Unpacked versions of basic bit-media types.
+///
+/// These types are the unpacked versions of \ref image::int8_type, \ref image::int16_type,
+/// \ref image::int32_type, and \ref image::int64_type respectively. That is,
+/// `unpacked_int16_type`, for instance, is the return type of
+/// `image::unpack_int<16>(image::int16_type())` (see \ref image::unpack_int()).
+///
+/// \sa \ref image::int8_type
+/// \sa \ref image::unpack_int()
+///
+using unpacked_int8_type  = image::unpacked_type<image::int8_type, 8>;
+using unpacked_int16_type = image::unpacked_type<image::int16_type, 16>;
+using unpacked_int32_type = image::unpacked_type<image::int32_type, 32>;
+using unpacked_int64_type = image::unpacked_type<image::int64_type, 64>;
 /// \}
 
 

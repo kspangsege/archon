@@ -225,13 +225,12 @@ template<image::CompRepr R> using const_tray_type = image::Tray<const image::com
 /// `image::comp_repr_int_bit_width(R)`, the result is unspecified. No undefined behavior is
 /// invoked, though.
 ///
-/// If the specified component representation scheme is based on a floating-point type, this
-/// function returns the specified floating-point value unchanged, and without changing its
-/// type.
+/// If the specified component representation scheme is \ref image::CompRepr::float_, this
+/// function simply casts the specified value to \ref image::float_type.
 ///
 /// \sa \ref image::comp_repr_unpack()
 ///
-template<image::CompRepr R> auto comp_repr_pack(image::unpacked_comp_type<R> val) noexcept -> image::comp_type<R>;
+template<image::CompRepr R, class T> auto comp_repr_pack(T val) noexcept -> image::comp_type<R>;
 
 
 /// \brief Retrieve original component value from its packed form.
@@ -244,9 +243,8 @@ template<image::CompRepr R> auto comp_repr_pack(image::unpacked_comp_type<R> val
 /// image::comp_repr_int_bit_width()), the result is unspecified. No undefined behavior is
 /// invoked, though.
 ///
-/// If the specified component representation scheme is based on a floating-point type, this
-/// function returns the specified floating-point value unchanged, and without changing its
-/// type.
+/// If the specified component representation scheme is \ref image::CompRepr::float_, this
+/// function returns the specified value unchanged.
 ///
 /// \sa \ref image::comp_repr_pack()
 ///
@@ -351,7 +349,22 @@ constexpr int comp_repr_int_bit_width(image::CompRepr repr) noexcept;
 /// Regardless of component representation scheme, the value that denotes (nominal) minimum
 /// intensity is always zero.
 ///
+/// \sa \ref image::comp_repr_unpacked_max()
+///
 template<image::CompRepr R> constexpr auto comp_repr_max() noexcept -> image::comp_type<R>;
+
+
+
+/// \brief Unpacked form of maximum value for given component representation scheme.
+///
+/// This function returns the maximum value for the given component representation scheme
+/// (\p R) in its unpacked form. It is shorthand for
+/// `comp_repr_unpack<R>(comp_repr_max<R>())`.
+///
+/// \sa \ref image::comp_repr_unpack()
+/// \sa \ref image::comp_repr_max()
+///
+template<image::CompRepr R> constexpr auto comp_repr_unpacked_max() noexcept -> image::unpacked_comp_type<R>;
 
 
 
@@ -386,6 +399,41 @@ void comp_repr_convert(const image::comp_type<R>* origin, image::comp_type<S>* d
 /// that are otherwise represented as integer values using the specified number of bits.
 ///
 constexpr auto choose_transf_repr(int num_bits) noexcept -> image::CompRepr;
+
+
+/// \{
+///
+/// \brief Dispatch to polymorphic lambda based on specified component representation
+/// scheme.
+///
+/// These functions dispatch a task to the specified polymorphic lambda base don the
+/// specified component representation scheme (\p repr). It does that by calling the
+/// specified lambda with a single argument of type `image::CompReprTag<R>` where `R` is the
+/// specified component representation scheme (see \ref image::CompReprTag). This allows for
+/// each instantiation of the lambda to know the component representation scheme at compile
+/// time.
+///
+/// \sa \ref image::CompReprTag
+///
+template<class F> auto comp_repr_dispatch_nothrow(image::CompRepr repr, F&& func) noexcept;
+template<class F> auto comp_repr_dispatch(image::CompRepr repr, F&& func);
+/// \}
+
+
+/// \brief Type-level carrier of component representation scheme.
+///
+/// This class template allows for a component representation scheme to be specified by way
+/// of type information. Its primary purpose is to carry a component representation scheme
+/// to a polymorphic lambda in a way that makes it available as a compile-time constant. It
+/// is used by \ref image::comp_repr_dispatch_nothrow() and \ref image::comp_repr_dispatch()
+/// in this way.
+///
+/// \sa \ref image::comp_repr_dispatch_nothrow()
+/// \sa \ref image::comp_repr_dispatch()
+///
+template<image::CompRepr R> struct CompReprTag {
+    static constexpr image::CompRepr comp_repr = R;
+};
 
 
 
@@ -454,7 +502,7 @@ template<image::CompRepr R> struct UnpackedCompType {
 } // namespace impl
 
 
-template<image::CompRepr R> auto comp_repr_pack(image::unpacked_comp_type<R> val) noexcept -> image::comp_type<R>
+template<image::CompRepr R, class T> auto comp_repr_pack(T val) noexcept -> image::comp_type<R>
 {
     using comp_type = image::comp_type<R>;
     if constexpr (std::is_integral_v<comp_type>) {
@@ -463,7 +511,7 @@ template<image::CompRepr R> auto comp_repr_pack(image::unpacked_comp_type<R> val
     }
     else {
         static_assert(std::is_floating_point_v<comp_type>);
-        return val;
+        return comp_type(val);
     }
 }
 
@@ -580,6 +628,12 @@ template<image::CompRepr R> constexpr auto comp_repr_max() noexcept -> image::co
 }
 
 
+template<image::CompRepr R> constexpr auto comp_repr_unpacked_max() noexcept -> image::unpacked_comp_type<R>
+{
+    return image::comp_repr_unpack<R>(image::comp_repr_max<R>());
+}
+
+
 template<image::CompRepr R> constexpr bool comp_repr_less(image::comp_type<R> a, image::comp_type<R> b)
 {
     using comp_type = image::comp_type<R>;
@@ -664,6 +718,37 @@ constexpr auto choose_transf_repr(int num_bits) noexcept -> image::CompRepr
     if (num_bits <= 16)
         return image::CompRepr::int16;
     return image::CompRepr::float_;
+}
+
+
+template<class F> auto comp_repr_dispatch_nothrow(image::CompRepr repr, F&& func) noexcept
+{
+    switch (repr) {
+        case image::CompRepr::int8:
+            static_assert(noexcept(func(image::CompReprTag<image::CompRepr::int8>())));
+            return func(image::CompReprTag<image::CompRepr::int8>());
+        case image::CompRepr::int16:
+            static_assert(noexcept(func(image::CompReprTag<image::CompRepr::int16>())));
+            return func(image::CompReprTag<image::CompRepr::int16>());
+        case image::CompRepr::float_:
+            static_assert(noexcept(func(image::CompReprTag<image::CompRepr::float_>())));
+            return func(image::CompReprTag<image::CompRepr::float_>());
+    }
+    ARCHON_STEADY_ASSERT_UNREACHABLE();
+}
+
+
+template<class F> auto comp_repr_dispatch(image::CompRepr repr, F&& func)
+{
+    switch (repr) {
+        case image::CompRepr::int8:
+            return func(image::CompReprTag<image::CompRepr::int8>()); // Throws
+        case image::CompRepr::int16:
+            return func(image::CompReprTag<image::CompRepr::int16>()); // Throws
+        case image::CompRepr::float_:
+            return func(image::CompReprTag<image::CompRepr::float_>()); // Throws
+    }
+    ARCHON_STEADY_ASSERT_UNREACHABLE();
 }
 
 
