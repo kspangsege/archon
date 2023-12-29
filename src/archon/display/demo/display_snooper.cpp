@@ -141,6 +141,10 @@ int main(int argc, char* argv[])
     // Promise that all use of the display API happens on behalf of the main thread.
     guarantees.main_thread_exclusive = true;
 
+    // Promise that there is no direct or indirect use of the Xlib library (X Window System
+    // client library) other than through the Archon display library.
+    guarantees.no_other_use_of_x11 = true;
+
     // Promise that there is no direct or indirect use of SDL (Simple DirectMedia Layer)
     // other than through the Archon display library, and that there is also no direct or
     // indirect use of anything that would conflict with use of SDL.

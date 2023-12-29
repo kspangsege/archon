@@ -35,6 +35,11 @@ namespace archon::display {
 /// This function returns the display implementation slot for the implementation that is
 /// based on Xlib, which is the X Window System client library.
 ///
+/// This implementation is available if enabled at compile time (`ARCHON_DISPLAY_HAVE_SDL`)
+/// and the set of specified display guarantees includes \ref
+/// display::Guarantees::main_thread_exclusive and \ref
+/// display::Guarantees::no_other_use_of_x11.
+///
 /// This implementation is available if enabled at compile time (`ARCHON_DISPLAY_HAVE_X11`).
 ///
 /// \sa https://x.org

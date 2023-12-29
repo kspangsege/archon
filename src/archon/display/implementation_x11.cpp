@@ -141,9 +141,14 @@ auto SlotImpl::ident() const noexcept -> std::string_view
 }
 
 
-auto SlotImpl::get_implementation_a(const display::Guarantees&) const noexcept -> const display::Implementation*
+auto SlotImpl::get_implementation_a(const display::Guarantees& guarantees) const noexcept ->
+    const display::Implementation*
 {
-    return &m_impl;
+    bool is_available = (guarantees.no_other_use_of_x11 &&
+                         guarantees.main_thread_exclusive);
+    if (ARCHON_LIKELY(is_available))
+        return &m_impl;
+    return nullptr;
 }
 
 

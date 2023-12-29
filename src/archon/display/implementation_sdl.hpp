@@ -36,7 +36,7 @@ namespace archon::display {
 /// based on the Simple DirectMedia Layer (SDL).
 ///
 /// This implementation is available if enabled at compile time (`ARCHON_DISPLAY_HAVE_SDL`)
-/// and the set of specified display guarantees include \ref
+/// and the set of specified display guarantees includes \ref
 /// display::Guarantees::only_one_connection, \ref
 /// display::Guarantees::main_thread_exclusive, and \ref
 /// display::Guarantees::no_other_use_of_sdl.
