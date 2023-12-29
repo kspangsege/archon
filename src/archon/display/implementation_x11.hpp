@@ -1,6 +1,6 @@
 // This file is part of the Archon project, a suite of C++ libraries.
 //
-// Copyright (C) 2022 Kristian Spangsege <kristian.spangsege@gmail.com>
+// Copyright (C) 2023 Kristian Spangsege <kristian.spangsege@gmail.com>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this
 // software and associated documentation files (the "Software"), to deal in the Software
@@ -18,29 +18,30 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
+#ifndef ARCHON_X_DISPLAY_X_IMPLEMENTATION_X11_HPP
+#define ARCHON_X_DISPLAY_X_IMPLEMENTATION_X11_HPP
 
-// Do not include this header file. It exists only to specify the canonical header order,
-// which is a topological dependency ordering of all the header files of the Archon Core
-// Library, including any that must never be included by applications.
-#error "Do not include this header file"
+/// \file
 
 
-#include <archon/display/display_namespace.hpp>
-#include <archon/display/impl/config.h>
-#include <archon/display/implementation_fwd.hpp>
-#include <archon/display/geometry.hpp>
-#include <archon/display/key.hpp>
-#include <archon/display/key_code.hpp>
-#include <archon/display/mouse_button.hpp>
-#include <archon/display/event.hpp>
-#include <archon/display/event_handler.hpp>
-#include <archon/display/resolution.hpp>
-#include <archon/display/screen.hpp>
-#include <archon/display/guarantees.hpp>
-#include <archon/display/texture.hpp>
-#include <archon/display/window.hpp>
-#include <archon/display/connection.hpp>
 #include <archon/display/implementation.hpp>
-#include <archon/display/implementation_x11.hpp>
-#include <archon/display/implementation_sdl.hpp>
-#include <archon/display/as_key_name.hpp>
+
+
+namespace archon::display {
+
+
+/// \brief Display implementation based on Xlib.
+///
+/// This function returns the display implementation slot for the implementation that is
+/// based on Xlib, which is the X Window System client library.
+///
+/// This implementation is available if enabled at compile time (`ARCHON_DISPLAY_HAVE_X11`).
+///
+/// \sa https://x.org
+///
+auto get_x11_implementation_slot() noexcept -> const display::Implementation::Slot&;
+
+
+} // namespace archon::display
+
+#endif // ARCHON_X_DISPLAY_X_IMPLEMENTATION_X11_HPP

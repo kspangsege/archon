@@ -1,11 +1,11 @@
 find_package(X11)
 find_package(SDL2)
 
-set(ARCHON_DISPLAY_HAVE_XLIB 0)
+set(ARCHON_DISPLAY_HAVE_X11 0)
 set(ARCHON_DISPLAY_HAVE_XRENDER 0)
 set(ARCHON_DISPLAY_HAVE_XRANDR 0)
 if (X11_FOUND)
-  set(ARCHON_DISPLAY_HAVE_XLIB 1)
+  set(ARCHON_DISPLAY_HAVE_X11 1)
   if (X11_Xrender_FOUND)
     set(ARCHON_DISPLAY_HAVE_XRENDER 1)
   endif()
@@ -25,6 +25,7 @@ add_library(Display
   archon/display/event_handler.cpp
   archon/display/connection.cpp
   archon/display/implementation.cpp
+  archon/display/implementation_x11.cpp
   archon/display/implementation_sdl.cpp
 )
 
@@ -69,6 +70,7 @@ target_sources(Display PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" 
   archon/display/window.hpp
   archon/display/connection.hpp
   archon/display/implementation.hpp
+  archon/display/implementation_x11.hpp
   archon/display/implementation_sdl.hpp
   archon/display/as_key_name.hpp
   archon/display.hpp

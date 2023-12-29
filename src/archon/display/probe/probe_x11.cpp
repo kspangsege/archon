@@ -41,11 +41,10 @@
 #include <archon/display/resolution.hpp>
 #include <archon/display/screen.hpp>
 
-#if ARCHON_DISPLAY_HAVE_XLIB
+#if ARCHON_DISPLAY_HAVE_X11
 #  if ARCHON_CLANG
 #    pragma clang diagnostic ignored "-Wold-style-cast"
 #  endif
-#  define SDL_MAIN_HANDLED
 #  include <X11/Xlib.h>
 #  include <X11/Xutil.h>
 #  include <X11/keysym.h>
@@ -62,7 +61,7 @@
 using namespace archon;
 
 
-#if ARCHON_DISPLAY_HAVE_XLIB
+#if ARCHON_DISPLAY_HAVE_X11
 
 
 namespace {
@@ -1119,7 +1118,7 @@ int main(int argc, char* argv[])
 }
 
 
-#else // !ARCHON_DISPLAY_HAVE_XLIB
+#else // !ARCHON_DISPLAY_HAVE_X11
 
 
 int main()
@@ -1128,4 +1127,4 @@ int main()
 }
 
 
-#endif // !ARCHON_DISPLAY_HAVE_XLIB
+#endif // !ARCHON_DISPLAY_HAVE_X11

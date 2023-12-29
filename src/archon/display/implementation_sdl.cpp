@@ -1179,7 +1179,8 @@ class SlotImpl
     : public display::Implementation::Slot {
 public:
     auto ident() const noexcept -> std::string_view override final;
-    auto get_implementation_a(const display::Guarantees&) const noexcept -> const Implementation* override final;
+    auto get_implementation_a(const display::Guarantees&) const noexcept ->
+        const display::Implementation* override final;
 };
 
 
@@ -1189,7 +1190,7 @@ auto SlotImpl::ident() const noexcept -> std::string_view
 }
 
 
-auto SlotImpl::get_implementation_a(const display::Guarantees& guarantees) const noexcept -> const Implementation*
+auto SlotImpl::get_implementation_a(const display::Guarantees&) const noexcept -> const display::Implementation*
 {
     return nullptr;
 }
