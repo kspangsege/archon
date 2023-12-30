@@ -99,7 +99,8 @@ public:
 
     ImplementationImpl(Slot&) noexcept;
 
-    auto new_connection(const std::locale&) const -> std::unique_ptr<display::Connection> override final;
+    auto new_connection(const std::locale&, const display::Connection::Config&) const ->
+        std::unique_ptr<display::Connection> override final;
     bool try_map_key_to_key_code(display::Key, display::KeyCode&) const override final;
     bool try_map_key_code_to_key(display::KeyCode, display::Key&) const override final;
     bool try_get_key_name(display::KeyCode, std::string_view&) const override final;
@@ -236,7 +237,8 @@ inline ImplementationImpl::ImplementationImpl(Slot& slot) noexcept
 }
 
 
-auto ImplementationImpl::new_connection(const std::locale& locale) const -> std::unique_ptr<display::Connection>
+auto ImplementationImpl::new_connection(const std::locale& locale, const display::Connection::Config&) const ->
+    std::unique_ptr<display::Connection>
 {
     auto conn = std::make_unique<ConnectionImpl>(*this, locale); // Throws
     conn->open(); // Throws

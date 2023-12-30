@@ -62,17 +62,18 @@ public:
     /// particular display, or in some cases, to a particular set of displays (a number of
     /// "screens" using the terminology of the X Window System).
     ///
-    /// Note that if the application chooses to provide the display guarantee, \ref
-    /// display::Guarantees::only_one_connection, then at most one connection may be created
-    /// per process of the operating system.
+    /// Note that if the implementation was obtained by providing the display guarantee,
+    /// \ref display::Guarantees::only_one_connection, then at most one connection may be
+    /// created per operating system process.
     ///
-    /// Note that if the application chooses to provide the display guarantee, \ref
-    /// display::Guarantees::main_thread_exclusive, then this function must be called only
-    /// by the main thread. Further more, the returned connection must be used only by the
-    /// main thread. This includes the destruction of the connection returned by this
+    /// Note that if the implementation was obtained by providing the display guarantee,
+    /// \ref display::Guarantees::main_thread_exclusive, then this function must be called
+    /// only by the main thread. Further more, the returned connection must be used only by
+    /// the main thread. This includes the destruction of the connection returned by this
     /// function.
     ///
-    virtual auto new_connection(const std::locale&) const -> std::unique_ptr<display::Connection> = 0;
+    virtual auto new_connection(const std::locale&, const Connection::Config& = {}) const ->
+        std::unique_ptr<display::Connection> = 0;
 
     /// \brief Map well-known key to key code.
     ///

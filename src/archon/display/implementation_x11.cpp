@@ -20,10 +20,13 @@
 
 
                                             
+#include <cstdlib>
 #include <memory>
 #include <string_view>
 #include <locale>
 
+#include <archon/core/format.hpp>
+#include <archon/core/quote.hpp>
 #include <archon/display/impl/config.h>
 #include <archon/display/implementation.hpp>
 #include <archon/display/implementation_x11.hpp>
@@ -59,7 +62,8 @@ class ImplementationImpl
 public:
     ImplementationImpl(Slot&) noexcept;
 
-    auto new_connection(const std::locale&) const -> std::unique_ptr<display::Connection> override final;
+    auto new_connection(const std::locale&, const display::Connection::Config&) const ->
+        std::unique_ptr<display::Connection> override final;
     bool try_map_key_to_key_code(display::Key, display::KeyCode&) const override final;
     bool try_map_key_code_to_key(display::KeyCode, display::Key&) const override final;
     bool try_get_key_name(display::KeyCode, std::string_view&) const override final;
@@ -84,6 +88,34 @@ private:
 };
 
 
+class ConnectionImpl
+    : private display::ConnectionEventHandler
+    , public display::Connection {
+public:
+    const ImplementationImpl& impl;
+
+    ConnectionImpl(const ImplementationImpl&) noexcept;
+    ~ConnectionImpl() noexcept override;
+
+    void open(const std::locale&, const display::ConnectionConfigX11&);
+
+    auto new_window(std::string_view, display::Size, display::WindowEventHandler&, display::Window::Config) ->
+        std::unique_ptr<display::Window> override final;
+    auto new_window(int, std::string_view, display::Size, display::WindowEventHandler&, display::Window::Config) ->
+        std::unique_ptr<display::Window> override final;
+    void process_events(display::ConnectionEventHandler*) override final;
+    bool process_events(time_point_type, display::ConnectionEventHandler*) override final;
+    int get_num_displays() const override final;
+    int get_default_display() const override final;
+    bool try_get_display_conf(int, core::Buffer<display::Screen>&, core::Buffer<char>&,
+                              std::size_t&) const override final;
+    auto get_implementation() const noexcept -> const display::Implementation& override final;
+
+private:
+    Display* m_dpy = nullptr;
+};
+
+
 
 inline ImplementationImpl::ImplementationImpl(Slot& slot) noexcept
     : m_slot(slot)
@@ -91,10 +123,12 @@ inline ImplementationImpl::ImplementationImpl(Slot& slot) noexcept
 }
 
 
-auto ImplementationImpl::new_connection(const std::locale& locale) const -> std::unique_ptr<display::Connection>
+auto ImplementationImpl::new_connection(const std::locale& locale, const display::Connection::Config& config) const ->
+    std::unique_ptr<display::Connection>
 {
-    static_cast<void>(locale);    
-    throw std::runtime_error("*click*");    
+    auto conn = std::make_unique<ConnectionImpl>(*this); // Throws
+    conn->open(locale, config.x11); // Throws
+    return conn;
 }
 
 
@@ -149,6 +183,107 @@ auto SlotImpl::get_implementation_a(const display::Guarantees& guarantees) const
     if (ARCHON_LIKELY(is_available))
         return &m_impl;
     return nullptr;
+}
+
+
+
+inline ConnectionImpl::ConnectionImpl(const ImplementationImpl& impl_2) noexcept
+    : impl(impl_2)
+{
+}
+
+
+ConnectionImpl::~ConnectionImpl() noexcept
+{
+    if (m_dpy)
+        XCloseDisplay(m_dpy);
+}
+
+
+void ConnectionImpl::open(const std::locale& locale, const display::ConnectionConfigX11& config)
+{
+    std::string display_name;
+    if (!config.display.empty()) {
+        display_name = std::string(config.display); // Throws
+    }
+    else if (char* val = std::getenv("DISPLAY")) {
+        display_name = std::string(val); // Throws
+    }
+    Display* dpy = XOpenDisplay(display_name.data());
+    if (ARCHON_LIKELY(dpy)) {
+        m_dpy = dpy;
+        return;
+    }
+    std::string message = core::format(locale, "Failed to open X11 display connection (%s)",
+                                       core::quoted(std::string_view(display_name))); // Throws
+    throw std::runtime_error(message);
+}
+
+
+auto ConnectionImpl::new_window(std::string_view title, display::Size size,
+                                display::WindowEventHandler& event_handler,
+                                display::Window::Config config) -> std::unique_ptr<display::Window>
+{
+    static_cast<void>(title);    
+    static_cast<void>(size);    
+    static_cast<void>(event_handler);    
+    static_cast<void>(config);    
+    throw std::runtime_error("*click*");     
+}
+
+
+auto ConnectionImpl::new_window(int display, std::string_view title, display::Size size,
+                                display::WindowEventHandler& event_handler,
+                                display::Window::Config config) -> std::unique_ptr<display::Window>
+{
+    static_cast<void>(display);    
+    static_cast<void>(title);    
+    static_cast<void>(size);    
+    static_cast<void>(event_handler);    
+    static_cast<void>(config);    
+    throw std::runtime_error("*click*");     
+}
+
+
+void ConnectionImpl::process_events(display::ConnectionEventHandler* connection_event_handler)
+{
+    static_cast<void>(connection_event_handler);    
+    throw std::runtime_error("*click*");     
+}
+
+
+bool ConnectionImpl::process_events(time_point_type deadline,
+                                    display::ConnectionEventHandler* connection_event_handler)
+{
+    static_cast<void>(deadline);    
+    static_cast<void>(connection_event_handler);    
+    throw std::runtime_error("*click*");     
+}
+
+
+int ConnectionImpl::get_num_displays() const
+{
+    throw std::runtime_error("*click*");     
+}
+
+
+int ConnectionImpl::get_default_display() const
+{
+    throw std::runtime_error("*click*");     
+}
+
+
+bool ConnectionImpl::try_get_display_conf(int display, core::Buffer<display::Screen>&, core::Buffer<char>&,
+                                          std::size_t&) const
+{
+    static_cast<void>(display);    
+    throw std::runtime_error("*click*");     
+}
+
+
+auto ConnectionImpl::get_implementation() const noexcept -> const display::Implementation&
+{
+    return impl;
 }
 
 

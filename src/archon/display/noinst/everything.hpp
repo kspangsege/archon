@@ -37,6 +37,8 @@
 #include <archon/display/resolution.hpp>
 #include <archon/display/screen.hpp>
 #include <archon/display/guarantees.hpp>
+#include <archon/display/connection_config_x11.hpp>
+#include <archon/display/connection_config_sdl.hpp>
 #include <archon/display/texture.hpp>
 #include <archon/display/window.hpp>
 #include <archon/display/connection.hpp>

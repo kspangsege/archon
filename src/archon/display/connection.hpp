@@ -36,6 +36,8 @@
 #include <archon/display/resolution.hpp>
 #include <archon/display/screen.hpp>
 #include <archon/display/guarantees.hpp>
+#include <archon/display/connection_config_x11.hpp>
+#include <archon/display/connection_config_sdl.hpp>
 #include <archon/display/window.hpp>
 
 
@@ -79,6 +81,8 @@ namespace archon::display {
 ///
 class Connection {
 public:
+    struct Config;
+
     /// \{
     ///
     /// \brief Create a new window.
@@ -209,6 +213,26 @@ public:
     virtual auto get_implementation() const noexcept -> const display::Implementation& = 0;
 
     virtual ~Connection() noexcept = default;
+};
+
+
+/// \brief Connection configuration parameters.
+///
+/// This is a collection of all the configuration parameters that are specific to each of
+/// the display implementations.
+///
+struct Connection::Config {
+    /// \brief Parameters specific to X11-based implementation.
+    ///
+    /// These are the parameters that are specific to the X11-based implementation.
+    ///
+    display::ConnectionConfigX11 x11;
+
+    /// \brief Parameters specific to SDL-based implementation.
+    ///
+    /// These are the parameters that are specific to the SDL-based implementation.
+    ///
+    display::ConnectionConfigSDL sdl;
 };
 
 
