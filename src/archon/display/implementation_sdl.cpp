@@ -62,6 +62,16 @@
 #endif
 
 
+// Current minimum required SDL version is 2.0.22 for the following reasons:
+//
+// * Need SDL_HINT_QUIT_ON_LAST_WINDOW_CLOSE which was introduced in SDL 2.0.22.
+//
+// * Need proper and automatic mouse capturing behavior when mouse buttons are pressed
+//   allowing for mouse move events while mouse is outside window. This was introduced in
+//   SDL 2.0.22.
+//
+
+
 using namespace archon;
 
 

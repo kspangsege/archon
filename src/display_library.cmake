@@ -1,5 +1,10 @@
+# Need X11 for the following reasons:
+# * X11-based display implementation (see archon/display/implementation_x11.cpp)
 find_package(X11)
-find_package(SDL2)
+
+# Need SDL for the following reasons:
+# * SDL-based display implementation (see archon/display/implementation_sdl.cpp)
+find_package(SDL2 2.0.22)
 
 set(ARCHON_DISPLAY_HAVE_X11 0)
 set(ARCHON_DISPLAY_HAVE_XRENDER 0)
