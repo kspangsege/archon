@@ -428,6 +428,13 @@ bool EngineImpl::EventHandler::on_reposition(const display::WindowPosEvent& ev)
 }
 
 
+bool EngineImpl::EventHandler::on_close(const display::WindowEvent&)
+{
+    m_engine.m_quit = true;
+    return false; // Interrupt event processing
+}
+
+
 bool EngineImpl::EventHandler::before_sleep()
 {
     return !m_engine.m_interrupt_before_sleep;
@@ -437,7 +444,7 @@ bool EngineImpl::EventHandler::before_sleep()
 bool EngineImpl::EventHandler::on_quit()
 {
     m_engine.m_quit = true;
-    return false;
+    return false; // Interrupt event processing
 }
 
 

@@ -20,18 +20,35 @@
 
 
                                             
+#include <cerrno>
 #include <cstdlib>
 #include <memory>
 #include <string_view>
 #include <locale>
 
+#include <archon/core/features.h>
+#include <archon/core/flat_map.hpp>
 #include <archon/core/format.hpp>
 #include <archon/core/quote.hpp>
+#include <archon/core/platform_support.hpp>
 #include <archon/display/impl/config.h>
 #include <archon/display/implementation.hpp>
 #include <archon/display/implementation_x11.hpp>
+#include <archon/log.hpp>
 
-#if ARCHON_DISPLAY_HAVE_X11
+#if !ARCHON_WINDOWS && ARCHON_DISPLAY_HAVE_X11
+#  include <unistd.h>
+#  if defined _POSIX_VERSION && _POSIX_VERSION >= 200112L // POSIX.1-2001
+#    define HAVE_X11 1
+#  else
+#    define HAVE_X11 0
+#  endif
+#else
+#  define HAVE_X11 0
+#endif
+
+#if HAVE_X11
+#  include <poll.h>
 #  include <X11/Xlib.h>
 #  include <X11/Xutil.h>
 #  include <X11/keysym.h>
@@ -45,6 +62,14 @@
 #endif
 
 
+// Relevant links:
+//
+// * X11 API documentation: https://www.x.org/releases/X11R7.7/doc/libX11/libX11/libX11.html
+//
+// * X11 protocol specification: https://www.x.org/releases/X11R7.7/doc/xproto/x11protocol.html
+//
+
+
 using namespace archon;
 
 
@@ -54,7 +79,16 @@ namespace {
 constexpr std::string_view g_implementation_ident = "x11";
 
 
-#if ARCHON_DISPLAY_HAVE_X11
+#if HAVE_X11
+
+
+struct X11Screen {
+    bool is_initialized = false;
+    Window root = {};
+    int depth = {};
+    Visual* visual = {};
+    Colormap colormap = {};
+};
 
 
 class ImplementationImpl
@@ -93,16 +127,26 @@ class ConnectionImpl
     , public display::Connection {
 public:
     const ImplementationImpl& impl;
+    const std::locale locale;
+    Display* dpy = nullptr;
 
-    ConnectionImpl(const ImplementationImpl&) noexcept;
+    Atom atom_atom;
+    Atom atom_wm_protocols;
+    Atom atom_wm_delete_window;
+
+    ConnectionImpl(const ImplementationImpl&, const std::locale&, const display::ConnectionConfigX11&) noexcept;
     ~ConnectionImpl() noexcept override;
 
-    void open(const std::locale&, const display::ConnectionConfigX11&);
+    void open(const display::ConnectionConfigX11&);
+    auto ensure_x11_screen(int screen) -> X11Screen&;
+    bool check_depth_visual_combi(int screen, int dept, VisualID visual_id, Visual*& visual) const noexcept;
+    void register_window(::Window id, display::WindowEventHandler&, int cookie);
+    void unregister_window(::Window id) noexcept;
 
-    auto new_window(std::string_view, display::Size, display::WindowEventHandler&, display::Window::Config) ->
-        std::unique_ptr<display::Window> override final;
-    auto new_window(int, std::string_view, display::Size, display::WindowEventHandler&, display::Window::Config) ->
-        std::unique_ptr<display::Window> override final;
+    auto new_window(std::string_view, display::Size, display::WindowEventHandler&,
+                    const display::Window::Config&) -> std::unique_ptr<display::Window> override final;
+    auto new_window(int, std::string_view, display::Size, display::WindowEventHandler&,
+                    const display::Window::Config&) -> std::unique_ptr<display::Window> override final;
     void process_events(display::ConnectionEventHandler*) override final;
     bool process_events(time_point_type, display::ConnectionEventHandler*) override final;
     int get_num_displays() const override final;
@@ -112,7 +156,73 @@ public:
     auto get_implementation() const noexcept -> const display::Implementation& override final;
 
 private:
-    Display* m_dpy = nullptr;
+    const std::optional<int> m_depth_override;
+    const std::optional<VisualID> m_visual_override;
+
+    std::unique_ptr<X11Screen[]> m_x11_screens;
+
+    struct WindowEntry {
+        display::WindowEventHandler& event_handler;
+        int cookie;
+    };
+
+    core::FlatMap<::Window, WindowEntry> m_window_entries;
+
+    // If `m_have_curr_window_id` is true, then `m_curr_window_entry` specifies the entry
+    // for the window specified by `m_curr_window_id`. If `m_have_curr_window_id` is false,
+    // `m_curr_window_id` and `m_curr_window_entry` have no meaning.
+    //
+    // If `m_have_curr_window_id` is true, but `m_curr_window_entry` is null, it means that
+    // the X client has no knowledge of a window with the ID specified by
+    // `m_curr_window_id`. This state is entered if the window specified by
+    // `m_curr_window_id` is unregistered (unregister_window()). The state is updated
+    // whenever a new window is registered (register_window()), which takes care of the case
+    // where a new window reuses the ID specified by `m_curr_window_id`.
+    //
+    bool m_have_curr_window_id = false;
+    ::Window m_curr_window_id = {};
+    const WindowEntry* m_curr_window_entry = nullptr;
+
+    auto intern(const char*) noexcept -> Atom;
+
+    auto do_new_window(int screen, std::string_view title, display::Size size, display::WindowEventHandler&,
+                       const display::Window::Config&) -> std::unique_ptr<display::Window>;
+
+    bool process_outstanding_events(display::ConnectionEventHandler&);
+    void wait_for_events();
+
+    auto lookup_window_entry(::Window window_id) noexcept -> const WindowEntry*;
+};
+
+
+class WindowImpl
+    : public display::Window {
+public:
+    ConnectionImpl& conn;
+    ::Window win = {};
+
+    WindowImpl(ConnectionImpl&) noexcept;
+    ~WindowImpl() noexcept override;
+
+    void create(const X11Screen&, display::Size, display::WindowEventHandler&, int cookie);
+
+    void show() override final;
+    void hide() override final;
+    void set_title(std::string_view) override final;
+    void set_size(display::Size) override final;
+    void set_fullscreen_mode(bool) override final;
+    void fill(util::Color) override final;
+    auto new_texture(display::Size) -> std::unique_ptr<display::Texture> override final;
+    void put_texture(const display::Texture&) override final;
+    void present() override final;
+    void opengl_make_current() override final;
+    void opengl_swap_buffers() override final;
+
+private:
+    bool m_have_window = false;
+    bool m_is_registered = false;
+
+    void set_property(Atom name, Atom value) noexcept;
 };
 
 
@@ -126,8 +236,8 @@ inline ImplementationImpl::ImplementationImpl(Slot& slot) noexcept
 auto ImplementationImpl::new_connection(const std::locale& locale, const display::Connection::Config& config) const ->
     std::unique_ptr<display::Connection>
 {
-    auto conn = std::make_unique<ConnectionImpl>(*this); // Throws
-    conn->open(locale, config.x11); // Throws
+    auto conn = std::make_unique<ConnectionImpl>(*this, locale, config.x11); // Throws
+    conn->open(config.x11); // Throws
     return conn;
 }
 
@@ -187,20 +297,24 @@ auto SlotImpl::get_implementation_a(const display::Guarantees& guarantees) const
 
 
 
-inline ConnectionImpl::ConnectionImpl(const ImplementationImpl& impl_2) noexcept
+inline ConnectionImpl::ConnectionImpl(const ImplementationImpl& impl_2, const std::locale& locale_2,
+                                      const display::ConnectionConfigX11& config) noexcept
     : impl(impl_2)
+    , locale(locale_2)
+    , m_depth_override(config.depth)
+    , m_visual_override(config.visual)
 {
 }
 
 
 ConnectionImpl::~ConnectionImpl() noexcept
 {
-    if (m_dpy)
-        XCloseDisplay(m_dpy);
+    if (dpy)
+        XCloseDisplay(dpy);
 }
 
 
-void ConnectionImpl::open(const std::locale& locale, const display::ConnectionConfigX11& config)
+void ConnectionImpl::open(const display::ConnectionConfigX11& config)
 {
     std::string display_name;
     if (!config.display.empty()) {
@@ -209,46 +323,131 @@ void ConnectionImpl::open(const std::locale& locale, const display::ConnectionCo
     else if (char* val = std::getenv("DISPLAY")) {
         display_name = std::string(val); // Throws
     }
-    Display* dpy = XOpenDisplay(display_name.data());
-    if (ARCHON_LIKELY(dpy)) {
-        m_dpy = dpy;
-        return;
+    Display* dpy_2 = XOpenDisplay(display_name.data());
+    if (ARCHON_UNLIKELY(!dpy_2)) {
+        std::string message = core::format(locale, "Failed to open X11 display connection (%s)",
+                                           core::quoted(std::string_view(display_name))); // Throws
+        throw std::runtime_error(message);
     }
-    std::string message = core::format(locale, "Failed to open X11 display connection (%s)",
-                                       core::quoted(std::string_view(display_name))); // Throws
-    throw std::runtime_error(message);
+
+    dpy = dpy_2;
+
+    atom_atom             = intern("ATOM");
+    atom_wm_protocols     = intern("WM_PROTOCOLS");
+    atom_wm_delete_window = intern("WM_DELETE_WINDOW");
+}
+
+
+auto ConnectionImpl::ensure_x11_screen(int screen) -> X11Screen&
+{
+    if (ARCHON_UNLIKELY(!m_x11_screens))
+        m_x11_screens = std::make_unique<X11Screen[]>(std::size_t(ScreenCount(dpy))); // Throws
+    X11Screen& screen_2 = m_x11_screens[screen];
+    if (ARCHON_UNLIKELY(!screen_2.is_initialized)) {
+        ::Window root = RootWindow(dpy, screen);
+        int depth = DefaultDepth(dpy, screen);
+        VisualID default_visual_id = XVisualIDFromVisual(DefaultVisual(dpy, screen));
+        VisualID visual_id = default_visual_id;
+        if (m_depth_override.has_value())
+            depth = m_depth_override.value();
+        if (m_visual_override.has_value())
+            visual_id = m_visual_override.value();
+        Visual* visual = {};
+        if (ARCHON_UNLIKELY(!check_depth_visual_combi(screen, depth, visual_id, visual))) {
+            ARCHON_STEADY_ASSERT(m_depth_override.has_value() || m_visual_override.has_value());
+            std::string message = core::format(locale, "Combination of selected depth (%s) and selected visual type "
+                                               "(0x%s) is invalid for targeted screen (%s)", depth,
+                                               core::as_hex_int(visual_id, 2), screen); // Throws
+            throw std::runtime_error(message);
+        }
+        Colormap colormap = DefaultColormap(dpy, screen);
+        if (ARCHON_UNLIKELY(visual_id != default_visual_id)) {
+            // By creating a new colormap, rather than reusing the one used by the root
+            // window, it becomes possible to use a visual for the new window that differs
+            // from the one used by the root window. The colormap and the new window must
+            // agree on visual.
+            colormap = XCreateColormap(dpy, root, visual, AllocNone);
+        }
+        screen_2.root = root;
+        screen_2.depth = depth;
+        screen_2.visual = visual;
+        screen_2.colormap = colormap;
+        screen_2.is_initialized = true;
+    }
+    return screen_2;
+}
+
+
+bool ConnectionImpl::check_depth_visual_combi(int screen, int depth, VisualID visual_id,
+                                               Visual*& visual) const noexcept
+{
+    int n = 0;
+    long vinfo_mask = VisualScreenMask | VisualDepthMask | VisualIDMask;
+    XVisualInfo vinfo_template;
+    vinfo_template.screen = screen;
+    vinfo_template.depth = depth;
+    vinfo_template.visualid = visual_id;
+    XVisualInfo* entries = XGetVisualInfo(dpy, vinfo_mask, &vinfo_template, &n);
+    if (ARCHON_LIKELY(entries)) {
+        ARCHON_STEADY_ASSERT(n == 1);
+        visual = entries[0].visual;
+        XFree(entries);
+        return true;
+    }
+    return false;
+}
+
+
+inline void ConnectionImpl::register_window(::Window id, display::WindowEventHandler& event_handler, int cookie)
+{
+    WindowEntry entry = { event_handler, cookie };
+    auto i = m_window_entries.emplace(id, entry); // Throws
+    bool was_inserted = i.second;
+    ARCHON_ASSERT(was_inserted);
+    // Because a new window might reuse the ID currently specified by `m_curr_window_id`, it
+    // is necessary, and not just desirable to reset the "current window state" here.
+    m_curr_window_id = id;
+    m_curr_window_entry = &i.first->second;
+    m_have_curr_window_id = true;
+}
+
+
+inline void ConnectionImpl::unregister_window(::Window id) noexcept
+{
+    std::size_t n = m_window_entries.erase(id);
+    ARCHON_ASSERT(n == 1);
+    if (ARCHON_LIKELY(m_have_curr_window_id && id == m_curr_window_id))
+        m_curr_window_entry = nullptr;
 }
 
 
 auto ConnectionImpl::new_window(std::string_view title, display::Size size,
                                 display::WindowEventHandler& event_handler,
-                                display::Window::Config config) -> std::unique_ptr<display::Window>
+                                const display::Window::Config& config) -> std::unique_ptr<display::Window>
 {
-    static_cast<void>(title);    
-    static_cast<void>(size);    
-    static_cast<void>(event_handler);    
-    static_cast<void>(config);    
-    throw std::runtime_error("*click*");     
+    return do_new_window(DefaultScreen(dpy), title, size, event_handler, config); // Throws
 }
 
 
 auto ConnectionImpl::new_window(int display, std::string_view title, display::Size size,
                                 display::WindowEventHandler& event_handler,
-                                display::Window::Config config) -> std::unique_ptr<display::Window>
+                                const display::Window::Config& config) -> std::unique_ptr<display::Window>
 {
-    static_cast<void>(display);    
-    static_cast<void>(title);    
-    static_cast<void>(size);    
-    static_cast<void>(event_handler);    
-    static_cast<void>(config);    
-    throw std::runtime_error("*click*");     
+    if (ARCHON_UNLIKELY(display < 0 || display >= int(ScreenCount(dpy))))
+        throw std::invalid_argument("Bad display index");
+    return do_new_window(display, title, size, event_handler, config); // Throws
 }
 
 
 void ConnectionImpl::process_events(display::ConnectionEventHandler* connection_event_handler)
 {
-    static_cast<void>(connection_event_handler);    
-    throw std::runtime_error("*click*");     
+    display::ConnectionEventHandler& connection_event_handler_2 =
+        (connection_event_handler ? *connection_event_handler : *this);
+  again:
+    if (ARCHON_LIKELY(process_outstanding_events(connection_event_handler_2))) { // Throws
+        wait_for_events(); // Throws
+        goto again;
+    }
 }
 
 
@@ -263,21 +462,22 @@ bool ConnectionImpl::process_events(time_point_type deadline,
 
 int ConnectionImpl::get_num_displays() const
 {
-    throw std::runtime_error("*click*");     
+    return int(ScreenCount(dpy));
 }
 
 
 int ConnectionImpl::get_default_display() const
 {
-    throw std::runtime_error("*click*");     
+    return int(DefaultScreen(dpy));
 }
 
 
 bool ConnectionImpl::try_get_display_conf(int display, core::Buffer<display::Screen>&, core::Buffer<char>&,
                                           std::size_t&) const
 {
-    static_cast<void>(display);    
-    throw std::runtime_error("*click*");     
+    if (ARCHON_UNLIKELY(display < 0 || display >= int(ScreenCount(dpy))))
+        throw std::invalid_argument("Bad display index");
+    return false;                       
 }
 
 
@@ -287,7 +487,256 @@ auto ConnectionImpl::get_implementation() const noexcept -> const display::Imple
 }
 
 
-#else // !ARCHON_DISPLAY_HAVE_X11
+inline auto ConnectionImpl::intern(const char* string) noexcept -> Atom
+{
+    Atom atom = XInternAtom(dpy, string, False);
+    ARCHON_ASSERT(atom != None);
+    return atom;
+}
+
+
+auto ConnectionImpl::do_new_window(int screen, std::string_view title, display::Size size,
+                                   display::WindowEventHandler& event_handler,
+                                   const display::Window::Config& config) -> std::unique_ptr<display::Window>
+{
+    if (ARCHON_UNLIKELY(size.width < 0 || size.height < 0))
+        throw std::invalid_argument("Bad window size");
+    const X11Screen& screen_2 = ensure_x11_screen(screen); // Throws
+    auto win = std::make_unique<WindowImpl>(*this); // Throws
+    win->create(screen_2, size, event_handler, config.cookie); // Throws
+    win->set_title(title); // Throws
+    // FIXME: Tend to window configuration                                                   
+    static_cast<void>(config);                         
+    return win;
+}
+
+
+bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler& connection_event_handler)
+{
+    XEvent ev;
+
+    int i = 0;
+    int n = 0;
+
+    goto read_events;
+
+  next_event_1:
+    if (i < n)
+        goto next_event_2;
+
+  read_events:
+    ARCHON_ASSERT(i == n);
+    i = 0;
+    n = XEventsQueued(dpy, QueuedAfterReading); // Non-blocking read
+    if (ARCHON_LIKELY(n > 0))
+        goto next_event_2;
+    goto exhausted;
+
+  next_event_2:
+    ARCHON_ASSERT(i < n);
+    XNextEvent(dpy, &ev);
+    ++i;
+    switch (ev.type) {
+        case ClientMessage: {
+            bool is_close = (ev.xclient.format == 32 && Atom(ev.xclient.data.l[0]) == atom_wm_delete_window);
+            if (ARCHON_LIKELY(is_close)) {
+                const WindowEntry* entry = lookup_window_entry(ev.xclient.window);
+                if (ARCHON_LIKELY(entry)) {
+                    display::WindowEvent event;
+                    event.cookie = entry->cookie;
+                    bool proceed = entry->event_handler.on_close(event); // Throws
+                    if (ARCHON_LIKELY(!proceed))
+                        return false; // Interrupt
+                }
+            }
+            break;
+        }
+    }
+    goto next_event_1;
+
+  exhausted:
+    {
+        bool proceed = connection_event_handler.before_sleep(); // Throws
+        if (ARCHON_UNLIKELY(!proceed))
+            return false; // Interrupt
+    }
+
+    // Ensure that all outgoing X11 requests are flushed before we start waiting
+    XFlush(dpy);
+
+    return true; // Wait for more events to occur
+}
+
+
+void ConnectionImpl::wait_for_events()
+{
+    pollfd fds[1] {};
+    int nfds = 1;
+    int timeout = -1; // No timeout
+    fds[0].fd = ConnectionNumber(dpy);
+    fds[0].events = POLLIN;
+    int ret, err;
+  again:
+    ret = ::poll(fds, nfds, timeout);
+    if (ARCHON_LIKELY(ret >= 0)) {
+        ARCHON_ASSERT(ret == 1);
+        return;
+    }
+    err = errno; // Eliminate any risk of clobbering
+    if (ARCHON_LIKELY(err == EINTR))
+        goto again;
+    core::throw_system_error(err, "Failed to poll fire descriptor of X11 connection"); // Throws
+}
+
+
+auto ConnectionImpl::lookup_window_entry(::Window window_id) noexcept -> const WindowEntry*
+{
+    if (ARCHON_LIKELY(m_have_curr_window_id && window_id == m_curr_window_id))
+        return m_curr_window_entry;
+
+    const WindowEntry* entry = nullptr;
+    auto i = m_window_entries.find(window_id);
+    if (ARCHON_LIKELY(i != m_window_entries.end()))
+        entry = &i->second;
+    m_curr_window_id = window_id;
+    m_curr_window_entry = entry;
+    m_have_curr_window_id = true;
+    return entry;
+}
+
+
+
+inline WindowImpl::WindowImpl(ConnectionImpl& conn_2) noexcept
+    : conn(conn_2)
+{
+}
+
+
+WindowImpl::~WindowImpl() noexcept
+{
+    if (ARCHON_LIKELY(m_have_window)) {
+        if (m_is_registered)
+            conn.unregister_window(win);
+        XDestroyWindow(conn.dpy, win);
+    }
+}
+
+
+void WindowImpl::create(const X11Screen& screen, display::Size size, display::WindowEventHandler& event_handler,
+                        int cookie)
+{
+    ::Window parent = screen.root;
+    int x = 0, y = 0;
+    unsigned width  = unsigned(size.width);
+    unsigned height = unsigned(size.height);
+    unsigned border_width = 0;
+    int depth = screen.depth;
+    unsigned class_ = InputOutput;
+    Visual* visual = screen.visual;
+    unsigned long valuemask = CWEventMask | CWColormap;
+    XSetWindowAttributes attributes = {};
+    attributes.event_mask = (KeyPressMask | ExposureMask | StructureNotifyMask |
+                             ButtonMotionMask | ButtonPressMask | ButtonReleaseMask);                            
+    attributes.colormap = screen.colormap;
+    win = XCreateWindow(conn.dpy, parent, x, y, width, height, border_width, depth, class_, visual,
+                        valuemask, &attributes);
+    m_have_window = true;
+
+    conn.register_window(win, event_handler, cookie); // Throws
+    m_is_registered = true;
+
+    // Ask X server to notify rather than close connection when window is closed
+    set_property(conn.atom_wm_protocols, conn.atom_wm_delete_window);
+}
+
+
+void WindowImpl::show()
+{
+    XMapWindow(conn.dpy, win);
+}
+
+
+void WindowImpl::hide()
+{
+    XUnmapWindow(conn.dpy, win);
+}
+
+
+void WindowImpl::set_title(std::string_view title)
+{
+    // FIXME: Tend to character encoding. How does SDL do it? Doe it support UTF-8? See also https://tronche.com/gui/x/xlib/ICC/client-to-window-manager/XmbTextListToTextProperty.html              
+    // FIXME: Consider placing a reusable string buffer in ConnectionImpl for use cases like the one below      
+    std::string name_1 = std::string(title); // Throws
+    char* name_2 = name_1.data();
+    XTextProperty name_3;
+    Status status = XStringListToTextProperty(&name_2, 1, &name_3);
+    ARCHON_STEADY_ASSERT(status != 0);
+    XSetWMName(conn.dpy, win, &name_3);
+    XFree(name_3.value);
+}
+
+
+void WindowImpl::set_size(display::Size size)
+{
+    static_cast<void>(size);    
+    throw std::runtime_error("*click*");     
+}
+
+
+void WindowImpl::set_fullscreen_mode(bool on)
+{
+    static_cast<void>(on);    
+    throw std::runtime_error("*click*");     
+}
+
+
+void WindowImpl::fill(util::Color color)
+{
+    static_cast<void>(color);    
+    throw std::runtime_error("*click*");     
+}
+
+
+auto WindowImpl::new_texture(display::Size size) -> std::unique_ptr<display::Texture>
+{
+    static_cast<void>(size);    
+    throw std::runtime_error("*click*");     
+}
+
+
+void WindowImpl::put_texture(const display::Texture& tex)
+{
+    static_cast<void>(tex);    
+    throw std::runtime_error("*click*");     
+}
+
+
+void WindowImpl::present()
+{
+    throw std::runtime_error("*click*");     
+}
+
+
+void WindowImpl::opengl_make_current()
+{
+    throw std::runtime_error("*click*");     
+}
+
+
+void WindowImpl::opengl_swap_buffers()
+{
+    throw std::runtime_error("*click*");     
+}
+
+
+void WindowImpl::set_property(Atom name, Atom value) noexcept
+{
+    XChangeProperty(conn.dpy, win, name, conn.atom_atom, 32, PropModeReplace,
+                    reinterpret_cast<unsigned char*>(&value), 1);
+}
+
+
+#else // !HAVE_X11
 
 
 class SlotImpl
@@ -311,7 +760,7 @@ auto SlotImpl::get_implementation_a(const display::Guarantees&) const noexcept -
 }
 
 
-#endif // !ARCHON_DISPLAY_HAVE_X11
+#endif // !HAVE_X11
 
 
 } // unnamed namespace

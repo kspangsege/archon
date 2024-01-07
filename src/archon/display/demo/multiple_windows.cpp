@@ -69,8 +69,7 @@ public:
         display::Window::Config config;
         config.cookie = id;
         config.resizable = true;
-        std::unique_ptr<display::Window> win =
-            m_conn.new_window(m_display, title, g_small, *this, std::move(config)); // Throws
+        std::unique_ptr<display::Window> win = m_conn.new_window(m_display, title, g_small, *this, config); // Throws
         win->show(); // Throws
         math::Vector<3, double> hsv = { m_next_hue, 0.3, 0.5 };
         m_next_hue = core::periodic_mod(m_next_hue + core::golden_fraction<double>, 1.0);
@@ -156,8 +155,11 @@ public:
                     break;
                 }
                 case display::Key::escape: {
-                    m_windows.erase(ev.cookie);
-                    break;
+                    if (m_windows.size() > 1) {
+                        m_windows.erase(ev.cookie);
+                        break;
+                    }
+                    return false; // Terminate
                 }
                 default:
                     break;
@@ -176,10 +178,13 @@ public:
         return true;
     }
 
-    bool on_close(const display::TimedWindowEvent& ev) override final
+    bool on_close(const display::WindowEvent& ev) override final
     {
-        m_windows.erase(ev.cookie);
-        return true;
+        if (m_windows.size() > 1) {
+            m_windows.erase(ev.cookie);
+            return true;
+        }
+        return false; // Terminate
     }
 
 private:

@@ -196,6 +196,10 @@ int main(int argc, char* argv[])
     log::FileLogger root_logger(core::File::get_cout(), locale); // Throws
     log::LimitLogger logger(root_logger, log_level_limit); // Throws
 
+    SDL_SetMainReady();
+    if (ARCHON_UNLIKELY(!SDL_SetHint("SDL_NO_SIGNAL_HANDLERS", "1")))
+        throw std::runtime_error("Failed to set SDL hint SDL_NO_SIGNAL_HANDLERS");
+
     {
         int ret = SDL_Init(SDL_INIT_VIDEO);
         if (ret < 0)

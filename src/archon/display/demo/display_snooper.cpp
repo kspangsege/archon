@@ -46,7 +46,8 @@ namespace {
 
 
 class EventLoop
-    : public display::WindowEventHandler {
+    : public display::WindowEventHandler
+    , public display::ConnectionEventHandler {
 public:
     EventLoop(display::Connection& conn, log::Logger& logger) noexcept
         : m_impl(conn.get_implementation())
@@ -62,12 +63,12 @@ public:
 
     void process_events()
     {
-        m_conn.process_events(); // Throws
+        m_conn.process_events(this); // Throws
     }
 
     bool on_keydown(const display::KeyEvent& ev) override final
     {
-        m_logger.info("Key: %s", display::as_key_name (ev.key_code, m_impl));
+        m_logger.info("KEY: %s", display::as_key_name (ev.key_code, m_impl));
         display::Key key = {};
         if (ARCHON_LIKELY(m_impl.try_map_key_code_to_key(ev.key_code, key))) { // Throws
             if (ARCHON_UNLIKELY(key == display::Key::escape))
@@ -78,10 +79,22 @@ public:
 
     bool on_expose(const display::WindowEvent&) override final
     {
+        m_logger.info("EXPOSE");
         m_win->fill(util::colors::green); // Throws
         m_win->present(); // Throws
-        m_logger.info("Expose");
         return true;
+    }
+
+    bool on_close(const display::WindowEvent&) override final
+    {
+        m_logger.info("CLOSE");
+        return false; // Terminate
+    }
+
+    bool on_quit() override final
+    {
+        m_logger.info("QUIT");
+        return false; // Terminate
     }
 
 private:

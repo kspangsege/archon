@@ -55,6 +55,25 @@ ARCHON_TEST(Core_FlatMultimap_Insert)
 }
 
 
+ARCHON_TEST(Core_FlatMultimap_Erase)
+{
+    core::FlatMultimap<int, int> map = {
+        { 1, 0 },
+        { 3, 0 },
+        { 3, 0 },
+    };
+
+    ARCHON_CHECK_EQUAL(map.erase(2), 0);
+    ARCHON_CHECK_EQUAL_SEQ(map, (std::vector<core::Pair<int, int>> {{ 1, 0 }, { 3, 0 }, { 3, 0 }}));
+
+    ARCHON_CHECK_EQUAL(map.erase(3), 2);
+    ARCHON_CHECK_EQUAL_SEQ(map, (std::vector<core::Pair<int, int>> {{ 1, 0 }}));
+
+    ARCHON_CHECK_EQUAL(map.erase(3), 0);
+    ARCHON_CHECK_EQUAL_SEQ(map, (std::vector<core::Pair<int, int>> {{ 1, 0 }}));
+}
+
+
 ARCHON_TEST(Core_FlatMultimap_Contains)
 {
     core::FlatMultimap<int, int> map = {

@@ -53,6 +53,21 @@ ARCHON_TEST(Core_FlatSet_Insert)
 }
 
 
+ARCHON_TEST(Core_FlatSet_Erase)
+{
+    core::FlatSet<int> set = { 1, 2, 4 };
+
+    ARCHON_CHECK_EQUAL(set.erase(3), 0);
+    ARCHON_CHECK_EQUAL_SEQ(set, (std::vector<int> { 1, 2, 4 }));
+
+    ARCHON_CHECK_EQUAL(set.erase(2), 1);
+    ARCHON_CHECK_EQUAL_SEQ(set, (std::vector<int> { 1, 4 }));
+
+    ARCHON_CHECK_EQUAL(set.erase(2), 0);
+    ARCHON_CHECK_EQUAL_SEQ(set, (std::vector<int> { 1, 4 }));
+}
+
+
 ARCHON_TEST(Core_FlatSet_Contains)
 {
     core::FlatSet<int> set = { 1, 2, 4 };

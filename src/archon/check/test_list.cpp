@@ -26,9 +26,8 @@ using namespace archon;
 using check::TestList;
 
 
-void TestList::do_add(std::string_view name, check::Location location, RunFunc* run_func,
+void TestList::do_add(std::string_view name, check::Location location, RunFunc run_func,
                       IsEnabledFunc* is_enabled_func, bool allow_concur)
 {
-    Entry entry { run_func, is_enabled_func, allow_concur, { name, location } };
-    m_entries.push_back(entry); // Throws
+    m_entries.push_back({ std::move(run_func), is_enabled_func, allow_concur, { name, location } }); // Throws
 }

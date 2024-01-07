@@ -117,9 +117,9 @@ public:
     /// FIXME: When an X11-based implementation is added, state this: When using the X11-based implementation (\ref display::get_x11_implementation()), the initial position is generally determined by a window manager.                   
     ///
     virtual auto new_window(std::string_view title, display::Size size, display::WindowEventHandler&,
-                            display::Window::Config = {}) -> std::unique_ptr<display::Window> = 0;
+                            const display::Window::Config& = {}) -> std::unique_ptr<display::Window> = 0;
     virtual auto new_window(int display, std::string_view title, display::Size size, display::WindowEventHandler&,
-                            display::Window::Config = {}) -> std::unique_ptr<display::Window> = 0;
+                            const display::Window::Config& = {}) -> std::unique_ptr<display::Window> = 0;
     /// \}
 
     using clock_type      = std::chrono::steady_clock;
@@ -159,7 +159,7 @@ public:
     /// this connection. See \ref display::Connection for general information about
     /// displays.
     ///
-    /// FIXME: When an X11-based implementation is added, state this: When using the X11-based implementation (\ref display::get_x11_implementation()), each X screen becomes a display.                            
+    /// FIXME: When an X11-based implementation is added, state this: When using the X11-based implementation (\ref display::get_x11_implementation()), each X screen counts as a display.                            
     ///
     /// When using the SDL-based implementation (\ref
     /// display::get_sdl_implementation_slot()), only one display will be exposed. When SDL

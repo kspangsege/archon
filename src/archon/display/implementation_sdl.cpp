@@ -54,6 +54,7 @@
 #    pragma clang diagnostic push
 #    pragma clang diagnostic ignored "-Wold-style-cast"
 #  endif
+#  define SDL_MAIN_HANDLED
 #  include <SDL.h>
 #  if ARCHON_CLANG
 #    pragma clang diagnostic pop
@@ -139,10 +140,10 @@ public:
     void register_window(Uint32 id, display::WindowEventHandler&, int cookie);
     void unregister_window(Uint32 id) noexcept;
 
-    auto new_window(std::string_view, display::Size, display::WindowEventHandler&, display::Window::Config) ->
-        std::unique_ptr<display::Window> override final;
-    auto new_window(int, std::string_view, display::Size, display::WindowEventHandler&, display::Window::Config) ->
-        std::unique_ptr<display::Window> override final;
+    auto new_window(std::string_view, display::Size, display::WindowEventHandler&,
+                    const display::Window::Config&) -> std::unique_ptr<display::Window> override final;
+    auto new_window(int, std::string_view, display::Size, display::WindowEventHandler&,
+                    const display::Window::Config&) -> std::unique_ptr<display::Window> override final;
     void process_events(display::ConnectionEventHandler*) override final;
     bool process_events(time_point_type, display::ConnectionEventHandler*) override final;
     int get_num_displays() const override final;
@@ -161,10 +162,23 @@ private:
         int cookie;
     };
 
-    core::FlatMap<Uint32, WindowEntry> m_windows;
+    core::FlatMap<Uint32, WindowEntry> m_window_entries;
 
+    // If `m_curr_window_id` is greater than zero, then `m_curr_window_entry` specifies the
+    // entry for the window whose ID is the value of `m_curr_window_id` (valid window IDs
+    // are always greater than zero). If `m_curr_window_id` is zero, `m_curr_window_entry`
+    // has no meaning.
+    //
+    // If `m_curr_window_id` is greater than zero, but `m_curr_window_entry` is null, it
+    // means that the application has no knowledge of a window with that ID. This state is
+    // entered if the window specified by `m_curr_window_id` is unregistered
+    // (unregister_window()). The state is updated whenever a new window is registered
+    // (register_window()), which takes care of the case where a new window reuses the ID
+    // specified by `m_curr_window_id`.
+    //
     Uint32 m_curr_window_id = 0;
     const WindowEntry* m_curr_window_entry = nullptr;
+
     bool m_have_prev_timestamp = false;
     Uint32 m_prev_timestamp = 0;
     time_point_type m_prev_timestamp_2 = {};
@@ -187,7 +201,7 @@ public:
     WindowImpl(ConnectionImpl&) noexcept;
     ~WindowImpl() noexcept override;
 
-    void create(std::string_view title, display::Size size, display::WindowEventHandler&, Config);
+    void create(std::string_view title, display::Size size, display::WindowEventHandler&, const Config&);
     auto ensure_renderer() -> SDL_Renderer*;
 
     void show() override final;
@@ -326,6 +340,10 @@ void ConnectionImpl::open()
     if (impl.have_connection)
         throw std::runtime_error("Overlapping connections");
     SDL_SetMainReady();
+    if (ARCHON_UNLIKELY(!SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS, "1")))
+        throw std::runtime_error("Failed to set SDL hint " SDL_HINT_NO_SIGNAL_HANDLERS);
+    if (ARCHON_UNLIKELY(!SDL_SetHint(SDL_HINT_QUIT_ON_LAST_WINDOW_CLOSE, "0")))
+        throw std::runtime_error("Failed to set SDL hint " SDL_HINT_QUIT_ON_LAST_WINDOW_CLOSE);
     Uint32 flags = SDL_INIT_VIDEO;
     int ret = SDL_Init(flags);
     if (ARCHON_LIKELY(ret >= 0)) {
@@ -339,12 +357,13 @@ void ConnectionImpl::open()
 
 inline void ConnectionImpl::register_window(Uint32 id, display::WindowEventHandler& event_handler, int cookie)
 {
+    ARCHON_ASSERT(id > 0);
     WindowEntry entry = { event_handler, cookie };
-    auto i = m_windows.emplace(id, entry); // Throws
+    auto i = m_window_entries.emplace(id, entry); // Throws
     bool was_inserted = i.second;
     ARCHON_ASSERT(was_inserted);
-    // Inserting into `m_windows` will generally invalidate `m_curr_window_entry`, so it
-    // needs to be reset here.
+    // Because a new window might reuse the ID currently specified by `m_curr_window_id`, it
+    // is necessary, and not just desirable to reset the "current window state" here.
     m_curr_window_id = id;
     m_curr_window_entry = &i.first->second;
 }
@@ -352,7 +371,9 @@ inline void ConnectionImpl::register_window(Uint32 id, display::WindowEventHandl
 
 inline void ConnectionImpl::unregister_window(Uint32 id) noexcept
 {
-    m_windows.erase(id);
+    ARCHON_ASSERT(id > 0);
+    std::size_t n = m_window_entries.erase(id);
+    ARCHON_ASSERT(n == 1);
     if (ARCHON_LIKELY(id == m_curr_window_id))
         m_curr_window_entry = nullptr;
 }
@@ -360,7 +381,7 @@ inline void ConnectionImpl::unregister_window(Uint32 id) noexcept
 
 auto ConnectionImpl::new_window(std::string_view title, display::Size size,
                                 display::WindowEventHandler& event_handler,
-                                display::Window::Config config) -> std::unique_ptr<display::Window>
+                                const display::Window::Config& config) -> std::unique_ptr<display::Window>
 {
     auto win = std::make_unique<WindowImpl>(*this); // Throws
     win->create(title, size, event_handler, config); // Throws
@@ -370,11 +391,11 @@ auto ConnectionImpl::new_window(std::string_view title, display::Size size,
 
 auto ConnectionImpl::new_window(int display, std::string_view title, display::Size size,
                                 display::WindowEventHandler& event_handler,
-                                display::Window::Config config) -> std::unique_ptr<display::Window>
+                                const display::Window::Config& config) -> std::unique_ptr<display::Window>
 {
     if (ARCHON_UNLIKELY(display != 0))
         throw std::invalid_argument("Bad display index");
-    return new_window(title, size, event_handler, std::move(config)); // Throws
+    return new_window(title, size, event_handler, config); // Throws
 }
 
 
@@ -435,258 +456,259 @@ auto ConnectionImpl::get_implementation() const noexcept -> const display::Imple
 
 bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler& connection_event_handler)
 {
-    for (;;) {
-        SDL_Event event;
+    SDL_Event event;
+
+  next_event_1:
+    {
         int ret = SDL_PollEvent(&event);
-        if (ARCHON_LIKELY(ret == 0))
-            break;
-        ARCHON_ASSERT(ret == 1);
-        switch (event.type) {
-            case SDL_MOUSEMOTION: {
-                if (ARCHON_LIKELY(event.motion.state == 0))
+        if (ARCHON_LIKELY(ret == 1))
+            goto next_event_2;
+        ARCHON_ASSERT(ret == 0);
+    }
+    goto exhausted;
+
+  next_event_2:
+    switch (event.type) {
+        case SDL_MOUSEMOTION: {
+            if (ARCHON_LIKELY(event.motion.state == 0))
+                break;
+            const WindowEntry* entry = lookup_window_entry(event.motion.windowID);
+            if (ARCHON_LIKELY(entry)) {
+                display::MouseButtonEvent event_2;
+                event_2.cookie = entry->cookie;
+                event_2.timestamp = map_next_timestamp(event.motion.timestamp); // Throws
+                event_2.pos = { event.motion.x, event.motion.y };
+                bool proceed = entry->event_handler.on_mousemove(event_2); // Throws
+                if (ARCHON_LIKELY(proceed))
                     break;
-                const WindowEntry* entry = lookup_window_entry(event.motion.windowID);
-                if (ARCHON_LIKELY(entry)) {
-                    display::MouseButtonEvent event_2;
-                    event_2.cookie = entry->cookie;
-                    event_2.timestamp = map_next_timestamp(event.motion.timestamp); // Throws
-                    event_2.pos = { event.motion.x, event.motion.y };
-                    bool proceed = entry->event_handler.on_mousemove(event_2); // Throws
-                    if (ARCHON_LIKELY(proceed))
-                        break;
-                    return false; // Interrupt
-                }
-                break;
+                return false; // Interrupt
             }
-            case SDL_MOUSEWHEEL: {
-                const WindowEntry* entry = lookup_window_entry(event.wheel.windowID);
-                if (ARCHON_LIKELY(entry)) {
-                    display::ScrollEvent event_2;
-                    event_2.cookie = entry->cookie;
-                    event_2.timestamp = map_next_timestamp(event.wheel.timestamp); // Throws
-                    event_2.amount = { event.wheel.preciseX, event.wheel.preciseY };
-                    bool proceed = entry->event_handler.on_scroll(event_2); // Throws
-                    if (ARCHON_LIKELY(proceed))
-                        break;
-                    return false; // Interrupt
-                }
-                break;
+            break;
+        }
+        case SDL_MOUSEWHEEL: {
+            const WindowEntry* entry = lookup_window_entry(event.wheel.windowID);
+            if (ARCHON_LIKELY(entry)) {
+                display::ScrollEvent event_2;
+                event_2.cookie = entry->cookie;
+                event_2.timestamp = map_next_timestamp(event.wheel.timestamp); // Throws
+                event_2.amount = { event.wheel.preciseX, event.wheel.preciseY };
+                bool proceed = entry->event_handler.on_scroll(event_2); // Throws
+                if (ARCHON_LIKELY(proceed))
+                    break;
+                return false; // Interrupt
             }
-            case SDL_MOUSEBUTTONDOWN: {
-                const WindowEntry* entry = lookup_window_entry(event.button.windowID);
-                if (ARCHON_LIKELY(entry)) {
-                    display::MouseButtonEvent event_2;
-                    event_2.cookie = entry->cookie;
-                    event_2.timestamp = map_next_timestamp(event.button.timestamp); // Throws
-                    event_2.pos = { event.button.x, event.button.y };
-                    event_2.button = map_mouse_button(event.button.button);
-                    bool proceed = entry->event_handler.on_mousedown(event_2); // Throws
-                    if (ARCHON_LIKELY(proceed))
-                        break;
-                    return false; // Interrupt
-                }
-                break;
+            break;
+        }
+        case SDL_MOUSEBUTTONDOWN: {
+            const WindowEntry* entry = lookup_window_entry(event.button.windowID);
+            if (ARCHON_LIKELY(entry)) {
+                display::MouseButtonEvent event_2;
+                event_2.cookie = entry->cookie;
+                event_2.timestamp = map_next_timestamp(event.button.timestamp); // Throws
+                event_2.pos = { event.button.x, event.button.y };
+                event_2.button = map_mouse_button(event.button.button);
+                bool proceed = entry->event_handler.on_mousedown(event_2); // Throws
+                if (ARCHON_LIKELY(proceed))
+                    break;
+                return false; // Interrupt
             }
-            case SDL_MOUSEBUTTONUP: {
-                const WindowEntry* entry = lookup_window_entry(event.button.windowID);
-                if (ARCHON_LIKELY(entry)) {
-                    display::MouseButtonEvent event_2;
-                    event_2.cookie = entry->cookie;
-                    event_2.timestamp = map_next_timestamp(event.button.timestamp); // Throws
-                    event_2.pos = { event.button.x, event.button.y };
-                    event_2.button = map_mouse_button(event.button.button);
-                    bool proceed = entry->event_handler.on_mouseup(event_2); // Throws
-                    if (ARCHON_LIKELY(proceed))
-                        break;
-                    return false; // Interrupt
-                }
-                break;
+            break;
+        }
+        case SDL_MOUSEBUTTONUP: {
+            const WindowEntry* entry = lookup_window_entry(event.button.windowID);
+            if (ARCHON_LIKELY(entry)) {
+                display::MouseButtonEvent event_2;
+                event_2.cookie = entry->cookie;
+                event_2.timestamp = map_next_timestamp(event.button.timestamp); // Throws
+                event_2.pos = { event.button.x, event.button.y };
+                event_2.button = map_mouse_button(event.button.button);
+                bool proceed = entry->event_handler.on_mouseup(event_2); // Throws
+                if (ARCHON_LIKELY(proceed))
+                    break;
+                return false; // Interrupt
             }
-            case SDL_KEYDOWN: {
-                if (ARCHON_LIKELY(event.key.repeat == 0)) {
-                    const WindowEntry* entry = lookup_window_entry(event.key.windowID);
-                    if (ARCHON_LIKELY(entry)) {
-                        display::KeyEvent event_2;
-                        event_2.cookie = entry->cookie;
-                        event_2.timestamp = map_next_timestamp(event.key.timestamp); // Throws
-                        event_2.key_code = { display::KeyCode::code_type(event.key.keysym.sym) };
-                        bool proceed = entry->event_handler.on_keydown(event_2); // Throws
-                        if (ARCHON_LIKELY(proceed))
-                            break;
-                        return false; // Interrupt
-                    }
-                }
-                break;
-            }
-            case SDL_KEYUP: {
+            break;
+        }
+        case SDL_KEYDOWN: {
+            if (ARCHON_LIKELY(event.key.repeat == 0)) {
                 const WindowEntry* entry = lookup_window_entry(event.key.windowID);
                 if (ARCHON_LIKELY(entry)) {
                     display::KeyEvent event_2;
                     event_2.cookie = entry->cookie;
                     event_2.timestamp = map_next_timestamp(event.key.timestamp); // Throws
                     event_2.key_code = { display::KeyCode::code_type(event.key.keysym.sym) };
-                    bool proceed = entry->event_handler.on_keyup(event_2); // Throws
+                    bool proceed = entry->event_handler.on_keydown(event_2); // Throws
                     if (ARCHON_LIKELY(proceed))
                         break;
                     return false; // Interrupt
                 }
-                break;
             }
-            case SDL_WINDOWEVENT:
-                switch (event.window.event) {
-                    case SDL_WINDOWEVENT_ENTER: {
-                        const WindowEntry* entry = lookup_window_entry(event.window.windowID);
-                        if (ARCHON_LIKELY(entry)) {
-                            display::TimedWindowEvent event_2;
-                            event_2.cookie = entry->cookie;
-                            event_2.timestamp = map_next_timestamp(event.window.timestamp); // Throws
-                            bool proceed = entry->event_handler.on_mouseover(event_2); // Throws
-                            if (ARCHON_LIKELY(proceed))
-                                break;
-                            return false; // Interrupt
-                        }
-                        break;
-                    }
-                    case SDL_WINDOWEVENT_LEAVE: {
-                        const WindowEntry* entry = lookup_window_entry(event.window.windowID);
-                        if (ARCHON_LIKELY(entry)) {
-                            display::TimedWindowEvent event_2;
-                            event_2.cookie = entry->cookie;
-                            event_2.timestamp = map_next_timestamp(event.window.timestamp); // Throws
-                            bool proceed = entry->event_handler.on_mouseout(event_2); // Throws
-                            if (ARCHON_LIKELY(proceed))
-                                break;
-                            return false; // Interrupt
-                        }
-                        break;
-                    }
-                    case SDL_WINDOWEVENT_FOCUS_GAINED: {
-                        const WindowEntry* entry = lookup_window_entry(event.window.windowID);
-                        if (ARCHON_LIKELY(entry)) {
-                            display::TimedWindowEvent event_2;
-                            event_2.cookie = entry->cookie;
-                            event_2.timestamp = map_next_timestamp(event.window.timestamp); // Throws
-                            bool proceed = entry->event_handler.on_focus(event_2); // Throws
-                            if (ARCHON_LIKELY(proceed))
-                                break;
-                            return false; // Interrupt
-                        }
-                        break;
-                    }
-                    case SDL_WINDOWEVENT_FOCUS_LOST: {
-                        const WindowEntry* entry = lookup_window_entry(event.window.windowID);
-                        if (ARCHON_LIKELY(entry)) {
-                            display::TimedWindowEvent event_2;
-                            event_2.cookie = entry->cookie;
-                            event_2.timestamp = map_next_timestamp(event.window.timestamp); // Throws
-                            bool proceed = entry->event_handler.on_blur(event_2); // Throws
-                            if (ARCHON_LIKELY(proceed))
-                                break;
-                            return false; // Interrupt
-                        }
-                        break;
-                    }
-                    case SDL_WINDOWEVENT_EXPOSED: {
-                        const WindowEntry* entry = lookup_window_entry(event.window.windowID);
-                        if (ARCHON_LIKELY(entry)) {
-                            display::WindowEvent event_2;
-                            event_2.cookie = entry->cookie;
-                            bool proceed = entry->event_handler.on_expose(event_2); // Throws
-                            if (ARCHON_LIKELY(proceed))
-                                break;
-                            return false; // Interrupt
-                        }
-                        break;
-                    }
-                    case SDL_WINDOWEVENT_SIZE_CHANGED: {
-                        const WindowEntry* entry = lookup_window_entry(event.window.windowID);
-                        if (ARCHON_LIKELY(entry)) {
-                            display::WindowSizeEvent event_2;
-                            event_2.cookie = entry->cookie;
-                            core::int_cast(event.window.data1, event_2.size.width); // Throws
-                            core::int_cast(event.window.data2, event_2.size.height); // Throws
-                            bool proceed = entry->event_handler.on_resize(event_2); // Throws
-                            if (ARCHON_LIKELY(proceed))
-                                break;
-                            return false; // Interrupt
-                        }
-                        break;
-                    }
-                    case SDL_WINDOWEVENT_MOVED: {
-                        const WindowEntry* entry = lookup_window_entry(event.window.windowID);
-                        if (ARCHON_LIKELY(entry)) {
-                            display::WindowPosEvent event_2;
-                            event_2.cookie = entry->cookie;
-                            core::int_cast(event.window.data1, event_2.pos.x); // Throws
-                            core::int_cast(event.window.data2, event_2.pos.y); // Throws
-                            bool proceed = entry->event_handler.on_reposition(event_2); // Throws
-                            if (ARCHON_LIKELY(proceed))
-                                break;
-                            return false; // Interrupt
-                        }
-                        break;
-                    }
-                    case SDL_WINDOWEVENT_CLOSE: {
-                        const WindowEntry* entry = lookup_window_entry(event.window.windowID);
-                        if (ARCHON_LIKELY(entry)) {
-                            display::TimedWindowEvent event_2;
-                            event_2.cookie = entry->cookie;
-                            event_2.timestamp = map_next_timestamp(event.window.timestamp); // Throws
-                            bool proceed = entry->event_handler.on_close(event_2); // Throws
-                            if (ARCHON_LIKELY(proceed))
-                                break;
-                            return false; // Interrupt
-                        }
-                        break;
-                    }
-                }
-                break;
-/*
-            case SDL_DISPLAYEVENT: {
-                // Fetch updated display information          
-                // Call on_display_change(screens) where screens is span of ScreenInfo objects
-                // ScreenInfo has fields `name`, `bounds`, `resolution`, and `primary`
-                // Question: How does SDL_GetDisplayUsableBounds() work with X11? --> See X11_GetDisplayUsableBounds()                                                                                                                                                         
-                int ret = SDL_GetNumVideoDisplays();
-                if (ARCHON_LIKELY(ret >= 0)) {
-                    ARCHON_ASSERT(ret >= 1);
-                    int n = ret;
-                    for (int i = 0; i < n; ++i) {
-                        const char* name = SDL_GetDisplayName(i);
-                        if (ARCHON_UNLIKELY(!name))
-                            throw_sdl_error(locale, "SDL_GetDisplayName() failed"); // Throws
-                        SDL_Rect rect = {};
-                        ret = SDL_GetDisplayBounds(i, &rect);
-                        if (ARCHON_UNLIKELY(ret < 0))
-                            throw_sdl_error(locale, "SDL_GetDisplayBounds() failed"); // Throws
-                        ARCHON_ASSERT(ret == 0);
-                        display::Box bounds = { display::Pos(rect.x, rect.y), display::Size(rect.w, rect.h) };
-                        SDL_DisplayMode mode = {};
-                        ret = SDL_GetDesktopDisplayMode(i, &mode);
-                        if (ARCHON_UNLIKELY(ret < 0))
-                            throw_sdl_error(locale, "SDL_GetDesktopDisplayMode() failed"); // Throws
-                        ARCHON_ASSERT(ret == 0);
-                        log::info("SCREEN[%s]: name = %s, bounds = %s, resolution = ?, frame_rate = %s, ", i + 1, name, bounds, mode.refresh_rate);              
-                    }
-                    break;
-                }
-                throw_sdl_error(locale, "SDL_GetNumVideoDisplays() failed"); // Throws
-                break;
-            }
-*/
-            case SDL_QUIT: {
-                bool proceed = connection_event_handler.on_quit(); // Throws
+            break;
+        }
+        case SDL_KEYUP: {
+            const WindowEntry* entry = lookup_window_entry(event.key.windowID);
+            if (ARCHON_LIKELY(entry)) {
+                display::KeyEvent event_2;
+                event_2.cookie = entry->cookie;
+                event_2.timestamp = map_next_timestamp(event.key.timestamp); // Throws
+                event_2.key_code = { display::KeyCode::code_type(event.key.keysym.sym) };
+                bool proceed = entry->event_handler.on_keyup(event_2); // Throws
                 if (ARCHON_LIKELY(proceed))
                     break;
                 return false; // Interrupt
             }
+            break;
+        }
+        case SDL_WINDOWEVENT:
+            switch (event.window.event) {
+                case SDL_WINDOWEVENT_ENTER: {
+                    const WindowEntry* entry = lookup_window_entry(event.window.windowID);
+                    if (ARCHON_LIKELY(entry)) {
+                        display::TimedWindowEvent event_2;
+                        event_2.cookie = entry->cookie;
+                        event_2.timestamp = map_next_timestamp(event.window.timestamp); // Throws
+                        bool proceed = entry->event_handler.on_mouseover(event_2); // Throws
+                        if (ARCHON_LIKELY(proceed))
+                            break;
+                        return false; // Interrupt
+                    }
+                    break;
+                }
+                case SDL_WINDOWEVENT_LEAVE: {
+                    const WindowEntry* entry = lookup_window_entry(event.window.windowID);
+                    if (ARCHON_LIKELY(entry)) {
+                        display::TimedWindowEvent event_2;
+                        event_2.cookie = entry->cookie;
+                        event_2.timestamp = map_next_timestamp(event.window.timestamp); // Throws
+                        bool proceed = entry->event_handler.on_mouseout(event_2); // Throws
+                        if (ARCHON_LIKELY(proceed))
+                            break;
+                        return false; // Interrupt
+                    }
+                    break;
+                }
+                case SDL_WINDOWEVENT_FOCUS_GAINED: {
+                    const WindowEntry* entry = lookup_window_entry(event.window.windowID);
+                    if (ARCHON_LIKELY(entry)) {
+                        display::TimedWindowEvent event_2;
+                        event_2.cookie = entry->cookie;
+                        event_2.timestamp = map_next_timestamp(event.window.timestamp); // Throws
+                        bool proceed = entry->event_handler.on_focus(event_2); // Throws
+                        if (ARCHON_LIKELY(proceed))
+                            break;
+                        return false; // Interrupt
+                    }
+                    break;
+                }
+                case SDL_WINDOWEVENT_FOCUS_LOST: {
+                    const WindowEntry* entry = lookup_window_entry(event.window.windowID);
+                    if (ARCHON_LIKELY(entry)) {
+                        display::TimedWindowEvent event_2;
+                        event_2.cookie = entry->cookie;
+                        event_2.timestamp = map_next_timestamp(event.window.timestamp); // Throws
+                        bool proceed = entry->event_handler.on_blur(event_2); // Throws
+                        if (ARCHON_LIKELY(proceed))
+                            break;
+                        return false; // Interrupt
+                    }
+                    break;
+                }
+                case SDL_WINDOWEVENT_EXPOSED: {
+                    const WindowEntry* entry = lookup_window_entry(event.window.windowID);
+                    if (ARCHON_LIKELY(entry)) {
+                        display::WindowEvent event_2;
+                        event_2.cookie = entry->cookie;
+                        bool proceed = entry->event_handler.on_expose(event_2); // Throws
+                        if (ARCHON_LIKELY(proceed))
+                            break;
+                        return false; // Interrupt
+                    }
+                    break;
+                }
+                case SDL_WINDOWEVENT_SIZE_CHANGED: {
+                    const WindowEntry* entry = lookup_window_entry(event.window.windowID);
+                    if (ARCHON_LIKELY(entry)) {
+                        display::WindowSizeEvent event_2;
+                        event_2.cookie = entry->cookie;
+                        core::int_cast(event.window.data1, event_2.size.width); // Throws
+                        core::int_cast(event.window.data2, event_2.size.height); // Throws
+                        bool proceed = entry->event_handler.on_resize(event_2); // Throws
+                        if (ARCHON_LIKELY(proceed))
+                            break;
+                        return false; // Interrupt
+                    }
+                    break;
+                }
+                case SDL_WINDOWEVENT_MOVED: {
+                    const WindowEntry* entry = lookup_window_entry(event.window.windowID);
+                    if (ARCHON_LIKELY(entry)) {
+                        display::WindowPosEvent event_2;
+                        event_2.cookie = entry->cookie;
+                        core::int_cast(event.window.data1, event_2.pos.x); // Throws
+                        core::int_cast(event.window.data2, event_2.pos.y); // Throws
+                        bool proceed = entry->event_handler.on_reposition(event_2); // Throws
+                        if (ARCHON_LIKELY(proceed))
+                            break;
+                        return false; // Interrupt
+                    }
+                    break;
+                }
+                case SDL_WINDOWEVENT_CLOSE: {
+                    const WindowEntry* entry = lookup_window_entry(event.window.windowID);
+                    if (ARCHON_LIKELY(entry)) {
+                        display::WindowEvent event_2;
+                        event_2.cookie = entry->cookie;
+                        bool proceed = entry->event_handler.on_close(event_2); // Throws
+                        if (ARCHON_LIKELY(!proceed))
+                            return false; // Interrupt
+                    }
+                    break;
+                }
+            }
+            break;
+/*
+        case SDL_DISPLAYEVENT: {
+            // Fetch updated display information          
+            // Call on_display_change(screens) where screens is span of ScreenInfo objects
+            // ScreenInfo has fields `name`, `bounds`, `resolution`, and `primary`
+            // Question: How does SDL_GetDisplayUsableBounds() work with X11? --> See X11_GetDisplayUsableBounds()                                                                                                                                                         
+            int ret = SDL_GetNumVideoDisplays();
+            if (ARCHON_LIKELY(ret >= 0)) {
+                ARCHON_ASSERT(ret >= 1);
+                int n = ret;
+                for (int i = 0; i < n; ++i) {
+                    const char* name = SDL_GetDisplayName(i);
+                    if (ARCHON_UNLIKELY(!name))
+                        throw_sdl_error(locale, "SDL_GetDisplayName() failed"); // Throws
+                    SDL_Rect rect = {};
+                    ret = SDL_GetDisplayBounds(i, &rect);
+                    if (ARCHON_UNLIKELY(ret < 0))
+                        throw_sdl_error(locale, "SDL_GetDisplayBounds() failed"); // Throws
+                    ARCHON_ASSERT(ret == 0);
+                    display::Box bounds = { display::Pos(rect.x, rect.y), display::Size(rect.w, rect.h) };
+                    SDL_DisplayMode mode = {};
+                    ret = SDL_GetDesktopDisplayMode(i, &mode);
+                    if (ARCHON_UNLIKELY(ret < 0))
+                        throw_sdl_error(locale, "SDL_GetDesktopDisplayMode() failed"); // Throws
+                    ARCHON_ASSERT(ret == 0);
+                    log::info("SCREEN[%s]: name = %s, bounds = %s, resolution = ?, frame_rate = %s, ", i + 1, name, bounds, mode.refresh_rate);              
+                }
+                break;
+            }
+            throw_sdl_error(locale, "SDL_GetNumVideoDisplays() failed"); // Throws
+            break;
+        }
+*/
+        case SDL_QUIT: {
+            bool proceed = connection_event_handler.on_quit(); // Throws
+            if (ARCHON_LIKELY(!proceed))
+                return false; // Interrupt
+            break;
         }
     }
-    if (m_windows.empty()) {
-        bool proceed = connection_event_handler.on_quit(); // Throws
-        if (ARCHON_UNLIKELY(!proceed))
-            return false; // Interrupt
-    }
+    goto next_event_1;
+
+  exhausted:
     {
         bool proceed = connection_event_handler.before_sleep(); // Throws
         if (ARCHON_UNLIKELY(!proceed))
@@ -748,15 +770,12 @@ bool ConnectionImpl::wait_for_events(time_point_type deadline)
 
 auto ConnectionImpl::lookup_window_entry(Uint32 window_id) noexcept -> const WindowEntry*
 {
-    // FIXME: What, if anything, ensures that event.key.windowID refers to the window that is currently registered under that identifier, and not to some earlier window that was also identified by that value?
-    // These expectation should be that there is a type of event the marks the end of the use of a window identifier               
-
     if (ARCHON_LIKELY(window_id == m_curr_window_id))
         return m_curr_window_entry;
 
     const WindowEntry* entry = nullptr;
-    auto i = m_windows.find(window_id);
-    if (ARCHON_LIKELY(i != m_windows.end()))
+    auto i = m_window_entries.find(window_id);
+    if (ARCHON_LIKELY(i != m_window_entries.end()))
         entry = &i->second;
     m_curr_window_id = window_id;
     m_curr_window_entry = entry;
@@ -799,7 +818,6 @@ inline WindowImpl::WindowImpl(ConnectionImpl& conn_2) noexcept
 
 WindowImpl::~WindowImpl() noexcept
 {
-    // FIXME: Maybe safer to inject a custom event here such that the following can be carried out in the context of the event handler                                                               
     if (ARCHON_LIKELY(m_win)) {
         if (m_id > 0)
             conn.unregister_window(m_id);
@@ -813,7 +831,7 @@ WindowImpl::~WindowImpl() noexcept
 
 
 void WindowImpl::create(std::string_view title, display::Size size, display::WindowEventHandler& event_handler,
-                        Config config)
+                        const Config& config)
 {
     std::string title_2 = std::string(title); // Throws
     int x = SDL_WINDOWPOS_UNDEFINED;

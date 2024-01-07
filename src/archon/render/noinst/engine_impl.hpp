@@ -101,6 +101,7 @@ private:
         bool on_expose(const display::WindowEvent&) override final;
         bool on_resize(const display::WindowSizeEvent&) override final;
         bool on_reposition(const display::WindowPosEvent&) override final;
+        bool on_close(const display::WindowEvent&) override final;
         bool before_sleep() override final;
         bool on_quit() override final;
 

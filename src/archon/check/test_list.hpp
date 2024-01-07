@@ -52,15 +52,15 @@ class TestList {
 public:
     struct Entry;
 
-    using RunFunc = void(TestContext&);
+    using RunFunc = std::function<void(TestContext&)>;
     using IsEnabledFunc = bool();
     using iterator = std::list<Entry>::const_iterator;
 
     /// \brief Register function as test case.
     ///
-    /// This function registers the specified function (\p func) as a test case. It is
-    /// called automatically when you use the \ref ARCHON_TEST() macro (or one of its
-    /// friends).
+    /// This function registers the specified function (\p func) as a test case. This
+    /// function is called automatically when you use the \ref ARCHON_TEST() macro (or one
+    /// of its friends).
     ///
     /// The caller must ensure that the memory, pointed to by \p name and \p file_path, is
     /// not destroyed while the test list is still in use. Here, "in use" covers any
@@ -69,7 +69,7 @@ public:
     /// pointed to by \p name and \p file_path, to be destroyed before the destruction of
     /// the list, as long as the previously mentioned rule is adhered to.
     ///
-    void add(std::string_view name, const char* file_path, long line_number, RunFunc* func, IsEnabledFunc* = nullptr,
+    void add(std::string_view name, const char* file_path, long line_number, RunFunc func, IsEnabledFunc* = nullptr,
              bool allow_concur = true);
 
     /// \brief Number of test cases in list.
@@ -99,7 +99,7 @@ public:
 private:
     std::list<Entry> m_entries;
 
-    void do_add(std::string_view name, Location, RunFunc*, IsEnabledFunc*, bool allow_concur);
+    void do_add(std::string_view name, Location, RunFunc, IsEnabledFunc*, bool allow_concur);
 
     static TestList s_default_list;
 };
@@ -115,7 +115,7 @@ struct TestList::Entry {
     ///
     /// The function that is the test case.
     ///
-    RunFunc* run_func;
+    RunFunc run_func;
 
     /// \brief Function deciding whether test case is enabled.
     ///
@@ -150,11 +150,11 @@ struct TestList::Entry {
 // Implementation
 
 
-inline void TestList::add(std::string_view name, const char* file_path, long line_number, RunFunc* run_func,
+inline void TestList::add(std::string_view name, const char* file_path, long line_number, RunFunc run_func,
                           IsEnabledFunc* is_enabled_func, bool allow_concur)
 {
     Location location = { file_path, line_number };
-    do_add(name, location, run_func, is_enabled_func, allow_concur); // Throws
+    do_add(name, location, std::move(run_func), is_enabled_func, allow_concur); // Throws
 }
 
 

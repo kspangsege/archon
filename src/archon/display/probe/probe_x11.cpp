@@ -21,6 +21,7 @@
 
 #include <limits>
 #include <stdexcept>
+#include <tuple>
 #include <string>
 #include <locale>
 #include <filesystem>
@@ -307,6 +308,7 @@ int main(int argc, char* argv[])
 
     namespace fs = std::filesystem;
     std::optional<fs::path> optional_path;
+    std::optional<int> optional_depth;
     std::optional<VisualID> optional_visual;
     log::LogLevel log_level_limit = log::LogLevel::warn;
 
@@ -318,9 +320,14 @@ int main(int argc, char* argv[])
     opt(cli::help_tag, spec); // Throws
     opt(cli::stop_tag, spec); // Throws
 
+    opt("-d, --depth", "<num>", cli::no_attributes, spec,
+        "Specify the depth to be used (see command `xdpyinfo`). If no depth is specified, the default depth for the "
+        "targeted screen will be used.",
+        std::tie(optional_depth)); // Throws
+
     opt("-v, --visual", "<hex>", cli::no_attributes, spec,
-        "Specify the hexadeciaml ID of the X11 visual to be used (see command `xdpyinfo`). By default, the default "
-        "visual for the selected screen will be used.",
+        "Specify the hexadeciaml ID of the X11 visual to be used (see command `xdpyinfo`). If no visual ID is "
+        "specified, the default visual for the targeted screen will be used.",
         cli::exec([&](std::string_view str) {
             core::ValueParser parser(locale);
             VisualID id = {};
@@ -334,7 +341,7 @@ int main(int argc, char* argv[])
     opt("-l, --log-level", "<level>", cli::no_attributes, spec,
         "Set the log level limit. The possible levels are \"off\", \"fatal\", \"error\", \"warn\", \"info\", "
         "\"detail\", \"debug\", \"trace\", and \"all\". The default limit is \"@V\".",
-        cli::assign(log_level_limit)); // Throws
+        std::tie(log_level_limit)); // Throws
 
     int exit_status = 0;
     if (ARCHON_UNLIKELY(cli::process(argc, argv, spec, exit_status, locale))) // Throws
@@ -441,25 +448,31 @@ int main(int argc, char* argv[])
     }
 
     // Choose depth and visual
+    int depth = DefaultDepth(display, screen);
     VisualID visual_id = XVisualIDFromVisual(DefaultVisual(display, screen));
+    if (optional_depth.has_value())
+        depth = optional_depth.value();
     if (optional_visual.has_value())
         visual_id = optional_visual.value();
     XVisualInfo visual_info = {};
     {
         int n = 0;
-        XVisualInfo info_template;
-        info_template.visualid = visual_id;
-        XVisualInfo* entries = XGetVisualInfo(display, VisualIDMask, &info_template, &n);
+        long vinfo_mask = VisualScreenMask | VisualDepthMask | VisualIDMask;
+        XVisualInfo vinfo_template = {};
+        vinfo_template.screen = screen;
+        vinfo_template.depth = depth;
+        vinfo_template.visualid = visual_id;
+        XVisualInfo* entries = XGetVisualInfo(display, vinfo_mask, &vinfo_template, &n);
         if (ARCHON_UNLIKELY(!entries)) {
-            ARCHON_STEADY_ASSERT(optional_visual.has_value());
-            logger.error("Invalid visual ID: 0x%s", core::as_hex_int(visual_id)); // Throws
+            ARCHON_STEADY_ASSERT(optional_depth.has_value() || optional_visual.has_value());
+            logger.error("Invalid combination of depth (%s) and visual type (0x%s) for targeted screen (%s)", depth,
+                         core::as_hex_int(visual_id), screen); // Throws
             return EXIT_FAILURE;
         }
         ARCHON_STEADY_ASSERT(n == 1);
         visual_info = entries[0];
         XFree(entries);
     }
-    int depth = visual_info.depth;
     Visual* visual = visual_info.visual;
 
     // List ZPixmap formats and find "bits per pixel" for selected depth

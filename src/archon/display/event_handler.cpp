@@ -105,9 +105,9 @@ bool WindowEventHandler::on_blur(const display::TimedWindowEvent&)
 }
 
 
-bool WindowEventHandler::on_close(const display::TimedWindowEvent&)
+bool WindowEventHandler::on_close(const display::WindowEvent&)
 {
-    return true; // Do not interrupt event processing
+    return false; // Interrupt event processing
 }
 
 

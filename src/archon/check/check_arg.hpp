@@ -30,15 +30,6 @@
 #include <archon/check/impl/check_arg.hpp>
 
 
-/// \brief Construct CheckArg object for check macro argument.
-///
-/// The purpose of this macro is to make it easy to construct objects of type \ref
-/// check::CheckArg. See \ref check::TestContext::check_special_cond() for an example of its
-/// intended use.
-///
-#define ARCHON_CHECK_ARG(arg) archon::check::CheckArg(#arg, arg)
-
-
 namespace archon::check {
 
 
@@ -47,8 +38,6 @@ namespace archon::check {
 /// An object of this type is intended to carry information about an argument of a check
 /// macro (e.g., \ref ARCHON_CHECK_EQUAL()) to a function such as \ref
 /// check::TestContext::check_special_cond().
-///
-/// Ordinarily, objects of this type will be created using \ref ARCHON_CHECK_ARG().
 ///
 template<class T> class CheckArg {
 public:

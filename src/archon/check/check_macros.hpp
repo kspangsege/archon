@@ -26,8 +26,6 @@
 
 #include <exception>
 
-#include <archon/core/inexact_compare.hpp>
-
 
 /// \{
 ///
@@ -57,17 +55,24 @@
 /// These macros compare the two specified arguments.
 ///
 /// Unlike in the case or regular comparisons, these macros perform reliable comparisons
-/// when arguments are of integer or floating-point type. Comparisons are performed by \ref
-/// archon::check::TestContext::equal(), \ref archon::check::TestContext::less(), \ref
-/// archon::check::TestContext::less_equal(), \ref archon::check::TestContext::greater(), or
-/// \ref archon::check::TestContext::greater_equal().
+/// when arguments are of integer or floating-point type.
 ///
 /// The expansion of these macros assume that a variable named `test_context` of type
 /// `TestContext&` is available (see \ref ARCHON_TEST()).
 ///
-/// These macros are implemented in terms of \ref
-/// archon::check::TestContext::check_special_cond().
+/// These macros are implemented in terms of \ref archon::check::TestContext::check_equal(),
+/// \ref archon::check::TestContext::check_not_equal(), \ref
+/// archon::check::TestContext::check_less(), \ref
+/// archon::check::TestContext::check_less_equal(), \ref
+/// archon::check::TestContext::check_not_less(), \ref
+/// archon::check::TestContext::check_not_less_equal(), \ref
+/// archon::check::TestContext::check_greater(), \ref
+/// archon::check::TestContext::check_greater_equal(), \ref
+/// archon::check::TestContext::check_not_greater(), and \ref
+/// archon::check::TestContext::check_not_greater_equal().
 ///
+/// \sa \ref ARCHON_CHECK_DIST_LESS()
+/// \sa \ref ARCHON_CHECK_BETWEEN()
 /// \sa \ref ARCHON_CHECK_APPROXIMATELY_EQUAL()
 /// \sa \ref ARCHON_CHECK_COMPARE()
 ///
@@ -116,7 +121,16 @@
 /// `TestContext&` is available (see \ref ARCHON_TEST()).
 ///
 /// These macros are implemented in terms of \ref
-/// archon::check::TestContext::check_special_cond().
+/// archon::check::TestContext::check_dist_less(), \ref
+/// archon::check::TestContext::check_dist_less_equal(), \ref
+/// archon::check::TestContext::check_dist_not_less(), \ref
+/// archon::check::TestContext::check_dist_not_less_equal(), \ref
+/// archon::check::TestContext::check_dist_greater(), \ref
+/// archon::check::TestContext::check_dist_greater_equal(), \ref
+/// archon::check::TestContext::check_dist_not_greater(), and \ref
+/// archon::check::TestContext::check_dist_not_greater_equal().
+///
+/// \sa \ref ARCHON_CHECK_EQUAL()
 ///
 #define ARCHON_CHECK_DIST_LESS(a, b, dist)              X_ARCHON_CHECK_DIST_LESS(a, b, dist)
 #define ARCHON_CHECK_DIST_LESS_EQUAL(a, b, dist)        X_ARCHON_CHECK_DIST_LESS_EQUAL(a, b, dist)
@@ -138,13 +152,14 @@
 /// maximum (\p max) values. \p x is between those values if \p min is less than, or equal
 /// to \p x; and \p x is less than, or equal to \p max.
 ///
-/// Comparisons are performed as if by \ref ARCHON_CHECK_LESS_EQUAL.
-///
 /// The expansion of these macros assume that a variable named `test_context` of type
 /// `TestContext&` is available (see \ref ARCHON_TEST()).
 ///
 /// These macros are implemented in terms of \ref
-/// archon::check::TestContext::check_special_cond().
+/// archon::check::TestContext::check_between() and \ref
+/// archon::check::TestContext::check_not_between().
+///
+/// \sa \ref ARCHON_CHECK_EQUAL()
 ///
 #define ARCHON_CHECK_BETWEEN(x, min, max)     X_ARCHON_CHECK_BETWEEN(x, min, max)
 #define ARCHON_CHECK_NOT_BETWEEN(x, min, max) X_ARCHON_CHECK_NOT_BETWEEN(x, min, max)
@@ -179,12 +194,15 @@
 /// The expansion of these macros assume that a variable named `test_context` of type
 /// `TestContext&` is available (see \ref ARCHON_TEST()).
 ///
-/// The actual comparisons are performed by \ref archon::core::approximately_equal(), \ref
-/// archon::core::essentially_equal(), \ref archon::core::definitely_less(), and \ref
-/// archon::core::definitely_greater().
-///
 /// These macros are implemented in terms of \ref
-/// archon::check::TestContext::check_special_cond().
+/// archon::check::TestContext::check_approximately_equal(), \ref
+/// archon::check::TestContext::check_essentially_equal(), \ref
+/// archon::check::TestContext::check_not_approximately_equal(), \ref
+/// archon::check::TestContext::check_not_essentially_equal(), \ref
+/// archon::check::TestContext::check_definitelt_less(), \ref
+/// archon::check::TestContext::check_definitelt_greater(), \ref
+/// archon::check::TestContext::check_not_definitelt_less(), and \ref
+/// archon::check::TestContext::check_not_definitelt_greater().
 ///
 #define ARCHON_CHECK_APPROXIMATELY_EQUAL(a, b, epsilon)     X_ARCHON_CHECK_APPROXIMATELY_EQUAL(a, b, epsilon)
 #define ARCHON_CHECK_ESSENTIALLY_EQUAL(a, b, epsilon)       X_ARCHON_CHECK_ESSENTIALLY_EQUAL(a, b, epsilon)
@@ -335,113 +353,86 @@
 
 
 #define X_ARCHON_CHECK_EQUAL(a, b)                                      \
-    test_context.check_special_cond(test_context.equal(a, b), __FILE__, __LINE__, \
-                                    "ARCHON_CHECK_EQUAL", ARCHON_CHECK_ARG(a), ARCHON_CHECK_ARG(b))
+    test_context.check_equal(a, b, "ARCHON_CHECK_EQUAL", #a, #b, __FILE__, __LINE__)
 
 
 #define X_ARCHON_CHECK_NOT_EQUAL(a, b)                                  \
-    test_context.check_special_cond(!test_context.equal(a, b), __FILE__, __LINE__, \
-                                    "ARCHON_CHECK_NOT_EQUAL", ARCHON_CHECK_ARG(a), ARCHON_CHECK_ARG(b))
+    test_context.check_not_equal(a, b, "ARCHON_CHECK_NOT_EQUAL", #a, #b, __FILE__, __LINE__)
 
 
 #define X_ARCHON_CHECK_LESS(a, b)                                       \
-    test_context.check_special_cond(test_context.less(a, b), __FILE__, __LINE__, \
-                                    "ARCHON_CHECK_LESS", ARCHON_CHECK_ARG(a), ARCHON_CHECK_ARG(b))
+    test_context.check_less(a, b, "ARCHON_CHECK_LESS", #a, #b, __FILE__, __LINE__)
 
 
 #define X_ARCHON_CHECK_LESS_EQUAL(a, b)                                 \
-    test_context.check_special_cond(test_context.less_equal(a, b), __FILE__, __LINE__, \
-                                    "ARCHON_CHECK_LESS_EQUAL", ARCHON_CHECK_ARG(a), ARCHON_CHECK_ARG(b))
+    test_context.check_less_equal(a, b, "ARCHON_CHECK_LESS_EQUAL", #a, #b, __FILE__, __LINE__)
 
 
 #define X_ARCHON_CHECK_NOT_LESS(a, b)                                   \
-    test_context.check_special_cond(!test_context.less(a, b), __FILE__, __LINE__, \
-                                    "ARCHON_CHECK_NOT_LESS", ARCHON_CHECK_ARG(a), ARCHON_CHECK_ARG(b))
+    test_context.check_not_less(a, b, "ARCHON_CHECK_NOT_LESS", #a, #b, __FILE__, __LINE__)
 
 
 #define X_ARCHON_CHECK_NOT_LESS_EQUAL(a, b)                             \
-    test_context.check_special_cond(!test_context.less_equal(a, b), __FILE__, __LINE__, \
-                                    "ARCHON_CHECK_NOT_LESS_EQUAL", ARCHON_CHECK_ARG(a), ARCHON_CHECK_ARG(b))
+    test_context.check_not_less_equal(a, b, "ARCHON_CHECK_NOT_LESS_EQUAL", #a, #b, __FILE__, __LINE__)
 
 
 #define X_ARCHON_CHECK_GREATER(a, b)                                    \
-    test_context.check_special_cond(test_context.greater(a, b), __FILE__, __LINE__, \
-                                    "ARCHON_CHECK_GREATER", ARCHON_CHECK_ARG(a), ARCHON_CHECK_ARG(b))
+    test_context.check_greater(a, b, "ARCHON_CHECK_GREATER", #a, #b, __FILE__, __LINE__)
 
 
 #define X_ARCHON_CHECK_GREATER_EQUAL(a, b)                              \
-    test_context.check_special_cond(test_context.greater_equal(a, b), __FILE__, __LINE__, \
-                                    "ARCHON_CHECK_GREATER_EQUAL", ARCHON_CHECK_ARG(a), ARCHON_CHECK_ARG(b))
+    test_context.check_greater_equal(a, b, "ARCHON_CHECK_GREATER_EQUAL", #a, #b, __FILE__, __LINE__)
 
 
-#define X_ARCHON_CHECK_NOT_GREATER(a, b)                                    \
-    test_context.check_special_cond(!test_context.greater(a, b), __FILE__, __LINE__, \
-                                    "ARCHON_CHECK_NOT_GREATER", ARCHON_CHECK_ARG(a), ARCHON_CHECK_ARG(b))
+#define X_ARCHON_CHECK_NOT_GREATER(a, b)                                \
+    test_context.check_not_greater(a, b, "ARCHON_CHECK_NOT_GREATER", #a, #b, __FILE__, __LINE__)
 
 
-#define X_ARCHON_CHECK_NOT_GREATER_EQUAL(a, b)                              \
-    test_context.check_special_cond(!test_context.greater_equal(a, b), __FILE__, __LINE__, \
-                                    "ARCHON_CHECK_NOT_GREATER_EQUAL", ARCHON_CHECK_ARG(a), ARCHON_CHECK_ARG(b))
+#define X_ARCHON_CHECK_NOT_GREATER_EQUAL(a, b)                          \
+    test_context.check_not_greater_equal(a, b, "ARCHON_CHECK_NOT_GREATER_EQUAL", #a, #b, __FILE__, __LINE__)
 
 
 #define X_ARCHON_CHECK_DIST_LESS(a, b, dist)                            \
-    test_context.check_special_cond(test_context.dist_less(a, b, dist), __FILE__, __LINE__, \
-                                    "ARCHON_CHECK_DIST_LESS", ARCHON_CHECK_ARG(a), ARCHON_CHECK_ARG(b), \
-                                    ARCHON_CHECK_ARG(dist));
+    test_context.check_dist_less(a, b, dist, "ARCHON_CHECK_DIST_LESS", #a, #b, #dist, __FILE__, __LINE__)
 
 
 #define X_ARCHON_CHECK_DIST_LESS_EQUAL(a, b, dist)                      \
-    test_context.check_special_cond(test_context.dist_less_equal(a, b, dist), __FILE__, __LINE__, \
-                                    "ARCHON_CHECK_DIST_LESS_EQUAL", ARCHON_CHECK_ARG(a), ARCHON_CHECK_ARG(b), \
-                                    ARCHON_CHECK_ARG(dist));
+    test_context.check_dist_less_equal(a, b, dist, "ARCHON_CHECK_DIST_LESS_EQUAL", #a, #b, #dist, __FILE__, __LINE__)
 
 
 #define X_ARCHON_CHECK_DIST_NOT_LESS(a, b, dist)                        \
-    test_context.check_special_cond(!test_context.dist_less(a, b, dist), __FILE__, __LINE__, \
-                                    "ARCHON_CHECK_DIST_NOT_LESS", ARCHON_CHECK_ARG(a), ARCHON_CHECK_ARG(b), \
-                                    ARCHON_CHECK_ARG(dist));
+    test_context.check_dist_not_less(a, b, dist, "ARCHON_CHECK_DIST_NOT_LESS", #a, #b, #dist, __FILE__, __LINE__)
 
 
 #define X_ARCHON_CHECK_DIST_NOT_LESS_EQUAL(a, b, dist)                  \
-    test_context.check_special_cond(!test_context.dist_less_equal(a, b, dist), __FILE__, __LINE__, \
-                                    "ARCHON_CHECK_DIST_NOT_LESS_EQUAL", ARCHON_CHECK_ARG(a), ARCHON_CHECK_ARG(b), \
-                                    ARCHON_CHECK_ARG(dist));
+    test_context.check_dist_not_less_equal(a, b, dist, "ARCHON_CHECK_DIST_NOT_LESS_EQUAL", #a, #b, #dist, \
+                                           __FILE__, __LINE__)
 
 
 #define X_ARCHON_CHECK_DIST_GREATER(a, b, dist)                         \
-    test_context.check_special_cond(test_context.dist_greater(a, b, dist), __FILE__, __LINE__, \
-                                    "ARCHON_CHECK_DIST_GREATER", ARCHON_CHECK_ARG(a), ARCHON_CHECK_ARG(b), \
-                                    ARCHON_CHECK_ARG(dist));
+    test_context.check_dist_greater(a, b, dist, "ARCHON_CHECK_DIST_GREATER", #a, #b, #dist, __FILE__, __LINE__)
 
 
 #define X_ARCHON_CHECK_DIST_GREATER_EQUAL(a, b, dist)                   \
-    test_context.check_special_cond(test_context.dist_greater_equal(a, b, dist), __FILE__, __LINE__, \
-                                    "ARCHON_CHECK_DIST_GREATER_EQUAL", ARCHON_CHECK_ARG(a), ARCHON_CHECK_ARG(b), \
-                                    ARCHON_CHECK_ARG(dist));
+    test_context.check_dist_greater_equal(a, b, dist, "ARCHON_CHECK_DIST_GREATER_EQUAL", #a, #b, #dist, \
+                                          __FILE__, __LINE__)
 
 
 #define X_ARCHON_CHECK_DIST_NOT_GREATER(a, b, dist)                     \
-    test_context.check_special_cond(!test_context.dist_greater(a, b, dist), __FILE__, __LINE__, \
-                                    "ARCHON_CHECK_DIST_NOT_GREATER", ARCHON_CHECK_ARG(a), ARCHON_CHECK_ARG(b), \
-                                    ARCHON_CHECK_ARG(dist));
+    test_context.check_dist_not_greater(a, b, dist, "ARCHON_CHECK_DIST_NOT_GREATER", #a, #b, #dist, __FILE__, __LINE__)
 
 
 #define X_ARCHON_CHECK_DIST_NOT_GREATER_EQUAL(a, b, dist)               \
-    test_context.check_special_cond(!test_context.dist_greater_equal(a, b, dist), __FILE__, __LINE__, \
-                                    "ARCHON_CHECK_DIST_NOT_GREATER_EQUAL", ARCHON_CHECK_ARG(a), ARCHON_CHECK_ARG(b), \
-                                    ARCHON_CHECK_ARG(dist));
+    test_context.check_dist_not_greater_equal(a, b, dist, "ARCHON_CHECK_DIST_NOT_GREATER_EQUAL", #a, #b, #dist, \
+                                              __FILE__, __LINE__)
 
 
 #define X_ARCHON_CHECK_BETWEEN(x, min, max)                             \
-    test_context.check_special_cond(test_context.less_equal(min, x) && test_context.less_equal(x, max), \
-                                    __FILE__, __LINE__, "ARCHON_CHECK_BETWEEN", ARCHON_CHECK_ARG(x), \
-                                    ARCHON_CHECK_ARG(min), ARCHON_CHECK_ARG(max))
+    test_context.check_between(x, min, max, "ARCHON_CHECK_BETWEEN", #x, #min, #max, __FILE__, __LINE__)
 
 
 #define X_ARCHON_CHECK_NOT_BETWEEN(x, min, max)                         \
-    test_context.check_special_cond(!(test_context.less_equal(min, x) && test_context.less_equal(x, max)), \
-                                    __FILE__, __LINE__, "ARCHON_CHECK_NOT_BETWEEN", ARCHON_CHECK_ARG(x), \
-                                    ARCHON_CHECK_ARG(min), ARCHON_CHECK_ARG(max))
+    test_context.check_not_between(x, min, max, "ARCHON_CHECK_NOT_BETWEEN", #x, #min, #max, __FILE__, __LINE__)
 
 
 
@@ -449,51 +440,43 @@
 
 
 #define X_ARCHON_CHECK_APPROXIMATELY_EQUAL(a, b, epsilon)               \
-    test_context.check_special_cond(archon::core::approximately_equal(a, b, epsilon), __FILE__, __LINE__, \
-                                    "ARCHON_CHECK_APPROXIMATELY_EQUAL", ARCHON_CHECK_ARG(a), ARCHON_CHECK_ARG(b), \
-                                    ARCHON_CHECK_ARG(epsilon))
+    test_context.check_approximately_equal(a, b, epsilon, "ARCHON_CHECK_APPROXIMATELY_EQUAL", #a, #b, #epsilon, \
+                                           __FILE__, __LINE__)
 
 
 #define X_ARCHON_CHECK_ESSENTIALLY_EQUAL(a, b, epsilon)                 \
-    test_context.check_special_cond(archon::core::essentially_equal(a, b, epsilon), __FILE__, __LINE__, \
-                                    "ARCHON_CHECK_ESSENTIALLY_EQUAL", ARCHON_CHECK_ARG(a), ARCHON_CHECK_ARG(b), \
-                                    ARCHON_CHECK_ARG(epsilon))
+    test_context.check_essentially_equal(a, b, epsilon, "ARCHON_CHECK_ESSENTIALLY_EQUAL", #a, #b, #epsilon, \
+                                         __FILE__, __LINE__)
 
 
 #define X_ARCHON_CHECK_NOT_APPROXIMATELY_EQUAL(a, b, epsilon)           \
-    test_context.check_special_cond(!archon::core::approximately_equal(a, b, epsilon), __FILE__, __LINE__, \
-                                    "ARCHON_CHECK_NOT_APPROXIMATELY_EQUAL", ARCHON_CHECK_ARG(a), ARCHON_CHECK_ARG(b), \
-                                    ARCHON_CHECK_ARG(epsilon))
+    test_context.check_not_approximately_equal(a, b, epsilon, "ARCHON_CHECK_NOT_APPROXIMATELY_EQUAL", #a, #b, \
+                                               #epsilon, __FILE__, __LINE__)
 
 
 #define X_ARCHON_CHECK_NOT_ESSENTIALLY_EQUAL(a, b, epsilon)             \
-    test_context.check_special_cond(!archon::core::essentially_equal(a, b, epsilon), __FILE__, __LINE__, \
-                                    "ARCHON_CHECK_NOT_ESSENTIALLY_EQUAL", ARCHON_CHECK_ARG(a), ARCHON_CHECK_ARG(b), \
-                                    ARCHON_CHECK_ARG(epsilon))
+    test_context.check_not_essentially_equal(a, b, epsilon, "ARCHON_CHECK_NOT_ESSENTIALLY_EQUAL", #a, #b, #epsilon, \
+                                             __FILE__, __LINE__)
 
 
 #define X_ARCHON_CHECK_DEFINITELY_LESS(a, b, epsilon)                   \
-    test_context.check_special_cond(archon::core::definitely_less(a, b, epsilon), __FILE__, __LINE__, \
-                                    "ARCHON_CHECK_DEFINITELY_LESS", ARCHON_CHECK_ARG(a), ARCHON_CHECK_ARG(b), \
-                                    ARCHON_CHECK_ARG(epsilon))
+    test_context.check_definitely_less(a, b, epsilon, "ARCHON_CHECK_DEFINITELY_LESS", #a, #b, #epsilon, \
+                                       __FILE__, __LINE__)
 
 
 #define X_ARCHON_CHECK_DEFINITELY_GREATER(a, b, epsilon)                \
-    test_context.check_special_cond(archon::core::definitely_greater(a, b, epsilon), __FILE__, __LINE__, \
-                                    "ARCHON_CHECK_DEFINITELY_GREATER", ARCHON_CHECK_ARG(a), ARCHON_CHECK_ARG(b), \
-                                    ARCHON_CHECK_ARG(epsilon))
+    test_context.check_definitely_greater(a, b, epsilon, "ARCHON_CHECK_DEFINITELY_GREATER", #a, #b, #epsilon, \
+                                          __FILE__, __LINE__)
 
 
 #define X_ARCHON_CHECK_NOT_DEFINITELY_LESS(a, b, epsilon)               \
-    test_context.check_special_cond(!archon::core::definitely_less(a, b, epsilon), __FILE__, __LINE__, \
-                                    "ARCHON_CHECK_NOT_DEFINITELY_LESS", ARCHON_CHECK_ARG(a), ARCHON_CHECK_ARG(b), \
-                                    ARCHON_CHECK_ARG(epsilon))
+    test_context.check_not_definitely_less(a, b, epsilon, "ARCHON_CHECK_NOT_DEFINITELY_LESS", #a, #b, #epsilon, \
+                                           __FILE__, __LINE__)
 
 
 #define X_ARCHON_CHECK_NOT_DEFINITELY_GREATER(a, b, epsilon)            \
-    test_context.check_special_cond(!archon::core::definitely_greater(a, b, epsilon), __FILE__, __LINE__, \
-                                    "ARCHON_CHECK_NOT_DEFINITELY_GREATER", ARCHON_CHECK_ARG(a), ARCHON_CHECK_ARG(b), \
-                                    ARCHON_CHECK_ARG(epsilon))
+    test_context.check_not_definitely_greater(a, b, epsilon, "ARCHON_CHECK_NOT_DEFINITELY_GREATER", #a, #b, #epsilon, \
+                                              __FILE__, __LINE__)
 
 
 

@@ -24,6 +24,8 @@
 /// \file
 
 
+#include <cstdint>
+#include <optional>
 #include <string_view>
 
 
@@ -43,6 +45,29 @@ struct ConnectionConfigX11 {
     /// `DISPLAY` environment variable will be used.
     ///
     std::string_view display;
+
+    /// \brief Depth (bits per pixel) to be used for X11 windows.
+    ///
+    /// If set, X11 windows will be configured for this depth instead of the default depth
+    /// for the targeted X11 screen. This works only if the specified depth and the selected
+    /// visual (\ref visual) is a valid combination for the targeted X11 screen (see output
+    /// from command `xdpyinfo`).
+    ///
+    /// \sa \ref visual
+    ///
+    std::optional<int> depth;
+
+    /// \brief Visual type to be used for X11 windows.
+    ///
+    /// If set, X11 windows will be configured for the visual type identified by the
+    /// specified value. If left unset, the default visual for the targeted X11 screen will
+    /// be used. Specifying a visual works only if it and the selected depth (\ref depth) is
+    /// a valid combination for the targeted X11 screen (see output from command
+    /// `xdpyinfo`).
+    ///
+    /// \sa \ref depth
+    ///
+    std::optional<std::uint_fast32_t> visual;
 };
 
 

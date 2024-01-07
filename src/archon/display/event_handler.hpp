@@ -209,15 +209,17 @@ public:
     /// the window. Usually, this means that the user has clicked on the 'close' symbol of
     /// the window.
     ///
-    /// In general, when a request is made to close the last window, a "quit" event is also
-    /// generated (see \ref display::ConnectionEventHandler::on_quit()).
+    /// The default implementation of this function does nothing other than return
+    /// `false`. This will cause event processing to be interrupted. This default
+    /// implementation will generally be appropriate only for single-window application.
     ///
-    /// If the application ignores a "close" event, it will be generated again as a result
-    /// of a subsequent request to close the window.
+    /// If the application ignores a close event (by returning `true` instead of `false`),
+    /// the close event will be generated again as a result of a subsequent request to close
+    /// the window.
     ///
-    /// The default implementation of this function does nothing other than return `true`.
+    /// \sa \ref display::ConnectionEventHandler::on_quit()
     ///
-    virtual bool on_close(const display::TimedWindowEvent&);
+    virtual bool on_close(const display::WindowEvent&);
 
     virtual ~WindowEventHandler() noexcept = default;
 };
@@ -263,21 +265,30 @@ public:
 
     /// \brief Request to quit application.
     ///
-    /// This function is called when the "quit" event occurs.
+    /// This function is called when the "quit" event is generated. The quit event is
+    /// similar to the "close" event for windows (\ref
+    /// display::WindowEventHandler::on_close()). It is a request to close an entire program
+    /// or application, not just one of its windows.
     ///
-    /// The "quit" event is a request to close the application, and is generated in various
-    /// situations. It is generated when there is a request to close a window, and that
-    /// window is the only window that is currently open by the application. In this case,
-    /// both the "close" and the "quit" events are generated (see \ref
-    /// display::WindowEventHandler::on_close()). The "quit" is also generated if the last
-    /// window is closed programmatically by the application, i.e., through destruction of
-    /// the last \ref display::Window object.
-    ///
-    /// If the application ignores the "quit" event (by returning `true`), the "quit" will
-    /// be generated again as a result of a subsequent request to quit the application.
+    /// On the Apple macOS platform and when using the SDL-based implementation (\ref
+    /// display::get_sdl_implementation()), the quit event is generated when Command-Q is
+    /// pressed on the keyboard. When using the X11-based implementation (\ref
+    /// display::get_x11_implementation()), the quit event is never generated.
     ///
     /// The default implementation of this function does nothing other than return
-    /// `false`. This will cause event processing to be interrupted.
+    /// `false`. This will cause event processing to be interrupted. This default
+    /// implementation will generally be appropriate only for applications where the
+    /// interruption of event processing always leads to the termination of the
+    /// application. Applications, that need to interrupt event processing for other
+    /// reasons, will have to override this function and set a flag to indicate the reason
+    /// for the interruption. Applications that engage in frame-based rendering is an
+    /// example of this.
+    ///
+    /// If the application ignores a quit event (by returning `true` instead of `false`),
+    /// the quit event will be generated again as a result of a subsequent request to close
+    /// the application.
+    ///
+    /// \sa \ref display::WindowEventHandler::on_close()
     ///
     virtual bool on_quit();
 

@@ -73,7 +73,7 @@ public:
         display::Key key = {};
         if (ARCHON_LIKELY(m_impl.try_map_key_code_to_key(ev.key_code, key))) { // Throws
             if (ARCHON_UNLIKELY(key == display::Key::escape))
-                return false;
+                return false; // Terminate
         }
         return true;
     }
