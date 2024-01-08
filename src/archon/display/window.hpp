@@ -94,24 +94,56 @@ public:
     ///
     virtual void set_fullscreen_mode(bool on) = 0;
 
-    /// \brief Fill window with color.
+    /// \{
     ///
-    /// This function fills the window with the specified color. Call \ref present() to
-    /// present the result.
+    /// \brief Fill area with color.
+    ///
+    /// These function fill an area of the window with the specified color (\p color). The
+    /// overload that takes an area argument (\p area) wills that area. The other overload
+    /// fills the entire window.
+    ///
+    /// Call \ref present() to present the result.     
     ///
     virtual void fill(util::Color color) = 0;
+    virtual void fill(util::Color color, const display::Box& area) = 0;
+    /// \}
 
-    /// \brief     
+    /// \brief Create new texture of specific size.
     ///
-    /// FIXME: What are the constraints on allowed object lifetime?                                               
+    /// This function creates a new texture of the specified size. A texture is an array of
+    /// pixels and can act as a source for efficient and repeated copying of pixels to the
+    /// window (see \ref put_texture()).
+    ///
+    /// The application must ensure that the returned texture object is destroyed before
+    /// this window is destroyed.
+    ///
+    /// The contents of the texture can be set using \ref display::Texture::put_image().
+    ///
+    /// \sa \ref display::Texture::put_image()
+    /// \sa \ref put_texture()
     ///
     virtual auto new_texture(display::Size size) -> std::unique_ptr<display::Texture> = 0;
 
-    /// \brief    
+    /// \{
     ///
-    ///    
+    /// \brief Copy pixels from texture to window.
     ///
-    virtual void put_texture(const display::Texture&) = 0;
+    /// These functions copy pixels from the specified texture (\p tex) to this window. The
+    /// overload that takes a source area argument (\p source_area) copies the pixels from
+    /// that area of the texture. The other overload copies the entire texture. The
+    /// specified position (\p pos) is the upper-left corner of the target area in the
+    /// window.
+    ///
+    /// Call \ref present() to present the result.     
+    ///
+    /// The specified texture must be associated with the same display connection as this
+    /// window, i.e., the texture and the window must have been created from the same
+    /// connection object.
+    ///
+    virtual void put_texture(const display::Texture& tex, const display::Pos& pos = {}) = 0;
+    virtual void put_texture(const display::Texture& tex, const display::Box& source_area,
+                             const display::Pos& pos) = 0;
+    /// \}
 
     /// \brief    
     ///
@@ -159,7 +191,7 @@ struct Window::Config {
     ///
     bool resizable = false;
 
-    /// \brief start out in fullscreen mode.
+    /// \brief Start out in fullscreen mode.
     ///
     /// If set to `true`, the window will start out in fullscreen mode.
     ///
@@ -170,6 +202,18 @@ struct Window::Config {
     /// If set to `true`, the window will be configured to support OpenGL rendering.
     ///
     bool enable_opengl = false;
+
+    /// \brief Enforce minimum size of window
+    ///
+    /// If set, and the window is made resizable (\ref resizable), the window will be kept
+    /// no smaller than the specified minimum size. This applies sepatrately in each
+    /// direction, horisontally and vertically. If the specified initial size of the window
+    /// is smaller than the minimum size, the initial size will be automatically increased
+    /// to equal the minimum size.
+    ///
+    /// If the window is made non-resizable (\ref resizable), `minimum_size` has no meaning.
+    ///
+    std::optional<display::Size> minimum_size;
 };
 
 

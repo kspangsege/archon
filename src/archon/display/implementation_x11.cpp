@@ -50,6 +50,7 @@
 #if HAVE_X11
 #  include <poll.h>
 #  include <X11/Xlib.h>
+#  include <X11/Xatom.h>
 #  include <X11/Xutil.h>
 #  include <X11/keysym.h>
 #  include <X11/XKBlib.h>
@@ -62,13 +63,29 @@
 #endif
 
 
-// Relevant links:
+// As of Jan 7, 2024, Release 7.7 is the latest release of X11. It was released on June 6, 2012.
 //
-// * X11 API documentation: https://www.x.org/releases/X11R7.7/doc/libX11/libX11/libX11.html
+//
+// Relevant links:
 //
 // * X11 protocol specification: https://www.x.org/releases/X11R7.7/doc/xproto/x11protocol.html
 //
-
+// * X11 API documentation: https://www.x.org/releases/X11R7.7/doc/libX11/libX11/libX11.html
+//
+// * Inter-Client Communication Conventions Manual: https://x.org/releases/X11R7.7/doc/xorg-docs/icccm/icccm.html
+//
+// * Extended Window Manager Hints: https://specifications.freedesktop.org/wm-spec/latest/
+//
+// * RandR extension: https://www.x.org/releases/X11R7.7/doc/randrproto/randrproto.txt
+//
+// * RandR general documentation: https://www.x.org/wiki/libraries/libxrandr/
+//
+// * RandR library source code: https://gitlab.freedesktop.org/xorg/lib/libxrandr
+//
+// * Xrender extension: https://www.x.org/releases/X11R7.7/doc/renderproto/renderproto.txt
+//
+// * Xrender API documentation: https://www.x.org/releases/X11R7.7/doc/libXrender/libXrender.txt
+//
 
 using namespace archon;
 
@@ -130,7 +147,6 @@ public:
     const std::locale locale;
     Display* dpy = nullptr;
 
-    Atom atom_atom;
     Atom atom_wm_protocols;
     Atom atom_wm_delete_window;
 
@@ -204,7 +220,7 @@ public:
     WindowImpl(ConnectionImpl&) noexcept;
     ~WindowImpl() noexcept override;
 
-    void create(const X11Screen&, display::Size, display::WindowEventHandler&, int cookie);
+    void create(const X11Screen&, display::Size, display::WindowEventHandler&, const Config&);
 
     void show() override final;
     void hide() override final;
@@ -212,8 +228,10 @@ public:
     void set_size(display::Size) override final;
     void set_fullscreen_mode(bool) override final;
     void fill(util::Color) override final;
+    void fill(util::Color, const display::Box&) override final;
     auto new_texture(display::Size) -> std::unique_ptr<display::Texture> override final;
-    void put_texture(const display::Texture&) override final;
+    void put_texture(const display::Texture&, const display::Pos&) override final;
+    void put_texture(const display::Texture&, const display::Box&, const display::Pos&) override final;
     void present() override final;
     void opengl_make_current() override final;
     void opengl_swap_buffers() override final;
@@ -332,7 +350,6 @@ void ConnectionImpl::open(const display::ConnectionConfigX11& config)
 
     dpy = dpy_2;
 
-    atom_atom             = intern("ATOM");
     atom_wm_protocols     = intern("WM_PROTOCOLS");
     atom_wm_delete_window = intern("WM_DELETE_WINDOW");
 }
@@ -503,10 +520,10 @@ auto ConnectionImpl::do_new_window(int screen, std::string_view title, display::
         throw std::invalid_argument("Bad window size");
     const X11Screen& screen_2 = ensure_x11_screen(screen); // Throws
     auto win = std::make_unique<WindowImpl>(*this); // Throws
-    win->create(screen_2, size, event_handler, config.cookie); // Throws
+    win->create(screen_2, size, event_handler, config); // Throws
     win->set_title(title); // Throws
-    // FIXME: Tend to window configuration                                                   
-    static_cast<void>(config);                         
+    if (ARCHON_UNLIKELY(config.fullscreen))
+        win->set_fullscreen_mode(true); // Throws
     return win;
 }
 
@@ -537,6 +554,49 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
     XNextEvent(dpy, &ev);
     ++i;
     switch (ev.type) {
+        case ConfigureNotify: {
+            const WindowEntry* entry = lookup_window_entry(ev.xconfigure.window);
+            if (ARCHON_LIKELY(entry)) {
+                // When there is a window manager, the window manager will generally
+                // reparent the client's window. This generally means that the client's
+                // window will remain at a fixed position relative to it's parent, so there
+                // will be no configure notifications when the window is moved through user
+                // interaction. Also, if the user's window is moved relative to its parent,
+                // the reported position will be unreliable, as it will be relative to its
+                // parent, which is not the root window of the screen. Fortunately, in all
+                // those cases, the window manager is obligated to generate synthetic
+                // configure notifications in which the positions are absolute (relative to
+                // the root window of the screen).
+                if (ev.xconfigure.send_event) {
+                    display::WindowPosEvent event;
+                    event.cookie = entry->cookie;
+                    event.pos = { ev.xconfigure.x, ev.xconfigure.y };
+                    bool proceed = entry->event_handler.on_reposition(event); // Throws
+                    if (ARCHON_LIKELY(!proceed))
+                        return false; // Interrupt
+                }
+                else {
+                    display::WindowSizeEvent event;
+                    event.cookie = entry->cookie;
+                    event.size = { ev.xconfigure.width, ev.xconfigure.height };
+                    bool proceed = entry->event_handler.on_resize(event); // Throws
+                    if (ARCHON_LIKELY(!proceed))
+                        return false; // Interrupt
+                }
+            }
+            break;
+        }
+        case Expose: {
+            const WindowEntry* entry = lookup_window_entry(ev.xexpose.window);
+            if (ARCHON_LIKELY(entry)) {
+                display::WindowEvent event;
+                event.cookie = entry->cookie;
+                bool proceed = entry->event_handler.on_expose(event); // Throws
+                if (ARCHON_LIKELY(!proceed))
+                    return false; // Interrupt
+            }
+            break;
+        }
         case ClientMessage: {
             bool is_close = (ev.xclient.format == 32 && Atom(ev.xclient.data.l[0]) == atom_wm_delete_window);
             if (ARCHON_LIKELY(is_close)) {
@@ -623,12 +683,17 @@ WindowImpl::~WindowImpl() noexcept
 
 
 void WindowImpl::create(const X11Screen& screen, display::Size size, display::WindowEventHandler& event_handler,
-                        int cookie)
+                        const Config& config)
 {
+    display::Size adjusted_size = size;
+    bool has_minimum_size = (config.resizable && config.minimum_size.has_value());
+    if (has_minimum_size)
+        adjusted_size = max(adjusted_size, config.minimum_size.value());
+
     ::Window parent = screen.root;
     int x = 0, y = 0;
-    unsigned width  = unsigned(size.width);
-    unsigned height = unsigned(size.height);
+    unsigned width  = unsigned(adjusted_size.width);
+    unsigned height = unsigned(adjusted_size.height);
     unsigned border_width = 0;
     int depth = screen.depth;
     unsigned class_ = InputOutput;
@@ -642,11 +707,34 @@ void WindowImpl::create(const X11Screen& screen, display::Size size, display::Wi
                         valuemask, &attributes);
     m_have_window = true;
 
-    conn.register_window(win, event_handler, cookie); // Throws
+    conn.register_window(win, event_handler, config.cookie); // Throws
     m_is_registered = true;
 
     // Ask X server to notify rather than close connection when window is closed
     set_property(conn.atom_wm_protocols, conn.atom_wm_delete_window);
+
+    // Disable resizability if requested
+    if (!config.resizable) {
+        XSizeHints size_hints;
+        size_hints.flags = PMinSize | PMaxSize;
+        size_hints.min_width  = adjusted_size.width;
+        size_hints.min_height = adjusted_size.height;
+        size_hints.max_width  = adjusted_size.width;
+        size_hints.max_height = adjusted_size.height;
+        XSetWMSizeHints(conn.dpy, win, &size_hints, XA_WM_NORMAL_HINTS);
+    }
+
+    // Set minimum window size if requested
+    if (has_minimum_size) {
+        display::Size min_size = config.minimum_size.value();
+        XSizeHints size_hints;
+        size_hints.flags = PMinSize;
+        size_hints.min_width  = min_size.width;
+        size_hints.min_height = min_size.height;
+        XSetWMSizeHints(conn.dpy, win, &size_hints, XA_WM_NORMAL_HINTS);
+    }
+
+    // FIXME: Tend to config.enable_opengl                                                                                                                                                       
 }
 
 
@@ -670,8 +758,8 @@ void WindowImpl::set_title(std::string_view title)
     char* name_2 = name_1.data();
     XTextProperty name_3;
     Status status = XStringListToTextProperty(&name_2, 1, &name_3);
-    ARCHON_STEADY_ASSERT(status != 0);
-    XSetWMName(conn.dpy, win, &name_3);
+    ARCHON_STEADY_ASSERT(status != 0);                                              
+    XSetWMName(conn.dpy, win, &name_3);                             
     XFree(name_3.value);
 }
 
@@ -692,7 +780,22 @@ void WindowImpl::set_fullscreen_mode(bool on)
 
 void WindowImpl::fill(util::Color color)
 {
+/*
+    GC gc = ensure_graphics_context(); // Throws
+    int x = 0;
+    int y = 0;
+    unsigned int width, height;
+    XFillRectangle(impl.dpy, win, gc, x, y, width, height);
+*/
     static_cast<void>(color);    
+    throw std::runtime_error("*click*");     
+}
+
+
+void WindowImpl::fill(util::Color color, const display::Box& area)
+{
+    static_cast<void>(color);    
+    static_cast<void>(area);    
     throw std::runtime_error("*click*");     
 }
 
@@ -704,9 +807,19 @@ auto WindowImpl::new_texture(display::Size size) -> std::unique_ptr<display::Tex
 }
 
 
-void WindowImpl::put_texture(const display::Texture& tex)
+void WindowImpl::put_texture(const display::Texture& tex, const display::Pos& pos)
 {
     static_cast<void>(tex);    
+    static_cast<void>(pos);    
+    throw std::runtime_error("*click*");     
+}
+
+
+void WindowImpl::put_texture(const display::Texture& tex, const display::Box& source_area, const display::Pos& pos)
+{
+    static_cast<void>(tex);    
+    static_cast<void>(source_area);    
+    static_cast<void>(pos);    
     throw std::runtime_error("*click*");     
 }
 
@@ -731,8 +844,7 @@ void WindowImpl::opengl_swap_buffers()
 
 void WindowImpl::set_property(Atom name, Atom value) noexcept
 {
-    XChangeProperty(conn.dpy, win, name, conn.atom_atom, 32, PropModeReplace,
-                    reinterpret_cast<unsigned char*>(&value), 1);
+    XChangeProperty(conn.dpy, win, name, XA_ATOM, 32, PropModeReplace, reinterpret_cast<unsigned char*>(&value), 1);
 }
 
 

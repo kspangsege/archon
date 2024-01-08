@@ -310,6 +310,7 @@ int main(int argc, char* argv[])
     std::optional<fs::path> optional_path;
     std::optional<int> optional_depth;
     std::optional<VisualID> optional_visual;
+    std::optional<display::Pos> optional_pos;
     log::LogLevel log_level_limit = log::LogLevel::warn;
 
     cli::Spec spec;
@@ -337,6 +338,11 @@ int main(int argc, char* argv[])
             }
             return false;
         })); // Throws
+
+    opt("-p, --pos", "<position>", cli::no_attributes, spec,
+        "Specify the desired position of the window. This may or may not be honored by the window manager. If no "
+        "position is specified, the position will be determined by the window manager.",
+        std::tie(optional_pos)); // Throws
 
     opt("-l, --log-level", "<level>", cli::no_attributes, spec,
         "Set the log level limit. The possible levels are \"off\", \"fatal\", \"error\", \"warn\", \"info\", "
@@ -614,7 +620,7 @@ int main(int argc, char* argv[])
                 if (ARCHON_UNLIKELY(visual_info.colormap_size != 256))
                     goto unexpected_colormap_size;
                 if (zero_mask_match(visual_info)) {
-                    // FIXME: Consider XGetRGBColormaps() --> https://tronche.com/gui/x/xlib/ICC/standard-colormaps/XGetRGBColormaps.html --> Fetch all available colormaps, look for onw with matching visual ID. If one is found, use that colormap. This requires that the image is converted to indirect color pixel format.                
+                    // FIXME: Consider XGetRGBColormaps() --> https://tronche.com/gui/x/xlib/ICC/standard-colormaps/XGetRGBColormaps.html --> Fetch all available colormaps, look for one with matching visual ID. If one is found, use that colormap. This requires that the image is converted to indirect color pixel format.                
                     // FIXME: Consider alternative: Generate optimal palette for image of, say 248, entries, then request that many color slots, then initialize those slots with the colors of the palette, then convert image to indirect color using that palette.      
                     constexpr bool reverse_channel_order = false;
                     auto img = make_packed_image<image::int8_type, image::ChannelPacking_332, bytes_per_pixel,
@@ -850,12 +856,15 @@ int main(int argc, char* argv[])
     }
 
     // Create window
+    display::Pos pos;
+    if (optional_pos.has_value())
+        pos = optional_pos.value();
     int win_width  = img_size.width;
     int win_height = img_size.height;
     XSetWindowAttributes swa;
     swa.event_mask = (KeyPressMask | ExposureMask | StructureNotifyMask | PointerMotionMask | ButtonPressMask | ButtonReleaseMask);
     swa.colormap = colormap;
-    Window window = XCreateWindow(display, root, 0, 0, unsigned(win_width), unsigned(win_height), 0, depth,
+    Window window = XCreateWindow(display, root, pos.x, pos.y, unsigned(win_width), unsigned(win_height), 0, depth,
                                   InputOutput, visual, CWEventMask | CWColormap, &swa);
 
     // Set window name
@@ -873,6 +882,11 @@ int main(int argc, char* argv[])
     size_hints.flags = PMinSize;
     size_hints.min_width  = 128;
     size_hints.min_height = 128;
+    if (optional_pos.has_value()) {
+        size_hints.flags |= USPosition;
+        size_hints.x = pos.x; // Mostly ignored!?
+        size_hints.y = pos.y; // Mostly ignored!?
+    }
     XSetWMNormalHints(display, window, &size_hints);
 
     // Ask X to notify rather than close connection when window is closed
@@ -1053,9 +1067,24 @@ int main(int argc, char* argv[])
                         break;
                     case ConfigureNotify:
                         if (ev.xconfigure.window == window) {
-                            // Real configure notify events are relative to the parent, synthetic events are absolute
-                            if (ev.xconfigure.send_event)
-                                logger.info("POS: %s", display::Pos(ev.xconfigure.x, ev.xconfigure.y));                         
+                            // When there is a window manager, the window manager will
+                            // generally reparent the client's window. This generally means
+                            // that the client's window will remain at a fixed position
+                            // relative to it's parent, so there will be no configure
+                            // notifications when the window is moved through user
+                            // interaction. Also, if the user's window is moved relative to
+                            // its parent, the reported position will be unreliable, as it
+                            // will be relative to its parent, which is not the root window
+                            // of the screen. Fortunately, in all those cases, the window
+                            // manager is obligated to generate synthetic configure
+                            // notifications in which the positions are absolute (relative
+                            // to the root window of the screen).
+                            if (ev.xconfigure.send_event) {
+                                logger.info("POS: %s", display::Pos(ev.xconfigure.x, ev.xconfigure.y));
+                            }
+                            else {
+                                logger.info("SIZE: %s", display::Size(ev.xconfigure.width, ev.xconfigure.height));
+                            }
                             int w = ev.xconfigure.width;
                             int h = ev.xconfigure.height;
                             if (w != win_width || h != win_height) {

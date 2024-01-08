@@ -68,7 +68,7 @@ public:
 
     bool on_keydown(const display::KeyEvent& ev) override final
     {
-        m_logger.info("KEY: %s", display::as_key_name (ev.key_code, m_impl));
+        m_logger.info("KEY: %s", display::as_key_name (ev.key_code, m_impl)); // Throws
         display::Key key = {};
         if (ARCHON_LIKELY(m_impl.try_map_key_code_to_key(ev.key_code, key))) { // Throws
             if (ARCHON_UNLIKELY(key == display::Key::escape))
@@ -79,15 +79,28 @@ public:
 
     bool on_expose(const display::WindowEvent&) override final
     {
-        m_logger.info("EXPOSE");
+        m_logger.info("EXPOSE"); // Throws
         m_win->fill(util::colors::green); // Throws
+        m_win->fill(util::colors::orange, display::Box({ 16, 16 }, 96)); // Throws
         m_win->present(); // Throws
+        return true;
+    }
+
+    bool on_resize(const display::WindowSizeEvent& ev) override final
+    {
+        m_logger.info("SIZE: %s", ev.size); // Throws
+        return true;
+    }
+
+    bool on_reposition(const display::WindowPosEvent& ev) override final
+    {
+        m_logger.info("POS: %s", ev.pos); // Throws
         return true;
     }
 
     bool on_close(const display::WindowEvent&) override final
     {
-        m_logger.info("CLOSE");
+        m_logger.info("CLOSE"); // Throws
         return false; // Terminate
     }
 
@@ -224,8 +237,11 @@ int main(int argc, char* argv[])
 
     EventLoop event_loop(*conn, logger);
     display::Size size = 256;
+    display::Window::Config config;
+    config.resizable = true;
+    config.minimum_size = 128;
     std::unique_ptr<display::Window> win =
-        conn->new_window(display, "Archon Display Snooper", size, event_loop); // Throws
+        conn->new_window(display, "Archon Display Snooper", size, event_loop, config); // Throws
     win->show(); // Throws
     event_loop.set_window(std::move(win));
     event_loop.process_events(); // Throws

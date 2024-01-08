@@ -78,6 +78,9 @@ using namespace archon;
 namespace {
 
 
+class TextureImpl;
+
+
 constexpr std::string_view g_implementation_ident = "sdl";
 
 
@@ -94,6 +97,15 @@ auto get_sdl_error(const std::locale& locale, std::string_view message) -> std::
 {
     std::string msg = get_sdl_error(locale, message); // Throws
     throw std::runtime_error(std::move(msg));
+}
+
+
+void init_rect(SDL_Rect* rect, const display::Box& area) noexcept
+{
+    rect->x = area.pos.x;
+    rect->y = area.pos.y;
+    rect->w = area.size.width;
+    rect->h = area.size.height;
 }
 
 
@@ -213,6 +225,7 @@ public:
 
     void create(std::string_view title, display::Size size, display::WindowEventHandler&, const Config&);
     auto ensure_renderer() -> SDL_Renderer*;
+    void set_draw_color(SDL_Renderer* renderer, util::Color color);
 
     void show() override final;
     void hide() override final;
@@ -220,19 +233,24 @@ public:
     void set_size(display::Size) override final;
     void set_fullscreen_mode(bool) override final;
     void fill(util::Color) override final;
+    void fill(util::Color, const display::Box&) override final;
     auto new_texture(display::Size) -> std::unique_ptr<display::Texture> override final;
-    void put_texture(const display::Texture&) override final;
+    void put_texture(const display::Texture&, const display::Pos&) override final;
+    void put_texture(const display::Texture&, const display::Box&, const display::Pos&) override final;
     void present() override final;
     void opengl_make_current() override final;
     void opengl_swap_buffers() override final;
 
 private:
+    bool m_have_minimum_size = false;
+    display::Size m_minimum_size;
     SDL_Window* m_win = nullptr;
     Uint32 m_id = 0; // If nonzero, this window has been registered in the connection object
     SDL_Renderer* m_renderer = nullptr;
     SDL_GLContext m_gl_context = nullptr;
 
     auto create_renderer() -> SDL_Renderer*;
+    void do_put_texture(const TextureImpl&, const display::Box& source_area, const display::Box& target_area);
 };
 
 
@@ -240,11 +258,12 @@ class TextureImpl
     : public display::Texture {
 public:
     WindowImpl& win;
+    const display::Size size;
 
-    TextureImpl(WindowImpl&) noexcept;
+    TextureImpl(WindowImpl&, const display::Size& size) noexcept;
     ~TextureImpl() noexcept override;
 
-    void create(display::Size size);
+    void create();
     auto get() const noexcept -> SDL_Texture*;
 
     void put_image(const image::Image&) override final;
@@ -843,11 +862,20 @@ WindowImpl::~WindowImpl() noexcept
 void WindowImpl::create(std::string_view title, display::Size size, display::WindowEventHandler& event_handler,
                         const Config& config)
 {
+    if (config.resizable && config.minimum_size.has_value()) {
+        m_have_minimum_size = true;
+        m_minimum_size = config.minimum_size.value();
+    }
+
+    display::Size adjusted_size = size;
+    if (m_have_minimum_size)
+        adjusted_size = max(adjusted_size, m_minimum_size);
+
     std::string title_2 = std::string(title); // Throws
     int x = SDL_WINDOWPOS_UNDEFINED;
     int y = SDL_WINDOWPOS_UNDEFINED;
-    int w = size.width;
-    int h = size.height;
+    int w = adjusted_size.width;
+    int h = adjusted_size.height;
     Uint32 flags = SDL_WINDOW_HIDDEN;
     if (config.resizable)
         flags |= SDL_WINDOW_RESIZABLE;
@@ -856,17 +884,18 @@ void WindowImpl::create(std::string_view title, display::Size size, display::Win
     if (config.enable_opengl)
         flags |= SDL_WINDOW_OPENGL;
     SDL_Window* win = SDL_CreateWindow(title_2.c_str(), x, y, w, h, flags);
-    if (ARCHON_LIKELY(win)) {
-        m_win = win;
-        Uint32 id = SDL_GetWindowID(m_win);
-        if (ARCHON_LIKELY(id > 0)) {
-            conn.register_window(id, event_handler, config.cookie); // Throws
-            m_id = id;
-            return;
-        }
+    if (ARCHON_UNLIKELY(!win))
+        throw_sdl_error(conn.locale, "SDL_CreateWindow() failed"); // Throws
+    m_win = win;
+    Uint32 id = SDL_GetWindowID(m_win);
+    if (ARCHON_UNLIKELY(id <= 0))
         throw_sdl_error(conn.locale, "SDL_GetWindowID() failed"); // Throws
-    }
-    throw_sdl_error(conn.locale, "SDL_CreateWindow() failed"); // Throws
+    conn.register_window(id, event_handler, config.cookie); // Throws
+    m_id = id;
+
+    // Set minimum window size if requested
+    if (m_have_minimum_size)
+        SDL_SetWindowMinimumSize(m_win, m_minimum_size.width, m_minimum_size.height);
 }
 
 
@@ -875,6 +904,17 @@ inline auto WindowImpl::ensure_renderer() -> SDL_Renderer*
     if (ARCHON_LIKELY(m_renderer))
         return m_renderer;
     return create_renderer(); // Throws
+}
+
+
+void WindowImpl::set_draw_color(SDL_Renderer* renderer, util::Color color)
+{
+    int ret = SDL_SetRenderDrawColor(renderer, color.red(), color.green(), color.blue(), color.alpha());
+    if (ARCHON_LIKELY(ret >= 0)) {
+        ARCHON_ASSERT(ret == 0);
+        return;
+    }
+    throw_sdl_error(conn.locale, "SDL_SetRenderDrawColor() failed"); // Throws
 }
 
 
@@ -917,42 +957,50 @@ void WindowImpl::set_fullscreen_mode(bool on)
 void WindowImpl::fill(util::Color color)
 {
     SDL_Renderer* renderer = ensure_renderer(); // Throws
-    int ret = SDL_SetRenderDrawColor(renderer, color.red(), color.green(), color.blue(), color.alpha());
+    set_draw_color(renderer, color); // Throws
+    int ret = SDL_RenderClear(renderer);
     if (ARCHON_LIKELY(ret >= 0)) {
         ARCHON_ASSERT(ret == 0);
-        ret = SDL_RenderClear(renderer);
-        if (ARCHON_LIKELY(ret >= 0)) {
-            ARCHON_ASSERT(ret == 0);
-            return;
-        }
-        throw_sdl_error(conn.locale, "SDL_RenderClear() failed"); // Throws
+        return;
     }
-    throw_sdl_error(conn.locale, "SDL_SetRenderDrawColor() failed"); // Throws
+    throw_sdl_error(conn.locale, "SDL_RenderClear() failed"); // Throws
+}
+
+
+void WindowImpl::fill(util::Color color, const display::Box& area)
+{
+    SDL_Renderer* renderer = ensure_renderer(); // Throws
+    set_draw_color(renderer, color); // Throws
+    SDL_Rect rect;
+    init_rect(&rect, area);
+    int ret = SDL_RenderFillRect(renderer, &rect);
+    if (ARCHON_LIKELY(ret >= 0)) {
+        ARCHON_ASSERT(ret == 0);
+        return;
+    }
+    throw_sdl_error(conn.locale, "SDL_RenderFillRect() failed"); // Throws
 }
 
 
 auto WindowImpl::new_texture(display::Size size) -> std::unique_ptr<display::Texture>
 {
-    auto tex = std::make_unique<TextureImpl>(*this); // Throws
-    tex->create(size); // Throws
+    auto tex = std::make_unique<TextureImpl>(*this, size); // Throws
+    tex->create(); // Throws
     return tex;
 }
 
 
-void WindowImpl::put_texture(const display::Texture& tex)
+void WindowImpl::put_texture(const display::Texture& tex, const display::Pos& pos)
 {
-    ARCHON_ASSERT(dynamic_cast<const TextureImpl*>(&tex));
-    const TextureImpl& tex_2 = static_cast<const TextureImpl&>(tex);
-    ARCHON_ASSERT(&tex_2.win.conn.impl == &conn.impl);
-    ARCHON_ASSERT(m_renderer);
-    const SDL_Rect* src_rect = nullptr;
-    const SDL_Rect* dst_rect = nullptr;
-    int ret = SDL_RenderCopy(m_renderer, tex_2.get(), src_rect, dst_rect);
-    if (ARCHON_LIKELY(ret >= 0)) {
-        ARCHON_ASSERT(ret == 0);
-        return;
-    }
-    throw_sdl_error(conn.locale, "SDL_RenderCopy() failed"); // Throws
+    const TextureImpl& tex_2 = dynamic_cast<const TextureImpl&>(tex); // Throws
+    do_put_texture(tex_2, tex_2.size, { pos, tex_2.size }); // Throws
+}
+
+
+void WindowImpl::put_texture(const display::Texture& tex, const display::Box& source_area, const display::Pos& pos)
+{
+    const TextureImpl& tex_2 = dynamic_cast<const TextureImpl&>(tex); // Throws
+    do_put_texture(tex_2, source_area, { pos, source_area.size }); // Throws
 }
 
 
@@ -992,17 +1040,41 @@ auto WindowImpl::create_renderer() -> SDL_Renderer*
     int driver_index = -1;
     Uint32 flags = 0;
     SDL_Renderer* renderer = SDL_CreateRenderer(m_win, driver_index, flags);
-    if (ARCHON_LIKELY(renderer)) {
-        m_renderer = renderer;
-        return renderer;
+    if (ARCHON_UNLIKELY(!renderer))
+        throw_sdl_error(conn.locale, "SDL_CreateRenderer() failed"); // Throws
+
+    m_renderer = renderer;
+
+    // Due to a bug in SDL (https://github.com/libsdl-org/SDL/issues/8805), the setting of
+    // the minimum window size has to be repeated after the creation of the renderer.
+    if (m_have_minimum_size)
+        SDL_SetWindowMinimumSize(m_win, m_minimum_size.width, m_minimum_size.height);
+
+    return renderer;
+}
+
+
+void WindowImpl::do_put_texture(const TextureImpl& tex, const display::Box& source_area,
+                                const display::Box& target_area)
+{
+    ARCHON_ASSERT(&tex.win.conn.impl == &conn.impl);
+    ARCHON_ASSERT(m_renderer);
+    SDL_Rect src_rect, dst_rect;
+    init_rect(&src_rect, source_area);
+    init_rect(&dst_rect, target_area);
+    int ret = SDL_RenderCopy(m_renderer, tex.get(), &src_rect, &dst_rect);
+    if (ARCHON_LIKELY(ret >= 0)) {
+        ARCHON_ASSERT(ret == 0);
+        return;
     }
-    throw_sdl_error(conn.locale, "SDL_CreateRenderer() failed"); // Throws
+    throw_sdl_error(conn.locale, "SDL_RenderCopy() failed"); // Throws
 }
 
 
 
-inline TextureImpl::TextureImpl(WindowImpl& win_2) noexcept
+inline TextureImpl::TextureImpl(WindowImpl& win_2, const display::Size& size_2) noexcept
     : win(win_2)
+    , size(size_2)
 {
 }
 
@@ -1014,7 +1086,7 @@ TextureImpl::~TextureImpl() noexcept
 }
 
 
-void TextureImpl::create(display::Size size)
+void TextureImpl::create()
 {
     SDL_Renderer* renderer = win.ensure_renderer(); // Throws
     Uint32 format = SDL_PIXELFORMAT_ARGB32;    

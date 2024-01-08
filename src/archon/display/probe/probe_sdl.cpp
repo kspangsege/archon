@@ -197,8 +197,10 @@ int main(int argc, char* argv[])
     log::LimitLogger logger(root_logger, log_level_limit); // Throws
 
     SDL_SetMainReady();
-    if (ARCHON_UNLIKELY(!SDL_SetHint("SDL_NO_SIGNAL_HANDLERS", "1")))
-        throw std::runtime_error("Failed to set SDL hint SDL_NO_SIGNAL_HANDLERS");
+    if (ARCHON_UNLIKELY(!SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS, "1")))
+        throw std::runtime_error("Failed to set SDL hint " SDL_HINT_NO_SIGNAL_HANDLERS);
+    if (ARCHON_UNLIKELY(!SDL_SetHint(SDL_HINT_QUIT_ON_LAST_WINDOW_CLOSE, "0")))
+        throw std::runtime_error("Failed to set SDL hint " SDL_HINT_QUIT_ON_LAST_WINDOW_CLOSE);
 
     {
         int ret = SDL_Init(SDL_INIT_VIDEO);
@@ -223,8 +225,8 @@ int main(int argc, char* argv[])
     }
     SDL_Window* win;
     {
-        Uint32 flags = 0;
-        win = SDL_CreateWindow("Probe", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 256, 256, flags);
+        Uint32 flags = SDL_WINDOW_RESIZABLE;
+        win = SDL_CreateWindow("SDL Probe", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 256, 256, flags);
         if (!win)
             throw_sdl_error("SDL_CreateWindow() failed");
     }
@@ -236,6 +238,9 @@ int main(int argc, char* argv[])
         if (!rend)
             throw_sdl_error("SDL_CreateRenderer() failed");
     }
+    // Due to bug in SDL (https://github.com/libsdl-org/SDL/issues/8805), the setting of the
+    // minimum window size must come after the creation of the renderer.
+    SDL_SetWindowMinimumSize(win, 128, 128);
     {
         SDL_RendererInfo info;
         int ret = SDL_GetRendererInfo(rend, &info);
@@ -253,16 +258,25 @@ int main(int argc, char* argv[])
         if (ret < 0)
             throw_sdl_error("SDL_SetRenderDrawColor() failed");
     }
-    {
-        int ret = SDL_RenderClear(rend);
-        if (ret < 0)
-            throw_sdl_error("SDL_RenderClear() failed");
-    }
-    SDL_RenderPresent(rend);
-    SDL_Event event;
     bool quit = false;
-    while (!quit) {
-        if (SDL_WaitEvent(&event)) {
+    for (;;) {
+        {
+            int ret = SDL_WaitEvent(nullptr);
+            if (ARCHON_UNLIKELY(ret != 1)) {
+                ARCHON_ASSERT(ret == 0);
+                throw_sdl_error("SDL_WaitEvent() failed");
+            }
+        }
+
+        bool redraw = false;
+        while (!quit) {
+            SDL_Event event = {};
+            int ret = SDL_PollEvent(&event);
+            if (ARCHON_UNLIKELY(ret != 1)) {
+                ARCHON_ASSERT(ret == 0);
+                break;
+            }
+
             switch (event.type) {
                 case SDL_KEYDOWN:
                     if (event.key.keysym.sym == SDLK_ESCAPE) {
@@ -273,7 +287,13 @@ int main(int argc, char* argv[])
                 case SDL_WINDOWEVENT:
                     switch (event.window.event) {
                         case SDL_WINDOWEVENT_MOVED:
-                            logger.info("POS: %s", display::Pos(int(event.window.data1), int(event.window.data2)));     
+                            logger.info("POS: %s", display::Pos(int(event.window.data1), int(event.window.data2)));
+                            break;
+                        case SDL_WINDOWEVENT_EXPOSED:
+                            redraw = true;
+                            break;
+                        case SDL_WINDOWEVENT_CLOSE:
+                            quit = true;
                             break;
                     }
                     break;
@@ -281,6 +301,16 @@ int main(int argc, char* argv[])
                     quit = true;
                     break;
             }
+        }
+
+        if (quit)
+            break;
+
+        if (redraw) {
+            int ret = SDL_RenderClear(rend);
+            if (ret < 0)
+                throw_sdl_error("SDL_RenderClear() failed");
+            SDL_RenderPresent(rend);
         }
     }
     SDL_DestroyWindow(win);
