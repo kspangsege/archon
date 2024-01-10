@@ -249,6 +249,87 @@ ARCHON_TEST(Core_CircularBuffer_PushPopFrontBack)
 }
 
 
+ARCHON_TEST(Core_CircularBuffer_Erase)
+{
+    struct Context {
+        std::size_t num_constructions = 0;
+        std::size_t num_destructions  = 0;
+    };
+
+    struct Elem {
+        std::size_t value;
+        Elem(std::size_t value_2, Context& context) noexcept
+            : value(value_2)
+            , m_context(&context)
+        {
+            ++m_context->num_constructions;
+        }
+        Elem(const Elem& other) noexcept
+            : value(other.value)
+            , m_context(other.m_context)
+        {
+            ++m_context->num_constructions;
+        }
+        ~Elem() noexcept
+        {
+            ++m_context->num_destructions;
+        }
+        bool operator==(const Elem& other) const noexcept
+        {
+            return (value == other.value);
+        }
+    private:
+        Context* m_context;
+    };
+
+    std::size_t max_capacity = 5;
+    std::vector<Elem> vec;
+    vec.reserve(max_capacity);
+    for (std::size_t capacity = 0; capacity <= max_capacity; ++capacity) {
+        for (std::size_t size = 0; size <= capacity; ++size) {
+            for (std::size_t shift = 0; shift <= capacity; ++shift) {
+                for (std::size_t begin = 0; begin <= size; ++begin) {
+                    for (std::size_t end = begin; end <= size; ++end) {
+                        Context context;
+                        core::CircularBuffer<Elem> deque;
+                        for (std::size_t i = 0; i < capacity; ++i)
+                            deque.emplace_back(0, context);
+                        for (std::size_t i = 0; i < shift; ++i) {
+                            deque.pop_front();
+                            deque.emplace_back(0, context);
+                        }
+                        for (std::size_t i = 0; i < std::size_t(capacity - size); ++i)
+                            deque.pop_back();
+                        ARCHON_CHECK_EQUAL(deque.size(), size);
+                        for (std::size_t i = 0; i < size; ++i) {
+                            deque[i].value = i;
+                            vec.emplace_back(i, context);
+                        }
+
+                        auto j = deque.erase(deque.begin() + begin, deque.begin() + end);
+                        ARCHON_CHECK(j == deque.begin() + begin);
+                        vec.erase(vec.begin() + begin, vec.begin() + end);
+                        ARCHON_CHECK_EQUAL_SEQ(deque, vec);
+
+                        deque.emplace_back(std::size_t(-1), context);
+                        deque.pop_back();
+                        ARCHON_CHECK_EQUAL_SEQ(deque, vec);
+
+                        deque.emplace_front(std::size_t(-1), context);
+                        deque.pop_front();
+                        ARCHON_CHECK_EQUAL_SEQ(deque, vec);
+
+                        deque.clear();
+                        vec.clear();
+                        ARCHON_CHECK_EQUAL(context.num_destructions, context.num_constructions);
+                    }
+                }
+            }
+        }
+    }
+}
+
+
 ARCHON_TEST(Core_CircularBuffer_Subscribe)
 {
     core::CircularBuffer<int> buffer;

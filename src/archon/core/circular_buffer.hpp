@@ -54,7 +54,7 @@ namespace archon::core {
 /// that value insertion can be guaranteed to not reallocate buffer memory, and to not
 /// throw. More specifically, a single insert operation, that inserts zero or more values at
 /// either end, is guaranteed to not reallocate buffer memory if the prior capacity
-/// (capacity()) is greater than, or equal to the prior size (size()) plus the number of
+/// (`capacity()`) is greater than, or equal to the prior size (`size()`) plus the number of
 /// inserted values. Further more, such an operation is guaranteed to not throw if the
 /// capacity is sufficient, and the relevant constructor of the value type does not throw,
 /// and, in the case of inserting a range of values specified as a pair of iterators, if no
@@ -66,26 +66,30 @@ namespace archon::core {
 /// discontinuity of this kind, this container does not meet the requirements of
 /// `ContiguousContainer` as defined by C++17.
 ///
-/// When the first element is removed (pop_front()), iterators pointing to the removed
-/// element will be invalidated. All other iterators, including "end iterators" (end()),
+/// When the first element is removed (`pop_front()`), iterators pointing to the removed
+/// element will be invalidated. All other iterators, including "end iterators" (`end()`),
 /// will remain valid.
 ///
-/// When the last element is removed (pop_back()), iterators pointing to the removed element
-/// will become "end iterators" (end()), and "end iterators" will be invalidated. All other
-/// iterators will remain valid.
+/// When the last element is removed (`pop_back()`), iterators pointing to the removed
+/// element will become "end iterators" (`end()`), and "end iterators" will be
+/// invalidated. All other iterators will remain valid.
 ///
-/// When an element is inserted at the front (push_front()), and the prior capacity
-/// (capacity()) is strictly greater than the prior size (size()), all iterators remain
+/// When an element is inserted at the front (`push_front()`), and the prior capacity
+/// (`capacity()`) is strictly greater than the prior size (`size()`), all iterators remain
 /// valid.
 ///
-/// When an element is inserted at the back (push_back()), and the prior capacity
-/// (capacity()) is strictly greater than the prior size (size()), "end iterators" (end())
-/// become iterators to the inserted element, and all other iterators remain valid.
+/// When an element is inserted at the back (`push_back()`), and the prior capacity
+/// (`capacity()`) is strictly greater than the prior size (`size()`), "end iterators"
+/// (`end()`) become iterators to the inserted element, and all other iterators remain
+/// valid.
 ///
-/// Operations pop_front(), pop_back(), and clear(), are guaranteed to leave the capacity
-/// unchanged.
+/// Operations `pop_front()`, `pop_back()`, and `clear()` are guaranteed to leave the
+/// capacity unchanged.
 ///
 /// Iterators are of the "random access" kind (std::random_access_iterator_tag).
+///
+/// Erase operations (`erase()`) is only available when \p T has a non-throwing
+/// move-constructor.
 ///
 template<class T> class CircularBuffer {
 private:
@@ -187,6 +191,9 @@ public:
     void append(size_type size, const T& value);
     template<class I, class = NeedIter<I>> void append(I begin, I end);
 
+    auto erase(const_iterator) noexcept -> iterator;
+    auto erase(const_iterator begin, const_iterator end) noexcept -> iterator;
+
     void clear() noexcept;
     void resize(size_type size);
     void resize(size_type size, const T& value);
@@ -213,9 +220,9 @@ private:
 
     // Index of first element in allocated memory chunk.
     //
-    // INVARIANT: m_allocated_size == 0 ? m_begin == 0 : m_begin < m_allocated_size
+    // INVARIANT: m_allocated_size == 0 ? m_offset == 0 : m_offset < m_allocated_size
     //
-    size_type m_begin = 0;
+    size_type m_offset = 0;
 
     // The number of elements within the allocated memory chunk, that are currently in use,
     // i.e., the logical size of the circular buffer.
@@ -235,12 +242,16 @@ private:
     void destroy(size_type offset = 0) noexcept;
     void realloc(size_type new_allocated_size);
 
-    void do_append_1(std::size_t size);
-    void do_append_1(std::size_t size, const T& value);
+    void do_append_1(size_type size);
+    void do_append_1(size_type size, const T& value);
 
     template<class I> void do_append_2(I begin, I end);
     template<class I> void do_append_2(I begin, I end, std::input_iterator_tag);
     template<class I> void do_append_2(I begin, I end, std::random_access_iterator_tag);
+
+    void do_erase(size_type begin, size_type end) noexcept;
+    void erase_near_front(size_type begin, size_type end) noexcept;
+    void erase_near_back(size_type begin, size_type end) noexcept;
 
     auto get_base() noexcept -> T*;
 
@@ -284,7 +295,7 @@ public:
 
     template<class V> auto operator=(const Iter<V>& i) noexcept -> Iter&
     {
-        // Check constness convertability
+        // Check constness convertibility
         static_assert(std::is_convertible_v<V*, U*>);
         m_buffer = i.m_buffer;
         m_index = i.m_index;
@@ -337,7 +348,7 @@ public:
 
     auto operator+=(difference_type value) noexcept -> Iter&
     {
-        // Care is needed to avoid unspecified arithmetic behaviour here. We can assume,
+        // Care is needed to avoid unspecified arithmetic behavior here. We can assume,
         // however, that if `i` is the unwrapped (logical) index of the element pointed to
         // by this iterator, then the mathematical value of i + value is representable in
         // `size_type` (otherwise the resulting iterator would escape the boundaries of the
@@ -352,7 +363,7 @@ public:
 
     auto operator-=(difference_type value) noexcept -> Iter&
     {
-        // Care is needed to avoid unspecified arithmetic behaviour here. See the comment in
+        // Care is needed to avoid unspecified arithmetic behavior here. See the comment in
         // the implementation of operator+=().
         size_type i = m_buffer->unwrap(m_index);
         i -= size_type(value);
@@ -452,11 +463,11 @@ inline CircularBuffer<T>::CircularBuffer(const CircularBuffer& buffer)
 template<class T>
 inline CircularBuffer<T>::CircularBuffer(CircularBuffer&& buffer) noexcept
     : m_memory(std::move(buffer.m_memory))
-    , m_begin(buffer.m_begin)
+    , m_offset(buffer.m_offset)
     , m_size(buffer.m_size)
     , m_allocated_size(buffer.m_allocated_size)
 {
-    buffer.m_begin          = 0;
+    buffer.m_offset         = 0;
     buffer.m_size           = 0;
     buffer.m_allocated_size = 0;
 }
@@ -515,10 +526,10 @@ inline auto CircularBuffer<T>::operator=(CircularBuffer&& buffer) noexcept -> Ci
 {
     destroy();
     m_memory         = std::move(buffer.m_memory);
-    m_begin          = buffer.m_begin;
+    m_offset         = buffer.m_offset;
     m_size           = buffer.m_size;
     m_allocated_size = buffer.m_allocated_size;
-    buffer.m_begin          = 0;
+    buffer.m_offset         = 0;
     buffer.m_size           = 0;
     buffer.m_allocated_size = 0;
     return *this;
@@ -622,7 +633,7 @@ inline auto CircularBuffer<T>::back() const noexcept -> const T&
 template<class T>
 inline auto CircularBuffer<T>::begin() noexcept -> iterator
 {
-    return { this, m_begin };
+    return { this, m_offset };
 }
 
 
@@ -737,7 +748,7 @@ void CircularBuffer<T>::reserve(size_type min_capacity)
         return;
 
     // An extra element of capacity is needed such that the end iterator can always point
-    // one beyond the last element without becomeing equal to an iterator to the first
+    // one beyond the last element without becoming equal to an iterator to the first
     // element.
     size_type min_allocated_size = min_capacity;
     if (ARCHON_LIKELY(core::try_int_add(min_allocated_size, 1))) {
@@ -757,7 +768,7 @@ inline void CircularBuffer<T>::shrink_to_fit()
 {
     if (m_size > 0) {
         // An extra element of capacity is needed such that the end iterator can always
-        // point one beyond the last element without becomeing equal to an iterator to the
+        // point one beyond the last element without becoming equal to an iterator to the
         // first element.
         size_type new_allocated_size = m_size + 1;
         if (new_allocated_size < m_allocated_size)
@@ -765,7 +776,7 @@ inline void CircularBuffer<T>::shrink_to_fit()
     }
     else {
         m_memory.reset();
-        m_begin = 0;
+        m_offset = 0;
         m_allocated_size = 0;
     }
 }
@@ -813,9 +824,9 @@ template<class... A> inline auto CircularBuffer<T>::emplace_front(A&&... args) -
     reserve(new_size); // Throws
     ARCHON_ASSERT(m_allocated_size > 0);
     T* base = get_base();
-    size_type i = circular_dec(m_begin);
+    size_type i = circular_dec(m_offset);
     core::uninit_create(base + i, std::forward<A>(args)...); // Throws
-    m_begin = i;
+    m_offset = i;
     m_size = new_size;
     return base[i];
 }
@@ -840,9 +851,9 @@ inline void CircularBuffer<T>::pop_front() noexcept
 {
     ARCHON_ASSERT(m_size > 0);
     T* base = get_base();
-    size_type i = m_begin;
+    size_type i = m_offset;
     core::uninit_destroy(base + i, 1);
-    m_begin = circular_inc(m_begin);
+    m_offset = circular_inc(m_offset);
     --m_size;
 }
 
@@ -881,10 +892,34 @@ template<class I, class> inline void CircularBuffer<T>::append(I begin, I end)
 
 
 template<class T>
+inline auto CircularBuffer<T>::erase(const_iterator i) noexcept -> iterator
+{
+    size_type begin = unwrap(i.m_index);
+    size_type end   = begin + 1;
+    ARCHON_ASSERT(end <= m_size);
+    do_erase(begin, end);
+    return { this, wrap(begin) };
+}
+
+
+template<class T>
+inline auto CircularBuffer<T>::erase(const_iterator begin, const_iterator end) noexcept -> iterator
+{
+    size_type begin_2 = unwrap(begin.m_index);
+    size_type end_2   = unwrap(end.m_index);
+    ARCHON_ASSERT(begin_2 <= end_2);
+    ARCHON_ASSERT(end_2 <= m_size);
+    if (ARCHON_LIKELY(begin_2 != end_2))
+        do_erase(begin_2, end_2);
+    return { this, wrap(begin_2) };
+}
+
+
+template<class T>
 inline void CircularBuffer<T>::clear() noexcept
 {
     destroy();
-    m_begin = 0;
+    m_offset = 0;
     m_size = 0;
 }
 
@@ -919,7 +954,7 @@ template<class T>
 inline void CircularBuffer<T>::swap(CircularBuffer& buffer) noexcept
 {
     std::swap(m_memory,         buffer.m_memory);
-    std::swap(m_begin,          buffer.m_begin);
+    std::swap(m_offset,         buffer.m_offset);
     std::swap(m_size,           buffer.m_size);
     std::swap(m_allocated_size, buffer.m_allocated_size);
 }
@@ -984,11 +1019,11 @@ inline void CircularBuffer<T>::destroy(size_type offset) noexcept
 {
     ARCHON_ASSERT(offset <= m_size);
     T* base = get_base();
-    std::size_t size = m_size - offset;
-    std::size_t offset_2 = wrap(offset);
-    std::size_t top = m_allocated_size - offset_2;
+    size_type size = m_size - offset;
+    size_type offset_2 = wrap(offset);
+    size_type top = size_type(m_allocated_size - offset_2);
     if (size > top) {
-        core::uninit_destroy(base, size - top);
+        core::uninit_destroy(base, size_type(size - top));
         size = top;
     }
     core::uninit_destroy(base + offset_2, size);
@@ -1000,18 +1035,18 @@ void CircularBuffer<T>::realloc(size_type new_allocated_size)
 {
     ARCHON_ASSERT(new_allocated_size > 1);
     ARCHON_ASSERT(new_allocated_size > m_size);
-    std::size_t num_bytes = new_allocated_size;
+    size_type num_bytes = new_allocated_size;
     if (ARCHON_UNLIKELY(!core::try_int_mul(num_bytes, sizeof (T))))
         throw std::length_error("Buffer capacity");
     std::unique_ptr<std::byte[]> new_memory = std::make_unique<std::byte[]>(num_bytes); // Throws
     T* base = get_base();
     T* new_base = reinterpret_cast<T*>(new_memory.get());
-    std::size_t top = std::size_t(m_allocated_size - m_begin);
+    size_type top = size_type(m_allocated_size - m_offset);
     if (m_size <= top) {
-        core::uninit_safe_move(base + m_begin, m_size, new_base); // Throws
+        core::uninit_safe_move(base + m_offset, m_size, new_base); // Throws
     }
     else {
-        core::uninit_safe_move_a(base + m_begin, top, new_base); // Throws
+        core::uninit_safe_move_a(base + m_offset, top, new_base); // Throws
         try {
             core::uninit_safe_move(base, m_size - top, new_base + top); // Throws
         }
@@ -1019,28 +1054,28 @@ void CircularBuffer<T>::realloc(size_type new_allocated_size)
             core::uninit_destroy(new_base, top);
             throw;
         }
-        core::uninit_destroy(base + m_begin, top);
+        core::uninit_destroy(base + m_offset, top);
     }
     m_memory = std::move(new_memory);
-    m_begin = 0;
+    m_offset = 0;
     m_allocated_size = new_allocated_size;
 }
 
 
 template<class T>
-inline void CircularBuffer<T>::do_append_1(std::size_t size)
+inline void CircularBuffer<T>::do_append_1(size_type size)
 {
     reserve_extra(size); // Throws
     T* base = get_base();
-    std::size_t offset = wrap(m_size);
-    std::size_t top = m_allocated_size - offset;
+    size_type offset = wrap(m_size);
+    size_type top = size_type(m_allocated_size - offset);
     if (size <= top) {
         core::uninit_safe_fill(size, base + offset); // Throws
     }
     else {
         core::uninit_safe_fill(top, base + offset); // Throws
         try {
-            core::uninit_safe_fill(size - top, base); // Throws
+            core::uninit_safe_fill(size_type(size - top), base); // Throws
         }
         catch (...) {
             core::uninit_destroy(base + offset, top);
@@ -1052,19 +1087,19 @@ inline void CircularBuffer<T>::do_append_1(std::size_t size)
 
 
 template<class T>
-inline void CircularBuffer<T>::do_append_1(std::size_t size, const T& value)
+inline void CircularBuffer<T>::do_append_1(size_type size, const T& value)
 {
     reserve_extra(size); // Throws
     T* base = get_base();
-    std::size_t offset = wrap(m_size);
-    std::size_t top = m_allocated_size - offset;
+    size_type offset = wrap(m_size);
+    size_type top = size_type(m_allocated_size - offset);
     if (size <= top) {
         core::uninit_safe_fill(size, value, base + offset); // Throws
     }
     else {
         core::uninit_safe_fill(top, value, base + offset); // Throws
         try {
-            core::uninit_safe_fill(size - top, value, base); // Throws
+            core::uninit_safe_fill(size_type(size - top), value, base); // Throws
         }
         catch (...) {
             core::uninit_destroy(base + offset, top);
@@ -1094,11 +1129,11 @@ template<class I> void CircularBuffer<T>::do_append_2(I begin, I end, std::input
 template<class T>
 template<class I> void CircularBuffer<T>::do_append_2(I begin, I end, std::random_access_iterator_tag)
 {
-    size_type size = std::size_t(end - begin);
+    size_type size = size_type(end - begin);
     reserve_extra(size); // Throws
     T* base = get_base();
-    std::size_t offset = wrap(m_size);
-    std::size_t top = m_allocated_size - offset;
+    size_type offset = wrap(m_size);
+    size_type top = size_type(m_allocated_size - offset);
     if (size <= top) {
         core::uninit_safe_copy(begin, end, base + offset); // Throws
     }
@@ -1113,6 +1148,115 @@ template<class I> void CircularBuffer<T>::do_append_2(I begin, I end, std::rando
         }
     }
     m_size += size;
+}
+
+
+template<class T>
+void CircularBuffer<T>::do_erase(size_type begin, size_type end) noexcept
+{
+    if (ARCHON_LIKELY(begin != end)) {
+        size_type before = begin;
+        size_type after  = size_type(m_size - end);
+        if (ARCHON_LIKELY(after <= before)) {
+            erase_near_back(begin, end);
+        }
+        else {
+            erase_near_front(begin, end);
+        }
+    }
+}
+
+
+template<class T>
+void CircularBuffer<T>::erase_near_front(size_type begin, size_type end) noexcept
+{
+    T* base = get_base();
+    size_type size = size_type(end - begin);
+    ARCHON_ASSERT(size > 0);
+    size_type begin_2 = begin;
+    size_type top = size_type(m_allocated_size - m_offset);
+    if (ARCHON_LIKELY(m_size > top)) {
+        // Contents range is divided
+        if (ARCHON_LIKELY(end <= top)) {
+            // Erased range is entirely in back-aligned chunk
+            core::uninit_destroy(base + m_offset + begin, size);
+        }
+        else {
+            size_type after = size;
+            size_type before = 0;
+            if (ARCHON_LIKELY(begin >= top)) {
+                // Erased range is entirely in front-aligned chunk
+                core::uninit_destroy(base + (begin - top), size);
+                core::uninit_move_upwards(base, size_type(begin - top), size);
+                begin_2 = top;
+            }
+            else {
+                // Erased range is divided
+                after = size_type(end - top);
+                before = size_type(size - after);
+                core::uninit_destroy(base + m_offset + begin, before);
+                core::uninit_destroy(base, after);
+            }
+            size_type n = std::min(after, begin);
+            begin_2 = begin - n;
+            core::uninit_safe_move(base + m_offset + begin_2, n, base + (after - n));
+        }
+    }
+    else {
+        // Contents range is contiguous
+        core::uninit_destroy(base + m_offset + begin, size);
+    }
+    core::uninit_move_upwards(base + m_offset, begin_2, size);
+    m_offset = wrap(size);
+    m_size -= size;
+}
+
+
+template<class T>
+void CircularBuffer<T>::erase_near_back(size_type begin, size_type end) noexcept
+{
+    T* base = get_base();
+    size_type size = size_type(end - begin);
+    ARCHON_ASSERT(size > 0);
+    size_type end_2 = end;
+    size_type end_3;
+    size_type top = size_type(m_allocated_size - m_offset);
+    if (ARCHON_LIKELY(m_size > top)) {
+        // Contents range is divided
+        if (ARCHON_LIKELY(begin >= top)) {
+            // Erased range is entirely in front-aligned chunk
+            core::uninit_destroy(base + (begin - top), size);
+        }
+        else {
+            size_type after = 0;
+            size_type before = size;
+            if (ARCHON_LIKELY(end <= top)) {
+                // Erased range is entirely in back-aligned chunk
+                core::uninit_destroy(base + m_offset + begin, size);
+                core::uninit_move_downwards(base + m_offset + end, size_type(top - end), size);
+                end_2 = top;
+            }
+            else {
+                // Erased range is divided
+                after = size_type(end - top);
+                before = size_type(size - after);
+                core::uninit_destroy(base + m_offset + begin, before);
+                core::uninit_destroy(base, after);
+            }
+            size_type remain = size_type(m_size - end);
+            size_type n = std::min(before, remain);
+            core::uninit_safe_move(base + after, n, base + m_offset + (top - before));
+            end_2 += n;
+        }
+        end_3 = size_type(end_2 - top);
+    }
+    else {
+        // Contents range is contiguous
+        core::uninit_destroy(base + m_offset + begin, size);
+        end_3 = size_type(m_offset + begin + size);
+    }
+    core::uninit_move_downwards(base + end_3, size_type(m_size - end_2), size);
+    m_size -= size;
 }
 
 
@@ -1145,9 +1289,9 @@ inline auto CircularBuffer<T>::circular_dec(size_type index) noexcept -> size_ty
 template<class T>
 inline auto CircularBuffer<T>::wrap(size_type index) noexcept -> size_type
 {
-    size_type top = m_allocated_size - m_begin;
+    size_type top = m_allocated_size - m_offset;
     if (index < top)
-        return m_begin + index;
+        return m_offset + index;
     return index - top;
 }
 
@@ -1155,9 +1299,9 @@ inline auto CircularBuffer<T>::wrap(size_type index) noexcept -> size_type
 template<class T>
 inline auto CircularBuffer<T>::unwrap(size_type index) noexcept -> size_type
 {
-    if (index >= m_begin)
-        return index - m_begin;
-    return m_allocated_size - (m_begin - index);
+    if (index >= m_offset)
+        return index - m_offset;
+    return m_allocated_size - (m_offset - index);
 }
 
 
