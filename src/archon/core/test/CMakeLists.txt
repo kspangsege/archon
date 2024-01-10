@@ -10,8 +10,8 @@ add_library(CoreTest OBJECT
   test_utility.cpp
   test_scope_exit.cpp
   test_value_reset_guard.cpp
-  test_circular_buffer.cpp
   test_vector.cpp
+  test_deque.cpp
   test_flat_map.cpp
   test_flat_multimap.cpp
   test_flat_set.cpp

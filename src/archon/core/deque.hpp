@@ -18,8 +18,8 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-#ifndef ARCHON_X_CORE_X_CIRCULAR_BUFFER_HPP
-#define ARCHON_X_CORE_X_CIRCULAR_BUFFER_HPP
+#ifndef ARCHON_X_CORE_X_DEQUE_HPP
+#define ARCHON_X_CORE_X_DEQUE_HPP
 
 /// \file
 
@@ -44,7 +44,7 @@
 namespace archon::core {
 
 
-/// \brief A container backed by a "circular buffer".
+/// \brief A double ended queue backed by a single contiguous memory buffer.
 ///
 /// This container is similar to std::deque in that it offers efficient element insertion
 /// and removal at both ends. Insertion at either end occurs in amortized constant
@@ -91,7 +91,7 @@ namespace archon::core {
 /// Erase operations (`erase()`) is only available when \p T has a non-throwing
 /// move-constructor.
 ///
-template<class T> class CircularBuffer {
+template<class T> class Deque {
 private:
     template<class> class Iter;
 
@@ -111,18 +111,18 @@ public:
     using reverse_iterator       = std::reverse_iterator<iterator>;
     using const_reverse_iterator = std::reverse_iterator<const_iterator>;
 
-    CircularBuffer() noexcept = default;
-    CircularBuffer(const CircularBuffer&);
-    CircularBuffer(CircularBuffer&&) noexcept;
-    CircularBuffer(std::initializer_list<T>);
-    explicit CircularBuffer(size_type size);
-    CircularBuffer(size_type size, const T& value);
-    template<class I, class = NeedIter<I>> CircularBuffer(I begin, I end);
-    ~CircularBuffer() noexcept;
+    Deque() noexcept = default;
+    Deque(const Deque&);
+    Deque(Deque&&) noexcept;
+    Deque(std::initializer_list<T>);
+    explicit Deque(size_type size);
+    Deque(size_type size, const T& value);
+    template<class I, class = NeedIter<I>> Deque(I begin, I end);
+    ~Deque() noexcept;
 
-    auto operator=(const CircularBuffer&) -> CircularBuffer&;
-    auto operator=(CircularBuffer&&) noexcept -> CircularBuffer&;
-    auto operator=(std::initializer_list<T>) -> CircularBuffer&;
+    auto operator=(const Deque&) -> Deque&;
+    auto operator=(Deque&&) noexcept -> Deque&;
+    auto operator=(std::initializer_list<T>) -> Deque&;
 
     void assign(std::initializer_list<T>);
     void assign(size_type size, const T& value);
@@ -198,21 +198,21 @@ public:
     void resize(size_type size);
     void resize(size_type size, const T& value);
 
-    void swap(CircularBuffer&) noexcept;
+    void swap(Deque&) noexcept;
 
     // Comparison
 
-    template<class U> bool operator==(const CircularBuffer<U>&) const
+    template<class U> bool operator==(const Deque<U>&) const
         noexcept(noexcept(std::declval<T>() == std::declval<U>()));
-    template<class U> bool operator!=(const CircularBuffer<U>&) const
+    template<class U> bool operator!=(const Deque<U>&) const
         noexcept(noexcept(std::declval<T>() == std::declval<U>()));
-    template<class U> bool operator<(const CircularBuffer<U>&) const
+    template<class U> bool operator<(const Deque<U>&) const
         noexcept(noexcept(std::declval<T>() < std::declval<U>()));
-    template<class U> bool operator>(const CircularBuffer<U>&) const
+    template<class U> bool operator>(const Deque<U>&) const
         noexcept(noexcept(std::declval<T>() < std::declval<U>()));
-    template<class U> bool operator<=(const CircularBuffer<U>&) const
+    template<class U> bool operator<=(const Deque<U>&) const
         noexcept(noexcept(std::declval<T>() < std::declval<U>()));
-    template<class U> bool operator>=(const CircularBuffer<U>&) const
+    template<class U> bool operator>=(const Deque<U>&) const
         noexcept(noexcept(std::declval<T>() < std::declval<U>()));
 
 private:
@@ -225,7 +225,7 @@ private:
     size_type m_offset = 0;
 
     // The number of elements within the allocated memory chunk, that are currently in use,
-    // i.e., the logical size of the circular buffer.
+    // i.e., the logical size of the deque.
     //
     size_type m_size = 0;
 
@@ -233,7 +233,7 @@ private:
     //
     // Except when m_size is zero, m_allocated_size must be strictly greater than
     // m_size. This is required to ensure that the iterators returned by begin() and end()
-    // are equal only when the buffer is empty.
+    // are equal only when the deque is empty.
     //
     // INVARIANT: m_size == 0 || m_allocated_size > m_size
     //
@@ -263,7 +263,7 @@ private:
 };
 
 
-template<class T> void swap(CircularBuffer<T>&, CircularBuffer<T>&) noexcept;
+template<class T> void swap(Deque<T>&, Deque<T>&) noexcept;
 
 
 
@@ -276,7 +276,7 @@ template<class T> void swap(CircularBuffer<T>&, CircularBuffer<T>&) noexcept;
 
 
 template<class T>
-template<class U> class CircularBuffer<T>::Iter {
+template<class U> class Deque<T>::Iter {
 public:
     using difference_type   = std::ptrdiff_t;
     using value_type        = U;
@@ -297,14 +297,14 @@ public:
     {
         // Check constness convertibility
         static_assert(std::is_convertible_v<V*, U*>);
-        m_buffer = i.m_buffer;
+        m_deque = i.m_deque;
         m_index = i.m_index;
         return *this;
     }
 
     auto operator*() const noexcept -> U&
     {
-        T* base = m_buffer->get_base();
+        T* base = m_deque->get_base();
         return base[m_index];
     }
 
@@ -322,13 +322,13 @@ public:
 
     auto operator++() noexcept -> Iter&
     {
-        m_index = m_buffer->circular_inc(m_index);
+        m_index = m_deque->circular_inc(m_index);
         return *this;
     }
 
     auto operator--() noexcept -> Iter&
     {
-        m_index = m_buffer->circular_dec(m_index);
+        m_index = m_deque->circular_dec(m_index);
         return *this;
     }
 
@@ -336,28 +336,28 @@ public:
     {
         size_type i = m_index;
         operator++();
-        return { m_buffer, i };
+        return { m_deque, i };
     }
 
     auto operator--(int) noexcept -> Iter
     {
         size_type i = m_index;
         operator--();
-        return { m_buffer, i };
+        return { m_deque, i };
     }
 
     auto operator+=(difference_type value) noexcept -> Iter&
     {
-        // Care is needed to avoid unspecified arithmetic behavior here. We can assume,
-        // however, that if `i` is the unwrapped (logical) index of the element pointed to
-        // by this iterator, then the mathematical value of i + value is representable in
-        // `size_type` (otherwise the resulting iterator would escape the boundaries of the
-        // buffer). We can therefore safely perform the addition in the unsigned domain of
-        // unwrapped element indexes, and rely on two's complement representation for
-        // negative values.
-        size_type i = m_buffer->unwrap(m_index);
+        // Care is needed to avoid unspecified arithmetic behavior here. We can assume that
+        // if `i` is the unwrapped (logical) index of the element pointed to by this
+        // iterator, then the mathematical value of `i + value` is representable in
+        // `size_type` (since `i + value` must be less than, or equal to the size of the
+        // deque, which must be representable in `size_type`). We can therefore safely
+        // perform the addition in the unsigned domain of unwrapped element indexes, and
+        // rely on two's complement representation for negative values.
+        size_type i = m_deque->unwrap(m_index);
         i += size_type(value);
-        m_index = m_buffer->wrap(i);
+        m_index = m_deque->wrap(i);
         return *this;
     }
 
@@ -365,9 +365,9 @@ public:
     {
         // Care is needed to avoid unspecified arithmetic behavior here. See the comment in
         // the implementation of operator+=().
-        size_type i = m_buffer->unwrap(m_index);
+        size_type i = m_deque->unwrap(m_index);
         i -= size_type(value);
-        m_index = m_buffer->wrap(i);
+        m_index = m_deque->wrap(i);
         return *this;
     }
 
@@ -394,15 +394,15 @@ public:
 
     template<class V> auto operator-(const Iter<V>& i) const noexcept -> difference_type
     {
-        ARCHON_ASSERT(m_buffer == i.m_buffer);
-        size_type i_1 = m_buffer->unwrap(m_index);
-        size_type i_2 = i.m_buffer->unwrap(i.m_index);
+        ARCHON_ASSERT(m_deque == i.m_deque);
+        size_type i_1 = m_deque->unwrap(m_index);
+        size_type i_2 = i.m_deque->unwrap(i.m_index);
         return core::cast_from_twos_compl_a<difference_type>(size_type(i_1 - i_2));
     }
 
     template<class V> bool operator==(const Iter<V>& i) const noexcept
     {
-        ARCHON_ASSERT(m_buffer == i.m_buffer);
+        ARCHON_ASSERT(m_deque == i.m_deque);
         return (m_index == i.m_index);
     }
 
@@ -413,9 +413,9 @@ public:
 
     template<class V> bool operator<(const Iter<V>& i) const noexcept
     {
-        ARCHON_ASSERT(m_buffer == i.m_buffer);
-        size_type i_1 = m_buffer->unwrap(m_index);
-        size_type i_2 = i.m_buffer->unwrap(i.m_index);
+        ARCHON_ASSERT(m_deque == i.m_deque);
+        size_type i_1 = m_deque->unwrap(m_index);
+        size_type i_2 = i.m_deque->unwrap(i.m_index);
         return (i_1 < i_2);
     }
 
@@ -435,109 +435,109 @@ public:
     }
 
 private:
-    CircularBuffer* m_buffer = nullptr;
+    Deque* m_deque = nullptr;
 
     // Index of iterator position from beginning of allocated memory, i.e., from beginning
-    // of m_buffer->get_base().
+    // of m_deque->get_base().
     size_type m_index = 0;
 
-    Iter(CircularBuffer* buffer, size_type index) noexcept
-        : m_buffer(buffer)
+    Iter(Deque* deque, size_type index) noexcept
+        : m_deque(deque)
         , m_index(index)
     {
     }
 
-    friend class CircularBuffer<T>;
+    friend class Deque<T>;
     template<class> friend class Iter;
 };
 
 
 template<class T>
-inline CircularBuffer<T>::CircularBuffer(const CircularBuffer& buffer)
-    : CircularBuffer()
+inline Deque<T>::Deque(const Deque& other)
+    : Deque()
 {
-    append(buffer.begin(), buffer.end()); // Throws
+    append(other.begin(), other.end()); // Throws
 }
 
 
 template<class T>
-inline CircularBuffer<T>::CircularBuffer(CircularBuffer&& buffer) noexcept
-    : m_memory(std::move(buffer.m_memory))
-    , m_offset(buffer.m_offset)
-    , m_size(buffer.m_size)
-    , m_allocated_size(buffer.m_allocated_size)
+inline Deque<T>::Deque(Deque&& other) noexcept
+    : m_memory(std::move(other.m_memory))
+    , m_offset(other.m_offset)
+    , m_size(other.m_size)
+    , m_allocated_size(other.m_allocated_size)
 {
-    buffer.m_offset         = 0;
-    buffer.m_size           = 0;
-    buffer.m_allocated_size = 0;
+    other.m_offset         = 0;
+    other.m_size           = 0;
+    other.m_allocated_size = 0;
 }
 
 
 template<class T>
-inline CircularBuffer<T>::CircularBuffer(std::initializer_list<T> list)
-    : CircularBuffer()
+inline Deque<T>::Deque(std::initializer_list<T> list)
+    : Deque()
 {
     append(list.begin(), list.end()); // Throws
 }
 
 
 template<class T>
-inline CircularBuffer<T>::CircularBuffer(size_type size)
-    : CircularBuffer()
+inline Deque<T>::Deque(size_type size)
+    : Deque()
 {
     do_append_1(size); // Throws
 }
 
 
 template<class T>
-inline CircularBuffer<T>::CircularBuffer(size_type size, const T& value)
-    : CircularBuffer()
+inline Deque<T>::Deque(size_type size, const T& value)
+    : Deque()
 {
     append(size, value); // Throws
 }
 
 
 template<class T>
-template<class I, class> inline CircularBuffer<T>::CircularBuffer(I begin, I end)
-    : CircularBuffer()
+template<class I, class> inline Deque<T>::Deque(I begin, I end)
+    : Deque()
 {
     append(begin, end); // Throws
 }
 
 
 template<class T>
-inline CircularBuffer<T>::~CircularBuffer() noexcept
+inline Deque<T>::~Deque() noexcept
 {
     destroy();
 }
 
 
 template<class T>
-inline auto CircularBuffer<T>::operator=(const CircularBuffer& buffer) -> CircularBuffer&
+inline auto Deque<T>::operator=(const Deque& other) -> Deque&
 {
     clear();
-    append(buffer.begin(), buffer.end()); // Throws
+    append(other.begin(), other.end()); // Throws
     return *this;
 }
 
 
 template<class T>
-inline auto CircularBuffer<T>::operator=(CircularBuffer&& buffer) noexcept -> CircularBuffer&
+inline auto Deque<T>::operator=(Deque&& other) noexcept -> Deque&
 {
     destroy();
-    m_memory         = std::move(buffer.m_memory);
-    m_offset         = buffer.m_offset;
-    m_size           = buffer.m_size;
-    m_allocated_size = buffer.m_allocated_size;
-    buffer.m_offset         = 0;
-    buffer.m_size           = 0;
-    buffer.m_allocated_size = 0;
+    m_memory         = std::move(other.m_memory);
+    m_offset         = other.m_offset;
+    m_size           = other.m_size;
+    m_allocated_size = other.m_allocated_size;
+    other.m_offset         = 0;
+    other.m_size           = 0;
+    other.m_allocated_size = 0;
     return *this;
 }
 
 
 template<class T>
-inline auto CircularBuffer<T>::operator=(std::initializer_list<T> list) -> CircularBuffer&
+inline auto Deque<T>::operator=(std::initializer_list<T> list) -> Deque&
 {
     clear();
     append(list.begin(), list.end()); // Throws
@@ -546,7 +546,7 @@ inline auto CircularBuffer<T>::operator=(std::initializer_list<T> list) -> Circu
 
 
 template<class T>
-inline void CircularBuffer<T>::assign(std::initializer_list<T> list)
+inline void Deque<T>::assign(std::initializer_list<T> list)
 {
     clear();
     append(list.begin(), list.end()); // Throws
@@ -554,7 +554,7 @@ inline void CircularBuffer<T>::assign(std::initializer_list<T> list)
 
 
 template<class T>
-inline void CircularBuffer<T>::assign(size_type size, const T& value)
+inline void Deque<T>::assign(size_type size, const T& value)
 {
     clear();
     append(size, value); // Throws
@@ -562,7 +562,7 @@ inline void CircularBuffer<T>::assign(size_type size, const T& value)
 
 
 template<class T>
-template<class I, class> inline void CircularBuffer<T>::assign(I begin, I end)
+template<class I, class> inline void Deque<T>::assign(I begin, I end)
 {
     clear();
     append(begin, end); // Throws
@@ -570,7 +570,7 @@ template<class I, class> inline void CircularBuffer<T>::assign(I begin, I end)
 
 
 template<class T>
-inline auto CircularBuffer<T>::at(size_type i) -> T&
+inline auto Deque<T>::at(size_type i) -> T&
 {
     if (ARCHON_LIKELY(i < m_size))
         return operator[](i);
@@ -579,14 +579,14 @@ inline auto CircularBuffer<T>::at(size_type i) -> T&
 
 
 template<class T>
-inline auto CircularBuffer<T>::at(size_type i) const -> const T&
+inline auto Deque<T>::at(size_type i) const -> const T&
 {
-    return const_cast<CircularBuffer*>(this)->at(i); // Throws
+    return const_cast<Deque*>(this)->at(i); // Throws
 }
 
 
 template<class T>
-inline auto CircularBuffer<T>::operator[](size_type i) noexcept -> T&
+inline auto Deque<T>::operator[](size_type i) noexcept -> T&
 {
     ARCHON_ASSERT(i < m_size);
     T* base = get_base();
@@ -596,63 +596,63 @@ inline auto CircularBuffer<T>::operator[](size_type i) noexcept -> T&
 
 
 template<class T>
-inline auto CircularBuffer<T>::operator[](size_type i) const noexcept -> const T&
+inline auto Deque<T>::operator[](size_type i) const noexcept -> const T&
 {
-    return const_cast<CircularBuffer*>(this)->operator[](i);
+    return const_cast<Deque*>(this)->operator[](i);
 }
 
 
 template<class T>
-inline auto CircularBuffer<T>::front() noexcept -> T&
-{
-    return operator[](0);
-}
-
-
-template<class T>
-inline auto CircularBuffer<T>::front() const noexcept -> const T&
+inline auto Deque<T>::front() noexcept -> T&
 {
     return operator[](0);
 }
 
 
 template<class T>
-inline auto CircularBuffer<T>::back() noexcept -> T&
+inline auto Deque<T>::front() const noexcept -> const T&
+{
+    return operator[](0);
+}
+
+
+template<class T>
+inline auto Deque<T>::back() noexcept -> T&
 {
     return operator[](m_size - 1);
 }
 
 
 template<class T>
-inline auto CircularBuffer<T>::back() const noexcept -> const T&
+inline auto Deque<T>::back() const noexcept -> const T&
 {
     return operator[](m_size - 1);
 }
 
 
 template<class T>
-inline auto CircularBuffer<T>::begin() noexcept -> iterator
+inline auto Deque<T>::begin() noexcept -> iterator
 {
     return { this, m_offset };
 }
 
 
 template<class T>
-inline auto CircularBuffer<T>::begin() const noexcept -> const_iterator
+inline auto Deque<T>::begin() const noexcept -> const_iterator
 {
-    return const_cast<CircularBuffer*>(this)->begin();
+    return const_cast<Deque*>(this)->begin();
 }
 
 
 template<class T>
-inline auto CircularBuffer<T>::cbegin() const noexcept -> const_iterator
+inline auto Deque<T>::cbegin() const noexcept -> const_iterator
 {
     return begin();
 }
 
 
 template<class T>
-inline auto CircularBuffer<T>::end() noexcept -> iterator
+inline auto Deque<T>::end() noexcept -> iterator
 {
     size_type i = wrap(m_size);
     return { this, i };
@@ -660,77 +660,77 @@ inline auto CircularBuffer<T>::end() noexcept -> iterator
 
 
 template<class T>
-inline auto CircularBuffer<T>::end() const noexcept -> const_iterator
+inline auto Deque<T>::end() const noexcept -> const_iterator
 {
-    return const_cast<CircularBuffer*>(this)->end();
+    return const_cast<Deque*>(this)->end();
 }
 
 
 template<class T>
-inline auto CircularBuffer<T>::cend() const noexcept -> const_iterator
+inline auto Deque<T>::cend() const noexcept -> const_iterator
 {
     return end();
 }
 
 
 template<class T>
-inline auto CircularBuffer<T>::rbegin() noexcept -> reverse_iterator
+inline auto Deque<T>::rbegin() noexcept -> reverse_iterator
 {
     return std::reverse_iterator<iterator>(end());
 }
 
 
 template<class T>
-inline auto CircularBuffer<T>::rbegin() const noexcept -> const_reverse_iterator
+inline auto Deque<T>::rbegin() const noexcept -> const_reverse_iterator
 {
-    return const_cast<CircularBuffer*>(this)->rbegin();
+    return const_cast<Deque*>(this)->rbegin();
 }
 
 
 template<class T>
-inline auto CircularBuffer<T>::crbegin() const noexcept -> const_reverse_iterator
+inline auto Deque<T>::crbegin() const noexcept -> const_reverse_iterator
 {
     return rbegin();
 }
 
 
 template<class T>
-inline auto CircularBuffer<T>::rend() noexcept -> reverse_iterator
+inline auto Deque<T>::rend() noexcept -> reverse_iterator
 {
     return std::reverse_iterator<iterator>(begin());
 }
 
 
 template<class T>
-inline auto CircularBuffer<T>::rend() const noexcept -> const_reverse_iterator
+inline auto Deque<T>::rend() const noexcept -> const_reverse_iterator
 {
-    return const_cast<CircularBuffer*>(this)->rend();
+    return const_cast<Deque*>(this)->rend();
 }
 
 
 template<class T>
-inline auto CircularBuffer<T>::crend() const noexcept -> const_reverse_iterator
+inline auto Deque<T>::crend() const noexcept -> const_reverse_iterator
 {
     return rend();
 }
 
 
 template<class T>
-inline bool CircularBuffer<T>::empty() const noexcept
+inline bool Deque<T>::empty() const noexcept
 {
     return (m_size == 0);
 }
 
 
 template<class T>
-inline auto CircularBuffer<T>::size() const noexcept -> size_type
+inline auto Deque<T>::size() const noexcept -> size_type
 {
     return m_size;
 }
 
 
 template<class T>
-void CircularBuffer<T>::reserve_extra(size_type min_extra_capacity)
+void Deque<T>::reserve_extra(size_type min_extra_capacity)
 {
     size_type min_capacity = m_size;
     if (ARCHON_LIKELY(core::try_int_add(min_capacity, min_extra_capacity))) {
@@ -742,7 +742,7 @@ void CircularBuffer<T>::reserve_extra(size_type min_extra_capacity)
 
 
 template<class T>
-void CircularBuffer<T>::reserve(size_type min_capacity)
+void Deque<T>::reserve(size_type min_capacity)
 {
     if (min_capacity == 0)
         return;
@@ -764,7 +764,7 @@ void CircularBuffer<T>::reserve(size_type min_capacity)
 
 
 template<class T>
-inline void CircularBuffer<T>::shrink_to_fit()
+inline void Deque<T>::shrink_to_fit()
 {
     if (m_size > 0) {
         // An extra element of capacity is needed such that the end iterator can always
@@ -783,42 +783,42 @@ inline void CircularBuffer<T>::shrink_to_fit()
 
 
 template<class T>
-inline auto CircularBuffer<T>::capacity() const noexcept -> size_type
+inline auto Deque<T>::capacity() const noexcept -> size_type
 {
     return (m_allocated_size > 0 ? m_allocated_size - 1 : 0);
 }
 
 
 template<class T>
-inline auto CircularBuffer<T>::push_front(const T& value) -> T&
+inline auto Deque<T>::push_front(const T& value) -> T&
 {
     return emplace_front(value); // Throws
 }
 
 
 template<class T>
-inline auto CircularBuffer<T>::push_back(const T& value) -> T&
+inline auto Deque<T>::push_back(const T& value) -> T&
 {
     return emplace_back(value); // Throws
 }
 
 
 template<class T>
-inline auto CircularBuffer<T>::push_front(T&& value) -> T&
+inline auto Deque<T>::push_front(T&& value) -> T&
 {
     return emplace_front(std::move(value)); // Throws
 }
 
 
 template<class T>
-inline auto CircularBuffer<T>::push_back(T&& value) -> T&
+inline auto Deque<T>::push_back(T&& value) -> T&
 {
     return emplace_back(std::move(value)); // Throws
 }
 
 
 template<class T>
-template<class... A> inline auto CircularBuffer<T>::emplace_front(A&&... args) -> T&
+template<class... A> inline auto Deque<T>::emplace_front(A&&... args) -> T&
 {
     size_type new_size = m_size + 1;
     reserve(new_size); // Throws
@@ -833,7 +833,7 @@ template<class... A> inline auto CircularBuffer<T>::emplace_front(A&&... args) -
 
 
 template<class T>
-template<class... A> inline auto CircularBuffer<T>::emplace_back(A&&... args) -> T&
+template<class... A> inline auto Deque<T>::emplace_back(A&&... args) -> T&
 {
     size_type new_size = m_size + 1;
     reserve(new_size); // Throws
@@ -847,7 +847,7 @@ template<class... A> inline auto CircularBuffer<T>::emplace_back(A&&... args) ->
 
 
 template<class T>
-inline void CircularBuffer<T>::pop_front() noexcept
+inline void Deque<T>::pop_front() noexcept
 {
     ARCHON_ASSERT(m_size > 0);
     T* base = get_base();
@@ -859,7 +859,7 @@ inline void CircularBuffer<T>::pop_front() noexcept
 
 
 template<class T>
-inline void CircularBuffer<T>::pop_back() noexcept
+inline void Deque<T>::pop_back() noexcept
 {
     ARCHON_ASSERT(m_size > 0);
     T* base = get_base();
@@ -871,28 +871,28 @@ inline void CircularBuffer<T>::pop_back() noexcept
 
 
 template<class T>
-inline void CircularBuffer<T>::append(std::initializer_list<T> list)
+inline void Deque<T>::append(std::initializer_list<T> list)
 {
     do_append_2(list.begin(), list.end()); // Throws
 }
 
 
 template<class T>
-inline void CircularBuffer<T>::append(size_type size, const T& value)
+inline void Deque<T>::append(size_type size, const T& value)
 {
     do_append_1(size, value); // Throws
 }
 
 
 template<class T>
-template<class I, class> inline void CircularBuffer<T>::append(I begin, I end)
+template<class I, class> inline void Deque<T>::append(I begin, I end)
 {
     do_append_2(begin, end); // Throws
 }
 
 
 template<class T>
-inline auto CircularBuffer<T>::erase(const_iterator i) noexcept -> iterator
+inline auto Deque<T>::erase(const_iterator i) noexcept -> iterator
 {
     size_type begin = unwrap(i.m_index);
     size_type end   = begin + 1;
@@ -903,7 +903,7 @@ inline auto CircularBuffer<T>::erase(const_iterator i) noexcept -> iterator
 
 
 template<class T>
-inline auto CircularBuffer<T>::erase(const_iterator begin, const_iterator end) noexcept -> iterator
+inline auto Deque<T>::erase(const_iterator begin, const_iterator end) noexcept -> iterator
 {
     size_type begin_2 = unwrap(begin.m_index);
     size_type end_2   = unwrap(end.m_index);
@@ -916,7 +916,7 @@ inline auto CircularBuffer<T>::erase(const_iterator begin, const_iterator end) n
 
 
 template<class T>
-inline void CircularBuffer<T>::clear() noexcept
+inline void Deque<T>::clear() noexcept
 {
     destroy();
     m_offset = 0;
@@ -925,7 +925,7 @@ inline void CircularBuffer<T>::clear() noexcept
 
 
 template<class T>
-inline void CircularBuffer<T>::resize(size_type size)
+inline void Deque<T>::resize(size_type size)
 {
     if (size <= m_size) {
         size_type offset = size;
@@ -938,7 +938,7 @@ inline void CircularBuffer<T>::resize(size_type size)
 
 
 template<class T>
-inline void CircularBuffer<T>::resize(size_type size, const T& value)
+inline void Deque<T>::resize(size_type size, const T& value)
 {
     if (size <= m_size) {
         size_type offset = size;
@@ -951,71 +951,65 @@ inline void CircularBuffer<T>::resize(size_type size, const T& value)
 
 
 template<class T>
-inline void CircularBuffer<T>::swap(CircularBuffer& buffer) noexcept
+inline void Deque<T>::swap(Deque& other) noexcept
 {
-    std::swap(m_memory,         buffer.m_memory);
-    std::swap(m_offset,         buffer.m_offset);
-    std::swap(m_size,           buffer.m_size);
-    std::swap(m_allocated_size, buffer.m_allocated_size);
+    std::swap(m_memory,         other.m_memory);
+    std::swap(m_offset,         other.m_offset);
+    std::swap(m_size,           other.m_size);
+    std::swap(m_allocated_size, other.m_allocated_size);
 }
 
 
 template<class T>
-template<class U>
-inline bool CircularBuffer<T>::operator==(const CircularBuffer<U>& buffer) const
+template<class U> inline bool Deque<T>::operator==(const Deque<U>& other) const
     noexcept(noexcept(std::declval<T>() == std::declval<U>()))
 {
-    return std::equal(begin(), end(), buffer.begin(), buffer.end()); // Throws
+    return std::equal(begin(), end(), other.begin(), other.end()); // Throws
 }
 
 
 template<class T>
-template<class U>
-inline bool CircularBuffer<T>::operator!=(const CircularBuffer<U>& buffer) const
+template<class U> inline bool Deque<T>::operator!=(const Deque<U>& other) const
     noexcept(noexcept(std::declval<T>() == std::declval<U>()))
 {
-    return !operator==(buffer); // Throws
+    return !operator==(other); // Throws
 }
 
 
 template<class T>
-template<class U>
-inline bool CircularBuffer<T>::operator<(const CircularBuffer<U>& buffer) const
+template<class U> inline bool Deque<T>::operator<(const Deque<U>& other) const
     noexcept(noexcept(std::declval<T>() < std::declval<U>()))
 {
-    return std::lexicographical_compare(begin(), end(), buffer.begin(), buffer.end()); // Throws
+    return std::lexicographical_compare(begin(), end(), other.begin(), other.end()); // Throws
 }
 
 
 template<class T>
-template<class U>
-inline bool CircularBuffer<T>::operator>(const CircularBuffer<U>& buffer) const
+template<class U> inline bool Deque<T>::operator>(const Deque<U>& other) const
     noexcept(noexcept(std::declval<T>() < std::declval<U>()))
 {
-    return (buffer < *this); // Throws
+    return (other < *this); // Throws
 }
 
 
 template<class T>
-template<class U>
-inline bool CircularBuffer<T>::operator<=(const CircularBuffer<U>& buffer) const
+template<class U> inline bool Deque<T>::operator<=(const Deque<U>& other) const
     noexcept(noexcept(std::declval<T>() < std::declval<U>()))
 {
-    return !operator>(buffer); // Throws
+    return !operator>(other); // Throws
 }
 
 
 template<class T>
-template<class U>
-inline bool CircularBuffer<T>::operator>=(const CircularBuffer<U>& buffer) const
+template<class U> inline bool Deque<T>::operator>=(const Deque<U>& other) const
     noexcept(noexcept(std::declval<T>() < std::declval<U>()))
 {
-    return !operator<(buffer); // Throws
+    return !operator<(other); // Throws
 }
 
 
 template<class T>
-inline void CircularBuffer<T>::destroy(size_type offset) noexcept
+inline void Deque<T>::destroy(size_type offset) noexcept
 {
     ARCHON_ASSERT(offset <= m_size);
     T* base = get_base();
@@ -1031,13 +1025,13 @@ inline void CircularBuffer<T>::destroy(size_type offset) noexcept
 
 
 template<class T>
-void CircularBuffer<T>::realloc(size_type new_allocated_size)
+void Deque<T>::realloc(size_type new_allocated_size)
 {
     ARCHON_ASSERT(new_allocated_size > 1);
     ARCHON_ASSERT(new_allocated_size > m_size);
     size_type num_bytes = new_allocated_size;
     if (ARCHON_UNLIKELY(!core::try_int_mul(num_bytes, sizeof (T))))
-        throw std::length_error("Buffer capacity");
+        throw std::length_error("Buffer size");
     std::unique_ptr<std::byte[]> new_memory = std::make_unique<std::byte[]>(num_bytes); // Throws
     T* base = get_base();
     T* new_base = reinterpret_cast<T*>(new_memory.get());
@@ -1063,7 +1057,7 @@ void CircularBuffer<T>::realloc(size_type new_allocated_size)
 
 
 template<class T>
-inline void CircularBuffer<T>::do_append_1(size_type size)
+inline void Deque<T>::do_append_1(size_type size)
 {
     reserve_extra(size); // Throws
     T* base = get_base();
@@ -1087,7 +1081,7 @@ inline void CircularBuffer<T>::do_append_1(size_type size)
 
 
 template<class T>
-inline void CircularBuffer<T>::do_append_1(size_type size, const T& value)
+inline void Deque<T>::do_append_1(size_type size, const T& value)
 {
     reserve_extra(size); // Throws
     T* base = get_base();
@@ -1111,7 +1105,7 @@ inline void CircularBuffer<T>::do_append_1(size_type size, const T& value)
 
 
 template<class T>
-template<class I> inline void CircularBuffer<T>::do_append_2(I begin, I end)
+template<class I> inline void Deque<T>::do_append_2(I begin, I end)
 {
     using iterator_category = typename std::iterator_traits<I>::iterator_category;
     do_append_2(begin, end, iterator_category()); // Throws
@@ -1119,7 +1113,7 @@ template<class I> inline void CircularBuffer<T>::do_append_2(I begin, I end)
 
 
 template<class T>
-template<class I> void CircularBuffer<T>::do_append_2(I begin, I end, std::input_iterator_tag)
+template<class I> void Deque<T>::do_append_2(I begin, I end, std::input_iterator_tag)
 {
     for (I i = begin; i != end; ++i)
         push_back(*i); // Throws
@@ -1127,7 +1121,7 @@ template<class I> void CircularBuffer<T>::do_append_2(I begin, I end, std::input
 
 
 template<class T>
-template<class I> void CircularBuffer<T>::do_append_2(I begin, I end, std::random_access_iterator_tag)
+template<class I> void Deque<T>::do_append_2(I begin, I end, std::random_access_iterator_tag)
 {
     size_type size = size_type(end - begin);
     reserve_extra(size); // Throws
@@ -1152,7 +1146,7 @@ template<class I> void CircularBuffer<T>::do_append_2(I begin, I end, std::rando
 
 
 template<class T>
-void CircularBuffer<T>::do_erase(size_type begin, size_type end) noexcept
+void Deque<T>::do_erase(size_type begin, size_type end) noexcept
 {
     if (ARCHON_LIKELY(begin != end)) {
         size_type before = begin;
@@ -1168,7 +1162,7 @@ void CircularBuffer<T>::do_erase(size_type begin, size_type end) noexcept
 
 
 template<class T>
-void CircularBuffer<T>::erase_near_front(size_type begin, size_type end) noexcept
+void Deque<T>::erase_near_front(size_type begin, size_type end) noexcept
 {
     T* base = get_base();
     size_type size = size_type(end - begin);
@@ -1213,7 +1207,7 @@ void CircularBuffer<T>::erase_near_front(size_type begin, size_type end) noexcep
 
 
 template<class T>
-void CircularBuffer<T>::erase_near_back(size_type begin, size_type end) noexcept
+void Deque<T>::erase_near_back(size_type begin, size_type end) noexcept
 {
     T* base = get_base();
     size_type size = size_type(end - begin);
@@ -1261,14 +1255,14 @@ void CircularBuffer<T>::erase_near_back(size_type begin, size_type end) noexcept
 
 
 template<class T>
-inline auto CircularBuffer<T>::get_base() noexcept -> T*
+inline auto Deque<T>::get_base() noexcept -> T*
 {
     return reinterpret_cast<T*>(m_memory.get());
 }
 
 
 template<class T>
-inline auto CircularBuffer<T>::circular_inc(size_type index) noexcept -> size_type
+inline auto Deque<T>::circular_inc(size_type index) noexcept -> size_type
 {
     size_type index_2 = index + 1;
     if (ARCHON_LIKELY(index_2 < m_allocated_size))
@@ -1278,7 +1272,7 @@ inline auto CircularBuffer<T>::circular_inc(size_type index) noexcept -> size_ty
 
 
 template<class T>
-inline auto CircularBuffer<T>::circular_dec(size_type index) noexcept -> size_type
+inline auto Deque<T>::circular_dec(size_type index) noexcept -> size_type
 {
     if (ARCHON_LIKELY(index > 0))
         return index - 1;
@@ -1287,7 +1281,7 @@ inline auto CircularBuffer<T>::circular_dec(size_type index) noexcept -> size_ty
 
 
 template<class T>
-inline auto CircularBuffer<T>::wrap(size_type index) noexcept -> size_type
+inline auto Deque<T>::wrap(size_type index) noexcept -> size_type
 {
     size_type top = m_allocated_size - m_offset;
     if (index < top)
@@ -1297,7 +1291,7 @@ inline auto CircularBuffer<T>::wrap(size_type index) noexcept -> size_type
 
 
 template<class T>
-inline auto CircularBuffer<T>::unwrap(size_type index) noexcept -> size_type
+inline auto Deque<T>::unwrap(size_type index) noexcept -> size_type
 {
     if (index >= m_offset)
         return index - m_offset;
@@ -1305,7 +1299,7 @@ inline auto CircularBuffer<T>::unwrap(size_type index) noexcept -> size_type
 }
 
 
-template<class T> inline void swap(CircularBuffer<T>& a, CircularBuffer<T>& b) noexcept
+template<class T> inline void swap(Deque<T>& a, Deque<T>& b) noexcept
 {
     a.swap(b);
 }
@@ -1313,4 +1307,4 @@ template<class T> inline void swap(CircularBuffer<T>& a, CircularBuffer<T>& b) n
 
 } // namespace archon::core
 
-#endif // ARCHON_X_CORE_X_CIRCULAR_BUFFER_HPP
+#endif // ARCHON_X_CORE_X_DEQUE_HPP

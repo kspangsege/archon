@@ -75,9 +75,9 @@
 #include <archon/core/buffer_contents.hpp>
 #include <archon/core/string_buffer_contents.hpp>
 #include <archon/core/array_seeded_buffer.hpp>
-#include <archon/core/circular_buffer.hpp>
 #include <archon/core/impl/vector_impl.hpp>
 #include <archon/core/vector.hpp>
+#include <archon/core/deque.hpp>
 #include <archon/core/impl/flat_map_impl.hpp>
 #include <archon/core/flat_map.hpp>
 #include <archon/core/flat_multimap.hpp>

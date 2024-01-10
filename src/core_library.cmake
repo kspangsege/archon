@@ -83,9 +83,9 @@ target_sources(Core PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "${
   archon/core/buffer_contents.hpp
   archon/core/string_buffer_contents.hpp
   archon/core/array_seeded_buffer.hpp
-  archon/core/circular_buffer.hpp
   archon/core/impl/vector_impl.hpp
   archon/core/vector.hpp
+  archon/core/deque.hpp
   archon/core/impl/flat_map_impl.hpp
   archon/core/flat_map.hpp
   archon/core/flat_multimap.hpp
