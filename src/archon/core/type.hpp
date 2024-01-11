@@ -234,20 +234,46 @@ template<int N, class F = void> using FastestUnsignedWithBits = typename impl::F
 
 /// \brief Whether equality comparison between two given types is non-throwing.
 ///
-/// This constant is `true` when, and only when the equality comparison between an object of
-/// type \p T and an object of type \p U is a declared non-throwing operation (`noexcept`).
+/// This constant is `true` when, and only when the equality comparison operation between an
+/// object of type \p T and an object of type \p U is a declared non-throwing operation
+/// (`noexcept`).
 ///
 template<class T, class U> constexpr bool are_nothrow_equality_comparable =
-    noexcept(std::declval<T>() == std::declval<U>());
+    noexcept(std::declval<const T&>() == std::declval<const U&>());
+
+
+/// \brief Whether less-than comparison between two given types is non-throwing.
+///
+/// This constant is `true` when, and only when the less-than comparison operation between
+/// an object of type \p T and an object of type \p U is a declared non-throwing operation
+/// (`noexcept`).
+///
+template<class T, class U> constexpr bool are_nothrow_less_comparable =
+    noexcept(std::declval<const T&>() < std::declval<const U&>());
 
 
 /// \brief Whether three-way comparison between two given types is non-throwing.
 ///
-/// This constant is `true` when, and only when the three-way comparison between an object
-/// of type \p T and an object of type \p U is a declared non-throwing operation (`noexcept`).
+/// This constant is `true` when, and only when the three-way comparison operation between
+/// an object of type \p T and an object of type \p U is a declared non-throwing operation
+/// (`noexcept`).
 ///
 template<class T, class U> constexpr bool are_nothrow_three_way_comparable =
-    noexcept(std::declval<T>() <=> std::declval<U>());
+    noexcept(std::declval<const T&>() <=> std::declval<const U&>());
+
+
+/// \{
+///
+/// \brief Whether comparison is non-throwing for objects of specific type.
+///
+/// These constants are shorthands for \ref core::are_nothrow_equality_comparable, \ref
+/// core::are_nothrow_less_comparable, and \ref core::are_nothrow_three_way_comparable with
+/// both \p T and \p U set to \p T.
+///
+template<class T> constexpr bool is_nothrow_equality_comparable = core::are_nothrow_equality_comparable<T, T>;
+template<class T> constexpr bool is_nothrow_less_comparable = core::are_nothrow_less_comparable<T, T>;
+template<class T> constexpr bool is_nothrow_three_way_comparable = core::are_nothrow_three_way_comparable<T, T>;
+/// \}
 
 
 /// \brief Whether a stream output operator exists for given value and character type.

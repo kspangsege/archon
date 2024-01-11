@@ -28,6 +28,7 @@
 #include <iostream>
 
 #include <archon/core/assert.hpp>
+#include <archon/core/scope_exit.hpp>
 #include <archon/core/filesystem.hpp>
 #include <archon/core/build_environment.hpp>
 #include <archon/log.hpp>
@@ -50,6 +51,9 @@
 #  include <X11/Xutil.h>
 #  include <X11/keysym.h>
 #  include <X11/XKBlib.h>
+#  if ARCHON_DISPLAY_HAVE_XDBE
+#    include <X11/extensions/Xdbe.h>
+#  endif
 #  if ARCHON_DISPLAY_HAVE_XRANDR
 #    include <X11/extensions/Xrandr.h>
 #  endif
@@ -405,6 +409,18 @@ int main(int argc, char* argv[])
     Window root = RootWindow(display, screen);
     unsigned long black = BlackPixel(display, screen);
 
+    int have_xdbe = false;
+#if ARCHON_DISPLAY_HAVE_XDBE
+    {
+        int major = 0;
+        int minor = 0;
+        if (XdbeQueryExtension(display, &major, &minor)) {
+            if (major >= 1)
+                have_xdbe = true;
+        }
+    }
+#endif // ARCHON_DISPLAY_HAVE_XDBE
+
     int have_xrandr = false;
 #if ARCHON_DISPLAY_HAVE_XRANDR
     int xrandr_event_base = 0;
@@ -435,12 +451,36 @@ int main(int argc, char* argv[])
     }
 #endif // ARCHON_DISPLAY_HAVE_XRENDER
 
+    // Key is (screen, depth, visual), value is `perflevel` attribute from XdbeVisualInfo
+#if ARCHON_DISPLAY_HAVE_XDBE
+    core::FlatMap<std::tuple<int, int, VisualID>, int> double_buffered_visuals;
+    {
+        int n = 0;
+        XdbeScreenVisualInfo* entries = XdbeGetVisualInfo(display, nullptr, &n);
+        ARCHON_STEADY_ASSERT(n == int(ScreenCount(display)));
+        ARCHON_SCOPE_EXIT {
+            XdbeFreeVisualInfo(entries);
+        };
+        for (int i = 0; i < n; ++i) {
+            XdbeScreenVisualInfo& entry = entries[i];
+            for (int j = 0; j < entry.count; ++j) {
+                XdbeVisualInfo& subentry = entry.visinfo[j];
+                double_buffered_visuals.emplace(std::make_tuple(i, subentry.depth, subentry.visual),
+                                                subentry.perflevel); // Throws
+            }
+        }
+    }
+#endif // ARCHON_DISPLAY_HAVE_XDBE
+
     // List visuals
     {
         int n = 0;
         XVisualInfo info_template;
         XVisualInfo* entries = XGetVisualInfo(display, 0, &info_template, &n);
         ARCHON_STEADY_ASSERT(entries);
+        ARCHON_SCOPE_EXIT {
+            XFree(entries);
+        };
         for (int i = 0; i < n; ++i) {
             const XVisualInfo& info = entries[i];
             logger.info("Visual %s: visualid = 0x%s, screen = %s, depth = %s, class = %s, "
@@ -450,7 +490,6 @@ int main(int argc, char* argv[])
                         core::as_hex_int(info.green_mask), core::as_hex_int(info.blue_mask), info.colormap_size,
                         info.bits_per_rgb);
         }
-        XFree(entries);
     }
 
     // Choose depth and visual
@@ -517,6 +556,7 @@ int main(int argc, char* argv[])
     logger.info("Display string:                     %s", DisplayString(display));
     logger.info("Server vendor:                      %s", ServerVendor(display));
     logger.info("Vendor release:                     %s", core::as_int(VendorRelease(display)));
+    logger.info("Have Xdbe:                          %s", (have_xdbe ? "yes" : "no"));
     logger.info("Have Xrandr:                        %s", (have_xrandr ? "yes" : "no"));
     logger.info("Have Xrender:                       %s", (have_xrender ? "yes" : "no"));
     logger.info("Image byte order:                   %s",

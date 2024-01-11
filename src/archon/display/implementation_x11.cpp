@@ -27,6 +27,7 @@
 #include <locale>
 
 #include <archon/core/features.h>
+#include <archon/core/deque.hpp>
 #include <archon/core/flat_map.hpp>
 #include <archon/core/format.hpp>
 #include <archon/core/quote.hpp>
@@ -172,17 +173,21 @@ public:
     auto get_implementation() const noexcept -> const display::Implementation& override final;
 
 private:
+    class WindowEntry;
+
     const std::optional<int> m_depth_override;
     const std::optional<VisualID> m_visual_override;
 
     std::unique_ptr<X11Screen[]> m_x11_screens;
 
-    struct WindowEntry {
-        display::WindowEventHandler& event_handler;
-        int cookie;
-    };
-
     core::FlatMap<::Window, WindowEntry> m_window_entries;
+
+    // A queue of windows with pending expose events (push to back and pop from
+    // front). Windows occur at most once in this queue.
+    //
+    // INVARIANT: A window is in `m_exposed_windows` if and only if it is in
+    // `m_window_entries` and has `has_pending_expose_event` set to `true`.
+    core::Deque<::Window> m_exposed_windows;
 
     // If `m_have_curr_window_id` is true, then `m_curr_window_entry` specifies the entry
     // for the window specified by `m_curr_window_id`. If `m_have_curr_window_id` is false,
@@ -197,7 +202,7 @@ private:
     //
     bool m_have_curr_window_id = false;
     ::Window m_curr_window_id = {};
-    const WindowEntry* m_curr_window_entry = nullptr;
+    WindowEntry* m_curr_window_entry = nullptr;
 
     auto intern(const char*) noexcept -> Atom;
 
@@ -207,7 +212,7 @@ private:
     bool process_outstanding_events(display::ConnectionEventHandler&);
     void wait_for_events();
 
-    auto lookup_window_entry(::Window window_id) noexcept -> const WindowEntry*;
+    auto lookup_window_entry(::Window window_id) noexcept -> WindowEntry*;
 };
 
 
@@ -313,6 +318,20 @@ auto SlotImpl::get_implementation_a(const display::Guarantees& guarantees) const
     return nullptr;
 }
 
+
+
+class ConnectionImpl::WindowEntry {
+public:
+    display::WindowEventHandler& event_handler;
+    int cookie;
+    bool has_pending_expose_event = false;
+
+    WindowEntry(display::WindowEventHandler& event_handler_2, int cookie_2) noexcept
+        : event_handler(event_handler_2)
+        , cookie(cookie_2)
+    {
+    }
+};
 
 
 inline ConnectionImpl::ConnectionImpl(const ImplementationImpl& impl_2, const std::locale& locale_2,
@@ -587,14 +606,11 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
             break;
         }
         case Expose: {
-            const WindowEntry* entry = lookup_window_entry(ev.xexpose.window);
-            if (ARCHON_LIKELY(entry)) {
-                display::WindowEvent event;
-                event.cookie = entry->cookie;
-                bool proceed = entry->event_handler.on_expose(event); // Throws
-                if (ARCHON_LIKELY(!proceed))
-                    return false; // Interrupt
-            }
+            WindowEntry* entry = lookup_window_entry(ev.xexpose.window);
+            if (ARCHON_LIKELY(!entry || entry->has_pending_expose_event))
+                break;
+            m_exposed_windows.push_back(ev.xexpose.window); // Throws
+            entry->has_pending_expose_event = true;
             break;
         }
         case ClientMessage: {
@@ -615,6 +631,20 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
     goto next_event_1;
 
   exhausted:
+    for (;;) {
+        if (ARCHON_LIKELY(m_exposed_windows.empty()))
+            break;
+        ::Window win = m_exposed_windows.front();
+        m_exposed_windows.pop_front();
+        const WindowEntry* entry = lookup_window_entry(win);
+        if (ARCHON_LIKELY(entry)) {
+            display::WindowEvent event;
+            event.cookie = entry->cookie;
+            bool proceed = entry->event_handler.on_expose(event); // Throws
+            if (ARCHON_LIKELY(!proceed))
+                return false; // Interrupt
+        }
+    }
     {
         bool proceed = connection_event_handler.before_sleep(); // Throws
         if (ARCHON_UNLIKELY(!proceed))
@@ -649,12 +679,12 @@ void ConnectionImpl::wait_for_events()
 }
 
 
-auto ConnectionImpl::lookup_window_entry(::Window window_id) noexcept -> const WindowEntry*
+auto ConnectionImpl::lookup_window_entry(::Window window_id) noexcept -> WindowEntry*
 {
     if (ARCHON_LIKELY(m_have_curr_window_id && window_id == m_curr_window_id))
         return m_curr_window_entry;
 
-    const WindowEntry* entry = nullptr;
+    WindowEntry* entry = nullptr;
     auto i = m_window_entries.find(window_id);
     if (ARCHON_LIKELY(i != m_window_entries.end()))
         entry = &i->second;
