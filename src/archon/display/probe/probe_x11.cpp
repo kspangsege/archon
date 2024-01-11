@@ -29,6 +29,8 @@
 
 #include <archon/core/assert.hpp>
 #include <archon/core/scope_exit.hpp>
+#include <archon/core/format.hpp>
+#include <archon/core/format_as.hpp>
 #include <archon/core/filesystem.hpp>
 #include <archon/core/build_environment.hpp>
 #include <archon/log.hpp>
@@ -451,8 +453,8 @@ int main(int argc, char* argv[])
     }
 #endif // ARCHON_DISPLAY_HAVE_XRENDER
 
-    // Key is (screen, depth, visual), value is `perflevel` attribute from XdbeVisualInfo
 #if ARCHON_DISPLAY_HAVE_XDBE
+    // Key is (screen, depth, visual), value is `perflevel` attribute from XdbeVisualInfo
     core::FlatMap<std::tuple<int, int, VisualID>, int> double_buffered_visuals;
     {
         int n = 0;
@@ -465,8 +467,11 @@ int main(int argc, char* argv[])
             XdbeScreenVisualInfo& entry = entries[i];
             for (int j = 0; j < entry.count; ++j) {
                 XdbeVisualInfo& subentry = entry.visinfo[j];
-                double_buffered_visuals.emplace(std::make_tuple(i, subentry.depth, subentry.visual),
-                                                subentry.perflevel); // Throws
+                ARCHON_STEADY_ASSERT(subentry.perflevel == 0);                 
+                auto p = double_buffered_visuals.emplace(std::make_tuple(i, subentry.depth, subentry.visual),
+                                                         subentry.perflevel); // Throws
+                bool was_inserted = p.second;
+                ARCHON_ASSERT(was_inserted);
             }
         }
     }
@@ -483,12 +488,26 @@ int main(int argc, char* argv[])
         };
         for (int i = 0; i < n; ++i) {
             const XVisualInfo& info = entries[i];
+            auto format_double_buffered = [&](std::ostream& out) {
+#if ARCHON_DISPLAY_HAVE_XDBE
+                auto j = double_buffered_visuals.find(std::make_tuple(info.screen, info.depth, info.visualid));
+                if (j != double_buffered_visuals.end()) {
+                    int perflevel = j->second;
+                    out << core::formatted("yes (%s)", perflevel); // Throws
+                }
+                else {
+                    out << "no"; // Throws
+                }
+#else
+                out << "unknown"; // Throws
+#endif
+            };
             logger.info("Visual %s: visualid = 0x%s, screen = %s, depth = %s, class = %s, "
-                        "red_mask = 0x%s, green_mask = 0x%s, blue_mask = 0x%s, colormap_size = %s, bits_per_rgb = %s",
-                        i + 1, core::as_hex_int(info.visualid), info.screen, info.depth,
+                        "red_mask = 0x%s, green_mask = 0x%s, blue_mask = 0x%s, colormap_size = %s, bits_per_rgb = %s, "
+                        "double_buffered = %s", i + 1, core::as_hex_int(info.visualid), info.screen, info.depth,
                         get_visual_class_name(info.c_class), core::as_hex_int(info.red_mask),
                         core::as_hex_int(info.green_mask), core::as_hex_int(info.blue_mask), info.colormap_size,
-                        info.bits_per_rgb);
+                        info.bits_per_rgb, core::as_format_func(format_double_buffered));
         }
     }
 
