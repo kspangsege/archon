@@ -493,14 +493,19 @@ int main(int argc, char* argv[])
                 auto j = double_buffered_visuals.find(std::make_tuple(info.screen, info.depth, info.visualid));
                 if (j != double_buffered_visuals.end()) {
                     int perflevel = j->second;
-                    out << core::formatted("yes (%s)", perflevel); // Throws
+                    if (perflevel != 0) {
+                        out << core::formatted("yes (%s)", perflevel); // Throws
+                    }
+                    else {
+                        out << "yes"; // Throws
+                    }
                 }
                 else {
                     out << "no"; // Throws
                 }
-#else
+#else // !ARCHON_DISPLAY_HAVE_XDBE
                 out << "unknown"; // Throws
-#endif
+#endif // !ARCHON_DISPLAY_HAVE_XDBE
             };
             logger.info("Visual %s: visualid = 0x%s, screen = %s, depth = %s, class = %s, "
                         "red_mask = 0x%s, green_mask = 0x%s, blue_mask = 0x%s, colormap_size = %s, bits_per_rgb = %s, "
@@ -538,6 +543,14 @@ int main(int argc, char* argv[])
         XFree(entries);
     }
     Visual* visual = visual_info.visual;
+    bool use_double_buffering = false;
+#if ARCHON_DISPLAY_HAVE_XDBE
+    {
+        auto i = double_buffered_visuals.find(std::make_tuple(screen, depth, visual_id));
+        if (i != double_buffered_visuals.end())
+            use_double_buffering = true;
+    }
+#endif // ARCHON_DISPLAY_HAVE_XDBE
 
     // List ZPixmap formats and find "bits per pixel" for selected depth
     int bits_per_pixel = 0;
@@ -606,6 +619,7 @@ int main(int argc, char* argv[])
                 core::as_hex_int(XVisualIDFromVisual(DefaultVisual(display, screen))));
     logger.info("Selected visual:                    0x%s", core::as_hex_int(visual_id));
     logger.info("Class of selected visual:           %s", get_visual_class_name(visual_info.c_class));
+    logger.info("Use double buffering:               %s", (use_double_buffering ? "yes" : "no"));
 
     // Create graphics context
     XGCValues gc_values = {};
@@ -952,6 +966,16 @@ int main(int argc, char* argv[])
     Atom delete_window = XInternAtom(display, "WM_DELETE_WINDOW", False);
     XSetWMProtocols(display, window, &delete_window, 1);
 
+    // Allocate back buffer when using double buffering
+    Drawable buffer = window;
+#if ARCHON_DISPLAY_HAVE_XDBE
+    XdbeSwapAction swap_action = XdbeUndefined; // Contents of swapped-out buffer becomes undefined
+    if (use_double_buffering) {
+        XdbeBackBuffer back_buffer = XdbeAllocateBackBufferName(display, window, swap_action);
+        buffer = back_buffer;
+    }
+#endif // ARCHON_DISPLAY_HAVE_XDBE
+
 //    XInstallColormap(display, colormap);        
 
 #if ARCHON_DISPLAY_HAVE_XRANDR
@@ -1195,18 +1219,28 @@ int main(int argc, char* argv[])
             }
             // Clear top area
             if (top > 0)
-                XFillRectangle(display, window, gc, 0, 0, unsigned(win_width), unsigned(top));
+                XFillRectangle(display, buffer, gc, 0, 0, unsigned(win_width), unsigned(top));
             // Clear left area
             if (left > 0)
-                XFillRectangle(display, window, gc, 0, top, unsigned(left), unsigned(h));
+                XFillRectangle(display, buffer, gc, 0, top, unsigned(left), unsigned(h));
             // Copy image
-            XCopyArea(display, img_pixmap, window, gc, x, y, w, h, left, top);
+            XCopyArea(display, img_pixmap, buffer, gc, x, y, w, h, left, top);
             // Clear right area
             if (right < win_width)
-                XFillRectangle(display, window, gc, right, top, unsigned(win_width - right), unsigned(h));
+                XFillRectangle(display, buffer, gc, right, top, unsigned(win_width - right), unsigned(h));
             // Clear bottom area
             if (bottom < win_height)
-                XFillRectangle(display, window, gc, 0, bottom, unsigned(win_width), unsigned(win_height - bottom));
+                XFillRectangle(display, buffer, gc, 0, bottom, unsigned(win_width), unsigned(win_height - bottom));
+
+#if ARCHON_DISPLAY_HAVE_XDBE
+            if (use_double_buffering) {
+                XdbeSwapInfo info;
+                info.swap_window = window;
+                info.swap_action = swap_action;
+                Status status = XdbeSwapBuffers(display, &info, 1);
+                ARCHON_STEADY_ASSERT(status != 0);
+            }
+#endif // ARCHON_DISPLAY_HAVE_XDBE
         }
     }
 

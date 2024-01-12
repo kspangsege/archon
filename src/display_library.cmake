@@ -13,7 +13,8 @@ set(ARCHON_DISPLAY_HAVE_XRANDR 0)
 if (X11_FOUND)
   set(ARCHON_DISPLAY_HAVE_X11 1)
   if (X11_Xext_FOUND)
-    # FIXME: Report missing support for Xdbe in FindX11.cmake, then refer to bug report here                                     
+    # Unfortunately, Xdbe is not directly covered by FindX11.cmake
+    # See https://gitlab.kitware.com/cmake/cmake/-/issues/25591.
     find_path(ARCHON_Xdbe_INCLUDE_PATH X11/extensions/Xdbe.h ${X11_Xext_INCLUDE_PATH})
     if (ARCHON_Xdbe_INCLUDE_PATH)
       set(ARCHON_DISPLAY_HAVE_XDBE 1)
