@@ -15,6 +15,9 @@ target_link_libraries(ProbeX11 PUBLIC
 
 if (X11_FOUND)
   target_link_libraries(ProbeX11 PRIVATE X11::X11)
+  if (X11_Xext_FOUND)
+    target_link_libraries(ProbeX11 PRIVATE X11::Xext)
+  endif()
   if (X11_Xrender_FOUND)
     target_link_libraries(ProbeX11 PRIVATE X11::Xrender)
   endif()
