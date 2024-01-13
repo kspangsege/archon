@@ -459,6 +459,7 @@ int main(int argc, char* argv[])
     {
         int n = 0;
         XdbeScreenVisualInfo* entries = XdbeGetVisualInfo(display, nullptr, &n);
+        ARCHON_STEADY_ASSERT(entries);
         ARCHON_STEADY_ASSERT(n == int(ScreenCount(display)));
         ARCHON_SCOPE_EXIT {
             XdbeFreeVisualInfo(entries);
@@ -467,7 +468,6 @@ int main(int argc, char* argv[])
             XdbeScreenVisualInfo& entry = entries[i];
             for (int j = 0; j < entry.count; ++j) {
                 XdbeVisualInfo& subentry = entry.visinfo[j];
-                ARCHON_STEADY_ASSERT(subentry.perflevel == 0);                 
                 auto p = double_buffered_visuals.emplace(std::make_tuple(i, subentry.depth, subentry.visual),
                                                          subentry.perflevel); // Throws
                 bool was_inserted = p.second;

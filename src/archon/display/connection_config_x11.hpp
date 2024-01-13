@@ -68,6 +68,15 @@ struct ConnectionConfigX11 {
     /// \sa \ref depth
     ///
     std::optional<std::uint_fast32_t> visual;
+
+    /// \brief Disable use of double buffering even when supported.
+    ///
+    /// By default, i.e., when `false`, double buffering will be used when the Double Buffer
+    /// Extension (Xdbe) is available (enabled at build time), and double buffering is
+    /// supported on the targeted X11 screen with the selected depth and visual (\ref depth,
+    /// \ref visual). When set to `true`, double buffering will not be used at all.
+    ///
+    bool disable_double_buffering = false;
 };
 
 

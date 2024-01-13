@@ -55,6 +55,9 @@
 #  include <X11/Xutil.h>
 #  include <X11/keysym.h>
 #  include <X11/XKBlib.h>
+#  if ARCHON_DISPLAY_HAVE_XDBE
+#    include <X11/extensions/Xdbe.h>
+#  endif
 #  if ARCHON_DISPLAY_HAVE_XRANDR
 #    include <X11/extensions/Xrandr.h>
 #  endif
@@ -77,13 +80,17 @@
 //
 // * Extended Window Manager Hints: https://specifications.freedesktop.org/wm-spec/latest/
 //
-// * RandR extension: https://www.x.org/releases/X11R7.7/doc/randrproto/randrproto.txt
+// * Xdbe protocol specification: https://www.x.org/releases/X11R7.7/doc/xextproto/dbe.html
 //
-// * RandR general documentation: https://www.x.org/wiki/libraries/libxrandr/
+// * Xdbe API documentation: https://www.x.org/releases/X11R7.7/doc/libXext/dbelib.html
 //
-// * RandR library source code: https://gitlab.freedesktop.org/xorg/lib/libxrandr
+// * XRandR protocol specification: https://www.x.org/releases/X11R7.7/doc/randrproto/randrproto.txt
 //
-// * Xrender extension: https://www.x.org/releases/X11R7.7/doc/renderproto/renderproto.txt
+// * XRandR general documentation: https://www.x.org/wiki/libraries/libxrandr/
+//
+// * XRandR library source code: https://gitlab.freedesktop.org/xorg/lib/libxrandr
+//
+// * Xrender protocol specification: https://www.x.org/releases/X11R7.7/doc/renderproto/renderproto.txt
 //
 // * Xrender API documentation: https://www.x.org/releases/X11R7.7/doc/libXrender/libXrender.txt
 //
@@ -102,6 +109,7 @@ constexpr std::string_view g_implementation_ident = "x11";
 
 struct X11Screen {
     bool is_initialized = false;
+    bool use_double_buffering = {};
     Window root = {};
     int depth = {};
     Visual* visual = {};
@@ -156,7 +164,7 @@ public:
 
     void open(const display::ConnectionConfigX11&);
     auto ensure_x11_screen(int screen) -> X11Screen&;
-    bool check_depth_visual_combi(int screen, int dept, VisualID visual_id, Visual*& visual) const noexcept;
+    bool check_depth_visual_combination(int screen, int depth, VisualID visual_id, Visual*& visual) const noexcept;
     void register_window(::Window id, display::WindowEventHandler&, int cookie);
     void unregister_window(::Window id) noexcept;
 
@@ -177,6 +185,9 @@ private:
 
     const std::optional<int> m_depth_override;
     const std::optional<VisualID> m_visual_override;
+    const bool m_disable_double_buffering;
+
+    bool m_have_xdbe = false;
 
     std::unique_ptr<X11Screen[]> m_x11_screens;
 
@@ -244,6 +255,12 @@ public:
 private:
     bool m_have_window = false;
     bool m_is_registered = false;
+    bool m_is_double_buffered = false;
+
+    Drawable m_drawable;
+#if ARCHON_DISPLAY_HAVE_XDBE
+    XdbeSwapAction m_swap_action;
+#endif
 
     void set_property(Atom name, Atom value) noexcept;
 };
@@ -340,6 +357,7 @@ inline ConnectionImpl::ConnectionImpl(const ImplementationImpl& impl_2, const st
     , locale(locale_2)
     , m_depth_override(config.depth)
     , m_visual_override(config.visual)
+    , m_disable_double_buffering(config.disable_double_buffering)
 {
 }
 
@@ -371,6 +389,17 @@ void ConnectionImpl::open(const display::ConnectionConfigX11& config)
 
     atom_wm_protocols     = intern("WM_PROTOCOLS");
     atom_wm_delete_window = intern("WM_DELETE_WINDOW");
+
+#if ARCHON_DISPLAY_HAVE_XDBE
+    {
+        int major = 0;
+        int minor = 0;
+        if (XdbeQueryExtension(dpy, &major, &minor)) {
+            if (major >= 1)
+                m_have_xdbe = true;
+        }
+    }
+#endif // ARCHON_DISPLAY_HAVE_XDBE
 }
 
 
@@ -389,14 +418,19 @@ auto ConnectionImpl::ensure_x11_screen(int screen) -> X11Screen&
         if (m_visual_override.has_value())
             visual_id = m_visual_override.value();
         Visual* visual = {};
-        if (ARCHON_UNLIKELY(!check_depth_visual_combi(screen, depth, visual_id, visual))) {
+        if (ARCHON_UNLIKELY(!check_depth_visual_combination(screen, depth, visual_id, visual))) {
             ARCHON_STEADY_ASSERT(m_depth_override.has_value() || m_visual_override.has_value());
             std::string message = core::format(locale, "Combination of selected depth (%s) and selected visual type "
                                                "(0x%s) is invalid for targeted screen (%s)", depth,
                                                core::as_hex_int(visual_id, 2), screen); // Throws
             throw std::runtime_error(message);
         }
+
         Colormap colormap = DefaultColormap(dpy, screen);
+        ARCHON_SCOPE_EXIT {
+            if (colormap != None)
+                XFreeColormap(dpy, colormap);
+        };
         if (ARCHON_UNLIKELY(visual_id != default_visual_id)) {
             // By creating a new colormap, rather than reusing the one used by the root
             // window, it becomes possible to use a visual for the new window that differs
@@ -404,18 +438,43 @@ auto ConnectionImpl::ensure_x11_screen(int screen) -> X11Screen&
             // agree on visual.
             colormap = XCreateColormap(dpy, root, visual, AllocNone);
         }
+
+        bool use_double_buffering = false;
+#if ARCHON_DISPLAY_HAVE_XDBE
+        if (!m_disable_double_buffering && m_have_xdbe) {
+            int n = 1;
+            XdbeScreenVisualInfo* entries = XdbeGetVisualInfo(dpy, &root, &n);
+            if (ARCHON_UNLIKELY(!entries))
+                throw std::runtime_error("XdbeGetVisualInfo() failed");
+            ARCHON_SCOPE_EXIT {
+                XdbeFreeVisualInfo(entries);
+            };
+            const XdbeScreenVisualInfo& entry = entries[0];
+            for (int i = 0; i < entry.count; ++i) {
+                XdbeVisualInfo& subentry = entry.visinfo[i];
+                bool is_match = (subentry.depth == depth && subentry.visual == visual_id);
+                if (is_match) {
+                    use_double_buffering = true;
+                    break;
+                }
+            }
+        }
+#endif // ARCHON_DISPLAY_HAVE_XDBE
+
+        screen_2.use_double_buffering = use_double_buffering;
         screen_2.root = root;
         screen_2.depth = depth;
         screen_2.visual = visual;
         screen_2.colormap = colormap;
         screen_2.is_initialized = true;
+        colormap = None;
     }
     return screen_2;
 }
 
 
-bool ConnectionImpl::check_depth_visual_combi(int screen, int depth, VisualID visual_id,
-                                               Visual*& visual) const noexcept
+bool ConnectionImpl::check_depth_visual_combination(int screen, int depth, VisualID visual_id,
+                                                    Visual*& visual) const noexcept
 {
     int n = 0;
     long vinfo_mask = VisualScreenMask | VisualDepthMask | VisualIDMask;
@@ -764,6 +823,17 @@ void WindowImpl::create(const X11Screen& screen, display::Size size, display::Wi
         XSetWMSizeHints(conn.dpy, win, &size_hints, XA_WM_NORMAL_HINTS);
     }
 
+    // Enable double buffering
+    m_drawable = win;
+#if ARCHON_DISPLAY_HAVE_XDBE
+    if (ARCHON_LIKELY(screen.use_double_buffering)) {
+        m_swap_action = XdbeUndefined; // Contents of swapped-out buffer becomes undefined
+        XdbeBackBuffer back_buffer = XdbeAllocateBackBufferName(conn.dpy, win, m_swap_action);
+        m_drawable = back_buffer;
+        m_is_double_buffered = true;
+    }
+#endif // ARCHON_DISPLAY_HAVE_XDBE
+
     // FIXME: Tend to config.enable_opengl                                                                                                                                                       
 }
 
@@ -788,7 +858,8 @@ void WindowImpl::set_title(std::string_view title)
     char* name_2 = name_1.data();
     XTextProperty name_3;
     Status status = XStringListToTextProperty(&name_2, 1, &name_3);
-    ARCHON_STEADY_ASSERT(status != 0);                                              
+    if (ARCHON_UNLIKELY(status == 0))
+        throw std::runtime_error("XStringListToTextProperty() failed");
     XSetWMName(conn.dpy, win, &name_3);                             
     XFree(name_3.value);
 }
@@ -856,7 +927,16 @@ void WindowImpl::put_texture(const display::Texture& tex, const display::Box& so
 
 void WindowImpl::present()
 {
-    throw std::runtime_error("*click*");     
+#if ARCHON_DISPLAY_HAVE_XDBE
+    if (m_is_double_buffered) {
+        XdbeSwapInfo info;
+        info.swap_window = win;
+        info.swap_action = m_swap_action;
+        Status status = XdbeSwapBuffers(conn.dpy, &info, 1);
+        if (ARCHON_UNLIKELY(status == 0))
+            throw std::runtime_error("XdbeSwapBuffers() failed");
+    }
+#endif // ARCHON_DISPLAY_HAVE_XDBE
 }
 
 
