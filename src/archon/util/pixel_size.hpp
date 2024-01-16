@@ -81,6 +81,13 @@ struct Size {
     constexpr Size(int width, int height) noexcept;
     /// \}
 
+    /// \brief Whether both components are non-negative.
+    ///
+    /// This function returns `true` if both width and height is non-negative. Otherwise, it
+    /// returns `false`.
+    ///
+    constexpr bool is_valid() const noexcept;
+
     /// \brief Whether both components are zero.
     ///
     /// This function returns `true` if both width and height is zero. Otherwise, it returns
@@ -232,6 +239,12 @@ constexpr Size::Size(int width_2, int height_2) noexcept
     : width(width_2)
     , height(height_2)
 {
+}
+
+
+constexpr bool Size::is_valid() const noexcept
+{
+    return (width >= 0 && height >= 0);
 }
 
 

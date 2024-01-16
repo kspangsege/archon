@@ -112,6 +112,7 @@ class WindowImpl;
 struct X11Screen {
     bool is_initialized = false;
     bool use_double_buffering = {};
+    int index = {};
     Window root = {};
     int depth = {};
     Visual* visual = {};
@@ -232,17 +233,20 @@ class WindowImpl
     : public display::Window {
 public:
     ConnectionImpl& conn;
+    const X11Screen& screen;
     display::WindowEventHandler& event_handler;
     const int cookie;
 
     ::Window win = {};
+    display::Size size;
+    GC gc = {};
 
     bool has_pending_expose_event = false;
 
-    WindowImpl(ConnectionImpl&, display::WindowEventHandler&, int cookie) noexcept;
+    WindowImpl(ConnectionImpl&, const X11Screen&, display::WindowEventHandler&, int cookie) noexcept;
     ~WindowImpl() noexcept override;
 
-    void create(const X11Screen&, display::Size, const Config&);
+    void create(display::Size size, const Config&);
 
     void show() override final;
     void hide() override final;
@@ -269,6 +273,9 @@ private:
 #endif
 
     void set_property(Atom name, Atom value) noexcept;
+    void do_fill(util::Color color, const display::Box& area);
+    auto ensure_graphics_context() noexcept -> GC;
+    auto create_graphics_context() noexcept -> GC;
 };
 
 
@@ -457,6 +464,7 @@ auto ConnectionImpl::ensure_x11_screen(int screen) -> X11Screen&
 #endif // ARCHON_DISPLAY_HAVE_XDBE
 
         screen_2.use_double_buffering = use_double_buffering;
+        screen_2.index = screen;
         screen_2.root = root;
         screen_2.depth = depth;
         screen_2.visual = visual;
@@ -584,8 +592,8 @@ auto ConnectionImpl::do_new_window(int screen, std::string_view title, display::
     if (ARCHON_UNLIKELY(size.width < 0 || size.height < 0))
         throw std::invalid_argument("Bad window size");
     const X11Screen& screen_2 = ensure_x11_screen(screen); // Throws
-    auto win = std::make_unique<WindowImpl>(*this, event_handler, config.cookie); // Throws
-    win->create(screen_2, size, config); // Throws
+    auto win = std::make_unique<WindowImpl>(*this, screen_2, event_handler, config.cookie); // Throws
+    win->create(size, config); // Throws
     win->set_title(title); // Throws
     if (ARCHON_UNLIKELY(config.fullscreen))
         win->set_fullscreen_mode(true); // Throws
@@ -626,7 +634,7 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
     --m_num_events;
     switch (ev.type) {
         case ConfigureNotify: {
-            const WindowImpl* window = lookup_window(ev.xconfigure.window);
+            WindowImpl* window = lookup_window(ev.xconfigure.window);
             if (ARCHON_LIKELY(window)) {
                 // When there is a window manager, the window manager will generally
                 // re-parent the client's window. This generally means that the client's
@@ -647,9 +655,10 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
                         return false; // Interrupt
                 }
                 else {
+                    window->size = { ev.xconfigure.width, ev.xconfigure.height };
                     display::WindowSizeEvent event;
                     event.cookie = window->cookie;
-                    event.size = { ev.xconfigure.width, ev.xconfigure.height };
+                    event.size = window->size;
                     bool proceed = window->event_handler.on_resize(event); // Throws
                     if (ARCHON_LIKELY(!proceed))
                         return false; // Interrupt
@@ -688,8 +697,9 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
             break;
         ::Window win = m_exposed_windows.front();
         m_exposed_windows.pop_front();
-        const WindowImpl* window = lookup_window(win);
+        WindowImpl* window = lookup_window(win);
         if (ARCHON_LIKELY(window)) {
+            window->has_pending_expose_event = false;
             display::WindowEvent event;
             event.cookie = window->cookie;
             bool proceed = window->event_handler.on_expose(event); // Throws
@@ -770,9 +780,10 @@ auto ConnectionImpl::lookup_window(::Window window_id) noexcept -> WindowImpl*
 
 
 
-inline WindowImpl::WindowImpl(ConnectionImpl& conn_2, display::WindowEventHandler& event_handler_2,
-                              int cookie_2) noexcept
+inline WindowImpl::WindowImpl(ConnectionImpl& conn_2, const X11Screen& screen_2,
+                              display::WindowEventHandler& event_handler_2, int cookie_2) noexcept
     : conn(conn_2)
+    , screen(screen_2)
     , event_handler(event_handler_2)
     , cookie(cookie_2)
 {
@@ -782,16 +793,19 @@ inline WindowImpl::WindowImpl(ConnectionImpl& conn_2, display::WindowEventHandle
 WindowImpl::~WindowImpl() noexcept
 {
     if (ARCHON_LIKELY(m_have_window)) {
-        if (m_is_registered)
+        if (ARCHON_LIKELY(m_is_registered)) {
+            if (gc)
+                XFreeGC(conn.dpy, gc);
             conn.unregister_window(win);
+        }
         XDestroyWindow(conn.dpy, win);
     }
 }
 
 
-void WindowImpl::create(const X11Screen& screen, display::Size size, const Config& config)
+void WindowImpl::create(display::Size size_2, const Config& config)
 {
-    display::Size adjusted_size = size;
+    display::Size adjusted_size = size_2;
     bool has_minimum_size = (config.resizable && config.minimum_size.has_value());
     if (has_minimum_size)
         adjusted_size = max(adjusted_size, config.minimum_size.value());
@@ -811,6 +825,7 @@ void WindowImpl::create(const X11Screen& screen, display::Size size, const Confi
     attributes.colormap = screen.colormap;
     win = XCreateWindow(conn.dpy, parent, x, y, width, height, border_width, depth, class_, visual,
                         valuemask, &attributes);
+    size = adjusted_size;
     m_have_window = true;
 
     conn.register_window(win, *this); // Throws
@@ -898,29 +913,23 @@ void WindowImpl::set_fullscreen_mode(bool on)
 
 void WindowImpl::fill(util::Color color)
 {
-/*
-    GC gc = ensure_graphics_context(); // Throws
-    int x = 0;
-    int y = 0;
-    unsigned int width, height;
-    XFillRectangle(impl.dpy, m_drawable, gc, x, y, width, height);
-*/
-    static_cast<void>(color);    
-    throw std::runtime_error("*click* -> fill(1/2)");     
+    do_fill(color, size); // Throws
 }
 
 
 void WindowImpl::fill(util::Color color, const display::Box& area)
 {
-    static_cast<void>(color);    
-    static_cast<void>(area);    
-    throw std::runtime_error("*click* -> fill(2/2)");     
+    if (ARCHON_LIKELY(area.is_valid())) {
+        do_fill(color, area); // Throws
+        return;
+    }
+    throw std::invalid_argument("Fill area");
 }
 
 
-auto WindowImpl::new_texture(display::Size size) -> std::unique_ptr<display::Texture>
+auto WindowImpl::new_texture(display::Size size_2) -> std::unique_ptr<display::Texture>
 {
-    static_cast<void>(size);    
+    static_cast<void>(size_2);    
     throw std::runtime_error("*click* -> new_texture()");     
 }
 
@@ -972,6 +981,42 @@ void WindowImpl::opengl_swap_buffers()
 void WindowImpl::set_property(Atom name, Atom value) noexcept
 {
     XChangeProperty(conn.dpy, win, name, XA_ATOM, 32, PropModeReplace, reinterpret_cast<unsigned char*>(&value), 1);
+}
+
+
+void WindowImpl::do_fill(util::Color color, const display::Box& area)
+{
+    ARCHON_ASSERT(area.size.width >= 0);
+    ARCHON_ASSERT(area.size.height >= 0);
+
+    GC gc = ensure_graphics_context();
+
+    static_cast<void>(color);                                                                    
+//    XSetForeground(conn.dpy, gc, WhitePixel(conn.dpy, screen.index));                              
+
+    int x = area.pos.x;
+    int y = area.pos.y;
+    unsigned width  = unsigned(area.size.width);
+    unsigned height = unsigned(area.size.height);
+    XFillRectangle(conn.dpy, m_drawable, gc, x, y, width, height);
+}
+
+
+inline auto WindowImpl::ensure_graphics_context() noexcept -> GC
+{
+    if (ARCHON_LIKELY(gc))
+        return gc;
+    return create_graphics_context();
+}
+
+
+auto WindowImpl::create_graphics_context() noexcept -> GC
+{
+    unsigned long valuemask = GCGraphicsExposures;
+    XGCValues values = {};
+    values.graphics_exposures = False;
+    gc = XCreateGC(conn.dpy, m_drawable, valuemask, &values);
+    return gc;
 }
 
 
