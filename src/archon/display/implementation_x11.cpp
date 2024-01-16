@@ -35,7 +35,6 @@
 #include <archon/display/impl/config.h>
 #include <archon/display/implementation.hpp>
 #include <archon/display/implementation_x11.hpp>
-#include <archon/log.hpp>
 
 #if !ARCHON_WINDOWS && ARCHON_DISPLAY_HAVE_X11
 #  include <unistd.h>
@@ -107,6 +106,9 @@ constexpr std::string_view g_implementation_ident = "x11";
 #if HAVE_X11
 
 
+class WindowImpl;
+
+
 struct X11Screen {
     bool is_initialized = false;
     bool use_double_buffering = {};
@@ -165,7 +167,7 @@ public:
     void open(const display::ConnectionConfigX11&);
     auto ensure_x11_screen(int screen) -> X11Screen&;
     bool check_depth_visual_combination(int screen, int depth, VisualID visual_id, Visual*& visual) const noexcept;
-    void register_window(::Window id, display::WindowEventHandler&, int cookie);
+    void register_window(::Window id, WindowImpl&);
     void unregister_window(::Window id) noexcept;
 
     auto new_window(std::string_view, display::Size, display::WindowEventHandler&,
@@ -181,8 +183,6 @@ public:
     auto get_implementation() const noexcept -> const display::Implementation& override final;
 
 private:
-    class WindowEntry;
-
     const std::optional<int> m_depth_override;
     const std::optional<VisualID> m_visual_override;
     const bool m_disable_double_buffering;
@@ -191,39 +191,40 @@ private:
 
     std::unique_ptr<X11Screen[]> m_x11_screens;
 
-    core::FlatMap<::Window, WindowEntry> m_window_entries;
+    core::FlatMap<::Window, WindowImpl&> m_windows;
 
     // A queue of windows with pending expose events (push to back and pop from
     // front). Windows occur at most once in this queue.
     //
-    // INVARIANT: A window is in `m_exposed_windows` if and only if it is in
-    // `m_window_entries` and has `has_pending_expose_event` set to `true`.
+    // INVARIANT: A window is in `m_exposed_windows` if and only if it is in `m_windows` and
+    // has `has_pending_expose_event` set to `true`.
     core::Deque<::Window> m_exposed_windows;
 
-    // If `m_have_curr_window_id` is true, then `m_curr_window_entry` specifies the entry
-    // for the window specified by `m_curr_window_id`. If `m_have_curr_window_id` is false,
-    // `m_curr_window_id` and `m_curr_window_entry` have no meaning.
+    // If `m_have_curr_window` is true, then `m_curr_window` specifies the window identified
+    // by `m_curr_window_id`. If `m_have_curr_window` is false, `m_curr_window_id` and
+    // `m_curr_window` have no meaning.
     //
-    // If `m_have_curr_window_id` is true, but `m_curr_window_entry` is null, it means that
-    // the X client has no knowledge of a window with the ID specified by
-    // `m_curr_window_id`. This state is entered if the window specified by
-    // `m_curr_window_id` is unregistered (unregister_window()). The state is updated
-    // whenever a new window is registered (register_window()), which takes care of the case
-    // where a new window reuses the ID specified by `m_curr_window_id`.
+    // If `m_have_curr_window` is true, but `m_curr_window` is null, it means that the X
+    // client has no knowledge of a window with the ID specified by `m_curr_window_id`. This
+    // state is entered if the window specified by `m_curr_window_id` is unregistered
+    // (unregister_window()). The state is updated whenever a new window is registered
+    // (register_window()), which takes care of the case where a new window reuses the ID
+    // specified by `m_curr_window_id`.
     //
-    bool m_have_curr_window_id = false;
+    bool m_have_curr_window = false;
     ::Window m_curr_window_id = {};
-    WindowEntry* m_curr_window_entry = nullptr;
+    WindowImpl* m_curr_window = nullptr;
+
+    int m_num_events = 0;
 
     auto intern(const char*) noexcept -> Atom;
 
     auto do_new_window(int screen, std::string_view title, display::Size size, display::WindowEventHandler&,
                        const display::Window::Config&) -> std::unique_ptr<display::Window>;
 
-    bool process_outstanding_events(display::ConnectionEventHandler&);
-    void wait_for_events();
+    bool do_process_events(const time_point_type* deadline, display::ConnectionEventHandler*);
 
-    auto lookup_window_entry(::Window window_id) noexcept -> WindowEntry*;
+    auto lookup_window(::Window window_id) noexcept -> WindowImpl*;
 };
 
 
@@ -231,12 +232,17 @@ class WindowImpl
     : public display::Window {
 public:
     ConnectionImpl& conn;
+    display::WindowEventHandler& event_handler;
+    const int cookie;
+
     ::Window win = {};
 
-    WindowImpl(ConnectionImpl&) noexcept;
+    bool has_pending_expose_event = false;
+
+    WindowImpl(ConnectionImpl&, display::WindowEventHandler&, int cookie) noexcept;
     ~WindowImpl() noexcept override;
 
-    void create(const X11Screen&, display::Size, display::WindowEventHandler&, const Config&);
+    void create(const X11Screen&, display::Size, const Config&);
 
     void show() override final;
     void hide() override final;
@@ -337,20 +343,6 @@ auto SlotImpl::get_implementation_a(const display::Guarantees& guarantees) const
 
 
 
-class ConnectionImpl::WindowEntry {
-public:
-    display::WindowEventHandler& event_handler;
-    int cookie;
-    bool has_pending_expose_event = false;
-
-    WindowEntry(display::WindowEventHandler& event_handler_2, int cookie_2) noexcept
-        : event_handler(event_handler_2)
-        , cookie(cookie_2)
-    {
-    }
-};
-
-
 inline ConnectionImpl::ConnectionImpl(const ImplementationImpl& impl_2, const std::locale& locale_2,
                                       const display::ConnectionConfigX11& config) noexcept
     : impl(impl_2)
@@ -386,6 +378,9 @@ void ConnectionImpl::open(const display::ConnectionConfigX11& config)
     }
 
     dpy = dpy_2;
+
+    if (config.synchronous_mode)
+        XSynchronize(dpy, True);
 
     atom_wm_protocols     = intern("WM_PROTOCOLS");
     atom_wm_delete_window = intern("WM_DELETE_WINDOW");
@@ -493,26 +488,25 @@ bool ConnectionImpl::check_depth_visual_combination(int screen, int depth, Visua
 }
 
 
-inline void ConnectionImpl::register_window(::Window id, display::WindowEventHandler& event_handler, int cookie)
+inline void ConnectionImpl::register_window(::Window id, WindowImpl& window)
 {
-    WindowEntry entry = { event_handler, cookie };
-    auto i = m_window_entries.emplace(id, entry); // Throws
+    auto i = m_windows.emplace(id, window); // Throws
     bool was_inserted = i.second;
     ARCHON_ASSERT(was_inserted);
     // Because a new window might reuse the ID currently specified by `m_curr_window_id`, it
     // is necessary, and not just desirable to reset the "current window state" here.
     m_curr_window_id = id;
-    m_curr_window_entry = &i.first->second;
-    m_have_curr_window_id = true;
+    m_curr_window = &window;
+    m_have_curr_window = true;
 }
 
 
 inline void ConnectionImpl::unregister_window(::Window id) noexcept
 {
-    std::size_t n = m_window_entries.erase(id);
+    std::size_t n = m_windows.erase(id);
     ARCHON_ASSERT(n == 1);
-    if (ARCHON_LIKELY(m_have_curr_window_id && id == m_curr_window_id))
-        m_curr_window_entry = nullptr;
+    if (ARCHON_LIKELY(m_have_curr_window && id == m_curr_window_id))
+        m_curr_window = nullptr;
 }
 
 
@@ -536,22 +530,15 @@ auto ConnectionImpl::new_window(int display, std::string_view title, display::Si
 
 void ConnectionImpl::process_events(display::ConnectionEventHandler* connection_event_handler)
 {
-    display::ConnectionEventHandler& connection_event_handler_2 =
-        (connection_event_handler ? *connection_event_handler : *this);
-  again:
-    if (ARCHON_LIKELY(process_outstanding_events(connection_event_handler_2))) { // Throws
-        wait_for_events(); // Throws
-        goto again;
-    }
+    const time_point_type* deadline = nullptr;
+    do_process_events(deadline, connection_event_handler); // Throws
 }
 
 
 bool ConnectionImpl::process_events(time_point_type deadline,
                                     display::ConnectionEventHandler* connection_event_handler)
 {
-    static_cast<void>(deadline);    
-    static_cast<void>(connection_event_handler);    
-    throw std::runtime_error("*click*");     
+    return do_process_events(&deadline, connection_event_handler); // Throws
 }
 
 
@@ -597,8 +584,8 @@ auto ConnectionImpl::do_new_window(int screen, std::string_view title, display::
     if (ARCHON_UNLIKELY(size.width < 0 || size.height < 0))
         throw std::invalid_argument("Bad window size");
     const X11Screen& screen_2 = ensure_x11_screen(screen); // Throws
-    auto win = std::make_unique<WindowImpl>(*this); // Throws
-    win->create(screen_2, size, event_handler, config); // Throws
+    auto win = std::make_unique<WindowImpl>(*this, event_handler, config.cookie); // Throws
+    win->create(screen_2, size, config); // Throws
     win->set_title(title); // Throws
     if (ARCHON_UNLIKELY(config.fullscreen))
         win->set_fullscreen_mode(true); // Throws
@@ -606,37 +593,43 @@ auto ConnectionImpl::do_new_window(int screen, std::string_view title, display::
 }
 
 
-bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler& connection_event_handler)
+bool ConnectionImpl::do_process_events(const time_point_type* deadline,
+                                       display::ConnectionEventHandler* connection_event_handler)
 {
+    // This function takes care to meet the following requirements:
+    //
+    // - XFlush() must be called before waiting (poll()) whenever there is a chance that
+    //   there are unflushed commands.
+    //
+    // - XEventsQueued() must be called immediately before waiting (poll()) to ensure that
+    //   there are no events that are already queued (must be called after Xflush()).
+    //
+    // - There must be no way for the execution of WindowEventHandler::on_expose() and
+    //   ConnectionEventHandler::before_sleep() to be starved indefinitely by event
+    //   saturation. This is ensured by fully exhausting one batch of events at a time
+    //   (m_remaining_events_in_batch).
+    //
+    // - There must be no way for the return from do_process_events() due to expiration of
+    //   the deadline to be starved indefinitely by event saturation. This is ensured by
+    //   fully exhausting one batch of events at a time (m_remaining_events_in_batch).
+    //
+
     XEvent ev;
 
-    int i = 0;
-    int n = 0;
+  process_1:
+    if (ARCHON_LIKELY(m_num_events > 0))
+        goto process_2;
+    goto post;
 
-    goto read_events;
-
-  next_event_1:
-    if (i < n)
-        goto next_event_2;
-
-  read_events:
-    ARCHON_ASSERT(i == n);
-    i = 0;
-    n = XEventsQueued(dpy, QueuedAfterReading); // Non-blocking read
-    if (ARCHON_LIKELY(n > 0))
-        goto next_event_2;
-    goto exhausted;
-
-  next_event_2:
-    ARCHON_ASSERT(i < n);
+  process_2:
     XNextEvent(dpy, &ev);
-    ++i;
+    --m_num_events;
     switch (ev.type) {
         case ConfigureNotify: {
-            const WindowEntry* entry = lookup_window_entry(ev.xconfigure.window);
-            if (ARCHON_LIKELY(entry)) {
+            const WindowImpl* window = lookup_window(ev.xconfigure.window);
+            if (ARCHON_LIKELY(window)) {
                 // When there is a window manager, the window manager will generally
-                // reparent the client's window. This generally means that the client's
+                // re-parent the client's window. This generally means that the client's
                 // window will remain at a fixed position relative to it's parent, so there
                 // will be no configure notifications when the window is moved through user
                 // interaction. Also, if the user's window is moved relative to its parent,
@@ -647,17 +640,17 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
                 // the root window of the screen).
                 if (ev.xconfigure.send_event) {
                     display::WindowPosEvent event;
-                    event.cookie = entry->cookie;
+                    event.cookie = window->cookie;
                     event.pos = { ev.xconfigure.x, ev.xconfigure.y };
-                    bool proceed = entry->event_handler.on_reposition(event); // Throws
+                    bool proceed = window->event_handler.on_reposition(event); // Throws
                     if (ARCHON_LIKELY(!proceed))
                         return false; // Interrupt
                 }
                 else {
                     display::WindowSizeEvent event;
-                    event.cookie = entry->cookie;
+                    event.cookie = window->cookie;
                     event.size = { ev.xconfigure.width, ev.xconfigure.height };
-                    bool proceed = entry->event_handler.on_resize(event); // Throws
+                    bool proceed = window->event_handler.on_resize(event); // Throws
                     if (ARCHON_LIKELY(!proceed))
                         return false; // Interrupt
                 }
@@ -665,21 +658,21 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
             break;
         }
         case Expose: {
-            WindowEntry* entry = lookup_window_entry(ev.xexpose.window);
-            if (ARCHON_LIKELY(!entry || entry->has_pending_expose_event))
+            WindowImpl* window = lookup_window(ev.xexpose.window);
+            if (ARCHON_LIKELY(!window || window->has_pending_expose_event))
                 break;
             m_exposed_windows.push_back(ev.xexpose.window); // Throws
-            entry->has_pending_expose_event = true;
+            window->has_pending_expose_event = true;
             break;
         }
         case ClientMessage: {
             bool is_close = (ev.xclient.format == 32 && Atom(ev.xclient.data.l[0]) == atom_wm_delete_window);
             if (ARCHON_LIKELY(is_close)) {
-                const WindowEntry* entry = lookup_window_entry(ev.xclient.window);
-                if (ARCHON_LIKELY(entry)) {
+                const WindowImpl* window = lookup_window(ev.xclient.window);
+                if (ARCHON_LIKELY(window)) {
                     display::WindowEvent event;
-                    event.cookie = entry->cookie;
-                    bool proceed = entry->event_handler.on_close(event); // Throws
+                    event.cookie = window->cookie;
+                    bool proceed = window->event_handler.on_close(event); // Throws
                     if (ARCHON_LIKELY(!proceed))
                         return false; // Interrupt
                 }
@@ -687,76 +680,101 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
             break;
         }
     }
-    goto next_event_1;
+    goto process_1;
 
-  exhausted:
+  post:
     for (;;) {
         if (ARCHON_LIKELY(m_exposed_windows.empty()))
             break;
         ::Window win = m_exposed_windows.front();
         m_exposed_windows.pop_front();
-        const WindowEntry* entry = lookup_window_entry(win);
-        if (ARCHON_LIKELY(entry)) {
+        const WindowImpl* window = lookup_window(win);
+        if (ARCHON_LIKELY(window)) {
             display::WindowEvent event;
-            event.cookie = entry->cookie;
-            bool proceed = entry->event_handler.on_expose(event); // Throws
+            event.cookie = window->cookie;
+            bool proceed = window->event_handler.on_expose(event); // Throws
             if (ARCHON_LIKELY(!proceed))
                 return false; // Interrupt
         }
     }
     {
-        bool proceed = connection_event_handler.before_sleep(); // Throws
+        bool proceed = connection_event_handler->before_sleep(); // Throws
         if (ARCHON_UNLIKELY(!proceed))
             return false; // Interrupt
     }
-
-    // Ensure that all outgoing X11 requests are flushed before we start waiting
     XFlush(dpy);
 
-    return true; // Wait for more events to occur
-}
+  read:
+    m_num_events = XEventsQueued(dpy, QueuedAfterReading); // Non-blocking
 
+  wait:
+    {
+        int timeout = -1;
+        bool complete = false;
+        if (ARCHON_LIKELY(deadline)) {
+            time_point_type now = clock_type::now();
+            if (ARCHON_LIKELY(*deadline > now))
+                goto not_expired;
+            return true; // Deadline expired
+          not_expired:
+            auto duration = std::chrono::ceil<std::chrono::milliseconds>(*deadline - now).count();
+            timeout = core::int_max<int>();
+            if (ARCHON_LIKELY(core::int_less_equal(duration, timeout))) {
+                timeout = int(duration);
+                complete = true;
+            }
+        }
 
-void ConnectionImpl::wait_for_events()
-{
-    pollfd fds[1] {};
-    int nfds = 1;
-    int timeout = -1; // No timeout
-    fds[0].fd = ConnectionNumber(dpy);
-    fds[0].events = POLLIN;
-    int ret, err;
-  again:
-    ret = ::poll(fds, nfds, timeout);
-    if (ARCHON_LIKELY(ret >= 0)) {
-        ARCHON_ASSERT(ret == 1);
-        return;
+        if (ARCHON_LIKELY(m_num_events > 0))
+            goto process_2;
+
+        pollfd fds[1] {};
+        int nfds = 1;
+        fds[0].fd = ConnectionNumber(dpy);
+        fds[0].events = POLLIN;
+        int ret, err;
+      poll:
+        ret = ::poll(fds, nfds, timeout);
+        if (ARCHON_LIKELY(ret > 0)) {
+            ARCHON_ASSERT(ret == 1);
+            goto read;
+        }
+        if (ARCHON_LIKELY(ret == 0)) {
+            ARCHON_ASSERT(timeout < 0);
+            if (ARCHON_LIKELY(complete))
+                return true; // Deadline expired
+            goto wait;
+        }
+        err = errno; // Eliminate any risk of clobbering
+        if (ARCHON_LIKELY(err == EINTR))
+            goto poll;
+        core::throw_system_error(err, "Failed to poll file descriptor of X11 connection"); // Throws
     }
-    err = errno; // Eliminate any risk of clobbering
-    if (ARCHON_LIKELY(err == EINTR))
-        goto again;
-    core::throw_system_error(err, "Failed to poll fire descriptor of X11 connection"); // Throws
 }
 
 
-auto ConnectionImpl::lookup_window_entry(::Window window_id) noexcept -> WindowEntry*
+auto ConnectionImpl::lookup_window(::Window window_id) noexcept -> WindowImpl*
 {
-    if (ARCHON_LIKELY(m_have_curr_window_id && window_id == m_curr_window_id))
-        return m_curr_window_entry;
+    if (ARCHON_LIKELY(m_have_curr_window && window_id == m_curr_window_id))
+        return m_curr_window;
 
-    WindowEntry* entry = nullptr;
-    auto i = m_window_entries.find(window_id);
-    if (ARCHON_LIKELY(i != m_window_entries.end()))
-        entry = &i->second;
+    WindowImpl* window = nullptr;
+    auto i = m_windows.find(window_id);
+    if (ARCHON_LIKELY(i != m_windows.end()))
+        window = &i->second;
     m_curr_window_id = window_id;
-    m_curr_window_entry = entry;
-    m_have_curr_window_id = true;
-    return entry;
+    m_curr_window = window;
+    m_have_curr_window = true;
+    return window;
 }
 
 
 
-inline WindowImpl::WindowImpl(ConnectionImpl& conn_2) noexcept
+inline WindowImpl::WindowImpl(ConnectionImpl& conn_2, display::WindowEventHandler& event_handler_2,
+                              int cookie_2) noexcept
     : conn(conn_2)
+    , event_handler(event_handler_2)
+    , cookie(cookie_2)
 {
 }
 
@@ -771,8 +789,7 @@ WindowImpl::~WindowImpl() noexcept
 }
 
 
-void WindowImpl::create(const X11Screen& screen, display::Size size, display::WindowEventHandler& event_handler,
-                        const Config& config)
+void WindowImpl::create(const X11Screen& screen, display::Size size, const Config& config)
 {
     display::Size adjusted_size = size;
     bool has_minimum_size = (config.resizable && config.minimum_size.has_value());
@@ -796,7 +813,7 @@ void WindowImpl::create(const X11Screen& screen, display::Size size, display::Wi
                         valuemask, &attributes);
     m_have_window = true;
 
-    conn.register_window(win, event_handler, config.cookie); // Throws
+    conn.register_window(win, *this); // Throws
     m_is_registered = true;
 
     // Ask X server to notify rather than close connection when window is closed
@@ -868,14 +885,14 @@ void WindowImpl::set_title(std::string_view title)
 void WindowImpl::set_size(display::Size size)
 {
     static_cast<void>(size);    
-    throw std::runtime_error("*click*");     
+    throw std::runtime_error("*click* -> set_size()");     
 }
 
 
 void WindowImpl::set_fullscreen_mode(bool on)
 {
     static_cast<void>(on);    
-    throw std::runtime_error("*click*");     
+    throw std::runtime_error("*click* -> set_fullscreen_mode()");     
 }
 
 
@@ -886,10 +903,10 @@ void WindowImpl::fill(util::Color color)
     int x = 0;
     int y = 0;
     unsigned int width, height;
-    XFillRectangle(impl.dpy, win, gc, x, y, width, height);
+    XFillRectangle(impl.dpy, m_drawable, gc, x, y, width, height);
 */
     static_cast<void>(color);    
-    throw std::runtime_error("*click*");     
+    throw std::runtime_error("*click* -> fill(1/2)");     
 }
 
 
@@ -897,14 +914,14 @@ void WindowImpl::fill(util::Color color, const display::Box& area)
 {
     static_cast<void>(color);    
     static_cast<void>(area);    
-    throw std::runtime_error("*click*");     
+    throw std::runtime_error("*click* -> fill(2/2)");     
 }
 
 
 auto WindowImpl::new_texture(display::Size size) -> std::unique_ptr<display::Texture>
 {
     static_cast<void>(size);    
-    throw std::runtime_error("*click*");     
+    throw std::runtime_error("*click* -> new_texture()");     
 }
 
 
@@ -912,7 +929,7 @@ void WindowImpl::put_texture(const display::Texture& tex, const display::Pos& po
 {
     static_cast<void>(tex);    
     static_cast<void>(pos);    
-    throw std::runtime_error("*click*");     
+    throw std::runtime_error("*click* -> put_texture(1/2)");     
 }
 
 
@@ -921,7 +938,7 @@ void WindowImpl::put_texture(const display::Texture& tex, const display::Box& so
     static_cast<void>(tex);    
     static_cast<void>(source_area);    
     static_cast<void>(pos);    
-    throw std::runtime_error("*click*");     
+    throw std::runtime_error("*click* -> put_texture(2/2)");     
 }
 
 
@@ -942,13 +959,13 @@ void WindowImpl::present()
 
 void WindowImpl::opengl_make_current()
 {
-    throw std::runtime_error("*click*");     
+    throw std::runtime_error("*click* -> opengl_make_current()");     
 }
 
 
 void WindowImpl::opengl_swap_buffers()
 {
-    throw std::runtime_error("*click*");     
+    throw std::runtime_error("*click* -> opengl_swap_buffers()");     
 }
 
 

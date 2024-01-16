@@ -77,6 +77,14 @@ struct ConnectionConfigX11 {
     /// \ref visual). When set to `true`, double buffering will not be used at all.
     ///
     bool disable_double_buffering = false;
+
+    /// \brief Turn on synchronous mode on X11 connection.
+    ///
+    /// If set to `true`, *synchronous mode* will be turned on for the X11 connection to be
+    /// established. This is useful only for debugging the use of the X11 client
+    /// library. See `XSynchronize()` for additional information.
+    ///
+    bool synchronous_mode = false;
 };
 
 

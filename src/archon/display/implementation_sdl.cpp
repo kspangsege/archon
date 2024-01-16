@@ -78,13 +78,13 @@ using namespace archon;
 namespace {
 
 
-class TextureImpl;
-
-
 constexpr std::string_view g_implementation_ident = "sdl";
 
 
 #if ARCHON_DISPLAY_HAVE_SDL
+
+
+class TextureImpl;
 
 
 auto get_sdl_error(const std::locale& locale, std::string_view message) -> std::string
