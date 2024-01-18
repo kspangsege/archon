@@ -112,10 +112,8 @@ class WindowImpl;
 struct X11Screen {
     bool is_initialized = false;
     bool use_double_buffering = {};
-    int index = {};
+    XVisualInfo visual_info = {};
     Window root = {};
-    int depth = {};
-    Visual* visual = {};
     Colormap colormap = {};
 };
 
@@ -167,7 +165,6 @@ public:
 
     void open(const display::ConnectionConfigX11&);
     auto ensure_x11_screen(int screen) -> X11Screen&;
-    bool check_depth_visual_combination(int screen, int depth, VisualID visual_id, Visual*& visual) const noexcept;
     void register_window(::Window id, WindowImpl&);
     void unregister_window(::Window id) noexcept;
 
@@ -218,13 +215,11 @@ private:
 
     int m_num_events = 0;
 
-    auto intern(const char*) noexcept -> Atom;
-
+    auto intern_string(const char*) noexcept -> Atom;
+    bool lookup_visual_info(int screen, int depth, VisualID visual_id, XVisualInfo&) const noexcept;
     auto do_new_window(int screen, std::string_view title, display::Size size, display::WindowEventHandler&,
                        const display::Window::Config&) -> std::unique_ptr<display::Window>;
-
     bool do_process_events(const time_point_type* deadline, display::ConnectionEventHandler*);
-
     auto lookup_window(::Window window_id) noexcept -> WindowImpl*;
 };
 
@@ -238,7 +233,6 @@ public:
     const int cookie;
 
     ::Window win = {};
-    display::Size size;
     GC gc = {};
 
     bool has_pending_expose_event = false;
@@ -273,9 +267,10 @@ private:
 #endif
 
     void set_property(Atom name, Atom value) noexcept;
-    void do_fill(util::Color color, const display::Box& area);
+    void do_fill(util::Color color, int x, int y, unsigned w, unsigned h);
     auto ensure_graphics_context() noexcept -> GC;
     auto create_graphics_context() noexcept -> GC;
+    auto intern_color(util::Color) -> unsigned long;
 };
 
 
@@ -389,8 +384,8 @@ void ConnectionImpl::open(const display::ConnectionConfigX11& config)
     if (config.synchronous_mode)
         XSynchronize(dpy, True);
 
-    atom_wm_protocols     = intern("WM_PROTOCOLS");
-    atom_wm_delete_window = intern("WM_DELETE_WINDOW");
+    atom_wm_protocols     = intern_string("WM_PROTOCOLS");
+    atom_wm_delete_window = intern_string("WM_DELETE_WINDOW");
 
 #if ARCHON_DISPLAY_HAVE_XDBE
     {
@@ -411,34 +406,36 @@ auto ConnectionImpl::ensure_x11_screen(int screen) -> X11Screen&
         m_x11_screens = std::make_unique<X11Screen[]>(std::size_t(ScreenCount(dpy))); // Throws
     X11Screen& screen_2 = m_x11_screens[screen];
     if (ARCHON_UNLIKELY(!screen_2.is_initialized)) {
-        ::Window root = RootWindow(dpy, screen);
-        int depth = DefaultDepth(dpy, screen);
-        VisualID default_visual_id = XVisualIDFromVisual(DefaultVisual(dpy, screen));
-        VisualID visual_id = default_visual_id;
-        if (m_depth_override.has_value())
-            depth = m_depth_override.value();
-        if (m_visual_override.has_value())
-            visual_id = m_visual_override.value();
-        Visual* visual = {};
-        if (ARCHON_UNLIKELY(!check_depth_visual_combination(screen, depth, visual_id, visual))) {
-            ARCHON_STEADY_ASSERT(m_depth_override.has_value() || m_visual_override.has_value());
-            std::string message = core::format(locale, "Combination of selected depth (%s) and selected visual type "
-                                               "(0x%s) is invalid for targeted screen (%s)", depth,
-                                               core::as_hex_int(visual_id, 2), screen); // Throws
-            throw std::runtime_error(message);
+        VisualID default_visualid = XVisualIDFromVisual(DefaultVisual(dpy, screen));
+        XVisualInfo visual_info = {};
+        {
+            int depth = DefaultDepth(dpy, screen);
+            VisualID visual = default_visualid;
+            if (m_depth_override.has_value())
+                depth = m_depth_override.value();
+            if (m_visual_override.has_value())
+                visual = m_visual_override.value();
+            if (ARCHON_UNLIKELY(!lookup_visual_info(screen, depth, visual, visual_info))) {
+                ARCHON_STEADY_ASSERT(m_depth_override.has_value() || m_visual_override.has_value());
+                std::string message = core::format(locale, "Combination of selected depth (%s) and selected visual "
+                                                   "type (0x%s) is invalid for targeted screen (%s)", depth,
+                                                   core::as_hex_int(visual, 2), screen); // Throws
+                throw std::runtime_error(message);
+            }
         }
 
+        ::Window root = RootWindow(dpy, screen);
         Colormap colormap = DefaultColormap(dpy, screen);
         ARCHON_SCOPE_EXIT {
             if (colormap != None)
                 XFreeColormap(dpy, colormap);
         };
-        if (ARCHON_UNLIKELY(visual_id != default_visual_id)) {
+        if (ARCHON_UNLIKELY(visual_info.visualid != default_visualid)) {
             // By creating a new colormap, rather than reusing the one used by the root
             // window, it becomes possible to use a visual for the new window that differs
             // from the one used by the root window. The colormap and the new window must
             // agree on visual.
-            colormap = XCreateColormap(dpy, root, visual, AllocNone);
+            colormap = XCreateColormap(dpy, root, visual_info.visual, AllocNone);
         }
 
         bool use_double_buffering = false;
@@ -454,7 +451,7 @@ auto ConnectionImpl::ensure_x11_screen(int screen) -> X11Screen&
             const XdbeScreenVisualInfo& entry = entries[0];
             for (int i = 0; i < entry.count; ++i) {
                 XdbeVisualInfo& subentry = entry.visinfo[i];
-                bool is_match = (subentry.depth == depth && subentry.visual == visual_id);
+                bool is_match = (subentry.depth == visual_info.depth && subentry.visual == visual_info.visualid);
                 if (is_match) {
                     use_double_buffering = true;
                     break;
@@ -464,35 +461,13 @@ auto ConnectionImpl::ensure_x11_screen(int screen) -> X11Screen&
 #endif // ARCHON_DISPLAY_HAVE_XDBE
 
         screen_2.use_double_buffering = use_double_buffering;
-        screen_2.index = screen;
+        screen_2.visual_info = visual_info;
         screen_2.root = root;
-        screen_2.depth = depth;
-        screen_2.visual = visual;
         screen_2.colormap = colormap;
         screen_2.is_initialized = true;
         colormap = None;
     }
     return screen_2;
-}
-
-
-bool ConnectionImpl::check_depth_visual_combination(int screen, int depth, VisualID visual_id,
-                                                    Visual*& visual) const noexcept
-{
-    int n = 0;
-    long vinfo_mask = VisualScreenMask | VisualDepthMask | VisualIDMask;
-    XVisualInfo vinfo_template;
-    vinfo_template.screen = screen;
-    vinfo_template.depth = depth;
-    vinfo_template.visualid = visual_id;
-    XVisualInfo* entries = XGetVisualInfo(dpy, vinfo_mask, &vinfo_template, &n);
-    if (ARCHON_LIKELY(entries)) {
-        ARCHON_STEADY_ASSERT(n == 1);
-        visual = entries[0].visual;
-        XFree(entries);
-        return true;
-    }
-    return false;
 }
 
 
@@ -577,11 +552,31 @@ auto ConnectionImpl::get_implementation() const noexcept -> const display::Imple
 }
 
 
-inline auto ConnectionImpl::intern(const char* string) noexcept -> Atom
+inline auto ConnectionImpl::intern_string(const char* string) noexcept -> Atom
 {
     Atom atom = XInternAtom(dpy, string, False);
     ARCHON_ASSERT(atom != None);
     return atom;
+}
+
+
+bool ConnectionImpl::lookup_visual_info(int screen, int depth, VisualID visual_id,
+                                        XVisualInfo& visual_info) const noexcept
+{
+    int n = 0;
+    long vinfo_mask = VisualScreenMask | VisualDepthMask | VisualIDMask;
+    XVisualInfo vinfo_template;
+    vinfo_template.screen = screen;
+    vinfo_template.depth = depth;
+    vinfo_template.visualid = visual_id;
+    XVisualInfo* entries = XGetVisualInfo(dpy, vinfo_mask, &vinfo_template, &n);
+    if (ARCHON_LIKELY(entries)) {
+        ARCHON_STEADY_ASSERT(n == 1);
+        visual_info = entries[0];
+        XFree(entries);
+        return true;
+    }
+    return false;
 }
 
 
@@ -622,6 +617,9 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
     //   fully exhausting one batch of events at a time (m_remaining_events_in_batch).
     //
 
+    display::ConnectionEventHandler& connection_event_handler_2 =
+        (connection_event_handler ? *connection_event_handler : *this);
+
     XEvent ev;
 
   process_1:
@@ -655,10 +653,9 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
                         return false; // Interrupt
                 }
                 else {
-                    window->size = { ev.xconfigure.width, ev.xconfigure.height };
                     display::WindowSizeEvent event;
                     event.cookie = window->cookie;
-                    event.size = window->size;
+                    event.size = { ev.xconfigure.width, ev.xconfigure.height };
                     bool proceed = window->event_handler.on_resize(event); // Throws
                     if (ARCHON_LIKELY(!proceed))
                         return false; // Interrupt
@@ -708,7 +705,7 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
         }
     }
     {
-        bool proceed = connection_event_handler->before_sleep(); // Throws
+        bool proceed = connection_event_handler_2.before_sleep(); // Throws
         if (ARCHON_UNLIKELY(!proceed))
             return false; // Interrupt
     }
@@ -803,9 +800,9 @@ WindowImpl::~WindowImpl() noexcept
 }
 
 
-void WindowImpl::create(display::Size size_2, const Config& config)
+void WindowImpl::create(display::Size size, const Config& config)
 {
-    display::Size adjusted_size = size_2;
+    display::Size adjusted_size = size;
     bool has_minimum_size = (config.resizable && config.minimum_size.has_value());
     if (has_minimum_size)
         adjusted_size = max(adjusted_size, config.minimum_size.value());
@@ -815,9 +812,9 @@ void WindowImpl::create(display::Size size_2, const Config& config)
     unsigned width  = unsigned(adjusted_size.width);
     unsigned height = unsigned(adjusted_size.height);
     unsigned border_width = 0;
-    int depth = screen.depth;
+    int depth = screen.visual_info.depth;
     unsigned class_ = InputOutput;
-    Visual* visual = screen.visual;
+    Visual* visual = screen.visual_info.visual;
     unsigned long valuemask = CWEventMask | CWColormap;
     XSetWindowAttributes attributes = {};
     attributes.event_mask = (KeyPressMask | ExposureMask | StructureNotifyMask |
@@ -825,7 +822,6 @@ void WindowImpl::create(display::Size size_2, const Config& config)
     attributes.colormap = screen.colormap;
     win = XCreateWindow(conn.dpy, parent, x, y, width, height, border_width, depth, class_, visual,
                         valuemask, &attributes);
-    size = adjusted_size;
     m_have_window = true;
 
     conn.register_window(win, *this); // Throws
@@ -913,23 +909,31 @@ void WindowImpl::set_fullscreen_mode(bool on)
 
 void WindowImpl::fill(util::Color color)
 {
-    do_fill(color, size); // Throws
+    int x = 0;
+    int y = 0;
+    unsigned w = core::int_max<unsigned>();
+    unsigned h = core::int_max<unsigned>();
+    do_fill(color, x, y, w, h); // Throws
 }
 
 
 void WindowImpl::fill(util::Color color, const display::Box& area)
 {
     if (ARCHON_LIKELY(area.is_valid())) {
-        do_fill(color, area); // Throws
+        int x = area.pos.x;
+        int y = area.pos.y;
+        unsigned w = unsigned(area.size.width);
+        unsigned h = unsigned(area.size.height);
+        do_fill(color, x, y, w, h); // Throws
         return;
     }
     throw std::invalid_argument("Fill area");
 }
 
 
-auto WindowImpl::new_texture(display::Size size_2) -> std::unique_ptr<display::Texture>
+auto WindowImpl::new_texture(display::Size size) -> std::unique_ptr<display::Texture>
 {
-    static_cast<void>(size_2);    
+    static_cast<void>(size);    
     throw std::runtime_error("*click* -> new_texture()");     
 }
 
@@ -984,21 +988,12 @@ void WindowImpl::set_property(Atom name, Atom value) noexcept
 }
 
 
-void WindowImpl::do_fill(util::Color color, const display::Box& area)
+void WindowImpl::do_fill(util::Color color, int x, int y, unsigned w, unsigned h)
 {
-    ARCHON_ASSERT(area.size.width >= 0);
-    ARCHON_ASSERT(area.size.height >= 0);
-
     GC gc = ensure_graphics_context();
-
-    static_cast<void>(color);                                                                    
-//    XSetForeground(conn.dpy, gc, WhitePixel(conn.dpy, screen.index));                              
-
-    int x = area.pos.x;
-    int y = area.pos.y;
-    unsigned width  = unsigned(area.size.width);
-    unsigned height = unsigned(area.size.height);
-    XFillRectangle(conn.dpy, m_drawable, gc, x, y, width, height);
+    unsigned long color_2 = intern_color(color); // Throws
+    XSetForeground(conn.dpy, gc, color_2);
+    XFillRectangle(conn.dpy, m_drawable, gc, x, y, w, h);
 }
 
 
@@ -1017,6 +1012,23 @@ auto WindowImpl::create_graphics_context() noexcept -> GC
     values.graphics_exposures = False;
     gc = XCreateGC(conn.dpy, m_drawable, valuemask, &values);
     return gc;
+}
+
+
+auto WindowImpl::intern_color(util::Color) -> unsigned long
+{
+    // StaticColor:
+    // PseudoColor:
+    // StaticGray:
+    // GrayScale:
+    // TrueColor and DirectColor:
+    //   - RGB masks
+    //   - Masks are available through XVisualInfo
+    //   - Masks are guaranteed to consist of contiguous bit positions
+
+    
+
+    return WhitePixel(conn.dpy, screen.visual_info.screen);                                                                                                                                                                        
 }
 
 
