@@ -184,12 +184,16 @@ template<class P> inline void record_rev_bit_fields(BitFields& fields) noexcept
 }
 
 
-void setup_direct_color_colormap(Display* display, Colormap colormap, const BitFields& fields, const XVisualInfo& info)
+void setup_direct_color_colormap(Display* display, Colormap colormap, const BitFields& fields, const XVisualInfo& info,
+                                 bool weird)
 {
+    using ushort = unsigned short;
+    using ulong  = unsigned long;
+
     Bool contig = True;
-    unsigned long pixel = 0;
+    ulong pixel = 0;
     int ncolors = 1;
-    unsigned long red_mask = 0, green_mask = 0, blue_mask = 0;
+    ulong red_mask = 0, green_mask = 0, blue_mask = 0;
     Status status = XAllocColorPlanes(display, colormap, contig, &pixel, ncolors,
                                       fields.red_width, fields.green_width, fields.blue_width,
                                       &red_mask, &green_mask, &blue_mask);
@@ -204,9 +208,12 @@ void setup_direct_color_colormap(Display* display, Colormap colormap, const BitF
         int n = 1 << fields.red_width;
         auto colors = std::make_unique<XColor[]>(n); // Throws
         for (int i = 0; i < n; ++i) {
+            ushort val = ushort(i << (16 - fields.red_width));
+            if (weird)
+                val = ushort(65535 - val);
             XColor& color = colors[i];
-            color.pixel = static_cast<unsigned long>(i) << fields.red_shift;
-            color.red = static_cast<unsigned short>(i << (16 - fields.red_width));
+            color.pixel = ulong(i) << fields.red_shift;
+            color.red = val;
             color.flags = DoRed;
         }
         XStoreColors(display, colormap, colors.get(), n);
@@ -215,9 +222,10 @@ void setup_direct_color_colormap(Display* display, Colormap colormap, const BitF
         int n = 1 << fields.green_width;
         auto colors = std::make_unique<XColor[]>(n); // Throws
         for (int i = 0; i < n; ++i) {
+            ushort val = ushort(i << (16 - fields.green_width));
             XColor& color = colors[i];
-            color.pixel = static_cast<unsigned long>(i) << fields.green_shift;
-            color.green = static_cast<unsigned short>(i << (16 - fields.green_width));
+            color.pixel = ulong(i) << fields.green_shift;
+            color.green = val;
             color.flags = DoGreen;
         }
         XStoreColors(display, colormap, colors.get(), n);
@@ -226,9 +234,10 @@ void setup_direct_color_colormap(Display* display, Colormap colormap, const BitF
         int n = 1 << fields.blue_width;
         auto colors = std::make_unique<XColor[]>(n); // Throws
         for (int i = 0; i < n; ++i) {
+            ushort val = ushort(i << (16 - fields.blue_width));
             XColor& color = colors[i];
-            color.pixel = static_cast<unsigned long>(i) << fields.blue_shift;
-            color.blue = static_cast<unsigned short>(i << (16 - fields.blue_width));
+            color.pixel = ulong(i) << fields.blue_shift;
+            color.blue = val;
             color.flags = DoBlue;
         }
         XStoreColors(display, colormap, colors.get(), n);
@@ -316,6 +325,8 @@ int main(int argc, char* argv[])
     std::optional<fs::path> optional_path;
     std::optional<int> optional_depth;
     std::optional<VisualID> optional_visual;
+    bool disable_double_buffering = false;
+    bool use_weird_palette = false;
     std::optional<display::Pos> optional_pos;
     log::LogLevel log_level_limit = log::LogLevel::warn;
 
@@ -344,6 +355,14 @@ int main(int argc, char* argv[])
             }
             return false;
         })); // Throws
+
+    opt("-D, --disable-double-buffering", "", cli::no_attributes, spec,
+        "Disable use of double buffering, even when the selected visual supports double buffering.",
+        cli::raise_flag(disable_double_buffering)); // Throws
+
+    opt("-w, --use-weird-palette", "", cli::no_attributes, spec,
+        "Use a weird (non-standard) palette when using a direct color visual (`DirectColor`).",
+        cli::raise_flag(use_weird_palette)); // Throws
 
     opt("-p, --pos", "<position>", cli::no_attributes, spec,
         "Specify the desired position of the window. This may or may not be honored by the window manager. If no "
@@ -545,7 +564,7 @@ int main(int argc, char* argv[])
     Visual* visual = visual_info.visual;
     bool use_double_buffering = false;
 #if ARCHON_DISPLAY_HAVE_XDBE
-    {
+    if (!disable_double_buffering) {
         auto i = double_buffered_visuals.find(std::make_tuple(screen, depth, visual_id));
         if (i != double_buffered_visuals.end())
             use_double_buffering = true;
@@ -749,7 +768,8 @@ int main(int argc, char* argv[])
 
               colormap_1:
                 if (visual_info.c_class == DirectColor)
-                    setup_direct_color_colormap(display, colormap, bit_fields, visual_info); // Throws
+                    setup_direct_color_colormap(display, colormap, bit_fields, visual_info,
+                                                use_weird_palette); // Throws
                 goto matched;
             }
             goto unexpected_visual_class;
@@ -786,7 +806,8 @@ int main(int argc, char* argv[])
 
               colormap_2:
                 if (visual_info.c_class == DirectColor)
-                    setup_direct_color_colormap(display, colormap, bit_fields, visual_info); // Throws
+                    setup_direct_color_colormap(display, colormap, bit_fields, visual_info,
+                                                use_weird_palette); // Throws
                 goto matched;
             }
             goto unexpected_visual_class;
@@ -823,7 +844,8 @@ int main(int argc, char* argv[])
 
               colormap_3:
                 if (visual_info.c_class == DirectColor)
-                    setup_direct_color_colormap(display, colormap, bit_fields, visual_info); // Throws
+                    setup_direct_color_colormap(display, colormap, bit_fields, visual_info,
+                                                use_weird_palette); // Throws
                 goto matched;
             }
             goto unexpected_visual_class;
@@ -860,7 +882,8 @@ int main(int argc, char* argv[])
 
               colormap_4:
                 if (visual_info.c_class == DirectColor)
-                    setup_direct_color_colormap(display, colormap, bit_fields, visual_info); // Throws
+                    setup_direct_color_colormap(display, colormap, bit_fields, visual_info,
+                                                use_weird_palette); // Throws
                 goto matched;
             }
             goto unexpected_visual_class;
@@ -967,12 +990,12 @@ int main(int argc, char* argv[])
     XSetWMProtocols(display, window, &delete_window, 1);
 
     // Allocate back buffer when using double buffering
-    Drawable buffer = window;
+    Drawable drawable = window;
 #if ARCHON_DISPLAY_HAVE_XDBE
     XdbeSwapAction swap_action = XdbeUndefined; // Contents of swapped-out buffer becomes undefined
     if (use_double_buffering) {
         XdbeBackBuffer back_buffer = XdbeAllocateBackBufferName(display, window, swap_action);
-        buffer = back_buffer;
+        drawable = back_buffer;
     }
 #endif // ARCHON_DISPLAY_HAVE_XDBE
 
@@ -1219,18 +1242,18 @@ int main(int argc, char* argv[])
             }
             // Clear top area
             if (top > 0)
-                XFillRectangle(display, buffer, gc, 0, 0, unsigned(win_width), unsigned(top));
+                XFillRectangle(display, drawable, gc, 0, 0, unsigned(win_width), unsigned(top));
             // Clear left area
             if (left > 0)
-                XFillRectangle(display, buffer, gc, 0, top, unsigned(left), unsigned(h));
+                XFillRectangle(display, drawable, gc, 0, top, unsigned(left), unsigned(h));
             // Copy image
-            XCopyArea(display, img_pixmap, buffer, gc, x, y, w, h, left, top);
+            XCopyArea(display, img_pixmap, drawable, gc, x, y, w, h, left, top);
             // Clear right area
             if (right < win_width)
-                XFillRectangle(display, buffer, gc, right, top, unsigned(win_width - right), unsigned(h));
+                XFillRectangle(display, drawable, gc, right, top, unsigned(win_width - right), unsigned(h));
             // Clear bottom area
             if (bottom < win_height)
-                XFillRectangle(display, buffer, gc, 0, bottom, unsigned(win_width), unsigned(win_height - bottom));
+                XFillRectangle(display, drawable, gc, 0, bottom, unsigned(win_width), unsigned(win_height - bottom));
 
 #if ARCHON_DISPLAY_HAVE_XDBE
             if (use_double_buffering) {
