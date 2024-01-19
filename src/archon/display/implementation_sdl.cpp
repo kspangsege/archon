@@ -35,6 +35,7 @@
 #include <archon/core/flat_map.hpp>
 #include <archon/core/literal_hash_map.hpp>
 #include <archon/core/format.hpp>
+#include <archon/core/locale.hpp>
 #include <archon/util/color.hpp>
 #include <archon/util/colors.hpp>                 
 #include <archon/image.hpp>
@@ -180,7 +181,7 @@ private:
 
     bool m_was_opened = false;
 
-    core::FlatMap<Uint32, WindowImpl> m_windows;
+    core::FlatMap<Uint32, WindowImpl&> m_windows;
 
     // If `m_curr_window_id` is greater than zero, then `m_curr_window` specifies the window
     // identified by `m_curr_window_id` (valid window IDs are always greater than zero). If
@@ -394,11 +395,14 @@ bool ConnectionImpl::try_map_key_code_to_key(display::KeyCode key_code, display:
 
 bool ConnectionImpl::try_get_key_name(display::KeyCode key_code, std::string_view& name) const
 {
-    SDL_Keycode code = core::cast_from_twos_compl_a<SDL_Keycode>(key_code.code);
-    const char* name_2 = SDL_GetKeyName(code); // FIXME: Consider character encoding (bail out unless configured locale is a UTF-8 locale (core::assume_utf8_locale()))                                       
-    if (ARCHON_LIKELY(name_2)) {
-        name = std::string_view(name_2); // Throws
-        return true;
+    // String returned by SDL_GetKeyName() is in UTF-8 encoding
+    if (ARCHON_LIKELY(core::assume_utf8_locale(locale))) {
+        SDL_Keycode code = core::cast_from_twos_compl_a<SDL_Keycode>(key_code.code);
+        const char* name_2 = SDL_GetKeyName(code);
+        if (ARCHON_LIKELY(name_2)) {
+            name = std::string_view(name_2); // Throws
+            return true;
+        }
     }
     return false;
 }
@@ -773,7 +777,7 @@ bool ConnectionImpl::wait_for_events(time_point_type deadline)
         // unfortunately, there is no way to tell which of the two happened. The only viable
         // resolution seems to be to assume that the function can never fail, and that zero
         // always means that the timeout was reached. Calling SDL_WaitEventTimeout() to see
-        // if an error occured is not an option, as it will sometimes report errors when
+        // if an error occurred is not an option, as it will sometimes report errors when
         // none occurred even if SDL_ClearError() is called before calling
         // SDL_WaitEventTimeout().
         //
@@ -890,6 +894,16 @@ void WindowImpl::create(std::string_view title, display::Size size, const Config
         throw_sdl_error(conn.locale, "SDL_GetWindowID() failed"); // Throws
     conn.register_window(id, *this); // Throws
     m_id = id;
+
+    // With the X11 back end, and when OpenGL support is not explicitly requested, the
+    // window will be recreated when a renderer is created. Presumably, this is because a
+    // renderer requires OpenGL support, but when OpenGL support is not requested initially,
+    // a visual without OpenGL support is selected initially. Unfortunately, this leads to a
+    // very visible flicker / artifact if the recreation occurs while the window is
+    // visible. To work around this problem, we request the creation of the renderer before
+    // the window is made visible when OpenGL support is not explicitly requested.
+    if (!config.enable_opengl)
+        ensure_renderer(); // Throws
 
     // Set minimum window size if requested
     if (m_have_minimum_size)
