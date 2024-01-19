@@ -50,8 +50,7 @@ class EventLoop
     , public display::ConnectionEventHandler {
 public:
     EventLoop(display::Connection& conn, log::Logger& logger) noexcept
-        : m_impl(conn.get_implementation())
-        , m_conn(conn)
+        : m_conn(conn)
         , m_logger(logger)
     {
     }
@@ -68,9 +67,9 @@ public:
 
     bool on_keydown(const display::KeyEvent& ev) override final
     {
-        m_logger.info("KEY: %s", display::as_key_name (ev.key_code, m_impl)); // Throws
+        m_logger.info("KEY: %s", display::as_key_name (ev.key_code, m_conn)); // Throws
         display::Key key = {};
-        if (ARCHON_LIKELY(m_impl.try_map_key_code_to_key(ev.key_code, key))) { // Throws
+        if (ARCHON_LIKELY(m_conn.try_map_key_code_to_key(ev.key_code, key))) { // Throws
             if (ARCHON_UNLIKELY(key == display::Key::escape))
                 return false;
         }
@@ -111,7 +110,6 @@ public:
     }
 
 private:
-    const display::Implementation& m_impl;
     display::Connection& m_conn;
     std::unique_ptr<display::Window> m_win;
     log::Logger& m_logger;

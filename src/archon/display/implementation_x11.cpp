@@ -125,9 +125,6 @@ public:
 
     auto new_connection(const std::locale&, const display::Connection::Config&) const ->
         std::unique_ptr<display::Connection> override final;
-    bool try_map_key_to_key_code(display::Key, display::KeyCode&) const override final;
-    bool try_map_key_code_to_key(display::KeyCode, display::Key&) const override final;
-    bool try_get_key_name(display::KeyCode, std::string_view&) const override final;
     auto get_slot() const noexcept -> const Slot& override final;
 
 private:
@@ -168,6 +165,9 @@ public:
     void register_window(::Window id, WindowImpl&);
     void unregister_window(::Window id) noexcept;
 
+    bool try_map_key_to_key_code(display::Key, display::KeyCode&) const override final;
+    bool try_map_key_code_to_key(display::KeyCode, display::Key&) const override final;
+    bool try_get_key_name(display::KeyCode, std::string_view&) const override final;
     auto new_window(std::string_view, display::Size, display::WindowEventHandler&,
                     const display::Window::Config&) -> std::unique_ptr<display::Window> override final;
     auto new_window(int, std::string_view, display::Size, display::WindowEventHandler&,
@@ -287,30 +287,6 @@ auto ImplementationImpl::new_connection(const std::locale& locale, const display
     auto conn = std::make_unique<ConnectionImpl>(*this, locale, config.x11); // Throws
     conn->open(config.x11); // Throws
     return conn;
-}
-
-
-bool ImplementationImpl::try_map_key_to_key_code(display::Key key, display::KeyCode& key_code) const
-{
-    static_cast<void>(key);    
-    static_cast<void>(key_code);    
-    return false;                      
-}
-
-
-bool ImplementationImpl::try_map_key_code_to_key(display::KeyCode key_code, display::Key& key) const
-{
-    static_cast<void>(key_code);    
-    static_cast<void>(key);    
-    return false;                      
-}
-
-
-bool ImplementationImpl::try_get_key_name(display::KeyCode key_code, std::string_view& name) const
-{
-    static_cast<void>(key_code);    
-    static_cast<void>(name);    
-    return false;                      
 }
 
 
@@ -490,6 +466,30 @@ inline void ConnectionImpl::unregister_window(::Window id) noexcept
     ARCHON_ASSERT(n == 1);
     if (ARCHON_LIKELY(m_have_curr_window && id == m_curr_window_id))
         m_curr_window = nullptr;
+}
+
+
+bool ConnectionImpl::try_map_key_to_key_code(display::Key key, display::KeyCode& key_code) const
+{
+    static_cast<void>(key);    
+    static_cast<void>(key_code);    
+    return false;                      
+}
+
+
+bool ConnectionImpl::try_map_key_code_to_key(display::KeyCode key_code, display::Key& key) const
+{
+    static_cast<void>(key_code);    
+    static_cast<void>(key);    
+    return false;                      
+}
+
+
+bool ConnectionImpl::try_get_key_name(display::KeyCode key_code, std::string_view& name) const
+{
+    static_cast<void>(key_code);    
+    static_cast<void>(name);    
+    return false;                      
 }
 
 

@@ -55,8 +55,7 @@ class EventLoop
     : public display::WindowEventHandler {
 public:
     EventLoop(display::Connection& conn, int display) noexcept
-        : m_impl(conn.get_implementation())
-        , m_conn(conn)
+        : m_conn(conn)
         , m_display(display)
     {
     }
@@ -85,7 +84,7 @@ public:
     bool on_keydown(const display::KeyEvent& ev) override final
     {
         display::Key key = {};
-        if (ARCHON_LIKELY(m_impl.try_map_key_code_to_key(ev.key_code, key))) { // Throws
+        if (ARCHON_LIKELY(m_conn.try_map_key_code_to_key(ev.key_code, key))) { // Throws
             switch (key) {
                 case display::Key::digit_1: {
                     m_target_window = 1;
@@ -109,7 +108,7 @@ public:
     bool on_keyup(const display::KeyEvent& ev) override final
     {
         display::Key key = {};
-        if (ARCHON_LIKELY(m_impl.try_map_key_code_to_key(ev.key_code, key))) { // Throws
+        if (ARCHON_LIKELY(m_conn.try_map_key_code_to_key(ev.key_code, key))) { // Throws
             switch (key) {
                 case display::Key::digit_1: {
                     if (m_target_window == 1)
@@ -201,7 +200,6 @@ private:
         }
     };
 
-    const display::Implementation& m_impl;
     display::Connection& m_conn;
     const int m_display;
     int m_prev_window_id = 0;

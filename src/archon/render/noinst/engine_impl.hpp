@@ -119,7 +119,7 @@ private:
     bool m_wireframe_feature_enable;
 
     EventHandler m_event_handler { *this };
-    std::unique_ptr<display::Connection> m_connection;
+    std::unique_ptr<display::Connection> m_display_connection;
     std::unique_ptr<display::Window> m_window;
 
     Scene* m_scene = nullptr;

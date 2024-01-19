@@ -125,9 +125,6 @@ public:
 
     auto new_connection(const std::locale&, const display::Connection::Config&) const ->
         std::unique_ptr<display::Connection> override final;
-    bool try_map_key_to_key_code(display::Key, display::KeyCode&) const override final;
-    bool try_map_key_code_to_key(display::KeyCode, display::Key&) const override final;
-    bool try_get_key_name(display::KeyCode, std::string_view&) const override final;
     auto get_slot() const noexcept -> const Slot& override final;
 
 private:
@@ -163,6 +160,9 @@ public:
     void register_window(Uint32 id, WindowImpl&);
     void unregister_window(Uint32 id) noexcept;
 
+    bool try_map_key_to_key_code(display::Key, display::KeyCode&) const override final;
+    bool try_map_key_code_to_key(display::KeyCode, display::Key&) const override final;
+    bool try_get_key_name(display::KeyCode, std::string_view&) const override final;
     auto new_window(std::string_view, display::Size, display::WindowEventHandler&,
                     const display::Window::Config&) -> std::unique_ptr<display::Window> override final;
     auto new_window(int, std::string_view, display::Size, display::WindowEventHandler&,
@@ -286,30 +286,6 @@ auto ImplementationImpl::new_connection(const std::locale& locale, const display
 }
 
 
-bool ImplementationImpl::try_map_key_to_key_code(display::Key key, display::KeyCode& key_code) const
-{
-    return ::rev_map_key(key, key_code);
-}
-
-
-bool ImplementationImpl::try_map_key_code_to_key(display::KeyCode key_code, display::Key& key) const
-{
-    return ::map_key(key_code, key);
-}
-
-
-bool ImplementationImpl::try_get_key_name(display::KeyCode key_code, std::string_view& name) const
-{
-    SDL_Keycode code = core::cast_from_twos_compl_a<SDL_Keycode>(key_code.code);
-    const char* name_2 = SDL_GetKeyName(code); // FIXME: Consider character encoding (bail out unless configured locale is a UTF-8 locale (core::assume_utf8_locale()))                                       
-    if (ARCHON_LIKELY(name_2)) {
-        name = std::string_view(name_2); // Throws
-        return true;
-    }
-    return false;
-}
-
-
 auto ImplementationImpl::get_slot() const noexcept -> const Slot&
 {
     return m_slot;
@@ -401,6 +377,30 @@ inline void ConnectionImpl::unregister_window(Uint32 id) noexcept
     ARCHON_ASSERT(n == 1);
     if (ARCHON_LIKELY(id == m_curr_window_id))
         m_curr_window = nullptr;
+}
+
+
+bool ConnectionImpl::try_map_key_to_key_code(display::Key key, display::KeyCode& key_code) const
+{
+    return ::rev_map_key(key, key_code);
+}
+
+
+bool ConnectionImpl::try_map_key_code_to_key(display::KeyCode key_code, display::Key& key) const
+{
+    return ::map_key(key_code, key);
+}
+
+
+bool ConnectionImpl::try_get_key_name(display::KeyCode key_code, std::string_view& name) const
+{
+    SDL_Keycode code = core::cast_from_twos_compl_a<SDL_Keycode>(key_code.code);
+    const char* name_2 = SDL_GetKeyName(code); // FIXME: Consider character encoding (bail out unless configured locale is a UTF-8 locale (core::assume_utf8_locale()))                                       
+    if (ARCHON_LIKELY(name_2)) {
+        name = std::string_view(name_2); // Throws
+        return true;
+    }
+    return false;
 }
 
 

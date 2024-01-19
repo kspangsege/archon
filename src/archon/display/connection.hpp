@@ -27,11 +27,14 @@
 #include <cstddef>
 #include <memory>
 #include <chrono>
+#include <string_view>
 #include <locale>
 
 #include <archon/core/buffer.hpp>
 #include <archon/display/implementation_fwd.hpp>
 #include <archon/display/geometry.hpp>
+#include <archon/display/key.hpp>
+#include <archon/display/key_code.hpp>
 #include <archon/display/event_handler.hpp>
 #include <archon/display/resolution.hpp>
 #include <archon/display/screen.hpp>
@@ -82,6 +85,35 @@ namespace archon::display {
 class Connection {
 public:
     struct Config;
+
+    /// \brief Map well-known key to key code.
+    ///
+    /// This function maps the specified well-known key (\p key) to the corresponding key
+    /// code (\p key_code). If a corresponding key code exists, this function returns `true`
+    /// after setting \p key_code to that key code. If a corresponding key code does not
+    /// exist, this function returns `false` and leaves \p key_code unchanged.
+    ///
+    virtual bool try_map_key_to_key_code(display::Key key, display::KeyCode& key_code) const = 0;
+
+    /// \brief Map key code to well-known key.
+    ///
+    /// This function maps the specified key code (\p key_code) to the corresponding
+    /// well-known key (\p key). If a corresponding well-known key exists, this function
+    /// returns `true` after setting \p key to that key. If a corresponding well-known key
+    /// does not exist, this function returns `false` and leaves \p key unchanged.
+    ///
+    virtual bool try_map_key_code_to_key(display::KeyCode key_code, display::Key& key) const = 0;
+
+    /// \brief Get key name.
+    ///
+    /// This function returns the name of the specified key as known to this
+    /// implementation. Key names are not guaranteed to be invariant across implementations.
+    ///
+    /// If the implementation knows the name of the specified key (\p key_code), this
+    /// function returns `true` after setting \p name to that name. Otherwise this function
+    /// returns `false` and leaves \p name unchanged.
+    ///
+    virtual bool try_get_key_name(display::KeyCode key_code, std::string_view& name) const = 0;
 
     /// \{
     ///

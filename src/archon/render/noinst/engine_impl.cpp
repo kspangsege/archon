@@ -78,6 +78,8 @@ EngineImpl::EngineImpl(std::string_view window_title, display::Size window_size,
 #if !ARCHON_RENDER_HAVE_OPENGL
     throw std::runtime_error("OpenGL not available");
 #endif
+    m_display_connection = m_display_implementation.new_connection(m_locale); // Throws
+
     set_viewport_size(window_size);
     set_frame_rate(config.frame_rate); // Throws
     set_background_color(util::colors::black); // Throws
@@ -154,12 +156,11 @@ EngineImpl::EngineImpl(std::string_view window_title, display::Size window_size,
         bind_key(display::Key::lower_case_w, handler); // Throws
     }
 
-    m_connection = m_display_implementation.new_connection(m_locale); // Throws
     display::Window::Config window_config;
     window_config.resizable = config.allow_window_resize;
     window_config.fullscreen = config.fullscreen_mode;
     window_config.enable_opengl = true;
-    m_window = m_connection->new_window(window_title, window_size, m_event_handler, window_config); // Throws
+    m_window = m_display_connection->new_window(window_title, window_size, m_event_handler, window_config); // Throws
     m_fullscreen_mode = config.fullscreen_mode;
 }
 
@@ -168,10 +169,10 @@ void EngineImpl::run()
 {
 /*                  
     int screen = -1; // ???                               
-    std::optional<display::Resolution> resolution = m_connection->get_screen_resolution(screen); // Throws
+    std::optional<display::Resolution> resolution = m_display_connection->get_screen_resolution(screen); // Throws
     if (resolution.has_value()) {
         display::Resolution resolution_2 = resolution.value();
-        display::Box bounds = m_connection->get_screen_bounds(screen); // Throws
+        display::Box bounds = m_display_connection->get_screen_bounds(screen); // Throws
         m_logger.trace("Screen resolution (ppcm):  %s", resolution_2); // Throws
         m_logger.trace("Screen size (pixels):      %s", bounds.size); // Throws
         m_logger.trace("Physical screen size (cm): %s x %s", bounds.size.width / resolution_2.horz_ppcm, bounds.size.height / resolution_2.vert_ppcm); // Throws           
@@ -205,7 +206,7 @@ void EngineImpl::run()
 
         m_interrupt_before_sleep = false;
         m_refresh_rate_changed = false;
-        bool expired = m_connection->process_events(deadline, &m_event_handler); // Throws
+        bool expired = m_display_connection->process_events(deadline, &m_event_handler); // Throws
         if (!expired) {
             if (ARCHON_UNLIKELY(m_quit))
                 break;
@@ -473,7 +474,7 @@ bool EngineImpl::map_key_ident(const render::KeyIdent& key, impl::KeyBindings::K
     display::MouseButton mouse_button = {};
     switch (key.get(key_2, key_code, mouse_button)) {
         case render::KeyIdent::Type::key: {
-            bool found = m_display_implementation.try_map_key_to_key_code(key_2, key_code); // Throws
+            bool found = m_display_connection->try_map_key_to_key_code(key_2, key_code); // Throws
             if (ARCHON_LIKELY(found)) {
                 ident = impl::KeyBindings::KeyIdent(key_code);
                 return true;

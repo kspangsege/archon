@@ -34,8 +34,9 @@ namespace archon::display {
 ///
 /// A key code is an integer value (\ref code) that identifies a particular key on a
 /// keyboard. Values may differ between display implementations (\ref
-/// display::Implementation). One can map a key code to a well known key (\ref display::Key)
-/// using \ref display::Implementation::try_map_key_code_to_key().
+/// display::Implementation) and even between display connections (\ref
+/// display::Connection). One can map a key code to a well known key (\ref display::Key)
+/// using \ref display::Connection::try_map_key_code_to_key().
 ///
 /// A key codes identifies the logical unmodified function of a key, rather than the
 /// position of the key on the keyboard or the symbol displayed on the key. For example, on

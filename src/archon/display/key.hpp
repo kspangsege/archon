@@ -33,10 +33,10 @@ namespace archon::display {
 /// manner that is independent of the underlying display implementation.
 ///
 /// A well-known key can be mapped to the corresponding key code (\ref display::KeyCode), if
-/// one exists, using \ref display::Implementation::try_map_key_to_key_code().
+/// one exists, using \ref display::Connection::try_map_key_to_key_code().
 ///
 /// A key code (\ref display::KeyCode) can be mapped to the corresponding well-known key, if
-/// one exists, using display::Implementation::try_map_key_code_to_key().
+/// one exists, using display::Connection::try_map_key_code_to_key().
 ///
 /// \sa \ref display::KeyCode
 ///

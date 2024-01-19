@@ -55,8 +55,7 @@ class EventLoop
     : public display::WindowEventHandler {
 public:
     EventLoop(display::Connection& conn) noexcept
-        : m_impl(conn.get_implementation())
-        , m_conn(conn)
+        : m_conn(conn)
     {
     }
 
@@ -88,7 +87,7 @@ public:
     bool on_keydown(const display::KeyEvent& ev) override final
     {
         display::Key key = {};
-        if (ARCHON_LIKELY(m_impl.try_map_key_code_to_key(ev.key_code, key))) { // Throws
+        if (ARCHON_LIKELY(m_conn.try_map_key_code_to_key(ev.key_code, key))) { // Throws
             if (ARCHON_UNLIKELY(key == display::Key::escape))
                 return false;
         }
@@ -96,7 +95,6 @@ public:
     }
 
 private:
-    const display::Implementation& m_impl;
     display::Connection& m_conn;
     double m_angle = 0;
 };
