@@ -26,6 +26,7 @@
 #include <archon/core/features.h>
 #include <archon/core/format.hpp>
 #include <archon/core/quote.hpp>
+#include <archon/core/locale.hpp>
 #include <archon/core/file.hpp>
 #include <archon/log.hpp>
 #include <archon/cli.hpp>
@@ -279,10 +280,16 @@ int main(int argc, char* argv[])
 
             switch (event.type) {
                 case SDL_KEYDOWN:
+                    if (core::assume_utf8_locale(locale)) // Throws
+                        logger.info("KEY DOWN: %s", SDL_GetKeyName(event.key.keysym.sym)); // Throws
                     if (event.key.keysym.sym == SDLK_ESCAPE) {
                         quit = true;
                         break;
                     }
+                    break;
+                case SDL_KEYUP:
+                    if (core::assume_utf8_locale(locale)) // Throws
+                        logger.info("KEY UP: %s", SDL_GetKeyName(event.key.keysym.sym)); // Throws
                     break;
                 case SDL_WINDOWEVENT:
                     switch (event.window.event) {

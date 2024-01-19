@@ -36,7 +36,7 @@
 #include <archon/display/implementation.hpp>
 #include <archon/display/implementation_x11.hpp>
 
-#if !ARCHON_WINDOWS && ARCHON_DISPLAY_HAVE_X11
+#if !ARCHON_WINDOWS && ARCHON_DISPLAY_HAVE_X11 && ARCHON_DISPLAY_HAVE_X11_XKB
 #  include <unistd.h>
 #  if defined _POSIX_VERSION && _POSIX_VERSION >= 200112L // POSIX.1-2001
 #    define HAVE_X11 1
@@ -54,13 +54,13 @@
 #  include <X11/Xutil.h>
 #  include <X11/keysym.h>
 #  include <X11/XKBlib.h>
-#  if ARCHON_DISPLAY_HAVE_XDBE
+#  if ARCHON_DISPLAY_HAVE_X11_XDBE
 #    include <X11/extensions/Xdbe.h>
 #  endif
-#  if ARCHON_DISPLAY_HAVE_XRANDR
+#  if ARCHON_DISPLAY_HAVE_X11_XRANDR
 #    include <X11/extensions/Xrandr.h>
 #  endif
-#  if ARCHON_DISPLAY_HAVE_XRENDER
+#  if ARCHON_DISPLAY_HAVE_X11_XRENDER
 #    include <X11/extensions/Xrender.h>
 #  endif
 #endif
@@ -262,7 +262,7 @@ private:
     bool m_is_double_buffered = false;
 
     Drawable m_drawable;
-#if ARCHON_DISPLAY_HAVE_XDBE
+#if ARCHON_DISPLAY_HAVE_X11_XDBE
     XdbeSwapAction m_swap_action;
 #endif
 
@@ -387,7 +387,7 @@ void ConnectionImpl::open(const display::ConnectionConfigX11& config)
     atom_wm_protocols     = intern_string("WM_PROTOCOLS");
     atom_wm_delete_window = intern_string("WM_DELETE_WINDOW");
 
-#if ARCHON_DISPLAY_HAVE_XDBE
+#if ARCHON_DISPLAY_HAVE_X11_XDBE
     {
         int major = 0;
         int minor = 0;
@@ -396,7 +396,7 @@ void ConnectionImpl::open(const display::ConnectionConfigX11& config)
                 m_have_xdbe = true;
         }
     }
-#endif // ARCHON_DISPLAY_HAVE_XDBE
+#endif // ARCHON_DISPLAY_HAVE_X11_XDBE
 }
 
 
@@ -439,7 +439,7 @@ auto ConnectionImpl::ensure_x11_screen(int screen) -> X11Screen&
         }
 
         bool use_double_buffering = false;
-#if ARCHON_DISPLAY_HAVE_XDBE
+#if ARCHON_DISPLAY_HAVE_X11_XDBE
         if (!m_disable_double_buffering && m_have_xdbe) {
             int n = 1;
             XdbeScreenVisualInfo* entries = XdbeGetVisualInfo(dpy, &root, &n);
@@ -458,7 +458,7 @@ auto ConnectionImpl::ensure_x11_screen(int screen) -> X11Screen&
                 }
             }
         }
-#endif // ARCHON_DISPLAY_HAVE_XDBE
+#endif // ARCHON_DISPLAY_HAVE_X11_XDBE
 
         screen_2.use_double_buffering = use_double_buffering;
         screen_2.visual_info = visual_info;
@@ -853,14 +853,14 @@ void WindowImpl::create(display::Size size, const Config& config)
 
     // Enable double buffering
     m_drawable = win;
-#if ARCHON_DISPLAY_HAVE_XDBE
+#if ARCHON_DISPLAY_HAVE_X11_XDBE
     if (ARCHON_LIKELY(screen.use_double_buffering)) {
         m_swap_action = XdbeUndefined; // Contents of swapped-out buffer becomes undefined
         XdbeBackBuffer back_buffer = XdbeAllocateBackBufferName(conn.dpy, win, m_swap_action);
         m_drawable = back_buffer;
         m_is_double_buffered = true;
     }
-#endif // ARCHON_DISPLAY_HAVE_XDBE
+#endif // ARCHON_DISPLAY_HAVE_X11_XDBE
 
     // FIXME: Tend to config.enable_opengl                                                                                                                                                       
 }
@@ -957,7 +957,7 @@ void WindowImpl::put_texture(const display::Texture& tex, const display::Box& so
 
 void WindowImpl::present()
 {
-#if ARCHON_DISPLAY_HAVE_XDBE
+#if ARCHON_DISPLAY_HAVE_X11_XDBE
     if (m_is_double_buffered) {
         XdbeSwapInfo info;
         info.swap_window = win;
@@ -966,7 +966,7 @@ void WindowImpl::present()
         if (ARCHON_UNLIKELY(status == 0))
             throw std::runtime_error("XdbeSwapBuffers() failed");
     }
-#endif // ARCHON_DISPLAY_HAVE_XDBE
+#endif // ARCHON_DISPLAY_HAVE_X11_XDBE
 }
 
 

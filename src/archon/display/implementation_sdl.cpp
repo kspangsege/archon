@@ -304,7 +304,7 @@ bool ImplementationImpl::try_map_key_code_to_key(display::KeyCode key_code, disp
 bool ImplementationImpl::try_get_key_name(display::KeyCode key_code, std::string_view& name) const
 {
     SDL_Keycode code = core::cast_from_twos_compl_a<SDL_Keycode>(key_code.code);
-    const char* name_2 = SDL_GetKeyName(code);
+    const char* name_2 = SDL_GetKeyName(code); // FIXME: Consider character encoding (bail out unless configured locale is a UTF-8 locale (core::assume_utf8_locale()))                                       
     if (ARCHON_LIKELY(name_2)) {
         name = std::string_view(name_2); // Throws
         return true;
