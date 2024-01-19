@@ -1136,6 +1136,7 @@ int main(int argc, char* argv[])
         ARCHON_SCOPE_EXIT {
             XRRFreeScreenResources(resources);
         };
+        // FIXME: Need special handling of case where resources->noutput is zero --> No information available      
         struct Crtc {
             bool enabled;
             display::Box bounds;
@@ -1160,14 +1161,17 @@ int main(int argc, char* argv[])
             display::Box bounds = { display::Pos(info->x, info->y), size };
             std::optional<double> refresh_rate;
             if (enabled) {
+                bool found = false;
                 for (int j = 0; j < resources->nmode; ++j) {
                     const XRRModeInfo& mode = resources->modes[j];
                     if (ARCHON_LIKELY(mode.id != info->mode))
                         continue;
-                    refresh_rate = mode.dotClock / (mode.hTotal * double(mode.vTotal));
+                    found = true;
+                    if (mode.dotClock != 0)
+                        refresh_rate = mode.dotClock / (mode.hTotal * double(mode.vTotal));
                     break;
                 }
-                ARCHON_ASSERT(refresh_rate.has_value());
+                ARCHON_ASSERT(found);
             }
             ARCHON_STEADY_ASSERT(crtcs.size() < crtcs.capacity());
             Crtc& crtc =  crtcs[id];
