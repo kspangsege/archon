@@ -84,6 +84,7 @@ constexpr std::string_view g_implementation_ident = "sdl";
 #if ARCHON_DISPLAY_HAVE_SDL
 
 
+class WindowImpl;
 class TextureImpl;
 
 
@@ -159,7 +160,7 @@ public:
     ~ConnectionImpl() noexcept override;
 
     void open();
-    void register_window(Uint32 id, display::WindowEventHandler&, int cookie);
+    void register_window(Uint32 id, WindowImpl&);
     void unregister_window(Uint32 id) noexcept;
 
     auto new_window(std::string_view, display::Size, display::WindowEventHandler&,
@@ -179,27 +180,21 @@ private:
 
     bool m_was_opened = false;
 
-    struct WindowEntry {
-        display::WindowEventHandler& event_handler;
-        int cookie;
-    };
+    core::FlatMap<Uint32, WindowImpl> m_windows;
 
-    core::FlatMap<Uint32, WindowEntry> m_window_entries;
-
-    // If `m_curr_window_id` is greater than zero, then `m_curr_window_entry` specifies the
-    // entry for the window whose ID is the value of `m_curr_window_id` (valid window IDs
-    // are always greater than zero). If `m_curr_window_id` is zero, `m_curr_window_entry`
-    // has no meaning.
+    // If `m_curr_window_id` is greater than zero, then `m_curr_window` specifies the window
+    // identified by `m_curr_window_id` (valid window IDs are always greater than zero). If
+    // `m_curr_window_id` is zero, `m_curr_window` has no meaning.
     //
-    // If `m_curr_window_id` is greater than zero, but `m_curr_window_entry` is null, it
-    // means that the application has no knowledge of a window with that ID. This state is
-    // entered if the window specified by `m_curr_window_id` is unregistered
+    // If `m_curr_window_id` is greater than zero, but `m_curr_window` is null, it means
+    // that the application has no knowledge of a window with that ID. This state is entered
+    // if the window specified by `m_curr_window_id` is unregistered
     // (unregister_window()). The state is updated whenever a new window is registered
-    // (register_window()), which takes care of the case where a new window reuses the ID
+    // (register_window()). This takes care of the case where a new window reuses the ID
     // specified by `m_curr_window_id`.
     //
     Uint32 m_curr_window_id = 0;
-    const WindowEntry* m_curr_window_entry = nullptr;
+    const WindowImpl* m_curr_window = nullptr;
 
     bool m_have_prev_timestamp = false;
     Uint32 m_prev_timestamp = 0;
@@ -210,7 +205,7 @@ private:
     void wait_for_events();
     bool wait_for_events(time_point_type deadline);
 
-    auto lookup_window_entry(Uint32 window_id) noexcept -> const WindowEntry*;
+    auto lookup_window(Uint32 window_id) noexcept -> const WindowImpl*;
     auto map_next_timestamp(Uint32 timestamp) -> display::TimedWindowEvent::Timestamp;
 };
 
@@ -219,11 +214,13 @@ class WindowImpl
     : public display::Window {
 public:
     ConnectionImpl& conn;
+    display::WindowEventHandler& event_handler;
+    const int cookie;
 
-    WindowImpl(ConnectionImpl&) noexcept;
+    WindowImpl(ConnectionImpl&, display::WindowEventHandler&, int cookie) noexcept;
     ~WindowImpl() noexcept override;
 
-    void create(std::string_view title, display::Size size, display::WindowEventHandler&, const Config&);
+    void create(std::string_view title, display::Size size, const Config&);
     auto ensure_renderer() -> SDL_Renderer*;
     void set_draw_color(SDL_Renderer* renderer, util::Color color);
 
@@ -384,27 +381,26 @@ void ConnectionImpl::open()
 }
 
 
-inline void ConnectionImpl::register_window(Uint32 id, display::WindowEventHandler& event_handler, int cookie)
+inline void ConnectionImpl::register_window(Uint32 id, WindowImpl& window)
 {
     ARCHON_ASSERT(id > 0);
-    WindowEntry entry = { event_handler, cookie };
-    auto i = m_window_entries.emplace(id, entry); // Throws
+    auto i = m_windows.emplace(id, window); // Throws
     bool was_inserted = i.second;
     ARCHON_ASSERT(was_inserted);
     // Because a new window might reuse the ID currently specified by `m_curr_window_id`, it
     // is necessary, and not just desirable to reset the "current window state" here.
     m_curr_window_id = id;
-    m_curr_window_entry = &i.first->second;
+    m_curr_window = &window;
 }
 
 
 inline void ConnectionImpl::unregister_window(Uint32 id) noexcept
 {
     ARCHON_ASSERT(id > 0);
-    std::size_t n = m_window_entries.erase(id);
+    std::size_t n = m_windows.erase(id);
     ARCHON_ASSERT(n == 1);
     if (ARCHON_LIKELY(id == m_curr_window_id))
-        m_curr_window_entry = nullptr;
+        m_curr_window = nullptr;
 }
 
 
@@ -412,8 +408,8 @@ auto ConnectionImpl::new_window(std::string_view title, display::Size size,
                                 display::WindowEventHandler& event_handler,
                                 const display::Window::Config& config) -> std::unique_ptr<display::Window>
 {
-    auto win = std::make_unique<WindowImpl>(*this); // Throws
-    win->create(title, size, event_handler, config); // Throws
+    auto win = std::make_unique<WindowImpl>(*this, event_handler, config.cookie); // Throws
+    win->create(title, size, config); // Throws
     return win;
 }
 
@@ -501,13 +497,13 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
         case SDL_MOUSEMOTION: {
             if (ARCHON_LIKELY(event.motion.state == 0))
                 break;
-            const WindowEntry* entry = lookup_window_entry(event.motion.windowID);
-            if (ARCHON_LIKELY(entry)) {
+            const WindowImpl* window = lookup_window(event.motion.windowID);
+            if (ARCHON_LIKELY(window)) {
                 display::MouseButtonEvent event_2;
-                event_2.cookie = entry->cookie;
+                event_2.cookie = window->cookie;
                 event_2.timestamp = map_next_timestamp(event.motion.timestamp); // Throws
                 event_2.pos = { event.motion.x, event.motion.y };
-                bool proceed = entry->event_handler.on_mousemove(event_2); // Throws
+                bool proceed = window->event_handler.on_mousemove(event_2); // Throws
                 if (ARCHON_LIKELY(proceed))
                     break;
                 return false; // Interrupt
@@ -515,13 +511,13 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
             break;
         }
         case SDL_MOUSEWHEEL: {
-            const WindowEntry* entry = lookup_window_entry(event.wheel.windowID);
-            if (ARCHON_LIKELY(entry)) {
+            const WindowImpl* window = lookup_window(event.wheel.windowID);
+            if (ARCHON_LIKELY(window)) {
                 display::ScrollEvent event_2;
-                event_2.cookie = entry->cookie;
+                event_2.cookie = window->cookie;
                 event_2.timestamp = map_next_timestamp(event.wheel.timestamp); // Throws
                 event_2.amount = { event.wheel.preciseX, event.wheel.preciseY };
-                bool proceed = entry->event_handler.on_scroll(event_2); // Throws
+                bool proceed = window->event_handler.on_scroll(event_2); // Throws
                 if (ARCHON_LIKELY(proceed))
                     break;
                 return false; // Interrupt
@@ -529,14 +525,14 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
             break;
         }
         case SDL_MOUSEBUTTONDOWN: {
-            const WindowEntry* entry = lookup_window_entry(event.button.windowID);
-            if (ARCHON_LIKELY(entry)) {
+            const WindowImpl* window = lookup_window(event.button.windowID);
+            if (ARCHON_LIKELY(window)) {
                 display::MouseButtonEvent event_2;
-                event_2.cookie = entry->cookie;
+                event_2.cookie = window->cookie;
                 event_2.timestamp = map_next_timestamp(event.button.timestamp); // Throws
                 event_2.pos = { event.button.x, event.button.y };
                 event_2.button = map_mouse_button(event.button.button);
-                bool proceed = entry->event_handler.on_mousedown(event_2); // Throws
+                bool proceed = window->event_handler.on_mousedown(event_2); // Throws
                 if (ARCHON_LIKELY(proceed))
                     break;
                 return false; // Interrupt
@@ -544,14 +540,14 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
             break;
         }
         case SDL_MOUSEBUTTONUP: {
-            const WindowEntry* entry = lookup_window_entry(event.button.windowID);
-            if (ARCHON_LIKELY(entry)) {
+            const WindowImpl* window = lookup_window(event.button.windowID);
+            if (ARCHON_LIKELY(window)) {
                 display::MouseButtonEvent event_2;
-                event_2.cookie = entry->cookie;
+                event_2.cookie = window->cookie;
                 event_2.timestamp = map_next_timestamp(event.button.timestamp); // Throws
                 event_2.pos = { event.button.x, event.button.y };
                 event_2.button = map_mouse_button(event.button.button);
-                bool proceed = entry->event_handler.on_mouseup(event_2); // Throws
+                bool proceed = window->event_handler.on_mouseup(event_2); // Throws
                 if (ARCHON_LIKELY(proceed))
                     break;
                 return false; // Interrupt
@@ -560,13 +556,13 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
         }
         case SDL_KEYDOWN: {
             if (ARCHON_LIKELY(event.key.repeat == 0)) {
-                const WindowEntry* entry = lookup_window_entry(event.key.windowID);
-                if (ARCHON_LIKELY(entry)) {
+                const WindowImpl* window = lookup_window(event.key.windowID);
+                if (ARCHON_LIKELY(window)) {
                     display::KeyEvent event_2;
-                    event_2.cookie = entry->cookie;
+                    event_2.cookie = window->cookie;
                     event_2.timestamp = map_next_timestamp(event.key.timestamp); // Throws
                     event_2.key_code = { display::KeyCode::code_type(event.key.keysym.sym) };
-                    bool proceed = entry->event_handler.on_keydown(event_2); // Throws
+                    bool proceed = window->event_handler.on_keydown(event_2); // Throws
                     if (ARCHON_LIKELY(proceed))
                         break;
                     return false; // Interrupt
@@ -575,13 +571,13 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
             break;
         }
         case SDL_KEYUP: {
-            const WindowEntry* entry = lookup_window_entry(event.key.windowID);
-            if (ARCHON_LIKELY(entry)) {
+            const WindowImpl* window = lookup_window(event.key.windowID);
+            if (ARCHON_LIKELY(window)) {
                 display::KeyEvent event_2;
-                event_2.cookie = entry->cookie;
+                event_2.cookie = window->cookie;
                 event_2.timestamp = map_next_timestamp(event.key.timestamp); // Throws
                 event_2.key_code = { display::KeyCode::code_type(event.key.keysym.sym) };
-                bool proceed = entry->event_handler.on_keyup(event_2); // Throws
+                bool proceed = window->event_handler.on_keyup(event_2); // Throws
                 if (ARCHON_LIKELY(proceed))
                     break;
                 return false; // Interrupt
@@ -591,12 +587,12 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
         case SDL_WINDOWEVENT:
             switch (event.window.event) {
                 case SDL_WINDOWEVENT_ENTER: {
-                    const WindowEntry* entry = lookup_window_entry(event.window.windowID);
-                    if (ARCHON_LIKELY(entry)) {
+                    const WindowImpl* window = lookup_window(event.window.windowID);
+                    if (ARCHON_LIKELY(window)) {
                         display::TimedWindowEvent event_2;
-                        event_2.cookie = entry->cookie;
+                        event_2.cookie = window->cookie;
                         event_2.timestamp = map_next_timestamp(event.window.timestamp); // Throws
-                        bool proceed = entry->event_handler.on_mouseover(event_2); // Throws
+                        bool proceed = window->event_handler.on_mouseover(event_2); // Throws
                         if (ARCHON_LIKELY(proceed))
                             break;
                         return false; // Interrupt
@@ -604,12 +600,12 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
                     break;
                 }
                 case SDL_WINDOWEVENT_LEAVE: {
-                    const WindowEntry* entry = lookup_window_entry(event.window.windowID);
-                    if (ARCHON_LIKELY(entry)) {
+                    const WindowImpl* window = lookup_window(event.window.windowID);
+                    if (ARCHON_LIKELY(window)) {
                         display::TimedWindowEvent event_2;
-                        event_2.cookie = entry->cookie;
+                        event_2.cookie = window->cookie;
                         event_2.timestamp = map_next_timestamp(event.window.timestamp); // Throws
-                        bool proceed = entry->event_handler.on_mouseout(event_2); // Throws
+                        bool proceed = window->event_handler.on_mouseout(event_2); // Throws
                         if (ARCHON_LIKELY(proceed))
                             break;
                         return false; // Interrupt
@@ -617,12 +613,12 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
                     break;
                 }
                 case SDL_WINDOWEVENT_FOCUS_GAINED: {
-                    const WindowEntry* entry = lookup_window_entry(event.window.windowID);
-                    if (ARCHON_LIKELY(entry)) {
+                    const WindowImpl* window = lookup_window(event.window.windowID);
+                    if (ARCHON_LIKELY(window)) {
                         display::TimedWindowEvent event_2;
-                        event_2.cookie = entry->cookie;
+                        event_2.cookie = window->cookie;
                         event_2.timestamp = map_next_timestamp(event.window.timestamp); // Throws
-                        bool proceed = entry->event_handler.on_focus(event_2); // Throws
+                        bool proceed = window->event_handler.on_focus(event_2); // Throws
                         if (ARCHON_LIKELY(proceed))
                             break;
                         return false; // Interrupt
@@ -630,12 +626,12 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
                     break;
                 }
                 case SDL_WINDOWEVENT_FOCUS_LOST: {
-                    const WindowEntry* entry = lookup_window_entry(event.window.windowID);
-                    if (ARCHON_LIKELY(entry)) {
+                    const WindowImpl* window = lookup_window(event.window.windowID);
+                    if (ARCHON_LIKELY(window)) {
                         display::TimedWindowEvent event_2;
-                        event_2.cookie = entry->cookie;
+                        event_2.cookie = window->cookie;
                         event_2.timestamp = map_next_timestamp(event.window.timestamp); // Throws
-                        bool proceed = entry->event_handler.on_blur(event_2); // Throws
+                        bool proceed = window->event_handler.on_blur(event_2); // Throws
                         if (ARCHON_LIKELY(proceed))
                             break;
                         return false; // Interrupt
@@ -643,11 +639,11 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
                     break;
                 }
                 case SDL_WINDOWEVENT_EXPOSED: {
-                    const WindowEntry* entry = lookup_window_entry(event.window.windowID);
-                    if (ARCHON_LIKELY(entry)) {
+                    const WindowImpl* window = lookup_window(event.window.windowID);
+                    if (ARCHON_LIKELY(window)) {
                         display::WindowEvent event_2;
-                        event_2.cookie = entry->cookie;
-                        bool proceed = entry->event_handler.on_expose(event_2); // Throws
+                        event_2.cookie = window->cookie;
+                        bool proceed = window->event_handler.on_expose(event_2); // Throws
                         if (ARCHON_LIKELY(proceed))
                             break;
                         return false; // Interrupt
@@ -655,13 +651,13 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
                     break;
                 }
                 case SDL_WINDOWEVENT_SIZE_CHANGED: {
-                    const WindowEntry* entry = lookup_window_entry(event.window.windowID);
-                    if (ARCHON_LIKELY(entry)) {
+                    const WindowImpl* window = lookup_window(event.window.windowID);
+                    if (ARCHON_LIKELY(window)) {
                         display::WindowSizeEvent event_2;
-                        event_2.cookie = entry->cookie;
+                        event_2.cookie = window->cookie;
                         core::int_cast(event.window.data1, event_2.size.width); // Throws
                         core::int_cast(event.window.data2, event_2.size.height); // Throws
-                        bool proceed = entry->event_handler.on_resize(event_2); // Throws
+                        bool proceed = window->event_handler.on_resize(event_2); // Throws
                         if (ARCHON_LIKELY(proceed))
                             break;
                         return false; // Interrupt
@@ -669,13 +665,13 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
                     break;
                 }
                 case SDL_WINDOWEVENT_MOVED: {
-                    const WindowEntry* entry = lookup_window_entry(event.window.windowID);
-                    if (ARCHON_LIKELY(entry)) {
+                    const WindowImpl* window = lookup_window(event.window.windowID);
+                    if (ARCHON_LIKELY(window)) {
                         display::WindowPosEvent event_2;
-                        event_2.cookie = entry->cookie;
+                        event_2.cookie = window->cookie;
                         core::int_cast(event.window.data1, event_2.pos.x); // Throws
                         core::int_cast(event.window.data2, event_2.pos.y); // Throws
-                        bool proceed = entry->event_handler.on_reposition(event_2); // Throws
+                        bool proceed = window->event_handler.on_reposition(event_2); // Throws
                         if (ARCHON_LIKELY(proceed))
                             break;
                         return false; // Interrupt
@@ -683,11 +679,11 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
                     break;
                 }
                 case SDL_WINDOWEVENT_CLOSE: {
-                    const WindowEntry* entry = lookup_window_entry(event.window.windowID);
-                    if (ARCHON_LIKELY(entry)) {
+                    const WindowImpl* window = lookup_window(event.window.windowID);
+                    if (ARCHON_LIKELY(window)) {
                         display::WindowEvent event_2;
-                        event_2.cookie = entry->cookie;
-                        bool proceed = entry->event_handler.on_close(event_2); // Throws
+                        event_2.cookie = window->cookie;
+                        bool proceed = window->event_handler.on_close(event_2); // Throws
                         if (ARCHON_LIKELY(!proceed))
                             return false; // Interrupt
                     }
@@ -797,18 +793,18 @@ bool ConnectionImpl::wait_for_events(time_point_type deadline)
 }
 
 
-auto ConnectionImpl::lookup_window_entry(Uint32 window_id) noexcept -> const WindowEntry*
+auto ConnectionImpl::lookup_window(Uint32 window_id) noexcept -> const WindowImpl*
 {
     if (ARCHON_LIKELY(window_id == m_curr_window_id))
-        return m_curr_window_entry;
+        return m_curr_window;
 
-    const WindowEntry* entry = nullptr;
-    auto i = m_window_entries.find(window_id);
-    if (ARCHON_LIKELY(i != m_window_entries.end()))
-        entry = &i->second;
+    const WindowImpl* window = nullptr;
+    auto i = m_windows.find(window_id);
+    if (ARCHON_LIKELY(i != m_windows.end()))
+        window = &i->second;
     m_curr_window_id = window_id;
-    m_curr_window_entry = entry;
-    return entry;
+    m_curr_window = window;
+    return window;
 }
 
 
@@ -839,8 +835,11 @@ auto ConnectionImpl::map_next_timestamp(Uint32 timestamp) -> display::TimedWindo
 
 
 
-inline WindowImpl::WindowImpl(ConnectionImpl& conn_2) noexcept
+inline WindowImpl::WindowImpl(ConnectionImpl& conn_2, display::WindowEventHandler& event_handler_2,
+                              int cookie_2) noexcept
     : conn(conn_2)
+    , event_handler(event_handler_2)
+    , cookie(cookie_2)
 {
 }
 
@@ -859,8 +858,7 @@ WindowImpl::~WindowImpl() noexcept
 }
 
 
-void WindowImpl::create(std::string_view title, display::Size size, display::WindowEventHandler& event_handler,
-                        const Config& config)
+void WindowImpl::create(std::string_view title, display::Size size, const Config& config)
 {
     if (config.resizable && config.minimum_size.has_value()) {
         m_have_minimum_size = true;
@@ -890,7 +888,7 @@ void WindowImpl::create(std::string_view title, display::Size size, display::Win
     Uint32 id = SDL_GetWindowID(m_win);
     if (ARCHON_UNLIKELY(id <= 0))
         throw_sdl_error(conn.locale, "SDL_GetWindowID() failed"); // Throws
-    conn.register_window(id, event_handler, config.cookie); // Throws
+    conn.register_window(id, *this); // Throws
     m_id = id;
 
     // Set minimum window size if requested

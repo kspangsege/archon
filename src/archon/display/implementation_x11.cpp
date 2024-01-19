@@ -206,7 +206,7 @@ private:
     // client has no knowledge of a window with the ID specified by `m_curr_window_id`. This
     // state is entered if the window specified by `m_curr_window_id` is unregistered
     // (unregister_window()). The state is updated whenever a new window is registered
-    // (register_window()), which takes care of the case where a new window reuses the ID
+    // (register_window()). This takes care of the case where a new window reuses the ID
     // specified by `m_curr_window_id`.
     //
     bool m_have_curr_window = false;
