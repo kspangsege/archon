@@ -1136,7 +1136,6 @@ int main(int argc, char* argv[])
         ARCHON_SCOPE_EXIT {
             XRRFreeScreenResources(resources);
         };
-        // FIXME: Need special handling of case where resources->noutput is zero --> No information available      
         struct Crtc {
             bool enabled;
             display::Box bounds;
