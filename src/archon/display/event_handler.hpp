@@ -48,132 +48,187 @@ namespace archon::display {
 ///
 class WindowEventHandler {
 public:
-    /// \brief A key was pressed down.
+    /// \{
     ///
-    /// This function is called when a "key down" event is generated for one of the windows
-    /// that are associated with the event handler. A "key down" event is generated for a
-    /// particular window when a key is pressed down while that window is active (has
-    /// keyboard focus).
+    /// \brief A key was pressed down or released.
     ///
-    /// The default implementation of this function does nothing other than return `true`.
+    /// These functions are called when the "key down" or "key up" events are generated. The
+    /// targeted event handler object is the window's associated window handler (see \ref
+    /// display::Connection::new_window()).
+    ///
+    /// A "key down" event is generated for a particular window when a key is pressed down
+    /// while that window has input focus (see \ref on_focus()). Likewise, a "key up" event
+    /// is generated for a particular window when a key is released while that window has
+    /// input focus.
+    ///
+    /// FIXME: Verify above claims on macOS and Windows platforms                            
+    ///
+    /// It is unspecified what happens if a window looses or gains input focus while keys
+    /// are pressed down. At the time of writing, some implementations (SDL in particular)
+    /// will generate "key up" events for certain keys when a window looses input focus
+    /// while those keys are pressed down, and will also generate "key down" events for
+    /// certain keys if they are already pressed down when a window gains focus. Other
+    /// implementations will not do this (X11 in particular). An application that wants to
+    /// enforce a regime where keys are released when the window looses input focus must
+    /// keep track of pressed keys, and then synthetically generate "key up" events when the
+    /// window looses focus (\ref on_blur()). Such an application will probably also want to
+    /// ignore any "key up" event that does not correspond to a pressed down key according
+    /// to its own record of pressed down keys.
+    ///
+    /// FIXME: Talk about repeating keys                                                                                          
+    ///
+    /// The default implementations of these functions do nothing other than return `true`.
+    ///
+    /// \sa \ref on_keydown()
+    /// \sa \ref on_keyup()
+    /// \sa \ref on_mousedown()
+    /// \sa \ref on_focus()
     ///
     virtual bool on_keydown(const display::KeyEvent&);
-
-    /// \brief A key was released.
-    ///
-    /// This function is called when a "key up" event is generated for one of the windows
-    /// that are associated with the event handler. A "key up" event is generated for a
-    /// particular window when a key is released while that window is active (has keyboard
-    /// focus).
-    ///
-    /// The default implementation of this function does nothing other than return `true`.
-    ///
-    /// FIXME: Clarify what happens if a window looses keyboard focus while a key is pressed down                                
-    ///
-    /// FIXME: Clarify what happens if a window receives keyboard focus while a key is pressed down                                
-    ///
     virtual bool on_keyup(const display::KeyEvent&);
+    /// \}
 
-    /// \brief A mouse button was pressed down.
+    /// \{
     ///
-    /// This function is called when a "mouse down" event is generated for one of the
-    /// windows that are associated with the event handler. A "mouse down" event is
-    /// generated for a particular window when a mouse button is pressed down while that
-    /// window is active (has keyboard focus).
+    /// \brief A mouse button was pressed down or released.
     ///
-    /// The default implementation of this function does nothing other than return `true`.
+    /// These functions are called when the "mouse down" or "mouse up" events are
+    /// generated. The targeted event handler object is the window's associated window
+    /// handler (see \ref display::Connection::new_window()).
+    ///
+    /// A "mouse down" event is generated for a particular window when a mouse button is
+    /// pressed down while that window has input focus (see \ref on_focus()). Likewise, a
+    /// "mouse up" event is generated for a particular window when a mouse button is
+    /// released while that window has input focus.
+    ///
+    /// FIXME: Verify above claims on macOS and Windows platforms                            
+    ///
+    /// It is unspecified what happens if a window looses or gains input focus while buttons
+    /// are pressed down. See \ref on_keydown() for more on this.
+    ///
+    /// The default implementations of these functions do nothing other than return `true`.
+    ///
+    /// \sa \ref on_mousedown()
+    /// \sa \ref on_mouseup()
+    /// \sa \ref on_mousemove()
+    /// \sa \ref on_keydown()
+    /// \sa \ref on_focus()
     ///
     virtual bool on_mousedown(const display::MouseButtonEvent&);
-
-    /// \brief A mouse button was released.
-    ///
-    /// This function is called when a "mouse up" event is generated for one of the windows
-    /// that are associated with the event handler. A "mouse up" event is generated for a
-    /// particular window when a mouse button is released while that window is active (has
-    /// keyboard focus).
-    ///
-    /// The default implementation of this function does nothing other than return `true`.
-    ///
-    /// FIXME: Clarify what happens if a window looses keyboard focus while a mouse button is pressed down                                
-    ///
-    /// FIXME: Clarify what happens if a window receives keyboard focus while a mouse button is pressed down                                
-    ///
     virtual bool on_mouseup(const display::MouseButtonEvent&);
+    /// \}
 
-    /// \brief The mouse moved over a window or while mouse button was pressed.
+    /// \brief Mouse pointer moved during pointer grab.
     ///
-    /// This function is called when a "mouse move" event is generated for one of the
-    /// windows that are associated with the event handler. A "mouse move" event is
-    /// generated for a particular window when the mouse moves while a mouse button is held
-    /// down and that mouse button was pressed down while the window was active (had
-    /// keyboard focus).
+    /// This function is called when the "mouse move" event is generated. The targeted event
+    /// handler object is the window's associated window handler (see \ref
+    /// display::Connection::new_window()).
+    ///
+    /// A "mouse move" event is generated for a particular window when the mouse moves
+    /// during a pointer grab on that window. A *pointer grab* is initiated on a particular
+    /// window when a mouse button is pressed down while that window has input focus. The
+    /// pointer grab is sustained for as long as there is at least one mouse button that is
+    /// pressed down.
+    ///
+    /// FIXME: Verify above claims on macOS and Windows platforms                            
+    ///
+    /// FIXME: Does a grab end if the window looses input focus?                    
     ///
     /// The default implementation of this function does nothing other than return `true`.
+    ///
+    /// \sa \ref on_mousedown()
+    /// \sa \ref on_scroll()
     ///
     virtual bool on_mousemove(const display::MouseEvent&);
 
-    /// \brief The scroll wheel was moved.
+    /// \brief Mouse scroll wheel moved.
     ///
-    /// This function is called when a "scroll" event is generated for one of the windows
-    /// that are associated with the event handler. A "scroll" event is generated for a
-    /// particular window when the scroll wheel is moved while that window is active (has
-    /// keyboard focus).
+    /// This function is called when the "scroll" event is generated. The targeted event
+    /// handler object is the window's associated window handler (see \ref
+    /// display::Connection::new_window()).
     ///
-    /// With a scroll wheel that turns in discrete steps (detents), this function is
-    /// normally called once per step.
+    /// A "scroll" event is generated for a particular window when the scroll wheel is
+    /// moved. It is generated regardless of whether the window has input focus (\ref
+    /// on_focus()).
+    ///
+    /// FIXME: Verify above claims on macOS and Windows platforms                            
+    ///
+    /// FIXME: Should "scroll" events be suppressed during times when the window does not have input focus?                   
+    ///
+    /// With a scroll wheel that turns in discrete steps (detents), one "scroll" event is
+    /// normally generated per step.
     ///
     /// The default implementation of this function does nothing other than return `true`.
+    ///
+    /// \sa \ref on_mousemove()
     ///
     virtual bool on_scroll(const display::ScrollEvent&);
 
-    /// \brief Mouse enters window.
+    /// \{
     ///
-    /// This function is called when a "mouse over" event is generated for one of the
-    /// windows that are associated with the event handler. A "mouse over" event is
-    /// generated for a particular window when the mouse enters the area of that window.
+    /// \brief Mouse pointer entered or left window.
     ///
-    /// The default implementation of this function does nothing other than return `true`.
+    /// These functions are called when the "mouse over" or "mouse out" events are
+    /// generated. The targeted event handler object is the window's associated window
+    /// handler (see \ref display::Connection::new_window()).
+    ///
+    /// A "mouse over" event is generated for a particular window when the mouse pointer
+    /// enters the contents area of that window. Likewise, a "mouse out" event is generated
+    /// for a particular window when the mouse pointer leaves the contents area of that
+    /// window. See \ref display::Window for the meaning of "contents area".
+    ///
+    /// The "mouse over" and "mouse out" events are generated regardless of whether the
+    /// window has input focus (\ref on_focus()).
+    ///
+    /// FIXME: Verify above claims on macOS and Windows platforms                            
+    ///
+    /// The default implementations of these functions do nothing other than return `true`.
+    ///
+    /// \sa \ref on_mouseover()
+    /// \sa \ref on_mouseout()
+    /// \sa \ref display::Window
     ///
     virtual bool on_mouseover(const display::TimedWindowEvent&);
-
-    /// \brief Mouse leaves window.
-    ///
-    /// This function is called when a "mouse out" event is generated for one of the windows
-    /// that are associated with the event handler. A "mouse out" event is generated for a
-    /// particular window when the mouse leaves the area of that window.
-    ///
-    /// The default implementation of this function does nothing other than return `true`.
-    ///
     virtual bool on_mouseout(const display::TimedWindowEvent&);
+    /// \}
 
-    /// \brief A window gained focus.
+    /// \{
     ///
-    /// This function is called when a "focus" event is generated for one of the windows
-    /// that are associated with the event handler. A "focus" event is generated for a
-    /// particular window when that window becomes the active window (when it gains keyboard
-    /// focus).
+    /// \brief A window gained or lost input focus.
     ///
-    /// The default implementation of this function does nothing other than return `true`.
+    /// These functions are called when the "focus" or "blur" events are generated. The
+    /// targeted event handler object is the window's associated window handler (see \ref
+    /// display::Connection::new_window()).
+    ///
+    /// A "focus" event is generated for a particular window when that window gains input
+    /// focus. Likewise, a "blur" event is generated for a particular window when that
+    /// window loses input focus.
+    ///
+    /// Only one window at a time can have the input focus. When a window gains input focus,
+    /// another window looses it. Key and mouse button events are sent to the window that
+    /// has input focus.
+    ///
+    /// FIXME: What about "mouse move" and "scroll" events? It looks like scroll events are generated even when window does not have input focus (SDL). Is that good, or should it be suppressed?                            
+    ///
+    /// The default implementations of these functions do nothing other than return `true`.
+    ///
+    /// \sa \ref on_focus()
+    /// \sa \ref on_blur()
+    /// \sa \ref on_keydown()
+    /// \sa \ref on_mousedown()
     ///
     virtual bool on_focus(const display::TimedWindowEvent&);
-
-    /// \brief A window lost focus.
-    ///
-    /// This function is called when a "blur" event is generated for one of the windows that
-    /// are associated with the event handler. A "blur" event is generated for a particular
-    /// window when that window ceases to be the active window (when it looses keyboard
-    /// focus).
-    ///
-    /// The default implementation of this function does nothing other than return `true`.
-    ///
     virtual bool on_blur(const display::TimedWindowEvent&);
+    /// \}
 
     /// \brief A window was exposed and needs to be redrawn.
     ///
-    /// This function is called when an "expose" event is generated for one of the windows
-    /// that are associated with the event handler. An "expose" event is generated for a
-    /// particular window when that window is exposed in such a way that its contents need
-    /// to be redrawn.
+    /// This function is called when the "expose" event is generated. The targeted event
+    /// handler object is the window's associated window handler (see \ref
+    /// display::Connection::new_window()).
+    ///
+    /// An "expose" event is generated for a particular window when that window is exposed
+    /// in such a way that its contents need to be redrawn.
     ///
     /// The default implementation of this function does nothing other than return `true`.
     ///
@@ -181,11 +236,14 @@ public:
 
     /// \brief The size of a window changed.
     ///
-    /// This function is called when a "resize" event is generated for one of the windows
-    /// that are associated with the event handler. A "resize" event is generated for a
-    /// particular window when that window is resized either interactively by a user of a
-    /// graphical user interface or programmatically through use of \ref
-    /// display::Window::set_size() or \ref display::Window::set_fullscreen_mode().
+    /// This function is called when the "resize" event is generated. The targeted event
+    /// handler object is the window's associated window handler (see \ref
+    /// display::Connection::new_window()).
+    ///
+    /// A "resize" event is generated for a particular window when that window is resized
+    /// either interactively by a user of a graphical user interface or programmatically
+    /// through use of \ref display::Window::set_size() or \ref
+    /// display::Window::set_fullscreen_mode().
     ///
     /// The default implementation of this function does nothing other than return `true`.
     ///
@@ -193,9 +251,11 @@ public:
 
     /// \brief The position of a window changed.
     ///
-    /// This function is called when a "reposition" event is generated for one of the
-    /// windows that are associated with the event handler. A "reposition" event is
-    /// generated for a particular window when that window is moved.
+    /// This function is called when the "reposition" event is generated. The targeted event
+    /// handler object is the window's associated window handler (see \ref
+    /// display::Connection::new_window()).
+    ///
+    /// A "reposition" event is generated for a particular window when that window is moved.
     ///
     /// The default implementation of this function does nothing other than return `true`.
     ///
@@ -203,11 +263,13 @@ public:
 
     /// \brief Request to close a window.
     ///
-    /// This function is called when the "close" event is generated for one of the windows
-    /// that are associated with the event handler. The "close" event is generated for a
-    /// particular window when a user of a graphical user interface requests the closure of
-    /// the window. Usually, this means that the user has clicked on the 'close' symbol of
-    /// the window.
+    /// This function is called when the "close" event is generated. The targeted event
+    /// handler object is the window's associated window handler (see \ref
+    /// display::Connection::new_window()).
+    ///
+    /// The "close" event is generated for a particular window when a user of a graphical
+    /// user interface requests the closure of the window. Usually, this means that the user
+    /// has clicked on the 'close' symbol of the window.
     ///
     /// The default implementation of this function does nothing other than return
     /// `false`. This will cause event processing to be interrupted. This default
@@ -245,7 +307,7 @@ class ConnectionEventHandler {
 public:
     /// \brief A display configuration changed.
     ///
-    /// This function is called when a "display change" event is generated provided that the
+    /// This function is called when the "display change" event is generated provided that the
     /// display implementation exposes information about display configurations. For more on
     /// this, see \ref display::Connection::try_get_display_conf(). The \p display argument
     /// specifies the index of the display whose configuration changed.

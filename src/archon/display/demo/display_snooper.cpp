@@ -67,12 +67,66 @@ public:
 
     bool on_keydown(const display::KeyEvent& ev) override final
     {
-        m_logger.info("KEY: %s", display::as_key_name (ev.key_code, m_conn)); // Throws
+        m_logger.info("KEY DOWN: %s", display::as_key_name (ev.key_code, m_conn)); // Throws
         display::Key key = {};
         if (ARCHON_LIKELY(m_conn.try_map_key_code_to_key(ev.key_code, key))) { // Throws
             if (ARCHON_UNLIKELY(key == display::Key::escape))
                 return false;
         }
+        return true;
+    }
+
+    bool on_keyup(const display::KeyEvent& ev) override final
+    {
+        m_logger.info("KEY UP: %s", display::as_key_name (ev.key_code, m_conn)); // Throws
+        return true;
+    }
+
+    bool on_mousedown(const display::MouseButtonEvent& ev) override final
+    {
+        m_logger.info("MOUSE DOWN: %s", ev.button); // Throws
+        return true;
+    }
+
+    bool on_mouseup(const display::MouseButtonEvent& ev) override final
+    {
+        m_logger.info("MOUSE UP: %s", ev.button); // Throws
+        return true;
+    }
+
+    bool on_mousemove(const display::MouseEvent& ev) override final
+    {
+        m_logger.info("MOUSE MOVE: %s", ev.pos); // Throws
+        return true;
+    }
+
+    bool on_scroll(const display::ScrollEvent& ev) override final
+    {
+        m_logger.info("SCROLL: %s", ev.amount); // Throws
+        return true;
+    }
+
+    bool on_mouseover(const display::TimedWindowEvent&) override final
+    {
+        m_logger.info("MOUSE OVER"); // Throws
+        return true;
+    }
+
+    bool on_mouseout(const display::TimedWindowEvent&) override final
+    {
+        m_logger.info("MOUSE OUT"); // Throws
+        return true;
+    }
+
+    bool on_focus(const display::TimedWindowEvent&) override final
+    {
+        m_logger.info("FOCUS"); // Throws
+        return true;
+    }
+
+    bool on_blur(const display::TimedWindowEvent&) override final
+    {
+        m_logger.info("BLUR"); // Throws
         return true;
     }
 

@@ -40,10 +40,14 @@ namespace archon::display {
 /// New windows can be created by calling \ref display::Connection::new_window().
 ///
 /// Visually, a window consists of a rectangular area of contents optionally surrounded by
-/// decorations (frame and title bar). The size of a window (\ref set_size(), \ref
-/// display::WindowSizeEvent::size) generally refers to the size of the contents area, and
-/// the position of a window (\ref display::WindowPosEvent::pos) generally refers to the
-/// position of the upper-left corner of the contents area.
+/// decorations (frame and title bar). The rectangular area of contents inside the
+/// decorations is referred to as the window's *contents area* in the rest of the
+/// documentation of the Archon Display Library.
+///
+/// The size of a window (\ref set_size(), \ref display::WindowSizeEvent::size) generally
+/// refers to the size of the contents area, and the position of a window (\ref
+/// display::WindowPosEvent::pos) generally refers to the position of the upper-left corner
+/// of the contents area.
 ///
 class Window {
 public:

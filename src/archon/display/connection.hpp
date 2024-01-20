@@ -122,6 +122,10 @@ public:
     /// These functions create a new window with the specified title (\p title) and of the
     /// specified size (\p size).
     ///
+    /// Events generated on behalf of the created window will be reported through the
+    /// specified event handler (\p event_handler). Elsewhere in the documentation, this is
+    /// referred to as the window's *associated event handler*.
+    ///
     /// The overload that takes a display index argument (\p display) creates the window on
     /// that display. The overload that does not take a display index argument creates the
     /// window on the default display (\ref get_default_display()).
@@ -146,11 +150,13 @@ public:
     /// by the main thread. Further more, the returned window must be used only by the main
     /// thread. This includes the destruction of the window object.
     ///
-    /// FIXME: When an X11-based implementation is added, state this: When using the X11-based implementation (\ref display::get_x11_implementation()), the initial position is generally determined by a window manager.                   
+    /// When using the X11-based implementation (\ref display::get_x11_implementation()),
+    /// the initial position is generally determined by a window manager.
     ///
-    virtual auto new_window(std::string_view title, display::Size size, display::WindowEventHandler&,
+    virtual auto new_window(std::string_view title, display::Size size, display::WindowEventHandler& event_handler,
                             const display::Window::Config& = {}) -> std::unique_ptr<display::Window> = 0;
-    virtual auto new_window(int display, std::string_view title, display::Size size, display::WindowEventHandler&,
+    virtual auto new_window(int display, std::string_view title, display::Size size,
+                            display::WindowEventHandler& event_handler,
                             const display::Window::Config& = {}) -> std::unique_ptr<display::Window> = 0;
     /// \}
 
@@ -191,7 +197,8 @@ public:
     /// this connection. See \ref display::Connection for general information about
     /// displays.
     ///
-    /// FIXME: When an X11-based implementation is added, state this: When using the X11-based implementation (\ref display::get_x11_implementation()), each X screen counts as a display.                            
+    /// When using the X11-based implementation (\ref display::get_x11_implementation()),
+    /// each X screen counts as a display.
     ///
     /// When using the SDL-based implementation (\ref
     /// display::get_sdl_implementation_slot()), only one display will be exposed. When SDL
@@ -208,7 +215,9 @@ public:
     /// refers to an order of the accessible displays determined by the platform and
     /// implementation. See \ref display::Connection for general information about displays.
     ///
-    /// FIXME: When an X11-based implementation is added, state this: When using the X11-based implementation (\ref display::get_x11_implementation()), the default display is determined by the screen number specified in the value of the `DISPLAY` environment variable.                            
+    /// When using the X11-based implementation (\ref display::get_x11_implementation()),
+    /// the default display is determined by the screen number specified in the value of the
+    /// `DISPLAY` environment variable.
     ///
     /// \sa \ref get_num_displays()
     ///
