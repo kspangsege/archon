@@ -153,7 +153,8 @@ public:
                     add_window(); // Throws
                     break;
                 }
-                case display::Key::escape: {
+                case display::Key::escape:
+                case display::Key::lower_case_q: {
                     if (m_windows.size() > 1) {
                         m_windows.erase(ev.cookie);
                         break;

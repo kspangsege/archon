@@ -23,6 +23,7 @@
 #include <cerrno>
 #include <cstdlib>
 #include <memory>
+#include <utility>
 #include <string_view>
 #include <locale>
 
@@ -30,6 +31,7 @@
 #include <archon/core/assert.hpp>
 #include <archon/core/deque.hpp>
 #include <archon/core/flat_map.hpp>
+#include <archon/core/literal_hash_map.hpp>
 #include <archon/core/format.hpp>
 #include <archon/core/quote.hpp>
 #include <archon/core/platform_support.hpp>
@@ -108,6 +110,10 @@ constexpr std::string_view g_implementation_ident = "x11";
 
 
 class WindowImpl;
+
+
+bool map_key(display::KeyCode, display::Key&) noexcept;
+bool rev_map_key(display::Key, display::KeyCode&) noexcept;
 
 
 struct X11Screen {
@@ -480,9 +486,7 @@ bool ConnectionImpl::try_map_key_to_key_code(display::Key key, display::KeyCode&
 
 bool ConnectionImpl::try_map_key_code_to_key(display::KeyCode key_code, display::Key& key) const
 {
-    static_cast<void>(key_code);    
-    static_cast<void>(key);    
-    return false;                      
+    return ::map_key(key_code, key);
 }
 
 
@@ -855,8 +859,8 @@ void WindowImpl::create(display::Size size, const Config& config)
     Visual* visual = screen.visual_info.visual;
     unsigned long valuemask = CWEventMask | CWColormap;
     XSetWindowAttributes attributes = {};
-    attributes.event_mask = (KeyPressMask | ExposureMask | StructureNotifyMask |
-                             ButtonMotionMask | ButtonPressMask | ButtonReleaseMask);                            
+    attributes.event_mask = (KeyPressMask | KeyReleaseMask | ExposureMask | StructureNotifyMask | ButtonMotionMask |
+                             ButtonPressMask | ButtonReleaseMask);
     attributes.colormap = screen.colormap;
     win = XCreateWindow(conn.dpy, parent, x, y, width, height, border_width, depth, class_, visual,
                         valuemask, &attributes);
@@ -1067,6 +1071,164 @@ auto WindowImpl::intern_color(util::Color) -> unsigned long
     
 
     return WhitePixel(conn.dpy, screen.visual_info.screen);                                                                                                                                                                        
+}
+
+
+// FIXME: Add more keys                                                                                                                                                 
+constexpr std::pair<KeySym, display::Key> key_assocs[] {
+    // TTY functions
+    { XK_BackSpace,    display::Key::backspace            },
+    { XK_Tab,          display::Key::tab                  },
+    { XK_Linefeed,     display::Key::line_feed            },
+    { XK_Clear,        display::Key::clear                },
+    { XK_Return,       display::Key::return_              },
+    { XK_Pause,        display::Key::pause                },
+    { XK_Scroll_Lock,  display::Key::scroll_lock          },
+    { XK_Sys_Req,      display::Key::sys_req              },
+    { XK_Escape,       display::Key::escape               },
+    { XK_Delete,       display::Key::delete_              },
+
+    // Cursor control & motion
+
+    // Misc functions
+    { XK_Menu,         display::Key::menu                 },
+
+    // Keypad
+    { XK_KP_Add,       display::Key::keypad_plus_sign     },
+    { XK_KP_Subtract,  display::Key::keypad_minus_sign    },
+
+    // Function keys
+
+    // Modifier keys
+    { XK_Shift_L,      display::Key::shift_left           },
+    { XK_Shift_R,      display::Key::shift_right          },
+    { XK_Control_L,    display::Key::ctrl_left            },
+    { XK_Control_R,    display::Key::ctrl_right           },
+    { XK_Alt_L,        display::Key::alt_left             },
+    { XK_Alt_R,        display::Key::alt_right            },
+    { XK_Meta_L,       display::Key::meta_left            },
+    { XK_Meta_R,       display::Key::meta_right           },
+
+    // Basic Latin
+    { XK_space,        display::Key::space                },
+    { XK_exclam,       display::Key::exclamation_mark     },
+    { XK_quotedbl,     display::Key::quotation_mark       },
+    { XK_numbersign,   display::Key::hash_mark            },
+    { XK_dollar,       display::Key::dollar_sign          },
+    { XK_percent,      display::Key::percent_sign         },
+    { XK_ampersand,    display::Key::ampersand            },
+    { XK_apostrophe,   display::Key::apostrophe           },
+    { XK_parenleft,    display::Key::left_parenthesis     },
+    { XK_parenright,   display::Key::right_parenthesis    },
+    { XK_asterisk,     display::Key::asterisk             },
+    { XK_plus,         display::Key::plus_sign            },
+    { XK_comma,        display::Key::comma                },
+    { XK_minus,        display::Key::minus_sign           },
+    { XK_period,       display::Key::period               },
+    { XK_slash,        display::Key::slash                },
+    { XK_0,            display::Key::digit_0              },
+    { XK_1,            display::Key::digit_1              },
+    { XK_2,            display::Key::digit_2              },
+    { XK_3,            display::Key::digit_3              },
+    { XK_4,            display::Key::digit_4              },
+    { XK_5,            display::Key::digit_5              },
+    { XK_6,            display::Key::digit_6              },
+    { XK_7,            display::Key::digit_7              },
+    { XK_8,            display::Key::digit_8              },
+    { XK_9,            display::Key::digit_9              },
+    { XK_colon,        display::Key::colon                },
+    { XK_semicolon,    display::Key::semicolon            },
+    { XK_less,         display::Key::less_than_sign       },
+    { XK_equal,        display::Key::equal_sign           },
+    { XK_greater,      display::Key::greater_than_sign    },
+    { XK_question,     display::Key::question_mark        },
+    { XK_at,           display::Key::at_sign              },
+    { XK_A,            display::Key::upper_case_a         },
+    { XK_B,            display::Key::upper_case_b         },
+    { XK_C,            display::Key::upper_case_c         },
+    { XK_D,            display::Key::upper_case_d         },
+    { XK_E,            display::Key::upper_case_e         },
+    { XK_F,            display::Key::upper_case_f         },
+    { XK_G,            display::Key::upper_case_g         },
+    { XK_H,            display::Key::upper_case_h         },
+    { XK_I,            display::Key::upper_case_i         },
+    { XK_J,            display::Key::upper_case_j         },
+    { XK_K,            display::Key::upper_case_k         },
+    { XK_L,            display::Key::upper_case_l         },
+    { XK_M,            display::Key::upper_case_m         },
+    { XK_N,            display::Key::upper_case_n         },
+    { XK_O,            display::Key::upper_case_o         },
+    { XK_P,            display::Key::upper_case_p         },
+    { XK_Q,            display::Key::upper_case_q         },
+    { XK_R,            display::Key::upper_case_r         },
+    { XK_S,            display::Key::upper_case_s         },
+    { XK_T,            display::Key::upper_case_t         },
+    { XK_U,            display::Key::upper_case_u         },
+    { XK_V,            display::Key::upper_case_v         },
+    { XK_W,            display::Key::upper_case_w         },
+    { XK_X,            display::Key::upper_case_x         },
+    { XK_Y,            display::Key::upper_case_y         },
+    { XK_Z,            display::Key::upper_case_z         },
+    { XK_bracketleft,  display::Key::left_square_bracket  },
+    { XK_backslash,    display::Key::backslash            },
+    { XK_bracketright, display::Key::right_square_bracket },
+    { XK_asciicircum,  display::Key::circumflex_accent    },
+    { XK_underscore,   display::Key::underscore           },
+    { XK_grave,        display::Key::grave_accent         },
+    { XK_a,            display::Key::lower_case_a         },
+    { XK_b,            display::Key::lower_case_b         },
+    { XK_c,            display::Key::lower_case_c         },
+    { XK_d,            display::Key::lower_case_d         },
+    { XK_e,            display::Key::lower_case_e         },
+    { XK_f,            display::Key::lower_case_f         },
+    { XK_g,            display::Key::lower_case_g         },
+    { XK_h,            display::Key::lower_case_h         },
+    { XK_i,            display::Key::lower_case_i         },
+    { XK_j,            display::Key::lower_case_j         },
+    { XK_k,            display::Key::lower_case_k         },
+    { XK_l,            display::Key::lower_case_l         },
+    { XK_m,            display::Key::lower_case_m         },
+    { XK_n,            display::Key::lower_case_n         },
+    { XK_o,            display::Key::lower_case_o         },
+    { XK_p,            display::Key::lower_case_p         },
+    { XK_q,            display::Key::lower_case_q         },
+    { XK_r,            display::Key::lower_case_r         },
+    { XK_s,            display::Key::lower_case_s         },
+    { XK_t,            display::Key::lower_case_t         },
+    { XK_u,            display::Key::lower_case_u         },
+    { XK_v,            display::Key::lower_case_v         },
+    { XK_w,            display::Key::lower_case_w         },
+    { XK_x,            display::Key::lower_case_x         },
+    { XK_y,            display::Key::lower_case_y         },
+    { XK_z,            display::Key::lower_case_z         },
+    { XK_braceleft,    display::Key::left_curly_bracket   },
+    { XK_bar,          display::Key::vertical_bar         },
+    { XK_braceright,   display::Key::right_curly_bracket  },
+    { XK_asciitilde,   display::Key::tilde                },
+
+    // Latin-1 Supplement
+};
+
+
+constexpr core::LiteralHashMap g_key_map     = core::make_literal_hash_map(key_assocs);
+constexpr core::LiteralHashMap g_rev_key_map = core::make_rev_literal_hash_map(key_assocs);
+
+
+inline bool map_key(display::KeyCode key_code, display::Key& key) noexcept
+{
+    auto keysym = KeySym(key_code.code);
+    return g_key_map.find(keysym, key);
+}
+
+
+inline bool rev_map_key(display::Key key, display::KeyCode& key_code) noexcept
+{
+    KeySym keysym = {};
+    if (ARCHON_LIKELY(g_rev_key_map.find(key, keysym))) {
+        key_code = { display::KeyCode::code_type(keysym) };
+        return true;
+    }
+    return false;
 }
 
 

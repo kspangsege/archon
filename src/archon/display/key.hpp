@@ -32,15 +32,18 @@ namespace archon::display {
 /// This is a set of "well-known" keys. These enumerants can be used to refer to keys in a
 /// manner that is independent of the underlying display implementation.
 ///
-/// A well-known key can be mapped to the corresponding key code (\ref display::KeyCode), if
+/// A well-known key can be mapped to its corresponding key code (\ref display::KeyCode), if
 /// one exists, using \ref display::Connection::try_map_key_to_key_code().
 ///
-/// A key code (\ref display::KeyCode) can be mapped to the corresponding well-known key, if
-/// one exists, using display::Connection::try_map_key_code_to_key().
+/// Likewise, a key code (\ref display::KeyCode) can be mapped to the corresponding
+/// well-known key, if one exists, using display::Connection::try_map_key_code_to_key().
 ///
 /// \sa \ref display::KeyCode
 ///
+/// FIXME: Add more keys                                                                                                                                                 
+///
 enum class Key {
+    // TTY functions
     backspace,            ///< Backspace
     tab,                  ///< Tab
     line_feed,            ///< Line feed
@@ -50,6 +53,34 @@ enum class Key {
     scroll_lock,          ///< Scroll lock
     sys_req,              ///< System request
     escape,               ///< Escape
+    delete_,              ///< Delete
+
+    // Cursor control & motion
+    
+
+    // Misc functions
+    menu,                 ///< Menu
+    
+
+    // Keypad
+    keypad_plus_sign,     ///< Plus sign on keypad
+    keypad_minus_sign,    ///< Minus sign on keypad
+    
+
+    // Function keys
+    
+
+    // Modifier keys
+    shift_left,           ///< Left side shift
+    shift_right,          ///< Right side shift
+    ctrl_left,            ///< Left side control
+    ctrl_right,           ///< Right side control
+    alt_left,             ///< Left side alt
+    alt_right,            ///< Right side alt (or "Alt Gr")
+    meta_left,            ///< Left side meta (Windows / Apple / command)
+    meta_right,           ///< Right side meta (Windows / Apple / command)
+
+    // Basic Latin
     space,                ///< Space
     exclamation_mark,     ///< Exclamation mark
     quotation_mark,       ///< Quotation mark / double quote
@@ -145,20 +176,9 @@ enum class Key {
     vertical_bar,         ///< Vertical bar
     right_curly_bracket,  ///< Right curly bracket
     tilde,                ///< Tilde
-    delete_,              ///< Delete
 
-    shift_left,           ///< Left side shift
-    shift_right,          ///< Right side shift
-    ctrl_left,            ///< Left side control
-    ctrl_right,           ///< Right side control
-    alt_left,             ///< Left side alt
-    alt_right,            ///< Right side alt (or "Alt Gr")
-    meta_left,            ///< Left side meta (Windows / Apple / command)
-    meta_right,           ///< Right side meta (Windows / Apple / command)
-    menu,                 ///< Menu
-
-    keypad_plus_sign,     ///< Plus sign on keypad
-    keypad_minus_sign,    ///< Minus sign on keypad
+    // Latin-1 Supplement
+    
 };
 
 

@@ -111,9 +111,9 @@ void init_rect(SDL_Rect* rect, const display::Box& area) noexcept
 }
 
 
-auto map_mouse_button(Uint8 button) noexcept -> display::MouseButton;
 bool map_key(display::KeyCode, display::Key&) noexcept;
 bool rev_map_key(display::Key, display::KeyCode&) noexcept;
+auto map_mouse_button(Uint8 button) noexcept -> display::MouseButton;
 
 
 class ImplementationImpl
@@ -1154,7 +1154,9 @@ If list contains RGB888, use that
 
 
 
+// FIXME: Add more keys                                                                                                                                                 
 constexpr std::pair<SDL_Keycode, display::Key> key_assocs[] {
+    // TTY functions
     { SDLK_BACKSPACE,    display::Key::backspace            },
     { SDLK_TAB,          display::Key::tab                  },
     { SDLK_CLEAR,        display::Key::clear                },
@@ -1163,6 +1165,30 @@ constexpr std::pair<SDL_Keycode, display::Key> key_assocs[] {
     { SDLK_SCROLLLOCK,   display::Key::scroll_lock          },
     { SDLK_SYSREQ,       display::Key::sys_req              },
     { SDLK_ESCAPE,       display::Key::escape               },
+    { SDLK_DELETE,       display::Key::delete_              },
+
+    // Cursor control & motion
+
+    // Misc functions
+    { SDLK_MENU,         display::Key::menu                 },
+
+    // Keypad
+    { SDLK_KP_PLUS,      display::Key::keypad_plus_sign     },
+    { SDLK_KP_MINUS,     display::Key::keypad_minus_sign    },
+
+    // Function keys
+
+    // Modifier keys
+    { SDLK_LSHIFT,       display::Key::shift_left           },
+    { SDLK_RSHIFT,       display::Key::shift_right          },
+    { SDLK_LCTRL,        display::Key::ctrl_left            },
+    { SDLK_RCTRL,        display::Key::ctrl_right           },
+    { SDLK_LALT,         display::Key::alt_left             },
+    { SDLK_RALT,         display::Key::alt_right            },
+    { SDLK_LGUI,         display::Key::meta_left            },
+    { SDLK_RGUI,         display::Key::meta_right           },
+
+    // Basic Latin
     { SDLK_SPACE,        display::Key::space                },
     { SDLK_EXCLAIM,      display::Key::exclamation_mark     },
     { SDLK_QUOTEDBL,     display::Key::quotation_mark       },
@@ -1228,20 +1254,8 @@ constexpr std::pair<SDL_Keycode, display::Key> key_assocs[] {
     { SDLK_x,            display::Key::lower_case_x         },
     { SDLK_y,            display::Key::lower_case_y         },
     { SDLK_z,            display::Key::lower_case_z         },
-    { SDLK_DELETE,       display::Key::delete_              },
 
-    { SDLK_LSHIFT,       display::Key::shift_left           },
-    { SDLK_RSHIFT,       display::Key::shift_right          },
-    { SDLK_LCTRL,        display::Key::ctrl_left            },
-    { SDLK_RCTRL,        display::Key::ctrl_right           },
-    { SDLK_LALT,         display::Key::alt_left             },
-    { SDLK_RALT,         display::Key::alt_right            },
-    { SDLK_LGUI,         display::Key::meta_left            },
-    { SDLK_RGUI,         display::Key::meta_right           },
-    { SDLK_MENU,         display::Key::menu                 },
-
-    { SDLK_KP_PLUS,      display::Key::keypad_plus_sign     },
-    { SDLK_KP_MINUS,     display::Key::keypad_minus_sign    },
+    // Latin-1 Supplement
 };
 
 
