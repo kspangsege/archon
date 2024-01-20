@@ -74,6 +74,8 @@
 //
 // Relevant links:
 //
+// * X11 documentation overview: https://www.x.org/releases/X11R7.7/doc/
+//
 // * X11 protocol specification: https://www.x.org/releases/X11R7.7/doc/xproto/x11protocol.html
 //
 // * X11 API documentation: https://www.x.org/releases/X11R7.7/doc/libX11/libX11/libX11.html
@@ -81,6 +83,10 @@
 // * Inter-Client Communication Conventions Manual: https://x.org/releases/X11R7.7/doc/xorg-docs/icccm/icccm.html
 //
 // * Extended Window Manager Hints: https://specifications.freedesktop.org/wm-spec/latest/
+//
+// * Xkb protocol specification: https://www.x.org/releases/X11R7.7/doc/kbproto/xkbproto.html
+//
+// * Xkb API documentation: https://www.x.org/releases/X11R7.7/doc/libX11/XKB/xkblib.html
 //
 // * Xdbe protocol specification: https://www.x.org/releases/X11R7.7/doc/xextproto/dbe.html
 //

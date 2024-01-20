@@ -366,6 +366,7 @@ int main(int argc, char* argv[])
     bool disable_color_preallocation = false;
     bool use_weird_palette = false;
     bool install_colormap = false;
+    bool disable_detectable_autorepeat = false;
     std::optional<display::Pos> optional_pos;
     log::LogLevel log_level_limit = log::LogLevel::warn;
 
@@ -412,6 +413,10 @@ int main(int argc, char* argv[])
     opt("-i, --install-colormap", "", cli::no_attributes, spec,
         "Install the colormap, i.e., make it current. This should only be done when there is no window manager.",
         cli::raise_flag(install_colormap)); // Throws
+
+    opt("-A, --disable-detectable-autorepeat", "", cli::no_attributes, spec,
+        "Do not enable detectable key auto-repeat mode even when it is supported.",
+        cli::raise_flag(disable_detectable_autorepeat)); // Throws
 
     opt("-p, --pos", "<position>", cli::no_attributes, spec,
         "Specify the desired position of the window. This may or may not be honored by the window manager. If no "
@@ -489,7 +494,6 @@ int main(int argc, char* argv[])
     }
 #endif // ARCHON_DISPLAY_HAVE_X11_XDBE
 
-#if ARCHON_DISPLAY_HAVE_X11_XKB
     int have_xkb = false;
     int xkb_major = 0;
     int xkb_minor = 0;
@@ -502,7 +506,14 @@ int main(int argc, char* argv[])
                 have_xkb = true;
         }
     }
-#endif // ARCHON_DISPLAY_HAVE_X11_XKB
+    bool detectable_autorepeat_enabled = false;
+    if (have_xkb && !disable_detectable_autorepeat) {
+        Bool detectable = True;
+        Bool supported = {};
+        XkbSetDetectableAutoRepeat(display, detectable, &supported);
+        if (ARCHON_LIKELY(supported))
+            detectable_autorepeat_enabled = true;
+    }
 
 #if ARCHON_DISPLAY_HAVE_X11_XRANDR
     int have_xrandr = false;
@@ -677,12 +688,10 @@ int main(int argc, char* argv[])
     };
 
     auto format_have_xkb = [&](std::ostream& out) {
-#if ARCHON_DISPLAY_HAVE_X11_XKB
         if (have_xkb) {
             out << core::formatted("yes (%s.%s)", xkb_major, xkb_minor); // Throws
             return;
         }
-#endif // ARCHON_DISPLAY_HAVE_X11_XKB
         out << "no"; // Throws
     };
 
@@ -743,12 +752,11 @@ int main(int argc, char* argv[])
                 core::as_hex_int(XVisualIDFromVisual(DefaultVisual(display, screen)))); // Throws
     logger.info("Selected visual:                    0x%s", core::as_hex_int(visual_id)); // Throws
     logger.info("Class of selected visual:           %s", get_visual_class_name(visual_info.c_class)); // Throws
+    logger.info("Detectable auto-repeat enabled:     %s", (detectable_autorepeat_enabled ? "yes" : "no")); // Throws
     logger.info("Use double buffering:               %s", (use_double_buffering ? "yes" : "no")); // Throws
 
-#if ARCHON_DISPLAY_HAVE_X11_XKB
     if (ARCHON_UNLIKELY(!have_xkb))
         throw std::runtime_error("Required X Keyboard Extension is not available");
-#endif // ARCHON_DISPLAY_HAVE_X11_XKB
 
     // Create graphics context
     XGCValues gc_values = {};
