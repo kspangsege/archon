@@ -1,12 +1,15 @@
 add_executable(RenderText
-  render_text.cpp)
+  render_text.cpp
+)
 
 set_target_properties(RenderText PROPERTIES
-  OUTPUT_NAME "archon-render-text")
+  OUTPUT_NAME "archon-render-text"
+)
 
 target_link_libraries(RenderText PUBLIC
   Core
   Cli
   Util
   Math
-  Font)
+  Font
+)

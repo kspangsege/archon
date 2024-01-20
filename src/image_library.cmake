@@ -21,7 +21,7 @@ target_link_libraries(Image PUBLIC
 find_package(PNG 1.5.4)
 
 set(ARCHON_IMAGE_HAVE_PNG 0)
-if (PNG_FOUND)
+if(PNG_FOUND)
   set(ARCHON_IMAGE_HAVE_PNG 1)
   target_link_libraries(Image PRIVATE PNG::PNG)
 endif()
