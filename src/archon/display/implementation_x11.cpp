@@ -27,6 +27,7 @@
 #include <locale>
 
 #include <archon/core/features.h>
+#include <archon/core/assert.hpp>
 #include <archon/core/deque.hpp>
 #include <archon/core/flat_map.hpp>
 #include <archon/core/format.hpp>
@@ -487,9 +488,19 @@ bool ConnectionImpl::try_map_key_code_to_key(display::KeyCode key_code, display:
 
 bool ConnectionImpl::try_get_key_name(display::KeyCode key_code, std::string_view& name) const
 {
-    static_cast<void>(key_code);    
-    static_cast<void>(name);    
-    return false;                      
+    // XKeysymToString() returns a string consisting entirely of characters from the X
+    // Portable Character Set. Since all locales, that are compatible with Xlib, agree on
+    // the encoding of characters in this character set, and since we assume that the
+    // selected locale is compatible with Xlib, we can assume that the returned string is
+    // valid in the selected locale.
+
+    auto keysym = KeySym(key_code.code);
+    const char* c_str = XKeysymToString(keysym);
+    if (ARCHON_LIKELY(c_str)) {
+        name = std::string_view(c_str);
+        return true;
+    }
+    return false;
 }
 
 
@@ -631,6 +642,14 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
     XNextEvent(dpy, &ev);
     --m_num_events;
     switch (ev.type) {
+        case Expose: {
+            WindowImpl* window = lookup_window(ev.xexpose.window);
+            if (ARCHON_LIKELY(!window || window->has_pending_expose_event))
+                break;
+            m_exposed_windows.push_back(ev.xexpose.window); // Throws
+            window->has_pending_expose_event = true;
+            break;
+        }
         case ConfigureNotify: {
             WindowImpl* window = lookup_window(ev.xconfigure.window);
             if (ARCHON_LIKELY(window)) {
@@ -644,31 +663,50 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
                 // those cases, the window manager is obligated to generate synthetic
                 // configure notifications in which the positions are absolute (relative to
                 // the root window of the screen).
+                bool proceed;
                 if (ev.xconfigure.send_event) {
                     display::WindowPosEvent event;
                     event.cookie = window->cookie;
                     event.pos = { ev.xconfigure.x, ev.xconfigure.y };
-                    bool proceed = window->event_handler.on_reposition(event); // Throws
-                    if (ARCHON_LIKELY(!proceed))
-                        return false; // Interrupt
+                    proceed = window->event_handler.on_reposition(event); // Throws
                 }
                 else {
                     display::WindowSizeEvent event;
                     event.cookie = window->cookie;
                     event.size = { ev.xconfigure.width, ev.xconfigure.height };
-                    bool proceed = window->event_handler.on_resize(event); // Throws
-                    if (ARCHON_LIKELY(!proceed))
-                        return false; // Interrupt
+                    proceed = window->event_handler.on_resize(event); // Throws
                 }
+                if (ARCHON_LIKELY(proceed))
+                    break;
+                return false; // Interrupt
             }
             break;
         }
-        case Expose: {
-            WindowImpl* window = lookup_window(ev.xexpose.window);
-            if (ARCHON_LIKELY(!window || window->has_pending_expose_event))
-                break;
-            m_exposed_windows.push_back(ev.xexpose.window); // Throws
-            window->has_pending_expose_event = true;
+        case KeyPress:
+        case KeyRelease: {
+            WindowImpl* window = lookup_window(ev.xkey.window);
+            if (ARCHON_LIKELY(window)) {
+                // Map key code to a keyboard independent symbol identifier (in general the
+                // symbol in the upper left corner on the corresponding key)
+                unsigned group = XkbGroup1Index;
+                unsigned level = 0;
+                KeySym keysym = XkbKeycodeToKeysym(dpy, ev.xkey.keycode, group, level);
+                if (keysym == NoSymbol)
+                    break; // No keysym defined for this key, ignore
+                display::KeyEvent event;
+                event.cookie = window->cookie;
+                event.key_code = { display::KeyCode::code_type(keysym) };
+                bool proceed;
+                if (ev.type == KeyPress) {
+                    proceed = window->event_handler.on_keydown(event); // Throws
+                }
+                else {
+                    proceed = window->event_handler.on_keyup(event); // Throws
+                }
+                if (ARCHON_LIKELY(proceed))
+                    break;
+                return false; // Interrupt
+            }
             break;
         }
         case ClientMessage: {

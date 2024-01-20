@@ -1305,21 +1305,9 @@ int main(int argc, char* argv[])
                             }
                         }
                         break;
-                    case ClientMessage: {
-                        bool is_close = (ev.xclient.window == window && ev.xclient.format == 32 &&
-                                         Atom(ev.xclient.data.l[0]) == delete_window);
-                        if (is_close)
-                            goto quit;
-                        break;
-                    }
                     case Expose:
                         if (ev.xexpose.window == window)
                             redraw = true;
-                        break;
-                    case FocusIn:
-                    case FocusOut:
-                        if (ev.xfocus.window == window)
-                            logger.info(ev.type == FocusIn ? "FOCUS" : "BLUR");
                         break;
                     case ConfigureNotify:
                         if (ev.xconfigure.window == window) {
@@ -1350,6 +1338,18 @@ int main(int argc, char* argv[])
                             }
                         }
                         break;
+                    case FocusIn:
+                    case FocusOut:
+                        if (ev.xfocus.window == window)
+                            logger.info(ev.type == FocusIn ? "FOCUS" : "BLUR");
+                        break;
+                    case ClientMessage: {
+                        bool is_close = (ev.xclient.window == window && ev.xclient.format == 32 &&
+                                         Atom(ev.xclient.data.l[0]) == delete_window);
+                        if (is_close)
+                            goto quit;
+                        break;
+                    }
                 }
 #if ARCHON_DISPLAY_HAVE_X11_XRANDR
                 if (have_xrandr && ev.type == xrandr_event_base + RRNotify) {
