@@ -484,9 +484,7 @@ inline void ConnectionImpl::unregister_window(::Window id) noexcept
 
 bool ConnectionImpl::try_map_key_to_key_code(display::Key key, display::KeyCode& key_code) const
 {
-    static_cast<void>(key);    
-    static_cast<void>(key_code);    
-    return false;                      
+    return ::rev_map_key(key, key_code);
 }
 
 
