@@ -98,6 +98,7 @@ private:
         bool on_mouseup(const display::MouseButtonEvent&) override final;
         bool on_mousemove(const display::MouseEvent&) override final;
         bool on_scroll(const display::ScrollEvent&) override final;
+        bool on_blur(const display::TimedWindowEvent&) override final;
         bool on_expose(const display::WindowEvent&) override final;
         bool on_resize(const display::WindowSizeEvent&) override final;
         bool on_reposition(const display::WindowPosEvent&) override final;
@@ -180,6 +181,7 @@ private:
     void set_viewport_size(display::Size) noexcept;
     void init();
     void redraw();
+    bool process_events(Clock::time_point deadline);
     void tick(Clock::time_point time_of_tick);
     void update_projection_and_viewport();
     void update_perpect_proj_and_trackball() noexcept;

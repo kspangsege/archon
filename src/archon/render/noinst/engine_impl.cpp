@@ -167,6 +167,8 @@ EngineImpl::EngineImpl(std::string_view window_title, display::Size window_size,
 
 void EngineImpl::run()
 {
+    ARCHON_ASSERT(!m_started);
+
 /*                  
     int screen = -1; // ???                               
     std::optional<display::Resolution> resolution = m_display_connection->get_screen_resolution(screen); // Throws
@@ -206,7 +208,7 @@ void EngineImpl::run()
 
         m_interrupt_before_sleep = false;
         m_refresh_rate_changed = false;
-        bool expired = m_display_connection->process_events(deadline, &m_event_handler); // Throws
+        bool expired = process_events(deadline); // Throws
         if (!expired) {
             if (ARCHON_UNLIKELY(m_quit))
                 break;
@@ -404,6 +406,17 @@ bool EngineImpl::EventHandler::on_scroll(const display::ScrollEvent& ev)
         m_engine.modify_zoom(ev.amount[1]); // Throws
     }
     return true;
+}
+
+
+bool EngineImpl::EventHandler::on_blur(const display::TimedWindowEvent&)
+{
+    // Note: Because we invoke impl::KeyBindings::on_blur(), we are obligated to ensure that
+    // impl::KeyBindings::resume_incomplete_on_blur() gets invoked before any subsequent
+    // invocation of impl::KeyBindings::on_keydown(), impl::KeyBindings::on_keyup(), or
+    // impl::KeyBindings::on_blur(). This happens in process_events().
+
+    return m_engine.m_key_bindings.on_blur(); // Throws
 }
 
 
@@ -687,6 +700,18 @@ void EngineImpl::redraw()
                 m_logger.error("No more OpenGL error will be reported"); // Throws
         }
     }
+}
+
+
+inline bool EngineImpl::process_events(Clock::time_point deadline)
+{
+    // See also EventHandler::on_blur()
+    bool proceed = m_key_bindings.resume_incomplete_on_blur_if_any(); // Throws
+
+    if (ARCHON_LIKELY(proceed))
+        return m_display_connection->process_events(deadline, &m_event_handler); // Throws
+
+    return false; // Interrupt (no expiration yet)
 }
 
 

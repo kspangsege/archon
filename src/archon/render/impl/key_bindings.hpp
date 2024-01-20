@@ -48,12 +48,31 @@ public:
     KeyBindings();
     ~KeyBindings() noexcept;
 
-    auto register_handler(std::string_view label, std::function<bool(bool)> func) -> render::KeyHandlerIdent;
+    // If the specified function returns `false`, it means that event processing must be
+    // interrupted. If it returns `true`, it means that event processing can proceed.
+    auto register_handler(std::string_view label, std::function<bool(bool down)> func) -> render::KeyHandlerIdent;
 
     void bind_key(const KeyIdent&, render::KeyModifierMode, render::KeyPressMultiplicity, render::KeyHandlerIdent);
 
+    // These return `false` if event processing must be interrupted. Otherwise they return `true`.
     bool on_keydown(const KeyIdent& key_ident, Timestamp timestamp);
     bool on_keyup(const KeyIdent& key_ident, Timestamp timestamp);
+
+    // `on_blur()` returns `false` if event processing must be interrupted. Otherwise it
+    // returns `true`. When it returns `false`, the "on blur" operation is left in an
+    // incomplete state. In this state, it is an error to invoke `on_keydown()`,
+    // `on_keyup()`, or `on_blur()`. The application can invoke
+    // `resume_incomplete_on_blur_if_any()` at any time to resume an incomplete "on blur"
+    // operation if there is one.
+    //
+    // `resume_incomplete_on_blur_if_any()` returns `false` if event processing must be
+    // interrupted. Otherwise it returns `true`. When it returns `false`, the "on blur"
+    // operation remains incomplete, and the application must follow up with another
+    // invocation of `resume_incomplete_on_blur_if_any()` before it calls `on_keydown()`,
+    // `on_keyup()`, or `on_blur()`. This pattern may repeat itself any number of times.
+    //
+    bool on_blur();
+    bool resume_incomplete_on_blur_if_any();
 
     auto get_modifier_mode() const noexcept -> render::KeyModifierMode;
     void set_modifier_mode(render::KeyModifierMode) noexcept;
@@ -68,7 +87,10 @@ private:
 
     render::KeyModifierMode m_modifier_mode = {};
 
+    bool m_on_blur_in_progress = false;
+
     template<bool down> bool on_key(const KeyIdent& key_ident, Timestamp timestamp);
+    bool resume_incomplete_on_blur();
 };
 
 
@@ -101,6 +123,21 @@ private:
 
 
 // Implementation
+
+
+inline bool KeyBindings::on_blur()
+{
+    m_on_blur_in_progress = true;
+    return resume_incomplete_on_blur(); // Throws
+}
+
+
+inline bool KeyBindings::resume_incomplete_on_blur_if_any()
+{
+    if (ARCHON_LIKELY(!m_on_blur_in_progress))
+        return true; // Proceed
+    return resume_incomplete_on_blur(); // Throws
+}
 
 
 inline auto KeyBindings::get_modifier_mode() const noexcept -> render::KeyModifierMode
