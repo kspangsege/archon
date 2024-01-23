@@ -488,8 +488,8 @@ int main(int argc, char* argv[])
     int have_xdbe = false;
     int xdbe_major = 0;
     int xdbe_minor = 0;
-    if (XdbeQueryExtension(display, &xdbe_major, &xdbe_minor)) {
-        if (xdbe_major >= 1)
+    if (ARCHON_LIKELY(XdbeQueryExtension(display, &xdbe_major, &xdbe_minor))) {
+        if (ARCHON_LIKELY(xdbe_major >= 1))
             have_xdbe = true;
     }
 #endif // ARCHON_DISPLAY_HAVE_X11_XDBE
@@ -501,13 +501,13 @@ int main(int argc, char* argv[])
         int opcode = 0;
         int event_base = 0;
         int error_base = 0;
-        if (XkbQueryExtension(display, &opcode, &event_base, &error_base, &xkb_major, &xkb_minor)) {
-            if (xkb_major >= 1)
+        if (ARCHON_LIKELY(XkbQueryExtension(display, &opcode, &event_base, &error_base, &xkb_major, &xkb_minor))) {
+            if (ARCHON_LIKELY(xkb_major >= 1))
                 have_xkb = true;
         }
     }
     bool detectable_autorepeat_enabled = false;
-    if (have_xkb && !disable_detectable_autorepeat) {
+    if (ARCHON_LIKELY(have_xkb && !disable_detectable_autorepeat)) {
         Bool detectable = True;
         Bool supported = {};
         XkbSetDetectableAutoRepeat(display, detectable, &supported);
@@ -521,13 +521,13 @@ int main(int argc, char* argv[])
     int xrandr_error_base = 0;
     int xrandr_major = 0;
     int xrandr_minor = 0;
-    if (XRRQueryExtension(display, &xrandr_event_base, &xrandr_error_base)) {
+    if (ARCHON_LIKELY(XRRQueryExtension(display, &xrandr_event_base, &xrandr_error_base))) {
         Status status = XRRQueryVersion(display, &xrandr_major, &xrandr_minor);
         ARCHON_ASSERT(status != 0);
-        if (xrandr_major > 1 || (xrandr_major == 1 && xrandr_minor >= 5))
+        if (ARCHON_LIKELY(xrandr_major > 1 || (xrandr_major == 1 && xrandr_minor >= 5)))
             have_xrandr = true;
     }
-    if (have_xrandr) {
+    if (ARCHON_LIKELY(have_xrandr)) {
         int mask = RROutputChangeNotifyMask | RRCrtcChangeNotifyMask;
         XRRSelectInput(display, root, mask);
     }
@@ -539,10 +539,10 @@ int main(int argc, char* argv[])
     int xrender_error_base = 0;
     int xrender_major = 0;
     int xrender_minor = 0;
-    if (XRenderQueryExtension(display, &xrender_event_base, &xrender_error_base)) {
+    if (ARCHON_LIKELY(XRenderQueryExtension(display, &xrender_event_base, &xrender_error_base))) {
         Status status = XRenderQueryVersion(display, &xrender_major, &xrender_minor);
         ARCHON_ASSERT(status != 0);
-        if (xrender_major > 0 || (xrender_major == 0 && xrender_minor >= 7))
+        if (ARCHON_LIKELY(xrender_major > 0 || (xrender_major == 0 && xrender_minor >= 7)))
             have_xrender = true;
     }
 #endif // ARCHON_DISPLAY_HAVE_X11_XRENDER
@@ -550,7 +550,7 @@ int main(int argc, char* argv[])
 #if ARCHON_DISPLAY_HAVE_X11_XDBE
     // Key is (screen, depth, visual), value is `perflevel` attribute from XdbeVisualInfo
     core::FlatMap<std::tuple<int, int, VisualID>, int> double_buffered_visuals;
-    if (have_xdbe) {
+    if (ARCHON_LIKELY(have_xdbe)) {
         int n = 0;
         XdbeScreenVisualInfo* entries = XdbeGetVisualInfo(display, nullptr, &n);
         ARCHON_STEADY_ASSERT(entries);

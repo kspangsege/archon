@@ -200,7 +200,14 @@ private:
     const std::optional<VisualID> m_visual_override;
     const bool m_disable_double_buffering;
 
-    bool m_have_xdbe = false;
+    // X protocol extension availability
+    bool m_have_xdbe    = false; // X Double Buffer Extension
+    bool m_have_xrandr  = false; // X Resize, Rotate and Reflect Extension
+    bool m_have_xrender = false; // X Rendering Extension
+
+    bool m_detectable_autorepeat_enabled = false;
+
+    int m_xrandr_event_base = 0;
 
     std::unique_ptr<X11Screen[]> m_x11_screens;
 
@@ -377,7 +384,7 @@ void ConnectionImpl::open(const display::ConnectionConfigX11& config)
 
     dpy = dpy_2;
 
-    if (config.synchronous_mode)
+    if (ARCHON_UNLIKELY(config.synchronous_mode))
         XSynchronize(dpy, True);
 
     atom_wm_protocols     = intern_string("WM_PROTOCOLS");
@@ -387,12 +394,66 @@ void ConnectionImpl::open(const display::ConnectionConfigX11& config)
     {
         int major = 0;
         int minor = 0;
-        if (XdbeQueryExtension(dpy, &major, &minor)) {
-            if (major >= 1)
+        if (ARCHON_LIKELY(XdbeQueryExtension(dpy, &major, &minor))) {
+            if (ARCHON_LIKELY(major >= 1))
                 m_have_xdbe = true;
         }
     }
 #endif // ARCHON_DISPLAY_HAVE_X11_XDBE
+
+    {
+        int have_xkb = false;
+        int opcode = 0;     // Unused
+        int event_base = 0; // Unused
+        int error_base = 0; // Unused
+        int major = 0;
+        int minor = 0;
+        if (ARCHON_LIKELY(XkbQueryExtension(dpy, &opcode, &event_base, &error_base, &major, &minor))) {
+            if (ARCHON_LIKELY(major >= 1))
+                have_xkb = true;
+        }
+        if (ARCHON_UNLIKELY(!have_xkb))
+            throw std::runtime_error("X Keyboard Extension is required but not available");
+    }
+
+    {
+        Bool detectable = True;
+        Bool supported = {};
+        XkbSetDetectableAutoRepeat(dpy, detectable, &supported);
+        if (ARCHON_LIKELY(supported))
+            m_detectable_autorepeat_enabled = true;
+    }
+
+#if ARCHON_DISPLAY_HAVE_X11_XRANDR
+    {
+        int error_base = 0; // Unused
+        if (ARCHON_LIKELY(XRRQueryExtension(dpy, &m_xrandr_event_base, &error_base))) {
+            int major = 0;
+            int minor = 0;
+            Status status = XRRQueryVersion(dpy, &major, &minor);
+            if (ARCHON_UNLIKELY(status == 0))
+                throw std::runtime_error("XRRQueryVersion() failed");
+            if (ARCHON_LIKELY(major > 1 || (major == 1 && minor >= 5)))
+                m_have_xrandr = true;
+        }
+    }
+#endif // ARCHON_DISPLAY_HAVE_X11_XRANDR
+
+#if ARCHON_DISPLAY_HAVE_X11_XRENDER
+    {
+        int event_base = 0; // Unused
+        int error_base = 0; // Unused
+        if (ARCHON_LIKELY(XRenderQueryExtension(dpy, &event_base, &error_base))) {
+            int major = 0;
+            int minor = 0;
+            Status status = XRenderQueryVersion(dpy, &major, &minor);
+            if (ARCHON_UNLIKELY(status == 0))
+                throw std::runtime_error("XRenderQueryVersion() failed");
+            if (ARCHON_LIKELY(major > 0 || (major == 0 && minor >= 7)))
+                m_have_xrender = true;
+        }
+    }
+#endif // ARCHON_DISPLAY_HAVE_X11_XRENDER
 }
 
 
@@ -455,6 +516,13 @@ auto ConnectionImpl::ensure_x11_screen(int screen) -> X11Screen&
             }
         }
 #endif // ARCHON_DISPLAY_HAVE_X11_XDBE
+
+#if ARCHON_DISPLAY_HAVE_X11_XRANDR
+        if (ARCHON_LIKELY(m_have_xrandr)) {
+            int mask = RROutputChangeNotifyMask | RRCrtcChangeNotifyMask;
+            XRRSelectInput(dpy, root, mask);
+        }
+#endif // ARCHON_DISPLAY_HAVE_X11_XRANDR
 
         screen_2.use_double_buffering = use_double_buffering;
         screen_2.visual_info = visual_info;
