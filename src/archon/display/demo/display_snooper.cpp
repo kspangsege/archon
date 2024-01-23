@@ -118,13 +118,13 @@ public:
         return true;
     }
 
-    bool on_focus(const display::TimedWindowEvent&) override final
+    bool on_focus(const display::WindowEvent&) override final
     {
         m_logger.info("FOCUS"); // Throws
         return true;
     }
 
-    bool on_blur(const display::TimedWindowEvent&) override final
+    bool on_blur(const display::WindowEvent&) override final
     {
         m_logger.info("BLUR"); // Throws
         return true;

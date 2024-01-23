@@ -409,7 +409,7 @@ bool EngineImpl::EventHandler::on_scroll(const display::ScrollEvent& ev)
 }
 
 
-bool EngineImpl::EventHandler::on_blur(const display::TimedWindowEvent&)
+bool EngineImpl::EventHandler::on_blur(const display::WindowEvent&)
 {
     // Note: Because we invoke impl::KeyBindings::on_blur(), we are obligated to ensure that
     // impl::KeyBindings::resume_incomplete_on_blur() gets invoked before any subsequent

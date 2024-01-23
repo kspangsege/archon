@@ -26,6 +26,7 @@ target_link_libraries(Test PUBLIC
   UtilTest
   ImageTest
   FontTest
+  DisplayTest
 )
 
 add_test(NAME Test

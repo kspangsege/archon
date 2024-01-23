@@ -75,7 +75,13 @@ bool WindowEventHandler::on_mouseout(const display::TimedWindowEvent&)
 }
 
 
-bool WindowEventHandler::on_focus(const display::TimedWindowEvent&)
+bool WindowEventHandler::on_focus(const display::WindowEvent&)
+{
+    return true; // Do not interrupt event processing
+}
+
+
+bool WindowEventHandler::on_blur(const display::WindowEvent&)
 {
     return true; // Do not interrupt event processing
 }
@@ -94,12 +100,6 @@ bool WindowEventHandler::on_resize(const display::WindowSizeEvent&)
 
 
 bool WindowEventHandler::on_reposition(const display::WindowPosEvent&)
-{
-    return true; // Do not interrupt event processing
-}
-
-
-bool WindowEventHandler::on_blur(const display::TimedWindowEvent&)
 {
     return true; // Do not interrupt event processing
 }

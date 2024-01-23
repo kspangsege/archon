@@ -1091,6 +1091,94 @@ ARCHON_TEST(Core_Integer_General)
 }
 
 
+ARCHON_TEST(Core_Integer_DivRoundUp)
+{
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(0, 1), 0);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(1, 1), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(2, 1), 2);
+
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(0, 2), 0);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(1, 2), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(2, 2), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(3, 2), 2);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(4, 2), 2);
+
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(0, 3), 0);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(1, 3), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(2, 3), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(3, 3), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(4, 3), 2);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(5, 3), 2);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(6, 3), 2);
+
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(0, 4), 0);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(1, 4), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(2, 4), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(3, 4), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(4, 4), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(5, 4), 2);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(6, 4), 2);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(7, 4), 2);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(8, 4), 2);
+
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(0, 5), 0);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(1, 5), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(2, 5), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(3, 5), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(4, 5), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(5, 5), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(6, 5), 2);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(7, 5), 2);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(8, 5), 2);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(9, 5), 2);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(10, 5), 2);
+}
+
+
+ARCHON_TEST(Core_Integer_DivRoundHalfDown)
+{
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(0, 1), 0);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(1, 1), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(2, 1), 2);
+
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(0, 2), 0);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(1, 2), 0);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(2, 2), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(3, 2), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(4, 2), 2);
+
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(0, 3), 0);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(1, 3), 0);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(2, 3), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(3, 3), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(4, 3), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(5, 3), 2);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(6, 3), 2);
+
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(0, 4), 0);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(1, 4), 0);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(2, 4), 0);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(3, 4), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(4, 4), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(5, 4), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(6, 4), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(7, 4), 2);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(8, 4), 2);
+
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(0, 5), 0);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(1, 5), 0);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(2, 5), 0);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(3, 5), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(4, 5), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(5, 5), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(6, 5), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(7, 5), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(8, 5), 2);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(9, 5), 2);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(10, 5), 2);
+}
+
+
 namespace {
 
 

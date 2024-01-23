@@ -217,8 +217,8 @@ public:
     /// \sa \ref on_keydown()
     /// \sa \ref on_mousedown()
     ///
-    virtual bool on_focus(const display::TimedWindowEvent&);
-    virtual bool on_blur(const display::TimedWindowEvent&);
+    virtual bool on_focus(const display::WindowEvent&);
+    virtual bool on_blur(const display::WindowEvent&);
     /// \}
 
     /// \brief A window was exposed and needs to be redrawn.

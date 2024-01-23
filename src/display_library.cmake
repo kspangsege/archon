@@ -101,4 +101,5 @@ target_sources(Display PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" 
 
 install(TARGETS Display FILE_SET HEADERS)
 
+add_subdirectory(archon/display/test)
 add_subdirectory(archon/display/demo)

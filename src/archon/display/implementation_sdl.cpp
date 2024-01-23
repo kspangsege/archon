@@ -40,6 +40,7 @@
 #include <archon/util/colors.hpp>                 
 #include <archon/image.hpp>
 #include <archon/display/impl/config.h>
+#include <archon/display/noinst/timestamp_unwrapper.hpp>
 #include <archon/display/key.hpp>
 #include <archon/display/key_code.hpp>
 #include <archon/display/event.hpp>
@@ -74,6 +75,7 @@
 
 
 using namespace archon;
+namespace impl = display::impl;
 
 
 namespace {
@@ -183,6 +185,11 @@ private:
 
     core::FlatMap<Uint32, WindowImpl&> m_windows;
 
+    // SDL timestamps are 32-bit unsigned integers and `Uint32` refers to the unsigned
+    // integer type that SDL uses to store these timestamps.
+    using timestamp_unwrapper_type = impl::TimestampUnwrapper<Uint32, 32>;
+    timestamp_unwrapper_type m_timestamp_unwrapper;
+
     // If `m_curr_window_id` is greater than zero, then `m_curr_window` specifies the window
     // identified by `m_curr_window_id` (valid window IDs are always greater than zero). If
     // `m_curr_window_id` is zero, `m_curr_window` has no meaning.
@@ -197,17 +204,11 @@ private:
     Uint32 m_curr_window_id = 0;
     const WindowImpl* m_curr_window = nullptr;
 
-    bool m_have_prev_timestamp = false;
-    Uint32 m_prev_timestamp = 0;
-    time_point_type m_prev_timestamp_2 = {};
-    millis_type::rep m_timestamp_offset = 0;
-
     bool process_outstanding_events(display::ConnectionEventHandler&);
     void wait_for_events();
     bool wait_for_events(time_point_type deadline);
 
     auto lookup_window(Uint32 window_id) noexcept -> const WindowImpl*;
-    auto map_next_timestamp(Uint32 timestamp) -> display::TimedWindowEvent::Timestamp;
 };
 
 
@@ -486,6 +487,7 @@ auto ConnectionImpl::get_implementation() const noexcept -> const display::Imple
 bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler& connection_event_handler)
 {
     SDL_Event event;
+    timestamp_unwrapper_type::Session unwrap_session(m_timestamp_unwrapper);
 
   next_event_1:
     {
@@ -505,7 +507,7 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
             if (ARCHON_LIKELY(window)) {
                 display::MouseButtonEvent event_2;
                 event_2.cookie = window->cookie;
-                event_2.timestamp = map_next_timestamp(event.motion.timestamp); // Throws
+                event_2.timestamp = unwrap_session.unwrap_next_timestamp(event.motion.timestamp); // Throws
                 event_2.pos = { event.motion.x, event.motion.y };
                 bool proceed = window->event_handler.on_mousemove(event_2); // Throws
                 if (ARCHON_LIKELY(proceed))
@@ -519,7 +521,7 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
             if (ARCHON_LIKELY(window)) {
                 display::ScrollEvent event_2;
                 event_2.cookie = window->cookie;
-                event_2.timestamp = map_next_timestamp(event.wheel.timestamp); // Throws
+                event_2.timestamp = unwrap_session.unwrap_next_timestamp(event.wheel.timestamp); // Throws
                 event_2.amount = { event.wheel.preciseX, event.wheel.preciseY };
                 bool proceed = window->event_handler.on_scroll(event_2); // Throws
                 if (ARCHON_LIKELY(proceed))
@@ -533,7 +535,7 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
             if (ARCHON_LIKELY(window)) {
                 display::MouseButtonEvent event_2;
                 event_2.cookie = window->cookie;
-                event_2.timestamp = map_next_timestamp(event.button.timestamp); // Throws
+                event_2.timestamp = unwrap_session.unwrap_next_timestamp(event.button.timestamp); // Throws
                 event_2.pos = { event.button.x, event.button.y };
                 event_2.button = map_mouse_button(event.button.button);
                 bool proceed = window->event_handler.on_mousedown(event_2); // Throws
@@ -548,7 +550,7 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
             if (ARCHON_LIKELY(window)) {
                 display::MouseButtonEvent event_2;
                 event_2.cookie = window->cookie;
-                event_2.timestamp = map_next_timestamp(event.button.timestamp); // Throws
+                event_2.timestamp = unwrap_session.unwrap_next_timestamp(event.button.timestamp); // Throws
                 event_2.pos = { event.button.x, event.button.y };
                 event_2.button = map_mouse_button(event.button.button);
                 bool proceed = window->event_handler.on_mouseup(event_2); // Throws
@@ -564,7 +566,7 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
                 if (ARCHON_LIKELY(window)) {
                     display::KeyEvent event_2;
                     event_2.cookie = window->cookie;
-                    event_2.timestamp = map_next_timestamp(event.key.timestamp); // Throws
+                    event_2.timestamp = unwrap_session.unwrap_next_timestamp(event.key.timestamp); // Throws
                     event_2.key_code = { display::KeyCode::code_type(event.key.keysym.sym) };
                     bool proceed = window->event_handler.on_keydown(event_2); // Throws
                     if (ARCHON_LIKELY(proceed))
@@ -579,7 +581,7 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
             if (ARCHON_LIKELY(window)) {
                 display::KeyEvent event_2;
                 event_2.cookie = window->cookie;
-                event_2.timestamp = map_next_timestamp(event.key.timestamp); // Throws
+                event_2.timestamp = unwrap_session.unwrap_next_timestamp(event.key.timestamp); // Throws
                 event_2.key_code = { display::KeyCode::code_type(event.key.keysym.sym) };
                 bool proceed = window->event_handler.on_keyup(event_2); // Throws
                 if (ARCHON_LIKELY(proceed))
@@ -595,7 +597,7 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
                     if (ARCHON_LIKELY(window)) {
                         display::TimedWindowEvent event_2;
                         event_2.cookie = window->cookie;
-                        event_2.timestamp = map_next_timestamp(event.window.timestamp); // Throws
+                        event_2.timestamp = unwrap_session.unwrap_next_timestamp(event.window.timestamp); // Throws
                         bool proceed = window->event_handler.on_mouseover(event_2); // Throws
                         if (ARCHON_LIKELY(proceed))
                             break;
@@ -608,34 +610,8 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
                     if (ARCHON_LIKELY(window)) {
                         display::TimedWindowEvent event_2;
                         event_2.cookie = window->cookie;
-                        event_2.timestamp = map_next_timestamp(event.window.timestamp); // Throws
+                        event_2.timestamp = unwrap_session.unwrap_next_timestamp(event.window.timestamp); // Throws
                         bool proceed = window->event_handler.on_mouseout(event_2); // Throws
-                        if (ARCHON_LIKELY(proceed))
-                            break;
-                        return false; // Interrupt
-                    }
-                    break;
-                }
-                case SDL_WINDOWEVENT_FOCUS_GAINED: {
-                    const WindowImpl* window = lookup_window(event.window.windowID);
-                    if (ARCHON_LIKELY(window)) {
-                        display::TimedWindowEvent event_2;
-                        event_2.cookie = window->cookie;
-                        event_2.timestamp = map_next_timestamp(event.window.timestamp); // Throws
-                        bool proceed = window->event_handler.on_focus(event_2); // Throws
-                        if (ARCHON_LIKELY(proceed))
-                            break;
-                        return false; // Interrupt
-                    }
-                    break;
-                }
-                case SDL_WINDOWEVENT_FOCUS_LOST: {
-                    const WindowImpl* window = lookup_window(event.window.windowID);
-                    if (ARCHON_LIKELY(window)) {
-                        display::TimedWindowEvent event_2;
-                        event_2.cookie = window->cookie;
-                        event_2.timestamp = map_next_timestamp(event.window.timestamp); // Throws
-                        bool proceed = window->event_handler.on_blur(event_2); // Throws
                         if (ARCHON_LIKELY(proceed))
                             break;
                         return false; // Interrupt
@@ -676,6 +652,30 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
                         core::int_cast(event.window.data1, event_2.pos.x); // Throws
                         core::int_cast(event.window.data2, event_2.pos.y); // Throws
                         bool proceed = window->event_handler.on_reposition(event_2); // Throws
+                        if (ARCHON_LIKELY(proceed))
+                            break;
+                        return false; // Interrupt
+                    }
+                    break;
+                }
+                case SDL_WINDOWEVENT_FOCUS_GAINED: {
+                    const WindowImpl* window = lookup_window(event.window.windowID);
+                    if (ARCHON_LIKELY(window)) {
+                        display::WindowEvent event_2;
+                        event_2.cookie = window->cookie;
+                        bool proceed = window->event_handler.on_focus(event_2); // Throws
+                        if (ARCHON_LIKELY(proceed))
+                            break;
+                        return false; // Interrupt
+                    }
+                    break;
+                }
+                case SDL_WINDOWEVENT_FOCUS_LOST: {
+                    const WindowImpl* window = lookup_window(event.window.windowID);
+                    if (ARCHON_LIKELY(window)) {
+                        display::WindowEvent event_2;
+                        event_2.cookie = window->cookie;
+                        bool proceed = window->event_handler.on_blur(event_2); // Throws
                         if (ARCHON_LIKELY(proceed))
                             break;
                         return false; // Interrupt
@@ -809,32 +809,6 @@ auto ConnectionImpl::lookup_window(Uint32 window_id) noexcept -> const WindowImp
     m_curr_window_id = window_id;
     m_curr_window = window;
     return window;
-}
-
-
-auto ConnectionImpl::map_next_timestamp(Uint32 timestamp) -> display::TimedWindowEvent::Timestamp
-{
-    // Try to fix wrap-around "disaster", which occurs after 49 days when Uint32 is a 32-bit
-    // integer.
-    //
-    // Assumptions:
-    // - SDL timestamps originate from a steady / monotonic clock
-    // - SDL timestamps is N lowest order bits of true timestamp where N is number of value
-    //   bits in Uint32
-    //
-    if constexpr (core::int_width<Uint32>() < core::int_width<millis_type::rep>()) {
-        constexpr millis_type::rep module = millis_type::rep(1) << core::int_width<Uint32>();
-        time_point_type timestamp_2 = clock_type::now();
-        if (ARCHON_LIKELY(m_have_prev_timestamp)) {
-            millis_type::rep millis = std::chrono::round<millis_type>(timestamp_2 - m_prev_timestamp_2).count();
-            core::int_add(millis, module / 2 - (timestamp - m_prev_timestamp)); // Throws
-            core::int_add(m_timestamp_offset, (millis / module) * module); // Throws
-        }
-        m_prev_timestamp = timestamp;
-        m_prev_timestamp_2 = timestamp_2;
-        m_have_prev_timestamp = true;
-    }
-    return millis_type(millis_type::rep(m_timestamp_offset + timestamp));
 }
 
 

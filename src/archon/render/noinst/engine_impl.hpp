@@ -98,7 +98,7 @@ private:
         bool on_mouseup(const display::MouseButtonEvent&) override final;
         bool on_mousemove(const display::MouseEvent&) override final;
         bool on_scroll(const display::ScrollEvent&) override final;
-        bool on_blur(const display::TimedWindowEvent&) override final;
+        bool on_blur(const display::WindowEvent&) override final;
         bool on_expose(const display::WindowEvent&) override final;
         bool on_resize(const display::WindowSizeEvent&) override final;
         bool on_reposition(const display::WindowPosEvent&) override final;

@@ -36,6 +36,7 @@
 #include <archon/core/quote.hpp>
 #include <archon/core/platform_support.hpp>
 #include <archon/display/impl/config.h>
+#include <archon/display/noinst/timestamp_unwrapper.hpp>
 #include <archon/display/implementation.hpp>
 #include <archon/display/implementation_x11.hpp>
 
@@ -104,6 +105,7 @@
 //
 
 using namespace archon;
+namespace impl = display::impl;
 
 
 namespace {
@@ -210,6 +212,11 @@ private:
     // INVARIANT: A window is in `m_exposed_windows` if and only if it is in `m_windows` and
     // has `has_pending_expose_event` set to `true`.
     core::Deque<::Window> m_exposed_windows;
+
+    // X11 timestamps are 32-bit unsigned integers and `Time` refers to the unsigned integer
+    // type that X11 uses to store these timestamps.
+    using timestamp_unwrapper_type = impl::TimestampUnwrapper<Time, 32>;
+    timestamp_unwrapper_type m_timestamp_unwrapper;
 
     // If `m_have_curr_window` is true, then `m_curr_window` specifies the window identified
     // by `m_curr_window_id`. If `m_have_curr_window` is false, `m_curr_window_id` and
@@ -615,6 +622,8 @@ auto ConnectionImpl::do_new_window(int screen, std::string_view title, display::
 }
 
 
+// FIXME: Ensure that all relevant types of events are picked out and handled below                                                                                                        
+
 bool ConnectionImpl::do_process_events(const time_point_type* deadline,
                                        display::ConnectionEventHandler* connection_event_handler)
 {
@@ -640,6 +649,7 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
         (connection_event_handler ? *connection_event_handler : *this);
 
     XEvent ev;
+    timestamp_unwrapper_type::Session unwrap_session(m_timestamp_unwrapper);
 
   process_1:
     if (ARCHON_LIKELY(m_num_events > 0))
@@ -658,6 +668,7 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
             window->has_pending_expose_event = true;
             break;
         }
+
         case ConfigureNotify: {
             WindowImpl* window = lookup_window(ev.xconfigure.window);
             if (ARCHON_LIKELY(window)) {
@@ -690,6 +701,7 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
             }
             break;
         }
+
         case KeyPress:
         case KeyRelease: {
             WindowImpl* window = lookup_window(ev.xkey.window);
@@ -703,6 +715,7 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
                     break; // No keysym defined for this key, ignore
                 display::KeyEvent event;
                 event.cookie = window->cookie;
+                event.timestamp = unwrap_session.unwrap_next_timestamp(ev.xkey.time); // Throws
                 event.key_code = { display::KeyCode::code_type(keysym) };
                 bool proceed;
                 if (ev.type == KeyPress) {
@@ -717,6 +730,27 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
             }
             break;
         }
+
+        case FocusIn:
+        case FocusOut: {
+            WindowImpl* window = lookup_window(ev.xfocus.window);
+            if (ARCHON_LIKELY(window)) {
+                display::WindowEvent event;
+                event.cookie = window->cookie;
+                bool proceed;
+                if (ev.type == FocusIn) {
+                    proceed = window->event_handler.on_focus(event); // Throws
+                }
+                else {
+                    proceed = window->event_handler.on_blur(event); // Throws
+                }
+                if (ARCHON_LIKELY(proceed))
+                    break;
+                return false; // Interrupt
+            }
+            break;
+        }
+
         case ClientMessage: {
             bool is_close = (ev.xclient.format == 32 && Atom(ev.xclient.data.l[0]) == atom_wm_delete_window);
             if (ARCHON_LIKELY(is_close)) {
@@ -778,8 +812,10 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
             }
         }
 
-        if (ARCHON_LIKELY(m_num_events > 0))
+        if (ARCHON_LIKELY(m_num_events > 0)) {
+            unwrap_session.reset_now();
             goto process_2;
+        }
 
         pollfd fds[1] {};
         int nfds = 1;
