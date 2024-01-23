@@ -87,10 +87,10 @@ public:
     static constexpr int width = core::num_value_bits<timestamp_type>() - reduction;
 
     using unwrapper_type = impl::TimestampUnwrapper<timestamp_type, width>;
-    using time_point_type = unwrapper_type::time_point_type;
-    using duration_type = time_point_type::duration;
-    using millis_type = unwrapper_type::millis_type;
-    using millis_rep_type = millis_type::rep;
+    using time_point_type = typename unwrapper_type::time_point_type;
+    using duration_type = typename time_point_type::duration;
+    using millis_type = typename unwrapper_type::millis_type;
+    using millis_rep_type = typename millis_type::rep;
 
     static constexpr bool can_unwrap_with(millis_rep_type millis_after_start) noexcept
     {
@@ -108,7 +108,7 @@ public:
     auto unwrap(timestamp_type timestamp, millis_rep_type millis_after_start) -> millis_rep_type
     {
         time_point_type now = m_start_time + millis_type(millis_after_start);
-        using session_type = unwrapper_type::Session;
+        using session_type = typename unwrapper_type::Session;
         session_type session(m_unwrapper, now);
         return session.unwrap_next_timestamp(timestamp).count(); // Throws
     }
@@ -139,7 +139,7 @@ ARCHON_TEST_BATCH(Display_Noinst_TimestampUnwrapper, variants)
     constexpr int reduction = test_value;
 
     using fixture_type = Fixture<timestamp_type, reduction>;
-    using millis_rep_type = fixture_type::millis_rep_type;
+    using millis_rep_type = typename fixture_type::millis_rep_type;
 
     test_context.logger.trace("timestamp width: %s", fixture_type::width);
     test_context.logger.trace("num value bits in millis type: %s", core::num_value_bits<millis_rep_type>());
