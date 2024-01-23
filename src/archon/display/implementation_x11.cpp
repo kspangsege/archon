@@ -731,6 +731,27 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
             break;
         }
 
+        case EnterNotify:
+        case LeaveNotify: {
+            WindowImpl* window = lookup_window(ev.xcrossing.window);
+            if (ARCHON_LIKELY(window)) {
+                display::TimedWindowEvent event;
+                event.cookie = window->cookie;
+                event.timestamp = unwrap_session.unwrap_next_timestamp(ev.xcrossing.time); // Throws
+                bool proceed;
+                if (ev.type == EnterNotify) {
+                    proceed = window->event_handler.on_mouseover(event); // Throws
+                }
+                else {
+                    proceed = window->event_handler.on_mouseout(event); // Throws
+                }
+                if (ARCHON_LIKELY(proceed))
+                    break;
+                return false; // Interrupt
+            }
+            break;
+        }
+
         case FocusIn:
         case FocusOut: {
             WindowImpl* window = lookup_window(ev.xfocus.window);
@@ -899,8 +920,13 @@ void WindowImpl::create(display::Size size, const Config& config)
     Visual* visual = screen.visual_info.visual;
     unsigned long valuemask = CWEventMask | CWColormap;
     XSetWindowAttributes attributes = {};
-    attributes.event_mask = (KeyPressMask | KeyReleaseMask | ExposureMask | StructureNotifyMask | ButtonMotionMask |
-                             ButtonPressMask | ButtonReleaseMask);
+    attributes.event_mask = (KeyPressMask | KeyReleaseMask |
+                             ButtonPressMask | ButtonReleaseMask |
+                             ButtonMotionMask |
+                             EnterWindowMask | LeaveWindowMask |
+                             FocusChangeMask |
+                             ExposureMask |
+                             StructureNotifyMask);
     attributes.colormap = screen.colormap;
     win = XCreateWindow(conn.dpy, parent, x, y, width, height, border_width, depth, class_, visual,
                         valuemask, &attributes);
