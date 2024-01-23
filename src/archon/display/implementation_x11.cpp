@@ -660,15 +660,6 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
     XNextEvent(dpy, &ev);
     --m_num_events;
     switch (ev.type) {
-        case Expose: {
-            WindowImpl* window = lookup_window(ev.xexpose.window);
-            if (ARCHON_LIKELY(!window || window->has_pending_expose_event))
-                break;
-            m_exposed_windows.push_back(ev.xexpose.window); // Throws
-            window->has_pending_expose_event = true;
-            break;
-        }
-
         case ConfigureNotify: {
             WindowImpl* window = lookup_window(ev.xconfigure.window);
             if (ARCHON_LIKELY(window)) {
@@ -699,6 +690,15 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
                     break;
                 return false; // Interrupt
             }
+            break;
+        }
+
+        case Expose: {
+            WindowImpl* window = lookup_window(ev.xexpose.window);
+            if (ARCHON_LIKELY(!window || window->has_pending_expose_event))
+                break;
+            m_exposed_windows.push_back(ev.xexpose.window); // Throws
+            window->has_pending_expose_event = true;
             break;
         }
 

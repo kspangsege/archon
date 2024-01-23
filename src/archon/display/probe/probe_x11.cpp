@@ -1313,10 +1313,6 @@ int main(int argc, char* argv[])
                             }
                         }
                         break;
-                    case Expose:
-                        if (ev.xexpose.window == window)
-                            redraw = true;
-                        break;
                     case ConfigureNotify:
                         if (ev.xconfigure.window == window) {
                             // When there is a window manager, the window manager will
@@ -1345,6 +1341,10 @@ int main(int argc, char* argv[])
                                 redraw = true;
                             }
                         }
+                        break;
+                    case Expose:
+                        if (ev.xexpose.window == window)
+                            redraw = true;
                         break;
                     case FocusIn:
                     case FocusOut:
