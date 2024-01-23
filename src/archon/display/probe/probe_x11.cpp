@@ -1090,7 +1090,13 @@ int main(int argc, char* argv[])
     int win_width  = img_size.width;
     int win_height = img_size.height;
     XSetWindowAttributes swa;
-    swa.event_mask = (KeyPressMask | KeyReleaseMask | ExposureMask | StructureNotifyMask | FocusChangeMask);
+    swa.event_mask = (KeyPressMask | KeyReleaseMask |
+                      ButtonPressMask | ButtonReleaseMask |
+                      ButtonMotionMask |
+                      EnterWindowMask | LeaveWindowMask |
+                      FocusChangeMask |
+                      ExposureMask |
+                      StructureNotifyMask);
     swa.colormap = colormap;
     Window window = XCreateWindow(display, root, pos.x, pos.y, unsigned(win_width), unsigned(win_height), 0, depth,
                                   InputOutput, visual, CWEventMask | CWColormap, &swa);
@@ -1289,30 +1295,6 @@ int main(int argc, char* argv[])
             for (int i = 0; i < n; ++i) {
                 XNextEvent(display, &ev);
                 switch (ev.type) {
-                    case KeyPress:
-                    case KeyRelease:
-                        if (ev.xkey.window == window) {
-                            // Map key code to a keyboard independent symbol identifier (in
-                            // general the symbol in the upper left corner on the
-                            // corresponding key)
-                            KeySym keysym = XkbKeycodeToKeysym(display, ev.xkey.keycode, XkbGroup1Index, 0);
-                            // XKeysymToString() returns a string consisting entirely of
-                            // characters from the X Portable Character Set. Since all
-                            // locales, that are compatible with Xlib, agree on the encoding
-                            // of characters in this character set, and since we assume that
-                            // the selected locale is compatible with Xlib, we can assume
-                            // that the returned string is valid in the selected locale.
-                            std::string key_name = std::string(XKeysymToString(keysym)); // Throws
-                            if (ev.type == KeyPress) {
-                                logger.info("KEY DOWN: %s", key_name); // Throws
-                                if (keysym == XK_Escape)
-                                    goto quit;
-                            }
-                            else {
-                                logger.info("KEY UP: %s", key_name); // Throws
-                            }
-                        }
-                        break;
                     case ConfigureNotify:
                         if (ev.xconfigure.window == window) {
                             // When there is a window manager, the window manager will
@@ -1345,6 +1327,35 @@ int main(int argc, char* argv[])
                     case Expose:
                         if (ev.xexpose.window == window)
                             redraw = true;
+                        break;
+                    case KeyPress:
+                    case KeyRelease:
+                        if (ev.xkey.window == window) {
+                            // Map key code to a keyboard independent symbol identifier (in
+                            // general the symbol in the upper left corner on the
+                            // corresponding key)
+                            KeySym keysym = XkbKeycodeToKeysym(display, ev.xkey.keycode, XkbGroup1Index, 0);
+                            // XKeysymToString() returns a string consisting entirely of
+                            // characters from the X Portable Character Set. Since all
+                            // locales, that are compatible with Xlib, agree on the encoding
+                            // of characters in this character set, and since we assume that
+                            // the selected locale is compatible with Xlib, we can assume
+                            // that the returned string is valid in the selected locale.
+                            std::string key_name = std::string(XKeysymToString(keysym)); // Throws
+                            if (ev.type == KeyPress) {
+                                logger.info("KEY DOWN: %s", key_name); // Throws
+                                if (keysym == XK_Escape)
+                                    goto quit;
+                            }
+                            else {
+                                logger.info("KEY UP: %s", key_name); // Throws
+                            }
+                        }
+                        break;
+                    case EnterNotify:
+                    case LeaveNotify:
+                        if (ev.xcrossing.window == window)
+                            logger.info(ev.type == EnterNotify ? "MOUSE OVER" : "MOUSE OUT");
                         break;
                     case FocusIn:
                     case FocusOut:
