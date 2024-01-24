@@ -64,16 +64,16 @@ public:
     /// FIXME: Verify above claims on macOS and Windows platforms                            
     ///
     /// It is unspecified what happens if a window looses or gains input focus while keys
-    /// are pressed down. At the time of writing, some implementations (SDL in particular)
-    /// will generate "key up" events for certain keys when a window looses input focus
-    /// while those keys are pressed down, and will also generate "key down" events for
-    /// certain keys if they are already pressed down when a window gains focus. Other
-    /// implementations will not do this (X11 in particular). An application that wants to
-    /// enforce a regime where keys are released when the window looses input focus must
-    /// keep track of pressed keys, and then synthetically generate "key up" events when the
-    /// window looses focus (\ref on_blur()). Such an application will probably also want to
-    /// ignore any "key up" event that does not correspond to a pressed down key according
-    /// to its own record of pressed down keys.
+    /// are pressed down. At the time of writing, some implementations (notably SDL) will
+    /// generate "key up" events for certain keys when a window looses input focus while
+    /// those keys are pressed down, and will also generate "key down" events for certain
+    /// keys if they are already pressed down when a window gains focus. Other
+    /// implementations will not do this (notably X11). An application that wants to enforce
+    /// a regime where keys are released when the window looses input focus must keep track
+    /// of pressed keys, and then synthetically generate "key up" events when the window
+    /// looses focus (\ref on_blur()). Such an application will probably also want to ignore
+    /// any "key up" event that does not correspond to a pressed down key according to its
+    /// own record of pressed down keys.
     ///
     /// FIXME: Talk about repeating keys                                                                                          
     ///

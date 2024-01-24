@@ -775,12 +775,12 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
             WindowImpl* window = lookup_window(ev.xkey.window);
             if (ARCHON_LIKELY(window)) {
                 // Map key code to a keyboard independent symbol identifier (in general the
-                // symbol in the upper left corner on the corresponding key)
+                // symbol in the upper left corner on the corresponding key). See also
+                // https://tronche.com/gui/x/xlib/input/keyboard-encoding.html.
                 unsigned group = XkbGroup1Index;
                 unsigned level = 0;
                 KeySym keysym = XkbKeycodeToKeysym(dpy, ev.xkey.keycode, group, level);
-                if (keysym == NoSymbol)
-                    break; // No keysym defined for this key, ignore
+                ARCHON_ASSERT(keysym != NoSymbol);
                 display::KeyEvent event;
                 event.cookie = window->cookie;
                 event.timestamp = unwrap_session.unwrap_next_timestamp(ev.xkey.time); // Throws

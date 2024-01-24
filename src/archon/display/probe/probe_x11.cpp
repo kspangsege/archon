@@ -19,21 +19,41 @@
 // DEALINGS IN THE SOFTWARE.
 
 
-#include <limits>
+#include <cstddef>
+#include <algorithm>
 #include <stdexcept>
+#include <utility>
+#include <memory>
+#include <optional>
 #include <tuple>
-#include <string>
+#include <array>
+#include <vector>
+#include <string_view>
 #include <locale>
+#include <system_error>
 #include <filesystem>
 #include <ostream>
 
 #include <archon/core/features.h>
+#include <archon/core/span.hpp>
 #include <archon/core/assert.hpp>
+#include <archon/core/integer.hpp>
 #include <archon/core/scope_exit.hpp>
+#include <archon/core/buffer.hpp>
+#include <archon/core/string_buffer_contents.hpp>
+#include <archon/core/vector.hpp>
+#include <archon/core/flat_map.hpp>
+#include <archon/core/string.hpp>
 #include <archon/core/format.hpp>
+#include <archon/core/value_parser.hpp>
+#include <archon/core/as_int.hpp>
+#include <archon/core/as_list.hpp>
 #include <archon/core/format_as.hpp>
+#include <archon/core/quote.hpp>
+#include <archon/core/endianness.hpp>
 #include <archon/core/filesystem.hpp>
 #include <archon/core/build_environment.hpp>
+#include <archon/core/file.hpp>
 #include <archon/log.hpp>
 #include <archon/cli.hpp>
 #include <archon/util/color.hpp>
@@ -1096,7 +1116,8 @@ int main(int argc, char* argv[])
                       EnterWindowMask | LeaveWindowMask |
                       FocusChangeMask |
                       ExposureMask |
-                      StructureNotifyMask);
+                      StructureNotifyMask |
+                      KeymapStateMask);
     swa.colormap = colormap;
     Window window = XCreateWindow(display, root, pos.x, pos.y, unsigned(win_width), unsigned(win_height), 0, depth,
                                   InputOutput, visual, CWEventMask | CWColormap, &swa);
@@ -1282,8 +1303,28 @@ int main(int argc, char* argv[])
     }
 #endif // ARCHON_DISPLAY_HAVE_X11_XRANDR
 
+    auto get_keysym = [&](KeyCode keycode) noexcept -> KeySym {
+        // Map key code to a keyboard independent symbol identifier (in general the symbol
+        // in the upper left corner on the corresponding key). See also
+        // https://tronche.com/gui/x/xlib/input/keyboard-encoding.html.
+        KeySym keysym = XkbKeycodeToKeysym(display, keycode, XkbGroup1Index, 0);
+        ARCHON_ASSERT(keysym != NoSymbol);
+        return keysym;
+    };
+
+    auto get_key_name = [&](KeySym keysym) -> std::string_view {
+        // XKeysymToString() returns a string consisting entirely of characters from the X
+        // Portable Character Set. Since all locales, that are compatible with Xlib, agree
+        // on the encoding of characters in this character set, and since we assume that the
+        // selected locale is compatible with Xlib, we can assume that the returned string
+        // is valid in the selected locale.
+        return XKeysymToString(keysym);
+    };
+
     // Event loop
     XMapWindow(display, window);
+    bool expect_keymap_notify = false;
+    std::vector<std::string_view> key_names;
     for (;;) {
         bool redraw = false;
         XEvent ev;
@@ -1294,6 +1335,9 @@ int main(int argc, char* argv[])
                 break;
             for (int i = 0; i < n; ++i) {
                 XNextEvent(display, &ev);
+                bool expect_keymap_notify_2 = expect_keymap_notify;
+                expect_keymap_notify = false;
+                ARCHON_ASSERT(!expect_keymap_notify_2 || ev.type == KeymapNotify);
                 switch (ev.type) {
                     case ConfigureNotify:
                         if (ev.xconfigure.window == window) {
@@ -1331,17 +1375,8 @@ int main(int argc, char* argv[])
                     case KeyPress:
                     case KeyRelease:
                         if (ev.xkey.window == window) {
-                            // Map key code to a keyboard independent symbol identifier (in
-                            // general the symbol in the upper left corner on the
-                            // corresponding key)
-                            KeySym keysym = XkbKeycodeToKeysym(display, ev.xkey.keycode, XkbGroup1Index, 0);
-                            // XKeysymToString() returns a string consisting entirely of
-                            // characters from the X Portable Character Set. Since all
-                            // locales, that are compatible with Xlib, agree on the encoding
-                            // of characters in this character set, and since we assume that
-                            // the selected locale is compatible with Xlib, we can assume
-                            // that the returned string is valid in the selected locale.
-                            std::string key_name = std::string(XKeysymToString(keysym)); // Throws
+                            KeySym keysym = get_keysym(ev.xkey.keycode);
+                            std::string_view key_name = get_key_name(keysym); // Throws
                             if (ev.type == KeyPress) {
                                 logger.info("KEY DOWN: %s", key_name); // Throws
                                 if (keysym == XK_Escape)
@@ -1352,15 +1387,39 @@ int main(int argc, char* argv[])
                             }
                         }
                         break;
+                    case KeymapNotify:
+                        // Note: For some unclear reason, `ev.xkeymap.window` does not
+                        // specify the target window like it does for other types of
+                        // events. Instead, one can rely on `KeymapNotify` to be generated
+                        // immadiately after every `FocusIn` event, so this provides an
+                        // implict target window.
+                        if (expect_keymap_notify_2) {
+                            key_names.clear();
+                            // X11 key codes lie in the inclusive range [8,255]
+                            for (int i = 8; i < 256; ++i) {
+                                using uchar = unsigned char;
+                                bool pressed = ((int(uchar(ev.xkeymap.key_vector[i / 8])) & (1 << (i % 8))) != 0);
+                                if (ARCHON_LIKELY(!pressed))
+                                    continue;
+                                KeySym keysym = get_keysym(KeyCode(i));
+                                std::string_view key_name = get_key_name(keysym); // Throws
+                                key_names.push_back(key_name); // Throws
+                            }
+                            logger.info("KEYMAP: %s", core::as_sbr_list(key_names)); // Throws
+                        }
+                        break;
                     case EnterNotify:
                     case LeaveNotify:
                         if (ev.xcrossing.window == window)
-                            logger.info(ev.type == EnterNotify ? "MOUSE OVER" : "MOUSE OUT");
+                            logger.info(ev.type == EnterNotify ? "MOUSE OVER" : "MOUSE OUT"); // Throws
                         break;
                     case FocusIn:
                     case FocusOut:
-                        if (ev.xfocus.window == window)
-                            logger.info(ev.type == FocusIn ? "FOCUS" : "BLUR");
+                        if (ev.xfocus.window == window) {
+                            logger.info(ev.type == FocusIn ? "FOCUS" : "BLUR"); // Throws
+                            if (ev.type == FocusIn)
+                                expect_keymap_notify = true;
+                        }
                         break;
                     case ClientMessage: {
                         bool is_close = (ev.xclient.window == window && ev.xclient.format == 32 &&
