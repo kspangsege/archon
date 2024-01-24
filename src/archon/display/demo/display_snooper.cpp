@@ -82,6 +82,12 @@ public:
         return true;
     }
 
+    bool on_keyrepeat(const display::KeyEvent& ev) override final
+    {
+        m_logger.info("KEY REPEAT: %s", display::as_key_name (ev.key_code, m_conn)); // Throws
+        return true;
+    }
+
     bool on_mousedown(const display::MouseButtonEvent& ev) override final
     {
         m_logger.info("MOUSE DOWN: %s", ev.button); // Throws

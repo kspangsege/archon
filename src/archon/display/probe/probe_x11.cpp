@@ -1415,11 +1415,10 @@ int main(int argc, char* argv[])
                         break;
                     case FocusIn:
                     case FocusOut:
-                        if (ev.xfocus.window == window) {
+                        if (ev.type == FocusIn)
+                            expect_keymap_notify = true;
+                        if (ev.xfocus.window == window)
                             logger.info(ev.type == FocusIn ? "FOCUS" : "BLUR"); // Throws
-                            if (ev.type == FocusIn)
-                                expect_keymap_notify = true;
-                        }
                         break;
                     case ClientMessage: {
                         bool is_close = (ev.xclient.window == window && ev.xclient.format == 32 &&

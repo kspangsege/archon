@@ -39,6 +39,12 @@ bool WindowEventHandler::on_keyup(const display::KeyEvent&)
 }
 
 
+bool WindowEventHandler::on_keyrepeat(const display::KeyEvent&)
+{
+    return true; // Do not interrupt event processing
+}
+
+
 bool WindowEventHandler::on_mousedown(const display::MouseButtonEvent&)
 {
     return true; // Do not interrupt event processing

@@ -22,6 +22,7 @@
                                             
 #include <cerrno>
 #include <cstdlib>
+#include <algorithm>
 #include <memory>
 #include <utility>
 #include <string_view>
@@ -117,11 +118,53 @@ constexpr std::string_view g_implementation_ident = "x11";
 #if HAVE_X11
 
 
-class WindowImpl;
+// Compatible with XKeymapEvent::key_vector
+class X11KeyCodeSet {
+public:
+    void assign(const char* bytes) noexcept
+    {
+        std::copy_n(bytes, 32, m_bytes);
+    }
 
+    bool contains(KeyCode keycode) const noexcept
+    {
+        ARCHON_ASSERT(core::int_greater_equal(keycode, 0) && core::int_less_equal(keycode, 255));
+        int i = int(keycode);
+        return ((byte(i) & bit(i)) != 0);
+    }
 
-bool map_key(display::KeyCode, display::Key&) noexcept;
-bool rev_map_key(display::Key, display::KeyCode&) noexcept;
+    void add(KeyCode keycode) noexcept
+    {
+        ARCHON_ASSERT(core::int_greater_equal(keycode, 0) && core::int_less_equal(keycode, 255));
+        int i = int(keycode);
+        byte(i) |= bit(i);
+    }
+
+    void remove(KeyCode keycode) noexcept
+    {
+        ARCHON_ASSERT(core::int_greater_equal(keycode, 0) && core::int_less_equal(keycode, 255));
+        int i = int(keycode);
+        byte(i) &= ~bit(i);
+    }
+
+private:
+    char m_bytes[32] = {};
+
+    auto byte(int i) const noexcept -> const unsigned char&
+    {
+        return reinterpret_cast<const unsigned char*>(m_bytes)[i / 8];
+    }
+
+    auto byte(int i) noexcept -> unsigned char&
+    {
+        return reinterpret_cast<unsigned char*>(m_bytes)[i / 8];
+    }
+
+    static int bit(int i) noexcept
+    {
+        return 1 << (i % 8);
+    }
+};
 
 
 struct X11Screen {
@@ -131,6 +174,13 @@ struct X11Screen {
     Window root = {};
     Colormap colormap = {};
 };
+
+
+bool map_key(display::KeyCode, display::Key&) noexcept;
+bool rev_map_key(display::Key, display::KeyCode&) noexcept;
+
+
+class WindowImpl;
 
 
 class ImplementationImpl
@@ -206,10 +256,14 @@ private:
     bool m_have_xrender = false; // X Rendering Extension
 
     bool m_detectable_autorepeat_enabled = false;
+    bool m_expect_keymap_notify = false;
+    bool m_have_curr_window = false;
 
     int m_xrandr_event_base = 0;
 
     std::unique_ptr<X11Screen[]> m_x11_screens;
+
+    X11KeyCodeSet m_pressed_keys;
 
     core::FlatMap<::Window, WindowImpl&> m_windows;
 
@@ -236,7 +290,6 @@ private:
     // (register_window()). This takes care of the case where a new window reuses the ID
     // specified by `m_curr_window_id`.
     //
-    bool m_have_curr_window = false;
     ::Window m_curr_window_id = {};
     WindowImpl* m_curr_window = nullptr;
 
@@ -718,6 +771,7 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
 
     XEvent ev;
     timestamp_unwrapper_type::Session unwrap_session(m_timestamp_unwrapper);
+    bool expect_keymap_notify;
 
   process_1:
     if (ARCHON_LIKELY(m_num_events > 0))
@@ -727,6 +781,9 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
   process_2:
     XNextEvent(dpy, &ev);
     --m_num_events;
+    expect_keymap_notify = m_expect_keymap_notify;
+    m_expect_keymap_notify = false;
+    ARCHON_ASSERT(!expect_keymap_notify || ev.type == KeymapNotify);
     switch (ev.type) {
         case ConfigureNotify: {
             WindowImpl* window = lookup_window(ev.xconfigure.window);
@@ -774,6 +831,20 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
         case KeyRelease: {
             WindowImpl* window = lookup_window(ev.xkey.window);
             if (ARCHON_LIKELY(window)) {
+                // FIXME: Manually handle detection of key repetition when "detectable auto-repeat" feature is unavailable                   
+                bool is_repetition = false;
+                if (ev.type == KeyPress) {
+                    if (!m_pressed_keys.contains(ev.xkey.keycode)) {
+                        m_pressed_keys.add(ev.xkey.keycode);
+                    }
+                    else {
+                        is_repetition = true;
+                    }
+                }
+                else {
+                    ARCHON_ASSERT(m_pressed_keys.contains(ev.xkey.keycode));
+                    m_pressed_keys.remove(ev.xkey.keycode);
+                }
                 // Map key code to a keyboard independent symbol identifier (in general the
                 // symbol in the upper left corner on the corresponding key). See also
                 // https://tronche.com/gui/x/xlib/input/keyboard-encoding.html.
@@ -787,7 +858,12 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
                 event.key_code = { display::KeyCode::code_type(keysym) };
                 bool proceed;
                 if (ev.type == KeyPress) {
-                    proceed = window->event_handler.on_keydown(event); // Throws
+                    if (ARCHON_LIKELY(!is_repetition)) {
+                        proceed = window->event_handler.on_keydown(event); // Throws
+                    }
+                    else {
+                        proceed = window->event_handler.on_keyrepeat(event); // Throws
+                    }
                 }
                 else {
                     proceed = window->event_handler.on_keyup(event); // Throws
@@ -796,6 +872,16 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
                     break;
                 return false; // Interrupt
             }
+            break;
+        }
+
+        case KeymapNotify: {
+            // Note: For some unclear reason, `ev.xkeymap.window` does not specify the
+            // target window like it does for other types of events. Instead, one can rely
+            // on `KeymapNotify` to be generated immadiately after every `FocusIn` event, so
+            // this provides an implict target window.
+            if (expect_keymap_notify)
+                m_pressed_keys.assign(ev.xkeymap.key_vector);
             break;
         }
 
@@ -822,6 +908,8 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
 
         case FocusIn:
         case FocusOut: {
+            if (ev.type == FocusIn)
+                m_expect_keymap_notify = true;
             WindowImpl* window = lookup_window(ev.xfocus.window);
             if (ARCHON_LIKELY(window)) {
                 display::WindowEvent event;
@@ -994,7 +1082,8 @@ void WindowImpl::create(display::Size size, const Config& config)
                              EnterWindowMask | LeaveWindowMask |
                              FocusChangeMask |
                              ExposureMask |
-                             StructureNotifyMask);
+                             StructureNotifyMask |
+                             KeymapStateMask);
     attributes.colormap = screen.colormap;
     win = XCreateWindow(conn.dpy, parent, x, y, width, height, border_width, depth, class_, visual,
                         valuemask, &attributes);

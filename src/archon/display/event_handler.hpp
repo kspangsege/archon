@@ -52,14 +52,16 @@ public:
     ///
     /// \brief A key was pressed down or released.
     ///
-    /// These functions are called when the "key down" or "key up" events are generated. The
-    /// targeted event handler object is the window's associated window handler (see \ref
-    /// display::Connection::new_window()).
+    /// These functions are called when the "key down", "key up", or "key repeat" events are
+    /// generated. The targeted event handler object is the window's associated window
+    /// handler (see \ref display::Connection::new_window()).
     ///
     /// A "key down" event is generated for a particular window when a key is pressed down
     /// while that window has input focus (see \ref on_focus()). Likewise, a "key up" event
     /// is generated for a particular window when a key is released while that window has
-    /// input focus.
+    /// input focus. A "key repeat" event is generated when a key repeats automatically,
+    /// i.e., after having been held down for a short while. One "key repeat" is generated
+    /// for each key repetition.
     ///
     /// FIXME: Verify above claims on macOS and Windows platforms                            
     ///
@@ -75,17 +77,17 @@ public:
     /// any "key up" event that does not correspond to a pressed down key according to its
     /// own record of pressed down keys.
     ///
-    /// FIXME: Talk about repeating keys                                                                                          
-    ///
     /// The default implementations of these functions do nothing other than return `true`.
     ///
     /// \sa \ref on_keydown()
     /// \sa \ref on_keyup()
+    /// \sa \ref on_keyrepeat()
     /// \sa \ref on_mousedown()
     /// \sa \ref on_focus()
     ///
     virtual bool on_keydown(const display::KeyEvent&);
     virtual bool on_keyup(const display::KeyEvent&);
+    virtual bool on_keyrepeat(const display::KeyEvent&);
     /// \}
 
     /// \{

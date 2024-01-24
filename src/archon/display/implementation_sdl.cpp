@@ -554,24 +554,27 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
         }
         case SDL_KEYDOWN:
         case SDL_KEYUP: {
-            if (ARCHON_LIKELY(event.key.repeat == 0)) {
-                const WindowImpl* window = lookup_window(event.key.windowID);
-                if (ARCHON_LIKELY(window)) {
-                    display::KeyEvent event_2;
-                    event_2.cookie = window->cookie;
-                    event_2.timestamp = unwrap_session.unwrap_next_timestamp(event.key.timestamp); // Throws
-                    event_2.key_code = { display::KeyCode::code_type(event.key.keysym.sym) };
-                    bool proceed;
-                    if (event.type == SDL_KEYDOWN) {
+            const WindowImpl* window = lookup_window(event.key.windowID);
+            if (ARCHON_LIKELY(window)) {
+                display::KeyEvent event_2;
+                event_2.cookie = window->cookie;
+                event_2.timestamp = unwrap_session.unwrap_next_timestamp(event.key.timestamp); // Throws
+                event_2.key_code = { display::KeyCode::code_type(event.key.keysym.sym) };
+                bool proceed;
+                if (event.type == SDL_KEYDOWN) {
+                    if (ARCHON_LIKELY(event.key.repeat == 0)) {
                         proceed = window->event_handler.on_keydown(event_2); // Throws
                     }
                     else {
-                        proceed = window->event_handler.on_keyup(event_2); // Throws
+                        proceed = window->event_handler.on_keyrepeat(event_2); // Throws
                     }
-                    if (ARCHON_LIKELY(proceed))
-                        break;
-                    return false; // Interrupt
                 }
+                else {
+                    proceed = window->event_handler.on_keyup(event_2); // Throws
+                }
+                if (ARCHON_LIKELY(proceed))
+                    break;
+                return false; // Interrupt
             }
             break;
         }
