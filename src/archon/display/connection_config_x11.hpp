@@ -78,6 +78,20 @@ struct ConnectionConfigX11 {
     ///
     bool disable_double_buffering = false;
 
+    /// \brief Disable use of "detectable auto-repeat" mode.
+    ///
+    /// The X Keyboard Extension makes a so-called "detectable auto-repeat" mode
+    /// conditionally available. By default, "detectable auto-repeat" mode is turned on when
+    /// possible. If `disable_detectable_autorepeat` is set to `true`, this mode will not be
+    /// turned on, even when it can be. When "detectable auto-repeat" mode is **not** turned
+    /// on, either because it is unavailable or because it is disabled by
+    /// `disable_detectable_autorepeat`, a "poor man's" fall-back mechanism is used for
+    /// detecting when key events are caused by key repetition.
+    ///
+    /// This flag exists primarily for debugging purposes.
+    ///
+    bool disable_detectable_autorepeat = false;
+
     /// \brief Turn on synchronous mode on X11 connection.
     ///
     /// If set to `true`, *synchronous mode* will be turned on for the X11 connection to be

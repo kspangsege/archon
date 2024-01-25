@@ -469,7 +469,7 @@ void ConnectionImpl::open(const display::ConnectionConfigX11& config)
             throw std::runtime_error("X Keyboard Extension is required but not available");
     }
 
-    {
+    if (!config.disable_detectable_autorepeat) {
         Bool detectable = True;
         Bool supported = {};
         XkbSetDetectableAutoRepeat(dpy, detectable, &supported);
@@ -754,7 +754,7 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
     //   there are unflushed commands.
     //
     // - XEventsQueued() must be called immediately before waiting (poll()) to ensure that
-    //   there are no events that are already queued (must be called after Xflush()).
+    //   there are no events that are already queued (must be called after XFlush()).
     //
     // - There must be no way for the execution of WindowEventHandler::on_expose() and
     //   ConnectionEventHandler::before_sleep() to be starved indefinitely by event
@@ -769,7 +769,7 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
     display::ConnectionEventHandler& connection_event_handler_2 =
         (connection_event_handler ? *connection_event_handler : *this);
 
-    XEvent ev;
+    XEvent ev = {};
     timestamp_unwrapper_type::Session unwrap_session(m_timestamp_unwrapper);
     bool expect_keymap_notify;
 
@@ -779,6 +779,7 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
     goto post;
 
   process_2:
+    ARCHON_ASSERT(m_num_events > 0);
     XNextEvent(dpy, &ev);
     --m_num_events;
     expect_keymap_notify = m_expect_keymap_notify;
@@ -831,19 +832,54 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
         case KeyRelease: {
             WindowImpl* window = lookup_window(ev.xkey.window);
             if (ARCHON_LIKELY(window)) {
-                // FIXME: Manually handle detection of key repetition when "detectable auto-repeat" feature is unavailable                   
+                using timestamp_type = display::TimedWindowEvent::Timestamp;
+                timestamp_type timestamp = unwrap_session.unwrap_next_timestamp(ev.xkey.time); // Throws
                 bool is_repetition = false;
-                if (ev.type == KeyPress) {
-                    if (!m_pressed_keys.contains(ev.xkey.keycode)) {
-                        m_pressed_keys.add(ev.xkey.keycode);
+                if (ARCHON_LIKELY(m_detectable_autorepeat_enabled)) {
+                    if (ev.type == KeyPress) {
+                        if (!m_pressed_keys.contains(ev.xkey.keycode)) {
+                            m_pressed_keys.add(ev.xkey.keycode);
+                        }
+                        else {
+                            is_repetition = true;
+                        }
                     }
                     else {
-                        is_repetition = true;
+                        ARCHON_ASSERT(m_pressed_keys.contains(ev.xkey.keycode));
+                        m_pressed_keys.remove(ev.xkey.keycode);
                     }
                 }
                 else {
-                    ARCHON_ASSERT(m_pressed_keys.contains(ev.xkey.keycode));
-                    m_pressed_keys.remove(ev.xkey.keycode);
+                    // FIXME: Explain what is going on below                             
+                    if (ev.type == KeyPress) {
+                        ARCHON_ASSERT(!m_pressed_keys.contains(ev.xkey.keycode));
+                        m_pressed_keys.add(ev.xkey.keycode);
+                    }
+                    else {
+                        ARCHON_ASSERT(m_pressed_keys.contains(ev.xkey.keycode));
+                        if (m_num_events == 0) {
+                            int n = XEventsQueued(dpy, QueuedAfterReading);  // Non-blocking
+                            if (n > 0)
+                                m_num_events = 1;
+                        }
+                        if (m_num_events > 0) {
+                            XEvent ev_2 = {};
+                            XPeekEvent(dpy, &ev_2);
+                            if (ev_2.type == KeyPress && ev_2.xkey.keycode == ev.xkey.keycode) {
+                                ARCHON_ASSERT(ev_2.xkey.window == ev.xkey.window);
+                                timestamp_type timestamp_2 =
+                                    unwrap_session.unwrap_next_timestamp(ev_2.xkey.time); // Throws
+                                ARCHON_ASSERT(timestamp_2 >= timestamp);
+                                if ((timestamp_2 - timestamp).count() <= 1) {
+                                    XNextEvent(dpy, &ev);
+                                    --m_num_events;
+                                    is_repetition = true;
+                                }
+                            }
+                        }
+                        if (!is_repetition)
+                            m_pressed_keys.remove(ev.xkey.keycode);
+                    }
                 }
                 // Map key code to a keyboard independent symbol identifier (in general the
                 // symbol in the upper left corner on the corresponding key). See also
@@ -878,8 +914,8 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
         case KeymapNotify: {
             // Note: For some unclear reason, `ev.xkeymap.window` does not specify the
             // target window like it does for other types of events. Instead, one can rely
-            // on `KeymapNotify` to be generated immadiately after every `FocusIn` event, so
-            // this provides an implict target window.
+            // on `KeymapNotify` to be generated immediately after every `FocusIn` event, so
+            // this provides an implicit target window.
             if (expect_keymap_notify)
                 m_pressed_keys.assign(ev.xkeymap.key_vector);
             break;

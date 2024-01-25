@@ -389,6 +389,7 @@ int main(int argc, char* argv[])
     bool disable_detectable_autorepeat = false;
     std::optional<display::Pos> optional_pos;
     log::LogLevel log_level_limit = log::LogLevel::warn;
+    bool use_synchronous_mode = false;
 
     cli::Spec spec;
     pat("[<path>]", cli::no_attributes, spec,
@@ -404,7 +405,7 @@ int main(int argc, char* argv[])
         std::tie(optional_depth)); // Throws
 
     opt("-v, --visual", "<hex>", cli::no_attributes, spec,
-        "Specify the hexadeciaml ID of the X11 visual to be used (see command `xdpyinfo`). If no visual ID is "
+        "Specify the hexadecimal ID of the X11 visual to be used (see command `xdpyinfo`). If no visual ID is "
         "specified, the default visual for the targeted screen will be used.",
         cli::exec([&](std::string_view str) {
             core::ValueParser parser(locale);
@@ -447,6 +448,12 @@ int main(int argc, char* argv[])
         "Set the log level limit. The possible levels are \"off\", \"fatal\", \"error\", \"warn\", \"info\", "
         "\"detail\", \"debug\", \"trace\", and \"all\". The default limit is \"@V\".",
         std::tie(log_level_limit)); // Throws
+
+    opt("-s, --use-synchronous-mode", "", cli::no_attributes, spec,
+        "Turn on X11's synchronous mode. In this mode, buffering of X protocol requests is turned off, and the Xlib "
+        "functions, that generate X requests, wait for a response from the server before they return. This is "
+        "sometimes useful when debugging.",
+        cli::raise_flag(use_synchronous_mode)); // Throws
 
     int exit_status = 0;
     if (ARCHON_UNLIKELY(cli::process(argc, argv, spec, exit_status, locale))) // Throws
@@ -503,6 +510,9 @@ int main(int argc, char* argv[])
     int screen = DefaultScreen(display);
     Window root = RootWindow(display, screen);
     unsigned long black = BlackPixel(display, screen);
+
+    if (ARCHON_UNLIKELY(use_synchronous_mode))
+        XSynchronize(display, True);
 
 #if ARCHON_DISPLAY_HAVE_X11_XDBE
     int have_xdbe = false;
@@ -747,7 +757,7 @@ int main(int argc, char* argv[])
     logger.info("Image byte order:                   %s",
                 (ImageByteOrder(display) == LSBFirst ? "little-endian" : "big-endian")); // Throws
     logger.info("Bitmap bit order:                   %s",
-                (BitmapBitOrder(display) == LSBFirst ? "least signitfiant bit first" :
+                (BitmapBitOrder(display) == LSBFirst ? "least significant bit first" :
                  "most significant bit first")); // Throws
     logger.info("Bitmap scanline pad:                %s", core::as_int(BitmapPad(display))); // Throws
     logger.info("Bitmap scanline unit:               %s", core::as_int(BitmapUnit(display))); // Throws
@@ -1078,8 +1088,8 @@ int main(int argc, char* argv[])
         // Xlib requires that depth of image matches depth of pixmap. X11 requires that
         // depth of pixmap matches depth of target window (during XCopyArea()). Only ZPixmap
         // format is relevant. With ZPixmap, image data is ordered by pixel rather than by
-        // bit-plane, and each scanline unit (word) holds one or more pixels. ZPixamp format
-        // supports depths of any offered visual. XPutIamge() can handle byte swapping and
+        // bit-plane, and each scanline unit (word) holds one or more pixels. ZPixmap format
+        // supports depths of any offered visual. XPutImage() can handle byte swapping and
         // changes in row alignment (`scanline_pad` / `bitmap_pad`).
         int scanline_pad = bits_per_pixel;
         XImage img_3;
@@ -1291,7 +1301,7 @@ int main(int argc, char* argv[])
         std::size_t n = screens.size();
         for (std::size_t i = 0; i < n; ++i) {
             const display::Screen& screen = screens[i];
-            logger.info("Screen %s/%s: ouput_name=%s, bounds=%s, resolution=%s, refresh_rate=%s", i + 1, n,
+            logger.info("Screen %s/%s: output_name=%s, bounds=%s, resolution=%s, refresh_rate=%s", i + 1, n,
                         core::quoted(screen.output_name), screen.bounds,
                         core::as_optional(screen.resolution, "unknown"),
                         core::as_optional(screen.refresh_rate, "unknown")); // Throws
@@ -1327,7 +1337,7 @@ int main(int argc, char* argv[])
     std::vector<std::string_view> key_names;
     for (;;) {
         bool redraw = false;
-        XEvent ev;
+        XEvent ev = {};
         XPeekEvent(display, &ev);
         for (;;) {
             int n = XEventsQueued(display, QueuedAfterReading);
@@ -1391,8 +1401,8 @@ int main(int argc, char* argv[])
                         // Note: For some unclear reason, `ev.xkeymap.window` does not
                         // specify the target window like it does for other types of
                         // events. Instead, one can rely on `KeymapNotify` to be generated
-                        // immadiately after every `FocusIn` event, so this provides an
-                        // implict target window.
+                        // immediately after every `FocusIn` event, so this provides an
+                        // implicit target window.
                         if (expect_keymap_notify_2) {
                             key_names.clear();
                             // X11 key codes lie in the inclusive range [8,255]

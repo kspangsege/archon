@@ -187,6 +187,9 @@ int main(int argc, char* argv[])
     bool list_display_implementations = false;
     log::LogLevel log_level_limit = log::LogLevel::info;
     std::optional<std::string> optional_display_implementation;
+    bool disable_double_buffering = false;
+    bool disable_detectable_autorepeat = false;
+    bool use_synchronous_mode = false;
 
     cli::Spec spec;
     pat("", cli::no_attributes, spec,
@@ -212,6 +215,23 @@ int main(int argc, char* argv[])
         "are available. It is possible that no implementations are available. By default, if any implementations are "
         "available, the one, that is listed first by `--list-display-implementations`, is used.",
         cli::assign(optional_display_implementation)); // Throws
+
+    opt("-D, --disable-double-buffering", "", cli::no_attributes, spec,
+        "When using the X11-based display implementation, disable use of double buffering, even when the selected "
+        "visual supports double buffering.",
+        cli::raise_flag(disable_double_buffering)); // Throws
+
+    opt("-A, --disable-detectable-autorepeat", "", cli::no_attributes, spec,
+        "When using the X11-based display implementation, do not turn on \"detectable auto-repeat\" mode, as it is "
+        "offered by the X Keyboard Extension, even when it can be turned on. Instead, rely on the fall-back detection "
+        "mechanism.",
+        cli::raise_flag(disable_detectable_autorepeat)); // Throws
+
+    opt("-s, --use-synchronous-mode", "", cli::no_attributes, spec,
+        "When using the X11-based display implementation, turn on X11's synchronous mode. In this mode, buffering of "
+        "X protocol requests is turned off, and the Xlib functions, that generate X requests, wait for a response "
+        "from the server before they return. This is sometimes useful when debugging.",
+        cli::raise_flag(use_synchronous_mode)); // Throws
 
     int exit_status = 0;
     if (ARCHON_UNLIKELY(cli::process(argc, argv, spec, exit_status, locale))) // Throws
@@ -274,7 +294,11 @@ int main(int argc, char* argv[])
         }
     }
 
-    std::unique_ptr<display::Connection> conn = impl->new_connection(locale); // Throws
+    display::Connection::Config connection_config;
+    connection_config.x11.disable_double_buffering = disable_double_buffering;
+    connection_config.x11.disable_detectable_autorepeat = disable_detectable_autorepeat;
+    connection_config.x11.synchronous_mode = use_synchronous_mode;
+    std::unique_ptr<display::Connection> conn = impl->new_connection(locale, connection_config); // Throws
     int display = conn->get_default_display();
     logger.info("Number of displays: %s", conn->get_num_displays()); // Throws
     logger.info("Default display:    %s", display); // Throws
@@ -285,7 +309,7 @@ int main(int argc, char* argv[])
         if (conn->try_get_display_conf(display, screens, strings, num_screens)) {
             for (std::size_t i = 0; i < num_screens; ++i) {
                 const display::Screen& screen = screens[i];
-                logger.info("Screen %s/%s: ouput_name=%s, bounds=%s, resolution=%s, refresh_rate=%s", i + 1,
+                logger.info("Screen %s/%s: output_name=%s, bounds=%s, resolution=%s, refresh_rate=%s", i + 1,
                             num_screens, core::quoted(screen.output_name), screen.bounds,
                             core::as_optional(screen.resolution, "unknown"),
                             core::as_optional(screen.refresh_rate, "unknown")); // Throws
@@ -295,11 +319,11 @@ int main(int argc, char* argv[])
 
     EventLoop event_loop(*conn, logger);
     display::Size size = 256;
-    display::Window::Config config;
-    config.resizable = true;
-    config.minimum_size = 128;
+    display::Window::Config window_config;
+    window_config.resizable = true;
+    window_config.minimum_size = 128;
     std::unique_ptr<display::Window> win =
-        conn->new_window(display, "Archon Display Snooper", size, event_loop, config); // Throws
+        conn->new_window(display, "Archon Display Snooper", size, event_loop, window_config); // Throws
     win->show(); // Throws
     event_loop.set_window(std::move(win));
     event_loop.process_events(); // Throws
