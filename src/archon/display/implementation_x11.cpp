@@ -850,7 +850,14 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
                     }
                 }
                 else {
-                    // FIXME: Explain what is going on below                             
+                    // When "detectable auto-repeat" mode was not enabled, we need to use a
+                    // fall-back detection mechanism, which works as follows: On "key up",
+                    // if the next event is "key down" for the same key and at almost the
+                    // same time, consider the pair to be caused by key repetition. This
+                    // scheme assumes that the second "key down" event is immediately
+                    // available, i.e., without having to block. This assumption appears to
+                    // hold in practice, but it could conceivably fail, in which case the
+                    // pair will be treated as genuine "key up" and "key down" events.
                     if (ev.type == KeyPress) {
                         ARCHON_ASSERT(!m_pressed_keys.contains(ev.xkey.keycode));
                         m_pressed_keys.add(ev.xkey.keycode);
