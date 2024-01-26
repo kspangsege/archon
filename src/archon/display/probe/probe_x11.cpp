@@ -1382,19 +1382,20 @@ int main(int argc, char* argv[])
                         if (ev.xexpose.window == window)
                             redraw = true;
                         break;
-                    case KeyPress:
+                    case ButtonPress:
+                    case ButtonRelease:
+                        if (ev.xbutton.window == window)
+                            logger.info((ev.type == ButtonPress ? "BUTTON DOWN: %s" : "BUTTON UP: %s"),
+                                        ev.xbutton.button); // Throws
+                        break;
+                   case KeyPress:
                     case KeyRelease:
                         if (ev.xkey.window == window) {
                             KeySym keysym = get_keysym(ev.xkey.keycode);
                             std::string_view key_name = get_key_name(keysym); // Throws
-                            if (ev.type == KeyPress) {
-                                logger.info("KEY DOWN: %s", key_name); // Throws
-                                if (keysym == XK_Escape)
-                                    goto quit;
-                            }
-                            else {
-                                logger.info("KEY UP: %s", key_name); // Throws
-                            }
+                            logger.info((ev.type == KeyPress ? "KEY DOWN: %s" : "KEY UP: %s"), key_name); // Throws
+                            if (ev.type == KeyPress && keysym == XK_Escape)
+                                goto quit;
                         }
                         break;
                     case KeymapNotify:

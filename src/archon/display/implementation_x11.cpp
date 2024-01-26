@@ -36,7 +36,9 @@
 #include <archon/core/format.hpp>
 #include <archon/core/quote.hpp>
 #include <archon/core/platform_support.hpp>
+#include <archon/math/vector.hpp>
 #include <archon/display/impl/config.h>
+#include <archon/display/mouse_button.hpp>
 #include <archon/display/noinst/timestamp_unwrapper.hpp>
 #include <archon/display/implementation.hpp>
 #include <archon/display/implementation_x11.hpp>
@@ -178,6 +180,9 @@ struct X11Screen {
 
 bool map_key(display::KeyCode, display::Key&) noexcept;
 bool rev_map_key(display::Key, display::KeyCode&) noexcept;
+
+bool try_map_mouse_button(unsigned x11_button, bool& is_scroll, display::MouseButton& button,
+                          math::Vector2F& amount) noexcept;
 
 
 class WindowImpl;
@@ -828,6 +833,43 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
             break;
         }
 
+        case ButtonPress:
+        case ButtonRelease: {
+            WindowImpl* window = lookup_window(ev.xbutton.window);
+            bool is_scroll = {};
+            display::MouseButton button = {};
+            math::Vector2F amount;
+            if (ARCHON_LIKELY(window && try_map_mouse_button(ev.xbutton.button, is_scroll, button, amount))) {
+                if (ARCHON_LIKELY(is_scroll)) {
+                    display::ScrollEvent event;
+                    event.cookie = window->cookie;
+                    event.timestamp = unwrap_session.unwrap_next_timestamp(ev.xbutton.time); // Throws
+                    event.amount = amount;
+                    bool proceed = window->event_handler.on_scroll(event); // Throws
+                    if (ARCHON_LIKELY(proceed))
+                        break;
+                    return false; // Interrupt
+                }
+                else {
+                    display::MouseButtonEvent event;
+                    event.cookie = window->cookie;
+                    event.timestamp = unwrap_session.unwrap_next_timestamp(ev.xbutton.time); // Throws
+                    event.button = button;
+                    bool proceed;
+                    if (ev.type == ButtonPress) {
+                        proceed = window->event_handler.on_mousedown(event); // Throws
+                    }
+                    else {
+                        proceed = window->event_handler.on_mouseup(event); // Throws
+                    }
+                    if (ARCHON_LIKELY(proceed))
+                        break;
+                    return false; // Interrupt
+                }
+            }
+            break;
+        }
+
         case KeyPress:
         case KeyRelease: {
             WindowImpl* window = lookup_window(ev.xkey.window);
@@ -879,6 +921,7 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
                                 ARCHON_ASSERT(timestamp_2 >= timestamp);
                                 if ((timestamp_2 - timestamp).count() <= 1) {
                                     XNextEvent(dpy, &ev);
+                                    timestamp = timestamp_2;
                                     --m_num_events;
                                     is_repetition = true;
                                 }
@@ -897,7 +940,7 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
                 ARCHON_ASSERT(keysym != NoSymbol);
                 display::KeyEvent event;
                 event.cookie = window->cookie;
-                event.timestamp = unwrap_session.unwrap_next_timestamp(ev.xkey.time); // Throws
+                event.timestamp = timestamp;
                 event.key_code = { display::KeyCode::code_type(keysym) };
                 bool proceed;
                 if (ev.type == KeyPress) {
@@ -1493,6 +1536,51 @@ inline bool rev_map_key(display::Key key, display::KeyCode& key_code) noexcept
     if (ARCHON_LIKELY(g_rev_key_map.find(key, keysym))) {
         key_code = { display::KeyCode::code_type(keysym) };
         return true;
+    }
+    return false;
+}
+
+
+bool try_map_mouse_button(unsigned x11_button, bool& is_scroll, display::MouseButton& button,
+                          math::Vector2F& amount) noexcept
+{
+    switch (x11_button) {
+        case 1:
+            is_scroll = false;
+            button = display::MouseButton::left;
+            return true;
+        case 2:
+            is_scroll = false;
+            button = display::MouseButton::middle;
+            return true;
+        case 3:
+            is_scroll = false;
+            button = display::MouseButton::right;
+            return true;
+        case 4:
+            is_scroll = true;
+            amount = { 0, +1 }; // Scroll up
+            return true;
+        case 5:
+            is_scroll = true;
+            amount = { 0, -1 }; // Scroll down
+            return true;
+        case 6:
+            is_scroll = true;
+            amount = { -1, 0 }; // Scroll left
+            return true;
+        case 7:
+            is_scroll = true;
+            amount = { +1, 0 }; // Scroll right
+            return true;
+        case 8:
+            is_scroll = false;
+            button = display::MouseButton::x1;
+            return true;
+        case 9:
+            is_scroll = false;
+            button = display::MouseButton::x2;
+            return true;
     }
     return false;
 }
