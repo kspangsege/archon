@@ -1384,16 +1384,17 @@ int main(int argc, char* argv[])
                         break;
                     case ButtonPress:
                     case ButtonRelease:
-                        if (ev.xbutton.window == window)
-                            logger.info((ev.type == ButtonPress ? "BUTTON DOWN: %s" : "BUTTON UP: %s"),
-                                        ev.xbutton.button); // Throws
+                        if (ev.xbutton.window == window) {
+                            logger.info("%s: %s, (%s,%s)", (ev.type == ButtonPress ? "BUTTON DOWN" : "BUTTON UP"),
+                                        ev.xbutton.button, ev.xbutton.x, ev.xbutton.y); // Throws
+                        }
                         break;
-                   case KeyPress:
+                    case KeyPress:
                     case KeyRelease:
                         if (ev.xkey.window == window) {
                             KeySym keysym = get_keysym(ev.xkey.keycode);
                             std::string_view key_name = get_key_name(keysym); // Throws
-                            logger.info((ev.type == KeyPress ? "KEY DOWN: %s" : "KEY UP: %s"), key_name); // Throws
+                            logger.info("%s: %s", (ev.type == KeyPress ? "KEY DOWN" : "KEY UP"), key_name); // Throws
                             if (ev.type == KeyPress && keysym == XK_Escape)
                                 goto quit;
                         }

@@ -90,13 +90,13 @@ public:
 
     bool on_mousedown(const display::MouseButtonEvent& ev) override final
     {
-        m_logger.info("MOUSE DOWN: %s", ev.button); // Throws
+        m_logger.info("MOUSE DOWN: %s, (%s)", ev.button, ev.pos); // Throws
         return true;
     }
 
     bool on_mouseup(const display::MouseButtonEvent& ev) override final
     {
-        m_logger.info("MOUSE UP: %s", ev.button); // Throws
+        m_logger.info("MOUSE UP: %s, (%s)", ev.button, ev.pos); // Throws
         return true;
     }
 

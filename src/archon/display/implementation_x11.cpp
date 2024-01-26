@@ -791,6 +791,21 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
     m_expect_keymap_notify = false;
     ARCHON_ASSERT(!expect_keymap_notify || ev.type == KeymapNotify);
     switch (ev.type) {
+        case MotionNotify: {
+            WindowImpl* window = lookup_window(ev.xmotion.window);
+            if (ARCHON_LIKELY(window)) {
+                display::MouseEvent event;
+                event.cookie = window->cookie;
+                event.timestamp = unwrap_session.unwrap_next_timestamp(ev.xmotion.time); // Throws
+                event.pos = { ev.xmotion.x, ev.xmotion.y };
+                bool proceed = window->event_handler.on_mousemove(event); // Throws
+                if (ARCHON_LIKELY(proceed))
+                    break;
+                return false; // Interrupt
+            }
+            break;
+        }
+
         case ConfigureNotify: {
             WindowImpl* window = lookup_window(ev.xconfigure.window);
             if (ARCHON_LIKELY(window)) {
@@ -854,6 +869,7 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
                     display::MouseButtonEvent event;
                     event.cookie = window->cookie;
                     event.timestamp = unwrap_session.unwrap_next_timestamp(ev.xbutton.time); // Throws
+                    event.pos = { ev.xbutton.x, ev.xbutton.y };
                     event.button = button;
                     bool proceed;
                     if (ev.type == ButtonPress) {
