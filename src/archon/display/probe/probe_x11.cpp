@@ -1349,6 +1349,10 @@ int main(int argc, char* argv[])
                 expect_keymap_notify = false;
                 ARCHON_ASSERT(!expect_keymap_notify_2 || ev.type == KeymapNotify);
                 switch (ev.type) {
+                    case MotionNotify:
+                        if (ev.xmotion.window == window)
+                            logger.info("MOUSE MOVE: %s,%s", ev.xmotion.x, ev.xmotion.y); // Throws
+                        break;
                     case ConfigureNotify:
                         if (ev.xconfigure.window == window) {
                             // When there is a window manager, the window manager will
