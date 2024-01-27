@@ -60,22 +60,13 @@ public:
     /// while that window has input focus (see \ref on_focus()). Likewise, a "key up" event
     /// is generated for a particular window when a key is released while that window has
     /// input focus. A "key repeat" event is generated when a key repeats automatically,
-    /// i.e., after having been held down for a short while. One "key repeat" is generated
-    /// for each key repetition.
+    /// i.e., after having been held down for a short while. One "key repeat" event is
+    /// generated for each key repetition.
     ///
     /// FIXME: Verify above claims on macOS and Windows platforms                            
     ///
-    /// It is unspecified what happens if a window looses or gains input focus while keys
-    /// are pressed down. At the time of writing, some implementations (notably SDL) will
-    /// generate "key up" events for certain keys when a window looses input focus while
-    /// those keys are pressed down, and will also generate "key down" events for certain
-    /// keys if they are already pressed down when a window gains focus. Other
-    /// implementations will not do this (notably X11). An application that wants to enforce
-    /// a regime where keys are released when the window looses input focus must keep track
-    /// of pressed keys, and then synthetically generate "key up" events when the window
-    /// looses focus (\ref on_blur()). Such an application will probably also want to ignore
-    /// any "key up" event that does not correspond to a pressed down key according to its
-    /// own record of pressed down keys.
+    /// In some cases, "key up" and "key down" events are generated when windows loose or
+    /// gain input focus while keys are pressed down. See \ref on_focus() for more on this.
     ///
     /// The default implementations of these functions do nothing other than return `true`.
     ///
@@ -213,6 +204,18 @@ public:
     /// FIXME: What about "mouse move" and "scroll" events? It looks like scroll events are generated even when window does not have input focus (SDL). Is that good, or should it be suppressed?                            
     ///
     /// The default implementations of these functions do nothing other than return `true`.
+    ///
+    /// It is unspecified what happens if a window looses or gains input focus while keys                              
+    /// are pressed down. At the time of writing, some implementations (notably SDL) will
+    /// generate "key up" events for certain keys when a window looses input focus while
+    /// those keys are pressed down, and will also generate "key down" events for certain
+    /// keys if they are already pressed down when a window gains focus. Other
+    /// implementations will not do this (notably X11). An application that wants to enforce
+    /// a regime where keys are released when the window looses input focus must keep track
+    /// of pressed keys, and then synthetically generate "key up" events when the window
+    /// looses focus (\ref on_blur()). Such an application will probably also want to ignore
+    /// any "key up" event that does not correspond to a pressed down key according to its
+    /// own record of pressed down keys.
     ///
     /// \sa \ref on_focus()
     /// \sa \ref on_blur()

@@ -379,6 +379,7 @@ int main(int argc, char* argv[])
     std::locale locale("");
 
     namespace fs = std::filesystem;
+    int num_windows = 0;
     std::optional<fs::path> optional_path;
     std::optional<int> optional_depth;
     std::optional<VisualID> optional_visual;
@@ -398,6 +399,10 @@ int main(int argc, char* argv[])
 
     opt(cli::help_tag, spec); // Throws
     opt(cli::stop_tag, spec); // Throws
+
+    opt("-n, --num-windows", "<num>", cli::no_attributes, spec,
+        "The number of windows to be opened. The default number is @V.",
+        std::tie(num_windows)); // Throws
 
     opt("-d, --depth", "<num>", cli::no_attributes, spec,
         "Specify the depth to be used (see command `xdpyinfo`). If no depth is specified, the default depth for the "
@@ -440,7 +445,7 @@ int main(int argc, char* argv[])
         cli::raise_flag(disable_detectable_autorepeat)); // Throws
 
     opt("-p, --pos", "<position>", cli::no_attributes, spec,
-        "Specify the desired position of the window. This may or may not be honored by the window manager. If no "
+        "Specify the desired position of the windows. This may or may not be honored by the window manager. If no "
         "position is specified, the position will be determined by the window manager.",
         std::tie(optional_pos)); // Throws
 
@@ -788,6 +793,149 @@ int main(int argc, char* argv[])
     if (ARCHON_UNLIKELY(!have_xkb))
         throw std::runtime_error("Required X Keyboard Extension is not available");
 
+#if ARCHON_DISPLAY_HAVE_X11_XRANDR
+    std::vector<display::Screen> screens;
+    core::Buffer<char> screens_string_buffer;
+    std::size_t screens_string_buffer_used_size = 0;
+    auto try_update_display_info = [&](bool& changed) -> bool {
+        XRRScreenResources* resources = XRRGetScreenResourcesCurrent(display, root);
+        if (ARCHON_UNLIKELY(!resources))
+            throw std::runtime_error("XRRGetScreenResourcesCurrent() failed");
+        ARCHON_SCOPE_EXIT {
+            XRRFreeScreenResources(resources);
+        };
+        struct Crtc {
+            bool enabled;
+            display::Box bounds;
+            std::optional<double> refresh_rate;
+        };
+        core::FlatMap<RRCrtc, Crtc, 16> crtcs;
+        crtcs.reserve(std::size_t(resources->ncrtc)); // Throws
+        auto ensure_crtc = [&](RRCrtc id) -> const Crtc* {
+            auto i = crtcs.find(id);
+            if (i != crtcs.end())
+                return &i->second;
+            XRRCrtcInfo* info = XRRGetCrtcInfo(display, resources, id);
+            if (ARCHON_UNLIKELY(!info))
+                return nullptr;
+            ARCHON_SCOPE_EXIT {
+                XRRFreeCrtcInfo(info);
+            };
+            bool enabled = (info->mode != None);
+            display::Size size = {};
+            core::int_cast(info->width, size.width); // Throws
+            core::int_cast(info->height, size.height); // Throws
+            display::Box bounds = { display::Pos(info->x, info->y), size };
+            std::optional<double> refresh_rate;
+            if (enabled) {
+                bool found = false;
+                for (int j = 0; j < resources->nmode; ++j) {
+                    const XRRModeInfo& mode = resources->modes[j];
+                    if (ARCHON_LIKELY(mode.id != info->mode))
+                        continue;
+                    found = true;
+                    if (mode.dotClock != 0)
+                        refresh_rate = mode.dotClock / (mode.hTotal * double(mode.vTotal));
+                    break;
+                }
+                ARCHON_ASSERT(found);
+            }
+            ARCHON_STEADY_ASSERT(crtcs.size() < crtcs.capacity());
+            Crtc& crtc =  crtcs[id];
+            crtc = { enabled, bounds, refresh_rate };
+            return &crtc;
+        };
+        core::Vector<display::Screen, 16> new_screens;
+        std::array<char, 16 * 24> strings_seed_memory = {};
+        core::Buffer strings_buffer(strings_seed_memory);
+        core::StringBufferContents strings(strings_buffer);
+        const char* orig_strings_base = strings.data();
+        for (int i = 0; i < resources->noutput; ++i) {
+            RROutput id = resources->outputs[i];
+            XRROutputInfo* info = XRRGetOutputInfo(display, resources, id);
+            if (ARCHON_UNLIKELY(!info))
+                return false;
+            ARCHON_SCOPE_EXIT {
+                XRRFreeOutputInfo(info);
+            };
+            // Note: Treating RR_UnknownConnection same as RR_Connected
+            bool connected = (info->connection != RR_Disconnected);
+            if (!connected || info->crtc == None)
+                continue;
+            const Crtc* crtc = ensure_crtc(info->crtc); // Throws
+            if (ARCHON_UNLIKELY(!crtc))
+                return false;
+            if (!crtc->enabled)
+                continue;
+            std::size_t offset = strings.size();
+            std::size_t size = std::size_t(info->nameLen);
+            strings.append({ info->name, size }); // Throws
+            // The base address is not necessarily correct anymore, but this Will be fixed up later
+            std::string_view output_name = { orig_strings_base + offset, size }; // Throws
+            std::optional<display::Resolution> resolution;
+            if (info->mm_width != 0 && info->mm_height != 0) {
+                double horz_ppcm = crtc->bounds.size.width  / double(info->mm_width)  * 10;
+                double vert_ppcm = crtc->bounds.size.height / double(info->mm_height) * 10;
+                resolution = display::Resolution { horz_ppcm, vert_ppcm };
+            }
+            new_screens.push_back({ output_name, crtc->bounds, resolution, crtc->refresh_rate }); // Throws
+        }
+        {
+            const char* base = strings.data();
+            for (display::Screen& screen : new_screens)
+                core::rebase_string(screen.output_name, orig_strings_base, base); // Throws
+        }
+        if (std::equal(new_screens.begin(), new_screens.end(), screens.begin(), screens.end())) {
+            changed = false;
+            return true;
+        }
+        screens.reserve(new_screens.size()); // Throws
+        screens_string_buffer.reserve_f(strings.size(), screens_string_buffer_used_size, [&](core::Span<char> new_mem) {
+            const char* base_1 = screens_string_buffer.data();
+            const char* base_2 = new_mem.data();
+            for (display::Screen& screen : screens)
+                core::rebase_string(screen.output_name, base_1, base_2); // Throws
+        }); // Throws
+        {
+            const char* base_1 = strings.data();
+            const char* base_2 = screens_string_buffer.data();
+            for (display::Screen& screen : new_screens)
+                core::rebase_string(screen.output_name, base_1, base_2); // Throws
+        }
+        // Non-throwing from here
+        screens.clear();
+        screens.insert(screens.begin(), new_screens.begin(), new_screens.end());
+        std::copy_n(strings.data(), strings.size(), screens_string_buffer.data());
+        screens_string_buffer_used_size = strings.size();
+        changed = true;
+        return true;
+    };
+    auto update_display_info = [&] {
+        int max_attempts = 16;
+        for (int i = 0; i < max_attempts; ++i) {
+            bool changed = false;
+            if (ARCHON_LIKELY(try_update_display_info(changed)))
+                return changed;
+        }
+        throw std::runtime_error("Failed to fetch screen configuration using XRandR within the allotted number of "
+                                 "attempts");
+    };
+    auto dump_display_info = [&] {
+        std::size_t n = screens.size();
+        for (std::size_t i = 0; i < n; ++i) {
+            const display::Screen& screen = screens[i];
+            logger.info("Screen %s/%s: output_name=%s, bounds=%s, resolution=%s, refresh_rate=%s", i + 1, n,
+                        core::quoted(screen.output_name), screen.bounds,
+                        core::as_optional(screen.resolution, "unknown"),
+                        core::as_optional(screen.refresh_rate, "unknown")); // Throws
+        }
+    };
+    if (ARCHON_LIKELY(have_xrandr)) {
+        update_display_info(); // Throws
+        dump_display_info(); // Throws
+    }
+#endif // ARCHON_DISPLAY_HAVE_X11_XRANDR
+
     // Create graphics context
     XGCValues gc_values = {};
     gc_values.graphics_exposures = False;
@@ -795,8 +943,8 @@ int main(int argc, char* argv[])
     XSetForeground(display, gc, black);
 
     // By creating a new colormap, rather than reusing the one used by the root window, it
-    // becomes possible to use a visual for the new window that differs from the one used by
-    // the root windows. The colormap and the new window must agree on visual.
+    // becomes possible to use a visual for the new windows that differs from the one used
+    // by the root window. The colormap and the new windows must agree on visual.
     bool preallocate_colors = false;
     if (!disable_color_preallocation) {
         switch (visual_info.c_class) {
@@ -1113,205 +1261,101 @@ int main(int argc, char* argv[])
         XPutImage(display, img_pixmap, gc, &img_3, 0, 0, 0, 0, unsigned(img_size.width), unsigned(img_size.height));
     }
 
-    // Create window
-    display::Pos pos;
-    if (optional_pos.has_value())
-        pos = optional_pos.value();
-    int win_width  = img_size.width;
-    int win_height = img_size.height;
-    XSetWindowAttributes swa;
-    swa.event_mask = (KeyPressMask | KeyReleaseMask |
-                      ButtonPressMask | ButtonReleaseMask |
-                      ButtonMotionMask |
-                      EnterWindowMask | LeaveWindowMask |
-                      FocusChangeMask |
-                      ExposureMask |
-                      StructureNotifyMask |
-                      KeymapStateMask);
-    swa.colormap = colormap;
-    Window window = XCreateWindow(display, root, pos.x, pos.y, unsigned(win_width), unsigned(win_height), 0, depth,
-                                  InputOutput, visual, CWEventMask | CWColormap, &swa);
+    struct WindowSlot {
+        int no;
+        Window window;
+        Drawable drawable;
+        display::Size size;
+        bool redraw = false;
 
-    // Set window name
-    const char* window_name = "X11 Probe";
-    XTextProperty window_name_2;
-    {
-        Status status = XStringListToTextProperty(const_cast<char **>(&window_name), 1, &window_name_2);
-        ARCHON_STEADY_ASSERT(status != 0);
-    }
-    XSetWMName(display, window, &window_name_2);
-    XFree(window_name_2.value);
+        WindowSlot(int no_2, Window window_2, Drawable drawable_2, display::Size size_2) noexcept
+        {
+            no       = no_2;
+            window   = window_2;
+            drawable = drawable_2;
+            size     = size_2;
+        }
+    };
 
-    // Set minimum window size
-    XSizeHints size_hints;
-    size_hints.flags = PMinSize;
-    size_hints.min_width  = 128;
-    size_hints.min_height = 128;
-    if (optional_pos.has_value()) {
-        size_hints.flags |= USPosition;
-        size_hints.x = pos.x; // Mostly ignored!?
-        size_hints.y = pos.y; // Mostly ignored!?
-    }
-    XSetWMNormalHints(display, window, &size_hints);
+    core::FlatMap<Window, WindowSlot> window_slots;
 
-    // Ask X to notify rather than close connection when window is closed
     Atom delete_window = XInternAtom(display, "WM_DELETE_WINDOW", False);
-    XSetWMProtocols(display, window, &delete_window, 1);
 
-    // Allocate back buffer when using double buffering
-    Drawable drawable = window;
 #if ARCHON_DISPLAY_HAVE_X11_XDBE
     XdbeSwapAction swap_action = XdbeUndefined; // Contents of swapped-out buffer becomes undefined
-    if (use_double_buffering) {
-        XdbeBackBuffer back_buffer = XdbeAllocateBackBufferName(display, window, swap_action);
-        drawable = back_buffer;
-    }
 #endif // ARCHON_DISPLAY_HAVE_X11_XDBE
 
-//    XInstallColormap(display, colormap);        
+    for (int i = 0; i < num_windows; ++i) {
+        // Create window
+        display::Pos pos;
+        if (optional_pos.has_value())
+            pos = optional_pos.value();
+        XSetWindowAttributes swa;
+        swa.event_mask = (KeyPressMask | KeyReleaseMask |
+                          ButtonPressMask | ButtonReleaseMask |
+                          ButtonMotionMask |
+                          EnterWindowMask | LeaveWindowMask |
+                          FocusChangeMask |
+                          ExposureMask |
+                          StructureNotifyMask |
+                          KeymapStateMask |
+                          OwnerGrabButtonMask);                                                                                                                
+        swa.colormap = colormap;
+        Window window = XCreateWindow(display, root, pos.x, pos.y, unsigned(img_size.width), unsigned(img_size.height),
+                                      0, depth, InputOutput, visual, CWEventMask | CWColormap, &swa);
 
-#if ARCHON_DISPLAY_HAVE_X11_XRANDR
-    std::vector<display::Screen> screens;
-    core::Buffer<char> screens_string_buffer;
-    std::size_t screens_string_buffer_used_size = 0;
-    auto try_update_display_info = [&](bool& changed) -> bool {
-        XRRScreenResources* resources = XRRGetScreenResourcesCurrent(display, root);
-        if (ARCHON_UNLIKELY(!resources))
-            throw std::runtime_error("XRRGetScreenResourcesCurrent() failed");
-        ARCHON_SCOPE_EXIT {
-            XRRFreeScreenResources(resources);
-        };
-        struct Crtc {
-            bool enabled;
-            display::Box bounds;
-            std::optional<double> refresh_rate;
-        };
-        core::FlatMap<RRCrtc, Crtc, 16> crtcs;
-        crtcs.reserve(std::size_t(resources->ncrtc)); // Throws
-        auto ensure_crtc = [&](RRCrtc id) -> const Crtc* {
-            auto i = crtcs.find(id);
-            if (i != crtcs.end())
-                return &i->second;
-            XRRCrtcInfo* info = XRRGetCrtcInfo(display, resources, id);
-            if (ARCHON_UNLIKELY(!info))
-                return nullptr;
-            ARCHON_SCOPE_EXIT {
-                XRRFreeCrtcInfo(info);
-            };
-            bool enabled = (info->mode != None);
-            display::Size size = {};
-            core::int_cast(info->width, size.width); // Throws
-            core::int_cast(info->height, size.height); // Throws
-            display::Box bounds = { display::Pos(info->x, info->y), size };
-            std::optional<double> refresh_rate;
-            if (enabled) {
-                bool found = false;
-                for (int j = 0; j < resources->nmode; ++j) {
-                    const XRRModeInfo& mode = resources->modes[j];
-                    if (ARCHON_LIKELY(mode.id != info->mode))
-                        continue;
-                    found = true;
-                    if (mode.dotClock != 0)
-                        refresh_rate = mode.dotClock / (mode.hTotal * double(mode.vTotal));
-                    break;
-                }
-                ARCHON_ASSERT(found);
-            }
-            ARCHON_STEADY_ASSERT(crtcs.size() < crtcs.capacity());
-            Crtc& crtc =  crtcs[id];
-            crtc = { enabled, bounds, refresh_rate };
-            return &crtc;
-        };
-        core::Vector<display::Screen, 16> new_screens;
-        std::array<char, 16 * 24> strings_seed_memory = {};
-        core::Buffer strings_buffer(strings_seed_memory);
-        core::StringBufferContents strings(strings_buffer);
-        const char* orig_strings_base = strings.data();
-        for (int i = 0; i < resources->noutput; ++i) {
-            RROutput id = resources->outputs[i];
-            XRROutputInfo* info = XRRGetOutputInfo(display, resources, id);
-            if (ARCHON_UNLIKELY(!info))
-                return false;
-            ARCHON_SCOPE_EXIT {
-                XRRFreeOutputInfo(info);
-            };
-            // Note: Treating RR_UnknownConnection same as RR_Connected
-            bool connected = (info->connection != RR_Disconnected);
-            if (!connected || info->crtc == None)
-                continue;
-            const Crtc* crtc = ensure_crtc(info->crtc); // Throws
-            if (ARCHON_UNLIKELY(!crtc))
-                return false;
-            if (!crtc->enabled)
-                continue;
-            std::size_t offset = strings.size();
-            std::size_t size = std::size_t(info->nameLen);
-            strings.append({ info->name, size }); // Throws
-            // The base address is not necessarily correct anymore, but this Will be fixed up later
-            std::string_view output_name = { orig_strings_base + offset, size }; // Throws
-            std::optional<display::Resolution> resolution;
-            if (info->mm_width != 0 && info->mm_height != 0) {
-                double horz_ppcm = crtc->bounds.size.width  / double(info->mm_width)  * 10;
-                double vert_ppcm = crtc->bounds.size.height / double(info->mm_height) * 10;
-                resolution = display::Resolution { horz_ppcm, vert_ppcm };
-            }
-            new_screens.push_back({ output_name, crtc->bounds, resolution, crtc->refresh_rate }); // Throws
-        }
+        // Set window name
+        int no = i + 1;
+        const char* window_name = "X11 Probe";
+        XTextProperty window_name_2;
         {
-            const char* base = strings.data();
-            for (display::Screen& screen : new_screens)
-                core::rebase_string(screen.output_name, orig_strings_base, base); // Throws
+            Status status = XStringListToTextProperty(const_cast<char **>(&window_name), 1, &window_name_2);
+            ARCHON_STEADY_ASSERT(status != 0);
         }
-        if (std::equal(new_screens.begin(), new_screens.end(), screens.begin(), screens.end())) {
-            changed = false;
+        XSetWMName(display, window, &window_name_2);
+        XFree(window_name_2.value);
+
+        // Set minimum window size
+        XSizeHints size_hints;
+        size_hints.flags = PMinSize;
+        size_hints.min_width  = 128;
+        size_hints.min_height = 128;
+        if (optional_pos.has_value()) {
+            size_hints.flags |= USPosition;
+            size_hints.x = pos.x; // Mostly ignored!?
+            size_hints.y = pos.y; // Mostly ignored!?
+        }
+        XSetWMNormalHints(display, window, &size_hints);
+
+        // Ask X to notify rather than close connection when window is closed
+        XSetWMProtocols(display, window, &delete_window, 1);
+
+        // Allocate back buffer when using double buffering
+        Drawable drawable = window;
+#if ARCHON_DISPLAY_HAVE_X11_XDBE
+        if (use_double_buffering) {
+            XdbeBackBuffer back_buffer = XdbeAllocateBackBufferName(display, window, swap_action);
+            drawable = back_buffer;
+        }
+#endif // ARCHON_DISPLAY_HAVE_X11_XDBE
+
+        WindowSlot slot = { no, window, drawable, img_size };
+        window_slots.emplace(window, slot); // Throws
+    }
+
+    auto try_get_window_slot = [&](Window win, WindowSlot*& slot) {
+        auto i = window_slots.find(win);
+        if (ARCHON_LIKELY(i != window_slots.end())) {
+            slot = &i->second;
             return true;
         }
-        screens.reserve(new_screens.size()); // Throws
-        screens_string_buffer.reserve_f(strings.size(), screens_string_buffer_used_size, [&](core::Span<char> new_mem) {
-            const char* base_1 = screens_string_buffer.data();
-            const char* base_2 = new_mem.data();
-            for (display::Screen& screen : screens)
-                core::rebase_string(screen.output_name, base_1, base_2); // Throws
-        }); // Throws
-        {
-            const char* base_1 = strings.data();
-            const char* base_2 = screens_string_buffer.data();
-            for (display::Screen& screen : new_screens)
-                core::rebase_string(screen.output_name, base_1, base_2); // Throws
-        }
-        // Non-throwing from here
-        screens.clear();
-        screens.insert(screens.begin(), new_screens.begin(), new_screens.end());
-        std::copy_n(strings.data(), strings.size(), screens_string_buffer.data());
-        screens_string_buffer_used_size = strings.size();
-        changed = true;
-        return true;
+        return false;
     };
-    auto update_display_info = [&] {
-        int max_attempts = 16;
-        for (int i = 0; i < max_attempts; ++i) {
-            bool changed = false;
-            if (ARCHON_LIKELY(try_update_display_info(changed)))
-                return changed;
-        }
-        throw std::runtime_error("Failed to fetch screen configuration using XRandR within the allotted number of "
-                                 "attempts");
+
+    auto close_window = [&](Window win) noexcept {
+        XDestroyWindow(display, win);
+        window_slots.erase(win);
     };
-    auto dump_display_info = [&] {
-        std::size_t n = screens.size();
-        for (std::size_t i = 0; i < n; ++i) {
-            const display::Screen& screen = screens[i];
-            logger.info("Screen %s/%s: output_name=%s, bounds=%s, resolution=%s, refresh_rate=%s", i + 1, n,
-                        core::quoted(screen.output_name), screen.bounds,
-                        core::as_optional(screen.resolution, "unknown"),
-                        core::as_optional(screen.refresh_rate, "unknown")); // Throws
-        }
-    };
-    if (ARCHON_LIKELY(have_xrandr)) {
-        update_display_info(); // Throws
-        dump_display_info(); // Throws
-    }
-#endif // ARCHON_DISPLAY_HAVE_X11_XRANDR
 
     auto get_keysym = [&](KeyCode keycode) noexcept -> KeySym {
         // Map key code to a keyboard independent symbol identifier (in general the symbol
@@ -1331,12 +1375,23 @@ int main(int argc, char* argv[])
         return XKeysymToString(keysym);
     };
 
+    auto log = [&](int window_no, std::string_view message, const auto&... args) {
+        if (num_windows == 1) {
+            logger.info(message, args...); // Throws
+        }
+        else {
+            logger.info("WIN[%s]: %s", window_no, core::formatted(message, args...)); // Throws
+        }
+    };
+
     // Event loop
-    XMapWindow(display, window);
+    for (const auto& entry : window_slots) {
+        const WindowSlot& slot = entry.second;
+        XMapWindow(display, slot.window);
+    }
     bool expect_keymap_notify = false;
     std::vector<std::string_view> key_names;
-    for (;;) {
-        bool redraw = false;
+    while (!window_slots.empty()) {
         XEvent ev = {};
         XPeekEvent(display, &ev);
         for (;;) {
@@ -1348,13 +1403,16 @@ int main(int argc, char* argv[])
                 bool expect_keymap_notify_2 = expect_keymap_notify;
                 expect_keymap_notify = false;
                 ARCHON_ASSERT(!expect_keymap_notify_2 || ev.type == KeymapNotify);
+                WindowSlot* slot = {};
                 switch (ev.type) {
                     case MotionNotify:
-                        if (ev.xmotion.window == window)
-                            logger.info("MOUSE MOVE: %s,%s", ev.xmotion.x, ev.xmotion.y); // Throws
+                        if (ARCHON_LIKELY(try_get_window_slot(ev.xmotion.window, slot))) {
+                            if (!suppress_mouse_move)
+                                log(slot->no, "MOUSE MOVE: %s,%s", ev.xmotion.x, ev.xmotion.y); // Throws
+                        }
                         break;
                     case ConfigureNotify:
-                        if (ev.xconfigure.window == window) {
+                        if (ARCHON_LIKELY(try_get_window_slot(ev.xconfigure.window, slot))) {
                             // When there is a window manager, the window manager will
                             // generally reparent the client's window. This generally means
                             // that the client's window will remain at a fixed position
@@ -1368,39 +1426,38 @@ int main(int argc, char* argv[])
                             // notifications in which the positions are absolute (relative
                             // to the root window of the screen).
                             if (ev.xconfigure.send_event) {
-                                logger.info("POS: %s", display::Pos(ev.xconfigure.x, ev.xconfigure.y));
+                                log(slot->no, "POS: %s", display::Pos(ev.xconfigure.x, ev.xconfigure.y));
                             }
                             else {
-                                logger.info("SIZE: %s", display::Size(ev.xconfigure.width, ev.xconfigure.height));
+                                log(slot->no, "SIZE: %s", display::Size(ev.xconfigure.width, ev.xconfigure.height));
                             }
-                            int w = ev.xconfigure.width;
-                            int h = ev.xconfigure.height;
-                            if (w != win_width || h != win_height) {
-                                win_width  = w;
-                                win_height = h;
-                                redraw = true;
+                            display::Size size = { ev.xconfigure.width, ev.xconfigure.height };
+                            if (size != slot->size) {
+                                slot->size = size;
+                                slot->redraw = true;
                             }
                         }
                         break;
                     case Expose:
-                        if (ev.xexpose.window == window)
-                            redraw = true;
+                        if (ARCHON_LIKELY(try_get_window_slot(ev.xexpose.window, slot)))
+                            slot->redraw = true;
                         break;
                     case ButtonPress:
                     case ButtonRelease:
-                        if (ev.xbutton.window == window) {
-                            logger.info("%s: %s, (%s,%s)", (ev.type == ButtonPress ? "BUTTON DOWN" : "BUTTON UP"),
-                                        ev.xbutton.button, ev.xbutton.x, ev.xbutton.y); // Throws
+                        if (ARCHON_LIKELY(try_get_window_slot(ev.xbutton.window, slot))) {
+                            log(slot->no, "%s: %s, (%s,%s)", (ev.type == ButtonPress ? "MOUSE DOWN" : "MOUSE UP"),
+                                ev.xbutton.button, ev.xbutton.x, ev.xbutton.y); // Throws
                         }
                         break;
                     case KeyPress:
                     case KeyRelease:
-                        if (ev.xkey.window == window) {
+                        if (ARCHON_LIKELY(try_get_window_slot(ev.xkey.window, slot))) {
                             KeySym keysym = get_keysym(ev.xkey.keycode);
                             std::string_view key_name = get_key_name(keysym); // Throws
-                            logger.info("%s: %s", (ev.type == KeyPress ? "KEY DOWN" : "KEY UP"), key_name); // Throws
+                            log(slot->no, "%s: %s", (ev.type == KeyPress ? "KEY DOWN" : "KEY UP"),
+                                key_name); // Throws
                             if (ev.type == KeyPress && keysym == XK_Escape)
-                                goto quit;
+                                close_window(slot->window);
                         }
                         break;
                     case KeymapNotify:
@@ -1426,23 +1483,23 @@ int main(int argc, char* argv[])
                         break;
                     case EnterNotify:
                     case LeaveNotify:
-                        if (ev.xcrossing.window == window)
-                            logger.info(ev.type == EnterNotify ? "MOUSE OVER" : "MOUSE OUT"); // Throws
+                        if (ARCHON_LIKELY(try_get_window_slot(ev.xcrossing.window, slot)))
+                            log(slot->no, (ev.type == EnterNotify ? "MOUSE OVER" : "MOUSE OUT")); // Throws
                         break;
                     case FocusIn:
                     case FocusOut:
                         if (ev.type == FocusIn)
                             expect_keymap_notify = true;
-                        if (ev.xfocus.window == window)
-                            logger.info(ev.type == FocusIn ? "FOCUS" : "BLUR"); // Throws
+                        if (ARCHON_LIKELY(try_get_window_slot(ev.xfocus.window, slot)))
+                            log(slot->no, (ev.type == FocusIn ? "FOCUS" : "BLUR")); // Throws
                         break;
-                    case ClientMessage: {
-                        bool is_close = (ev.xclient.window == window && ev.xclient.format == 32 &&
-                                         Atom(ev.xclient.data.l[0]) == delete_window);
-                        if (is_close)
-                            goto quit;
+                    case ClientMessage:
+                        if (ARCHON_LIKELY(try_get_window_slot(ev.xclient.window, slot))) {
+                            bool is_close = (ev.xclient.format == 32 && Atom(ev.xclient.data.l[0]) == delete_window);
+                            if (is_close)
+                                close_window(slot->window);
+                        }
                         break;
-                    }
                 }
 #if ARCHON_DISPLAY_HAVE_X11_XRANDR
                 if (have_xrandr && ev.type == xrandr_event_base + RRNotify) {
@@ -1458,60 +1515,64 @@ int main(int argc, char* argv[])
             }
         }
 
-        if (redraw) {
-            int left = 0, right = win_width;
-            int top = 0, bottom = win_height;
-            int x = 0, y = 0;
-            int w = img_size.width, h = img_size.height;
-            {
-                int width_diff  = win_width  - img_size.width;
-                int height_diff = win_height - img_size.height;
-                if (width_diff >= 0) {
-                    left  = width_diff / 2;
-                    right = left + img_size.width;
+        for (const auto& entry : window_slots) {
+            const WindowSlot& slot = entry.second;
+            if (slot.redraw) {
+                int win_width  = slot.size.width;
+                int win_height = slot.size.height;
+                int left = 0, right = win_width;
+                int top = 0, bottom = win_height;
+                int x = 0, y = 0;
+                int w = img_size.width, h = img_size.height;
+                {
+                    int width_diff  = win_width  - img_size.width;
+                    int height_diff = win_height - img_size.height;
+                    if (width_diff >= 0) {
+                        left  = width_diff / 2;
+                        right = left + img_size.width;
+                    }
+                    else {
+                        x = (-width_diff + 1) / 2;
+                        w = win_width;
+                    }
+                    if (height_diff >= 0) {
+                        top    = height_diff / 2;
+                        bottom = top + img_size.height;
+                    }
+                    else {
+                        y = (-height_diff + 1) / 2;
+                        h = win_height;
+                    }
                 }
-                else {
-                    x = (-width_diff + 1) / 2;
-                    w = win_width;
-                }
-                if (height_diff >= 0) {
-                    top    = height_diff / 2;
-                    bottom = top + img_size.height;
-                }
-                else {
-                    y = (-height_diff + 1) / 2;
-                    h = win_height;
-                }
-            }
-            // Clear top area
-            if (top > 0)
-                XFillRectangle(display, drawable, gc, 0, 0, unsigned(win_width), unsigned(top));
-            // Clear left area
-            if (left > 0)
-                XFillRectangle(display, drawable, gc, 0, top, unsigned(left), unsigned(h));
-            // Copy image
-            XCopyArea(display, img_pixmap, drawable, gc, x, y, w, h, left, top);
-            // Clear right area
-            if (right < win_width)
-                XFillRectangle(display, drawable, gc, right, top, unsigned(win_width - right), unsigned(h));
-            // Clear bottom area
-            if (bottom < win_height)
-                XFillRectangle(display, drawable, gc, 0, bottom, unsigned(win_width), unsigned(win_height - bottom));
+                Drawable drawable = slot.drawable;
+                // Clear top area
+                if (top > 0)
+                    XFillRectangle(display, drawable, gc, 0, 0, unsigned(win_width), unsigned(top));
+                // Clear left area
+                if (left > 0)
+                    XFillRectangle(display, drawable, gc, 0, top, unsigned(left), unsigned(h));
+                // Copy image
+                XCopyArea(display, img_pixmap, drawable, gc, x, y, w, h, left, top);
+                // Clear right area
+                if (right < win_width)
+                    XFillRectangle(display, drawable, gc, right, top, unsigned(win_width - right), unsigned(h));
+                // Clear bottom area
+                if (bottom < win_height)
+                    XFillRectangle(display, drawable, gc, 0, bottom, unsigned(win_width), unsigned(win_height - bottom));
 
 #if ARCHON_DISPLAY_HAVE_X11_XDBE
-            if (use_double_buffering) {
-                XdbeSwapInfo info;
-                info.swap_window = window;
-                info.swap_action = swap_action;
-                Status status = XdbeSwapBuffers(display, &info, 1);
-                ARCHON_STEADY_ASSERT(status != 0);
-            }
+                if (use_double_buffering) {
+                    XdbeSwapInfo info;
+                    info.swap_window = slot.window;
+                    info.swap_action = swap_action;
+                    Status status = XdbeSwapBuffers(display, &info, 1);
+                    ARCHON_STEADY_ASSERT(status != 0);
+                }
 #endif // ARCHON_DISPLAY_HAVE_X11_XDBE
+            }
         }
     }
 
-  quit:
-    XDestroyWindow(display, window);
     XFreePixmap(display, img_pixmap);
     XFreeColormap(display, colormap);
     XFreeGC(display, gc);
