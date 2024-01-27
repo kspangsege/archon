@@ -748,8 +748,6 @@ auto ConnectionImpl::do_new_window(int screen, std::string_view title, display::
 }
 
 
-// FIXME: Ensure that all relevant types of events are picked out and handled below                                                                                                        
-
 bool ConnectionImpl::do_process_events(const time_point_type* deadline,
                                        display::ConnectionEventHandler* connection_event_handler)
 {
