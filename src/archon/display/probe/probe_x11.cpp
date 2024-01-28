@@ -390,6 +390,7 @@ int main(int argc, char* argv[])
     bool disable_detectable_autorepeat = false;
     std::optional<display::Pos> optional_pos;
     log::LogLevel log_level_limit = log::LogLevel::warn;
+    bool report_mouse_move = false;
     bool use_synchronous_mode = false;
 
     cli::Spec spec;
@@ -453,6 +454,10 @@ int main(int argc, char* argv[])
         "Set the log level limit. The possible levels are \"off\", \"fatal\", \"error\", \"warn\", \"info\", "
         "\"detail\", \"debug\", \"trace\", and \"all\". The default limit is \"@V\".",
         std::tie(log_level_limit)); // Throws
+
+    opt("-m, --report-mouse-move", "", cli::no_attributes, spec,
+        "Turn on reporting of \"mouse move\" events.",
+        cli::raise_flag(report_mouse_move)); // Throws
 
     opt("-s, --use-synchronous-mode", "", cli::no_attributes, spec,
         "Turn on X11's synchronous mode. In this mode, buffering of X protocol requests is turned off, and the Xlib "
@@ -1298,22 +1303,22 @@ int main(int argc, char* argv[])
                           FocusChangeMask |
                           ExposureMask |
                           StructureNotifyMask |
-                          KeymapStateMask |
-                          OwnerGrabButtonMask);                                                                                                                
+                          KeymapStateMask);
         swa.colormap = colormap;
         Window window = XCreateWindow(display, root, pos.x, pos.y, unsigned(img_size.width), unsigned(img_size.height),
                                       0, depth, InputOutput, visual, CWEventMask | CWColormap, &swa);
 
         // Set window name
         int no = i + 1;
-        const char* window_name = "X11 Probe";
-        XTextProperty window_name_2;
+        std::string name_1 = core::format(locale, "X11 Probe %s", no); // Throws
+        char* name_2 = name_1.data();
+        XTextProperty name_3;
         {
-            Status status = XStringListToTextProperty(const_cast<char **>(&window_name), 1, &window_name_2);
+            Status status = XStringListToTextProperty(&name_2, 1, &name_3);
             ARCHON_STEADY_ASSERT(status != 0);
         }
-        XSetWMName(display, window, &window_name_2);
-        XFree(window_name_2.value);
+        XSetWMName(display, window, &name_3);
+        XFree(name_3.value);
 
         // Set minimum window size
         XSizeHints size_hints;
@@ -1380,7 +1385,7 @@ int main(int argc, char* argv[])
             logger.info(message, args...); // Throws
         }
         else {
-            logger.info("WIN[%s]: %s", window_no, core::formatted(message, args...)); // Throws
+            logger.info("WINDOW %s: %s", window_no, core::formatted(message, args...)); // Throws
         }
     };
 
@@ -1407,7 +1412,7 @@ int main(int argc, char* argv[])
                 switch (ev.type) {
                     case MotionNotify:
                         if (ARCHON_LIKELY(try_get_window_slot(ev.xmotion.window, slot))) {
-                            if (!suppress_mouse_move)
+                            if (report_mouse_move)
                                 log(slot->no, "MOUSE MOVE: %s,%s", ev.xmotion.x, ev.xmotion.y); // Throws
                         }
                         break;
