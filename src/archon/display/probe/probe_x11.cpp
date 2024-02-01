@@ -406,8 +406,8 @@ int main(int argc, char* argv[])
         std::tie(num_windows)); // Throws
 
     opt("-d, --depth", "<num>", cli::no_attributes, spec,
-        "Specify the depth to be used (see command `xdpyinfo`). If no depth is specified, the default depth for the "
-        "targeted screen will be used.",
+        "Specify the depth (number of bits) to be used (see command `xdpyinfo`). If no depth is specified, the "
+        "default depth for the targeted screen will be used.",
         std::tie(optional_depth)); // Throws
 
     opt("-v, --visual", "<hex>", cli::no_attributes, spec,

@@ -24,6 +24,8 @@
 #include <thread>
 
 #include <archon/core/features.h>
+#include <archon/core/scope_exit.hpp>
+#include <archon/core/flat_map.hpp>
 #include <archon/core/format.hpp>
 #include <archon/core/quote.hpp>
 #include <archon/core/locale.hpp>
@@ -179,11 +181,16 @@ int main(int argc, char* argv[])
 {
     std::locale locale("");
 
+    int num_windows = 0;
     log::LogLevel log_level_limit = log::LogLevel::warn;
 
     cli::Spec spec;
     opt(cli::help_tag, spec); // Throws
     opt(cli::stop_tag, spec); // Throws
+
+    opt("-n, --num-windows", "<num>", cli::no_attributes, spec,
+        "The number of windows to be opened. The default number is @V.",
+        std::tie(num_windows)); // Throws
 
     opt("-l, --log-level", "<level>", cli::no_attributes, spec,
         "Set the log level limit. The possible levels are \"off\", \"fatal\", \"error\", \"warn\", \"info\", "
@@ -224,43 +231,104 @@ int main(int argc, char* argv[])
         logger.info("Driver %s:", i);
         show_renderer_info(info, logger);
     }
-    SDL_Window* win;
-    {
-        Uint32 flags = SDL_WINDOW_RESIZABLE;
-        win = SDL_CreateWindow("SDL Probe", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 256, 256, flags);
-        if (!win)
-            throw_sdl_error("SDL_CreateWindow() failed");
+
+    struct WindowSlot {
+        int no = {};
+        Uint32 window_id = {};
+        SDL_Window* window = {};
+        SDL_Renderer* renderer = {};
+        display::Size size;
+        bool redraw = false;
+    };
+
+    core::FlatMap<Uint32, WindowSlot> window_slots;
+
+    for (int i = 0; i < num_windows; ++i) {
+        int no = i + 1;
+        std::string name = core::format(locale, "SDL Probe %s", no); // Throws
+        SDL_Window* window = {};
+        ARCHON_SCOPE_EXIT {
+            if (ARCHON_UNLIKELY(window))
+                SDL_DestroyWindow(window);
+        };
+        {
+            Uint32 flags = SDL_WINDOW_RESIZABLE;
+            window = SDL_CreateWindow(name.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 256, 256, flags);
+            if (!window)
+                throw_sdl_error("SDL_CreateWindow() failed");
+        }
+        Uint32 id = SDL_GetWindowID(window);
+        if (ARCHON_UNLIKELY(id <= 0))
+            throw_sdl_error("SDL_GetWindowID() failed"); // Throws
+        WindowSlot& slot = window_slots[id];
+        slot.no = no;
+        slot.window_id = id;
+        slot.window = window;
+        window = {};
+        {
+            int driver_index = -1;
+            Uint32 flags = 0;
+            SDL_Renderer* renderer = SDL_CreateRenderer(slot.window, driver_index, flags);
+            if (!renderer)
+                throw_sdl_error("SDL_CreateRenderer() failed");
+            slot.renderer = renderer;
+        }
+        // Due to bug in SDL (https://github.com/libsdl-org/SDL/issues/8805), the setting of
+        // the minimum window size must come after the creation of the renderer.
+        SDL_SetWindowMinimumSize(slot.window, 128, 128);
+        {
+            SDL_RendererInfo info;
+            int ret = SDL_GetRendererInfo(slot.renderer, &info);
+            if (ret < 0)
+                throw_sdl_error("SDL_GetRenderInfo() failed");
+            if (i == 0) {
+                logger.info("Renderer:");
+                show_renderer_info(info, logger);
+            }
+        }
+        {
+            Uint8 r = 255;
+            Uint8 g = 0;
+            Uint8 b = 0;
+            Uint8 a = 255;
+            int ret = SDL_SetRenderDrawColor(slot.renderer, r, g, b, a);
+            if (ret < 0)
+                throw_sdl_error("SDL_SetRenderDrawColor() failed");
+        }
     }
-    SDL_Renderer* rend;
-    {
-        int driver_index = -1;
-        Uint32 flags = 0;
-        rend = SDL_CreateRenderer(win, driver_index, flags);
-        if (!rend)
-            throw_sdl_error("SDL_CreateRenderer() failed");
-    }
-    // Due to bug in SDL (https://github.com/libsdl-org/SDL/issues/8805), the setting of the
-    // minimum window size must come after the creation of the renderer.
-    SDL_SetWindowMinimumSize(win, 128, 128);
-    {
-        SDL_RendererInfo info;
-        int ret = SDL_GetRendererInfo(rend, &info);
-        if (ret < 0)
-            throw_sdl_error("SDL_GetRenderInfo() failed");
-        logger.info("Renderer:");
-        show_renderer_info(info, logger);
-    }
-    {
-        Uint8 r = 255;
-        Uint8 g = 0;
-        Uint8 b = 0;
-        Uint8 a = 255;
-        int ret = SDL_SetRenderDrawColor(rend, r, g, b, a);
-        if (ret < 0)
-            throw_sdl_error("SDL_SetRenderDrawColor() failed");
-    }
-    bool quit = false;
-    for (;;) {
+
+    auto try_get_window_slot = [&](Uint32 window_id, WindowSlot*& slot) {
+        auto i = window_slots.find(window_id);
+        if (ARCHON_LIKELY(i != window_slots.end())) {
+            slot = &i->second;
+            return true;
+        }
+        return false;
+    };
+
+    bool quit = window_slots.empty();
+    auto close_window = [&](Uint32 window_id) noexcept {
+        auto i = window_slots.find(window_id);
+        ARCHON_ASSERT(i != window_slots.end());
+        const WindowSlot& slot = i->second;
+        if (slot.renderer)
+            SDL_DestroyRenderer(slot.renderer);
+        SDL_DestroyWindow(slot.window);
+        window_slots.erase(window_id);
+        if (window_slots.empty())
+            quit = true;
+    };
+
+    auto log = [&](int window_no, std::string_view message, const auto&... args) {
+        if (num_windows == 1) {
+            logger.info(message, args...); // Throws
+        }
+        else {
+            logger.info("WINDOW %s: %s", window_no, core::formatted(message, args...)); // Throws
+        }
+    };
+
+    while (!quit) {
         {
             int ret = SDL_WaitEvent(nullptr);
             if (ARCHON_UNLIKELY(ret != 1)) {
@@ -269,7 +337,6 @@ int main(int argc, char* argv[])
             }
         }
 
-        bool redraw = false;
         while (!quit) {
             SDL_Event event = {};
             int ret = SDL_PollEvent(&event);
@@ -278,34 +345,52 @@ int main(int argc, char* argv[])
                 break;
             }
 
+            WindowSlot* slot = {};
             switch (event.type) {
                 case SDL_MOUSEBUTTONDOWN:
                 case SDL_MOUSEBUTTONUP:
-                    logger.info("%s: %s", (event.type == SDL_MOUSEBUTTONDOWN ? "MOUSE DOWN" : "MOUSE UP"),
-                                core::promote(event.button.button)); // Throws
+                    if (ARCHON_LIKELY(try_get_window_slot(event.button.windowID, slot))) {
+                        log(slot->no, "%s: %s", (event.type == SDL_MOUSEBUTTONDOWN ? "MOUSE DOWN" : "MOUSE UP"),
+                            core::promote(event.button.button)); // Throws
+                    }
                     break;
                 case SDL_KEYDOWN:
                 case SDL_KEYUP:
-                    if (core::assume_utf8_locale(locale)) { // Throws
-                        logger.info("%s: %s", (event.type == SDL_KEYDOWN ? "KEY DOWN" : "KEY UP"),
-                                    SDL_GetKeyName(event.key.keysym.sym)); // Throws
-                    }
-                    if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) {
-                        quit = true;
-                        break;
+                    if (ARCHON_LIKELY(try_get_window_slot(event.key.windowID, slot))) {
+                        const char* key = "?";
+                        if (ARCHON_LIKELY(core::assume_utf8_locale(locale))) // Throws
+                            key = SDL_GetKeyName(event.key.keysym.sym); // Throws
+                        log(slot->no, "%s: %s", (event.type == SDL_KEYDOWN ? "KEY DOWN" : "KEY UP"), key); // Throws
+                        if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) {
+                            close_window(slot->window_id);
+                            break;
+                        }
                     }
                     break;
                 case SDL_WINDOWEVENT:
-                    switch (event.window.event) {
-                        case SDL_WINDOWEVENT_MOVED:
-                            logger.info("POS: %s", display::Pos(int(event.window.data1), int(event.window.data2)));
-                            break;
-                        case SDL_WINDOWEVENT_EXPOSED:
-                            redraw = true;
-                            break;
-                        case SDL_WINDOWEVENT_CLOSE:
-                            quit = true;
-                            break;
+                    if (ARCHON_LIKELY(try_get_window_slot(event.window.windowID, slot))) {
+                        switch (event.window.event) {
+                            case SDL_WINDOWEVENT_MOVED:
+                                log(slot->no, "POS: %s", display::Pos(int(event.window.data1),
+                                                                      int(event.window.data2))); // Throws
+                                break;
+                            case SDL_WINDOWEVENT_EXPOSED:
+                                slot->redraw = true;
+                                break;
+                            case SDL_WINDOWEVENT_ENTER:
+                            case SDL_WINDOWEVENT_LEAVE:
+                                log(slot->no, (event.window.event == SDL_WINDOWEVENT_ENTER ? "MOUSE OVER" :
+                                               "MOUSE OUT")); // Throws
+                                break;
+                            case SDL_WINDOWEVENT_FOCUS_GAINED:
+                            case SDL_WINDOWEVENT_FOCUS_LOST:
+                                log(slot->no, (event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED ? "FOCUS" :
+                                               "BLUR")); // Throws
+                                break;
+                            case SDL_WINDOWEVENT_CLOSE:
+                                close_window(slot->window_id);
+                                break;
+                        }
                     }
                     break;
                 case SDL_QUIT:
@@ -314,17 +399,20 @@ int main(int argc, char* argv[])
             }
         }
 
-        if (quit)
-            break;
-
-        if (redraw) {
-            int ret = SDL_RenderClear(rend);
-            if (ret < 0)
-                throw_sdl_error("SDL_RenderClear() failed");
-            SDL_RenderPresent(rend);
+        for (const auto& entry : window_slots) {
+            const WindowSlot& slot = entry.second;
+            if (slot.redraw) {
+                int ret = SDL_RenderClear(slot.renderer);
+                if (ret < 0)
+                    throw_sdl_error("SDL_RenderClear() failed");
+                SDL_RenderPresent(slot.renderer);
+            }
         }
     }
-    SDL_DestroyWindow(win);
+    while (!window_slots.empty()) {
+        const WindowSlot& slot = window_slots.begin()->second;
+        close_window(slot.window_id);
+    }
     SDL_Quit();
 }
 
