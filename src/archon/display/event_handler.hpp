@@ -109,9 +109,25 @@ public:
     /// situation. Here, one separate button press is needed to assign input focus to the
     /// window. This then allows for the next button press to initiate a pointer grab.
     ///
-    /// FIXME: Verify above claims on macOS and Windows platforms                            
+    /// A pointer grab is supposed to be sustained even if the initiating window looses
+    /// input focus, and this is indeed the case when using the X11-based implementation
+    /// (\ref display::get_x11_implementation_slot()). Unfortunately, SDL has an
+    /// inconsistent / buggy behavior when the window looses input focus while a grab is in
+    /// progress, and it is not possible for the SDL-based implementation (\ref
+    /// display::get_sdl_implementation_slot()) to fully hide that. From the point of view
+    /// of the "mouse out" and "mouse move" events, it looks like a pointer grab is
+    /// terminated when the window looses input focus at a time where the pointer is outside
+    /// the window. Something is amiss, through, because the the "mouse up" event is not
+    /// generated at that time, and also not when the mouse button is released. Moreover,
+    /// when the mouse reenters the window, "mouse move" events with nonzero
+    /// `SDL_MouseMotionEvent::state` are generated even though no mouse button is pressed,
+    /// suggesting that the grab is not properly terminated. Also, when a mouse button is
+    /// pressed down, no "mouse down" event is generated, suggesting that the button was
+    /// incorrectly registered as already pressed down.
     ///
-    /// FIXME: What happens if a window looses input focus during a pointer grab initiated in that window? Does that terminate the pointer grab?                            
+    /// FIXME: Consider reporting the inconsistent / buggy behavior of SDL when a window looses input focus while a grab is in progress                            
+    ///
+    /// FIXME: Verify above claims on macOS and Windows platforms                            
     ///
     /// The default implementations of these functions do nothing other than return `true`.
     ///
@@ -155,8 +171,6 @@ public:
     /// on_focus()).
     ///
     /// FIXME: Verify above claims on macOS and Windows platforms                            
-    ///
-    /// FIXME: Should "scroll" events be suppressed during times when the window does not have input focus?                   
     ///
     /// With a scroll wheel that turns in discrete steps (detents), one "scroll" event is
     /// normally generated per step.
