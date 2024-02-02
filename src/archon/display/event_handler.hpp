@@ -89,15 +89,29 @@ public:
     /// generated. The targeted event handler object is the window's associated window
     /// handler (see \ref display::Connection::new_window()).
     ///
-    /// A "mouse down" event is generated for a particular window when a mouse button is
-    /// pressed down while that window has input focus (see \ref on_focus()). Likewise, a
-    /// "mouse up" event is generated for a particular window when a mouse button is
-    /// released while that window has input focus.
+    /// A "mouse down" event is generated for a particular window when a pointer grab is
+    /// initiated in that window. A "mouse up" event is generated when the pointer grab
+    /// ends.
+    ///
+    /// A *pointer grab* is initiated in a window, W, when the pointer is activated while W
+    /// has pointer focus and input focus. The *pointer is activated* when a mouse button is
+    /// pressed down, and no mouse buttons were pressed down already. The pointer grab is
+    /// sustained for as long as at least one mouse button remains pressed down. See \ref
+    /// on_mouseover() and \ref on_focus() for explanations of what it means for a window to
+    /// have pointer focus and input focus respectively.
+    ///
+    /// In some cases, depending on platform and on platform configuration, a pointer grab
+    /// can be effectively initiated in a window that does not already have input
+    /// focus. This works, because in those cases, a window with pointer focus receives
+    /// input focus as soon as the pointer is activated, and early enough for it to count
+    /// towards pointer grab initiation. X11 with typical window managers (Mutter and
+    /// Muffin) is an example of this. The Windows platform is an example of the opposite
+    /// situation. Here, one separate button press is needed to assign input focus to the
+    /// window. This then allows for the next button press to initiate a pointer grab.
     ///
     /// FIXME: Verify above claims on macOS and Windows platforms                            
     ///
-    /// It is unspecified what happens if a window looses or gains input focus while buttons
-    /// are pressed down. See \ref on_keydown() for more on this.
+    /// FIXME: What happens if a window looses input focus during a pointer grab initiated in that window? Does that terminate the pointer grab?                            
     ///
     /// The default implementations of these functions do nothing other than return `true`.
     ///
@@ -118,14 +132,10 @@ public:
     /// display::Connection::new_window()).
     ///
     /// A "mouse move" event is generated for a particular window when the mouse moves
-    /// during a pointer grab on that window. A *pointer grab* is initiated on a particular
-    /// window when a mouse button is pressed down while that window has input focus. The
-    /// pointer grab is sustained for as long as there is at least one mouse button that is
-    /// pressed down.
+    /// during a pointer grab that was initiated in that window. See \ref on_mousedown() for
+    /// more on pointer grabs.
     ///
     /// FIXME: Verify above claims on macOS and Windows platforms                            
-    ///
-    /// FIXME: Does a grab end if the window looses input focus?                    
     ///
     /// The default implementation of this function does nothing other than return `true`.
     ///
@@ -165,15 +175,23 @@ public:
     /// generated. The targeted event handler object is the window's associated window
     /// handler (see \ref display::Connection::new_window()).
     ///
-    /// A "mouse over" event is generated for a particular window when the mouse pointer
-    /// enters the contents area of that window. Likewise, a "mouse out" event is generated
-    /// for a particular window when the mouse pointer leaves the contents area of that
-    /// window. See \ref display::Window for the meaning of "contents area".
+    /// In the absence of pointer grabs, a "mouse out" event is generated for a particular
+    /// window when that window transitions from having pointer focus to not having pointer
+    /// focus. A "mouse over" event is generated when the opposite transition occurs.
+    ///
+    /// A window, W, has *pointer focus* when, and only when the pointer is inside the
+    /// contents area of W and there is no other window stacked on top of W such that W is
+    /// obscured at the position of the pointer. See \ref display::Window for the exact
+    /// meaning of "contents area".
+    ///
+    /// If a pointer grab is initiated in window, W, the "mouse out" event for W is not
+    /// generated until after the grab ends (see \ref on_mousedown() for more on pointer
+    /// grabs). The "mouse out" event is generated when the grab ends if the grab ends while
+    /// W does not have pointer focus. If the grab ends while W has pointer focus, the time
+    /// of generation of the "mouse out" event depends on what happens later.
     ///
     /// The "mouse over" and "mouse out" events are generated regardless of whether the
     /// window has input focus (\ref on_focus()).
-    ///
-    /// FIXME: Verify above claims on macOS and Windows platforms                            
     ///
     /// The default implementations of these functions do nothing other than return `true`.
     ///
@@ -197,25 +215,30 @@ public:
     /// focus. Likewise, a "blur" event is generated for a particular window when that
     /// window loses input focus.
     ///
-    /// Only one window at a time can have the input focus. When a window gains input focus,
-    /// another window looses it. Key and mouse button events are sent to the window that
-    /// has input focus.
+    /// A window has *input focus* when it is the receiver of keyboard events (\ref
+    /// on_keydown()). Only one window at a time can have the input focus. When a window
+    /// gains input focus, another window looses it.
     ///
-    /// FIXME: What about "mouse move" and "scroll" events? It looks like scroll events are generated even when window does not have input focus (SDL). Is that good, or should it be suppressed?                            
+    /// In general, input focus is switched to a particular window by pressing a mouse
+    /// button while that window has pointer focus. The exact details depend on the platform
+    /// and on the configuration of the platform. See \ref on_mouseover() for en explanation
+    /// of what it means for a window to have pointer focus.
     ///
     /// The default implementations of these functions do nothing other than return `true`.
     ///
-    /// It is unspecified what happens if a window looses or gains input focus while keys                              
+    /// It is unspecified what happens if a window looses or gains input focus while keys
     /// are pressed down. At the time of writing, some implementations (notably SDL) will
     /// generate "key up" events for certain keys when a window looses input focus while
     /// those keys are pressed down, and will also generate "key down" events for certain
     /// keys if they are already pressed down when a window gains focus. Other
-    /// implementations will not do this (notably X11). An application that wants to enforce
-    /// a regime where keys are released when the window looses input focus must keep track
-    /// of pressed keys, and then synthetically generate "key up" events when the window
-    /// looses focus (\ref on_blur()). Such an application will probably also want to ignore
-    /// any "key up" event that does not correspond to a pressed down key according to its
-    /// own record of pressed down keys.
+    /// implementations will not do this (notably X11). An application, that wants to
+    /// enforce a regime where keys are released when the window looses input focus, must
+    /// keep track of the set of currently pressed down keys, and then synthetically
+    /// generate "key up" events when the window looses focus (\ref on_blur()). Such an
+    /// application will probably also want to ignore any "key up" event that does not
+    /// correspond to a pressed down key according to its own record of pressed down
+    /// keys. See also discussion in the SDL-based display implementation
+    /// (`implementation_sdl.cpp`) near the handling of `SDL_KEYDOWN`.
     ///
     /// \sa \ref on_focus()
     /// \sa \ref on_blur()

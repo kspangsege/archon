@@ -554,6 +554,53 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
         }
         case SDL_KEYDOWN:
         case SDL_KEYUP: {
+            // Some keys may remain pressed down when a window looses input focus, and some
+            // keys may already be pressed down when a window gains input focus. With the
+            // SDL-based display implementation (i.e., this implementation), synthetic "key
+            // up" events are generated for keys that remain pressed down when a window
+            // looses focus, and synthetic "key down" events are generated for keys that are
+            // already pressed down when a window gains focus. This behavior deviates from
+            // the plain X11 behavior, and is also inconsistent with the way mouse buttons
+            // behave under the SDL-based implementation.
+            //
+            // Ideally, the behavior when using the SDL-based implementation should be
+            // changed to match the behavior of X11, which is to only report "key down" and
+            // "key up" events when the keys are actually pressed down or released (ignoring
+            // auto-repeat here). Unfortunately, it does not appear to be possible to
+            // configure SDL to behave this way, nor does it appear to be possible to
+            // emulate the X11 behavior by somehow translating between them in the SDL-based
+            // implementation (no way of knowing whether a "key up" event is synthetic or
+            // genuine).
+            //
+            // FIXME: Consider proposing an SDL improvement in the form of a hint to disable synthesis of key events at focus and blur-time. The difficulty may lie in getting consistent behavior across all platforms supported by SDL.                       
+            //
+            // Alternatively, in the interest of alignment across implementations, it should
+            // be considered whether the X11-based implementation (`implementation_x11.cpp`)
+            // could be made to emulate the SDL-mandated behavior, i.e., with the generation
+            // of synthetic "key up" and "key down" events when window looses or gains input
+            // focus while keys are pressed down. The problem here, is that X11 key events
+            // carry timestamps, but X11 focus and blur events do not, so there are no
+            // timestamps to pass along for the synthetically generated key events.
+            //
+            // SDL evades the problem with the missing timestamps, because it generates all
+            // event timestamps using a local client-side clock. The downside of doing that,
+            // however, is that significant precision in the relative timing between
+            // successive events can be lost. Such precision is important for some
+            // applications. Using locally generated timestamps instead of those provided by
+            // the X server is therefore deemed to not be a viable option for the X11-based
+            // implementation. The loss of precision when using locally generated timestamps
+            // is further aggravated by the tendency of events to be processed in batches on
+            // the client-side, which means that timestamps will then also be obtained in
+            // batches.
+            //
+            // Because of the issues described above, there seems to be no basis for picking
+            // a particular behavior and requiring all display implementations to adhere to
+            // that. Consequently, the API of the Archon Display Library (see
+            // display::EventHandler::on_focus()) does not mandate a particular behavior for
+            // pressed keys when windows gain or loose input focus. While this is
+            // unfortunate, it allows for the unavoidable differences in behavior between
+            // the SDL and X11-based implementations.
+            //
             const WindowImpl* window = lookup_window(event.key.windowID);
             if (ARCHON_LIKELY(window)) {
                 display::KeyEvent event_2;
