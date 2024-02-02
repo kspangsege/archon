@@ -1284,13 +1284,24 @@ int main(int argc, char* argv[])
 
     core::FlatMap<Window, WindowSlot> window_slots;
 
+    auto try_get_window_slot = [&](Window win, WindowSlot*& slot) {
+        auto i = window_slots.find(win);
+        if (ARCHON_LIKELY(i != window_slots.end())) {
+            slot = &i->second;
+            return true;
+        }
+        return false;
+    };
+
     Atom delete_window = XInternAtom(display, "WM_DELETE_WINDOW", False);
 
 #if ARCHON_DISPLAY_HAVE_X11_XDBE
     XdbeSwapAction swap_action = XdbeUndefined; // Contents of swapped-out buffer becomes undefined
 #endif // ARCHON_DISPLAY_HAVE_X11_XDBE
 
-    for (int i = 0; i < num_windows; ++i) {
+    int prev_window_no = 0;
+    std::size_t max_seen_window_slots = 0;
+    auto open_window = [&] {
         // Create window
         display::Pos pos;
         if (optional_pos.has_value())
@@ -1309,7 +1320,7 @@ int main(int argc, char* argv[])
                                       0, depth, InputOutput, visual, CWEventMask | CWColormap, &swa);
 
         // Set window name
-        int no = i + 1;
+        int no = ++prev_window_no;
         std::string name_1 = core::format(locale, "X11 Probe %s", no); // Throws
         char* name_2 = name_1.data();
         XTextProperty name_3;
@@ -1346,15 +1357,11 @@ int main(int argc, char* argv[])
 
         WindowSlot slot = { no, window, drawable, img_size };
         window_slots.emplace(window, slot); // Throws
-    }
 
-    auto try_get_window_slot = [&](Window win, WindowSlot*& slot) {
-        auto i = window_slots.find(win);
-        if (ARCHON_LIKELY(i != window_slots.end())) {
-            slot = &i->second;
-            return true;
-        }
-        return false;
+        if (window_slots.size() > max_seen_window_slots)
+            max_seen_window_slots = window_slots.size();
+
+        return window;
     };
 
     auto close_window = [&](Window win) noexcept {
@@ -1381,7 +1388,7 @@ int main(int argc, char* argv[])
     };
 
     auto log = [&](int window_no, std::string_view message, const auto&... args) {
-        if (num_windows == 1) {
+        if (max_seen_window_slots < 2) {
             logger.info(message, args...); // Throws
         }
         else {
@@ -1389,11 +1396,15 @@ int main(int argc, char* argv[])
         }
     };
 
-    // Event loop
+    for (int i = 0; i < num_windows; ++i)
+        open_window(); // Throws
+
     for (const auto& entry : window_slots) {
         const WindowSlot& slot = entry.second;
         XMapWindow(display, slot.window);
     }
+
+    // Event loop
     bool expect_keymap_notify = false;
     std::vector<std::string_view> key_names;
     while (!window_slots.empty()) {
@@ -1412,8 +1423,9 @@ int main(int argc, char* argv[])
                 switch (ev.type) {
                     case MotionNotify:
                         if (ARCHON_LIKELY(try_get_window_slot(ev.xmotion.window, slot))) {
+                            display::Pos pos = { ev.xmotion.x, ev.xmotion.y };
                             if (report_mouse_move)
-                                log(slot->no, "MOUSE MOVE: %s,%s", ev.xmotion.x, ev.xmotion.y); // Throws
+                                log(slot->no, "MOUSE MOVE: %s", pos); // Throws
                         }
                         break;
                     case ConfigureNotify:
@@ -1461,8 +1473,15 @@ int main(int argc, char* argv[])
                             std::string_view key_name = get_key_name(keysym); // Throws
                             log(slot->no, "%s: %s", (ev.type == KeyPress ? "KEY DOWN" : "KEY UP"),
                                 key_name); // Throws
-                            if (ev.type == KeyPress && keysym == XK_Escape)
+                            if (ev.type == KeyPress && (keysym == XK_Escape || keysym == XK_q)) {
                                 close_window(slot->window);
+                                break;
+                            }
+                            if (ev.type == KeyRelease && keysym == XK_n) {
+                                Window window = open_window(); // Throws
+                                XMapWindow(display, window);
+                                break;
+                            }
                         }
                         break;
                     case KeymapNotify:

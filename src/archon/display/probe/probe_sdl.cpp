@@ -183,6 +183,7 @@ int main(int argc, char* argv[])
 
     int num_windows = 0;
     log::LogLevel log_level_limit = log::LogLevel::warn;
+    bool report_mouse_move = false;
 
     cli::Spec spec;
     opt(cli::help_tag, spec); // Throws
@@ -196,6 +197,10 @@ int main(int argc, char* argv[])
         "Set the log level limit. The possible levels are \"off\", \"fatal\", \"error\", \"warn\", \"info\", "
         "\"detail\", \"debug\", \"trace\", and \"all\". The default limit is \"@V\".",
         cli::assign(log_level_limit)); // Throws
+
+    opt("-m, --report-mouse-move", "", cli::no_attributes, spec,
+        "Turn on reporting of \"mouse move\" events.",
+        cli::raise_flag(report_mouse_move)); // Throws
 
     int exit_status = 0;
     if (ARCHON_UNLIKELY(cli::process(argc, argv, spec, exit_status, locale))) // Throws
@@ -243,8 +248,19 @@ int main(int argc, char* argv[])
 
     core::FlatMap<Uint32, WindowSlot> window_slots;
 
-    for (int i = 0; i < num_windows; ++i) {
-        int no = i + 1;
+    auto try_get_window_slot = [&](Uint32 window_id, WindowSlot*& slot) {
+        auto i = window_slots.find(window_id);
+        if (ARCHON_LIKELY(i != window_slots.end())) {
+            slot = &i->second;
+            return true;
+        }
+        return false;
+    };
+
+    int prev_window_no = 0;
+    std::size_t max_seen_window_slots = 0;
+    auto open_window = [&] {
+        int no = ++prev_window_no;
         std::string name = core::format(locale, "SDL Probe %s", no); // Throws
         SDL_Window* window = {};
         ARCHON_SCOPE_EXIT {
@@ -252,7 +268,7 @@ int main(int argc, char* argv[])
                 SDL_DestroyWindow(window);
         };
         {
-            Uint32 flags = SDL_WINDOW_RESIZABLE;
+            Uint32 flags = SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE;
             window = SDL_CreateWindow(name.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 256, 256, flags);
             if (!window)
                 throw_sdl_error("SDL_CreateWindow() failed");
@@ -281,7 +297,7 @@ int main(int argc, char* argv[])
             int ret = SDL_GetRendererInfo(slot.renderer, &info);
             if (ret < 0)
                 throw_sdl_error("SDL_GetRenderInfo() failed");
-            if (i == 0) {
+            if (no == 1) {
                 logger.info("Renderer:");
                 show_renderer_info(info, logger);
             }
@@ -295,16 +311,13 @@ int main(int argc, char* argv[])
             if (ret < 0)
                 throw_sdl_error("SDL_SetRenderDrawColor() failed");
         }
-    }
-
-    auto try_get_window_slot = [&](Uint32 window_id, WindowSlot*& slot) {
-        auto i = window_slots.find(window_id);
-        if (ARCHON_LIKELY(i != window_slots.end())) {
-            slot = &i->second;
-            return true;
-        }
-        return false;
+        if (window_slots.size() > max_seen_window_slots)
+            max_seen_window_slots = window_slots.size();
+        return slot.window;
     };
+
+    for (int i = 0; i < num_windows; ++i)
+        open_window();
 
     bool quit = window_slots.empty();
     auto close_window = [&](Uint32 window_id) noexcept {
@@ -320,7 +333,7 @@ int main(int argc, char* argv[])
     };
 
     auto log = [&](int window_no, std::string_view message, const auto&... args) {
-        if (num_windows == 1) {
+        if (max_seen_window_slots < 2) {
             logger.info(message, args...); // Throws
         }
         else {
@@ -328,6 +341,12 @@ int main(int argc, char* argv[])
         }
     };
 
+    for (const auto& entry : window_slots) {
+        const WindowSlot& slot = entry.second;
+        SDL_ShowWindow(slot.window);
+    }
+
+    // Event loop
     while (!quit) {
         {
             int ret = SDL_WaitEvent(nullptr);
@@ -347,6 +366,15 @@ int main(int argc, char* argv[])
 
             WindowSlot* slot = {};
             switch (event.type) {
+                case SDL_MOUSEMOTION:
+                    if (ARCHON_LIKELY(event.motion.state == 0))
+                        break;
+                    if (ARCHON_LIKELY(try_get_window_slot(event.motion.windowID, slot))) {
+                        display::Pos pos = { event.motion.x, event.motion.y };
+                        if (report_mouse_move)
+                            log(slot->no, "MOUSE MOVE: %s", pos); // Throws
+                    }
+                    break;
                 case SDL_MOUSEBUTTONDOWN:
                 case SDL_MOUSEBUTTONUP:
                     if (ARCHON_LIKELY(try_get_window_slot(event.button.windowID, slot))) {
@@ -357,12 +385,18 @@ int main(int argc, char* argv[])
                 case SDL_KEYDOWN:
                 case SDL_KEYUP:
                     if (ARCHON_LIKELY(try_get_window_slot(event.key.windowID, slot))) {
+                        SDL_Keycode keysym = event.key.keysym.sym;
                         const char* key = "?";
                         if (ARCHON_LIKELY(core::assume_utf8_locale(locale))) // Throws
-                            key = SDL_GetKeyName(event.key.keysym.sym); // Throws
+                            key = SDL_GetKeyName(keysym); // Throws
                         log(slot->no, "%s: %s", (event.type == SDL_KEYDOWN ? "KEY DOWN" : "KEY UP"), key); // Throws
-                        if (event.type == SDL_KEYDOWN && event.key.keysym.sym == SDLK_ESCAPE) {
+                        if (event.type == SDL_KEYDOWN && (keysym == SDLK_ESCAPE || keysym == SDLK_q)) {
                             close_window(slot->window_id);
+                            break;
+                        }
+                        if (event.type == SDL_KEYUP && keysym == SDLK_n) {
+                            SDL_Window* window = open_window(); // Throws
+                            SDL_ShowWindow(window);
                             break;
                         }
                     }
