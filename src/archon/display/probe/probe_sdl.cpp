@@ -24,6 +24,7 @@
 #include <thread>
 
 #include <archon/core/features.h>
+#include <archon/core/integer.hpp>
 #include <archon/core/scope_exit.hpp>
 #include <archon/core/flat_map.hpp>
 #include <archon/core/format.hpp>
@@ -389,7 +390,8 @@ int main(int argc, char* argv[])
                         const char* key = "?";
                         if (ARCHON_LIKELY(core::assume_utf8_locale(locale))) // Throws
                             key = SDL_GetKeyName(keysym); // Throws
-                        log(slot->no, "%s: %s", (event.type == SDL_KEYDOWN ? "KEY DOWN" : "KEY UP"), key); // Throws
+                        log(slot->no, "%s: %s, %s", (event.type == SDL_KEYDOWN ? "KEY DOWN" : "KEY UP"), key,
+                            core::promote(event.key.repeat)); // Throws
                         if (event.type == SDL_KEYDOWN && (keysym == SDLK_ESCAPE || keysym == SDLK_q)) {
                             close_window(slot->window_id);
                             break;

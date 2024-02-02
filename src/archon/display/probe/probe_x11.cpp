@@ -126,6 +126,20 @@ auto get_visual_class_name(int class_) -> const char*
 }
 
 
+auto get_crossing_mode_name(int mode) -> const char*
+{
+    switch (mode) {
+        case NotifyNormal:
+            return "NotifyNormal";
+        case NotifyGrab:
+            return "NotifyGrab";
+        case NotifyUngrab:
+            return "NotifyUngrab";
+    }
+    return "?";
+}
+
+
 inline bool zero_mask_match(const XVisualInfo& info)
 {
     return (info.red_mask == 0 && info.green_mask == 0 && info.blue_mask == 0);
@@ -1508,7 +1522,8 @@ int main(int argc, char* argv[])
                     case EnterNotify:
                     case LeaveNotify:
                         if (ARCHON_LIKELY(try_get_window_slot(ev.xcrossing.window, slot)))
-                            log(slot->no, (ev.type == EnterNotify ? "MOUSE OVER" : "MOUSE OUT")); // Throws
+                            log(slot->no, "%s: %s", (ev.type == EnterNotify ? "MOUSE OVER" : "MOUSE OUT"),
+                                get_crossing_mode_name(ev.xcrossing.mode)); // Throws
                         break;
                     case FocusIn:
                     case FocusOut:
