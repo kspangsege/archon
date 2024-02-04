@@ -63,8 +63,6 @@ public:
     /// i.e., after having been held down for a short while. One "key repeat" event is
     /// generated for each key repetition.
     ///
-    /// FIXME: Verify above claims on macOS and Windows platforms                            
-    ///
     /// In some cases, "key up" and "key down" events are generated when windows loose or
     /// gain input focus while keys are pressed down. See \ref on_focus() for more on this.
     ///
