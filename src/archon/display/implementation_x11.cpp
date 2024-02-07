@@ -31,6 +31,7 @@
 #include <archon/core/features.h>
 #include <archon/core/assert.hpp>
 #include <archon/core/deque.hpp>
+#include <archon/core/flat_set.hpp>
 #include <archon/core/flat_map.hpp>
 #include <archon/core/literal_hash_map.hpp>
 #include <archon/core/format.hpp>
@@ -272,6 +273,28 @@ private:
 
     core::FlatMap<::Window, WindowImpl&> m_windows;
 
+    // Track pointer grabs so that "mouse over" and "mouse out" events can be ignored when
+    // they occur during a grab.
+    //
+    // If the pointer leaves the window during a pointer grab and the grab ends outside the
+    // window, there is a question of whether the "mouse out" event should occur when the
+    // pointer leaves the window or when the grab ends. SDL (Simple DirectMedia Layer) opts
+    // to let the "mouse out" event occur when the grab ends, and, unfortunately, there is
+    // no way to emulate the other behavior when using SDL.
+    //
+    // X11, on the other hand, generates a "mouse out" event in both cases, that is when the
+    // pointer leaves the window and when the grab ends. With this, we can emulate the SDL
+    // behavior using X11 by ignoring all "mouse over" and "mouse out" event while a grab is
+    // in progress.
+    //
+    // In the interest of alignment across display implementations and with the SDL-based
+    // implementation in particular (`implementation_sdl.cpp`), the required behavior of
+    // display implementations is to generate the "mouse out" event when the grab ends. See
+    // also display::EventHandler::on_mouseover().
+    //
+    core::FlatSet<::Window> m_pointer_grab_buttons;
+    ::Window m_pointer_grab_window_id = {};
+
     // A queue of windows with pending expose events (push to back and pop from
     // front). Windows occur at most once in this queue.
     //
@@ -306,6 +329,8 @@ private:
                        const display::Window::Config&) -> std::unique_ptr<display::Window>;
     bool do_process_events(const time_point_type* deadline, display::ConnectionEventHandler*);
     auto lookup_window(::Window window_id) noexcept -> WindowImpl*;
+    void track_pointer_grabs(::Window window_id, unsigned button, bool is_press);
+    bool is_pointer_grabbed() const noexcept;
 };
 
 
@@ -610,6 +635,14 @@ inline void ConnectionImpl::unregister_window(::Window id) noexcept
 {
     std::size_t n = m_windows.erase(id);
     ARCHON_ASSERT(n == 1);
+
+    if (ARCHON_UNLIKELY(m_pointer_grab_window_id == id))
+        m_pointer_grab_buttons.clear();
+
+    auto i = std::find(m_exposed_windows.begin(), m_exposed_windows.end(), id);
+    if (i != m_exposed_windows.end())
+        m_exposed_windows.erase(i);
+
     if (ARCHON_LIKELY(m_have_curr_window && id == m_curr_window_id))
         m_curr_window = nullptr;
 }
@@ -849,36 +882,39 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
         case ButtonPress:
         case ButtonRelease: {
             WindowImpl* window = lookup_window(ev.xbutton.window);
-            bool is_scroll = {};
-            display::MouseButton button = {};
-            math::Vector2F amount;
-            if (ARCHON_LIKELY(window && try_map_mouse_button(ev.xbutton.button, is_scroll, button, amount))) {
-                if (ARCHON_LIKELY(is_scroll)) {
-                    display::ScrollEvent event;
-                    event.cookie = window->cookie;
-                    event.timestamp = unwrap_session.unwrap_next_timestamp(ev.xbutton.time); // Throws
-                    event.amount = amount;
-                    bool proceed = window->event_handler.on_scroll(event); // Throws
-                    if (ARCHON_LIKELY(proceed))
-                        break;
-                    return false; // Interrupt
-                }
-                else {
-                    display::MouseButtonEvent event;
-                    event.cookie = window->cookie;
-                    event.timestamp = unwrap_session.unwrap_next_timestamp(ev.xbutton.time); // Throws
-                    event.pos = { ev.xbutton.x, ev.xbutton.y };
-                    event.button = button;
-                    bool proceed;
-                    if (ev.type == ButtonPress) {
-                        proceed = window->event_handler.on_mousedown(event); // Throws
+            if (ARCHON_LIKELY(window)) {
+                track_pointer_grabs(ev.xbutton.window, ev.xbutton.button, ev.type == ButtonPress); // Throws
+                bool is_scroll = {};
+                display::MouseButton button = {};
+                math::Vector2F amount;
+                if (ARCHON_LIKELY(try_map_mouse_button(ev.xbutton.button, is_scroll, button, amount))) {
+                    if (ARCHON_LIKELY(is_scroll)) {
+                        display::ScrollEvent event;
+                        event.cookie = window->cookie;
+                        event.timestamp = unwrap_session.unwrap_next_timestamp(ev.xbutton.time); // Throws
+                        event.amount = amount;
+                        bool proceed = window->event_handler.on_scroll(event); // Throws
+                        if (ARCHON_LIKELY(proceed))
+                            break;
+                        return false; // Interrupt
                     }
                     else {
-                        proceed = window->event_handler.on_mouseup(event); // Throws
+                        display::MouseButtonEvent event;
+                        event.cookie = window->cookie;
+                        event.timestamp = unwrap_session.unwrap_next_timestamp(ev.xbutton.time); // Throws
+                        event.pos = { ev.xbutton.x, ev.xbutton.y };
+                        event.button = button;
+                        bool proceed;
+                        if (ev.type == ButtonPress) {
+                            proceed = window->event_handler.on_mousedown(event); // Throws
+                        }
+                        else {
+                            proceed = window->event_handler.on_mouseup(event); // Throws
+                        }
+                        if (ARCHON_LIKELY(proceed))
+                            break;
+                        return false; // Interrupt
                     }
-                    if (ARCHON_LIKELY(proceed))
-                        break;
-                    return false; // Interrupt
                 }
             }
             break;
@@ -988,7 +1024,7 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
         case EnterNotify:
         case LeaveNotify: {
             WindowImpl* window = lookup_window(ev.xcrossing.window);
-            if (ARCHON_LIKELY(window)) {
+            if (ARCHON_LIKELY(window && !is_pointer_grabbed())) {
                 display::TimedWindowEvent event;
                 event.cookie = window->cookie;
                 event.timestamp = unwrap_session.unwrap_next_timestamp(ev.xcrossing.time); // Throws
@@ -1008,43 +1044,6 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
 
         case FocusIn:
         case FocusOut: {
-            // Some keys may remain pressed down when a window looses input focus, and some
-            // keys may already be pressed down when a window gains input focus. With the
-            // SDL-based implementation, synthetic "key up" events are generated for key
-            // that remain pressed down when a window looses focus, and synthetic "key down"
-            // events are generated for keys that are already pressed down when a window
-            // gains focus. Ideally, in the interest of alignment across implementations,
-            // the X11-based implemetnation would adopt the same behavior. That would,
-            // however, not be as straight forward as it might seem. The root problem is
-            // that key events carry timestamps, but focus and blur events do not, so there
-            // are no timestamps to pass along in the synthetically generated events.
-            //
-            // SDL evades the problem with the missing timestamps, because it generates all
-            // event timestamps using a local client-side clock. The downside of doing that,
-            // however, is that significant and important precision can be lost in the
-            // relaive timing between successive events. Such precision is important for
-            // some applications. Using locally generated timestamps instead of those
-            // provided by the X server is therefore deemed to not be a viable option for
-            // the X11-based implementation. The loss of precision when using locally
-            // generated timestamps is further aggravated by the tendency of events to be
-            // processed in batches on the client-side, which means that timestamps will
-            // then also be obtained in batches.
-            //
-            // Because of the issues described above, the API of the Archon Display Library (see )
-            // does not mandate a particular behavior for pressed keys when windows gain or
-            // loose input focus. While this is unformatunate, it allows for the necessary
-            // deviation in behavior between the SDL and X11-based implementations.
-
-
-            // this precision would be Locally generated timestamps , becuase
-            // locally generated timestamps will be of significantly lowe quality than those
-            // generated by the X server, espcially because events will tend to be processed
-            // in batches on the client side.
-
-            // When using SDL, "key up" events are generated for keys that are pressed down when a window looses input focus
-            
-            // In the interest of alignment with the SDL-based implementation (`implementation_sdl.cpp`), the X11-based implementation should generate "key up" events for keys that are pressed down when a window looses input focus, and it should also generate "key down" events for keys that are already pressed down when a window gains input focus.   
-
             if (ev.type == FocusIn)
                 m_expect_keymap_notify = true;
             WindowImpl* window = lookup_window(ev.xfocus.window);
@@ -1169,6 +1168,30 @@ auto ConnectionImpl::lookup_window(::Window window_id) noexcept -> WindowImpl*
     m_curr_window = window;
     m_have_curr_window = true;
     return window;
+}
+
+
+void ConnectionImpl::track_pointer_grabs(::Window window_id, unsigned button, bool is_press)
+{
+    ARCHON_ASSERT(!is_pointer_grabbed() || window_id == m_pointer_grab_window_id);
+    if (is_press) {
+        bool grab_in_progress = is_pointer_grabbed();
+        auto p = m_pointer_grab_buttons.insert(button); // Throws
+        bool was_inserted = p.second;
+        ARCHON_ASSERT(was_inserted);
+        if (ARCHON_LIKELY(!grab_in_progress))
+            m_pointer_grab_window_id = window_id;
+    }
+    else {
+        auto n = m_pointer_grab_buttons.erase(button);
+        ARCHON_ASSERT(n == 1);
+    }
+}
+
+
+inline bool ConnectionImpl::is_pointer_grabbed() const noexcept
+{
+    return !m_pointer_grab_buttons.empty();
 }
 
 

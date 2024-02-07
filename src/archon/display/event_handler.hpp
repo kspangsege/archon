@@ -107,8 +107,8 @@ public:
     /// situation. Here, one separate button press is needed to assign input focus to the
     /// window. This then allows for the next button press to initiate a pointer grab.
     ///
-    /// A pointer grab is supposed to be sustained even if the initiating window looses
-    /// input focus, and this is indeed the case when using the X11-based display
+    /// SDL quirks: A pointer grab is supposed to be sustained even if the initiating window
+    /// looses input focus, and this is indeed the case when using the X11-based display
     /// implementation (\ref display::get_x11_implementation_slot()). Unfortunately, SDL has
     /// an inconsistent / buggy behavior when the window looses input focus while a pointer
     /// grab is in progress, and it does not appear to be possible for the SDL-based
@@ -127,7 +127,7 @@ public:
     /// looses input focus, except for the "mouse up" event which is not generated at all in
     /// this case.
     ///
-    /// SDL quirk: With SDL on Windows, when a pointer grab ends over a different window,
+    /// SDL quirks: With SDL on Windows, when a pointer grab ends over a different window,
     /// the "mouse over" event for the different window is not generated until the mouse
     /// starts to move.
     ///

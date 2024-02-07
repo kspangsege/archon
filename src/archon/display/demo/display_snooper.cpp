@@ -60,6 +60,11 @@ public:
         m_win = std::move(win);
     }
 
+    void set_report_mouse_move(bool val) noexcept
+    {
+        m_report_mouse_move = val;
+    }
+
     void process_events()
     {
         m_conn.process_events(this); // Throws
@@ -102,7 +107,8 @@ public:
 
     bool on_mousemove(const display::MouseEvent& ev) override final
     {
-        m_logger.info("MOUSE MOVE: %s", ev.pos); // Throws
+        if (m_report_mouse_move)
+            m_logger.info("MOUSE MOVE: %s", ev.pos); // Throws
         return true;
     }
 
@@ -171,8 +177,9 @@ public:
 
 private:
     display::Connection& m_conn;
-    std::unique_ptr<display::Window> m_win;
     log::Logger& m_logger;
+    std::unique_ptr<display::Window> m_win;
+    bool m_report_mouse_move = false;
 };
 
 
@@ -189,6 +196,7 @@ int main(int argc, char* argv[])
     std::optional<std::string> optional_display_implementation;
     bool disable_double_buffering = false;
     bool disable_detectable_autorepeat = false;
+    bool report_mouse_move = false;
     bool use_synchronous_mode = false;
 
     cli::Spec spec;
@@ -226,6 +234,10 @@ int main(int argc, char* argv[])
         "offered by the X Keyboard Extension, even when it can be turned on. Instead, rely on the fall-back detection "
         "mechanism.",
         cli::raise_flag(disable_detectable_autorepeat)); // Throws
+
+    opt("-m, --report-mouse-move", "", cli::no_attributes, spec,
+        "Turn on reporting of \"mouse move\" events.",
+        cli::raise_flag(report_mouse_move)); // Throws
 
     opt("-s, --use-synchronous-mode", "", cli::no_attributes, spec,
         "When using the X11-based display implementation, turn on X11's synchronous mode. In this mode, buffering of "
@@ -326,5 +338,6 @@ int main(int argc, char* argv[])
         conn->new_window(display, "Archon Display Snooper", size, event_loop, window_config); // Throws
     win->show(); // Throws
     event_loop.set_window(std::move(win));
+    event_loop.set_report_mouse_move(report_mouse_move);
     event_loop.process_events(); // Throws
 }
