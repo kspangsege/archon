@@ -328,7 +328,7 @@ private:
     auto do_new_window(int screen, std::string_view title, display::Size size, display::WindowEventHandler&,
                        const display::Window::Config&) -> std::unique_ptr<display::Window>;
     bool do_process_events(const time_point_type* deadline, display::ConnectionEventHandler*);
-    auto lookup_window(::Window window_id) noexcept -> WindowImpl*;
+    bool lookup_window(::Window window_id, WindowImpl*& window) noexcept;
     void track_pointer_grabs(::Window window_id, unsigned button, bool is_press);
     bool is_pointer_grabbed() const noexcept;
 };
@@ -806,6 +806,7 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
         (connection_event_handler ? *connection_event_handler : *this);
 
     XEvent ev = {};
+    WindowImpl* window = {};
     timestamp_unwrapper_type::Session unwrap_session(m_timestamp_unwrapper);
     bool expect_keymap_notify;
 
@@ -822,9 +823,8 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
     m_expect_keymap_notify = false;
     ARCHON_ASSERT(!expect_keymap_notify || ev.type == KeymapNotify);
     switch (ev.type) {
-        case MotionNotify: {
-            WindowImpl* window = lookup_window(ev.xmotion.window);
-            if (ARCHON_LIKELY(window)) {
+        case MotionNotify:
+            if (ARCHON_LIKELY(lookup_window(ev.xmotion.window, window))) {
                 display::MouseEvent event;
                 event.cookie = window->cookie;
                 event.timestamp = unwrap_session.unwrap_next_timestamp(ev.xmotion.time); // Throws
@@ -835,11 +835,9 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
                 return false; // Interrupt
             }
             break;
-        }
 
-        case ConfigureNotify: {
-            WindowImpl* window = lookup_window(ev.xconfigure.window);
-            if (ARCHON_LIKELY(window)) {
+        case ConfigureNotify:
+            if (ARCHON_LIKELY(lookup_window(ev.xconfigure.window, window))) {
                 // When there is a window manager, the window manager will generally
                 // re-parent the client's window. This generally means that the client's
                 // window will remain at a fixed position relative to it's parent, so there
@@ -868,21 +866,17 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
                 return false; // Interrupt
             }
             break;
-        }
 
-        case Expose: {
-            WindowImpl* window = lookup_window(ev.xexpose.window);
-            if (ARCHON_LIKELY(!window || window->has_pending_expose_event))
+        case Expose:
+            if (ARCHON_LIKELY(!lookup_window(ev.xexpose.window, window) || window->has_pending_expose_event))
                 break;
             m_exposed_windows.push_back(ev.xexpose.window); // Throws
             window->has_pending_expose_event = true;
             break;
-        }
 
         case ButtonPress:
-        case ButtonRelease: {
-            WindowImpl* window = lookup_window(ev.xbutton.window);
-            if (ARCHON_LIKELY(window)) {
+        case ButtonRelease:
+            if (ARCHON_LIKELY(lookup_window(ev.xbutton.window, window))) {
                 track_pointer_grabs(ev.xbutton.window, ev.xbutton.button, ev.type == ButtonPress); // Throws
                 bool is_scroll = {};
                 display::MouseButton button = {};
@@ -918,12 +912,10 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
                 }
             }
             break;
-        }
 
         case KeyPress:
-        case KeyRelease: {
-            WindowImpl* window = lookup_window(ev.xkey.window);
-            if (ARCHON_LIKELY(window)) {
+        case KeyRelease:
+            if (ARCHON_LIKELY(lookup_window(ev.xkey.window, window))) {
                 using timestamp_type = display::TimedWindowEvent::Timestamp;
                 timestamp_type timestamp = unwrap_session.unwrap_next_timestamp(ev.xkey.time); // Throws
                 bool is_repetition = false;
@@ -1009,9 +1001,8 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
                 return false; // Interrupt
             }
             break;
-        }
 
-        case KeymapNotify: {
+        case KeymapNotify:
             // Note: For some unclear reason, `ev.xkeymap.window` does not specify the
             // target window like it does for other types of events. Instead, one can rely
             // on `KeymapNotify` to be generated immediately after every `FocusIn` event, so
@@ -1019,12 +1010,10 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
             if (expect_keymap_notify)
                 m_pressed_keys.assign(ev.xkeymap.key_vector);
             break;
-        }
 
         case EnterNotify:
-        case LeaveNotify: {
-            WindowImpl* window = lookup_window(ev.xcrossing.window);
-            if (ARCHON_LIKELY(window && !is_pointer_grabbed())) {
+        case LeaveNotify:
+            if (ARCHON_LIKELY(lookup_window(ev.xcrossing.window, window) && !is_pointer_grabbed())) {
                 display::TimedWindowEvent event;
                 event.cookie = window->cookie;
                 event.timestamp = unwrap_session.unwrap_next_timestamp(ev.xcrossing.time); // Throws
@@ -1040,14 +1029,12 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
                 return false; // Interrupt
             }
             break;
-        }
 
         case FocusIn:
-        case FocusOut: {
+        case FocusOut:
             if (ev.type == FocusIn)
                 m_expect_keymap_notify = true;
-            WindowImpl* window = lookup_window(ev.xfocus.window);
-            if (ARCHON_LIKELY(window)) {
+            if (ARCHON_LIKELY(lookup_window(ev.xfocus.window, window))) {
                 display::WindowEvent event;
                 event.cookie = window->cookie;
                 bool proceed;
@@ -1062,22 +1049,17 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
                 return false; // Interrupt
             }
             break;
-        }
 
-        case ClientMessage: {
+        case ClientMessage:
             bool is_close = (ev.xclient.format == 32 && Atom(ev.xclient.data.l[0]) == atom_wm_delete_window);
-            if (ARCHON_LIKELY(is_close)) {
-                const WindowImpl* window = lookup_window(ev.xclient.window);
-                if (ARCHON_LIKELY(window)) {
-                    display::WindowEvent event;
-                    event.cookie = window->cookie;
-                    bool proceed = window->event_handler.on_close(event); // Throws
-                    if (ARCHON_LIKELY(!proceed))
-                        return false; // Interrupt
-                }
+            if (ARCHON_LIKELY(is_close && lookup_window(ev.xclient.window, window))) {
+                display::WindowEvent event;
+                event.cookie = window->cookie;
+                bool proceed = window->event_handler.on_close(event); // Throws
+                if (ARCHON_LIKELY(!proceed))
+                    return false; // Interrupt
             }
             break;
-        }
     }
     goto process_1;
 
@@ -1085,10 +1067,10 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
     for (;;) {
         if (ARCHON_LIKELY(m_exposed_windows.empty()))
             break;
-        ::Window win = m_exposed_windows.front();
+        ::Window window_id = m_exposed_windows.front();
         m_exposed_windows.pop_front();
-        WindowImpl* window = lookup_window(win);
-        if (ARCHON_LIKELY(window)) {
+        WindowImpl* window = {};
+        if (ARCHON_LIKELY(lookup_window(window_id, window))) {
             window->has_pending_expose_event = false;
             display::WindowEvent event;
             event.cookie = window->cookie;
@@ -1155,19 +1137,25 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
 }
 
 
-auto ConnectionImpl::lookup_window(::Window window_id) noexcept -> WindowImpl*
+bool ConnectionImpl::lookup_window(::Window window_id, WindowImpl*& window) noexcept
 {
-    if (ARCHON_LIKELY(m_have_curr_window && window_id == m_curr_window_id))
-        return m_curr_window;
+    if (ARCHON_LIKELY(m_have_curr_window && window_id == m_curr_window_id)) {
+        window = m_curr_window;
+        return true;
+    }
 
-    WindowImpl* window = nullptr;
+    WindowImpl* window_2 = nullptr;
     auto i = m_windows.find(window_id);
     if (ARCHON_LIKELY(i != m_windows.end()))
-        window = &i->second;
+        window_2 = &i->second;
     m_curr_window_id = window_id;
-    m_curr_window = window;
+    m_curr_window = window_2;
     m_have_curr_window = true;
-    return window;
+    if (ARCHON_LIKELY(window_2)) {
+        window = window_2;
+        return true;
+    }
+    return false;
 }
 
 

@@ -208,7 +208,7 @@ private:
     void wait_for_events();
     bool wait_for_events(time_point_type deadline);
 
-    auto lookup_window(Uint32 window_id) noexcept -> const WindowImpl*;
+    bool lookup_window(Uint32 window_id, const WindowImpl*& window) noexcept;
 };
 
 
@@ -486,7 +486,8 @@ auto ConnectionImpl::get_implementation() const noexcept -> const display::Imple
 
 bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler& connection_event_handler)
 {
-    SDL_Event event;
+    SDL_Event event = {};
+    const WindowImpl* window = {};
     timestamp_unwrapper_type::Session unwrap_session(m_timestamp_unwrapper);
 
   next_event_1:
@@ -500,11 +501,10 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
 
   next_event_2:
     switch (event.type) {
-        case SDL_MOUSEMOTION: {
+        case SDL_MOUSEMOTION:
             if (ARCHON_LIKELY(event.motion.state == 0))
                 break;
-            const WindowImpl* window = lookup_window(event.motion.windowID);
-            if (ARCHON_LIKELY(window)) {
+            if (ARCHON_LIKELY(lookup_window(event.motion.windowID, window))) {
                 display::MouseButtonEvent event_2;
                 event_2.cookie = window->cookie;
                 event_2.timestamp = unwrap_session.unwrap_next_timestamp(event.motion.timestamp); // Throws
@@ -515,10 +515,9 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
                 return false; // Interrupt
             }
             break;
-        }
-        case SDL_MOUSEWHEEL: {
-            const WindowImpl* window = lookup_window(event.wheel.windowID);
-            if (ARCHON_LIKELY(window)) {
+
+        case SDL_MOUSEWHEEL:
+            if (ARCHON_LIKELY(lookup_window(event.wheel.windowID, window))) {
                 display::ScrollEvent event_2;
                 event_2.cookie = window->cookie;
                 event_2.timestamp = unwrap_session.unwrap_next_timestamp(event.wheel.timestamp); // Throws
@@ -529,11 +528,10 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
                 return false; // Interrupt
             }
             break;
-        }
+
         case SDL_MOUSEBUTTONDOWN:
-        case SDL_MOUSEBUTTONUP: {
-            const WindowImpl* window = lookup_window(event.button.windowID);
-            if (ARCHON_LIKELY(window)) {
+        case SDL_MOUSEBUTTONUP:
+            if (ARCHON_LIKELY(lookup_window(event.button.windowID, window))) {
                 display::MouseButtonEvent event_2;
                 event_2.cookie = window->cookie;
                 event_2.timestamp = unwrap_session.unwrap_next_timestamp(event.button.timestamp); // Throws
@@ -551,9 +549,9 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
                 return false; // Interrupt
             }
             break;
-        }
+
         case SDL_KEYDOWN:
-        case SDL_KEYUP: {
+        case SDL_KEYUP:
             // Some keys may remain pressed down when a window looses input focus, and some
             // keys may already be pressed down when a window gains input focus. With the
             // SDL-based display implementation (i.e., this implementation), synthetic "key
@@ -601,8 +599,7 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
             // unfortunate, it allows for the unavoidable differences in behavior between
             // the SDL and X11-based implementations.
             //
-            const WindowImpl* window = lookup_window(event.key.windowID);
-            if (ARCHON_LIKELY(window)) {
+            if (ARCHON_LIKELY(lookup_window(event.key.windowID, window))) {
                 display::KeyEvent event_2;
                 event_2.cookie = window->cookie;
                 event_2.timestamp = unwrap_session.unwrap_next_timestamp(event.key.timestamp); // Throws
@@ -624,12 +621,11 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
                 return false; // Interrupt
             }
             break;
-        }
+
         case SDL_WINDOWEVENT:
-            switch (event.window.event) {
-                case SDL_WINDOWEVENT_SIZE_CHANGED: {
-                    const WindowImpl* window = lookup_window(event.window.windowID);
-                    if (ARCHON_LIKELY(window)) {
+            if (ARCHON_LIKELY(lookup_window(event.window.windowID, window))) {
+                switch (event.window.event) {
+                    case SDL_WINDOWEVENT_SIZE_CHANGED: {
                         display::WindowSizeEvent event_2;
                         event_2.cookie = window->cookie;
                         core::int_cast(event.window.data1, event_2.size.width); // Throws
@@ -639,11 +635,7 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
                             break;
                         return false; // Interrupt
                     }
-                    break;
-                }
-                case SDL_WINDOWEVENT_MOVED: {
-                    const WindowImpl* window = lookup_window(event.window.windowID);
-                    if (ARCHON_LIKELY(window)) {
+                    case SDL_WINDOWEVENT_MOVED: {
                         display::WindowPosEvent event_2;
                         event_2.cookie = window->cookie;
                         core::int_cast(event.window.data1, event_2.pos.x); // Throws
@@ -653,11 +645,7 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
                             break;
                         return false; // Interrupt
                     }
-                    break;
-                }
-                case SDL_WINDOWEVENT_EXPOSED: {
-                    const WindowImpl* window = lookup_window(event.window.windowID);
-                    if (ARCHON_LIKELY(window)) {
+                    case SDL_WINDOWEVENT_EXPOSED: {
                         display::WindowEvent event_2;
                         event_2.cookie = window->cookie;
                         bool proceed = window->event_handler.on_expose(event_2); // Throws
@@ -665,12 +653,8 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
                             break;
                         return false; // Interrupt
                     }
-                    break;
-                }
-                case SDL_WINDOWEVENT_ENTER:
-                case SDL_WINDOWEVENT_LEAVE: {
-                    const WindowImpl* window = lookup_window(event.window.windowID);
-                    if (ARCHON_LIKELY(window)) {
+                    case SDL_WINDOWEVENT_ENTER:
+                    case SDL_WINDOWEVENT_LEAVE: {
                         display::TimedWindowEvent event_2;
                         event_2.cookie = window->cookie;
                         event_2.timestamp = unwrap_session.unwrap_next_timestamp(event.window.timestamp); // Throws
@@ -685,12 +669,8 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
                             break;
                         return false; // Interrupt
                     }
-                    break;
-                }
-                case SDL_WINDOWEVENT_FOCUS_GAINED:
-                case SDL_WINDOWEVENT_FOCUS_LOST: {
-                    const WindowImpl* window = lookup_window(event.window.windowID);
-                    if (ARCHON_LIKELY(window)) {
+                    case SDL_WINDOWEVENT_FOCUS_GAINED:
+                    case SDL_WINDOWEVENT_FOCUS_LOST: {
                         display::WindowEvent event_2;
                         event_2.cookie = window->cookie;
                         bool proceed;
@@ -704,18 +684,14 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
                             break;
                         return false; // Interrupt
                     }
-                    break;
-                }
-                case SDL_WINDOWEVENT_CLOSE: {
-                    const WindowImpl* window = lookup_window(event.window.windowID);
-                    if (ARCHON_LIKELY(window)) {
+                    case SDL_WINDOWEVENT_CLOSE: {
                         display::WindowEvent event_2;
                         event_2.cookie = window->cookie;
                         bool proceed = window->event_handler.on_close(event_2); // Throws
                         if (ARCHON_LIKELY(!proceed))
                             return false; // Interrupt
+                        break;
                     }
-                    break;
                 }
             }
             break;
@@ -821,18 +797,24 @@ bool ConnectionImpl::wait_for_events(time_point_type deadline)
 }
 
 
-auto ConnectionImpl::lookup_window(Uint32 window_id) noexcept -> const WindowImpl*
+bool ConnectionImpl::lookup_window(Uint32 window_id, const WindowImpl*& window) noexcept
 {
-    if (ARCHON_LIKELY(window_id == m_curr_window_id))
-        return m_curr_window;
+    if (ARCHON_LIKELY(window_id == m_curr_window_id)) {
+        window = m_curr_window;
+        return true;
+    }
 
-    const WindowImpl* window = nullptr;
+    const WindowImpl* window_2 = nullptr;
     auto i = m_windows.find(window_id);
     if (ARCHON_LIKELY(i != m_windows.end()))
-        window = &i->second;
+        window_2 = &i->second;
     m_curr_window_id = window_id;
-    m_curr_window = window;
-    return window;
+    m_curr_window = window_2;
+    if (ARCHON_LIKELY(window_2)) {
+        window = window_2;
+        return true;
+    }
+    return false;
 }
 
 
