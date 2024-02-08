@@ -83,7 +83,7 @@
 #  else
 #    define HAVE_XDBE 0
 #  endif
-#  if ARCHON_DISPLAY_HAVE_X11_XRANDR &&
+#  if ARCHON_DISPLAY_HAVE_X11_XRANDR
 #    define HAVE_XRANDR 1
 #  else
 #    define HAVE_XRANDR 0
