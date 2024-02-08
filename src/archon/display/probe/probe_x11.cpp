@@ -78,6 +78,24 @@
 #endif
 
 #if HAVE_X11
+#  if ARCHON_DISPLAY_HAVE_X11_XDBE
+#    define HAVE_XDBE 1
+#  else
+#    define HAVE_XDBE 0
+#  endif
+#  if ARCHON_DISPLAY_HAVE_X11_XRANDR &&
+#    define HAVE_XRANDR 1
+#  else
+#    define HAVE_XRANDR 0
+#  endif
+#  if ARCHON_DISPLAY_HAVE_X11_XRENDER
+#    define HAVE_XRENDER 1
+#  else
+#    define HAVE_XRENDER 0
+#  endif
+#endif
+
+#if HAVE_X11
 #  if ARCHON_CLANG
 #    pragma clang diagnostic ignored "-Wold-style-cast"
 #  endif
@@ -85,13 +103,13 @@
 #  include <X11/Xutil.h>
 #  include <X11/keysym.h>
 #  include <X11/XKBlib.h>
-#  if ARCHON_DISPLAY_HAVE_X11_XDBE
+#  if HAVE_XDBE
 #    include <X11/extensions/Xdbe.h>
 #  endif
-#  if ARCHON_DISPLAY_HAVE_X11_XRANDR
+#  if HAVE_XRANDR
 #    include <X11/extensions/Xrandr.h>
 #  endif
-#  if ARCHON_DISPLAY_HAVE_X11_XRENDER
+#  if HAVE_XRENDER
 #    include <X11/extensions/Xrender.h>
 #  endif
 #endif
@@ -538,7 +556,7 @@ int main(int argc, char* argv[])
     if (ARCHON_UNLIKELY(use_synchronous_mode))
         XSynchronize(display, True);
 
-#if ARCHON_DISPLAY_HAVE_X11_XDBE
+#if HAVE_XDBE
     int have_xdbe = false;
     int xdbe_major = 0;
     int xdbe_minor = 0;
@@ -546,7 +564,7 @@ int main(int argc, char* argv[])
         if (ARCHON_LIKELY(xdbe_major >= 1))
             have_xdbe = true;
     }
-#endif // ARCHON_DISPLAY_HAVE_X11_XDBE
+#endif // HAVE_XDBE
 
     int have_xkb = false;
     int xkb_major = 0;
@@ -569,7 +587,7 @@ int main(int argc, char* argv[])
             detectable_autorepeat_enabled = true;
     }
 
-#if ARCHON_DISPLAY_HAVE_X11_XRANDR
+#if HAVE_XRANDR
     int have_xrandr = false;
     int xrandr_event_base = 0;
     int xrandr_error_base = 0;
@@ -585,9 +603,9 @@ int main(int argc, char* argv[])
         int mask = RROutputChangeNotifyMask | RRCrtcChangeNotifyMask;
         XRRSelectInput(display, root, mask);
     }
-#endif // ARCHON_DISPLAY_HAVE_X11_XRANDR
+#endif // HAVE_XRANDR
 
-#if ARCHON_DISPLAY_HAVE_X11_XRENDER
+#if HAVE_XRENDER
     int have_xrender = false;
     int xrender_event_base = 0;
     int xrender_error_base = 0;
@@ -599,9 +617,9 @@ int main(int argc, char* argv[])
         if (ARCHON_LIKELY(xrender_major > 0 || (xrender_major == 0 && xrender_minor >= 7)))
             have_xrender = true;
     }
-#endif // ARCHON_DISPLAY_HAVE_X11_XRENDER
+#endif // HAVE_XRENDER
 
-#if ARCHON_DISPLAY_HAVE_X11_XDBE
+#if HAVE_XDBE
     // Key is (screen, depth, visual), value is `perflevel` attribute from XdbeVisualInfo
     core::FlatMap<std::tuple<int, int, VisualID>, int> double_buffered_visuals;
     if (ARCHON_LIKELY(have_xdbe)) {
@@ -623,7 +641,7 @@ int main(int argc, char* argv[])
             }
         }
     }
-#endif // ARCHON_DISPLAY_HAVE_X11_XDBE
+#endif // HAVE_XDBE
 
     // List visuals
     {
@@ -637,7 +655,7 @@ int main(int argc, char* argv[])
         for (int i = 0; i < n; ++i) {
             const XVisualInfo& info = entries[i];
             auto format_double_buffered = [&](std::ostream& out) {
-#if ARCHON_DISPLAY_HAVE_X11_XDBE
+#if HAVE_XDBE
                 auto j = double_buffered_visuals.find(std::make_tuple(info.screen, info.depth, info.visualid));
                 if (j != double_buffered_visuals.end()) {
                     int perflevel = j->second;
@@ -651,9 +669,9 @@ int main(int argc, char* argv[])
                 else {
                     out << "no"; // Throws
                 }
-#else // !ARCHON_DISPLAY_HAVE_X11_XDBE
+#else // !HAVE_XDBE
                 out << "unknown"; // Throws
-#endif // !ARCHON_DISPLAY_HAVE_X11_XDBE
+#endif // !HAVE_XDBE
             };
             logger.info("Visual %s: visualid = 0x%s, screen = %s, depth = %s, class = %s, "
                         "red_mask = 0x%s, green_mask = 0x%s, blue_mask = 0x%s, colormap_size = %s, bits_per_rgb = %s, "
@@ -692,13 +710,13 @@ int main(int argc, char* argv[])
     }
     Visual* visual = visual_info.visual;
     bool use_double_buffering = false;
-#if ARCHON_DISPLAY_HAVE_X11_XDBE
+#if HAVE_XDBE
     if (!disable_double_buffering) {
         auto i = double_buffered_visuals.find(std::make_tuple(screen, depth, visual_id));
         if (i != double_buffered_visuals.end())
             use_double_buffering = true;
     }
-#endif // ARCHON_DISPLAY_HAVE_X11_XDBE
+#endif // HAVE_XDBE
 
     // List ZPixmap formats and find "bits per pixel" for selected depth
     int bits_per_pixel = 0;
@@ -732,12 +750,12 @@ int main(int argc, char* argv[])
     }
 
     auto format_have_xdbe = [&](std::ostream& out) {
-#if ARCHON_DISPLAY_HAVE_X11_XDBE
+#if HAVE_XDBE
         if (have_xdbe) {
             out << core::formatted("yes (%s.%s)", xdbe_major, xdbe_minor); // Throws
             return;
         }
-#endif // ARCHON_DISPLAY_HAVE_X11_XDBE
+#endif // HAVE_XDBE
         out << "no"; // Throws
     };
 
@@ -750,22 +768,22 @@ int main(int argc, char* argv[])
     };
 
     auto format_have_xrandr = [&](std::ostream& out) {
-#if ARCHON_DISPLAY_HAVE_X11_XRANDR
+#if HAVE_XRANDR
         if (have_xrandr) {
             out << core::formatted("yes (%s.%s)", xrandr_major, xrandr_minor); // Throws
             return;
         }
-#endif // ARCHON_DISPLAY_HAVE_X11_XRANDR
+#endif // HAVE_XRANDR
         out << "no"; // Throws
     };
 
     auto format_have_xrender = [&](std::ostream& out) {
-#if ARCHON_DISPLAY_HAVE_X11_XRENDER
+#if HAVE_XRENDER
         if (have_xrender) {
             out << core::formatted("yes (%s.%s)", xrender_major, xrender_minor); // Throws
             return;
         }
-#endif // ARCHON_DISPLAY_HAVE_X11_XRENDER
+#endif // HAVE_XRENDER
         out << "no"; // Throws
     };
 
@@ -812,7 +830,7 @@ int main(int argc, char* argv[])
     if (ARCHON_UNLIKELY(!have_xkb))
         throw std::runtime_error("Required X Keyboard Extension is not available");
 
-#if ARCHON_DISPLAY_HAVE_X11_XRANDR
+#if HAVE_XRANDR
     std::vector<display::Screen> screens;
     core::Buffer<char> screens_string_buffer;
     std::size_t screens_string_buffer_used_size = 0;
@@ -953,7 +971,7 @@ int main(int argc, char* argv[])
         update_display_info(); // Throws
         dump_display_info(); // Throws
     }
-#endif // ARCHON_DISPLAY_HAVE_X11_XRANDR
+#endif // HAVE_XRANDR
 
     // Create graphics context
     XGCValues gc_values = {};
@@ -1309,9 +1327,9 @@ int main(int argc, char* argv[])
 
     Atom delete_window = XInternAtom(display, "WM_DELETE_WINDOW", False);
 
-#if ARCHON_DISPLAY_HAVE_X11_XDBE
+#if HAVE_XDBE
     XdbeSwapAction swap_action = XdbeUndefined; // Contents of swapped-out buffer becomes undefined
-#endif // ARCHON_DISPLAY_HAVE_X11_XDBE
+#endif
 
     int prev_window_no = 0;
     std::size_t max_seen_window_slots = 0;
@@ -1362,12 +1380,12 @@ int main(int argc, char* argv[])
 
         // Allocate back buffer when using double buffering
         Drawable drawable = window;
-#if ARCHON_DISPLAY_HAVE_X11_XDBE
+#if HAVE_XDBE
         if (use_double_buffering) {
             XdbeBackBuffer back_buffer = XdbeAllocateBackBufferName(display, window, swap_action);
             drawable = back_buffer;
         }
-#endif // ARCHON_DISPLAY_HAVE_X11_XDBE
+#endif // HAVE_XDBE
 
         WindowSlot slot = { no, window, drawable, img_size };
         window_slots.emplace(window, slot); // Throws
@@ -1540,7 +1558,7 @@ int main(int argc, char* argv[])
                         }
                         break;
                 }
-#if ARCHON_DISPLAY_HAVE_X11_XRANDR
+#if HAVE_XRANDR
                 if (have_xrandr && ev.type == xrandr_event_base + RRNotify) {
                     const auto& ev_2 = reinterpret_cast<const XRRNotifyEvent&>(ev);
                     switch (ev_2.subtype) {
@@ -1550,7 +1568,7 @@ int main(int argc, char* argv[])
                                 dump_display_info(); // Throws
                     }
                 }
-#endif // ARCHON_DISPLAY_HAVE_X11_XRANDR
+#endif // HAVE_XRANDR
             }
         }
 
@@ -1599,7 +1617,7 @@ int main(int argc, char* argv[])
                 if (bottom < win_height)
                     XFillRectangle(display, drawable, gc, 0, bottom, unsigned(win_width), unsigned(win_height - bottom));
 
-#if ARCHON_DISPLAY_HAVE_X11_XDBE
+#if HAVE_XDBE
                 if (use_double_buffering) {
                     XdbeSwapInfo info;
                     info.swap_window = slot.window;
@@ -1607,7 +1625,7 @@ int main(int argc, char* argv[])
                     Status status = XdbeSwapBuffers(display, &info, 1);
                     ARCHON_STEADY_ASSERT(status != 0);
                 }
-#endif // ARCHON_DISPLAY_HAVE_X11_XDBE
+#endif // HAVE_XDBE
             }
         }
     }

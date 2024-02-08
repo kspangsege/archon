@@ -61,19 +61,37 @@
 #endif
 
 #if HAVE_X11
+#  if ARCHON_DISPLAY_HAVE_X11_XDBE
+#    define HAVE_XDBE 1
+#  else
+#    define HAVE_XDBE 0
+#  endif
+#  if ARCHON_DISPLAY_HAVE_X11_XRANDR
+#    define HAVE_XRANDR 1
+#  else
+#    define HAVE_XRANDR 0
+#  endif
+#  if ARCHON_DISPLAY_HAVE_X11_XRENDER
+#    define HAVE_XRENDER 1
+#  else
+#    define HAVE_XRENDER 0
+#  endif
+#endif
+
+#if HAVE_X11
 #  include <poll.h>
 #  include <X11/Xlib.h>
 #  include <X11/Xatom.h>
 #  include <X11/Xutil.h>
 #  include <X11/keysym.h>
 #  include <X11/XKBlib.h>
-#  if ARCHON_DISPLAY_HAVE_X11_XDBE
+#  if HAVE_XDBE
 #    include <X11/extensions/Xdbe.h>
 #  endif
-#  if ARCHON_DISPLAY_HAVE_X11_XRANDR
+#  if HAVE_XRANDR
 #    include <X11/extensions/Xrandr.h>
 #  endif
-#  if ARCHON_DISPLAY_HAVE_X11_XRENDER
+#  if HAVE_XRENDER
 #    include <X11/extensions/Xrender.h>
 #  endif
 #endif
@@ -182,9 +200,11 @@ struct X11Screen {
     Window root = {};
     Colormap colormap = {};
 
+#if HAVE_XRANDR
     std::vector<display::Screen> screens;
     core::Buffer<char> screens_string_buffer;
     std::size_t screens_string_buffer_used_size = 0;
+#endif
 };
 
 
@@ -342,7 +362,7 @@ private:
     void track_pointer_grabs(::Window window_id, unsigned button, bool is_press);
     bool is_pointer_grabbed() const noexcept;
 
-#if ARCHON_DISPLAY_HAVE_X11_XRANDR
+#if HAVE_XRANDR
     bool update_display_info(X11Screen& screen) const;
     bool try_update_display_info(X11Screen& screen, bool& changed) const;
 #endif
@@ -387,7 +407,7 @@ private:
     bool m_is_double_buffered = false;
 
     Drawable m_drawable;
-#if ARCHON_DISPLAY_HAVE_X11_XDBE
+#if HAVE_XDBE
     XdbeSwapAction m_swap_action;
 #endif
 
@@ -488,7 +508,7 @@ void ConnectionImpl::open(const display::ConnectionConfigX11& config)
     atom_wm_protocols     = intern_string("WM_PROTOCOLS");
     atom_wm_delete_window = intern_string("WM_DELETE_WINDOW");
 
-#if ARCHON_DISPLAY_HAVE_X11_XDBE
+#if HAVE_XDBE
     {
         int major = 0;
         int minor = 0;
@@ -497,7 +517,7 @@ void ConnectionImpl::open(const display::ConnectionConfigX11& config)
                 m_have_xdbe = true;
         }
     }
-#endif // ARCHON_DISPLAY_HAVE_X11_XDBE
+#endif // HAVE_XDBE
 
     {
         int have_xkb = false;
@@ -522,7 +542,7 @@ void ConnectionImpl::open(const display::ConnectionConfigX11& config)
             m_detectable_autorepeat_enabled = true;
     }
 
-#if ARCHON_DISPLAY_HAVE_X11_XRANDR
+#if HAVE_XRANDR
     {
         int error_base = 0; // Unused
         if (ARCHON_LIKELY(XRRQueryExtension(dpy, &m_xrandr_event_base, &error_base))) {
@@ -535,9 +555,9 @@ void ConnectionImpl::open(const display::ConnectionConfigX11& config)
                 m_have_xrandr = true;
         }
     }
-#endif // ARCHON_DISPLAY_HAVE_X11_XRANDR
+#endif // HAVE_XRANDR
 
-#if ARCHON_DISPLAY_HAVE_X11_XRENDER
+#if HAVE_XRENDER
     {
         int event_base = 0; // Unused
         int error_base = 0; // Unused
@@ -551,7 +571,7 @@ void ConnectionImpl::open(const display::ConnectionConfigX11& config)
                 m_have_xrender = true;
         }
     }
-#endif // ARCHON_DISPLAY_HAVE_X11_XRENDER
+#endif // HAVE_XRENDER
 }
 
 
@@ -600,7 +620,7 @@ auto ConnectionImpl::ensure_x11_screen(int screen) const -> X11Screen&
         screen_2.colormap = colormap;
 
         bool use_double_buffering = false;
-#if ARCHON_DISPLAY_HAVE_X11_XDBE
+#if HAVE_XDBE
         if (!m_disable_double_buffering && m_have_xdbe) {
             int n = 1;
             XdbeScreenVisualInfo* entries = XdbeGetVisualInfo(dpy, &root, &n);
@@ -619,16 +639,16 @@ auto ConnectionImpl::ensure_x11_screen(int screen) const -> X11Screen&
                 }
             }
         }
-#endif // ARCHON_DISPLAY_HAVE_X11_XDBE
+#endif // HAVE_XDBE
         screen_2.use_double_buffering = use_double_buffering;
 
-#if ARCHON_DISPLAY_HAVE_X11_XRANDR
+#if HAVE_XRANDR
         if (ARCHON_LIKELY(m_have_xrandr)) {
             int mask = RROutputChangeNotifyMask | RRCrtcChangeNotifyMask;
             XRRSelectInput(dpy, root, mask);
             update_display_info(screen_2); // Throws
         }
-#endif // ARCHON_DISPLAY_HAVE_X11_XRANDR
+#endif // HAVE_XRANDR
 
         screen_2.is_initialized = true;
         colormap = None;
@@ -746,6 +766,8 @@ bool ConnectionImpl::try_get_display_conf(int display, core::Buffer<display::Scr
 {
     if (ARCHON_UNLIKELY(display < 0 || display >= int(ScreenCount(dpy))))
         throw std::invalid_argument("Bad display index");
+
+#if HAVE_XRANDR
     const X11Screen& screen = ensure_x11_screen(display); // Throws
     screens.assign(screen.screens); // Throws
     const char* strings_base = screen.screens_string_buffer.data();
@@ -756,6 +778,12 @@ bool ConnectionImpl::try_get_display_conf(int display, core::Buffer<display::Scr
         core::rebase_string(screen.output_name, strings_base, strings_base_2); // Throws
     num_screens = n;
     return true;
+#else // !HAVE_XRANDR
+    static_cast<void>(screens);
+    static_cast<void>(strings);
+    static_cast<void>(num_screens);
+    return false;
+#endif // !HAVE_XRANDR
 }
 
 
@@ -1090,7 +1118,7 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
             break;
     }
 
-#if ARCHON_DISPLAY_HAVE_X11_XRANDR
+#if HAVE_XRANDR
     if (m_have_xrandr && ev.type == m_xrandr_event_base + RRNotify) {
         const auto& ev_2 = reinterpret_cast<const XRRNotifyEvent&>(ev);
         switch (ev_2.subtype) {
@@ -1106,7 +1134,7 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
                     connection_event_handler_2.on_display_change(screen); // Throws
         }
     }
-#endif // ARCHON_DISPLAY_HAVE_X11_XRANDR
+#endif // HAVE_XRANDR
     goto process_1;
 
   post:
@@ -1229,7 +1257,7 @@ inline bool ConnectionImpl::is_pointer_grabbed() const noexcept
 }
 
 
-#if ARCHON_DISPLAY_HAVE_X11_XRANDR
+#if HAVE_XRANDR
 
 
 bool ConnectionImpl::update_display_info(X11Screen& screen) const
@@ -1362,7 +1390,7 @@ bool ConnectionImpl::try_update_display_info(X11Screen& screen, bool& changed) c
 }
 
 
-#endif // ARCHON_DISPLAY_HAVE_X11_XRANDR
+#endif // HAVE_XRANDR
 
 
 
@@ -1448,14 +1476,14 @@ void WindowImpl::create(display::Size size, const Config& config)
 
     // Enable double buffering
     m_drawable = win;
-#if ARCHON_DISPLAY_HAVE_X11_XDBE
+#if HAVE_XDBE
     if (ARCHON_LIKELY(screen.use_double_buffering)) {
         m_swap_action = XdbeUndefined; // Contents of swapped-out buffer becomes undefined
         XdbeBackBuffer back_buffer = XdbeAllocateBackBufferName(conn.dpy, win, m_swap_action);
         m_drawable = back_buffer;
         m_is_double_buffered = true;
     }
-#endif // ARCHON_DISPLAY_HAVE_X11_XDBE
+#endif // HAVE_XDBE
 
     // FIXME: Tend to config.enable_opengl                                                                                                                                                       
 }
@@ -1552,7 +1580,7 @@ void WindowImpl::put_texture(const display::Texture& tex, const display::Box& so
 
 void WindowImpl::present()
 {
-#if ARCHON_DISPLAY_HAVE_X11_XDBE
+#if HAVE_XDBE
     if (m_is_double_buffered) {
         XdbeSwapInfo info;
         info.swap_window = win;
@@ -1561,7 +1589,7 @@ void WindowImpl::present()
         if (ARCHON_UNLIKELY(status == 0))
             throw std::runtime_error("XdbeSwapBuffers() failed");
     }
-#endif // ARCHON_DISPLAY_HAVE_X11_XDBE
+#endif // HAVE_XDBE
 }
 
 
