@@ -26,20 +26,25 @@
 #include <memory>
 #include <utility>
 #include <string_view>
+#include <vector>
 #include <locale>
 
 #include <archon/core/features.h>
 #include <archon/core/assert.hpp>
+#include <archon/core/buffer.hpp>
+#include <archon/core/string_buffer_contents.hpp>
 #include <archon/core/deque.hpp>
 #include <archon/core/flat_set.hpp>
 #include <archon/core/flat_map.hpp>
 #include <archon/core/literal_hash_map.hpp>
+#include <archon/core/string.hpp>
 #include <archon/core/format.hpp>
 #include <archon/core/quote.hpp>
 #include <archon/core/platform_support.hpp>
 #include <archon/math/vector.hpp>
 #include <archon/display/impl/config.h>
 #include <archon/display/mouse_button.hpp>
+#include <archon/display/screen.hpp>
 #include <archon/display/noinst/timestamp_unwrapper.hpp>
 #include <archon/display/implementation.hpp>
 #include <archon/display/implementation_x11.hpp>
@@ -176,6 +181,10 @@ struct X11Screen {
     XVisualInfo visual_info = {};
     Window root = {};
     Colormap colormap = {};
+
+    std::vector<display::Screen> screens;
+    core::Buffer<char> screens_string_buffer;
+    std::size_t screens_string_buffer_used_size = 0;
 };
 
 
@@ -232,7 +241,7 @@ public:
     ~ConnectionImpl() noexcept override;
 
     void open(const display::ConnectionConfigX11&);
-    auto ensure_x11_screen(int screen) -> X11Screen&;
+    auto ensure_x11_screen(int screen) const -> X11Screen&;
     void register_window(::Window id, WindowImpl&);
     void unregister_window(::Window id) noexcept;
 
@@ -267,7 +276,8 @@ private:
 
     int m_xrandr_event_base = 0;
 
-    std::unique_ptr<X11Screen[]> m_x11_screens;
+    mutable std::unique_ptr<X11Screen[]> m_x11_screens;
+    mutable core::FlatMap<::Window, int> m_x11_screens_by_root;
 
     X11KeyCodeSet m_pressed_keys;
 
@@ -331,6 +341,11 @@ private:
     bool lookup_window(::Window window_id, WindowImpl*& window) noexcept;
     void track_pointer_grabs(::Window window_id, unsigned button, bool is_press);
     bool is_pointer_grabbed() const noexcept;
+
+#if ARCHON_DISPLAY_HAVE_X11_XRANDR
+    bool update_display_info(X11Screen& screen) const;
+    bool try_update_display_info(X11Screen& screen, bool& changed) const;
+#endif
 };
 
 
@@ -540,12 +555,17 @@ void ConnectionImpl::open(const display::ConnectionConfigX11& config)
 }
 
 
-auto ConnectionImpl::ensure_x11_screen(int screen) -> X11Screen&
+auto ConnectionImpl::ensure_x11_screen(int screen) const -> X11Screen&
 {
     if (ARCHON_UNLIKELY(!m_x11_screens))
         m_x11_screens = std::make_unique<X11Screen[]>(std::size_t(ScreenCount(dpy))); // Throws
+    ARCHON_ASSERT(screen >= 0 && screen <= ScreenCount(dpy));
     X11Screen& screen_2 = m_x11_screens[screen];
     if (ARCHON_UNLIKELY(!screen_2.is_initialized)) {
+        ::Window root = RootWindow(dpy, screen);
+        screen_2.root = root;
+        m_x11_screens_by_root[root] = screen; // Throws
+
         VisualID default_visualid = XVisualIDFromVisual(DefaultVisual(dpy, screen));
         XVisualInfo visual_info = {};
         {
@@ -563,8 +583,8 @@ auto ConnectionImpl::ensure_x11_screen(int screen) -> X11Screen&
                 throw std::runtime_error(message);
             }
         }
+        screen_2.visual_info = visual_info;
 
-        ::Window root = RootWindow(dpy, screen);
         Colormap colormap = DefaultColormap(dpy, screen);
         ARCHON_SCOPE_EXIT {
             if (colormap != None)
@@ -577,6 +597,7 @@ auto ConnectionImpl::ensure_x11_screen(int screen) -> X11Screen&
             // agree on visual.
             colormap = XCreateColormap(dpy, root, visual_info.visual, AllocNone);
         }
+        screen_2.colormap = colormap;
 
         bool use_double_buffering = false;
 #if ARCHON_DISPLAY_HAVE_X11_XDBE
@@ -599,18 +620,16 @@ auto ConnectionImpl::ensure_x11_screen(int screen) -> X11Screen&
             }
         }
 #endif // ARCHON_DISPLAY_HAVE_X11_XDBE
+        screen_2.use_double_buffering = use_double_buffering;
 
 #if ARCHON_DISPLAY_HAVE_X11_XRANDR
         if (ARCHON_LIKELY(m_have_xrandr)) {
             int mask = RROutputChangeNotifyMask | RRCrtcChangeNotifyMask;
             XRRSelectInput(dpy, root, mask);
+            update_display_info(screen_2); // Throws
         }
 #endif // ARCHON_DISPLAY_HAVE_X11_XRANDR
 
-        screen_2.use_double_buffering = use_double_buffering;
-        screen_2.visual_info = visual_info;
-        screen_2.root = root;
-        screen_2.colormap = colormap;
         screen_2.is_initialized = true;
         colormap = None;
     }
@@ -722,12 +741,21 @@ int ConnectionImpl::get_default_display() const
 }
 
 
-bool ConnectionImpl::try_get_display_conf(int display, core::Buffer<display::Screen>&, core::Buffer<char>&,
-                                          std::size_t&) const
+bool ConnectionImpl::try_get_display_conf(int display, core::Buffer<display::Screen>& screens,
+                                          core::Buffer<char>& strings, std::size_t& num_screens) const
 {
     if (ARCHON_UNLIKELY(display < 0 || display >= int(ScreenCount(dpy))))
         throw std::invalid_argument("Bad display index");
-    return false;                       
+    const X11Screen& screen = ensure_x11_screen(display); // Throws
+    screens.assign(screen.screens); // Throws
+    const char* strings_base = screen.screens_string_buffer.data();
+    strings.assign({ strings_base, screen.screens_string_buffer_used_size }); // Throws
+    std::size_t n = screen.screens.size();
+    const char* strings_base_2 = strings.data();
+    for (display::Screen& screen : core::Span(screens.data(), n))
+        core::rebase_string(screen.output_name, strings_base, strings_base_2); // Throws
+    num_screens = n;
+    return true;
 }
 
 
@@ -1061,6 +1089,24 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
             }
             break;
     }
+
+#if ARCHON_DISPLAY_HAVE_X11_XRANDR
+    if (m_have_xrandr && ev.type == m_xrandr_event_base + RRNotify) {
+        const auto& ev_2 = reinterpret_cast<const XRRNotifyEvent&>(ev);
+        switch (ev_2.subtype) {
+            case RRNotify_CrtcChange:
+            case RRNotify_OutputChange:
+                ::Window root = ev_2.window;
+                auto i = m_x11_screens_by_root.find(root);
+                ARCHON_ASSERT(i != m_x11_screens_by_root.end());
+                int screen = i->second;
+                ARCHON_ASSERT(screen >= 0 && screen < ScreenCount(dpy));
+                X11Screen& screen_2 = m_x11_screens[screen];
+                if (update_display_info(screen_2)) // Throws
+                    connection_event_handler_2.on_display_change(screen); // Throws
+        }
+    }
+#endif // ARCHON_DISPLAY_HAVE_X11_XRANDR
     goto process_1;
 
   post:
@@ -1181,6 +1227,142 @@ inline bool ConnectionImpl::is_pointer_grabbed() const noexcept
 {
     return !m_pointer_grab_buttons.empty();
 }
+
+
+#if ARCHON_DISPLAY_HAVE_X11_XRANDR
+
+
+bool ConnectionImpl::update_display_info(X11Screen& screen) const
+{
+    int max_attempts = 16;
+    for (int i = 0; i < max_attempts; ++i) {
+        bool changed = false;
+        if (ARCHON_LIKELY(try_update_display_info(screen, changed)))
+            return changed;
+    }
+    throw std::runtime_error("Failed to fetch screen configuration using XRandR within the allotted number of "
+                             "attempts");
+}
+
+
+bool ConnectionImpl::try_update_display_info(X11Screen& screen, bool& changed) const
+{
+    XRRScreenResources* resources = XRRGetScreenResourcesCurrent(dpy, screen.root);
+    if (ARCHON_UNLIKELY(!resources))
+        throw std::runtime_error("XRRGetScreenResourcesCurrent() failed");
+    ARCHON_SCOPE_EXIT {
+        XRRFreeScreenResources(resources);
+    };
+    struct Crtc {
+        bool enabled;
+        display::Box bounds;
+        std::optional<double> refresh_rate;
+    };
+    core::FlatMap<RRCrtc, Crtc, 16> crtcs;
+    crtcs.reserve(std::size_t(resources->ncrtc)); // Throws
+    auto ensure_crtc = [&](RRCrtc id) -> const Crtc* {
+        auto i = crtcs.find(id);
+        if (i != crtcs.end())
+            return &i->second;
+        XRRCrtcInfo* info = XRRGetCrtcInfo(dpy, resources, id);
+        if (ARCHON_UNLIKELY(!info))
+            return nullptr;
+        ARCHON_SCOPE_EXIT {
+            XRRFreeCrtcInfo(info);
+        };
+        bool enabled = (info->mode != None);
+        display::Size size = {};
+        core::int_cast(info->width, size.width); // Throws
+        core::int_cast(info->height, size.height); // Throws
+        display::Box bounds = { display::Pos(info->x, info->y), size };
+        std::optional<double> refresh_rate;
+        if (enabled) {
+            bool found = false;
+            for (int j = 0; j < resources->nmode; ++j) {
+                const XRRModeInfo& mode = resources->modes[j];
+                if (ARCHON_LIKELY(mode.id != info->mode))
+                    continue;
+                found = true;
+                if (mode.dotClock != 0)
+                    refresh_rate = mode.dotClock / (mode.hTotal * double(mode.vTotal));
+                break;
+            }
+            ARCHON_ASSERT(found);
+        }
+        ARCHON_STEADY_ASSERT(crtcs.size() < crtcs.capacity());
+        Crtc& crtc =  crtcs[id];
+        crtc = { enabled, bounds, refresh_rate };
+        return &crtc;
+    };
+    core::Vector<display::Screen, 16> new_screens;
+    std::array<char, 16 * 24> strings_seed_memory = {};
+    core::Buffer strings_buffer(strings_seed_memory);
+    core::StringBufferContents strings(strings_buffer);
+    const char* orig_strings_base = strings.data();
+    for (int i = 0; i < resources->noutput; ++i) {
+        RROutput id = resources->outputs[i];
+        XRROutputInfo* info = XRRGetOutputInfo(dpy, resources, id);
+        if (ARCHON_UNLIKELY(!info))
+            return false;
+        ARCHON_SCOPE_EXIT {
+            XRRFreeOutputInfo(info);
+        };
+        // Note: Treating RR_UnknownConnection same as RR_Connected
+        bool connected = (info->connection != RR_Disconnected);
+        if (!connected || info->crtc == None)
+            continue;
+        const Crtc* crtc = ensure_crtc(info->crtc); // Throws
+        if (ARCHON_UNLIKELY(!crtc))
+            return false;
+        if (!crtc->enabled)
+            continue;
+        std::size_t offset = strings.size();
+        std::size_t size = std::size_t(info->nameLen);
+        strings.append({ info->name, size }); // Throws
+        // The base address is not necessarily correct anymore, but this Will be fixed up later
+        std::string_view output_name = { orig_strings_base + offset, size }; // Throws
+        std::optional<display::Resolution> resolution;
+        if (info->mm_width != 0 && info->mm_height != 0) {
+            double horz_ppcm = crtc->bounds.size.width  / double(info->mm_width)  * 10;
+            double vert_ppcm = crtc->bounds.size.height / double(info->mm_height) * 10;
+            resolution = display::Resolution { horz_ppcm, vert_ppcm };
+        }
+        new_screens.push_back({ output_name, crtc->bounds, resolution, crtc->refresh_rate }); // Throws
+    }
+    {
+        const char* base = strings.data();
+        for (display::Screen& screen : new_screens)
+            core::rebase_string(screen.output_name, orig_strings_base, base); // Throws
+    }
+    if (std::equal(new_screens.begin(), new_screens.end(), screen.screens.begin(), screen.screens.end())) {
+        changed = false;
+        return true;
+    }
+    screen.screens.reserve(new_screens.size()); // Throws
+    auto func = [&](core::Span<char> new_mem) {
+        const char* base_1 = screen.screens_string_buffer.data();
+        const char* base_2 = new_mem.data();
+        for (display::Screen& screen : screen.screens)
+            core::rebase_string(screen.output_name, base_1, base_2); // Throws
+    };
+    screen.screens_string_buffer.reserve_f(strings.size(), screen.screens_string_buffer_used_size, func); // Throws
+    {
+        const char* base_1 = strings.data();
+        const char* base_2 = screen.screens_string_buffer.data();
+        for (display::Screen& screen : new_screens)
+            core::rebase_string(screen.output_name, base_1, base_2); // Throws
+    }
+    // Non-throwing from here
+    screen.screens.clear();
+    screen.screens.insert(screen.screens.begin(), new_screens.begin(), new_screens.end());
+    std::copy_n(strings.data(), strings.size(), screen.screens_string_buffer.data());
+    screen.screens_string_buffer_used_size = strings.size();
+    changed = true;
+    return true;
+}
+
+
+#endif // ARCHON_DISPLAY_HAVE_X11_XRANDR
 
 
 

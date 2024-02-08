@@ -55,6 +55,20 @@ public:
     {
     }
 
+    void dump_display_conf(int display)
+    {
+        std::size_t num_screens = 0;
+        if (m_conn.try_get_display_conf(display, m_screens, m_strings, num_screens)) {
+            for (std::size_t i = 0; i < num_screens; ++i) {
+                const display::Screen& screen = m_screens[i];
+                m_logger.info("Display %s: Screen %s/%s: output_name=%s, bounds=%s, resolution=%s, refresh_rate=%s",
+                              display, i + 1, num_screens, core::quoted(screen.output_name), screen.bounds,
+                              core::as_optional(screen.resolution, "unknown"),
+                              core::as_optional(screen.refresh_rate, "unknown")); // Throws
+            }
+        }
+    }
+
     void set_window(std::unique_ptr<display::Window> win) noexcept
     {
         m_win = std::move(win);
@@ -169,6 +183,12 @@ public:
         return false; // Terminate
     }
 
+    bool on_display_change(int display)
+    {
+        dump_display_conf(display); // Throws
+        return true;
+    }
+
     bool on_quit() override final
     {
         m_logger.info("QUIT");
@@ -180,6 +200,9 @@ private:
     log::Logger& m_logger;
     std::unique_ptr<display::Window> m_win;
     bool m_report_mouse_move = false;
+
+    core::Buffer<display::Screen> m_screens;
+    core::Buffer<char> m_strings;
 };
 
 
@@ -311,25 +334,14 @@ int main(int argc, char* argv[])
     connection_config.x11.disable_detectable_autorepeat = disable_detectable_autorepeat;
     connection_config.x11.synchronous_mode = use_synchronous_mode;
     std::unique_ptr<display::Connection> conn = impl->new_connection(locale, connection_config); // Throws
+    int num_displays = conn->get_num_displays();
     int display = conn->get_default_display();
-    logger.info("Number of displays: %s", conn->get_num_displays()); // Throws
+    logger.info("Number of displays: %s", num_displays); // Throws
     logger.info("Default display:    %s", display); // Throws
-    {
-        core::Buffer<display::Screen> screens;
-        core::Buffer<char> strings;
-        std::size_t num_screens = 0;
-        if (conn->try_get_display_conf(display, screens, strings, num_screens)) {
-            for (std::size_t i = 0; i < num_screens; ++i) {
-                const display::Screen& screen = screens[i];
-                logger.info("Screen %s/%s: output_name=%s, bounds=%s, resolution=%s, refresh_rate=%s", i + 1,
-                            num_screens, core::quoted(screen.output_name), screen.bounds,
-                            core::as_optional(screen.resolution, "unknown"),
-                            core::as_optional(screen.refresh_rate, "unknown")); // Throws
-            }
-        }
-    }
 
     EventLoop event_loop(*conn, logger);
+    for (int i = 0; i < num_displays; ++i)
+        event_loop.dump_display_conf(i); // Throws
     display::Size size = 256;
     display::Window::Config window_config;
     window_config.resizable = true;
