@@ -45,6 +45,7 @@
 #include <archon/core/scope_exit.hpp>
 #include <archon/core/value_reset_guard.hpp>
 #include <archon/core/string_span.hpp>
+#include <archon/core/index_range.hpp>
 #include <archon/core/integer_traits.hpp>
 #include <archon/core/integer_concept.hpp>
 #include <archon/core/integer.hpp>

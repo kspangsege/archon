@@ -61,6 +61,7 @@ target_sources(Core PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "${
   archon/core/scope_exit.hpp
   archon/core/value_reset_guard.hpp
   archon/core/string_span.hpp
+  archon/core/index_range.hpp
   archon/core/integer_traits.hpp
   archon/core/integer.hpp
   archon/core/float_traits.hpp
