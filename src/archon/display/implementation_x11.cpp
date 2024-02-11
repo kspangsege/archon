@@ -1344,6 +1344,7 @@ bool ConnectionImpl::try_update_display_info(X11Screen& screen, bool& changed) c
             return false;
         if (!crtc->enabled)
             continue;
+        // FIXME: Consider character encoding in output name                
         std::size_t offset = strings.size();
         std::size_t size = std::size_t(info->nameLen);
         strings.append({ info->name, size }); // Throws

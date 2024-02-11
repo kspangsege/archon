@@ -37,6 +37,12 @@
 #include <archon/display/geometry.hpp>
 
 #if ARCHON_DISPLAY_HAVE_SDL
+#  define HAVE_SDL 1
+#else
+#  define HAVE_SDL 0
+#endif
+
+#if HAVE_SDL
 #  if ARCHON_CLANG
 #    pragma clang diagnostic push
 #    pragma clang diagnostic ignored "-Wold-style-cast"
@@ -52,7 +58,7 @@
 using namespace archon;
 
 
-#if ARCHON_DISPLAY_HAVE_SDL
+#if HAVE_SDL
 
 
 namespace {
@@ -452,7 +458,7 @@ int main(int argc, char* argv[])
     SDL_Quit();
 }
 
-#else // !ARCHON_DISPLAY_HAVE_SDL
+#else // !HAVE_SDL
 
 
 int main()
@@ -460,4 +466,4 @@ int main()
     throw std::runtime_error("No SDL support");
 }
 
-#endif // !ARCHON_DISPLAY_HAVE_SDL
+#endif // !HAVE_SDL

@@ -52,6 +52,12 @@
 #include <archon/display/implementation_sdl.hpp>
 
 #if ARCHON_DISPLAY_HAVE_SDL
+#  define HAVE_SDL 1
+#else
+#  define HAVE_SDL 0
+#endif
+
+#if HAVE_SDL
 #  if ARCHON_CLANG
 #    pragma clang diagnostic push
 #    pragma clang diagnostic ignored "-Wold-style-cast"
@@ -84,7 +90,7 @@ namespace {
 constexpr std::string_view g_implementation_ident = "sdl";
 
 
-#if ARCHON_DISPLAY_HAVE_SDL
+#if HAVE_SDL
 
 
 class WindowImpl;
@@ -701,6 +707,9 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
             // Call on_display_change(screens) where screens is span of ScreenInfo objects
             // ScreenInfo has fields `name`, `bounds`, `resolution`, and `primary`
             // Question: How does SDL_GetDisplayUsableBounds() work with X11? --> See X11_GetDisplayUsableBounds()                                                                                                                                                         
+            //
+            // X11 driver of SDL: Look to X11_HandleXRandROutputChange()
+            //
             int ret = SDL_GetNumVideoDisplays();
             if (ARCHON_LIKELY(ret >= 0)) {
                 ARCHON_ASSERT(ret >= 1);
@@ -1280,7 +1289,7 @@ inline auto map_mouse_button(Uint8 button) noexcept -> display::MouseButton
 }
 
 
-#else // !ARCHON_DISPLAY_HAVE_SDL
+#else // !HAVE_SDL
 
 
 class SlotImpl
@@ -1304,7 +1313,7 @@ auto SlotImpl::get_implementation_a(const display::Guarantees&) const noexcept -
 }
 
 
-#endif // !ARCHON_DISPLAY_HAVE_SDL
+#endif // !HAVE_SDL
 
 
 } // unnamed namespace

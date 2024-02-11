@@ -248,7 +248,7 @@ template<class P> inline void record_rev_bit_fields(BitFields& fields) noexcept
 }
 
 
-void setup_direct_color_colormap(Display* display, Colormap colormap, const BitFields& fields, const XVisualInfo& info,
+void setup_direct_color_colormap(Display* dpy, Colormap colormap, const BitFields& fields, const XVisualInfo& info,
                                  bool allocate, bool weird)
 {
     using ushort = unsigned short;
@@ -259,9 +259,8 @@ void setup_direct_color_colormap(Display* display, Colormap colormap, const BitF
         ulong pixel = 0;
         int ncolors = 1;
         ulong red_mask = 0, green_mask = 0, blue_mask = 0;
-        Status status = XAllocColorPlanes(display, colormap, contig, &pixel, ncolors,
-                                          fields.red_width, fields.green_width, fields.blue_width,
-                                          &red_mask, &green_mask, &blue_mask);
+        Status status = XAllocColorPlanes(dpy, colormap, contig, &pixel, ncolors, fields.red_width, fields.green_width,
+                                          fields.blue_width, &red_mask, &green_mask, &blue_mask);
         ARCHON_STEADY_ASSERT(status != 0);
         // The following assertions rely on the assumption that the number of bit-planes is
         // equal to the depth, and that we requested all the bitplanes that are available.
@@ -283,7 +282,7 @@ void setup_direct_color_colormap(Display* display, Colormap colormap, const BitF
             color.red = val;
             color.flags = DoRed;
         }
-        XStoreColors(display, colormap, colors.get(), n);
+        XStoreColors(dpy, colormap, colors.get(), n);
     }
     {
         int n = 1 << fields.green_width;
@@ -295,7 +294,7 @@ void setup_direct_color_colormap(Display* display, Colormap colormap, const BitF
             color.green = val;
             color.flags = DoGreen;
         }
-        XStoreColors(display, colormap, colors.get(), n);
+        XStoreColors(dpy, colormap, colors.get(), n);
     }
     {
         int n = 1 << fields.blue_width;
@@ -307,12 +306,12 @@ void setup_direct_color_colormap(Display* display, Colormap colormap, const BitF
             color.blue = val;
             color.flags = DoBlue;
         }
-        XStoreColors(display, colormap, colors.get(), n);
+        XStoreColors(dpy, colormap, colors.get(), n);
     }
 }
 
 
-void setup_gray_scale_colormap(Display* display, Colormap colormap, int width, bool allocate, bool weird)
+void setup_gray_scale_colormap(Display* dpy, Colormap colormap, int width, bool allocate, bool weird)
 {
     using ushort = unsigned short;
     using ulong  = unsigned long;
@@ -325,8 +324,7 @@ void setup_gray_scale_colormap(Display* display, Colormap colormap, int width, b
         int nplanes = width;
         ulong pixel = 0;
         int npixels = 1;
-        Status status = XAllocColorCells(display, colormap, contig, masks.get(), nplanes,
-                                         &pixel, npixels);
+        Status status = XAllocColorCells(dpy, colormap, contig, masks.get(), nplanes, &pixel, npixels);
         ARCHON_STEADY_ASSERT(status != 0);
         ulong mask = 0;
         for (int i = 0; i < width; ++i)
@@ -350,11 +348,11 @@ void setup_gray_scale_colormap(Display* display, Colormap colormap, int width, b
         color.blue  = val;
         color.flags = DoRed | DoGreen | DoBlue;
     }
-    XStoreColors(display, colormap, colors.get(), n);
+    XStoreColors(dpy, colormap, colors.get(), n);
 }
 
 
-void setup_pseudo_color_colormap(Display* display, Colormap colormap, int red_width, int green_width, int blue_width,
+void setup_pseudo_color_colormap(Display* dpy, Colormap colormap, int red_width, int green_width, int blue_width,
                                  bool allocate, bool weird)
 {
     using ushort = unsigned short;
@@ -369,7 +367,7 @@ void setup_pseudo_color_colormap(Display* display, Colormap colormap, int red_wi
         int nplanes = width;
         ulong pixel = 0;
         int npixels = 1;
-        Status status = XAllocColorCells(display, colormap, contig, masks.get(), nplanes, &pixel, npixels);
+        Status status = XAllocColorCells(dpy, colormap, contig, masks.get(), nplanes, &pixel, npixels);
         ARCHON_STEADY_ASSERT(status != 0);
         ulong mask = 0;
         for (int i = 0; i < width; ++i)
@@ -398,7 +396,7 @@ void setup_pseudo_color_colormap(Display* display, Colormap colormap, int red_wi
         color.blue  = blue_val;
         color.flags = DoRed | DoGreen | DoBlue;
     }
-    XStoreColors(display, colormap, colors.get(), n);
+    XStoreColors(dpy, colormap, colors.get(), n);
 }
 
 
@@ -547,20 +545,20 @@ int main(int argc, char* argv[])
     // FIXME: Consider allowing for fullscreen toggle                                                      
 
     // Connect to display
-    Display* display = XOpenDisplay(nullptr);
-    ARCHON_STEADY_ASSERT(display);
-    int screen = DefaultScreen(display);
-    Window root = RootWindow(display, screen);
-    unsigned long black = BlackPixel(display, screen);
+    Display* dpy = XOpenDisplay(nullptr);
+    ARCHON_STEADY_ASSERT(dpy);
+    int screen = DefaultScreen(dpy);
+    Window root = RootWindow(dpy, screen);
+    unsigned long black = BlackPixel(dpy, screen);
 
     if (ARCHON_UNLIKELY(use_synchronous_mode))
-        XSynchronize(display, True);
+        XSynchronize(dpy, True);
 
 #if HAVE_XDBE
     int have_xdbe = false;
     int xdbe_major = 0;
     int xdbe_minor = 0;
-    if (ARCHON_LIKELY(XdbeQueryExtension(display, &xdbe_major, &xdbe_minor))) {
+    if (ARCHON_LIKELY(XdbeQueryExtension(dpy, &xdbe_major, &xdbe_minor))) {
         if (ARCHON_LIKELY(xdbe_major >= 1))
             have_xdbe = true;
     }
@@ -573,7 +571,7 @@ int main(int argc, char* argv[])
         int opcode = 0;
         int event_base = 0;
         int error_base = 0;
-        if (ARCHON_LIKELY(XkbQueryExtension(display, &opcode, &event_base, &error_base, &xkb_major, &xkb_minor))) {
+        if (ARCHON_LIKELY(XkbQueryExtension(dpy, &opcode, &event_base, &error_base, &xkb_major, &xkb_minor))) {
             if (ARCHON_LIKELY(xkb_major >= 1))
                 have_xkb = true;
         }
@@ -582,7 +580,7 @@ int main(int argc, char* argv[])
     if (ARCHON_LIKELY(have_xkb && !disable_detectable_autorepeat)) {
         Bool detectable = True;
         Bool supported = {};
-        XkbSetDetectableAutoRepeat(display, detectable, &supported);
+        XkbSetDetectableAutoRepeat(dpy, detectable, &supported);
         if (ARCHON_LIKELY(supported))
             detectable_autorepeat_enabled = true;
     }
@@ -593,15 +591,15 @@ int main(int argc, char* argv[])
     int xrandr_error_base = 0;
     int xrandr_major = 0;
     int xrandr_minor = 0;
-    if (ARCHON_LIKELY(XRRQueryExtension(display, &xrandr_event_base, &xrandr_error_base))) {
-        Status status = XRRQueryVersion(display, &xrandr_major, &xrandr_minor);
+    if (ARCHON_LIKELY(XRRQueryExtension(dpy, &xrandr_event_base, &xrandr_error_base))) {
+        Status status = XRRQueryVersion(dpy, &xrandr_major, &xrandr_minor);
         ARCHON_ASSERT(status != 0);
         if (ARCHON_LIKELY(xrandr_major > 1 || (xrandr_major == 1 && xrandr_minor >= 5)))
             have_xrandr = true;
     }
     if (ARCHON_LIKELY(have_xrandr)) {
         int mask = RROutputChangeNotifyMask | RRCrtcChangeNotifyMask;
-        XRRSelectInput(display, root, mask);
+        XRRSelectInput(dpy, root, mask);
     }
 #endif // HAVE_XRANDR
 
@@ -611,8 +609,8 @@ int main(int argc, char* argv[])
     int xrender_error_base = 0;
     int xrender_major = 0;
     int xrender_minor = 0;
-    if (ARCHON_LIKELY(XRenderQueryExtension(display, &xrender_event_base, &xrender_error_base))) {
-        Status status = XRenderQueryVersion(display, &xrender_major, &xrender_minor);
+    if (ARCHON_LIKELY(XRenderQueryExtension(dpy, &xrender_event_base, &xrender_error_base))) {
+        Status status = XRenderQueryVersion(dpy, &xrender_major, &xrender_minor);
         ARCHON_ASSERT(status != 0);
         if (ARCHON_LIKELY(xrender_major > 0 || (xrender_major == 0 && xrender_minor >= 7)))
             have_xrender = true;
@@ -624,9 +622,9 @@ int main(int argc, char* argv[])
     core::FlatMap<std::tuple<int, int, VisualID>, int> double_buffered_visuals;
     if (ARCHON_LIKELY(have_xdbe)) {
         int n = 0;
-        XdbeScreenVisualInfo* entries = XdbeGetVisualInfo(display, nullptr, &n);
+        XdbeScreenVisualInfo* entries = XdbeGetVisualInfo(dpy, nullptr, &n);
         ARCHON_STEADY_ASSERT(entries);
-        ARCHON_STEADY_ASSERT(n == int(ScreenCount(display)));
+        ARCHON_STEADY_ASSERT(n == int(ScreenCount(dpy)));
         ARCHON_SCOPE_EXIT {
             XdbeFreeVisualInfo(entries);
         };
@@ -647,7 +645,7 @@ int main(int argc, char* argv[])
     {
         int n = 0;
         XVisualInfo info_template;
-        XVisualInfo* entries = XGetVisualInfo(display, 0, &info_template, &n);
+        XVisualInfo* entries = XGetVisualInfo(dpy, 0, &info_template, &n);
         ARCHON_STEADY_ASSERT(entries);
         ARCHON_SCOPE_EXIT {
             XFree(entries);
@@ -683,8 +681,8 @@ int main(int argc, char* argv[])
     }
 
     // Choose depth and visual
-    int depth = DefaultDepth(display, screen);
-    VisualID visual_id = XVisualIDFromVisual(DefaultVisual(display, screen));
+    int depth = DefaultDepth(dpy, screen);
+    VisualID visual_id = XVisualIDFromVisual(DefaultVisual(dpy, screen));
     if (optional_depth.has_value())
         depth = optional_depth.value();
     if (optional_visual.has_value())
@@ -697,7 +695,7 @@ int main(int argc, char* argv[])
         vinfo_template.screen = screen;
         vinfo_template.depth = depth;
         vinfo_template.visualid = visual_id;
-        XVisualInfo* entries = XGetVisualInfo(display, vinfo_mask, &vinfo_template, &n);
+        XVisualInfo* entries = XGetVisualInfo(dpy, vinfo_mask, &vinfo_template, &n);
         if (ARCHON_UNLIKELY(!entries)) {
             ARCHON_STEADY_ASSERT(optional_depth.has_value() || optional_visual.has_value());
             logger.error("Invalid combination of depth (%s) and visual type (0x%s) for targeted screen (%s)", depth,
@@ -722,7 +720,7 @@ int main(int argc, char* argv[])
     int bits_per_pixel = 0;
     {
         int n = 0;
-        XPixmapFormatValues* entries = XListPixmapFormats(display, &n);
+        XPixmapFormatValues* entries = XListPixmapFormats(dpy, &n);
         ARCHON_STEADY_ASSERT(entries);
         bool found = false;
         for (int i = 0; i < n; ++i) {
@@ -742,7 +740,7 @@ int main(int argc, char* argv[])
     std::vector<int> depths;
     {
         int n = 0;
-        int* entries = XListDepths(display, screen, &n);
+        int* entries = XListDepths(dpy, screen, &n);
         ARCHON_STEADY_ASSERT(entries);
         for (int i = 0; i < n; ++i)
             depths.push_back(entries[i]);
@@ -787,41 +785,40 @@ int main(int argc, char* argv[])
         out << "no"; // Throws
     };
 
-    int num_bitplanes = DisplayPlanes(display, screen);
+    int num_bitplanes = DisplayPlanes(dpy, screen);
 
-    logger.info("Display string:                     %s", DisplayString(display)); // Throws
-    logger.info("Server vendor:                      %s", ServerVendor(display)); // Throws
-    logger.info("Vendor release:                     %s", core::as_int(VendorRelease(display))); // Throws
+    logger.info("Display string:                     %s", DisplayString(dpy)); // Throws
+    logger.info("Server vendor:                      %s", ServerVendor(dpy)); // Throws
+    logger.info("Vendor release:                     %s", core::as_int(VendorRelease(dpy))); // Throws
     logger.info("Have Xdbe:                          %s", core::as_format_func(format_have_xdbe)); // Throws
     logger.info("Have Xkb:                           %s", core::as_format_func(format_have_xkb)); // Throws
     logger.info("Have Xrandr:                        %s", core::as_format_func(format_have_xrandr)); // Throws
     logger.info("Have Xrender:                       %s", core::as_format_func(format_have_xrender)); // Throws
     logger.info("Image byte order:                   %s",
-                (ImageByteOrder(display) == LSBFirst ? "little-endian" : "big-endian")); // Throws
+                (ImageByteOrder(dpy) == LSBFirst ? "little-endian" : "big-endian")); // Throws
     logger.info("Bitmap bit order:                   %s",
-                (BitmapBitOrder(display) == LSBFirst ? "least significant bit first" :
+                (BitmapBitOrder(dpy) == LSBFirst ? "least significant bit first" :
                  "most significant bit first")); // Throws
-    logger.info("Bitmap scanline pad:                %s", core::as_int(BitmapPad(display))); // Throws
-    logger.info("Bitmap scanline unit:               %s", core::as_int(BitmapUnit(display))); // Throws
-    logger.info("Number of screens:                  %s", core::as_int(ScreenCount(display))); // Throws
+    logger.info("Bitmap scanline pad:                %s", core::as_int(BitmapPad(dpy))); // Throws
+    logger.info("Bitmap scanline unit:               %s", core::as_int(BitmapUnit(dpy))); // Throws
+    logger.info("Number of screens:                  %s", core::as_int(ScreenCount(dpy))); // Throws
     logger.info("Selected screen:                    %s", core::as_int(screen + 1)); // Throws
     logger.info("Size of screen:                     %spx x %spx (%smm x %smm)",
-                core::as_int(DisplayWidth(display, screen)),
-                core::as_int(DisplayHeight(display, screen)), core::as_int(DisplayWidthMM(display, screen)),
-                core::as_int(DisplayHeightMM(display, screen))); // Throws
+                core::as_int(DisplayWidth(dpy, screen)), core::as_int(DisplayHeight(dpy, screen)),
+                core::as_int(DisplayWidthMM(dpy, screen)), core::as_int(DisplayHeightMM(dpy, screen))); // Throws
     logger.info("Resolution of screen (dpcm):        %s x %s",
-                10 * (DisplayWidth(display, screen) / double(DisplayWidthMM(display, screen))),
-                10 * (DisplayHeight(display, screen) / double(DisplayHeightMM(display, screen)))); // Throws
+                10 * (DisplayWidth(dpy, screen) / double(DisplayWidthMM(dpy, screen))),
+                10 * (DisplayHeight(dpy, screen) / double(DisplayHeightMM(dpy, screen)))); // Throws
     logger.info("Concurrent colormaps of screen:     %s -> %s",
-                MinCmapsOfScreen(ScreenOfDisplay(display, screen)),
-                MaxCmapsOfScreen(ScreenOfDisplay(display, screen))); // Throws
-    logger.info("Size of default colormap of screen: %s", core::as_int(DisplayCells(display, screen))); // Throws
+                MinCmapsOfScreen(ScreenOfDisplay(dpy, screen)),
+                MaxCmapsOfScreen(ScreenOfDisplay(dpy, screen))); // Throws
+    logger.info("Size of default colormap of screen: %s", core::as_int(DisplayCells(dpy, screen))); // Throws
     logger.info("Supported depths on screen:         %s", core::as_list(depths)); // Throws
-    logger.info("Default depth of screen:            %s", core::as_int(DefaultDepth(display, screen))); // Throws
+    logger.info("Default depth of screen:            %s", core::as_int(DefaultDepth(dpy, screen))); // Throws
     logger.info("Selected depth:                     %s", core::as_int(depth)); // Throws
     logger.info("Bit-planes of screen:               %s", core::as_int(num_bitplanes)); // Throws
     logger.info("Default visual of screen:           0x%s",
-                core::as_hex_int(XVisualIDFromVisual(DefaultVisual(display, screen)))); // Throws
+                core::as_hex_int(XVisualIDFromVisual(DefaultVisual(dpy, screen)))); // Throws
     logger.info("Selected visual:                    0x%s", core::as_hex_int(visual_id)); // Throws
     logger.info("Class of selected visual:           %s", get_visual_class_name(visual_info.c_class)); // Throws
     logger.info("Detectable auto-repeat enabled:     %s", (detectable_autorepeat_enabled ? "yes" : "no")); // Throws
@@ -830,12 +827,18 @@ int main(int argc, char* argv[])
     if (ARCHON_UNLIKELY(!have_xkb))
         throw std::runtime_error("Required X Keyboard Extension is not available");
 
+    auto intern_string = [&](const char* string) noexcept -> Atom {
+        Atom atom = XInternAtom(dpy, string, False);
+        ARCHON_ASSERT(atom != None);
+        return atom;
+    };
+
 #if HAVE_XRANDR
     std::vector<display::Screen> screens;
     core::Buffer<char> screens_string_buffer;
     std::size_t screens_string_buffer_used_size = 0;
     auto try_update_display_info = [&](bool& changed) -> bool {
-        XRRScreenResources* resources = XRRGetScreenResourcesCurrent(display, root);
+        XRRScreenResources* resources = XRRGetScreenResourcesCurrent(dpy, root);
         if (ARCHON_UNLIKELY(!resources))
             throw std::runtime_error("XRRGetScreenResourcesCurrent() failed");
         ARCHON_SCOPE_EXIT {
@@ -852,7 +855,7 @@ int main(int argc, char* argv[])
             auto i = crtcs.find(id);
             if (i != crtcs.end())
                 return &i->second;
-            XRRCrtcInfo* info = XRRGetCrtcInfo(display, resources, id);
+            XRRCrtcInfo* info = XRRGetCrtcInfo(dpy, resources, id);
             if (ARCHON_UNLIKELY(!info))
                 return nullptr;
             ARCHON_SCOPE_EXIT {
@@ -889,7 +892,7 @@ int main(int argc, char* argv[])
         const char* orig_strings_base = strings.data();
         for (int i = 0; i < resources->noutput; ++i) {
             RROutput id = resources->outputs[i];
-            XRROutputInfo* info = XRRGetOutputInfo(display, resources, id);
+            XRROutputInfo* info = XRRGetOutputInfo(dpy, resources, id);
             if (ARCHON_UNLIKELY(!info))
                 return false;
             ARCHON_SCOPE_EXIT {
@@ -904,6 +907,7 @@ int main(int argc, char* argv[])
                 return false;
             if (!crtc->enabled)
                 continue;
+            // FIXME: Consider character encoding in output name                
             std::size_t offset = strings.size();
             std::size_t size = std::size_t(info->nameLen);
             strings.append({ info->name, size }); // Throws
@@ -976,8 +980,8 @@ int main(int argc, char* argv[])
     // Create graphics context
     XGCValues gc_values = {};
     gc_values.graphics_exposures = False;
-    GC gc = XCreateGC(display, root, GCGraphicsExposures, &gc_values);
-    XSetForeground(display, gc, black);
+    GC gc = XCreateGC(dpy, root, GCGraphicsExposures, &gc_values);
+    XSetForeground(dpy, gc, black);
 
     // By creating a new colormap, rather than reusing the one used by the root window, it
     // becomes possible to use a visual for the new windows that differs from the one used
@@ -991,13 +995,13 @@ int main(int argc, char* argv[])
                 preallocate_colors = true;
         }
     }
-    Colormap colormap = XCreateColormap(display, root, visual, (preallocate_colors ? AllocAll : AllocNone));
+    Colormap colormap = XCreateColormap(dpy, root, visual, (preallocate_colors ? AllocAll : AllocNone));
 
     if (install_colormap)
-        XInstallColormap(display, colormap);
+        XInstallColormap(dpy, colormap);
 
     // Upload image
-    Pixmap img_pixmap = XCreatePixmap(display, root, unsigned(img_size.width), unsigned(img_size.height), depth);
+    Pixmap img_pixmap = XCreatePixmap(dpy, root, unsigned(img_size.width), unsigned(img_size.height), depth);
     {
         // Setup X11 colormap when necessary and convert image to suitable pixel format.
 
@@ -1018,7 +1022,7 @@ int main(int argc, char* argv[])
                         XColor& color = colors[i];
                         color.pixel = unsigned(i);
                     }
-                    XQueryColors(display, colormap, colors.get(), n);
+                    XQueryColors(dpy, colormap, colors.get(), n);
 /*
                     for (int i = 0; i < n; ++i) {
                         const XColor& color = colors[i];
@@ -1067,8 +1071,8 @@ int main(int argc, char* argv[])
                     int red_width   = 3;
                     int green_width = 3;
                     int blue_width  = 2;
-                    setup_pseudo_color_colormap(display, colormap, red_width, green_width, blue_width,
-                                                !preallocate_colors, use_weird_palette); // Throws
+                    setup_pseudo_color_colormap(dpy, colormap, red_width, green_width, blue_width, !preallocate_colors,
+                                                use_weird_palette); // Throws
                     goto matched;
                 }
                 goto unsupported_channel_masks;
@@ -1077,9 +1081,10 @@ int main(int argc, char* argv[])
                 if (ARCHON_UNLIKELY(visual_info.colormap_size != 256))
                     goto unexpected_colormap_size;
                 if (zero_mask_match(visual_info)) {
-                    if (visual_info.c_class == GrayScale)
-                        setup_gray_scale_colormap(display, colormap, depth, !preallocate_colors,
+                    if (visual_info.c_class == GrayScale) {
+                        setup_gray_scale_colormap(dpy, colormap, depth, !preallocate_colors,
                                                   use_weird_palette); // Throws
+                    }
                     auto img = make_lum_image(img_size); // Throws
                     data = img->get_buffer().data();
                     img_2 = std::move(img);
@@ -1114,9 +1119,10 @@ int main(int argc, char* argv[])
                 goto unsupported_channel_masks;
 
               colormap_1:
-                if (visual_info.c_class == DirectColor)
-                    setup_direct_color_colormap(display, colormap, bit_fields, visual_info,
-                                                !preallocate_colors, use_weird_palette); // Throws
+                if (visual_info.c_class == DirectColor) {
+                    setup_direct_color_colormap(dpy, colormap, bit_fields, visual_info, !preallocate_colors,
+                                                use_weird_palette); // Throws
+                }
                 goto matched;
             }
             goto unexpected_visual_class;
@@ -1152,9 +1158,10 @@ int main(int argc, char* argv[])
                 goto unsupported_channel_masks;
 
               colormap_2:
-                if (visual_info.c_class == DirectColor)
-                    setup_direct_color_colormap(display, colormap, bit_fields, visual_info,
-                                                !preallocate_colors, use_weird_palette); // Throws
+                if (visual_info.c_class == DirectColor) {
+                    setup_direct_color_colormap(dpy, colormap, bit_fields, visual_info, !preallocate_colors,
+                                                use_weird_palette); // Throws
+                }
                 goto matched;
             }
             goto unexpected_visual_class;
@@ -1190,9 +1197,10 @@ int main(int argc, char* argv[])
                 goto unsupported_channel_masks;
 
               colormap_3:
-                if (visual_info.c_class == DirectColor)
-                    setup_direct_color_colormap(display, colormap, bit_fields, visual_info,
-                                                !preallocate_colors, use_weird_palette); // Throws
+                if (visual_info.c_class == DirectColor) {
+                    setup_direct_color_colormap(dpy, colormap, bit_fields, visual_info, !preallocate_colors,
+                                                use_weird_palette); // Throws
+                }
                 goto matched;
             }
             goto unexpected_visual_class;
@@ -1228,9 +1236,10 @@ int main(int argc, char* argv[])
                 goto unsupported_channel_masks;
 
               colormap_4:
-                if (visual_info.c_class == DirectColor)
-                    setup_direct_color_colormap(display, colormap, bit_fields, visual_info,
-                                                !preallocate_colors, use_weird_palette); // Throws
+                if (visual_info.c_class == DirectColor) {
+                    setup_direct_color_colormap(dpy, colormap, bit_fields, visual_info, !preallocate_colors,
+                                                use_weird_palette); // Throws
+                }
                 goto matched;
             }
             goto unexpected_visual_class;
@@ -1284,8 +1293,8 @@ int main(int argc, char* argv[])
         img_3.format           = ZPixmap;
         img_3.data             = data;
         img_3.byte_order       = LSBFirst;
-        img_3.bitmap_unit      = BitmapUnit(display); // Immaterial
-        img_3.bitmap_bit_order = BitmapBitOrder(display); // Immaterial
+        img_3.bitmap_unit      = BitmapUnit(dpy); // Immaterial
+        img_3.bitmap_bit_order = BitmapBitOrder(dpy); // Immaterial
         img_3.bitmap_pad       = scanline_pad;
         img_3.depth            = depth;
         img_3.bytes_per_line   = 0;
@@ -1295,7 +1304,7 @@ int main(int argc, char* argv[])
         img_3.blue_mask        = visual_info.blue_mask;
         Status status = XInitImage(&img_3);
         ARCHON_STEADY_ASSERT(status != 0);
-        XPutImage(display, img_pixmap, gc, &img_3, 0, 0, 0, 0, unsigned(img_size.width), unsigned(img_size.height));
+        XPutImage(dpy, img_pixmap, gc, &img_3, 0, 0, 0, 0, unsigned(img_size.width), unsigned(img_size.height));
     }
 
     struct WindowSlot {
@@ -1325,7 +1334,7 @@ int main(int argc, char* argv[])
         return false;
     };
 
-    Atom delete_window = XInternAtom(display, "WM_DELETE_WINDOW", False);
+    Atom delete_window = intern_string("WM_DELETE_WINDOW");
 
 #if HAVE_XDBE
     XdbeSwapAction swap_action = XdbeUndefined; // Contents of swapped-out buffer becomes undefined
@@ -1348,7 +1357,7 @@ int main(int argc, char* argv[])
                           StructureNotifyMask |
                           KeymapStateMask);
         swa.colormap = colormap;
-        Window window = XCreateWindow(display, root, pos.x, pos.y, unsigned(img_size.width), unsigned(img_size.height),
+        Window window = XCreateWindow(dpy, root, pos.x, pos.y, unsigned(img_size.width), unsigned(img_size.height),
                                       0, depth, InputOutput, visual, CWEventMask | CWColormap, &swa);
 
         // Set window name
@@ -1360,7 +1369,7 @@ int main(int argc, char* argv[])
             Status status = XStringListToTextProperty(&name_2, 1, &name_3);
             ARCHON_STEADY_ASSERT(status != 0);
         }
-        XSetWMName(display, window, &name_3);
+        XSetWMName(dpy, window, &name_3);
         XFree(name_3.value);
 
         // Set minimum window size
@@ -1373,16 +1382,16 @@ int main(int argc, char* argv[])
             size_hints.x = pos.x; // Mostly ignored!?
             size_hints.y = pos.y; // Mostly ignored!?
         }
-        XSetWMNormalHints(display, window, &size_hints);
+        XSetWMNormalHints(dpy, window, &size_hints);
 
         // Ask X to notify rather than close connection when window is closed
-        XSetWMProtocols(display, window, &delete_window, 1);
+        XSetWMProtocols(dpy, window, &delete_window, 1);
 
         // Allocate back buffer when using double buffering
         Drawable drawable = window;
 #if HAVE_XDBE
         if (use_double_buffering) {
-            XdbeBackBuffer back_buffer = XdbeAllocateBackBufferName(display, window, swap_action);
+            XdbeBackBuffer back_buffer = XdbeAllocateBackBufferName(dpy, window, swap_action);
             drawable = back_buffer;
         }
 #endif // HAVE_XDBE
@@ -1397,7 +1406,7 @@ int main(int argc, char* argv[])
     };
 
     auto close_window = [&](Window win) noexcept {
-        XDestroyWindow(display, win);
+        XDestroyWindow(dpy, win);
         window_slots.erase(win);
     };
 
@@ -1405,7 +1414,7 @@ int main(int argc, char* argv[])
         // Map key code to a keyboard independent symbol identifier (in general the symbol
         // in the upper left corner on the corresponding key). See also
         // https://tronche.com/gui/x/xlib/input/keyboard-encoding.html.
-        KeySym keysym = XkbKeycodeToKeysym(display, keycode, XkbGroup1Index, 0);
+        KeySym keysym = XkbKeycodeToKeysym(dpy, keycode, XkbGroup1Index, 0);
         ARCHON_ASSERT(keysym != NoSymbol);
         return keysym;
     };
@@ -1433,7 +1442,7 @@ int main(int argc, char* argv[])
 
     for (const auto& entry : window_slots) {
         const WindowSlot& slot = entry.second;
-        XMapWindow(display, slot.window);
+        XMapWindow(dpy, slot.window);
     }
 
     // Event loop
@@ -1441,13 +1450,13 @@ int main(int argc, char* argv[])
     std::vector<std::string_view> key_names;
     while (!window_slots.empty()) {
         XEvent ev = {};
-        XPeekEvent(display, &ev);
+        XPeekEvent(dpy, &ev);
         for (;;) {
-            int n = XEventsQueued(display, QueuedAfterReading);
+            int n = XEventsQueued(dpy, QueuedAfterReading);
             if (n == 0)
                 break;
             for (int i = 0; i < n; ++i) {
-                XNextEvent(display, &ev);
+                XNextEvent(dpy, &ev);
                 bool expect_keymap_notify_2 = expect_keymap_notify;
                 expect_keymap_notify = false;
                 ARCHON_ASSERT(!expect_keymap_notify_2 || ev.type == KeymapNotify);
@@ -1511,7 +1520,7 @@ int main(int argc, char* argv[])
                             }
                             if (ev.type == KeyRelease && keysym == XK_n) {
                                 Window window = open_window(); // Throws
-                                XMapWindow(display, window);
+                                XMapWindow(dpy, window);
                                 break;
                             }
                         }
@@ -1604,25 +1613,25 @@ int main(int argc, char* argv[])
                 Drawable drawable = slot.drawable;
                 // Clear top area
                 if (top > 0)
-                    XFillRectangle(display, drawable, gc, 0, 0, unsigned(win_width), unsigned(top));
+                    XFillRectangle(dpy, drawable, gc, 0, 0, unsigned(win_width), unsigned(top));
                 // Clear left area
                 if (left > 0)
-                    XFillRectangle(display, drawable, gc, 0, top, unsigned(left), unsigned(h));
+                    XFillRectangle(dpy, drawable, gc, 0, top, unsigned(left), unsigned(h));
                 // Copy image
-                XCopyArea(display, img_pixmap, drawable, gc, x, y, w, h, left, top);
+                XCopyArea(dpy, img_pixmap, drawable, gc, x, y, w, h, left, top);
                 // Clear right area
                 if (right < win_width)
-                    XFillRectangle(display, drawable, gc, right, top, unsigned(win_width - right), unsigned(h));
+                    XFillRectangle(dpy, drawable, gc, right, top, unsigned(win_width - right), unsigned(h));
                 // Clear bottom area
                 if (bottom < win_height)
-                    XFillRectangle(display, drawable, gc, 0, bottom, unsigned(win_width), unsigned(win_height - bottom));
+                    XFillRectangle(dpy, drawable, gc, 0, bottom, unsigned(win_width), unsigned(win_height - bottom));
 
 #if HAVE_XDBE
                 if (use_double_buffering) {
                     XdbeSwapInfo info;
                     info.swap_window = slot.window;
                     info.swap_action = swap_action;
-                    Status status = XdbeSwapBuffers(display, &info, 1);
+                    Status status = XdbeSwapBuffers(dpy, &info, 1);
                     ARCHON_STEADY_ASSERT(status != 0);
                 }
 #endif // HAVE_XDBE
@@ -1630,10 +1639,10 @@ int main(int argc, char* argv[])
         }
     }
 
-    XFreePixmap(display, img_pixmap);
-    XFreeColormap(display, colormap);
-    XFreeGC(display, gc);
-    XCloseDisplay(display);
+    XFreePixmap(dpy, img_pixmap);
+    XFreeColormap(dpy, colormap);
+    XFreeGC(dpy, gc);
+    XCloseDisplay(dpy);
 }
 
 
