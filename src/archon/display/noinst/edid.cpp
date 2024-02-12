@@ -53,6 +53,7 @@ bool EdidParser::parse(std::string_view str, impl::EdidInfo& info, core::StringB
             int minor = int(uchar(str[19]));
             if (ARCHON_LIKELY(major > 1 || (major == 1 && minor >= 4))) {
                 std::optional<core::IndexRange> monitor_name;
+                core::Buffer<char>& string_data_buffer = string_data.buffer();
                 std::size_t string_data_size = string_data.size();
                 for (int j = 0; j < 4; ++j) {
                     const char* base = str.data() + (54 + j * 18);
@@ -62,27 +63,37 @@ bool EdidParser::parse(std::string_view str, impl::EdidInfo& info, core::StringB
                         switch (type) {
                             case 0xFC:
                                 // Monitor name
-                                if (m_is_unicode_locale) {
+                                if (ARCHON_LIKELY(m_is_utf8_locale || m_is_unicode_locale)) {
                                     constexpr int slot_offset = 5;
                                     constexpr int slot_size = 13;
-                                    wchar_t data[slot_size];
                                     int n = 0;
-                                    while (n < slot_size && base[slot_offset + n] != '\x0A') {
-                                        data[n] = uchar(base[slot_offset + n]);
+                                    while (n < slot_size && base[slot_offset + n] != '\x0A')
                                         ++n;
-                                    }
-                                    core::Span data_2 = { data, std::size_t(n) };
-                                    core::Buffer<char>& buffer = string_data.buffer();
-                                    std::size_t offset = string_data_size;
-                                    bool success = m_string_codec.try_encode(data_2, buffer,
-                                                                             string_data_size); // Throws
-                                    if (ARCHON_LIKELY(success)) {
+                                    std::size_t string_data_offset = string_data_size;
+                                    if (ARCHON_LIKELY(m_is_utf8_locale)) {
+                                        core::Span data = { base + slot_offset, std::size_t(n) };
+                                        string_data_buffer.append(data, string_data_size); // Throws
                                         monitor_name = core::IndexRange {
-                                            offset,
-                                            std::size_t(string_data_size - offset),
+                                            string_data_offset,
+                                            std::size_t(string_data_size - string_data_offset),
                                         };
                                     }
+                                    else {
+                                        wchar_t data[slot_size];
+                                        for (int k = 0; k < n; ++k)
+                                            data[n] = wchar_t(uchar(base[slot_offset + n]));
+                                        core::Span data_2 = { data, std::size_t(n) };
+                                        bool success = m_string_codec.try_encode(data_2, string_data_buffer,
+                                                                                 string_data_size); // Throws
+                                        if (ARCHON_LIKELY(success)) {
+                                            monitor_name = core::IndexRange {
+                                                string_data_offset,
+                                                std::size_t(string_data_size - string_data_offset),
+                                            };
+                                        }
+                                    }
                                 }
+                                break;
                         }
                     }
                 }

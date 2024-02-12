@@ -69,7 +69,7 @@ struct IndexRange {
     /// function resolves the index range with respect to that sequence. The resulting string view
     /// refers to the same characters in the sequence as did the resolved index range.
     ///
-    template<class C, class T = std::char_traits<C>> auto resolve_string(const C* base) noexcept ->
+    template<class C, class T = std::char_traits<C>> auto resolve_string(const C* base) ->
         std::basic_string_view<C, T>;
 };
 
@@ -90,9 +90,9 @@ template<class T> inline auto IndexRange::resolve(T* base) noexcept -> core::Spa
 
 
 template<class C, class T>
-inline auto IndexRange::resolve_string(const C* base) noexcept -> std::basic_string_view<C, T>
+inline auto IndexRange::resolve_string(const C* base) -> std::basic_string_view<C, T>
 {
-    return { base + offset, size };
+    return { base + offset, size }; // Throws
 }
 
 

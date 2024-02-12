@@ -11,6 +11,7 @@ target_link_libraries(ProbeX11 PUBLIC
   Log
   Util
   Image
+  Display
 )
 
 if(X11_FOUND)

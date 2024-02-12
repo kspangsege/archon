@@ -50,6 +50,7 @@ public:
     bool parse(std::string_view str, impl::EdidInfo& info, core::StringBufferContents& string_data);
 
 private:
+    const bool m_is_utf8_locale;
     const bool m_is_unicode_locale;
     core::WideStringCodec m_string_codec;
 };
@@ -65,7 +66,8 @@ private:
 
 
 inline EdidParser::EdidParser(const std::locale& locale)
-    : m_is_unicode_locale(core::assume_unicode_locale(locale)) // Throws
+    : m_is_utf8_locale(core::assume_utf8_locale(locale)) // Throws
+    , m_is_unicode_locale(core::assume_unicode_locale(locale)) // Throws
     , m_string_codec(locale) // Throws
 {
 }

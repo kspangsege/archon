@@ -65,6 +65,7 @@
 #include <archon/display/geometry.hpp>
 #include <archon/display/resolution.hpp>
 #include <archon/display/screen.hpp>
+#include <archon/display/noinst/edid.hpp>
 
 #if !ARCHON_WINDOWS && ARCHON_DISPLAY_HAVE_X11 && ARCHON_DISPLAY_HAVE_X11_XKB
 #  include <unistd.h>
@@ -100,6 +101,7 @@
 #    pragma clang diagnostic ignored "-Wold-style-cast"
 #  endif
 #  include <X11/Xlib.h>
+#  include <X11/Xatom.h>
 #  include <X11/Xutil.h>
 #  include <X11/keysym.h>
 #  include <X11/XKBlib.h>
@@ -116,6 +118,7 @@
 
 
 using namespace archon;
+namespace impl = display::impl;
 
 
 #if HAVE_X11
@@ -837,6 +840,10 @@ int main(int argc, char* argv[])
     std::vector<display::Screen> screens;
     core::Buffer<char> screens_string_buffer;
     std::size_t screens_string_buffer_used_size = 0;
+/*             
+    Atom atom_edid = intern_string(RR_PROPERTY_RANDR_EDID);
+*/
+    impl::EdidParser edid_parser(locale);
     auto try_update_display_info = [&](bool& changed) -> bool {
         XRRScreenResources* resources = XRRGetScreenResourcesCurrent(dpy, root);
         if (ARCHON_UNLIKELY(!resources))
@@ -919,6 +926,57 @@ int main(int argc, char* argv[])
                 double vert_ppcm = crtc->bounds.size.height / double(info->mm_height) * 10;
                 resolution = display::Resolution { horz_ppcm, vert_ppcm };
             }
+/*             
+            // Extract monitor name from EDID data when available
+            int nprop = {};
+            Atom* props = XRRListOutputProperties(dpy, id, &nprop);
+            if (ARCHON_LIKELY(props))  {
+                ARCHON_SCOPE_EXIT {
+                    XFree(props);
+                };
+                for (int j = 0; j < nprop; ++j) {
+                    if (props[j] == atom_edid) {
+                        long offset = 0;
+                        long length = 128 / 4; // 128 bytes (32 longs) in basic EDID block
+                        Bool _delete = False;
+                        Bool pending = False;
+                        Atom req_type = AnyPropertyType;
+                        Atom actual_type = {};
+                        int actual_format = {};
+                        unsigned long nitems = {};
+                        unsigned long bytes_after = {};
+                        unsigned char* prop = {};
+                        int ret = XRRGetOutputProperty(dpy, id, props[j], offset, length, _delete, pending, req_type,
+                                                       &actual_type, &actual_format, &nitems, &bytes_after, &prop);
+                        if (ARCHON_LIKELY(ret == Success)) {
+                            ARCHON_SCOPE_EXIT {
+                                XFree(prop);
+                            };
+                            if (ARCHON_LIKELY(actual_type == XA_INTEGER && actual_format == 8)) {
+                                std::size_t size = {};
+                                if (ARCHON_LIKELY(core::try_int_cast(nitems, size))) {
+                                    std::string_view str = { reinterpret_cast<char*>(prop), size };
+                                    impl::EdidInfo info = {};
+                                    if (ARCHON_LIKELY(edid_parser.parse(str, info, strings))) { // Throws
+                                        auto format_monitor_name = [&](std::ostream& out) {
+                                            if (ARCHON_LIKELY(info.monitor_name.has_value())) {
+                                                std::string_view monitor_name =
+                                                    info.monitor_name.value().resolve_string(strings.data()); // Throws
+                                                out << core::quoted(monitor_name); // Throws
+                                            }
+                                            else {
+                                                out << "Unknown"; // Throws
+                                            }
+                                        };
+                                        logger.info("======================>> EDID decoded (version = %s.%s, monitor_name = %s)", info.major, info.minor, core::as_format_func(format_monitor_name));      
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+*/
             new_screens.push_back({ output_name, crtc->bounds, resolution, crtc->refresh_rate }); // Throws
         }
         {
