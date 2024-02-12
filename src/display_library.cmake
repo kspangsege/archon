@@ -41,6 +41,7 @@ add_subdirectory(archon/display/probe)
 
 add_library(Display
   archon/display/event_handler.cpp
+  archon/display/noinst/edid.cpp
   archon/display/connection.cpp
   archon/display/implementation.cpp
   archon/display/implementation_x11.cpp

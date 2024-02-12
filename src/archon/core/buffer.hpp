@@ -55,7 +55,7 @@ struct BufferDataTag {};
 ///
 /// \sa \ref core::ArraySeededBuffer.
 /// \sa \ref core::BufferContents.
-/// \sa \ref core::StringBufferContents.
+/// \sa \ref core::BasicStringBufferContents.
 ///
 template<class T> class Buffer {
 public:

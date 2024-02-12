@@ -41,8 +41,8 @@ namespace archon::core {
 /// (\ref core::Buffer). It offers methods for appending to the contents and expanding the
 /// underlying buffer as necessary.
 ///
-/// \sa \ref core::Buffer.
-/// \sa \ref core::StringBufferContents.
+/// \sa \ref core::Buffer
+/// \sa \ref core::BasicStringBufferContents
 ///
 template<class T> class BufferContents {
 public:
