@@ -837,12 +837,17 @@ int main(int argc, char* argv[])
     };
 
 #if HAVE_XRANDR
-    std::vector<display::Screen> screens;
+    struct ProtoScreen {
+        core::IndexRange output_name;
+        display::Box bounds;
+        std::optional<core::IndexRange> monitor_name;
+        std::optional<display::Resolution> resolution;
+        std::optional<double> refresh_rate;
+    };
+    std::vector<ProtoScreen> screens;
     core::Buffer<char> screens_string_buffer;
     std::size_t screens_string_buffer_used_size = 0;
-/*             
     Atom atom_edid = intern_string(RR_PROPERTY_RANDR_EDID);
-*/
     impl::EdidParser edid_parser(locale);
     auto try_update_display_info = [&](bool& changed) -> bool {
         XRRScreenResources* resources = XRRGetScreenResourcesCurrent(dpy, root);
@@ -892,11 +897,10 @@ int main(int argc, char* argv[])
             crtc = { enabled, bounds, refresh_rate };
             return &crtc;
         };
-        core::Vector<display::Screen, 16> new_screens;
+        core::Vector<ProtoScreen, 16> new_screens;
         std::array<char, 16 * 24> strings_seed_memory = {};
         core::Buffer strings_buffer(strings_seed_memory);
         core::StringBufferContents strings(strings_buffer);
-        const char* orig_strings_base = strings.data();
         for (int i = 0; i < resources->noutput; ++i) {
             RROutput id = resources->outputs[i];
             XRROutputInfo* info = XRRGetOutputInfo(dpy, resources, id);
@@ -918,16 +922,15 @@ int main(int argc, char* argv[])
             std::size_t offset = strings.size();
             std::size_t size = std::size_t(info->nameLen);
             strings.append({ info->name, size }); // Throws
-            // The base address is not necessarily correct anymore, but this Will be fixed up later
-            std::string_view output_name = { orig_strings_base + offset, size }; // Throws
+            core::IndexRange output_name = { offset, size }; // Throws
             std::optional<display::Resolution> resolution;
             if (info->mm_width != 0 && info->mm_height != 0) {
                 double horz_ppcm = crtc->bounds.size.width  / double(info->mm_width)  * 10;
                 double vert_ppcm = crtc->bounds.size.height / double(info->mm_height) * 10;
                 resolution = display::Resolution { horz_ppcm, vert_ppcm };
             }
-/*             
             // Extract monitor name from EDID data when available
+            std::optional<core::IndexRange> monitor_name;
             int nprop = {};
             Atom* props = XRRListOutputProperties(dpy, id, &nprop);
             if (ARCHON_LIKELY(props))  {
@@ -957,54 +960,44 @@ int main(int argc, char* argv[])
                                 if (ARCHON_LIKELY(core::try_int_cast(nitems, size))) {
                                     std::string_view str = { reinterpret_cast<char*>(prop), size };
                                     impl::EdidInfo info = {};
-                                    if (ARCHON_LIKELY(edid_parser.parse(str, info, strings))) { // Throws
-                                        auto format_monitor_name = [&](std::ostream& out) {
-                                            if (ARCHON_LIKELY(info.monitor_name.has_value())) {
-                                                std::string_view monitor_name =
-                                                    info.monitor_name.value().resolve_string(strings.data()); // Throws
-                                                out << core::quoted(monitor_name); // Throws
-                                            }
-                                            else {
-                                                out << "Unknown"; // Throws
-                                            }
-                                        };
-                                        logger.info("======================>> EDID decoded (version = %s.%s, monitor_name = %s)", info.major, info.minor, core::as_format_func(format_monitor_name));      
-                                    }
+                                    if (ARCHON_LIKELY(edid_parser.parse(str, info, strings))) // Throws
+                                        monitor_name = info.monitor_name;
                                 }
                             }
                         }
                     }
                 }
             }
-*/
-            new_screens.push_back({ output_name, crtc->bounds, resolution, crtc->refresh_rate }); // Throws
+            ProtoScreen screen = { output_name, crtc->bounds, monitor_name, resolution, crtc->refresh_rate };
+            new_screens.push_back(screen); // Throws
         }
-        {
-            const char* base = strings.data();
-            for (display::Screen& screen : new_screens)
-                core::rebase_string(screen.output_name, orig_strings_base, base); // Throws
-        }
-        if (std::equal(new_screens.begin(), new_screens.end(), screens.begin(), screens.end())) {
-            changed = false;
-            return true;
-        }
-        screens.reserve(new_screens.size()); // Throws
-        screens_string_buffer.reserve_f(strings.size(), screens_string_buffer_used_size, [&](core::Span<char> new_mem) {
-            const char* base_1 = screens_string_buffer.data();
-            const char* base_2 = new_mem.data();
-            for (display::Screen& screen : screens)
-                core::rebase_string(screen.output_name, base_1, base_2); // Throws
-        }); // Throws
         {
             const char* base_1 = strings.data();
             const char* base_2 = screens_string_buffer.data();
-            for (display::Screen& screen : new_screens)
-                core::rebase_string(screen.output_name, base_1, base_2); // Throws
+            auto cmp_opt_str = [&](const std::optional<core::IndexRange>& a,
+                                   const std::optional<core::IndexRange>& b) {
+                return (a.has_value() ?
+                        b.has_value() && a.value().resolve_string(base_1) == b.value().resolve_string(base_2) :
+                        !b.has_value());
+            };
+            auto cmp = [&](const ProtoScreen& a, const ProtoScreen& b) {
+                return (a.bounds == b.bounds &&
+                        a.resolution == b.resolution &&
+                        a.refresh_rate == b.refresh_rate &&
+                        a.output_name.resolve_string(base_1) == b.output_name.resolve_string(base_2) &&
+                        cmp_opt_str(a.monitor_name, b.monitor_name));
+            };
+            if (std::equal(new_screens.begin(), new_screens.end(), screens.begin(), screens.end(), std::move(cmp))) {
+                changed = false;
+                return true;
+            }
         }
+        screens.reserve(new_screens.size()); // Throws
+        screens_string_buffer.reserve(strings.size(), screens_string_buffer_used_size); // Throws
         // Non-throwing from here
         screens.clear();
         screens.insert(screens.begin(), new_screens.begin(), new_screens.end());
-        std::copy_n(strings.data(), strings.size(), screens_string_buffer.data());
+        screens_string_buffer.assign(strings);
         screens_string_buffer_used_size = strings.size();
         changed = true;
         return true;
@@ -1020,12 +1013,21 @@ int main(int argc, char* argv[])
                                  "attempts");
     };
     auto dump_display_info = [&] {
+        const char* strings_base = screens_string_buffer.data();
         std::size_t n = screens.size();
         for (std::size_t i = 0; i < n; ++i) {
-            const display::Screen& screen = screens[i];
-            logger.info("Screen %s/%s: output_name=%s, bounds=%s, resolution=%s, refresh_rate=%s", i + 1, n,
-                        core::quoted(screen.output_name), screen.bounds,
-                        core::as_optional(screen.resolution, "unknown"),
+            const ProtoScreen& screen = screens[i];
+            auto format_monitor_name = [&](std::ostream& out) {
+                if (ARCHON_LIKELY(screen.monitor_name.has_value())) {
+                    out << core::quoted(screen.monitor_name.value().resolve_string(strings_base)); // Throws
+                }
+                else {
+                    out << "unknown"; // Throws
+                }
+            };
+            logger.info("Screen %s/%s: output_name=%s, bounds=%s, monitor_name=%s, resolution=%s, refresh_rate=%s",
+                        i + 1, n, core::quoted(screen.output_name.resolve_string(strings_base)), screen.bounds,
+                        core::as_format_func(format_monitor_name), core::as_optional(screen.resolution, "unknown"),
                         core::as_optional(screen.refresh_rate, "unknown")); // Throws
         }
     };

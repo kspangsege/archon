@@ -61,7 +61,7 @@ struct IndexRange {
     /// function resolves the index range with respect to that sequence. The resulting span
     /// refers to the same positions in the sequence as did the resolved index range.
     ///
-    template<class T> auto resolve(T* base) noexcept -> core::Span<T>;
+    template<class T> auto resolve(T* base) const noexcept -> core::Span<T>;
 
     /// \brief Resolve index range with respect to memory-contiguous sequence of objects.
     ///
@@ -69,7 +69,7 @@ struct IndexRange {
     /// function resolves the index range with respect to that sequence. The resulting string view
     /// refers to the same characters in the sequence as did the resolved index range.
     ///
-    template<class C, class T = std::char_traits<C>> auto resolve_string(const C* base) ->
+    template<class C, class T = std::char_traits<C>> auto resolve_string(const C* base) const ->
         std::basic_string_view<C, T>;
 };
 
@@ -83,14 +83,14 @@ struct IndexRange {
 // Implementation
 
 
-template<class T> inline auto IndexRange::resolve(T* base) noexcept -> core::Span<T>
+template<class T> inline auto IndexRange::resolve(T* base) const noexcept -> core::Span<T>
 {
     return { base + offset, size };
 }
 
 
 template<class C, class T>
-inline auto IndexRange::resolve_string(const C* base) -> std::basic_string_view<C, T>
+inline auto IndexRange::resolve_string(const C* base) const -> std::basic_string_view<C, T>
 {
     return { base + offset, size }; // Throws
 }
