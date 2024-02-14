@@ -39,6 +39,7 @@
 #include <archon/core/assert.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/scope_exit.hpp>
+#include <archon/core/index_range.hpp>
 #include <archon/core/buffer.hpp>
 #include <archon/core/string_buffer_contents.hpp>
 #include <archon/core/vector.hpp>

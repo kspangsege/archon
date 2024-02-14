@@ -31,6 +31,7 @@
 
 #include <archon/core/features.h>
 #include <archon/core/assert.hpp>
+#include <archon/core/index_range.hpp>
 #include <archon/core/buffer.hpp>
 #include <archon/core/string_buffer_contents.hpp>
 #include <archon/core/deque.hpp>
@@ -46,6 +47,7 @@
 #include <archon/display/mouse_button.hpp>
 #include <archon/display/screen.hpp>
 #include <archon/display/noinst/timestamp_unwrapper.hpp>
+#include <archon/display/noinst/edid.hpp>
 #include <archon/display/implementation.hpp>
 #include <archon/display/implementation_x11.hpp>
 
@@ -193,7 +195,21 @@ private:
 };
 
 
-struct X11Screen {
+#if HAVE_XRANDR
+
+struct ProtoScreen {
+    core::IndexRange output_name;
+    display::Box bounds;
+    std::optional<core::IndexRange> monitor_name;
+    std::optional<display::Resolution> resolution;
+    std::optional<double> refresh_rate;
+};
+
+#endif // HAVE_XRANDR
+
+
+// One slot for each X11 screen
+struct ScreenSlot {
     bool is_initialized = false;
     bool use_double_buffering = {};
     XVisualInfo visual_info = {};
@@ -201,10 +217,10 @@ struct X11Screen {
     Colormap colormap = {};
 
 #if HAVE_XRANDR
-    std::vector<display::Screen> screens;
+    std::vector<ProtoScreen> screens;
     core::Buffer<char> screens_string_buffer;
     std::size_t screens_string_buffer_used_size = 0;
-#endif
+#endif // HAVE_XRANDR
 };
 
 
@@ -256,12 +272,15 @@ public:
 
     Atom atom_wm_protocols;
     Atom atom_wm_delete_window;
+#if HAVE_XRANDR
+    Atom atom_edid;
+#endif
 
     ConnectionImpl(const ImplementationImpl&, const std::locale&, const display::ConnectionConfigX11&) noexcept;
     ~ConnectionImpl() noexcept override;
 
     void open(const display::ConnectionConfigX11&);
-    auto ensure_x11_screen(int screen) const -> X11Screen&;
+    auto ensure_screen_slot(int screen) const -> ScreenSlot&;
     void register_window(::Window id, WindowImpl&);
     void unregister_window(::Window id) noexcept;
 
@@ -296,8 +315,12 @@ private:
 
     int m_xrandr_event_base = 0;
 
-    mutable std::unique_ptr<X11Screen[]> m_x11_screens;
+    mutable std::unique_ptr<ScreenSlot[]> m_screen_slots;
     mutable core::FlatMap<::Window, int> m_x11_screens_by_root;
+
+#if HAVE_XRANDR
+    mutable std::optional<impl::EdidParser> m_edid_parser;
+#endif
 
     X11KeyCodeSet m_pressed_keys;
 
@@ -363,8 +386,9 @@ private:
     bool is_pointer_grabbed() const noexcept;
 
 #if HAVE_XRANDR
-    bool update_display_info(X11Screen& screen) const;
-    bool try_update_display_info(X11Screen& screen, bool& changed) const;
+    bool update_display_info(ScreenSlot& slot) const;
+    bool try_update_display_info(ScreenSlot& slot, bool& changed) const;
+    auto ensure_edid_parser() const -> const impl::EdidParser&;
 #endif
 };
 
@@ -373,7 +397,7 @@ class WindowImpl
     : public display::Window {
 public:
     ConnectionImpl& conn;
-    const X11Screen& screen;
+    const ScreenSlot& screen_slot;
     display::WindowEventHandler& event_handler;
     const int cookie;
 
@@ -382,7 +406,7 @@ public:
 
     bool has_pending_expose_event = false;
 
-    WindowImpl(ConnectionImpl&, const X11Screen&, display::WindowEventHandler&, int cookie) noexcept;
+    WindowImpl(ConnectionImpl&, const ScreenSlot&, display::WindowEventHandler&, int cookie) noexcept;
     ~WindowImpl() noexcept override;
 
     void create(display::Size size, const Config&);
@@ -507,6 +531,9 @@ void ConnectionImpl::open(const display::ConnectionConfigX11& config)
 
     atom_wm_protocols     = intern_string("WM_PROTOCOLS");
     atom_wm_delete_window = intern_string("WM_DELETE_WINDOW");
+#if HAVE_XRANDR
+    atom_edid = intern_string(RR_PROPERTY_RANDR_EDID);
+#endif
 
 #if HAVE_XDBE
     {
@@ -575,15 +602,15 @@ void ConnectionImpl::open(const display::ConnectionConfigX11& config)
 }
 
 
-auto ConnectionImpl::ensure_x11_screen(int screen) const -> X11Screen&
+auto ConnectionImpl::ensure_screen_slot(int screen) const -> ScreenSlot&
 {
-    if (ARCHON_UNLIKELY(!m_x11_screens))
-        m_x11_screens = std::make_unique<X11Screen[]>(std::size_t(ScreenCount(dpy))); // Throws
+    if (ARCHON_UNLIKELY(!m_screen_slots))
+        m_screen_slots = std::make_unique<ScreenSlot[]>(std::size_t(ScreenCount(dpy))); // Throws
     ARCHON_ASSERT(screen >= 0 && screen <= ScreenCount(dpy));
-    X11Screen& screen_2 = m_x11_screens[screen];
-    if (ARCHON_UNLIKELY(!screen_2.is_initialized)) {
+    ScreenSlot& slot = m_screen_slots[screen];
+    if (ARCHON_UNLIKELY(!slot.is_initialized)) {
         ::Window root = RootWindow(dpy, screen);
-        screen_2.root = root;
+        slot.root = root;
         m_x11_screens_by_root[root] = screen; // Throws
 
         VisualID default_visualid = XVisualIDFromVisual(DefaultVisual(dpy, screen));
@@ -603,7 +630,7 @@ auto ConnectionImpl::ensure_x11_screen(int screen) const -> X11Screen&
                 throw std::runtime_error(message);
             }
         }
-        screen_2.visual_info = visual_info;
+        slot.visual_info = visual_info;
 
         Colormap colormap = DefaultColormap(dpy, screen);
         ARCHON_SCOPE_EXIT {
@@ -617,7 +644,7 @@ auto ConnectionImpl::ensure_x11_screen(int screen) const -> X11Screen&
             // agree on visual.
             colormap = XCreateColormap(dpy, root, visual_info.visual, AllocNone);
         }
-        screen_2.colormap = colormap;
+        slot.colormap = colormap;
 
         bool use_double_buffering = false;
 #if HAVE_XDBE
@@ -640,20 +667,20 @@ auto ConnectionImpl::ensure_x11_screen(int screen) const -> X11Screen&
             }
         }
 #endif // HAVE_XDBE
-        screen_2.use_double_buffering = use_double_buffering;
+        slot.use_double_buffering = use_double_buffering;
 
 #if HAVE_XRANDR
         if (ARCHON_LIKELY(m_have_xrandr)) {
             int mask = RROutputChangeNotifyMask | RRCrtcChangeNotifyMask;
             XRRSelectInput(dpy, root, mask);
-            update_display_info(screen_2); // Throws
+            update_display_info(slot); // Throws
         }
 #endif // HAVE_XRANDR
 
-        screen_2.is_initialized = true;
+        slot.is_initialized = true;
         colormap = None;
     }
-    return screen_2;
+    return slot;
 }
 
 
@@ -768,14 +795,25 @@ bool ConnectionImpl::try_get_display_conf(int display, core::Buffer<display::Scr
         throw std::invalid_argument("Bad display index");
 
 #if HAVE_XRANDR
-    const X11Screen& screen = ensure_x11_screen(display); // Throws
-    screens.assign(screen.screens); // Throws
-    const char* strings_base = screen.screens_string_buffer.data();
-    strings.assign({ strings_base, screen.screens_string_buffer_used_size }); // Throws
-    std::size_t n = screen.screens.size();
+    const ScreenSlot& slot = ensure_screen_slot(display); // Throws
+    std::size_t n = slot.screens.size();
+    screens.reserve(n); // Throws
+    const char* strings_base = slot.screens_string_buffer.data();
+    strings.assign({ strings_base, slot.screens_string_buffer_used_size }); // Throws
     const char* strings_base_2 = strings.data();
-    for (display::Screen& screen : core::Span(screens.data(), n))
-        core::rebase_string(screen.output_name, strings_base, strings_base_2); // Throws
+    for (std::size_t i = 0; i < n; ++i) {
+        const ProtoScreen& proto = slot.screens[i];
+        std::optional<std::string_view> monitor_name;
+        if (proto.monitor_name.has_value())
+            monitor_name = proto.monitor_name.value().resolve_string(strings_base_2); // Throws
+        screens[i] = {
+            proto.output_name.resolve_string(strings_base_2), // Throws
+            proto.bounds,
+            monitor_name,
+            proto.resolution,
+            proto.refresh_rate,
+        };
+    }
     num_screens = n;
     return true;
 #else // !HAVE_XRANDR
@@ -827,8 +865,8 @@ auto ConnectionImpl::do_new_window(int screen, std::string_view title, display::
 {
     if (ARCHON_UNLIKELY(size.width < 0 || size.height < 0))
         throw std::invalid_argument("Bad window size");
-    const X11Screen& screen_2 = ensure_x11_screen(screen); // Throws
-    auto win = std::make_unique<WindowImpl>(*this, screen_2, event_handler, config.cookie); // Throws
+    const ScreenSlot& screen_slot = ensure_screen_slot(screen); // Throws
+    auto win = std::make_unique<WindowImpl>(*this, screen_slot, event_handler, config.cookie); // Throws
     win->create(size, config); // Throws
     win->set_title(title); // Throws
     if (ARCHON_UNLIKELY(config.fullscreen))
@@ -1129,8 +1167,8 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
                 ARCHON_ASSERT(i != m_x11_screens_by_root.end());
                 int screen = i->second;
                 ARCHON_ASSERT(screen >= 0 && screen < ScreenCount(dpy));
-                X11Screen& screen_2 = m_x11_screens[screen];
-                if (update_display_info(screen_2)) // Throws
+                ScreenSlot& slot = m_screen_slots[screen];
+                if (update_display_info(slot)) // Throws
                     connection_event_handler_2.on_display_change(screen); // Throws
         }
     }
@@ -1260,12 +1298,12 @@ inline bool ConnectionImpl::is_pointer_grabbed() const noexcept
 #if HAVE_XRANDR
 
 
-bool ConnectionImpl::update_display_info(X11Screen& screen) const
+bool ConnectionImpl::update_display_info(ScreenSlot& slot) const
 {
     int max_attempts = 16;
     for (int i = 0; i < max_attempts; ++i) {
         bool changed = false;
-        if (ARCHON_LIKELY(try_update_display_info(screen, changed)))
+        if (ARCHON_LIKELY(try_update_display_info(slot, changed)))
             return changed;
     }
     throw std::runtime_error("Failed to fetch screen configuration using XRandR within the allotted number of "
@@ -1273,9 +1311,9 @@ bool ConnectionImpl::update_display_info(X11Screen& screen) const
 }
 
 
-bool ConnectionImpl::try_update_display_info(X11Screen& screen, bool& changed) const
+bool ConnectionImpl::try_update_display_info(ScreenSlot& slot, bool& changed) const
 {
-    XRRScreenResources* resources = XRRGetScreenResourcesCurrent(dpy, screen.root);
+    XRRScreenResources* resources = XRRGetScreenResourcesCurrent(dpy, slot.root);
     if (ARCHON_UNLIKELY(!resources))
         throw std::runtime_error("XRRGetScreenResourcesCurrent() failed");
     ARCHON_SCOPE_EXIT {
@@ -1322,11 +1360,11 @@ bool ConnectionImpl::try_update_display_info(X11Screen& screen, bool& changed) c
         crtc = { enabled, bounds, refresh_rate };
         return &crtc;
     };
-    core::Vector<display::Screen, 16> new_screens;
+    core::Vector<ProtoScreen, 16> new_screens;
     std::array<char, 16 * 24> strings_seed_memory = {};
     core::Buffer strings_buffer(strings_seed_memory);
     core::StringBufferContents strings(strings_buffer);
-    const char* orig_strings_base = strings.data();
+    const impl::EdidParser& edid_parser = ensure_edid_parser(); // Throws
     for (int i = 0; i < resources->noutput; ++i) {
         RROutput id = resources->outputs[i];
         XRROutputInfo* info = XRRGetOutputInfo(dpy, resources, id);
@@ -1349,45 +1387,95 @@ bool ConnectionImpl::try_update_display_info(X11Screen& screen, bool& changed) c
         std::size_t size = std::size_t(info->nameLen);
         strings.append({ info->name, size }); // Throws
         // The base address is not necessarily correct anymore, but this Will be fixed up later
-        std::string_view output_name = { orig_strings_base + offset, size }; // Throws
+        core::IndexRange output_name = { offset, size }; // Throws
         std::optional<display::Resolution> resolution;
         if (info->mm_width != 0 && info->mm_height != 0) {
             double horz_ppcm = crtc->bounds.size.width  / double(info->mm_width)  * 10;
             double vert_ppcm = crtc->bounds.size.height / double(info->mm_height) * 10;
             resolution = display::Resolution { horz_ppcm, vert_ppcm };
         }
-        new_screens.push_back({ output_name, crtc->bounds, resolution, crtc->refresh_rate }); // Throws
+        // Extract monitor name from EDID data when available
+        std::optional<core::IndexRange> monitor_name;
+        int nprop = {};
+        Atom* props = XRRListOutputProperties(dpy, id, &nprop);
+        if (ARCHON_LIKELY(props))  {
+            ARCHON_SCOPE_EXIT {
+                XFree(props);
+            };
+            for (int j = 0; j < nprop; ++j) {
+                if (props[j] == atom_edid) {
+                    long offset = 0;
+                    long length = 128 / 4; // 128 bytes (32 longs) in basic EDID block
+                    Bool _delete = False;
+                    Bool pending = False;
+                    Atom req_type = AnyPropertyType;
+                    Atom actual_type = {};
+                    int actual_format = {};
+                    unsigned long nitems = {};
+                    unsigned long bytes_after = {};
+                    unsigned char* prop = {};
+                    int ret = XRRGetOutputProperty(dpy, id, props[j], offset, length, _delete, pending, req_type,
+                                                   &actual_type, &actual_format, &nitems, &bytes_after, &prop);
+                    if (ARCHON_LIKELY(ret == Success)) {
+                        ARCHON_SCOPE_EXIT {
+                            XFree(prop);
+                        };
+                        if (ARCHON_LIKELY(actual_type == XA_INTEGER && actual_format == 8)) {
+                            std::size_t size = {};
+                            if (ARCHON_LIKELY(core::try_int_cast(nitems, size))) {
+                                std::string_view str = { reinterpret_cast<char*>(prop), size };
+                                impl::EdidInfo info = {};
+                                if (ARCHON_LIKELY(edid_parser.parse(str, info, strings))) // Throws
+                                    monitor_name = info.monitor_name;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        ProtoScreen screen = { output_name, crtc->bounds, monitor_name, resolution, crtc->refresh_rate };
+        new_screens.push_back(screen); // Throws
     }
-    {
-        const char* base = strings.data();
-        for (display::Screen& screen : new_screens)
-            core::rebase_string(screen.output_name, orig_strings_base, base); // Throws
-    }
-    if (std::equal(new_screens.begin(), new_screens.end(), screen.screens.begin(), screen.screens.end())) {
-        changed = false;
-        return true;
-    }
-    screen.screens.reserve(new_screens.size()); // Throws
-    auto func = [&](core::Span<char> new_mem) {
-        const char* base_1 = screen.screens_string_buffer.data();
-        const char* base_2 = new_mem.data();
-        for (display::Screen& screen : screen.screens)
-            core::rebase_string(screen.output_name, base_1, base_2); // Throws
-    };
-    screen.screens_string_buffer.reserve_f(strings.size(), screen.screens_string_buffer_used_size, func); // Throws
     {
         const char* base_1 = strings.data();
-        const char* base_2 = screen.screens_string_buffer.data();
-        for (display::Screen& screen : new_screens)
-            core::rebase_string(screen.output_name, base_1, base_2); // Throws
+        const char* base_2 = slot.screens_string_buffer.data();
+        auto cmp_opt_str = [&](const std::optional<core::IndexRange>& a, const std::optional<core::IndexRange>& b) {
+            return (a.has_value() ?
+                    b.has_value() && a.value().resolve_string(base_1) == b.value().resolve_string(base_2) :
+                    !b.has_value());
+        };
+        auto cmp = [&](const ProtoScreen& a, const ProtoScreen& b) {
+            return (a.bounds == b.bounds &&
+                    a.resolution == b.resolution &&
+                    a.refresh_rate == b.refresh_rate &&
+                    a.output_name.resolve_string(base_1) == b.output_name.resolve_string(base_2) &&
+                    cmp_opt_str(a.monitor_name, b.monitor_name));
+        };
+        bool equal = std::equal(new_screens.begin(), new_screens.end(), slot.screens.begin(), slot.screens.end(),
+                                std::move(cmp));
+        if (equal) {
+            changed = false;
+            return true;
+        }
     }
+    slot.screens.reserve(new_screens.size()); // Throws
+    slot.screens_string_buffer.reserve(strings.size(), slot.screens_string_buffer_used_size); // Throws
     // Non-throwing from here
-    screen.screens.clear();
-    screen.screens.insert(screen.screens.begin(), new_screens.begin(), new_screens.end());
-    std::copy_n(strings.data(), strings.size(), screen.screens_string_buffer.data());
-    screen.screens_string_buffer_used_size = strings.size();
+    slot.screens.clear();
+    slot.screens.insert(slot.screens.begin(), new_screens.begin(), new_screens.end());
+    slot.screens_string_buffer.assign(strings);
+    slot.screens_string_buffer_used_size = strings.size();
     changed = true;
     return true;
+}
+
+
+auto ConnectionImpl::ensure_edid_parser() const -> const impl::EdidParser&
+{
+    if (ARCHON_LIKELY(m_edid_parser.has_value()))
+        return m_edid_parser.value();
+    m_edid_parser.emplace(locale); // Throws
+    return m_edid_parser.value();
 }
 
 
@@ -1395,10 +1483,10 @@ bool ConnectionImpl::try_update_display_info(X11Screen& screen, bool& changed) c
 
 
 
-inline WindowImpl::WindowImpl(ConnectionImpl& conn_2, const X11Screen& screen_2,
+inline WindowImpl::WindowImpl(ConnectionImpl& conn_2, const ScreenSlot& screen_slot_2,
                               display::WindowEventHandler& event_handler_2, int cookie_2) noexcept
     : conn(conn_2)
-    , screen(screen_2)
+    , screen_slot(screen_slot_2)
     , event_handler(event_handler_2)
     , cookie(cookie_2)
 {
@@ -1425,14 +1513,14 @@ void WindowImpl::create(display::Size size, const Config& config)
     if (has_minimum_size)
         adjusted_size = max(adjusted_size, config.minimum_size.value());
 
-    ::Window parent = screen.root;
+    ::Window parent = screen_slot.root;
     int x = 0, y = 0;
     unsigned width  = unsigned(adjusted_size.width);
     unsigned height = unsigned(adjusted_size.height);
     unsigned border_width = 0;
-    int depth = screen.visual_info.depth;
+    int depth = screen_slot.visual_info.depth;
     unsigned class_ = InputOutput;
-    Visual* visual = screen.visual_info.visual;
+    Visual* visual = screen_slot.visual_info.visual;
     unsigned long valuemask = CWEventMask | CWColormap;
     XSetWindowAttributes attributes = {};
     attributes.event_mask = (KeyPressMask | KeyReleaseMask |
@@ -1443,7 +1531,7 @@ void WindowImpl::create(display::Size size, const Config& config)
                              ExposureMask |
                              StructureNotifyMask |
                              KeymapStateMask);
-    attributes.colormap = screen.colormap;
+    attributes.colormap = screen_slot.colormap;
     win = XCreateWindow(conn.dpy, parent, x, y, width, height, border_width, depth, class_, visual,
                         valuemask, &attributes);
     m_have_window = true;
@@ -1478,7 +1566,7 @@ void WindowImpl::create(display::Size size, const Config& config)
     // Enable double buffering
     m_drawable = win;
 #if HAVE_XDBE
-    if (ARCHON_LIKELY(screen.use_double_buffering)) {
+    if (ARCHON_LIKELY(screen_slot.use_double_buffering)) {
         m_swap_action = XdbeUndefined; // Contents of swapped-out buffer becomes undefined
         XdbeBackBuffer back_buffer = XdbeAllocateBackBufferName(conn.dpy, win, m_swap_action);
         m_drawable = back_buffer;
@@ -1652,7 +1740,7 @@ auto WindowImpl::intern_color(util::Color) -> unsigned long
 
     
 
-    return WhitePixel(conn.dpy, screen.visual_info.screen);                                                                                                                                                                        
+    return WhitePixel(conn.dpy, screen_slot.visual_info.screen);                                                                                                                                                                        
 }
 
 

@@ -37,7 +37,7 @@ namespace impl = display::impl;
 using impl::EdidParser;
 
 
-bool EdidParser::parse(std::string_view str, impl::EdidInfo& info, core::StringBufferContents& string_data)
+bool EdidParser::parse(std::string_view str, impl::EdidInfo& info, core::StringBufferContents& string_data) const
 {
     if (ARCHON_LIKELY(str.size() >= 128)) {
         using uchar = unsigned char;

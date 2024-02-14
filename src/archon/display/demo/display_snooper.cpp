@@ -61,8 +61,17 @@ public:
         if (m_conn.try_get_display_conf(display, m_screens, m_strings, num_screens)) {
             for (std::size_t i = 0; i < num_screens; ++i) {
                 const display::Screen& screen = m_screens[i];
-                m_logger.info("Display %s: Screen %s/%s: output_name=%s, bounds=%s, resolution=%s, refresh_rate=%s",
-                              display, i + 1, num_screens, core::quoted(screen.output_name), screen.bounds,
+                auto format_monitor_name = [&](std::ostream& out) {
+                    if (ARCHON_LIKELY(screen.monitor_name.has_value())) {
+                        out << core::quoted(screen.monitor_name.value()); // Throws
+                    }
+                    else {
+                        out << "unknown"; // Throws
+                    }
+                };
+                m_logger.info("Display %s: Screen %s/%s: output_name=%s, bounds=%s, monitor_name=%s, resolution=%s, "
+                              "refresh_rate=%s", display, i + 1, num_screens, core::quoted(screen.output_name),
+                              screen.bounds, core::as_format_func(format_monitor_name),
                               core::as_optional(screen.resolution, "unknown"),
                               core::as_optional(screen.refresh_rate, "unknown")); // Throws
             }

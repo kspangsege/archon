@@ -47,7 +47,7 @@ class EdidParser {
 public:
     EdidParser(const std::locale& locale);
 
-    bool parse(std::string_view str, impl::EdidInfo& info, core::StringBufferContents& string_data);
+    bool parse(std::string_view str, impl::EdidInfo& info, core::StringBufferContents& string_data) const;
 
 private:
     const bool m_is_utf8_locale;
