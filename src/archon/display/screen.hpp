@@ -66,7 +66,7 @@ struct Screen {
     /// screen. It is available when EDID information is provided by the monitor, and it is
     /// also made available to the display implementation.
     ///
-    /// \sa                                                                                                              
+    /// \sa https://glenwing.github.io/docs/VESA-EEDID-A2.pdf
     ///
     std::optional<std::string_view> monitor_name;
 
