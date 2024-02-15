@@ -296,7 +296,7 @@ public:
     int get_num_displays() const override final;
     int get_default_display() const override final;
     bool try_get_display_conf(int, core::Buffer<display::Screen>&, core::Buffer<char>&,
-                              std::size_t&) const override final;
+                              std::size_t&, bool&) const override final;
     auto get_implementation() const noexcept -> const display::Implementation& override final;
 
 private:
@@ -789,7 +789,7 @@ int ConnectionImpl::get_default_display() const
 
 
 bool ConnectionImpl::try_get_display_conf(int display, core::Buffer<display::Screen>& screens,
-                                          core::Buffer<char>& strings, std::size_t& num_screens) const
+                                          core::Buffer<char>& strings, std::size_t& num_screens, bool& reliable) const
 {
     if (ARCHON_UNLIKELY(display < 0 || display >= int(ScreenCount(dpy))))
         throw std::invalid_argument("Bad display index");
@@ -815,11 +815,13 @@ bool ConnectionImpl::try_get_display_conf(int display, core::Buffer<display::Scr
         };
     }
     num_screens = n;
+    reliable = true;
     return true;
 #else // !HAVE_XRANDR
     static_cast<void>(screens);
     static_cast<void>(strings);
     static_cast<void>(num_screens);
+    static_cast<void>(reliable);
     return false;
 #endif // !HAVE_XRANDR
 }

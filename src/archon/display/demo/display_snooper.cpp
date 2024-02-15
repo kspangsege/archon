@@ -30,6 +30,7 @@
 
 #include <archon/core/features.h>
 #include <archon/core/buffer.hpp>
+#include <archon/core/seed_memory_output_stream.hpp>
 #include <archon/core/format_as.hpp>
 #include <archon/core/quote.hpp>
 #include <archon/core/file.hpp>
@@ -57,8 +58,17 @@ public:
 
     void dump_display_conf(int display)
     {
-        std::size_t num_screens = 0;
-        if (m_conn.try_get_display_conf(display, m_screens, m_strings, num_screens)) {
+        std::size_t num_screens = {};
+        bool reliable = {};
+        if (m_conn.try_get_display_conf(display, m_screens, m_strings, num_screens, reliable)) {
+            std::array<char, 512> seed_memory;
+            core::SeedMemoryOutputStream out(seed_memory); // Throws
+            out.exceptions(std::ios_base::badbit | std::ios_base::failbit); // Throws
+            out.imbue(out.getloc()); // Throws
+            out << core::formatted("Display configuration changed (display_index=%s, num_screens=%s, reliable=%s)",
+                                   display, num_screens, reliable); // Throws
+            if (num_screens > 0)
+                out << ":"; // Throws
             for (std::size_t i = 0; i < num_screens; ++i) {
                 const display::Screen& screen = m_screens[i];
                 auto format_monitor_name = [&](std::ostream& out) {
@@ -69,12 +79,14 @@ public:
                         out << "unknown"; // Throws
                     }
                 };
-                m_logger.info("Display %s: Screen %s/%s: output_name=%s, bounds=%s, monitor_name=%s, resolution=%s, "
-                              "refresh_rate=%s", display, i + 1, num_screens, core::quoted(screen.output_name),
-                              screen.bounds, core::as_format_func(format_monitor_name),
-                              core::as_optional(screen.resolution, "unknown"),
-                              core::as_optional(screen.refresh_rate, "unknown")); // Throws
+                out << "\n"; // Throws
+                out << core::formatted("    Screen %s/%s: output_name=%s, bounds=%s, monitor_name=%s, resolution=%s, "
+                                       "refresh_rate=%s", i + 1, num_screens, core::quoted(screen.output_name),
+                                       screen.bounds, core::as_format_func(format_monitor_name),
+                                       core::as_optional(screen.resolution, "unknown"),
+                                       core::as_optional(screen.refresh_rate, "unknown"));
             }
+            m_logger.info("%s", out.view()); // Throws
         }
     }
 

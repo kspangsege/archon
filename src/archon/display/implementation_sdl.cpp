@@ -181,7 +181,7 @@ public:
     int get_num_displays() const override final;
     int get_default_display() const override final;
     bool try_get_display_conf(int, core::Buffer<display::Screen>&, core::Buffer<char>&,
-                              std::size_t&) const override final;
+                              std::size_t&, bool&) const override final;
     auto get_implementation() const noexcept -> const display::Implementation& override final;
 
 private:
@@ -476,7 +476,7 @@ int ConnectionImpl::get_default_display() const
 
 
 bool ConnectionImpl::try_get_display_conf(int display, core::Buffer<display::Screen>&, core::Buffer<char>&,
-                                          std::size_t&) const
+                                          std::size_t&, bool&) const
 {
     if (ARCHON_UNLIKELY(display != 0))
         throw std::invalid_argument("Bad display index");

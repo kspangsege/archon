@@ -243,8 +243,15 @@ public:
     /// whenever the display configuration changes (\ref
     /// display::ConnectionEventHandler::on_display_change()).
     ///
+    /// Some display implementations are able to provide the display configurations, but in
+    /// a less than reliable manner due to quirks in the underlying subsystem (SDL is an
+    /// example of this). Such implementations must set \p reliable to `false` when
+    /// `try_get_display_conf()` returns `true`. Display implementations that provide the
+    /// display configuration in a reliable manner should set \p reliable to `true` when
+    /// `try_get_display_conf()` returns `true`.
+    ///
     virtual bool try_get_display_conf(int display, core::Buffer<display::Screen>& screens, core::Buffer<char>& strings,
-                                      std::size_t& num_screens) const = 0;
+                                      std::size_t& num_screens, bool& reliable) const = 0;
 
     /// \brief Associated implementation.
     ///
