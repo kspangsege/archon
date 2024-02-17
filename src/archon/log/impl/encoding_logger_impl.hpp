@@ -31,7 +31,7 @@
 #include <archon/core/array_seeded_buffer.hpp>
 #include <archon/core/char_codec.hpp>
 #include <archon/core/string_codec.hpp>
-#include <archon/core/memory_output_stream.hpp>
+#include <archon/core/seed_memory_output_stream.hpp>
 #include <archon/core/format_encoded.hpp>
 #include <archon/log/limit.hpp>
 #include <archon/log/prefix.hpp>
@@ -199,9 +199,8 @@ public:
         // FIXME: A better implementation of this function would use an encoding output
         // stream, with direct incremental forwarding to a sub-stream. It would be better
         // because it would eliminate the need for dynamic allocations entirely.                                                 
-        std::array<C, 0> seed_memory; // std::array<C, 256> seed_memory;                       
-        // FIXME: Looks like this was not supposed to be a fixed size output stream                                                                                  
-        core::BasicMemoryOutputStream out_2(seed_memory); // Throws
+        std::array<C, 256> seed_memory;
+        core::BasicSeedMemoryOutputStream out_2(seed_memory); // Throws
         out_2.exceptions(std::ios_base::badbit | std::ios_base::failbit); // Throws
         out_2.imbue(out.getloc()); // Throws
         m_prefix_2.format_prefix(out_2); // Throws

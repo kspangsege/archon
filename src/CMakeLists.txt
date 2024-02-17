@@ -20,6 +20,7 @@ target_link_libraries(Test PUBLIC
   Core
   Check
   CoreTest
+  LogTest
   CliTest
   CheckTest
   MathTest
