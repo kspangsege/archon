@@ -40,8 +40,6 @@ namespace archon::display {
 ///
 /// \sa \ref display::KeyCode
 ///
-/// FIXME: Add more keys                                                                                                                                                 
-///
 enum class Key {
     // TTY functions
     backspace,            ///< Backspace
@@ -55,19 +53,80 @@ enum class Key {
     escape,               ///< Escape
     delete_,              ///< Delete
 
-    // Cursor control & motion
-    
+    // Cursor control & motion             
+    left,                 ///< Move left, left arrow
+    right,                ///< Move right, right arrow
+    up,                   ///< Move up, up arrow
+    down,                 ///< Move down, down arrow
+    page_up,              ///< Page up
+    page_down,            ///< Page down
+    home,                 ///< Home
+    begin,                ///< Beginning of line (BOL)
+    end,                  ///< End of line (EOL)
+    prior,                ///< Prior, previous
+    next,                 ///< Next
 
-    // Misc functions
+    // Misc functions             
+    select,               ///< Select, mark
+    print,                ///< Print
+    execute,              ///< Execute, run, do
+    insert,               ///< Insert, insert here
+    undo,                 ///< Undo
+    redo,                 ///< Redo, again
     menu,                 ///< Menu
-    
+    find,                 ///< Find, search
+    cancel,               ///< Cancel, stop, abort, exit
+    help,                 ///< Help
+    break_,               ///< Break
+    mode_switch,          ///< Character set switch
+    num_lock,             ///< Num lock
 
-    // Keypad
+    // Keypad             
+    keypad_digit_0,       ///< The digit "0" on keypad
+    keypad_digit_1,       ///< The digit "1" on keypad
+    keypad_digit_2,       ///< The digit "2" on keypad
+    keypad_digit_3,       ///< The digit "3" on keypad
+    keypad_digit_4,       ///< The digit "4" on keypad
+    keypad_digit_5,       ///< The digit "5" on keypad
+    keypad_digit_6,       ///< The digit "6" on keypad
+    keypad_digit_7,       ///< The digit "7" on keypad
+    keypad_digit_8,       ///< The digit "8" on keypad
+    keypad_digit_9,       ///< The digit "9" on keypad
+/*
+#define XK_KP_Space                      0xff80  ///< Space on keypad
+#define XK_KP_Tab                        0xff89  ///< 
+#define XK_KP_Enter                      0xff8d  ///< Enter on keypad
+#define XK_KP_F1                         0xff91  ///< PF1, KP_A, ...
+#define XK_KP_F2                         0xff92
+#define XK_KP_F3                         0xff93
+#define XK_KP_F4                         0xff94
+#define XK_KP_Home                       0xff95
+#define XK_KP_Left                       0xff96
+#define XK_KP_Up                         0xff97
+#define XK_KP_Right                      0xff98
+#define XK_KP_Down                       0xff99
+#define XK_KP_Prior                      0xff9a
+#define XK_KP_Page_Up                    0xff9a
+#define XK_KP_Next                       0xff9b
+#define XK_KP_Page_Down                  0xff9b
+#define XK_KP_End                        0xff9c
+#define XK_KP_Begin                      0xff9d
+#define XK_KP_Insert                     0xff9e
+#define XK_KP_Delete                     0xff9f
+#define XK_KP_Equal                      0xffbd  ///< Equals
+#define XK_KP_Multiply                   0xffaa
+#define XK_KP_Add                        0xffab  ///< Plus sign on keypad
+#define XK_KP_Separator                  0xffac  ///< Separator, often comma
+#define XK_KP_Subtract                   0xffad
+#define XK_KP_Decimal                    0xffae
+#define XK_KP_Divide                     0xffaf
+*/
+
     keypad_plus_sign,     ///< Plus sign on keypad
     keypad_minus_sign,    ///< Minus sign on keypad
     
 
-    // Function keys
+    // Function keys             
     
 
     // Modifier keys
@@ -79,6 +138,8 @@ enum class Key {
     alt_right,            ///< Right side alt (or "Alt Gr")
     meta_left,            ///< Left side meta (Windows / Apple / command)
     meta_right,           ///< Right side meta (Windows / Apple / command)
+    caps_lock,            ///< Caps lock             
+    shift_lock,           ///< Shift lock             
 
     // Basic Latin
     space,                ///< Space
