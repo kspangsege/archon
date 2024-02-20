@@ -1609,6 +1609,13 @@ void WindowImpl::set_title(std::string_view title)
 
 void WindowImpl::set_size(display::Size size)
 {
+/*
+    if (ARCHON_UNLIKELY(size.width < 0 || size.height < 0))
+        throw std::invalid_argument("Bad window size");
+    unsigned w = unsigned(size.width);
+    unsigned h = unsigned(size.height);
+    XResizeWindow(conn.dpy, win, w, h);
+*/
     static_cast<void>(size);    
     throw std::runtime_error("*click* -> set_size()");     
 }
