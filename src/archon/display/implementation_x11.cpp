@@ -272,6 +272,9 @@ public:
 
     Atom atom_wm_protocols;
     Atom atom_wm_delete_window;
+    Atom atom_net_wm_state;
+    Atom atom_net_wm_state_fullscreen;
+
 #if HAVE_XRANDR
     Atom atom_edid;
 #endif
@@ -529,8 +532,10 @@ void ConnectionImpl::open(const display::ConnectionConfigX11& config)
     if (ARCHON_UNLIKELY(config.synchronous_mode))
         XSynchronize(dpy, True);
 
-    atom_wm_protocols     = intern_string("WM_PROTOCOLS");
-    atom_wm_delete_window = intern_string("WM_DELETE_WINDOW");
+    atom_wm_protocols            = intern_string("WM_PROTOCOLS");
+    atom_wm_delete_window        = intern_string("WM_DELETE_WINDOW");
+    atom_net_wm_state            = intern_string("_NET_WM_STATE");
+    atom_net_wm_state_fullscreen = intern_string("_NET_WM_STATE_FULLSCREEN");
 #if HAVE_XRANDR
     atom_edid = intern_string(RR_PROPERTY_RANDR_EDID);
 #endif
@@ -1253,18 +1258,18 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
 
 bool ConnectionImpl::lookup_window(::Window window_id, WindowImpl*& window) noexcept
 {
-    if (ARCHON_LIKELY(m_have_curr_window && window_id == m_curr_window_id)) {
-        window = m_curr_window;
-        return true;
-    }
-
     WindowImpl* window_2 = nullptr;
-    auto i = m_windows.find(window_id);
-    if (ARCHON_LIKELY(i != m_windows.end()))
-        window_2 = &i->second;
-    m_curr_window_id = window_id;
-    m_curr_window = window_2;
-    m_have_curr_window = true;
+    if (ARCHON_LIKELY(m_have_curr_window && window_id == m_curr_window_id)) {
+        window_2 = m_curr_window;
+    }
+    else {
+        auto i = m_windows.find(window_id);
+        if (ARCHON_LIKELY(i != m_windows.end()))
+            window_2 = &i->second;
+        m_curr_window_id = window_id;
+        m_curr_window = window_2;
+        m_have_curr_window = true;
+    }
     if (ARCHON_LIKELY(window_2)) {
         window = window_2;
         return true;
@@ -1609,22 +1614,30 @@ void WindowImpl::set_title(std::string_view title)
 
 void WindowImpl::set_size(display::Size size)
 {
-/*
     if (ARCHON_UNLIKELY(size.width < 0 || size.height < 0))
         throw std::invalid_argument("Bad window size");
     unsigned w = unsigned(size.width);
     unsigned h = unsigned(size.height);
     XResizeWindow(conn.dpy, win, w, h);
-*/
-    static_cast<void>(size);    
-    throw std::runtime_error("*click* -> set_size()");     
 }
 
 
 void WindowImpl::set_fullscreen_mode(bool on)
 {
-    static_cast<void>(on);    
-    throw std::runtime_error("*click* -> set_fullscreen_mode()");     
+    XClientMessageEvent event = {};
+    event.type = ClientMessage;
+    event.window = win;
+    event.message_type = conn.atom_net_wm_state;
+    event.format = 32;
+    event.data.l[0] = (on ? 1 : 0); // Add / remove property
+    event.data.l[1] = conn.atom_net_wm_state_fullscreen;
+    event.data.l[2] = 0; // No second property to alter
+    event.data.l[3] = 1; // Request is from normal application
+    Bool propagate = False;
+    long event_mask = SubstructureRedirectMask | SubstructureNotifyMask;
+    Status status = XSendEvent(conn.dpy, screen_slot.root, propagate, event_mask, reinterpret_cast<XEvent*>(&event));
+    if (ARCHON_UNLIKELY(status == 0))
+        throw std::runtime_error("XSendEvent() failed");
 }
 
 

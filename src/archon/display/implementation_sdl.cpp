@@ -808,17 +808,17 @@ bool ConnectionImpl::wait_for_events(time_point_type deadline)
 
 bool ConnectionImpl::lookup_window(Uint32 window_id, const WindowImpl*& window) noexcept
 {
-    if (ARCHON_LIKELY(window_id == m_curr_window_id)) {
-        window = m_curr_window;
-        return true;
-    }
-
     const WindowImpl* window_2 = nullptr;
-    auto i = m_windows.find(window_id);
-    if (ARCHON_LIKELY(i != m_windows.end()))
-        window_2 = &i->second;
-    m_curr_window_id = window_id;
-    m_curr_window = window_2;
+    if (ARCHON_LIKELY(window_id == m_curr_window_id)) {
+        window_2 = m_curr_window;
+    }
+    else {
+        auto i = m_windows.find(window_id);
+        if (ARCHON_LIKELY(i != m_windows.end()))
+            window_2 = &i->second;
+        m_curr_window_id = window_id;
+        m_curr_window = window_2;
+    }
     if (ARCHON_LIKELY(window_2)) {
         window = window_2;
         return true;
