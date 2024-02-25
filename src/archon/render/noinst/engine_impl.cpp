@@ -116,25 +116,25 @@ EngineImpl::EngineImpl(std::string_view window_title, display::Size window_size,
                                            "Quit application",
                                            &EngineImpl::key_func_quit); // Throws
     bind_key(display::Key::escape, handler); // Throws
-    bind_key(display::Key::lower_case_q, handler); // Throws
+    bind_key(display::Key::small_q, handler); // Throws
 
     if (!config.disable_frame_rate_control) {
         handler = register_builtin_key_handler(BuiltinKeyHandler::inc_frame_rate,
                                                "Increase frame rate",
                                                &EngineImpl::key_func_inc_frame_rate); // Throws
-        bind_key(display::Key::keypad_plus_sign, handler); // Throws
+        bind_key(display::Key::keypad_add, handler); // Throws
 
         handler = register_builtin_key_handler(BuiltinKeyHandler::dec_frame_rate,
                                                "Decrease frame rate",
                                                &EngineImpl::key_func_dec_frame_rate); // Throws
-        bind_key(display::Key::keypad_minus_sign, handler); // Throws
+        bind_key(display::Key::keypad_subtract, handler); // Throws
     }
 
     if (config.allow_window_resize) {
         handler = register_builtin_key_handler(BuiltinKeyHandler::toggle_fullscreen,
                                                "Toggle fullscreen mode",
                                                &EngineImpl::key_func_toggle_fullscreen); // Throws
-        bind_key(display::Key::lower_case_f, handler); // Throws
+        bind_key(display::Key::small_f, handler); // Throws
     }
 
     handler = register_builtin_key_handler(BuiltinKeyHandler::reset_view,
@@ -146,14 +146,14 @@ EngineImpl::EngineImpl(std::string_view window_title, display::Size window_size,
         handler = register_builtin_key_handler(BuiltinKeyHandler::toggle_headlight,
                                                "Toggle headlight",
                                                &EngineImpl::key_func_toggle_headlight); // Throws
-        bind_key(display::Key::lower_case_l, handler); // Throws
+        bind_key(display::Key::small_l, handler); // Throws
     }
 
     if (!config.disable_wireframe_feature) {
         handler = register_builtin_key_handler(BuiltinKeyHandler::toggle_wireframe,
                                                "Toggle wireframe mode",
                                                &EngineImpl::key_func_toggle_wireframe); // Throws
-        bind_key(display::Key::lower_case_w, handler); // Throws
+        bind_key(display::Key::small_w, handler); // Throws
     }
 
     display::Window::Config window_config;

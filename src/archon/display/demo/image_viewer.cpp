@@ -71,7 +71,7 @@ public:
     {
         display::Key key = {};
         if (ARCHON_LIKELY(m_conn.try_map_key_code_to_key(ev.key_code, key))) { // Throws
-            if (ARCHON_UNLIKELY(key == display::Key::escape || key == display::Key::lower_case_q))
+            if (ARCHON_UNLIKELY(key == display::Key::escape || key == display::Key::small_q))
                 return false; // Terminate
         }
         return true;

@@ -254,7 +254,7 @@ int main(int argc, char* argv[])
     engine.set_scene(ball_scene);
     engine.set_base_spin(math::Rotation({ 0, 1, 0 }, core::deg_to_rad(90))); // Throws
 
-    engine.bind_key(display::Key::lower_case_s, "Spin", [&](bool down) {
+    engine.bind_key(display::Key::small_s, "Spin", [&](bool down) {
         if (down) {
             engine.set_spin(math::Rotation({ 0, 1, 0 }, core::deg_to_rad(90))); // Throws
         }

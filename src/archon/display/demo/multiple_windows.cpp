@@ -125,7 +125,7 @@ public:
                         m_target_window = 0;
                     break;
                 }
-                case display::Key::lower_case_s: {
+                case display::Key::small_s: {
                     int window_id = ev.cookie;
                     if (m_target_window != 0)
                         window_id = m_target_window;
@@ -137,7 +137,7 @@ public:
                     }
                     break;
                 }
-                case display::Key::lower_case_f: {
+                case display::Key::small_f: {
                     int window_id = ev.cookie;
                     if (m_target_window != 0)
                         window_id = m_target_window;
@@ -149,12 +149,12 @@ public:
                     }
                     break;
                 }
-                case display::Key::lower_case_o: {
+                case display::Key::small_o: {
                     add_window(); // Throws
                     break;
                 }
                 case display::Key::escape:
-                case display::Key::lower_case_q: {
+                case display::Key::small_q: {
                     if (m_windows.size() > 1) {
                         m_windows.erase(ev.cookie);
                         break;
