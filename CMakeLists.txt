@@ -12,10 +12,12 @@ if(NOT MSVC)
 endif()
 
 # `constexpr` evaluation
-if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
-  add_compile_options(-fconstexpr-steps=10000000)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  add_compile_options(-fconstexpr-ops-limit=100000000)
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
+  add_compile_options(-fconstexpr-steps=100000000)
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-  add_compile_options(/constexpr:steps10000000)
+  add_compile_options(/constexpr:steps100000000)
 endif()
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)

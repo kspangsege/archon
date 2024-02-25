@@ -136,7 +136,7 @@ enum class Key {
     f13                         =  512, ///< 13th function key
     f14                         =  513, ///< 14th function key
     f15                         =  514, ///< 15th function key
-    f16                         =   515, ///< 16th function key
+    f16                         =  515, ///< 16th function key
     f17                         =  516, ///< 17th function key
     f18                         =  517, ///< 14th function key
     f19                         =  518, ///< 18th function key
@@ -157,7 +157,7 @@ enum class Key {
     f34                         =  533, ///< 34th function key
     f35                         =  534, ///< 35th function key
 
-    // Modifier keys
+    // Modifier keys             
     shift_left                  =  600, ///< Left side shift
     shift_right                 =  601, ///< Right side shift
     ctrl_left                   =  602, ///< Left side control
@@ -166,8 +166,40 @@ enum class Key {
     alt_right                   =  605, ///< Right side alt (or "Alt Gr")
     meta_left                   =  606, ///< Left side meta (Windows / Apple / command)
     meta_right                  =  607, ///< Right side meta (Windows / Apple / command)
-    caps_lock                   =  608, ///< Caps lock             
-    shift_lock                  =  609, ///< Shift lock             
+    caps_lock                   =  608, ///< Caps lock
+    shift_lock                  =  609, ///< Shift lock
+    dead_grave                  =  610, ///< Combining grave accent
+    dead_acute                  =  611, ///< Combining acute accent
+    dead_circumflex             =  612, ///< Combining circumflex
+    dead_tilde                  =  613, ///< Combining tilde
+    dead_macron                 =  614, ///< Combining macron
+    dead_breve                  =  615, ///< Combining breve
+    dead_abovedot               =  616, ///< Combining dot above
+    dead_diaeresis              =  617, ///< Combining diaeresis
+    dead_abovering              =  618, ///< Combining ring above
+    dead_doubleacute            =  619, ///< Combining double acute accent
+    dead_caron                  =  620, ///< Combining caron
+    dead_cedilla                =  621, ///< Combining cedilla
+    dead_ogonek                 =  622, ///< Combining ogonek
+    dead_iota                   =  623, ///< Combining iota subscript
+    dead_voiced_sound           =  624, ///< Combining voiced sound
+    dead_semivoiced_sound       =  625, ///< Combining semi-voiced sound
+    dead_belowdot               =  626, ///< Combining dot below
+    dead_hook                   =  627, ///< Combining hook
+    dead_horn                   =  628, ///< Combining horn
+    dead_stroke                 =  629, ///< Combining stroke
+    dead_psili                  =  630, ///< Combining comma above
+    dead_dasia                  =  631, ///< Combining reversed comma above
+    dead_doublegrave            =  632, ///< Combining double grave accent
+    dead_belowring              =  633, ///< Combining ring below
+    dead_belowmacron            =  634, ///< Combining macron below
+    dead_belowcircumflex        =  635, ///< Combining circumflex below
+    dead_belowtilde             =  636, ///< Combining tilde below
+    dead_belowbreve             =  637, ///< Combining breve below
+    dead_belowdiaeresis         =  638, ///< Combining diaeresis below
+    dead_invertedbreve          =  639, ///< Combining inverted breve
+    dead_belowcomma             =  640, ///< Combining comma below
+    dead_currency               =  641, ///< Combining currency
 
     // Basic Latin
     space                       =  700, ///< U+0020 Space
