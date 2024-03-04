@@ -571,7 +571,9 @@ int main(int argc, char* argv[])
     int have_xkb = false;
     int xkb_major = 0;
     int xkb_minor = 0;
-    {
+    int xkb_lib_major = XkbMajorVersion;
+    int xkb_lib_minor = XkbMinorVersion;
+    if (XkbLibraryVersion(&xkb_lib_major, &xkb_lib_minor)) {
         int opcode = 0;
         int event_base = 0;
         int error_base = 0;
@@ -763,7 +765,7 @@ int main(int argc, char* argv[])
 
     auto format_have_xkb = [&](std::ostream& out) {
         if (have_xkb) {
-            out << core::formatted("yes (%s.%s)", xkb_major, xkb_minor); // Throws
+            out << core::formatted("yes (%s.%s, %s.%s)", xkb_major, xkb_minor, xkb_lib_major, xkb_lib_minor); // Throws
             return;
         }
         out << "no"; // Throws
@@ -1573,8 +1575,8 @@ int main(int argc, char* argv[])
                         if (ARCHON_LIKELY(try_get_window_slot(ev.xkey.window, slot))) {
                             KeySym keysym = get_keysym(ev.xkey.keycode);
                             std::string_view key_name = get_key_name(keysym); // Throws
-                            log(slot->no, "%s: %s", (ev.type == KeyPress ? "KEY DOWN" : "KEY UP"),
-                                key_name); // Throws
+                            log(slot->no, "%s: %s, %s -> %s", (ev.type == KeyPress ? "KEY DOWN" : "KEY UP"), key_name,
+                                core::as_int(ev.xkey.keycode), core::as_int(keysym)); // Throws
                             if (ev.type == KeyPress && (keysym == XK_Escape || keysym == XK_q)) {
                                 close_window(slot->window);
                                 break;

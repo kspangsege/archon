@@ -396,8 +396,9 @@ int main(int argc, char* argv[])
                         const char* key = "?";
                         if (ARCHON_LIKELY(core::assume_utf8_locale(locale))) // Throws
                             key = SDL_GetKeyName(keysym); // Throws
-                        log(slot->no, "%s: %s, %s", (event.type == SDL_KEYDOWN ? "KEY DOWN" : "KEY UP"), key,
-                            core::promote(event.key.repeat)); // Throws
+                        log(slot->no, "%s: %s, %s, %s -> %s", (event.type == SDL_KEYDOWN ? "KEY DOWN" : "KEY UP"), key,
+                            core::as_int(event.key.repeat), core::as_int(int(event.key.keysym.scancode)),
+                            core::as_int(keysym)); // Throws
                         if (event.type == SDL_KEYDOWN && (keysym == SDLK_ESCAPE || keysym == SDLK_q)) {
                             close_window(slot->window_id);
                             break;

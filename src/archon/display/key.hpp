@@ -53,22 +53,20 @@ enum class Key {
     escape                      =  108, ///< Escape
     delete_                     =  109, ///< Delete
 
-    // Cursor control & motion             
+    // Cursor control
     left                        =  200, ///< Move left, left arrow
     right                       =  201, ///< Move right, right arrow
     up                          =  202, ///< Move up, up arrow
     down                        =  203, ///< Move down, down arrow
-    page_up                     =  204, ///< Page up
-    page_down                   =  205, ///< Page down
+    prior                       =  204, ///< Prior (page up)
+    next                        =  205, ///< Next (page down)
     home                        =  206, ///< Home
     begin                       =  207, ///< Beginning of line (BOL)
     end                         =  208, ///< End of line (EOL)
-    prior                       =  209, ///< Prior, previous
-    next                        =  210, ///< Next
 
-    // Misc functions             
+    // Misc functions
     select                      =  300, ///< Select, mark
-    print                       =  301, ///< Print
+    print_screen                =  301, ///< Print screen
     execute                     =  302, ///< Execute, run, do
     insert                      =  303, ///< Insert, insert here
     undo                        =  304, ///< Undo
@@ -81,7 +79,7 @@ enum class Key {
     mode_switch                 =  311, ///< Character set switch
     num_lock                    =  312, ///< Num lock
 
-    // Keypad             
+    // Keypad
     keypad_add                  =  400, ///< Addition operator on keypad
     keypad_subtract             =  401, ///< Subtraction operator on keypad
     keypad_multiply             =  402, ///< Multiplication operator on keypad
@@ -90,13 +88,11 @@ enum class Key {
     keypad_right                =  405, ///< Right arrow on keypad
     keypad_up                   =  406, ///< Up arrow on keypad
     keypad_down                 =  407, ///< Down arrow on keypad
-    keypad_page_up              =  408, ///< Page up on keypad
-    keypad_page_down            =  409, ///< Page down on keypad
+    keypad_prior                =  408, ///< Prior on keypad (page up)
+    keypad_next                 =  409, ///< Next on keypad (page down)
     keypad_home                 =  410, ///< Home on keypad
     keypad_begin                =  411, ///< Beginning of line on keypad (BOL)
     keypad_end                  =  412, ///< End of line on keypad (BOL)
-    keypad_prior                =  413, ///< Prior on keypad
-    keypad_next                 =  414, ///< Next on keypad
     keypad_insert               =  415, ///< Insert on keypad
     keypad_delete               =  416, ///< Delete on keypad
     keypad_enter                =  417, ///< Enter on keypad
@@ -120,7 +116,7 @@ enum class Key {
     keypad_f3                   =  435, ///< 3rd function key on keypad
     keypad_f4                   =  436, ///< 4th function key on keypad
 
-    // Function keys             
+    // Function keys
     f1                          =  500, ///<  1st function key
     f2                          =  501, ///<  2nd function key
     f3                          =  502, ///<  3rd function key
@@ -157,7 +153,7 @@ enum class Key {
     f34                         =  533, ///< 34th function key
     f35                         =  534, ///< 35th function key
 
-    // Modifier keys             
+    // Modifier keys
     shift_left                  =  600, ///< Left side shift
     shift_right                 =  601, ///< Right side shift
     ctrl_left                   =  602, ///< Left side control
@@ -298,7 +294,7 @@ enum class Key {
     right_curly_bracket         =  793, ///< U+007D Right curly bracket
     tilde                       =  794, ///< U+007E Tilde
 
-    // Latin-1 Supplement             
+    // Latin-1 Supplement
     nobreak_space               =  800, ///< U+00A0 No-break space
     inverted_exclamation_mark   =  801, ///< U+00A1 Inverted exclamation mark
     cent_sign                   =  802, ///< U+00A2 Cent sign

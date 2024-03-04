@@ -27,6 +27,7 @@
 #include <string_view>
 #include <string>
 #include <locale>
+#include <ostream>
 
 #include <archon/core/features.h>
 #include <archon/core/buffer.hpp>
@@ -107,9 +108,15 @@ public:
 
     bool on_keydown(const display::KeyEvent& ev) override final
     {
-        m_logger.info("KEY DOWN: %s", display::as_key_name (ev.key_code, m_conn)); // Throws
         display::Key key = {};
-        if (ARCHON_LIKELY(m_conn.try_map_key_code_to_key(ev.key_code, key))) { // Throws
+        bool have_key = m_conn.try_map_key_code_to_key(ev.key_code, key); // Throws
+        auto format_key = [&](std::ostream& out) {
+            out << display::as_key_name(ev.key_code, m_conn); // Throws;
+            if (ARCHON_LIKELY(have_key))
+                out << core::formatted(" (%s)", int(key)); // Throws
+        };
+        m_logger.info("KEY DOWN: %s", core::as_format_func(format_key)); // Throws
+        if (ARCHON_LIKELY(have_key)) { // Throws
             if (ARCHON_UNLIKELY(key == display::Key::escape || key == display::Key::small_q))
                 return false;
         }
@@ -118,13 +125,27 @@ public:
 
     bool on_keyup(const display::KeyEvent& ev) override final
     {
-        m_logger.info("KEY UP: %s", display::as_key_name (ev.key_code, m_conn)); // Throws
+        display::Key key = {};
+        bool have_key = m_conn.try_map_key_code_to_key(ev.key_code, key); // Throws
+        auto format_key = [&](std::ostream& out) {
+            out << display::as_key_name(ev.key_code, m_conn); // Throws;
+            if (ARCHON_LIKELY(have_key))
+                out << core::formatted(" (%s)", int(key)); // Throws
+        };
+        m_logger.info("KEY UP: %s", core::as_format_func(format_key)); // Throws
         return true;
     }
 
     bool on_keyrepeat(const display::KeyEvent& ev) override final
     {
-        m_logger.info("KEY REPEAT: %s", display::as_key_name (ev.key_code, m_conn)); // Throws
+        display::Key key = {};
+        bool have_key = m_conn.try_map_key_code_to_key(ev.key_code, key); // Throws
+        auto format_key = [&](std::ostream& out) {
+            out << display::as_key_name(ev.key_code, m_conn); // Throws;
+            if (ARCHON_LIKELY(have_key))
+                out << core::formatted(" (%s)", int(key)); // Throws
+        };
+        m_logger.info("KEY REPEAT: %s", core::as_format_func(format_key)); // Throws
         return true;
     }
 
