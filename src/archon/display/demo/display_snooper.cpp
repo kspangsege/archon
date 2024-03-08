@@ -225,7 +225,7 @@ public:
         return false; // Terminate
     }
 
-    bool on_display_change(int display)
+    bool on_display_change(int display) override final
     {
         dump_display_conf(display); // Throws
         return true;
@@ -386,10 +386,11 @@ int main(int argc, char* argv[])
         event_loop.dump_display_conf(i); // Throws
     display::Size size = 256;
     display::Window::Config window_config;
+    window_config.display = display;
     window_config.resizable = true;
     window_config.minimum_size = 128;
     std::unique_ptr<display::Window> win =
-        conn->new_window(display, "Archon Display Snooper", size, event_loop, window_config); // Throws
+        conn->new_window("Archon Display Snooper", size, event_loop, window_config); // Throws
     win->show(); // Throws
     event_loop.set_window(std::move(win));
     event_loop.set_report_mouse_move(report_mouse_move);

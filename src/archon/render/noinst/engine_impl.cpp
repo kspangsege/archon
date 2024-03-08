@@ -159,7 +159,7 @@ EngineImpl::EngineImpl(std::string_view window_title, display::Size window_size,
     display::Window::Config window_config;
     window_config.resizable = config.allow_window_resize;
     window_config.fullscreen = config.fullscreen_mode;
-    window_config.enable_opengl = true;
+    window_config.enable_opengl_rendering = true;
     m_window = m_display_connection->new_window(window_title, window_size, m_event_handler, window_config); // Throws
     m_fullscreen_mode = config.fullscreen_mode;
 }

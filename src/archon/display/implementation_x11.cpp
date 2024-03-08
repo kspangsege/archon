@@ -27,6 +27,7 @@
 #include <utility>
 #include <string_view>
 #include <vector>
+#include <system_error>
 #include <locale>
 
 #include <archon/core/features.h>
@@ -48,6 +49,7 @@
 #include <archon/display/screen.hpp>
 #include <archon/display/noinst/timestamp_unwrapper.hpp>
 #include <archon/display/noinst/edid.hpp>
+#include <archon/display/error.hpp>
 #include <archon/display/implementation.hpp>
 #include <archon/display/implementation_x11.hpp>
 
@@ -195,6 +197,21 @@ private:
 };
 
 
+class PixelCodec {
+public:
+    virtual auto intern_color(util::Color color) -> unsigned long = 0;
+    virtual ~PixelCodec() = default;
+};
+
+
+bool try_make_pixel_codec(std::unique_ptr<PixelCodec>& pixel_codec, std::error_code& ec)
+{
+    static_cast<void>(pixel_codec);               
+    ec = display::Error::display_uses_unsupported_pixel_format;                                                       
+    return false;
+}
+
+
 #if HAVE_XRANDR
 
 struct ProtoScreen {
@@ -221,6 +238,9 @@ struct ScreenSlot {
     core::Buffer<char> screens_string_buffer;
     std::size_t screens_string_buffer_used_size = 0;
 #endif // HAVE_XRANDR
+
+    std::unique_ptr<PixelCodec> pixel_codec;
+    std::error_code pixel_codec_error_code;
 };
 
 
@@ -283,17 +303,15 @@ public:
     ~ConnectionImpl() noexcept override;
 
     void open(const display::ConnectionConfigX11&);
-    auto ensure_screen_slot(int screen) const -> ScreenSlot&;
     void register_window(::Window id, WindowImpl&);
     void unregister_window(::Window id) noexcept;
 
     bool try_map_key_to_key_code(display::Key, display::KeyCode&) const override final;
     bool try_map_key_code_to_key(display::KeyCode, display::Key&) const override final;
     bool try_get_key_name(display::KeyCode, std::string_view&) const override final;
-    auto new_window(std::string_view, display::Size, display::WindowEventHandler&,
-                    const display::Window::Config&) -> std::unique_ptr<display::Window> override final;
-    auto new_window(int, std::string_view, display::Size, display::WindowEventHandler&,
-                    const display::Window::Config&) -> std::unique_ptr<display::Window> override final;
+    bool try_new_window(std::string_view, display::Size, display::WindowEventHandler&,
+                        std::unique_ptr<display::Window>&, std::error_code&,
+                        const display::Window::Config&) override final;
     void process_events(display::ConnectionEventHandler*) override final;
     bool process_events(time_point_type, display::ConnectionEventHandler*) override final;
     int get_num_displays() const override final;
@@ -380,9 +398,9 @@ private:
     int m_num_events = 0;
 
     auto intern_string(const char*) noexcept -> Atom;
+    auto ensure_screen_slot(int screen) const -> ScreenSlot&;
+    static bool ensure_pixel_codec(ScreenSlot&, const PixelCodec*&, std::error_code&);
     bool lookup_visual_info(int screen, int depth, VisualID visual_id, XVisualInfo&) const noexcept;
-    auto do_new_window(int screen, std::string_view title, display::Size size, display::WindowEventHandler&,
-                       const display::Window::Config&) -> std::unique_ptr<display::Window>;
     bool do_process_events(const time_point_type* deadline, display::ConnectionEventHandler*);
     bool lookup_window(::Window window_id, WindowImpl*& window) noexcept;
     void track_pointer_grabs(::Window window_id, unsigned button, bool is_press);
@@ -607,88 +625,6 @@ void ConnectionImpl::open(const display::ConnectionConfigX11& config)
 }
 
 
-auto ConnectionImpl::ensure_screen_slot(int screen) const -> ScreenSlot&
-{
-    if (ARCHON_UNLIKELY(!m_screen_slots))
-        m_screen_slots = std::make_unique<ScreenSlot[]>(std::size_t(ScreenCount(dpy))); // Throws
-    ARCHON_ASSERT(screen >= 0 && screen <= ScreenCount(dpy));
-    ScreenSlot& slot = m_screen_slots[screen];
-    if (ARCHON_UNLIKELY(!slot.is_initialized)) {
-        ::Window root = RootWindow(dpy, screen);
-        slot.root = root;
-        m_x11_screens_by_root[root] = screen; // Throws
-
-        VisualID default_visualid = XVisualIDFromVisual(DefaultVisual(dpy, screen));
-        XVisualInfo visual_info = {};
-        {
-            int depth = DefaultDepth(dpy, screen);
-            VisualID visual = default_visualid;
-            if (m_depth_override.has_value())
-                depth = m_depth_override.value();
-            if (m_visual_override.has_value())
-                visual = m_visual_override.value();
-            if (ARCHON_UNLIKELY(!lookup_visual_info(screen, depth, visual, visual_info))) {
-                ARCHON_STEADY_ASSERT(m_depth_override.has_value() || m_visual_override.has_value());
-                std::string message = core::format(locale, "Combination of selected depth (%s) and selected visual "
-                                                   "type (0x%s) is invalid for targeted screen (%s)", depth,
-                                                   core::as_hex_int(visual, 2), screen); // Throws
-                throw std::runtime_error(message);
-            }
-        }
-        slot.visual_info = visual_info;
-
-        Colormap colormap = DefaultColormap(dpy, screen);
-        ARCHON_SCOPE_EXIT {
-            if (colormap != None)
-                XFreeColormap(dpy, colormap);
-        };
-        if (ARCHON_UNLIKELY(visual_info.visualid != default_visualid)) {
-            // By creating a new colormap, rather than reusing the one used by the root
-            // window, it becomes possible to use a visual for the new window that differs
-            // from the one used by the root window. The colormap and the new window must
-            // agree on visual.
-            colormap = XCreateColormap(dpy, root, visual_info.visual, AllocNone);
-        }
-        slot.colormap = colormap;
-
-        bool use_double_buffering = false;
-#if HAVE_XDBE
-        if (!m_disable_double_buffering && m_have_xdbe) {
-            int n = 1;
-            XdbeScreenVisualInfo* entries = XdbeGetVisualInfo(dpy, &root, &n);
-            if (ARCHON_UNLIKELY(!entries))
-                throw std::runtime_error("XdbeGetVisualInfo() failed");
-            ARCHON_SCOPE_EXIT {
-                XdbeFreeVisualInfo(entries);
-            };
-            const XdbeScreenVisualInfo& entry = entries[0];
-            for (int i = 0; i < entry.count; ++i) {
-                XdbeVisualInfo& subentry = entry.visinfo[i];
-                bool is_match = (subentry.depth == visual_info.depth && subentry.visual == visual_info.visualid);
-                if (is_match) {
-                    use_double_buffering = true;
-                    break;
-                }
-            }
-        }
-#endif // HAVE_XDBE
-        slot.use_double_buffering = use_double_buffering;
-
-#if HAVE_XRANDR
-        if (ARCHON_LIKELY(m_have_xrandr)) {
-            int mask = RROutputChangeNotifyMask | RRCrtcChangeNotifyMask;
-            XRRSelectInput(dpy, root, mask);
-            update_display_info(slot); // Throws
-        }
-#endif // HAVE_XRANDR
-
-        slot.is_initialized = true;
-        colormap = None;
-    }
-    return slot;
-}
-
-
 inline void ConnectionImpl::register_window(::Window id, WindowImpl& window)
 {
     auto i = m_windows.emplace(id, window); // Throws
@@ -749,21 +685,33 @@ bool ConnectionImpl::try_get_key_name(display::KeyCode key_code, std::string_vie
 }
 
 
-auto ConnectionImpl::new_window(std::string_view title, display::Size size,
-                                display::WindowEventHandler& event_handler,
-                                const display::Window::Config& config) -> std::unique_ptr<display::Window>
+bool ConnectionImpl::try_new_window(std::string_view title, display::Size size,
+                                    display::WindowEventHandler& event_handler,
+                                    std::unique_ptr<display::Window>& window, std::error_code& ec,
+                                    const display::Window::Config& config)
 {
-    return do_new_window(DefaultScreen(dpy), title, size, event_handler, config); // Throws
-}
-
-
-auto ConnectionImpl::new_window(int display, std::string_view title, display::Size size,
-                                display::WindowEventHandler& event_handler,
-                                const display::Window::Config& config) -> std::unique_ptr<display::Window>
-{
-    if (ARCHON_UNLIKELY(display < 0 || display >= int(ScreenCount(dpy))))
+    if (ARCHON_UNLIKELY(size.width < 0 || size.height < 0))
+        throw std::invalid_argument("Bad window size");
+    int screen = config.display;
+    if (ARCHON_LIKELY(screen < 0)) {
+        screen = DefaultScreen(dpy);
+    }
+    else if (ARCHON_UNLIKELY(screen < 0 || screen >= int(ScreenCount(dpy)))) {
         throw std::invalid_argument("Bad display index");
-    return do_new_window(display, title, size, event_handler, config); // Throws
+    }
+    ScreenSlot& screen_slot = ensure_screen_slot(screen); // Throws
+    const PixelCodec* pixel_codec = nullptr;
+    if (ARCHON_LIKELY(!config.enable_basic_rendering || ensure_pixel_codec(screen_slot, pixel_codec, ec))) { // Throws
+        auto win = std::make_unique<WindowImpl>(*this, screen_slot, event_handler, config.cookie,
+                                                pixel_codec); // Throws
+        win->create(size, config); // Throws
+        win->set_title(title); // Throws
+        if (ARCHON_UNLIKELY(config.fullscreen))
+            win->set_fullscreen_mode(true); // Throws
+        window = std::move(win);
+        return true;
+    }
+    return false;
 }
 
 
@@ -846,6 +794,107 @@ inline auto ConnectionImpl::intern_string(const char* string) noexcept -> Atom
 }
 
 
+auto ConnectionImpl::ensure_screen_slot(int screen) const -> ScreenSlot&
+{
+    if (ARCHON_UNLIKELY(!m_screen_slots))
+        m_screen_slots = std::make_unique<ScreenSlot[]>(std::size_t(ScreenCount(dpy))); // Throws
+    ARCHON_ASSERT(screen >= 0 && screen <= ScreenCount(dpy));
+    ScreenSlot& slot = m_screen_slots[screen];
+    if (ARCHON_UNLIKELY(!slot.is_initialized)) {
+        ::Window root = RootWindow(dpy, screen);
+        slot.root = root;
+        m_x11_screens_by_root[root] = screen; // Throws
+
+        VisualID default_visualid = XVisualIDFromVisual(DefaultVisual(dpy, screen));
+        XVisualInfo visual_info = {};
+        {
+            int depth = DefaultDepth(dpy, screen);
+            VisualID visual = default_visualid;
+            if (m_depth_override.has_value())
+                depth = m_depth_override.value();
+            if (m_visual_override.has_value())
+                visual = m_visual_override.value();
+            if (ARCHON_UNLIKELY(!lookup_visual_info(screen, depth, visual, visual_info))) {
+                ARCHON_STEADY_ASSERT(m_depth_override.has_value() || m_visual_override.has_value());
+                std::string message = core::format(locale, "Combination of selected depth (%s) and selected visual "
+                                                   "type (0x%s) is invalid for targeted screen (%s)", depth,
+                                                   core::as_hex_int(visual, 2), screen); // Throws
+                throw std::runtime_error(message);
+            }
+        }
+        slot.visual_info = visual_info;
+
+        Colormap colormap = DefaultColormap(dpy, screen);
+        ARCHON_SCOPE_EXIT {
+            if (colormap != None)
+                XFreeColormap(dpy, colormap);
+        };
+        if (ARCHON_UNLIKELY(visual_info.visualid != default_visualid)) {
+            // By creating a new colormap, rather than reusing the one used by the root
+            // window, it becomes possible to use a visual for the new window that differs
+            // from the one used by the root window. The colormap and the new window must
+            // agree on visual.
+            colormap = XCreateColormap(dpy, root, visual_info.visual, AllocNone);
+        }
+        slot.colormap = colormap;
+
+        bool use_double_buffering = false;
+#if HAVE_XDBE
+        if (!m_disable_double_buffering && m_have_xdbe) {
+            int n = 1;
+            XdbeScreenVisualInfo* entries = XdbeGetVisualInfo(dpy, &root, &n);
+            if (ARCHON_UNLIKELY(!entries))
+                throw std::runtime_error("XdbeGetVisualInfo() failed");
+            ARCHON_SCOPE_EXIT {
+                XdbeFreeVisualInfo(entries);
+            };
+            const XdbeScreenVisualInfo& entry = entries[0];
+            for (int i = 0; i < entry.count; ++i) {
+                XdbeVisualInfo& subentry = entry.visinfo[i];
+                bool is_match = (subentry.depth == visual_info.depth && subentry.visual == visual_info.visualid);
+                if (is_match) {
+                    use_double_buffering = true;
+                    break;
+                }
+            }
+        }
+#endif // HAVE_XDBE
+        slot.use_double_buffering = use_double_buffering;
+
+#if HAVE_XRANDR
+        if (ARCHON_LIKELY(m_have_xrandr)) {
+            int mask = RROutputChangeNotifyMask | RRCrtcChangeNotifyMask;
+            XRRSelectInput(dpy, root, mask);
+            update_display_info(slot); // Throws
+        }
+#endif // HAVE_XRANDR
+
+        slot.is_initialized = true;
+        colormap = None;
+    }
+    return slot;
+}
+
+
+bool ConnectionImpl::ensure_pixel_codec(ScreenSlot& screen_slot, const PixelCodec*& pixel_codec, std::error_code& ec)
+{
+    if (ARCHON_LIKELY(screen_slot.pixel_codec)) {
+        pixel_codec = screen_slot.pixel_codec.get();
+        return true;
+    }
+    if (ARCHON_LIKELY(screen_slot.pixel_codec_error_code)) {
+        ec = screen_slot.pixel_codec_error_code;
+        return false;
+    }
+    if (ARCHON_LIKELY(try_make_pixel_codec(screen_slot.pixel_codec, ec))) { // Throws
+        pixel_codec = screen_slot.pixel_codec.get();
+        return true;
+    }
+    screen_slot.pixel_codec_error_code = ec;
+    return false;
+}
+
+
 bool ConnectionImpl::lookup_visual_info(int screen, int depth, VisualID visual_id,
                                         XVisualInfo& visual_info) const noexcept
 {
@@ -863,22 +912,6 @@ bool ConnectionImpl::lookup_visual_info(int screen, int depth, VisualID visual_i
         return true;
     }
     return false;
-}
-
-
-auto ConnectionImpl::do_new_window(int screen, std::string_view title, display::Size size,
-                                   display::WindowEventHandler& event_handler,
-                                   const display::Window::Config& config) -> std::unique_ptr<display::Window>
-{
-    if (ARCHON_UNLIKELY(size.width < 0 || size.height < 0))
-        throw std::invalid_argument("Bad window size");
-    const ScreenSlot& screen_slot = ensure_screen_slot(screen); // Throws
-    auto win = std::make_unique<WindowImpl>(*this, screen_slot, event_handler, config.cookie); // Throws
-    win->create(size, config); // Throws
-    win->set_title(title); // Throws
-    if (ARCHON_UNLIKELY(config.fullscreen))
-        win->set_fullscreen_mode(true); // Throws
-    return win;
 }
 
 
@@ -1749,8 +1782,13 @@ auto WindowImpl::create_graphics_context() noexcept -> GC
 }
 
 
-auto WindowImpl::intern_color(util::Color) -> unsigned long
+auto WindowImpl::intern_color(util::Color color) -> unsigned long
 {
+    // Cairo:
+    // - _cairo_pattern_init_solid() as called from src/cairo-xlib-core-compositor.c can maybe handle non-TrueColor visuals         
+    // - What happens in color_to_pixel() as called from src/cairo-xlib-core-compositor.c?  -->  Simple field-wise channel composition
+    
+
     // StaticColor:
     // PseudoColor:
     // StaticGray:
@@ -1759,10 +1797,16 @@ auto WindowImpl::intern_color(util::Color) -> unsigned long
     //   - RGB masks
     //   - Masks are available through XVisualInfo
     //   - Masks are guaranteed to consist of contiguous bit positions
+/*
+    using ulong = unsigned long;
+    ulong r = util::change_bit_width(ulong(color.red()), 8, screen_slot.red_field.width);
+    ulong g = util::change_bit_width(ulong(color.red()), 8, screen_slot.red_field.width);
+    ulong b = util::change_bit_width(ulong(color.red()), 8, screen_slot.red_field.width);
+*/
 
-    
+    return screen_slot.pixel_codec->intern_color(color);
 
-    return WhitePixel(conn.dpy, screen_slot.visual_info.screen);                                                                                                                                                                        
+//    return WhitePixel(conn.dpy, screen_slot.visual_info.screen);                                                                                                                                                                        
 }
 
 

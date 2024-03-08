@@ -180,6 +180,21 @@ public:
 /// These are the available parameters for configuring a window.
 ///
 struct Window::Config {
+    /// \brief Display on which window must appear.
+    ///
+    /// If specified, that is, if the specified value is non-negative, this is the index of
+    /// the display on which the window must appear. It is an index into the list of
+    /// displays accessible through the connection from which the window is created. See
+    /// \ref display::Connection for general information about connections and displays. The
+    /// number of displays is returned by \ref display::Connection::get_num_displays() and
+    /// the index of the default display is returned by \ref
+    /// display::Connection::get_default_display().
+    ///
+    /// When the display is not specified, i.e., when the specified value is negative, the
+    /// window will be opened on the default display.
+    ///
+    int display = -1;
+
     /// \brief Cookie value to be passed to window event handlers.
     ///
     /// The value specified here will be passed faithfully by the event processor (\ref
@@ -201,11 +216,22 @@ struct Window::Config {
     ///
     bool fullscreen = false;
 
-    /// \brief Enable OpenGL rendering.
+    /// \brief Enable basic rendering.
+    ///
+    /// If set to `true`, the window will be configured to support basic rendering (\ref
+    /// fill(), \ref put_texture(), ...).
+    ///
+    /// \sa \ref enable_opengl_rendering
+    ///
+    bool enable_basic_rendering = false;                               
+
+    /// \brief Enable OpenGL-based rendering.
     ///
     /// If set to `true`, the window will be configured to support OpenGL rendering.
     ///
-    bool enable_opengl = false;
+    /// \sa \ref enable_basic_rendering
+    ///
+    bool enable_opengl_rendering = false;
 
     /// \brief Enforce minimum size of window
     ///

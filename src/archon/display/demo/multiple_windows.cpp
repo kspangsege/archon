@@ -66,9 +66,10 @@ public:
         m_prev_window_id = id;
         std::string title = core::format("Window #%s", id); // Throws
         display::Window::Config config;
+        cookie.display = m_display;
         config.cookie = id;
         config.resizable = true;
-        std::unique_ptr<display::Window> win = m_conn.new_window(m_display, title, g_small, *this, config); // Throws
+        std::unique_ptr<display::Window> win = m_conn.new_window(title, g_small, *this, config); // Throws
         win->show(); // Throws
         math::Vector<3, double> hsv = { m_next_hue, 0.3, 0.5 };
         m_next_hue = core::periodic_mod(m_next_hue + core::golden_fraction<double>, 1.0);

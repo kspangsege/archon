@@ -26,6 +26,7 @@
 #include <stdexcept>
 #include <string_view>
 #include <string>
+#include <system_error>
 #include <locale>
 #include <mutex>
 
@@ -172,10 +173,9 @@ public:
     bool try_map_key_to_key_code(display::Key, display::KeyCode&) const override final;
     bool try_map_key_code_to_key(display::KeyCode, display::Key&) const override final;
     bool try_get_key_name(display::KeyCode, std::string_view&) const override final;
-    auto new_window(std::string_view, display::Size, display::WindowEventHandler&,
-                    const display::Window::Config&) -> std::unique_ptr<display::Window> override final;
-    auto new_window(int, std::string_view, display::Size, display::WindowEventHandler&,
-                    const display::Window::Config&) -> std::unique_ptr<display::Window> override final;
+    bool try_new_window(std::string_view, display::Size, display::WindowEventHandler&,
+                        std::unique_ptr<display::Window>&, std::error_code&,
+                        const display::Window::Config&) override final;
     void process_events(display::ConnectionEventHandler*) override final;
     bool process_events(time_point_type, display::ConnectionEventHandler*) override final;
     int get_num_displays() const override final;
@@ -228,7 +228,7 @@ public:
     WindowImpl(ConnectionImpl&, display::WindowEventHandler&, int cookie) noexcept;
     ~WindowImpl() noexcept override;
 
-    void create(std::string_view title, display::Size size, const Config&);
+    bool create(std::string_view title, display::Size size, const Config&, std::error_code&);
     auto ensure_renderer() -> SDL_Renderer*;
     void set_draw_color(SDL_Renderer* renderer, util::Color color);
 
@@ -415,13 +415,17 @@ bool ConnectionImpl::try_get_key_name(display::KeyCode key_code, std::string_vie
 }
 
 
-auto ConnectionImpl::new_window(std::string_view title, display::Size size,
-                                display::WindowEventHandler& event_handler,
-                                const display::Window::Config& config) -> std::unique_ptr<display::Window>
+bool ConnectionImpl::try_new_window(std::string_view title, display::Size size,
+                                    display::WindowEventHandler& event_handler,
+                                    std::unique_ptr<display::Window>& window, std::error_code& ec,
+                                    const display::Window::Config& config)
 {
     auto win = std::make_unique<WindowImpl>(*this, event_handler, config.cookie); // Throws
-    win->create(title, size, config); // Throws
-    return win;
+    if (ARCHON_LIKELY(win->create(title, size, config, ec))) { // Throws
+        window = std::move(win);
+        return true;
+    }
+    return false;
 }
 
 
@@ -851,7 +855,7 @@ WindowImpl::~WindowImpl() noexcept
 }
 
 
-void WindowImpl::create(std::string_view title, display::Size size, const Config& config)
+bool WindowImpl::create(std::string_view title, display::Size size, const Config& config, std::error_code& ec)
 {
     if (config.resizable && config.minimum_size.has_value()) {
         m_have_minimum_size = true;
@@ -875,6 +879,7 @@ void WindowImpl::create(std::string_view title, display::Size size, const Config
     if (config.enable_opengl)
         flags |= SDL_WINDOW_OPENGL;
     SDL_Window* win = SDL_CreateWindow(title_2.c_str(), x, y, w, h, flags);
+                                  
     if (ARCHON_UNLIKELY(!win))
         throw_sdl_error(conn.locale, "SDL_CreateWindow() failed"); // Throws
     m_win = win;

@@ -56,7 +56,9 @@ public:
     void init(const image::Image& img)
     {
         image::Size size = img.get_size();
-        m_win = m_conn.new_window(m_display, "Archon Image Viewer", size, *this); // Throws
+        display::Window::Config config;
+        cookie.display = m_display;
+        m_win = m_conn.new_window("Archon Image Viewer", size, *this, config); // Throws
         m_tex = m_win->new_texture(size); // Throws
         m_tex->put_image(img); // Throws
         m_win->show(); // Throws
