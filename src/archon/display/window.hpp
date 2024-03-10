@@ -223,7 +223,7 @@ struct Window::Config {
     ///
     /// \sa \ref enable_opengl_rendering
     ///
-    bool enable_basic_rendering = false;                               
+    bool enable_basic_rendering = true;
 
     /// \brief Enable OpenGL-based rendering.
     ///

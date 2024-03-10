@@ -66,7 +66,7 @@ public:
         m_prev_window_id = id;
         std::string title = core::format("Window #%s", id); // Throws
         display::Window::Config config;
-        cookie.display = m_display;
+        config.display = m_display;
         config.cookie = id;
         config.resizable = true;
         std::unique_ptr<display::Window> win = m_conn.new_window(title, g_small, *this, config); // Throws

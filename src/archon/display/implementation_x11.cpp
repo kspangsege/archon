@@ -49,7 +49,6 @@
 #include <archon/display/screen.hpp>
 #include <archon/display/noinst/timestamp_unwrapper.hpp>
 #include <archon/display/noinst/edid.hpp>
-#include <archon/display/error.hpp>
 #include <archon/display/implementation.hpp>
 #include <archon/display/implementation_x11.hpp>
 
@@ -199,16 +198,14 @@ private:
 
 class PixelCodec {
 public:
-    virtual auto intern_color(util::Color color) -> unsigned long = 0;
+    virtual auto intern_color(util::Color color) const -> unsigned long = 0;
     virtual ~PixelCodec() = default;
 };
 
 
-bool try_make_pixel_codec(std::unique_ptr<PixelCodec>& pixel_codec, std::error_code& ec)
+auto make_pixel_codec() -> std::unique_ptr<PixelCodec>
 {
-    static_cast<void>(pixel_codec);               
-    ec = display::Error::display_uses_unsupported_pixel_format;                                                       
-    return false;
+    throw std::runtime_error("Display uses unsupported pixel format");                       
 }
 
 
@@ -238,9 +235,6 @@ struct ScreenSlot {
     core::Buffer<char> screens_string_buffer;
     std::size_t screens_string_buffer_used_size = 0;
 #endif // HAVE_XRANDR
-
-    std::unique_ptr<PixelCodec> pixel_codec;
-    std::error_code pixel_codec_error_code;
 };
 
 
@@ -309,9 +303,8 @@ public:
     bool try_map_key_to_key_code(display::Key, display::KeyCode&) const override final;
     bool try_map_key_code_to_key(display::KeyCode, display::Key&) const override final;
     bool try_get_key_name(display::KeyCode, std::string_view&) const override final;
-    bool try_new_window(std::string_view, display::Size, display::WindowEventHandler&,
-                        std::unique_ptr<display::Window>&, std::error_code&,
-                        const display::Window::Config&) override final;
+    auto new_window(std::string_view, display::Size, display::WindowEventHandler&, const display::Window::Config&) ->
+        std::unique_ptr<display::Window> override final;
     void process_events(display::ConnectionEventHandler*) override final;
     bool process_events(time_point_type, display::ConnectionEventHandler*) override final;
     int get_num_displays() const override final;
@@ -399,7 +392,6 @@ private:
 
     auto intern_string(const char*) noexcept -> Atom;
     auto ensure_screen_slot(int screen) const -> ScreenSlot&;
-    static bool ensure_pixel_codec(ScreenSlot&, const PixelCodec*&, std::error_code&);
     bool lookup_visual_info(int screen, int depth, VisualID visual_id, XVisualInfo&) const noexcept;
     bool do_process_events(const time_point_type* deadline, display::ConnectionEventHandler*);
     bool lookup_window(::Window window_id, WindowImpl*& window) noexcept;
@@ -427,7 +419,8 @@ public:
 
     bool has_pending_expose_event = false;
 
-    WindowImpl(ConnectionImpl&, const ScreenSlot&, display::WindowEventHandler&, int cookie) noexcept;
+    WindowImpl(ConnectionImpl&, const ScreenSlot&, display::WindowEventHandler&, int cookie,
+               std::unique_ptr<const PixelCodec>) noexcept;
     ~WindowImpl() noexcept override;
 
     void create(display::Size size, const Config&);
@@ -451,6 +444,8 @@ private:
     bool m_is_registered = false;
     bool m_is_double_buffered = false;
 
+    const std::unique_ptr<const PixelCodec> m_pixel_codec;
+
     Drawable m_drawable;
 #if HAVE_XDBE
     XdbeSwapAction m_swap_action;
@@ -461,6 +456,7 @@ private:
     auto ensure_graphics_context() noexcept -> GC;
     auto create_graphics_context() noexcept -> GC;
     auto intern_color(util::Color) -> unsigned long;
+    auto get_pixel_codec() -> const PixelCodec&;
 };
 
 
@@ -685,10 +681,8 @@ bool ConnectionImpl::try_get_key_name(display::KeyCode key_code, std::string_vie
 }
 
 
-bool ConnectionImpl::try_new_window(std::string_view title, display::Size size,
-                                    display::WindowEventHandler& event_handler,
-                                    std::unique_ptr<display::Window>& window, std::error_code& ec,
-                                    const display::Window::Config& config)
+auto ConnectionImpl::new_window(std::string_view title, display::Size size, display::WindowEventHandler& event_handler,
+                                const display::Window::Config& config) -> std::unique_ptr<display::Window>
 {
     if (ARCHON_UNLIKELY(size.width < 0 || size.height < 0))
         throw std::invalid_argument("Bad window size");
@@ -700,18 +694,16 @@ bool ConnectionImpl::try_new_window(std::string_view title, display::Size size,
         throw std::invalid_argument("Bad display index");
     }
     ScreenSlot& screen_slot = ensure_screen_slot(screen); // Throws
-    const PixelCodec* pixel_codec = nullptr;
-    if (ARCHON_LIKELY(!config.enable_basic_rendering || ensure_pixel_codec(screen_slot, pixel_codec, ec))) { // Throws
-        auto win = std::make_unique<WindowImpl>(*this, screen_slot, event_handler, config.cookie,
-                                                pixel_codec); // Throws
-        win->create(size, config); // Throws
-        win->set_title(title); // Throws
-        if (ARCHON_UNLIKELY(config.fullscreen))
-            win->set_fullscreen_mode(true); // Throws
-        window = std::move(win);
-        return true;
-    }
-    return false;
+    std::unique_ptr<const PixelCodec> pixel_codec;
+    if (config.enable_basic_rendering)
+        pixel_codec = make_pixel_codec(); // Throws
+    auto win = std::make_unique<WindowImpl>(*this, screen_slot, event_handler, config.cookie,
+                                            std::move(pixel_codec)); // Throws
+    win->create(size, config); // Throws
+    win->set_title(title); // Throws
+    if (ARCHON_UNLIKELY(config.fullscreen))
+        win->set_fullscreen_mode(true); // Throws
+    return win;
 }
 
 
@@ -873,25 +865,6 @@ auto ConnectionImpl::ensure_screen_slot(int screen) const -> ScreenSlot&
         colormap = None;
     }
     return slot;
-}
-
-
-bool ConnectionImpl::ensure_pixel_codec(ScreenSlot& screen_slot, const PixelCodec*& pixel_codec, std::error_code& ec)
-{
-    if (ARCHON_LIKELY(screen_slot.pixel_codec)) {
-        pixel_codec = screen_slot.pixel_codec.get();
-        return true;
-    }
-    if (ARCHON_LIKELY(screen_slot.pixel_codec_error_code)) {
-        ec = screen_slot.pixel_codec_error_code;
-        return false;
-    }
-    if (ARCHON_LIKELY(try_make_pixel_codec(screen_slot.pixel_codec, ec))) { // Throws
-        pixel_codec = screen_slot.pixel_codec.get();
-        return true;
-    }
-    screen_slot.pixel_codec_error_code = ec;
-    return false;
 }
 
 
@@ -1524,11 +1497,13 @@ auto ConnectionImpl::ensure_edid_parser() const -> const impl::EdidParser&
 
 
 inline WindowImpl::WindowImpl(ConnectionImpl& conn_2, const ScreenSlot& screen_slot_2,
-                              display::WindowEventHandler& event_handler_2, int cookie_2) noexcept
+                              display::WindowEventHandler& event_handler_2, int cookie_2,
+                              std::unique_ptr<const PixelCodec> pixel_codec) noexcept
     : conn(conn_2)
     , screen_slot(screen_slot_2)
     , event_handler(event_handler_2)
     , cookie(cookie_2)
+    , m_pixel_codec(std::move(pixel_codec))
 {
 }
 
@@ -1614,7 +1589,7 @@ void WindowImpl::create(display::Size size, const Config& config)
     }
 #endif // HAVE_XDBE
 
-    // FIXME: Tend to config.enable_opengl                                                                                                                                                       
+    // FIXME: Tend to config.enable_opengl_rendering                                                                                                                                                       
 }
 
 
@@ -1804,9 +1779,18 @@ auto WindowImpl::intern_color(util::Color color) -> unsigned long
     ulong b = util::change_bit_width(ulong(color.red()), 8, screen_slot.red_field.width);
 */
 
-    return screen_slot.pixel_codec->intern_color(color);
+    const PixelCodec& pixel_codec = get_pixel_codec(); // Throws
+    return pixel_codec.intern_color(color);
 
 //    return WhitePixel(conn.dpy, screen_slot.visual_info.screen);                                                                                                                                                                        
+}
+
+
+auto WindowImpl::get_pixel_codec() -> const PixelCodec&
+{
+    if (ARCHON_LIKELY(m_pixel_codec))
+        return *m_pixel_codec;
+    throw std::runtime_error("Basic rendering was not enabled");
 }
 
 

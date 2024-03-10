@@ -159,7 +159,7 @@ int main()
     std::unique_ptr<display::Connection> conn = display::new_connection(locale, guarantees); // Throws
     EventLoop event_loop(*conn);
     display::Window::Config config;
-    config.enable_opengl = true;
+    config.enable_opengl_rendering = true;
     std::unique_ptr<display::Window> win = conn->new_window("Probe OpenGL", 512, event_loop, config); // Throws
     win->show(); // Throws
     event_loop.run(*win); // Throws

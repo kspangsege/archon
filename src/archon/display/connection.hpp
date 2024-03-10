@@ -116,29 +116,11 @@ public:
     ///
     virtual bool try_get_key_name(display::KeyCode key_code, std::string_view& name) const = 0;
 
-    /// \brief Create a new window.
+    /// \brief Attempt to create a new window.
     ///
     /// This function creates a new window with the specified title (\p title) and size (\p
     /// size), and configured according to the specified configuration parameters (\p
-    /// config).
-    ///
-    /// This function is shorthand for calling \ref try_new_window() and returning the
-    /// created window on success, or throwing `std::system_error` with the produced error
-    /// code on failure.
-    ///
-    /// \sa \ref try_new_window()
-    ///
-    auto new_window(std::string_view title, display::Size size, display::WindowEventHandler& event_handler,
-                    const display::Window::Config& = {}) -> std::unique_ptr<display::Window>;
-
-    /// \brief Attempt to create a new window.
-    ///
-    /// This function attempts to create a new window with the specified title (\p title)
-    /// and size (\p size), and configured according to the specified configuration
-    /// parameters (\p config). If window creation succeeds, this function returns `true`
-    /// after setting \p window to the created window. If window creation fails, this
-    /// function returns `false` after setting \p ec to indicate the type of error that
-    /// occurred. This might be one of the errors in \ref display::Error.
+    /// config). The target display is specified through display::Window::config::display.
     ///
     /// Events generated on behalf of the created window will be reported through the
     /// specified event handler (\p event_handler). Elsewhere in the documentation, this is
@@ -161,11 +143,8 @@ public:
     /// When using the X11-based implementation (\ref display::get_x11_implementation()),
     /// the initial position is generally determined by a window manager.
     ///
-    /// \sa \ref new_window()
-    ///
-    virtual bool try_new_window(std::string_view title, display::Size size,
-                                display::WindowEventHandler& event_handler, std::unique_ptr<display::Window>& window,
-                                std::error_code& ec, const display::Window::Config& config = {}) = 0;
+    virtual auto new_window(std::string_view title, display::Size size, display::WindowEventHandler& event_handler,
+                            const display::Window::Config& config = {}) -> std::unique_ptr<display::Window> = 0;
 
     using clock_type      = std::chrono::steady_clock;
     using time_point_type = std::chrono::time_point<clock_type>;
@@ -316,27 +295,6 @@ auto new_connection(const std::locale&, const display::Guarantees&) -> std::uniq
 /// connection returned by this function.
 ///
 auto new_connection_a(const std::locale&, const display::Guarantees&) -> std::unique_ptr<display::Connection>;
-
-
-
-
-
-
-
-
-// Implementation
-
-
-inline auto Connection::new_window(std::string_view title, display::Size size,
-                                   display::WindowEventHandler& event_handler,
-                                   const display::Window::Config& config) -> std::unique_ptr<display::Window>
-{
-    std::unique_ptr<display::Window> window;
-    std::error_code ec;
-    if (ARCHON_LIKELY(try_new_window(title, size, event_handler, window, ec, config))) // Throws
-        return window;
-    throw std::system_error(ec);
-}
 
 
 } // namespace archon::display

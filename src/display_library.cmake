@@ -42,7 +42,6 @@ add_subdirectory(archon/display/probe)
 add_library(Display
   archon/display/event_handler.cpp
   archon/display/noinst/edid.cpp
-  archon/display/error.cpp
   archon/display/connection.cpp
   archon/display/implementation.cpp
   archon/display/implementation_x11.cpp
@@ -89,7 +88,6 @@ target_sources(Display PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" 
   archon/display/resolution.hpp
   archon/display/screen.hpp
   archon/display/guarantees.hpp
-  archon/display/error.hpp
   archon/display/connection_config_x11.hpp
   archon/display/connection_config_sdl.hpp
   archon/display/texture.hpp

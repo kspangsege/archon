@@ -173,9 +173,8 @@ public:
     bool try_map_key_to_key_code(display::Key, display::KeyCode&) const override final;
     bool try_map_key_code_to_key(display::KeyCode, display::Key&) const override final;
     bool try_get_key_name(display::KeyCode, std::string_view&) const override final;
-    bool try_new_window(std::string_view, display::Size, display::WindowEventHandler&,
-                        std::unique_ptr<display::Window>&, std::error_code&,
-                        const display::Window::Config&) override final;
+    auto new_window(std::string_view, display::Size, display::WindowEventHandler&, const display::Window::Config&) ->
+        std::unique_ptr<display::Window> override final;
     void process_events(display::ConnectionEventHandler*) override final;
     bool process_events(time_point_type, display::ConnectionEventHandler*) override final;
     int get_num_displays() const override final;
@@ -228,7 +227,7 @@ public:
     WindowImpl(ConnectionImpl&, display::WindowEventHandler&, int cookie) noexcept;
     ~WindowImpl() noexcept override;
 
-    bool create(std::string_view title, display::Size size, const Config&, std::error_code&);
+    void create(std::string_view title, display::Size size, const Config&);
     auto ensure_renderer() -> SDL_Renderer*;
     void set_draw_color(SDL_Renderer* renderer, util::Color color);
 
@@ -415,27 +414,16 @@ bool ConnectionImpl::try_get_key_name(display::KeyCode key_code, std::string_vie
 }
 
 
-bool ConnectionImpl::try_new_window(std::string_view title, display::Size size,
-                                    display::WindowEventHandler& event_handler,
-                                    std::unique_ptr<display::Window>& window, std::error_code& ec,
-                                    const display::Window::Config& config)
-{
-    auto win = std::make_unique<WindowImpl>(*this, event_handler, config.cookie); // Throws
-    if (ARCHON_LIKELY(win->create(title, size, config, ec))) { // Throws
-        window = std::move(win);
-        return true;
-    }
-    return false;
-}
-
-
-auto ConnectionImpl::new_window(int display, std::string_view title, display::Size size,
-                                display::WindowEventHandler& event_handler,
+auto ConnectionImpl::new_window(std::string_view title, display::Size size, display::WindowEventHandler& event_handler,
                                 const display::Window::Config& config) -> std::unique_ptr<display::Window>
 {
-    if (ARCHON_UNLIKELY(display != 0))
+    int screen = config.display;
+    if (ARCHON_UNLIKELY(screen >= 0 && screen != 0)) {
         throw std::invalid_argument("Bad display index");
-    return new_window(title, size, event_handler, config); // Throws
+    }
+    auto win = std::make_unique<WindowImpl>(*this, event_handler, config.cookie); // Throws
+    win->create(title, size, config); // Throws
+    return win;
 }
 
 
@@ -855,7 +843,7 @@ WindowImpl::~WindowImpl() noexcept
 }
 
 
-bool WindowImpl::create(std::string_view title, display::Size size, const Config& config, std::error_code& ec)
+void WindowImpl::create(std::string_view title, display::Size size, const Config& config)
 {
     if (config.resizable && config.minimum_size.has_value()) {
         m_have_minimum_size = true;
@@ -876,7 +864,7 @@ bool WindowImpl::create(std::string_view title, display::Size size, const Config
         flags |= SDL_WINDOW_RESIZABLE;
     if (config.fullscreen)
         flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
-    if (config.enable_opengl)
+    if (config.enable_opengl_rendering)
         flags |= SDL_WINDOW_OPENGL;
     SDL_Window* win = SDL_CreateWindow(title_2.c_str(), x, y, w, h, flags);
                                   
@@ -896,7 +884,7 @@ bool WindowImpl::create(std::string_view title, display::Size size, const Config
     // very visible flicker / artifact if the recreation occurs while the window is
     // visible. To work around this problem, we request the creation of the renderer before
     // the window is made visible when OpenGL support is not explicitly requested.
-    if (!config.enable_opengl)
+    if (!config.enable_opengl_rendering)
         ensure_renderer(); // Throws
 
     // Set minimum window size if requested
