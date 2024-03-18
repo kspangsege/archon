@@ -74,6 +74,17 @@ ARCHON_TEST(Core_FlatMap_Erase)
 }
 
 
+ARCHON_TEST(Core_FlatMap_Clear)
+{
+    core::FlatMap<int, int> map = {
+        { 1, 0 },
+        { 3, 2 },
+    };
+    map.clear();
+    ARCHON_CHECK(map.empty());
+}
+
+
 ARCHON_TEST(Core_FlatMap_Contains)
 {
     core::FlatMap<int, int> map = {

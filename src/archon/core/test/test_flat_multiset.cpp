@@ -68,6 +68,14 @@ ARCHON_TEST(Core_FlatMultiset_Erase)
 }
 
 
+ARCHON_TEST(Core_FlatMultiset_Clear)
+{
+    core::FlatMultiset<int> set = { 1, 1 };
+    set.clear();
+    ARCHON_CHECK(set.empty());
+}
+
+
 ARCHON_TEST(Core_FlatMultiset_Contains)
 {
     core::FlatMultiset<int> set = { 1, 2, 2, 4 };

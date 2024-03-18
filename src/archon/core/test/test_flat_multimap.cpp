@@ -74,6 +74,17 @@ ARCHON_TEST(Core_FlatMultimap_Erase)
 }
 
 
+ARCHON_TEST(Core_FlatMultimap_Clear)
+{
+    core::FlatMultimap<int, int> map = {
+        { 1, 0 },
+        { 1, 2 },
+    };
+    map.clear();
+    ARCHON_CHECK(map.empty());
+}
+
+
 ARCHON_TEST(Core_FlatMultimap_Contains)
 {
     core::FlatMultimap<int, int> map = {

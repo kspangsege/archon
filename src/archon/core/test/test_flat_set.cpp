@@ -68,6 +68,14 @@ ARCHON_TEST(Core_FlatSet_Erase)
 }
 
 
+ARCHON_TEST(Core_FlatSet_Clear)
+{
+    core::FlatSet<int> set = { 1, 3 };
+    set.clear();
+    ARCHON_CHECK(set.empty());
+}
+
+
 ARCHON_TEST(Core_FlatSet_Contains)
 {
     core::FlatSet<int> set = { 1, 2, 4 };
