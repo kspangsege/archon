@@ -44,6 +44,8 @@
 #include <archon/core/quote.hpp>
 #include <archon/core/platform_support.hpp>
 #include <archon/math/vector.hpp>
+#include <archon/image.hpp>
+#include <archon/image/channel_packing.hpp>
 #include <archon/display/impl/config.h>
 #include <archon/display/mouse_button.hpp>
 #include <archon/display/screen.hpp>
@@ -196,6 +198,28 @@ private:
 };
 
 
+template<class P> inline bool mask_match(const XVisualInfo& info)
+{
+    using packing_type = P;
+    static_assert(packing_type::num_fields == 3);
+    using word_type = decltype(info.red_mask + info.green_mask + info.blue_mask);
+    return (info.red_mask   == image::get_bit_field_mask<word_type>(packing_type::fields, 3, 0) &&
+            info.green_mask == image::get_bit_field_mask<word_type>(packing_type::fields, 3, 1) &&
+            info.blue_mask  == image::get_bit_field_mask<word_type>(packing_type::fields, 3, 2));
+}
+
+
+template<class P> inline bool rev_mask_match(const XVisualInfo& info)
+{
+    using packing_type = P;
+    static_assert(packing_type::num_fields == 3);
+    using word_type = decltype(info.red_mask + info.green_mask + info.blue_mask);
+    return (info.red_mask   == image::get_bit_field_mask<word_type>(packing_type::fields, 3, 2) &&
+            info.green_mask == image::get_bit_field_mask<word_type>(packing_type::fields, 3, 1) &&
+            info.blue_mask  == image::get_bit_field_mask<word_type>(packing_type::fields, 3, 0));
+}
+
+
 class PixelCodec {
 public:
     virtual auto intern_color(util::Color color) const -> unsigned long = 0;
@@ -203,19 +227,29 @@ public:
 };
 
 
+template<class T, class P, int N, bool R> class DirectPixelCodec
+    : public PixelCodec {
+public:
+    
+};
+
+
 // depth
 // bits_per_pixel
 // visual_info
-auto make_pixel_codec() -> std::unique_ptr<PixelCodec>
+auto make_pixel_codec(const XVisualInfo& info, int bits_per_pixel, int num_bitplanes, const std::locale& locale) -> std::unique_ptr<PixelCodec>
 {
+    std::string msg;
+
+/*
     if (depth == 8) {
         if (bits_per_pixel != 8)
             goto unsupported_bits_per_pixel;
         constexpr int bytes_per_pixel = 1;
-        if (visual_info.c_class == StaticColor) {
-            if (ARCHON_UNLIKELY(visual_info.colormap_size != 256))
+        if (info.c_class == StaticColor) {
+            if (ARCHON_UNLIKELY(info.colormap_size != 256))
                 goto unexpected_colormap_size;
-            if (zero_mask_match(visual_info) || true) {                            
+            if (zero_mask_match(info) || true) {                            
                 int n = 1 << 8;
                 auto colors = std::make_unique<XColor[]>(n); // Throws
                 for (int i = 0; i < n; ++i) {
@@ -223,7 +257,7 @@ auto make_pixel_codec() -> std::unique_ptr<PixelCodec>
                     color.pixel = unsigned(i);
                 }
                 XQueryColors(dpy, colormap, colors.get(), n);
-/*
+/
                 for (int i = 0; i < n; ++i) {
                     const XColor& color = colors[i];
                     using comp_type = util::Color::comp_type;
@@ -232,14 +266,14 @@ auto make_pixel_codec() -> std::unique_ptr<PixelCodec>
                                         comp_type(color.blue  >> 8));
                     logger.info("Color %s: %s", core::as_int(i + 1), util::as_css_color(color_2));
                 }
-*/
+/
                 // Create image with indirect color     
                 // FIXME: Read out palette and produce indirect color version of image with respect to that palette                                        
                 bool implemented = false;
                 ARCHON_STEADY_ASSERT(implemented);                    
                 goto matched;
             }
-            if (mask_match<image::ChannelPacking_332>(visual_info)) {
+            if (mask_match<image::ChannelPacking_332>(info)) {
                 constexpr bool reverse_channel_order = false;
                 auto img = make_packed_image<image::int8_type, image::ChannelPacking_332, bytes_per_pixel,
                                              reverse_channel_order>(img_size); // Throws
@@ -247,7 +281,7 @@ auto make_pixel_codec() -> std::unique_ptr<PixelCodec>
                 img_2 = std::move(img);
                 goto matched;
             }
-            if (rev_mask_match<image::ChannelPacking_233>(visual_info)) {
+            if (rev_mask_match<image::ChannelPacking_233>(info)) {
                 constexpr bool reverse_channel_order = true;
                 auto img = make_packed_image<image::int8_type, image::ChannelPacking_233, bytes_per_pixel,
                                              reverse_channel_order>(img_size); // Throws
@@ -257,11 +291,11 @@ auto make_pixel_codec() -> std::unique_ptr<PixelCodec>
             }
             goto unsupported_channel_masks;
         }
-/*
-            if (visual_info.c_class == PseudoColor) {
-                if (ARCHON_UNLIKELY(visual_info.colormap_size != 256))
+
+            if (info.c_class == PseudoColor) {
+                if (ARCHON_UNLIKELY(info.colormap_size != 256))
                     goto unexpected_colormap_size;
-                if (zero_mask_match(visual_info)) {
+                if (zero_mask_match(info)) {
                     // FIXME: Consider XGetRGBColormaps() --> https://tronche.com/gui/x/xlib/ICC/standard-colormaps/XGetRGBColormaps.html --> Fetch all available colormaps, look for one with matching visual ID. If one is found, use that colormap. This requires that the image is converted to indirect color pixel format.                
                     // FIXME: Consider alternative: Generate optimal palette for image of, say 248, entries, then request that many color slots, then initialize those slots with the colors of the palette, then convert image to indirect color using that palette.      
                     constexpr bool reverse_channel_order = false;
@@ -278,11 +312,11 @@ auto make_pixel_codec() -> std::unique_ptr<PixelCodec>
                 }
                 goto unsupported_channel_masks;
             }
-            if (visual_info.c_class == StaticGray || visual_info.c_class == GrayScale) {
-                if (ARCHON_UNLIKELY(visual_info.colormap_size != 256))
+            if (info.c_class == StaticGray || info.c_class == GrayScale) {
+                if (ARCHON_UNLIKELY(info.colormap_size != 256))
                     goto unexpected_colormap_size;
-                if (zero_mask_match(visual_info)) {
-                    if (visual_info.c_class == GrayScale) {
+                if (zero_mask_match(info)) {
+                    if (info.c_class == GrayScale) {
                         setup_gray_scale_colormap(dpy, colormap, depth, !preallocate_colors,
                                                   use_weird_palette); // Throws
                     }
@@ -293,13 +327,13 @@ auto make_pixel_codec() -> std::unique_ptr<PixelCodec>
                 }
                 goto unsupported_channel_masks;
             }
-            if (visual_info.c_class == TrueColor || visual_info.c_class == DirectColor) {
+            if (info.c_class == TrueColor || info.c_class == DirectColor) {
                 if (ARCHON_UNLIKELY(num_bitplanes != 8))
                     goto unsupported_num_bitplanes;
-                if (ARCHON_UNLIKELY(visual_info.colormap_size != 8))
+                if (ARCHON_UNLIKELY(info.colormap_size != 8))
                     goto unexpected_colormap_size;
                 BitFields bit_fields = {};
-                if (mask_match<image::ChannelPacking_332>(visual_info)) {
+                if (mask_match<image::ChannelPacking_332>(info)) {
                     constexpr bool reverse_channel_order = false;
                     auto img = make_packed_image<image::int8_type, image::ChannelPacking_332, bytes_per_pixel,
                                                  reverse_channel_order>(img_size); // Throws
@@ -308,7 +342,7 @@ auto make_pixel_codec() -> std::unique_ptr<PixelCodec>
                     record_bit_fields<image::ChannelPacking_332>(bit_fields);
                     goto colormap_1;
                 }
-                if (rev_mask_match<image::ChannelPacking_233>(visual_info)) {
+                if (rev_mask_match<image::ChannelPacking_233>(info)) {
                     constexpr bool reverse_channel_order = true;
                     auto img = make_packed_image<image::int8_type, image::ChannelPacking_233, bytes_per_pixel,
                                                  reverse_channel_order>(img_size); // Throws
@@ -320,8 +354,8 @@ auto make_pixel_codec() -> std::unique_ptr<PixelCodec>
                 goto unsupported_channel_masks;
 
               colormap_1:
-                if (visual_info.c_class == DirectColor) {
-                    setup_direct_color_colormap(dpy, colormap, bit_fields, visual_info, !preallocate_colors,
+                if (info.c_class == DirectColor) {
+                    setup_direct_color_colormap(dpy, colormap, bit_fields, info, !preallocate_colors,
                                                 use_weird_palette); // Throws
                 }
                 goto matched;
@@ -332,13 +366,13 @@ auto make_pixel_codec() -> std::unique_ptr<PixelCodec>
             if (bits_per_pixel != 16)
                 goto unsupported_bits_per_pixel;
             constexpr int bytes_per_pixel = 2;
-            if (visual_info.c_class == TrueColor || visual_info.c_class == DirectColor) {
+            if (info.c_class == TrueColor || info.c_class == DirectColor) {
                 if (ARCHON_UNLIKELY(num_bitplanes != 15))
                     goto unsupported_num_bitplanes;
-                if (ARCHON_UNLIKELY(visual_info.colormap_size != 32))
+                if (ARCHON_UNLIKELY(info.colormap_size != 32))
                     goto unexpected_colormap_size;
                 BitFields bit_fields = {};
-                if (mask_match<image::ChannelPacking_555>(visual_info)) {
+                if (mask_match<image::ChannelPacking_555>(info)) {
                     constexpr bool reverse_channel_order = false;
                     auto img = make_packed_image<image::int16_type, image::ChannelPacking_555, bytes_per_pixel,
                                                  reverse_channel_order>(img_size); // Throws
@@ -347,7 +381,7 @@ auto make_pixel_codec() -> std::unique_ptr<PixelCodec>
                     record_bit_fields<image::ChannelPacking_555>(bit_fields);
                     goto colormap_2;
                 }
-                if (rev_mask_match<image::ChannelPacking_555>(visual_info)) {
+                if (rev_mask_match<image::ChannelPacking_555>(info)) {
                     constexpr bool reverse_channel_order = true;
                     auto img = make_packed_image<image::int16_type, image::ChannelPacking_555, bytes_per_pixel,
                                                  reverse_channel_order>(img_size); // Throws
@@ -359,8 +393,8 @@ auto make_pixel_codec() -> std::unique_ptr<PixelCodec>
                 goto unsupported_channel_masks;
 
               colormap_2:
-                if (visual_info.c_class == DirectColor) {
-                    setup_direct_color_colormap(dpy, colormap, bit_fields, visual_info, !preallocate_colors,
+                if (info.c_class == DirectColor) {
+                    setup_direct_color_colormap(dpy, colormap, bit_fields, info, !preallocate_colors,
                                                 use_weird_palette); // Throws
                 }
                 goto matched;
@@ -371,13 +405,13 @@ auto make_pixel_codec() -> std::unique_ptr<PixelCodec>
             if (bits_per_pixel != 16)
                 goto unsupported_bits_per_pixel;
             constexpr int bytes_per_pixel = 2;
-            if (visual_info.c_class == TrueColor || visual_info.c_class == DirectColor) {
+            if (info.c_class == TrueColor || info.c_class == DirectColor) {
                 if (ARCHON_UNLIKELY(num_bitplanes != 16))
                     goto unsupported_num_bitplanes;
-                if (ARCHON_UNLIKELY(visual_info.colormap_size != 64))
+                if (ARCHON_UNLIKELY(info.colormap_size != 64))
                     goto unexpected_colormap_size;
                 BitFields bit_fields = {};
-                if (mask_match<image::ChannelPacking_565>(visual_info)) {
+                if (mask_match<image::ChannelPacking_565>(info)) {
                     constexpr bool reverse_channel_order = false;
                     auto img = make_packed_image<image::int16_type, image::ChannelPacking_565, bytes_per_pixel,
                                                  reverse_channel_order>(img_size); // Throws
@@ -386,7 +420,7 @@ auto make_pixel_codec() -> std::unique_ptr<PixelCodec>
                     record_bit_fields<image::ChannelPacking_565>(bit_fields);
                     goto colormap_3;
                 }
-                else if (rev_mask_match<image::ChannelPacking_565>(visual_info)) {
+                else if (rev_mask_match<image::ChannelPacking_565>(info)) {
                     constexpr bool reverse_channel_order = true;
                     auto img = make_packed_image<image::int16_type, image::ChannelPacking_565, bytes_per_pixel,
                                                  reverse_channel_order>(img_size); // Throws
@@ -398,47 +432,8 @@ auto make_pixel_codec() -> std::unique_ptr<PixelCodec>
                 goto unsupported_channel_masks;
 
               colormap_3:
-                if (visual_info.c_class == DirectColor) {
-                    setup_direct_color_colormap(dpy, colormap, bit_fields, visual_info, !preallocate_colors,
-                                                use_weird_palette); // Throws
-                }
-                goto matched;
-            }
-            goto unexpected_visual_class;
-        }
-        if (depth == 24) {
-            if (bits_per_pixel != 32)
-                goto unsupported_bits_per_pixel;
-            constexpr int bytes_per_pixel = 4;
-            if (visual_info.c_class == TrueColor || visual_info.c_class == DirectColor) {
-                if (ARCHON_UNLIKELY(num_bitplanes != 24))
-                    goto unsupported_num_bitplanes;
-                if (ARCHON_UNLIKELY(visual_info.colormap_size != 256))
-                    goto unexpected_colormap_size;
-                BitFields bit_fields = {};
-                if (mask_match<image::ChannelPacking_888>(visual_info)) {
-                    constexpr bool reverse_channel_order = false;
-                    auto img = make_packed_image<image::int32_type, image::ChannelPacking_888, bytes_per_pixel,
-                                                 reverse_channel_order>(img_size); // Throws
-                    data = img->get_buffer().data();
-                    img_2 = std::move(img);
-                    record_bit_fields<image::ChannelPacking_888>(bit_fields);
-                    goto colormap_4;
-                }
-                else if (rev_mask_match<image::ChannelPacking_888>(visual_info)) {
-                    constexpr bool reverse_channel_order = true;
-                    auto img = make_packed_image<image::int32_type, image::ChannelPacking_888, bytes_per_pixel,
-                                                 reverse_channel_order>(img_size); // Throws
-                    data = img->get_buffer().data();
-                    img_2 = std::move(img);
-                    record_rev_bit_fields<image::ChannelPacking_888>(bit_fields);
-                    goto colormap_4;
-                }
-                goto unsupported_channel_masks;
-
-              colormap_4:
-                if (visual_info.c_class == DirectColor) {
-                    setup_direct_color_colormap(dpy, colormap, bit_fields, visual_info, !preallocate_colors,
+                if (info.c_class == DirectColor) {
+                    setup_direct_color_colormap(dpy, colormap, bit_fields, info, !preallocate_colors,
                                                 use_weird_palette); // Throws
                 }
                 goto matched;
@@ -446,42 +441,61 @@ auto make_pixel_codec() -> std::unique_ptr<PixelCodec>
             goto unexpected_visual_class;
         }
 */
-        goto unsupported_depth;
 
-      unsupported_depth:
-        logger.error("Unsupported depth: %s", depth); // Throws
-        return EXIT_FAILURE;
+    if (info.depth == 24) {
+        if (bits_per_pixel != 32)
+            goto unsupported_bits_per_pixel;
+        constexpr int bytes_per_pixel = 4;
+        if (info.c_class == TrueColor) {
+            if (ARCHON_UNLIKELY(num_bitplanes != 24))
+                goto unsupported_num_bitplanes;
+            if (ARCHON_UNLIKELY(info.colormap_size != 256))
+                goto unexpected_colormap_size;
+            if (mask_match<image::ChannelPacking_888>(info)) {
+                constexpr bool reverse_channel_order = false;
+                return std::make_unique<DirectPixelCodec<image::int32_type, image::ChannelPacking_888, bytes_per_pixel,
+                                                         reverse_channel_order>>(); // Throws
+            }
+            if (rev_mask_match<image::ChannelPacking_888>(info)) {
+                constexpr bool reverse_channel_order = true;
+                return std::make_unique<DirectPixelCodec<image::int32_type, image::ChannelPacking_888, bytes_per_pixel,
+                                                         reverse_channel_order>>(); // Throws
+            }
+            goto unsupported_channel_masks;
+        }
+        goto unexpected_visual_class;
+    }
+    goto unsupported_depth;
 
-      unsupported_bits_per_pixel:
-        logger.error("Unsupported number bits per pixel for depth %s: %s", depth, bits_per_pixel); // Throws
-        return EXIT_FAILURE;
+  unsupported_depth:
+    msg = core::format(locale, "Unsupported depth: %s", info.depth); // Throws
+    throw std::runtime_error(msg);
 
-      unexpected_visual_class:
-        logger.error("Unexpected class for visual 0x%s: %s", core::as_hex_int(visual_id),
-                     get_visual_class_name(visual_info.c_class)); // Throws
-        return EXIT_FAILURE;
+  unsupported_bits_per_pixel:
+    msg = core::format(locale, "Unsupported number bits per pixel for depth %s: %s", info.depth,
+                       bits_per_pixel); // Throws
+    throw std::runtime_error(msg);
 
-      unsupported_channel_masks:
-        logger.error("Unsupported channel masks in visual 0x%s: red = %s, green = %s, blue = %s",
-                     core::as_hex_int(visual_id), core::as_hex_int(visual_info.red_mask),
-                     core::as_hex_int(visual_info.green_mask), core::as_hex_int(visual_info.blue_mask)); // Throws
-        return EXIT_FAILURE;
+  unexpected_visual_class:
+    msg = core::format(locale, "Unexpected class for visual 0x%s: %s", core::as_hex_int(info.visualid),
+                 get_visual_class_name(info.c_class)); // Throws
+    throw std::runtime_error(msg);
 
-      unsupported_num_bitplanes:
-        logger.error("Unsupported visual %s for number of bit-planes: %s", core::as_hex_int(visual_id),
-                     num_bitplanes); // Throws
-        return EXIT_FAILURE;
+  unsupported_channel_masks:
+    msg = core::format(locale, "Unsupported channel masks in visual 0x%s: red = %s, green = %s, blue = %s",
+                 core::as_hex_int(info.visualid), core::as_hex_int(info.red_mask),
+                 core::as_hex_int(info.green_mask), core::as_hex_int(info.blue_mask)); // Throws
+    throw std::runtime_error(msg);
 
-      unexpected_colormap_size:
-        logger.error("Unexpected colormap size for visual 0x%s: %s", core::as_hex_int(visual_id),
-                     visual_info.colormap_size); // Throws
-        return EXIT_FAILURE;
+  unsupported_num_bitplanes:
+    msg = core::format(locale, "Unsupported visual %s for number of bit-planes: %s", core::as_hex_int(info.visualid),
+                 num_bitplanes); // Throws
+    throw std::runtime_error(msg);
 
-      matched:
-        img_2->put_image({ 0, 0 }, *img); // Throws
-        image::save(*img_2, "/tmp/out.png", locale); // Throws
-    
-    throw std::runtime_error("Display uses unsupported pixel format");                       
+  unexpected_colormap_size:
+    msg = core::format(locale, "Unexpected colormap size for visual 0x%s: %s", core::as_hex_int(info.visualid),
+                 info.colormap_size); // Throws
+    throw std::runtime_error(msg);
 }
 
 
