@@ -760,7 +760,7 @@ public:
                std::unique_ptr<const PixelCodec>) noexcept;
     ~WindowImpl() noexcept override final;
 
-    void create(display::Size size, const Config&);
+    void create(display::Size size, const Config&, bool have_glx);
     auto ensure_graphics_context() noexcept -> GC;
 
     void show() override final;
@@ -1098,7 +1098,7 @@ auto ConnectionImpl::new_window(std::string_view title, display::Size size, disp
     }
     auto win = std::make_unique<WindowImpl>(*this, screen_slot, event_handler, config.cookie,
                                             std::move(pixel_codec)); // Throws
-    win->create(size, config); // Throws
+    win->create(size, config, m_have_glx); // Throws
     win->set_title(title); // Throws
     if (ARCHON_UNLIKELY(config.fullscreen))
         win->set_fullscreen_mode(true); // Throws
@@ -1933,7 +1933,7 @@ WindowImpl::~WindowImpl() noexcept
 }
 
 
-void WindowImpl::create(display::Size size, const Config& config)
+void WindowImpl::create(display::Size size, const Config& config, bool have_glx)
 {
     display::Size adjusted_size = size;
     bool has_minimum_size = (config.resizable && config.minimum_size.has_value());
@@ -2000,7 +2000,28 @@ void WindowImpl::create(display::Size size, const Config& config)
     }
 #endif // HAVE_XDBE
 
-    // FIXME: Tend to config.enable_opengl_rendering                                                                                                                                                       
+    // FIXME: Tend to proper GLX visual selection                                                                                                                                                                            
+    bool enable_opengl = false;
+    if (config.enable_opengl_rendering) {
+        if (ARCHON_UNLIKELY(!have_glx))
+            throw std::runtime_error("OpenGL rendering not available");
+        enable_opengl = true;
+    }
+
+    // Create OpenGL rendering context
+#if HAVE_GLX
+    if (enable_opengl) {
+        XVisualInfo vis = screen_slot.visual_info;
+        GLXContext share_list = nullptr; // No sharing
+        Bool direct = True;              
+        GLXContext ctx = glXCreateContext(conn.dpy, &vis, share_list, direct);
+        if (ARCHON_UNLIKELY(!ctx))
+            throw std::runtime_error("glXCreateContext() failed");
+        m_ctx = ctx;
+    }
+#else // !HAVE_GLX
+    static_cast<void>(enable_opengl);
+#endif // !HAVE_GLX
 }
 
 
