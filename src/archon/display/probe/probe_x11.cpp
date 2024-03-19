@@ -95,6 +95,11 @@
 #  else
 #    define HAVE_XRENDER 0
 #  endif
+#  if ARCHON_DISPLAY_HAVE_OPENGL_GLX
+#    define HAVE_GLX 1
+#  else
+#    define HAVE_GLX 0
+#  endif
 #endif
 
 #if HAVE_X11
@@ -114,6 +119,9 @@
 #  endif
 #  if HAVE_XRENDER
 #    include <X11/extensions/Xrender.h>
+#  endif
+#  if HAVE_GLX
+#    include <GL/glx.h>
 #  endif
 #endif
 
@@ -559,7 +567,7 @@ int main(int argc, char* argv[])
         XSynchronize(dpy, True);
 
 #if HAVE_XDBE
-    int have_xdbe = false;
+    bool have_xdbe = false;
     int xdbe_major = 0;
     int xdbe_minor = 0;
     if (ARCHON_LIKELY(XdbeQueryExtension(dpy, &xdbe_major, &xdbe_minor))) {
@@ -568,7 +576,7 @@ int main(int argc, char* argv[])
     }
 #endif // HAVE_XDBE
 
-    int have_xkb = false;
+    bool have_xkb = false;
     int xkb_major = 0;
     int xkb_minor = 0;
     int xkb_lib_major = XkbMajorVersion;
@@ -592,7 +600,7 @@ int main(int argc, char* argv[])
     }
 
 #if HAVE_XRANDR
-    int have_xrandr = false;
+    bool have_xrandr = false;
     int xrandr_event_base = 0;
     int xrandr_error_base = 0;
     int xrandr_major = 0;
@@ -610,7 +618,7 @@ int main(int argc, char* argv[])
 #endif // HAVE_XRANDR
 
 #if HAVE_XRENDER
-    int have_xrender = false;
+    bool have_xrender = false;
     int xrender_event_base = 0;
     int xrender_error_base = 0;
     int xrender_major = 0;
@@ -622,6 +630,20 @@ int main(int argc, char* argv[])
             have_xrender = true;
     }
 #endif // HAVE_XRENDER
+
+#if HAVE_GLX
+    bool have_glx = false;
+    int glx_error_base = 0;
+    int glx_event_base = 0;
+    int glx_major = 0;
+    int glx_minor = 0;
+    if (ARCHON_LIKELY(glXQueryExtension(dpy, &glx_error_base, &glx_event_base))) {
+        Bool success = glXQueryVersion(dpy, &glx_major, &glx_minor);
+        ARCHON_ASSERT(success);
+        if (ARCHON_LIKELY(glx_major > 1 || (glx_major == 1 && glx_minor >= 4)))
+            have_glx = true;
+    }
+#endif // HAVE_GLX
 
 #if HAVE_XDBE
     // Key is (screen, depth, visual), value is `perflevel` attribute from XdbeVisualInfo
@@ -791,6 +813,16 @@ int main(int argc, char* argv[])
         out << "no"; // Throws
     };
 
+    auto format_have_glx = [&](std::ostream& out) {
+#if HAVE_GLX
+        if (have_glx) {
+            out << core::formatted("yes (%s.%s)", glx_major, glx_minor); // Throws
+            return;
+        }
+#endif // HAVE_GLX
+        out << "no"; // Throws
+    };
+
     int num_bitplanes = DisplayPlanes(dpy, screen);
 
     logger.info("Display string:                     %s", DisplayString(dpy)); // Throws
@@ -800,6 +832,7 @@ int main(int argc, char* argv[])
     logger.info("Have Xkb:                           %s", core::as_format_func(format_have_xkb)); // Throws
     logger.info("Have Xrandr:                        %s", core::as_format_func(format_have_xrandr)); // Throws
     logger.info("Have Xrender:                       %s", core::as_format_func(format_have_xrender)); // Throws
+    logger.info("Have GLX:                           %s", core::as_format_func(format_have_glx)); // Throws
     logger.info("Image byte order:                   %s",
                 (ImageByteOrder(dpy) == LSBFirst ? "little-endian" : "big-endian")); // Throws
     logger.info("Bitmap bit order:                   %s",

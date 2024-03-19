@@ -86,6 +86,11 @@
 #  else
 #    define HAVE_XRENDER 0
 #  endif
+#  if ARCHON_DISPLAY_HAVE_OPENGL_GLX
+#    define HAVE_GLX 1
+#  else
+#    define HAVE_GLX 0
+#  endif
 #endif
 
 #if HAVE_X11
@@ -103,6 +108,9 @@
 #  endif
 #  if HAVE_XRENDER
 #    include <X11/extensions/Xrender.h>
+#  endif
+#  if HAVE_GLX
+#    include <GL/glx.h>
 #  endif
 #endif
 
@@ -139,6 +147,8 @@
 // * Xrender protocol specification: https://www.x.org/releases/X11R7.7/doc/renderproto/renderproto.txt
 //
 // * Xrender API documentation: https://www.x.org/releases/X11R7.7/doc/libXrender/libXrender.txt
+//
+// * OpenGL GLX specification: https://registry.khronos.org/OpenGL/specs/gl/glx1.4.pdf
 //
 
 using namespace archon;
@@ -569,6 +579,7 @@ bool try_map_mouse_button(unsigned x11_button, bool& is_scroll, display::MouseBu
 
 
 class WindowImpl;
+class TextureImpl;
 
 
 class ImplementationImpl
@@ -645,6 +656,7 @@ private:
     bool m_have_xdbe    = false; // X Double Buffer Extension
     bool m_have_xrandr  = false; // X Resize, Rotate and Reflect Extension
     bool m_have_xrender = false; // X Rendering Extension
+    bool m_have_glx     = false; // X extension for rendering using OpenGL
 
     bool m_detectable_autorepeat_enabled = false;
     bool m_expect_keymap_notify = false;
@@ -777,8 +789,13 @@ private:
     XdbeSwapAction m_swap_action;
 #endif
 
+#if HAVE_GLX
+    GLXContext m_ctx = nullptr;
+#endif
+
     void set_property(Atom name, Atom value) noexcept;
     void do_fill(util::Color color, int x, int y, unsigned w, unsigned h);
+    void do_put_texture(const TextureImpl&, const display::Box& source_area, const display::Pos& pos);
     auto create_graphics_context() noexcept -> GC;
     auto intern_color(util::Color) -> unsigned long;
     auto get_pixel_codec() -> const PixelCodec&;
@@ -963,6 +980,22 @@ void ConnectionImpl::open(const display::ConnectionConfigX11& config)
         }
     }
 #endif // HAVE_XRENDER
+
+#if HAVE_GLX
+    {
+        int error_base = 0; // Unused
+        int event_base = 0; // Unused
+        if (ARCHON_LIKELY(glXQueryExtension(dpy, &error_base, &event_base))) {
+            int major = 0;
+            int minor = 0;
+            Bool success = glXQueryVersion(dpy, &major, &minor);
+            if (ARCHON_UNLIKELY(!success))
+                throw std::runtime_error("glXQueryVersion() failed");
+            if (ARCHON_LIKELY(major > 1 || (major == 1 && minor >= 4)))
+                m_have_glx = true;
+        }
+    }
+#endif // HAVE_GLX
 
     // Fetch ZPixmap formats
     {
@@ -1884,6 +1917,11 @@ inline WindowImpl::WindowImpl(ConnectionImpl& conn_2, const ScreenSlot& screen_s
 
 WindowImpl::~WindowImpl() noexcept
 {
+#if HAVE_GLX
+    if (m_ctx)
+        glXDestroyContext(conn.dpy, m_ctx);
+#endif // HAVE_GLX
+
     if (ARCHON_LIKELY(win != None)) {
         if (ARCHON_LIKELY(m_is_registered)) {
             if (m_gc != None)
@@ -2065,11 +2103,7 @@ auto WindowImpl::new_texture(display::Size size) -> std::unique_ptr<display::Tex
 void WindowImpl::put_texture(const display::Texture& tex, const display::Pos& pos)
 {
     const TextureImpl& tex_2 = dynamic_cast<const TextureImpl&>(tex); // Throws
-    GC gc = ensure_graphics_context();
-    int src_x = 0, src_y = 0;
-    unsigned width = unsigned(tex_2.size.width), height = unsigned(tex_2.size.height);
-    int dest_x = pos.x, dest_y = pos.y;
-    XCopyArea(conn.dpy, tex_2.pixmap, m_drawable, gc, src_x, src_y, width, height, dest_x, dest_y);
+    do_put_texture(tex_2, tex_2.size, pos);
 }
 
 
@@ -2078,11 +2112,7 @@ void WindowImpl::put_texture(const display::Texture& tex, const display::Box& so
     const TextureImpl& tex_2 = dynamic_cast<const TextureImpl&>(tex); // Throws
     if (ARCHON_UNLIKELY(!source_area.contained_in(tex_2.size)))
         throw std::invalid_argument("Source area escapes texture boundary");
-    GC gc = ensure_graphics_context();
-    int src_x = source_area.pos.x, src_y = source_area.pos.y;
-    unsigned width = unsigned(source_area.size.width), height = unsigned(source_area.size.height);
-    int dest_x = pos.x, dest_y = pos.y;
-    XCopyArea(conn.dpy, tex_2.pixmap, m_drawable, gc, src_x, src_y, width, height, dest_x, dest_y);
+    do_put_texture(tex_2, source_area, pos);
 }
 
 
@@ -2103,13 +2133,17 @@ void WindowImpl::present()
 
 void WindowImpl::opengl_make_current()
 {
-    throw std::runtime_error("*click* -> opengl_make_current()");     
+#if HAVE_GLX
+    glXMakeCurrent(conn.dpy, win, m_ctx);
+#endif
 }
 
 
 void WindowImpl::opengl_swap_buffers()
 {
-    throw std::runtime_error("*click* -> opengl_swap_buffers()");     
+#if HAVE_GLX
+    glXSwapBuffers(conn.dpy, win);
+#endif
 }
 
 
@@ -2125,6 +2159,16 @@ void WindowImpl::do_fill(util::Color color, int x, int y, unsigned w, unsigned h
     unsigned long color_2 = intern_color(color); // Throws
     XSetForeground(conn.dpy, gc, color_2);
     XFillRectangle(conn.dpy, m_drawable, gc, x, y, w, h);
+}
+
+
+void WindowImpl::do_put_texture(const TextureImpl& tex, const display::Box& source_area, const display::Pos& pos)
+{
+    GC gc = ensure_graphics_context();
+    int src_x = source_area.pos.x, src_y = source_area.pos.y;
+    unsigned width = unsigned(source_area.size.width), height = unsigned(source_area.size.height);
+    int dest_x = pos.x, dest_y = pos.y;
+    XCopyArea(conn.dpy, tex.pixmap, m_drawable, gc, src_x, src_y, width, height, dest_x, dest_y);
 }
 
 

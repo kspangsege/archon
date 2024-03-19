@@ -2,6 +2,10 @@
 # * X11-based display implementation (see archon/display/implementation_x11.cpp)
 find_package(X11)
 
+# Need GLX for the following reasons:
+# * X11-based display implementation (see archon/display/implementation_x11.cpp)
+find_package(OpenGL)
+
 # Need SDL for the following reasons:
 # * SDL-based display implementation (see archon/display/implementation_sdl.cpp)
 find_package(SDL2 2.0.22)
@@ -11,6 +15,7 @@ set(ARCHON_DISPLAY_HAVE_X11_XDBE 0)
 set(ARCHON_DISPLAY_HAVE_X11_XKB 0)
 set(ARCHON_DISPLAY_HAVE_X11_XRENDER 0)
 set(ARCHON_DISPLAY_HAVE_X11_XRANDR 0)
+set(ARCHON_DISPLAY_HAVE_OPENGL_GLX 0)
 if(X11_FOUND)
   set(ARCHON_DISPLAY_HAVE_X11 1)
   if(X11_Xext_FOUND)
@@ -29,6 +34,9 @@ if(X11_FOUND)
   endif()
   if(X11_Xrandr_FOUND)
     set(ARCHON_DISPLAY_HAVE_X11_XRANDR 1)
+  endif()
+  if(OpenGL_GLX_FOUND)
+    set(ARCHON_DISPLAY_HAVE_OPENGL_GLX 1)
   endif()
 endif()
 
@@ -66,6 +74,9 @@ if(X11_FOUND)
   endif()
   if(X11_Xrandr_FOUND)
     target_link_libraries(Display PRIVATE X11::Xrandr)
+  endif()
+  if(OpenGL_GLX_FOUND)
+    target_link_libraries(Display PRIVATE OpenGL::GL)
   endif()
 endif()
 

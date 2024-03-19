@@ -157,10 +157,14 @@ public:
 
     /// \brief Bind OpenGL context of this window to the calling thread.
     ///
-    /// Every window is associated with an OpenGL rendering context. This function binds the
-    /// calling thread to that rendering context, such that OpenGL rendering performed by
-    /// the calling thread is directed at this window. On an X11 platform, this corresponds
-    /// to `glXMakeCurrent()`.
+    /// A window, that is configured for OpenGL rendering (\ref
+    /// Config::enable_opengl_rendering), is associated with an OpenGL rendering
+    /// context. This function binds the calling thread to that rendering context, such that
+    /// OpenGL rendering performed by the calling thread is directed onto this window. On an
+    /// X11 platform, this corresponds to `glXMakeCurrent()`.
+    ///
+    /// Behavior is undefined if this function is called on a window that is not configured
+    /// for OpenGL rendering.
     ///
     virtual void opengl_make_current() = 0;
 
@@ -168,6 +172,9 @@ public:
     ///
     /// This function swaps front and back buffers for OpenGL rendering in this window. On
     /// an X11 platform, this corresponds to `glXSwapBuffers()`.
+    ///
+    /// Behavior is undefined if this function is called on a window that is not configured
+    /// for OpenGL rendering (\ref Config::enable_opengl_rendering).
     ///
     virtual void opengl_swap_buffers() = 0;
 
