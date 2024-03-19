@@ -42,11 +42,14 @@
 #include <archon/core/string.hpp>
 #include <archon/core/format.hpp>
 #include <archon/core/quote.hpp>
+#include <archon/core/endianness.hpp>
 #include <archon/core/platform_support.hpp>
 #include <archon/math/vector.hpp>
 #include <archon/image.hpp>
 #include <archon/image/gamma.hpp>
+#include <archon/image/standard_channel_spec.hpp>
 #include <archon/image/bit_field.hpp>
+#include <archon/image/packed_pixel_format.hpp>
 #include <archon/image/channel_packing.hpp>
 #include <archon/display/impl/config.h>
 #include <archon/display/mouse_button.hpp>
@@ -245,6 +248,7 @@ auto get_visual_class_name(int class_) -> const char*
 class PixelCodec {
 public:
     virtual auto intern_color(util::Color color) const -> unsigned long = 0;
+    virtual void create_image(display::Size size, std::unique_ptr<image::WritableImage>& img, char*& data) const = 0;
     virtual ~PixelCodec() = default;
 };
 
@@ -252,7 +256,13 @@ public:
 template<class T, class P, int N, bool R> class DirectPixelCodec
     : public PixelCodec {
 public:
-    auto intern_color(util::Color color) const -> unsigned long override final;
+    using compound_type = T;
+    using packing_type = P;
+    static constexpr int bytes_per_pixel = N;
+    static constexpr bool reverse_channel_order = R;
+
+    auto intern_color(util::Color) const -> unsigned long override final;
+    void create_image(display::Size, std::unique_ptr<image::WritableImage>&, char*&) const override final;
 };
 
 
@@ -288,10 +298,27 @@ auto DirectPixelCodec<T, P, N, R>::intern_color(util::Color color) const -> unsi
 }
 
 
-// depth
-// bits_per_pixel
-// visual_info
-auto make_pixel_codec(const XVisualInfo& info, int bits_per_pixel, int num_bitplanes, const std::locale& locale) -> std::unique_ptr<PixelCodec>
+template<class T, class P, int N, bool R>
+void DirectPixelCodec<T, P, N, R>::create_image(display::Size size, std::unique_ptr<image::WritableImage>& img,
+                                                char*& data) const
+{
+    using word_type = char;
+    constexpr int bits_per_word = 8;
+    constexpr core::Endianness word_order = core::Endianness::little;
+    constexpr bool alpha_channel_first = false;
+
+    using format_type = image::PackedPixelFormat<image::ChannelSpec_RGB, compound_type, packing_type, word_type,
+                                                 bits_per_word, bytes_per_pixel, word_order, alpha_channel_first,
+                                                 reverse_channel_order>;
+
+    auto img_2 = std::make_unique<image::BufferedImage<format_type>>(size); // Throws
+    data = img_2->get_buffer().data();
+    img = std::move(img_2);
+}
+
+
+auto make_pixel_codec(const XVisualInfo& info, int bits_per_pixel, int num_bitplanes,
+                      const std::locale& locale) -> std::unique_ptr<PixelCodec>
 {
     std::string msg;
 
@@ -590,7 +617,7 @@ public:
 #endif
 
     ConnectionImpl(const ImplementationImpl&, const std::locale&, const display::ConnectionConfigX11&) noexcept;
-    ~ConnectionImpl() noexcept override;
+    ~ConnectionImpl() noexcept override final;
 
     void open(const display::ConnectionConfigX11&);
     void register_window(::Window id, WindowImpl&);
@@ -713,16 +740,16 @@ public:
     display::WindowEventHandler& event_handler;
     const int cookie;
 
-    ::Window win = {};
-    GC gc = {};
+    ::Window win = None;
 
     bool has_pending_expose_event = false;
 
     WindowImpl(ConnectionImpl&, const ScreenSlot&, display::WindowEventHandler&, int cookie,
                std::unique_ptr<const PixelCodec>) noexcept;
-    ~WindowImpl() noexcept override;
+    ~WindowImpl() noexcept override final;
 
     void create(display::Size size, const Config&);
+    auto ensure_graphics_context() noexcept -> GC;
 
     void show() override final;
     void hide() override final;
@@ -739,11 +766,11 @@ public:
     void opengl_swap_buffers() override final;
 
 private:
-    bool m_have_window = false;
     bool m_is_registered = false;
     bool m_is_double_buffered = false;
 
     const std::unique_ptr<const PixelCodec> m_pixel_codec;
+    GC m_gc = None;
 
     Drawable m_drawable;
 #if HAVE_XDBE
@@ -752,10 +779,29 @@ private:
 
     void set_property(Atom name, Atom value) noexcept;
     void do_fill(util::Color color, int x, int y, unsigned w, unsigned h);
-    auto ensure_graphics_context() noexcept -> GC;
     auto create_graphics_context() noexcept -> GC;
     auto intern_color(util::Color) -> unsigned long;
     auto get_pixel_codec() -> const PixelCodec&;
+};
+
+
+class TextureImpl
+    : public display::Texture {
+public:
+    WindowImpl& win;
+    const display::Size size;
+    Pixmap pixmap = None;
+
+    TextureImpl(WindowImpl&, const display::Size& size);
+    ~TextureImpl() noexcept override final;
+
+    void create(const PixelCodec&);
+
+    void put_image(const image::Image&) override final;
+
+private:
+    std::unique_ptr<image::WritableImage> m_img;
+    char* m_img_data = nullptr;
 };
 
 
@@ -1838,10 +1884,10 @@ inline WindowImpl::WindowImpl(ConnectionImpl& conn_2, const ScreenSlot& screen_s
 
 WindowImpl::~WindowImpl() noexcept
 {
-    if (ARCHON_LIKELY(m_have_window)) {
+    if (ARCHON_LIKELY(win != None)) {
         if (ARCHON_LIKELY(m_is_registered)) {
-            if (gc)
-                XFreeGC(conn.dpy, gc);
+            if (m_gc != None)
+                XFreeGC(conn.dpy, m_gc);
             conn.unregister_window(win);
         }
         XDestroyWindow(conn.dpy, win);
@@ -1877,7 +1923,6 @@ void WindowImpl::create(display::Size size, const Config& config)
     attributes.colormap = screen_slot.colormap;
     win = XCreateWindow(conn.dpy, parent, x, y, width, height, border_width, depth, class_, visual,
                         valuemask, &attributes);
-    m_have_window = true;
 
     conn.register_window(win, *this); // Throws
     m_is_registered = true;
@@ -1918,6 +1963,14 @@ void WindowImpl::create(display::Size size, const Config& config)
 #endif // HAVE_XDBE
 
     // FIXME: Tend to config.enable_opengl_rendering                                                                                                                                                       
+}
+
+
+inline auto WindowImpl::ensure_graphics_context() noexcept -> GC
+{
+    if (ARCHON_LIKELY(m_gc != None))
+        return m_gc;
+    return create_graphics_context();
 }
 
 
@@ -2003,25 +2056,33 @@ void WindowImpl::fill(util::Color color, const display::Box& area)
 
 auto WindowImpl::new_texture(display::Size size) -> std::unique_ptr<display::Texture>
 {
-    static_cast<void>(size);    
-    throw std::runtime_error("*click* -> new_texture()");     
+    auto tex = std::make_unique<TextureImpl>(*this, size); // Throws
+    tex->create(*m_pixel_codec); // Throws
+    return tex;
 }
 
 
 void WindowImpl::put_texture(const display::Texture& tex, const display::Pos& pos)
 {
-    static_cast<void>(tex);    
-    static_cast<void>(pos);    
-    throw std::runtime_error("*click* -> put_texture(1/2)");     
+    const TextureImpl& tex_2 = dynamic_cast<const TextureImpl&>(tex); // Throws
+    GC gc = ensure_graphics_context();
+    int src_x = 0, src_y = 0;
+    unsigned width = unsigned(tex_2.size.width), height = unsigned(tex_2.size.height);
+    int dest_x = pos.x, dest_y = pos.y;
+    XCopyArea(conn.dpy, tex_2.pixmap, m_drawable, gc, src_x, src_y, width, height, dest_x, dest_y);
 }
 
 
 void WindowImpl::put_texture(const display::Texture& tex, const display::Box& source_area, const display::Pos& pos)
 {
-    static_cast<void>(tex);    
-    static_cast<void>(source_area);    
-    static_cast<void>(pos);    
-    throw std::runtime_error("*click* -> put_texture(2/2)");     
+    const TextureImpl& tex_2 = dynamic_cast<const TextureImpl&>(tex); // Throws
+    if (ARCHON_UNLIKELY(!source_area.contained_in(tex_2.size)))
+        throw std::invalid_argument("Source area escapes texture boundary");
+    GC gc = ensure_graphics_context();
+    int src_x = source_area.pos.x, src_y = source_area.pos.y;
+    unsigned width = unsigned(source_area.size.width), height = unsigned(source_area.size.height);
+    int dest_x = pos.x, dest_y = pos.y;
+    XCopyArea(conn.dpy, tex_2.pixmap, m_drawable, gc, src_x, src_y, width, height, dest_x, dest_y);
 }
 
 
@@ -2067,21 +2128,14 @@ void WindowImpl::do_fill(util::Color color, int x, int y, unsigned w, unsigned h
 }
 
 
-inline auto WindowImpl::ensure_graphics_context() noexcept -> GC
-{
-    if (ARCHON_LIKELY(gc))
-        return gc;
-    return create_graphics_context();
-}
-
-
 auto WindowImpl::create_graphics_context() noexcept -> GC
 {
+    ARCHON_ASSERT(m_gc == None);
     unsigned long valuemask = GCGraphicsExposures;
     XGCValues values = {};
     values.graphics_exposures = False;
-    gc = XCreateGC(conn.dpy, m_drawable, valuemask, &values);
-    return gc;
+    m_gc = XCreateGC(conn.dpy, m_drawable, valuemask, &values);
+    return m_gc;
 }
 
 
@@ -2098,6 +2152,76 @@ auto WindowImpl::get_pixel_codec() -> const PixelCodec&
         return *m_pixel_codec;
     throw std::runtime_error("Basic rendering was not enabled");
 }
+
+
+inline TextureImpl::TextureImpl(WindowImpl& win_2, const display::Size& size_2)
+    : win(win_2)
+    , size(size_2)
+{
+    if (ARCHON_LIKELY(size.width >= 0 && size.height >= 0))
+        return;
+    throw std::invalid_argument("Invalid texture size");
+}
+
+
+TextureImpl::~TextureImpl() noexcept
+{
+    if (ARCHON_LIKELY(pixmap != None))
+        XFreePixmap(win.conn.dpy, pixmap);
+}
+
+
+void TextureImpl::create(const PixelCodec& pixel_codec)
+{
+    if (ARCHON_LIKELY(!size.is_empty())) {
+        pixmap = XCreatePixmap(win.conn.dpy, win.screen_slot.root, unsigned(size.width), unsigned(size.height),
+                               win.screen_slot.visual_info.depth);
+        pixel_codec.create_image(size, m_img, m_img_data); // Throws
+    }
+}
+
+
+void TextureImpl::put_image(const image::Image& img)
+{
+    if (ARCHON_LIKELY(!size.is_empty())) {
+        GC gc = win.ensure_graphics_context();
+
+        m_img->put_image({ 0, 0 }, img); // Throws
+
+        // Xlib requires that the depth of the image matches the depth of the pixmap. X11
+        // requires that the depth of pixmap matches the depth of the target window (during
+        // XCopyArea()). Only ZPixmap format is relevant. With ZPixmap, image data is
+        // ordered by pixel rather than by bit-plane, and each scanline unit (word) holds
+        // one or more pixels. The ZPixmap format supports the depths of any offered
+        // visual. XPutImage() can handle byte swapping and changes in row alignment
+        // (`scanline_pad` / `bitmap_pad`).
+        int scanline_pad = win.screen_slot.bits_per_pixel;
+        XImage img_2;
+        img_2.width            = size.width;
+        img_2.height           = size.height;
+        img_2.xoffset          = 0;
+        img_2.format           = ZPixmap;
+        img_2.data             = m_img_data;
+        img_2.byte_order       = LSBFirst;
+        img_2.bitmap_unit      = BitmapUnit(win.conn.dpy); // Immaterial
+        img_2.bitmap_bit_order = BitmapBitOrder(win.conn.dpy); // Immaterial
+        img_2.bitmap_pad       = scanline_pad;
+        img_2.depth            = win.screen_slot.visual_info.depth;
+        img_2.bytes_per_line   = 0;
+        img_2.bits_per_pixel   = win.screen_slot.bits_per_pixel;
+        img_2.red_mask         = win.screen_slot.visual_info.red_mask;
+        img_2.green_mask       = win.screen_slot.visual_info.green_mask;
+        img_2.blue_mask        = win.screen_slot.visual_info.blue_mask;
+        Status status = XInitImage(&img_2);
+        if (ARCHON_UNLIKELY(status == 0))
+            throw std::runtime_error("XInitImage() failed");
+        int src_x = 0, src_y = 0;
+        int dest_x = 0, dest_y = 0;
+        XPutImage(win.conn.dpy, pixmap, gc, &img_2, src_x, src_y, dest_x, dest_y,
+                  unsigned(size.width), unsigned(size.height));
+    }
+}
+
 
 
 constexpr std::pair<KeySym, display::Key> key_assocs[] {

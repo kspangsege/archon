@@ -164,7 +164,7 @@ public:
     const std::locale locale;
 
     ConnectionImpl(const ImplementationImpl&, const std::locale&) noexcept;
-    ~ConnectionImpl() noexcept override;
+    ~ConnectionImpl() noexcept override final;
 
     void open();
     void register_window(Uint32 id, WindowImpl&);
@@ -225,7 +225,7 @@ public:
     const int cookie;
 
     WindowImpl(ConnectionImpl&, display::WindowEventHandler&, int cookie) noexcept;
-    ~WindowImpl() noexcept override;
+    ~WindowImpl() noexcept override final;
 
     void create(std::string_view title, display::Size size, const Config&);
     auto ensure_renderer() -> SDL_Renderer*;
@@ -265,7 +265,7 @@ public:
     const display::Size size;
 
     TextureImpl(WindowImpl&, const display::Size& size) noexcept;
-    ~TextureImpl() noexcept override;
+    ~TextureImpl() noexcept override final;
 
     void create();
     auto get() const noexcept -> SDL_Texture*;
@@ -1133,6 +1133,7 @@ If list contains RGB888, use that
     }
     throw_sdl_error(win.conn.locale, "SDL_UpdateTexture() failed"); // Throws
 }
+
 
 
 constexpr std::pair<SDL_Keycode, display::Key> key_assocs[] {

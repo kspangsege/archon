@@ -134,9 +134,9 @@ public:
     ///
     /// These functions copy pixels from the specified texture (\p tex) to this window. The
     /// overload that takes a source area argument (\p source_area) copies the pixels from
-    /// that area of the texture. The other overload copies the entire texture. The
-    /// specified position (\p pos) is the upper-left corner of the target area in the
-    /// window.
+    /// that area of the texture. The source are must be confined to the texture
+    /// boundary. The other overload copies the entire texture. The specified position (\p
+    /// pos) is the upper-left corner of the target area in the window.
     ///
     /// Call \ref present() to present the result.     
     ///
