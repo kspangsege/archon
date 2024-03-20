@@ -1218,8 +1218,9 @@ auto ConnectionImpl::ensure_screen_slot(int screen) const -> ScreenSlot&
         slot.visual_info = visual_info;
 
         Colormap colormap = DefaultColormap(dpy, screen);
+        bool colormap_owned = false;
         ARCHON_SCOPE_EXIT {
-            if (colormap != None)
+            if (colormap_owned)
                 XFreeColormap(dpy, colormap);
         };
         if (ARCHON_UNLIKELY(visual_info.visualid != default_visualid)) {
@@ -1228,6 +1229,7 @@ auto ConnectionImpl::ensure_screen_slot(int screen) const -> ScreenSlot&
             // from the one used by the root window. The colormap and the new window must
             // agree on visual.
             colormap = XCreateColormap(dpy, root, visual_info.visual, AllocNone);
+            colormap_owned = true;
         }
         slot.colormap = colormap;
 
@@ -1271,7 +1273,7 @@ auto ConnectionImpl::ensure_screen_slot(int screen) const -> ScreenSlot&
 #endif // HAVE_XRANDR
 
         slot.is_initialized = true;
-        colormap = None;
+        colormap_owned = false;
     }
     return slot;
 }
@@ -1658,7 +1660,7 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
             goto read;
         }
         if (ARCHON_LIKELY(ret == 0)) {
-            ARCHON_ASSERT(timeout < 0);
+            ARCHON_ASSERT(timeout >= 0);
             if (ARCHON_LIKELY(complete))
                 return true; // Deadline expired
             goto wait;
