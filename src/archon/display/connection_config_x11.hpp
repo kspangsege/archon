@@ -78,6 +78,14 @@ struct ConnectionConfigX11 {
     ///
     bool disable_double_buffering = false;
 
+    /// \brief Disable use of OpenGL GLX direct rendering.
+    ///
+    /// If set to `true`, direct rendering will be disabled for the OpenGL GLX rendering
+    /// context created for each window. When set to `false` (the default), direct rendering
+    /// will be used when available.
+    ///
+    bool disable_glx_direct_rendering = false;
+
     /// \brief Disable use of "detectable auto-repeat" mode.
     ///
     /// The X Keyboard Extension makes a so-called "detectable auto-repeat" mode

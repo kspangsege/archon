@@ -651,6 +651,7 @@ private:
     const std::optional<int> m_depth_override;
     const std::optional<VisualID> m_visual_override;
     const bool m_disable_double_buffering;
+    const bool m_disable_glx_direct_rendering;
 
     // X protocol extension availability
     bool m_have_xdbe    = false; // X Double Buffer Extension
@@ -760,7 +761,7 @@ public:
                std::unique_ptr<const PixelCodec>) noexcept;
     ~WindowImpl() noexcept override final;
 
-    void create(display::Size size, const Config&, bool have_glx);
+    void create(display::Size size, const Config&, bool have_glx, bool disable_glx_direct_rendering);
     auto ensure_graphics_context() noexcept -> GC;
 
     void show() override final;
@@ -876,6 +877,7 @@ inline ConnectionImpl::ConnectionImpl(const ImplementationImpl& impl_2, const st
     , m_depth_override(config.depth)
     , m_visual_override(config.visual)
     , m_disable_double_buffering(config.disable_double_buffering)
+    , m_disable_glx_direct_rendering(config.disable_glx_direct_rendering)
 {
 }
 
@@ -1098,7 +1100,7 @@ auto ConnectionImpl::new_window(std::string_view title, display::Size size, disp
     }
     auto win = std::make_unique<WindowImpl>(*this, screen_slot, event_handler, config.cookie,
                                             std::move(pixel_codec)); // Throws
-    win->create(size, config, m_have_glx); // Throws
+    win->create(size, config, m_have_glx, m_disable_glx_direct_rendering); // Throws
     win->set_title(title); // Throws
     if (ARCHON_UNLIKELY(config.fullscreen))
         win->set_fullscreen_mode(true); // Throws
@@ -1933,7 +1935,7 @@ WindowImpl::~WindowImpl() noexcept
 }
 
 
-void WindowImpl::create(display::Size size, const Config& config, bool have_glx)
+void WindowImpl::create(display::Size size, const Config& config, bool have_glx, bool disable_glx_direct_rendering)
 {
     display::Size adjusted_size = size;
     bool has_minimum_size = (config.resizable && config.minimum_size.has_value());
@@ -2013,7 +2015,7 @@ void WindowImpl::create(display::Size size, const Config& config, bool have_glx)
     if (enable_opengl) {
         XVisualInfo vis = screen_slot.visual_info;
         GLXContext share_list = nullptr; // No sharing
-        Bool direct = True;              
+        Bool direct = Bool(!disable_glx_direct_rendering);
         GLXContext ctx = glXCreateContext(conn.dpy, &vis, share_list, direct);
         if (ARCHON_UNLIKELY(!ctx))
             throw std::runtime_error("glXCreateContext() failed");
