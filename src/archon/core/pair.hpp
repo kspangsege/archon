@@ -97,6 +97,9 @@ public:
 };
 
 
+template<class T, class U> Pair(T, U) -> Pair<T, U>;
+
+
 
 
 

@@ -38,6 +38,8 @@ namespace archon::display {
 /// X11-based display implementation.
 ///
 struct ConnectionConfigX11 {
+    enum class VisualClass;
+
     /// \brief The X11 display to be connected to.
     ///
     /// This is a string that identifies a particular X11 display to connect to. Refer to
@@ -46,35 +48,43 @@ struct ConnectionConfigX11 {
     ///
     std::string_view display;
 
-    /// \brief Depth (bits per pixel) to be used for X11 windows.
+    /// \brief Visual depth to be used for X11 windows.
     ///
-    /// If set, X11 windows will be configured for this depth instead of the default depth
-    /// for the targeted X11 screen. This works only if the specified depth and the selected
-    /// visual (\ref visual) is a valid combination for the targeted X11 screen (see output
-    /// from command `xdpyinfo`).
+    /// If specified, only that depth (number of bits per pixel) will be considered when
+    /// picking an X11 visual to be used with a particular window (see output from command
+    /// `xdpyinfo`).
     ///
-    /// \sa \ref visual
+    /// \sa \ref visual_class
+    /// \sa \ref visual_type
     ///
-    std::optional<int> depth;
+    std::optional<int> visual_depth;
+
+    /// \brief Visual class to be used for X11 windows.
+    ///
+    /// If specified, only that visual class will be considered when picking an X11 visual
+    /// to be used with a particular window (see output from command `xdpyinfo`).
+    ///
+    /// \sa \ref visual_depth
+    /// \sa \ref visual_type
+    ///
+    std::optional<VisualClass> visual_class;
 
     /// \brief Visual type to be used for X11 windows.
     ///
-    /// If set, X11 windows will be configured for the visual type identified by the
-    /// specified value. If left unset, the default visual for the targeted X11 screen will
-    /// be used. Specifying a visual works only if it and the selected depth (\ref depth) is
-    /// a valid combination for the targeted X11 screen (see output from command
-    /// `xdpyinfo`).
+    /// If specified, only that visual type will be considered when picking an X11 visual to
+    /// be used with a particular window (see output from command `xdpyinfo`).
     ///
-    /// \sa \ref depth
+    /// \sa \ref visual_depth
+    /// \sa \ref visual_class
     ///
-    std::optional<std::uint_fast32_t> visual;
+    std::optional<std::uint_fast32_t> visual_type;
 
     /// \brief Disable use of double buffering even when supported.
     ///
     /// By default, i.e., when `false`, double buffering will be used when the Double Buffer
     /// Extension (Xdbe) is available (enabled at build time), and double buffering is
-    /// supported on the targeted X11 screen with the selected depth and visual (\ref depth,
-    /// \ref visual). When set to `true`, double buffering will not be used at all.
+    /// supported by the selected X11 visual (see \ref visual_depth, \ref visual_class, and
+    /// \ref visual_type). When set to `true`, double buffering will not be used at all.
     ///
     bool disable_double_buffering = false;
 
@@ -107,6 +117,20 @@ struct ConnectionConfigX11 {
     /// library. See `XSynchronize()` for additional information.
     ///
     bool synchronous_mode = false;
+};
+
+
+/// \brief    
+///
+///    
+///
+enum class ConnectionConfigX11::VisualClass {
+    static_gray  = 0,
+    gray_scale   = 1,
+    static_color = 2,
+    pseudo_color = 3,
+    true_color   = 4,
+    direct_color = 5,
 };
 
 

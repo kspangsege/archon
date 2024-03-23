@@ -33,6 +33,7 @@
 #include <archon/core/features.h>
 #include <archon/core/assert.hpp>
 #include <archon/core/index_range.hpp>
+#include <archon/core/memory.hpp>
 #include <archon/core/buffer.hpp>
 #include <archon/core/string_buffer_contents.hpp>
 #include <archon/core/deque.hpp>
@@ -213,7 +214,7 @@ private:
 };
 
 
-template<class P> inline bool mask_match(const XVisualInfo& info)
+template<class P> inline bool mask_match(const XVisualInfo& info) noexcept
 {
     using packing_type = P;
     static_assert(packing_type::num_fields == 3);
@@ -224,7 +225,7 @@ template<class P> inline bool mask_match(const XVisualInfo& info)
 }
 
 
-template<class P> inline bool rev_mask_match(const XVisualInfo& info)
+template<class P> inline bool rev_mask_match(const XVisualInfo& info) noexcept
 {
     using packing_type = P;
     static_assert(packing_type::num_fields == 3);
@@ -235,7 +236,31 @@ template<class P> inline bool rev_mask_match(const XVisualInfo& info)
 }
 
 
-auto get_visual_class_name(int class_) -> const char*
+auto map_opt_visual_class(const std::optional<display::ConnectionConfigX11::VisualClass>& class_) noexcept ->
+    std::optional<int>
+{
+    if (ARCHON_LIKELY(!class_.has_value()))
+        return {};
+    switch (class_.value()) {
+        case display::ConnectionConfigX11::VisualClass::static_gray:
+            return StaticGray;
+        case display::ConnectionConfigX11::VisualClass::gray_scale:
+            return GrayScale;
+        case display::ConnectionConfigX11::VisualClass::static_color:
+            return StaticColor;
+        case display::ConnectionConfigX11::VisualClass::pseudo_color:
+            return PseudoColor;
+        case display::ConnectionConfigX11::VisualClass::true_color:
+            return TrueColor;
+        case display::ConnectionConfigX11::VisualClass::direct_color:
+            return DirectColor;
+    }
+    ARCHON_ASSERT_UNREACHABLE();
+    return {};
+}
+
+
+auto get_visual_class_name(int class_) noexcept -> const char*
 {
     switch (class_) {
         case StaticGray:
@@ -251,6 +276,7 @@ auto get_visual_class_name(int class_) -> const char*
         case DirectColor:
             return "DirectColor";
     }
+    ARCHON_ASSERT_UNREACHABLE();
     return nullptr;
 }
 
@@ -540,6 +566,16 @@ auto make_pixel_codec(const XVisualInfo& info, int bits_per_pixel, int num_bitpl
 }
 
 
+struct VisualSpec {
+    XVisualInfo info;
+    bool double_buffered;
+    bool opengl_supported;
+/*
+    Colormap colormap;            
+*/
+};
+
+
 #if HAVE_XRANDR
 
 struct ProtoScreen {
@@ -556,12 +592,9 @@ struct ProtoScreen {
 // One slot for each X11 screen
 struct ScreenSlot {
     bool is_initialized = false;
-    bool use_double_buffering = {};
-    XVisualInfo visual_info = {};
+    int screen = {};
     Window root = {};
-    Colormap colormap = {};
-    int bits_per_pixel = {};
-    int num_bitplanes = {};
+    core::Slab<VisualSpec> visual_specs;
 
 #if HAVE_XRANDR
     std::vector<ProtoScreen> screens;
@@ -649,6 +682,7 @@ public:
 
 private:
     const std::optional<int> m_depth_override;
+    const std::optional<int> m_class_override;
     const std::optional<VisualID> m_visual_override;
     const bool m_disable_double_buffering;
     const bool m_disable_glx_direct_rendering;
@@ -731,7 +765,11 @@ private:
 
     auto intern_string(const char*) noexcept -> Atom;
     auto ensure_screen_slot(int screen) const -> ScreenSlot&;
-    bool lookup_visual_info(int screen, int depth, VisualID visual_id, XVisualInfo&) const noexcept;
+    auto determine_visual_spec(const ScreenSlot&, bool enable_opengl) const -> const VisualSpec&;
+/*
+    auto determine_visual_info(bool enable_opengl) const -> XVisualInfo;                                           
+    bool lookup_visual_info(int screen, int depth, VisualID visual_id, XVisualInfo&) const noexcept;                                 
+*/
     bool do_process_events(const time_point_type* deadline, display::ConnectionEventHandler*);
     bool lookup_window(::Window window_id, WindowImpl*& window) noexcept;
     void track_pointer_grabs(::Window window_id, unsigned button, bool is_press);
@@ -750,6 +788,7 @@ class WindowImpl
 public:
     ConnectionImpl& conn;
     const ScreenSlot& screen_slot;
+    const VisualSpec& visual_spec;
     display::WindowEventHandler& event_handler;
     const int cookie;
 
@@ -757,11 +796,11 @@ public:
 
     bool has_pending_expose_event = false;
 
-    WindowImpl(ConnectionImpl&, const ScreenSlot&, display::WindowEventHandler&, int cookie,
+    WindowImpl(ConnectionImpl&, const ScreenSlot&, const VisualSpec&, display::WindowEventHandler&, int cookie,
                std::unique_ptr<const PixelCodec>) noexcept;
     ~WindowImpl() noexcept override final;
 
-    void create(display::Size size, const Config&, bool have_glx, bool disable_glx_direct_rendering);
+    void create(display::Size size, const Config&, bool enable_opengl, bool disable_glx_direct_rendering);
     auto ensure_graphics_context() noexcept -> GC;
 
     void show() override final;
@@ -874,8 +913,9 @@ inline ConnectionImpl::ConnectionImpl(const ImplementationImpl& impl_2, const st
                                       const display::ConnectionConfigX11& config) noexcept
     : impl(impl_2)
     , locale(locale_2)
-    , m_depth_override(config.depth)
-    , m_visual_override(config.visual)
+    , m_depth_override(config.visual_depth)
+    , m_class_override(map_opt_visual_class(config.visual_class))
+    , m_visual_override(config.visual_type)
     , m_disable_double_buffering(config.disable_double_buffering)
     , m_disable_glx_direct_rendering(config.disable_glx_direct_rendering)
 {
@@ -909,14 +949,6 @@ void ConnectionImpl::open(const display::ConnectionConfigX11& config)
 
     if (ARCHON_UNLIKELY(config.synchronous_mode))
         XSynchronize(dpy, True);
-
-    atom_wm_protocols            = intern_string("WM_PROTOCOLS");
-    atom_wm_delete_window        = intern_string("WM_DELETE_WINDOW");
-    atom_net_wm_state            = intern_string("_NET_WM_STATE");
-    atom_net_wm_state_fullscreen = intern_string("_NET_WM_STATE_FULLSCREEN");
-#if HAVE_XRANDR
-    atom_edid = intern_string(RR_PROPERTY_RANDR_EDID);
-#endif
 
 #if HAVE_XDBE
     {
@@ -1017,6 +1049,16 @@ void ConnectionImpl::open(const display::ConnectionConfigX11& config)
             m_pixmap_formats[format.depth] = format;
         }
     }
+
+    atom_wm_protocols            = intern_string("WM_PROTOCOLS");
+    atom_wm_delete_window        = intern_string("WM_DELETE_WINDOW");
+    atom_net_wm_state            = intern_string("_NET_WM_STATE");
+    atom_net_wm_state_fullscreen = intern_string("_NET_WM_STATE_FULLSCREEN");
+#if HAVE_XRANDR
+    atom_edid = intern_string(RR_PROPERTY_RANDR_EDID);
+#endif
+
+    m_screen_slots = std::make_unique<ScreenSlot[]>(std::size_t(ScreenCount(dpy))); // Throws
 }
 
 
@@ -1092,15 +1134,30 @@ auto ConnectionImpl::new_window(std::string_view title, display::Size size, disp
     else if (ARCHON_UNLIKELY(screen < 0 || screen >= int(ScreenCount(dpy)))) {
         throw std::invalid_argument("Bad display index");
     }
+    // FIXME: Tend to proper GLX visual selection                                                                                                                              
+    bool enable_opengl = false;
+    if (config.enable_opengl_rendering) {
+        if (ARCHON_UNLIKELY(!m_have_glx))
+            throw std::runtime_error("OpenGL rendering not available");
+        enable_opengl = true;
+    }
     ScreenSlot& screen_slot = ensure_screen_slot(screen); // Throws
+    const VisualSpec& visual_spec = determine_visual_spec(screen_slot, enable_opengl); // Throws
+    const XPixmapFormatValues* pixmap_format;
+    {
+        auto i = m_pixmap_formats.find(visual_spec.info.depth);
+        ARCHON_STEADY_ASSERT(i != m_pixmap_formats.end());
+        pixmap_format = &i->second;
+    }
     std::unique_ptr<const PixelCodec> pixel_codec;
     if (config.enable_basic_rendering) {
-        pixel_codec = make_pixel_codec(screen_slot.visual_info, screen_slot.bits_per_pixel, screen_slot.num_bitplanes,
+        int num_bitplanes = DisplayPlanes(dpy, screen);
+        pixel_codec = make_pixel_codec(visual_spec.info, pixmap_format->bits_per_pixel, num_bitplanes,
                                        locale); // Throws
     }
-    auto win = std::make_unique<WindowImpl>(*this, screen_slot, event_handler, config.cookie,
+    auto win = std::make_unique<WindowImpl>(*this, screen_slot, visual_spec, event_handler, config.cookie,
                                             std::move(pixel_codec)); // Throws
-    win->create(size, config, m_have_glx, m_disable_glx_direct_rendering); // Throws
+    win->create(size, config, enable_opengl, m_disable_glx_direct_rendering); // Throws
     win->set_title(title); // Throws
     if (ARCHON_UNLIKELY(config.fullscreen))
         win->set_fullscreen_mode(true); // Throws
@@ -1189,14 +1246,82 @@ inline auto ConnectionImpl::intern_string(const char* string) noexcept -> Atom
 
 auto ConnectionImpl::ensure_screen_slot(int screen) const -> ScreenSlot&
 {
-    if (ARCHON_UNLIKELY(!m_screen_slots))
-        m_screen_slots = std::make_unique<ScreenSlot[]>(std::size_t(ScreenCount(dpy))); // Throws
+    ARCHON_ASSERT(m_screen_slots);
     ARCHON_ASSERT(screen >= 0 && screen <= ScreenCount(dpy));
     ScreenSlot& slot = m_screen_slots[screen];
     if (ARCHON_UNLIKELY(!slot.is_initialized)) {
         ::Window root = RootWindow(dpy, screen);
+        slot.screen = screen;
         slot.root = root;
         m_x11_screens_by_root[root] = screen; // Throws
+
+        // Fetch information about supported visuals
+        core::FlatSet<core::Pair<int, VisualID>> double_buffered_visuals; // Key is (depth, visual)
+#if HAVE_XDBE
+        if (ARCHON_LIKELY(m_have_xdbe)) {
+            Drawable screen_specifiers[] = {
+                root,
+            };
+            int n = 1;
+            XdbeScreenVisualInfo* entries = XdbeGetVisualInfo(dpy, screen_specifiers, &n);
+            ARCHON_STEADY_ASSERT(entries);
+            ARCHON_STEADY_ASSERT(n == 1);
+            ARCHON_SCOPE_EXIT {
+                XdbeFreeVisualInfo(entries);
+            };
+            const XdbeScreenVisualInfo& entry = entries[0];
+            std::size_t n_2 = {};
+            core::int_cast(entry.count, n_2); // Throws
+            double_buffered_visuals.reserve(n_2); // Throws
+            for (std::size_t i = 0; i < n_2; ++i) {
+                const XdbeVisualInfo& subentry = entry.visinfo[i];
+                auto p = double_buffered_visuals.emplace(subentry.depth, subentry.visual);
+                bool was_inserted = p.second;
+                ARCHON_ASSERT(was_inserted);
+            }
+        }
+#endif // HAVE_XDBE
+        int n = {};
+        long vinfo_mask = VisualScreenMask;
+        XVisualInfo vinfo_template;
+        vinfo_template.screen = screen;
+        XVisualInfo* entries = XGetVisualInfo(dpy, vinfo_mask, &vinfo_template, &n);
+        if (ARCHON_LIKELY(entries)) {
+            ARCHON_SCOPE_EXIT {
+                XFree(entries);
+            };
+            std::size_t n_2 = {};
+            core::int_cast(n , n_2); // Throws
+            slot.visual_specs.recreate(n_2); // Throws
+            for (std::size_t i = 0; i < n_2; ++i) {
+                XVisualInfo& info = entries[i];
+                bool double_buffered = false;
+                {
+                    auto i = double_buffered_visuals.find(core::Pair(info.depth, info.visualid));
+                    if (i != double_buffered_visuals.end())
+                        double_buffered = true;
+                }
+                bool opengl_supported = false;
+#if HAVE_GLX
+                if (ARCHON_LIKELY(m_have_glx)) {
+                    int value = {};
+                    int ret = glXGetConfig(dpy, &info, GLX_USE_GL, &value);
+                    if (ARCHON_UNLIKELY(ret != 0))
+                        throw std::runtime_error("glXGetConfig() failed");
+                    if (value)
+                        opengl_supported = true;
+                }
+#endif // HAVE_GLX
+                VisualSpec spec = {
+                    info,
+                    double_buffered,
+                    opengl_supported,
+                };
+                slot.visual_specs.add(spec);
+            }
+        }
+
+/*       
 
         VisualID default_visualid = XVisualIDFromVisual(DefaultVisual(dpy, screen));
         XVisualInfo visual_info = {};
@@ -1238,7 +1363,6 @@ auto ConnectionImpl::ensure_screen_slot(int screen) const -> ScreenSlot&
             ARCHON_STEADY_ASSERT(i != m_pixmap_formats.end());
             const XPixmapFormatValues& format = i->second;
             slot.bits_per_pixel = format.bits_per_pixel;
-            slot.num_bitplanes = DisplayPlanes(dpy, screen);
         }
 
         bool use_double_buffering = false;
@@ -1264,6 +1388,8 @@ auto ConnectionImpl::ensure_screen_slot(int screen) const -> ScreenSlot&
 #endif // HAVE_XDBE
         slot.use_double_buffering = use_double_buffering;
 
+*/
+
 #if HAVE_XRANDR
         if (ARCHON_LIKELY(m_have_xrandr)) {
             int mask = RROutputChangeNotifyMask | RRCrtcChangeNotifyMask;
@@ -1273,9 +1399,211 @@ auto ConnectionImpl::ensure_screen_slot(int screen) const -> ScreenSlot&
 #endif // HAVE_XRANDR
 
         slot.is_initialized = true;
-        colormap_owned = false;
+//        colormap_owned = false;                
     }
     return slot;
+}
+
+
+auto ConnectionImpl::determine_visual_spec(const ScreenSlot& screen_slot,
+                                           bool enable_opengl) const -> const VisualSpec&
+{
+    // FIXME: Have user tell whether a depth buffer is needed (default should be that it is needed)       
+    // FIXME: Have user tell whether a stencil buffer is needed (default should be that it is not needed)       
+    // FIXME: Have user tell whether an accumulation buffer is needed (default should be that it is not needed)       
+    auto filter = [&](const VisualSpec& spec) {
+        if (m_depth_override.has_value() && spec.info.depth != m_depth_override.value())
+            return false;
+        if (m_class_override.has_value() && spec.info.c_class != m_class_override.value())
+            return false;
+        if (m_visual_override.has_value() && spec.info.visualid != m_visual_override.value())
+            return false;
+        if (enable_opengl && !spec.opengl_supported)
+            return false;
+        return true;
+    };
+    auto get_class_value = [](int class_) {
+        switch (class_) {
+            case StaticGray:
+                return 1;
+            case GrayScale:
+                return 0;
+            case StaticColor:
+                return 3;
+            case PseudoColor:
+                return 2;
+            case TrueColor:
+                return 5;
+            case DirectColor:
+                return 4;
+        }
+    };
+    bool prefer_default_visual = true;             
+    bool prefer_default_depth = true;             
+    int screen = screen_slot.screen;
+    VisualID default_visual = XVisualIDFromVisual(DefaultVisual(dpy, screen));
+    int default_depth = DefaultDepth(dpy, screen);
+    auto less = [&](const VisualSpec& a, const VisualSpec& b) {
+        // Criterion: Prefer default visual
+        int a_1 = 0, b_1 = 0;
+        if (prefer_default_visual) {
+            if (a.info.visualid == default_visual)
+                a_1 = 1;
+            if (b.info.visualid == default_visual)
+                b_1 = 1;
+        }
+
+        // Criterion: Prefer default depth
+        int a_2 = 0, b_2 = 0;
+        int a_3 = 0, b_3 = 0;
+        if (prefer_default_depth) {
+            if (a.info.depth >= default_depth) {
+                a_2 = 1;
+                a_3 = -a.info.depth; // Non-positive
+            }
+            if (b.info.depth >= default_depth) {
+                b_2 = 1;
+                b_3 = -b.info.depth; // Non-positive
+            }
+        }
+
+        // Criterion: Best class
+        int a_4 = get_class_value(a.info.c_class);
+        int b_4 = get_class_value(b.info.c_class);
+
+        // Criterion: Greatest depth
+        int a_5 = a.info.depth;
+        int b_5 = b.info.depth;
+
+        // FIXME: If depth buffer desired, prefer highest number of bits in depth buffer, else prefer lowest number of bits.    
+        // FIXME: If stencil buffer desired, prefer highest number of bits in stencil buffer, else prefer lowest number of bits.    
+        // FIXME: If accum buffer desired, prefer highest number of bits in accum buffer, else prefer lowest number of bits.    
+
+        // Criterion: Prefer no OpenGL support
+        int a_6 = (a.opengl_supported ? 0 : 1);
+        int b_6 = (b.opengl_supported ? 0 : 1);
+
+        int a_0[] = { a_1, a_2, a_3, a_4, a_5, a_6 };
+        int b_0[] = { b_1, b_2, b_3, b_4, b_5, b_6 };
+        return std::lexicographical_compare(std::begin(a_0), std::end(a_0), std::begin(b_0), std::end(b_0));
+    };
+    const VisualSpec* best = nullptr;
+    for (const VisualSpec& spec : screen_slot.visual_specs) {
+        bool have_new_best = (filter(spec) && (!best || less(*best, spec)));
+        if (ARCHON_LIKELY(!have_new_best))
+            continue;
+        best = &spec;
+    }
+    if (best)
+        return *best;
+    throw std::runtime_error("No suitable X11 visual found");
+}
+
+
+/*    
+auto ConnectionImpl::determine_visual_info(const ScreenSlot& screen_slot, bool enable_opengl) const -> XVisualInfo                
+{
+    int screen = screen_slot.screen;
+
+    // If depth is specified:
+    //   If visual is specified:
+    //     Verify combination and opengl support
+    //   Else:
+    //     Pick visual for depth
+    // Else:
+    //   If visual is specified:
+    //     Pick depth for visual
+    //   Else:
+    //     If not enable_opengl or OpenGL is supported on default depth and default visual:
+    //       Use default depth and default visual
+    //     Else:
+    //       Pick depth and visual
+
+
+    // Pick depth and visual:
+    //   If depth is specified:
+    //     Require the specified depth
+    //   If class is specified:
+    //     Require the specified class
+    //   If visual is specified:
+    //     Require the specified visual
+    //   If enable_opengl:
+    //     Require OpenGL to be supported
+    //   If nothing matches:
+    //     Fail
+    //   Pick best match
+    //     1: If prefer_default_visual: INC: 1 if visual is default visual, else 0 (only if prefer_dfault_visual is true)
+    //     2: If prefer_default_depth: INC: (1, -D) if D is greater than or equal to zero, else (0, 0). Here, D is depth minus default depth.
+    //     3: INC: depth
+    //     4: Class
+    //     5: If OpenGL: INC: Total number of color+alpha bits
+    //     6: If OpenGL: DEC: Total number of accum bits
+
+    // Depth buffer?                  
+
+
+    int depth;
+    if (m_depth_override.has_value()) {
+        depth = m_depth_override.value();
+    }
+    else {
+        depth = DefaultDepth(dpy, screen);
+    }
+
+    VisualID visualid;
+    if (m_visual_override.has_value()) {
+        visualid = m_visual_override.value();
+    }
+    else {
+        visualid = XVisualIDFromVisual(DefaultVisual(dpy, screen));
+    }
+
+    if (ARCHON_UNLIKELY(!lookup_visual_info(screen, depth, visual, visual_info))) {
+        ARCHON_STEADY_ASSERT(m_depth_override.has_value() || m_visual_override.has_value());
+        std::string message = core::format(locale, "Combination of selected depth (%s) and selected visual "
+                                           "type (0x%s) is invalid for targeted screen (%s)", depth,
+                                           core::as_hex_int(visualid, 2), screen); // Throws
+        throw std::runtime_error(message);
+    }
+
+    int glXGetConfig(Display * dpy, XVisualInfo * vis, GLX_USE_GL, int * value);
+
+    // Determine depth
+    // If not override:
+    //   Fetch default visual
+    //   If not OpenGL:
+    //     Use default visual
+    //   Else:
+    //     If default visual supports OpenGL:
+    //       Use default visual
+    //     Else:
+    //       Find best visual that supports OpenGL
+    // Lookup visual info
+
+
+    // 
+
+
+/
+        VisualID default_visualid = XVisualIDFromVisual(DefaultVisual(dpy, screen));
+        XVisualInfo visual_info = {};
+        {
+            int depth = DefaultDepth(dpy, screen);
+            VisualID visual = default_visualid;
+            if (m_depth_override.has_value())
+                depth = m_depth_override.value();
+            if (m_visual_override.has_value())
+                visual = m_visual_override.value();
+            if (ARCHON_UNLIKELY(!lookup_visual_info(screen, depth, visual, visual_info))) {
+                ARCHON_STEADY_ASSERT(m_depth_override.has_value() || m_visual_override.has_value());
+                std::string message = core::format(locale, "Combination of selected depth (%s) and selected visual "
+                                                   "type (0x%s) is invalid for targeted screen (%s)", depth,
+                                                   core::as_hex_int(visual, 2), screen); // Throws
+                throw std::runtime_error(message);
+            }
+        }
+        slot.visual_info = visual_info;
+/
 }
 
 
@@ -1297,6 +1625,7 @@ bool ConnectionImpl::lookup_visual_info(int screen, int depth, VisualID visual_i
     }
     return false;
 }
+*/
 
 
 bool ConnectionImpl::do_process_events(const time_point_type* deadline,
@@ -1907,11 +2236,12 @@ auto ConnectionImpl::ensure_edid_parser() const -> const impl::EdidParser&
 
 
 
-inline WindowImpl::WindowImpl(ConnectionImpl& conn_2, const ScreenSlot& screen_slot_2,
+inline WindowImpl::WindowImpl(ConnectionImpl& conn_2, const ScreenSlot& screen_slot_2, const VisualSpec& visual_spec_2,
                               display::WindowEventHandler& event_handler_2, int cookie_2,
                               std::unique_ptr<const PixelCodec> pixel_codec) noexcept
     : conn(conn_2)
     , screen_slot(screen_slot_2)
+    , visual_spec(visual_spec_2)
     , event_handler(event_handler_2)
     , cookie(cookie_2)
     , m_pixel_codec(std::move(pixel_codec))
@@ -1937,7 +2267,8 @@ WindowImpl::~WindowImpl() noexcept
 }
 
 
-void WindowImpl::create(display::Size size, const Config& config, bool have_glx, bool disable_glx_direct_rendering)
+void WindowImpl::create(display::Size size, const Config& config, bool enable_opengl,
+                        bool disable_glx_direct_rendering)
 {
     display::Size adjusted_size = size;
     bool has_minimum_size = (config.resizable && config.minimum_size.has_value());
@@ -1949,9 +2280,9 @@ void WindowImpl::create(display::Size size, const Config& config, bool have_glx,
     unsigned width  = unsigned(adjusted_size.width);
     unsigned height = unsigned(adjusted_size.height);
     unsigned border_width = 0;
-    int depth = screen_slot.visual_info.depth;
+    int depth = visual_spec.info.depth;
     unsigned class_ = InputOutput;
-    Visual* visual = screen_slot.visual_info.visual;
+    Visual* visual = visual_spec.info.visual;
     unsigned long valuemask = CWEventMask | CWColormap;
     XSetWindowAttributes attributes = {};
     attributes.event_mask = (KeyPressMask | KeyReleaseMask |
@@ -1962,7 +2293,7 @@ void WindowImpl::create(display::Size size, const Config& config, bool have_glx,
                              ExposureMask |
                              StructureNotifyMask |
                              KeymapStateMask);
-    attributes.colormap = screen_slot.colormap;
+    attributes.colormap = visual_spec.colormap;
     win = XCreateWindow(conn.dpy, parent, x, y, width, height, border_width, depth, class_, visual,
                         valuemask, &attributes);
 
@@ -1996,7 +2327,7 @@ void WindowImpl::create(display::Size size, const Config& config, bool have_glx,
     // Enable double buffering
     m_drawable = win;
 #if HAVE_XDBE
-    if (ARCHON_LIKELY(screen_slot.use_double_buffering)) {
+    if (ARCHON_LIKELY(visual_spec.use_double_buffering)) {
         m_swap_action = XdbeUndefined; // Contents of swapped-out buffer becomes undefined
         XdbeBackBuffer back_buffer = XdbeAllocateBackBufferName(conn.dpy, win, m_swap_action);
         m_drawable = back_buffer;
@@ -2004,18 +2335,10 @@ void WindowImpl::create(display::Size size, const Config& config, bool have_glx,
     }
 #endif // HAVE_XDBE
 
-    // FIXME: Tend to proper GLX visual selection                                                                                                                                                                            
-    bool enable_opengl = false;
-    if (config.enable_opengl_rendering) {
-        if (ARCHON_UNLIKELY(!have_glx))
-            throw std::runtime_error("OpenGL rendering not available");
-        enable_opengl = true;
-    }
-
     // Create OpenGL rendering context
 #if HAVE_GLX
     if (enable_opengl) {
-        XVisualInfo vis = screen_slot.visual_info;
+        XVisualInfo vis = visual_spec.info;
         GLXContext share_list = nullptr; // No sharing
         Bool direct = Bool(!disable_glx_direct_rendering);
         GLXContext ctx = glXCreateContext(conn.dpy, &vis, share_list, direct);
@@ -2244,7 +2567,7 @@ void TextureImpl::create(const PixelCodec& pixel_codec)
 {
     if (ARCHON_LIKELY(!size.is_empty())) {
         pixmap = XCreatePixmap(win.conn.dpy, win.screen_slot.root, unsigned(size.width), unsigned(size.height),
-                               win.screen_slot.visual_info.depth);
+                               win.visual_spec.info.depth);
         pixel_codec.create_image(size, m_img, m_img_data); // Throws
     }
 }
@@ -2264,7 +2587,7 @@ void TextureImpl::put_image(const image::Image& img)
         // one or more pixels. The ZPixmap format supports the depths of any offered
         // visual. XPutImage() can handle byte swapping and changes in row alignment
         // (`scanline_pad` / `bitmap_pad`).
-        int scanline_pad = win.screen_slot.bits_per_pixel;
+        int scanline_pad = win.pixel_format.bits_per_pixel;
         XImage img_2;
         img_2.width            = size.width;
         img_2.height           = size.height;
@@ -2275,12 +2598,12 @@ void TextureImpl::put_image(const image::Image& img)
         img_2.bitmap_unit      = BitmapUnit(win.conn.dpy); // Immaterial
         img_2.bitmap_bit_order = BitmapBitOrder(win.conn.dpy); // Immaterial
         img_2.bitmap_pad       = scanline_pad;
-        img_2.depth            = win.screen_slot.visual_info.depth;
+        img_2.depth            = win.visual_spec.info.depth;
         img_2.bytes_per_line   = 0;
-        img_2.bits_per_pixel   = win.screen_slot.bits_per_pixel;
-        img_2.red_mask         = win.screen_slot.visual_info.red_mask;
-        img_2.green_mask       = win.screen_slot.visual_info.green_mask;
-        img_2.blue_mask        = win.screen_slot.visual_info.blue_mask;
+        img_2.bits_per_pixel   = win.pixel_format.bits_per_pixel;
+        img_2.red_mask         = win.visual_spec.info.red_mask;
+        img_2.green_mask       = win.visual_spec.info.green_mask;
+        img_2.blue_mask        = win.visual_spec.info.blue_mask;
         Status status = XInitImage(&img_2);
         if (ARCHON_UNLIKELY(status == 0))
             throw std::runtime_error("XInitImage() failed");
