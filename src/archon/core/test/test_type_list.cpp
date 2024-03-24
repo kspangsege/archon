@@ -81,11 +81,21 @@ struct Predicate4 {
 };
 
 
-struct Function {
+struct Function1 {
     template<class T, std::size_t I>
     static void exec(std::vector<std::pair<const std::type_info*, std::size_t>>& types)
     {
         types.emplace_back(&typeid(T), I);
+    }
+};
+
+
+template<class U> struct Function2 {
+    template<class T, std::size_t I>
+    static bool exec(std::vector<std::pair<const std::type_info*, std::size_t>>& types)
+    {
+        types.emplace_back(&typeid(T), I);
+        return !std::is_same_v<T, U>;
     }
 };
 
@@ -107,21 +117,40 @@ ARCHON_TEST(Core_TypeList_HasTypeA)
     std::vector expected_2 {
         std::pair(&typeid(short),    std::size_t(0)),
         std::pair(&typeid(int),      std::size_t(1)),
-        std::pair(&typeid(unsigned), std::size_t(2))
+        std::pair(&typeid(unsigned), std::size_t(2)),
     };
     ARCHON_CHECK(types_2 == expected_2);
 }
 
 
-ARCHON_TEST(Core_TypeList_ForEachType)
+ARCHON_TEST(Core_TypeList_ForEachTypeAlt)
 {
-    // FIXME: Also test core::for_each_type_a()      
     std::vector<std::pair<const std::type_info*, std::size_t>> types;
-    core::for_each_type<Types1, Function>(types);
+    core::for_each_type_alt<Types1, Function1>(types);
     std::vector expected {
         std::pair(&typeid(short),    std::size_t(0)),
         std::pair(&typeid(int),      std::size_t(1)),
-        std::pair(&typeid(unsigned), std::size_t(2))
+        std::pair(&typeid(unsigned), std::size_t(2)),
     };
     ARCHON_CHECK(types == expected);
+}
+
+
+ARCHON_TEST(Core_TypeList_ForEachTypeAltA)
+{
+    std::vector<std::pair<const std::type_info*, std::size_t>> types;
+    ARCHON_CHECK((core::for_each_type_alt_a<Types1, Function2<long>>(types)));
+    std::vector expected_1 {
+        std::pair(&typeid(short),    std::size_t(0)),
+        std::pair(&typeid(int),      std::size_t(1)),
+        std::pair(&typeid(unsigned), std::size_t(2)),
+    };
+    ARCHON_CHECK(types == expected_1);
+    type.clear();
+    ARCHON_CHECK_NOT((core::for_each_type_alt_a<Types1, Function2<int>>(types)));
+    std::vector expected_2 {
+        std::pair(&typeid(short),    std::size_t(0)),
+        std::pair(&typeid(int),      std::size_t(1)),
+    };
+    ARCHON_CHECK(types == expected_2);
 }

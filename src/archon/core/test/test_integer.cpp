@@ -92,7 +92,7 @@ struct TestFindMostSignificantBitPos {
 
 ARCHON_TEST(Core_Integer_FindMostSignificantBitPos)
 {
-    core::for_each_type<Types, TestFindMostSignificantBitPos>(test_context);
+    core::for_each_type_alt<Types, TestFindMostSignificantBitPos>(test_context);
 }
 
 
@@ -875,7 +875,7 @@ struct MaskTest {
 
 ARCHON_TEST(Core_Integer_Mask)
 {
-    core::for_each_type<MaskTypes, MaskTest>(test_context);
+    core::for_each_type_alt<MaskTypes, MaskTest>(test_context);
 }
 
 
@@ -1027,7 +1027,7 @@ struct TestTwoTypes1 {
     template<class T_1, std::size_t>
     static void exec(check::TestContext& test_context, const std::set<core::SuperInt>& values)
     {
-        core::for_each_type<Types, TestTwoTypes2<T_1>>(test_context, values);
+        core::for_each_type_alt<Types, TestTwoTypes2<T_1>>(test_context, values);
     }
 };
 
@@ -1045,10 +1045,10 @@ ARCHON_TEST(Core_Integer_General)
         values.insert(core::SuperInt(i));
 
     // Add min and max for all integer types to set (worst case 30)
-    core::for_each_type<Types, AddMinMax>(values);
+    core::for_each_type_alt<Types, AddMinMax>(values);
 
     // Add half of min and half of max for all integer types to set (worst case 56)
-    core::for_each_type<Types, AddHalfMinMax>(values);
+    core::for_each_type_alt<Types, AddHalfMinMax>(values);
 
     // Add x-1 and x+1 to the set for all x in set (worst case 168)
     {
@@ -1087,7 +1087,7 @@ ARCHON_TEST(Core_Integer_General)
     for (core::SuperInt value : values)
         test_context.logger.detail("Value: %s", value);
 
-    core::for_each_type<Types, TestTwoTypes1>(test_context, values);
+    core::for_each_type_alt<Types, TestTwoTypes1>(test_context, values);
 }
 
 
@@ -1230,5 +1230,5 @@ struct TestSquareRoot {
 ARCHON_TEST(Core_Integer_SquareRoot)
 {
     std::mt19937_64 random(test_context.seed_seq());
-    core::for_each_type<Types, TestSquareRoot>(test_context, random);
+    core::for_each_type_alt<Types, TestSquareRoot>(test_context, random);
 }
