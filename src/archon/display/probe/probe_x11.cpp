@@ -823,8 +823,6 @@ int main(int argc, char* argv[])
         out << "no"; // Throws
     };
 
-    int num_bitplanes = DisplayPlanes(dpy, screen);
-
     logger.info("Display string:                     %s", DisplayString(dpy)); // Throws
     logger.info("Server vendor:                      %s", ServerVendor(dpy)); // Throws
     logger.info("Vendor release:                     %s", core::as_int(VendorRelease(dpy))); // Throws
@@ -855,7 +853,6 @@ int main(int argc, char* argv[])
     logger.info("Supported depths on screen:         %s", core::as_list(depths)); // Throws
     logger.info("Default depth of screen:            %s", core::as_int(DefaultDepth(dpy, screen))); // Throws
     logger.info("Selected depth:                     %s", core::as_int(depth)); // Throws
-    logger.info("Bit-planes of screen:               %s", core::as_int(num_bitplanes)); // Throws
     logger.info("Default visual of screen:           0x%s",
                 core::as_hex_int(XVisualIDFromVisual(DefaultVisual(dpy, screen)))); // Throws
     logger.info("Selected visual:                    0x%s", core::as_hex_int(visual_id)); // Throws
@@ -1111,7 +1108,7 @@ int main(int argc, char* argv[])
             if (visual_info.c_class == StaticColor) {
                 if (ARCHON_UNLIKELY(visual_info.colormap_size != 256))
                     goto unexpected_colormap_size;
-                if (zero_mask_match(visual_info) || true) {                            
+                if (zero_mask_match(visual_info)) {
                     int n = 1 << 8;
                     auto colors = std::make_unique<XColor[]>(n); // Throws
                     for (int i = 0; i < n; ++i) {
@@ -1189,8 +1186,6 @@ int main(int argc, char* argv[])
                 goto unsupported_channel_masks;
             }
             if (visual_info.c_class == TrueColor || visual_info.c_class == DirectColor) {
-                if (ARCHON_UNLIKELY(num_bitplanes != 8))
-                    goto unsupported_num_bitplanes;
                 if (ARCHON_UNLIKELY(visual_info.colormap_size != 8))
                     goto unexpected_colormap_size;
                 BitFields bit_fields = {};
@@ -1228,8 +1223,6 @@ int main(int argc, char* argv[])
                 goto unsupported_bits_per_pixel;
             constexpr int bytes_per_pixel = 2;
             if (visual_info.c_class == TrueColor || visual_info.c_class == DirectColor) {
-                if (ARCHON_UNLIKELY(num_bitplanes != 15))
-                    goto unsupported_num_bitplanes;
                 if (ARCHON_UNLIKELY(visual_info.colormap_size != 32))
                     goto unexpected_colormap_size;
                 BitFields bit_fields = {};
@@ -1267,8 +1260,6 @@ int main(int argc, char* argv[])
                 goto unsupported_bits_per_pixel;
             constexpr int bytes_per_pixel = 2;
             if (visual_info.c_class == TrueColor || visual_info.c_class == DirectColor) {
-                if (ARCHON_UNLIKELY(num_bitplanes != 16))
-                    goto unsupported_num_bitplanes;
                 if (ARCHON_UNLIKELY(visual_info.colormap_size != 64))
                     goto unexpected_colormap_size;
                 BitFields bit_fields = {};
@@ -1306,8 +1297,6 @@ int main(int argc, char* argv[])
                 goto unsupported_bits_per_pixel;
             constexpr int bytes_per_pixel = 4;
             if (visual_info.c_class == TrueColor || visual_info.c_class == DirectColor) {
-                if (ARCHON_UNLIKELY(num_bitplanes != 24))
-                    goto unsupported_num_bitplanes;
                 if (ARCHON_UNLIKELY(visual_info.colormap_size != 256))
                     goto unexpected_colormap_size;
                 BitFields bit_fields = {};
@@ -1359,11 +1348,6 @@ int main(int argc, char* argv[])
         logger.error("Unsupported channel masks in visual 0x%s: red = %s, green = %s, blue = %s",
                      core::as_hex_int(visual_id), core::as_hex_int(visual_info.red_mask),
                      core::as_hex_int(visual_info.green_mask), core::as_hex_int(visual_info.blue_mask)); // Throws
-        return EXIT_FAILURE;
-
-      unsupported_num_bitplanes:
-        logger.error("Unsupported visual %s for number of bit-planes: %s", core::as_hex_int(visual_id),
-                     num_bitplanes); // Throws
         return EXIT_FAILURE;
 
       unexpected_colormap_size:

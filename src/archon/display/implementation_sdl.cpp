@@ -125,7 +125,7 @@ bool rev_map_key(display::Key, display::KeyCode&) noexcept;
 auto map_mouse_button(Uint8 button) noexcept -> display::MouseButton;
 
 
-class ImplementationImpl
+class ImplementationImpl final
     : public display::Implementation {
 public:
     mutable std::mutex mutex;
@@ -134,29 +134,28 @@ public:
     ImplementationImpl(Slot&) noexcept;
 
     auto new_connection(const std::locale&, const display::Connection::Config&) const ->
-        std::unique_ptr<display::Connection> override final;
-    auto get_slot() const noexcept -> const Slot& override final;
+        std::unique_ptr<display::Connection> override;
+    auto get_slot() const noexcept -> const Slot& override;
 
 private:
     const Slot& m_slot;
 };
 
 
-class SlotImpl
+class SlotImpl final
     : public display::Implementation::Slot {
 public:
     SlotImpl() noexcept;
 
-    auto ident() const noexcept -> std::string_view override final;
-    auto get_implementation_a(const display::Guarantees&) const noexcept ->
-        const display::Implementation* override final;
+    auto ident() const noexcept -> std::string_view override;
+    auto get_implementation_a(const display::Guarantees&) const noexcept -> const display::Implementation* override;
 
 private:
     ImplementationImpl m_impl;
 };
 
 
-class ConnectionImpl
+class ConnectionImpl final
     : private display::ConnectionEventHandler
     , public display::Connection {
 public:
@@ -164,24 +163,24 @@ public:
     const std::locale locale;
 
     ConnectionImpl(const ImplementationImpl&, const std::locale&) noexcept;
-    ~ConnectionImpl() noexcept override final;
+    ~ConnectionImpl() noexcept override;
 
     void open();
     void register_window(Uint32 id, WindowImpl&);
     void unregister_window(Uint32 id) noexcept;
 
-    bool try_map_key_to_key_code(display::Key, display::KeyCode&) const override final;
-    bool try_map_key_code_to_key(display::KeyCode, display::Key&) const override final;
-    bool try_get_key_name(display::KeyCode, std::string_view&) const override final;
+    bool try_map_key_to_key_code(display::Key, display::KeyCode&) const override;
+    bool try_map_key_code_to_key(display::KeyCode, display::Key&) const override;
+    bool try_get_key_name(display::KeyCode, std::string_view&) const override;
     auto new_window(std::string_view, display::Size, display::WindowEventHandler&, const display::Window::Config&) ->
-        std::unique_ptr<display::Window> override final;
-    void process_events(display::ConnectionEventHandler*) override final;
-    bool process_events(time_point_type, display::ConnectionEventHandler*) override final;
-    int get_num_displays() const override final;
-    int get_default_display() const override final;
+        std::unique_ptr<display::Window> override;
+    void process_events(display::ConnectionEventHandler*) override;
+    bool process_events(time_point_type, display::ConnectionEventHandler*) override;
+    int get_num_displays() const override;
+    int get_default_display() const override;
     bool try_get_display_conf(int, core::Buffer<display::Screen>&, core::Buffer<char>&,
-                              std::size_t&, bool&) const override final;
-    auto get_implementation() const noexcept -> const display::Implementation& override final;
+                              std::size_t&, bool&) const override;
+    auto get_implementation() const noexcept -> const display::Implementation& override;
 
 private:
     using millis_type = std::chrono::milliseconds;
@@ -217,7 +216,7 @@ private:
 };
 
 
-class WindowImpl
+class WindowImpl final
     : public display::Window {
 public:
     ConnectionImpl& conn;
@@ -225,25 +224,25 @@ public:
     const int cookie;
 
     WindowImpl(ConnectionImpl&, display::WindowEventHandler&, int cookie) noexcept;
-    ~WindowImpl() noexcept override final;
+    ~WindowImpl() noexcept override;
 
     void create(std::string_view title, display::Size size, const Config&);
     auto ensure_renderer() -> SDL_Renderer*;
     void set_draw_color(SDL_Renderer* renderer, util::Color color);
 
-    void show() override final;
-    void hide() override final;
-    void set_title(std::string_view) override final;
-    void set_size(display::Size) override final;
-    void set_fullscreen_mode(bool) override final;
-    void fill(util::Color) override final;
-    void fill(util::Color, const display::Box&) override final;
-    auto new_texture(display::Size) -> std::unique_ptr<display::Texture> override final;
-    void put_texture(const display::Texture&, const display::Pos&) override final;
-    void put_texture(const display::Texture&, const display::Box&, const display::Pos&) override final;
-    void present() override final;
-    void opengl_make_current() override final;
-    void opengl_swap_buffers() override final;
+    void show() override;
+    void hide() override;
+    void set_title(std::string_view) override;
+    void set_size(display::Size) override;
+    void set_fullscreen_mode(bool) override;
+    void fill(util::Color) override;
+    void fill(util::Color, const display::Box&) override;
+    auto new_texture(display::Size) -> std::unique_ptr<display::Texture> override;
+    void put_texture(const display::Texture&, const display::Pos&) override;
+    void put_texture(const display::Texture&, const display::Box&, const display::Pos&) override;
+    void present() override;
+    void opengl_make_current() override;
+    void opengl_swap_buffers() override;
 
 private:
     bool m_have_minimum_size = false;
@@ -258,19 +257,19 @@ private:
 };
 
 
-class TextureImpl
+class TextureImpl final
     : public display::Texture {
 public:
     WindowImpl& win;
     const display::Size size;
 
     TextureImpl(WindowImpl&, const display::Size& size) noexcept;
-    ~TextureImpl() noexcept override final;
+    ~TextureImpl() noexcept override;
 
     void create();
     auto get() const noexcept -> SDL_Texture*;
 
-    void put_image(const image::Image&) override final;
+    void put_image(const image::Image&) override;
 
 private:
     SDL_Texture* m_tex = nullptr;
@@ -1474,12 +1473,11 @@ inline auto map_mouse_button(Uint8 button) noexcept -> display::MouseButton
 #else // !HAVE_SDL
 
 
-class SlotImpl
+class SlotImpl final
     : public display::Implementation::Slot {
 public:
-    auto ident() const noexcept -> std::string_view override final;
-    auto get_implementation_a(const display::Guarantees&) const noexcept ->
-        const display::Implementation* override final;
+    auto ident() const noexcept -> std::string_view override;
+    auto get_implementation_a(const display::Guarantees&) const noexcept -> const display::Implementation* override;
 };
 
 

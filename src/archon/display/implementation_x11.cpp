@@ -214,6 +214,14 @@ private:
 };
 
 
+/*          
+inline bool zero_mask_match(const XVisualInfo& info) noexcept
+{
+    return (info.red_mask == 0 && info.green_mask == 0 && info.blue_mask == 0);
+}
+*/
+
+
 template<class P> inline bool mask_match(const XVisualInfo& info) noexcept
 {
     using packing_type = P;
@@ -289,7 +297,8 @@ public:
 };
 
 
-template<class T, class P, int N, bool R> class DirectPixelCodec
+/*                 
+template<class T, class P, int N, bool R> class DirectGrayPixelCodec final
     : public PixelCodec {
 public:
     using compound_type = T;
@@ -297,13 +306,27 @@ public:
     static constexpr int bytes_per_pixel = N;
     static constexpr bool reverse_channel_order = R;
 
-    auto intern_color(util::Color) const -> unsigned long override final;
-    void create_image(display::Size, std::unique_ptr<image::WritableImage>&, char*&) const override final;
+    auto intern_color(util::Color) const -> unsigned long override;
+    void create_image(display::Size, std::unique_ptr<image::WritableImage>&, char*&) const override;
+};
+*/
+
+
+template<class T, class P, int N, bool R> class DirectColorPixelCodec final
+    : public PixelCodec {
+public:
+    using compound_type = T;
+    using packing_type = P;
+    static constexpr int bytes_per_pixel = N;
+    static constexpr bool reverse_channel_order = R;
+
+    auto intern_color(util::Color) const -> unsigned long override;
+    void create_image(display::Size, std::unique_ptr<image::WritableImage>&, char*&) const override;
 };
 
 
 template<class T, class P, int N, bool R>
-auto DirectPixelCodec<T, P, N, R>::intern_color(util::Color color) const -> unsigned long
+auto DirectColorPixelCodec<T, P, N, R>::intern_color(util::Color color) const -> unsigned long
 {
     using channel_packing_type = P;
     static_assert(channel_packing_type::num_fields == 3);
@@ -335,8 +358,8 @@ auto DirectPixelCodec<T, P, N, R>::intern_color(util::Color color) const -> unsi
 
 
 template<class T, class P, int N, bool R>
-void DirectPixelCodec<T, P, N, R>::create_image(display::Size size, std::unique_ptr<image::WritableImage>& img,
-                                                char*& data) const
+void DirectColorPixelCodec<T, P, N, R>::create_image(display::Size size, std::unique_ptr<image::WritableImage>& img,
+                                                     char*& data) const
 {
     using word_type = char;
     constexpr int bits_per_word = 8;
@@ -353,7 +376,7 @@ void DirectPixelCodec<T, P, N, R>::create_image(display::Size size, std::unique_
 }
 
 
-auto make_pixel_codec(const XVisualInfo& info, int bits_per_pixel, int num_bitplanes,
+auto make_pixel_codec(const XVisualInfo& info, int bits_per_pixel,
                       const std::locale& locale) -> std::unique_ptr<PixelCodec>
 {
     std::string msg;
@@ -366,7 +389,7 @@ auto make_pixel_codec(const XVisualInfo& info, int bits_per_pixel, int num_bitpl
         if (info.c_class == StaticColor) {
             if (ARCHON_UNLIKELY(info.colormap_size != 256))
                 goto unexpected_colormap_size;
-            if (zero_mask_match(info) || true) {                            
+            if (zero_mask_match(info)) {
                 int n = 1 << 8;
                 auto colors = std::make_unique<XColor[]>(n); // Throws
                 for (int i = 0; i < n; ++i) {
@@ -428,36 +451,28 @@ auto make_pixel_codec(const XVisualInfo& info, int bits_per_pixel, int num_bitpl
             }
             goto unsupported_channel_masks;
         }
+*/
+/*            
         if (info.c_class == StaticGray || info.c_class == GrayScale) {
             if (ARCHON_UNLIKELY(info.colormap_size != 256))
                 goto unexpected_colormap_size;
-            if (zero_mask_match(info)) {
-                if (info.c_class == GrayScale) {
-                    setup_gray_scale_colormap(dpy, colormap, depth, !preallocate_colors,
-                                              use_weird_palette); // Throws
-                }
-                auto img = make_lum_image(img_size); // Throws
-                data = img->get_buffer().data();
-                img_2 = std::move(img);
-                goto matched;
-            }
+            if (ARCHON_LIKELY(zero_mask_match(info)))
+                return std::make_unique<DirectGrayPixelCodec<image::int8_type, 8, bytes_per_pixel>>(); // Throws
             goto unsupported_channel_masks;
         }
 */
         if (info.c_class == TrueColor || info.c_class == DirectColor) {
-            if (ARCHON_UNLIKELY(num_bitplanes != 8))
-                goto unsupported_num_bitplanes;
             if (ARCHON_UNLIKELY(info.colormap_size != 8))
                 goto unexpected_colormap_size;
             if (mask_match<image::ChannelPacking_332>(info)) {
                 constexpr bool reverse_channel_order = false;
-                return std::make_unique<DirectPixelCodec<image::int8_type, image::ChannelPacking_332, bytes_per_pixel,
-                                                         reverse_channel_order>>(); // Throws
+                return std::make_unique<DirectColorPixelCodec<image::int8_type, image::ChannelPacking_332,
+                                                              bytes_per_pixel, reverse_channel_order>>(); // Throws
             }
             if (rev_mask_match<image::ChannelPacking_233>(info)) {
                 constexpr bool reverse_channel_order = true;
-                return std::make_unique<DirectPixelCodec<image::int8_type, image::ChannelPacking_233, bytes_per_pixel,
-                                                         reverse_channel_order>>(); // Throws
+                return std::make_unique<DirectColorPixelCodec<image::int8_type, image::ChannelPacking_233,
+                                                              bytes_per_pixel, reverse_channel_order>>(); // Throws
             }
             goto unsupported_channel_masks;
         }
@@ -468,19 +483,17 @@ auto make_pixel_codec(const XVisualInfo& info, int bits_per_pixel, int num_bitpl
             goto unsupported_bits_per_pixel;
         constexpr int bytes_per_pixel = 2;
         if (info.c_class == TrueColor || info.c_class == DirectColor) {
-            if (ARCHON_UNLIKELY(num_bitplanes != 15))
-                goto unsupported_num_bitplanes;
             if (ARCHON_UNLIKELY(info.colormap_size != 32))
                 goto unexpected_colormap_size;
             if (mask_match<image::ChannelPacking_555>(info)) {
                 constexpr bool reverse_channel_order = false;
-                return std::make_unique<DirectPixelCodec<image::int16_type, image::ChannelPacking_555, bytes_per_pixel,
-                                                         reverse_channel_order>>(); // Throws
+                return std::make_unique<DirectColorPixelCodec<image::int16_type, image::ChannelPacking_555,
+                                                              bytes_per_pixel, reverse_channel_order>>(); // Throws
             }
             if (rev_mask_match<image::ChannelPacking_555>(info)) {
                 constexpr bool reverse_channel_order = true;
-                return std::make_unique<DirectPixelCodec<image::int16_type, image::ChannelPacking_555, bytes_per_pixel,
-                                                         reverse_channel_order>>(); // Throws
+                return std::make_unique<DirectColorPixelCodec<image::int16_type, image::ChannelPacking_555,
+                                                              bytes_per_pixel, reverse_channel_order>>(); // Throws
             }
             goto unsupported_channel_masks;
         }
@@ -491,19 +504,17 @@ auto make_pixel_codec(const XVisualInfo& info, int bits_per_pixel, int num_bitpl
             goto unsupported_bits_per_pixel;
         constexpr int bytes_per_pixel = 2;
         if (info.c_class == TrueColor || info.c_class == DirectColor) {
-            if (ARCHON_UNLIKELY(num_bitplanes != 16))
-                goto unsupported_num_bitplanes;
             if (ARCHON_UNLIKELY(info.colormap_size != 64))
                 goto unexpected_colormap_size;
             if (mask_match<image::ChannelPacking_565>(info)) {
                 constexpr bool reverse_channel_order = false;
-                return std::make_unique<DirectPixelCodec<image::int16_type, image::ChannelPacking_565, bytes_per_pixel,
-                                                         reverse_channel_order>>(); // Throws
+                return std::make_unique<DirectColorPixelCodec<image::int16_type, image::ChannelPacking_565,
+                                                              bytes_per_pixel, reverse_channel_order>>(); // Throws
             }
             else if (rev_mask_match<image::ChannelPacking_565>(info)) {
                 constexpr bool reverse_channel_order = true;
-                return std::make_unique<DirectPixelCodec<image::int16_type, image::ChannelPacking_565, bytes_per_pixel,
-                                                         reverse_channel_order>>(); // Throws
+                return std::make_unique<DirectColorPixelCodec<image::int16_type, image::ChannelPacking_565,
+                                                              bytes_per_pixel, reverse_channel_order>>(); // Throws
             }
             goto unsupported_channel_masks;
         }
@@ -513,20 +524,18 @@ auto make_pixel_codec(const XVisualInfo& info, int bits_per_pixel, int num_bitpl
         if (bits_per_pixel != 32)
             goto unsupported_bits_per_pixel;
         constexpr int bytes_per_pixel = 4;
-        if (info.c_class == TrueColor) {
-            if (ARCHON_UNLIKELY(num_bitplanes != 24))
-                goto unsupported_num_bitplanes;
+        if (info.c_class == TrueColor || info.c_class == DirectColor) {
             if (ARCHON_UNLIKELY(info.colormap_size != 256))
                 goto unexpected_colormap_size;
             if (mask_match<image::ChannelPacking_888>(info)) {
                 constexpr bool reverse_channel_order = false;
-                return std::make_unique<DirectPixelCodec<image::int32_type, image::ChannelPacking_888, bytes_per_pixel,
-                                                         reverse_channel_order>>(); // Throws
+                return std::make_unique<DirectColorPixelCodec<image::int32_type, image::ChannelPacking_888,
+                                                              bytes_per_pixel, reverse_channel_order>>(); // Throws
             }
             if (rev_mask_match<image::ChannelPacking_888>(info)) {
                 constexpr bool reverse_channel_order = true;
-                return std::make_unique<DirectPixelCodec<image::int32_type, image::ChannelPacking_888, bytes_per_pixel,
-                                                         reverse_channel_order>>(); // Throws
+                return std::make_unique<DirectColorPixelCodec<image::int32_type, image::ChannelPacking_888,
+                                                              bytes_per_pixel, reverse_channel_order>>(); // Throws
             }
             goto unsupported_channel_masks;
         }
@@ -554,11 +563,6 @@ auto make_pixel_codec(const XVisualInfo& info, int bits_per_pixel, int num_bitpl
                  core::as_hex_int(info.green_mask), core::as_hex_int(info.blue_mask)); // Throws
     throw std::runtime_error(msg);
 
-  unsupported_num_bitplanes:
-    msg = core::format(locale, "Unsupported visual %s for number of bit-planes: %s", core::as_hex_int(info.visualid),
-                 num_bitplanes); // Throws
-    throw std::runtime_error(msg);
-
   unexpected_colormap_size:
     msg = core::format(locale, "Unexpected colormap size for visual 0x%s: %s", core::as_hex_int(info.visualid),
                  info.colormap_size); // Throws
@@ -570,9 +574,6 @@ struct VisualSpec {
     XVisualInfo info;
     bool double_buffered;
     bool opengl_supported;
-/*
-    Colormap colormap;            
-*/
 };
 
 
@@ -594,7 +595,9 @@ struct ScreenSlot {
     bool is_initialized = false;
     int screen = {};
     Window root = {};
+    VisualID default_visual = {};
     core::Slab<VisualSpec> visual_specs;
+    core::FlatMap<VisualID, Colormap> colormaps;
 
 #if HAVE_XRANDR
     std::vector<ProtoScreen> screens;
@@ -615,35 +618,34 @@ class WindowImpl;
 class TextureImpl;
 
 
-class ImplementationImpl
+class ImplementationImpl final
     : public display::Implementation {
 public:
     ImplementationImpl(Slot&) noexcept;
 
     auto new_connection(const std::locale&, const display::Connection::Config&) const ->
-        std::unique_ptr<display::Connection> override final;
-    auto get_slot() const noexcept -> const Slot& override final;
+        std::unique_ptr<display::Connection> override;
+    auto get_slot() const noexcept -> const Slot& override;
 
 private:
     const Slot& m_slot;
 };
 
 
-class SlotImpl
+class SlotImpl final
     : public display::Implementation::Slot {
 public:
     SlotImpl() noexcept;
 
-    auto ident() const noexcept -> std::string_view override final;
-    auto get_implementation_a(const display::Guarantees&) const noexcept ->
-        const display::Implementation* override final;
+    auto ident() const noexcept -> std::string_view override;
+    auto get_implementation_a(const display::Guarantees&) const noexcept -> const display::Implementation* override;
 
 private:
     ImplementationImpl m_impl;
 };
 
 
-class ConnectionImpl
+class ConnectionImpl final
     : private display::ConnectionEventHandler
     , public display::Connection {
 public:
@@ -661,24 +663,24 @@ public:
 #endif
 
     ConnectionImpl(const ImplementationImpl&, const std::locale&, const display::ConnectionConfigX11&) noexcept;
-    ~ConnectionImpl() noexcept override final;
+    ~ConnectionImpl() noexcept override;
 
     void open(const display::ConnectionConfigX11&);
     void register_window(::Window id, WindowImpl&);
     void unregister_window(::Window id) noexcept;
 
-    bool try_map_key_to_key_code(display::Key, display::KeyCode&) const override final;
-    bool try_map_key_code_to_key(display::KeyCode, display::Key&) const override final;
-    bool try_get_key_name(display::KeyCode, std::string_view&) const override final;
+    bool try_map_key_to_key_code(display::Key, display::KeyCode&) const override;
+    bool try_map_key_code_to_key(display::KeyCode, display::Key&) const override;
+    bool try_get_key_name(display::KeyCode, std::string_view&) const override;
     auto new_window(std::string_view, display::Size, display::WindowEventHandler&, const display::Window::Config&) ->
-        std::unique_ptr<display::Window> override final;
-    void process_events(display::ConnectionEventHandler*) override final;
-    bool process_events(time_point_type, display::ConnectionEventHandler*) override final;
-    int get_num_displays() const override final;
-    int get_default_display() const override final;
-    bool try_get_display_conf(int, core::Buffer<display::Screen>&, core::Buffer<char>&,
-                              std::size_t&, bool&) const override final;
-    auto get_implementation() const noexcept -> const display::Implementation& override final;
+        std::unique_ptr<display::Window> override;
+    void process_events(display::ConnectionEventHandler*) override;
+    bool process_events(time_point_type, display::ConnectionEventHandler*) override;
+    int get_num_displays() const override;
+    int get_default_display() const override;
+    bool try_get_display_conf(int, core::Buffer<display::Screen>&, core::Buffer<char>&, std::size_t&,
+                              bool&) const override;
+    auto get_implementation() const noexcept -> const display::Implementation& override;
 
 private:
     const std::optional<int> m_depth_override;
@@ -766,10 +768,7 @@ private:
     auto intern_string(const char*) noexcept -> Atom;
     auto ensure_screen_slot(int screen) const -> ScreenSlot&;
     auto determine_visual_spec(const ScreenSlot&, bool enable_opengl) const -> const VisualSpec&;
-/*
-    auto determine_visual_info(bool enable_opengl) const -> XVisualInfo;                                           
-    bool lookup_visual_info(int screen, int depth, VisualID visual_id, XVisualInfo&) const noexcept;                                 
-*/
+    auto ensure_colormap(ScreenSlot&, VisualID) const -> Colormap;
     bool do_process_events(const time_point_type* deadline, display::ConnectionEventHandler*);
     bool lookup_window(::Window window_id, WindowImpl*& window) noexcept;
     void track_pointer_grabs(::Window window_id, unsigned button, bool is_press);
@@ -783,12 +782,13 @@ private:
 };
 
 
-class WindowImpl
+class WindowImpl final
     : public display::Window {
 public:
     ConnectionImpl& conn;
     const ScreenSlot& screen_slot;
     const VisualSpec& visual_spec;
+    const XPixmapFormatValues& pixmap_format;
     display::WindowEventHandler& event_handler;
     const int cookie;
 
@@ -796,26 +796,27 @@ public:
 
     bool has_pending_expose_event = false;
 
-    WindowImpl(ConnectionImpl&, const ScreenSlot&, const VisualSpec&, display::WindowEventHandler&, int cookie,
-               std::unique_ptr<const PixelCodec>) noexcept;
-    ~WindowImpl() noexcept override final;
+    WindowImpl(ConnectionImpl&, const ScreenSlot&, const VisualSpec&, const XPixmapFormatValues&,
+               display::WindowEventHandler&, int cookie, std::unique_ptr<const PixelCodec>) noexcept;
+    ~WindowImpl() noexcept override;
 
-    void create(display::Size size, const Config&, bool enable_opengl, bool disable_glx_direct_rendering);
+    void create(display::Size size, Colormap colormap, const Config& config, bool enable_double_buffering,
+                bool enable_opengl, bool enable_glx_direct_rendering);
     auto ensure_graphics_context() noexcept -> GC;
 
-    void show() override final;
-    void hide() override final;
-    void set_title(std::string_view) override final;
-    void set_size(display::Size) override final;
-    void set_fullscreen_mode(bool) override final;
-    void fill(util::Color) override final;
-    void fill(util::Color, const display::Box&) override final;
-    auto new_texture(display::Size) -> std::unique_ptr<display::Texture> override final;
-    void put_texture(const display::Texture&, const display::Pos&) override final;
-    void put_texture(const display::Texture&, const display::Box&, const display::Pos&) override final;
-    void present() override final;
-    void opengl_make_current() override final;
-    void opengl_swap_buffers() override final;
+    void show() override;
+    void hide() override;
+    void set_title(std::string_view) override;
+    void set_size(display::Size) override;
+    void set_fullscreen_mode(bool) override;
+    void fill(util::Color) override;
+    void fill(util::Color, const display::Box&) override;
+    auto new_texture(display::Size) -> std::unique_ptr<display::Texture> override;
+    void put_texture(const display::Texture&, const display::Pos&) override;
+    void put_texture(const display::Texture&, const display::Box&, const display::Pos&) override;
+    void present() override;
+    void opengl_make_current() override;
+    void opengl_swap_buffers() override;
 
 private:
     bool m_is_registered = false;
@@ -842,7 +843,7 @@ private:
 };
 
 
-class TextureImpl
+class TextureImpl final
     : public display::Texture {
 public:
     WindowImpl& win;
@@ -850,11 +851,11 @@ public:
     Pixmap pixmap = None;
 
     TextureImpl(WindowImpl&, const display::Size& size);
-    ~TextureImpl() noexcept override final;
+    ~TextureImpl() noexcept override;
 
     void create(const PixelCodec&);
 
-    void put_image(const image::Image&) override final;
+    void put_image(const image::Image&) override;
 
 private:
     std::unique_ptr<image::WritableImage> m_img;
@@ -1134,7 +1135,6 @@ auto ConnectionImpl::new_window(std::string_view title, display::Size size, disp
     else if (ARCHON_UNLIKELY(screen < 0 || screen >= int(ScreenCount(dpy)))) {
         throw std::invalid_argument("Bad display index");
     }
-    // FIXME: Tend to proper GLX visual selection                                                                                                                              
     bool enable_opengl = false;
     if (config.enable_opengl_rendering) {
         if (ARCHON_UNLIKELY(!m_have_glx))
@@ -1143,6 +1143,7 @@ auto ConnectionImpl::new_window(std::string_view title, display::Size size, disp
     }
     ScreenSlot& screen_slot = ensure_screen_slot(screen); // Throws
     const VisualSpec& visual_spec = determine_visual_spec(screen_slot, enable_opengl); // Throws
+    Colormap colormap = ensure_colormap(screen_slot, visual_spec.info.visualid); // Throws
     const XPixmapFormatValues* pixmap_format;
     {
         auto i = m_pixmap_formats.find(visual_spec.info.depth);
@@ -1150,14 +1151,13 @@ auto ConnectionImpl::new_window(std::string_view title, display::Size size, disp
         pixmap_format = &i->second;
     }
     std::unique_ptr<const PixelCodec> pixel_codec;
-    if (config.enable_basic_rendering) {
-        int num_bitplanes = DisplayPlanes(dpy, screen);
-        pixel_codec = make_pixel_codec(visual_spec.info, pixmap_format->bits_per_pixel, num_bitplanes,
-                                       locale); // Throws
-    }
-    auto win = std::make_unique<WindowImpl>(*this, screen_slot, visual_spec, event_handler, config.cookie,
-                                            std::move(pixel_codec)); // Throws
-    win->create(size, config, enable_opengl, m_disable_glx_direct_rendering); // Throws
+    if (config.enable_basic_rendering)
+        pixel_codec = make_pixel_codec(visual_spec.info, pixmap_format->bits_per_pixel, locale); // Throws
+    auto win = std::make_unique<WindowImpl>(*this, screen_slot, visual_spec, *pixmap_format, event_handler,
+                                            config.cookie, std::move(pixel_codec)); // Throws
+    bool enable_double_buffering = visual_spec.double_buffered && !m_disable_double_buffering;
+    bool enable_glx_direct_rendering = !m_disable_glx_direct_rendering;
+    win->create(size, colormap, config, enable_double_buffering, enable_opengl, enable_glx_direct_rendering); // Throws
     win->set_title(title); // Throws
     if (ARCHON_UNLIKELY(config.fullscreen))
         win->set_fullscreen_mode(true); // Throws
@@ -1253,6 +1253,7 @@ auto ConnectionImpl::ensure_screen_slot(int screen) const -> ScreenSlot&
         ::Window root = RootWindow(dpy, screen);
         slot.screen = screen;
         slot.root = root;
+        slot.default_visual = XVisualIDFromVisual(DefaultVisual(dpy, screen));
         m_x11_screens_by_root[root] = screen; // Throws
 
         // Fetch information about supported visuals
@@ -1321,75 +1322,7 @@ auto ConnectionImpl::ensure_screen_slot(int screen) const -> ScreenSlot&
             }
         }
 
-/*       
-
-        VisualID default_visualid = XVisualIDFromVisual(DefaultVisual(dpy, screen));
-        XVisualInfo visual_info = {};
-        {
-            int depth = DefaultDepth(dpy, screen);
-            VisualID visual = default_visualid;
-            if (m_depth_override.has_value())
-                depth = m_depth_override.value();
-            if (m_visual_override.has_value())
-                visual = m_visual_override.value();
-            if (ARCHON_UNLIKELY(!lookup_visual_info(screen, depth, visual, visual_info))) {
-                ARCHON_STEADY_ASSERT(m_depth_override.has_value() || m_visual_override.has_value());
-                std::string message = core::format(locale, "Combination of selected depth (%s) and selected visual "
-                                                   "type (0x%s) is invalid for targeted screen (%s)", depth,
-                                                   core::as_hex_int(visual, 2), screen); // Throws
-                throw std::runtime_error(message);
-            }
-        }
-        slot.visual_info = visual_info;
-
-        Colormap colormap = DefaultColormap(dpy, screen);
-        bool colormap_owned = false;
-        ARCHON_SCOPE_EXIT {
-            if (colormap_owned)
-                XFreeColormap(dpy, colormap);
-        };
-        if (ARCHON_UNLIKELY(visual_info.visualid != default_visualid)) {
-            // By creating a new colormap, rather than reusing the one used by the root
-            // window, it becomes possible to use a visual for the new window that differs
-            // from the one used by the root window. The colormap and the new window must
-            // agree on visual.
-            colormap = XCreateColormap(dpy, root, visual_info.visual, AllocNone);
-            colormap_owned = true;
-        }
-        slot.colormap = colormap;
-
-        {
-            auto i = m_pixmap_formats.find(visual_info.depth);
-            ARCHON_STEADY_ASSERT(i != m_pixmap_formats.end());
-            const XPixmapFormatValues& format = i->second;
-            slot.bits_per_pixel = format.bits_per_pixel;
-        }
-
-        bool use_double_buffering = false;
-#if HAVE_XDBE
-        if (!m_disable_double_buffering && m_have_xdbe) {
-            int n = 1;
-            XdbeScreenVisualInfo* entries = XdbeGetVisualInfo(dpy, &root, &n);
-            if (ARCHON_UNLIKELY(!entries))
-                throw std::runtime_error("XdbeGetVisualInfo() failed");
-            ARCHON_SCOPE_EXIT {
-                XdbeFreeVisualInfo(entries);
-            };
-            const XdbeScreenVisualInfo& entry = entries[0];
-            for (int i = 0; i < entry.count; ++i) {
-                XdbeVisualInfo& subentry = entry.visinfo[i];
-                bool is_match = (subentry.depth == visual_info.depth && subentry.visual == visual_info.visualid);
-                if (is_match) {
-                    use_double_buffering = true;
-                    break;
-                }
-            }
-        }
-#endif // HAVE_XDBE
-        slot.use_double_buffering = use_double_buffering;
-
-*/
-
+        // Fetch initial screen configuration
 #if HAVE_XRANDR
         if (ARCHON_LIKELY(m_have_xrandr)) {
             int mask = RROutputChangeNotifyMask | RRCrtcChangeNotifyMask;
@@ -1399,7 +1332,6 @@ auto ConnectionImpl::ensure_screen_slot(int screen) const -> ScreenSlot&
 #endif // HAVE_XRANDR
 
         slot.is_initialized = true;
-//        colormap_owned = false;                
     }
     return slot;
 }
@@ -1408,9 +1340,9 @@ auto ConnectionImpl::ensure_screen_slot(int screen) const -> ScreenSlot&
 auto ConnectionImpl::determine_visual_spec(const ScreenSlot& screen_slot,
                                            bool enable_opengl) const -> const VisualSpec&
 {
-    // FIXME: Have user tell whether a depth buffer is needed (default should be that it is needed)       
-    // FIXME: Have user tell whether a stencil buffer is needed (default should be that it is not needed)       
-    // FIXME: Have user tell whether an accumulation buffer is needed (default should be that it is not needed)       
+    // FIXME: Have caller tell whether a depth buffer is needed (default should be that it is needed)       
+    // FIXME: Have caller tell whether a stencil buffer is needed (default should be that it is not needed)       
+    // FIXME: Have caller tell whether an accumulation buffer is needed (default should be that it is not needed)       
     auto filter = [&](const VisualSpec& spec) {
         if (m_depth_override.has_value() && spec.info.depth != m_depth_override.value())
             return false;
@@ -1437,19 +1369,20 @@ auto ConnectionImpl::determine_visual_spec(const ScreenSlot& screen_slot,
             case DirectColor:
                 return 4;
         }
+        ARCHON_ASSERT_UNREACHABLE();
+        return 0;
     };
     bool prefer_default_visual = true;             
     bool prefer_default_depth = true;             
     int screen = screen_slot.screen;
-    VisualID default_visual = XVisualIDFromVisual(DefaultVisual(dpy, screen));
     int default_depth = DefaultDepth(dpy, screen);
     auto less = [&](const VisualSpec& a, const VisualSpec& b) {
         // Criterion: Prefer default visual
         int a_1 = 0, b_1 = 0;
         if (prefer_default_visual) {
-            if (a.info.visualid == default_visual)
+            if (a.info.visualid == screen_slot.default_visual)
                 a_1 = 1;
-            if (b.info.visualid == default_visual)
+            if (b.info.visualid == screen_slot.default_visual)
                 b_1 = 1;
         }
 
@@ -1500,132 +1433,37 @@ auto ConnectionImpl::determine_visual_spec(const ScreenSlot& screen_slot,
 }
 
 
+auto ConnectionImpl::ensure_colormap(ScreenSlot& screen_slot, VisualID visual) const -> Colormap
+{
+    if (ARCHON_LIKELY(visual == screen_slot.default_visual))
+        return DefaultColormap(dpy, screen_slot.screen);
+    auto i = screen_slot.colormaps.find(visual);
+    if (ARCHON_LIKELY(i != screen_slot.colormaps.end()))
+        return i->second;
+
+    throw std::runtime_error("Need non-default colormap");                                         
+    
+    // If can find standard colormap for visual:
+    //   Use standard colormap
+    // Create and initialize new colormap
+
 /*    
-auto ConnectionImpl::determine_visual_info(const ScreenSlot& screen_slot, bool enable_opengl) const -> XVisualInfo                
-{
-    int screen = screen_slot.screen;
-
-    // If depth is specified:
-    //   If visual is specified:
-    //     Verify combination and opengl support
-    //   Else:
-    //     Pick visual for depth
-    // Else:
-    //   If visual is specified:
-    //     Pick depth for visual
-    //   Else:
-    //     If not enable_opengl or OpenGL is supported on default depth and default visual:
-    //       Use default depth and default visual
-    //     Else:
-    //       Pick depth and visual
-
-
-    // Pick depth and visual:
-    //   If depth is specified:
-    //     Require the specified depth
-    //   If class is specified:
-    //     Require the specified class
-    //   If visual is specified:
-    //     Require the specified visual
-    //   If enable_opengl:
-    //     Require OpenGL to be supported
-    //   If nothing matches:
-    //     Fail
-    //   Pick best match
-    //     1: If prefer_default_visual: INC: 1 if visual is default visual, else 0 (only if prefer_dfault_visual is true)
-    //     2: If prefer_default_depth: INC: (1, -D) if D is greater than or equal to zero, else (0, 0). Here, D is depth minus default depth.
-    //     3: INC: depth
-    //     4: Class
-    //     5: If OpenGL: INC: Total number of color+alpha bits
-    //     6: If OpenGL: DEC: Total number of accum bits
-
-    // Depth buffer?                  
-
-
-    int depth;
-    if (m_depth_override.has_value()) {
-        depth = m_depth_override.value();
-    }
-    else {
-        depth = DefaultDepth(dpy, screen);
-    }
-
-    VisualID visualid;
-    if (m_visual_override.has_value()) {
-        visualid = m_visual_override.value();
-    }
-    else {
-        visualid = XVisualIDFromVisual(DefaultVisual(dpy, screen));
-    }
-
-    if (ARCHON_UNLIKELY(!lookup_visual_info(screen, depth, visual, visual_info))) {
-        ARCHON_STEADY_ASSERT(m_depth_override.has_value() || m_visual_override.has_value());
-        std::string message = core::format(locale, "Combination of selected depth (%s) and selected visual "
-                                           "type (0x%s) is invalid for targeted screen (%s)", depth,
-                                           core::as_hex_int(visualid, 2), screen); // Throws
-        throw std::runtime_error(message);
-    }
-
-    int glXGetConfig(Display * dpy, XVisualInfo * vis, GLX_USE_GL, int * value);
-
-    // Determine depth
-    // If not override:
-    //   Fetch default visual
-    //   If not OpenGL:
-    //     Use default visual
-    //   Else:
-    //     If default visual supports OpenGL:
-    //       Use default visual
-    //     Else:
-    //       Find best visual that supports OpenGL
-    // Lookup visual info
-
-
-    // 
-
-
-/
-        VisualID default_visualid = XVisualIDFromVisual(DefaultVisual(dpy, screen));
-        XVisualInfo visual_info = {};
-        {
-            int depth = DefaultDepth(dpy, screen);
-            VisualID visual = default_visualid;
-            if (m_depth_override.has_value())
-                depth = m_depth_override.value();
-            if (m_visual_override.has_value())
-                visual = m_visual_override.value();
-            if (ARCHON_UNLIKELY(!lookup_visual_info(screen, depth, visual, visual_info))) {
-                ARCHON_STEADY_ASSERT(m_depth_override.has_value() || m_visual_override.has_value());
-                std::string message = core::format(locale, "Combination of selected depth (%s) and selected visual "
-                                                   "type (0x%s) is invalid for targeted screen (%s)", depth,
-                                                   core::as_hex_int(visual, 2), screen); // Throws
-                throw std::runtime_error(message);
-            }
+        Colormap colormap = DefaultColormap(dpy, screen);
+        bool colormap_owned = false;
+        ARCHON_SCOPE_EXIT {
+            if (colormap_owned)
+                XFreeColormap(dpy, colormap);
+        };
+        if (ARCHON_UNLIKELY(visual_info.visualid != default_visualid)) {
+            // By creating a new colormap, rather than reusing the one used by the root
+            // window, it becomes possible to use a visual for the new window that differs
+            // from the one used by the root window. The colormap and the new window must
+            // agree on visual.
+            colormap = XCreateColormap(dpy, root, visual_info.visual, AllocNone);
+            colormap_owned = true;
         }
-        slot.visual_info = visual_info;
-/
-}
-
-
-bool ConnectionImpl::lookup_visual_info(int screen, int depth, VisualID visual_id,
-                                        XVisualInfo& visual_info) const noexcept
-{
-    int n = 0;
-    long vinfo_mask = VisualScreenMask | VisualDepthMask | VisualIDMask;
-    XVisualInfo vinfo_template;
-    vinfo_template.screen = screen;
-    vinfo_template.depth = depth;
-    vinfo_template.visualid = visual_id;
-    XVisualInfo* entries = XGetVisualInfo(dpy, vinfo_mask, &vinfo_template, &n);
-    if (ARCHON_LIKELY(entries)) {
-        ARCHON_STEADY_ASSERT(n == 1);
-        visual_info = entries[0];
-        XFree(entries);
-        return true;
-    }
-    return false;
-}
 */
+}
 
 
 bool ConnectionImpl::do_process_events(const time_point_type* deadline,
@@ -2237,11 +2075,12 @@ auto ConnectionImpl::ensure_edid_parser() const -> const impl::EdidParser&
 
 
 inline WindowImpl::WindowImpl(ConnectionImpl& conn_2, const ScreenSlot& screen_slot_2, const VisualSpec& visual_spec_2,
-                              display::WindowEventHandler& event_handler_2, int cookie_2,
-                              std::unique_ptr<const PixelCodec> pixel_codec) noexcept
+                              const XPixmapFormatValues& pixmap_format_2, display::WindowEventHandler& event_handler_2,
+                              int cookie_2, std::unique_ptr<const PixelCodec> pixel_codec) noexcept
     : conn(conn_2)
     , screen_slot(screen_slot_2)
     , visual_spec(visual_spec_2)
+    , pixmap_format(pixmap_format_2)
     , event_handler(event_handler_2)
     , cookie(cookie_2)
     , m_pixel_codec(std::move(pixel_codec))
@@ -2267,8 +2106,7 @@ WindowImpl::~WindowImpl() noexcept
 }
 
 
-void WindowImpl::create(display::Size size, const Config& config, bool enable_opengl,
-                        bool disable_glx_direct_rendering)
+void WindowImpl::create(display::Size size, Colormap colormap, const Config& config, bool enable_double_buffering, bool enable_opengl, bool enable_glx_direct_rendering)
 {
     display::Size adjusted_size = size;
     bool has_minimum_size = (config.resizable && config.minimum_size.has_value());
@@ -2293,7 +2131,7 @@ void WindowImpl::create(display::Size size, const Config& config, bool enable_op
                              ExposureMask |
                              StructureNotifyMask |
                              KeymapStateMask);
-    attributes.colormap = visual_spec.colormap;
+    attributes.colormap = colormap;
     win = XCreateWindow(conn.dpy, parent, x, y, width, height, border_width, depth, class_, visual,
                         valuemask, &attributes);
 
@@ -2327,7 +2165,7 @@ void WindowImpl::create(display::Size size, const Config& config, bool enable_op
     // Enable double buffering
     m_drawable = win;
 #if HAVE_XDBE
-    if (ARCHON_LIKELY(visual_spec.use_double_buffering)) {
+    if (ARCHON_LIKELY(enable_double_buffering)) {
         m_swap_action = XdbeUndefined; // Contents of swapped-out buffer becomes undefined
         XdbeBackBuffer back_buffer = XdbeAllocateBackBufferName(conn.dpy, win, m_swap_action);
         m_drawable = back_buffer;
@@ -2340,7 +2178,7 @@ void WindowImpl::create(display::Size size, const Config& config, bool enable_op
     if (enable_opengl) {
         XVisualInfo vis = visual_spec.info;
         GLXContext share_list = nullptr; // No sharing
-        Bool direct = Bool(!disable_glx_direct_rendering);
+        Bool direct = Bool(enable_glx_direct_rendering);
         GLXContext ctx = glXCreateContext(conn.dpy, &vis, share_list, direct);
         if (ARCHON_UNLIKELY(!ctx))
             throw std::runtime_error("glXCreateContext() failed");
@@ -2587,7 +2425,7 @@ void TextureImpl::put_image(const image::Image& img)
         // one or more pixels. The ZPixmap format supports the depths of any offered
         // visual. XPutImage() can handle byte swapping and changes in row alignment
         // (`scanline_pad` / `bitmap_pad`).
-        int scanline_pad = win.pixel_format.bits_per_pixel;
+        int scanline_pad = win.pixmap_format.bits_per_pixel;
         XImage img_2;
         img_2.width            = size.width;
         img_2.height           = size.height;
@@ -2600,7 +2438,7 @@ void TextureImpl::put_image(const image::Image& img)
         img_2.bitmap_pad       = scanline_pad;
         img_2.depth            = win.visual_spec.info.depth;
         img_2.bytes_per_line   = 0;
-        img_2.bits_per_pixel   = win.pixel_format.bits_per_pixel;
+        img_2.bits_per_pixel   = win.pixmap_format.bits_per_pixel;
         img_2.red_mask         = win.visual_spec.info.red_mask;
         img_2.green_mask       = win.visual_spec.info.green_mask;
         img_2.blue_mask        = win.visual_spec.info.blue_mask;
@@ -3040,12 +2878,11 @@ bool try_map_mouse_button(unsigned x11_button, bool& is_scroll, display::MouseBu
 #else // !HAVE_X11
 
 
-class SlotImpl
+class SlotImpl final
     : public display::Implementation::Slot {
 public:
-    auto ident() const noexcept -> std::string_view override final;
-    auto get_implementation_a(const display::Guarantees&) const noexcept ->
-        const display::Implementation* override final;
+    auto ident() const noexcept -> std::string_view override;
+    auto get_implementation_a(const display::Guarantees&) const noexcept -> const display::Implementation* override;
 };
 
 
