@@ -20,6 +20,7 @@
 
 
 #include <cstddef>
+#include <cstdint>
 #include <cstdlib>
 #include <utility>
 #include <memory>
@@ -32,6 +33,8 @@
 #include <archon/core/features.h>
 #include <archon/core/buffer.hpp>
 #include <archon/core/seed_memory_output_stream.hpp>
+#include <archon/core/value_parser.hpp>
+#include <archon/core/as_int.hpp>
 #include <archon/core/format_as.hpp>
 #include <archon/core/quote.hpp>
 #include <archon/core/file.hpp>
@@ -263,6 +266,7 @@ int main(int argc, char* argv[])
     bool report_mouse_move = false;
     std::optional<int> optional_x11_visual_depth;
     std::optional<display::ConnectionConfigX11::VisualClass> optional_x11_visual_class;
+    std::optional<std::uint_fast32_t> optional_x11_visual_type;
     bool x11_disable_double_buffering = false;
     bool x11_disable_detectable_autorepeat = false;
     bool x11_use_synchronous_mode = false;
@@ -297,13 +301,27 @@ int main(int argc, char* argv[])
         cli::raise_flag(report_mouse_move)); // Throws
 
     opt("-d, --x11-visual-depth", "<num>", cli::no_attributes, spec,
-        "When using the X11-based display implementation, Pick a visual of the specified depth (@A).",
+        "When using the X11-based display implementation, pick a visual of the specified depth (@A).",
         cli::assign(optional_x11_visual_depth)); // Throws
 
     opt("-c, --x11-visual-class", "<name>", cli::no_attributes, spec,
         "When using the X11-based display implementation, pick a visual of the specified class (@A). The class can be "
         "\"StaticGray\", \"GrayScale\", \"StaticColor\", \"PseudoColor\", \"TrueColor\", or \"DirectColor\".",
         cli::assign(optional_x11_visual_class)); // Throws
+
+    opt("-V, --x11-visual-type", "<hex>", cli::no_attributes, spec,
+        "When using the X11-based display implementation, pick a visual of the specified type (@A). The type, also "
+        "known as the visual ID, is an integer that can be expressed in decimal, hexadecumal (with prefix '0x'), or "
+        "octal (with prefix '0') form.",
+        cli::exec([&](std::string_view str) {
+            core::ValueParser parser(locale);
+            std::uint_fast32_t type = {};
+            if (ARCHON_LIKELY(parser.parse(str, core::as_flex_int(type)))) {
+                optional_x11_visual_type.emplace(type);
+                return true;
+            }
+            return false;
+        })); // Throws
 
     opt("-D, --x11-disable-double-buffering", "", cli::no_attributes, spec,
         "When using the X11-based display implementation, disable use of double buffering, even when the selected "
@@ -386,6 +404,7 @@ int main(int argc, char* argv[])
     display::Connection::Config connection_config;
     connection_config.x11.visual_depth = optional_x11_visual_depth;
     connection_config.x11.visual_class = optional_x11_visual_class;
+    connection_config.x11.visual_type = optional_x11_visual_type;
     connection_config.x11.disable_double_buffering = x11_disable_double_buffering;
     connection_config.x11.disable_detectable_autorepeat = x11_disable_detectable_autorepeat;
     connection_config.x11.synchronous_mode = x11_use_synchronous_mode;

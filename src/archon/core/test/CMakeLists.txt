@@ -23,6 +23,7 @@ add_library(CoreTest OBJECT
   test_integer_formatter.cpp
   test_integer_parser.cpp
   test_value_parser.cpp
+  test_as_int.cpp
   test_as_list.cpp
   test_format_as.cpp
   test_format_with.cpp
