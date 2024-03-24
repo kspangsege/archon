@@ -39,6 +39,7 @@
 #include <archon/cli.hpp>
 #include <archon/util/colors.hpp>
 #include <archon/display.hpp>
+#include <archon/display/connection_config_x11.hpp>
 
 
 using namespace archon;
@@ -259,10 +260,12 @@ int main(int argc, char* argv[])
     bool list_display_implementations = false;
     log::LogLevel log_level_limit = log::LogLevel::info;
     std::optional<std::string> optional_display_implementation;
-    bool disable_double_buffering = false;
-    bool disable_detectable_autorepeat = false;
     bool report_mouse_move = false;
-    bool use_synchronous_mode = false;
+    std::optional<int> optional_x11_visual_depth;
+    std::optional<display::ConnectionConfigX11::VisualClass> optional_x11_visual_class;
+    bool x11_disable_double_buffering = false;
+    bool x11_disable_detectable_autorepeat = false;
+    bool x11_use_synchronous_mode = false;
 
     cli::Spec spec;
     pat("", cli::no_attributes, spec,
@@ -289,26 +292,35 @@ int main(int argc, char* argv[])
         "available, the one, that is listed first by `--list-display-implementations`, is used.",
         cli::assign(optional_display_implementation)); // Throws
 
-    opt("-D, --disable-double-buffering", "", cli::no_attributes, spec,
-        "When using the X11-based display implementation, disable use of double buffering, even when the selected "
-        "visual supports double buffering.",
-        cli::raise_flag(disable_double_buffering)); // Throws
-
-    opt("-A, --disable-detectable-autorepeat", "", cli::no_attributes, spec,
-        "When using the X11-based display implementation, do not turn on \"detectable auto-repeat\" mode, as it is "
-        "offered by the X Keyboard Extension, even when it can be turned on. Instead, rely on the fall-back detection "
-        "mechanism.",
-        cli::raise_flag(disable_detectable_autorepeat)); // Throws
-
     opt("-m, --report-mouse-move", "", cli::no_attributes, spec,
         "Turn on reporting of \"mouse move\" events.",
         cli::raise_flag(report_mouse_move)); // Throws
 
-    opt("-s, --use-synchronous-mode", "", cli::no_attributes, spec,
+    opt("-d, --x11-visual-depth", "<num>", cli::no_attributes, spec,
+        "When using the X11-based display implementation, Pick a visual of the specified depth (@A).",
+        cli::assign(optional_x11_visual_depth)); // Throws
+
+    opt("-c, --x11-visual-class", "<name>", cli::no_attributes, spec,
+        "When using the X11-based display implementation, pick a visual of the specified class (@A). The class can be "
+        "\"StaticGray\", \"GrayScale\", \"StaticColor\", \"PseudoColor\", \"TrueColor\", or \"DirectColor\".",
+        cli::assign(optional_x11_visual_class)); // Throws
+
+    opt("-D, --x11-disable-double-buffering", "", cli::no_attributes, spec,
+        "When using the X11-based display implementation, disable use of double buffering, even when the selected "
+        "visual supports double buffering.",
+        cli::raise_flag(x11_disable_double_buffering)); // Throws
+
+    opt("-A, --x11-disable-detectable-autorepeat", "", cli::no_attributes, spec,
+        "When using the X11-based display implementation, do not turn on \"detectable auto-repeat\" mode, as it is "
+        "offered by the X Keyboard Extension, even when it can be turned on. Instead, rely on the fall-back detection "
+        "mechanism.",
+        cli::raise_flag(x11_disable_detectable_autorepeat)); // Throws
+
+    opt("-s, --x11-use-synchronous-mode", "", cli::no_attributes, spec,
         "When using the X11-based display implementation, turn on X11's synchronous mode. In this mode, buffering of "
         "X protocol requests is turned off, and the Xlib functions, that generate X requests, wait for a response "
         "from the server before they return. This is sometimes useful when debugging.",
-        cli::raise_flag(use_synchronous_mode)); // Throws
+        cli::raise_flag(x11_use_synchronous_mode)); // Throws
 
     int exit_status = 0;
     if (ARCHON_UNLIKELY(cli::process(argc, argv, spec, exit_status, locale))) // Throws
@@ -372,9 +384,11 @@ int main(int argc, char* argv[])
     }
 
     display::Connection::Config connection_config;
-    connection_config.x11.disable_double_buffering = disable_double_buffering;
-    connection_config.x11.disable_detectable_autorepeat = disable_detectable_autorepeat;
-    connection_config.x11.synchronous_mode = use_synchronous_mode;
+    connection_config.x11.visual_depth = optional_x11_visual_depth;
+    connection_config.x11.visual_class = optional_x11_visual_class;
+    connection_config.x11.disable_double_buffering = x11_disable_double_buffering;
+    connection_config.x11.disable_detectable_autorepeat = x11_disable_detectable_autorepeat;
+    connection_config.x11.synchronous_mode = x11_use_synchronous_mode;
     std::unique_ptr<display::Connection> conn = impl->new_connection(locale, connection_config); // Throws
     int num_displays = conn->get_num_displays();
     int display = conn->get_default_display();

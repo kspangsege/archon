@@ -28,6 +28,8 @@
 #include <optional>
 #include <string_view>
 
+#include <archon/core/enum.hpp>
+
 
 namespace archon::display {
 
@@ -120,9 +122,12 @@ struct ConnectionConfigX11 {
 };
 
 
-/// \brief    
+/// \brief Mouse buttons.
 ///
-///    
+/// These are the six visual classes that are used to characterize X11 visuals.
+///
+/// A specialization of \ref core::EnumTraits is provided, making stream input and output
+/// readily available.
 ///
 enum class ConnectionConfigX11::VisualClass {
     static_gray  = 0,
@@ -135,5 +140,24 @@ enum class ConnectionConfigX11::VisualClass {
 
 
 } // namespace archon::display
+
+namespace archon::core {
+
+template<> struct EnumTraits<display::ConnectionConfigX11::VisualClass> {
+    static constexpr bool is_specialized = true;
+    struct Spec {
+        static constexpr core::EnumAssoc map[] = {
+            { int(display::ConnectionConfigX11::VisualClass::static_gray),  "StaticGray"  },
+            { int(display::ConnectionConfigX11::VisualClass::gray_scale),   "GrayScale"   },
+            { int(display::ConnectionConfigX11::VisualClass::static_color), "StaticColor" },
+            { int(display::ConnectionConfigX11::VisualClass::pseudo_color), "PseudoColor" },
+            { int(display::ConnectionConfigX11::VisualClass::true_color),   "TrueColor"   },
+            { int(display::ConnectionConfigX11::VisualClass::direct_color), "DirectColor" },
+        };
+    };
+    static constexpr bool ignore_case = false;
+};
+
+} // namespace archon::core
 
 #endif // ARCHON_X_DISPLAY_X_CONNECTION_CONFIG_X11_HPP
