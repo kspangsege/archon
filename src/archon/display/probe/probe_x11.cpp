@@ -786,8 +786,9 @@ int main(int argc, char* argv[])
         const std::optional<int> depth_override = optional_visual_depth;
         const std::optional<int> class_override = map_opt_visual_class(optional_visual_class);
         const std::optional<VisualID> visual_override = optional_visual_type;
-        bool prefer_default_visual = true;             
-        bool prefer_default_depth = true;             
+        bool prefer_default_visual_type = true;             
+        bool prefer_default_visual_depth = true;             
+        bool prefer_double_buffered = !disable_double_buffering;
         bool require_opengl = false;
         // FIXME: Have user tell whether a depth buffer is needed (default should be that it is needed)       
         // FIXME: Have user tell whether a stencil buffer is needed (default should be that it is not needed)       
@@ -826,7 +827,7 @@ int main(int argc, char* argv[])
         auto less = [&](const VisualSpec& a, const VisualSpec& b) {
             // Criterion: Prefer default visual
             int a_1 = 0, b_1 = 0;
-            if (prefer_default_visual) {
+            if (prefer_default_visual_type) {
                 if (a.info.visualid == default_visual)
                     a_1 = 1;
                 if (b.info.visualid == default_visual)
@@ -836,7 +837,7 @@ int main(int argc, char* argv[])
             // Criterion: Prefer default depth
             int a_2 = 0, b_2 = 0;
             int a_3 = 0, b_3 = 0;
-            if (prefer_default_depth) {
+            if (prefer_default_visual_depth) {
                 if (a.info.depth >= default_depth) {
                     a_2 = 1;
                     a_3 = -a.info.depth; // Non-positive
@@ -851,20 +852,33 @@ int main(int argc, char* argv[])
             int a_4 = get_class_value(a.info.c_class);
             int b_4 = get_class_value(b.info.c_class);
 
+            // Criterion: Prefer double buffered
+            int a_5 = 0, b_5 = 0;
+            if (prefer_double_buffered) {
+                if (a.double_buffered)
+                    a_5 = 1;
+                if (b.double_buffered)
+                    b_5 = 1;
+            }
+
             // Criterion: Greatest depth
-            int a_5 = a.info.depth;
-            int b_5 = b.info.depth;
+            int a_6 = a.info.depth;
+            int b_6 = b.info.depth;
+
+            // Criterion: Prefer not double buffered
+            int a_7 = (a.double_buffered ? 0 : 1);
+            int b_7 = (b.double_buffered ? 0 : 1);
 
             // FIXME: If depth buffer desired, prefer highest number of bits in depth buffer, else prefer lowest number of bits.    
             // FIXME: If stencil buffer desired, prefer highest number of bits in stencil buffer, else prefer lowest number of bits.    
             // FIXME: If accum buffer desired, prefer highest number of bits in accum buffer, else prefer lowest number of bits.    
 
             // Criterion: Prefer no OpenGL support
-            int a_6 = (a.opengl_supported ? 0 : 1);
-            int b_6 = (b.opengl_supported ? 0 : 1);
+            int a_8 = (a.opengl_supported ? 0 : 1);
+            int b_8 = (b.opengl_supported ? 0 : 1);
 
-            int a_0[] = { a_1, a_2, a_3, a_4, a_5, a_6 };
-            int b_0[] = { b_1, b_2, b_3, b_4, b_5, b_6 };
+            int a_0[] = { a_1, a_2, a_3, a_4, a_5, a_6, a_7, a_8 };
+            int b_0[] = { b_1, b_2, b_3, b_4, b_5, b_6, b_7, b_8 };
             return std::lexicographical_compare(std::begin(a_0), std::end(a_0), std::begin(b_0), std::end(b_0));
         };
         const VisualSpec* best = nullptr;

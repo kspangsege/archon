@@ -772,7 +772,8 @@ private:
 
     auto intern_string(const char*) noexcept -> Atom;
     auto ensure_screen_slot(int screen) const -> ScreenSlot&;
-    auto determine_visual_spec(const ScreenSlot&, bool require_opengl) const -> const VisualSpec&;
+    auto determine_visual_spec(const ScreenSlot&, bool prefer_double_buffered, bool require_opengl) const ->
+        const VisualSpec&;
     auto ensure_colormap(ScreenSlot&, VisualID) const -> Colormap;
     bool do_process_events(const time_point_type* deadline, display::ConnectionEventHandler*);
     bool lookup_window(::Window window_id, WindowImpl*& window) noexcept;
@@ -1141,6 +1142,11 @@ auto ConnectionImpl::new_window(std::string_view title, display::Size size, disp
     else if (ARCHON_UNLIKELY(screen < 0 || screen >= int(ScreenCount(dpy)))) {
         throw std::invalid_argument("Bad display index");
     }
+    bool prefer_double_buffered = false;
+    if (config.enable_basic_rendering) {
+        if (ARCHON_LIKELY(!m_disable_double_buffering))
+            prefer_double_buffered = true;
+    }
     bool enable_opengl = false;
     if (config.enable_opengl_rendering) {
         if (ARCHON_UNLIKELY(!m_have_glx))
@@ -1148,7 +1154,8 @@ auto ConnectionImpl::new_window(std::string_view title, display::Size size, disp
         enable_opengl = true;
     }
     ScreenSlot& screen_slot = ensure_screen_slot(screen); // Throws
-    const VisualSpec& visual_spec = determine_visual_spec(screen_slot, enable_opengl); // Throws
+    const VisualSpec& visual_spec = determine_visual_spec(screen_slot, prefer_double_buffered,
+                                                          enable_opengl); // Throws
     logger.detail("Using visual depth %s and visual type %s for new X11 window", visual_spec.info.depth,
                   core::as_flex_int_h(visual_spec.info.visualid)); // Throws
     Colormap colormap = ensure_colormap(screen_slot, visual_spec.info.visualid); // Throws
@@ -1345,7 +1352,7 @@ auto ConnectionImpl::ensure_screen_slot(int screen) const -> ScreenSlot&
 }
 
 
-auto ConnectionImpl::determine_visual_spec(const ScreenSlot& screen_slot,
+auto ConnectionImpl::determine_visual_spec(const ScreenSlot& screen_slot, bool prefer_double_buffered,
                                            bool require_opengl) const -> const VisualSpec&
 {
     // FIXME: Have caller tell whether a depth buffer is needed (default should be that it is needed)       
@@ -1380,14 +1387,14 @@ auto ConnectionImpl::determine_visual_spec(const ScreenSlot& screen_slot,
         ARCHON_ASSERT_UNREACHABLE();
         return 0;
     };
-    bool prefer_default_visual = true;             
-    bool prefer_default_depth = true;             
+    bool prefer_default_visual_type = true;             
+    bool prefer_default_visual_depth = true;             
     int screen = screen_slot.screen;
     int default_depth = DefaultDepth(dpy, screen);
     auto less = [&](const VisualSpec& a, const VisualSpec& b) {
         // Criterion: Prefer default visual
         int a_1 = 0, b_1 = 0;
-        if (prefer_default_visual) {
+        if (prefer_default_visual_type) {
             if (a.info.visualid == screen_slot.default_visual)
                 a_1 = 1;
             if (b.info.visualid == screen_slot.default_visual)
@@ -1397,7 +1404,7 @@ auto ConnectionImpl::determine_visual_spec(const ScreenSlot& screen_slot,
         // Criterion: Prefer default depth
         int a_2 = 0, b_2 = 0;
         int a_3 = 0, b_3 = 0;
-        if (prefer_default_depth) {
+        if (prefer_default_visual_depth) {
             if (a.info.depth >= default_depth) {
                 a_2 = 1;
                 a_3 = -a.info.depth; // Non-positive
@@ -1412,20 +1419,33 @@ auto ConnectionImpl::determine_visual_spec(const ScreenSlot& screen_slot,
         int a_4 = get_class_value(a.info.c_class);
         int b_4 = get_class_value(b.info.c_class);
 
+        // Criterion: Prefer double buffered
+        int a_5 = 0, b_5 = 0;
+        if (prefer_double_buffered) {
+            if (a.double_buffered)
+                a_5 = 1;
+            if (b.double_buffered)
+                b_5 = 1;
+        }
+
         // Criterion: Greatest depth
-        int a_5 = a.info.depth;
-        int b_5 = b.info.depth;
+        int a_6 = a.info.depth;
+        int b_6 = b.info.depth;
+
+        // Criterion: Prefer not double buffered
+        int a_7 = (a.double_buffered ? 0 : 1);
+        int b_7 = (b.double_buffered ? 0 : 1);
 
         // FIXME: If depth buffer desired, prefer highest number of bits in depth buffer, else prefer lowest number of bits.    
         // FIXME: If stencil buffer desired, prefer highest number of bits in stencil buffer, else prefer lowest number of bits.    
         // FIXME: If accum buffer desired, prefer highest number of bits in accum buffer, else prefer lowest number of bits.    
 
         // Criterion: Prefer no OpenGL support
-        int a_6 = (a.opengl_supported ? 0 : 1);
-        int b_6 = (b.opengl_supported ? 0 : 1);
+        int a_8 = (a.opengl_supported ? 0 : 1);
+        int b_8 = (b.opengl_supported ? 0 : 1);
 
-        int a_0[] = { a_1, a_2, a_3, a_4, a_5, a_6 };
-        int b_0[] = { b_1, b_2, b_3, b_4, b_5, b_6 };
+        int a_0[] = { a_1, a_2, a_3, a_4, a_5, a_6, a_7, a_8 };
+        int b_0[] = { b_1, b_2, b_3, b_4, b_5, b_6, b_7, b_8 };
         return std::lexicographical_compare(std::begin(a_0), std::end(a_0), std::begin(b_0), std::end(b_0));
     };
     const VisualSpec* best = nullptr;
