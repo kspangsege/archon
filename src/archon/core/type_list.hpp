@@ -29,6 +29,7 @@
 #include <tuple>
 
 #include <archon/core/features.h>
+#include <archon/core/type.hpp>
 
 
 namespace archon::core {
@@ -85,7 +86,7 @@ template<class T, std::size_t N> using TypeListFromRep = typename impl::TypeList
 
 /// \brief Build type list from elements of tuple type.
 ///
-/// Build a type list (see \ref core::TypeCons) from the elemenmts of the specified tuple
+/// Build a type list (see \ref core::TypeCons) from the elements of the specified tuple
 /// type.
 ///
 /// The tuple type can be `std::tuple', `std::pair`, or `std::array`.
@@ -158,9 +159,9 @@ template<class L, class M> using TypeListConcat = typename impl::TypeListConcat<
 /// \brief Cartesian product of type lists.
 ///
 /// This type is the cartesian product of the two specified type lists. The cartesian
-/// product is itself a type list whose elements are instantiatios of `std::pair` such that
+/// product is itself a type list whose elements are instantiations of `std::pair` such that
 /// the first type is one of the types in \p L and the second type is one of the types in \p
-/// M. The cartesian product contains all combinations, and in lexicograpical order.
+/// M. The cartesian product contains all combinations, and in lexicographical order.
 ///
 /// \tparam L, M Two type lists (see \ref core::TypeCons). Note that `void` is used to
 /// represent the empty list.
@@ -184,7 +185,7 @@ template<class L> using TypeListSquare = core::TypeListProduct<L, L>;
 /// \tparam L A type list (see \ref core::TypeCons). Note that `void` is used to represent
 /// the empty list.
 ///
-/// \tparam T The type whose presence in the list is enquired about.
+/// \tparam T The type whose presence in the list is inquired about.
 ///
 template<class L, class T> constexpr bool has_type = impl::HasType<L, T>::value;
 
@@ -222,7 +223,29 @@ template<class L, class P, class... A> constexpr bool has_type_a(A&&... args)
     noexcept(core::has_type_a_noexcept<L, P, A...>());
 
 
-/// \brief Determine "no throw" guarantee for "for each type" functions.
+/// \brief Determine "no throw" guarantee for "for each type" function.
+///
+/// Determine whether \ref core::for_each_type() is guaranteed to not throw exceptions if it
+/// is instantiated with the same template arguments.
+///
+/// Let `func` be an object of type `F&`. This function then returns `true` if, and only if
+/// `noexcept(func(core::Wrap<T>(), int()))` is `true` for all `T` in `L`.
+///
+template<class L, class F> constexpr bool for_each_type_noexcept() noexcept;
+
+
+/// \brief Invoke generic lambda for each type in type list.
+///
+/// This function executes the specified generic lambda (\p func) once for each type in \p
+/// L. For a given type, `T`, in \p L, \p func is invoked with two arguments, one of type
+/// `core::Wrap<T>` and one of type `std::size_t`, which is the index of the type in \p L.
+///
+/// \sa \ref core::for_each_type_alt()
+///
+template<class L, class F> void for_each_type(F&& func) noexcept(core::for_each_type_noexcept<L, F>());
+
+
+/// \brief Determine "no throw" guarantee for alternative "for each type" functions.
 ///
 /// Determine whether \ref core::for_each_type_alt() and \ref core::for_each_type_alt_a()
 /// are guaranteed to not throw exceptions if they are instantiated with the same template
@@ -249,6 +272,7 @@ template<class L, class F, class... A> constexpr bool for_each_type_alt_noexcept
 /// type list. It must be such that the expression `F::template exec<T, I>(args...)` is
 /// valid. Here, `I` is the index of `T` within the list.
 ///
+/// \sa \ref core::for_each_type()
 /// \sa \ref core::for_each_type_alt_a()
 ///
 template<class L, class F, class... A> void for_each_type_alt(A&&... args)
@@ -419,6 +443,14 @@ template<class P, std::size_t I> struct HasTypeA<void, P, I> {
 };
 
 
+template<class F> struct ForEachTypeFunc {
+    template<class T, std::size_t I> static void exec(F& func) noexcept(noexcept(func(core::Wrap<T>(), I)))
+    {
+        func(core::Wrap<T>(), I); // Throws
+    }
+};
+
+
 template<class L, class F, std::size_t I> struct ForEachTypeAlt {
     template<class... A> static void exec(A&&... args)
     {
@@ -457,6 +489,18 @@ template<class L, class P, class... A> constexpr bool has_type_a(A&&... args)
     noexcept(core::has_type_a_noexcept<L, P, A...>())
 {
     return impl::HasTypeA<L, P, 0>::exec(std::forward<A>(args)...); // Throws
+}
+
+
+template<class L, class F> constexpr bool for_each_type_noexcept() noexcept
+{
+    return for_each_type_alt_noexcept<L, impl::ForEachTypeFunc<F>, F&>();
+}
+
+
+template<class L, class F> void for_each_type(F&& func) noexcept(core::for_each_type_noexcept<L, F>())
+{
+    core::for_each_type_alt<L, impl::ForEachTypeFunc<F>>(func); // Throws
 }
 
 

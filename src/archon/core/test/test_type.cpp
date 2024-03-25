@@ -21,7 +21,7 @@
 
 #include <type_traits>
 
-#include <archon/core/type.hpp>
+#include <archon/core/type_traits.hpp>
 
 
 using namespace archon;

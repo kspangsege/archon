@@ -30,9 +30,10 @@
 #include <archon/core/impl/config.h>
 #include <archon/core/features.h>
 #include <archon/core/archon_version.hpp>
-#include <archon/core/type_list.hpp>
-#include <archon/core/impl/type.hpp>
 #include <archon/core/type.hpp>
+#include <archon/core/type_list.hpp>
+#include <archon/core/impl/type_traits.hpp>
+#include <archon/core/type_traits.hpp>
 #include <archon/core/concepts.hpp>
 #include <archon/core/pair.hpp>
 #include <archon/core/span.hpp>

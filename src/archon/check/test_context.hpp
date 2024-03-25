@@ -39,7 +39,7 @@
 #include <filesystem>
 
 #include <archon/core/features.h>
-#include <archon/core/type.hpp>
+#include <archon/core/type_traits.hpp>
 #include <archon/core/span.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/float.hpp>

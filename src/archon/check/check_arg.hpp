@@ -26,7 +26,7 @@
 
 #include <string_view>
 
-#include <archon/core/type.hpp>
+#include <archon/core/type_traits.hpp>
 #include <archon/check/impl/check_arg.hpp>
 
 

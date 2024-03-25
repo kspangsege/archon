@@ -28,7 +28,7 @@
 #include <compare>
 #include <utility>
 
-#include <archon/core/type.hpp>
+#include <archon/core/type_traits.hpp>
 
 
 namespace archon::core {

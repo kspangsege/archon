@@ -18,8 +18,8 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-#ifndef ARCHON_X_CORE_X_IMPL_X_TYPE_HPP
-#define ARCHON_X_CORE_X_IMPL_X_TYPE_HPP
+#ifndef ARCHON_X_CORE_X_IMPL_X_TYPE_TRAITS_HPP
+#define ARCHON_X_CORE_X_IMPL_X_TYPE_TRAITS_HPP
 
 /// \file
 
@@ -44,4 +44,4 @@ template<class T, class C, class U> constexpr bool has_stream_output_operator(lo
 
 } // namespace archon::core::impl
 
-#endif // ARCHON_X_CORE_X_IMPL_X_TYPE_HPP
+#endif // ARCHON_X_CORE_X_IMPL_X_TYPE_TRAITS_HPP

@@ -146,7 +146,7 @@ ARCHON_TEST(Core_TypeList_ForEachTypeAltA)
         std::pair(&typeid(unsigned), std::size_t(2)),
     };
     ARCHON_CHECK(types == expected_1);
-    type.clear();
+    types.clear();
     ARCHON_CHECK_NOT((core::for_each_type_alt_a<Types1, Function2<int>>(types)));
     std::vector expected_2 {
         std::pair(&typeid(short),    std::size_t(0)),

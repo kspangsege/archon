@@ -29,7 +29,7 @@
 #include <utility>
 #include <iterator>
 
-#include <archon/core/type.hpp>
+#include <archon/core/type_traits.hpp>
 #include <archon/core/impl/flat_map_impl.hpp>
 
 

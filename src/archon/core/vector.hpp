@@ -35,7 +35,7 @@
 #include <stdexcept>
 
 #include <archon/core/features.h>
-#include <archon/core/type.hpp>
+#include <archon/core/type_traits.hpp>
 #include <archon/core/span.hpp>
 #include <archon/core/memory.hpp>
 #include <archon/core/impl/vector_impl.hpp>

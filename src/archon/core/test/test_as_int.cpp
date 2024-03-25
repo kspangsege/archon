@@ -69,7 +69,7 @@ ARCHON_TEST_BATCH(Core_AsInt_AsFlexInt_Format, variants)
     std::array<char_type, 8> seed_memory_2;
     string_widener_type widener(test_context.locale, seed_memory_2);
 
-    auto test = [&, &parent_test_context = test_context](core::Wrap<auto> tag) {
+    auto test = [&, &parent_test_context = test_context](core::Wrap<auto> tag, int) {
         using value_type = decltype(tag)::type;
         ARCHON_TEST_TRAIL(parent_test_context, core::get_type_name<value_type>());
         if constexpr (std::is_unsigned_v<value_type>) {
