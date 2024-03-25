@@ -72,7 +72,7 @@ public:
     /// the main thread. This includes the destruction of the connection returned by this
     /// function.
     ///
-    virtual auto new_connection(const std::locale&, const Connection::Config& = {}) const ->
+    virtual auto new_connection(const std::locale&, const display::Connection::Config& = {}) const ->
         std::unique_ptr<display::Connection> = 0;
 
     /// \brief Get slot for this implementation.

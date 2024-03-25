@@ -60,6 +60,7 @@ set_target_properties(Display PROPERTIES OUTPUT_NAME "archon-display")
 
 target_link_libraries(Display PUBLIC
   Core
+  Log
   Math
   Image
 )

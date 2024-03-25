@@ -19,6 +19,7 @@
 // DEALINGS IN THE SOFTWARE.
 
 
+#include <cstdint>
 #include <cstdlib>
 #include <utility>
 #include <memory>
@@ -31,6 +32,8 @@
 #include <archon/core/features.h>
 #include <archon/core/math.hpp>
 #include <archon/core/format.hpp>
+#include <archon/core/value_parser.hpp>
+#include <archon/core/as_int.hpp>
 #include <archon/core/quote.hpp>
 #include <archon/core/file.hpp>
 #include <archon/log.hpp>
@@ -222,6 +225,13 @@ int main(int argc, char* argv[])
     bool list_display_implementations = false;
     log::LogLevel log_level_limit = log::LogLevel::warn;
     std::optional<std::string> optional_display_implementation;
+    std::optional<int> optional_x11_visual_depth;
+    std::optional<display::ConnectionConfigX11::VisualClass> optional_x11_visual_class;
+    std::optional<std::uint_fast32_t> optional_x11_visual_type;
+    bool x11_disable_double_buffering = false;
+    bool x11_disable_glx_direct_rendering = false;
+    bool x11_disable_detectable_autorepeat = false;
+    bool x11_use_synchronous_mode = false;
 
     cli::Spec spec;
     pat("", cli::no_attributes, spec,
@@ -247,6 +257,51 @@ int main(int argc, char* argv[])
         "are available. It is possible that no implementations are available. By default, if any implementations are "
         "available, the one, that is listed first by `--list-display-implementations`, is used.",
         cli::assign(optional_display_implementation)); // Throws
+
+    opt("-d, --x11-visual-depth", "<num>", cli::no_attributes, spec,
+        "When using the X11-based display implementation, pick a visual of the specified depth (@A).",
+        cli::assign(optional_x11_visual_depth)); // Throws
+
+    opt("-c, --x11-visual-class", "<name>", cli::no_attributes, spec,
+        "When using the X11-based display implementation, pick a visual of the specified class (@A). The class can be "
+        "\"StaticGray\", \"GrayScale\", \"StaticColor\", \"PseudoColor\", \"TrueColor\", or \"DirectColor\".",
+        cli::assign(optional_x11_visual_class)); // Throws
+
+    opt("-V, --x11-visual-type", "<hex>", cli::no_attributes, spec,
+        "When using the X11-based display implementation, pick a visual of the specified type (@A). The type, also "
+        "known as the visual ID, is an integer that can be expressed in decimal, hexadecumal (with prefix '0x'), or "
+        "octal (with prefix '0') form.",
+        cli::exec([&](std::string_view str) {
+            core::ValueParser parser(locale);
+            std::uint_fast32_t type = {};
+            if (ARCHON_LIKELY(parser.parse(str, core::as_flex_int(type)))) {
+                optional_x11_visual_type.emplace(type);
+                return true;
+            }
+            return false;
+        })); // Throws
+
+    opt("-B, --x11-disable-double-buffering", "", cli::no_attributes, spec,
+        "When using the X11-based display implementation, disable use of double buffering, even when the selected "
+        "visual supports double buffering.",
+        cli::raise_flag(x11_disable_double_buffering)); // Throws
+
+    opt("-D, --x11-disable-glx-direct-rendering", "", cli::no_attributes, spec,
+        "When using the X11-based display implementation, disable use of GLX direct rendering, even in cases where "
+        "GLX direct rendering is possible.",
+        cli::raise_flag(x11_disable_glx_direct_rendering)); // Throws
+
+    opt("-A, --x11-disable-detectable-autorepeat", "", cli::no_attributes, spec,
+        "When using the X11-based display implementation, do not turn on \"detectable auto-repeat\" mode, as it is "
+        "offered by the X Keyboard Extension, even when it can be turned on. Instead, rely on the fall-back detection "
+        "mechanism.",
+        cli::raise_flag(x11_disable_detectable_autorepeat)); // Throws
+
+    opt("-s, --x11-use-synchronous-mode", "", cli::no_attributes, spec,
+        "When using the X11-based display implementation, turn on X11's synchronous mode. In this mode, buffering of "
+        "X protocol requests is turned off, and the Xlib functions, that generate X requests, wait for a response "
+        "from the server before they return. This is sometimes useful when debugging.",
+        cli::raise_flag(x11_use_synchronous_mode)); // Throws
 
     int exit_status = 0;
     if (ARCHON_UNLIKELY(cli::process(argc, argv, spec, exit_status, locale))) // Throws
@@ -309,7 +364,18 @@ int main(int argc, char* argv[])
         }
     }
 
-    std::unique_ptr<display::Connection> conn = impl->new_connection(locale); // Throws
+    log::PrefixLogger display_logger(logger, "Display: "); // Throws
+    display::Connection::Config connection_config;
+    connection_config.logger = &display_logger;
+    connection_config.x11.visual_depth = optional_x11_visual_depth;
+    connection_config.x11.visual_class = optional_x11_visual_class;
+    connection_config.x11.visual_type = optional_x11_visual_type;
+    connection_config.x11.disable_double_buffering = x11_disable_double_buffering;
+    connection_config.x11.disable_glx_direct_rendering = x11_disable_glx_direct_rendering;
+    connection_config.x11.disable_detectable_autorepeat = x11_disable_detectable_autorepeat;
+    connection_config.x11.synchronous_mode = x11_use_synchronous_mode;
+    std::unique_ptr<display::Connection> conn = impl->new_connection(locale, connection_config); // Throws
+
     int display = conn->get_default_display();
     EventLoop event_loop(*conn, display);
 

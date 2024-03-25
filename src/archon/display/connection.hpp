@@ -32,6 +32,7 @@
 #include <locale>
 
 #include <archon/core/buffer.hpp>
+#include <archon/log/logger.hpp>
 #include <archon/display/implementation_fwd.hpp>
 #include <archon/display/geometry.hpp>
 #include <archon/display/key.hpp>
@@ -256,6 +257,16 @@ public:
 /// the display implementations.
 ///
 struct Connection::Config {
+    /// \brief Log through specified logger.
+    ///
+    /// If no logger is specified, nothing is logged. If a logger is specified, it must use
+    /// a locale that is compatible with the locale that is passed to \ref
+    /// display::Implementation::new_connection(), \ref display::new_connection(), or \ref
+    /// display::new_connection_a(). The important thing is that the character encodings
+    /// agree (`std::codecvt` facet).
+    ///
+    log::Logger* logger = nullptr;
+
     /// \brief Parameters specific to X11-based implementation.
     ///
     /// These are the parameters that are specific to the X11-based implementation.
@@ -275,7 +286,8 @@ struct Connection::Config {
 /// This function is like \ref new_connection_a() except that is throws an exception instead
 /// of returning null if no display implementations are available.
 ///
-auto new_connection(const std::locale&, const display::Guarantees&) -> std::unique_ptr<display::Connection>;
+auto new_connection(const std::locale&, const display::Guarantees&, const display::Connection::Config& = {}) ->
+    std::unique_ptr<display::Connection>;
 
 
 /// \brief Establish display connection using default implementation if available.
@@ -294,7 +306,8 @@ auto new_connection(const std::locale&, const display::Guarantees&) -> std::uniq
 /// connection must be used only by the main thread. This includes the destruction of the
 /// connection returned by this function.
 ///
-auto new_connection_a(const std::locale&, const display::Guarantees&) -> std::unique_ptr<display::Connection>;
+auto new_connection_a(const std::locale&, const display::Guarantees&, const display::Connection::Config& = {}) ->
+    std::unique_ptr<display::Connection>;
 
 
 } // namespace archon::display

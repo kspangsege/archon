@@ -42,9 +42,12 @@
 #include <archon/core/literal_hash_map.hpp>
 #include <archon/core/string.hpp>
 #include <archon/core/format.hpp>
+#include <archon/core/as_int.hpp>
 #include <archon/core/quote.hpp>
 #include <archon/core/endianness.hpp>
 #include <archon/core/platform_support.hpp>
+#include <archon/core/file.hpp>
+#include <archon/log.hpp>
 #include <archon/math/vector.hpp>
 #include <archon/image.hpp>
 #include <archon/image/gamma.hpp>
@@ -651,6 +654,7 @@ class ConnectionImpl final
 public:
     const ImplementationImpl& impl;
     const std::locale locale;
+    log::Logger& logger;
     Display* dpy = nullptr;
 
     Atom atom_wm_protocols;
@@ -662,7 +666,8 @@ public:
     Atom atom_edid;
 #endif
 
-    ConnectionImpl(const ImplementationImpl&, const std::locale&, const display::ConnectionConfigX11&) noexcept;
+    ConnectionImpl(const ImplementationImpl&, const std::locale&, log::Logger*,
+                   const display::ConnectionConfigX11&) noexcept;
     ~ConnectionImpl() noexcept override;
 
     void open(const display::ConnectionConfigX11&);
@@ -873,7 +878,7 @@ inline ImplementationImpl::ImplementationImpl(Slot& slot) noexcept
 auto ImplementationImpl::new_connection(const std::locale& locale, const display::Connection::Config& config) const ->
     std::unique_ptr<display::Connection>
 {
-    auto conn = std::make_unique<ConnectionImpl>(*this, locale, config.x11); // Throws
+    auto conn = std::make_unique<ConnectionImpl>(*this, locale, config.logger, config.x11); // Throws
     conn->open(config.x11); // Throws
     return conn;
 }
@@ -911,9 +916,10 @@ auto SlotImpl::get_implementation_a(const display::Guarantees& guarantees) const
 
 
 inline ConnectionImpl::ConnectionImpl(const ImplementationImpl& impl_2, const std::locale& locale_2,
-                                      const display::ConnectionConfigX11& config) noexcept
+                                      log::Logger* logger, const display::ConnectionConfigX11& config) noexcept
     : impl(impl_2)
     , locale(locale_2)
+    , logger(log::Logger::or_null(logger))
     , m_depth_override(config.visual_depth)
     , m_class_override(map_opt_visual_class(config.visual_class))
     , m_visual_override(config.visual_type)
@@ -1143,6 +1149,9 @@ auto ConnectionImpl::new_window(std::string_view title, display::Size size, disp
     }
     ScreenSlot& screen_slot = ensure_screen_slot(screen); // Throws
     const VisualSpec& visual_spec = determine_visual_spec(screen_slot, enable_opengl); // Throws
+    bool format_as_hex = true;
+    logger.detail("Using visual depth %s and visual type %s for new X11 window", visual_spec.info.depth,
+                  core::as_flex_int(visual_spec.info.visualid, format_as_hex)); // Throws
     Colormap colormap = ensure_colormap(screen_slot, visual_spec.info.visualid); // Throws
     const XPixmapFormatValues* pixmap_format;
     {

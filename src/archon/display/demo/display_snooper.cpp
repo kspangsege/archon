@@ -268,6 +268,7 @@ int main(int argc, char* argv[])
     std::optional<display::ConnectionConfigX11::VisualClass> optional_x11_visual_class;
     std::optional<std::uint_fast32_t> optional_x11_visual_type;
     bool x11_disable_double_buffering = false;
+    bool x11_disable_glx_direct_rendering = false;
     bool x11_disable_detectable_autorepeat = false;
     bool x11_use_synchronous_mode = false;
 
@@ -323,10 +324,15 @@ int main(int argc, char* argv[])
             return false;
         })); // Throws
 
-    opt("-D, --x11-disable-double-buffering", "", cli::no_attributes, spec,
+    opt("-B, --x11-disable-double-buffering", "", cli::no_attributes, spec,
         "When using the X11-based display implementation, disable use of double buffering, even when the selected "
         "visual supports double buffering.",
         cli::raise_flag(x11_disable_double_buffering)); // Throws
+
+    opt("-D, --x11-disable-glx-direct-rendering", "", cli::no_attributes, spec,
+        "When using the X11-based display implementation, disable use of GLX direct rendering, even in cases where "
+        "GLX direct rendering is possible.",
+        cli::raise_flag(x11_disable_glx_direct_rendering)); // Throws
 
     opt("-A, --x11-disable-detectable-autorepeat", "", cli::no_attributes, spec,
         "When using the X11-based display implementation, do not turn on \"detectable auto-repeat\" mode, as it is "
@@ -401,11 +407,14 @@ int main(int argc, char* argv[])
         }
     }
 
+    log::PrefixLogger display_logger(logger, "Display: "); // Throws
     display::Connection::Config connection_config;
+    connection_config.logger = &display_logger;
     connection_config.x11.visual_depth = optional_x11_visual_depth;
     connection_config.x11.visual_class = optional_x11_visual_class;
     connection_config.x11.visual_type = optional_x11_visual_type;
     connection_config.x11.disable_double_buffering = x11_disable_double_buffering;
+    connection_config.x11.disable_glx_direct_rendering = x11_disable_glx_direct_rendering;
     connection_config.x11.disable_detectable_autorepeat = x11_disable_detectable_autorepeat;
     connection_config.x11.synchronous_mode = x11_use_synchronous_mode;
     std::unique_ptr<display::Connection> conn = impl->new_connection(locale, connection_config); // Throws

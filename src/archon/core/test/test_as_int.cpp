@@ -136,6 +136,12 @@ ARCHON_TEST_BATCH(Core_AsInt_AsFlexInt_Parse, variants)
                 if (ARCHON_LIKELY(ARCHON_CHECK(parser.parse(widener.widen("0x01"), core::as_flex_int(var)))))
                     ARCHON_CHECK_EQUAL(var, true);
                 var = true;
+                if (ARCHON_LIKELY(ARCHON_CHECK(parser.parse(widener.widen("0X0"), core::as_flex_int(var)))))
+                    ARCHON_CHECK_EQUAL(var, false);
+                var = false;
+                if (ARCHON_LIKELY(ARCHON_CHECK(parser.parse(widener.widen("0X1"), core::as_flex_int(var)))))
+                    ARCHON_CHECK_EQUAL(var, true);
+                var = true;
                 if (ARCHON_LIKELY(ARCHON_CHECK(parser.parse(widener.widen("00"), core::as_flex_int(var)))))
                     ARCHON_CHECK_EQUAL(var, false);
                 var = false;
@@ -189,6 +195,12 @@ ARCHON_TEST_BATCH(Core_AsInt_AsFlexInt_Parse, variants)
                 if (ARCHON_LIKELY(ARCHON_CHECK(parser.parse(widener.widen("0x025"), core::as_flex_int(var)))))
                     ARCHON_CHECK_EQUAL(var, 37);
                 var = 1;
+                if (ARCHON_LIKELY(ARCHON_CHECK(parser.parse(widener.widen("0X0"), core::as_flex_int(var)))))
+                    ARCHON_CHECK_EQUAL(var, 0);
+                var = 1;
+                if (ARCHON_LIKELY(ARCHON_CHECK(parser.parse(widener.widen("0X25"), core::as_flex_int(var)))))
+                    ARCHON_CHECK_EQUAL(var, 37);
+                var = 1;
                 if (ARCHON_LIKELY(ARCHON_CHECK(parser.parse(widener.widen("00"), core::as_flex_int(var)))))
                     ARCHON_CHECK_EQUAL(var, 0);
                 var = 1;
@@ -210,6 +222,9 @@ ARCHON_TEST_BATCH(Core_AsInt_AsFlexInt_Parse, variants)
                     ARCHON_CHECK_EQUAL(var, 1);
                 var = 1;
                 if (ARCHON_LIKELY(ARCHON_CHECK_NOT(parser.parse(widener.widen("00x25"), core::as_flex_int(var)))))
+                    ARCHON_CHECK_EQUAL(var, 1);
+                var = 1;
+                if (ARCHON_LIKELY(ARCHON_CHECK_NOT(parser.parse(widener.widen("0x2G"), core::as_flex_int(var)))))
                     ARCHON_CHECK_EQUAL(var, 1);
                 var = 1;
                 if (ARCHON_LIKELY(ARCHON_CHECK_NOT(parser.parse(widener.widen("08"), core::as_flex_int(var)))))
