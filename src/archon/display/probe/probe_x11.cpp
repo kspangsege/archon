@@ -446,8 +446,10 @@ int main(int argc, char* argv[])
     std::locale locale("");
 
     namespace fs = std::filesystem;
-    int num_windows = 0;
     std::optional<fs::path> optional_path;
+    bool list_visuals = false;
+    bool list_pixmap_formats = false;
+    int num_windows = 0;
     std::optional<int> optional_visual_depth;
     std::optional<display::ConnectionConfigX11::VisualClass> optional_visual_class;
     std::optional<VisualID> optional_visual_type;
@@ -468,6 +470,14 @@ int main(int argc, char* argv[])
 
     opt(cli::help_tag, spec); // Throws
     opt(cli::stop_tag, spec); // Throws
+
+    opt("-L, --list-visuals", "", cli::no_attributes, spec,
+        "List the supported X11 visuals.",
+        cli::raise_flag(list_visuals)); // Throws
+
+    opt("-M, --list-pixmap-formats", "", cli::no_attributes, spec,
+        "List the supported ZPixmap formats.",
+        cli::raise_flag(list_pixmap_formats)); // Throws
 
     opt("-n, --num-windows", "<num>", cli::no_attributes, spec,
         "The number of windows to be opened. The default number is @V.",
@@ -639,7 +649,7 @@ int main(int argc, char* argv[])
     int xrandr_minor = 0;
     if (ARCHON_LIKELY(XRRQueryExtension(dpy, &xrandr_event_base, &xrandr_error_base))) {
         Status status = XRRQueryVersion(dpy, &xrandr_major, &xrandr_minor);
-        ARCHON_ASSERT(status != 0);
+        ARCHON_STEADY_ASSERT(status != 0);
         if (ARCHON_LIKELY(xrandr_major > 1 || (xrandr_major == 1 && xrandr_minor >= 5)))
             have_xrandr = true;
     }
@@ -657,7 +667,7 @@ int main(int argc, char* argv[])
     int xrender_minor = 0;
     if (ARCHON_LIKELY(XRenderQueryExtension(dpy, &xrender_event_base, &xrender_error_base))) {
         Status status = XRenderQueryVersion(dpy, &xrender_major, &xrender_minor);
-        ARCHON_ASSERT(status != 0);
+        ARCHON_STEADY_ASSERT(status != 0);
         if (ARCHON_LIKELY(xrender_major > 0 || (xrender_major == 0 && xrender_minor >= 7)))
             have_xrender = true;
     }
@@ -671,7 +681,7 @@ int main(int argc, char* argv[])
     int glx_minor = 0;
     if (ARCHON_LIKELY(glXQueryExtension(dpy, &glx_error_base, &glx_event_base))) {
         Bool success = glXQueryVersion(dpy, &glx_major, &glx_minor);
-        ARCHON_ASSERT(success);
+        ARCHON_STEADY_ASSERT(success);
         if (ARCHON_LIKELY(glx_major > 1 || (glx_major == 1 && glx_minor >= 4)))
             have_glx = true;
     }
@@ -682,7 +692,9 @@ int main(int argc, char* argv[])
         XVisualInfo info;
         bool double_buffered;
         bool opengl_supported;
+        bool opengl_double_buffered;
         int double_buffered_perflevel;
+        int opengl_level;
     };
     core::Slab<VisualSpec> visual_specs;
     {
@@ -703,7 +715,7 @@ int main(int argc, char* argv[])
                     auto p = double_buffered_visuals.emplace(std::make_tuple(i, subentry.depth, subentry.visual),
                                                              subentry.perflevel); // Throws
                     bool was_inserted = p.second;
-                    ARCHON_ASSERT(was_inserted);
+                    ARCHON_STEADY_ASSERT(was_inserted);
                 }
             }
         }
@@ -731,28 +743,66 @@ int main(int argc, char* argv[])
                     }
                 }
                 bool opengl_supported = false;
+                int opengl_level = 0;
+                bool opengl_double_buffered = false;
 #if HAVE_GLX
                 if (ARCHON_LIKELY(have_glx)) {
-                    int value = {};
-                    int ret = glXGetConfig(dpy, &info, GLX_USE_GL, &value);
-                    ARCHON_STEADY_ASSERT(ret == 0);
-                    if (value)
-                        opengl_supported = true;
+                    auto get = [&](int attrib) noexcept {
+                        int value = {};
+                        int ret = glXGetConfig(dpy, &info, attrib, &value);
+                        ARCHON_STEADY_ASSERT(ret == 0);
+                        return value;
+                    };
+                    opengl_supported       = (get(GLX_USE_GL) != 0);
+                    opengl_level           = get(GLX_LEVEL);
+                    opengl_double_buffered = (get(GLX_DOUBLEBUFFER) != 0);
                 }
 #endif // HAVE_GLX
                 VisualSpec spec = {
                     info,
                     double_buffered,
                     opengl_supported,
+                    opengl_double_buffered,
                     double_buffered_perflevel,
+                    opengl_level,
                 };
                 visual_specs.add(spec);
             }
         }
     }
 
-    // List supported visuals
+    // Fetch ZPixmap formats
+    core::FlatMap<int, XPixmapFormatValues> pixmap_formats;
     {
+        int n = 0;
+        XPixmapFormatValues* entries = XListPixmapFormats(dpy, &n);
+        if (!entries)
+            throw std::runtime_error("XListPixmapFormats() failed");
+        ARCHON_SCOPE_EXIT {
+            XFree(entries);
+        };
+        std::size_t n_2 = {};
+        core::int_cast(n, n_2); // Throws
+        pixmap_formats.reserve(n_2); // Throws
+        for (std::size_t i = 0; i < n_2; ++i) {
+            XPixmapFormatValues& format = entries[i];
+            pixmap_formats[format.depth] = format;
+        }
+    }
+
+    // Fetch depths
+    std::vector<int> depths;
+    {
+        int n = 0;
+        int* entries = XListDepths(dpy, screen, &n);
+        ARCHON_STEADY_ASSERT(entries);
+        for (int i = 0; i < n; ++i)
+            depths.push_back(entries[i]);
+        XFree(entries);
+    }
+
+    // List supported visuals
+    if (list_visuals) {
         std::size_t n = visual_specs.size();
         for (std::size_t i = 0; i < n; ++i) {
             const VisualSpec& spec = visual_specs[i];
@@ -760,7 +810,7 @@ int main(int argc, char* argv[])
             auto format_double_buffered = [&](std::ostream& out) {
                 if (spec.double_buffered) {
                     if (spec.double_buffered_perflevel != 0) {
-                        out << core::formatted("yes (%s)", spec.double_buffered_perflevel); // Throws
+                        out << core::formatted("yes (%s)", core::as_int(spec.double_buffered_perflevel)); // Throws
                     }
                     else {
                         out << "yes"; // Throws
@@ -772,11 +822,24 @@ int main(int argc, char* argv[])
             };
             logger.info("Visual %s: visualid = %s, screen = %s, depth = %s, class = %s, "
                         "red_mask = 0x%s, green_mask = 0x%s, blue_mask = 0x%s, colormap_size = %s, bits_per_rgb = %s, "
-                        "double_buffered = %s, supports_opengl = %s", i + 1, core::as_flex_int_h(info.visualid),
-                        info.screen, info.depth, get_visual_class_name(info.c_class), core::as_hex_int(info.red_mask),
-                        core::as_hex_int(info.green_mask), core::as_hex_int(info.blue_mask), info.colormap_size,
-                        info.bits_per_rgb, core::as_format_func(format_double_buffered),
-                        (spec.opengl_supported ? "yes" : "noe")); // Throws
+                        "double_buffered = %s, supports_opengl = %s, opengl_level = %s, opengl_double_buffered = %s",
+                        i + 1, core::as_flex_int_h(info.visualid), core::as_int(info.screen), core::as_int(info.depth),
+                        get_visual_class_name(info.c_class), core::as_hex_int(info.red_mask),
+                        core::as_hex_int(info.green_mask), core::as_hex_int(info.blue_mask),
+                        core::as_int(info.colormap_size), core::as_int(info.bits_per_rgb),
+                        core::as_format_func(format_double_buffered), (spec.opengl_supported ? "yes" : "no"),
+                        core::as_int(spec.opengl_level), (spec.opengl_double_buffered ? "yes" : "no")); // Throws
+        }
+    }
+
+    // List supported ZPixmap formats
+    if (list_pixmap_formats) {
+        std::size_t i = 0;
+        for (const auto& entry : pixmap_formats) {
+            const XPixmapFormatValues& format = entry.second;
+            logger.info("Format %s: depth = %s, bits_per_pixel = %s, scanline_pad = %s", i + 1, format.depth,
+                        format.bits_per_pixel, format.scanline_pad); // Throws
+            ++i;
         }
     }
 
@@ -801,6 +864,8 @@ int main(int argc, char* argv[])
             if (visual_override.has_value() && spec.info.visualid != visual_override.value())
                 return false;
             if (require_opengl && !spec.opengl_supported)
+                return false;
+            if (spec.opengl_level != 0)
                 return false;
             return true;
         };
@@ -861,24 +926,37 @@ int main(int argc, char* argv[])
                     b_5 = 1;
             }
 
+            // Criterion: Prefer OpenGL double buffered
+            int a_6 = 0, b_6 = 0;
+            if (require_opengl) {
+                if (a.opengl_double_buffered)
+                    a_6 = 1;
+                if (b.opengl_double_buffered)
+                    b_6 = 1;
+            }
+
             // Criterion: Greatest depth
-            int a_6 = a.info.depth;
-            int b_6 = b.info.depth;
+            int a_7 = a.info.depth;
+            int b_7 = b.info.depth;
 
             // Criterion: Prefer not double buffered
-            int a_7 = (a.double_buffered ? 0 : 1);
-            int b_7 = (b.double_buffered ? 0 : 1);
+            int a_8 = (a.double_buffered ? 0 : 1);
+            int b_8 = (b.double_buffered ? 0 : 1);
+
+            // Criterion: Prefer not OpenGL double buffered
+            int a_9 = (a.opengl_double_buffered ? 0 : 1);
+            int b_9 = (b.opengl_double_buffered ? 0 : 1);
 
             // FIXME: If depth buffer desired, prefer highest number of bits in depth buffer, else prefer lowest number of bits.    
             // FIXME: If stencil buffer desired, prefer highest number of bits in stencil buffer, else prefer lowest number of bits.    
             // FIXME: If accum buffer desired, prefer highest number of bits in accum buffer, else prefer lowest number of bits.    
 
             // Criterion: Prefer no OpenGL support
-            int a_8 = (a.opengl_supported ? 0 : 1);
-            int b_8 = (b.opengl_supported ? 0 : 1);
+            int a_10 = (a.opengl_supported ? 0 : 1);
+            int b_10 = (b.opengl_supported ? 0 : 1);
 
-            int a_0[] = { a_1, a_2, a_3, a_4, a_5, a_6, a_7, a_8 };
-            int b_0[] = { b_1, b_2, b_3, b_4, b_5, b_6, b_7, b_8 };
+            int a_0[] = { a_1, a_2, a_3, a_4, a_5, a_6, a_7, a_8, a_9, a_10 };
+            int b_0[] = { b_1, b_2, b_3, b_4, b_5, b_6, b_7, b_8, b_9, b_10 };
             return std::lexicographical_compare(std::begin(a_0), std::end(a_0), std::begin(b_0), std::end(b_0));
         };
         const VisualSpec* best = nullptr;
@@ -898,36 +976,12 @@ int main(int argc, char* argv[])
     int depth = visual_info.depth;
     VisualID visualid = visual_info.visualid;
     bool use_double_buffering = visual_spec.double_buffered;
-
-    // List ZPixmap formats and find "bits per pixel" for selected depth
     int bits_per_pixel = 0;
     {
-        int n = 0;
-        XPixmapFormatValues* entries = XListPixmapFormats(dpy, &n);
-        ARCHON_STEADY_ASSERT(entries);
-        bool found = false;
-        for (int i = 0; i < n; ++i) {
-            const XPixmapFormatValues& values = entries[i];
-            logger.info("Format %s: depth = %s, bits_per_pixel = %s, scanline_pad = %s", i + 1, values.depth,
-                        values.bits_per_pixel, values.scanline_pad); // Throws
-            if (values.depth == depth) {
-                bits_per_pixel = values.bits_per_pixel;
-                found = true;
-            }
-        }
-        ARCHON_STEADY_ASSERT(found);
-        XFree(entries);
-    }
-
-    // Fetch depths
-    std::vector<int> depths;
-    {
-        int n = 0;
-        int* entries = XListDepths(dpy, screen, &n);
-        ARCHON_STEADY_ASSERT(entries);
-        for (int i = 0; i < n; ++i)
-            depths.push_back(entries[i]);
-        XFree(entries);
+        auto i = pixmap_formats.find(depth);
+        ARCHON_STEADY_ASSERT(i != pixmap_formats.end());
+        const XPixmapFormatValues& format = i->second;
+        bits_per_pixel = format.bits_per_pixel;
     }
 
     auto format_have_xdbe = [&](std::ostream& out) {
@@ -1020,7 +1074,7 @@ int main(int argc, char* argv[])
 
     auto intern_string = [&](const char* string) noexcept -> Atom {
         Atom atom = XInternAtom(dpy, string, False);
-        ARCHON_ASSERT(atom != None);
+        ARCHON_STEADY_ASSERT(atom != None);
         return atom;
     };
 
@@ -1650,7 +1704,7 @@ int main(int argc, char* argv[])
         // in the upper left corner on the corresponding key). See also
         // https://tronche.com/gui/x/xlib/input/keyboard-encoding.html.
         KeySym keysym = XkbKeycodeToKeysym(dpy, keycode, XkbGroup1Index, 0);
-        ARCHON_ASSERT(keysym != NoSymbol);
+        ARCHON_STEADY_ASSERT(keysym != NoSymbol);
         return keysym;
     };
 
