@@ -223,22 +223,38 @@ template<class L, class P, class... A> constexpr bool has_type_a(A&&... args)
     noexcept(core::has_type_a_noexcept<L, P, A...>());
 
 
-/// \brief Determine "no throw" guarantee for "for each type" function.
+/// \{
 ///
-/// Determine whether \ref core::for_each_type() is guaranteed to not throw exceptions if it
-/// is instantiated with the same template arguments.
+/// \brief Determine "no throw" guarantees for "for each type" functions.
 ///
-/// Let `func` be an object of type `F&`. This function then returns `true` if, and only if
-/// `noexcept(func(core::Wrap<T>(), int()))` is `true` for all `T` in `L`.
+/// These functions, `for_each_type_noexcept()`and `for_each_type_a_noexcept()`,
+/// respectively determine whether \ref core::for_each_type() and \ref
+/// core::for_each_type_a() are guaranteed to not throw exceptions if they are instantiated
+/// with corresponding template arguments.
+///
+/// Let `func` be an object of type `F&`. Then `for_each_type_noexcept()` returns `true` if,
+/// and only if `noexcept(func(core::Wrap<T>(), int()))` is `true` for all `T` in
+/// `L`. Likewise, `for_each_type_a_noexcept()` returns `true` if, and only if
+/// `noexcept(bool(func(core::Wrap<T>(), int())))` is `true` for all `T` in `L`.
+///
+/// \sa \ref core::for_each_type()
+/// \sa \ref core::for_each_type_a()
+/// \sa \ref core::for_each_type_noexcept()
+/// \sa \ref core::for_each_type_a_noexcept()
+/// \sa \ref core::for_each_type_alt_noexcept()
+/// \sa \ref core::for_each_type_alt_a_noexcept()
 ///
 template<class L, class F> constexpr bool for_each_type_noexcept() noexcept;
+template<class L, class F> constexpr bool for_each_type_a_noexcept() noexcept;
+/// \}
 
 
-/// \brief Invoke generic lambda for each type in type list.
+/// \brief Execute generic lambda for each type in type list.
 ///
 /// This function executes the specified generic lambda (\p func) once for each type in \p
-/// L. For a given type, `T`, in \p L, \p func is invoked with two arguments, one of type
-/// `core::Wrap<T>` and one of type `std::size_t`, which is the index of the type in \p L.
+/// L, and in the order that the types occur in \p L. For a given type, `T`, in \p L, \p
+/// func is invoked with two arguments, one of type `core::Wrap<T>` and one of type
+/// `std::size_t`, which is the index of the type in \p L.
 ///
 /// Here is an example that demonstrates the idea:
 ///
@@ -253,22 +269,68 @@ template<class L, class F> constexpr bool for_each_type_noexcept() noexcept;
 ///
 /// \endcode
 ///
+/// \sa \ref core::for_each_type_a()
 /// \sa \ref core::for_each_type_alt()
+/// \sa \ref core::for_each_type_noexcept()
 ///
 template<class L, class F> void for_each_type(F&& func) noexcept(core::for_each_type_noexcept<L, F>());
 
 
-/// \brief Determine "no throw" guarantee for alternative "for each type" functions.
+/// \brief Invoke generic lambda for each type in type list until failure.
 ///
-/// Determine whether \ref core::for_each_type_alt() and \ref core::for_each_type_alt_a()
-/// are guaranteed to not throw exceptions if they are instantiated with the same template
-/// arguments.
+/// This function has the same effect as \ref core::for_each_type() except that \p func is
+/// assumed to return something that is convertible to `bool`. If the result is `false` for
+/// any particular invocation, the iteration over the type list is terminated and
+/// `for_each_type_a()` returns `false`. If the result is `true` for all invocations,
+/// `for_each_type_a()` returns `true`.
 ///
-/// This function returns true if, and only if `noexcept(F::template exec<T,
-/// I>(std::declval<A>...))` is true for all pairs (`T`, `I`) where `T` is a type in `L` and
-/// `I` is the index of `T` in `L`.
+/// Here is an example that demonstrates the idea:
+///
+/// \code{.cpp}
+///
+///   using types = archon::core::TypeList<short, int, long, long long>;
+///
+///   bool good = archon::core::for_each_type<types>([](auto tag, int i) noexcept {
+///       using type = typename decltype(tag)::type;
+///       return check<type>();
+///   });
+///
+/// \endcode
+///
+/// \sa \ref core::for_each_type()
+/// \sa \ref core::for_each_type_alt_a()
+/// \sa \ref core::for_each_type_a_noexcept()
+///
+template<class L, class F> bool for_each_type_a(F&& func) noexcept(core::for_each_type_a_noexcept<L, F>());
+
+
+/// \{
+///
+/// \brief Determine "no throw" guarantees for alternative "for each type" functions.
+///
+/// These function, `for_each_type_alt_noexcept()` and `for_each_type_alt_a_noexcept`,
+/// respectively determine whether \ref core::for_each_type_alt() and \ref
+/// core::for_each_type_alt_a() are guaranteed to not throw exceptions if they are
+/// instantiated with corresponding template arguments.
+///
+/// `for_each_type_alt_noexcept()` returns true if, and only if `noexcept(F::template
+/// exec<T, I>(std::declval<A>...))` is true for all pairs (`T`, `I`) where `T` is a type in
+/// `L` and `I` is the index of `T` in `L`.
+///
+/// `for_each_type_alt_a_noexcept()` returns true if, and only if `noexcept(bool(F::template
+/// exec<T, I>(std::declval<A>...)))` is true for all pairs (`T`, `I`) where `T` is a type
+/// in `L` and `I` is the index of `T` in `L`.
+///
+/// \sa \ref core::for_each_type_alt()
+/// \sa \ref core::for_each_type_alt_a()
+/// \sa \ref core::for_each_type_noexcept()
+/// \sa \ref core::for_each_type_a_noexcept()
+/// \sa \ref core::for_each_type_alt_noexcept()
+/// \sa \ref core::for_each_type_alt_a_noexcept()
 ///
 template<class L, class F, class... A> constexpr bool for_each_type_alt_noexcept() noexcept;
+template<class L, class F, class... A> constexpr bool for_each_type_alt_a_noexcept() noexcept;
+/// \}
 
 
 /// \brief Execute function for each type in list.
@@ -287,6 +349,7 @@ template<class L, class F, class... A> constexpr bool for_each_type_alt_noexcept
 ///
 /// \sa \ref core::for_each_type()
 /// \sa \ref core::for_each_type_alt_a()
+/// \sa \ref core::for_each_type_alt_noexcept()
 ///
 template<class L, class F, class... A> void for_each_type_alt(A&&... args)
     noexcept(core::for_each_type_alt_noexcept<L, F, A...>());
@@ -311,10 +374,12 @@ template<class L, class F, class... A> void for_each_type_alt(A&&... args)
 /// type list. It must be such that the expression `bool(F::template exec<T, I>(args...))`
 /// is valid. Here, `I` is the index of `T` within the list.
 ///
+/// \sa \ref core::for_each_type_a()
 /// \sa \ref core::for_each_type_alt()
+/// \sa \ref core::for_each_type_alt_a_noexcept()
 ///
 template<class L, class F, class... A> bool for_each_type_alt_a(A&&... args)
-    noexcept(core::for_each_type_alt_noexcept<L, F, A...>());
+    noexcept(core::for_each_type_alt_a_noexcept<L, F, A...>());
 
 
 
@@ -424,9 +489,18 @@ template<class L, class F, std::size_t I, class... A> struct ForEachTypeAltNoexc
         return (noexcept(F::template exec<typename L::head, I>(std::declval<A>()...)) &&
                 ForEachTypeAltNoexcept<typename L::tail, F, I + 1, A...>::exec());
     }
+    static constexpr bool exec_a() noexcept
+    {
+        return (noexcept(bool(F::template exec<typename L::head, I>(std::declval<A>()...))) &&
+                ForEachTypeAltNoexcept<typename L::tail, F, I + 1, A...>::exec());
+    }
 };
 template<class F, std::size_t I, class... A> struct ForEachTypeAltNoexcept<void, F, I, A...> {
     static constexpr bool exec() noexcept
+    {
+        return true;
+    }
+    static constexpr bool exec_a() noexcept
     {
         return true;
     }
@@ -464,6 +538,14 @@ template<class F> struct ForEachTypeFunc {
 };
 
 
+template<class F> struct ForEachTypeFuncA {
+    template<class T, std::size_t I> static bool exec(F& func) noexcept(noexcept(bool(func(core::Wrap<T>(), I))))
+    {
+        return bool(func(core::Wrap<T>(), I)); // Throws
+    }
+};
+
+
 template<class L, class F, std::size_t I> struct ForEachTypeAlt {
     template<class... A> static void exec(A&&... args)
     {
@@ -494,7 +576,7 @@ template<class F, std::size_t I> struct ForEachTypeAlt<void, F, I> {
 
 template<class L, class P, class... A> constexpr bool has_type_a_noexcept() noexcept
 {
-    return impl::ForEachTypeAltNoexcept<L, P, 0, A...>::exec();
+    return impl::ForEachTypeAltNoexcept<L, P, 0, A...>::exec_a();
 }
 
 
@@ -511,15 +593,33 @@ template<class L, class F> constexpr bool for_each_type_noexcept() noexcept
 }
 
 
+template<class L, class F> constexpr bool for_each_type_a_noexcept() noexcept
+{
+    return for_each_type_alt_a_noexcept<L, impl::ForEachTypeFuncA<F>, F&>();
+}
+
+
 template<class L, class F> void for_each_type(F&& func) noexcept(core::for_each_type_noexcept<L, F>())
 {
     core::for_each_type_alt<L, impl::ForEachTypeFunc<F>>(func); // Throws
 }
 
 
+template<class L, class F> bool for_each_type_a(F&& func) noexcept(core::for_each_type_a_noexcept<L, F>())
+{
+    return core::for_each_type_alt_a<L, impl::ForEachTypeFuncA<F>>(func); // Throws
+}
+
+
 template<class L, class F, class... A> constexpr bool for_each_type_alt_noexcept() noexcept
 {
     return impl::ForEachTypeAltNoexcept<L, F, 0, A...>::exec();
+}
+
+
+template<class L, class F, class... A> constexpr bool for_each_type_alt_a_noexcept() noexcept
+{
+    return impl::ForEachTypeAltNoexcept<L, F, 0, A...>::exec_a();
 }
 
 
@@ -531,7 +631,7 @@ template<class L, class F, class... A> inline void for_each_type_alt(A&&... args
 
 
 template<class L, class F, class... A> inline bool for_each_type_alt_a(A&&... args)
-    noexcept(core::for_each_type_alt_noexcept<L, F, A...>())
+    noexcept(core::for_each_type_alt_a_noexcept<L, F, A...>())
 {
     return impl::ForEachTypeAlt<L, F, 0>::exec_a(std::forward<A>(args)...); // Throws
 }
