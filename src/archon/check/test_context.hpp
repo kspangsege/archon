@@ -1371,13 +1371,7 @@ template<class T, class... U>
 inline void TestContext::process_check_args(core::SeedMemoryOutputStream& out, std::string_view* texts,
                                             std::size_t* ends, check::CheckArg<T> arg, check::CheckArg<U>... args)
 {
-    if constexpr (check::CheckArg<T>::is_formattable) {
-        format_value(out, arg.get_value()); // Throws
-    }
-    else {
-        struct Unformattable {};
-        format_value(out, Unformattable()); // Throws
-    }
+    format_value(out, arg.get_value()); // Throws
     *texts = arg.get_text();
     *ends = out.streambuf().size();
     process_check_args(out, texts + 1, ends + 1, args...); // Throws
