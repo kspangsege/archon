@@ -80,18 +80,16 @@ ARCHON_TEST_BATCH(Core_AsInt_AsFlexInt_Format, variants)
                 value_type val_2 = true;
                 ARCHON_CHECK_EQUAL(formatter.format(core::as_flex_int(val_1)), widener.widen("0"));
                 ARCHON_CHECK_EQUAL(formatter.format(core::as_flex_int(val_2)), widener.widen("1"));
-                bool format_as_hex = true;
-                ARCHON_CHECK_EQUAL(formatter.format(core::as_flex_int(val_1, format_as_hex)), widener.widen("0x0"));
-                ARCHON_CHECK_EQUAL(formatter.format(core::as_flex_int(val_2, format_as_hex)), widener.widen("0x1"));
+                ARCHON_CHECK_EQUAL(formatter.format(core::as_flex_int_h(val_1)), widener.widen("0x0"));
+                ARCHON_CHECK_EQUAL(formatter.format(core::as_flex_int_h(val_2)), widener.widen("0x1"));
             }
             else {
                 value_type val_1 = 0;
                 value_type val_2 = 37;
                 ARCHON_CHECK_EQUAL(formatter.format(core::as_flex_int(val_1)), widener.widen("0"));
                 ARCHON_CHECK_EQUAL(formatter.format(core::as_flex_int(val_2)), widener.widen("37"));
-                bool format_as_hex = true;
-                ARCHON_CHECK_EQUAL(formatter.format(core::as_flex_int(val_1, format_as_hex)), widener.widen("0x0"));
-                ARCHON_CHECK_EQUAL(formatter.format(core::as_flex_int(val_2, format_as_hex)), widener.widen("0x25"));
+                ARCHON_CHECK_EQUAL(formatter.format(core::as_flex_int_h(val_1)), widener.widen("0x0"));
+                ARCHON_CHECK_EQUAL(formatter.format(core::as_flex_int_h(val_2)), widener.widen("0x25"));
             }
         }
     };

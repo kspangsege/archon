@@ -31,6 +31,7 @@
 #include <ostream>
 
 #include <archon/core/features.h>
+#include <archon/core/integer.hpp>
 #include <archon/core/buffer.hpp>
 #include <archon/core/seed_memory_output_stream.hpp>
 #include <archon/core/value_parser.hpp>
@@ -310,16 +311,18 @@ int main(int argc, char* argv[])
         "\"StaticGray\", \"GrayScale\", \"StaticColor\", \"PseudoColor\", \"TrueColor\", or \"DirectColor\".",
         cli::assign(optional_x11_visual_class)); // Throws
 
-    opt("-V, --x11-visual-type", "<hex>", cli::no_attributes, spec,
+    opt("-V, --x11-visual-type", "<num>", cli::no_attributes, spec,
         "When using the X11-based display implementation, pick a visual of the specified type (@A). The type, also "
-        "known as the visual ID, is an integer that can be expressed in decimal, hexadecumal (with prefix '0x'), or "
-        "octal (with prefix '0') form.",
+        "known as the visual ID, is a 32-bit unsigned integer that can be expressed in decimal, hexadecumal (with "
+        "prefix '0x'), or octal (with prefix '0') form.",
         cli::exec([&](std::string_view str) {
             core::ValueParser parser(locale);
             std::uint_fast32_t type = {};
             if (ARCHON_LIKELY(parser.parse(str, core::as_flex_int(type)))) {
-                optional_x11_visual_type.emplace(type);
-                return true;
+                if (ARCHON_LIKELY(type <= core::int_mask<std::uint_fast32_t>(32))) {
+                    optional_x11_visual_type.emplace(type);
+                    return true;
+                }
             }
             return false;
         })); // Throws

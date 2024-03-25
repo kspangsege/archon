@@ -772,7 +772,7 @@ private:
 
     auto intern_string(const char*) noexcept -> Atom;
     auto ensure_screen_slot(int screen) const -> ScreenSlot&;
-    auto determine_visual_spec(const ScreenSlot&, bool enable_opengl) const -> const VisualSpec&;
+    auto determine_visual_spec(const ScreenSlot&, bool require_opengl) const -> const VisualSpec&;
     auto ensure_colormap(ScreenSlot&, VisualID) const -> Colormap;
     bool do_process_events(const time_point_type* deadline, display::ConnectionEventHandler*);
     bool lookup_window(::Window window_id, WindowImpl*& window) noexcept;
@@ -1149,9 +1149,8 @@ auto ConnectionImpl::new_window(std::string_view title, display::Size size, disp
     }
     ScreenSlot& screen_slot = ensure_screen_slot(screen); // Throws
     const VisualSpec& visual_spec = determine_visual_spec(screen_slot, enable_opengl); // Throws
-    bool format_as_hex = true;
     logger.detail("Using visual depth %s and visual type %s for new X11 window", visual_spec.info.depth,
-                  core::as_flex_int(visual_spec.info.visualid, format_as_hex)); // Throws
+                  core::as_flex_int_h(visual_spec.info.visualid)); // Throws
     Colormap colormap = ensure_colormap(screen_slot, visual_spec.info.visualid); // Throws
     const XPixmapFormatValues* pixmap_format;
     {
@@ -1293,7 +1292,7 @@ auto ConnectionImpl::ensure_screen_slot(int screen) const -> ScreenSlot&
 #endif // HAVE_XDBE
         int n = {};
         long vinfo_mask = VisualScreenMask;
-        XVisualInfo vinfo_template;
+        XVisualInfo vinfo_template = {};
         vinfo_template.screen = screen;
         XVisualInfo* entries = XGetVisualInfo(dpy, vinfo_mask, &vinfo_template, &n);
         if (ARCHON_LIKELY(entries)) {
@@ -1347,7 +1346,7 @@ auto ConnectionImpl::ensure_screen_slot(int screen) const -> ScreenSlot&
 
 
 auto ConnectionImpl::determine_visual_spec(const ScreenSlot& screen_slot,
-                                           bool enable_opengl) const -> const VisualSpec&
+                                           bool require_opengl) const -> const VisualSpec&
 {
     // FIXME: Have caller tell whether a depth buffer is needed (default should be that it is needed)       
     // FIXME: Have caller tell whether a stencil buffer is needed (default should be that it is not needed)       
@@ -1359,7 +1358,7 @@ auto ConnectionImpl::determine_visual_spec(const ScreenSlot& screen_slot,
             return false;
         if (m_visual_override.has_value() && spec.info.visualid != m_visual_override.value())
             return false;
-        if (enable_opengl && !spec.opengl_supported)
+        if (require_opengl && !spec.opengl_supported)
             return false;
         return true;
     };
@@ -2115,7 +2114,8 @@ WindowImpl::~WindowImpl() noexcept
 }
 
 
-void WindowImpl::create(display::Size size, Colormap colormap, const Config& config, bool enable_double_buffering, bool enable_opengl, bool enable_glx_direct_rendering)
+void WindowImpl::create(display::Size size, Colormap colormap, const Config& config, bool enable_double_buffering,
+                        bool enable_opengl, bool enable_glx_direct_rendering)
 {
     display::Size adjusted_size = size;
     bool has_minimum_size = (config.resizable && config.minimum_size.has_value());

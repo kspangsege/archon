@@ -61,27 +61,34 @@ template<class I> auto as_hex_int(I&& ref, int min_num_digits = 1) noexcept;
 /// }
 
 
+/// \{
+///
 /// \brief Format or parse unsigned decimal, octal, or hexadecimal integer.
 ///
-/// This function returns an object that, depending on \p ref, can be used for both
-/// formatting and parsing an integer.
+/// These functions return objects that, depending on \p ref, can be used for both
+/// formatting and parsing of an integer.
 ///
-/// When formatting, the effect is the same as when using `as_dec_int(ref)` if \p
-/// format_as_hex is `false`. Otherwise the effect is the same as `as_hex_int(ref)`, but
-/// with `0x` added as prefix.
+/// When formatting, the effect, when using `as_flex_int()`, is the same as when using \ref
+/// core::as_dec_int(). Similarly, the effect, when using `as_flex_int_h()`, is the same as
+/// when using \ref core::as_hex_int(), but with `0x` added as prefix.
 ///
-/// When parsing, if the parsed string has `0x` as a prefix, the effect is the same as for
-/// `as_hex_int(ref)` when applied to the part of the parsed string that follows the
-/// prefix. Otherwise, if the parsed string has `0` as a prefix, the effect is the same as
-/// for `as_oct_int(ref)` when applied to the part of the parsed string that follows the
-/// prefix. Otherwise the effect is the same as for `as_dec_int(ref)`.
+/// When parsing, both overloads work exactly the same way. If the parsed string has `0x` as
+/// a prefix, the effect is the same as for `as_hex_int(ref)` when applied to the part of
+/// the parsed string that follows the prefix. Otherwise, if the parsed string has `0` as a
+/// prefix, the effect is the same as for `as_oct_int(ref)` when applied to the part of the
+/// parsed string that follows the prefix. Otherwise the effect is the same as for
+/// `as_dec_int(ref)`.
 ///
 /// \sa \ref core::as_dec_int()
 /// \sa \ref core::as_oct_int()
 /// \sa \ref core::as_hex_int()
 /// \sa \ref core::as_int()
+/// \sa \ref core::as_flex_int()
+/// \sa \ref core::as_flex_int_h()
 ///
-template<class I> auto as_flex_int(I&& ref, bool format_as_hex = false) noexcept;
+template<class I> auto as_flex_int(I&& ref) noexcept;
+template<class I> auto as_flex_int_h(I&& ref) noexcept;
+/// \}
 
 
 /// \brief Format or parse integer as specified.
@@ -279,9 +286,18 @@ template<class I> inline auto as_hex_int(I&& ref, int min_num_digits) noexcept
 }
 
 
-template<class I> inline auto as_flex_int(I&& ref, bool format_as_hex) noexcept
+template<class I> inline auto as_flex_int(I&& ref) noexcept
 {
     static_assert(core::is_unsigned<std::decay_t<I>>());
+    bool format_as_hex = false;
+    return impl::AsFlexInt<I> { std::forward<I>(ref), format_as_hex };
+}
+
+
+template<class I> inline auto as_flex_int_h(I&& ref) noexcept
+{
+    static_assert(core::is_unsigned<std::decay_t<I>>());
+    bool format_as_hex = true;
     return impl::AsFlexInt<I> { std::forward<I>(ref), format_as_hex };
 }
 
