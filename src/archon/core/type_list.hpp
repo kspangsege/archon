@@ -240,6 +240,19 @@ template<class L, class F> constexpr bool for_each_type_noexcept() noexcept;
 /// L. For a given type, `T`, in \p L, \p func is invoked with two arguments, one of type
 /// `core::Wrap<T>` and one of type `std::size_t`, which is the index of the type in \p L.
 ///
+/// Here is an example that demonstrates the idea:
+///
+/// \code{.cpp}
+///
+///   using types = archon::core::TypeList<short, int, long, long long>;
+///
+///   archon::core::for_each_type<types>([](auto tag, int i) {
+///       using type = typename decltype(tag)::type;
+///       std::cout << i << ": " << archon::core::get_type_name<T>() << "\n";
+///   });
+///
+/// \endcode
+///
 /// \sa \ref core::for_each_type_alt()
 ///
 template<class L, class F> void for_each_type(F&& func) noexcept(core::for_each_type_noexcept<L, F>());

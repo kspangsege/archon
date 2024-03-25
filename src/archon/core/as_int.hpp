@@ -247,7 +247,7 @@ inline bool parse_value(core::BasicValueParserSource<C, T>& src, const impl::AsF
         return parser.parse_dec(src.string(), pod.i); // Throws
     bool is_oct = (string.size() < 2 || (string[1] != src.widen('x') && string[1] != src.widen('X'))); // Throws
     if (is_oct)
-        return parser.parse_oct(src.string().substr(1), pod.i); // Throws
+        return parser.parse_oct(src.string(), pod.i); // Throws
     return parser.parse_hex(src.string().substr(2), pod.i); // Throws
 }
 
