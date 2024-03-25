@@ -115,6 +115,7 @@ private:
     const std::locale& m_locale;
     std::unique_ptr<log::FileLogger> m_fallback_logger;
     log::Logger& m_logger;
+    log::PrefixLogger m_display_logger;
     const display::Implementation& m_display_implementation;
     bool m_headlight_feature_enabled;
     bool m_wireframe_feature_enable;

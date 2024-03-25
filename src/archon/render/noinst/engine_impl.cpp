@@ -64,6 +64,7 @@ EngineImpl::EngineImpl(std::string_view window_title, display::Size window_size,
                        const Config& config)
     : m_locale(locale)
     , m_logger(config.logger ? *config.logger : instantiate_fallback_logger(m_fallback_logger, locale)) // Throws
+    , m_display_logger(m_logger, "Display: ") // Throws
     , m_display_implementation(determine_display_implementation(config.display_implementation,
                                                                 config.display_guarantees)) // Throws
     , m_headlight_feature_enabled(!config.disable_headlight_feature)
@@ -78,7 +79,9 @@ EngineImpl::EngineImpl(std::string_view window_title, display::Size window_size,
 #if !ARCHON_RENDER_HAVE_OPENGL
     throw std::runtime_error("OpenGL not available");
 #endif
-    m_display_connection = m_display_implementation.new_connection(m_locale); // Throws
+    display::Connection::Config connection_config;
+    connection_config.logger = &m_display_logger;
+    m_display_connection = m_display_implementation.new_connection(m_locale, connection_config); // Throws
 
     set_viewport_size(window_size);
     set_frame_rate(config.frame_rate); // Throws
