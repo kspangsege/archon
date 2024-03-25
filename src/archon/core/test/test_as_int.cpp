@@ -89,7 +89,7 @@ ARCHON_TEST_BATCH(Core_AsInt_AsFlexInt_Format, variants)
                 ARCHON_CHECK_EQUAL(formatter.format(core::as_flex_int(val_2)), widener.widen("37"));
                 bool format_as_hex = true;
                 ARCHON_CHECK_EQUAL(formatter.format(core::as_flex_int(val_1, format_as_hex)), widener.widen("0x0"));
-                ARCHON_CHECK_EQUAL(formatter.format(core::as_flex_int(val_2, format_as_hex)), widener.widen("0x37"));
+                ARCHON_CHECK_EQUAL(formatter.format(core::as_flex_int(val_2, format_as_hex)), widener.widen("0x25"));
             }
         }
     };
