@@ -76,6 +76,9 @@ struct ConnectionConfigX11 {
     /// If specified, only that visual type will be considered when picking an X11 visual to
     /// be used with a particular window (see output from command `xdpyinfo`).
     ///
+    /// It is an error of the specified value is larger than 2^32-1 (two to the power of 32
+    /// minus one).
+    ///
     /// \sa \ref visual_depth
     /// \sa \ref visual_class
     ///

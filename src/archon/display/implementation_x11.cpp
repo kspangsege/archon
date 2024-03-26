@@ -25,6 +25,7 @@
 #include <algorithm>
 #include <memory>
 #include <utility>
+#include <stdexcept>
 #include <string_view>
 #include <vector>
 #include <system_error>
@@ -289,6 +290,17 @@ auto get_visual_class_name(int class_) noexcept -> const char*
     }
     ARCHON_ASSERT_UNREACHABLE();
     return nullptr;
+}
+
+
+auto map_opt_visual_type(const std::optional<std::uint_fast32_t>& type) -> std::optional<VisualID>
+{
+    if (ARCHON_LIKELY(!type.has_value()))
+        return {};
+    std::uint_fast32_t type_2 = type.value();
+    if (ARCHON_LIKELY(type_2 <= core::int_mask<std::uint_fast32_t>(32)))
+        return VisualID(type_2);
+    throw std::invalid_argument("Visual type out of range");
 }
 
 
@@ -674,8 +686,7 @@ public:
     Atom atom_edid;
 #endif
 
-    ConnectionImpl(const ImplementationImpl&, const std::locale&, log::Logger*,
-                   const display::ConnectionConfigX11&) noexcept;
+    ConnectionImpl(const ImplementationImpl&, const std::locale&, log::Logger*, const display::ConnectionConfigX11&);
     ~ConnectionImpl() noexcept override;
 
     void open(const display::ConnectionConfigX11&);
@@ -925,13 +936,13 @@ auto SlotImpl::get_implementation_a(const display::Guarantees& guarantees) const
 
 
 inline ConnectionImpl::ConnectionImpl(const ImplementationImpl& impl_2, const std::locale& locale_2,
-                                      log::Logger* logger, const display::ConnectionConfigX11& config) noexcept
+                                      log::Logger* logger, const display::ConnectionConfigX11& config)
     : impl(impl_2)
     , locale(locale_2)
     , logger(log::Logger::or_null(logger))
     , m_depth_override(config.visual_depth)
     , m_class_override(map_opt_visual_class(config.visual_class))
-    , m_visual_override(config.visual_type)
+    , m_visual_override(map_opt_visual_type(config.visual_type)) // Throws
     , m_disable_double_buffering(config.disable_double_buffering)
     , m_disable_glx_direct_rendering(config.disable_glx_direct_rendering)
 {
