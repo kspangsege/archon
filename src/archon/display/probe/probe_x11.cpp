@@ -576,8 +576,6 @@ int main(int argc, char* argv[])
     }
     image::Size img_size = img->get_size();
 
-    // FIXME: Consider allowing for fullscreen toggle                                                      
-
     // Connect to display
     Display* dpy = XOpenDisplay(nullptr);
     ARCHON_STEADY_ASSERT(dpy);
@@ -1745,6 +1743,7 @@ int main(int argc, char* argv[])
         Drawable drawable;
         display::Size size;
         bool redraw = false;
+        bool suppress_redraw = false;
 
         WindowSlot(int no_2, Window window_2, Drawable drawable_2, display::Size size_2) noexcept
         {
@@ -1766,7 +1765,10 @@ int main(int argc, char* argv[])
         return false;
     };
 
-    Atom delete_window = intern_string("WM_DELETE_WINDOW");
+    Atom delete_window                = intern_string("WM_DELETE_WINDOW");
+    Atom atom_net_wm_state            = intern_string("_NET_WM_STATE");
+    Atom atom_net_wm_state_fullscreen = intern_string("_NET_WM_STATE_FULLSCREEN");
+
 
 #if HAVE_XDBE
     XdbeSwapAction swap_action = XdbeUndefined; // Contents of swapped-out buffer becomes undefined
@@ -1958,6 +1960,26 @@ int main(int argc, char* argv[])
                                 XMapWindow(dpy, window);
                                 break;
                             }
+                            if (ev.type == KeyRelease && keysym == XK_f) {
+                                XClientMessageEvent event = {};
+                                event.type = ClientMessage;
+                                event.window = slot->window;
+                                event.message_type = atom_net_wm_state;
+                                event.format = 32;
+                                event.data.l[0] = 2; // Toggle property
+                                event.data.l[1] = atom_net_wm_state_fullscreen;
+                                event.data.l[2] = 0; // No second property to alter
+                                event.data.l[3] = 1; // Request is from normal application
+                                Bool propagate = False;
+                                long event_mask = SubstructureRedirectMask | SubstructureNotifyMask;
+                                Status status = XSendEvent(dpy, root, propagate, event_mask, reinterpret_cast<XEvent*>(&event));
+                                ARCHON_STEADY_ASSERT(status != 0);
+                                break;
+                            }
+                            if (ev.type == KeyRelease && keysym == XK_r) {
+                                slot->suppress_redraw = !slot->suppress_redraw;
+                                break;
+                            }
                         }
                         break;
                     case KeymapNotify:
@@ -2018,7 +2040,7 @@ int main(int argc, char* argv[])
 
         for (const auto& entry : window_slots) {
             const WindowSlot& slot = entry.second;
-            if (slot.redraw) {
+            if (slot.redraw && !slot.suppress_redraw) {
                 int win_width  = slot.size.width;
                 int win_height = slot.size.height;
                 int left = 0, right = win_width;
