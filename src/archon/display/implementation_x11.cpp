@@ -155,6 +155,16 @@
 //
 // * OpenGL GLX specification: https://registry.khronos.org/OpenGL/specs/gl/glx1.4.pdf
 //
+//
+// Useful commands:
+//
+// * Start "fake" X server with support for various uncommon visuals: `Xvfb :1 -screen 0 1600x1200x8 -fbdir /tmp`
+//
+// * Dump screen of "fake" X server: `xwud -in /tmp/Xvfb_screen0 -vis default`
+//
+// * Set standard colormaps and corresponding attributes on root window: `xstdcmap -default`
+//
+
 
 using namespace archon;
 namespace impl = display::impl;
