@@ -54,6 +54,7 @@ add_library(Display
   archon/display/implementation.cpp
   archon/display/implementation_x11.cpp
   archon/display/implementation_sdl.cpp
+  archon/display/noinst/x11_support.cpp
 )
 
 set_target_properties(Display PROPERTIES OUTPUT_NAME "archon-display")

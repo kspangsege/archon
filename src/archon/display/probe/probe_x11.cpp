@@ -19,6 +19,7 @@
 // DEALINGS IN THE SOFTWARE.
 
 
+                             
 #include <cstddef>
 #include <algorithm>
 #include <stdexcept>
@@ -68,63 +69,7 @@
 #include <archon/display/screen.hpp>
 #include <archon/display/noinst/edid.hpp>
 #include <archon/display/connection_config_x11.hpp>
-
-#if !ARCHON_WINDOWS && ARCHON_DISPLAY_HAVE_X11 && ARCHON_DISPLAY_HAVE_X11_XKB
-#  include <unistd.h>
-#  if defined _POSIX_VERSION && _POSIX_VERSION >= 200112L // POSIX.1-2001
-#    define HAVE_X11 1
-#  else
-#    define HAVE_X11 0
-#  endif
-#else
-#  define HAVE_X11 0
-#endif
-
-#if HAVE_X11
-#  if ARCHON_DISPLAY_HAVE_X11_XDBE
-#    define HAVE_XDBE 1
-#  else
-#    define HAVE_XDBE 0
-#  endif
-#  if ARCHON_DISPLAY_HAVE_X11_XRANDR
-#    define HAVE_XRANDR 1
-#  else
-#    define HAVE_XRANDR 0
-#  endif
-#  if ARCHON_DISPLAY_HAVE_X11_XRENDER
-#    define HAVE_XRENDER 1
-#  else
-#    define HAVE_XRENDER 0
-#  endif
-#  if ARCHON_DISPLAY_HAVE_OPENGL_GLX
-#    define HAVE_GLX 1
-#  else
-#    define HAVE_GLX 0
-#  endif
-#endif
-
-#if HAVE_X11
-#  if ARCHON_CLANG
-#    pragma clang diagnostic ignored "-Wold-style-cast"
-#  endif
-#  include <X11/Xlib.h>
-#  include <X11/Xatom.h>
-#  include <X11/Xutil.h>
-#  include <X11/keysym.h>
-#  include <X11/XKBlib.h>
-#  if HAVE_XDBE
-#    include <X11/extensions/Xdbe.h>
-#  endif
-#  if HAVE_XRANDR
-#    include <X11/extensions/Xrandr.h>
-#  endif
-#  if HAVE_XRENDER
-#    include <X11/extensions/Xrender.h>
-#  endif
-#  if HAVE_GLX
-#    include <GL/glx.h>
-#  endif
-#endif
+#include <archon/display/noinst/x11_support.hpp>
 
 
 using namespace archon;
@@ -135,30 +80,6 @@ namespace impl = display::impl;
 
 
 namespace {
-
-
-auto map_opt_visual_class(const std::optional<display::ConnectionConfigX11::VisualClass>& class_) noexcept ->
-    std::optional<int>
-{
-    if (ARCHON_LIKELY(!class_.has_value()))
-        return {};
-    switch (class_.value()) {
-        case display::ConnectionConfigX11::VisualClass::static_gray:
-            return StaticGray;
-        case display::ConnectionConfigX11::VisualClass::gray_scale:
-            return GrayScale;
-        case display::ConnectionConfigX11::VisualClass::static_color:
-            return StaticColor;
-        case display::ConnectionConfigX11::VisualClass::pseudo_color:
-            return PseudoColor;
-        case display::ConnectionConfigX11::VisualClass::true_color:
-            return TrueColor;
-        case display::ConnectionConfigX11::VisualClass::direct_color:
-            return DirectColor;
-    }
-    ARCHON_ASSERT_UNREACHABLE();
-    return {};
-}
 
 
 auto get_visual_class_name(int class_) noexcept -> const char*
@@ -857,7 +778,7 @@ int main(int argc, char* argv[])
     VisualSpec visual_spec;
     {
         const std::optional<int> depth_override = optional_visual_depth;
-        const std::optional<int> class_override = map_opt_visual_class(optional_visual_class);
+        const std::optional<int> class_override = impl::map_opt_visual_class(optional_visual_class);
         const std::optional<VisualID> visual_override = optional_visual_type;
         bool prefer_default_visual_type = true;             
         bool prefer_default_visual_depth = true;             
@@ -1073,11 +994,12 @@ int main(int argc, char* argv[])
         bits_per_pixel = format.bits_per_pixel;
     }
 
-    // By creating a new colormap, rather than reusing the one used by the root window, it                                                  
-    // becomes possible to use a visual for the new windows that differs from the one used
-    // by the root window. The colormap and the new windows must agree on visual.
-
     // Ensure a colormap
+    //
+    // When a colormap is used on a window, the colormap and window must be associated with
+    // the same visual type. Thefore, if the window uses a non-default visual type, it
+    // cannot use the default colormap.
+    //
     Colormap colormap;
     bool colormap_owned = false;
     bool colormap_needs_init = false;

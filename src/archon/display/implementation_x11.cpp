@@ -63,107 +63,7 @@
 #include <archon/display/noinst/edid.hpp>
 #include <archon/display/implementation.hpp>
 #include <archon/display/implementation_x11.hpp>
-
-#if !ARCHON_WINDOWS && ARCHON_DISPLAY_HAVE_X11 && ARCHON_DISPLAY_HAVE_X11_XKB
-#  include <unistd.h>
-#  if defined _POSIX_VERSION && _POSIX_VERSION >= 200112L // POSIX.1-2001
-#    define HAVE_X11 1
-#  else
-#    define HAVE_X11 0
-#  endif
-#else
-#  define HAVE_X11 0
-#endif
-
-#if HAVE_X11
-#  if ARCHON_DISPLAY_HAVE_X11_XDBE
-#    define HAVE_XDBE 1
-#  else
-#    define HAVE_XDBE 0
-#  endif
-#  if ARCHON_DISPLAY_HAVE_X11_XRANDR
-#    define HAVE_XRANDR 1
-#  else
-#    define HAVE_XRANDR 0
-#  endif
-#  if ARCHON_DISPLAY_HAVE_X11_XRENDER
-#    define HAVE_XRENDER 1
-#  else
-#    define HAVE_XRENDER 0
-#  endif
-#  if ARCHON_DISPLAY_HAVE_OPENGL_GLX
-#    define HAVE_GLX 1
-#  else
-#    define HAVE_GLX 0
-#  endif
-#endif
-
-#if HAVE_X11
-#  include <poll.h>
-#  include <X11/Xlib.h>
-#  include <X11/Xatom.h>
-#  include <X11/Xutil.h>
-#  include <X11/keysym.h>
-#  include <X11/XKBlib.h>
-#  if HAVE_XDBE
-#    include <X11/extensions/Xdbe.h>
-#  endif
-#  if HAVE_XRANDR
-#    include <X11/extensions/Xrandr.h>
-#  endif
-#  if HAVE_XRENDER
-#    include <X11/extensions/Xrender.h>
-#  endif
-#  if HAVE_GLX
-#    include <GL/glx.h>
-#  endif
-#endif
-
-
-// As of Jan 7, 2024, Release 7.7 is the latest release of X11. It was released on June 6, 2012.
-//
-//
-// Relevant links:
-//
-// * X11 documentation overview: https://www.x.org/releases/X11R7.7/doc/
-//
-// * X11 protocol specification: https://www.x.org/releases/X11R7.7/doc/xproto/x11protocol.html
-//
-// * X11 API documentation: https://www.x.org/releases/X11R7.7/doc/libX11/libX11/libX11.html
-//
-// * Inter-Client Communication Conventions Manual: https://x.org/releases/X11R7.7/doc/xorg-docs/icccm/icccm.html
-//
-// * Extended Window Manager Hints: https://specifications.freedesktop.org/wm-spec/latest/
-//
-// * Xkb protocol specification: https://www.x.org/releases/X11R7.7/doc/kbproto/xkbproto.html
-//
-// * Xkb API documentation: https://www.x.org/releases/X11R7.7/doc/libX11/XKB/xkblib.html
-//
-// * Xdbe protocol specification: https://www.x.org/releases/X11R7.7/doc/xextproto/dbe.html
-//
-// * Xdbe API documentation: https://www.x.org/releases/X11R7.7/doc/libXext/dbelib.html
-//
-// * XRandR protocol specification: https://www.x.org/releases/X11R7.7/doc/randrproto/randrproto.txt
-//
-// * XRandR general documentation: https://www.x.org/wiki/libraries/libxrandr/
-//
-// * XRandR library source code: https://gitlab.freedesktop.org/xorg/lib/libxrandr
-//
-// * Xrender protocol specification: https://www.x.org/releases/X11R7.7/doc/renderproto/renderproto.txt
-//
-// * Xrender API documentation: https://www.x.org/releases/X11R7.7/doc/libXrender/libXrender.txt
-//
-// * OpenGL GLX specification: https://registry.khronos.org/OpenGL/specs/gl/glx1.4.pdf
-//
-//
-// Useful commands:
-//
-// * Start "fake" X server with support for various uncommon visuals: `Xvfb :1 -screen 0 1600x1200x8 -fbdir /tmp`
-//
-// * Dump screen of "fake" X server: `xwud -in /tmp/Xvfb_screen0 -vis default`
-//
-// * Set standard colormaps and corresponding attributes on root window: `xstdcmap -default`
-//
+#include <archon/display/noinst/x11_support.hpp>
 
 
 using namespace archon;
@@ -262,30 +162,6 @@ template<class P> inline bool rev_mask_match(const XVisualInfo& info) noexcept
     return (info.red_mask   == image::get_bit_field_mask<word_type>(packing_type::fields, 3, 2) &&
             info.green_mask == image::get_bit_field_mask<word_type>(packing_type::fields, 3, 1) &&
             info.blue_mask  == image::get_bit_field_mask<word_type>(packing_type::fields, 3, 0));
-}
-
-
-auto map_opt_visual_class(const std::optional<display::ConnectionConfigX11::VisualClass>& class_) noexcept ->
-    std::optional<int>
-{
-    if (ARCHON_LIKELY(!class_.has_value()))
-        return {};
-    switch (class_.value()) {
-        case display::ConnectionConfigX11::VisualClass::static_gray:
-            return StaticGray;
-        case display::ConnectionConfigX11::VisualClass::gray_scale:
-            return GrayScale;
-        case display::ConnectionConfigX11::VisualClass::static_color:
-            return StaticColor;
-        case display::ConnectionConfigX11::VisualClass::pseudo_color:
-            return PseudoColor;
-        case display::ConnectionConfigX11::VisualClass::true_color:
-            return TrueColor;
-        case display::ConnectionConfigX11::VisualClass::direct_color:
-            return DirectColor;
-    }
-    ARCHON_ASSERT_UNREACHABLE();
-    return {};
 }
 
 
@@ -965,7 +841,7 @@ inline ConnectionImpl::ConnectionImpl(const ImplementationImpl& impl_2, const st
     , locale(locale_2)
     , logger(log::Logger::or_null(logger))
     , m_depth_override(config.visual_depth)
-    , m_class_override(map_opt_visual_class(config.visual_class))
+    , m_class_override(impl::map_opt_visual_class(config.visual_class))
     , m_visual_override(map_opt_visual_type(config.visual_type)) // Throws
     , m_disable_double_buffering(config.disable_double_buffering)
     , m_disable_glx_direct_rendering(config.disable_glx_direct_rendering)

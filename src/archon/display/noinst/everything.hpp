@@ -48,3 +48,4 @@
 #include <archon/display/implementation_x11.hpp>
 #include <archon/display/implementation_sdl.hpp>
 #include <archon/display/as_key_name.hpp>
+#include <archon/display/noinst/x11_support.hpp>
