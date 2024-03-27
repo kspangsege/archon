@@ -82,26 +82,6 @@ namespace impl = display::impl;
 namespace {
 
 
-auto get_visual_class_name(int class_) noexcept -> const char*
-{
-    switch (class_) {
-        case StaticGray:
-            return "StaticGray";
-        case GrayScale:
-            return "GrayScale";
-        case StaticColor:
-            return "StaticColor";
-        case PseudoColor:
-            return "PseudoColor";
-        case TrueColor:
-            return "TrueColor";
-        case DirectColor:
-            return "DirectColor";
-    }
-    return nullptr;
-}
-
-
 auto get_crossing_mode_name(int mode) noexcept -> const char*
 {
     switch (mode) {
@@ -113,41 +93,6 @@ auto get_crossing_mode_name(int mode) noexcept -> const char*
             return "NotifyUngrab";
     }
     return "?";
-}
-
-
-// Check whether the masks of the specified visual are all zero.
-inline bool zero_mask_match(const XVisualInfo& info) noexcept
-{
-    return (info.red_mask == 0 && info.green_mask == 0 && info.blue_mask == 0);
-}
-
-
-// Check whether the masks of the specified visual correspond to the specified channel
-// packing under the asumption that the channel order is normal (normal channel order is RGB
-// as opposed to BGR).
-template<class P> inline bool norm_mask_match(const XVisualInfo& info) noexcept
-{
-    using packing_type = P;
-    static_assert(packing_type::num_fields == 3);
-    using word_type = decltype(info.red_mask + info.green_mask + info.blue_mask);
-    return (info.red_mask   == image::get_bit_field_mask<word_type>(packing_type::fields, 3, 0) &&
-            info.green_mask == image::get_bit_field_mask<word_type>(packing_type::fields, 3, 1) &&
-            info.blue_mask  == image::get_bit_field_mask<word_type>(packing_type::fields, 3, 2));
-}
-
-
-// Check whether the masks of the specified visual correspond to the specified channel
-// packing under the asumption that the channel order is reversed (reversed channel order is
-// BGR as opposed to RGB).
-template<class P> inline bool rev_mask_match(const XVisualInfo& info) noexcept
-{
-    using packing_type = P;
-    static_assert(packing_type::num_fields == 3);
-    using word_type = decltype(info.red_mask + info.green_mask + info.blue_mask);
-    return (info.red_mask   == image::get_bit_field_mask<word_type>(packing_type::fields, 3, 2) &&
-            info.green_mask == image::get_bit_field_mask<word_type>(packing_type::fields, 3, 1) &&
-            info.blue_mask  == image::get_bit_field_mask<word_type>(packing_type::fields, 3, 0));
 }
 
 
@@ -751,7 +696,7 @@ int main(int argc, char* argv[])
                         "opengl_stereo = %s, opengl_num_aux_buffers = %s, opengl_depth_buffer_bits = %s, "
                         "opengl_stencil_buffer_bits = %s, opengl_accum_buffer_bits = %s", i + 1,
                         core::as_flex_int_h(info.visualid), core::as_int(info.screen), core::as_int(info.depth),
-                        get_visual_class_name(info.c_class), core::as_hex_int(info.red_mask),
+                        impl::get_visual_class_name(info.c_class), core::as_hex_int(info.red_mask),
                         core::as_hex_int(info.green_mask), core::as_hex_int(info.blue_mask),
                         core::as_int(info.colormap_size), core::as_int(info.bits_per_rgb),
                         core::as_format_func(format_double_buffered), (spec.opengl_supported ? "yes" : "no"),
@@ -1129,7 +1074,7 @@ int main(int argc, char* argv[])
     logger.info("Default visual of screen:           0x%s",
                 core::as_hex_int(XVisualIDFromVisual(DefaultVisual(dpy, screen)))); // Throws
     logger.info("Selected visual:                    0x%s", core::as_hex_int(visualid)); // Throws
-    logger.info("Class of selected visual:           %s", get_visual_class_name(visual_info.c_class)); // Throws
+    logger.info("Class of selected visual:           %s", impl::get_visual_class_name(visual_info.c_class)); // Throws
     logger.info("Detectable auto-repeat enabled:     %s", (detectable_autorepeat_enabled ? "yes" : "no")); // Throws
     logger.info("Use double buffering:               %s", (use_double_buffering ? "yes" : "no")); // Throws
 
@@ -1370,7 +1315,7 @@ int main(int argc, char* argv[])
             if (visual_info.c_class == StaticGray || visual_info.c_class == GrayScale) {
                 if (ARCHON_UNLIKELY(visual_info.colormap_size != 256))
                     goto unexpected_colormap_size;
-                if (zero_mask_match(visual_info)) {
+                if (impl::zero_mask_match(visual_info)) {
                     if (colormap_needs_init) {
                         ARCHON_ASSERT(visual_info.c_class == GrayScale);
                         setup_gray_scale_colormap(dpy, colormap, depth, use_weird_palette); // Throws
@@ -1389,7 +1334,7 @@ int main(int argc, char* argv[])
                 // DirectColor visuals. Despite that, it appears that some X servers choose
                 // to expose the color structure of StaticColor visuals using masks, most
                 // notably Xvfb + X.Org (e.g., using `Xvfb :1 -screen 0 1600x1200x8).
-                if (norm_mask_match<image::ChannelPacking_332>(visual_info)) {
+                if (impl::norm_mask_match<image::ChannelPacking_332>(visual_info)) {
                     constexpr bool reverse_channel_order = false;
                     auto img = make_packed_image<image::int8_type, image::ChannelPacking_332, bytes_per_pixel,
                                                  reverse_channel_order>(img_size); // Throws
@@ -1397,7 +1342,7 @@ int main(int argc, char* argv[])
                     img_2 = std::move(img);
                     goto matched;
                 }
-                if (rev_mask_match<image::ChannelPacking_233>(visual_info)) {
+                if (impl::rev_mask_match<image::ChannelPacking_233>(visual_info)) {
                     constexpr bool reverse_channel_order = true;
                     auto img = make_packed_image<image::int8_type, image::ChannelPacking_233, bytes_per_pixel,
                                                  reverse_channel_order>(img_size); // Throws
@@ -1405,7 +1350,7 @@ int main(int argc, char* argv[])
                     img_2 = std::move(img);
                     goto matched;
                 }
-                if (zero_mask_match(visual_info)) {
+                if (impl::zero_mask_match(visual_info)) {
                     int n = 1 << 8;
                     auto colors = std::make_unique<XColor[]>(n); // Throws
                     for (int i = 0; i < n; ++i) {
@@ -1434,7 +1379,7 @@ int main(int argc, char* argv[])
             if (visual_info.c_class == PseudoColor) {
                 if (ARCHON_UNLIKELY(visual_info.colormap_size != 256))
                     goto unexpected_colormap_size;
-                if (zero_mask_match(visual_info)) {
+                if (impl::zero_mask_match(visual_info)) {
                     if (colormap_needs_init) {
                         constexpr bool reverse_channel_order = false;
                         auto img = make_packed_image<image::int8_type, image::ChannelPacking_332, bytes_per_pixel,
@@ -1464,7 +1409,7 @@ int main(int argc, char* argv[])
                 // incorrectly at this depth (8). Colors come out wrong. Further
                 // investigation is needed.    
                 BitFields bit_fields = {};
-                if (norm_mask_match<image::ChannelPacking_332>(visual_info)) {
+                if (impl::norm_mask_match<image::ChannelPacking_332>(visual_info)) {
                     constexpr bool reverse_channel_order = false;
                     auto img = make_packed_image<image::int8_type, image::ChannelPacking_332, bytes_per_pixel,
                                                  reverse_channel_order>(img_size); // Throws
@@ -1473,7 +1418,7 @@ int main(int argc, char* argv[])
                     record_bit_fields<image::ChannelPacking_332>(bit_fields);
                     goto colormap_1;
                 }
-                if (rev_mask_match<image::ChannelPacking_233>(visual_info)) {
+                if (impl::rev_mask_match<image::ChannelPacking_233>(visual_info)) {
                     constexpr bool reverse_channel_order = true;
                     auto img = make_packed_image<image::int8_type, image::ChannelPacking_233, bytes_per_pixel,
                                                  reverse_channel_order>(img_size); // Throws
@@ -1501,7 +1446,7 @@ int main(int argc, char* argv[])
                 if (ARCHON_UNLIKELY(visual_info.colormap_size != 32))
                     goto unexpected_colormap_size;
                 BitFields bit_fields = {};
-                if (norm_mask_match<image::ChannelPacking_555>(visual_info)) {
+                if (impl::norm_mask_match<image::ChannelPacking_555>(visual_info)) {
                     constexpr bool reverse_channel_order = false;
                     auto img = make_packed_image<image::int16_type, image::ChannelPacking_555, bytes_per_pixel,
                                                  reverse_channel_order>(img_size); // Throws
@@ -1510,7 +1455,7 @@ int main(int argc, char* argv[])
                     record_bit_fields<image::ChannelPacking_555>(bit_fields);
                     goto colormap_2;
                 }
-                if (rev_mask_match<image::ChannelPacking_555>(visual_info)) {
+                if (impl::rev_mask_match<image::ChannelPacking_555>(visual_info)) {
                     constexpr bool reverse_channel_order = true;
                     auto img = make_packed_image<image::int16_type, image::ChannelPacking_555, bytes_per_pixel,
                                                  reverse_channel_order>(img_size); // Throws
@@ -1538,7 +1483,7 @@ int main(int argc, char* argv[])
                 if (ARCHON_UNLIKELY(visual_info.colormap_size != 64))
                     goto unexpected_colormap_size;
                 BitFields bit_fields = {};
-                if (norm_mask_match<image::ChannelPacking_565>(visual_info)) {
+                if (impl::norm_mask_match<image::ChannelPacking_565>(visual_info)) {
                     constexpr bool reverse_channel_order = false;
                     auto img = make_packed_image<image::int16_type, image::ChannelPacking_565, bytes_per_pixel,
                                                  reverse_channel_order>(img_size); // Throws
@@ -1547,7 +1492,7 @@ int main(int argc, char* argv[])
                     record_bit_fields<image::ChannelPacking_565>(bit_fields);
                     goto colormap_3;
                 }
-                else if (rev_mask_match<image::ChannelPacking_565>(visual_info)) {
+                else if (impl::rev_mask_match<image::ChannelPacking_565>(visual_info)) {
                     constexpr bool reverse_channel_order = true;
                     auto img = make_packed_image<image::int16_type, image::ChannelPacking_565, bytes_per_pixel,
                                                  reverse_channel_order>(img_size); // Throws
@@ -1575,7 +1520,7 @@ int main(int argc, char* argv[])
                 if (ARCHON_UNLIKELY(visual_info.colormap_size != 256))
                     goto unexpected_colormap_size;
                 BitFields bit_fields = {};
-                if (norm_mask_match<image::ChannelPacking_888>(visual_info)) {
+                if (impl::norm_mask_match<image::ChannelPacking_888>(visual_info)) {
                     constexpr bool reverse_channel_order = false;
                     auto img = make_packed_image<image::int32_type, image::ChannelPacking_888, bytes_per_pixel,
                                                  reverse_channel_order>(img_size); // Throws
@@ -1584,7 +1529,7 @@ int main(int argc, char* argv[])
                     record_bit_fields<image::ChannelPacking_888>(bit_fields);
                     goto colormap_4;
                 }
-                else if (rev_mask_match<image::ChannelPacking_888>(visual_info)) {
+                else if (impl::rev_mask_match<image::ChannelPacking_888>(visual_info)) {
                     constexpr bool reverse_channel_order = true;
                     auto img = make_packed_image<image::int32_type, image::ChannelPacking_888, bytes_per_pixel,
                                                  reverse_channel_order>(img_size); // Throws
@@ -1616,7 +1561,7 @@ int main(int argc, char* argv[])
 
       unexpected_visual_class:
         logger.error("Unexpected class for visual 0x%s: %s", core::as_hex_int(visualid),
-                     get_visual_class_name(visual_info.c_class)); // Throws
+                     impl::get_visual_class_name(visual_info.c_class)); // Throws
         return EXIT_FAILURE;
 
       unsupported_channel_masks:

@@ -128,64 +128,6 @@ private:
 };
 
 
-/*          
-// Check whether the masks of the specified visual are all zero.
-inline bool zero_mask_match(const XVisualInfo& info) noexcept
-{
-    return (info.red_mask == 0 && info.green_mask == 0 && info.blue_mask == 0);
-}
-*/
-
-
-// Check whether the masks of the specified visual correspond to the specified channel
-// packing under the asumption that the channel order is normal (normal channel order is RGB
-// as opposed to BGR).
-template<class P> inline bool norm_mask_match(const XVisualInfo& info) noexcept
-{
-    using packing_type = P;
-    static_assert(packing_type::num_fields == 3);
-    using word_type = decltype(info.red_mask + info.green_mask + info.blue_mask);
-    return (info.red_mask   == image::get_bit_field_mask<word_type>(packing_type::fields, 3, 0) &&
-            info.green_mask == image::get_bit_field_mask<word_type>(packing_type::fields, 3, 1) &&
-            info.blue_mask  == image::get_bit_field_mask<word_type>(packing_type::fields, 3, 2));
-}
-
-
-// Check whether the masks of the specified visual correspond to the specified channel
-// packing under the asumption that the channel order is reversed (reversed channel order is
-// BGR as opposed to RGB).
-template<class P> inline bool rev_mask_match(const XVisualInfo& info) noexcept
-{
-    using packing_type = P;
-    static_assert(packing_type::num_fields == 3);
-    using word_type = decltype(info.red_mask + info.green_mask + info.blue_mask);
-    return (info.red_mask   == image::get_bit_field_mask<word_type>(packing_type::fields, 3, 2) &&
-            info.green_mask == image::get_bit_field_mask<word_type>(packing_type::fields, 3, 1) &&
-            info.blue_mask  == image::get_bit_field_mask<word_type>(packing_type::fields, 3, 0));
-}
-
-
-auto get_visual_class_name(int class_) noexcept -> const char*
-{
-    switch (class_) {
-        case StaticGray:
-            return "StaticGray";
-        case GrayScale:
-            return "GrayScale";
-        case StaticColor:
-            return "StaticColor";
-        case PseudoColor:
-            return "PseudoColor";
-        case TrueColor:
-            return "TrueColor";
-        case DirectColor:
-            return "DirectColor";
-    }
-    ARCHON_ASSERT_UNREACHABLE();
-    return nullptr;
-}
-
-
 auto map_opt_visual_type(const std::optional<std::uint_fast32_t>& type) -> std::optional<VisualID>
 {
     if (ARCHON_LIKELY(!type.has_value()))
@@ -297,7 +239,7 @@ auto make_pixel_codec(const XVisualInfo& info, int bits_per_pixel,
         if (info.c_class == StaticGray || info.c_class == GrayScale) {
             if (ARCHON_UNLIKELY(info.colormap_size != 256))
                 goto unexpected_colormap_size;
-            if (ARCHON_LIKELY(zero_mask_match(info)))
+            if (ARCHON_LIKELY(impl::zero_mask_match(info)))
                 return std::make_unique<DirectGrayPixelCodec<image::int8_type, 8, bytes_per_pixel>>(); // Throws
             goto unsupported_channel_masks;
         }
@@ -310,7 +252,7 @@ auto make_pixel_codec(const XVisualInfo& info, int bits_per_pixel,
             // DirectColor visuals. Despite that, it appears that some X servers choose
             // to expose the color structure of StaticColor visuals using masks, most
             // notably Xvfb + X.Org (e.g., using `Xvfb :1 -screen 0 1600x1200x8).
-            if (norm_mask_match<image::ChannelPacking_332>(info)) {
+            if (impl::norm_mask_match<image::ChannelPacking_332>(info)) {
                 constexpr bool reverse_channel_order = false;
                 auto img = make_packed_image<image::int8_type, image::ChannelPacking_332, bytes_per_pixel,
                                              reverse_channel_order>(img_size); // Throws
@@ -318,7 +260,7 @@ auto make_pixel_codec(const XVisualInfo& info, int bits_per_pixel,
                 img_2 = std::move(img);
                 goto matched;
             }
-            if (rev_mask_match<image::ChannelPacking_233>(info)) {
+            if (impl::rev_mask_match<image::ChannelPacking_233>(info)) {
                 constexpr bool reverse_channel_order = true;
                 auto img = make_packed_image<image::int8_type, image::ChannelPacking_233, bytes_per_pixel,
                                              reverse_channel_order>(img_size); // Throws
@@ -326,7 +268,7 @@ auto make_pixel_codec(const XVisualInfo& info, int bits_per_pixel,
                 img_2 = std::move(img);
                 goto matched;
             }
-            if (zero_mask_match(info)) {
+            if (impl::zero_mask_match(info)) {
                 int n = 1 << 8;
                 auto colors = std::make_unique<XColor[]>(n); // Throws
                 for (int i = 0; i < n; ++i) {
@@ -355,7 +297,7 @@ auto make_pixel_codec(const XVisualInfo& info, int bits_per_pixel,
         if (info.c_class == PseudoColor) {
             if (ARCHON_UNLIKELY(info.colormap_size != 256))
                 goto unexpected_colormap_size;
-            if (zero_mask_match(info)) {
+            if (impl::zero_mask_match(info)) {
                 // FIXME: Consider XGetRGBColormaps() --> https://tronche.com/gui/x/xlib/ICC/standard-colormaps/XGetRGBColormaps.html --> Fetch all available colormaps, look for one with matching visual ID. If one is found, use that colormap. This requires that the image is converted to indirect color pixel format.                
                 // FIXME: Consider alternative: Generate optimal palette for image of, say 248, entries, then request that many color slots, then initialize those slots with the colors of the palette, then convert image to indirect color using that palette.      
                 constexpr bool reverse_channel_order = false;
@@ -379,12 +321,12 @@ auto make_pixel_codec(const XVisualInfo& info, int bits_per_pixel,
             // FIXME: Unformatunately, it looks like Xvfb + X.Org implements this visual
             // incorrectly at this depth (8). Colors come out wrong. Further investigation
             // is needed.    
-            if (norm_mask_match<image::ChannelPacking_332>(info)) {
+            if (impl::norm_mask_match<image::ChannelPacking_332>(info)) {
                 constexpr bool reverse_channel_order = false;
                 return std::make_unique<DirectColorPixelCodec<image::int8_type, image::ChannelPacking_332,
                                                               bytes_per_pixel, reverse_channel_order>>(); // Throws
             }
-            if (rev_mask_match<image::ChannelPacking_233>(info)) {
+            if (impl::rev_mask_match<image::ChannelPacking_233>(info)) {
                 constexpr bool reverse_channel_order = true;
                 return std::make_unique<DirectColorPixelCodec<image::int8_type, image::ChannelPacking_233,
                                                               bytes_per_pixel, reverse_channel_order>>(); // Throws
@@ -400,12 +342,12 @@ auto make_pixel_codec(const XVisualInfo& info, int bits_per_pixel,
         if (info.c_class == TrueColor || info.c_class == DirectColor) {
             if (ARCHON_UNLIKELY(info.colormap_size != 32))
                 goto unexpected_colormap_size;
-            if (norm_mask_match<image::ChannelPacking_555>(info)) {
+            if (impl::norm_mask_match<image::ChannelPacking_555>(info)) {
                 constexpr bool reverse_channel_order = false;
                 return std::make_unique<DirectColorPixelCodec<image::int16_type, image::ChannelPacking_555,
                                                               bytes_per_pixel, reverse_channel_order>>(); // Throws
             }
-            if (rev_mask_match<image::ChannelPacking_555>(info)) {
+            if (impl::rev_mask_match<image::ChannelPacking_555>(info)) {
                 constexpr bool reverse_channel_order = true;
                 return std::make_unique<DirectColorPixelCodec<image::int16_type, image::ChannelPacking_555,
                                                               bytes_per_pixel, reverse_channel_order>>(); // Throws
@@ -421,12 +363,12 @@ auto make_pixel_codec(const XVisualInfo& info, int bits_per_pixel,
         if (info.c_class == TrueColor || info.c_class == DirectColor) {
             if (ARCHON_UNLIKELY(info.colormap_size != 64))
                 goto unexpected_colormap_size;
-            if (norm_mask_match<image::ChannelPacking_565>(info)) {
+            if (impl::norm_mask_match<image::ChannelPacking_565>(info)) {
                 constexpr bool reverse_channel_order = false;
                 return std::make_unique<DirectColorPixelCodec<image::int16_type, image::ChannelPacking_565,
                                                               bytes_per_pixel, reverse_channel_order>>(); // Throws
             }
-            else if (rev_mask_match<image::ChannelPacking_565>(info)) {
+            else if (impl::rev_mask_match<image::ChannelPacking_565>(info)) {
                 constexpr bool reverse_channel_order = true;
                 return std::make_unique<DirectColorPixelCodec<image::int16_type, image::ChannelPacking_565,
                                                               bytes_per_pixel, reverse_channel_order>>(); // Throws
@@ -442,12 +384,12 @@ auto make_pixel_codec(const XVisualInfo& info, int bits_per_pixel,
         if (info.c_class == TrueColor || info.c_class == DirectColor) {
             if (ARCHON_UNLIKELY(info.colormap_size != 256))
                 goto unexpected_colormap_size;
-            if (norm_mask_match<image::ChannelPacking_888>(info)) {
+            if (impl::norm_mask_match<image::ChannelPacking_888>(info)) {
                 constexpr bool reverse_channel_order = false;
                 return std::make_unique<DirectColorPixelCodec<image::int32_type, image::ChannelPacking_888,
                                                               bytes_per_pixel, reverse_channel_order>>(); // Throws
             }
-            if (rev_mask_match<image::ChannelPacking_888>(info)) {
+            if (impl::rev_mask_match<image::ChannelPacking_888>(info)) {
                 constexpr bool reverse_channel_order = true;
                 return std::make_unique<DirectColorPixelCodec<image::int32_type, image::ChannelPacking_888,
                                                               bytes_per_pixel, reverse_channel_order>>(); // Throws
@@ -469,7 +411,7 @@ auto make_pixel_codec(const XVisualInfo& info, int bits_per_pixel,
 
   unexpected_visual_class:
     msg = core::format(locale, "Unexpected class for visual 0x%s: %s", core::as_hex_int(info.visualid),
-                 get_visual_class_name(info.c_class)); // Throws
+                       impl::get_visual_class_name(info.c_class)); // Throws
     throw std::runtime_error(msg);
 
   unsupported_channel_masks:

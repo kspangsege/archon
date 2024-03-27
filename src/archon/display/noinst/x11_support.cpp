@@ -31,6 +31,9 @@ using namespace archon;
 namespace impl = display::impl;
 
 
+#if HAVE_X11
+
+
 auto impl::map_opt_visual_class(const std::optional<display::ConnectionConfigX11::VisualClass>& class_) noexcept ->
     std::optional<int>
 {
@@ -53,3 +56,27 @@ auto impl::map_opt_visual_class(const std::optional<display::ConnectionConfigX11
     ARCHON_ASSERT_UNREACHABLE();
     return {};
 }
+
+
+auto impl::get_visual_class_name(int class_) noexcept -> const char*
+{
+    switch (class_) {
+        case StaticGray:
+            return "StaticGray";
+        case GrayScale:
+            return "GrayScale";
+        case StaticColor:
+            return "StaticColor";
+        case PseudoColor:
+            return "PseudoColor";
+        case TrueColor:
+            return "TrueColor";
+        case DirectColor:
+            return "DirectColor";
+    }
+    ARCHON_ASSERT_UNREACHABLE();
+    return nullptr;
+}
+
+
+#endif // HAVE_X11

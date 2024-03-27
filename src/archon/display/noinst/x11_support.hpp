@@ -25,6 +25,10 @@
 #include <optional>
 
 #include <archon/core/features.h>
+#include <archon/util/color.hpp>
+#include <archon/image.hpp>
+#include <archon/image/bit_field.hpp>
+#include <archon/display/geometry.hpp>
 #include <archon/display/impl/config.h>
 #include <archon/display/connection_config_x11.hpp>
 
@@ -133,8 +137,84 @@
 namespace archon::display::impl {
 
 
+#if HAVE_X11
+
+
 auto map_opt_visual_class(const std::optional<display::ConnectionConfigX11::VisualClass>& class_) noexcept ->
     std::optional<int>;
+
+auto get_visual_class_name(int class_) noexcept -> const char*;
+
+
+// Check whether the masks of the specified visual are all zero.
+inline bool zero_mask_match(const XVisualInfo&) noexcept;
+
+
+// Check whether the masks of the specified visual correspond to the specified channel
+// packing under the asumption that the channel order is normal (normal channel order is RGB
+// as opposed to BGR).
+template<class P> inline bool norm_mask_match(const XVisualInfo&) noexcept;
+
+
+// Check whether the masks of the specified visual correspond to the specified channel
+// packing under the asumption that the channel order is reversed (reversed channel order is
+// BGR as opposed to RGB).
+template<class P> inline bool rev_mask_match(const XVisualInfo&) noexcept;
+
+
+class PixelFormat {
+public:
+    virtual auto intern_color(util::Color color) const -> unsigned long = 0;
+    virtual void setup_image_bridge(display::Size size, Colormap colormap,
+                                    std::unique_ptr<image::WritableImage>& img_1, XImage& img_2) const = 0;
+    virtual ~PixelFormat() = default;
+};
+
+
+#endif // HAVE_X11
+
+
+
+
+
+
+
+
+// Implementation
+
+
+#if HAVE_X11
+
+
+inline bool zero_mask_match(const XVisualInfo& info) noexcept
+{
+    return (info.red_mask == 0 && info.green_mask == 0 && info.blue_mask == 0);
+}
+
+
+template<class P> inline bool norm_mask_match(const XVisualInfo& info) noexcept
+{
+    using packing_type = P;
+    static_assert(packing_type::num_fields == 3);
+    using word_type = decltype(info.red_mask + info.green_mask + info.blue_mask);
+    return (info.red_mask   == image::get_bit_field_mask<word_type>(packing_type::fields, 3, 0) &&
+            info.green_mask == image::get_bit_field_mask<word_type>(packing_type::fields, 3, 1) &&
+            info.blue_mask  == image::get_bit_field_mask<word_type>(packing_type::fields, 3, 2));
+}
+
+
+template<class P> inline bool rev_mask_match(const XVisualInfo& info) noexcept
+{
+    using packing_type = P;
+    static_assert(packing_type::num_fields == 3);
+    using word_type = decltype(info.red_mask + info.green_mask + info.blue_mask);
+    return (info.red_mask   == image::get_bit_field_mask<word_type>(packing_type::fields, 3, 2) &&
+            info.green_mask == image::get_bit_field_mask<word_type>(packing_type::fields, 3, 1) &&
+            info.blue_mask  == image::get_bit_field_mask<word_type>(packing_type::fields, 3, 0));
+}
+
+
+#endif // HAVE_X11
 
 
 } // namespace archon::display::impl
