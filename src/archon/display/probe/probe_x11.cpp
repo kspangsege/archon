@@ -195,13 +195,17 @@ auto get_crossing_mode_name(int mode) noexcept -> const char*
 }
 
 
+// Check whether the masks of the specified visual are all zero.
 inline bool zero_mask_match(const XVisualInfo& info) noexcept
 {
     return (info.red_mask == 0 && info.green_mask == 0 && info.blue_mask == 0);
 }
 
 
-template<class P> inline bool mask_match(const XVisualInfo& info) noexcept
+// Check whether the masks of the specified visual correspond to the specified channel
+// packing under the asumption that the channel order is normal (normal channel order is RGB
+// as opposed to BGR).
+template<class P> inline bool norm_mask_match(const XVisualInfo& info) noexcept
 {
     using packing_type = P;
     static_assert(packing_type::num_fields == 3);
@@ -212,6 +216,9 @@ template<class P> inline bool mask_match(const XVisualInfo& info) noexcept
 }
 
 
+// Check whether the masks of the specified visual correspond to the specified channel
+// packing under the asumption that the channel order is reversed (reversed channel order is
+// BGR as opposed to RGB).
 template<class P> inline bool rev_mask_match(const XVisualInfo& info) noexcept
 {
     using packing_type = P;
@@ -1447,7 +1454,7 @@ int main(int argc, char* argv[])
                 // DirectColor visuals. Despite that, it appears that some X servers choose
                 // to expose the color structure of StaticColor visuals using masks, most
                 // notably Xvfb + X.Org (e.g., using `Xvfb :1 -screen 0 1600x1200x8).
-                if (mask_match<image::ChannelPacking_332>(visual_info)) {
+                if (norm_mask_match<image::ChannelPacking_332>(visual_info)) {
                     constexpr bool reverse_channel_order = false;
                     auto img = make_packed_image<image::int8_type, image::ChannelPacking_332, bytes_per_pixel,
                                                  reverse_channel_order>(img_size); // Throws
@@ -1534,7 +1541,7 @@ int main(int argc, char* argv[])
                 if (ARCHON_UNLIKELY(visual_info.colormap_size != 8))
                     goto unexpected_colormap_size;
                 BitFields bit_fields = {};
-                if (mask_match<image::ChannelPacking_332>(visual_info)) {
+                if (norm_mask_match<image::ChannelPacking_332>(visual_info)) {
                     constexpr bool reverse_channel_order = false;
                     auto img = make_packed_image<image::int8_type, image::ChannelPacking_332, bytes_per_pixel,
                                                  reverse_channel_order>(img_size); // Throws
@@ -1571,7 +1578,7 @@ int main(int argc, char* argv[])
                 if (ARCHON_UNLIKELY(visual_info.colormap_size != 32))
                     goto unexpected_colormap_size;
                 BitFields bit_fields = {};
-                if (mask_match<image::ChannelPacking_555>(visual_info)) {
+                if (norm_mask_match<image::ChannelPacking_555>(visual_info)) {
                     constexpr bool reverse_channel_order = false;
                     auto img = make_packed_image<image::int16_type, image::ChannelPacking_555, bytes_per_pixel,
                                                  reverse_channel_order>(img_size); // Throws
@@ -1608,7 +1615,7 @@ int main(int argc, char* argv[])
                 if (ARCHON_UNLIKELY(visual_info.colormap_size != 64))
                     goto unexpected_colormap_size;
                 BitFields bit_fields = {};
-                if (mask_match<image::ChannelPacking_565>(visual_info)) {
+                if (norm_mask_match<image::ChannelPacking_565>(visual_info)) {
                     constexpr bool reverse_channel_order = false;
                     auto img = make_packed_image<image::int16_type, image::ChannelPacking_565, bytes_per_pixel,
                                                  reverse_channel_order>(img_size); // Throws
@@ -1645,7 +1652,7 @@ int main(int argc, char* argv[])
                 if (ARCHON_UNLIKELY(visual_info.colormap_size != 256))
                     goto unexpected_colormap_size;
                 BitFields bit_fields = {};
-                if (mask_match<image::ChannelPacking_888>(visual_info)) {
+                if (norm_mask_match<image::ChannelPacking_888>(visual_info)) {
                     constexpr bool reverse_channel_order = false;
                     auto img = make_packed_image<image::int32_type, image::ChannelPacking_888, bytes_per_pixel,
                                                  reverse_channel_order>(img_size); // Throws
