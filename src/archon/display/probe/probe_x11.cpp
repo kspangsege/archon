@@ -739,15 +739,17 @@ int main(int argc, char* argv[])
                         ARCHON_STEADY_ASSERT(ret == 0);
                         return value;
                     };
-                    opengl_supported           = (get(GLX_USE_GL) != 0);
-                    opengl_level               = get(GLX_LEVEL);
-                    opengl_double_buffered     = (get(GLX_DOUBLEBUFFER) != 0);
-                    opengl_stereo              = (get(GLX_STEREO) != 0);
-                    opengl_num_aux_buffers     = get(GLX_AUX_BUFFERS);
-                    opengl_depth_buffer_bits   = get(GLX_DEPTH_SIZE);
-                    opengl_stencil_buffer_bits = get(GLX_STENCIL_SIZE);
-                    opengl_accum_buffer_bits   = (get(GLX_ACCUM_RED_SIZE) + get(GLX_ACCUM_GREEN_SIZE) +
-                                                  get(GLX_ACCUM_BLUE_SIZE) + get(GLX_ACCUM_ALPHA_SIZE));
+                    if (get(GLX_USE_GL) != 0) {
+                        opengl_supported           = true;
+                        opengl_level               = get(GLX_LEVEL);
+                        opengl_double_buffered     = (get(GLX_DOUBLEBUFFER) != 0);
+                        opengl_stereo              = (get(GLX_STEREO) != 0);
+                        opengl_num_aux_buffers     = get(GLX_AUX_BUFFERS);
+                        opengl_depth_buffer_bits   = get(GLX_DEPTH_SIZE);
+                        opengl_stencil_buffer_bits = get(GLX_STENCIL_SIZE);
+                        opengl_accum_buffer_bits   = (get(GLX_ACCUM_RED_SIZE) + get(GLX_ACCUM_GREEN_SIZE) +
+                                                      get(GLX_ACCUM_BLUE_SIZE) + get(GLX_ACCUM_ALPHA_SIZE));
+                    }
                 }
 #endif // HAVE_GLX
                 VisualSpec spec = {
@@ -1082,27 +1084,29 @@ int main(int argc, char* argv[])
         colormap = DefaultColormap(dpy, screen);
     }
     else {
-        // See command `xstdcmap` for a way to set up the standard colormaps
-        XStandardColormap* std_colormap = {};
-        int count = {};
-        Status status = XGetRGBColormaps(dpy, root, &std_colormap, &count, XA_RGB_DEFAULT_MAP);
-        ARCHON_STEADY_ASSERT(status != 0);
-        ARCHON_SCOPE_EXIT {
-            XFree(std_colormap);
-        };
-        logger.info("Found %s", core::as_num_of(count, { "standard colormap", "standard colormaps" })); // Throws
-        const XStandardColormap* found = nullptr;
-        for (int i = 0; i < count; ++i) {
-            const XStandardColormap& entry = std_colormap[i];
-            if (ARCHON_LIKELY(entry.visualid != visualid))
-                continue;
-            found = &entry;
-            break;
+        bool found = false;
+        {
+            // See command `xstdcmap` for a way to set up the standard colormaps
+            XStandardColormap* std_colormap = {};
+            int count = {};
+            Status status = XGetRGBColormaps(dpy, root, &std_colormap, &count, XA_RGB_DEFAULT_MAP);
+            if (status != 0) {
+                ARCHON_SCOPE_EXIT {
+                    XFree(std_colormap);
+                };
+                core::NumOfSpec standard_colormaps_spec = { "standard colormap", "standard colormaps" };
+                logger.info("Found %s", core::as_num_of(count, standard_colormaps_spec)); // Throws
+                for (int i = 0; i < count; ++i) {
+                    const XStandardColormap& entry = std_colormap[i];
+                    if (ARCHON_LIKELY(entry.visualid != visualid))
+                        continue;
+                    colormap = entry.colormap;
+                    found = true;
+                    break;
+                }
+            }
         }
-        if (ARCHON_LIKELY(found)) {
-            colormap = found->colormap;
-        }
-        else {
+        if (!found) {
             bool nonstatic = false;
             switch (visual_info.c_class) {
                 case GrayScale:
@@ -1439,6 +1443,26 @@ int main(int argc, char* argv[])
             if (visual_info.c_class == StaticColor) {
                 if (ARCHON_UNLIKELY(visual_info.colormap_size != 256))
                     goto unexpected_colormap_size;
+                // According to the X specification, masks only make sense for TrueColor and
+                // DirectColor visuals. Despite that, it appears that some X servers choose
+                // to expose the color structure of StaticColor visuals using masks, most
+                // notably Xvfb + X.Org (e.g., using `Xvfb :1 -screen 0 1600x1200x8).
+                if (mask_match<image::ChannelPacking_332>(visual_info)) {
+                    constexpr bool reverse_channel_order = false;
+                    auto img = make_packed_image<image::int8_type, image::ChannelPacking_332, bytes_per_pixel,
+                                                 reverse_channel_order>(img_size); // Throws
+                    data = img->get_buffer().data();
+                    img_2 = std::move(img);
+                    goto matched;
+                }
+                if (rev_mask_match<image::ChannelPacking_233>(visual_info)) {
+                    constexpr bool reverse_channel_order = true;
+                    auto img = make_packed_image<image::int8_type, image::ChannelPacking_233, bytes_per_pixel,
+                                                 reverse_channel_order>(img_size); // Throws
+                    data = img->get_buffer().data();
+                    img_2 = std::move(img);
+                    goto matched;
+                }
                 if (zero_mask_match(visual_info)) {
                     int n = 1 << 8;
                     auto colors = std::make_unique<XColor[]>(n); // Throws
@@ -1463,24 +1487,6 @@ int main(int argc, char* argv[])
                     ARCHON_STEADY_ASSERT(implemented);                    
                     goto matched;
                 }
-/*
-                if (mask_match<image::ChannelPacking_332>(visual_info)) {
-                    constexpr bool reverse_channel_order = false;
-                    auto img = make_packed_image<image::int8_type, image::ChannelPacking_332, bytes_per_pixel,
-                                                 reverse_channel_order>(img_size); // Throws
-                    data = img->get_buffer().data();
-                    img_2 = std::move(img);
-                    goto matched;
-                }
-                if (rev_mask_match<image::ChannelPacking_233>(visual_info)) {
-                    constexpr bool reverse_channel_order = true;
-                    auto img = make_packed_image<image::int8_type, image::ChannelPacking_233, bytes_per_pixel,
-                                                 reverse_channel_order>(img_size); // Throws
-                    data = img->get_buffer().data();
-                    img_2 = std::move(img);
-                    goto matched;
-                }
-*/
                 goto unsupported_channel_masks;
             }
             if (visual_info.c_class == PseudoColor) {

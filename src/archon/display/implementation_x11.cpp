@@ -1357,15 +1357,17 @@ auto ConnectionImpl::ensure_screen_slot(int screen) const -> ScreenSlot&
                             throw std::runtime_error("glXGetConfig() failed");
                         return value;
                     };
-                    opengl_supported           = (get(GLX_USE_GL) != 0); // Throws
-                    opengl_level               = get(GLX_LEVEL); // Throws
-                    opengl_double_buffered     = (get(GLX_DOUBLEBUFFER) != 0); // Throws
-                    opengl_stereo              = (get(GLX_STEREO) != 0); // Throws
-                    opengl_num_aux_buffers     = get(GLX_AUX_BUFFERS); // Throws
-                    opengl_depth_buffer_bits   = get(GLX_DEPTH_SIZE); // Throws
-                    opengl_stencil_buffer_bits = get(GLX_STENCIL_SIZE); // Throws
-                    opengl_accum_buffer_bits   = (get(GLX_ACCUM_RED_SIZE) + get(GLX_ACCUM_GREEN_SIZE) +
-                                                  get(GLX_ACCUM_BLUE_SIZE) + get(GLX_ACCUM_ALPHA_SIZE)); // Throws
+                    if (get(GLX_USE_GL) != 0) { // Throws
+                        opengl_supported           = true;
+                        opengl_level               = get(GLX_LEVEL); // Throws
+                        opengl_double_buffered     = (get(GLX_DOUBLEBUFFER) != 0); // Throws
+                        opengl_stereo              = (get(GLX_STEREO) != 0); // Throws
+                        opengl_num_aux_buffers     = get(GLX_AUX_BUFFERS); // Throws
+                        opengl_depth_buffer_bits   = get(GLX_DEPTH_SIZE); // Throws
+                        opengl_stencil_buffer_bits = get(GLX_STENCIL_SIZE); // Throws
+                        opengl_accum_buffer_bits   = (get(GLX_ACCUM_RED_SIZE) + get(GLX_ACCUM_GREEN_SIZE) +
+                                                      get(GLX_ACCUM_BLUE_SIZE) + get(GLX_ACCUM_ALPHA_SIZE)); // Throws
+                    }
                 }
 #endif // HAVE_GLX
                 VisualSpec spec = {
