@@ -285,38 +285,36 @@ template<class P> inline void record_rev_bit_fields(BitFields& fields) noexcept
 }
 
 
-void setup_direct_color_colormap(Display* dpy, Colormap colormap, const BitFields& fields, const XVisualInfo& info,
-                                 bool allocate, bool weird)
+// This function assumes that the specified fields reflect the visual that is associated
+// with the specified colormap. This function also assumes that all colormap entries have
+// been allocated writable. This function also assumes that all three specified widths are
+// strictly greater than zero, and that the sum of them is strictly less than 16.
+void setup_direct_color_colormap(Display* dpy, Colormap colormap, const BitFields& fields, bool weird)
 {
+    ARCHON_ASSERT(fields.red_width > 0   && fields.red_width < 16);
+    ARCHON_ASSERT(fields.green_width > 0 && fields.green_width < 16);
+    ARCHON_ASSERT(fields.blue_width > 0  && fields.blue_width < 16);
+
     using ushort = unsigned short;
     using ulong  = unsigned long;
 
-    if (allocate) {
-        Bool contig = True;
-        ulong pixel = 0;
-        int ncolors = 1;
-        ulong red_mask = 0, green_mask = 0, blue_mask = 0;
-        Status status = XAllocColorPlanes(dpy, colormap, contig, &pixel, ncolors, fields.red_width, fields.green_width,
-                                          fields.blue_width, &red_mask, &green_mask, &blue_mask);
-        ARCHON_STEADY_ASSERT(status != 0);
-        // The following assertions rely on the assumption that the number of bit-planes is
-        // equal to the depth, and that we requested all the bitplanes that are available.
-        ARCHON_STEADY_ASSERT(pixel == 0);
-        ARCHON_STEADY_ASSERT(red_mask   == info.red_mask);
-        ARCHON_STEADY_ASSERT(green_mask == info.green_mask);
-        ARCHON_STEADY_ASSERT(blue_mask  == info.blue_mask);
-    }
+    // FIXME: Consider filling any unused entries components with zero (if one or more
+    // channels use a number of bits, N, such that 2^N is less than the number of entrioes
+    // in the colormap)    
+
+    // FIXME: Consider updating all three channels at the same time    
 
     {
         int n = 1 << fields.red_width;
         auto colors = std::make_unique<XColor[]>(n); // Throws
         for (int i = 0; i < n; ++i) {
-            ushort val = ushort(i << (16 - fields.red_width));
+            // FIXME: Is this up-scaling scheme correct according to X11 specification?                             
+            int val = i << (16 - fields.red_width);
             if (weird)
-                val = ushort(65535 - val);
+                val = 65535 - val;
             XColor& color = colors[i];
             color.pixel = ulong(i) << fields.red_shift;
-            color.red = val;
+            color.red = ushort(val);
             color.flags = DoRed;
         }
         XStoreColors(dpy, colormap, colors.get(), n);
@@ -325,10 +323,11 @@ void setup_direct_color_colormap(Display* dpy, Colormap colormap, const BitField
         int n = 1 << fields.green_width;
         auto colors = std::make_unique<XColor[]>(n); // Throws
         for (int i = 0; i < n; ++i) {
-            ushort val = ushort(i << (16 - fields.green_width));
+            // FIXME: Is this up-scaling scheme correct according to X11 specification?                             
+            int val = i << (16 - fields.green_width);
             XColor& color = colors[i];
             color.pixel = ulong(i) << fields.green_shift;
-            color.green = val;
+            color.green = ushort(val);
             color.flags = DoGreen;
         }
         XStoreColors(dpy, colormap, colors.get(), n);
@@ -337,10 +336,11 @@ void setup_direct_color_colormap(Display* dpy, Colormap colormap, const BitField
         int n = 1 << fields.blue_width;
         auto colors = std::make_unique<XColor[]>(n); // Throws
         for (int i = 0; i < n; ++i) {
-            ushort val = ushort(i << (16 - fields.blue_width));
+            // FIXME: Is this up-scaling scheme correct according to X11 specification?                             
+            int val = i << (16 - fields.blue_width);
             XColor& color = colors[i];
             color.pixel = ulong(i) << fields.blue_shift;
-            color.blue = val;
+            color.blue = ushort(val);
             color.flags = DoBlue;
         }
         XStoreColors(dpy, colormap, colors.get(), n);
@@ -348,72 +348,50 @@ void setup_direct_color_colormap(Display* dpy, Colormap colormap, const BitField
 }
 
 
-void setup_gray_scale_colormap(Display* dpy, Colormap colormap, int width, bool allocate, bool weird)
+// This function assumes that the specified colormap has 2^N entries, where N is the
+// specified width. This function also assumes that all colormap entries have been allocated
+// writable. This function also assumes that the specified width is strictly greater than 0
+// and strictly less than 16.
+void setup_gray_scale_colormap(Display* dpy, Colormap colormap, int width, bool weird)
 {
-    using ushort = unsigned short;
-    using ulong  = unsigned long;
-
     ARCHON_ASSERT(width > 0 && width < 16);
 
-    if (allocate) {
-        Bool contig = True;
-        auto masks = std::make_unique<ulong[]>(std::size_t(width)); // Throws
-        int nplanes = width;
-        ulong pixel = 0;
-        int npixels = 1;
-        Status status = XAllocColorCells(dpy, colormap, contig, masks.get(), nplanes, &pixel, npixels);
-        ARCHON_STEADY_ASSERT(status != 0);
-        ulong mask = 0;
-        for (int i = 0; i < width; ++i)
-            mask |= masks[i];
-        // The following assertions rely on the assumption that the number of bit-planes is
-        // equal to the depth, and that we requested all the bitplanes that are available.
-        ARCHON_STEADY_ASSERT(pixel == 0);
-        ARCHON_STEADY_ASSERT(mask == core::int_mask<ulong>(width));
-    }
+    using ushort = unsigned short;
+    using ulong  = unsigned long;
 
     int n = 1 << width;
     auto colors = std::make_unique<XColor[]>(n); // Throws
     for (int i = 0; i < n; ++i) {
-        ushort val = ushort(i << (16 - width));
+        // FIXME: Is this up-scaling scheme correct according to X11 specification?                                 
+        int val = i << (16 - width);
         if (weird)
-            val = ushort(65535 - val);
+            val = 65535 - val;
         XColor& color = colors[i];
-        color.pixel = unsigned(i);
-        color.red   = val;
-        color.green = val;
-        color.blue  = val;
+        color.pixel = ulong(i);
+        color.red   = ushort(val);
+        color.green = ushort(val);
+        color.blue  = ushort(val);
         color.flags = DoRed | DoGreen | DoBlue;
     }
     XStoreColors(dpy, colormap, colors.get(), n);
 }
 
 
+// This function assumes that the specified colormap has 2^N entries, where N is the sum of
+// the three specified widths. This function also assumes that all colormap entries have
+// been allocated writable. This function also assumes that all three specified widths are
+// strictly greater than zero, and that the sum of them is strictly less than 16.
 void setup_pseudo_color_colormap(Display* dpy, Colormap colormap, int red_width, int green_width, int blue_width,
-                                 bool allocate, bool weird)
+                                 bool weird)
 {
+    ARCHON_ASSERT(red_width > 0);
+    ARCHON_ASSERT(green_width > 0);
+    ARCHON_ASSERT(blue_width > 0);
+    int width = red_width + green_width + blue_width;
+    ARCHON_ASSERT(width < 16);
+
     using ushort = unsigned short;
     using ulong  = unsigned long;
-
-    int width = red_width + green_width + blue_width;
-    ARCHON_ASSERT(width > 0 && width < 16);
-
-    if (allocate) {
-        Bool contig = True;
-        auto masks = std::make_unique<ulong[]>(std::size_t(width)); // Throws
-        int nplanes = width;
-        ulong pixel = 0;
-        int npixels = 1;
-        Status status = XAllocColorCells(dpy, colormap, contig, masks.get(), nplanes, &pixel, npixels);
-        ARCHON_STEADY_ASSERT(status != 0);
-        ulong mask = 0;
-        for (int i = 0; i < width; ++i)
-            mask |= masks[i];
-        // The following assertions rely on the assumption that the number of bit-planes is
-        // equal to the depth, and that we requested all the bitplanes that are available.
-        ARCHON_STEADY_ASSERT(pixel == 0);
-        ARCHON_STEADY_ASSERT(mask == core::int_mask<ulong>(width));
-    }
 
     int n = 1 << width;
     auto colors = std::make_unique<XColor[]>(n); // Throws
@@ -421,16 +399,17 @@ void setup_pseudo_color_colormap(Display* dpy, Colormap colormap, int red_width,
     int green_shift = blue_width;
     int blue_shift  = 0;
     for (int i = 0; i < n; ++i) {
-        ushort red_val   = ushort(((i >> red_shift)   << (16 - red_width))   & 65535);
-        ushort green_val = ushort(((i >> green_shift) << (16 - green_width)) & 65535);
-        ushort blue_val  = ushort(((i >> blue_shift)  << (16 - blue_width))  & 65535);
+        // FIXME: Is this up-scaling scheme correct according to X11 specification?                                 
+        int red_val   = ((i >> red_shift)   << (16 - red_width))   & 65535;
+        int green_val = ((i >> green_shift) << (16 - green_width)) & 65535;
+        int blue_val  = ((i >> blue_shift)  << (16 - blue_width))  & 65535;
         if (weird)
-            red_val = ushort(65535 - red_val);
+            red_val = 65535 - red_val;
         XColor& color = colors[i];
-        color.pixel = unsigned(i);
-        color.red   = red_val;
-        color.green = green_val;
-        color.blue  = blue_val;
+        color.pixel = ulong(i);
+        color.red   = ushort(red_val);
+        color.green = ushort(green_val);
+        color.blue  = ushort(blue_val);
         color.flags = DoRed | DoGreen | DoBlue;
     }
     XStoreColors(dpy, colormap, colors.get(), n);
@@ -454,7 +433,6 @@ int main(int argc, char* argv[])
     std::optional<display::ConnectionConfigX11::VisualClass> optional_visual_class;
     std::optional<VisualID> optional_visual_type;
     bool disable_double_buffering = false;
-    bool disable_color_preallocation = false;
     bool use_weird_palette = false;
     bool install_colormap = false;
     bool disable_detectable_autorepeat = false;
@@ -510,11 +488,6 @@ int main(int argc, char* argv[])
     opt("-D, --disable-double-buffering", "", cli::no_attributes, spec,
         "Disable use of double buffering, even when the selected visual supports double buffering.",
         cli::raise_flag(disable_double_buffering)); // Throws
-
-    opt("-C, --disable-color-preallocation", "", cli::no_attributes, spec,
-        "Disable pre-allocation of colors when using a visual that allows for palette mutation (`PseudoColor`, "
-        "`GrayScale`, and `DirectColor`).",
-        cli::raise_flag(disable_color_preallocation)); // Throws
 
     opt("-w, --use-weird-palette", "", cli::no_attributes, spec,
         "Use a weird (non-standard) palette when using a visual that allows for palette mutation (`PseudoColor`, "
@@ -601,6 +574,9 @@ int main(int argc, char* argv[])
     // Connect to display
     Display* dpy = XOpenDisplay(nullptr);
     ARCHON_STEADY_ASSERT(dpy);
+    ARCHON_SCOPE_EXIT {
+        XCloseDisplay(dpy);
+    };
     int screen = DefaultScreen(dpy);
     Window root = RootWindow(dpy, screen);
     unsigned long black = BlackPixel(dpy, screen);
@@ -870,6 +846,7 @@ int main(int argc, char* argv[])
     }
 
     // Choose visual (depth and type)
+    VisualID default_visual = XVisualIDFromVisual(DefaultVisual(dpy, screen));
     VisualSpec visual_spec;
     {
         const std::optional<int> depth_override = optional_visual_depth;
@@ -925,7 +902,6 @@ int main(int argc, char* argv[])
             return 0;
         };
         int default_depth = DefaultDepth(dpy, screen);
-        VisualID default_visual = XVisualIDFromVisual(DefaultVisual(dpy, screen));
         auto less = [&](const VisualSpec& a, const VisualSpec& b) {
             constexpr int max_criteria = 18;
             int values_1[max_criteria];
@@ -1088,6 +1064,57 @@ int main(int argc, char* argv[])
         ARCHON_STEADY_ASSERT(i != pixmap_formats.end());
         const XPixmapFormatValues& format = i->second;
         bits_per_pixel = format.bits_per_pixel;
+    }
+
+    // By creating a new colormap, rather than reusing the one used by the root window, it                                                  
+    // becomes possible to use a visual for the new windows that differs from the one used
+    // by the root window. The colormap and the new windows must agree on visual.
+
+    // Ensure a colormap
+    Colormap colormap;
+    bool colormap_owned = false;
+    bool colormap_needs_init = false;
+    ARCHON_SCOPE_EXIT {
+        if (colormap_owned)
+            XFreeColormap(dpy, colormap);
+    };
+    if (ARCHON_LIKELY(visualid == default_visual)) {
+        colormap = DefaultColormap(dpy, screen);
+    }
+    else {
+        // See command `xstdcmap` for a way to set up the standard colormaps
+        XStandardColormap* std_colormap = {};
+        int count = {};
+        Status status = XGetRGBColormaps(dpy, root, &std_colormap, &count, XA_RGB_DEFAULT_MAP);
+        ARCHON_STEADY_ASSERT(status != 0);
+        ARCHON_SCOPE_EXIT {
+            XFree(std_colormap);
+        };
+        logger.info("Found %s", core::as_num_of(count, { "standard colormap", "standard colormaps" })); // Throws
+        const XStandardColormap* found = nullptr;
+        for (int i = 0; i < count; ++i) {
+            const XStandardColormap& entry = std_colormap[i];
+            if (ARCHON_LIKELY(entry.visualid != visualid))
+                continue;
+            found = &entry;
+            break;
+        }
+        if (ARCHON_LIKELY(found)) {
+            colormap = found->colormap;
+        }
+        else {
+            bool nonstatic = false;
+            switch (visual_info.c_class) {
+                case GrayScale:
+                case PseudoColor:
+                case DirectColor:
+                    nonstatic = true;
+            }
+            colormap = XCreateColormap(dpy, root, visual_info.visual, (nonstatic ? AllocAll : AllocNone));
+            colormap_owned = true;
+            if (nonstatic)
+                colormap_needs_init = true;
+        }
     }
 
     auto format_have_xdbe = [&](std::ostream& out) {
@@ -1389,27 +1416,16 @@ int main(int argc, char* argv[])
     XGCValues gc_values = {};
     gc_values.graphics_exposures = False;
     GC gc = XCreateGC(dpy, root, GCGraphicsExposures, &gc_values);
+    ARCHON_SCOPE_EXIT {
+        XFreeGC(dpy, gc);
+    };
     XSetForeground(dpy, gc, black);
-
-    // By creating a new colormap, rather than reusing the one used by the root window, it
-    // becomes possible to use a visual for the new windows that differs from the one used
-    // by the root window. The colormap and the new windows must agree on visual.
-    bool preallocate_colors = false;
-    if (!disable_color_preallocation) {
-        switch (visual_info.c_class) {
-            case GrayScale:
-            case PseudoColor:
-            case DirectColor:
-                preallocate_colors = true;
-        }
-    }
-    Colormap colormap = XCreateColormap(dpy, root, visual_info.visual, (preallocate_colors ? AllocAll : AllocNone));
-
-    if (install_colormap)
-        XInstallColormap(dpy, colormap);
 
     // Upload image
     Pixmap img_pixmap = XCreatePixmap(dpy, root, unsigned(img_size.width), unsigned(img_size.height), depth);
+    ARCHON_SCOPE_EXIT {
+        XFreePixmap(dpy, img_pixmap);
+    };
     {
         // Setup X11 colormap when necessary and convert image to suitable pixel format.
 
@@ -1447,6 +1463,7 @@ int main(int argc, char* argv[])
                     ARCHON_STEADY_ASSERT(implemented);                    
                     goto matched;
                 }
+/*
                 if (mask_match<image::ChannelPacking_332>(visual_info)) {
                     constexpr bool reverse_channel_order = false;
                     auto img = make_packed_image<image::int8_type, image::ChannelPacking_332, bytes_per_pixel,
@@ -1463,24 +1480,31 @@ int main(int argc, char* argv[])
                     img_2 = std::move(img);
                     goto matched;
                 }
+*/
                 goto unsupported_channel_masks;
             }
             if (visual_info.c_class == PseudoColor) {
                 if (ARCHON_UNLIKELY(visual_info.colormap_size != 256))
                     goto unexpected_colormap_size;
                 if (zero_mask_match(visual_info)) {
-                    // FIXME: Consider XGetRGBColormaps() --> https://tronche.com/gui/x/xlib/ICC/standard-colormaps/XGetRGBColormaps.html --> Fetch all available colormaps, look for one with matching visual ID. If one is found, use that colormap. This requires that the image is converted to indirect color pixel format.                
-                    // FIXME: Consider alternative: Generate optimal palette for image of, say 248, entries, then request that many color slots, then initialize those slots with the colors of the palette, then convert image to indirect color using that palette.      
-                    constexpr bool reverse_channel_order = false;
-                    auto img = make_packed_image<image::int8_type, image::ChannelPacking_332, bytes_per_pixel,
-                                                 reverse_channel_order>(img_size); // Throws
-                    data = img->get_buffer().data();
-                    img_2 = std::move(img);
-                    int red_width   = 3;
-                    int green_width = 3;
-                    int blue_width  = 2;
-                    setup_pseudo_color_colormap(dpy, colormap, red_width, green_width, blue_width, !preallocate_colors,
-                                                use_weird_palette); // Throws
+                    if (colormap_needs_init) {
+                        constexpr bool reverse_channel_order = false;
+                        auto img = make_packed_image<image::int8_type, image::ChannelPacking_332, bytes_per_pixel,
+                                                     reverse_channel_order>(img_size); // Throws
+                        data = img->get_buffer().data();
+                        img_2 = std::move(img);
+                        int red_width   = 3;
+                        int green_width = 3;
+                        int blue_width  = 2;
+                        setup_pseudo_color_colormap(dpy, colormap, red_width, green_width, blue_width,
+                                                    use_weird_palette); // Throws
+                    }
+                    else {
+                        // Create image with indirect color     
+                        // FIXME: Read out palette and produce indirect color version of image with respect to that palette                                        
+                        bool implemented = false;
+                        ARCHON_STEADY_ASSERT(implemented);                    
+                    }
                     goto matched;
                 }
                 goto unsupported_channel_masks;
@@ -1489,9 +1513,9 @@ int main(int argc, char* argv[])
                 if (ARCHON_UNLIKELY(visual_info.colormap_size != 256))
                     goto unexpected_colormap_size;
                 if (zero_mask_match(visual_info)) {
-                    if (visual_info.c_class == GrayScale) {
-                        setup_gray_scale_colormap(dpy, colormap, depth, !preallocate_colors,
-                                                  use_weird_palette); // Throws
+                    if (colormap_needs_init) {
+                        ARCHON_ASSERT(visual_info.c_class == GrayScale);
+                        setup_gray_scale_colormap(dpy, colormap, depth, use_weird_palette); // Throws
                     }
                     auto img = make_lum_image(img_size); // Throws
                     data = img->get_buffer().data();
@@ -1525,9 +1549,9 @@ int main(int argc, char* argv[])
                 goto unsupported_channel_masks;
 
               colormap_1:
-                if (visual_info.c_class == DirectColor) {
-                    setup_direct_color_colormap(dpy, colormap, bit_fields, visual_info, !preallocate_colors,
-                                                use_weird_palette); // Throws
+                if (colormap_needs_init) {
+                    ARCHON_ASSERT(visual_info.c_class == DirectColor);
+                    setup_direct_color_colormap(dpy, colormap, bit_fields, use_weird_palette); // Throws
                 }
                 goto matched;
             }
@@ -1562,9 +1586,9 @@ int main(int argc, char* argv[])
                 goto unsupported_channel_masks;
 
               colormap_2:
-                if (visual_info.c_class == DirectColor) {
-                    setup_direct_color_colormap(dpy, colormap, bit_fields, visual_info, !preallocate_colors,
-                                                use_weird_palette); // Throws
+                if (colormap_needs_init) {
+                    ARCHON_ASSERT(visual_info.c_class == DirectColor);
+                    setup_direct_color_colormap(dpy, colormap, bit_fields, use_weird_palette); // Throws
                 }
                 goto matched;
             }
@@ -1599,9 +1623,9 @@ int main(int argc, char* argv[])
                 goto unsupported_channel_masks;
 
               colormap_3:
-                if (visual_info.c_class == DirectColor) {
-                    setup_direct_color_colormap(dpy, colormap, bit_fields, visual_info, !preallocate_colors,
-                                                use_weird_palette); // Throws
+                if (colormap_needs_init) {
+                    ARCHON_ASSERT(visual_info.c_class == DirectColor);
+                    setup_direct_color_colormap(dpy, colormap, bit_fields, use_weird_palette); // Throws
                 }
                 goto matched;
             }
@@ -1636,9 +1660,9 @@ int main(int argc, char* argv[])
                 goto unsupported_channel_masks;
 
               colormap_4:
-                if (visual_info.c_class == DirectColor) {
-                    setup_direct_color_colormap(dpy, colormap, bit_fields, visual_info, !preallocate_colors,
-                                                use_weird_palette); // Throws
+                if (colormap_needs_init) {
+                    ARCHON_ASSERT(visual_info.c_class == DirectColor);
+                    setup_direct_color_colormap(dpy, colormap, bit_fields, use_weird_palette); // Throws
                 }
                 goto matched;
             }
@@ -1840,6 +1864,9 @@ int main(int argc, char* argv[])
         XMapWindow(dpy, slot.window);
     }
 
+    if (install_colormap)
+        XInstallColormap(dpy, colormap);
+
     // Event loop
     bool expect_keymap_notify = false;
     std::vector<std::string_view> key_names;
@@ -2033,11 +2060,6 @@ int main(int argc, char* argv[])
             }
         }
     }
-
-    XFreePixmap(dpy, img_pixmap);
-    XFreeColormap(dpy, colormap);
-    XFreeGC(dpy, gc);
-    XCloseDisplay(dpy);
 }
 
 
