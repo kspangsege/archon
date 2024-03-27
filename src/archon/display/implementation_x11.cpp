@@ -407,10 +407,39 @@ auto make_pixel_codec(const XVisualInfo& info, int bits_per_pixel,
         if (bits_per_pixel != 8)
             goto unsupported_bits_per_pixel;
         constexpr int bytes_per_pixel = 1;
+/*            
+        if (info.c_class == StaticGray || info.c_class == GrayScale) {
+            if (ARCHON_UNLIKELY(info.colormap_size != 256))
+                goto unexpected_colormap_size;
+            if (ARCHON_LIKELY(zero_mask_match(info)))
+                return std::make_unique<DirectGrayPixelCodec<image::int8_type, 8, bytes_per_pixel>>(); // Throws
+            goto unsupported_channel_masks;
+        }
+*/
 /*
         if (info.c_class == StaticColor) {
             if (ARCHON_UNLIKELY(info.colormap_size != 256))
                 goto unexpected_colormap_size;
+            // According to the X specification, masks only make sense for TrueColor and
+            // DirectColor visuals. Despite that, it appears that some X servers choose
+            // to expose the color structure of StaticColor visuals using masks, most
+            // notably Xvfb + X.Org (e.g., using `Xvfb :1 -screen 0 1600x1200x8).
+            if (norm_mask_match<image::ChannelPacking_332>(info)) {
+                constexpr bool reverse_channel_order = false;
+                auto img = make_packed_image<image::int8_type, image::ChannelPacking_332, bytes_per_pixel,
+                                             reverse_channel_order>(img_size); // Throws
+                data = img->get_buffer().data();
+                img_2 = std::move(img);
+                goto matched;
+            }
+            if (rev_mask_match<image::ChannelPacking_233>(info)) {
+                constexpr bool reverse_channel_order = true;
+                auto img = make_packed_image<image::int8_type, image::ChannelPacking_233, bytes_per_pixel,
+                                             reverse_channel_order>(img_size); // Throws
+                data = img->get_buffer().data();
+                img_2 = std::move(img);
+                goto matched;
+            }
             if (zero_mask_match(info)) {
                 int n = 1 << 8;
                 auto colors = std::make_unique<XColor[]>(n); // Throws
@@ -435,22 +464,6 @@ auto make_pixel_codec(const XVisualInfo& info, int bits_per_pixel,
                 ARCHON_STEADY_ASSERT(implemented);                    
                 goto matched;
             }
-            if (norm_mask_match<image::ChannelPacking_332>(info)) {
-                constexpr bool reverse_channel_order = false;
-                auto img = make_packed_image<image::int8_type, image::ChannelPacking_332, bytes_per_pixel,
-                                             reverse_channel_order>(img_size); // Throws
-                data = img->get_buffer().data();
-                img_2 = std::move(img);
-                goto matched;
-            }
-            if (rev_mask_match<image::ChannelPacking_233>(info)) {
-                constexpr bool reverse_channel_order = true;
-                auto img = make_packed_image<image::int8_type, image::ChannelPacking_233, bytes_per_pixel,
-                                             reverse_channel_order>(img_size); // Throws
-                data = img->get_buffer().data();
-                img_2 = std::move(img);
-                goto matched;
-            }
             goto unsupported_channel_masks;
         }
         if (info.c_class == PseudoColor) {
@@ -471,15 +484,6 @@ auto make_pixel_codec(const XVisualInfo& info, int bits_per_pixel,
                                             use_weird_palette); // Throws
                 goto matched;
             }
-            goto unsupported_channel_masks;
-        }
-*/
-/*            
-        if (info.c_class == StaticGray || info.c_class == GrayScale) {
-            if (ARCHON_UNLIKELY(info.colormap_size != 256))
-                goto unexpected_colormap_size;
-            if (ARCHON_LIKELY(zero_mask_match(info)))
-                return std::make_unique<DirectGrayPixelCodec<image::int8_type, 8, bytes_per_pixel>>(); // Throws
             goto unsupported_channel_masks;
         }
 */

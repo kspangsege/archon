@@ -1447,6 +1447,21 @@ int main(int argc, char* argv[])
             if (bits_per_pixel != 8)
                 goto unsupported_bits_per_pixel;
             constexpr int bytes_per_pixel = 1;
+            if (visual_info.c_class == StaticGray || visual_info.c_class == GrayScale) {
+                if (ARCHON_UNLIKELY(visual_info.colormap_size != 256))
+                    goto unexpected_colormap_size;
+                if (zero_mask_match(visual_info)) {
+                    if (colormap_needs_init) {
+                        ARCHON_ASSERT(visual_info.c_class == GrayScale);
+                        setup_gray_scale_colormap(dpy, colormap, depth, use_weird_palette); // Throws
+                    }
+                    auto img = make_lum_image(img_size); // Throws
+                    data = img->get_buffer().data();
+                    img_2 = std::move(img);
+                    goto matched;
+                }
+                goto unsupported_channel_masks;
+            }
             if (visual_info.c_class == StaticColor) {
                 if (ARCHON_UNLIKELY(visual_info.colormap_size != 256))
                     goto unexpected_colormap_size;
@@ -1518,21 +1533,6 @@ int main(int argc, char* argv[])
                         bool implemented = false;
                         ARCHON_STEADY_ASSERT(implemented);                    
                     }
-                    goto matched;
-                }
-                goto unsupported_channel_masks;
-            }
-            if (visual_info.c_class == StaticGray || visual_info.c_class == GrayScale) {
-                if (ARCHON_UNLIKELY(visual_info.colormap_size != 256))
-                    goto unexpected_colormap_size;
-                if (zero_mask_match(visual_info)) {
-                    if (colormap_needs_init) {
-                        ARCHON_ASSERT(visual_info.c_class == GrayScale);
-                        setup_gray_scale_colormap(dpy, colormap, depth, use_weird_palette); // Throws
-                    }
-                    auto img = make_lum_image(img_size); // Throws
-                    data = img->get_buffer().data();
-                    img_2 = std::move(img);
                     goto matched;
                 }
                 goto unsupported_channel_masks;
