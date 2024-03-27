@@ -490,6 +490,9 @@ auto make_pixel_codec(const XVisualInfo& info, int bits_per_pixel,
         if (info.c_class == TrueColor || info.c_class == DirectColor) {
             if (ARCHON_UNLIKELY(info.colormap_size != 8))
                 goto unexpected_colormap_size;
+            // FIXME: Unformatunately, it looks like Xvfb + X.Org implements this visual
+            // incorrectly at this depth (8). Colors come out wrong. Further investigation
+            // is needed.    
             if (norm_mask_match<image::ChannelPacking_332>(info)) {
                 constexpr bool reverse_channel_order = false;
                 return std::make_unique<DirectColorPixelCodec<image::int8_type, image::ChannelPacking_332,

@@ -1538,6 +1538,9 @@ int main(int argc, char* argv[])
             if (visual_info.c_class == TrueColor || visual_info.c_class == DirectColor) {
                 if (ARCHON_UNLIKELY(visual_info.colormap_size != 8))
                     goto unexpected_colormap_size;
+                // FIXME: Unformatunately, it looks like Xvfb + X.Org implements this visual
+                // incorrectly at this depth (8). Colors come out wrong. Further
+                // investigation is needed.    
                 BitFields bit_fields = {};
                 if (norm_mask_match<image::ChannelPacking_332>(visual_info)) {
                     constexpr bool reverse_channel_order = false;
@@ -1781,18 +1784,19 @@ int main(int argc, char* argv[])
         display::Pos pos;
         if (optional_pos.has_value())
             pos = optional_pos.value();
-        XSetWindowAttributes swa;
-        swa.event_mask = (KeyPressMask | KeyReleaseMask |
-                          ButtonPressMask | ButtonReleaseMask |
-                          ButtonMotionMask |
-                          EnterWindowMask | LeaveWindowMask |
-                          FocusChangeMask |
-                          ExposureMask |
-                          StructureNotifyMask |
-                          KeymapStateMask);
-        swa.colormap = colormap;
+        unsigned long valuemask = CWEventMask | CWColormap;
+        XSetWindowAttributes attributes;
+        attributes.event_mask = (KeyPressMask | KeyReleaseMask |
+                                 ButtonPressMask | ButtonReleaseMask |
+                                 ButtonMotionMask |
+                                 EnterWindowMask | LeaveWindowMask |
+                                 FocusChangeMask |
+                                 ExposureMask |
+                                 StructureNotifyMask |
+                                 KeymapStateMask);
+        attributes.colormap = colormap;
         Window window = XCreateWindow(dpy, root, pos.x, pos.y, unsigned(img_size.width), unsigned(img_size.height),
-                                      0, depth, InputOutput, visual_info.visual, CWEventMask | CWColormap, &swa);
+                                      0, depth, InputOutput, visual_info.visual, valuemask, &attributes);
 
         // Set window name
         int no = ++prev_window_no;
