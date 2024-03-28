@@ -193,9 +193,9 @@ bool assume_locale_has_escape(const std::locale&);
 inline bool assume_unicode_locale(const std::locale& loc)
 {
     static_cast<void>(loc);
-#if ARCHON_ASSUME_UTF8_LOCALE < 1
+#if ARCHON_ASSUME_UNICODE_LOCALE < 1
     return false;
-#elif ARCHON_ASSUME_UTF8_LOCALE > 1
+#elif ARCHON_ASSUME_UNICODE_LOCALE > 1
     return true;
 #elif ARCHON_WCHAR_IS_UNICODE
     return true;

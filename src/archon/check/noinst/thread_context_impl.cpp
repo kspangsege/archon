@@ -115,7 +115,7 @@ void ThreadContextImpl::run(impl::RootContextImpl::Exec exec, std::unique_lock<s
     m_errors_seen = false;
     core::Timer timer(core::Timer::Type::monotonic_clock); // Throws
     try {
-        (*test.list_entry->run_func)(test_context); // Throws
+        (test.list_entry->run_func)(test_context); // Throws
     }
     catch (std::exception& e) {
         std::array<char, 1024> seed_memory;

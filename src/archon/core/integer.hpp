@@ -799,13 +799,27 @@ template<class T> constexpr auto int_divmod(T a, T b) noexcept -> core::IntDivMo
 /// \brief Integer division with upwards rounding.
 ///
 /// This function divides \p a by \p b and returns the least integer that is greater than,
-/// or equal to the result. Both \p a and \p b must be non-negative integers. If \p b is
-/// zero, the effect is the same as it would be for the expression `a / b`.
+/// or equal to the true untruncated result. Both \p a and \p b must be non-negative
+/// integers. If \p b is zero, the effect is the same as it would be for the expression `a /
+/// b`.
 ///
 /// The types of the specified values (\p T and \p U) must conform to the integer concept
 /// (\ref Concept_Archon_Core_Integer).
 ///
 template<class T, class U> constexpr auto int_div_round_up(T a, U b) noexcept -> T;
+
+
+/// \brief Integer division with half-down rounding behavior.
+///
+/// This function divides \p a by \p b and returns the result rounded to the nearest
+/// integer, or if the result is half way between two integers, rounded down. Both \p a and
+/// \p b must be non-negative integers. If \p b is zero, the effect is the same as it would
+/// be for the expression `a / b`.
+///
+/// The types of the specified values (\p T and \p U) must conform to the integer concept
+/// (\ref Concept_Archon_Core_Integer).
+///
+template<class T, class U> constexpr auto int_div_round_half_down(T a, U b) noexcept -> T;
 
 
 /// \brief Performs periodic modulo operation.
@@ -1970,6 +1984,20 @@ template<class T, class U> constexpr auto int_div_round_up(T a, U b) noexcept ->
     if (ARCHON_LIKELY(res.rem != type(0)))
         return core::int_cast_a<T>(res.quot + type(1));
     return core::int_cast_a<T>(res.quot);
+}
+
+
+template<class T, class U> constexpr auto int_div_round_half_down(T a, U b) noexcept -> T
+{
+    ARCHON_ASSERT(!core::is_negative(a));
+    ARCHON_ASSERT(!core::is_negative(b));
+    using type = core::common_int_type<int, T, U>;
+    type a_2 = core::int_cast_a<type>(a);
+    type b_2 = core::int_cast_a<type>(b);
+    core::IntDivMod<type> res = core::int_divmod(a_2, b_2);
+    if (ARCHON_LIKELY(res.rem <= type(b / 2)))
+        return core::int_cast_a<T>(res.quot);
+    return core::int_cast_a<T>(res.quot + type(1));
 }
 
 

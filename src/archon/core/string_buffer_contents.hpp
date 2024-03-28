@@ -40,10 +40,10 @@ namespace archon::core {
 /// buffer (\ref core::Buffer). It offers methods for appending to the contents and
 /// expanding the underlying buffer as necessary.
 ///
-/// \sa \ref core::Buffer.
-/// \sa \ref core::BufferContents.
+/// \sa \ref core::Buffer
+/// \sa \ref core::BufferContents
 ///
-template<class C> class StringBufferContents {
+template<class C> class BasicStringBufferContents {
 public:
     using char_type = C;
 
@@ -55,9 +55,10 @@ public:
     /// \brief Construct string buffer contents tracker.
     ///
     /// \param size The initial size of the buffer contents. Behavior is undefined if the
-    /// specified value is greater than the current size of the specified buffer.
+    /// specified value is greater than the current size of the specified buffer. See also
+    /// \ref set_size().
     ///
-    explicit StringBufferContents(buffer_type& buffer, std::size_t size = 0) noexcept;
+    explicit BasicStringBufferContents(buffer_type& buffer, std::size_t size = 0) noexcept;
 
     auto operator[](std::size_t) noexcept -> C&;
     auto operator[](std::size_t) const noexcept -> const C&;
@@ -78,10 +79,35 @@ public:
 
     void clear() noexcept;
 
+    /// \{
+    ///
+    /// \brief Underlying buffer.
+    ///
+    /// These functions return a reference to the underlying buffer, that is, the buffer
+    /// that was passed to the string buffer contents constructor.
+    ///
+    auto buffer() noexcept       -> buffer_type&;
+    auto buffer() const noexcept -> const buffer_type&;
+    ///  \}
+
+    /// \brief Change size of buffer contents.
+    ///
+    /// This function changes the size of the used part of the underlying buffer (ref
+    /// buffer()), and therefore the size of the string buffer contents.
+    ///
+    /// Behavior is undefined if the specified size is greater than the current size of the
+    /// underlying buffer (\ref core::Buffer::size()).
+    ///
+    void set_size(std::size_t) noexcept;
+
 private:
     buffer_type& m_buffer;
     std::size_t m_size;
 };
+
+
+using StringBufferContents     = BasicStringBufferContents<char>;
+using WideStringBufferContents = BasicStringBufferContents<wchar_t>;
 
 
 
@@ -94,7 +120,7 @@ private:
 
 
 template<class C>
-inline StringBufferContents<C>::StringBufferContents(buffer_type& buffer, std::size_t size) noexcept
+inline BasicStringBufferContents<C>::BasicStringBufferContents(buffer_type& buffer, std::size_t size) noexcept
     : m_buffer(buffer)
     , m_size(size)
 {
@@ -102,77 +128,77 @@ inline StringBufferContents<C>::StringBufferContents(buffer_type& buffer, std::s
 
 
 template<class C>
-inline auto StringBufferContents<C>::operator[](std::size_t i) noexcept -> C&
+inline auto BasicStringBufferContents<C>::operator[](std::size_t i) noexcept -> C&
 {
     return data()[i];
 }
 
 
 template<class C>
-inline auto StringBufferContents<C>::operator[](std::size_t i) const noexcept -> const C&
+inline auto BasicStringBufferContents<C>::operator[](std::size_t i) const noexcept -> const C&
 {
     return data()[i];
 }
 
 
 template<class C>
-inline bool StringBufferContents<C>::empty() const noexcept
+inline bool BasicStringBufferContents<C>::empty() const noexcept
 {
     return m_size == 0;
 }
 
 
 template<class C>
-inline auto StringBufferContents<C>::size() const noexcept -> std::size_t
+inline auto BasicStringBufferContents<C>::size() const noexcept -> std::size_t
 {
     return m_size;
 }
 
 
 template<class C>
-inline auto StringBufferContents<C>::data() noexcept -> C*
+inline auto BasicStringBufferContents<C>::data() noexcept -> C*
 {
     return m_buffer.data();
 }
 
 
 template<class C>
-inline auto StringBufferContents<C>::data() const noexcept -> const C*
+inline auto BasicStringBufferContents<C>::data() const noexcept -> const C*
 {
     return m_buffer.data();
 }
 
 
 template<class C>
-inline auto StringBufferContents<C>::begin() noexcept -> C*
+inline auto BasicStringBufferContents<C>::begin() noexcept -> C*
 {
     return data();
 }
 
 
 template<class C>
-inline auto StringBufferContents<C>::end() noexcept -> C*
+inline auto BasicStringBufferContents<C>::end() noexcept -> C*
 {
     return data() + size();
 }
 
 
 template<class C>
-inline auto StringBufferContents<C>::begin() const noexcept -> const C*
+inline auto BasicStringBufferContents<C>::begin() const noexcept -> const C*
 {
     return data();
 }
 
 
 template<class C>
-inline auto StringBufferContents<C>::end() const noexcept -> const C*
+inline auto BasicStringBufferContents<C>::end() const noexcept -> const C*
 {
     return data() + size();
 }
 
 
 template<class C>
-inline void StringBufferContents<C>::append(core::StringSpan<C> string)
+inline void BasicStringBufferContents<C>::append(core::StringSpan<C> string)
 {
     std::size_t size = string.size();
     m_buffer.reserve_extra(size, m_size); // Throws
@@ -182,7 +208,7 @@ inline void StringBufferContents<C>::append(core::StringSpan<C> string)
 
 
 template<class C>
-inline void StringBufferContents<C>::append(std::size_t n, C ch)
+inline void BasicStringBufferContents<C>::append(std::size_t n, C ch)
 {
     m_buffer.reserve_extra(n, m_size); // Throws
     C* base = m_buffer.data() + m_size;
@@ -192,9 +218,30 @@ inline void StringBufferContents<C>::append(std::size_t n, C ch)
 
 
 template<class C>
-inline void StringBufferContents<C>::clear() noexcept
+inline void BasicStringBufferContents<C>::clear() noexcept
 {
     m_size = 0;
+}
+
+
+template<class C>
+inline auto BasicStringBufferContents<C>::buffer() noexcept -> buffer_type&
+{
+    return m_buffer;
+}
+
+
+template<class C>
+inline auto BasicStringBufferContents<C>::buffer() const noexcept -> const buffer_type&
+{
+    return m_buffer;
+}
+
+
+template<class C>
+inline void BasicStringBufferContents<C>::set_size(std::size_t size) noexcept
+{
+    m_size = size;
 }
 
 

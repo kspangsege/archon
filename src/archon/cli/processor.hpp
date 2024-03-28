@@ -40,6 +40,7 @@
 #include <archon/core/features.h>
 #include <archon/core/span.hpp>
 #include <archon/core/assert.hpp>
+#include <archon/core/index_range.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/buffer.hpp>
 #include <archon/core/buffer_contents.hpp>
@@ -608,9 +609,8 @@ BasicProcessor<C, T>::BasicProcessor(std::unique_ptr<command_line_type> command_
         string_view_type forms = get_string(entry.forms); // Throws
         string_view_type arg   = get_string(entry.arg); // Throws
         string_view_type descr = get_string(entry.descr); // Throws
-        using IndexRange = typename impl_spec_type::IndexRange;
-        using ArgSpec    = typename impl_spec_type::ArgSpec;
-        IndexRange forms_2 = spec_parser.parse_option_forms(forms, m_impl_spec, option_index); // Throws
+        using ArgSpec = typename impl_spec_type::ArgSpec;
+        core::IndexRange forms_2 = spec_parser.parse_option_forms(forms, m_impl_spec, option_index); // Throws
         ArgSpec arg_2 = spec_parser.parse_option_arg(arg, option_index); // Throws
         using option_action_type = impl::OptionAction<C, T>;
         option_action_type* action = &m_null_option_action;

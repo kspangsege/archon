@@ -326,7 +326,7 @@ constexpr NamedColorMaps g_named_color_maps; // Throws
 
 
 void format_hex(int_comp_type r, int_comp_type g, int_comp_type b, int_comp_type a,
-                bool disable_short_form, bool lowercase, core::StringBufferContents<char>& buffer)
+                bool disable_short_form, bool lowercase, core::StringBufferContents& buffer)
 {
     bool fully_opaque = a >= 255;
     rgba_type value;
@@ -379,7 +379,7 @@ void format_hex(int_comp_type r, int_comp_type g, int_comp_type b, int_comp_type
 }
 
 
-void format_name(std::size_t index, bool uppercase, core::StringBufferContents<char>& buffer)
+void format_name(std::size_t index, bool uppercase, core::StringBufferContents& buffer)
 {
     ARCHON_ASSERT(index < g_num_named_colors);
     std::string_view name = g_named_colors[index].name;
@@ -395,7 +395,7 @@ void format_name(std::size_t index, bool uppercase, core::StringBufferContents<c
 
 
 void format_rgb(flt_comp_type r, flt_comp_type g, flt_comp_type b, flt_comp_type a, bool percent,
-                bool uppercase, bool no_space_after_comma, core::StringBufferContents<char>& buffer)
+                bool uppercase, bool no_space_after_comma, core::StringBufferContents& buffer)
 {
     std::array<char, 32> seed_memory;
     const std::locale& locale = std::locale::classic();
@@ -454,7 +454,7 @@ void format_rgb(flt_comp_type r, flt_comp_type g, flt_comp_type b, flt_comp_type
 
 
 void format_hsl(flt_comp_type h, flt_comp_type s, flt_comp_type l, flt_comp_type a, bool uppercase,
-                bool no_space_after_comma, core::StringBufferContents<char>& buffer)
+                bool no_space_after_comma, core::StringBufferContents& buffer)
 {
     std::array<char, 32> seed_memory;
     const std::locale& locale = std::locale::classic();

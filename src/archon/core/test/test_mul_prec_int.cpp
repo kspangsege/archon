@@ -124,7 +124,7 @@ struct TestIntConversion {
 ARCHON_TEST(Core_MulPrecInt_IntConversion)
 {
     std::mt19937_64 random(test_context.seed_seq());
-    core::for_each_type<core::TypeListProduct<IntTypes, PartTypes>, TestIntConversion>(test_context, random);
+    core::for_each_type_alt<core::TypeListProduct<IntTypes, PartTypes>, TestIntConversion>(test_context, random);
 }
 
 

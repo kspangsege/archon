@@ -97,7 +97,7 @@ struct Test {
 
 ARCHON_TEST(Core_SuperInt_Basics)
 {
-    core::for_each_type<Types, Test>(test_context);
+    core::for_each_type_alt<Types, Test>(test_context);
 }
 
 

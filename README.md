@@ -20,12 +20,12 @@ The Archon project consists of a number of general purpose libraries:
 
 Here is the list of dependencies for the various libraries of the Archon project:
 
-  | Name     | Archon library | Optional | Description
-  |----------|----------------|----------|-----------------------------------------------
-  | `libpng` | Image          | Yes      | Image format (Portable Network Graphics)
-  | FreeType | Font           | Yes      | Font rendering facilities
-  | Xlib     | Display        | Yes      | X Window System protocol client library
-  | SDL      | Display        | Yes      | OS GUI integration (Simple DirectMedia Layer)
+  | Name     | Minimum version | Archon library | Optional | Description
+  |----------|-----------------|----------------|----------|-----------------------------------------------
+  | `libpng` | 1.5.4           | Image          | Yes      | Image format (Portable Network Graphics)
+  | FreeType |                 | Font           | Yes      | Font rendering facilities
+  | Xlib     |                 | Display        | Yes      | X Window System protocol client library
+  | SDL      | 2.0.22          | Display        | Yes      | OS GUI integration (Simple DirectMedia Layer)
 
 See below for information on how to install these dependencies on various platforms.
 

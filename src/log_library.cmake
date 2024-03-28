@@ -30,3 +30,5 @@ target_sources(Log PUBLIC FILE_SET HEADERS FILES
 )
 
 install(TARGETS Log FILE_SET HEADERS)
+
+add_subdirectory(archon/log/test)

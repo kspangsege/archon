@@ -15,7 +15,7 @@ target_link_libraries(Font PUBLIC
 find_package(Freetype)
 
 set(ARCHON_FONT_HAVE_FREETYPE 0)
-if (FREETYPE_FOUND)
+if(FREETYPE_FOUND)
   set(ARCHON_FONT_HAVE_FREETYPE 1)
   target_link_libraries(Font PRIVATE Freetype::Freetype)
 endif()

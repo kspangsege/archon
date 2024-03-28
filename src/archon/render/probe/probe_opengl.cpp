@@ -55,8 +55,7 @@ class EventLoop
     : public display::WindowEventHandler {
 public:
     EventLoop(display::Connection& conn) noexcept
-        : m_impl(conn.get_implementation())
-        , m_conn(conn)
+        : m_conn(conn)
     {
     }
 
@@ -88,7 +87,7 @@ public:
     bool on_keydown(const display::KeyEvent& ev) override final
     {
         display::Key key = {};
-        if (ARCHON_LIKELY(m_impl.try_map_key_code_to_key(ev.key_code, key))) { // Throws
+        if (ARCHON_LIKELY(m_conn.try_map_key_code_to_key(ev.key_code, key))) { // Throws
             if (ARCHON_UNLIKELY(key == display::Key::escape))
                 return false;
         }
@@ -96,7 +95,6 @@ public:
     }
 
 private:
-    const display::Implementation& m_impl;
     display::Connection& m_conn;
     double m_angle = 0;
 };
@@ -148,6 +146,10 @@ int main()
     // Promise that all use of the display API happens on behalf of the main thread.
     guarantees.main_thread_exclusive = true;
 
+    // Promise that there is no direct or indirect use of the Xlib library (X Window System
+    // client library) other than through the Archon display library.
+    guarantees.no_other_use_of_x11 = true;
+
     // Promise that there is no direct or indirect use of SDL (Simple DirectMedia Layer)
     // other than through the Archon display library, and that there is also no direct or
     // indirect use of anything that would conflict with use of SDL.
@@ -157,7 +159,7 @@ int main()
     std::unique_ptr<display::Connection> conn = display::new_connection(locale, guarantees); // Throws
     EventLoop event_loop(*conn);
     display::Window::Config config;
-    config.enable_opengl = true;
+    config.enable_opengl_rendering = true;
     std::unique_ptr<display::Window> win = conn->new_window("Probe OpenGL", 512, event_loop, config); // Throws
     win->show(); // Throws
     event_loop.run(*win); // Throws

@@ -28,7 +28,7 @@
 #include <compare>
 #include <utility>
 
-#include <archon/core/type.hpp>
+#include <archon/core/type_traits.hpp>
 
 
 namespace archon::core {
@@ -95,6 +95,9 @@ public:
     constexpr auto operator<=>(const Pair<V, W>& other) const noexcept(core::are_nothrow_three_way_comparable<T, V> &&
                                                                        core::are_nothrow_three_way_comparable<U, W>);
 };
+
+
+template<class T, class U> Pair(T, U) -> Pair<T, U>;
 
 
 

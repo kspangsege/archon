@@ -55,6 +55,36 @@ ARCHON_TEST(Core_FlatMap_Insert)
 }
 
 
+ARCHON_TEST(Core_FlatMap_Erase)
+{
+    core::FlatMap<int, int> map = {
+        { 1, 0 },
+        { 2, 0 },
+        { 4, 0 },
+    };
+
+    ARCHON_CHECK_EQUAL(map.erase(3), 0);
+    ARCHON_CHECK_EQUAL_SEQ(map, (std::vector<core::Pair<int, int>> {{ 1, 0 }, { 2, 0 }, { 4, 0 }}));
+
+    ARCHON_CHECK_EQUAL(map.erase(2), 1);
+    ARCHON_CHECK_EQUAL_SEQ(map, (std::vector<core::Pair<int, int>> {{ 1, 0 }, { 4, 0 }}));
+
+    ARCHON_CHECK_EQUAL(map.erase(2), 0);
+    ARCHON_CHECK_EQUAL_SEQ(map, (std::vector<core::Pair<int, int>> {{ 1, 0 }, { 4, 0 }}));
+}
+
+
+ARCHON_TEST(Core_FlatMap_Clear)
+{
+    core::FlatMap<int, int> map = {
+        { 1, 0 },
+        { 3, 2 },
+    };
+    map.clear();
+    ARCHON_CHECK(map.empty());
+}
+
+
 ARCHON_TEST(Core_FlatMap_Contains)
 {
     core::FlatMap<int, int> map = {

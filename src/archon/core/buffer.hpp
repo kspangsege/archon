@@ -55,7 +55,7 @@ struct BufferDataTag {};
 ///
 /// \sa \ref core::ArraySeededBuffer.
 /// \sa \ref core::BufferContents.
-/// \sa \ref core::StringBufferContents.
+/// \sa \ref core::BasicStringBufferContents.
 ///
 template<class T> class Buffer {
 public:
@@ -219,6 +219,17 @@ public:
     /// buffer address and contents remain unchanged).
     ///
     template<class F> void reserve_a(std::size_t min_size, F&& copy_func, std::size_t max_size = -1);
+
+    /// \{
+    ///
+    /// \brief Place new data in buffer.
+    ///
+    /// These functions are shorthands for calling \ref append() and \ref append_a() with an
+    /// initial \p offset of zero.
+    ///
+    void assign(const_span_type data);
+    void assign_a(T val, std::size_t n = 1);
+    /// \}
 
     /// \{
     ///
@@ -605,6 +616,22 @@ template<class F> inline void Buffer<T>::reserve_a(std::size_t min_size, F&& cop
         return;
     std::size_t min_extra_size = 0;
     do_reserve(min_size, min_extra_size, std::forward<F>(copy_func), max_size); // Throws
+}
+
+
+template<class T>
+inline void Buffer<T>::assign(const_span_type data)
+{
+    reserve(data.size()); // Throws
+    std::copy_n(data.data(), data.size(), m_memory.data()); // Throws
+}
+
+
+template<class T>
+inline void Buffer<T>::assign_a(T val, std::size_t n)
+{
+    reserve(n); // Throws
+    std::fill_n(m_memory.data(), n, val); // Throws
 }
 
 

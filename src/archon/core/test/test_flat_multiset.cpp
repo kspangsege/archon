@@ -53,6 +53,29 @@ ARCHON_TEST(Core_FlatMultiset_Insert)
 }
 
 
+ARCHON_TEST(Core_FlatMultiset_Erase)
+{
+    core::FlatMultiset<int> set = { 1, 3, 3 };
+
+    ARCHON_CHECK_EQUAL(set.erase(2), 0);
+    ARCHON_CHECK_EQUAL_SEQ(set, (std::vector<int> { 1, 3, 3 }));
+
+    ARCHON_CHECK_EQUAL(set.erase(3), 2);
+    ARCHON_CHECK_EQUAL_SEQ(set, (std::vector<int> { 1 }));
+
+    ARCHON_CHECK_EQUAL(set.erase(3), 0);
+    ARCHON_CHECK_EQUAL_SEQ(set, (std::vector<int> { 1 }));
+}
+
+
+ARCHON_TEST(Core_FlatMultiset_Clear)
+{
+    core::FlatMultiset<int> set = { 1, 1 };
+    set.clear();
+    ARCHON_CHECK(set.empty());
+}
+
+
 ARCHON_TEST(Core_FlatMultiset_Contains)
 {
     core::FlatMultiset<int> set = { 1, 2, 2, 4 };

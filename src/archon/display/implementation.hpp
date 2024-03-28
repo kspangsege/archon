@@ -27,8 +27,6 @@
 #include <memory>
 #include <string_view>
 
-#include <archon/display/key.hpp>
-#include <archon/display/key_code.hpp>
 #include <archon/display/guarantees.hpp>
 #include <archon/display/connection.hpp>
 
@@ -39,8 +37,8 @@ namespace archon::display {
 /// \brief Representation of an underlying display implementation.
 ///
 /// This class specifies the public interface of a display implementation. A display
-/// implementation is a bridge to a particular underlying way of interacting with the
-/// graphical user interface of the platform. An example is X11 (\ref
+/// implementation is a representation of a particular underlying way of interacting with
+/// the graphical user interface of the platform. An example is X11 (\ref
 /// display::get_x11_implementation()).
 ///
 /// The primary role of a display implementation object is to facilitate the creation of a
@@ -51,6 +49,8 @@ namespace archon::display {
 ///
 /// \sa \ref display::get_default_implementation()
 /// \sa \ref Slot::get_implementation()
+/// \sa \ref display::get_x11_implementation()
+/// \sa \ref display::get_sdl_implementation()
 ///
 class Implementation {
 public:
@@ -62,46 +62,18 @@ public:
     /// particular display, or in some cases, to a particular set of displays (a number of
     /// "screens" using the terminology of the X Window System).
     ///
-    /// Note that if the application chooses to provide the display guarantee, \ref
-    /// display::Guarantees::only_one_connection, then at most one connection may be created
-    /// per process of the operating system.
+    /// Note that if the implementation was obtained by providing the display guarantee,
+    /// \ref display::Guarantees::only_one_connection, then at most one connection may be
+    /// created per operating system process.
     ///
-    /// Note that if the application chooses to provide the display guarantee, \ref
-    /// display::Guarantees::main_thread_exclusive, then this function must be called only
-    /// by the main thread. Further more, the returned connection must be used only by the
-    /// main thread. This includes the destruction of the connection returned by this
+    /// Note that if the implementation was obtained by providing the display guarantee,
+    /// \ref display::Guarantees::main_thread_exclusive, then this function must be called
+    /// only by the main thread. Further more, the returned connection must be used only by
+    /// the main thread. This includes the destruction of the connection returned by this
     /// function.
     ///
-    virtual auto new_connection(const std::locale&) const -> std::unique_ptr<display::Connection> = 0;
-
-    /// \brief Map well-known key to key code.
-    ///
-    /// This function maps the specified well-known key (\p key) to the corresponding key
-    /// code (\p key_code). If a corresponding key code exists, this function returns `true`
-    /// after setting \p key_code to that key code. If a corresponding key code does not
-    /// exist, this function returns `false` and leaves \p key_code unchanged.
-    ///
-    virtual bool try_map_key_to_key_code(display::Key key, display::KeyCode& key_code) const = 0;
-
-    /// \brief Map key code to well-known key.
-    ///
-    /// This function maps the specified key code (\p key_code) to the corresponding
-    /// well-known key (\p key). If a corresponding well-known key exists, this function
-    /// returns `true` after setting \p key to that key. If a corresponding well-known key
-    /// does not exist, this function returns `false` and leaves \p key unchanged.
-    ///
-    virtual bool try_map_key_code_to_key(display::KeyCode key_code, display::Key& key) const = 0;
-
-    /// \brief Get key name.
-    ///
-    /// This function returns the name of the specified key as known to this
-    /// implementation. Key names are not guaranteed to be invariant across implementations.
-    ///
-    /// If the implementation knows the name of the specified key (\p key_code), this
-    /// function returns `true` after setting \p name to that name. Otherwise this function
-    /// returns `false` and leaves \p name unchanged.
-    ///
-    virtual bool try_get_key_name(display::KeyCode key_code, std::string_view& name) const = 0;
+    virtual auto new_connection(const std::locale&, const display::Connection::Config& = {}) const ->
+        std::unique_ptr<display::Connection> = 0;
 
     /// \brief Get slot for this implementation.
     ///

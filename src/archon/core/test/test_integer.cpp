@@ -92,7 +92,7 @@ struct TestFindMostSignificantBitPos {
 
 ARCHON_TEST(Core_Integer_FindMostSignificantBitPos)
 {
-    core::for_each_type<Types, TestFindMostSignificantBitPos>(test_context);
+    core::for_each_type_alt<Types, TestFindMostSignificantBitPos>(test_context);
 }
 
 
@@ -875,7 +875,7 @@ struct MaskTest {
 
 ARCHON_TEST(Core_Integer_Mask)
 {
-    core::for_each_type<MaskTypes, MaskTest>(test_context);
+    core::for_each_type_alt<MaskTypes, MaskTest>(test_context);
 }
 
 
@@ -1027,7 +1027,7 @@ struct TestTwoTypes1 {
     template<class T_1, std::size_t>
     static void exec(check::TestContext& test_context, const std::set<core::SuperInt>& values)
     {
-        core::for_each_type<Types, TestTwoTypes2<T_1>>(test_context, values);
+        core::for_each_type_alt<Types, TestTwoTypes2<T_1>>(test_context, values);
     }
 };
 
@@ -1045,10 +1045,10 @@ ARCHON_TEST(Core_Integer_General)
         values.insert(core::SuperInt(i));
 
     // Add min and max for all integer types to set (worst case 30)
-    core::for_each_type<Types, AddMinMax>(values);
+    core::for_each_type_alt<Types, AddMinMax>(values);
 
     // Add half of min and half of max for all integer types to set (worst case 56)
-    core::for_each_type<Types, AddHalfMinMax>(values);
+    core::for_each_type_alt<Types, AddHalfMinMax>(values);
 
     // Add x-1 and x+1 to the set for all x in set (worst case 168)
     {
@@ -1087,7 +1087,95 @@ ARCHON_TEST(Core_Integer_General)
     for (core::SuperInt value : values)
         test_context.logger.detail("Value: %s", value);
 
-    core::for_each_type<Types, TestTwoTypes1>(test_context, values);
+    core::for_each_type_alt<Types, TestTwoTypes1>(test_context, values);
+}
+
+
+ARCHON_TEST(Core_Integer_DivRoundUp)
+{
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(0, 1), 0);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(1, 1), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(2, 1), 2);
+
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(0, 2), 0);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(1, 2), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(2, 2), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(3, 2), 2);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(4, 2), 2);
+
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(0, 3), 0);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(1, 3), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(2, 3), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(3, 3), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(4, 3), 2);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(5, 3), 2);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(6, 3), 2);
+
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(0, 4), 0);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(1, 4), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(2, 4), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(3, 4), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(4, 4), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(5, 4), 2);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(6, 4), 2);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(7, 4), 2);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(8, 4), 2);
+
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(0, 5), 0);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(1, 5), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(2, 5), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(3, 5), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(4, 5), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(5, 5), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(6, 5), 2);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(7, 5), 2);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(8, 5), 2);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(9, 5), 2);
+    ARCHON_CHECK_EQUAL(core::int_div_round_up(10, 5), 2);
+}
+
+
+ARCHON_TEST(Core_Integer_DivRoundHalfDown)
+{
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(0, 1), 0);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(1, 1), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(2, 1), 2);
+
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(0, 2), 0);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(1, 2), 0);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(2, 2), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(3, 2), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(4, 2), 2);
+
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(0, 3), 0);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(1, 3), 0);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(2, 3), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(3, 3), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(4, 3), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(5, 3), 2);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(6, 3), 2);
+
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(0, 4), 0);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(1, 4), 0);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(2, 4), 0);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(3, 4), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(4, 4), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(5, 4), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(6, 4), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(7, 4), 2);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(8, 4), 2);
+
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(0, 5), 0);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(1, 5), 0);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(2, 5), 0);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(3, 5), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(4, 5), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(5, 5), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(6, 5), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(7, 5), 1);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(8, 5), 2);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(9, 5), 2);
+    ARCHON_CHECK_EQUAL(core::int_div_round_half_down(10, 5), 2);
 }
 
 
@@ -1142,5 +1230,5 @@ struct TestSquareRoot {
 ARCHON_TEST(Core_Integer_SquareRoot)
 {
     std::mt19937_64 random(test_context.seed_seq());
-    core::for_each_type<Types, TestSquareRoot>(test_context, random);
+    core::for_each_type_alt<Types, TestSquareRoot>(test_context, random);
 }

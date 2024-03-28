@@ -31,7 +31,6 @@
 #include <ostream>
 
 #include <archon/core/features.h>
-#include <archon/core/type.hpp>
 #include <archon/core/span.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/char_mapper.hpp>

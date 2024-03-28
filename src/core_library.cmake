@@ -36,7 +36,7 @@ endif()
 file(RELATIVE_PATH "ARCHON_SOURCE_FROM_BUILD_PATH" "${ARCHON_BUILD_ROOT}" "${ARCHON_SOURCE_ROOT}")
 
 set(ARCHON_ASSUME_VISUAL_STUDIO_CMAKE_GENERATOR 0)
-if (CMAKE_GENERATOR MATCHES "^Visual Studio")
+if(CMAKE_GENERATOR MATCHES "^Visual Studio")
   set(ARCHON_ASSUME_VISUAL_STUDIO_CMAKE_GENERATOR 1)
 endif()
 
@@ -48,9 +48,10 @@ target_sources(Core PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "${
   archon/core/archon_version.hpp
   archon/core/pair.hpp
   archon/core/span.hpp
-  archon/core/type_list.hpp
-  archon/core/impl/type.hpp
   archon/core/type.hpp
+  archon/core/type_list.hpp
+  archon/core/impl/type_traits.hpp
+  archon/core/type_traits.hpp
   archon/core/concepts.hpp
   archon/core/demangle.hpp
   archon/core/formattable_value_ref.hpp
@@ -61,6 +62,7 @@ target_sources(Core PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "${
   archon/core/scope_exit.hpp
   archon/core/value_reset_guard.hpp
   archon/core/string_span.hpp
+  archon/core/index_range.hpp
   archon/core/integer_traits.hpp
   archon/core/integer.hpp
   archon/core/float_traits.hpp
@@ -83,9 +85,9 @@ target_sources(Core PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "${
   archon/core/buffer_contents.hpp
   archon/core/string_buffer_contents.hpp
   archon/core/array_seeded_buffer.hpp
-  archon/core/circular_buffer.hpp
   archon/core/impl/vector_impl.hpp
   archon/core/vector.hpp
+  archon/core/deque.hpp
   archon/core/impl/flat_map_impl.hpp
   archon/core/flat_map.hpp
   archon/core/flat_multimap.hpp

@@ -32,7 +32,6 @@
 #include <stdexcept>
 
 #include <archon/core/features.h>
-#include <archon/core/type.hpp>
 #include <archon/core/assert.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/memory.hpp>
@@ -71,6 +70,7 @@ public:
     template<class... A> void insert(std::size_t offset, A&&... args);
     void erase(std::size_t offset, std::size_t n) noexcept;
 
+    void clear() noexcept;
     void resize(std::size_t size);
     void resize(std::size_t size, const T& value);
 
@@ -272,6 +272,14 @@ void VectorImpl<T>::erase(std::size_t offset, std::size_t n) noexcept
     std::size_t move_dist = n;
     core::uninit_move_downwards(base + offset_2, move_size, move_dist);
     m_size -= n;
+}
+
+
+template<class T>
+inline void VectorImpl<T>::clear() noexcept
+{
+    core::uninit_destroy(data(), m_size);
+    m_size = 0;
 }
 
 

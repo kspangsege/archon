@@ -26,6 +26,7 @@
 #include <archon/core/features.h>
 #include <archon/display/guarantees.hpp>
 #include <archon/display/implementation.hpp>
+#include <archon/display/implementation_x11.hpp>
 #include <archon/display/implementation_sdl.hpp>
 
 
@@ -49,7 +50,13 @@ using slot_getter_type = auto (*)() noexcept -> const display::Implementation::S
 
 
 constexpr slot_getter_type g_implementation_slots[] {
+#if !(ARCHON_APPLE || ARCHON_WINDOWS)
+    &display::get_x11_implementation_slot,
+#endif
     &display::get_sdl_implementation_slot,
+#if ARCHON_APPLE || ARCHON_WINDOWS
+    &display::get_x11_implementation_slot,
+#endif
 };
 
 

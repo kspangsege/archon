@@ -30,7 +30,6 @@ target_sources(Check PUBLIC FILE_SET HEADERS FILES
   archon/check/seed_seq.hpp
   archon/check/random_seed.hpp
   archon/check/test_details.hpp
-  archon/check/impl/check_arg.hpp
   archon/check/check_arg.hpp
   archon/check/root_context.hpp
   archon/check/thread_context.hpp

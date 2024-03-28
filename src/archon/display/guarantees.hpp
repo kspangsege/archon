@@ -33,11 +33,12 @@ namespace archon::display {
 /// display implementations (\ref display::Implementation::is_available()). In general, the
 /// more guarantees are provided, the more implementations will be available.
 ///
-/// | Guarantee               | SDL
-/// |-------------------------|----------
-/// | `only_one_connection`   | required
-/// | `main_thread_exclusive` | required
-/// | `no_other_use_of_sdl`   | required
+/// | Guarantee               | X11      | SDL
+/// |-------------------------|----------|----------
+/// | `only_one_connection`   |          | required
+/// | `main_thread_exclusive` | required | required
+/// | `no_other_use_of_x11`   | required |
+/// | `no_other_use_of_sdl`   |          | required
 ///
 struct Guarantees {
     /// \brief No overlapping display connections.
@@ -59,12 +60,24 @@ struct Guarantees {
     ///
     bool main_thread_exclusive = false;
 
+    /// \brief No other direct or indirect use of X11.
+    ///
+    /// The application may set this field to `true` if it promises that there is no direct
+    /// or indirect use of the Xlib library other than through the Archon Display
+    /// Library. Xlib is the client library for the X Window System.
+    ///
+    /// \sa https://x.org
+    ///
+    bool no_other_use_of_x11 = false;
+
     /// \brief No other use of SDL, or of anything that conflicts with SDL.
     ///
     /// The application may set this field to `true` if it promises that there is no direct
     /// or indirect use of SDL (Simple DirectMedia Layer) other than through the Archon
     /// Display Library, and that there is also no direct or indirect use of anything that
     /// would conflict with use of SDL.
+    ///
+    /// \sa https://www.libsdl.org
     ///
     bool no_other_use_of_sdl = false;
 };

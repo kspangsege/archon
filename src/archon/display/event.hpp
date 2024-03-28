@@ -99,9 +99,9 @@ struct KeyEvent : display::TimedWindowEvent {
 
 /// \brief When mouse moves or mouse button is pressed or released.
 ///
-/// This type of event is generated both when the mouse moves and when a mouse button is
-/// pressed or released. In the case of button activity, the actual event type will be \ref
-/// display::MouseButtonEvent.
+/// This type of event is generated when the mouse moves. This class is also the base of
+/// \ref display::MouseButtonEvent, which is used when a mouse button is pressed or
+/// released.
 ///
 /// \sa \ref display::WindowEventHandler::on_mousemove()
 /// \sa \ref display::MouseButtonEvent
@@ -110,7 +110,8 @@ struct MouseEvent : display::TimedWindowEvent {
     /// \brief Position of mouse.
     ///
     /// This is the position of the mouse at the time that the event was generated. The
-    /// position is relative to the top-left corner of the screen.
+    /// position is relative to the top-left corner of the window's contents area (\ref
+    /// display::Window).
     ///
     display::Pos pos;
 };

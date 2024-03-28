@@ -33,7 +33,7 @@
 #include <string_view>
 
 #include <archon/core/features.h>
-#include <archon/core/type.hpp>
+#include <archon/core/type_traits.hpp>
 #include <archon/core/assert.hpp>
 #include <archon/cli/impl/value_parser.hpp>
 #include <archon/cli/impl/error_accum.hpp>

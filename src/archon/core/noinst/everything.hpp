@@ -30,9 +30,10 @@
 #include <archon/core/impl/config.h>
 #include <archon/core/features.h>
 #include <archon/core/archon_version.hpp>
-#include <archon/core/type_list.hpp>
-#include <archon/core/impl/type.hpp>
 #include <archon/core/type.hpp>
+#include <archon/core/type_list.hpp>
+#include <archon/core/impl/type_traits.hpp>
+#include <archon/core/type_traits.hpp>
 #include <archon/core/concepts.hpp>
 #include <archon/core/pair.hpp>
 #include <archon/core/span.hpp>
@@ -45,6 +46,7 @@
 #include <archon/core/scope_exit.hpp>
 #include <archon/core/value_reset_guard.hpp>
 #include <archon/core/string_span.hpp>
+#include <archon/core/index_range.hpp>
 #include <archon/core/integer_traits.hpp>
 #include <archon/core/integer_concept.hpp>
 #include <archon/core/integer.hpp>
@@ -75,9 +77,9 @@
 #include <archon/core/buffer_contents.hpp>
 #include <archon/core/string_buffer_contents.hpp>
 #include <archon/core/array_seeded_buffer.hpp>
-#include <archon/core/circular_buffer.hpp>
 #include <archon/core/impl/vector_impl.hpp>
 #include <archon/core/vector.hpp>
+#include <archon/core/deque.hpp>
 #include <archon/core/impl/flat_map_impl.hpp>
 #include <archon/core/flat_map.hpp>
 #include <archon/core/flat_multimap.hpp>

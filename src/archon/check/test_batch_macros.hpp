@@ -54,6 +54,7 @@
 /// to use it.
 ///
 /// \sa \ref ARCHON_TEST_VALUE()
+/// \sa \ref ARCHON_TEST_TYPE_AND_VALUE()
 ///
 #define ARCHON_TEST_TYPE(type, name) X_ARCHON_TEST_TYPE(type, name)
 
@@ -64,8 +65,21 @@
 /// value, and the test value is the specified value.
 ///
 /// \sa \ref ARCHON_TEST_TYPE()
+/// \sa \ref ARCHON_TEST_TYPE_AND_VALUE()
 ///
 #define ARCHON_TEST_VALUE(value, name) X_ARCHON_TEST_VALUE(value, name)
+
+
+/// \brief Define a test case variant specifier carrying both both type and value.
+///
+/// This macro defines a variant specifier carrying both a type and a value. The test type
+/// is the specified type (\p type) and the test value is the specified value (\p
+/// value). The type of the value is allowed to differ from the test type.
+///
+/// \sa \ref ARCHON_TEST_VALUE()
+/// \sa \ref ARCHON_TEST_TYPE()
+///
+#define ARCHON_TEST_TYPE_AND_VALUE(type, value, name) X_ARCHON_TEST_TYPE_AND_VALUE(type, value, name)
 
 
 
@@ -203,12 +217,16 @@
     auto name = std::make_tuple(__VA_ARGS__)
 
 
-#define X_ARCHON_TEST_TYPE(type, name)                  \
+#define X_ARCHON_TEST_TYPE(type, name)          \
     archon::check::impl::TestType<type>(#name)
 
 
 #define X_ARCHON_TEST_VALUE(value, name)                                \
     (archon::check::impl::TestValue<decltype(value), value>(#name))
+
+
+#define X_ARCHON_TEST_TYPE_AND_VALUE(type, value, name)                 \
+    (archon::check::impl::TestTypeAndValue<type, decltype(value), value>(#name))
 
 
 #define X_ARCHON_TEST_BATCH(list, name, variants, enabled, allow_concur) \
@@ -242,7 +260,7 @@
     };                                                                  \
     archon::check::impl::RegisterTestBatch<cname> vname(list, #name, variants, __FILE__, __LINE__, allow_concur); \
     }                                                                   \
-    template<class T> void cname<T>::archon_check_run()
+    template<class V> void cname<V>::archon_check_run()
 
 
 namespace archon::check::impl {
@@ -266,6 +284,18 @@ public:
     static constexpr T value = v;
     std::string_view name;
     TestValue(std::string_view n)
+        : name(n)
+    {
+    }
+};
+
+
+template<class T, class U, U v> class TestTypeAndValue {
+public:
+    using type = T;
+    static constexpr U value = v;
+    std::string_view name;
+    TestTypeAndValue(std::string_view n)
         : name(n)
     {
     }
