@@ -128,9 +128,10 @@
 //
 // Useful commands:
 //
-// * Start "fake" X server with support for various uncommon visuals: `Xvfb :1 -screen 0 1600x1200x8 -fbdir /tmp`
+// * Start "fake" X server with support for various uncommon visuals: `Xephyr :1 -screen
+//   1024x1024x8` or `Xvfb :1 -screen 0 1024x1024x8 -fbdir /tmp`
 //
-// * Dump screen of "fake" X server: `xwud -in /tmp/Xvfb_screen0 -vis default`
+// * Dump screen of "fake" X server when using `Xvfb`: `xwud -in /tmp/Xvfb_screen0 -vis default`
 //
 // * Set standard colormaps and corresponding attributes on root window: `xstdcmap -default`
 //

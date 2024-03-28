@@ -233,7 +233,7 @@ auto impl::create_pixel_format(Display* dpy, const XVisualInfo& visual_info, con
             // According to the X specification, masks only make sense for TrueColor and
             // DirectColor visuals. Despite that, it appears that some X servers choose
             // to expose the color structure of StaticColor visuals using masks, most
-            // notably Xvfb + X.Org (e.g., using `Xvfb :1 -screen 0 1600x1200x8).
+            // notably Xephyr + X.Org (e.g., using `Xephyr :1 -screen 1024x1024x8`).
             if (impl::norm_mask_match<image::ChannelPacking_332>(visual_info)) {
                 constexpr bool reverse_channel_order = false;
                 auto img = make_packed_image<image::int8_type, image::ChannelPacking_332, bytes_per_pixel,
@@ -300,9 +300,6 @@ auto impl::create_pixel_format(Display* dpy, const XVisualInfo& visual_info, con
         if (visual_info.c_class == TrueColor || visual_info.c_class == DirectColor) {
             if (ARCHON_UNLIKELY(visual_info.colormap_size != 8))
                 goto unexpected_colormap_size;
-            // FIXME: Unformatunately, it looks like Xvfb + X.Org implements this visual
-            // incorrectly at this depth (8). Colors come out wrong. Further investigation
-            // is needed.    
             if (impl::norm_mask_match<image::ChannelPacking_332>(visual_info)) {
                 constexpr bool reverse_channel_order = false;
                 using pixel_format_type = DirectColorPixelFormat<image::int8_type, image::ChannelPacking_332,
