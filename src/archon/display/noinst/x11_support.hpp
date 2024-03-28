@@ -22,7 +22,9 @@
 #define ARCHON_X_DISPLAY_X_NOINST_X_X11_SUPPORT_HPP
 
 
+#include <memory>
 #include <optional>
+#include <locale>
 
 #include <archon/core/features.h>
 #include <archon/util/color.hpp>
@@ -165,10 +167,16 @@ template<class P> inline bool rev_mask_match(const XVisualInfo&) noexcept;
 class PixelFormat {
 public:
     virtual auto intern_color(util::Color color) const -> unsigned long = 0;
-    virtual void setup_image_bridge(display::Size size, Colormap colormap,
-                                    std::unique_ptr<image::WritableImage>& img_1, XImage& img_2) const = 0;
+    virtual void setup_image_bridge(display::Size size, std::unique_ptr<image::WritableImage>& img_1,
+                                    XImage& img_2) const = 0;
     virtual ~PixelFormat() = default;
 };
+
+
+// Caller must keep display connection, visual info object, and pixmap format object alive
+// for as long as the created pixel format remains in use.
+auto create_pixel_format(Display* dpy, const XVisualInfo&, const XPixmapFormatValues&, Colormap, const std::locale&) ->
+    std::unique_ptr<impl::PixelFormat>;
 
 
 #endif // HAVE_X11

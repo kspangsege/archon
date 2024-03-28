@@ -54,8 +54,8 @@
 #include <archon/image/gamma.hpp>
 #include <archon/image/standard_channel_spec.hpp>
 #include <archon/image/bit_field.hpp>
-#include <archon/image/packed_pixel_format.hpp>
 #include <archon/image/channel_packing.hpp>
+#include <archon/image/packed_pixel_format.hpp>
 #include <archon/display/impl/config.h>
 #include <archon/display/mouse_button.hpp>
 #include <archon/display/screen.hpp>
@@ -2429,6 +2429,10 @@ void TextureImpl::create(const PixelCodec& pixel_codec)
 
 void TextureImpl::put_image(const image::Image& img)
 {
+    // FIXME: Subdivide put operation and allocate an image bridge of a certain limited size
+    // (256x256). This should also allow for creation of just one fixed size image bridge
+    // per pixel format, and therfore one per (depth, visual) combination in use                     
+
     if (ARCHON_LIKELY(!size.is_empty())) {
         GC gc = win.ensure_graphics_context();
 
