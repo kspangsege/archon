@@ -139,294 +139,6 @@ auto map_opt_visual_type(const std::optional<std::uint_fast32_t>& type) -> std::
 }
 
 
-class PixelCodec {
-public:
-    virtual auto intern_color(util::Color color) const -> unsigned long = 0;
-    virtual void create_image(display::Size size, std::unique_ptr<image::WritableImage>& img, char*& data) const = 0;
-    virtual ~PixelCodec() = default;
-};
-
-
-/*                 
-template<class T, class P, int N, bool R> class DirectGrayPixelCodec final
-    : public PixelCodec {
-public:
-    using compound_type = T;
-    using packing_type = P;
-    static constexpr int bytes_per_pixel = N;
-    static constexpr bool reverse_channel_order = R;
-
-    auto intern_color(util::Color) const -> unsigned long override;
-    void create_image(display::Size, std::unique_ptr<image::WritableImage>&, char*&) const override;
-};
-*/
-
-
-template<class T, class P, int N, bool R> class DirectColorPixelCodec final
-    : public PixelCodec {
-public:
-    using compound_type = T;
-    using packing_type = P;
-    static constexpr int bytes_per_pixel = N;
-    static constexpr bool reverse_channel_order = R;
-
-    auto intern_color(util::Color) const -> unsigned long override;
-    void create_image(display::Size, std::unique_ptr<image::WritableImage>&, char*&) const override;
-};
-
-
-template<class T, class P, int N, bool R>
-auto DirectColorPixelCodec<T, P, N, R>::intern_color(util::Color color) const -> unsigned long
-{
-    using channel_packing_type = P;
-    static_assert(channel_packing_type::num_fields == 3);
-
-    constexpr int red_width   = image::get_bit_field_width(channel_packing_type::fields, 3, 0);
-    constexpr int green_width = image::get_bit_field_width(channel_packing_type::fields, 3, 1);
-    constexpr int blue_width  = image::get_bit_field_width(channel_packing_type::fields, 3, 2);
-
-    constexpr int red_shift   = image::get_bit_field_shift(channel_packing_type::fields, 3, 0);
-    constexpr int green_shift = image::get_bit_field_shift(channel_packing_type::fields, 3, 1);
-    constexpr int blue_shift  = image::get_bit_field_shift(channel_packing_type::fields, 3, 2);
-
-    using ulong = unsigned long;
-    namespace uf = util::unit_frac;
-    ulong r, g, b;
-    if (ARCHON_LIKELY(color.is_opaque())) {
-        r = image::int_to_int<8, ulong, red_width>(color.red());
-        g = image::int_to_int<8, ulong, green_width>(color.green());
-        b = image::int_to_int<8, ulong, blue_width>(color.blue());
-    }
-    else {
-        image::float_type a = image::int_to_float<8, image::float_type>(color.alpha());
-        r = image::float_to_compressed_int<ulong, red_width>(a * image::compressed_int_to_float<8>(color.red()));
-        g = image::float_to_compressed_int<ulong, green_width>(a * image::compressed_int_to_float<8>(color.green()));
-        b = image::float_to_compressed_int<ulong, blue_width>(a * image::compressed_int_to_float<8>(color.blue()));
-    }
-    return (r << red_shift) | (g << green_shift) | (b << blue_shift);
-}
-
-
-template<class T, class P, int N, bool R>
-void DirectColorPixelCodec<T, P, N, R>::create_image(display::Size size, std::unique_ptr<image::WritableImage>& img,
-                                                     char*& data) const
-{
-    using word_type = char;
-    constexpr int bits_per_word = 8;
-    constexpr core::Endianness word_order = core::Endianness::little;
-    constexpr bool alpha_channel_first = false;
-
-    using format_type = image::PackedPixelFormat<image::ChannelSpec_RGB, compound_type, packing_type, word_type,
-                                                 bits_per_word, bytes_per_pixel, word_order, alpha_channel_first,
-                                                 reverse_channel_order>;
-
-    auto img_2 = std::make_unique<image::BufferedImage<format_type>>(size); // Throws
-    data = img_2->get_buffer().data();
-    img = std::move(img_2);
-}
-
-
-auto make_pixel_codec(const XVisualInfo& info, int bits_per_pixel,
-                      const std::locale& locale) -> std::unique_ptr<PixelCodec>
-{
-    std::string msg;
-
-    if (info.depth == 8) {
-        if (bits_per_pixel != 8)
-            goto unsupported_bits_per_pixel;
-        constexpr int bytes_per_pixel = 1;
-/*            
-        if (info.c_class == StaticGray || info.c_class == GrayScale) {
-            if (ARCHON_UNLIKELY(info.colormap_size != 256))
-                goto unexpected_colormap_size;
-            if (ARCHON_LIKELY(impl::zero_mask_match(info)))
-                return std::make_unique<DirectGrayPixelCodec<image::int8_type, 8, bytes_per_pixel>>(); // Throws
-            goto unsupported_channel_masks;
-        }
-*/
-/*
-        if (info.c_class == StaticColor) {
-            if (ARCHON_UNLIKELY(info.colormap_size != 256))
-                goto unexpected_colormap_size;
-            // According to the X specification, masks only make sense for TrueColor and
-            // DirectColor visuals. Despite that, it appears that some X servers choose
-            // to expose the color structure of StaticColor visuals using masks, most
-            // notably Xvfb + X.Org (e.g., using `Xvfb :1 -screen 0 1600x1200x8).
-            if (impl::norm_mask_match<image::ChannelPacking_332>(info)) {
-                constexpr bool reverse_channel_order = false;
-                auto img = make_packed_image<image::int8_type, image::ChannelPacking_332, bytes_per_pixel,
-                                             reverse_channel_order>(img_size); // Throws
-                data = img->get_buffer().data();
-                img_2 = std::move(img);
-                goto matched;
-            }
-            if (impl::rev_mask_match<image::ChannelPacking_233>(info)) {
-                constexpr bool reverse_channel_order = true;
-                auto img = make_packed_image<image::int8_type, image::ChannelPacking_233, bytes_per_pixel,
-                                             reverse_channel_order>(img_size); // Throws
-                data = img->get_buffer().data();
-                img_2 = std::move(img);
-                goto matched;
-            }
-            if (impl::zero_mask_match(info)) {
-                int n = 1 << 8;
-                auto colors = std::make_unique<XColor[]>(n); // Throws
-                for (int i = 0; i < n; ++i) {
-                    XColor& color = colors[i];
-                    color.pixel = unsigned(i);
-                }
-                XQueryColors(dpy, colormap, colors.get(), n);
-/
-                for (int i = 0; i < n; ++i) {
-                    const XColor& color = colors[i];
-                    using comp_type = util::Color::comp_type;
-                    util::Color color_2(comp_type(color.red   >> 8),
-                                        comp_type(color.green >> 8),
-                                        comp_type(color.blue  >> 8));
-                    logger.info("Color %s: %s", core::as_int(i + 1), util::as_css_color(color_2));
-                }
-/
-                // Create image with indirect color     
-                // FIXME: Read out palette and produce indirect color version of image with respect to that palette                                        
-                bool implemented = false;
-                ARCHON_STEADY_ASSERT(implemented);                    
-                goto matched;
-            }
-            goto unsupported_channel_masks;
-        }
-        if (info.c_class == PseudoColor) {
-            if (ARCHON_UNLIKELY(info.colormap_size != 256))
-                goto unexpected_colormap_size;
-            if (impl::zero_mask_match(info)) {
-                // FIXME: Consider XGetRGBColormaps() --> https://tronche.com/gui/x/xlib/ICC/standard-colormaps/XGetRGBColormaps.html --> Fetch all available colormaps, look for one with matching visual ID. If one is found, use that colormap. This requires that the image is converted to indirect color pixel format.                
-                // FIXME: Consider alternative: Generate optimal palette for image of, say 248, entries, then request that many color slots, then initialize those slots with the colors of the palette, then convert image to indirect color using that palette.      
-                constexpr bool reverse_channel_order = false;
-                auto img = make_packed_image<image::int8_type, image::ChannelPacking_332, bytes_per_pixel,
-                                             reverse_channel_order>(img_size); // Throws
-                data = img->get_buffer().data();
-                img_2 = std::move(img);
-                int red_width   = 3;
-                int green_width = 3;
-                int blue_width  = 2;
-                setup_pseudo_color_colormap(dpy, colormap, red_width, green_width, blue_width, !preallocate_colors,
-                                            use_weird_palette); // Throws
-                goto matched;
-            }
-            goto unsupported_channel_masks;
-        }
-*/
-        if (info.c_class == TrueColor || info.c_class == DirectColor) {
-            if (ARCHON_UNLIKELY(info.colormap_size != 8))
-                goto unexpected_colormap_size;
-            // FIXME: Unformatunately, it looks like Xvfb + X.Org implements this visual
-            // incorrectly at this depth (8). Colors come out wrong. Further investigation
-            // is needed.    
-            if (impl::norm_mask_match<image::ChannelPacking_332>(info)) {
-                constexpr bool reverse_channel_order = false;
-                return std::make_unique<DirectColorPixelCodec<image::int8_type, image::ChannelPacking_332,
-                                                              bytes_per_pixel, reverse_channel_order>>(); // Throws
-            }
-            if (impl::rev_mask_match<image::ChannelPacking_233>(info)) {
-                constexpr bool reverse_channel_order = true;
-                return std::make_unique<DirectColorPixelCodec<image::int8_type, image::ChannelPacking_233,
-                                                              bytes_per_pixel, reverse_channel_order>>(); // Throws
-            }
-            goto unsupported_channel_masks;
-        }
-        goto unexpected_visual_class;
-    }
-    if (info.depth == 15) {
-        if (bits_per_pixel != 16)
-            goto unsupported_bits_per_pixel;
-        constexpr int bytes_per_pixel = 2;
-        if (info.c_class == TrueColor || info.c_class == DirectColor) {
-            if (ARCHON_UNLIKELY(info.colormap_size != 32))
-                goto unexpected_colormap_size;
-            if (impl::norm_mask_match<image::ChannelPacking_555>(info)) {
-                constexpr bool reverse_channel_order = false;
-                return std::make_unique<DirectColorPixelCodec<image::int16_type, image::ChannelPacking_555,
-                                                              bytes_per_pixel, reverse_channel_order>>(); // Throws
-            }
-            if (impl::rev_mask_match<image::ChannelPacking_555>(info)) {
-                constexpr bool reverse_channel_order = true;
-                return std::make_unique<DirectColorPixelCodec<image::int16_type, image::ChannelPacking_555,
-                                                              bytes_per_pixel, reverse_channel_order>>(); // Throws
-            }
-            goto unsupported_channel_masks;
-        }
-        goto unexpected_visual_class;
-    }
-    if (info.depth == 16) {
-        if (bits_per_pixel != 16)
-            goto unsupported_bits_per_pixel;
-        constexpr int bytes_per_pixel = 2;
-        if (info.c_class == TrueColor || info.c_class == DirectColor) {
-            if (ARCHON_UNLIKELY(info.colormap_size != 64))
-                goto unexpected_colormap_size;
-            if (impl::norm_mask_match<image::ChannelPacking_565>(info)) {
-                constexpr bool reverse_channel_order = false;
-                return std::make_unique<DirectColorPixelCodec<image::int16_type, image::ChannelPacking_565,
-                                                              bytes_per_pixel, reverse_channel_order>>(); // Throws
-            }
-            else if (impl::rev_mask_match<image::ChannelPacking_565>(info)) {
-                constexpr bool reverse_channel_order = true;
-                return std::make_unique<DirectColorPixelCodec<image::int16_type, image::ChannelPacking_565,
-                                                              bytes_per_pixel, reverse_channel_order>>(); // Throws
-            }
-            goto unsupported_channel_masks;
-        }
-        goto unexpected_visual_class;
-    }
-    if (info.depth == 24) {
-        if (bits_per_pixel != 32)
-            goto unsupported_bits_per_pixel;
-        constexpr int bytes_per_pixel = 4;
-        if (info.c_class == TrueColor || info.c_class == DirectColor) {
-            if (ARCHON_UNLIKELY(info.colormap_size != 256))
-                goto unexpected_colormap_size;
-            if (impl::norm_mask_match<image::ChannelPacking_888>(info)) {
-                constexpr bool reverse_channel_order = false;
-                return std::make_unique<DirectColorPixelCodec<image::int32_type, image::ChannelPacking_888,
-                                                              bytes_per_pixel, reverse_channel_order>>(); // Throws
-            }
-            if (impl::rev_mask_match<image::ChannelPacking_888>(info)) {
-                constexpr bool reverse_channel_order = true;
-                return std::make_unique<DirectColorPixelCodec<image::int32_type, image::ChannelPacking_888,
-                                                              bytes_per_pixel, reverse_channel_order>>(); // Throws
-            }
-            goto unsupported_channel_masks;
-        }
-        goto unexpected_visual_class;
-    }
-    goto unsupported_depth;
-
-  unsupported_depth:
-    msg = core::format(locale, "Unsupported depth: %s", info.depth); // Throws
-    throw std::runtime_error(msg);
-
-  unsupported_bits_per_pixel:
-    msg = core::format(locale, "Unsupported number bits per pixel for depth %s: %s", info.depth,
-                       bits_per_pixel); // Throws
-    throw std::runtime_error(msg);
-
-  unexpected_visual_class:
-    msg = core::format(locale, "Unexpected class for visual 0x%s: %s", core::as_hex_int(info.visualid),
-                       impl::get_visual_class_name(info.c_class)); // Throws
-    throw std::runtime_error(msg);
-
-  unsupported_channel_masks:
-    msg = core::format(locale, "Unsupported channel masks in visual 0x%s: red = %s, green = %s, blue = %s",
-                 core::as_hex_int(info.visualid), core::as_hex_int(info.red_mask),
-                 core::as_hex_int(info.green_mask), core::as_hex_int(info.blue_mask)); // Throws
-    throw std::runtime_error(msg);
-
-  unexpected_colormap_size:
-    msg = core::format(locale, "Unexpected colormap size for visual 0x%s: %s", core::as_hex_int(info.visualid),
-                 info.colormap_size); // Throws
-    throw std::runtime_error(msg);
-}
-
-
 struct VisualSpec {
     XVisualInfo info;
     bool double_buffered;
@@ -463,6 +175,9 @@ struct ScreenSlot {
     VisualID default_visual = {};
     core::Slab<VisualSpec> visual_specs;
     core::FlatMap<VisualID, Colormap> colormaps;
+
+    // Key is (depth, visual)
+    core::FlatMap<core::Pair<int, VisualID>, std::unique_ptr<impl::PixelFormat>> pixel_formats;
 
 #if HAVE_XRANDR
     std::vector<ProtoScreen> screens;
@@ -635,7 +350,9 @@ private:
     auto ensure_screen_slot(int screen) const -> ScreenSlot&;
     auto determine_visual_spec(const ScreenSlot&, bool prefer_double_buffered, bool require_opengl) const ->
         const VisualSpec&;
+    auto get_pixmap_format(int depth) const -> const XPixmapFormatValues&;
     auto ensure_colormap(ScreenSlot&, VisualID) const -> Colormap;
+    auto ensure_pixel_format(ScreenSlot&, const XVisualInfo&, Colormap) const -> const impl::PixelFormat&;
     bool do_process_events(const time_point_type* deadline, display::ConnectionEventHandler*);
     bool lookup_window(::Window window_id, WindowImpl*& window) noexcept;
     void track_pointer_grabs(::Window window_id, unsigned button, bool is_press);
@@ -655,7 +372,6 @@ public:
     ConnectionImpl& conn;
     const ScreenSlot& screen_slot;
     const VisualSpec& visual_spec;
-    const XPixmapFormatValues& pixmap_format;
     display::WindowEventHandler& event_handler;
     const int cookie;
 
@@ -663,8 +379,8 @@ public:
 
     bool has_pending_expose_event = false;
 
-    WindowImpl(ConnectionImpl&, const ScreenSlot&, const VisualSpec&, const XPixmapFormatValues&,
-               display::WindowEventHandler&, int cookie, std::unique_ptr<const PixelCodec>) noexcept;
+    WindowImpl(ConnectionImpl&, const ScreenSlot&, const VisualSpec&, const impl::PixelFormat*,
+               display::WindowEventHandler&, int cookie) noexcept;
     ~WindowImpl() noexcept override;
 
     void create(display::Size size, Colormap colormap, const Config& config, bool enable_double_buffering,
@@ -689,7 +405,8 @@ private:
     bool m_is_registered = false;
     bool m_is_double_buffered = false;
 
-    const std::unique_ptr<const PixelCodec> m_pixel_codec;
+    const impl::PixelFormat* const m_pixel_format;
+
     GC m_gc = None;
 
     Drawable m_drawable;
@@ -706,7 +423,7 @@ private:
     void do_put_texture(const TextureImpl&, const display::Box& source_area, const display::Pos& pos);
     auto create_graphics_context() noexcept -> GC;
     auto intern_color(util::Color) -> unsigned long;
-    auto get_pixel_codec() -> const PixelCodec&;
+    auto get_pixel_format() -> const impl::PixelFormat&;
 };
 
 
@@ -720,13 +437,13 @@ public:
     TextureImpl(WindowImpl&, const display::Size& size);
     ~TextureImpl() noexcept override;
 
-    void create(const PixelCodec&);
+    void create(const impl::PixelFormat&);
 
     void put_image(const image::Image&) override;
 
 private:
-    std::unique_ptr<image::WritableImage> m_img;
-    char* m_img_data = nullptr;
+    std::unique_ptr<image::WritableImage> m_img_1;
+    XImage m_img_2 = {};
 };
 
 
@@ -1020,17 +737,11 @@ auto ConnectionImpl::new_window(std::string_view title, display::Size size, disp
     logger.detail("Using visual depth %s and visual type %s for new X11 window", visual_spec.info.depth,
                   core::as_flex_int_h(visual_spec.info.visualid)); // Throws
     Colormap colormap = ensure_colormap(screen_slot, visual_spec.info.visualid); // Throws
-    const XPixmapFormatValues* pixmap_format;
-    {
-        auto i = m_pixmap_formats.find(visual_spec.info.depth);
-        ARCHON_STEADY_ASSERT(i != m_pixmap_formats.end());
-        pixmap_format = &i->second;
-    }
-    std::unique_ptr<const PixelCodec> pixel_codec;
+    const impl::PixelFormat* pixel_format;
     if (config.enable_basic_rendering)
-        pixel_codec = make_pixel_codec(visual_spec.info, pixmap_format->bits_per_pixel, locale); // Throws
-    auto win = std::make_unique<WindowImpl>(*this, screen_slot, visual_spec, *pixmap_format, event_handler,
-                                            config.cookie, std::move(pixel_codec)); // Throws
+        pixel_format = &ensure_pixel_format(screen_slot, visual_spec.info, colormap); // Throws
+    auto win = std::make_unique<WindowImpl>(*this, screen_slot, visual_spec, pixel_format, event_handler,
+                                            config.cookie); // Throws
     bool enable_double_buffering = visual_spec.double_buffered && !m_disable_double_buffering;
     bool enable_glx_direct_rendering = !m_disable_glx_direct_rendering;
     win->create(size, colormap, config, enable_double_buffering, enable_opengl, enable_glx_direct_rendering); // Throws
@@ -1448,6 +1159,15 @@ auto ConnectionImpl::determine_visual_spec(const ScreenSlot& screen_slot, bool p
 }
 
 
+inline auto ConnectionImpl::get_pixmap_format(int depth) const -> const XPixmapFormatValues&
+{
+    auto i = m_pixmap_formats.find(depth);
+    if (i != m_pixmap_formats.end())
+        return i->second;
+    throw std::runtime_error("Pixmap format not found for selected depth");
+}
+
+
 auto ConnectionImpl::ensure_colormap(ScreenSlot& screen_slot, VisualID visual) const -> Colormap
 {
     if (ARCHON_LIKELY(visual == screen_slot.default_visual))
@@ -1478,6 +1198,24 @@ auto ConnectionImpl::ensure_colormap(ScreenSlot& screen_slot, VisualID visual) c
             colormap_owned = true;
         }
 */
+}
+
+
+auto ConnectionImpl::ensure_pixel_format(ScreenSlot& screen_slot, const XVisualInfo& visual_info,
+                                         Colormap colormap) const -> const impl::PixelFormat&
+{
+    core::Pair key = { visual_info.depth, visual_info.visualid };
+    auto i = screen_slot.pixel_formats.find(key);
+    if (ARCHON_LIKELY(i != screen_slot.pixel_formats.end()))
+        return *i->second;
+    const XPixmapFormatValues& pixmap_format = get_pixmap_format(visual_info.depth); // Throws
+    std::unique_ptr<impl::PixelFormat> pixel_format =
+        impl::create_pixel_format(dpy, visual_info, pixmap_format, colormap, locale); // Throws
+    auto p = screen_slot.pixel_formats.emplace(key, std::move(pixel_format)); // Throws
+    bool was_inserted = p.second;
+    ARCHON_ASSERT(was_inserted);
+    i = p.first;
+    return *i->second;
 }
 
 
@@ -2090,15 +1828,14 @@ auto ConnectionImpl::ensure_edid_parser() const -> const impl::EdidParser&
 
 
 inline WindowImpl::WindowImpl(ConnectionImpl& conn_2, const ScreenSlot& screen_slot_2, const VisualSpec& visual_spec_2,
-                              const XPixmapFormatValues& pixmap_format_2, display::WindowEventHandler& event_handler_2,
-                              int cookie_2, std::unique_ptr<const PixelCodec> pixel_codec) noexcept
+                              const impl::PixelFormat* pixel_format, display::WindowEventHandler& event_handler_2,
+                              int cookie_2) noexcept
     : conn(conn_2)
     , screen_slot(screen_slot_2)
     , visual_spec(visual_spec_2)
-    , pixmap_format(pixmap_format_2)
     , event_handler(event_handler_2)
     , cookie(cookie_2)
-    , m_pixel_codec(std::move(pixel_codec))
+    , m_pixel_format(pixel_format)
 {
 }
 
@@ -2296,8 +2033,9 @@ void WindowImpl::fill(util::Color color, const display::Box& area)
 
 auto WindowImpl::new_texture(display::Size size) -> std::unique_ptr<display::Texture>
 {
+    const impl::PixelFormat& pixel_format = get_pixel_format(); // Throws
     auto tex = std::make_unique<TextureImpl>(*this, size); // Throws
-    tex->create(*m_pixel_codec); // Throws
+    tex->create(pixel_format); // Throws
     return tex;
 }
 
@@ -2387,15 +2125,15 @@ auto WindowImpl::create_graphics_context() noexcept -> GC
 
 auto WindowImpl::intern_color(util::Color color) -> unsigned long
 {
-    const PixelCodec& pixel_codec = get_pixel_codec(); // Throws
-    return pixel_codec.intern_color(color);
+    const impl::PixelFormat& pixel_format = get_pixel_format(); // Throws
+    return pixel_format.intern_color(color);
 }
 
 
-auto WindowImpl::get_pixel_codec() -> const PixelCodec&
+auto WindowImpl::get_pixel_format() -> const impl::PixelFormat&
 {
-    if (ARCHON_LIKELY(m_pixel_codec))
-        return *m_pixel_codec;
+    if (ARCHON_LIKELY(m_pixel_format))
+        return *m_pixel_format;
     throw std::runtime_error("Basic rendering was not enabled");
 }
 
@@ -2417,12 +2155,12 @@ TextureImpl::~TextureImpl() noexcept
 }
 
 
-void TextureImpl::create(const PixelCodec& pixel_codec)
+void TextureImpl::create(const impl::PixelFormat& pixel_format)
 {
     if (ARCHON_LIKELY(!size.is_empty())) {
         pixmap = XCreatePixmap(win.conn.dpy, win.screen_slot.root, unsigned(size.width), unsigned(size.height),
                                win.visual_spec.info.depth);
-        pixel_codec.create_image(size, m_img, m_img_data); // Throws
+        pixel_format.setup_image_bridge(size, m_img_1, m_img_2); // Throws
     }
 }
 
@@ -2433,41 +2171,19 @@ void TextureImpl::put_image(const image::Image& img)
     // (256x256). This should also allow for creation of just one fixed size image bridge
     // per pixel format, and therfore one per (depth, visual) combination in use                     
 
+    // FIXME: Strangeness here if the specified image is different in size than the
+    // texture. If the specified image is small, is the intention that it should be used to
+    // tile the texture, or should the put operation instead only affect a reagion the size
+    // of the specified image? What happens on the SDL side?                                         
+
+    // FIXME: Make `size` a private member                          
+
     if (ARCHON_LIKELY(!size.is_empty())) {
+        m_img_1->put_image({ 0, 0 }, img); // Throws
         GC gc = win.ensure_graphics_context();
-
-        m_img->put_image({ 0, 0 }, img); // Throws
-
-        // Xlib requires that the depth of the image matches the depth of the pixmap. X11
-        // requires that the depth of pixmap matches the depth of the target window (during
-        // XCopyArea()). Only ZPixmap format is relevant. With ZPixmap, image data is
-        // ordered by pixel rather than by bit-plane, and each scanline unit (word) holds
-        // one or more pixels. The ZPixmap format supports the depths of any offered
-        // visual. XPutImage() can handle byte swapping and changes in row alignment
-        // (`scanline_pad` / `bitmap_pad`).
-        int scanline_pad = win.pixmap_format.bits_per_pixel;
-        XImage img_2;
-        img_2.width            = size.width;
-        img_2.height           = size.height;
-        img_2.xoffset          = 0;
-        img_2.format           = ZPixmap;
-        img_2.data             = m_img_data;
-        img_2.byte_order       = LSBFirst;
-        img_2.bitmap_unit      = BitmapUnit(win.conn.dpy); // Immaterial
-        img_2.bitmap_bit_order = BitmapBitOrder(win.conn.dpy); // Immaterial
-        img_2.bitmap_pad       = scanline_pad;
-        img_2.depth            = win.visual_spec.info.depth;
-        img_2.bytes_per_line   = 0;
-        img_2.bits_per_pixel   = win.pixmap_format.bits_per_pixel;
-        img_2.red_mask         = win.visual_spec.info.red_mask;
-        img_2.green_mask       = win.visual_spec.info.green_mask;
-        img_2.blue_mask        = win.visual_spec.info.blue_mask;
-        Status status = XInitImage(&img_2);
-        if (ARCHON_UNLIKELY(status == 0))
-            throw std::runtime_error("XInitImage() failed");
         int src_x = 0, src_y = 0;
         int dest_x = 0, dest_y = 0;
-        XPutImage(win.conn.dpy, pixmap, gc, &img_2, src_x, src_y, dest_x, dest_y,
+        XPutImage(win.conn.dpy, pixmap, gc, &m_img_2, src_x, src_y, dest_x, dest_y,
                   unsigned(size.width), unsigned(size.height));
     }
 }
