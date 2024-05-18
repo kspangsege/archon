@@ -47,9 +47,11 @@ namespace archon::image {
 /// \brief Buffered image with compile-time specified pixel storage.
 ///
 /// This class defines an image that stores its pixels in a buffer. The scheme by which the
-/// pixels are stored in the buffer is specified through \p F.
-///
-/// FIXME: Further explain \p F, and give examples of what it could be.                                                                   
+/// pixels are stored in the buffer is specified by \p F, which must be a pixel format that
+/// meets the requirements of \ref Concept_Archon_Image_PixelFormat. Examples of such pixel
+/// formats are \ref \ref archon::image::IntegerPixelFormat, \ref
+/// archon::image::PackedPixelFormat, \ref archon::image::SubwordPixelFormat, and \ref
+/// archon::image::IndexedPixelFormat.
 ///
 template<class F> class BufferedImage
     : public image::WritableImage {
@@ -62,13 +64,14 @@ public:
 
     /// \{
     ///
-    /// \brief    
+    /// \brief Construct a buffered image.
     ///
     /// If no image size is specified (\p image_size), a zero-size image will be
     /// constructed. If a size is specified, but not a buffer, a new buffer will be
     /// allocated and cleared (all words set to zero).
     ///
-    /// Behaviour is undefined if a size is specified with a negative component.
+    /// Behaviour is undefined if an invalid size is specified (\ref
+    /// image::Size::is_valid()).
     ///
     explicit BufferedImage(format_type = {});
     explicit BufferedImage(image::Size image_size, format_type = {});

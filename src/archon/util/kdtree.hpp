@@ -84,6 +84,8 @@ template<class I, class G> void kdtree_sort(int k, I begin, I end, G&& get_comp)
 /// and \p dist to the distance to that point. Otherwise, this function returns `false` and
 /// leaves \p point and \p dist unchanged.
 ///
+/// If the specified range is empty, the value of \p k is immaterial.
+///
 /// Due to limited numeric accuracy in distance computations, if there are points that are
 /// as close, or almost as close as the closest point, this function may not return the
 /// point expected by the caller.
@@ -295,7 +297,7 @@ template<class T> bool Kdtree<I, G>::find(const T* components, std::optional<T> 
         // If a point was found, return it, and the distance to it
         if (index != size_type(-1)) {
             point = begin[index];
-            dist = std::sqrt(sqdist); // Throws
+            dist = std::sqrt(sqdist);
             return true;
         }
     }

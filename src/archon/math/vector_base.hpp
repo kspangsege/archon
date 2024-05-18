@@ -60,7 +60,7 @@ public:
     /// These constructors set the components of the vector equal to the components of the
     /// specified array.
     ///
-    template<class U> explicit(!math::is_lossless_conv<U, T>) constexpr VectorBase1(U (& components)[N]) noexcept;
+    template<class U> explicit(!math::is_lossless_conv<U, T>) constexpr VectorBase1(U(& components)[N]) noexcept;
     template<class U> explicit(!math::is_lossless_conv<U, T>) constexpr VectorBase1(const std::array<U, N>& components) noexcept;
     /// \}
 
@@ -172,7 +172,7 @@ public:
 
 
 template<int N, class T>
-template<class U> constexpr VectorBase1<N, T>::VectorBase1(U (& components)[N]) noexcept
+template<class U> constexpr VectorBase1<N, T>::VectorBase1(U(& components)[N]) noexcept
 {
     static_assert(noexcept(T(components[int()])));
     for (int i = 0; i < N; ++i)

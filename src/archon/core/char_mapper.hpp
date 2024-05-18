@@ -282,7 +282,7 @@ public:
 };
 
 
-template<class C, std::size_t N> explicit BasicStringWidener(const std::locale&, C (&)[N]) -> BasicStringWidener<C>;
+template<class C, std::size_t N> explicit BasicStringWidener(const std::locale&, C(&)[N]) -> BasicStringWidener<C>;
 template<class C, std::size_t N> explicit BasicStringWidener(const std::locale&, std::array<C, N>&) ->
     BasicStringWidener<C>;
 

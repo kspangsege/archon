@@ -21,8 +21,6 @@
 #ifndef ARCHON_X_CLI_X_IMPL_X_PROCESSOR_HPP
 #define ARCHON_X_CLI_X_IMPL_X_PROCESSOR_HPP
 
-/// \file
-
 
 #include <cstddef>
 #include <algorithm>

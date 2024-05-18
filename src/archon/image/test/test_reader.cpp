@@ -379,7 +379,7 @@ ARCHON_TEST_BATCH(Image_Reader_GetBlock_Falloff, pixel_repr_variants)
 
         image::TrayImage image(image_block);
         image::Reader reader(image);
-        reader.set_background_color(background_color);
+        reader.set_background_color_a(background_color);
 
         image::Size max_falloff = max(2 * image_size, image::Size(1));
         image::Size block_size = image_size + 2 * max_falloff;

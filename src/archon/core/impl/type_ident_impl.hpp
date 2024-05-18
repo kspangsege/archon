@@ -21,8 +21,6 @@
 #ifndef ARCHON_X_CORE_X_IMPL_X_TYPE_IDENT_IMPL_HPP
 #define ARCHON_X_CORE_X_IMPL_X_TYPE_IDENT_IMPL_HPP
 
-/// \file
-
 
 #include <cstddef>
 #include <cstdint>

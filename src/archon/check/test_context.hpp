@@ -39,10 +39,11 @@
 #include <filesystem>
 
 #include <archon/core/features.h>
-#include <archon/core/type.hpp>
+#include <archon/core/type_traits.hpp>
 #include <archon/core/span.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/float.hpp>
+#include <archon/core/inexact_compare.hpp>
 #include <archon/core/string_codec.hpp>
 #include <archon/core/seed_memory_output_stream.hpp>
 #include <archon/core/value_formatter.hpp>
@@ -254,6 +255,134 @@ public:
     ///
     bool keep_test_files() const noexcept;
 
+    /// \{
+    ///
+    /// \brief Various specific comparison checks.
+    ///
+    /// These functions perform various specific types of comparison checks that are all
+    /// handled by \ref check_special_cond(). They are automatically invoked when using
+    /// check macro \ref ARCHON_CHECK_EQUAL() and its friends.
+    ///
+    /// These functions are needed as a conduit between the macros and \ref
+    /// check_special_cond() in order to ensure that each argument is evaluated exactly
+    /// once. For example, if \ref ARCHON_CHECK_EQUAL() has called \ref check_special_cond()
+    /// directly, it would have had to pass each argument both to the comparison operation
+    /// and to the check argument constructor (\ref check::CheckArg), and that would have
+    /// cause those arguments to be evaluated twice.
+    ///
+    /// The actual comparison operations are performed by \ref equal(), \ref less(), \ref
+    /// less_equal(), \ref greater(), \ref greater_equal(), \ref dist_less(), \ref
+    /// dist_less_equal(), \ref dist_greater(), \ref dist_greater_equal(), \ref
+    /// archon::core::approximately_equal(), \ref archon::core::essentially_equal(), \ref
+    /// archon::core::definitely_less(), and \ref archon::core::definitely_greater().
+    ///
+    /// In the case of `check_between()` and `check_not_between()`, the comparisons against
+    /// both bounds are performed using \ref less_equal().
+    ///
+    template<class A, class B>
+    bool check_equal(const A& a, const B& b, std::string_view macro_name, std::string_view a_text,
+                     std::string_view b_text, std::string_view file_path, long line_number);
+    template<class A, class B>
+    bool check_not_equal(const A& a, const B& b, std::string_view macro_name, std::string_view a_text,
+                         std::string_view b_text, std::string_view file_path, long line_number);
+    template<class A, class B>
+    bool check_less(const A& a, const B& b, std::string_view macro_name, std::string_view a_text,
+                    std::string_view b_text, std::string_view file_path, long line_number);
+    template<class A, class B>
+    bool check_less_equal(const A& a, const B& b, std::string_view macro_name, std::string_view a_text,
+                          std::string_view b_text, std::string_view file_path, long line_number);
+    template<class A, class B>
+    bool check_not_less(const A& a, const B& b, std::string_view macro_name, std::string_view a_text,
+                        std::string_view b_text, std::string_view file_path, long line_number);
+    template<class A, class B>
+    bool check_not_less_equal(const A& a, const B& b, std::string_view macro_name, std::string_view a_text,
+                              std::string_view b_text, std::string_view file_path, long line_number);
+    template<class A, class B>
+    bool check_greater(const A& a, const B& b, std::string_view macro_name, std::string_view a_text,
+                       std::string_view b_text, std::string_view file_path, long line_number);
+    template<class A, class B>
+    bool check_greater_equal(const A& a, const B& b, std::string_view macro_name, std::string_view a_text,
+                             std::string_view b_text, std::string_view file_path, long line_number);
+    template<class A, class B>
+    bool check_not_greater(const A& a, const B& b, std::string_view macro_name, std::string_view a_text,
+                           std::string_view b_text, std::string_view file_path, long line_number);
+    template<class A, class B>
+    bool check_not_greater_equal(const A& a, const B& b, std::string_view macro_name, std::string_view a_text,
+                                 std::string_view b_text, std::string_view file_path, long line_number);
+    template<class A, class B, class D>
+    bool check_dist_less(const A& a, const B& b, const D& dist, std::string_view macro_name, std::string_view a_text,
+                         std::string_view b_text, std::string_view dist_text, std::string_view file_path,
+                         long line_number);
+    template<class A, class B, class D>
+    bool check_dist_less_equal(const A& a, const B& b, const D& dist, std::string_view macro_name,
+                               std::string_view a_text, std::string_view b_text, std::string_view dist_text,
+                               std::string_view file_path, long line_number);
+    template<class A, class B, class D>
+    bool check_dist_not_less(const A& a, const B& b, const D& dist, std::string_view macro_name,
+                             std::string_view a_text, std::string_view b_text, std::string_view dist_text,
+                             std::string_view file_path, long line_number);
+    template<class A, class B, class D>
+    bool check_dist_not_less_equal(const A& a, const B& b, const D& dist, std::string_view macro_name,
+                                   std::string_view a_text, std::string_view b_text, std::string_view dist_text,
+                                   std::string_view file_path, long line_number);
+    template<class A, class B, class D>
+    bool check_dist_greater(const A& a, const B& b, const D& dist, std::string_view macro_name,
+                            std::string_view a_text, std::string_view b_text, std::string_view dist_text,
+                            std::string_view file_path, long line_number);
+    template<class A, class B, class D>
+    bool check_dist_greater_equal(const A& a, const B& b, const D& dist, std::string_view macro_name,
+                                  std::string_view a_text, std::string_view b_text, std::string_view dist_text,
+                                  std::string_view file_path, long line_number);
+    template<class A, class B, class D>
+    bool check_dist_not_greater(const A& a, const B& b, const D& dist, std::string_view macro_name,
+                                std::string_view a_text, std::string_view b_text, std::string_view dist_text,
+                                std::string_view file_path, long line_number);
+    template<class A, class B, class D>
+    bool check_dist_not_greater_equal(const A& a, const B& b, const D& dist, std::string_view macro_name,
+                                      std::string_view a_text, std::string_view b_text, std::string_view dist_text,
+                                      std::string_view file_path, long line_number);
+    template<class X, class M, class N>
+    bool check_between(const X& x, const M& min, const N& max, std::string_view macro_name, std::string_view x_text,
+                       std::string_view min_text, std::string_view max_text, std::string_view file_path,
+                       long line_number);
+    template<class X, class M, class N>
+    bool check_not_between(const X& x, const M& min, const N& max, std::string_view macro_name,
+                           std::string_view x_text, std::string_view min_text, std::string_view max_text,
+                           std::string_view file_path, long line_number);
+    template<class A, class B, class E>
+    bool check_approximately_equal(const A& a, const B& b, const E& epsilon, std::string_view macro_name,
+                                   std::string_view a_text, std::string_view b_text, std::string_view epsilon_text,
+                                   std::string_view file_path, long line_number);
+    template<class A, class B, class E>
+    bool check_essentially_equal(const A& a, const B& b, const E& epsilon, std::string_view macro_name,
+                                 std::string_view a_text, std::string_view b_text, std::string_view epsilon_text,
+                                 std::string_view file_path, long line_number);
+    template<class A, class B, class E>
+    bool check_not_approximately_equal(const A& a, const B& b, const E& epsilon, std::string_view macro_name,
+                                       std::string_view a_text, std::string_view b_text, std::string_view epsilon_text,
+                                       std::string_view file_path, long line_number);
+    template<class A, class B, class E>
+    bool check_not_essentially_equal(const A& a, const B& b, const E& epsilon, std::string_view macro_name,
+                                     std::string_view a_text, std::string_view b_text, std::string_view epsilon_text,
+                                     std::string_view file_path, long line_number);
+    template<class A, class B, class E>
+    bool check_definitely_less(const A& a, const B& b, const E& epsilon, std::string_view macro_name,
+                               std::string_view a_text, std::string_view b_text, std::string_view epsilon_text,
+                               std::string_view file_path, long line_number);
+    template<class A, class B, class E>
+    bool check_definitely_greater(const A& a, const B& b, const E& epsilon, std::string_view macro_name,
+                                  std::string_view a_text, std::string_view b_text, std::string_view epsilon_text,
+                                  std::string_view file_path, long line_number);
+    template<class A, class B, class E>
+    bool check_not_definitely_less(const A& a, const B& b, const E& epsilon, std::string_view macro_name,
+                                   std::string_view a_text, std::string_view b_text, std::string_view epsilon_text,
+                                   std::string_view file_path, long line_number);
+    template<class A, class B, class E>
+    bool check_not_definitely_greater(const A& a, const B& b, const E& epsilon, std::string_view macro_name,
+                                      std::string_view a_text, std::string_view b_text, std::string_view epsilon_text,
+                                      std::string_view file_path, long line_number);
+    /// \}
+
     /// \brief Basis for checks of general conditions.
     ///
     /// This function is the basis for check macros \ref ARCHON_CHECK() and \ref
@@ -284,9 +413,9 @@ public:
 
     /// \brief Basis for checks of special conditions.
     ///
-    /// This function is the basis for \ref ARCHON_CHECK_EQUAL() and a number of other check
-    /// macros involving comparisons. It can also serve as the basis of application defined
-    /// check macros whose failure reports should take on the same form.
+    /// This function is the basis for \ref check_equal() and its friends. It can also serve
+    /// as the basis of application defined check macros whose failure reports should take
+    /// on the same form.
     ///
     /// Failures of checks of this kind are reported as `"<macro name>(<arg texts>) failed
     /// with (<arg values>)"` where `<macro name>` is the string passed as \p macro_name,
@@ -297,18 +426,32 @@ public:
     /// is the value of a check argument and `out` is an object of type `std::ostream`, then
     /// that check argument is formattable if, and only if `out << val` is well-formed.
     ///
-    /// Applications can define a custom check macro like this, where `foo(cond)` can be
-    /// anything that depends on `cond`:
+    /// If an application wants to test a condition, `foo(a, b)`, with `a` and `b` being
+    /// values of type `T`, then the application can define an appropriate check macro,
+    /// `CHECK_FOO(a, b)`, as follows:
     ///
     /// \code{.cpp}
     ///
-    ///   #define CHECK_FOO(x, y) test_context.check_special_cond(foo(x, y), __FILE__, __LINE__, "CHECK_FOO", ARCHON_CHECK_ARG(x), ARCHON_CHECK_ARG(y))
+    ///   #define CHECK_FOO(a, b) check_foo(test_context, a, b, #a, #b, __FILE__, __LINE__)
+    ///
+    ///   bool check_foo(archon::check::TestContext& test_context, T a, T b,
+    ///                  std::string_view a_text, std::string_view b_text,
+    ///                  std::string_view file, long line)
+    ///   {
+    ///       return test_context.check_special_cond(foo(a, b), __FILE__, __LINE__, "CHECK_FOO",
+    ///                                              archon::check::CheckArg(a_text, a),
+    ///                                              archon::check::CheckArg(b_text, b));
+    ///   }
     ///
     /// \endcode
     ///
     /// This assumes that `test_context` refers to an object of type `TestContext`, which it
-    /// does in the scope of a test case. Note also that \ref ARCHON_CHECK_ARG is defined in
-    /// \ref archon/check/check_arg.hpp.
+    /// does in the scope of a test case. Note also that \ref archon::check::CheckArg is
+    /// defined in \ref archon/check/check_arg.hpp.
+    ///
+    /// The purpose of the intermediate function, `check_foo()`, is to enforce a single
+    /// point of evaluation of the macro arguments, `a` and `b`. Without it, those arguments
+    /// would get evaluated twice.
     ///
     /// \sa \ref ARCHON_CHECK_EQUAL()
     /// \sa \ref check_general_cond()
@@ -515,6 +658,311 @@ private:
 
 
 // Implementation
+
+
+template<class A, class B>
+inline bool TestContext::check_equal(const A& a, const B& b, std::string_view macro_name, std::string_view a_text,
+                                     std::string_view b_text, std::string_view file_path, long line_number)
+{
+    return check_special_cond(equal(a, b), file_path, line_number, macro_name, archon::check::CheckArg(a_text, a),
+                              archon::check::CheckArg(b_text, b)); // Throws
+}
+
+
+template<class A, class B>
+inline bool TestContext::check_not_equal(const A& a, const B& b, std::string_view macro_name, std::string_view a_text,
+                                         std::string_view b_text, std::string_view file_path, long line_number)
+{
+    return check_special_cond(!equal(a, b), file_path, line_number, macro_name, archon::check::CheckArg(a_text, a),
+                              archon::check::CheckArg(b_text, b)); // Throws
+}
+
+
+template<class A, class B>
+inline bool TestContext::check_less(const A& a, const B& b, std::string_view macro_name, std::string_view a_text,
+                                    std::string_view b_text, std::string_view file_path, long line_number)
+{
+    return check_special_cond(less(a, b), file_path, line_number, macro_name, archon::check::CheckArg(a_text, a),
+                              archon::check::CheckArg(b_text, b)); // Throws
+}
+
+
+template<class A, class B>
+inline bool TestContext::check_less_equal(const A& a, const B& b, std::string_view macro_name, std::string_view a_text,
+                                          std::string_view b_text, std::string_view file_path, long line_number)
+{
+    return check_special_cond(less_equal(a, b), file_path, line_number, macro_name, archon::check::CheckArg(a_text, a),
+                              archon::check::CheckArg(b_text, b)); // Throws
+}
+
+
+template<class A, class B>
+inline bool TestContext::check_not_less(const A& a, const B& b, std::string_view macro_name, std::string_view a_text,
+                                        std::string_view b_text, std::string_view file_path, long line_number)
+{
+    return check_special_cond(!less(a, b), file_path, line_number, macro_name, archon::check::CheckArg(a_text, a),
+                              archon::check::CheckArg(b_text, b)); // Throws
+}
+
+
+template<class A, class B>
+inline bool TestContext::check_not_less_equal(const A& a, const B& b, std::string_view macro_name,
+                                              std::string_view a_text, std::string_view b_text,
+                                              std::string_view file_path, long line_number)
+{
+    return check_special_cond(!less_equal(a, b), file_path, line_number, macro_name,
+                              archon::check::CheckArg(a_text, a), archon::check::CheckArg(b_text, b)); // Throws
+}
+
+
+template<class A, class B>
+inline bool TestContext::check_greater(const A& a, const B& b, std::string_view macro_name, std::string_view a_text,
+                                       std::string_view b_text, std::string_view file_path, long line_number)
+{
+    return check_special_cond(greater(a, b), file_path, line_number, macro_name, archon::check::CheckArg(a_text, a),
+                              archon::check::CheckArg(b_text, b)); // Throws
+}
+
+
+template<class A, class B>
+inline bool TestContext::check_greater_equal(const A& a, const B& b, std::string_view macro_name,
+                                             std::string_view a_text, std::string_view b_text,
+                                             std::string_view file_path, long line_number)
+{
+    return check_special_cond(greater_equal(a, b), file_path, line_number, macro_name,
+                              archon::check::CheckArg(a_text, a), archon::check::CheckArg(b_text, b)); // Throws
+}
+
+
+template<class A, class B>
+inline bool TestContext::check_not_greater(const A& a, const B& b, std::string_view macro_name,
+                                           std::string_view a_text, std::string_view b_text,
+                                           std::string_view file_path, long line_number)
+{
+    return check_special_cond(!greater(a, b), file_path, line_number, macro_name, archon::check::CheckArg(a_text, a),
+                              archon::check::CheckArg(b_text, b)); // Throws
+}
+
+
+template<class A, class B>
+inline bool TestContext::check_not_greater_equal(const A& a, const B& b, std::string_view macro_name,
+                                                 std::string_view a_text, std::string_view b_text,
+                                                 std::string_view file_path, long line_number)
+{
+    return check_special_cond(!greater_equal(a, b), file_path, line_number, macro_name,
+                              archon::check::CheckArg(a_text, a), archon::check::CheckArg(b_text, b)); // Throws
+}
+
+
+template<class A, class B, class D>
+inline bool TestContext::check_dist_less(const A& a, const B& b, const D& dist, std::string_view macro_name,
+                                         std::string_view a_text, std::string_view b_text, std::string_view dist_text,
+                                         std::string_view file_path, long line_number)
+{
+    return check_special_cond(dist_less(a, b, dist), file_path, line_number, macro_name,
+                              archon::check::CheckArg(a_text, a), archon::check::CheckArg(b_text, b),
+                              archon::check::CheckArg(dist_text, dist)); // Throws
+}
+
+
+template<class A, class B, class D>
+inline bool TestContext::check_dist_less_equal(const A& a, const B& b, const D& dist, std::string_view macro_name,
+                                               std::string_view a_text, std::string_view b_text,
+                                               std::string_view dist_text, std::string_view file_path,
+                                               long line_number)
+{
+    return check_special_cond(dist_less_equal(a, b, dist), file_path, line_number, macro_name,
+                              archon::check::CheckArg(a_text, a), archon::check::CheckArg(b_text, b),
+                              archon::check::CheckArg(dist_text, dist)); // Throws
+}
+
+
+template<class A, class B, class D>
+inline bool TestContext::check_dist_not_less(const A& a, const B& b, const D& dist, std::string_view macro_name,
+                                             std::string_view a_text, std::string_view b_text,
+                                             std::string_view dist_text, std::string_view file_path, long line_number)
+{
+    return check_special_cond(!dist_less(a, b, dist), file_path, line_number, macro_name,
+                              archon::check::CheckArg(a_text, a), archon::check::CheckArg(b_text, b),
+                              archon::check::CheckArg(dist_text, dist)); // Throws
+}
+
+
+template<class A, class B, class D>
+inline bool TestContext::check_dist_not_less_equal(const A& a, const B& b, const D& dist, std::string_view macro_name,
+                                                   std::string_view a_text, std::string_view b_text,
+                                                   std::string_view dist_text, std::string_view file_path,
+                                                   long line_number)
+{
+    return check_special_cond(!dist_less_equal(a, b, dist), file_path, line_number, macro_name,
+                              archon::check::CheckArg(a_text, a), archon::check::CheckArg(b_text, b),
+                              archon::check::CheckArg(dist_text, dist)); // Throws
+}
+
+
+template<class A, class B, class D>
+inline bool TestContext::check_dist_greater(const A& a, const B& b, const D& dist, std::string_view macro_name,
+                                            std::string_view a_text, std::string_view b_text,
+                                            std::string_view dist_text, std::string_view file_path, long line_number)
+{
+    return check_special_cond(dist_greater(a, b, dist), file_path, line_number, macro_name,
+                              archon::check::CheckArg(a_text, a), archon::check::CheckArg(b_text, b),
+                              archon::check::CheckArg(dist_text, dist)); // Throws
+}
+
+
+template<class A, class B, class D>
+inline bool TestContext::check_dist_greater_equal(const A& a, const B& b, const D& dist, std::string_view macro_name,
+                                                  std::string_view a_text, std::string_view b_text,
+                                                  std::string_view dist_text, std::string_view file_path,
+                                                  long line_number)
+{
+    return check_special_cond(dist_greater_equal(a, b, dist), file_path, line_number, macro_name,
+                              archon::check::CheckArg(a_text, a), archon::check::CheckArg(b_text, b),
+                              archon::check::CheckArg(dist_text, dist)); // Throws
+}
+
+
+template<class A, class B, class D>
+inline bool TestContext::check_dist_not_greater(const A& a, const B& b, const D& dist, std::string_view macro_name,
+                                                std::string_view a_text, std::string_view b_text,
+                                                std::string_view dist_text, std::string_view file_path,
+                                                long line_number)
+{
+    return check_special_cond(!dist_greater(a, b, dist), file_path, line_number, macro_name,
+                              archon::check::CheckArg(a_text, a), archon::check::CheckArg(b_text, b),
+                              archon::check::CheckArg(dist_text, dist)); // Throws
+}
+
+
+template<class A, class B, class D>
+inline bool TestContext::check_dist_not_greater_equal(const A& a, const B& b, const D& dist,
+                                                      std::string_view macro_name, std::string_view a_text,
+                                                      std::string_view b_text, std::string_view dist_text,
+                                                      std::string_view file_path, long line_number)
+{
+    return check_special_cond(!dist_greater_equal(a, b, dist), file_path, line_number, macro_name,
+                              archon::check::CheckArg(a_text, a), archon::check::CheckArg(b_text, b),
+                              archon::check::CheckArg(dist_text, dist)); // Throws
+}
+
+
+template<class X, class M, class N>
+inline bool TestContext::check_between(const X& x, const M& min, const N& max, std::string_view macro_name,
+                                       std::string_view x_text, std::string_view min_text, std::string_view max_text,
+                                       std::string_view file_path, long line_number)
+{
+    return check_special_cond(less_equal(min, x) && less_equal(x, max), file_path, line_number, macro_name,
+                              archon::check::CheckArg(x_text, x), archon::check::CheckArg(min_text, min),
+                              archon::check::CheckArg(max_text, max)); // Throws
+}
+
+
+template<class X, class M, class N>
+inline bool TestContext::check_not_between(const X& x, const M& min, const N& max, std::string_view macro_name,
+                                           std::string_view x_text, std::string_view min_text,
+                                           std::string_view max_text, std::string_view file_path, long line_number)
+{
+    return check_special_cond(!(less_equal(min, x) && less_equal(x, max)), file_path, line_number, macro_name,
+                              archon::check::CheckArg(x_text, x), archon::check::CheckArg(min_text, min),
+                              archon::check::CheckArg(max_text, max)); // Throws
+}
+
+
+template<class A, class B, class E>
+inline bool TestContext::check_approximately_equal(const A& a, const B& b, const E& epsilon,
+                                                   std::string_view macro_name, std::string_view a_text,
+                                                   std::string_view b_text, std::string_view epsilon_text,
+                                                   std::string_view file_path, long line_number)
+{
+    return check_special_cond(core::approximately_equal(a, b, epsilon), file_path, line_number, macro_name,
+                              archon::check::CheckArg(a_text, a), archon::check::CheckArg(b_text, b),
+                              archon::check::CheckArg(epsilon_text, epsilon)); // Throws
+}
+
+
+template<class A, class B, class E>
+inline bool TestContext::check_essentially_equal(const A& a, const B& b, const E& epsilon,
+                                                 std::string_view macro_name, std::string_view a_text,
+                                                 std::string_view b_text, std::string_view epsilon_text,
+                                                 std::string_view file_path, long line_number)
+{
+    return check_special_cond(core::essentially_equal(a, b, epsilon), file_path, line_number, macro_name,
+                              archon::check::CheckArg(a_text, a), archon::check::CheckArg(b_text, b),
+                              archon::check::CheckArg(epsilon_text, epsilon)); // Throws
+}
+
+
+template<class A, class B, class E>
+inline bool TestContext::check_not_approximately_equal(const A& a, const B& b, const E& epsilon,
+                                                       std::string_view macro_name, std::string_view a_text,
+                                                       std::string_view b_text, std::string_view epsilon_text,
+                                                       std::string_view file_path, long line_number)
+{
+    return check_special_cond(!core::approximately_equal(a, b, epsilon), file_path, line_number, macro_name,
+                              archon::check::CheckArg(a_text, a), archon::check::CheckArg(b_text, b),
+                              archon::check::CheckArg(epsilon_text, epsilon)); // Throws
+}
+
+
+template<class A, class B, class E>
+inline bool TestContext::check_not_essentially_equal(const A& a, const B& b, const E& epsilon,
+                                                     std::string_view macro_name, std::string_view a_text,
+                                                     std::string_view b_text, std::string_view epsilon_text,
+                                                     std::string_view file_path, long line_number)
+{
+    return check_special_cond(!core::essentially_equal(a, b, epsilon), file_path, line_number, macro_name,
+                              archon::check::CheckArg(a_text, a), archon::check::CheckArg(b_text, b),
+                              archon::check::CheckArg(epsilon_text, epsilon)); // Throws
+}
+
+
+template<class A, class B, class E>
+inline bool TestContext::check_definitely_less(const A& a, const B& b, const E& epsilon,
+                                               std::string_view macro_name, std::string_view a_text,
+                                               std::string_view b_text, std::string_view epsilon_text,
+                                               std::string_view file_path, long line_number)
+{
+    return check_special_cond(core::definitely_less(a, b, epsilon), file_path, line_number, macro_name,
+                              archon::check::CheckArg(a_text, a), archon::check::CheckArg(b_text, b),
+                              archon::check::CheckArg(epsilon_text, epsilon)); // Throws
+}
+
+
+template<class A, class B, class E>
+inline bool TestContext::check_definitely_greater(const A& a, const B& b, const E& epsilon,
+                                                  std::string_view macro_name, std::string_view a_text,
+                                                  std::string_view b_text, std::string_view epsilon_text,
+                                                  std::string_view file_path, long line_number)
+{
+    return check_special_cond(core::definitely_greater(a, b, epsilon), file_path, line_number, macro_name,
+                              archon::check::CheckArg(a_text, a), archon::check::CheckArg(b_text, b),
+                              archon::check::CheckArg(epsilon_text, epsilon)); // Throws
+}
+
+
+template<class A, class B, class E>
+inline bool TestContext::check_not_definitely_less(const A& a, const B& b, const E& epsilon,
+                                                   std::string_view macro_name, std::string_view a_text,
+                                                   std::string_view b_text, std::string_view epsilon_text,
+                                                   std::string_view file_path, long line_number)
+{
+    return check_special_cond(!core::definitely_less(a, b, epsilon), file_path, line_number, macro_name,
+                              archon::check::CheckArg(a_text, a), archon::check::CheckArg(b_text, b),
+                              archon::check::CheckArg(epsilon_text, epsilon)); // Throws
+}
+
+
+template<class A, class B, class E>
+inline bool TestContext::check_not_definitely_greater(const A& a, const B& b, const E& epsilon,
+                                                      std::string_view macro_name, std::string_view a_text,
+                                                      std::string_view b_text, std::string_view epsilon_text,
+                                                      std::string_view file_path, long line_number)
+{
+    return check_special_cond(!core::definitely_greater(a, b, epsilon), file_path, line_number, macro_name,
+                              archon::check::CheckArg(a_text, a), archon::check::CheckArg(b_text, b),
+                              archon::check::CheckArg(epsilon_text, epsilon)); // Throws
+}
 
 
 inline bool TestContext::check_general_cond(bool cond, std::string_view file_path, long line_number,
@@ -923,13 +1371,7 @@ template<class T, class... U>
 inline void TestContext::process_check_args(core::SeedMemoryOutputStream& out, std::string_view* texts,
                                             std::size_t* ends, check::CheckArg<T> arg, check::CheckArg<U>... args)
 {
-    if constexpr (check::CheckArg<T>::is_formattable) {
-        format_value(out, arg.get_value()); // Throws
-    }
-    else {
-        struct Unformattable {};
-        format_value(out, Unformattable()); // Throws
-    }
+    format_value(out, arg.get_value()); // Throws
     *texts = arg.get_text();
     *ends = out.streambuf().size();
     process_check_args(out, texts + 1, ends + 1, args...); // Throws
@@ -953,7 +1395,7 @@ inline bool TestContext::dist_compare(const A& a, const B& b, const D& dist)
             bool neg_a = core::is_negative(a);
             bool neg_b = core::is_negative(b);
             if (ARCHON_LIKELY(neg_a == neg_b)) {
-                using type = core::common_int_type<A, B>;
+                using type = core::promoted_type<core::common_int_type<A, B>>;
                 type a_2 = core::int_cast_a<type>(a);
                 type b_2 = core::int_cast_a<type>(b);
                 type val = (a_2 <= b_2 ? b_2 - a_2 : a_2 - b_2);

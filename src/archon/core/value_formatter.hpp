@@ -61,7 +61,7 @@ public:
     /// This constructor is a shorthand for `BasicValueFormatter(Span(seed_memory),
     /// locale)`.
     ///
-    template<std::size_t N> explicit BasicValueFormatter(C (& seed_memory)[N], const std::locale& locale = {});
+    template<std::size_t N> explicit BasicValueFormatter(C(& seed_memory)[N], const std::locale& locale = {});
 
     /// \brief Construct formatter with seed memory.
     ///
@@ -119,7 +119,7 @@ inline BasicValueFormatter<C, T>::BasicValueFormatter(const std::locale& locale)
 
 template<class C, class T>
 template<std::size_t N>
-inline BasicValueFormatter<C, T>::BasicValueFormatter(C (& seed_memory)[N], const std::locale& locale)
+inline BasicValueFormatter<C, T>::BasicValueFormatter(C(& seed_memory)[N], const std::locale& locale)
     : BasicValueFormatter(Span(seed_memory), locale) // Throws
 {
 }

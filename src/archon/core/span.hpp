@@ -51,7 +51,7 @@ public:
     constexpr Span() noexcept = default;
     constexpr Span(pointer data, size_type size) noexcept;
     constexpr Span(pointer begin, pointer end) noexcept;
-    template<std::size_t N> constexpr Span(T (&)[N]) noexcept;
+    template<std::size_t N> constexpr Span(T(&)[N]) noexcept;
     template<class C, class = decltype(std::declval<C>().data() + std::declval<C>().size())>
     constexpr Span(C& container) noexcept(noexcept(container.data() + container.size()));
     template<class C, class = decltype(std::declval<C>().data() + std::declval<C>().size())>
@@ -120,7 +120,7 @@ constexpr Span<T>::Span(pointer begin, pointer end) noexcept
 
 
 template<class T>
-template<std::size_t N> constexpr Span<T>::Span(T (& array)[N]) noexcept
+template<std::size_t N> constexpr Span<T>::Span(T(& array)[N]) noexcept
     : Span(array, N)
 {
 }

@@ -258,6 +258,45 @@
 #endif
 
 
+/// \def ARCHON_NO_UNIQUE_ADDRESS
+///
+/// \brief Foo bar.
+///
+/// This macro expands to `[[no_unique_address]]` except when compiling with Microsoft
+/// Visual Studio where it expands to `[[msvc::no_unique_address]]` instead.
+///
+/// When used before the declaration of a member variable of empty class type
+/// (`std::is_empty`), it allows the compiler to reduce the footprint of the member to zero
+/// bytes. This will generally have the same effect as if that member was turned into a base
+/// class subobject and the compiler applied the effect of "empty base optimization".
+///
+/// Here is an demonstration of how it can be used:
+///
+/// \code{.cpp}
+///
+///    template<class A> class Foo {
+///    public:
+///        Foo(A alloc) : m_alloc(std::move(alloc)) {}
+///
+///    private:
+///        ARCHON_NO_UNIQUE_ADDRESS A m_alloc;
+///    };
+///
+/// \endcode
+///
+/// It is up to the compiler whether and how to apply the optimization opportunity, but on
+/// most compilers, when `A` is an empty class type (`std::is_empty`), the size of `Foo`
+/// will be as if `m_alloc` had not been there. Moreover, on most compilers, if `Foo` has no
+/// members other than `m_alloc`, `Foo` will be an empty class type when `A` is an empty
+/// class type.
+///
+#if ARCHON_MSVC
+#  define ARCHON_NO_UNIQUE_ADDRESS [[msvc::no_unique_address]]
+#else
+#  define ARCHON_NO_UNIQUE_ADDRESS [[no_unique_address]]
+#endif
+
+
 // Control enablement of platform optimizations
 //
 #if !defined ARCHON_DISABLE_PLATFORM_OPTIMIZATIONS

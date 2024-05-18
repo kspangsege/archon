@@ -89,9 +89,6 @@ void write_encoded(std::basic_ostream<char, T>& out, std::basic_string_view<C, U
             helper.write({ buffer.data(), buffer_offset }); // Throws
             buffer_offset = 0;
         };
-        auto expand_buffer = [&] {
-            buffer.expand(1, 0); // Throws
-        };
         core::BasicCharCodec<C, U> codec(out.getloc()); // Throws
         using state_type = typename U::state_type;
         state_type state = {};
@@ -108,7 +105,7 @@ void write_encoded(std::basic_ostream<char, T>& out, std::basic_string_view<C, U
                     flush(); // Throws
                     continue;
                 }
-                expand_buffer(); // Throws
+                buffer.expand(0); // Throws
                 continue;
             }
             // Write everything up to the point of the failure
@@ -123,7 +120,7 @@ void write_encoded(std::basic_ostream<char, T>& out, std::basic_string_view<C, U
                 flush(); // Throws
                 continue;
             }
-            expand_buffer(); // Throws
+            buffer.expand(0); // Throws
         }
         flush(); // Throws
         return true; // Success

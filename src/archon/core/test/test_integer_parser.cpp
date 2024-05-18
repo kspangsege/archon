@@ -117,5 +117,5 @@ ARCHON_TEST_BATCH(Core_IntegerParser_General, variants)
 {
     std::mt19937_64 random(test_context.seed_seq());
     using integer_parser_type = test_type;
-    core::for_each_type<Types, TestGeneral<integer_parser_type>>(test_context, random);
+    core::for_each_type_alt<Types, TestGeneral<integer_parser_type>>(test_context, random);
 }

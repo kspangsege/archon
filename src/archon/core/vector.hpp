@@ -35,7 +35,7 @@
 #include <stdexcept>
 
 #include <archon/core/features.h>
-#include <archon/core/type.hpp>
+#include <archon/core/type_traits.hpp>
 #include <archon/core/span.hpp>
 #include <archon/core/memory.hpp>
 #include <archon/core/impl/vector_impl.hpp>
@@ -660,21 +660,21 @@ inline auto Vector<T, N>::erase(const_iterator begin, const_iterator end) noexce
 template<class T, std::size_t N>
 inline void Vector<T, N>::clear() noexcept
 {
-    resize(0);
+    impl().clear();
 }
 
 
 template<class T, std::size_t N>
 inline void Vector<T, N>::resize(size_type size)
 {
-    impl().resize(size); // throws
+    impl().resize(size); // Throws
 }
 
 
 template<class T, std::size_t N>
 inline void Vector<T, N>::resize(size_type size, const T& value)
 {
-    impl().resize(size, value); // throws
+    impl().resize(size, value); // Throws
 }
 
 

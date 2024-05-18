@@ -26,6 +26,7 @@
 
 #include <cstddef>
 #include <algorithm>
+#include <utility>
 #include <memory>
 #include <array>
 
@@ -76,6 +77,10 @@ public:
     Reader(const image::Image&);
 
     ~Reader() noexcept;
+
+    // Disable move and copy
+    Reader(Reader&&) = delete;
+    auto operator=(Reader&&) -> Reader& = delete;
 
     /// \brief Get reference to attached image.
     ///
@@ -138,6 +143,16 @@ public:
     ///
     int get_num_channels() const noexcept;
 
+    /// \brief Extended number of channels in attached image.
+    ///
+    /// This function returns the extended number of channels for the attached image. This
+    /// is the number of color channels plus one for the alpha channel regardless of whether
+    /// the attached image has an alpha channel. Put differently, if `r` is a reader, then
+    /// `r.get_num_channels_ext()` is the same as `r.get_num_channels() +
+    /// int(!has_alpha_channel)`.
+    ///
+    int get_num_channels_ext() const noexcept;
+
     /// \brief Information on how pixels are transferred into and out of an image.
     ///
     /// This function is a shorthand for calling \ref Image::get_transfer_info() on the
@@ -193,15 +208,54 @@ public:
     auto set_falloff_mode(FalloffMode horz_mode, FalloffMode vert_mode) noexcept -> Reader&;
     /// \}
 
-    auto set_background_color(util::Color, image::float_type opacity = 1) -> Reader&;
-    auto set_foreground_color(util::Color, image::float_type opacity = 1) -> Reader&;
-    template<class R> auto set_background_color(const image::Pixel<R>&, image::float_type opacity = 1) -> Reader&;
-    template<class R> auto set_foreground_color(const image::Pixel<R>&, image::float_type opacity = 1) -> Reader&;
+    /// \{
+    ///
+    /// \brief Set background or foreground color.
+    ///
+    /// These functions are shorthands for calling \ref set_background_color_a() and \ref
+    /// set_foreground_color_a() respectively with the specified color converted as if by
+    /// `image::Pixel(color)`.
+    ///
+    auto set_background_color(util::Color color, image::float_type opacity = 1) -> Reader&;
+    auto set_foreground_color(util::Color color, image::float_type opacity = 1) -> Reader&;
+    /// \}
 
+    /// \{
+    ///
+    /// \brief Set background or foreground color using specific pixel format.
+    ///
+    /// These functions are shorthands for calling \ref set_color() with color slot
+    /// specifiers \ref ColorSlot::background and \ref ColorSlot::foreground respectively.
+    ///
+    template<class R> auto set_background_color_a(const image::Pixel<R>&, image::float_type opacity = 1) -> Reader&;
+    template<class R> auto set_foreground_color_a(const image::Pixel<R>&, image::float_type opacity = 1) -> Reader&;
+    /// \}
+
+    /// \brief Read single pixel from image.
+    ///
+    /// This function is a shorthand for calling \ref get_pixel_a() with a pixel type of
+    /// \ref image::Pixel_RGBA_8, and then converting the extracted pixel to the
+    /// representation of \ref util::Color.
+    ///
     auto get_pixel(image::Pos pos) -> util::Color;
 
-    template<class R> auto get_pixel(image::Pos pos, image::Pixel<R>&) -> Reader&;
+    /// \brief Read single pixel from image using specific pixel format.
+    ///
+    /// This function reads a single pixel from the image at the specified position. It is
+    /// equivalent to `get_block(pos, block)` where `block` is a 1-by-1 pixel block (see
+    /// \ref get_block(image::Pos, image::PixelBlock<R>&)).
+    ///
+    /// The caller must ensure that that the position (\p pos) is such that `image::Size(1)`
+    /// can be added to it without causing overflow (\ref image::Pos::can_add()). Not
+    /// meeting this requirement invokes undefined behavior.
+    ///
+    template<class R> auto get_pixel_a(image::Pos pos, image::Pixel<R>&) -> Reader&;
 
+    /// \brief 8-bit tray type used by various functions.
+    ///
+    /// This tray type uses an 8-bit pixel component type, and is used by \ref
+    /// get_block_lum() and friends.
+    ///
     using int8_tray_type = image::Tray<image::int8_type>;
 
     /// \{
@@ -246,6 +300,11 @@ public:
     /// specified format (\p color_space, \p has_alpha, and \p R) before they are stored in
     /// the tray. The tray must accommodate for a number of channels per pixel equal to
     /// `color_space.get_num_channels() + int(has_alpha)`.
+    ///
+    /// The caller must ensure that the tray size (`tray.size`) is valid (\ref
+    /// image::Size::is_valid()) and that the tray size can be added to the position (\p
+    /// pos) without overflow (\ref image::Pos::can_add()). Not meeting these requirements
+    /// invokes undefined behavior.
     ///
     /// This function guarantees lossless operation if all of the following conditions are
     /// met:
@@ -406,10 +465,6 @@ private:
 
     static constexpr int s_num_color_slots = 2;
 
-    template<image::CompRepr R> struct CompReprTag {
-        static constexpr image::CompRepr comp_repr = R;
-    };
-
     // The slot is initialized when at least one of the `have_` members are are
     // `true`. `have_restricted_native` implies `have_neutral` or
     // `have_unrestricted_native`.
@@ -466,7 +521,7 @@ private:
     std::unique_ptr<image::float_type[]> m_color_slots_f;
     ColorSlotCtrl m_color_slot_ctrls[s_num_color_slots];
 
-    // Two different caching representatrions of the palette may exist at any point in time:
+    // Two different caching representations of the palette may exist at any point in time:
     // the native representation (`m_palette_cache`) and the neutral representation
     // (`m_palette_cache_f`).
     //
@@ -511,7 +566,8 @@ private:
     // clobber contents, and may reallocate memory).
     bool is_solid_color(ColorSlot);
 
-    // Divide operation into sequence of operations on smaller boxes
+    // Divide operation into sequence of operations on smaller boxes. Specified box must be
+    // valid (`image::Box::is_valid()`).
     template<class F> void subdivide(const image::Box&, F&& func);
 
     // Handle conversion to caller's pixel format. Tray size must be bounded as if by
@@ -674,11 +730,11 @@ enum class Reader::FalloffMode {
 
 
 
-/// \brief Color slot identifiers.
+/// \brief Color slot specifier.
 ///
-/// These are the identifiers for the available color slots in a reader, and in a writer
-/// (\re image::Writer) by extension. Each color slot can store an arbitrary color. The
-/// color is stored in terms of the native color space of the associated image (\ref
+/// These are the specifiers for the available color slots in a reader, and in a writer (\re
+/// image::Writer) by extension. Each color slot can store an arbitrary color. The color is
+/// stored in terms of the native color space of the associated image (\ref
 /// get_color_space()).
 ///
 /// The background color has multiple uses, including:
@@ -795,6 +851,12 @@ inline int Reader::get_num_channels() const noexcept
 }
 
 
+inline int Reader::get_num_channels_ext() const noexcept
+{
+    return m_num_channels_ext;
+}
+
+
 inline auto Reader::get_transfer_info() const noexcept -> const image::Image::TransferInfo&
 {
     return m_transfer_info;
@@ -831,25 +893,25 @@ inline auto Reader::set_falloff_mode(FalloffMode horz_mode, FalloffMode vert_mod
 
 inline auto Reader::set_background_color(util::Color color, image::float_type opacity) -> Reader&
 {
-    return set_background_color(image::Pixel(color), opacity); // Throws
+    return set_background_color_a(image::Pixel(color), opacity); // Throws
 }
 
 
 inline auto Reader::set_foreground_color(util::Color color, image::float_type opacity) -> Reader&
 {
-    return set_foreground_color(image::Pixel(color), opacity); // Throws
+    return set_foreground_color_a(image::Pixel(color), opacity); // Throws
 }
 
 
-template<class R> inline auto Reader::set_background_color(const image::Pixel<R>& color, image::float_type opacity) ->
-    Reader&
+template<class R> inline auto Reader::set_background_color_a(const image::Pixel<R>& color,
+                                                             image::float_type opacity) -> Reader&
 {
     return set_color(ColorSlot::background, color, opacity); // Throws
 }
 
 
-template<class R> inline auto Reader::set_foreground_color(const image::Pixel<R>& color, image::float_type opacity) ->
-    Reader&
+template<class R> inline auto Reader::set_foreground_color_a(const image::Pixel<R>& color,
+                                                             image::float_type opacity) -> Reader&
 {
     return set_color(ColorSlot::foreground, color, opacity); // Throws
 }
@@ -858,7 +920,7 @@ template<class R> inline auto Reader::set_foreground_color(const image::Pixel<R>
 inline auto Reader::get_pixel(image::Pos pos) -> util::Color
 {
     image::Pixel_RGBA_8 pixel;
-    get_pixel(pos, pixel); // Throws
+    get_pixel_a(pos, pixel); // Throws
     return {
         util::Color::comp_type(image::unpack_int<8>(pixel[0])),
         util::Color::comp_type(image::unpack_int<8>(pixel[1])),
@@ -868,7 +930,7 @@ inline auto Reader::get_pixel(image::Pos pos) -> util::Color
 }
 
 
-template<class R> inline auto Reader::get_pixel(image::Pos pos, image::Pixel<R>& pixel) -> Reader&
+template<class R> inline auto Reader::get_pixel_a(image::Pos pos, image::Pixel<R>& pixel) -> Reader&
 {
     std::ptrdiff_t horz_stride = pixel.num_channels;
     std::ptrdiff_t vert_stride = horz_stride;
@@ -1097,6 +1159,7 @@ inline bool Reader::is_solid_color(ColorSlot slot)
 
 template<class F> void Reader::subdivide(const image::Box& box, F&& func)
 {
+    ARCHON_ASSERT(box.is_valid());
     constexpr int preferred_block_width  = 64;
     constexpr int preferred_block_height = 64;
     constexpr int preferred_block_area = preferred_block_width * preferred_block_height;
@@ -1860,34 +1923,15 @@ inline auto Reader::find_color_space_converter(const image::ColorSpace& origin,
 }
 
 
-template<class F> auto Reader::repr_dispatch_nothrow(F&& func) const noexcept
+template<class F> inline auto Reader::repr_dispatch_nothrow(F&& func) const noexcept
 {
-    switch (m_transfer_info.comp_repr) {
-        case image::CompRepr::int8:
-            static_assert(noexcept(func(CompReprTag<image::CompRepr::int8>())));
-            return func(CompReprTag<image::CompRepr::int8>());
-        case image::CompRepr::int16:
-            static_assert(noexcept(func(CompReprTag<image::CompRepr::int16>())));
-            return func(CompReprTag<image::CompRepr::int16>());
-        case image::CompRepr::float_:
-            static_assert(noexcept(func(CompReprTag<image::CompRepr::float_>())));
-            return func(CompReprTag<image::CompRepr::float_>());
-    }
-    ARCHON_STEADY_ASSERT_UNREACHABLE();
+    return image::comp_repr_dispatch_nothrow(m_transfer_info.comp_repr, std::forward<F>(func));
 }
 
 
-template<class F> auto Reader::repr_dispatch(F&& func) const
+template<class F> inline auto Reader::repr_dispatch(F&& func) const
 {
-    switch (m_transfer_info.comp_repr) {
-        case image::CompRepr::int8:
-            return func(CompReprTag<image::CompRepr::int8>()); // Throws
-        case image::CompRepr::int16:
-            return func(CompReprTag<image::CompRepr::int16>()); // Throws
-        case image::CompRepr::float_:
-            return func(CompReprTag<image::CompRepr::float_>()); // Throws
-    }
-    ARCHON_STEADY_ASSERT_UNREACHABLE();
+    return image::comp_repr_dispatch(m_transfer_info.comp_repr, std::forward<F>(func)); // Throws
 }
 
 

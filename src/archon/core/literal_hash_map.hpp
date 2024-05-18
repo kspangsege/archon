@@ -65,8 +65,8 @@ public:
 
     constexpr LiteralHashMap(hash_func_type hash_func = {}) noexcept;
 
-    constexpr void init(const std::pair<K, V> (& assocs)[N]) noexcept;
-    constexpr void init_rev(const std::pair<V, K> (& assocs)[N]) noexcept;
+    constexpr void init(const std::pair<K, V>(& assocs)[N]) noexcept;
+    constexpr void init_rev(const std::pair<V, K>(& assocs)[N]) noexcept;
 
     bool find(key_type key, value_type& value) const noexcept;
 
@@ -101,16 +101,16 @@ private:
 /// the number of entries (number of specified association entries).
 ///
 template<std::size_t M = 0, class K, class V, std::size_t N>
-constexpr auto make_literal_hash_map(const std::pair<K, V> (& assocs)[N]) noexcept;
+constexpr auto make_literal_hash_map(const std::pair<K, V>(& assocs)[N]) noexcept;
 
 template<std::size_t M = 0, class K, class V, std::size_t N, class H>
-constexpr auto make_literal_hash_map(const std::pair<K, V> (& assocs)[N], H&& hash_func) noexcept;
+constexpr auto make_literal_hash_map(const std::pair<K, V>(& assocs)[N], H&& hash_func) noexcept;
 
 template<std::size_t M = 0, class K, class V, std::size_t N>
-constexpr auto make_rev_literal_hash_map(const std::pair<V, K> (& assocs)[N]) noexcept;
+constexpr auto make_rev_literal_hash_map(const std::pair<V, K>(& assocs)[N]) noexcept;
 
 template<std::size_t M = 0, class K, class V, std::size_t N, class H>
-constexpr auto make_rev_literal_hash_map(const std::pair<V, K> (& assocs)[N], H&& hash_func) noexcept;
+constexpr auto make_rev_literal_hash_map(const std::pair<V, K>(& assocs)[N], H&& hash_func) noexcept;
 /// \}
 
 
@@ -131,7 +131,7 @@ constexpr LiteralHashMap<K, V, H, N, M>::LiteralHashMap(hash_func_type hash_func
 
 
 template<class K, class V, class H, std::size_t N, std::size_t M>
-constexpr void LiteralHashMap<K, V, H, N, M>::init(const std::pair<K, V> (& assocs)[N]) noexcept
+constexpr void LiteralHashMap<K, V, H, N, M>::init(const std::pair<K, V>(& assocs)[N]) noexcept
 {
     std::size_t offset = 0;
     for (std::size_t i = 0; i < num_buckets; ++i) {
@@ -151,7 +151,7 @@ constexpr void LiteralHashMap<K, V, H, N, M>::init(const std::pair<K, V> (& asso
 
 
 template<class K, class V, class H, std::size_t N, std::size_t M>
-constexpr void LiteralHashMap<K, V, H, N, M>::init_rev(const std::pair<V, K> (& assocs)[N]) noexcept
+constexpr void LiteralHashMap<K, V, H, N, M>::init_rev(const std::pair<V, K>(& assocs)[N]) noexcept
 {
     std::size_t offset = 0;
     for (std::size_t i = 0; i < num_buckets; ++i) {
@@ -197,14 +197,14 @@ constexpr auto LiteralHashMap<K, V, H, N, M>::hash(key_type key) const noexcept 
 
 
 template<std::size_t M, class K, class V, std::size_t N>
-constexpr auto make_literal_hash_map(const std::pair<K, V> (& assocs)[N]) noexcept
+constexpr auto make_literal_hash_map(const std::pair<K, V>(& assocs)[N]) noexcept
 {
     return make_literal_hash_map<M>(assocs, core::Hash<K>());
 }
 
 
 template<std::size_t M, class K, class V, std::size_t N, class H>
-constexpr auto make_literal_hash_map(const std::pair<K, V> (& assocs)[N], H&& hash_func) noexcept
+constexpr auto make_literal_hash_map(const std::pair<K, V>(& assocs)[N], H&& hash_func) noexcept
 {
     constexpr std::size_t num_buckets = (M > 0 ? M : N);
     core::LiteralHashMap<K, V, H, N, num_buckets> map(std::move(hash_func));
@@ -214,14 +214,14 @@ constexpr auto make_literal_hash_map(const std::pair<K, V> (& assocs)[N], H&& ha
 
 
 template<std::size_t M, class K, class V, std::size_t N>
-constexpr auto make_rev_literal_hash_map(const std::pair<V, K> (& assocs)[N]) noexcept
+constexpr auto make_rev_literal_hash_map(const std::pair<V, K>(& assocs)[N]) noexcept
 {
     return make_rev_literal_hash_map<M>(assocs, core::Hash<K>());
 }
 
 
 template<std::size_t M, class K, class V, std::size_t N, class H>
-constexpr auto make_rev_literal_hash_map(const std::pair<V, K> (& assocs)[N], H&& hash_func) noexcept
+constexpr auto make_rev_literal_hash_map(const std::pair<V, K>(& assocs)[N], H&& hash_func) noexcept
 {
     constexpr std::size_t num_buckets = (M > 0 ? M : N);
     core::LiteralHashMap<K, V, H, N, num_buckets> map(std::move(hash_func));

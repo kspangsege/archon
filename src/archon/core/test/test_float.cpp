@@ -478,22 +478,22 @@ using IntTypes = core::TypeList<bool,
 
 ARCHON_TEST(Core_Float_Comparisons)
 {
-    core::for_each_type<core::TypeListProduct<FltTypes, IntTypes>,
-                        TestComparisons>(test_context);
+    core::for_each_type_alt<core::TypeListProduct<FltTypes, IntTypes>,
+                            TestComparisons>(test_context);
 }
 
 
 ARCHON_TEST(Core_Float_ClampedFloatToInt)
 {
-    core::for_each_type<core::TypeListProduct<FltTypes, IntTypes>,
-                        TestClampedFloatToInt>(test_context);
+    core::for_each_type_alt<core::TypeListProduct<FltTypes, IntTypes>,
+                            TestClampedFloatToInt>(test_context);
 }
 
 
 ARCHON_TEST(Core_Float_TryFloatToInt)
 {
-    core::for_each_type<core::TypeListProduct<FltTypes, IntTypes>,
-                        TestTryFloatToInt>(test_context);
+    core::for_each_type_alt<core::TypeListProduct<FltTypes, IntTypes>,
+                            TestTryFloatToInt>(test_context);
 }
 
 

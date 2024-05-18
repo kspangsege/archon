@@ -60,6 +60,16 @@ struct Screen {
     ///
     display::Box bounds;
 
+    /// \brief Name of attached monitor.
+    ///
+    /// This is the name of the monitor attached to the output associated with this
+    /// screen. It is available when EDID information is provided by the monitor, and it is
+    /// also made available to the display implementation.
+    ///
+    /// \sa https://glenwing.github.io/docs/VESA-EEDID-A2.pdf
+    ///
+    std::optional<std::string_view> monitor_name;
+
     /// \brief Resolution of screen in pixels per centimeter.
     ///
     /// If provided by the implementation, this is the physical resolution of the screen in
@@ -75,31 +85,7 @@ struct Screen {
     /// and should not do so unless the information is accurate and reliable.
     ///
     std::optional<double> refresh_rate;
-
-    /// \brief Compare screen descriptions.
-    ///
-    /// This operator allows for screen descriptions to be compared for equality.
-    ///
-    bool operator==(const Screen& other) const noexcept;
 };
-
-
-
-
-
-
-
-
-// Implementation
-
-
-inline bool Screen::operator==(const Screen& other) const noexcept
-{
-    return (output_name == other.output_name &&
-            bounds == other.bounds &&
-            resolution == other.resolution &&
-            refresh_rate == other.refresh_rate);
-}
 
 
 } // namespace archon::display

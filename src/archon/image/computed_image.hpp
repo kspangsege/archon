@@ -27,7 +27,7 @@
 #include <algorithm>
 #include <utility>
 
-#include <archon/core/type.hpp>
+#include <archon/core/type_traits.hpp>
 #include <archon/image/geom.hpp>
 #include <archon/image/tray.hpp>
 #include <archon/image/comp_repr.hpp>

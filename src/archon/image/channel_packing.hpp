@@ -30,6 +30,32 @@
 namespace archon::image {
 
 
+/// \brief Channel packing specification for 1-channel pixel format.
+///
+/// An instantiation of this class template specifies a particular scheme for packing 1
+/// channel into a single integer word. It implements \ref
+/// Concept_Archon_Image_ChannelPacking, and can thus be used with \ref
+/// image::PackedPixelFormat.
+///
+/// \sa \ref image::TwoChannelPacking
+/// \sa \ref image::ThreeChannelPacking
+/// \sa \ref image::FourChannelPacking
+///
+template<int A, int B> class OneChannelPacking {
+public:
+    static constexpr int width = A;
+    static constexpr int gap   = B;
+
+    static constexpr int num_fields = 1;
+
+    static constexpr image::BitField fields[num_fields] = {
+        { width, gap },
+    };
+};
+
+using ChannelPacking_8  = image::OneChannelPacking<8, 0>;
+
+
 /// \brief Channel packing specification for 2-channel pixel format.
 ///
 /// An instantiation of this class template specifies a particular scheme for packing 2
@@ -37,7 +63,9 @@ namespace archon::image {
 /// Concept_Archon_Image_ChannelPacking, and can thus be used with \ref
 /// image::PackedPixelFormat.
 ///
-/// \sa \ref image::ThreeChannelPacking and \ref image::FourChannelPacking
+/// \sa \ref image::OneChannelPacking
+/// \sa \ref image::ThreeChannelPacking
+/// \sa \ref image::FourChannelPacking
 ///
 template<int A, int B, int C, int D> class TwoChannelPacking {
 public:
@@ -64,7 +92,9 @@ using ChannelPacking_88  = image::TwoChannelPacking<8, 0, 8, 0>;
 /// Concept_Archon_Image_ChannelPacking, and can thus be used with \ref
 /// image::PackedPixelFormat.
 ///
-/// \sa \ref image::TwoChannelPacking and \ref image::FourChannelPacking
+/// \sa \ref image::OneChannelPacking
+/// \sa \ref image::TwoChannelPacking
+/// \sa \ref image::FourChannelPacking
 ///
 template<int A, int B, int C, int D, int E, int F> class ThreeChannelPacking {
 public:
@@ -98,7 +128,9 @@ using ChannelPacking_888  = image::ThreeChannelPacking<8, 0, 8, 0, 8, 0>;
 /// Concept_Archon_Image_ChannelPacking, and can thus be used with \ref
 /// image::PackedPixelFormat.
 ///
-/// \sa \ref image::TwoChannelPacking and \ref image::ThreeChannelPacking
+/// \sa \ref image::OneChannelPacking
+/// \sa \ref image::TwoChannelPacking
+/// \sa \ref image::ThreeChannelPacking
 ///
 template<int A, int B, int C, int D, int E, int F, int G, int H> class FourChannelPacking {
 public:

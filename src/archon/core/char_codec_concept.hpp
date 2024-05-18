@@ -95,7 +95,7 @@ to the constructor.
 `is_stateless()` should return `true` when the character codec is stateless, and must return
 `false` when it is stateful. A stateful character codec is one where the result of decoding
 a byte sequence depends on a shift state which generally depends on previously decoded byte
-sequences. For such codecs, the current shift state is maintain by the state object
+sequences. For such codecs, the current shift state is maintained by the state object
 (`T::state_type`).
 
 Exception guarantee for `decode()`, `encode()`, and `unshift()`: If they throw, none of
@@ -113,21 +113,69 @@ INCOMPLETE!!!
 Decode
 ------
 
-Never consumes partial byte sequences.
+Valid input to the decoding operation (`decode()`) consists of a series of valid input
+sequences. For a stateless codec (`is_stateless()`), each valid input sequence codes for
+precisely one code point (logical character). For a stateful codec, each valid input
+sequence codes for zero or one code points, and may also modify the shift state (the \p
+state argument). What constitutes a valid input sequence will generally depend on the
+current shift state. No valid input sequence is empty, and no valid input sequence is a
+prefix of another valid input sequence unless they are the same sequence.
 
-Upon return, the part of the buffer after the final value of `buffer_offset` may have been modified by this function.
+The decoding process advances one full valid input sequence at a time, and when the consumed
+input sequence codes for a character, the production of that character happens synchronously
+with the consumption of the input sequence. The decoding process can only advance when the
+input contains another full valid input sequence. Also, when the next valid input sequence
+codes for a character, the decoding process can only advance if there is space for another
+character in the output buffer, i.e., when \p buffer_offset is less than
+`char_buffer.size()`.
 
-BELOW IS NOT NECESSARILY RIGHT: SEE BEGINNING OF FILE                
+When there is no more space in the output buffer (\p buffer_offset is equal to
+`char_buffer.size()`) and the next input sequence does not code for a character (only
+changes the shift state), it is unspecified whether the decoding process will proceed or
+stop before consuming that input sequence. Both behaviors are allowed.
 
-If this function returns true, the decoding operation completed successfully. If it returns false, it did not.     
+When the decoding operation stops, \p data_offset will point one beyond the last byte of the
+last consumed full valid input sequence, or be unchanged if no input sequences were
+consumed. Likewise, \p buffer_offset will point one beyond the last produced character, or
+be unchanged if no characters were produced.
 
-When false is returned, \p error is set to true if the reason for the incompleteness is invalid input, and to false otherwise.    But what does data_offset point to?               
+Setting \p end_of_input to `true` means that the specified input is not just a prefix of the
+remaining input, but covers everything up until and including the last bytes of the
+input. In this case, `decode()` returns `true` if, and only if all input was consumed. All
+input was consumed if, and only if \p data_offset is equal to `byte_data.size()` upon
+return. The point here is that when the end of input is present, any final incomplete input
+sequence is an error.
 
-When false is returned, and \p error is set to false, and buffer_offset is equal to the size of the specified buffer upon return, additional buffer space is required in order for decoding to proceed.
+When \p end_of_input is set to `false`, `decode()` returns `true` if, and only if one of the
+following are true:
 
-When false is returned, and \p error is set to false, and buffer_offset is less than the size of the specified buffer upon return, additional input (\p data) is required in order for decoding to proceed.
+* All input was consumed, so \p data_offset is equal to `byte_data.size()` upon return.
 
-In any case, data_offset and buffer_offset are updated to reflect how far decoding has progressed.    But how far can input consumption be ahead of output production?              
+* The remaining input does not contain, as a prefix, another valid input sequence, but is
+  instead a prefix of a valid input sequence.
+
+When `decode()` returns `false`, `error` is set to `true` if decoding stopped due to the
+presence of and invalid input sequence, and to `false` if decoding stopped due to lack of
+space in the output buffer (\p char_buffer, \p buffer_offset). If both conditions become
+true at the same time, it is unspecified whether `error` is set to `true` or `false`. Both
+behaviors are allowed. When decoding stops due to the presence of an invalid input sequence,
+\p data_offset will point to the first byte of that invalid input sequence. When \p
+end_of_input is `true`, an incomplete input sequence at the end of input counts as an
+invalid input sequence.
+
+When `decode()` returns `true`, `error` is left unchanged.
+
+When `decode()` returns `false` and sets `error` to `false`, it follows that \p
+buffer_offset is equal to `char_buffer.size()` upon return.
+
+Upon return from `decode()`, the part of the buffer (\p char_buffer) that succeeds the final
+value of \p buffer_offset may have been clobbered.
+
+Because invalid input sequences are never consumed, when an error is reported, it follows
+that \p data_offset will be strictly less than `byte_data.size()` upon return.
+
+Decoding is guaranteed to work one output character at a time, which means that with enough
+steps it is possible to decode any input stream using an output buffer of size one.
 
 
 Encode

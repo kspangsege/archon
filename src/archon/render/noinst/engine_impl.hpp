@@ -21,8 +21,6 @@
 #ifndef ARCHON_X_RENDER_X_NOINST_X_ENGINE_IMPL_HPP
 #define ARCHON_X_RENDER_X_NOINST_X_ENGINE_IMPL_HPP
 
-/// \file
-
 
 #include <memory>
 #include <string_view>
@@ -98,9 +96,11 @@ private:
         bool on_mouseup(const display::MouseButtonEvent&) override final;
         bool on_mousemove(const display::MouseEvent&) override final;
         bool on_scroll(const display::ScrollEvent&) override final;
+        bool on_blur(const display::WindowEvent&) override final;
         bool on_expose(const display::WindowEvent&) override final;
         bool on_resize(const display::WindowSizeEvent&) override final;
         bool on_reposition(const display::WindowPosEvent&) override final;
+        bool on_close(const display::WindowEvent&) override final;
         bool before_sleep() override final;
         bool on_quit() override final;
 
@@ -113,12 +113,13 @@ private:
     const std::locale& m_locale;
     std::unique_ptr<log::FileLogger> m_fallback_logger;
     log::Logger& m_logger;
+    log::PrefixLogger m_display_logger;
     const display::Implementation& m_display_implementation;
     bool m_headlight_feature_enabled;
     bool m_wireframe_feature_enable;
 
     EventHandler m_event_handler { *this };
-    std::unique_ptr<display::Connection> m_connection;
+    std::unique_ptr<display::Connection> m_display_connection;
     std::unique_ptr<display::Window> m_window;
 
     Scene* m_scene = nullptr;
@@ -179,6 +180,7 @@ private:
     void set_viewport_size(display::Size) noexcept;
     void init();
     void redraw();
+    bool process_events(Clock::time_point deadline);
     void tick(Clock::time_point time_of_tick);
     void update_projection_and_viewport();
     void update_perpect_proj_and_trackball() noexcept;

@@ -208,9 +208,13 @@ struct Image::TransferInfo {
     /// the greatest number of bits among them.
     ///
     /// For integer representations, this is the number of bits used per channel
-    /// component. For floating point representations, this is the number of mantissa bits
-    /// plus the number of exponent bits in the floating point type used to store or
-    /// generate each channel component.
+    /// component. For floating point representations, it is the number of
+    /// mantissa bits plus the number of exponent bits in the floating point type used to
+    /// store or generate each channel component.
+    ///
+    /// If a channel uses a non-integer number of bits, such as a channel that uses N
+    /// distinct values where N is not a power of two, the number of bits should be rounded
+    /// up.
     ///
     /// When the described image uses indirect color, this information regards the storage
     /// of channel components (color and alpha channels) in the image acting as palette.

@@ -21,8 +21,6 @@
 #ifndef ARCHON_X_CLI_X_IMPL_X_PATTERN_SYMBOL_HPP
 #define ARCHON_X_CLI_X_IMPL_X_PATTERN_SYMBOL_HPP
 
-/// \file
-
 
 #include <cstddef>
 

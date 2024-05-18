@@ -32,7 +32,7 @@
 #include <archon/core/char_mapper.hpp>
 #include <archon/core/format.hpp>
 #include <archon/display/key_code.hpp>
-#include <archon/display/implementation.hpp>
+#include <archon/display/connection.hpp>
 
 
 namespace archon::display {
@@ -44,9 +44,9 @@ namespace archon::display {
 /// the specified key to that output stream. If the name is not available, a string on the
 /// form `Key(<code>)` will be written in place of the actual key name.
 ///
-/// The name of the key is determined by \ref display::Implementation::try_get_key_name().
+/// The name of the key is determined by \ref display::Connection::try_get_key_name().
 ///
-auto as_key_name(display::KeyCode code, const display::Implementation& impl) noexcept;
+auto as_key_name(display::KeyCode code, const display::Connection& conn) noexcept;
 
 
 
@@ -63,7 +63,7 @@ namespace impl {
 
 struct AsKeyName {
     display::KeyCode key_code;
-    const display::Implementation& impl;
+    const display::Connection& conn;
 };
 
 
@@ -71,7 +71,7 @@ template<class C, class T>
 auto operator<<(std::basic_ostream<C, T>& out, const impl::AsKeyName& pod) -> std::basic_ostream<C, T>&
 {
     std::string_view name;
-    if (ARCHON_LIKELY(pod.impl.try_get_key_name(pod.key_code, name))) { // Throws
+    if (ARCHON_LIKELY(pod.conn.try_get_key_name(pod.key_code, name))) { // Throws
         std::locale locale = out.getloc(); // Throws
         std::array<C, 64> seed_memory;
         core::BasicStringWidener widener(locale, seed_memory); // Throws
@@ -84,9 +84,9 @@ auto operator<<(std::basic_ostream<C, T>& out, const impl::AsKeyName& pod) -> st
 } // namespace impl
 
 
-inline auto as_key_name(display::KeyCode code, const display::Implementation& impl) noexcept
+inline auto as_key_name(display::KeyCode code, const display::Connection& conn) noexcept
 {
-    return impl::AsKeyName { code, impl };
+    return impl::AsKeyName { code, conn };
 }
 
 

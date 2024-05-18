@@ -61,8 +61,7 @@ int main(int argc, char* argv[])
     opt(cli::stop_tag, spec); // Throws
 
     opt("-l, --log-level", "<level>", cli::no_attributes, spec,
-        "Set the log level limit. The possible levels are \"off\", \"fatal\", \"error\", \"warn\", \"info\", "
-        "\"detail\", \"debug\", \"trace\", and \"all\". The default limit is \"@V\".",
+        "Set the log level limit. The possible levels are @G. The default limit is @Q.",
         cli::assign(log_level_limit)); // Throws
 
     int exit_status = 0;
@@ -91,8 +90,8 @@ int main(int argc, char* argv[])
     //
     core::BuildEnvironment::Params build_env_params;
     build_env_params.file_path = __FILE__;
-    build_env_params.bin_path  = "archon/font/tools/archon-regen-fallback-font";
-    build_env_params.src_path  = "archon/font/tools/regen_fallback_font.cpp";
+    build_env_params.bin_path  = "archon/font/tool/archon-regen-fallback-font";
+    build_env_params.src_path  = "archon/font/tool/regen_fallback_font.cpp";
     build_env_params.src_root  = "src";
     build_env_params.source_from_build_path = core::archon_source_from_build_path;
     core::BuildEnvironment build_env = core::BuildEnvironment(argv[0], build_env_params, locale); // Throws

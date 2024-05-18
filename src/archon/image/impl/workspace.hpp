@@ -21,8 +21,6 @@
 #ifndef ARCHON_X_IMAGE_X_IMPL_X_WORKSPACE_HPP
 #define ARCHON_X_IMAGE_X_IMPL_X_WORKSPACE_HPP
 
-/// \file
-
 
 #include <cstddef>
 #include <type_traits>

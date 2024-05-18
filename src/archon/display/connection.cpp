@@ -30,18 +30,18 @@
 using namespace archon;
 
 
-auto display::new_connection(const std::locale& locale,
-                             const display::Guarantees& guarantees) -> std::unique_ptr<display::Connection>
+auto display::new_connection(const std::locale& locale, const display::Guarantees& guarantees,
+                             const display::Connection::Config& config) -> std::unique_ptr<display::Connection>
 {
     const display::Implementation& impl = display::get_default_implementation(guarantees); // Throws
-    return impl.new_connection(locale); // Throws
+    return impl.new_connection(locale, config); // Throws
 }
 
 
-auto display::new_connection_a(const std::locale& locale,
-                               const display::Guarantees& guarantees) -> std::unique_ptr<display::Connection>
+auto display::new_connection_a(const std::locale& locale, const display::Guarantees& guarantees,
+                               const display::Connection::Config& config) -> std::unique_ptr<display::Connection>
 {
     if (const display::Implementation* impl = display::get_default_implementation_a(guarantees))
-        return impl->new_connection(locale); // Throws
+        return impl->new_connection(locale, config); // Throws
     return nullptr;
 }

@@ -31,7 +31,7 @@
 #include <ostream>
 
 #include <archon/core/features.h>
-#include <archon/core/type.hpp>
+#include <archon/core/type_traits.hpp>
 #include <archon/core/assert.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/vector.hpp>
@@ -279,7 +279,7 @@ void do_quote(core::BasicStreamOutputHelper<C, T>& helper, const std::ctype<C>& 
       numeric:
         buffer.push_back(bslash); // Throws
         constexpr int char_width = core::int_width<C>();
-        using uint_type = core::FastestUnsignedWithBits<char_width>;
+        using uint_type = core::fast_unsigned_int_type<char_width>;
         static_assert(!std::is_same_v<uint_type, void>); // A hope more than a certainty
         uint_type val = uint_type(ch);
         constexpr int uint_width = core::int_width<uint_type>();

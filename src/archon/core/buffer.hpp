@@ -55,7 +55,7 @@ struct BufferDataTag {};
 ///
 /// \sa \ref core::ArraySeededBuffer.
 /// \sa \ref core::BufferContents.
-/// \sa \ref core::StringBufferContents.
+/// \sa \ref core::BasicStringBufferContents.
 ///
 template<class T> class Buffer {
 public:
@@ -77,7 +77,7 @@ public:
 
     Buffer() noexcept;
     explicit Buffer(span_type seed_memory) noexcept;
-    template<std::size_t N> explicit Buffer(T (& seed_memory)[N]) noexcept;
+    template<std::size_t N> explicit Buffer(T(& seed_memory)[N]) noexcept;
     template<std::size_t N> explicit Buffer(std::array<T, N>& seed_memory) noexcept;
     explicit Buffer(std::size_t size);
     explicit Buffer(span_type seed_memory, std::size_t size);
@@ -151,6 +151,13 @@ public:
     ///
     void reserve(std::size_t min_size, std::size_t used_size = 0, std::size_t max_size = -1);
 
+    /// \brief Grow buffer size by at least one.
+    ///
+    /// This function expands the buffer by at least one element. If is shorthand for
+    /// calling \ref expand_a() while passing 1 for \p min_extra_size.
+    ///
+    void expand(std::size_t used_size, std::size_t max_size = -1);
+
     /// \brief Ensure capacity and perform custom operation when memory is re-allocated.
     ///
     /// This function performs the same operation as \ref reserve(), except that when new
@@ -167,19 +174,6 @@ public:
     /// buffer address and contents remain unchanged).
     ///
     template<class F> void reserve_f(std::size_t min_size, std::size_t used_size, F&& func, std::size_t max_size = -1);
-
-    /// \brief Expand buffer.
-    ///
-    /// This function expands the buffer size by at least \p min_extra_size. Specifically,
-    /// `buffer.expand(min_extra_size, used_size, max_size)` has the same effect as
-    /// `buffer.reserve(buffer.size() + min_extra_size, used_size, max_size)`, except that,
-    /// if the sum overflows, this function throws `std::length_error`.
-    ///
-    /// This function offers a strong exception guarantee, which means that if it fails,
-    /// which it does when it thrown an exception, then the buffer is left unchanged (both
-    /// buffer address and contents remain unchanged).
-    ///
-    void expand(std::size_t min_extra_size, std::size_t used_size, std::size_t max_size = -1);
 
     /// \brief Ensure extra buffer capacity with custom copy function.
     ///
@@ -219,6 +213,31 @@ public:
     /// buffer address and contents remain unchanged).
     ///
     template<class F> void reserve_a(std::size_t min_size, F&& copy_func, std::size_t max_size = -1);
+
+    /// \brief Grow buffer size.
+    ///
+    /// This function expands the buffer by at least \p min_extra_size
+    /// elements. Specifically, `buffer.expand_a(min_extra_size, used_size, max_size)` has
+    /// the same effect as `buffer.reserve(buffer.size() + min_extra_size, used_size,
+    /// max_size)`, except that, if the sum overflows, this function throws
+    /// `std::length_error`.
+    ///
+    /// This function offers a strong exception guarantee, which means that if it fails,
+    /// which it does when it thrown an exception, then the buffer is left unchanged (both
+    /// buffer address and contents remain unchanged).
+    ///
+    void expand_a(std::size_t min_extra_size, std::size_t used_size, std::size_t max_size = -1);
+
+    /// \{
+    ///
+    /// \brief Place new data in buffer.
+    ///
+    /// These functions are shorthands for calling \ref append() and \ref append_a() with an
+    /// initial \p offset of zero.
+    ///
+    void assign(const_span_type data);
+    void assign_a(T val, std::size_t n = 1);
+    /// \}
 
     /// \{
     ///
@@ -335,7 +354,7 @@ inline Buffer<T>::Buffer(span_type seed_memory) noexcept
 
 
 template<class T>
-template<std::size_t N> inline Buffer<T>::Buffer(T (& seed_memory)[N]) noexcept
+template<std::size_t N> inline Buffer<T>::Buffer(T(& seed_memory)[N]) noexcept
     : Buffer(span_type(seed_memory))
 {
 }
@@ -568,20 +587,18 @@ inline void Buffer<T>::reserve(std::size_t min_size, std::size_t used_size, std:
 
 
 template<class T>
+inline void Buffer<T>::expand(std::size_t used_size, std::size_t max_size)
+{
+    expand_a(1, used_size, max_size); // Throws
+}
+
+
+template<class T>
 template<class F> inline void Buffer<T>::reserve_f(std::size_t min_size, std::size_t used_size, F&& func,
                                                    std::size_t max_size)
 {
     reserve_a(min_size, [&](span_type new_mem) noexcept {
         func(new_mem); // Throws
-        std::copy_n(data(), used_size, new_mem.data()); // Throws
-    }, max_size); // Throws
-}
-
-
-template<class T>
-inline void Buffer<T>::expand(std::size_t min_extra_size, std::size_t used_size, std::size_t max_size)
-{
-    reserve_extra_a(min_extra_size, size(), [&](span_type new_mem) noexcept {
         std::copy_n(data(), used_size, new_mem.data()); // Throws
     }, max_size); // Throws
 }
@@ -605,6 +622,31 @@ template<class F> inline void Buffer<T>::reserve_a(std::size_t min_size, F&& cop
         return;
     std::size_t min_extra_size = 0;
     do_reserve(min_size, min_extra_size, std::forward<F>(copy_func), max_size); // Throws
+}
+
+
+template<class T>
+inline void Buffer<T>::expand_a(std::size_t min_extra_size, std::size_t used_size, std::size_t max_size)
+{
+    reserve_extra_a(min_extra_size, size(), [&](span_type new_mem) noexcept {
+        std::copy_n(data(), used_size, new_mem.data()); // Throws
+    }, max_size); // Throws
+}
+
+
+template<class T>
+inline void Buffer<T>::assign(const_span_type data)
+{
+    reserve(data.size()); // Throws
+    std::copy_n(data.data(), data.size(), m_memory.data()); // Throws
+}
+
+
+template<class T>
+inline void Buffer<T>::assign_a(T val, std::size_t n)
+{
+    reserve(n); // Throws
+    std::fill_n(m_memory.data(), n, val); // Throws
 }
 
 

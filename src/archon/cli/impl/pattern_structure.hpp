@@ -21,8 +21,6 @@
 #ifndef ARCHON_X_CLI_X_IMPL_X_PATTERN_STRUCTURE_HPP
 #define ARCHON_X_CLI_X_IMPL_X_PATTERN_STRUCTURE_HPP
 
-/// \file
-
 
 #include <cstddef>
 #include <string_view>

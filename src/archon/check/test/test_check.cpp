@@ -20,6 +20,7 @@
 
 
 #include <cstring>
+#include <limits>
 #include <algorithm>
 #include <memory>
 #include <string_view>
@@ -28,6 +29,7 @@
 #include <archon/check.hpp>
 #include <archon/check/run.hpp>
 #include <archon/check/wildcard_filter.hpp>
+#include <archon/check/simple_reporter.hpp>
 
 
 using namespace archon;
@@ -664,4 +666,603 @@ ARCHON_TEST(Check_CrossTypeCompare)
     ARCHON_CHECK_LESS(static_cast<int>(-1), static_cast<unsigned int>(-1));
     ARCHON_CHECK_LESS(static_cast<int>(-1), static_cast<unsigned long>(-1));
     ARCHON_CHECK_LESS(static_cast<long>(-1), static_cast<unsigned long>(-1));
+}
+
+
+ARCHON_TEST(Check_SpecialCond_Basics)
+{
+    ARCHON_TEST_DIR(dir);
+    auto check = [&](auto&& func) {
+        check::TestList list;
+        list.add("TEST", __FILE__, __LINE__, std::move(func));
+        bool report_progress = true;
+        check::SimpleReporter reporter(report_progress);
+        check::TestConfig config;
+        config.num_threads = 1;
+        config.test_list = &list;
+        config.logger = &test_context.logger;
+        config.reporter = &reporter;
+        config.test_file_base_dir = dir;
+        return check::run(std::move(config));
+    };
+
+    struct Unordered {
+        constexpr bool operator==(int) const noexcept
+        {
+            return false;
+        }
+        constexpr auto operator<=>(int) const noexcept
+        {
+            return std::partial_ordering::unordered;
+        }
+    };
+
+    constexpr bool have_nan = std::numeric_limits<double>::has_quiet_NaN;
+    constexpr double nan = std::numeric_limits<double>::quiet_NaN();
+
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_EQUAL(2, 2);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_EQUAL(2, 3);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_EQUAL(2, Unordered());
+    }));
+
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_NOT_EQUAL(2, 3);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_NOT_EQUAL(2, 2);
+    }));
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_NOT_EQUAL(2, Unordered());
+    }));
+
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_LESS(2, 3);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_LESS(2, 2);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_LESS(2, Unordered());
+    }));
+
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_LESS_EQUAL(2, 2);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_LESS_EQUAL(3, 2);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_LESS_EQUAL(2, Unordered());
+    }));
+
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_NOT_LESS(2, 2);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_NOT_LESS(2, 3);
+    }));
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_NOT_LESS(2, Unordered());
+    }));
+
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_NOT_LESS_EQUAL(3, 2);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_NOT_LESS_EQUAL(2, 2);
+    }));
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_NOT_LESS_EQUAL(2, Unordered());
+    }));
+
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_GREATER(3, 2);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_GREATER(2, 2);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_GREATER(2, Unordered());
+    }));
+
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_GREATER_EQUAL(2, 2);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_GREATER_EQUAL(2, 3);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_GREATER_EQUAL(2, Unordered());
+    }));
+
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_NOT_GREATER(2, 2);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_NOT_GREATER(3, 2);
+    }));
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_NOT_GREATER(2, Unordered());
+    }));
+
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_NOT_GREATER_EQUAL(2, 3);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_NOT_GREATER_EQUAL(2, 2);
+    }));
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_NOT_GREATER_EQUAL(2, Unordered());
+    }));
+
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_DIST_LESS(2, 3, 2);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_DIST_LESS(2, 4, 2);
+    }));
+    if constexpr (have_nan) {
+        ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+            ARCHON_CHECK_DIST_LESS(2.0, 2.0, nan);
+        }));
+    }
+
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_DIST_LESS_EQUAL(2, 4, 2);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_DIST_LESS_EQUAL(2, 5, 2);
+    }));
+    if constexpr (have_nan) {
+        ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+            ARCHON_CHECK_DIST_LESS_EQUAL(2.0, 2.0, nan);
+        }));
+    }
+
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_DIST_NOT_LESS(2, 4, 2);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_DIST_NOT_LESS(2, 3, 2);
+    }));
+    if constexpr (have_nan) {
+        ARCHON_CHECK(check([&](check::TestContext& test_context) {
+            ARCHON_CHECK_DIST_NOT_LESS(2.0, 2.0, nan);
+        }));
+    }
+
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_DIST_NOT_LESS_EQUAL(2, 5, 2);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_DIST_NOT_LESS_EQUAL(2, 4, 2);
+    }));
+    if constexpr (have_nan) {
+        ARCHON_CHECK(check([&](check::TestContext& test_context) {
+            ARCHON_CHECK_DIST_NOT_LESS_EQUAL(2.0, 2.0, nan);
+        }));
+    }
+
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_DIST_GREATER(2, 5, 2);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_DIST_GREATER(2, 4, 2);
+    }));
+    if constexpr (have_nan) {
+        ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+            ARCHON_CHECK_DIST_GREATER(2.0, 2.0, nan);
+        }));
+    }
+
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_DIST_GREATER_EQUAL(2, 4, 2);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_DIST_GREATER_EQUAL(2, 3, 2);
+    }));
+    if constexpr (have_nan) {
+        ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+            ARCHON_CHECK_DIST_GREATER_EQUAL(2.0, 2.0, nan);
+        }));
+    }
+
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_DIST_NOT_GREATER(2, 4, 2);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_DIST_NOT_GREATER(2, 5, 2);
+    }));
+    if constexpr (have_nan) {
+        ARCHON_CHECK(check([&](check::TestContext& test_context) {
+            ARCHON_CHECK_DIST_NOT_GREATER(2.0, 2.0, nan);
+        }));
+    }
+
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_DIST_NOT_GREATER_EQUAL(2, 3, 2);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_DIST_NOT_GREATER_EQUAL(2, 4, 2);
+    }));
+    if constexpr (have_nan) {
+        ARCHON_CHECK(check([&](check::TestContext& test_context) {
+            ARCHON_CHECK_DIST_NOT_GREATER_EQUAL(2.0, 2.0, nan);
+        }));
+    }
+
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_BETWEEN(1, 2, 3);
+    }));
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_BETWEEN(2, 2, 3);
+    }));
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_BETWEEN(3, 2, 3);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_BETWEEN(4, 2, 3);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_BETWEEN(Unordered(), 2, 3);
+    }));
+
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_NOT_BETWEEN(1, 2, 3);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_NOT_BETWEEN(2, 2, 3);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_NOT_BETWEEN(3, 2, 3);
+    }));
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_NOT_BETWEEN(4, 2, 3);
+    }));
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_NOT_BETWEEN(Unordered(), 2, 3);
+    }));
+
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_APPROXIMATELY_EQUAL(1, 1, 0);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_APPROXIMATELY_EQUAL(1, 2, 0);
+    }));
+    if constexpr (have_nan) {
+        ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+            ARCHON_CHECK_APPROXIMATELY_EQUAL(1, nan, 0);
+        }));
+    }
+
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_ESSENTIALLY_EQUAL(1, 1, 0);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_ESSENTIALLY_EQUAL(1, 2, 0);
+    }));
+    if constexpr (have_nan) {
+        ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+            ARCHON_CHECK_ESSENTIALLY_EQUAL(1, nan, 0);
+        }));
+    }
+
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_NOT_APPROXIMATELY_EQUAL(1, 2, 0);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_NOT_APPROXIMATELY_EQUAL(1, 1, 0);
+    }));
+    if constexpr (have_nan) {
+        ARCHON_CHECK(check([&](check::TestContext& test_context) {
+            ARCHON_CHECK_NOT_APPROXIMATELY_EQUAL(1, nan, 0);
+        }));
+    }
+
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_NOT_ESSENTIALLY_EQUAL(1, 2, 0);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_NOT_ESSENTIALLY_EQUAL(1, 1, 0);
+    }));
+    if constexpr (have_nan) {
+        ARCHON_CHECK(check([&](check::TestContext& test_context) {
+            ARCHON_CHECK_NOT_ESSENTIALLY_EQUAL(1, nan, 0);
+        }));
+    }
+
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_DEFINITELY_LESS(1, 2, 0);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_DEFINITELY_LESS(1, 1, 0);
+    }));
+    if constexpr (have_nan) {
+        ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+            ARCHON_CHECK_DEFINITELY_LESS(1, nan, 0);
+        }));
+    }
+
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_DEFINITELY_GREATER(2, 1, 0);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_DEFINITELY_GREATER(1, 1, 0);
+    }));
+    if constexpr (have_nan) {
+        ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+            ARCHON_CHECK_DEFINITELY_GREATER(1, nan, 0);
+        }));
+    }
+
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_NOT_DEFINITELY_LESS(1, 1, 0);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_NOT_DEFINITELY_LESS(1, 2, 0);
+    }));
+    if constexpr (have_nan) {
+        ARCHON_CHECK(check([&](check::TestContext& test_context) {
+            ARCHON_CHECK_NOT_DEFINITELY_LESS(1, nan, 0);
+        }));
+    }
+
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_NOT_DEFINITELY_GREATER(1, 1, 0);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_NOT_DEFINITELY_GREATER(2, 1, 0);
+    }));
+    if constexpr (have_nan) {
+        ARCHON_CHECK(check([&](check::TestContext& test_context) {
+            ARCHON_CHECK_NOT_DEFINITELY_GREATER(1, nan, 0);
+        }));
+    }
+}
+
+
+ARCHON_TEST(Check_SpecialCond_ExactlyOneEvaluationOfEachCheckArgument)
+{
+    ARCHON_TEST_DIR(dir);
+    auto run = [&](auto&& func) {
+        check::TestList list;
+        list.add("TEST", __FILE__, __LINE__, std::move(func));
+        bool report_progress = true;
+        check::SimpleReporter reporter(report_progress);
+        check::TestConfig config;
+        config.num_threads = 1;
+        config.test_list = &list;
+        config.logger = &test_context.logger;
+        config.reporter = &reporter;
+        config.test_file_base_dir = dir;
+        bool success = check::run(std::move(config));
+        ARCHON_ASSERT(success);
+    };
+
+    auto post_incr = [](auto& var) {
+        auto val = var;
+        var += 1;
+        return val;
+    };
+
+    {
+        int a = 0, b = 0;
+        run([&](check::TestContext& test_context) {
+            ARCHON_CHECK_EQUAL(post_incr(a), post_incr(b));
+        });
+        ARCHON_CHECK_EQUAL(a, 1);
+        ARCHON_CHECK_EQUAL(b, 1);
+    } {
+        int a = 0, b = 1;
+        run([&](check::TestContext& test_context) {
+            ARCHON_CHECK_NOT_EQUAL(post_incr(a), post_incr(b));
+        });
+        ARCHON_CHECK_EQUAL(a, 1);
+        ARCHON_CHECK_EQUAL(b, 2);
+    } {
+        int a = 0, b = 1;
+        run([&](check::TestContext& test_context) {
+            ARCHON_CHECK_LESS(post_incr(a), post_incr(b));
+        });
+        ARCHON_CHECK_EQUAL(a, 1);
+        ARCHON_CHECK_EQUAL(b, 2);
+    } {
+        int a = 0, b = 0;
+        run([&](check::TestContext& test_context) {
+            ARCHON_CHECK_LESS_EQUAL(post_incr(a), post_incr(b));
+        });
+        ARCHON_CHECK_EQUAL(a, 1);
+        ARCHON_CHECK_EQUAL(b, 1);
+    } {
+        int a = 0, b = 0;
+        run([&](check::TestContext& test_context) {
+            ARCHON_CHECK_NOT_LESS(post_incr(a), post_incr(b));
+        });
+        ARCHON_CHECK_EQUAL(a, 1);
+        ARCHON_CHECK_EQUAL(b, 1);
+    } {
+        int a = 1, b = 0;
+        run([&](check::TestContext& test_context) {
+            ARCHON_CHECK_NOT_LESS_EQUAL(post_incr(a), post_incr(b));
+        });
+        ARCHON_CHECK_EQUAL(a, 2);
+        ARCHON_CHECK_EQUAL(b, 1);
+    } {
+        int a = 1, b = 0;
+        run([&](check::TestContext& test_context) {
+            ARCHON_CHECK_GREATER(post_incr(a), post_incr(b));
+        });
+        ARCHON_CHECK_EQUAL(a, 2);
+        ARCHON_CHECK_EQUAL(b, 1);
+    } {
+        int a = 0, b = 0;
+        run([&](check::TestContext& test_context) {
+            ARCHON_CHECK_GREATER_EQUAL(post_incr(a), post_incr(b));
+        });
+        ARCHON_CHECK_EQUAL(a, 1);
+        ARCHON_CHECK_EQUAL(b, 1);
+    } {
+        int a = 0, b = 0;
+        run([&](check::TestContext& test_context) {
+            ARCHON_CHECK_NOT_GREATER(post_incr(a), post_incr(b));
+        });
+        ARCHON_CHECK_EQUAL(a, 1);
+        ARCHON_CHECK_EQUAL(b, 1);
+    } {
+        int a = 0, b = 1;
+        run([&](check::TestContext& test_context) {
+            ARCHON_CHECK_NOT_GREATER_EQUAL(post_incr(a), post_incr(b));
+        });
+        ARCHON_CHECK_EQUAL(a, 1);
+        ARCHON_CHECK_EQUAL(b, 2);
+    } {
+        int a = 0, b = 0, dist = 1;
+        run([&](check::TestContext& test_context) {
+            ARCHON_CHECK_DIST_LESS(post_incr(a), post_incr(b), post_incr(dist));
+        });
+        ARCHON_CHECK_EQUAL(a, 1);
+        ARCHON_CHECK_EQUAL(b, 1);
+        ARCHON_CHECK_EQUAL(dist, 2);
+    } {
+        int a = 0, b = 0, dist = 0;
+        run([&](check::TestContext& test_context) {
+            ARCHON_CHECK_DIST_LESS_EQUAL(post_incr(a), post_incr(b), post_incr(dist));
+        });
+        ARCHON_CHECK_EQUAL(a, 1);
+        ARCHON_CHECK_EQUAL(b, 1);
+        ARCHON_CHECK_EQUAL(dist, 1);
+    } {
+        int a = 0, b = 0, dist = 0;
+        run([&](check::TestContext& test_context) {
+            ARCHON_CHECK_DIST_NOT_LESS(post_incr(a), post_incr(b), post_incr(dist));
+        });
+        ARCHON_CHECK_EQUAL(a, 1);
+        ARCHON_CHECK_EQUAL(b, 1);
+        ARCHON_CHECK_EQUAL(dist, 1);
+    } {
+        int a = 0, b = 1, dist = 0;
+        run([&](check::TestContext& test_context) {
+            ARCHON_CHECK_DIST_NOT_LESS_EQUAL(post_incr(a), post_incr(b), post_incr(dist));
+        });
+        ARCHON_CHECK_EQUAL(a, 1);
+        ARCHON_CHECK_EQUAL(b, 2);
+        ARCHON_CHECK_EQUAL(dist, 1);
+    } {
+        int a = 0, b = 1, dist = 0;
+        run([&](check::TestContext& test_context) {
+            ARCHON_CHECK_DIST_GREATER(post_incr(a), post_incr(b), post_incr(dist));
+        });
+        ARCHON_CHECK_EQUAL(a, 1);
+        ARCHON_CHECK_EQUAL(b, 2);
+        ARCHON_CHECK_EQUAL(dist, 1);
+    } {
+        int a = 0, b = 0, dist = 0;
+        run([&](check::TestContext& test_context) {
+            ARCHON_CHECK_DIST_GREATER_EQUAL(post_incr(a), post_incr(b), post_incr(dist));
+        });
+        ARCHON_CHECK_EQUAL(a, 1);
+        ARCHON_CHECK_EQUAL(b, 1);
+        ARCHON_CHECK_EQUAL(dist, 1);
+    } {
+        int a = 0, b = 0, dist = 0;
+        run([&](check::TestContext& test_context) {
+            ARCHON_CHECK_DIST_NOT_GREATER(post_incr(a), post_incr(b), post_incr(dist));
+        });
+        ARCHON_CHECK_EQUAL(a, 1);
+        ARCHON_CHECK_EQUAL(b, 1);
+        ARCHON_CHECK_EQUAL(dist, 1);
+    } {
+        int a = 0, b = 0, dist = 1;
+        run([&](check::TestContext& test_context) {
+            ARCHON_CHECK_DIST_NOT_GREATER_EQUAL(post_incr(a), post_incr(b), post_incr(dist));
+        });
+        ARCHON_CHECK_EQUAL(a, 1);
+        ARCHON_CHECK_EQUAL(b, 1);
+        ARCHON_CHECK_EQUAL(dist, 2);
+    } {
+        int x = 0, min = 0, max = 0;
+        run([&](check::TestContext& test_context) {
+            ARCHON_CHECK_BETWEEN(post_incr(x), post_incr(min), post_incr(max));
+        });
+        ARCHON_CHECK_EQUAL(x, 1);
+        ARCHON_CHECK_EQUAL(min, 1);
+        ARCHON_CHECK_EQUAL(max, 1);
+    } {
+        int x = 1, min = 0, max = 0;
+        run([&](check::TestContext& test_context) {
+            ARCHON_CHECK_NOT_BETWEEN(post_incr(x), post_incr(min), post_incr(max));
+        });
+        ARCHON_CHECK_EQUAL(x, 2);
+        ARCHON_CHECK_EQUAL(min, 1);
+        ARCHON_CHECK_EQUAL(max, 1);
+    } {
+        double a = 1, b = 1, eps = 0;
+        run([&](check::TestContext& test_context) {
+            ARCHON_CHECK_APPROXIMATELY_EQUAL(post_incr(a), post_incr(b), post_incr(eps));
+        });
+        ARCHON_CHECK_EQUAL(a, 2);
+        ARCHON_CHECK_EQUAL(b, 2);
+        ARCHON_CHECK_EQUAL(eps, 1);
+    } {
+        double a = 1, b = 1, eps = 0;
+        run([&](check::TestContext& test_context) {
+            ARCHON_CHECK_ESSENTIALLY_EQUAL(post_incr(a), post_incr(b), post_incr(eps));
+        });
+        ARCHON_CHECK_EQUAL(a, 2);
+        ARCHON_CHECK_EQUAL(b, 2);
+        ARCHON_CHECK_EQUAL(eps, 1);
+    } {
+        double a = 0, b = 1, eps = 0;
+        run([&](check::TestContext& test_context) {
+            ARCHON_CHECK_NOT_APPROXIMATELY_EQUAL(post_incr(a), post_incr(b), post_incr(eps));
+        });
+        ARCHON_CHECK_EQUAL(a, 1);
+        ARCHON_CHECK_EQUAL(b, 2);
+        ARCHON_CHECK_EQUAL(eps, 1);
+    } {
+        double a = 0, b = 1, eps = 0;
+        run([&](check::TestContext& test_context) {
+            ARCHON_CHECK_NOT_ESSENTIALLY_EQUAL(post_incr(a), post_incr(b), post_incr(eps));
+        });
+        ARCHON_CHECK_EQUAL(a, 1);
+        ARCHON_CHECK_EQUAL(b, 2);
+        ARCHON_CHECK_EQUAL(eps, 1);
+    } {
+        double a = 0, b = 1, eps = 0;
+        run([&](check::TestContext& test_context) {
+            ARCHON_CHECK_DEFINITELY_LESS(post_incr(a), post_incr(b), post_incr(eps));
+        });
+        ARCHON_CHECK_EQUAL(a, 1);
+        ARCHON_CHECK_EQUAL(b, 2);
+        ARCHON_CHECK_EQUAL(eps, 1);
+    } {
+        double a = 1, b = 0, eps = 0;
+        run([&](check::TestContext& test_context) {
+            ARCHON_CHECK_DEFINITELY_GREATER(post_incr(a), post_incr(b), post_incr(eps));
+        });
+        ARCHON_CHECK_EQUAL(a, 2);
+        ARCHON_CHECK_EQUAL(b, 1);
+        ARCHON_CHECK_EQUAL(eps, 1);
+    } {
+        double a = 1, b = 1, eps = 0;
+        run([&](check::TestContext& test_context) {
+            ARCHON_CHECK_NOT_DEFINITELY_LESS(post_incr(a), post_incr(b), post_incr(eps));
+        });
+        ARCHON_CHECK_EQUAL(a, 2);
+        ARCHON_CHECK_EQUAL(b, 2);
+        ARCHON_CHECK_EQUAL(eps, 1);
+    } {
+        double a = 1, b = 1, eps = 0;
+        run([&](check::TestContext& test_context) {
+            ARCHON_CHECK_NOT_DEFINITELY_GREATER(post_incr(a), post_incr(b), post_incr(eps));
+        });
+        ARCHON_CHECK_EQUAL(a, 2);
+        ARCHON_CHECK_EQUAL(b, 2);
+        ARCHON_CHECK_EQUAL(eps, 1);
+    }
 }

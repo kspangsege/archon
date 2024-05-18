@@ -81,6 +81,13 @@ struct Size {
     constexpr Size(int width, int height) noexcept;
     /// \}
 
+    /// \brief Whether both components are non-negative.
+    ///
+    /// This function returns `true` if both width and height is non-negative. Otherwise, it
+    /// returns `false`.
+    ///
+    constexpr bool is_valid() const noexcept;
+
     /// \brief Whether both components are zero.
     ///
     /// This function returns `true` if both width and height is zero. Otherwise, it returns
@@ -95,6 +102,13 @@ struct Size {
     /// returns `false` precisely when a box of this size would contain at least one pixel.
     ///
     constexpr bool is_empty() const noexcept;
+
+    /// \brief Whether box of other size can be contained in box of this size.
+    ///
+    /// This function returns `true` if a box of the specified size (\p other) can contain a
+    /// box of this size. Otherwise, it returns `false`.
+    ///
+    constexpr bool contains(const Size& other) const noexcept;
 
     /// \brief Whether box of this size can be contained in box of other size.
     ///
@@ -235,6 +249,12 @@ constexpr Size::Size(int width_2, int height_2) noexcept
 }
 
 
+constexpr bool Size::is_valid() const noexcept
+{
+    return (width >= 0 && height >= 0);
+}
+
+
 constexpr bool Size::is_zero() const noexcept
 {
     return (width == 0 && height == 0);
@@ -244,6 +264,12 @@ constexpr bool Size::is_zero() const noexcept
 constexpr bool Size::is_empty() const noexcept
 {
     return (width == 0 || height == 0);
+}
+
+
+constexpr bool Size::contains(const Size& other) const noexcept
+{
+    return (width >= other.width && height >= other.height);
 }
 
 

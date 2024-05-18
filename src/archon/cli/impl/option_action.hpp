@@ -21,8 +21,6 @@
 #ifndef ARCHON_X_CLI_X_IMPL_X_OPTION_ACTION_HPP
 #define ARCHON_X_CLI_X_IMPL_X_OPTION_ACTION_HPP
 
-/// \file
-
 
 #include <type_traits>
 #include <memory>
@@ -34,7 +32,7 @@
 #include <ostream>
 
 #include <archon/core/features.h>
-#include <archon/core/type.hpp>
+#include <archon/core/type_traits.hpp>
 #include <archon/cli/impl/call.hpp>
 #include <archon/cli/impl/value_formatter.hpp>
 #include <archon/cli/impl/value_parser.hpp>
@@ -63,8 +61,7 @@ public:
     virtual bool invoke_with_arg(string_view_type, value_parser_type&) const;
     virtual bool format_orig_val(ostream_type&, value_formatter_type&, bool& has_value) const;
     virtual bool format_default_arg(ostream_type&, value_formatter_type&, bool& has_value) const;
-
-    template<class V> static void format_value(const V& value, ostream_type&, const std::locale&);
+    virtual bool format_enum_values(ostream_type&, value_formatter_type&, bool disjunctive, bool quote) const;
 };
 
 
@@ -145,6 +142,13 @@ inline bool OptionAction<C, T>::format_default_arg(ostream_type&, value_formatte
 }
 
 
+template<class C, class T>
+inline bool OptionAction<C, T>::format_enum_values(ostream_type&, value_formatter_type&, bool, bool) const
+{
+    return false;
+}
+
+
 
 // ============================ OptionAssignAction ============================
 
@@ -188,6 +192,13 @@ public:
     {
         has_value = formatter.format(m_ref, out); // Throws
         return true;
+    }
+
+    bool format_enum_values(ostream_type& out, value_formatter_type& formatter,
+                            bool disjunctive, bool quote) const override final
+    {
+        using type = core::RemoveOptional<std::remove_cvref_t<ref_type>>;
+        return formatter.template format_enum_values<type>(out, disjunctive, quote); // Throws
     }
 
 private:
@@ -266,6 +277,13 @@ public:
     {
         has_value = formatter.format(m_default_arg, out); // Throws
         return true;
+    }
+
+    bool format_enum_values(ostream_type& out, value_formatter_type& formatter,
+                            bool disjunctive, bool quote) const override final
+    {
+        using type = core::RemoveOptional<std::remove_cvref_t<value_type>>;
+        return formatter.template format_enum_values<type>(out, disjunctive, quote); // Throws
     }
 
 private:
@@ -367,6 +385,13 @@ public:
     {
         has_value = formatter.format(m_default_arg, out); // Throws
         return true;
+    }
+
+    bool format_enum_values(ostream_type& out, value_formatter_type& formatter,
+                            bool disjunctive, bool quote) const override final
+    {
+        using type = core::RemoveOptional<std::remove_cvref_t<value_type>>;
+        return formatter.template format_enum_values<type>(out, disjunctive, quote); // Throws
     }
 
 private:

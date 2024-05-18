@@ -31,7 +31,7 @@
 #include <string_view>
 
 #include <archon/core/features.h>
-#include <archon/core/type.hpp>
+#include <archon/core/type_traits.hpp>
 #include <archon/core/assert.hpp>
 #include <archon/core/integer_traits.hpp>
 #include <archon/core/integer.hpp>
@@ -52,6 +52,9 @@ namespace archon::core {
 /// unsigned integer that contributes all its value bits to the state of the multiple
 /// precision integer type. The first part contributes the least significant bits (little
 /// endian).
+///
+/// The multiple precision integer type can be signed or unsigned. It is signed if `true` is
+/// passed for \p S. Otherwise it is unsigned.
 ///
 /// Formatting and parsing is supported through use of the stream output and input operators
 /// (`operator<<` of `std::basic_ostream` and `operator>>` of `std::basic_istream`). These

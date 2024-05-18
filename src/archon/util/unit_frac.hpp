@@ -29,6 +29,7 @@
 #include <archon/core/assert.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/float.hpp>
+#include <archon/core/ext_int_type.hpp>
 
 
 /// \brief Convert fractions of unity between representations.
@@ -153,6 +154,34 @@ constexpr auto flt_to_int_a(F flt_val, core::Type<I> max_int = core::int_max<I>(
 template<class T> constexpr auto change_bit_width(T v, int m, int n) noexcept -> T;
 
 
+/// \brief Convert fraction of unity between integer-based representations.
+///
+/// This function converts a fraction of unity from one integer representation to
+/// another. Both the origin and target representations are specified in terms of their
+/// maximum value (\p max_1, \p max_2).
+///
+/// This conversion is an infinitely precise alternative to first converting to a floating
+/// point representation using \ref unit_frac::int_to_flt() and then to the target integer
+/// representation using \ref unit_frac::flt_to_int_a().
+///
+/// \tparam N A limit on the number of value bits needed to represent \p max_1. In general,
+/// a lower value leads to a more efficient conversion operation.
+///
+/// \tparam M A limit on the number of value bits needed to represent \p max_2. In general,
+/// a lower value leads to a more efficient conversion operation.
+///
+/// \param val A value of the origin representation to be converted to the target
+/// representation. The result is unspecified if this is negative or greater than \p max_1.
+///
+/// \param max_1 The maximum value for the origin representation. Behavior is undefined if
+/// this is negative or zero.
+///
+/// \param max_2 The maximum value for the target representation. Behavior is undefined if
+/// this is negative or zero.
+///
+template<int N, int M, class I, class J> auto int_to_int_a(I val, I max_1, J max_2) -> J;
+
+
 
 
 
@@ -240,6 +269,14 @@ template<class T> constexpr auto change_bit_width(T v, int n, int m) noexcept ->
         v_2 *= (type(1) << n_2) + 1;
         n_2 = n_3;
     }
+}
+
+
+template<int N, int M, class I, class J> auto int_to_int_a(I val, I max_1, J max_2) -> J
+{
+    using type = core::fast_unsigned_ext_int_type<N + M>;
+    type val_2 = core::int_cast_a<type>(val) * core::int_cast_a<type>(max_2);
+    return core::int_cast_a<J>(core::int_div_round_half_down(val_2, max_1));
 }
 
 

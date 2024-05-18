@@ -21,8 +21,6 @@
 #ifndef ARCHON_X_CLI_X_IMPL_X_CALL_HPP
 #define ARCHON_X_CLI_X_IMPL_X_CALL_HPP
 
-/// \file
-
 
 #include <utility>
 #include <functional>

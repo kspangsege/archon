@@ -21,8 +21,6 @@
 #ifndef ARCHON_X_CLI_X_IMPL_X_SPEC_HPP
 #define ARCHON_X_CLI_X_IMPL_X_SPEC_HPP
 
-/// \file
-
 
 #include <cstddef>
 #include <utility>
@@ -35,6 +33,7 @@
 #include <archon/core/features.h>
 #include <archon/core/span.hpp>
 #include <archon/core/assert.hpp>
+#include <archon/core/index_range.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/format.hpp>
 #include <archon/core/format_as.hpp>
@@ -57,7 +56,6 @@ public:
     using traits_type = T;
 
     struct OptionForm;
-    struct IndexRange;
     struct ArgSpec;
     struct ProtoOption;
     struct Pattern;
@@ -75,12 +73,12 @@ public:
 
     auto ensure_keyword(string_view_type lexeme) -> std::size_t;
     auto ensure_pattern_option(OptionForm, std::size_t pattern_index) -> std::size_t;
-    auto add_option_forms(core::Span<const OptionForm>) -> IndexRange;
+    auto add_option_forms(core::Span<const OptionForm>) -> core::IndexRange;
 
     // Note: All options must be added before any patterns are added.
     void add_pattern(string_view_type pattern, int attr, string_view_type descr, std::size_t elem_seq_index,
                      const pattern_action_type&, const pattern_structure_type&);
-    void add_option(IndexRange forms, ArgSpec arg, int attr, string_view_type descr, const option_action_type&);
+    void add_option(core::IndexRange forms, ArgSpec arg, int attr, string_view_type descr, const option_action_type&);
 
     void shrink_to_fit();
 
@@ -91,7 +89,7 @@ public:
     auto get_pattern(std::size_t pattern_index) const noexcept -> const Pattern&;
     auto get_proto_option(std::size_t proto_index) const noexcept -> const ProtoOption&;
     auto get_option(std::size_t option_index) const noexcept -> const Option&;
-    auto get_option_forms(IndexRange) const noexcept -> core::Span<const OptionForm>;
+    auto get_option_forms(core::IndexRange) const noexcept -> core::Span<const OptionForm>;
 
 private:
     const std::locale m_locale;
@@ -112,12 +110,6 @@ private:
 template<class C, class T> struct Spec<C, T>::OptionForm {
     bool is_long;
     string_view_type lexeme;
-};
-
-
-template<class C, class T> struct Spec<C, T>::IndexRange {
-    std::size_t offset;
-    std::size_t size;
 };
 
 
@@ -150,7 +142,7 @@ template<class C, class T> struct Spec<C, T>::Pattern {
 
 
 template<class C, class T> struct Spec<C, T>::Option {
-    IndexRange forms; // Range of option form indexes
+    core::IndexRange forms; // Range of option form indexes
     ArgSpec arg;
     int attr; // Bitwise OR of option attributes (cli::OptionAttributes)
     string_view_type descr;
@@ -259,9 +251,9 @@ auto Spec<C, T>::ensure_pattern_option(OptionForm form, std::size_t pattern_inde
 
 
 template<class C, class T>
-inline auto Spec<C, T>::add_option_forms(core::Span<const OptionForm> forms) -> IndexRange
+inline auto Spec<C, T>::add_option_forms(core::Span<const OptionForm> forms) -> core::IndexRange
 {
-    IndexRange range { m_option_forms.size(), forms.size() };
+    core::IndexRange range { m_option_forms.size(), forms.size() };
     m_option_forms.insert(m_option_forms.end(), forms.begin(), forms.end()); // Throws
     return range;
 }
@@ -299,7 +291,7 @@ inline void Spec<C, T>::add_pattern(string_view_type pattern, int attr, string_v
 
 
 template<class C, class T>
-void Spec<C, T>::add_option(IndexRange forms, ArgSpec arg, int attr, string_view_type descr,
+void Spec<C, T>::add_option(core::IndexRange forms, ArgSpec arg, int attr, string_view_type descr,
                             const option_action_type& action)
 {
     ARCHON_ASSERT(m_patterns.empty());
@@ -449,9 +441,9 @@ inline auto Spec<C, T>::get_option(std::size_t option_index) const noexcept -> c
 
 
 template<class C, class T>
-inline auto Spec<C, T>::get_option_forms(IndexRange range) const noexcept -> core::Span<const OptionForm>
+inline auto Spec<C, T>::get_option_forms(core::IndexRange range) const noexcept -> core::Span<const OptionForm>
 {
-    return { m_option_forms.data() + range.offset, range.size };
+    return range.resolve(m_option_forms.data());
 }
 
 

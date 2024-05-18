@@ -29,6 +29,7 @@
 #include <utility>
 #include <iterator>
 
+#include <archon/core/type_traits.hpp>
 #include <archon/core/impl/flat_map_impl.hpp>
 
 
@@ -51,8 +52,7 @@ namespace archon::core {
 /// Another disadvantage compared to `std::set` is that iterators and pointers referring to
 /// stored elements are invalidated after every modifying operation.
 ///
-/// Requirement: Elements (objects of type \p K) must be less-than comparable, and the
-/// less-than comparison operation must be a declared non-throwing operation (`noexcept`).
+/// Requirement: Elements (objects of type \p K) must be less-than comparable.
 ///
 /// Requirement: Elements (objects of type \p K) must be copy-constructible and
 /// copy-construction must be a non-throwing operation
@@ -121,25 +121,26 @@ public:
     auto insert(value_type&&) -> std::pair<iterator, bool>;
     template<class I> void insert(I begin, I end);
 
-    auto erase(const key_type&) noexcept -> size_type;
+    auto erase(const key_type&) noexcept(core::is_nothrow_less_comparable<K>) -> size_type;
     void clear() noexcept;
 
     // Lookup
 
-    bool contains(const key_type&) const noexcept;
-    auto count(const key_type&) const noexcept -> size_type;
+    bool contains(const key_type&) const noexcept(core::is_nothrow_less_comparable<K>);
+    auto count(const key_type&) const noexcept(core::is_nothrow_less_comparable<K>) -> size_type;
 
-    auto find(const key_type&) noexcept       -> iterator;
-    auto find(const key_type&) const noexcept -> const_iterator;
+    auto find(const key_type&) noexcept(core::is_nothrow_less_comparable<K>)       -> iterator;
+    auto find(const key_type&) const noexcept(core::is_nothrow_less_comparable<K>) -> const_iterator;
 
-    auto lower_bound(const key_type&) noexcept       -> iterator;
-    auto lower_bound(const key_type&) const noexcept -> const_iterator;
+    auto lower_bound(const key_type&) noexcept(core::is_nothrow_less_comparable<K>)       -> iterator;
+    auto lower_bound(const key_type&) const noexcept(core::is_nothrow_less_comparable<K>) -> const_iterator;
 
-    auto upper_bound(const key_type&) noexcept       -> iterator;
-    auto upper_bound(const key_type&) const noexcept -> const_iterator;
+    auto upper_bound(const key_type&) noexcept(core::is_nothrow_less_comparable<K>)       -> iterator;
+    auto upper_bound(const key_type&) const noexcept(core::is_nothrow_less_comparable<K>) -> const_iterator;
 
-    auto equal_range(const key_type&) noexcept       -> std::pair<iterator, iterator>;
-    auto equal_range(const key_type&) const noexcept -> std::pair<const_iterator, const_iterator>;
+    auto equal_range(const key_type&) noexcept(core::is_nothrow_less_comparable<K>) -> std::pair<iterator, iterator>;
+    auto equal_range(const key_type&) const noexcept(core::is_nothrow_less_comparable<K>) ->
+        std::pair<const_iterator, const_iterator>;
 
 private:
     impl::FlatMapImpl<K, void, N> m_impl;
@@ -298,7 +299,7 @@ template<class I> void FlatSet<K, N>::insert(I begin, I end)
 
 
 template<class K, std::size_t N>
-inline auto FlatSet<K, N>::erase(const key_type& key) noexcept -> size_type
+inline auto FlatSet<K, N>::erase(const key_type& key) noexcept(core::is_nothrow_less_comparable<K>) -> size_type
 {
     return m_impl.erase(key);
 }
@@ -312,7 +313,7 @@ inline void FlatSet<K, N>::clear() noexcept
 
 
 template<class K, std::size_t N>
-inline bool FlatSet<K, N>::contains(const key_type& key) const noexcept
+inline bool FlatSet<K, N>::contains(const key_type& key) const noexcept(core::is_nothrow_less_comparable<K>)
 {
     std::size_t i = m_impl.find(key);
     return (i != size());
@@ -320,14 +321,14 @@ inline bool FlatSet<K, N>::contains(const key_type& key) const noexcept
 
 
 template<class K, std::size_t N>
-inline auto FlatSet<K, N>::count(const key_type& key) const noexcept -> size_type
+inline auto FlatSet<K, N>::count(const key_type& key) const noexcept(core::is_nothrow_less_comparable<K>) -> size_type
 {
     return size_type(int(contains(key)));
 }
 
 
 template<class K, std::size_t N>
-inline auto FlatSet<K, N>::find(const key_type& key) noexcept -> iterator
+inline auto FlatSet<K, N>::find(const key_type& key) noexcept(core::is_nothrow_less_comparable<K>) -> iterator
 {
     std::size_t i = m_impl.find(key);
     return m_impl.data() + i;
@@ -335,7 +336,8 @@ inline auto FlatSet<K, N>::find(const key_type& key) noexcept -> iterator
 
 
 template<class K, std::size_t N>
-inline auto FlatSet<K, N>::find(const key_type& key) const noexcept -> const_iterator
+inline auto FlatSet<K, N>::find(const key_type& key) const noexcept(core::is_nothrow_less_comparable<K>) ->
+    const_iterator
 {
     std::size_t i = m_impl.find(key);
     return m_impl.data() + i;
@@ -343,7 +345,7 @@ inline auto FlatSet<K, N>::find(const key_type& key) const noexcept -> const_ite
 
 
 template<class K, std::size_t N>
-inline auto FlatSet<K, N>::lower_bound(const key_type& key) noexcept -> iterator
+inline auto FlatSet<K, N>::lower_bound(const key_type& key) noexcept(core::is_nothrow_less_comparable<K>) -> iterator
 {
     std::size_t i = m_impl.lower_bound(key);
     return m_impl.data() + i;
@@ -351,7 +353,8 @@ inline auto FlatSet<K, N>::lower_bound(const key_type& key) noexcept -> iterator
 
 
 template<class K, std::size_t N>
-inline auto FlatSet<K, N>::lower_bound(const key_type& key) const noexcept -> const_iterator
+inline auto FlatSet<K, N>::lower_bound(const key_type& key) const noexcept(core::is_nothrow_less_comparable<K>) ->
+    const_iterator
 {
     std::size_t i = m_impl.lower_bound(key);
     return m_impl.data() + i;
@@ -359,7 +362,7 @@ inline auto FlatSet<K, N>::lower_bound(const key_type& key) const noexcept -> co
 
 
 template<class K, std::size_t N>
-inline auto FlatSet<K, N>::upper_bound(const key_type& key) noexcept -> iterator
+inline auto FlatSet<K, N>::upper_bound(const key_type& key) noexcept(core::is_nothrow_less_comparable<K>) -> iterator
 {
     std::size_t i = m_impl.upper_bound(key);
     return m_impl.data() + i;
@@ -367,7 +370,8 @@ inline auto FlatSet<K, N>::upper_bound(const key_type& key) noexcept -> iterator
 
 
 template<class K, std::size_t N>
-inline auto FlatSet<K, N>::upper_bound(const key_type& key) const noexcept -> const_iterator
+inline auto FlatSet<K, N>::upper_bound(const key_type& key) const noexcept(core::is_nothrow_less_comparable<K>) ->
+    const_iterator
 {
     std::size_t i = m_impl.upper_bound(key);
     return m_impl.data() + i;
@@ -375,7 +379,8 @@ inline auto FlatSet<K, N>::upper_bound(const key_type& key) const noexcept -> co
 
 
 template<class K, std::size_t N>
-inline auto FlatSet<K, N>::equal_range(const key_type& key) noexcept -> std::pair<iterator, iterator>
+inline auto FlatSet<K, N>::equal_range(const key_type& key) noexcept(core::is_nothrow_less_comparable<K>) ->
+    std::pair<iterator, iterator>
 {
     std::pair<std::size_t, std::size_t> p = m_impl.equal_range(key);
     return { m_impl.data() + p.first, m_impl.data() + p.second };
@@ -383,7 +388,8 @@ inline auto FlatSet<K, N>::equal_range(const key_type& key) noexcept -> std::pai
 
 
 template<class K, std::size_t N>
-inline auto FlatSet<K, N>::equal_range(const key_type& key) const noexcept -> std::pair<const_iterator, const_iterator>
+inline auto FlatSet<K, N>::equal_range(const key_type& key) const noexcept(core::is_nothrow_less_comparable<K>) ->
+    std::pair<const_iterator, const_iterator>
 {
     std::pair<std::size_t, std::size_t> p = m_impl.equal_range(key);
     return { m_impl.data() + p.first, m_impl.data() + p.second };

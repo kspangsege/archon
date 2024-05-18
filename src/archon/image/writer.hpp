@@ -126,7 +126,8 @@ public:
     ///
     /// The default opacity is 1.
     ///
-    /// FIXME: Explain what happens if the specified value lies outside the nominal range [0,1], and whether it is allowed at all? Unspecified, but not undefined behavior                                              
+    /// FIXME: Explain what happens if the specified value lies outside the nominal range
+    /// [0,1], and whether it is allowed at all? Unspecified, but not undefined behavior               
     ///
     auto set_opacity(image::float_type) noexcept -> Writer&;
     auto get_opacity() noexcept -> image::float_type;
@@ -174,17 +175,17 @@ public:
     auto fill(const image::Box& area, ColorSlot slot = ColorSlot::foreground) -> Writer&;
     /// \}
 
-    /// \brief   
+    /// \brief Write other image to this image.
     ///
     /// This function is a shorthand for calling \ref put_image_a() with a reader
-    /// constructed from the specified image, and a box constructed from the size of the
-    /// image.
+    /// constructed from the specified image (\p img), and a box constructed from the size
+    /// of the specified image.
     ///
     /// \sa \ref image::Reader
     ///
-    auto put_image(image::Pos, const image::Image&) -> Writer&;
+    auto put_image(image::Pos pos, const image::Image& img) -> Writer&;
 
-    /// \brief   
+    /// \brief Write specific part of other image to this image.
     ///
     /// This function extracts a block of pixels from the source image, which is the image
     /// attached to the specified reader (\p reader), and writes that block to the target
@@ -349,7 +350,7 @@ public:
     /// format of the specified color is as specified by \p R, \p color_space, and \p
     /// has_alpha.
     ///
-    /// If the attached image does not have a palette (because if does not use indirect
+    /// If the attached image does not have a palette (because it does not use indirect
     /// color), or if the palette is empty (number of entries is zero) this function returns
     /// zero.
     ///

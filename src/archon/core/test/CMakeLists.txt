@@ -10,8 +10,8 @@ add_library(CoreTest OBJECT
   test_utility.cpp
   test_scope_exit.cpp
   test_value_reset_guard.cpp
-  test_circular_buffer.cpp
   test_vector.cpp
+  test_deque.cpp
   test_flat_map.cpp
   test_flat_multimap.cpp
   test_flat_set.cpp
@@ -23,6 +23,7 @@ add_library(CoreTest OBJECT
   test_integer_formatter.cpp
   test_integer_parser.cpp
   test_value_parser.cpp
+  test_as_int.cpp
   test_as_list.cpp
   test_format_as.cpp
   test_format_with.cpp
@@ -43,6 +44,7 @@ add_library(CoreTest OBJECT
   test_char_codec.cpp
   stateful_char_codec.cpp
   test_text_codec.cpp
+  test_unicode.cpp
   test_impl_prim_text_file_impl.cpp
   test_impl_text_file_impl.cpp
   test_text_file.cpp

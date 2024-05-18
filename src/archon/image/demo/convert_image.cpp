@@ -124,22 +124,26 @@ int main(int argc, char* argv[])
     opt("-p, --palette", "[<name>]", cli::no_attributes, spec,
         "Transform the image into a form that uses an indirect color pixel format. The palette name, if specified, "
         "can be any of \"bw\" (black and white), \"gray4\" (grayscale with 4 tones), and \"css16\" (16 basic colors "
-        "of CSS). The default palette is \"@W\".",
+        "of CSS). The default palette is @R.",
         cli::assign(palette, Palette::css16)); // Throws
+
     opt("-l, --log-level", "<level>", cli::no_attributes, spec,
-        "Set the log level limit. The possible levels are \"off\", \"fatal\", \"error\", \"warn\", \"info\", "
-        "\"detail\", \"debug\", \"trace\", and \"all\". The default limit is \"@V\".",
+        "Set the log level limit. The possible levels are @G. The default limit is @Q.",
         cli::assign(log_level_limit)); // Throws
+
     opt("-P, --progress", "", cli::no_attributes, spec,
         "Report loading progress.",
         cli::raise_flag(progress)); // Throws
+
     opt("-i, --interlace", "", cli::no_attributes, spec,
         "Turn on Adam7 interlacing when producing a PNG file.",
         cli::raise_flag(interlace)); // Throws
+
     opt("-r, --read-buffer-size", "<size>", cli::no_attributes, spec,
         "Set the size of the read buffer used when loading the specified image. The default size "
         "is @V.",
         cli::assign(core::as_int(load_config.read_buffer_size))); // Throws
+
     opt("-w, --write-buffer-size", "<size>", cli::no_attributes, spec,
         "Set the size of the write buffer used when saving the converted image. The default size is @V.",
         cli::assign(core::as_int(save_config.write_buffer_size))); // Throws

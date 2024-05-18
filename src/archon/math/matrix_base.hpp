@@ -64,7 +64,7 @@ public:
     /// These constructors set the rows of the matrix equal to the row vectors of the
     /// specified array.
     ///
-    template<class U> explicit(!math::is_lossless_conv<U, T>) constexpr MatrixBase1(math::Vector<N, U> (& rows)[M]) noexcept;
+    template<class U> explicit(!math::is_lossless_conv<U, T>) constexpr MatrixBase1(math::Vector<N, U>(& rows)[M]) noexcept;
     template<class U> explicit(!math::is_lossless_conv<U, T>) constexpr MatrixBase1(const std::array<math::Vector<N, U>, M>& rows) noexcept;
     /// \}
 
@@ -179,7 +179,7 @@ public:
 
 
 template<int M, int N, class T>
-template<class U> constexpr MatrixBase1<M, N, T>::MatrixBase1(math::Vector<N, U> (& rows)[M]) noexcept
+template<class U> constexpr MatrixBase1<M, N, T>::MatrixBase1(math::Vector<N, U>(& rows)[M]) noexcept
 {
     for (int i = 0; i < M; ++i)
         m_rows[i] = row_type(rows[i]);

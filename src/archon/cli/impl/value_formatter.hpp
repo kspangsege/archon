@@ -21,10 +21,11 @@
 #ifndef ARCHON_X_CLI_X_IMPL_X_VALUE_FORMATTER_HPP
 #define ARCHON_X_CLI_X_IMPL_X_VALUE_FORMATTER_HPP
 
-/// \file
 
-
+#include <cstddef>
 #include <type_traits>
+#include <iterator>
+#include <array>
 #include <optional>
 #include <string_view>
 #include <string>
@@ -32,7 +33,10 @@
 #include <ostream>
 #include <filesystem>
 
+#include <archon/core/char_mapper.hpp>
 #include <archon/core/string_codec.hpp>
+#include <archon/core/enum.hpp>
+#include <archon/core/quote.hpp>
 #include <archon/core/filesystem.hpp>
 
 
@@ -50,8 +54,14 @@ public:
 
     ValueFormatter(const std::locale&);
 
+    // First overload formats value and returns `true`. Second overload formats optional
+    // value and returns `true` if optional value is present. Otherwise returns `false`.
     template<class U> bool format(const U&, ostream_type&);
     template<class U> bool format(const std::optional<U>&, ostream_type&);
+
+    // If `core::EnumTraits<E>` is specialized, this function formats a list of the possible
+    // values and then returns `true`. Otherwise it returns `false`.
+    template<class E> bool format_enum_values(ostream_type&, bool disjunctive, bool quote);
 
 private:
     const std::locale m_locale;
@@ -94,6 +104,58 @@ template<class U> inline bool ValueFormatter<C, T>::format(const std::optional<U
         return true;
     }
     return false;
+}
+
+
+template<class C, class T>
+template<class E> bool ValueFormatter<C, T>::format_enum_values(ostream_type& out, bool disjunctive, bool quote)
+{
+    using enum_traits_type = core::EnumTraits<E>;
+    if constexpr (enum_traits_type::is_specialized) {
+        constexpr std::size_t n = std::size(enum_traits_type::Spec::map);
+        if constexpr (n >= 1) {
+            std::locale locale = out.getloc(); // Throws
+            std::array<C, 32> seed_memory = {};
+            core::BasicStringWidener<C, T> widener(locale, seed_memory); // Throws
+            auto format = [&](std::size_t i) {
+                const core::EnumAssoc& assoc = enum_traits_type::Spec::map[i];
+                string_view_type str = widener.widen(assoc.name); // Throws
+                if (quote) {
+                    out << core::quoted(str); // Throws
+                }
+                else {
+                    out << str; // Throws
+                }
+            };
+            format(0); // Throws
+            if constexpr (n == 2) {
+                if (disjunctive) {
+                    out << " or "; // Throws
+                }
+                else {
+                    out << " and "; // Throws
+                }
+                format(1); // Throws
+            }
+            else if constexpr (n > 2) {
+                for (std::size_t i = 1; i < n - 1; ++i) {
+                    out << ", "; // Throws
+                    format(i); // Throws
+                }
+                if (disjunctive) {
+                    out << ", or "; // Throws
+                }
+                else {
+                    out << ", and "; // Throws
+                }
+                format(n - 1); // Throws
+            }
+        }
+        return true;
+    }
+    else {
+        return false;
+    }
 }
 
 

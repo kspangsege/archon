@@ -15,7 +15,7 @@ target_link_libraries(Font PUBLIC
 find_package(Freetype)
 
 set(ARCHON_FONT_HAVE_FREETYPE 0)
-if (FREETYPE_FOUND)
+if(FREETYPE_FOUND)
   set(ARCHON_FONT_HAVE_FREETYPE 1)
   target_link_libraries(Font PRIVATE Freetype::Freetype)
 endif()
@@ -36,5 +36,5 @@ target_sources(Font PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "${
 install(TARGETS Font FILE_SET HEADERS)
 
 add_subdirectory(archon/font/test)
-add_subdirectory(archon/font/tools)
+add_subdirectory(archon/font/tool)
 add_subdirectory(archon/font/demo)

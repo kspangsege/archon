@@ -138,10 +138,10 @@ int main(int argc, char* argv[])
 
     namespace fs = std::filesystem;
     bool list_display_implementations = false;
+    render::Engine::Config engine_config;
     display::Size window_size = 512;
     log::LogLevel log_level_limit = log::LogLevel::warn;
     std::optional<std::string> optional_display_implementation;
-    render::Engine::Config engine_config;
 
     cli::Spec spec;
     pat("", cli::no_attributes, spec,
@@ -172,8 +172,7 @@ int main(int argc, char* argv[])
         cli::raise_flag(engine_config.fullscreen_mode)); // Throws
 
     opt("-l, --log-level", "<level>", cli::no_attributes, spec,
-        "Set the log level limit. The possible levels are \"off\", \"fatal\", \"error\", \"warn\", \"info\", "
-        "\"detail\", \"debug\", \"trace\", and \"all\". The default limit is \"@V\".",
+        "Set the log level limit. The possible levels are @G. The default limit is @Q.",
         cli::assign(log_level_limit)); // Throws
 
     opt("-i, --display-implementation", "<ident>", cli::no_attributes, spec,
@@ -193,6 +192,10 @@ int main(int argc, char* argv[])
 
     // Promise that all use of the display API happens on behalf of the main thread.
     guarantees.main_thread_exclusive = true;
+
+    // Promise that there is no direct or indirect use of the Xlib library (X Window System
+    // client library) other than through the Archon display library.
+    guarantees.no_other_use_of_x11 = true;
 
     // Promise that there is no direct or indirect use of SDL (Simple DirectMedia Layer)
     // other than through the Archon Display Library, and that there is also no direct or
@@ -250,7 +253,7 @@ int main(int argc, char* argv[])
     engine.set_scene(ball_scene);
     engine.set_base_spin(math::Rotation({ 0, 1, 0 }, core::deg_to_rad(90))); // Throws
 
-    engine.bind_key(display::Key::lower_case_s, "Spin", [&](bool down) {
+    engine.bind_key(display::Key::small_s, "Spin", [&](bool down) {
         if (down) {
             engine.set_spin(math::Rotation({ 0, 1, 0 }, core::deg_to_rad(90))); // Throws
         }

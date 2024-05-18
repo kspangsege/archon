@@ -21,8 +21,6 @@
 #ifndef ARCHON_X_CHECK_X_NOINST_X_ROOT_CONTEXT_IMPL_HPP
 #define ARCHON_X_CHECK_X_NOINST_X_ROOT_CONTEXT_IMPL_HPP
 
-/// \file
-
 
 #include <cstddef>
 #include <string_view>

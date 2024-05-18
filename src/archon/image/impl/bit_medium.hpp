@@ -21,8 +21,6 @@
 #ifndef ARCHON_X_IMAGE_X_IMPL_X_BIT_MEDIUM_HPP
 #define ARCHON_X_IMAGE_X_IMPL_X_BIT_MEDIUM_HPP
 
-/// \file
-
 
 #include <type_traits>
 #include <utility>

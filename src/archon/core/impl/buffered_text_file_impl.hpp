@@ -21,8 +21,6 @@
 #ifndef ARCHON_X_CORE_X_IMPL_X_BUFFERED_TEXT_FILE_IMPL_HPP
 #define ARCHON_X_CORE_X_IMPL_X_BUFFERED_TEXT_FILE_IMPL_HPP
 
-/// \file
-
 
 #include <cstddef>
 #include <utility>
@@ -470,7 +468,7 @@ bool BufferedTextFileImpl<S>::shallow_flush(std::error_code& ec)
 template<class S>
 inline void BufferedTextFileImpl<S>::expand_buffer()
 {
-    m_buffer.expand(1, m_end); // Throws
+    m_buffer.expand(m_end); // Throws
 }
 
 

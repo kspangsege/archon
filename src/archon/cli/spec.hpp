@@ -39,23 +39,23 @@
 // - All complex pattern elements must have corresponding tuple elements
 // - Simple pattern elements that are not value slots have no corresponding tuple elements
 //
-// Eample: `(<foo> [-a])...` matches func(std::vector<std::pair<int, std::optional<std::monostate>>>)
-// Eample: `(<foo> -a...)...` matches func(std::vector<std::pair<int, std::vector<std::monostate>>>)
-// Eample: `(<foo> [-a...])...` matches func(std::vector<std::pair<int, std::vector<std::monostate>>>)
+// Example: `(<foo> [-a])...` matches func(std::vector<std::pair<int, std::optional<std::monostate>>>)
+// Example: `(<foo> -a...)...` matches func(std::vector<std::pair<int, std::vector<std::monostate>>>)
+// Example: `(<foo> [-a...])...` matches func(std::vector<std::pair<int, std::vector<std::monostate>>>)
 //
 // AND EVEN (collapsed):
 //
-// Eample: `(<foo> [-a])...` matches func(std::vector<std::pair<int, bool>>)
-// Eample: `(<foo> -a...)...` matches func(std::vector<std::pair<int, std::size_t>>)
-// Eample: `(<foo> [-a...])...` matches func(std::vector<std::pair<int, std::size_t>>)
+// Example: `(<foo> [-a])...` matches func(std::vector<std::pair<int, bool>>)
+// Example: `(<foo> -a...)...` matches func(std::vector<std::pair<int, std::size_t>>)
+// Example: `(<foo> [-a...])...` matches func(std::vector<std::pair<int, std::size_t>>)
 //
-// Eample: `(<foo> (-a | -b | -c))...` matches func(std::vector<std::pair<int, std::size_t>>)
-// Eample: `(<foo> [-a | -b | -c])...` matches func(std::vector<std::pair<int, std::optional<std::size_t>>>)
-// Eample: `(<foo> (-a | -b | -c)...)...` matches func(std::vector<std::pair<int, std::vector<std::size_t>>>)
+// Example: `(<foo> (-a | -b | -c))...` matches func(std::vector<std::pair<int, std::size_t>>)
+// Example: `(<foo> [-a | -b | -c])...` matches func(std::vector<std::pair<int, std::optional<std::size_t>>>)
+// Example: `(<foo> (-a | -b | -c)...)...` matches func(std::vector<std::pair<int, std::vector<std::size_t>>>)
 //
 // ----------------------------->> Add test cases for these examples       
 //
-// Alledged rules:
+// Alleged rules:
 //
 // - In an optionality construct, if the sub-pattern is associated with std::monostate (or empty tuple type), then the type associated with the optionality construct is `bool`.
 // - In a repetition construct, if the sub-pattern is associated with std::monostate (or empty tuple type), then the type associated with the repetition construct is `std::size_t`.
@@ -63,7 +63,7 @@
 //
 // A command-line argument that is matched with a value slot in the pattern will be parsed according to the type of the corresponding parameter of the pattern action function.
 //
-// The correspondance between pattern elements and function parameters is established as follows: ...
+// The correspondence between pattern elements and function parameters is established as follows: ...
 //
 // In general, `T` can be used in place of `std::tuple<T>`, `std::pair<T, U>` can be used in place of std::tuple<T, U>, `std::array<T, N>` can be used in place of a `std::tuple<T, T, T, ...>` when the size of the tuple is `N`, and `std::monostate` can be used in place of `std::tuple<>`.
 //
@@ -79,8 +79,8 @@
 // The following restrictions apply in order to avoid some ambiguities:
 //
 // - In an optionality construct, the sub-pattern must not be nullable. For example, `[[<foo>]]` is not allowed (use `[<foo>]` instead).
-// - In a repetition construct, the sub-pattern must not be nullable. For exampe, `[<foo>]...` is not allowed (use `[<foo>...]` instead).
-// - In an alternatives construction, at most one branch is allowed to be nullable. For exampe, `[<foo>] | [<bar>]` is not allowed (use `[<foo> | <bar>]` instead).
+// - In a repetition construct, the sub-pattern must not be nullable. For example, `[<foo>]...` is not allowed (use `[<foo>...]` instead).
+// - In an alternatives construction, at most one branch is allowed to be nullable. For example, `[<foo>] | [<bar>]` is not allowed (use `[<foo> | <bar>]` instead).
 // - In a repetition construct, the sub-pattern must not have repeatable matches. For example, `(<foo>...)...` is not allowed (use `<foo>...` instead).
 //
 // ----------------------------->> Add test cases to verify that these 4 rules are enforced.          
@@ -110,8 +110,8 @@ A pattern is said to have *repeatable matches* if there exists a sequence of sym
 The following restrictions apply in order to avoid some ambiguities:
 
 - In an optionality construct, the sub-pattern must not be nullable. For example, `[[<foo>]]` is not allowed.
-- In a repetition construct, the sub-pattern must not be nullable. For exampe, `[<foo>]...` is not allowed (use `[<foo>...]` instead).
-- In an alternatives construction, no branch must be nullable. For exampe, `[<foo>] | <bar>` is not allowed (use `[<foo> | <bar>]` instead).
+- In a repetition construct, the sub-pattern must not be nullable. For example, `[<foo>]...` is not allowed (use `[<foo>...]` instead).
+- In an alternatives construction, no branch must be nullable. For example, `[<foo>] | <bar>` is not allowed (use `[<foo> | <bar>]` instead).
 - In a repetition construct, the sub-pattern must not have repeatable matches. For example, `(<foo>...)...` is not allowed.
 
 ----------------------------->> Add test cases to verify that these 4 rules are enforced.          
@@ -198,7 +198,7 @@ namespace archon::cli {
 /// action is a function having parameters of string view type, then the memory referenced
 /// by the produced string view objects is owned by a string holder (\ref
 /// cli::BasicStringHolder). If no string holder is specified by the application (\ref
-/// cli::Config::string_holder), then the effectiive string holder is owned by the root
+/// cli::Config::string_holder), then the effective string holder is owned by the root
 /// command-line object, and its lifetime ends when the that object dies. The application
 /// can extend the lifetime of the memory referenced by string views by creating its own
 /// string holder, and specifying it through \ref cli::Config::string_holder.           
@@ -258,7 +258,7 @@ public:
     /// FIXME: Explain what the pattern action can be other than a function (\ref
     /// cli::no_action, an l-value reference to a tuple, or a tuple-like object)                                
     ///
-    /// \param attr Bitwise OR of pattern attributes, or zero for "no attrbutes". See \ref
+    /// \param attr Bitwise OR of pattern attributes, or zero for "no attributes". See \ref
     /// cli::PatternAttributes, and \ref cli::no_attributes.
     ///
     /// FIXME: Explain: Unparenthesized disjunctions are not allowed. This is because \ref
@@ -277,7 +277,7 @@ public:
 
     /// \brief Add command-line option.
     ///
-    /// \param attr Bitwise OR of option attributes, or zero for "no attrbutes". See \ref
+    /// \param attr Bitwise OR of option attributes, or zero for "no attributes". See \ref
     /// cli::OptionAttributes, and \ref cli::no_attributes.
     ///
     /// FIXME: Describe valid forms:                                          
@@ -296,6 +296,10 @@ public:
     /// `W` -> value assigned/passed by default (default argument) (only valid with some option action types, \ref raise_flag(), \ref lower_flag(), \ref assign(), and \ref exec()). Hmm, only some versions of exec()!?!?!?                                         
     /// `Q` -> same as `V`, but quoted as if by \ref core::quoted() with `max_size` set to 32. If value type is `std::option<T>`, then quoting only takes place when there is a value.
     /// `R` -> same as `W`, but quoted as if by \ref core::quoted() with `max_size` set to 32. If value type is `std::option<T>`, then quoting only takes place when there is a value.
+    /// `E` -> list of possible enumeration values for options associated with a value type that is an enumeration. The values are formatted as `x`, `x and x`, or `x, x, ..., and x` depending on how many possible values there are.
+    /// `F` -> sames as `E` but using a disjunctive form (`or` instead of `and`).
+    /// `G` -> sames as `E` but with each possible value quoted as if by \ref core::quoted().
+    /// `H` -> sames as `G` but using a disjunctive form (`or` instead of `and`).
     ///
     /// FIXME: Explain what forms the action can take. It can be `cli::no_action`, a tuple
     /// of one variable reference (`std::tie(var)`), any of the objects returned by the

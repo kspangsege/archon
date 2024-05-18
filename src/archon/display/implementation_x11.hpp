@@ -18,30 +18,35 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-#ifndef ARCHON_X_CORE_X_IMPL_X_TYPE_HPP
-#define ARCHON_X_CORE_X_IMPL_X_TYPE_HPP
+#ifndef ARCHON_X_DISPLAY_X_IMPLEMENTATION_X11_HPP
+#define ARCHON_X_DISPLAY_X_IMPLEMENTATION_X11_HPP
 
 /// \file
 
 
-#include <utility>
-#include <ostream>
+#include <archon/display/implementation.hpp>
 
 
-namespace archon::core::impl {
+namespace archon::display {
 
 
-template<class T, class C, class U, class = decltype(std::declval<std::basic_ostream<C, U>>() << std::declval<T>())> constexpr bool has_stream_output_operator(int)
-{
-    return true;
-}
+/// \brief Display implementation based on Xlib.
+///
+/// This function returns the display implementation slot for the implementation that is
+/// based on Xlib, which is the X Window System client library.
+///
+/// This implementation is available if enabled at compile time (`ARCHON_DISPLAY_HAVE_SDL`)
+/// and the set of specified display guarantees includes \ref
+/// display::Guarantees::main_thread_exclusive and \ref
+/// display::Guarantees::no_other_use_of_x11.
+///
+/// This implementation is available if enabled at compile time (`ARCHON_DISPLAY_HAVE_X11`).
+///
+/// \sa https://x.org
+///
+auto get_x11_implementation_slot() noexcept -> const display::Implementation::Slot&;
 
-template<class T, class C, class U> constexpr bool has_stream_output_operator(long)
-{
-    return false;
-}
 
+} // namespace archon::display
 
-} // namespace archon::core::impl
-
-#endif // ARCHON_X_CORE_X_IMPL_X_TYPE_HPP
+#endif // ARCHON_X_DISPLAY_X_IMPLEMENTATION_X11_HPP

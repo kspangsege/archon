@@ -6,10 +6,18 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_CXX_EXTENSIONS False)
 
-if(MSVC)
-  add_compile_options(/constexpr:steps10000000)
-else()
+# Warning level
+if(NOT MSVC)
   add_compile_options(-pedantic -Wall -Wextra -Wundef -Wold-style-cast -Wextra-semi -Wunreachable-code -Wno-redundant-move)
+endif()
+
+# `constexpr` evaluation
+if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
+  add_compile_options(-fconstexpr-ops-limit=100000000)
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" OR CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
+  add_compile_options(-fconstexpr-steps=100000000)
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+  add_compile_options(/constexpr:steps100000000)
 endif()
 
 set(THREADS_PREFER_PTHREAD_FLAG ON)

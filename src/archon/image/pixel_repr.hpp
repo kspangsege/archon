@@ -68,23 +68,29 @@ template<image::ColorSpace::Tag C, bool A, image::CompRepr R> struct PixelRepr {
 };
 
 
-using Alpha_8 = image::PixelRepr<image::ColorSpace::Tag::degen, true,  image::CompRepr::int8>;
-using Lum_8   = image::PixelRepr<image::ColorSpace::Tag::lum,   false, image::CompRepr::int8>;
-using LumA_8  = image::PixelRepr<image::ColorSpace::Tag::lum,   true,  image::CompRepr::int8>;
-using RGB_8   = image::PixelRepr<image::ColorSpace::Tag::rgb,   false, image::CompRepr::int8>;
-using RGBA_8  = image::PixelRepr<image::ColorSpace::Tag::rgb,   true,  image::CompRepr::int8>;
+template<image::CompRepr R> using Alpha = image::PixelRepr<image::ColorSpace::Tag::degen, true,  R>;
+template<image::CompRepr R> using Lum   = image::PixelRepr<image::ColorSpace::Tag::lum,   false, R>;
+template<image::CompRepr R> using LumA  = image::PixelRepr<image::ColorSpace::Tag::lum,   true,  R>;
+template<image::CompRepr R> using RGB   = image::PixelRepr<image::ColorSpace::Tag::rgb,   false, R>;
+template<image::CompRepr R> using RGBA  = image::PixelRepr<image::ColorSpace::Tag::rgb,   true,  R>;
 
-using Alpha_16 = image::PixelRepr<image::ColorSpace::Tag::degen, true,  image::CompRepr::int16>;
-using Lum_16   = image::PixelRepr<image::ColorSpace::Tag::lum,   false, image::CompRepr::int16>;
-using LumA_16  = image::PixelRepr<image::ColorSpace::Tag::lum,   true,  image::CompRepr::int16>;
-using RGB_16   = image::PixelRepr<image::ColorSpace::Tag::rgb,   false, image::CompRepr::int16>;
-using RGBA_16  = image::PixelRepr<image::ColorSpace::Tag::rgb,   true,  image::CompRepr::int16>;
+using Alpha_8 = image::Alpha<image::CompRepr::int8>;
+using Lum_8   = image::Lum<image::CompRepr::int8>;
+using LumA_8  = image::LumA<image::CompRepr::int8>;
+using RGB_8   = image::RGB<image::CompRepr::int8>;
+using RGBA_8  = image::RGBA<image::CompRepr::int8>;
 
-using Alpha_F = image::PixelRepr<image::ColorSpace::Tag::degen, true,  image::CompRepr::float_>;
-using Lum_F   = image::PixelRepr<image::ColorSpace::Tag::lum,   false, image::CompRepr::float_>;
-using LumA_F  = image::PixelRepr<image::ColorSpace::Tag::lum,   true,  image::CompRepr::float_>;
-using RGB_F   = image::PixelRepr<image::ColorSpace::Tag::rgb,   false, image::CompRepr::float_>;
-using RGBA_F  = image::PixelRepr<image::ColorSpace::Tag::rgb,   true,  image::CompRepr::float_>;
+using Alpha_16 = image::Alpha<image::CompRepr::int16>;
+using Lum_16   = image::Lum<image::CompRepr::int16>;
+using LumA_16  = image::LumA<image::CompRepr::int16>;
+using RGB_16   = image::RGB<image::CompRepr::int16>;
+using RGBA_16  = image::RGBA<image::CompRepr::int16>;
+
+using Alpha_F = image::Alpha<image::CompRepr::float_>;
+using Lum_F   = image::Lum<image::CompRepr::float_>;
+using LumA_F  = image::LumA<image::CompRepr::float_>;
+using RGB_F   = image::RGB<image::CompRepr::float_>;
+using RGBA_F  = image::RGBA<image::CompRepr::float_>;
 
 
 

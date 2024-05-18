@@ -27,15 +27,22 @@
 #include <cstddef>
 #include <memory>
 #include <chrono>
+#include <string_view>
+#include <system_error>
 #include <locale>
 
 #include <archon/core/buffer.hpp>
+#include <archon/log/logger.hpp>
 #include <archon/display/implementation_fwd.hpp>
 #include <archon/display/geometry.hpp>
+#include <archon/display/key.hpp>
+#include <archon/display/key_code.hpp>
 #include <archon/display/event_handler.hpp>
 #include <archon/display/resolution.hpp>
 #include <archon/display/screen.hpp>
 #include <archon/display/guarantees.hpp>
+#include <archon/display/connection_config_x11.hpp>
+#include <archon/display/connection_config_sdl.hpp>
 #include <archon/display/window.hpp>
 
 
@@ -79,22 +86,47 @@ namespace archon::display {
 ///
 class Connection {
 public:
-    /// \{
+    struct Config;
+
+    /// \brief Map well-known key to key code.
     ///
-    /// \brief Create a new window.
+    /// This function maps the specified well-known key (\p key) to the corresponding key
+    /// code (\p key_code). If a corresponding key code exists, this function returns `true`
+    /// after setting \p key_code to that key code. If a corresponding key code does not
+    /// exist, this function returns `false` and leaves \p key_code unchanged.
     ///
-    /// These functions create a new window with the specified title (\p title) and of the
-    /// specified size (\p size).
+    virtual bool try_map_key_to_key_code(display::Key key, display::KeyCode& key_code) const = 0;
+
+    /// \brief Map key code to well-known key.
     ///
-    /// The overload that takes a display index argument (\p display) creates the window on
-    /// that display. The overload that does not take a display index argument creates the
-    /// window on the default display (\ref get_default_display()).
+    /// This function maps the specified key code (\p key_code) to the corresponding
+    /// well-known key (\p key). If a corresponding well-known key exists, this function
+    /// returns `true` after setting \p key to that key. If a corresponding well-known key
+    /// does not exist, this function returns `false` and leaves \p key unchanged.
     ///
-    /// When specified, the display is specified as an index into the list of displays
-    /// accessible through this connection. See \ref display::Connection for general
-    /// information about displays. The number of displays is returned by \ref
-    /// get_num_displays() and the index of the default display is returned by \ref
-    /// get_default_display().
+    virtual bool try_map_key_code_to_key(display::KeyCode key_code, display::Key& key) const = 0;
+
+    /// \brief Get key name.
+    ///
+    /// This function returns the name of the specified key as known to this
+    /// implementation. Key names are not guaranteed to be invariant across implementations.
+    ///
+    /// If the implementation knows the name of the specified key (\p key_code), this
+    /// function returns `true` after setting \p name to that name. Otherwise this function
+    /// returns `false` and leaves \p name unchanged.
+    ///
+    virtual bool try_get_key_name(display::KeyCode key_code, std::string_view& name) const = 0;
+
+    /// \brief Attempt to create a new window.
+    ///
+    /// This function creates a new window with the specified title (\p title) and size (\p
+    /// size), and configured according to the specified configuration parameters (\p
+    /// config). The target display is specified through display::Window::config::display.
+    ///
+    /// The application will generally have to set a new event handler for the window using
+    /// \ref display::Window::set_event_handler(), and in order to not loose any events,
+    /// this has to happen before the next invocation of the event processor (\ref
+    /// process_events()).
     ///
     /// The window starts out in the "hidden" state. Call \ref display::Window::show() to
     /// unhide it.
@@ -110,13 +142,11 @@ public:
     /// by the main thread. Further more, the returned window must be used only by the main
     /// thread. This includes the destruction of the window object.
     ///
-    /// FIXME: When an X11-based implementation is added, state this: When using the X11-based implementation (\ref display::get_x11_implementation()), the initial position is generally determined by a window manager.                   
+    /// When using the X11-based implementation (\ref display::get_x11_implementation()),
+    /// the initial position is generally determined by a window manager.
     ///
-    virtual auto new_window(std::string_view title, display::Size size, display::WindowEventHandler&,
-                            display::Window::Config = {}) -> std::unique_ptr<display::Window> = 0;
-    virtual auto new_window(int display, std::string_view title, display::Size size, display::WindowEventHandler&,
-                            display::Window::Config = {}) -> std::unique_ptr<display::Window> = 0;
-    /// \}
+    virtual auto new_window(std::string_view title, display::Size size, const display::Window::Config& config = {}) ->
+        std::unique_ptr<display::Window> = 0;
 
     using clock_type      = std::chrono::steady_clock;
     using time_point_type = std::chrono::time_point<clock_type>;
@@ -155,7 +185,8 @@ public:
     /// this connection. See \ref display::Connection for general information about
     /// displays.
     ///
-    /// FIXME: When an X11-based implementation is added, state this: When using the X11-based implementation (\ref display::get_x11_implementation()), each X screen becomes a display.                            
+    /// When using the X11-based implementation (\ref display::get_x11_implementation()),
+    /// each X screen counts as a display.
     ///
     /// When using the SDL-based implementation (\ref
     /// display::get_sdl_implementation_slot()), only one display will be exposed. When SDL
@@ -172,7 +203,9 @@ public:
     /// refers to an order of the accessible displays determined by the platform and
     /// implementation. See \ref display::Connection for general information about displays.
     ///
-    /// FIXME: When an X11-based implementation is added, state this: When using the X11-based implementation (\ref display::get_x11_implementation()), the default display is determined by the screen number specified in the value of the `DISPLAY` environment variable.                            
+    /// When using the X11-based implementation (\ref display::get_x11_implementation()),
+    /// the default display is determined by the screen number specified in the value of the
+    /// `DISPLAY` environment variable.
     ///
     /// \sa \ref get_num_displays()
     ///
@@ -198,8 +231,15 @@ public:
     /// whenever the display configuration changes (\ref
     /// display::ConnectionEventHandler::on_display_change()).
     ///
+    /// Some display implementations are able to provide the display configurations, but in
+    /// a less than reliable manner due to quirks in the underlying subsystem (SDL is an
+    /// example of this). Such implementations must set \p reliable to `false` when
+    /// `try_get_display_conf()` returns `true`. Display implementations that provide the
+    /// display configuration in a reliable manner should set \p reliable to `true` when
+    /// `try_get_display_conf()` returns `true`.
+    ///
     virtual bool try_get_display_conf(int display, core::Buffer<display::Screen>& screens, core::Buffer<char>& strings,
-                                      std::size_t& num_screens) const = 0;
+                                      std::size_t& num_screens, bool& reliable) const = 0;
 
     /// \brief Associated implementation.
     ///
@@ -212,12 +252,43 @@ public:
 };
 
 
+/// \brief Connection configuration parameters.
+///
+/// This is a collection of all the configuration parameters that are specific to each of
+/// the display implementations.
+///
+struct Connection::Config {
+    /// \brief Log through specified logger.
+    ///
+    /// If no logger is specified, nothing is logged. If a logger is specified, it must use
+    /// a locale that is compatible with the locale that is passed to \ref
+    /// display::Implementation::new_connection(), \ref display::new_connection(), or \ref
+    /// display::new_connection_a(). The important thing is that the character encodings
+    /// agree (`std::codecvt` facet).
+    ///
+    log::Logger* logger = nullptr;
+
+    /// \brief Parameters specific to X11-based implementation.
+    ///
+    /// These are the parameters that are specific to the X11-based implementation.
+    ///
+    display::ConnectionConfigX11 x11;
+
+    /// \brief Parameters specific to SDL-based implementation.
+    ///
+    /// These are the parameters that are specific to the SDL-based implementation.
+    ///
+    display::ConnectionConfigSDL sdl;
+};
+
+
 /// \brief Establish display connection using default underlying implementation.
 ///
 /// This function is like \ref new_connection_a() except that is throws an exception instead
 /// of returning null if no display implementations are available.
 ///
-auto new_connection(const std::locale&, const display::Guarantees&) -> std::unique_ptr<display::Connection>;
+auto new_connection(const std::locale&, const display::Guarantees&, const display::Connection::Config& = {}) ->
+    std::unique_ptr<display::Connection>;
 
 
 /// \brief Establish display connection using default implementation if available.
@@ -236,7 +307,8 @@ auto new_connection(const std::locale&, const display::Guarantees&) -> std::uniq
 /// connection must be used only by the main thread. This includes the destruction of the
 /// connection returned by this function.
 ///
-auto new_connection_a(const std::locale&, const display::Guarantees&) -> std::unique_ptr<display::Connection>;
+auto new_connection_a(const std::locale&, const display::Guarantees&, const display::Connection::Config& = {}) ->
+    std::unique_ptr<display::Connection>;
 
 
 } // namespace archon::display

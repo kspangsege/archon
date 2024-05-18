@@ -33,7 +33,6 @@
 #include <stdexcept>
 
 #include <archon/core/features.h>
-#include <archon/core/type.hpp>
 #include <archon/core/span.hpp>
 #include <archon/core/assert.hpp>
 #include <archon/core/integer.hpp>
@@ -135,7 +134,7 @@ auto suggest_new_buffer_size(std::size_t cur_size, std::size_t min_size, std::si
 /// destination memory region to overlap with the origin region, but they can be used only
 /// when \p T has a non-throwing move-constructor. Like `uninit_safe_move()`, these
 /// functions destroy the original objects. These functions require \p T to have a
-/// non-throwing destructor.
+/// non-throwing destructor. The specified distance (\p dist) must be non-zero.
 ///
 template<class T, class... A> void uninit_create(T* uninit, A&&... args);
 template<class T> void uninit_destroy(T* data, std::size_t size) noexcept;

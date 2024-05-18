@@ -21,8 +21,6 @@
 #ifndef ARCHON_X_CORE_X_IMPL_X_TEXT_FILE_IMPL_HPP
 #define ARCHON_X_CORE_X_IMPL_X_TEXT_FILE_IMPL_HPP
 
-/// \file
-
 
 #include <cstddef>
 #include <type_traits>
@@ -703,7 +701,7 @@ bool TextFileImpl2<P, D>::shallow_flush(std::error_code& ec)
 template<class P, class D>
 inline void TextFileImpl2<P, D>::expand_buffer()
 {
-    m_buffer.expand(1, m_end, max_buffer_size()); // Throws
+    m_buffer.expand(m_end, max_buffer_size()); // Throws
 }
 
 

@@ -87,7 +87,7 @@ template<std::size_t N> struct Palette {
     }
 };
 
-template<std::size_t N> Palette(const util::Color (&)[N]) -> Palette<N>;
+template<std::size_t N> Palette(const util::Color(&)[N]) -> Palette<N>;
 
 
 } // unnamed namespace

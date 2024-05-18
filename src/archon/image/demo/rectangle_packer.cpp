@@ -126,7 +126,7 @@ int main(int argc, char* argv[])
         image::Pixel_RGB_F color;
         for (int i = 0; i < color.num_channels; ++i)
             color[i] = image::float_type(1 - 0.9 * core::rand_float<double>(random)); // Throws
-        writer.set_foreground_color(color);
+        writer.set_foreground_color_a(color);
         writer.fill(rect); // Throws
     }
     image::save(image, path, locale); // Throws

@@ -25,6 +25,7 @@
 
 
 #include <cstddef>
+#include <type_traits>
 #include <utility>
 
 #include <archon/core/span.hpp>
@@ -48,9 +49,11 @@ namespace archon::core {
 /// array. This eliminates the risk of an array being interpreted as a string literal, and
 /// therfore having internal nulls prematurely terminating the span.
 ///
-/// Just like a regular span, a string span can be implicitely constructed from anything
-/// that has suitable `data()` and `size()` methods. This includes regular spans and string
-/// views.
+/// Just like a regular span (\ref core::Span), a string span can be implicitely constructed
+/// from anything that has suitable `data()` and `size()` methods. This includes regular
+/// spans and string views.
+///
+/// \sa \ref core::Span
 ///
 template<class C> class StringSpan
     : public core::Span<const C> {
@@ -64,6 +67,9 @@ public:
     template<class D, class = decltype(std::declval<D>().data() + std::declval<D>().size())>
     constexpr StringSpan(const D& container) noexcept(noexcept(container.data() + container.size()));
 };
+
+template<class C> StringSpan(C&) ->
+    StringSpan<std::remove_const_t<std::remove_reference_t<decltype(*std::declval<C>().data())>>>;
 
 
 

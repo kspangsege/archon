@@ -25,6 +25,7 @@
 
 
 #include <cstddef>
+#include <type_traits>
 #include <utility>
 #include <string_view>
 #include <locale>
@@ -50,11 +51,44 @@ namespace archon::core {
 /// These functions are shorthands for calling \ref core::as_int() with the corresponding
 /// radix (base).
 ///
+/// \sa \ref core::as_flex_int()
+/// \sa \ref core::as_int()
+///
 template<class I> auto as_dec_int(I&& ref, int min_num_digits = 1) noexcept;
 template<class I> auto as_bin_int(I&& ref, int min_num_digits = 1) noexcept;
 template<class I> auto as_oct_int(I&& ref, int min_num_digits = 1) noexcept;
 template<class I> auto as_hex_int(I&& ref, int min_num_digits = 1) noexcept;
 /// }
+
+
+/// \{
+///
+/// \brief Format or parse unsigned decimal, octal, or hexadecimal integer.
+///
+/// These functions return objects that, depending on \p ref, can be used for both
+/// formatting and parsing of an integer.
+///
+/// When formatting, the effect, when using `as_flex_int()`, is the same as when using \ref
+/// core::as_dec_int(). Similarly, the effect, when using `as_flex_int_h()`, is the same as
+/// when using \ref core::as_hex_int(), but with `0x` added as prefix.
+///
+/// When parsing, both overloads work exactly the same way. If the parsed string has `0x` as
+/// a prefix, the effect is the same as for `as_hex_int(ref)` when applied to the part of
+/// the parsed string that follows the prefix. Otherwise, if the parsed string has `0` as a
+/// prefix, the effect is the same as for `as_oct_int(ref)` when applied to the part of the
+/// parsed string that follows the prefix. Otherwise the effect is the same as for
+/// `as_dec_int(ref)`.
+///
+/// \sa \ref core::as_dec_int()
+/// \sa \ref core::as_oct_int()
+/// \sa \ref core::as_hex_int()
+/// \sa \ref core::as_int()
+/// \sa \ref core::as_flex_int()
+/// \sa \ref core::as_flex_int_h()
+///
+template<class I> auto as_flex_int(I&& ref) noexcept;
+template<class I> auto as_flex_int_h(I&& ref) noexcept;
+/// \}
 
 
 /// \brief Format or parse integer as specified.
@@ -74,6 +108,11 @@ template<class I> auto as_hex_int(I&& ref, int min_num_digits = 1) noexcept;
 /// \param min_num_digits The minimum number of digits to generate. See \ref
 /// core::IntegerFormatter::format() for the meanings of zero and negative value.
 ///
+/// \sa \ref core::as_dec_int()
+/// \sa \ref core::as_oct_int()
+/// \sa \ref core::as_hex_int()
+/// \sa \ref core::as_int_a()
+///
 template<int radix = 10, class I> auto as_int(I&& ref, int min_num_digits = 1) noexcept;
 
 
@@ -82,6 +121,8 @@ template<int radix = 10, class I> auto as_int(I&& ref, int min_num_digits = 1) n
 /// This function has the same effect as \ref core::as_int(), but this function allows you
 /// to use a radix that is not known at compile time. This may be at the expense of reduced
 /// efficiency, though.
+///
+/// \sa \ref core::as_int()
 ///
 template<class I> auto as_int_a(I&& ref, int radix, int min_num_digits = 1) noexcept;
 
@@ -181,6 +222,43 @@ inline bool parse_value(core::BasicValueParserSource<C, T>& src, const impl::AsI
 }
 
 
+template<class I> struct AsFlexInt {
+    I i; // May be a reference
+    bool format_as_hex;
+};
+
+
+template<class C, class T, class I>
+inline auto operator<<(std::basic_ostream<C, T>& out, AsFlexInt<I> pod) -> std::basic_ostream<C, T>&
+{
+    core::BasicCharMapper<C, T> mapper(out); // Throws
+    core::BasicIntegerFormatter<C, T> formatter(mapper);
+    if (!pod.format_as_hex) {
+        out << formatter.format_dec(pod.i); // Throws
+    }
+    else {
+        out << "0x" << formatter.format_hex(pod.i); // Throws
+    }
+    return out;
+}
+
+
+template<class C, class T, class I>
+inline bool parse_value(core::BasicValueParserSource<C, T>& src, const impl::AsFlexInt<I>& pod)
+{
+    core::BasicIntegerParser<C, T> parser(src.get_char_mapper());
+    using string_view_type = typename core::BasicValueParserSource<C, T>::string_view_type;
+    string_view_type string = src.string();
+    bool is_dec = (string.size() < 1 || string[0] != src.widen('0')); // Throws
+    if (is_dec)
+        return parser.parse_dec(src.string(), pod.i); // Throws
+    bool is_oct = (string.size() < 2 || (string[1] != src.widen('x') && string[1] != src.widen('X'))); // Throws
+    if (is_oct)
+        return parser.parse_oct(src.string(), pod.i); // Throws
+    return parser.parse_hex(src.string().substr(2), pod.i); // Throws
+}
+
+
 } // namespace impl
 
 
@@ -205,6 +283,22 @@ template<class I> inline auto as_oct_int(I&& ref, int min_num_digits) noexcept
 template<class I> inline auto as_hex_int(I&& ref, int min_num_digits) noexcept
 {
     return core::as_int<16>(std::forward<I>(ref), min_num_digits);
+}
+
+
+template<class I> inline auto as_flex_int(I&& ref) noexcept
+{
+    static_assert(core::is_unsigned<std::decay_t<I>>());
+    bool format_as_hex = false;
+    return impl::AsFlexInt<I> { std::forward<I>(ref), format_as_hex };
+}
+
+
+template<class I> inline auto as_flex_int_h(I&& ref) noexcept
+{
+    static_assert(core::is_unsigned<std::decay_t<I>>());
+    bool format_as_hex = true;
+    return impl::AsFlexInt<I> { std::forward<I>(ref), format_as_hex };
 }
 
 

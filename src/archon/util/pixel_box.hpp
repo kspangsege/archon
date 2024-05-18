@@ -73,6 +73,14 @@ struct Box {
     constexpr Box(pixel::Pos pos, pixel::Size size) noexcept;
     /// \}
 
+    /// \brief Whether size of box is valid and sum of position and size is representable.
+    ///
+    /// This function returns `true` precisely when the size of the box is valid (\ref
+    /// pixel::Size::is_valid()) and the size can be added to the position without overflow
+    /// (\ref pixel::Pos::can_add()).
+    ///
+    constexpr bool is_valid() const noexcept;
+
     /// \brief Whether box is empty.
     ///
     /// This function returns `false` if the box contains at least one pixel. Otherwise, it
@@ -157,6 +165,12 @@ constexpr Box::Box(pixel::Pos pos_2, pixel::Size size_2) noexcept
     : pos(pos_2)
     , size(size_2)
 {
+}
+
+
+constexpr bool Box::is_valid() const noexcept
+{
+    return (size.is_valid() && pos.can_add(size));
 }
 
 
