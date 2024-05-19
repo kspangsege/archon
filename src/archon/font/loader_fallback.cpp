@@ -46,8 +46,8 @@
 #include <archon/core/char_mapper.hpp>
 #include <archon/core/string.hpp>
 #include <archon/core/seed_memory_output_stream.hpp>
-#include <archon/core/format.hpp>
 #include <archon/core/value_parser.hpp>
+#include <archon/core/format.hpp>
 #include <archon/core/as_int.hpp>
 #include <archon/core/as_list.hpp>
 #include <archon/core/format_with.hpp>

@@ -37,8 +37,8 @@
 #include <archon/core/integer.hpp>
 #include <archon/core/memory.hpp>
 #include <archon/core/buffer.hpp>
-#include <archon/core/format.hpp>
 #include <archon/core/value_parser.hpp>
+#include <archon/core/format.hpp>
 #include <archon/core/as_int.hpp>
 #include <archon/core/format_as.hpp>
 #include <archon/core/quote.hpp>

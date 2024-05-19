@@ -27,9 +27,9 @@
 #include <archon/core/span.hpp>
 #include <archon/core/buffer.hpp>
 #include <archon/core/unicode.hpp>
+#include <archon/core/with_modified_locale.hpp>
 #include <archon/core/format.hpp>
 #include <archon/core/as_list.hpp>
-#include <archon/core/with_modified_locale.hpp>
 #include <archon/core/enum.hpp>
 #include <archon/check.hpp>
 
@@ -77,10 +77,8 @@ ARCHON_TEST(Core_Unicode_DecodeUtf8Incr)
                                                          std::initializer_list<int_type_2> expected_out,
                                                          Result expected_result) {
         ARCHON_TEST_TRAIL(parent_test_context,
-                          core::with_reverted_numerics(core::formatted("%s, %s, %s, %s, %s", core::as_sbr_list(in),
-                                                                       out_size, expected_in_size,
-                                                                       core::as_sbr_list(expected_out),
-                                                                       ResultEnum(expected_result))));
+                          core::formatted_wrn("%s, %s, %s, %s, %s", core::as_sbr_list(in), out_size, expected_in_size,
+                                              core::as_sbr_list(expected_out), ResultEnum(expected_result)));
         std::size_t offset_1 = 0;
         for (int_type_1 val : in)
             buffer_1.append_a(traits_type_1::to_char_type(val), offset_1);

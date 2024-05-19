@@ -40,16 +40,10 @@
 #include <archon/core/assert.hpp>
 #include <archon/core/char_mapper.hpp>
 #include <archon/core/stream_output.hpp>
+#include <archon/core/with_modified_locale.hpp>
 
 
 namespace archon::core {
-
-
-namespace impl {
-template<class C, class... P> struct AsFormatted1;
-template<class C, class T, class... P> struct AsFormatted2;
-} // namespace impl
-
 
 
 /// \{
@@ -147,7 +141,7 @@ template<class C, class T, class... P> auto format(const std::locale& locale, st
 /// Each occurrence of the special substitution marker (`%%`) in the parameterized string
 /// will be replaced by a single percent sign (`%`).
 ///
-/// Substitution markers are identified by scanning the param,eterized string from left to
+/// Substitution markers are identified by scanning the parameterized string from left to
 /// right for percent signs (`%`). If one is found, and it is followed by `s`, then the two
 /// characters (`%s`) is a parameter substitution marker. Otherwise, if it is followed by
 /// `%`, then the two characters (`%%`) is the special substitution marker. Otherwise the
@@ -168,7 +162,7 @@ template<class C, class T, class... P> void format(std::basic_ostream<C, T>&, st
 
 /// \{
 ///
-/// \brief Prepare formatting of string with parameters.
+/// \brief Potentiate formatting of parameterized string.
 ///
 /// Construct an object that, if written to an output stream, formats the specified
 /// parameterized string (\p c_str or \p string) using the specified parameter values.
@@ -200,10 +194,29 @@ template<class C, class T, class... P> void format(std::basic_ostream<C, T>&, st
 /// as if by `widen()` of the output stream. It is therefore only safe to use characters
 /// from the basic source character set in the parameterized string in this case.
 ///
-template<class C, class... P> auto formatted(const C* c_str,
-                                             const P&... params) noexcept -> impl::AsFormatted1<C, P...>;
+/// \sa \ref core::formatted_wrn()
+///
+template<class C, class... P> auto formatted(const C* c_str, const P&... params) noexcept;
 template<class C, class T, class... P> auto formatted(std::basic_string_view<C, T> string,
-                                                      const P&... params) noexcept -> impl::AsFormatted2<C, T, P...>;
+                                                      const P&... params) noexcept;
+/// \}
+
+
+
+/// \{
+///
+/// \brief Potentiate formatting of parameterized string with reverted numerics.
+///
+/// These functions have the same effect as \ref core::formatted(), but with numeric facets
+/// reverted to the classic locale. Specifically, `formatted_wrn(str, params...)` has the
+/// same effect as `core::with_reverted_numerics(core::formatted(str, params...))`.
+///
+/// \sa \ref core::formatted()
+/// \sa \ref core::with_reverted_numerics()
+///
+template<class C, class... P> auto formatted_wrn(const C* c_str, const P&... params) noexcept;
+template<class C, class T, class... P> auto formatted_wrn(std::basic_string_view<C, T> string,
+                                                          const P&... params) noexcept;
 /// \}
 
 
@@ -504,18 +517,29 @@ inline void format(std::basic_ostream<C, T>& out, std::basic_string_view<C, T> s
 }
 
 
-template<class C, class... P>
-inline auto formatted(const C* c_str , const P&... params) noexcept -> impl::AsFormatted1<C, P...>
+template<class C, class... P> inline auto formatted(const C* c_str , const P&... params) noexcept
 {
-    return { c_str, { params... } };
+    return impl::AsFormatted1<C, P...> { c_str, { params... } };
 }
 
 
 template<class C, class T, class... P>
-inline auto formatted(std::basic_string_view<C, T> string, const P&... params) noexcept ->
-    impl::AsFormatted2<C, T, P...>
+inline auto formatted(std::basic_string_view<C, T> string, const P&... params) noexcept
 {
-    return { string, { params... } };
+    return impl::AsFormatted2<C, T, P...> { string, { params... } };
+}
+
+
+template<class C, class... P> inline auto formatted_wrn(const C* c_str, const P&... params) noexcept
+{
+    return core::with_reverted_numerics(core::formatted(c_str, params...)); // Throws
+}
+
+
+template<class C, class T, class... P>
+inline auto formatted_wrn(std::basic_string_view<C, T> string, const P&... params) noexcept
+{
+    return core::with_reverted_numerics(core::formatted(string, params...)); // Throws
 }
 
 

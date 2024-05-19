@@ -33,9 +33,9 @@
 #include <archon/core/features.h>
 #include <archon/core/span.hpp>
 #include <archon/core/value_parser.hpp>
+#include <archon/core/with_modified_locale.hpp>
 #include <archon/core/as_int.hpp>
 #include <archon/core/as_list.hpp>
-#include <archon/core/with_modified_locale.hpp>
 #include <archon/util/color.hpp>
 #include <archon/image/comp_types.hpp>
 #include <archon/image/comp_repr.hpp>

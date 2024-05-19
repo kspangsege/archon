@@ -30,8 +30,8 @@
 
 #include <archon/core/features.h>
 #include <archon/core/integer.hpp>
-#include <archon/core/format.hpp>
 #include <archon/core/value_parser.hpp>
+#include <archon/core/format.hpp>
 #include <archon/core/as_int.hpp>
 
 

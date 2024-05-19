@@ -32,8 +32,8 @@
 #include <ostream>
 
 #include <archon/core/math.hpp>
-#include <archon/core/as_list.hpp>
 #include <archon/core/with_modified_locale.hpp>
+#include <archon/core/as_list.hpp>
 #include <archon/math/type_traits.hpp>
 #include <archon/math/vector_base.hpp>
 

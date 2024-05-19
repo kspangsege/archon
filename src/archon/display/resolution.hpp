@@ -27,8 +27,8 @@
 #include <ostream>
 
 #include <archon/core/features.h>
-#include <archon/core/format.hpp>
 #include <archon/core/with_modified_locale.hpp>
+#include <archon/core/format.hpp>
 
 
 namespace archon::display {
@@ -130,7 +130,7 @@ inline auto operator<<(std::basic_ostream<C, T>& out, const display::Resolution&
 {
     if (ARCHON_LIKELY(resl.vert_ppcm == resl.horz_ppcm))
         return out << core::with_reverted_numerics(resl.horz_ppcm); // Throws
-    return out << core::with_reverted_numerics(core::formatted("%s,%s", resl.horz_ppcm, resl.vert_ppcm)); // Throws
+    return out << core::formatted_wrn("%s,%s", resl.horz_ppcm, resl.vert_ppcm); // Throws
 }
 
 

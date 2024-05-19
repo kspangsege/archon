@@ -22,8 +22,8 @@
 #include <array>
 
 #include <archon/core/char_mapper.hpp>
-#include <archon/core/format.hpp>
 #include <archon/core/value_formatter.hpp>
+#include <archon/core/format.hpp>
 #include <archon/core/format_with.hpp>
 #include <archon/check.hpp>
 

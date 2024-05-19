@@ -46,8 +46,8 @@
 #include <archon/core/string_buffer_contents.hpp>
 #include <archon/core/vector.hpp>
 #include <archon/core/flat_map.hpp>
-#include <archon/core/format.hpp>
 #include <archon/core/value_parser.hpp>
+#include <archon/core/format.hpp>
 #include <archon/core/as_int.hpp>
 #include <archon/core/as_list.hpp>
 #include <archon/core/format_as.hpp>

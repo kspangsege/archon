@@ -24,6 +24,9 @@
 /// \file
 
 
+#include <ostream>
+
+#include <archon/core/format.hpp>
 #include <archon/math/vector.hpp>
 #include <archon/math/quaternion.hpp>
 
@@ -311,8 +314,7 @@ inline auto Rotation::to_versor() const noexcept -> math::Quaternion
 template<class C, class T>
 auto operator<<(std::basic_ostream<C, T>& out, const math::Rotation& rot) -> std::basic_ostream<C, T>&
 {
-    return out << core::with_reverted_numerics(core::formatted("[%s, %s, %s; %s]", rot.axis[0], rot.axis[1],
-                                                               rot.axis[2], rot.angle)); // Throws
+    return out << core::formatted_wrn("[%s, %s, %s; %s]", rot.axis[0], rot.axis[1], rot.axis[2], rot.angle); // Throws
 }
 
 

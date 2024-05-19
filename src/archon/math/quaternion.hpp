@@ -30,7 +30,6 @@
 #include <archon/core/features.h>
 #include <archon/core/math.hpp>
 #include <archon/core/format.hpp>
-#include <archon/core/with_modified_locale.hpp>
 #include <archon/math/vector.hpp>
 #include <archon/math/matrix.hpp>
 
@@ -447,8 +446,7 @@ constexpr auto Quaternion::to_rotation_matrix() const noexcept -> matrix_type
 template<class C, class T>
 auto operator<<(std::basic_ostream<C, T>& out, const math::Quaternion& quat) -> std::basic_ostream<C, T>&
 {
-    return out << core::with_reverted_numerics(core::formatted("[%s; %s, %s, %s]", quat.w, quat.v[0], quat.v[1],
-                                                               quat.v[2])); // Throws
+    return out << core::formatted_wrn("[%s; %s, %s, %s]", quat.w, quat.v[0], quat.v[1], quat.v[2]); // Throws
 }
 
 

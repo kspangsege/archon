@@ -38,9 +38,9 @@
 #include <archon/core/time.hpp>
 #include <archon/core/char_mapper.hpp>
 #include <archon/core/string.hpp>
-#include <archon/core/format.hpp>
 #include <archon/core/integer_formatter.hpp>
 #include <archon/core/timestamp_formatter.hpp>
+#include <archon/core/format.hpp>
 #include <archon/core/string_formatter.hpp>
 #include <archon/core/string_template.hpp>
 #include <archon/core/random.hpp>

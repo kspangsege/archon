@@ -31,8 +31,8 @@
 
 #include <archon/core/features.h>
 #include <archon/core/value_parser.hpp>
-#include <archon/core/as_list.hpp>
 #include <archon/core/with_modified_locale.hpp>
+#include <archon/core/as_list.hpp>
 
 
 namespace archon::font {
