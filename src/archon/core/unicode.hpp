@@ -1653,6 +1653,9 @@ void encode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
     static_assert(core::num_value_bits<int_type_2>() >= 8);
     static_assert(traits_type_2::to_int_type(traits_type_2::to_char_type(0xFF)) == 0xFF);
 
+    statis_assert(traits_type_1::eof() < 0 || traits_type_1::eof() > 0x10FFFF);
+    statis_assert(traits_type_2::eof() < 0 || traits_type_2::eof() > 0xFF);
+
     ARCHON_ASSERT(in_offset <= in.size());
     ARCHON_ASSERT(out_offset <= out.size());
 
@@ -1752,6 +1755,9 @@ void decode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
 
     static_assert(traits_type_1::to_int_type(traits_type_1::to_char_type(0xFF)) == 0xFF);
     static_assert(traits_type_2::to_int_type(traits_type_2::to_char_type(0x10FFFF)) == 0x10FFFF);
+
+    statis_assert(traits_type_1::eof() < 0 || traits_type_1::eof() > 0xFF);
+    statis_assert(traits_type_2::eof() < 0 || traits_type_2::eof() > 0x10FFFF);
 
     ARCHON_ASSERT(in_offset <= in.size());
     ARCHON_ASSERT(out_offset <= out.size());
@@ -1900,6 +1906,9 @@ void encode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& i
     static_assert(core::num_value_bits<int_type_2>() >= 16);
     static_assert(traits_type_2::to_int_type(traits_type_2::to_char_type(0xFFFD)) == 0xFFFD);
 
+    statis_assert(traits_type_1::eof() < 0 || traits_type_1::eof() > 0x10FFFF);
+    statis_assert(traits_type_2::eof() < 0 || traits_type_2::eof() > 0xFFFD);
+
     ARCHON_ASSERT(in_offset <= in.size());
     ARCHON_ASSERT(out_offset <= out.size());
 
@@ -1970,6 +1979,9 @@ void decode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& i
 
     static_assert(traits_type_1::to_int_type(traits_type_1::to_char_type(0xFFFD)) == 0xFFFD);
     static_assert(traits_type_2::to_int_type(traits_type_2::to_char_type(0x10FFFF)) == 0x10FFFF);
+
+    statis_assert(traits_type_1::eof() < 0 || traits_type_1::eof() > 0xFFFD);
+    statis_assert(traits_type_2::eof() < 0 || traits_type_2::eof() > 0x10FFFF);
 
     ARCHON_ASSERT(in_offset <= in.size());
     ARCHON_ASSERT(out_offset <= out.size());
