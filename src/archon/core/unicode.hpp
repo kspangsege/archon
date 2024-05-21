@@ -2067,6 +2067,7 @@ void encode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& i
                 if (ARCHON_LIKELY(v < 0x110000)) {
                     // Code point range: U+010000 -> U+10FFFF
                     if (ARCHON_LIKELY(end_2 - i_2 >= 2)) {
+                        v -= 0x10000;
                         *i_2++ = traits_type_2::to_char_type(int_type_2(0xD800 + v / 0x400));
                         *i_2++ = traits_type_2::to_char_type(int_type_2(0xDC00 + v % 0x400));
                         ++i_1;
@@ -2303,6 +2304,7 @@ void utf8_to_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& 
                             if (ARCHON_LIKELY(v >= 0x10000)) {
                                 if (ARCHON_LIKELY(v < 0x110000)) {
                                     if (ARCHON_LIKELY(end_2 - i_2 >= 2)) {
+                                        v -= 0x10000;
                                         *i_2++ = traits_type_2::to_char_type(int_type_2(0xD800 + v / 0x400));
                                         *i_2++ = traits_type_2::to_char_type(int_type_2(0xDC00 + v % 0x400));
                                         i_1 += 4;

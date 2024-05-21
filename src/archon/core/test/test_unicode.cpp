@@ -619,6 +619,172 @@ ARCHON_TEST(Core_Unicode_DecodeUtf8Incr)
 }
 
 
+ARCHON_TEST(Core_Unicode_EncodeUtf16Incr)
+{
+    using char_type_1 = char32_t;
+    using char_type_2 = char16_t;
+
+    using traits_type_1 = std::char_traits<char_type_1>;
+    using traits_type_2 = std::char_traits<char_type_2>;
+
+    using int_type_1 = traits_type_1::int_type;
+    using int_type_2 = traits_type_2::int_type;
+
+    std::array<char_type_1, 64> seed_memory_1;
+    std::array<char_type_2, 64> seed_memory_2;
+
+    core::Buffer buffer_1(seed_memory_1);
+    core::Buffer buffer_2(seed_memory_2);
+
+    auto test = [&, &parent_test_context = test_context](std::initializer_list<int_type_1> in, std::size_t out_size,
+                                                         std::size_t expected_in_size,
+                                                         std::initializer_list<int_type_2> expected_out,
+                                                         Result expected_result) {
+        ARCHON_TEST_TRAIL(parent_test_context,
+                          core::formatted_wrn("%s, %s, %s, %s, %s", core::as_sbr_list(in), out_size, expected_in_size,
+                                              core::as_sbr_list(expected_out), ResultEnum(expected_result)));
+        std::size_t offset_1 = 0;
+        for (int_type_1 val : in)
+            buffer_1.append_a(traits_type_1::to_char_type(val), offset_1);
+        std::size_t offset_2 = 0;
+        for (int_type_2 val : expected_out)
+            buffer_2.append_a(traits_type_2::to_char_type(val), offset_2);
+        buffer_2.reserve_extra(out_size, offset_2);
+        core::Span in_2 = { buffer_1.data(), offset_1 };
+        core::Span expected_out_2 = { buffer_2.data(), offset_2 };
+        core::Span out = { buffer_2.data() + offset_2, out_size };
+        std::size_t in_offset = 0;
+        std::size_t out_offset = 0;
+        bool in_exhausted = {};
+        bool error = {};
+        core::encode_utf16_incr<char_type_1, char_type_2,
+                                traits_type_1, traits_type_2>(in_2, out, in_offset, out_offset, in_exhausted, error);
+        ARCHON_CHECK_EQUAL(in_offset, expected_in_size);
+        ARCHON_CHECK_EQUAL_SEQ(out.subspan(0, out_offset), expected_out_2);
+        switch (expected_result) {
+            case Result::in_exhausted:
+                ARCHON_CHECK(in_exhausted);
+                break;
+            case Result::error:
+                if (ARCHON_LIKELY(ARCHON_CHECK_NOT(in_exhausted)))
+                    ARCHON_CHECK(error);
+                break;
+            case Result::out_exhausted:
+                if (ARCHON_LIKELY(ARCHON_CHECK_NOT(in_exhausted)))
+                    ARCHON_CHECK_NOT(error);
+                break;
+            case Result::in_exhausted_or_error:
+                ARCHON_CHECK(in_exhausted || error);
+                break;
+        }
+    };
+
+    // Empty
+    test({}, 0, 0, {}, Result::in_exhausted);
+    test({}, 1, 0, {}, Result::in_exhausted);
+
+    // Single code unit form: U+20AC --> 0x20AC
+    test({ 0x20AC }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x20AC }, 1, 1, { 0x20AC }, Result::in_exhausted);
+    test({ 0x20AC }, 2, 1, { 0x20AC }, Result::in_exhausted);
+    test({ 0x2A, 0x20AC }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x2A, 0x20AC }, 1, 1, { 0x2A }, Result::out_exhausted);
+    test({ 0x2A, 0x20AC }, 2, 2, { 0x2A, 0x20AC }, Result::in_exhausted);
+    test({ 0x2A, 0x20AC }, 3, 2, { 0x2A, 0x20AC }, Result::in_exhausted);
+    test({ 0x20AC, 0x2B }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x20AC, 0x2B }, 1, 1, { 0x20AC }, Result::out_exhausted);
+    test({ 0x20AC, 0x2B }, 2, 2, { 0x20AC, 0x2B }, Result::in_exhausted);
+    test({ 0x20AC, 0x2B }, 3, 2, { 0x20AC, 0x2B }, Result::in_exhausted);
+    test({ 0x2A, 0x20AC, 0x2B }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x2A, 0x20AC, 0x2B }, 1, 1, { 0x2A }, Result::out_exhausted);
+    test({ 0x2A, 0x20AC, 0x2B }, 2, 2, { 0x2A, 0x20AC }, Result::out_exhausted);
+    test({ 0x2A, 0x20AC, 0x2B }, 3, 3, { 0x2A, 0x20AC, 0x2B }, Result::in_exhausted);
+    test({ 0x2A, 0x20AC, 0x2B }, 4, 3, { 0x2A, 0x20AC, 0x2B }, Result::in_exhausted);
+
+    // Surrogate pair: U+24B62 --> 0xD852, 0xDF62
+    test({ 0x24B62 }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x24B62 }, 1, 0, {}, Result::out_exhausted);
+    test({ 0x24B62 }, 2, 1, { 0xD852, 0xDF62 }, Result::in_exhausted);
+    test({ 0x24B62 }, 3, 1, { 0xD852, 0xDF62 }, Result::in_exhausted);
+    test({ 0x2A, 0x24B62 }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x2A, 0x24B62 }, 1, 1, { 0x2A }, Result::out_exhausted);
+    test({ 0x2A, 0x24B62 }, 2, 1, { 0x2A }, Result::out_exhausted);
+    test({ 0x2A, 0x24B62 }, 3, 2, { 0x2A, 0xD852, 0xDF62 }, Result::in_exhausted);
+    test({ 0x2A, 0x24B62 }, 4, 2, { 0x2A, 0xD852, 0xDF62 }, Result::in_exhausted);
+    test({ 0x24B62, 0x2B }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x24B62, 0x2B }, 1, 0, {}, Result::out_exhausted);
+    test({ 0x24B62, 0x2B }, 2, 1, { 0xD852, 0xDF62 }, Result::out_exhausted);
+    test({ 0x24B62, 0x2B }, 3, 2, { 0xD852, 0xDF62, 0x2B }, Result::in_exhausted);
+    test({ 0x24B62, 0x2B }, 4, 2, { 0xD852, 0xDF62, 0x2B }, Result::in_exhausted);
+    test({ 0x2A, 0x24B62, 0x2B }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x2A, 0x24B62, 0x2B }, 1, 1, { 0x2A }, Result::out_exhausted);
+    test({ 0x2A, 0x24B62, 0x2B }, 2, 1, { 0x2A }, Result::out_exhausted);
+    test({ 0x2A, 0x24B62, 0x2B }, 3, 2, { 0x2A, 0xD852, 0xDF62 }, Result::out_exhausted);
+    test({ 0x2A, 0x24B62, 0x2B }, 4, 3, { 0x2A, 0xD852, 0xDF62, 0x2B }, Result::in_exhausted);
+    test({ 0x2A, 0x24B62, 0x2B }, 5, 3, { 0x2A, 0xD852, 0xDF62, 0x2B }, Result::in_exhausted);
+
+    // Invalid: Code point in surrogate range: U+D821
+    test({ 0xD821 }, 0, 0, {}, Result::error);
+    test({ 0xD821 }, 1, 0, {}, Result::error);
+    test({ 0xD821 }, 2, 0, {}, Result::error);
+    test({ 0xD821 }, 3, 0, {}, Result::error);
+    test({ 0x2A, 0xD821 }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x2A, 0xD821 }, 1, 1, { 0x2A }, Result::error);
+    test({ 0x2A, 0xD821 }, 2, 1, { 0x2A }, Result::error);
+    test({ 0x2A, 0xD821 }, 3, 1, { 0x2A }, Result::error);
+    test({ 0x2A, 0xD821 }, 4, 1, { 0x2A }, Result::error);
+    test({ 0xD821, 0x2B }, 0, 0, {}, Result::error);
+    test({ 0xD821, 0x2B }, 1, 0, {}, Result::error);
+    test({ 0xD821, 0x2B }, 2, 0, {}, Result::error);
+    test({ 0xD821, 0x2B }, 3, 0, {}, Result::error);
+    test({ 0x2A, 0xD821, 0x2B }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x2A, 0xD821, 0x2B }, 1, 1, { 0x2A }, Result::error);
+    test({ 0x2A, 0xD821, 0x2B }, 2, 1, { 0x2A }, Result::error);
+    test({ 0x2A, 0xD821, 0x2B }, 3, 1, { 0x2A }, Result::error);
+    test({ 0x2A, 0xD821, 0x2B }, 4, 1, { 0x2A }, Result::error);
+
+    // Invalid: Non-character code point: U+FFFE
+    test({ 0xFFFE }, 0, 0, {}, Result::error);
+    test({ 0xFFFE }, 1, 0, {}, Result::error);
+    test({ 0xFFFE }, 2, 0, {}, Result::error);
+    test({ 0xFFFE }, 3, 0, {}, Result::error);
+    test({ 0x2A, 0xFFFE }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x2A, 0xFFFE }, 1, 1, { 0x2A }, Result::error);
+    test({ 0x2A, 0xFFFE }, 2, 1, { 0x2A }, Result::error);
+    test({ 0x2A, 0xFFFE }, 3, 1, { 0x2A }, Result::error);
+    test({ 0x2A, 0xFFFE }, 4, 1, { 0x2A }, Result::error);
+    test({ 0xFFFE, 0x2B }, 0, 0, {}, Result::error);
+    test({ 0xFFFE, 0x2B }, 1, 0, {}, Result::error);
+    test({ 0xFFFE, 0x2B }, 2, 0, {}, Result::error);
+    test({ 0xFFFE, 0x2B }, 3, 0, {}, Result::error);
+    test({ 0x2A, 0xFFFE, 0x2B }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x2A, 0xFFFE, 0x2B }, 1, 1, { 0x2A }, Result::error);
+    test({ 0x2A, 0xFFFE, 0x2B }, 2, 1, { 0x2A }, Result::error);
+    test({ 0x2A, 0xFFFE, 0x2B }, 3, 1, { 0x2A }, Result::error);
+    test({ 0x2A, 0xFFFE, 0x2B }, 4, 1, { 0x2A }, Result::error);
+
+    // Invalid: Overlarge code point: U+110021
+    test({ 0x110021 }, 0, 0, {}, Result::error);
+    test({ 0x110021 }, 1, 0, {}, Result::error);
+    test({ 0x110021 }, 2, 0, {}, Result::error);
+    test({ 0x110021 }, 3, 0, {}, Result::error);
+    test({ 0x2A, 0x110021 }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x2A, 0x110021 }, 1, 1, { 0x2A }, Result::error);
+    test({ 0x2A, 0x110021 }, 2, 1, { 0x2A }, Result::error);
+    test({ 0x2A, 0x110021 }, 3, 1, { 0x2A }, Result::error);
+    test({ 0x2A, 0x110021 }, 4, 1, { 0x2A }, Result::error);
+    test({ 0x110021, 0x2B }, 0, 0, {}, Result::error);
+    test({ 0x110021, 0x2B }, 1, 0, {}, Result::error);
+    test({ 0x110021, 0x2B }, 2, 0, {}, Result::error);
+    test({ 0x110021, 0x2B }, 3, 0, {}, Result::error);
+    test({ 0x2A, 0x110021, 0x2B }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x2A, 0x110021, 0x2B }, 1, 1, { 0x2A }, Result::error);
+    test({ 0x2A, 0x110021, 0x2B }, 2, 1, { 0x2A }, Result::error);
+    test({ 0x2A, 0x110021, 0x2B }, 3, 1, { 0x2A }, Result::error);
+    test({ 0x2A, 0x110021, 0x2B }, 4, 1, { 0x2A }, Result::error);
+}
+
+
 ARCHON_TEST(Core_Unicode_DecodeUtf16Incr)
 {
     using char_type_1 = char16_t;
@@ -692,7 +858,7 @@ ARCHON_TEST(Core_Unicode_DecodeUtf16Incr)
     test({ 0x2A, 0x20AC }, 2, 2, { 0x2A, 0x20AC }, Result::in_exhausted);
     test({ 0x2A, 0x20AC }, 3, 2, { 0x2A, 0x20AC }, Result::in_exhausted);
 
-    // Valid double code unit form (surrogate pair): 0xD852, 0xDF62 --> U+24B62
+    // Valid surrogate pair: 0xD852, 0xDF62 --> U+24B62
     test({ 0xD852 }, 0, 0, {}, Result::in_exhausted);
     test({ 0xD852 }, 1, 0, {}, Result::in_exhausted);
     test({ 0xD852 }, 2, 0, {}, Result::in_exhausted);
