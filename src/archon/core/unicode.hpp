@@ -553,11 +553,12 @@ void utf16_to_utf8_a(core::StringSpan<C> string, std::size_t& string_offset, cor
 ///
 /// This function attempts to produce the UTF-8 encoding of the specified string (\p
 /// string). Each character of the string is interpreted as a Unicode code point. Encoding
-/// succeeds if no code point is outside the principal range (U+0000 -> U+10FFFF) and no
-/// code point is inside the surrogate range (U+D800 -> U+DFFF). The UTF-8 encoding is
-/// stored in the specified buffer (\p buffer) starting at the specified position (\p
-/// buffer_offset). The buffer will be expanded as needed (using a progressive expansion
-/// scheme).
+/// succeeds if all specified code points are valid. A code point is valid if it is in the
+/// principal range (U+0000 -> U+10FFFF) and not in the surrogate range (U+D800 -> U+DFFF),
+/// and is also not one of the two non-character code points, U+FFFE and U+FFFF. The UTF-8
+/// encoding is stored in the specified buffer (\p buffer) starting at the specified
+/// position (\p buffer_offset). The buffer will be expanded as needed (using a progressive
+/// expansion scheme).
 ///
 /// When encoding succeeds, this function returns `true` after setting \p buffer_offset to
 /// point to the end of the UTF-8 encoding in the buffer (one beyond the last code unit of
@@ -573,13 +574,19 @@ void utf16_to_utf8_a(core::StringSpan<C> string, std::size_t& string_offset, cor
 /// Behavior is undefined if \p buffer_offset is greater than `buffer.size()` prior to the
 /// invocation.
 ///
-/// While the input character type (\p C) needs to have a certain bit-width (21 bits) in
-/// order to hold the full range of valid Unicode code points (U+0000 -> U+10FFFF), this
-/// function can be used with any input character type, including ones that are too narrow
-/// to hold the full range of code points.
+/// While the input character type, \p C, needs to have a bit-width of at least 21 in order
+/// to hold the full range of valid Unicode code points (U+0000 -> U+10FFFF), this function
+/// can be used with any input character type where `std::char_traits<C>::eof()` does not
+/// collide with a valid code point (U+0000 -> U+D7FF, U+E000 -> U+FFFD, U+10000 ->
+/// U+10FFFF), including ones that are too narrow to hold the full range of code points. As
+/// an example, `char` can be used because `std::char_traits<char>::eof()` is required to be
+/// negative. `char32_t` can be used when the full UCS range is needed.
 ///
-/// The output character type (\p D), which is used to hold UTF-8 code units, needs to have
-/// a bit-width of at least 8, so any standard character type will suffice.
+/// The output character type, \p D, which is used to hold UTF-8 code units, needs to have a
+/// bit-width of at least 8, and `std::char_traits<D>::eof()` must be outside the range of
+/// valid UTF-8 code units, 0x00 -> 0xFF. A reasonable choice is `char`, which works because
+/// it is required to have a bit width of at least 8, and `std::char_traits<char>::eof()` is
+/// required to be negative. `char8_t` can also be used.
 ///
 /// \sa \ref core::encode_utf8(), \ref core::encode_utf8_a(), \ref core::encode_utf8_incr()
 ///
@@ -612,11 +619,16 @@ bool try_encode_utf8(core::StringSpan<C> string, core::Buffer<D>& buffer, std::s
 /// Behavior is undefined if \p buffer_offset is greater than `buffer.size()` prior to the
 /// invocation.
 ///
-/// The input character type (\p C), which is used to hold UTF-8 code units, needs to have a
-/// bit-width of at least 8, so any standard character type can be used.
+/// The input character type, \p C, which is used to hold UTF-8 code units, needs to have a
+/// bit-width of at least 8, and `std::char_traits<C>::eof()` must be outside the range of
+/// valid UTF-8 code units, 0x00 -> 0xFF. A reasonable choice is `char`, which works because
+/// it is required to have a bit width of at least 8, and `std::char_traits<char>::eof()` is
+/// required to be negative. `char8_t` can also be used.
 ///
-/// The output character type (\p D), which is used to hold Unicode code points, must have a
-/// bit-width of at least 21 (the smallest number of bits that can hold U+10FFFF).
+/// The output character type, \p D, which is used to hold Unicode code points, must have a
+/// bit-width of at least 21 (the smallest number of bits that can hold U+10FFFF), and
+/// `std::char_traits<D>::eof()` must not collide with a valid code point (U+0000 -> U+D7FF,
+/// U+E000 -> U+FFFD, U+10000 -> U+10FFFF). `char32_t` can be used here.
 ///
 /// \sa \ref core::decode_utf8(), \ref core::decode_utf8_a(), \ref core::decode_utf8_incr()
 ///
@@ -631,11 +643,12 @@ bool try_decode_utf8(core::StringSpan<C> string, core::Buffer<D>& buffer, std::s
 ///
 /// This function attempts to produce the UTF-16 encoding of the specified string (\p
 /// string). Each character of the string is interpreted as a Unicode code point. Encoding
-/// succeeds if no code point is outside the principal range (U+0000 -> U+10FFFF) and no
-/// code point is inside the surrogate range (U+D800 -> U+DFFF). The UTF-16 encoding is
-/// stored in the specified buffer (\p buffer) starting at the specified position (\p
-/// buffer_offset). The buffer will be expanded as needed (using a progressive expansion
-/// scheme).
+/// succeeds if all specified code points are valid. A code point is valid if it is in the
+/// principal range (U+0000 -> U+10FFFF) and not in the surrogate range (U+D800 -> U+DFFF),
+/// and is also not one of the two non-character code points, U+FFFE and U+FFFF. The UTF-16
+/// encoding is stored in the specified buffer (\p buffer) starting at the specified
+/// position (\p buffer_offset). The buffer will be expanded as needed (using a progressive
+/// expansion scheme).
 ///
 /// When encoding succeeds, this function returns `true` after setting \p buffer_offset to
 /// point to the end of the UTF-16 encoding in the buffer (one beyond the last code unit of
@@ -651,13 +664,17 @@ bool try_decode_utf8(core::StringSpan<C> string, core::Buffer<D>& buffer, std::s
 /// Behavior is undefined if \p buffer_offset is greater than `buffer.size()` prior to the
 /// invocation.
 ///
-/// While the input character type (\p C) needs to have a certain bit-width (21 bits) in
-/// order to hold the full range of valid Unicode code points (U+0000 -> U+10FFFF), this
-/// function can be used with any input character type, including ones that are too narrow
-/// to hold the full range of code points.
+/// While the input character type, \p C, needs to have a bit-width of at least 21 in order
+/// to hold the full range of valid Unicode code points (U+0000 -> U+10FFFF), this function
+/// can be used with any input character type where `std::char_traits<C>::eof()` does not
+/// collide with a valid code point (U+0000 -> U+D7FF, U+E000 -> U+FFFD, U+10000 ->
+/// U+10FFFF), including ones that are too narrow to hold the full range of code points. As
+/// an example, `char` can be used because `std::char_traits<char>::eof()` is required to be
+/// negative. `char32_t` can be used when the full UCS range is needed.
 ///
-/// The output character type (\p D), which is used to hold UTF-16 code units, needs to have
-/// a bit-width of at least 16.
+/// The output character type, \p D, which is used to hold UTF-16 code units, needs to have a
+/// bit-width of at least 16, and `std::char_traits<D>::eof()` must be outside the range of
+/// valid UTF-16 code units, 0x0000 -> 0xFFFD. `char16_t` can be used here.
 ///
 /// \sa \ref core::encode_utf16(), \ref core::encode_utf16_a(), \ref
 /// core::encode_utf16_incr()
@@ -691,11 +708,14 @@ bool try_encode_utf16(core::StringSpan<C> string, core::Buffer<D>& buffer, std::
 /// Behavior is undefined if \p buffer_offset is greater than `buffer.size()` prior to the
 /// invocation.
 ///
-/// The input character type (\p C), which is used to hold UTF-16 code units, needs to have
-/// a bit-width of at least 16.
+/// The input character type, \p C, which is used to hold UTF-16 code units, needs to have a
+/// bit-width of at least 16, and `std::char_traits<C>::eof()` must be outside the range of
+/// valid UTF-16 code units, 0x0000 -> 0xFFFD. `char16_t` can be used here.
 ///
-/// The output character type (\p D), which is used to hold Unicode code points, must have a
-/// bit-width of at least 21 (the smallest number of bits that can hold U+10FFFF).
+/// The output character type, \p D, which is used to hold Unicode code points, must have a
+/// bit-width of at least 21 (the smallest number of bits that can hold U+10FFFF), and
+/// `std::char_traits<D>::eof()` must not collide with a valid code point (U+0000 -> U+D7FF,
+/// U+E000 -> U+FFFD, U+10000 -> U+10FFFF). `char32_t` can be used here.
 ///
 /// \sa \ref core::decode_utf16(), \ref core::decode_utf16_a(), \ref
 /// core::decode_utf16_incr()
@@ -730,11 +750,15 @@ bool try_decode_utf16(core::StringSpan<C> string, core::Buffer<D>& buffer, std::
 /// Behavior is undefined if \p buffer_offset is greater than `buffer.size()` prior to the
 /// invocation.
 ///
-/// The input character type (\p C), which is used to hold UTF-8 code units, needs to have a
-/// bit-width of at least 8, so any standard character type can be used.
+/// The input character type, \p C, which is used to hold UTF-8 code units, needs to have a
+/// bit-width of at least 8, and `std::char_traits<C>::eof()` must be outside the range of
+/// valid UTF-8 code units, 0x00 -> 0xFF. A reasonable choice is `char`, which works because
+/// it is required to have a bit width of at least 8, and `std::char_traits<char>::eof()` is
+/// required to be negative. `char8_t` can also be used.
 ///
-/// The output character type (\p D), which is used to hold UTF-16 code units, needs to have a
-/// bit-width of at least 16.
+/// The output character type, \p D, which is used to hold UTF-16 code units, needs to have a
+/// bit-width of at least 16, and `std::char_traits<D>::eof()` must be outside the range of
+/// valid UTF-16 code units, 0x0000 -> 0xFFFD. `char16_t` can be used here.
 ///
 /// \sa \ref core::utf8_to_utf16(), \ref core::utf8_to_utf16_a(), \ref
 /// core::utf8_to_utf16_incr()
@@ -769,11 +793,15 @@ bool try_utf8_to_utf16(core::StringSpan<C> string, core::Buffer<D>& buffer, std:
 /// Behavior is undefined if \p buffer_offset is greater than `buffer.size()` prior to the
 /// invocation.
 ///
-/// The input character type (\p C), which is used to hold UTF-16 code units, needs to have
-/// a bit-width of at least 16.
+/// The input character type, \p C, which is used to hold UTF-16 code units, needs to have a
+/// bit-width of at least 16, and `std::char_traits<C>::eof()` must be outside the range of
+/// valid UTF-16 code units, 0x0000 -> 0xFFFD. `char16_t` can be used here.
 ///
-/// The output character type (\p D), which is used to hold UTF-8 code units, needs to have
-/// a bit-width of at least 8, so any standard character type can be used.
+/// The output character type, \p D, which is used to hold UTF-8 code units, needs to have a
+/// bit-width of at least 8, and `std::char_traits<D>::eof()` must be outside the range of
+/// valid UTF-8 code units, 0x00 -> 0xFF. A reasonable choice is `char`, which works because
+/// it is required to have a bit width of at least 8, and `std::char_traits<char>::eof()` is
+/// required to be negative. `char8_t` can also be used.
 ///
 /// \sa \ref core::utf16_to_utf8(), \ref core::utf16_to_utf8_a(), \ref
 /// core::utf16_to_utf8_incr()
@@ -811,21 +839,28 @@ bool try_utf16_to_utf8(core::StringSpan<C> string, core::Buffer<D>& buffer, std:
 /// Upon return, \p string_offset will be equal to `string.size()` when and only when \p
 /// in_exhausted was set to `true`.
 ///
-/// A code point is invalid if its unpacked value (`std::char_traits<C>::to_int_type()`) is
-/// negative, greater than U+10FFFF, or in the surrogate range (U+D800 -> U+DFFF). Every
-/// valid code point produces one UTF-8 sequence. A UTF-8 sequence is between one and four
-/// code units long (elements of type \p D).
+/// A code point is valid if its unpacked value (`std::char_traits<C>::to_int_type()`) is in
+/// the principal range (U+0000 -> U+10FFFF) and not in the surrogate range (U+D800 ->
+/// U+DFFF), and is also not one of the two non-character code points, U+FFFE and
+/// U+FFFF. Every valid code point produces one UTF-8 sequence. A UTF-8 sequence is between
+/// one and four code units long (elements of type \p D).
 ///
 /// Behavior is undefined if, prior to the invocation, \p in_size is greater than
 /// `in.size()` or \p out_offset is greater than `out.size()`.
 ///
-/// While the input character type (\p C) needs to have a certain bit-width (21 bits) in
-/// order to hold the full range of valid Unicode code points (U+0000 -> U+10FFFF), this
-/// function can be used with any input character type, including ones that are too narrow
-/// to hold the full range of code points.
+/// While the input character type, \p C, needs to have a bit-width of at least 21 in order
+/// to hold the full range of valid Unicode code points (U+0000 -> U+10FFFF), this function
+/// can be used with any input character type where `std::char_traits<C>::eof()` does not
+/// collide with a valid code point (U+0000 -> U+D7FF, U+E000 -> U+FFFD, U+10000 ->
+/// U+10FFFF), including ones that are too narrow to hold the full range of code points. As
+/// an example, `char` can be used because `std::char_traits<char>::eof()` is required to be
+/// negative. `char32_t` can be used when the full UCS range is needed.
 ///
-/// The output character type (\p D), which is used to hold UTF-8 code units, needs to have
-/// a bit-width of at least 8, so any standard character type will suffice.
+/// The output character type, \p D, which is used to hold UTF-8 code units, needs to have a
+/// bit-width of at least 8, and `std::char_traits<D>::eof()` must be outside the range of
+/// valid UTF-8 code units, 0x00 -> 0xFF. A reasonable choice is `char`, which works because
+/// it is required to have a bit width of at least 8, and `std::char_traits<char>::eof()` is
+/// required to be negative. `char8_t` can also be used.
 ///
 /// \sa \ref core::encode_utf8(), \ref core::encode_utf8_a()
 ///
@@ -879,11 +914,16 @@ void encode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
 /// Behavior is undefined if, prior to the invocation, \p in_size is greater than
 /// `in.size()` or \p out_offset is greater than `out.size()`.
 ///
-/// The input character type (\p C), which is used to hold UTF-8 code units, needs to have a
-/// bit-width of at least 8, so any standard character type can be used.
+/// The input character type, \p C, which is used to hold UTF-8 code units, needs to have a
+/// bit-width of at least 8, and `std::char_traits<C>::eof()` must be outside the range of
+/// valid UTF-8 code units, 0x00 -> 0xFF. A reasonable choice is `char`, which works because
+/// it is required to have a bit width of at least 8, and `std::char_traits<char>::eof()` is
+/// required to be negative. `char8_t` can also be used.
 ///
-/// The output character type (\p D), which is used to hold Unicode code points, must have a
-/// bit-width of at least 21 (the smallest number of bits that can hold U+10FFFF).
+/// The output character type, \p D, which is used to hold Unicode code points, must have a
+/// bit-width of at least 21 (the smallest number of bits that can hold U+10FFFF), and
+/// `std::char_traits<D>::eof()` must not collide with a valid code point (U+0000 -> U+D7FF,
+/// U+E000 -> U+FFFD, U+10000 -> U+10FFFF). `char32_t` can be used here.
 ///
 /// \sa \ref core::decode_utf8(), \ref core::decode_utf8_l(), \ref core::decode_utf8_a(),
 /// \ref core::resync_utf8()
@@ -922,23 +962,26 @@ void decode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
 /// Upon return, \p string_offset will be equal to `string.size()` when and only when \p
 /// in_exhausted was set to `true`.
 ///
-/// A code point is invalid if its unpacked value (`std::char_traits<C>::to_int_type()`) is
-/// negative, greater than U+10FFFF, or in the surrogate range (U+D800 -> U+DFFF). Every
-/// valid code point produces one UTF-16 sequence. A UTF-16 sequence is one or two code
-/// units long (elements of type \p D).
+/// A code point is valid if its unpacked value (`std::char_traits<C>::to_int_type()`) is in
+/// the principal range (U+0000 -> U+10FFFF) and not in the surrogate range (U+D800 ->
+/// U+DFFF), and is also not one of the two non-character code points, U+FFFE and
+/// U+FFFF. Every valid code point produces one UTF-16 sequence. A UTF-16 sequence is one or
+/// two code units long (elements of type \p D).
 ///
 /// Behavior is undefined if, prior to the invocation, \p in_size is greater than
 /// `in.size()` or \p out_offset is greater than `out.size()`.
 ///
-/// While the input character type (\p C) needs to have a certain bit-width (21 bits) in
-/// order to hold the full range of valid Unicode code points (U+0000 -> U+10FFFF), this
-/// function can be used with any input character type, including ones that are too narrow
-/// to hold the full range of code points.
+/// While the input character type, \p C, needs to have a bit-width of at least 21 in order
+/// to hold the full range of valid Unicode code points (U+0000 -> U+10FFFF), this function
+/// can be used with any input character type where `std::char_traits<C>::eof()` does not
+/// collide with a valid code point (U+0000 -> U+D7FF, U+E000 -> U+FFFD, U+10000 ->
+/// U+10FFFF), including ones that are too narrow to hold the full range of code points. As
+/// an example, `char` can be used because `std::char_traits<char>::eof()` is required to be
+/// negative. `char32_t` can be used when the full UCS range is needed.
 ///
-/// The output character type (\p D), which is used to hold UTF-16 code units, needs to have
-/// a bit-width of at least 16. More precisely, if `U` is the character traits type for the
-/// output character type, `U::to_char_type(U::to_int_type(v))` must be equal to `v` for any
-/// value of `v` between zero and two to the power of 16 minus one.
+/// The output character type, \p D, which is used to hold UTF-16 code units, needs to have a
+/// bit-width of at least 16, and `std::char_traits<D>::eof()` must be outside the range of
+/// valid UTF-16 code units, 0x0000 -> 0xFFFD. `char16_t` can be used here.
 ///
 /// \sa \ref core::encode_utf16(), \ref core::encode_utf16_a()
 ///
@@ -992,11 +1035,14 @@ void encode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& i
 /// Behavior is undefined if, prior to the invocation, \p in_size is greater than
 /// `in.size()` or \p out_offset is greater than `out.size()`.
 ///
-/// The input character type (\p C), which is used to hold UTF-16 code units, needs to have
-/// a bit-width of at least 16.
+/// The input character type, \p C, which is used to hold UTF-16 code units, needs to have a
+/// bit-width of at least 16, and `std::char_traits<C>::eof()` must be outside the range of
+/// valid UTF-16 code units, 0x0000 -> 0xFFFD. `char16_t` can be used here.
 ///
-/// The output character type (\p D), which is used to hold Unicode code points, must have a
-/// bit-width of at least 21 (the smallest number of bits that can hold U+10FFFF).
+/// The output character type, \p D, which is used to hold Unicode code points, must have a
+/// bit-width of at least 21 (the smallest number of bits that can hold U+10FFFF), and
+/// `std::char_traits<D>::eof()` must not collide with a valid code point (U+0000 -> U+D7FF,
+/// U+E000 -> U+FFFD, U+10000 -> U+10FFFF). `char32_t` can be used here.
 ///
 /// \sa \ref core::decode_utf16(), \ref core::decode_utf16_l(), \ref core::decode_utf16_a(),
 /// \ref core::resync_utf16()
@@ -1054,11 +1100,15 @@ void decode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& i
 /// Behavior is undefined if, prior to the invocation, \p in_size is greater than
 /// `in.size()` or \p out_offset is greater than `out.size()`.
 ///
-/// The input character type (\p C), which is used to hold UTF-8 code units, needs to have a
-/// bit-width of at least 8, so any standard character type can be used.
+/// The input character type, \p C, which is used to hold UTF-8 code units, needs to have a
+/// bit-width of at least 8, and `std::char_traits<C>::eof()` must be outside the range of
+/// valid UTF-8 code units, 0x00 -> 0xFF. A reasonable choice is `char`, which works because
+/// it is required to have a bit width of at least 8, and `std::char_traits<char>::eof()` is
+/// required to be negative. `char8_t` can also be used.
 ///
-/// The output character type (\p D), which is used to hold UTF-16 code units, must have a
-/// bit-width of at least 16.
+/// The output character type, \p D, which is used to hold UTF-16 code units, needs to have a
+/// bit-width of at least 16, and `std::char_traits<D>::eof()` must be outside the range of
+/// valid UTF-16 code units, 0x0000 -> 0xFFFD. `char16_t` can be used here.
 ///
 /// \sa \ref core::utf8_to_utf16(), \ref core::utf8_to_utf16_l(), \ref
 /// core::utf8_to_utf16_a(), \ref core::resync_utf8()
@@ -1116,11 +1166,15 @@ void utf8_to_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& 
 /// Behavior is undefined if, prior to the invocation, \p in_size is greater than
 /// `in.size()` or \p out_offset is greater than `out.size()`.
 ///
-/// The input character type (\p C), which is used to hold UTF-16 code units, needs to have
-/// a bit-width of at least 16.
+/// The input character type, \p C, which is used to hold UTF-16 code units, needs to have a
+/// bit-width of at least 16, and `std::char_traits<C>::eof()` must be outside the range of
+/// valid UTF-16 code units, 0x0000 -> 0xFFFD. `char16_t` can be used here.
 ///
-/// The output character type (\p D), which is used to hold UTF-8 code units, must have a
-/// bit-width of at least 8, so any standard character type can be used.
+/// The output character type, \p D, which is used to hold UTF-8 code units, needs to have a
+/// bit-width of at least 8, and `std::char_traits<D>::eof()` must be outside the range of
+/// valid UTF-8 code units, 0x00 -> 0xFF. A reasonable choice is `char`, which works because
+/// it is required to have a bit width of at least 8, and `std::char_traits<char>::eof()` is
+/// required to be negative. `char8_t` can also be used.
 ///
 /// \sa \ref core::utf16_to_utf8(), \ref core::utf16_to_utf8_l(), \ref
 /// core::utf16_to_utf8_a(), \ref core::resync_utf16()
@@ -1691,7 +1745,7 @@ void encode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
                 // Output exhausted
                 break;
             }
-            if (ARCHON_LIKELY(v < 0x10000)) {
+            if (ARCHON_LIKELY(v < 0xFFFE)) {
                 // UTF-8 layout: 1110xxxx 10xxxxxx 10xxxxxx (16 payload bits)
                 // Code point range: U+0800 -> U+FFFF
                 if (ARCHON_LIKELY(v < 0xD800 || v >= 0xE000)) {
@@ -1708,21 +1762,25 @@ void encode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
                 error = true; // Code point in surrogate range
                 break;
             }
-            if (ARCHON_LIKELY(v < 0x110000)) {
-                // UTF-8 layout: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx (21 payload bits)
-                // Code point range: U+010000 -> U+10FFFF
-                if (ARCHON_LIKELY(end_2 - i_2 >= 4)) {
-                    *i_2++ = traits_type_2::to_char_type(int_type_2(0xF0 + v / 0x40000));
-                    *i_2++ = traits_type_2::to_char_type(int_type_2(0x80 + v / 0x1000 % 0x40));
-                    *i_2++ = traits_type_2::to_char_type(int_type_2(0x80 + v / 0x40 % 0x40));
-                    *i_2++ = traits_type_2::to_char_type(int_type_2(0x80 + v % 0x40));
-                    ++i_1;
-                    continue;
+            if (ARCHON_LIKELY(v >= 0x10000)) {
+                if (ARCHON_LIKELY(v < 0x110000)) {
+                    // UTF-8 layout: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx (21 payload bits)
+                    // Code point range: U+010000 -> U+10FFFF
+                    if (ARCHON_LIKELY(end_2 - i_2 >= 4)) {
+                        *i_2++ = traits_type_2::to_char_type(int_type_2(0xF0 + v / 0x40000));
+                        *i_2++ = traits_type_2::to_char_type(int_type_2(0x80 + v / 0x1000 % 0x40));
+                        *i_2++ = traits_type_2::to_char_type(int_type_2(0x80 + v / 0x40 % 0x40));
+                        *i_2++ = traits_type_2::to_char_type(int_type_2(0x80 + v % 0x40));
+                        ++i_1;
+                        continue;
+                    }
+                    // Output exhausted
+                    break;
                 }
-                // Output exhausted
+                error = true; // Code point out of range
                 break;
             }
-            error = true; // Code point out of range
+            error = true; // Non-character code point
             break;
         }
         in_exhausted = true;
@@ -1819,12 +1877,16 @@ void decode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
                             auto v = ((type(v_1 & 0x0F) << 12) | ((v_2 & 0x3F) << 6) | (v_3 & 0x3F));
                             if (ARCHON_LIKELY(v >= 0x800)) {
                                 if (ARCHON_LIKELY(v < 0xD800 || v >= 0xE000)) {
-                                    if (ARCHON_LIKELY(i_2 < end_2)) {
-                                        *i_2++ = traits_type_2::to_char_type(int_type_2(v));
-                                        i_1 += 3;
-                                        continue;
+                                    if (ARCHON_LIKELY(v < 0xFFFE)) {
+                                        if (ARCHON_LIKELY(i_2 < end_2)) {
+                                            *i_2++ = traits_type_2::to_char_type(int_type_2(v));
+                                            i_1 += 3;
+                                            continue;
+                                        }
+                                        // Output exhausted
+                                        break;
                                     }
-                                    // Output exhausted
+                                    error = true; // Non-character code point
                                     break;
                                 }
                                 error = true; // Code point in surrogate range
@@ -1921,7 +1983,7 @@ void encode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& i
     for (;;) {
         if (ARCHON_LIKELY(i_1 < end_1)) {
             int_type_1 v = traits_type_1::to_int_type(*i_1);
-            if (ARCHON_LIKELY(v < 0x10000)) {
+            if (ARCHON_LIKELY(v < 0xFFFE)) {
                 // Code point range: U+0000 -> U+FFFF
                 if (ARCHON_LIKELY(v < 0xD800 || v >= 0xE000)) {
                     if (ARCHON_LIKELY(end_2 - i_2 >= 1)) {
@@ -1935,18 +1997,22 @@ void encode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& i
                 error = true; // Code point in surrogate range
                 break;
             }
-            if (ARCHON_LIKELY(v < 0x110000)) {
-                // Code point range: U+010000 -> U+10FFFF
-                if (ARCHON_LIKELY(end_2 - i_2 >= 2)) {
-                    *i_2++ = traits_type_2::to_char_type(int_type_2(0xD800 + v / 0x400));
-                    *i_2++ = traits_type_2::to_char_type(int_type_2(0xDC00 + v % 0x400));
-                    ++i_1;
-                    continue;
+            if (ARCHON_LIKELY(v >= 0x10000)) {
+                if (ARCHON_LIKELY(v < 0x110000)) {
+                    // Code point range: U+010000 -> U+10FFFF
+                    if (ARCHON_LIKELY(end_2 - i_2 >= 2)) {
+                        *i_2++ = traits_type_2::to_char_type(int_type_2(0xD800 + v / 0x400));
+                        *i_2++ = traits_type_2::to_char_type(int_type_2(0xDC00 + v % 0x400));
+                        ++i_1;
+                        continue;
+                    }
+                    // Output exhausted
+                    break;
                 }
-                // Output exhausted
+                error = true; // Code point out of range
                 break;
             }
-            error = true; // Code point out of range
+            error = true; // Non-character code point
             break;
         }
         in_exhausted = true;
@@ -1998,12 +2064,16 @@ void decode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& i
             if (ARCHON_LIKELY(v_1 < 0x10000)) {
                 if (ARCHON_LIKELY(v_1 < 0xD800 || v_1 >= 0xE000)) {
                     // Code point range: U+0000 -> U+FFFF
-                    if (ARCHON_LIKELY(i_2 < end_2)) {
-                        *i_2++ = traits_type_2::to_char_type(int_type_2(v_1));
-                        i_1 += 1;
-                        continue;
+                    if (ARCHON_LIKELY(v_1 < 0xFFFE)) {
+                        if (ARCHON_LIKELY(i_2 < end_2)) {
+                            *i_2++ = traits_type_2::to_char_type(int_type_2(v_1));
+                            i_1 += 1;
+                            continue;
+                        }
+                        // Output exhausted
+                        break;
                     }
-                    // Output exhausted
+                    error = true; // Non-character code point
                     break;
                 }
                 if (ARCHON_LIKELY(v_1 < 0xDC00)) {
@@ -2127,12 +2197,16 @@ void utf8_to_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& 
                             auto v = ((type(v_1 & 0x0F) << 12) | ((v_2 & 0x3F) << 6) | (v_3 & 0x3F));
                             if (ARCHON_LIKELY(v >= 0x800)) {
                                 if (ARCHON_LIKELY(v < 0xD800 || v >= 0xE000)) {
-                                    if (ARCHON_LIKELY(end_2 - i_2 >= 1)) {
-                                        *i_2++ = traits_type_2::to_char_type(int_type_2(v));
-                                        i_1 += 3;
-                                        continue;
+                                    if (ARCHON_LIKELY(v < 0xFFFE)) {
+                                        if (ARCHON_LIKELY(end_2 - i_2 >= 1)) {
+                                            *i_2++ = traits_type_2::to_char_type(int_type_2(v));
+                                            i_1 += 3;
+                                            continue;
+                                        }
+                                        // Output exhausted
+                                        break;
                                     }
-                                    // Output exhausted
+                                    error = true; // Non-character code point
                                     break;
                                 }
                                 error = true; // Code point in surrogate range
@@ -2260,14 +2334,18 @@ void utf16_to_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& 
                 if (ARCHON_LIKELY(v_1 < 0xD800 || v_1 >= 0xE000)) {
                     // UTF-8 layout: 1110xxxx 10xxxxxx 10xxxxxx (16 payload bits)
                     // Code point range: U+0800 -> U+FFFF
-                    if (ARCHON_LIKELY(end_2 - i_2 >= 3)) {
-                        *i_2++ = traits_type_2::to_char_type(int_type_2(0xE0 + v_1 / 0x1000));
-                        *i_2++ = traits_type_2::to_char_type(int_type_2(0x80 + v_1 / 0x40 % 0x40));
-                        *i_2++ = traits_type_2::to_char_type(int_type_2(0x80 + v_1 % 0x40));
-                        i_1 += 1;
-                        continue;
+                    if (ARCHON_LIKELY(v_1 < 0xFFFE)) {
+                        if (ARCHON_LIKELY(end_2 - i_2 >= 3)) {
+                            *i_2++ = traits_type_2::to_char_type(int_type_2(0xE0 + v_1 / 0x1000));
+                            *i_2++ = traits_type_2::to_char_type(int_type_2(0x80 + v_1 / 0x40 % 0x40));
+                            *i_2++ = traits_type_2::to_char_type(int_type_2(0x80 + v_1 % 0x40));
+                            i_1 += 1;
+                            continue;
+                        }
+                        // Output exhausted
+                        break;
                     }
-                    // Output exhausted
+                    error = true; // Non-character code point
                     break;
                 }
                 if (ARCHON_LIKELY(v_1 < 0xDC00)) {
