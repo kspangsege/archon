@@ -112,7 +112,10 @@ void encode_utf8_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::siz
 /// Behavior is undefined if, prior to the invocation, \p string_size is greater than
 /// `string.size()` or \p buffer_offset is greater than `buffer.size()`.
 ///
-/// \sa \ref core::encode_utf8(), \ref core::encode_utf8_l(), \ref core::try_encode_utf8()
+/// This function is implemented in terms of \ref core::encode_utf8_incr().
+///
+/// \sa \ref core::encode_utf8(), \ref core::encode_utf8_l(), \ref core::try_encode_utf8(),
+/// \ref core::encode_utf8_incr()
 ///
 /// \sa \ref core::decode_utf8_a(), \ref core::encode_utf16_a(), \ref
 /// core::utf16_to_utf8_a()
@@ -195,8 +198,10 @@ void decode_utf8_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::siz
 /// Behavior is undefined if, prior to the invocation, \p string_size is greater than
 /// `string.size()` or \p buffer_offset is greater than `buffer.size()`.
 ///
+/// This function is implemented in terms of \ref core::decode_utf8_incr().
+///
 /// \sa \ref core::decode_utf8(), \ref core::decode_utf8_l(), \ref core::try_decode_utf8(),
-/// \ref core::resync_utf8()
+/// \ref core::decode_utf8_incr(), \ref core::resync_utf8()
 ///
 /// \sa \ref core::encode_utf8_a(), \ref core::decode_utf16_a(), \ref
 /// core::utf8_to_utf16_a()
@@ -277,8 +282,10 @@ void encode_utf16_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::si
 /// Behavior is undefined if, prior to the invocation, \p string_size is greater than
 /// `string.size()` or \p buffer_offset is greater than `buffer.size()`.
 ///
+/// This function is implemented in terms of \ref core::encode_utf16_incr().
+///
 /// \sa \ref core::encode_utf16(), \ref core::encode_utf16_l(), \ref
-/// core::try_encode_utf16()
+/// core::try_encode_utf16(), \ref core::encode_utf16_incr()
 ///
 /// \sa \ref core::decode_utf16_a(), \ref core::encode_utf8_a(), \ref
 /// core::utf8_to_utf16_a()
@@ -294,6 +301,9 @@ void encode_utf16_a(core::StringSpan<C> string, std::size_t& string_offset, core
 /// string). The recovered string is stored in the specified buffer (\p buffer) starting at
 /// the specified position (\p buffer_offset). The buffer will be expanded as required
 /// (using a progressive expansion scheme).
+///
+/// This function does not recognize a UTF-16 byte order mark (BOM). It is the
+/// responsibility of the application to ensure its absence.
 ///
 /// This function has the same effect as \ref core::try_decode_utf16(), except that it
 /// throws instead of returning `false` if the specified string contains an invalid UTF-16
@@ -316,6 +326,9 @@ void decode_utf16(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size
 /// This function recovers the UCS string from the specified UTF-16 encoding (\p string) in
 /// a lenient manner, which means that any invalid UTF-16 sequence in the specified string
 /// yields a Unicode replacement character in the resulting string.
+///
+/// This function does not recognize a UTF-16 byte order mark (BOM). It is the
+/// responsibility of the application to ensure its absence.
 ///
 /// This function is implemented in terms of \ref core::decode_utf16_a() and \ref
 /// core::resync_utf16().
@@ -341,6 +354,9 @@ void decode_utf16_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::si
 /// starting at the specified offset (\p buffer_offset). The buffer will be expanded as
 /// necessary (using a progressive expansion scheme).
 ///
+/// This function does not recognize a UTF-16 byte order mark (BOM). It is the
+/// responsibility of the application to ensure its absence.
+///
 /// The invocation `decode_utf16_a(string, string_offset, buffer, buffer_offset)` has the
 /// same effect as `try_decode_utf16(string.subspan(string_offset), buffer, buffer_offset)`,
 /// except that when an invalid UTF-16 sequence is encountered, the former invocation, i.e.,
@@ -362,8 +378,10 @@ void decode_utf16_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::si
 /// Behavior is undefined if, prior to the invocation, \p string_size is greater than
 /// `string.size()` or \p buffer_offset is greater than `buffer.size()`.
 ///
+/// This function is implemented in terms of \ref core::decode_utf16_incr().
+///
 /// \sa \ref core::decode_utf16(), \ref core::decode_utf16_l(), \ref
-/// core::try_decode_utf16(), \ref core::resync_utf16()
+/// core::try_decode_utf16(), \ref core::decode_utf16_incr(), \ref core::resync_utf16()
 ///
 /// \sa \ref core::encode_utf16_a(), \ref core::decode_utf8_a(), \ref
 /// core::utf16_to_utf8_a()
@@ -450,8 +468,10 @@ void utf8_to_utf16_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::s
 /// Behavior is undefined if, prior to the invocation, \p string_size is greater than
 /// `string.size()` or \p buffer_offset is greater than `buffer.size()`.
 ///
+/// This function is implemented in terms of \ref core::utf8_to_utf16_incr().
+///
 /// \sa \ref core::utf8_to_utf16(), \ref core::utf8_to_utf16_l(), \ref
-/// core::try_utf8_to_utf16(), \ref core::resync_utf8()
+/// core::try_utf8_to_utf16(), \ref core::utf8_to_utf16_incr(), \ref core::resync_utf8()
 ///
 /// \sa \ref core::utf16_to_utf8_a(), \ref core::decode_utf8_a(), \ref
 /// core::encode_utf16_a()
@@ -468,6 +488,9 @@ void utf8_to_utf16_a(core::StringSpan<C> string, std::size_t& string_offset, cor
 /// is stored in the specified buffer (\p buffer) starting at the specified position (\p
 /// buffer_offset). The buffer will be expanded as required (using a progressive expansion
 /// scheme).
+///
+/// This function does not recognize a UTF-16 byte order mark (BOM). It is the
+/// responsibility of the application to ensure its absence.
 ///
 /// This function has the same effect as \ref core::try_utf16_to_utf8(), except that it
 /// throws instead of returning `false` if the specified string contains an invalid UTF-16
@@ -491,6 +514,9 @@ void utf16_to_utf8(core::StringSpan<C> string, core::Buffer<D>& buffer, std::siz
 /// string that has the specified UTF-16 encoding (\p string), and it does so in a lenient
 /// manner. This means that any invalid UTF-16 sequence in the specified string will be
 /// handled as if it was the valid encoding of the Unicode replacement character.
+///
+/// This function does not recognize a UTF-16 byte order mark (BOM). It is the
+/// responsibility of the application to ensure its absence.
 ///
 /// This function is implemented in terms of \ref core::decode_utf16_a() and \ref
 /// core::resync_utf16().
@@ -516,6 +542,9 @@ void utf16_to_utf8_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::s
 /// specified offset (\p buffer_offset). The buffer will be expanded as necessary (using a
 /// progressive expansion scheme).
 ///
+/// This function does not recognize a UTF-16 byte order mark (BOM). It is the
+/// responsibility of the application to ensure its absence.
+///
 /// The invocation `utf16_to_utf8_a(string, string_offset, buffer, buffer_offset)` has the
 /// same effect as `try_utf16_to_utf8(string.subspan(string_offset), buffer,
 /// buffer_offset)`, except that when an invalid UTF-16 sequence is encountered, the former
@@ -538,8 +567,10 @@ void utf16_to_utf8_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::s
 /// Behavior is undefined if, prior to the invocation, \p string_size is greater than
 /// `string.size()` or \p buffer_offset is greater than `buffer.size()`.
 ///
+/// This function is implemented in terms of \ref core::utf16_to_utf8_incr().
+///
 /// \sa \ref core::utf16_to_utf8(), \ref core::utf16_to_utf8_l(), \ref
-/// core::try_utf16_to_utf8(), \ref core::resync_utf16()
+/// core::try_utf16_to_utf8(), \ref core::utf16_to_utf8_incr(), \ref core::resync_utf16()
 ///
 /// \sa \ref core::utf8_to_utf16_a(), \ref core::decode_utf16_a(), \ref
 /// core::encode_utf8_a()
@@ -573,6 +604,9 @@ void utf16_to_utf8_a(core::StringSpan<C> string, std::size_t& string_offset, cor
 ///
 /// Behavior is undefined if \p buffer_offset is greater than `buffer.size()` prior to the
 /// invocation.
+///
+/// This function is implemented in terms of \ref core::encode_utf8_a() which, in turn, is
+/// implemented in terms of \ref core::encode_utf8_incr().
 ///
 /// While the input character type, \p C, needs to have a bit-width of at least 21 in order
 /// to hold the full range of valid Unicode code points (U+0000 -> U+10FFFF), this function
@@ -619,6 +653,9 @@ bool try_encode_utf8(core::StringSpan<C> string, core::Buffer<D>& buffer, std::s
 /// Behavior is undefined if \p buffer_offset is greater than `buffer.size()` prior to the
 /// invocation.
 ///
+/// This function is implemented in terms of \ref core::decode_utf8_a() which, in turn, is
+/// implemented in terms of \ref core::decode_utf8_incr().
+///
 /// The input character type, \p C, which is used to hold UTF-8 code units, needs to have a
 /// bit-width of at least 8, and `std::char_traits<C>::eof()` must be outside the range of
 /// valid UTF-8 code units, 0x00 -> 0xFF. A reasonable choice is `char`, which works because
@@ -664,6 +701,9 @@ bool try_decode_utf8(core::StringSpan<C> string, core::Buffer<D>& buffer, std::s
 /// Behavior is undefined if \p buffer_offset is greater than `buffer.size()` prior to the
 /// invocation.
 ///
+/// This function is implemented in terms of \ref core::encode_utf16_a() which, in turn, is
+/// implemented in terms of \ref core::encode_utf16_incr().
+///
 /// While the input character type, \p C, needs to have a bit-width of at least 21 in order
 /// to hold the full range of valid Unicode code points (U+0000 -> U+10FFFF), this function
 /// can be used with any input character type where `std::char_traits<C>::eof()` does not
@@ -694,6 +734,9 @@ bool try_encode_utf16(core::StringSpan<C> string, core::Buffer<D>& buffer, std::
 /// starting at the specified position (\p buffer_offset). The buffer will be expanded as
 /// needed (using a progressive expansion scheme).
 ///
+/// This function does not recognize a UTF-16 byte order mark (BOM). It is the
+/// responsibility of the application to ensure its absence.
+///
 /// When decoding succeeds, this function returns `true` after setting \p buffer_offset to
 /// point to the end of the recovered UCS string in the buffer (one beyond the last code
 /// point of the recovered string).
@@ -707,6 +750,9 @@ bool try_encode_utf16(core::StringSpan<C> string, core::Buffer<D>& buffer, std::
 ///
 /// Behavior is undefined if \p buffer_offset is greater than `buffer.size()` prior to the
 /// invocation.
+///
+/// This function is implemented in terms of \ref core::decode_utf16_a() which, in turn, is
+/// implemented in terms of \ref core::decode_utf16_incr().
 ///
 /// The input character type, \p C, which is used to hold UTF-16 code units, needs to have a
 /// bit-width of at least 16, and `std::char_traits<C>::eof()` must be outside the range of
@@ -750,6 +796,9 @@ bool try_decode_utf16(core::StringSpan<C> string, core::Buffer<D>& buffer, std::
 /// Behavior is undefined if \p buffer_offset is greater than `buffer.size()` prior to the
 /// invocation.
 ///
+/// This function is implemented in terms of \ref core::utf8_to_utf16_a() which, in turn, is
+/// implemented in terms of \ref core::utf8_to_utf16_incr().
+///
 /// The input character type, \p C, which is used to hold UTF-8 code units, needs to have a
 /// bit-width of at least 8, and `std::char_traits<C>::eof()` must be outside the range of
 /// valid UTF-8 code units, 0x00 -> 0xFF. A reasonable choice is `char`, which works because
@@ -779,6 +828,9 @@ bool try_utf8_to_utf16(core::StringSpan<C> string, core::Buffer<D>& buffer, std:
 /// position (\p buffer_offset). The buffer will be expanded as needed (using a progressive
 /// expansion scheme).
 ///
+/// This function does not recognize a UTF-16 byte order mark (BOM). It is the
+/// responsibility of the application to ensure its absence.
+///
 /// When transcoding succeeds, this function returns `true` after setting \p buffer_offset
 /// to point to the end of the produced UTF-8 encoding in the buffer (one beyond the last
 /// code unit of the UTF-8 encoding).
@@ -792,6 +844,9 @@ bool try_utf8_to_utf16(core::StringSpan<C> string, core::Buffer<D>& buffer, std:
 ///
 /// Behavior is undefined if \p buffer_offset is greater than `buffer.size()` prior to the
 /// invocation.
+///
+/// This function is implemented in terms of \ref core::utf16_to_utf8_a() which, in turn, is
+/// implemented in terms of \ref core::utf16_to_utf8_incr().
 ///
 /// The input character type, \p C, which is used to hold UTF-16 code units, needs to have a
 /// bit-width of at least 16, and `std::char_traits<C>::eof()` must be outside the range of
@@ -999,6 +1054,10 @@ void encode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& i
 /// invocation of this function will decode characters until input is exhausted, invalid
 /// input is encountered, or the output buffer runs full.
 ///
+/// This function does not and could not distinguish between a UTF-16 byte order mark (BOM,
+/// U+FEFF) and the invisible zero-width non-breaking space (ZWNBSP). It is the
+/// responsibility of the application to remove any byte order mark from the input.
+///
 /// If `i` is the value of \p in_offset prior to invocation and `j` is the value of \p
 /// out_offset prior to invocation, then the available input is `in.subspan(i)` and the
 /// available space for output is `out.subspan(j)`.
@@ -1126,6 +1185,10 @@ void utf8_to_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& 
 /// The purpose of this function is to advance an ongoing UTF-16 to UTF-8 transcoding
 /// process. An invocation of this function will transcode characters until input is
 /// exhausted, invalid input is encountered, or there is insufficient space for output.
+///
+/// This function does not and could not distinguish between a UTF-16 byte order mark (BOM,
+/// U+FEFF) and the invisible zero-width non-breaking space (ZWNBSP). It is the
+/// responsibility of the application to remove any byte order mark from the input.
 ///
 /// If `i` is the value of \p in_offset prior to invocation and `j` is the value of \p
 /// out_offset prior to invocation, then the available input is `in.subspan(i)` and the
@@ -1721,7 +1784,8 @@ void encode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
 
     for (;;) {
         if (ARCHON_LIKELY(i_1 < end_1)) {
-            int_type_1 v = traits_type_1::to_int_type(*i_1);
+            using promoted_type = core::promoted_type<int_type_1>;
+            promoted_type v = core::promote(traits_type_1::to_int_type(*i_1));
             if (ARCHON_LIKELY(v < 0x80)) {
                 // UTF-8 layout: 0xxxxxxx (7 payload bits)
                 // Code point range: U+0000 -> U+007F
@@ -1828,7 +1892,8 @@ void decode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
 
     for (;;) {
         if (ARCHON_LIKELY(end_1 - i_1 >= 1)) {
-            int_type_1 v_1 = traits_type_1::to_int_type(i_1[0]);
+            using promoted_type = core::promoted_type<int_type_1>;
+            promoted_type v_1 = core::promote(traits_type_1::to_int_type(i_1[0]));
             if (ARCHON_LIKELY(v_1 < 0x80)) {
                 // UTF-8 layout: 0xxxxxxx (7 payload bits)
                 // Code point range: U+0000 -> U+007F
@@ -1845,9 +1910,9 @@ void decode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
                     // UTF-8 layout: 110xxxxx 10xxxxxx (11 payload bits)
                     // Code point range: U+0080 -> U+07FF
                     if (ARCHON_LIKELY(end_1 - i_1 >= 2)) {
-                        int_type_1 v_2 = traits_type_1::to_int_type(i_1[1]);
+                        promoted_type v_2 = core::promote(traits_type_1::to_int_type(i_1[1]));
                         if (ARCHON_LIKELY((v_2 & 0xC0) == 0x80)) {
-                            auto v = (((v_1 & 0x1F) << 6) | (v_2 & 0x3F));
+                            promoted_type v = (((v_1 & 0x1F) << 6) | (v_2 & 0x3F));
                             if (ARCHON_LIKELY(v >= 0x80)) {
                                 if (ARCHON_LIKELY(i_2 < end_2)) {
                                     *i_2++ = traits_type_2::to_char_type(int_type_2(v));
@@ -1870,11 +1935,11 @@ void decode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
                     // UTF-8 layout: 1110xxxx 10xxxxxx 10xxxxxx (16 payload bits)
                     // Code point range: U+0800 -> U+FFFF
                     if (ARCHON_LIKELY(end_1 - i_1 >= 3)) {
-                        int_type_1 v_2 = traits_type_1::to_int_type(i_1[1]);
-                        int_type_1 v_3 = traits_type_1::to_int_type(i_1[2]);
+                        promoted_type v_2 = core::promote(traits_type_1::to_int_type(i_1[1]));
+                        promoted_type v_3 = core::promote(traits_type_1::to_int_type(i_1[2]));
                         if (ARCHON_LIKELY((v_2 & 0xC0) == 0x80 && (v_3 & 0xC0) == 0x80)) {
-                            using type = decltype(int_type_1() + std::uint_least16_t());
-                            auto v = ((type(v_1 & 0x0F) << 12) | ((v_2 & 0x3F) << 6) | (v_3 & 0x3F));
+                            using type = decltype(promoted_type() + std::uint_least16_t());
+                            type v = ((type(v_1 & 0x0F) << 12) | ((v_2 & 0x3F) << 6) | (v_3 & 0x3F));
                             if (ARCHON_LIKELY(v >= 0x800)) {
                                 if (ARCHON_LIKELY(v < 0xD800 || v >= 0xE000)) {
                                     if (ARCHON_LIKELY(v < 0xFFFE)) {
@@ -1905,12 +1970,12 @@ void decode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
                     // UTF-8 layout: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx (21 payload bits)
                     // Code point range: U+010000 -> U+10FFFF
                     if (ARCHON_LIKELY(end_1 - i_1 >= 4)) {
-                        int_type_1 v_2 = traits_type_1::to_int_type(i_1[1]);
-                        int_type_1 v_3 = traits_type_1::to_int_type(i_1[2]);
-                        int_type_1 v_4 = traits_type_1::to_int_type(i_1[3]);
+                        promoted_type v_2 = core::promote(traits_type_1::to_int_type(i_1[1]));
+                        promoted_type v_3 = core::promote(traits_type_1::to_int_type(i_1[2]));
+                        promoted_type v_4 = core::promote(traits_type_1::to_int_type(i_1[3]));
                         if (ARCHON_LIKELY((v_2 & 0xC0) == 0x80 && (v_3 & 0xC0) == 0x80) && (v_4 & 0xC0) == 0x80) {
-                            using type = decltype(int_type_1() + std::int_least32_t());
-                            auto v = ((type(v_1 & 0x07) << 18) | (type(v_2 & 0x3F) << 12) |
+                            using type = decltype(promoted_type() + std::int_least32_t());
+                            type v = ((type(v_1 & 0x07) << 18) | (type(v_2 & 0x3F) << 12) |
                                       ((v_3 & 0x3F) << 6) | (v_4 & 0x3F));
                             if (ARCHON_LIKELY(v >= 0x10000)) {
                                 if (ARCHON_LIKELY(v < 0x110000)) {
@@ -1982,7 +2047,8 @@ void encode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& i
 
     for (;;) {
         if (ARCHON_LIKELY(i_1 < end_1)) {
-            int_type_1 v = traits_type_1::to_int_type(*i_1);
+            using promoted_type = core::promoted_type<int_type_1>;
+            promoted_type v = core::promote(traits_type_1::to_int_type(*i_1));
             if (ARCHON_LIKELY(v < 0xFFFE)) {
                 // Code point range: U+0000 -> U+FFFF
                 if (ARCHON_LIKELY(v < 0xD800 || v >= 0xE000)) {
@@ -2060,7 +2126,8 @@ void decode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& i
 
     for (;;) {
         if (ARCHON_LIKELY(end_1 - i_1 >= 1)) {
-            int_type_1 v_1 = traits_type_1::to_int_type(i_1[0]);
+            using promoted_type = core::promoted_type<int_type_1>;
+            promoted_type v_1 = core::promote(traits_type_1::to_int_type(i_1[0]));
             if (ARCHON_LIKELY(v_1 < 0x10000)) {
                 if (ARCHON_LIKELY(v_1 < 0xD800 || v_1 >= 0xE000)) {
                     // Code point range: U+0000 -> U+FFFF
@@ -2079,10 +2146,10 @@ void decode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& i
                 if (ARCHON_LIKELY(v_1 < 0xDC00)) {
                     // Code point range: U+010000 -> U+10FFFF
                     if (ARCHON_LIKELY(end_1 - i_1 >= 2)) {
-                        int_type_1 v_2 = traits_type_1::to_int_type(i_1[1]);
+                        promoted_type v_2 = core::promote(traits_type_1::to_int_type(i_1[1]));
                         if (ARCHON_LIKELY(v_2 >= 0xDC00 && v_2 < 0xE000)) {
-                            using type = decltype(int_type_1() + std::int_least32_t());
-                            auto v = 0x10000 + ((type(v_1 - 0xD800) << 10) | (v_2 - 0xDC00));
+                            using type = decltype(promoted_type() + std::int_least32_t());
+                            type v = 0x10000 + ((type(v_1 - 0xD800) << 10) | (v_2 - 0xDC00));
                             if (ARCHON_LIKELY(i_2 < end_2)) {
                                 *i_2++ = traits_type_2::to_char_type(int_type_2(v));
                                 i_1 += 2;
@@ -2148,7 +2215,8 @@ void utf8_to_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& 
 
     for (;;) {
         if (ARCHON_LIKELY(end_1 - i_1 >= 1)) {
-            int_type_1 v_1 = traits_type_1::to_int_type(i_1[0]);
+            using promoted_type = core::promoted_type<int_type_1>;
+            promoted_type v_1 = core::promote(traits_type_1::to_int_type(i_1[0]));
             if (ARCHON_LIKELY(v_1 < 0x80)) {
                 // UTF-8 layout: 0xxxxxxx (7 payload bits)
                 // Code point range: U+0000 -> U+007F
@@ -2165,9 +2233,9 @@ void utf8_to_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& 
                     // UTF-8 layout: 110xxxxx 10xxxxxx (11 payload bits)
                     // Code point range: U+0080 -> U+07FF
                     if (ARCHON_LIKELY(end_1 - i_1 >= 2)) {
-                        int_type_1 v_2 = traits_type_1::to_int_type(i_1[1]);
+                        promoted_type v_2 = core::promote(traits_type_1::to_int_type(i_1[1]));
                         if (ARCHON_LIKELY((v_2 & 0xC0) == 0x80)) {
-                            auto v = (((v_1 & 0x1F) << 6) | (v_2 & 0x3F));
+                            promoted_type v = (((v_1 & 0x1F) << 6) | (v_2 & 0x3F));
                             if (ARCHON_LIKELY(v >= 0x80)) {
                                 if (ARCHON_LIKELY(end_2 - i_2 >= 1)) {
                                     *i_2++ = traits_type_2::to_char_type(int_type_2(v));
@@ -2190,11 +2258,11 @@ void utf8_to_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& 
                     // UTF-8 layout: 1110xxxx 10xxxxxx 10xxxxxx (16 payload bits)
                     // Code point range: U+0800 -> U+FFFF
                     if (ARCHON_LIKELY(end_1 - i_1 >= 3)) {
-                        int_type_1 v_2 = traits_type_1::to_int_type(i_1[1]);
-                        int_type_1 v_3 = traits_type_1::to_int_type(i_1[2]);
+                        promoted_type v_2 = core::promote(traits_type_1::to_int_type(i_1[1]));
+                        promoted_type v_3 = core::promote(traits_type_1::to_int_type(i_1[2]));
                         if (ARCHON_LIKELY((v_2 & 0xC0) == 0x80 && (v_3 & 0xC0) == 0x80)) {
-                            using type = decltype(int_type_1() + std::uint_least16_t());
-                            auto v = ((type(v_1 & 0x0F) << 12) | ((v_2 & 0x3F) << 6) | (v_3 & 0x3F));
+                            using type = decltype(promoted_type() + std::uint_least16_t());
+                            type v = ((type(v_1 & 0x0F) << 12) | ((v_2 & 0x3F) << 6) | (v_3 & 0x3F));
                             if (ARCHON_LIKELY(v >= 0x800)) {
                                 if (ARCHON_LIKELY(v < 0xD800 || v >= 0xE000)) {
                                     if (ARCHON_LIKELY(v < 0xFFFE)) {
@@ -2225,12 +2293,12 @@ void utf8_to_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& 
                     // UTF-8 layout: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx (21 payload bits)
                     // Code point range: U+010000 -> U+10FFFF
                     if (ARCHON_LIKELY(end_1 - i_1 >= 4)) {
-                        int_type_1 v_2 = traits_type_1::to_int_type(i_1[1]);
-                        int_type_1 v_3 = traits_type_1::to_int_type(i_1[2]);
-                        int_type_1 v_4 = traits_type_1::to_int_type(i_1[3]);
+                        promoted_type v_2 = core::promote(traits_type_1::to_int_type(i_1[1]));
+                        promoted_type v_3 = core::promote(traits_type_1::to_int_type(i_1[2]));
+                        promoted_type v_4 = core::promote(traits_type_1::to_int_type(i_1[3]));
                         if (ARCHON_LIKELY((v_2 & 0xC0) == 0x80 && (v_3 & 0xC0) == 0x80) && (v_4 & 0xC0) == 0x80) {
-                            using type = decltype(int_type_1() + std::int_least32_t());
-                            auto v = ((type(v_1 & 0x07) << 18) | (type(v_2 & 0x3F) << 12) |
+                            using type = decltype(promoted_type() + std::int_least32_t());
+                            type v = ((type(v_1 & 0x07) << 18) | (type(v_2 & 0x3F) << 12) |
                                       ((v_3 & 0x3F) << 6) | (v_4 & 0x3F));
                             if (ARCHON_LIKELY(v >= 0x10000)) {
                                 if (ARCHON_LIKELY(v < 0x110000)) {
@@ -2306,7 +2374,8 @@ void utf16_to_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& 
 
     for (;;) {
         if (ARCHON_LIKELY(end_1 - i_1 >= 1)) {
-            int_type_1 v_1 = traits_type_1::to_int_type(i_1[0]);
+            using promoted_type = core::promoted_type<int_type_1>;
+            promoted_type v_1 = core::promote(traits_type_1::to_int_type(i_1[0]));
             if (ARCHON_LIKELY(v_1 < 0x80)) {
                 // UTF-8 layout: 0xxxxxxx (7 payload bits)
                 // Code point range: U+0000 -> U+007F
@@ -2352,10 +2421,10 @@ void utf16_to_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& 
                     // UTF-8 layout: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx (21 payload bits)
                     // Code point range: U+010000 -> U+10FFFF
                     if (ARCHON_LIKELY(end_1 - i_1 >= 2)) {
-                        int_type_1 v_2 = traits_type_1::to_int_type(in[1]);
+                        promoted_type v_2 = core::promote(traits_type_1::to_int_type(in[1]));
                         if (ARCHON_LIKELY(v_2 >= 0xDC00 && v_2 < 0xE000)) {
-                            using type = decltype(int_type_1() + std::int_least32_t());
-                            auto v = 0x10000 + ((type(v_1 - 0xD800) << 10) | (v_2 - 0xDC00));
+                            using type = decltype(promoted_type() + std::int_least32_t());
+                            type v = 0x10000 + ((type(v_1 - 0xD800) << 10) | (v_2 - 0xDC00));
                             if (ARCHON_LIKELY(end_2 - i_2 >= 4)) {
                                 *i_2++ = traits_type_2::to_char_type(int_type_2(0xF0 + v / 0x40000));
                                 *i_2++ = traits_type_2::to_char_type(int_type_2(0x80 + v / 0x1000 % 0x40));
@@ -2406,7 +2475,8 @@ template<class C, class T> void resync_utf8(core::Span<const C> in, std::size_t&
     const char_type* end = in.data() + in.size();
 
     while (ARCHON_LIKELY(end - i >= 1)) {
-        int_type v = traits_type::to_int_type(i[0]);
+        using promoted_type = core::promoted_type<int_type>;
+        promoted_type v = core::promote(traits_type::to_int_type(i[0]));
         if (ARCHON_LIKELY(v < 0x80 || (v >= 0xC0 && v < 0xF8)))
             break;
         i += 1; // Discard this byte
@@ -2434,7 +2504,8 @@ template<class C, class T> void resync_utf16(core::Span<const C> in, std::size_t
     const char_type* end = in.data() + in.size();
 
     while (ARCHON_LIKELY(end - i >= 1)) {
-        int_type v = traits_type::to_int_type(i[0]);
+        using promoted_type = core::promoted_type<int_type>;
+        promoted_type v = core::promote(traits_type::to_int_type(i[0]));
         // Any code unit that is not the second half of a surrogate pair is a valid start of
         // a sequence
         if (ARCHON_LIKELY(v < 0xDC00 || v >= 0xE000))
