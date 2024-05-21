@@ -2009,7 +2009,7 @@ void decode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& i
                 if (ARCHON_LIKELY(v_1 < 0xDC00)) {
                     // Code point range: U+010000 -> U+10FFFF
                     if (ARCHON_LIKELY(end_1 - i_1 >= 2)) {
-                        int_type_1 v_2 = traits_type_1::to_int_type(in[1]);
+                        int_type_1 v_2 = traits_type_1::to_int_type(i_1[1]);
                         if (ARCHON_LIKELY(v_2 >= 0xDC00 && v_2 < 0xE000)) {
                             using type = decltype(int_type_1() + std::int_least32_t());
                             auto v = 0x10000 + ((type(v_1 - 0xD800) << 10) | (v_2 - 0xDC00));
@@ -2030,7 +2030,7 @@ void decode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& i
                 error = true; // Stray second half of surrogate pair
                 break;
             }
-            error = true; // Code point out of range
+            error = true; // Code unit out of range
             break;
         }
         in_exhausted = true;
@@ -2298,7 +2298,7 @@ void utf16_to_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& 
                 error = true; // Stray second half of surrogate pair
                 break;
             }
-            error = true; // Code point out of range
+            error = true; // Code unit out of range
             break;
         }
         in_exhausted = true;
