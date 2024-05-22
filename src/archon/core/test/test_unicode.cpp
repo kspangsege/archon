@@ -1768,3 +1768,62 @@ ARCHON_TEST(Core_Unicode_Utf8Resync)
     test({ 0xA4, 0xAD, 0xA2, 0x82, 0xAC, 0xF0, 0xA4, 0xAD, 0xA2 }, 5);
     test({ 0xA4, 0xAD, 0xA2, 0x82, 0xAC, 0xF0, 0xA4, 0xAD, 0xA2, 0x2B }, 5);
 }
+
+
+ARCHON_TEST(Core_Unicode_Utf16Resync)
+{
+    using char_type = char16_t;
+    using traits_type = std::char_traits<char_type>;
+    using int_type = traits_type::int_type;
+
+    std::array<char_type, 64> seed_memory;
+    core::Buffer buffer(seed_memory);
+
+    auto test = [&, &parent_test_context = test_context](std::initializer_list<int_type> in,
+                                                         std::size_t expected_advance) {
+        ARCHON_TEST_TRAIL(parent_test_context, core::formatted_wrn("%s, %s", core::as_sbr_list(in), expected_advance));
+        std::size_t offset = 0;
+        for (int_type val : in)
+            buffer.append_a(traits_type::to_char_type(val), offset);
+        core::Span in_2 = { buffer.data(), offset };
+        std::size_t in_offset = 0;
+        core::resync_utf16<char_type, traits_type>(in_2, in_offset);
+        ARCHON_CHECK_EQUAL(in_offset, expected_advance);
+    };
+
+    // Skip zero
+    test({}, 0);
+    test({ 0x24 }, 0);
+    test({ 0x24, 0x2B }, 0);
+    test({ 0xD852 }, 0);
+    test({ 0xD852, 0x2B }, 0);
+    test({ 0xD852, 0xDF62 }, 0);
+    test({ 0xD852, 0xDF62, 0x2B }, 0);
+
+    // Skip one
+    test({ 0xDC37 }, 1);
+    test({ 0xDC37, 0x24 }, 1);
+    test({ 0xDC37, 0x24, 0x2B }, 1);
+    test({ 0xDC37, 0xD852 }, 1);
+    test({ 0xDC37, 0xD852, 0x2B }, 1);
+    test({ 0xDC37, 0xD852, 0xDF62 }, 1);
+    test({ 0xDC37, 0xD852, 0xDF62, 0x2B }, 1);
+
+    // Skip two
+    test({ 0xDC37, 0xDF48 }, 2);
+    test({ 0xDC37, 0xDF48, 0x24 }, 2);
+    test({ 0xDC37, 0xDF48, 0x24, 0x2B }, 2);
+    test({ 0xDC37, 0xDF48, 0xD852 }, 2);
+    test({ 0xDC37, 0xDF48, 0xD852, 0x2B }, 2);
+    test({ 0xDC37, 0xDF48, 0xD852, 0xDF62 }, 2);
+    test({ 0xDC37, 0xDF48, 0xD852, 0xDF62, 0x2B }, 2);
+
+    // Skip three
+    test({ 0xDC37, 0xDF48, 0xDD3E }, 3);
+    test({ 0xDC37, 0xDF48, 0xDD3E, 0x24 }, 3);
+    test({ 0xDC37, 0xDF48, 0xDD3E, 0x24, 0x2B }, 3);
+    test({ 0xDC37, 0xDF48, 0xDD3E, 0xD852 }, 3);
+    test({ 0xDC37, 0xDF48, 0xDD3E, 0xD852, 0x2B }, 3);
+    test({ 0xDC37, 0xDF48, 0xDD3E, 0xD852, 0xDF62 }, 3);
+    test({ 0xDC37, 0xDF48, 0xDD3E, 0xD852, 0xDF62, 0x2B }, 3);
+}
