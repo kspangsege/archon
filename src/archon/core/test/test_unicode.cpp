@@ -515,7 +515,7 @@ ARCHON_TEST(Core_Unicode_DecodeUtf8Incr)
     test({ 0x2A, 0x90, 0x8D, 0x88, 0x2B }, 1, 1, { 0x2A }, Result::error);
     test({ 0x2A, 0x90, 0x8D, 0x88, 0x2B }, 2, 1, { 0x2A }, Result::error);
 
-    // Invalid: Bad continuation, 2-byte form (cent): 0xC2, 0xA2
+    // Invalid: Bad continuation, 2-byte form (cent): 0xC2, 0xA2 --> U+00A2
     test({ 0xC2, 0x25 }, 0, 0, {}, Result::error);
     test({ 0xC2, 0x25 }, 1, 0, {}, Result::error);
     test({ 0xC2, 0x25, 0x2B }, 0, 0, {}, Result::error);
@@ -537,7 +537,7 @@ ARCHON_TEST(Core_Unicode_DecodeUtf8Incr)
     test({ 0x2A, 0xC2, 0xD0, 0x98, 0x2B }, 1, 1, { 0x2A }, Result::error);
     test({ 0x2A, 0xC2, 0xD0, 0x98, 0x2B }, 2, 1, { 0x2A }, Result::error);
 
-    // Invalid: Bad continuation, 3-byte form (euro): 0xE2, 0x82, 0xAC
+    // Invalid: Bad continuation, 3-byte form (euro): 0xE2, 0x82, 0xAC --> U+20AC
     test({ 0xE2, 0x25 }, 0, 0, {}, Result::in_exhausted_or_error);
     test({ 0xE2, 0x25 }, 1, 0, {}, Result::in_exhausted_or_error);
     test({ 0xE2, 0x25, 0x2B }, 0, 0, {}, Result::error);
@@ -579,7 +579,7 @@ ARCHON_TEST(Core_Unicode_DecodeUtf8Incr)
     test({ 0x2A, 0xE2, 0x82, 0xD0, 0x98, 0x2B }, 1, 1, { 0x2A }, Result::error);
     test({ 0x2A, 0xE2, 0x82, 0xD0, 0x98, 0x2B }, 2, 1, { 0x2A }, Result::error);
 
-    // Invalid: Bad continuation, 4-byte form (hwair): 0xF0, 0x90, 0x8D, 0x88
+    // Invalid: Bad continuation, 4-byte form (hwair): 0xF0, 0x90, 0x8D, 0x88 --> U+10348
     test({ 0xF0, 0x25 }, 0, 0, {}, Result::in_exhausted_or_error);
     test({ 0xF0, 0x25 }, 1, 0, {}, Result::in_exhausted_or_error);
     test({ 0xF0, 0x25, 0x2B }, 0, 0, {}, Result::in_exhausted_or_error);
@@ -1064,7 +1064,7 @@ ARCHON_TEST(Core_Unicode_Utf8ToUtf16Incr)
     test({}, 0, 0, {}, Result::in_exhausted);
     test({}, 1, 0, {}, Result::in_exhausted);
 
-    // Valid 1-byte UTF-8 form (dollar): 0x24 --> 0x24
+    // Valid 1-byte UTF-8 form to 1-unit UTF-16 form (dollar): 0x24 --> U+0024 --> 0x24
     test({ 0x24 }, 0, 0, {}, Result::out_exhausted);
     test({ 0x24 }, 1, 1, { 0x24 }, Result::in_exhausted);
     test({ 0x24 }, 2, 1, { 0x24 }, Result::in_exhausted);
@@ -1082,7 +1082,7 @@ ARCHON_TEST(Core_Unicode_Utf8ToUtf16Incr)
     test({ 0x2A, 0x24, 0x2B }, 3, 3, { 0x2A, 0x24, 0x2B }, Result::in_exhausted);
     test({ 0x2A, 0x24, 0x2B }, 4, 3, { 0x2A, 0x24, 0x2B }, Result::in_exhausted);
 
-    // Valid 2-byte UTF-8 form (cent): 0xC2, 0xA2 --> 0xA2
+    // Valid 2-byte UTF-8 form to 1-unit UTF-16 form (cent): 0xC2, 0xA2 --> U+00A2 --> 0xA2
     test({ 0xC2 }, 0, 0, {}, Result::in_exhausted);
     test({ 0xC2 }, 1, 0, {}, Result::in_exhausted);
     test({ 0xC2 }, 2, 0, {}, Result::in_exhausted);
@@ -1107,7 +1107,7 @@ ARCHON_TEST(Core_Unicode_Utf8ToUtf16Incr)
     test({ 0x2A, 0xC2, 0xA2, 0x2B }, 3, 4, { 0x2A, 0xA2, 0x2B }, Result::in_exhausted);
     test({ 0x2A, 0xC2, 0xA2, 0x2B }, 4, 4, { 0x2A, 0xA2, 0x2B }, Result::in_exhausted);
 
-    // Valid 3-byte UTF-8 form (euro): 0xE2, 0x82, 0xAC --> 0x20AC
+    // Valid 3-byte UTF-8 form to 1-unit UTF-16 form (euro): 0xE2, 0x82, 0xAC --> U+20AC --> 0x20AC
     test({ 0xE2 }, 0, 0, {}, Result::in_exhausted);
     test({ 0xE2 }, 1, 0, {}, Result::in_exhausted);
     test({ 0xE2 }, 2, 0, {}, Result::in_exhausted);
@@ -1139,7 +1139,7 @@ ARCHON_TEST(Core_Unicode_Utf8ToUtf16Incr)
     test({ 0x2A, 0xE2, 0x82, 0xAC, 0x2B }, 3, 5, { 0x2A, 0x20AC, 0x2B }, Result::in_exhausted);
     test({ 0x2A, 0xE2, 0x82, 0xAC, 0x2B }, 4, 5, { 0x2A, 0x20AC, 0x2B }, Result::in_exhausted);
 
-    // Valid 4-byte UTF-8 form: 0xF0, 0xA4, 0xAD, 0xA2 --> 0xD852, 0xDF62
+    // Valid 4-byte UTF-8 to 2-unit UTF-16 form form: 0xF0, 0xA4, 0xAD, 0xA2 --> U+24B62 --> 0xD852, 0xDF62
     test({ 0xF0 }, 0, 0, {}, Result::in_exhausted);
     test({ 0xF0 }, 1, 0, {}, Result::in_exhausted);
     test({ 0xF0 }, 2, 0, {}, Result::in_exhausted);
@@ -1188,7 +1188,6 @@ ARCHON_TEST(Core_Unicode_Utf8ToUtf16Incr)
     test({ 0x2A, 0xF0, 0xA4, 0xAD, 0xA2, 0x2B }, 4, 6, { 0x2A, 0xD852, 0xDF62, 0x2B }, Result::in_exhausted);
     test({ 0x2A, 0xF0, 0xA4, 0xAD, 0xA2, 0x2B }, 5, 6, { 0x2A, 0xD852, 0xDF62, 0x2B }, Result::in_exhausted);
 
-/*
     // Invalid: Stray continuation: 0xA2
     test({ 0xA2 }, 0, 0, {}, Result::error);
     test({ 0xA2 }, 1, 0, {}, Result::error);
@@ -1225,7 +1224,7 @@ ARCHON_TEST(Core_Unicode_Utf8ToUtf16Incr)
     test({ 0x2A, 0x90, 0x8D, 0x88, 0x2B }, 1, 1, { 0x2A }, Result::error);
     test({ 0x2A, 0x90, 0x8D, 0x88, 0x2B }, 2, 1, { 0x2A }, Result::error);
 
-    // Invalid: Bad continuation, 2-byte form (cent): 0xC2, 0xA2
+    // Invalid: Bad continuation, 2-byte form (cent): 0xC2, 0xA2 --> U+00A2
     test({ 0xC2, 0x25 }, 0, 0, {}, Result::error);
     test({ 0xC2, 0x25 }, 1, 0, {}, Result::error);
     test({ 0xC2, 0x25, 0x2B }, 0, 0, {}, Result::error);
@@ -1247,7 +1246,7 @@ ARCHON_TEST(Core_Unicode_Utf8ToUtf16Incr)
     test({ 0x2A, 0xC2, 0xD0, 0x98, 0x2B }, 1, 1, { 0x2A }, Result::error);
     test({ 0x2A, 0xC2, 0xD0, 0x98, 0x2B }, 2, 1, { 0x2A }, Result::error);
 
-    // Invalid: Bad continuation, 3-byte form (euro): 0xE2, 0x82, 0xAC
+    // Invalid: Bad continuation, 3-byte form (euro): 0xE2, 0x82, 0xAC --> U+20AC
     test({ 0xE2, 0x25 }, 0, 0, {}, Result::in_exhausted_or_error);
     test({ 0xE2, 0x25 }, 1, 0, {}, Result::in_exhausted_or_error);
     test({ 0xE2, 0x25, 0x2B }, 0, 0, {}, Result::error);
@@ -1289,7 +1288,7 @@ ARCHON_TEST(Core_Unicode_Utf8ToUtf16Incr)
     test({ 0x2A, 0xE2, 0x82, 0xD0, 0x98, 0x2B }, 1, 1, { 0x2A }, Result::error);
     test({ 0x2A, 0xE2, 0x82, 0xD0, 0x98, 0x2B }, 2, 1, { 0x2A }, Result::error);
 
-    // Invalid: Bad continuation, 4-byte form (hwair): 0xF0, 0x90, 0x8D, 0x88
+    // Invalid: Bad continuation, 4-byte form (hwair): 0xF0, 0x90, 0x8D, 0x88 --> U+10348
     test({ 0xF0, 0x25 }, 0, 0, {}, Result::in_exhausted_or_error);
     test({ 0xF0, 0x25 }, 1, 0, {}, Result::in_exhausted_or_error);
     test({ 0xF0, 0x25, 0x2B }, 0, 0, {}, Result::in_exhausted_or_error);
@@ -1386,5 +1385,225 @@ ARCHON_TEST(Core_Unicode_Utf8ToUtf16Incr)
     test({ 0x2A, 0xF4, 0x90, 0x80, 0xA1, 0x2B }, 0, 0, {}, Result::out_exhausted);
     test({ 0x2A, 0xF4, 0x90, 0x80, 0xA1, 0x2B }, 1, 1, { 0x2A }, Result::error);
     test({ 0x2A, 0xF4, 0x90, 0x80, 0xA1, 0x2B }, 2, 1, { 0x2A }, Result::error);
-*/
+}
+
+
+ARCHON_TEST(Core_Unicode_Utf16ToUtf8Incr)
+{
+    using char_type_1 = char16_t;
+    using char_type_2 = char;
+
+    using traits_type_1 = std::char_traits<char_type_1>;
+    using traits_type_2 = std::char_traits<char_type_2>;
+
+    using int_type_1 = traits_type_1::int_type;
+    using int_type_2 = traits_type_2::int_type;
+
+    std::array<char_type_1, 64> seed_memory_1;
+    std::array<char_type_2, 64> seed_memory_2;
+
+    core::Buffer buffer_1(seed_memory_1);
+    core::Buffer buffer_2(seed_memory_2);
+
+    auto test = [&, &parent_test_context = test_context](std::initializer_list<int_type_1> in, std::size_t out_size,
+                                                         std::size_t expected_in_size,
+                                                         std::initializer_list<int_type_2> expected_out,
+                                                         Result expected_result) {
+        ARCHON_TEST_TRAIL(parent_test_context,
+                          core::formatted_wrn("%s, %s, %s, %s, %s", core::as_sbr_list(in), out_size, expected_in_size,
+                                              core::as_sbr_list(expected_out), ResultEnum(expected_result)));
+        std::size_t offset_1 = 0;
+        for (int_type_1 val : in)
+            buffer_1.append_a(traits_type_1::to_char_type(val), offset_1);
+        std::size_t offset_2 = 0;
+        for (int_type_2 val : expected_out)
+            buffer_2.append_a(traits_type_2::to_char_type(val), offset_2);
+        buffer_2.reserve_extra(out_size, offset_2);
+        core::Span in_2 = { buffer_1.data(), offset_1 };
+        core::Span expected_out_2 = { buffer_2.data(), offset_2 };
+        core::Span out = { buffer_2.data() + offset_2, out_size };
+        std::size_t in_offset = 0;
+        std::size_t out_offset = 0;
+        bool in_exhausted = {};
+        bool error = {};
+        core::utf16_to_utf8_incr<char_type_1, char_type_2,
+                                 traits_type_1, traits_type_2>(in_2, out, in_offset, out_offset, in_exhausted, error);
+        ARCHON_CHECK_EQUAL(in_offset, expected_in_size);
+        ARCHON_CHECK_EQUAL_SEQ(out.subspan(0, out_offset), expected_out_2);
+        switch (expected_result) {
+            case Result::in_exhausted:
+                ARCHON_CHECK(in_exhausted);
+                break;
+            case Result::error:
+                if (ARCHON_LIKELY(ARCHON_CHECK_NOT(in_exhausted)))
+                    ARCHON_CHECK(error);
+                break;
+            case Result::out_exhausted:
+                if (ARCHON_LIKELY(ARCHON_CHECK_NOT(in_exhausted)))
+                    ARCHON_CHECK_NOT(error);
+                break;
+            case Result::in_exhausted_or_error:
+                ARCHON_CHECK(in_exhausted || error);
+                break;
+        }
+    };
+
+    // Empty
+    test({}, 0, 0, {}, Result::in_exhausted);
+    test({}, 1, 0, {}, Result::in_exhausted);
+
+    // Valid 1-unit UTF-16 form to 1-byte UTF-8 form (dollar): 0x24 --> U+0024 --> 0x24
+    test({ 0x24 }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x24 }, 1, 1, { 0x24 }, Result::in_exhausted);
+    test({ 0x24 }, 2, 1, { 0x24 }, Result::in_exhausted);
+    test({ 0x24, 0x2B }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x24, 0x2B }, 1, 1, { 0x24 }, Result::out_exhausted);
+    test({ 0x24, 0x2B }, 2, 2, { 0x24, 0x2B }, Result::in_exhausted);
+    test({ 0x24, 0x2B }, 3, 2, { 0x24, 0x2B }, Result::in_exhausted);
+    test({ 0x2A, 0x24 }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x2A, 0x24 }, 1, 1, { 0x2A }, Result::out_exhausted);
+    test({ 0x2A, 0x24 }, 2, 2, { 0x2A, 0x24 }, Result::in_exhausted);
+    test({ 0x2A, 0x24 }, 3, 2, { 0x2A, 0x24 }, Result::in_exhausted);
+    test({ 0x2A, 0x24, 0x2B }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x2A, 0x24, 0x2B }, 1, 1, { 0x2A }, Result::out_exhausted);
+    test({ 0x2A, 0x24, 0x2B }, 2, 2, { 0x2A, 0x24 }, Result::out_exhausted);
+    test({ 0x2A, 0x24, 0x2B }, 3, 3, { 0x2A, 0x24, 0x2B }, Result::in_exhausted);
+    test({ 0x2A, 0x24, 0x2B }, 4, 3, { 0x2A, 0x24, 0x2B }, Result::in_exhausted);
+
+    // Valid 1-unit UTF-16 form to 2-byte UTF-8 form (cent): 0xA2 --> U+00A2 --> 0xC2, 0xA2
+    test({ 0xA2 }, 0, 0, {}, Result::out_exhausted);
+    test({ 0xA2 }, 1, 0, {}, Result::out_exhausted);
+    test({ 0xA2 }, 2, 1, { 0xC2, 0xA2 }, Result::in_exhausted);
+    test({ 0xA2 }, 3, 1, { 0xC2, 0xA2 }, Result::in_exhausted);
+    test({ 0xA2, 0x2B }, 0, 0, {}, Result::out_exhausted);
+    test({ 0xA2, 0x2B }, 1, 0, {}, Result::out_exhausted);
+    test({ 0xA2, 0x2B }, 2, 1, { 0xC2, 0xA2 }, Result::out_exhausted);
+    test({ 0xA2, 0x2B }, 3, 2, { 0xC2, 0xA2, 0x2B }, Result::in_exhausted);
+    test({ 0xA2, 0x2B }, 4, 2, { 0xC2, 0xA2, 0x2B }, Result::in_exhausted);
+    test({ 0x2A, 0xA2 }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x2A, 0xA2 }, 1, 1, { 0x2A }, Result::out_exhausted);
+    test({ 0x2A, 0xA2 }, 2, 1, { 0x2A }, Result::out_exhausted);
+    test({ 0x2A, 0xA2 }, 3, 2, { 0x2A, 0xC2, 0xA2 }, Result::in_exhausted);
+    test({ 0x2A, 0xA2 }, 4, 2, { 0x2A, 0xC2, 0xA2 }, Result::in_exhausted);
+    test({ 0x2A, 0xA2, 0x2B }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x2A, 0xA2, 0x2B }, 1, 1, { 0x2A }, Result::out_exhausted);
+    test({ 0x2A, 0xA2, 0x2B }, 2, 1, { 0x2A }, Result::out_exhausted);
+    test({ 0x2A, 0xA2, 0x2B }, 3, 2, { 0x2A, 0xC2, 0xA2 }, Result::out_exhausted);
+    test({ 0x2A, 0xA2, 0x2B }, 4, 3, { 0x2A, 0xC2, 0xA2, 0x2B }, Result::in_exhausted);
+    test({ 0x2A, 0xA2, 0x2B }, 5, 3, { 0x2A, 0xC2, 0xA2, 0x2B }, Result::in_exhausted);
+
+    // Valid 1-unit UTF-16 form to 3-byte UTF-8 form (euro): 0x20AC --> U+20AC --> 0xE2, 0x82, 0xAC
+    test({ 0x20AC }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x20AC }, 1, 0, {}, Result::out_exhausted);
+    test({ 0x20AC }, 2, 0, {}, Result::out_exhausted);
+    test({ 0x20AC }, 3, 1, { 0xE2, 0x82, 0xAC }, Result::in_exhausted);
+    test({ 0x20AC }, 4, 1, { 0xE2, 0x82, 0xAC }, Result::in_exhausted);
+    test({ 0x20AC, 0x2B }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x20AC, 0x2B }, 1, 0, {}, Result::out_exhausted);
+    test({ 0x20AC, 0x2B }, 2, 0, {}, Result::out_exhausted);
+    test({ 0x20AC, 0x2B }, 3, 1, { 0xE2, 0x82, 0xAC }, Result::out_exhausted);
+    test({ 0x20AC, 0x2B }, 4, 2, { 0xE2, 0x82, 0xAC, 0x2B }, Result::in_exhausted);
+    test({ 0x20AC, 0x2B }, 5, 2, { 0xE2, 0x82, 0xAC, 0x2B }, Result::in_exhausted);
+    test({ 0x2A, 0x20AC }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x2A, 0x20AC }, 1, 1, { 0x2A }, Result::out_exhausted);
+    test({ 0x2A, 0x20AC }, 2, 1, { 0x2A }, Result::out_exhausted);
+    test({ 0x2A, 0x20AC }, 3, 1, { 0x2A }, Result::out_exhausted);
+    test({ 0x2A, 0x20AC }, 4, 2, { 0x2A, 0xE2, 0x82, 0xAC }, Result::in_exhausted);
+    test({ 0x2A, 0x20AC }, 5, 2, { 0x2A, 0xE2, 0x82, 0xAC }, Result::in_exhausted);
+    test({ 0x2A, 0x20AC, 0x2B }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x2A, 0x20AC, 0x2B }, 1, 1, { 0x2A }, Result::out_exhausted);
+    test({ 0x2A, 0x20AC, 0x2B }, 2, 1, { 0x2A }, Result::out_exhausted);
+    test({ 0x2A, 0x20AC, 0x2B }, 3, 1, { 0x2A }, Result::out_exhausted);
+    test({ 0x2A, 0x20AC, 0x2B }, 4, 2, { 0x2A, 0xE2, 0x82, 0xAC }, Result::out_exhausted);
+    test({ 0x2A, 0x20AC, 0x2B }, 5, 3, { 0x2A, 0xE2, 0x82, 0xAC, 0x2B }, Result::in_exhausted);
+    test({ 0x2A, 0x20AC, 0x2B }, 6, 3, { 0x2A, 0xE2, 0x82, 0xAC, 0x2B }, Result::in_exhausted);
+
+    // Valid 2-unit UTF-16 form to 4-byte UTF-8 form: 0xD852, 0xDF62 --> U+24B62 --> 0xF0, 0xA4, 0xAD, 0xA2
+    test({ 0xD852 }, 0, 0, {}, Result::in_exhausted);
+    test({ 0xD852 }, 1, 0, {}, Result::in_exhausted);
+    test({ 0xD852 }, 2, 0, {}, Result::in_exhausted);
+    test({ 0xD852 }, 3, 0, {}, Result::in_exhausted);
+    test({ 0xD852 }, 4, 0, {}, Result::in_exhausted);
+    test({ 0xD852 }, 5, 0, {}, Result::in_exhausted);
+    test({ 0xD852, 0xDF62 }, 0, 0, {}, Result::out_exhausted);
+    test({ 0xD852, 0xDF62 }, 1, 0, {}, Result::out_exhausted);
+    test({ 0xD852, 0xDF62 }, 2, 0, {}, Result::out_exhausted);
+    test({ 0xD852, 0xDF62 }, 3, 0, {}, Result::out_exhausted);
+    test({ 0xD852, 0xDF62 }, 4, 2, { 0xF0, 0xA4, 0xAD, 0xA2 }, Result::in_exhausted);
+    test({ 0xD852, 0xDF62 }, 5, 2, { 0xF0, 0xA4, 0xAD, 0xA2 }, Result::in_exhausted);
+    test({ 0xD852, 0xDF62, 0x2B }, 0, 0, {}, Result::out_exhausted);
+    test({ 0xD852, 0xDF62, 0x2B }, 1, 0, {}, Result::out_exhausted);
+    test({ 0xD852, 0xDF62, 0x2B }, 2, 0, {}, Result::out_exhausted);
+    test({ 0xD852, 0xDF62, 0x2B }, 3, 0, {}, Result::out_exhausted);
+    test({ 0xD852, 0xDF62, 0x2B }, 4, 2, { 0xF0, 0xA4, 0xAD, 0xA2 }, Result::out_exhausted);
+    test({ 0xD852, 0xDF62, 0x2B }, 5, 3, { 0xF0, 0xA4, 0xAD, 0xA2, 0x2B }, Result::in_exhausted);
+    test({ 0xD852, 0xDF62, 0x2B }, 6, 3, { 0xF0, 0xA4, 0xAD, 0xA2, 0x2B }, Result::in_exhausted);
+    test({ 0x2A, 0xD852 }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x2A, 0xD852 }, 1, 1, { 0x2A }, Result::in_exhausted);
+    test({ 0x2A, 0xD852 }, 2, 1, { 0x2A }, Result::in_exhausted);
+    test({ 0x2A, 0xD852 }, 3, 1, { 0x2A }, Result::in_exhausted);
+    test({ 0x2A, 0xD852 }, 4, 1, { 0x2A }, Result::in_exhausted);
+    test({ 0x2A, 0xD852 }, 5, 1, { 0x2A }, Result::in_exhausted);
+    test({ 0x2A, 0xD852 }, 6, 1, { 0x2A }, Result::in_exhausted);
+    test({ 0x2A, 0xD852, 0xDF62 }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x2A, 0xD852, 0xDF62 }, 1, 1, { 0x2A }, Result::out_exhausted);
+    test({ 0x2A, 0xD852, 0xDF62 }, 2, 1, { 0x2A }, Result::out_exhausted);
+    test({ 0x2A, 0xD852, 0xDF62 }, 3, 1, { 0x2A }, Result::out_exhausted);
+    test({ 0x2A, 0xD852, 0xDF62 }, 4, 1, { 0x2A }, Result::out_exhausted);
+    test({ 0x2A, 0xD852, 0xDF62 }, 5, 3, { 0x2A, 0xF0, 0xA4, 0xAD, 0xA2 }, Result::in_exhausted);
+    test({ 0x2A, 0xD852, 0xDF62 }, 6, 3, { 0x2A, 0xF0, 0xA4, 0xAD, 0xA2 }, Result::in_exhausted);
+    test({ 0x2A, 0xD852, 0xDF62, 0x2B }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x2A, 0xD852, 0xDF62, 0x2B }, 1, 1, { 0x2A }, Result::out_exhausted);
+    test({ 0x2A, 0xD852, 0xDF62, 0x2B }, 2, 1, { 0x2A }, Result::out_exhausted);
+    test({ 0x2A, 0xD852, 0xDF62, 0x2B }, 3, 1, { 0x2A }, Result::out_exhausted);
+    test({ 0x2A, 0xD852, 0xDF62, 0x2B }, 4, 1, { 0x2A }, Result::out_exhausted);
+    test({ 0x2A, 0xD852, 0xDF62, 0x2B }, 5, 3, { 0x2A, 0xF0, 0xA4, 0xAD, 0xA2 }, Result::out_exhausted);
+    test({ 0x2A, 0xD852, 0xDF62, 0x2B }, 6, 4, { 0x2A, 0xF0, 0xA4, 0xAD, 0xA2, 0x2B }, Result::in_exhausted);
+    test({ 0x2A, 0xD852, 0xDF62, 0x2B }, 7, 4, { 0x2A, 0xF0, 0xA4, 0xAD, 0xA2, 0x2B }, Result::in_exhausted);
+
+    // Invalid: Stray continuation: 0xDF62
+    test({ 0xDF62 }, 0, 0, {}, Result::error);
+    test({ 0xDF62 }, 1, 0, {}, Result::error);
+    test({ 0xDF62, 0x2B }, 0, 0, {}, Result::error);
+    test({ 0xDF62, 0x2B }, 1, 0, {}, Result::error);
+    test({ 0x2A, 0xDF62 }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x2A, 0xDF62 }, 1, 1, { 0x2A }, Result::error);
+    test({ 0x2A, 0xDF62 }, 2, 1, { 0x2A }, Result::error);
+    test({ 0x2A, 0xDF62, 0x2B }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x2A, 0xDF62, 0x2B }, 1, 1, { 0x2A }, Result::error);
+    test({ 0x2A, 0xDF62, 0x2B }, 2, 1, { 0x2A }, Result::error);
+
+    // Invalid: Bad continuation: 0xD852
+    test({ 0xD852, 0x25 }, 0, 0, {}, Result::error);
+    test({ 0xD852, 0x25 }, 1, 0, {}, Result::error);
+    test({ 0xD852, 0x25, 0x2B }, 0, 0, {}, Result::error);
+    test({ 0xD852, 0x25, 0x2B }, 1, 0, {}, Result::error);
+    test({ 0xD852, 0xD801, 0xDC37 }, 0, 0, {}, Result::error);
+    test({ 0xD852, 0xD801, 0xDC37 }, 1, 0, {}, Result::error);
+    test({ 0xD852, 0xD801, 0xDC37, 0x2B }, 0, 0, {}, Result::error);
+    test({ 0xD852, 0xD801, 0xDC37, 0x2B }, 1, 0, {}, Result::error);
+    test({ 0x2A, 0xD852, 0x25 }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x2A, 0xD852, 0x25 }, 1, 1, { 0x2A }, Result::error);
+    test({ 0x2A, 0xD852, 0x25 }, 2, 1, { 0x2A }, Result::error);
+    test({ 0x2A, 0xD852, 0x25, 0x2B }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x2A, 0xD852, 0x25, 0x2B }, 1, 1, { 0x2A }, Result::error);
+    test({ 0x2A, 0xD852, 0x25, 0x2B }, 2, 1, { 0x2A }, Result::error);
+    test({ 0x2A, 0xD852, 0xD801, 0xDC37 }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x2A, 0xD852, 0xD801, 0xDC37 }, 1, 1, { 0x2A }, Result::error);
+    test({ 0x2A, 0xD852, 0xD801, 0xDC37 }, 2, 1, { 0x2A }, Result::error);
+    test({ 0x2A, 0xD852, 0xD801, 0xDC37, 0x2B }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x2A, 0xD852, 0xD801, 0xDC37, 0x2B }, 1, 1, { 0x2A }, Result::error);
+    test({ 0x2A, 0xD852, 0xD801, 0xDC37, 0x2B }, 2, 1, { 0x2A }, Result::error);
+
+    // Invalid: Non-character code point: U+FFFE
+    test({ 0xFFFE }, 0, 0, {}, Result::error);
+    test({ 0xFFFE }, 1, 0, {}, Result::error);
+    test({ 0xFFFE, 0x2B }, 0, 0, {}, Result::error);
+    test({ 0xFFFE, 0x2B }, 1, 0, {}, Result::error);
+    test({ 0x2A, 0xFFFE }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x2A, 0xFFFE }, 1, 1, { 0x2A }, Result::error);
+    test({ 0x2A, 0xFFFE }, 2, 1, { 0x2A }, Result::error);
+    test({ 0x2A, 0xFFFE, 0x2B }, 0, 0, {}, Result::out_exhausted);
+    test({ 0x2A, 0xFFFE, 0x2B }, 1, 1, { 0x2A }, Result::error);
+    test({ 0x2A, 0xFFFE, 0x2B }, 2, 1, { 0x2A }, Result::error);
 }

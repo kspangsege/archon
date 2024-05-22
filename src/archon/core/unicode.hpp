@@ -2423,7 +2423,7 @@ void utf16_to_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& 
                     // UTF-8 layout: 11110xxx 10xxxxxx 10xxxxxx 10xxxxxx (21 payload bits)
                     // Code point range: U+010000 -> U+10FFFF
                     if (ARCHON_LIKELY(end_1 - i_1 >= 2)) {
-                        promoted_type v_2 = core::promote(traits_type_1::to_int_type(in[1]));
+                        promoted_type v_2 = core::promote(traits_type_1::to_int_type(i_1[1]));
                         if (ARCHON_LIKELY(v_2 >= 0xDC00 && v_2 < 0xE000)) {
                             using type = decltype(promoted_type() + std::int_least32_t());
                             type v = 0x10000 + ((type(v_1 - 0xD800) << 10) | (v_2 - 0xDC00));
