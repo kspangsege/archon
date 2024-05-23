@@ -825,10 +825,10 @@ int main(int argc, char* argv[])
         std::string name_1;
         std::string_view name_2;
         if (optional_window_title.has_value()) {
-            name_2 = optional_window_title.value(); // Throws
+            name_2 = optional_window_title.value();
         }
         else {
-            name_1 = core::format(locale, "X11 Probe %s", no); // Throws
+            name_1 = core::format(locale, "X11 Probe %s", core::as_int(no)); // Throws
             name_2 = name_1;
         }
         x11::TextPropertyWrapper name_3(dpy, name_2, locale); // Throws

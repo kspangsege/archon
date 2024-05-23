@@ -19,8 +19,9 @@
 // DEALINGS IN THE SOFTWARE.
 
 
-#include <string>
 #include <stdexcept>
+#include <optional>
+#include <string>
 #include <thread>
 
 #include <archon/core/features.h>
@@ -191,6 +192,7 @@ int main(int argc, char* argv[])
     int num_windows = 0;
     log::LogLevel log_level_limit = log::LogLevel::warn;
     bool report_mouse_move = false;
+    std::optional<std::string> optional_window_title;
 
     cli::Spec spec;
     opt(cli::help_tag, spec); // Throws
@@ -207,6 +209,10 @@ int main(int argc, char* argv[])
     opt("-m, --report-mouse-move", "", cli::no_attributes, spec,
         "Turn on reporting of \"mouse move\" events.",
         cli::raise_flag(report_mouse_move)); // Throws
+
+    opt("-T, --window-title", "<string>", cli::no_attributes, spec,
+        "Set an alternate text to be used as window title.",
+        cli::assign(optional_window_title)); // Throws
 
     int exit_status = 0;
     if (ARCHON_UNLIKELY(cli::process(argc, argv, spec, exit_status, locale))) // Throws
@@ -267,7 +273,13 @@ int main(int argc, char* argv[])
     std::size_t max_seen_window_slots = 0;
     auto open_window = [&] {
         int no = ++prev_window_no;
-        std::string name = core::format(locale, "SDL Probe %s", no); // Throws
+        std::string name;
+        if (optional_window_title.has_value()) {
+            name = optional_window_title.value(); // Throws
+        }
+        else {
+            name = core::format(locale, "SDL Probe %s", core::as_int(no)); // Throws
+        }
         SDL_Window* window = {};
         ARCHON_SCOPE_EXIT {
             if (ARCHON_UNLIKELY(window))

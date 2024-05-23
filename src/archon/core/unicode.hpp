@@ -951,11 +951,11 @@ void encode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
 /// When \p in_exhausted is set to `true`, \p error has no meaning and is left unchanged by
 /// this function.
 ///
-/// Note that during each step of an incremental decoding process, this function will
-/// sometimes leave behind some unconsumed code units at the end of the specified input
-/// corresponding to a final incomplete UTF-8 sequence. It is important that the application
-/// arranges for those remaining code units to be retained as a prefix of the input that is
-/// passed to this function during the next step of the incremental decoding
+/// Note that during each step of an incremental decoding process, there is a chance that
+/// this function will leave behind some unconsumed code units at the end of the specified
+/// input corresponding to a final incomplete UTF-8 sequence. It is important that the
+/// application arranges for those remaining code units to be retained as a prefix of the
+/// input that is passed to this function during the next step of the incremental decoding
 /// process. Presumably, the incomplete UTF-8 sequence is completed, or at least continued
 /// by the additional input that is made available during that next decoding step. When the
 /// specified input covers the end of input for the entire decoding process, the application
@@ -1076,9 +1076,9 @@ void encode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& i
 /// When \p in_exhausted is set to `true`, \p error has no meaning and is left unchanged by
 /// this function.
 ///
-/// Note that during each step of an incremental decoding process, this function will
-/// sometimes leave behind an unconsumed code unit at the end of the specified input
-/// corresponding to a final incomplete UTF-16 sequence. It is important that the
+/// Note that during each step of an incremental decoding process, there is a chance that
+/// this function will leave behind an unconsumed code unit at the end of the specified
+/// input corresponding to a final incomplete UTF-16 sequence. It is important that the
 /// application arranges for this remaining code unit to be retained as a prefix of the
 /// input that is passed to this function during the next step of the incremental decoding
 /// process. Presumably, the incomplete UTF-16 sequence is completed by the additional input
@@ -1139,11 +1139,11 @@ void decode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& i
 /// When \p in_exhausted is set to `true`, \p error has no meaning and is left unchanged by
 /// this function.
 ///
-/// Note that during each step of an incremental transcoding process, this function will
-/// sometimes leave behind some unconsumed UTF-8 code units at the end of the specified
-/// input corresponding to a final incomplete UTF-8 sequence. It is important that the
-/// application arranges for those remaining code units to be retained as a prefix of the
-/// input that is passed to this function during the next step of the incremental
+/// Note that during each step of an incremental transcoding process, there is a chance that
+/// this function will leave behind some unconsumed UTF-8 code units at the end of the
+/// specified input corresponding to a final incomplete UTF-8 sequence. It is important that
+/// the application arranges for those remaining code units to be retained as a prefix of
+/// the input that is passed to this function during the next step of the incremental
 /// transcoding process. Presumably, the incomplete UTF-8 sequence is completed, or at least
 /// continued by the additional input that is made available during that next transcoding
 /// step. When the specified input covers the end of input for the entire transcoding
@@ -1209,11 +1209,11 @@ void utf8_to_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& 
 /// When \p in_exhausted is set to `true`, \p error has no meaning and is left unchanged by
 /// this function.
 ///
-/// Note that during each step of an incremental transcoding process, this function will
-/// sometimes leave behind an unconsumed UTF-16 code unit at the end of the specified input
-/// corresponding to a final incomplete UTF-16 sequence. It is important that the
-/// application arranges for this remaining code unit to be retained as a prefix of the
-/// input that is passed to this function during the next step of the incremental
+/// Note that during each step of an incremental transcoding process, there is a chance that
+/// this function will leave behind an unconsumed UTF-16 code unit at the end of the
+/// specified input corresponding to a final incomplete UTF-16 sequence. It is important
+/// that the application arranges for this remaining code unit to be retained as a prefix of
+/// the input that is passed to this function during the next step of the incremental
 /// transcoding process. Presumably, the incomplete UTF-16 sequence is completed by the
 /// additional input that is made available during that next transcoding step. When the
 /// specified input covers the end of input for the entire transcoding process, the

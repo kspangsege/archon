@@ -107,9 +107,6 @@ a state, that was produced by a codec using one locale, is later passed to a cod
 another locale.
 
 
-INCOMPLETE!!!
-
-
 Decode
 ------
 
@@ -119,13 +116,13 @@ precisely one code point (logical character). For a stateful codec, each valid i
 sequence codes for zero or one code points, and may also modify the shift state (the \p
 state argument). What constitutes a valid input sequence will generally depend on the
 current shift state. No valid input sequence is empty, and no valid input sequence is a
-prefix of another valid input sequence unless they are the same sequence.
+proper prefix of another valid input sequence.
 
 The decoding process advances one full valid input sequence at a time, and when the consumed
 input sequence codes for a character, the production of that character happens synchronously
 with the consumption of the input sequence. The decoding process can only advance when the
-input contains another full valid input sequence. Also, when the next valid input sequence
-codes for a character, the decoding process can only advance if there is space for another
+input contains a full valid input sequence. Also, when the next valid input sequence codes
+for a character, the decoding process can only advance if there is space for another
 character in the output buffer, i.e., when \p buffer_offset is less than
 `char_buffer.size()`.
 
@@ -154,6 +151,10 @@ following are true:
 * The remaining input does not contain, as a prefix, another valid input sequence, but is
   instead a prefix of a valid input sequence.
 
+\note When an incomplete input sequence is left behind in the input, it is the
+responsibility of the application to retain this incomplete sequence and make it a prefix of
+the input passed to in next incremental step of the decoding process.
+
 When `decode()` returns `false`, `error` is set to `true` if decoding stopped due to the
 presence of and invalid input sequence, and to `false` if decoding stopped due to lack of
 space in the output buffer (\p char_buffer, \p buffer_offset). If both conditions become
@@ -181,6 +182,8 @@ steps it is possible to decode any input stream using an output buffer of size o
 Encode
 ------
 
+INCOMPLETE!!!
+
 Never produces partial byte sequences.
 
 Upon return, the part of the buffer after the final value of `buffer_offset` may have been modified by this function.
@@ -192,6 +195,8 @@ Questions:
 
 Simulate decode
 ---------------
+
+INCOMPLETE!!!
 
 Behavior is undefined if the difference between `data.size()` and \p data_offset
 (prior to invocation) is more than `max_simul_decode_size()`.
