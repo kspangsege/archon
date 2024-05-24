@@ -1337,7 +1337,7 @@ template<class C, class D, class T, class U>
 void encode_utf8_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
     std::size_t string_offset = 0;
-    std::size_t buffer_offset_2 = 0;
+    std::size_t buffer_offset_2 = buffer_offset;
     for (;;) {
         core::encode_utf8_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
         bool success = (string_offset == string.size());
@@ -1395,7 +1395,7 @@ template<class C, class D, class T, class U>
 void decode_utf8_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
     std::size_t string_offset = 0;
-    std::size_t buffer_offset_2 = 0;
+    std::size_t buffer_offset_2 = buffer_offset;
     for (;;) {
         core::decode_utf8_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
         bool success = (string_offset == string.size());
@@ -1449,7 +1449,7 @@ template<class C, class D, class T, class U>
 void encode_utf16_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
     std::size_t string_offset = 0;
-    std::size_t buffer_offset_2 = 0;
+    std::size_t buffer_offset_2 = buffer_offset;
     for (;;) {
         core::encode_utf16_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
         bool success = (string_offset == string.size());
@@ -1505,7 +1505,7 @@ template<class C, class D, class T, class U>
 void decode_utf16_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
     std::size_t string_offset = 0;
-    std::size_t buffer_offset_2 = 0;
+    std::size_t buffer_offset_2 = buffer_offset;
     for (;;) {
         core::decode_utf16_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
         bool success = (string_offset == string.size());
@@ -1559,7 +1559,7 @@ template<class C, class D, class T, class U>
 void utf8_to_utf16_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
     std::size_t string_offset = 0;
-    std::size_t buffer_offset_2 = 0;
+    std::size_t buffer_offset_2 = buffer_offset;
     for (;;) {
         core::utf8_to_utf16_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
         bool success = (string_offset == string.size());
@@ -1613,7 +1613,7 @@ template<class C, class D, class T, class U>
 void utf16_to_utf8_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
     std::size_t string_offset = 0;
-    std::size_t buffer_offset_2 = 0;
+    std::size_t buffer_offset_2 = buffer_offset;
     for (;;) {
         core::utf16_to_utf8_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
         bool success = (string_offset == string.size());
@@ -1659,7 +1659,7 @@ template<class C, class D, class T, class U>
 inline bool try_encode_utf8(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
     std::size_t string_offset = 0;
-    std::size_t buffer_offset_2 = 0;
+    std::size_t buffer_offset_2 = buffer_offset;
     core::encode_utf8_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
     bool success = (string_offset == string.size());
     if (ARCHON_LIKELY(success)) {
@@ -1675,7 +1675,7 @@ template<class C, class D, class T, class U>
 inline bool try_decode_utf8(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
     std::size_t string_offset = 0;
-    std::size_t buffer_offset_2 = 0;
+    std::size_t buffer_offset_2 = buffer_offset;
     core::decode_utf8_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
     bool success = (string_offset == string.size());
     if (ARCHON_LIKELY(success)) {
@@ -1691,7 +1691,7 @@ template<class C, class D, class T, class U>
 inline bool try_encode_utf16(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
     std::size_t string_offset = 0;
-    std::size_t buffer_offset_2 = 0;
+    std::size_t buffer_offset_2 = buffer_offset;
     core::encode_utf16_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
     bool success = (string_offset == string.size());
     if (ARCHON_LIKELY(success)) {
@@ -1707,7 +1707,7 @@ template<class C, class D, class T, class U>
 inline bool try_decode_utf16(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
     std::size_t string_offset = 0;
-    std::size_t buffer_offset_2 = 0;
+    std::size_t buffer_offset_2 = buffer_offset;
     core::decode_utf16_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
     bool success = (string_offset == string.size());
     if (ARCHON_LIKELY(success)) {
@@ -1723,7 +1723,7 @@ template<class C, class D, class T, class U>
 inline bool try_utf8_to_utf16(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
     std::size_t string_offset = 0;
-    std::size_t buffer_offset_2 = 0;
+    std::size_t buffer_offset_2 = buffer_offset;
     core::utf8_to_utf16_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
     bool success = (string_offset == string.size());
     if (ARCHON_LIKELY(success)) {
@@ -1739,7 +1739,7 @@ template<class C, class D, class T, class U>
 inline bool try_utf16_to_utf8(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
     std::size_t string_offset = 0;
-    std::size_t buffer_offset_2 = 0;
+    std::size_t buffer_offset_2 = buffer_offset;
     core::utf16_to_utf8_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
     bool success = (string_offset == string.size());
     if (ARCHON_LIKELY(success)) {

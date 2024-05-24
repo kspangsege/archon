@@ -105,7 +105,9 @@
 #include <archon/core/text_codec_impl.hpp>
 #include <archon/core/text_codec.hpp>
 #include <archon/core/string_codec.hpp>
+#include <archon/core/basic_character_set.hpp>
 #include <archon/core/unicode.hpp>
+#include <archon/core/unicode_bridge.hpp>
 #include <archon/core/memory_input_stream.hpp>
 #include <archon/core/memory_output_stream.hpp>
 #include <archon/core/seed_memory_output_stream.hpp>

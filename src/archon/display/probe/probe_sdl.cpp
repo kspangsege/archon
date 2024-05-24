@@ -19,16 +19,21 @@
 // DEALINGS IN THE SOFTWARE.
 
 
+#include <cstddef>
 #include <stdexcept>
 #include <optional>
+#include <array>
 #include <string>
 #include <thread>
 
 #include <archon/core/features.h>
 #include <archon/core/scope_exit.hpp>
 #include <archon/core/integer.hpp>
+#include <archon/core/buffer.hpp>
 #include <archon/core/flat_map.hpp>
+#include <archon/core/unicode_bridge.hpp>
 #include <archon/core/format.hpp>
+#include <archon/core/as_int.hpp>
 #include <archon/core/quote.hpp>
 #include <archon/core/locale.hpp>
 #include <archon/core/file.hpp>
@@ -273,13 +278,27 @@ int main(int argc, char* argv[])
     std::size_t max_seen_window_slots = 0;
     auto open_window = [&] {
         int no = ++prev_window_no;
-        std::string name;
+
+        std::string title_1;
+        std::string_view title_2;
         if (optional_window_title.has_value()) {
-            name = optional_window_title.value(); // Throws
+            title_2 = optional_window_title.value();
         }
         else {
-            name = core::format(locale, "SDL Probe %s", core::as_int(no)); // Throws
+            title_1 = core::format(locale, "SDL Probe %s", core::as_int(no)); // Throws
+            title_2 = title_1;
         }
+
+        std::array<char, 128> seed_memory;
+        core::Buffer buffer(seed_memory);
+        {
+            core::native_mb_to_utf8_transcoder transcoder(locale);
+            std::size_t buffer_offset = 0;
+            transcoder.transcode_l(title_2, buffer, buffer_offset); // Throws
+            buffer.append_a('\0', buffer_offset); // Throws
+        }
+        const char* title_3 = buffer.data();
+
         SDL_Window* window = {};
         ARCHON_SCOPE_EXIT {
             if (ARCHON_UNLIKELY(window))
@@ -287,7 +306,7 @@ int main(int argc, char* argv[])
         };
         {
             Uint32 flags = SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE;
-            window = SDL_CreateWindow(name.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 256, 256, flags);
+            window = SDL_CreateWindow(title_3, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 256, 256, flags);
             if (!window)
                 throw_sdl_error("SDL_CreateWindow() failed");
         }

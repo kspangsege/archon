@@ -24,6 +24,7 @@
 #include <memory>
 #include <chrono>
 #include <stdexcept>
+#include <array>
 #include <string_view>
 #include <string>
 #include <system_error>
@@ -33,8 +34,10 @@
 #include <archon/core/features.h>
 #include <archon/core/assert.hpp>
 #include <archon/core/integer.hpp>
+#include <archon/core/buffer.hpp>
 #include <archon/core/flat_map.hpp>
 #include <archon/core/literal_hash_map.hpp>
+#include <archon/core/unicode_bridge.hpp>
 #include <archon/core/format.hpp>
 #include <archon/core/locale.hpp>
 #include <archon/util/color.hpp>
@@ -550,11 +553,11 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
 
         case SDL_KEYDOWN:
         case SDL_KEYUP:
-            // Some keys may remain pressed down when a window looses input focus, and some
+            // Some keys may remain pressed down when a window loses input focus, and some
             // keys may already be pressed down when a window gains input focus. With the
             // SDL-based display implementation (i.e., this implementation), synthetic "key
             // up" events are generated for keys that remain pressed down when a window
-            // looses focus, and synthetic "key down" events are generated for keys that are
+            // loses focus, and synthetic "key down" events are generated for keys that are
             // already pressed down when a window gains focus. This behavior deviates from
             // the plain X11 behavior, and is also inconsistent with the way mouse buttons
             // behave under the SDL-based implementation.
@@ -573,7 +576,7 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
             // Alternatively, in the interest of alignment across implementations, it should
             // be considered whether the X11-based implementation (`implementation_x11.cpp`)
             // could be made to emulate the SDL-mandated behavior, i.e., with the generation
-            // of synthetic "key up" and "key down" events when window looses or gains input
+            // of synthetic "key up" and "key down" events when window loses or gains input
             // focus while keys are pressed down. The problem here, is that X11 key events
             // carry timestamps, but X11 focus and blur events do not, so there are no
             // timestamps to pass along for the synthetically generated key events.
@@ -593,7 +596,7 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
             // a particular behavior and requiring all display implementations to adhere to
             // that. Consequently, the API of the Archon Display Library (see
             // display::EventHandler::on_focus()) does not mandate a particular behavior for
-            // pressed keys when windows gain or loose input focus. While this is
+            // pressed keys when windows gain or lose input focus. While this is
             // unfortunate, it allows for the unavoidable differences in behavior between
             // the SDL and X11-based implementations.
             //
@@ -852,7 +855,16 @@ void WindowImpl::create(std::string_view title, display::Size size, const Config
     if (m_have_minimum_size)
         adjusted_size = max(adjusted_size, m_minimum_size);
 
-    std::string title_2 = std::string(title); // Throws
+    std::array<char, 128> seed_memory;
+    core::Buffer buffer(seed_memory);
+    {
+        core::native_mb_to_utf8_transcoder transcoder(conn.locale);
+        std::size_t buffer_offset = 0;
+        transcoder.transcode_l(title, buffer, buffer_offset); // Throws
+        buffer.append_a('\0', buffer_offset); // Throws
+    }
+    const char* title_2 = buffer.data();
+
     int x = SDL_WINDOWPOS_UNDEFINED;
     int y = SDL_WINDOWPOS_UNDEFINED;
     int w = adjusted_size.width;
@@ -864,7 +876,7 @@ void WindowImpl::create(std::string_view title, display::Size size, const Config
         flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
     if (config.enable_opengl_rendering)
         flags |= SDL_WINDOW_OPENGL;
-    SDL_Window* win = SDL_CreateWindow(title_2.c_str(), x, y, w, h, flags);
+    SDL_Window* win = SDL_CreateWindow(title_2, x, y, w, h, flags);
     if (ARCHON_UNLIKELY(!win))
         throw_sdl_error(conn.locale, "SDL_CreateWindow() failed"); // Throws
     m_win = win;
@@ -929,9 +941,16 @@ void WindowImpl::hide()
 
 void WindowImpl::set_title(std::string_view title)
 {
-    // FIXME: Consider character encoding                               
-    std::string title_2 = std::string(title); // Throws
-    SDL_SetWindowTitle(m_win, title_2.c_str());
+    std::array<char, 128> seed_memory;
+    core::Buffer buffer(seed_memory);
+    {
+        core::native_mb_to_utf8_transcoder transcoder(conn.locale);
+        std::size_t buffer_offset = 0;
+        transcoder.transcode_l(title, buffer, buffer_offset); // Throws
+        buffer.append_a('\0', buffer_offset); // Throws
+    }
+    const char* title_2 = buffer.data();
+    SDL_SetWindowTitle(m_win, title_2);
 }
 
 

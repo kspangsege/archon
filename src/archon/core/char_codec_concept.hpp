@@ -141,7 +141,7 @@ remaining input, but covers everything up until and including the last bytes of 
 input. In this case, `decode()` returns `true` if, and only if all input was consumed. All
 input was consumed if, and only if \p data_offset is equal to `byte_data.size()` upon
 return. The point here is that when the end of input is present, any final incomplete input
-sequence is an error.
+sequence is taken as an error.
 
 When \p end_of_input is set to `false`, `decode()` returns `true` if, and only if one of the
 following are true:

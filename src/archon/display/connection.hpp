@@ -124,8 +124,8 @@ public:
     /// config). The target display is specified through display::Window::config::display.
     ///
     /// The application will generally have to set a new event handler for the window using
-    /// \ref display::Window::set_event_handler(), and in order to not loose any events,
-    /// this has to happen before the next invocation of the event processor (\ref
+    /// \ref display::Window::set_event_handler(), and in order to not lose any events, this
+    /// has to happen before the next invocation of the event processor (\ref
     /// process_events()).
     ///
     /// The window starts out in the "hidden" state. Call \ref display::Window::show() to

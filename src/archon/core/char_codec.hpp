@@ -40,6 +40,10 @@ namespace archon::core {
 ///
 /// Uses \ref core::CharCodecConfig<C, T> as `Config` type.
 ///
+/// When the lenient mode is selected (\ref core::CharCodecConfig::lenient), neither the
+/// decode nor the encode operation will ever report an error. This means that when any of
+/// the two functions return `false` they are guaranteed to set \p error to false.
+///
 template<class C, class T = std::char_traits<C>> using BasicCharCodec = impl::CharCodec<C, T>;
 
 
