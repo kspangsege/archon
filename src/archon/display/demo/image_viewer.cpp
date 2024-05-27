@@ -250,6 +250,18 @@ int main(int argc, char* argv[])
     log::FileLogger root_logger(core::File::get_cerr(), locale); // Throws
     log::LimitLogger logger(root_logger, log_level_limit); // Throws
 
+    std::unique_ptr<image::WritableImage> img;
+    {
+        image::LoadConfig load_config;
+        log::PrefixLogger load_logger(logger, "Load: "); // Throws
+        load_config.logger = &load_logger;
+        std::error_code ec;
+        if (!image::try_load(path, img, locale, load_config, ec)) { // Throws
+            logger.error("Failed to load image: %s", ec.message()); // Throws
+            return EXIT_FAILURE;
+        }
+    }
+
     const display::Implementation* impl;
     if (optional_display_implementation.has_value()) {
         std::string_view ident = optional_display_implementation.value();
@@ -271,18 +283,7 @@ int main(int argc, char* argv[])
             return EXIT_FAILURE;
         }
     }
-
-    std::unique_ptr<image::WritableImage> img;
-    {
-        image::LoadConfig load_config;
-        log::PrefixLogger load_logger(logger, "Load: "); // Throws
-        load_config.logger = &load_logger;
-        std::error_code ec;
-        if (!image::try_load(path, img, locale, load_config, ec)) { // Throws
-            logger.error("Failed to load image: %s", ec.message()); // Throws
-            return EXIT_FAILURE;
-        }
-    }
+    logger.detail("Display implementation: %s", impl->get_slot().ident()); // Throws
 
     log::PrefixLogger display_logger(logger, "Display: "); // Throws
     display::Connection::Config connection_config;

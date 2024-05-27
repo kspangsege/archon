@@ -398,6 +398,7 @@ int main(int argc, char* argv[])
             return EXIT_FAILURE;
         }
     }
+    logger.detail("Display implementation: %s", impl->get_slot().ident()); // Throws
 
     log::PrefixLogger display_logger(logger, "Display: "); // Throws
     display::Connection::Config connection_config;

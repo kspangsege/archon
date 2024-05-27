@@ -242,6 +242,7 @@ int main(int argc, char* argv[])
         }
         display_implementation = &impl->get_slot();
     }
+    logger.detail("Display implementation: %s", display_implementation->ident()); // Throws
 
     engine_config.display_implementation = display_implementation;
     engine_config.display_guarantees = guarantees;

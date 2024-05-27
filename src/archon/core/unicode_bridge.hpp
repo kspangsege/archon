@@ -35,20 +35,26 @@
 namespace archon::core {
 
 
-/// \brief    
+/// \brief Transcoder from multi-byte encoding of locale to UTF-8.
 ///
-///    
+/// An instance of this class facilitates the transcoding of characters from the native
+/// multi-byte encoding of a particular locale to UTF-8.
+///
+/// A transcoder of this type is associated with a particular locale, the locale passed to
+/// the constructor. The multi-byte character encoding of that locale must agree on the
+/// encoding of the basic character set with the multi-byte encoding of the execution
+/// character set, i.e., the encoding of plain character literals. See \ref
+/// core::try_map_bcs_to_ascii() for more on this.
+///
+/// \sa \ref core::try_map_bcs_to_ascii()
 ///
 class native_mb_to_utf8_transcoder {
 public:
     /// \brief Construct transcoder for particular locale.
     ///
-    /// This constructor constructs a transcoder for the specified locale.
-    ///
-    /// The multi-byte character encoding of the specified locale must agree on the encoding
-    /// of the basic character set with the multi-byte encoding of the execution character
-    /// set, i.e., the encoding of plain character literals. See \ref
-    /// core::try_map_bcs_to_ascii().
+    /// This constructor constructs a transcoder for the specified locale. That locale must
+    /// agree on the encoding of the basic character set with the multi-byte encoding of the
+    /// execution character set, i.e., the encoding of plain character literals.
     ///
     native_mb_to_utf8_transcoder(const std::locale&);
 
@@ -60,12 +66,12 @@ public:
     /// buffer_offset).
     ///
     /// This function operates in a lenient manner, meaning that invalid input sequence is
-    /// dealt with by producing a Unicode replament character (or multiple replacement
+    /// dealt with by producing a Unicode replacement character (or multiple replacement
     /// characters).
     ///
     /// Upon return, \p buffer_offset will have been set to point one beyond the last byte
     /// of the produced UTF-8 encoding., or, if the produced UTF-8 encoding is empty, it
-    /// will be leeft unchanged.
+    /// will be left unchanged.
     ///
     /// If this function throws, \p buffer_offset is left unchanged, but the buffer may have
     /// been expanded, and contents after \p buffer_offset may have been clobbered.
