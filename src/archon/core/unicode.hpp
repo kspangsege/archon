@@ -909,7 +909,11 @@ bool try_utf16_to_utf8(core::StringSpan<C> string, core::Buffer<D>& buffer, std:
 /// collide with a valid code point (U+0000 -> U+D7FF, U+E000 -> U+FFFD, U+10000 ->
 /// U+10FFFF), including ones that are too narrow to hold the full range of code points. As
 /// an example, `char` can be used because `std::char_traits<char>::eof()` is required to be
-/// negative. `char32_t` can be used when the full UCS range is needed.
+/// negative. `char32_t` can be used when the full UCS range is needed. On the Windows
+/// platform, `wchar_t` is too narrow to hold all Unicode code points, but can still bu used
+/// for characters in the Basic Multilingual Plane (BMP) because
+/// `std::char_traits<wchar_t>::eof()` is 0xFFFF on Windows, which is not a valid Unicode
+/// code point.
 ///
 /// The output character type, \p D, which is used to hold UTF-8 code units, needs to have a
 /// bit-width of at least 8, and `std::char_traits<D>::eof()` must be outside the range of
@@ -1032,7 +1036,11 @@ void decode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
 /// collide with a valid code point (U+0000 -> U+D7FF, U+E000 -> U+FFFD, U+10000 ->
 /// U+10FFFF), including ones that are too narrow to hold the full range of code points. As
 /// an example, `char` can be used because `std::char_traits<char>::eof()` is required to be
-/// negative. `char32_t` can be used when the full UCS range is needed.
+/// negative. `char32_t` can be used when the full UCS range is needed. On the Windows
+/// platform, `wchar_t` is too narrow to hold all Unicode code points, but can still bu used
+/// for characters in the Basic Multilingual Plane (BMP) because
+/// `std::char_traits<wchar_t>::eof()` is 0xFFFF on Windows, which is not a valid Unicode
+/// code point.
 ///
 /// The output character type, \p D, which is used to hold UTF-16 code units, needs to have a
 /// bit-width of at least 16, and `std::char_traits<D>::eof()` must be outside the range of
@@ -1321,6 +1329,20 @@ void resync_utf16(core::Span<const C> in, std::size_t& in_offset) noexcept;
 
 
 // Implementation
+
+
+namespace impl {
+
+
+template<class T> constexpr bool valid_unicode_code_point(T val) noexcept
+{
+    return ((val >= 0 && val < 0xD800) ||
+            (val >= 0xE000 && val < 0xFFFE) ||
+            (val >= 0x10000 && val < 0x110000));
+}
+
+
+} // namespace impl
 
 
 template<class C, class D, class T, class U>
@@ -1770,7 +1792,7 @@ void encode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
     static_assert(core::num_value_bits<int_type_2>() >= 8);
     static_assert(traits_type_2::to_int_type(traits_type_2::to_char_type(0xFF)) == 0xFF);
 
-    static_assert(traits_type_1::eof() < 0 || traits_type_1::eof() > 0x10FFFF);
+    static_assert(!impl::valid_unicode_code_point(traits_type_1::eof()));
     static_assert(traits_type_2::eof() < 0 || traits_type_2::eof() > 0xFF);
 
     ARCHON_ASSERT(in_offset <= in.size());
@@ -2033,7 +2055,7 @@ void encode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& i
     static_assert(core::num_value_bits<int_type_2>() >= 16);
     static_assert(traits_type_2::to_int_type(traits_type_2::to_char_type(0xFFFD)) == 0xFFFD);
 
-    static_assert(traits_type_1::eof() < 0 || traits_type_1::eof() > 0x10FFFF);
+    static_assert(!impl::valid_unicode_code_point(traits_type_1::eof()));
     static_assert(traits_type_2::eof() < 0 || traits_type_2::eof() > 0xFFFD);
 
     ARCHON_ASSERT(in_offset <= in.size());
