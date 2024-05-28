@@ -46,13 +46,32 @@ ARCHON_TEST(Core_UnicodeBridge_TranscodeNativeMbToUtf8)
         ARCHON_CHECK_EQUAL(string_2, string);
     }
 
-    if (core::assume_utf8_locale(test_context.locale)) {
+    bool is_utf8 = core::assume_utf8_locale(test_context.locale);
+    if (is_utf8)
         test_context.logger.detail("Is UTF-8 locale");
+
+    if (is_utf8) {
         char bytes[] = {
             std::char_traits<char>::to_char_type(0xF0),
             std::char_traits<char>::to_char_type(0x90),
             std::char_traits<char>::to_char_type(0x8D),
             std::char_traits<char>::to_char_type(0x88),
+        };
+        std::string_view string = { bytes, std::size(bytes) };
+        std::size_t buffer_offset = 0;
+        transcoder.transcode_l(string, buffer, buffer_offset);
+        std::string_view string_2 = { buffer.data(), buffer_offset };
+        ARCHON_CHECK_EQUAL(string_2, string);
+    }
+
+    if (is_utf8) {
+        char bytes[] = {
+            '*',
+            std::char_traits<char>::to_char_type(0xF0),
+            std::char_traits<char>::to_char_type(0x90),
+            std::char_traits<char>::to_char_type(0x8D),
+            std::char_traits<char>::to_char_type(0x88),
+            '*',
         };
         std::string_view string = { bytes, std::size(bytes) };
         std::size_t buffer_offset = 0;

@@ -63,7 +63,10 @@ void native_mb_to_utf8_transcoder::transcode_l(core::StringSpan<char> string, co
         return;
     }
 
-    // FIXME: Decodes to UCS-2 on Windows. What happens when input escapes UCS-2         
+    // NOTE: On Windows `wchar_t` is only 16 bits wide and `std::codecvt` decodes to UCS-2
+    // instead of to UCS-4. Consequently, any input sequence that would decode to a code
+    // point greater than U+FFFF is reported as an error by a non-lenient decoder. Since
+    // this is a lenient decoder, each such sequence is decoded as a single `?`.
     core::WideCharCodec::Config config;
     config.lenient = true; // Automatically produce replacement characters for invalid input
     core::WideCharCodec codec(m_locale, config); // Throws

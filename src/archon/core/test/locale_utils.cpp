@@ -19,13 +19,30 @@
 // DEALINGS IN THE SOFTWARE.
 
 
-// Do not include this header file. It exists only to specify the canonical header order,
-// which is a topological dependency ordering of all the header files of the Archon Core
-// Library, including any that must never be included by applications.
-#error "Do not include this header file"
+#include <utility>
+#include <locale>
 
-
-#include <archon/core/test/integer_tests.hpp>
+#include <archon/core/locale.hpp>
 #include <archon/core/test/locale_utils.hpp>
-#include <archon/core/test/stateful_char_codec.hpp>
-#include <archon/core/test/word_wrap_knuth_alt.hpp>
+
+
+using namespace archon;
+using core::test::CandidateLocales;
+
+
+CandidateLocales::CandidateLocales()
+{
+    const char* names[] = {
+        "C", "en_US",
+        ".UTF-8", ".UTF8",
+        "C.UTF-8", "C.UTF8",
+        "en_US.UTF-8", "en_US.UTF8",
+        "",
+    };
+    for (const char* name : names) {
+        if (core::has_locale(name)) {
+            std::locale locale(name);
+            m_locales.push_back(std::move(locale)); // Throws
+        }
+    }
+}

@@ -401,7 +401,7 @@ ARCHON_TEST_BATCH(Core_TextFile_StrictModeDecodeError, impl_variants)
         }
     };
 
-    for (const std::locale& locale : core::test::candidate_locales) {
+    for (const std::locale& locale : core::test::get_candidate_locales()) {
         char ch;
         if (core::test::find_decode_error<char_type>(locale, ch))
             subtest(locale, ch);
@@ -486,7 +486,7 @@ ARCHON_TEST_BATCH(Core_TextFile_StrictModeEncodeError, impl_variants)
         }
     };
 
-    for (const std::locale& locale : core::test::candidate_locales) {
+    for (const std::locale& locale : core::test::get_candidate_locales()) {
         char_type ch;
         if (core::test::find_encode_error<char_type>(locale, ch))
             subtest(locale, ch);
@@ -550,7 +550,7 @@ ARCHON_TEST_BATCH(Core_TextFile_LenientModeDecodeError, impl_variants)
         }
     };
 
-    for (const std::locale& locale : core::test::candidate_locales) {
+    for (const std::locale& locale : core::test::get_candidate_locales()) {
         char ch;
         if (core::test::find_decode_error<char_type>(locale, ch))
             subtest(locale, ch);
@@ -617,7 +617,7 @@ ARCHON_TEST_BATCH(Core_TextFile_LenientModeEncodeError, impl_variants)
         }
     };
 
-    for (const std::locale& locale : core::test::candidate_locales) {
+    for (const std::locale& locale : core::test::get_candidate_locales()) {
         char_type ch;
         if (core::test::find_encode_error<char_type>(locale, ch))
             subtest(locale, ch);
@@ -672,7 +672,7 @@ ARCHON_TEST_BATCH(Core_TextFile_WithoutDynamicEndOfFile, wide_impl_variants)
             return;
     };
 
-    for (const std::locale& locale : core::test::candidate_locales) {
+    for (const std::locale& locale : core::test::get_candidate_locales()) {
         bool is_utf8 = (core::assume_utf8_locale(locale) && (core::assume_unicode_locale(locale) || ARCHON_WINDOWS));
         if (is_utf8)
             subtest(locale);
@@ -745,7 +745,7 @@ ARCHON_TEST_BATCH(Core_TextFile_WithDynamicEndOfFile, wide_impl_variants)
             return;
     };
 
-    for (const std::locale& locale : core::test::candidate_locales) {
+    for (const std::locale& locale : core::test::get_candidate_locales()) {
         bool is_utf8 = (core::assume_utf8_locale(locale) && (core::assume_unicode_locale(locale) || ARCHON_WINDOWS));
         if (is_utf8)
             subtest(locale);

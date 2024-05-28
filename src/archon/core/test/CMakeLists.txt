@@ -39,6 +39,7 @@ add_library(CoreTest OBJECT
   test_random.cpp
   test_file.cpp
   test_file_source.cpp
+  locale_utils.cpp
   test_newline_codec.cpp
   test_impl_codecvt_quirks.cpp
   test_char_codec.cpp

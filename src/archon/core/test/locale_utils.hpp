@@ -23,14 +23,12 @@
 
 
 #include <cwchar>
-#include <utility>
 #include <array>
 #include <vector>
 #include <locale>
 
 #include <archon/core/assert.hpp>
 #include <archon/core/impl/codecvt_quirks.hpp>
-#include <archon/core/locale.hpp>
 
 
 namespace archon::core::test {
@@ -47,9 +45,10 @@ private:
     std::vector<std::locale> m_locales;
 };
 
-inline const CandidateLocales candidate_locales;
+auto get_candidate_locales() -> const CandidateLocales&;
 
 
+// Try to find a byte that causes a decode error or a character that cuases an encode error
 template<class C> bool find_decode_error(const std::locale&, char& ch);
 template<class C> bool find_encode_error(const std::locale&, C& ch);
 
@@ -75,15 +74,10 @@ inline auto CandidateLocales::end() const noexcept
 }
 
 
-inline CandidateLocales::CandidateLocales()
+inline auto get_candidate_locales() -> const CandidateLocales&
 {
-    const char* names[] = { "C", "C.UTF-8", ".UTF8", "en_US", "en_US.UTF-8", "" };
-    for (const char* name : names) {
-        if (core::has_locale(name)) {
-            std::locale locale(name);
-            m_locales.push_back(std::move(locale)); // Throws
-        }
-    }
+    static CandidateLocales locales; // Throws
+    return locales;
 }
 
 

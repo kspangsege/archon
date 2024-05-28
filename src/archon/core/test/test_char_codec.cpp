@@ -247,7 +247,7 @@ ARCHON_TEST(Core_CharCodec_Decode)
         }
     };
 
-    for (const std::locale& locale : core::test::candidate_locales)
+    for (const std::locale& locale : core::test::get_candidate_locales())
         subtest(locale);
 }
 
@@ -347,7 +347,7 @@ ARCHON_TEST(Core_CharCodec_Encode)
         }
     };
 
-    for (const std::locale& locale : core::test::candidate_locales)
+    for (const std::locale& locale : core::test::get_candidate_locales())
         subtest(locale);
 }
 
@@ -414,6 +414,6 @@ ARCHON_TEST(Core_CharCodec_SimulDecode)
         }
     };
 
-    for (const std::locale& locale : core::test::candidate_locales)
+    for (const std::locale& locale : core::test::get_candidate_locales())
         subtest(locale);
 }

@@ -357,6 +357,6 @@ ARCHON_TEST(Core_Impl_CodecvtQuirks)
         }
     };
 
-    for (const std::locale& locale : core::test::candidate_locales)
+    for (const std::locale& locale : core::test::get_candidate_locales())
         subtest(locale);
 }
