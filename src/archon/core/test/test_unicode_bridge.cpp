@@ -23,10 +23,12 @@
 #include <array>
 #include <string_view>
 #include <string>
+#include <locale>
 
 #include <archon/core/buffer.hpp>
 #include <archon/core/unicode_bridge.hpp>
 #include <archon/check.hpp>
+#include <archon/core/test/locale_utils.hpp>
 
 
 using namespace archon;
@@ -34,49 +36,55 @@ using namespace archon;
 
 ARCHON_TEST(Core_UnicodeBridge_TranscodeNativeMbToUtf8)
 {
-    core::native_mb_to_utf8_transcoder transcoder(test_context.locale);
-    std::array<char, 32> seed_memory;
-    core::Buffer buffer(seed_memory);
+    auto subtest = [&, &parent_test_context = test_context](const std::locale& locale) {
+        ARCHON_TEST_TRAIL(parent_test_context, core::quoted(std::string_view(locale.name())));
+        core::native_mb_to_utf8_transcoder transcoder(locale);
+        std::array<char, 32> seed_memory;
+        core::Buffer buffer(seed_memory);
 
-    {
-        std::string_view string = "x";
-        std::size_t buffer_offset = 0;
-        transcoder.transcode_l(string, buffer, buffer_offset);
-        std::string_view string_2 = { buffer.data(), buffer_offset };
-        ARCHON_CHECK_EQUAL(string_2, string);
-    }
+        {
+            std::string_view string = "x";
+            std::size_t buffer_offset = 0;
+            transcoder.transcode_l(string, buffer, buffer_offset);
+            std::string_view string_2 = { buffer.data(), buffer_offset };
+            ARCHON_CHECK_EQUAL(string_2, string);
+        }
 
-    bool is_utf8 = core::assume_utf8_locale(test_context.locale);
-    if (is_utf8)
-        test_context.logger.detail("Is UTF-8 locale");
+        bool is_utf8 = core::assume_utf8_locale(locale);
+        if (is_utf8)
+            test_context.logger.detail("Is UTF-8 locale");
 
-    if (is_utf8) {
-        char bytes[] = {
-            std::char_traits<char>::to_char_type(0xF0),
-            std::char_traits<char>::to_char_type(0x90),
-            std::char_traits<char>::to_char_type(0x8D),
-            std::char_traits<char>::to_char_type(0x88),
-        };
-        std::string_view string = { bytes, std::size(bytes) };
-        std::size_t buffer_offset = 0;
-        transcoder.transcode_l(string, buffer, buffer_offset);
-        std::string_view string_2 = { buffer.data(), buffer_offset };
-        ARCHON_CHECK_EQUAL(string_2, string);
-    }
+        if (is_utf8) {
+            char bytes[] = {
+                std::char_traits<char>::to_char_type(0xF0),
+                std::char_traits<char>::to_char_type(0x90),
+                std::char_traits<char>::to_char_type(0x8D),
+                std::char_traits<char>::to_char_type(0x88),
+            };
+            std::string_view string = { bytes, std::size(bytes) };
+            std::size_t buffer_offset = 0;
+            transcoder.transcode_l(string, buffer, buffer_offset);
+            std::string_view string_2 = { buffer.data(), buffer_offset };
+            ARCHON_CHECK_EQUAL(string_2, string);
+        }
 
-    if (is_utf8) {
-        char bytes[] = {
-            '*',
-            std::char_traits<char>::to_char_type(0xF0),
-            std::char_traits<char>::to_char_type(0x90),
-            std::char_traits<char>::to_char_type(0x8D),
-            std::char_traits<char>::to_char_type(0x88),
-            '*',
-        };
-        std::string_view string = { bytes, std::size(bytes) };
-        std::size_t buffer_offset = 0;
-        transcoder.transcode_l(string, buffer, buffer_offset);
-        std::string_view string_2 = { buffer.data(), buffer_offset };
-        ARCHON_CHECK_EQUAL(string_2, string);
-    }
+        if (is_utf8) {
+            char bytes[] = {
+                '*',
+                std::char_traits<char>::to_char_type(0xF0),
+                std::char_traits<char>::to_char_type(0x90),
+                std::char_traits<char>::to_char_type(0x8D),
+                std::char_traits<char>::to_char_type(0x88),
+                '*',
+            };
+            std::string_view string = { bytes, std::size(bytes) };
+            std::size_t buffer_offset = 0;
+            transcoder.transcode_l(string, buffer, buffer_offset);
+            std::string_view string_2 = { buffer.data(), buffer_offset };
+            ARCHON_CHECK_EQUAL(string_2, string);
+        }
+    };
+
+    for (const std::locale& locale : core::test::get_candidate_locales())
+        subtest(locale);
 }

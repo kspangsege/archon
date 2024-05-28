@@ -48,7 +48,7 @@ private:
 auto get_candidate_locales() -> const CandidateLocales&;
 
 
-// Try to find a byte that causes a decode error or a character that cuases an encode error
+// Try to find a byte that causes a decode error / a character that cuases an encode error
 template<class C> bool find_decode_error(const std::locale&, char& ch);
 template<class C> bool find_encode_error(const std::locale&, C& ch);
 
