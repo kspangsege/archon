@@ -284,11 +284,11 @@ ARCHON_TEST(Core_CharCodec_Encode)
         core::WideSimpleCharCodec codec(locale);
 
         auto encode = [&, &parent_test_context =
-                       test_context](core::Span<const wchar_t> data, std::size_t buffer_size,
+                       test_context](std::initializer_list<wchar_t> data, std::size_t buffer_size,
                                      std::size_t expected_data_advance,
                                      std::size_t expected_buffer_advance, bool expected_complete,
                                      bool expected_error) {
-            std::wstring_view data_2(data.data(), data.size());
+            std::wstring_view data_2(data.begin(), data.size());
             std::wstring_view segment = formatter.format("encode(%s, %s)", core::quoted(data_2), buffer_size);
             ARCHON_TEST_TRAIL(parent_test_context, core::encoded(segment));
             buffer.reserve(buffer_size);
@@ -297,7 +297,7 @@ ARCHON_TEST(Core_CharCodec_Encode)
             core::Span buffer_2(buffer.data(), buffer_size);
             std::size_t buffer_offset = 0;
             bool error = false;
-            bool complete = codec.encode(state, data, data_offset, buffer_2, buffer_offset, error);
+            bool complete = codec.encode(state, data_2, data_offset, buffer_2, buffer_offset, error);
             ARCHON_CHECK_EQUAL(data_offset, expected_data_advance);
             ARCHON_CHECK_EQUAL(buffer_offset, expected_buffer_advance);
             ARCHON_CHECK_EQUAL(complete, expected_complete);
@@ -311,59 +311,59 @@ ARCHON_TEST(Core_CharCodec_Encode)
         bool have_encode_error = core::test::find_encode_error(locale, encode_error_char);
 
         if (true) {
-            encode(std::array<wchar_t, 0> {},      0, 0, 0, true,  false);
-            encode(std::array<wchar_t, 0> {},     10, 0, 0, true,  false);
+            encode({},                  0, 0, 0, true,  false);
+            encode({},                 10, 0, 0, true,  false);
 
-            encode(std::array { dollar },          0, 0, 0, false, false);
-            encode(std::array { dollar },          1, 1, 1, true,  false);
-            encode(std::array { dollar },         10, 1, 1, true,  false);
+            encode({ dollar },          0, 0, 0, false, false);
+            encode({ dollar },          1, 1, 1, true,  false);
+            encode({ dollar },         10, 1, 1, true,  false);
 
-            encode(std::array { dollar, dollar },  0, 0, 0, false, false);
-            encode(std::array { dollar, dollar },  1, 1, 1, false, false);
-            encode(std::array { dollar, dollar },  2, 2, 2, true,  false);
-            encode(std::array { dollar, dollar }, 10, 2, 2, true,  false);
+            encode({ dollar, dollar },  0, 0, 0, false, false);
+            encode({ dollar, dollar },  1, 1, 1, false, false);
+            encode({ dollar, dollar },  2, 2, 2, true,  false);
+            encode({ dollar, dollar }, 10, 2, 2, true,  false);
         }
 
         if (have_encode_error) {
             wchar_t err = encode_error_char;
 
-            encode(std::array { err },             0, 0, 0, false, false);
-            encode(std::array { err },             1, 0, 0, false, true);
-            encode(std::array { err },            10, 0, 0, false, true);
+            encode({ err },             0, 0, 0, false, false);
+            encode({ err },             1, 0, 0, false, true);
+            encode({ err },            10, 0, 0, false, true);
 
-            encode(std::array { dollar, err },     0, 0, 0, false, false);
-            encode(std::array { dollar, err },     1, 1, 1, false, false);
-            encode(std::array { dollar, err },     2, 1, 1, false, true);
-            encode(std::array { dollar, err },    10, 1, 1, false, true);
+            encode({ dollar, err },     0, 0, 0, false, false);
+            encode({ dollar, err },     1, 1, 1, false, false);
+            encode({ dollar, err },     2, 1, 1, false, true);
+            encode({ dollar, err },    10, 1, 1, false, true);
         }
 
         if (is_utf8) {
             wchar_t cent = traits_type::to_char_type(0x00A2);
             wchar_t euro = traits_type::to_char_type(0x20AC);
 
-            encode(std::array { cent },            0, 0, 0, false, false);
-            encode(std::array { cent },            1, 0, 0, false, false);
-            encode(std::array { cent },            2, 1, 2, true,  false);
-            encode(std::array { cent },           10, 1, 2, true,  false);
+            encode({ cent },            0, 0, 0, false, false);
+            encode({ cent },            1, 0, 0, false, false);
+            encode({ cent },            2, 1, 2, true,  false);
+            encode({ cent },           10, 1, 2, true,  false);
 
-            encode(std::array { dollar, cent },    0, 0, 0, false, false);
-            encode(std::array { dollar, cent },    1, 1, 1, false, false);
-            encode(std::array { dollar, cent },    2, 1, 1, false, false);
-            encode(std::array { dollar, cent },    3, 2, 3, true,  false);
-            encode(std::array { dollar, cent },   10, 2, 3, true,  false);
+            encode({ dollar, cent },    0, 0, 0, false, false);
+            encode({ dollar, cent },    1, 1, 1, false, false);
+            encode({ dollar, cent },    2, 1, 1, false, false);
+            encode({ dollar, cent },    3, 2, 3, true,  false);
+            encode({ dollar, cent },   10, 2, 3, true,  false);
 
-            encode(std::array { euro },            0, 0, 0, false, false);
-            encode(std::array { euro },            1, 0, 0, false, false);
-            encode(std::array { euro },            2, 0, 0, false, false);
-            encode(std::array { euro },            3, 1, 3, true,  false);
-            encode(std::array { euro },           10, 1, 3, true,  false);
+            encode({ euro },            0, 0, 0, false, false);
+            encode({ euro },            1, 0, 0, false, false);
+            encode({ euro },            2, 0, 0, false, false);
+            encode({ euro },            3, 1, 3, true,  false);
+            encode({ euro },           10, 1, 3, true,  false);
 
-            encode(std::array { dollar, euro },    0, 0, 0, false, false);
-            encode(std::array { dollar, euro },    1, 1, 1, false, false);
-            encode(std::array { dollar, euro },    2, 1, 1, false, false);
-            encode(std::array { dollar, euro },    3, 1, 1, false, false);
-            encode(std::array { dollar, euro },    4, 2, 4, true,  false);
-            encode(std::array { dollar, euro },   10, 2, 4, true,  false);
+            encode({ dollar, euro },    0, 0, 0, false, false);
+            encode({ dollar, euro },    1, 1, 1, false, false);
+            encode({ dollar, euro },    2, 1, 1, false, false);
+            encode({ dollar, euro },    3, 1, 1, false, false);
+            encode({ dollar, euro },    4, 2, 4, true,  false);
+            encode({ dollar, euro },   10, 2, 4, true,  false);
         }
     };
 
@@ -632,6 +632,157 @@ ARCHON_TEST(Core_CharCodec_LenientDecode)
             decode("$\xC2$",        false,  2, 2, { 0x24, 0x3F },                false);
             decode("$\xC2$",        false,  3, 3, { 0x24, 0x3F, 0x24 },          true);
             decode("$\xC2$",        false, 10, 3, { 0x24, 0x3F, 0x24 },          true);
+        }
+    };
+
+    for (const std::locale& locale : core::test::get_candidate_locales())
+        subtest(locale);
+}
+
+
+ARCHON_TEST(Core_CharCodec_LenientEncode)
+{
+    using wide_traits_type = std::char_traits<wchar_t>;
+    using wide_int_type = wide_traits_type::int_type;
+
+    std::array<wchar_t, 64> seed_memory_1;
+    std::array<char, 64> seed_memory_2;
+
+    core::Buffer buffer_1(seed_memory_1);
+    core::Buffer buffer_2(seed_memory_2);
+
+    auto subtest = [&, &parent_test_context = test_context](const std::locale& locale) {
+        ARCHON_TEST_TRAIL(parent_test_context, core::quoted(std::string_view(locale.name())));
+        bool is_utf8 = (core::assume_utf8_locale(locale) && (core::assume_unicode_locale(locale) || ARCHON_WINDOWS));
+
+        core::WideCharCodec::Config config;
+        config.lenient = true;
+        config.use_fallback_replacement_char = true;
+        core::WideCharCodec codec(locale, config);
+
+        auto encode = [&, &parent_test_context =
+                       test_context](std::initializer_list<wide_int_type> input, std::size_t output_size,
+                                     std::size_t expected_input_advance, std::string_view expected_output,
+                                     bool expected_complete) {
+            ARCHON_TEST_TRAIL(parent_test_context,
+                              core::formatted_wrn("%s, %s, %s, %s, %s", core::as_sbr_list(input), output_size,
+                                                  expected_input_advance, core::quoted(expected_output),
+                                                  expected_complete));
+            std::size_t buffer_offset = 0;
+            for (wide_int_type val : input)
+                buffer_1.append_a(wide_traits_type::to_char_type(val), buffer_offset);
+            buffer_2.reserve(output_size);
+            std::mbstate_t state = {};
+            core::Span input_2 = { buffer_1.data(), input.size() };
+            std::size_t input_offset = 0;
+            core::Span output = { buffer_2.data(), output_size };
+            std::size_t output_offset = 0;
+            bool error = false;
+            bool complete = codec.encode(state, input_2, input_offset, output, output_offset, error);
+            ARCHON_CHECK_EQUAL(input_offset, expected_input_advance);
+            std::string_view output_2 = { buffer_2.data(), output_offset };
+            ARCHON_CHECK_EQUAL(output_2, expected_output);
+            ARCHON_CHECK_EQUAL(complete, expected_complete);
+            ARCHON_CHECK_NOT(error);
+        };
+
+        core::WideCharMapper char_mapper(locale);
+        wide_int_type dollar = wide_traits_type::to_int_type(char_mapper.widen('$'));
+        wide_int_type star   = wide_traits_type::to_int_type(char_mapper.widen('*'));
+
+        wchar_t encode_error_char = {};
+        bool have_encode_error = core::test::find_encode_error(locale, encode_error_char);
+
+        if (true) {
+            encode({},                      0, 0, "",               true);
+            encode({},                     10, 0, "",               true);
+
+            encode({ dollar },              0, 0, "",               false);
+            encode({ dollar },              1, 1, "$",              true);
+            encode({ dollar },             10, 1, "$",              true);
+
+            encode({ dollar, star },        0, 0, "",               false);
+            encode({ dollar, star },        1, 1, "$",              false);
+            encode({ dollar, star },        2, 2, "$*",             true);
+            encode({ dollar, star },       10, 2, "$*",             true);
+        }
+
+        if (have_encode_error) {
+            wide_int_type bad = char_mapper.widen(encode_error_char);
+
+            encode({ bad },                 0, 0, "",               false);
+            encode({ bad },                 1, 1, "?",              true);
+            encode({ bad },                10, 1, "?",              true);
+
+            encode({ bad, star },           0, 0, "",               false);
+            encode({ bad, star },           1, 1, "?",              false);
+            encode({ bad, star },           2, 2, "?*",             true);
+            encode({ bad, star },          10, 2, "?*",             true);
+
+            encode({ dollar, bad },         0, 0, "",               false);
+            encode({ dollar, bad },         1, 1, "$",              false);
+            encode({ dollar, bad },         2, 2, "$?",             true);
+            encode({ dollar, bad },        10, 2, "$?",             true);
+
+            encode({ dollar, bad, star },   0, 0, "",               false);
+            encode({ dollar, bad, star },   1, 1, "$",              false);
+            encode({ dollar, bad, star },   2, 2, "$?",             false);
+            encode({ dollar, bad, star },   3, 3, "$?*",            true);
+            encode({ dollar, bad, star },  10, 3, "$?*",            true);
+        }
+
+        if (is_utf8) {
+            encode({ 0xA2 },                0, 0, "",               false);
+            encode({ 0xA2 },                1, 0, "",               false);
+            encode({ 0xA2 },                2, 1, "\xC2\xA2",       true);
+            encode({ 0xA2 },               10, 1, "\xC2\xA2",       true);
+
+            encode({ 0xA2, 0x2A },          0, 0, "",               false);
+            encode({ 0xA2, 0x2A },          1, 0, "",               false);
+            encode({ 0xA2, 0x2A },          2, 1, "\xC2\xA2",       false);
+            encode({ 0xA2, 0x2A },          3, 2, "\xC2\xA2*",      true);
+            encode({ 0xA2, 0x2A },         10, 2, "\xC2\xA2*",      true);
+
+            encode({ 0x24, 0xA2 },          0, 0, "",               false);
+            encode({ 0x24, 0xA2 },          1, 1, "$",              false);
+            encode({ 0x24, 0xA2 },          2, 1, "$",              false);
+            encode({ 0x24, 0xA2 },          3, 2, "$\xC2\xA2",      true);
+            encode({ 0x24, 0xA2 },         10, 2, "$\xC2\xA2",      true);
+
+            encode({ 0x24, 0xA2, 0x2A },    0, 0, "",               false);
+            encode({ 0x24, 0xA2, 0x2A },    1, 1, "$",              false);
+            encode({ 0x24, 0xA2, 0x2A },    2, 1, "$",              false);
+            encode({ 0x24, 0xA2, 0x2A },    3, 2, "$\xC2\xA2",      false);
+            encode({ 0x24, 0xA2, 0x2A },    4, 3, "$\xC2\xA2*",     true);
+            encode({ 0x24, 0xA2, 0x2A },   10, 3, "$\xC2\xA2*",     true);
+
+            encode({ 0x20AC },              0, 0, "",               false);
+            encode({ 0x20AC },              1, 0, "",               false);
+            encode({ 0x20AC },              2, 0, "",               false);
+            encode({ 0x20AC },              3, 1, "\xE2\x82\xAC",   true);
+            encode({ 0x20AC },             10, 1, "\xE2\x82\xAC",   true);
+
+            encode({ 0x20AC, 0x2A },        0, 0, "",               false);
+            encode({ 0x20AC, 0x2A },        1, 0, "",               false);
+            encode({ 0x20AC, 0x2A },        2, 0, "",               false);
+            encode({ 0x20AC, 0x2A },        3, 1, "\xE2\x82\xAC",   false);
+            encode({ 0x20AC, 0x2A },        4, 2, "\xE2\x82\xAC*",  true);
+            encode({ 0x20AC, 0x2A },       10, 2, "\xE2\x82\xAC*",  true);
+
+            encode({ 0x24, 0x20AC },        0, 0, "",               false);
+            encode({ 0x24, 0x20AC },        1, 1, "$",              false);
+            encode({ 0x24, 0x20AC },        2, 1, "$",              false);
+            encode({ 0x24, 0x20AC },        3, 1, "$",              false);
+            encode({ 0x24, 0x20AC },        4, 2, "$\xE2\x82\xAC",  true);
+            encode({ 0x24, 0x20AC },       10, 2, "$\xE2\x82\xAC",  true);
+
+            encode({ 0x24, 0x20AC, 0x2A },  0, 0, "",               false);
+            encode({ 0x24, 0x20AC, 0x2A },  1, 1, "$",              false);
+            encode({ 0x24, 0x20AC, 0x2A },  2, 1, "$",              false);
+            encode({ 0x24, 0x20AC, 0x2A },  3, 1, "$",              false);
+            encode({ 0x24, 0x20AC, 0x2A },  4, 2, "$\xE2\x82\xAC",  false);
+            encode({ 0x24, 0x20AC, 0x2A },  5, 3, "$\xE2\x82\xAC*", true);
+            encode({ 0x24, 0x20AC, 0x2A }, 10, 3, "$\xE2\x82\xAC*", true);
         }
     };
 
