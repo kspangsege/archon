@@ -49,7 +49,7 @@ auto get_candidate_locales() -> const CandidateLocales&;
 
 
 // Try to find a byte that causes a decode error / a character that cuases an encode error
-template<class C> bool find_decode_error(const std::locale&, char& ch);
+template<class C> bool find_decode_error(const std::locale&, char& ch, bool followed_by_star = false);
 template<class C> bool find_encode_error(const std::locale&, C& ch);
 
 
@@ -81,7 +81,7 @@ inline auto get_candidate_locales() -> const CandidateLocales&
 }
 
 
-template<class C> inline bool find_decode_error(const std::locale& locale, char& ch)
+template<class C> inline bool find_decode_error(const std::locale& locale, char& ch, bool followed_by_star)
 {
     using char_type = C;
     using codecvt_type = std::codecvt<char_type, char, std::mbstate_t>;
@@ -94,18 +94,16 @@ template<class C> inline bool find_decode_error(const std::locale& locale, char&
                     impl::codecvt_quirk_partial_result_on_invalid_byte_seq));
 
     for (char bad_char : std::array { char(-1) }) {
-        std::array data { bad_char };
-        std::array<char_type, 1> buffer;
-
+        std::array data { bad_char, '*' };
+        std::array<char_type, 2> buffer;
         std::mbstate_t state = {};
         const char* from = data.data();
-        const char* from_end = from + data.size();
-        const char* from_next = nullptr;
+        const char* from_end = from + (followed_by_star ? 2 : 1);
+        const char* from_next = {};
         char_type* to = buffer.data();
         char_type* to_end = to + buffer.size();
-        char_type* to_next = nullptr;
-        std::codecvt_base::result result =
-            codecvt.in(state, from, from_end, from_next, to, to_end, to_next);
+        char_type* to_next = {};
+        std::codecvt_base::result result = codecvt.in(state, from, from_end, from_next, to, to_end, to_next);
         switch (result) {
             case std::codecvt_base::ok:
             case std::codecvt_base::noconv:
@@ -124,8 +122,11 @@ template<class C> inline bool find_decode_error(const std::locale& locale, char&
                 }
                 [[fallthrough]];
             case std::codecvt_base::error:
-                ch = bad_char;
-                return true;
+                if (from_next == from) {
+                    ch = bad_char;
+                    return true;
+                }
+                break;
         }
     }
     return false;

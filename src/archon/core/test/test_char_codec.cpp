@@ -22,16 +22,21 @@
 #include <cstddef>
 #include <cwchar>
 #include <array>
+#include <initializer_list>
 #include <string_view>
+#include <string>
 #include <locale>
+#include <ostream>
 
 #include <archon/core/features.h>
 #include <archon/core/span.hpp>
 #include <archon/core/assert.hpp>
-#include <archon/core/array_seeded_buffer.hpp>
+#include <archon/core/buffer.hpp>
+#include <archon/core/char_mapper.hpp>
 #include <archon/core/char_codec.hpp>
-#include <archon/core/string_codec.hpp>
 #include <archon/core/format.hpp>
+#include <archon/core/as_list.hpp>
+#include <archon/core/format_as.hpp>
 #include <archon/core/format_encoded.hpp>
 #include <archon/core/quote.hpp>
 #include <archon/core/string_formatter.hpp>
@@ -82,7 +87,8 @@ ARCHON_TEST(Core_CharCodec_DegenerateEncode)
 
 ARCHON_TEST(Core_CharCodec_Decode)
 {
-    core::ArraySeededBuffer<wchar_t, 10> buffer;
+    std::array<wchar_t, 10> seed_memory;
+    core::Buffer buffer(seed_memory);
 
     auto subtest = [&, &parent_test_context = test_context](const std::locale& locale) {
         ARCHON_TEST_TRAIL(parent_test_context, core::quoted(std::string_view(locale.name())));
@@ -126,6 +132,18 @@ ARCHON_TEST(Core_CharCodec_Decode)
 
         char decode_error_byte = 0;
         bool have_decode_error = core::test::find_decode_error<wchar_t>(locale, decode_error_byte);
+        {
+            auto format = [&](std::ostream& out) {
+                if (have_decode_error) {
+                    std::string_view str = { &decode_error_byte, 1 };
+                    out << core::formatted("Yes (%s)", core::quoted_s(str));
+                }
+                else {
+                    out << "No";
+                }
+            };
+            test_context.logger.detail("Have decode error: %s", core::as_format_func(format));
+        }
 
         if (true) {
             decode("",               0, false,  0, 0, 0, true,  false);
@@ -254,9 +272,11 @@ ARCHON_TEST(Core_CharCodec_Decode)
 
 ARCHON_TEST(Core_CharCodec_Encode)
 {
-    std::array<wchar_t, 32> seed_memory;
-    core::WideStringFormatter formatter(seed_memory, test_context.locale);
-    core::ArraySeededBuffer<char, 20> buffer;
+    std::array<wchar_t, 32> seed_memory_1;
+    core::WideStringFormatter formatter(seed_memory_1, test_context.locale);
+
+    std::array<char, 20> seed_memory_2;
+    core::Buffer buffer(seed_memory_2);
 
     auto subtest = [&, &parent_test_context = test_context](const std::locale& locale) {
         ARCHON_TEST_TRAIL(parent_test_context, core::quoted(std::string_view(locale.name())));
@@ -354,7 +374,8 @@ ARCHON_TEST(Core_CharCodec_Encode)
 
 ARCHON_TEST(Core_CharCodec_SimulDecode)
 {
-    core::ArraySeededBuffer<wchar_t, 10> buffer;
+    std::array<wchar_t, 10> seed_memory;
+    core::Buffer buffer(seed_memory);
 
     auto subtest = [&, &parent_test_context = test_context](const std::locale& locale) {
         ARCHON_TEST_TRAIL(parent_test_context, core::quoted(std::string_view(locale.name())));
@@ -411,6 +432,206 @@ ARCHON_TEST(Core_CharCodec_SimulDecode)
             simul_decode("\xE2\x82\xAC\xE2\x82\xAC$", 2, 0, 0);
             simul_decode("\xE2\x82\xAC\xE2\x82\xAC$", 2, 1, 3);
             simul_decode("\xE2\x82\xAC\xE2\x82\xAC$", 2, 2, 6);
+        }
+    };
+
+    for (const std::locale& locale : core::test::get_candidate_locales())
+        subtest(locale);
+}
+
+
+ARCHON_TEST(Core_CharCodec_LenientDecode)
+{
+    using wide_traits_type = std::char_traits<wchar_t>;
+    using wide_int_type = wide_traits_type::int_type;
+
+    std::array<wchar_t, 64> seed_memory_1;
+    std::array<wchar_t, 64> seed_memory_2;
+
+    core::Buffer buffer_1(seed_memory_1);
+    core::Buffer buffer_2(seed_memory_2);
+
+    auto subtest = [&, &parent_test_context = test_context](const std::locale& locale) {
+        ARCHON_TEST_TRAIL(parent_test_context, core::quoted(std::string_view(locale.name())));
+        bool is_utf8 = (core::assume_utf8_locale(locale) && (core::assume_unicode_locale(locale) || ARCHON_WINDOWS));
+
+        core::WideCharCodec::Config config;
+        config.lenient = true;
+        config.use_fallback_replacement_char = true;
+        core::WideCharCodec codec(locale, config);
+
+        core::WideCharMapper char_mapper(locale);
+        wide_int_type replacement = wide_traits_type::to_int_type(char_mapper.widen('?'));
+        wide_int_type dollar      = wide_traits_type::to_int_type(char_mapper.widen('$'));
+        wide_int_type star        = wide_traits_type::to_int_type(char_mapper.widen('*'));
+
+        auto decode = [&, &parent_test_context =
+                       test_context](std::string_view input, bool end_of_input, std::size_t output_size,
+                                     std::size_t expected_input_advance,
+                                     std::initializer_list<wide_int_type> expected_output, bool expected_complete) {
+            ARCHON_TEST_TRAIL(parent_test_context,
+                              core::formatted_wrn("%s, %s, %s, %s, %s, %s", core::quoted(input), end_of_input,
+                                                  output_size, expected_input_advance,
+                                                  core::as_sbr_list(expected_output), expected_complete));
+            buffer_1.reserve(output_size);
+            std::size_t buffer_offset = 0;
+            for (wide_int_type val : expected_output)
+                buffer_2.append_a(wide_traits_type::to_char_type(val), buffer_offset);
+            std::mbstate_t state = {};
+            std::size_t input_offset = 0;
+            core::Span output = { buffer_1.data(), output_size };
+            std::size_t output_offset = 0;
+            bool error = false;
+            bool complete = codec.decode(state, input, input_offset, end_of_input, output, output_offset, error);
+            {
+                // Collapse runs of '?'
+                wchar_t replacement = char_mapper.widen('?');
+                bool prev_is_replacement = false;
+                std::size_t i = 0;
+                for (std::size_t j = 0; j < output_offset; ++j) {
+                    wchar_t ch = output[j];
+                    bool is_replacement = (ch == replacement);
+                    if (ARCHON_LIKELY(!is_replacement || !prev_is_replacement)) {
+                        output[i] = output[j];
+                        ++i;
+                    }
+                    prev_is_replacement = is_replacement;
+                }
+                output_offset = i;
+            }
+            ARCHON_CHECK_EQUAL(input_offset, expected_input_advance);
+            std::wstring_view output_2 = { buffer_1.data(), output_offset };
+            std::wstring_view expected_output_2 = { buffer_2.data(), buffer_offset };
+            ARCHON_CHECK_EQUAL(output_2, expected_output_2);
+            ARCHON_CHECK_EQUAL(complete, expected_complete);
+            ARCHON_CHECK_NOT(error);
+        };
+
+        char decode_error_byte = 0;
+        bool followed_by_star = true;
+        bool have_decode_error = core::test::find_decode_error<wchar_t>(locale, decode_error_byte, followed_by_star);
+        {
+            auto format = [&](std::ostream& out) {
+                if (have_decode_error) {
+                    char str_1[] = { decode_error_byte, '*' };
+                    std::string_view str_2 = { str_1, std::size(str_1) };
+                    out << core::formatted("Yes (%s)", core::quoted(str_2));
+                }
+                else {
+                    out << "No";
+                }
+            };
+            test_context.logger.detail("Have decode error: %s", core::as_format_func(format));
+        }
+
+        if (true) {
+            decode("",              false,  0, 0, {},                            true);
+            decode("",              false, 10, 0, {},                            true);
+
+            decode("$",             false,  0, 0, {},                            false);
+            decode("$",             false,  1, 1, { dollar },                    true);
+            decode("$",             false, 10, 1, { dollar },                    true);
+
+            decode("$$",            false,  0, 0, {},                            false);
+            decode("$$",            false,  1, 1, { dollar },                    false);
+            decode("$$",            false,  2, 2, { dollar, dollar },            true);
+            decode("$$",            false, 10, 2, { dollar, dollar },            true);
+        }
+
+        if (have_decode_error) {
+            char data[] { '$', decode_error_byte, '*' };
+
+            decode({ data + 1, 2 }, false,  0, 0, {},                            false);
+            decode({ data + 1, 2 }, false,  1, 1, { replacement },               false);
+            decode({ data + 1, 2 }, false,  2, 2, { replacement, star },         true);
+            decode({ data + 1, 2 }, false, 10, 2, { replacement, star },         true);
+
+            decode({ data + 0, 3 }, false,  0, 0, {},                            false);
+            decode({ data + 0, 3 }, false,  1, 1, { dollar },                    false);
+            decode({ data + 0, 3 }, false,  2, 2, { dollar, replacement },       false);
+            decode({ data + 0, 3 }, false,  3, 3, { dollar, replacement, star }, true);
+            decode({ data + 0, 3 }, false, 10, 3, { dollar, replacement, star }, true);
+        }
+
+        if (is_utf8) {
+            // 2-byte char (cent)
+            decode("\xC2\xA2",      false,  0, 0, {},                            false);
+            decode("\xC2\xA2",      false,  1, 2, { 0xA2 },                      true);
+            decode("\xC2\xA2",      false, 10, 2, { 0xA2 },                      true);
+
+            // 3-byte char (euro)
+            decode("\xE2\x82\xAC",  false,  0, 0, {},                            false);
+            decode("\xE2\x82\xAC",  false,  1, 3, { 0x20AC },                    true);
+            decode("\xE2\x82\xAC",  false, 10, 3, { 0x20AC },                    true);
+
+            // Something followed by 2-byte char (cent)
+            decode("$\xC2\xA2",     false,  0, 0, {},                            false);
+            decode("$\xC2\xA2",     false,  1, 1, { 0x24 },                      false);
+            decode("$\xC2\xA2",     false,  2, 3, { 0x24, 0xA2 },                true);
+            decode("$\xC2\xA2",     false, 10, 3, { 0x24, 0xA2 },                true);
+
+            // Only 1 byte of 2-byte char (cent)
+            decode("\xC2",          false,  0, 0, {},                            false);
+            decode("\xC2",          false,  1, 0, {},                            true);
+            decode("\xC2",          false, 10, 0, {},                            true);
+            decode("\xC2",          true,   0, 0, {},                            false);
+            decode("\xC2",          true,   1, 1, { 0x3F },                      true);
+            decode("\xC2",          true,  10, 1, { 0x3F },                      true);
+
+            // Only 2 bytes of 3-byte char (euro)
+            decode("\xE2\x82",      false,  0, 0, {},                            false);
+            decode("\xE2\x82",      false,  1, 0, {},                            true);
+            decode("\xE2\x82",      false, 10, 0, {},                            true);
+            decode("\xE2\x82",      true,   0, 0, {},                            false);
+            decode("\xE2\x82",      true,   1, 2, { 0x3F },                      true);
+            decode("\xE2\x82",      true,  10, 2, { 0x3F },                      true);
+
+            // Something followed by partial char
+            decode("$\xC2",         false,  0, 0, {},                            false);
+            decode("$\xC2",         false,  1, 1, { 0x24 },                      false);
+            decode("$\xC2",         false,  2, 1, { 0x24 },                      true);
+            decode("$\xC2",         false, 10, 1, { 0x24 },                      true);
+            decode("$\xC2",         true,   0, 0, {},                            false);
+            decode("$\xC2",         true,   1, 1, { 0x24 },                      false);
+            decode("$\xC2",         true,   2, 2, { 0x24, 0x3F },                true);
+            decode("$\xC2",         true,  10, 2, { 0x24, 0x3F },                true);
+
+            // 1st byte of 1st char is bad
+            decode("\xA2",          false,  0, 0, {},                            false);
+            decode("\xA2",          false,  1, 0, {},                            true);
+            decode("\xA2",          false, 10, 0, {},                            true);
+            decode("\xA2",          true,   0, 0, {},                            false);
+            decode("\xA2",          true,   1, 1, { 0x3F },                      true);
+            decode("\xA2",          true,  10, 1, { 0x3F },                      true);
+
+            // 2nd byte of 1st char (cent) is bad
+            decode("\xC2$",         false,  0, 0, {},                            false);
+            decode("\xC2$",         false,  1, 1, { 0x3F },                      false);
+            decode("\xC2$",         false,  2, 2, { 0x3F, 0x24 },                true);
+            decode("\xC2$",         false, 10, 2, { 0x3F, 0x24 },                true);
+
+            // 3rd byte of 1st char (euro) is bad
+            decode("\xE2\x82$",     false,  0, 0, {},                            false);
+            decode("\xE2\x82$",     false,  1, 2, { 0x3F },                      false);
+            decode("\xE2\x82$",     false,  2, 3, { 0x3F, 0x24 },                true);
+            decode("\xE2\x82$",     false, 10, 3, { 0x3F, 0x24 },                true);
+
+            // 1st byte of 2nd char is bad
+            decode("$\xA2",         false,  0, 0, {},                            false);
+            decode("$\xA2",         false,  1, 1, { 0x24 },                      false);
+            decode("$\xA2",         false,  2, 1, { 0x24 },                      true);
+            decode("$\xA2",         false, 10, 1, { 0x24 },                      true);
+            decode("$\xA2",         true,   0, 0, {},                            false);
+            decode("$\xA2",         true,   1, 1, { 0x24 },                      false);
+            decode("$\xA2",         true,   2, 2, { 0x24, 0x3F },                true);
+            decode("$\xA2",         true,  10, 2, { 0x24, 0x3F },                true);
+
+            // 2nd byte of 2nd char (cent) is bad
+            decode("$\xC2$",        false,  0, 0, {},                            false);
+            decode("$\xC2$",        false,  1, 1, { 0x24 },                      false);
+            decode("$\xC2$",        false,  2, 2, { 0x24, 0x3F },                false);
+            decode("$\xC2$",        false,  3, 3, { 0x24, 0x3F, 0x24 },          true);
+            decode("$\xC2$",        false, 10, 3, { 0x24, 0x3F, 0x24 },          true);
         }
     };
 
