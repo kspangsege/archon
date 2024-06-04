@@ -93,7 +93,10 @@ template<class C> inline bool find_decode_error(const std::locale& locale, char&
     static_assert(!(impl::codecvt_quirk_partial_result_on_partial_char &&
                     impl::codecvt_quirk_partial_result_on_invalid_byte_seq));
 
-    for (char bad_char : std::array { char(-1) }) {
+    std::array candidates = {
+        char(-1),
+    };
+    for (char bad_char : candidates) {
         std::array data { bad_char, '*' };
         std::array<char_type, 2> buffer;
         std::mbstate_t state = {};
@@ -136,10 +139,16 @@ template<class C> inline bool find_decode_error(const std::locale& locale, char&
 template<class C> inline bool find_encode_error(const std::locale& locale, C& ch)
 {
     using char_type = C;
+    using traits_type = std::char_traits<C>;
     using codecvt_type = std::codecvt<char_type, char, std::mbstate_t>;
     const codecvt_type& codecvt = std::use_facet<codecvt_type>(locale);
 
-    for (char_type bad_char : std::array { char_type(-1), char_type(0xD800), char_type(0xDC00) }) {
+    std::array candidates = {
+        char_type(-1),
+        traits_type::to_char_type(0xD800),
+        traits_type::to_char_type(0xDC00),
+    };
+    for (char_type bad_char : candidates) {
         std::array data { bad_char };
         std::array<char, 1> buffer;
 
