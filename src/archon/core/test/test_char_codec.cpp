@@ -692,6 +692,19 @@ ARCHON_TEST(Core_CharCodec_LenientEncode)
 
         wchar_t encode_error_char = {};
         bool have_encode_error = core::test::find_encode_error(locale, encode_error_char);
+        {
+            auto format = [&](std::ostream& out) {
+                if (have_encode_error) {
+                    wchar_t str_1[] = { encode_error_char };
+                    std::wstring_view str_2 = { str_1, std::size(str_1) };
+                    out << core::formatted("Yes (%s)", core::encoded_a<wchar_t>(core::quoted(str_2)));
+                }
+                else {
+                    out << "No";
+                }
+            };
+            test_context.logger.detail("Have encode error: %s", core::as_format_func(format));
+        }
 
         if (true) {
             encode({},                      0, 0, "",               true);
@@ -708,7 +721,7 @@ ARCHON_TEST(Core_CharCodec_LenientEncode)
         }
 
         if (have_encode_error) {
-            wide_int_type bad = char_mapper.widen(encode_error_char);
+            wide_int_type bad = wide_traits_type::to_int_type(encode_error_char);
 
             encode({ bad },                 0, 0, "",               false);
             encode({ bad },                 1, 1, "?",              true);

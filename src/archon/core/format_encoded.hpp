@@ -26,14 +26,17 @@
 
 #include <cstddef>
 #include <type_traits>
+#include <array>
 #include <string_view>
+#include <locale>
 #include <ostream>
 
 #include <archon/core/features.h>
 #include <archon/core/assert.hpp>
-#include <archon/core/array_seeded_buffer.hpp>
+#include <archon/core/buffer.hpp>
 #include <archon/core/char_codec.hpp>
 #include <archon/core/stream_output.hpp>
+#include <archon/core/value_formatter.hpp>
 
 
 namespace archon::core {
@@ -45,7 +48,7 @@ template<class C, class T> struct AsEncoded;
 
 
 
-/// \brief Write encoding of string to stream.
+/// \brief Potentiate writing of encoding of string to stream.
 ///
 /// Construct an object that, if written to an output stream, causes an encoded version of
 /// the specified string to be written to the target stream. Encoding occurs as per the
@@ -59,7 +62,24 @@ template<class C, class T> struct AsEncoded;
 /// One advantage of using this function, is that it operates without any dynamic memory
 /// allocation.
 ///
+/// \sa \ref core::encoded_a()
+///
 template<class C, class T> auto encoded(std::basic_string_view<C, T>) noexcept;
+
+
+
+/// \brief Potentiate formatting of specified value and encoding of result.
+///
+/// Construct an object that, if written to an output stream, causes the specified value to
+/// be formatted with respect to the specified character type and character traits (\p C and
+/// \p T), and causes an encoded version of the formatted result to be written to that
+/// stream. The encoding occurs as if by \ref core::encoded().
+///
+/// The character type of the target stream must be `char`.
+///
+/// \sa \ref core::encoded()
+///
+template<class C = wchar_t, class T = std::char_traits<C>, class V> auto encoded_a(const V& val) noexcept;
 
 
 
@@ -83,7 +103,8 @@ template<class T, class C, class U>
 void write_encoded(std::basic_ostream<char, T>& out, std::basic_string_view<C, U> data)
 {
     core::ostream_sentry(out, [&](core::BasicStreamOutputHelper<char, T>& helper) {
-        core::ArraySeededBuffer<char, 1024> buffer;
+        std::array<char, 512> seed_memory;
+        core::Buffer buffer(seed_memory);
         std::size_t buffer_offset = 0;
         auto flush = [&] {
             helper.write({ buffer.data(), buffer_offset }); // Throws
@@ -142,12 +163,40 @@ inline auto operator<<(std::basic_ostream<char, T>& out, impl::AsEncoded<C, U> p
 }
 
 
+template<class C, class T, class V> struct AsEncodedA {
+    const V& val;
+};
+
+
+template<class T, class C, class U, class V>
+inline auto operator<<(std::basic_ostream<char, T>& out, impl::AsEncodedA<C, U, V> pod) -> std::basic_ostream<char, T>&
+{
+    if constexpr (core::BasicCharCodec<C, U>::is_degen) {
+        out << pod.val; // Throws
+    }
+    else {
+        std::array<C, 512> seed_memory;
+        std::locale locale = out.getloc(); // Throws
+        core::BasicValueFormatter<C, U> formatter(seed_memory, locale); // Throws
+        std::basic_string_view string = formatter.format(pod.val); // Throws
+        impl::write_encoded(out, string); // Throws
+    }
+    return out;
+}
+
+
 } // namespace impl
 
 
 template<class C, class T> inline auto encoded(std::basic_string_view<C, T> string) noexcept
 {
     return impl::AsEncoded<C, T> { string };
+}
+
+
+template<class C, class T, class V> auto encoded_a(const V& val) noexcept
+{
+    return impl::AsEncodedA<C, T, V> { val };
 }
 
 
