@@ -37,8 +37,9 @@
 #include <archon/core/features.h>
 #include <archon/core/span.hpp>
 #include <archon/core/assert.hpp>
-#include <archon/core/array_seeded_buffer.hpp>
+#include <archon/core/buffer.hpp>
 #include <archon/core/char_mapper.hpp>
+#include <archon/core/locale.hpp>
 #include <archon/core/char_codec_config.hpp>
 #include <archon/core/impl/codecvt_quirks.hpp>
 
@@ -131,18 +132,18 @@ private:
 
 // Variant: Degenerate, with leniency mode
 template<class T> class CharCodec3
-    : public CharCodec1<T> {
+    : public impl::CharCodec1<T> {
 public:
     using Config = core::CharCodecConfig<char, T>;
 
-    using CharCodec1<T>::CharCodec1;
+    using impl::CharCodec1<T>::CharCodec1;
 };
 
 
 
 // Variant: Non-degenerate, with leniency mode
 template<class C, class T> class CharCodec4
-    : public CharCodec2<C, T> {
+    : public impl::CharCodec2<C, T> {
 public:
     using char_type = C;
     using traits_type = T;
@@ -164,13 +165,12 @@ private:
         std::string encoded_char;
     };
 
-    using codecvt_type = std::codecvt<char_type, char, std::mbstate_t>;
-
     ReplacementInfo m_replacement_info;
     bool m_lenient;
 
-    static ReplacementInfo get_replacement_info(const std::locale&, const codecvt_type&,
-                                                const Config&);
+    using super_type = impl::CharCodec2<C, T>;
+
+    static ReplacementInfo get_replacement_info(const std::locale&, const super_type&, const Config&);
     bool decode_replacement(std::mbstate_t& state, core::Span<const char> data, std::size_t& data_offset,
                             bool end_of_data, core::Span<char_type> buffer, std::size_t& buffer_offset,
                             bool& need_more_data) const;
@@ -181,29 +181,29 @@ private:
 
 
 template<class C, class T> class SimpleCharCodec
-    : public CharCodec2<C, T> {
+    : public impl::CharCodec2<C, T> {
 public:
-    using CharCodec2<C, T>::CharCodec2;
+    using impl::CharCodec2<C, T>::CharCodec2;
 };
 
 template<class T> class SimpleCharCodec<char, T>
-    : public CharCodec1<T> {
+    : public impl::CharCodec1<T> {
 public:
-    using CharCodec1<T>::CharCodec1;
+    using impl::CharCodec1<T>::CharCodec1;
 };
 
 
 
 template<class C, class T> class CharCodec
-    : public CharCodec4<C, T> {
+    : public impl::CharCodec4<C, T> {
 public:
-    using CharCodec4<C, T>::CharCodec4;
+    using impl::CharCodec4<C, T>::CharCodec4;
 };
 
 template<class T> class CharCodec<char, T>
-    : public CharCodec3<T> {
+    : public impl::CharCodec3<T> {
 public:
-    using CharCodec3<T>::CharCodec3;
+    using impl::CharCodec3<T>::CharCodec3;
 };
 
 
@@ -605,7 +605,7 @@ inline void CharCodec2<C, T>::finalize_imbue()
 template<class C, class T>
 inline CharCodec4<C, T>::CharCodec4(const std::locale& locale, Config config)
     : CharCodec2<C, T>(locale) // Throws
-    , m_replacement_info(get_replacement_info(this->m_locale, *this->m_codecvt, config)) // Throws
+    , m_replacement_info(get_replacement_info(this->m_locale, *this, config)) // Throws
     , m_lenient(config.lenient)
 {
 }
@@ -692,54 +692,56 @@ inline bool CharCodec4<C, T>::encode(std::mbstate_t& state, core::Span<const cha
 
 
 template<class C, class T>
-auto CharCodec4<C, T>::get_replacement_info(const std::locale& locale, const codecvt_type& codecvt,
+auto CharCodec4<C, T>::get_replacement_info(const std::locale& locale, const super_type& super,
                                             const Config& config) -> ReplacementInfo
 {
     if (ARCHON_LIKELY(!config.lenient))
         return {};
 
-#if ARCHON_WCHAR_IS_UNICODE
-
     if constexpr (std::is_same_v<char_type, wchar_t>) {
-        if (!config.use_fallback_replacement_char) {
-            wchar_t ch = traits_type::to_char_type(0xFFFD);
-            std::mbstate_t state {};
-            const C* in_begin = &ch;
-            const C* in_end   = &ch + 1;
-            const C* in_pos   = nullptr;
-            core::ArraySeededBuffer<char, 8> buffer;
-            std::size_t min_extra_size = std::size_t(codecvt.max_length());
-            std::size_t used_size = 0;
-            for (;;) {
-                buffer.reserve_extra(min_extra_size, used_size); // Throws
-                char* out_begin = buffer.data() + used_size;
-                char* out_end   = buffer.data() + buffer.size();
-                char* out_pos   = nullptr;
-                std::codecvt_base::result result =
-                    codecvt.out(state, in_begin, in_end, in_pos, out_begin, out_end, out_pos); // Throws
-                switch (result) {
-                    case std::codecvt_base::ok:
-                        ARCHON_ASSERT(in_pos == in_end);
-                        ARCHON_ASSERT(out_pos > out_begin);
-                        return { ch, std::string(buffer.data(), out_pos) }; // Throws
-                    case std::codecvt_base::partial:
-                        ARCHON_ASSERT(out_pos > out_begin);
-                        used_size = std::size_t(out_pos - buffer.data());
-                        continue;
-                    case std::codecvt_base::error:
+        if (ARCHON_LIKELY(!config.use_fallback_replacement_char)) {
+            if (ARCHON_LIKELY(core::assume_unicode_locale(locale))) { // Throws
+                std::mbstate_t state = {};
+                wchar_t ch = traits_type::to_char_type(0xFFFD);
+                wchar_t data[] = { ch };
+                std::size_t data_offset = 0;
+                std::array<char, 8> seed_memory;
+                core::Buffer buffer(seed_memory);
+                std::size_t buffer_offset = 0;
+                bool error = false;
+                for (;;) {
+                    bool complete = super.encode(state, data, data_offset, buffer, buffer_offset, error); // Throws
+                    if (ARCHON_LIKELY(complete)) {
+                        ARCHON_ASSERT(data_offset == 1);
+                        ARCHON_ASSERT(buffer_offset > 0);
+                        return { ch, std::string(buffer.data(), buffer_offset) }; // Throws
+                    }
+                    ARCHON_ASSERT(data_offset == 0);
+                    ARCHON_ASSERT(buffer_offset == 0);
+                    if (ARCHON_LIKELY(error))
                         break;
-                    case std::codecvt_base::noconv:
-                        ARCHON_ASSERT(false);
-                        break;
+                    buffer.expand(buffer_offset); // Throws
                 }
-                break;
+            }
+            else if (ARCHON_LIKELY(core::assume_utf8_locale(locale))) { // Throws
+                std::mbstate_t state = {};
+                std::string_view data = "\xEF\xBF\xBD";
+                std::size_t data_offset = 0;
+                bool end_of_data = true;
+                std::array<wchar_t, 1> buffer;
+                std::size_t buffer_offset = 0;
+                bool error = false;
+                bool complete = super.decode(state, data, data_offset, end_of_data,
+                                             buffer, buffer_offset, error); // Throws
+                if (ARCHON_LIKELY(complete)) {
+                    ARCHON_ASSERT(data_offset == 3);
+                    ARCHON_ASSERT(buffer_offset == 1);
+                    return { buffer[0], std::string(data) }; // Throws
+                }
+                ARCHON_ASSERT(error);
             }
         }
     }
-
-#else
-    static_cast<void>(codecvt);
-#endif
 
     core::BasicCharMapper<char_type> mapper(locale); // Throws
     char ch = '?';

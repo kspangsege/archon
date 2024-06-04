@@ -94,6 +94,7 @@
 #include <archon/core/char_mapper.hpp>
 #include <archon/core/string.hpp>
 #include <archon/core/var_string_ref.hpp>
+#include <archon/core/locale.hpp>
 #include <archon/core/char_codec_config.hpp>
 #include <archon/core/char_codec_concept.hpp>
 #include <archon/core/impl/codecvt_quirks.hpp>
@@ -135,7 +136,6 @@
 
 // Build information and platform interface
 #include <archon/core/random.hpp>
-#include <archon/core/locale.hpp>
 #include <archon/core/timer.hpp>
 #include <archon/core/endianness.hpp>
 #include <archon/core/misc_error.hpp>
