@@ -31,15 +31,15 @@
 #include <archon/core/features.h>
 #include <archon/core/span.hpp>
 #include <archon/core/char_mapper.hpp>
+#include <archon/core/locale.hpp>
 #include <archon/core/quote.hpp>
 #include <archon/core/string_formatter.hpp>
-#include <archon/core/locale.hpp>
 #include <archon/core/file.hpp>
 #include <archon/core/text_file_error.hpp>
 #include <archon/core/text_file.hpp>
 #include <archon/check.hpp>
-#include <archon/core/test/stateful_char_codec.hpp>
 #include <archon/core/test/locale_utils.hpp>
+#include <archon/core/test/stateful_char_codec.hpp>
 
 
 using namespace archon;

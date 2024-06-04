@@ -40,10 +40,10 @@
 #include <archon/core/span.hpp>
 #include <archon/core/assert.hpp>
 #include <archon/core/buffer.hpp>
+#include <archon/core/locale.hpp>
 #include <archon/core/text_codec.hpp>
 #include <archon/core/seed_memory_output_stream.hpp>
 #include <archon/core/string_formatter.hpp>
-#include <archon/core/locale.hpp>
 #include <archon/core/file.hpp>
 #include <archon/core/terminal.hpp>
 #include <archon/log/log_level.hpp>

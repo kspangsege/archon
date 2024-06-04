@@ -46,12 +46,12 @@
 #include <archon/core/memory.hpp>
 #include <archon/core/buffer.hpp>
 #include <archon/core/flat_map.hpp>
+#include <archon/core/locale.hpp>
 #include <archon/core/string_codec.hpp>
 #include <archon/core/unicode.hpp>
 #include <archon/core/format.hpp>
 #include <archon/core/as_int.hpp>
 #include <archon/core/quote.hpp>
-#include <archon/core/locale.hpp>
 #include <archon/core/endianness.hpp>
 #include <archon/log.hpp>
 #include <archon/math/vector.hpp>

@@ -37,9 +37,9 @@
 #include <archon/core/buffer.hpp>
 #include <archon/core/flat_map.hpp>
 #include <archon/core/literal_hash_map.hpp>
+#include <archon/core/locale.hpp>
 #include <archon/core/unicode_bridge.hpp>
 #include <archon/core/format.hpp>
-#include <archon/core/locale.hpp>
 #include <archon/util/color.hpp>
 #include <archon/image.hpp>
 #include <archon/display/impl/config.h>

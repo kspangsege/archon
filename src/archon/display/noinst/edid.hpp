@@ -28,8 +28,8 @@
 
 #include <archon/core/index_range.hpp>
 #include <archon/core/string_buffer_contents.hpp>
-#include <archon/core/string_codec.hpp>
 #include <archon/core/locale.hpp>
+#include <archon/core/string_codec.hpp>
 
 
 namespace archon::display::impl {

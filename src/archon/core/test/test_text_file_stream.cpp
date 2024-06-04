@@ -30,15 +30,15 @@
 
 #include <archon/core/features.h>
 #include <archon/core/span.hpp>
-#include <archon/core/quote.hpp>
 #include <archon/core/locale.hpp>
+#include <archon/core/quote.hpp>
 #include <archon/core/file.hpp>
 #include <archon/core/text_file_impl.hpp>
 #include <archon/core/text_file.hpp>
 #include <archon/core/text_file_stream.hpp>
 #include <archon/check.hpp>
-#include <archon/core/test/stateful_char_codec.hpp>
 #include <archon/core/test/locale_utils.hpp>
+#include <archon/core/test/stateful_char_codec.hpp>
 
 
 

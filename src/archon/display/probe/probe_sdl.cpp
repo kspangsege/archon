@@ -31,11 +31,11 @@
 #include <archon/core/integer.hpp>
 #include <archon/core/buffer.hpp>
 #include <archon/core/flat_map.hpp>
+#include <archon/core/locale.hpp>
 #include <archon/core/unicode_bridge.hpp>
 #include <archon/core/format.hpp>
 #include <archon/core/as_int.hpp>
 #include <archon/core/quote.hpp>
-#include <archon/core/locale.hpp>
 #include <archon/core/file.hpp>
 #include <archon/log.hpp>
 #include <archon/cli.hpp>

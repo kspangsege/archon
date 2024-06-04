@@ -30,12 +30,12 @@
 #include <archon/core/assert.hpp>
 #include <archon/core/string_span.hpp>
 #include <archon/core/buffer.hpp>
+#include <archon/core/locale.hpp>
 #include <archon/core/char_codec_config.hpp>
 #include <archon/core/char_codec.hpp>
 #include <archon/core/basic_character_set.hpp>
 #include <archon/core/unicode.hpp>
 #include <archon/core/unicode_bridge.hpp>
-#include <archon/core/locale.hpp>
 
 
 using namespace archon;

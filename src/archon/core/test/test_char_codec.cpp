@@ -33,6 +33,7 @@
 #include <archon/core/assert.hpp>
 #include <archon/core/buffer.hpp>
 #include <archon/core/char_mapper.hpp>
+#include <archon/core/locale.hpp>
 #include <archon/core/char_codec.hpp>
 #include <archon/core/format.hpp>
 #include <archon/core/as_list.hpp>
@@ -40,7 +41,6 @@
 #include <archon/core/format_encoded.hpp>
 #include <archon/core/quote.hpp>
 #include <archon/core/string_formatter.hpp>
-#include <archon/core/locale.hpp>
 #include <archon/check.hpp>
 #include <archon/core/test/locale_utils.hpp>
 
@@ -92,7 +92,6 @@ ARCHON_TEST(Core_CharCodec_Decode)
 
     auto subtest = [&, &parent_test_context = test_context](const std::locale& locale) {
         ARCHON_TEST_TRAIL(parent_test_context, core::quoted(std::string_view(locale.name())));
-        bool is_utf8 = (core::assume_utf8_locale(locale) && (core::assume_unicode_locale(locale) || ARCHON_WINDOWS));
         core::WideSimpleCharCodec codec(locale);
 
         auto decode = [&, &parent_test_context =
@@ -136,7 +135,7 @@ ARCHON_TEST(Core_CharCodec_Decode)
             auto format = [&](std::ostream& out) {
                 if (have_decode_error) {
                     std::string_view str = { &decode_error_byte, 1 };
-                    out << core::formatted("Yes (%s)", core::quoted_s(str));
+                    out << core::formatted("Yes (%s)", core::quoted(str));
                 }
                 else {
                     out << "No";
@@ -144,6 +143,9 @@ ARCHON_TEST(Core_CharCodec_Decode)
             };
             test_context.logger.detail("Have decode error: %s", core::as_format_func(format));
         }
+
+        bool is_utf8 = (core::assume_utf8_locale(locale) && (core::assume_unicode_locale(locale) || ARCHON_WINDOWS));
+        test_context.logger.detail("Is UTF-8: %s", (is_utf8 ? "Yes" : "No"));
 
         if (true) {
             decode("",               0, false,  0, 0, 0, true,  false);
@@ -280,7 +282,6 @@ ARCHON_TEST(Core_CharCodec_Encode)
 
     auto subtest = [&, &parent_test_context = test_context](const std::locale& locale) {
         ARCHON_TEST_TRAIL(parent_test_context, core::quoted(std::string_view(locale.name())));
-        bool is_utf8 = (core::assume_utf8_locale(locale) && (core::assume_unicode_locale(locale) || ARCHON_WINDOWS));
         core::WideSimpleCharCodec codec(locale);
 
         auto encode = [&, &parent_test_context =
@@ -309,6 +310,22 @@ ARCHON_TEST(Core_CharCodec_Encode)
 
         wchar_t encode_error_char = 0;
         bool have_encode_error = core::test::find_encode_error(locale, encode_error_char);
+        {
+            auto format = [&](std::ostream& out) {
+                if (have_encode_error) {
+                    wchar_t str_1[] = { encode_error_char };
+                    std::wstring_view str_2 = { str_1, std::size(str_1) };
+                    out << core::formatted("Yes (%s)", core::encoded_a<wchar_t>(core::quoted(str_2)));
+                }
+                else {
+                    out << "No";
+                }
+            };
+            test_context.logger.detail("Have encode error: %s", core::as_format_func(format));
+        }
+
+        bool is_utf8 = (core::assume_utf8_locale(locale) && (core::assume_unicode_locale(locale) || ARCHON_WINDOWS));
+        test_context.logger.detail("Is UTF-8: %s", (is_utf8 ? "Yes" : "No"));
 
         if (true) {
             encode({},                  0, 0, 0, true,  false);
@@ -379,7 +396,6 @@ ARCHON_TEST(Core_CharCodec_SimulDecode)
 
     auto subtest = [&, &parent_test_context = test_context](const std::locale& locale) {
         ARCHON_TEST_TRAIL(parent_test_context, core::quoted(std::string_view(locale.name())));
-        bool is_utf8 = (core::assume_utf8_locale(locale) && (core::assume_unicode_locale(locale) || ARCHON_WINDOWS));
         core::WideSimpleCharCodec codec(locale);
 
         auto simul_decode = [&, &parent_test_context =
@@ -406,6 +422,9 @@ ARCHON_TEST(Core_CharCodec_SimulDecode)
             codec.simul_decode(state, data, data_offset_2, buffer_size);
             ARCHON_CHECK_EQUAL(data_offset_2 - data_offset, expected_data_advance);
         };
+
+        bool is_utf8 = (core::assume_utf8_locale(locale) && (core::assume_unicode_locale(locale) || ARCHON_WINDOWS));
+        test_context.logger.detail("Is UTF-8: %s", (is_utf8 ? "Yes" : "No"));
 
         if (true) {
             simul_decode("$$$",                       0, 0, 0);
@@ -453,7 +472,6 @@ ARCHON_TEST(Core_CharCodec_LenientDecode)
 
     auto subtest = [&, &parent_test_context = test_context](const std::locale& locale) {
         ARCHON_TEST_TRAIL(parent_test_context, core::quoted(std::string_view(locale.name())));
-        bool is_utf8 = (core::assume_utf8_locale(locale) && (core::assume_unicode_locale(locale) || ARCHON_WINDOWS));
 
         core::WideCharCodec::Config config;
         config.lenient = true;
@@ -523,6 +541,9 @@ ARCHON_TEST(Core_CharCodec_LenientDecode)
             };
             test_context.logger.detail("Have decode error: %s", core::as_format_func(format));
         }
+
+        bool is_utf8 = (core::assume_utf8_locale(locale) && (core::assume_unicode_locale(locale) || ARCHON_WINDOWS));
+        test_context.logger.detail("Is UTF-8: %s", (is_utf8 ? "Yes" : "No"));
 
         if (true) {
             decode("",              false,  0, 0, {},                            true);
@@ -653,7 +674,6 @@ ARCHON_TEST(Core_CharCodec_LenientEncode)
 
     auto subtest = [&, &parent_test_context = test_context](const std::locale& locale) {
         ARCHON_TEST_TRAIL(parent_test_context, core::quoted(std::string_view(locale.name())));
-        bool is_utf8 = (core::assume_utf8_locale(locale) && (core::assume_unicode_locale(locale) || ARCHON_WINDOWS));
 
         core::WideCharCodec::Config config;
         config.lenient = true;
@@ -705,6 +725,9 @@ ARCHON_TEST(Core_CharCodec_LenientEncode)
             };
             test_context.logger.detail("Have encode error: %s", core::as_format_func(format));
         }
+
+        bool is_utf8 = (core::assume_utf8_locale(locale) && (core::assume_unicode_locale(locale) || ARCHON_WINDOWS));
+        test_context.logger.detail("Is UTF-8: %s", (is_utf8 ? "Yes" : "No"));
 
         if (true) {
             encode({},                      0, 0, "",               true);
