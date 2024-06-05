@@ -20,11 +20,6 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
   add_compile_options(/constexpr:steps100000000)
 endif()
 
-# Allow UTF-8 commandline arguments in Windows
-if(MSVC)
-  add_compile_options(/execution-charset:utf-8)
-endif()
-
 set(THREADS_PREFER_PTHREAD_FLAG ON)
 find_package(Threads REQUIRED)
 link_libraries(Threads::Threads)
