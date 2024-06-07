@@ -114,13 +114,35 @@
 #endif
 
 
-// Windows platform
+// Windows platform (MSVC or MinGW)
 //
 #if !defined ARCHON_WINDOWS
 #  if defined WIN32 || defined _WIN32 || defined __WIN32__
 #    define ARCHON_WINDOWS 1
 #  else
 #    define ARCHON_WINDOWS 0
+#  endif
+#endif
+
+
+// MinGW platform (GCC on Windows)
+//
+#if !defined ARCHON_MINGW
+#  if defined __MINGW__ || __MINGW__
+#    define ARCHON_MINGW 1
+#  else
+#    define ARCHON_MINGW 0
+#  endif
+#endif
+
+
+// Cygwin platform (POSIX emulation on Windows)
+//
+#if !defined ARCHON_CYGWIN
+#  if defined __CYGWIN__ || __CYGWIN__
+#    define ARCHON_CYGWIN 1
+#  else
+#    define ARCHON_CYGWIN 0
 #  endif
 #endif
 
