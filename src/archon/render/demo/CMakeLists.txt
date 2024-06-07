@@ -7,6 +7,10 @@ set_target_properties(Box PROPERTIES
 )
 
 target_link_libraries(Box PUBLIC
+  Core
+  Log
+  Cli
+  Math
   Display
   Render
 )

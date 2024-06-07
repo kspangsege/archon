@@ -675,6 +675,7 @@ void EngineImpl::init()
 void EngineImpl::redraw()
 {
     if (ARCHON_UNLIKELY(m_need_misc_update)) {
+#if ARCHON_RENDER_HAVE_OPENGL
 /*
         GLfloat params[] = { GLfloat(m_global_ambience),
                              GLfloat(m_global_ambience),
@@ -683,6 +684,7 @@ void EngineImpl::redraw()
 */
         glClearColor(m_background_color[0], m_background_color[1],
                      m_background_color[2], m_background_color[3]);
+#endif // ARCHON_RENDER_HAVE_OPENGL
         m_need_misc_update = false;
     }
 
@@ -695,6 +697,7 @@ void EngineImpl::redraw()
 
     m_window->opengl_swap_buffers(); // Throws
 
+#if ARCHON_RENDER_HAVE_OPENGL
     if (m_max_opengl_errors > 0) {
         GLenum error = glGetError();
         if (error != GL_NO_ERROR) {
@@ -704,6 +707,7 @@ void EngineImpl::redraw()
                 m_logger.error("No more OpenGL error will be reported"); // Throws
         }
     }
+#endif // ARCHON_RENDER_HAVE_OPENGL
 }
 
 
