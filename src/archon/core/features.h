@@ -128,7 +128,7 @@
 // MinGW platform (GCC on Windows)
 //
 #if !defined ARCHON_MINGW
-#  if defined __MINGW__ && __MINGW__
+#  if defined __MINGW32__ && __MINGW32__
 #    define ARCHON_MINGW 1
 #  else
 #    define ARCHON_MINGW 0
