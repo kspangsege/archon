@@ -118,4 +118,4 @@ jobs:
 
     - name: Test
       run: |
-        ctest --test-dir ${{ github.workspace }}/build --build-config ${{ matrix.build_type }} --verbose
+        ctest --test-dir ${{ github.workspace }}/build --build-config ${{ matrix.build_type }} --verbose --rerun-failed --output-on-failure     

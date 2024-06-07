@@ -88,6 +88,9 @@ void core::get_platform_info(core::PlatformInfo& info)
     info_3.osname = "Windows"; // Throws (copy)
     if (IsWindowsServer())
         info_3.osname += " Server"; // Throws
+#if ARCHON_MINGW
+    info_3.osname += " (MinGW)"; // Throws
+#endif
     info_3.version = out.str(); // Throws
     info_3.release = "unknown"; // Throws (copy)
 
@@ -148,6 +151,8 @@ void core::get_platform_info(core::PlatformInfo& info)
     info_3.osname  = "OpenBSD"; // Throws (copy)
 #elif ARCHON_LINUX
     info_3.osname  = "Linux"; // Throws (copy)
+#elif ARCHON_CYGWIN
+    info_3.osname  = "Windows (Cygwin)"; // Throws (copy)
 #elif defined _POSIX_VERSION
     info_3.osname  = "POSIX"; // Throws (copy)
 #elif ARCHON_UNIX
