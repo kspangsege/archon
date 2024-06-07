@@ -11,7 +11,7 @@ set(CMAKE_CXX_EXTENSIONS False)
 # from regular GCC, this is supposed to happen when compiling in C mode, but not when
 # compiling in C++ mode.
 if(CYGWIN)
-  add_compile_options(-D_POSIX_C_SOURCE)
+  add_compile_options(-D_POSIX_C_SOURCE=200809)
 endif()
 
 # Warning level
