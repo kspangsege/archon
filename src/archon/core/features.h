@@ -128,7 +128,7 @@
 // MinGW platform (GCC on Windows)
 //
 #if !defined ARCHON_MINGW
-#  if defined __MINGW__ || __MINGW__
+#  if defined __MINGW__ && __MINGW__
 #    define ARCHON_MINGW 1
 #  else
 #    define ARCHON_MINGW 0
@@ -139,7 +139,7 @@
 // Cygwin platform (POSIX emulation on Windows)
 //
 #if !defined ARCHON_CYGWIN
-#  if defined __CYGWIN__ || __CYGWIN__
+#  if defined __CYGWIN__ && __CYGWIN__
 #    define ARCHON_CYGWIN 1
 #  else
 #    define ARCHON_CYGWIN 0
