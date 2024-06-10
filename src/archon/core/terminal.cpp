@@ -238,9 +238,11 @@ bool terminal::should_enable_escape_sequences(terminal::When when, bool is_termi
     switch (when) {
         case terminal::When::auto_:
 #if ARCHON_WINDOWS
+            static_cast<void>(is_terminal);
+            static_cast<void>(locale);
             // On Windows, the standard Command Prompt (`cmd.exe`) does not support escape
-            // sequences, but the Visual Studio Command Prompt does. The MinGW terminal also
-            // support escape sequences.
+            // sequences, but the Visual Studio Command Prompt does. The MinTTY (MinGW)
+            // terminal also support escape sequences.
             return false;
 #else
             return (is_terminal && core::assume_locale_has_escape(locale)); // Throws

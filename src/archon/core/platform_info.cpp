@@ -69,7 +69,7 @@ void core::get_platform_info(core::PlatformInfo& info)
     void* ptr = nullptr;
     UINT size_2 = 0;
     BOOL ret_2 = VerQueryValueW(buffer.data(), L"\\", &ptr, &size_2);
-    if (ARCHON_UNLIKELY(!ret)) {
+    if (ARCHON_UNLIKELY(!ret_2)) {
         DWORD err = GetLastError(); // Eliminate any risk of clobbering
         core::throw_system_error(int(err), "VerQueryValueW() failed"); // Throws
     }
