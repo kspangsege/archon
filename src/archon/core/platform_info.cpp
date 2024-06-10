@@ -35,7 +35,9 @@
 
 
 #if ARCHON_WINDOWS
-#  define NOMINMAX
+#  if !defined NOMINMAX
+#    define NOMINMAX
+#  endif
 #  include <windows.h>
 #  include <VersionHelpers.h>
 #else
