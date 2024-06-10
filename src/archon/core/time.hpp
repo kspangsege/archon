@@ -56,7 +56,7 @@ auto time_breakdown_utc(std::time_t) -> std::tm;
 using timespec_type = ::timespec; // Due to bug in LLVM libc++ (LLVM 10.0) on macOS
 #elif ARCHON_CYGWIN
 using timespec_type = ::timespec; // Cygwin bug
-#elif ARCHON_MINWG
+#elif ARCHON_MINGW
 using timespec_type = ::timespec; // MinGW bug
 #else
 using timespec_type = std::timespec;
