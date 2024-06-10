@@ -14,6 +14,11 @@ if(CYGWIN)
   add_compile_options(-D_POSIX_C_SOURCE=200809)
 endif()
 
+# Target Windows 10 when building with MinGW
+if(MINGW)
+  add_compile_options(-D_WIN32_WINNT=0x0A00)
+endif()
+
 # Warning level
 if(NOT MSVC)
   add_compile_options(-pedantic -Wall -Wextra -Wundef -Wold-style-cast -Wextra-semi -Wunreachable-code -Wno-redundant-move)
