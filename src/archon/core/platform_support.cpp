@@ -72,7 +72,7 @@ auto impl::WindowsSystemErrorCategory::message(int err) const -> std::string
                                min_size, args);
     if (ARCHON_LIKELY(len > 0)) {
         // Trim away trailing line terminators
-        while (len > 0 && buffer[len - 1] == '\n' || buffer[len - 1] == '\r')
+        while (len > 0 && (buffer[len - 1] == '\n' || buffer[len - 1] == '\r'))
             --len;
         // Trim away trailing full stop
         if (len > 0 && buffer[len - 1] == '.')
