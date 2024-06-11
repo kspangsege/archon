@@ -272,7 +272,7 @@ public:
 
     virtual ~BasicLogger() noexcept = default;
 
-protected:
+//protected:
     BasicLogger(const log::Limit&, const prefix_type&, channel_type&, channel_map_type&) noexcept;
     BasicLogger(int fixed_limit, const log::Limit&, const prefix_type&, channel_type&, channel_map_type&) noexcept;
 
@@ -285,7 +285,7 @@ protected:
     ///
     void set_prefix(const prefix_type&) noexcept;
 
-private:
+//private:
     const int m_fixed_limit;
     const log::Limit& m_limit;
     const prefix_type* m_prefix;

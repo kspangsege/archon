@@ -86,7 +86,7 @@ int main()
     std::cerr << "----> X - 3\n";   
 */
 
-    logger.info("FILE LOGGER");                          
+    logger.m_channel.channel_log(log::LogLevel::info, *logger.m_prefix, "FILE LOGGER");                          
 
 /*
     log::FileLogger logger_2(core::File::get_cout(), locale);      
