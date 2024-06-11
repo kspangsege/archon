@@ -77,12 +77,14 @@ int main()
 
     log::FileLogger logger(core::File::get_cout(), std::locale::classic());      
 
+/*
     {
         std::cerr << "----> X - 1\n";   
         std::lock_guard(logger.m_mutex);  
         std::cerr << "----> X - 2\n";   
     }
     std::cerr << "----> X - 3\n";   
+*/
 
     logger.info("FILE LOGGER");                          
 
