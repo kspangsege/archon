@@ -29,6 +29,7 @@
 #include <filesystem>
 
 #include <archon/core/features.h>
+#include <archon/core/locale.hpp>
 #include <archon/core/filesystem.hpp>
 #include <archon/core/build_environment.hpp>
 #include <archon/core/file.hpp>
@@ -46,7 +47,7 @@ using namespace archon;
 
 int main(int argc, char* argv[])
 {
-    std::locale locale(""); // Throws
+    std::locale locale = core::get_default_locale(); // Throws
 
     std::vector<font::CodePointRange> ranges;
     log::LogLevel log_level_limit = log::LogLevel::info;

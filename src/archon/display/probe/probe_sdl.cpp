@@ -192,7 +192,7 @@ void show_renderer_info(const SDL_RendererInfo& info, log::Logger& logger)
 
 int main(int argc, char* argv[])
 {
-    std::locale locale("");
+    std::locale locale = core::get_default_locale();
 
     int num_windows = 0;
     log::LogLevel log_level_limit = log::LogLevel::warn;

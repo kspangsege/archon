@@ -45,10 +45,14 @@ private:
     std::vector<std::locale> m_locales;
 };
 
+
+// This function must only be called after the invocation of `main()`.
+//
 auto get_candidate_locales() -> const CandidateLocales&;
 
 
-// Try to find a byte that causes a decode error / a character that cuases an encode error
+// Try to find a byte that causes a decode error / a character that cuases an encode error.
+//
 template<class C> bool find_decode_error(const std::locale&, char& ch, bool followed_by_star = false);
 template<class C> bool find_encode_error(const std::locale&, C& ch);
 
@@ -74,10 +78,23 @@ inline auto CandidateLocales::end() const noexcept
 }
 
 
+namespace impl {
+
+// Due to the non-static initialization, this global variable must only be accessed after
+// the invocation of `main()`.
+//
+// The initialization needs to be done early because of race-conditions / data races in
+// `core::has_locale()` and the construction of locale objects from locale names (see
+// `core::has_locale()`).
+//
+inline CandidateLocales g_candidate_locales;
+
+} // namespace impl
+
+
 inline auto get_candidate_locales() -> const CandidateLocales&
 {
-    static CandidateLocales locales; // Throws
-    return locales;
+    return impl::g_candidate_locales;
 }
 
 
@@ -90,8 +107,8 @@ template<class C> inline bool find_decode_error(const std::locale& locale, char&
     // If both the "partial result instead of ok result" and "partial result instead of
     // error result" quirks were present, we would not know whether "partial" means "ok" or
     // "error".
-    static_assert(!(impl::codecvt_quirk_partial_result_on_partial_char &&
-                    impl::codecvt_quirk_partial_result_on_invalid_byte_seq));
+    static_assert(!(core::impl::codecvt_quirk_partial_result_on_partial_char &&
+                    core::impl::codecvt_quirk_partial_result_on_invalid_byte_seq));
 
     std::array candidates = {
         char(-1),
@@ -112,11 +129,11 @@ template<class C> inline bool find_decode_error(const std::locale& locale, char&
             case std::codecvt_base::noconv:
                 break;
             case std::codecvt_base::partial:
-                if constexpr (impl::codecvt_quirk_partial_result_on_partial_char) {
+                if constexpr (core::impl::codecvt_quirk_partial_result_on_partial_char) {
                     ARCHON_ASSERT(to_next != to_end);
                     break;
                 }
-                else if constexpr (impl::codecvt_quirk_partial_result_on_invalid_byte_seq) {
+                else if constexpr (core::impl::codecvt_quirk_partial_result_on_invalid_byte_seq) {
                     ARCHON_ASSERT(to_next != to_end);
                 }
                 else {

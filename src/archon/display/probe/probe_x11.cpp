@@ -46,6 +46,7 @@
 #include <archon/core/string_buffer_contents.hpp>
 #include <archon/core/vector.hpp>
 #include <archon/core/flat_map.hpp>
+#include <archon/core/locale.hpp>
 #include <archon/core/value_parser.hpp>
 #include <archon/core/format.hpp>
 #include <archon/core/as_int.hpp>
@@ -145,7 +146,7 @@ bool ColormapFinderImpl::find_standard_colormap(VisualID visual, XStandardColorm
 
 int main(int argc, char* argv[])
 {
-    std::locale locale("");
+    std::locale locale = core::get_default_locale();
 
     namespace fs = std::filesystem;
     std::optional<fs::path> optional_path;

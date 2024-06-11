@@ -26,6 +26,7 @@
 #include <filesystem>
 
 #include <archon/core/features.h>
+#include <archon/core/locale.hpp>
 #include <archon/cli.hpp>
 
 
@@ -139,7 +140,7 @@ int main_command(const cli::CommandLine& commandline)
 
 int main(int argc, char* argv[])
 {
-    std::locale locale(""); // Throws
+    std::locale locale = core::get_default_locale(); // Throws
     cli::CommandLine commandline(argc, argv, locale); // Throws
     return main_command(commandline); // Throws
 }

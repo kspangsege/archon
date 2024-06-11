@@ -25,6 +25,7 @@
 #include <locale>
 
 #include <archon/core/features.h>
+#include <archon/core/locale.hpp>
 #include <archon/display.hpp>
 #include <archon/render/impl/config.h>
 
@@ -159,7 +160,7 @@ int main()
     // indirect use of anything that would conflict with use of SDL.
     guarantees.no_other_use_of_sdl = true;
 
-    std::locale locale(""); // Throws
+    std::locale locale = core::get_default_locale(); // Throws
     std::unique_ptr<display::Connection> conn = display::new_connection(locale, guarantees); // Throws
     display::Window::Config config;
     config.enable_opengl_rendering = true;

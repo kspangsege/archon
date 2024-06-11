@@ -32,6 +32,7 @@
 #include <archon/core/features.h>
 #include <archon/core/integer.hpp>
 #include <archon/core/math.hpp>
+#include <archon/core/locale.hpp>
 #include <archon/core/value_parser.hpp>
 #include <archon/core/format.hpp>
 #include <archon/core/as_int.hpp>
@@ -222,7 +223,7 @@ private:
 
 int main(int argc, char* argv[])
 {
-    std::locale locale(""); // Throws
+    std::locale locale = core::get_default_locale(); // Throws
 
     bool list_display_implementations = false;
     log::LogLevel log_level_limit = log::LogLevel::warn;

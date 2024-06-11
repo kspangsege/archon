@@ -32,6 +32,7 @@
 
 #include <archon/core/features.h>
 #include <archon/core/integer.hpp>
+#include <archon/core/locale.hpp>
 #include <archon/core/value_parser.hpp>
 #include <archon/core/as_int.hpp>
 #include <archon/core/quote.hpp>
@@ -93,7 +94,7 @@ private:
 
 int main(int argc, char* argv[])
 {
-    std::locale locale(""); // Throws
+    std::locale locale = core::get_default_locale(); // Throws
 
     namespace fs = std::filesystem;
     fs::path path;

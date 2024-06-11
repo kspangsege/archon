@@ -29,6 +29,7 @@
 
 #include <archon/core/features.h>
 #include <archon/core/math.hpp>
+#include <archon/core/locale.hpp>
 #include <archon/core/quote.hpp>
 #include <archon/core/file.hpp>
 #include <archon/log.hpp>
@@ -134,7 +135,7 @@ void BallScene::render()
 
 int main(int argc, char* argv[])
 {
-    std::locale locale(""); // Throws
+    std::locale locale = core::get_default_locale(); // Throws
 
     namespace fs = std::filesystem;
     bool list_display_implementations = false;

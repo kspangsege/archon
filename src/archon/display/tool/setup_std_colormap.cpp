@@ -37,6 +37,7 @@
 #include <archon/core/integer.hpp>
 #include <archon/core/memory.hpp>
 #include <archon/core/buffer.hpp>
+#include <archon/core/locale.hpp>
 #include <archon/core/value_parser.hpp>
 #include <archon/core/format.hpp>
 #include <archon/core/as_int.hpp>
@@ -197,7 +198,7 @@ bool create_standard_colormap(Display* dpy, Window root, const XVisualInfo& visu
 
 int main(int argc, char* argv[])
 {
-    std::locale locale(""); // Throws
+    std::locale locale = core::get_default_locale(); // Throws
 
     bool all = false;
     log::LogLevel log_level_limit = log::LogLevel::info;

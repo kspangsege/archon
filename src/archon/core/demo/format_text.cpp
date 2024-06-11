@@ -31,6 +31,7 @@
 #include <archon/core/features.h>
 #include <archon/core/assert.hpp>
 #include <archon/core/integer.hpp>
+#include <archon/core/locale.hpp>
 #include <archon/core/format.hpp>
 #include <archon/core/as_list.hpp>
 #include <archon/core/file.hpp>
@@ -46,7 +47,7 @@ using namespace archon;
 
 int main(int argc, char* argv[])
 {
-    std::locale locale(""); // Throws
+    std::locale locale = core::get_default_locale(); // Throws
 
     core::terminal::When color = core::terminal::When::auto_;
 

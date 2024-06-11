@@ -30,6 +30,7 @@
 #include <iostream>
 
 #include <archon/core/features.h>
+#include <archon/core/locale.hpp>
 #include <archon/core/as_int.hpp>
 #include <archon/core/format_as.hpp>
 #include <archon/core/enum.hpp>
@@ -96,7 +97,7 @@ private:
 
 int main(int argc, char* argv[])
 {
-    std::locale locale(""); // Throws
+    std::locale locale = core::get_default_locale(); // Throws
 
     namespace fs = std::filesystem;
     fs::path source_path, destination_path;
