@@ -19,10 +19,10 @@ set_target_properties(Test PROPERTIES OUTPUT_NAME "test")
 target_link_libraries(Test PUBLIC
   Core
   Check
-  CoreTest
-  LogTest
-  CliTest
-  CheckTest
+#  CoreTest
+#  LogTest
+#  CliTest
+#  CheckTest
 #  MathTest
 #  UtilTest
 #  ImageTest

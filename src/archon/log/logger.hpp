@@ -314,13 +314,13 @@ public:
     using sink_type        = log::BasicSink<C, T>;
     using channel_type     = log::BasicChannel<C, T>;
 
-protected:
+//protected:  
     BasicRootLogger(const std::locale&);
 
     virtual void format_log_level(log::LogLevel, ostream_type&) const;
     virtual void root_log(string_view_type message) = 0;
 
-private:
+//private:  
     using logger_type = log::BasicLogger<C, T>;
 
     channel_type m_channel;

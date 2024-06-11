@@ -64,24 +64,32 @@ int main()
     params.source_from_build_path = core::archon_source_from_build_path;
 */
 
-    std::locale locale = core::get_default_locale(); // Throws
+//    std::locale locale = core::get_default_locale(); // Throws
 
 //    log::info("GLOBAL LOGGER");                          
 
+/*
     core::File::get_cout().write(std::string_view("=======================>>>> RAW BYTE-LEVEL WRITE\n"));                  
 
     core::TextFileStream stream(&core::File::get_cout());   
     stream << "=======================>>>> TEXT-LEVEL WRITE" << std::endl;     
+*/
 
     log::FileLogger logger(core::File::get_cout(), std::locale::classic());      
+
+    {
+        std::cerr << "----> X - 1\n";   
+        std::lock_guard(logger.m_mutex);  
+        std::cerr << "----> X - 2\n";   
+    }
+    std::cerr << "----> X - 3\n";   
+
     logger.info("FILE LOGGER");                          
 
 /*
     log::FileLogger logger_2(core::File::get_cout(), locale);      
     logger_2.info("FILE LOGGER 2");                          
 */
-
-    std::cerr << "----> CLICK 1\n";
 
 //    return check::command(ARCHON_VERSION_EX, argc, argv, params, test_order, locale); // Throws
 }
