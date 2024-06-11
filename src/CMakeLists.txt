@@ -31,6 +31,6 @@ target_link_libraries(Test PUBLIC
 )
 
 add_test(NAME Test
-  COMMAND Test --describe-build-env --progress
+  COMMAND Test --describe-build-env --progress -t1
   WORKING_DIRECTORY "${CMAKE_SOURCE_DIR}"
 )

@@ -18,6 +18,7 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
+#include <iostream>
 
 #include <archon/core/archon_version.hpp>
 #include <archon/core/build_environment.hpp>
@@ -50,6 +51,8 @@ constexpr std::string_view test_order[] = {
 
 int main(int argc, char* argv[])
 {
+    std::cerr << "----> CLICK 1\n";
+
     core::BuildEnvironment::Params params;
     params.file_path = __FILE__;
     params.bin_path  = "test"; // Relative to build reflection of source root

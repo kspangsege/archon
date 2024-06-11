@@ -23,6 +23,7 @@
 #include <utility>
 #include <optional>
 #include <filesystem>
+#include <iostream>
 
 #include <archon/core/filesystem.hpp>
 #include <archon/core/build_mode.hpp>
@@ -48,6 +49,7 @@ int check::command(std::string_view label, int argc, char* argv[],
                    const core::BuildEnvironment::Params& build_env_params,
                    core::Span<const std::string_view> test_order, const std::locale& locale)
 {
+    std::cerr << "----> CLICK 2\n";
     cli::WideStringHolder string_holder;
 
     bool report_progress = false;
@@ -268,6 +270,7 @@ int check::command(std::string_view label, int argc, char* argv[],
     logger.info("Platform: %s", core::get_platform_description()); // Throws
     logger.info("Random seed: %s", runner.get_config().random_seed); // Throws
 
+    std::cerr << "----> CLICK 3\n";
     bool success = runner.run(); // Throws
 
     if (xml) {

@@ -31,6 +31,7 @@
 #include <map>
 #include <stdexcept>
 #include <thread>
+#include <iostream>
 
 #include <archon/core/features.h>
 #include <archon/core/assert.hpp>
@@ -348,6 +349,7 @@ bool TestRunner::run() const
                                  m_config.keep_test_files, test_file_dir, m_config.data_file_base_dir,
                                  m_config.source_path_mapper, m_config.random_seed, m_config.rseed_rep_no_override);
     reporter.root_begin(root_context); // Throws
+    std::cerr << "----> CLICK 4\n";
     core::Timer timer(core::Timer::Type::monotonic_clock); // Throws
     using impl::ThreadContextImpl;
     if (num_threads == 1) {
