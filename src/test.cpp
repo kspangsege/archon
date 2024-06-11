@@ -23,6 +23,7 @@
 #include <archon/core/archon_version.hpp>
 #include <archon/core/build_environment.hpp>
 #include <archon/core/locale.hpp>
+#include <archon/log.hpp>    
 #include <archon/check/command.hpp>
 
 
@@ -51,8 +52,6 @@ constexpr std::string_view test_order[] = {
 
 int main(int argc, char* argv[])
 {
-    std::cerr << "----> CLICK 1\n";
-
     core::BuildEnvironment::Params params;
     params.file_path = __FILE__;
     params.bin_path  = "test"; // Relative to build reflection of source root
@@ -61,6 +60,16 @@ int main(int argc, char* argv[])
     params.source_from_build_path = core::archon_source_from_build_path;
 
     std::locale locale = core::get_default_locale(); // Throws
+
+    log::info("GLOBAL LOGGER");                          
+
+    log::FileLogger logger_1(core::File::get_cout(), std::locale::classic());      
+    logger_1.info("FILE LOGGER 1");                          
+
+    log::FileLogger logger_2(core::File::get_cout(), locale);      
+    logger_2.info("FILE LOGGER 2");                          
+
+    std::cerr << "----> CLICK 1\n";
 
     return check::command(ARCHON_VERSION_EX, argc, argv, params, test_order, locale); // Throws
 }
