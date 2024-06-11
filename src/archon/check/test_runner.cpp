@@ -416,7 +416,7 @@ auto TestRunner::make_logger(const std::locale& loc, const check::TestConfig& te
         std::cerr << "TestRunner::make_logger() - 2\n";    
         if (!test_config.logger) {
             std::cerr << "TestRunner::make_logger() - 3\n";    
-            return std::make_unique<log::FileLogger>(core::File::get_cout(), loc); // Throws
+            return std::make_unique<log::FileLogger>(core::File::get_cout(), loc); // Throws                   
         }
         return nullptr;
     }

@@ -23,6 +23,7 @@
 #include <archon/core/archon_version.hpp>
 #include <archon/core/build_environment.hpp>
 #include <archon/core/locale.hpp>
+#include <archon/core/text_file_stream.hpp>    
 #include <archon/log.hpp>    
 #include <archon/check/command.hpp>
 
@@ -61,13 +62,20 @@ int main(int argc, char* argv[])
 
     std::locale locale = core::get_default_locale(); // Throws
 
-    log::info("GLOBAL LOGGER");                          
+//    log::info("GLOBAL LOGGER");                          
 
-    log::FileLogger logger_1(core::File::get_cout(), std::locale::classic());      
-    logger_1.info("FILE LOGGER 1");                          
+    core::File::get_cout().write(std::string_view("=======================>>>> RAW BYTE-LEVEL WRITE\n"));                  
 
+    core::TextFileStream stream(&core::File::get_cout());   
+    stream << "=======================>>>> TEXT-LEVEL WRITE" << std::endl;     
+
+    log::FileLogger logger(core::File::get_cout(), std::locale::classic());      
+    logger.info("FILE LOGGER 1");                          
+
+/*
     log::FileLogger logger_2(core::File::get_cout(), locale);      
     logger_2.info("FILE LOGGER 2");                          
+*/
 
     std::cerr << "----> CLICK 1\n";
 
