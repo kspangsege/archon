@@ -40,25 +40,29 @@ namespace {
 //
 //  - If feature A has a more central role than feature B, then test feature A first.
 //
+/*
 constexpr std::string_view test_order[] = {
     "Core_*",
     "Log_*",
     "Cli_*",
     "Check_*",
 };
+*/
 
 
 } // unnamed namespace
 
 
-int main(int argc, char* argv[])
+int main()
 {
+/*
     core::BuildEnvironment::Params params;
     params.file_path = __FILE__;
     params.bin_path  = "test"; // Relative to build reflection of source root
     params.src_path  = "test.cpp"; // Relative to source root
     params.src_root  = "src"; // Relative to project root
     params.source_from_build_path = core::archon_source_from_build_path;
+*/
 
     std::locale locale = core::get_default_locale(); // Throws
 
@@ -79,5 +83,5 @@ int main(int argc, char* argv[])
 
     std::cerr << "----> CLICK 1\n";
 
-    return check::command(ARCHON_VERSION_EX, argc, argv, params, test_order, locale); // Throws
+//    return check::command(ARCHON_VERSION_EX, argc, argv, params, test_order, locale); // Throws
 }

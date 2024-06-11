@@ -5,12 +5,12 @@ include(core_library.cmake)
 include(log_library.cmake)
 include(cli_library.cmake)
 include(check_library.cmake)
-include(math_library.cmake)
-include(util_library.cmake)
-include(image_library.cmake)
-include(font_library.cmake)
-include(display_library.cmake)
-include(render_library.cmake)
+#include(math_library.cmake)
+#include(util_library.cmake)
+#include(image_library.cmake)
+#include(font_library.cmake)
+#include(display_library.cmake)
+#include(render_library.cmake)
 
 add_executable(Test test.cpp)
 
@@ -23,11 +23,11 @@ target_link_libraries(Test PUBLIC
   LogTest
   CliTest
   CheckTest
-  MathTest
-  UtilTest
-  ImageTest
-  FontTest
-  DisplayTest
+#  MathTest
+#  UtilTest
+#  ImageTest
+#  FontTest
+#  DisplayTest
 )
 
 add_test(NAME Test

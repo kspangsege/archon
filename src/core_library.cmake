@@ -181,4 +181,4 @@ target_sources(Core PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "${
 install(TARGETS Core FILE_SET HEADERS)
 
 add_subdirectory(archon/core/test)
-add_subdirectory(archon/core/demo)
+#add_subdirectory(archon/core/demo)

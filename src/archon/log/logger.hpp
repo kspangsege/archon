@@ -628,7 +628,7 @@ template<class... P> inline void BasicLogger<C, T>::trace(string_view_type messa
 template<class C, class T>
 template<class... P> inline void BasicLogger<C, T>::log(log::LogLevel level, const char* message, const P&... params)
 {
-    std::cerr << "Logger::log_1() - 1\n";    
+    std::cerr << "Logger::log_1() - 1 ("<<static_cast<void*>(this)<<")\n";    
     if (ARCHON_LIKELY(!will_log(level)))
         return;
     std::cerr << "Logger::log_1() - 2\n";    
@@ -810,7 +810,7 @@ template<class C, class T>
 void BasicRootLogger<C, T>::sink_log(log::LogLevel level, const prefix_type& channel_prefix,
                                      const prefix_type& message_prefix, string_view_type message)
 {
-    std::cerr << "RootLogger::sink_log() - 1\n";    
+    std::cerr << "RootLogger::sink_log() - 1 ("<<static_cast<void*>(static_cast<BasicLogger<C, T>*>(this))<<")\n";    
     std::lock_guard lock(m_mutex);
     std::cerr << "RootLogger::sink_log() - 2\n";    
     m_out.full_clear();
