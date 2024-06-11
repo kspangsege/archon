@@ -272,8 +272,10 @@ int check::command(std::string_view label, int argc, char* argv[],
     check::TestRunner runner(locale, std::move(test_config)); // Throws
     std::cerr << "----> CLICK 2.9.1\n";
     log::Logger& logger = runner.get_logger();
+    std::cerr << "----> CLICK 2.9.1.1\n";
 
     logger.info("Testing: %s", label); // Throws
+    std::cerr << "----> CLICK 2.9.1.2\n";
     logger.info("Build mode: " ARCHON_BUILD_MODE_EX); // Throws
     std::cerr << "----> CLICK 2.9.2\n";
     if (describe_build_env)
