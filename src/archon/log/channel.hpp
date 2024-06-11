@@ -62,7 +62,7 @@ public:
 
     static inline constexpr std::size_t format_seed_memory_size = 2048;
 
-private:
+//private:  
     std::string_view m_name;
     const log::Limit& m_limit;
     const prefix_type& m_prefix;
