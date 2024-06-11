@@ -291,8 +291,11 @@ if [ "$run" ]; then
         run_path="src/test"
     fi
 
-    if [ "$OS" = "Windows_NT" ]; then
-        # Assuming Visual Studio generator here
+    if [ -e "$build_subdir/Archon.sln" ]; then
+        visual_studio_generator="1"
+    fi
+
+    if [ "$visual_studio_generator" ]; then
         dirname="$(dirname "$run_path")" || exit 1
         basename="$(basename "$run_path")" || exit 1
         run_path_2="$build_subdir/$dirname/$build_type/$basename.exe"

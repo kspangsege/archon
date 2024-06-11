@@ -20,6 +20,7 @@
 
 
 #include <cerrno>
+#include <string_view>
 #include <system_error>
 
 #include <locale.h>
@@ -43,7 +44,10 @@ using namespace archon;
 
 bool core::has_locale(const char* name)
 {
-#if ARCHON_WINDOWS
+#if ARCHON_CYGWIN || ARCHON_MINGW
+    // Both Cygwin and MingGW use libstdc++ in a way that supports only the C locale.
+    return (std::string_view(name) == "C");
+#elif ARCHON_WINDOWS
     _locale_t loc = ::_create_locale(LC_ALL, name);
     if (loc) {
         ::_free_locale(loc);
