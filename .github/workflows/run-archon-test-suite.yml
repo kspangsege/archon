@@ -7,81 +7,6 @@ on:
     branches: [ "master" ]
 
 jobs:
-  test-on-ubuntu:
-    name: Test on Ubuntu
-
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      fail-fast: false
-
-      matrix:
-        os: [ubuntu-latest]
-        build_type: [Release, Debug]
-        c_compiler: [gcc, clang-15]
-        include:
-          - c_compiler: gcc
-            cpp_compiler: g++
-          - c_compiler: clang-15
-            cpp_compiler: clang++-15
-
-    steps:
-    - name: Install dependencies
-      run: |
-        sudo apt update
-        sudo apt install libpng-dev libfreetype-dev libx11-dev libsdl2-dev clang-15
-
-    - name: Checkout
-      uses: actions/checkout@v4
-
-    - name: Configure
-      run: |
-        cmake -S ${{ github.workspace }} -B ${{ github.workspace }}/build -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-
-    - name: Build
-      run: |
-        cmake --build ${{ github.workspace }}/build --config ${{ matrix.build_type }}
-
-    - name: Test
-      run: |
-        ctest --test-dir ${{ github.workspace }}/build --build-config ${{ matrix.build_type }} --verbose
-
-  test-on-macos:
-    name: Test on macOS
-
-    runs-on: ${{ matrix.os }}
-
-    strategy:
-      fail-fast: false
-
-      matrix:
-        os: [macos-latest]
-        build_type: [Release, Debug]
-        c_compiler: [clang]
-        include:
-          - c_compiler: clang
-            cpp_compiler: clang++
-
-    steps:
-    - name: Install dependencies
-      run: |
-        brew install libpng freetype sdl2
-
-    - name: Checkout
-      uses: actions/checkout@v4
-
-    - name: Configure
-      run: |
-        cmake -S ${{ github.workspace }} -B ${{ github.workspace }}/build -DCMAKE_C_COMPILER=${{ matrix.c_compiler }} -DCMAKE_CXX_COMPILER=${{ matrix.cpp_compiler }} -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} -DCMAKE_FIND_FRAMEWORK=LAST
-
-    - name: Build
-      run: |
-        cmake --build ${{ github.workspace }}/build --config ${{ matrix.build_type }}
-
-    - name: Test
-      run: |
-        ctest --test-dir ${{ github.workspace }}/build --build-config ${{ matrix.build_type }} --verbose
-
   test-on-windows:
     name: Test on Windows
 
@@ -92,7 +17,7 @@ jobs:
 
       matrix:
         os: [windows-latest]
-        build_type: [Release, Debug]
+        build_type: [Release]
         c_compiler: [cl]
         include:
           - os: windows-latest

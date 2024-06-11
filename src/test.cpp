@@ -70,7 +70,7 @@ int main(int argc, char* argv[])
     stream << "=======================>>>> TEXT-LEVEL WRITE" << std::endl;     
 
     log::FileLogger logger(core::File::get_cout(), std::locale::classic());      
-    logger.info("FILE LOGGER 1");                          
+    logger.info("FILE LOGGER");                          
 
 /*
     log::FileLogger logger_2(core::File::get_cout(), locale);      
