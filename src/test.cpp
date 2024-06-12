@@ -91,12 +91,13 @@ int main()
 //    logger.m_channel.m_sink.sink_log(log::LogLevel::info, logger.m_channel.m_prefix, *logger.m_prefix, "FILE LOGGER");                          
 
     std::array<char, 2048> seed_memory;
-    core::StringFormatter formatter(seed_memory, loc);
 /*
+    core::StringFormatter formatter(seed_memory, loc);
     std::string_view message = formatter.format("FILE LOGGER 2");
     static_cast<void>(message);
-*/
     static_cast<void>(formatter);
+*/
+    static_cast<void>(seed_memory);
     logger.m_channel.m_sink.sink_log(log::LogLevel::info, logger.m_channel.m_prefix, *logger.m_prefix, "FILE LOGGER 3");
 
 /*
