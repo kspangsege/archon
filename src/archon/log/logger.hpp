@@ -824,10 +824,9 @@ void BasicRootLogger<C, T>::sink_log(log::LogLevel level, const prefix_type& cha
     message_prefix.format_prefix(m_out); // Throws
     format_log_level(level, m_out); // Throws
     std::cerr << "RootLogger::sink_log() - 3\n";    
-/*
     C newline = m_newline;
     string_view_type message_2;
-    std::size_t i = 0;
+//    std::size_t i = 0;
     std::size_t j = message.find(newline);
     std::cerr << "RootLogger::sink_log() - 4\n";    
     if (ARCHON_LIKELY(j == string_view_type::npos)) {
@@ -835,6 +834,7 @@ void BasicRootLogger<C, T>::sink_log(log::LogLevel level, const prefix_type& cha
         m_out << message << newline; // Throws
         message_2 = m_out.view();
     }
+/*
     else {
         std::size_t size = 0;
         auto append = [&](string_view_type string) {
@@ -856,6 +856,8 @@ void BasicRootLogger<C, T>::sink_log(log::LogLevel level, const prefix_type& cha
         append({ &newline, 1 }); // Throws
         message_2 = { m_assembly_buffer.data(), size };
     }
+*/
+/*
     std::cerr << "RootLogger::sink_log() - 6\n";    
     root_log(message_2); // throws
 */
