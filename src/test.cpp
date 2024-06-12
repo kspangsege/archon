@@ -93,7 +93,8 @@ int main()
     std::array<char, 2048> seed_memory;
     core::StringFormatter formatter(seed_memory, loc);
     std::string_view message = formatter.format("FILE LOGGER 2");
-    logger.m_channel.m_sink.sink_log(log::LogLevel::info, logger.m_channel.m_prefix, *logger.m_prefix, message);
+    static_cast<void>(message);
+    logger.m_channel.m_sink.sink_log(log::LogLevel::info, logger.m_channel.m_prefix, *logger.m_prefix, "FILE LOGGER 3");
 
 /*
     log::FileLogger logger_2(core::File::get_cout(), locale);      
