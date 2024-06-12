@@ -106,7 +106,23 @@ int main()
     }
     std::cerr << "repl - 3\n";    
 */
-    logger.m_channel.m_sink.sink_log(log::LogLevel::info, logger.m_channel.m_prefix, *logger.m_prefix, "FILE LOGGER 3");
+    {
+        std::string_view message = "FILE LOGGER 4";
+        log::Channel& channel = logger.m_channel;
+        log::RootLogger& sink = dynamic_cast<log::RootLogger&>(channel.m_sink);
+        std::lock_guard lock(sink.m_mutex);
+        sink.m_out.full_clear();
+        logger.m_channel.m_prefix.format_prefix(sink.m_out);
+        logger.m_prefix->format_prefix(sink.m_out);
+        sink.format_log_level(log::LogLevel::info, sink.m_out);
+        char newline = sink.m_newline;
+        std::string_view message_2;
+        std::size_t j = message.find(newline);
+        if (ARCHON_LIKELY(j == std::string_view::npos)) {
+            std::cerr << "click - x1\n";    
+        }
+    }
+//    logger.m_channel.m_sink.sink_log(log::LogLevel::info, logger.m_channel.m_prefix, *logger.m_prefix, "FILE LOGGER 3");
 
 /*
     log::FileLogger logger_2(core::File::get_cout(), locale);      

@@ -303,9 +303,9 @@ using WideLogger = BasicLogger<wchar_t>;
 // `log::BasicSink<C, T>` should have been a private base, but needs to be non-private
 // because of a bug in Visual Studio (2019 and 2022).
 template<class C, class T = std::char_traits<C>> class BasicRootLogger
-    : protected log::BasicSink<C, T>
-    , private log::BasicChannelMap<C, T>
-    , private log::RootLimit
+    : public log::BasicSink<C, T>
+    , public log::BasicChannelMap<C, T>
+    , public log::RootLimit
     , public log::BasicLogger<C, T> {
 public:
     using string_view_type = std::basic_string_view<C, T>;
