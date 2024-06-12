@@ -829,15 +829,14 @@ void BasicRootLogger<C, T>::sink_log(log::LogLevel level, const prefix_type& cha
     string_view_type message_2;
 //    std::size_t i = 0;
     std::size_t j = message.find(newline);
+    static_cast<void>(j);
+/*
     std::cerr << "RootLogger::sink_log() - 4\n";    
     if (ARCHON_LIKELY(j == string_view_type::npos)) {
         std::cerr << "RootLogger::sink_log() - 5\n";    
-/*
         m_out << message << newline; // Throws
         message_2 = m_out.view();
-*/
     }
-/*
     else {
         std::size_t size = 0;
         auto append = [&](string_view_type string) {
