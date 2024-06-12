@@ -75,7 +75,8 @@ int main()
     stream << "=======================>>>> TEXT-LEVEL WRITE" << std::endl;     
 */
 
-    log::FileLogger logger(core::File::get_cout(), std::locale::classic());      
+    std::locale loc = std::locale::classic();
+    log::FileLogger logger(core::File::get_cout(), loc);      
 
 /*
     {
@@ -90,7 +91,7 @@ int main()
 //    logger.m_channel.m_sink.sink_log(log::LogLevel::info, logger.m_channel.m_prefix, *logger.m_prefix, "FILE LOGGER");                          
 
     std::array<char, 2048> seed_memory;
-    core::StringFormatter formatter(seed_memory, logger.m_channel.m_sink.get_locale());
+    core::StringFormatter formatter(seed_memory, loc);
     std::string_view message = formatter.format("FILE LOGGER 2");
     logger.m_channel.m_sink.sink_log(log::LogLevel::info, logger.m_channel.m_prefix, *logger.m_prefix, message);
 
