@@ -107,22 +107,17 @@ int main()
     std::cerr << "repl - 3\n";    
 */
     {
-//        std::cerr << "repl - 1\n";    
         std::string_view message = "FILE LOGGER 4";
         log::Channel& channel = logger.m_channel;
         log::RootLogger& sink = dynamic_cast<log::RootLogger&>(channel.m_sink);
-//        std::cerr << "repl - 2\n";    
         std::lock_guard lock(sink.m_mutex);
         sink.m_out.full_clear();
         logger.m_channel.m_prefix.format_prefix(sink.m_out);
-//        std::cerr << "repl - 3\n";    
         logger.m_prefix->format_prefix(sink.m_out);
         sink.format_log_level(log::LogLevel::info, sink.m_out);
         char newline = sink.m_newline;
-//        std::cerr << "repl - 4\n";    
         std::string_view message_2;
         std::size_t j = message.find(newline);
-//        std::cerr << "repl - 5\n";    
         if (ARCHON_LIKELY(j == std::string_view::npos)) {
             std::cerr << "click - x1\n";    
         }
