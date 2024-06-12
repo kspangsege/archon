@@ -813,6 +813,11 @@ void BasicRootLogger<C, T>::sink_log(log::LogLevel level, const prefix_type& cha
     std::cerr << "RootLogger::sink_log() - 1 ("<<static_cast<void*>(static_cast<BasicLogger<C, T>*>(this))<<")\n";    
     std::lock_guard lock(m_mutex);
     std::cerr << "RootLogger::sink_log() - 2\n";    
+    static_cast<void>(level);    
+    static_cast<void>(channel_prefix);    
+    static_cast<void>(message_prefix);    
+    static_cast<void>(message);    
+/*
     m_out.full_clear();
     channel_prefix.format_prefix(m_out); // Throws
     message_prefix.format_prefix(m_out); // Throws
@@ -851,6 +856,7 @@ void BasicRootLogger<C, T>::sink_log(log::LogLevel level, const prefix_type& cha
     }
     std::cerr << "RootLogger::sink_log() - 6\n";    
     root_log(message_2); // throws
+*/
 }
 
 
