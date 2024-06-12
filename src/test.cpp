@@ -124,7 +124,7 @@ int main()
         std::size_t j = message.find(newline);
 //        std::cerr << "repl - 5\n";    
         if (ARCHON_LIKELY(j == std::string_view::npos)) {
-            std::cerr << "repl - 6\n";    
+            std::cerr << "click - x1\n";    
         }
     }
 //    logger.m_channel.m_sink.sink_log(log::LogLevel::info, logger.m_channel.m_prefix, *logger.m_prefix, "FILE LOGGER 3");
