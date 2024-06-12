@@ -107,7 +107,7 @@ int main()
     std::cerr << "repl - 3\n";    
 */
     {
-        std::cerr << "repl - 1\n";    
+//        std::cerr << "repl - 1\n";    
         std::string_view message = "FILE LOGGER 4";
         log::Channel& channel = logger.m_channel;
         log::RootLogger& sink = dynamic_cast<log::RootLogger&>(channel.m_sink);
