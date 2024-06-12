@@ -98,6 +98,14 @@ int main()
 */
     static_cast<void>(formatter);
     static_cast<void>(seed_memory);
+/*
+    {
+        std::cerr << "repl - 1 ("<<static_cast<void*>(&m_mutex)<<")\n";    
+        std::lock_guard lock(logger.m_channel.m_sink.m_mutex);    
+        std::cerr << "repl - 2\n";    
+    }
+    std::cerr << "repl - 3\n";    
+*/
     logger.m_channel.m_sink.sink_log(log::LogLevel::info, logger.m_channel.m_prefix, *logger.m_prefix, "FILE LOGGER 3");
 
 /*
