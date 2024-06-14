@@ -14,11 +14,10 @@ if(CYGWIN)
   add_compile_options(-D_POSIX_C_SOURCE=200809)
 endif()
 
-# Necessary to increase number of sectinos in object file when using Cygwin (`/bigobj` with
-# MSVC).
+# Necessary to increase number of sectinos in object file when using Cygwin (same effect as
+# `/bigobj` with MSVC).
 if(CYGWIN)
   add_compile_options(-Wa,-mbig-obj)
-  add_link_options(-Wa,-mbig-obj)
 endif()
 
 # Target Windows 10 when building with MinGW
