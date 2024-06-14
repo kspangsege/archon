@@ -81,9 +81,8 @@ namespace archon::core {
 /// The field width of the target stream will be respected, and the effect will be as if the
 /// entire quoted form was written to the stream as a single string object.
 ///
-template<class C> auto quoted(const C* c_str, std::size_t max_size = std::size_t(-1)) noexcept;
-template<class C, class T> auto quoted(std::basic_string_view<C, T> string,
-                                       std::size_t max_size = std::size_t(-1)) noexcept;
+template<class C> auto quoted(const C* c_str, std::size_t max_size = std::size_t(-1));
+template<class C, class T> auto quoted(std::basic_string_view<C, T> string, std::size_t max_size = std::size_t(-1));
 /// \}
 
 
@@ -95,9 +94,8 @@ template<class C, class T> auto quoted(std::basic_string_view<C, T> string,
 /// These functions are like \ref quoted(), but they use single quotes (`'`) instead of
 /// double-quotes (`"`).
 ///
-template<class C> auto quoted_s(const C* c_str, std::size_t max_size = std::size_t(-1)) noexcept;
-template<class C, class T> auto quoted_s(std::basic_string_view<C, T> string,
-                                         std::size_t max_size = std::size_t(-1)) noexcept;
+template<class C> auto quoted_s(const C* c_str, std::size_t max_size = std::size_t(-1));
+template<class C, class T> auto quoted_s(std::basic_string_view<C, T> string, std::size_t max_size = std::size_t(-1));
 /// \}
 
 
@@ -148,9 +146,9 @@ template<class C, class T> auto quoted_s(std::basic_string_view<C, T> string,
 ///
 /// See \ref quoted() for a detailed description of the quoted form.
 ///
-template<class C> auto smart_quoted(const C* c_str, std::size_t max_size = std::size_t(-1)) noexcept;
+template<class C> auto smart_quoted(const C* c_str, std::size_t max_size = std::size_t(-1));
 template<class C, class T> auto smart_quoted(std::basic_string_view<C, T> string,
-                                             std::size_t max_size = std::size_t(-1)) noexcept;
+                                             std::size_t max_size = std::size_t(-1));
 /// \}
 
 
@@ -162,9 +160,9 @@ template<class C, class T> auto smart_quoted(std::basic_string_view<C, T> string
 /// These functions are like \ref smart_quoted(), but they use single quotes (`'`) instead
 /// of double-quotes (`"`).
 ///
-template<class C> auto smart_quoted_s(const C* c_str, std::size_t max_size = std::size_t(-1)) noexcept;
+template<class C> auto smart_quoted_s(const C* c_str, std::size_t max_size = std::size_t(-1));
 template<class C, class T> auto smart_quoted_s(std::basic_string_view<C, T> string,
-                                               std::size_t max_size = std::size_t(-1)) noexcept;
+                                               std::size_t max_size = std::size_t(-1));
 /// \}
 
 
@@ -487,57 +485,56 @@ auto operator<<(std::basic_ostream<C, T>& out, const impl::AsQuoted<C, T>& pod) 
 } // namespace impl
 
 
-template<class C> inline auto quoted(const C* c_str, std::size_t max_size) noexcept
+template<class C> inline auto quoted(const C* c_str, std::size_t max_size)
 {
-    std::basic_string_view<C> string = c_str;                
-    return core::quoted(string, max_size);
+    std::basic_string_view<C> string = c_str; // Throws
+    return core::quoted(string, max_size); // Throws
 }
 
 
-template<class C, class T> inline auto quoted(std::basic_string_view<C, T> string, std::size_t max_size) noexcept
+template<class C, class T> inline auto quoted(std::basic_string_view<C, T> string, std::size_t max_size)
 {
     bool smart = false;
     return impl::AsQuoted<C, T> { string, max_size, smart, '"' };
 }
 
 
-template<class C> inline auto quoted_s(const C* c_str, std::size_t max_size) noexcept
+template<class C> inline auto quoted_s(const C* c_str, std::size_t max_size)
 {
-    std::basic_string_view<C> string = c_str;
-    return core::quoted_s(string, max_size);
+    std::basic_string_view<C> string = c_str; // Throws
+    return core::quoted_s(string, max_size); // Throws
 }
 
 
-template<class C, class T> inline auto quoted_s(std::basic_string_view<C, T> string, std::size_t max_size) noexcept
+template<class C, class T> inline auto quoted_s(std::basic_string_view<C, T> string, std::size_t max_size)
 {
     bool smart = false;
     return impl::AsQuoted<C, T> { string, max_size, smart, '\'' };
 }
 
 
-template<class C> inline auto smart_quoted(const C* c_str, std::size_t max_size) noexcept
+template<class C> inline auto smart_quoted(const C* c_str, std::size_t max_size)
 {
-    std::basic_string_view<C> string = c_str;
-    return core::smart_quoted(string, max_size);
+    std::basic_string_view<C> string = c_str; // Throws
+    return core::smart_quoted(string, max_size); // Throws
 }
 
 
-template<class C, class T> inline auto smart_quoted(std::basic_string_view<C, T> string, std::size_t max_size) noexcept
+template<class C, class T> inline auto smart_quoted(std::basic_string_view<C, T> string, std::size_t max_size)
 {
     bool smart = true;
     return impl::AsQuoted<C, T> { string, max_size, smart, '"' };
 }
 
 
-template<class C> inline auto smart_quoted_s(const C* c_str, std::size_t max_size) noexcept
+template<class C> inline auto smart_quoted_s(const C* c_str, std::size_t max_size)
 {
-    std::basic_string_view<C> string = c_str;
-    return core::smart_quoted_s(string, max_size);
+    std::basic_string_view<C> string = c_str; // Throws
+    return core::smart_quoted_s(string, max_size); // Throws
 }
 
 
-template<class C, class T>
-inline auto smart_quoted_s(std::basic_string_view<C, T> string, std::size_t max_size) noexcept
+template<class C, class T> inline auto smart_quoted_s(std::basic_string_view<C, T> string, std::size_t max_size)
 {
     bool smart = true;
     return impl::AsQuoted<C, T> { string, max_size, smart, '\'' };

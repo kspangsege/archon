@@ -109,7 +109,7 @@ public:
                                        "refresh_rate=%s", i + 1, num_screens, core::quoted(screen.output_name),
                                        screen.bounds, core::as_format_func(format_monitor_name),
                                        core::as_optional(screen.resolution, "unknown"),
-                                       core::as_optional(screen.refresh_rate, "unknown"));
+                                       core::as_optional(screen.refresh_rate, "unknown")); // Throws
             }
             m_logger.info("%s", out.view()); // Throws
         }

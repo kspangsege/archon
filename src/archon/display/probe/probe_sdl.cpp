@@ -170,20 +170,20 @@ auto pixel_format_name(Uint32 format) -> const char*
 
 void show_renderer_info(const SDL_RendererInfo& info, log::Logger& logger)
 {
-    logger.info("  Name: %s", core::quoted(info.name));
-    logger.info("  Flags:");
+    logger.info("  Name: %s", core::quoted(info.name)); // Throws
+    logger.info("  Flags:"); // Throws
     if ((info.flags & SDL_RENDERER_SOFTWARE) != 0)
-        logger.info("    SOFTWARE");
+        logger.info("    SOFTWARE"); // Throws
     if ((info.flags & SDL_RENDERER_ACCELERATED) != 0)
-        logger.info("    ACCELERATED");
+        logger.info("    ACCELERATED"); // Throws
     if ((info.flags & SDL_RENDERER_PRESENTVSYNC) != 0)
-        logger.info("    PRESENTVSYNC");
+        logger.info("    PRESENTVSYNC"); // Throws
     if ((info.flags & SDL_RENDERER_TARGETTEXTURE) != 0)
-        logger.info("    TARGETTEXTURE");
-    logger.info("  Pixel formats:");
+        logger.info("    TARGETTEXTURE"); // Throws
+    logger.info("  Pixel formats:"); // Throws
     for (int i = 0; i < int(info.num_texture_formats); ++i)
-        logger.info("    %s", pixel_format_name(info.texture_formats[i]));
-    logger.info("  Max texture size: %s", display::Size(info.max_texture_width, info.max_texture_height));
+        logger.info("    %s", pixel_format_name(info.texture_formats[i])); // Throws
+    logger.info("  Max texture size: %s", display::Size(info.max_texture_width, info.max_texture_height)); // Throws
 }
 
 
