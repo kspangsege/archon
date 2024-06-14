@@ -18,6 +18,7 @@ endif()
 # MSVC).
 if(CYGWIN)
   add_compile_options(-Wa,-mbig-obj)
+  add_link_options(-Wa,-mbig-obj)
 endif()
 
 # Target Windows 10 when building with MinGW
