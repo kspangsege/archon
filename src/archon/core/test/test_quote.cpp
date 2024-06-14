@@ -30,6 +30,7 @@
 #include <locale>
 #include <iomanip>
 
+#include <archon/core/features.h>
 #include <archon/core/char_mapper.hpp>
 #include <archon/core/memory_output_stream.hpp>
 #include <archon/core/value_formatter.hpp>
@@ -37,6 +38,15 @@
 #include <archon/core/as_int.hpp>
 #include <archon/core/quote.hpp>
 #include <archon/check.hpp>
+
+// See filed Cygwin bug (mailing list) with title: Bug in GCC / libstdc++: Space character
+// categorized as non-printable by std::ctype<wchar_t>
+//
+#if ARCHON_CYGWIN
+#  define NO_NONPRINTABLE_SPACE_BUG 0
+#else
+#  define NO_NONPRINTABLE_SPACE_BUG 1
+#endif
 
 
 using namespace archon;
@@ -160,6 +170,12 @@ ARCHON_TEST(Core_Quote_SmartQuoted)
         check_wsv(std::wstring_view(c_wstr), max_size, wresult);
     };
 
+    check("",     0, R"("")");
+    check("",     1, R"("")");
+    check("",     2, R"("")");
+    check("",     3, R"("")");
+    check("",     4, R"("")");
+
     check("x",    0, R"(x)");
     check("xx",   0, R"(xx)");
     check("xxx",  0, R"(xxx)");
@@ -185,27 +201,22 @@ ARCHON_TEST(Core_Quote_SmartQuoted)
     check("xxx",  4, R"(xxx)");
     check("xxxx", 4, R"(xxxx)");
 
-
-    check("",     0, R"("")");
+#if NO_NONPRINTABLE_SPACE_BUG
     check(" ",    0, R"(" ")");
     check("  ",   0, R"(...)");
 
-    check("",     1, R"("")");
     check(" ",    1, R"(" ")");
     check("  ",   1, R"(...)");
 
-    check("",     2, R"("")");
     check(" ",    2, R"(" ")");
     check("  ",   2, R"(...)");
 
-    check("",     3, R"("")");
     check(" ",    3, R"(" ")");
     check("  ",   3, R"(...)");
 
-    check("",     4, R"("")");
     check(" ",    4, R"(" ")");
     check("  ",   4, R"("  ")");
-
+#endif
 
     check("\n",   2, R"(...)");
     check("x\n",  2, R"(...)");

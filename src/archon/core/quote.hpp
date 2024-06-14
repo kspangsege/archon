@@ -26,6 +26,7 @@
 
 #include <cstddef>
 #include <type_traits>
+#include <iterator>
 #include <string_view>
 #include <locale>
 #include <ostream>
@@ -203,7 +204,7 @@ void do_quote(core::BasicStreamOutputHelper<C, T>& helper, const std::ctype<C>& 
     C seven  = chars_2[3]; // `7`
     C bslash = chars_2[4]; // `\`
     C ellipsis[] = { dot, dot, dot }; // `...`
-    std::size_t size_of_ellipsis = sizeof ellipsis / sizeof *ellipsis;
+    std::size_t size_of_ellipsis = std::size(ellipsis);
     std::size_t size_of_quotes = 2; // Size of two quotation characters (`""`)
     core::BasicIntegerFormatter<C, T> integer_formatter(mapper);
     core::Vector<C, 24> buffer;
@@ -488,7 +489,7 @@ auto operator<<(std::basic_ostream<C, T>& out, const impl::AsQuoted<C, T>& pod) 
 
 template<class C> inline auto quoted(const C* c_str, std::size_t max_size) noexcept
 {
-    std::basic_string_view<C> string = c_str;
+    std::basic_string_view<C> string = c_str;                
     return core::quoted(string, max_size);
 }
 
