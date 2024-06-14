@@ -23,7 +23,6 @@
 #include <utility>
 #include <optional>
 #include <filesystem>
-#include <iostream>
 
 #include <archon/core/filesystem.hpp>
 #include <archon/core/build_mode.hpp>
@@ -49,10 +48,8 @@ int check::command(std::string_view label, int argc, char* argv[],
                    const core::BuildEnvironment::Params& build_env_params,
                    core::Span<const std::string_view> test_order, const std::locale& locale)
 {
-    std::cerr << "----> CLICK 2\n";
     cli::WideStringHolder string_holder;
 
-    std::cerr << "----> CLICK 2.1\n";
     bool report_progress = false;
     std::string_view filter;
     check::TestConfig test_config;
@@ -61,17 +58,14 @@ int check::command(std::string_view label, int argc, char* argv[],
     std::string_view suite_name = "default";
     bool describe_build_env = false;
 
-    std::cerr << "----> CLICK 2.2\n";
     core::BuildEnvironment build_env = core::BuildEnvironment(argv[0], build_env_params, locale); // Throws
     test_config.data_file_base_dir = build_env.get_relative_source_root(); // Throws
     test_config.log_file_base_dir  = build_env.get_relative_project_root(); // Throws
     test_config.test_file_base_dir = build_env.get_relative_project_root(); // Throws
 
-    std::cerr << "----> CLICK 2.3\n";
     cli::WideSpec spec;
     opt(cli::help_tag, spec); // Throws
     opt(cli::stop_tag, spec); // Throws
-    std::cerr << "----> CLICK 2.4\n";
     opt("-p, --progress", "", cli::no_attributes, spec,
         "Log a message for each test case that starts to execute.",
         cli::raise_flag(report_progress)); // Throws
@@ -226,13 +220,11 @@ int check::command(std::string_view label, int argc, char* argv[],
     opt("-b, --describe-build-env", "", cli::no_attributes, spec,
         "Describe detected build environment.",
         cli::raise_flag(describe_build_env)); // Throws
-    std::cerr << "----> CLICK 2.5\n";
 
     int exit_status = 0;
     if (ARCHON_UNLIKELY(cli::process(argc, argv, spec, exit_status, string_holder, locale))) // Throws
         return exit_status;
 
-    std::cerr << "----> CLICK 2.6\n";
     check::WildcardFilter filter_2(filter, locale); // Throws
     test_config.filter = &filter_2;
 
@@ -242,7 +234,6 @@ int check::command(std::string_view label, int argc, char* argv[],
     check::SimpleReporter reporter(report_progress);
     test_config.reporter = &reporter;
 
-    std::cerr << "----> CLICK 2.7\n";
     struct XmlExtras {
         core::TextFileStream stream;
         check::XmlReporter xml_reporter;
@@ -264,27 +255,19 @@ int check::command(std::string_view label, int argc, char* argv[],
         test_config.reporter = &xml_extras->duplicating_reporter;
     }
 
-    std::cerr << "----> CLICK 2.8\n";
     check::StandardPathMapper source_path_mapper(build_env);
     test_config.source_path_mapper = &source_path_mapper;
 
-    std::cerr << "----> CLICK 2.9\n";
     check::TestRunner runner(locale, std::move(test_config)); // Throws
-    std::cerr << "----> CLICK 2.9.1\n";
     log::Logger& logger = runner.get_logger();
-    std::cerr << "----> CLICK 2.9.1.1\n";
 
     logger.info("Testing: %s", label); // Throws
-    std::cerr << "----> CLICK 2.9.1.2\n";
     logger.info("Build mode: " ARCHON_BUILD_MODE_EX); // Throws
-    std::cerr << "----> CLICK 2.9.2\n";
     if (describe_build_env)
         logger.info("Build environment: %s", build_env); // Throws
-    std::cerr << "----> CLICK 2.9.3\n";
     logger.info("Platform: %s", core::get_platform_description()); // Throws
     logger.info("Random seed: %s", runner.get_config().random_seed); // Throws
 
-    std::cerr << "----> CLICK 3\n";
     bool success = runner.run(); // Throws
 
     if (xml) {

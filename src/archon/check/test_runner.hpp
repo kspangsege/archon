@@ -26,7 +26,6 @@
 
 #include <utility>
 #include <memory>
-#include <iostream>
 
 #include <archon/log/logger.hpp>
 #include <archon/check/test_config.hpp>
@@ -109,7 +108,6 @@ inline TestRunner::TestRunner(check::TestConfig config)
 
 inline auto TestRunner::get_logger() const noexcept -> log::Logger&
 {
-    std::cerr << "TestRunner::get_logger(): " << static_cast<const void*>(this) << ", " <<  static_cast<void*>(&m_logger) << "\n";    
     return m_logger;
 }
 

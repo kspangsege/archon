@@ -27,7 +27,6 @@
 #include <cstddef>
 #include <array>
 #include <string_view>
-#include <iostream>    
 
 #include <archon/core/string_formatter.hpp>
 #include <archon/log/log_level.hpp>
@@ -62,7 +61,7 @@ public:
 
     static inline constexpr std::size_t format_seed_memory_size = 2048;
 
-//private:  
+private:
     std::string_view m_name;
     const log::Limit& m_limit;
     const prefix_type& m_prefix;
@@ -88,7 +87,6 @@ template<class... P>
 inline void BasicChannel<C, T>::channel_log(log::LogLevel level, const prefix_type& prefix, const char* message,
                                             const P&... params)
 {
-    std::cerr << "channel_log_1()\n";    
     std::array<C, format_seed_memory_size> seed_memory;
     core::BasicStringFormatter<C, T> formatter(seed_memory, m_sink.get_locale()); // Throws
     string_view_type message_2 = formatter.format(message, params...); // Throws
@@ -101,7 +99,6 @@ template<class... P>
 inline void BasicChannel<C, T>::channel_log(log::LogLevel level, const prefix_type& prefix, string_view_type message,
                                             const P&... params)
 {
-    std::cerr << "channel_log_2()\n";    
     std::array<C, format_seed_memory_size> seed_memory;
     core::BasicStringFormatter<C, T> formatter(seed_memory, m_sink.get_locale()); // Throws
     string_view_type message_2 = formatter.format(message, params...); // Throws

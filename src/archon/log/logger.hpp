@@ -35,7 +35,6 @@
 #include <ostream>
 #include <mutex>
 #include <filesystem>
-#include <iostream>    
 
 #include <archon/core/features.h>
 #include <archon/core/span.hpp>
@@ -272,7 +271,7 @@ public:
 
     virtual ~BasicLogger() noexcept = default;
 
-//protected:
+protected:
     BasicLogger(const log::Limit&, const prefix_type&, channel_type&, channel_map_type&) noexcept;
     BasicLogger(int fixed_limit, const log::Limit&, const prefix_type&, channel_type&, channel_map_type&) noexcept;
 
@@ -285,7 +284,7 @@ public:
     ///
     void set_prefix(const prefix_type&) noexcept;
 
-//private:
+private:
     const int m_fixed_limit;
     const log::Limit& m_limit;
     const prefix_type* m_prefix;
@@ -303,9 +302,9 @@ using WideLogger = BasicLogger<wchar_t>;
 // `log::BasicSink<C, T>` should have been a private base, but needs to be non-private
 // because of a bug in Visual Studio (2019 and 2022).
 template<class C, class T = std::char_traits<C>> class BasicRootLogger
-    : public log::BasicSink<C, T>
-    , public log::BasicChannelMap<C, T>
-    , public log::RootLimit
+    : protected log::BasicSink<C, T>
+    , private log::BasicChannelMap<C, T>
+    , private log::RootLimit
     , public log::BasicLogger<C, T> {
 public:
     using string_view_type = std::basic_string_view<C, T>;
@@ -314,13 +313,13 @@ public:
     using sink_type        = log::BasicSink<C, T>;
     using channel_type     = log::BasicChannel<C, T>;
 
-//protected:  
+protected:
     BasicRootLogger(const std::locale&);
 
     virtual void format_log_level(log::LogLevel, ostream_type&) const;
     virtual void root_log(string_view_type message) = 0;
 
-//private:  
+private:
     using logger_type = log::BasicLogger<C, T>;
 
     channel_type m_channel;
@@ -628,10 +627,8 @@ template<class... P> inline void BasicLogger<C, T>::trace(string_view_type messa
 template<class C, class T>
 template<class... P> inline void BasicLogger<C, T>::log(log::LogLevel level, const char* message, const P&... params)
 {
-    std::cerr << "Logger::log_1() - 1 ("<<static_cast<void*>(this)<<")\n";    
     if (ARCHON_LIKELY(!will_log(level)))
         return;
-    std::cerr << "Logger::log_1() - 2\n";    
     m_channel.channel_log(level, *m_prefix, message, params...); // Throws
 }
 
@@ -640,10 +637,8 @@ template<class C, class T>
 template<class... P> inline void BasicLogger<C, T>::log(log::LogLevel level, string_view_type message,
                                                         const P&... params)
 {
-    std::cerr << "Logger::log_2() - 1\n";    
     if (ARCHON_LIKELY(!will_log(level)))
         return;
-    std::cerr << "Logger::log_2() - 2\n";    
     m_channel.channel_log(level, *m_prefix, message, params...); // Throws
 }
 
@@ -810,34 +805,19 @@ template<class C, class T>
 void BasicRootLogger<C, T>::sink_log(log::LogLevel level, const prefix_type& channel_prefix,
                                      const prefix_type& message_prefix, string_view_type message)
 {
-    std::cerr << "RootLogger::sink_log() - 1 ("<<static_cast<void*>(&m_mutex)<<")\n";    
-    std::cerr << "RootLogger::sink_log() - 1.1\n";    
     std::lock_guard lock(m_mutex);
-    std::cerr << "RootLogger::sink_log() - 2\n";    
-
-    static_cast<void>(level);    
-    static_cast<void>(channel_prefix);    
-    static_cast<void>(message_prefix);    
-    static_cast<void>(message);    
-
     m_out.full_clear();
     channel_prefix.format_prefix(m_out); // Throws
     message_prefix.format_prefix(m_out); // Throws
     format_log_level(level, m_out); // Throws
-    std::cerr << "RootLogger::sink_log() - 3\n";    
     C newline = m_newline;
     string_view_type message_2;
-//    std::size_t i = 0;
+    std::size_t i = 0;
     std::size_t j = message.find(newline);
-    std::cerr << "RootLogger::sink_log() - 4\n";    
     if (ARCHON_LIKELY(j == string_view_type::npos)) {
-        std::cerr << "RootLogger::sink_log() - 5\n";    
-/*
         m_out << message << newline; // Throws
         message_2 = m_out.view();
-*/
     }
-/*
     else {
         std::size_t size = 0;
         auto append = [&](string_view_type string) {
@@ -859,11 +839,7 @@ void BasicRootLogger<C, T>::sink_log(log::LogLevel level, const prefix_type& cha
         append({ &newline, 1 }); // Throws
         message_2 = { m_assembly_buffer.data(), size };
     }
-*/
-/*
-    std::cerr << "RootLogger::sink_log() - 6\n";    
     root_log(message_2); // throws
-*/
 }
 
 
@@ -962,9 +938,7 @@ void BasicFileLogger<C, T, I>::format_log_level(log::LogLevel level, ostream_typ
 template<class C, class T, class I>
 void BasicFileLogger<C, T, I>::root_log(string_view_type message)
 {
-    std::cerr << "FileLogger::root_log() - 1\n";    
     std::string_view message_2 = m_text_codec.encode_sc(message, m_encode_buffer); // Throws
-    std::cerr << "FileLogger::root_log() - 2\n";    
     m_file.write(message_2); // Throws
 }
 

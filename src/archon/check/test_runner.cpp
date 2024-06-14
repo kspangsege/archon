@@ -31,7 +31,6 @@
 #include <map>
 #include <stdexcept>
 #include <thread>
-#include <iostream>
 
 #include <archon/core/features.h>
 #include <archon/core/assert.hpp>
@@ -349,7 +348,6 @@ bool TestRunner::run() const
                                  m_config.keep_test_files, test_file_dir, m_config.data_file_base_dir,
                                  m_config.source_path_mapper, m_config.random_seed, m_config.rseed_rep_no_override);
     reporter.root_begin(root_context); // Throws
-    std::cerr << "----> CLICK 4\n";
     core::Timer timer(core::Timer::Type::monotonic_clock); // Throws
     using impl::ThreadContextImpl;
     if (num_threads == 1) {
@@ -411,19 +409,13 @@ bool TestRunner::run() const
 auto TestRunner::make_logger(const std::locale& loc, const check::TestConfig& test_config) ->
     std::unique_ptr<log::Logger>
 {
-    std::cerr << "TestRunner::make_logger() - 1\n";    
     if (!test_config.log_timestamps || test_config.log_to_files) {
-        std::cerr << "TestRunner::make_logger() - 2\n";    
-        if (!test_config.logger) {
-            std::cerr << "TestRunner::make_logger() - 3\n";    
-            return std::make_unique<log::FileLogger>(core::File::get_cout(), loc); // Throws                   
-        }
+        if (!test_config.logger)
+            return std::make_unique<log::FileLogger>(core::File::get_cout(), loc); // Throws
         return nullptr;
     }
 
-    std::cerr << "TestRunner::make_logger() - 4\n";    
     if (!test_config.logger) {
-        std::cerr << "TestRunner::make_logger() - 5\n";    
         log::TimestampFileLogger::Config config;
         configure_timestamp_logger(config, test_config); // Throws
         return std::make_unique<log::TimestampFileLogger>(core::File::get_cout(), loc, std::move(config)); // Throws

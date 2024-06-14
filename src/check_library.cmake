@@ -58,4 +58,4 @@ target_sources(Check PUBLIC FILE_SET HEADERS FILES
 
 install(TARGETS Check FILE_SET HEADERS)
 
-#add_subdirectory(archon/check/test)
+add_subdirectory(archon/check/test)
