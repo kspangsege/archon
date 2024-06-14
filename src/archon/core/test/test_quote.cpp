@@ -28,10 +28,12 @@
 #include <random>
 #include <set>
 #include <locale>
+#include <iomanip>
 
 #include <archon/core/char_mapper.hpp>
 #include <archon/core/memory_output_stream.hpp>
 #include <archon/core/value_formatter.hpp>
+#include <archon/core/format.hpp>
 #include <archon/core/as_int.hpp>
 #include <archon/core/quote.hpp>
 #include <archon/check.hpp>
@@ -44,29 +46,32 @@ ARCHON_TEST(Core_Quote_Quoted)
 {
     std::array<char, 256> seed_memory_1;
     core::ValueFormatter formatter(seed_memory_1, std::locale::classic());
-    auto check_cs = [&](const char* c_str, std::size_t max_size, std::string_view result) {
-        std::string_view formatted = formatter.format(core::quoted(c_str, max_size));
-        ARCHON_CHECK_EQUAL(formatted, result);
-    };
-    auto check_sv = [&](std::string_view string, std::size_t max_size, std::string_view result) {
-        std::string_view formatted = formatter.format(core::quoted(string, max_size));
-        ARCHON_CHECK_EQUAL(formatted, result);
-    };
-
     std::array<wchar_t, 256> seed_memory_2;
     core::WideValueFormatter wformatter(seed_memory_2, std::locale::classic());
-    auto check_wcs = [&](const wchar_t* c_str, std::size_t max_size, std::wstring_view result) {
-        std::wstring_view formatted = wformatter.format(core::quoted(c_str, max_size));
-        ARCHON_CHECK_EQUAL(formatted, result);
-    };
-    auto check_wsv = [&](std::wstring_view string, std::size_t max_size, std::wstring_view result) {
-        std::wstring_view formatted = wformatter.format(core::quoted(string, max_size));
-        ARCHON_CHECK_EQUAL(formatted, result);
-    };
-
     std::array<wchar_t, 256> seed_memory_3;
     core::WideStringWidener widener(std::locale::classic(), seed_memory_3);
-    auto check = [&](const char* c_str, std::size_t max_size, std::string_view result) {
+    auto check = [&, &parent_test_context = test_context](const char* c_str, std::size_t max_size,
+                                                          std::string_view result) {
+        ARCHON_TEST_TRAIL(parent_test_context, core::formatted("%s, %s, %s", std::quoted(c_str), max_size,
+                                                               std::quoted(result)));
+
+        auto check_cs = [&](const char* c_str, std::size_t max_size, std::string_view result) {
+            std::string_view formatted = formatter.format(core::quoted(c_str, max_size));
+            ARCHON_CHECK_EQUAL(formatted, result);
+        };
+        auto check_sv = [&](std::string_view string, std::size_t max_size, std::string_view result) {
+            std::string_view formatted = formatter.format(core::quoted(string, max_size));
+            ARCHON_CHECK_EQUAL(formatted, result);
+        };
+        auto check_wcs = [&](const wchar_t* c_str, std::size_t max_size, std::wstring_view result) {
+            std::wstring_view formatted = wformatter.format(core::quoted(c_str, max_size));
+            ARCHON_CHECK_EQUAL(formatted, result);
+        };
+        auto check_wsv = [&](std::wstring_view string, std::size_t max_size, std::wstring_view result) {
+            std::wstring_view formatted = wformatter.format(core::quoted(string, max_size));
+            ARCHON_CHECK_EQUAL(formatted, result);
+        };
+
         check_cs(c_str, max_size, result);
         check_sv(std::string_view(c_str), max_size, result);
         std::wstring_view wstring, wresult;
@@ -116,29 +121,32 @@ ARCHON_TEST(Core_Quote_SmartQuoted)
 {
     std::array<char, 256> seed_memory_1;
     core::ValueFormatter formatter(seed_memory_1, std::locale::classic());
-    auto check_cs = [&](const char* c_str, std::size_t max_size, std::string_view result) {
-        std::string_view formatted = formatter.format(core::smart_quoted(c_str, max_size));
-        ARCHON_CHECK_EQUAL(formatted, result);
-    };
-    auto check_sv = [&](std::string_view string, std::size_t max_size, std::string_view result) {
-        std::string_view formatted = formatter.format(core::smart_quoted(string, max_size));
-        ARCHON_CHECK_EQUAL(formatted, result);
-    };
-
     std::array<wchar_t, 256> seed_memory_2;
     core::WideValueFormatter wformatter(seed_memory_2, std::locale::classic());
-    auto check_wcs = [&](const wchar_t* c_str, std::size_t max_size, std::wstring_view result) {
-        std::wstring_view formatted = wformatter.format(core::smart_quoted(c_str, max_size));
-        ARCHON_CHECK_EQUAL(formatted, result);
-    };
-    auto check_wsv = [&](std::wstring_view string, std::size_t max_size, std::wstring_view result) {
-        std::wstring_view formatted = wformatter.format(core::smart_quoted(string, max_size));
-        ARCHON_CHECK_EQUAL(formatted, result);
-    };
-
     std::array<wchar_t, 256> seed_memory_3;
     core::WideStringWidener widener(std::locale::classic(), seed_memory_3);
-    auto check = [&](const char* c_str, std::size_t max_size, std::string_view result) {
+    auto check = [&, &parent_test_context = test_context](const char* c_str, std::size_t max_size,
+                                                          std::string_view result) {
+        ARCHON_TEST_TRAIL(parent_test_context, core::formatted("%s, %s, %s", std::quoted(c_str), max_size,
+                                                               std::quoted(result)));
+
+        auto check_cs = [&](const char* c_str, std::size_t max_size, std::string_view result) {
+            std::string_view formatted = formatter.format(core::smart_quoted(c_str, max_size));
+            ARCHON_CHECK_EQUAL(formatted, result);
+        };
+        auto check_sv = [&](std::string_view string, std::size_t max_size, std::string_view result) {
+            std::string_view formatted = formatter.format(core::smart_quoted(string, max_size));
+            ARCHON_CHECK_EQUAL(formatted, result);
+        };
+        auto check_wcs = [&](const wchar_t* c_str, std::size_t max_size, std::wstring_view result) {
+            std::wstring_view formatted = wformatter.format(core::smart_quoted(c_str, max_size));
+            ARCHON_CHECK_EQUAL(formatted, result);
+        };
+        auto check_wsv = [&](std::wstring_view string, std::size_t max_size, std::wstring_view result) {
+            std::wstring_view formatted = wformatter.format(core::smart_quoted(string, max_size));
+            ARCHON_CHECK_EQUAL(formatted, result);
+        };
+
         check_cs(c_str, max_size, result);
         check_sv(std::string_view(c_str), max_size, result);
         std::wstring_view wstring, wresult;
@@ -333,29 +341,32 @@ ARCHON_TEST(Core_Quote_SingleQuoted)
 {
     std::array<char, 256> seed_memory_1;
     core::ValueFormatter formatter(seed_memory_1, std::locale::classic());
-    auto check_cs = [&](const char* c_str, std::size_t max_size, std::string_view result) {
-        std::string_view formatted = formatter.format(core::quoted_s(c_str, max_size));
-        ARCHON_CHECK_EQUAL(formatted, result);
-    };
-    auto check_sv = [&](std::string_view string, std::size_t max_size, std::string_view result) {
-        std::string_view formatted = formatter.format(core::quoted_s(string, max_size));
-        ARCHON_CHECK_EQUAL(formatted, result);
-    };
-
     std::array<wchar_t, 256> seed_memory_2;
     core::WideValueFormatter wformatter(seed_memory_2, std::locale::classic());
-    auto check_wcs = [&](const wchar_t* c_str, std::size_t max_size, std::wstring_view result) {
-        std::wstring_view formatted = wformatter.format(core::quoted_s(c_str, max_size));
-        ARCHON_CHECK_EQUAL(formatted, result);
-    };
-    auto check_wsv = [&](std::wstring_view string, std::size_t max_size, std::wstring_view result) {
-        std::wstring_view formatted = wformatter.format(core::quoted_s(string, max_size));
-        ARCHON_CHECK_EQUAL(formatted, result);
-    };
-
     std::array<wchar_t, 256> seed_memory_3;
     core::WideStringWidener widener(std::locale::classic(), seed_memory_3);
-    auto check = [&](const char* c_str, std::size_t max_size, std::string_view result) {
+    auto check = [&, &parent_test_context = test_context](const char* c_str, std::size_t max_size,
+                                                          std::string_view result) {
+        ARCHON_TEST_TRAIL(parent_test_context, core::formatted("%s, %s, %s", std::quoted(c_str), max_size,
+                                                               std::quoted(result)));
+
+        auto check_cs = [&](const char* c_str, std::size_t max_size, std::string_view result) {
+            std::string_view formatted = formatter.format(core::quoted_s(c_str, max_size));
+            ARCHON_CHECK_EQUAL(formatted, result);
+        };
+        auto check_sv = [&](std::string_view string, std::size_t max_size, std::string_view result) {
+            std::string_view formatted = formatter.format(core::quoted_s(string, max_size));
+            ARCHON_CHECK_EQUAL(formatted, result);
+        };
+        auto check_wcs = [&](const wchar_t* c_str, std::size_t max_size, std::wstring_view result) {
+            std::wstring_view formatted = wformatter.format(core::quoted_s(c_str, max_size));
+            ARCHON_CHECK_EQUAL(formatted, result);
+        };
+        auto check_wsv = [&](std::wstring_view string, std::size_t max_size, std::wstring_view result) {
+            std::wstring_view formatted = wformatter.format(core::quoted_s(string, max_size));
+            ARCHON_CHECK_EQUAL(formatted, result);
+        };
+
         check_cs(c_str, max_size, result);
         check_sv(std::string_view(c_str), max_size, result);
         std::wstring_view wstring, wresult;
@@ -378,29 +389,32 @@ ARCHON_TEST(Core_Quote_SmartSingleQuoted)
 {
     std::array<char, 256> seed_memory_1;
     core::ValueFormatter formatter(seed_memory_1, std::locale::classic());
-    auto check_cs = [&](const char* c_str, std::size_t max_size, std::string_view result) {
-        std::string_view formatted = formatter.format(core::smart_quoted_s(c_str, max_size));
-        ARCHON_CHECK_EQUAL(formatted, result);
-    };
-    auto check_sv = [&](std::string_view string, std::size_t max_size, std::string_view result) {
-        std::string_view formatted = formatter.format(core::smart_quoted_s(string, max_size));
-        ARCHON_CHECK_EQUAL(formatted, result);
-    };
-
     std::array<wchar_t, 256> seed_memory_2;
     core::WideValueFormatter wformatter(seed_memory_2, std::locale::classic());
-    auto check_wcs = [&](const wchar_t* c_str, std::size_t max_size, std::wstring_view result) {
-        std::wstring_view formatted = wformatter.format(core::smart_quoted_s(c_str, max_size));
-        ARCHON_CHECK_EQUAL(formatted, result);
-    };
-    auto check_wsv = [&](std::wstring_view string, std::size_t max_size, std::wstring_view result) {
-        std::wstring_view formatted = wformatter.format(core::smart_quoted_s(string, max_size));
-        ARCHON_CHECK_EQUAL(formatted, result);
-    };
-
     std::array<wchar_t, 256> seed_memory_3;
     core::WideStringWidener widener(std::locale::classic(), seed_memory_3);
-    auto check = [&](const char* c_str, std::size_t max_size, std::string_view result) {
+    auto check = [&, &parent_test_context = test_context](const char* c_str, std::size_t max_size,
+                                                          std::string_view result) {
+        ARCHON_TEST_TRAIL(parent_test_context, core::formatted("%s, %s, %s", std::quoted(c_str), max_size,
+                                                               std::quoted(result)));
+
+        auto check_cs = [&](const char* c_str, std::size_t max_size, std::string_view result) {
+            std::string_view formatted = formatter.format(core::smart_quoted_s(c_str, max_size));
+            ARCHON_CHECK_EQUAL(formatted, result);
+        };
+        auto check_sv = [&](std::string_view string, std::size_t max_size, std::string_view result) {
+            std::string_view formatted = formatter.format(core::smart_quoted_s(string, max_size));
+            ARCHON_CHECK_EQUAL(formatted, result);
+        };
+        auto check_wcs = [&](const wchar_t* c_str, std::size_t max_size, std::wstring_view result) {
+            std::wstring_view formatted = wformatter.format(core::smart_quoted_s(c_str, max_size));
+            ARCHON_CHECK_EQUAL(formatted, result);
+        };
+        auto check_wsv = [&](std::wstring_view string, std::size_t max_size, std::wstring_view result) {
+            std::wstring_view formatted = wformatter.format(core::smart_quoted_s(string, max_size));
+            ARCHON_CHECK_EQUAL(formatted, result);
+        };
+
         check_cs(c_str, max_size, result);
         check_sv(std::string_view(c_str), max_size, result);
         std::wstring_view wstring, wresult;
