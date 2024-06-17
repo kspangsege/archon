@@ -39,8 +39,10 @@
 #include <archon/core/quote.hpp>
 #include <archon/check.hpp>
 
-// See filed Cygwin bug (mailing list) with title: Bug in GCC / libstdc++: Space character
-// categorized as non-printable by std::ctype<wchar_t>
+// See Cygwin bug filed to mailing list cygwin@cygwin.com and titled: Bug in GCC /
+// libstdc++: Space character categorized as non-printable by std::ctype<wchar_t>
+//
+// See also https://gcc.gnu.org/bugzilla/show_bug.cgi?id=115524
 //
 #if ARCHON_CYGWIN
 #  define NO_NONPRINTABLE_SPACE_BUG 0
