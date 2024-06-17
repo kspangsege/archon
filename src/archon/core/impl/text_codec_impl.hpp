@@ -158,7 +158,7 @@ public:
 
 
 
-#if ARCHON_WINDOWS
+#if ARCHON_WINDOWS || ARCHON_CYGWIN
 using PrimTextCodecImpl = PrimWindowsTextCodecImpl;
 #else
 using PrimTextCodecImpl = PrimPosixTextCodecImpl;
