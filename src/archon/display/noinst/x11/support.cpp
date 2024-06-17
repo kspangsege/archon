@@ -1057,7 +1057,7 @@ constexpr bool MultFieldsDigest::is_confined_to_depth(int depth) const noexcept
 {
     ARCHON_ASSERT(depth >= 0);
     using ulong = unsigned long;
-    return (depth >= core::num_value_bits<ulong>() || (max[order[2]] + 1) * mult[order[2]] <= uint(1) << depth);
+    return (depth >= core::num_value_bits<ulong>() || (max[order[2]] + 1) * mult[order[2]] <= ulong(1) << depth);
 }
 
 

@@ -1595,7 +1595,9 @@ void WindowImpl::create(display::Size size, const Config& config, bool enable_do
         m_drawable = back_buffer;
         m_is_double_buffered = true;
     }
-#endif // HAVE_XDBE
+#else // !HAVE_XDBE
+    static_cast<void>(enable_double_buffering);
+#endif // !HAVE_XDBE
 
     // Create OpenGL rendering context
 #if HAVE_GLX
