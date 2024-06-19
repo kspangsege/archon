@@ -319,9 +319,9 @@ int main(int argc, char* argv[])
         cli::assign(window_size)); // Throws
 
     opt("-b, --background-color", "<color>", cli::no_attributes, spec,
-        "Set the text background color. \"@A\" can be any valid CSS3 color value with, or without an alpha component, "
-        "as well as the extended hex-forms, \"#RGBA\" and \"#RRGGBBAA\", accommodating the alpha component. The "
-        "default color is @Q.",
+        "Set the background color. \"@A\" can be any valid CSS3 color value with, or without an alpha component, as "
+        "well as the extended hex-forms, \"#RGBA\" and \"#RRGGBBAA\", accommodating the alpha component. The default "
+        "color is @Q.",
         cli::assign(util::as_css_color(config.background_color))); // Throws
 
     opt("-S, --texture-size", "<size>", cli::no_attributes, spec,
