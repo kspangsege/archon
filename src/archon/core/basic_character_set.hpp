@@ -149,7 +149,20 @@ constexpr core::LiteralHashMap g_bcs_map = make_bcs_map();
 
 constexpr bool try_map_bcs_to_ascii(char ch, char& ascii) noexcept
 {
-    return impl::g_bcs_map.find(ch, ascii);
+    constexpr bool force_fallback = false;
+
+    if constexpr (impl::bcs_is_ascii_subset() && !force_fallback) {
+        int val = std::char_traits<char>::to_int_type(ch);
+        bool in_bcs = (val >= 0 && val < 128 && impl::g_bcs_by_ascii[val] != '\0');
+        if (in_bcs) {
+            ascii = ch;
+            return true;
+        }
+        return false;
+    }
+    else {
+        return impl::g_bcs_map.find(ch, ascii);
+    }
 }
 
 
