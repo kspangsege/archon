@@ -331,7 +331,7 @@ public:
     using value_parser_type    = impl::ValueParser<C, T>;
     using value_formatter_type = impl::ValueFormatter<C, T>;
 
-    using value_type = std::remove_cv_t<std::remove_reference_t<P>>;
+    using value_type = std::remove_cvref_t<P>;
     using func_type  = std::function<R(P)>;
     using cond_type  = std::function<bool(const value_type&)>;
 

@@ -30,7 +30,6 @@
 
 #include <archon/core/features.h>
 #include <archon/core/assert.hpp>
-#include <archon/core/utility.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/endianness.hpp>
 #include <archon/image/geom.hpp>
@@ -120,8 +119,7 @@ namespace archon::image {
 ///
 template<class C, class W, int B, class S = W, int D = 1,
          core::Endianness E = core::Endianness::big, bool F = false, bool G = false>
-class IntegerPixelFormat
-    : private core::HiddenBase<C> {
+class IntegerPixelFormat {
 public:
     using channel_spec_type = C;
     using word_type         = W;
@@ -207,7 +205,7 @@ private:
     static constexpr int map_channel_index(int) noexcept;
     static constexpr int map_word_index(int) noexcept;
 
-    auto channel_spec() const noexcept -> const channel_spec_type&;
+    ARCHON_NO_UNIQUE_ADDRESS channel_spec_type m_channel_spec;
 };
 
 
@@ -255,7 +253,7 @@ using IntegerPixelFormat_RGBA_32 = image::IntegerPixelFormat_RGBA<image::int32_t
 
 template<class C, class W, int B, class S, int D, core::Endianness E, bool F, bool G>
 inline IntegerPixelFormat<C, W, B, S, D, E, F, G>::IntegerPixelFormat(channel_spec_type spec)
-    : core::HiddenBase<C>(std::move(spec)) // Throws
+    : m_channel_spec(std::move(spec)) // Throws
 {
 }
 
@@ -272,7 +270,7 @@ auto IntegerPixelFormat<C, W, B, S, D, E, F, G>::get_buffer_size(image::Size ima
 template<class C, class W, int B, class S, int D, core::Endianness E, bool F, bool G>
 bool IntegerPixelFormat<C, W, B, S, D, E, F, G>::try_describe(image::BufferFormat& format) const
 {
-    const image::ColorSpace& color_space = channel_spec().get_color_space();
+    const image::ColorSpace& color_space = m_channel_spec.get_color_space();
     image::BufferFormat::IntegerType word_type_2 = {};
     if (ARCHON_LIKELY(image::BufferFormat::try_map_integer_type<word_type>(word_type_2))) {
         format.set_integer_format(word_type_2, bits_per_word, words_per_channel, word_order, color_space,
@@ -286,7 +284,7 @@ bool IntegerPixelFormat<C, W, B, S, D, E, F, G>::try_describe(image::BufferForma
 template<class C, class W, int B, class S, int D, core::Endianness E, bool F, bool G>
 auto IntegerPixelFormat<C, W, B, S, D, E, F, G>::get_transfer_info() const noexcept -> image::Image::TransferInfo
 {
-    const image::ColorSpace& color_space = channel_spec().get_color_space();
+    const image::ColorSpace& color_space = m_channel_spec.get_color_space();
     return { transf_repr, &color_space, has_alpha_channel, bit_depth };
 }
 
@@ -511,13 +509,6 @@ constexpr int IntegerPixelFormat<C, W, B, S, D, E, F, G>::map_word_index(int i) 
             return (n - 1) - i;
     }
     return i;
-}
-
-
-template<class C, class W, int B, class S, int D, core::Endianness E, bool F, bool G>
-auto IntegerPixelFormat<C, W, B, S, D, E, F, G>::channel_spec() const noexcept -> const channel_spec_type&
-{
-    return this->hidden_base();
 }
 
 

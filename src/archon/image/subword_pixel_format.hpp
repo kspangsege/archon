@@ -30,7 +30,6 @@
 
 #include <archon/core/features.h>
 #include <archon/core/assert.hpp>
-#include <archon/core/utility.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/endianness.hpp>
 #include <archon/image/geom.hpp>
@@ -126,8 +125,7 @@ namespace archon::image {
 ///
 template<class C, class W, int B, int D, core::Endianness E = core::Endianness::big,
          bool F = false, bool G = false, bool H = true>
-class SubwordPixelFormat
-    : private core::HiddenBase<C> {
+class SubwordPixelFormat {
 public:
     using channel_spec_type = C;
     using word_type         = W;
@@ -224,7 +222,7 @@ private:
     static constexpr int map_channel_pos(int) noexcept;
     static constexpr int map_pixel_pos(int) noexcept;
 
-    auto channel_spec() const noexcept -> const channel_spec_type&;
+    ARCHON_NO_UNIQUE_ADDRESS channel_spec_type m_channel_spec;
 };
 
 
@@ -252,7 +250,7 @@ using SubwordPixelFormat_RGBA = image::SubwordPixelFormat<image::ChannelSpec_RGB
 
 template<class C, class W, int B, int D, core::Endianness E, bool F, bool G, bool H>
 inline SubwordPixelFormat<C, W, B, D, E, F, G, H>::SubwordPixelFormat(channel_spec_type spec)
-    : core::HiddenBase<C>(std::move(spec)) // Throws
+    : m_channel_spec(std::move(spec)) // Throws
 {
 }
 
@@ -277,7 +275,7 @@ auto SubwordPixelFormat<C, W, B, D, E, F, G, H>::get_buffer_size(image::Size ima
 template<class C, class W, int B, int D, core::Endianness E, bool F, bool G, bool H>
 bool SubwordPixelFormat<C, W, B, D, E, F, G, H>::try_describe(image::BufferFormat& format) const
 {
-    const image::ColorSpace& color_space = channel_spec().get_color_space();
+    const image::ColorSpace& color_space = m_channel_spec.get_color_space();
     image::BufferFormat::IntegerType word_type_2 = {};
     if (ARCHON_LIKELY(image::BufferFormat::try_map_integer_type<word_type>(word_type_2))) {
         format.set_subword_format(word_type_2, bits_per_channel, pixels_per_word, bit_order, word_aligned_rows,
@@ -292,7 +290,7 @@ bool SubwordPixelFormat<C, W, B, D, E, F, G, H>::try_describe(image::BufferForma
 template<class C, class W, int B, int D, core::Endianness E, bool F, bool G, bool H>
 auto SubwordPixelFormat<C, W, B, D, E, F, G, H>::get_transfer_info() const noexcept -> image::Image::TransferInfo
 {
-    const image::ColorSpace& color_space = channel_spec().get_color_space();
+    const image::ColorSpace& color_space = m_channel_spec.get_color_space();
     int bit_depth = bits_per_channel;
     return { transf_repr, &color_space, has_alpha_channel, bit_depth };
 }
@@ -616,13 +614,6 @@ constexpr int SubwordPixelFormat<C, W, B, D, E, F, G, H>::map_pixel_pos(int pos)
             return pos;
     }
     return (n - 1) - pos;
-}
-
-
-template<class C, class W, int B, int D, core::Endianness E, bool F, bool G, bool H>
-auto SubwordPixelFormat<C, W, B, D, E, F, G, H>::channel_spec() const noexcept -> const channel_spec_type&
-{
-    return this->hidden_base();
 }
 
 

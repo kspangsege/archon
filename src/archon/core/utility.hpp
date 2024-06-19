@@ -54,29 +54,6 @@ template<class... T> constexpr auto hetero_max(T...) noexcept;
 
 
 
-/// \brief Properly hide members of base class.
-///
-/// A class `A` can list `HiddenBase<B>` as a base class in order to retain the effect of
-/// empty base class optimization while avoiding making the members of `B` visible in the
-/// scope of `A`. This is relevant in some cases, and particularly when `B` may have virtual
-/// functions.
-///
-/// A reference to the state corresponding to the hidden base class is returned by
-/// `hidden_base()` when called from within the scope of `A`. In a 'const' context, a
-/// `const` reference is returned.
-///
-/// `HiddenBase<B>` is constructible from any set of arguments that `B` is constructible
-/// from. Even when `B` is an empty class, an object of type `B` is constructed, but then
-/// thrown away. Construction of `HiddenBase<B>` is `noexcept` when, and only when the
-/// construction of `B` from the same arguments is `noexcept`.
-///
-/// When \p B is an empty class, it must be default constructible, and the default
-/// construction must be `noexcept`.
-///
-template<class B> using HiddenBase = impl::HiddenBase<B, std::is_empty_v<B>>;
-
-
-
 /// \brief Invoke one of multiple instantiations of template function.
 ///
 /// Invoke the specified instantiation (\p i) of the specified function template (\p F) with

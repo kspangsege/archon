@@ -127,8 +127,7 @@ namespace archon::image {
 ///
 template<class C, class S, class P, class W = S, int B = image::bit_width<W>, int D = 1,
          core::Endianness E = core::Endianness::big, bool F = false, bool G = false>
-class PackedPixelFormat
-    : private core::HiddenBase<C> {
+class PackedPixelFormat {
 public:
     using channel_spec_type    = C;
     using compound_type        = S;
@@ -234,7 +233,7 @@ private:
     static constexpr int map_channel_index(int) noexcept;
     static constexpr int map_word_index(int) noexcept;
 
-    auto channel_spec() const noexcept -> const channel_spec_type&;
+    ARCHON_NO_UNIQUE_ADDRESS channel_spec_type m_channel_spec;
 };
 
 
@@ -266,7 +265,7 @@ using PackedPixelFormat_RGBA = image::PackedPixelFormat<image::ChannelSpec_RGBA,
 
 template<class C, class S, class P, class W, int B, int D, core::Endianness E, bool F, bool G>
 inline PackedPixelFormat<C, S, P, W, B, D, E, F, G>::PackedPixelFormat(channel_spec_type spec)
-    : core::HiddenBase<C>(std::move(spec)) // Throws
+    : m_channel_spec(std::move(spec)) // Throws
 {
 }
 
@@ -284,7 +283,7 @@ template<class C, class S, class P, class W, int B, int D, core::Endianness E, b
 bool PackedPixelFormat<C, S, P, W, B, D, E, F, G>::try_describe(image::BufferFormat& format) const
 {
     if (ARCHON_LIKELY(num_channels <= image::BufferFormat::max_bit_fields)) {
-        const image::ColorSpace& color_space = channel_spec().get_color_space();
+        const image::ColorSpace& color_space = m_channel_spec.get_color_space();
         image::BufferFormat::IntegerType word_type_2 = {};
         if (ARCHON_LIKELY(image::BufferFormat::try_map_integer_type<word_type>(word_type_2))) {
             format.set_packed_format(word_type_2, bits_per_word, words_per_pixel, word_order,
@@ -300,7 +299,7 @@ bool PackedPixelFormat<C, S, P, W, B, D, E, F, G>::try_describe(image::BufferFor
 template<class C, class S, class P, class W, int B, int D, core::Endianness E, bool F, bool G>
 auto PackedPixelFormat<C, S, P, W, B, D, E, F, G>::get_transfer_info() const noexcept -> image::Image::TransferInfo
 {
-    const image::ColorSpace& color_space = channel_spec().get_color_space();
+    const image::ColorSpace& color_space = m_channel_spec.get_color_space();
     return { transf_repr, &color_space, has_alpha_channel, bit_depth };
 }
 
@@ -563,13 +562,6 @@ constexpr int PackedPixelFormat<C, S, P, W, B, D, E, F, G>::map_word_index(int i
             return i;
     }
     return (n - 1) - i;
-}
-
-
-template<class C, class S, class P, class W, int B, int D, core::Endianness E, bool F, bool G>
-auto PackedPixelFormat<C, S, P, W, B, D, E, F, G>::channel_spec() const noexcept -> const channel_spec_type&
-{
-    return this->hidden_base();
 }
 
 
