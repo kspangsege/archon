@@ -23,6 +23,7 @@
 #include <locale>
 
 #include <archon/core/features.h>
+#include <archon/core/locale.hpp>
 #include <archon/core/format_as.hpp>
 #include <archon/core/random.hpp>
 #include <archon/log.hpp>
@@ -36,7 +37,7 @@ using namespace archon;
 
 int main(int argc, char* argv[])
 {
-    std::locale locale(""); // Throws
+    std::locale locale = core::get_default_locale(); // Throws
 
     namespace fs = std::filesystem;
     fs::path path;

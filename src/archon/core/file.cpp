@@ -32,7 +32,9 @@
 
 
 #if ARCHON_WINDOWS
-#  define NOMINMAX
+#  if !defined NOMINMAX
+#    define NOMINMAX
+#  endif
 #  include <windows.h>
 #else
 #  include <limits.h>
@@ -207,7 +209,6 @@ bool File::try_read_some_a(core::Span<char> buffer, std::size_t& n, bool& interr
         n_2 = static_cast<DWORD>(buffer.size());
     DWORD ret = 0;
     if (ARCHON_LIKELY(ReadFile(m_handle, buffer.data(), n_2, &ret, 0))) {
-        ARCHON_ASSERT(ret >= 0);
         n = std::size_t(ret);
         ARCHON_ASSERT(n <= n_2);
         return true;
@@ -256,7 +257,6 @@ bool File::try_write_some_a(core::StringSpan<char> data, std::size_t& n, bool& i
         n_2 = static_cast<DWORD>(data.size());
     DWORD ret = 0;
     if (ARCHON_LIKELY(WriteFile(m_handle, data.data(), n_2, &ret, 0))) {
-        ARCHON_ASSERT(ret >= 0);
         n = std::size_t(ret);
         ARCHON_ASSERT(n <= n_2);
         return true;

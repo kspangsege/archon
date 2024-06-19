@@ -114,13 +114,35 @@
 #endif
 
 
-// Windows platform
+// Windows platform (MSVC or MinGW)
 //
 #if !defined ARCHON_WINDOWS
 #  if defined WIN32 || defined _WIN32 || defined __WIN32__
 #    define ARCHON_WINDOWS 1
 #  else
 #    define ARCHON_WINDOWS 0
+#  endif
+#endif
+
+
+// MinGW platform (GCC on Windows)
+//
+#if !defined ARCHON_MINGW
+#  if defined __MINGW32__ && __MINGW32__
+#    define ARCHON_MINGW 1
+#  else
+#    define ARCHON_MINGW 0
+#  endif
+#endif
+
+
+// Cygwin platform (POSIX emulation on Windows)
+//
+#if !defined ARCHON_CYGWIN
+#  if defined __CYGWIN__ && __CYGWIN__
+#    define ARCHON_CYGWIN 1
+#  else
+#    define ARCHON_CYGWIN 0
 #  endif
 #endif
 
@@ -240,7 +262,7 @@
 // If `ARCHON_WCHAR_IS_UNICODE` is true, it means that we can assume that the character
 // encoding for `wchar_t` is UCS in all locales.
 //
-// See also ARCHON_ASSUME_UNICODE_LOCALE and ARCHON_ASSUME_UTF8_LOCALE.
+// See also \ref ARCHON_ASSUME_UNICODE_LOCALE and \ref ARCHON_ASSUME_UTF8_LOCALE.
 //
 #if defined __STDC_ISO_10646__
 #  define ARCHON_WCHAR_IS_UNICODE 1

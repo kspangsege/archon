@@ -35,6 +35,7 @@
 #include <archon/core/features.h>
 #include <archon/core/integer.hpp>
 #include <archon/core/buffer.hpp>
+#include <archon/core/locale.hpp>
 #include <archon/core/seed_memory_output_stream.hpp>
 #include <archon/core/value_parser.hpp>
 #include <archon/core/as_int.hpp>
@@ -108,7 +109,7 @@ public:
                                        "refresh_rate=%s", i + 1, num_screens, core::quoted(screen.output_name),
                                        screen.bounds, core::as_format_func(format_monitor_name),
                                        core::as_optional(screen.resolution, "unknown"),
-                                       core::as_optional(screen.refresh_rate, "unknown"));
+                                       core::as_optional(screen.refresh_rate, "unknown")); // Throws
             }
             m_logger.info("%s", out.view()); // Throws
         }
@@ -274,7 +275,7 @@ private:
 
 int main(int argc, char* argv[])
 {
-    std::locale locale(""); // Throws
+    std::locale locale = core::get_default_locale(); // Throws
 
     namespace fs = std::filesystem;
     std::optional<fs::path> optional_path;
@@ -545,8 +546,9 @@ int main(int argc, char* argv[])
     std::unique_ptr<display::Connection> conn = impl->new_connection(locale, connection_config); // Throws
     int num_displays = conn->get_num_displays();
     int default_display = conn->get_default_display();
-    logger.info("Number of displays: %s", num_displays); // Throws
-    logger.info("Default display:    %s", default_display); // Throws
+    logger.info("Display implementation: %s", impl->get_slot().ident()); // Throws
+    logger.info("Number of displays:     %s", num_displays); // Throws
+    logger.info("Default display:        %s", default_display); // Throws
 
     int display = default_display;
     if (optional_display.has_value()) {

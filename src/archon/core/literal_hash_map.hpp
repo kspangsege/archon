@@ -46,7 +46,7 @@ namespace archon::core {
 /// init_rev(). This is done atomatically when constructing the map using \ref
 /// core::make_literal_hash_map() or \ref core::make_rev_literal_hash_map().
 ///
-/// Values are looked  up using \ref find().
+/// Values are looked up using \ref find().
 ///
 /// Construction of a literal hash map is a `constexpr` operation if move construction and
 /// invocation of a hash function of the specified type (\p H) are `constexpr` operations.
@@ -68,7 +68,7 @@ public:
     constexpr void init(const std::pair<K, V>(& assocs)[N]) noexcept;
     constexpr void init_rev(const std::pair<V, K>(& assocs)[N]) noexcept;
 
-    bool find(key_type key, value_type& value) const noexcept;
+    constexpr bool find(key_type key, value_type& value) const noexcept;
 
 private:
     struct Entry {
@@ -171,7 +171,7 @@ constexpr void LiteralHashMap<K, V, H, N, M>::init_rev(const std::pair<V, K>(& a
 
 
 template<class K, class V, class H, std::size_t N, std::size_t M>
-bool LiteralHashMap<K, V, H, N, M>::find(key_type key, value_type& value) const noexcept
+constexpr bool LiteralHashMap<K, V, H, N, M>::find(key_type key, value_type& value) const noexcept
 {
     std::size_t bucket_index = hash(key);
     const Bucket& bucket = m_state.buckets[bucket_index];

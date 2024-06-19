@@ -31,6 +31,8 @@
 
 #if !ARCHON_WINDOWS
 #  define HAS_POSIX_RLIMIT 1
+#else
+#  define HAS_POSIX_RLIMIT 0
 #endif
 
 #if HAS_POSIX_RLIMIT

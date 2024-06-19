@@ -41,7 +41,7 @@ class PrimPosixTextFileImpl;
 class PrimWindowsTextFileImpl;
 
 
-#if ARCHON_WINDOWS
+#if ARCHON_WINDOWS || ARCHON_CYGWIN
 using PrimTextFileImpl = PrimWindowsTextFileImpl;
 #else
 using PrimTextFileImpl = PrimPosixTextFileImpl;

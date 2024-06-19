@@ -72,10 +72,10 @@ ARCHON_TEST(Core_Unicode_EncodeUtf8Incr)
     core::Buffer buffer_1(seed_memory_1);
     core::Buffer buffer_2(seed_memory_2);
 
-    auto test = [&, &parent_test_context = test_context](std::initializer_list<int_type_1> in, std::size_t out_size,
-                                                         std::size_t expected_in_size,
-                                                         std::initializer_list<int_type_2> expected_out,
-                                                         Result expected_result) {
+    auto test = [&, &parent_test_context =
+                 test_context](std::initializer_list<int_type_1> in, std::size_t out_size,
+                               std::size_t expected_in_size, std::initializer_list<int_type_2> expected_out,
+                               Result expected_result) {
         ARCHON_TEST_TRAIL(parent_test_context,
                           core::formatted_wrn("%s, %s, %s, %s, %s", core::as_sbr_list(in), out_size, expected_in_size,
                                               core::as_sbr_list(expected_out), ResultEnum(expected_result)));
@@ -318,10 +318,10 @@ ARCHON_TEST(Core_Unicode_DecodeUtf8Incr)
     core::Buffer buffer_1(seed_memory_1);
     core::Buffer buffer_2(seed_memory_2);
 
-    auto test = [&, &parent_test_context = test_context](std::initializer_list<int_type_1> in, std::size_t out_size,
-                                                         std::size_t expected_in_size,
-                                                         std::initializer_list<int_type_2> expected_out,
-                                                         Result expected_result) {
+    auto test = [&, &parent_test_context =
+                 test_context](std::initializer_list<int_type_1> in, std::size_t out_size,
+                               std::size_t expected_in_size, std::initializer_list<int_type_2> expected_out,
+                               Result expected_result) {
         ARCHON_TEST_TRAIL(parent_test_context,
                           core::formatted_wrn("%s, %s, %s, %s, %s", core::as_sbr_list(in), out_size, expected_in_size,
                                               core::as_sbr_list(expected_out), ResultEnum(expected_result)));
@@ -696,10 +696,10 @@ ARCHON_TEST(Core_Unicode_EncodeUtf16Incr)
     core::Buffer buffer_1(seed_memory_1);
     core::Buffer buffer_2(seed_memory_2);
 
-    auto test = [&, &parent_test_context = test_context](std::initializer_list<int_type_1> in, std::size_t out_size,
-                                                         std::size_t expected_in_size,
-                                                         std::initializer_list<int_type_2> expected_out,
-                                                         Result expected_result) {
+    auto test = [&, &parent_test_context =
+                 test_context](std::initializer_list<int_type_1> in, std::size_t out_size,
+                               std::size_t expected_in_size, std::initializer_list<int_type_2> expected_out,
+                               Result expected_result) {
         ARCHON_TEST_TRAIL(parent_test_context,
                           core::formatted_wrn("%s, %s, %s, %s, %s", core::as_sbr_list(in), out_size, expected_in_size,
                                               core::as_sbr_list(expected_out), ResultEnum(expected_result)));
@@ -862,10 +862,10 @@ ARCHON_TEST(Core_Unicode_DecodeUtf16Incr)
     core::Buffer buffer_1(seed_memory_1);
     core::Buffer buffer_2(seed_memory_2);
 
-    auto test = [&, &parent_test_context = test_context](std::initializer_list<int_type_1> in, std::size_t out_size,
-                                                         std::size_t expected_in_size,
-                                                         std::initializer_list<int_type_2> expected_out,
-                                                         Result expected_result) {
+    auto test = [&, &parent_test_context =
+                 test_context](std::initializer_list<int_type_1> in, std::size_t out_size,
+                               std::size_t expected_in_size, std::initializer_list<int_type_2> expected_out,
+                               Result expected_result) {
         ARCHON_TEST_TRAIL(parent_test_context,
                           core::formatted_wrn("%s, %s, %s, %s, %s", core::as_sbr_list(in), out_size, expected_in_size,
                                               core::as_sbr_list(expected_out), ResultEnum(expected_result)));
@@ -1017,10 +1017,10 @@ ARCHON_TEST(Core_Unicode_Utf8ToUtf16Incr)
     core::Buffer buffer_1(seed_memory_1);
     core::Buffer buffer_2(seed_memory_2);
 
-    auto test = [&, &parent_test_context = test_context](std::initializer_list<int_type_1> in, std::size_t out_size,
-                                                         std::size_t expected_in_size,
-                                                         std::initializer_list<int_type_2> expected_out,
-                                                         Result expected_result) {
+    auto test = [&, &parent_test_context =
+                 test_context](std::initializer_list<int_type_1> in, std::size_t out_size,
+                               std::size_t expected_in_size, std::initializer_list<int_type_2> expected_out,
+                               Result expected_result) {
         ARCHON_TEST_TRAIL(parent_test_context,
                           core::formatted_wrn("%s, %s, %s, %s, %s", core::as_sbr_list(in), out_size, expected_in_size,
                                               core::as_sbr_list(expected_out), ResultEnum(expected_result)));
@@ -1405,10 +1405,10 @@ ARCHON_TEST(Core_Unicode_Utf16ToUtf8Incr)
     core::Buffer buffer_1(seed_memory_1);
     core::Buffer buffer_2(seed_memory_2);
 
-    auto test = [&, &parent_test_context = test_context](std::initializer_list<int_type_1> in, std::size_t out_size,
-                                                         std::size_t expected_in_size,
-                                                         std::initializer_list<int_type_2> expected_out,
-                                                         Result expected_result) {
+    auto test = [&, &parent_test_context =
+                 test_context](std::initializer_list<int_type_1> in, std::size_t out_size,
+                               std::size_t expected_in_size, std::initializer_list<int_type_2> expected_out,
+                               Result expected_result) {
         ARCHON_TEST_TRAIL(parent_test_context,
                           core::formatted_wrn("%s, %s, %s, %s, %s", core::as_sbr_list(in), out_size, expected_in_size,
                                               core::as_sbr_list(expected_out), ResultEnum(expected_result)));
@@ -1618,8 +1618,8 @@ ARCHON_TEST(Core_Unicode_Utf8Resync)
     std::array<char_type, 64> seed_memory;
     core::Buffer buffer(seed_memory);
 
-    auto test = [&, &parent_test_context = test_context](std::initializer_list<int_type> in,
-                                                         std::size_t expected_advance) {
+    auto test = [&, &parent_test_context =
+                 test_context](std::initializer_list<int_type> in, std::size_t expected_advance) {
         ARCHON_TEST_TRAIL(parent_test_context, core::formatted_wrn("%s, %s", core::as_sbr_list(in), expected_advance));
         std::size_t offset = 0;
         for (int_type val : in)
@@ -1779,8 +1779,8 @@ ARCHON_TEST(Core_Unicode_Utf16Resync)
     std::array<char_type, 64> seed_memory;
     core::Buffer buffer(seed_memory);
 
-    auto test = [&, &parent_test_context = test_context](std::initializer_list<int_type> in,
-                                                         std::size_t expected_advance) {
+    auto test = [&, &parent_test_context =
+                 test_context](std::initializer_list<int_type> in, std::size_t expected_advance) {
         ARCHON_TEST_TRAIL(parent_test_context, core::formatted_wrn("%s, %s", core::as_sbr_list(in), expected_advance));
         std::size_t offset = 0;
         for (int_type val : in)

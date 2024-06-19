@@ -33,13 +33,13 @@
 #include <archon/core/features.h>
 #include <archon/core/span.hpp>
 #include <archon/core/assert.hpp>
+#include <archon/core/locale.hpp>
 #include <archon/core/seed_memory_output_stream.hpp>
 #include <archon/core/format.hpp>
 #include <archon/core/format_as.hpp>
 #include <archon/core/format_enc.hpp>
 #include <archon/core/quote.hpp>
 #include <archon/core/string_template.hpp>
-#include <archon/core/locale.hpp>
 #include <archon/core/text_formatter.hpp>
 #include <archon/cli/help_spec_error.hpp>
 #include <archon/cli/exception.hpp>

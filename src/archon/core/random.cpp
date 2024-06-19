@@ -19,14 +19,21 @@
 // DEALINGS IN THE SOFTWARE.
 
 
+#include <cstddef>
 #include <atomic>
 #include <chrono>
 
+#include <archon/core/features.h>
+#include <archon/core/span.hpp>
+#include <archon/core/assert.hpp>
+#include <archon/core/integer.hpp>
 #include <archon/core/random.hpp>
 
 
 #if ARCHON_WINDOWS
-#  define NOMINMAX
+#  if !defined NOMINMAX
+#    define NOMINMAX
+#  endif
 #  include <windows.h>
 #else
 #  include <unistd.h>

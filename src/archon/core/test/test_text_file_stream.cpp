@@ -30,15 +30,15 @@
 
 #include <archon/core/features.h>
 #include <archon/core/span.hpp>
-#include <archon/core/quote.hpp>
 #include <archon/core/locale.hpp>
+#include <archon/core/quote.hpp>
 #include <archon/core/file.hpp>
 #include <archon/core/text_file_impl.hpp>
 #include <archon/core/text_file.hpp>
 #include <archon/core/text_file_stream.hpp>
 #include <archon/check.hpp>
-#include <archon/core/test/stateful_char_codec.hpp>
 #include <archon/core/test/locale_utils.hpp>
+#include <archon/core/test/stateful_char_codec.hpp>
 
 
 
@@ -193,7 +193,7 @@ ARCHON_TEST_BATCH(Core_TextFileStream_PartialByteSequenceAtEndOfFile, wide_varia
             return;
     };
 
-    for (const std::locale& locale : core::test::candidate_locales) {
+    for (const std::locale& locale : core::test::get_candidate_locales()) {
         bool is_utf8 = (core::assume_utf8_locale(locale) && (core::assume_unicode_locale(locale) || ARCHON_WINDOWS));
         if (is_utf8)
             subtest(locale);

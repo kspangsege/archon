@@ -29,6 +29,7 @@
 #include <archon/core/features.h>
 #include <archon/core/float.hpp>
 #include <archon/core/math.hpp>
+#include <archon/core/locale.hpp>
 #include <archon/core/as_list.hpp>
 #include <archon/core/random.hpp>
 #include <archon/cli.hpp>
@@ -43,7 +44,7 @@ using namespace archon;
 
 int main(int argc, char* argv[])
 {
-    std::locale locale(""); // Throws
+    std::locale locale = core::get_default_locale(); // Throws
 
     namespace fs = std::filesystem;
     image::Size image_size;

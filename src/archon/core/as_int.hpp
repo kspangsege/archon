@@ -133,11 +133,7 @@ template<class I> auto as_int_a(I&& ref, int radix, int min_num_digits = 1) noex
 
 
 
-
-
 // Implementation
-
-
 
 
 namespace impl {

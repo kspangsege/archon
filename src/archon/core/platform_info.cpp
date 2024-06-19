@@ -35,7 +35,9 @@
 
 
 #if ARCHON_WINDOWS
-#  define NOMINMAX
+#  if !defined NOMINMAX
+#    define NOMINMAX
+#  endif
 #  include <windows.h>
 #  include <VersionHelpers.h>
 #else
@@ -67,7 +69,7 @@ void core::get_platform_info(core::PlatformInfo& info)
     void* ptr = nullptr;
     UINT size_2 = 0;
     BOOL ret_2 = VerQueryValueW(buffer.data(), L"\\", &ptr, &size_2);
-    if (ARCHON_UNLIKELY(!ret)) {
+    if (ARCHON_UNLIKELY(!ret_2)) {
         DWORD err = GetLastError(); // Eliminate any risk of clobbering
         core::throw_system_error(int(err), "VerQueryValueW() failed"); // Throws
     }
@@ -88,6 +90,9 @@ void core::get_platform_info(core::PlatformInfo& info)
     info_3.osname = "Windows"; // Throws (copy)
     if (IsWindowsServer())
         info_3.osname += " Server"; // Throws
+#if ARCHON_MINGW
+    info_3.osname += " (MinGW)"; // Throws
+#endif
     info_3.version = out.str(); // Throws
     info_3.release = "unknown"; // Throws (copy)
 
@@ -148,6 +153,8 @@ void core::get_platform_info(core::PlatformInfo& info)
     info_3.osname  = "OpenBSD"; // Throws (copy)
 #elif ARCHON_LINUX
     info_3.osname  = "Linux"; // Throws (copy)
+#elif ARCHON_CYGWIN
+    info_3.osname  = "Windows (Cygwin)"; // Throws (copy)
 #elif defined _POSIX_VERSION
     info_3.osname  = "POSIX"; // Throws (copy)
 #elif ARCHON_UNIX

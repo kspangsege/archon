@@ -8,8 +8,12 @@ add_library(Render
 
 set_target_properties(Render PROPERTIES OUTPUT_NAME "archon-render")
 
-target_link_libraries(Display PUBLIC
+target_link_libraries(Render PUBLIC
   Core
+  Log
+  Math
+  Util
+  Display
 )
 
 set(ARCHON_RENDER_HAVE_OPENGL 0)

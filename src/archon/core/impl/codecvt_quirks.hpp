@@ -31,7 +31,11 @@ namespace archon::core::impl {
 // std::codecvt::in() and std::codecvt::out() may report an `ok` result when the size of the
 // specified output buffer is zero, even when presented with a nonzero amount of input. See
 // also https://gcc.gnu.org/bugzilla/show_bug.cgi?id=37475.
-#if ARCHON_GNU_LIBCXX
+//
+// This happens in GCC, but not when using Cygwin or MinGW, presumably because libstdc++
+// uses a different (generic) locale implementation when used by Cygwin and MinGW.
+//
+#if ARCHON_GNU_LIBCXX && !(ARCHON_CYGWIN || ARCHON_MINGW)
 inline constexpr bool codecvt_quirk_ok_result_on_zero_size_buffer = true;
 #else
 inline constexpr bool codecvt_quirk_ok_result_on_zero_size_buffer = false;
@@ -41,6 +45,7 @@ inline constexpr bool codecvt_quirk_ok_result_on_zero_size_buffer = false;
 // with an incomplete byte sequence (regardless of whether none, some, or all of the
 // incomplete byte sequence has been consumed), and there is enough available space in the
 // output buffer to decode another character.
+//
 #if ARCHON_MSVC_LIBCXX
 inline constexpr bool codecvt_quirk_partial_result_on_partial_char = true;
 #else
@@ -49,6 +54,7 @@ inline constexpr bool codecvt_quirk_partial_result_on_partial_char = false;
 
 // std::codecvt::in() reports a partial result, rather than an error when presented with an
 // invalid byte sequence.
+//
 #if ARCHON_LLVM_LIBCXX
 inline constexpr bool codecvt_quirk_partial_result_on_invalid_byte_seq = true;
 #else
@@ -57,6 +63,7 @@ inline constexpr bool codecvt_quirk_partial_result_on_invalid_byte_seq = false;
 
 // When the presented part of the input ends part way through a valid byte sequence, and the
 // output buffer is not full, the presented part of the input is consumed.
+//
 #if ARCHON_GNU_LIBCXX || ARCHON_LLVM_LIBCXX
 inline constexpr bool codecvt_quirk_consume_partial_char = true;
 #else
@@ -66,6 +73,7 @@ inline constexpr bool codecvt_quirk_consume_partial_char = false;
 // Even though partial byte sequences are generally consumed, leading valid bytes of an
 // invalid byte sequence are not consumed when the presented part of the input contains
 // enough bytes to expose the invalidity.
+//
 #if ARCHON_GNU_LIBCXX || ARCHON_LLVM_LIBCXX
 inline constexpr bool codecvt_quirk_consume_partial_char_but_not_good_bytes_on_error = true;
 #else

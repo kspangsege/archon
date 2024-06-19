@@ -26,6 +26,6 @@
 
 
 #include <archon/core/test/integer_tests.hpp>
-#include <archon/core/test/stateful_char_codec.hpp>
 #include <archon/core/test/locale_utils.hpp>
+#include <archon/core/test/stateful_char_codec.hpp>
 #include <archon/core/test/word_wrap_knuth_alt.hpp>

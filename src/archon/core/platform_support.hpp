@@ -32,7 +32,9 @@
 #include <archon/core/features.h>
 
 #if ARCHON_WINDOWS
-#  define NOMINMAX
+#  if !defined NOMINMAX
+#    define NOMINMAX
+#  endif
 #  include <windows.h>
 #else
 #  include <unistd.h>

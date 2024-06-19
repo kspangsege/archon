@@ -37,8 +37,9 @@
 #include <archon/core/features.h>
 #include <archon/core/span.hpp>
 #include <archon/core/assert.hpp>
-#include <archon/core/array_seeded_buffer.hpp>
+#include <archon/core/buffer.hpp>
 #include <archon/core/char_mapper.hpp>
+#include <archon/core/locale.hpp>
 #include <archon/core/char_codec_config.hpp>
 #include <archon/core/impl/codecvt_quirks.hpp>
 
@@ -131,18 +132,18 @@ private:
 
 // Variant: Degenerate, with leniency mode
 template<class T> class CharCodec3
-    : public CharCodec1<T> {
+    : public impl::CharCodec1<T> {
 public:
     using Config = core::CharCodecConfig<char, T>;
 
-    using CharCodec1<T>::CharCodec1;
+    using impl::CharCodec1<T>::CharCodec1;
 };
 
 
 
 // Variant: Non-degenerate, with leniency mode
 template<class C, class T> class CharCodec4
-    : public CharCodec2<C, T> {
+    : public impl::CharCodec2<C, T> {
 public:
     using char_type = C;
     using traits_type = T;
@@ -164,13 +165,12 @@ private:
         std::string encoded_char;
     };
 
-    using codecvt_type = std::codecvt<char_type, char, std::mbstate_t>;
-
     ReplacementInfo m_replacement_info;
     bool m_lenient;
 
-    static ReplacementInfo get_replacement_info(const std::locale&, const codecvt_type&,
-                                                const Config&);
+    using super_type = impl::CharCodec2<C, T>;
+
+    static ReplacementInfo get_replacement_info(const std::locale&, const super_type&, const Config&);
     bool decode_replacement(std::mbstate_t& state, core::Span<const char> data, std::size_t& data_offset,
                             bool end_of_data, core::Span<char_type> buffer, std::size_t& buffer_offset,
                             bool& need_more_data) const;
@@ -181,29 +181,29 @@ private:
 
 
 template<class C, class T> class SimpleCharCodec
-    : public CharCodec2<C, T> {
+    : public impl::CharCodec2<C, T> {
 public:
-    using CharCodec2<C, T>::CharCodec2;
+    using impl::CharCodec2<C, T>::CharCodec2;
 };
 
 template<class T> class SimpleCharCodec<char, T>
-    : public CharCodec1<T> {
+    : public impl::CharCodec1<T> {
 public:
-    using CharCodec1<T>::CharCodec1;
+    using impl::CharCodec1<T>::CharCodec1;
 };
 
 
 
 template<class C, class T> class CharCodec
-    : public CharCodec4<C, T> {
+    : public impl::CharCodec4<C, T> {
 public:
-    using CharCodec4<C, T>::CharCodec4;
+    using impl::CharCodec4<C, T>::CharCodec4;
 };
 
 template<class T> class CharCodec<char, T>
-    : public CharCodec3<T> {
+    : public impl::CharCodec3<T> {
 public:
-    using CharCodec3<T>::CharCodec3;
+    using impl::CharCodec3<T>::CharCodec3;
 };
 
 
@@ -605,7 +605,7 @@ inline void CharCodec2<C, T>::finalize_imbue()
 template<class C, class T>
 inline CharCodec4<C, T>::CharCodec4(const std::locale& locale, Config config)
     : CharCodec2<C, T>(locale) // Throws
-    , m_replacement_info(get_replacement_info(this->m_locale, *this->m_codecvt, config)) // Throws
+    , m_replacement_info(get_replacement_info(this->m_locale, *this, config)) // Throws
     , m_lenient(config.lenient)
 {
 }
@@ -692,54 +692,56 @@ inline bool CharCodec4<C, T>::encode(std::mbstate_t& state, core::Span<const cha
 
 
 template<class C, class T>
-auto CharCodec4<C, T>::get_replacement_info(const std::locale& locale, const codecvt_type& codecvt,
+auto CharCodec4<C, T>::get_replacement_info(const std::locale& locale, const super_type& super,
                                             const Config& config) -> ReplacementInfo
 {
     if (ARCHON_LIKELY(!config.lenient))
         return {};
 
-#if ARCHON_WCHAR_IS_UNICODE
-
     if constexpr (std::is_same_v<char_type, wchar_t>) {
-        if (!config.use_fallback_replacement_char) {
-            wchar_t ch = traits_type::to_char_type(0xFFFD);
-            std::mbstate_t state {};
-            const C* in_begin = &ch;
-            const C* in_end   = &ch + 1;
-            const C* in_pos   = nullptr;
-            core::ArraySeededBuffer<char, 8> buffer;
-            std::size_t min_extra_size = std::size_t(codecvt.max_length());
-            std::size_t used_size = 0;
-            for (;;) {
-                buffer.reserve_extra(min_extra_size, used_size); // Throws
-                char* out_begin = buffer.data() + used_size;
-                char* out_end   = buffer.data() + buffer.size();
-                char* out_pos   = nullptr;
-                std::codecvt_base::result result =
-                    codecvt.out(state, in_begin, in_end, in_pos, out_begin, out_end, out_pos); // Throws
-                switch (result) {
-                    case std::codecvt_base::ok:
-                        ARCHON_ASSERT(in_pos == in_end);
-                        ARCHON_ASSERT(out_pos > out_begin);
-                        return { ch, std::string(buffer.data(), out_pos) }; // Throws
-                    case std::codecvt_base::partial:
-                        ARCHON_ASSERT(out_pos > out_begin);
-                        used_size = std::size_t(out_pos - buffer.data());
-                        continue;
-                    case std::codecvt_base::error:
+        if (ARCHON_LIKELY(!config.use_fallback_replacement_char)) {
+            if (ARCHON_LIKELY(core::assume_unicode_locale(locale))) { // Throws
+                std::mbstate_t state = {};
+                wchar_t ch = traits_type::to_char_type(0xFFFD);
+                wchar_t data[] = { ch };
+                std::size_t data_offset = 0;
+                std::array<char, 8> seed_memory;
+                core::Buffer buffer(seed_memory);
+                std::size_t buffer_offset = 0;
+                bool error = false;
+                for (;;) {
+                    bool complete = super.encode(state, data, data_offset, buffer, buffer_offset, error); // Throws
+                    if (ARCHON_LIKELY(complete)) {
+                        ARCHON_ASSERT(data_offset == 1);
+                        ARCHON_ASSERT(buffer_offset > 0);
+                        return { ch, std::string(buffer.data(), buffer_offset) }; // Throws
+                    }
+                    ARCHON_ASSERT(data_offset == 0);
+                    ARCHON_ASSERT(buffer_offset == 0);
+                    if (ARCHON_LIKELY(error))
                         break;
-                    case std::codecvt_base::noconv:
-                        ARCHON_ASSERT(false);
-                        break;
+                    buffer.expand(buffer_offset); // Throws
                 }
-                break;
+            }
+            else if (ARCHON_LIKELY(core::assume_utf8_locale(locale))) { // Throws
+                std::mbstate_t state = {};
+                std::string_view data = "\xEF\xBF\xBD";
+                std::size_t data_offset = 0;
+                bool end_of_data = true;
+                std::array<wchar_t, 1> buffer;
+                std::size_t buffer_offset = 0;
+                bool error = false;
+                bool complete = super.decode(state, data, data_offset, end_of_data,
+                                             buffer, buffer_offset, error); // Throws
+                if (ARCHON_LIKELY(complete)) {
+                    ARCHON_ASSERT(data_offset == 3);
+                    ARCHON_ASSERT(buffer_offset == 1);
+                    return { buffer[0], std::string(data) }; // Throws
+                }
+                ARCHON_ASSERT(error);
             }
         }
     }
-
-#else
-    static_cast<void>(codecvt);
-#endif
 
     core::BasicCharMapper<char_type> mapper(locale); // Throws
     char ch = '?';
@@ -753,42 +755,74 @@ bool CharCodec4<C, T>::decode_replacement(std::mbstate_t& state, core::Span<cons
                                           bool end_of_data, core::Span<char_type> buffer, std::size_t& buffer_offset,
                                           bool& need_more_data) const
 {
-    // The idea here, when an invalid byte sequence is detected, is to search for the first
-    // byte that is the start of a valid byte sequence, starting the search from the second
-    // byte following the last valid byte sequence. Then, when the start of a new valid byte
-    // sequence is found, replace all skipped bytes with a single replacement character.
+    // This function is called when invalid decoder input is detected with `data_offset`
+    // pointing one beyond the last consumed valid input sequence.
     //
-    // FIXME: Unfortunately, this desired behavior is not guaranteed with the implementation
-    // below because implementations of `codecvt.in()` are not required to report "error"
-    // when presented with just one byte that is an invalid start of a byte sequence.
+    // The idea below is to skip one byte, then keep skipping bytes until the next byte
+    // looks like one that could start a new valid input sequence, and then replace all the
+    // skipped bytes with a single replacement character.
+    //
+    // In practice, however, it is necessary to have an upper limit on the number of invalid
+    // characters that can be replaced by a single replacement character. This is necessary
+    // because there should be an upper limit to the amount of input that the caller can be
+    // asked to provide simultaneously, and because a stateless codec must produce one
+    // decoded character for every consumed input sequence. The issue is that if the end of
+    // the invalid input is not contained in the specified input, this function will have to
+    // ask the caller to provide addiional input. At that point, to live up to the
+    // requirements of the `Core_CharCodec` concept, it must either not consume any input or
+    // produce a replacement character.
+    //
+    // Unfortunately, `std::codecvt::in()` is not required to identify a single byte as
+    // invalid even if there is no valid input sequence starting with that byte. As a
+    // consequence, this function may consume less than the ideal number of input bytes per
+    // invocation, which means that more than one replacement character can be generated in
+    // cases where only one would otherwise be expected.
 
-  again:
-    if (ARCHON_LIKELY(std::size_t(data.size() - data_offset) > 1 || end_of_data)) {
-        std::mbstate_t state_2 = {};
-        core::Span data_2 = data.subspan(1, 1);
-        std::size_t data_offset_2 = 0;
-        bool end_of_data = false;
-        std::array<char_type, 1> buffer_2;
-        std::size_t buffer_offset_2 = 0;
-        bool error = false;
-        decode(state_2, data_2, data_offset_2, end_of_data, buffer_2, buffer_offset_2, error); // Throws
-        if (ARCHON_LIKELY(error)) {
-            state = {};
-            data_offset += 1;
-            goto again;
+    // Can be lowered or raised as desired. Raising it increases the risk of excessive input
+    // buffer expansion and lowering it increases the risk of getting spurious extra
+    // replacement characters.
+    constexpr std::size_t max_skip = 6;
+
+    ARCHON_ASSERT(data_offset <= data.size());
+    std::size_t n = std::size_t(data.size() - data_offset);
+    std::size_t i = 0;
+    for (;;) {
+        ARCHON_ASSERT(i < n);
+        ++i; // Skip one byte
+        if (ARCHON_LIKELY(i < max_skip && (i < n || !end_of_data))) {
+            if (ARCHON_LIKELY(i < n)) {
+                std::mbstate_t state_2 = {};
+                core::Span data_2 = data.subspan(std::size_t(data_offset + i), 1);
+                std::size_t data_offset_2 = 0;
+                bool end_of_data_2 = false;
+                std::array<char_type, 1> buffer_2;
+                std::size_t buffer_offset_2 = 0;
+                bool error = false;
+                bool complete = CharCodec2<C, T>::decode(state_2, data_2, data_offset_2, end_of_data_2,
+                                                         buffer_2, buffer_offset_2, error); // Throws
+                if (ARCHON_LIKELY(!complete)) {
+                    ARCHON_ASSERT(error);
+                    continue;
+                }
+            }
+            else {
+                // Ask for more input
+                need_more_data = true;
+                return false;
+            }
         }
         if (ARCHON_LIKELY(buffer_offset < buffer.size())) {
-            state = {};
-            data_offset += 1;
+            ARCHON_ASSERT(i > 0);
             buffer[buffer_offset] = m_replacement_info.char_;
+            state = {};
+            data_offset += i;
             buffer_offset += 1;
             return true;
         }
+        // Ask for more output space
         need_more_data = false;
         return false;
     }
-    need_more_data = true;
-    return false;
 }
 
 
@@ -811,7 +845,7 @@ bool CharCodec4<C, T>::encode_replacement(std::mbstate_t& state, std::size_t& da
     std::size_t data_offset_2 = 0;
     std::size_t buffer_offset_2 = buffer_offset;
     bool error = false;
-    bool complete = encode(state_2, data_2, data_offset_2, buffer, buffer_offset_2, error); // Throws
+    bool complete = CharCodec2<C, T>::encode(state_2, data_2, data_offset_2, buffer, buffer_offset_2, error); // Throws
     if (ARCHON_LIKELY(complete)) {
         state = state_2;
         data_offset += 1;

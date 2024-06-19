@@ -19,17 +19,23 @@
 // DEALINGS IN THE SOFTWARE.
 
 
-#include <string>
+#include <cstddef>
 #include <stdexcept>
+#include <optional>
+#include <array>
+#include <string>
 #include <thread>
 
 #include <archon/core/features.h>
 #include <archon/core/scope_exit.hpp>
 #include <archon/core/integer.hpp>
+#include <archon/core/buffer.hpp>
 #include <archon/core/flat_map.hpp>
-#include <archon/core/format.hpp>
-#include <archon/core/quote.hpp>
 #include <archon/core/locale.hpp>
+#include <archon/core/unicode_bridge.hpp>
+#include <archon/core/format.hpp>
+#include <archon/core/as_int.hpp>
+#include <archon/core/quote.hpp>
 #include <archon/core/file.hpp>
 #include <archon/log.hpp>
 #include <archon/cli.hpp>
@@ -164,20 +170,20 @@ auto pixel_format_name(Uint32 format) -> const char*
 
 void show_renderer_info(const SDL_RendererInfo& info, log::Logger& logger)
 {
-    logger.info("  Name: %s", core::quoted(info.name));
-    logger.info("  Flags:");
+    logger.info("  Name: %s", core::quoted(info.name)); // Throws
+    logger.info("  Flags:"); // Throws
     if ((info.flags & SDL_RENDERER_SOFTWARE) != 0)
-        logger.info("    SOFTWARE");
+        logger.info("    SOFTWARE"); // Throws
     if ((info.flags & SDL_RENDERER_ACCELERATED) != 0)
-        logger.info("    ACCELERATED");
+        logger.info("    ACCELERATED"); // Throws
     if ((info.flags & SDL_RENDERER_PRESENTVSYNC) != 0)
-        logger.info("    PRESENTVSYNC");
+        logger.info("    PRESENTVSYNC"); // Throws
     if ((info.flags & SDL_RENDERER_TARGETTEXTURE) != 0)
-        logger.info("    TARGETTEXTURE");
-    logger.info("  Pixel formats:");
+        logger.info("    TARGETTEXTURE"); // Throws
+    logger.info("  Pixel formats:"); // Throws
     for (int i = 0; i < int(info.num_texture_formats); ++i)
-        logger.info("    %s", pixel_format_name(info.texture_formats[i]));
-    logger.info("  Max texture size: %s", display::Size(info.max_texture_width, info.max_texture_height));
+        logger.info("    %s", pixel_format_name(info.texture_formats[i])); // Throws
+    logger.info("  Max texture size: %s", display::Size(info.max_texture_width, info.max_texture_height)); // Throws
 }
 
 
@@ -186,11 +192,12 @@ void show_renderer_info(const SDL_RendererInfo& info, log::Logger& logger)
 
 int main(int argc, char* argv[])
 {
-    std::locale locale("");
+    std::locale locale = core::get_default_locale();
 
     int num_windows = 0;
     log::LogLevel log_level_limit = log::LogLevel::warn;
     bool report_mouse_move = false;
+    std::optional<std::string> optional_window_title;
 
     cli::Spec spec;
     opt(cli::help_tag, spec); // Throws
@@ -207,6 +214,10 @@ int main(int argc, char* argv[])
     opt("-m, --report-mouse-move", "", cli::no_attributes, spec,
         "Turn on reporting of \"mouse move\" events.",
         cli::raise_flag(report_mouse_move)); // Throws
+
+    opt("-T, --window-title", "<string>", cli::no_attributes, spec,
+        "Set an alternate text to be used as window title.",
+        cli::assign(optional_window_title)); // Throws
 
     int exit_status = 0;
     if (ARCHON_UNLIKELY(cli::process(argc, argv, spec, exit_status, locale))) // Throws
@@ -267,7 +278,27 @@ int main(int argc, char* argv[])
     std::size_t max_seen_window_slots = 0;
     auto open_window = [&] {
         int no = ++prev_window_no;
-        std::string name = core::format(locale, "SDL Probe %s", no); // Throws
+
+        std::string title_1;
+        std::string_view title_2;
+        if (optional_window_title.has_value()) {
+            title_2 = optional_window_title.value();
+        }
+        else {
+            title_1 = core::format(locale, "SDL Probe %s", core::as_int(no)); // Throws
+            title_2 = title_1;
+        }
+
+        std::array<char, 128> seed_memory;
+        core::Buffer buffer(seed_memory);
+        {
+            core::native_mb_to_utf8_transcoder transcoder(locale);
+            std::size_t buffer_offset = 0;
+            transcoder.transcode_l(title_2, buffer, buffer_offset); // Throws
+            buffer.append_a('\0', buffer_offset); // Throws
+        }
+        const char* title_3 = buffer.data();
+
         SDL_Window* window = {};
         ARCHON_SCOPE_EXIT {
             if (ARCHON_UNLIKELY(window))
@@ -275,7 +306,7 @@ int main(int argc, char* argv[])
         };
         {
             Uint32 flags = SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE;
-            window = SDL_CreateWindow(name.c_str(), SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 256, 256, flags);
+            window = SDL_CreateWindow(title_3, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 256, 256, flags);
             if (!window)
                 throw_sdl_error("SDL_CreateWindow() failed");
         }

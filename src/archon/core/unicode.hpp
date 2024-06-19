@@ -909,7 +909,11 @@ bool try_utf16_to_utf8(core::StringSpan<C> string, core::Buffer<D>& buffer, std:
 /// collide with a valid code point (U+0000 -> U+D7FF, U+E000 -> U+FFFD, U+10000 ->
 /// U+10FFFF), including ones that are too narrow to hold the full range of code points. As
 /// an example, `char` can be used because `std::char_traits<char>::eof()` is required to be
-/// negative. `char32_t` can be used when the full UCS range is needed.
+/// negative. `char32_t` can be used when the full UCS range is needed. On the Windows
+/// platform, `wchar_t` is too narrow to hold all Unicode code points, but can still bu used
+/// for characters in the Basic Multilingual Plane (BMP) because
+/// `std::char_traits<wchar_t>::eof()` is 0xFFFF on Windows, which is not a valid Unicode
+/// code point.
 ///
 /// The output character type, \p D, which is used to hold UTF-8 code units, needs to have a
 /// bit-width of at least 8, and `std::char_traits<D>::eof()` must be outside the range of
@@ -951,11 +955,11 @@ void encode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
 /// When \p in_exhausted is set to `true`, \p error has no meaning and is left unchanged by
 /// this function.
 ///
-/// Note that during each step of an incremental decoding process, this function will
-/// sometimes leave behind some unconsumed code units at the end of the specified input
-/// corresponding to a final incomplete UTF-8 sequence. It is important that the application
-/// arranges for those remaining code units to be retained as a prefix of the input that is
-/// passed to this function during the next step of the incremental decoding
+/// Note that during each step of an incremental decoding process, there is a chance that
+/// this function will leave behind some unconsumed code units at the end of the specified
+/// input corresponding to a final incomplete UTF-8 sequence. It is important that the
+/// application arranges for those remaining code units to be retained as a prefix of the
+/// input that is passed to this function during the next step of the incremental decoding
 /// process. Presumably, the incomplete UTF-8 sequence is completed, or at least continued
 /// by the additional input that is made available during that next decoding step. When the
 /// specified input covers the end of input for the entire decoding process, the application
@@ -1032,7 +1036,11 @@ void decode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
 /// collide with a valid code point (U+0000 -> U+D7FF, U+E000 -> U+FFFD, U+10000 ->
 /// U+10FFFF), including ones that are too narrow to hold the full range of code points. As
 /// an example, `char` can be used because `std::char_traits<char>::eof()` is required to be
-/// negative. `char32_t` can be used when the full UCS range is needed.
+/// negative. `char32_t` can be used when the full UCS range is needed. On the Windows
+/// platform, `wchar_t` is too narrow to hold all Unicode code points, but can still bu used
+/// for characters in the Basic Multilingual Plane (BMP) because
+/// `std::char_traits<wchar_t>::eof()` is 0xFFFF on Windows, which is not a valid Unicode
+/// code point.
 ///
 /// The output character type, \p D, which is used to hold UTF-16 code units, needs to have a
 /// bit-width of at least 16, and `std::char_traits<D>::eof()` must be outside the range of
@@ -1076,9 +1084,9 @@ void encode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& i
 /// When \p in_exhausted is set to `true`, \p error has no meaning and is left unchanged by
 /// this function.
 ///
-/// Note that during each step of an incremental decoding process, this function will
-/// sometimes leave behind an unconsumed code unit at the end of the specified input
-/// corresponding to a final incomplete UTF-16 sequence. It is important that the
+/// Note that during each step of an incremental decoding process, there is a chance that
+/// this function will leave behind an unconsumed code unit at the end of the specified
+/// input corresponding to a final incomplete UTF-16 sequence. It is important that the
 /// application arranges for this remaining code unit to be retained as a prefix of the
 /// input that is passed to this function during the next step of the incremental decoding
 /// process. Presumably, the incomplete UTF-16 sequence is completed by the additional input
@@ -1139,11 +1147,11 @@ void decode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& i
 /// When \p in_exhausted is set to `true`, \p error has no meaning and is left unchanged by
 /// this function.
 ///
-/// Note that during each step of an incremental transcoding process, this function will
-/// sometimes leave behind some unconsumed UTF-8 code units at the end of the specified
-/// input corresponding to a final incomplete UTF-8 sequence. It is important that the
-/// application arranges for those remaining code units to be retained as a prefix of the
-/// input that is passed to this function during the next step of the incremental
+/// Note that during each step of an incremental transcoding process, there is a chance that
+/// this function will leave behind some unconsumed UTF-8 code units at the end of the
+/// specified input corresponding to a final incomplete UTF-8 sequence. It is important that
+/// the application arranges for those remaining code units to be retained as a prefix of
+/// the input that is passed to this function during the next step of the incremental
 /// transcoding process. Presumably, the incomplete UTF-8 sequence is completed, or at least
 /// continued by the additional input that is made available during that next transcoding
 /// step. When the specified input covers the end of input for the entire transcoding
@@ -1209,11 +1217,11 @@ void utf8_to_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& 
 /// When \p in_exhausted is set to `true`, \p error has no meaning and is left unchanged by
 /// this function.
 ///
-/// Note that during each step of an incremental transcoding process, this function will
-/// sometimes leave behind an unconsumed UTF-16 code unit at the end of the specified input
-/// corresponding to a final incomplete UTF-16 sequence. It is important that the
-/// application arranges for this remaining code unit to be retained as a prefix of the
-/// input that is passed to this function during the next step of the incremental
+/// Note that during each step of an incremental transcoding process, there is a chance that
+/// this function will leave behind an unconsumed UTF-16 code unit at the end of the
+/// specified input corresponding to a final incomplete UTF-16 sequence. It is important
+/// that the application arranges for this remaining code unit to be retained as a prefix of
+/// the input that is passed to this function during the next step of the incremental
 /// transcoding process. Presumably, the incomplete UTF-16 sequence is completed by the
 /// additional input that is made available during that next transcoding step. When the
 /// specified input covers the end of input for the entire transcoding process, the
@@ -1323,6 +1331,20 @@ void resync_utf16(core::Span<const C> in, std::size_t& in_offset) noexcept;
 // Implementation
 
 
+namespace impl {
+
+
+template<class T> constexpr bool valid_unicode_code_point(T val) noexcept
+{
+    return ((val >= 0 && val < 0xD800) ||
+            (val >= 0xE000 && val < 0xFFFE) ||
+            (val >= 0x10000 && val < 0x110000));
+}
+
+
+} // namespace impl
+
+
 template<class C, class D, class T, class U>
 inline void encode_utf8(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
@@ -1337,7 +1359,7 @@ template<class C, class D, class T, class U>
 void encode_utf8_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
     std::size_t string_offset = 0;
-    std::size_t buffer_offset_2 = 0;
+    std::size_t buffer_offset_2 = buffer_offset;
     for (;;) {
         core::encode_utf8_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
         bool success = (string_offset == string.size());
@@ -1395,7 +1417,7 @@ template<class C, class D, class T, class U>
 void decode_utf8_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
     std::size_t string_offset = 0;
-    std::size_t buffer_offset_2 = 0;
+    std::size_t buffer_offset_2 = buffer_offset;
     for (;;) {
         core::decode_utf8_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
         bool success = (string_offset == string.size());
@@ -1449,7 +1471,7 @@ template<class C, class D, class T, class U>
 void encode_utf16_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
     std::size_t string_offset = 0;
-    std::size_t buffer_offset_2 = 0;
+    std::size_t buffer_offset_2 = buffer_offset;
     for (;;) {
         core::encode_utf16_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
         bool success = (string_offset == string.size());
@@ -1505,7 +1527,7 @@ template<class C, class D, class T, class U>
 void decode_utf16_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
     std::size_t string_offset = 0;
-    std::size_t buffer_offset_2 = 0;
+    std::size_t buffer_offset_2 = buffer_offset;
     for (;;) {
         core::decode_utf16_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
         bool success = (string_offset == string.size());
@@ -1559,7 +1581,7 @@ template<class C, class D, class T, class U>
 void utf8_to_utf16_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
     std::size_t string_offset = 0;
-    std::size_t buffer_offset_2 = 0;
+    std::size_t buffer_offset_2 = buffer_offset;
     for (;;) {
         core::utf8_to_utf16_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
         bool success = (string_offset == string.size());
@@ -1613,7 +1635,7 @@ template<class C, class D, class T, class U>
 void utf16_to_utf8_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
     std::size_t string_offset = 0;
-    std::size_t buffer_offset_2 = 0;
+    std::size_t buffer_offset_2 = buffer_offset;
     for (;;) {
         core::utf16_to_utf8_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
         bool success = (string_offset == string.size());
@@ -1659,7 +1681,7 @@ template<class C, class D, class T, class U>
 inline bool try_encode_utf8(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
     std::size_t string_offset = 0;
-    std::size_t buffer_offset_2 = 0;
+    std::size_t buffer_offset_2 = buffer_offset;
     core::encode_utf8_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
     bool success = (string_offset == string.size());
     if (ARCHON_LIKELY(success)) {
@@ -1675,7 +1697,7 @@ template<class C, class D, class T, class U>
 inline bool try_decode_utf8(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
     std::size_t string_offset = 0;
-    std::size_t buffer_offset_2 = 0;
+    std::size_t buffer_offset_2 = buffer_offset;
     core::decode_utf8_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
     bool success = (string_offset == string.size());
     if (ARCHON_LIKELY(success)) {
@@ -1691,7 +1713,7 @@ template<class C, class D, class T, class U>
 inline bool try_encode_utf16(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
     std::size_t string_offset = 0;
-    std::size_t buffer_offset_2 = 0;
+    std::size_t buffer_offset_2 = buffer_offset;
     core::encode_utf16_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
     bool success = (string_offset == string.size());
     if (ARCHON_LIKELY(success)) {
@@ -1707,7 +1729,7 @@ template<class C, class D, class T, class U>
 inline bool try_decode_utf16(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
     std::size_t string_offset = 0;
-    std::size_t buffer_offset_2 = 0;
+    std::size_t buffer_offset_2 = buffer_offset;
     core::decode_utf16_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
     bool success = (string_offset == string.size());
     if (ARCHON_LIKELY(success)) {
@@ -1723,7 +1745,7 @@ template<class C, class D, class T, class U>
 inline bool try_utf8_to_utf16(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
     std::size_t string_offset = 0;
-    std::size_t buffer_offset_2 = 0;
+    std::size_t buffer_offset_2 = buffer_offset;
     core::utf8_to_utf16_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
     bool success = (string_offset == string.size());
     if (ARCHON_LIKELY(success)) {
@@ -1739,7 +1761,7 @@ template<class C, class D, class T, class U>
 inline bool try_utf16_to_utf8(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
     std::size_t string_offset = 0;
-    std::size_t buffer_offset_2 = 0;
+    std::size_t buffer_offset_2 = buffer_offset;
     core::utf16_to_utf8_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
     bool success = (string_offset == string.size());
     if (ARCHON_LIKELY(success)) {
@@ -1770,7 +1792,7 @@ void encode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
     static_assert(core::num_value_bits<int_type_2>() >= 8);
     static_assert(traits_type_2::to_int_type(traits_type_2::to_char_type(0xFF)) == 0xFF);
 
-    static_assert(traits_type_1::eof() < 0 || traits_type_1::eof() > 0x10FFFF);
+    static_assert(!impl::valid_unicode_code_point(traits_type_1::eof()));
     static_assert(traits_type_2::eof() < 0 || traits_type_2::eof() > 0xFF);
 
     ARCHON_ASSERT(in_offset <= in.size());
@@ -2033,7 +2055,7 @@ void encode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& i
     static_assert(core::num_value_bits<int_type_2>() >= 16);
     static_assert(traits_type_2::to_int_type(traits_type_2::to_char_type(0xFFFD)) == 0xFFFD);
 
-    static_assert(traits_type_1::eof() < 0 || traits_type_1::eof() > 0x10FFFF);
+    static_assert(!impl::valid_unicode_code_point(traits_type_1::eof()));
     static_assert(traits_type_2::eof() < 0 || traits_type_2::eof() > 0xFFFD);
 
     ARCHON_ASSERT(in_offset <= in.size());

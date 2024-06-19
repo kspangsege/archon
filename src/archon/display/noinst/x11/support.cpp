@@ -46,12 +46,12 @@
 #include <archon/core/memory.hpp>
 #include <archon/core/buffer.hpp>
 #include <archon/core/flat_map.hpp>
+#include <archon/core/locale.hpp>
 #include <archon/core/string_codec.hpp>
 #include <archon/core/unicode.hpp>
 #include <archon/core/format.hpp>
 #include <archon/core/as_int.hpp>
 #include <archon/core/quote.hpp>
-#include <archon/core/locale.hpp>
 #include <archon/core/endianness.hpp>
 #include <archon/log.hpp>
 #include <archon/math/vector.hpp>
@@ -1057,7 +1057,7 @@ constexpr bool MultFieldsDigest::is_confined_to_depth(int depth) const noexcept
 {
     ARCHON_ASSERT(depth >= 0);
     using ulong = unsigned long;
-    return (depth >= core::num_value_bits<ulong>() || (max[order[2]] + 1) * mult[order[2]] <= uint(1) << depth);
+    return (depth >= core::num_value_bits<ulong>() || (max[order[2]] + 1) * mult[order[2]] <= ulong(1) << depth);
 }
 
 
@@ -2455,7 +2455,9 @@ auto x11::load_visuals(Display* dpy, int screen, const x11::ExtensionInfo& exten
             ARCHON_ASSERT(was_inserted);
         }
     }
-#endif // HAVE_XDBE
+#else // !HAVE_XDBE
+    static_cast<void>(extension_info);
+#endif // !HAVE_XDBE
 
     core::Slab<x11::VisualSpec> visual_specs;
     int n = {};
@@ -2510,7 +2512,9 @@ auto x11::load_visuals(Display* dpy, int screen, const x11::ExtensionInfo& exten
                                                   get(GLX_ACCUM_BLUE_SIZE) + get(GLX_ACCUM_ALPHA_SIZE)); // Throws
                 }
             }
-#endif // HAVE_GLX
+#else // !HAVE_GLX
+    static_cast<void>(extension_info);
+#endif // !HAVE_GLX
             x11::VisualSpec spec = {
                 info,
                 double_buffered,

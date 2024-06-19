@@ -63,7 +63,7 @@ public:
     /// i.e., after having been held down for a short while. One "key repeat" event is
     /// generated for each key repetition.
     ///
-    /// In some cases, "key up" and "key down" events are generated when windows loose or
+    /// In some cases, "key up" and "key down" events are generated when windows lose or
     /// gain input focus while keys are pressed down. See \ref on_focus() for more on this.
     ///
     /// The default implementations of these functions do nothing other than return `true`.
@@ -108,13 +108,13 @@ public:
     /// window. This then allows for the next button press to initiate a pointer grab.
     ///
     /// SDL quirks: A pointer grab is supposed to be sustained even if the initiating window
-    /// looses input focus, and this is indeed the case when using the X11-based display
+    /// loses input focus, and this is indeed the case when using the X11-based display
     /// implementation (\ref display::get_x11_implementation_slot()). Unfortunately, SDL has
-    /// an inconsistent / buggy behavior when the window looses input focus while a pointer
+    /// an inconsistent / buggy behavior when the window loses input focus while a pointer
     /// grab is in progress, and it does not appear to be possible for the SDL-based
     /// implementation (\ref display::get_sdl_implementation_slot()) to fully hide these
     /// inconsistencies. From the point of view of the "mouse out" and "mouse move" events,
-    /// it looks like a pointer grab is terminated when the window looses input focus at a
+    /// it looks like a pointer grab is terminated when the window loses input focus at a
     /// time where the pointer is outside the window. Something is amiss, through, because
     /// the the "mouse up" event is not generated at that time, and also not when the mouse
     /// button is released. Moreover, when the mouse reenters the window, "mouse move"
@@ -123,15 +123,15 @@ public:
     /// mouse button is pressed down, no "mouse down" event is generated, suggesting that
     /// the button was incorrectly registered as already pressed down. The quirky SDL
     /// behavior described here applies to SDL with X11 as a back-end and with SDL on
-    /// Windows. On macOS, a pointer grab seems to be fully terminated when the window
-    /// looses input focus, except for the "mouse up" event which is not generated at all in
-    /// this case.
+    /// Windows. On macOS, a pointer grab seems to be fully terminated when the window loses
+    /// input focus, except for the "mouse up" event which is not generated at all in this
+    /// case.
     ///
     /// SDL quirks: With SDL on Windows, when a pointer grab ends over a different window,
     /// the "mouse over" event for the different window is not generated until the mouse
     /// starts to move.
     ///
-    /// FIXME: Consider reporting the inconsistent / buggy behavior of SDL when a window looses input focus while a grab is in progress                            
+    /// FIXME: Consider reporting the inconsistent / buggy behavior of SDL when a window loses input focus while a grab is in progress                            
     ///
     /// The default implementations of these functions do nothing other than return `true`.
     ///
@@ -235,7 +235,7 @@ public:
     ///
     /// A window has *input focus* when it is the receiver of keyboard events (\ref
     /// on_keydown()). Only one window at a time can have the input focus. When a window
-    /// gains input focus, another window looses it.
+    /// gains input focus, another window loses it.
     ///
     /// In general, input focus is switched to a particular window by pressing a mouse
     /// button while that window has pointer focus. The exact details depend on the platform
@@ -244,15 +244,15 @@ public:
     ///
     /// The default implementations of these functions do nothing other than return `true`.
     ///
-    /// It is unspecified what happens if a window looses or gains input focus while keys
-    /// are pressed down. At the time of writing, some implementations (notably SDL) will
-    /// generate "key up" events for certain keys when a window looses input focus while
+    /// It is unspecified what happens if a window loses or gains input focus while keys are
+    /// pressed down. At the time of writing, some implementations (notably SDL) will
+    /// generate "key up" events for certain keys when a window loses input focus while
     /// those keys are pressed down, and will also generate "key down" events for certain
     /// keys if they are already pressed down when a window gains focus. Other
     /// implementations will not do this (notably X11). An application, that wants to
-    /// enforce a regime where keys are released when the window looses input focus, must
+    /// enforce a regime where keys are released when the window loses input focus, must
     /// keep track of the set of currently pressed down keys, and then synthetically
-    /// generate "key up" events when the window looses focus (\ref on_blur()). Such an
+    /// generate "key up" events when the window loses focus (\ref on_blur()). Such an
     /// application will probably also want to ignore any "key up" event that does not
     /// correspond to a pressed down key according to its own record of pressed down
     /// keys. See also discussion in the SDL-based display implementation

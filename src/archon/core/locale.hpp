@@ -97,6 +97,22 @@
 namespace archon::core {
 
 
+/// \brief Suitable default locale.
+///
+/// This function returns a locale that is suitable as a default locale. When using the GNU
+/// standard C++ library on Windows (Cygwin and MinGW), the returned locale is always the C
+/// locale (`std::locale::classic()`), because only the C locale is supported by `libstdc++`
+/// on Windows. In all other cases, the returned locale is obtained as if by
+/// `std::locale("")`.
+///
+/// Due to race conditions / data races when constructing a locale from a locale name (see
+/// \ref has_locale()), this function should only be called early in `main()`, or at least
+/// before any additional threads are launched.
+///
+auto get_default_locale() -> std::locale;
+
+
+
 /// \brief Check validity of system locale name.
 ///
 /// This function checks whether a locale with the specified name is available on this
@@ -108,15 +124,16 @@ namespace archon::core {
 /// exceptions can be problematic from a debugging perspective.
 ///
 /// Unfortunately, this function is affected by race conditions / data races in the
-/// implementation of newlocale() and/or freelocale() on several platforms. Specifically,
-/// the thread sanitizer reports a data race when constructing a locale from the locale name
-/// `C.UTF-8` when using Glibc 2.31 (https://sourceware.org/bugzilla/show_bug.cgi?id=28206),
-/// and on macos, race conditions are detected by a malloc-level debugging feature
+/// implementation of `newlocale()` and/or `freelocale()` on several
+/// platforms. Specifically, the thread sanitizer reports a data race when constructing a
+/// locale from the locale name `C.UTF-8` when using Glibc 2.31
+/// (https://sourceware.org/bugzilla/show_bug.cgi?id=28206), and on macOS, race conditions
+/// are detected by a malloc-level debugging feature
 /// (https://feedbackassistant.apple.com/feedback/9461552).
 ///
 /// Also, since the C++ locale system is generally built on top of newlocale() and
-/// freelocale(), the mentioned problems also affect applications the use the C++ locale
-/// system.
+/// freelocale(), the mentioned problems also affect the use of C++ locale objects
+/// (`std::locale`).
 ///
 /// A workaround for the mentioned race condition problems is to arrange for all invocations
 /// of has_locale(), and all constructions of locale objects from locale names to occur
@@ -165,10 +182,10 @@ bool assume_utf8_locale(const std::locale&);
 /// Depending on the value of \ref ARCHON_ASSUME_LOCALE_HAS_ESCAPE, this function either
 /// returns `false` for all locales, `true` for all locales, or attempts to automatically
 /// detect whether the specified locale has the escape character. Automatic detection
-/// succeds precisely when both \ref core::assume_unicode_locale() and \ref
+/// succeeds precisely when both \ref core::assume_unicode_locale() and \ref
 /// core::assume_utf8_locale() return `true` for the specified locale.
 ///
-/// From the point of view of this function, no locale is understood as having the esape
+/// From the point of view of this function, no locale is understood as having the escape
 /// character unless the character set used in the ordinary literal encoding contains the
 /// escape character as defined by ASCII, and encoded in the same way as by ASCII (single
 /// code unit of value 27). Subject to that condition, a locale is understood as having the

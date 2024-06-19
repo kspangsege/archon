@@ -21,6 +21,7 @@
 
 #include <archon/core/archon_version.hpp>
 #include <archon/core/build_environment.hpp>
+#include <archon/core/locale.hpp>
 #include <archon/check/command.hpp>
 
 
@@ -56,7 +57,7 @@ int main(int argc, char* argv[])
     params.src_root  = "src"; // Relative to project root
     params.source_from_build_path = core::archon_source_from_build_path;
 
-    std::locale locale(""); // Throws     
+    std::locale locale = core::get_default_locale(); // Throws
 
     return check::command(ARCHON_VERSION_EX, argc, argv, params, test_order, locale); // Throws
 }

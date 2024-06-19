@@ -6,6 +6,25 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_CXX_EXTENSIONS False)
 
+# For an unknown reason, when using the Cygwin compiler, `-ansi` (or `-std=c++20`)
+# suppresses the automatic setting of `_POSIX_C_SOURCE` when compiling in C++ mode. Judging
+# from regular GCC, this is supposed to happen when compiling in C mode, but not when
+# compiling in C++ mode.
+if(CYGWIN)
+  add_compile_options(-D_POSIX_C_SOURCE=200809)
+endif()
+
+# Necessary to increase number of sectinos in object file when using Cygwin (same effect as
+# `/bigobj` with MSVC).
+if(CYGWIN)
+  add_compile_options(-Wa,-mbig-obj)
+endif()
+
+# Target Windows 10 when building with MinGW
+if(MINGW)
+  add_compile_options(-D_WIN32_WINNT=0x0A00)
+endif()
+
 # Warning level
 if(NOT MSVC)
   add_compile_options(-pedantic -Wall -Wextra -Wundef -Wold-style-cast -Wextra-semi -Wunreachable-code -Wno-redundant-move)
@@ -28,7 +47,7 @@ link_libraries(Threads::Threads)
 option(ARCHON_ASAN "Turn Address Sanitizer on" OFF)
 if(ARCHON_ASAN)
   if(MSVC)
-    message(FATAL_ERROR "Not yet known how to turn Address Sanitizer on with Visual Studio")
+    add_compile_options(/fsanitize=address /DARCHON_ASAN=1)
   else()
     add_compile_options(-fsanitize=address -DARCHON_ASAN=1)
     add_link_options(-fsanitize=address)

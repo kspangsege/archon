@@ -29,13 +29,13 @@
 #include <archon/core/span.hpp>
 #include <archon/core/assert.hpp>
 #include <archon/core/array_seeded_buffer.hpp>
+#include <archon/core/locale.hpp>
 #include <archon/core/impl/codecvt_quirks.hpp>
 #include <archon/core/string_codec.hpp>
 #include <archon/core/format.hpp>
 #include <archon/core/format_encoded.hpp>
 #include <archon/core/quote.hpp>
 #include <archon/core/string_formatter.hpp>
-#include <archon/core/locale.hpp>
 #include <archon/check.hpp>
 #include <archon/core/test/locale_utils.hpp>
 
@@ -357,6 +357,6 @@ ARCHON_TEST(Core_Impl_CodecvtQuirks)
         }
     };
 
-    for (const std::locale& locale : core::test::candidate_locales)
+    for (const std::locale& locale : core::test::get_candidate_locales())
         subtest(locale);
 }
