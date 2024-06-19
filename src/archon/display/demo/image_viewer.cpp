@@ -49,7 +49,7 @@ using namespace archon;
 namespace {
 
 
-class EventLoop
+class EventLoop final
     : public display::WindowEventHandler {
 public:
     EventLoop(display::Connection& conn, display::Window& win, const display::Texture& tex) noexcept
@@ -64,7 +64,7 @@ public:
         m_conn.process_events(); // Throws
     }
 
-    bool on_keydown(const display::KeyEvent& ev) override final
+    bool on_keydown(const display::KeyEvent& ev) override
     {
         display::Key key = {};
         if (ARCHON_LIKELY(m_conn.try_map_key_code_to_key(ev.key_code, key))) { // Throws
@@ -74,7 +74,7 @@ public:
         return true;
     }
 
-    bool on_expose(const display::WindowEvent&) override final
+    bool on_expose(const display::WindowEvent&) override
     {
         m_win.put_texture(m_tex); // Throws
         m_win.present(); // Throws

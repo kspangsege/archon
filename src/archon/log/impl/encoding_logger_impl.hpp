@@ -74,7 +74,7 @@ private:
 
     class BridgingPrefix;
 
-    class ChannelMapImpl
+    class ChannelMapImpl final
         : public log::BasicChannelMap<C, T> {
     public:
         channel_type channel;
@@ -83,16 +83,16 @@ private:
 
     protected:
         // Overriding functions from log::BasicChannelMap<C, T>
-        auto do_get_channels() const noexcept -> core::Span<const channel_type> override final;
+        auto do_get_channels() const noexcept -> core::Span<const channel_type> override;
     };
 
-    class SinkImpl
+    class SinkImpl final
         : public log::BasicSink<C, T> {
     public:
         SinkImpl(log::Sink& base_sink, const log::Prefix& base_channel_prefix, const log::Prefix& base_message_prefix);
 
         // Overriding functions from log::BasicSink<C, T>
-        void sink_log(log::LogLevel, const prefix_type&, const prefix_type&, string_view_type) override final;
+        void sink_log(log::LogLevel, const prefix_type&, const prefix_type&, string_view_type) override;
 
     private:
         log::Sink& m_base_sink;
@@ -182,7 +182,7 @@ inline auto EncodingLoggerImpl2<C, T>::get_channel_map(log::Logger&) noexcept ->
 
 
 template<class C, class T>
-class EncodingLoggerImpl2<C, T>::BridgingPrefix
+class EncodingLoggerImpl2<C, T>::BridgingPrefix final
     : public log::Prefix {
 public:
     BridgingPrefix(const log::Prefix& prefix_1, const prefix_type& prefix_2) noexcept
@@ -192,7 +192,7 @@ public:
     }
 
     // Overriding function from log::Prefix
-    void format_prefix(std::ostream& out) const override final
+    void format_prefix(std::ostream& out) const override
     {
         // FIXME: A better implementation of this function would use an encoding output
         // stream, with direct incremental forwarding to a sub-stream. It would be better

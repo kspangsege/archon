@@ -46,11 +46,11 @@ using namespace archon;
 
 namespace {
 
-class BallScene
+class BallScene final
     : public render::Engine::Scene {
 public:
-    void init() override final;
-    void render() override final;
+    void init() override;
+    void render() override;
 };
 
 

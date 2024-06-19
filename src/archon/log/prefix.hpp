@@ -77,7 +77,7 @@ public:
     auto get_simplified() const noexcept -> const prefix_type&;
 
     // Overriding functions from Prefix
-    void format_prefix(ostream_type&) const override final;
+    void format_prefix(ostream_type&) const override;
 
 private:
     const prefix_type& m_left;

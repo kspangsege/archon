@@ -84,7 +84,7 @@ private:
     BasicChannelLogger(Interm&&) noexcept;
 
     // Overriding functions from log::BasicChannelMap<C, T>
-    auto do_get_channels() const noexcept -> core::Span<const channel_type> override final;
+    auto do_get_channels() const noexcept -> core::Span<const channel_type> override;
 };
 
 

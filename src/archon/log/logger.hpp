@@ -452,10 +452,10 @@ private:
     channel_type m_channel;
 
     // Overriding functions from log::BasicSink<C, T>
-    void sink_log(log::LogLevel, const prefix_type&, const prefix_type&, string_view_type) override final;
+    void sink_log(log::LogLevel, const prefix_type&, const prefix_type&, string_view_type) override;
 
     // Overriding functions from log::BasicChannelMap<C, T>
-    auto do_get_channels() const noexcept -> core::Span<const channel_type> override final;
+    auto do_get_channels() const noexcept -> core::Span<const channel_type> override;
 };
 
 

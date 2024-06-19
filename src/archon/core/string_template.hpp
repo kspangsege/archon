@@ -545,7 +545,7 @@ public:
         : m_locale(locale)
     {
     }
-    bool handle(Error, string_view_type message) override final
+    bool handle(Error, string_view_type message) override
     {
         std::string message_2 = core::encode_string(message, m_locale); // Throws
         std::string message_3 = core::concat(std::string_view("Bad template: "),
@@ -565,7 +565,7 @@ public:
         : m_func(std::move(func)) // Throws
     {
     }
-    bool handle(Error code, string_view_type message) override final
+    bool handle(Error code, string_view_type message) override
     {
         return m_func(code, message); // Throws
     }

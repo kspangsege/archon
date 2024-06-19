@@ -70,7 +70,7 @@ private:
     BasicJailLogger(logger_type& target_logger, channel_type& target_channel) noexcept;
 
     // Overriding functions from log::BasicCannelMap<C, T>
-    auto do_get_channels() const noexcept -> core::Span<const channel_type> override final;
+    auto do_get_channels() const noexcept -> core::Span<const channel_type> override;
 };
 
 

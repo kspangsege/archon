@@ -84,25 +84,25 @@ public:
     void set_wireframe_mode(bool on);
 
 private:
-    class EventHandler
+    class EventHandler final
         : public display::ConnectionEventHandler
         , public display::WindowEventHandler {
     public:
         explicit EventHandler(EngineImpl&) noexcept;
 
-        bool on_keydown(const display::KeyEvent&) override final;
-        bool on_keyup(const display::KeyEvent&) override final;
-        bool on_mousedown(const display::MouseButtonEvent&) override final;
-        bool on_mouseup(const display::MouseButtonEvent&) override final;
-        bool on_mousemove(const display::MouseEvent&) override final;
-        bool on_scroll(const display::ScrollEvent&) override final;
-        bool on_blur(const display::WindowEvent&) override final;
-        bool on_expose(const display::WindowEvent&) override final;
-        bool on_resize(const display::WindowSizeEvent&) override final;
-        bool on_reposition(const display::WindowPosEvent&) override final;
-        bool on_close(const display::WindowEvent&) override final;
-        bool before_sleep() override final;
-        bool on_quit() override final;
+        bool on_keydown(const display::KeyEvent&) override;
+        bool on_keyup(const display::KeyEvent&) override;
+        bool on_mousedown(const display::MouseButtonEvent&) override;
+        bool on_mouseup(const display::MouseButtonEvent&) override;
+        bool on_mousemove(const display::MouseEvent&) override;
+        bool on_scroll(const display::ScrollEvent&) override;
+        bool on_blur(const display::WindowEvent&) override;
+        bool on_expose(const display::WindowEvent&) override;
+        bool on_resize(const display::WindowSizeEvent&) override;
+        bool on_reposition(const display::WindowPosEvent&) override;
+        bool on_close(const display::WindowEvent&) override;
+        bool before_sleep() override;
+        bool on_quit() override;
 
     private:
         EngineImpl& m_engine;

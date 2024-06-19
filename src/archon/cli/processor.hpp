@@ -363,7 +363,7 @@ class BasicProcessor<C, T>::NullOptionAction
 
 
 template<class C, class T>
-class BasicProcessor<C, T>::HelpOptionAction
+class BasicProcessor<C, T>::HelpOptionAction final
     : public impl::OptionAction<C, T> {
 public:
     HelpOptionAction(const BasicProcessor& processor, help_config_type help_config)
@@ -372,7 +372,7 @@ public:
     {
     }
 
-    void invoke_without_arg() const override final
+    void invoke_without_arg() const override
     {
         m_processor.show_help(core::File::get_cout(), m_help_config.copy_by_ref()); // Throws
     }

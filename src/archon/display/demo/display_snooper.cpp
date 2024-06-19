@@ -67,7 +67,7 @@ struct Config {
 };
 
 
-class EventLoop
+class EventLoop final
     : public display::WindowEventHandler
     , public display::ConnectionEventHandler {
 public:
@@ -120,7 +120,7 @@ public:
         m_conn.process_events(this); // Throws
     }
 
-    bool on_keydown(const display::KeyEvent& ev) override final
+    bool on_keydown(const display::KeyEvent& ev) override
     {
         display::Key key = {};
         bool have_key = m_conn.try_map_key_code_to_key(ev.key_code, key); // Throws
@@ -142,7 +142,7 @@ public:
         return true;
     }
 
-    bool on_keyup(const display::KeyEvent& ev) override final
+    bool on_keyup(const display::KeyEvent& ev) override
     {
         display::Key key = {};
         bool have_key = m_conn.try_map_key_code_to_key(ev.key_code, key); // Throws
@@ -155,7 +155,7 @@ public:
         return true;
     }
 
-    bool on_keyrepeat(const display::KeyEvent& ev) override final
+    bool on_keyrepeat(const display::KeyEvent& ev) override
     {
         display::Key key = {};
         bool have_key = m_conn.try_map_key_code_to_key(ev.key_code, key); // Throws
@@ -168,56 +168,56 @@ public:
         return true;
     }
 
-    bool on_mousedown(const display::MouseButtonEvent& ev) override final
+    bool on_mousedown(const display::MouseButtonEvent& ev) override
     {
         m_logger.info("MOUSE DOWN: %s, (%s)", ev.button, ev.pos); // Throws
         return true;
     }
 
-    bool on_mouseup(const display::MouseButtonEvent& ev) override final
+    bool on_mouseup(const display::MouseButtonEvent& ev) override
     {
         m_logger.info("MOUSE UP: %s, (%s)", ev.button, ev.pos); // Throws
         return true;
     }
 
-    bool on_mousemove(const display::MouseEvent& ev) override final
+    bool on_mousemove(const display::MouseEvent& ev) override
     {
         if (m_config.report_mouse_move)
             m_logger.info("MOUSE MOVE: %s", ev.pos); // Throws
         return true;
     }
 
-    bool on_scroll(const display::ScrollEvent& ev) override final
+    bool on_scroll(const display::ScrollEvent& ev) override
     {
         m_logger.info("SCROLL: %s", ev.amount); // Throws
         return true;
     }
 
-    bool on_mouseover(const display::TimedWindowEvent&) override final
+    bool on_mouseover(const display::TimedWindowEvent&) override
     {
         m_logger.info("MOUSE OVER"); // Throws
         return true;
     }
 
-    bool on_mouseout(const display::TimedWindowEvent&) override final
+    bool on_mouseout(const display::TimedWindowEvent&) override
     {
         m_logger.info("MOUSE OUT"); // Throws
         return true;
     }
 
-    bool on_focus(const display::WindowEvent&) override final
+    bool on_focus(const display::WindowEvent&) override
     {
         m_logger.info("FOCUS"); // Throws
         return true;
     }
 
-    bool on_blur(const display::WindowEvent&) override final
+    bool on_blur(const display::WindowEvent&) override
     {
         m_logger.info("BLUR"); // Throws
         return true;
     }
 
-    bool on_expose(const display::WindowEvent&) override final
+    bool on_expose(const display::WindowEvent&) override
     {
         m_logger.info("EXPOSE"); // Throws
         m_win.fill(m_config.background_color); // Throws
@@ -226,31 +226,31 @@ public:
         return true;
     }
 
-    bool on_resize(const display::WindowSizeEvent& ev) override final
+    bool on_resize(const display::WindowSizeEvent& ev) override
     {
         m_logger.info("SIZE: %s", ev.size); // Throws
         return true;
     }
 
-    bool on_reposition(const display::WindowPosEvent& ev) override final
+    bool on_reposition(const display::WindowPosEvent& ev) override
     {
         m_logger.info("POS: %s", ev.pos); // Throws
         return true;
     }
 
-    bool on_close(const display::WindowEvent&) override final
+    bool on_close(const display::WindowEvent&) override
     {
         m_logger.info("CLOSE"); // Throws
         return false; // Terminate
     }
 
-    bool on_display_change(int display) override final
+    bool on_display_change(int display) override
     {
         dump_display_conf(display); // Throws
         return true;
     }
 
-    bool on_quit() override final
+    bool on_quit() override
     {
         m_logger.info("QUIT");
         return false; // Terminate

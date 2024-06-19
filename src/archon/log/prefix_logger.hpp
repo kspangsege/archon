@@ -63,7 +63,7 @@ private:
     static auto widen(std::string_view prefix, const logger_type& base_logger) -> string_type;
 
     // Overriding functions from log::BasicPrefix<C, T>
-    void format_prefix(ostream_type&) const override final;
+    void format_prefix(ostream_type&) const override;
 };
 
 

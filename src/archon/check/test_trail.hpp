@@ -97,7 +97,7 @@ private:
         PrefixLogger(log::Logger& base_logger, const SubtestContext&) noexcept;
 
         // Overriding functions from log::Prefix
-        void format_prefix(std::ostream&) const override final;
+        void format_prefix(std::ostream&) const override;
 
     private:
         const log::Prefix& m_parent_prefix;

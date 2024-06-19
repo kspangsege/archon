@@ -118,6 +118,7 @@ private:
     C* const m_seed_memory;
     C* m_memory;
 
+    // Overriding functions from `std::basic_streambuf<C, T>`
     auto xsputn(const C*, std::streamsize) -> std::streamsize override final;
     auto overflow(int_type) -> int_type override final;
 

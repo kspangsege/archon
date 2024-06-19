@@ -586,15 +586,15 @@ public:
     virtual ~PatternAction() = default;
 };
 
-template<class F> class FuncExecPatternAction
+template<class F> class FuncExecPatternAction final
     : public PatternAction {
 public:
     using func_type = F;
 
     FuncExecPatternAction(std::function<func_type>);
 
-    void check(std::size_t seq_index, const PatternStructure&) const override final;
-    int invoke(core::Span<const Desc>, core::Span<const std::string> args) const override final;
+    void check(std::size_t seq_index, const PatternStructure&) const override;
+    int invoke(core::Span<const Desc>, core::Span<const std::string> args) const override;
 
 private:
     class Parser;

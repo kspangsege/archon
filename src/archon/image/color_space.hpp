@@ -399,7 +399,7 @@ constexpr int get_num_channels(image::ColorSpace::Tag tag) noexcept
 namespace impl {
 
 
-class ColorSpaceDegen
+class ColorSpaceDegen final
     : public image::ColorSpace {
 public:
     constexpr ColorSpaceDegen()
@@ -407,12 +407,12 @@ public:
     {
     }
 
-    void from_rgb(const comp_type*, comp_type*, comp_type) const override final;
-    void to_rgb(const comp_type*, comp_type*, comp_type) const override final;
+    void from_rgb(const comp_type*, comp_type*, comp_type) const override;
+    void to_rgb(const comp_type*, comp_type*, comp_type) const override;
 };
 
 
-class ColorSpaceLum
+class ColorSpaceLum final
     : public image::ColorSpace {
 public:
     constexpr ColorSpaceLum()
@@ -420,12 +420,12 @@ public:
     {
     }
 
-    void from_rgb(const comp_type*, comp_type*, comp_type) const override final;
-    void to_rgb(const comp_type*, comp_type*, comp_type) const override final;
+    void from_rgb(const comp_type*, comp_type*, comp_type) const override;
+    void to_rgb(const comp_type*, comp_type*, comp_type) const override;
 };
 
 
-class ColorSpaceRGB
+class ColorSpaceRGB final
     : public image::ColorSpace {
 public:
     constexpr ColorSpaceRGB()
@@ -433,8 +433,8 @@ public:
     {
     }
 
-    void from_rgb(const comp_type*, comp_type*, comp_type) const override final;
-    void to_rgb(const comp_type*, comp_type*, comp_type) const override final;
+    void from_rgb(const comp_type*, comp_type*, comp_type) const override;
+    void to_rgb(const comp_type*, comp_type*, comp_type) const override;
 };
 
 

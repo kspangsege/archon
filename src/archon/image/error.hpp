@@ -107,11 +107,11 @@ namespace archon::image {
 namespace impl {
 
 
-class ErrorCategory
+class ErrorCategory final
     : public std::error_category {
 public:
-    auto name() const noexcept -> const char* override final;
-    auto message(int) const -> std::string override final;
+    auto name() const noexcept -> const char* override;
+    auto message(int) const -> std::string override;
 };
 
 

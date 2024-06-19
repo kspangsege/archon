@@ -98,7 +98,7 @@ private:
     BasicDuplicatingLogger(Interm&&) noexcept;
 
     // Overriding functions from log::BasicChannelMap<C, T>
-    auto do_get_channels() const noexcept -> core::Span<const channel_type> override final;
+    auto do_get_channels() const noexcept -> core::Span<const channel_type> override;
 };
 
 
@@ -152,7 +152,7 @@ public:
 
     // Overriding function from log::BasicSink<C, T>
     void sink_log(log::LogLevel level, const prefix_type& channel_prefix, const prefix_type& message_prefix,
-                  string_view_type message) override final
+                  string_view_type message) override
     {
         compound_prefix_type channel_prefix_1(m_prefix_1, channel_prefix);
         m_sink_1.sink_log(level, channel_prefix_1, message_prefix, message); // Throws
@@ -161,7 +161,7 @@ public:
     }
 
     // Overriding function from log::Limit
-    int get_fixed_limit() const noexcept override final
+    int get_fixed_limit() const noexcept override
     {
         int a = m_limit_1.get_fixed_limit();
         int b = m_limit_2.get_fixed_limit();
@@ -169,7 +169,7 @@ public:
     }
 
     // Overriding function from log::Limit
-    auto get_level_limit() const noexcept -> log::LogLevel override final
+    auto get_level_limit() const noexcept -> log::LogLevel override
     {
         log::LogLevel a = m_limit_1.get_level_limit();
         log::LogLevel b = m_limit_2.get_level_limit();

@@ -1161,38 +1161,37 @@ constexpr std::string_view g_filename_extensions[] = {
 };
 
 
-class FileFormatImpl
+class FileFormatImpl final
     : public image::FileFormat {
 public:
-    auto get_ident() const noexcept -> std::string_view override final
+    auto get_ident() const noexcept -> std::string_view override
     {
         return "png"sv;
     }
 
-    auto get_descr() const -> std::string_view override final
+    auto get_descr() const -> std::string_view override
     {
         return "Portable Network Graphics"sv;
     }
 
-    auto get_mime_types() const noexcept -> core::Span<const std::string_view> override final
+    auto get_mime_types() const noexcept -> core::Span<const std::string_view> override
     {
         return g_mime_types;
     }
 
-    auto get_filename_extensions() const noexcept ->
-        core::Span<const std::string_view> override final
+    auto get_filename_extensions() const noexcept -> core::Span<const std::string_view> override
     {
         return g_filename_extensions;
     }
 
-    bool recognize(core::Source& source) const override final
+    bool recognize(core::Source& source) const override
     {
         std::error_code ec; // Dummy
         return ::recognize(source, ec); // Throws
     }
 
     bool do_try_load(core::Source& source, std::unique_ptr<image::WritableImage>& image, const std::locale& loc,
-                     log::Logger& logger, const LoadConfig& config, std::error_code& ec) const override final
+                     log::Logger& logger, const LoadConfig& config, std::error_code& ec) const override
     {
         image::ProgressTracker* tracker = config.tracker;
         image::Provider* provider = config.provider;
@@ -1210,7 +1209,7 @@ public:
     }
 
     bool do_try_save(const image::Image& image, core::Sink& sink, const std::locale& loc, log::Logger& logger,
-                     const SaveConfig& config, std::error_code& ec) const override final
+                     const SaveConfig& config, std::error_code& ec) const override
     {
         image::ProgressTracker* tracker = config.tracker;
         const image::PNGSaveConfig* config_2 = nullptr;

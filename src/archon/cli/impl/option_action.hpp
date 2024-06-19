@@ -153,7 +153,7 @@ inline bool OptionAction<C, T>::format_enum_values(ostream_type&, value_formatte
 // ============================ OptionAssignAction ============================
 
 
-template<class C, class T, class R> class OptionAssignAction
+template<class C, class T, class R> class OptionAssignAction final
     : public OptionAction<C, T> {
 public:
     using ref_type = R;
@@ -168,34 +168,34 @@ public:
     {
     }
 
-    bool allow_arg() const noexcept override final
+    bool allow_arg() const noexcept override
     {
         return true;
     }
 
-    bool require_arg() const noexcept override final
+    bool require_arg() const noexcept override
     {
         return true;
     }
 
-    void invoke_without_arg() const override final
+    void invoke_without_arg() const override
     {
         ARCHON_ASSERT_UNREACHABLE();
     }
 
-    bool invoke_with_arg(string_view_type arg, value_parser_type& parser) const override final
+    bool invoke_with_arg(string_view_type arg, value_parser_type& parser) const override
     {
         return parser.parse(arg, m_ref); // Throws
     }
 
-    bool format_orig_val(ostream_type& out, value_formatter_type& formatter, bool& has_value) const override final
+    bool format_orig_val(ostream_type& out, value_formatter_type& formatter, bool& has_value) const override
     {
         has_value = formatter.format(m_ref, out); // Throws
         return true;
     }
 
     bool format_enum_values(ostream_type& out, value_formatter_type& formatter,
-                            bool disjunctive, bool quote) const override final
+                            bool disjunctive, bool quote) const override
     {
         using type = core::RemoveOptional<std::remove_cvref_t<ref_type>>;
         return formatter.template format_enum_values<type>(out, disjunctive, quote); // Throws
@@ -206,7 +206,7 @@ private:
 };
 
 
-template<class C, class T, class V> class OptionAssignAction<C, T, V&>
+template<class C, class T, class V> class OptionAssignAction<C, T, V&> final
     : public OptionAction<C, T> {
 public:
     using value_type = V;
@@ -245,17 +245,17 @@ public:
     {
     }
 
-    bool allow_arg() const noexcept override final
+    bool allow_arg() const noexcept override
     {
         return true;
     }
 
-    void invoke_without_arg() const override final
+    void invoke_without_arg() const override
     {
         m_var = m_default_arg; // Throws
     }
 
-    bool invoke_with_arg(string_view_type arg, value_parser_type& parser) const override final
+    bool invoke_with_arg(string_view_type arg, value_parser_type& parser) const override
     {
         value_type val = {}; // Throws
         if (ARCHON_LIKELY(parser.parse(arg, val))) { // Throws
@@ -267,20 +267,20 @@ public:
         return false;
     }
 
-    bool format_orig_val(ostream_type& out, value_formatter_type& formatter, bool& has_value) const override final
+    bool format_orig_val(ostream_type& out, value_formatter_type& formatter, bool& has_value) const override
     {
         has_value = formatter.format(m_var, out); // Throws
         return true;
     }
 
-    bool format_default_arg(ostream_type& out, value_formatter_type& formatter, bool& has_value) const override final
+    bool format_default_arg(ostream_type& out, value_formatter_type& formatter, bool& has_value) const override
     {
         has_value = formatter.format(m_default_arg, out); // Throws
         return true;
     }
 
     bool format_enum_values(ostream_type& out, value_formatter_type& formatter,
-                            bool disjunctive, bool quote) const override final
+                            bool disjunctive, bool quote) const override
     {
         using type = core::RemoveOptional<std::remove_cvref_t<value_type>>;
         return formatter.template format_enum_values<type>(out, disjunctive, quote); // Throws
@@ -300,7 +300,7 @@ private:
 template<class C, class T, class U> class OptionExecAction;
 
 
-template<class C, class T> class OptionExecAction<C, T, void()>
+template<class C, class T> class OptionExecAction<C, T, void()> final
     : public OptionAction<C, T> {
 public:
     using func_type         = std::function<void()>;
@@ -312,7 +312,7 @@ public:
     {
     }
 
-    void invoke_without_arg() const override final
+    void invoke_without_arg() const override
     {
         m_func(); // Throws
     }
@@ -323,7 +323,7 @@ private:
 
 
 
-template<class C, class T, class R, class P> class OptionExecAction<C, T, R(P)>
+template<class C, class T, class R, class P> class OptionExecAction<C, T, R(P)> final
     : public OptionAction<C, T> {
 public:
     using string_view_type     = std::basic_string_view<C, T>;
@@ -361,17 +361,17 @@ public:
     {
     }
 
-    bool allow_arg() const noexcept override final
+    bool allow_arg() const noexcept override
     {
         return true;
     }
 
-    void invoke_without_arg() const override final
+    void invoke_without_arg() const override
     {
         m_func(m_default_arg); // Throws
     }
 
-    bool invoke_with_arg(string_view_type arg, value_parser_type& parser) const override final
+    bool invoke_with_arg(string_view_type arg, value_parser_type& parser) const override
     {
         value_type val = {}; // Throws
         if (ARCHON_LIKELY(parser.parse(arg, val))) { // Throws
@@ -381,14 +381,14 @@ public:
         return false;
     }
 
-    bool format_default_arg(ostream_type& out, value_formatter_type& formatter, bool& has_value) const override final
+    bool format_default_arg(ostream_type& out, value_formatter_type& formatter, bool& has_value) const override
     {
         has_value = formatter.format(m_default_arg, out); // Throws
         return true;
     }
 
     bool format_enum_values(ostream_type& out, value_formatter_type& formatter,
-                            bool disjunctive, bool quote) const override final
+                            bool disjunctive, bool quote) const override
     {
         using type = core::RemoveOptional<std::remove_cvref_t<value_type>>;
         return formatter.template format_enum_values<type>(out, disjunctive, quote); // Throws

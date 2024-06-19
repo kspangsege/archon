@@ -65,7 +65,7 @@ struct PaletteSpec {
 using PaletteEnum = core::Enum<Palette, PaletteSpec>;
 
 
-class ProgressTracker
+class ProgressTracker final
     : public image::ProgressTracker {
 public:
     bool is_save = false;
@@ -75,7 +75,7 @@ public:
     {
     }
 
-    void progress(const image::Image&, int units_completed, int units_total) override final
+    void progress(const image::Image&, int units_completed, int units_total) override
     {
         double fraction = double(units_completed) / units_total;
         if (!is_save) {

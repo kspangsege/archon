@@ -174,7 +174,7 @@ struct FaceGuard {
 
 
 
-class FaceImpl
+class FaceImpl final
     : public font::Face {
 public:
     FaceImpl(const LibraryGuard& library, const char* path, FT_Long face_index)
@@ -199,39 +199,39 @@ public:
         load_glyph(glyph_index, grid_fitting); // Throws
     }
 
-    auto get_family_name() -> std::string_view override final
+    auto get_family_name() -> std::string_view override
     {
         if (ARCHON_LIKELY(m_face.face->family_name))
             return { m_face.face->family_name };
         return {};
     }
 
-    bool is_bold() noexcept override final
+    bool is_bold() noexcept override
     {
         return ((m_face.face->style_flags & FT_STYLE_FLAG_BOLD) != 0);
     }
 
-    bool is_italic() noexcept override final
+    bool is_italic() noexcept override
     {
         return ((m_face.face->style_flags & FT_STYLE_FLAG_ITALIC) != 0);
     }
 
-    bool is_monospace() noexcept override final
+    bool is_monospace() noexcept override
     {
         return FT_IS_FIXED_WIDTH(m_face.face);
     }
 
-    bool is_scalable() noexcept override final
+    bool is_scalable() noexcept override
     {
         return FT_IS_SCALABLE(m_face.face);
     }
 
-    int get_num_fixed_sizes() override final
+    int get_num_fixed_sizes() override
     {
         return core::int_cast<int>(m_face.face->num_fixed_sizes); // Throws
     }
 
-    auto get_fixed_size(int fixed_size_index) -> font::Size override final
+    auto get_fixed_size(int fixed_size_index) -> font::Size override
     {
         bool valid = (fixed_size_index >= 0 && fixed_size_index < m_face.face->num_fixed_sizes);
         if (ARCHON_LIKELY(valid)) {
@@ -244,7 +244,7 @@ public:
         throw std::out_of_range("Fixed size index");
     }
 
-    void set_fixed_size(int fixed_size_index) override final
+    void set_fixed_size(int fixed_size_index) override
     {
         bool valid = (fixed_size_index >= 0 && fixed_size_index < m_face.face->num_fixed_sizes);
         if (ARCHON_LIKELY(valid)) {
@@ -254,7 +254,7 @@ public:
         throw std::out_of_range("Fixed size index");
     }
 
-    void set_scaled_size(font::Size size) override final
+    void set_scaled_size(font::Size size) override
     {
         if (ARCHON_LIKELY(!FT_IS_SCALABLE(m_face.face))) {
             FT_F26Dot6 width  = float_to_fixed_26p6(size.width);
@@ -265,7 +265,7 @@ public:
         throw std::logic_error("Font face is not scalable");
     }
 
-    void set_approx_size(font::Size size) override final
+    void set_approx_size(font::Size size) override
     {
         ensure_fixed_sizes_map(); // Throws
 
@@ -303,7 +303,7 @@ public:
         do_set_fixed_size(fixed_size_index); // Throws
     }
 
-    auto get_size() noexcept -> font::Size override final
+    auto get_size() noexcept -> font::Size override
     {
         return {
             fixed_26p6_to_float(m_render_width),
@@ -311,21 +311,21 @@ public:
         };
     }
 
-    auto get_baseline_spacing(bool vertical, bool grid_fitting) noexcept -> float_type override final
+    auto get_baseline_spacing(bool vertical, bool grid_fitting) noexcept -> float_type override
     {
         return (grid_fitting ?
                 (!vertical ? m_horz_baseline_spacing_gf : m_vert_baseline_spacing_gf) :
                 (!vertical ? m_horz_baseline_spacing    : m_vert_baseline_spacing));
     }
 
-    auto get_baseline_offset(bool vertical, bool grid_fitting) noexcept -> float_type override final
+    auto get_baseline_offset(bool vertical, bool grid_fitting) noexcept -> float_type override
     {
         return (grid_fitting ?
                 (!vertical ? m_horz_baseline_offset_gf : m_vert_baseline_offset_gf) :
                 (!vertical ? m_horz_baseline_offset    : m_vert_baseline_offset));
     }
 
-    auto find_glyph(char_type ch) -> std::size_t override final
+    auto find_glyph(char_type ch) -> std::size_t override
     {
         font::CodePoint cp_1;
         FT_ULong cp_2 = 0;
@@ -337,7 +337,7 @@ public:
     }
 
     auto get_kerning(std::size_t glyph_index_1, std::size_t glyph_index_2,
-                     bool vertical, bool grid_fitting) -> float_type override final
+                     bool vertical, bool grid_fitting) -> float_type override
     {
         // According to the API reference, FreeType only supports kerning for horizontal
         // layouts
@@ -364,7 +364,7 @@ public:
         return 0;
     }
 
-    void load_glyph(std::size_t glyph_index, bool grid_fitting) override final
+    void load_glyph(std::size_t glyph_index, bool grid_fitting) override
     {
         FT_UInt glyph_index_2 = 0;
         if (ARCHON_UNLIKELY(!core::try_int_cast(glyph_index, glyph_index_2) ||
@@ -460,23 +460,23 @@ public:
         m_glyph_translation = vector_type(0, 0);
     }
 
-    auto get_glyph_advance(bool vertical) noexcept -> float_type override final
+    auto get_glyph_advance(bool vertical) noexcept -> float_type override
     {
         return (!vertical ? m_horz_glyph_advance : m_vert_glyph_advance);
     }
 
-    auto get_glyph_bearing(bool vertical) noexcept -> vector_type override final
+    auto get_glyph_bearing(bool vertical) noexcept -> vector_type override
     {
         return (!vertical ? m_horz_glyph_bearing : m_vert_glyph_bearing);
     }
 
-    void translate_glyph(vector_type vec) override final
+    void translate_glyph(vector_type vec) override
     {
         m_glyph_translation += vec;
     }
 
 protected:
-    void do_get_glyph_pa_box(int& left, int& right, int& bottom, int& top) override final
+    void do_get_glyph_pa_box(int& left, int& right, int& bottom, int& top) override
     {
         // FIXME: Tend to overflow in casts and arthmetic below                        
         if (m_glyph->format == FT_GLYPH_FORMAT_BITMAP) {
@@ -493,7 +493,7 @@ protected:
         }
     }
 
-    void do_render_glyph_mask(image::Pos pos, const iter_type& iter, image::Size size) override final
+    void do_render_glyph_mask(image::Pos pos, const iter_type& iter, image::Size size) override
     {
         int left = 0, right = 0, bottom = 0, top = 0;
         do_get_glyph_pa_box(left, right, bottom, top);
@@ -583,8 +583,7 @@ protected:
         ARCHON_STEADY_ASSERT_UNREACHABLE();                              
     }
 
-    void do_render_glyph_rgba(image::Pos pos, const iter_type& iter,
-                              image::Size size) override final
+    void do_render_glyph_rgba(image::Pos pos, const iter_type& iter, image::Size size) override
     {
         static_cast<void>(pos);                      
         static_cast<void>(iter);                      
@@ -729,7 +728,7 @@ private:
 
 
 
-class LoaderImpl
+class LoaderImpl final
     : public font::Loader {
 public:
     LoaderImpl(core::FilesystemPathRef resource_dir, const std::locale& loc, log::Logger*)
@@ -742,13 +741,13 @@ public:
         m_library.init(); // Throws
     }
 
-    auto load_default_face() const -> std::unique_ptr<font::Face> override final
+    auto load_default_face() const -> std::unique_ptr<font::Face> override
     {
         FT_Long face_index = 0;
         return std::make_unique<FaceImpl>(m_library, m_path.c_str(), face_index); // Throws
     }
 
-    auto get_implementation() const noexcept -> const Implementation& override final;
+    auto get_implementation() const noexcept -> const Implementation& override;
 
 private:
     std::string m_path;
@@ -757,16 +756,16 @@ private:
 
 
 
-class ImplementationImpl
+class ImplementationImpl final
     : public font::Loader::Implementation {
 public:
-    auto ident() const noexcept -> std::string_view override final
+    auto ident() const noexcept -> std::string_view override
     {
         return "freetype";
     }
 
     auto new_loader(core::FilesystemPathRef resource_dir, const std::locale& loc,
-                    font::Loader::Config config) const -> std::unique_ptr<font::Loader> override final
+                    font::Loader::Config config) const -> std::unique_ptr<font::Loader> override
     {
         return std::make_unique<LoaderImpl>(resource_dir, loc, config.logger); // Throws
     }

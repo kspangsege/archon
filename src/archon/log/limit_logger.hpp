@@ -72,7 +72,7 @@ private:
     BasicLimitLogger(Interm&&, int fixed_limit) noexcept;
 
     // Overriding functions from log::BasicChannelMap<C, T>
-    auto do_get_channels() const noexcept -> core::Span<const channel_type> override final;
+    auto do_get_channels() const noexcept -> core::Span<const channel_type> override;
 };
 
 
@@ -107,13 +107,13 @@ public:
     }
 
     // Overriding function from log::Limit
-    int get_fixed_limit() const noexcept override final
+    int get_fixed_limit() const noexcept override
     {
         return m_fixed_limit;
     }
 
     // Overriding function from log::Limit
-    auto get_level_limit() const noexcept -> log::LogLevel override final
+    auto get_level_limit() const noexcept -> log::LogLevel override
     {
         return m_variable_limit.load(std::memory_order_relaxed);
     }
@@ -139,7 +139,7 @@ public:
 
     // Overriding function from log::BasicSink<C, T>
     void sink_log(log::LogLevel level, const prefix_type& channel_prefix, const prefix_type& message_prefix,
-                  string_view_type message) override final
+                  string_view_type message) override
     {
         log::LogLevel limit = m_limit.get_level_limit();
         if (level <= limit)

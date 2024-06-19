@@ -52,7 +52,7 @@ public:
 
 protected:
     // Overriding functions from log::BasicRootLogger<C, T>
-    void root_log(string_view_type message) override final;
+    void root_log(string_view_type message) override;
 
 private:
     ostream_type& m_out;

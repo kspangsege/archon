@@ -56,7 +56,7 @@ display::Size g_small = 256;
 display::Size g_large = { 512, 384 };
 
 
-class EventLoop
+class EventLoop final
     : public display::WindowEventHandler {
 public:
     EventLoop(display::Connection& conn, int display) noexcept
@@ -88,7 +88,7 @@ public:
         m_conn.process_events(); // Throws
     }
 
-    bool on_keydown(const display::KeyEvent& ev) override final
+    bool on_keydown(const display::KeyEvent& ev) override
     {
         display::Key key = {};
         if (ARCHON_LIKELY(m_conn.try_map_key_code_to_key(ev.key_code, key))) { // Throws
@@ -112,7 +112,7 @@ public:
         return true;
     }
 
-    bool on_keyup(const display::KeyEvent& ev) override final
+    bool on_keyup(const display::KeyEvent& ev) override
     {
         display::Key key = {};
         if (ARCHON_LIKELY(m_conn.try_map_key_code_to_key(ev.key_code, key))) { // Throws
@@ -175,7 +175,7 @@ public:
         return true;
     }
 
-    bool on_expose(const display::WindowEvent& ev) override final
+    bool on_expose(const display::WindowEvent& ev) override
     {
         auto i = m_windows.find(ev.cookie);
         if (ARCHON_LIKELY(i != m_windows.end())) {
@@ -185,7 +185,7 @@ public:
         return true;
     }
 
-    bool on_close(const display::WindowEvent& ev) override final
+    bool on_close(const display::WindowEvent& ev) override
     {
         if (m_windows.size() > 1) {
             m_windows.erase(ev.cookie);

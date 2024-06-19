@@ -40,7 +40,7 @@
 namespace archon::check::impl {
 
 
-class RootContextImpl
+class RootContextImpl final
     : public check::RootContext {
 public:
     struct Test {
@@ -89,7 +89,7 @@ public:
     int get_rseed_rep_no_override() const  noexcept;
 
     // Overriding functions in `RootContext`
-    auto get_test_details(std::size_t test_index) const noexcept -> const TestDetails& override final;
+    auto get_test_details(std::size_t test_index) const noexcept -> const TestDetails& override;
 
 private:
     const bool m_abort_on_failure;

@@ -54,7 +54,7 @@ using namespace archon;
 namespace {
 
 
-class EventLoop
+class EventLoop final
     : public display::WindowEventHandler {
 public:
     EventLoop(display::Connection& conn, display::Window& win) noexcept
@@ -88,7 +88,7 @@ public:
         while (m_conn.process_events(deadline)); // Throws
     }
 
-    bool on_keydown(const display::KeyEvent& ev) override final
+    bool on_keydown(const display::KeyEvent& ev) override
     {
         display::Key key = {};
         if (ARCHON_LIKELY(m_conn.try_map_key_code_to_key(ev.key_code, key))) { // Throws

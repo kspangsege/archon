@@ -52,7 +52,7 @@ class FooException {};
 class BarException final
     : public std::exception {
 public:
-    auto what() const noexcept -> const char* override final
+    auto what() const noexcept -> const char* override
     {
         return "bar";
     }
@@ -83,7 +83,7 @@ public:
         : m_summary(summary)
     {
     }
-    void root_end(const check::RootContext&, const check::Summary& summary) override final
+    void root_end(const check::RootContext&, const check::Summary& summary) override
     {
         m_summary = summary;
     }

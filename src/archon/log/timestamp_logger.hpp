@@ -82,7 +82,7 @@ public:
     BasicTimestampLogger(logger_type& base_logger, Config config);
     /// \}
 
-    class PrefixImpl
+    class PrefixImpl final
         : public log::BasicPrefix<C, T> {
     public:
         using ostream_type = std::basic_ostream<C, T>;
@@ -91,7 +91,7 @@ public:
         PrefixImpl(const prefix_type& parent_prefix, const std::locale& locale, Config&& config);
 
         // Overriding functions from log::BasicPrefix<C, T>
-        void format_prefix(ostream_type&) const override final;
+        void format_prefix(ostream_type&) const override;
 
     private:
         const prefix_type& m_parent_prefix;

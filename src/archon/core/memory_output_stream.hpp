@@ -181,6 +181,7 @@ private:
     //
     std::size_t m_size_x = 0;
 
+    // Overriding functions from `std::basic_streambuf<C, T>`
     auto seekoff(off_type, std::ios_base::seekdir, std::ios_base::openmode) -> pos_type override final;
     auto seekpos(pos_type, std::ios_base::openmode) -> pos_type override final;
 

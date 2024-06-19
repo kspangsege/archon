@@ -136,7 +136,7 @@ inline PatternAction<C, T>::PatternAction(bool d) noexcept
 // ============================ FuncExecPatternAction ============================
 
 
-template<class C, class T, class F> class FuncExecPatternAction
+template<class C, class T, class F> class FuncExecPatternAction final
     : public PatternAction<C, T> {
 public:
     using func_type = F;
@@ -153,13 +153,13 @@ public:
     {
     }
 
-    bool check(const pattern_func_checker_type& checker, std::size_t elem_seq_index) const noexcept override final
+    bool check(const pattern_func_checker_type& checker, std::size_t elem_seq_index) const noexcept override
     {
         return checker.template check<func_type>(elem_seq_index);
     }
 
     bool invoke(const pattern_args_parser_type& pattern_args_parser, bool has_error, value_parser_type& value_parser,
-                error_accum_type& error_accum, int& exit_status) const override final
+                error_accum_type& error_accum, int& exit_status) const override
     {
         using params_tuple_type = core::TupleOfDecayedFuncParams<func_type>;
         params_tuple_type args;
@@ -189,7 +189,7 @@ private:
 // ============================ DelegPatternAction ============================
 
 
-template<class C, class T> class DelegPatternAction
+template<class C, class T> class DelegPatternAction final
     : public PatternAction<C, T> {
 public:
     using command_line_type = BasicCommandLine<C, T>;
@@ -201,7 +201,7 @@ public:
     {
     }
 
-    int deleg(const command_line_type& command_line) const override final
+    int deleg(const command_line_type& command_line) const override
     {
         return m_func(command_line); // Throws
     }

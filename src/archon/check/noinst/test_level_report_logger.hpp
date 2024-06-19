@@ -46,7 +46,7 @@ private:
     const log::Prefix& m_parent_prefix;
 
     // Overriding functions from log::Prefix
-    void format_prefix(ostream_type&) const override final;
+    void format_prefix(ostream_type&) const override;
 };
 
 

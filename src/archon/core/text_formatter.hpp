@@ -2170,7 +2170,7 @@ inline void BasicTextFormatter<C, T>::set_style(Style style)
 
 
 template<class C, class T>
-class BasicTextFormatter<C, T>::StreambufImpl : public std::basic_streambuf<C, T> {
+class BasicTextFormatter<C, T>::StreambufImpl final : public std::basic_streambuf<C, T> {
 public:
     using int_type = typename std::basic_streambuf<C, T>::int_type;
 
@@ -2181,9 +2181,9 @@ public:
     void reset_put_area(char_type* begin, char_type* end) noexcept;
 
 protected:
-    auto xsputn(const char_type*, std::streamsize) -> std::streamsize override final;
-    auto overflow(int_type) -> int_type override final;
-    int sync() override final;
+    auto xsputn(const char_type*, std::streamsize) -> std::streamsize override;
+    auto overflow(int_type) -> int_type override;
+    int sync() override;
 
 private:
     BasicTextFormatter& m_formatter;
