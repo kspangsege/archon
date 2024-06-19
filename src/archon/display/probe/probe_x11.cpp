@@ -58,6 +58,9 @@
 #include <archon/core/file.hpp>
 #include <archon/log.hpp>
 #include <archon/cli.hpp>
+#include <archon/util/color.hpp>
+#include <archon/util/colors.hpp>
+#include <archon/util/as_css_color.hpp>
 #include <archon/image.hpp>
 #include <archon/display/impl/config.h>
 #include <archon/display/geometry.hpp>
@@ -149,10 +152,12 @@ int main(int argc, char* argv[])
     std::locale locale = core::get_default_locale();
 
     namespace fs = std::filesystem;
-    std::optional<fs::path> optional_path;
+    std::vector<fs::path> paths;
     bool list_visuals = false;
     bool list_pixmap_formats = false;
-    int num_windows = 0;
+    std::optional<std::size_t> optional_num_windows;
+    std::optional<std::string> optional_window_title;
+    util::Color background_color = util::colors::black;
     std::optional<std::string> optional_display;
     std::optional<int> optional_screen;
     std::optional<int> optional_visual_depth;
@@ -167,12 +172,11 @@ int main(int argc, char* argv[])
     bool synchronous_mode = false;
     bool install_colormap = false;
     bool colormap_weirdness = false;
-    std::optional<std::string> optional_window_title;
 
     cli::Spec spec;
-    pat("[<path>]", cli::no_attributes, spec,
+    pat("[<path>...]", cli::no_attributes, spec,
         "Lorem ipsum.",
-        std::tie(optional_path)); // Throws
+        std::tie(paths)); // Throws
 
     opt(cli::help_tag, spec); // Throws
     opt(cli::stop_tag, spec); // Throws
@@ -186,8 +190,19 @@ int main(int argc, char* argv[])
         cli::raise_flag(list_pixmap_formats)); // Throws
 
     opt("-n, --num-windows", "<num>", cli::no_attributes, spec,
-        "The number of windows to be opened. The default number is @V.",
-        std::tie(num_windows)); // Throws
+        "The number of windows to be opened. It can be zero. By default, one window will be opened for each of the "
+        "specified images, or if no images are specified, the default number of windows is 1.",
+        std::tie(optional_num_windows)); // Throws
+
+    opt("-T, --window-title", "<string>", cli::no_attributes, spec,
+        "Set an alternate text to be used as window title.",
+        cli::assign(optional_window_title)); // Throws
+
+    opt("-b, --background-color", "<color>", cli::no_attributes, spec,
+        "Set the background color. \"@A\" can be any valid CSS3 color value with, or without an alpha component, as "
+        "well as the extended hex-forms, \"#RGBA\" and \"#RRGGBBAA\", accommodating the alpha component. The default "
+        "color is @Q.",
+        cli::assign(util::as_css_color(background_color))); // Throws
 
     opt("-D, --display", "<string>", cli::no_attributes, spec,
         "Target the specified X11 display (@A). If this option is not specified, the value of the DISPLAY environment "
@@ -263,10 +278,6 @@ int main(int argc, char* argv[])
         "`GrayScale`, and `DirectColor`).",
         cli::raise_flag(colormap_weirdness)); // Throws
 
-    opt("-T, --window-title", "<string>", cli::no_attributes, spec,
-        "Set an alternate text to be used as window title.",
-        cli::assign(optional_window_title)); // Throws
-
     int exit_status = 0;
     if (ARCHON_UNLIKELY(cli::process(argc, argv, spec, exit_status, locale))) // Throws
         return exit_status;
@@ -293,26 +304,26 @@ int main(int argc, char* argv[])
     fs::path resource_path = (build_env.get_relative_source_root() /
                               core::make_fs_path_generic("archon/display/probe", locale)); // Throws
 
-    // Load image
-    std::unique_ptr<image::WritableImage> img;
+    // Load images
+    if (paths.empty()) {
+        fs::path path = resource_path / core::make_fs_path_generic("image.png", locale); // Throws
+        paths.push_back(path); // Throws
+    }
+    core::Slab<std::unique_ptr<image::Image>> images(paths.size()); // Throws
     {
-        fs::path path;
-        if (optional_path.has_value()) {
-            path = std::move(optional_path.value());
-        }
-        else {
-            path = resource_path / core::make_fs_path_generic("image.png", locale); // Throws
-        }
-        image::LoadConfig load_config;
         log::PrefixLogger load_logger(logger, "Load: "); // Throws
+        image::LoadConfig load_config;
         load_config.logger = &load_logger;
-        std::error_code ec;
-        if (!image::try_load(path, img, locale, load_config, ec)) { // Throws
-            logger.error("%s: Failed to load image: %s", core::as_native_path(path), ec.message()); // Throws
-            return EXIT_FAILURE;
+        for (const fs::path& path : paths) {
+            std::unique_ptr<image::WritableImage> img;
+            std::error_code ec;
+            if (!image::try_load(path, img, locale, load_config, ec)) { // Throws
+                logger.error("%s: Failed to load image: %s", core::as_native_path(path), ec.message()); // Throws
+                return EXIT_FAILURE;
+            }
+            images.add(std::move(img));
         }
     }
-    image::Size img_size = img->get_size();
 
     // Connect to display
     std::string_view display = x11::get_display_string(optional_display);
@@ -333,7 +344,6 @@ int main(int argc, char* argv[])
     }
 
     Window root = RootWindow(dpy, screen);
-    unsigned long black = BlackPixel(dpy, screen);
     VisualID default_visual = XVisualIDFromVisual(DefaultVisual(dpy, screen));
     Colormap default_colormap = DefaultColormap(dpy, screen);
 
@@ -523,6 +533,7 @@ int main(int argc, char* argv[])
     std::unique_ptr<x11::PixelFormat> pixel_format =
         x11::create_pixel_format(dpy, root, visual_info, pixmap_format, colormap_finder, locale, logger,
                                  prefer_default_nondecomposed_colormap, colormap_weirdness); // Throws
+    unsigned long interned_background_color = pixel_format->intern_color(background_color); // Throws
     Colormap colormap = pixel_format->get_colormap();
 
     auto intern_string = [&](const char* string) noexcept -> Atom {
@@ -740,43 +751,57 @@ int main(int argc, char* argv[])
     ARCHON_SCOPE_EXIT {
         XFreeGC(dpy, gc);
     };
-    XSetForeground(dpy, gc, black);
+    XSetForeground(dpy, gc, interned_background_color);
 
-    // Upload image
-    Pixmap img_pixmap = XCreatePixmap(dpy, root, unsigned(img_size.width), unsigned(img_size.height), depth);
+    // Upload images
+    struct PixmapSlot {
+        image::Size size;
+        Pixmap pixmap;
+    };
+    core::Slab<PixmapSlot> pixmaps(images.size()); // Throws
     ARCHON_SCOPE_EXIT {
-        XFreePixmap(dpy, img_pixmap);
+        for (const auto& slot : pixmaps)
+            XFreePixmap(dpy, slot.pixmap);
     };
     {
-        image::Reader reader(*img); // Throws
         std::unique_ptr<x11::ImageBridge> bridge =
             pixel_format->create_image_bridge(impl::subdivide_max_subbox_size); // Throws
         image::Writer writer(bridge->img_1); // Throws
-        impl::subdivide(img_size, [&](const display::Box& subbox) {
-            image::Pos pos = { 0, 0 };
-            writer.put_image_a(pos, reader, subbox); // Throws
-            int src_x = pos.x, src_y = pos.y;
-            int dest_x = subbox.pos.x, dest_y = subbox.pos.y;
-            unsigned width = unsigned(subbox.size.width);
-            unsigned height = unsigned(subbox.size.height);
-            XPutImage(dpy, img_pixmap, gc, &bridge->img_2, src_x, src_y, dest_x, dest_y, width, height);
-        }); // Throws
+        for (const std::unique_ptr<image::Image>& img : images) {
+            image::Size size = img->get_size();
+            Pixmap pixmap = XCreatePixmap(dpy, root, unsigned(size.width), unsigned(size.height), depth);
+            pixmaps.add(PixmapSlot { size, pixmap });
+            image::Reader reader(*img); // Throws
+            impl::subdivide(size, [&](const display::Box& subbox) {
+                image::Pos pos = { 0, 0 };
+                writer.put_image_a(pos, reader, subbox); // Throws
+                int src_x = pos.x, src_y = pos.y;
+                int dest_x = subbox.pos.x, dest_y = subbox.pos.y;
+                unsigned width = unsigned(subbox.size.width);
+                unsigned height = unsigned(subbox.size.height);
+                XPutImage(dpy, pixmap, gc, &bridge->img_2, src_x, src_y, dest_x, dest_y, width, height);
+            }); // Throws
+        }
     }
 
     struct WindowSlot {
         int no;
         Window window;
         Drawable drawable;
-        display::Size size;
+        image::Size win_size;
+        image::Size img_size;
+        Pixmap pixmap;
         bool redraw = false;
         bool suppress_redraw = false;
 
-        WindowSlot(int no_2, Window window_2, Drawable drawable_2, display::Size size_2) noexcept
+        WindowSlot(int no_2, Window window_2, Drawable drawable_2, image::Size size, Pixmap pixmap_2) noexcept
         {
             no       = no_2;
             window   = window_2;
             drawable = drawable_2;
-            size     = size_2;
+            win_size = size;
+            img_size = size;
+            pixmap   = pixmap_2;
         }
     };
 
@@ -800,15 +825,23 @@ int main(int argc, char* argv[])
     XdbeSwapAction swap_action = XdbeUndefined; // Contents of swapped-out buffer becomes undefined
 #endif
 
-    int prev_window_no = 0;
+    std::size_t next_window_index = 0;
     std::size_t max_seen_window_slots = 0;
     auto open_window = [&] {
+        // Link to an image (round-robin)
+        int window_index = next_window_index++;
+        ARCHON_ASSERT(pixmaps.size() > 0);
+        std::size_t pixmap_index = window_index % pixmaps.size();
+        const PixmapSlot& pixmap_slot = pixmaps[pixmap_index];
+        image::Size size = pixmap_slot.size;
+
         // Create window
         display::Pos pos;
         if (optional_pos.has_value())
             pos = optional_pos.value();
-        unsigned long valuemask = CWEventMask | CWColormap;
+        unsigned long valuemask = CWBackPixel | CWEventMask | CWColormap;
         XSetWindowAttributes attributes;
+        attributes.background_pixel = interned_background_color;
         attributes.event_mask = (KeyPressMask | KeyReleaseMask |
                                  ButtonPressMask | ButtonReleaseMask |
                                  ButtonMotionMask |
@@ -818,11 +851,11 @@ int main(int argc, char* argv[])
                                  StructureNotifyMask |
                                  KeymapStateMask);
         attributes.colormap = colormap;
-        Window window = XCreateWindow(dpy, root, pos.x, pos.y, unsigned(img_size.width), unsigned(img_size.height),
-                                      0, depth, InputOutput, visual_info.visual, valuemask, &attributes);
+        Window window = XCreateWindow(dpy, root, pos.x, pos.y, unsigned(size.width), unsigned(size.height), 0, depth,
+                                      InputOutput, visual_info.visual, valuemask, &attributes);
 
         // Set window name
-        int no = ++prev_window_no;
+        int no = int(window_index + 1);
         std::string name_1;
         std::string_view name_2;
         if (optional_window_title.has_value()) {
@@ -865,7 +898,7 @@ int main(int argc, char* argv[])
         }
 #endif // HAVE_XDBE
 
-        WindowSlot slot = { no, window, drawable, img_size };
+        WindowSlot slot = { no, window, drawable, size, pixmap_slot.pixmap };
         window_slots.emplace(window, slot); // Throws
 
         if (window_slots.size() > max_seen_window_slots)
@@ -906,7 +939,12 @@ int main(int argc, char* argv[])
         }
     };
 
-    for (int i = 0; i < num_windows; ++i)
+    std::size_t num_windows = 1;
+    if (!paths.empty())
+        num_windows = paths.size();
+    if (optional_num_windows.has_value())
+        num_windows = optional_num_windows.value();
+    for (std::size_t i = 0; i < num_windows; ++i)
         open_window(); // Throws
 
     for (const auto& entry : window_slots) {
@@ -962,8 +1000,8 @@ int main(int argc, char* argv[])
                                 log(slot->no, "SIZE: %s", display::Size(ev.xconfigure.width, ev.xconfigure.height));
                             }
                             display::Size size = { ev.xconfigure.width, ev.xconfigure.height };
-                            if (size != slot->size) {
-                                slot->size = size;
+                            if (size != slot->win_size) {
+                                slot->win_size = size;
                                 slot->redraw = true;
                             }
                         }
@@ -1076,18 +1114,18 @@ int main(int argc, char* argv[])
         for (const auto& entry : window_slots) {
             const WindowSlot& slot = entry.second;
             if (slot.redraw && !slot.suppress_redraw) {
-                int win_width  = slot.size.width;
-                int win_height = slot.size.height;
+                int win_width  = slot.win_size.width;
+                int win_height = slot.win_size.height;
                 int left = 0, right = win_width;
                 int top = 0, bottom = win_height;
                 int x = 0, y = 0;
-                int w = img_size.width, h = img_size.height;
+                int w = slot.img_size.width, h = slot.img_size.height;
                 {
-                    int width_diff  = win_width  - img_size.width;
-                    int height_diff = win_height - img_size.height;
+                    int width_diff  = win_width  - slot.img_size.width;
+                    int height_diff = win_height - slot.img_size.height;
                     if (width_diff >= 0) {
                         left  = width_diff / 2;
-                        right = left + img_size.width;
+                        right = left + slot.img_size.width;
                     }
                     else {
                         x = (-width_diff + 1) / 2;
@@ -1095,7 +1133,7 @@ int main(int argc, char* argv[])
                     }
                     if (height_diff >= 0) {
                         top    = height_diff / 2;
-                        bottom = top + img_size.height;
+                        bottom = top + slot.img_size.height;
                     }
                     else {
                         y = (-height_diff + 1) / 2;
@@ -1110,7 +1148,7 @@ int main(int argc, char* argv[])
                 if (left > 0)
                     XFillRectangle(dpy, drawable, gc, 0, top, unsigned(left), unsigned(h));
                 // Copy image
-                XCopyArea(dpy, img_pixmap, drawable, gc, x, y, w, h, left, top);
+                XCopyArea(dpy, slot.pixmap, drawable, gc, x, y, w, h, left, top);
                 // Clear right area
                 if (right < win_width)
                     XFillRectangle(dpy, drawable, gc, right, top, unsigned(win_width - right), unsigned(h));
