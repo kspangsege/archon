@@ -34,34 +34,6 @@
 namespace archon::core::impl {
 
 
-template<class T, bool E> class HiddenBase;
-
-// Case: Non-empty
-template<class T> class HiddenBase<T, false> {
-public:
-    template<class... A> constexpr HiddenBase(A&&... args) noexcept(noexcept(T(std::forward<A>(args)...)));
-
-    constexpr auto hidden_base() noexcept       -> T&;
-    constexpr auto hidden_base() const noexcept -> const T&;
-
-private:
-    T m_hidden_base;
-};
-
-// Case: Empty
-template<class T> class HiddenBase<T, true> {
-public:
-    template<class... A> constexpr HiddenBase(A&&... args) noexcept(noexcept(T(std::forward<A>(args)...)));
-
-    constexpr auto hidden_base() noexcept       -> T&;
-    constexpr auto hidden_base() const noexcept -> const T&;
-
-private:
-    static constexpr T m_hidden_base = {};
-};
-
-
-
 template<class F, std::size_t... I> constexpr auto make_dispatch_array(std::index_sequence<I...>);
 
 
@@ -146,51 +118,6 @@ template<class T, T I, T N, class F> void for_each_int(F& func) noexcept(impl::f
 
 
 // Implementation
-
-
-template<class T>
-template<class... A> constexpr HiddenBase<T, false>::HiddenBase(A&&... args)
-    noexcept(noexcept(T(std::forward<A>(args)...)))
-    : m_hidden_base(std::forward<A>(args)...) // Throws
-{
-}
-
-
-template<class T>
-constexpr auto HiddenBase<T, false>::hidden_base() noexcept -> T&
-{
-    return m_hidden_base;
-}
-
-
-template<class T>
-constexpr auto HiddenBase<T, false>::hidden_base() const noexcept -> const T&
-{
-    return m_hidden_base;
-}
-
-
-template<class T>
-template<class... A> constexpr HiddenBase<T, true>::HiddenBase(A&&... args)
-    noexcept(noexcept(T(std::forward<A>(args)...)))
-{
-    T hidden_base(std::forward<A>(args)...); // Throws
-    static_cast<void>(hidden_base);
-}
-
-
-template<class T>
-constexpr auto HiddenBase<T, true>::hidden_base() noexcept -> T&
-{
-    return m_hidden_base;
-}
-
-
-template<class T>
-constexpr auto HiddenBase<T, true>::hidden_base() const noexcept -> const T&
-{
-    return m_hidden_base;
-}
 
 
 template<class F, std::size_t... I> constexpr auto make_dispatch_array(std::index_sequence<I...>)
