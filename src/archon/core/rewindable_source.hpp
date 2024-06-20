@@ -35,9 +35,30 @@
 namespace archon::core {
 
 
-/// \brief     
+/// \brief Byte source with rewinding capability.
 ///
-///     
+/// This class adds rewinding capability to a byte source (the reading endpoint of a byte
+/// stream). It is itself a byte source, and it wraps the sub-source that is the underlying
+/// source where the bytes are actually read from.
+///
+/// The rewinding capability is made possible through buffering. That is, all the bytes that
+/// are read through the rewindable source are also stored in a buffer inside the rewindable
+/// source. This is necessary because bytes can only be read once from the underlying
+/// source.
+///
+/// When the source is rewound (\ref rewind()), the subsequent reading process will start by
+/// going through the buffered bytes, and then resume reading from the underlying source
+/// when all the buffered bytes have been read. The bytes that are read from the underlying
+/// stream will also be stored so they are available to be reread if the source is rewound
+/// again.
+///
+/// A rewindable source can be rewound any number of times.
+///
+/// If the application reaches a point where it know that there will be no more need for
+/// rewinding, it can release the stored bytes and the allocated memory by calling \ref
+/// release().
+///
+/// FIXME: What happens if rewind() is called after release()?                       
 ///
 class RewindableSource
     : public core::Source {

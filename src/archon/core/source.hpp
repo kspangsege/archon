@@ -34,9 +34,9 @@
 namespace archon::core {
 
 
-/// \brief Reading-endpoint of abstract stream.
+/// \brief Reading-endpoint of abstract byte stream.
 ///
-/// A source is an endpoint of an abstract stream from which one can read bytes.
+/// A byte source is an endpoint of an abstract stream from which one can read bytes.
 ///
 class Source {
 public:
