@@ -28,6 +28,7 @@
 #include <system_error>
 
 #include <archon/core/span.hpp>
+#include <archon/core/assert.hpp>
 #include <archon/core/buffer.hpp>
 #include <archon/core/source.hpp>
 
@@ -38,42 +39,54 @@ namespace archon::core {
 /// \brief Byte source with rewinding capability.
 ///
 /// This class adds rewinding capability to a byte source (the reading endpoint of a byte
-/// stream). It is itself a byte source, and it wraps the sub-source that is the underlying
-/// source where the bytes are actually read from.
+/// stream). It is itself a byte source (\ref core::Source), and it wraps the sub-source
+/// which is the underlying source where the bytes will be read from by the rewindable
+/// source.
 ///
 /// The rewinding capability is made possible through buffering. That is, all the bytes that
 /// are read through the rewindable source are also stored in a buffer inside the rewindable
-/// source. This is necessary because bytes can only be read once from the underlying
-/// source.
+/// source. This is necessary because bytes can only be read from the underlying source
+/// once.
 ///
 /// When the source is rewound (\ref rewind()), the subsequent reading process will start by
 /// going through the buffered bytes, and then resume reading from the underlying source
 /// when all the buffered bytes have been read. The bytes that are read from the underlying
-/// stream will also be stored so they are available to be reread if the source is rewound
-/// again.
+/// stream, after all the buffered bytes have been read, will also be stored so they are
+/// available to be reread if the source is rewound again.
 ///
 /// A rewindable source can be rewound any number of times.
 ///
-/// If the application reaches a point where it know that there will be no more need for
-/// rewinding, it can release the stored bytes and the allocated memory by calling \ref
-/// release().
-///
-/// FIXME: What happens if rewind() is called after release()?                       
+/// If the application reaches a point where it knows that there will be no more need for
+/// rewinding, it can call \ref release(). After \ref release() has been called, bytes read
+/// from the underlying source will no longer be stored in the rewindable source. Behavior
+/// is undefined if \ref rewind() is called after an invocation of \ref release().
 ///
 class RewindableSource
     : public core::Source {
 public:
     RewindableSource(core::Source& subsource, core::Buffer<char>&) noexcept;
 
-    /// \brief     
+    /// \brief Rewind source to beginning of input.
     ///
-    ///     
+    /// This function rewinds the source, so that reading starts from the beginning
+    /// again. This can be done any number of times so long as \ref release() has not been
+    /// called.
+    ///
+    /// \sa \ref release()
     ///
     void rewind() noexcept;
 
-    /// \brief     
+    /// \brief Relinquish further rewinding capability.
     ///
-    ///     
+    /// This function puts the source into the released state. In this state bytes read from
+    /// the underlying source will not be stored in the source, and can therefore not be
+    /// reread. Behavior is undefined if \ref rewind() is called after `release()` has been
+    /// called.
+    ///
+    /// This function has no effect if the source is already in the released state
+    /// (idempotency).
+    ///
+    /// \sa \ref rewind()
     ///
     void release() noexcept;
 
@@ -107,6 +120,7 @@ inline RewindableSource::RewindableSource(core::Source& subsource, core::Buffer<
 
 inline void RewindableSource::rewind() noexcept
 {
+    ARCHON_ASSERT(!m_released);
     m_offset = 0;
 }
 
