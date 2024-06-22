@@ -83,6 +83,15 @@ EngineImpl::EngineImpl(std::string_view window_title, display::Size window_size,
     connection_config.logger = &m_display_logger;
     m_display_connection = m_display_implementation.new_connection(m_locale, connection_config); // Throws
 
+    double frame_rate = default_frame_rate;
+    if (edid)
+        set;
+    if (config.frame_rate.has_value()) {
+        frame_rate = config.frame_rate.value();
+    }
+    else {
+    }
+
     set_viewport_size(window_size);
     set_frame_rate(config.frame_rate); // Throws
     set_background_color(util::colors::black); // Throws

@@ -144,6 +144,11 @@ int main(int argc, char* argv[])
     log::LogLevel log_level_limit = log::LogLevel::warn;
     std::optional<std::string> optional_display_implementation;
 
+    cli::HelpParameters help_parameters;
+    help_parameters["default-frame-rate"] = [](std::ostream& out) {
+        out << render::Engine::default_frame_rate; // Throws
+    };
+
     cli::Spec spec;
     pat("", cli::no_attributes, spec,
         "Lorem ipsum.",
@@ -155,12 +160,13 @@ int main(int argc, char* argv[])
             list_display_implementations = true;
         }); // Throws
 
-    opt(cli::help_tag, spec); // Throws
+    opt(cli::help_tag, spec, help_parameters); // Throws
     opt(cli::stop_tag, spec); // Throws
 
     opt("-r, --frame-rate", "<rate>", cli::no_attributes, spec,
-        "The initial frame rate. The frame rate marks the upper limit of number of frames per second. The default "
-        "rate is @V.",
+        "The initial frame rate. The frame rate marks the upper limit on the number of frames per second. By default, "
+        "the initial frame rate will be set to match the refresh rate of the monitor, if it is known. If it is not "
+        "known, the initial frame rate will default to @{default-frame-rate} frames per second.",
         cli::assign(engine_config.frame_rate)); // Throws
 
     opt("-s, --window-size", "<size>", cli::no_attributes, spec,

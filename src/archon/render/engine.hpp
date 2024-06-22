@@ -482,12 +482,12 @@ struct Engine::Config {
 
     /// \brief The initial frame rate.
     ///
-    /// This is the initial frame rate of the engine. The frame rate marks the upper limit
-    /// of frames per second.
+    /// This is the initial frame rate of the engine. The frame rate marks the upper limit                   
+    /// on the number of frames per second.
     ///
-    /// The default frame rate is 60.
+    /// The default frame rate is 60 frames per second.
     ///
-    double frame_rate = 60;
+    std::optional<double> frame_rate = 60;
 
     /// \brief Base orientation of scene.
     ///
