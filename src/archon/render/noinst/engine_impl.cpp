@@ -77,6 +77,15 @@ EngineImpl::EngineImpl(Scene& scene, display::Connection& conn, display::Size wi
     , m_trackball() // Throws
 {
 
+    double frame_rate = default_frame_rate;
+    if (edid)
+        set;
+    if (config.frame_rate.has_value()) {
+        frame_rate = config.frame_rate.value();
+    }
+    else {
+    }
+
     set_viewport_size(window_size);
     set_frame_rate(config.frame_rate); // Throws
     set_background_color(util::colors::black); // Throws
