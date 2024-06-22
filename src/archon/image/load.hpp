@@ -72,7 +72,7 @@ auto load(core::FilesystemPathRef path, const std::locale&, const image::LoadCon
 /// unchanged in this case.
 ///
 ///
-/// ### File format detection scheme
+/// #### File format detection scheme
 ///
 /// If a particular file format is specified through \p config (\ref
 /// image::LoadConfig::file_format), and such a file format exists in the registry (\ref
@@ -99,7 +99,7 @@ auto load(core::FilesystemPathRef path, const std::locale&, const image::LoadCon
 /// image::Error::file_format_detection_failed.
 ///
 ///
-/// ### Buffered read from file
+/// #### Buffered read from file
 ///
 /// Unless disabled, `try_load()` will read from the specified file in a buffered
 /// manner. Specifically, if \ref image::LoadConfig::read_buffer is nonempty, that buffer

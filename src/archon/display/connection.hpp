@@ -41,8 +41,8 @@
 #include <archon/display/resolution.hpp>
 #include <archon/display/viewport.hpp>
 #include <archon/display/guarantees.hpp>
-#include <archon/display/connection_config_x11.hpp>
-#include <archon/display/connection_config_sdl.hpp>
+#include <archon/display/x11_connection_config.hpp>
+#include <archon/display/sdl_connection_config.hpp>
 #include <archon/display/window.hpp>
 
 
@@ -152,7 +152,14 @@ public:
     /// The initial position of the window is determined by the platform and / or
     /// implementation. When using the X11-based implementation (\ref
     /// display::get_x11_implementation_slot()), the initial position is generally
-    /// determined by a window manager.
+    /// determined by a window manager. In any case, the initial position will be reported
+    /// to the application by way of a "reposition" event (\ref
+    /// display::WindowEventHandler::on_reposition()).
+    ///
+    /// The initial size of the window will generally be as requested (\p size), but may be
+    /// different. If it is different, a "resize" event is guaranteed to be generated
+    /// initially (\ref display::WindowEventHandler::on_resize()). If the initial size is as
+    /// requested, a "resize" event may or may not be generated initially.
     ///
     /// The destruction of the returned window object (\p win) must happen before the
     /// destruction of this connection object.
@@ -167,36 +174,125 @@ public:
     virtual bool try_new_window(std::string_view title, display::Size size, const display::Window::Config& config,
                                 std::unique_ptr<display::Window>& win, std::string& error) = 0;
 
+    /// \brief Set new connection-level event handler.
+    ///
+    /// This function sets a new event handler at the connection level. Connection-level
+    /// events will be reported through the specified event handler.
+    ///
+    /// The default connection-level event handler behaves as a instance of \ref
+    /// display::ConnectionEventHandler would do with no overridden event handler functions.
+    ///
+    /// The avoid losing events, the application must set the desired event handler before
+    /// calling \ref process_events() or \ref process_events_a().
+    ///
+    /// \sa \ref process_events(), \ref process_events_a()
+    /// \sa \ref display::Window::set_event_handler()
+    ///
+    virtual void set_event_handler(display::ConnectionEventHandler&) = 0;
+
     using clock_type      = std::chrono::steady_clock;
     using time_point_type = std::chrono::time_point<clock_type>;
 
-    /// \{
+    /// \brief Process event with no deadline.
     ///
-    /// \brief Process events until deadline expires or event processing is interrupted.
+    /// This function has he same effect as \ref process_events_a() except that there is no
+    /// deadline. Return will not happen until an event handler function returns `false`.
     ///
-    /// `process_events(display::ConnectionEventHandler*)` will process events as they occur
-    /// until the event processing is interrupted.
+    /// \sa \ref process_events_a()
     ///
-    /// Event processing is interrupted when any event handler function returns `false`. See
-    /// \ref display::WindowEventHandler.
+    virtual void process_events() = 0;
+
+    /// \brief Process events until deadline expires.
     ///
-    /// `process_events(time_point_type, display::ConnectionEventHandler*)` will process
-    /// events as they occur until the specified deadline expires or event processing is
-    /// interrupted. If the deadline expires before event processing is interrupted, this
-    /// function returns `true`. Otherwise this function returns `false`, which means that
-    /// event processing was interrupted.
+    /// This function processes events as they occur until the specified deadline expires
+    /// (\p deadline) or until event processing is interrupted by an event handler that
+    /// returns `false` (see \ref display::WindowEventHandler and \ref
+    /// display::ConectionEventHandler). The calling thread will be repeatedly blocked while
+    /// it waits for more events to occur.
     ///
-    /// So long as event processing is not interrupted, `process_events(time_point_type,
-    /// display::ConnectionEventHandler*)` will process at least those events that were
-    /// immediately available prior to the invocation of this function, even when the
-    /// specified deadline was already expired prior to the invocation.
+    /// Events from the underlying implementation can be thought of as being added to a
+    /// queue as they are generated. Event processing then works by taking events from that
+    /// queue one by one and calling the event handler that corresponds to the type of the
+    /// next event. Window-specific events are directed to the event handler that is
+    /// installed for the relevant window (see \ref
+    /// display::Window::set_event_handler()). Connection-level events are directed to the
+    /// installed connection-level event handler (see \ref set_event_handler()).
     ///
-    /// These functions block the calling thread while waiting for events to occur or the
-    /// deadline to expire.
+    /// This function returns `false` when it is interrupted by an event handler that
+    /// returned `false`. If the deadline expires before an event handler has returned
+    /// `false`, this function returns `true`. Deadline expiration may be detected slightly
+    /// later than the true point of expiration. When an event handler returns `false`, no
+    /// additional event handlers will be called before the return of this function.
     ///
-    virtual void process_events(display::ConnectionEventHandler* = nullptr) = 0;
-    virtual bool process_events(time_point_type deadline, display::ConnectionEventHandler* = nullptr) = 0;
-    /// \}
+    /// If the deadline expires at a time where events were available to be processed, then
+    /// a subsequent invocation of `process_events_a()` cannot return due to deadline
+    /// expiration until at least some of those events have been processed (at least one,
+    /// but ideally more if more were available). This ensures that event processing cannot
+    /// become completely "starved" in a situation where `process_events_a()` is called
+    /// repeatedly with an expired or almost expired deadline.
+    ///
+    /// In a situation where new events are generated fast enough by the underlying
+    /// implementation to fully saturate event processing, implementations are required to
+    /// ensure that return from `process_events_a()` due to deadline expiration cannot be
+    /// indefinitely delayed (there must be an upper bound on the number of events that get
+    /// processed after expiration).
+    ///
+    /// "Expose" events (\ref display::WindowEventHandler::on_expose()) are buffered in the
+    /// sense that if many actual "expose" events occur at almost the same time, only the
+    /// last one will generally be reported to the application. The implementation must
+    /// ensure that the delay in the signaling of "expose" events caused by this buffering
+    /// mechanism is upwards bounded (bound on number of events that will be processed after
+    /// the occurrence of an actual "expose" event and before the signaling of it to the
+    /// application). Due to this buffering mechanism, a handler for the "expose" event may
+    /// be a good place to perform redrawing of the window's contents, as it generally will
+    /// ensure that redrawing is performed no more often than it needs to be. See the notes
+    /// on redrawing strategies in the documentation of \ref display::Window.
+    ///
+    /// Display implementations are required to ensure that an "expose" event is generated
+    /// after every generated "resize" event (\ref display::WindowEventHandler::on_resize())
+    /// regardless of whether the "resize" event corresponded to an expansion or a shrinkage
+    /// of the window area. These "expose" events must be subject to buffering as explained
+    /// above. The purpose of these requirements is to expand the number of cases where
+    /// redrawing of window contents can be dealt with entirely in the "expose" event
+    /// handler.
+    ///
+    /// "Before sleep" pseudo events (\ref display::ConnectionEventHandler::before_sleep())
+    /// are generated immediately before the event processing thread goes to sleep while
+    /// waiting for more events to occur. It will also be called regularly in a situation
+    /// where event processing is fully saturated so that no sleeping takes place. This
+    /// behavior allows the "before sleep" pseudo event to be used as a basis for redrawing
+    /// window contents. For more on this, see the notes on redrawing strategies in the
+    /// documentation of \ref display::Window.
+    ///
+    /// Display implementations must ensure that "before sleep" pseudo events are generated
+    /// at regular intervals even when there is no time to sleep, and this must be
+    /// sufficiently often to allow for reasonable redrawing behavior as described above.
+    ///
+    /// Applications must assume that the signaling of the expiration of a deadline can be
+    /// indefinitely delayed by interruptions of event processing. For example, if the
+    /// "before sleep" handler returns `false` every time it is called, repeated invocations
+    /// of `process_events_a()` with the same expired deadline may return `false` and
+    /// continue to do that for ever, indicating interruption of event processing rather
+    /// than deadline expiration. Whether this can happen in practice depends on the
+    /// underlying display implementation.
+    ///
+    /// With two exceptions, event handlers should execute fast, which means that they
+    /// should do very little work and never anything that might block the calling
+    /// thread. The two exceptions are \ref display::WindowEventHandler::on_expose() and
+    /// \ref display::ConnectionEventHandler::before_sleep(). Handlers for these two types
+    /// of events can engage in longer running tasks such as redrawing window contents. See
+    /// \ref display::Window for notes on redrawing strategies.
+    ///
+    /// Display implementations are allowed to assume that event handlers other than \ref
+    /// display::WindowEventHandler::on_expose() and \ref
+    /// display::ConnectionEventHandler::before_sleep() execute fast in the sense explained
+    /// above.
+    ///
+    /// \sa \ref process_events()
+    /// \sa \ref display::WindowEventHandler, \ref display::ConectionEventHandler
+    /// \sa \ref set_event_handler(), \ref display::Window::set_event_handler()
+    ///
+    virtual bool process_events_a(time_point_type deadline) = 0;
 
     /// \brief Number of screens accessible through connection.
     ///
@@ -233,7 +329,8 @@ public:
     /// \brief Retrieve current configuration of screen.
     ///
     /// If supported by the implementation, this function returns the current configuration
-    /// of the specified screen (\p screen).
+    /// of the specified screen (\p screen). Specifying a negative value for the screen has
+    /// the same effect as specifying the default screen (\ref get_default_screen()).
     ///
     /// A particular display implementation (\ref display::Implementation) is not required
     /// to expose information about the configuration of each of the accessible screens. If
@@ -249,16 +346,8 @@ public:
     /// whenever a screen configuration changes (\ref
     /// display::ConnectionEventHandler::on_screen_change()).
     ///
-    /// Some display implementations are able to provide the screen configurations, but in a
-    /// less than reliable manner due to quirks in the underlying subsystem (SDL is an
-    /// example of this). Such implementations must set \p reliable to `false` when
-    /// `try_get_screen_conf()` returns `true`. Display implementations that provide the
-    /// screen configuration in a reliable manner should set \p reliable to `true` when
-    /// `try_get_screen_conf()` returns `true`.
-    ///
     virtual bool try_get_screen_conf(int screen, core::Buffer<display::Viewport>& viewports,
-                                     core::Buffer<char>& strings, std::size_t& num_viewports,
-                                     bool& reliable) const = 0;
+                                     core::Buffer<char>& strings, std::size_t& num_viewports) const = 0;
 
     /// \brief Associated implementation.
     ///
@@ -291,13 +380,13 @@ struct Connection::Config {
     ///
     /// These are the parameters that are specific to the X11-based implementation.
     ///
-    display::ConnectionConfigX11 x11;
+    display::x11_connection_config x11;
 
     /// \brief Parameters specific to SDL-based implementation.
     ///
     /// These are the parameters that are specific to the SDL-based implementation.
     ///
-    display::ConnectionConfigSDL sdl;
+    display::sdl_connection_config sdl;
 };
 
 

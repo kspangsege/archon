@@ -65,7 +65,7 @@ ARCHON_TEST(Image_Iter_RepeatLeft)
             for (int x = 0; x < outer_size.width; ++x) {
                 image::Pos pos_1 = { x, y };
                 image::Pos pos_2 = pos_1;
-                if (image::Box(pos_1, 1).contained_in(affected_area))
+                if (affected_area.contains_pixel_at(pos_1))
                     pos_1.x = pattern.pos.x + core::int_periodic_mod(pos_1.x - pattern.pos.x, pattern.size.width);
                 const comp_type* pixel_1 = iter_1(pos_1);
                 const comp_type* pixel_2 = iter_2(pos_2);
@@ -111,7 +111,7 @@ ARCHON_TEST(Image_Iter_RepeatRight)
             for (int x = 0; x < outer_size.width; ++x) {
                 image::Pos pos_1 = { x, y };
                 image::Pos pos_2 = pos_1;
-                if (image::Box(pos_1, 1).contained_in(affected_area))
+                if (affected_area.contains_pixel_at(pos_1))
                     pos_1.x = pattern.pos.x + core::int_periodic_mod(pos_1.x - pattern.pos.x, pattern.size.width);
                 const comp_type* pixel_1 = iter_1(pos_1);
                 const comp_type* pixel_2 = iter_2(pos_2);
@@ -157,7 +157,7 @@ ARCHON_TEST(Image_Iter_RepeatUp)
             for (int x = 0; x < outer_size.width; ++x) {
                 image::Pos pos_1 = { x, y };
                 image::Pos pos_2 = pos_1;
-                if (image::Box(pos_1, 1).contained_in(affected_area))
+                if (affected_area.contains_pixel_at(pos_1))
                     pos_1.y = pattern.pos.y + core::int_periodic_mod(pos_1.y - pattern.pos.y, pattern.size.height);
                 const comp_type* pixel_1 = iter_1(pos_1);
                 const comp_type* pixel_2 = iter_2(pos_2);
@@ -203,7 +203,7 @@ ARCHON_TEST(Image_Iter_RepeatDown)
             for (int x = 0; x < outer_size.width; ++x) {
                 image::Pos pos_1 = { x, y };
                 image::Pos pos_2 = pos_1;
-                if (image::Box(pos_1, 1).contained_in(affected_area))
+                if (affected_area.contains_pixel_at(pos_1))
                     pos_1.y = pattern.pos.y + core::int_periodic_mod(pos_1.y - pattern.pos.y, pattern.size.height);
                 const comp_type* pixel_1 = iter_1(pos_1);
                 const comp_type* pixel_2 = iter_2(pos_2);

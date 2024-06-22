@@ -37,13 +37,14 @@ namespace archon::display {
 
 /// \brief Representation of window of platform's graphical user interface.
 ///
-/// An instance of this class represents a window of platform's graphical user
+/// An instance of this class represents a window of the platform's graphical user
 /// interface. New windows can be created by calling \ref display::Connection::new_window().
 ///
 /// For window events to be processed, the application must set an event handler for the
 /// window using \ref set_event_handler(). To avoid loosing events, it is important that the
 /// application sets the event handler before the next invocation of \ref
-/// display::Connection::process_events() on the connection associated with the window.
+/// display::Connection::process_events() or \ref display::Connection::process_events_a() on
+/// the connection object associated with the window.
 ///
 /// Visually, a window consists of a rectangular area of contents optionally surrounded by
 /// decorations (frame and title bar). The rectangular area of contents inside the
@@ -54,6 +55,31 @@ namespace archon::display {
 /// refers to the size of the contents area, and the position of a window (\ref
 /// display::WindowPosEvent::pos) generally refers to the position of the upper-left corner
 /// of the contents area.
+///
+///
+/// #### Redrawing
+///
+/// Windows will need to have their contents redrawn from time to time. Even when the window
+/// does not get resized, its contents may get "damaged" due to the inner workings of the
+/// platform's graphical user interface (X11). A resized window will generally also require
+/// redrawing. For windows with static contents (contents depends at most on size of window)
+/// redrawing can be done in an event handler for the "expose" event (\ref
+/// display::WindowEventHandler::on_expose()). The "expose" event is generated both when the
+/// window contents is damaged and when the window is resized.
+///
+/// In more complex scenarios, where the window contents is dynamic (may change for reasons
+/// other than a resized window), applications can use a handler for the "before sleep"
+/// pseudo event to perform redrawing (\ref
+/// display::ConnectionEventHandler::before_sleep()). For example, a flag can be used to
+/// indicate that redrawing is needed, and the "before sleep" handler can check the flag and
+/// redraw when needed. An application with multiple windows may want a separate flag per
+/// window.
+///
+/// In applications performing a frame-based update of the window contents, redrawing will
+/// generally happen outside the even processor, i.e., between successive invocations of
+/// \ref display::Connection::process_events_a(). With such an application, a "before sleep"
+/// handler can be used to interrupt event processing when a "redraw" flag is raised. This
+/// could be done to ensure minimal redraw latency in cases where the frame rate is low.
 ///
 class Window {
 public:
@@ -71,7 +97,11 @@ public:
     ///
     /// It is important that a proper event handler is set before the event processor is
     /// invoked again, that is, before the next invocation of \ref
-    /// display::Connection::process_events(). Otherwise, events are likely to be lost.
+    /// display::Connection::process_events() or \ref
+    /// display::Connection::process_events_a(). Otherwise events might be lost.
+    ///
+    /// \sa \ref display::Connection::process_events()
+    /// \sa \ref display::ConnectionEventHandler
     ///
     virtual void set_event_handler(display::WindowEventHandler&) = 0;
 
@@ -117,6 +147,10 @@ public:
     /// More than one window can be in fullscreen mode at the same time, but the exact
     /// behavior depends on the implementation and the underlying platform.
     ///
+    /// \note Switching to or from fullscreen mode is supposed to generate "reposition"
+    /// events, but this does not always happen. See \ref
+    /// display::WindowEventHandler::on_reposition() for more information.
+    ///
     virtual void set_fullscreen_mode(bool on) = 0;
 
     /// \{
@@ -158,9 +192,11 @@ public:
     ///
     /// These functions copy pixels from the specified texture (\p tex) to this window. The
     /// overload that takes a source area argument (\p source_area) copies the pixels from
-    /// that area of the texture. The source are must be confined to the texture
+    /// that area of the texture. The source area must be confined to the texture
     /// boundary. The other overload copies the entire texture. The specified position (\p
-    /// pos) is the upper-left corner of the target area in the window.
+    /// pos) is the upper-left corner of the target area in the window. The target area is
+    /// allowed to extend beyond the boundaries of the window, or even fall entirely outside
+    /// those boundaries.
     ///
     /// Call \ref present() to present the result.     
     ///

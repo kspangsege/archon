@@ -88,12 +88,39 @@ struct Box {
     ///
     constexpr bool is_empty() const noexcept;
 
+    /// \brief Whether this box has nonempty intersection with other box.
+    ///
+    /// This function returns true if, and only if this box intersects the specified box (\p
+    /// other), and the intersection contains at least one pixel.
+    ///
+    constexpr bool intersects(const Box& other) const noexcept;
+
+    /// \brief Whether this box contains other box.
+    ///
+    /// This function returns `true` if this box contains the specified box (\p
+    /// other). Otherwise, it returns `false`.
+    ///
+    /// \sa \ref contained_in()
+    /// \sa \ref contains_pixel_at()
+    ///
+    constexpr bool contains(const Box& other) const noexcept;
+
     /// \brief Whether this box is contained in other box.
     ///
     /// This function returns `true` if this box is contained in the specified box (\p
     /// other). Otherwise, it returns `false`.
     ///
+    /// \sa \ref contains()
+    ///
     constexpr bool contained_in(const Box& other) const noexcept;
+
+    /// \brief When this box contains pixel at specific position.
+    ///
+    /// This function is shorthand for `contains(Box(pos, 1))`.
+    ///
+    /// \sa \ref contains()
+    ///
+    constexpr bool contains_pixel_at(const pixel::Pos& pos) const noexcept;
 
     /// \brief Clip specified box to this box.
     ///
@@ -180,13 +207,35 @@ constexpr bool Box::is_empty() const noexcept
 }
 
 
+constexpr bool Box::intersects(const Box& other) const noexcept
+{
+    bool horz = (pos.x < other.pos.x ? size.width > other.pos.x - pos.x && other.size.width > 0 :
+                 other.size.width > pos.x - other.pos.x && size.width > 0);
+    bool vert = (pos.y < other.pos.y ? size.height > other.pos.y - pos.y && other.size.height > 0 :
+                 other.size.height > pos.y - other.pos.y && size.height > 0);
+    return (horz && vert);
+}
+
+
+constexpr bool Box::contains(const Box& other) const noexcept
+{
+    bool horz = (other.pos.x >= pos.x && other.size.width <= size.width &&
+                 other.pos.x - pos.x <= size.width - other.size.width);
+    bool vert = (other.pos.y >= pos.y && other.size.height <= size.height &&
+                 other.pos.y - pos.y <= size.height - other.size.height);
+    return (horz && vert);
+}
+
+
 constexpr bool Box::contained_in(const Box& other) const noexcept
 {
-    bool horz = (pos.x >= other.pos.x && size.width <= other.size.width &&
-                 pos.x - other.pos.x <= other.size.width - size.width);
-    bool vert = (pos.y >= other.pos.y && size.height <= other.size.height &&
-                 pos.y - other.pos.y <= other.size.height - size.height);
-    return (horz && vert);
+    return other.contains(*this);
+}
+
+
+constexpr bool Box::contains_pixel_at(const pixel::Pos& pos) const noexcept
+{
+    return contains(pixel::Box(pos, 1));
 }
 
 

@@ -112,7 +112,7 @@ FIXME: Specify behavior on failure (when function returns false).
 
 
 
-### Modes
+#### Modes
 
 A file implementation is in one of three modes, neutral, reading, or writing. Initially, it
 is in neutral mode.
@@ -129,7 +129,7 @@ hand, will likely have to keep track of the mode in order to not violate the rul
 the use of the text file implementation.
 
 
-### File pointers
+#### File pointers
 
 There are three different file pointers to keep track of; the logical file pointer, the
 read-ahead pointer, and the actual file pointer.
@@ -158,7 +158,7 @@ of the logical file pointer is always greater than, or equal to the position of 
 file pointer.
 
 
-### Data members
+#### Data members
 
 `Impl::has_degen_unshift` must be a static compile-time constant, and should evaluate to
 `true` in a boolean context when the `unshift()` member function has no effect, and
@@ -166,7 +166,7 @@ therefore never needs to be called. It must evaluate to `false` if the `unshift(
 an effect, and therefore may need to be called in some cases.
 
 
-### Reset
+#### Reset
 
 `Impl::reset()` must reset the file implementation object such that it is in a state that is
 appropriate for a newly opened file. It must at least put the file implementation object
@@ -177,7 +177,7 @@ of the associated file object. The application is allowed to call `reset()` befo
 `open()` on the associated file object.
 
 
-### Read and advance
+#### Read and advance
 
 `Impl::read_ahead()` must extract characters starting from the current position of the
 read-ahead pointer. Provided that the size of the specified buffer is not zero,
@@ -226,7 +226,7 @@ FIXME: Integrate this information for  `Impl::advance()`:
 > must be considered throwing from a generic point of view)
 
 
-### Write and unshift
+#### Write and unshift
 
 `Impl::write()` must inject the specified characters into the file, starting from the
 current position of the logical file pointer. Upon return, the logical file pointer will
@@ -261,7 +261,7 @@ neutral mode into writing mode, even if the unshift operation fails. Behavior is
 if this function is called while the file implementation is in reading mode.
 
 
-### Discard and flush
+#### Discard and flush
 
 `Impl::discard()` causes buffered data to be discarded. It may be called only while the file
 implementation is in reading, or in neutral mode. If the file implementation is in neutral
@@ -288,7 +288,7 @@ mode. After a failed invocation of flush(), the mode is unchanged. If encoding o
 character fails, `Impl::flush()` must still flush everything up to the point of the failure.
 
 
-### Tell and seek
+#### Tell and seek
 
 `Impl::tell_read()` determines the position of the logical file pointer when the file
 implementation is in reading, or in neutral mode. Behavior is undefined if this function is
@@ -315,7 +315,7 @@ FIXME: Integrate this information for `Impl::seek()`:
 > The "state" part of pos arg is ignored by dome implementations.
 
 
-### Imbue
+#### Imbue
 
 `Impl::imbue()` may be called only while the file implementation is in neutral mode. It must
 then take any necessary action in in order to adopt the specified locale and shift

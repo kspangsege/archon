@@ -358,7 +358,7 @@ void Iter<T>::fill(const comp_type* pixel, const image::Box& area, int n) const
 template<class T>
 void Iter<T>::repeat(const image::Box& pattern, const image::Box& area, int n) const
 {
-    ARCHON_ASSERT(pattern.contained_in(area));
+    ARCHON_ASSERT(area.contains(pattern));
     image::Size lead_size = pattern.pos - area.pos;
     image::Size trail_size = area.size - (lead_size + pattern.size);
     repeat_left(pattern, lead_size.width, n); // Throws

@@ -62,12 +62,13 @@
 #include <archon/display/noinst/timestamp_unwrapper.hpp>
 #include <archon/display/noinst/edid.hpp>
 #include <archon/display/guarantees.hpp>
-#include <archon/display/connection_config_x11.hpp>
+#include <archon/display/x11_fullscreen_monitors.hpp>
+#include <archon/display/x11_connection_config.hpp>
 #include <archon/display/texture.hpp>
 #include <archon/display/window.hpp>
 #include <archon/display/connection.hpp>
 #include <archon/display/implementation.hpp>
-#include <archon/display/implementation_x11.hpp>
+#include <archon/display/x11_implementation.hpp>
 #include <archon/display/noinst/impl_util.hpp>
 #include <archon/display/noinst/x11/support.hpp>
 
@@ -270,11 +271,13 @@ public:
     const ImplementationImpl& impl;
     const std::locale locale;
     log::Logger& logger;
+    display::ConnectionEventHandler* event_handler = this;
     x11::DisplayWrapper dpy_owner;
     Display* dpy = nullptr;
 
     Atom atom_wm_protocols;
     Atom atom_wm_delete_window;
+    Atom atom_net_wm_fullscreen_monitors;
     Atom atom_net_wm_state;
     Atom atom_net_wm_state_fullscreen;
 
@@ -282,30 +285,32 @@ public:
     Atom atom_edid;
 #endif
 
-    ConnectionImpl(const ImplementationImpl&, const std::locale&, log::Logger*, const display::ConnectionConfigX11&);
+    ConnectionImpl(const ImplementationImpl&, const std::locale&, log::Logger*, const display::x11_connection_config&);
 
-    bool try_open(const display::ConnectionConfigX11&, std::string&);
-    void register_window(::Window id, WindowImpl&);
-    void unregister_window(::Window id) noexcept;
+    bool try_open(const display::x11_connection_config&, std::string&);
+    void register_window(WindowImpl&);
+    void unregister_window(WindowImpl&) noexcept;
     auto ensure_image_bridge(const XVisualInfo&, const x11::PixelFormat&) const -> x11::ImageBridge&;
+    void set_fullscreen_monitors(::Window win, ::Window root);
 
     bool try_map_key_to_key_code(display::Key, display::KeyCode&) const override;
     bool try_map_key_code_to_key(display::KeyCode, display::Key&) const override;
     bool try_get_key_name(display::KeyCode, std::string_view&) const override;
     bool try_new_window(std::string_view, display::Size, const display::Window::Config&,
                         std::unique_ptr<display::Window>&, std::string&) override;
-    void process_events(display::ConnectionEventHandler*) override;
-    bool process_events(time_point_type, display::ConnectionEventHandler*) override;
+    void set_event_handler(display::ConnectionEventHandler&) override;
+    void process_events() override;
+    bool process_events_a(time_point_type) override;
     int get_num_screens() const override;
     int get_default_screen() const override;
-    bool try_get_screen_conf(int, core::Buffer<display::Viewport>&, core::Buffer<char>&,
-                             std::size_t&, bool&) const override;
+    bool try_get_screen_conf(int, core::Buffer<display::Viewport>&, core::Buffer<char>&, std::size_t&) const override;
     auto get_implementation() const noexcept -> const display::Implementation& override;
 
 private:
     const std::optional<int> m_depth_override;
     const std::optional<int> m_class_override;
     const std::optional<VisualID> m_visual_override;
+    const std::optional<display::x11_fullscreen_monitors> m_fullscreen_monitors;
     const bool m_prefer_default_nondecomposed_colormap;
     const bool m_disable_double_buffering;
     const bool m_disable_glx_direct_rendering;
@@ -346,7 +351,7 @@ private:
     // in progress.
     //
     // In the interest of alignment across display implementations and with the SDL-based
-    // implementation in particular (`implementation_sdl.cpp`), the required behavior of
+    // implementation in particular (`sdl_implementation.cpp`), the required behavior of
     // display implementations is to generate the "mouse out" event when the grab ends. See
     // also display::EventHandler::on_mouseover().
     //
@@ -358,10 +363,12 @@ private:
     //
     // INVARIANT: A window is in `m_exposed_windows` if and only if it is in `m_windows` and
     // has `has_pending_expose_event` set to `true`.
-    core::Deque<::Window> m_exposed_windows;
+    //
+    core::Deque<WindowImpl*> m_exposed_windows;
 
     // X11 timestamps are 32-bit unsigned integers and `Time` refers to the unsigned integer
     // type that X11 uses to store these timestamps.
+    //
     using timestamp_unwrapper_type = impl::TimestampUnwrapper<Time, 32>;
     timestamp_unwrapper_type m_timestamp_unwrapper;
 
@@ -387,7 +394,9 @@ private:
                                const x11::VisualSpec*&, std::string& error) const;
     auto get_pixmap_format(int depth) const -> const XPixmapFormatValues&;
     auto ensure_pixel_format(ScreenSlot&, const XVisualInfo&) const -> const x11::PixelFormat&;
-    bool do_process_events(const time_point_type* deadline, display::ConnectionEventHandler*);
+    bool do_process_events(const time_point_type* deadline);
+    bool process_event_batch();
+    bool after_event_batch();
     bool lookup_window(::Window window_id, WindowImpl*& window) noexcept;
     void track_pointer_grabs(::Window window_id, unsigned button, bool is_press);
     bool is_pointer_grabbed() const noexcept;
@@ -440,6 +449,8 @@ public:
 private:
     bool m_is_registered = false;
     bool m_is_double_buffered = false;
+    bool m_is_mapped = false;
+    bool m_fullscreen_mode = false;
 
     const x11::PixelFormat& m_pixel_format;
     x11::ImageBridge* m_image_bridge = nullptr;
@@ -456,6 +467,7 @@ private:
 #endif
 
     void set_property(Atom name, Atom value) noexcept;
+    void do_set_fullscreen_mode(bool on);
     void do_fill(util::Color color, int x, int y, unsigned w, unsigned h);
     void do_put_texture(const TextureImpl&, const display::Box& source_area, const display::Pos& pos);
     auto create_image_bridge() -> x11::ImageBridge&;
@@ -531,13 +543,14 @@ auto SlotImpl::get_implementation_a(const display::Guarantees& guarantees) const
 
 
 inline ConnectionImpl::ConnectionImpl(const ImplementationImpl& impl_2, const std::locale& locale_2,
-                                      log::Logger* logger, const display::ConnectionConfigX11& config)
+                                      log::Logger* logger, const display::x11_connection_config& config)
     : impl(impl_2)
     , locale(locale_2)
     , logger(log::Logger::or_null(logger))
     , m_depth_override(config.visual_depth)
     , m_class_override(x11::map_opt_visual_class(config.visual_class))
     , m_visual_override(map_opt_visual_type(config.visual_type)) // Throws
+    , m_fullscreen_monitors(config.fullscreen_monitors)
     , m_prefer_default_nondecomposed_colormap(config.prefer_default_nondecomposed_colormap)
     , m_disable_double_buffering(config.disable_double_buffering)
     , m_disable_glx_direct_rendering(config.disable_glx_direct_rendering)
@@ -547,7 +560,7 @@ inline ConnectionImpl::ConnectionImpl(const ImplementationImpl& impl_2, const st
 }
 
 
-bool ConnectionImpl::try_open(const display::ConnectionConfigX11& config, std::string& error)
+bool ConnectionImpl::try_open(const display::x11_connection_config& config, std::string& error)
 {
     std::string_view display = x11::get_display_string(config.display);
     if (ARCHON_UNLIKELY(!x11::try_connect(display, dpy_owner))) { // Throws
@@ -576,10 +589,11 @@ bool ConnectionImpl::try_open(const display::ConnectionConfigX11& config, std::s
 
     m_pixmap_formats = x11::fetch_pixmap_formats(dpy); // Throws
 
-    atom_wm_protocols            = intern_string("WM_PROTOCOLS");
-    atom_wm_delete_window        = intern_string("WM_DELETE_WINDOW");
-    atom_net_wm_state            = intern_string("_NET_WM_STATE");
-    atom_net_wm_state_fullscreen = intern_string("_NET_WM_STATE_FULLSCREEN");
+    atom_wm_protocols               = intern_string("WM_PROTOCOLS");
+    atom_wm_delete_window           = intern_string("WM_DELETE_WINDOW");
+    atom_net_wm_fullscreen_monitors = intern_string("_NET_WM_FULLSCREEN_MONITORS");
+    atom_net_wm_state               = intern_string("_NET_WM_STATE");
+    atom_net_wm_state_fullscreen    = intern_string("_NET_WM_STATE_FULLSCREEN");
 
 #if HAVE_XRANDR
     atom_edid = intern_string(RR_PROPERTY_RANDR_EDID);
@@ -591,8 +605,9 @@ bool ConnectionImpl::try_open(const display::ConnectionConfigX11& config, std::s
 }
 
 
-inline void ConnectionImpl::register_window(::Window id, WindowImpl& window)
+inline void ConnectionImpl::register_window(WindowImpl& window)
 {
+    ::Window id = window.win;
     auto i = m_windows.emplace(id, window); // Throws
     bool was_inserted = i.second;
     ARCHON_ASSERT(was_inserted);
@@ -604,19 +619,20 @@ inline void ConnectionImpl::register_window(::Window id, WindowImpl& window)
 }
 
 
-inline void ConnectionImpl::unregister_window(::Window id) noexcept
+inline void ConnectionImpl::unregister_window(WindowImpl& window) noexcept
 {
+    ::Window id = window.win;
     std::size_t n = m_windows.erase(id);
     ARCHON_ASSERT(n == 1);
 
     if (ARCHON_UNLIKELY(m_pointer_grab_window_id == id))
         m_pointer_grab_buttons.clear();
 
-    auto i = std::find(m_exposed_windows.begin(), m_exposed_windows.end(), id);
+    auto i = std::find(m_exposed_windows.begin(), m_exposed_windows.end(), &window);
     if (i != m_exposed_windows.end())
         m_exposed_windows.erase(i);
 
-    if (ARCHON_LIKELY(m_have_curr_window && id == m_curr_window_id))
+    if (ARCHON_LIKELY(m_have_curr_window && m_curr_window_id == id))
         m_curr_window = nullptr;
 }
 
@@ -640,6 +656,15 @@ auto ConnectionImpl::ensure_image_bridge(const XVisualInfo& visual_info,
     ARCHON_ASSERT(was_inserted);
     i = p.first;
     return *i->second;
+}
+
+
+void ConnectionImpl::set_fullscreen_monitors(::Window win, ::Window root)
+{
+    if (ARCHON_LIKELY(!m_fullscreen_monitors.has_value()))
+        return;
+    x11::set_fullscreen_monitors(dpy, win, m_fullscreen_monitors.value(), root,
+                                 atom_net_wm_fullscreen_monitors); // Throws
 }
 
 
@@ -708,8 +733,6 @@ bool ConnectionImpl::try_new_window(std::string_view title, display::Size size, 
         bool enable_glx_direct_rendering = !m_disable_glx_direct_rendering;
         win_2->create(size, config, enable_double_buffering, enable_opengl, enable_glx_direct_rendering); // Throws
         win_2->set_title(title); // Throws
-        if (ARCHON_UNLIKELY(config.fullscreen))
-            win_2->set_fullscreen_mode(true); // Throws
         if (ARCHON_UNLIKELY(m_install_colormaps))
             XInstallColormap(dpy, pixel_format.get_colormap());
         win = std::move(win_2);
@@ -719,17 +742,22 @@ bool ConnectionImpl::try_new_window(std::string_view title, display::Size size, 
 }
 
 
-void ConnectionImpl::process_events(display::ConnectionEventHandler* connection_event_handler)
+void ConnectionImpl::set_event_handler(display::ConnectionEventHandler& handler)
 {
-    const time_point_type* deadline = nullptr;
-    do_process_events(deadline, connection_event_handler); // Throws
+    event_handler = &handler;
 }
 
 
-bool ConnectionImpl::process_events(time_point_type deadline,
-                                    display::ConnectionEventHandler* connection_event_handler)
+void ConnectionImpl::process_events()
 {
-    return do_process_events(&deadline, connection_event_handler); // Throws
+    const time_point_type* deadline = nullptr;
+    do_process_events(deadline); // Throws
+}
+
+
+bool ConnectionImpl::process_events_a(time_point_type deadline)
+{
+    return do_process_events(&deadline); // Throws
 }
 
 
@@ -746,10 +774,15 @@ int ConnectionImpl::get_default_screen() const
 
 
 bool ConnectionImpl::try_get_screen_conf(int screen, core::Buffer<display::Viewport>& viewports,
-                                         core::Buffer<char>& strings, std::size_t& num_viewports, bool& reliable) const
+                                         core::Buffer<char>& strings, std::size_t& num_viewports) const
 {
-    if (ARCHON_UNLIKELY(screen < 0 || screen >= int(ScreenCount(dpy))))
+    int screen_2 = screen;
+    if (ARCHON_LIKELY(screen_2 < 0)) {
+        screen_2 = int(DefaultScreen(dpy));
+    }
+    else if (ARCHON_UNLIKELY(screen_2 >= int(ScreenCount(dpy)))) {
         throw std::invalid_argument("Bad screen index");
+    }
 
 #if HAVE_XRANDR
     if (m_extension_info.have_xrandr) {
@@ -774,7 +807,6 @@ bool ConnectionImpl::try_get_screen_conf(int screen, core::Buffer<display::Viewp
             };
         }
         num_viewports = n;
-        reliable = true;
         return true;
     }
     return false;
@@ -782,7 +814,6 @@ bool ConnectionImpl::try_get_screen_conf(int screen, core::Buffer<display::Viewp
     static_cast<void>(viewports);
     static_cast<void>(strings);
     static_cast<void>(num_viewports);
-    static_cast<void>(reliable);
     return false;
 #endif // !HAVE_XRANDR
 }
@@ -884,39 +915,124 @@ auto ConnectionImpl::ensure_pixel_format(ScreenSlot& screen_slot,
 }
 
 
-bool ConnectionImpl::do_process_events(const time_point_type* deadline,
-                                       display::ConnectionEventHandler* connection_event_handler)
+bool ConnectionImpl::do_process_events(const time_point_type* deadline)
 {
-    // This function takes care to meet the following requirements:
+    // The implementation below takes care to meet the general requirements for display
+    // implementations (see display::Connection::process_events_a()) as well as the
+    // following additional requirements:
     //
-    // - XFlush() must be called before waiting (poll()) whenever there is a chance that
-    //   there are unflushed commands.
+    //  * There must be no unflushed X11 requests when sleeping takes place. Below, this is
+    //    ensured by the fact there is no opportunity for X11 requests to be generated
+    //    between the flushing read (call to read() with QueuedAfterFlush) and the sleep
+    //    (call to wait()).
     //
-    // - XEventsQueued() must be called immediately before waiting (poll()) to ensure that
-    //   there are no events that are already queued (must be called after XFlush()).
-    //
-    // - There must be no way for the execution of WindowEventHandler::on_expose() and
-    //   ConnectionEventHandler::before_sleep() to be starved indefinitely by event
-    //   saturation. This is ensured by fully exhausting one batch of events at a time
-    //   (m_remaining_events_in_batch).
-    //
-    // - There must be no way for the return from do_process_events() due to expiration of
-    //   the deadline to be starved indefinitely by event saturation. This is ensured by
-    //   fully exhausting one batch of events at a time (m_remaining_events_in_batch).
+    //  * There must be no events buffered inside Xlib when sleeping takes place. Below,
+    //    this is ensured by the fact that there is no invocation of any Xlib function
+    //    between the sleep (call to wait()) and the preceding read (call to read()). Not
+    //    that due to the nature of the X11 protocol and the design of Xlib, there can be
+    //    events that have been read from the network connection but have not yet been seen
+    //    by the application. Since such events will be invisible to poll(), an explicit
+    //    check is necessary.
     //
 
-    display::ConnectionEventHandler& connection_event_handler_2 =
-        (connection_event_handler ? *connection_event_handler : *this);
+    auto read = [&](int mode) noexcept {
+        int n = XEventsQueued(dpy, mode);
+        // If generation of X11 events happens fast enough to saturate processing, `n` could
+        // grow without bounds over time. A ceiling is put on `n` in order to avoid this,
+        // and to live up to the starvation prevention requirements for the implementations
+        // of display::Connection::process_events_a().
+        m_num_events = std::min(n, 256);
+    };
 
+    auto determine_timeout = [&](int& timeout, bool& partial) noexcept {
+        if (ARCHON_LIKELY(deadline)) {
+            time_point_type now = clock_type::now();
+            if (ARCHON_LIKELY(*deadline > now)) {
+                auto duration = std::chrono::ceil<std::chrono::milliseconds>(*deadline - now).count();
+                timeout = core::int_max<int>();
+                partial = true;
+                if (ARCHON_LIKELY(core::int_less_equal(duration, timeout))) {
+                    timeout = int(duration);
+                    partial = false;
+                }
+                return true; // Timeout determined
+            }
+            return false; // Deadline expired
+        }
+        timeout = -1;
+        partial = false;
+        return true; // No timeout
+    };
+
+    auto wait = [&](int timeout, bool& partial) {
+        pollfd fds[1] {};
+        int nfds = 1;
+        fds[0].fd = ConnectionNumber(dpy);
+        fds[0].events = POLLIN;
+        int ret = ::poll(fds, nfds, timeout);
+        if (ARCHON_LIKELY(ret > 0)) {
+            ARCHON_ASSERT(ret == 1);
+            return true; // Ready for reading
+        }
+        if (ARCHON_LIKELY(ret == 0)) {
+            ARCHON_ASSERT(timeout >= 0);
+            return false; // Timed out
+        }
+        int err = errno; // Eliminate any risk of clobbering
+        if (ARCHON_LIKELY(err == EINTR)) {
+            partial = true;
+            return false; // Interrupted system call
+        }
+        core::throw_system_error(err, "Failed to poll file descriptor of X11 connection"); // Throws
+    };
+
+  process:
+    if (ARCHON_LIKELY(process_event_batch())) { // Throws
+        if (ARCHON_LIKELY(after_event_batch())) { // Throws
+            if (ARCHON_LIKELY(event_handler->before_sleep())) { // Throws
+                ARCHON_ASSERT(m_num_events == 0);
+                read(QueuedAfterFlush); // Non-blocking read with preceding flush
+                for (;;) {
+                    int timeout = {};
+                    bool partial = {};
+                    if (ARCHON_LIKELY(determine_timeout(timeout, partial))) {
+                        if (ARCHON_LIKELY(m_num_events > 0))
+                            goto process;
+                        if (ARCHON_LIKELY(wait(timeout, partial))) { // Throws
+                            read(QueuedAfterReading); // Non-blocking read without preceding flush
+                            continue;
+                        }
+                        if (ARCHON_LIKELY(!partial))
+                            return true; // Deadline expired
+                        continue;
+                    }
+                    return true; // Deadline expired
+                }
+            }
+        }
+    }
+    return false; // Interrupted
+}
+
+
+bool ConnectionImpl::process_event_batch()
+{
     XEvent ev = {};
     WindowImpl* window = {};
     timestamp_unwrapper_type::Session unwrap_session(m_timestamp_unwrapper);
     bool expect_keymap_notify;
 
+    auto expose = [&] {
+        if (ARCHON_LIKELY(window->has_pending_expose_event))
+            return;
+        m_exposed_windows.push_back(window); // Throws
+        window->has_pending_expose_event = true;
+    };
+
   process_1:
     if (ARCHON_LIKELY(m_num_events > 0))
         goto process_2;
-    goto post;
+    return true; // Batch was fully processed
 
   process_2:
     ARCHON_ASSERT(m_num_events > 0);
@@ -959,6 +1075,7 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
                     proceed = window->event_handler->on_reposition(event); // Throws
                 }
                 else {
+                    expose(); // Throws
                     display::WindowSizeEvent event;
                     event.cookie = window->cookie;
                     event.size = { ev.xconfigure.width, ev.xconfigure.height };
@@ -971,10 +1088,9 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
             break;
 
         case Expose:
-            if (ARCHON_LIKELY(!lookup_window(ev.xexpose.window, window) || window->has_pending_expose_event))
+            if (ARCHON_LIKELY(!lookup_window(ev.xexpose.window, window)))
                 break;
-            m_exposed_windows.push_back(ev.xexpose.window); // Throws
-            window->has_pending_expose_event = true;
+            expose(); // Throws
             break;
 
         case ButtonPress:
@@ -1178,83 +1294,30 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
                 ARCHON_ASSERT(screen >= 0 && screen < ScreenCount(dpy));
                 ScreenSlot& slot = m_screen_slots[screen];
                 if (update_screen_conf(slot)) // Throws
-                    connection_event_handler_2.on_screen_change(screen); // Throws
+                    event_handler->on_screen_change(screen); // Throws
         }
     }
 #endif // HAVE_XRANDR
     goto process_1;
+}
 
-  post:
+
+bool ConnectionImpl::after_event_batch()
+{
+    ARCHON_ASSERT(m_num_events == 0);
     for (;;) {
         if (ARCHON_LIKELY(m_exposed_windows.empty()))
             break;
-        ::Window window_id = m_exposed_windows.front();
+        WindowImpl& window = *m_exposed_windows.front();
         m_exposed_windows.pop_front();
-        WindowImpl* window = {};
-        if (ARCHON_LIKELY(lookup_window(window_id, window))) {
-            window->has_pending_expose_event = false;
-            display::WindowEvent event;
-            event.cookie = window->cookie;
-            bool proceed = window->event_handler->on_expose(event); // Throws
-            if (ARCHON_LIKELY(!proceed))
-                return false; // Interrupt
-        }
-    }
-    {
-        bool proceed = connection_event_handler_2.before_sleep(); // Throws
-        if (ARCHON_UNLIKELY(!proceed))
+        window.has_pending_expose_event = false;
+        display::WindowEvent event;
+        event.cookie = window.cookie;
+        bool proceed = window.event_handler->on_expose(event); // Throws
+        if (ARCHON_LIKELY(!proceed))
             return false; // Interrupt
     }
-    XFlush(dpy);
-
-  read:
-    m_num_events = XEventsQueued(dpy, QueuedAfterReading); // Non-blocking
-
-  wait:
-    {
-        int timeout = -1;
-        bool complete = false;
-        if (ARCHON_LIKELY(deadline)) {
-            time_point_type now = clock_type::now();
-            if (ARCHON_LIKELY(*deadline > now))
-                goto not_expired;
-            return true; // Deadline expired
-          not_expired:
-            auto duration = std::chrono::ceil<std::chrono::milliseconds>(*deadline - now).count();
-            timeout = core::int_max<int>();
-            if (ARCHON_LIKELY(core::int_less_equal(duration, timeout))) {
-                timeout = int(duration);
-                complete = true;
-            }
-        }
-
-        if (ARCHON_LIKELY(m_num_events > 0)) {
-            unwrap_session.reset_now();
-            goto process_2;
-        }
-
-        pollfd fds[1] {};
-        int nfds = 1;
-        fds[0].fd = ConnectionNumber(dpy);
-        fds[0].events = POLLIN;
-        int ret, err;
-      poll:
-        ret = ::poll(fds, nfds, timeout);
-        if (ARCHON_LIKELY(ret > 0)) {
-            ARCHON_ASSERT(ret == 1);
-            goto read;
-        }
-        if (ARCHON_LIKELY(ret == 0)) {
-            ARCHON_ASSERT(timeout >= 0);
-            if (ARCHON_LIKELY(complete))
-                return true; // Deadline expired
-            goto wait;
-        }
-        err = errno; // Eliminate any risk of clobbering
-        if (ARCHON_LIKELY(err == EINTR))
-            goto poll;
-        core::throw_system_error(err, "Failed to poll file descriptor of X11 connection"); // Throws
-    }
+    return true; // No interruption
 }
 
 
@@ -1350,7 +1413,7 @@ WindowImpl::~WindowImpl() noexcept
         if (ARCHON_LIKELY(m_is_registered)) {
             if (m_gc != None)
                 XFreeGC(conn.dpy, m_gc);
-            conn.unregister_window(win);
+            conn.unregister_window(*this);
         }
         XDestroyWindow(conn.dpy, win);
     }
@@ -1387,7 +1450,7 @@ void WindowImpl::create(display::Size size, const Config& config, bool enable_do
     win = XCreateWindow(conn.dpy, parent, x, y, width, height, border_width, depth, class_, visual,
                         valuemask, &attributes);
 
-    conn.register_window(win, *this); // Throws
+    conn.register_window(*this); // Throws
     m_is_registered = true;
 
     // Tell window manager to assign input focus to this window
@@ -1448,6 +1511,8 @@ void WindowImpl::create(display::Size size, const Config& config, bool enable_do
     static_cast<void>(enable_opengl);
     static_cast<void>(enable_glx_direct_rendering);
 #endif // !HAVE_GLX
+
+    m_fullscreen_mode = config.fullscreen;
 }
 
 
@@ -1476,12 +1541,17 @@ void WindowImpl::set_event_handler(display::WindowEventHandler& handler) noexcep
 void WindowImpl::show()
 {
     XMapWindow(conn.dpy, win);
+    m_is_mapped = true;
+    conn.set_fullscreen_monitors(win, screen_slot.root); // Throws
+    if (m_fullscreen_mode)
+        do_set_fullscreen_mode(true); // Throws
 }
 
 
 void WindowImpl::hide()
 {
     XUnmapWindow(conn.dpy, win);
+    m_is_mapped = false;
 }
 
 
@@ -1504,20 +1574,9 @@ void WindowImpl::set_size(display::Size size)
 
 void WindowImpl::set_fullscreen_mode(bool on)
 {
-    XClientMessageEvent event = {};
-    event.type = ClientMessage;
-    event.window = win;
-    event.message_type = conn.atom_net_wm_state;
-    event.format = 32;
-    event.data.l[0] = (on ? 1 : 0); // Add / remove property
-    event.data.l[1] = conn.atom_net_wm_state_fullscreen;
-    event.data.l[2] = 0; // No second property to alter
-    event.data.l[3] = 1; // Request is from normal application
-    Bool propagate = False;
-    long event_mask = SubstructureRedirectMask | SubstructureNotifyMask;
-    Status status = XSendEvent(conn.dpy, screen_slot.root, propagate, event_mask, reinterpret_cast<XEvent*>(&event));
-    if (ARCHON_UNLIKELY(status == 0))
-        throw std::runtime_error("XSendEvent() failed");
+    m_fullscreen_mode = on;
+    if (m_is_mapped)
+        do_set_fullscreen_mode(m_fullscreen_mode); // Throws
 }
 
 
@@ -1603,6 +1662,13 @@ void WindowImpl::opengl_swap_buffers()
 void WindowImpl::set_property(Atom name, Atom value) noexcept
 {
     XChangeProperty(conn.dpy, win, name, XA_ATOM, 32, PropModeReplace, reinterpret_cast<unsigned char*>(&value), 1);
+}
+
+
+void WindowImpl::do_set_fullscreen_mode(bool on)
+{
+    x11::set_fullscreen_mode(conn.dpy, win, on, screen_slot.root, conn.atom_net_wm_state,
+                             conn.atom_net_wm_state_fullscreen); // Throws
 }
 
 

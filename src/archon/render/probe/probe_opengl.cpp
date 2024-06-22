@@ -94,7 +94,7 @@ public:
             render_frame(); // Throws
             m_win.opengl_swap_buffers(); // Throws
         }
-        while (m_conn.process_events(deadline)); // Throws
+        while (m_conn.process_events_a(deadline)); // Throws
     }
 
     bool on_keydown(const display::KeyEvent& ev) override

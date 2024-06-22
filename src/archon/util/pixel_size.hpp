@@ -178,12 +178,24 @@ struct Size {
 };
 
 
+/// \{
+///
 /// \brief Scale size by integer factor.
 ///
-/// This function returns the specified size (\p size) scaled by the specified integer
+/// These operators return the specified size (\p size) scaled by the specified integer
 /// factor (\p f).
 ///
-constexpr auto operator*(int factor, pixel::Size size) noexcept -> pixel::Size;
+constexpr auto operator*(int f, pixel::Size size) noexcept -> pixel::Size;
+constexpr auto operator*(pixel::Size size, int f) noexcept -> pixel::Size;
+/// \}
+
+
+/// \brief Divide size by integer and round down.
+///
+/// This operator returns the result of a component-wise division of the specified size (\p
+/// size) by the specified integer (\p f) with results rounded down.
+///
+constexpr auto operator/(pixel::Size size, int f) noexcept -> pixel::Size;
 
 
 /// \{
@@ -369,11 +381,29 @@ constexpr auto Size::with_height(int height_2) const noexcept -> Size
 }
 
 
-constexpr auto operator*(int factor, pixel::Size size) noexcept -> pixel::Size
+constexpr auto operator*(int f, pixel::Size size) noexcept -> pixel::Size
 {
     return {
-        factor * size.width,
-        factor * size.height,
+        f * size.width,
+        f * size.height,
+    };
+}
+
+
+constexpr auto operator*(pixel::Size size, int f) noexcept -> pixel::Size
+{
+    return {
+        size.width  * f,
+        size.height * f,
+    };
+}
+
+
+constexpr auto operator/(pixel::Size size, int f) noexcept -> pixel::Size
+{
+    return {
+        size.width  / f,
+        size.height / f,
     };
 }
 
@@ -397,7 +427,7 @@ constexpr auto max(pixel::Size a, pixel::Size b) noexcept -> pixel::Size
 
 
 template<class C, class T>
-inline auto operator<<(std::basic_ostream<C, T>& out, pixel::Size size) -> std::basic_ostream<C, T>&
+auto operator<<(std::basic_ostream<C, T>& out, pixel::Size size) -> std::basic_ostream<C, T>&
 {
     std::array<int, 2> components = { size.width, size.height };
     std::size_t min_elems = 1;
@@ -412,7 +442,7 @@ inline auto operator<<(std::basic_ostream<C, T>& out, pixel::Size size) -> std::
 }
 
 
-template<class C, class T> inline bool parse_value(core::BasicValueParserSource<C, T>& src, pixel::Size& size)
+template<class C, class T> bool parse_value(core::BasicValueParserSource<C, T>& src, pixel::Size& size)
 {
     std::array<int, 2> components = {};
     std::size_t min_elems = 1;

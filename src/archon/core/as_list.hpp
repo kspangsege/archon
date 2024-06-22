@@ -165,8 +165,8 @@ struct AsListConfig {
 ///
 /// \endcode
 ///
-/// \sa \ref core::as_rbr_list()
-/// \sa \ref core::as_list_a()
+/// \sa \ref core::as_rbr_list(), \ref core::as_sbr_list(), \ref core::as_cbr_list(), \ref core::as_abr_list()
+/// \sa \ref core::as_list_a(), \ref core::as_list_v()
 ///
 template<class S> auto as_list(S&& seq, char separator, core::AsListSpace = core::AsListSpace::auto_);
 template<class S> auto as_list(S&& seq, core::AsListConfig = {});
@@ -230,11 +230,34 @@ template<class S> auto as_abr_list(S&& seq, char separator = ',', core::AsListSp
 /// by `as_list_a()` is used in a formatting context, `x == y` must be a valid comparison
 /// expression with the usual comparison semantics.
 ///
-/// \sa \ref core::as_list()
+/// \sa \ref core::as_list(), \ref core::as_list_v()
 ///
 template<class S> auto as_list_a(S&& seq, std::size_t min_elems, bool copy_last = false, core::AsListConfig = {});
 template<class S, class F> auto as_list_a(S&& seq, std::size_t min_elems, bool copy_last, F&& func,
                                           core::AsListConfig = {});
+/// \}
+
+
+
+/// \{
+///
+/// \brief Format or parse sequence as list of variable length.
+///
+/// These functions are similar in effect to \ref core::as_list(). The difference is that
+/// these functions take an extra \p n argument. The primary purpose of this argument is to
+/// allow for parsing of lists of variable length up to a maximum size.
+///
+/// When the returned object is used for formatting, \p n specifies the size of the prefix
+/// of \p seq that will be formatted. If \p n is larger than the size of \p seq, the
+/// complete sequence will be formatted.
+///
+/// When the returned object is used for parsing, and when parsing succeeds, \p n is set to
+/// the number of parsed elements. Additional elements in \p seq will be untouched.
+///
+/// \sa \ref core::as_list(), \ref core::as_list_a()
+///
+template<class S> auto as_list_v(S&& seq, std::size_t& n, core::AsListConfig = {});
+template<class S, class F> auto as_list_v(S&& seq, F&& func, std::size_t& n, core::AsListConfig = {});
 /// \}
 
 
@@ -566,6 +589,67 @@ bool parse_value(core::BasicValueParserSource<C, T>& src, const impl::AsListFunc
 }
 
 
+template<class V> struct AsListV {
+    core::Span<V> seq;
+    std::size_t& n;
+    core::AsListConfig config;
+};
+
+
+template<class C, class T, class V>
+auto operator<<(std::basic_ostream<C, T>& out, const impl::AsListV<V>& pod) -> std::basic_ostream<C, T>&
+{
+    auto begin = pod.seq.begin();
+    auto end = pod.seq.begin() + std::min(pod.n, pod.seq.size());
+    return impl::format_as_list(out, begin, end, pod.config); // Throws
+}
+
+
+template<class C, class T, class V>
+bool parse_value(core::BasicValueParserSource<C, T>& src, const impl::AsListV<V>& pod)
+{
+    auto begin = pod.seq.begin();
+    auto end = pod.seq.end();
+    auto reached = decltype(begin)();
+    if (ARCHON_LIKELY(impl::parse_as_list(src, begin, end, reached, pod.config))) { // Throws
+        pod.n = std::size_t(reached - begin);
+        return true;
+    }
+    return false;
+}
+
+
+template<class V, class F> struct AsListFuncV {
+    core::Span<V> seq;
+    F func;
+    std::size_t& n;
+    core::AsListConfig config;
+};
+
+
+template<class C, class T, class V, class F>
+auto operator<<(std::basic_ostream<C, T>& out, const impl::AsListFuncV<V, F>& pod) -> std::basic_ostream<C, T>&
+{
+    auto begin = pod.seq.begin();
+    auto end = pod.seq.begin() + std::min(pod.n, pod.seq.size());
+    return impl::format_as_list(out, begin, end, pod.func, pod.config); // Throws
+}
+
+
+template<class C, class T, class V, class F>
+bool parse_value(core::BasicValueParserSource<C, T>& src, const impl::AsListFuncV<V, F>& pod)
+{
+    auto begin = pod.seq.begin();
+    auto end = pod.seq.end();
+    auto reached = decltype(begin)();
+    if (ARCHON_LIKELY(impl::parse_as_list(src, begin, end, reached, pod.func, pod.config))) { // Throws
+        pod.n = std::size_t(reached - begin);
+        return true;
+    }
+    return false;
+}
+
+
 } // namespace impl
 
 
@@ -669,6 +753,27 @@ inline auto as_list_a(S&& seq, std::size_t min_elems, bool copy_last, F&& func, 
         min_elems,
         copy_last,
         std::forward<F>(func),
+        std::move(config),
+    }; // Throws
+}
+
+
+template<class S> auto as_list_v(S&& seq, std::size_t& n, core::AsListConfig config)
+{
+    core::Span seq_2(std::forward<S>(seq));
+    using elem_type = typename decltype(seq_2)::element_type;
+    return impl::AsListV<elem_type> { seq_2, n, std::move(config) }; // Throws
+}
+
+
+template<class S, class F> auto as_list_v(S&& seq, F&& func, std::size_t& n, core::AsListConfig config)
+{
+    core::Span seq_2(std::forward<S>(seq));
+    using elem_type = typename decltype(seq_2)::element_type;
+    return impl::AsListFuncV<elem_type, F> {
+        seq_2,
+        std::forward<F>(func),
+        n,
         std::move(config),
     }; // Throws
 }

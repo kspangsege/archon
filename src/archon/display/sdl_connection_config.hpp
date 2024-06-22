@@ -18,35 +18,26 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-#ifndef ARCHON_X_DISPLAY_X_IMPLEMENTATION_X11_HPP
-#define ARCHON_X_DISPLAY_X_IMPLEMENTATION_X11_HPP
+#ifndef ARCHON_X_DISPLAY_X_SDL_CONNECTION_CONFIG_HPP
+#define ARCHON_X_DISPLAY_X_SDL_CONNECTION_CONFIG_HPP
 
 /// \file
 
 
-#include <archon/display/implementation.hpp>
+#include <string_view>
 
 
 namespace archon::display {
 
 
-/// \brief Display implementation based on Xlib.
+/// \brief Connection configuration parameters specific to X11-based implementation.
 ///
-/// This function returns the display implementation slot for the implementation that is
-/// based on Xlib, which is the X Window System client library.
+/// This is the set of configuration parameters that pertain to connections when using the
+/// X11-based display implementation.
 ///
-/// This implementation is available if enabled at compile time (`ARCHON_DISPLAY_HAVE_SDL`)
-/// and the set of specified display guarantees includes \ref
-/// display::Guarantees::main_thread_exclusive and \ref
-/// display::Guarantees::no_other_use_of_x11.
-///
-/// This implementation is available if enabled at compile time (`ARCHON_DISPLAY_HAVE_X11`).
-///
-/// \sa https://x.org
-///
-auto get_x11_implementation_slot() noexcept -> const display::Implementation::Slot&;
+struct sdl_connection_config {};
 
 
 } // namespace archon::display
 
-#endif // ARCHON_X_DISPLAY_X_IMPLEMENTATION_X11_HPP
+#endif // ARCHON_X_DISPLAY_X_SDL_CONNECTION_CONFIG_HPP

@@ -1364,8 +1364,8 @@ template<image::CompRepr R> void Reader::read_e(image::Pos pos, const image::tra
     // must be confined to the read box.
     ARCHON_ASSERT(image::Box(progen.pos, 0).contained_in(image_size));
     ARCHON_ASSERT(!progen.size.is_empty());
-    ARCHON_ASSERT(progen.size.contained_in(image_size));
-    ARCHON_ASSERT(progen.contained_in(read_box));
+    ARCHON_ASSERT(image_size.contains(progen.size));
+    ARCHON_ASSERT(read_box.contains(progen));
 
     // Read the 4 quadrants of the progenitor sub-box
     {

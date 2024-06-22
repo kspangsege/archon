@@ -59,7 +59,8 @@
 #include <archon/display/impl/config.h>
 #include <archon/display/geometry.hpp>
 #include <archon/display/noinst/edid.hpp>
-#include <archon/display/connection_config_x11.hpp>
+#include <archon/display/x11_fullscreen_monitors.hpp>
+#include <archon/display/x11_connection_config.hpp>
 #include <archon/display/noinst/impl_util.hpp>
 #include <archon/display/noinst/x11/support.hpp>
 
@@ -151,10 +152,12 @@ int main(int argc, char* argv[])
     std::optional<std::size_t> optional_num_windows;
     std::optional<std::string> optional_window_title;
     util::Color background_color = util::colors::black;
+    bool fullscreen = false;
     std::optional<std::string> optional_display;
     std::optional<int> optional_screen;
+    std::optional<display::x11_fullscreen_monitors> optional_fullscreen_monitors;
     std::optional<int> optional_visual_depth;
-    std::optional<display::ConnectionConfigX11::VisualClass> optional_visual_class;
+    std::optional<display::x11_connection_config::VisualClass> optional_visual_class;
     std::optional<VisualID> optional_visual_type;
     bool prefer_default_nondecomposed_colormap = false;
     bool disable_double_buffering = false;
@@ -197,6 +200,10 @@ int main(int argc, char* argv[])
         "color is @Q.",
         cli::assign(util::as_css_color(background_color))); // Throws
 
+    opt("-f, --fullscreen", "", cli::no_attributes, spec,
+        "Open first window in fullscreen mode.",
+        cli::raise_flag(fullscreen)); // Throws
+
     opt("-D, --display", "<string>", cli::no_attributes, spec,
         "Target the specified X11 display (@A). If this option is not specified, the value of the DISPLAY environment "
         "variable will be used.",
@@ -206,6 +213,15 @@ int main(int argc, char* argv[])
         "Target the specified screen (@A) of the targeted display. If this option is not specified, the default "
         "screen will be used.",
         cli::assign(optional_screen)); // Throws
+
+    opt("-F, --fullscreen-monitors", "<monitors>", cli::no_attributes, spec,
+        "Use the specified Xinerama screens (monitors) to define the fullscreen area. \"@A\" can be specified as one, "
+        "two, or four comma-separated Xinerama screen indexes (`xrandr --listactivemonitors`). When four values are "
+        "specified they will be interpreted as the Xinerama screens that determine the top, bottom, left, and right "
+        "edges of the fullscreen area. When two values are specified, the first one determines both top and left "
+        "edges and the second one determines bottom and right edges. When one value is specified, it determines all "
+        "edges.",
+        cli::assign(optional_fullscreen_monitors)); // Throws
 
     opt("-d, --visual-depth", "<num>", cli::no_attributes, spec,
         "Pick a visual of the specified depth (@A).",
@@ -608,17 +624,21 @@ int main(int argc, char* argv[])
     }
 
     struct WindowSlot {
+        bool is_first;
         int no;
         Window window;
         Drawable drawable;
         image::Size win_size;
         image::Size img_size;
         Pixmap pixmap;
+        bool fullscreen = false;
         bool redraw = false;
         bool suppress_redraw = false;
 
-        WindowSlot(int no_2, Window window_2, Drawable drawable_2, image::Size size, Pixmap pixmap_2) noexcept
+        WindowSlot(bool is_first_2, int no_2, Window window_2, Drawable drawable_2, image::Size size,
+                   Pixmap pixmap_2) noexcept
         {
+            is_first = is_first_2;
             no       = no_2;
             window   = window_2;
             drawable = drawable_2;
@@ -639,10 +659,10 @@ int main(int argc, char* argv[])
         return false;
     };
 
-    Atom delete_window                = intern_string("WM_DELETE_WINDOW");
-    Atom atom_net_wm_state            = intern_string("_NET_WM_STATE");
-    Atom atom_net_wm_state_fullscreen = intern_string("_NET_WM_STATE_FULLSCREEN");
-
+    Atom delete_window                   = intern_string("WM_DELETE_WINDOW");
+    Atom atom_net_wm_fullscreen_monitors = intern_string("_NET_WM_FULLSCREEN_MONITORS");
+    Atom atom_net_wm_state               = intern_string("_NET_WM_STATE");
+    Atom atom_net_wm_state_fullscreen    = intern_string("_NET_WM_STATE_FULLSCREEN");
 
 #if HAVE_XDBE
     XdbeSwapAction swap_action = XdbeUndefined; // Contents of swapped-out buffer becomes undefined
@@ -721,7 +741,8 @@ int main(int argc, char* argv[])
         }
 #endif // HAVE_XDBE
 
-        WindowSlot slot = { no, window, drawable, size, pixmap_slot.pixmap };
+        bool is_first = (window_index == 0);
+        WindowSlot slot = { is_first, no, window, drawable, size, pixmap_slot.pixmap };
         window_slots.emplace(window, slot); // Throws
 
         if (window_slots.size() > max_seen_window_slots)
@@ -733,6 +754,17 @@ int main(int argc, char* argv[])
     auto close_window = [&](Window win) noexcept {
         XDestroyWindow(dpy, win);
         window_slots.erase(win);
+    };
+
+    auto set_fullscreen_monitors = [&](Window win) {
+        if (ARCHON_LIKELY(!optional_fullscreen_monitors.has_value()))
+            return;
+        x11::set_fullscreen_monitors(dpy, win, optional_fullscreen_monitors.value(), root,
+                                     atom_net_wm_fullscreen_monitors); // Throws
+    };
+
+    auto set_fullscreen_mode = [&](Window win, bool on) {
+        x11::set_fullscreen_mode(dpy, win, on, root, atom_net_wm_state, atom_net_wm_state_fullscreen); // Throws
     };
 
     auto get_keysym = [&](KeyCode keycode) noexcept -> KeySym {
@@ -770,9 +802,14 @@ int main(int argc, char* argv[])
     for (std::size_t i = 0; i < num_windows; ++i)
         open_window(); // Throws
 
-    for (const auto& entry : window_slots) {
-        const WindowSlot& slot = entry.second;
+    for (auto& entry : window_slots) {
+        WindowSlot& slot = entry.second;
         XMapWindow(dpy, slot.window);
+        set_fullscreen_monitors(slot.window); // Throws
+        if (slot.is_first && fullscreen) {
+            slot.fullscreen = true;
+            set_fullscreen_mode(slot.window, true); // Throws
+        }
     }
 
     if (install_colormap)
@@ -854,22 +891,12 @@ int main(int argc, char* argv[])
                             if (ev.type == KeyRelease && keysym == XK_n) {
                                 Window window = open_window(); // Throws
                                 XMapWindow(dpy, window);
+                                set_fullscreen_monitors(window); // Throws
                                 break;
                             }
                             if (ev.type == KeyRelease && keysym == XK_f) {
-                                XClientMessageEvent event = {};
-                                event.type = ClientMessage;
-                                event.window = slot->window;
-                                event.message_type = atom_net_wm_state;
-                                event.format = 32;
-                                event.data.l[0] = 2; // Toggle property
-                                event.data.l[1] = atom_net_wm_state_fullscreen;
-                                event.data.l[2] = 0; // No second property to alter
-                                event.data.l[3] = 1; // Request is from normal application
-                                Bool propagate = False;
-                                long event_mask = SubstructureRedirectMask | SubstructureNotifyMask;
-                                Status status = XSendEvent(dpy, root, propagate, event_mask, reinterpret_cast<XEvent*>(&event));
-                                ARCHON_STEADY_ASSERT(status != 0);
+                                slot->fullscreen = !slot->fullscreen;
+                                set_fullscreen_mode(slot->window, slot->fullscreen); // Throws
                                 break;
                             }
                             if (ev.type == KeyRelease && keysym == XK_r) {
