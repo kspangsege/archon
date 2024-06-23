@@ -22,6 +22,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <utility>
 #include <chrono>
 #include <stdexcept>
 #include <array>
@@ -135,8 +136,8 @@ public:
 
     ImplementationImpl(Slot&) noexcept;
 
-    auto new_connection(const std::locale&, const display::Connection::Config&) const ->
-        std::unique_ptr<display::Connection> override;
+    bool try_new_connection(const std::locale&, const display::Connection::Config&,
+                            std::unique_ptr<display::Connection>&, std::string&) const override;
     auto get_slot() const noexcept -> const Slot& override;
 
 private:
@@ -287,12 +288,13 @@ inline ImplementationImpl::ImplementationImpl(Slot& slot) noexcept
 }
 
 
-auto ImplementationImpl::new_connection(const std::locale& locale, const display::Connection::Config&) const ->
-    std::unique_ptr<display::Connection>
+bool ImplementationImpl::try_new_connection(const std::locale& locale, const display::Connection::Config&,
+                                            std::unique_ptr<display::Connection>& conn, std::string&) const
 {
-    auto conn = std::make_unique<ConnectionImpl>(*this, locale); // Throws
-    conn->open(); // Throws
-    return conn;
+    auto conn_2 = std::make_unique<ConnectionImpl>(*this, locale); // Throws
+    conn_2->open(); // Throws
+    conn = std::move(conn_2);
+    return true;
 }
 
 

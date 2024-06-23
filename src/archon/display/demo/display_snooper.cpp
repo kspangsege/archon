@@ -544,7 +544,13 @@ int main(int argc, char* argv[])
     connection_config.x11.synchronous_mode = x11_synchronous_mode;
     connection_config.x11.install_colormaps = x11_install_colormaps;
     connection_config.x11.colormap_weirdness = x11_colormap_weirdness;
-    std::unique_ptr<display::Connection> conn = impl->new_connection(locale, connection_config); // Throws
+    std::unique_ptr<display::Connection> conn;
+    std::string message;
+    if (ARCHON_UNLIKELY(!impl->try_new_connection(locale, connection_config, conn, message))) { // Throws
+            logger.error("Failed to open display connection: %s", message); // Throws
+            return EXIT_FAILURE;
+    }
+
     int num_screens = conn->get_num_screens();
     int default_screen = conn->get_default_screen();
     logger.info("Display implementation: %s", impl->get_slot().ident()); // Throws

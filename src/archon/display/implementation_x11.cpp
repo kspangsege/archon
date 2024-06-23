@@ -28,6 +28,7 @@
 #include <stdexcept>
 #include <optional>
 #include <string_view>
+#include <string>
 #include <locale>
 #include <chrono>
 
@@ -42,8 +43,10 @@
 #include <archon/core/flat_map.hpp>
 #include <archon/core/flat_set.hpp>
 #include <archon/core/literal_hash_map.hpp>
+#include <archon/core/format.hpp>
 #include <archon/core/as_int.hpp>
 #include <archon/core/format_as.hpp>
+#include <archon/core/quote.hpp>
 #include <archon/core/platform_support.hpp>
 #include <archon/log.hpp>
 #include <archon/math/vector.hpp>
@@ -238,8 +241,8 @@ class ImplementationImpl final
 public:
     ImplementationImpl(Slot&) noexcept;
 
-    auto new_connection(const std::locale&, const display::Connection::Config&) const ->
-        std::unique_ptr<display::Connection> override;
+    bool try_new_connection(const std::locale&, const display::Connection::Config&,
+                            std::unique_ptr<display::Connection>&, std::string&) const override;
     auto get_slot() const noexcept -> const Slot& override;
 
 private:
@@ -281,7 +284,7 @@ public:
 
     ConnectionImpl(const ImplementationImpl&, const std::locale&, log::Logger*, const display::ConnectionConfigX11&);
 
-    void open(const display::ConnectionConfigX11&);
+    bool try_open(const display::ConnectionConfigX11&, std::string&);
     void register_window(::Window id, WindowImpl&);
     void unregister_window(::Window id) noexcept;
     auto ensure_image_bridge(const XVisualInfo&, const x11::PixelFormat&) const -> x11::ImageBridge&;
@@ -484,12 +487,15 @@ inline ImplementationImpl::ImplementationImpl(Slot& slot) noexcept
 }
 
 
-auto ImplementationImpl::new_connection(const std::locale& locale, const display::Connection::Config& config) const ->
-    std::unique_ptr<display::Connection>
+bool ImplementationImpl::try_new_connection(const std::locale& locale, const display::Connection::Config& config,
+                                            std::unique_ptr<display::Connection>& conn, std::string& error) const
 {
-    auto conn = std::make_unique<ConnectionImpl>(*this, locale, config.logger, config.x11); // Throws
-    conn->open(config.x11); // Throws
-    return conn;
+    auto conn_2 = std::make_unique<ConnectionImpl>(*this, locale, config.logger, config.x11); // Throws
+    if (ARCHON_LIKELY(conn_2->try_open(config.x11, error))) { // Throws
+        conn = std::move(conn_2);
+        return true;
+    }
+    return false;
 }
 
 
@@ -541,17 +547,24 @@ inline ConnectionImpl::ConnectionImpl(const ImplementationImpl& impl_2, const st
 }
 
 
-void ConnectionImpl::open(const display::ConnectionConfigX11& config)
+bool ConnectionImpl::try_open(const display::ConnectionConfigX11& config, std::string& error)
 {
-    dpy_owner = x11::connect(config.display, locale); // Throws
+    std::string_view display = x11::get_display_string(config.display);
+    if (ARCHON_UNLIKELY(!x11::try_connect(display, dpy_owner))) { // Throws
+        error = core::format(locale, "Failed to connect to %s", core::quoted(display)); // Throws
+        return false;
+    }
+
     dpy = dpy_owner;
 
     if (ARCHON_UNLIKELY(config.synchronous_mode))
         XSynchronize(dpy, True);
 
     m_extension_info = x11::init_extensions(dpy); // Throws
-    if (ARCHON_UNLIKELY(!m_extension_info.have_xkb))
-        throw std::runtime_error("X Keyboard Extension is required but not available");
+    if (ARCHON_UNLIKELY(!m_extension_info.have_xkb)) {
+        error = "X Keyboard Extension is required but not available"; // Throws
+        return false;
+    }
 
     if (!config.disable_detectable_autorepeat) {
         Bool detectable = True;
@@ -573,6 +586,8 @@ void ConnectionImpl::open(const display::ConnectionConfigX11& config)
 #endif
 
     m_screen_slots = std::make_unique<ScreenSlot[]>(std::size_t(ScreenCount(dpy))); // Throws
+
+    return true;
 }
 
 

@@ -2432,7 +2432,7 @@ auto x11::connect(std::optional<std::string_view> display, const std::locale& lo
 }
 
 
-auto x11::get_display_string(std::optional<std::string_view> display) -> std::string_view
+auto x11::get_display_string(const std::optional<std::string_view>& display) -> std::string_view
 {
     if (ARCHON_LIKELY(!display.has_value())) {
         char* val = std::getenv("DISPLAY");

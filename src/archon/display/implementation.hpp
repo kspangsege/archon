@@ -25,8 +25,12 @@
 
 
 #include <memory>
+#include <stdexcept>
 #include <string_view>
+#include <string>
+#include <locale>
 
+#include <archon/core/features.h>
 #include <archon/display/guarantees.hpp>
 #include <archon/display/connection.hpp>
 
@@ -58,22 +62,37 @@ public:
 
     /// \brief Connect to display.
     ///
-    /// This function creates a new connection object (\ref display::Connection), which
-    /// which can be thought of as a session of access to the platform's graphical user
-    /// interface.
+    /// This function is shorthand for calling \ref try_new_connection() and then returning
+    /// the connection object on success or throwing an exception on failure.
+    ///
+    /// \sa \ref try_new_connection()
+    ///
+    auto new_connection(const std::locale&, const display::Connection::Config& = {}) const ->
+        std::unique_ptr<display::Connection>;
+
+    /// \brief Try to connect to display.
+    ///
+    /// This function attempts to creates a new display connection (\ref display::Connection
+    /// using the specified locale and configuration (\p locale, \p config). On success,
+    /// this function returns `true` after setting \p conn to the created connection
+    /// object. On failure, it returns `false` after setting \p error to a message that
+    /// describes the reason for the failure. On success, \p error is left untouched. On
+    /// failure, \p conn is left untouched.
     ///
     /// Note that if the implementation was obtained by providing the display guarantee,
     /// \ref display::Guarantees::only_one_connection, then at most one connection may be
     /// created per operating system process.
     ///
     /// Note that if the implementation was obtained by providing the display guarantee,
-    /// \ref display::Guarantees::main_thread_exclusive, then this function must be called
-    /// only by the main thread. Further more, the returned connection must be used only by
-    /// the main thread. This includes the destruction of the connection object returned by
-    /// this function.
+    /// \ref display::Guarantees::main_thread_exclusive, then the creation of new
+    /// connections must be done only by the main thread. Further more, the returned
+    /// connection object must be used only by the main thread. This includes the
+    /// destruction of that connection object.
     ///
-    virtual auto new_connection(const std::locale&, const display::Connection::Config& = {}) const ->
-        std::unique_ptr<display::Connection> = 0;
+    /// \sa \ref new_connection()
+    ///
+    virtual bool try_new_connection(const std::locale& locale, const display::Connection::Config& config,
+                                    std::unique_ptr<display::Connection>& conn, std::string& error) const = 0;
 
     /// \brief Get slot for this implementation.
     ///
@@ -219,6 +238,18 @@ auto lookup_implementation(std::string_view ident) noexcept -> const display::Im
 
 
 // Implementation
+
+
+inline auto Implementation::new_connection(const std::locale& locale,
+                                           const display::Connection::Config& config) const ->
+    std::unique_ptr<display::Connection>
+{
+    std::unique_ptr<display::Connection> conn;
+    std::string error;
+    if (ARCHON_LIKELY(try_new_connection(locale, config, conn, error))) // Throws
+        return conn;
+    throw std::runtime_error(error);
+}
 
 
 inline bool Implementation::Slot::is_available(const display::Guarantees& guarantees) const noexcept
