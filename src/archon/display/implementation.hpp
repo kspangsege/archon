@@ -39,7 +39,7 @@ namespace archon::display {
 /// This class specifies the public interface of a display implementation. A display
 /// implementation is a representation of a particular underlying way of interacting with
 /// the graphical user interface of the platform. An example is X11 (\ref
-/// display::get_x11_implementation()).
+/// display::get_x11_implementation_slot()).
 ///
 /// The primary role of a display implementation object is to facilitate the creation of a
 /// display connection. See \ref new_connection().
@@ -49,8 +49,8 @@ namespace archon::display {
 ///
 /// \sa \ref display::get_default_implementation()
 /// \sa \ref Slot::get_implementation()
-/// \sa \ref display::get_x11_implementation()
-/// \sa \ref display::get_sdl_implementation()
+/// \sa \ref display::get_x11_implementation_slot()
+/// \sa \ref display::get_sdl_implementation_slot()
 ///
 class Implementation {
 public:

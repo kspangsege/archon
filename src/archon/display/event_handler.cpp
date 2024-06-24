@@ -117,7 +117,7 @@ bool WindowEventHandler::on_close(const display::WindowEvent&)
 }
 
 
-bool ConnectionEventHandler::on_display_change(int)
+bool ConnectionEventHandler::on_screen_change(int)
 {
     return true; // Do not interrupt event processing
 }

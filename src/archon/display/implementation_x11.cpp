@@ -63,7 +63,7 @@
 #include <archon/display/event.hpp>
 #include <archon/display/event_handler.hpp>
 #include <archon/display/resolution.hpp>
-#include <archon/display/screen.hpp>
+#include <archon/display/viewport.hpp>
 #include <archon/display/noinst/timestamp_unwrapper.hpp>
 #include <archon/display/noinst/edid.hpp>
 #include <archon/display/guarantees.hpp>
@@ -153,7 +153,7 @@ auto map_opt_visual_type(const std::optional<std::uint_fast32_t>& type) -> std::
 
 #if HAVE_XRANDR
 
-struct ProtoScreen {
+struct ProtoViewport {
     core::IndexRange output_name;
     display::Box bounds;
     std::optional<core::IndexRange> monitor_name;
@@ -180,9 +180,9 @@ struct ScreenSlot {
     core::FlatMap<core::Pair<int, VisualID>, std::unique_ptr<x11::ImageBridge>> image_bridges;
 
 #if HAVE_XRANDR
-    std::vector<ProtoScreen> screens;
-    core::Buffer<char> screens_string_buffer;
-    std::size_t screens_string_buffer_used_size = 0;
+    std::vector<ProtoViewport> viewports;
+    core::Buffer<char> viewports_string_buffer;
+    std::size_t viewports_string_buffer_used_size = 0;
 #endif // HAVE_XRANDR
 };
 
@@ -316,10 +316,10 @@ public:
         std::unique_ptr<display::Window> override;
     void process_events(display::ConnectionEventHandler*) override;
     bool process_events(time_point_type, display::ConnectionEventHandler*) override;
-    int get_num_displays() const override;
-    int get_default_display() const override;
-    bool try_get_display_conf(int, core::Buffer<display::Screen>&, core::Buffer<char>&, std::size_t&,
-                              bool&) const override;
+    int get_num_screens() const override;
+    int get_default_screen() const override;
+    bool try_get_screen_conf(int, core::Buffer<display::Viewport>&, core::Buffer<char>&,
+                             std::size_t&, bool&) const override;
     auto get_implementation() const noexcept -> const display::Implementation& override;
 
 private:
@@ -341,7 +341,7 @@ private:
     core::FlatMap<int, XPixmapFormatValues> m_pixmap_formats; // Key is visual depth
 
     mutable std::unique_ptr<ScreenSlot[]> m_screen_slots;
-    mutable core::FlatMap<::Window, int> m_x11_screens_by_root;
+    mutable core::FlatMap<::Window, int> m_screens_by_root;
 
 #if HAVE_XRANDR
     mutable std::optional<impl::EdidParser> m_edid_parser;
@@ -687,12 +687,12 @@ auto ConnectionImpl::new_window(std::string_view title, display::Size size,
 {
     if (ARCHON_UNLIKELY(size.width < 0 || size.height < 0))
         throw std::invalid_argument("Bad window size");
-    int screen = config.display;
+    int screen = config.screen;
     if (ARCHON_LIKELY(screen < 0)) {
         screen = DefaultScreen(dpy);
     }
     else if (ARCHON_UNLIKELY(screen < 0 || screen >= int(ScreenCount(dpy)))) {
-        throw std::invalid_argument("Bad display index");
+        throw std::invalid_argument("Bad screen index");
     }
     bool prefer_double_buffered = false;
     if (ARCHON_LIKELY(!m_disable_double_buffering))
@@ -737,38 +737,38 @@ bool ConnectionImpl::process_events(time_point_type deadline,
 }
 
 
-int ConnectionImpl::get_num_displays() const
+int ConnectionImpl::get_num_screens() const
 {
     return int(ScreenCount(dpy));
 }
 
 
-int ConnectionImpl::get_default_display() const
+int ConnectionImpl::get_default_screen() const
 {
     return int(DefaultScreen(dpy));
 }
 
 
-bool ConnectionImpl::try_get_display_conf(int display, core::Buffer<display::Screen>& screens,
-                                          core::Buffer<char>& strings, std::size_t& num_screens, bool& reliable) const
+bool ConnectionImpl::try_get_screen_conf(int screen, core::Buffer<display::Viewport>& viewports,
+                                         core::Buffer<char>& strings, std::size_t& num_viewports, bool& reliable) const
 {
-    if (ARCHON_UNLIKELY(display < 0 || display >= int(ScreenCount(dpy))))
-        throw std::invalid_argument("Bad display index");
+    if (ARCHON_UNLIKELY(screen < 0 || screen >= int(ScreenCount(dpy))))
+        throw std::invalid_argument("Bad screen index");
 
 #if HAVE_XRANDR
     if (m_extension_info.have_xrandr) {
-        const ScreenSlot& slot = ensure_screen_slot(display); // Throws
-        std::size_t n = slot.screens.size();
-        screens.reserve(n); // Throws
-        const char* strings_base = slot.screens_string_buffer.data();
-        strings.assign({ strings_base, slot.screens_string_buffer_used_size }); // Throws
+        const ScreenSlot& slot = ensure_screen_slot(screen); // Throws
+        std::size_t n = slot.viewports.size();
+        viewports.reserve(n); // Throws
+        const char* strings_base = slot.viewports_string_buffer.data();
+        strings.assign({ strings_base, slot.viewports_string_buffer_used_size }); // Throws
         const char* strings_base_2 = strings.data();
         for (std::size_t i = 0; i < n; ++i) {
-            const ProtoScreen& proto = slot.screens[i];
+            const ProtoViewport& proto = slot.viewports[i];
             std::optional<std::string_view> monitor_name;
             if (proto.monitor_name.has_value())
                 monitor_name = proto.monitor_name.value().resolve_string(strings_base_2); // Throws
-            screens[i] = {
+            viewports[i] = {
                 proto.output_name.resolve_string(strings_base_2), // Throws
                 proto.bounds,
                 monitor_name,
@@ -776,15 +776,15 @@ bool ConnectionImpl::try_get_display_conf(int display, core::Buffer<display::Scr
                 proto.refresh_rate,
             };
         }
-        num_screens = n;
+        num_viewports = n;
         reliable = true;
         return true;
     }
     return false;
 #else // !HAVE_XRANDR
-    static_cast<void>(screens);
+    static_cast<void>(viewports);
     static_cast<void>(strings);
-    static_cast<void>(num_screens);
+    static_cast<void>(num_viewports);
     static_cast<void>(reliable);
     return false;
 #endif // !HAVE_XRANDR
@@ -816,7 +816,7 @@ auto ConnectionImpl::ensure_screen_slot(int screen) const -> ScreenSlot&
         slot.root = root;
         slot.default_visual = XVisualIDFromVisual(DefaultVisual(dpy, screen));
         slot.default_colormap = DefaultColormap(dpy, screen);
-        m_x11_screens_by_root[root] = screen; // Throws
+        m_screens_by_root[root] = screen; // Throws
 
         // Fetch information about supported visuals
         slot.visual_specs = x11::load_visuals(dpy, screen, m_extension_info); // Throws
@@ -1172,13 +1172,13 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
             case RRNotify_CrtcChange:
             case RRNotify_OutputChange:
                 ::Window root = ev_2.window;
-                auto i = m_x11_screens_by_root.find(root);
-                ARCHON_ASSERT(i != m_x11_screens_by_root.end());
+                auto i = m_screens_by_root.find(root);
+                ARCHON_ASSERT(i != m_screens_by_root.end());
                 int screen = i->second;
                 ARCHON_ASSERT(screen >= 0 && screen < ScreenCount(dpy));
                 ScreenSlot& slot = m_screen_slots[screen];
                 if (update_display_info(slot)) // Throws
-                    connection_event_handler_2.on_display_change(screen); // Throws
+                    connection_event_handler_2.on_screen_change(screen); // Throws
         }
     }
 #endif // HAVE_XRANDR
@@ -1369,7 +1369,7 @@ bool ConnectionImpl::try_update_display_info(ScreenSlot& slot, bool& changed) co
         crtc = { enabled, bounds, refresh_rate };
         return &crtc;
     };
-    core::Vector<ProtoScreen, 16> new_screens;
+    core::Vector<ProtoViewport, 16> new_viewports;
     std::array<char, 16 * 24> strings_seed_memory = {};
     core::Buffer strings_buffer(strings_seed_memory);
     core::StringBufferContents strings(strings_buffer);
@@ -1443,38 +1443,38 @@ bool ConnectionImpl::try_update_display_info(ScreenSlot& slot, bool& changed) co
                 }
             }
         }
-        ProtoScreen screen = { output_name, crtc->bounds, monitor_name, resolution, crtc->refresh_rate };
-        new_screens.push_back(screen); // Throws
+        ProtoViewport viewport = { output_name, crtc->bounds, monitor_name, resolution, crtc->refresh_rate };
+        new_viewports.push_back(viewport); // Throws
     }
     {
         const char* base_1 = strings.data();
-        const char* base_2 = slot.screens_string_buffer.data();
+        const char* base_2 = slot.viewports_string_buffer.data();
         auto cmp_opt_str = [&](const std::optional<core::IndexRange>& a, const std::optional<core::IndexRange>& b) {
             return (a.has_value() ?
                     b.has_value() && a.value().resolve_string(base_1) == b.value().resolve_string(base_2) :
                     !b.has_value());
         };
-        auto cmp = [&](const ProtoScreen& a, const ProtoScreen& b) {
+        auto cmp = [&](const ProtoViewport& a, const ProtoViewport& b) {
             return (a.bounds == b.bounds &&
                     a.resolution == b.resolution &&
                     a.refresh_rate == b.refresh_rate &&
                     a.output_name.resolve_string(base_1) == b.output_name.resolve_string(base_2) &&
                     cmp_opt_str(a.monitor_name, b.monitor_name));
         };
-        bool equal = std::equal(new_screens.begin(), new_screens.end(), slot.screens.begin(), slot.screens.end(),
-                                std::move(cmp));
+        bool equal = std::equal(new_viewports.begin(), new_viewports.end(),
+                                slot.viewports.begin(), slot.viewports.end(), std::move(cmp));
         if (equal) {
             changed = false;
             return true;
         }
     }
-    slot.screens.reserve(new_screens.size()); // Throws
-    slot.screens_string_buffer.reserve(strings.size(), slot.screens_string_buffer_used_size); // Throws
+    slot.viewports.reserve(new_viewports.size()); // Throws
+    slot.viewports_string_buffer.reserve(strings.size(), slot.viewports_string_buffer_used_size); // Throws
     // Non-throwing from here
-    slot.screens.clear();
-    slot.screens.insert(slot.screens.begin(), new_screens.begin(), new_screens.end());
-    slot.screens_string_buffer.assign(strings);
-    slot.screens_string_buffer_used_size = strings.size();
+    slot.viewports.clear();
+    slot.viewports.insert(slot.viewports.begin(), new_viewports.begin(), new_viewports.end());
+    slot.viewports_string_buffer.assign(strings);
+    slot.viewports_string_buffer_used_size = strings.size();
     changed = true;
     return true;
 }

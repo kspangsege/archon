@@ -101,7 +101,7 @@ target_sources(Display PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" 
   archon/display/event.hpp
   archon/display/event_handler.hpp
   archon/display/resolution.hpp
-  archon/display/screen.hpp
+  archon/display/viewport.hpp
   archon/display/guarantees.hpp
   archon/display/connection_config_x11.hpp
   archon/display/connection_config_sdl.hpp

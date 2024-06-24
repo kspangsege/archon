@@ -351,14 +351,14 @@ public:
 ///
 class ConnectionEventHandler {
 public:
-    /// \brief A display configuration changed.
+    /// \brief A screen configuration changed.
     ///
-    /// This function is called when the "display change" event is generated provided that the
-    /// display implementation exposes information about display configurations. For more on
-    /// this, see \ref display::Connection::try_get_display_conf(). The \p display argument
-    /// specifies the index of the display whose configuration changed.
+    /// This function is called when the "screen change" event is generated, provided that
+    /// the display implementation exposes information about screen configurations. For more
+    /// on this, see \ref display::Connection::try_get_screen_conf(). The \p screen argument
+    /// specifies the index of the screen whose configuration changed.
     ///
-    virtual bool on_display_change(int display);
+    virtual bool on_screen_change(int screen);
 
     /// \brief Opportunity to interrupt event processing before sleep.
     ///
@@ -379,9 +379,9 @@ public:
     /// or application, not just one of its windows.
     ///
     /// On the Apple macOS platform and when using the SDL-based implementation (\ref
-    /// display::get_sdl_implementation()), the quit event is generated when Command-Q is
-    /// pressed on the keyboard. When using the X11-based implementation (\ref
-    /// display::get_x11_implementation()), the quit event is never generated.
+    /// display::get_sdl_implementation_slot()), the quit event is generated when Command-Q
+    /// is pressed on the keyboard. When using the X11-based implementation (\ref
+    /// display::get_x11_implementation_slot()), the quit event is never generated.
     ///
     /// The default implementation of this function does nothing other than return
     /// `false`. This will cause event processing to be interrupted. This default

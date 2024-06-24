@@ -35,7 +35,7 @@
 #include <archon/display/event.hpp>
 #include <archon/display/event_handler.hpp>
 #include <archon/display/resolution.hpp>
-#include <archon/display/screen.hpp>
+#include <archon/display/viewport.hpp>
 #include <archon/display/noinst/timestamp_unwrapper.hpp>
 #include <archon/display/noinst/edid.hpp>
 #include <archon/display/guarantees.hpp>
