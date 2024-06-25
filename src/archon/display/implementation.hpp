@@ -58,9 +58,9 @@ public:
 
     /// \brief Connect to display.
     ///
-    /// This function creates a new connection object, which represents a connection to a
-    /// particular display, or in some cases, to a particular set of displays (a number of
-    /// "screens" using the terminology of the X Window System).
+    /// This function creates a new connection object (\ref display::Connection), which
+    /// which can be thought of as a session of access to the platform's graphical user
+    /// interface.
     ///
     /// Note that if the implementation was obtained by providing the display guarantee,
     /// \ref display::Guarantees::only_one_connection, then at most one connection may be
@@ -69,8 +69,8 @@ public:
     /// Note that if the implementation was obtained by providing the display guarantee,
     /// \ref display::Guarantees::main_thread_exclusive, then this function must be called
     /// only by the main thread. Further more, the returned connection must be used only by
-    /// the main thread. This includes the destruction of the connection returned by this
-    /// function.
+    /// the main thread. This includes the destruction of the connection object returned by
+    /// this function.
     ///
     virtual auto new_connection(const std::locale&, const display::Connection::Config& = {}) const ->
         std::unique_ptr<display::Connection> = 0;
