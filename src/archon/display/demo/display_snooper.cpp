@@ -81,35 +81,36 @@ public:
     {
     }
 
-    void dump_display_conf(int display)
+    void dump_screen_conf(int screen)
     {
-        std::size_t num_screens = {};
+        std::size_t num_viewports = {};
         bool reliable = {};
-        if (m_conn.try_get_display_conf(display, m_screens, m_strings, num_screens, reliable)) {
+        if (m_conn.try_get_screen_conf(screen, m_viewports, m_strings, num_viewports, reliable)) {
             std::array<char, 512> seed_memory;
             core::SeedMemoryOutputStream out(seed_memory); // Throws
             out.exceptions(std::ios_base::badbit | std::ios_base::failbit); // Throws
             out.imbue(out.getloc()); // Throws
-            out << core::formatted("Display configuration changed (display_index=%s, num_screens=%s, reliable=%s)",
-                                   display, num_screens, reliable); // Throws
-            if (num_screens > 0)
+            out << core::formatted("Screen configuration changed (screen=%s, num_viewports=%s, reliable=%s)",
+                                   screen, num_viewports, reliable); // Throws
+            if (num_viewports > 0)
                 out << ":"; // Throws
-            for (std::size_t i = 0; i < num_screens; ++i) {
-                const display::Screen& screen = m_screens[i];
+            for (std::size_t i = 0; i < num_viewports; ++i) {
+                const display::Viewport& viewport = m_viewports[i];
                 auto format_monitor_name = [&](std::ostream& out) {
-                    if (ARCHON_LIKELY(screen.monitor_name.has_value())) {
-                        out << core::quoted(screen.monitor_name.value()); // Throws
+                    if (ARCHON_LIKELY(viewport.monitor_name.has_value())) {
+                        out << core::quoted(viewport.monitor_name.value()); // Throws
                     }
                     else {
                         out << "unknown"; // Throws
                     }
                 };
                 out << "\n"; // Throws
-                out << core::formatted("    Screen %s/%s: output_name=%s, bounds=%s, monitor_name=%s, resolution=%s, "
-                                       "refresh_rate=%s", i + 1, num_screens, core::quoted(screen.output_name),
-                                       screen.bounds, core::as_format_func(format_monitor_name),
-                                       core::as_optional(screen.resolution, "unknown"),
-                                       core::as_optional(screen.refresh_rate, "unknown")); // Throws
+                out << core::formatted("    Viewport %s/%s: output_name=%s, bounds=%s, monitor_name=%s, "
+                                       "resolution=%s, refresh_rate=%s", i + 1, num_viewports,
+                                       core::quoted(viewport.output_name), viewport.bounds,
+                                       core::as_format_func(format_monitor_name),
+                                       core::as_optional(viewport.resolution, "unknown"),
+                                       core::as_optional(viewport.refresh_rate, "unknown")); // Throws
             }
             m_logger.info("%s", out.view()); // Throws
         }
@@ -244,9 +245,9 @@ public:
         return false; // Terminate
     }
 
-    bool on_display_change(int display) override
+    bool on_screen_change(int screen) override
     {
-        dump_display_conf(display); // Throws
+        dump_screen_conf(screen); // Throws
         return true;
     }
 
@@ -263,7 +264,7 @@ private:
     log::Logger& m_logger;
     const Config& m_config;
 
-    core::Buffer<display::Screen> m_screens;
+    core::Buffer<display::Viewport> m_viewports;
     core::Buffer<char> m_strings;
     bool fullscreen = false;
 };
@@ -285,7 +286,7 @@ int main(int argc, char* argv[])
     Config config;
     log::LogLevel log_level_limit = log::LogLevel::info;
     std::optional<std::string> optional_display_implementation;
-    std::optional<int> optional_display;
+    std::optional<int> optional_screen;
     std::optional<std::string> optional_x11_display;
     std::optional<int> optional_x11_visual_depth;
     std::optional<display::ConnectionConfigX11::VisualClass> optional_x11_visual_class;
@@ -347,10 +348,10 @@ int main(int argc, char* argv[])
         "available, the one, that is listed first by `--list-display-implementations`, is used.",
         cli::assign(optional_display_implementation)); // Throws
 
-    opt("-d, --display", "<number>", cli::no_attributes, spec,
-        "Target the specified display (@A). This is an index between zero and the number of displays minus one. If "
-        "this option is not specified, the default display will be targeted.",
-        cli::assign(optional_display)); // Throws
+    opt("-s, --screen", "<number>", cli::no_attributes, spec,
+        "Target the specified screen (@A). This is an index between zero and the number of screens minus one. If this "
+        "option is not specified, the default screen of the display will be targeted.",
+        cli::assign(optional_screen)); // Throws
 
     opt("-m, --report-mouse-move", "", cli::no_attributes, spec,
         "Turn on reporting of \"mouse move\" events.",
@@ -544,20 +545,20 @@ int main(int argc, char* argv[])
     connection_config.x11.install_colormaps = x11_install_colormaps;
     connection_config.x11.colormap_weirdness = x11_colormap_weirdness;
     std::unique_ptr<display::Connection> conn = impl->new_connection(locale, connection_config); // Throws
-    int num_displays = conn->get_num_displays();
-    int default_display = conn->get_default_display();
+    int num_screens = conn->get_num_screens();
+    int default_screen = conn->get_default_screen();
     logger.info("Display implementation: %s", impl->get_slot().ident()); // Throws
-    logger.info("Number of displays:     %s", num_displays); // Throws
-    logger.info("Default display:        %s", default_display); // Throws
+    logger.info("Number of screens:      %s", num_screens); // Throws
+    logger.info("Default screen:         %s", default_screen); // Throws
 
-    int display = default_display;
-    if (optional_display.has_value()) {
-        int val = optional_display.value();
-        if (ARCHON_UNLIKELY(val < 0 || val >= num_displays)) {
-            logger.error("Specified display index (%s) is out of range", core::as_int(val)); // Throws
+    int screen = default_screen;
+    if (optional_screen.has_value()) {
+        int val = optional_screen.value();
+        if (ARCHON_UNLIKELY(val < 0 || val >= num_screens)) {
+            logger.error("Specified screen index (%s) is out of range", core::as_int(val)); // Throws
             return EXIT_FAILURE;
         }
-        display = val;
+        screen = val;
     }
 
     std::string_view window_title = "Archon Display Snooper";
@@ -565,7 +566,7 @@ int main(int argc, char* argv[])
         window_title = optional_window_title.value();
 
     display::Window::Config window_config;
-    window_config.display = display;
+    window_config.screen = screen;
     window_config.resizable = true;
     window_config.minimum_size = 128;
     std::unique_ptr<display::Window> win =
@@ -582,8 +583,8 @@ int main(int argc, char* argv[])
     tex->put_image(*img); // Throws
 
     EventLoop event_loop(*conn, *win, *tex, logger, config);
-    for (int i = 0; i < num_displays; ++i)
-        event_loop.dump_display_conf(i); // Throws
+    for (int i = 0; i < num_screens; ++i)
+        event_loop.dump_screen_conf(i); // Throws
     win->set_event_handler(event_loop); // Throws
     win->show(); // Throws
     event_loop.process_events(); // Throws

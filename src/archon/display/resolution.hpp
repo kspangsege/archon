@@ -34,15 +34,20 @@
 namespace archon::display {
 
 
-/// \brief Horizontal and vertical screen resolution.
+/// \brief Physical resolution associated with viewport and attached monitor.
 ///
-/// An object of this type specifies the horizontal and vertical resolutions of a screen.
+/// An object of this type specifies the horizontal and vertical resolutions in pixels per
+/// centimeter. It is primarily intended to specify the resolution associated with a
+/// viewport (\ref display::Viewport) and an attached monitor. A monitor needs to be
+/// attached so that the physical dimensions of the pixels are known.
 ///
 /// To get the resolution in pixels per inch, multiply by 2.54 cm/in.
 ///
 /// A resolution object can be formatted, i.e., it can be written to an output stream. The
 /// format is `<horizontal>,<vertical>`. Within the two components, a dot (`.`) is used as
 /// decimal point.
+///
+/// \sa \ref display::Viewport
 ///
 struct Resolution {
     /// \brief Pixels per centimeter in horizontal direction.

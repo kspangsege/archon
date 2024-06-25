@@ -39,7 +39,7 @@
 #include <archon/display/key_code.hpp>
 #include <archon/display/event_handler.hpp>
 #include <archon/display/resolution.hpp>
-#include <archon/display/screen.hpp>
+#include <archon/display/viewport.hpp>
 #include <archon/display/guarantees.hpp>
 #include <archon/display/connection_config_x11.hpp>
 #include <archon/display/connection_config_sdl.hpp>
@@ -51,34 +51,31 @@ namespace archon::display {
 
 /// \brief Connection to platform's graphical user interface.
 ///
-/// An instance of this class represents a connection to a particular display, or in some
-/// cases, to a particular set of displays (a number of "screens" using the terminology of
-/// the X Window System).
+/// When using the X11-based display implementation (\ref
+/// display::get_x11_implementation_slot()), an instance of this class represents a
+/// connection to an X11 display. More generally, an instance of this class can be thought
+/// of as a session of access to the graphical user interfaces of the platform. Such access
+/// will ordinarily consist of the creation of one or more windows (\ref new_window(), \ref
+/// display::Window).
 ///
-/// A display can be a single physical screen / monitor, or it can be a compound display
-/// that consists of multiple screens. Regardless of the number of screens, a display is
-/// associated with a single coordinate space in which each of its screens has a definite
-/// position (see \ref display::Screen::bounds). A typical example is a dual monitor setup
-/// where the areas in display coordinate space corresponding to the two monitors are
-/// adjacent in display coordinate space reflecting their relation in physical space.
+/// A display gives access to one or more screens, and the number of screens is fixed for
+/// the lifetime of a connection. Screens are identified by their index (\ref
+/// display::Window::Config::screen). The order of screens is determined by the platform and
+/// the underlying implementation and it remains fixed for the duration of the
+/// connection. See also \ref get_num_screens() and \ref get_default_screen().
 ///
-/// The configuration of a display, i.e., the set of screens and the arrangement of those
-/// screens in display coordinate space can change over time. The current configuration of a
-/// particular display can be queried for using \ref try_get_display_conf(). The application
-/// can also register to be informed when the configuration of a display changes by
-/// implementing \ref display::ConnectionEventHandler::on_display_change(). Display
-/// implementations are not required to expose this information. When the implementation
-/// does not expose it, \ref try_get_display_conf() returns `false`, and no "display change"
-/// events are generated.
+/// A screen is a spatial (i.e., planar) arrangement of viewports (zero or more), with each
+/// viewport corresponding to a video adapter output (CRTC) of a certain size (width and
+/// height in number of pixels). Viewports generally materialize and vanish in response to
+/// monitors being attached and detached. In any case, the configuration of a screen is
+/// dynamic, and this includes both the set of viewports that make up the screen, the
+/// properties of those viewports, and their spatial arrangement.
 ///
-/// The number of displays accessible through the connection is returned by \ref
-/// get_num_displays(). This number is fixed for the duration of the connection, and it will
-/// always be greater than, or equal to one. The displays are referred to by their index
-/// within a fixed order determined by the platform and implementation. When the number of
-/// displays is greater than 1, \ref get_default_display() returns the index of the default
-/// display. When there is only one display, \ref get_default_display() returns zero. The
-/// coordinate space of one display is generally unrelated to the coordinate space of
-/// another display accessible through the same connection.
+/// When supported by the underlying implementation, the current configuration of a screen
+/// can be obtained by calling \ref try_get_screen_conf(), and the the application can
+/// register to be informed about screen configuration changes by using a connection-level
+/// event handler (passed to \ref display::Connection::process_events()) and implementing
+/// \ref display::ConnectionEventHandler::on_screen_change().
 ///
 /// New connections can be established by calling \ref display::new_connection() or \ref
 /// display::Implementation::new_connection(). The latter one allows you to establish a
@@ -121,7 +118,8 @@ public:
     ///
     /// This function creates a new window with the specified title (\p title) and size (\p
     /// size), and configured according to the specified configuration parameters (\p
-    /// config). The target display is specified through display::Window::config::display.
+    /// config). The target screen is specified through \ref
+    /// display::Window::Config::screen.
     ///
     /// The application will generally have to set a new event handler for the window using
     /// \ref display::Window::set_event_handler(), and in order to not lose any events, this
@@ -142,8 +140,9 @@ public:
     /// by the main thread. Further more, the returned window must be used only by the main
     /// thread. This includes the destruction of the window object.
     ///
-    /// When using the X11-based implementation (\ref display::get_x11_implementation()),
-    /// the initial position is generally determined by a window manager.
+    /// When using the X11-based implementation (\ref
+    /// display::get_x11_implementation_slot()), the initial position is generally
+    /// determined by a window manager.
     ///
     virtual auto new_window(std::string_view title, display::Size size, const display::Window::Config& config = {}) ->
         std::unique_ptr<display::Window> = 0;
@@ -179,67 +178,67 @@ public:
     virtual bool process_events(time_point_type deadline, display::ConnectionEventHandler* = nullptr) = 0;
     /// \}
 
-    /// \brief Number of displays accessible through connection.
+    /// \brief Number of screens accessible through connection.
     ///
-    /// This function returns the number of separate displays that are accessible through
-    /// this connection. See \ref display::Connection for general information about
-    /// displays.
+    /// This function returns the number of separate screens that are accessible through
+    /// this connection. See \ref display::Connection for general information about screens.
     ///
-    /// When using the X11-based implementation (\ref display::get_x11_implementation()),
-    /// each X screen counts as a display.
+    /// When using the X11-based implementation (\ref
+    /// display::get_x11_implementation_slot()), a screen corresponds to the X11 concept of
+    /// the same name.
     ///
     /// When using the SDL-based implementation (\ref
-    /// display::get_sdl_implementation_slot()), only one display will be exposed. When SDL
+    /// display::get_sdl_implementation_slot()), only one screen will be available. When SDL
     /// bridges to the X Window System, the `DISPLAY` environment variable can be used to
     /// select which of the X screens to target.
     ///
-    /// \sa \ref get_default_display()
+    /// \sa \ref get_default_screen()
     ///
-    virtual int get_num_displays() const = 0;
+    virtual int get_num_screens() const = 0;
 
-    /// \brief Index of default display.
+    /// \brief Index of default screen.
     ///
-    /// This function returns the index of the default display of this connection. The index
-    /// refers to an order of the accessible displays determined by the platform and
-    /// implementation. See \ref display::Connection for general information about displays.
+    /// This function returns the index of the default screen of this connection. The index
+    /// refers to an order of the accessible screens that is determined by the platform and
+    /// implementation. See \ref display::Connection for general information about screens.
     ///
-    /// When using the X11-based implementation (\ref display::get_x11_implementation()),
-    /// the default display is determined by the screen number specified in the value of the
-    /// `DISPLAY` environment variable.
+    /// When using the X11-based implementation (\ref
+    /// display::get_x11_implementation_slot()), the default screen is determined by the
+    /// screen number specified in the value of the `DISPLAY` environment variable.
     ///
-    /// \sa \ref get_num_displays()
+    /// \sa \ref get_num_screens()
     ///
-    virtual int get_default_display() const = 0;
+    virtual int get_default_screen() const = 0;
 
-    /// \brief Retrieve current configuration of display.
+    /// \brief Retrieve current configuration of screen.
     ///
     /// If supported by the implementation, this function returns the current configuration
-    /// of the specified display (\p display). See \ref display::Connection for general
-    /// information about displays.
+    /// of the specified screen (\p screen).
     ///
     /// A particular display implementation (\ref display::Implementation) is not required
-    /// to expose information about the configuration of each of the accessible displays of
-    /// a connection. If the implementation in use for this connection does not expose this
-    /// information, this function returns `false` and leaves all arguments
-    /// unchanged. Otherwise, this function returns `true` after placing an entry in the
-    /// screens buffer (\p screens) for each of the screens of the specified display,
-    /// placing associated string data in the strings buffer (\p strings), and setting \p
-    /// num_screens to the number of screens placed in the screens buffer.
+    /// to expose information about the configuration of each of the accessible screens. If
+    /// the implementation in use for this connection does not expose this information, this
+    /// function returns `false` and leaves all arguments unchanged. Otherwise, this
+    /// function returns `true` after placing an entry in \p viewports for each of the
+    /// viewports that are currently parts of the specified screen, placing associated
+    /// string data in \p strings, and setting \p num_viewports to the number of viewports
+    /// placed in \p viewports.
     ///
-    /// If the implementation exposes the display configuration, i.e., when this function
-    /// returns `true`, the implementation will also generate "display changed" events
-    /// whenever the display configuration changes (\ref
-    /// display::ConnectionEventHandler::on_display_change()).
+    /// If the implementation exposes the screen configuration, i.e., when this function
+    /// returns `true`, the implementation will also generate "screen changed" events
+    /// whenever a screen configuration changes (\ref
+    /// display::ConnectionEventHandler::on_screen_change()).
     ///
-    /// Some display implementations are able to provide the display configurations, but in
-    /// a less than reliable manner due to quirks in the underlying subsystem (SDL is an
+    /// Some display implementations are able to provide the screen configurations, but in a
+    /// less than reliable manner due to quirks in the underlying subsystem (SDL is an
     /// example of this). Such implementations must set \p reliable to `false` when
-    /// `try_get_display_conf()` returns `true`. Display implementations that provide the
-    /// display configuration in a reliable manner should set \p reliable to `true` when
-    /// `try_get_display_conf()` returns `true`.
+    /// `try_get_screen_conf()` returns `true`. Display implementations that provide the
+    /// screen configuration in a reliable manner should set \p reliable to `true` when
+    /// `try_get_screen_conf()` returns `true`.
     ///
-    virtual bool try_get_display_conf(int display, core::Buffer<display::Screen>& screens, core::Buffer<char>& strings,
-                                      std::size_t& num_screens, bool& reliable) const = 0;
+    virtual bool try_get_screen_conf(int screen, core::Buffer<display::Viewport>& viewports,
+                                     core::Buffer<char>& strings, std::size_t& num_viewports,
+                                     bool& reliable) const = 0;
 
     /// \brief Associated implementation.
     ///

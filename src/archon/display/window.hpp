@@ -94,9 +94,8 @@ public:
     /// \brief Set window title.
     ///
     /// This function changes the title in the title bar of this window to the specified
-    /// string (\p title).
-    ///
-    /// FIXME: Is this specified using a UTF-8 encoded string?                                   
+    /// string (\p title). The characters must be encoded in accordance with the multi-byte
+    /// encoding of the associated locale (\ref display::Implementation::new_connection()).
     ///
     virtual void set_title(std::string_view title) = 0;
 
@@ -212,20 +211,20 @@ public:
 /// These are the available parameters for configuring a window.
 ///
 struct Window::Config {
-    /// \brief Display on which window must appear.
+    /// \brief Screen on which window must appear.
     ///
     /// If specified, that is, if the specified value is non-negative, this is the index of
-    /// the display on which the window must appear. It is an index into the list of
-    /// displays accessible through the connection from which the window is created. See
-    /// \ref display::Connection for general information about connections and displays. The
-    /// number of displays is returned by \ref display::Connection::get_num_displays() and
-    /// the index of the default display is returned by \ref
-    /// display::Connection::get_default_display().
+    /// the screen on which the window must appear. It is an index into the list of screens
+    /// accessible through the display connection on behalf of which the window is being
+    /// created. See \ref display::Connection for general information about connections and
+    /// screens. The number of screens is returned by \ref
+    /// display::Connection::get_num_screens() and the index of the default screen is
+    /// returned by \ref display::Connection::get_default_screen().
     ///
-    /// When the display is not specified, i.e., when the specified value is negative, the
-    /// window will be opened on the default display.
+    /// When a screen is not specified, i.e., when the specified value is negative, the
+    /// window will be opened on the default screen.
     ///
-    int display = -1;
+    int screen = -1;
 
     /// \brief Cookie value to be passed to window event handlers.
     ///

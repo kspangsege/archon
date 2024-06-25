@@ -178,10 +178,10 @@ public:
         std::unique_ptr<display::Window> override;
     void process_events(display::ConnectionEventHandler*) override;
     bool process_events(time_point_type, display::ConnectionEventHandler*) override;
-    int get_num_displays() const override;
-    int get_default_display() const override;
-    bool try_get_display_conf(int, core::Buffer<display::Screen>&, core::Buffer<char>&,
-                              std::size_t&, bool&) const override;
+    int get_num_screens() const override;
+    int get_default_screen() const override;
+    bool try_get_screen_conf(int, core::Buffer<display::Viewport>&, core::Buffer<char>&,
+                             std::size_t&, bool&) const override;
     auto get_implementation() const noexcept -> const display::Implementation& override;
 
 private:
@@ -420,9 +420,9 @@ bool ConnectionImpl::try_get_key_name(display::KeyCode key_code, std::string_vie
 auto ConnectionImpl::new_window(std::string_view title, display::Size size,
                                 const display::Window::Config& config) -> std::unique_ptr<display::Window>
 {
-    int screen = config.display;
+    int screen = config.screen;
     if (ARCHON_UNLIKELY(screen >= 0 && screen != 0)) {
-        throw std::invalid_argument("Bad display index");
+        throw std::invalid_argument("Bad screen index");
     }
     auto win = std::make_unique<WindowImpl>(*this, config.cookie); // Throws
     win->create(title, size, config); // Throws
@@ -457,24 +457,24 @@ bool ConnectionImpl::process_events(time_point_type deadline,
 }
 
 
-int ConnectionImpl::get_num_displays() const
+int ConnectionImpl::get_num_screens() const
 {
-    // SDL does not provide access to more than one display (X screen) at a time.
+    // On an X11 platform, SDL does not provide access to more than one screen at a time.
     return 1;
 }
 
 
-int ConnectionImpl::get_default_display() const
+int ConnectionImpl::get_default_screen() const
 {
     return 0;
 }
 
 
-bool ConnectionImpl::try_get_display_conf(int display, core::Buffer<display::Screen>&, core::Buffer<char>&,
-                                          std::size_t&, bool&) const
+bool ConnectionImpl::try_get_screen_conf(int screen, core::Buffer<display::Viewport>&, core::Buffer<char>&,
+                                         std::size_t&, bool&) const
 {
-    if (ARCHON_UNLIKELY(display != 0))
-        throw std::invalid_argument("Bad display index");
+    if (ARCHON_UNLIKELY(screen != 0))
+        throw std::invalid_argument("Bad screen index");
     return false;
 }
 
@@ -699,7 +699,7 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
 /*
         case SDL_DISPLAYEVENT: {
             // Fetch updated display information          
-            // Call on_display_change(screens) where screens is span of ScreenInfo objects
+            // Call on_screen_change(screens) where screens is span of ScreenInfo objects
             // ScreenInfo has fields `name`, `bounds`, `resolution`, and `primary`
             // Question: How does SDL_GetDisplayUsableBounds() work with X11? --> See X11_GetDisplayUsableBounds()                                                                                                                                                         
             //

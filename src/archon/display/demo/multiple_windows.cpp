@@ -59,9 +59,9 @@ display::Size g_large = { 512, 384 };
 class EventLoop final
     : public display::WindowEventHandler {
 public:
-    EventLoop(display::Connection& conn, int display) noexcept
+    EventLoop(display::Connection& conn, int screen) noexcept
         : m_conn(conn)
-        , m_display(display)
+        , m_screen(screen)
     {
     }
 
@@ -71,7 +71,7 @@ public:
         m_prev_window_id = id;
         std::string title = core::format("Window #%s", id); // Throws
         display::Window::Config config;
-        config.display = m_display;
+        config.screen = m_screen;
         config.cookie = id;
         config.resizable = true;
         std::unique_ptr<display::Window> win = m_conn.new_window(title, g_small, config); // Throws
@@ -209,7 +209,7 @@ private:
     };
 
     display::Connection& m_conn;
-    const int m_display;
+    const int m_screen;
     int m_prev_window_id = 0;
     double m_next_hue = 0;
     std::map<int, WindowEntry> m_windows;
@@ -228,7 +228,7 @@ int main(int argc, char* argv[])
     bool list_display_implementations = false;
     log::LogLevel log_level_limit = log::LogLevel::warn;
     std::optional<std::string> optional_display_implementation;
-    std::optional<int> optional_display;
+    std::optional<int> optional_screen;
     std::optional<std::string> optional_x11_display;
     std::optional<int> optional_x11_visual_depth;
     std::optional<display::ConnectionConfigX11::VisualClass> optional_x11_visual_class;
@@ -265,17 +265,17 @@ int main(int argc, char* argv[])
         "available, the one, that is listed first by `--list-display-implementations`, is used.",
         cli::assign(optional_display_implementation)); // Throws
 
-    opt("-d, --display", "<number>", cli::no_attributes, spec,
-        "Target the specified display (@A). This is an index between zero and the number of displays minus one. If "
-        "this option is not specified, the default display will be targeted.",
-        cli::assign(optional_display)); // Throws
+    opt("-s, --screen", "<number>", cli::no_attributes, spec,
+        "Target the specified screen (@A). This is an index between zero and the number of screens minus one. If this "
+        "option is not specified, the default screen of the display will be targeted.",
+        cli::assign(optional_screen)); // Throws
 
     opt("-D, --x11-display", "<string>", cli::no_attributes, spec,
         "When using the X11-based display implementation, target the specified X11 display (@A). If this option is "
         "not specified, the value of the DISPLAY environment variable will be used.",
         cli::assign(optional_x11_display)); // Throws
 
-    opt("-e, --x11-visual-depth", "<num>", cli::no_attributes, spec,
+    opt("-d, --x11-visual-depth", "<num>", cli::no_attributes, spec,
         "When using the X11-based display implementation, pick a visual of the specified depth (@A).",
         cli::assign(optional_x11_visual_depth)); // Throws
 
@@ -417,21 +417,21 @@ int main(int argc, char* argv[])
     connection_config.x11.colormap_weirdness = x11_colormap_weirdness;
     std::unique_ptr<display::Connection> conn = impl->new_connection(locale, connection_config); // Throws
 
-    int display;
-    if (!optional_display.has_value()) {
-        display = conn->get_default_display();
+    int screen;
+    if (!optional_screen.has_value()) {
+        screen = conn->get_default_screen();
     }
     else {
-        int val = optional_display.value();
-        int num_displays = conn->get_num_displays();
-        if (ARCHON_UNLIKELY(val < 0 || val >= num_displays)) {
-            logger.error("Specified display index (%s) is out of range", core::as_int(val)); // Throws
+        int val = optional_screen.value();
+        int num_screens = conn->get_num_screens();
+        if (ARCHON_UNLIKELY(val < 0 || val >= num_screens)) {
+            logger.error("Specified screen index (%s) is out of range", core::as_int(val)); // Throws
             return EXIT_FAILURE;
         }
-        display = val;
+        screen = val;
     }
 
-    EventLoop event_loop(*conn, display);
+    EventLoop event_loop(*conn, screen);
 
     int num_windows = 2;
     for (int i = 0; i < num_windows; ++i)

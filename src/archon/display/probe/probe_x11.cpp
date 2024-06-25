@@ -543,19 +543,19 @@ int main(int argc, char* argv[])
     };
 
 #if HAVE_XRANDR
-    struct ProtoScreen {
+    struct ProtoViewport {
         core::IndexRange output_name;
         display::Box bounds;
         std::optional<core::IndexRange> monitor_name;
         std::optional<display::Resolution> resolution;
         std::optional<double> refresh_rate;
     };
-    std::vector<ProtoScreen> screens;
-    core::Buffer<char> screens_string_buffer;
-    std::size_t screens_string_buffer_used_size = 0;
+    std::vector<ProtoViewport> viewports;
+    core::Buffer<char> viewports_string_buffer;
+    std::size_t viewports_string_buffer_used_size = 0;
     Atom atom_edid = intern_string(RR_PROPERTY_RANDR_EDID);
     impl::EdidParser edid_parser(locale);
-    auto try_update_display_info = [&](bool& changed) -> bool {
+    auto try_update_screen_info = [&](bool& changed) -> bool {
         XRRScreenResources* resources = XRRGetScreenResourcesCurrent(dpy, root);
         if (ARCHON_UNLIKELY(!resources))
             throw std::runtime_error("XRRGetScreenResourcesCurrent() failed");
@@ -603,7 +603,7 @@ int main(int argc, char* argv[])
             crtc = { enabled, bounds, refresh_rate };
             return &crtc;
         };
-        core::Vector<ProtoScreen, 16> new_screens;
+        core::Vector<ProtoViewport, 16> new_viewports;
         std::array<char, 16 * 24> strings_seed_memory = {};
         core::Buffer strings_buffer(strings_seed_memory);
         core::StringBufferContents strings(strings_buffer);
@@ -675,72 +675,73 @@ int main(int argc, char* argv[])
                     }
                 }
             }
-            ProtoScreen screen = { output_name, crtc->bounds, monitor_name, resolution, crtc->refresh_rate };
-            new_screens.push_back(screen); // Throws
+            ProtoViewport viewport = { output_name, crtc->bounds, monitor_name, resolution, crtc->refresh_rate };
+            new_viewports.push_back(viewport); // Throws
         }
         {
             const char* base_1 = strings.data();
-            const char* base_2 = screens_string_buffer.data();
+            const char* base_2 = viewports_string_buffer.data();
             auto cmp_opt_str = [&](const std::optional<core::IndexRange>& a,
                                    const std::optional<core::IndexRange>& b) {
                 return (a.has_value() ?
                         b.has_value() && a.value().resolve_string(base_1) == b.value().resolve_string(base_2) :
                         !b.has_value());
             };
-            auto cmp = [&](const ProtoScreen& a, const ProtoScreen& b) {
+            auto cmp = [&](const ProtoViewport& a, const ProtoViewport& b) {
                 return (a.bounds == b.bounds &&
                         a.resolution == b.resolution &&
                         a.refresh_rate == b.refresh_rate &&
                         a.output_name.resolve_string(base_1) == b.output_name.resolve_string(base_2) &&
                         cmp_opt_str(a.monitor_name, b.monitor_name));
             };
-            if (std::equal(new_screens.begin(), new_screens.end(), screens.begin(), screens.end(), std::move(cmp))) {
+            if (std::equal(new_viewports.begin(), new_viewports.end(),
+                           viewports.begin(), viewports.end(), std::move(cmp))) {
                 changed = false;
                 return true;
             }
         }
-        screens.reserve(new_screens.size()); // Throws
-        screens_string_buffer.reserve(strings.size(), screens_string_buffer_used_size); // Throws
+        viewports.reserve(new_viewports.size()); // Throws
+        viewports_string_buffer.reserve(strings.size(), viewports_string_buffer_used_size); // Throws
         // Non-throwing from here
-        screens.clear();
-        screens.insert(screens.begin(), new_screens.begin(), new_screens.end());
-        screens_string_buffer.assign(strings);
-        screens_string_buffer_used_size = strings.size();
+        viewports.clear();
+        viewports.insert(viewports.begin(), new_viewports.begin(), new_viewports.end());
+        viewports_string_buffer.assign(strings);
+        viewports_string_buffer_used_size = strings.size();
         changed = true;
         return true;
     };
-    auto update_display_info = [&] {
+    auto update_screen_info = [&] {
         int max_attempts = 16;
         for (int i = 0; i < max_attempts; ++i) {
             bool changed = false;
-            if (ARCHON_LIKELY(try_update_display_info(changed)))
+            if (ARCHON_LIKELY(try_update_screen_info(changed)))
                 return changed;
         }
         throw std::runtime_error("Failed to fetch screen configuration using XRandR within the allotted number of "
                                  "attempts");
     };
-    auto dump_display_info = [&] {
-        const char* strings_base = screens_string_buffer.data();
-        std::size_t n = screens.size();
+    auto dump_screen_info = [&] {
+        const char* strings_base = viewports_string_buffer.data();
+        std::size_t n = viewports.size();
         for (std::size_t i = 0; i < n; ++i) {
-            const ProtoScreen& screen = screens[i];
+            const ProtoViewport& viewport = viewports[i];
             auto format_monitor_name = [&](std::ostream& out) {
-                if (ARCHON_LIKELY(screen.monitor_name.has_value())) {
-                    out << core::quoted(screen.monitor_name.value().resolve_string(strings_base)); // Throws
+                if (ARCHON_LIKELY(viewport.monitor_name.has_value())) {
+                    out << core::quoted(viewport.monitor_name.value().resolve_string(strings_base)); // Throws
                 }
                 else {
                     out << "unknown"; // Throws
                 }
             };
-            logger.info("Screen %s/%s: output_name=%s, bounds=%s, monitor_name=%s, resolution=%s, refresh_rate=%s",
-                        i + 1, n, core::quoted(screen.output_name.resolve_string(strings_base)), screen.bounds,
-                        core::as_format_func(format_monitor_name), core::as_optional(screen.resolution, "unknown"),
-                        core::as_optional(screen.refresh_rate, "unknown")); // Throws
+            logger.info("Viewport %s/%s: output_name=%s, bounds=%s, monitor_name=%s, resolution=%s, refresh_rate=%s",
+                        i + 1, n, core::quoted(viewport.output_name.resolve_string(strings_base)), viewport.bounds,
+                        core::as_format_func(format_monitor_name), core::as_optional(viewport.resolution, "unknown"),
+                        core::as_optional(viewport.refresh_rate, "unknown")); // Throws
         }
     };
     if (ARCHON_LIKELY(extension_info.have_xrandr)) {
-        update_display_info(); // Throws
-        dump_display_info(); // Throws
+        update_screen_info(); // Throws
+        dump_screen_info(); // Throws
     }
 #endif // HAVE_XRANDR
 
@@ -1103,8 +1104,8 @@ int main(int argc, char* argv[])
                     switch (ev_2.subtype) {
                         case RRNotify_CrtcChange:
                         case RRNotify_OutputChange:
-                            if (update_display_info()) // Throws
-                                dump_display_info(); // Throws
+                            if (update_screen_info()) // Throws
+                                dump_screen_info(); // Throws
                     }
                 }
 #endif // HAVE_XRANDR
