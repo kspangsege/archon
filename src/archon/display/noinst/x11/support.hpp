@@ -27,11 +27,13 @@
 #include <memory>
 #include <optional>
 #include <string_view>
+#include <vector>
 #include <locale>
 
 #include <archon/core/features.h>
 #include <archon/core/span.hpp>
 #include <archon/core/assert.hpp>
+#include <archon/core/index_range.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/buffer.hpp>
 #include <archon/core/flat_map.hpp>
@@ -40,6 +42,8 @@
 #include <archon/image.hpp>
 #include <archon/display/impl/config.h>
 #include <archon/display/geometry.hpp>
+#include <archon/display/resolution.hpp>
+#include <archon/display/noinst/edid.hpp>
 #include <archon/display/connection_config_x11.hpp>
 
 #if !ARCHON_WINDOWS && ARCHON_DISPLAY_HAVE_X11 && ARCHON_DISPLAY_HAVE_X11_XKB
@@ -373,6 +377,29 @@ private:
 
 
 
+#if HAVE_XRANDR
+
+
+struct ProtoViewport {
+    core::IndexRange output_name;
+    display::Box bounds;
+    std::optional<core::IndexRange> monitor_name;
+    std::optional<display::Resolution> resolution;
+    std::optional<double> refresh_rate;
+};
+
+
+struct ScreenConf {
+    std::vector<x11::ProtoViewport> viewports;
+    core::Buffer<char> string_buffer;
+    std::size_t string_buffer_used_size = 0;
+};
+
+
+#endif // HAVE_XRANDR
+
+
+
 auto map_opt_visual_class(const std::optional<display::ConnectionConfigX11::VisualClass>& class_) noexcept ->
     std::optional<int>;
 
@@ -485,6 +512,14 @@ auto create_pixel_format(Display* dpy, ::Window root, const XVisualInfo&, const 
                          bool prefer_default_nondecomposed_colormap, bool weird) -> std::unique_ptr<x11::PixelFormat>;
 
 
+#if HAVE_XRANDR
+
+
+bool update_screen_conf(Display* dpy, ::Window root, Atom atom_edid, const impl::EdidParser& edid_parser,
+                        x11::ScreenConf& conf);
+
+
+#endif // HAVE_XRANDR
 #endif // HAVE_X11
 
 

@@ -314,7 +314,7 @@ int main(int argc, char* argv[])
     opt(cli::help_tag, spec); // Throws
     opt(cli::stop_tag, spec); // Throws
 
-    opt("-s, --window-size", "<size>", cli::no_attributes, spec,
+    opt("-S, --window-size", "<size>", cli::no_attributes, spec,
         "Set the initial size of the window. \"@A\" can be specified either as a pair \"<width>,<height>\", or as a "
         "single number, which is then used as both width and height. The default window size is @V.",
         cli::assign(window_size)); // Throws
@@ -325,7 +325,7 @@ int main(int argc, char* argv[])
         "color is @Q.",
         cli::assign(util::as_css_color(config.background_color))); // Throws
 
-    opt("-S, --texture-size", "<size>", cli::no_attributes, spec,
+    opt("-t, --texture-size", "<size>", cli::no_attributes, spec,
         "Set the size in pixels of the texture that is placed in the window. \"@A\" can be specified either as a pair "
         "\"<width>,<height>\", or as a single number, which is then used as both width and height. If no texture size "
         "is specified, it will be set equal to the size of the specified image, or default image if no image is "

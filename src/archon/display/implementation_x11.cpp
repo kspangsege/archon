@@ -26,11 +26,8 @@
 #include <memory>
 #include <utility>
 #include <stdexcept>
-#include <array>
 #include <optional>
 #include <string_view>
-#include <string>
-#include <vector>
 #include <locale>
 #include <chrono>
 
@@ -38,13 +35,9 @@
 #include <archon/core/pair.hpp>
 #include <archon/core/span.hpp>
 #include <archon/core/assert.hpp>
-#include <archon/core/scope_exit.hpp>
-#include <archon/core/index_range.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/memory.hpp>
 #include <archon/core/buffer.hpp>
-#include <archon/core/string_buffer_contents.hpp>
-#include <archon/core/vector.hpp>
 #include <archon/core/deque.hpp>
 #include <archon/core/flat_map.hpp>
 #include <archon/core/flat_set.hpp>
@@ -62,7 +55,6 @@
 #include <archon/display/mouse_button.hpp>
 #include <archon/display/event.hpp>
 #include <archon/display/event_handler.hpp>
-#include <archon/display/resolution.hpp>
 #include <archon/display/viewport.hpp>
 #include <archon/display/noinst/timestamp_unwrapper.hpp>
 #include <archon/display/noinst/edid.hpp>
@@ -151,19 +143,6 @@ auto map_opt_visual_type(const std::optional<std::uint_fast32_t>& type) -> std::
 }
 
 
-#if HAVE_XRANDR
-
-struct ProtoViewport {
-    core::IndexRange output_name;
-    display::Box bounds;
-    std::optional<core::IndexRange> monitor_name;
-    std::optional<display::Resolution> resolution;
-    std::optional<double> refresh_rate;
-};
-
-#endif // HAVE_XRANDR
-
-
 // One slot for each X11 screen
 struct ScreenSlot {
     bool is_initialized = false;
@@ -180,10 +159,8 @@ struct ScreenSlot {
     core::FlatMap<core::Pair<int, VisualID>, std::unique_ptr<x11::ImageBridge>> image_bridges;
 
 #if HAVE_XRANDR
-    std::vector<ProtoViewport> viewports;
-    core::Buffer<char> viewports_string_buffer;
-    std::size_t viewports_string_buffer_used_size = 0;
-#endif // HAVE_XRANDR
+    x11::ScreenConf screen_conf;
+#endif
 };
 
 
@@ -413,8 +390,7 @@ private:
     bool is_pointer_grabbed() const noexcept;
 
 #if HAVE_XRANDR
-    bool update_display_info(ScreenSlot& slot) const;
-    bool try_update_display_info(ScreenSlot& slot, bool& changed) const;
+    bool update_screen_conf(ScreenSlot& slot) const;
     auto ensure_edid_parser() const -> const impl::EdidParser&;
 #endif
 };
@@ -758,13 +734,14 @@ bool ConnectionImpl::try_get_screen_conf(int screen, core::Buffer<display::Viewp
 #if HAVE_XRANDR
     if (m_extension_info.have_xrandr) {
         const ScreenSlot& slot = ensure_screen_slot(screen); // Throws
-        std::size_t n = slot.viewports.size();
+        const x11::ScreenConf& conf = slot.screen_conf;
+        std::size_t n = conf.viewports.size();
         viewports.reserve(n); // Throws
-        const char* strings_base = slot.viewports_string_buffer.data();
-        strings.assign({ strings_base, slot.viewports_string_buffer_used_size }); // Throws
+        const char* strings_base = conf.string_buffer.data();
+        strings.assign({ strings_base, conf.string_buffer_used_size }); // Throws
         const char* strings_base_2 = strings.data();
         for (std::size_t i = 0; i < n; ++i) {
-            const ProtoViewport& proto = slot.viewports[i];
+            const x11::ProtoViewport& proto = conf.viewports[i];
             std::optional<std::string_view> monitor_name;
             if (proto.monitor_name.has_value())
                 monitor_name = proto.monitor_name.value().resolve_string(strings_base_2); // Throws
@@ -826,7 +803,7 @@ auto ConnectionImpl::ensure_screen_slot(int screen) const -> ScreenSlot&
         if (ARCHON_LIKELY(m_extension_info.have_xrandr)) {
             int mask = RROutputChangeNotifyMask | RRCrtcChangeNotifyMask;
             XRRSelectInput(dpy, root, mask);
-            update_display_info(slot); // Throws
+            update_screen_conf(slot); // Throws
         }
 #endif // HAVE_XRANDR
 
@@ -1177,7 +1154,7 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
                 int screen = i->second;
                 ARCHON_ASSERT(screen >= 0 && screen < ScreenCount(dpy));
                 ScreenSlot& slot = m_screen_slots[screen];
-                if (update_display_info(slot)) // Throws
+                if (update_screen_conf(slot)) // Throws
                     connection_event_handler_2.on_screen_change(screen); // Throws
         }
     }
@@ -1307,176 +1284,10 @@ inline bool ConnectionImpl::is_pointer_grabbed() const noexcept
 #if HAVE_XRANDR
 
 
-bool ConnectionImpl::update_display_info(ScreenSlot& slot) const
+inline bool ConnectionImpl::update_screen_conf(ScreenSlot& slot) const
 {
-    int max_attempts = 64;
-    for (int i = 0; i < max_attempts; ++i) {
-        bool changed = false;
-        if (ARCHON_LIKELY(try_update_display_info(slot, changed)))
-            return changed;
-    }
-    throw std::runtime_error("Failed to fetch screen configuration using XRandR within the allotted number of "
-                             "attempts");
-}
-
-
-bool ConnectionImpl::try_update_display_info(ScreenSlot& slot, bool& changed) const
-{
-    XRRScreenResources* resources = XRRGetScreenResourcesCurrent(dpy, slot.root);
-    if (ARCHON_UNLIKELY(!resources))
-        throw std::runtime_error("XRRGetScreenResourcesCurrent() failed");
-    ARCHON_SCOPE_EXIT {
-        XRRFreeScreenResources(resources);
-    };
-    struct Crtc {
-        bool enabled;
-        display::Box bounds;
-        std::optional<double> refresh_rate;
-    };
-    core::FlatMap<RRCrtc, Crtc, 16> crtcs;
-    crtcs.reserve(std::size_t(resources->ncrtc)); // Throws
-    auto ensure_crtc = [&](RRCrtc id) -> const Crtc* {
-        auto i = crtcs.find(id);
-        if (i != crtcs.end())
-            return &i->second;
-        XRRCrtcInfo* info = XRRGetCrtcInfo(dpy, resources, id);
-        if (ARCHON_UNLIKELY(!info))
-            return nullptr;
-        ARCHON_SCOPE_EXIT {
-            XRRFreeCrtcInfo(info);
-        };
-        bool enabled = (info->mode != None);
-        display::Size size = {};
-        core::int_cast(info->width, size.width); // Throws
-        core::int_cast(info->height, size.height); // Throws
-        display::Box bounds = { display::Pos(info->x, info->y), size };
-        std::optional<double> refresh_rate;
-        if (enabled) {
-            bool found = false;
-            for (int j = 0; j < resources->nmode; ++j) {
-                const XRRModeInfo& mode = resources->modes[j];
-                if (ARCHON_LIKELY(mode.id != info->mode))
-                    continue;
-                found = true;
-                if (mode.dotClock != 0)
-                    refresh_rate = mode.dotClock / (mode.hTotal * double(mode.vTotal));
-                break;
-            }
-            ARCHON_ASSERT(found);
-        }
-        ARCHON_STEADY_ASSERT(crtcs.size() < crtcs.capacity());
-        Crtc& crtc =  crtcs[id];
-        crtc = { enabled, bounds, refresh_rate };
-        return &crtc;
-    };
-    core::Vector<ProtoViewport, 16> new_viewports;
-    std::array<char, 16 * 24> strings_seed_memory = {};
-    core::Buffer strings_buffer(strings_seed_memory);
-    core::StringBufferContents strings(strings_buffer);
     const impl::EdidParser& edid_parser = ensure_edid_parser(); // Throws
-    for (int i = 0; i < resources->noutput; ++i) {
-        RROutput id = resources->outputs[i];
-        XRROutputInfo* info = XRRGetOutputInfo(dpy, resources, id);
-        if (ARCHON_UNLIKELY(!info))
-            return false;
-        ARCHON_SCOPE_EXIT {
-            XRRFreeOutputInfo(info);
-        };
-        // Note: Treating RR_UnknownConnection same as RR_Connected
-        bool connected = (info->connection != RR_Disconnected);
-        if (!connected || info->crtc == None)
-            continue;
-        const Crtc* crtc = ensure_crtc(info->crtc); // Throws
-        if (ARCHON_UNLIKELY(!crtc))
-            return false;
-        if (!crtc->enabled)
-            continue;
-        // FIXME: Consider character encoding in output name                
-        std::size_t offset = strings.size();
-        std::size_t size = std::size_t(info->nameLen);
-        strings.append({ info->name, size }); // Throws
-        // The base address is not necessarily correct anymore, but this Will be fixed up later
-        core::IndexRange output_name = { offset, size }; // Throws
-        std::optional<display::Resolution> resolution;
-        if (info->mm_width != 0 && info->mm_height != 0) {
-            double horz_ppcm = crtc->bounds.size.width  / double(info->mm_width)  * 10;
-            double vert_ppcm = crtc->bounds.size.height / double(info->mm_height) * 10;
-            resolution = display::Resolution { horz_ppcm, vert_ppcm };
-        }
-        // Extract monitor name from EDID data when available
-        std::optional<core::IndexRange> monitor_name;
-        int nprop = {};
-        Atom* props = XRRListOutputProperties(dpy, id, &nprop);
-        if (ARCHON_LIKELY(props))  {
-            ARCHON_SCOPE_EXIT {
-                XFree(props);
-            };
-            for (int j = 0; j < nprop; ++j) {
-                if (props[j] == atom_edid) {
-                    long offset = 0;
-                    long length = 128 / 4; // 128 bytes (32 longs) in basic EDID block
-                    Bool _delete = False;
-                    Bool pending = False;
-                    Atom req_type = AnyPropertyType;
-                    Atom actual_type = {};
-                    int actual_format = {};
-                    unsigned long nitems = {};
-                    unsigned long bytes_after = {};
-                    unsigned char* prop = {};
-                    int ret = XRRGetOutputProperty(dpy, id, props[j], offset, length, _delete, pending, req_type,
-                                                   &actual_type, &actual_format, &nitems, &bytes_after, &prop);
-                    if (ARCHON_LIKELY(ret == Success)) {
-                        ARCHON_SCOPE_EXIT {
-                            if (ARCHON_LIKELY(prop))
-                                XFree(prop);
-                        };
-                        if (ARCHON_LIKELY(actual_type == XA_INTEGER && actual_format == 8)) {
-                            std::size_t size = {};
-                            if (ARCHON_LIKELY(core::try_int_cast(nitems, size))) {
-                                std::string_view str = { reinterpret_cast<char*>(prop), size };
-                                impl::EdidInfo info = {};
-                                if (ARCHON_LIKELY(edid_parser.parse(str, info, strings))) // Throws
-                                    monitor_name = info.monitor_name;
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        ProtoViewport viewport = { output_name, crtc->bounds, monitor_name, resolution, crtc->refresh_rate };
-        new_viewports.push_back(viewport); // Throws
-    }
-    {
-        const char* base_1 = strings.data();
-        const char* base_2 = slot.viewports_string_buffer.data();
-        auto cmp_opt_str = [&](const std::optional<core::IndexRange>& a, const std::optional<core::IndexRange>& b) {
-            return (a.has_value() ?
-                    b.has_value() && a.value().resolve_string(base_1) == b.value().resolve_string(base_2) :
-                    !b.has_value());
-        };
-        auto cmp = [&](const ProtoViewport& a, const ProtoViewport& b) {
-            return (a.bounds == b.bounds &&
-                    a.resolution == b.resolution &&
-                    a.refresh_rate == b.refresh_rate &&
-                    a.output_name.resolve_string(base_1) == b.output_name.resolve_string(base_2) &&
-                    cmp_opt_str(a.monitor_name, b.monitor_name));
-        };
-        bool equal = std::equal(new_viewports.begin(), new_viewports.end(),
-                                slot.viewports.begin(), slot.viewports.end(), std::move(cmp));
-        if (equal) {
-            changed = false;
-            return true;
-        }
-    }
-    slot.viewports.reserve(new_viewports.size()); // Throws
-    slot.viewports_string_buffer.reserve(strings.size(), slot.viewports_string_buffer_used_size); // Throws
-    // Non-throwing from here
-    slot.viewports.clear();
-    slot.viewports.insert(slot.viewports.begin(), new_viewports.begin(), new_viewports.end());
-    slot.viewports_string_buffer.assign(strings);
-    slot.viewports_string_buffer_used_size = strings.size();
-    changed = true;
-    return true;
+    return x11::update_screen_conf(dpy, slot.root, atom_edid, edid_parser, slot.screen_conf); // Throws
 }
 
 
