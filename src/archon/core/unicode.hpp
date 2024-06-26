@@ -662,10 +662,14 @@ bool try_encode_utf8(core::StringSpan<C> string, core::Buffer<D>& buffer, std::s
 /// it is required to have a bit width of at least 8, and `std::char_traits<char>::eof()` is
 /// required to be negative. `char8_t` can also be used.
 ///
-/// The output character type, \p D, which is used to hold Unicode code points, must have a
-/// bit-width of at least 21 (the smallest number of bits that can hold U+10FFFF), and
-/// `std::char_traits<D>::eof()` must not collide with a valid code point (U+0000 -> U+D7FF,
-/// U+E000 -> U+FFFD, U+10000 -> U+10FFFF). `char32_t` can be used here.
+/// While the output character type, \p D, which is used to hold Unicode code points, should
+/// have a bit-width of at least 21 (the smallest number of bits that can hold U+10FFFF), it
+/// must have a bit-width of at least 16. This allows for `wchar_t` to be used on the
+/// Windows platform. If the bit-width of \p D is less than 21, an input sequence that
+/// decodes to a code point that is larger than U+FFFF, will be considered invalid. In any
+/// case, `std::char_traits<D>::eof()` must not collide with a valid code point (U+0000 ->
+/// U+D7FF, U+E000 -> U+FFFD, U+10000 -> U+10FFFF). Both `wchar_t` and `char32_t` can be
+/// used here.
 ///
 /// \sa \ref core::decode_utf8(), \ref core::decode_utf8_a(), \ref core::decode_utf8_incr()
 ///
@@ -758,10 +762,14 @@ bool try_encode_utf16(core::StringSpan<C> string, core::Buffer<D>& buffer, std::
 /// bit-width of at least 16, and `std::char_traits<C>::eof()` must be outside the range of
 /// valid UTF-16 code units, 0x0000 -> 0xFFFD. `char16_t` can be used here.
 ///
-/// The output character type, \p D, which is used to hold Unicode code points, must have a
-/// bit-width of at least 21 (the smallest number of bits that can hold U+10FFFF), and
-/// `std::char_traits<D>::eof()` must not collide with a valid code point (U+0000 -> U+D7FF,
-/// U+E000 -> U+FFFD, U+10000 -> U+10FFFF). `char32_t` can be used here.
+/// While the output character type, \p D, which is used to hold Unicode code points, should
+/// have a bit-width of at least 21 (the smallest number of bits that can hold U+10FFFF), it
+/// must have a bit-width of at least 16. This allows for `wchar_t` to be used on the
+/// Windows platform. If the bit-width of \p D is less than 21, an input sequence that
+/// decodes to a code point that is larger than U+FFFF, will be considered invalid (i.e.,
+/// surrogate pairs). In any case, `std::char_traits<D>::eof()` must not collide with a
+/// valid code point (U+0000 -> U+D7FF, U+E000 -> U+FFFD, U+10000 -> U+10FFFF). Both
+/// `wchar_t` and `char32_t` can be used here.
 ///
 /// \sa \ref core::decode_utf16(), \ref core::decode_utf16_a(), \ref
 /// core::decode_utf16_incr()
@@ -979,10 +987,14 @@ void encode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
 /// it is required to have a bit width of at least 8, and `std::char_traits<char>::eof()` is
 /// required to be negative. `char8_t` can also be used.
 ///
-/// The output character type, \p D, which is used to hold Unicode code points, must have a
-/// bit-width of at least 21 (the smallest number of bits that can hold U+10FFFF), and
-/// `std::char_traits<D>::eof()` must not collide with a valid code point (U+0000 -> U+D7FF,
-/// U+E000 -> U+FFFD, U+10000 -> U+10FFFF). `char32_t` can be used here.
+/// While the output character type, \p D, which is used to hold Unicode code points, should
+/// have a bit-width of at least 21 (the smallest number of bits that can hold U+10FFFF), it
+/// must have a bit-width of at least 16. This allows for `wchar_t` to be used on the
+/// Windows platform. If the bit-width of \p D is less than 21, an input sequence that
+/// decodes to a code point that is larger than U+FFFF, will be considered invalid. In any
+/// case, `std::char_traits<D>::eof()` must not collide with a valid code point (U+0000 ->
+/// U+D7FF, U+E000 -> U+FFFD, U+10000 -> U+10FFFF). Both `wchar_t` and `char32_t` can be
+/// used here.
 ///
 /// \sa \ref core::decode_utf8(), \ref core::decode_utf8_l(), \ref core::decode_utf8_a(),
 /// \ref core::resync_utf8()
@@ -1106,10 +1118,14 @@ void encode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& i
 /// bit-width of at least 16, and `std::char_traits<C>::eof()` must be outside the range of
 /// valid UTF-16 code units, 0x0000 -> 0xFFFD. `char16_t` can be used here.
 ///
-/// The output character type, \p D, which is used to hold Unicode code points, must have a
-/// bit-width of at least 21 (the smallest number of bits that can hold U+10FFFF), and
-/// `std::char_traits<D>::eof()` must not collide with a valid code point (U+0000 -> U+D7FF,
-/// U+E000 -> U+FFFD, U+10000 -> U+10FFFF). `char32_t` can be used here.
+/// While the output character type, \p D, which is used to hold Unicode code points, should
+/// have a bit-width of at least 21 (the smallest number of bits that can hold U+10FFFF), it
+/// must have a bit-width of at least 16. This allows for `wchar_t` to be used on the
+/// Windows platform. If the bit-width of \p D is less than 21, an input sequence that
+/// decodes to a code point that is larger than U+FFFF, will be considered invalid (i.e.,
+/// surrogate pairs). In any case, `std::char_traits<D>::eof()` must not collide with a
+/// valid code point (U+0000 -> U+D7FF, U+E000 -> U+FFFD, U+10000 -> U+10FFFF). Both
+/// `wchar_t` and `char32_t` can be used here.
 ///
 /// \sa \ref core::decode_utf16(), \ref core::decode_utf16_l(), \ref core::decode_utf16_a(),
 /// \ref core::resync_utf16()
@@ -1891,11 +1907,11 @@ void decode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
     using int_type_1 = typename traits_type_1::int_type;
     using int_type_2 = typename traits_type_2::int_type;
 
-    static_assert(!std::is_const_v<char_type_1> && !std::is_volatile_v<char_type_1>);
-    static_assert(!std::is_const_v<char_type_2> && !std::is_volatile_v<char_type_2>);
-
     constexpr bool reduced_range = (core::int_inner_width<char_type_2>() < 21);
     constexpr int_type_2 max = (reduced_range ? 0xFFFD : 0x10FFFF);
+
+    static_assert(!std::is_const_v<char_type_1> && !std::is_volatile_v<char_type_1>);
+    static_assert(!std::is_const_v<char_type_2> && !std::is_volatile_v<char_type_2>);
 
     static_assert(core::num_value_bits<int_type_1>() >= 8);
     static_assert(core::num_value_bits<int_type_2>() >= 16);
@@ -2004,7 +2020,7 @@ void decode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
                                       ((v_3 & 0x3F) << 6) | (v_4 & 0x3F));
                             if (ARCHON_LIKELY(v >= 0x10000)) {
                                 if (ARCHON_LIKELY(v < 0x110000)) {
-                                    if (ARCHON_LIKELY(!reduced_range || v < 0xFFFE)) {
+                                    if constexpr (!reduced_range) {
                                         if (ARCHON_LIKELY(i_2 < end_2)) {
                                             *i_2++ = traits_type_2::to_char_type(int_type_2(v));
                                             i_1 += 4;
@@ -2013,8 +2029,10 @@ void decode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
                                         // Output exhausted
                                         break;
                                     }
-                                    error = true; // Unrepresentable code point
-                                    break;
+                                    else {
+                                        error = true; // Unrepresentable code point
+                                        break;
+                                    }
                                 }
                                 error = true; // Code point out of range
                                 break;
@@ -2133,6 +2151,9 @@ void decode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& i
     using int_type_1 = typename traits_type_1::int_type;
     using int_type_2 = typename traits_type_2::int_type;
 
+    constexpr bool reduced_range = (core::int_inner_width<char_type_2>() < 21);
+    constexpr int_type_2 max = (reduced_range ? 0xFFFD : 0x10FFFF);
+
     static_assert(!std::is_const_v<char_type_1> && !std::is_volatile_v<char_type_1>);
     static_assert(!std::is_const_v<char_type_2> && !std::is_volatile_v<char_type_2>);
 
@@ -2140,10 +2161,10 @@ void decode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& i
     static_assert(core::num_value_bits<int_type_2>() >= 21);
 
     static_assert(traits_type_1::to_int_type(traits_type_1::to_char_type(0xFFFD)) == 0xFFFD);
-    static_assert(traits_type_2::to_int_type(traits_type_2::to_char_type(0x10FFFF)) == 0x10FFFF);
+    static_assert(traits_type_2::to_int_type(traits_type_2::to_char_type(max)) == max);
 
     static_assert(traits_type_1::eof() < 0 || traits_type_1::eof() > 0xFFFD);
-    static_assert(traits_type_2::eof() < 0 || traits_type_2::eof() > 0x10FFFF);
+    static_assert(traits_type_2::eof() < 0 || traits_type_2::eof() > max);
 
     ARCHON_ASSERT(in_offset <= in.size());
     ARCHON_ASSERT(out_offset <= out.size());
@@ -2180,13 +2201,19 @@ void decode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& i
                         if (ARCHON_LIKELY(v_2 >= 0xDC00 && v_2 < 0xE000)) {
                             using type = decltype(promoted_type() + std::int_least32_t());
                             type v = 0x10000 + ((type(v_1 - 0xD800) << 10) | (v_2 - 0xDC00));
-                            if (ARCHON_LIKELY(i_2 < end_2)) {
-                                *i_2++ = traits_type_2::to_char_type(int_type_2(v));
-                                i_1 += 2;
-                                continue;
+                            if constexpr (!reduced_range) {
+                                if (ARCHON_LIKELY(i_2 < end_2)) {
+                                    *i_2++ = traits_type_2::to_char_type(int_type_2(v));
+                                    i_1 += 2;
+                                    continue;
+                                }
+                                // Output exhausted
+                                break;
                             }
-                            // Output exhausted
-                            break;
+                            else {
+                                error = true; // Unrepresentable code point
+                                break;
+                            }
                         }
                         error = true; // Invalid second half of surrogate pair
                         break;
