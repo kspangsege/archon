@@ -21,6 +21,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cwchar>
 #include <cstdlib>
 #include <type_traits>
 #include <bit>
@@ -42,11 +43,16 @@
 #include <archon/core/span.hpp>
 #include <archon/core/assert.hpp>
 #include <archon/core/scope_exit.hpp>
+#include <archon/core/string_span.hpp>
+#include <archon/core/index_range.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/memory.hpp>
 #include <archon/core/buffer.hpp>
+#include <archon/core/string_buffer_contents.hpp>
+#include <archon/core/vector.hpp>
 #include <archon/core/flat_map.hpp>
 #include <archon/core/locale.hpp>
+#include <archon/core/char_codec.hpp>
 #include <archon/core/string_codec.hpp>
 #include <archon/core/unicode.hpp>
 #include <archon/core/format.hpp>
@@ -66,6 +72,8 @@
 #include <archon/image/packed_pixel_format.hpp>
 #include <archon/image/indexed_pixel_format.hpp>
 #include <archon/display/geometry.hpp>
+#include <archon/display/resolution.hpp>
+#include <archon/display/noinst/edid.hpp>
 #include <archon/display/connection_config_x11.hpp>
 #include <archon/display/noinst/mult_pixel_format.hpp>
 #include <archon/display/noinst/palette_map.hpp>
@@ -2020,6 +2028,188 @@ auto PixelFormatCreator::format_error_message(Error error) const -> std::string
 }
 
 
+#if HAVE_XRANDR
+
+
+bool try_update_screen_conf(Display* dpy, ::Window root, Atom atom_edid, const impl::EdidParser& edid_parser,
+                            x11::ScreenConf& conf, bool& changed)
+{
+    XRRScreenResources* resources = XRRGetScreenResourcesCurrent(dpy, root);
+    if (ARCHON_UNLIKELY(!resources))
+        throw std::runtime_error("XRRGetScreenResourcesCurrent() failed");
+    ARCHON_SCOPE_EXIT {
+        XRRFreeScreenResources(resources);
+    };
+    struct Crtc {
+        bool enabled;
+        display::Box bounds;
+        Rotation rotation;
+        std::optional<double> refresh_rate;
+    };
+    core::FlatMap<RRCrtc, Crtc, 16> crtcs;
+    crtcs.reserve(std::size_t(resources->ncrtc)); // Throws
+    auto ensure_crtc = [&](RRCrtc id) -> const Crtc* {
+        auto i = crtcs.find(id);
+        if (i != crtcs.end())
+            return &i->second;
+        XRRCrtcInfo* info = XRRGetCrtcInfo(dpy, resources, id);
+        if (ARCHON_UNLIKELY(!info))
+            return nullptr;
+        ARCHON_SCOPE_EXIT {
+            XRRFreeCrtcInfo(info);
+        };
+        bool enabled = (info->mode != None);
+        display::Size size = {};
+        core::int_cast(info->width, size.width); // Throws
+        core::int_cast(info->height, size.height); // Throws
+        display::Box bounds = { display::Pos(info->x, info->y), size };
+        std::optional<double> refresh_rate;
+        if (enabled) {
+            bool found = false;
+            for (int j = 0; j < resources->nmode; ++j) {
+                const XRRModeInfo& mode = resources->modes[j];
+                if (ARCHON_LIKELY(mode.id != info->mode))
+                    continue;
+                found = true;
+                if (mode.dotClock != 0)
+                    refresh_rate = mode.dotClock / (mode.hTotal * double(mode.vTotal));
+                break;
+            }
+            ARCHON_ASSERT(found);
+        }
+        ARCHON_STEADY_ASSERT(crtcs.size() < crtcs.capacity());
+        Crtc& crtc =  crtcs[id];
+        crtc = { enabled, bounds, info->rotation, refresh_rate };
+        return &crtc;
+    };
+    core::Vector<x11::ProtoViewport, 16> new_viewports;
+    std::array<char, 16 * 24> strings_seed_memory = {};
+    core::Buffer strings_buffer(strings_seed_memory);
+    core::StringBufferContents strings(strings_buffer);
+    for (int i = 0; i < resources->noutput; ++i) {
+        RROutput id = resources->outputs[i];
+        XRROutputInfo* info = XRRGetOutputInfo(dpy, resources, id);
+        if (ARCHON_UNLIKELY(!info))
+            return false;
+        ARCHON_SCOPE_EXIT {
+            XRRFreeOutputInfo(info);
+        };
+        // Note: Treating RR_UnknownConnection same as RR_Connected
+        bool connected = (info->connection != RR_Disconnected);
+        if (!connected || info->crtc == None)
+            continue;
+        const Crtc* crtc = ensure_crtc(info->crtc); // Throws
+        if (ARCHON_UNLIKELY(!crtc))
+            return false;
+        if (!crtc->enabled)
+            continue;
+        // FIXME: Consider character encoding in output name                
+        std::size_t offset = strings.size();
+        std::size_t size = std::size_t(info->nameLen);
+        strings.append({ info->name, size }); // Throws
+        // The base address is not necessarily correct anymore, but this Will be fixed up later
+        core::IndexRange output_name = { offset, size }; // Throws
+        std::optional<display::Resolution> resolution;
+        if (info->mm_width != 0 && info->mm_height != 0) {
+            unsigned long mm_width  = info->mm_width;
+            unsigned long mm_height = info->mm_height;
+            switch (crtc->rotation) {
+                case RR_Rotate_0:
+                case RR_Rotate_180:
+                case RR_Reflect_X:
+                case RR_Reflect_Y:
+                    break;
+                case RR_Rotate_90:
+                case RR_Rotate_270:
+                    std::swap(mm_width, mm_height);
+                    break;
+                default:
+                    ARCHON_ASSERT_UNREACHABLE();
+            }
+            double horz_ppcm = crtc->bounds.size.width  / double(mm_width)  * 10;
+            double vert_ppcm = crtc->bounds.size.height / double(mm_height) * 10;
+            resolution = display::Resolution { horz_ppcm, vert_ppcm };
+        }
+        // Extract monitor name from EDID data when available
+        std::optional<core::IndexRange> monitor_name;
+        int nprop = {};
+        Atom* props = XRRListOutputProperties(dpy, id, &nprop);
+        if (ARCHON_LIKELY(props))  {
+            ARCHON_SCOPE_EXIT {
+                XFree(props);
+            };
+            for (int j = 0; j < nprop; ++j) {
+                if (props[j] == atom_edid) {
+                    long offset = 0;
+                    long length = 128 / 4; // 128 bytes (32 longs) in basic EDID block
+                    Bool _delete = False;
+                    Bool pending = False;
+                    Atom req_type = AnyPropertyType;
+                    Atom actual_type = {};
+                    int actual_format = {};
+                    unsigned long nitems = {};
+                    unsigned long bytes_after = {};
+                    unsigned char* prop = {};
+                    int ret = XRRGetOutputProperty(dpy, id, props[j], offset, length, _delete, pending, req_type,
+                                                   &actual_type, &actual_format, &nitems, &bytes_after, &prop);
+                    if (ARCHON_LIKELY(ret == Success)) {
+                        ARCHON_SCOPE_EXIT {
+                            if (ARCHON_LIKELY(prop))
+                                XFree(prop);
+                        };
+                        if (ARCHON_LIKELY(actual_type == XA_INTEGER && actual_format == 8)) {
+                            std::size_t size = {};
+                            if (ARCHON_LIKELY(core::try_int_cast(nitems, size))) {
+                                std::string_view str = { reinterpret_cast<char*>(prop), size };
+                                impl::EdidInfo info = {};
+                                if (ARCHON_LIKELY(edid_parser.parse(str, info, strings))) // Throws
+                                    monitor_name = info.monitor_name;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        x11::ProtoViewport viewport = { output_name, crtc->bounds, monitor_name, resolution, crtc->refresh_rate };
+        new_viewports.push_back(viewport); // Throws
+    }
+    {
+        const char* base_1 = strings.data();
+        const char* base_2 = conf.string_buffer.data();
+        auto cmp_opt_str = [&](const std::optional<core::IndexRange>& a, const std::optional<core::IndexRange>& b) {
+            return (a.has_value() ?
+                    b.has_value() && a.value().resolve_string(base_1) == b.value().resolve_string(base_2) :
+                    !b.has_value());
+        };
+        auto cmp = [&](const x11::ProtoViewport& a, const x11::ProtoViewport& b) {
+            return (a.bounds == b.bounds &&
+                    a.resolution == b.resolution &&
+                    a.refresh_rate == b.refresh_rate &&
+                    a.output_name.resolve_string(base_1) == b.output_name.resolve_string(base_2) &&
+                    cmp_opt_str(a.monitor_name, b.monitor_name));
+        };
+        bool equal = std::equal(new_viewports.begin(), new_viewports.end(),
+                                conf.viewports.begin(), conf.viewports.end(), std::move(cmp));
+        if (equal) {
+            changed = false;
+            return true;
+        }
+    }
+    conf.viewports.reserve(new_viewports.size()); // Throws
+    conf.string_buffer.reserve(strings.size(), conf.string_buffer_used_size); // Throws
+    // Non-throwing from here
+    conf.viewports.clear();
+    conf.viewports.insert(conf.viewports.begin(), new_viewports.begin(), new_viewports.end());
+    conf.string_buffer.assign(strings);
+    conf.string_buffer_used_size = strings.size();
+    changed = true;
+    return true;
+}
+
+
+#endif // HAVE_XRANDR
+
+
 } // unnamed namespace
 
 
@@ -2828,4 +3018,21 @@ auto x11::create_pixel_format(Display* dpy, ::Window root, const XVisualInfo& vi
 }
 
 
+#if HAVE_XRANDR
+
+
+bool x11::update_screen_conf(Display* dpy, ::Window root, Atom atom_edid, const impl::EdidParser& edid_parser,
+                             x11::ScreenConf& conf)
+{
+    int max_attempts = 64;
+    for (int i = 0; i < max_attempts; ++i) {
+        bool changed = false;
+        if (ARCHON_LIKELY(try_update_screen_conf(dpy, root, atom_edid, edid_parser, conf, changed))) // Throws
+            return changed;
+    }
+    throw std::runtime_error("Failed to fetch XRandR screen configuration within the allotted number of attempts");
+}
+
+
+#endif // HAVE_XRANDR
 #endif // HAVE_X11
