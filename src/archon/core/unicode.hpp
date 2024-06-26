@@ -1894,14 +1894,17 @@ void decode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
     static_assert(!std::is_const_v<char_type_1> && !std::is_volatile_v<char_type_1>);
     static_assert(!std::is_const_v<char_type_2> && !std::is_volatile_v<char_type_2>);
 
+    constexpr bool reduced_range = (core::int_inner_width<char_type_2>() < 21);
+    constexpr int_type_2 max = (reduced_range ? 0xFFFD : 0x10FFFF);
+
     static_assert(core::num_value_bits<int_type_1>() >= 8);
-    static_assert(core::num_value_bits<int_type_2>() >= 21);
+    static_assert(core::num_value_bits<int_type_2>() >= 16);
 
     static_assert(traits_type_1::to_int_type(traits_type_1::to_char_type(0xFF)) == 0xFF);
-    static_assert(traits_type_2::to_int_type(traits_type_2::to_char_type(0x10FFFF)) == 0x10FFFF);
+    static_assert(traits_type_2::to_int_type(traits_type_2::to_char_type(max)) == max);
 
     static_assert(traits_type_1::eof() < 0 || traits_type_1::eof() > 0xFF);
-    static_assert(traits_type_2::eof() < 0 || traits_type_2::eof() > 0x10FFFF);
+    static_assert(traits_type_2::eof() < 0 || traits_type_2::eof() > max);
 
     ARCHON_ASSERT(in_offset <= in.size());
     ARCHON_ASSERT(out_offset <= out.size());
@@ -2001,12 +2004,16 @@ void decode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
                                       ((v_3 & 0x3F) << 6) | (v_4 & 0x3F));
                             if (ARCHON_LIKELY(v >= 0x10000)) {
                                 if (ARCHON_LIKELY(v < 0x110000)) {
-                                    if (ARCHON_LIKELY(i_2 < end_2)) {
-                                        *i_2++ = traits_type_2::to_char_type(int_type_2(v));
-                                        i_1 += 4;
-                                        continue;
+                                    if (ARCHON_LIKELY(!reduced_range || v < 0xFFFE)) {
+                                        if (ARCHON_LIKELY(i_2 < end_2)) {
+                                            *i_2++ = traits_type_2::to_char_type(int_type_2(v));
+                                            i_1 += 4;
+                                            continue;
+                                        }
+                                        // Output exhausted
+                                        break;
                                     }
-                                    // Output exhausted
+                                    error = true; // Unrepresentable code point
                                     break;
                                 }
                                 error = true; // Code point out of range
