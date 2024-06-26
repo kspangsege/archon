@@ -39,10 +39,11 @@ namespace archon::core {
 /// This function is used to map a character in the basic character set from its native
 /// encoding to its encoding in ASCII.
 ///
-/// If the value of the specified character is the encoded value with respect to the native
-/// multi-byte character encoding of a character in the basic character set, then this
-/// function returns `true` after setting \p ascii to the encoded value of that character in
-/// ASCII. Otherwise, this function returns `false` and leaves \p ascii unchanged.
+/// If the value of the specified character (\p ch) is the encoded value with respect to the
+/// native multi-byte character encoding of a character in the basic character set, then
+/// this function returns `true` after setting \p ascii to the encoded value of that
+/// character in ASCII. Otherwise, this function returns `false` and leaves \p ascii
+/// unchanged.
 ///
 /// The native multi-byte character encoding is to be understood as the multi-byte encoding
 /// of the execution environment. It is the encoding of plain character and string
@@ -66,7 +67,27 @@ namespace archon::core {
 ///
 ///     $ @ `
 ///
+/// \sa \ref core::try_map_ascii_to_bcs()
+///
 constexpr bool try_map_bcs_to_ascii(char ch, char& ascii) noexcept;
+
+
+/// \brief Map basic character from ASCII to native encoding.
+///
+/// This function is used to map a character in the basic character set from its encoding in
+/// ASCII to its native encoding.
+///
+/// If the value of the specified character (\p ch) is the ASCII encoding of a character in
+/// the basic character set, then this function returns `true` after setting \p bcs to the
+/// encoded value of that character with respect to the native multi-byte character
+/// encoding. Otherwise, this function returns `false` and leaves \p bcs unchanged.
+///
+/// See \ref core::try_map_bcs_to_ascii() for notes on the meaning of "native multi-byte
+/// character encoding" and "basic character set".
+///
+/// \sa \ref core::try_map_bcs_to_ascii()
+///
+constexpr bool try_map_ascii_to_bcs(char ch, char& bcs) noexcept;
 
 
 
@@ -154,7 +175,7 @@ constexpr bool try_map_bcs_to_ascii(char ch, char& ascii) noexcept
     if constexpr (impl::bcs_is_ascii_subset() && !force_fallback) {
         int val = std::char_traits<char>::to_int_type(ch);
         bool in_bcs = (val >= 0 && val < 128 && impl::g_bcs_by_ascii[val] != '\0');
-        if (in_bcs) {
+        if (ARCHON_LIKELY(in_bcs)) {
             ascii = ch;
             return true;
         }
@@ -163,6 +184,25 @@ constexpr bool try_map_bcs_to_ascii(char ch, char& ascii) noexcept
     else {
         return impl::g_bcs_map.find(ch, ascii);
     }
+}
+
+
+constexpr bool try_map_ascii_to_bcs(char ch, char& bcs) noexcept
+{
+    constexpr bool force_fallback = false;
+
+    int val = std::char_traits<char>::to_int_type(ch);
+    bool in_bcs = (val >= 0 && val < 128 && impl::g_bcs_by_ascii[val] != '\0');
+    if (ARCHON_LIKELY(in_bcs)) {
+        if constexpr (impl::bcs_is_ascii_subset() && !force_fallback) {
+            bcs = ch;
+        }
+        else {
+            bcs = impl::g_bcs_by_ascii[val];
+        }
+        return true;
+    }
+    return false;
 }
 
 
