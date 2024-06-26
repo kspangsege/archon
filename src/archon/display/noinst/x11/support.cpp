@@ -2028,6 +2028,9 @@ auto PixelFormatCreator::format_error_message(Error error) const -> std::string
 }
 
 
+#if HAVE_XRANDR
+
+
 bool try_update_screen_conf(Display* dpy, ::Window root, Atom atom_edid, const impl::EdidParser& edid_parser,
                             x11::ScreenConf& conf, bool& changed)
 {
@@ -2202,6 +2205,9 @@ bool try_update_screen_conf(Display* dpy, ::Window root, Atom atom_edid, const i
     changed = true;
     return true;
 }
+
+
+#endif // HAVE_XRANDR
 
 
 } // unnamed namespace
