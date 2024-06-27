@@ -516,7 +516,7 @@ auto create_pixel_format(Display* dpy, ::Window root, const XVisualInfo&, const 
 
 
 bool update_screen_conf(Display* dpy, ::Window root, Atom atom_edid, const impl::EdidParser& edid_parser,
-                        x11::ScreenConf& conf);
+                        const std::locale& locale, x11::ScreenConf& conf);
 
 
 #endif // HAVE_XRANDR

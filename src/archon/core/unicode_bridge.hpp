@@ -47,6 +47,7 @@ namespace archon::core {
 /// core::try_map_bcs_to_ascii() for more on this.
 ///
 /// \sa \ref core::try_map_bcs_to_ascii()
+/// \sa \ref core::utf8_to_native_mb_transcoder
 ///
 class native_mb_to_utf8_transcoder {
 public:
@@ -65,13 +66,13 @@ public:
     /// in the specified buffer (\p buffer) starting at the specified offset (\p
     /// buffer_offset).
     ///
-    /// This function operates in a lenient manner, meaning that invalid input sequence is
-    /// dealt with by producing a Unicode replacement character (or multiple replacement
+    /// This function operates in a lenient manner, meaning that an invalid input sequence
+    /// is dealt with by producing a Unicode replacement character (or multiple replacement
     /// characters).
     ///
     /// Upon return, \p buffer_offset will have been set to point one beyond the last byte
-    /// of the produced UTF-8 encoding., or, if the produced UTF-8 encoding is empty, it
-    /// will be left unchanged.
+    /// of the produced UTF-8 encoding, or, if the produced UTF-8 encoding is empty, it will
+    /// be left unchanged.
     ///
     /// If this function throws, \p buffer_offset is left unchanged, but the buffer may have
     /// been expanded, and contents after \p buffer_offset may have been clobbered.
@@ -84,6 +85,61 @@ public:
 private:
     std::locale m_locale;
     core::WideCharMapper m_char_mapper;
+    bool m_is_utf8_locale;
+    bool m_is_unicode_locale;
+};
+
+
+
+/// \brief Transcoder from UTF-8 to multi-byte encoding of locale.
+///
+/// An instance of this class facilitates the transcoding of characters from UTF-8 to the
+/// native multi-byte encoding of a particular locale.
+///
+/// A transcoder of this type is associated with a particular locale, the locale passed to
+/// the constructor. The multi-byte character encoding of that locale must agree on the
+/// encoding of the basic character set with the multi-byte encoding of the execution
+/// character set, i.e., the encoding of plain character literals. See \ref
+/// core::try_map_bcs_to_ascii() for more on this.
+///
+/// \sa \ref core::try_map_bcs_to_ascii()
+/// \sa \ref core::native_mb_to_utf8_transcoder
+///
+class utf8_to_native_mb_transcoder {
+public:
+    /// \brief Construct transcoder for particular locale.
+    ///
+    /// This constructor constructs a transcoder for the specified locale. That locale must
+    /// agree on the encoding of the basic character set with the multi-byte encoding of the
+    /// execution character set, i.e., the encoding of plain character literals.
+    ///
+    utf8_to_native_mb_transcoder(const std::locale&);
+
+    /// \brief Leniently transcode from UTF-8 to native encoding.
+    ///
+    /// Given a string expressed in terms of UTF-8, this function produces the corresponding
+    /// string expressed in terms of the native encoding of the transcoder. The transcoded
+    /// result is placed in the specified buffer (\p buffer) starting at the specified
+    /// offset (\p buffer_offset).
+    ///
+    /// This function operates in a lenient manner, meaning that an invalid input sequence
+    /// is dealt with by producing a replacement character (or multiple replacement
+    /// characters).
+    ///
+    /// Upon return, \p buffer_offset will have been set to point one beyond the last byte
+    /// of the produced string, or, if the produced string is empty, it will be left
+    /// unchanged.
+    ///
+    /// If this function throws, \p buffer_offset is left unchanged, but the buffer may have
+    /// been expanded, and contents after \p buffer_offset may have been clobbered.
+    ///
+    /// Behavior is undefined if, prior to the invocation, \p buffer_offset is greater than
+    /// `buffer.size()`.
+    ///
+    void transcode_l(core::StringSpan<char> string, core::Buffer<char>& buffer, std::size_t& buffer_offset) const;
+
+private:
+    std::locale m_locale;
     bool m_is_utf8_locale;
     bool m_is_unicode_locale;
 };

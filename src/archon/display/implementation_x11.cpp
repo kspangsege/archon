@@ -1287,7 +1287,7 @@ inline bool ConnectionImpl::is_pointer_grabbed() const noexcept
 inline bool ConnectionImpl::update_screen_conf(ScreenSlot& slot) const
 {
     const impl::EdidParser& edid_parser = ensure_edid_parser(); // Throws
-    return x11::update_screen_conf(dpy, slot.root, atom_edid, edid_parser, slot.screen_conf); // Throws
+    return x11::update_screen_conf(dpy, slot.root, atom_edid, edid_parser, locale, slot.screen_conf); // Throws
 }
 
 

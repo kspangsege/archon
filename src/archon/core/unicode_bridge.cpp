@@ -29,6 +29,7 @@
 #include <archon/core/features.h>
 #include <archon/core/assert.hpp>
 #include <archon/core/string_span.hpp>
+#include <archon/core/integer.hpp>
 #include <archon/core/buffer.hpp>
 #include <archon/core/locale.hpp>
 #include <archon/core/char_codec_config.hpp>
@@ -42,6 +43,8 @@ using namespace archon;
 
 
 using core::native_mb_to_utf8_transcoder;
+using core::utf8_to_native_mb_transcoder;
+
 
 
 native_mb_to_utf8_transcoder::native_mb_to_utf8_transcoder(const std::locale& locale)
@@ -115,4 +118,72 @@ void native_mb_to_utf8_transcoder::transcode_l(core::StringSpan<char> string, co
     }
 
     buffer_offset = buffer_offset_2;
+}
+
+
+
+utf8_to_native_mb_transcoder::utf8_to_native_mb_transcoder(const std::locale& locale)
+    : m_locale(locale)
+    , m_is_utf8_locale(core::assume_utf8_locale(locale)) // Throws
+    , m_is_unicode_locale(core::assume_unicode_locale(locale)) // Throws
+{
+}
+
+
+void utf8_to_native_mb_transcoder::transcode_l(core::StringSpan<char> string, core::Buffer<char>& buffer,
+                                               std::size_t& buffer_offset) const
+{
+    bool force_fallback = false;
+
+    if (ARCHON_LIKELY(m_is_utf8_locale && !force_fallback)) {
+        buffer.append(string, buffer_offset); // Throws
+        return;
+    }
+
+    // NOTE: On Windows `wchar_t` is only 16 bits wide, so on Windows,
+    // `core::decode_utf8_incr()` will treat a sequence as invalid if it decodes to a code
+    // point that is greater than U+FFFF.
+
+    std::array<wchar_t, 64> buffer_2;
+    std::size_t string_offset = 0;
+    std::size_t string_size = string.size();
+    core::WideCharCodec codec(m_locale); // Throws
+    std::mbstate_t state = {};
+    std::size_t buffer_offset_3 = 0;
+    while (string_offset < string_size) {
+        std::size_t buffer_offset_2 = 0;
+        for (;;) {
+            bool in_exhausted = {};
+            bool error = {};
+            core::decode_utf8_incr(string, core::Span(buffer_2), string_offset, buffer_offset_2, in_exhausted, error);
+            bool error_2 = (in_exhausted ? string_offset < string_size : error);
+            if (ARCHON_LIKELY(!error_2 || buffer_offset_2 == buffer_2.size()))
+                break;
+            ARCHON_ASSERT(string_offset < string_size);
+            wchar_t replacement = std::char_traits<wchar_t>::to_char_type(0xFFFD);
+            buffer_2[buffer_offset_2] = replacement;
+            buffer_offset_2 += 1;
+            string_offset += 1;
+            core::resync_utf8(string, string_offset);
+        }
+        std::wstring_view string_2 = { buffer_2.data(), buffer_offset_2 }; // Throws
+        if (ARCHON_LIKELY(m_is_unicode_locale && !force_fallback)) {
+            std::size_t string_offset_2 = 0;
+            bool error_2 = {};
+            bool complete = codec.encode(state, string_2, string_offset_2, buffer, buffer_offset_3, error_2); // Throws
+            ARCHON_ASSERT(complete);
+            ARCHON_ASSERT(string_offset_2 == string_2.size());
+        }
+        else {
+            for (wchar_t ch_1 : string_2) {
+                auto val = std::char_traits<wchar_t>::to_int_type(ch_1);
+                char ch_2 = '?';
+                if (ARCHON_LIKELY(!core::is_negative(val) && val < 128))
+                    core::try_map_ascii_to_bcs(char(val), ch_2);
+                buffer.append_a(ch_2, buffer_offset_3); // Throws
+            }
+        }
+    }
+
+    buffer_offset = buffer_offset_3;
 }

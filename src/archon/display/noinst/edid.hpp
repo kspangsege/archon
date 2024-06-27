@@ -23,13 +23,12 @@
 
 
 #include <optional>
-#include <string_view>
 #include <locale>
 
+#include <archon/core/span.hpp>
 #include <archon/core/index_range.hpp>
 #include <archon/core/string_buffer_contents.hpp>
-#include <archon/core/locale.hpp>
-#include <archon/core/string_codec.hpp>
+#include <archon/core/unicode_bridge.hpp>
 
 
 namespace archon::display::impl {
@@ -45,12 +44,10 @@ class EdidParser {
 public:
     EdidParser(const std::locale& locale);
 
-    bool parse(std::string_view str, impl::EdidInfo& info, core::StringBufferContents& string_data) const;
+    bool parse(core::Span<const char> data, impl::EdidInfo& info, core::StringBufferContents& string_data) const;
 
 private:
-    const bool m_is_utf8_locale;
-    const bool m_is_unicode_locale;
-    core::WideStringCodec m_string_codec;
+    core::utf8_to_native_mb_transcoder m_transcoder;
 };
 
 
@@ -64,9 +61,7 @@ private:
 
 
 inline EdidParser::EdidParser(const std::locale& locale)
-    : m_is_utf8_locale(core::assume_utf8_locale(locale)) // Throws
-    , m_is_unicode_locale(core::assume_unicode_locale(locale)) // Throws
-    , m_string_codec(locale) // Throws
+    : m_transcoder(locale) // Throws
 {
 }
 

@@ -540,7 +540,7 @@ int main(int argc, char* argv[])
     Atom atom_edid = intern_string(RR_PROPERTY_RANDR_EDID);
     impl::EdidParser edid_parser(locale);
     auto update_screen_conf = [&] {
-        return x11::update_screen_conf(dpy, root, atom_edid, edid_parser, screen_conf); // Throws
+        return x11::update_screen_conf(dpy, root, atom_edid, edid_parser, locale, screen_conf); // Throws
     };
     auto dump_screen_conf = [&] {
         const char* strings_base = screen_conf.string_buffer.data();

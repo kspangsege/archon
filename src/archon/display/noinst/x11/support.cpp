@@ -55,6 +55,7 @@
 #include <archon/core/char_codec.hpp>
 #include <archon/core/string_codec.hpp>
 #include <archon/core/unicode.hpp>
+#include <archon/core/unicode_bridge.hpp>
 #include <archon/core/format.hpp>
 #include <archon/core/as_int.hpp>
 #include <archon/core/quote.hpp>
@@ -2032,7 +2033,7 @@ auto PixelFormatCreator::format_error_message(Error error) const -> std::string
 
 
 bool try_update_screen_conf(Display* dpy, ::Window root, Atom atom_edid, const impl::EdidParser& edid_parser,
-                            x11::ScreenConf& conf, bool& changed)
+                            const std::locale& locale, x11::ScreenConf& conf, bool& changed)
 {
     XRRScreenResources* resources = XRRGetScreenResourcesCurrent(dpy, root);
     if (ARCHON_UNLIKELY(!resources))
@@ -2082,6 +2083,14 @@ bool try_update_screen_conf(Display* dpy, ::Window root, Atom atom_edid, const i
         crtc = { enabled, bounds, info->rotation, refresh_rate };
         return &crtc;
     };
+    core::utf8_to_native_mb_transcoder transcoder(locale); // Throws
+    std::array<char, 64> transcode_seed_memory = {};
+    core::Buffer<char> transcode_buffer(transcode_seed_memory);
+    auto transcode = [&](std::string_view utf8) {
+        std::size_t offset = 0;
+        transcoder.transcode_l(utf8, transcode_buffer, offset); // Throws
+        return std::string_view(transcode_buffer.data(), offset); // Throws
+    };
     core::Vector<x11::ProtoViewport, 16> new_viewports;
     std::array<char, 16 * 24> strings_seed_memory = {};
     core::Buffer strings_buffer(strings_seed_memory);
@@ -2103,12 +2112,11 @@ bool try_update_screen_conf(Display* dpy, ::Window root, Atom atom_edid, const i
             return false;
         if (!crtc->enabled)
             continue;
-        // FIXME: Consider character encoding in output name                
-        std::size_t offset = strings.size();
         std::size_t size = std::size_t(info->nameLen);
-        strings.append({ info->name, size }); // Throws
-        // The base address is not necessarily correct anymore, but this Will be fixed up later
-        core::IndexRange output_name = { offset, size }; // Throws
+        std::string_view output_name_1 = transcode({ info->name, size }); // Throws
+        std::size_t offset = strings.size();
+        strings.append(output_name_1); // Throws
+        core::IndexRange output_name_2 = { offset, output_name_1.size() }; // Throws
         std::optional<display::Resolution> resolution;
         if (info->mm_width != 0 && info->mm_height != 0) {
             unsigned long mm_width  = info->mm_width;
@@ -2131,7 +2139,7 @@ bool try_update_screen_conf(Display* dpy, ::Window root, Atom atom_edid, const i
             resolution = display::Resolution { horz_ppcm, vert_ppcm };
         }
         // Extract monitor name from EDID data when available
-        std::optional<core::IndexRange> monitor_name;
+        std::optional<core::IndexRange> monitor_name; // FIXME: Character encoding?                                  
         int nprop = {};
         Atom* props = XRRListOutputProperties(dpy, id, &nprop);
         if (ARCHON_LIKELY(props))  {
@@ -2160,9 +2168,9 @@ bool try_update_screen_conf(Display* dpy, ::Window root, Atom atom_edid, const i
                         if (ARCHON_LIKELY(actual_type == XA_INTEGER && actual_format == 8)) {
                             std::size_t size = {};
                             if (ARCHON_LIKELY(core::try_int_cast(nitems, size))) {
-                                std::string_view str = { reinterpret_cast<char*>(prop), size };
+                                core::Span<const char> data = { reinterpret_cast<char*>(prop), size };
                                 impl::EdidInfo info = {};
-                                if (ARCHON_LIKELY(edid_parser.parse(str, info, strings))) // Throws
+                                if (ARCHON_LIKELY(edid_parser.parse(data, info, strings))) // Throws
                                     monitor_name = info.monitor_name;
                             }
                         }
@@ -2170,7 +2178,7 @@ bool try_update_screen_conf(Display* dpy, ::Window root, Atom atom_edid, const i
                 }
             }
         }
-        x11::ProtoViewport viewport = { output_name, crtc->bounds, monitor_name, resolution, crtc->refresh_rate };
+        x11::ProtoViewport viewport = { output_name_2, crtc->bounds, monitor_name, resolution, crtc->refresh_rate };
         new_viewports.push_back(viewport); // Throws
     }
     {
@@ -3022,12 +3030,12 @@ auto x11::create_pixel_format(Display* dpy, ::Window root, const XVisualInfo& vi
 
 
 bool x11::update_screen_conf(Display* dpy, ::Window root, Atom atom_edid, const impl::EdidParser& edid_parser,
-                             x11::ScreenConf& conf)
+                             const std::locale& locale, x11::ScreenConf& conf)
 {
     int max_attempts = 64;
     for (int i = 0; i < max_attempts; ++i) {
         bool changed = false;
-        if (ARCHON_LIKELY(try_update_screen_conf(dpy, root, atom_edid, edid_parser, conf, changed))) // Throws
+        if (ARCHON_LIKELY(try_update_screen_conf(dpy, root, atom_edid, edid_parser, locale, conf, changed))) // Throws
             return changed;
     }
     throw std::runtime_error("Failed to fetch XRandR screen configuration within the allotted number of attempts");
