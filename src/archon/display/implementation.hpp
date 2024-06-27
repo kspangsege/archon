@@ -78,8 +78,8 @@ public:
     /// failure, \p conn is left untouched.
     ///
     /// Note that if the implementation was obtained by providing the display guarantee,
-    /// \ref display::Guarantees::only_one_connection, then at most one connection may be
-    /// created per operating system process.
+    /// \ref display::Guarantees::only_one_connection, then at most one connection may exist
+    /// per operating system process at any given time.
     ///
     /// Note that if the implementation was obtained by providing the display guarantee,
     /// \ref display::Guarantees::main_thread_exclusive, then the creation of new

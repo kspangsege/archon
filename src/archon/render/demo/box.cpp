@@ -250,7 +250,13 @@ int main(int argc, char* argv[])
     engine_config.allow_window_resize = true;
     engine_config.logger = &logger;
 
-    render::Engine engine("Archon Box", window_size, locale, engine_config); // Throws
+    render::Engine engine;
+    std::string error;
+    if (ARCHON_UNLIKELY(!engine.try_create("Archon Box", window_size, locale, engine_config, error))) { // Throws
+        logger.error("Failed to create render engine: %s", error); // Throws
+        return EXIT_FAILURE;
+    }
+
     BallScene ball_scene;
     engine.set_scene(ball_scene);
     engine.set_base_spin(math::Rotation({ 0, 1, 0 }, core::deg_to_rad(90))); // Throws

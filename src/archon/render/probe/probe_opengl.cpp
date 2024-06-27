@@ -178,9 +178,9 @@ int main()
     guarantees.no_other_use_of_sdl = true;
 
     std::unique_ptr<display::Connection> conn;
-    std::string message;
-    if (ARCHON_UNLIKELY(!display::try_new_connection(locale, guarantees, conn, message))) { // Throws
-            logger.error("Failed to open display connection: %s", message); // Throws
+    std::string error;
+    if (ARCHON_UNLIKELY(!display::try_new_connection(locale, guarantees, conn, error))) { // Throws
+            logger.error("Failed to open display connection: %s", error); // Throws
             return EXIT_FAILURE;
     }
 

@@ -327,7 +327,7 @@ bool try_new_connection(const std::locale& locale, const display::Guarantees& gu
 /// returns `true` after setting \p conn to null.
 ///
 /// Note that if \p guarantees include \ref display::Guarantees::only_one_connection, then
-/// at most one connection may be created per process of the operating system.
+/// at most one connection may exist per operating system process at any given time.
 ///
 /// Note that if \p guarantees include \ref display::Guarantees::main_thread_exclusive, then
 /// this function must be called only by the main thread. Further more, the returned

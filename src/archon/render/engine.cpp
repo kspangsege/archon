@@ -19,10 +19,14 @@
 // DEALINGS IN THE SOFTWARE.
 
 
+#include <utility>
 #include <memory>
+#include <stdexcept>
 #include <string_view>
+#include <string>
 #include <locale>
 
+#include <archon/core/features.h>
 #include <archon/log/logger.hpp>
 #include <archon/math/rotation.hpp>
 #include <archon/util/color.hpp>
@@ -46,8 +50,39 @@ public:
 
 Engine::Engine(std::string_view window_title, display::Size window_size, const std::locale& locale,
                const Config& config)
-    : m_impl(std::make_unique<Impl>(window_title, window_size, locale, config)) // Throws
 {
+    create(window_title, window_size, locale, config); // Throws
+}
+
+
+Engine::Engine() noexcept
+{
+}
+
+
+void Engine::create(std::string_view window_title, display::Size window_size, const std::locale& locale,
+                    const Config& config)
+{
+    std::string error;
+    if (ARCHON_LIKELY(try_create(window_title, window_size, locale, config, error))) // Throws
+        return;
+    throw std::runtime_error(error);
+}
+
+
+bool Engine::try_create(std::string_view window_title, display::Size window_size, const std::locale& locale,
+                        const Config& config, std::string& error)
+{
+    // Ensure that new resources (such as a display connection) are not requested while
+    // others are still held.
+    m_impl = {};
+
+    auto impl = std::make_unique<Impl>(locale, config); // Throws
+    if (ARCHON_LIKELY(impl->try_init(window_title, window_size, config, error))) {
+        m_impl = std::move(impl);
+        return true;
+    }
+    return false;
 }
 
 

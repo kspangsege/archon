@@ -50,9 +50,10 @@ public:
     using BuiltinKeyHandler = render::Engine::BuiltinKeyHandler;
     using Clock             = render::Engine::Clock;
 
-    EngineImpl(std::string_view window_title, display::Size window_size, const std::locale&, const Config&);
-    void set_scene(Scene&) noexcept;
+    EngineImpl(const std::locale&, const Config&);
+    bool try_init(std::string_view window_title, display::Size window_size, const Config&, std::string& error);
 
+    void set_scene(Scene&) noexcept;
     void run();
 
     void set_frame_rate(double rate);
@@ -114,7 +115,6 @@ private:
     std::unique_ptr<log::FileLogger> m_fallback_logger;
     log::Logger& m_logger;
     log::PrefixLogger m_display_logger;
-    const display::Implementation& m_display_implementation;
     bool m_headlight_feature_enabled;
     bool m_wireframe_feature_enable;
 
@@ -157,8 +157,6 @@ private:
     int m_max_opengl_errors = 8;
 
     static auto instantiate_fallback_logger(std::unique_ptr<log::FileLogger>&, const std::locale&) -> log::Logger&;
-    static auto determine_display_implementation(const display::Implementation::Slot*, const display::Guarantees&) ->
-        const display::Implementation&;
 
     bool map_key_ident(const render::KeyIdent&, impl::KeyBindings::KeyIdent&) const;
 
