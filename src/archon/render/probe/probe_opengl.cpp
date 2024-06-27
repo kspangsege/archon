@@ -180,13 +180,17 @@ int main()
     std::unique_ptr<display::Connection> conn;
     std::string error;
     if (ARCHON_UNLIKELY(!display::try_new_connection(locale, guarantees, conn, error))) { // Throws
-            logger.error("Failed to open display connection: %s", error); // Throws
-            return EXIT_FAILURE;
+        logger.error("Failed to open display connection: %s", error); // Throws
+        return EXIT_FAILURE;
     }
 
     display::Window::Config config;
     config.enable_opengl_rendering = true;
-    std::unique_ptr<display::Window> win = conn->new_window("Probe OpenGL", 512, config); // Throws
+    std::unique_ptr<display::Window> win;
+    if (ARCHON_UNLIKELY(!conn->try_new_window("Probe OpenGL", 512, config, win, error))) { // Throws
+        logger.error("Failed to create window: %s", error); // Throws
+        return EXIT_FAILURE;
+    }
     EventLoop event_loop(*conn, *win);
     win->set_event_handler(event_loop); // throws
     win->show(); // Throws

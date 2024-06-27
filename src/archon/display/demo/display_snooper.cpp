@@ -362,7 +362,7 @@ int main(int argc, char* argv[])
         "not specified, the value of the DISPLAY environment variable will be used.",
         cli::assign(optional_x11_display)); // Throws
 
-    opt("-e, --x11-visual-depth", "<num>", cli::no_attributes, spec,
+    opt("-d, --x11-visual-depth", "<num>", cli::no_attributes, spec,
         "When using the X11-based display implementation, pick a visual of the specified depth (@A).",
         cli::assign(optional_x11_visual_depth)); // Throws
 
@@ -547,8 +547,8 @@ int main(int argc, char* argv[])
     std::unique_ptr<display::Connection> conn;
     std::string error;
     if (ARCHON_UNLIKELY(!impl->try_new_connection(locale, connection_config, conn, error))) { // Throws
-            logger.error("Failed to open display connection: %s", error); // Throws
-            return EXIT_FAILURE;
+        logger.error("Failed to open display connection: %s", error); // Throws
+        return EXIT_FAILURE;
     }
 
     int num_screens = conn->get_num_screens();
@@ -575,8 +575,11 @@ int main(int argc, char* argv[])
     window_config.screen = screen;
     window_config.resizable = true;
     window_config.minimum_size = 128;
-    std::unique_ptr<display::Window> win =
-        conn->new_window(window_title, window_size, window_config); // Throws
+    std::unique_ptr<display::Window> win;
+    if (ARCHON_UNLIKELY(!conn->try_new_window(window_title, window_size, window_config, win, error))) { // Throws
+        logger.error("Failed to create window: %s", error); // Throws
+        return EXIT_FAILURE;
+    }
 
     display::Size texture_size;
     if (optional_texture_size.has_value()) {

@@ -195,11 +195,19 @@ bool EngineImpl::try_init(std::string_view window_title, display::Size window_si
         bind_key(display::Key::small_w, handler); // Throws
     }
 
-    display::Window::Config window_config;
-    window_config.resizable = config.allow_window_resize;
-    window_config.fullscreen = config.fullscreen_mode;
-    window_config.enable_opengl_rendering = true;
-    m_window = m_display_connection->new_window(window_title, window_size, window_config); // Throws
+    {
+        display::Window::Config window_config;
+        window_config.resizable = config.allow_window_resize;
+        window_config.fullscreen = config.fullscreen_mode;
+        window_config.enable_opengl_rendering = true;
+        std::string error_2;
+        if (ARCHON_UNLIKELY(!m_display_connection->try_new_window(window_title, window_size, window_config,
+                                                                  m_window, error_2))) { // Throws
+            error = core::format("Failed to create window: %s", error_2); // Throws
+            return false;
+        }
+    }
+
     m_window->set_event_handler(m_event_handler); // Throws
     m_fullscreen_mode = config.fullscreen_mode;
 

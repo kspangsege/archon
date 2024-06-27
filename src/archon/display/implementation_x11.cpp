@@ -383,8 +383,8 @@ private:
 
     auto intern_string(const char*) noexcept -> Atom;
     auto ensure_screen_slot(int screen) const -> ScreenSlot&;
-    auto determine_visual_spec(const ScreenSlot&, bool prefer_double_buffered, bool require_opengl) const ->
-        const x11::VisualSpec&;
+    bool determine_visual_spec(const ScreenSlot&, bool prefer_double_buffered, bool require_opengl,
+                               const x11::VisualSpec*&, std::string& error) const;
     auto get_pixmap_format(int depth) const -> const XPixmapFormatValues&;
     auto ensure_pixel_format(ScreenSlot&, const XVisualInfo&) const -> const x11::PixelFormat&;
     bool do_process_events(const time_point_type* deadline, display::ConnectionEventHandler*);
@@ -690,30 +690,32 @@ bool ConnectionImpl::try_new_window(std::string_view title, display::Size size, 
         prefer_double_buffered = true;
     bool enable_opengl = false;
     if (config.enable_opengl_rendering) {
-        if (ARCHON_UNLIKELY(!m_extension_info.have_glx || true)) {
+        if (ARCHON_UNLIKELY(!m_extension_info.have_glx)) {
             error = "OpenGL rendering not available";
             return false;
         }
         enable_opengl = true;
     }
     ScreenSlot& screen_slot = ensure_screen_slot(screen); // Throws
-    const x11::VisualSpec& visual_spec = determine_visual_spec(screen_slot, prefer_double_buffered,
-                                                                enable_opengl); // Throws
-    logger.detail("Using %s visual (%s) of depth %s for new X11 window",
-                  x11::get_visual_class_name(visual_spec.info.c_class),
-                  core::as_flex_int_h(visual_spec.info.visualid), visual_spec.info.depth); // Throws
-    const x11::PixelFormat& pixel_format = ensure_pixel_format(screen_slot, visual_spec.info); // Throws
-    auto win_2 = std::make_unique<WindowImpl>(*this, screen_slot, visual_spec, pixel_format, config.cookie); // Throws
-    bool enable_double_buffering = visual_spec.double_buffered && !m_disable_double_buffering;
-    bool enable_glx_direct_rendering = !m_disable_glx_direct_rendering;
-    win_2->create(size, config, enable_double_buffering, enable_opengl, enable_glx_direct_rendering); // Throws
-    win_2->set_title(title); // Throws
-    if (ARCHON_UNLIKELY(config.fullscreen))
-        win_2->set_fullscreen_mode(true); // Throws
-    if (ARCHON_UNLIKELY(m_install_colormaps))
-        XInstallColormap(dpy, pixel_format.get_colormap());
-    win = std::move(win);
-    return true;
+    const x11::VisualSpec* visual_spec = {};
+    if (ARCHON_LIKELY(determine_visual_spec(screen_slot, prefer_double_buffered, enable_opengl, visual_spec, error))) { // Throws
+        const XVisualInfo& info = visual_spec->info;
+        logger.detail("Using %s visual (%s) of depth %s for new X11 window", x11::get_visual_class_name(info.c_class),
+                      core::as_flex_int_h(info.visualid), info.depth); // Throws
+        const x11::PixelFormat& pixel_format = ensure_pixel_format(screen_slot, info); // Throws
+        auto win_2 = std::make_unique<WindowImpl>(*this, screen_slot, *visual_spec, pixel_format, config.cookie); // Throws
+        bool enable_double_buffering = visual_spec->double_buffered && !m_disable_double_buffering;
+        bool enable_glx_direct_rendering = !m_disable_glx_direct_rendering;
+        win_2->create(size, config, enable_double_buffering, enable_opengl, enable_glx_direct_rendering); // Throws
+        win_2->set_title(title); // Throws
+        if (ARCHON_UNLIKELY(config.fullscreen))
+            win_2->set_fullscreen_mode(true); // Throws
+        if (ARCHON_UNLIKELY(m_install_colormaps))
+            XInstallColormap(dpy, pixel_format.get_colormap());
+        win = std::move(win_2);
+        return true;
+    }
+    return false;
 }
 
 
@@ -831,8 +833,8 @@ auto ConnectionImpl::ensure_screen_slot(int screen) const -> ScreenSlot&
 }
 
 
-auto ConnectionImpl::determine_visual_spec(const ScreenSlot& screen_slot, bool prefer_double_buffered,
-                                           bool require_opengl) const -> const x11::VisualSpec&
+bool ConnectionImpl::determine_visual_spec(const ScreenSlot& screen_slot, bool prefer_double_buffered,
+                                           bool require_opengl, const x11::VisualSpec*& spec, std::string& error) const
 {
     core::Span visual_specs = screen_slot.visual_specs;
     x11::FindVisualParams params;
@@ -843,9 +845,12 @@ auto ConnectionImpl::determine_visual_spec(const ScreenSlot& screen_slot, bool p
     params.require_opengl = require_opengl;
     params.require_opengl_depth_buffer = require_opengl;
     std::size_t index = {};
-    if (ARCHON_LIKELY(x11::find_visual(dpy, screen_slot.screen, visual_specs, params, index))) // Throws
-        return visual_specs[index];
-    throw std::runtime_error("No suitable X11 visual found");
+    if (ARCHON_LIKELY(x11::find_visual(dpy, screen_slot.screen, visual_specs, params, index))) { // Throws
+        spec = &visual_specs[index];
+        return true;
+    }
+    error = "No suitable X11 visual found"; // Throws
+    return false;
 }
 
 

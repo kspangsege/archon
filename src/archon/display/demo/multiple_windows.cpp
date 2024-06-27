@@ -23,6 +23,7 @@
 #include <cstdlib>
 #include <utility>
 #include <memory>
+#include <stdexcept>
 #include <optional>
 #include <string_view>
 #include <string>
@@ -67,20 +68,32 @@ public:
 
     void add_window()
     {
+        std::string error;
+        if (ARCHON_LIKELY(try_add_window(error))) // Throws
+            return;
+        throw std::runtime_error(error);
+    }
+
+    bool try_add_window(std::string& error)
+    {
         int id = m_prev_window_id + 1;
-        m_prev_window_id = id;
         std::string title = core::format("Window #%s", id); // Throws
         display::Window::Config config;
         config.screen = m_screen;
         config.cookie = id;
         config.resizable = true;
-        std::unique_ptr<display::Window> win = m_conn.new_window(title, g_small, config); // Throws
-        win->set_event_handler(*this); // Throws
-        win->show(); // Throws
-        math::Vector<3, double> hsv = { m_next_hue, 0.3, 0.5 };
-        m_next_hue = core::periodic_mod(m_next_hue + core::golden_fraction<double>, 1.0);
-        math::Vector rgb = util::cvt_HSV_to_sRGB(hsv);
-        m_windows[id] = { std::move(win), util::Color::from_vec(rgb) }; // Throws
+        std::unique_ptr<display::Window> win;
+        if (ARCHON_LIKELY(m_conn.try_new_window(title, g_small, config, win, error))) { // Throws
+            win->set_event_handler(*this); // Throws
+            win->show(); // Throws
+            math::Vector<3, double> hsv = { m_next_hue, 0.3, 0.5 };
+            m_next_hue = core::periodic_mod(m_next_hue + core::golden_fraction<double>, 1.0);
+            math::Vector rgb = util::cvt_HSV_to_sRGB(hsv);
+            m_windows[id] = { std::move(win), util::Color::from_vec(rgb) }; // Throws
+            m_prev_window_id = id;
+            return true;
+        }
+        return false;
     }
 
     void process_events()
@@ -418,8 +431,8 @@ int main(int argc, char* argv[])
     std::unique_ptr<display::Connection> conn;
     std::string error;
     if (ARCHON_UNLIKELY(!impl->try_new_connection(locale, connection_config, conn, error))) { // Throws
-            logger.error("Failed to open display connection: %s", error); // Throws
-            return EXIT_FAILURE;
+        logger.error("Failed to open display connection: %s", error); // Throws
+        return EXIT_FAILURE;
     }
 
     int screen;
@@ -439,8 +452,12 @@ int main(int argc, char* argv[])
     EventLoop event_loop(*conn, screen);
 
     int num_windows = 2;
-    for (int i = 0; i < num_windows; ++i)
-        event_loop.add_window(); // Throws
+    for (int i = 0; i < num_windows; ++i) {
+        if (ARCHON_UNLIKELY(!event_loop.try_add_window(error))) { // Throws
+            logger.error("Failed to create window: %s", error); // Throws
+            return EXIT_FAILURE;
+        }
+    }
 
     event_loop.process_events(); // Throws
 }
