@@ -2168,9 +2168,9 @@ bool try_update_screen_conf(Display* dpy, ::Window root, Atom atom_edid, const i
                         if (ARCHON_LIKELY(actual_type == XA_INTEGER && actual_format == 8)) {
                             std::size_t size = {};
                             if (ARCHON_LIKELY(core::try_int_cast(nitems, size))) {
-                                std::string_view str = { reinterpret_cast<char*>(prop), size };
+                                core::Span<const char> data = { reinterpret_cast<char*>(prop), size };
                                 impl::EdidInfo info = {};
-                                if (ARCHON_LIKELY(edid_parser.parse(str, info, strings))) // Throws
+                                if (ARCHON_LIKELY(edid_parser.parse(data, info, strings))) // Throws
                                     monitor_name = info.monitor_name;
                             }
                         }

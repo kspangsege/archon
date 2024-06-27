@@ -21,6 +21,7 @@
 
 #include <cstddef>
 #include <optional>
+#include <array>
 #include <string_view>
 
 #include <archon/core/features.h>
@@ -28,7 +29,6 @@
 #include <archon/core/index_range.hpp>
 #include <archon/core/buffer.hpp>
 #include <archon/core/string_buffer_contents.hpp>
-#include <archon/core/string_codec.hpp>
 #include <archon/display/noinst/edid.hpp>
 
 
@@ -37,62 +37,53 @@ namespace impl = display::impl;
 using impl::EdidParser;
 
 
-bool EdidParser::parse(std::string_view str, impl::EdidInfo& info, core::StringBufferContents& string_data) const
+bool EdidParser::parse(core::Span<const char> data, impl::EdidInfo& info,
+                       core::StringBufferContents& string_data) const
 {
-    if (ARCHON_LIKELY(str.size() >= 128)) {
+    if (ARCHON_LIKELY(data.size() >= 128)) {
         using uchar = unsigned char;
         unsigned used_bits = 0;
         unsigned checksum = 0;
         for (int i = 0; i < 128; ++i) {
-            unsigned val = uchar(str[i]);
+            unsigned val = uchar(data[i]);
             used_bits |= val;
             checksum += val;
         }
         if (ARCHON_LIKELY((used_bits | 255) == 255 && (checksum & 255) == 0)) {
-            int major = int(uchar(str[18]));
-            int minor = int(uchar(str[19]));
+            int major = int(uchar(data[18]));
+            int minor = int(uchar(data[19]));
             if (ARCHON_LIKELY(major > 1 || (major == 1 && minor >= 4))) {
                 std::optional<core::IndexRange> monitor_name;
                 core::Buffer<char>& string_data_buffer = string_data.buffer();
                 std::size_t string_data_size = string_data.size();
                 for (int j = 0; j < 4; ++j) {
-                    const char* base = str.data() + (54 + j * 18);
+                    const char* base = data.data() + (54 + j * 18);
                     bool is_monitor_descriptor = (base[0] == 0 && base[1] == 0);
                     if (is_monitor_descriptor) {
                         int type = int(uchar(base[3]));
                         switch (type) {
                             case 0xFC:
                                 // Monitor name
-                                if (ARCHON_LIKELY(m_is_utf8_locale || m_is_unicode_locale)) {
-                                    constexpr int slot_offset = 5;
-                                    constexpr int slot_size = 13;
-                                    int n = 0;
-                                    while (n < slot_size && base[slot_offset + n] != '\x0A')
-                                        ++n;
-                                    std::size_t string_data_offset = string_data_size;
-                                    if (ARCHON_LIKELY(m_is_utf8_locale)) {
-                                        core::Span data = { base + slot_offset, std::size_t(n) };
-                                        string_data_buffer.append(data, string_data_size); // Throws
-                                        monitor_name = core::IndexRange {
-                                            string_data_offset,
-                                            std::size_t(string_data_size - string_data_offset),
-                                        };
-                                    }
-                                    else {
-                                        wchar_t data[slot_size];
-                                        for (int k = 0; k < n; ++k)
-                                            data[n] = wchar_t(uchar(base[slot_offset + n]));
-                                        core::Span data_2 = { data, std::size_t(n) };
-                                        bool success = m_string_codec.try_encode(data_2, string_data_buffer,
-                                                                                 string_data_size); // Throws
-                                        if (ARCHON_LIKELY(success)) {
-                                            monitor_name = core::IndexRange {
-                                                string_data_offset,
-                                                std::size_t(string_data_size - string_data_offset),
-                                            };
-                                        }
-                                    }
-                                }
+                                constexpr int slot_offset = 5;
+                                constexpr int slot_size = 13;
+                                int n = 0;
+                                while (n < slot_size && base[slot_offset + n] != '\x0A')
+                                    ++n;
+                                std::string_view str_1 = { base + slot_offset, std::size_t(n) }; // Throws
+                                // Processing `str_1` as a UTF-8 encode string even though
+                                // it is further restricted to be ASCII according to the
+                                // EDID specification.
+                                std::array<char, 32> seed_memory;
+                                core::Buffer buffer(seed_memory);
+                                std::size_t offset = 0;
+                                m_transcoder.transcode_l(str_1, buffer, offset); // Throws
+                                std::string_view str_2 = { buffer.data(),  offset }; // Throws
+                                std::size_t string_data_offset = string_data_size;
+                                string_data_buffer.append(str_2, string_data_size); // Throws
+                                monitor_name = core::IndexRange {
+                                    string_data_offset,
+                                    std::size_t(string_data_size - string_data_offset),
+                                };
                                 break;
                         }
                     }
