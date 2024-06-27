@@ -140,7 +140,9 @@ void utf8_to_native_mb_transcoder::transcode_l(core::StringSpan<char> string, co
         return;
     }
 
-    // FIXME: Add remarks about wchar_t being 16 bits wide on Windows    
+    // NOTE: On Windows `wchar_t` is only 16 bits wide, so on Windows,
+    // `core::decode_utf8_incr()` will treat a sequence as invalid if it decodes to a code
+    // point that is greater than U+FFFF.
 
     std::array<wchar_t, 64> buffer_2;
     std::size_t string_offset = 0;
