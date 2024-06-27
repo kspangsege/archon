@@ -19,17 +19,26 @@
 // DEALINGS IN THE SOFTWARE.
 
 
+#include <cstdlib>
 #include <memory>
-#include <stdexcept>
-#include <chrono>
+#include <string>
 #include <locale>
+#include <chrono>
 
 #include <archon/core/features.h>
 #include <archon/core/locale.hpp>
+#include <archon/core/file.hpp>
+#include <archon/log.hpp>
 #include <archon/display.hpp>
 #include <archon/render/impl/config.h>
 
 #if ARCHON_RENDER_HAVE_OPENGL
+#  define HAVE_OPENGL 1
+#else
+#  define HAVE_OPENGL 0
+#endif
+
+#if HAVE_OPENGL
 #  if ARCHON_APPLE
 #    define GL_SILENCE_DEPRECATION
 #    include <OpenGL/gl.h>
@@ -42,13 +51,13 @@
 #  else
 #    include <GL/gl.h>
 #  endif
-#endif // ARCHON_RENDER_HAVE_OPENGL
+#endif
 
 
 using namespace archon;
 
 
-#if ARCHON_RENDER_HAVE_OPENGL
+#if HAVE_OPENGL
 
 
 namespace {
@@ -141,8 +150,16 @@ void EventLoop::render_frame()
 } // unnamed namespace
 
 
+#endif // HAVE_OPENGL
+
+
 int main()
 {
+    std::locale locale = core::get_default_locale(); // Throws
+    log::FileLogger logger(core::File::get_cout(), locale); // Throws
+
+#if HAVE_OPENGL
+
     display::Guarantees guarantees;
 
     // Promise to not open more than one display connection at a time.
@@ -160,8 +177,13 @@ int main()
     // indirect use of anything that would conflict with use of SDL.
     guarantees.no_other_use_of_sdl = true;
 
-    std::locale locale = core::get_default_locale(); // Throws
-    std::unique_ptr<display::Connection> conn = display::new_connection(locale, guarantees); // Throws
+    std::unique_ptr<display::Connection> conn;
+    std::string message;
+    if (ARCHON_UNLIKELY(!display::try_new_connection(locale, guarantees, conn, message))) { // Throws
+            logger.error("Failed to open display connection: %s", message); // Throws
+            return EXIT_FAILURE;
+    }
+
     display::Window::Config config;
     config.enable_opengl_rendering = true;
     std::unique_ptr<display::Window> win = conn->new_window("Probe OpenGL", 512, config); // Throws
@@ -169,16 +191,11 @@ int main()
     win->set_event_handler(event_loop); // throws
     win->show(); // Throws
     event_loop.run(); // Throws
+
+#else // !HAVE_OPENGL
+
+    logger.error("No OpenGL support"); // Throws
+    return EXIT_FAILURE;
+
+#endif // !HAVE_OPENGL
 }
-
-
-#else // !ARCHON_RENDER_HAVE_OPENGL
-
-
-int main()
-{
-    throw std::runtime_error("No OpenGL support");
-}
-
-
-#endif // !ARCHON_RENDER_HAVE_OPENGL

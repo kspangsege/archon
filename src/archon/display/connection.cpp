@@ -19,9 +19,13 @@
 // DEALINGS IN THE SOFTWARE.
 
 
+#include <utility>
 #include <memory>
+#include <stdexcept>
+#include <string>
 #include <locale>
 
+#include <archon/core/features.h>
 #include <archon/display/guarantees.hpp>
 #include <archon/display/connection.hpp>
 #include <archon/display/implementation.hpp>
@@ -33,15 +37,37 @@ using namespace archon;
 auto display::new_connection(const std::locale& locale, const display::Guarantees& guarantees,
                              const display::Connection::Config& config) -> std::unique_ptr<display::Connection>
 {
-    const display::Implementation& impl = display::get_default_implementation(guarantees); // Throws
-    return impl.new_connection(locale, config); // Throws
+    std::unique_ptr<display::Connection> conn;
+    std::string error;
+    if (ARCHON_LIKELY(display::try_new_connection(locale, guarantees, config, conn, error))) // Throws
+        return conn;
+    throw std::runtime_error(error);
 }
 
 
-auto display::new_connection_a(const std::locale& locale, const display::Guarantees& guarantees,
-                               const display::Connection::Config& config) -> std::unique_ptr<display::Connection>
+bool display::try_new_connection(const std::locale& locale, const display::Guarantees& guarantees,
+                                 const display::Connection::Config& config,
+                                 std::unique_ptr<display::Connection>& conn, std::string& error)
 {
-    if (const display::Implementation* impl = display::get_default_implementation_a(guarantees))
-        return impl->new_connection(locale, config); // Throws
-    return nullptr;
+    std::unique_ptr<display::Connection> conn_2;
+    if (ARCHON_LIKELY(display::try_new_connection_a(locale, guarantees, config, conn_2, error))) { // Throws
+        if (ARCHON_LIKELY(conn_2)) {
+            conn = std::move(conn_2);
+            return true;
+        }
+        error = "No available display implementations"; // Throws
+    }
+    return false;
+}
+
+
+bool display::try_new_connection_a(const std::locale& locale, const display::Guarantees& guarantees,
+                                   const display::Connection::Config& config,
+                                   std::unique_ptr<display::Connection>& conn, std::string& error)
+{
+    const display::Implementation* impl = display::get_default_implementation_a(guarantees);
+    if (ARCHON_LIKELY(impl))
+        return impl->try_new_connection(locale, config, conn, error); // Throws
+    conn = {};
+    return true;
 }

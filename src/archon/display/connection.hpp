@@ -26,10 +26,10 @@
 
 #include <cstddef>
 #include <memory>
-#include <chrono>
 #include <string_view>
-#include <system_error>
+#include <string>
 #include <locale>
+#include <chrono>
 
 #include <archon/core/buffer.hpp>
 #include <archon/log/logger.hpp>
@@ -261,8 +261,8 @@ struct Connection::Config {
     ///
     /// If no logger is specified, nothing is logged. If a logger is specified, it must use
     /// a locale that is compatible with the locale that is passed to \ref
-    /// display::Implementation::new_connection(), \ref display::new_connection(), or \ref
-    /// display::new_connection_a(). The important thing is that the character encodings
+    /// display::Implementation::new_connection() or one of the other functions that can be
+    /// used to create a connection.. The important thing is that the character encodings
     /// agree (`std::codecvt` facet).
     ///
     log::Logger* logger = nullptr;
@@ -281,22 +281,50 @@ struct Connection::Config {
 };
 
 
-/// \brief Establish display connection using default underlying implementation.
+/// \brief Establish display connection using default implementation.
 ///
-/// This function is like \ref new_connection_a() except that is throws an exception instead
-/// of returning null if no display implementations are available.
+/// This function is shorthand for calling \ref display::try_new_connection() and then, on
+/// success, return the new connection object, and on failure, throw an exception.
+///
+/// \sa \ref display::try_new_connection()
 ///
 auto new_connection(const std::locale&, const display::Guarantees&, const display::Connection::Config& = {}) ->
     std::unique_ptr<display::Connection>;
 
 
-/// \brief Establish display connection using default implementation if available.
+/// \{
 ///
-/// This function establishes a connection to the display using the default underlying
-/// implementation. It is a shorthand for calling \ref
-/// display::Implementation::new_connection() on the implementation object returned by \ref
-/// display::get_default_implementation_a(). If no default implementations are available,
-/// this function returns null.
+/// \brief Try to establish display connection using default implementation if available.
+///
+/// These functions attempt to establishes a connection to the display using the default
+/// display implementation (\ref display::get_default_implementation()).
+///
+/// `try_new_connection(locale, guarantees, config, conn, error)` is shorthand for calling
+/// `try_new_connection_a(locale, guarantees, config, conn, error)`, and then, if no
+/// implementations were available, generate an error with a suitable message (\p error).
+///
+/// The overload, that does not take a configuration argument (\p config), uses the default
+/// configuration.
+///
+/// \sa \ref display::new_connection(), \ref display::try_new_connection_a()
+/// \sa \ref display::get_default_implementation()
+///
+bool try_new_connection(const std::locale& locale, const display::Guarantees& guarantees,
+                        std::unique_ptr<display::Connection>& conn, std::string& error);
+bool try_new_connection(const std::locale& locale, const display::Guarantees& guarantees,
+                        const display::Connection::Config& config,
+                        std::unique_ptr<display::Connection>& conn, std::string& error);
+/// \}
+
+
+/// \brief Try to establish display connection using default implementation if available.
+///
+/// This function attempts to establishes a connection to the display using the default
+/// display implementation. It is a shorthand for calling \ref
+/// display::get_default_implementation_a(), and then calling
+/// display::Implementation::try_new_connection() on the implementation object, if an
+/// implementation was available. If no implementations were available, this function
+/// returns `true` after setting \p conn to null.
 ///
 /// Note that if \p guarantees include \ref display::Guarantees::only_one_connection, then
 /// at most one connection may be created per process of the operating system.
@@ -306,8 +334,29 @@ auto new_connection(const std::locale&, const display::Guarantees&, const displa
 /// connection must be used only by the main thread. This includes the destruction of the
 /// connection returned by this function.
 ///
-auto new_connection_a(const std::locale&, const display::Guarantees&, const display::Connection::Config& = {}) ->
-    std::unique_ptr<display::Connection>;
+/// \sa \ref display::try_new_connection()
+/// \sa \ref display::get_default_implementation_a()
+///
+bool try_new_connection_a(const std::locale& locale, const display::Guarantees& guarantees,
+                          const display::Connection::Config& config,
+                          std::unique_ptr<display::Connection>& conn, std::string& error);
+
+
+
+
+
+
+
+
+// Implementation
+
+
+inline bool try_new_connection(const std::locale& locale, const display::Guarantees& guarantees,
+                               std::unique_ptr<display::Connection>& conn, std::string& error)
+{
+    display::Connection::Config config;
+    return display::try_new_connection(locale, guarantees, config, conn, error); // Throws
+}
 
 
 } // namespace archon::display
