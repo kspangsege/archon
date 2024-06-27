@@ -25,12 +25,10 @@
 
 
 #include <memory>
-#include <stdexcept>
 #include <string_view>
 #include <string>
 #include <locale>
 
-#include <archon/core/features.h>
 #include <archon/display/guarantees.hpp>
 #include <archon/display/connection.hpp>
 
@@ -238,18 +236,6 @@ auto lookup_implementation(std::string_view ident) noexcept -> const display::Im
 
 
 // Implementation
-
-
-inline auto Implementation::new_connection(const std::locale& locale,
-                                           const display::Connection::Config& config) const ->
-    std::unique_ptr<display::Connection>
-{
-    std::unique_ptr<display::Connection> conn;
-    std::string error;
-    if (ARCHON_LIKELY(try_new_connection(locale, config, conn, error))) // Throws
-        return conn;
-    throw std::runtime_error(error);
-}
 
 
 inline bool Implementation::Slot::is_available(const display::Guarantees& guarantees) const noexcept

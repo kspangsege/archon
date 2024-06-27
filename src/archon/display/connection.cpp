@@ -26,6 +26,7 @@
 #include <locale>
 
 #include <archon/core/features.h>
+#include <archon/core/format.hpp>
 #include <archon/display/guarantees.hpp>
 #include <archon/display/connection.hpp>
 #include <archon/display/implementation.hpp>
@@ -41,7 +42,8 @@ auto display::new_connection(const std::locale& locale, const display::Guarantee
     std::string error;
     if (ARCHON_LIKELY(display::try_new_connection(locale, guarantees, config, conn, error))) // Throws
         return conn;
-    throw std::runtime_error(error);
+    std::string message = core::format("Failed to open display connection: %s", error); // Throws
+    throw std::runtime_error(message);
 }
 
 
