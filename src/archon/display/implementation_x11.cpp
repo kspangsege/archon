@@ -292,8 +292,8 @@ public:
     bool try_map_key_to_key_code(display::Key, display::KeyCode&) const override;
     bool try_map_key_code_to_key(display::KeyCode, display::Key&) const override;
     bool try_get_key_name(display::KeyCode, std::string_view&) const override;
-    auto new_window(std::string_view, display::Size, const display::Window::Config&) ->
-        std::unique_ptr<display::Window> override;
+    bool try_new_window(std::string_view, display::Size, const display::Window::Config&,
+                        std::unique_ptr<display::Window>&, std::string&) override;
     void process_events(display::ConnectionEventHandler*) override;
     bool process_events(time_point_type, display::ConnectionEventHandler*) override;
     int get_num_screens() const override;
@@ -673,8 +673,8 @@ bool ConnectionImpl::try_get_key_name(display::KeyCode key_code, std::string_vie
 }
 
 
-auto ConnectionImpl::new_window(std::string_view title, display::Size size,
-                                const display::Window::Config& config) -> std::unique_ptr<display::Window>
+bool ConnectionImpl::try_new_window(std::string_view title, display::Size size, const display::Window::Config& config,
+                                    std::unique_ptr<display::Window>& win, std::string& error)
 {
     if (ARCHON_UNLIKELY(size.width < 0 || size.height < 0))
         throw std::invalid_argument("Bad window size");
@@ -690,8 +690,10 @@ auto ConnectionImpl::new_window(std::string_view title, display::Size size,
         prefer_double_buffered = true;
     bool enable_opengl = false;
     if (config.enable_opengl_rendering) {
-        if (ARCHON_UNLIKELY(!m_extension_info.have_glx))
-            throw std::runtime_error("OpenGL rendering not available");
+        if (ARCHON_UNLIKELY(!m_extension_info.have_glx || true)) {
+            error = "OpenGL rendering not available";
+            return false;
+        }
         enable_opengl = true;
     }
     ScreenSlot& screen_slot = ensure_screen_slot(screen); // Throws
@@ -701,16 +703,17 @@ auto ConnectionImpl::new_window(std::string_view title, display::Size size,
                   x11::get_visual_class_name(visual_spec.info.c_class),
                   core::as_flex_int_h(visual_spec.info.visualid), visual_spec.info.depth); // Throws
     const x11::PixelFormat& pixel_format = ensure_pixel_format(screen_slot, visual_spec.info); // Throws
-    auto win = std::make_unique<WindowImpl>(*this, screen_slot, visual_spec, pixel_format, config.cookie); // Throws
+    auto win_2 = std::make_unique<WindowImpl>(*this, screen_slot, visual_spec, pixel_format, config.cookie); // Throws
     bool enable_double_buffering = visual_spec.double_buffered && !m_disable_double_buffering;
     bool enable_glx_direct_rendering = !m_disable_glx_direct_rendering;
-    win->create(size, config, enable_double_buffering, enable_opengl, enable_glx_direct_rendering); // Throws
-    win->set_title(title); // Throws
+    win_2->create(size, config, enable_double_buffering, enable_opengl, enable_glx_direct_rendering); // Throws
+    win_2->set_title(title); // Throws
     if (ARCHON_UNLIKELY(config.fullscreen))
-        win->set_fullscreen_mode(true); // Throws
+        win_2->set_fullscreen_mode(true); // Throws
     if (ARCHON_UNLIKELY(m_install_colormaps))
         XInstallColormap(dpy, pixel_format.get_colormap());
-    return win;
+    win = std::move(win);
+    return true;
 }
 
 

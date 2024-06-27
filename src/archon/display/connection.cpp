@@ -33,6 +33,19 @@
 
 
 using namespace archon;
+using display::Connection;
+
+
+auto Connection::new_window(std::string_view title, display::Size size,
+                            const display::Window::Config& config) -> std::unique_ptr<display::Window>
+{
+    std::unique_ptr<display::Window> win;
+    std::string error;
+    if (ARCHON_LIKELY(try_new_window(title, size, config, win, error))) // Throws
+        return win;
+    std::string message = core::format("Failed to create window: %s", error); // Throws
+    throw std::runtime_error(message);
+}
 
 
 auto display::new_connection(const std::locale& locale, const display::Guarantees& guarantees,

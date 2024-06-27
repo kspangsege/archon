@@ -114,12 +114,32 @@ public:
     ///
     virtual bool try_get_key_name(display::KeyCode key_code, std::string_view& name) const = 0;
 
-    /// \brief Attempt to create a new window.
+    /// \brief Create a new window.
     ///
     /// This function creates a new window with the specified title (\p title) and size (\p
     /// size), and configured according to the specified configuration parameters (\p
     /// config). The target screen is specified through \ref
     /// display::Window::Config::screen.
+    ///
+    /// This function is shorthand for calling \ref try_new_window() and then returning the
+    /// created window on success, and throwing an exception on failure.
+    ///
+    /// \sa \ref try_new_window()
+    ///
+    auto new_window(std::string_view title, display::Size size, const display::Window::Config& config = {}) ->
+        std::unique_ptr<display::Window>;
+
+    /// \brief Try to create a new window.
+    ///
+    /// This function attempts to create a new window with the specified title (\p title)
+    /// and size (\p size), and configured according to the specified configuration
+    /// parameters (\p config). The target screen is specified through \ref
+    /// display::Window::Config::screen.
+    ///
+    /// On success, this function returns `true` after setting \p win to refer to the new
+    /// window object. On failure, it returns `false` after setting \p error to a message
+    /// that describes the cause of the failure. \p error is left untouched on success, and
+    /// \p win is left untouched on failure.
     ///
     /// The application will generally have to set a new event handler for the window using
     /// \ref display::Window::set_event_handler(), and in order to not lose any events, this
@@ -130,22 +150,22 @@ public:
     /// unhide it.
     ///
     /// The initial position of the window is determined by the platform and / or
-    /// implementation.
-    ///
-    /// The destruction of the returned window object must happen before the destruction of
-    /// this connection object.
-    ///
-    /// If the application chooses to provide the display guarantee, \ref
-    /// display::Guarantees::main_thread_exclusive, then these functions must be called only
-    /// by the main thread. Further more, the returned window must be used only by the main
-    /// thread. This includes the destruction of the window object.
-    ///
-    /// When using the X11-based implementation (\ref
+    /// implementation. When using the X11-based implementation (\ref
     /// display::get_x11_implementation_slot()), the initial position is generally
     /// determined by a window manager.
     ///
-    virtual auto new_window(std::string_view title, display::Size size, const display::Window::Config& config = {}) ->
-        std::unique_ptr<display::Window> = 0;
+    /// The destruction of the returned window object (\p win) must happen before the
+    /// destruction of this connection object.
+    ///
+    /// If the application chooses to provide the display guarantee, \ref
+    /// display::Guarantees::main_thread_exclusive, then this function must be called only
+    /// by the main thread. Further more, the returned window must be used only by the main
+    /// thread. This includes the destruction of the window object.
+    ///
+    /// \sa \ref new_window()
+    ///
+    virtual bool try_new_window(std::string_view title, display::Size size, const display::Window::Config& config,
+                                std::unique_ptr<display::Window>& win, std::string& error) = 0;
 
     using clock_type      = std::chrono::steady_clock;
     using time_point_type = std::chrono::time_point<clock_type>;
