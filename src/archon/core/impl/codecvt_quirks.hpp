@@ -35,6 +35,8 @@ namespace archon::core::impl {
 // This happens in GCC, but not when using Cygwin or MinGW, presumably because libstdc++
 // uses a different (generic) locale implementation when used by Cygwin and MinGW.
 //
+// FIXME: This GCC bug is slated to be fixed in GCC 15.    
+//
 #if ARCHON_GNU_LIBCXX && !(ARCHON_CYGWIN || ARCHON_MINGW)
 inline constexpr bool codecvt_quirk_ok_result_on_zero_size_buffer = true;
 #else

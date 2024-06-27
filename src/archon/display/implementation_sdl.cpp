@@ -22,6 +22,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <memory>
+#include <utility>
 #include <chrono>
 #include <stdexcept>
 #include <array>
@@ -135,8 +136,8 @@ public:
 
     ImplementationImpl(Slot&) noexcept;
 
-    auto new_connection(const std::locale&, const display::Connection::Config&) const ->
-        std::unique_ptr<display::Connection> override;
+    bool try_new_connection(const std::locale&, const display::Connection::Config&,
+                            std::unique_ptr<display::Connection>&, std::string&) const override;
     auto get_slot() const noexcept -> const Slot& override;
 
 private:
@@ -174,8 +175,8 @@ public:
     bool try_map_key_to_key_code(display::Key, display::KeyCode&) const override;
     bool try_map_key_code_to_key(display::KeyCode, display::Key&) const override;
     bool try_get_key_name(display::KeyCode, std::string_view&) const override;
-    auto new_window(std::string_view, display::Size, const display::Window::Config&) ->
-        std::unique_ptr<display::Window> override;
+    bool try_new_window(std::string_view, display::Size, const display::Window::Config&,
+                        std::unique_ptr<display::Window>&, std::string&) override;
     void process_events(display::ConnectionEventHandler*) override;
     bool process_events(time_point_type, display::ConnectionEventHandler*) override;
     int get_num_screens() const override;
@@ -287,12 +288,13 @@ inline ImplementationImpl::ImplementationImpl(Slot& slot) noexcept
 }
 
 
-auto ImplementationImpl::new_connection(const std::locale& locale, const display::Connection::Config&) const ->
-    std::unique_ptr<display::Connection>
+bool ImplementationImpl::try_new_connection(const std::locale& locale, const display::Connection::Config&,
+                                            std::unique_ptr<display::Connection>& conn, std::string&) const
 {
-    auto conn = std::make_unique<ConnectionImpl>(*this, locale); // Throws
-    conn->open(); // Throws
-    return conn;
+    auto conn_2 = std::make_unique<ConnectionImpl>(*this, locale); // Throws
+    conn_2->open(); // Throws
+    conn = std::move(conn_2);
+    return true;
 }
 
 
@@ -417,16 +419,17 @@ bool ConnectionImpl::try_get_key_name(display::KeyCode key_code, std::string_vie
 }
 
 
-auto ConnectionImpl::new_window(std::string_view title, display::Size size,
-                                const display::Window::Config& config) -> std::unique_ptr<display::Window>
+bool ConnectionImpl::try_new_window(std::string_view title, display::Size size, const display::Window::Config& config,
+                                    std::unique_ptr<display::Window>& win, std::string&)
 {
     int screen = config.screen;
     if (ARCHON_UNLIKELY(screen >= 0 && screen != 0)) {
         throw std::invalid_argument("Bad screen index");
     }
-    auto win = std::make_unique<WindowImpl>(*this, config.cookie); // Throws
-    win->create(title, size, config); // Throws
-    return win;
+    auto win_2 = std::make_unique<WindowImpl>(*this, config.cookie); // Throws
+    win_2->create(title, size, config); // Throws
+    win = std::move(win_2);
+    return true;
 }
 
 

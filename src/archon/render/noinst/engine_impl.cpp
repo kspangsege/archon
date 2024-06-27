@@ -23,16 +23,18 @@
 #include <algorithm>
 #include <utility>
 #include <memory>
-#include <stdexcept>
 #include <functional>
 #include <string_view>
-#include <chrono>
+#include <string>
 #include <locale>
+#include <chrono>
 
 #include <archon/core/features.h>
 #include <archon/core/assert.hpp>
 #include <archon/core/math.hpp>
+#include <archon/core/format.hpp>
 #include <archon/core/format_as.hpp>
+#include <archon/core/quote.hpp>
 #include <archon/core/file.hpp>
 #include <archon/log.hpp>
 #include <archon/math/rotation.hpp>
@@ -60,13 +62,10 @@ constexpr double g_zoom_factor_max  = 32;
 } // unnamed namespace
 
 
-EngineImpl::EngineImpl(std::string_view window_title, display::Size window_size, const std::locale& locale,
-                       const Config& config)
+EngineImpl::EngineImpl(const std::locale& locale, const Config& config)
     : m_locale(locale)
     , m_logger(config.logger ? *config.logger : instantiate_fallback_logger(m_fallback_logger, locale)) // Throws
     , m_display_logger(m_logger, "Display: ") // Throws
-    , m_display_implementation(determine_display_implementation(config.display_implementation,
-                                                                config.display_guarantees)) // Throws
     , m_headlight_feature_enabled(!config.disable_headlight_feature)
     , m_wireframe_feature_enable(!config.disable_wireframe_feature)
     , m_key_bindings() // Throws
@@ -76,12 +75,49 @@ EngineImpl::EngineImpl(std::string_view window_title, display::Size window_size,
     , m_base_interest_size(config.interest_size)
     , m_trackball() // Throws
 {
+}
+
+
+bool EngineImpl::try_init(std::string_view window_title, display::Size window_size, const Config& config,
+                          std::string& error)
+{
 #if !ARCHON_RENDER_HAVE_OPENGL
-    throw std::runtime_error("OpenGL not available");
+    error = "OpenGL not available"; // Throws
+    return false;
 #endif
-    display::Connection::Config connection_config;
-    connection_config.logger = &m_display_logger;
-    m_display_connection = m_display_implementation.new_connection(m_locale, connection_config); // Throws
+
+    {
+        const display::Implementation* implementation;
+        const display::Guarantees& guarantees = config.display_guarantees;
+        if (config.display_implementation) {
+            const display::Implementation::Slot& slot = *config.display_implementation;
+            if (ARCHON_LIKELY(slot.is_available(guarantees))) {
+                implementation = &slot.get_implementation(guarantees); // Throws
+            }
+            else {
+                error = core::format("Display implementation %s is unavailable", core::quoted(slot.ident())); // Throws
+                return false;
+            }
+        }
+        else {
+            const display::Implementation* impl = display::get_default_implementation_a(guarantees);
+            if (ARCHON_LIKELY(impl)) {
+                implementation = impl;
+            }
+            else {
+                error = "No display implementations are available"; // Throws
+                return false;
+            }
+        }
+        display::Connection::Config connection_config;
+        connection_config.logger = &m_display_logger;
+        std::string error_2;
+        if (ARCHON_UNLIKELY(!implementation->try_new_connection(m_locale, connection_config,
+                                                                m_display_connection, error_2))) { // Throws
+            error = core::format("Failed to open display connection: %s", error_2); // Throws
+            return false;
+        }
+    }
 
     set_viewport_size(window_size);
     set_frame_rate(config.frame_rate); // Throws
@@ -159,13 +195,23 @@ EngineImpl::EngineImpl(std::string_view window_title, display::Size window_size,
         bind_key(display::Key::small_w, handler); // Throws
     }
 
-    display::Window::Config window_config;
-    window_config.resizable = config.allow_window_resize;
-    window_config.fullscreen = config.fullscreen_mode;
-    window_config.enable_opengl_rendering = true;
-    m_window = m_display_connection->new_window(window_title, window_size, window_config); // Throws
+    {
+        display::Window::Config window_config;
+        window_config.resizable = config.allow_window_resize;
+        window_config.fullscreen = config.fullscreen_mode;
+        window_config.enable_opengl_rendering = true;
+        std::string error_2;
+        if (ARCHON_UNLIKELY(!m_display_connection->try_new_window(window_title, window_size, window_config,
+                                                                  m_window, error_2))) { // Throws
+            error = core::format("Failed to create window: %s", error_2); // Throws
+            return false;
+        }
+    }
+
     m_window->set_event_handler(m_event_handler); // Throws
     m_fullscreen_mode = config.fullscreen_mode;
+
+    return true;
 }
 
 
@@ -471,16 +517,6 @@ auto EngineImpl::instantiate_fallback_logger(std::unique_ptr<log::FileLogger>& l
 {
     logger = std::make_unique<log::FileLogger>(core::File::get_cout(), locale); // Throws
     return *logger;
-}
-
-
-auto EngineImpl::determine_display_implementation(const display::Implementation::Slot* slot,
-                                                  const display::Guarantees& guarantees) ->
-    const display::Implementation&
-{
-    if (ARCHON_LIKELY(!slot))
-        return display::get_default_implementation(guarantees); // Throws
-    return slot->get_implementation(guarantees); // Throws
 }
 
 

@@ -416,7 +416,7 @@ auto connect(std::optional<std::string_view> display, const std::locale& locale)
 // If no display string is specified, the value of the `DISPLAY` environment variable will
 // be returned.
 //
-auto get_display_string(std::optional<std::string_view> display) -> std::string_view;
+auto get_display_string(const std::optional<std::string_view>& display) -> std::string_view;
 
 
 bool try_connect(std::string_view display, x11::DisplayWrapper& dpy_owner);

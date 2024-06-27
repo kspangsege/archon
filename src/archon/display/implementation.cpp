@@ -19,11 +19,15 @@
 // DEALINGS IN THE SOFTWARE.
 
 
-#include <array>
-#include <string_view>
+#include <iterator>
+#include <memory>
 #include <stdexcept>
+#include <string_view>
+#include <string>
+#include <locale>
 
 #include <archon/core/features.h>
+#include <archon/core/format.hpp>
 #include <archon/display/guarantees.hpp>
 #include <archon/display/implementation.hpp>
 #include <archon/display/implementation_x11.hpp>
@@ -32,6 +36,18 @@
 
 using namespace archon;
 using display::Implementation;
+
+
+auto Implementation::new_connection(const std::locale& locale, const display::Connection::Config& config) const ->
+    std::unique_ptr<display::Connection>
+{
+    std::unique_ptr<display::Connection> conn;
+    std::string error;
+    if (ARCHON_LIKELY(try_new_connection(locale, config, conn, error))) // Throws
+        return conn;
+    std::string message = core::format("Failed to open display connection: %s", error); // Throws
+    throw std::runtime_error(message);
+}
 
 
 auto Implementation::Slot::get_implementation(const display::Guarantees& guarantees) const -> const Implementation&

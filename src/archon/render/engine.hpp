@@ -27,8 +27,9 @@
 #include <utility>
 #include <memory>
 #include <string_view>
-#include <chrono>
+#include <string>
 #include <locale>
+#include <chrono>
 
 #include <archon/core/concepts.hpp>
 #include <archon/log/logger.hpp>
@@ -121,14 +122,56 @@ public:
 
     /// \{
     ///
-    /// \brief Construct engine with specifically configured window.
+    /// \brief Create engine with specifically configured window.
     ///
-    /// This constructor constructs a render engine whose window has the specified title and
-    /// size (\p window_title, \p window_size).
+    /// These constructors create a render engine whose window has the specified title and
+    /// size (\p window_title, \p window_size). They are shorthands for creating a
+    /// degenerate engine object and then calling \ref create() on it.
+    ///
+    /// \sa \ref create()
     ///
     Engine(std::string_view window_title, display::Size window_size, const std::locale& locale);
     Engine(std::string_view window_title, display::Size window_size, const std::locale& locale, const Config& config);
     /// \}
+
+    /// \brief Create degenerate engine object.
+    ///
+    /// This constructor creates a degenerate engine object (as if moved from). Such an
+    /// engine object can be made to hold an actual engine by calling \ref create() or \ref
+    /// try_create().
+    ///
+    /// \sa \ref create()
+    ///
+    Engine() noexcept;
+
+    /// \brief Create engine with specifically configured window.
+    ///
+    /// This function creates a render engine whose window has the specified title and size
+    /// (\p window_title, \p window_size). It is shorthand for calling \ref try_create() and
+    /// throwing an exception on failure.
+    ///
+    /// \sa \ref try_create()
+    ///
+    void create(std::string_view window_title, display::Size window_size, const std::locale& locale,
+                const Config& config);
+
+    /// \brief Try to create engine with specifically configured window.
+    ///
+    /// This function attempts to create a render engine whose window has the specified
+    /// title and size (\p window_title, \p window_size). On success, this function returns
+    /// `true`. On failure, it returns `false` after setting \p error to a message that
+    /// describes the cause of the failure.
+    ///
+    /// When this function succeeds, the engine object becomes non-degenerate.
+    ///
+    /// If the engine object was not degenerate prior to the invocation of this function, it
+    /// will be made degenerate as if by `*this = Engine()`, and this happens before the
+    /// attempt to create a new engine. This avoids creation of a display connection while
+    /// another one is already owned by the engine object (to avoid unintended violations of
+    /// \ref display::Guarantees::only_one_connection).
+    ///
+    bool try_create(std::string_view window_title, display::Size window_size, const std::locale& locale,
+                    const Config& config, std::string& error);
 
     /// \brief Inform engine of scene to be rendered.
     ///

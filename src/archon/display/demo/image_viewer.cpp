@@ -300,7 +300,12 @@ int main(int argc, char* argv[])
     connection_config.x11.synchronous_mode = x11_synchronous_mode;
     connection_config.x11.install_colormaps = x11_install_colormaps;
     connection_config.x11.colormap_weirdness = x11_colormap_weirdness;
-    std::unique_ptr<display::Connection> conn = impl->new_connection(locale, connection_config); // Throws
+    std::unique_ptr<display::Connection> conn;
+    std::string error;
+    if (ARCHON_UNLIKELY(!impl->try_new_connection(locale, connection_config, conn, error))) { // Throws
+        logger.error("Failed to open display connection: %s", error); // Throws
+        return EXIT_FAILURE;
+    }
 
     int screen;
     if (!optional_screen.has_value()) {
@@ -319,7 +324,12 @@ int main(int argc, char* argv[])
     display::Size size = img->get_size();
     display::Window::Config window_config;
     window_config.screen = screen;
-    std::unique_ptr<display::Window> win = conn->new_window("Archon Image Viewer", size, window_config); // Throws
+    std::unique_ptr<display::Window> win;
+    if (ARCHON_UNLIKELY(!conn->try_new_window("Archon Image Viewer", size, window_config, win, error))) { // Throws
+        logger.error("Failed to create window: %s", error); // Throws
+        return EXIT_FAILURE;
+    }
+
     std::unique_ptr<display::Texture> tex = win->new_texture(size); // Throws
     tex->put_image(*img); // Throws
     EventLoop event_loop(*conn, *win, *tex);

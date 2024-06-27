@@ -28,6 +28,7 @@
 #include <stdexcept>
 #include <optional>
 #include <string_view>
+#include <string>
 #include <locale>
 #include <chrono>
 
@@ -42,8 +43,10 @@
 #include <archon/core/flat_map.hpp>
 #include <archon/core/flat_set.hpp>
 #include <archon/core/literal_hash_map.hpp>
+#include <archon/core/format.hpp>
 #include <archon/core/as_int.hpp>
 #include <archon/core/format_as.hpp>
+#include <archon/core/quote.hpp>
 #include <archon/core/platform_support.hpp>
 #include <archon/log.hpp>
 #include <archon/math/vector.hpp>
@@ -238,8 +241,8 @@ class ImplementationImpl final
 public:
     ImplementationImpl(Slot&) noexcept;
 
-    auto new_connection(const std::locale&, const display::Connection::Config&) const ->
-        std::unique_ptr<display::Connection> override;
+    bool try_new_connection(const std::locale&, const display::Connection::Config&,
+                            std::unique_ptr<display::Connection>&, std::string&) const override;
     auto get_slot() const noexcept -> const Slot& override;
 
 private:
@@ -281,7 +284,7 @@ public:
 
     ConnectionImpl(const ImplementationImpl&, const std::locale&, log::Logger*, const display::ConnectionConfigX11&);
 
-    void open(const display::ConnectionConfigX11&);
+    bool try_open(const display::ConnectionConfigX11&, std::string&);
     void register_window(::Window id, WindowImpl&);
     void unregister_window(::Window id) noexcept;
     auto ensure_image_bridge(const XVisualInfo&, const x11::PixelFormat&) const -> x11::ImageBridge&;
@@ -289,8 +292,8 @@ public:
     bool try_map_key_to_key_code(display::Key, display::KeyCode&) const override;
     bool try_map_key_code_to_key(display::KeyCode, display::Key&) const override;
     bool try_get_key_name(display::KeyCode, std::string_view&) const override;
-    auto new_window(std::string_view, display::Size, const display::Window::Config&) ->
-        std::unique_ptr<display::Window> override;
+    bool try_new_window(std::string_view, display::Size, const display::Window::Config&,
+                        std::unique_ptr<display::Window>&, std::string&) override;
     void process_events(display::ConnectionEventHandler*) override;
     bool process_events(time_point_type, display::ConnectionEventHandler*) override;
     int get_num_screens() const override;
@@ -380,8 +383,8 @@ private:
 
     auto intern_string(const char*) noexcept -> Atom;
     auto ensure_screen_slot(int screen) const -> ScreenSlot&;
-    auto determine_visual_spec(const ScreenSlot&, bool prefer_double_buffered, bool require_opengl) const ->
-        const x11::VisualSpec&;
+    bool determine_visual_spec(const ScreenSlot&, bool prefer_double_buffered, bool require_opengl,
+                               const x11::VisualSpec*&, std::string& error) const;
     auto get_pixmap_format(int depth) const -> const XPixmapFormatValues&;
     auto ensure_pixel_format(ScreenSlot&, const XVisualInfo&) const -> const x11::PixelFormat&;
     bool do_process_events(const time_point_type* deadline, display::ConnectionEventHandler*);
@@ -484,12 +487,15 @@ inline ImplementationImpl::ImplementationImpl(Slot& slot) noexcept
 }
 
 
-auto ImplementationImpl::new_connection(const std::locale& locale, const display::Connection::Config& config) const ->
-    std::unique_ptr<display::Connection>
+bool ImplementationImpl::try_new_connection(const std::locale& locale, const display::Connection::Config& config,
+                                            std::unique_ptr<display::Connection>& conn, std::string& error) const
 {
-    auto conn = std::make_unique<ConnectionImpl>(*this, locale, config.logger, config.x11); // Throws
-    conn->open(config.x11); // Throws
-    return conn;
+    auto conn_2 = std::make_unique<ConnectionImpl>(*this, locale, config.logger, config.x11); // Throws
+    if (ARCHON_LIKELY(conn_2->try_open(config.x11, error))) { // Throws
+        conn = std::move(conn_2);
+        return true;
+    }
+    return false;
 }
 
 
@@ -541,17 +547,24 @@ inline ConnectionImpl::ConnectionImpl(const ImplementationImpl& impl_2, const st
 }
 
 
-void ConnectionImpl::open(const display::ConnectionConfigX11& config)
+bool ConnectionImpl::try_open(const display::ConnectionConfigX11& config, std::string& error)
 {
-    dpy_owner = x11::connect(config.display, locale); // Throws
+    std::string_view display = x11::get_display_string(config.display);
+    if (ARCHON_UNLIKELY(!x11::try_connect(display, dpy_owner))) { // Throws
+        error = core::format(locale, "Failed to connect to %s", core::quoted(display)); // Throws
+        return false;
+    }
+
     dpy = dpy_owner;
 
     if (ARCHON_UNLIKELY(config.synchronous_mode))
         XSynchronize(dpy, True);
 
     m_extension_info = x11::init_extensions(dpy); // Throws
-    if (ARCHON_UNLIKELY(!m_extension_info.have_xkb))
-        throw std::runtime_error("X Keyboard Extension is required but not available");
+    if (ARCHON_UNLIKELY(!m_extension_info.have_xkb)) {
+        error = "X Keyboard Extension is required but not available"; // Throws
+        return false;
+    }
 
     if (!config.disable_detectable_autorepeat) {
         Bool detectable = True;
@@ -573,6 +586,8 @@ void ConnectionImpl::open(const display::ConnectionConfigX11& config)
 #endif
 
     m_screen_slots = std::make_unique<ScreenSlot[]>(std::size_t(ScreenCount(dpy))); // Throws
+
+    return true;
 }
 
 
@@ -658,8 +673,8 @@ bool ConnectionImpl::try_get_key_name(display::KeyCode key_code, std::string_vie
 }
 
 
-auto ConnectionImpl::new_window(std::string_view title, display::Size size,
-                                const display::Window::Config& config) -> std::unique_ptr<display::Window>
+bool ConnectionImpl::try_new_window(std::string_view title, display::Size size, const display::Window::Config& config,
+                                    std::unique_ptr<display::Window>& win, std::string& error)
 {
     if (ARCHON_UNLIKELY(size.width < 0 || size.height < 0))
         throw std::invalid_argument("Bad window size");
@@ -675,27 +690,32 @@ auto ConnectionImpl::new_window(std::string_view title, display::Size size,
         prefer_double_buffered = true;
     bool enable_opengl = false;
     if (config.enable_opengl_rendering) {
-        if (ARCHON_UNLIKELY(!m_extension_info.have_glx))
-            throw std::runtime_error("OpenGL rendering not available");
+        if (ARCHON_UNLIKELY(!m_extension_info.have_glx)) {
+            error = "OpenGL rendering not available";
+            return false;
+        }
         enable_opengl = true;
     }
     ScreenSlot& screen_slot = ensure_screen_slot(screen); // Throws
-    const x11::VisualSpec& visual_spec = determine_visual_spec(screen_slot, prefer_double_buffered,
-                                                                enable_opengl); // Throws
-    logger.detail("Using %s visual (%s) of depth %s for new X11 window",
-                  x11::get_visual_class_name(visual_spec.info.c_class),
-                  core::as_flex_int_h(visual_spec.info.visualid), visual_spec.info.depth); // Throws
-    const x11::PixelFormat& pixel_format = ensure_pixel_format(screen_slot, visual_spec.info); // Throws
-    auto win = std::make_unique<WindowImpl>(*this, screen_slot, visual_spec, pixel_format, config.cookie); // Throws
-    bool enable_double_buffering = visual_spec.double_buffered && !m_disable_double_buffering;
-    bool enable_glx_direct_rendering = !m_disable_glx_direct_rendering;
-    win->create(size, config, enable_double_buffering, enable_opengl, enable_glx_direct_rendering); // Throws
-    win->set_title(title); // Throws
-    if (ARCHON_UNLIKELY(config.fullscreen))
-        win->set_fullscreen_mode(true); // Throws
-    if (ARCHON_UNLIKELY(m_install_colormaps))
-        XInstallColormap(dpy, pixel_format.get_colormap());
-    return win;
+    const x11::VisualSpec* visual_spec = {};
+    if (ARCHON_LIKELY(determine_visual_spec(screen_slot, prefer_double_buffered, enable_opengl, visual_spec, error))) { // Throws
+        const XVisualInfo& info = visual_spec->info;
+        logger.detail("Using %s visual (%s) of depth %s for new X11 window", x11::get_visual_class_name(info.c_class),
+                      core::as_flex_int_h(info.visualid), info.depth); // Throws
+        const x11::PixelFormat& pixel_format = ensure_pixel_format(screen_slot, info); // Throws
+        auto win_2 = std::make_unique<WindowImpl>(*this, screen_slot, *visual_spec, pixel_format, config.cookie); // Throws
+        bool enable_double_buffering = visual_spec->double_buffered && !m_disable_double_buffering;
+        bool enable_glx_direct_rendering = !m_disable_glx_direct_rendering;
+        win_2->create(size, config, enable_double_buffering, enable_opengl, enable_glx_direct_rendering); // Throws
+        win_2->set_title(title); // Throws
+        if (ARCHON_UNLIKELY(config.fullscreen))
+            win_2->set_fullscreen_mode(true); // Throws
+        if (ARCHON_UNLIKELY(m_install_colormaps))
+            XInstallColormap(dpy, pixel_format.get_colormap());
+        win = std::move(win_2);
+        return true;
+    }
+    return false;
 }
 
 
@@ -813,8 +833,8 @@ auto ConnectionImpl::ensure_screen_slot(int screen) const -> ScreenSlot&
 }
 
 
-auto ConnectionImpl::determine_visual_spec(const ScreenSlot& screen_slot, bool prefer_double_buffered,
-                                           bool require_opengl) const -> const x11::VisualSpec&
+bool ConnectionImpl::determine_visual_spec(const ScreenSlot& screen_slot, bool prefer_double_buffered,
+                                           bool require_opengl, const x11::VisualSpec*& spec, std::string& error) const
 {
     core::Span visual_specs = screen_slot.visual_specs;
     x11::FindVisualParams params;
@@ -825,9 +845,12 @@ auto ConnectionImpl::determine_visual_spec(const ScreenSlot& screen_slot, bool p
     params.require_opengl = require_opengl;
     params.require_opengl_depth_buffer = require_opengl;
     std::size_t index = {};
-    if (ARCHON_LIKELY(x11::find_visual(dpy, screen_slot.screen, visual_specs, params, index))) // Throws
-        return visual_specs[index];
-    throw std::runtime_error("No suitable X11 visual found");
+    if (ARCHON_LIKELY(x11::find_visual(dpy, screen_slot.screen, visual_specs, params, index))) { // Throws
+        spec = &visual_specs[index];
+        return true;
+    }
+    error = "No suitable X11 visual found"; // Throws
+    return false;
 }
 
 
