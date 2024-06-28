@@ -95,7 +95,8 @@ bool EngineImpl::try_init(std::string_view window_title, display::Size window_si
                 implementation = &slot.get_implementation(guarantees); // Throws
             }
             else {
-                error = core::format("Display implementation %s is unavailable", core::quoted(slot.ident())); // Throws
+                error = core::format(m_locale, "Display implementation %s is unavailable",
+                                     core::quoted(slot.ident())); // Throws
                 return false;
             }
         }
@@ -114,7 +115,7 @@ bool EngineImpl::try_init(std::string_view window_title, display::Size window_si
         std::string error_2;
         if (ARCHON_UNLIKELY(!implementation->try_new_connection(m_locale, connection_config,
                                                                 m_display_connection, error_2))) { // Throws
-            error = core::format("Failed to open display connection: %s", error_2); // Throws
+            error = core::format(m_locale, "Failed to open display connection: %s", error_2); // Throws
             return false;
         }
     }
@@ -203,7 +204,7 @@ bool EngineImpl::try_init(std::string_view window_title, display::Size window_si
         std::string error_2;
         if (ARCHON_UNLIKELY(!m_display_connection->try_new_window(window_title, window_size, window_config,
                                                                   m_window, error_2))) { // Throws
-            error = core::format("Failed to create window: %s", error_2); // Throws
+            error = core::format(m_locale, "Failed to create window: %s", error_2); // Throws
             return false;
         }
     }

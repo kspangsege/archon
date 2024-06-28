@@ -25,6 +25,7 @@
 
 
 #include <memory>
+#include <optional>
 #include <string_view>
 #include <string>
 #include <locale>
@@ -227,6 +228,22 @@ auto get_implementation_slot(int index) -> const display::Implementation::Slot&;
 /// function returns null.
 ///
 auto lookup_implementation(std::string_view ident) noexcept -> const display::Implementation::Slot*;
+
+
+/// \brief    
+///
+///    
+///
+auto choose_implementation(const std::optional<std::string_view>& ident, const display::Guarantees& guarantees) ->
+    const display::Implementation::Slot&;
+
+
+/// \brief    
+///
+///    
+///
+bool try_choose_implementation(const std::optional<std::string_view>& ident, const display::Guarantees& guarantees,
+                               const display::Implementation::Slot*& slot, std::string& error);
 
 
 

@@ -60,8 +60,9 @@ display::Size g_large = { 512, 384 };
 class EventLoop final
     : public display::WindowEventHandler {
 public:
-    EventLoop(display::Connection& conn, int screen) noexcept
-        : m_conn(conn)
+    EventLoop(const std::lacale& locale, display::Connection& conn, int screen) noexcept
+        : m_locale(locale)
+        , m_conn(conn)
         , m_screen(screen)
     {
     }
@@ -77,7 +78,7 @@ public:
     bool try_add_window(std::string& error)
     {
         int id = m_prev_window_id + 1;
-        std::string title = core::format("Window #%s", id); // Throws
+        std::string title = core::format(m_locale, "Window #%s", id); // Throws
         display::Window::Config config;
         config.screen = m_screen;
         config.cookie = id;
@@ -221,6 +222,7 @@ private:
         }
     };
 
+    std::locale m_locale;
     display::Connection& m_conn;
     const int m_screen;
     int m_prev_window_id = 0;
@@ -449,7 +451,7 @@ int main(int argc, char* argv[])
         screen = val;
     }
 
-    EventLoop event_loop(*conn, screen);
+    EventLoop event_loop(locale, *conn, screen);
 
     int num_windows = 2;
     for (int i = 0; i < num_windows; ++i) {
