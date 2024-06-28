@@ -263,26 +263,12 @@ int main(int argc, char* argv[])
         }
     }
 
-    const display::Implementation* impl;
-    if (optional_display_implementation.has_value()) {
-        std::string_view ident = optional_display_implementation.value();
-        const display::Implementation::Slot* slot = display::lookup_implementation(ident);
-        if (ARCHON_UNLIKELY(!slot)) {
-            logger.error("Unknown display implementation (%s)", core::quoted(ident)); // Throws
-            return EXIT_FAILURE;
-        }
-        impl = slot->get_implementation_a(guarantees);
-        if (ARCHON_UNLIKELY(!impl)) {
-            logger.error("Unavailable display implementation (%s)", core::quoted(ident)); // Throws
-            return EXIT_FAILURE;
-        }
-    }
-    else {
-        impl = display::get_default_implementation_a(guarantees);
-        if (ARCHON_UNLIKELY(!impl)) {
-            logger.error("No display implementations are available"); // Throws
-            return EXIT_FAILURE;
-        }
+    const display::Implementation* impl = {};
+    std::string error;
+    if (ARCHON_UNLIKELY(!display::try_choose_implementation(optional_display_implementation, guarantees,
+                                                            impl, error))) { // Throws
+        logger.error("%s", error); // Throws
+        return EXIT_FAILURE;
     }
     logger.detail("Display implementation: %s", impl->get_slot().ident()); // Throws
 
@@ -301,7 +287,6 @@ int main(int argc, char* argv[])
     connection_config.x11.install_colormaps = x11_install_colormaps;
     connection_config.x11.colormap_weirdness = x11_colormap_weirdness;
     std::unique_ptr<display::Connection> conn;
-    std::string error;
     if (ARCHON_UNLIKELY(!impl->try_new_connection(locale, connection_config, conn, error))) { // Throws
         logger.error("Failed to open display connection: %s", error); // Throws
         return EXIT_FAILURE;
