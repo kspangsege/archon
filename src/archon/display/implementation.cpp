@@ -135,20 +135,20 @@ auto display::lookup_implementation(std::string_view ident) noexcept -> const di
 }
 
 
-auto display::choose_implementation(const std::optional<std::string_view>& ident,
-                                    const display::Guarantees& guarantees) -> const display::Implementation&
+auto display::pick_implementation(const std::optional<std::string_view>& ident,
+                                  const display::Guarantees& guarantees) -> const display::Implementation&
 {
     const display::Implementation* impl = {};
     std::string error;
-    if (ARCHON_LIKELY(display::try_choose_implementation(ident, guarantees, impl, error))) // Throws
+    if (ARCHON_LIKELY(display::try_pick_implementation(ident, guarantees, impl, error))) // Throws
         return *impl;
     throw std::runtime_error(error);
 }
 
 
-bool display::try_choose_implementation(const std::optional<std::string_view>& ident,
-                                        const display::Guarantees& guarantees,
-                                        const display::Implementation*& impl, std::string& error)
+bool display::try_pick_implementation(const std::optional<std::string_view>& ident,
+                                      const display::Guarantees& guarantees,
+                                      const display::Implementation*& impl, std::string& error)
 {
     const display::Implementation* impl_2;
     if (ident.has_value()) {

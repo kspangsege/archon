@@ -510,9 +510,9 @@ int main(int argc, char* argv[])
 
     const display::Implementation* impl = {};
     std::string error;
-    if (ARCHON_UNLIKELY(!display::try_choose_implementation(optional_display_implementation, guarantees,
-                                                            impl, error))) { // Throws
-        logger.error("%s", error); // Throws
+    if (ARCHON_UNLIKELY(!display::try_pick_implementation(optional_display_implementation, guarantees,
+                                                          impl, error))) { // Throws
+        logger.error("Failed to pick display implementation: %s", error); // Throws
         return EXIT_FAILURE;
     }
     logger.detail("Display implementation: %s", impl->get_slot().ident()); // Throws
