@@ -235,7 +235,7 @@ auto lookup_implementation(std::string_view ident) noexcept -> const display::Im
 ///    
 ///
 auto choose_implementation(const std::optional<std::string_view>& ident, const display::Guarantees& guarantees) ->
-    const display::Implementation::Slot&;
+    const display::Implementation&;
 
 
 /// \brief    
@@ -243,7 +243,7 @@ auto choose_implementation(const std::optional<std::string_view>& ident, const d
 ///    
 ///
 bool try_choose_implementation(const std::optional<std::string_view>& ident, const display::Guarantees& guarantees,
-                               const display::Implementation::Slot*& slot, std::string& error);
+                               const display::Implementation*& impl, std::string& error);
 
 
 

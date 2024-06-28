@@ -60,7 +60,7 @@ display::Size g_large = { 512, 384 };
 class EventLoop final
     : public display::WindowEventHandler {
 public:
-    EventLoop(const std::lacale& locale, display::Connection& conn, int screen) noexcept
+    EventLoop(const std::locale& locale, display::Connection& conn, int screen) noexcept
         : m_locale(locale)
         , m_conn(conn)
         , m_screen(screen)

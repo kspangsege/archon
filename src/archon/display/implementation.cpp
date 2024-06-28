@@ -28,7 +28,7 @@
 #include <locale>
 
 #include <archon/core/features.h>
-#include <archon/core/format.hpp>
+#include <archon/core/string.hpp>
 #include <archon/display/guarantees.hpp>
 #include <archon/display/implementation.hpp>
 #include <archon/display/implementation_x11.hpp>
@@ -46,7 +46,8 @@ auto Implementation::new_connection(const std::locale& locale, const display::Co
     std::string error;
     if (ARCHON_LIKELY(try_new_connection(locale, config, conn, error))) // Throws
         return conn;
-    std::string message = core::format(locale, "Failed to open display connection: %s", error); // Throws
+    using namespace std::literals;
+    std::string message = core::concat("Failed to open display connection: "sv, std::string_view(error)); // Throws
     throw std::runtime_error(message);
 }
 
@@ -135,9 +136,13 @@ auto display::lookup_implementation(std::string_view ident) noexcept -> const di
 
 
 auto display::choose_implementation(const std::optional<std::string_view>& ident,
-                                    const display::Guarantees& guarantees) -> const display::Implementation::Slot&
+                                    const display::Guarantees& guarantees) -> const display::Implementation&
 {
-    
+    const display::Implementation* impl = {};
+    std::string error;
+    if (ARCHON_LIKELY(display::try_choose_implementation(ident, guarantees, impl, error))) // Throws
+        return *impl;
+    throw std::runtime_error(error);
 }
 
 
@@ -156,7 +161,7 @@ bool display::try_choose_implementation(const std::optional<std::string_view>& i
         }
         impl_2 = slot->get_implementation_a(guarantees);
         if (ARCHON_UNLIKELY(!impl_2)) {
-            error = core::concat(locale, "Unavailable display implementation (\""sv, ident_2, "\")"sv); // Throws
+            error = core::concat("Unavailable display implementation (\""sv, ident_2, "\")"sv); // Throws
             return false;
         }
     }

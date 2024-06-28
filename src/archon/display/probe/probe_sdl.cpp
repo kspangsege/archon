@@ -73,7 +73,8 @@ namespace {
 
 auto get_sdl_error(std::string_view message) -> std::string
 {
-    return core::concat(message, ": ", SDL_GetError()); // Throws
+    using namespace std::literals;
+    return core::concat(message, ": "sv, std::string_view(SDL_GetError())); // Throws
 }
 
 
