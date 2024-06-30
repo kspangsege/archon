@@ -19,6 +19,7 @@
 // DEALINGS IN THE SOFTWARE.
 
 
+                          
 #include <cmath>
 #include <algorithm>
 #include <utility>
@@ -62,10 +63,11 @@ constexpr double g_zoom_factor_max  = 32;
 } // unnamed namespace
 
 
-EngineImpl::EngineImpl(const std::locale& locale, const Config& config)
+EngineImpl::EngineImpl(const std::locale& locale, display::Connection& conn, display::Size window_size,
+                       const Config& config)
     : m_locale(locale)
+    , m_conn(conn)
     , m_logger(config.logger ? *config.logger : instantiate_fallback_logger(m_fallback_logger, locale)) // Throws
-    , m_display_logger(m_logger, "Display: ") // Throws
     , m_headlight_feature_enabled(!config.disable_headlight_feature)
     , m_wireframe_feature_enable(!config.disable_wireframe_feature)
     , m_key_bindings() // Throws
@@ -75,50 +77,6 @@ EngineImpl::EngineImpl(const std::locale& locale, const Config& config)
     , m_base_interest_size(config.interest_size)
     , m_trackball() // Throws
 {
-}
-
-
-bool EngineImpl::try_init(std::string_view window_title, display::Size window_size, const Config& config,
-                          std::string& error)
-{
-#if !ARCHON_RENDER_HAVE_OPENGL
-    error = "OpenGL not available"; // Throws
-    return false;
-#endif
-
-    {
-        const display::Implementation* implementation;
-        const display::Guarantees& guarantees = config.display_guarantees;
-        if (config.display_implementation) {
-            const display::Implementation::Slot& slot = *config.display_implementation;
-            if (ARCHON_LIKELY(slot.is_available(guarantees))) {
-                implementation = &slot.get_implementation(guarantees); // Throws
-            }
-            else {
-                error = core::format(m_locale, "Display implementation %s is unavailable",
-                                     core::quoted(slot.ident())); // Throws
-                return false;
-            }
-        }
-        else {
-            const display::Implementation* impl = display::get_default_implementation_a(guarantees);
-            if (ARCHON_LIKELY(impl)) {
-                implementation = impl;
-            }
-            else {
-                error = "No display implementations are available"; // Throws
-                return false;
-            }
-        }
-        display::Connection::Config connection_config;
-        connection_config.logger = &m_display_logger;
-        std::string error_2;
-        if (ARCHON_UNLIKELY(!implementation->try_new_connection(m_locale, connection_config,
-                                                                m_display_connection, error_2))) { // Throws
-            error = core::format(m_locale, "Failed to open display connection: %s", error_2); // Throws
-            return false;
-        }
-    }
 
     set_viewport_size(window_size);
     set_frame_rate(config.frame_rate); // Throws
@@ -195,18 +153,27 @@ bool EngineImpl::try_init(std::string_view window_title, display::Size window_si
                                                &EngineImpl::key_func_toggle_wireframe); // Throws
         bind_key(display::Key::small_w, handler); // Throws
     }
+}
 
-    {
-        display::Window::Config window_config;
-        window_config.resizable = config.allow_window_resize;
-        window_config.fullscreen = config.fullscreen_mode;
-        window_config.enable_opengl_rendering = true;
-        std::string error_2;
-        if (ARCHON_UNLIKELY(!m_display_connection->try_new_window(window_title, window_size, window_config,
-                                                                  m_window, error_2))) { // Throws
+
+bool EngineImpl::try_init(std::string_view window_title, display::Size window_size, const Config& config,
+                          std::string& error)
+{
+#if !ARCHON_RENDER_HAVE_OPENGL
+    error = "OpenGL not available"; // Throws
+    return false;
+#endif
+
+    display::Window::Config window_config;
+    window_config.screen = screen;
+    window_config.resizable = config.allow_window_resize;
+    window_config.fullscreen = config.fullscreen_mode;
+    window_config.enable_opengl_rendering = true;
+    std::string error_2;
+    if (ARCHON_UNLIKELY(!m_conn.try_new_window(window_title, window_size, window_config,
+                                               m_window, error_2))) { // Throws
             error = core::format(m_locale, "Failed to create window: %s", error_2); // Throws
             return false;
-        }
     }
 
     m_window->set_event_handler(m_event_handler); // Throws
@@ -222,10 +189,10 @@ void EngineImpl::run()
 
 /*                  
     int screen = -1; // ???                               
-    std::optional<display::Resolution> resolution = m_display_connection->get_screen_resolution(screen); // Throws
+    std::optional<display::Resolution> resolution = m_conn.get_screen_resolution(screen); // Throws
     if (resolution.has_value()) {
         display::Resolution resolution_2 = resolution.value();
-        display::Box bounds = m_display_connection->get_screen_bounds(screen); // Throws
+        display::Box bounds = m_conn.get_screen_bounds(screen); // Throws
         m_logger.trace("Screen resolution (ppcm):  %s", resolution_2); // Throws
         m_logger.trace("Screen size (pixels):      %s", bounds.size); // Throws
         m_logger.trace("Physical screen size (cm): %s x %s", bounds.size.width / resolution_2.horz_ppcm, bounds.size.height / resolution_2.vert_ppcm); // Throws           
@@ -528,7 +495,7 @@ bool EngineImpl::map_key_ident(const render::KeyIdent& key, impl::KeyBindings::K
     display::MouseButton mouse_button = {};
     switch (key.get(key_2, key_code, mouse_button)) {
         case render::KeyIdent::Type::key: {
-            bool found = m_display_connection->try_map_key_to_key_code(key_2, key_code); // Throws
+            bool found = m_conn.try_map_key_to_key_code(key_2, key_code); // Throws
             if (ARCHON_LIKELY(found)) {
                 ident = impl::KeyBindings::KeyIdent(key_code);
                 return true;
@@ -754,7 +721,7 @@ inline bool EngineImpl::process_events(Clock::time_point deadline)
     bool proceed = m_key_bindings.resume_incomplete_on_blur_if_any(); // Throws
 
     if (ARCHON_LIKELY(proceed))
-        return m_display_connection->process_events(deadline, &m_event_handler); // Throws
+        return m_conn.process_events(deadline, &m_event_handler); // Throws
 
     return false; // Interrupt (no expiration yet)
 }

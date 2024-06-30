@@ -19,7 +19,8 @@
 // DEALINGS IN THE SOFTWARE.
 
 
-#include <utility>
+#include <cstdint>
+#include <memory>
 #include <optional>
 #include <tuple>
 #include <string_view>
@@ -28,15 +29,18 @@
 #include <filesystem>
 
 #include <archon/core/features.h>
+#include <archon/core/integer.hpp>
 #include <archon/core/math.hpp>
 #include <archon/core/locale.hpp>
-#include <archon/core/quote.hpp>
+#include <archon/core/value_parser.hpp>
+#include <archon/core/as_int.hpp>
 #include <archon/core/file.hpp>
 #include <archon/log.hpp>
 #include <archon/cli.hpp>
 #include <archon/math/vector.hpp>
 #include <archon/math/rotation.hpp>
 #include <archon/display.hpp>
+#include <archon/display/connection_config_x11.hpp>
 #include <archon/render/opengl.hpp>
 #include <archon/render/engine.hpp>
 
@@ -143,6 +147,18 @@ int main(int argc, char* argv[])
     display::Size window_size = 512;
     log::LogLevel log_level_limit = log::LogLevel::warn;
     std::optional<std::string> optional_display_implementation;
+    std::optional<int> optional_screen;
+    std::optional<std::string> optional_x11_display;
+    std::optional<int> optional_x11_visual_depth;
+    std::optional<display::ConnectionConfigX11::VisualClass> optional_x11_visual_class;
+    std::optional<std::uint_fast32_t> optional_x11_visual_type;
+    bool x11_prefer_default_nondecomposed_colormap = false;
+    bool x11_disable_double_buffering = false;
+    bool x11_disable_glx_direct_rendering = false;
+    bool x11_disable_detectable_autorepeat = false;
+    bool x11_synchronous_mode = false;
+    bool x11_install_colormaps = false;
+    bool x11_colormap_weirdness = false;
 
     cli::Spec spec;
     pat("", cli::no_attributes, spec,
@@ -163,7 +179,7 @@ int main(int argc, char* argv[])
         "rate is @V.",
         cli::assign(engine_config.frame_rate)); // Throws
 
-    opt("-s, --window-size", "<size>", cli::no_attributes, spec,
+    opt("-S, --window-size", "<size>", cli::no_attributes, spec,
         "Set the window size in number of pixels. \"@A\" can be specified either as a pair \"<width>,<height>\", or "
         "as a single value, which is then used as both width and height. The default size is @V.",
         cli::assign(window_size)); // Throws
@@ -181,6 +197,80 @@ int main(int argc, char* argv[])
         "are available. It is possible that no implementations are available. By default, if any implementations are "
         "available, the one, that is listed first by `--list-display-implementations`, is used.",
         cli::assign(optional_display_implementation)); // Throws
+
+    opt("-s, --screen", "<number>", cli::no_attributes, spec,
+        "Target the specified screen (@A). This is an index between zero and the number of screens minus one. If this "
+        "option is not specified, the default screen of the display will be targeted.",
+        cli::assign(optional_screen)); // Throws
+
+    opt("-D, --x11-display", "<string>", cli::no_attributes, spec,
+        "When using the X11-based display implementation, target the specified X11 display (@A). If this option is "
+        "not specified, the value of the DISPLAY environment variable will be used.",
+        cli::assign(optional_x11_display)); // Throws
+
+    opt("-d, --x11-visual-depth", "<num>", cli::no_attributes, spec,
+        "When using the X11-based display implementation, pick a visual of the specified depth (@A).",
+        cli::assign(optional_x11_visual_depth)); // Throws
+
+    opt("-c, --x11-visual-class", "<name>", cli::no_attributes, spec,
+        "When using the X11-based display implementation, pick a visual of the specified class (@A). The class can be "
+        "@F.",
+        cli::assign(optional_x11_visual_class)); // Throws
+
+    opt("-V, --x11-visual-type", "<num>", cli::no_attributes, spec,
+        "When using the X11-based display implementation, pick a visual of the specified type (@A). The type, also "
+        "known as the visual ID, is a 32-bit unsigned integer that can be expressed in decimal, hexadecumal (with "
+        "prefix '0x'), or octal (with prefix '0') form.",
+        cli::exec([&](std::string_view str) {
+            core::ValueParser parser(locale);
+            std::uint_fast32_t type = {};
+            if (ARCHON_LIKELY(parser.parse(str, core::as_flex_int(type)))) {
+                if (ARCHON_LIKELY(type <= core::int_mask<std::uint_fast32_t>(32))) {
+                    optional_x11_visual_type.emplace(type);
+                    return true;
+                }
+            }
+            return false;
+        })); // Throws
+
+    opt("-C, --x11-prefer-default-nondecomposed-colormap", "", cli::no_attributes, spec,
+        "When using the X11-based display implementation, prefer the use of the default colormap when the default "
+        "visual is used and is a PseudoColor or GrayScale visual. This succeeds if enough colors can be allocated. "
+        "Otherwise a new colormap is created.",
+        cli::raise_flag(x11_prefer_default_nondecomposed_colormap)); // Throws
+
+    opt("-B, --x11-disable-double-buffering", "", cli::no_attributes, spec,
+        "When using the X11-based display implementation, disable use of double buffering, even when the selected "
+        "visual supports double buffering.",
+        cli::raise_flag(x11_disable_double_buffering)); // Throws
+
+    opt("-R, --x11-disable-glx-direct-rendering", "", cli::no_attributes, spec,
+        "When using the X11-based display implementation, disable use of GLX direct rendering, even in cases where "
+        "GLX direct rendering is possible.",
+        cli::raise_flag(x11_disable_glx_direct_rendering)); // Throws
+
+    opt("-A, --x11-disable-detectable-autorepeat", "", cli::no_attributes, spec,
+        "When using the X11-based display implementation, do not turn on \"detectable auto-repeat\" mode, as it is "
+        "offered by the X Keyboard Extension, even when it can be turned on. Instead, rely on the fall-back detection "
+        "mechanism.",
+        cli::raise_flag(x11_disable_detectable_autorepeat)); // Throws
+
+    opt("-y, --x11-synchronous-mode", "", cli::no_attributes, spec,
+        "When using the X11-based display implementation, turn on X11's synchronous mode. In this mode, buffering of "
+        "X protocol requests is turned off, and the Xlib functions, that generate X requests, wait for a response "
+        "from the server before they return. This is sometimes useful when debugging.",
+        cli::raise_flag(x11_synchronous_mode)); // Throws
+
+    opt("-I, --x11-install-colormaps", "", cli::no_attributes, spec,
+        "When using the X11-based display implementation, install a window's colormap right after the creation of the "
+        "window. This mode should only be enabled for debugging purposes, or when running against a server where "
+        "there is no window manager.",
+        cli::raise_flag(x11_install_colormaps)); // Throws
+
+    opt("-W, --x11-colormap-weirdness", "", cli::no_attributes, spec,
+        "When using the X11-based display implementation, introduce detectable weirdness into newly created "
+        "colormaps.",
+        cli::raise_flag(x11_colormap_weirdness)); // Throws
 
     int exit_status = 0;
     if (ARCHON_UNLIKELY(cli::process(argc, argv, spec, exit_status, locale))) // Throws
@@ -221,38 +311,56 @@ int main(int argc, char* argv[])
     log::FileLogger root_logger(core::File::get_cerr(), locale); // Throws
     log::LimitLogger logger(root_logger, log_level_limit); // Throws
 
-    const display::Implementation::Slot* display_implementation;
-    if (optional_display_implementation.has_value()) {
-        std::string_view ident = optional_display_implementation.value();
-        const display::Implementation::Slot* slot = display::lookup_implementation(ident);
-        if (ARCHON_UNLIKELY(!slot)) {
-            logger.error("Unknown display implementation (%s)", core::quoted(ident)); // Throws
-            return EXIT_FAILURE;
-        }
-        if (ARCHON_UNLIKELY(!slot->is_available(guarantees))) {
-            logger.error("Unavailable display implementation (%s)", core::quoted(ident)); // Throws
-            return EXIT_FAILURE;
-        }
-        display_implementation = slot;
+    const display::Implementation* impl = {};
+    std::string error;
+    if (ARCHON_UNLIKELY(!display::try_pick_implementation(optional_display_implementation, guarantees,
+                                                          impl, error))) { // Throws
+        logger.error("Failed to pick display implementation: %s", error); // Throws
+        return EXIT_FAILURE;
+    }
+    logger.detail("Display implementation: %s", impl->get_slot().ident()); // Throws
+
+    log::PrefixLogger display_logger(logger, "Display: "); // Throws
+    display::Connection::Config connection_config;
+    connection_config.logger = &display_logger;
+    connection_config.x11.display = optional_x11_display;
+    connection_config.x11.visual_depth = optional_x11_visual_depth;
+    connection_config.x11.visual_class = optional_x11_visual_class;
+    connection_config.x11.visual_type = optional_x11_visual_type;
+    connection_config.x11.prefer_default_nondecomposed_colormap = x11_prefer_default_nondecomposed_colormap;
+    connection_config.x11.disable_double_buffering = x11_disable_double_buffering;
+    connection_config.x11.disable_glx_direct_rendering = x11_disable_glx_direct_rendering;
+    connection_config.x11.disable_detectable_autorepeat = x11_disable_detectable_autorepeat;
+    connection_config.x11.synchronous_mode = x11_synchronous_mode;
+    connection_config.x11.install_colormaps = x11_install_colormaps;
+    connection_config.x11.colormap_weirdness = x11_colormap_weirdness;
+    std::unique_ptr<display::Connection> conn;
+    if (ARCHON_UNLIKELY(!impl->try_new_connection(locale, connection_config, conn, error))) { // Throws
+        logger.error("Failed to open display connection: %s", error); // Throws
+        return EXIT_FAILURE;
+    }
+
+    int screen;
+    if (!optional_screen.has_value()) {
+        screen = conn->get_default_screen();
     }
     else {
-        const display::Implementation* impl = display::get_default_implementation_a(guarantees);
-        if (ARCHON_UNLIKELY(!impl)) {
-            logger.error("No display implementations are available"); // Throws
+        int val = optional_screen.value();
+        int num_screens = conn->get_num_screens();
+        if (ARCHON_UNLIKELY(val < 0 || val >= num_screens)) {
+            logger.error("Specified screen index (%s) is out of range", core::as_int(val)); // Throws
             return EXIT_FAILURE;
         }
-        display_implementation = &impl->get_slot();
+        screen = val;
     }
-    logger.detail("Display implementation: %s", display_implementation->ident()); // Throws
 
-    engine_config.display_implementation = display_implementation;
-    engine_config.display_guarantees = guarantees;
+    engine_config.screen = screen;
     engine_config.allow_window_resize = true;
     engine_config.logger = &logger;
 
     render::Engine engine;
-    std::string error;
-    if (ARCHON_UNLIKELY(!engine.try_create("Archon Box", window_size, locale, engine_config, error))) { // Throws
+    if (ARCHON_UNLIKELY(!engine.try_create(*conn, "Archon Box", window_size, locale, engine_config,
+                                           error))) { // Throws
         logger.error("Failed to create render engine: %s", error); // Throws
         return EXIT_FAILURE;
     }

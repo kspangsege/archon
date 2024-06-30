@@ -24,6 +24,7 @@
 /// \file
 
 
+            
 #include <utility>
 #include <memory>
 #include <string_view>
@@ -35,12 +36,7 @@
 #include <archon/log/logger.hpp>
 #include <archon/math/rotation.hpp>
 #include <archon/util/color.hpp>
-#include <archon/display/geometry.hpp>
-#include <archon/display/key.hpp>
-#include <archon/display/key_code.hpp>
-#include <archon/display/mouse_button.hpp>
-#include <archon/display/guarantees.hpp>
-#include <archon/display/implementation.hpp>
+#include <archon/display.hpp>
 #include <archon/render/key_binding_support.hpp>
 #include <archon/render/impl/key_bindings.hpp>
 
@@ -73,7 +69,7 @@ namespace archon::render {
 ///       archon::render::Engine& m_engine;
 ///   };
 ///
-///   archon::render::Engine engine("Foo", 256, locale);
+///   archon::render::Engine engine("Foo", 256, locale);                            
 ///   FooScene scene(engine);
 ///   engine.set_scene(scene);
 ///   engine.bind_key(archon::display::Key::lower_case_x, "X", [&](bool down) {
@@ -122,16 +118,18 @@ public:
 
     /// \{
     ///
-    /// \brief Create engine with specifically configured window.
+    /// \brief Create engine with specifically configured window.      
     ///
-    /// These constructors create a render engine whose window has the specified title and
+    /// These constructors create a render engine whose window has the specified title and          
     /// size (\p window_title, \p window_size). They are shorthands for creating a
     /// degenerate engine object and then calling \ref create() on it.
     ///
     /// \sa \ref create()
     ///
-    Engine(std::string_view window_title, display::Size window_size, const std::locale& locale);
-    Engine(std::string_view window_title, display::Size window_size, const std::locale& locale, const Config& config);
+    Engine(display::Connection& conn, std::string_view window_title, display::Size window_size,
+           const std::locale& locale);
+    Engine(display::Connection& conn, std::string_view window_title, display::Size window_size,
+           const std::locale& locale, const Config& config);
     /// \}
 
     /// \brief Create degenerate engine object.
@@ -144,34 +142,34 @@ public:
     ///
     Engine() noexcept;
 
-    /// \brief Create engine with specifically configured window.
+    /// \brief Create engine with specifically configured window.               
     ///
-    /// This function creates a render engine whose window has the specified title and size
+    /// This function creates a render engine whose window has the specified title and size               
     /// (\p window_title, \p window_size). It is shorthand for calling \ref try_create() and
     /// throwing an exception on failure.
     ///
     /// \sa \ref try_create()
     ///
-    void create(std::string_view window_title, display::Size window_size, const std::locale& locale,
-                const Config& config);
+    void create(display::Connection& conn, std::string_view window_title, display::Size window_size,
+                const std::locale& locale, const Config& config);
 
-    /// \brief Try to create engine with specifically configured window.
+    /// \brief Try to create engine with specifically configured window.           
     ///
-    /// This function attempts to create a render engine whose window has the specified
+    /// This function attempts to create a render engine whose window has the specified                 
     /// title and size (\p window_title, \p window_size). On success, this function returns
     /// `true`. On failure, it returns `false` after setting \p error to a message that
     /// describes the cause of the failure.
     ///
     /// When this function succeeds, the engine object becomes non-degenerate.
     ///
-    /// If the engine object was not degenerate prior to the invocation of this function, it
+    /// If the engine object was not degenerate prior to the invocation of this function, it                                                              
     /// will be made degenerate as if by `*this = Engine()`, and this happens before the
     /// attempt to create a new engine. This avoids creation of a display connection while
     /// another one is already owned by the engine object (to avoid unintended violations of
     /// \ref display::Guarantees::only_one_connection).
     ///
-    bool try_create(std::string_view window_title, display::Size window_size, const std::locale& locale,
-                    const Config& config, std::string& error);
+    bool try_create(display::Connection& conn, std::string_view window_title, display::Size window_size,
+                    const std::locale& locale, const Config& config, std::string& error);
 
     /// \brief Inform engine of scene to be rendered.
     ///
@@ -183,7 +181,7 @@ public:
     /// If \ref run() is called, the specified scene object must not be destroyed until
     /// after `run()` returns.
     ///
-    void set_scene(Scene&) noexcept;
+    void set_scene(Scene&) noexcept;                             
 
     /// \brief Execute render engine.
     ///
@@ -449,6 +447,7 @@ private:
 /// configuration object of this type can be passed to the render engine constructor.
 ///
 struct Engine::Config {
+/*       
     /// \brief Display implementation to be used.
     ///
     /// If an implementation slot is specified here, that implementation will be used
@@ -475,6 +474,13 @@ struct Engine::Config {
     /// \sa \ref display_implementation
     ///
     display::Guarantees display_guarantees;
+*/
+
+    /// \brief    
+    ///
+    ///    
+    ///
+    int screen = -1;
 
     /// \brief Log through specified logger.
     ///
@@ -660,8 +666,9 @@ enum class Engine::BuiltinKeyHandler {
 // Implementation
 
 
-inline Engine::Engine(std::string_view window_title, display::Size window_size, const std::locale& locale)
-    : Engine(window_title, window_size, locale, Config()) // Throws
+inline Engine::Engine(display::Connection& conn, std::string_view window_title, display::Size window_size,
+                      const std::locale& locale)
+    : Engine(conn, window_title, window_size, locale, Config()) // Throws
 {
 }
 
