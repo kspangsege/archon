@@ -19,7 +19,6 @@
 // DEALINGS IN THE SOFTWARE.
 
 
-                  
 #include <utility>
 #include <memory>
 #include <stdexcept>

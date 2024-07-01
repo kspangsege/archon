@@ -24,7 +24,6 @@
 /// \file
 
 
-            
 #include <utility>
 #include <memory>
 #include <string_view>
@@ -447,38 +446,14 @@ private:
 /// configuration object of this type can be passed to the render engine constructor.
 ///
 struct Engine::Config {
-/*       
-    /// \brief Display implementation to be used.
+    /// \brief Screen on which window must appear.
     ///
-    /// If an implementation slot is specified here, that implementation will be used
-    /// instead of the default display implementation (\ref
-    /// display::get_default_implementation()) when the engine establishes a display
-    /// connection. The specified implementation must then be available given the specified
-    /// display guarantees (\ref display_guarantees).
+    /// If specified, that is, if the specified value is non-negative, this is the index of
+    /// the screen on which the window of the rennder engine must appear. See \ref
+    /// display::Window::Config::screen. When a screen is not specified, i.e., when the
+    /// specified value is negative, the window will be opened on the default screen.
     ///
-    /// If no implementation is specified here, the render engine will choose one based on
-    /// the specified display guarantees (\ref display_guarantees), i.e., by calling \ref
-    /// display::get_default_implementation().
-    ///
-    /// \sa \ref display_guarantees
-    ///
-    const display::Implementation::Slot* display_implementation = nullptr;
-
-    /// \brief Guarantees for selection of display implementation.
-    ///
-    /// If no display implementation is specified (\ref display_implementation), a default
-    /// implementation will be chosen based on the guarantees specified here. If a display
-    /// implementation is specified, it must be available given the guarantees specified
-    /// here (\ref display::Implementation::Slot::is_available()).
-    ///
-    /// \sa \ref display_implementation
-    ///
-    display::Guarantees display_guarantees;
-*/
-
-    /// \brief    
-    ///
-    ///    
+    /// \sa \ref display::Window::Config::screen
     ///
     int screen = -1;
 
