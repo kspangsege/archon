@@ -483,7 +483,8 @@ void BasicStringTemplate<S, A...>::Parameters::define(std::string_view param_nam
     bool was_inserted = p.second;
     if (ARCHON_LIKELY(was_inserted))
         return;
-    throw std::runtime_error(core::format("Multiple definitions for same parameter name `%s`", param_name));
+    using namespace std::literals;
+    throw std::runtime_error(core::concat("Multiple definitions for same parameter name `"sv, param_name, "`"sv));
 }
 
 

@@ -26,7 +26,7 @@
 #include <locale>
 
 #include <archon/core/features.h>
-#include <archon/core/format.hpp>
+#include <archon/core/string.hpp>
 #include <archon/display/guarantees.hpp>
 #include <archon/display/connection.hpp>
 #include <archon/display/implementation.hpp>
@@ -43,7 +43,8 @@ auto Connection::new_window(std::string_view title, display::Size size,
     std::string error;
     if (ARCHON_LIKELY(try_new_window(title, size, config, win, error))) // Throws
         return win;
-    std::string message = core::format("Failed to create window: %s", error); // Throws
+    using namespace std::literals;
+    std::string message = core::concat("Failed to create window: "sv, std::string_view(error)); // Throws
     throw std::runtime_error(message);
 }
 
@@ -55,7 +56,8 @@ auto display::new_connection(const std::locale& locale, const display::Guarantee
     std::string error;
     if (ARCHON_LIKELY(display::try_new_connection(locale, guarantees, config, conn, error))) // Throws
         return conn;
-    std::string message = core::format("Failed to open display connection: %s", error); // Throws
+    using namespace std::literals;
+    std::string message = core::concat("Failed to open display connection: "sv, std::string_view(error)); // Throws
     throw std::runtime_error(message);
 }
 

@@ -22,12 +22,13 @@
 #include <iterator>
 #include <memory>
 #include <stdexcept>
+#include <optional>
 #include <string_view>
 #include <string>
 #include <locale>
 
 #include <archon/core/features.h>
-#include <archon/core/format.hpp>
+#include <archon/core/string.hpp>
 #include <archon/display/guarantees.hpp>
 #include <archon/display/implementation.hpp>
 #include <archon/display/implementation_x11.hpp>
@@ -45,7 +46,8 @@ auto Implementation::new_connection(const std::locale& locale, const display::Co
     std::string error;
     if (ARCHON_LIKELY(try_new_connection(locale, config, conn, error))) // Throws
         return conn;
-    std::string message = core::format("Failed to open display connection: %s", error); // Throws
+    using namespace std::literals;
+    std::string message = core::concat("Failed to open display connection: "sv, std::string_view(error)); // Throws
     throw std::runtime_error(message);
 }
 
@@ -130,4 +132,46 @@ auto display::lookup_implementation(std::string_view ident) noexcept -> const di
         return &slot;
     }
     return nullptr;
+}
+
+
+auto display::pick_implementation(const std::optional<std::string_view>& ident,
+                                  const display::Guarantees& guarantees) -> const display::Implementation&
+{
+    const display::Implementation* impl = {};
+    std::string error;
+    if (ARCHON_LIKELY(display::try_pick_implementation(ident, guarantees, impl, error))) // Throws
+        return *impl;
+    throw std::runtime_error(error);
+}
+
+
+bool display::try_pick_implementation(const std::optional<std::string_view>& ident,
+                                      const display::Guarantees& guarantees,
+                                      const display::Implementation*& impl, std::string& error)
+{
+    const display::Implementation* impl_2;
+    if (ident.has_value()) {
+        using namespace std::literals;
+        std::string_view ident_2 = ident.value();
+        const display::Implementation::Slot* slot = display::lookup_implementation(ident_2);
+        if (ARCHON_UNLIKELY(!slot)) {
+            error = core::concat("Unknown display implementation (\""sv, ident_2, "\")"sv); // Throws
+            return false;
+        }
+        impl_2 = slot->get_implementation_a(guarantees);
+        if (ARCHON_UNLIKELY(!impl_2)) {
+            error = core::concat("Unavailable display implementation (\""sv, ident_2, "\")"sv); // Throws
+            return false;
+        }
+    }
+    else {
+        impl_2 = display::get_default_implementation_a(guarantees);
+        if (ARCHON_UNLIKELY(!impl_2)) {
+            error = "No display implementations are available"; // Throws
+            return false;
+        }
+    }
+    impl = impl_2;
+    return true;
 }
