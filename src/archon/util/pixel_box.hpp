@@ -88,6 +88,13 @@ struct Box {
     ///
     constexpr bool is_empty() const noexcept;
 
+    /// \brief Whether this box has nonempty intersection with other box.
+    ///
+    /// This function returns true if, and only if this box intersects the specified box (\p
+    /// other), and the intersection contains at least one pixel.
+    ///
+    constexpr bool intersects(const Box& other) const noexcept;
+
     /// \brief Whether this box is contained in other box.
     ///
     /// This function returns `true` if this box is contained in the specified box (\p

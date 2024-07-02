@@ -116,13 +116,20 @@ private:
     std::unique_ptr<log::FileLogger> m_fallback_logger;
     log::Logger& m_logger;
     bool m_headlight_feature_enabled;
-    bool m_wireframe_feature_enable;
+    bool m_wireframe_feature_enabled;
+    bool m_frame_rate_tracking_enabled;
+    bool m_resolution_tracking_enabled;
 
     EventHandler m_event_handler { *this };
     std::unique_ptr<display::Window> m_window;
 
     impl::KeyBindings m_key_bindings;
     core::FlatMap<BuiltinKeyHandler, render::KeyHandlerIdent> m_builtin_key_handlers;
+
+    // FIXME: Put these into ScreenConf object to avoid clash on meaning of viewport with m_viewport_size    
+    core::Buffer<display::Viewport> m_viewports;
+    core::Buffer<char> m_viewport_strings;
+    std::size_t m_num_viewports = 0;
 
     double m_frame_rate;
     Clock::duration m_time_per_frame;
@@ -150,6 +157,7 @@ private:
     bool m_headlight_mode_prev = false;
     bool m_wireframe_mode = false;
     bool m_wireframe_mode_prev = false;
+    bool m_have_screen_conf = false;            
 
     int m_max_opengl_errors = 8;
 

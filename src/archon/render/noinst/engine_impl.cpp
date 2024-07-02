@@ -68,7 +68,9 @@ EngineImpl::EngineImpl(Scene& scene, display::Connection& conn, display::Size wi
     , m_conn(conn)
     , m_logger(config.logger ? *config.logger : instantiate_fallback_logger(m_fallback_logger, locale)) // Throws
     , m_headlight_feature_enabled(!config.disable_headlight_feature)
-    , m_wireframe_feature_enable(!config.disable_wireframe_feature)
+    , m_wireframe_feature_enabled(!config.disable_wireframe_feature)
+    , m_frame_rate_tracking_enabled(!config.disable_frame_rate_tracking)
+    , m_resolution_tracking_enabled(!config.disable_resolution_tracking)
     , m_key_bindings() // Throws
     , m_base_orientation(config.orientation)
     , m_base_spin(config.spin)
@@ -76,16 +78,6 @@ EngineImpl::EngineImpl(Scene& scene, display::Connection& conn, display::Size wi
     , m_base_interest_size(config.interest_size)
     , m_trackball() // Throws
 {
-
-    double frame_rate = default_frame_rate;
-    if (edid)
-        set;
-    if (config.frame_rate.has_value()) {
-        frame_rate = config.frame_rate.value();
-    }
-    else {
-    }
-
     set_viewport_size(window_size);
     set_frame_rate(config.frame_rate); // Throws
     set_background_color(util::colors::black); // Throws
@@ -171,6 +163,15 @@ bool EngineImpl::try_init(std::string_view window_title, display::Size window_si
     error = "OpenGL not available"; // Throws
     return false;
 #endif
+
+    if (ARCHON_LIKELY(m_frame_rate_tracking_enabled)) {
+        int screen = config.screen;
+        bool reliable = {};
+        if (ARCHON_LIKELY(m_conn.try_get_screen_conf(screen, m_viewports, m_viewport_strings, m_num_viewports, reliable) &&
+                          reliable)) { // Throws
+            m_have_screen_conf = true;    
+        }
+    }
 
     display::Window::Config window_config;
     window_config.screen = config.screen;
@@ -463,7 +464,32 @@ bool EngineImpl::EventHandler::on_resize(const display::WindowSizeEvent& ev)
 
 bool EngineImpl::EventHandler::on_reposition(const display::WindowPosEvent& ev)
 {
-    m_engine.m_logger.info("Pos: %s", ev.pos);                         
+    if (ARCHON_LIKELY(m_engine.m_frame_rate_tracking_enabled || m_engine.m_resolution_tracking_enabled)) {
+        if (ARCHON_LIKELY(m_engine.m_have_screen_conf)) {
+            // FIXME: Use more efficient search scheme here              
+            display::Box box = { ev.pos, m_engine.m_viewport_size };
+            core::Span viewports = {
+                m_engine.m_viewports.data(),
+                m_engine.m_num_viewports,
+            };
+            std::optional<double> frame_rate;
+            for (const display::Viewport& viewport : viewports) {
+                if (ARCHON_LIKELY(!viewport.bounds.intersects(box)))
+                    continue;
+                if (ARCHON_LIKELY(viewport.refresh_rate.has_value())) {
+                    double frame_rate_2 = viewport.refresh_rate.value();
+                    if (ARCHON_LIKELY(frame_rate.has_value())) {
+                        frame_rate = std::max(frame_rate.value(), frame_rate_2);
+                    }
+                    else {
+                        frame_rate = frame_rate_2;
+                    }
+                }
+            }
+            if (frame_rate.has_value())
+                m_engine.m_logger.info("Frame rate: %s", frame_rate.value());
+        }
+    }
     return true;
 }
 
@@ -799,7 +825,7 @@ void EngineImpl::render_frame()
     }
 
     // Handle wireframe feature
-    if (ARCHON_UNLIKELY(m_wireframe_feature_enable && m_wireframe_mode != m_wireframe_mode_prev)) {
+    if (ARCHON_UNLIKELY(m_wireframe_feature_enabled && m_wireframe_mode != m_wireframe_mode_prev)) {
 #if ARCHON_RENDER_HAVE_OPENGL
         glPolygonMode(GL_FRONT_AND_BACK, m_wireframe_mode ? GL_LINE : GL_FILL);
 #endif // ARCHON_RENDER_HAVE_OPENGL

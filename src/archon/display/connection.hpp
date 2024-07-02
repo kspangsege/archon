@@ -233,7 +233,8 @@ public:
     /// \brief Retrieve current configuration of screen.
     ///
     /// If supported by the implementation, this function returns the current configuration
-    /// of the specified screen (\p screen).
+    /// of the specified screen (\p screen). Specifying a negative value for the screen has
+    /// the same effect as specifying the default screen (\ref get_default_screen()).
     ///
     /// A particular display implementation (\ref display::Implementation) is not required
     /// to expose information about the configuration of each of the accessible screens. If

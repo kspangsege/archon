@@ -80,7 +80,7 @@ namespace archon::render {
 ///
 /// Note that in this example, the engine is first created in a degenerate state, and then
 /// created properly once the the scene has been created. This allows for the engine object
-/// to be passed to the scene, which can be usefule for some scene implementations.
+/// to be passed to the scene, which can be useful for some scene implementations.
 ///
 /// Engine objects are not thread safe, meaning that if one thread is executing a member
 /// function of an engine at a particular point in time, then no other thread is allowed to
@@ -421,7 +421,7 @@ struct Engine::Config {
     /// \brief Screen on which window must appear.
     ///
     /// If specified, that is, if the specified value is non-negative, this is the index of
-    /// the screen on which the window of the rennder engine must appear. See \ref
+    /// the screen on which the window of the render engine must appear. See \ref
     /// display::Window::Config::screen. When a screen is not specified, i.e., when the
     /// specified value is negative, the window will be opened on the default screen.
     ///
@@ -476,14 +476,45 @@ struct Engine::Config {
     ///
     bool disable_wireframe_feature = false;
 
+    /// \brief Frame rate tracking mode.
+    ///
+    /// If set to `true`, frame rate tracking mode will be disabled. By default, it is
+    /// enabled innitially, and remains enabled until the frame rate is manipulated by way
+    /// of frame rate control (\ref disable_frame_rate_control). When frame rate tracking
+    /// mode is enabled, and when the screen configuration is available to the render engine
+    /// (\re display::Connection::try_get_screen_conf()), the frame rate will be set to
+    /// match the refresh rate of the screen. Moreover, as the screen configuration changes,
+    /// the frame rate will be adjusted accordingly.
+    ///
+    /// The frame rate will be set to match the refresh rate of the viewport that contains
+    /// the upper-left pixel of the window of the render engine. If there is no such
+    /// viewport, the refresh rate will be set to the default refresh rate as specified by
+    /// \ref frame_rate.
+    ///
+    /// \sa \ref frame_rate
+    ///
+    bool disable_frame_rate_tracking = false;
+
+    /// \brief     
+    ///
+    ///    
+    ///
+    bool disable_resolution_tracking = false;
+
     /// \brief The initial frame rate.
     ///
-    /// This is the initial frame rate of the engine. The frame rate marks the upper limit                   
+    /// This is the initial frame rate of the engine. The frame rate marks the upper limit
     /// on the number of frames per second.
     ///
     /// The default frame rate is 60 frames per second.
     ///
-    std::optional<double> frame_rate = 60;
+    /// If frame rate tracking mode is enabled, the frame rate specified here acts as the
+    /// default frame rate for when none is provided through the screen configuration. See
+    /// \ref disable_frame_rate_tracking for more on this.
+    ///
+    /// \sa \ref disable_frame_rate_tracking
+    ///
+    double frame_rate = 60;
 
     /// \brief Base orientation of scene.
     ///

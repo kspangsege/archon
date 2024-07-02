@@ -748,8 +748,13 @@ int ConnectionImpl::get_default_screen() const
 bool ConnectionImpl::try_get_screen_conf(int screen, core::Buffer<display::Viewport>& viewports,
                                          core::Buffer<char>& strings, std::size_t& num_viewports, bool& reliable) const
 {
-    if (ARCHON_UNLIKELY(screen < 0 || screen >= int(ScreenCount(dpy))))
+    int screen_2 = screen;
+    if (ARCHON_LIKELY(screen_2 < 0)) {
+        screen_2 = int(DefaultScreen(dpy));
+    }
+    else if (ARCHON_UNLIKELY(screen_2 >= int(ScreenCount(dpy)))) {
         throw std::invalid_argument("Bad screen index");
+    }
 
 #if HAVE_XRANDR
     if (m_extension_info.have_xrandr) {
