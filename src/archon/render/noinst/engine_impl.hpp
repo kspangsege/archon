@@ -50,7 +50,7 @@ public:
     using BuiltinKeyHandler = render::Engine::BuiltinKeyHandler;
     using Clock             = render::Engine::Clock;
 
-    EngineImpl(display::Connection&, display::Size window_size, Scene&, const std::locale&, const Config&);
+    EngineImpl(Scene&, display::Connection&, display::Size window_size, const std::locale&, const Config&);
     bool try_init(std::string_view window_title, display::Size window_size, const Config&, std::string& error);
 
     void run();
@@ -111,8 +111,8 @@ private:
     using EventTimestamp = display::TimedWindowEvent::Timestamp;
 
     std::locale m_locale;
-    display::Connection& m_conn;
     Scene& m_scene;
+    display::Connection& m_conn;
     std::unique_ptr<log::FileLogger> m_fallback_logger;
     log::Logger& m_logger;
     bool m_headlight_feature_enabled;

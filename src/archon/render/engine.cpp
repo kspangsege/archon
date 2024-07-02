@@ -48,10 +48,10 @@ public:
 };
 
 
-Engine::Engine(display::Connection& conn, std::string_view window_title, display::Size window_size,
-               Scene& scene, const std::locale& locale, const Config& config)
+Engine::Engine(Scene& scene, display::Connection& conn, std::string_view window_title, display::Size window_size,
+               const std::locale& locale, const Config& config)
 {
-    create(conn, window_title, window_size, scene, locale, config); // Throws
+    create(scene, conn, window_title, window_size, locale, config); // Throws
 }
 
 
@@ -60,34 +60,26 @@ Engine::Engine() noexcept
 }
 
 
-void Engine::create(display::Connection& conn, std::string_view window_title, display::Size window_size,
-                    Scene& scene, const std::locale& locale, const Config& config)
+void Engine::create(Scene& scene, display::Connection& conn, std::string_view window_title, display::Size window_size,
+                    const std::locale& locale, const Config& config)
 {
     std::string error;
-    if (ARCHON_LIKELY(try_create(conn, window_title, window_size, scene, locale, config, error))) // Throws
+    if (ARCHON_LIKELY(try_create(scene, conn, window_title, window_size, locale, config, error))) // Throws
         return;
     throw std::runtime_error(error);
 }
 
 
-bool Engine::try_create(display::Connection& conn, std::string_view window_title, display::Size window_size,
-                        Scene& scene, const std::locale& locale, const Config& config, std::string& error)
+bool Engine::try_create(Scene& scene, display::Connection& conn, std::string_view window_title,
+                        display::Size window_size, const std::locale& locale, const Config& config, std::string& error)
 {
-    auto impl = std::make_unique<Impl>(conn, window_size, scene, locale, config); // Throws
+    auto impl = std::make_unique<Impl>(scene, conn, window_size, locale, config); // Throws
     if (ARCHON_LIKELY(impl->try_init(window_title, window_size, config, error))) { // Throws
         m_impl = std::move(impl);
         return true;
     }
     return false;
 }
-
-
-/*    
-void Engine::set_scene(Scene&scene) noexcept
-{
-    m_impl->set_scene(scene);
-}
-*/
 
 
 void Engine::run()

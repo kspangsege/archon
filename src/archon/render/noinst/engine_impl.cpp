@@ -63,11 +63,11 @@ constexpr double g_zoom_factor_max  = 32;
 } // unnamed namespace
 
 
-EngineImpl::EngineImpl(display::Connection& conn, display::Size window_size, Scene& scene, const std::locale& locale,
+EngineImpl::EngineImpl(Scene& scene, display::Connection& conn, display::Size window_size, const std::locale& locale,
                        const Config& config)
     : m_locale(locale)
-    , m_conn(conn)
     , m_scene(scene)
+    , m_conn(conn)
     , m_logger(config.logger ? *config.logger : instantiate_fallback_logger(m_fallback_logger, locale)) // Throws
     , m_headlight_feature_enabled(!config.disable_headlight_feature)
     , m_wireframe_feature_enable(!config.disable_wireframe_feature)

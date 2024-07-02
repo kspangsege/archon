@@ -45,16 +45,16 @@ namespace archon::render {
 
 /// \brief Render application specified scene in window.
 ///
-/// A render engine renders an application-specified scene (\ref Scene) in a window of the
-/// platform's graphical user interface.
+/// A render engine renders an application-specified scene (\ref Scene) inside a window of
+/// the platform's graphical user interface.
 ///
 /// The outline of a very simple application could looks like this:
 ///
 /// \code{.cpp}
 ///
-///   class FooScene : public archon::render::Engine::Scene {
+///   class Scene : public archon::render::Engine::Scene {
 ///   public:
-///       FooScene(archon::render::Engine& engine)
+///       Scene(archon::render::Engine& engine)
 ///           : m_scene(scene)
 ///       {
 ///       }
@@ -68,9 +68,9 @@ namespace archon::render {
 ///       archon::render::Engine& m_engine;
 ///   };
 ///
-///   archon::render::Engine engine("Foo", 256, locale);                            
-///   FooScene scene(engine);
-///   engine.set_scene(scene);
+///   archon::render::Engine engine;
+///   Scene scene(engine);
+///   engine.create(scene, conn, "Foo", 256, locale);
 ///   engine.bind_key(archon::display::Key::lower_case_x, "X", [&](bool down) {
 ///       // ...
 ///   });
@@ -78,31 +78,17 @@ namespace archon::render {
 ///
 /// \endcode
 ///
-/// Note that the engine is informed about the scene to be rendered using \ref
-/// set_scene(). This allows for the scene to be constructed with a reference to the engine
-/// object, as shown. Such an arrangement would have been harder for the application if the
-/// scene to be rendered was specified at engine construction time.
+/// Note that in this example, the engine is first created in a degenerate state, and then
+/// created properly once the the scene has been created. This allows for the engine object
+/// to be passed to the scene, which can be usefule for some scene implementations.
 ///
 /// Engine objects are not thread safe, meaning that if one thread is executing a member
 /// function of an engine at a particular point in time, then no other thread is allowed to
 /// execute a member function on the same engine object at the same point in time.
 ///
 /// Key handlers (as shown above) are executed by the thread than executes \ref run(). With
-/// the exception of \ref set_scene() and \ref run(), all the member functions of an engine
-/// may be called from a key handler. These functions may also be called before \ref run()
-/// is called.
-///
-/// Both \ref set_scene() and \ref run() may be called at most once, and \ref set_scene()
-/// must be called before \ref run().
-///
-/// Each engine object establishes a single display connection (\ref
-/// display::Connection). Using \ref Config::display_implementation, the application can
-/// specify a particular display implementation to be used for establishing this display
-/// connection. If a particular implementation is not specified, one will be selected using
-/// \ref display::get_default_implementation() passing the specified display guarantees
-/// (\ref Config::display_guarantees). If a particular implementation is specified, it must
-/// be one that is available given the specified guarantees (\ref
-/// display::Implementation::is_available()).
+/// the exception of \ref run(), all the member functions of an engine may be called from a
+/// key handler. These functions may also be called before \ref run() is called.
 ///
 /// \sa \ref set_scene()
 /// \sa \ref Scene::render()
@@ -117,18 +103,20 @@ public:
 
     /// \{
     ///
-    /// \brief Create engine with specifically configured window.      
+    /// \brief Create engine for specific scene and with window as specified.
     ///
-    /// These constructors create a render engine whose window has the specified title and          
-    /// size (\p window_title, \p window_size). They are shorthands for creating a
-    /// degenerate engine object and then calling \ref create() on it.
+    /// These constructors create a render engine for the specified scene (\p scene) and
+    /// with a windows of the specified size (\p window_size) and with the specified title
+    /// (\p window_title). They are shorthands for creating a degenerate engine object and
+    /// then calling \ref create() on it. The overload that does not accept a configuration
+    /// object uses a default configuration (\ref Config).
     ///
     /// \sa \ref create()
     ///
-    Engine(display::Connection& conn, std::string_view window_title, display::Size window_size,
-           Scene& scene, const std::locale& locale);
-    Engine(display::Connection& conn, std::string_view window_title, display::Size window_size,
-           Scene& scene, const std::locale& locale, const Config& config);
+    Engine(Scene& scene, display::Connection& conn, std::string_view window_title, display::Size window_size,
+           const std::locale& locale);
+    Engine(Scene& scene, display::Connection& conn, std::string_view window_title, display::Size window_size,
+           const std::locale& locale, const Config& config);
     /// \}
 
     /// \brief Create degenerate engine object.
@@ -141,48 +129,30 @@ public:
     ///
     Engine() noexcept;
 
-    /// \brief Create engine with specifically configured window.               
-    ///
-    /// This function creates a render engine whose window has the specified title and size               
-    /// (\p window_title, \p window_size). It is shorthand for calling \ref try_create() and
-    /// throwing an exception on failure.
+    /// \brief Create engine for specific scene and with window as specified.
+    //
+    /// This function creates a render engine for the specified scene (\p scene) and with a
+    /// windows of the specified size (\p window_size) and with the specified title (\p
+    /// window_title). It is shorthand for calling \ref try_create() and throwing an
+    /// exception on failure.
     ///
     /// \sa \ref try_create()
     ///
-    void create(display::Connection& conn, std::string_view window_title, display::Size window_size,
-                Scene& scene, const std::locale& locale, const Config& config);
+    void create(Scene& scene, display::Connection& conn, std::string_view window_title, display::Size window_size,
+                const std::locale& locale, const Config& config);
 
-    /// \brief Try to create engine with specifically configured window.           
+    /// \brief Try to create engine for specific scene and with window as specified.
     ///
-    /// This function attempts to create a render engine whose window has the specified                 
-    /// title and size (\p window_title, \p window_size). On success, this function returns
-    /// `true`. On failure, it returns `false` after setting \p error to a message that
-    /// describes the cause of the failure.
+    /// This function attempts to create a render engine for the specified scene (\p scene)
+    /// and with a windows of the specified size (\p window_size) and with the specified
+    /// title (\p window_title). On success, this function returns `true`. On failure, it
+    /// returns `false` after setting \p error to a message that describes the cause of the
+    /// failure.
     ///
     /// When this function succeeds, the engine object becomes non-degenerate.
     ///
-    /// If the engine object was not degenerate prior to the invocation of this function, it                                                              
-    /// will be made degenerate as if by `*this = Engine()`, and this happens before the
-    /// attempt to create a new engine. This avoids creation of a display connection while
-    /// another one is already owned by the engine object (to avoid unintended violations of
-    /// \ref display::Guarantees::only_one_connection).
-    ///
-    bool try_create(display::Connection& conn, std::string_view window_title, display::Size window_size,
-                    Scene& scene, const std::locale& locale, const Config& config, std::string& error);
-
-/*
-    /// \brief Inform engine of scene to be rendered.
-    ///
-    /// This function informs the render engine of the scene to be rendered. This must be
-    /// done before the engine starts to execute (\ref run()).
-    ///
-    /// This function must not be called while \ref run() is executing.
-    ///
-    /// If \ref run() is called, the specified scene object must not be destroyed until
-    /// after `run()` returns.
-    ///
-    void set_scene(Scene&) noexcept;                             
-*/
+    bool try_create(Scene& scene, display::Connection& conn, std::string_view window_title, display::Size window_size,
+                    const std::locale& locale, const Config& config, std::string& error);
 
     /// \brief Execute render engine.
     ///
@@ -643,9 +613,9 @@ enum class Engine::BuiltinKeyHandler {
 // Implementation
 
 
-inline Engine::Engine(display::Connection& conn, std::string_view window_title, display::Size window_size,
-                      Scene& scene, const std::locale& locale)
-    : Engine(conn, window_title, window_size, scene, locale, Config()) // Throws
+inline Engine::Engine(Scene& scene, display::Connection& conn, std::string_view window_title, display::Size window_size,
+                      const std::locale& locale)
+    : Engine(scene, conn, window_title, window_size, locale, Config()) // Throws
 {
 }
 

@@ -361,7 +361,7 @@ int main(int argc, char* argv[])
     render::Engine engine;
     Scene scene;
 
-    if (ARCHON_UNLIKELY(!engine.try_create(*conn, "Archon Box", window_size, scene, locale, engine_config,
+    if (ARCHON_UNLIKELY(!engine.try_create(scene, *conn, "Archon Box", window_size, locale, engine_config,
                                            error))) { // Throws
         logger.error("Failed to create render engine: %s", error); // Throws
         return EXIT_FAILURE;
