@@ -19,7 +19,6 @@
 // DEALINGS IN THE SOFTWARE.
 
 
-                          
 #include <cmath>
 #include <algorithm>
 #include <utility>
@@ -35,7 +34,6 @@
 #include <archon/core/math.hpp>
 #include <archon/core/format.hpp>
 #include <archon/core/format_as.hpp>
-#include <archon/core/quote.hpp>
 #include <archon/core/file.hpp>
 #include <archon/log.hpp>
 #include <archon/math/rotation.hpp>
