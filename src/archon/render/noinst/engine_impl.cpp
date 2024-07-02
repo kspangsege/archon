@@ -63,10 +63,11 @@ constexpr double g_zoom_factor_max  = 32;
 } // unnamed namespace
 
 
-EngineImpl::EngineImpl(const std::locale& locale, display::Connection& conn, display::Size window_size,
+EngineImpl::EngineImpl(display::Connection& conn, display::Size window_size, Scene& scene, const std::locale& locale,
                        const Config& config)
     : m_locale(locale)
     , m_conn(conn)
+    , m_scene(scene)
     , m_logger(config.logger ? *config.logger : instantiate_fallback_logger(m_fallback_logger, locale)) // Throws
     , m_headlight_feature_enabled(!config.disable_headlight_feature)
     , m_wireframe_feature_enable(!config.disable_wireframe_feature)
@@ -165,7 +166,7 @@ bool EngineImpl::try_init(std::string_view window_title, display::Size window_si
 #endif
 
     display::Window::Config window_config;
-    window_config.screen = screen;
+    window_config.screen = config.screen;
     window_config.resizable = config.allow_window_resize;
     window_config.fullscreen = config.fullscreen_mode;
     window_config.enable_opengl_rendering = true;
@@ -671,8 +672,7 @@ void EngineImpl::init()
 #endif // ARCHON_RENDER_HAVE_OPENGL
     }
 
-    if (ARCHON_LIKELY(m_scene))
-        m_scene->init(); // Throws
+    m_scene.init(); // Throws
 }
 
 
@@ -735,10 +735,8 @@ void EngineImpl::tick(Clock::time_point time_of_tick)
         m_need_redraw = true;
     }
 
-    if (ARCHON_LIKELY(m_scene)) {
-        if (ARCHON_UNLIKELY(m_scene->tick(time_of_tick))) // Throws
-            m_need_redraw = true;
-    }
+    if (ARCHON_UNLIKELY(m_scene.tick(time_of_tick))) // Throws
+        m_need_redraw = true;
 }
 
 
@@ -810,8 +808,7 @@ void EngineImpl::render_frame()
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 #endif // ARCHON_RENDER_HAVE_OPENGL
 
-    if (ARCHON_LIKELY(m_scene))
-        m_scene->render(); // Throws
+    m_scene.render(); // Throws
 }
 
 

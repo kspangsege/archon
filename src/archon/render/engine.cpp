@@ -49,9 +49,9 @@ public:
 
 
 Engine::Engine(display::Connection& conn, std::string_view window_title, display::Size window_size,
-               const std::locale& locale, const Config& config)
+               Scene& scene, const std::locale& locale, const Config& config)
 {
-    create(conn, window_title, window_size, locale, config); // Throws
+    create(conn, window_title, window_size, scene, locale, config); // Throws
 }
 
 
@@ -61,19 +61,19 @@ Engine::Engine() noexcept
 
 
 void Engine::create(display::Connection& conn, std::string_view window_title, display::Size window_size,
-                    const std::locale& locale, const Config& config)
+                    Scene& scene, const std::locale& locale, const Config& config)
 {
     std::string error;
-    if (ARCHON_LIKELY(try_create(conn, window_title, window_size, locale, config, error))) // Throws
+    if (ARCHON_LIKELY(try_create(conn, window_title, window_size, scene, locale, config, error))) // Throws
         return;
     throw std::runtime_error(error);
 }
 
 
 bool Engine::try_create(display::Connection& conn, std::string_view window_title, display::Size window_size,
-                        const std::locale& locale, const Config& config, std::string& error)
+                        Scene& scene, const std::locale& locale, const Config& config, std::string& error)
 {
-    auto impl = std::make_unique<Impl>(locale, conn, window_size, config); // Throws
+    auto impl = std::make_unique<Impl>(conn, window_size, scene, locale, config); // Throws
     if (ARCHON_LIKELY(impl->try_init(window_title, window_size, config, error))) { // Throws
         m_impl = std::move(impl);
         return true;
@@ -82,10 +82,12 @@ bool Engine::try_create(display::Connection& conn, std::string_view window_title
 }
 
 
+/*    
 void Engine::set_scene(Scene&scene) noexcept
 {
     m_impl->set_scene(scene);
 }
+*/
 
 
 void Engine::run()

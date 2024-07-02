@@ -126,9 +126,9 @@ public:
     /// \sa \ref create()
     ///
     Engine(display::Connection& conn, std::string_view window_title, display::Size window_size,
-           const std::locale& locale);
+           Scene& scene, const std::locale& locale);
     Engine(display::Connection& conn, std::string_view window_title, display::Size window_size,
-           const std::locale& locale, const Config& config);
+           Scene& scene, const std::locale& locale, const Config& config);
     /// \}
 
     /// \brief Create degenerate engine object.
@@ -150,7 +150,7 @@ public:
     /// \sa \ref try_create()
     ///
     void create(display::Connection& conn, std::string_view window_title, display::Size window_size,
-                const std::locale& locale, const Config& config);
+                Scene& scene, const std::locale& locale, const Config& config);
 
     /// \brief Try to create engine with specifically configured window.           
     ///
@@ -644,8 +644,8 @@ enum class Engine::BuiltinKeyHandler {
 
 
 inline Engine::Engine(display::Connection& conn, std::string_view window_title, display::Size window_size,
-                      const std::locale& locale)
-    : Engine(conn, window_title, window_size, locale, Config()) // Throws
+                      Scene& scene, const std::locale& locale)
+    : Engine(conn, window_title, window_size, scene, locale, Config()) // Throws
 {
 }
 

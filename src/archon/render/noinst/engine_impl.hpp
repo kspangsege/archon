@@ -50,10 +50,9 @@ public:
     using BuiltinKeyHandler = render::Engine::BuiltinKeyHandler;
     using Clock             = render::Engine::Clock;
 
-    EngineImpl(const std::locale&, display::Connection&, display::Size window_size, const Config&);
+    EngineImpl(display::Connection&, display::Size window_size, Scene&, const std::locale&, const Config&);
     bool try_init(std::string_view window_title, display::Size window_size, const Config&, std::string& error);
 
-    void set_scene(Scene&) noexcept;
     void run();
 
     void set_frame_rate(double rate);
@@ -113,6 +112,7 @@ private:
 
     std::locale m_locale;
     display::Connection& m_conn;
+    Scene& m_scene;
     std::unique_ptr<log::FileLogger> m_fallback_logger;
     log::Logger& m_logger;
     bool m_headlight_feature_enabled;
@@ -120,8 +120,6 @@ private:
 
     EventHandler m_event_handler { *this };
     std::unique_ptr<display::Window> m_window;
-
-    Scene* m_scene = nullptr;
 
     impl::KeyBindings m_key_bindings;
     core::FlatMap<BuiltinKeyHandler, render::KeyHandlerIdent> m_builtin_key_handlers;
@@ -195,12 +193,6 @@ private:
 
 
 // Implementation
-
-
-inline void EngineImpl::set_scene(Scene& scene) noexcept
-{
-    m_scene = &scene;
-}
 
 
 inline auto EngineImpl::get_logger() noexcept -> log::Logger&

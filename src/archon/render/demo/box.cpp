@@ -50,7 +50,7 @@ using namespace archon;
 
 namespace {
 
-class BallScene final
+class Scene final
     : public render::Engine::Scene {
 public:
     void init() override;
@@ -58,7 +58,7 @@ public:
 };
 
 
-void BallScene::init()
+void Scene::init()
 {
 #if ARCHON_RENDER_HAVE_OPENGL
 
@@ -76,7 +76,7 @@ void BallScene::init()
 }
 
 
-void BallScene::render()
+void Scene::render()
 {
 #if ARCHON_RENDER_HAVE_OPENGL
 
@@ -359,14 +359,14 @@ int main(int argc, char* argv[])
     engine_config.logger = &logger;
 
     render::Engine engine;
-    if (ARCHON_UNLIKELY(!engine.try_create(*conn, "Archon Box", window_size, locale, engine_config,
+    Scene scene;
+
+    if (ARCHON_UNLIKELY(!engine.try_create(*conn, "Archon Box", window_size, scene, locale, engine_config,
                                            error))) { // Throws
         logger.error("Failed to create render engine: %s", error); // Throws
         return EXIT_FAILURE;
     }
 
-    BallScene ball_scene;
-    engine.set_scene(ball_scene);
     engine.set_base_spin(math::Rotation({ 0, 1, 0 }, core::deg_to_rad(90))); // Throws
 
     engine.bind_key(display::Key::small_s, "Spin", [&](bool down) {
