@@ -25,6 +25,7 @@
 
 
 #include <memory>
+#include <optional>
 #include <string_view>
 #include <string>
 #include <locale>
@@ -227,6 +228,34 @@ auto get_implementation_slot(int index) -> const display::Implementation::Slot&;
 /// function returns null.
 ///
 auto lookup_implementation(std::string_view ident) noexcept -> const display::Implementation::Slot*;
+
+
+/// \brief Pick display implementation.
+///
+/// This function is shorthand for calling \ref display::try_pick_implementation() and then
+/// returning the picked implementation on success and throwing an exception on failure.
+///
+auto pick_implementation(const std::optional<std::string_view>& ident, const display::Guarantees& guarantees) ->
+    const display::Implementation&;
+
+
+/// \brief Try to pick display implementation.
+///
+/// This function attempts to picks a suitable display implementation based on the specified
+/// criteria. On success, this function returns `true` after setting \p impl to the picked
+/// implementation. O failure, it returns `false` after setting \p error to a message that
+/// describes the cause of the failure. \p error is left untouched on success. \p impl is
+/// left untouched on failure.
+///
+/// If an identifier is specified (\p ident), and such an implementation exists and is
+/// available, that implementation is picked. If no identifier is specified, the default
+/// implementation, based on the specified criteria, is picked (see \ref
+/// display::get_default_implementation_a()). Whether a particular implementation is
+/// available depends both on build-time configuration and on the specified guarantees (\p
+/// guarantees).
+///
+bool try_pick_implementation(const std::optional<std::string_view>& ident, const display::Guarantees& guarantees,
+                             const display::Implementation*& impl, std::string& error);
 
 
 

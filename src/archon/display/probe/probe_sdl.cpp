@@ -31,6 +31,7 @@
 #include <archon/core/integer.hpp>
 #include <archon/core/buffer.hpp>
 #include <archon/core/flat_map.hpp>
+#include <archon/core/string.hpp>
 #include <archon/core/locale.hpp>
 #include <archon/core/unicode_bridge.hpp>
 #include <archon/core/format.hpp>
@@ -72,7 +73,8 @@ namespace {
 
 auto get_sdl_error(std::string_view message) -> std::string
 {
-    return core::format("%s: %s", message, SDL_GetError()); // Throws
+    using namespace std::literals;
+    return core::concat(message, ": "sv, std::string_view(SDL_GetError())); // Throws
 }
 
 

@@ -30,7 +30,7 @@
 #include <archon/log/logger.hpp>
 #include <archon/math/rotation.hpp>
 #include <archon/util/color.hpp>
-#include <archon/display/geometry.hpp>
+#include <archon/display.hpp>
 #include <archon/render/key_binding_support.hpp>
 #include <archon/render/engine.hpp>
 #include <archon/render/noinst/engine_impl.hpp>
@@ -48,10 +48,10 @@ public:
 };
 
 
-Engine::Engine(std::string_view window_title, display::Size window_size, const std::locale& locale,
-               const Config& config)
+Engine::Engine(Scene& scene, display::Connection& conn, std::string_view window_title, display::Size window_size,
+               const std::locale& locale, const Config& config)
 {
-    create(window_title, window_size, locale, config); // Throws
+    create(scene, conn, window_title, window_size, locale, config); // Throws
 }
 
 
@@ -60,35 +60,25 @@ Engine::Engine() noexcept
 }
 
 
-void Engine::create(std::string_view window_title, display::Size window_size, const std::locale& locale,
-                    const Config& config)
+void Engine::create(Scene& scene, display::Connection& conn, std::string_view window_title, display::Size window_size,
+                    const std::locale& locale, const Config& config)
 {
     std::string error;
-    if (ARCHON_LIKELY(try_create(window_title, window_size, locale, config, error))) // Throws
+    if (ARCHON_LIKELY(try_create(scene, conn, window_title, window_size, locale, config, error))) // Throws
         return;
     throw std::runtime_error(error);
 }
 
 
-bool Engine::try_create(std::string_view window_title, display::Size window_size, const std::locale& locale,
-                        const Config& config, std::string& error)
+bool Engine::try_create(Scene& scene, display::Connection& conn, std::string_view window_title,
+                        display::Size window_size, const std::locale& locale, const Config& config, std::string& error)
 {
-    // Ensure that new resources (such as a display connection) are not requested while
-    // others are still held.
-    m_impl = {};
-
-    auto impl = std::make_unique<Impl>(locale, config); // Throws
-    if (ARCHON_LIKELY(impl->try_init(window_title, window_size, config, error))) {
+    auto impl = std::make_unique<Impl>(scene, conn, window_size, locale, config); // Throws
+    if (ARCHON_LIKELY(impl->try_init(window_title, window_size, config, error))) { // Throws
         m_impl = std::move(impl);
         return true;
     }
     return false;
-}
-
-
-void Engine::set_scene(Scene&scene) noexcept
-{
-    m_impl->set_scene(scene);
 }
 
 
