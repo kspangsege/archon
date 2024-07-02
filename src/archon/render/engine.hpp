@@ -168,8 +168,9 @@ public:
     /// \ref display::Guarantees::only_one_connection).
     ///
     bool try_create(display::Connection& conn, std::string_view window_title, display::Size window_size,
-                    const std::locale& locale, const Config& config, std::string& error);
+                    Scene& scene, const std::locale& locale, const Config& config, std::string& error);
 
+/*
     /// \brief Inform engine of scene to be rendered.
     ///
     /// This function informs the render engine of the scene to be rendered. This must be
@@ -181,6 +182,7 @@ public:
     /// after `run()` returns.
     ///
     void set_scene(Scene&) noexcept;                             
+*/
 
     /// \brief Execute render engine.
     ///
