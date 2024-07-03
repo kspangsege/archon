@@ -187,6 +187,16 @@ constexpr bool Box::is_empty() const noexcept
 }
 
 
+constexpr bool Box::intersects(const Box& other) const noexcept
+{
+    bool horz = (pos.x < other.pos.x ? size.w > other.pos.x - pos.x && other.size.w > 0 :
+                 other.size.w > pos.x - other.pos.x && size.w > 0);
+    bool vert = (pos.y < other.pos.y ? size.h > other.pos.y - pos.y && other.size.h > 0 :
+                 other.size.h > pos.y - other.pos.y && size.h > 0);
+    return (horz && vert);
+}
+
+
 constexpr bool Box::contained_in(const Box& other) const noexcept
 {
     bool horz = (pos.x >= other.pos.x && size.width <= other.size.width &&
