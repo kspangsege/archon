@@ -118,7 +118,7 @@ ARCHON_TEST_BATCH(Image_Writer_Fill_DirectColor, pixel_repr_variants)
                 image::Pos pos = { x, y };
                 image_pixel_type pixel_1 = image_block_1.get_pixel(pos);
                 image_pixel_type pixel_2 = image_block_2.get_pixel(pos);
-                if (image::Box(pos, 1).contained_in(subbox)) {
+                if (subbox.contains_pixel_at(pos)) {
                     promoted_image_pixel_type color = fill_color_2;
                     color = opacity * color;
                     if (blending)
@@ -243,7 +243,7 @@ ARCHON_TEST_BATCH(Image_Writer_Fill_IndirectColor, pixel_repr_variants)
                 image::Pos pos = { x, y };
                 std::size_t index_1 = image_block_1.get_index(pos);
                 std::size_t index_2 = image_block_2.get_index(pos);
-                if (image::Box(pos, 1).contained_in(subbox)) {
+                if (subbox.contains_pixel_at(pos)) {
                     promoted_palette_pixel_type color = fill_color_2;
                     color = opacity * color;
                     if (blending)
@@ -338,7 +338,7 @@ ARCHON_TEST_BATCH(Image_Writer_Fill_Lossless, pixel_repr_variants)
             for (int x = 0; x < image_size.width; ++x) {
                 image::Pos pos = { x, y };
                 image_pixel_type pixel = image_block_1.get_pixel(pos);
-                if (image::Box(pos, 1).contained_in(subbox)) {
+                if (subbox.contains_pixel_at(pos)) {
                     ARCHON_CHECK_EQUAL(pixel, fill_color_2);
                 }
                 else {
@@ -429,7 +429,7 @@ ARCHON_TEST_BATCH(Image_Writer_PutBlock_DirectColor, pixel_repr_variants)
                 image::Pos pos = { x, y };
                 image_pixel_type pixel_1 = image_block_1.get_pixel(pos);
                 image_pixel_type pixel_2 = image_block_2.get_pixel(pos);
-                if (image::Box(pos, 1).contained_in(subbox)) {
+                if (subbox.contains_pixel_at(pos)) {
                     using write_pixel_type = typename write_block_type::pixel_type;
                     write_pixel_type pixel_3 = write_block.get_pixel(image::Pos() + (pos - subbox.pos));
                     using promoted_image_pixel_type = typename image_pixel_type::promoted_pixel_type;
@@ -553,7 +553,7 @@ ARCHON_TEST_BATCH(Image_Writer_PutBlock_IndirectColor, pixel_repr_variants)
                 image::Pos pos = { x, y };
                 std::size_t index_1 = image_block_1.get_index(pos);
                 std::size_t index_2 = image_block_2.get_index(pos);
-                if (image::Box(pos, 1).contained_in(subbox)) {
+                if (subbox.contains_pixel_at(pos)) {
                     using write_pixel_type = typename write_block_type::pixel_type;
                     write_pixel_type color_1 = write_block.get_pixel(image::Pos() + (pos - subbox.pos));
                     using promoted_palette_pixel_type = typename palette_pixel_type::promoted_pixel_type;
@@ -649,7 +649,7 @@ ARCHON_TEST_BATCH(Image_Writer_PutBlock_Lossless, pixel_repr_variants)
             for (int x = 0; x < image_size.width; ++x) {
                 image::Pos pos = { x, y };
                 image_pixel_type pixel_1 = image_block_1.get_pixel(pos);
-                if (image::Box(pos, 1).contained_in(subbox)) {
+                if (subbox.contains_pixel_at(pos)) {
                     using write_pixel_type = typename write_block_type::pixel_type;
                     write_pixel_type pixel_2 = write_block.get_pixel(image::Pos() + (pos - subbox.pos));
                     ARCHON_CHECK_EQUAL(pixel_1, image_pixel_type(pixel_2));
@@ -730,7 +730,7 @@ ARCHON_TEST_BATCH(Image_Writer_PutBlockMask_DirectColor, pixel_repr_variants)
                 image::Pos pos = { x, y };
                 image_pixel_type pixel_1 = image_block_1.get_pixel(pos);
                 image_pixel_type pixel_2 = image_block_2.get_pixel(pos);
-                if (image::Box(pos, 1).contained_in(subbox)) {
+                if (subbox.contains_pixel_at(pos)) {
                     auto alpha = mask_block.get_pixel(image::Pos() + (pos - subbox.pos)).promote()[0];
                     promoted_pixel_type color = opacity * (alpha * fg_2 + bg_2);
                     if (blending)
@@ -846,7 +846,7 @@ ARCHON_TEST_BATCH(Image_Writer_PutBlockMask_IndirectColor, pixel_repr_variants)
                 image::Pos pos = { x, y };
                 std::size_t index_1 = image_block_1.get_index(pos);
                 std::size_t index_2 = image_block_2.get_index(pos);
-                if (image::Box(pos, 1).contained_in(subbox)) {
+                if (subbox.contains_pixel_at(pos)) {
                     auto alpha = mask_block.get_pixel(image::Pos() + (pos - subbox.pos)).promote()[0];
                     promoted_pixel_type color = opacity * (alpha * fg_2 + bg_2);
                     if (blending)
@@ -932,7 +932,7 @@ ARCHON_TEST_BATCH(Image_Writer_PutImage_DirectColor, pixel_repr_variants)
                 image::Pos pos = { x, y };
                 destin_pixel_type pixel_1 = destin_block_1.get_pixel(pos);
                 destin_pixel_type pixel_2 = destin_block_2.get_pixel(pos);
-                if (image::Box(pos, 1).contained_in(subbox)) {
+                if (subbox.contains_pixel_at(pos)) {
                     using origin_block_type = std::decay_t<decltype(origin_block)>;
                     using origin_pixel_type = typename origin_block_type::pixel_type;
                     origin_pixel_type pixel_3 = origin_block.get_pixel(image::Pos() + (pos - subbox.pos));
@@ -1052,7 +1052,7 @@ ARCHON_TEST_BATCH(Image_Writer_PutImage_IndirectColor, pixel_repr_variants)
                 image::Pos pos = { x, y };
                 std::size_t index_1 = destin_block_1.get_index(pos);
                 std::size_t index_2 = destin_block_2.get_index(pos);
-                if (image::Box(pos, 1).contained_in(subbox)) {
+                if (subbox.contains_pixel_at(pos)) {
                     using origin_block_type = std::decay_t<decltype(origin_block)>;
                     using origin_pixel_type = typename origin_block_type::pixel_type;
                     origin_pixel_type color_1 = origin_block.get_pixel(image::Pos() + (pos - subbox.pos));
@@ -1144,7 +1144,7 @@ ARCHON_TEST_BATCH(Image_Writer_PutImage_Lossless, pixel_repr_variants)
             for (int x = 0; x < destin_size.width; ++x) {
                 image::Pos pos = { x, y };
                 destin_pixel_type pixel_1 = destin_block_1.get_pixel(pos);
-                if (image::Box(pos, 1).contained_in(subbox)) {
+                if (subbox.contains_pixel_at(pos)) {
                     using origin_block_type = std::decay_t<decltype(origin_block)>;
                     using origin_pixel_type = typename origin_block_type::pixel_type;
                     origin_pixel_type pixel_2 = origin_block.get_pixel(image::Pos() + (pos - subbox.pos));
