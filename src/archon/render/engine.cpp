@@ -88,6 +88,12 @@ void Engine::run()
 }
 
 
+void Engine::set_resolution(const display::Resolution& resol)
+{
+    m_impl->set_resolution(resol); // Throws
+}
+
+
 void Engine::set_frame_rate(double rate)
 {
     m_impl->set_frame_rate(rate); // Throws

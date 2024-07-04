@@ -164,11 +164,27 @@ public:
     ///
     void run();
 
+    /// \brief Set physical screen resolution.
+    ///
+    /// This function sets the physical screen resolution (pixels per centimeter). If
+    /// resolution tracking mode was enabled, it will be disabled when this function is
+    /// called (see \ref Config::disable_resolution_tracking). The default resolution is
+    /// specified through \ref Config::resolution.
+    ///
+    /// \sa \ref Config::resolution, \ref Config::disable_resolution_tracking
+    ///
+    void set_resolution(const display::Resolution& resol);
+
     /// \brief Set target frame rate.
     ///
-    /// This function sets the target frame rate. This will be the effective frame rate if
+    /// This function sets the frame rate limit. This will be the effective frame rate if
     /// the rendering of each frame is fast enough. If the rendering is not fast enough, the
-    /// effective frame rate will be lower than what is specified.
+    /// effective frame rate will be lower than the specified limit. If frame rate tracking
+    /// mode was enabled, it will be disabled when this function is called (see \ref
+    /// Config::disable_frame_rate_tracking). The default frame rate limit is specified
+    /// through \ref Config::frame_rate.
+    ///
+    /// \sa \ref Config::frame_rate, \ref Config::disable_frame_rate_tracking
     ///
     void set_frame_rate(double rate);
 
@@ -479,11 +495,11 @@ struct Engine::Config {
     /// \brief Resolution tracking mode.
     ///
     /// If set to `true`, resolution tracking mode will be disabled. By default, it is
-    /// enabled. When resolution tracking mode is enabled, and when the screen configuration
-    /// is available to the render engine (\re display::Connection::try_get_screen_conf()),
-    /// the physical resolution (pixels per centimeter) will be set to match the resolution
-    /// of the screen. Moreover, as the screen configuration changes, the resolution will be
-    /// adjusted accordingly.
+    /// enabled initially. When resolution tracking mode is enabled, and when the screen
+    /// configuration is available to the render engine (\re
+    /// display::Connection::try_get_screen_conf()), the physical resolution (pixels per
+    /// centimeter) will be set to match the resolution of the screen. Moreover, as the
+    /// screen configuration changes, the resolution will be adjusted accordingly.
     ///
     /// The resolution will be set to match the that of the first viewport (monitor) that
     /// intersects with the window of the render engine, or, if there is no such viewport,
@@ -491,7 +507,10 @@ struct Engine::Config {
     /// default resolution as specified by \ref resolution. The viewports are considered in
     /// the order that they are listed by \ref display::Connection::try_get_screen_conf().
     ///
-    /// \sa \ref resolution
+    /// Resolution tracking mode will also be disabled when the resolution is set explicitly
+    /// using \ref set_resolution().
+    ///
+    /// \sa \ref resolution, \ref set_resolution()
     /// \sa \ref display::Connection::try_get_screen_conf()
     ///
     bool disable_resolution_tracking = false;
@@ -499,9 +518,8 @@ struct Engine::Config {
     /// \brief Frame rate tracking mode.
     ///
     /// If set to `true`, frame rate tracking mode will be disabled. By default, it is
-    /// enabled initially, and remains enabled until the frame rate is manipulated by way of
-    /// frame rate control (\ref disable_frame_rate_control). When frame rate tracking mode
-    /// is enabled, and when the screen configuration is available to the render engine (\re
+    /// enabled initially. When frame rate tracking mode is enabled, and when the screen
+    /// configuration is available to the render engine (\re
     /// display::Connection::try_get_screen_conf()), the frame rate will be set to match the
     /// refresh rate of the screen. Moreover, as the screen configuration changes, the frame
     /// rate will be adjusted accordingly.
@@ -513,7 +531,11 @@ struct Engine::Config {
     /// considered in the order that they are listed by \ref
     /// display::Connection::try_get_screen_conf().
     ///
-    /// \sa \ref frame_rate
+    /// Frame rate tracking mode will also be disabled when the frame rate limit is set
+    /// explicitly using \ref set_frame_rate() or by way of interactive frame rate control
+    /// (\ref disable_frame_rate_control).
+    ///
+    /// \sa \ref frame_rate, \ref set_frame_rate()
     /// \sa \ref display::Connection::try_get_screen_conf()
     ///
     bool disable_frame_rate_tracking = false;
@@ -522,24 +544,25 @@ struct Engine::Config {
     ///
     /// This is the physical screen resolution (pixels per centimeter) that is assumed by
     /// the render engine initially. The default resolution is 96 pixels per inch converted
-    /// to pixels per centimeter.
+    /// to pixels per centimeter. The resolution can be changed later using \ref
+    /// set_resolution().
     ///
     /// If resolution tracking mode is enabled (\ref disable_resolution_tracking), the
     /// resolution specified here acts as the fallback resolution for when none is provided
     /// through the screen configuration.
     ///
-    /// \sa \ref disable_resolution_tracking
+    /// \sa \ref disable_resolution_tracking, \ref set_resolution()
     ///
-    /// FIXME: Take specified resolution into account in the render engine                               
+    /// FIXME: Take specified resolution into account in the render engine                                   
     ///
     display::Resolution resolution = 96 / 2.54;
 
     /// \brief Initial frame rate limit.
     ///
     /// This is the initial frame rate limit of the render engine. The frame rate limit
-    /// marks the upper limit on the number of frames per second.
-    ///
-    /// The default frame rate limit is 60 frames per second.
+    /// marks the upper limit on the number of frames per second. The default frame rate
+    /// limit is 60 frames per second. The frame rate can be changed later using \ref
+    /// set_frame_rate().
     ///
     /// If frame rate tracking mode is enabled (\ref disable_frame_rate_tracking), the frame
     /// rate limit specified here acts as the fallback frame rate limit for when no refresh
