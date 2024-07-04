@@ -298,8 +298,7 @@ public:
     bool process_events(time_point_type, display::ConnectionEventHandler*) override;
     int get_num_screens() const override;
     int get_default_screen() const override;
-    bool try_get_screen_conf(int, core::Buffer<display::Viewport>&, core::Buffer<char>&,
-                             std::size_t&, bool&) const override;
+    bool try_get_screen_conf(int, core::Buffer<display::Viewport>&, core::Buffer<char>&, std::size_t&) const override;
     auto get_implementation() const noexcept -> const display::Implementation& override;
 
 private:
@@ -746,7 +745,7 @@ int ConnectionImpl::get_default_screen() const
 
 
 bool ConnectionImpl::try_get_screen_conf(int screen, core::Buffer<display::Viewport>& viewports,
-                                         core::Buffer<char>& strings, std::size_t& num_viewports, bool& reliable) const
+                                         core::Buffer<char>& strings, std::size_t& num_viewports) const
 {
     int screen_2 = screen;
     if (ARCHON_LIKELY(screen_2 < 0)) {
@@ -779,7 +778,6 @@ bool ConnectionImpl::try_get_screen_conf(int screen, core::Buffer<display::Viewp
             };
         }
         num_viewports = n;
-        reliable = true;
         return true;
     }
     return false;
@@ -787,7 +785,6 @@ bool ConnectionImpl::try_get_screen_conf(int screen, core::Buffer<display::Viewp
     static_cast<void>(viewports);
     static_cast<void>(strings);
     static_cast<void>(num_viewports);
-    static_cast<void>(reliable);
     return false;
 #endif // !HAVE_XRANDR
 }

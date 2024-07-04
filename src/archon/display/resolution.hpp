@@ -43,9 +43,12 @@ namespace archon::display {
 ///
 /// To get the resolution in pixels per inch, multiply by 2.54 cm/in.
 ///
-/// A resolution object can be formatted, i.e., it can be written to an output stream. The
-/// format is `<horizontal>,<vertical>`. Within the two components, a dot (`.`) is used as
-/// decimal point.
+/// A resolution object can be formatted, i.e., it can be written to an output stream. If
+/// the two components are equal, only one component is shown. For example, the resolution
+/// `{ 43, 43 }` is formatted as just `43`. When the two components are different, both
+/// components are shown and are separated by a comma `,`. No space will be included after
+/// the comma. For example, the resolution `{ 43, 47.5 }` is formatted as `43,47.5`. Note
+/// that within the two components, a dot (`.`) is used as decimal point.
 ///
 /// \sa \ref display::Viewport
 ///
@@ -62,6 +65,19 @@ struct Resolution {
     /// This field specifies the number of pixels per centimeter in the vertical direction.
     ///
     double vert_ppcm;
+
+    /// \{
+    ///
+    /// \brief Construct a resolution.
+    ///
+    /// The two-argument constructor constructs a resolution with the specified components (\p
+    /// width and \p height).
+    ///
+    /// `Resolution(ppcm)` is a shorthand for `Resolution(ppcm, ppcm)`.
+    ///
+    constexpr Resolution(double ppcm = 0) noexcept;
+    constexpr Resolution(double horz_ppcm, double vert_ppcm) noexcept;
+    /// \}
 
     /// \{
     ///
@@ -92,6 +108,19 @@ template<class C, class T> auto operator<<(std::basic_ostream<C, T>&, const disp
 
 
 // Implementation
+
+
+constexpr Resolution::Resolution(double ppcm) noexcept
+    : Resolution(ppcm, ppcm)
+{
+}
+
+
+constexpr Resolution::Resolution(double horz_ppcm, double vert_ppcm) noexcept
+{
+    this->horz_ppcm = horz_ppcm;
+    this->vert_ppcm = vert_ppcm;
+}
 
 
 constexpr bool Resolution::operator==(const Resolution& other) const noexcept

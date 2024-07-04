@@ -152,7 +152,14 @@ public:
     /// The initial position of the window is determined by the platform and / or
     /// implementation. When using the X11-based implementation (\ref
     /// display::get_x11_implementation_slot()), the initial position is generally
-    /// determined by a window manager.
+    /// determined by a window manager. In any case, the initial position will be reported
+    /// to the application by way of a "reposition" event (\ref
+    /// display::WindowEventHandler::on_reposition()).
+    ///
+    /// The initial size of the window will generally be as requested (\p size), but may be
+    /// different. If it is different, a "resize" event is guaranteed to be generated
+    /// initially (\ref display::WindowEventHandler::on_resize()). If the initial size is as
+    /// requested, a "resize" event may or may not be generated initially.
     ///
     /// The destruction of the returned window object (\p win) must happen before the
     /// destruction of this connection object.
@@ -250,16 +257,8 @@ public:
     /// whenever a screen configuration changes (\ref
     /// display::ConnectionEventHandler::on_screen_change()).
     ///
-    /// Some display implementations are able to provide the screen configurations, but in a
-    /// less than reliable manner due to quirks in the underlying subsystem (SDL is an
-    /// example of this). Such implementations must set \p reliable to `false` when
-    /// `try_get_screen_conf()` returns `true`. Display implementations that provide the
-    /// screen configuration in a reliable manner should set \p reliable to `true` when
-    /// `try_get_screen_conf()` returns `true`.
-    ///
     virtual bool try_get_screen_conf(int screen, core::Buffer<display::Viewport>& viewports,
-                                     core::Buffer<char>& strings, std::size_t& num_viewports,
-                                     bool& reliable) const = 0;
+                                     core::Buffer<char>& strings, std::size_t& num_viewports) const = 0;
 
     /// \brief Associated implementation.
     ///

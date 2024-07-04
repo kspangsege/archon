@@ -84,14 +84,13 @@ public:
     void dump_screen_conf(int screen)
     {
         std::size_t num_viewports = {};
-        bool reliable = {};
-        if (m_conn.try_get_screen_conf(screen, m_viewports, m_strings, num_viewports, reliable)) {
+        if (m_conn.try_get_screen_conf(screen, m_viewports, m_strings, num_viewports)) {
             std::array<char, 512> seed_memory;
             core::SeedMemoryOutputStream out(seed_memory); // Throws
             out.exceptions(std::ios_base::badbit | std::ios_base::failbit); // Throws
             out.imbue(out.getloc()); // Throws
-            out << core::formatted("Screen configuration changed (screen=%s, num_viewports=%s, reliable=%s)",
-                                   screen, num_viewports, reliable); // Throws
+            out << core::formatted("Screen configuration changed (screen=%s, num_viewports=%s)",
+                                   screen, num_viewports); // Throws
             if (num_viewports > 0)
                 out << ":"; // Throws
             for (std::size_t i = 0; i < num_viewports; ++i) {

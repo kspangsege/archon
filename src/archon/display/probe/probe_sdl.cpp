@@ -445,6 +445,10 @@ int main(int argc, char* argv[])
                 case SDL_WINDOWEVENT:
                     if (ARCHON_LIKELY(try_get_window_slot(event.window.windowID, slot))) {
                         switch (event.window.event) {
+                            case SDL_WINDOWEVENT_SIZE_CHANGED:
+                                log(slot->no, "SIZE: %s", display::Size(int(event.window.data1),
+                                                                        int(event.window.data2))); // Throws
+                                break;
                             case SDL_WINDOWEVENT_MOVED:
                                 log(slot->no, "POS: %s", display::Pos(int(event.window.data1),
                                                                       int(event.window.data2))); // Throws

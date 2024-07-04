@@ -476,41 +476,74 @@ struct Engine::Config {
     ///
     bool disable_wireframe_feature = false;
 
-    /// \brief Frame rate tracking mode.
+    /// \brief Resolution tracking mode.
     ///
-    /// If set to `true`, frame rate tracking mode will be disabled. By default, it is
-    /// enabled innitially, and remains enabled until the frame rate is manipulated by way
-    /// of frame rate control (\ref disable_frame_rate_control). When frame rate tracking
-    /// mode is enabled, and when the screen configuration is available to the render engine
-    /// (\re display::Connection::try_get_screen_conf()), the frame rate will be set to
-    /// match the refresh rate of the screen. Moreover, as the screen configuration changes,
-    /// the frame rate will be adjusted accordingly.
+    /// If set to `true`, resolution tracking mode will be disabled. By default, it is
+    /// enabled. When resolution tracking mode is enabled, and when the screen configuration
+    /// is available to the render engine (\re display::Connection::try_get_screen_conf()),
+    /// the physical resolution (pixels per centimeter) will be set to match the resolution
+    /// of the screen. Moreover, as the screen configuration changes, the resolution will be
+    /// adjusted accordingly.
     ///
-    /// The frame rate will be set to match the refresh rate of the viewport that contains
-    /// the upper-left pixel of the window of the render engine. If there is no such
-    /// viewport, the refresh rate will be set to the default refresh rate as specified by
-    /// \ref frame_rate.
+    /// The resolution will be set to match the that of the first viewport (monitor) that
+    /// intersects with the window of the render engine, or, if there is no such viewport,
+    /// or if that viewport does not specify a resolution, the resolution will be set to the
+    /// default resolution as specified by \ref resolution. The viewports are considered in
+    /// the order that they are listed by \ref display::Connection::try_get_screen_conf().
     ///
-    /// \sa \ref frame_rate
-    ///
-    bool disable_frame_rate_tracking = false;
-
-    /// \brief     
-    ///
-    ///    
+    /// \sa \ref resolution
+    /// \sa \ref display::Connection::try_get_screen_conf()
     ///
     bool disable_resolution_tracking = false;
 
-    /// \brief The initial frame rate.
+    /// \brief Frame rate tracking mode.
     ///
-    /// This is the initial frame rate of the engine. The frame rate marks the upper limit
-    /// on the number of frames per second.
+    /// If set to `true`, frame rate tracking mode will be disabled. By default, it is
+    /// enabled initially, and remains enabled until the frame rate is manipulated by way of
+    /// frame rate control (\ref disable_frame_rate_control). When frame rate tracking mode
+    /// is enabled, and when the screen configuration is available to the render engine (\re
+    /// display::Connection::try_get_screen_conf()), the frame rate will be set to match the
+    /// refresh rate of the screen. Moreover, as the screen configuration changes, the frame
+    /// rate will be adjusted accordingly.
     ///
-    /// The default frame rate is 60 frames per second.
+    /// The frame rate will be set to match the refresh rate of the first viewport (monitor)
+    /// that intersects with the window of the render engine, or, if there is no such
+    /// viewport, or if that viewport does not specify a refresh rate, the frame rate will
+    /// be set to the default frame rate as specified by \ref frame_rate. The viewports are
+    /// considered in the order that they are listed by \ref
+    /// display::Connection::try_get_screen_conf().
     ///
-    /// If frame rate tracking mode is enabled, the frame rate specified here acts as the
-    /// default frame rate for when none is provided through the screen configuration. See
-    /// \ref disable_frame_rate_tracking for more on this.
+    /// \sa \ref frame_rate
+    /// \sa \ref display::Connection::try_get_screen_conf()
+    ///
+    bool disable_frame_rate_tracking = false;
+
+    /// \brief Initial physical resolution.
+    ///
+    /// This is the physical screen resolution (pixels per centimeter) that is assumed by
+    /// the render engine initially. The default resolution is 96 pixels per inch converted
+    /// to pixels per centimeter.
+    ///
+    /// If resolution tracking mode is enabled (\ref disable_resolution_tracking), the
+    /// resolution specified here acts as the fallback resolution for when none is provided
+    /// through the screen configuration.
+    ///
+    /// \sa \ref disable_resolution_tracking
+    ///
+    /// FIXME: Take specified resolution into account in the render engine                               
+    ///
+    display::Resolution resolution = 96 / 2.54;
+
+    /// \brief Initial frame rate limit.
+    ///
+    /// This is the initial frame rate limit of the render engine. The frame rate limit
+    /// marks the upper limit on the number of frames per second.
+    ///
+    /// The default frame rate limit is 60 frames per second.
+    ///
+    /// If frame rate tracking mode is enabled (\ref disable_frame_rate_tracking), the frame
+    /// rate limit specified here acts as the fallback frame rate limit for when no refresh
+    /// rate is provided through the screen configuration.
     ///
     /// \sa \ref disable_frame_rate_tracking
     ///
