@@ -553,8 +553,6 @@ struct Engine::Config {
     ///
     /// \sa \ref disable_resolution_tracking, \ref set_resolution()
     ///
-    /// FIXME: Take specified resolution into account in the render engine                                   
-    ///
     display::Resolution resolution = 96 / 2.54;
 
     /// \brief Initial frame rate limit.

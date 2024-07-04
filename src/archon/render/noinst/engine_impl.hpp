@@ -131,7 +131,6 @@ private:
     impl::KeyBindings m_key_bindings;
     core::FlatMap<BuiltinKeyHandler, render::KeyHandlerIdent> m_builtin_key_handlers;
 
-    // FIXME: Put these into ScreenConf object to avoid clash on meaning of viewport with m_viewport_size           
     core::Buffer<display::Viewport> m_viewports;
     core::Buffer<char> m_viewport_strings;
     std::size_t m_num_viewports = 0;
