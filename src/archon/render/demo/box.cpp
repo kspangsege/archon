@@ -174,15 +174,29 @@ int main(int argc, char* argv[])
     opt(cli::help_tag, spec); // Throws
     opt(cli::stop_tag, spec); // Throws
 
-    opt("-r, --frame-rate", "<rate>", cli::no_attributes, spec,
-        "The initial frame rate. The frame rate marks the upper limit on the number of frames per second. The default "
-        "initial rate is @V.",
-        cli::assign(engine_config.frame_rate)); // Throws
-
     opt("-S, --window-size", "<size>", cli::no_attributes, spec,
         "Set the window size in number of pixels. \"@A\" can be specified either as a pair \"<width>,<height>\", or "
         "as a single value, which is then used as both width and height. The default size is @V.",
         cli::assign(window_size)); // Throws
+
+    opt("-E, --resolution", "<resolution>", cli::no_attributes, spec,
+        "The initial physical resolution in pixels per centimeter. \"@A\" can be specified either as a pair "
+        "\"<horz>,<vert>\", or as a single value, which is then used as both horizontal and vertical resolution. "
+        "Values can be fractional using `.` as decimal point. The default resolution is @V.",
+        cli::assign(engine_config.resolution)); // Throws
+
+    opt("-r, --frame-rate", "<rate>", cli::no_attributes, spec,
+        "The initial frame rate limit. The frame rate limit marks the upper limit on the number of frames per second. "
+        "The value can be fractional using `.` as decimal point. The default initial rate limit is @V.",
+        cli::assign(engine_config.frame_rate)); // Throws
+
+    opt("-e, --disable-resolution-tracking", "", cli::no_attributes, spec,
+        "Turn off resolution tracking mode.",
+        cli::raise_flag(engine_config.disable_resolution_tracking)); // Throws
+
+    opt("-g, --disable-frame-rate-tracking", "", cli::no_attributes, spec,
+        "Turn off frame rate tracking mode.",
+        cli::raise_flag(engine_config.disable_frame_rate_tracking)); // Throws
 
     opt("-f, --fullscreen", "", cli::no_attributes, spec,
         "Open window in fullscreen mode.",
@@ -219,7 +233,7 @@ int main(int argc, char* argv[])
 
     opt("-V, --x11-visual-type", "<num>", cli::no_attributes, spec,
         "When using the X11-based display implementation, pick a visual of the specified type (@A). The type, also "
-        "known as the visual ID, is a 32-bit unsigned integer that can be expressed in decimal, hexadecumal (with "
+        "known as the visual ID, is a 32-bit unsigned integer that can be expressed in decimal, hexadecimal (with "
         "prefix '0x'), or octal (with prefix '0') form.",
         cli::exec([&](std::string_view str) {
             core::ValueParser parser(locale);

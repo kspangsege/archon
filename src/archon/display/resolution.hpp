@@ -24,11 +24,16 @@
 /// \file
 
 
+#include <cstddef>
+#include <utility>
+#include <array>
 #include <ostream>
 
 #include <archon/core/features.h>
+#include <archon/core/value_parser.hpp>
 #include <archon/core/with_modified_locale.hpp>
 #include <archon/core/format.hpp>
+#include <archon/core/as_list.hpp>
 
 
 namespace archon::display {
@@ -49,6 +54,11 @@ namespace archon::display {
 /// components are shown and are separated by a comma `,`. No space will be included after
 /// the comma. For example, the resolution `{ 43, 47.5 }` is formatted as `43,47.5`. Note
 /// that within the two components, a dot (`.`) is used as decimal point.
+///
+/// A resolution object can be parsed through a value parser (\ref
+/// core::BasicValueParserSource). If the parsed string contains only one value, that value
+/// is used for both components. If there are two values, they must be separated by a comma
+/// `,`. Space is allowed between the comma and the second component.
 ///
 /// \sa \ref display::Viewport
 ///
@@ -165,6 +175,23 @@ inline auto operator<<(std::basic_ostream<C, T>& out, const display::Resolution&
     if (ARCHON_LIKELY(resl.vert_ppcm == resl.horz_ppcm))
         return out << core::with_reverted_numerics(resl.horz_ppcm); // Throws
     return out << core::formatted_wrn("%s,%s", resl.horz_ppcm, resl.vert_ppcm); // Throws
+}
+
+
+template<class C, class T> inline bool parse_value(core::BasicValueParserSource<C, T>& src, display::Resolution& resl)
+{
+    std::array<double, 2> components = {};
+    std::size_t min_elems = 1;
+    bool copy_last = true;
+    core::AsListConfig config;
+    config.space = core::AsListSpace::allow;
+    bool success = src.delegate(core::with_reverted_numerics(core::as_list_a(components, min_elems, copy_last,
+                                                                             std::move(config)))); // Throws
+    if (ARCHON_LIKELY(success)) {
+        resl = { components[0], components[1] };
+        return true;
+    }
+    return false;
 }
 
 
