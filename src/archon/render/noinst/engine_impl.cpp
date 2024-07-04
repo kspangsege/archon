@@ -195,19 +195,6 @@ void EngineImpl::run()
     ARCHON_ASSERT(m_initialized);
     ARCHON_ASSERT(!m_started);
 
-/*                  
-    int screen = -1; // ???                               
-    std::optional<display::Resolution> resolution = m_conn.get_screen_resolution(screen); // Throws
-    if (resolution.has_value()) {
-        display::Resolution resolution_2 = resolution.value();
-        display::Box bounds = m_conn.get_screen_bounds(screen); // Throws
-        m_logger.trace("Screen resolution (ppcm):  %s", resolution_2); // Throws
-        m_logger.trace("Screen size (pixels):      %s", bounds.size); // Throws
-        m_logger.trace("Physical screen size (cm): %s x %s", bounds.size.width / resolution_2.horz_ppcm, bounds.size.height / resolution_2.vert_ppcm); // Throws           
-        m_perspect_proj.set_resol_dpcm(resolution_2.horz_ppcm, resolution_2.vert_ppcm);
-    }
-*/
-
     fetch_screen_conf(); // Throws
     track_screen_conf(); // Throws
 
@@ -865,9 +852,9 @@ void EngineImpl::update_resolution(const display::Resolution& resol)
 {
     m_resolution = resol;
     if (m_started) {
-        // FIXME: Do more here: Update perspective projection                     
-        // FIXME: Do more here: Update virtual trackball                    
-        m_logger.detail("Resolution: %s", m_resolution); // Throws
+        m_perspect_proj.set_resol_dpcm(resol.horz_ppcm, resol.vert_ppcm);
+        // FIXME: Do more here: Update virtual trackball                          
+        m_logger.detail("Resolution (ppcm): %s", m_resolution); // Throws
     }
 }
 
