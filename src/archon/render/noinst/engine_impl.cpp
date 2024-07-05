@@ -853,7 +853,10 @@ void EngineImpl::update_resolution(const display::Resolution& resol)
     m_resolution = resol;
     if (m_started) {
         m_perspect_proj.set_resol_dpcm(resol.horz_ppcm, resol.vert_ppcm);
-        // FIXME: Do more here: Update virtual trackball                          
+        double pixel_aspect_ratio = m_perspect_proj.horz_dot_pitch / m_perspect_proj.vert_dot_pitch;
+        m_trackball.set_pixel_aspect_ratio(pixel_aspect_ratio);
+        m_projection_and_viewport_need_update = true;
+        m_need_redraw = true;
         m_logger.detail("Resolution (ppcm): %s", m_resolution); // Throws
     }
 }
