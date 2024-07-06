@@ -280,9 +280,9 @@ int main(int argc, char* argv[])
     namespace fs = std::filesystem;
     std::optional<fs::path> optional_path;
     bool list_display_implementations = false;
+    Config config;
     display::Size window_size = 256;
     std::optional<display::Size> optional_texture_size;
-    Config config;
     log::LogLevel log_level_limit = log::LogLevel::info;
     std::optional<std::string> optional_display_implementation;
     std::optional<int> optional_screen;

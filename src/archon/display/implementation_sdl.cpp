@@ -477,6 +477,14 @@ bool ConnectionImpl::try_get_screen_conf(int screen, core::Buffer<display::Viewp
 {
     if (ARCHON_UNLIKELY(screen != 0))
         throw std::invalid_argument("Bad screen index");
+
+    // NOTE: Currently no support for screen configuration in SDL-based
+    // implementation. There are too many quirks that it is impossible, or at least
+    // difficult to work around. For example, changes are only reported when monitors are
+    // added or removed, not when individual monitors change, e.g., when its size changes
+    // (virtual monitors). See also out-commented handling of SDL_DISPLAYEVENT in
+    // ConnectionImpl::process_outstanding_events().
+
     return false;
 }
 
@@ -698,12 +706,16 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
                 }
             }
             break;
+
+            // NOTE: Currently no support for screen configuration in SDL-based
+            // implementation. See ConnectionImpl::try_get_screen_conf().
+
 /*
         case SDL_DISPLAYEVENT: {
-            // Fetch updated display information          
+            // Fetch updated display information
             // Call on_screen_change(screens) where screens is span of ScreenInfo objects
             // ScreenInfo has fields `name`, `bounds`, `resolution`, and `primary`
-            // Question: How does SDL_GetDisplayUsableBounds() work with X11? --> See X11_GetDisplayUsableBounds()                                                                                                                                                         
+            // Question: How does SDL_GetDisplayUsableBounds() work with X11? --> See X11_GetDisplayUsableBounds()
             //
             // X11 driver of SDL: Look to X11_HandleXRandROutputChange()
             //
@@ -726,7 +738,7 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
                     if (ARCHON_UNLIKELY(ret < 0))
                         throw_sdl_error(locale, "SDL_GetDesktopDisplayMode() failed"); // Throws
                     ARCHON_ASSERT(ret == 0);
-                    log::info("SCREEN[%s]: name = %s, bounds = %s, resolution = ?, frame_rate = %s, ", i + 1, name, bounds, mode.refresh_rate);              
+                    log::info("SCREEN[%s]: name = %s, bounds = %s, resolution = ?, frame_rate = %s, ", i + 1, name, bounds, mode.refresh_rate);
                 }
                 break;
             }

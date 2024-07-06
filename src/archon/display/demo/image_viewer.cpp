@@ -39,6 +39,9 @@
 #include <archon/core/file.hpp>
 #include <archon/log.hpp>
 #include <archon/cli.hpp>
+#include <archon/util/color.hpp>
+#include <archon/util/colors.hpp>
+#include <archon/util/as_css_color.hpp>
 #include <archon/image.hpp>
 #include <archon/display.hpp>
 
@@ -49,13 +52,22 @@ using namespace archon;
 namespace {
 
 
+struct Config {
+    util::Color background_color = util::colors::black;
+};
+
+
 class EventLoop final
     : public display::WindowEventHandler {
 public:
-    EventLoop(display::Connection& conn, display::Window& win, const display::Texture& tex) noexcept
+    EventLoop(display::Connection& conn, display::Window& win, const display::Texture& tex,
+              const display::Size& window_size, const display::Size& image_size, const Config& config) noexcept
         : m_conn(conn)
         , m_win(win)
         , m_tex(tex)
+        , m_window_size(window_size)
+        , m_image_size(image_size)
+        , m_config(config)
     {
     }
 
@@ -76,8 +88,14 @@ public:
 
     bool on_expose(const display::WindowEvent&) override
     {
-        m_win.put_texture(m_tex); // Throws
-        m_win.present(); // Throws
+        redraw(); // Throws
+        return true;
+    }
+
+    bool on_resize(const display::WindowSizeEvent& ev) override
+    {
+        m_window_size = ev.size;
+        // FIXME: Make it such that "expose" evenets are always generated when "resize" events are generated                 
         return true;
     }
 
@@ -85,6 +103,18 @@ private:
     display::Connection& m_conn;
     display::Window& m_win;
     const display::Texture& m_tex;
+    display::Size m_window_size;
+    const display::Size m_image_size;
+    const Config& m_config;
+
+    void redraw()
+    {
+        m_win.fill(m_config.background_color); // Throws
+        display::Pos pos = display::Pos() + (m_window_size - m_image_size) / 2;
+//        log::info("POS: %s (%s)", pos, m_window_size - m_image_size);                       
+        m_win.put_texture(m_tex, pos); // Throws
+        m_win.present(); // Throws
+    }
 };
 
 
@@ -99,6 +129,9 @@ int main(int argc, char* argv[])
     namespace fs = std::filesystem;
     fs::path path;
     bool list_display_implementations = false;
+    Config config;
+    std::optional<display::Size> optional_window_size;
+    bool fullscreen = false;
     log::LogLevel log_level_limit = log::LogLevel::warn;
     std::optional<std::string> optional_display_implementation;
     std::optional<int> optional_screen;
@@ -127,6 +160,22 @@ int main(int argc, char* argv[])
 
     opt(cli::help_tag, spec); // Throws
     opt(cli::stop_tag, spec); // Throws
+
+    opt("-S, --window-size", "<size>", cli::no_attributes, spec,
+        "Set the initial size of the window. \"@A\" can be specified either as a pair \"<width>,<height>\", or as a "
+        "single number, which is then used as both width and height. By default, the window size will be chosen to "
+        "match the specified image.",
+        cli::assign(optional_window_size)); // Throws
+
+    opt("-b, --background-color", "<color>", cli::no_attributes, spec,
+        "Set the background color. \"@A\" can be any valid CSS3 color value with, or without an alpha component, as "
+        "well as the extended hex-forms, \"#RGBA\" and \"#RRGGBBAA\", accommodating the alpha component. The default "
+        "color is @Q.",
+        cli::assign(util::as_css_color(config.background_color))); // Throws
+
+    opt("-f, --fullscreen", "", cli::no_attributes, spec,
+        "Open window in fullscreen mode.",
+        cli::raise_flag(fullscreen)); // Throws
 
     opt("-l, --log-level", "<level>", cli::no_attributes, spec,
         "Set the log level limit. The possible levels are @G. The default limit is @Q.",
@@ -251,13 +300,13 @@ int main(int argc, char* argv[])
     log::FileLogger root_logger(core::File::get_cerr(), locale); // Throws
     log::LimitLogger logger(root_logger, log_level_limit); // Throws
 
-    std::unique_ptr<image::WritableImage> img;
+    std::unique_ptr<image::WritableImage> image;
     {
         image::LoadConfig load_config;
         log::PrefixLogger load_logger(logger, "Load: "); // Throws
         load_config.logger = &load_logger;
         std::error_code ec;
-        if (!image::try_load(path, img, locale, load_config, ec)) { // Throws
+        if (!image::try_load(path, image, locale, load_config, ec)) { // Throws
             logger.error("Failed to load image: %s", ec.message()); // Throws
             return EXIT_FAILURE;
         }
@@ -306,18 +355,24 @@ int main(int argc, char* argv[])
         screen = val;
     }
 
-    display::Size size = img->get_size();
+    display::Size image_size = image->get_size();
+    display::Size window_size = optional_window_size.value_or(image_size);
+
     display::Window::Config window_config;
     window_config.screen = screen;
+    window_config.resizable = true;
+    window_config.fullscreen = fullscreen;
+    window_config.minimum_size = 128;
     std::unique_ptr<display::Window> win;
-    if (ARCHON_UNLIKELY(!conn->try_new_window("Archon Image Viewer", size, window_config, win, error))) { // Throws
+    if (ARCHON_UNLIKELY(!conn->try_new_window("Archon Image Viewer", window_size, window_config,
+                                              win, error))) { // Throws
         logger.error("Failed to create window: %s", error); // Throws
         return EXIT_FAILURE;
     }
 
-    std::unique_ptr<display::Texture> tex = win->new_texture(size); // Throws
-    tex->put_image(*img); // Throws
-    EventLoop event_loop(*conn, *win, *tex);
+    std::unique_ptr<display::Texture> tex = win->new_texture(image_size); // Throws
+    tex->put_image(*image); // Throws
+    EventLoop event_loop(*conn, *win, *tex, window_size, image_size, config);
     win->set_event_handler(event_loop); // Throws
     win->show(); // Throws
     event_loop.process_events(); // Throws

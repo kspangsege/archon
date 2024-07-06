@@ -642,6 +642,7 @@ int main(int argc, char* argv[])
     Atom delete_window                = intern_string("WM_DELETE_WINDOW");
     Atom atom_net_wm_state            = intern_string("_NET_WM_STATE");
     Atom atom_net_wm_state_fullscreen = intern_string("_NET_WM_STATE_FULLSCREEN");
+    Atom atom_net_wm_fullscreen_monitors = intern_string("_NET_WM_FULLSCREEN_MONITORS");                                      
 
 
 #if HAVE_XDBE
@@ -772,6 +773,43 @@ int main(int argc, char* argv[])
 
     for (const auto& entry : window_slots) {
         const WindowSlot& slot = entry.second;
+        
+
+        {
+            XClientMessageEvent event = {};
+            event.type = ClientMessage;
+            event.window = slot.window;
+            event.message_type = atom_net_wm_fullscreen_monitors;
+            event.format = 32;
+            event.data.l[0] = 0;
+            event.data.l[1] = 0;
+            event.data.l[2] = 0;
+            event.data.l[3] = 0;
+            event.data.l[4] = 1; // Request is from normal application
+            Bool propagate = False;
+            long event_mask = SubstructureRedirectMask | SubstructureNotifyMask;
+            Status status = XSendEvent(dpy, root, propagate, event_mask, reinterpret_cast<XEvent*>(&event));
+            ARCHON_STEADY_ASSERT(status != 0);
+        }
+        {
+            XClientMessageEvent event = {};
+            event.type = ClientMessage;
+            event.window = slot.window;
+            event.message_type = atom_net_wm_state;
+            event.format = 32;
+            event.data.l[0] = 1;           
+            event.data.l[1] = atom_net_wm_state_fullscreen;
+            event.data.l[2] = 0; // No second property to alter
+            event.data.l[3] = 1; // Request is from normal application
+            Bool propagate = False;
+            long event_mask = SubstructureRedirectMask | SubstructureNotifyMask;
+            Status status = XSendEvent(dpy, root, propagate, event_mask, reinterpret_cast<XEvent*>(&event));
+            ARCHON_STEADY_ASSERT(status != 0);
+        }
+
+        
+//        XUnmapWindow(dpy, slot.window);
+        
         XMapWindow(dpy, slot.window);
     }
 
