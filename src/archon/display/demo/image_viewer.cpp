@@ -108,7 +108,10 @@ public:
     bool on_resize(const display::WindowSizeEvent& ev) override
     {
         m_window_size = ev.size;
-        // FIXME: Make it such that "expose" evenets are always generated when "resize" events are generated                 
+        // FIXME: Currently, this function hopes that a "resize" event is followed up by an
+        // "expose" event, but this is not currently guaranteed. Solution may be to make it
+        // such that "expose" evenets are always generated when "resize" events are
+        // generated.                             
         return true;
     }
 
@@ -125,7 +128,6 @@ private:
     {
         m_win.fill(m_config.background_color); // Throws
         display::Pos pos = display::Pos() + (m_window_size - m_image_size) / 2;
-//        log::info("POS: %s (%s)", pos, m_window_size - m_image_size);                       
         m_win.put_texture(m_tex, pos); // Throws
         m_win.present(); // Throws
     }
