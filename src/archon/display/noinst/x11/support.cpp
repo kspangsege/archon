@@ -3028,7 +3028,6 @@ auto x11::create_pixel_format(Display* dpy, ::Window root, const XVisualInfo& vi
 
 #if HAVE_XRANDR
 
-
 bool x11::update_screen_conf(Display* dpy, ::Window root, Atom atom_edid, const impl::EdidParser& edid_parser,
                              const std::locale& locale, x11::ScreenConf& conf)
 {
@@ -3041,6 +3040,29 @@ bool x11::update_screen_conf(Display* dpy, ::Window root, Atom atom_edid, const 
     throw std::runtime_error("Failed to fetch XRandR screen configuration within the allotted number of attempts");
 }
 
-
 #endif // HAVE_XRANDR
+
+
+void x11::set_fullscreen_mode(Display* dpy, ::Window win, bool on, ::Window root, Atom atom_net_wm_state,
+                              Atom atom_net_wm_state_fullscreen)
+{
+    XClientMessageEvent event = {};
+    event.type = ClientMessage;
+    event.window = win;
+    event.message_type = atom_net_wm_state;
+    event.format = 32;
+    event.data.l[0] = (on ? 1 : 0); // Add / remove property
+    event.data.l[1] = atom_net_wm_state_fullscreen;
+    event.data.l[2] = 0; // No second property to alter
+    event.data.l[3] = 1; // Request is from normal application
+    Bool propagate = False;
+    long event_mask = SubstructureRedirectMask | SubstructureNotifyMask;
+    Status status = XSendEvent(dpy, root, propagate, event_mask, reinterpret_cast<XEvent*>(&event));
+    if (ARCHON_LIKELY(status != 0))
+        return;
+    throw std::runtime_error("XSendEvent() failed");
+}
+
+
+
 #endif // HAVE_X11

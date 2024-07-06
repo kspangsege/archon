@@ -514,12 +514,16 @@ auto create_pixel_format(Display* dpy, ::Window root, const XVisualInfo&, const 
 
 #if HAVE_XRANDR
 
-
 bool update_screen_conf(Display* dpy, ::Window root, Atom atom_edid, const impl::EdidParser& edid_parser,
                         const std::locale& locale, x11::ScreenConf& conf);
 
-
 #endif // HAVE_XRANDR
+
+
+void set_fullscreen_mode(Display* dpy, ::Window win, bool on, ::Window root, Atom atom_net_wm_state,
+                         Atom atom_net_wm_state_fullscreen);
+
+
 #endif // HAVE_X11
 
 

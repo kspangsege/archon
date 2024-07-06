@@ -439,6 +439,8 @@ public:
 private:
     bool m_is_registered = false;
     bool m_is_double_buffered = false;
+    bool m_is_mapped = false;
+    bool m_fullscreen_mode = false;
 
     const x11::PixelFormat& m_pixel_format;
     x11::ImageBridge* m_image_bridge = nullptr;
@@ -455,6 +457,7 @@ private:
 #endif
 
     void set_property(Atom name, Atom value) noexcept;
+    void do_set_fullscreen_mode(bool on);
     void do_fill(util::Color color, int x, int y, unsigned w, unsigned h);
     void do_put_texture(const TextureImpl&, const display::Box& source_area, const display::Pos& pos);
     auto create_image_bridge() -> x11::ImageBridge&;
@@ -707,8 +710,6 @@ bool ConnectionImpl::try_new_window(std::string_view title, display::Size size, 
         bool enable_glx_direct_rendering = !m_disable_glx_direct_rendering;
         win_2->create(size, config, enable_double_buffering, enable_opengl, enable_glx_direct_rendering); // Throws
         win_2->set_title(title); // Throws
-        if (ARCHON_UNLIKELY(config.fullscreen))
-            win_2->set_fullscreen_mode(true); // Throws
         if (ARCHON_UNLIKELY(m_install_colormaps))
             XInstallColormap(dpy, pixel_format.get_colormap());
         win = std::move(win_2);
@@ -1450,6 +1451,8 @@ void WindowImpl::create(display::Size size, const Config& config, bool enable_do
     static_cast<void>(enable_opengl);
     static_cast<void>(enable_glx_direct_rendering);
 #endif // !HAVE_GLX
+
+    m_fullscreen_mode = config.fullscreen;
 }
 
 
@@ -1478,12 +1481,16 @@ void WindowImpl::set_event_handler(display::WindowEventHandler& handler) noexcep
 void WindowImpl::show()
 {
     XMapWindow(conn.dpy, win);
+    m_is_mapped = true;
+    if (m_fullscreen_mode)
+        do_set_fullscreen_mode(true); // Throws
 }
 
 
 void WindowImpl::hide()
 {
     XUnmapWindow(conn.dpy, win);
+    m_is_mapped = false;
 }
 
 
@@ -1506,20 +1513,9 @@ void WindowImpl::set_size(display::Size size)
 
 void WindowImpl::set_fullscreen_mode(bool on)
 {
-    XClientMessageEvent event = {};
-    event.type = ClientMessage;
-    event.window = win;
-    event.message_type = conn.atom_net_wm_state;
-    event.format = 32;
-    event.data.l[0] = (on ? 1 : 0); // Add / remove property
-    event.data.l[1] = conn.atom_net_wm_state_fullscreen;
-    event.data.l[2] = 0; // No second property to alter
-    event.data.l[3] = 1; // Request is from normal application
-    Bool propagate = False;
-    long event_mask = SubstructureRedirectMask | SubstructureNotifyMask;
-    Status status = XSendEvent(conn.dpy, screen_slot.root, propagate, event_mask, reinterpret_cast<XEvent*>(&event));
-    if (ARCHON_UNLIKELY(status == 0))
-        throw std::runtime_error("XSendEvent() failed");
+    m_fullscreen_mode = on;
+    if (m_is_mapped)
+        do_set_fullscreen_mode(m_fullscreen_mode); // Throws
 }
 
 
@@ -1605,6 +1601,13 @@ void WindowImpl::opengl_swap_buffers()
 void WindowImpl::set_property(Atom name, Atom value) noexcept
 {
     XChangeProperty(conn.dpy, win, name, XA_ATOM, 32, PropModeReplace, reinterpret_cast<unsigned char*>(&value), 1);
+}
+
+
+void WindowImpl::do_set_fullscreen_mode(bool on)
+{
+    x11::set_fullscreen_mode(conn.dpy, win, on, screen_slot.root, conn.atom_net_wm_state,
+                             conn.atom_net_wm_state_fullscreen); // Throws
 }
 
 

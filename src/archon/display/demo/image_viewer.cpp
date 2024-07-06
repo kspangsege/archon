@@ -60,20 +60,33 @@ struct Config {
 class EventLoop final
     : public display::WindowEventHandler {
 public:
-    EventLoop(display::Connection& conn, display::Window& win, const display::Texture& tex,
-              const display::Size& window_size, const display::Size& image_size, const Config& config) noexcept
+    EventLoop(display::Connection& conn, display::Window& win, const display::Texture& tex, const Config& config,
+              const display::Size& window_size, const display::Size& image_size, bool fullscreen) noexcept
         : m_conn(conn)
         , m_win(win)
         , m_tex(tex)
+        , m_config(config)
         , m_window_size(window_size)
         , m_image_size(image_size)
-        , m_config(config)
+        , m_fullscreen(fullscreen)
     {
     }
 
     void process_events()
     {
         m_conn.process_events(); // Throws
+    }
+
+    bool on_keyup(const display::KeyEvent& ev) override
+    {
+        display::Key key = {};
+        if (ARCHON_LIKELY(m_conn.try_map_key_code_to_key(ev.key_code, key))) { // Throws
+            if (ARCHON_UNLIKELY(key == display::Key::small_f)) {
+                m_fullscreen = !m_fullscreen;
+                m_win.set_fullscreen_mode(m_fullscreen); // Throws
+            }
+        }
+        return true;
     }
 
     bool on_keydown(const display::KeyEvent& ev) override
@@ -103,9 +116,10 @@ private:
     display::Connection& m_conn;
     display::Window& m_win;
     const display::Texture& m_tex;
+    const Config& m_config;
     display::Size m_window_size;
     const display::Size m_image_size;
-    const Config& m_config;
+    bool m_fullscreen;
 
     void redraw()
     {
@@ -372,7 +386,7 @@ int main(int argc, char* argv[])
 
     std::unique_ptr<display::Texture> tex = win->new_texture(image_size); // Throws
     tex->put_image(*image); // Throws
-    EventLoop event_loop(*conn, *win, *tex, window_size, image_size, config);
+    EventLoop event_loop(*conn, *win, *tex, config, window_size, image_size, fullscreen);
     win->set_event_handler(event_loop); // Throws
     win->show(); // Throws
     event_loop.process_events(); // Throws

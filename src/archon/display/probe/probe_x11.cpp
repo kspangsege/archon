@@ -151,6 +151,7 @@ int main(int argc, char* argv[])
     std::optional<std::size_t> optional_num_windows;
     std::optional<std::string> optional_window_title;
     util::Color background_color = util::colors::black;
+    bool fullscreen = false;
     std::optional<std::string> optional_display;
     std::optional<int> optional_screen;
     std::optional<int> optional_visual_depth;
@@ -196,6 +197,10 @@ int main(int argc, char* argv[])
         "well as the extended hex-forms, \"#RGBA\" and \"#RRGGBBAA\", accommodating the alpha component. The default "
         "color is @Q.",
         cli::assign(util::as_css_color(background_color))); // Throws
+
+    opt("-f, --fullscreen", "", cli::no_attributes, spec,
+        "Open first window in fullscreen mode.",
+        cli::raise_flag(fullscreen)); // Throws
 
     opt("-D, --display", "<string>", cli::no_attributes, spec,
         "Target the specified X11 display (@A). If this option is not specified, the value of the DISPLAY environment "
@@ -608,17 +613,21 @@ int main(int argc, char* argv[])
     }
 
     struct WindowSlot {
+        bool is_first;
         int no;
         Window window;
         Drawable drawable;
         image::Size win_size;
         image::Size img_size;
         Pixmap pixmap;
+        bool fullscreen = false;
         bool redraw = false;
         bool suppress_redraw = false;
 
-        WindowSlot(int no_2, Window window_2, Drawable drawable_2, image::Size size, Pixmap pixmap_2) noexcept
+        WindowSlot(bool is_first_2, int no_2, Window window_2, Drawable drawable_2, image::Size size,
+                   Pixmap pixmap_2) noexcept
         {
+            is_first = is_first_2;
             no       = no_2;
             window   = window_2;
             drawable = drawable_2;
@@ -642,8 +651,6 @@ int main(int argc, char* argv[])
     Atom delete_window                = intern_string("WM_DELETE_WINDOW");
     Atom atom_net_wm_state            = intern_string("_NET_WM_STATE");
     Atom atom_net_wm_state_fullscreen = intern_string("_NET_WM_STATE_FULLSCREEN");
-    Atom atom_net_wm_fullscreen_monitors = intern_string("_NET_WM_FULLSCREEN_MONITORS");                                      
-
 
 #if HAVE_XDBE
     XdbeSwapAction swap_action = XdbeUndefined; // Contents of swapped-out buffer becomes undefined
@@ -722,7 +729,8 @@ int main(int argc, char* argv[])
         }
 #endif // HAVE_XDBE
 
-        WindowSlot slot = { no, window, drawable, size, pixmap_slot.pixmap };
+        bool is_first = (window_index == 0);
+        WindowSlot slot = { is_first, no, window, drawable, size, pixmap_slot.pixmap };
         window_slots.emplace(window, slot); // Throws
 
         if (window_slots.size() > max_seen_window_slots)
@@ -734,6 +742,10 @@ int main(int argc, char* argv[])
     auto close_window = [&](Window win) noexcept {
         XDestroyWindow(dpy, win);
         window_slots.erase(win);
+    };
+
+    auto set_fullscreen_mode = [&](Window win, bool on) {
+        x11::set_fullscreen_mode(dpy, win, on, root, atom_net_wm_state, atom_net_wm_state_fullscreen); // Throws
     };
 
     auto get_keysym = [&](KeyCode keycode) noexcept -> KeySym {
@@ -771,46 +783,13 @@ int main(int argc, char* argv[])
     for (std::size_t i = 0; i < num_windows; ++i)
         open_window(); // Throws
 
-    for (const auto& entry : window_slots) {
-        const WindowSlot& slot = entry.second;
-        
-
-        {
-            XClientMessageEvent event = {};
-            event.type = ClientMessage;
-            event.window = slot.window;
-            event.message_type = atom_net_wm_fullscreen_monitors;
-            event.format = 32;
-            event.data.l[0] = 0;
-            event.data.l[1] = 0;
-            event.data.l[2] = 0;
-            event.data.l[3] = 0;
-            event.data.l[4] = 1; // Request is from normal application
-            Bool propagate = False;
-            long event_mask = SubstructureRedirectMask | SubstructureNotifyMask;
-            Status status = XSendEvent(dpy, root, propagate, event_mask, reinterpret_cast<XEvent*>(&event));
-            ARCHON_STEADY_ASSERT(status != 0);
-        }
-        {
-            XClientMessageEvent event = {};
-            event.type = ClientMessage;
-            event.window = slot.window;
-            event.message_type = atom_net_wm_state;
-            event.format = 32;
-            event.data.l[0] = 1;           
-            event.data.l[1] = atom_net_wm_state_fullscreen;
-            event.data.l[2] = 0; // No second property to alter
-            event.data.l[3] = 1; // Request is from normal application
-            Bool propagate = False;
-            long event_mask = SubstructureRedirectMask | SubstructureNotifyMask;
-            Status status = XSendEvent(dpy, root, propagate, event_mask, reinterpret_cast<XEvent*>(&event));
-            ARCHON_STEADY_ASSERT(status != 0);
-        }
-
-        
-//        XUnmapWindow(dpy, slot.window);
-        
+    for (auto& entry : window_slots) {
+        WindowSlot& slot = entry.second;
         XMapWindow(dpy, slot.window);
+        if (slot.is_first && fullscreen) {
+            slot.fullscreen = true;
+            set_fullscreen_mode(slot.window, true); // Throws
+        }
     }
 
     if (install_colormap)
@@ -895,19 +874,8 @@ int main(int argc, char* argv[])
                                 break;
                             }
                             if (ev.type == KeyRelease && keysym == XK_f) {
-                                XClientMessageEvent event = {};
-                                event.type = ClientMessage;
-                                event.window = slot->window;
-                                event.message_type = atom_net_wm_state;
-                                event.format = 32;
-                                event.data.l[0] = 2; // Toggle property
-                                event.data.l[1] = atom_net_wm_state_fullscreen;
-                                event.data.l[2] = 0; // No second property to alter
-                                event.data.l[3] = 1; // Request is from normal application
-                                Bool propagate = False;
-                                long event_mask = SubstructureRedirectMask | SubstructureNotifyMask;
-                                Status status = XSendEvent(dpy, root, propagate, event_mask, reinterpret_cast<XEvent*>(&event));
-                                ARCHON_STEADY_ASSERT(status != 0);
+                                slot->fullscreen = !slot->fullscreen;
+                                set_fullscreen_mode(slot->window, slot->fullscreen); // Throws
                                 break;
                             }
                             if (ev.type == KeyRelease && keysym == XK_r) {
