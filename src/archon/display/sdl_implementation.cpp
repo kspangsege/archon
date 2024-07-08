@@ -53,7 +53,7 @@
 #include <archon/display/window.hpp>
 #include <archon/display/connection.hpp>
 #include <archon/display/implementation.hpp>
-#include <archon/display/implementation_sdl.hpp>
+#include <archon/display/sdl_implementation.hpp>
 
 #if ARCHON_DISPLAY_HAVE_SDL
 #  define HAVE_SDL 1
@@ -584,7 +584,7 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
             // FIXME: Consider proposing an SDL improvement in the form of a hint to disable synthesis of key events at focus and blur-time. The difficulty may lie in getting consistent behavior across all platforms supported by SDL.                       
             //
             // Alternatively, in the interest of alignment across implementations, it should
-            // be considered whether the X11-based implementation (`implementation_x11.cpp`)
+            // be considered whether the X11-based implementation (`x11_implementation.cpp`)
             // could be made to emulate the SDL-mandated behavior, i.e., with the generation
             // of synthetic "key up" and "key down" events when window loses or gains input
             // focus while keys are pressed down. The problem here, is that X11 key events

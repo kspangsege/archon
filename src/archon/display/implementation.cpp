@@ -31,8 +31,8 @@
 #include <archon/core/string.hpp>
 #include <archon/display/guarantees.hpp>
 #include <archon/display/implementation.hpp>
-#include <archon/display/implementation_x11.hpp>
-#include <archon/display/implementation_sdl.hpp>
+#include <archon/display/x11_implementation.hpp>
+#include <archon/display/sdl_implementation.hpp>
 
 
 using namespace archon;

@@ -256,7 +256,7 @@ public:
     /// application will probably also want to ignore any "key up" event that does not
     /// correspond to a pressed down key according to its own record of pressed down
     /// keys. See also discussion in the SDL-based display implementation
-    /// (`implementation_sdl.cpp`) near the handling of `SDL_KEYDOWN`.
+    /// (`sdl_implementation.cpp`) near the handling of `SDL_KEYDOWN`.
     ///
     /// \sa \ref on_focus()
     /// \sa \ref on_blur()

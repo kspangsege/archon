@@ -68,7 +68,7 @@
 #include <archon/display/window.hpp>
 #include <archon/display/connection.hpp>
 #include <archon/display/implementation.hpp>
-#include <archon/display/implementation_x11.hpp>
+#include <archon/display/x11_implementation.hpp>
 #include <archon/display/noinst/impl_util.hpp>
 #include <archon/display/noinst/x11/support.hpp>
 
@@ -349,7 +349,7 @@ private:
     // in progress.
     //
     // In the interest of alignment across display implementations and with the SDL-based
-    // implementation in particular (`implementation_sdl.cpp`), the required behavior of
+    // implementation in particular (`sdl_implementation.cpp`), the required behavior of
     // display implementations is to generate the "mouse out" event when the grab ends. See
     // also display::EventHandler::on_mouseover().
     //
