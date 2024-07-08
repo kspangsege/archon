@@ -59,6 +59,7 @@
 #include <archon/display/impl/config.h>
 #include <archon/display/geometry.hpp>
 #include <archon/display/noinst/edid.hpp>
+#include <archon/display/x11_fullscreen_monitors.hpp>
 #include <archon/display/x11_connection_config.hpp>
 #include <archon/display/noinst/impl_util.hpp>
 #include <archon/display/noinst/x11/support.hpp>
@@ -154,6 +155,7 @@ int main(int argc, char* argv[])
     bool fullscreen = false;
     std::optional<std::string> optional_display;
     std::optional<int> optional_screen;
+    std::optional<display::x11_fullscreen_monitors> optional_fullscreen_monitors;
     std::optional<int> optional_visual_depth;
     std::optional<display::x11_connection_config::VisualClass> optional_visual_class;
     std::optional<VisualID> optional_visual_type;
@@ -211,6 +213,15 @@ int main(int argc, char* argv[])
         "Target the specified screen (@A) of the targeted display. If this option is not specified, the default "
         "screen will be used.",
         cli::assign(optional_screen)); // Throws
+
+    opt("-F, --fullscreen-monitors", "<monitors>", cli::no_attributes, spec,
+        "Use the specified Xinerama screens (monitors) to define the fullscreen area. \"@A\" can be specified as one, "
+        "two, or four comma-separated Xinerama screen indexes (`xrandr --listactivemonitors`). When four values are "
+        "specified they will be interpreted as the Xinerama screens that determine the top, bottom, left, and right "
+        "edges of the fullscreen area. When two values are specified, the first one determines both top and left "
+        "edges and the second one determines bottom and right edges. When one value is specified, it determines all "
+        "edges.",
+        cli::assign(optional_fullscreen_monitors)); // Throws
 
     opt("-d, --visual-depth", "<num>", cli::no_attributes, spec,
         "Pick a visual of the specified depth (@A).",
@@ -648,9 +659,10 @@ int main(int argc, char* argv[])
         return false;
     };
 
-    Atom delete_window                = intern_string("WM_DELETE_WINDOW");
-    Atom atom_net_wm_state            = intern_string("_NET_WM_STATE");
-    Atom atom_net_wm_state_fullscreen = intern_string("_NET_WM_STATE_FULLSCREEN");
+    Atom delete_window                   = intern_string("WM_DELETE_WINDOW");
+    Atom atom_net_wm_fullscreen_monitors = intern_string("_NET_WM_FULLSCREEN_MONITORS");
+    Atom atom_net_wm_state               = intern_string("_NET_WM_STATE");
+    Atom atom_net_wm_state_fullscreen    = intern_string("_NET_WM_STATE_FULLSCREEN");
 
 #if HAVE_XDBE
     XdbeSwapAction swap_action = XdbeUndefined; // Contents of swapped-out buffer becomes undefined
@@ -744,6 +756,13 @@ int main(int argc, char* argv[])
         window_slots.erase(win);
     };
 
+    auto set_fullscreen_monitors = [&](Window win) {
+        if (ARCHON_LIKELY(!optional_fullscreen_monitors.has_value()))
+            return;
+        x11::set_fullscreen_monitors(dpy, win, optional_fullscreen_monitors.value(), root,
+                                     atom_net_wm_fullscreen_monitors); // Throws
+    };
+
     auto set_fullscreen_mode = [&](Window win, bool on) {
         x11::set_fullscreen_mode(dpy, win, on, root, atom_net_wm_state, atom_net_wm_state_fullscreen); // Throws
     };
@@ -786,6 +805,7 @@ int main(int argc, char* argv[])
     for (auto& entry : window_slots) {
         WindowSlot& slot = entry.second;
         XMapWindow(dpy, slot.window);
+        set_fullscreen_monitors(slot.window); // Throws
         if (slot.is_first && fullscreen) {
             slot.fullscreen = true;
             set_fullscreen_mode(slot.window, true); // Throws
@@ -871,6 +891,7 @@ int main(int argc, char* argv[])
                             if (ev.type == KeyRelease && keysym == XK_n) {
                                 Window window = open_window(); // Throws
                                 XMapWindow(dpy, window);
+                                set_fullscreen_monitors(window); // Throws
                                 break;
                             }
                             if (ev.type == KeyRelease && keysym == XK_f) {
