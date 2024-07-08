@@ -75,7 +75,8 @@
 #include <archon/display/geometry.hpp>
 #include <archon/display/resolution.hpp>
 #include <archon/display/noinst/edid.hpp>
-#include <archon/display/connection_config_x11.hpp>
+#include <archon/display/x11_fullscreen_monitors.hpp>
+#include <archon/display/x11_connection_config.hpp>
 #include <archon/display/noinst/mult_pixel_format.hpp>
 #include <archon/display/noinst/palette_map.hpp>
 #include <archon/display/noinst/x11/support.hpp>
@@ -2375,23 +2376,23 @@ x11::TextPropertyWrapper::TextPropertyWrapper(Display* dpy, std::string_view str
 
 
 
-auto x11::map_opt_visual_class(const std::optional<display::ConnectionConfigX11::VisualClass>& class_) noexcept ->
+auto x11::map_opt_visual_class(const std::optional<display::x11_connection_config::VisualClass>& class_) noexcept ->
     std::optional<int>
 {
     if (ARCHON_LIKELY(!class_.has_value()))
         return {};
     switch (class_.value()) {
-        case display::ConnectionConfigX11::VisualClass::static_gray:
+        case display::x11_connection_config::VisualClass::static_gray:
             return StaticGray;
-        case display::ConnectionConfigX11::VisualClass::gray_scale:
+        case display::x11_connection_config::VisualClass::gray_scale:
             return GrayScale;
-        case display::ConnectionConfigX11::VisualClass::static_color:
+        case display::x11_connection_config::VisualClass::static_color:
             return StaticColor;
-        case display::ConnectionConfigX11::VisualClass::pseudo_color:
+        case display::x11_connection_config::VisualClass::pseudo_color:
             return PseudoColor;
-        case display::ConnectionConfigX11::VisualClass::true_color:
+        case display::x11_connection_config::VisualClass::true_color:
             return TrueColor;
-        case display::ConnectionConfigX11::VisualClass::direct_color:
+        case display::x11_connection_config::VisualClass::direct_color:
             return DirectColor;
     }
     ARCHON_ASSERT_UNREACHABLE();

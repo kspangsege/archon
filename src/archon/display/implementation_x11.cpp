@@ -63,7 +63,7 @@
 #include <archon/display/noinst/edid.hpp>
 #include <archon/display/guarantees.hpp>
 #include <archon/display/x11_fullscreen_monitors.hpp>
-#include <archon/display/connection_config_x11.hpp>
+#include <archon/display/x11_connection_config.hpp>
 #include <archon/display/texture.hpp>
 #include <archon/display/window.hpp>
 #include <archon/display/connection.hpp>
@@ -284,9 +284,9 @@ public:
     Atom atom_edid;
 #endif
 
-    ConnectionImpl(const ImplementationImpl&, const std::locale&, log::Logger*, const display::ConnectionConfigX11&);
+    ConnectionImpl(const ImplementationImpl&, const std::locale&, log::Logger*, const display::x11_connection_config&);
 
-    bool try_open(const display::ConnectionConfigX11&, std::string&);
+    bool try_open(const display::x11_connection_config&, std::string&);
     void register_window(::Window id, WindowImpl&);
     void unregister_window(::Window id) noexcept;
     auto ensure_image_bridge(const XVisualInfo&, const x11::PixelFormat&) const -> x11::ImageBridge&;
@@ -537,7 +537,7 @@ auto SlotImpl::get_implementation_a(const display::Guarantees& guarantees) const
 
 
 inline ConnectionImpl::ConnectionImpl(const ImplementationImpl& impl_2, const std::locale& locale_2,
-                                      log::Logger* logger, const display::ConnectionConfigX11& config)
+                                      log::Logger* logger, const display::x11_connection_config& config)
     : impl(impl_2)
     , locale(locale_2)
     , logger(log::Logger::or_null(logger))
@@ -554,7 +554,7 @@ inline ConnectionImpl::ConnectionImpl(const ImplementationImpl& impl_2, const st
 }
 
 
-bool ConnectionImpl::try_open(const display::ConnectionConfigX11& config, std::string& error)
+bool ConnectionImpl::try_open(const display::x11_connection_config& config, std::string& error)
 {
     std::string_view display = x11::get_display_string(config.display);
     if (ARCHON_UNLIKELY(!x11::try_connect(display, dpy_owner))) { // Throws

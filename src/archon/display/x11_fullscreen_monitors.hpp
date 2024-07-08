@@ -43,8 +43,9 @@ namespace archon::display {
 ///
 /// An object of this type specifies which Xinerama screens (monitors) that a fullscreen
 /// window should cover. It is a hint to the window manager, and so it may or may not be
-/// honored. It is primarily intended to be used with \ref display::ConnectionConfigX11. See
-/// \ref display::ConnectionConfigX11::fullscreen_monitors.
+/// honored. It is primarily intended to be used with \ref
+/// display::x11_connection_config. See \ref
+/// display::x11_connection_config::fullscreen_monitors.
 ///
 /// The four components (\p top, \p bottom, \p left, and \p right) are Xinerama screen
 /// (monitor) indexes (see documentation for `_NET_WM_FULLSCREEN_MONITORS`). Xinerama
@@ -80,7 +81,7 @@ namespace archon::display {
 /// there must be four values, one for each index. The values must be separated by a comma
 /// (`,`). Space is allowed after commas.
 ///
-/// \sa \ref display::ConnectionConfigX11::fullscreen_monitors
+/// \sa \ref display::x11_connection_config::fullscreen_monitors
 /// \sa https://specifications.freedesktop.org/wm-spec/latest/ (Extended Window Manager Hints)
 ///
 struct x11_fullscreen_monitors {

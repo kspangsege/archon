@@ -59,7 +59,7 @@
 #include <archon/display/impl/config.h>
 #include <archon/display/geometry.hpp>
 #include <archon/display/noinst/edid.hpp>
-#include <archon/display/connection_config_x11.hpp>
+#include <archon/display/x11_connection_config.hpp>
 #include <archon/display/noinst/impl_util.hpp>
 #include <archon/display/noinst/x11/support.hpp>
 
@@ -155,7 +155,7 @@ int main(int argc, char* argv[])
     std::optional<std::string> optional_display;
     std::optional<int> optional_screen;
     std::optional<int> optional_visual_depth;
-    std::optional<display::ConnectionConfigX11::VisualClass> optional_visual_class;
+    std::optional<display::x11_connection_config::VisualClass> optional_visual_class;
     std::optional<VisualID> optional_visual_type;
     bool prefer_default_nondecomposed_colormap = false;
     bool disable_double_buffering = false;

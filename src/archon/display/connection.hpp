@@ -41,8 +41,8 @@
 #include <archon/display/resolution.hpp>
 #include <archon/display/viewport.hpp>
 #include <archon/display/guarantees.hpp>
-#include <archon/display/connection_config_x11.hpp>
-#include <archon/display/connection_config_sdl.hpp>
+#include <archon/display/x11_connection_config.hpp>
+#include <archon/display/sdl_connection_config.hpp>
 #include <archon/display/window.hpp>
 
 
@@ -291,13 +291,13 @@ struct Connection::Config {
     ///
     /// These are the parameters that are specific to the X11-based implementation.
     ///
-    display::ConnectionConfigX11 x11;
+    display::x11_connection_config x11;
 
     /// \brief Parameters specific to SDL-based implementation.
     ///
     /// These are the parameters that are specific to the SDL-based implementation.
     ///
-    display::ConnectionConfigSDL sdl;
+    display::sdl_connection_config sdl;
 };
 
 

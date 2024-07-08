@@ -18,8 +18,8 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-#ifndef ARCHON_X_DISPLAY_X_CONNECTION_CONFIG_SDL_HPP
-#define ARCHON_X_DISPLAY_X_CONNECTION_CONFIG_SDL_HPP
+#ifndef ARCHON_X_DISPLAY_X_SDL_CONNECTION_CONFIG_HPP
+#define ARCHON_X_DISPLAY_X_SDL_CONNECTION_CONFIG_HPP
 
 /// \file
 
@@ -35,9 +35,9 @@ namespace archon::display {
 /// This is the set of configuration parameters that pertain to connections when using the
 /// X11-based display implementation.
 ///
-struct ConnectionConfigSDL {};
+struct sdl_connection_config {};
 
 
 } // namespace archon::display
 
-#endif // ARCHON_X_DISPLAY_X_CONNECTION_CONFIG_SDL_HPP
+#endif // ARCHON_X_DISPLAY_X_SDL_CONNECTION_CONFIG_HPP

@@ -40,7 +40,7 @@
 #include <archon/math/vector.hpp>
 #include <archon/math/rotation.hpp>
 #include <archon/display.hpp>
-#include <archon/display/connection_config_x11.hpp>
+#include <archon/display/x11_connection_config.hpp>
 #include <archon/render/opengl.hpp>
 #include <archon/render/engine.hpp>
 
@@ -150,7 +150,7 @@ int main(int argc, char* argv[])
     std::optional<int> optional_screen;
     std::optional<std::string> optional_x11_display;
     std::optional<int> optional_x11_visual_depth;
-    std::optional<display::ConnectionConfigX11::VisualClass> optional_x11_visual_class;
+    std::optional<display::x11_connection_config::VisualClass> optional_x11_visual_class;
     std::optional<std::uint_fast32_t> optional_x11_visual_type;
     bool x11_prefer_default_nondecomposed_colormap = false;
     bool x11_disable_double_buffering = false;

@@ -44,7 +44,8 @@
 #include <archon/display/geometry.hpp>
 #include <archon/display/resolution.hpp>
 #include <archon/display/noinst/edid.hpp>
-#include <archon/display/connection_config_x11.hpp>
+#include <archon/display/x11_fullscreen_monitors.hpp>
+#include <archon/display/x11_connection_config.hpp>
 
 #if !ARCHON_WINDOWS && ARCHON_DISPLAY_HAVE_X11 && ARCHON_DISPLAY_HAVE_X11_XKB
 #  include <unistd.h>
@@ -439,7 +440,7 @@ struct ScreenConf {
 
 
 
-auto map_opt_visual_class(const std::optional<display::ConnectionConfigX11::VisualClass>& class_) noexcept ->
+auto map_opt_visual_class(const std::optional<display::x11_connection_config::VisualClass>& class_) noexcept ->
     std::optional<int>;
 
 
