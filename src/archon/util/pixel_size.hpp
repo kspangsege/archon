@@ -427,7 +427,7 @@ constexpr auto max(pixel::Size a, pixel::Size b) noexcept -> pixel::Size
 
 
 template<class C, class T>
-inline auto operator<<(std::basic_ostream<C, T>& out, pixel::Size size) -> std::basic_ostream<C, T>&
+auto operator<<(std::basic_ostream<C, T>& out, pixel::Size size) -> std::basic_ostream<C, T>&
 {
     std::array<int, 2> components = { size.width, size.height };
     std::size_t min_elems = 1;
@@ -442,7 +442,7 @@ inline auto operator<<(std::basic_ostream<C, T>& out, pixel::Size size) -> std::
 }
 
 
-template<class C, class T> inline bool parse_value(core::BasicValueParserSource<C, T>& src, pixel::Size& size)
+template<class C, class T> bool parse_value(core::BasicValueParserSource<C, T>& src, pixel::Size& size)
 {
     std::array<int, 2> components = {};
     std::size_t min_elems = 1;

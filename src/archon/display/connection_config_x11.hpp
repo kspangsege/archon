@@ -29,6 +29,7 @@
 #include <string_view>
 
 #include <archon/core/enum.hpp>
+#include <archon/display/x11_fullscreen_monitors.hpp>
 
 
 namespace archon::display {
@@ -83,6 +84,13 @@ struct ConnectionConfigX11 {
     /// \sa \ref visual_class
     ///
     std::optional<std::uint_fast32_t> visual_type;
+
+    /// \brief Specification of multi-monitor fullscreen area.
+    ///
+    /// If specified, that "fullscreen monitors" specification will apply to all windows
+    /// opened on behalf of this configuration. See \ref display::x11_fullscreen_monitors.
+    ///
+    std::optional<display::x11_fullscreen_monitors> fullscreen_monitors;
 
     /// \brief Prefer use of default colormap for nonstatic nondecomposed visuals.
     ///

@@ -103,6 +103,7 @@ target_sources(Display PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" 
   archon/display/resolution.hpp
   archon/display/viewport.hpp
   archon/display/guarantees.hpp
+  archon/display/x11_fullscreen_monitors.hpp
   archon/display/connection_config_x11.hpp
   archon/display/connection_config_sdl.hpp
   archon/display/texture.hpp

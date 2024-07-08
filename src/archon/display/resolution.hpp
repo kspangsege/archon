@@ -107,8 +107,24 @@ struct Resolution {
 };
 
 
-template<class C, class T> auto operator<<(std::basic_ostream<C, T>&, const display::Resolution&) ->
+/// \brief Write textual representation of resolution to output stream.
+///
+/// This stream output operator writes a textual representation of the specified resolution
+/// (\p resl) to the specified output stream (\p out). See \ref display::Resolution for
+/// information on the format of the textual representation.
+///
+template<class C, class T> auto operator<<(std::basic_ostream<C, T>& out, const display::Resolution& resl) ->
     std::basic_ostream<C, T>&;
+
+
+/// \brief Read textual representation of resolution from source.
+///
+/// This function reads a textual representation of a resolution object (\p resl) from the
+/// specified value parser source (\p src). See \ref display::Resolution for information on
+/// the format of the textual representation. This function is intended to be invoked by a
+/// value parser, see \ref core::BasicValueParser for more information.
+///
+template<class C, class T> bool parse_value(core::BasicValueParserSource<C, T>& src, display::Resolution& resl);
 
 
 
@@ -170,7 +186,7 @@ constexpr bool Resolution::operator>=(const Resolution& other) const noexcept
 
 
 template<class C, class T>
-inline auto operator<<(std::basic_ostream<C, T>& out, const display::Resolution& resl) -> std::basic_ostream<C, T>&
+auto operator<<(std::basic_ostream<C, T>& out, const display::Resolution& resl) -> std::basic_ostream<C, T>&
 {
     if (ARCHON_LIKELY(resl.vert_ppcm == resl.horz_ppcm))
         return out << core::with_reverted_numerics(resl.horz_ppcm); // Throws
@@ -178,7 +194,7 @@ inline auto operator<<(std::basic_ostream<C, T>& out, const display::Resolution&
 }
 
 
-template<class C, class T> inline bool parse_value(core::BasicValueParserSource<C, T>& src, display::Resolution& resl)
+template<class C, class T> bool parse_value(core::BasicValueParserSource<C, T>& src, display::Resolution& resl)
 {
     std::array<double, 2> components = {};
     std::size_t min_elems = 1;

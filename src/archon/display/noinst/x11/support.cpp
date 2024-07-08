@@ -3043,6 +3043,28 @@ bool x11::update_screen_conf(Display* dpy, ::Window root, Atom atom_edid, const 
 #endif // HAVE_XRANDR
 
 
+void x11::set_fullscreen_monitors(Display* dpy, ::Window win, const display::x11_fullscreen_monitors& spec,
+                                  ::Window root, Atom atom_net_wm_fullscreen_monitors)
+{
+    XClientMessageEvent event = {};
+    event.type = ClientMessage;
+    event.window = win;
+    event.message_type = atom_net_wm_fullscreen_monitors;
+    event.format = 32;
+    event.data.l[0] = spec.top;
+    event.data.l[1] = spec.bottom;
+    event.data.l[2] = spec.left;
+    event.data.l[3] = spec.right;
+    event.data.l[4] = 1; // Request is from normal application
+    Bool propagate = False;
+    long event_mask = SubstructureRedirectMask | SubstructureNotifyMask;
+    Status status = XSendEvent(dpy, root, propagate, event_mask, reinterpret_cast<XEvent*>(&event));
+    if (ARCHON_LIKELY(status != 0))
+        return;
+    throw std::runtime_error("XSendEvent() failed");
+}
+
+
 void x11::set_fullscreen_mode(Display* dpy, ::Window win, bool on, ::Window root, Atom atom_net_wm_state,
                               Atom atom_net_wm_state_fullscreen)
 {

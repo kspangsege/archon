@@ -62,6 +62,7 @@
 #include <archon/display/noinst/timestamp_unwrapper.hpp>
 #include <archon/display/noinst/edid.hpp>
 #include <archon/display/guarantees.hpp>
+#include <archon/display/x11_fullscreen_monitors.hpp>
 #include <archon/display/connection_config_x11.hpp>
 #include <archon/display/texture.hpp>
 #include <archon/display/window.hpp>
@@ -275,6 +276,7 @@ public:
 
     Atom atom_wm_protocols;
     Atom atom_wm_delete_window;
+    Atom atom_net_wm_fullscreen_monitors;
     Atom atom_net_wm_state;
     Atom atom_net_wm_state_fullscreen;
 
@@ -288,6 +290,7 @@ public:
     void register_window(::Window id, WindowImpl&);
     void unregister_window(::Window id) noexcept;
     auto ensure_image_bridge(const XVisualInfo&, const x11::PixelFormat&) const -> x11::ImageBridge&;
+    void set_fullscreen_monitors(::Window win, ::Window root);
 
     bool try_map_key_to_key_code(display::Key, display::KeyCode&) const override;
     bool try_map_key_code_to_key(display::KeyCode, display::Key&) const override;
@@ -305,6 +308,7 @@ private:
     const std::optional<int> m_depth_override;
     const std::optional<int> m_class_override;
     const std::optional<VisualID> m_visual_override;
+    const std::optional<display::x11_fullscreen_monitors> m_fullscreen_monitors;
     const bool m_prefer_default_nondecomposed_colormap;
     const bool m_disable_double_buffering;
     const bool m_disable_glx_direct_rendering;
@@ -540,6 +544,7 @@ inline ConnectionImpl::ConnectionImpl(const ImplementationImpl& impl_2, const st
     , m_depth_override(config.visual_depth)
     , m_class_override(x11::map_opt_visual_class(config.visual_class))
     , m_visual_override(map_opt_visual_type(config.visual_type)) // Throws
+    , m_fullscreen_monitors(config.fullscreen_monitors)
     , m_prefer_default_nondecomposed_colormap(config.prefer_default_nondecomposed_colormap)
     , m_disable_double_buffering(config.disable_double_buffering)
     , m_disable_glx_direct_rendering(config.disable_glx_direct_rendering)
@@ -578,10 +583,11 @@ bool ConnectionImpl::try_open(const display::ConnectionConfigX11& config, std::s
 
     m_pixmap_formats = x11::fetch_pixmap_formats(dpy); // Throws
 
-    atom_wm_protocols            = intern_string("WM_PROTOCOLS");
-    atom_wm_delete_window        = intern_string("WM_DELETE_WINDOW");
-    atom_net_wm_state            = intern_string("_NET_WM_STATE");
-    atom_net_wm_state_fullscreen = intern_string("_NET_WM_STATE_FULLSCREEN");
+    atom_wm_protocols               = intern_string("WM_PROTOCOLS");
+    atom_wm_delete_window           = intern_string("WM_DELETE_WINDOW");
+    atom_net_wm_fullscreen_monitors = intern_string("_NET_WM_FULLSCREEN_MONITORS");
+    atom_net_wm_state               = intern_string("_NET_WM_STATE");
+    atom_net_wm_state_fullscreen    = intern_string("_NET_WM_STATE_FULLSCREEN");
 
 #if HAVE_XRANDR
     atom_edid = intern_string(RR_PROPERTY_RANDR_EDID);
@@ -642,6 +648,15 @@ auto ConnectionImpl::ensure_image_bridge(const XVisualInfo& visual_info,
     ARCHON_ASSERT(was_inserted);
     i = p.first;
     return *i->second;
+}
+
+
+void ConnectionImpl::set_fullscreen_monitors(::Window win, ::Window root)
+{
+    if (ARCHON_LIKELY(!m_fullscreen_monitors.has_value()))
+        return;
+    x11::set_fullscreen_monitors(dpy, win, m_fullscreen_monitors.value(), root,
+                                 atom_net_wm_fullscreen_monitors); // Throws
 }
 
 
@@ -1482,6 +1497,7 @@ void WindowImpl::show()
 {
     XMapWindow(conn.dpy, win);
     m_is_mapped = true;
+    conn.set_fullscreen_monitors(win, screen_slot.root); // Throws
     if (m_fullscreen_mode)
         do_set_fullscreen_mode(true); // Throws
 }
