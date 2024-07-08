@@ -117,6 +117,10 @@ public:
     /// More than one window can be in fullscreen mode at the same time, but the exact
     /// behavior depends on the implementation and the underlying platform.
     ///
+    /// \note Switching to or from fullscreen mode is supposed to generate "reposition"
+    /// events, but this does not always happen. See \ref
+    /// display::WindowEventHandler::on_reposition() for more information.
+    ///
     virtual void set_fullscreen_mode(bool on) = 0;
 
     /// \{

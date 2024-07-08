@@ -301,7 +301,33 @@ public:
     /// handler object is the window's associated window handler (see \ref
     /// display::Connection::new_window()).
     ///
-    /// A "reposition" event is generated for a particular window when that window is moved.
+    /// A "reposition" event is generated for a particular window when that window is
+    /// moved. A switch to or from fullscreen mode (\ref
+    /// display::Window::set_fullscreen_mode()) will generally cause the windows position to
+    /// change, and when it does, reposition events will be generated (but see note below).
+    ///
+    /// \note Due to quirks in the behavior of some X11 window managers, "reposition" events
+    /// are not always generated when switching to and from fullscreen mode. Specifically,
+    /// when using the X11-based display implementation (\ref
+    /// display::get_x11_implementation_slot()), and when the window manager is Xfwm4
+    /// (Xfce), "reposition" events are generated when switching to and from fullscreen
+    /// mode. Conversely, when the window manager is Mutter (Gnome) or Muffin (Cinnamon),
+    /// "reposition" events are generally not generated when switching to and from
+    /// fullscreen mode.
+    ///
+    /// FIXME: Look for a way to work around the mentioned problem with "reposition" events
+    /// not always being generated when switching to or from fullscreen mode. When SDL uses
+    /// its X11-based backend, it works around this problem by manually translating relative
+    /// positions in non-synthetic ConfigureNotify events into absolute
+    /// positions. Unfortunately, this scheme is not very reliable. First of all, it only
+    /// works when the client's window changes size or is repositioned relative to its
+    /// parent when it is taken to or from fullscreen mode, but this is not guaranteed to
+    /// happen, so some switches may be missed. Another problem is that the translated
+    /// relative position refers to a time that no longer exists when the event is processed
+    /// by the client, so a manual translation mixes information from two different points
+    /// in time, which can lead to unexpected behavior. A more robust scheme might be to
+    /// track the position of the parent window, i.e., the window created by the window
+    /// manager, but this will only work if the parent of the parent is the root.
     ///
     /// The default implementation of this function does nothing other than return `true`.
     ///

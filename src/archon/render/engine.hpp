@@ -340,6 +340,8 @@ public:
     /// This function switches to or from fullscreen mode for the window of the render
     /// engine. For more on this, see \ref display::Window::set_fullscreen_mode().
     ///
+    /// \sa \ref Config::fullscreen_mode
+    ///
     void set_fullscreen_mode(bool on);
 
     /// \brief Set orientation of virtual trackball.
@@ -468,6 +470,8 @@ struct Engine::Config {
     /// \ref allow_window_resize is `true`, fullscreen mode can be switched on and off
     /// interactively.
     ///
+    /// \sa \ref set_fullscreen_mode()
+    ///
     bool fullscreen_mode = false;
 
     /// \brief Whether frame control is disabled.
@@ -510,6 +514,11 @@ struct Engine::Config {
     /// Resolution tracking mode will also be disabled when the resolution is set explicitly
     /// using \ref set_resolution().
     ///
+    /// \note Due to quirks in the behavior of some X11 window managers, resolution tracking
+    /// might not detect a switch to or from fullscreen mode. See \ref
+    /// display::WindowEventHandler::on_reposition() for more information. See also \ref
+    /// set_fullscreen_mode().
+    ///
     /// \sa \ref resolution, \ref set_resolution()
     /// \sa \ref display::Connection::try_get_screen_conf()
     ///
@@ -534,6 +543,11 @@ struct Engine::Config {
     /// Frame rate tracking mode will also be disabled when the frame rate limit is set
     /// explicitly using \ref set_frame_rate() or by way of interactive frame rate control
     /// (\ref disable_frame_rate_control).
+    ///
+    /// \note Due to quirks in the behavior of some X11 window managers, frame rate tracking
+    /// might not detect a switch to or from fullscreen mode. See \ref
+    /// display::WindowEventHandler::on_reposition() for more information. See also \ref
+    /// set_fullscreen_mode().
     ///
     /// \sa \ref frame_rate, \ref set_frame_rate()
     /// \sa \ref display::Connection::try_get_screen_conf()
