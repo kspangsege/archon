@@ -45,6 +45,7 @@ namespace archon::display {
 /// event handling.
 ///
 /// \sa \ref display::ConnectionEventHandler
+/// \sa \ref display::Connection::process_events()
 ///
 class WindowEventHandler {
 public:
@@ -374,6 +375,7 @@ public:
 /// event handling.
 ///
 /// \sa \ref display::WindowEventHandler
+/// \sa \ref display::Connection::process_events()
 ///
 class ConnectionEventHandler {
 public:

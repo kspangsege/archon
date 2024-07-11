@@ -184,14 +184,14 @@ public:
     /// `process_events(display::ConnectionEventHandler*)` will process events as they occur
     /// until the event processing is interrupted.
     ///
-    /// Event processing is interrupted when any event handler function returns `false`. See
-    /// \ref display::WindowEventHandler.
-    ///
     /// `process_events(time_point_type, display::ConnectionEventHandler*)` will process
     /// events as they occur until the specified deadline expires or event processing is
     /// interrupted. If the deadline expires before event processing is interrupted, this
     /// function returns `true`. Otherwise this function returns `false`, which means that
     /// event processing was interrupted.
+    ///
+    /// Event processing is interrupted when any event handler function returns `false`. See
+    /// \ref display::WindowEventHandler and \ref display::ConectionEventHandler.
     ///
     /// So long as event processing is not interrupted, `process_events(time_point_type,
     /// display::ConnectionEventHandler*)` will process at least those events that were
@@ -200,6 +200,8 @@ public:
     ///
     /// These functions block the calling thread while waiting for events to occur or the
     /// deadline to expire.
+    ///
+    /// \sa \ref display::WindowEventHandler, \ref display::ConectionEventHandler
     ///
     virtual void process_events(display::ConnectionEventHandler* = nullptr) = 0;
     virtual bool process_events(time_point_type deadline, display::ConnectionEventHandler* = nullptr) = 0;
