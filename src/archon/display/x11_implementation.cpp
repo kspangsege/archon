@@ -1223,7 +1223,8 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
         if (ARCHON_UNLIKELY(!proceed))
             return false; // Interrupt
     }
-    XFlush(dpy);
+    m_num_events = XEventsQueued(dpy, QueuedAfterFlush);
+    goto wait;
 
   read:
     m_num_events = XEventsQueued(dpy, QueuedAfterReading); // Non-blocking
