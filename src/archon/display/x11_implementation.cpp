@@ -287,8 +287,8 @@ public:
     ConnectionImpl(const ImplementationImpl&, const std::locale&, log::Logger*, const display::x11_connection_config&);
 
     bool try_open(const display::x11_connection_config&, std::string&);
-    void register_window(::Window id, WindowImpl&);
-    void unregister_window(::Window id) noexcept;
+    void register_window(WindowImpl&);
+    void unregister_window(WindowImpl&) noexcept;
     auto ensure_image_bridge(const XVisualInfo&, const x11::PixelFormat&) const -> x11::ImageBridge&;
     void set_fullscreen_monitors(::Window win, ::Window root);
 
@@ -361,10 +361,12 @@ private:
     //
     // INVARIANT: A window is in `m_exposed_windows` if and only if it is in `m_windows` and
     // has `has_pending_expose_event` set to `true`.
-    core::Deque<::Window> m_exposed_windows;
+    //
+    core::Deque<WindowImpl*> m_exposed_windows;
 
     // X11 timestamps are 32-bit unsigned integers and `Time` refers to the unsigned integer
     // type that X11 uses to store these timestamps.
+    //
     using timestamp_unwrapper_type = impl::TimestampUnwrapper<Time, 32>;
     timestamp_unwrapper_type m_timestamp_unwrapper;
 
@@ -599,8 +601,9 @@ bool ConnectionImpl::try_open(const display::x11_connection_config& config, std:
 }
 
 
-inline void ConnectionImpl::register_window(::Window id, WindowImpl& window)
+inline void ConnectionImpl::register_window(WindowImpl& window)
 {
+    ::Window id = window.win;
     auto i = m_windows.emplace(id, window); // Throws
     bool was_inserted = i.second;
     ARCHON_ASSERT(was_inserted);
@@ -612,19 +615,20 @@ inline void ConnectionImpl::register_window(::Window id, WindowImpl& window)
 }
 
 
-inline void ConnectionImpl::unregister_window(::Window id) noexcept
+inline void ConnectionImpl::unregister_window(WindowImpl& window) noexcept
 {
+    ::Window id = window.win;
     std::size_t n = m_windows.erase(id);
     ARCHON_ASSERT(n == 1);
 
     if (ARCHON_UNLIKELY(m_pointer_grab_window_id == id))
         m_pointer_grab_buttons.clear();
 
-    auto i = std::find(m_exposed_windows.begin(), m_exposed_windows.end(), id);
+    auto i = std::find(m_exposed_windows.begin(), m_exposed_windows.end(), &window);
     if (i != m_exposed_windows.end())
         m_exposed_windows.erase(i);
 
-    if (ARCHON_LIKELY(m_have_curr_window && id == m_curr_window_id))
+    if (ARCHON_LIKELY(m_have_curr_window && m_curr_window_id == id))
         m_curr_window = nullptr;
 }
 
@@ -916,11 +920,11 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
     // - There must be no way for the execution of WindowEventHandler::on_expose() and
     //   ConnectionEventHandler::before_sleep() to be starved indefinitely by event
     //   saturation. This is ensured by fully exhausting one batch of events at a time
-    //   (m_remaining_events_in_batch).
+    //   (m_num_events).
     //
     // - There must be no way for the return from do_process_events() due to expiration of
     //   the deadline to be starved indefinitely by event saturation. This is ensured by
-    //   fully exhausting one batch of events at a time (m_remaining_events_in_batch).
+    //   fully exhausting one batch of events at a time (m_num_events).
     //
 
     display::ConnectionEventHandler& connection_event_handler_2 =
@@ -991,7 +995,7 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
         case Expose:
             if (ARCHON_LIKELY(!lookup_window(ev.xexpose.window, window) || window->has_pending_expose_event))
                 break;
-            m_exposed_windows.push_back(ev.xexpose.window); // Throws
+            m_exposed_windows.push_back(window); // Throws
             window->has_pending_expose_event = true;
             break;
 
@@ -1206,17 +1210,14 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
     for (;;) {
         if (ARCHON_LIKELY(m_exposed_windows.empty()))
             break;
-        ::Window window_id = m_exposed_windows.front();
+        WindowImpl& window = *m_exposed_windows.front();
         m_exposed_windows.pop_front();
-        WindowImpl* window = {};
-        if (ARCHON_LIKELY(lookup_window(window_id, window))) {
-            window->has_pending_expose_event = false;
-            display::WindowEvent event;
-            event.cookie = window->cookie;
-            bool proceed = window->event_handler->on_expose(event); // Throws
-            if (ARCHON_LIKELY(!proceed))
-                return false; // Interrupt
-        }
+        window.has_pending_expose_event = false;
+        display::WindowEvent event;
+        event.cookie = window.cookie;
+        bool proceed = window.event_handler->on_expose(event); // Throws
+        if (ARCHON_LIKELY(!proceed))
+            return false; // Interrupt
     }
     {
         bool proceed = connection_event_handler_2.before_sleep(); // Throws
@@ -1237,7 +1238,7 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
             time_point_type now = clock_type::now();
             if (ARCHON_LIKELY(*deadline > now))
                 goto not_expired;
-            return true; // Deadline expired
+            return true; // Deadline expired                                                                                                                          
           not_expired:
             auto duration = std::chrono::ceil<std::chrono::milliseconds>(*deadline - now).count();
             timeout = core::int_max<int>();
@@ -1369,7 +1370,7 @@ WindowImpl::~WindowImpl() noexcept
         if (ARCHON_LIKELY(m_is_registered)) {
             if (m_gc != None)
                 XFreeGC(conn.dpy, m_gc);
-            conn.unregister_window(win);
+            conn.unregister_window(*this);
         }
         XDestroyWindow(conn.dpy, win);
     }
@@ -1406,7 +1407,7 @@ void WindowImpl::create(display::Size size, const Config& config, bool enable_do
     win = XCreateWindow(conn.dpy, parent, x, y, width, height, border_width, depth, class_, visual,
                         valuemask, &attributes);
 
-    conn.register_window(win, *this); // Throws
+    conn.register_window(*this); // Throws
     m_is_registered = true;
 
     // Tell window manager to assign input focus to this window

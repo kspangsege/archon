@@ -193,7 +193,7 @@ public:
     /// Event processing is interrupted when any event handler function returns `false`. See
     /// \ref display::WindowEventHandler and \ref display::ConectionEventHandler.
     ///
-    /// So long as event processing is not interrupted, `process_events(time_point_type,
+    /// So long as event processing is not interrupted, `process_events(time_point_type,                                 
     /// display::ConnectionEventHandler*)` will process at least those events that were
     /// immediately available prior to the invocation of this function, even when the
     /// specified deadline was already expired prior to the invocation.

@@ -36,11 +36,13 @@
 #include <archon/core/assert.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/buffer.hpp>
+#include <archon/core/deque.hpp>
 #include <archon/core/flat_map.hpp>
 #include <archon/core/literal_hash_map.hpp>
 #include <archon/core/locale.hpp>
 #include <archon/core/unicode_bridge.hpp>
 #include <archon/core/format.hpp>
+#include <archon/log.hpp>                     
 #include <archon/util/color.hpp>
 #include <archon/image.hpp>
 #include <archon/display/impl/config.h>
@@ -170,7 +172,7 @@ public:
 
     void open();
     void register_window(Uint32 id, WindowImpl&);
-    void unregister_window(Uint32 id) noexcept;
+    void unregister_window(Uint32 id, WindowImpl&) noexcept;
 
     bool try_map_key_to_key_code(display::Key, display::KeyCode&) const override;
     bool try_map_key_code_to_key(display::KeyCode, display::Key&) const override;
@@ -193,8 +195,14 @@ private:
 
     // SDL timestamps are 32-bit unsigned integers and `Uint32` refers to the unsigned
     // integer type that SDL uses to store these timestamps.
+    //
     using timestamp_unwrapper_type = impl::TimestampUnwrapper<Uint32, 32>;
     timestamp_unwrapper_type m_timestamp_unwrapper;
+
+    static constexpr std::size_t s_max_events = 128;
+    std::size_t m_num_events = 0;
+    std::size_t m_next_event = 0;
+    core::Buffer<SDL_Event> m_events;
 
     // If `m_curr_window_id` is greater than zero, then `m_curr_window` specifies the window
     // identified by `m_curr_window_id` (valid window IDs are always greater than zero). If
@@ -208,13 +216,23 @@ private:
     // specified by `m_curr_window_id`.
     //
     Uint32 m_curr_window_id = 0;
-    const WindowImpl* m_curr_window = nullptr;
+    WindowImpl* m_curr_window = nullptr;
 
-    bool process_outstanding_events(display::ConnectionEventHandler&);
+    // A queue of windows with pending expose events (push to back and pop from
+    // front). Windows occur at most once in this queue.
+    //
+    // INVARIANT: A window is in `m_exposed_windows` if and only if it is in `m_windows` and
+    // has `has_pending_expose_event` set to `true`.
+    //
+    core::Deque<WindowImpl*> m_exposed_windows;
+
+    bool process_event_batch(display::ConnectionEventHandler&);
+    bool after_event_batch(display::ConnectionEventHandler&);
     void wait_for_events();
     bool wait_for_events(time_point_type deadline);
+    void fetch_event_batch();
 
-    bool lookup_window(Uint32 window_id, const WindowImpl*& window) noexcept;
+    bool lookup_window(Uint32 window_id, WindowImpl*& window) noexcept;
 };
 
 
@@ -225,6 +243,8 @@ public:
     ConnectionImpl& conn;
     const int cookie;
     display::WindowEventHandler* event_handler = this;
+
+    bool has_pending_expose_event = false;
 
     WindowImpl(ConnectionImpl&, int cookie) noexcept;
     ~WindowImpl() noexcept override;
@@ -381,11 +401,16 @@ inline void ConnectionImpl::register_window(Uint32 id, WindowImpl& window)
 }
 
 
-inline void ConnectionImpl::unregister_window(Uint32 id) noexcept
+inline void ConnectionImpl::unregister_window(Uint32 id, WindowImpl& window) noexcept
 {
     ARCHON_ASSERT(id > 0);
     std::size_t n = m_windows.erase(id);
     ARCHON_ASSERT(n == 1);
+
+    auto i = std::find(m_exposed_windows.begin(), m_exposed_windows.end(), &window);
+    if (i != m_exposed_windows.end())
+        m_exposed_windows.erase(i);
+
     if (ARCHON_LIKELY(id == m_curr_window_id))
         m_curr_window = nullptr;
 }
@@ -436,10 +461,16 @@ void ConnectionImpl::process_events(display::ConnectionEventHandler* connection_
 {
     display::ConnectionEventHandler& connection_event_handler_2 =
         (connection_event_handler ? *connection_event_handler : *this);
-  again:
-    if (ARCHON_LIKELY(process_outstanding_events(connection_event_handler_2))) { // Throws
-        wait_for_events(); // Throws
-        goto again;
+
+    for (;;) {
+        if (ARCHON_LIKELY(process_event_batch(connection_event_handler_2))) { // Throws
+            if (ARCHON_LIKELY(after_event_batch(connection_event_handler_2))) { // Throws
+                wait_for_events(); // Throws
+                fetch_event_batch(); // Throws
+                continue;
+            }
+        }
+        return; // Interrupt
     }
 }
 
@@ -449,13 +480,20 @@ bool ConnectionImpl::process_events(time_point_type deadline,
 {
     display::ConnectionEventHandler& connection_event_handler_2 =
         (connection_event_handler ? *connection_event_handler : *this);
-  again:
-    if (ARCHON_LIKELY(process_outstanding_events(connection_event_handler_2))) { // Throws
-        if (ARCHON_LIKELY(wait_for_events(deadline))) // Throws
-            goto again;
-        return true;
+
+    for (;;) {
+        
+        if (ARCHON_LIKELY(process_event_batch(connection_event_handler_2))) { // Throws
+            if (ARCHON_LIKELY(after_event_batch(connection_event_handler_2))) { // Throws
+                if (ARCHON_LIKELY(wait_for_events(deadline))) { // Throws
+                    fetch_event_batch(); // Throws
+                    continue;
+                }
+                return true; // Deadline expired
+            }
+        }
+        return false; // Interrupt
     }
-    return false;
 }
 
 
@@ -483,7 +521,7 @@ bool ConnectionImpl::try_get_screen_conf(int screen, core::Buffer<display::Viewp
     // difficult to work around. For example, changes are only reported when monitors are
     // added or removed, not when individual monitors change, e.g., when its size changes
     // (virtual monitors). See also out-commented handling of SDL_DISPLAYEVENT in
-    // ConnectionImpl::process_outstanding_events().
+    // ConnectionImpl::process_outstanding_events().                                                
 
     return false;
 }
@@ -495,22 +533,21 @@ auto ConnectionImpl::get_implementation() const noexcept -> const display::Imple
 }
 
 
-bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler& connection_event_handler)
+bool ConnectionImpl::process_event_batch(display::ConnectionEventHandler& connection_event_handler)
 {
     SDL_Event event = {};
-    const WindowImpl* window = {};
+    WindowImpl* window = {};
     timestamp_unwrapper_type::Session unwrap_session(m_timestamp_unwrapper);
 
-  next_event_1:
-    {
-        int ret = SDL_PollEvent(&event);
-        if (ARCHON_LIKELY(ret == 1))
-            goto next_event_2;
-        ARCHON_ASSERT(ret == 0);
-    }
-    goto exhausted;
+  process_1:
+    if (ARCHON_LIKELY(m_next_event < m_num_events))
+        goto process_2;
+    return true;
 
-  next_event_2:
+  process_2:
+    ARCHON_ASSERT(m_next_event < m_num_events);
+    event = m_events[m_next_event];
+    m_next_event += 1;
     switch (event.type) {
         case SDL_MOUSEMOTION:
             if (ARCHON_LIKELY(event.motion.state == 0))
@@ -657,12 +694,11 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
                         return false; // Interrupt
                     }
                     case SDL_WINDOWEVENT_EXPOSED: {
-                        display::WindowEvent event_2;
-                        event_2.cookie = window->cookie;
-                        bool proceed = window->event_handler->on_expose(event_2); // Throws
-                        if (ARCHON_LIKELY(proceed))
+                        if (ARCHON_LIKELY(window->has_pending_expose_event))
                             break;
-                        return false; // Interrupt
+                        m_exposed_windows.push_back(window); // Throws
+                        window->has_pending_expose_event = true;
+                        break;
                     }
                     case SDL_WINDOWEVENT_ENTER:
                     case SDL_WINDOWEVENT_LEAVE: {
@@ -746,6 +782,7 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
             break;
         }
 */
+
         case SDL_QUIT: {
             bool proceed = connection_event_handler.on_quit(); // Throws
             if (ARCHON_LIKELY(!proceed))
@@ -753,15 +790,29 @@ bool ConnectionImpl::process_outstanding_events(display::ConnectionEventHandler&
             break;
         }
     }
-    goto next_event_1;
+    goto process_1;
+}
 
-  exhausted:
-    {
-        bool proceed = connection_event_handler.before_sleep(); // Throws
-        if (ARCHON_UNLIKELY(!proceed))
-            return false; // Interrupt
+
+bool ConnectionImpl::after_event_batch(display::ConnectionEventHandler& connection_event_handler)
+{
+    for (;;) {
+        if (ARCHON_LIKELY(m_exposed_windows.empty()))
+            break;
+        WindowImpl& window = *m_exposed_windows.front();
+        m_exposed_windows.pop_front();
+        window.has_pending_expose_event = false;
+        display::WindowEvent event;
+        event.cookie = window.cookie;
+        bool proceed = window.event_handler->on_expose(event); // Throws
+        if (ARCHON_LIKELY(proceed))
+            continue;
+        return false; // Interrupt
     }
-    return true; // Wait for more events to occur
+    bool proceed = connection_event_handler.before_sleep(); // Throws
+    if (ARCHON_LIKELY(proceed))
+        return true;
+    return false; // Interrupt
 }
 
 
@@ -778,25 +829,29 @@ void ConnectionImpl::wait_for_events()
 
 bool ConnectionImpl::wait_for_events(time_point_type deadline)
 {
-    time_point_type now;
-  again:
-    now = clock_type::now();
-    if (ARCHON_LIKELY(deadline > now)) {
+    for (;;) {
         int timeout = core::int_max<int>();
         bool complete = false;
-        auto duration = std::chrono::ceil<std::chrono::milliseconds>(deadline - now).count();
-        if (ARCHON_LIKELY(core::int_less_equal(duration, timeout))) {
-            timeout = int(duration);
+        time_point_type now = clock_type::now();
+        if (ARCHON_LIKELY(now >= deadline)) {
+            timeout = 0;
             complete = true;
+        }
+        else {
+            auto duration = std::chrono::ceil<std::chrono::milliseconds>(deadline - now).count();
+            if (ARCHON_LIKELY(core::int_less_equal(duration, timeout))) {
+                timeout = int(duration);
+                complete = true;
+            }
         }
         // FIXME: There is something broken about the design of
         // SDL_WaitEventTimeout(). According to the documentation, when that function
         // returns zero, it means that an error occurred or the timeout was reached, But,
         // unfortunately, there is no way to tell which of the two happened. The only viable
-        // resolution seems to be to assume that the function can never fail, and that zero
-        // always means that the timeout was reached. Calling SDL_WaitEventTimeout() to see
-        // if an error occurred is not an option, as it will sometimes report errors when
-        // none occurred even if SDL_ClearError() is called before calling
+        // resolution seems to be to assume that the function can never fail, and that
+        // "zero" always means that the timeout was reached. Calling SDL_WaitEventTimeout()
+        // to see if an error occurred is not an option, as it will sometimes report errors
+        // when none occurred even if SDL_ClearError() is called before calling
         // SDL_WaitEventTimeout().
         //
         // See also https://discourse.libsdl.org/t/proposal-for-sdl-3-return-value-improvement-for-sdl-waiteventtimeout/45743
@@ -809,15 +864,94 @@ bool ConnectionImpl::wait_for_events(time_point_type deadline)
         if (ARCHON_LIKELY(complete))
             goto expired;
         goto again;
+        
+    }
+
+
+
+    
+    time_point_type now;
+  again:
+    now = clock_type::now();
+    if (ARCHON_LIKELY(now < deadline)) {
+        int timeout = core::int_max<int>();
+        bool complete = false;
+        auto duration = std::chrono::ceil<std::chrono::milliseconds>(deadline - now).count();
+        if (ARCHON_LIKELY(core::int_less_equal(duration, timeout))) {
+            timeout = int(duration);
+            complete = true;
+        }
+        // FIXME: There is something broken about the design of
+        // SDL_WaitEventTimeout(). According to the documentation, when that function
+        // returns zero, it means that an error occurred or the timeout was reached, But,
+        // unfortunately, there is no way to tell which of the two happened. The only viable
+        // resolution seems to be to assume that the function can never fail, and that
+        // "zero" always means that the timeout was reached. Calling SDL_WaitEventTimeout()
+        // to see if an error occurred is not an option, as it will sometimes report errors
+        // when none occurred even if SDL_ClearError() is called before calling
+        // SDL_WaitEventTimeout().
+        //
+        // See also https://discourse.libsdl.org/t/proposal-for-sdl-3-return-value-improvement-for-sdl-waiteventtimeout/45743
+        //
+        SDL_Event* event = nullptr;
+//        log::trace("t");                                                 
+        int ret = SDL_WaitEventTimeout(event, timeout);
+        if (ARCHON_LIKELY(ret == 1))
+            return true;
+        ARCHON_ASSERT(ret == 0);
+        if (ARCHON_LIKELY(complete))
+            goto expired;
+        goto again;
+    }
+    else {
+//        log::trace("X %s", core::as_time(now - deadline));                                                 
+        int timeout = 0;
+        // FIXME: There is something broken about the design of
+        // SDL_WaitEventTimeout(). According to the documentation, when that function
+        // returns zero, it means that an error occurred or the timeout was reached, But,
+        // unfortunately, there is no way to tell which of the two happened. The only viable
+        // resolution seems to be to assume that the function can never fail, and that
+        // "zero" always means that the timeout was reached. Calling SDL_WaitEventTimeout()
+        // to see if an error occurred is not an option, as it will sometimes report errors
+        // when none occurred even if SDL_ClearError() is called before calling
+        // SDL_WaitEventTimeout().
+        //
+        // See also https://discourse.libsdl.org/t/proposal-for-sdl-3-return-value-improvement-for-sdl-waiteventtimeout/45743
+        //
+        SDL_Event* event = nullptr;
+//        log::trace("t");                                                 
+        int ret = SDL_WaitEventTimeout(event, timeout);
+        if (ARCHON_LIKELY(ret == 1))
+            return true;
+        ARCHON_ASSERT(ret == 0);
+        goto expired;
     }
   expired:
     return false;
 }
 
 
-bool ConnectionImpl::lookup_window(Uint32 window_id, const WindowImpl*& window) noexcept
+void ConnectionImpl::fetch_event_batch()
 {
-    const WindowImpl* window_2 = nullptr;
+    std::size_t i = 0;
+    while (i < s_max_events) {
+        m_events.reserve_extra(1, i, s_max_events); // Throws
+        int ret = SDL_PollEvent(&m_events[i]); // Non-blocking
+        if (ARCHON_LIKELY(ret == 1)) {
+            i += 1;
+            continue;
+        }
+        ARCHON_ASSERT(ret == 0);
+        break;
+    }
+    m_num_events = i;
+    m_next_event = 0;
+}
+
+
+bool ConnectionImpl::lookup_window(Uint32 window_id, WindowImpl*& window) noexcept
+{
+    WindowImpl* window_2 = nullptr;
     if (ARCHON_LIKELY(window_id == m_curr_window_id)) {
         window_2 = m_curr_window;
     }
@@ -848,7 +982,7 @@ WindowImpl::~WindowImpl() noexcept
 {
     if (ARCHON_LIKELY(m_win)) {
         if (m_id > 0)
-            conn.unregister_window(m_id);
+            conn.unregister_window(m_id, *this);
         if (m_renderer)
             SDL_DestroyRenderer(m_renderer);
         if (m_gl_context)
