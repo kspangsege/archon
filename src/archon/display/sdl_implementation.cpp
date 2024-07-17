@@ -533,7 +533,14 @@ auto ConnectionImpl::get_implementation() const noexcept -> const display::Imple
 
 void ConnectionImpl::fetch_event_batch()
 {
-    // FIXME: Explain                                      
+    // Do not load a new batch of events until the previous one is fully processed, which it
+    // is just before the invocation of on_before_sleep() at which point m_num_events is set
+    // to zero. This is part of what effectively puts a bound on the number of events that
+    // will be processed before return from ConnectionImpl::process_events() due to deadline
+    // expiration, and on the number of events that will be processed before a buffered
+    // expose event is signaled to the application, and on the number of events that will
+    // be processed between two invocations of on_before_sleep(). See the starvation
+    // prevention requirements for display::Connection::process_events().
     if (ARCHON_LIKELY(m_num_events == 0)) {
         std::size_t i = 0;
         while (i < s_max_events) {

@@ -1228,7 +1228,14 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
     goto wait;
 
   read:
-    m_num_events = XEventsQueued(dpy, QueuedAfterReading); // Non-blocking
+    {
+        int n = XEventsQueued(dpy, QueuedAfterReading); // Non-blocking
+        // If generation of SDL events happen fast enough to saturate processing, `n` could
+        // grow without bounds over time. A ceiling is put on `n` in order to avoid this,
+        // and to live up to the starvation prevention requirements for the implementation
+        // of display::Connection::process_events().
+        m_num_events = std::min(n, 256);
+    }
 
   wait:
     {
