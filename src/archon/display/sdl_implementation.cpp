@@ -226,11 +226,11 @@ private:
     //
     core::Deque<WindowImpl*> m_exposed_windows;
 
+    void fetch_event_batch();
     bool process_event_batch(display::ConnectionEventHandler&);
     bool after_event_batch(display::ConnectionEventHandler&);
     void wait_for_events();
     bool wait_for_events(time_point_type deadline);
-    void fetch_event_batch();
 
     bool lookup_window(Uint32 window_id, WindowImpl*& window) noexcept;
 };
@@ -463,10 +463,10 @@ void ConnectionImpl::process_events(display::ConnectionEventHandler* connection_
         (connection_event_handler ? *connection_event_handler : *this);
 
     for (;;) {
+        fetch_event_batch(); // Throws
         if (ARCHON_LIKELY(process_event_batch(connection_event_handler_2))) { // Throws
             if (ARCHON_LIKELY(after_event_batch(connection_event_handler_2))) { // Throws
                 wait_for_events(); // Throws
-                fetch_event_batch(); // Throws
                 continue;
             }
         }
@@ -482,13 +482,11 @@ bool ConnectionImpl::process_events(time_point_type deadline,
         (connection_event_handler ? *connection_event_handler : *this);
 
     for (;;) {
-        
+        fetch_event_batch(); // Throws
         if (ARCHON_LIKELY(process_event_batch(connection_event_handler_2))) { // Throws
             if (ARCHON_LIKELY(after_event_batch(connection_event_handler_2))) { // Throws
-                if (ARCHON_LIKELY(wait_for_events(deadline))) { // Throws
-                    fetch_event_batch(); // Throws
+                if (ARCHON_LIKELY(wait_for_events(deadline))) // Throws
                     continue;
-                }
                 return true; // Deadline expired
             }
         }
@@ -530,6 +528,27 @@ bool ConnectionImpl::try_get_screen_conf(int screen, core::Buffer<display::Viewp
 auto ConnectionImpl::get_implementation() const noexcept -> const display::Implementation&
 {
     return impl;
+}
+
+
+void ConnectionImpl::fetch_event_batch()
+{
+    // FIXME: Explain                                      
+    if (ARCHON_LIKELY(m_num_events == 0)) {
+        std::size_t i = 0;
+        while (i < s_max_events) {
+            m_events.reserve_extra(1, i, s_max_events); // Throws
+            int ret = SDL_PollEvent(&m_events[i]); // Non-blocking
+            if (ARCHON_LIKELY(ret == 1)) {
+                i += 1;
+                continue;
+            }
+            ARCHON_ASSERT(ret == 0);
+            break;
+        }
+        m_num_events = i;
+        m_next_event = 0;
+    }
 }
 
 
@@ -796,6 +815,7 @@ bool ConnectionImpl::process_event_batch(display::ConnectionEventHandler& connec
 
 bool ConnectionImpl::after_event_batch(display::ConnectionEventHandler& connection_event_handler)
 {
+    ARCHON_ASSERT(m_next_event == m_num_events);
     for (;;) {
         if (ARCHON_LIKELY(m_exposed_windows.empty()))
             break;
@@ -809,6 +829,11 @@ bool ConnectionImpl::after_event_batch(display::ConnectionEventHandler& connecti
             continue;
         return false; // Interrupt
     }
+
+    // FIXME: Explain                      
+    m_num_events = 0;
+    m_next_event = 0;
+
     bool proceed = connection_event_handler.before_sleep(); // Throws
     if (ARCHON_LIKELY(proceed))
         return true;
@@ -829,6 +854,7 @@ void ConnectionImpl::wait_for_events()
 
 bool ConnectionImpl::wait_for_events(time_point_type deadline)
 {
+/*
     for (;;) {
         int timeout = core::int_max<int>();
         bool complete = false;
@@ -866,10 +892,8 @@ bool ConnectionImpl::wait_for_events(time_point_type deadline)
         goto again;
         
     }
+*/
 
-
-
-    
     time_point_type now;
   again:
     now = clock_type::now();
@@ -903,6 +927,7 @@ bool ConnectionImpl::wait_for_events(time_point_type deadline)
             goto expired;
         goto again;
     }
+/*
     else {
 //        log::trace("X %s", core::as_time(now - deadline));                                                 
         int timeout = 0;
@@ -926,26 +951,9 @@ bool ConnectionImpl::wait_for_events(time_point_type deadline)
         ARCHON_ASSERT(ret == 0);
         goto expired;
     }
+*/
   expired:
     return false;
-}
-
-
-void ConnectionImpl::fetch_event_batch()
-{
-    std::size_t i = 0;
-    while (i < s_max_events) {
-        m_events.reserve_extra(1, i, s_max_events); // Throws
-        int ret = SDL_PollEvent(&m_events[i]); // Non-blocking
-        if (ARCHON_LIKELY(ret == 1)) {
-            i += 1;
-            continue;
-        }
-        ARCHON_ASSERT(ret == 0);
-        break;
-    }
-    m_num_events = i;
-    m_next_event = 0;
 }
 
 
