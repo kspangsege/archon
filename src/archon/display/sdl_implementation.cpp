@@ -42,7 +42,6 @@
 #include <archon/core/locale.hpp>
 #include <archon/core/unicode_bridge.hpp>
 #include <archon/core/format.hpp>
-#include <archon/log.hpp>                     
 #include <archon/util/color.hpp>
 #include <archon/image.hpp>
 #include <archon/display/impl/config.h>
@@ -837,7 +836,7 @@ bool ConnectionImpl::after_event_batch(display::ConnectionEventHandler& connecti
         return false; // Interrupt
     }
 
-    // FIXME: Explain                      
+    // See note at beginning of ConnectionImpl::fetch_event_batch().
     m_num_events = 0;
     m_next_event = 0;
 
@@ -861,106 +860,40 @@ void ConnectionImpl::wait_for_events()
 
 bool ConnectionImpl::wait_for_events(time_point_type deadline)
 {
-/*
     for (;;) {
-        int timeout = core::int_max<int>();
-        bool complete = false;
         time_point_type now = clock_type::now();
-        if (ARCHON_LIKELY(now >= deadline)) {
-            timeout = 0;
-            complete = true;
-        }
-        else {
+        if (ARCHON_LIKELY(now < deadline)) {
+            int timeout = core::int_max<int>();
+            bool complete = false;
             auto duration = std::chrono::ceil<std::chrono::milliseconds>(deadline - now).count();
             if (ARCHON_LIKELY(core::int_less_equal(duration, timeout))) {
                 timeout = int(duration);
                 complete = true;
             }
+            // FIXME: There is something broken about the design of
+            // SDL_WaitEventTimeout(). According to the documentation, when that function
+            // returns zero, it means that an error occurred or the timeout was reached,
+            // But, unfortunately, there is no way to tell which of the two happened. The
+            // only viable resolution seems to be to assume that the function can never
+            // fail, and that "zero" always means that the timeout was reached. Calling
+            // SDL_WaitEventTimeout() to see if an error occurred is not an option, as it
+            // will sometimes report errors when none occurred even if SDL_ClearError() is
+            // called before calling SDL_WaitEventTimeout().
+            //
+            // See also https://discourse.libsdl.org/t/proposal-for-sdl-3-return-value-improvement-for-sdl-waiteventtimeout/45743
+            //
+            SDL_Event* event = nullptr;
+            int ret = SDL_WaitEventTimeout(event, timeout);
+            if (ARCHON_LIKELY(ret == 1))
+                return true; // Events are available
+            ARCHON_ASSERT(ret == 0);
+            if (ARCHON_LIKELY(complete))
+                break;
+            continue;
         }
-        // FIXME: There is something broken about the design of
-        // SDL_WaitEventTimeout(). According to the documentation, when that function
-        // returns zero, it means that an error occurred or the timeout was reached, But,
-        // unfortunately, there is no way to tell which of the two happened. The only viable
-        // resolution seems to be to assume that the function can never fail, and that
-        // "zero" always means that the timeout was reached. Calling SDL_WaitEventTimeout()
-        // to see if an error occurred is not an option, as it will sometimes report errors
-        // when none occurred even if SDL_ClearError() is called before calling
-        // SDL_WaitEventTimeout().
-        //
-        // See also https://discourse.libsdl.org/t/proposal-for-sdl-3-return-value-improvement-for-sdl-waiteventtimeout/45743
-        //
-        SDL_Event* event = nullptr;
-        int ret = SDL_WaitEventTimeout(event, timeout);
-        if (ARCHON_LIKELY(ret == 1))
-            return true;
-        ARCHON_ASSERT(ret == 0);
-        if (ARCHON_LIKELY(complete))
-            goto expired;
-        goto again;
-        
+        break;
     }
-*/
-
-    time_point_type now;
-  again:
-    now = clock_type::now();
-    if (ARCHON_LIKELY(now < deadline)) {
-        int timeout = core::int_max<int>();
-        bool complete = false;
-        auto duration = std::chrono::ceil<std::chrono::milliseconds>(deadline - now).count();
-        if (ARCHON_LIKELY(core::int_less_equal(duration, timeout))) {
-            timeout = int(duration);
-            complete = true;
-        }
-        // FIXME: There is something broken about the design of
-        // SDL_WaitEventTimeout(). According to the documentation, when that function
-        // returns zero, it means that an error occurred or the timeout was reached, But,
-        // unfortunately, there is no way to tell which of the two happened. The only viable
-        // resolution seems to be to assume that the function can never fail, and that
-        // "zero" always means that the timeout was reached. Calling SDL_WaitEventTimeout()
-        // to see if an error occurred is not an option, as it will sometimes report errors
-        // when none occurred even if SDL_ClearError() is called before calling
-        // SDL_WaitEventTimeout().
-        //
-        // See also https://discourse.libsdl.org/t/proposal-for-sdl-3-return-value-improvement-for-sdl-waiteventtimeout/45743
-        //
-        SDL_Event* event = nullptr;
-//        log::trace("t");                                                 
-        int ret = SDL_WaitEventTimeout(event, timeout);
-        if (ARCHON_LIKELY(ret == 1))
-            return true;
-        ARCHON_ASSERT(ret == 0);
-        if (ARCHON_LIKELY(complete))
-            goto expired;
-        goto again;
-    }
-/*
-    else {
-//        log::trace("X %s", core::as_time(now - deadline));                                                 
-        int timeout = 0;
-        // FIXME: There is something broken about the design of
-        // SDL_WaitEventTimeout(). According to the documentation, when that function
-        // returns zero, it means that an error occurred or the timeout was reached, But,
-        // unfortunately, there is no way to tell which of the two happened. The only viable
-        // resolution seems to be to assume that the function can never fail, and that
-        // "zero" always means that the timeout was reached. Calling SDL_WaitEventTimeout()
-        // to see if an error occurred is not an option, as it will sometimes report errors
-        // when none occurred even if SDL_ClearError() is called before calling
-        // SDL_WaitEventTimeout().
-        //
-        // See also https://discourse.libsdl.org/t/proposal-for-sdl-3-return-value-improvement-for-sdl-waiteventtimeout/45743
-        //
-        SDL_Event* event = nullptr;
-//        log::trace("t");                                                 
-        int ret = SDL_WaitEventTimeout(event, timeout);
-        if (ARCHON_LIKELY(ret == 1))
-            return true;
-        ARCHON_ASSERT(ret == 0);
-        goto expired;
-    }
-*/
-  expired:
-    return false;
+    return false; // Deadline expired
 }
 
 
