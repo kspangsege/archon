@@ -179,7 +179,7 @@ public:
     bool try_new_window(std::string_view, display::Size, const display::Window::Config&,
                         std::unique_ptr<display::Window>&, std::string&) override;
     void process_events(display::ConnectionEventHandler*) override;
-    bool process_events(time_point_type, display::ConnectionEventHandler*) override;
+    bool process_events_a(time_point_type, display::ConnectionEventHandler*) override;
     int get_num_screens() const override;
     int get_default_screen() const override;
     bool try_get_screen_conf(int, core::Buffer<display::Viewport>&, core::Buffer<char>&, std::size_t&) const override;
@@ -474,8 +474,8 @@ void ConnectionImpl::process_events(display::ConnectionEventHandler* connection_
 }
 
 
-bool ConnectionImpl::process_events(time_point_type deadline,
-                                    display::ConnectionEventHandler* connection_event_handler)
+bool ConnectionImpl::process_events_a(time_point_type deadline,
+                                      display::ConnectionEventHandler* connection_event_handler)
 {
     display::ConnectionEventHandler& connection_event_handler_2 =
         (connection_event_handler ? *connection_event_handler : *this);
@@ -535,11 +535,11 @@ void ConnectionImpl::fetch_event_batch()
     // Do not load a new batch of events until the previous one is fully processed, which it
     // is just before the invocation of on_before_sleep() at which point m_num_events is set
     // to zero. This is part of what effectively puts a bound on the number of events that
-    // will be processed before return from ConnectionImpl::process_events() due to deadline
-    // expiration, and on the number of events that will be processed before a buffered
-    // expose event is signaled to the application, and on the number of events that will
-    // be processed between two invocations of on_before_sleep(). See the starvation
-    // prevention requirements for display::Connection::process_events().
+    // will be processed before return from ConnectionImpl::process_events_a() due to
+    // deadline expiration, and on the number of events that will be processed before a
+    // buffered expose event is signaled to the application, and on the number of events
+    // that will be processed between two invocations of on_before_sleep(). See the
+    // starvation prevention requirements for display::Connection::process_events_a().
     if (ARCHON_LIKELY(m_num_events == 0)) {
         std::size_t i = 0;
         while (i < s_max_events) {

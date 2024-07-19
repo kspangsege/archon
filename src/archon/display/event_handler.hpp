@@ -38,14 +38,15 @@ namespace archon::display {
 /// passed window event handler.
 ///
 /// The individual event handler functions will be called by the event processor, and more
-/// specifically, by the thread that calls \ref display::Connection::process_events().
+/// specifically, by the thread that calls \ref display::Connection::process_events() or
+/// \ref display::Connection::process_events_a().
 ///
 /// If any of the event handler functions return `false`, event processing will be
-/// interrupted. See \ref display::Connection::process_events() for more on interruption of
-/// event handling.
+/// interrupted. See \ref display::Connection::process_events_a() for more on interruption
+/// of event handling.
 ///
 /// \sa \ref display::ConnectionEventHandler
-/// \sa \ref display::Connection::process_events()
+/// \sa \ref display::Connection::process_events(), \ref display::Connection::process_events_a()
 ///
 class WindowEventHandler {
 public:
@@ -365,17 +366,18 @@ public:
 ///
 /// In order to handle connection-level events, the application must override the relevant
 /// handler functions in a subclass, and then pass an instance of that subclass to \ref
-/// display::Connection::process_events().
+/// display::Connection::process_events() or \ref display::Connection::process_events_a().
 ///
 /// The individual event handler functions will be called by the event processor, and more
-/// specifically, by the thread that calls \ref display::Connection::process_events().
+/// specifically, by the thread that calls \ref display::Connection::process_events() or
+/// \ref display::Connection::process_events_a().
 ///
 /// If any of the event handler functions return `false`, event processing will be
-/// interrupted. See \ref display::Connection::process_events() for more on interruption of
-/// event handling.
+/// interrupted. See \ref display::Connection::process_events_a() for more on interruption
+/// of event handling.
 ///
 /// \sa \ref display::WindowEventHandler
-/// \sa \ref display::Connection::process_events()
+/// \sa \ref display::Connection::process_events(), \ref display::Connection::process_events_a()
 ///
 class ConnectionEventHandler {
 public:

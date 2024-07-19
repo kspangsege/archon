@@ -177,35 +177,31 @@ public:
     using clock_type      = std::chrono::steady_clock;
     using time_point_type = std::chrono::time_point<clock_type>;
 
-    /// \{
+    /// \brief Process event with no deadline.
     ///
-    /// \brief Process events until deadline expires or event processing is interrupted.
+    /// This function has he same effect as \ref process_events_a() except that there is no
+    /// deadline. Return will not happen until an event handler function returns `false`.
     ///
-    /// `process_events(display::ConnectionEventHandler*)` will process events as they occur
-    /// until the event processing is interrupted.
-    ///
-    /// `process_events(time_point_type, display::ConnectionEventHandler*)` will process
-    /// events as they occur until the specified deadline expires or event processing is
-    /// interrupted. If the deadline expires before event processing is interrupted, this
-    /// function returns `true`. Otherwise this function returns `false`, which means that
-    /// event processing was interrupted.
-    ///
-    /// Event processing is interrupted when any event handler function returns `false`. See
-    /// \ref display::WindowEventHandler and \ref display::ConectionEventHandler.
-    ///
-    /// So long as event processing is not interrupted, `process_events(time_point_type,                                 
-    /// display::ConnectionEventHandler*)` will process at least those events that were
-    /// immediately available prior to the invocation of this function, even when the
-    /// specified deadline was already expired prior to the invocation.
-    ///
-    /// These functions block the calling thread while waiting for events to occur or the
-    /// deadline to expire.
-    ///
-    /// \sa \ref display::WindowEventHandler, \ref display::ConectionEventHandler
+    /// \sa \ref process_events_a()
     ///
     virtual void process_events(display::ConnectionEventHandler* = nullptr) = 0;
-    virtual bool process_events(time_point_type deadline, display::ConnectionEventHandler* = nullptr) = 0;
-    /// \}
+
+    /// \brief Process events until deadline expires or event processing is interrupted.
+    ///
+    /// This function processes events as they occur until the specified deadline expires
+    /// (\p deadline) or event processing is interrupted. Event processing is interrupted
+    /// when any event handler function returns `false` (see \ref
+    /// display::WindowEventHandler and \ref display::ConectionEventHandler). The calling
+    /// thread will be blocked while it waits for events to occur. If the deadline expires
+    /// before event processing is interrupted, this function returns `true`. Otherwise this
+    /// function returns `false`, which means that event processing was interrupted.
+    ///
+    ///   
+    ///
+    /// \sa \ref process_events()
+    /// \sa \ref display::WindowEventHandler, \ref display::ConectionEventHandler
+    ///
+    virtual bool process_events_a(time_point_type deadline, display::ConnectionEventHandler* = nullptr) = 0;
 
     /// \brief Number of screens accessible through connection.
     ///

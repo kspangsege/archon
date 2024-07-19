@@ -43,7 +43,8 @@ namespace archon::display {
 /// For window events to be processed, the application must set an event handler for the
 /// window using \ref set_event_handler(). To avoid loosing events, it is important that the
 /// application sets the event handler before the next invocation of \ref
-/// display::Connection::process_events() on the connection associated with the window.
+/// display::Connection::process_events() or \ref display::Connection::process_events_a() on
+/// the connection associated with the window.
 ///
 /// Visually, a window consists of a rectangular area of contents optionally surrounded by
 /// decorations (frame and title bar). The rectangular area of contents inside the
@@ -71,7 +72,8 @@ public:
     ///
     /// It is important that a proper event handler is set before the event processor is
     /// invoked again, that is, before the next invocation of \ref
-    /// display::Connection::process_events(). Otherwise, events are likely to be lost.
+    /// display::Connection::process_events() or \ref
+    /// display::Connection::process_events_a(). Otherwise events might be lost.
     ///
     virtual void set_event_handler(display::WindowEventHandler&) = 0;
 

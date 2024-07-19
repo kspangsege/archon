@@ -702,7 +702,7 @@ inline bool EngineImpl::process_events(Clock::time_point deadline)
     bool proceed = m_key_bindings.resume_incomplete_on_blur_if_any(); // Throws
 
     if (ARCHON_LIKELY(proceed))
-        return m_conn.process_events(deadline, &m_event_handler); // Throws
+        return m_conn.process_events_a(deadline, &m_event_handler); // Throws
 
     return false; // Interrupt (no expiration yet)
 }

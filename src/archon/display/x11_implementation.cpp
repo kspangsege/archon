@@ -298,7 +298,7 @@ public:
     bool try_new_window(std::string_view, display::Size, const display::Window::Config&,
                         std::unique_ptr<display::Window>&, std::string&) override;
     void process_events(display::ConnectionEventHandler*) override;
-    bool process_events(time_point_type, display::ConnectionEventHandler*) override;
+    bool process_events_a(time_point_type, display::ConnectionEventHandler*) override;
     int get_num_screens() const override;
     int get_default_screen() const override;
     bool try_get_screen_conf(int, core::Buffer<display::Viewport>&, core::Buffer<char>&, std::size_t&) const override;
@@ -745,8 +745,8 @@ void ConnectionImpl::process_events(display::ConnectionEventHandler* connection_
 }
 
 
-bool ConnectionImpl::process_events(time_point_type deadline,
-                                    display::ConnectionEventHandler* connection_event_handler)
+bool ConnectionImpl::process_events_a(time_point_type deadline,
+                                      display::ConnectionEventHandler* connection_event_handler)
 {
     return do_process_events(&deadline, connection_event_handler); // Throws
 }
@@ -1233,7 +1233,7 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
         // If generation of SDL events happen fast enough to saturate processing, `n` could
         // grow without bounds over time. A ceiling is put on `n` in order to avoid this,
         // and to live up to the starvation prevention requirements for the implementation
-        // of display::Connection::process_events().
+        // of display::Connection::process_events_a().
         m_num_events = std::min(n, 256);
     }
 
