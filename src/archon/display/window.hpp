@@ -75,6 +75,9 @@ public:
     /// display::Connection::process_events() or \ref
     /// display::Connection::process_events_a(). Otherwise events might be lost.
     ///
+    /// \sa \ref display::Connection::process_events()
+    /// \sa \ref display::ConnectionEventHandler
+    ///
     virtual void set_event_handler(display::WindowEventHandler&) = 0;
 
     /// \{

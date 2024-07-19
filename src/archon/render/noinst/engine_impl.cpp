@@ -80,6 +80,7 @@ EngineImpl::EngineImpl(Scene& scene, display::Connection& conn, const std::local
     , m_base_interest_size(config.interest_size)
     , m_trackball() // Throws
 {
+    m_conn.set_event_handler(m_event_handler); // Throws
 }
 
 
@@ -702,7 +703,7 @@ inline bool EngineImpl::process_events(Clock::time_point deadline)
     bool proceed = m_key_bindings.resume_incomplete_on_blur_if_any(); // Throws
 
     if (ARCHON_LIKELY(proceed))
-        return m_conn.process_events_a(deadline, &m_event_handler); // Throws
+        return m_conn.process_events_a(deadline); // Throws
 
     return false; // Interrupt (no expiration yet)
 }

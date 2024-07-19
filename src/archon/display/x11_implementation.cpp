@@ -271,6 +271,7 @@ public:
     const ImplementationImpl& impl;
     const std::locale locale;
     log::Logger& logger;
+    display::ConnectionEventHandler* event_handler = this;
     x11::DisplayWrapper dpy_owner;
     Display* dpy = nullptr;
 
@@ -297,8 +298,9 @@ public:
     bool try_get_key_name(display::KeyCode, std::string_view&) const override;
     bool try_new_window(std::string_view, display::Size, const display::Window::Config&,
                         std::unique_ptr<display::Window>&, std::string&) override;
-    void process_events(display::ConnectionEventHandler*) override;
-    bool process_events_a(time_point_type, display::ConnectionEventHandler*) override;
+    void set_event_handler(display::ConnectionEventHandler&) override;
+    void process_events() override;
+    bool process_events_a(time_point_type) override;
     int get_num_screens() const override;
     int get_default_screen() const override;
     bool try_get_screen_conf(int, core::Buffer<display::Viewport>&, core::Buffer<char>&, std::size_t&) const override;
@@ -392,7 +394,7 @@ private:
                                const x11::VisualSpec*&, std::string& error) const;
     auto get_pixmap_format(int depth) const -> const XPixmapFormatValues&;
     auto ensure_pixel_format(ScreenSlot&, const XVisualInfo&) const -> const x11::PixelFormat&;
-    bool do_process_events(const time_point_type* deadline, display::ConnectionEventHandler*);
+    bool do_process_events(const time_point_type* deadline);
     bool lookup_window(::Window window_id, WindowImpl*& window) noexcept;
     void track_pointer_grabs(::Window window_id, unsigned button, bool is_press);
     bool is_pointer_grabbed() const noexcept;
@@ -738,17 +740,22 @@ bool ConnectionImpl::try_new_window(std::string_view title, display::Size size, 
 }
 
 
-void ConnectionImpl::process_events(display::ConnectionEventHandler* connection_event_handler)
+void ConnectionImpl::set_event_handler(display::ConnectionEventHandler& handler)
 {
-    const time_point_type* deadline = nullptr;
-    do_process_events(deadline, connection_event_handler); // Throws
+    event_handler = &handler;
 }
 
 
-bool ConnectionImpl::process_events_a(time_point_type deadline,
-                                      display::ConnectionEventHandler* connection_event_handler)
+void ConnectionImpl::process_events()
 {
-    return do_process_events(&deadline, connection_event_handler); // Throws
+    const time_point_type* deadline = nullptr;
+    do_process_events(deadline); // Throws
+}
+
+
+bool ConnectionImpl::process_events_a(time_point_type deadline)
+{
+    return do_process_events(&deadline); // Throws
 }
 
 
@@ -906,10 +913,9 @@ auto ConnectionImpl::ensure_pixel_format(ScreenSlot& screen_slot,
 }
 
 
-bool ConnectionImpl::do_process_events(const time_point_type* deadline,
-                                       display::ConnectionEventHandler* connection_event_handler)
+bool ConnectionImpl::do_process_events(const time_point_type* deadline)
 {
-    // This function takes care to meet the following requirements:
+    // This function takes care to meet the following requirements:                                              
     //
     // - XFlush() must be called before waiting (poll()) whenever there is a chance that
     //   there are unflushed commands.
@@ -926,9 +932,6 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
     //   the deadline to be starved indefinitely by event saturation. This is ensured by
     //   fully exhausting one batch of events at a time (m_num_events).
     //
-
-    display::ConnectionEventHandler& connection_event_handler_2 =
-        (connection_event_handler ? *connection_event_handler : *this);
 
     XEvent ev = {};
     WindowImpl* window = {};
@@ -1200,7 +1203,7 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
                 ARCHON_ASSERT(screen >= 0 && screen < ScreenCount(dpy));
                 ScreenSlot& slot = m_screen_slots[screen];
                 if (update_screen_conf(slot)) // Throws
-                    connection_event_handler_2.on_screen_change(screen); // Throws
+                    event_handler->on_screen_change(screen); // Throws
         }
     }
 #endif // HAVE_XRANDR
@@ -1220,7 +1223,7 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline,
             return false; // Interrupt
     }
     {
-        bool proceed = connection_event_handler_2.before_sleep(); // Throws
+        bool proceed = event_handler->before_sleep(); // Throws
         if (ARCHON_UNLIKELY(!proceed))
             return false; // Interrupt
     }

@@ -174,6 +174,22 @@ public:
     virtual bool try_new_window(std::string_view title, display::Size size, const display::Window::Config& config,
                                 std::unique_ptr<display::Window>& win, std::string& error) = 0;
 
+    /// \brief Set new connection-level event handler.
+    ///
+    /// This function sets a new event handler at the connection level. Connection-level
+    /// events will be reported through the specified event handler.
+    ///
+    /// Det default connection-level event handler behaves as a instance of \ref
+    /// display::ConnectionEventHandler would do with no overridden event handler functions.
+    ///
+    /// The avoid losing events, the application must set the desired event handler before
+    /// calling \ref process_events() or \ref process_events_a().
+    ///
+    /// \sa \ref process_events(), \ref process_events_a()
+    /// \sa \ref display::Window::set_event_handler()
+    ///
+    virtual void set_event_handler(display::ConnectionEventHandler&) = 0;
+
     using clock_type      = std::chrono::steady_clock;
     using time_point_type = std::chrono::time_point<clock_type>;
 
@@ -184,7 +200,7 @@ public:
     ///
     /// \sa \ref process_events_a()
     ///
-    virtual void process_events(display::ConnectionEventHandler* = nullptr) = 0;
+    virtual void process_events() = 0;
 
     /// \brief Process events until deadline expires or event processing is interrupted.
     ///
@@ -198,10 +214,13 @@ public:
     ///
     ///   
     ///
+    /// FIXME: Talk aboud setting of event handlers   
+    ///
     /// \sa \ref process_events()
     /// \sa \ref display::WindowEventHandler, \ref display::ConectionEventHandler
+    /// \sa \ref set_event_handler(), \ref display::Window::set_event_handler()
     ///
-    virtual bool process_events_a(time_point_type deadline, display::ConnectionEventHandler* = nullptr) = 0;
+    virtual bool process_events_a(time_point_type deadline) = 0;
 
     /// \brief Number of screens accessible through connection.
     ///

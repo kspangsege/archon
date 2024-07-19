@@ -118,7 +118,7 @@ public:
 
     void process_events()
     {
-        m_conn.process_events(this); // Throws
+        m_conn.process_events(); // Throws
     }
 
     bool on_keydown(const display::KeyEvent& ev) override
@@ -589,6 +589,7 @@ int main(int argc, char* argv[])
     tex->put_image(*img); // Throws
 
     EventLoop event_loop(*conn, *win, *tex, logger, config);
+    conn->set_event_handler(event_loop); // Throws
     for (int i = 0; i < num_screens; ++i)
         event_loop.dump_screen_conf(i); // Throws
     win->set_event_handler(event_loop); // Throws

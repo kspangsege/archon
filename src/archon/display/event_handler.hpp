@@ -32,10 +32,10 @@ namespace archon::display {
 
 /// \brief Handle window-specific events.
 ///
-/// In order to handle window-specific events, the application must override the relevant
-/// handler functions in a subclass, and then pass an instance of that subclass to \ref
-/// display::Window::set_event_handler(). Thereby, a window becomes associated with the
-/// passed window event handler.
+/// In order to handle window-specific events, the application must instantiate a
+/// window-level event handler that overrides the relevant event handler functions, and then
+/// call \ref display::Window::set_event_handler() to register that event event handler with
+/// a window.
 ///
 /// The individual event handler functions will be called by the event processor, and more
 /// specifically, by the thread that calls \ref display::Connection::process_events() or
@@ -45,6 +45,7 @@ namespace archon::display {
 /// interrupted. See \ref display::Connection::process_events_a() for more on interruption
 /// of event handling.
 ///
+/// \sa \ref display::Window::set_event_handler()
 /// \sa \ref display::ConnectionEventHandler
 /// \sa \ref display::Connection::process_events(), \ref display::Connection::process_events_a()
 ///
@@ -364,18 +365,18 @@ public:
 
 /// \brief Handle connection-level events.
 ///
-/// In order to handle connection-level events, the application must override the relevant
-/// handler functions in a subclass, and then pass an instance of that subclass to \ref
+/// In order to handle connection-level events, the application must instantiate a
+/// connection-level event handler that overrides the relevant event handler functions, and
+/// then call \ref display::Connetion::set_event_handler() to register that event event
+/// handler with the connection. The individual event handler functions will then be called
+/// by the event processor, or more specifically, by the thread that calls \ref
 /// display::Connection::process_events() or \ref display::Connection::process_events_a().
-///
-/// The individual event handler functions will be called by the event processor, and more
-/// specifically, by the thread that calls \ref display::Connection::process_events() or
-/// \ref display::Connection::process_events_a().
 ///
 /// If any of the event handler functions return `false`, event processing will be
 /// interrupted. See \ref display::Connection::process_events_a() for more on interruption
 /// of event handling.
 ///
+/// \sa \ref display::Connection::set_event_handler()
 /// \sa \ref display::WindowEventHandler
 /// \sa \ref display::Connection::process_events(), \ref display::Connection::process_events_a()
 ///

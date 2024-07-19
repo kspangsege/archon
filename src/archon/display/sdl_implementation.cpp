@@ -165,6 +165,7 @@ class ConnectionImpl final
 public:
     const ImplementationImpl& impl;
     const std::locale locale;
+    display::ConnectionEventHandler* event_handler = this;
 
     ConnectionImpl(const ImplementationImpl&, const std::locale&) noexcept;
     ~ConnectionImpl() noexcept override;
@@ -178,8 +179,9 @@ public:
     bool try_get_key_name(display::KeyCode, std::string_view&) const override;
     bool try_new_window(std::string_view, display::Size, const display::Window::Config&,
                         std::unique_ptr<display::Window>&, std::string&) override;
-    void process_events(display::ConnectionEventHandler*) override;
-    bool process_events_a(time_point_type, display::ConnectionEventHandler*) override;
+    void set_event_handler(display::ConnectionEventHandler&) override;
+    void process_events() override;
+    bool process_events_a(time_point_type) override;
     int get_num_screens() const override;
     int get_default_screen() const override;
     bool try_get_screen_conf(int, core::Buffer<display::Viewport>&, core::Buffer<char>&, std::size_t&) const override;
@@ -226,8 +228,8 @@ private:
     core::Deque<WindowImpl*> m_exposed_windows;
 
     void fetch_event_batch();
-    bool process_event_batch(display::ConnectionEventHandler&);
-    bool after_event_batch(display::ConnectionEventHandler&);
+    bool process_event_batch();
+    bool after_event_batch();
     void wait_for_events();
     bool wait_for_events(time_point_type deadline);
 
@@ -456,15 +458,18 @@ bool ConnectionImpl::try_new_window(std::string_view title, display::Size size, 
 }
 
 
-void ConnectionImpl::process_events(display::ConnectionEventHandler* connection_event_handler)
+void ConnectionImpl::set_event_handler(display::ConnectionEventHandler& handler)
 {
-    display::ConnectionEventHandler& connection_event_handler_2 =
-        (connection_event_handler ? *connection_event_handler : *this);
+    event_handler = &handler;
+}
 
+
+void ConnectionImpl::process_events()
+{
     for (;;) {
         fetch_event_batch(); // Throws
-        if (ARCHON_LIKELY(process_event_batch(connection_event_handler_2))) { // Throws
-            if (ARCHON_LIKELY(after_event_batch(connection_event_handler_2))) { // Throws
+        if (ARCHON_LIKELY(process_event_batch())) { // Throws
+            if (ARCHON_LIKELY(after_event_batch())) { // Throws
                 wait_for_events(); // Throws
                 continue;
             }
@@ -474,16 +479,12 @@ void ConnectionImpl::process_events(display::ConnectionEventHandler* connection_
 }
 
 
-bool ConnectionImpl::process_events_a(time_point_type deadline,
-                                      display::ConnectionEventHandler* connection_event_handler)
+bool ConnectionImpl::process_events_a(time_point_type deadline)
 {
-    display::ConnectionEventHandler& connection_event_handler_2 =
-        (connection_event_handler ? *connection_event_handler : *this);
-
     for (;;) {
         fetch_event_batch(); // Throws
-        if (ARCHON_LIKELY(process_event_batch(connection_event_handler_2))) { // Throws
-            if (ARCHON_LIKELY(after_event_batch(connection_event_handler_2))) { // Throws
+        if (ARCHON_LIKELY(process_event_batch())) { // Throws
+            if (ARCHON_LIKELY(after_event_batch())) { // Throws
                 if (ARCHON_LIKELY(wait_for_events(deadline))) // Throws
                     continue;
                 return true; // Deadline expired
@@ -558,7 +559,7 @@ void ConnectionImpl::fetch_event_batch()
 }
 
 
-bool ConnectionImpl::process_event_batch(display::ConnectionEventHandler& connection_event_handler)
+bool ConnectionImpl::process_event_batch()
 {
     SDL_Event event = {};
     WindowImpl* window = {};
@@ -809,7 +810,7 @@ bool ConnectionImpl::process_event_batch(display::ConnectionEventHandler& connec
 */
 
         case SDL_QUIT: {
-            bool proceed = connection_event_handler.on_quit(); // Throws
+            bool proceed = event_handler->on_quit(); // Throws
             if (ARCHON_LIKELY(!proceed))
                 return false; // Interrupt
             break;
@@ -819,7 +820,7 @@ bool ConnectionImpl::process_event_batch(display::ConnectionEventHandler& connec
 }
 
 
-bool ConnectionImpl::after_event_batch(display::ConnectionEventHandler& connection_event_handler)
+bool ConnectionImpl::after_event_batch()
 {
     ARCHON_ASSERT(m_next_event == m_num_events);
     for (;;) {
@@ -840,7 +841,7 @@ bool ConnectionImpl::after_event_batch(display::ConnectionEventHandler& connecti
     m_num_events = 0;
     m_next_event = 0;
 
-    bool proceed = connection_event_handler.before_sleep(); // Throws
+    bool proceed = event_handler->before_sleep(); // Throws
     if (ARCHON_LIKELY(proceed))
         return true;
     return false; // Interrupt
