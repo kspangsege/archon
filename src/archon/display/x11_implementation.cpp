@@ -915,7 +915,7 @@ auto ConnectionImpl::ensure_pixel_format(ScreenSlot& screen_slot,
 
 bool ConnectionImpl::do_process_events(const time_point_type* deadline)
 {
-    // This function takes care to meet the following requirements:                                              
+    // This function takes care to meet the following requirements:
     //
     // - XFlush() must be called before waiting (poll()) whenever there is a chance that
     //   there are unflushed commands.
@@ -937,6 +937,13 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline)
     WindowImpl* window = {};
     timestamp_unwrapper_type::Session unwrap_session(m_timestamp_unwrapper);
     bool expect_keymap_notify;
+
+    auto expose = [&] {
+        if (ARCHON_LIKELY(window->has_pending_expose_event))
+            return;
+        m_exposed_windows.push_back(window); // Throws
+        window->has_pending_expose_event = true;
+    };
 
   process_1:
     if (ARCHON_LIKELY(m_num_events > 0))
@@ -984,6 +991,7 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline)
                     proceed = window->event_handler->on_reposition(event); // Throws
                 }
                 else {
+                    expose(); // Throws
                     display::WindowSizeEvent event;
                     event.cookie = window->cookie;
                     event.size = { ev.xconfigure.width, ev.xconfigure.height };
@@ -996,10 +1004,9 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline)
             break;
 
         case Expose:
-            if (ARCHON_LIKELY(!lookup_window(ev.xexpose.window, window) || window->has_pending_expose_event))
+            if (ARCHON_LIKELY(!lookup_window(ev.xexpose.window, window)))
                 break;
-            m_exposed_windows.push_back(window); // Throws
-            window->has_pending_expose_event = true;
+            expose(); // Throws
             break;
 
         case ButtonPress:

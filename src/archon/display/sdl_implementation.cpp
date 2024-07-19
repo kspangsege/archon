@@ -565,6 +565,13 @@ bool ConnectionImpl::process_event_batch()
     WindowImpl* window = {};
     timestamp_unwrapper_type::Session unwrap_session(m_timestamp_unwrapper);
 
+    auto expose = [&] {
+        if (ARCHON_LIKELY(window->has_pending_expose_event))
+            return;
+        m_exposed_windows.push_back(window); // Throws
+        window->has_pending_expose_event = true;
+    };
+
   process_1:
     if (ARCHON_LIKELY(m_next_event < m_num_events))
         goto process_2;
@@ -700,6 +707,7 @@ bool ConnectionImpl::process_event_batch()
             if (ARCHON_LIKELY(lookup_window(event.window.windowID, window))) {
                 switch (event.window.event) {
                     case SDL_WINDOWEVENT_SIZE_CHANGED: {
+                        expose(); // Throws
                         display::WindowSizeEvent event_2;
                         event_2.cookie = window->cookie;
                         core::int_cast(event.window.data1, event_2.size.width); // Throws
@@ -720,10 +728,7 @@ bool ConnectionImpl::process_event_batch()
                         return false; // Interrupt
                     }
                     case SDL_WINDOWEVENT_EXPOSED: {
-                        if (ARCHON_LIKELY(window->has_pending_expose_event))
-                            break;
-                        m_exposed_windows.push_back(window); // Throws
-                        window->has_pending_expose_event = true;
+                        expose(); // Throws
                         break;
                     }
                     case SDL_WINDOWEVENT_ENTER:
