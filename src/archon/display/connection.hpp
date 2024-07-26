@@ -179,7 +179,7 @@ public:
     /// This function sets a new event handler at the connection level. Connection-level
     /// events will be reported through the specified event handler.
     ///
-    /// Det default connection-level event handler behaves as a instance of \ref
+    /// The default connection-level event handler behaves as a instance of \ref
     /// display::ConnectionEventHandler would do with no overridden event handler functions.
     ///
     /// The avoid losing events, the application must set the desired event handler before
@@ -202,19 +202,55 @@ public:
     ///
     virtual void process_events() = 0;
 
-    /// \brief Process events until deadline expires or event processing is interrupted.
+    /// \brief Process events until deadline expires.
     ///
     /// This function processes events as they occur until the specified deadline expires
-    /// (\p deadline) or event processing is interrupted. Event processing is interrupted
-    /// when any event handler function returns `false` (see \ref
-    /// display::WindowEventHandler and \ref display::ConectionEventHandler). The calling
-    /// thread will be blocked while it waits for events to occur. If the deadline expires
-    /// before event processing is interrupted, this function returns `true`. Otherwise this
-    /// function returns `false`, which means that event processing was interrupted.
+    /// (\p deadline) or until event processing is interrupted by an event handler that
+    /// returns `false` (see \ref display::WindowEventHandler and \ref
+    /// display::ConectionEventHandler). The calling thread will be repeatedly blocked while
+    /// it waits for more events to occur.
     ///
-    ///   
+    /// Events from the underlying implementation can be thought of as being added to a
+    /// queue as they are generated. Event processing then works by taking events from that
+    /// queue one by one and calling the event handler that corresponds to the type of the
+    /// event. Window-specific events are directed to the event handler that is installed
+    /// for the relevant window (see \ref
+    /// display::Window::set_event_handler()). Connection-level events are directed to the
+    /// installed connection-level event handler (see \ref set_event_handler()).
     ///
-    /// FIXME: Talk aboud setting of event handlers   
+    /// This function returns `false` when it is interrupted by an event handler that
+    /// returned `false`. If the deadline expires before an event handler has returned
+    /// `false`, this function returns `true`. Deadline expiration may be detected slightly
+    /// later than the true point of expiration. When an event handler returns `false`, no
+    /// additional event handlers will be called before the return of this function.
+    ///
+    /// If the deadline expires and events were immediately available (in the queue) upon
+    /// entry to `process_events_a()`, then a chunk of events (at least one event but likely
+    /// more) are guaranteed to be processed before return from `process_events_a()`. This
+    /// ensures that event processing cannot become completely starved in a situation where
+    /// `process_events_a()` is called repeatedly with an already or almost expired
+    /// deadline.
+    ///
+    /// In a situation where new events are continuously generated fast enough to fully
+    /// saturate event processing, implementations are required to ensure that return from
+    /// `process_events_a()` due to deadline expiration cannot be indefinitely delayed
+    /// (there must be a bound on the number of events that get processed after expiration).
+    ///
+    ///                             
+    ///
+    /// Expose: Is buffered, also generated on resize, must not be indefinitely delayed
+    /// (bound on number of events that can be processed between an underlying expose event
+    /// and the siganlling of the expose event to the application).         
+    ///
+    /// Expose events (\ref display::WindowEventHandler::on_expose()) are buffered in the
+    /// sense that if many occur at almost the same time, only one event will generally be
+    /// reported to the application. The implementation must ensure that          
+    ///
+    /// Before sleep: Will always be called before sleep. Will also be called regularly in a
+    /// situation where event processing is fully saturated so that no sleeping takes place
+    /// (bound on number of events that can be reported to the application since on
+    /// invocation of on_before_sleep() before on_before_sleep() is called again).         
+    ///
     ///
     /// \sa \ref process_events()
     /// \sa \ref display::WindowEventHandler, \ref display::ConectionEventHandler
