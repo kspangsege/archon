@@ -231,20 +231,23 @@ public:
     /// `process_events_a()` is called repeatedly with an already or almost expired
     /// deadline.
     ///
-    /// In a situation where new events are continuously generated fast enough to fully
-    /// saturate event processing, implementations are required to ensure that return from
-    /// `process_events_a()` due to deadline expiration cannot be indefinitely delayed
-    /// (there must be a bound on the number of events that get processed after expiration).
-    ///
-    ///                             
-    ///
-    /// Expose: Is buffered, also generated on resize, must not be indefinitely delayed
-    /// (bound on number of events that can be processed between an underlying expose event
-    /// and the siganlling of the expose event to the application).         
+    /// In a situation where new events are generated fast enough by the underlying
+    /// implementation to fully saturate event processing, implementations are required to
+    /// ensure that return from `process_events_a()` due to deadline expiration cannot be
+    /// indefinitely delayed (there must be a bound on the number of events that get
+    /// processed after expiration).
     ///
     /// Expose events (\ref display::WindowEventHandler::on_expose()) are buffered in the
-    /// sense that if many occur at almost the same time, only one event will generally be
-    /// reported to the application. The implementation must ensure that          
+    /// sense that if many underlying expose events occur at almost the same time, only one
+    /// expose event will generally be reported to the application. The implementation must
+    /// ensure that the delay in the signalling of expose events caused by this buffering
+    /// mechanism is bounded (bound on number of events that will be processed after the
+    /// occurance of an underlying expose events and before the signalling of it to the
+    /// application).
+    ///
+    /// FIXME: Resize event causes expose event                            
+    ///
+    ///                             
     ///
     /// Before sleep: Will always be called before sleep. Will also be called regularly in a
     /// situation where event processing is fully saturated so that no sleeping takes place
