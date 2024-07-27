@@ -237,22 +237,25 @@ public:
     /// indefinitely delayed (there must be a bound on the number of events that get
     /// processed after expiration).
     ///
-    /// Expose events (\ref display::WindowEventHandler::on_expose()) are buffered in the
-    /// sense that if many underlying expose events occur at almost the same time, only one
-    /// expose event will generally be reported to the application. The implementation must
-    /// ensure that the delay in the signalling of expose events caused by this buffering
+    /// "Expose" events (\ref display::WindowEventHandler::on_expose()) are buffered in the
+    /// sense that if many actual "expose" events occur at almost the same time, only the
+    /// last one will generally be reported to the application. The implementation must
+    /// ensure that the delay in the signaling of "expose" events caused by this buffering
     /// mechanism is bounded (bound on number of events that will be processed after the
-    /// occurance of an underlying expose events and before the signalling of it to the
-    /// application).
-    ///
-    /// FIXME: Resize event causes expose event                            
+    /// occurrence of an actual "expose" events and before the signaling of it to the
+    /// application). The buffering mechanism makes the "expose" event a good signal for
+    /// applications to perform redrawing of the contents of the window. I.e., it generally
+    /// ensures that redrawing is not performed more often than it needs to
+    /// be. Additionally, every "resize" event is guaranteed to be followed by an "expose"
+    /// event with the "expose" event being subject to buffering as explained above. This is
+    /// to further allow applications to use the "expose" event as a signal to redraw.
     ///
     ///                             
     ///
     /// Before sleep: Will always be called before sleep. Will also be called regularly in a
     /// situation where event processing is fully saturated so that no sleeping takes place
     /// (bound on number of events that can be reported to the application since on
-    /// invocation of on_before_sleep() before on_before_sleep() is called again).         
+    /// invocation of before_sleep() before before_sleep() is called again).         
     ///
     ///
     /// \sa \ref process_events()

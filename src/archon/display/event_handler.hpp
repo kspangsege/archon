@@ -391,11 +391,23 @@ public:
     ///
     virtual bool on_screen_change(int screen);
 
-    /// \brief Opportunity to interrupt event processing before sleep.
+    /// \brief Opportunity to do stuff before sleep.
     ///
-    /// This function is called right before the event processor goes to sleep while waiting
-    /// for more events to be generated. This function is intended as an opportunity for the
-    /// application to interrupt event processing by returning `false` when appropriate, but
+    /// This function is called right before the event processor (\ref
+    /// display::Connection::process_events()) goes to sleep while waiting for more events
+    /// to occur. It is also called periodically in situations where no sleeping takes place
+    /// because the event processor is fully saturated by incoming events.
+    ///
+    ///              
+    ///
+    /// This function may be used for redrawing.
+    ///
+    /// FIXME: Redrawing should happen in on_expose(), in before_sleep(), or during interruptions of the event processor.    
+    ///
+    /// FIXME: Implementations are allowed to assume that event handlers other than on_expose() and before_sleep() do very little work and therefore execute very fast.    
+    ///
+    /// This function exists as an opportunity for the application to do such things as redrawing window contents or intrupting is intended as an opportunity for the
+    /// application to interrupt event processing by returning `false` when appropriate, but      
     /// only after processing all the currently queued up events.
     ///
     /// The default implementation of this function does nothing other than return `true`.
