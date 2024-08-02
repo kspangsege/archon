@@ -50,11 +50,12 @@ public:
     using BuiltinKeyHandler = render::Engine::BuiltinKeyHandler;
     using Clock             = render::Engine::Clock;
 
-    EngineImpl(Scene&, display::Connection&, display::Size window_size, const std::locale&, const Config&);
+    EngineImpl(Scene&, display::Connection&, const std::locale&, const Config&);
     bool try_init(std::string_view window_title, display::Size window_size, const Config&, std::string& error);
 
     void run();
 
+    void set_resolution(const display::Resolution& resol);
     void set_frame_rate(double rate);
     void set_background_color(util::Color color);
 
@@ -101,6 +102,7 @@ private:
         bool on_resize(const display::WindowSizeEvent&) override;
         bool on_reposition(const display::WindowPosEvent&) override;
         bool on_close(const display::WindowEvent&) override;
+        bool on_screen_change(int) override;
         bool before_sleep() override;
         bool on_quit() override;
 
@@ -113,10 +115,15 @@ private:
     std::locale m_locale;
     Scene& m_scene;
     display::Connection& m_conn;
+    const int m_screen;
     std::unique_ptr<log::FileLogger> m_fallback_logger;
     log::Logger& m_logger;
     bool m_headlight_feature_enabled;
-    bool m_wireframe_feature_enable;
+    bool m_wireframe_feature_enabled;
+    bool m_resolution_tracking_enabled;
+    bool m_frame_rate_tracking_enabled;
+    display::Resolution m_default_resolution;
+    double m_default_frame_rate;
 
     EventHandler m_event_handler { *this };
     std::unique_ptr<display::Window> m_window;
@@ -124,9 +131,15 @@ private:
     impl::KeyBindings m_key_bindings;
     core::FlatMap<BuiltinKeyHandler, render::KeyHandlerIdent> m_builtin_key_handlers;
 
+    core::Buffer<display::Viewport> m_viewports;
+    core::Buffer<char> m_viewport_strings;
+    std::size_t m_num_viewports = 0;
+
+    display::Resolution m_resolution;
     double m_frame_rate;
     Clock::duration m_time_per_frame;
-    display::Size m_viewport_size;
+    display::Size m_window_size;
+    display::Pos m_window_pos;
     math::Vector4F m_background_color;
     math::Rotation m_base_orientation;
     math::Rotation m_orientation;
@@ -138,6 +151,7 @@ private:
     util::PerspectiveProjection m_perspect_proj;
     render::VirtualTrackball m_trackball;
 
+    bool m_initialized = false;
     bool m_started = false;
     bool m_quit = false;
     bool m_interrupt_before_sleep = false;
@@ -172,14 +186,21 @@ private:
     bool key_func_toggle_headlight(bool down);
     bool key_func_toggle_wireframe(bool down);
 
-    void set_viewport_size(display::Size) noexcept;
-    void init();
     void redraw();
     bool process_events(Clock::time_point deadline);
     void tick(Clock::time_point time_of_tick);
+    void render_frame();
     void update_projection_and_viewport();
     void update_perpect_proj_and_trackball() noexcept;
-    void render_frame();
+
+    void update_window_size(display::Size) noexcept;
+    void update_window_pos(display::Pos) noexcept;
+
+    void fetch_screen_conf();
+    void track_screen_conf();
+
+    void update_resolution(const display::Resolution&);
+    void update_frame_rate(double);
 
     void modify_dist(double diff);
     void modify_zoom(double dist);
@@ -193,6 +214,20 @@ private:
 
 
 // Implementation
+
+
+inline void EngineImpl::set_resolution(const display::Resolution& resol)
+{
+    m_resolution_tracking_enabled = false;
+    update_resolution(resol); // Throws
+}
+
+
+inline void EngineImpl::set_frame_rate(double rate)
+{
+    m_frame_rate_tracking_enabled = false;
+    update_frame_rate(rate); // Throws
+}
 
 
 inline auto EngineImpl::get_logger() noexcept -> log::Logger&

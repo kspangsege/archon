@@ -73,7 +73,7 @@ void Engine::create(Scene& scene, display::Connection& conn, std::string_view wi
 bool Engine::try_create(Scene& scene, display::Connection& conn, std::string_view window_title,
                         display::Size window_size, const std::locale& locale, const Config& config, std::string& error)
 {
-    auto impl = std::make_unique<Impl>(scene, conn, window_size, locale, config); // Throws
+    auto impl = std::make_unique<Impl>(scene, conn, locale, config); // Throws
     if (ARCHON_LIKELY(impl->try_init(window_title, window_size, config, error))) { // Throws
         m_impl = std::move(impl);
         return true;
@@ -85,6 +85,12 @@ bool Engine::try_create(Scene& scene, display::Connection& conn, std::string_vie
 void Engine::run()
 {
     m_impl->run(); // Throws
+}
+
+
+void Engine::set_resolution(const display::Resolution& resol)
+{
+    m_impl->set_resolution(resol); // Throws
 }
 
 

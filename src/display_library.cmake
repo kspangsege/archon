@@ -1,13 +1,13 @@
 # Need X11 for the following reasons:
-# * X11-based display implementation (see archon/display/implementation_x11.cpp)
+# * X11-based display implementation (see archon/display/x11_implementation.cpp)
 find_package(X11)
 
 # Need GLX for the following reasons:
-# * X11-based display implementation (see archon/display/implementation_x11.cpp)
+# * X11-based display implementation (see archon/display/x11_implementation.cpp)
 find_package(OpenGL)
 
 # Need SDL for the following reasons:
-# * SDL-based display implementation (see archon/display/implementation_sdl.cpp)
+# * SDL-based display implementation (see archon/display/sdl_implementation.cpp)
 find_package(SDL2 2.0.22)
 
 set(ARCHON_DISPLAY_HAVE_X11 0)
@@ -52,8 +52,8 @@ add_library(Display
   archon/display/noinst/edid.cpp
   archon/display/connection.cpp
   archon/display/implementation.cpp
-  archon/display/implementation_x11.cpp
-  archon/display/implementation_sdl.cpp
+  archon/display/x11_implementation.cpp
+  archon/display/sdl_implementation.cpp
   archon/display/noinst/palette_map.cpp
   archon/display/noinst/x11/support.cpp
 )
@@ -103,14 +103,15 @@ target_sources(Display PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" 
   archon/display/resolution.hpp
   archon/display/viewport.hpp
   archon/display/guarantees.hpp
-  archon/display/connection_config_x11.hpp
-  archon/display/connection_config_sdl.hpp
+  archon/display/x11_fullscreen_monitors.hpp
+  archon/display/x11_connection_config.hpp
+  archon/display/sdl_connection_config.hpp
   archon/display/texture.hpp
   archon/display/window.hpp
   archon/display/connection.hpp
   archon/display/implementation.hpp
-  archon/display/implementation_x11.hpp
-  archon/display/implementation_sdl.hpp
+  archon/display/x11_implementation.hpp
+  archon/display/sdl_implementation.hpp
   archon/display/as_key_name.hpp
   archon/display.hpp
 )

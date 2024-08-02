@@ -45,6 +45,8 @@
 #include <archon/util/color_space.hpp>
 #include <archon/util/color.hpp>
 #include <archon/display.hpp>
+#include <archon/display/x11_fullscreen_monitors.hpp>
+#include <archon/display/x11_connection_config.hpp>
 
 
 using namespace archon;
@@ -245,8 +247,9 @@ int main(int argc, char* argv[])
     std::optional<std::string> optional_display_implementation;
     std::optional<int> optional_screen;
     std::optional<std::string> optional_x11_display;
+    std::optional<display::x11_fullscreen_monitors> optional_x11_fullscreen_monitors;
     std::optional<int> optional_x11_visual_depth;
-    std::optional<display::ConnectionConfigX11::VisualClass> optional_x11_visual_class;
+    std::optional<display::x11_connection_config::VisualClass> optional_x11_visual_class;
     std::optional<std::uint_fast32_t> optional_x11_visual_type;
     bool x11_prefer_default_nondecomposed_colormap = false;
     bool x11_disable_double_buffering = false;
@@ -289,6 +292,15 @@ int main(int argc, char* argv[])
         "When using the X11-based display implementation, target the specified X11 display (@A). If this option is "
         "not specified, the value of the DISPLAY environment variable will be used.",
         cli::assign(optional_x11_display)); // Throws
+
+    opt("-F, --x11-fullscreen-monitors", "<monitors>", cli::no_attributes, spec,
+        "When using the X11-based display implementation, use the specified Xinerama screens (monitors) to define the "
+        "fullscreen area. \"@A\" can be specified as one, two, or four comma-separated Xinerama screen indexes "
+        "(`xrandr --listactivemonitors`). When four values are specified they will be interpreted as the Xinerama "
+        "screens that determine the top, bottom, left, and right edges of the fullscreen area. When two values are "
+        "specified, the first one determines both top and left edges and the second one determines bottom and right "
+        "edges. When one value is specified, it determines all edges.",
+        cli::assign(optional_x11_fullscreen_monitors)); // Throws
 
     opt("-d, --x11-visual-depth", "<num>", cli::no_attributes, spec,
         "When using the X11-based display implementation, pick a visual of the specified depth (@A).",
@@ -409,6 +421,7 @@ int main(int argc, char* argv[])
     connection_config.x11.visual_depth = optional_x11_visual_depth;
     connection_config.x11.visual_class = optional_x11_visual_class;
     connection_config.x11.visual_type = optional_x11_visual_type;
+    connection_config.x11.fullscreen_monitors = optional_x11_fullscreen_monitors;
     connection_config.x11.prefer_default_nondecomposed_colormap = x11_prefer_default_nondecomposed_colormap;
     connection_config.x11.disable_double_buffering = x11_disable_double_buffering;
     connection_config.x11.disable_glx_direct_rendering = x11_disable_glx_direct_rendering;

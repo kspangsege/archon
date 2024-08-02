@@ -73,130 +73,126 @@ template<class F> void for_each_box_between(const pixel::Box& box_1, const pixel
 
 
 
-ARCHON_TEST(Util_Pixel_Box_ContainedIn)
+ARCHON_TEST(Util_Pixel_Box_Contains)
 {
-    auto test_not_contained_in_fixed = [](check::TestContext& parent_test_context, int fixed_size,
-                                          const pixel::Box& box) {
+    auto test_not_contains_fixed = [](check::TestContext& parent_test_context, int fixed_size, const pixel::Box& box) {
         ARCHON_TEST_TRAIL(parent_test_context, box);
         pixel::Box fixed = pixel::Box({2, 2}, fixed_size);
-        ARCHON_CHECK_NOT(box.contained_in(fixed));
+        ARCHON_CHECK_NOT(fixed.contains(box));
     };
 
     // Extend to the left of the fixed box, fixed box is 0x0
     for_each_box_between({{ 0, 0 }, { 1, 4 }}, {{ 0, 0 }, { 4, 4 }}, 0, [&](const pixel::Box& box) {
-        test_not_contained_in_fixed(test_context, 0, box);
+        test_not_contains_fixed(test_context, 0, box);
     });
 
     // Extend to the right of the fixed box, fixed box is 0x0
     for_each_box_between({{ 0, 0 }, { 4, 4 }}, {{ 3, 0 }, { 1, 4 }}, 0, [&](const pixel::Box& box) {
-        test_not_contained_in_fixed(test_context, 0, box);
+        test_not_contains_fixed(test_context, 0, box);
     });
 
     // Extend above fixed box, fixed box is 0x0
     for_each_box_between({{ 0, 0 }, { 4, 1 }}, {{ 0, 0 }, { 4, 4 }}, 0, [&](const pixel::Box& box) {
-        test_not_contained_in_fixed(test_context, 0, box);
+        test_not_contains_fixed(test_context, 0, box);
     });
 
     // Extend below fixed box, fixed box is 0x0
     for_each_box_between({{ 0, 0 }, { 4, 4 }}, {{ 0, 3 }, { 4, 1 }}, 0, [&](const pixel::Box& box) {
-        test_not_contained_in_fixed(test_context, 0, box);
+        test_not_contains_fixed(test_context, 0, box);
     });
 
     // Extend to the left of the fixed box, fixed box is 3x3
     for_each_box_between({{ 0, 0 }, { 1, 7 }}, {{ 0, 0 }, { 7, 7 }}, 0, [&](const pixel::Box& box) {
-        test_not_contained_in_fixed(test_context, 3, box);
+        test_not_contains_fixed(test_context, 3, box);
     });
 
     // Extend to the right of the fixed box, fixed box is 3x3
     for_each_box_between({{ 0, 0 }, { 7, 7 }}, {{ 6, 0 }, { 1, 7 }}, 0, [&](const pixel::Box& box) {
-        test_not_contained_in_fixed(test_context, 3, box);
+        test_not_contains_fixed(test_context, 3, box);
     });
 
     // Extend above fixed box, fixed box is 3x3
     for_each_box_between({{ 0, 0 }, { 7, 1 }}, {{ 0, 0 }, { 7, 7 }}, 0, [&](const pixel::Box& box) {
-        test_not_contained_in_fixed(test_context, 3, box);
+        test_not_contains_fixed(test_context, 3, box);
     });
 
     // Extend below fixed box, fixed box is 3x3
     for_each_box_between({{ 0, 0 }, { 7, 7 }}, {{ 0, 6 }, { 7, 1 }}, 0, [&](const pixel::Box& box) {
-        test_not_contained_in_fixed(test_context, 3, box);
+        test_not_contains_fixed(test_context, 3, box);
     });
 
-    auto test_contained_in_fixed = [](check::TestContext& parent_test_context, int fixed_size,
-                                      const pixel::Box& box) {
+    auto test_contains_fixed = [](check::TestContext& parent_test_context, int fixed_size, const pixel::Box& box) {
         ARCHON_TEST_TRAIL(parent_test_context, box);
         pixel::Box fixed = pixel::Box({2, 2}, fixed_size);
-        ARCHON_CHECK(box.contained_in(fixed));
+        ARCHON_CHECK(fixed.contains(box));
     };
 
     for_each_box_in(pixel::Box({ 2, 2 }, 0), [&](const pixel::Box& box) {
-        test_contained_in_fixed(test_context, 0, box);
+        test_contains_fixed(test_context, 0, box);
     });
 
     for_each_box_in(pixel::Box({ 2, 2 }, 3), [&](const pixel::Box& box) {
-        test_contained_in_fixed(test_context, 3, box);
+        test_contains_fixed(test_context, 3, box);
     });
 
-    auto test_not_fixed_contained_in = [](check::TestContext& parent_test_context, int fixed_size,
-                                          const pixel::Box& box) {
+    auto test_not_fixed_contains = [](check::TestContext& parent_test_context, int fixed_size, const pixel::Box& box) {
         ARCHON_TEST_TRAIL(parent_test_context, box);
         pixel::Box fixed = pixel::Box({ 2, 2 }, fixed_size);
-        ARCHON_CHECK_NOT(fixed.contained_in(box));
+        ARCHON_CHECK_NOT(box.contains(fixed));
     };
 
     // Everything to the left of fixed box with gap, fixed box is 0x0
     for_each_box_in({{ 0, 0 }, { 1, 4 }}, [&](const pixel::Box& box) {
-        test_not_fixed_contained_in(test_context, 0, box);
+        test_not_fixed_contains(test_context, 0, box);
     });
 
     // Everything to the right of fixed box with gap, fixed box is 0x0
     for_each_box_in({{ 3, 0 }, { 1, 4 }}, [&](const pixel::Box& box) {
-        test_not_fixed_contained_in(test_context, 0, box);
+        test_not_fixed_contains(test_context, 0, box);
     });
 
     // Everything above fixed box with gap, fixed box is 0x0
     for_each_box_in({{ 0, 0 }, { 4, 1 }}, [&](const pixel::Box& box) {
-        test_not_fixed_contained_in(test_context, 0, box);
+        test_not_fixed_contains(test_context, 0, box);
     });
 
     // Everything below fixed box with gap, fixed box is 0x0
     for_each_box_in({{ 0, 3 }, { 4, 1 }}, [&](const pixel::Box& box) {
-        test_not_fixed_contained_in(test_context, 0, box);
+        test_not_fixed_contains(test_context, 0, box);
     });
 
     // Everything to the left of rightmost pixel of fixed box, fixed box is 3x3
     for_each_box_in({{ 0, 0 }, { 4, 7 }}, [&](const pixel::Box& box) {
-        test_not_fixed_contained_in(test_context, 3, box);
+        test_not_fixed_contains(test_context, 3, box);
     });
 
     // Everything to the right of leftmost pixel of fixed box, fixed box is 3x3
     for_each_box_in({{ 3, 0 }, { 4, 7 }}, [&](const pixel::Box& box) {
-        test_not_fixed_contained_in(test_context, 3, box);
+        test_not_fixed_contains(test_context, 3, box);
     });
 
     // Everything above bottom-most pixel of fixed box, fixed box is 3x3
     for_each_box_in({{ 0, 0 }, { 7, 4 }}, [&](const pixel::Box& box) {
-        test_not_fixed_contained_in(test_context, 3, box);
+        test_not_fixed_contains(test_context, 3, box);
     });
 
     // Everything below top-most pixel of fixed box, fixed box is 3x3
     for_each_box_in({{ 0, 3 }, { 7, 4 }}, [&](const pixel::Box& box) {
-        test_not_fixed_contained_in(test_context, 3, box);
+        test_not_fixed_contains(test_context, 3, box);
     });
 
-    auto test_fixed_contained_in = [](check::TestContext& parent_test_context, int fixed_size,
-                                      const pixel::Box& box) {
+    auto test_fixed_contains = [](check::TestContext& parent_test_context, int fixed_size, const pixel::Box& box) {
         ARCHON_TEST_TRAIL(parent_test_context, box);
         pixel::Box fixed = pixel::Box({ 2, 2 }, fixed_size);
-        ARCHON_CHECK(fixed.contained_in(box));
+        ARCHON_CHECK(box.contains(fixed));
     };
 
     for_each_box_between({{ 0, 0 }, { 2, 2 }}, {{ 2, 2 }, { 2, 2 }}, 0, [&](const pixel::Box& box) {
-        test_fixed_contained_in(test_context, 0, box);
+        test_fixed_contains(test_context, 0, box);
     });
 
     for_each_box_between({{ 0, 0 }, { 2, 2 }}, {{ 5, 5 }, { 2, 2 }}, 0, [&](const pixel::Box& box) {
-        test_fixed_contained_in(test_context, 3, box);
+        test_fixed_contains(test_context, 3, box);
     });
 }
 
@@ -242,8 +238,8 @@ ARCHON_TEST(Util_Pixel_Box_Clip)
                                     const pixel::Box& expect) {
         ARCHON_TEST_TRAIL(parent_test_context, core::formatted("%s/%s", box, expect));
         pixel::Box fixed = pixel::Box({2, 2}, fixed_size);
-        ARCHON_ASSERT(expect.contained_in(fixed));
-        ARCHON_ASSERT(expect.contained_in(box));
+        ARCHON_ASSERT(fixed.contains(expect));
+        ARCHON_ASSERT(box.contains(expect));
         pixel::Box box_2 = box;
         if (ARCHON_LIKELY(ARCHON_CHECK(fixed.clip(box_2))))
             ARCHON_CHECK_EQUAL(box_2, expect);

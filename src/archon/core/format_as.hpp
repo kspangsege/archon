@@ -127,7 +127,7 @@ template<class T> auto as_percent(T val, int num_decimals = 0);
 
 
 
-/// \brief Format an amount of time (alternate version).
+/// \brief Format an amount of time.
 ///
 /// This function is a shortcut for `core::as_time_a(value)` where `value` is
 /// `std::chrono::duration<double>(duration).count())`.
@@ -138,7 +138,7 @@ template<class R, class P> auto as_time(std::chrono::duration<R, P> duration);
 
 
 
-/// \brief Format an amount of time.
+/// \brief Format an amount of time (alternate version).
 ///
 /// Construct an object that, if written to an output stream, formats an amount of time
 /// using various forms depending on magnitude. The time is specified as a number of

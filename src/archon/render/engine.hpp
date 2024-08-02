@@ -80,7 +80,7 @@ namespace archon::render {
 ///
 /// Note that in this example, the engine is first created in a degenerate state, and then
 /// created properly once the the scene has been created. This allows for the engine object
-/// to be passed to the scene, which can be usefule for some scene implementations.
+/// to be passed to the scene, which can be useful for some scene implementations.
 ///
 /// Engine objects are not thread safe, meaning that if one thread is executing a member
 /// function of an engine at a particular point in time, then no other thread is allowed to
@@ -164,11 +164,27 @@ public:
     ///
     void run();
 
+    /// \brief Set physical screen resolution.
+    ///
+    /// This function sets the physical screen resolution (pixels per centimeter). If
+    /// resolution tracking mode was enabled, it will be disabled when this function is
+    /// called (see \ref Config::disable_resolution_tracking). The default resolution is
+    /// specified through \ref Config::resolution.
+    ///
+    /// \sa \ref Config::resolution, \ref Config::disable_resolution_tracking
+    ///
+    void set_resolution(const display::Resolution& resol);
+
     /// \brief Set target frame rate.
     ///
-    /// This function sets the target frame rate. This will be the effective frame rate if
+    /// This function sets the frame rate limit. This will be the effective frame rate if
     /// the rendering of each frame is fast enough. If the rendering is not fast enough, the
-    /// effective frame rate will be lower than what is specified.
+    /// effective frame rate will be lower than the specified limit. If frame rate tracking
+    /// mode was enabled, it will be disabled when this function is called (see \ref
+    /// Config::disable_frame_rate_tracking). The default frame rate limit is specified
+    /// through \ref Config::frame_rate.
+    ///
+    /// \sa \ref Config::frame_rate, \ref Config::disable_frame_rate_tracking
     ///
     void set_frame_rate(double rate);
 
@@ -324,6 +340,8 @@ public:
     /// This function switches to or from fullscreen mode for the window of the render
     /// engine. For more on this, see \ref display::Window::set_fullscreen_mode().
     ///
+    /// \sa \ref Config::fullscreen_mode
+    ///
     void set_fullscreen_mode(bool on);
 
     /// \brief Set orientation of virtual trackball.
@@ -421,7 +439,7 @@ struct Engine::Config {
     /// \brief Screen on which window must appear.
     ///
     /// If specified, that is, if the specified value is non-negative, this is the index of
-    /// the screen on which the window of the rennder engine must appear. See \ref
+    /// the screen on which the window of the render engine must appear. See \ref
     /// display::Window::Config::screen. When a screen is not specified, i.e., when the
     /// specified value is negative, the window will be opened on the default screen.
     ///
@@ -452,6 +470,8 @@ struct Engine::Config {
     /// \ref allow_window_resize is `true`, fullscreen mode can be switched on and off
     /// interactively.
     ///
+    /// \sa \ref set_fullscreen_mode()
+    ///
     bool fullscreen_mode = false;
 
     /// \brief Whether frame control is disabled.
@@ -476,12 +496,91 @@ struct Engine::Config {
     ///
     bool disable_wireframe_feature = false;
 
-    /// \brief The initial frame rate.
+    /// \brief Resolution tracking mode.
     ///
-    /// This is the initial frame rate of the engine. The frame rate marks the upper limit
-    /// of frames per second.
+    /// If set to `true`, resolution tracking mode will be disabled. By default, it is
+    /// enabled initially. When resolution tracking mode is enabled, and when the screen
+    /// configuration is available to the render engine (\re
+    /// display::Connection::try_get_screen_conf()), the physical resolution (pixels per
+    /// centimeter) will be set to match the resolution of the screen. Moreover, as the
+    /// screen configuration changes, the resolution will be adjusted accordingly.
     ///
-    /// The default frame rate is 60.
+    /// The resolution will be set to match the that of the first viewport (monitor) that
+    /// intersects with the window of the render engine, or, if there is no such viewport,
+    /// or if that viewport does not specify a resolution, the resolution will be set to the
+    /// default resolution as specified by \ref resolution. The viewports are considered in
+    /// the order that they are listed by \ref display::Connection::try_get_screen_conf().
+    ///
+    /// Resolution tracking mode will also be disabled when the resolution is set explicitly
+    /// using \ref set_resolution().
+    ///
+    /// \note Due to quirks in the behavior of some X11 window managers, resolution tracking
+    /// might not detect a switch to or from fullscreen mode. See \ref
+    /// display::WindowEventHandler::on_reposition() for more information. See also \ref
+    /// set_fullscreen_mode().
+    ///
+    /// \sa \ref resolution, \ref set_resolution()
+    /// \sa \ref display::Connection::try_get_screen_conf()
+    ///
+    bool disable_resolution_tracking = false;
+
+    /// \brief Frame rate tracking mode.
+    ///
+    /// If set to `true`, frame rate tracking mode will be disabled. By default, it is
+    /// enabled initially. When frame rate tracking mode is enabled, and when the screen
+    /// configuration is available to the render engine (\re
+    /// display::Connection::try_get_screen_conf()), the frame rate will be set to match the
+    /// refresh rate of the screen. Moreover, as the screen configuration changes, the frame
+    /// rate will be adjusted accordingly.
+    ///
+    /// The frame rate will be set to match the refresh rate of the first viewport (monitor)
+    /// that intersects with the window of the render engine, or, if there is no such
+    /// viewport, or if that viewport does not specify a refresh rate, the frame rate will
+    /// be set to the default frame rate as specified by \ref frame_rate. The viewports are
+    /// considered in the order that they are listed by \ref
+    /// display::Connection::try_get_screen_conf().
+    ///
+    /// Frame rate tracking mode will also be disabled when the frame rate limit is set
+    /// explicitly using \ref set_frame_rate() or by way of interactive frame rate control
+    /// (\ref disable_frame_rate_control).
+    ///
+    /// \note Due to quirks in the behavior of some X11 window managers, frame rate tracking
+    /// might not detect a switch to or from fullscreen mode. See \ref
+    /// display::WindowEventHandler::on_reposition() for more information. See also \ref
+    /// set_fullscreen_mode().
+    ///
+    /// \sa \ref frame_rate, \ref set_frame_rate()
+    /// \sa \ref display::Connection::try_get_screen_conf()
+    ///
+    bool disable_frame_rate_tracking = false;
+
+    /// \brief Initial physical resolution.
+    ///
+    /// This is the physical screen resolution (pixels per centimeter) that is assumed by
+    /// the render engine initially. The default resolution is 96 pixels per inch converted
+    /// to pixels per centimeter. The resolution can be changed later using \ref
+    /// set_resolution().
+    ///
+    /// If resolution tracking mode is enabled (\ref disable_resolution_tracking), the
+    /// resolution specified here acts as the fallback resolution for when none is provided
+    /// through the screen configuration.
+    ///
+    /// \sa \ref disable_resolution_tracking, \ref set_resolution()
+    ///
+    display::Resolution resolution = 96 / 2.54;
+
+    /// \brief Initial frame rate limit.
+    ///
+    /// This is the initial frame rate limit of the render engine. The frame rate limit
+    /// marks the upper limit on the number of frames per second. The default frame rate
+    /// limit is 60 frames per second. The frame rate can be changed later using \ref
+    /// set_frame_rate().
+    ///
+    /// If frame rate tracking mode is enabled (\ref disable_frame_rate_tracking), the frame
+    /// rate limit specified here acts as the fallback frame rate limit for when no refresh
+    /// rate is provided through the screen configuration.
+    ///
+    /// \sa \ref disable_frame_rate_tracking
     ///
     double frame_rate = 60;
 

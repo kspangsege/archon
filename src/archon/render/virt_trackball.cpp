@@ -49,6 +49,23 @@ VirtualTrackball::VirtualTrackball()
 }
 
 
+void VirtualTrackball::set_viewport_size(util::pixel::Size size) noexcept
+{
+    m_half_viewport_size = {
+        double(size.width) / 2.0,
+        double(size.height) / 2.0,
+    };
+    update_radii();
+}
+
+
+void VirtualTrackball::set_pixel_aspect_ratio(double ratio) noexcept
+{
+    m_pixel_aspect_ratio = ratio;
+    update_radii();
+}
+
+
 void VirtualTrackball::track(util::pixel::Pos pos, TrackTime track_time) noexcept
 {
     if (!m_acquired)
@@ -119,22 +136,24 @@ void VirtualTrackball::release(Clock::time_point now) noexcept
 
 void VirtualTrackball::dump_info(std::ostream& out) const
 {
-    std::ostringstream out_2;
-    out_2 << "----------------------------------------------\n";
-    out_2 << "Current viewport: size = " << (2.0 * m_half_viewport_size) << ", radius = " << m_radius << "\n";
-    out_2 << "Is acquired: " << (m_acquired ? "YES" : "NO") << "\n";
-    out_2 << "Current base orientation: " << m_base_orientation << "\n";
-    out_2 << "Current total orientation: " << get_orientation(Clock::now()) << "\n";
+    std::ostringstream out_2; // Throws
+    out_2 << "----------------------------------------------\n"; // Throws
+    out_2 << "Half viewport size:        " << m_half_viewport_size << "\n"; // Throws
+    out_2 << "Pixel aspect ratio:        " << m_pixel_aspect_ratio << "\n"; // Throws
+    out_2 << "Radius:                    " << math::Vector2(m_horz_radius, m_vert_radius) << "\n"; // Throws
+    out_2 << "Is acquired:               " << (m_acquired ? "YES" : "NO") << "\n"; // Throws
+    out_2 << "Current base orientation:  " << m_base_orientation << "\n"; // Throws
+    out_2 << "Current total orientation: " << get_orientation(Clock::now()) << "\n"; // Throws
     if (m_acquired) {
-        out_2 << "First track time:       " << m_first_track_time.count() << "ms\n";
-        out_2 << "First track point:      " << m_first_track_point << "\n";
-        out_2 << "Current track millis:   " << m_track_millis << "ms\n";
-        out_2 << "Current track position: " << m_track_pos << "\n";
-        m_curve_mem.dump_info(out_2);
+        out_2 << "First track time:          " << m_first_track_time.count() << "ms\n"; // Throws
+        out_2 << "First track point:         " << m_first_track_point << "\n"; // Throws
+        out_2 << "Current track millis:      " << m_track_millis << "ms\n"; // Throws
+        out_2 << "Current track position:    " << m_track_pos << "\n"; // Throws
+        m_curve_mem.dump_info(out_2); // Throws
     }
     else {
-        out_2 << "Current angular momentum: " << m_spin << "\n";
+        out_2 << "Current angular momentum:  " << m_spin << "\n"; // Throws
     }
-    out_2 << "----------------------------------------------\n";
-    out << out_2.str() << std::flush;
+    out_2 << "----------------------------------------------\n"; // Throws
+    out << out_2.str() << std::flush; // Throws
 }

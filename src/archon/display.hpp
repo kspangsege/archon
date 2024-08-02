@@ -30,6 +30,8 @@
 #include <archon/display/mouse_button.hpp>
 #include <archon/display/event.hpp>
 #include <archon/display/event_handler.hpp>
+#include <archon/display/resolution.hpp>
+#include <archon/display/viewport.hpp>
 #include <archon/display/guarantees.hpp>
 #include <archon/display/texture.hpp>
 #include <archon/display/window.hpp>

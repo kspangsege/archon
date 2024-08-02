@@ -51,7 +51,8 @@
 #include <archon/util/as_css_color.hpp>
 #include <archon/image.hpp>
 #include <archon/display.hpp>
-#include <archon/display/connection_config_x11.hpp>
+#include <archon/display/x11_fullscreen_monitors.hpp>
+#include <archon/display/x11_connection_config.hpp>
 
 
 using namespace archon;
@@ -84,14 +85,13 @@ public:
     void dump_screen_conf(int screen)
     {
         std::size_t num_viewports = {};
-        bool reliable = {};
-        if (m_conn.try_get_screen_conf(screen, m_viewports, m_strings, num_viewports, reliable)) {
+        if (m_conn.try_get_screen_conf(screen, m_viewports, m_strings, num_viewports)) {
             std::array<char, 512> seed_memory;
             core::SeedMemoryOutputStream out(seed_memory); // Throws
             out.exceptions(std::ios_base::badbit | std::ios_base::failbit); // Throws
             out.imbue(out.getloc()); // Throws
-            out << core::formatted("Screen configuration changed (screen=%s, num_viewports=%s, reliable=%s)",
-                                   screen, num_viewports, reliable); // Throws
+            out << core::formatted("Screen configuration changed (screen=%s, num_viewports=%s)",
+                                   screen, num_viewports); // Throws
             if (num_viewports > 0)
                 out << ":"; // Throws
             for (std::size_t i = 0; i < num_viewports; ++i) {
@@ -118,7 +118,7 @@ public:
 
     void process_events()
     {
-        m_conn.process_events(this); // Throws
+        m_conn.process_events(); // Throws
     }
 
     bool on_keydown(const display::KeyEvent& ev) override
@@ -281,15 +281,16 @@ int main(int argc, char* argv[])
     namespace fs = std::filesystem;
     std::optional<fs::path> optional_path;
     bool list_display_implementations = false;
+    Config config;
     display::Size window_size = 256;
     std::optional<display::Size> optional_texture_size;
-    Config config;
     log::LogLevel log_level_limit = log::LogLevel::info;
     std::optional<std::string> optional_display_implementation;
     std::optional<int> optional_screen;
     std::optional<std::string> optional_x11_display;
+    std::optional<display::x11_fullscreen_monitors> optional_x11_fullscreen_monitors;
     std::optional<int> optional_x11_visual_depth;
-    std::optional<display::ConnectionConfigX11::VisualClass> optional_x11_visual_class;
+    std::optional<display::x11_connection_config::VisualClass> optional_x11_visual_class;
     std::optional<std::uint_fast32_t> optional_x11_visual_type;
     bool x11_prefer_default_nondecomposed_colormap = false;
     bool x11_disable_double_buffering = false;
@@ -361,6 +362,15 @@ int main(int argc, char* argv[])
         "When using the X11-based display implementation, target the specified X11 display (@A). If this option is "
         "not specified, the value of the DISPLAY environment variable will be used.",
         cli::assign(optional_x11_display)); // Throws
+
+    opt("-F, --x11-fullscreen-monitors", "<monitors>", cli::no_attributes, spec,
+        "When using the X11-based display implementation, use the specified Xinerama screens (monitors) to define the "
+        "fullscreen area. \"@A\" can be specified as one, two, or four comma-separated Xinerama screen indexes "
+        "(`xrandr --listactivemonitors`). When four values are specified they will be interpreted as the Xinerama "
+        "screens that determine the top, bottom, left, and right edges of the fullscreen area. When two values are "
+        "specified, the first one determines both top and left edges and the second one determines bottom and right "
+        "edges. When one value is specified, it determines all edges.",
+        cli::assign(optional_x11_fullscreen_monitors)); // Throws
 
     opt("-d, --x11-visual-depth", "<num>", cli::no_attributes, spec,
         "When using the X11-based display implementation, pick a visual of the specified depth (@A).",
@@ -524,6 +534,7 @@ int main(int argc, char* argv[])
     connection_config.x11.visual_depth = optional_x11_visual_depth;
     connection_config.x11.visual_class = optional_x11_visual_class;
     connection_config.x11.visual_type = optional_x11_visual_type;
+    connection_config.x11.fullscreen_monitors = optional_x11_fullscreen_monitors;
     connection_config.x11.prefer_default_nondecomposed_colormap = x11_prefer_default_nondecomposed_colormap;
     connection_config.x11.disable_double_buffering = x11_disable_double_buffering;
     connection_config.x11.disable_glx_direct_rendering = x11_disable_glx_direct_rendering;
@@ -578,6 +589,7 @@ int main(int argc, char* argv[])
     tex->put_image(*img); // Throws
 
     EventLoop event_loop(*conn, *win, *tex, logger, config);
+    conn->set_event_handler(event_loop); // Throws
     for (int i = 0; i < num_screens; ++i)
         event_loop.dump_screen_conf(i); // Throws
     win->set_event_handler(event_loop); // Throws

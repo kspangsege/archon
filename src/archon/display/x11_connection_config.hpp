@@ -18,8 +18,8 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-#ifndef ARCHON_X_DISPLAY_X_CONNECTION_CONFIG_X11_HPP
-#define ARCHON_X_DISPLAY_X_CONNECTION_CONFIG_X11_HPP
+#ifndef ARCHON_X_DISPLAY_X_X11_CONNECTION_CONFIG_HPP
+#define ARCHON_X_DISPLAY_X_X11_CONNECTION_CONFIG_HPP
 
 /// \file
 
@@ -29,6 +29,7 @@
 #include <string_view>
 
 #include <archon/core/enum.hpp>
+#include <archon/display/x11_fullscreen_monitors.hpp>
 
 
 namespace archon::display {
@@ -39,7 +40,7 @@ namespace archon::display {
 /// This is the set of configuration parameters that pertain to connections when using the
 /// X11-based display implementation.
 ///
-struct ConnectionConfigX11 {
+struct x11_connection_config {
     enum class VisualClass;
 
     /// \brief The X11 display to be connected to.
@@ -83,6 +84,13 @@ struct ConnectionConfigX11 {
     /// \sa \ref visual_class
     ///
     std::optional<std::uint_fast32_t> visual_type;
+
+    /// \brief Specification of multi-monitor fullscreen area.
+    ///
+    /// If specified, that "fullscreen monitors" specification will apply to all windows
+    /// opened on behalf of this configuration. See \ref display::x11_fullscreen_monitors.
+    ///
+    std::optional<display::x11_fullscreen_monitors> fullscreen_monitors;
 
     /// \brief Prefer use of default colormap for nonstatic nondecomposed visuals.
     ///
@@ -160,7 +168,7 @@ struct ConnectionConfigX11 {
 /// A specialization of \ref core::EnumTraits is provided, making stream input and output
 /// readily available.
 ///
-enum class ConnectionConfigX11::VisualClass {
+enum class x11_connection_config::VisualClass {
     static_gray  = 0,
     gray_scale   = 1,
     static_color = 2,
@@ -174,16 +182,16 @@ enum class ConnectionConfigX11::VisualClass {
 
 namespace archon::core {
 
-template<> struct EnumTraits<display::ConnectionConfigX11::VisualClass> {
+template<> struct EnumTraits<display::x11_connection_config::VisualClass> {
     static constexpr bool is_specialized = true;
     struct Spec {
         static constexpr core::EnumAssoc map[] = {
-            { int(display::ConnectionConfigX11::VisualClass::static_gray),  "StaticGray"  },
-            { int(display::ConnectionConfigX11::VisualClass::gray_scale),   "GrayScale"   },
-            { int(display::ConnectionConfigX11::VisualClass::static_color), "StaticColor" },
-            { int(display::ConnectionConfigX11::VisualClass::pseudo_color), "PseudoColor" },
-            { int(display::ConnectionConfigX11::VisualClass::true_color),   "TrueColor"   },
-            { int(display::ConnectionConfigX11::VisualClass::direct_color), "DirectColor" },
+            { int(display::x11_connection_config::VisualClass::static_gray),  "StaticGray"  },
+            { int(display::x11_connection_config::VisualClass::gray_scale),   "GrayScale"   },
+            { int(display::x11_connection_config::VisualClass::static_color), "StaticColor" },
+            { int(display::x11_connection_config::VisualClass::pseudo_color), "PseudoColor" },
+            { int(display::x11_connection_config::VisualClass::true_color),   "TrueColor"   },
+            { int(display::x11_connection_config::VisualClass::direct_color), "DirectColor" },
         };
     };
     static constexpr bool ignore_case = false;
@@ -191,4 +199,4 @@ template<> struct EnumTraits<display::ConnectionConfigX11::VisualClass> {
 
 } // namespace archon::core
 
-#endif // ARCHON_X_DISPLAY_X_CONNECTION_CONFIG_X11_HPP
+#endif // ARCHON_X_DISPLAY_X_X11_CONNECTION_CONFIG_HPP

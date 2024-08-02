@@ -43,7 +43,8 @@ namespace archon::display {
 /// For window events to be processed, the application must set an event handler for the
 /// window using \ref set_event_handler(). To avoid loosing events, it is important that the
 /// application sets the event handler before the next invocation of \ref
-/// display::Connection::process_events() on the connection associated with the window.
+/// display::Connection::process_events() or \ref display::Connection::process_events_a() on
+/// the connection associated with the window.
 ///
 /// Visually, a window consists of a rectangular area of contents optionally surrounded by
 /// decorations (frame and title bar). The rectangular area of contents inside the
@@ -71,7 +72,11 @@ public:
     ///
     /// It is important that a proper event handler is set before the event processor is
     /// invoked again, that is, before the next invocation of \ref
-    /// display::Connection::process_events(). Otherwise, events are likely to be lost.
+    /// display::Connection::process_events() or \ref
+    /// display::Connection::process_events_a(). Otherwise events might be lost.
+    ///
+    /// \sa \ref display::Connection::process_events()
+    /// \sa \ref display::ConnectionEventHandler
     ///
     virtual void set_event_handler(display::WindowEventHandler&) = 0;
 
@@ -117,6 +122,10 @@ public:
     /// More than one window can be in fullscreen mode at the same time, but the exact
     /// behavior depends on the implementation and the underlying platform.
     ///
+    /// \note Switching to or from fullscreen mode is supposed to generate "reposition"
+    /// events, but this does not always happen. See \ref
+    /// display::WindowEventHandler::on_reposition() for more information.
+    ///
     virtual void set_fullscreen_mode(bool on) = 0;
 
     /// \{
@@ -158,9 +167,11 @@ public:
     ///
     /// These functions copy pixels from the specified texture (\p tex) to this window. The
     /// overload that takes a source area argument (\p source_area) copies the pixels from
-    /// that area of the texture. The source are must be confined to the texture
+    /// that area of the texture. The source area must be confined to the texture
     /// boundary. The other overload copies the entire texture. The specified position (\p
-    /// pos) is the upper-left corner of the target area in the window.
+    /// pos) is the upper-left corner of the target area in the window. The target area is
+    /// allowed to extend beyond the boundaries of the window, or even fall entirely outside
+    /// those boundaries.
     ///
     /// Call \ref present() to present the result.     
     ///
