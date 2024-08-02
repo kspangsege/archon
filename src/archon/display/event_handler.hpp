@@ -395,12 +395,20 @@ public:
     ///
     /// This function is called right before the event processor (\ref
     /// display::Connection::process_events()) goes to sleep while waiting for more events
-    /// to occur. It is also called periodically in situations where no sleeping takes place
-    /// because the event processor is fully saturated by incoming events.
+    /// to occur. It is also called periodically in situations where the event processor is
+    /// fully saturated by incoming events so no sleeping takes place.
     ///
     ///              
     ///
-    /// This function may be used for redrawing.
+    /// This function may be used for redrawing.      
+    ///
+    /// See notes on redrawing        
+    ///
+    /// - Window
+    /// - Connection
+    /// - Connection::process_events_a()
+    /// - WindowEventHandler::on_expose()
+    /// - ConnectionEventHandler::before_sleep()
     ///
     /// FIXME: Redrawing should happen in on_expose(), in before_sleep(), or during interruptions of the event processor.    
     ///
