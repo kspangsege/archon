@@ -178,7 +178,34 @@ target_sources(Core PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "${
   archon/core/text_parser.hpp
 )
 
-install(TARGETS Core FILE_SET HEADERS)
+write_basic_package_version_file(
+  "${CMAKE_CURRENT_BINARY_DIR}/core-config-version.cmake"
+  VERSION "${PROJECT_VERSION}"
+  COMPATIBILITY AnyNewerVersion
+)
+
+configure_package_config_file(
+  core-config.cmake.in
+  "${CMAKE_CURRENT_BINARY_DIR}/core-config.cmake"
+  INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/archon"
+)
+
+install(TARGETS Core
+  EXPORT core-targets
+  FILE_SET HEADERS
+)
+
+install(EXPORT core-targets
+  FILE core-targets.cmake
+  NAMESPACE Archon::
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/archon"
+)
+
+install(FILES
+  "${CMAKE_CURRENT_BINARY_DIR}/core-config.cmake"
+  "${CMAKE_CURRENT_BINARY_DIR}/core-config-version.cmake"
+  DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/archon"
+)
 
 add_subdirectory(archon/core/test)
 add_subdirectory(archon/core/demo)
