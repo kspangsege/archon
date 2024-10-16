@@ -19,15 +19,25 @@
 // DEALINGS IN THE SOFTWARE.
 
 
+#include <cstddef>
 #include <cerrno>
 #include <cstring>
+#include <typetraits>
+#include <limits>
+#include <utility>
 #include <algorithm>
+#include <string>
+#include <system_error>
 
+#include <archon/core/features.h>
+#include <archon/core/span.hpp>
 #include <archon/core/terminate.hpp>
+#include <archon/core/assert.hpp>
+#include <archon/core/string_span.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/array_seeded_buffer.hpp>
+#include <archon/core/filesystem.hpp>
 #include <archon/core/platform_support.hpp>
-
 #include <archon/core/file.hpp>
 
 
@@ -41,6 +51,7 @@
 #  include <unistd.h>
 #  include <fcntl.h>
 #  include <termios.h>
+#  include <sys/types.h>
 #  include <sys/ioctl.h>
 #  include <sys/stat.h>
 #  include <sys/file.h> // BSD / Linux flock()
@@ -62,100 +73,15 @@ using core::File;
 bool File::try_open(FilesystemPathRef path, AccessMode access_mode, CreateMode create_mode, WriteMode write_mode,
                     std::error_code& ec) noexcept
 {
-#if ARCHON_WINDOWS
-
-    // Windows version
-
-    DWORD desired_access = GENERIC_READ;
-    switch (access_mode) {
-        case AccessMode::read_only:
-            break;
-        case AccessMode::read_write:
-            if (write_mode ==  WriteMode::append) {
-                desired_access = FILE_APPEND_DATA;
-            }
-            else {
-                desired_access |= GENERIC_WRITE;
-            }
-            break;
+    if (ARCHON_LIKELY(do_try_open(path, access_mode, create_mode, write_mode, ec))) {
+        Info info = {};
+        if (ARCHON_LIKELY(try_get_file_info(info, ec))) {
+            if (ARCHON_LIKELY(!info.is_directory))
+                return true;
+            ec = make_error_code(std::errc::is_a_directory);
+        }
     }
-    DWORD share_mode = FILE_SHARE_READ | FILE_SHARE_WRITE;
-    DWORD creation_disposition = 0;
-    switch (create_mode) {
-        case CreateMode::never:
-            if (write_mode == WriteMode::trunc) {
-                creation_disposition = TRUNCATE_EXISTING;
-            }
-            else {
-                creation_disposition = OPEN_EXISTING;
-            }
-            break;
-        case CreateMode::allow:
-            if (write_mode == WriteMode::trunc) {
-                creation_disposition = CREATE_ALWAYS;
-            }
-            else {
-                creation_disposition = OPEN_ALWAYS;
-            }
-            break;
-        case CreateMode::must:
-            creation_disposition = CREATE_NEW;
-            break;
-    }
-    HANDLE ret = CreateFile2(path.c_str(), desired_access, share_mode, creation_disposition, nullptr);
-    if (ARCHON_LIKELY(ret != INVALID_HANDLE_VALUE)) {
-        HANDLE handle = ret;
-        adopt(handle);
-        return true;
-    }
-    DWORD err = GetLastError(); // Eliminate any risk of clobbering
-    ec = core::make_system_error(int(err));
     return false;
-
-#else // !ARCHON_WINDOWS
-
-    // POSIX version
-
-    int flags = 0;
-    switch (access_mode) {
-        case AccessMode::read_only:
-            flags = O_RDONLY;
-            break;
-        case AccessMode::read_write:
-            flags = O_RDWR;
-            break;
-    }
-    switch (create_mode) {
-        case CreateMode::never:
-            break;
-        case CreateMode::allow:
-            flags |= O_CREAT;
-            break;
-        case CreateMode::must:
-            flags |= O_CREAT | O_EXCL;
-            break;
-    }
-    switch (write_mode) {
-        case WriteMode::normal:
-            break;
-        case WriteMode::trunc:
-            flags |= O_TRUNC;
-            break;
-        case WriteMode::append:
-            flags |= O_APPEND;
-            break;
-    }
-    int ret = ::open(path.c_str(), flags, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
-    if (ARCHON_LIKELY(ret != -1)) {
-        int handle = ret;
-        adopt(handle);
-        return true;
-    }
-    int err = errno; // Eliminate any risk of clobbering
-    ec = core::make_system_error(err);
-    return false;
-
-#endif // !ARCHON_WINDOWS
 }
 
 
@@ -292,6 +218,7 @@ bool File::try_write_some_a(core::StringSpan<char> data, std::size_t& n, bool& i
 }
 
 
+
 bool File::try_seek(offset_type offset, Whence whence, offset_type& result, std::error_code& ec) noexcept
 {
 #if ARCHON_WINDOWS
@@ -352,6 +279,7 @@ bool File::try_seek(offset_type offset, Whence whence, offset_type& result, std:
 
 #endif
 }
+
 
 
 bool File::try_load(core::FilesystemPathRef path, std::string& data, std::error_code& ec)
@@ -445,6 +373,41 @@ bool File::try_touch(core::FilesystemPathRef path, std::error_code& ec) noexcept
 }
 
 
+
+bool File::try_get_file_info(Info& info, std::error_code& ec) noexcept
+{
+#if ARCHON_WINDOWS
+
+    BY_HANDLE_FILE_INFORMATION info_2 = {};
+    if (ARCHON_LIKELY(GetFileInformationByHandle(m_handle, &info_2))) {
+        Info info_3 = {};
+        info_3.is_directory = bool(info_2.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY);
+        info = info_3;
+        return true;
+    }
+    DWORD err = GetLastError(); // Eliminate any risk of clobbering
+    ec = core::make_system_error(int(err));
+    return false; // Failure
+
+#else // !ARCHON_WINDOWS
+
+    struct stat statbuf;
+    int ret = ::fstat(m_handle, &statbuf);
+    if (ARCHON_LIKELY(ret != -1)) {
+        Info info_2 = {};
+        info_2.is_directory = bool(S_ISDIR(statbuf.st_mode));
+        info = info_2;
+        return true;
+    }
+    int err = errno; // Eliminate any risk of clobbering
+    ec = core::make_system_error(int(err));
+    return false;
+
+#endif // !ARCHON_WINDOWS
+}
+
+
+
 bool File::try_get_terminal_info(bool& is_term, TerminalInfo& info, std::error_code& ec) noexcept
 {
 #if ARCHON_WINDOWS
@@ -517,6 +480,107 @@ bool File::try_get_terminal_info(bool& is_term, TerminalInfo& info, std::error_c
         is_term = false;
     }
     return true; // Success
+
+#endif // !ARCHON_WINDOWS
+}
+
+
+
+bool File::do_try_open(FilesystemPathRef path, AccessMode access_mode, CreateMode create_mode, WriteMode write_mode,
+                       std::error_code& ec) noexcept
+{
+#if ARCHON_WINDOWS
+
+    // Windows version
+
+    DWORD desired_access = GENERIC_READ;
+    switch (access_mode) {
+        case AccessMode::read_only:
+            break;
+        case AccessMode::read_write:
+            if (write_mode ==  WriteMode::append) {
+                desired_access = FILE_APPEND_DATA;
+            }
+            else {
+                desired_access |= GENERIC_WRITE;
+            }
+            break;
+    }
+    DWORD share_mode = FILE_SHARE_READ | FILE_SHARE_WRITE;
+    DWORD creation_disposition = 0;
+    switch (create_mode) {
+        case CreateMode::never:
+            if (write_mode == WriteMode::trunc) {
+                creation_disposition = TRUNCATE_EXISTING;
+            }
+            else {
+                creation_disposition = OPEN_EXISTING;
+            }
+            break;
+        case CreateMode::allow:
+            if (write_mode == WriteMode::trunc) {
+                creation_disposition = CREATE_ALWAYS;
+            }
+            else {
+                creation_disposition = OPEN_ALWAYS;
+            }
+            break;
+        case CreateMode::must:
+            creation_disposition = CREATE_NEW;
+            break;
+    }
+    HANDLE ret = CreateFile2(path.c_str(), desired_access, share_mode, creation_disposition, nullptr);
+    if (ARCHON_LIKELY(ret != INVALID_HANDLE_VALUE)) {
+        HANDLE handle = ret;
+        adopt(handle);
+        return true;
+    }
+    DWORD err = GetLastError(); // Eliminate any risk of clobbering
+    ec = core::make_system_error(int(err));
+    return false;
+
+#else // !ARCHON_WINDOWS
+
+    // POSIX version
+
+    int flags = 0;
+    switch (access_mode) {
+        case AccessMode::read_only:
+            flags = O_RDONLY;
+            break;
+        case AccessMode::read_write:
+            flags = O_RDWR;
+            break;
+    }
+    switch (create_mode) {
+        case CreateMode::never:
+            break;
+        case CreateMode::allow:
+            flags |= O_CREAT;
+            break;
+        case CreateMode::must:
+            flags |= O_CREAT | O_EXCL;
+            break;
+    }
+    switch (write_mode) {
+        case WriteMode::normal:
+            break;
+        case WriteMode::trunc:
+            flags |= O_TRUNC;
+            break;
+        case WriteMode::append:
+            flags |= O_APPEND;
+            break;
+    }
+    int ret = ::open(path.c_str(), flags, S_IRUSR | S_IWUSR | S_IRGRP | S_IROTH);
+    if (ARCHON_LIKELY(ret != -1)) {
+        int handle = ret;
+        adopt(handle);
+        return true;
+    }
+    int err = errno; // Eliminate any risk of clobbering
+    ec = core::make_system_error(err);
+    return false;
 
 #endif // !ARCHON_WINDOWS
 }
