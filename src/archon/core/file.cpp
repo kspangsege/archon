@@ -22,7 +22,7 @@
 #include <cstddef>
 #include <cerrno>
 #include <cstring>
-#include <typetraits>
+#include <type_traits>
 #include <limits>
 #include <utility>
 #include <algorithm>
