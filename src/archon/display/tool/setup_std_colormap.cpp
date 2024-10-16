@@ -46,7 +46,7 @@
 #include <archon/core/file.hpp>
 #include <archon/log.hpp>
 #include <archon/cli.hpp>
-#include <archon/display/connection_config_x11.hpp>
+#include <archon/display/x11_connection_config.hpp>
 #include <archon/display/noinst/x11/support.hpp>
 
 
@@ -205,7 +205,7 @@ int main(int argc, char* argv[])
     std::optional<std::string> optional_display;
     std::optional<int> optional_screen;
     std::optional<int> optional_depth;
-    std::optional<display::ConnectionConfigX11::VisualClass> optional_class;
+    std::optional<display::x11_connection_config::VisualClass> optional_class;
     std::optional<VisualID> optional_visual;
     bool weirdness = false;
     bool synchronous_mode = false;

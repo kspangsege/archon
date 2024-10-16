@@ -59,7 +59,7 @@ namespace archon::core {
 /// number).
 ///
 ///
-/// ### Basic requirements for floating-point types
+/// #### Basic requirements for floating-point types
 ///
 /// Let `F` be a type, let `f` and `g` be values of that type, and let `r` be the radix
 /// associated with the type (see `T::radix` under requirements for valid
@@ -143,7 +143,7 @@ namespace archon::core {
 /// FIXME: Probably also require direct non-throwing convertability to and from standard floating-point types (`float`, `double`, and `long double`).                            
 ///
 ///
-/// ### Requirements for valid specializations
+/// #### Requirements for valid specializations
 ///
 /// A particular specialization, `T`, for type, `F`, is *valid* if all of the following
 /// requirements are met:

@@ -56,8 +56,6 @@ namespace archon::render {
 /// default, all three axes of the object coordinate system are directed exactly as they are
 /// in the camera/eye coordinate system.
 ///
-/// FIXME: Pixel aspect ratio is not taken into account. It should be, such that the ball is never "egg-shaped" on the screen.                                 
-///
 /// FIXME: Perspective projection is not taken into account. An orthographic projection is assumed. This means that the mouse does not follow a point on a rendered sphere with the same center and radius as the trackball. It should.                    
 ///
 class VirtualTrackball {
@@ -93,7 +91,17 @@ public:
     ///
     /// This function updates the size of the trackball to fit the rendering viewport.
     ///
+    /// \sa \ref set_pixel_aspect_ratio()
+    ///
     void set_viewport_size(util::pixel::Size) noexcept;
+
+    /// \brief Set pixel aspect ratio.
+    ///
+    /// This function sets the pixel aspect ratio, which is the physical width of a pixel
+    /// divided by its height. It is 1 by default. Setting this to match the physical screen
+    /// ensures that the trackball is perfectly round and not oval on the screen.
+    ///
+    void set_pixel_aspect_ratio(double ratio) noexcept;
 
     /// \brief Bring trackball into acquired state.
     ///
@@ -199,7 +207,9 @@ public:
 
 private:
     math::Vector2 m_half_viewport_size = { 1, 1 };
-    double m_radius = 1;
+    double m_pixel_aspect_ratio = 1;
+    double m_horz_radius = 1;
+    double m_vert_radius = 1;
 
     bool m_acquired = false;
 
@@ -217,6 +227,8 @@ private:
     math::Vector2 m_track_pos;
 
     impl::FiniteCurveMemory<math::Vector2> m_curve_mem;
+
+    void update_radii();
 
     // Calculate the orientation of the free spinning ball at the specified time
     auto get_free_orientation(Clock::time_point) const noexcept -> math::Rotation;
@@ -238,13 +250,6 @@ private:
 
 
 // Implementation
-
-
-inline void VirtualTrackball::set_viewport_size(util::pixel::Size size) noexcept
-{
-    m_half_viewport_size = { double(size.width) / 2.0, double(size.height) / 2.0 };
-    m_radius = std::min(m_half_viewport_size[0], m_half_viewport_size[1]);
-}
 
 
 inline void VirtualTrackball::acquire(Clock::time_point now) noexcept
@@ -280,6 +285,14 @@ inline auto VirtualTrackball::get_orientation(Clock::time_point now) const noexc
 }
 
 
+inline void VirtualTrackball::update_radii()
+{
+    double horz_to_vert = m_pixel_aspect_ratio;
+    m_horz_radius = std::min(m_half_viewport_size[0], m_half_viewport_size[1] / horz_to_vert);
+    m_vert_radius = m_horz_radius * horz_to_vert;
+}
+
+
 inline auto VirtualTrackball::get_free_orientation(Clock::time_point time) const noexcept -> math::Rotation
 {
     if (m_spin.angle == 0)
@@ -299,8 +312,10 @@ inline auto VirtualTrackball::get_track_orientation() const noexcept -> math::Ro
 
 inline auto VirtualTrackball::get_ball_point(const math::Vector2& pos) const noexcept -> math::Vector3
 {
-    math::Vector2 p = { pos[0] - m_half_viewport_size[0], m_half_viewport_size[1] - pos[1] };
-    p /= m_radius;
+    math::Vector2 p = {
+        (pos[0] - m_half_viewport_size[0]) / m_horz_radius,
+        (m_half_viewport_size[1] - pos[1]) / m_vert_radius,
+    };
     double s = math::sq_sum(p);
 
     // Clamp to unit disc

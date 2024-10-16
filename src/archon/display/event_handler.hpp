@@ -32,19 +32,26 @@ namespace archon::display {
 
 /// \brief Handle window-specific events.
 ///
-/// In order to handle window-specific events, the application must override the relevant
-/// handler functions in a subclass, and then pass an instance of that subclass to \ref
-/// display::Window::set_event_handler(). Thereby, a window becomes associated with the
-/// passed window event handler.
+/// In order to handle window-specific events, the application must instantiate a
+/// window-level event handler that overrides the relevant event handler functions, and then
+/// call \ref display::Window::set_event_handler() to register that event event handler with
+/// a window.
 ///
 /// The individual event handler functions will be called by the event processor, and more
-/// specifically, by the thread that calls \ref display::Connection::process_events().
+/// specifically, by the thread that calls \ref display::Connection::process_events() or
+/// \ref display::Connection::process_events_a().
 ///
 /// If any of the event handler functions return `false`, event processing will be
-/// interrupted. See \ref display::Connection::process_events() for more on interruption of
-/// event handling.
+/// interrupted. See \ref display::Connection::process_events_a() for more on interruption
+/// of event handling.
 ///
+/// With the exception of \ref on_expose(), event handlers should generally execute fast,
+/// which means that they should do very little work. See \ref
+/// display::Connection::process_events_a() for more on this.
+///
+/// \sa \ref display::Window::set_event_handler()
 /// \sa \ref display::ConnectionEventHandler
+/// \sa \ref display::Connection::process_events(), \ref display::Connection::process_events_a()
 ///
 class WindowEventHandler {
 public:
@@ -256,7 +263,7 @@ public:
     /// application will probably also want to ignore any "key up" event that does not
     /// correspond to a pressed down key according to its own record of pressed down
     /// keys. See also discussion in the SDL-based display implementation
-    /// (`implementation_sdl.cpp`) near the handling of `SDL_KEYDOWN`.
+    /// (`sdl_implementation.cpp`) near the handling of `SDL_KEYDOWN`.
     ///
     /// \sa \ref on_focus()
     /// \sa \ref on_blur()
@@ -273,10 +280,26 @@ public:
     /// handler object is the window's associated window handler (see \ref
     /// display::Connection::new_window()).
     ///
-    /// An "expose" event is generated for a particular window when that window is exposed
-    /// in such a way that its contents need to be redrawn.
+    /// An "expose" event is generated for a particular window when all or some of its
+    /// contents need to be redrawn either because the affected area was never drawn before,
+    /// or because the contents in that area was damaged. Damage to the window's contents
+    /// can happen due to the inner workings of the platform's graphical user interface
+    /// (X11).
+    ///
+    /// Additionally, "expose" events are generated after every "resize" event (\ref
+    /// on_resize()) regardless of whether it shrinks or enlarges the window area.
+    ///
+    /// All "expose" events are buffered in the sense that when multiple "expose" events are
+    /// generated within a short amount of time, the handler will generally only be called
+    /// once. This makes the "expose" event handler a good place for redrawing window
+    /// contents in many applications. See the notes on redrawing strategies in the
+    /// documentation of \ref display::Window. See additional details under \ref
+    /// display::Connection::process_events_a().
     ///
     /// The default implementation of this function does nothing other than return `true`.
+    ///
+    /// \sa \ref display::Window
+    /// \sa \ref display::Connection::process_events_a()
     ///
     virtual bool on_expose(const display::WindowEvent&);
 
@@ -291,6 +314,10 @@ public:
     /// through use of \ref display::Window::set_size() or \ref
     /// display::Window::set_fullscreen_mode().
     ///
+    /// Every "resize" event will be followed by an "expose" event (\ref on_expose()). This
+    /// allows many applications to limit redrawing of window contents to the "expose" event
+    /// handler. See \ref display::Connection::process_events_a() for more on this.
+    ///
     /// The default implementation of this function does nothing other than return `true`.
     ///
     virtual bool on_resize(const display::WindowSizeEvent&);
@@ -301,7 +328,33 @@ public:
     /// handler object is the window's associated window handler (see \ref
     /// display::Connection::new_window()).
     ///
-    /// A "reposition" event is generated for a particular window when that window is moved.
+    /// A "reposition" event is generated for a particular window when that window is
+    /// moved. A switch to or from fullscreen mode (\ref
+    /// display::Window::set_fullscreen_mode()) will generally cause the windows position to
+    /// change, and when it does, reposition events will be generated (but see note below).
+    ///
+    /// \note Due to quirks in the behavior of some X11 window managers, "reposition" events
+    /// are not always generated when switching to and from fullscreen mode. Specifically,
+    /// when using the X11-based display implementation (\ref
+    /// display::get_x11_implementation_slot()), and when the window manager is Xfwm4
+    /// (Xfce), "reposition" events are generated when switching to and from fullscreen
+    /// mode. Conversely, when the window manager is Mutter (Gnome) or Muffin (Cinnamon),
+    /// "reposition" events are generally not generated when switching to and from
+    /// fullscreen mode.
+    ///
+    /// FIXME: Look for a way to work around the mentioned problem with "reposition" events
+    /// not always being generated when switching to or from fullscreen mode. When SDL uses
+    /// its X11-based backend, it works around this problem by manually translating relative
+    /// positions in non-synthetic `ConfigureNotify` events into absolute
+    /// positions. Unfortunately, this scheme is not very reliable. First of all, it only
+    /// works when the client's window changes size or is repositioned relative to its
+    /// parent when it is taken to or from fullscreen mode, but this is not guaranteed to
+    /// happen, so some switches may be missed. Another problem is that the translated
+    /// relative position refers to a time that no longer exists when the event is processed
+    /// by the client, so a manual translation mixes information from two different points
+    /// in time, which can lead to unexpected behavior. A more robust scheme might be to
+    /// track the position of the parent window, i.e., the window created by the window
+    /// manager, but this will only work if the parent of the parent is the root.
     ///
     /// The default implementation of this function does nothing other than return `true`.
     ///
@@ -336,18 +389,24 @@ public:
 
 /// \brief Handle connection-level events.
 ///
-/// In order to handle connection-level events, the application must override the relevant
-/// handler functions in a subclass, and then pass an instance of that subclass to \ref
-/// display::Connection::process_events().
-///
-/// The individual event handler functions will be called by the event processor, and more
-/// specifically, by the thread that calls \ref display::Connection::process_events().
+/// In order to handle connection-level events, the application must instantiate a
+/// connection-level event handler that overrides the relevant event handler functions, and
+/// then call \ref display::Connetion::set_event_handler() to register that event event
+/// handler with the connection. The individual event handler functions will then be called
+/// by the event processor, or more specifically, by the thread that calls \ref
+/// display::Connection::process_events() or \ref display::Connection::process_events_a().
 ///
 /// If any of the event handler functions return `false`, event processing will be
-/// interrupted. See \ref display::Connection::process_events() for more on interruption of
-/// event handling.
+/// interrupted. See \ref display::Connection::process_events_a() for more on interruption
+/// of event handling.
 ///
+/// With the exception of \ref before_sleep(), event handlers should generally execute fast,
+/// which means that they should do very little work. See \ref
+/// display::Connection::process_events_a() for more on this.
+///
+/// \sa \ref display::Connection::set_event_handler()
 /// \sa \ref display::WindowEventHandler
+/// \sa \ref display::Connection::process_events(), \ref display::Connection::process_events_a()
 ///
 class ConnectionEventHandler {
 public:
@@ -360,14 +419,25 @@ public:
     ///
     virtual bool on_screen_change(int screen);
 
-    /// \brief Opportunity to interrupt event processing before sleep.
+    /// \brief Opportunity to do stuff before sleep.
     ///
-    /// This function is called right before the event processor goes to sleep while waiting
-    /// for more events to be generated. This function is intended as an opportunity for the
-    /// application to interrupt event processing by returning `false` when appropriate, but
-    /// only after processing all the currently queued up events.
+    /// This function is called right before the event processor (\ref
+    /// display::Connection::process_events()) goes to sleep, which it does when it needs to
+    /// wait for more events to occur. This function is also called periodically in
+    /// situations where no sleeping takes place because the event processor is fully
+    /// saturated by incoming events.
+    ///
+    /// The main purpose of this function is to allow for the creation of specialized
+    /// buffered redrawing mechanisms. Many simple applications can get away with doing all
+    /// redrawing of window contents in \ref display::WindowEventHandler::on_expose(), but
+    /// sometimes this not sufficient. See the notes on redrawing strategies in the
+    /// documentation of \ref display::Window. See additional details under \ref
+    /// display::Connection::process_events_a().
     ///
     /// The default implementation of this function does nothing other than return `true`.
+    ///
+    /// \sa \ref display::Window
+    /// \sa \ref display::Connection::process_events_a()
     ///
     virtual bool before_sleep();
 

@@ -38,7 +38,7 @@ Then:
     allowed to carry the `nodiscard` attribute.
 
 
-### Read until
+#### Read until
 
 `impl.read_until(delim, buffer, dynamic_eof, offset, found_delim, ec)` must extract
 characters from the file starting at the current position of the logical file pointer and

@@ -347,7 +347,7 @@ ARCHON_TEST_BATCH(Image_SubwordPixelFormat_Write, variants)
         // Check
         for (int y = 0; y < image_size.height; ++y) {
             for (int x = 0; x < image_size.width; ++x) {
-                if (ARCHON_LIKELY(image::Box({ x, y }, 1).contained_in(block))) {
+                if (ARCHON_LIKELY(block.contains_pixel_at({ x, y }))) {
                     int x_2 = x - block.pos.x;
                     int y_2 = y - block.pos.y;
                     const transf_comp_type* pixel_1 = tray_1(x_2, y_2);
@@ -547,7 +547,7 @@ ARCHON_TEST_BATCH(Image_SubwordPixelFormat_Fill, variants)
         for (int y = 0; y < image_size.height; ++y) {
             for (int x = 0; x < image_size.width; ++x) {
                 const transf_comp_type* pixel = tray(x, y);
-                if (ARCHON_LIKELY(image::Box({ x, y }, 1).contained_in(block))) {
+                if (ARCHON_LIKELY(block.contains_pixel_at({ x, y }))) {
                     if constexpr (!std::is_floating_point_v<transf_comp_type>) {
                         // Integer
                         for (int i = 0; i < num_channels; ++i) {

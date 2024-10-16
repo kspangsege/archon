@@ -61,14 +61,18 @@ constexpr double g_zoom_factor_max  = 32;
 } // unnamed namespace
 
 
-EngineImpl::EngineImpl(Scene& scene, display::Connection& conn, display::Size window_size, const std::locale& locale,
-                       const Config& config)
+EngineImpl::EngineImpl(Scene& scene, display::Connection& conn, const std::locale& locale, const Config& config)
     : m_locale(locale)
     , m_scene(scene)
     , m_conn(conn)
+    , m_screen(config.screen)
     , m_logger(config.logger ? *config.logger : instantiate_fallback_logger(m_fallback_logger, locale)) // Throws
     , m_headlight_feature_enabled(!config.disable_headlight_feature)
-    , m_wireframe_feature_enable(!config.disable_wireframe_feature)
+    , m_wireframe_feature_enabled(!config.disable_wireframe_feature)
+    , m_resolution_tracking_enabled(!config.disable_resolution_tracking)
+    , m_frame_rate_tracking_enabled(!config.disable_frame_rate_tracking)
+    , m_default_resolution(config.resolution)
+    , m_default_frame_rate(config.frame_rate)
     , m_key_bindings() // Throws
     , m_base_orientation(config.orientation)
     , m_base_spin(config.spin)
@@ -76,9 +80,23 @@ EngineImpl::EngineImpl(Scene& scene, display::Connection& conn, display::Size wi
     , m_base_interest_size(config.interest_size)
     , m_trackball() // Throws
 {
+    m_conn.set_event_handler(m_event_handler); // Throws
+}
 
-    set_viewport_size(window_size);
-    set_frame_rate(config.frame_rate); // Throws
+
+bool EngineImpl::try_init(std::string_view window_title, display::Size window_size, const Config& config,
+                          std::string& error)
+{
+    ARCHON_ASSERT(!m_initialized);
+
+#if !ARCHON_RENDER_HAVE_OPENGL
+    error = "OpenGL not available"; // Throws
+    return false;
+#endif
+
+    update_window_size(window_size);
+    update_resolution(m_default_resolution); // Throws
+    update_frame_rate(m_default_frame_rate); // Throws
     set_background_color(util::colors::black); // Throws
     reset_view(); // Throws
     set_headlight_mode(config.headlight_mode); // Throws
@@ -152,19 +170,9 @@ EngineImpl::EngineImpl(Scene& scene, display::Connection& conn, display::Size wi
                                                &EngineImpl::key_func_toggle_wireframe); // Throws
         bind_key(display::Key::small_w, handler); // Throws
     }
-}
-
-
-bool EngineImpl::try_init(std::string_view window_title, display::Size window_size, const Config& config,
-                          std::string& error)
-{
-#if !ARCHON_RENDER_HAVE_OPENGL
-    error = "OpenGL not available"; // Throws
-    return false;
-#endif
 
     display::Window::Config window_config;
-    window_config.screen = config.screen;
+    window_config.screen = m_screen;
     window_config.resizable = config.allow_window_resize;
     window_config.fullscreen = config.fullscreen_mode;
     window_config.enable_opengl_rendering = true;
@@ -177,6 +185,7 @@ bool EngineImpl::try_init(std::string_view window_title, display::Size window_si
 
     m_window->set_event_handler(m_event_handler); // Throws
     m_fullscreen_mode = config.fullscreen_mode;
+    m_initialized = true;
 
     return true;
 }
@@ -184,29 +193,27 @@ bool EngineImpl::try_init(std::string_view window_title, display::Size window_si
 
 void EngineImpl::run()
 {
+    ARCHON_ASSERT(m_initialized);
     ARCHON_ASSERT(!m_started);
 
-/*                  
-    int screen = -1; // ???                               
-    std::optional<display::Resolution> resolution = m_conn.get_screen_resolution(screen); // Throws
-    if (resolution.has_value()) {
-        display::Resolution resolution_2 = resolution.value();
-        display::Box bounds = m_conn.get_screen_bounds(screen); // Throws
-        m_logger.trace("Screen resolution (ppcm):  %s", resolution_2); // Throws
-        m_logger.trace("Screen size (pixels):      %s", bounds.size); // Throws
-        m_logger.trace("Physical screen size (cm): %s x %s", bounds.size.width / resolution_2.horz_ppcm, bounds.size.height / resolution_2.vert_ppcm); // Throws           
-        m_perspect_proj.set_resol_dpcm(resolution_2.horz_ppcm, resolution_2.vert_ppcm);
-    }
-*/
-
-    m_logger.trace("Target frame rate: %sf/s (%s per frame)", m_frame_rate, core::as_time(m_time_per_frame)); // Throws
+    fetch_screen_conf(); // Throws
+    track_screen_conf(); // Throws
 
     m_window->show(); // Throws
     m_window->opengl_make_current(); // Throws
 
-    init(); // Throws
+    if (m_headlight_feature_enabled) {
+#if ARCHON_RENDER_HAVE_OPENGL
+        GLfloat params[4]  = { 0, 0, 0, 1 };
+        glLightfv(GL_LIGHT0, GL_POSITION, params);
+#endif // ARCHON_RENDER_HAVE_OPENGL
+    }
+
+    m_scene.init(); // Throws
 
     m_started = true;
+    update_resolution(m_resolution); // Throws
+    update_frame_rate(m_frame_rate); // Throws
     set_spin(m_spin); // Throws
 
     // Loop once per frame tick
@@ -236,15 +243,6 @@ void EngineImpl::run()
 
         tick(deadline); // Throws
     }
-}
-
-
-void EngineImpl::set_frame_rate(double rate)
-{
-    m_frame_rate = rate;
-    auto nanos_per_frame = std::chrono::nanoseconds::rep(std::floor(1E9 / m_frame_rate));
-    auto time_per_frame = std::chrono::nanoseconds(nanos_per_frame);
-    m_time_per_frame = std::chrono::duration_cast<Clock::duration>(time_per_frame);
 }
 
 
@@ -447,14 +445,16 @@ bool EngineImpl::EventHandler::on_expose(const display::WindowEvent&)
 
 bool EngineImpl::EventHandler::on_resize(const display::WindowSizeEvent& ev)
 {
-    m_engine.set_viewport_size(ev.size);
+    m_engine.update_window_size(ev.size);
+    m_engine.track_screen_conf(); // Throws
     return true;
 }
 
 
 bool EngineImpl::EventHandler::on_reposition(const display::WindowPosEvent& ev)
 {
-    m_engine.m_logger.info("Pos: %s", ev.pos);                         
+    m_engine.update_window_pos(ev.pos);
+    m_engine.track_screen_conf(); // Throws
     return true;
 }
 
@@ -463,6 +463,16 @@ bool EngineImpl::EventHandler::on_close(const display::WindowEvent&)
 {
     m_engine.m_quit = true;
     return false; // Interrupt event processing
+}
+
+
+bool EngineImpl::EventHandler::on_screen_change(int screen)
+{
+    if (screen == m_engine.m_screen) {
+        m_engine.fetch_screen_conf(); // Throws
+        m_engine.track_screen_conf(); // Throws
+    }
+    return true;
 }
 
 
@@ -594,8 +604,6 @@ bool EngineImpl::key_func_inc_frame_rate(bool down)
 {
     if (down) {
         set_frame_rate(m_frame_rate * 2); // Throws
-        m_interrupt_before_sleep = true;
-        m_refresh_rate_changed = true;
         // set_float_status(L"FRAME RATE = ", m_frame_rate);                                             
     }
     return true;
@@ -606,8 +614,6 @@ bool EngineImpl::key_func_dec_frame_rate(bool down)
 {
     if (down) {
         set_frame_rate(m_frame_rate / 2); // Throws
-        m_interrupt_before_sleep = true;
-        m_refresh_rate_changed = true;
         // set_float_status(L"FRAME RATE = ", m_frame_rate);                                             
     }
     return true;
@@ -649,28 +655,6 @@ bool EngineImpl::key_func_toggle_wireframe(bool down)
         // set_on_off_status(L"WIREFRAME", m_wireframe_mode);                       
     }
     return true;
-}
-
-
-void EngineImpl::set_viewport_size(display::Size size) noexcept
-{
-    m_viewport_size = size;
-    m_projection_and_viewport_need_update = true;
-    m_need_redraw = true;
-    // FIXME: Mark status HUD dirty     
-}
-
-
-void EngineImpl::init()
-{
-    if (m_headlight_feature_enabled) {
-#if ARCHON_RENDER_HAVE_OPENGL
-        GLfloat params[4]  = { 0, 0, 0, 1 };
-        glLightfv(GL_LIGHT0, GL_POSITION, params);
-#endif // ARCHON_RENDER_HAVE_OPENGL
-    }
-
-    m_scene.init(); // Throws
 }
 
 
@@ -719,7 +703,7 @@ inline bool EngineImpl::process_events(Clock::time_point deadline)
     bool proceed = m_key_bindings.resume_incomplete_on_blur_if_any(); // Throws
 
     if (ARCHON_LIKELY(proceed))
-        return m_conn.process_events(deadline, &m_event_handler); // Throws
+        return m_conn.process_events_a(deadline); // Throws
 
     return false; // Interrupt (no expiration yet)
 }
@@ -735,6 +719,42 @@ void EngineImpl::tick(Clock::time_point time_of_tick)
 
     if (ARCHON_UNLIKELY(m_scene.tick(time_of_tick))) // Throws
         m_need_redraw = true;
+}
+
+
+void EngineImpl::render_frame()
+{
+    // Handle headlight feature
+    if (ARCHON_UNLIKELY(m_headlight_feature_enabled && m_headlight_mode != m_headlight_mode_prev)) {
+#if ARCHON_RENDER_HAVE_OPENGL
+        if (m_headlight_mode) {
+            glEnable(GL_LIGHT0);
+        }
+        else {
+            glDisable(GL_LIGHT0);
+        }
+#endif // ARCHON_RENDER_HAVE_OPENGL
+        m_headlight_mode_prev = m_headlight_mode;
+    }
+
+    // Handle wireframe feature
+    if (ARCHON_UNLIKELY(m_wireframe_feature_enabled && m_wireframe_mode != m_wireframe_mode_prev)) {
+#if ARCHON_RENDER_HAVE_OPENGL
+        glPolygonMode(GL_FRONT_AND_BACK, m_wireframe_mode ? GL_LINE : GL_FILL);
+#endif // ARCHON_RENDER_HAVE_OPENGL
+        m_wireframe_mode_prev = m_wireframe_mode;
+    }
+
+#if ARCHON_RENDER_HAVE_OPENGL
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    glTranslated(0, 0, -m_perspect_proj.camera_dist);
+    glRotated(core::rad_to_deg(m_orientation.angle), m_orientation.axis[0], m_orientation.axis[1],
+              m_orientation.axis[2]);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+#endif // ARCHON_RENDER_HAVE_OPENGL
+
+    m_scene.render(); // Throws
 }
 
 
@@ -755,58 +775,105 @@ void EngineImpl::update_projection_and_viewport()
     m_logger.trace("Far clip distance:  %s", far_clip_dist); // Throws
     m_logger.trace("View plane width:   %s", m_perspect_proj.get_near_clip_width()); // Throws
     m_logger.trace("View plane height:  %s", m_perspect_proj.get_near_clip_height()); // Throws
-    m_logger.trace("Viewport size:      %s", m_viewport_size); // Throws
+    m_logger.trace("Window size:        %s", m_window_size); // Throws
 */
 
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
     glFrustum(-view_plane_right, view_plane_right, -view_plane_top, view_plane_top, view_plane_dist, far_clip_dist);
-    glViewport(0, 0, m_viewport_size.width, m_viewport_size.height);
+    glViewport(0, 0, m_window_size.width, m_window_size.height);
 #endif // ARCHON_RENDER_HAVE_OPENGL
 }
 
 
 void EngineImpl::update_perpect_proj_and_trackball() noexcept
 {
-    m_perspect_proj.set_viewport_size_pixels(m_viewport_size.width, m_viewport_size.height);
+    m_perspect_proj.set_viewport_size_pixels(m_window_size.width, m_window_size.height);
     m_perspect_proj.auto_dist(m_interest_size, m_perspect_proj.get_min_field_factor());
-    m_trackball.set_viewport_size(m_viewport_size);
+    m_trackball.set_viewport_size(m_window_size);
 }
 
 
-void EngineImpl::render_frame()
+void EngineImpl::update_window_size(display::Size size) noexcept
 {
-    // Handle headlight feature
-    if (ARCHON_UNLIKELY(m_headlight_feature_enabled && m_headlight_mode != m_headlight_mode_prev)) {
-#if ARCHON_RENDER_HAVE_OPENGL
-        if (m_headlight_mode) {
-            glEnable(GL_LIGHT0);
-        }
-        else {
-            glDisable(GL_LIGHT0);
-        }
-#endif // ARCHON_RENDER_HAVE_OPENGL
-        m_headlight_mode_prev = m_headlight_mode;
+    m_window_size = size;
+    m_projection_and_viewport_need_update = true;
+    m_need_redraw = true;
+    // FIXME: Mark status HUD dirty     
+}
+
+
+void EngineImpl::update_window_pos(display::Pos pos) noexcept
+{
+    m_window_pos = pos;
+}
+
+
+void EngineImpl::fetch_screen_conf()
+{
+    if (ARCHON_LIKELY(m_resolution_tracking_enabled || m_frame_rate_tracking_enabled)) {
+        m_num_viewports = 0;
+        m_conn.try_get_screen_conf(m_screen, m_viewports, m_viewport_strings, m_num_viewports); // Throws
     }
+}
 
-    // Handle wireframe feature
-    if (ARCHON_UNLIKELY(m_wireframe_feature_enable && m_wireframe_mode != m_wireframe_mode_prev)) {
-#if ARCHON_RENDER_HAVE_OPENGL
-        glPolygonMode(GL_FRONT_AND_BACK, m_wireframe_mode ? GL_LINE : GL_FILL);
-#endif // ARCHON_RENDER_HAVE_OPENGL
-        m_wireframe_mode_prev = m_wireframe_mode;
+
+void EngineImpl::track_screen_conf()
+{
+    if (ARCHON_LIKELY(m_resolution_tracking_enabled || m_frame_rate_tracking_enabled)) {
+        std::optional<display::Resolution> resolution;
+        std::optional<double> frame_rate;
+        // FIXME: Use more efficient search scheme here                      
+        display::Box window = { m_window_pos, m_window_size };
+        core::Span viewports = { m_viewports.data(), m_num_viewports };
+        for (const display::Viewport& viewport : viewports) {
+            if (ARCHON_LIKELY(!viewport.bounds.intersects(window)))
+                continue;
+            if (ARCHON_LIKELY(viewport.resolution.has_value()))
+                resolution = viewport.resolution.value();
+            if (ARCHON_LIKELY(viewport.refresh_rate.has_value()))
+                frame_rate = viewport.refresh_rate.value();
+            break;
+        }
+        if (ARCHON_LIKELY(m_resolution_tracking_enabled)) {
+            display::Resolution resolution_2 = resolution.value_or(m_default_resolution);
+            if (ARCHON_UNLIKELY(resolution_2 != m_resolution))
+                update_resolution(resolution_2); // Throws
+        }
+        if (ARCHON_LIKELY(m_frame_rate_tracking_enabled)) {
+            double frame_rate_2 = frame_rate.value_or(m_default_frame_rate);
+            if (ARCHON_UNLIKELY(frame_rate_2 != m_frame_rate))
+                update_frame_rate(frame_rate_2); // Throws
+        }
     }
+}
 
-#if ARCHON_RENDER_HAVE_OPENGL
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-    glTranslated(0, 0, -m_perspect_proj.camera_dist);
-    glRotated(core::rad_to_deg(m_orientation.angle), m_orientation.axis[0], m_orientation.axis[1],
-              m_orientation.axis[2]);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-#endif // ARCHON_RENDER_HAVE_OPENGL
 
-    m_scene.render(); // Throws
+void EngineImpl::update_resolution(const display::Resolution& resol)
+{
+    m_resolution = resol;
+    if (m_started) {
+        m_perspect_proj.set_resol_dpcm(resol.horz_ppcm, resol.vert_ppcm);
+        double pixel_aspect_ratio = m_perspect_proj.horz_dot_pitch / m_perspect_proj.vert_dot_pitch;
+        m_trackball.set_pixel_aspect_ratio(pixel_aspect_ratio);
+        m_projection_and_viewport_need_update = true;
+        m_need_redraw = true;
+        m_logger.detail("Resolution (ppcm): %s", m_resolution); // Throws
+    }
+}
+
+
+void EngineImpl::update_frame_rate(double rate)
+{
+    m_frame_rate = rate;
+    if (m_started) {
+        auto nanos_per_frame = std::chrono::nanoseconds::rep(std::floor(1E9 / m_frame_rate));
+        auto time_per_frame = std::chrono::nanoseconds(nanos_per_frame);
+        m_time_per_frame = std::chrono::duration_cast<Clock::duration>(time_per_frame);
+        m_interrupt_before_sleep = true;
+        m_refresh_rate_changed = true;
+        m_logger.detail("Frame rate: %sf/s (%s per frame)", m_frame_rate, core::as_time(m_time_per_frame)); // Throws
+    }
 }
 
 

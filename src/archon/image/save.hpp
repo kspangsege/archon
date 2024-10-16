@@ -67,7 +67,7 @@ void save(const image::Image& image, core::FilesystemPathRef path, const std::lo
 /// reflects the cause of the failure (see file format detection below).
 ///
 ///
-/// ### File format detection scheme
+/// #### File format detection scheme
 ///
 /// If a particular file format is specified through \p config (\ref
 /// image::SaveConfig::file_format), and such a file format exists in the registry (\ref
@@ -87,7 +87,7 @@ void save(const image::Image& image, core::FilesystemPathRef path, const std::lo
 /// image::Error::file_format_detection_failed.
 ///
 ///
-/// ### Buffered write to file
+/// #### Buffered write to file
 ///
 /// Unless disabled, `try_save()` will write to the specified file in a buffered
 /// manner. Specifically, if \ref image::SaveConfig::write_buffer is nonempty, that buffer

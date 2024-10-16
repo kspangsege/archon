@@ -75,7 +75,8 @@
 #include <archon/display/geometry.hpp>
 #include <archon/display/resolution.hpp>
 #include <archon/display/noinst/edid.hpp>
-#include <archon/display/connection_config_x11.hpp>
+#include <archon/display/x11_fullscreen_monitors.hpp>
+#include <archon/display/x11_connection_config.hpp>
 #include <archon/display/noinst/mult_pixel_format.hpp>
 #include <archon/display/noinst/palette_map.hpp>
 #include <archon/display/noinst/x11/support.hpp>
@@ -2375,23 +2376,23 @@ x11::TextPropertyWrapper::TextPropertyWrapper(Display* dpy, std::string_view str
 
 
 
-auto x11::map_opt_visual_class(const std::optional<display::ConnectionConfigX11::VisualClass>& class_) noexcept ->
+auto x11::map_opt_visual_class(const std::optional<display::x11_connection_config::VisualClass>& class_) noexcept ->
     std::optional<int>
 {
     if (ARCHON_LIKELY(!class_.has_value()))
         return {};
     switch (class_.value()) {
-        case display::ConnectionConfigX11::VisualClass::static_gray:
+        case display::x11_connection_config::VisualClass::static_gray:
             return StaticGray;
-        case display::ConnectionConfigX11::VisualClass::gray_scale:
+        case display::x11_connection_config::VisualClass::gray_scale:
             return GrayScale;
-        case display::ConnectionConfigX11::VisualClass::static_color:
+        case display::x11_connection_config::VisualClass::static_color:
             return StaticColor;
-        case display::ConnectionConfigX11::VisualClass::pseudo_color:
+        case display::x11_connection_config::VisualClass::pseudo_color:
             return PseudoColor;
-        case display::ConnectionConfigX11::VisualClass::true_color:
+        case display::x11_connection_config::VisualClass::true_color:
             return TrueColor;
-        case display::ConnectionConfigX11::VisualClass::direct_color:
+        case display::x11_connection_config::VisualClass::direct_color:
             return DirectColor;
     }
     ARCHON_ASSERT_UNREACHABLE();
@@ -3028,7 +3029,6 @@ auto x11::create_pixel_format(Display* dpy, ::Window root, const XVisualInfo& vi
 
 #if HAVE_XRANDR
 
-
 bool x11::update_screen_conf(Display* dpy, ::Window root, Atom atom_edid, const impl::EdidParser& edid_parser,
                              const std::locale& locale, x11::ScreenConf& conf)
 {
@@ -3041,6 +3041,51 @@ bool x11::update_screen_conf(Display* dpy, ::Window root, Atom atom_edid, const 
     throw std::runtime_error("Failed to fetch XRandR screen configuration within the allotted number of attempts");
 }
 
-
 #endif // HAVE_XRANDR
+
+
+void x11::set_fullscreen_monitors(Display* dpy, ::Window win, const display::x11_fullscreen_monitors& spec,
+                                  ::Window root, Atom atom_net_wm_fullscreen_monitors)
+{
+    XClientMessageEvent event = {};
+    event.type = ClientMessage;
+    event.window = win;
+    event.message_type = atom_net_wm_fullscreen_monitors;
+    event.format = 32;
+    event.data.l[0] = spec.top;
+    event.data.l[1] = spec.bottom;
+    event.data.l[2] = spec.left;
+    event.data.l[3] = spec.right;
+    event.data.l[4] = 1; // Request is from normal application
+    Bool propagate = False;
+    long event_mask = SubstructureRedirectMask | SubstructureNotifyMask;
+    Status status = XSendEvent(dpy, root, propagate, event_mask, reinterpret_cast<XEvent*>(&event));
+    if (ARCHON_LIKELY(status != 0))
+        return;
+    throw std::runtime_error("XSendEvent() failed");
+}
+
+
+void x11::set_fullscreen_mode(Display* dpy, ::Window win, bool on, ::Window root, Atom atom_net_wm_state,
+                              Atom atom_net_wm_state_fullscreen)
+{
+    XClientMessageEvent event = {};
+    event.type = ClientMessage;
+    event.window = win;
+    event.message_type = atom_net_wm_state;
+    event.format = 32;
+    event.data.l[0] = (on ? 1 : 0); // Add / remove property
+    event.data.l[1] = atom_net_wm_state_fullscreen;
+    event.data.l[2] = 0; // No second property to alter
+    event.data.l[3] = 1; // Request is from normal application
+    Bool propagate = False;
+    long event_mask = SubstructureRedirectMask | SubstructureNotifyMask;
+    Status status = XSendEvent(dpy, root, propagate, event_mask, reinterpret_cast<XEvent*>(&event));
+    if (ARCHON_LIKELY(status != 0))
+        return;
+    throw std::runtime_error("XSendEvent() failed");
+}
+
+
+
 #endif // HAVE_X11

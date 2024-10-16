@@ -44,7 +44,8 @@
 #include <archon/display/geometry.hpp>
 #include <archon/display/resolution.hpp>
 #include <archon/display/noinst/edid.hpp>
-#include <archon/display/connection_config_x11.hpp>
+#include <archon/display/x11_fullscreen_monitors.hpp>
+#include <archon/display/x11_connection_config.hpp>
 
 #if !ARCHON_WINDOWS && ARCHON_DISPLAY_HAVE_X11 && ARCHON_DISPLAY_HAVE_X11_XKB
 #  include <unistd.h>
@@ -110,61 +111,100 @@
 #endif
 
 
-// As of Jan 7, 2024, Release 7.7 is the latest release of X11. It was released on June 6, 2012.
+// According to Wikipedia, as of July 7, 2024, Release 7.7 is the latest release of X11. It
+// was released on June 6, 2012.
 //
 //
-// Relevant links:
+// Relevant links
+// --------------
 //
-// * X11 documentation overview: https://www.x.org/releases/X11R7.7/doc/
+// X11 documentation overview: https://www.x.org/releases/X11R7.7/doc/
 //
-// * X11 protocol specification: https://www.x.org/releases/X11R7.7/doc/xproto/x11protocol.html
+// X11 API documentation: https://www.x.org/releases/X11R7.7/doc/libX11/libX11/libX11.html
 //
-// * X11 API documentation: https://www.x.org/releases/X11R7.7/doc/libX11/libX11/libX11.html
+// Inter-Client Communication Conventions Manual: https://x.org/releases/X11R7.7/doc/xorg-docs/icccm/icccm.html
 //
-// * Inter-Client Communication Conventions Manual: https://x.org/releases/X11R7.7/doc/xorg-docs/icccm/icccm.html
+// Extended Window Manager Hints: https://specifications.freedesktop.org/wm-spec/latest/
 //
-// * Extended Window Manager Hints: https://specifications.freedesktop.org/wm-spec/latest/
+// X11 protocol specification: https://www.x.org/releases/X11R7.7/doc/xproto/x11protocol.html
 //
-// * X.Org server source code: https://gitlab.freedesktop.org/xorg/xserver
+// X.Org module-level source code releases: https://www.x.org/releases/individual/lib/
 //
-// * X.Org Xlib source code: https://gitlab.freedesktop.org/xorg/lib/libx11
+// X.Org Xlib source code repository: https://gitlab.freedesktop.org/xorg/lib/libx11
 //
-// * Xkb protocol specification: https://www.x.org/releases/X11R7.7/doc/kbproto/xkbproto.html
-//
-// * Xkb API documentation: https://www.x.org/releases/X11R7.7/doc/libX11/XKB/xkblib.html
-//
-// * Xdbe protocol specification: https://www.x.org/releases/X11R7.7/doc/xextproto/dbe.html
-//
-// * Xdbe API documentation: https://www.x.org/releases/X11R7.7/doc/libXext/dbelib.html
-//
-// * XRandR protocol specification: https://www.x.org/releases/X11R7.7/doc/randrproto/randrproto.txt
-//
-// * XRandR general documentation: https://www.x.org/wiki/libraries/libxrandr/
-//
-// * XRandR library source code: https://gitlab.freedesktop.org/xorg/lib/libxrandr
-//
-// * Xrender protocol specification: https://www.x.org/releases/X11R7.7/doc/renderproto/renderproto.txt
-//
-// * Xrender API documentation: https://www.x.org/releases/X11R7.7/doc/libXrender/libXrender.txt
-//
-// * OpenGL GLX specification: https://registry.khronos.org/OpenGL/specs/gl/glx1.4.pdf
+// X.Org Server source code repository: https://gitlab.freedesktop.org/xorg/xserver
 //
 //
-// Useful commands:
+// Xkb extension
+// -------------
 //
-// * See contents of window with its colormap honored regardless of whether window manager
-//   has installed that colormap: `xwd | xwdtopnm | pnmtopng > /tmp/out.png`
+// API documentation: https://www.x.org/releases/X11R7.7/doc/libX11/XKB/xkblib.html
 //
-// * Start "fake" X server with support for various uncommon visuals: `Xephyr :1 -screen
-//   1024x1024x8` or `Xvfb :1 -screen 0 1024x1024x8 -fbdir /tmp`
+// Protocol specification: https://www.x.org/releases/X11R7.7/doc/kbproto/xkbproto.html
 //
-// * Dump screen of "fake" X server when using `Xvfb`: `xwud -in /tmp/Xvfb_screen0 -vis default`
 //
-// * Start window manager for "fake" X server: `DISPLAY=:1 LANG=C twm`
+// Xdbe extension
+// --------------
 //
-// * Set up standard colormaps and corresponding attributes on root window: `xstdcmap -default`
+// API documentation: https://www.x.org/releases/X11R7.7/doc/libXext/dbelib.html
 //
-// * Permit X11 connections from remote clients: `xhost +`
+// Protocol specification: https://www.x.org/releases/X11R7.7/doc/xextproto/dbe.html
+//
+//
+// XRandR extension
+// ----------------
+//
+// General documentation: https://www.x.org/wiki/libraries/libxrandr/
+//
+// Protocol specification: https://www.x.org/releases/X11R7.7/doc/randrproto/randrproto.txt
+//
+// NOTE: Version 1.6 of the protocol specification (from 2017-04-01) can be found as
+// `/usr/share/doc/x11proto-dev/randrproto.txt.gz` in package `x11proto-dev` on Ubuntu
+// 24.04.
+//
+//
+// Xrender extension
+// -----------------
+//
+// API documentation: https://www.x.org/releases/X11R7.7/doc/libXrender/libXrender.txt
+//
+// Protocol specification: https://www.x.org/releases/X11R7.7/doc/renderproto/renderproto.txt
+//
+//
+// OpenGL GLX
+// ----------
+//
+// Specification: https://registry.khronos.org/OpenGL/specs/gl/glx1.4.pdf
+//
+//
+// Useful commands
+// ---------------
+//
+// See contents of window with its colormap honored regardless of whether window manager has
+// installed that colormap:
+//
+//     xwd | xwdtopnm | pnmtopng > /tmp/out.png
+//
+// Start "fake" X server with support for various uncommon visuals:
+//
+//     Xephyr :1 -screen 1024x1024x8
+//     Xvfb :1 -screen 0 1024x1024x8 -fbdir /tmp
+//
+// Dump screen of "fake" X server when using `Xvfb`:
+//
+//     xwud -in /tmp/Xvfb_screen0 -vis default
+//
+// Start window manager for "fake" X server:
+//
+//     DISPLAY=:1 LANG=C twm
+//
+// Set up standard colormaps and corresponding attributes on root window:
+//
+//     xstdcmap -default
+//
+// Permit X11 connections from remote clients:
+//
+//     xhost +
 //
 
 
@@ -400,7 +440,7 @@ struct ScreenConf {
 
 
 
-auto map_opt_visual_class(const std::optional<display::ConnectionConfigX11::VisualClass>& class_) noexcept ->
+auto map_opt_visual_class(const std::optional<display::x11_connection_config::VisualClass>& class_) noexcept ->
     std::optional<int>;
 
 
@@ -514,12 +554,23 @@ auto create_pixel_format(Display* dpy, ::Window root, const XVisualInfo&, const 
 
 #if HAVE_XRANDR
 
-
 bool update_screen_conf(Display* dpy, ::Window root, Atom atom_edid, const impl::EdidParser& edid_parser,
                         const std::locale& locale, x11::ScreenConf& conf);
 
-
 #endif // HAVE_XRANDR
+
+
+// These need to be called while window is mapped.
+//
+// FIXME: Why is it not possible to set fullscreen mode or "fullscreen monitors"
+// speciffication before window is mapped?                  
+//
+void set_fullscreen_monitors(Display* dpy, ::Window win, const display::x11_fullscreen_monitors& spec,
+                             ::Window root, Atom atom_net_wm_fullscreen_monitors);
+void set_fullscreen_mode(Display* dpy, ::Window win, bool on, ::Window root, Atom atom_net_wm_state,
+                         Atom atom_net_wm_state_fullscreen);
+
+
 #endif // HAVE_X11
 
 

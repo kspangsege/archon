@@ -327,8 +327,7 @@ constexpr auto Pos::with_y(int y_2) const noexcept -> Pos
 }
 
 
-template<class C, class T>
-inline auto operator<<(std::basic_ostream<C, T>& out, pixel::Pos pos) -> std::basic_ostream<C, T>&
+template<class C, class T> auto operator<<(std::basic_ostream<C, T>& out, pixel::Pos pos) -> std::basic_ostream<C, T>&
 {
     std::array<int, 2> components = { pos.x, pos.y };
     auto func = [](const int& val) {
@@ -340,7 +339,7 @@ inline auto operator<<(std::basic_ostream<C, T>& out, pixel::Pos pos) -> std::ba
 }
 
 
-template<class C, class T> inline bool parse_value(core::BasicValueParserSource<C, T>& src, pixel::Pos& pos)
+template<class C, class T> bool parse_value(core::BasicValueParserSource<C, T>& src, pixel::Pos& pos)
 {
     std::array<int, 2> components = {};
     auto func = [](int& val) {
