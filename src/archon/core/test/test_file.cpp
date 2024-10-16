@@ -19,6 +19,13 @@
 // DEALINGS IN THE SOFTWARE.
 
 
+#include <cstddef>
+#include <array>
+#include <string_view>
+#include <string>
+#include <system_error>
+#include <filesystem>
+
 #include <archon/core/file.hpp>
 #include <archon/check.hpp>
 
@@ -32,6 +39,15 @@ constexpr std::string_view g_test_dir_path = "archon/core/test";
 
 } // unnamed namespace
 
+
+
+ARCHON_TEST(Core_File_TryOpenRejectsDirPath)
+{
+    ARCHON_TEST_DIR(path);
+    core::File file;
+    std::error_code ec;
+    ARCHON_CHECK_NOT(file.try_open(path, core::File::Mode::read, ec));
+}
 
 
 ARCHON_TEST(Core_File_NonblockingLockExclusive)

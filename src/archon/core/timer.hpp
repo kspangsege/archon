@@ -102,7 +102,7 @@ public:
 
     /// \brief Construct a timer for specified clock type.
     ///
-    /// Construct a timer that preferably uses a clock of the specified type to read stat
+    /// Construct a timer that preferably uses a clock of the specified type to read start
     /// and stop times from.
     ///
     /// If a monotonic clock is specified as preferred, but not available on this platform,

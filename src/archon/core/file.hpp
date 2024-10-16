@@ -26,7 +26,9 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <optional>
 #include <string>
+#include <filesystem>
 #include <system_error>
 
 #include <archon/core/features.h>
@@ -565,6 +567,41 @@ public:
     ///
     [[nodiscard]] static bool try_touch(core::FilesystemPathRef, std::error_code& ec) noexcept;
 
+    /// \brief Whether encapsulated descriptor refers to directory.
+    ///
+    /// This function is shorthand for calling \ref get_file_info() and then returning \ref
+    /// Info::is_directory from the resulting file information object.
+    ///
+    /// \sa \ref get_file_info()
+    /// \sa \ref Info::is_directory
+    ///
+    bool is_directory();
+
+    struct Info;
+
+    /// \brief Get information about open file.
+    ///
+    /// This function is shorthand for calling `try_get_file_info(info, ec)` and then
+    /// returning `info` on success or throwing an exception on error. See \ref
+    /// try_get_file_info().
+    ///
+    /// \sa \ref is_directory()
+    /// \sa \ref Info
+    /// \sa \ref try_get_file_info()
+    ///
+    auto get_file_info() -> Info;
+
+    /// \brief Try to get information about open file.
+    ///
+    /// This function attempts to retreive general information (\ref Info) about the file
+    /// descriptor encapsulated by this file object. It is an error to call this function on
+    /// an empty file object (\ref is_open()).
+    ///
+    /// \sa \ref Info
+    /// \sa \ref get_file_info()
+    ///
+    [[nodiscard]] bool try_get_file_info(Info& info, std::error_code& ec) noexcept;
+
     /// \brief Whether file object refers to a text terminal.
     ///
     /// This function calls \ref try_get_terminal_info() and then returns `true` if the
@@ -645,6 +682,8 @@ private:
 
     bool m_no_implicit_close = false;
 
+    bool do_try_open(core::FilesystemPathRef, AccessMode, CreateMode, WriteMode, std::error_code& ec) noexcept;
+
     void adopt(native_handle_type, bool no_implicit_close = false) noexcept;
     void implicit_close() noexcept;
     void do_close() noexcept;
@@ -656,10 +695,31 @@ private:
 
 
 
-/// \brief Information about text terminal.
+/// \brief General information about file.
 ///
-/// On object of this type is used to convey information about a text terminal. See \ref
-/// try_get_terminal_info().
+/// An object of this type is used to convey general information about a file. \ref
+/// get_file_info() returns a object of this type.
+///
+/// \sa \ref get_file_info()
+/// \sa \ref TerminalInfo
+///
+struct File::Info {
+    /// \brief Whether file is a directory.
+    ///
+    /// This flag is true if, and only if the corresponding file refers to a directory.
+    ///
+    bool is_directory;
+};
+
+
+
+/// \brief Information about text terminal associated with file.
+///
+/// An object of this type is used to convey information about a text terminal. See \ref
+/// get_terminal_info().
+///
+/// \sa \ref get_terminal_info()
+/// \sa \ref Info
 ///
 struct File::TerminalInfo {
     /// \brief Size of terminal.
@@ -939,6 +999,23 @@ inline void File::touch(core::FilesystemPathRef path)
 }
 
 
+inline bool File::is_directory()
+{
+    Info info = get_file_info(); // Throws
+    return info.is_directory;
+}
+
+
+inline auto File::get_file_info() -> Info
+{
+    Info info = {};
+    std::error_code ec;
+    if (ARCHON_LIKELY(try_get_file_info(info, ec)))
+        return info; // Success
+    throw std::system_error(ec, "Failed to get general file information");
+}
+
+
 inline bool File::is_terminal() noexcept
 {
     if (ARCHON_LIKELY(is_open())) {
@@ -952,7 +1029,7 @@ inline bool File::is_terminal() noexcept
 }
 
 
-inline bool File::get_terminal_info(core::File::TerminalInfo& info)
+inline bool File::get_terminal_info(TerminalInfo& info)
 {
     bool is_term = false;
     std::error_code ec;
