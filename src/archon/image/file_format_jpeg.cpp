@@ -27,6 +27,7 @@
 #include <locale>
 
 #include <archon/core/span.hpp>
+#include <archon/core/misc_error.hpp>
 #include <archon/core/source.hpp>
 #include <archon/core/sink.hpp>
 #include <archon/image/impl/config.h>
@@ -136,7 +137,7 @@ inline auto Context::get_context(jpeg_error_mgr& err) noexcept -> Context&
 
 
 // The size of the buffers used for input/output streaming
-constexpr std::size_t g_buffer_size = 4096;
+constexpr std::size_t g_buffer_size = 4096; // FIXME: Should a smaller buffer be used when recognizing file format only?                                        
 
 
 class LoadContext : public Context {
@@ -145,6 +146,7 @@ public:
     ~LoadContext() noexcept;
 
     bool recognize();
+    bool load(std::error_code& ec);
 
 private:
     core::Source& m_source;
@@ -206,10 +208,43 @@ bool LoadContext::recognize()
     }
     else {
         // Long jumps from the callback functions land here.
-
         if (ARCHON_LIKELY(!m_exception)) {
-            // Certain error codes (m_ec) should be interpreted as "unrecognized" while other should lead to the throwing of a system error exception                                                               
-            ARCHON_STEADY_ASSERT_UNREACHABLE();          
+            bool unrecognized = (m_ec == core::MiscError::premature_end_of_input); // Certain error codes (m_ec) should be interpreted as "unrecognized" while other should lead to the throwing of a system error exception                                                               
+            if (ARCHON_LIKELY(unrecognized))
+                return false;               
+            throw std::system_error(m_ec);                    
+        }
+        std::rethrow_exception(std::move(m_exception)); // Throws
+    }
+
+    return true; // Success
+}
+
+
+bool LoadContext::load(std::error_code& ec)
+{
+    // Long jump safety: No non-volatile automatic variables in the scope from which
+    // setjmp() is called (see notes on long jump safety above).
+
+    // Catch long jumps from one of the callback functions.
+    if (setjmp(m_jmp_buf) == 0) {
+        // Long jump safety: No automatic variables of nontrivial type in the "try"-scope,
+        // or in any subscope that may directly or indirectly initiate a long jump (see
+        // notes on long jump safety above).
+
+        m_info.err = jpeg_std_error(&m_err);
+        jpeg_create_decompress(&m_info);
+
+        m_info.src = &m_src;
+        jpeg_read_header(&m_info, 1);
+
+        ARCHON_STEADY_ASSERT_UNREACHABLE();     
+    }
+    else {
+        // Long jumps from the callback functions land here.
+        if (ARCHON_LIKELY(!m_exception)) {
+            ec = m_ec;
+            return false; // Failure
         }
         std::rethrow_exception(std::move(m_exception)); // Throws
     }
@@ -281,12 +316,15 @@ bool LoadContext::read(std::error_code& ec)
     core::Span buffer = { m_buffer.get(), g_buffer_size };
     std::size_t n = {};
     if (ARCHON_LIKELY(m_source.try_read_some(buffer, n, ec))) { // Throws
-        static_assert(std::is_same_v<JOCTET, char> || std::is_same_v<JOCTET, unsigned char>);
-        m_src.bytes_in_buffer = n;
-        m_src.next_input_byte = reinterpret_cast<JOCTET*>(buffer.data());
-        return true;
+        if (ARCHON_LIKELY(n > 0)) {
+            static_assert(std::is_same_v<JOCTET, char> || std::is_same_v<JOCTET, unsigned char>);
+            m_src.bytes_in_buffer = n;
+            m_src.next_input_byte = reinterpret_cast<JOCTET*>(buffer.data());
+            return true; // Success
+        }
+        ec = core::MiscError::premature_end_of_input;
     }
-    return false;
+    return false; // Failure
 }
 
 
@@ -346,8 +384,8 @@ public:
         static_cast<void>(loc);    
         static_cast<void>(logger);    
         static_cast<void>(config);    
-        static_cast<void>(ec);    
-        return false;               
+        LoadContext context(source);
+        return context.load(ec);
     }
 
     bool do_try_save(const image::Image& image, core::Sink& sink, const std::locale& loc, log::Logger& logger,
