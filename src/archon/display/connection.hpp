@@ -371,7 +371,7 @@ struct Connection::Config {
     /// If no logger is specified, nothing is logged. If a logger is specified, it must use
     /// a locale that is compatible with the locale that is passed to \ref
     /// display::Implementation::new_connection() or one of the other functions that can be
-    /// used to create a connection.. The important thing is that the character encodings
+    /// used to create a connection. The important thing is that the character encodings
     /// agree (`std::codecvt` facet).
     ///
     log::Logger* logger = nullptr;

@@ -155,7 +155,7 @@ int main(int argc, char* argv[])
         return exit_status;
 
     if (list_implementations) {
-        log::FileLogger stdout_logger(core::File::get_cout(), locale); // Throws
+        log::FileLogger stdout_logger(core::File::get_stdout(), locale); // Throws
         int n = font::Loader::get_num_implementations();
         for (int i = 0; i < n; ++i) {
             const font::Loader::Implementation& impl = font::Loader::get_implementation(i); // Throws
@@ -165,7 +165,7 @@ int main(int argc, char* argv[])
     }
 
     // FIXME: Logger used internally by command line processor should probably be a STDERR logger, not a STDOUT logger                                     
-    log::FileLogger root_logger(core::File::get_cerr(), locale); // Throws
+    log::FileLogger root_logger(core::File::get_stderr(), locale); // Throws
     log::LimitLogger logger(root_logger, log_level_limit); // Throws
 
     const font::Loader::Implementation* impl;

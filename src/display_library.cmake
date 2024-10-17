@@ -54,6 +54,7 @@ add_library(Display
   archon/display/implementation.cpp
   archon/display/x11_implementation.cpp
   archon/display/sdl_implementation.cpp
+  archon/display/list_implementations.cpp
   archon/display/noinst/palette_map.cpp
   archon/display/noinst/x11/support.cpp
 )
@@ -113,6 +114,7 @@ target_sources(Display PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" 
   archon/display/x11_implementation.hpp
   archon/display/sdl_implementation.hpp
   archon/display/as_key_name.hpp
+  archon/display/list_implementations.hpp
   archon/display.hpp
 )
 

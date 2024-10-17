@@ -31,7 +31,7 @@
 namespace archon::core {
 
 
-/// \brief Type must be function compatible with specific signature.
+/// \brief Require enumeration type.
 ///
 /// This concept requires \p T to be an enumeration type as determined by `std::is_enum<T>`.
 ///

@@ -33,7 +33,7 @@ namespace archon::image {
 /// \brief Handler for progress notifications.
 ///
 /// This class is a specification of the interface of a progress notification
-/// handler. Applications will hve to inherit from it, and override the \ref pgrogress()
+/// handler. Applications will hve to inherit from it, and override the \ref progress()
 /// function.
 ///
 /// Instances of this class can be used with \ref image::try_load() and \ref

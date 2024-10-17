@@ -90,9 +90,9 @@ public:
     /// These functions return files that represent the standard streams, STDIN, STDOUT, and
     /// STDERR. Use \ref is_terminal() to check whether they are associated with a terminal.
     ///
-    static auto get_cin() noexcept  -> File&;
-    static auto get_cout() noexcept -> File&;
-    static auto get_cerr() noexcept -> File&;
+    static auto get_stdin() noexcept  -> File&;
+    static auto get_stdout() noexcept -> File&;
+    static auto get_stderr() noexcept -> File&;
     /// \}
 
     /// \brief Open the specified file.
@@ -761,27 +761,28 @@ struct File::TerminalInfo {
 
 class File::StandardStreams {
 public:
-    File cin, cout, cerr;
+    // Avoid name clash with macros in <cstdio>
+    File stdin_, stdout_, stderr_;
 
     StandardStreams() noexcept;
 };
 
 
-inline auto File::get_cin() noexcept -> File&
+inline auto File::get_stdin() noexcept -> File&
 {
-    return s_standard_streams.cin;
+    return s_standard_streams.stdin_;
 }
 
 
-inline auto File::get_cout() noexcept -> File&
+inline auto File::get_stdout() noexcept -> File&
 {
-    return s_standard_streams.cout;
+    return s_standard_streams.stdout_;
 }
 
 
-inline auto File::get_cerr() noexcept -> File&
+inline auto File::get_stderr() noexcept -> File&
 {
-    return s_standard_streams.cerr;
+    return s_standard_streams.stderr_;
 }
 
 

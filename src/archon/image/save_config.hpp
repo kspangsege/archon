@@ -25,6 +25,7 @@
 
 
 #include <cstddef>
+#include <optional>
 #include <string_view>
 
 #include <archon/core/span.hpp>
@@ -44,22 +45,39 @@ namespace archon::image {
 /// Note that some of the available parameters are inherited from \ref
 /// image::FileFormat::SaveConfig.
 ///
+/// \sa \ref image::save(), \ref image::try_save(), \ref image::try_save_a()
+/// \sa \ref image::LoadConfig
+///
 struct SaveConfig : image::FileFormat::SaveConfig {
-    /// \brief  
+    /// \brief Log through specified logger.
     ///
-    ///  
-    ///
-    std::string_view file_format;
-
-    /// \brief  
-    ///
-    ///  
+    /// If no logger is specified, nothing is logged during the saving process. If a logger
+    /// is specified, it must use a locale that is compatible with the locale that is passed
+    /// to \ref image::save(), \ref image::try_save(), or \ref image::try_save_a(). The
+    /// important thing is that the character encodings agree (`std::codecvt` facet).
     ///
     log::Logger* logger = nullptr;
 
-    /// \brief  
+    /// \brief Use specific file format for saved image.
     ///
-    ///  
+    /// If specified, the image will be saved using that particular file format. It is
+    /// specified when it is nonempty. In that case, it is taken to be the file format
+    /// identifier (\ref image::FileFormat::get_ident()) for one of the file formats in the
+    /// registry (\ref registry). If it is not a valid file format identifier, the saving
+    /// process fails with \ref image::Error::no_such_file_format.
+    ///
+    /// When not explicitly specified, an attempt will be made to automatically detect the
+    /// image file format. See \ref image::try_save() for details on the file format
+    /// detection scheme.
+    ///
+    std::optional<std::string_view> file_format;
+
+    /// \brief Alternative set of file formats to be used during file format detection.
+    ///
+    /// If a file format registry is specified, that set of image file formats will be
+    /// considered during file format detection. See \ref image::try_load() for details on
+    /// the file format detection scheme. If a file format registry is not specified, the
+    /// default one will be used (\ref image::FileFormatRegistry::get_default_registry()).
     ///
     const image::FileFormatRegistry* registry = nullptr;
 

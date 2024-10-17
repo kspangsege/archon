@@ -175,6 +175,7 @@ target_sources(Core PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "${
   archon/core/histogram.hpp
   archon/core/word_wrap.hpp
   archon/core/text_formatter.hpp
+  archon/core/with_text_formatter.hpp
   archon/core/text_parser.hpp
 )
 

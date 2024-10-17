@@ -492,7 +492,7 @@ bool EngineImpl::EventHandler::on_quit()
 auto EngineImpl::instantiate_fallback_logger(std::unique_ptr<log::FileLogger>& logger,
                                              const std::locale& locale) -> log::Logger&
 {
-    logger = std::make_unique<log::FileLogger>(core::File::get_cout(), locale); // Throws
+    logger = std::make_unique<log::FileLogger>(core::File::get_stdout(), locale); // Throws
     return *logger;
 }
 

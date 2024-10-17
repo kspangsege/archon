@@ -169,14 +169,14 @@ struct TestConfig {
     /// log::TimestampLogger) at the outermost level. If file logging is enabled, the
     /// timestamps will be added to messages that are logged to files. Otherwise, the
     /// timestamps will be added to the messages logged via \ref logger, or if \ref logger
-    /// is not specified, the fallback logger (\ref log::Logger::get_cout()).
+    /// is not specified, the fallback logger (\ref log::Logger::get_stdout()).
     ///
     bool log_timestamps = false;
 
     /// \brief Enable per-thread file logging.
     ///
     /// When `log_to_files` is `false` (the default), all logging is routed through the
-    /// specified logger (\ref logger) or sent to `STDOUT` (\ref log::Logger::get_cout()) if
+    /// specified logger (\ref logger) or sent to `STDOUT` (\ref log::Logger::get_stdout()) if
     /// none is specified.
     ///
     /// When `log_to_files` is set to `true`, most log messages are instead sent to a log

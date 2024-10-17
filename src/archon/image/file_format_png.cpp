@@ -55,14 +55,17 @@
 #include <archon/image/buffered_image.hpp>
 #include <archon/image/progress_tracker.hpp>
 #include <archon/image/provider.hpp>
+#include <archon/image/error.hpp>
 #include <archon/image/file_format.hpp>
 #include <archon/image/file_format_png.hpp>
 #include <archon/image/load_config.hpp>
 #include <archon/image/save_config.hpp>
-#include <archon/image/error.hpp>
 
 #if ARCHON_IMAGE_HAVE_PNG
 #  include <png.h>
+#  if PNG_LIBPNG_VER < 10504
+#    error "PNG library is too old"
+#  endif
 #endif
 
 
@@ -71,6 +74,20 @@ using namespace std::literals;
 
 
 namespace {
+
+
+constexpr std::string_view g_file_format_ident = "png"sv;
+
+constexpr std::string_view g_file_format_descr = "PNG (Portable Network Graphics)"sv;
+
+constexpr std::string_view g_mime_types[] = {
+    "image/png"sv,
+};
+
+constexpr std::string_view g_filename_extensions[] = {
+    ".png"sv,
+};
+
 
 
 #if ARCHON_IMAGE_HAVE_PNG
@@ -148,16 +165,15 @@ inline auto string_for_interlace_type(png_byte val) -> std::string_view
 }
 
 
-bool recognize(core::Source& source, std::error_code& ec)
+bool try_recognize(core::Source& source, bool& recognized, std::error_code& ec)
 {
     constexpr std::size_t header_size = 8;
     char header[header_size];
     std::size_t n = 0;
     if (ARCHON_LIKELY(source.try_read(header, n, ec))) { // Throws
-        if (ARCHON_LIKELY(n == header_size && png_sig_cmp(to_png_bytep(header), 0, header_size) == 0))
-            return true; // Success
+        recognized = (n == header_size && png_sig_cmp(to_png_bytep(header), 0, header_size) == 0);
+        return true; // Success
     }
-    ec = image::Error::wrong_file_format;
     return false; // Failure
 }
 
@@ -405,19 +421,19 @@ auto create_image(image::Size size, const Format& format, bool use_short_int, pn
 }
 
 
-// Notes on using setjump/longjump in C++:
+// Notes on using setjmp/longjmp in C++:
 //
-// Great care must be taken when using setjump/longjump in C++ context. The main problem is
+// Great care must be taken when using setjmp/longjmp in C++ context. The main problem is
 // that stack objects will not have their destructors called during a long jump stack
 // unwinding process.
 //
-// A secondary problem is that a local variable in the scope from which setjmp() is called
-// has indeterminate state upon a long jump if it was modified after the invocation of
-// setjmp().
+// A secondary problem is that an automatic variable in the scope from which setjmp() is
+// called has indeterminate state upon a long jump if it was modified after the invocation
+// of setjmp().
 //
 // In order to be on the safe side, the following restrictions should be adhered to:
 //
-//  * Keep the setjump/longjump construction on the following canonical form:
+//  * Keep the setjmp/longjmp construction on the following canonical form:
 //
 //      if (setjmp(jmpbuf) == 0) { // try
 //         // code that may potentially issue a long jump (throw)
@@ -426,13 +442,13 @@ auto create_image(image::Size size, const Format& format, bool use_short_int, pn
 //          // code that handles the long jump (exception)
 //      }
 //
-//  * Keep the "try"-scope completely free of automatic variables of non-trivial type
+//  * Keep the "try"-scope completely free of automatic variables of nontrivial type
 //    (std::is_trivial). This also applies to any sub-scope from which a long jump may be
 //    directly or indirectly initiated. A sub-scope from which a long jump can not be
-//    initiated, may safly have automatic variable of non-trivial type.
+//    initiated, may safely have automatic variable of nontrivial type.
 //
 //  * Keep statements, that directly or indirectly may initiate a long jump, completely free
-//    of temporaries of non-trivial type.
+//    of temporaries of nontrivial type.
 //
 //  * Keep the scope from which setjmp() is called completely free of automatic variables.
 //
@@ -460,6 +476,10 @@ struct Context {
 
 [[noreturn]] void error_callback(png_structp png_ptr, png_const_charp message) noexcept
 {
+    // Long jump safety: No automatic variables of nontrivial type in a scope from which
+    // std::longjmp() may be called or through with stack unwinding may pass (see notes on
+    // long jump safety above).
+
     Context& ctx = *static_cast<Context*>(png_get_error_ptr(png_ptr));
     try {
         ctx.logger->error("%s", std::string_view(message)); // Throws
@@ -480,6 +500,10 @@ struct Context {
 
 void warning_callback(png_structp png_ptr, png_const_charp message) noexcept
 {
+    // Long jump safety: No automatic variables of nontrivial type in a scope from which
+    // std::longjmp() may be called or through with stack unwinding may pass (see notes on
+    // long jump safety above).
+
     Context& ctx = *static_cast<Context*>(png_get_error_ptr(png_ptr));
     try {
         ctx.logger->warn("%s", std::string_view(message)); // Throws
@@ -494,6 +518,10 @@ void warning_callback(png_structp png_ptr, png_const_charp message) noexcept
 
 void progress_callback(png_structp png_ptr, png_uint_32 row, int pass) noexcept
 {
+    // Long jump safety: No automatic variables of nontrivial type in a scope from which
+    // std::longjmp() may be called or through with stack unwinding may pass (see notes on
+    // long jump safety above).
+
     // This function must only be used with non-interlaced images
     ARCHON_ASSERT(row > 0);
     ARCHON_ASSERT(pass == 0);
@@ -629,8 +657,8 @@ public:
                 }
             }
 
-            // FIXME: Consider adding support for platte-type image object and then stop                 
-            // asking libpng to make this convertion, then read the palette using
+            // FIXME: Consider adding support for palette-type image object and then stop                 
+            // asking libpng to make this conversion, then read the palette using
             // `png_get_PLTE()`
 
             // Swap byte order for 16-bit images if that allows us to use a 16-bit word type
@@ -709,7 +737,7 @@ public:
         image_2 = create_image(image_size, format, use_short_int, buffer,
                                bytes_per_row_2); // Throws
 
-        // Sanity check: Must agreee with libpng on number of bytes per row
+        // Sanity check: Must agree with libpng on number of bytes per row
         if (bytes_per_row_2 != bytes_per_row) {
             fatal("Unexpected number of bytes per row: %s vs %s", bytes_per_row,
                   bytes_per_row_2); // Throws
@@ -737,6 +765,10 @@ public:
 
 void read_callback(png_structp png_ptr, png_bytep data, std::size_t size) noexcept
 {
+    // Long jump safety: No automatic variables of nontrivial type in a scope from which
+    // std::longjmp() may be called or through with stack unwinding may pass (see notes on
+    // long jump safety above).
+
     LoadContext& ctx = *static_cast<LoadContext*>(png_get_error_ptr(png_ptr));
     try {
         core::Span<char> buffer(from_png_bytep<char>(data), size);
@@ -759,8 +791,8 @@ void read_callback(png_structp png_ptr, png_bytep data, std::size_t size) noexce
 
 bool do_load(LoadContext& ctx)
 {
-    // Long jump safety: No non-volatile local variables in the scope from which setjmp() is
-    // called (see notes on long jump safety above).
+    // Long jump safety: No non-volatile automatic variables in the scope from which
+    // setjmp() is called (see notes on long jump safety above).
 
     ctx.png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, &ctx, error_callback, warning_callback);
     if (ARCHON_UNLIKELY(!ctx.png_ptr))
@@ -772,9 +804,9 @@ bool do_load(LoadContext& ctx)
 
     // Catch long jumps from one of the callback functions.
     if (setjmp(png_jmpbuf(ctx.png_ptr)) == 0) {
-        // Long jump safety: No local variables of nontrivial type in the "try"-scope, or in
-        // any subscope that may directly or indirectly initiate a long jump (see notes on
-        // long jump safety above).
+        // Long jump safety: No automatic variables of nontrivial type in the "try"-scope,
+        // or in any subscope that may directly or indirectly initiate a long jump (see
+        // notes on long jump safety above).
 
         png_set_sig_bytes(ctx.png_ptr, 8);
         png_set_read_fn(ctx.png_ptr, 0, read_callback);
@@ -857,19 +889,17 @@ bool load(core::Source& source, std::unique_ptr<image::WritableImage>& image, co
           log::Logger& logger, image::ProgressTracker* tracker, image::Provider* provider, const image::PNGLoadConfig&,
           std::error_code& ec)
 {
-    // FIXME: How about setting 1.5.4 as the minimum required version of libpng?                            
-    //
-    // > If you need to support versions prior to libpng-1.5.4 test the version
-    // > number as illustrated below using "PNG_LIBPNG_VER >= 10504" and follow
-    // > the procedures described in the appropriate manual page.
-    //
-
     // FIXME: Read text comments using `png_get_text()`            
 
     // FIXME: Get background color using `png_get_bKGD()`             
 
-    if (ARCHON_UNLIKELY(!recognize(source, ec)))
-        return false; // Failure (wrong file format)
+    bool recognized = {};
+    if (ARCHON_UNLIKELY(!try_recognize(source, recognized, ec))) // Throws
+        return false; // Failure
+    if (ARCHON_UNLIKELY(!recognized)) {
+        ec = image::Error::bad_file;
+        return false; // Failure
+    }
 
     LoadContext ctx;
     ctx.logger = &logger;
@@ -929,6 +959,10 @@ public:
 
 void write_callback(png_structp png_ptr, png_bytep data, png_size_t size) noexcept
 {
+    // Long jump safety: No automatic variables of nontrivial type in a scope from which
+    // std::longjmp() may be called or through with stack unwinding may pass (see notes on
+    // long jump safety above).
+
     SaveContext& ctx = *static_cast<SaveContext*>(png_get_error_ptr(png_ptr));
     try {
         core::Span<const char> data_2(from_png_bytep<const char>(data), size);
@@ -956,8 +990,8 @@ void flush_callback(png_structp) noexcept
 
 bool do_save(SaveContext& ctx)
 {
-    // Long jump safety: No non-volatile local variables in the scope from which setjmp() is
-    // called (see notes on long jump safety above).
+    // Long jump safety: No non-volatile automatic variables in the scope from which
+    // setjmp() is called (see notes on long jump safety above).
 
     ctx.png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, &ctx, error_callback, warning_callback);
     if (ARCHON_UNLIKELY(!ctx.png_ptr))
@@ -969,9 +1003,9 @@ bool do_save(SaveContext& ctx)
 
     // Catch long jumps from one of the callback functions.
     if (setjmp(png_jmpbuf(ctx.png_ptr)) == 0) {
-        // Long jump safety: No local variables of nontrivial type in the "try"-scope, or in
-        // any subscope that may directly or indirectly initiate a long jump (see notes on
-        // long jump safety above).
+        // Long jump safety: No automatic variables of nontrivial type in the "try"-scope,
+        // or in any subscope that may directly or indirectly initiate a long jump (see
+        // notes on long jump safety above).
 
         png_set_write_fn(ctx.png_ptr, 0, write_callback, flush_callback);
 
@@ -984,7 +1018,7 @@ bool do_save(SaveContext& ctx)
         png_set_IHDR(ctx.png_ptr, ctx.info_ptr, ctx.width, ctx.height, ctx.format.bit_depth, ctx.format.color_type,
                      interlace_type, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 
-        // Sanity check: Must agreee with libpng on number of bytes per row
+        // Sanity check: Must agree with libpng on number of bytes per row
         {
             std::size_t bytes_per_row = png_get_rowbytes(ctx.png_ptr, ctx.info_ptr);
             if (ctx.bytes_per_row != bytes_per_row) {
@@ -1152,26 +1186,18 @@ bool save(const image::Image& image, core::Sink& sink, const std::locale& loc, l
 }
 
 
-constexpr std::string_view g_mime_types[] = {
-    "image/png"sv,
-};
-
-constexpr std::string_view g_filename_extensions[] = {
-    ".png"sv,
-};
-
 
 class FileFormatImpl final
     : public image::FileFormat {
 public:
     auto get_ident() const noexcept -> std::string_view override
     {
-        return "png"sv;
+        return g_file_format_ident;
     }
 
     auto get_descr() const -> std::string_view override
     {
-        return "Portable Network Graphics"sv;
+        return g_file_format_descr;
     }
 
     auto get_mime_types() const noexcept -> core::Span<const std::string_view> override
@@ -1184,10 +1210,15 @@ public:
         return g_filename_extensions;
     }
 
-    bool recognize(core::Source& source) const override
+    bool is_available() const noexcept override
     {
-        std::error_code ec; // Dummy
-        return ::recognize(source, ec); // Throws
+        return true;
+    }
+
+    bool try_recognize(core::Source& source, bool& recognized, const std::locale&, log::Logger&,
+                       std::error_code& ec) const override
+    {
+        return ::try_recognize(source, recognized, ec); // Throws
     }
 
     bool do_try_load(core::Source& source, std::unique_ptr<image::WritableImage>& image, const std::locale& loc,
@@ -1226,20 +1257,67 @@ public:
 };
 
 
+#else // !ARCHON_IMAGE_HAVE_PNG
 
 
-#endif // ARCHON_IMAGE_HAVE_PNG
+class FileFormatImpl final
+    : public image::FileFormat {
+public:
+    auto get_ident() const noexcept -> std::string_view override
+    {
+        return g_file_format_ident;
+    }
+
+    auto get_descr() const -> std::string_view override
+    {
+        return g_file_format_descr;
+    }
+
+    auto get_mime_types() const noexcept -> core::Span<const std::string_view> override
+    {
+        return g_mime_types;
+    }
+
+    auto get_filename_extensions() const noexcept -> core::Span<const std::string_view> override
+    {
+        return g_filename_extensions;
+    }
+
+    bool is_available() const noexcept override
+    {
+        return false;
+    }
+
+    bool try_recognize(core::Source&, bool&, const std::locale&, log::Logger&, std::error_code& ec) const override
+    {
+        ec = image::Error::file_format_unavailable;
+        return false; // Failure
+    }
+
+    bool do_try_load(core::Source&, std::unique_ptr<image::WritableImage>&, const std::locale&, log::Logger&,
+                     const LoadConfig&, std::error_code& ec) const override
+    {
+        ec = image::Error::file_format_unavailable;
+        return false; // Failure
+    }
+
+    bool do_try_save(const image::Image&, core::Sink&, const std::locale&, log::Logger&, const SaveConfig&,
+                     std::error_code& ec) const override
+    {
+        ec = image::Error::file_format_unavailable;
+        return false; // Failure
+    }
+};
+
+
+#endif // !ARCHON_IMAGE_HAVE_PNG
 
 
 } // unnamed namespace
 
 
-auto image::get_file_format_png() noexcept -> const image::FileFormat*
+auto image::get_file_format_png() noexcept -> const image::FileFormat&
 {
-#if ARCHON_IMAGE_HAVE_PNG
     static FileFormatImpl impl;
-    return &impl;
-#else
-    return nullptr;
-#endif
+    return impl;
 }

@@ -70,11 +70,11 @@ namespace archon::core {
 ///
 /// Input text is submitted to the formatter much like if the formatter was an output
 /// stream, in fact, the formatter makes an actual output stream available for submission of
-/// input to the formatter (\ref out()). With default settings, no formatting takes place,
-/// so any text submitted to the formatter is passed through unmodified to the underlying
-/// output stream. The underlying output stream is the one that is passed to the constructor
-/// of the formatter. For anything nontrivial to happen, at least one formatting paramter
-/// needs to be changed away from its default value.
+/// input to the formatter (\ref input_out()). With default settings, no formatting takes
+/// place, so any text submitted to the formatter is passed through unmodified to the
+/// underlying output stream. The underlying output stream is the one that is passed to the
+/// constructor of the formatter. For anything nontrivial to happen, at least one formatting
+/// parameter needs to be changed away from its default value.
 ///
 /// Text is formatted one input line at a time. The input is first divided into input
 /// sections, then each section is divided into input lines. By default, that is, when not
@@ -92,7 +92,7 @@ namespace archon::core {
 /// The formatter maintains an output cursor whose position is advanced as a result of the
 /// formatting of each input line. The current position of the output cursor is available
 /// through \ref get_line_number() and \ref get_cursor_pos(). The former returns the
-/// vertical position, and the latter returns the horizontal position. The horizontain
+/// vertical position, and the latter returns the horizontal position. The horizontal
 /// position is zero unless the current output line is open. The cursor can be moved by
 /// calling \ref jump(), although movement to earlier lines is only possible while output is
 /// held back.
@@ -118,12 +118,12 @@ namespace archon::core {
 /// off. Even when clipping is enabled, text may extend into the right-side padding area.
 ///
 /// The fragments that are produced by word wrapping, except the last one that corresponds
-/// to the end of the input line, will be subjected to justification, if justification is
-/// enabled (\ref set_justify()) and the fragment ended up with at least two words. Here,
-/// additional white space will be added between words in order to achieve alignment with
-/// both the left and the right side of the area inside the formatting box that is available
-/// for text. Leading and trailing space of an input line is never affected by
-/// justification.
+/// to the end of the input line, will be subjected to justification, so long as
+/// justification is enabled (\ref set_justify()) and the fragment ended up with at least
+/// two words. Here, additional white space will be added between words in order to achieve
+/// alignment with both the left and the right side of the area inside the formatting box
+/// that is available for text. Leading and trailing space of an input line is never
+/// affected by justification.
 ///
 /// The justification mechanism may best be understood as follows: Take the line (line
 /// fragment) in its natural unstretched form. Connect the centers of the two outermost
@@ -136,6 +136,8 @@ namespace archon::core {
 /// If whitespace normalization is turned on (set_norm_whitespace()), any leading and
 /// trailing space will be removed from each submitted input line, and the number of spaces
 /// between words in an input line will be reduced to one.
+///
+/// \sa \ref core::with_text_formatter()
 ///
 template<class C, class T = std::char_traits<C>> class BasicTextFormatter {
 public:
@@ -161,8 +163,6 @@ public:
     using Color  = core::terminal::Color;
     using Style  = core::terminal::TextAttributes;
 
-    /// \{
-    ///
     /// \brief Construct text formatter.
     ///
     /// Construct a text formatter.
@@ -172,13 +172,11 @@ public:
     ///
     /// \param config A set of parameters through which the formatter can be configured.
     ///
-    explicit BasicTextFormatter(ostream_type& out);
-    explicit BasicTextFormatter(ostream_type& out, Config config);
-    /// \}
+    explicit BasicTextFormatter(ostream_type& out, const Config& config = {});
 
     /// \brief Submit serialization of specified value as text formatter input.
     ///
-    /// `formatter.write(val)` has the same effect as `formatter.out() << val`.
+    /// `formatter.write(val)` has the same effect as `formatter.input_out() << val`.
     ///
     template<class V> void write(V&& val);
 
@@ -202,17 +200,18 @@ public:
     /// to the formatter.
     ///
     /// Calling `flush()` on the returned stream, or `pubsync()` on the underlying stream
-    /// buffer has the same effect as calling \ref process_input() on the text formatter.
+    /// buffer has exactly the same effect as calling \ref process_input() on the text
+    /// formatter. In both cases, it causes any unprocessed input to be processed.
     ///
-    auto out() noexcept -> ostream_type&;
+    auto input_out() noexcept -> ostream_type&;
 
     /// \brief Finalize formatting process.
     ///
     /// Process any remaining input under the assumption that no more input will be
-    /// received. This operation roughly corresponds to processing any unprocessed intput
-    /// (as if by \ref process_input()); then, if there is an open input section, close it
-    /// (as if by \ref close_section()); and then, if the current ouput line is open, close
-    /// it (as if by \ref close_output_line()).
+    /// received. This operation roughly corresponds to processing any unprocessed input (as
+    /// if by \ref process_input()); then, if there is an open input section, close it (as
+    /// if by \ref close_section()); and then, if the current output line is open, close it
+    /// (as if by \ref close_output_line()).                                                             
     ///
     /// The application is advised to always call this function after all text has been
     /// submitted to the formatter in order to avoid loosing output.
@@ -220,6 +219,8 @@ public:
     /// It is an error to call this function when in compilation mode (\ref
     /// begin_compile()). If is also an error to call this function while output is held
     /// back (\ref begin_hold()).
+    ///
+    /// \sa flush()
     ///
     void finalize();
 
@@ -229,7 +230,17 @@ public:
     /// formatter constructor, `f.flush()` has the same effect as `f.process_input()`
     /// followed by `out.flush()`.
     ///
+    /// This function can be called at any time without affecting the final formatted
+    /// result. It follows that two consecutive invocations has the same effect as one
+    /// (idempotency).
+    ///
+    /// This function is not intended for finalization of the formatting process. See \ref
+    /// finalize() for that. Instead, it is meant to be used at intermediate points during
+    /// the formatting process where the applications wishes to expose the currently reached
+    /// provisional result of the formatting process.
+    ///
     /// \sa \ref process_input()
+    /// \sa \ref finalize()
     ///
     void flush();
 
@@ -237,7 +248,7 @@ public:
     ///
     /// \brief Change aspects of current text format.
     ///
-    /// These funrctions are shorthands for calling \ref get_format(), then calling the
+    /// These functions are shorthands for calling \ref get_format(), then calling the
     /// respective "setter" function on the format object (\ref Format), and then passing
     /// the modified format object to \ref set_format().
     ///
@@ -413,8 +424,8 @@ public:
     /// If an input section is currently open, this function closes it. If an input section
     /// is not currently open, this function generates an empty input section.
     ///
-    /// A new input section will be opened automatically if additional text is submitted to
-    /// the formatter.
+    /// After an invocation of this function, a new input section will be opened
+    /// automatically if additional text is submitted to the formatter.
     ///
     /// In compilation mode (see \ref begin_compile()), the section is simply added to the
     /// list of closed sections retained in the input buffer. When not in compilation mode,
@@ -436,10 +447,10 @@ public:
     /// A new input section is opened whenever a character is written to the formatter and
     /// an open input section does not already exist. The currently open input section is
     /// closed whenever \ref close_section() is called, or, if not in compilation mode,
-    /// after a newline character is encoutered in the input.
+    /// after a newline character is encountered in the input.
     ///
     /// When this function is called, any outstanding input is processed, as if by an
-    /// invocation of \ref process_input(), before the judgement is made as to whether an
+    /// invocation of \ref process_input(), before the judgment is made as to whether an
     /// open input section exists.
     ///
     bool has_open_section();
@@ -449,12 +460,12 @@ public:
     /// In compilation mode, input sections are not automatically closed after each newline
     /// character, and they are not immediately formatted upon closure.
     ///
-    /// In compilation mode, all input sections are retained in the input buffer, therfore,
+    /// In compilation mode, all input sections are retained in the input buffer, therefore,
     /// to avoid excessive memory usage, compilation mode should only be used when
     /// necessary. Further more, since cleanup does not happen until exit from compilation
     /// mode, it is probably a bad idea to remain in compilation mode for longer than
-    /// necessary, and it may be necessary to exit compilation mode even when reentering
-    /// shortly thereafter, just to allow for clean up to happen.
+    /// absolutely necessary, and it may be a good idea to exit compilation mode even when
+    /// reentering shortly thereafter, just to allow for clean up to take place.
     ///
     /// If there is an open input section (\ref has_open_section()) it will be closed before
     /// switching to compilation mode, as if by a preceding invocation of \ref
@@ -469,9 +480,8 @@ public:
     /// If in compilation mode, switch away from compilation mode. Otherwise, do nothing
     /// (idempotency).
     ///
-    /// Input sections, that have not been explicitely formatted using \ref
-    /// format_section(), will be lost. If there is an open input section, it will be lost
-    /// too.
+    /// Input sections, that have not been explicitly formatted using \ref format_section(),
+    /// will be lost. If there is an open input section, it will be lost too.
     ///
     void end_compile() noexcept;
 
@@ -504,7 +514,7 @@ public:
 
     /// \brief Get information about closed input section.
     ///
-    /// This fucntion returns information about the specified closed input section (\p
+    /// This function returns information about the specified closed input section (\p
     /// section_index).
     ///
     /// The specified section index (\p section_index) must be less than the number of
@@ -568,7 +578,7 @@ public:
     /// currently configured alignment disposition, and whether clipping is enabled.
     ///
     /// Formatting parameters, that do affect the result, include padding and indentation
-    /// paramters and whether word wrapping is enabled. The offset (position of formatiing
+    /// parameters and whether word wrapping is enabled. The offset (position of formatting
     /// box) has an effect if, and only if `open_line` is true in the specified cursor
     /// state.
     ///
@@ -587,7 +597,7 @@ public:
 
     /// \brief Compute effect of formatting of section.
     ///
-    /// This fucntion computes the effect that the formating of the specified section (\p
+    /// This function computes the effect that the formatting of the specified section (\p
     /// section_index) would have.
     ///
     /// \param section_index The index of the closed input section to be analyzed. The index
@@ -656,7 +666,7 @@ public:
 
     /// \brief Jump to other output line.
     ///
-    /// Close the current output line if it is open (as if by \ref close_ouput_line()), then
+    /// Close the current output line if it is open (as if by \ref close_output_line()), then                            
     /// move the cursor to the end of the specified output line (\p line_number).
     ///
     /// If output is currently held back, the first line number that can be jumped to, is
@@ -759,10 +769,10 @@ private:
 
     using FormatUnit = word_wrap::Word;
 
-    ostream_type& m_final_out;
+    ostream_type& m_output_out;
     const std::locale m_locale;
-    StreambufImpl m_streambuf;
-    ostream_type m_out;
+    StreambufImpl m_input_streambuf;
+    ostream_type m_input_out;
     core::BasicCharMapper<C, T> m_char_mapper;
     std::unique_ptr<word_wrap::KnuthWrapper> m_knuth_wrapper;
     Style m_input_style, m_fill_style;
@@ -781,8 +791,8 @@ private:
     std::stack<Style> m_input_style_stack;
     std::stack<FormatRep> m_format_stack;
     std::stack<HoldEntry> m_hold_stack;
-    const char_type m_newline_char = m_final_out.widen('\n');
-    const char_type m_space_char   = m_final_out.widen(' ');
+    const char_type m_newline_char = m_output_out.widen('\n');
+    const char_type m_space_char   = m_output_out.widen(' ');
     const bool m_enable_ansi_escape_sequences;
     bool m_word_is_open = false;
     bool m_is_compiling = false;
@@ -987,8 +997,8 @@ template<class C, class T> struct BasicTextFormatter<C, T>::Config {
     ///
     /// Unless enabled, functions such as \ref set_reverse() will have no effect.
     ///
-    /// See \ref core::terminal::TextAttributes::change() for more information
-    /// about ANSI escape sequences.
+    /// See \ref core::terminal::TextAttributes::change() for more information about ANSI
+    /// escape sequences.
     ///
     bool enable_ansi_escape_sequences = false;
 
@@ -1128,24 +1138,17 @@ template<class C, class T> struct BasicTextFormatter<C, T>::SimulateResult {
 
 
 template<class C, class T>
-inline BasicTextFormatter<C, T>::BasicTextFormatter(ostream_type& out)
-    : BasicTextFormatter(out, {}) // Throws
-{
-}
-
-
-template<class C, class T>
-inline BasicTextFormatter<C, T>::BasicTextFormatter(ostream_type& out, Config config)
-    : m_final_out(out)
-    , m_locale(m_final_out.getloc()) // Throws
-    , m_streambuf(*this)
-    , m_out(&m_streambuf) // Throws
+inline BasicTextFormatter<C, T>::BasicTextFormatter(ostream_type& out, const Config& config)
+    : m_output_out(out)
+    , m_locale(m_output_out.getloc()) // Throws
+    , m_input_streambuf(*this)
+    , m_input_out(&m_input_streambuf) // Throws
     , m_char_mapper(m_locale) // Throws
     , m_enable_ansi_escape_sequences(config.enable_ansi_escape_sequences) // Throws
     , m_line_number_base(config.line_number_base)
 {
-    m_out.exceptions(std::ios_base::badbit | std::ios_base::failbit); // Throws
-    m_out.imbue(m_locale); // Throws
+    m_input_out.exceptions(std::ios_base::badbit | std::ios_base::failbit); // Throws
+    m_input_out.imbue(m_locale); // Throws
     if (config.high_quality_word_wrapper)
         m_knuth_wrapper = std::make_unique<word_wrap::KnuthWrapper>(); // Throws
     on_format_changed();
@@ -1158,7 +1161,7 @@ template<class V> inline void BasicTextFormatter<C, T>::write(V&& val)
 {
     // FIXME: Can be optimized (bypass stream) for case where `val` is of type `string_view_type`.                                  
     // FIXME: Can be optimized (bypass stream) if `val` is of type `char *` by using `m_char_mapper`.                                  
-    m_out << std::forward<V>(val); // Throws
+    m_input_out << std::forward<V>(val); // Throws
 }
 
 
@@ -1173,14 +1176,14 @@ template<class V> inline void BasicTextFormatter<C, T>::writeln(V&& val)
 template<class C, class T>
 template<class... P> inline void BasicTextFormatter<C, T>::format(const char* pattern, const P&... params)
 {
-    core::format(m_out, pattern, params...); // Throws
+    core::format(m_input_out, pattern, params...); // Throws
 }
 
 
 template<class C, class T>
-inline auto BasicTextFormatter<C, T>::out() noexcept -> ostream_type&
+inline auto BasicTextFormatter<C, T>::input_out() noexcept -> ostream_type&
 {
-    return m_out;
+    return m_input_out;
 }
 
 
@@ -1203,7 +1206,7 @@ template<class C, class T>
 void BasicTextFormatter<C, T>::flush()
 {
     process_input(); // Throws
-    m_final_out.flush(); // Throws
+    m_output_out.flush(); // Throws
 }
 
 
@@ -1823,7 +1826,7 @@ auto BasicTextFormatter<C, T>::measure(std::size_t section_index, const Cursor& 
             // The sum of cursor pos and the size of the first line capped at max becomes the initial value of inner_right_1
             // For each remaining word: If sum of m_inner_left_rest and word size, capped at max, is greater than inner_right_1, set inner_right_1 to that sum.
 
-            // Note: Since whitespace normalization can never increse the amount of
+            // Note: Since whitespace normalization can never increase the amount of
             // whitespace, the computations of `size_1_first`, `size_2` cannot overflow,
             // because neither of them can be greater than the size, in characters, of this
             // input section, and the size of any input section is, by design, representable
@@ -1921,7 +1924,7 @@ auto BasicTextFormatter<C, T>::measure(std::size_t section_index, const Cursor& 
     std::size_t max_outer_right_2 = max;
     if (ARCHON_LIKELY(m_format.padding_right <= std::size_t(max - max_inner_right_2)))
         max_outer_right_2 = std::size_t(max_inner_right_2 + m_format.padding_right);
-    // FIXME: Looks line max_outer_right_1 and max_outer_right_2 are both guaranteed to be greater than, or equal to m_format.offset due to the behaviour of jumping to left margin before formatting an input line, even when output line is already open. However, maybe there should be a flag to determine whether this jump is enabled.                                                      
+    // FIXME: Looks line max_outer_right_1 and max_outer_right_2 are both guaranteed to be greater than, or equal to m_format.offset due to the behavior of jumping to left margin before formatting an input line, even when output line is already open. However, maybe there should be a flag to determine whether this jump is enabled.                                                      
     std::size_t min_width_no_oflow = 0;
     if (ARCHON_LIKELY(max_outer_right_1 >= m_format.offset))
         min_width_no_oflow = std::size_t(max_outer_right_1 - m_format.offset);
@@ -1938,7 +1941,7 @@ auto BasicTextFormatter<C, T>::simulate(std::size_t section_index, std::size_t w
     const InputSection& section = m_input_sections.at(section_index); // Throws
     ARCHON_ASSERT(m_is_compiling);
 
-    // Note: Since whitespace normalization can never increse the amount of whitespace,                                                                        
+    // Note: Since whitespace normalization can never increase the amount of whitespace,                                                                        
     // neither the computation of the width nor the height can overflow, because neither can
     // be greater than the size, in characters, of this input section, and the size of any
     // input section is, by design, representable in std::size_t.
@@ -2456,7 +2459,7 @@ struct BasicTextFormatter<C, T>::ExtendedLineInfo {
 template<class C, class T>
 inline auto BasicTextFormatter<C, T>::get_input_end() const noexcept -> std::size_t
 {
-    return std::size_t(m_streambuf.get_put_ptr() - m_input_buffer.data());
+    return std::size_t(m_input_streambuf.get_put_ptr() - m_input_buffer.data());
 }
 
 
@@ -2513,7 +2516,7 @@ inline void BasicTextFormatter<C, T>::clear_input_buffer() noexcept
     m_processed_end   = 0;
     char_type* base = m_input_buffer.data();
     std::size_t size  = m_input_buffer.size();
-    m_streambuf.reset_put_area(base, base + size);
+    m_input_streambuf.reset_put_area(base, base + size);
     m_space_begin = 0;
 }
 
@@ -2542,7 +2545,7 @@ void BasicTextFormatter<C, T>::input_overflow(std::size_t extra_size_needed)
     input_end         -= m_processed_begin;
     m_processed_end   -= m_processed_begin;
     m_processed_begin  = 0;
-    m_streambuf.reset_put_area(base + input_end, base + buffer_size);
+    m_input_streambuf.reset_put_area(base + input_end, base + buffer_size);
 }
 
 
@@ -3271,8 +3274,8 @@ void BasicTextFormatter<C, T>::do_flush_output()
                 output_line.append(core::Span(output + j->offset, j->size)); // Throws
             }
             while (j != last);
-            // Reset style before switching to a new line to avoid strange behaviour in some
-            // terminals when the background color is set to a nondefault value.
+            // Reset style before switching to a new line to avoid strange behavior in some
+            // terminals when the background color is set to a non-default value.
             change_style({}); // Throws
         }
         bool last_line = (std::size_t(i + 1) == n);
@@ -3280,7 +3283,7 @@ void BasicTextFormatter<C, T>::do_flush_output()
             output_line.append(1, m_newline_char); // Throws
         std::streamsize size = 0;
         core::int_cast(output_line.size(), size); // Throws
-        m_final_out.write(output_line.data(), size); // Throws
+        m_output_out.write(output_line.data(), size); // Throws
     }
     ARCHON_ASSERT(m_line_number - m_line_number_base == n - 1);
     m_line_number_base = m_line_number;

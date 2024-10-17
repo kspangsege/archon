@@ -93,6 +93,7 @@ namespace {
 
 
 constexpr std::string_view g_implementation_ident = "sdl";
+constexpr std::string_view g_implementation_descr = "SDL (Simple DirectMedia Layer)";
 
 
 #if HAVE_SDL
@@ -151,7 +152,8 @@ class SlotImpl final
 public:
     SlotImpl() noexcept;
 
-    auto ident() const noexcept -> std::string_view override;
+    auto get_ident() const noexcept -> std::string_view override;
+    auto get_descr() const noexcept -> std::string_view override;
     auto get_implementation_a(const display::Guarantees&) const noexcept -> const display::Implementation* override;
 
 private:
@@ -331,9 +333,15 @@ inline SlotImpl::SlotImpl() noexcept
 }
 
 
-auto SlotImpl::ident() const noexcept -> std::string_view
+auto SlotImpl::get_ident() const noexcept -> std::string_view
 {
     return g_implementation_ident;
+}
+
+
+auto SlotImpl::get_descr() const noexcept -> std::string_view
+{
+    return g_implementation_descr;
 }
 
 
@@ -1606,14 +1614,21 @@ inline auto map_mouse_button(Uint8 button) noexcept -> display::MouseButton
 class SlotImpl final
     : public display::Implementation::Slot {
 public:
-    auto ident() const noexcept -> std::string_view override;
+    auto get_ident() const noexcept -> std::string_view override;
+    auto get_descr() const noexcept -> std::string_view override;
     auto get_implementation_a(const display::Guarantees&) const noexcept -> const display::Implementation* override;
 };
 
 
-auto SlotImpl::ident() const noexcept -> std::string_view
+auto SlotImpl::get_ident() const noexcept -> std::string_view
 {
     return g_implementation_ident;
+}
+
+
+auto SlotImpl::get_descr() const noexcept -> std::string_view
+{
+    return g_implementation_descr;
 }
 
 

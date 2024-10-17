@@ -201,13 +201,20 @@ enum class When {
 };
 
 
+/// \{
+///
 /// \brief Decide whether to enable escape sequences.
 ///
 /// This function decides whether to enable ANSI escape sequences in text output based on \p
 /// when, whether the output is sent to a text terminal (\p is_terminal), the locale in
 /// effect, and the target platform.
 ///
+/// The overload that does not take a \p when argument assumes it is
+/// `terminal::When::auto_`.
+///
+bool should_enable_escape_sequences(bool is_terminal, const std::locale&);
 bool should_enable_escape_sequences(terminal::When when, bool is_terminal, const std::locale&);
+/// \}
 
 
 
@@ -452,6 +459,12 @@ inline bool TextAttributes::operator==(const TextAttributes& attr) const noexcep
 inline bool TextAttributes::operator!=(const TextAttributes& attr) const noexcept
 {
     return (m_mem != attr.m_mem);
+}
+
+
+inline bool should_enable_escape_sequences(bool is_terminal, const std::locale& locale)
+{
+    return terminal::should_enable_escape_sequences(terminal::When::auto_, is_terminal, locale); // Throws
 }
 
 

@@ -57,11 +57,62 @@ public:
     struct LoadConfig;
     struct SaveConfig;
 
+    /// \{
+    ///
+    /// \brief Base classes for special configuration parameters.
+    ///
+    /// See \ref SpecialLoadConfigRegistry and \ref SpecialSaveConfigRegistry for details.
+    ///
     struct SpecialLoadConfig {};
     struct SpecialSaveConfig {};
+    /// \}
 
+    /// \{
+    ///
+    /// \brief Facilities for passing special parameters to load and save processes.
+    ///
+    /// *Special configuration parameters* are configuration parameters that are specific to
+    /// a particular image file format. If a file format offers special configuration
+    /// parameters for the loading or saving processes, it defines classes that inherit from
+    /// \ref SpecialLoadConfig and \ref SpecialSaveConfig respectively. These classes will
+    /// be defined in the header (include file) that pertains to the file format. For
+    /// example, see \ref image::PNGSaveConfig.
+    ///
+    /// An application can pass special configuration parameters to the loading and saving
+    /// processes through use of objects of type `SpecialLoadConfigRegistry` and
+    /// `SpecialSaveConfigRegistry` respectively.
+    ///
+    /// Here is an example of how to turn interlacing on for a saved PNG image:
+    ///
+    /// \code{.cpp}
+    ///
+    ///   archon::image::PNGSaveConfig png_config;
+    ///   png_config.use_adam7_interlacing = true;
+    ///   archon::image::FileFormat::SpecialSaveConfigRegistry special_config;
+    ///   special_config.register_(png_config);
+    ///   archon::image::SaveConfig config;
+    ///   config.special = &special_config;
+    ///   archon::image::save(image, "foo.png", locale, config);
+    ///
+    /// \endcode
+    ///
+    /// PNG-specific configuration parameters will matter only when the saved image uses the
+    /// PNG file format. Likewise for other file formats. An application can specify special
+    /// configuration parameters for multiple file formats at once by registering more than
+    /// one special parameters object with the `special_config` object.
+    ///
+    /// The scheme for passing special configuration parameters to the loading process is
+    /// exactly analogous the one shown above. Instead of a `SpecialSaveConfigRegistry`, use
+    /// a `SpecialLoadConfigRegistry`.
+    ///
+    /// \sa \ref image::PNGSaveConfig
+    /// \sa \ref SpecialLoadConfig, \ref SpecialSaveConfig
+    /// \sa \ref LoadConfig::special, \ref SaveConfig::special
+    /// \sa \ref core::TypedObjectRegistry
+    ///
     using SpecialLoadConfigRegistry = core::TypedObjectRegistry<const SpecialLoadConfig, 8>;
     using SpecialSaveConfigRegistry = core::TypedObjectRegistry<const SpecialSaveConfig, 8>;
+    /// \}
 
     /// \brief File format identifier.
     ///
@@ -93,15 +144,40 @@ public:
     ///
     virtual auto get_filename_extensions() const noexcept -> core::Span<const std::string_view> = 0;
 
-    /// \brief Whether leading bytes match this file format.
+    /// \brief Whether file format is available.
     ///
-    /// This function checks whether the leading bytes of the specified byte sequence (\p
-    /// source) match the file format that this `FileFormat` object represents.
+    /// This function returns `true` when, and only when this file format is
+    /// available. Ordinarily, it will be available if support for this file format was
+    /// enabled when the Archon image library was built.
+    ///
+    /// When the file format is unavailable, certain functions (\ref try_recognize(), \ref
+    /// try_load(), \ref try_save()) fail with \ref image::Error::file_format_unavailable.
+    ///
+    virtual bool is_available() const noexcept = 0;
+
+    /// \brief Try to determine whether leading bytes match this file format.
+    ///
+    /// By looking only at a prefix of the specified byte sequence (\p source), this
+    /// function attempts to determine whether the byte sequence appears to be an image file
+    /// that is using this file format.
     ///
     /// The caller should expect that this function only reads as much of the byte sequence
     /// as it needs in order to decide this question.
     ///
-    virtual bool recognize(core::Source& source) const = 0;
+    /// If the determination succeeds, this function returns `true` after setting \p
+    /// recognized to `true` when the answer is "yes", and to `false` when it is "no".
+    ///
+    /// If the determination fails, this function returns `false` after setting \p ec to
+    /// reflect the cause of the failure.
+    ///
+    /// If the file format is unavailable, this function fails with \ref
+    /// image::Error::file_format_unavailable.
+    ///
+    /// \sa image::try_load().
+    /// \sa try_load().
+    ///
+    virtual bool try_recognize(core::Source& source, bool& recognized, const std::locale& locale, log::Logger& logger,
+                               std::error_code& ec) const = 0;
 
     /// \{
     ///
@@ -113,22 +189,21 @@ public:
     ///
     /// On success, these functions return `true` after setting \p image to refer to an
     /// image object that contains the loaded image. In this case, \p ec is left
-    /// unchanged. On failure, these functions return `false` after setting \p ec to an
-    /// error code that reflects the cause of the failure. In this case, \p image is left
     /// unchanged.
     ///
-    /// \param logger A logger through which warnings and errors pertaining to the loading
-    /// process will be reported.
+    /// On failure, these functions return `false` after setting \p ec to an error code that
+    /// reflects the cause of the failure. In this case, \p image is left unchanged.
     ///
-    /// See \ref image::Error for a list of some of the errors that might be generated by
-    /// these functions.
+    /// If the file format is unavailable, these functions fail with \ref
+    /// image::Error::file_format_unavailable.
     ///
     /// \sa image::try_load().
+    /// \sa try_recognize().
     ///
-    bool try_load(core::Source&, std::unique_ptr<image::WritableImage>&, const std::locale&, log::Logger&,
-                  std::error_code&) const;
-    bool try_load(core::Source&, std::unique_ptr<image::WritableImage>&, const std::locale&, log::Logger&,
-                  const LoadConfig&, std::error_code&) const;
+    bool try_load(core::Source& source, std::unique_ptr<image::WritableImage>& image, const std::locale& locale,
+                  log::Logger& logger, std::error_code& ec) const;
+    bool try_load(core::Source& source, std::unique_ptr<image::WritableImage>& image, const std::locale& locale,
+                  log::Logger& logger, const LoadConfig& config, std::error_code& ec) const;
     /// \}
 
     /// \{
@@ -139,22 +214,20 @@ public:
     /// stream represented by the specified sink (\p sink) using the file format that this
     /// `FileFormat` object represents.
     ///
-    /// On success, these functions return `true` and leave \p ec unchanged. On failure,
-    /// they return `false` after setting \p ec to an error code that reflects the cause of
-    /// the failure.
+    /// On success, these functions return `true` and leave \p ec unchanged.
     ///
-    /// \param logger A logger through which warnings and errors pertaining to the saving
-    /// process will be reported.
+    /// On failure, they return `false` after setting \p ec to an error code that reflects
+    /// the cause of the failure.
     ///
-    /// See \ref image::Error for a list of some of the errors that might be generated by
-    /// these functions.
+    /// If the file format is unavailable, these functions fail with \ref
+    /// image::Error::file_format_unavailable.
     ///
     /// \sa image::try_save().
     ///
-    bool try_save(const image::Image& image, core::Sink& sink, const std::locale&, log::Logger& logger,
+    bool try_save(const image::Image& image, core::Sink& sink, const std::locale& locale, log::Logger& logger,
                   std::error_code& ec) const;
-    bool try_save(const image::Image& image, core::Sink& sink, const std::locale&, log::Logger& logger,
-                  const SaveConfig&, std::error_code& ec) const;
+    bool try_save(const image::Image& image, core::Sink& sink, const std::locale& locale, log::Logger& logger,
+                  const SaveConfig& config, std::error_code& ec) const;
     /// \}
 
     virtual ~FileFormat() noexcept = default;
@@ -182,9 +255,13 @@ protected:
 /// process as it is invoked through \ref try_load().
 ///
 struct FileFormat::LoadConfig {
-    /// \brief  
+    /// \brief Opportunity to track progress of loading process.
     ///
-    ///  
+    /// An application that wishes to be notified about progress of the loading process can
+    /// instantiate a progress tracker (\ref image::ProgressTracker) and then reference it
+    /// here.
+    ///
+    /// \sa \ref image::ProgressTracker.
     ///
     image::ProgressTracker* tracker = nullptr;
 
@@ -194,9 +271,13 @@ struct FileFormat::LoadConfig {
     ///
     image::Provider* provider = nullptr;
 
-    /// \brief  
+    /// \brief Opportunity to pass special configuration parameters to loading process.
     ///
-    ///  
+    /// If special configuration parameters need to be passed to the loading process, the
+    /// application must create an instance of \ref SpecialLoadConfigRegistry and then
+    /// reference it here. See \ref SpecialLoadConfigRegistry for details.
+    ///
+    /// \sa \ref SpecialLoadConfigRegistry
     ///
     const SpecialLoadConfigRegistry* special = nullptr;
 };
@@ -208,15 +289,23 @@ struct FileFormat::LoadConfig {
 /// process as it is invoked through \ref try_save().
 ///
 struct FileFormat::SaveConfig {
-    /// \brief  
+    /// \brief Opportunity to track progress of saving process.
     ///
-    ///  
+    /// An application that wishes to be notified about progress of the saving process can
+    /// instantiate a progress tracker (\ref image::ProgressTracker) and then reference it
+    /// here.
+    ///
+    /// \sa \ref image::ProgressTracker.
     ///
     image::ProgressTracker* tracker = nullptr;
 
-    /// \brief  
+    /// \brief Opportunity to pass special configuration parameters to saving process.
     ///
-    ///  
+    /// If special configuration parameters need to be passed to the saving process, the
+    /// application must create an instance of \ref SpecialSaveConfigRegistry and then
+    /// reference it here. See \ref SpecialSaveConfigRegistry for details.
+    ///
+    /// \sa \ref SpecialSaveConfigRegistry
     ///
     const SpecialSaveConfigRegistry* special = nullptr;
 };

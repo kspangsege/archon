@@ -180,4 +180,5 @@
 #include <archon/core/histogram.hpp>
 #include <archon/core/word_wrap.hpp>
 #include <archon/core/text_formatter.hpp>
+#include <archon/core/with_text_formatter.hpp>
 #include <archon/core/text_parser.hpp>

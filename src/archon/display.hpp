@@ -38,6 +38,7 @@
 #include <archon/display/connection.hpp>
 #include <archon/display/implementation.hpp>
 #include <archon/display/as_key_name.hpp>
+#include <archon/display/list_implementations.hpp>
 
 
 #endif // ARCHON_X_DISPLAY_HPP

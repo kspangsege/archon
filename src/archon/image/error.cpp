@@ -35,15 +35,17 @@ auto get_error_message(image::Error err) noexcept -> const char*
 {
     switch (err) {
         case image::Error::file_format_unavailable:
-            return "Image file format unavailable";
+            return "Attempted use of unavailable file format";
+        case image::Error::no_such_file_format:
+            return "Invalid image file format identifier";
         case image::Error::file_format_detection_failed:
             return "Image file format could not be detected";
-        case image::Error::wrong_file_format:
-            return "Wrong file format";
         case image::Error::bad_file:
-            return "File could not be loaded";
+            return "Invalid file contents or wrong file format";
         case image::Error::image_size_out_of_range:
             return "Image size out of range";
+        case image::Error::loading_process_failed:
+            return "Image loading process failed";
         case image::Error::saving_process_failed:
             return "Image saving process failed";
     }
