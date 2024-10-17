@@ -63,6 +63,9 @@
 
 #if ARCHON_IMAGE_HAVE_PNG
 #  include <png.h>
+#  if PNG_LIBPNG_VER < 10504
+#    error "PNG library is too old"
+#  endif
 #endif
 
 
@@ -857,13 +860,6 @@ bool load(core::Source& source, std::unique_ptr<image::WritableImage>& image, co
           log::Logger& logger, image::ProgressTracker* tracker, image::Provider* provider, const image::PNGLoadConfig&,
           std::error_code& ec)
 {
-    // FIXME: How about setting 1.5.4 as the minimum required version of libpng?                            
-    //
-    // > If you need to support versions prior to libpng-1.5.4 test the version
-    // > number as illustrated below using "PNG_LIBPNG_VER >= 10504" and follow
-    // > the procedures described in the appropriate manual page.
-    //
-
     // FIXME: Read text comments using `png_get_text()`            
 
     // FIXME: Get background color using `png_get_bKGD()`             

@@ -6,6 +6,7 @@ add_library(Image
   archon/image/reader.cpp
   archon/image/writer.cpp
   archon/image/file_format_png.cpp
+  archon/image/file_format_jpeg.cpp
   archon/image/file_format_registry.cpp
   archon/image/error.cpp
   archon/image/load.cpp
@@ -24,6 +25,15 @@ set(ARCHON_IMAGE_HAVE_PNG 0)
 if(PNG_FOUND)
   set(ARCHON_IMAGE_HAVE_PNG 1)
   target_link_libraries(Image PRIVATE PNG::PNG)
+endif()
+
+# Require version 6 or later of libjpeg (or libjpeg-turbo)
+find_package(JPEG 60)
+
+set(ARCHON_IMAGE_HAVE_JPEG 0)
+if(JPEG_FOUND)
+  set(ARCHON_IMAGE_HAVE_JPEG 1)
+  target_link_libraries(Image PRIVATE JPEG::JPEG)
 endif()
 
 configure_file(archon/image/impl/config.h.in archon/image/impl/config.h)
@@ -70,6 +80,7 @@ target_sources(Image PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "$
   archon/image/file_format.hpp
   archon/image/file_format_registry.hpp
   archon/image/file_format_png.hpp
+  archon/image/file_format_jpeg.hpp
   archon/image/load_config.hpp
   archon/image/save_config.hpp
   archon/image/input.hpp

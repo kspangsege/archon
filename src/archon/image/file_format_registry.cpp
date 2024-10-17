@@ -29,6 +29,7 @@
 #include <archon/image/file_format.hpp>
 #include <archon/image/file_format_registry.hpp>
 #include <archon/image/file_format_png.hpp>
+#include <archon/image/file_format_jpeg.hpp>
 
 
 using namespace archon;
@@ -44,6 +45,7 @@ public:
     {
         const image::FileFormat* known_file_formats[] {
             image::get_file_format_png(),
+            image::get_file_format_jpeg(),
         };
 
         for (const image::FileFormat* format : known_file_formats) {

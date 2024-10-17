@@ -79,6 +79,7 @@
 #include <archon/image/file_format.hpp>
 #include <archon/image/file_format_registry.hpp>
 #include <archon/image/file_format_png.hpp>
+#include <archon/image/file_format_jpeg.hpp>
 #include <archon/image/load_config.hpp>
 #include <archon/image/save_config.hpp>
 #include <archon/image/input.hpp>
