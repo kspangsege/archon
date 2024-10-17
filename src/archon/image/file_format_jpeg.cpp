@@ -155,7 +155,7 @@ private:
     jpeg_decompress_struct m_info = {};
 
     static void init_callback(j_decompress_ptr info) noexcept;
-    static int read_callback(j_decompress_ptr info) noexcept;
+    static auto read_callback(j_decompress_ptr info) noexcept -> boolean;
     static void skip_callback(j_decompress_ptr info, long num_bytes) noexcept;
     static void term_callback(j_decompress_ptr info) noexcept;
 
@@ -259,7 +259,7 @@ void LoadContext::init_callback(j_decompress_ptr) noexcept
 }
 
 
-int LoadContext::read_callback(j_decompress_ptr info) noexcept
+auto LoadContext::read_callback(j_decompress_ptr info) noexcept -> boolean
 {
     // Long jump safety: No automatic variables of nontrivial type in a scope from which
     // std::longjmp() is called (see notes on long jump safety above).
