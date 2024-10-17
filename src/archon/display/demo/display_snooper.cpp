@@ -24,12 +24,15 @@
 #include <cstdlib>
 #include <utility>
 #include <memory>
+#include <array>
 #include <optional>
+#include <tuple>
 #include <string_view>
 #include <string>
 #include <locale>
 #include <system_error>
 #include <filesystem>
+#include <ios>
 #include <ostream>
 
 #include <archon/core/features.h>
@@ -38,6 +41,7 @@
 #include <archon/core/locale.hpp>
 #include <archon/core/seed_memory_output_stream.hpp>
 #include <archon/core/value_parser.hpp>
+#include <archon/core/format.hpp>
 #include <archon/core/as_int.hpp>
 #include <archon/core/format_as.hpp>
 #include <archon/core/quote.hpp>
@@ -444,7 +448,7 @@ int main(int argc, char* argv[])
     if (ARCHON_UNLIKELY(cli::process(argc, argv, spec, exit_status, locale))) // Throws
         return exit_status;
 
-    log::FileLogger root_logger(core::File::get_cerr(), locale); // Throws
+    log::FileLogger root_logger(core::File::get_stderr(), locale); // Throws
     log::LimitLogger logger(root_logger, log_level_limit); // Throws
 
     // `src_root` is the relative path to the root of the source tree from the root of the
@@ -504,17 +508,7 @@ int main(int argc, char* argv[])
     guarantees.no_other_use_of_sdl = true;
 
     if (list_display_implementations) {
-        log::FileLogger stdout_logger(core::File::get_cout(), locale); // Throws
-        int n = display::get_num_implementation_slots();
-        for (int i = 0; i < n; ++i) {
-            const display::Implementation::Slot& slot = display::get_implementation_slot(i); // Throws
-            if (slot.is_available(guarantees)) {
-                stdout_logger.info("%s", slot.ident()); // Throws
-            }
-            else {
-                stdout_logger.info("%s (unavailable)", slot.ident()); // Throws
-            }
-        }
+        display::list_implementations(core::File::get_stdout(), locale, guarantees); // Throws
         return EXIT_SUCCESS;
     }
 
@@ -525,7 +519,7 @@ int main(int argc, char* argv[])
         logger.error("Failed to pick display implementation: %s", error); // Throws
         return EXIT_FAILURE;
     }
-    logger.detail("Display implementation: %s", impl->get_slot().ident()); // Throws
+    logger.info("Display implementation: %s", impl->get_slot().get_ident()); // Throws
 
     log::PrefixLogger display_logger(logger, "Display: "); // Throws
     display::Connection::Config connection_config;
@@ -550,9 +544,8 @@ int main(int argc, char* argv[])
 
     int num_screens = conn->get_num_screens();
     int default_screen = conn->get_default_screen();
-    logger.info("Display implementation: %s", impl->get_slot().ident()); // Throws
-    logger.info("Number of screens:      %s", num_screens); // Throws
-    logger.info("Default screen:         %s", default_screen); // Throws
+    logger.info("Number of screens: %s", num_screens); // Throws
+    logger.info("Default screen:    %s", default_screen); // Throws
 
     int screen = default_screen;
     if (optional_screen.has_value()) {

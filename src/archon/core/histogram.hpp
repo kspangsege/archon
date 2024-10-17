@@ -165,7 +165,7 @@ template<class T>
 inline void Histogram<T>::print(int width, bool include_under_over) const
 {
     std::locale loc;
-    print(core::File::get_cout(), loc, width, include_under_over); // Throws
+    print(core::File::get_stdout(), loc, width, include_under_over); // Throws
 }
 
 

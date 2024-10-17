@@ -35,7 +35,6 @@
 #include <archon/core/locale.hpp>
 #include <archon/core/value_parser.hpp>
 #include <archon/core/as_int.hpp>
-#include <archon/core/quote.hpp>
 #include <archon/core/file.hpp>
 #include <archon/log.hpp>
 #include <archon/cli.hpp>
@@ -144,11 +143,13 @@ int main(int argc, char* argv[])
     namespace fs = std::filesystem;
     fs::path path;
     bool list_display_implementations = false;
+    bool list_image_file_formats = false;
     Config config;
     std::optional<display::Size> optional_window_size;
     bool fullscreen = false;
     log::LogLevel log_level_limit = log::LogLevel::warn;
     std::optional<std::string> optional_display_implementation;
+    std::optional<std::string> optional_image_file_format;
     std::optional<int> optional_screen;
     std::optional<std::string> optional_x11_display;
     std::optional<display::x11_fullscreen_monitors> optional_x11_fullscreen_monitors;
@@ -172,6 +173,12 @@ int main(int argc, char* argv[])
         "List known display implementations.",
         [&] {
             list_display_implementations = true;
+        }); // Throws
+
+    pat("--list-image-file-formats", cli::no_attributes, spec,
+        "List supported image file formats.",
+        [&] {
+            list_image_file_formats = true;
         }); // Throws
 
     opt(cli::help_tag, spec); // Throws
@@ -203,6 +210,11 @@ int main(int argc, char* argv[])
         "available, the one, that is listed first by `--list-display-implementations`, is used.",
         cli::assign(optional_display_implementation)); // Throws
 
+    opt("-o, --image-file-format", "<ident>", cli::no_attributes, spec,
+        "Assume that the specified image uses this file format. By default, automatic detection of the file format "
+        "will be attempted. Use `--list-image-file-formats` to see a list of supported image file formats.",
+        cli::assign(optional_image_file_format)); // Throws
+
     opt("-s, --screen", "<number>", cli::no_attributes, spec,
         "Target the specified screen (@A). This is an index between zero and the number of screens minus one. If this "
         "option is not specified, the default screen of the display will be targeted.",
@@ -233,7 +245,7 @@ int main(int argc, char* argv[])
 
     opt("-V, --x11-visual-type", "<num>", cli::no_attributes, spec,
         "When using the X11-based display implementation, pick a visual of the specified type (@A). The type, also "
-        "known as the visual ID, is a 32-bit unsigned integer that can be expressed in decimal, hexadecumal (with "
+        "known as the visual ID, is a 32-bit unsigned integer that can be expressed in decimal, hexadecimal (with "
         "prefix '0x'), or octal (with prefix '0') form.",
         cli::exec([&](std::string_view str) {
             core::ValueParser parser(locale);
@@ -308,21 +320,17 @@ int main(int argc, char* argv[])
     guarantees.no_other_use_of_sdl = true;
 
     if (list_display_implementations) {
-        log::FileLogger stdout_logger(core::File::get_cout(), locale); // Throws
-        int n = display::get_num_implementation_slots();
-        for (int i = 0; i < n; ++i) {
-            const display::Implementation::Slot& slot = display::get_implementation_slot(i); // Throws
-            if (slot.is_available(guarantees)) {
-                stdout_logger.info("%s", slot.ident()); // Throws
-            }
-            else {
-                stdout_logger.info("%s (unavailable)", slot.ident()); // Throws
-            }
-        }
+        display::list_implementations(core::File::get_stdout(), locale, guarantees); // Throws
         return EXIT_SUCCESS;
     }
 
-    log::FileLogger root_logger(core::File::get_cerr(), locale); // Throws
+    const image::FileFormatRegistry& image_file_format_registry = image::FileFormatRegistry::get_default_registry();
+    if (list_image_file_formats) {
+        image::list_file_formats(core::File::get_stdout(), locale, image_file_format_registry); // Throws
+        return EXIT_SUCCESS;
+    }
+
+    log::FileLogger root_logger(core::File::get_stderr(), locale); // Throws
     log::LimitLogger logger(root_logger, log_level_limit); // Throws
 
     std::unique_ptr<image::WritableImage> image;
@@ -330,6 +338,9 @@ int main(int argc, char* argv[])
         image::LoadConfig load_config;
         log::PrefixLogger load_logger(logger, "Load: "); // Throws
         load_config.logger = &load_logger;
+        load_config.registry = &image_file_format_registry;
+        if (ARCHON_UNLIKELY(optional_image_file_format.has_value()))
+            load_config.file_format = optional_image_file_format.value();
         std::error_code ec;
         if (!image::try_load(path, image, locale, load_config, ec)) { // Throws
             logger.error("Failed to load image: %s", ec.message()); // Throws
@@ -344,7 +355,7 @@ int main(int argc, char* argv[])
         logger.error("Failed to pick display implementation: %s", error); // Throws
         return EXIT_FAILURE;
     }
-    logger.detail("Display implementation: %s", impl->get_slot().ident()); // Throws
+    logger.detail("Display implementation: %s", impl->get_slot().get_ident()); // Throws
 
     log::PrefixLogger display_logger(logger, "Display: "); // Throws
     display::Connection::Config connection_config;

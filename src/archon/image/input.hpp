@@ -32,16 +32,46 @@
 namespace archon::image {
 
 
-/// \brief    
+/// \brief Reference to image byte source and optional file format hints.
 ///
-///    
+/// An object of this type refers to a byte source, generally one that holds an image stored
+/// according to a particular image file format. This object can optionally carry hints
+/// about the file format with the purpose of aiding the automatic file format detection
+/// scheme of the loading process. See \ref image::try_load_a().
+///
+/// \sa \ref image::try_load_a()
 ///
 class Input {
 public:
+    /// \brief Reference to byte source.
+    ///
+    /// This is a reference to the byte source, which is generally supposed to be the
+    /// contents of an image file.
+    ///
     core::Source& source;
-    std::string_view mime_type;
-    std::string_view filename_extension; // Including the dot, or empty if no extension               
 
+    /// \brief Optional MIME type hint.
+    ///
+    /// When nonempty, the specified string will be interpreted as a MIME type, and it will
+    /// be taken into account during automatic image file format detection as described in
+    /// the documentation of \ref image::try_load_a().
+    ///
+    std::string_view mime_type;
+
+    /// \brief Optional filename extension hint.
+    ///
+    /// When nonempty, the specified string will be interpreted as a filename extension, and
+    /// it will be taken into account during automatic image file format detection as
+    /// described in the documentation of \ref image::try_load_a().
+    ///
+    /// \note The filename extension must always be specified with the leading dot (`.`)
+    /// included. For example, for the PNG file format, it must be `".png"`. If the leading
+    /// dot is not included, the hint will be without effect.
+    ///
+    std::string_view filename_extension;
+
+    /// \brief Construct input object from byte source.
+    ///
     Input(core::Source&) noexcept;
 };
 

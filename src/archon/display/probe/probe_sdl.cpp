@@ -33,7 +33,7 @@
 #include <archon/core/flat_map.hpp>
 #include <archon/core/string.hpp>
 #include <archon/core/locale.hpp>
-#include <archon/core/unicode_bridge.hpp>
+#include <archon/core/charenc_bridge.hpp>
 #include <archon/core/format.hpp>
 #include <archon/core/as_int.hpp>
 #include <archon/core/quote.hpp>
@@ -225,7 +225,7 @@ int main(int argc, char* argv[])
     if (ARCHON_UNLIKELY(cli::process(argc, argv, spec, exit_status, locale))) // Throws
         return exit_status;
 
-    log::FileLogger root_logger(core::File::get_cout(), locale); // Throws
+    log::FileLogger root_logger(core::File::get_stdout(), locale); // Throws
     log::LimitLogger logger(root_logger, log_level_limit); // Throws
 
     SDL_SetMainReady();
@@ -294,9 +294,9 @@ int main(int argc, char* argv[])
         std::array<char, 128> seed_memory;
         core::Buffer buffer(seed_memory);
         {
-            core::native_mb_to_utf8_transcoder transcoder(locale);
+            core::charenc_bridge bridge(locale);
             std::size_t buffer_offset = 0;
-            transcoder.transcode_l(title_2, buffer, buffer_offset); // Throws
+            bridge.native_mb_to_utf8_l(title_2, buffer, buffer_offset); // Throws
             buffer.append_a('\0', buffer_offset); // Throws
         }
         const char* title_3 = buffer.data();

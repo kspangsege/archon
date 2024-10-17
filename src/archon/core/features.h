@@ -41,8 +41,13 @@
 #define ARCHON_CONCAT_4_IMPL(a, b, c, d) a ## b ## c ## d
 
 
-// Debug mode
-//
+/// \def ARCHON_DEBUG
+///
+/// \brief Debug mode compilation for Archon libraries.
+///
+/// When this macro is nonzero, the Archon libraries are compiled in debug mode (as opposed
+/// to release mode).
+///
 #if !defined ARCHON_DEBUG
 #  if !defined NDEBUG
 #    define ARCHON_DEBUG 1
@@ -262,7 +267,7 @@
 // If `ARCHON_WCHAR_IS_UNICODE` is true, it means that we can assume that the character
 // encoding for `wchar_t` is UCS in all locales.
 //
-// See also \ref ARCHON_ASSUME_UNICODE_LOCALE and \ref ARCHON_ASSUME_UTF8_LOCALE.
+// See also \ref ARCHON_ASSUME_UCS_LOCALE and \ref ARCHON_ASSUME_UTF8_LOCALE.
 //
 #if defined __STDC_ISO_10646__
 #  define ARCHON_WCHAR_IS_UNICODE 1
@@ -282,7 +287,7 @@
 
 /// \def ARCHON_NO_UNIQUE_ADDRESS
 ///
-/// \brief Foo bar.
+/// \brief Substitute for 'no unique address' attribute.
 ///
 /// This macro expands to `[[no_unique_address]]` except when compiling with Microsoft
 /// Visual Studio where it expands to `[[msvc::no_unique_address]]` instead.

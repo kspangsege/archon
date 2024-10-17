@@ -47,7 +47,10 @@ namespace archon::image {
 /// the loaded image, or, on failure, throwing an `std::system_error`.
 ///
 /// The overload, where the path is specified as a string view, constructs a proper
-/// filesytem path object using \ref core::make_fs_path_generic().
+/// filesystem path object using \ref core::make_fs_path_generic().
+///
+/// \sa \ref image::save()
+/// \sa \ref image::try_load()
 ///
 auto load(std::string_view path, const std::locale&, const image::LoadConfig& = {}) ->
     std::unique_ptr<image::WritableImage>;
@@ -77,26 +80,37 @@ auto load(core::FilesystemPathRef path, const std::locale&, const image::LoadCon
 /// If a particular file format is specified through \p config (\ref
 /// image::LoadConfig::file_format), and such a file format exists in the registry (\ref
 /// image::LoadConfig::registry), that file format is used. If it does not exists in the
-/// registry, file format detection fails with error \ref
-/// image::Error::file_format_unavailable.
+/// registry, file format detection fails with error \ref image::Error::no_such_file_format.
 ///
-/// Otherwise, if a MIME type is specified through the \p input argument, all the file
-/// formats in the registry, that are associated with that MIME type, if any, are checked in
-/// the order that they were registered. If one of those file formats recognizes the leading
-/// bytes of the file, that file format is used.
+/// Otherwise, if a MIME type is specified through the \p input argument (\ref
+/// image::Input::mime_type), and it matches any available file formats in the registry
+/// (\ref image::FileFormat::is_available()), and if any of those file formats recognize the
+/// file's contents (\ref image::FileFormat::try_recognize()), use the one that occurs first
+/// in the registry.
 ///
-/// Otherwise, if a filename extension is specified through the \p path or the \p input
-/// argument, all the remaining file formats in the registry, that are associated with that
-/// filename extension, if any, are checked in the order that they were registered. If one
-/// of those file formats recognizes the leading bytes of the file, that file format is
-/// used.
+/// Otherwise, if a filename extension is specified through the \p path, or through the \p
+/// input argument (\ref image::Input::filename_extension), and it matches any available
+/// file formats in the registry, and if any of those file formats recognize the file's
+/// contents, use the one that occurs first in the registry.
 ///
-/// Otherwise, all the remaining file formats in the registry, if any, are checked in the
-/// order that they were registered. If one of those file formats recognizes the leading
-/// bytes of the file, that file format is used.
+/// Otherwise, if there are any file formats in the registry that recognize the file's
+/// contents, use the one that occurs first.
 ///
-/// Otherwise, file format detection fails with error \ref
-/// image::Error::file_format_detection_failed.
+/// Otherwise, if a MIME type was specified and did match any available file formats in the
+/// registry, use the one that occurs first. It will not recognize the file contents, but
+/// use it anyway.
+///
+/// Otherwise, if a filename extension was specified and did match any available file
+/// formats in the registry, use the one that occurs first. It will not recognize the file
+/// contents, but use it anyway.
+///
+/// Otherwise, if a MIME type was specified and did match any file formats in the registry,
+/// use the one that occurs first. It will be unavailable, but use it anyway.
+///
+/// Otherwise, if a filename extension was specified and did match any file formats in the
+/// registry, use the one that occurs first. It will be unavailable, but use it anyway.
+///
+/// Otherwise, fail with \ref image::Error::file_format_detection_failed.
 ///
 ///
 /// #### Buffered read from file
@@ -111,7 +125,9 @@ auto load(core::FilesystemPathRef path, const std::locale&, const image::LoadCon
 /// image::LoadConfig::read_buffer.
 ///
 ///
+/// \sa \ref image::load()
 /// \sa \ref image::try_save()
+/// \sa \ref image::LoadConfig
 ///
 bool try_load(core::FilesystemPathRef path, std::unique_ptr<image::WritableImage>& image, const std::locale&,
               const image::LoadConfig& config, std::error_code& ec);

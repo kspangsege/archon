@@ -24,6 +24,7 @@
 #include <memory>
 #include <optional>
 #include <tuple>
+#include <string>
 #include <locale>
 #include <system_error>
 #include <filesystem>
@@ -75,9 +76,8 @@ public:
     {
     }
 
-    void progress(const image::Image&, int units_completed, int units_total) override
+    void progress(const image::Image&, double fraction) override
     {
-        double fraction = double(units_completed) / units_total;
         if (!is_save) {
             m_logger.info("Load progress: %s", core::as_percent(fraction));
         }
@@ -100,10 +100,12 @@ int main(int argc, char* argv[])
     std::locale locale = core::get_default_locale(); // Throws
 
     namespace fs = std::filesystem;
-    fs::path source_path, destination_path;
-    bool list = false;
+    fs::path source_path, destin_path;
+    bool list_image_file_formats = false;
     std::optional<PaletteEnum> palette;
     log::LogLevel log_level_limit = log::LogLevel::warn;
+    std::optional<std::string> optional_source_file_format;
+    std::optional<std::string> optional_destin_file_format;
     bool progress = false;
     bool interlace = false;
     image::LoadConfig load_config;
@@ -112,11 +114,11 @@ int main(int argc, char* argv[])
     cli::Spec spec;
     pat("<source path>  <destination path>", cli::no_attributes, spec,
         "Lorem ipsum.",
-        std::tie(source_path, destination_path)); // Throws
-    pat("--list", cli::no_attributes, spec,
-        "Lorem ipsum.",
+        std::tie(source_path, destin_path)); // Throws
+    pat("--list-image-file-formats", cli::no_attributes, spec,
+        "List known display implementations.",
         [&] {
-            list = true;
+            list_image_file_formats = true;
         }); // Throws
 
     opt(cli::help_tag, spec); // Throws
@@ -132,8 +134,18 @@ int main(int argc, char* argv[])
         "Set the log level limit. The possible levels are @G. The default limit is @Q.",
         cli::assign(log_level_limit)); // Throws
 
+    opt("-s, --source-file-format", "<ident>", cli::no_attributes, spec,
+        "Assume that the source image uses this file format. By default, automatic detection of the file format "
+        "will be attempted. Use `--list-image-file-formats` to see a list of supported image file formats.",
+        cli::assign(optional_source_file_format)); // Throws
+
+    opt("-d, --destin-file-format", "<ident>", cli::no_attributes, spec,
+        "Assume that the destination image uses this file format. By default, automatic detection of the file format "
+        "will be attempted. Use `--list-image-file-formats` to see a list of supported image file formats.",
+        cli::assign(optional_destin_file_format)); // Throws
+
     opt("-P, --progress", "", cli::no_attributes, spec,
-        "Report loading progress.",
+        "Report loading and saving progress.",
         cli::raise_flag(progress)); // Throws
 
     opt("-i, --interlace", "", cli::no_attributes, spec,
@@ -153,18 +165,13 @@ int main(int argc, char* argv[])
     if (ARCHON_UNLIKELY(cli::process(argc, argv, spec, exit_status, locale))) // Throws
         return exit_status;
 
-    const image::FileFormatRegistry& registry = image::FileFormatRegistry::get_default_registry(); // Throws
-
-    if (list) {
-        int n = registry.get_num_file_formats();
-        for (int i = 0; i < n; ++i) {
-            const image::FileFormat& format = registry.get_file_format(i); // Throws
-            std::cout << format.get_ident() << " " << format.get_descr() << "\n"; // Throws
-        }
+    const image::FileFormatRegistry& image_file_format_registry = image::FileFormatRegistry::get_default_registry();
+    if (list_image_file_formats) {
+        image::list_file_formats(core::File::get_stdout(), locale, image_file_format_registry); // Throws
         return EXIT_SUCCESS;
     }
 
-    log::FileLogger root_logger(core::File::get_cout(), locale);
+    log::FileLogger root_logger(core::File::get_stdout(), locale);
     log::LimitLogger logger(root_logger, log_level_limit); // Throws
 
     ProgressTracker progress_tracker(root_logger);
@@ -178,9 +185,12 @@ int main(int argc, char* argv[])
 
         if (progress) {
             progress_tracker.is_save = false;
-            load_config.tracker = &progress_tracker;
+            load_config.progress_tracker = &progress_tracker;
         }
         load_config.logger = &load_logger;
+        load_config.registry = &image_file_format_registry;
+        if (ARCHON_UNLIKELY(optional_source_file_format.has_value()))
+            load_config.file_format = optional_source_file_format.value();
 
         if (!image::try_load(source_path, image, locale, load_config, ec)) { // Throws
             logger.error("Failed to load source image: %s", ec.message()); // Throws
@@ -222,12 +232,15 @@ int main(int argc, char* argv[])
 
         if (progress) {
             progress_tracker.is_save = true;
-            save_config.tracker = &progress_tracker;
+            save_config.progress_tracker = &progress_tracker;
         }
         save_config.special = &special_save_config_registry;
         save_config.logger = &save_logger;
+        save_config.registry = &image_file_format_registry;
+        if (ARCHON_UNLIKELY(optional_destin_file_format.has_value()))
+            save_config.file_format = optional_destin_file_format.value();
 
-        if (!image::try_save(*image, destination_path, locale, save_config, ec)) { // Throws
+        if (!image::try_save(*image, destin_path, locale, save_config, ec)) { // Throws
             logger.error("Failed to save destination image: %s", ec.message()); // Throws
             return EXIT_FAILURE;
         }

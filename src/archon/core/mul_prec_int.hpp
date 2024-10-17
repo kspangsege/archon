@@ -26,12 +26,12 @@
 
 #include <cstddef>
 #include <type_traits>
+#include <concepts>
 #include <algorithm>
 #include <array>
 #include <string_view>
 
 #include <archon/core/features.h>
-#include <archon/core/type_traits.hpp>
 #include <archon/core/assert.hpp>
 #include <archon/core/integer_traits.hpp>
 #include <archon/core/integer.hpp>
@@ -92,9 +92,9 @@ public:
 
     constexpr MulPrecInt() noexcept = default;
     constexpr explicit MulPrecInt(parts_type parts) noexcept;
-    template<class I, class = core::NeedIntegral<I>> constexpr explicit MulPrecInt(I val) noexcept;
+    template<std::integral I> constexpr explicit MulPrecInt(I val) noexcept;
 
-    template<class I, class = core::NeedIntegral<I>> constexpr explicit operator I() const noexcept;
+    template<std::integral I> constexpr explicit operator I() const noexcept;
 
     constexpr auto get_parts() const noexcept -> parts_type;
 
@@ -236,14 +236,14 @@ constexpr MulPrecInt<T, N, S>::MulPrecInt(parts_type parts) noexcept
 
 
 template<class T, int N, bool S>
-template<class I, class> constexpr MulPrecInt<T, N, S>::MulPrecInt(I val) noexcept
+template<std::integral  I> constexpr MulPrecInt<T, N, S>::MulPrecInt(I val) noexcept
     : MulPrecInt(core::int_cast_a<MulPrecInt>(val))
 {
 }
 
 
 template<class T, int N, bool S>
-template<class I, class> constexpr MulPrecInt<T, N, S>::operator I() const noexcept
+template<std::integral I> constexpr MulPrecInt<T, N, S>::operator I() const noexcept
 {
     return core::int_cast_a<I>(*this);
 }

@@ -20,38 +20,41 @@ The Archon project consists of a number of general purpose libraries:
 
 Here is the list of dependencies for the various libraries of the Archon project:
 
-  | Name     | Minimum version | Archon library | Optional | Description
-  |----------|-----------------|----------------|----------|-----------------------------------------------
-  | `libpng` | 1.5.4           | Image          | Yes      | Image format (Portable Network Graphics)
-  | FreeType |                 | Font           | Yes      | Font rendering facilities
-  | Xlib     |                 | Display        | Yes      | X Window System protocol client library
-  | SDL      | 2.0.22          | Display        | Yes      | OS GUI integration (Simple DirectMedia Layer)
+  | Name      | Minimum version | Archon library | Optional | Description
+  |-----------|-----------------|----------------|----------|-----------------------------------------------
+  | `libpng`  | 1.5.4           | Image          | Yes      | PNG image file format
+  | `libjpeg` | 6b              | Image          | Yes      | JPEG image file format
+  | FreeType  |                 | Font           | Yes      | Font rendering facilities
+  | Xlib      |                 | Display        | Yes      | X Window System protocol client library
+  | SDL       | 2.0.22          | Display        | Yes      | OS GUI integration (Simple DirectMedia Layer)
+
+Note: `libjpeg-turbo` can be used in place of `libjpeg`.
 
 See below for information on how to install these dependencies on various platforms.
 
 ### Ubuntu Linux
 
-Run this command to install `libpng`, FreeType, Xlib, and SDL:
+Run this command to install `libpng`, `libjpeg`, FreeType, Xlib, and SDL:
 
 ```sh
-apt install libpng-dev libfreetype-dev libx11-dev libsdl2-dev
+apt install libpng-dev libjpeg-dev libfreetype-dev libx11-dev libsdl2-dev
 ```
 
 ### macOS
 
-Run this command to install `libpng`, FreeType, and SDL:
+Run this command to install `libpng`, `libjpeg`, FreeType, and SDL:
 
 ```sh
-brew install libpng freetype sdl2
+brew install libpng libjpeg freetype sdl2
 ```
 
 ### Windows
 
-Run this command to install `libpng`, FreeType, and SDL using [Vcpkg][vcpkg]:
+Run this command to install `libpng`, `libjpeg-turbo`, FreeType, and SDL using [Vcpkg][vcpkg]:
 
 
 ```sh
-c:\src\vcpkg\vcpkg.exe install libpng:x64-windows freetype:x64-windows sdl2:x64-windows
+c:\src\vcpkg\vcpkg.exe install --triplet x64-windows libpng libjpeg-turbo freetype sdl2
 ```
 
 If Vcpkg in not already installed, you can install it by running these commands:

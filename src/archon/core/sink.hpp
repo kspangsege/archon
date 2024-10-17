@@ -52,12 +52,13 @@ public:
     ///
     /// This function writes the specified chunk of bytes to the stream.
     ///
-    /// If the size of specified chunk is zero, this function may, or may not block the
+    /// If the size of the specified chunk is zero, this function may, or may not block the
     /// calling thread until at least one byte could have been written.
     ///
     /// On success or failure, this function sets \p n to the number of written bytes.
     ///
-    /// On success, this function returns `true` and leaves \p ec unchanged.
+    /// On success, this function returns `true` and leaves \p ec unchanged. \p n is
+    /// guaranteed to be equal to `data.size()`.
     ///
     /// On failure, this function returns `false` after setting \p ec to an error code that
     /// reflects the cause of the failure.

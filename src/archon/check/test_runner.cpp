@@ -411,14 +411,14 @@ auto TestRunner::make_logger(const std::locale& loc, const check::TestConfig& te
 {
     if (!test_config.log_timestamps || test_config.log_to_files) {
         if (!test_config.logger)
-            return std::make_unique<log::FileLogger>(core::File::get_cout(), loc); // Throws
+            return std::make_unique<log::FileLogger>(core::File::get_stdout(), loc); // Throws
         return nullptr;
     }
 
     if (!test_config.logger) {
         log::TimestampFileLogger::Config config;
         configure_timestamp_logger(config, test_config); // Throws
-        return std::make_unique<log::TimestampFileLogger>(core::File::get_cout(), loc, std::move(config)); // Throws
+        return std::make_unique<log::TimestampFileLogger>(core::File::get_stdout(), loc, std::move(config)); // Throws
     }
     log::TimestampLogger::Config config;
     configure_timestamp_logger(config, test_config); // Throws

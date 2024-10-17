@@ -36,7 +36,7 @@ void do_write_message(std::string_view message) noexcept
 {
     std::size_t n; // Dummy
     std::error_code ec; // Dummy
-    bool ret = core::File::get_cerr().try_write(message, n, ec);
+    bool ret = core::File::get_stderr().try_write(message, n, ec);
     static_cast<void>(ret); // There is nothing more we can do
 }
 

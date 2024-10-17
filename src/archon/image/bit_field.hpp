@@ -41,8 +41,8 @@ namespace archon::image {
 /// word type. The position is specified relative to the subsequent field. See \ref gap for
 /// more.
 ///
-/// In an array of bit fields, the first field in the array is understood as occupying
-/// higher order bits than the last field in that array.
+/// In a sequence of bit fields, a field is understood as occupying bit positions of higher
+/// significance than all subsequent fields in the sequence.
 ///
 struct BitField {
     /// \brief Number of bits in field.
@@ -62,6 +62,8 @@ struct BitField {
     /// position in the gap, that follows this field, is the last bit position in the word.
     ///
     int gap;
+
+    constexpr auto operator<=>(const BitField& other) const noexcept = default;
 };
 
 

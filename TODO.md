@@ -1,4 +1,7 @@
 
+Consider adding `core::as_tuple(T... args)` in style of `core::as_list()` and use it in many places where `core::formatted("(%s, %, ...)", ...)` is currently used.
+
+
 Consider adding the following (requires upgrade of arithmetic in MulPrecInt):
 
 ```
@@ -37,10 +40,6 @@ Adopts new cli features from cli/test/test_foo.cpp
 - Test cases for exit status from delegation
 - Test cases for configurable exit status
 
-
-
-
-Want: ARCHON_CHECK_IN(var, a, b, c, ...)
 
 
 

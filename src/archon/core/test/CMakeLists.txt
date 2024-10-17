@@ -46,7 +46,7 @@ add_library(CoreTest OBJECT
   stateful_char_codec.cpp
   test_text_codec.cpp
   test_unicode.cpp
-  test_unicode_bridge.cpp
+  test_charenc_bridge.cpp
   test_impl_prim_text_file_impl.cpp
   test_impl_text_file_impl.cpp
   test_text_file.cpp

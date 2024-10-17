@@ -70,13 +70,10 @@ bool EdidParser::parse(core::Span<const char> data, impl::EdidInfo& info,
                                 while (n < slot_size && base[slot_offset + n] != '\x0A')
                                     ++n;
                                 std::string_view str_1 = { base + slot_offset, std::size_t(n) }; // Throws
-                                // Processing `str_1` as a UTF-8 encode string even though
-                                // it is further restricted to be ASCII according to the
-                                // EDID specification.
                                 std::array<char, 32> seed_memory;
                                 core::Buffer buffer(seed_memory);
                                 std::size_t offset = 0;
-                                m_transcoder.transcode_l(str_1, buffer, offset); // Throws
+                                m_charenc_bridge.ascii_to_native_mb_l(str_1, buffer, offset); // Throws
                                 std::string_view str_2 = { buffer.data(),  offset }; // Throws
                                 std::size_t string_data_offset = string_data_size;
                                 string_data_buffer.append(str_2, string_data_size); // Throws

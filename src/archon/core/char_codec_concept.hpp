@@ -176,11 +176,11 @@ byte sequences were consumed. Likewise, \p buffer_offset will have been updated 
 beyond the last produced character, or it will be unchanged if no characters were produced.
 
 Setting \p end_of_input to `true` means that the specified input is not just a prefix of the
-remaining input, but covers everything up until and including the last bytes of the
-input. In this case, `decode()` returns `true` if, and only if all input was consumed. All
-input was consumed if, and only if \p data_offset is equal to `byte_data.size()` upon
-return. The point here is that when the end of input is present, any final incomplete input
-sequence is taken to be an error.
+remaining input, but covers everything up to and including the last bytes of the input. In
+this case, `decode()` returns `true` if, and only if all input was consumed. All input was
+consumed if, and only if \p data_offset is equal to `byte_data.size()` upon return. The
+point here is that when the end of input is present, any final incomplete input sequence is
+taken to be an error.
 
 When \p end_of_input is set to `false`, `decode()` returns `true` if, and only if one of the
 following are true:

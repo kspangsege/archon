@@ -30,6 +30,7 @@
 
 #include <archon/core/features.h>
 #include <archon/core/assert.hpp>
+#include <archon/core/enum.hpp>
 #include <archon/image/comp_types.hpp>
 
 
@@ -167,6 +168,9 @@ private:
 ///
 /// The degenerate color space has no channels, and can only represent one color, which is
 /// white.
+///
+/// A specialization of \ref core::EnumTraits is provided, making stream input and output
+/// immediately available.
 ///
 enum class ColorSpace::Tag {
     degen,
@@ -333,15 +337,38 @@ inline bool ColorSpace::is_rgb() const noexcept
 }
 
 
+} // namespace archon::image
+
+namespace archon::core {
+
+
+template<> struct EnumTraits<image::ColorSpace::Tag> {
+    static constexpr bool is_specialized = true;
+    struct Spec {
+        static constexpr core::EnumAssoc map[] = {
+            { int(image::ColorSpace::Tag::degen), "degen" },
+            { int(image::ColorSpace::Tag::lum),   "lum"   },
+            { int(image::ColorSpace::Tag::rgb),   "rgb"   },
+        };
+    };
+    static constexpr bool ignore_case = false;
+};
+
+
+} // namespace archon::core
+
+namespace archon::image {
+
+
 inline bool ColorSpace::is(Tag tag) const noexcept
 {
-    return (m_tag && m_tag.value() == tag);
+    return (m_tag.has_value() && m_tag.value() == tag);
 }
 
 
 inline bool ColorSpace::try_get_tag(Tag& tag) const noexcept
 {
-    if (ARCHON_LIKELY(m_tag)) {
+    if (ARCHON_LIKELY(m_tag.has_value())) {
         tag = m_tag.value();
         return true;
     }

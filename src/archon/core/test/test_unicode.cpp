@@ -21,6 +21,7 @@
 
 #include <cstddef>
 #include <initializer_list>
+#include <iterator>
 #include <array>
 #include <string>
 
@@ -35,6 +36,350 @@
 
 
 using namespace archon;
+
+
+ARCHON_TEST(Core_Unicode_EncodeUtf8L)
+{
+    {
+        // Valid input
+        std::array<char, 8> seed_mem;
+        core::Buffer<char> buffer_1;
+        core::Buffer<char> buffer_2(seed_mem);
+        auto test = [&, &parent_test_context = test_context](bool empty) {
+            ARCHON_TEST_TRAIL(parent_test_context, (empty ? "empty" : "nonempty"));
+            core::Buffer<char>& buffer = (empty ? buffer_1 : buffer_2);
+            // Hwair (Gothic letter)
+            char32_t code_points[] = {
+                std::char_traits<char32_t>::to_char_type(0x1'0348),
+            };
+            std::u32string_view string_1 = { code_points, std::size(code_points) };
+            std::size_t buffer_offset = 0;
+            core::encode_utf8_l(core::StringSpan(string_1), buffer, buffer_offset);
+            std::string_view string_2 = { buffer.data(), buffer_offset };
+            char code_units[] = {
+                std::char_traits<char>::to_char_type(0xF0),
+                std::char_traits<char>::to_char_type(0x90),
+                std::char_traits<char>::to_char_type(0x8D),
+                std::char_traits<char>::to_char_type(0x88),
+            };
+            std::string_view string_3 = { code_units, std::size(code_units) };
+            ARCHON_CHECK_EQUAL_SEQ(string_2, string_3);
+        };
+        test(false); // Starting with empty buffer
+        test(true);  // Starting with nonempty buffer
+    } {
+        // Invalid input
+        std::array<char, 8> seed_mem;
+        core::Buffer<char> buffer_1;
+        core::Buffer<char> buffer_2(seed_mem);
+        auto test = [&, &parent_test_context = test_context](bool empty) {
+            ARCHON_TEST_TRAIL(parent_test_context, (empty ? "empty" : "nonempty"));
+            core::Buffer<char>& buffer = (empty ? buffer_1 : buffer_2);
+            // Invalid code point
+            char32_t code_points[] = {
+                std::char_traits<char32_t>::to_char_type(0xFFFF'FFFF),
+            };
+            std::u32string_view string_1 = { code_points, std::size(code_points) };
+            std::size_t buffer_offset = 0;
+            core::encode_utf8_l(core::StringSpan(string_1), buffer, buffer_offset);
+            std::string_view string_2 = { buffer.data(), buffer_offset };
+            char code_units[] = {
+                std::char_traits<char>::to_char_type(0xEF),
+                std::char_traits<char>::to_char_type(0xBF),
+                std::char_traits<char>::to_char_type(0xBD),
+            };
+            std::string_view string_3 = { code_units, std::size(code_units) };
+            ARCHON_CHECK_EQUAL_SEQ(string_2, string_3);
+        };
+        test(false); // Starting with empty buffer
+        test(true);  // Starting with nonempty buffer
+    }
+}
+
+
+ARCHON_TEST(Core_Unicode_DecodeUtf8L)
+{
+    {
+        // Valid input
+        std::array<char32_t, 8> seed_mem;
+        core::Buffer<char32_t> buffer_1;
+        core::Buffer<char32_t> buffer_2(seed_mem);
+        auto test = [&, &parent_test_context = test_context](bool empty) {
+            ARCHON_TEST_TRAIL(parent_test_context, (empty ? "empty" : "nonempty"));
+            core::Buffer<char32_t>& buffer = (empty ? buffer_1 : buffer_2);
+            // Hwair (Gothic letter)
+            char code_units[] = {
+                std::char_traits<char>::to_char_type(0xF0),
+                std::char_traits<char>::to_char_type(0x90),
+                std::char_traits<char>::to_char_type(0x8D),
+                std::char_traits<char>::to_char_type(0x88),
+            };
+            std::string_view string_1 = { code_units, std::size(code_units) };
+            std::size_t buffer_offset = 0;
+            core::decode_utf8_l(core::StringSpan(string_1), buffer, buffer_offset);
+            std::u32string_view string_2 = { buffer.data(), buffer_offset };
+            char32_t code_points[] = {
+                std::char_traits<char32_t>::to_char_type(0x1'0348),
+            };
+            std::u32string_view string_3 = { code_points, std::size(code_points) };
+            ARCHON_CHECK_EQUAL_SEQ(string_2, string_3);
+        };
+        test(false); // Starting with empty buffer
+        test(true);  // Starting with nonempty buffer
+    } {
+        // Invalid input
+        std::array<char32_t, 8> seed_mem;
+        core::Buffer<char32_t> buffer_1;
+        core::Buffer<char32_t> buffer_2(seed_mem);
+        auto test = [&, &parent_test_context = test_context](bool empty) {
+            ARCHON_TEST_TRAIL(parent_test_context, (empty ? "empty" : "nonempty"));
+            core::Buffer<char32_t>& buffer = (empty ? buffer_1 : buffer_2);
+            // Invalid UTF-8
+            char code_units[] = {
+                std::char_traits<char>::to_char_type(0x90),
+            };
+            std::string_view string_1 = { code_units, std::size(code_units) };
+            std::size_t buffer_offset = 0;
+            core::decode_utf8_l(core::StringSpan(string_1), buffer, buffer_offset);
+            std::u32string_view string_2 = { buffer.data(), buffer_offset };
+            char32_t code_points[] = {
+                std::char_traits<char32_t>::to_char_type(0xFFFD),
+            };
+            std::u32string_view string_3 = { code_points, std::size(code_points) };
+            ARCHON_CHECK_EQUAL_SEQ(string_2, string_3);
+        };
+        test(false); // Starting with empty buffer
+        test(true);  // Starting with nonempty buffer
+    }
+}
+
+
+ARCHON_TEST(Core_Unicode_EncodeUtf16L)
+{
+    {
+        // Valid input
+        std::array<char16_t, 8> seed_mem;
+        core::Buffer<char16_t> buffer_1;
+        core::Buffer<char16_t> buffer_2(seed_mem);
+        auto test = [&, &parent_test_context = test_context](bool empty) {
+            ARCHON_TEST_TRAIL(parent_test_context, (empty ? "empty" : "nonempty"));
+            core::Buffer<char16_t>& buffer = (empty ? buffer_1 : buffer_2);
+            // Hwair (Gothic letter)
+            char32_t code_points[] = {
+                std::char_traits<char32_t>::to_char_type(0x1'0348),
+            };
+            std::u32string_view string_1 = { code_points, std::size(code_points) };
+            std::size_t buffer_offset = 0;
+            core::encode_utf16_l(core::StringSpan(string_1), buffer, buffer_offset);
+            std::u16string_view string_2 = { buffer.data(), buffer_offset };
+            char16_t code_units[] = {
+                std::char_traits<char16_t>::to_char_type(0xD800),
+                std::char_traits<char16_t>::to_char_type(0xDF48),
+            };
+            std::u16string_view string_3 = { code_units, std::size(code_units) };
+            ARCHON_CHECK_EQUAL_SEQ(string_2, string_3);
+        };
+        test(false); // Starting with empty buffer
+        test(true);  // Starting with nonempty buffer
+    } {
+        // Invalid input
+        std::array<char16_t, 8> seed_mem;
+        core::Buffer<char16_t> buffer_1;
+        core::Buffer<char16_t> buffer_2(seed_mem);
+        auto test = [&, &parent_test_context = test_context](bool empty) {
+            ARCHON_TEST_TRAIL(parent_test_context, (empty ? "empty" : "nonempty"));
+            core::Buffer<char16_t>& buffer = (empty ? buffer_1 : buffer_2);
+            // Invalid code point
+            char32_t code_points[] = {
+                std::char_traits<char32_t>::to_char_type(0xFFFF'FFFF),
+            };
+            std::u32string_view string_1 = { code_points, std::size(code_points) };
+            std::size_t buffer_offset = 0;
+            core::encode_utf16_l(core::StringSpan(string_1), buffer, buffer_offset);
+            std::u16string_view string_2 = { buffer.data(), buffer_offset };
+            char16_t code_units[] = {
+                std::char_traits<char16_t>::to_char_type(0xFFFD),
+            };
+            std::u16string_view string_3 = { code_units, std::size(code_units) };
+            ARCHON_CHECK_EQUAL_SEQ(string_2, string_3);
+        };
+        test(false); // Starting with empty buffer
+        test(true);  // Starting with nonempty buffer
+    }
+}
+
+
+ARCHON_TEST(Core_Unicode_DecodeUtf16L)
+{
+    {
+        // Valid input
+        std::array<char32_t, 8> seed_mem;
+        core::Buffer<char32_t> buffer_1;
+        core::Buffer<char32_t> buffer_2(seed_mem);
+        auto test = [&, &parent_test_context = test_context](bool empty) {
+            ARCHON_TEST_TRAIL(parent_test_context, (empty ? "empty" : "nonempty"));
+            core::Buffer<char32_t>& buffer = (empty ? buffer_1 : buffer_2);
+            // Hwair (Gothic letter)
+            char16_t code_units[] = {
+                std::char_traits<char16_t>::to_char_type(0xD800),
+                std::char_traits<char16_t>::to_char_type(0xDF48),
+            };
+            std::u16string_view string_1 = { code_units, std::size(code_units) };
+            std::size_t buffer_offset = 0;
+            core::decode_utf16_l(core::StringSpan(string_1), buffer, buffer_offset);
+            std::u32string_view string_2 = { buffer.data(), buffer_offset };
+            char32_t code_points[] = {
+                std::char_traits<char32_t>::to_char_type(0x1'0348),
+            };
+            std::u32string_view string_3 = { code_points, std::size(code_points) };
+            ARCHON_CHECK_EQUAL_SEQ(string_2, string_3);
+        };
+        test(false); // Starting with empty buffer
+        test(true);  // Starting with nonempty buffer
+    } {
+        // Invalid input
+        std::array<char32_t, 8> seed_mem;
+        core::Buffer<char32_t> buffer_1;
+        core::Buffer<char32_t> buffer_2(seed_mem);
+        auto test = [&, &parent_test_context = test_context](bool empty) {
+            ARCHON_TEST_TRAIL(parent_test_context, (empty ? "empty" : "nonempty"));
+            core::Buffer<char32_t>& buffer = (empty ? buffer_1 : buffer_2);
+            // Invalid UTF-16
+            char16_t code_units[] = {
+                std::char_traits<char16_t>::to_char_type(0xDD00),
+            };
+            std::u16string_view string_1 = { code_units, std::size(code_units) };
+            std::size_t buffer_offset = 0;
+            core::decode_utf16_l(core::StringSpan(string_1), buffer, buffer_offset);
+            std::u32string_view string_2 = { buffer.data(), buffer_offset };
+            char32_t code_points[] = {
+                std::char_traits<char32_t>::to_char_type(0xFFFD),
+            };
+            std::u32string_view string_3 = { code_points, std::size(code_points) };
+            ARCHON_CHECK_EQUAL_SEQ(string_2, string_3);
+        };
+        test(false); // Starting with empty buffer
+        test(true);  // Starting with nonempty buffer
+    }
+}
+
+
+ARCHON_TEST(Core_Unicode_Utf8ToUtf16L)
+{
+    {
+        // Valid input
+        std::array<char16_t, 8> seed_mem;
+        core::Buffer<char16_t> buffer_1;
+        core::Buffer<char16_t> buffer_2(seed_mem);
+        auto test = [&, &parent_test_context = test_context](bool empty) {
+            ARCHON_TEST_TRAIL(parent_test_context, (empty ? "empty" : "nonempty"));
+            core::Buffer<char16_t>& buffer = (empty ? buffer_1 : buffer_2);
+            // Hwair (Gothic letter)
+            char code_units_1[] = {
+                std::char_traits<char>::to_char_type(0xF0),
+                std::char_traits<char>::to_char_type(0x90),
+                std::char_traits<char>::to_char_type(0x8D),
+                std::char_traits<char>::to_char_type(0x88),
+            };
+            std::string_view string_1 = { code_units_1, std::size(code_units_1) };
+            std::size_t buffer_offset = 0;
+            core::utf8_to_utf16_l(core::StringSpan(string_1), buffer, buffer_offset);
+            std::u16string_view string_2 = { buffer.data(), buffer_offset };
+            char16_t code_units_2[] = {
+                std::char_traits<char16_t>::to_char_type(0xD800),
+                std::char_traits<char16_t>::to_char_type(0xDF48),
+            };
+            std::u16string_view string_3 = { code_units_2, std::size(code_units_2) };
+            ARCHON_CHECK_EQUAL_SEQ(string_2, string_3);
+        };
+        test(false); // Starting with empty buffer
+        test(true);  // Starting with nonempty buffer
+    } {
+        // Invalid input
+        std::array<char16_t, 8> seed_mem;
+        core::Buffer<char16_t> buffer_1;
+        core::Buffer<char16_t> buffer_2(seed_mem);
+        auto test = [&, &parent_test_context = test_context](bool empty) {
+            ARCHON_TEST_TRAIL(parent_test_context, (empty ? "empty" : "nonempty"));
+            core::Buffer<char16_t>& buffer = (empty ? buffer_1 : buffer_2);
+            // Invalid UTF-8
+            char code_units_1[] = {
+                std::char_traits<char>::to_char_type(0x90),
+            };
+            std::string_view string_1 = { code_units_1, std::size(code_units_1) };
+            std::size_t buffer_offset = 0;
+            core::utf8_to_utf16_l(core::StringSpan(string_1), buffer, buffer_offset);
+            std::u16string_view string_2 = { buffer.data(), buffer_offset };
+            char16_t code_units_2[] = {
+                std::char_traits<char16_t>::to_char_type(0xFFFD),
+            };
+            std::u16string_view string_3 = { code_units_2, std::size(code_units_2) };
+            ARCHON_CHECK_EQUAL_SEQ(string_2, string_3);
+        };
+        test(false); // Starting with empty buffer
+        test(true);  // Starting with nonempty buffer
+    }
+}
+
+
+ARCHON_TEST(Core_Unicode_Utf16ToUtf8L)
+{
+    {
+        // Valid input
+        std::array<char, 8> seed_mem;
+        core::Buffer<char> buffer_1;
+        core::Buffer<char> buffer_2(seed_mem);
+        auto test = [&, &parent_test_context = test_context](bool empty) {
+            ARCHON_TEST_TRAIL(parent_test_context, (empty ? "empty" : "nonempty"));
+            core::Buffer<char>& buffer = (empty ? buffer_1 : buffer_2);
+            // Hwair (Gothic letter)
+            char16_t code_units_1[] = {
+                std::char_traits<char16_t>::to_char_type(0xD800),
+                std::char_traits<char16_t>::to_char_type(0xDF48),
+            };
+            std::u16string_view string_1 = { code_units_1, std::size(code_units_1) };
+            std::size_t buffer_offset = 0;
+            core::utf16_to_utf8_l(core::StringSpan(string_1), buffer, buffer_offset);
+            std::string_view string_2 = { buffer.data(), buffer_offset };
+            char code_units_2[] = {
+                std::char_traits<char>::to_char_type(0xF0),
+                std::char_traits<char>::to_char_type(0x90),
+                std::char_traits<char>::to_char_type(0x8D),
+                std::char_traits<char>::to_char_type(0x88),
+            };
+            std::string_view string_3 = { code_units_2, std::size(code_units_2) };
+            ARCHON_CHECK_EQUAL_SEQ(string_2, string_3);
+        };
+        test(false); // Starting with empty buffer
+        test(true);  // Starting with nonempty buffer
+    } {
+        // Invalid input
+        std::array<char, 8> seed_mem;
+        core::Buffer<char> buffer_1;
+        core::Buffer<char> buffer_2(seed_mem);
+        auto test = [&, &parent_test_context = test_context](bool empty) {
+            ARCHON_TEST_TRAIL(parent_test_context, (empty ? "empty" : "nonempty"));
+            core::Buffer<char>& buffer = (empty ? buffer_1 : buffer_2);
+            // Invalid UTF-16
+            char16_t code_units_1[] = {
+                std::char_traits<char16_t>::to_char_type(0xDD00),
+            };
+            std::u16string_view string_1 = { code_units_1, std::size(code_units_1) };
+            std::size_t buffer_offset = 0;
+            core::utf16_to_utf8_l(core::StringSpan(string_1), buffer, buffer_offset);
+            std::string_view string_2 = { buffer.data(), buffer_offset };
+            char code_units_2[] = {
+                std::char_traits<char>::to_char_type(0xEF),
+                std::char_traits<char>::to_char_type(0xBF),
+                std::char_traits<char>::to_char_type(0xBD),
+            };
+            std::string_view string_3 = { code_units_2, std::size(code_units_2) };
+            ARCHON_CHECK_EQUAL_SEQ(string_2, string_3);
+        };
+        test(false); // Starting with empty buffer
+        test(true);  // Starting with nonempty buffer
+    }
+}
 
 
 namespace {

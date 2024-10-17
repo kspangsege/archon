@@ -35,9 +35,14 @@ namespace archon::image {
 /// An instantiation of this template implements \ref Concept_Archon_Image_ChannelSpec, and
 /// can thus be used with \ref image::IntegerPixelFormat and friends.
 ///
+/// A standard channel specification is guaranteed to be an empty class.
+///
 /// \tparam C The tag for the standard color space is use in this channel specifiaction.
 ///
 /// \tparam A If `true`, an alpha channel is present.
+///
+/// \sa \ref image::CustomChannelSpec
+/// \sa \ref Concept_Archon_Image_ChannelSpec
 ///
 template<image::ColorSpace::Tag C, bool A> class StandardChannelSpec {
 public:

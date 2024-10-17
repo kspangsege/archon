@@ -39,6 +39,9 @@ namespace archon::image {
 ///
 /// \tparam A If `true`, an alpha channel is present.
 ///
+/// \sa \ref image::StandardChannelSpec
+/// \sa \ref Concept_Archon_Image_ChannelSpec
+///
 template<int N, bool A> class CustomChannelSpec {
 public:
     static constexpr int num_color_channels = N;

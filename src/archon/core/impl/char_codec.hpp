@@ -60,8 +60,8 @@ public:
     static constexpr bool is_degen = true;
 
     explicit CharCodec1(const std::locale&) noexcept;
-    explicit CharCodec1(const std::locale&, Config) noexcept;
-    explicit CharCodec1(const std::locale*, Config) noexcept;
+    explicit CharCodec1(const std::locale&, const Config&) noexcept;
+    explicit CharCodec1(const std::locale*, const Config&) noexcept;
 
     void imbue(const std::locale&) noexcept;
 
@@ -97,8 +97,8 @@ public:
     static constexpr bool is_degen = false;
 
     explicit CharCodec2(const std::locale&);
-    explicit CharCodec2(const std::locale&, Config);
-    explicit CharCodec2(const std::locale*, Config);
+    explicit CharCodec2(const std::locale&, const Config&);
+    explicit CharCodec2(const std::locale*, const Config&);
 
     void imbue(const std::locale&);
 
@@ -150,8 +150,8 @@ public:
 
     using Config = core::CharCodecConfig<C, T>;
 
-    explicit CharCodec4(const std::locale&, Config = {});
-    explicit CharCodec4(const std::locale*, Config);
+    explicit CharCodec4(const std::locale&, const Config& = {});
+    explicit CharCodec4(const std::locale*, const Config&);
 
     bool decode(std::mbstate_t&, core::Span<const char> data, std::size_t& data_offset, bool end_of_data,
                 core::Span<char_type> buffer, std::size_t& buffer_offset, bool& error) const;
@@ -226,13 +226,13 @@ inline CharCodec1<T>::CharCodec1(const std::locale&) noexcept
 
 
 template<class T>
-inline CharCodec1<T>::CharCodec1(const std::locale&, Config) noexcept
+inline CharCodec1<T>::CharCodec1(const std::locale&, const Config&) noexcept
 {
 }
 
 
 template<class T>
-inline CharCodec1<T>::CharCodec1(const std::locale*, Config) noexcept
+inline CharCodec1<T>::CharCodec1(const std::locale*, const Config&) noexcept
 {
 }
 
@@ -328,14 +328,14 @@ inline CharCodec2<C, T>::CharCodec2(const std::locale& locale)
 
 
 template<class C, class T>
-inline CharCodec2<C, T>::CharCodec2(const std::locale& locale, Config)
+inline CharCodec2<C, T>::CharCodec2(const std::locale& locale, const Config&)
     : CharCodec2(locale) // Throws
 {
 }
 
 
 template<class C, class T>
-inline CharCodec2<C, T>::CharCodec2(const std::locale* locale, Config)
+inline CharCodec2<C, T>::CharCodec2(const std::locale* locale, const Config&)
     : CharCodec2(locale ? *locale : std::locale()) // Throws
 {
 }
@@ -603,7 +603,7 @@ inline void CharCodec2<C, T>::finalize_imbue()
 
 
 template<class C, class T>
-inline CharCodec4<C, T>::CharCodec4(const std::locale& locale, Config config)
+inline CharCodec4<C, T>::CharCodec4(const std::locale& locale, const Config& config)
     : CharCodec2<C, T>(locale) // Throws
     , m_replacement_info(get_replacement_info(this->m_locale, *this, config)) // Throws
     , m_lenient(config.lenient)
@@ -612,8 +612,8 @@ inline CharCodec4<C, T>::CharCodec4(const std::locale& locale, Config config)
 
 
 template<class C, class T>
-inline CharCodec4<C, T>::CharCodec4(const std::locale* locale, Config config)
-    : CharCodec4<C, T>(locale ? *locale : std::locale(), std::move(config)) // Throws
+inline CharCodec4<C, T>::CharCodec4(const std::locale* locale, const Config& config)
+    : CharCodec4<C, T>(locale ? *locale : std::locale(), config) // Throws
 {
 }
 
@@ -700,7 +700,7 @@ auto CharCodec4<C, T>::get_replacement_info(const std::locale& locale, const sup
 
     if constexpr (std::is_same_v<char_type, wchar_t>) {
         if (ARCHON_LIKELY(!config.use_fallback_replacement_char)) {
-            if (ARCHON_LIKELY(core::assume_unicode_locale(locale))) { // Throws
+            if (ARCHON_LIKELY(core::assume_ucs_locale(locale))) { // Throws
                 std::mbstate_t state = {};
                 wchar_t ch = traits_type::to_char_type(0xFFFD);
                 wchar_t data[] = { ch };

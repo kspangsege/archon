@@ -38,8 +38,8 @@ namespace archon::core {
 
 /// \brief Set implementation with contiguous storage.
 ///
-/// This is an implementation of a set (set of element) that stores its elements
-/// sequentially and in sorted order. The elements are stored contiguously in memory.
+/// This is an implementation of a set that stores its elements sequentially and in sorted
+/// order. The elements are stored contiguously in memory.
 ///
 /// The contiguous storage of elements means that the set will generally have a more
 /// localized memory access pattern. It also allows for stronger exception guarantees

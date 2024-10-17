@@ -25,13 +25,23 @@
 
 
 #include <type_traits>
+#include <iterator>
 #include <functional>
 
 
 namespace archon::core {
 
 
-/// \brief Type must be function compatible with specific signature.
+/// \brief Require iterator type.
+///
+/// This concept requires that `std::iterator_traits<T>::iterator_category` is convertible
+/// to `std::input_iterator_tag`, which means that \p T is an iterator type.
+///
+template<class T> concept iter_type =
+    std::is_convertible_v<typename std::iterator_traits<T>::iterator_category, std::input_iterator_tag>;
+
+
+/// \brief Require enumeration type.
 ///
 /// This concept requires \p T to be an enumeration type as determined by `std::is_enum<T>`.
 ///

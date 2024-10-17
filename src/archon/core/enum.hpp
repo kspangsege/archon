@@ -38,6 +38,7 @@
 #include <archon/core/array_seeded_buffer.hpp>
 #include <archon/core/char_mapper.hpp>
 #include <archon/core/stream_input.hpp>
+#include <archon/core/as_int.hpp>
 
 
 namespace archon::core {
@@ -332,7 +333,7 @@ inline auto operator<<(std::basic_ostream<C, T>& out, const core::Enum<E, S, ign
         out << c_str;
     }
     else {
-        out << int(E(e));
+        out << core::as_int(int(E(e)));
     }
     return out;
 }

@@ -40,7 +40,7 @@
 #include <archon/core/flat_map.hpp>
 #include <archon/core/literal_hash_map.hpp>
 #include <archon/core/locale.hpp>
-#include <archon/core/unicode_bridge.hpp>
+#include <archon/core/charenc_bridge.hpp>
 #include <archon/core/format.hpp>
 #include <archon/util/color.hpp>
 #include <archon/image.hpp>
@@ -93,6 +93,7 @@ namespace {
 
 
 constexpr std::string_view g_implementation_ident = "sdl";
+constexpr std::string_view g_implementation_descr = "SDL (Simple DirectMedia Layer)";
 
 
 #if HAVE_SDL
@@ -151,7 +152,8 @@ class SlotImpl final
 public:
     SlotImpl() noexcept;
 
-    auto ident() const noexcept -> std::string_view override;
+    auto get_ident() const noexcept -> std::string_view override;
+    auto get_descr() const noexcept -> std::string_view override;
     auto get_implementation_a(const display::Guarantees&) const noexcept -> const display::Implementation* override;
 
 private:
@@ -331,9 +333,15 @@ inline SlotImpl::SlotImpl() noexcept
 }
 
 
-auto SlotImpl::ident() const noexcept -> std::string_view
+auto SlotImpl::get_ident() const noexcept -> std::string_view
 {
     return g_implementation_ident;
+}
+
+
+auto SlotImpl::get_descr() const noexcept -> std::string_view
+{
+    return g_implementation_descr;
 }
 
 
@@ -963,9 +971,9 @@ void WindowImpl::create(std::string_view title, display::Size size, const Config
     std::array<char, 128> seed_memory;
     core::Buffer buffer(seed_memory);
     {
-        core::native_mb_to_utf8_transcoder transcoder(conn.locale);
+        core::charenc_bridge bridge(conn.locale);
         std::size_t buffer_offset = 0;
-        transcoder.transcode_l(title, buffer, buffer_offset); // Throws
+        bridge.native_mb_to_utf8_l(title, buffer, buffer_offset); // Throws
         buffer.append_a('\0', buffer_offset); // Throws
     }
     const char* title_2 = buffer.data();
@@ -1049,9 +1057,9 @@ void WindowImpl::set_title(std::string_view title)
     std::array<char, 128> seed_memory;
     core::Buffer buffer(seed_memory);
     {
-        core::native_mb_to_utf8_transcoder transcoder(conn.locale);
+        core::charenc_bridge bridge(conn.locale);
         std::size_t buffer_offset = 0;
-        transcoder.transcode_l(title, buffer, buffer_offset); // Throws
+        bridge.native_mb_to_utf8_l(title, buffer, buffer_offset); // Throws
         buffer.append_a('\0', buffer_offset); // Throws
     }
     const char* title_2 = buffer.data();
@@ -1606,14 +1614,21 @@ inline auto map_mouse_button(Uint8 button) noexcept -> display::MouseButton
 class SlotImpl final
     : public display::Implementation::Slot {
 public:
-    auto ident() const noexcept -> std::string_view override;
+    auto get_ident() const noexcept -> std::string_view override;
+    auto get_descr() const noexcept -> std::string_view override;
     auto get_implementation_a(const display::Guarantees&) const noexcept -> const display::Implementation* override;
 };
 
 
-auto SlotImpl::ident() const noexcept -> std::string_view
+auto SlotImpl::get_ident() const noexcept -> std::string_view
 {
     return g_implementation_ident;
+}
+
+
+auto SlotImpl::get_descr() const noexcept -> std::string_view
+{
+    return g_implementation_descr;
 }
 
 

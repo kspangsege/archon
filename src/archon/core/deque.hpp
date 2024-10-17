@@ -35,7 +35,7 @@
 #include <initializer_list>
 
 #include <archon/core/features.h>
-#include <archon/core/type_traits.hpp>
+#include <archon/core/concepts.hpp>
 #include <archon/core/assert.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/memory.hpp>
@@ -117,7 +117,7 @@ public:
     Deque(std::initializer_list<T>);
     explicit Deque(size_type size);
     Deque(size_type size, const T& value);
-    template<class I, class = core::NeedIter<I>> Deque(I begin, I end);
+    template<core::iter_type I> Deque(I begin, I end);
     ~Deque() noexcept;
 
     auto operator=(const Deque&) -> Deque&;
@@ -126,7 +126,7 @@ public:
 
     void assign(std::initializer_list<T>);
     void assign(size_type size, const T& value);
-    template<class I, class = core::NeedIter<I>> void assign(I begin, I end);
+    template<core::iter_type I> void assign(I begin, I end);
 
     // Element access
 
@@ -189,7 +189,7 @@ public:
 
     void append(std::initializer_list<T>);
     void append(size_type size, const T& value);
-    template<class I, class = core::NeedIter<I>> void append(I begin, I end);
+    template<core::iter_type I> void append(I begin, I end);
 
     auto erase(const_iterator) noexcept -> iterator;
     auto erase(const_iterator begin, const_iterator end) noexcept -> iterator;
@@ -498,7 +498,7 @@ inline Deque<T>::Deque(size_type size, const T& value)
 
 
 template<class T>
-template<class I, class> inline Deque<T>::Deque(I begin, I end)
+template<core::iter_type I> inline Deque<T>::Deque(I begin, I end)
     : Deque()
 {
     append(begin, end); // Throws
@@ -562,7 +562,7 @@ inline void Deque<T>::assign(size_type size, const T& value)
 
 
 template<class T>
-template<class I, class> inline void Deque<T>::assign(I begin, I end)
+template<core::iter_type I> inline void Deque<T>::assign(I begin, I end)
 {
     clear();
     append(begin, end); // Throws
@@ -885,7 +885,7 @@ inline void Deque<T>::append(size_type size, const T& value)
 
 
 template<class T>
-template<class I, class> inline void Deque<T>::append(I begin, I end)
+template<core::iter_type I> inline void Deque<T>::append(I begin, I end)
 {
     do_append_2(begin, end); // Throws
 }
