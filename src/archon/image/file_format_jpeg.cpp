@@ -20,6 +20,7 @@
 
 
 #include <csetjmp>
+#include <exception>
 #include <memory>
 #include <string_view>
 #include <system_error>
@@ -67,9 +68,9 @@ namespace {
 // that stack objects will not have their destructors called during a long jump stack
 // unwinding process.
 //
-// A secondary problem is that a local variable in the scope from which setjmp() is called
-// has indeterminate state upon a long jump if it was modified after the invocation of
-// setjmp().
+// A secondary problem is that an automatic variable in the scope from which setjmp() is
+// called has indeterminate state upon a long jump if it was modified after the invocation
+// of setjmp().
 //
 // In order to be on the safe side, the following restrictions should be adhered to:
 //
@@ -82,13 +83,13 @@ namespace {
 //          // code that handles the long jump (exception)
 //      }
 //
-//  * Keep the "try"-scope completely free of automatic variables of non-trivial type
+//  * Keep the "try"-scope completely free of automatic variables of nontrivial type
 //    (std::is_trivial). This also applies to any sub-scope from which a long jump may be
 //    directly or indirectly initiated. A sub-scope from which a long jump can not be
-//    initiated, may safly have automatic variable of non-trivial type.
+//    initiated, may safly have automatic variable of nontrivial type.
 //
 //  * Keep statements, that directly or indirectly may initiate a long jump, completely free
-//    of temporaries of non-trivial type.
+//    of temporaries of nontrivial type.
 //
 //  * Keep the scope from which setjmp() is called completely free of automatic variables.
 //
@@ -96,18 +97,28 @@ namespace {
 //
 
 
-struct Context {
-    jpeg_error_mgr jerr = {};
+class Context {
+public:
+    Context();
 
-    std::jmp_buf jmp_buf;
+protected:
+    // Must be first non-static data member of Context (see LoadContext::get_context() and
+    // SaveContext::get_context())
+    jpeg_error_mgr m_err = {};
 
-    Context() noexcept;
+    std::jmp_buf m_jmp_buf = {};
+
+    // Error handling
+    std::error_code m_ec;
+    std::exception_ptr m_exception;
+
+    static auto get_context(jpeg_error_mgr& err) noexcept -> Context&;
 };
 
 
-Context::Context() noexcept
+Context::Context()
 {
-    jpeg_std_error(&jerr);
+    jpeg_std_error(&m_err);
 /*
     progress_monitor = progress_callback;    
     error_exit       = error_callback;    
@@ -116,65 +127,176 @@ Context::Context() noexcept
 }
 
 
-struct LoadContext : Context {
-    jpeg_source_mgr jsrc = {};
-    jpeg_decompress_struct cinfo = {};
-
-    bool recognize();
-
-    LoadContext() noexcept;
-    ~LoadContext() noexcept;
-};
-
-
-bool LoadContext::recognize()
+inline auto Context::get_context(jpeg_error_mgr& err) noexcept -> Context&
 {
-    // Long jump safety: No non-volatile local variables in the scope from which setjmp() is
-    // called (see notes on long jump safety above).
-
-    // Catch long jumps from one of the callback functions.
-    if (setjmp(jmp_buf) == 0) {
-        // Long jump safety: No local variables of nontrivial type in the "try"-scope, or in
-        // any subscope that may directly or indirectly initiate a long jump (see notes on
-        // long jump safety above).
-
-        cinfo.err = jpeg_std_error(&jerr);
-        jpeg_create_decompress(&cinfo);
-
-        cinfo.src = &jsrc;
-        jpeg_read_header(&cinfo, 1);
-    }
-    else {
-        // Long jumps from the callback functions land here.
-
-                                    
-        return false;
-    }
-
-    return true;
+    static_assert(offsetof(Context, m_err) == 0);
+    return *reinterpret_cast<Context*>(&err);
 }
 
 
-LoadContext::LoadContext() noexcept
+
+// The size of the buffers used for input/output streaming
+constexpr std::size_t g_buffer_size = 4096;
+
+
+class LoadContext : public Context {
+public:
+    LoadContext(core::Source&);
+    ~LoadContext() noexcept;
+
+    bool recognize();
+
+private:
+    core::Source& m_source;
+    std::unique_ptr<char[]> m_buffer;
+    jpeg_source_mgr m_src = {};
+    jpeg_decompress_struct m_info = {};
+
+    static void init_callback(j_decompress_ptr info) noexcept;
+    static int read_callback(j_decompress_ptr info) noexcept;
+    static void skip_callback(j_decompress_ptr info, long num_bytes) noexcept;
+    static void term_callback(j_decompress_ptr info) noexcept;
+
+    static auto get_context(j_decompress_ptr info) noexcept -> LoadContext&;
+
+    bool read(std::error_code& ec);
+    bool skip(long num_bytes, std::error_code& ec);
+};
+
+
+LoadContext::LoadContext(core::Source& source)
+    : m_source(source)
 {
-/*    
-    jsrc.init_source       = &init_callback;
-    jsrc.fill_input_buffer = &read_callback;
-    jsrc.skip_input_data   = &skip_callback;
-    jsrc.resync_to_restart = jpeg_resync_to_restart; // use default method    
-    jsrc.term_source       = &term_callback;
-    jsrc.bytes_in_buffer   = 0; // forces fill_input_buffer on first read    
-    jsrc.next_input_byte   = 0;    
-*/
+    m_buffer = std::make_unique<char[]>(g_buffer_size); // Throws
+
+    m_src.init_source       = &init_callback;
+    m_src.fill_input_buffer = &read_callback;
+    m_src.skip_input_data   = &skip_callback;
+    m_src.resync_to_restart = jpeg_resync_to_restart; // Default implementation
+    m_src.term_source       = &term_callback;
+    m_src.bytes_in_buffer   = 0;
+    m_src.next_input_byte   = nullptr;
 }
 
 
 LoadContext::~LoadContext() noexcept
 {
-    cinfo.err = {};
-    cinfo.src = {};
-    jpeg_destroy_decompress(&cinfo);
+    m_info.err = {};
+    m_info.src = {};
+    jpeg_destroy_decompress(&m_info);
 }
+
+
+bool LoadContext::recognize()
+{
+    // Long jump safety: No non-volatile automatic variables in the scope from which
+    // setjmp() is called (see notes on long jump safety above).
+
+    // Catch long jumps from one of the callback functions.
+    if (setjmp(m_jmp_buf) == 0) {
+        // Long jump safety: No automatic variables of nontrivial type in the "try"-scope,
+        // or in any subscope that may directly or indirectly initiate a long jump (see
+        // notes on long jump safety above).
+
+        m_info.err = jpeg_std_error(&m_err);
+        jpeg_create_decompress(&m_info);
+
+        m_info.src = &m_src;
+        jpeg_read_header(&m_info, 1);
+    }
+    else {
+        // Long jumps from the callback functions land here.
+
+        if (ARCHON_LIKELY(!m_exception)) {
+            // Certain error codes (m_ec) should be interpreted as "unrecognized" while other should lead to the throwing of a system error exception                                                               
+            ARCHON_STEADY_ASSERT_UNREACHABLE();          
+        }
+        std::rethrow_exception(std::move(m_exception)); // Throws
+    }
+
+    return true; // Success
+}
+
+
+void LoadContext::init_callback(j_decompress_ptr) noexcept
+{
+    // No-op
+}
+
+
+int LoadContext::read_callback(j_decompress_ptr info) noexcept
+{
+    // Long jump safety: No automatic variables of nontrivial type in a scope from which
+    // std::longjmp() is called (see notes on long jump safety above).
+
+    LoadContext& ctx = get_context(info);
+    try {
+        std::error_code ec;
+        if (ARCHON_LIKELY(ctx.read(ec))) // Throws
+            return 1;
+        ctx.m_ec = ec;
+    }
+    catch (...) {
+        ctx.m_exception = std::current_exception();
+    }
+
+    std::longjmp(ctx.m_jmp_buf, 1);
+}
+
+
+void LoadContext::skip_callback(j_decompress_ptr info, long num_bytes) noexcept
+{
+    // Long jump safety: No automatic variables of nontrivial type in a scope from which
+    // std::longjmp() is called (see notes on long jump safety above).
+
+    LoadContext& ctx = get_context(info);
+    try {
+        std::error_code ec;
+        if (ARCHON_LIKELY(ctx.skip(num_bytes, ec))) // Throws
+            return;
+        ctx.m_ec = ec;
+    }
+    catch (...) {
+        ctx.m_exception = std::current_exception();
+    }
+
+    std::longjmp(ctx.m_jmp_buf, 1);
+}
+
+
+void LoadContext::term_callback(j_decompress_ptr) noexcept
+{
+    // No-op
+}
+
+
+inline auto LoadContext::get_context(j_decompress_ptr info) noexcept -> LoadContext&
+{
+    return static_cast<LoadContext&>(Context::get_context(*info->err));
+}
+
+
+bool LoadContext::read(std::error_code& ec)
+{
+    core::Span buffer = { m_buffer.get(), g_buffer_size };
+    std::size_t n = {};
+    if (ARCHON_LIKELY(m_source.try_read_some(buffer, n, ec))) { // Throws
+        static_assert(std::is_same_v<JOCTET, char> || std::is_same_v<JOCTET, unsigned char>);
+        m_src.bytes_in_buffer = n;
+        m_src.next_input_byte = reinterpret_cast<JOCTET*>(buffer.data());
+        return true;
+    }
+    return false;
+}
+
+
+bool LoadContext::skip(long num_bytes, std::error_code& ec)
+{
+    static_cast<void>(num_bytes);    
+    static_cast<void>(ec);    
+    ARCHON_STEADY_ASSERT_UNREACHABLE();     
+}
+
 
 
 constexpr std::string_view g_mime_types[] = {
@@ -212,22 +334,8 @@ public:
 
     bool recognize(core::Source& source) const override
     {
-        static_cast<void>(source);                 
-        LoadContext ctx;
-        return ctx.recognize();
-/*    
-        LoadWrapper w;
-        // Catch errors occuring in any of the following JPEG-functions:
-        if (!setjmp(c.setjmp_buffer)) { // try
-            w.cinfo.err = &c; // Downcast to jpeg_err_mgr
-            jpeg_create_decompress(&w.cinfo);
-            w.cinfo.src = &c; // Downcast to jpeg_source_mgr
-            return jpeg_read_header(&w.cinfo, 1) == JPEG_HEADER_OK;
-        }
-        else { // catch
-            return false;
-        }
-*/
+        LoadContext context(source);
+        return context.recognize();
     }
 
     bool do_try_load(core::Source& source, std::unique_ptr<image::WritableImage>& image, const std::locale& loc,

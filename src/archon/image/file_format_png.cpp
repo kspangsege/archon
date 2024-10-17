@@ -414,9 +414,9 @@ auto create_image(image::Size size, const Format& format, bool use_short_int, pn
 // that stack objects will not have their destructors called during a long jump stack
 // unwinding process.
 //
-// A secondary problem is that a local variable in the scope from which setjmp() is called
-// has indeterminate state upon a long jump if it was modified after the invocation of
-// setjmp().
+// A secondary problem is that an automatic variable in the scope from which setjmp() is
+// called has indeterminate state upon a long jump if it was modified after the invocation
+// of setjmp().
 //
 // In order to be on the safe side, the following restrictions should be adhered to:
 //
@@ -429,13 +429,13 @@ auto create_image(image::Size size, const Format& format, bool use_short_int, pn
 //          // code that handles the long jump (exception)
 //      }
 //
-//  * Keep the "try"-scope completely free of automatic variables of non-trivial type
+//  * Keep the "try"-scope completely free of automatic variables of nontrivial type
 //    (std::is_trivial). This also applies to any sub-scope from which a long jump may be
 //    directly or indirectly initiated. A sub-scope from which a long jump can not be
-//    initiated, may safly have automatic variable of non-trivial type.
+//    initiated, may safly have automatic variable of nontrivial type.
 //
 //  * Keep statements, that directly or indirectly may initiate a long jump, completely free
-//    of temporaries of non-trivial type.
+//    of temporaries of nontrivial type.
 //
 //  * Keep the scope from which setjmp() is called completely free of automatic variables.
 //
@@ -463,6 +463,9 @@ struct Context {
 
 [[noreturn]] void error_callback(png_structp png_ptr, png_const_charp message) noexcept
 {
+    // Long jump safety: No automatic variables of nontrivial type in a scope from which
+    // std::longjmp() is called (see notes on long jump safety above).
+
     Context& ctx = *static_cast<Context*>(png_get_error_ptr(png_ptr));
     try {
         ctx.logger->error("%s", std::string_view(message)); // Throws
@@ -483,6 +486,9 @@ struct Context {
 
 void warning_callback(png_structp png_ptr, png_const_charp message) noexcept
 {
+    // Long jump safety: No automatic variables of nontrivial type in a scope from which
+    // std::longjmp() is called (see notes on long jump safety above).
+
     Context& ctx = *static_cast<Context*>(png_get_error_ptr(png_ptr));
     try {
         ctx.logger->warn("%s", std::string_view(message)); // Throws
@@ -497,6 +503,9 @@ void warning_callback(png_structp png_ptr, png_const_charp message) noexcept
 
 void progress_callback(png_structp png_ptr, png_uint_32 row, int pass) noexcept
 {
+    // Long jump safety: No automatic variables of nontrivial type in a scope from which
+    // std::longjmp() is called (see notes on long jump safety above).
+
     // This function must only be used with non-interlaced images
     ARCHON_ASSERT(row > 0);
     ARCHON_ASSERT(pass == 0);
@@ -740,6 +749,9 @@ public:
 
 void read_callback(png_structp png_ptr, png_bytep data, std::size_t size) noexcept
 {
+    // Long jump safety: No automatic variables of nontrivial type in a scope from which
+    // std::longjmp() is called (see notes on long jump safety above).
+
     LoadContext& ctx = *static_cast<LoadContext*>(png_get_error_ptr(png_ptr));
     try {
         core::Span<char> buffer(from_png_bytep<char>(data), size);
@@ -762,8 +774,8 @@ void read_callback(png_structp png_ptr, png_bytep data, std::size_t size) noexce
 
 bool do_load(LoadContext& ctx)
 {
-    // Long jump safety: No non-volatile local variables in the scope from which setjmp() is
-    // called (see notes on long jump safety above).
+    // Long jump safety: No non-volatile automatic variables in the scope from which
+    // setjmp() is called (see notes on long jump safety above).
 
     ctx.png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, &ctx, error_callback, warning_callback);
     if (ARCHON_UNLIKELY(!ctx.png_ptr))
@@ -775,9 +787,9 @@ bool do_load(LoadContext& ctx)
 
     // Catch long jumps from one of the callback functions.
     if (setjmp(png_jmpbuf(ctx.png_ptr)) == 0) {
-        // Long jump safety: No local variables of nontrivial type in the "try"-scope, or in
-        // any subscope that may directly or indirectly initiate a long jump (see notes on
-        // long jump safety above).
+        // Long jump safety: No automatic variables of nontrivial type in the "try"-scope,
+        // or in any subscope that may directly or indirectly initiate a long jump (see
+        // notes on long jump safety above).
 
         png_set_sig_bytes(ctx.png_ptr, 8);
         png_set_read_fn(ctx.png_ptr, 0, read_callback);
@@ -925,6 +937,9 @@ public:
 
 void write_callback(png_structp png_ptr, png_bytep data, png_size_t size) noexcept
 {
+    // Long jump safety: No automatic variables of nontrivial type in a scope from which
+    // std::longjmp() is called (see notes on long jump safety above).
+
     SaveContext& ctx = *static_cast<SaveContext*>(png_get_error_ptr(png_ptr));
     try {
         core::Span<const char> data_2(from_png_bytep<const char>(data), size);
@@ -952,8 +967,8 @@ void flush_callback(png_structp) noexcept
 
 bool do_save(SaveContext& ctx)
 {
-    // Long jump safety: No non-volatile local variables in the scope from which setjmp() is
-    // called (see notes on long jump safety above).
+    // Long jump safety: No non-volatile automatic variables in the scope from which
+    // setjmp() is called (see notes on long jump safety above).
 
     ctx.png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, &ctx, error_callback, warning_callback);
     if (ARCHON_UNLIKELY(!ctx.png_ptr))
@@ -965,9 +980,9 @@ bool do_save(SaveContext& ctx)
 
     // Catch long jumps from one of the callback functions.
     if (setjmp(png_jmpbuf(ctx.png_ptr)) == 0) {
-        // Long jump safety: No local variables of nontrivial type in the "try"-scope, or in
-        // any subscope that may directly or indirectly initiate a long jump (see notes on
-        // long jump safety above).
+        // Long jump safety: No automatic variables of nontrivial type in the "try"-scope,
+        // or in any subscope that may directly or indirectly initiate a long jump (see
+        // notes on long jump safety above).
 
         png_set_write_fn(ctx.png_ptr, 0, write_callback, flush_callback);
 
