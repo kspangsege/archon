@@ -55,11 +55,11 @@
 #include <archon/image/buffered_image.hpp>
 #include <archon/image/progress_tracker.hpp>
 #include <archon/image/provider.hpp>
+#include <archon/image/error.hpp>
 #include <archon/image/file_format.hpp>
 #include <archon/image/file_format_png.hpp>
 #include <archon/image/load_config.hpp>
 #include <archon/image/save_config.hpp>
-#include <archon/image/error.hpp>
 
 #if ARCHON_IMAGE_HAVE_PNG
 #  include <png.h>

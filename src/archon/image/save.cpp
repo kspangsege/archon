@@ -33,10 +33,10 @@
 #include <archon/core/file_sink.hpp>
 #include <archon/log/logger.hpp>
 #include <archon/image/image.hpp>
+#include <archon/image/error.hpp>
 #include <archon/image/file_format.hpp>
 #include <archon/image/file_format_registry.hpp>
 #include <archon/image/output.hpp>
-#include <archon/image/error.hpp>
 #include <archon/image/save.hpp>
 
 

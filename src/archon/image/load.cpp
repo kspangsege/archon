@@ -37,10 +37,10 @@
 #include <archon/core/file_source.hpp>
 #include <archon/log/logger.hpp>
 #include <archon/image/image.hpp>
+#include <archon/image/error.hpp>
 #include <archon/image/file_format.hpp>
 #include <archon/image/file_format_registry.hpp>
 #include <archon/image/input.hpp>
-#include <archon/image/error.hpp>
 #include <archon/image/load.hpp>
 
 
