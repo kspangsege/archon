@@ -37,7 +37,7 @@
 #if ARCHON_IMAGE_HAVE_JPEG
 #  include <jpeglib.h>
 #  include <jerror.h>
-#  if JPEG_LIB_VERSION < 60 // Need version 6 or newer
+#  if JPEG_LIB_VERSION < 62 // Need version 6b or newer
 #    error "PNG library is too old"
 #  endif
 #endif
@@ -103,17 +103,14 @@ public:
     Context();
 
 protected:
-    // Must be first non-static data member of Context (see LoadContext::get_context() and
-    // SaveContext::get_context())
     jpeg_error_mgr m_err = {};
-
-    std::jmp_buf m_jmp_buf = {};
-
-    // Error handling
     std::error_code m_ec;
     std::exception_ptr m_exception;
 
-    static auto get_context(jpeg_error_mgr& err) noexcept -> Context&;
+    std::jmp_buf m_jmp_buf = {};
+
+private:
+    static auto get_context(j_common_ptr info) noexcept -> Context&;
 };
 
 
@@ -128,16 +125,18 @@ Context::Context()
 }
 
 
-inline auto Context::get_context(jpeg_error_mgr& err) noexcept -> Context&
+inline auto Context::get_context(j_common_ptr info) noexcept -> Context&
 {
-    static_assert(offsetof(Context, m_err) == 0);
-    return *reinterpret_cast<Context*>(&err);
+    // Note: To make this safe, the pointer stored in `client_data` must be of type
+    // `Context*` rather than `LoadContext*` or `SaveContext*`. See LoadContext and
+    // SaveContext constructors.
+    return *static_cast<Context*>(info->client_data);
 }
 
 
 
 // The size of the buffers used for input/output streaming
-constexpr std::size_t g_buffer_size = 4096; // FIXME: Should a smaller buffer be used when recognizing file format only?                                        
+constexpr std::size_t g_buffer_size = 4096;
 
 
 class LoadContext : public Context {
@@ -178,6 +177,9 @@ LoadContext::LoadContext(core::Source& source)
     m_src.term_source       = &term_callback;
     m_src.bytes_in_buffer   = 0;
     m_src.next_input_byte   = nullptr;
+
+    // Must store point of type `Context*` (see Context::get_context())
+    m_info.client_data = static_cast<Context*>(this);
 }
 
 
@@ -307,7 +309,9 @@ void LoadContext::term_callback(j_decompress_ptr) noexcept
 
 inline auto LoadContext::get_context(j_decompress_ptr info) noexcept -> LoadContext&
 {
-    return static_cast<LoadContext&>(Context::get_context(*info->err));
+    // Stored pointer is always of type `Context*` (see Context::get_context())
+    Context& context = *static_cast<Context*>(info->client_data);
+    return static_cast<LoadContext&>(context);
 }
 
 

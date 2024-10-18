@@ -27,8 +27,8 @@ if(PNG_FOUND)
   target_link_libraries(Image PRIVATE PNG::PNG)
 endif()
 
-# Require version 6 or later of libjpeg (or libjpeg-turbo)
-find_package(JPEG 60)
+# Require version 6b or later of libjpeg (or libjpeg-turbo)
+find_package(JPEG 62)
 
 set(ARCHON_IMAGE_HAVE_JPEG 0)
 if(JPEG_FOUND)
