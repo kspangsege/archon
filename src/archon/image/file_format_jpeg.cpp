@@ -37,6 +37,7 @@
 #include <archon/core/misc_error.hpp>
 #include <archon/core/source.hpp>
 #include <archon/core/sink.hpp>
+#include <archon/log.hpp>
 #include <archon/image/impl/config.h>
 #include <archon/image/image.hpp>
 #include <archon/image/writable_image.hpp>
@@ -110,40 +111,77 @@ namespace {
 
 class Context {
 public:
-    Context();
+    Context(log::Logger& logger);
 
 protected:
-    jpeg_error_mgr m_err = {};
-    bool m_have_jpeg_error = false;
+    jpeg_error_mgr m_error_mgr = {};
+    int m_num_warnings = 0;
+    bool m_have_libjpeg_error = false;
     std::exception_ptr m_exception;
     std::error_code m_ec;
 
+    log::Logger& m_logger;
+    log::PrefixLogger m_libjpeg_logger;
+
     std::jmp_buf m_jmp_buf = {};
+
+    void libjpeg_log(j_common_ptr info, log::LogLevel level);
 
 private:
     static void error_callback(j_common_ptr info) noexcept;
+    static void message_callback(j_common_ptr info, int msg_level) noexcept;
 
     static auto get_context(j_common_ptr info) noexcept -> Context&;
+
+    void message(j_common_ptr info, int msg_level);
 };
 
 
-Context::Context()
+Context::Context(log::Logger& logger)
+    : m_logger(logger)
+    , m_libjpeg_logger(m_logger, "libjpeg: ") // Throws
 {
-    jpeg_std_error(&m_err);
-    m_err.error_exit = &error_callback;
+    jpeg_std_error(&m_error_mgr);
+    m_error_mgr.error_exit   = &error_callback;
+    m_error_mgr.emit_message = &message_callback;
 
-/*    
-    progress_monitor = progress_callback;    
-    error_exit       = error_callback;    
-    output_message   = warning_callback;    
-*/
+    // progress_monitor = progress_callback;                 
+}
+
+
+void Context::libjpeg_log(j_common_ptr info, log::LogLevel level)
+{
+    if (ARCHON_LIKELY(!m_logger.will_log(level)))
+        return;
+    char buffer[JMSG_LENGTH_MAX];
+    (*m_error_mgr.format_message)(info, buffer);
+    m_libjpeg_logger.log(level, "%s", std::string_view(buffer)); // Throws
 }
 
 
 void Context::error_callback(j_common_ptr info) noexcept
 {
     Context& ctx = get_context(info);
-    ctx.m_have_jpeg_error = true;
+    ctx.m_have_libjpeg_error = true;
+    std::longjmp(ctx.m_jmp_buf, 1);
+}
+
+
+void Context::message_callback(j_common_ptr info, int msg_level) noexcept
+{
+    // Long jump safety: No automatic variables of nontrivial type in a scope from which
+    // std::longjmp() may be called or through with stack unwinding may pass (see notes on
+    // long jump safety above).
+
+    Context& ctx = get_context(info);
+    try {
+        ctx.message(info, msg_level); // throws
+        return;
+    }
+    catch (...) {
+        ctx.m_exception = std::current_exception();
+    }
+
     std::longjmp(ctx.m_jmp_buf, 1);
 }
 
@@ -157,6 +195,22 @@ inline auto Context::get_context(j_common_ptr info) noexcept -> Context&
 }
 
 
+void Context::message(j_common_ptr info, int msg_level)
+{
+    log::LogLevel log_level = log::LogLevel::warn;
+    if (ARCHON_LIKELY(msg_level >= 0)) {
+        log_level = (msg_level == 0 ? log::LogLevel::detail : log::LogLevel::trace);
+    }
+    else {
+        constexpr int max_warnings = 1; // Emulate behavior of jpeg_std_error()
+        if (m_num_warnings >= max_warnings)
+            return;
+        m_num_warnings += 1;
+    }
+    libjpeg_log(info, log_level); // Throws
+}
+
+
 
 // The size of the buffers used for input/output streaming
 constexpr std::size_t g_buffer_size = 4096;
@@ -164,7 +218,7 @@ constexpr std::size_t g_buffer_size = 4096;
 
 class LoadContext : public Context {
 public:
-    LoadContext(core::Source&);
+    LoadContext(log::Logger&, core::Source&);
     ~LoadContext() noexcept;
 
     bool recognize();
@@ -173,8 +227,10 @@ public:
 private:
     core::Source& m_source;
     std::unique_ptr<char[]> m_buffer;
-    jpeg_source_mgr m_src = {};
+    jpeg_source_mgr m_source_mgr = {};
     jpeg_decompress_struct m_info = {};
+
+    static void noop_message_callback(j_common_ptr info, int msg_level) noexcept;
 
     static void init_callback(j_decompress_ptr info) noexcept;
     static auto read_callback(j_decompress_ptr info) noexcept -> boolean;
@@ -188,18 +244,19 @@ private:
 };
 
 
-LoadContext::LoadContext(core::Source& source)
-    : m_source(source)
+LoadContext::LoadContext(log::Logger& logger, core::Source& source)
+    : Context(logger) // Throws
+    , m_source(source)
 {
     m_buffer = std::make_unique<char[]>(g_buffer_size); // Throws
 
-    m_src.init_source       = &init_callback;
-    m_src.fill_input_buffer = &read_callback;
-    m_src.skip_input_data   = &skip_callback;
-    m_src.resync_to_restart = jpeg_resync_to_restart; // Default implementation
-    m_src.term_source       = &term_callback;
-    m_src.bytes_in_buffer   = 0;
-    m_src.next_input_byte   = nullptr;
+    m_source_mgr.init_source       = &init_callback;
+    m_source_mgr.fill_input_buffer = &read_callback;
+    m_source_mgr.skip_input_data   = &skip_callback;
+    m_source_mgr.resync_to_restart = jpeg_resync_to_restart; // Default implementation
+    m_source_mgr.term_source       = &term_callback;
+    m_source_mgr.bytes_in_buffer   = 0;
+    m_source_mgr.next_input_byte   = nullptr;
 
     // Must store point of type `Context*` (see Context::get_context())
     m_info.client_data = static_cast<Context*>(this);
@@ -219,38 +276,36 @@ bool LoadContext::recognize()
     // Long jump safety: No non-volatile automatic variables in the scope from which
     // setjmp() is called (see notes on long jump safety above).
 
+    // Don't log non-error messages
+    m_error_mgr.emit_message = &noop_message_callback;
+
     // Catch long jumps from one of the callback functions.
     if (setjmp(m_jmp_buf) == 0) {
         // Long jump safety: No automatic variables of nontrivial type in the "try"-scope,
         // or in any subscope that may directly or indirectly initiate a long jump (see
         // notes on long jump safety above).
 
-        m_info.err = &m_err;
+        m_info.err = &m_error_mgr;
         jpeg_create_decompress(&m_info);
 
-        m_info.src = &m_src;
+        m_info.src = &m_source_mgr;
         jpeg_read_header(&m_info, 1);
     }
     else {
         // Long jumps from the callback functions land here.
 
-        if (ARCHON_LIKELY(m_have_jpeg_error)) {
+        if (ARCHON_LIKELY(m_have_libjpeg_error)) {
             // FIXME: Other libjpeg error codes may need to be listed here
             int actual_errors[] = {
                 JERR_OUT_OF_MEMORY,
             };
             int* begin = actual_errors;
             int* end = begin + std::size(actual_errors);
-            int* i = std::find(begin, end, m_err.msg_code);
+            int* i = std::find(begin, end, m_error_mgr.msg_code);
             bool found = (i != end);
             if (ARCHON_LIKELY(!found))
                 return false;     
-            char buffer[JMSG_LENGTH_MAX];
-            (*m_err.format_message)(reinterpret_cast<j_common_ptr>(&m_info), buffer);
-/*    
-            if (m_logger)
-                m_logger->error("%s", std::string_view(buffer)); // Throws
-*/
+            libjpeg_log(reinterpret_cast<j_common_ptr>(&m_info), log::LogLevel::error); // Throws
 /*    
             std::error_core ec = image::Error::loading_process_failed;
             throw std::system_error(m_ec);                    
@@ -282,10 +337,10 @@ bool LoadContext::load(std::error_code& ec)
         // or in any subscope that may directly or indirectly initiate a long jump (see
         // notes on long jump safety above).
 
-        m_info.err = &m_err;
+        m_info.err = &m_error_mgr;
         jpeg_create_decompress(&m_info);
 
-        m_info.src = &m_src;
+        m_info.src = &m_source_mgr;
         jpeg_read_header(&m_info, 1);
 
         ARCHON_STEADY_ASSERT_UNREACHABLE();     
@@ -300,6 +355,12 @@ bool LoadContext::load(std::error_code& ec)
     }
 
     return true; // Success
+}
+
+
+void LoadContext::noop_message_callback(j_common_ptr, int) noexcept
+{
+    // No-op
 }
 
 
@@ -372,8 +433,8 @@ bool LoadContext::read(std::error_code& ec)
     if (ARCHON_LIKELY(m_source.try_read_some(buffer, n, ec))) { // Throws
         if (ARCHON_LIKELY(n > 0)) {
             static_assert(std::is_same_v<JOCTET, char> || std::is_same_v<JOCTET, unsigned char>);
-            m_src.bytes_in_buffer = n;
-            m_src.next_input_byte = reinterpret_cast<JOCTET*>(buffer.data());
+            m_source_mgr.bytes_in_buffer = n;
+            m_source_mgr.next_input_byte = reinterpret_cast<JOCTET*>(buffer.data());
             return true; // Success
         }
         ec = core::MiscError::premature_end_of_input;
@@ -426,19 +487,18 @@ public:
 
     bool recognize(core::Source& source) const override
     {
-        LoadContext context(source);
+        log::Logger& logger = log::Logger::get_null();                                       
+        LoadContext context(logger, source);
         return context.recognize();
     }
 
     bool do_try_load(core::Source& source, std::unique_ptr<image::WritableImage>& image, const std::locale& loc,
                      log::Logger& logger, const LoadConfig& config, std::error_code& ec) const override
     {
-        static_cast<void>(source);    
         static_cast<void>(image);    
         static_cast<void>(loc);    
-        static_cast<void>(logger);    
         static_cast<void>(config);    
-        LoadContext context(source);
+        LoadContext context(logger, source);
         return context.load(ec);
     }
 
