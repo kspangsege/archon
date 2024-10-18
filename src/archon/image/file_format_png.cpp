@@ -160,7 +160,7 @@ bool recognize(core::Source& source, std::error_code& ec)
         if (ARCHON_LIKELY(n == header_size && png_sig_cmp(to_png_bytep(header), 0, header_size) == 0))
             return true; // Success
     }
-    ec = image::Error::wrong_file_format;
+    ec = image::Error::bad_file;
     return false; // Failure
 }
 

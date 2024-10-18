@@ -117,6 +117,7 @@ protected:
     jpeg_error_mgr m_error_mgr = {};
     int m_num_warnings = 0;
     bool m_have_libjpeg_error = false;
+    bool m_have_ec = false;
     std::exception_ptr m_exception;
     std::error_code m_ec;
 
@@ -212,6 +213,23 @@ void Context::message(j_common_ptr info, int msg_level)
 
 
 
+inline bool is_due_to_invalid_file_contents(int msg_code) noexcept
+{
+    // These are errors that are not caused by invalid file contents
+    //
+    // FIXME: Other libjpeg error codes may need to be listed here
+    //
+    int actual_errors[] = {
+        JERR_OUT_OF_MEMORY,
+    };
+    int* begin = actual_errors;
+    int* end = begin + std::size(actual_errors);
+    int* i = std::find(begin, end, msg_code);
+    bool found = (i != end);
+    return !found;
+}
+
+
 // The size of the buffers used for input/output streaming
 constexpr std::size_t g_buffer_size = 4096;
 
@@ -295,30 +313,20 @@ bool LoadContext::recognize()
         // Long jumps from the callback functions land here.
 
         if (ARCHON_LIKELY(m_have_libjpeg_error)) {
-            // FIXME: Other libjpeg error codes may need to be listed here
-            int actual_errors[] = {
-                JERR_OUT_OF_MEMORY,
-            };
-            int* begin = actual_errors;
-            int* end = begin + std::size(actual_errors);
-            int* i = std::find(begin, end, m_error_mgr.msg_code);
-            bool found = (i != end);
-            if (ARCHON_LIKELY(!found))
+            if (ARCHON_LIKELY(is_due_to_invalid_file_contents(m_error_mgr.msg_code)))
                 return false;     
             libjpeg_log(reinterpret_cast<j_common_ptr>(&m_info), log::LogLevel::error); // Throws
-/*    
-            std::error_core ec = image::Error::loading_process_failed;
-            throw std::system_error(m_ec);                    
-*/
-            throw std::runtime_error("Loading process failed");                                                  
+            std::error_code ec = image::Error::loading_process_failed;
+            throw std::system_error(ec);                          
         }
 
-        if (ARCHON_LIKELY(!m_exception)) {
+        if (ARCHON_LIKELY(m_have_ec)) {
             if (ARCHON_LIKELY(m_ec == core::MiscError::premature_end_of_input))
                 return false;     
             throw std::system_error(m_ec);                    
         }
 
+        ARCHON_ASSERT(m_exception);
         std::rethrow_exception(std::move(m_exception)); // Throws
     }
 
@@ -347,10 +355,20 @@ bool LoadContext::load(std::error_code& ec)
     }
     else {
         // Long jumps from the callback functions land here.
-        if (ARCHON_LIKELY(!m_exception)) {
+
+        if (ARCHON_LIKELY(m_have_libjpeg_error)) {
+            libjpeg_log(reinterpret_cast<j_common_ptr>(&m_info), log::LogLevel::error); // Throws
+            ec = (is_due_to_invalid_file_contents(m_error_mgr.msg_code) ? image::Error::bad_file :
+                  image::Error::loading_process_failed);
+            return false; // Failure
+        }
+
+        if (ARCHON_LIKELY(m_have_ec)) {
             ec = m_ec;
             return false; // Failure
         }
+
+        ARCHON_ASSERT(m_exception);
         std::rethrow_exception(std::move(m_exception)); // Throws
     }
 
@@ -382,6 +400,7 @@ auto LoadContext::read_callback(j_decompress_ptr info) noexcept -> boolean
         if (ARCHON_LIKELY(ctx.read(ec))) // Throws
             return 1;
         ctx.m_ec = ec;
+        ctx.m_have_ec = true;
     }
     catch (...) {
         ctx.m_exception = std::current_exception();
@@ -403,6 +422,7 @@ void LoadContext::skip_callback(j_decompress_ptr info, long num_bytes) noexcept
         if (ARCHON_LIKELY(ctx.skip(num_bytes, ec))) // Throws
             return;
         ctx.m_ec = ec;
+        ctx.m_have_ec = true;
     }
     catch (...) {
         ctx.m_exception = std::current_exception();
