@@ -408,9 +408,9 @@ auto create_image(image::Size size, const Format& format, bool use_short_int, pn
 }
 
 
-// Notes on using setjump/longjump in C++:
+// Notes on using setjmp/longjmp in C++:
 //
-// Great care must be taken when using setjump/longjump in C++ context. The main problem is
+// Great care must be taken when using setjmp/longjmp in C++ context. The main problem is
 // that stack objects will not have their destructors called during a long jump stack
 // unwinding process.
 //
@@ -420,7 +420,7 @@ auto create_image(image::Size size, const Format& format, bool use_short_int, pn
 //
 // In order to be on the safe side, the following restrictions should be adhered to:
 //
-//  * Keep the setjump/longjump construction on the following canonical form:
+//  * Keep the setjmp/longjmp construction on the following canonical form:
 //
 //      if (setjmp(jmpbuf) == 0) { // try
 //         // code that may potentially issue a long jump (throw)
@@ -432,7 +432,7 @@ auto create_image(image::Size size, const Format& format, bool use_short_int, pn
 //  * Keep the "try"-scope completely free of automatic variables of nontrivial type
 //    (std::is_trivial). This also applies to any sub-scope from which a long jump may be
 //    directly or indirectly initiated. A sub-scope from which a long jump can not be
-//    initiated, may safly have automatic variable of nontrivial type.
+//    initiated, may safely have automatic variable of nontrivial type.
 //
 //  * Keep statements, that directly or indirectly may initiate a long jump, completely free
 //    of temporaries of nontrivial type.
@@ -464,7 +464,8 @@ struct Context {
 [[noreturn]] void error_callback(png_structp png_ptr, png_const_charp message) noexcept
 {
     // Long jump safety: No automatic variables of nontrivial type in a scope from which
-    // std::longjmp() is called (see notes on long jump safety above).
+    // std::longjmp() may be called or through with stack unwinding may pass (see notes on
+    // long jump safety above).
 
     Context& ctx = *static_cast<Context*>(png_get_error_ptr(png_ptr));
     try {
@@ -487,7 +488,8 @@ struct Context {
 void warning_callback(png_structp png_ptr, png_const_charp message) noexcept
 {
     // Long jump safety: No automatic variables of nontrivial type in a scope from which
-    // std::longjmp() is called (see notes on long jump safety above).
+    // std::longjmp() may be called or through with stack unwinding may pass (see notes on
+    // long jump safety above).
 
     Context& ctx = *static_cast<Context*>(png_get_error_ptr(png_ptr));
     try {
@@ -504,7 +506,8 @@ void warning_callback(png_structp png_ptr, png_const_charp message) noexcept
 void progress_callback(png_structp png_ptr, png_uint_32 row, int pass) noexcept
 {
     // Long jump safety: No automatic variables of nontrivial type in a scope from which
-    // std::longjmp() is called (see notes on long jump safety above).
+    // std::longjmp() may be called or through with stack unwinding may pass (see notes on
+    // long jump safety above).
 
     // This function must only be used with non-interlaced images
     ARCHON_ASSERT(row > 0);
@@ -641,8 +644,8 @@ public:
                 }
             }
 
-            // FIXME: Consider adding support for platte-type image object and then stop                 
-            // asking libpng to make this convertion, then read the palette using
+            // FIXME: Consider adding support for palette-type image object and then stop                 
+            // asking libpng to make this conversion, then read the palette using
             // `png_get_PLTE()`
 
             // Swap byte order for 16-bit images if that allows us to use a 16-bit word type
@@ -721,7 +724,7 @@ public:
         image_2 = create_image(image_size, format, use_short_int, buffer,
                                bytes_per_row_2); // Throws
 
-        // Sanity check: Must agreee with libpng on number of bytes per row
+        // Sanity check: Must agree with libpng on number of bytes per row
         if (bytes_per_row_2 != bytes_per_row) {
             fatal("Unexpected number of bytes per row: %s vs %s", bytes_per_row,
                   bytes_per_row_2); // Throws
@@ -750,7 +753,8 @@ public:
 void read_callback(png_structp png_ptr, png_bytep data, std::size_t size) noexcept
 {
     // Long jump safety: No automatic variables of nontrivial type in a scope from which
-    // std::longjmp() is called (see notes on long jump safety above).
+    // std::longjmp() may be called or through with stack unwinding may pass (see notes on
+    // long jump safety above).
 
     LoadContext& ctx = *static_cast<LoadContext*>(png_get_error_ptr(png_ptr));
     try {
@@ -938,7 +942,8 @@ public:
 void write_callback(png_structp png_ptr, png_bytep data, png_size_t size) noexcept
 {
     // Long jump safety: No automatic variables of nontrivial type in a scope from which
-    // std::longjmp() is called (see notes on long jump safety above).
+    // std::longjmp() may be called or through with stack unwinding may pass (see notes on
+    // long jump safety above).
 
     SaveContext& ctx = *static_cast<SaveContext*>(png_get_error_ptr(png_ptr));
     try {
@@ -995,7 +1000,7 @@ bool do_save(SaveContext& ctx)
         png_set_IHDR(ctx.png_ptr, ctx.info_ptr, ctx.width, ctx.height, ctx.format.bit_depth, ctx.format.color_type,
                      interlace_type, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 
-        // Sanity check: Must agreee with libpng on number of bytes per row
+        // Sanity check: Must agree with libpng on number of bytes per row
         {
             std::size_t bytes_per_row = png_get_rowbytes(ctx.png_ptr, ctx.info_ptr);
             if (ctx.bytes_per_row != bytes_per_row) {

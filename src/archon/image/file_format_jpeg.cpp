@@ -19,18 +19,28 @@
 // DEALINGS IN THE SOFTWARE.
 
 
+#include <cstddef>
 #include <csetjmp>
+#include <type_traits>
 #include <exception>
+#include <iterator>
+#include <utility>
+#include <algorithm>
 #include <memory>
 #include <string_view>
 #include <system_error>
 #include <locale>
 
+#include <archon/core/features.h>
 #include <archon/core/span.hpp>
+#include <archon/core/assert.hpp>
 #include <archon/core/misc_error.hpp>
 #include <archon/core/source.hpp>
 #include <archon/core/sink.hpp>
 #include <archon/image/impl/config.h>
+#include <archon/image/image.hpp>
+#include <archon/image/writable_image.hpp>
+#include <archon/image/error.hpp>
 #include <archon/image/file_format.hpp>
 #include <archon/image/file_format_jpeg.hpp>
 
@@ -63,9 +73,9 @@ namespace {
 #if ARCHON_IMAGE_HAVE_JPEG
 
 
-// Notes on using setjump/longjump in C++:
+// Notes on using setjmp/longjmp in C++:
 //
-// Great care must be taken when using setjump/longjump in C++ context. The main problem is
+// Great care must be taken when using setjmp/longjmp in C++ context. The main problem is
 // that stack objects will not have their destructors called during a long jump stack
 // unwinding process.
 //
@@ -75,7 +85,7 @@ namespace {
 //
 // In order to be on the safe side, the following restrictions should be adhered to:
 //
-//  * Keep the setjump/longjump construction on the following canonical form:
+//  * Keep the setjmp/longjmp construction on the following canonical form:
 //
 //      if (setjmp(jmpbuf) == 0) { // try
 //         // code that may potentially issue a long jump (throw)
@@ -87,7 +97,7 @@ namespace {
 //  * Keep the "try"-scope completely free of automatic variables of nontrivial type
 //    (std::is_trivial). This also applies to any sub-scope from which a long jump may be
 //    directly or indirectly initiated. A sub-scope from which a long jump can not be
-//    initiated, may safly have automatic variable of nontrivial type.
+//    initiated, may safely have automatic variable of nontrivial type.
 //
 //  * Keep statements, that directly or indirectly may initiate a long jump, completely free
 //    of temporaries of nontrivial type.
@@ -104,12 +114,15 @@ public:
 
 protected:
     jpeg_error_mgr m_err = {};
-    std::error_code m_ec;
+    bool m_have_jpeg_error = false;
     std::exception_ptr m_exception;
+    std::error_code m_ec;
 
     std::jmp_buf m_jmp_buf = {};
 
 private:
+    static void error_callback(j_common_ptr info) noexcept;
+
     static auto get_context(j_common_ptr info) noexcept -> Context&;
 };
 
@@ -117,11 +130,21 @@ private:
 Context::Context()
 {
     jpeg_std_error(&m_err);
-/*
+    m_err.error_exit = &error_callback;
+
+/*    
     progress_monitor = progress_callback;    
     error_exit       = error_callback;    
     output_message   = warning_callback;    
 */
+}
+
+
+void Context::error_callback(j_common_ptr info) noexcept
+{
+    Context& ctx = get_context(info);
+    ctx.m_have_jpeg_error = true;
+    std::longjmp(ctx.m_jmp_buf, 1);
 }
 
 
@@ -202,7 +225,7 @@ bool LoadContext::recognize()
         // or in any subscope that may directly or indirectly initiate a long jump (see
         // notes on long jump safety above).
 
-        m_info.err = jpeg_std_error(&m_err);
+        m_info.err = &m_err;
         jpeg_create_decompress(&m_info);
 
         m_info.src = &m_src;
@@ -210,12 +233,37 @@ bool LoadContext::recognize()
     }
     else {
         // Long jumps from the callback functions land here.
+
+        if (ARCHON_LIKELY(m_have_jpeg_error)) {
+            // FIXME: Other libjpeg error codes may need to be listed here
+            int actual_errors[] = {
+                JERR_OUT_OF_MEMORY,
+            };
+            int* begin = actual_errors;
+            int* end = begin + std::size(actual_errors);
+            int* i = std::find(begin, end, m_err.msg_code);
+            bool found = (i != end);
+            if (ARCHON_LIKELY(!found))
+                return false;     
+            char buffer[JMSG_LENGTH_MAX];
+            (*m_err.format_message)(reinterpret_cast<j_common_ptr>(&m_info), buffer);
+/*    
+            if (m_logger)
+                m_logger->error("%s", std::string_view(buffer)); // Throws
+*/
+/*    
+            std::error_core ec = image::Error::loading_process_failed;
+            throw std::system_error(m_ec);                    
+*/
+            throw std::runtime_error("Loading process failed");                                                  
+        }
+
         if (ARCHON_LIKELY(!m_exception)) {
-            bool unrecognized = (m_ec == core::MiscError::premature_end_of_input); // Certain error codes (m_ec) should be interpreted as "unrecognized" while other should lead to the throwing of a system error exception                                                               
-            if (ARCHON_LIKELY(unrecognized))
-                return false;               
+            if (ARCHON_LIKELY(m_ec == core::MiscError::premature_end_of_input))
+                return false;     
             throw std::system_error(m_ec);                    
         }
+
         std::rethrow_exception(std::move(m_exception)); // Throws
     }
 
@@ -234,7 +282,7 @@ bool LoadContext::load(std::error_code& ec)
         // or in any subscope that may directly or indirectly initiate a long jump (see
         // notes on long jump safety above).
 
-        m_info.err = jpeg_std_error(&m_err);
+        m_info.err = &m_err;
         jpeg_create_decompress(&m_info);
 
         m_info.src = &m_src;
@@ -264,7 +312,8 @@ void LoadContext::init_callback(j_decompress_ptr) noexcept
 auto LoadContext::read_callback(j_decompress_ptr info) noexcept -> boolean
 {
     // Long jump safety: No automatic variables of nontrivial type in a scope from which
-    // std::longjmp() is called (see notes on long jump safety above).
+    // std::longjmp() may be called or through with stack unwinding may pass (see notes on
+    // long jump safety above).
 
     LoadContext& ctx = get_context(info);
     try {
@@ -284,7 +333,8 @@ auto LoadContext::read_callback(j_decompress_ptr info) noexcept -> boolean
 void LoadContext::skip_callback(j_decompress_ptr info, long num_bytes) noexcept
 {
     // Long jump safety: No automatic variables of nontrivial type in a scope from which
-    // std::longjmp() is called (see notes on long jump safety above).
+    // std::longjmp() may be called or through with stack unwinding may pass (see notes on
+    // long jump safety above).
 
     LoadContext& ctx = get_context(info);
     try {
