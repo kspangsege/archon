@@ -27,9 +27,9 @@
 #include <archon/core/span.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/image/file_format.hpp>
-#include <archon/image/file_format_registry.hpp>
 #include <archon/image/file_format_png.hpp>
 #include <archon/image/file_format_jpeg.hpp>
+#include <archon/image/file_format_registry.hpp>
 
 
 using namespace archon;
