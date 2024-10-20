@@ -35,8 +35,9 @@
 #include <archon/core/locale.hpp>
 #include <archon/core/value_parser.hpp>
 #include <archon/core/as_int.hpp>
-#include <archon/core/quote.hpp>
 #include <archon/core/file.hpp>
+#include <archon/core/text_formatter.hpp>
+#include <archon/core/with_text_formatter.hpp>
 #include <archon/log.hpp>
 #include <archon/cli.hpp>
 #include <archon/util/color.hpp>
@@ -144,11 +145,13 @@ int main(int argc, char* argv[])
     namespace fs = std::filesystem;
     fs::path path;
     bool list_display_implementations = false;
+    bool list_image_file_formats = false;
     Config config;
     std::optional<display::Size> optional_window_size;
     bool fullscreen = false;
     log::LogLevel log_level_limit = log::LogLevel::warn;
     std::optional<std::string> optional_display_implementation;
+    std::optional<std::string> optional_image_file_format;
     std::optional<int> optional_screen;
     std::optional<std::string> optional_x11_display;
     std::optional<display::x11_fullscreen_monitors> optional_x11_fullscreen_monitors;
@@ -172,6 +175,12 @@ int main(int argc, char* argv[])
         "List known display implementations.",
         [&] {
             list_display_implementations = true;
+        }); // Throws
+
+    pat("--list-image-file-formats", cli::no_attributes, spec,
+        "List supported image file formats.",
+        [&] {
+            list_image_file_formats = true;
         }); // Throws
 
     opt(cli::help_tag, spec); // Throws
@@ -203,6 +212,11 @@ int main(int argc, char* argv[])
         "available, the one, that is listed first by `--list-display-implementations`, is used.",
         cli::assign(optional_display_implementation)); // Throws
 
+    opt("-o, --image-file-format", "<ident>", cli::no_attributes, spec,
+        "Assume that the specified image uses this file format. By default, automatic detection of the file format "
+        "will be attempted. Use `--list-image-file-formats` to see a list of supported image file formats.",
+        cli::assign(optional_image_file_format)); // Throws
+
     opt("-s, --screen", "<number>", cli::no_attributes, spec,
         "Target the specified screen (@A). This is an index between zero and the number of screens minus one. If this "
         "option is not specified, the default screen of the display will be targeted.",
@@ -233,7 +247,7 @@ int main(int argc, char* argv[])
 
     opt("-V, --x11-visual-type", "<num>", cli::no_attributes, spec,
         "When using the X11-based display implementation, pick a visual of the specified type (@A). The type, also "
-        "known as the visual ID, is a 32-bit unsigned integer that can be expressed in decimal, hexadecumal (with "
+        "known as the visual ID, is a 32-bit unsigned integer that can be expressed in decimal, hexadecimal (with "
         "prefix '0x'), or octal (with prefix '0') form.",
         cli::exec([&](std::string_view str) {
             core::ValueParser parser(locale);
@@ -308,21 +322,74 @@ int main(int argc, char* argv[])
     guarantees.no_other_use_of_sdl = true;
 
     if (list_display_implementations) {
-        log::FileLogger stdout_logger(core::File::get_cout(), locale); // Throws
-        int n = display::get_num_implementation_slots();
-        for (int i = 0; i < n; ++i) {
-            const display::Implementation::Slot& slot = display::get_implementation_slot(i); // Throws
-            if (slot.is_available(guarantees)) {
-                stdout_logger.info("%s", slot.ident()); // Throws
+        core::with_text_formatter(core::File::get_stdout(), locale, [&](core::TextFormatter& formatter) {
+            formatter.begin_compile(); // Throws
+            int n = display::get_num_implementation_slots();
+            for (int i = 0; i < n; ++i) {
+                const display::Implementation::Slot& slot = display::get_implementation_slot(i); // Throws
+                using Weight = core::TextFormatter::Weight;
+                formatter.set_weight(Weight::bold); // Throws
+                formatter.writeln(slot.ident()); // Throws
+                formatter.set_weight(Weight::normal); // Throws
             }
-            else {
-                stdout_logger.info("%s (unavailable)", slot.ident()); // Throws
+            formatter.close_section(); // Throws
+            core::TextFormatter::MeasureResult result = formatter.measure(0, formatter.get_cursor_state()); // Throws
+            formatter.begin_hold(); // Throws
+            formatter.format_section(0); // Throws
+            formatter.end_compile();
+            formatter.jump_back(); // Throws
+            int offset = result.min_width_no_break;
+            core::saturating_add(offset, 2);
+            formatter.set_offset(offset); // Throws
+            for (int i = 0; i < n; ++i) {
+                const display::Implementation::Slot& slot = display::get_implementation_slot(i); // Throws
+                using Color = core::TextFormatter::Color;
+                if (slot.is_available(guarantees)) {
+                    formatter.set_color(Color::green); // Throws
+                    formatter.writeln("available"); // Throws
+                    formatter.unset_color(); // Throws
+                }
+                else {
+                    formatter.set_color(Color::red); // Throws
+                    formatter.writeln("unavailable"); // Throws
+                    formatter.unset_color(); // Throws
+                }
             }
-        }
+            formatter.end_hold(); // Throws
+        }); // Throws
         return EXIT_SUCCESS;
     }
 
-    log::FileLogger root_logger(core::File::get_cerr(), locale); // Throws
+    const image::FileFormatRegistry& image_file_format_registry = image::FileFormatRegistry::get_default_registry();
+    if (list_image_file_formats) {
+        core::with_text_formatter(core::File::get_stdout(), locale, [&](core::TextFormatter& formatter) {
+            formatter.begin_compile(); // Throws
+            formatter.set_weight(core::TextFormatter::Weight::bold); // Throws
+            int n = image_file_format_registry.get_num_file_formats();
+            for (int i = 0; i < n; ++i) {
+                const image::FileFormat& format = image_file_format_registry.get_file_format(i); // Throws
+                formatter.writeln(format.get_ident()); // Throws
+            }
+            formatter.set_weight(core::TextFormatter::Weight::normal); // Throws
+            formatter.close_section(); // Throws
+            core::TextFormatter::MeasureResult result = formatter.measure(0, formatter.get_cursor_state()); // Throws
+            formatter.begin_hold(); // Throws
+            formatter.format_section(0); // Throws
+            formatter.end_compile();
+            formatter.jump_back(); // Throws
+            int offset = result.min_width_no_break;
+            core::saturating_add(offset, 2);
+            formatter.set_offset(offset); // Throws
+            for (int i = 0; i < n; ++i) {
+                const image::FileFormat& format = image_file_format_registry.get_file_format(i); // Throws
+                formatter.writeln(format.get_descr()); // Throws
+            }
+            formatter.end_hold(); // Throws
+        }); // Throws
+        return EXIT_SUCCESS;
+    }
+
+    log::FileLogger root_logger(core::File::get_stderr(), locale); // Throws
     log::LimitLogger logger(root_logger, log_level_limit); // Throws
 
     std::unique_ptr<image::WritableImage> image;
@@ -330,6 +397,9 @@ int main(int argc, char* argv[])
         image::LoadConfig load_config;
         log::PrefixLogger load_logger(logger, "Load: "); // Throws
         load_config.logger = &load_logger;
+        load_config.registry = &image_file_format_registry;
+        if (ARCHON_UNLIKELY(optional_image_file_format.has_value()))
+            load_config.file_format = optional_image_file_format.value();
         std::error_code ec;
         if (!image::try_load(path, image, locale, load_config, ec)) { // Throws
             logger.error("Failed to load image: %s", ec.message()); // Throws

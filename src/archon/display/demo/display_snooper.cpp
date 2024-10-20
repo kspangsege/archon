@@ -444,7 +444,7 @@ int main(int argc, char* argv[])
     if (ARCHON_UNLIKELY(cli::process(argc, argv, spec, exit_status, locale))) // Throws
         return exit_status;
 
-    log::FileLogger root_logger(core::File::get_cerr(), locale); // Throws
+    log::FileLogger root_logger(core::File::get_stderr(), locale); // Throws
     log::LimitLogger logger(root_logger, log_level_limit); // Throws
 
     // `src_root` is the relative path to the root of the source tree from the root of the
@@ -504,7 +504,7 @@ int main(int argc, char* argv[])
     guarantees.no_other_use_of_sdl = true;
 
     if (list_display_implementations) {
-        log::FileLogger stdout_logger(core::File::get_cout(), locale); // Throws
+        log::FileLogger stdout_logger(core::File::get_stdout(), locale); // Throws
         int n = display::get_num_implementation_slots();
         for (int i = 0; i < n; ++i) {
             const display::Implementation::Slot& slot = display::get_implementation_slot(i); // Throws

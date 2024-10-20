@@ -273,7 +273,7 @@ int main(int argc, char* argv[])
     if (ARCHON_UNLIKELY(cli::process(argc, argv, spec, exit_status, locale))) // Throws
         return exit_status;
 
-    log::FileLogger root_logger(core::File::get_cerr(), locale); // Throws
+    log::FileLogger root_logger(core::File::get_stderr(), locale); // Throws
     log::LimitLogger logger(root_logger, log_level_limit); // Throws
 
     std::string_view display = x11::get_display_string(optional_display);

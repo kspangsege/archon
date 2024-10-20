@@ -156,7 +156,7 @@ void EventLoop::render_frame()
 int main()
 {
     std::locale locale = core::get_default_locale(); // Throws
-    log::FileLogger logger(core::File::get_cout(), locale); // Throws
+    log::FileLogger logger(core::File::get_stdout(), locale); // Throws
 
 #if HAVE_OPENGL
 

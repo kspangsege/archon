@@ -52,7 +52,7 @@ auto detect_file_format(std::string_view mime_type, std::string_view filename_ex
     const image::FileFormatRegistry* registry = config.registry;
     if (ARCHON_LIKELY(!registry))
         registry = &image::FileFormatRegistry::get_default_registry(); // Throws
-    if (ARCHON_LIKELY(config.file_format.empty())) {
+    if (ARCHON_LIKELY(!config.file_format.has_value())) {
         if (!mime_type.empty()) {
             const image::FileFormat* format = registry->lookup_by_mime_type(mime_type); // Throws
             if (ARCHON_LIKELY(format))
@@ -66,7 +66,7 @@ auto detect_file_format(std::string_view mime_type, std::string_view filename_ex
         ec = image::Error::file_format_detection_failed;
         return nullptr;
     }
-    const image::FileFormat* format = registry->lookup(config.file_format);
+    const image::FileFormat* format = registry->lookup(config.file_format.value());
     if (ARCHON_LIKELY(format))
         return format;
     ec = image::Error::file_format_unavailable;

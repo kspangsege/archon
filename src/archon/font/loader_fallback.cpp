@@ -385,7 +385,7 @@ bool load_font(core::FilesystemPathRef resource_dir, log::Logger& logger, const 
 
 auto make_file_logger(const std::locale& loc) -> std::unique_ptr<log::FileLogger>
 {
-    return std::make_unique<log::FileLogger>(core::File::get_cout(), loc); // Throws
+    return std::make_unique<log::FileLogger>(core::File::get_stdout(), loc); // Throws
 }
 
 
@@ -394,7 +394,7 @@ auto get_logger(const std::locale& loc, font::Loader::Config config,
 {
     if (config.logger)
         return *config.logger;
-    file_logger = std::make_unique<log::FileLogger>(core::File::get_cout(), loc); // Throws
+    file_logger = std::make_unique<log::FileLogger>(core::File::get_stdout(), loc); // Throws
     return *file_logger;
 }
 

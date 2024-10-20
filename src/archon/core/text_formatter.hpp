@@ -118,12 +118,12 @@ namespace archon::core {
 /// off. Even when clipping is enabled, text may extend into the right-side padding area.
 ///
 /// The fragments that are produced by word wrapping, except the last one that corresponds
-/// to the end of the input line, will be subjected to justification, if justification is
-/// enabled (\ref set_justify()) and the fragment ended up with at least two words. Here,
-/// additional white space will be added between words in order to achieve alignment with
-/// both the left and the right side of the area inside the formatting box that is available
-/// for text. Leading and trailing space of an input line is never affected by
-/// justification.
+/// to the end of the input line, will be subjected to justification, so long as
+/// justification is enabled (\ref set_justify()) and the fragment ended up with at least
+/// two words. Here, additional white space will be added between words in order to achieve
+/// alignment with both the left and the right side of the area inside the formatting box
+/// that is available for text. Leading and trailing space of an input line is never
+/// affected by justification.
 ///
 /// The justification mechanism may best be understood as follows: Take the line (line
 /// fragment) in its natural unstretched form. Connect the centers of the two outermost
@@ -211,8 +211,8 @@ public:
     /// Process any remaining input under the assumption that no more input will be
     /// received. This operation roughly corresponds to processing any unprocessed intput
     /// (as if by \ref process_input()); then, if there is an open input section, close it
-    /// (as if by \ref close_section()); and then, if the current ouput line is open, close
-    /// it (as if by \ref close_output_line()).
+    /// (as if by \ref close_section()); and then, if the current output line is open, close
+    /// it (as if by \ref close_output_line()).                                                             
     ///
     /// The application is advised to always call this function after all text has been
     /// submitted to the formatter in order to avoid loosing output.
@@ -413,8 +413,8 @@ public:
     /// If an input section is currently open, this function closes it. If an input section
     /// is not currently open, this function generates an empty input section.
     ///
-    /// A new input section will be opened automatically if additional text is submitted to
-    /// the formatter.
+    /// After an invocation of this function, a new input section will be opened
+    /// automatically if additional text is submitted to the formatter.
     ///
     /// In compilation mode (see \ref begin_compile()), the section is simply added to the
     /// list of closed sections retained in the input buffer. When not in compilation mode,
@@ -656,7 +656,7 @@ public:
 
     /// \brief Jump to other output line.
     ///
-    /// Close the current output line if it is open (as if by \ref close_ouput_line()), then
+    /// Close the current output line if it is open (as if by \ref close_output_line()), then                            
     /// move the cursor to the end of the specified output line (\p line_number).
     ///
     /// If output is currently held back, the first line number that can be jumped to, is
@@ -759,10 +759,10 @@ private:
 
     using FormatUnit = word_wrap::Word;
 
-    ostream_type& m_final_out;
+    ostream_type& m_output_out;
     const std::locale m_locale;
-    StreambufImpl m_streambuf;
-    ostream_type m_out;
+    StreambufImpl m_input_streambuf;
+    ostream_type m_input_out;
     core::BasicCharMapper<C, T> m_char_mapper;
     std::unique_ptr<word_wrap::KnuthWrapper> m_knuth_wrapper;
     Style m_input_style, m_fill_style;
@@ -781,8 +781,8 @@ private:
     std::stack<Style> m_input_style_stack;
     std::stack<FormatRep> m_format_stack;
     std::stack<HoldEntry> m_hold_stack;
-    const char_type m_newline_char = m_final_out.widen('\n');
-    const char_type m_space_char   = m_final_out.widen(' ');
+    const char_type m_newline_char = m_output_out.widen('\n');
+    const char_type m_space_char   = m_output_out.widen(' ');
     const bool m_enable_ansi_escape_sequences;
     bool m_word_is_open = false;
     bool m_is_compiling = false;
@@ -1136,16 +1136,16 @@ inline BasicTextFormatter<C, T>::BasicTextFormatter(ostream_type& out)
 
 template<class C, class T>
 inline BasicTextFormatter<C, T>::BasicTextFormatter(ostream_type& out, Config config)
-    : m_final_out(out)
-    , m_locale(m_final_out.getloc()) // Throws
-    , m_streambuf(*this)
-    , m_out(&m_streambuf) // Throws
+    : m_output_out(out)
+    , m_locale(m_output_out.getloc()) // Throws
+    , m_input_streambuf(*this)
+    , m_input_out(&m_input_streambuf) // Throws
     , m_char_mapper(m_locale) // Throws
     , m_enable_ansi_escape_sequences(config.enable_ansi_escape_sequences) // Throws
     , m_line_number_base(config.line_number_base)
 {
-    m_out.exceptions(std::ios_base::badbit | std::ios_base::failbit); // Throws
-    m_out.imbue(m_locale); // Throws
+    m_input_out.exceptions(std::ios_base::badbit | std::ios_base::failbit); // Throws
+    m_input_out.imbue(m_locale); // Throws
     if (config.high_quality_word_wrapper)
         m_knuth_wrapper = std::make_unique<word_wrap::KnuthWrapper>(); // Throws
     on_format_changed();
@@ -1158,7 +1158,7 @@ template<class V> inline void BasicTextFormatter<C, T>::write(V&& val)
 {
     // FIXME: Can be optimized (bypass stream) for case where `val` is of type `string_view_type`.                                  
     // FIXME: Can be optimized (bypass stream) if `val` is of type `char *` by using `m_char_mapper`.                                  
-    m_out << std::forward<V>(val); // Throws
+    m_input_out << std::forward<V>(val); // Throws
 }
 
 
@@ -1173,14 +1173,14 @@ template<class V> inline void BasicTextFormatter<C, T>::writeln(V&& val)
 template<class C, class T>
 template<class... P> inline void BasicTextFormatter<C, T>::format(const char* pattern, const P&... params)
 {
-    core::format(m_out, pattern, params...); // Throws
+    core::format(m_input_out, pattern, params...); // Throws
 }
 
 
 template<class C, class T>
 inline auto BasicTextFormatter<C, T>::out() noexcept -> ostream_type&
 {
-    return m_out;
+    return m_input_out;
 }
 
 
@@ -1203,7 +1203,7 @@ template<class C, class T>
 void BasicTextFormatter<C, T>::flush()
 {
     process_input(); // Throws
-    m_final_out.flush(); // Throws
+    m_output_out.flush(); // Throws
 }
 
 
@@ -2456,7 +2456,7 @@ struct BasicTextFormatter<C, T>::ExtendedLineInfo {
 template<class C, class T>
 inline auto BasicTextFormatter<C, T>::get_input_end() const noexcept -> std::size_t
 {
-    return std::size_t(m_streambuf.get_put_ptr() - m_input_buffer.data());
+    return std::size_t(m_input_streambuf.get_put_ptr() - m_input_buffer.data());
 }
 
 
@@ -2513,7 +2513,7 @@ inline void BasicTextFormatter<C, T>::clear_input_buffer() noexcept
     m_processed_end   = 0;
     char_type* base = m_input_buffer.data();
     std::size_t size  = m_input_buffer.size();
-    m_streambuf.reset_put_area(base, base + size);
+    m_input_streambuf.reset_put_area(base, base + size);
     m_space_begin = 0;
 }
 
@@ -2542,7 +2542,7 @@ void BasicTextFormatter<C, T>::input_overflow(std::size_t extra_size_needed)
     input_end         -= m_processed_begin;
     m_processed_end   -= m_processed_begin;
     m_processed_begin  = 0;
-    m_streambuf.reset_put_area(base + input_end, base + buffer_size);
+    m_input_streambuf.reset_put_area(base + input_end, base + buffer_size);
 }
 
 
@@ -3280,7 +3280,7 @@ void BasicTextFormatter<C, T>::do_flush_output()
             output_line.append(1, m_newline_char); // Throws
         std::streamsize size = 0;
         core::int_cast(output_line.size(), size); // Throws
-        m_final_out.write(output_line.data(), size); // Throws
+        m_output_out.write(output_line.data(), size); // Throws
     }
     ARCHON_ASSERT(m_line_number - m_line_number_base == n - 1);
     m_line_number_base = m_line_number;

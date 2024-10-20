@@ -84,7 +84,7 @@ bool image::try_load_a(const image::Input& input, std::unique_ptr<image::Writabl
     if (ARCHON_LIKELY(!registry))
         registry = &image::FileFormatRegistry::get_default_registry(); // Throws
     log::Logger& logger = log::Logger::or_null(config.logger);
-    if (ARCHON_LIKELY(config.file_format.empty())) {
+    if (ARCHON_LIKELY(!config.file_format.has_value())) {
         const image::FileFormat* format = nullptr;
         core::ArraySeededBuffer<char, 256> buffer;
         core::RewindableSource source(input.source, buffer);
@@ -141,7 +141,7 @@ bool image::try_load_a(const image::Input& input, std::unique_ptr<image::Writabl
         source.release();
         return format->try_load(source, image, loc, logger, config, ec); // Throws
     }
-    const image::FileFormat* format = registry->lookup(config.file_format);
+    const image::FileFormat* format = registry->lookup(config.file_format.value());
     if (ARCHON_LIKELY(format))
         return format->try_load(input.source, image, loc, logger, config, ec); // Throws
     ec = image::Error::file_format_unavailable;

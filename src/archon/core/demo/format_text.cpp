@@ -66,7 +66,7 @@ int main(int argc, char* argv[])
     using Weight = text_formatter_type::Weight;
     using Color  = text_formatter_type::Color;
 
-    core::File& file = core::File::get_cout();
+    core::File& file = core::File::get_stdout();
     core::TextFileStream out(&file); // Throws
     out.exceptions(std::ios_base::badbit | std::ios_base::failbit); // Throws
     out.imbue(locale); // Throws

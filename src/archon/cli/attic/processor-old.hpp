@@ -510,7 +510,7 @@ template<class C, class T>
 inline void BasicProcessor<C, T>::add_help_option(long format_width)
 {
     auto func = [this, format_width] {
-        core::BasicTextFileStream<C, T> out(&core::File::get_cout()); // Throws
+        core::BasicTextFileStream<C, T> out(&core::File::get_stdout()); // Throws
         out.exceptions(std::ios_base::badbit | std::ios_base::failbit); // Throws
         out.imbue(m_locale); // Throws
         show_help(out, format_width); // Throws

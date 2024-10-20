@@ -164,7 +164,7 @@ int main(int argc, char* argv[])
         return EXIT_SUCCESS;
     }
 
-    log::FileLogger root_logger(core::File::get_cout(), locale);
+    log::FileLogger root_logger(core::File::get_stdout(), locale);
     log::LimitLogger logger(root_logger, log_level_limit); // Throws
 
     ProgressTracker progress_tracker(root_logger);
