@@ -388,17 +388,7 @@ int main(int argc, char* argv[])
     guarantees.no_other_use_of_sdl = true;
 
     if (list_display_implementations) {
-        log::FileLogger stdout_logger(core::File::get_stdout(), locale); // Throws
-        int n = display::get_num_implementation_slots();
-        for (int i = 0; i < n; ++i) {
-            const display::Implementation::Slot& slot = display::get_implementation_slot(i); // Throws
-            if (slot.is_available(guarantees)) {
-                stdout_logger.info("%s", slot.get_ident()); // Throws
-            }
-            else {
-                stdout_logger.info("%s (unavailable)", slot.get_ident()); // Throws
-            }
-        }
+        display::list_implementations(core::File::get_stdout(), locale, guarantees); // Throws
         return EXIT_SUCCESS;
     }
 

@@ -531,7 +531,7 @@ public:
         static_cast<void>(logger);    
         static_cast<void>(config);    
         static_cast<void>(ec);    
-        return false;               
+        ARCHON_STEADY_ASSERT_UNREACHABLE();     
     }
 };
 
