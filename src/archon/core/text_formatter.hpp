@@ -73,7 +73,7 @@ namespace archon::core {
 /// input to the formatter (\ref out()). With default settings, no formatting takes place,
 /// so any text submitted to the formatter is passed through unmodified to the underlying
 /// output stream. The underlying output stream is the one that is passed to the constructor
-/// of the formatter. For anything nontrivial to happen, at least one formatting paramter
+/// of the formatter. For anything nontrivial to happen, at least one formatting parameter
 /// needs to be changed away from its default value.
 ///
 /// Text is formatted one input line at a time. The input is first divided into input
@@ -92,7 +92,7 @@ namespace archon::core {
 /// The formatter maintains an output cursor whose position is advanced as a result of the
 /// formatting of each input line. The current position of the output cursor is available
 /// through \ref get_line_number() and \ref get_cursor_pos(). The former returns the
-/// vertical position, and the latter returns the horizontal position. The horizontain
+/// vertical position, and the latter returns the horizontal position. The horizontal
 /// position is zero unless the current output line is open. The cursor can be moved by
 /// calling \ref jump(), although movement to earlier lines is only possible while output is
 /// held back.
@@ -209,10 +209,10 @@ public:
     /// \brief Finalize formatting process.
     ///
     /// Process any remaining input under the assumption that no more input will be
-    /// received. This operation roughly corresponds to processing any unprocessed intput
-    /// (as if by \ref process_input()); then, if there is an open input section, close it
-    /// (as if by \ref close_section()); and then, if the current output line is open, close
-    /// it (as if by \ref close_output_line()).                                                             
+    /// received. This operation roughly corresponds to processing any unprocessed input (as
+    /// if by \ref process_input()); then, if there is an open input section, close it (as
+    /// if by \ref close_section()); and then, if the current output line is open, close it
+    /// (as if by \ref close_output_line()).                                                             
     ///
     /// The application is advised to always call this function after all text has been
     /// submitted to the formatter in order to avoid loosing output.
@@ -237,7 +237,7 @@ public:
     ///
     /// \brief Change aspects of current text format.
     ///
-    /// These funrctions are shorthands for calling \ref get_format(), then calling the
+    /// These functions are shorthands for calling \ref get_format(), then calling the
     /// respective "setter" function on the format object (\ref Format), and then passing
     /// the modified format object to \ref set_format().
     ///
@@ -436,10 +436,10 @@ public:
     /// A new input section is opened whenever a character is written to the formatter and
     /// an open input section does not already exist. The currently open input section is
     /// closed whenever \ref close_section() is called, or, if not in compilation mode,
-    /// after a newline character is encoutered in the input.
+    /// after a newline character is encountered in the input.
     ///
     /// When this function is called, any outstanding input is processed, as if by an
-    /// invocation of \ref process_input(), before the judgement is made as to whether an
+    /// invocation of \ref process_input(), before the judgment is made as to whether an
     /// open input section exists.
     ///
     bool has_open_section();
@@ -449,12 +449,12 @@ public:
     /// In compilation mode, input sections are not automatically closed after each newline
     /// character, and they are not immediately formatted upon closure.
     ///
-    /// In compilation mode, all input sections are retained in the input buffer, therfore,
+    /// In compilation mode, all input sections are retained in the input buffer, therefore,
     /// to avoid excessive memory usage, compilation mode should only be used when
     /// necessary. Further more, since cleanup does not happen until exit from compilation
     /// mode, it is probably a bad idea to remain in compilation mode for longer than
-    /// necessary, and it may be necessary to exit compilation mode even when reentering
-    /// shortly thereafter, just to allow for clean up to happen.
+    /// absolutely necessary, and it may be a good idea to exit compilation mode even when
+    /// reentering shortly thereafter, just to allow for clean up to take place.
     ///
     /// If there is an open input section (\ref has_open_section()) it will be closed before
     /// switching to compilation mode, as if by a preceding invocation of \ref
@@ -469,9 +469,8 @@ public:
     /// If in compilation mode, switch away from compilation mode. Otherwise, do nothing
     /// (idempotency).
     ///
-    /// Input sections, that have not been explicitely formatted using \ref
-    /// format_section(), will be lost. If there is an open input section, it will be lost
-    /// too.
+    /// Input sections, that have not been explicitly formatted using \ref format_section(),
+    /// will be lost. If there is an open input section, it will be lost too.
     ///
     void end_compile() noexcept;
 
@@ -504,7 +503,7 @@ public:
 
     /// \brief Get information about closed input section.
     ///
-    /// This fucntion returns information about the specified closed input section (\p
+    /// This function returns information about the specified closed input section (\p
     /// section_index).
     ///
     /// The specified section index (\p section_index) must be less than the number of
@@ -568,7 +567,7 @@ public:
     /// currently configured alignment disposition, and whether clipping is enabled.
     ///
     /// Formatting parameters, that do affect the result, include padding and indentation
-    /// paramters and whether word wrapping is enabled. The offset (position of formatiing
+    /// parameters and whether word wrapping is enabled. The offset (position of formatting
     /// box) has an effect if, and only if `open_line` is true in the specified cursor
     /// state.
     ///
@@ -587,7 +586,7 @@ public:
 
     /// \brief Compute effect of formatting of section.
     ///
-    /// This fucntion computes the effect that the formating of the specified section (\p
+    /// This function computes the effect that the formatting of the specified section (\p
     /// section_index) would have.
     ///
     /// \param section_index The index of the closed input section to be analyzed. The index
@@ -987,8 +986,8 @@ template<class C, class T> struct BasicTextFormatter<C, T>::Config {
     ///
     /// Unless enabled, functions such as \ref set_reverse() will have no effect.
     ///
-    /// See \ref core::terminal::TextAttributes::change() for more information
-    /// about ANSI escape sequences.
+    /// See \ref core::terminal::TextAttributes::change() for more information about ANSI
+    /// escape sequences.
     ///
     bool enable_ansi_escape_sequences = false;
 
@@ -1823,7 +1822,7 @@ auto BasicTextFormatter<C, T>::measure(std::size_t section_index, const Cursor& 
             // The sum of cursor pos and the size of the first line capped at max becomes the initial value of inner_right_1
             // For each remaining word: If sum of m_inner_left_rest and word size, capped at max, is greater than inner_right_1, set inner_right_1 to that sum.
 
-            // Note: Since whitespace normalization can never increse the amount of
+            // Note: Since whitespace normalization can never increase the amount of
             // whitespace, the computations of `size_1_first`, `size_2` cannot overflow,
             // because neither of them can be greater than the size, in characters, of this
             // input section, and the size of any input section is, by design, representable
@@ -1921,7 +1920,7 @@ auto BasicTextFormatter<C, T>::measure(std::size_t section_index, const Cursor& 
     std::size_t max_outer_right_2 = max;
     if (ARCHON_LIKELY(m_format.padding_right <= std::size_t(max - max_inner_right_2)))
         max_outer_right_2 = std::size_t(max_inner_right_2 + m_format.padding_right);
-    // FIXME: Looks line max_outer_right_1 and max_outer_right_2 are both guaranteed to be greater than, or equal to m_format.offset due to the behaviour of jumping to left margin before formatting an input line, even when output line is already open. However, maybe there should be a flag to determine whether this jump is enabled.                                                      
+    // FIXME: Looks line max_outer_right_1 and max_outer_right_2 are both guaranteed to be greater than, or equal to m_format.offset due to the behavior of jumping to left margin before formatting an input line, even when output line is already open. However, maybe there should be a flag to determine whether this jump is enabled.                                                      
     std::size_t min_width_no_oflow = 0;
     if (ARCHON_LIKELY(max_outer_right_1 >= m_format.offset))
         min_width_no_oflow = std::size_t(max_outer_right_1 - m_format.offset);
@@ -1938,7 +1937,7 @@ auto BasicTextFormatter<C, T>::simulate(std::size_t section_index, std::size_t w
     const InputSection& section = m_input_sections.at(section_index); // Throws
     ARCHON_ASSERT(m_is_compiling);
 
-    // Note: Since whitespace normalization can never increse the amount of whitespace,                                                                        
+    // Note: Since whitespace normalization can never increase the amount of whitespace,                                                                        
     // neither the computation of the width nor the height can overflow, because neither can
     // be greater than the size, in characters, of this input section, and the size of any
     // input section is, by design, representable in std::size_t.
@@ -3271,8 +3270,8 @@ void BasicTextFormatter<C, T>::do_flush_output()
                 output_line.append(core::Span(output + j->offset, j->size)); // Throws
             }
             while (j != last);
-            // Reset style before switching to a new line to avoid strange behaviour in some
-            // terminals when the background color is set to a nondefault value.
+            // Reset style before switching to a new line to avoid strange behavior in some
+            // terminals when the background color is set to a non-default value.
             change_style({}); // Throws
         }
         bool last_line = (std::size_t(i + 1) == n);

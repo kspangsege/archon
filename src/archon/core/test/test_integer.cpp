@@ -1238,8 +1238,8 @@ ARCHON_TEST(Core_Integer_SquareRoot)
 ARCHON_TEST(Core_Integer_SaturatingAdd)
 {
     auto test_1 = [&, &parent_test_context = test_context](auto tag_1, auto tag_2) {
-        using lval_type = decltype(tag_1)::type;
-        using rval_type = decltype(tag_2)::type;
+        using lval_type = typename decltype(tag_1)::type;
+        using rval_type = typename decltype(tag_2)::type;
         ARCHON_TEST_TRAIL(parent_test_context, core::formatted("%s vs %s", core::get_type_name<lval_type>(),
                                                                core::get_type_name<rval_type>()));
 
@@ -1294,8 +1294,8 @@ ARCHON_TEST(Core_Integer_SaturatingAdd)
 ARCHON_TEST(Core_Integer_SaturatingSub)
 {
     auto test_1 = [&, &parent_test_context = test_context](auto tag_1, auto tag_2) {
-        using lval_type = decltype(tag_1)::type;
-        using rval_type = decltype(tag_2)::type;
+        using lval_type = typename decltype(tag_1)::type;
+        using rval_type = typename decltype(tag_2)::type;
         ARCHON_TEST_TRAIL(parent_test_context, core::formatted("%s vs %s", core::get_type_name<lval_type>(),
                                                                core::get_type_name<rval_type>()));
 

@@ -509,10 +509,10 @@ int main(int argc, char* argv[])
         for (int i = 0; i < n; ++i) {
             const display::Implementation::Slot& slot = display::get_implementation_slot(i); // Throws
             if (slot.is_available(guarantees)) {
-                stdout_logger.info("%s", slot.ident()); // Throws
+                stdout_logger.info("%s", slot.get_ident()); // Throws
             }
             else {
-                stdout_logger.info("%s (unavailable)", slot.ident()); // Throws
+                stdout_logger.info("%s (unavailable)", slot.get_ident()); // Throws
             }
         }
         return EXIT_SUCCESS;
@@ -525,7 +525,7 @@ int main(int argc, char* argv[])
         logger.error("Failed to pick display implementation: %s", error); // Throws
         return EXIT_FAILURE;
     }
-    logger.detail("Display implementation: %s", impl->get_slot().ident()); // Throws
+    logger.info("Display implementation: %s", impl->get_slot().get_ident()); // Throws
 
     log::PrefixLogger display_logger(logger, "Display: "); // Throws
     display::Connection::Config connection_config;
@@ -550,9 +550,8 @@ int main(int argc, char* argv[])
 
     int num_screens = conn->get_num_screens();
     int default_screen = conn->get_default_screen();
-    logger.info("Display implementation: %s", impl->get_slot().ident()); // Throws
-    logger.info("Number of screens:      %s", num_screens); // Throws
-    logger.info("Default screen:         %s", default_screen); // Throws
+    logger.info("Number of screens: %s", num_screens); // Throws
+    logger.info("Default screen:    %s", default_screen); // Throws
 
     int screen = default_screen;
     if (optional_screen.has_value()) {

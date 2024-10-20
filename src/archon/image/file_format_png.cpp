@@ -1187,7 +1187,7 @@ public:
 
     auto get_descr() const -> std::string_view override
     {
-        return "Portable Network Graphics"sv;
+        return "PNG (Portable Network Graphics)"sv;
     }
 
     auto get_mime_types() const noexcept -> core::Span<const std::string_view> override

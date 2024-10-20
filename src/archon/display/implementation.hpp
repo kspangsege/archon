@@ -158,7 +158,15 @@ public:
     /// regardless of whether the implementation is available. This is a short name composed
     /// of lower case letters, digits, and hyphens.
     ///
-    virtual auto ident() const noexcept -> std::string_view = 0;
+    virtual auto get_ident() const noexcept -> std::string_view = 0;
+
+    /// \brief Implementation description.
+    ///
+    /// This function returns the description of the display implementation in this
+    /// slot. The description is supposed to be a short text that serves to identify the
+    /// file format in a broader context.
+    ///
+    virtual auto get_descr() const noexcept -> std::string_view = 0;
 
     /// \brief Whether implementation is available for given guarantees.
     ///

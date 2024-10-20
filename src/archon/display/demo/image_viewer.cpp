@@ -323,24 +323,23 @@ int main(int argc, char* argv[])
 
     if (list_display_implementations) {
         core::with_text_formatter(core::File::get_stdout(), locale, [&](core::TextFormatter& formatter) {
+            formatter.begin_hold(); // Throws
             formatter.begin_compile(); // Throws
             int n = display::get_num_implementation_slots();
             for (int i = 0; i < n; ++i) {
                 const display::Implementation::Slot& slot = display::get_implementation_slot(i); // Throws
                 using Weight = core::TextFormatter::Weight;
                 formatter.set_weight(Weight::bold); // Throws
-                formatter.writeln(slot.ident()); // Throws
+                formatter.writeln(slot.get_ident()); // Throws
                 formatter.set_weight(Weight::normal); // Throws
             }
             formatter.close_section(); // Throws
-            core::TextFormatter::MeasureResult result = formatter.measure(0, formatter.get_cursor_state()); // Throws
-            formatter.begin_hold(); // Throws
+            core::TextFormatter::MeasureResult result_1 = formatter.measure(0, formatter.get_cursor_state()); // Throws
+            int offset_1 = result_1.min_width_no_break;
+            core::saturating_add(offset_1, 2);
             formatter.format_section(0); // Throws
             formatter.end_compile();
-            formatter.jump_back(); // Throws
-            int offset = result.min_width_no_break;
-            core::saturating_add(offset, 2);
-            formatter.set_offset(offset); // Throws
+            formatter.begin_compile();
             for (int i = 0; i < n; ++i) {
                 const display::Implementation::Slot& slot = display::get_implementation_slot(i); // Throws
                 using Color = core::TextFormatter::Color;
@@ -354,6 +353,21 @@ int main(int argc, char* argv[])
                     formatter.writeln("unavailable"); // Throws
                     formatter.unset_color(); // Throws
                 }
+            }
+            formatter.close_section(); // Throws
+            core::TextFormatter::MeasureResult result_2 = formatter.measure(0, formatter.get_cursor_state()); // Throws
+            int offset_2 = offset_1;
+            core::saturating_add(offset_2, result_2.min_width_no_break);
+            core::saturating_add(offset_2, 2);
+            formatter.jump_back(); // Throws
+            formatter.set_offset(offset_1); // Throws
+            formatter.format_section(0); // Throws
+            formatter.end_compile();
+            formatter.jump_back(); // Throws
+            formatter.set_offset(offset_2); // Throws
+            for (int i = 0; i < n; ++i) {
+                const display::Implementation::Slot& slot = display::get_implementation_slot(i); // Throws
+                formatter.writeln(slot.get_descr()); // Throws
             }
             formatter.end_hold(); // Throws
         }); // Throws
@@ -414,7 +428,7 @@ int main(int argc, char* argv[])
         logger.error("Failed to pick display implementation: %s", error); // Throws
         return EXIT_FAILURE;
     }
-    logger.detail("Display implementation: %s", impl->get_slot().ident()); // Throws
+    logger.detail("Display implementation: %s", impl->get_slot().get_ident()); // Throws
 
     log::PrefixLogger display_logger(logger, "Display: "); // Throws
     display::Connection::Config connection_config;
