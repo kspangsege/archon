@@ -49,6 +49,7 @@
 #include <archon/display/x11_implementation.hpp>
 #include <archon/display/sdl_implementation.hpp>
 #include <archon/display/as_key_name.hpp>
+#include <archon/display/list_implementations.hpp>
 #include <archon/display/noinst/mult_pixel_format.hpp>
 #include <archon/display/noinst/palette_map.hpp>
 #include <archon/display/noinst/impl_util.hpp>

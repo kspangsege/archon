@@ -24,12 +24,15 @@
 #include <cstdlib>
 #include <utility>
 #include <memory>
+#include <array>
 #include <optional>
+#include <tuple>
 #include <string_view>
 #include <string>
 #include <locale>
 #include <system_error>
 #include <filesystem>
+#include <ios>
 #include <ostream>
 
 #include <archon/core/features.h>
@@ -38,6 +41,7 @@
 #include <archon/core/locale.hpp>
 #include <archon/core/seed_memory_output_stream.hpp>
 #include <archon/core/value_parser.hpp>
+#include <archon/core/format.hpp>
 #include <archon/core/as_int.hpp>
 #include <archon/core/format_as.hpp>
 #include <archon/core/quote.hpp>
@@ -504,17 +508,7 @@ int main(int argc, char* argv[])
     guarantees.no_other_use_of_sdl = true;
 
     if (list_display_implementations) {
-        log::FileLogger stdout_logger(core::File::get_stdout(), locale); // Throws
-        int n = display::get_num_implementation_slots();
-        for (int i = 0; i < n; ++i) {
-            const display::Implementation::Slot& slot = display::get_implementation_slot(i); // Throws
-            if (slot.is_available(guarantees)) {
-                stdout_logger.info("%s", slot.get_ident()); // Throws
-            }
-            else {
-                stdout_logger.info("%s (unavailable)", slot.get_ident()); // Throws
-            }
-        }
+        display::list_implementations(core::File::get_stdout(), locale, guarantees); // Throws
         return EXIT_SUCCESS;
     }
 

@@ -8,6 +8,7 @@ add_library(Image
   archon/image/file_format_png.cpp
   archon/image/file_format_jpeg.cpp
   archon/image/file_format_registry.cpp
+  archon/image/list_file_formats.cpp
   archon/image/error.cpp
   archon/image/load.cpp
   archon/image/save.cpp
@@ -78,9 +79,10 @@ target_sources(Image PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "$
   archon/image/progress_tracker.hpp
   archon/image/provider.hpp
   archon/image/file_format.hpp
-  archon/image/file_format_registry.hpp
   archon/image/file_format_png.hpp
   archon/image/file_format_jpeg.hpp
+  archon/image/file_format_registry.hpp
+  archon/image/list_file_formats.hpp
   archon/image/load_config.hpp
   archon/image/save_config.hpp
   archon/image/input.hpp

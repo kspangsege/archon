@@ -150,6 +150,8 @@ auto get_default_implementation_a(const display::Guarantees& guarantees) noexcep
 /// that set of guarantees. Otherwise, that display implementation is available for that set
 /// of guarantees.
 ///
+/// \sa \ref display::list_implementations()
+///
 class Implementation::Slot {
 public:
     /// \brief Unique identifier for implementation.

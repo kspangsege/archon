@@ -137,6 +137,8 @@ namespace archon::core {
 /// trailing space will be removed from each submitted input line, and the number of spaces
 /// between words in an input line will be reduced to one.
 ///
+/// \sa \ref core::with_text_formatter()
+///
 template<class C, class T = std::char_traits<C>> class BasicTextFormatter {
 public:
     using char_type   = C;

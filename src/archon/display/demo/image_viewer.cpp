@@ -36,8 +36,6 @@
 #include <archon/core/value_parser.hpp>
 #include <archon/core/as_int.hpp>
 #include <archon/core/file.hpp>
-#include <archon/core/text_formatter.hpp>
-#include <archon/core/with_text_formatter.hpp>
 #include <archon/log.hpp>
 #include <archon/cli.hpp>
 #include <archon/util/color.hpp>
@@ -322,84 +320,13 @@ int main(int argc, char* argv[])
     guarantees.no_other_use_of_sdl = true;
 
     if (list_display_implementations) {
-        core::with_text_formatter(core::File::get_stdout(), locale, [&](core::TextFormatter& formatter) {
-            formatter.begin_hold(); // Throws
-            formatter.begin_compile(); // Throws
-            int n = display::get_num_implementation_slots();
-            for (int i = 0; i < n; ++i) {
-                const display::Implementation::Slot& slot = display::get_implementation_slot(i); // Throws
-                using Weight = core::TextFormatter::Weight;
-                formatter.set_weight(Weight::bold); // Throws
-                formatter.writeln(slot.get_ident()); // Throws
-                formatter.set_weight(Weight::normal); // Throws
-            }
-            formatter.close_section(); // Throws
-            core::TextFormatter::MeasureResult result_1 = formatter.measure(0, formatter.get_cursor_state()); // Throws
-            int offset_1 = result_1.min_width_no_break;
-            core::saturating_add(offset_1, 2);
-            formatter.format_section(0); // Throws
-            formatter.end_compile();
-            formatter.begin_compile();
-            for (int i = 0; i < n; ++i) {
-                const display::Implementation::Slot& slot = display::get_implementation_slot(i); // Throws
-                using Color = core::TextFormatter::Color;
-                if (slot.is_available(guarantees)) {
-                    formatter.set_color(Color::green); // Throws
-                    formatter.writeln("available"); // Throws
-                    formatter.unset_color(); // Throws
-                }
-                else {
-                    formatter.set_color(Color::red); // Throws
-                    formatter.writeln("unavailable"); // Throws
-                    formatter.unset_color(); // Throws
-                }
-            }
-            formatter.close_section(); // Throws
-            core::TextFormatter::MeasureResult result_2 = formatter.measure(0, formatter.get_cursor_state()); // Throws
-            int offset_2 = offset_1;
-            core::saturating_add(offset_2, result_2.min_width_no_break);
-            core::saturating_add(offset_2, 2);
-            formatter.jump_back(); // Throws
-            formatter.set_offset(offset_1); // Throws
-            formatter.format_section(0); // Throws
-            formatter.end_compile();
-            formatter.jump_back(); // Throws
-            formatter.set_offset(offset_2); // Throws
-            for (int i = 0; i < n; ++i) {
-                const display::Implementation::Slot& slot = display::get_implementation_slot(i); // Throws
-                formatter.writeln(slot.get_descr()); // Throws
-            }
-            formatter.end_hold(); // Throws
-        }); // Throws
+        display::list_implementations(core::File::get_stdout(), locale, guarantees); // Throws
         return EXIT_SUCCESS;
     }
 
     const image::FileFormatRegistry& image_file_format_registry = image::FileFormatRegistry::get_default_registry();
     if (list_image_file_formats) {
-        core::with_text_formatter(core::File::get_stdout(), locale, [&](core::TextFormatter& formatter) {
-            formatter.begin_compile(); // Throws
-            formatter.set_weight(core::TextFormatter::Weight::bold); // Throws
-            int n = image_file_format_registry.get_num_file_formats();
-            for (int i = 0; i < n; ++i) {
-                const image::FileFormat& format = image_file_format_registry.get_file_format(i); // Throws
-                formatter.writeln(format.get_ident()); // Throws
-            }
-            formatter.set_weight(core::TextFormatter::Weight::normal); // Throws
-            formatter.close_section(); // Throws
-            core::TextFormatter::MeasureResult result = formatter.measure(0, formatter.get_cursor_state()); // Throws
-            formatter.begin_hold(); // Throws
-            formatter.format_section(0); // Throws
-            formatter.end_compile();
-            formatter.jump_back(); // Throws
-            int offset = result.min_width_no_break;
-            core::saturating_add(offset, 2);
-            formatter.set_offset(offset); // Throws
-            for (int i = 0; i < n; ++i) {
-                const image::FileFormat& format = image_file_format_registry.get_file_format(i); // Throws
-                formatter.writeln(format.get_descr()); // Throws
-            }
-            formatter.end_hold(); // Throws
-        }); // Throws
+        image::list_file_formats(core::File::get_stdout(), locale, image_file_format_registry); // Throws
         return EXIT_SUCCESS;
     }
 
