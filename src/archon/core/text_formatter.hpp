@@ -70,11 +70,11 @@ namespace archon::core {
 ///
 /// Input text is submitted to the formatter much like if the formatter was an output
 /// stream, in fact, the formatter makes an actual output stream available for submission of
-/// input to the formatter (\ref out()). With default settings, no formatting takes place,
-/// so any text submitted to the formatter is passed through unmodified to the underlying
-/// output stream. The underlying output stream is the one that is passed to the constructor
-/// of the formatter. For anything nontrivial to happen, at least one formatting parameter
-/// needs to be changed away from its default value.
+/// input to the formatter (\ref input_out()). With default settings, no formatting takes
+/// place, so any text submitted to the formatter is passed through unmodified to the
+/// underlying output stream. The underlying output stream is the one that is passed to the
+/// constructor of the formatter. For anything nontrivial to happen, at least one formatting
+/// parameter needs to be changed away from its default value.
 ///
 /// Text is formatted one input line at a time. The input is first divided into input
 /// sections, then each section is divided into input lines. By default, that is, when not
@@ -180,7 +180,7 @@ public:
 
     /// \brief Submit serialization of specified value as text formatter input.
     ///
-    /// `formatter.write(val)` has the same effect as `formatter.out() << val`.
+    /// `formatter.write(val)` has the same effect as `formatter.input_out() << val`.
     ///
     template<class V> void write(V&& val);
 
@@ -204,9 +204,10 @@ public:
     /// to the formatter.
     ///
     /// Calling `flush()` on the returned stream, or `pubsync()` on the underlying stream
-    /// buffer has the same effect as calling \ref process_input() on the text formatter.
+    /// buffer has exactly the same effect as calling \ref process_input() on the text
+    /// formatter. In both cases, it causes any unprocessed input to be processed.
     ///
-    auto out() noexcept -> ostream_type&;
+    auto input_out() noexcept -> ostream_type&;
 
     /// \brief Finalize formatting process.
     ///
@@ -223,6 +224,8 @@ public:
     /// begin_compile()). If is also an error to call this function while output is held
     /// back (\ref begin_hold()).
     ///
+    /// \sa flush()
+    ///
     void finalize();
 
     /// \brief Process unprocessed input and flush output.
@@ -231,7 +234,17 @@ public:
     /// formatter constructor, `f.flush()` has the same effect as `f.process_input()`
     /// followed by `out.flush()`.
     ///
+    /// This function can be called at any time without affecting the final formatted
+    /// result. It follows that two consecutive invocations has the same effect as one
+    /// (idempotency).
+    ///
+    /// This function is not intended for finalization of the formatting process. See \ref
+    /// finalize() for that. Instead, it is meant to be used at intermediate points during
+    /// the formatting process where the applications wishes to expose the currently reached
+    /// provisional result of the formatting process.
+    ///
     /// \sa \ref process_input()
+    /// \sa \ref finalize()
     ///
     void flush();
 
@@ -1179,7 +1192,7 @@ template<class... P> inline void BasicTextFormatter<C, T>::format(const char* pa
 
 
 template<class C, class T>
-inline auto BasicTextFormatter<C, T>::out() noexcept -> ostream_type&
+inline auto BasicTextFormatter<C, T>::input_out() noexcept -> ostream_type&
 {
     return m_input_out;
 }

@@ -160,19 +160,19 @@ int main(int argc, char* argv[])
     formatter.skip_line();
     formatter.write("Hest ged lama gnu kat gris ko panda struds hund.\nKofoed Viggo Banach Hil");
     formatter.writeln("bert Minkowski Hausdorf.\nBlue yellow black brown violet red white green.");
-    std::ostream& out_2 = formatter.out();
+    std::ostream& input_out = formatter.input_out();
     int value = 26727;
-    out_2 << "Hula hoop " << value << " cyr wheel lyra aerial hula hoop cyr wheel lyra aerial.\n";
+    input_out << "Hula hoop " << value << " cyr wheel lyra aerial hula hoop cyr wheel lyra aerial.\n";
     formatter.write("Alpha beta gamma delta epsilon zeta eta theta iota kappa lambda mu nu xi ");
     formatter.write("omicron pi rho sigma tau upsilon phi chi psi omega.\n");
     std::vector<int> vec = {
         58659, 10934, 34860, 51944, 40696, 56572, 17122,
         38167, 27147, 15981, 48028, 16923, 43738, 58659
     };
-    out_2 << core::as_list(vec) << " " << core::formatted("<%s, %s>", 43738, 15981) << ".\n";
+    input_out << core::as_list(vec) << " " << core::formatted("<%s, %s>", 43738, 15981) << ".\n";
     formatter.writeln("Xxxxxxxxxxx xxxxxxxx xxxxxxxxx xxxxxxxxxx.");
     formatter.flush();
-    if (!out_2)
+    if (!input_out)
         log::error("FAIL");
     formatter.push_style();
     formatter.set_background_color(Color::blue);
