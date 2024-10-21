@@ -127,7 +127,7 @@ auto display::lookup_implementation(std::string_view ident) noexcept -> const di
     int n = g_num_implementation_slots;
     for (int i = 0; i < n; ++i) {
         const display::Implementation::Slot& slot = (*g_implementation_slots[i])();
-        if (ARCHON_LIKELY(slot.ident() != ident))
+        if (ARCHON_LIKELY(slot.get_ident() != ident))
             continue;
         return &slot;
     }

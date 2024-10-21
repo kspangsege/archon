@@ -47,6 +47,8 @@ namespace archon::image {
 /// which attempt to transparently detect the file format. There is a default registry,
 /// which is available as \ref get_default_registry().
 ///
+/// \sa \ref image::list_file_formats()
+///
 class FileFormatRegistry {
 public:
     /// \brief Default file format registry.

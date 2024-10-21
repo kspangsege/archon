@@ -374,7 +374,7 @@ public:
 
     void invoke_without_arg() const override
     {
-        m_processor.show_help(core::File::get_cout(), m_help_config.copy_by_ref()); // Throws
+        m_processor.show_help(core::File::get_stdout(), m_help_config.copy_by_ref()); // Throws
     }
 
 private:
@@ -735,7 +735,7 @@ ARCHON_NOINLINE int BasicProcessor<C, T>::report_errors(const error_accum_type& 
     }
     else {
         const std::locale& locale = m_command_line.m_root_state.locale;
-        log::BasicFileLogger<C, T> logger(core::File::get_cerr(), locale); // Throws
+        log::BasicFileLogger<C, T> logger(core::File::get_stderr(), locale); // Throws
         cli::BasicLoggingErrorHandler<C, T> error_handler(logger);
         error_handler.handle(errors, exit_status); // Throws
     }

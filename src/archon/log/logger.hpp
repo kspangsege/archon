@@ -128,16 +128,16 @@ public:
     ///
     /// These loggers send log messages to STDOUT and STDERR respectively. They are
     /// implemented in terms of \ref log::BasicFileLogger with respective arguments of \ref
-    /// core::File::get_cout() and \ref core::File::get_cerr(), and with colorization mode
-    /// set to \ref log::BasicFileLogger::Colorize::detect.
+    /// core::File::get_stdout() and \ref core::File::get_stderr(), and with colorization
+    /// mode set to \ref log::BasicFileLogger::Colorize::detect.
     ///
-    /// The first time \ref get_cout() or \ref get_cerr() is called, both streams are
+    /// The first time \ref get_stdout() or \ref get_stderr() is called, both streams are
     /// created based on the currently selected global locale. Therefore, if the application
     /// needs these loggers to use a particular locale, it must update the global locale
     /// before any of these functions are called.
     ///
-    static auto get_cout() -> BasicLogger&;
-    static auto get_cerr() -> BasicLogger&;
+    static auto get_stdout() -> BasicLogger&;
+    static auto get_stderr() -> BasicLogger&;
     /// \}
 
     /// \{
@@ -199,7 +199,7 @@ public:
     /// This function logs the specified message at the specified log level provided that
     /// \ref will_log() would return true for the specified log level. What it means to log
     /// a message depends on what kind of logger this is. If this logger is the logger
-    /// returned by \ref get_cerr(), for instance, logging a message means writing that
+    /// returned by \ref get_stderr(), for instance, logging a message means writing that
     /// message to STDERR.
     ///
     /// In any case, the specified parameterized message (\p message) is formatted as if it
@@ -226,9 +226,9 @@ public:
     /// \brief Construct logger targetting STDERR.
     ///
     /// Construct a logger that is equivalent to the one returned by
-    /// BasicLogger::get_cerr().
+    /// BasicLogger::get_stderr().
     ///
-    /// This constructor is a shorthand for `BasicLogger(BasicLogger::get_cerr())`.
+    /// This constructor is a shorthand for `BasicLogger(BasicLogger::get_stderr())`.
     ///
     BasicLogger();
 
@@ -484,10 +484,11 @@ public:
         static Loggers loggers; // Throws
         return loggers;
     }
-    log::BasicFileLogger<C, T> cout, cerr;
+    // Avoid name clash with macros in <cstdio>
+    log::BasicFileLogger<C, T> stdout_, stderr_;
     Loggers()
-        : cout(core::File::get_cout()) // Throws
-        , cerr(core::File::get_cerr()) // Throws
+        : stdout_(core::File::get_stdout()) // Throws
+        , stderr_(core::File::get_stderr()) // Throws
     {
     }
 };
@@ -511,18 +512,18 @@ inline auto BasicLogger<C, T>::or_null(BasicLogger* logger) noexcept -> BasicLog
 
 
 template<class C, class T>
-auto BasicLogger<C, T>::get_cout() -> BasicLogger&
+auto BasicLogger<C, T>::get_stdout() -> BasicLogger&
 {
     auto& loggers = impl::Loggers<C, T>::get(); // Throws
-    return loggers.cout;
+    return loggers.stdout_;
 }
 
 
 template<class C, class T>
-auto BasicLogger<C, T>::get_cerr() -> BasicLogger&
+auto BasicLogger<C, T>::get_stderr() -> BasicLogger&
 {
     auto& loggers = impl::Loggers<C, T>::get(); // Throws
-    return loggers.cerr;
+    return loggers.stderr_;
 }
 
 
@@ -668,7 +669,7 @@ inline log::LogLevel BasicLogger<C, T>::get_log_level_limit() const noexcept
 
 template<class C, class T>
 inline BasicLogger<C, T>::BasicLogger()
-    : BasicLogger(BasicLogger::get_cerr()) // Throws
+    : BasicLogger(BasicLogger::get_stderr()) // Throws
 {
 }
 

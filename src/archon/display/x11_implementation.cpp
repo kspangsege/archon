@@ -82,6 +82,7 @@ namespace {
 
 
 constexpr std::string_view g_implementation_ident = "x11";
+constexpr std::string_view g_implementation_descr = "X11 (X Window System, Version 11)";
 
 
 #if HAVE_X11
@@ -256,7 +257,8 @@ class SlotImpl final
 public:
     SlotImpl() noexcept;
 
-    auto ident() const noexcept -> std::string_view override;
+    auto get_ident() const noexcept -> std::string_view override;
+    auto get_descr() const noexcept -> std::string_view override;
     auto get_implementation_a(const display::Guarantees&) const noexcept -> const display::Implementation* override;
 
 private:
@@ -524,9 +526,15 @@ inline SlotImpl::SlotImpl() noexcept
 }
 
 
-auto SlotImpl::ident() const noexcept -> std::string_view
+auto SlotImpl::get_ident() const noexcept -> std::string_view
 {
     return g_implementation_ident;
+}
+
+
+auto SlotImpl::get_descr() const noexcept -> std::string_view
+{
+    return g_implementation_descr;
 }
 
 
@@ -2187,14 +2195,21 @@ bool try_map_mouse_button(unsigned x11_button, bool& is_scroll, display::MouseBu
 class SlotImpl final
     : public display::Implementation::Slot {
 public:
-    auto ident() const noexcept -> std::string_view override;
+    auto get_ident() const noexcept -> std::string_view override;
+    auto get_descr() const noexcept -> std::string_view override;
     auto get_implementation_a(const display::Guarantees&) const noexcept -> const display::Implementation* override;
 };
 
 
-auto SlotImpl::ident() const noexcept -> std::string_view
+auto SlotImpl::get_ident() const noexcept -> std::string_view
 {
     return g_implementation_ident;
+}
+
+
+auto SlotImpl::get_descr() const noexcept -> std::string_view
+{
+    return g_implementation_descr;
 }
 
 

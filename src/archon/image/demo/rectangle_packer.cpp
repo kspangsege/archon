@@ -116,7 +116,7 @@ int main(int argc, char* argv[])
             used_area += width * height;
         }
         double coverage = used_area / avail_area;
-        log::FileLogger logger(core::File::get_cout(), locale);
+        log::FileLogger logger(core::File::get_stdout(), locale);
         logger.info("Efficiency: %s", core::as_percent(coverage, 1));
     }
 
