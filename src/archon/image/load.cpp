@@ -73,7 +73,7 @@ bool image::try_load(core::FilesystemPathRef path, std::unique_ptr<image::Writab
         input.filename_extension = ext_2;
         return image::try_load_a(input, image, loc, config, ec); // Throws
     }
-    return false;
+    return false; // Failure
 }
 
 
@@ -95,11 +95,16 @@ bool image::try_load_a(const image::Input& input, std::unique_ptr<image::Writabl
             registry->lookup_by_mime_type(input.mime_type, tray); // Throws
             for (const image::FileFormat* format_2 : tray) {
                 if (ARCHON_LIKELY(!checked_formats.contains(format_2))) {
-                    bool success = format_2->recognize(source); // Throws
-                    source.rewind();
-                    if (success) {
-                        format = format_2;
-                        goto format_found;
+                    bool recognized = false;
+                    if (ARCHON_LIKELY(format_2->try_recognize(source, recognized, loc, logger, ec))) { // Throws
+                        source.rewind();
+                        if (ARCHON_LIKELY(recognized)) {
+                            format = format_2;
+                            goto format_found;
+                        }
+                    }
+                    else {
+                        return false; // Failure
                     }
                 }
             }
@@ -111,11 +116,16 @@ bool image::try_load_a(const image::Input& input, std::unique_ptr<image::Writabl
             registry->lookup_by_extension(input.filename_extension, tray); // Throws
             for (const image::FileFormat* format_2 : tray) {
                 if (ARCHON_LIKELY(!checked_formats.contains(format_2))) {
-                    bool success = format_2->recognize(source); // Throws
-                    source.rewind();
-                    if (success) {
-                        format = format_2;
-                        goto format_found;
+                    bool recognized = false;
+                    if (ARCHON_LIKELY(format_2->try_recognize(source, recognized, loc, logger, ec))) { // Throws
+                        source.rewind();
+                        if (ARCHON_LIKELY(recognized)) {
+                            format = format_2;
+                            goto format_found;
+                        }
+                    }
+                    else {
+                        return false; // Failure
                     }
                 }
             }
@@ -126,17 +136,22 @@ bool image::try_load_a(const image::Input& input, std::unique_ptr<image::Writabl
             for (int i = 0; i < n; ++i) {
                 const image::FileFormat& format_2 = registry->get_file_format(i); // Throws
                 if (ARCHON_LIKELY(!checked_formats.contains(&format_2))) {
-                    bool success = format_2.recognize(source); // Throws
-                    source.rewind();
-                    if (success) {
-                        format = &format_2;
-                        goto format_found;
+                    bool recognized = false;
+                    if (ARCHON_LIKELY(format_2.try_recognize(source, recognized, loc, logger, ec))) { // Throws
+                        source.rewind();
+                        if (ARCHON_LIKELY(recognized)) {
+                            format = &format_2;
+                            goto format_found;
+                        }
+                    }
+                    else {
+                        return false; // Failure
                     }
                 }
             }
         }
         ec = image::Error::file_format_detection_failed;
-        return false;
+        return false; // Failure
       format_found:
         source.release();
         return format->try_load(source, image, loc, logger, config, ec); // Throws
@@ -145,5 +160,5 @@ bool image::try_load_a(const image::Input& input, std::unique_ptr<image::Writabl
     if (ARCHON_LIKELY(format))
         return format->try_load(input.source, image, loc, logger, config, ec); // Throws
     ec = image::Error::file_format_unavailable;
-    return false;
+    return false; // Failure
 }

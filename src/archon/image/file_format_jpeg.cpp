@@ -239,7 +239,7 @@ public:
     LoadContext(log::Logger&, core::Source&);
     ~LoadContext() noexcept;
 
-    bool recognize();
+    bool recognize(bool& recognized, std::error_code& ec);
     bool load(std::error_code& ec);
 
 private:
@@ -289,7 +289,7 @@ LoadContext::~LoadContext() noexcept
 }
 
 
-bool LoadContext::recognize()
+bool LoadContext::recognize(bool& recognized, std::error_code& ec)
 {
     // Long jump safety: No non-volatile automatic variables in the scope from which
     // setjmp() is called (see notes on long jump safety above).
@@ -313,23 +313,29 @@ bool LoadContext::recognize()
         // Long jumps from the callback functions land here.
 
         if (ARCHON_LIKELY(m_have_libjpeg_error)) {
-            if (ARCHON_LIKELY(is_due_to_invalid_file_contents(m_error_mgr.msg_code)))
-                return false;     
+            if (ARCHON_LIKELY(is_due_to_invalid_file_contents(m_error_mgr.msg_code))) {
+                recognized = false;
+                return true; // Success
+            }
             libjpeg_log(reinterpret_cast<j_common_ptr>(&m_info), log::LogLevel::error); // Throws
-            std::error_code ec = image::Error::loading_process_failed;
-            throw std::system_error(ec);                          
+            ec = image::Error::loading_process_failed;
+            return false; // Failure
         }
 
         if (ARCHON_LIKELY(m_have_ec)) {
-            if (ARCHON_LIKELY(m_ec == core::MiscError::premature_end_of_input))
-                return false;     
-            throw std::system_error(m_ec);                    
+            if (ARCHON_LIKELY(m_ec == core::MiscError::premature_end_of_input)) {
+                recognized = false;
+                return true; // Success
+            }
+            ec = m_ec;
+            return false; // Failure
         }
 
         ARCHON_ASSERT(m_exception);
         std::rethrow_exception(std::move(m_exception)); // Throws
     }
 
+    recognized = true;
     return true; // Success
 }
 
@@ -505,11 +511,11 @@ public:
         return g_filename_extensions;
     }
 
-    bool recognize(core::Source& source) const override
+    bool try_recognize(core::Source& source, bool& recognized, const std::locale&, log::Logger& logger,
+                       std::error_code& ec) const override
     {
-        log::Logger& logger = log::Logger::get_null();                                       
         LoadContext context(logger, source);
-        return context.recognize();
+        return context.recognize(recognized, ec);
     }
 
     bool do_try_load(core::Source& source, std::unique_ptr<image::WritableImage>& image, const std::locale& loc,

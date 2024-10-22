@@ -45,7 +45,9 @@ enum class Error {
     /// identifier in the file format registry (\ref image::FileFormat::Registry).
     file_format_unavailable = 1,
 
-    /// File format could not be detected. Detection of the image file format failed.
+    /// File format could not be detected. Detection failed because the file in question
+    /// (file name extension, MIME type, leading bytes of file contents) did not match any
+    /// of the known file formats.
     file_format_detection_failed = 2,
 
     /// File could not be loaded. The contents of the file is invalid or the file format is
@@ -62,7 +64,7 @@ enum class Error {
     image_size_out_of_range = 4,
 
     /// Loading process failed. A failure occurred during the loading of an image, and the
-    /// failure was not due to invalid file contents. This error will also be generated if a
+    /// failure was not due to invalid file contents. This error can also be generated if a
     /// failure occurs during automatic file format detection (\ref
     /// image::FileFormat::recognize()). See also \ref bad_file.
     loading_process_failed = 5,

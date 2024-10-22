@@ -151,16 +151,15 @@ inline auto string_for_interlace_type(png_byte val) -> std::string_view
 }
 
 
-bool recognize(core::Source& source, std::error_code& ec)
+bool try_recognize(core::Source& source, bool& recognized, std::error_code& ec)
 {
     constexpr std::size_t header_size = 8;
     char header[header_size];
     std::size_t n = 0;
     if (ARCHON_LIKELY(source.try_read(header, n, ec))) { // Throws
-        if (ARCHON_LIKELY(n == header_size && png_sig_cmp(to_png_bytep(header), 0, header_size) == 0))
-            return true; // Success
+        recognized = (n == header_size && png_sig_cmp(to_png_bytep(header), 0, header_size) == 0);
+        return true; // Success
     }
-    ec = image::Error::bad_file;
     return false; // Failure
 }
 
@@ -880,8 +879,13 @@ bool load(core::Source& source, std::unique_ptr<image::WritableImage>& image, co
 
     // FIXME: Get background color using `png_get_bKGD()`             
 
-    if (ARCHON_UNLIKELY(!recognize(source, ec)))
-        return false; // Failure (wrong file format)
+    bool recognized = {};
+    if (ARCHON_UNLIKELY(!try_recognize(source, recognized, ec))) // Throws
+        return false; // Failure
+    if (ARCHON_UNLIKELY(!recognized)) {
+        ec = image::Error::bad_file;
+        return false; // Failure
+    }
 
     LoadContext ctx;
     ctx.logger = &logger;
@@ -1200,10 +1204,10 @@ public:
         return g_filename_extensions;
     }
 
-    bool recognize(core::Source& source) const override
+    bool try_recognize(core::Source& source, bool& recognized, const std::locale&, log::Logger&,
+                       std::error_code& ec) const override
     {
-        std::error_code ec; // Dummy
-        return ::recognize(source, ec); // Throws
+        return ::try_recognize(source, recognized, ec); // Throws
     }
 
     bool do_try_load(core::Source& source, std::unique_ptr<image::WritableImage>& image, const std::locale& loc,
