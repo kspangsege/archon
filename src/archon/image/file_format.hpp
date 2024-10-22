@@ -93,6 +93,16 @@ public:
     ///
     virtual auto get_filename_extensions() const noexcept -> core::Span<const std::string_view> = 0;
 
+    /// \brief Whether file format is available.
+    ///
+    /// This function returns `true` when, and only when this file format is
+    /// available. Ordinarily, it will be available if support for this file format was
+    /// enabled when the Archon image library was built.
+    ///
+    /// When the file format is unavailable, certain functions (\ref try_recognize(), \ref try_load(), \ref try_save()) fail with \ref image::Error::file_format_unavailable                       
+    ///
+    virtual bool is_available() const noexcept = 0;
+
     /// \brief Try to determine whether leading bytes match this file format.
     ///
     /// By looking only at a prefix of the specified byte sequence (\p source), this
