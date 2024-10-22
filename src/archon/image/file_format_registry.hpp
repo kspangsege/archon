@@ -43,9 +43,9 @@ namespace archon::image {
 /// \brief Registry of candidate file formats.
 ///
 /// An instance of this class is a collection of file formats. Its primary purpose is to
-/// present the possible candidate file formats to functions such as \ref image::load(),
-/// which attempt to transparently detect the file format. There is a default registry,
-/// which is available as \ref get_default_registry().
+/// present the possible candidate file formats to functions such as \ref image::load() and
+/// \ref image::save(), which attempt to transparently detect the file format. There is a
+/// default registry, which is available as \ref get_default_registry().
 ///
 /// \sa \ref image::list_file_formats()
 ///
@@ -68,7 +68,7 @@ public:
 
     /// \brief Get file format associated with MIME type.
     ///
-    /// If there are any registered file formats associated with the specified MIME type,
+    /// If there are any registered file formats associated with the specified MIME type,                                                
     /// this function returns the one that was registered first. If there are no registered
     /// file formats associated with the specified MIME type, this function returns null.
     ///
@@ -84,7 +84,7 @@ public:
 
     /// \brief Get file format associated with filename extension.
     ///
-    /// If there are any registered file formats associated with the specified filename
+    /// If there are any registered file formats associated with the specified filename                                       
     /// extension, this function returns the one that was registered first. If there are no
     /// registered file formats associated with the specified filename extension, this
     /// function returns null.
@@ -120,7 +120,7 @@ public:
     ///
     /// This function adds the specified file format to the registry. The caller must ensure
     /// that the referenced file format object stays alive for as long as the registry is in
-    /// use. The registry can be safely destroyed after the destruction of the fiel format
+    /// use. The registry can be safely destroyed after the destruction of the file format
     /// object. Any other use of the registry after the dstruction of the file format object
     /// causes undefined behavior.
     ///
