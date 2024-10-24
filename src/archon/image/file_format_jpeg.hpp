@@ -1,6 +1,6 @@
 // This file is part of the Archon project, a suite of C++ libraries.
 //
-// Copyright (C) 2022 Kristian Spangsege <kristian.spangsege@gmail.com>
+// Copyright (C) 2024 Kristian Spangsege <kristian.spangsege@gmail.com>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this
 // software and associated documentation files (the "Software"), to deal in the Software
@@ -18,39 +18,35 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-#ifndef ARCHON_X_IMAGE_HPP
-#define ARCHON_X_IMAGE_HPP
+#ifndef ARCHON_X_IMAGE_X_FILE_FORMAT_JPEG_HPP
+#define ARCHON_X_IMAGE_X_FILE_FORMAT_JPEG_HPP
 
 /// \file
 
 
-#include <archon/image/geom.hpp>
-#include <archon/image/iter.hpp>
-#include <archon/image/tray.hpp>
-#include <archon/image/comp_types.hpp>
-#include <archon/image/comp_repr.hpp>
-#include <archon/image/color_space.hpp>
-#include <archon/image/pixel_repr.hpp>
-#include <archon/image/pixel.hpp>
-#include <archon/image/block.hpp>
-#include <archon/image/buffer_format.hpp>
-#include <archon/image/image.hpp>
-#include <archon/image/palette_image.hpp>
-#include <archon/image/writable_image.hpp>
-#include <archon/image/tray_image.hpp>
-#include <archon/image/indexed_tray_image.hpp>
-#include <archon/image/buffered_image.hpp>
-#include <archon/image/palettes.hpp>
-#include <archon/image/reader.hpp>
-#include <archon/image/writer.hpp>
-#include <archon/image/error.hpp>
 #include <archon/image/file_format.hpp>
-#include <archon/image/file_format_registry.hpp>
-#include <archon/image/list_file_formats.hpp>
-#include <archon/image/load_config.hpp>
-#include <archon/image/save_config.hpp>
-#include <archon/image/load.hpp>
-#include <archon/image/save.hpp>
 
 
-#endif // ARCHON_X_IMAGE_HPP
+namespace archon::image {
+
+
+/// \brief Interface to JPEG file format via libjpeg.
+///
+/// This function returns a file format object that provides access to the JPEG image file
+/// format (Joint Photographic Experts Group) through `libjpeg` (http://ijg.org/,
+/// https://libjpeg-turbo.org/).
+///
+/// The returned file format object will be available (\ref
+/// image::FileFormat::is_available()) if, and only if the Archon Image Library was built
+/// with support for JPEG turned on.
+///
+/// \sa http://ijg.org/
+/// \sa https://jpegclub.org/
+/// \sa https://libjpeg-turbo.org/
+///
+auto get_file_format_jpeg() noexcept -> const image::FileFormat&;
+
+
+} // namespace archon::image
+
+#endif // ARCHON_X_IMAGE_X_FILE_FORMAT_JPEG_HPP

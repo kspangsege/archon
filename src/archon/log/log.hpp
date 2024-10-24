@@ -35,8 +35,8 @@ namespace archon::log {
 /// \brief Log message to STDOUT.
 ///
 /// These functions are shorthands for calling the equivalent function on the logger
-/// returned by \ref log::Logger::get_cout(); for example, `log::info("foo")` has the same
-/// effect as `log::Logger::get_cout().info("foo")`.
+/// returned by \ref log::Logger::get_stdout(); for example, `log::info("foo")` has the same
+/// effect as `log::Logger::get_stdout().info("foo")`.
 ///
 template<class... P> void fatal(const char* message, const P&... params);
 template<class... P> void error(const char* message, const P&... params);
@@ -59,43 +59,43 @@ template<class... P> void trace(const char* message, const P&... params);
 
 template<class... P> inline void fatal(const char* message, const P&... params)
 {
-    log::Logger::get_cout().fatal(message, params...); // Throws
+    log::Logger::get_stdout().fatal(message, params...); // Throws
 }
 
 
 template<class... P> inline void error(const char* message, const P&... params)
 {
-    log::Logger::get_cout().error(message, params...); // Throws
+    log::Logger::get_stdout().error(message, params...); // Throws
 }
 
 
 template<class... P> inline void warn(const char* message, const P&... params)
 {
-    log::Logger::get_cout().warn(message, params...); // Throws
+    log::Logger::get_stdout().warn(message, params...); // Throws
 }
 
 
 template<class... P> inline void info(const char* message, const P&... params)
 {
-    log::Logger::get_cout().info(message, params...); // Throws
+    log::Logger::get_stdout().info(message, params...); // Throws
 }
 
 
 template<class... P> inline void detail(const char* message, const P&... params)
 {
-    log::Logger::get_cout().detail(message, params...); // Throws
+    log::Logger::get_stdout().detail(message, params...); // Throws
 }
 
 
 template<class... P> inline void debug(const char* message, const P&... params)
 {
-    log::Logger::get_cout().debug(message, params...); // Throws
+    log::Logger::get_stdout().debug(message, params...); // Throws
 }
 
 
 template<class... P> inline void trace(const char* message, const P&... params)
 {
-    log::Logger::get_cout().trace(message, params...); // Throws
+    log::Logger::get_stdout().trace(message, params...); // Throws
 }
 
 

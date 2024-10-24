@@ -25,6 +25,7 @@
 
 
 #include <cstddef>
+#include <optional>
 #include <string_view>
 
 #include <archon/core/span.hpp>
@@ -49,13 +50,13 @@ struct SaveConfig : image::FileFormat::SaveConfig {
     ///
     ///  
     ///
-    std::string_view file_format;
+    log::Logger* logger = nullptr;
 
     /// \brief  
     ///
     ///  
     ///
-    log::Logger* logger = nullptr;
+    std::optional<std::string_view> file_format;
 
     /// \brief  
     ///

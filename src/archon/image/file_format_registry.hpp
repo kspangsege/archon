@@ -43,9 +43,11 @@ namespace archon::image {
 /// \brief Registry of candidate file formats.
 ///
 /// An instance of this class is a collection of file formats. Its primary purpose is to
-/// present the possible candidate file formats to functions such as \ref image::load(),
-/// which attempt to transparently detect the file format. There is a default registry,
-/// which is available as \ref get_default_registry().
+/// present the possible candidate file formats to functions such as \ref image::load() and
+/// \ref image::save(), which attempt to transparently detect the file format. There is a
+/// default registry, which is available as \ref get_default_registry().
+///
+/// \sa \ref image::list_file_formats()
 ///
 class FileFormatRegistry {
 public:
@@ -64,36 +66,21 @@ public:
 
     using tray_type = core::BufferContents<const image::FileFormat*>;
 
-    /// \brief Get file format associated with MIME type.
-    ///
-    /// If there are any registered file formats associated with the specified MIME type,
-    /// this function returns the one that was registered first. If there are no registered
-    /// file formats associated with the specified MIME type, this function returns null.
-    ///
-    auto lookup_by_mime_type(std::string_view mime_type) const -> const image::FileFormat*;
-
     /// \brief Get file formats associated with MIME type.
     ///
     /// This function returns all the registered file formats that are associated with the
     /// specified MIME type. The file formats are returned in the order that they were
-    /// registered.
+    /// registered. File formats are returned regardless of whether they are available or
+    /// unavailable (\ref image::FileFormat::is_available()).
     ///
     void lookup_by_mime_type(std::string_view mime_type, tray_type&) const;
-
-    /// \brief Get file format associated with filename extension.
-    ///
-    /// If there are any registered file formats associated with the specified filename
-    /// extension, this function returns the one that was registered first. If there are no
-    /// registered file formats associated with the specified filename extension, this
-    /// function returns null.
-    ///
-    auto lookup_by_extension(std::string_view extension) const -> const image::FileFormat*;
 
     /// \brief Get file formats associated with filename extension.
     ///
     /// This function returns all the registered file formats that are associated with the
     /// specified filename extension. The file formats are returned in the order that they
-    /// were registered.
+    /// were registered. File formats are returned regardless of whether they are available
+    /// or unavailable (\ref image::FileFormat::is_available()).
     ///
     void lookup_by_extension(std::string_view extension, tray_type&) const;
 
@@ -118,7 +105,7 @@ public:
     ///
     /// This function adds the specified file format to the registry. The caller must ensure
     /// that the referenced file format object stays alive for as long as the registry is in
-    /// use. The registry can be safely destroyed after the destruction of the fiel format
+    /// use. The registry can be safely destroyed after the destruction of the file format
     /// object. Any other use of the registry after the dstruction of the file format object
     /// causes undefined behavior.
     ///

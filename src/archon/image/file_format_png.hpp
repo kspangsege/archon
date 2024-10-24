@@ -56,17 +56,20 @@ struct PNGSaveConfig : image::FileFormat::SpecialSaveConfig {
 
 /// \brief Interface to PNG file format via libpng.
 ///
-/// If the Archon Image Library was built with support for PNG (Portable Network Graphics)
-/// via `libpng`, this function returns a pointer to the file format object representing
-/// `libpng`. Otherwise, this function returns null.
+/// This function returns a file format object that provides access to the PNG image file
+/// format (Portable Network Graphics) through `libpng` (http://www.libpng.org/).
+///
+/// The returned file format object will be available (\ref
+/// image::FileFormat::is_available()) if, and only if the Archon Image Library was built
+/// with support for PNG turned on.
+///
+/// See \ref image::PNGLoadConfig and \ref image::PNGSaveConfig for parameters that can be
+/// used to control the loading and saving of PNG images. Those parameters are specific to
+/// the PNG image file format.
 ///
 /// \sa http://www.libpng.org/
 ///
-/// See \ref image::PNGLoadConfig and \ref image::PNGSaveConfig for parameters that can be
-/// used to control the loading and saving of PNG images, and that are specific to the PNG
-/// file format.
-///
-auto get_file_format_png() noexcept -> const image::FileFormat*;
+auto get_file_format_png() noexcept -> const image::FileFormat&;
 
 
 } // namespace archon::image

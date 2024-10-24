@@ -69,7 +69,7 @@ int main(int argc, char* argv[])
     if (ARCHON_UNLIKELY(cli::process(argc, argv, spec, exit_status, locale))) // Throws
         return exit_status;
 
-    log::FileLogger logger(core::File::get_cout(), locale);
+    log::FileLogger logger(core::File::get_stdout(), locale);
     std::optional<font::CodePoint> prev_last;
     for (font::CodePointRange range : ranges) {
         if (ARCHON_LIKELY(!prev_last.has_value() ||

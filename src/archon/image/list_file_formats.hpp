@@ -1,6 +1,6 @@
 // This file is part of the Archon project, a suite of C++ libraries.
 //
-// Copyright (C) 2022 Kristian Spangsege <kristian.spangsege@gmail.com>
+// Copyright (C) 2024 Kristian Spangsege <kristian.spangsege@gmail.com>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this
 // software and associated documentation files (the "Software"), to deal in the Software
@@ -18,39 +18,38 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-#ifndef ARCHON_X_IMAGE_HPP
-#define ARCHON_X_IMAGE_HPP
+#ifndef ARCHON_X_IMAGE_X_LIST_FILE_FORMATS_HPP
+#define ARCHON_X_IMAGE_X_LIST_FILE_FORMATS_HPP
 
 /// \file
 
 
-#include <archon/image/geom.hpp>
-#include <archon/image/iter.hpp>
-#include <archon/image/tray.hpp>
-#include <archon/image/comp_types.hpp>
-#include <archon/image/comp_repr.hpp>
-#include <archon/image/color_space.hpp>
-#include <archon/image/pixel_repr.hpp>
-#include <archon/image/pixel.hpp>
-#include <archon/image/block.hpp>
-#include <archon/image/buffer_format.hpp>
-#include <archon/image/image.hpp>
-#include <archon/image/palette_image.hpp>
-#include <archon/image/writable_image.hpp>
-#include <archon/image/tray_image.hpp>
-#include <archon/image/indexed_tray_image.hpp>
-#include <archon/image/buffered_image.hpp>
-#include <archon/image/palettes.hpp>
-#include <archon/image/reader.hpp>
-#include <archon/image/writer.hpp>
-#include <archon/image/error.hpp>
-#include <archon/image/file_format.hpp>
+#include <locale>
+
+#include <archon/core/file.hpp>
 #include <archon/image/file_format_registry.hpp>
-#include <archon/image/list_file_formats.hpp>
-#include <archon/image/load_config.hpp>
-#include <archon/image/save_config.hpp>
-#include <archon/image/load.hpp>
-#include <archon/image/save.hpp>
 
 
-#endif // ARCHON_X_IMAGE_HPP
+namespace archon::image {
+
+
+/// \brief Produce textual rendition of list of file formats.
+///
+/// This function writes a textual rendition of the list of file formats in the specified
+/// registry (\p registry) to the specified file (\p file), which can be \ref
+/// core::File::get_stdout(). The list is formatted with the assumption that it will be
+/// displayed in a monospaced font, such as on a text terminal.
+///
+/// ANSI escape sequences will be emitted only when
+/// `core::terminal::should_enable_escape_sequences(file.is_terminal(), locale)` returns
+/// true.
+///
+/// \sa \ref image::FileFormatRegistry
+/// \sa \ref core::terminal::should_enable_escape_sequences()
+///
+void list_file_formats(core::File& file, const std::locale& locale, const image::FileFormatRegistry& registry);
+
+
+} // namespace archon::image
+
+#endif // ARCHON_X_IMAGE_X_LIST_FILE_FORMATS_HPP
