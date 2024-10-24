@@ -71,6 +71,21 @@ using namespace std::literals;
 namespace {
 
 
+constexpr std::string_view g_file_format_ident = "jpeg"sv;
+
+constexpr std::string_view g_file_format_descr = "JPEG (Joint Photographic Experts Group)"sv;
+
+constexpr std::string_view g_mime_types[] = {
+    "image/jpeg"sv,
+};
+
+constexpr std::string_view g_filename_extensions[] = {
+    ".jpg"sv,
+    ".jpeg"sv,
+};
+
+
+
 #if ARCHON_IMAGE_HAVE_JPEG
 
 
@@ -478,27 +493,17 @@ bool LoadContext::skip(long num_bytes, std::error_code& ec)
 
 
 
-constexpr std::string_view g_mime_types[] = {
-    "image/jpeg"sv,
-};
-
-constexpr std::string_view g_filename_extensions[] = {
-    ".jpg"sv,
-    ".jpeg"sv,
-};
-
-
 class FileFormatImpl final
     : public image::FileFormat {
 public:
     auto get_ident() const noexcept -> std::string_view override
     {
-        return "jpeg"sv;
+        return g_file_format_ident;
     }
 
     auto get_descr() const -> std::string_view override
     {
-        return "JPEG (Joint Photographic Experts Group)"sv;
+        return g_file_format_descr;
     }
 
     auto get_mime_types() const noexcept -> core::Span<const std::string_view> override
@@ -509,6 +514,11 @@ public:
     auto get_filename_extensions() const noexcept -> core::Span<const std::string_view> override
     {
         return g_filename_extensions;
+    }
+
+    bool is_available() const noexcept override
+    {
+        return true;
     }
 
     bool try_recognize(core::Source& source, bool& recognized, const std::locale&, log::Logger& logger,
@@ -542,18 +552,67 @@ public:
 };
 
 
-#endif // ARCHON_IMAGE_HAVE_JPEG
+#else // !ARCHON_IMAGE_HAVE_JPEG
+
+
+class FileFormatImpl final
+    : public image::FileFormat {
+public:
+    auto get_ident() const noexcept -> std::string_view override
+    {
+        return g_file_format_ident;
+    }
+
+    auto get_descr() const -> std::string_view override
+    {
+        return g_file_format_descr;
+    }
+
+    auto get_mime_types() const noexcept -> core::Span<const std::string_view> override
+    {
+        return g_mime_types;
+    }
+
+    auto get_filename_extensions() const noexcept -> core::Span<const std::string_view> override
+    {
+        return g_filename_extensions;
+    }
+
+    bool is_available() const noexcept override
+    {
+        return false;
+    }
+
+    bool try_recognize(core::Source&, bool&, const std::locale&, log::Logger&, std::error_code& ec) const override
+    {
+        ec = image::Error::file_format_unavailable;
+        return false; // Failure
+    }
+
+    bool do_try_load(core::Source&, std::unique_ptr<image::WritableImage>&, const std::locale&, log::Logger&,
+                     const LoadConfig&, std::error_code& ec) const override
+    {
+        ec = image::Error::file_format_unavailable;
+        return false; // Failure
+    }
+
+    bool do_try_save(const image::Image&, core::Sink&, const std::locale&, log::Logger&, const SaveConfig&,
+                     std::error_code& ec) const override
+    {
+        ec = image::Error::file_format_unavailable;
+        return false; // Failure
+    }
+};
+
+
+#endif // !ARCHON_IMAGE_HAVE_JPEG
 
 
 } // unnamed namespace
 
 
-auto image::get_file_format_jpeg() noexcept -> const image::FileFormat*
+auto image::get_file_format_jpeg() noexcept -> const image::FileFormat&
 {
-#if ARCHON_IMAGE_HAVE_JPEG
     static FileFormatImpl impl;
-    return &impl;
-#else
-    return nullptr;
-#endif
+    return impl;
 }

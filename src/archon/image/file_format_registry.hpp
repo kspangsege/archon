@@ -66,36 +66,21 @@ public:
 
     using tray_type = core::BufferContents<const image::FileFormat*>;
 
-    /// \brief Get file format associated with MIME type.
-    ///
-    /// If there are any registered file formats associated with the specified MIME type,                                                
-    /// this function returns the one that was registered first. If there are no registered
-    /// file formats associated with the specified MIME type, this function returns null.
-    ///
-    auto lookup_by_mime_type(std::string_view mime_type) const -> const image::FileFormat*;
-
     /// \brief Get file formats associated with MIME type.
     ///
     /// This function returns all the registered file formats that are associated with the
     /// specified MIME type. The file formats are returned in the order that they were
-    /// registered.
+    /// registered. File formats are returned regardless of whether they are available or
+    /// unavailable (\ref image::FileFormat::is_available()).
     ///
     void lookup_by_mime_type(std::string_view mime_type, tray_type&) const;
-
-    /// \brief Get file format associated with filename extension.
-    ///
-    /// If there are any registered file formats associated with the specified filename                                       
-    /// extension, this function returns the one that was registered first. If there are no
-    /// registered file formats associated with the specified filename extension, this
-    /// function returns null.
-    ///
-    auto lookup_by_extension(std::string_view extension) const -> const image::FileFormat*;
 
     /// \brief Get file formats associated with filename extension.
     ///
     /// This function returns all the registered file formats that are associated with the
     /// specified filename extension. The file formats are returned in the order that they
-    /// were registered.
+    /// were registered. File formats are returned regardless of whether they are available
+    /// or unavailable (\ref image::FileFormat::is_available()).
     ///
     void lookup_by_extension(std::string_view extension, tray_type&) const;
 

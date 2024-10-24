@@ -35,7 +35,9 @@ auto get_error_message(image::Error err) noexcept -> const char*
 {
     switch (err) {
         case image::Error::file_format_unavailable:
-            return "Image file format unavailable";
+            return "Attempted use of unavailable file format";
+        case image::Error::no_such_file_format:
+            return "Invalid image file format identifier";
         case image::Error::file_format_detection_failed:
             return "Image file format could not be detected";
         case image::Error::bad_file:

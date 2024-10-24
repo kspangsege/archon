@@ -32,14 +32,19 @@ namespace archon::image {
 
 /// \brief Interface to JPEG file format via libjpeg.
 ///
-/// If the Archon Image Library was built with support for JPEG (Joint Photographic Experts
-/// Group) via `libjpeg`, this function returns a pointer to the file format object
-/// representing `libjpeg`. Otherwise, this function returns null.
+/// This function returns a file format object that provides access to the JPEG image file
+/// format (Joint Photographic Experts Group) through `libjpeg` (http://ijg.org/,
+/// https://libjpeg-turbo.org/).
+///
+/// The returned file format object will be available (\ref
+/// image::FileFormat::is_available()) if, and only if the Archon Image Library was built
+/// with support for JPEG turned on.
 ///
 /// \sa http://ijg.org/
 /// \sa https://jpegclub.org/
+/// \sa https://libjpeg-turbo.org/
 ///
-auto get_file_format_jpeg() noexcept -> const image::FileFormat*;
+auto get_file_format_jpeg() noexcept -> const image::FileFormat&;
 
 
 } // namespace archon::image

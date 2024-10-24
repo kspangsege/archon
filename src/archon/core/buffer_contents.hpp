@@ -55,19 +55,35 @@ public:
 
     explicit BufferContents(buffer_type& buffer) noexcept;
 
+    // Element access
+
     auto operator[](std::size_t) noexcept       -> T&;
     auto operator[](std::size_t) const noexcept -> const T&;
 
-    bool empty() const noexcept;
-    auto size() const noexcept -> std::size_t;
+    auto front() noexcept       -> T&;
+    auto front() const noexcept -> const T&;
+
+    auto back() noexcept       -> T&;
+    auto back() const noexcept -> const T&;
 
     auto data() noexcept       -> T*;
     auto data() const noexcept -> const T*;
 
-    auto begin() noexcept -> iterator;
-    auto end() noexcept   -> iterator;
+    // Iterators
+
+    auto begin() noexcept       -> iterator;
     auto begin() const noexcept -> const_iterator;
-    auto end() const noexcept   -> const_iterator;
+
+    auto end() noexcept       -> iterator;
+    auto end() const noexcept -> const_iterator;
+
+    // Size
+
+    bool empty() const noexcept;
+
+    auto size() const noexcept -> std::size_t;
+
+    // Modifiers
 
     void push_back(const T&);
     void push_back(T&&);
@@ -114,16 +130,30 @@ inline auto BufferContents<T>::operator[](std::size_t i) const noexcept -> const
 
 
 template<class T>
-inline bool BufferContents<T>::empty() const noexcept
+inline auto BufferContents<T>::front() noexcept -> T&
 {
-    return m_size == 0;
+    return operator[](0);
 }
 
 
 template<class T>
-inline auto BufferContents<T>::size() const noexcept -> std::size_t
+inline auto BufferContents<T>::front() const noexcept -> const T&
 {
-    return m_size;
+    return operator[](0);
+}
+
+
+template<class T>
+inline auto BufferContents<T>::back() noexcept -> T&
+{
+    return operator[](size() - 1);
+}
+
+
+template<class T>
+inline auto BufferContents<T>::back() const noexcept -> const T&
+{
+    return operator[](size() - 1);
 }
 
 
@@ -149,13 +179,6 @@ inline auto BufferContents<T>::begin() noexcept -> iterator
 
 
 template<class T>
-inline auto BufferContents<T>::end() noexcept -> iterator
-{
-    return data() + size();
-}
-
-
-template<class T>
 inline auto BufferContents<T>::begin() const noexcept -> const_iterator
 {
     return data();
@@ -163,9 +186,30 @@ inline auto BufferContents<T>::begin() const noexcept -> const_iterator
 
 
 template<class T>
+inline auto BufferContents<T>::end() noexcept -> iterator
+{
+    return data() + size();
+}
+
+
+template<class T>
 inline auto BufferContents<T>::end() const noexcept -> const_iterator
 {
     return data() + size();
+}
+
+
+template<class T>
+inline bool BufferContents<T>::empty() const noexcept
+{
+    return m_size == 0;
+}
+
+
+template<class T>
+inline auto BufferContents<T>::size() const noexcept -> std::size_t
+{
+    return m_size;
 }
 
 
