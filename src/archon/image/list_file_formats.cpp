@@ -47,13 +47,37 @@ void image::list_file_formats(core::File& file, const std::locale& locale, const
             formatter.set_weight(Weight::normal); // Throws
         }
         formatter.close_section(); // Throws
-        core::TextFormatter::MeasureResult result = formatter.measure(0, formatter.get_cursor_state()); // Throws
-        int offset = result.min_width_no_break;
-        core::saturating_add(offset, 2);
+        core::TextFormatter::MeasureResult result_1 = formatter.measure(0, formatter.get_cursor_state()); // Throws
+        int offset_1 = result_1.min_width_no_break;
+        core::saturating_add(offset_1, 2);
+        formatter.format_section(0); // Throws
+        formatter.end_compile();
+        formatter.begin_compile();
+        for (int i = 0; i < n; ++i) {
+            const image::FileFormat& format = registry.get_file_format(i); // Throws
+            using Color = core::TextFormatter::Color;
+            if (format.is_available()) {
+                formatter.set_color(Color::green); // Throws
+                formatter.writeln("available"); // Throws
+                formatter.unset_color(); // Throws
+            }
+            else {
+                formatter.set_color(Color::red); // Throws
+                formatter.writeln("unavailable"); // Throws
+                formatter.unset_color(); // Throws
+            }
+        }
+        formatter.close_section(); // Throws
+        core::TextFormatter::MeasureResult result_2 = formatter.measure(0, formatter.get_cursor_state()); // Throws
+        int offset_2 = offset_1;
+        core::saturating_add(offset_2, result_2.min_width_no_break);
+        core::saturating_add(offset_2, 2);
+        formatter.jump_back(); // Throws
+        formatter.set_offset(offset_1); // Throws
         formatter.format_section(0); // Throws
         formatter.end_compile();
         formatter.jump_back(); // Throws
-        formatter.set_offset(offset); // Throws
+        formatter.set_offset(offset_2); // Throws
         for (int i = 0; i < n; ++i) {
             const image::FileFormat& format = registry.get_file_format(i); // Throws
             formatter.writeln(format.get_descr()); // Throws
