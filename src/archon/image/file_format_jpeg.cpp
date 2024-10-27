@@ -300,6 +300,7 @@ private:
     jpeg_source_mgr m_source_mgr = {};
     jpeg_decompress_struct m_info = {};
     std::unique_ptr<image::WritableImage> m_image;
+    std::unique_ptr<JSAMPLE*[]> m_rows;
 
     static void noop_message_callback(j_common_ptr info, int msg_level) noexcept;
 
@@ -313,8 +314,9 @@ private:
     bool read(std::error_code& ec);
     bool skip(long num_bytes, std::error_code& ec);
 
-    bool create_image_1(J_COLOR_SPACE, int num_channels, JDIMENSION width, JDIMENSION height, std::error_code&);
-    template<class C> void create_image_2(int num_channels, const image::Size&);
+    bool create_image_1(J_COLOR_SPACE, int num_channels, JDIMENSION width, JDIMENSION height, JSAMPLE*& base,
+                        std::error_code&);
+    template<class C> void create_image_2(int num_channels, const image::Size&, JSAMPLE*& base);
 };
 
 
@@ -437,14 +439,26 @@ bool LoadContext::load(std::error_code& ec)
 
         jpeg_start_decompress(&m_info);
 
+        int num_channels = m_info.out_color_components;
         JDIMENSION width  = m_info.output_width;
         JDIMENSION height = m_info.output_height;
-        int num_channels = m_info.out_color_components;
-        if (ARCHON_UNLIKELY(!create_image_1(color_space, num_channels, width, height, ec))) // Throws
+        JSAMPLE* base = {};
+        if (ARCHON_UNLIKELY(!create_image_1(color_space, num_channels, width, height, base, ec))) // Throws
             return false;
         m_tracker_image = &*m_image;
 
-        // FIXME: Read pixels             
+        // NOTE: In a buffered image, the total number of components is representable in
+        // std::size_t, so both the height and the number of components per row must be
+        // representable in std::size_t.
+        std::size_t num_rows = std::size_t(height);
+        std::size_t components_per_row = std::size_t(width * std::size_t(num_channels));
+        m_rows = std::make_unique<JSAMPLE*[]>(num_rows); // Throws
+        for (std::size_t i = 0; i < num_rows; ++i)
+            m_rows[i] = base + i * components_per_row;
+        while (m_info.output_scanline < height) {
+            JDIMENSION n = static_cast<JDIMENSION>(height - m_info.output_scanline);
+            jpeg_read_scanlines(&m_info, m_rows.get() + m_info.output_scanline, n);
+        }
 
         // FIXME: Ensure final progress call with fraction = 1             
 
@@ -563,6 +577,7 @@ bool LoadContext::read(std::error_code& ec)
 bool LoadContext::skip(long num_bytes, std::error_code& ec)
 {
     ARCHON_ASSERT(num_bytes >= 0);
+    using ulong = unsigned long;
     while (ulong(num_bytes) > m_source_mgr.bytes_in_buffer) {
         num_bytes -= m_source_mgr.bytes_in_buffer;
         if (ARCHON_UNLIKELY(!read(ec))) // Throws
@@ -575,7 +590,7 @@ bool LoadContext::skip(long num_bytes, std::error_code& ec)
 
 
 bool LoadContext::create_image_1(J_COLOR_SPACE color_space, int num_channels, JDIMENSION width, JDIMENSION height,
-                                 std::error_code& ec)
+                                 JSAMPLE*& base, std::error_code& ec)
 {
     int width_2 = {}, height_2 = {};
     bool overflow = false;
@@ -590,10 +605,10 @@ bool LoadContext::create_image_1(J_COLOR_SPACE color_space, int num_channels, JD
 
     switch (color_space) {
         case JCS_GRAYSCALE:
-            create_image_2<image::ChannelSpec_Lum>(num_channels, size); // Throws
+            create_image_2<image::ChannelSpec_Lum>(num_channels, size, base); // Throws
             break;
         case JCS_RGB:
-            create_image_2<image::ChannelSpec_RGB>(num_channels, size); // Throws
+            create_image_2<image::ChannelSpec_RGB>(num_channels, size, base); // Throws
             break;
         case JCS_CMYK:
             // FIXME: How can CMYK color space be supported? Documentation does not promize that libjpeg can perform the conversion automatically              
@@ -607,7 +622,7 @@ bool LoadContext::create_image_1(J_COLOR_SPACE color_space, int num_channels, JD
 }
 
 
-template<class C> void LoadContext::create_image_2(int num_channels, const image::Size& size)
+template<class C> void LoadContext::create_image_2(int num_channels, const image::Size& size, JSAMPLE*& base)
 {
     using channel_spec_type = C;
     ARCHON_STEADY_ASSERT(channel_spec_type::num_channels == num_channels);
@@ -617,7 +632,9 @@ template<class C> void LoadContext::create_image_2(int num_channels, const image
     constexpr int bits_per_word = 8;
     using format_type = image::IntegerPixelFormat<channel_spec_type, word_type, bits_per_word>;
     using image_type = image::BufferedImage<format_type>;
-    m_image = std::make_unique<image_type>(size); // Throws
+    std::unique_ptr<image_type> image = std::make_unique<image_type>(size); // Throws
+    base = image->get_buffer().data();
+    m_image = std::move(image);
 }
 
 
