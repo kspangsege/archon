@@ -292,7 +292,7 @@ public:
     ~LoadContext() noexcept;
 
     bool recognize(bool& recognized, std::error_code&);
-    bool load(std::error_code&);
+    bool load(std::unique_ptr<image::WritableImage>&, std::error_code&);
 
 private:
     core::Source& m_source;
@@ -398,7 +398,7 @@ bool LoadContext::recognize(bool& recognized, std::error_code& ec)
 }
 
 
-bool LoadContext::load(std::error_code& ec)
+bool LoadContext::load(std::unique_ptr<image::WritableImage>& image, std::error_code& ec)
 {
     // Long jump safety: No non-volatile automatic variables in the scope from which
     // setjmp() is called (see notes on long jump safety above).
@@ -460,9 +460,12 @@ bool LoadContext::load(std::error_code& ec)
             jpeg_read_scanlines(&m_info, m_rows.get() + m_info.output_scanline, n);
         }
 
-        // FIXME: Ensure final progress call with fraction = 1             
+        jpeg_finish_decompress(&m_info);
 
-        ARCHON_STEADY_ASSERT_UNREACHABLE();     
+        if (ARCHON_UNLIKELY(m_tracker))
+            m_tracker->progress(*m_tracker_image, 1); // Throws
+
+        image = std::move(m_image);
     }
     else {
         // Long jumps from the callback functions land here.
@@ -682,7 +685,7 @@ public:
         static_cast<void>(image);    
         static_cast<void>(loc);    
         LoadContext context(logger, config.tracker, source); // Throws
-        return context.load(ec); // Throws
+        return context.load(image, ec); // Throws
     }
 
     bool do_try_save(const image::Image& image, core::Sink& sink, const std::locale& loc, log::Logger& logger,

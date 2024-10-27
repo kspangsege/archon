@@ -145,7 +145,7 @@ int main(int argc, char* argv[])
         cli::assign(optional_destin_file_format)); // Throws
 
     opt("-P, --progress", "", cli::no_attributes, spec,
-        "Report loading progress.",
+        "Report loading and saving progress.",
         cli::raise_flag(progress)); // Throws
 
     opt("-i, --interlace", "", cli::no_attributes, spec,
