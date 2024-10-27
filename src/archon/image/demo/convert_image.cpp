@@ -76,9 +76,8 @@ public:
     {
     }
 
-    void progress(const image::Image&, int units_completed, int units_total) override
+    void progress(const image::Image&, double fraction) override
     {
-        double fraction = double(units_completed) / units_total;
         if (!is_save) {
             m_logger.info("Load progress: %s", core::as_percent(fraction));
         }

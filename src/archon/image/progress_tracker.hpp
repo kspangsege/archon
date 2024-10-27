@@ -46,24 +46,14 @@ public:
     /// This function is called repeatedly during the loading of, or saving of an image to
     /// inform the application about progress.
     ///
-    /// Progress is measuren in number of units (\p units_completed). A unit is some
-    /// arbitrary amount of work set by the implementation. It may change from one image to
-    /// the next for the same file format.
+    /// Progress is measured as a fraction of the total amount of work (\p fraction). This
+    /// fraction is supposed to generally increase from one notification to the next, but it
+    /// may also decrease (caused by new information about the total amount of work).
     ///
-    /// The progress, as a fraction, can be computed by dividing \p units_completed by \p
-    /// units_total after conversion to floating point type. The total number of units (\p
-    /// units_total) will always be greater than zero, and \p units_complete will always be
-    /// less than, or equal to \p units_total. The application should expect \p units_total
-    /// to generally remain unchanged across notifications, but constancy is not guaranteed.
+    /// In any case, there will be a final invocation of this function where \p fraction is
+    /// exactly equal to 1.
     ///
-    /// The fraction, computed as suggested above, is supposed to increase from one
-    /// notification to the next, or at least not decrease. It is, however, allowed to
-    /// decrease, so the application must be prepared for it.
-    ///
-    /// In any case, there will be a final invocation of this function where \p
-    /// completed_states is equal to \p units_total.
-    ///
-    virtual void progress(const image::Image&, int units_completed, int units_total) = 0;
+    virtual void progress(const image::Image&, double fraction) = 0;
 
     virtual ~ProgressTracker() noexcept = default;
 };

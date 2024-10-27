@@ -46,6 +46,7 @@
 #include <archon/log/logger.hpp>
 #include <archon/image/impl/config.h>
 #include <archon/image/geom.hpp>
+#include <archon/image/standard_channel_spec.hpp>
 #include <archon/image/bit_field.hpp>
 #include <archon/image/buffer_format.hpp>
 #include <archon/image/image.hpp>    
@@ -531,10 +532,12 @@ void progress_callback(png_structp png_ptr, png_uint_32 row, int pass) noexcept
         if (ARCHON_LIKELY(num_rows < ctx.num_rows_at_next_notification))
             return;
 
+        ARCHON_ASSERT(ctx.image);
         ARCHON_ASSERT(num_rows <= ctx.num_rows_total);
         ARCHON_ASSERT(num_rows <= ctx.num_rows_at_next_notification);
         ARCHON_ASSERT(ctx.num_rows_total > 0);
-        ctx.tracker->progress(*ctx.image, num_rows, ctx.num_rows_total); // Throws
+        double fraction = double(num_rows) / ctx.num_rows_total;
+        ctx.tracker->progress(*ctx.image, fraction); // Throws
 
         int remain = ctx.num_rows_total - ctx.num_rows_at_next_notification;
         ctx.num_rows_at_next_notification += std::min(ctx.num_rows_per_notification, remain);
@@ -869,7 +872,8 @@ bool do_load(LoadContext& ctx)
         else {
             for (int i = 0; i < ctx.num_passes; ++i) {
                 png_read_rows(ctx.png_ptr, nullptr, ctx.rows.get(), ctx.height);
-                ctx.tracker->progress(*ctx.image, i + 1, ctx.num_passes); // Throws
+                double fraction = double(i + 1) / ctx.num_passes;
+                ctx.tracker->progress(*ctx.image, fraction); // Throws
             }
         }
 
@@ -1052,7 +1056,8 @@ bool do_save(SaveContext& ctx)
             int num_passes = png_set_interlace_handling(ctx.png_ptr);
             for (int i = 0; i < num_passes; ++i) {
                 png_write_rows(ctx.png_ptr, const_cast<png_byte**>(ctx.rows.get()), ctx.height);
-                ctx.tracker->progress(*ctx.image, i + 1, num_passes); // Throws
+                double fraction = double(i + 1) / num_passes;
+                ctx.tracker->progress(*ctx.image, fraction); // Throws
             }
         }
 
