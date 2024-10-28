@@ -34,6 +34,7 @@
 #include <archon/core/features.h>
 #include <archon/core/span.hpp>
 #include <archon/core/assert.hpp>
+#include <archon/core/as_int.hpp>
 #include <archon/core/misc_error.hpp>
 #include <archon/core/source.hpp>
 #include <archon/core/sink.hpp>
@@ -282,6 +283,26 @@ inline bool is_due_to_invalid_file_contents(int msg_code) noexcept
 }
 
 
+auto string_for_color_space(J_COLOR_SPACE color_space) noexcept -> std::string_view
+{
+    switch (color_space) {
+        case JCS_GRAYSCALE:
+            return "Lum";
+        case JCS_RGB:
+            return "RGB";
+        case JCS_YCbCr:
+            return "YCbCr";
+        case JCS_CMYK:
+            return "CMYK";
+        case JCS_YCCK:
+            return "YCCK";
+        default:
+            break;
+    }
+    return "unknown";
+}
+
+
 // The size of the buffers used for input/output streaming
 constexpr std::size_t g_buffer_size = 4096;
 
@@ -421,7 +442,8 @@ bool LoadContext::load(std::unique_ptr<image::WritableImage>& image, std::error_
         m_info.src = &m_source_mgr;
         jpeg_read_header(&m_info, 1);
 
-        J_COLOR_SPACE color_space = m_info.jpeg_color_space;
+        J_COLOR_SPACE orig_color_space = m_info.jpeg_color_space;
+        J_COLOR_SPACE color_space = orig_color_space;
         switch (color_space) {
             case JCS_YCbCr:
                 color_space = JCS_RGB;
@@ -432,24 +454,34 @@ bool LoadContext::load(std::unique_ptr<image::WritableImage>& image, std::error_
             default:
                 break;
         }
-        // FIXME: Log when color space conversion is selected              
         m_info.out_color_space = color_space;
 
         // FIXME: Progressive / multi-scan mode?                                                   
 
         jpeg_start_decompress(&m_info);
 
-        int num_channels = m_info.out_color_components;
         JDIMENSION width  = m_info.output_width;
         JDIMENSION height = m_info.output_height;
+        m_logger.detail("Image size: %sx%s", core::as_int(width), core::as_int(height)); // Throws
+        m_logger.detail("Data precision: %s", core::as_int(m_info.data_precision)); // Throws
+        if (color_space == orig_color_space) {
+            m_logger.detail("Color space: %s", string_for_color_space(color_space)); // Throws
+        }
+        else {
+            m_logger.detail("Color space: %s -> %s", string_for_color_space(orig_color_space),
+                            string_for_color_space(color_space)); // Throws
+        }
+
+        int num_channels = m_info.out_color_components;
         JSAMPLE* base = {};
         if (ARCHON_UNLIKELY(!create_image_1(color_space, num_channels, width, height, base, ec))) // Throws
             return false;
         m_tracker_image = &*m_image;
 
-        // NOTE: In a buffered image, the total number of components is representable in
-        // std::size_t, so both the height and the number of components per row must be
-        // representable in std::size_t.
+        // NOTE: Construction of a buffered image (archon::image::BufferedImage) would fail
+        // unless the total number of components is representable in std::size_t, so both
+        // the height and the number of components per row must be representable in
+        // std::size_t at this point.
         std::size_t num_rows = std::size_t(height);
         std::size_t components_per_row = std::size_t(width * std::size_t(num_channels));
         m_rows = std::make_unique<JSAMPLE*[]>(num_rows); // Throws
@@ -459,6 +491,10 @@ bool LoadContext::load(std::unique_ptr<image::WritableImage>& image, std::error_
             JDIMENSION n = static_cast<JDIMENSION>(height - m_info.output_scanline);
             jpeg_read_scanlines(&m_info, m_rows.get() + m_info.output_scanline, n);
         }
+
+        // FIXME: Consider supporting bit depths higher than 8. Extracting 16 bits per
+        // component would require use of jpeg16_read_scanlines() above instead of
+        // jpeg_read_scanlines().
 
         jpeg_finish_decompress(&m_info);
 
@@ -604,8 +640,6 @@ bool LoadContext::create_image_1(J_COLOR_SPACE color_space, int num_channels, JD
         return false;
     }
     image::Size size = { width_2, height_2 };
-    m_logger.detail("Image size: %s", size); // Throws
-
     switch (color_space) {
         case JCS_GRAYSCALE:
             create_image_2<image::ChannelSpec_Lum>(num_channels, size, base); // Throws
@@ -614,7 +648,7 @@ bool LoadContext::create_image_1(J_COLOR_SPACE color_space, int num_channels, JD
             create_image_2<image::ChannelSpec_RGB>(num_channels, size, base); // Throws
             break;
         case JCS_CMYK:
-            // FIXME: How can CMYK color space be supported? Documentation does not promize that libjpeg can perform the conversion automatically              
+            // FIXME: How can CMYK color space be supported? Documentation does not promise that libjpeg can perform the conversion automatically              
             ec = image::Error::unsupported_image_parameter;
             return false; // Failure
         default:
@@ -630,13 +664,24 @@ template<class C> void LoadContext::create_image_2(int num_channels, const image
     using channel_spec_type = C;
     ARCHON_STEADY_ASSERT(channel_spec_type::num_channels == num_channels);
 
-    // FIXME: If `word_type` is `unsigned char`, make it `char` instead in the hope that it will reduce the number of template instantiations of image::IntegerPixelFormat                   
-    using word_type = JSAMPLE;
+    // If `word_type` is `unsigned char` (which it is), make it `char` instead in the hope
+    // that it will reduce the number of template instantiations of
+    // image::IntegerPixelFormat. This is possible because a `char` object can be safely
+    // accessed through an `unsigend char` pointer.
+    using word_type = std::conditional_t<std::is_same_v<JSAMPLE, unsigned char>, char, JSAMPLE>;
+
     constexpr int bits_per_word = 8;
     using format_type = image::IntegerPixelFormat<channel_spec_type, word_type, bits_per_word>;
     using image_type = image::BufferedImage<format_type>;
     std::unique_ptr<image_type> image = std::make_unique<image_type>(size); // Throws
-    base = image->get_buffer().data();
+
+    if constexpr (std::is_same_v<JSAMPLE, unsigned char> && std::is_same_v<word_type, char>) {
+        base = reinterpret_cast<unsigned char*>(image->get_buffer().data());
+    }
+    else {
+        base = image->get_buffer().data();
+    }
+
     m_image = std::move(image);
 }
 
