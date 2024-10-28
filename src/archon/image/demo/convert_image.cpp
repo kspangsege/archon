@@ -185,7 +185,7 @@ int main(int argc, char* argv[])
 
         if (progress) {
             progress_tracker.is_save = false;
-            load_config.tracker = &progress_tracker;
+            load_config.progress_tracker = &progress_tracker;
         }
         load_config.logger = &load_logger;
         load_config.registry = &image_file_format_registry;
@@ -232,7 +232,7 @@ int main(int argc, char* argv[])
 
         if (progress) {
             progress_tracker.is_save = true;
-            save_config.tracker = &progress_tracker;
+            save_config.progress_tracker = &progress_tracker;
         }
         save_config.special = &special_save_config_registry;
         save_config.logger = &save_logger;

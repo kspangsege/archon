@@ -142,8 +142,8 @@ protected:
 
     log::Logger& m_logger;
     log::PrefixLogger m_libjpeg_logger;
-    image::ProgressTracker* const m_tracker;
-    const image::Image* m_tracker_image = nullptr;
+    image::ProgressTracker* const m_progress_tracker;
+    const image::Image* m_progress_image = nullptr;
 
     std::jmp_buf m_jmp_buf = {};
 
@@ -163,10 +163,10 @@ private:
 };
 
 
-Context::Context(log::Logger& logger, image::ProgressTracker* tracker)
+Context::Context(log::Logger& logger, image::ProgressTracker* progress_tracker)
     : m_logger(logger)
     , m_libjpeg_logger(m_logger, "libjpeg: ") // Throws
-    , m_tracker(tracker)
+    , m_progress_tracker(progress_tracker)
 {
     jpeg_std_error(&m_error_mgr);
     m_error_mgr.error_exit   = &error_callback;
@@ -258,10 +258,10 @@ void Context::message(j_common_ptr info, int msg_level)
 
 void Context::progress()
 {
-    ARCHON_ASSERT(m_tracker_image);
+    ARCHON_ASSERT(m_progress_image);
     double frac_1 = double(m_progress_mgr.pass_counter) / m_progress_mgr.pass_limit;
     double frac_2 = (m_progress_mgr.completed_passes + frac_1) / m_progress_mgr.total_passes;
-    m_tracker->progress(*m_tracker_image, frac_2); // Throws
+    m_progress_tracker->progress(*m_progress_image, frac_2); // Throws
 }
 
 
@@ -341,8 +341,8 @@ private:
 };
 
 
-LoadContext::LoadContext(log::Logger& logger, image::ProgressTracker* tracker, core::Source& source)
-    : Context(logger, tracker) // Throws
+LoadContext::LoadContext(log::Logger& logger, image::ProgressTracker* progress_tracker, core::Source& source)
+    : Context(logger, progress_tracker) // Throws
     , m_source(source)
 {
     m_buffer = std::make_unique<char[]>(g_buffer_size); // Throws
@@ -433,7 +433,7 @@ bool LoadContext::load(std::unique_ptr<image::WritableImage>& image, std::error_
         m_info.err = &m_error_mgr;
         jpeg_create_decompress(&m_info);
 
-        if (ARCHON_UNLIKELY(m_tracker))
+        if (ARCHON_UNLIKELY(m_progress_tracker))
             m_info.progress = &m_progress_mgr;
 
         // Load comments
@@ -476,7 +476,7 @@ bool LoadContext::load(std::unique_ptr<image::WritableImage>& image, std::error_
         JSAMPLE* base = {};
         if (ARCHON_UNLIKELY(!create_image_1(color_space, num_channels, width, height, base, ec))) // Throws
             return false;
-        m_tracker_image = &*m_image;
+        m_progress_image = &*m_image;
 
         // NOTE: Construction of a buffered image (archon::image::BufferedImage) would fail
         // unless the total number of components is representable in std::size_t, so both
@@ -496,10 +496,12 @@ bool LoadContext::load(std::unique_ptr<image::WritableImage>& image, std::error_
         // component would require use of jpeg16_read_scanlines() above instead of
         // jpeg_read_scanlines().
 
+        // FIXME: Deal with text comments          
+
         jpeg_finish_decompress(&m_info);
 
-        if (ARCHON_UNLIKELY(m_tracker))
-            m_tracker->progress(*m_tracker_image, 1); // Throws
+        if (ARCHON_UNLIKELY(m_progress_tracker))
+            m_progress_tracker->progress(*m_progress_image, 1); // Throws
 
         image = std::move(m_image);
     }
@@ -718,18 +720,17 @@ public:
     bool try_recognize(core::Source& source, bool& recognized, const std::locale&, log::Logger& logger,
                        std::error_code& ec) const override
     {
-        image::ProgressTracker* tracker = nullptr;
-        LoadContext context(logger, tracker, source); // Throws
+        image::ProgressTracker* progress_tracker = nullptr;
+        LoadContext context(logger, progress_tracker, source); // Throws
         return context.recognize(recognized, ec); // Throws
     }
 
     bool do_try_load(core::Source& source, std::unique_ptr<image::WritableImage>& image, const std::locale& loc,
                      log::Logger& logger, const LoadConfig& config, std::error_code& ec) const override
     {
-        // FIXME: Deal with config.provider                 
-        static_cast<void>(image);    
+        // FIXME: Deal with config.image_provider                 
         static_cast<void>(loc);    
-        LoadContext context(logger, config.tracker, source); // Throws
+        LoadContext context(logger, config.progress_tracker, source); // Throws
         return context.load(image, ec); // Throws
     }
 

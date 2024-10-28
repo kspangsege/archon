@@ -37,7 +37,8 @@
 #include <archon/image/image.hpp>
 #include <archon/image/writable_image.hpp>
 #include <archon/image/progress_tracker.hpp>
-#include <archon/image/provider.hpp>
+#include <archon/image/image_provider.hpp>
+#include <archon/image/comment_handler.hpp>
 
 
 namespace archon::image {
@@ -255,7 +256,7 @@ protected:
 /// process as it is invoked through \ref try_load().
 ///
 struct FileFormat::LoadConfig {
-    /// \brief Opportunity to track progress of loading process.
+    /// \brief Track progress of loading process.
     ///
     /// An application that wishes to be notified about progress of the loading process can
     /// instantiate a progress tracker (\ref image::ProgressTracker) and then reference it
@@ -263,13 +264,21 @@ struct FileFormat::LoadConfig {
     ///
     /// \sa \ref image::ProgressTracker.
     ///
-    image::ProgressTracker* tracker = nullptr;
+    image::ProgressTracker* progress_tracker = nullptr;
 
     /// \brief   
     ///
     ///   
     ///
-    image::Provider* provider = nullptr;
+    image::ImageProvider* image_provider = nullptr;
+
+    /// \brief Discover text comments in loaded images.
+    ///
+    /// An application that wishes to be notified about text comments in loaded image files
+    /// can instantiate a comment handler (\ref image::CommentHandler) and then reference it
+    /// here.
+    ///
+    image::CommentHandler* comment_handler = nullptr;
 
     /// \brief Opportunity to pass special configuration parameters to loading process.
     ///
@@ -297,7 +306,7 @@ struct FileFormat::SaveConfig {
     ///
     /// \sa \ref image::ProgressTracker.
     ///
-    image::ProgressTracker* tracker = nullptr;
+    image::ProgressTracker* progress_tracker = nullptr;
 
     /// \brief Opportunity to pass special configuration parameters to saving process.
     ///

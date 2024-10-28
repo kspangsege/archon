@@ -77,7 +77,8 @@ target_sources(Image PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "$
   archon/image/reader.hpp
   archon/image/writer.hpp
   archon/image/progress_tracker.hpp
-  archon/image/provider.hpp
+  archon/image/image_provider.hpp
+  archon/image/comment_handler.hpp
   archon/image/file_format.hpp
   archon/image/file_format_png.hpp
   archon/image/file_format_jpeg.hpp

@@ -75,7 +75,8 @@
 
 // Load / save
 #include <archon/image/progress_tracker.hpp>
-#include <archon/image/provider.hpp>
+#include <archon/image/image_provider.hpp>
+#include <archon/image/comment_handler.hpp>
 #include <archon/image/error.hpp>
 #include <archon/image/file_format.hpp>
 #include <archon/image/file_format_png.hpp>

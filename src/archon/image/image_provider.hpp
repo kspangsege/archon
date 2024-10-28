@@ -18,8 +18,8 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-#ifndef ARCHON_X_IMAGE_X_PROVIDER_HPP
-#define ARCHON_X_IMAGE_X_PROVIDER_HPP
+#ifndef ARCHON_X_IMAGE_X_IMAGE_PROVIDER_HPP
+#define ARCHON_X_IMAGE_X_IMAGE_PROVIDER_HPP
 
 /// \file
 
@@ -31,23 +31,23 @@
 namespace archon::image {
 
 
-/// \brief   
+/// \brief    
 ///
-///   
+///    
 ///
-class Provider {
+class ImageProvider {
 public:
-    /// \brief   
+    /// \brief    
     ///
-    ///   
+    ///    
     ///
-    virtual bool try_provide(image::Size image_size, image::Image::TransferInfo, image::Image*&, image::Pos&,
-                             std::error_code&) = 0;
+    virtual bool try_provide_image(image::Size image_size, image::Image::TransferInfo, image::Image*&, image::Pos&,
+                                   std::error_code&) = 0;
 
-    virtual ~Provider() noexcept = default;
+    virtual ~ImageProvider() noexcept = default;
 };
 
 
 } // namespace archon::image
 
-#endif // ARCHON_X_IMAGE_X_PROVIDER_HPP
+#endif // ARCHON_X_IMAGE_X_IMAGE_PROVIDER_HPP

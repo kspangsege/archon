@@ -55,7 +55,7 @@
 #include <archon/image/subword_pixel_format.hpp>
 #include <archon/image/buffered_image.hpp>
 #include <archon/image/progress_tracker.hpp>
-#include <archon/image/provider.hpp>
+#include <archon/image/image_provider.hpp>
 #include <archon/image/error.hpp>
 #include <archon/image/file_format.hpp>
 #include <archon/image/file_format_png.hpp>
@@ -460,7 +460,7 @@ auto create_image(image::Size size, const Format& format, bool use_short_int, pn
 struct Context {
     bool is_save = false;
     log::Logger* logger = nullptr;
-    image::ProgressTracker* tracker = nullptr;
+    image::ProgressTracker* progress_tracker = nullptr;
 
     // Progress notification
     const image::Image* image = nullptr;
@@ -537,7 +537,7 @@ void progress_callback(png_structp png_ptr, png_uint_32 row, int pass) noexcept
         ARCHON_ASSERT(num_rows <= ctx.num_rows_at_next_notification);
         ARCHON_ASSERT(ctx.num_rows_total > 0);
         double fraction = double(num_rows) / ctx.num_rows_total;
-        ctx.tracker->progress(*ctx.image, fraction); // Throws
+        ctx.progress_tracker->progress(*ctx.image, fraction); // Throws
 
         int remain = ctx.num_rows_total - ctx.num_rows_at_next_notification;
         ctx.num_rows_at_next_notification += std::min(ctx.num_rows_per_notification, remain);
@@ -553,7 +553,7 @@ void progress_callback(png_structp png_ptr, png_uint_32 row, int pass) noexcept
 class LoadContext
     : public Context {
 public:
-    image::Provider* provider = nullptr;
+    image::ImageProvider* image_provider = nullptr;
     core::Source* source = nullptr;
     const std::locale* locale = nullptr;
 
@@ -630,7 +630,7 @@ public:
         }
 
         format = raw_format;
-        if (!provider) {
+        if (!image_provider) {
             // Ask libpng to convert palette-based formats into regular formats
             if (format.color_type == PNG_COLOR_TYPE_PALETTE) {
                 xforms.palette_to_rgb = true;
@@ -694,7 +694,7 @@ public:
         
         image::Image* image_3 = nullptr;
         image::Pos pos;
-        if (ctx.provider->provide(image_size, transfer_info, image_3, pos, ec)) { // Throws
+        if (ctx.image_provider->provide_image(image_size, transfer_info, image_3, pos, ec)) { // Throws
             
             return true;
         }
@@ -862,18 +862,18 @@ bool do_load(LoadContext& ctx)
         // Track progress using callback function, but only when interlacing is not in use
         // (when interlacing is in use, progress is tracked in a different way)
         bool is_interlaced = (ctx.interlace_type != PNG_INTERLACE_NONE);
-        if (ctx.tracker && !is_interlaced)
+        if (ctx.progress_tracker && !is_interlaced)
             png_set_read_status_fn(ctx.png_ptr, progress_callback);
 
         // Read image data
-        if (!is_interlaced || !ctx.tracker) {
+        if (!is_interlaced || !ctx.progress_tracker) {
             png_read_image(ctx.png_ptr, ctx.rows.get());
         }
         else {
             for (int i = 0; i < ctx.num_passes; ++i) {
                 png_read_rows(ctx.png_ptr, nullptr, ctx.rows.get(), ctx.height);
                 double fraction = double(i + 1) / ctx.num_passes;
-                ctx.tracker->progress(*ctx.image, fraction); // Throws
+                ctx.progress_tracker->progress(*ctx.image, fraction); // Throws
             }
         }
 
@@ -890,8 +890,8 @@ bool do_load(LoadContext& ctx)
 
 
 bool load(core::Source& source, std::unique_ptr<image::WritableImage>& image, const std::locale& loc,
-          log::Logger& logger, image::ProgressTracker* tracker, image::Provider* provider, const image::PNGLoadConfig&,
-          std::error_code& ec)
+          log::Logger& logger, image::ProgressTracker* progress_tracker, image::ImageProvider* image_provider,
+          const image::PNGLoadConfig&, std::error_code& ec)
 {
     // FIXME: Read text comments using `png_get_text()`            
 
@@ -907,8 +907,8 @@ bool load(core::Source& source, std::unique_ptr<image::WritableImage>& image, co
 
     LoadContext ctx;
     ctx.logger = &logger;
-    ctx.tracker = tracker;
-    ctx.provider = provider;
+    ctx.progress_tracker = progress_tracker;
+    ctx.image_provider = image_provider;
     ctx.source = &source;
     ctx.locale = &loc;
 
@@ -1015,7 +1015,7 @@ bool do_save(SaveContext& ctx)
 
         // Track progress using callback function, but only when interlacing is not turned
         // on (when interlacing is turned on, progress is tracked in a different way)
-        if (ctx.tracker && !ctx.use_interlacing)
+        if (ctx.progress_tracker && !ctx.use_interlacing)
             png_set_write_status_fn(ctx.png_ptr, progress_callback);
 
         png_byte interlace_type = (ctx.use_interlacing ? PNG_INTERLACE_ADAM7 : PNG_INTERLACE_NONE);
@@ -1049,7 +1049,7 @@ bool do_save(SaveContext& ctx)
             png_set_packswap(ctx.png_ptr);
 
         // Write image data
-        if (!ctx.use_interlacing || !ctx.tracker) {
+        if (!ctx.use_interlacing || !ctx.progress_tracker) {
             png_write_image(ctx.png_ptr, const_cast<png_byte**>(ctx.rows.get()));
         }
         else {
@@ -1057,7 +1057,7 @@ bool do_save(SaveContext& ctx)
             for (int i = 0; i < num_passes; ++i) {
                 png_write_rows(ctx.png_ptr, const_cast<png_byte**>(ctx.rows.get()), ctx.height);
                 double fraction = double(i + 1) / num_passes;
-                ctx.tracker->progress(*ctx.image, fraction); // Throws
+                ctx.progress_tracker->progress(*ctx.image, fraction); // Throws
             }
         }
 
@@ -1079,11 +1079,11 @@ bool do_save(SaveContext& ctx)
 
 
 bool save(const image::Image& image, core::Sink& sink, const std::locale& loc, log::Logger& logger,
-          image::ProgressTracker* tracker, const image::PNGSaveConfig& config, std::error_code& ec)
+          image::ProgressTracker* progress_tracker, const image::PNGSaveConfig& config, std::error_code& ec)
 {
     SaveContext ctx;
     ctx.logger = &logger;
-    ctx.tracker = tracker;
+    ctx.progress_tracker = progress_tracker;
     ctx.sink = &sink;
     ctx.locale = &loc;
 
@@ -1229,8 +1229,8 @@ public:
     bool do_try_load(core::Source& source, std::unique_ptr<image::WritableImage>& image, const std::locale& loc,
                      log::Logger& logger, const LoadConfig& config, std::error_code& ec) const override
     {
-        image::ProgressTracker* tracker = config.tracker;
-        image::Provider* provider = config.provider;
+        image::ProgressTracker* progress_tracker = config.progress_tracker;
+        image::ImageProvider* image_provider = config.image_provider;
         const image::PNGLoadConfig* config_2 = nullptr;
         if (config.special) {
             const image::PNGLoadConfig* config_3 =
@@ -1241,13 +1241,13 @@ public:
         std::optional<image::PNGLoadConfig> config_4;
         if (!config_2)
             config_2 = &config_4.emplace(); // Throws
-        return ::load(source, image, loc, logger, tracker, provider, *config_2, ec); // Throws
+        return ::load(source, image, loc, logger, progress_tracker, image_provider, *config_2, ec); // Throws
     }
 
     bool do_try_save(const image::Image& image, core::Sink& sink, const std::locale& loc, log::Logger& logger,
                      const SaveConfig& config, std::error_code& ec) const override
     {
-        image::ProgressTracker* tracker = config.tracker;
+        image::ProgressTracker* progress_tracker = config.progress_tracker;
         const image::PNGSaveConfig* config_2 = nullptr;
         if (config.special) {
             const image::PNGSaveConfig* config_3 = config.special->get<const image::PNGSaveConfig>();
@@ -1257,7 +1257,7 @@ public:
         std::optional<image::PNGSaveConfig> config_4;
         if (!config_2)
             config_2 = &config_4.emplace(); // Throws
-        return ::save(image, sink, loc, logger, tracker, *config_2, ec); // Throws
+        return ::save(image, sink, loc, logger, progress_tracker, *config_2, ec); // Throws
     }
 };
 
