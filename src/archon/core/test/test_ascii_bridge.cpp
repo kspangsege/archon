@@ -35,6 +35,7 @@
 #include <archon/core/test/locale_utils.hpp>
 #include <archon/log.hpp>                               
 #include <archon/core/hex_dump.hpp>                               
+#include <archon/core/format_encoded.hpp>                               
 
 
 using namespace archon;
@@ -128,8 +129,18 @@ ARCHON_TEST(Core_AsciiBridge_TranscodeNativeMbToAscii)
                 std::size_t buffer_offset_2 = 0;
                 bool error = {};
                 bool complete = codec.decode(state, string, string_offset, end_of_string, buffer_3, buffer_offset_2, error);
-                log::info("================>>> complete = %s, string_offset = %s, buffer_offset = %s, result = %s", complete, string_offset, buffer_offset_2, core::as_hex_dump(core::Span(buffer_3.data(), buffer_offset_2)));                
+                test_context.logger.info("================>>> complete = %s, string_offset = %s, buffer_offset = %s, result = %s", complete, string_offset, buffer_offset_2, core::as_hex_dump(core::Span(buffer_3.data(), buffer_offset_2)));                
                 
+                for (wchar_t ch : std::wstring_view(buffer_3.data(), buffer_offset_2)) {
+                    auto val = std::char_traits<wchar_t>::to_int_type(ch);
+                    char ch_2 = '?';
+                    if (ARCHON_LIKELY(!core::is_negative(val) && val < 128)) {
+                        using traits_type = std::char_traits<char>;
+                        using int_type = traits_type::int_type;
+                        ch_2 = traits_type::to_char_type(int_type(val));
+                    }
+                    test_context.logger.info("    val: %s, char: %s -> %s", val, core::format_enc<wchar_t>("%s", core::quoted_s(std::wstring_view(&ch, 1))), core::quoted_s(std::string_view(&ch_2, 1)));    
+                }
 
                 std::size_t buffer_offset = 0;
                 transcoder.transcode_l(string, buffer_2, buffer_offset);
