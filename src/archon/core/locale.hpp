@@ -150,8 +150,9 @@ bool has_locale(const char* name);
 /// detect whether the specified locale is a Unicode locale. Here, a Unicode locale is to be
 /// understood as one whose internal (wide character) encoding is UCS (Unicode). With
 /// automatic detection, all locales will be considered to be Unicode locales if \ref
-/// ARCHON_WCHAR_IS_UNICODE is true. Otherwise, on some platforms, a locale will still be
-/// considered to be a Unicode locale if its name has a certain form.
+/// ARCHON_WCHAR_IS_UNICODE is true. On some platforms, if \ref ARCHON_WCHAR_IS_UNICODE is
+/// not true, a locale will still be considered to be a Unicode locale if its name has a
+/// certain form.
 ///
 /// Be careful not to confuse this function with \ref assume_utf8_locale().
 ///
