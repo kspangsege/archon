@@ -33,6 +33,8 @@
 #include <archon/core/quote.hpp>
 #include <archon/check.hpp>
 #include <archon/core/test/locale_utils.hpp>
+#include <archon/log.hpp>                               
+#include <archon/core/hex_dump.hpp>                               
 
 
 using namespace archon;
@@ -114,6 +116,21 @@ ARCHON_TEST(Core_AsciiBridge_TranscodeNativeMbToAscii)
                     std::char_traits<char>::to_char_type(0x7F), // DEL
                 };
                 std::string_view string = { bytes, std::size(bytes) };
+
+                
+                core::WideCharCodec::Config config;
+                config.lenient = true; // Automatically produce replacement characters for invalid input
+                core::WideCharCodec codec(locale, config); // Throws
+                std::mbstate_t state = {};
+                std::size_t string_offset = 0;
+                bool end_of_string = true;
+                std::array<wchar_t, 64> buffer_3;
+                std::size_t buffer_offset_2 = 0;
+                bool error = {};
+                bool complete = codec.decode(state, string, string_offset, end_of_string, buffer_3, buffer_offset_2, error);
+                log::info("================>>> complete = %s, string_offset = %s, buffer_offset = %s, result = %s", complete, string_offset, buffer_offset_2, core::as_hex_dump(core::Span(buffer_3.data(), buffer_offset_2)));                
+                
+
                 std::size_t buffer_offset = 0;
                 transcoder.transcode_l(string, buffer_2, buffer_offset);
                 std::string_view string_2 = { buffer_2.data(), buffer_offset };
