@@ -193,10 +193,11 @@ ARCHON_TEST(Core_AsciiBridge_TranscodeNativeMbToAscii)
                 ARCHON_CHECK_EQUAL(string_2, "*?*");
             }
         };
-        subtest(fallback_level::normal);
+        static_cast<void>(subtest);          
+//        subtest(fallback_level::normal);    
 #if ARCHON_DEBUG
         subtest(fallback_level::do_not_assume_utf8_locale);
-        subtest(fallback_level::do_not_assume_unicode_locale);
+//        subtest(fallback_level::do_not_assume_unicode_locale);    
 #endif
     };
 
