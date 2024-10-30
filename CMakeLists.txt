@@ -6,6 +6,12 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_CXX_EXTENSIONS False)
 
+# Use new conformant preprocessor in Visual Studio (introduced in Visual Studio 2019 version
+# 16.5).
+if(MSVC)
+  add_compile_options(/Zc:preprocessor)
+endif()
+
 # For an unknown reason, when using the Cygwin compiler, `-ansi` (or `-std=c++20`)
 # suppresses the automatic setting of `_POSIX_C_SOURCE` when compiling in C++ mode. Judging
 # from regular GCC, this is supposed to happen when compiling in C mode, but not when
