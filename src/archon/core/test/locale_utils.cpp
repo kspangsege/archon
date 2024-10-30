@@ -33,14 +33,11 @@ using core::test::CandidateLocales;
 CandidateLocales::CandidateLocales()
 {
     const char* names[] = {
-        "en_US.UTF-8",
-/*
         "C", "en_US",
         ".UTF-8", ".UTF8",
         "C.UTF-8", "C.UTF8",
         "en_US.UTF-8", "en_US.UTF8",
         "",
-*/
     };
     for (const char* name : names) {
         if (core::has_locale(name)) {
