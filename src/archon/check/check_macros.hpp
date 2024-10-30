@@ -71,6 +71,7 @@
 /// archon::check::TestContext::check_not_greater(), and \ref
 /// archon::check::TestContext::check_not_greater_equal().
 ///
+/// \sa \ref ARCHON_CHECK_IN()
 /// \sa \ref ARCHON_CHECK_DIST_LESS()
 /// \sa \ref ARCHON_CHECK_BETWEEN()
 /// \sa \ref ARCHON_CHECK_APPROXIMATELY_EQUAL()
@@ -86,6 +87,28 @@
 #define ARCHON_CHECK_GREATER_EQUAL(a, b)     X_ARCHON_CHECK_GREATER_EQUAL(a, b)
 #define ARCHON_CHECK_NOT_GREATER(a, b)       X_ARCHON_CHECK_NOT_GREATER(a, b)
 #define ARCHON_CHECK_NOT_GREATER_EQUAL(a, b) X_ARCHON_CHECK_NOT_GREATER_EQUAL(a, b)
+/// \}
+
+
+
+/// \{
+///
+/// \brief Checks involving presence of value in set of values.
+///
+/// `ARCHON_CHECK_IN(val, a, b, ...)` checks that the specified value (\p val) is in the
+/// specified set of values (`a, b, ...`). Likewise, `ARCHON_CHECK_NOT_IN(val, a, b, ...)`
+/// checks that the specified value is not in the specified set of values.
+///
+/// The expansion of these macros assume that a variable named `test_context` of type
+/// `TestContext&` is available (see \ref ARCHON_TEST()).
+///
+/// These macros are implemented in terms of \ref archon::check::TestContext::check_in() and
+/// \ref archon::check::TestContext::check_not_in().
+///
+/// \sa \ref ARCHON_CHECK_EQUAL()
+///
+#define ARCHON_CHECK_IN(val, ...)     X_ARCHON_CHECK_IN(val __VA_OPT__(,) __VA_ARGS__)
+#define ARCHON_CHECK_NOT_IN(val, ...) X_ARCHON_CHECK_NOT_IN(val __VA_OPT__(,) __VA_ARGS__)
 /// \}
 
 
@@ -390,6 +413,15 @@
 
 #define X_ARCHON_CHECK_NOT_GREATER_EQUAL(a, b)                          \
     test_context.check_not_greater_equal(a, b, "ARCHON_CHECK_NOT_GREATER_EQUAL", #a, #b, __FILE__, __LINE__)
+
+
+#define X_ARCHON_CHECK_IN(val, ...)                                     \
+    test_context.check_in(val, "ARCHON_CHECK_IN", #val, #__VA_ARGS__, __FILE__, __LINE__ __VA_OPT__(,) __VA_ARGS__)
+
+
+#define X_ARCHON_CHECK_NOT_IN(val, ...)                                 \
+    test_context.check_not_in(val, "ARCHON_CHECK_NOT_IN", #val, #__VA_ARGS__, __FILE__, __LINE__ \
+                              __VA_OPT__(,) __VA_ARGS__)
 
 
 #define X_ARCHON_CHECK_DIST_LESS(a, b, dist)                            \

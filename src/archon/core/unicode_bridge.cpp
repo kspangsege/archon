@@ -21,18 +21,19 @@
 
 #include <cstddef>
 #include <cwchar>
+#include <iterator>
 #include <array>
 #include <string_view>
 #include <string>
 #include <locale>
 
 #include <archon/core/features.h>
+#include <archon/core/span.hpp>
 #include <archon/core/assert.hpp>
 #include <archon/core/string_span.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/buffer.hpp>
 #include <archon/core/locale.hpp>
-#include <archon/core/char_codec_config.hpp>
 #include <archon/core/char_codec.hpp>
 #include <archon/core/basic_character_set.hpp>
 #include <archon/core/unicode.hpp>
@@ -47,21 +48,32 @@ using core::utf8_to_native_mb_transcoder;
 
 
 
-native_mb_to_utf8_transcoder::native_mb_to_utf8_transcoder(const std::locale& locale)
+native_mb_to_utf8_transcoder::native_mb_to_utf8_transcoder(const std::locale& locale, fallback_level level)
     : m_locale(locale)
     , m_char_mapper(locale) // Throws
+#if ARCHON_DEBUG
+    , m_fallback_level(level)
+#endif
     , m_is_utf8_locale(core::assume_utf8_locale(locale)) // Throws
     , m_is_unicode_locale(core::assume_unicode_locale(locale)) // Throws
 {
+    static_cast<void>(level);
 }
 
 
 void native_mb_to_utf8_transcoder::transcode_l(core::StringSpan<char> string, core::Buffer<char>& buffer,
                                                std::size_t& buffer_offset) const
 {
-    bool force_fallback = false;
+#if ARCHON_DEBUG
+    fallback_level level = m_fallback_level;
+#else
+    constexpr fallback_level level = fallback_level::normal;
+#endif
 
-    if (ARCHON_LIKELY(m_is_utf8_locale && !force_fallback)) {
+    bool allow_assume_utf8_locale    = (int(level) < int(fallback_level::do_not_assume_utf8_locale));
+    bool allow_assume_unicode_locale = (int(level) < int(fallback_level::do_not_assume_unicode_locale));
+
+    if (ARCHON_LIKELY(m_is_utf8_locale && allow_assume_utf8_locale)) {
         buffer.append(string, buffer_offset); // Throws
         return;
     }
@@ -79,15 +91,15 @@ void native_mb_to_utf8_transcoder::transcode_l(core::StringSpan<char> string, co
     bool end_of_string = true;
     std::size_t buffer_offset_2 = buffer_offset;
     bool error = false;
-    std::array<wchar_t, 32> buffer_2;
-    std::array<char, 32> buffer_3;
+    std::array<wchar_t, 64> buffer_2;
+    std::array<char, std::size(buffer_2)> buffer_3;
     for (;;) {
         std::size_t buffer_offset_3 = 0;
         bool complete = codec.decode(state, string, string_offset, end_of_string,
                                      buffer_2, buffer_offset_3, error); // Throws
         ARCHON_ASSERT(!error); // Because lenient mode is used
         std::wstring_view string_2 = { buffer_2.data(), buffer_offset_3 };
-        if (ARCHON_LIKELY(m_is_unicode_locale && !force_fallback)) {
+        if (ARCHON_LIKELY(m_is_unicode_locale && allow_assume_unicode_locale)) {
             core::encode_utf8<wchar_t>(string_2, buffer, buffer_offset_2); // Throws
         }
         else {
@@ -122,56 +134,63 @@ void native_mb_to_utf8_transcoder::transcode_l(core::StringSpan<char> string, co
 
 
 
-utf8_to_native_mb_transcoder::utf8_to_native_mb_transcoder(const std::locale& locale)
+utf8_to_native_mb_transcoder::utf8_to_native_mb_transcoder(const std::locale& locale, fallback_level level)
     : m_locale(locale)
+#if ARCHON_DEBUG
+    , m_fallback_level(level)
+#endif
     , m_is_utf8_locale(core::assume_utf8_locale(locale)) // Throws
     , m_is_unicode_locale(core::assume_unicode_locale(locale)) // Throws
 {
+    static_cast<void>(level);
 }
 
 
 void utf8_to_native_mb_transcoder::transcode_l(core::StringSpan<char> string, core::Buffer<char>& buffer,
                                                std::size_t& buffer_offset) const
 {
-    bool force_fallback = false;
+#if ARCHON_DEBUG
+    fallback_level level = m_fallback_level;
+#else
+    constexpr fallback_level level = fallback_level::normal;
+#endif
 
-    if (ARCHON_LIKELY(m_is_utf8_locale && !force_fallback)) {
+    bool allow_assume_utf8_locale    = (int(level) < int(fallback_level::do_not_assume_utf8_locale));
+    bool allow_assume_unicode_locale = (int(level) < int(fallback_level::do_not_assume_unicode_locale));
+
+    if (ARCHON_LIKELY(m_is_utf8_locale && allow_assume_utf8_locale)) {
         buffer.append(string, buffer_offset); // Throws
         return;
     }
 
     // NOTE: On Windows `wchar_t` is only 16 bits wide, so on Windows,
-    // `core::decode_utf8_incr()` will treat a sequence as invalid if it decodes to a code
+    // `core::decode_utf8_incr_l()` will treat a sequence as invalid if it decodes to a code
     // point that is greater than U+FFFF.
 
     std::array<wchar_t, 64> buffer_2;
     std::size_t string_offset = 0;
-    std::size_t string_size = string.size();
-    core::WideCharCodec codec(m_locale); // Throws
+    core::WideCharCodec::Config config;
+    config.lenient = true; // Automatically produce replacement characters for untranscodable input
+    core::WideCharCodec codec(m_locale, config); // Throws
     std::mbstate_t state = {};
-    std::size_t buffer_offset_3 = 0;
-    while (string_offset < string_size) {
+    std::size_t buffer_offset_3 = buffer_offset;
+    for (;;) {
         std::size_t buffer_offset_2 = 0;
-        for (;;) {
-            bool in_exhausted = {};
-            bool error = {};
-            core::decode_utf8_incr(string, core::Span(buffer_2), string_offset, buffer_offset_2, in_exhausted, error);
-            bool error_2 = (in_exhausted ? string_offset < string_size : error);
-            if (ARCHON_LIKELY(!error_2 || buffer_offset_2 == buffer_2.size()))
-                break;
-            ARCHON_ASSERT(string_offset < string_size);
-            wchar_t replacement = std::char_traits<wchar_t>::to_char_type(0xFFFD);
-            buffer_2[buffer_offset_2] = replacement;
-            buffer_offset_2 += 1;
-            string_offset += 1;
-            core::resync_utf8(string, string_offset);
-        }
+        bool end_of_string = true;
+        bool complete = core::decode_utf8_incr_l(string, core::Span(buffer_2), string_offset, buffer_offset_2,
+                                                 end_of_string);
         std::wstring_view string_2 = { buffer_2.data(), buffer_offset_2 }; // Throws
-        if (ARCHON_LIKELY(m_is_unicode_locale && !force_fallback)) {
+        if (ARCHON_LIKELY(m_is_unicode_locale && allow_assume_unicode_locale)) {
             std::size_t string_offset_2 = 0;
-            bool error_2 = {};
-            bool complete = codec.encode(state, string_2, string_offset_2, buffer, buffer_offset_3, error_2); // Throws
-            ARCHON_ASSERT(complete);
+            for (;;) {
+                bool error = {};
+                bool complete_2 = codec.encode(state, string_2, string_offset_2, buffer, buffer_offset_3,
+                                               error); // Throws
+                if (ARCHON_LIKELY(complete_2))
+                    break;
+                ARCHON_ASSERT(!error); // Because lenient mode is used
+                buffer.expand(buffer_offset_3); // Throws
+            }
             ARCHON_ASSERT(string_offset_2 == string_2.size());
         }
         else {
@@ -183,7 +202,9 @@ void utf8_to_native_mb_transcoder::transcode_l(core::StringSpan<char> string, co
                 buffer.append_a(ch_2, buffer_offset_3); // Throws
             }
         }
+        if (ARCHON_LIKELY(complete))
+            break;
     }
-
+    ARCHON_ASSERT(string_offset == string.size());
     buffer_offset = buffer_offset_3;
 }

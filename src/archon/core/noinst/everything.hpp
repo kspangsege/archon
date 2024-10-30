@@ -108,6 +108,7 @@
 #include <archon/core/string_codec.hpp>
 #include <archon/core/basic_character_set.hpp>
 #include <archon/core/unicode.hpp>
+#include <archon/core/ascii_bridge.hpp>
 #include <archon/core/unicode_bridge.hpp>
 #include <archon/core/memory_input_stream.hpp>
 #include <archon/core/memory_output_stream.hpp>

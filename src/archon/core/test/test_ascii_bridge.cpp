@@ -29,7 +29,7 @@
 #include <archon/core/features.h>
 #include <archon/core/buffer.hpp>
 #include <archon/core/locale.hpp>
-#include <archon/core/unicode_bridge.hpp>
+#include <archon/core/ascii_bridge.hpp>
 #include <archon/core/quote.hpp>
 #include <archon/check.hpp>
 #include <archon/core/test/locale_utils.hpp>
@@ -40,9 +40,9 @@ using namespace archon;
 
 namespace {
 
-auto fallback_level_to_string(core::native_mb_to_utf8_transcoder::fallback_level level) -> std::string_view
+auto fallback_level_to_string(core::native_mb_to_ascii_transcoder::fallback_level level) -> std::string_view
 {
-    using fallback_level = core::native_mb_to_utf8_transcoder::fallback_level;
+    using fallback_level = core::native_mb_to_ascii_transcoder::fallback_level;
     switch (level) {
         case fallback_level::normal:
             return "normal";
@@ -54,9 +54,9 @@ auto fallback_level_to_string(core::native_mb_to_utf8_transcoder::fallback_level
     return {};
 }
 
-auto fallback_level_to_string(core::utf8_to_native_mb_transcoder::fallback_level level) -> std::string_view
+auto fallback_level_to_string(core::ascii_to_native_mb_transcoder::fallback_level level) -> std::string_view
 {
-    using fallback_level = core::utf8_to_native_mb_transcoder::fallback_level;
+    using fallback_level = core::ascii_to_native_mb_transcoder::fallback_level;
     switch (level) {
         case fallback_level::normal:
             return "normal";
@@ -71,11 +71,11 @@ auto fallback_level_to_string(core::utf8_to_native_mb_transcoder::fallback_level
 } // unnamed namespace
 
 
-ARCHON_TEST(Core_UnicodeBridge_TranscodeNativeMbToUtf8)
+ARCHON_TEST(Core_AsciiBridge_TranscodeNativeMbToAscii)
 {
     auto test = [&, &parent_test_context = test_context](const std::locale& locale) {
         ARCHON_TEST_TRAIL(parent_test_context, core::quoted(std::string_view(locale.name())));
-        using fallback_level = core::native_mb_to_utf8_transcoder::fallback_level;
+        using fallback_level = core::native_mb_to_ascii_transcoder::fallback_level;
         auto subtest = [&, &parent_test_context = test_context](fallback_level level) {
             ARCHON_TEST_TRAIL(parent_test_context, fallback_level_to_string(level));
             bool is_utf8 = core::assume_utf8_locale(locale);
@@ -85,7 +85,7 @@ ARCHON_TEST(Core_UnicodeBridge_TranscodeNativeMbToUtf8)
                                        (is_utf8 ? "yes" : "no"), (allow_assume_utf8_locale ? "yes" : "no"),
                                        (allow_assume_unicode_locale ? "yes" : "no"));
 
-            core::native_mb_to_utf8_transcoder transcoder(locale, level);
+            core::native_mb_to_ascii_transcoder transcoder(locale, level);
             std::array<char, 32> seed_memory;
             core::Buffer<char> buffer_1;
             core::Buffer<char> buffer_2(seed_memory);
@@ -110,12 +110,8 @@ ARCHON_TEST(Core_UnicodeBridge_TranscodeNativeMbToUtf8)
             subsubtest(true);  // Starting with nonempty buffer
 
             if (is_utf8 && allow_assume_unicode_locale) {
-                // 4-byte UTF-8 sequence: Hwair (Gothic letter)
                 char bytes[] = {
-                    std::char_traits<char>::to_char_type(0xF0),
-                    std::char_traits<char>::to_char_type(0x90),
-                    std::char_traits<char>::to_char_type(0x8D),
-                    std::char_traits<char>::to_char_type(0x88),
+                    std::char_traits<char>::to_char_type(0x7F), // DEL
                 };
                 std::string_view string = { bytes, std::size(bytes) };
                 std::size_t buffer_offset = 0;
@@ -125,13 +121,9 @@ ARCHON_TEST(Core_UnicodeBridge_TranscodeNativeMbToUtf8)
             }
 
             if (is_utf8 && allow_assume_unicode_locale) {
-                // 4-byte UTF-8 sequence: Hwair (Gothic letter)
                 char bytes[] = {
                     '*',
-                    std::char_traits<char>::to_char_type(0xF0),
-                    std::char_traits<char>::to_char_type(0x90),
-                    std::char_traits<char>::to_char_type(0x8D),
-                    std::char_traits<char>::to_char_type(0x88),
+                    std::char_traits<char>::to_char_type(0x7F), // DEL
                     '*',
                 };
                 std::string_view string = { bytes, std::size(bytes) };
@@ -143,25 +135,34 @@ ARCHON_TEST(Core_UnicodeBridge_TranscodeNativeMbToUtf8)
 
             // Input that is invalid UTF-8
             if (is_utf8 && allow_assume_unicode_locale && !allow_assume_utf8_locale) {
-                char bytes_1[] = {
+                char bytes[] = {
                     '*',
                     std::char_traits<char>::to_char_type(0x90),
                     '*',
                 };
-                std::string_view string = { bytes_1, std::size(bytes_1) };
+                std::string_view string = { bytes, std::size(bytes) };
                 std::size_t buffer_offset = 0;
                 transcoder.transcode_l(string, buffer_2, buffer_offset);
                 std::string_view string_2 = { buffer_2.data(), buffer_offset };
-                // 3-byte UTF-8 sequence: Unicode replacement character
-                char bytes_2[] = {
+                ARCHON_CHECK_EQUAL(string_2, "*?*");
+            }
+
+            // Input that is valid UTF-8 but not representable in ASCII
+            if (is_utf8 && allow_assume_unicode_locale && !allow_assume_utf8_locale) {
+                // 4-byte UTF-8 sequence: Hwair (Gothic letter)
+                char bytes[] = {
                     '*',
-                    std::char_traits<char>::to_char_type(0xEF),
-                    std::char_traits<char>::to_char_type(0xBF),
-                    std::char_traits<char>::to_char_type(0xBD),
+                    std::char_traits<char>::to_char_type(0xF0),
+                    std::char_traits<char>::to_char_type(0x90),
+                    std::char_traits<char>::to_char_type(0x8D),
+                    std::char_traits<char>::to_char_type(0x88),
                     '*',
                 };
-                std::string_view string_3 = { bytes_2, std::size(bytes_2) };
-                ARCHON_CHECK_EQUAL(string_2, string_3);
+                std::string_view string = { bytes, std::size(bytes) };
+                std::size_t buffer_offset = 0;
+                transcoder.transcode_l(string, buffer_2, buffer_offset);
+                std::string_view string_2 = { buffer_2.data(), buffer_offset };
+                ARCHON_CHECK_EQUAL(string_2, "*?*");
             }
         };
         subtest(fallback_level::normal);
@@ -176,11 +177,11 @@ ARCHON_TEST(Core_UnicodeBridge_TranscodeNativeMbToUtf8)
 }
 
 
-ARCHON_TEST(Core_UnicodeBridge_TranscodeUtf8ToNativeMb)
+ARCHON_TEST(Core_AsciiBridge_TranscodeAsciiToNativeMb)
 {
     auto test = [&, &parent_test_context = test_context](const std::locale& locale) {
         ARCHON_TEST_TRAIL(parent_test_context, core::quoted(std::string_view(locale.name())));
-        using fallback_level = core::utf8_to_native_mb_transcoder::fallback_level;
+        using fallback_level = core::ascii_to_native_mb_transcoder::fallback_level;
         auto subtest = [&, &parent_test_context = test_context](fallback_level level) {
             ARCHON_TEST_TRAIL(parent_test_context, fallback_level_to_string(level));
             bool is_utf8 = core::assume_utf8_locale(locale);
@@ -190,7 +191,7 @@ ARCHON_TEST(Core_UnicodeBridge_TranscodeUtf8ToNativeMb)
                                        (is_utf8 ? "yes" : "no"), (allow_assume_utf8_locale ? "yes" : "no"),
                                        (allow_assume_unicode_locale ? "yes" : "no"));
 
-            core::utf8_to_native_mb_transcoder transcoder(locale, level);
+            core::ascii_to_native_mb_transcoder transcoder(locale, level);
             std::array<char, 32> seed_memory;
             core::Buffer<char> buffer_1;
             core::Buffer<char> buffer_2(seed_memory);
@@ -215,12 +216,8 @@ ARCHON_TEST(Core_UnicodeBridge_TranscodeUtf8ToNativeMb)
             subsubtest(true);  // Starting with nonempty buffer
 
             if (is_utf8 && allow_assume_unicode_locale) {
-                // 4-byte UTF-8 sequence: Hwair (Gothic letter)
                 char bytes[] = {
-                    std::char_traits<char>::to_char_type(0xF0),
-                    std::char_traits<char>::to_char_type(0x90),
-                    std::char_traits<char>::to_char_type(0x8D),
-                    std::char_traits<char>::to_char_type(0x88),
+                    std::char_traits<char>::to_char_type(0x7F), // DEL
                 };
                 std::string_view string = { bytes, std::size(bytes) };
                 std::size_t buffer_offset = 0;
@@ -230,13 +227,9 @@ ARCHON_TEST(Core_UnicodeBridge_TranscodeUtf8ToNativeMb)
             }
 
             if (is_utf8 && allow_assume_unicode_locale) {
-                // 4-byte UTF-8 sequence: Hwair (Gothic letter)
                 char bytes[] = {
                     '*',
-                    std::char_traits<char>::to_char_type(0xF0),
-                    std::char_traits<char>::to_char_type(0x90),
-                    std::char_traits<char>::to_char_type(0x8D),
-                    std::char_traits<char>::to_char_type(0x88),
+                    std::char_traits<char>::to_char_type(0x7F), // DEL
                     '*',
                 };
                 std::string_view string = { bytes, std::size(bytes) };
@@ -246,11 +239,11 @@ ARCHON_TEST(Core_UnicodeBridge_TranscodeUtf8ToNativeMb)
                 ARCHON_CHECK_EQUAL(string_2, string);
             }
 
-            // Input that is invalid UTF-8
             if (is_utf8 && allow_assume_unicode_locale && !allow_assume_utf8_locale) {
+                // Invalid ASCII
                 char bytes_1[] = {
                     '*',
-                    std::char_traits<char>::to_char_type(0x90),
+                    std::char_traits<char>::to_char_type(0x80),
                     '*',
                 };
                 std::string_view string = { bytes_1, std::size(bytes_1) };

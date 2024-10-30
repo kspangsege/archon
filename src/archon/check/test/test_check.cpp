@@ -687,9 +687,17 @@ ARCHON_TEST(Check_SpecialCond_Basics)
     };
 
     struct Unordered {
+        constexpr bool operator==(Unordered) const noexcept
+        {
+            return false;
+        }
         constexpr bool operator==(int) const noexcept
         {
             return false;
+        }
+        constexpr auto operator<=>(Unordered) const noexcept
+        {
+            return std::partial_ordering::unordered;
         }
         constexpr auto operator<=>(int) const noexcept
         {
@@ -1023,6 +1031,44 @@ ARCHON_TEST(Check_SpecialCond_Basics)
             ARCHON_CHECK_NOT_DEFINITELY_GREATER(1, nan, 0);
         }));
     }
+
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_IN(1, 1, 2);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_IN(1, 2, 3);
+    }));
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_IN(1, 1, Unordered());
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_IN(1, 2, Unordered());
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_IN(Unordered(), 1, 2);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_IN(Unordered(), 1, Unordered());
+    }));
+
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_NOT_IN(1, 1, 2);
+    }));
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_NOT_IN(1, 2, 3);
+    }));
+    ARCHON_CHECK_NOT(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_NOT_IN(1, 1, Unordered());
+    }));
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_NOT_IN(1, 2, Unordered());
+    }));
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_NOT_IN(Unordered(), 1, 2);
+    }));
+    ARCHON_CHECK(check([&](check::TestContext& test_context) {
+        ARCHON_CHECK_NOT_IN(Unordered(), 1, Unordered());
+    }));
 }
 
 
@@ -1264,5 +1310,21 @@ ARCHON_TEST(Check_SpecialCond_ExactlyOneEvaluationOfEachCheckArgument)
         ARCHON_CHECK_EQUAL(a, 2);
         ARCHON_CHECK_EQUAL(b, 2);
         ARCHON_CHECK_EQUAL(eps, 1);
+    } {
+        int x = 1, a = 1, b = 2;
+        run([&](check::TestContext& test_context) {
+            ARCHON_CHECK_IN(post_incr(x), post_incr(a), post_incr(b));
+        });
+        ARCHON_CHECK_EQUAL(x, 2);
+        ARCHON_CHECK_EQUAL(a, 2);
+        ARCHON_CHECK_EQUAL(b, 3);
+    } {
+        int x = 1, a = 2, b = 3;
+        run([&](check::TestContext& test_context) {
+            ARCHON_CHECK_NOT_IN(post_incr(x), post_incr(a), post_incr(b));
+        });
+        ARCHON_CHECK_EQUAL(x, 2);
+        ARCHON_CHECK_EQUAL(a, 3);
+        ARCHON_CHECK_EQUAL(b, 4);
     }
 }

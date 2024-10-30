@@ -896,6 +896,9 @@ bool try_utf16_to_utf8(core::StringSpan<C> string, core::Buffer<D>& buffer, std:
 /// encoding process stopped because of invalid input. Otherwise the encoding process
 /// stopped because of insufficient output space for the next UTF-8 sequence.
 ///
+/// When both \p in_exhausted and \p error are set to `false` to indicate that there is
+/// insufficient output space, the input is definitely not exhausted.
+///
 /// When \p in_exhausted is set to `true`, \p error has no meaning and is left unchanged by
 /// this function.
 ///
@@ -957,11 +960,14 @@ void encode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
 /// If, upon return, \p in_exhausted is set to `true`, the decoding process stopped because
 /// input was exhausted. Otherwise, if \p error is set to `true`, the decoding process
 /// stopped because of invalid input. Otherwise the decoding process stopped because the
-/// output buffer was full. Input is exhausted when all of the specified input has been
-/// decoded, or when the remaining input is a proper prefix of a valid UTF-8 sequence.
+/// output buffer was full. In this case, input is definitely not exhausted. Input is
+/// exhausted when all of the specified input has been decoded, or when the remaining input
+/// is a proper prefix of a valid UTF-8 sequence.
 ///
-/// When \p in_exhausted is set to `true`, \p error has no meaning and is left unchanged by
-/// this function.
+/// When \p in_exhausted is set to `true` to indicate that input is exhausted, the output
+/// buffer may or may not also be full. On the other hand, when both \p in_exhausted and \p
+/// error are set to `false` to indicate that the buffer is full, input is definitely not
+/// exhausted.
 ///
 /// Note that during each step of an incremental decoding process, there is a chance that
 /// this function will leave behind some unconsumed code units at the end of the specified
@@ -976,7 +982,7 @@ void encode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
 /// When the decoding process is stopped due to invalid input, the application may wish to
 /// skip over some input and attempt to resume the decoding process when possible. Such a
 /// behavior can be effectively implemented using \ref core::resync_utf8(). See also \ref
-/// core::decode_utf8_l() for an example of a function that uses \ref core::resync_utf8().
+/// core::decode_utf8_l() for an example of a function that uses \ref core::resync_utf8().                                                                                             
 ///
 /// Behavior is undefined if, prior to the invocation, \p in_size is greater than
 /// `in.size()` or \p out_offset is greater than `out.size()`.
@@ -1007,6 +1013,37 @@ void decode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
                       bool& in_exhausted, bool& error) noexcept;
 
 
+/// \brief Next step of lenient incremental UTF-8 decoding process.
+///
+/// This function advances an ongoing incremental UTF-8 decoding process just like \ref
+/// core::decode_utf8_incr(). The difference is that this function operates with leniency in
+/// the sense that it accepts invalid input and automatically replaces it with replacement
+/// characters. It is implemented in terms of \ref core::decode_utf8_incr() and \ref
+/// core::resync_utf8().
+///
+/// For the meaning of parameters \p in, \p out, \p in_offset, and \p out_offset, see \ref
+/// core::decode_utf8_incr().
+///
+/// If this function returns `true` and \p end_of_input was `true`, it means that all of the
+/// specified input was decoded. If \p end_of_input was `false`, it means that if any input
+/// remains unconsumed, it must be a prefix of some valid UTF-8 sequence. The idea is that
+/// the caller sets \p end_of_input to `true` when the caller knows that the passed input
+/// includes all of the remaining input for the whole decoding process. The caller then
+/// knows that the decoding process is complete when this function returns `true` and the
+/// end of input for the whole decoding process was included.
+///
+/// If this function returns `false`, it means that output space was exhausted before all
+/// input was decoded. In that case, this function should be called again with at least some
+/// available output space.
+///
+/// \sa \ref core::decode_utf8_incr()
+///    
+///
+template<class C, class D, class T = std::char_traits<C>, class U = std::char_traits<D>>
+bool decode_utf8_incr_l(core::Span<const C> in, core::Span<D> out, std::size_t& in_offset, std::size_t& out_offset,
+                        bool end_of_input) noexcept;
+
+
 /// \brief Next step of incremental UTF-16 encoding process.
 ///
 /// The purpose of this function is to advance an ongoing UTF-16 encoding process. An
@@ -1026,6 +1063,9 @@ void decode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
 /// all of the specified input was encoded. Otherwise, if \p error is set to `true`, the
 /// encoding process stopped because of invalid input. Otherwise the encoding process
 /// stopped because of insufficient output space for the next UTF-16 sequence.
+///
+/// When both \p in_exhausted and \p error are set to `false` to indicate that there is
+/// insufficient output space, the input is definitely not exhausted.
 ///
 /// When \p in_exhausted is set to `true`, \p error has no meaning and is left unchanged by
 /// this function.
@@ -1093,6 +1133,11 @@ void encode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& i
 /// output buffer was full. Input is exhausted when all of the specified input has been
 /// decoded, or when the remaining input is a proper prefix of a valid UTF-16 sequence.
 ///
+/// When \p in_exhausted is set to `true` to indicate that input is exhausted, the output
+/// buffer may or may not also be full. On the other hand, when both \p in_exhausted and \p
+/// error are set to `false` to indicate that the buffer is full, input is definitely not
+/// exhausted.
+///
 /// When \p in_exhausted is set to `true`, \p error has no meaning and is left unchanged by
 /// this function.
 ///
@@ -1159,6 +1204,9 @@ void decode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& i
 /// because there was insufficient output space for the next UTF-16 sequence. Input is
 /// exhausted when all of the specified input has been transcoded, or when the remaining
 /// input is a proper prefix of a valid UTF-8 sequence.
+///
+/// When both \p in_exhausted and \p error are set to `false` to indicate that there is
+/// insufficient output space, the input is definitely not exhausted.
 ///
 /// When \p in_exhausted is set to `true`, \p error has no meaning and is left unchanged by
 /// this function.
@@ -1229,6 +1277,9 @@ void utf8_to_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& 
 /// because there was insufficient output space for the next UTF-8 sequence. Input is
 /// exhausted when all of the specified input has been transcoded, or when the remaining
 /// input is a proper prefix of a valid UTF-16 sequence.
+///
+/// When both \p in_exhausted and \p error are set to `false` to indicate that there is
+/// insufficient output space, the input is definitely not exhausted.
 ///
 /// When \p in_exhausted is set to `true`, \p error has no meaning and is left unchanged by
 /// this function.
@@ -1464,7 +1515,9 @@ void decode_utf8_a(core::StringSpan<C> string, std::size_t& string_offset, core:
         core::decode_utf8_incr<C, D, T, U>(string, buffer, string_offset, buffer_offset, string_exhausted, error);
         if (ARCHON_LIKELY(string_exhausted))
             return;
+        ARCHON_ASSERT(string_offset < string.size());
         if (ARCHON_LIKELY(!error)) {
+            ARCHON_ASSERT(buffer_offset == buffer.size());
             buffer.expand(buffer_offset); // Throws
             continue;
         }
@@ -1574,7 +1627,9 @@ void decode_utf16_a(core::StringSpan<C> string, std::size_t& string_offset, core
         core::decode_utf16_incr<C, D, T, U>(string, buffer, string_offset, buffer_offset, string_exhausted, error);
         if (ARCHON_LIKELY(string_exhausted))
             return;
+        ARCHON_ASSERT(string_offset < string.size());
         if (ARCHON_LIKELY(!error)) {
+            ARCHON_ASSERT(buffer_offset == buffer.size());
             buffer.expand(buffer_offset); // Throws
             continue;
         }
@@ -1628,6 +1683,7 @@ void utf8_to_utf16_a(core::StringSpan<C> string, std::size_t& string_offset, cor
         core::utf8_to_utf16_incr<C, D, T, U>(string, buffer, string_offset, buffer_offset, string_exhausted, error);
         if (ARCHON_LIKELY(string_exhausted))
             return;
+        ARCHON_ASSERT(string_offset < string.size());
         if (ARCHON_LIKELY(!error)) {
             buffer.expand(buffer_offset); // Throws
             continue;
@@ -1684,6 +1740,7 @@ void utf16_to_utf8_a(core::StringSpan<C> string, std::size_t& string_offset, cor
         core::utf16_to_utf8_incr<C, D, T, U>(string, buffer, string_offset, buffer_offset, string_exhausted, error);
         if (ARCHON_LIKELY(string_exhausted))
             return;
+        ARCHON_ASSERT(string_offset < string.size());
         if (ARCHON_LIKELY(!error)) {
             buffer.expand(buffer_offset); // Throws
             continue;
@@ -2058,6 +2115,45 @@ void decode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
 
     in_offset  = std::size_t(i_1 - in.data());
     out_offset = std::size_t(i_2 - out.data());
+}
+
+
+template<class C, class D, class T, class U>
+bool decode_utf8_incr_l(core::Span<const C> in, core::Span<D> out, std::size_t& in_offset, std::size_t& out_offset,
+                        bool end_of_input) noexcept
+{
+    using char_type = D;
+    using traits_type = U;
+    char_type replacement = traits_type::to_char_type(0xFFFD);
+    bool in_exhausted = {};
+    bool error = {};
+    for (;;) {
+        core::decode_utf8_incr<C, D, T, U>(in, out, in_offset, out_offset, in_exhausted, error);
+        if (ARCHON_LIKELY(in_exhausted)) {
+            if (ARCHON_LIKELY(in_offset == in.size() || !end_of_input ))
+                return true;
+            if (ARCHON_LIKELY(out_offset < out.size())) {
+                in_offset = in.size();
+                out[out_offset] = replacement;
+                out_offset += 1;
+                return true;
+            }
+            return false;
+        }
+        if (ARCHON_LIKELY(!error)) {
+            ARCHON_ASSERT(out_offset == out.size());
+            return false;
+        }
+        ARCHON_ASSERT(in_offset < in.size());
+        if (ARCHON_LIKELY(out_offset < out.size())) {
+            out[out_offset] = replacement;
+            out_offset += 1;
+            in_offset += 1;
+            core::resync_utf8<C, T>(in, in_offset);
+            continue;
+        }
+        return false;
+    }
 }
 
 

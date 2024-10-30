@@ -40,10 +40,6 @@ Adopts new cli features from cli/test/test_foo.cpp
 
 
 
-Want: ARCHON_CHECK_IN(var, a, b, c, ...)
-
-
-
 Hmm, why does `CC=gcc-10 CXX=g++-10 sh ./do.sh check -f "Core_TextCodec_EncodePosix" -l off -n 10000000 -t 1` run in half the time of `CC=gcc-10 CXX=g++-10 sh ./do.sh check -f "Core_TextCodec_EncodePosix" -l off -n 10000000 -t 24`? Can something be done about it (maybe using atomic test index)?
 
 

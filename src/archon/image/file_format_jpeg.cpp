@@ -47,6 +47,7 @@
 #include <archon/image/integer_pixel_format.hpp>
 #include <archon/image/buffered_image.hpp>
 #include <archon/image/progress_tracker.hpp>
+#include <archon/image/comment_handler.hpp>
 #include <archon/image/error.hpp>
 #include <archon/image/file_format.hpp>
 #include <archon/image/file_format_jpeg.hpp>
@@ -309,13 +310,14 @@ constexpr std::size_t g_buffer_size = 4096;
 
 class LoadContext : public Context {
 public:
-    LoadContext(log::Logger&, image::ProgressTracker*, core::Source&);
+    LoadContext(log::Logger&, image::ProgressTracker*, image::CommentHandler*, core::Source&);
     ~LoadContext() noexcept;
 
     bool recognize(bool& recognized, std::error_code&);
     bool load(std::unique_ptr<image::WritableImage>&, std::error_code&);
 
 private:
+    image::CommentHandler* const m_comment_handler;
     core::Source& m_source;
     std::unique_ptr<char[]> m_buffer;
     jpeg_source_mgr m_source_mgr = {};
@@ -338,11 +340,15 @@ private:
     bool create_image_1(J_COLOR_SPACE, int num_channels, JDIMENSION width, JDIMENSION height, JSAMPLE*& base,
                         std::error_code&);
     template<class C> void create_image_2(int num_channels, const image::Size&, JSAMPLE*& base);
+
+    void handle_comment(const JOCTET* data, unsigned size);
 };
 
 
-LoadContext::LoadContext(log::Logger& logger, image::ProgressTracker* progress_tracker, core::Source& source)
+LoadContext::LoadContext(log::Logger& logger, image::ProgressTracker* progress_tracker,
+                         image::CommentHandler* comment_handler, core::Source& source)
     : Context(logger, progress_tracker) // Throws
+    , m_comment_handler(comment_handler)
     , m_source(source)
 {
     m_buffer = std::make_unique<char[]>(g_buffer_size); // Throws
@@ -437,7 +443,8 @@ bool LoadContext::load(std::unique_ptr<image::WritableImage>& image, std::error_
             m_info.progress = &m_progress_mgr;
 
         // Load comments
-        jpeg_save_markers(&m_info, JPEG_COM, 0xFFFF);
+        if (m_comment_handler)
+            jpeg_save_markers(&m_info, JPEG_COM, 0xFFFF);
 
         m_info.src = &m_source_mgr;
         jpeg_read_header(&m_info, 1);
@@ -462,8 +469,8 @@ bool LoadContext::load(std::unique_ptr<image::WritableImage>& image, std::error_
 
         JDIMENSION width  = m_info.output_width;
         JDIMENSION height = m_info.output_height;
-        m_logger.detail("Image size: %sx%s", core::as_int(width), core::as_int(height)); // Throws
-        m_logger.detail("Data precision: %s", core::as_int(m_info.data_precision)); // Throws
+        m_logger.detail("Image size: %sx%s pixels", core::as_int(width), core::as_int(height)); // Throws
+        m_logger.detail("Data precision: %s bits", core::as_int(m_info.data_precision)); // Throws
         if (color_space == orig_color_space) {
             m_logger.detail("Color space: %s", string_for_color_space(color_space)); // Throws
         }
@@ -496,12 +503,19 @@ bool LoadContext::load(std::unique_ptr<image::WritableImage>& image, std::error_
         // component would require use of jpeg16_read_scanlines() above instead of
         // jpeg_read_scanlines().
 
-        // FIXME: Deal with text comments          
+        jpeg_saved_marker_ptr text = m_info.marker_list;
+        while (text) {
+            ARCHON_ASSERT(text->marker == JPEG_COM);
+            handle_comment(text->data, text->data_length); // Throws
+            text = text->next;
+        }
 
         jpeg_finish_decompress(&m_info);
 
-        if (ARCHON_UNLIKELY(m_progress_tracker))
-            m_progress_tracker->progress(*m_progress_image, 1); // Throws
+        if (ARCHON_UNLIKELY(m_progress_tracker)) {
+            double fraction = 1;
+            m_progress_tracker->progress(*m_progress_image, fraction); // Throws
+        }
 
         image = std::move(m_image);
     }
@@ -667,7 +681,7 @@ template<class C> void LoadContext::create_image_2(int num_channels, const image
     ARCHON_STEADY_ASSERT(channel_spec_type::num_channels == num_channels);
 
     // If `word_type` is `unsigned char` (which it is), make it `char` instead in the hope
-    // that it will reduce the number of template instantiations of
+    // that this will reduce the number of template instantiations of
     // image::IntegerPixelFormat. This is possible because a `char` object can be safely
     // accessed through an `unsigend char` pointer.
     using word_type = std::conditional_t<std::is_same_v<JSAMPLE, unsigned char>, char, JSAMPLE>;
@@ -685,6 +699,14 @@ template<class C> void LoadContext::create_image_2(int num_channels, const image
     }
 
     m_image = std::move(image);
+}
+
+
+void LoadContext::handle_comment(const JOCTET* data, unsigned size)
+{
+    static_cast<void>(data);        
+    static_cast<void>(size);        
+    ARCHON_STEADY_ASSERT_UNREACHABLE();            
 }
 
 
@@ -721,7 +743,8 @@ public:
                        std::error_code& ec) const override
     {
         image::ProgressTracker* progress_tracker = nullptr;
-        LoadContext context(logger, progress_tracker, source); // Throws
+        image::CommentHandler* comment_handler = nullptr;
+        LoadContext context(logger, progress_tracker, comment_handler, source); // Throws
         return context.recognize(recognized, ec); // Throws
     }
 
@@ -730,7 +753,7 @@ public:
     {
         // FIXME: Deal with config.image_provider                 
         static_cast<void>(loc);    
-        LoadContext context(logger, config.progress_tracker, source); // Throws
+        LoadContext context(logger, config.progress_tracker, config.comment_handler, source); // Throws
         return context.load(image, ec); // Throws
     }
 

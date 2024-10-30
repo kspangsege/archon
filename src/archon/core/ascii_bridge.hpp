@@ -18,8 +18,8 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-#ifndef ARCHON_X_CORE_X_UNICODE_BRIDGE_HPP
-#define ARCHON_X_CORE_X_UNICODE_BRIDGE_HPP
+#ifndef ARCHON_X_CORE_X_ASCII_BRIDGE_HPP
+#define ARCHON_X_CORE_X_ASCII_BRIDGE_HPP
 
 /// \file
 
@@ -36,10 +36,10 @@
 namespace archon::core {
 
 
-/// \brief Transcoder from multi-byte encoding of locale to UTF-8.
+/// \brief Transcoder from multi-byte encoding of locale to ASCII.
 ///
 /// An instance of this class facilitates the transcoding of characters from the native
-/// multi-byte encoding of a particular locale to UTF-8.
+/// multi-byte encoding of a particular locale to ASCII.
 ///
 /// A transcoder of this type is associated with a particular locale, the locale passed to
 /// the constructor. The multi-byte character encoding of that locale must agree on the
@@ -48,10 +48,10 @@ namespace archon::core {
 /// core::try_map_bcs_to_ascii() for more on this.
 ///
 /// \sa \ref core::try_map_bcs_to_ascii()
-/// \sa \ref core::utf8_to_native_mb_transcoder
-/// \sa \ref core::native_mb_to_ascii_transcoder
+/// \sa \ref core::ascii_to_native_mb_transcoder
+/// \sa \ref core::native_mb_to_utf8_transcoder
 ///
-class native_mb_to_utf8_transcoder {
+class native_mb_to_ascii_transcoder {
 public:
     /// \brief Force fallback behavior in debug mode.
     ///
@@ -72,21 +72,21 @@ public:
     /// level is entirely ignored unless the core library is build in debug mode (\ref
     /// ARCHON_DEBUG).
     ///
-    native_mb_to_utf8_transcoder(const std::locale&, fallback_level = fallback_level::normal);
+    native_mb_to_ascii_transcoder(const std::locale&, fallback_level = fallback_level::normal);
 
-    /// \brief Leniently transcode from native encoding to UTF-8.
+    /// \brief Leniently transcode from native encoding to ASCII.
     ///
     /// Given a string expressed in terms of the native encoding of the transcoder, this
-    /// function produces the UTF-8 encoding of that string. The transcoded result is placed
+    /// function produces the ASCII encoding of that string. The transcoded result is placed
     /// in the specified buffer (\p buffer) starting at the specified offset (\p
     /// buffer_offset).
     ///
     /// This function operates in a lenient manner, meaning that an invalid input sequence
-    /// is dealt with by producing a Unicode replacement character (or multiple replacement
-    /// characters).
+    /// is dealt with by producing a replacement character (or multiple replacement
+    /// characters). The replacement character is `?`.
     ///
     /// Upon return, \p buffer_offset will have been set to point one beyond the last byte
-    /// of the produced UTF-8 encoding, or, if the produced UTF-8 encoding is empty, it will
+    /// of the produced ASCII encoding, or, if the produced ASCII encoding is empty, it will
     /// be left unchanged.
     ///
     /// If this function throws, \p buffer_offset is left unchanged, but the buffer may have
@@ -109,9 +109,9 @@ private:
 
 
 
-/// \brief Transcoder from UTF-8 to multi-byte encoding of locale.
+/// \brief Transcoder from ASCII to multi-byte encoding of locale.
 ///
-/// An instance of this class facilitates the transcoding of characters from UTF-8 to the
+/// An instance of this class facilitates the transcoding of characters from ASCII to the
 /// native multi-byte encoding of a particular locale.
 ///
 /// A transcoder of this type is associated with a particular locale, the locale passed to
@@ -121,10 +121,10 @@ private:
 /// core::try_map_bcs_to_ascii() for more on this.
 ///
 /// \sa \ref core::try_map_bcs_to_ascii()
-/// \sa \ref core::native_mb_to_utf8_transcoder
-/// \sa \ref core::ascii_to_native_mb_transcoder
+/// \sa \ref core::native_mb_to_ascii_transcoder
+/// \sa \ref core::utf8_to_native_mb_transcoder
 ///
-class utf8_to_native_mb_transcoder {
+class ascii_to_native_mb_transcoder {
 public:
     /// \brief Force fallback behavior in debug mode.
     ///
@@ -145,11 +145,11 @@ public:
     /// level is entirely ignored unless the core library is build in debug mode (\ref
     /// ARCHON_DEBUG).
     ///
-    utf8_to_native_mb_transcoder(const std::locale&, fallback_level = fallback_level::normal);
+    ascii_to_native_mb_transcoder(const std::locale&, fallback_level = fallback_level::normal);
 
-    /// \brief Leniently transcode from UTF-8 to native encoding.
+    /// \brief Leniently transcode from ASCII to native encoding.
     ///
-    /// Given a string expressed in terms of UTF-8, this function produces the corresponding
+    /// Given a string expressed in terms of ASCII, this function produces the corresponding
     /// string expressed in terms of the native encoding of the transcoder. The transcoded
     /// result is placed in the specified buffer (\p buffer) starting at the specified
     /// offset (\p buffer_offset).
@@ -182,4 +182,4 @@ private:
 
 } // namespace archon::core
 
-#endif // ARCHON_X_CORE_X_UNICODE_BRIDGE_HPP
+#endif // ARCHON_X_CORE_X_ASCII_BRIDGE_HPP

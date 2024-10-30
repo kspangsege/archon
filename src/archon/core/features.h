@@ -41,8 +41,13 @@
 #define ARCHON_CONCAT_4_IMPL(a, b, c, d) a ## b ## c ## d
 
 
-// Debug mode
-//
+/// \def ARCHON_DEBUG
+///
+/// \brief Debug mode compilation for Archon libraries.
+///
+/// When this macro is nonzero, the Archon libraries are compiled in debug mode (as opposed
+/// to release mode).
+///
 #if !defined ARCHON_DEBUG
 #  if !defined NDEBUG
 #    define ARCHON_DEBUG 1
@@ -282,7 +287,7 @@
 
 /// \def ARCHON_NO_UNIQUE_ADDRESS
 ///
-/// \brief Foo bar.
+/// \brief Substitute for 'no unique address' attribute.
 ///
 /// This macro expands to `[[no_unique_address]]` except when compiling with Microsoft
 /// Visual Studio where it expands to `[[msvc::no_unique_address]]` instead.
