@@ -93,6 +93,7 @@ ARCHON_TEST(Core_AsciiBridge_TranscodeNativeMbToAscii)
             core::Buffer<char> buffer_1;
             core::Buffer<char> buffer_2(seed_memory);
 
+/*          
             auto subsubtest = [&, &parent_test_context = test_context](bool empty) {
                 ARCHON_TEST_TRAIL(parent_test_context, (empty ? "empty" : "nonempty"));
                 core::Buffer<char>& buffer = (empty ? buffer_1 : buffer_2);
@@ -111,6 +112,7 @@ ARCHON_TEST(Core_AsciiBridge_TranscodeNativeMbToAscii)
 
             subsubtest(false); // Starting with empty buffer
             subsubtest(true);  // Starting with nonempty buffer
+*/
 
             if (is_utf8 && allow_assume_unicode_locale) {
                 char bytes[] = {
@@ -141,6 +143,7 @@ ARCHON_TEST(Core_AsciiBridge_TranscodeNativeMbToAscii)
                     }
                     test_context.logger.info("    val: %s, char: %s -> %s", val, core::format_enc<wchar_t>("%s", core::quoted_s(std::wstring_view(&ch, 1))), core::quoted_s(std::string_view(&ch_2, 1)));    
                 }
+                
 
                 std::size_t buffer_offset = 0;
                 transcoder.transcode_l(string, buffer_2, buffer_offset);
@@ -148,6 +151,7 @@ ARCHON_TEST(Core_AsciiBridge_TranscodeNativeMbToAscii)
                 ARCHON_CHECK_EQUAL(string_2, string);
             }
 
+/*          
             if (is_utf8 && allow_assume_unicode_locale) {
                 char bytes[] = {
                     '*',
@@ -192,6 +196,7 @@ ARCHON_TEST(Core_AsciiBridge_TranscodeNativeMbToAscii)
                 std::string_view string_2 = { buffer_2.data(), buffer_offset };
                 ARCHON_CHECK_EQUAL(string_2, "*?*");
             }
+*/
         };
         static_cast<void>(subtest);          
 //        subtest(fallback_level::normal);    

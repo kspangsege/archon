@@ -27,6 +27,7 @@
 #include <string_view>
 #include <string>
 #include <locale>
+#include <iostream>                                          
 
 #include <archon/core/features.h>
 #include <archon/core/span.hpp>
@@ -79,6 +80,7 @@ void native_mb_to_ascii_transcoder::transcode_l(core::StringSpan<char> string, c
     std::size_t string_offset = 0;
     std::size_t buffer_offset_2 = buffer_offset;
     if (ARCHON_LIKELY(m_is_utf8_locale && allow_assume_utf8_locale)) {
+        std::cerr << "*1*\n";
         for (;;) {
             std::size_t buffer_offset_3 = 0;
             bool end_of_string = true;
@@ -115,6 +117,7 @@ void native_mb_to_ascii_transcoder::transcode_l(core::StringSpan<char> string, c
 
             std::wstring_view string_2 = { buffer_2.data(), buffer_offset_3 };
             if (m_is_unicode_locale && allow_assume_unicode_locale) {
+                std::cerr << "*2*\n";
                 for (wchar_t ch : string_2) {
                     auto val = std::char_traits<wchar_t>::to_int_type(ch);
                     char ch_2 = '?';
@@ -127,6 +130,7 @@ void native_mb_to_ascii_transcoder::transcode_l(core::StringSpan<char> string, c
                 }
             }
             else {
+                std::cerr << "*3*\n";
                 m_char_mapper.narrow(string_2, '\0', buffer_3.data()); // Throws
                 std::string_view string_3 = { buffer_3.data(), buffer_offset_3 };
                 std::size_t n = string_3.size();
