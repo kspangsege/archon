@@ -48,37 +48,71 @@ using core::native_mb_to_ascii_transcoder;
 using core::ascii_to_native_mb_transcoder;
 
 
+namespace {
+
+
+bool assume_unicode_locale(const std::locale& locale, native_mb_to_ascii_transcoder::fallback_level level)
+{
+    bool is_unicode_locale = core::assume_unicode_locale(locale); // Throws
+#if ARCHON_DEBUG
+    using fallback_level = native_mb_to_ascii_transcoder::fallback_level;
+    switch (level) {
+        case fallback_level::no_unicode_assumption:
+        case fallback_level::no_unicode_or_utf8_assumption:
+            is_unicode_locale = false;
+            break;
+        case fallback_level::normal:
+        case fallback_level::no_utf8_assumption:
+            break;
+    }
+#else
+    static_cast<void>(level);
+#endif
+    return is_unicode_locale;
+}
+
+bool assume_utf8_locale(const std::locale& locale, native_mb_to_ascii_transcoder::fallback_level level)
+{
+    bool is_utf8_locale = core::assume_utf8_locale(locale); // Throws
+#if ARCHON_DEBUG
+    using fallback_level = native_mb_to_ascii_transcoder::fallback_level;
+    switch (level) {
+        case fallback_level::no_utf8_assumption:
+        case fallback_level::no_unicode_or_utf8_assumption:
+            is_utf8_locale = false;
+            break;
+        case fallback_level::normal:
+        case fallback_level::no_unicode_assumption:
+            break;
+    }
+#else
+    static_cast<void>(level);
+#endif
+    return is_utf8_locale;
+}
+
+
+} // unnamed namespace
+
+
 
 native_mb_to_ascii_transcoder::native_mb_to_ascii_transcoder(const std::locale& locale, fallback_level level)
     : m_locale(locale)
     , m_char_mapper(locale) // Throws
-#if ARCHON_DEBUG
-    , m_fallback_level(level)
-#endif
-    , m_is_utf8_locale(core::assume_utf8_locale(locale)) // Throws
-    , m_is_unicode_locale(core::assume_unicode_locale(locale)) // Throws
+    , m_is_unicode_locale(::assume_unicode_locale(locale, level)) // Throws
+    , m_is_utf8_locale(::assume_utf8_locale(locale, level)) // Throws
 {
-    static_cast<void>(level);
 }
 
 
 void native_mb_to_ascii_transcoder::transcode_l(core::StringSpan<char> string, core::Buffer<char>& buffer,
                                                 std::size_t& buffer_offset) const
 {
-#if ARCHON_DEBUG
-    fallback_level level = m_fallback_level;
-#else
-    constexpr fallback_level level = fallback_level::normal;
-#endif
-
-    bool allow_assume_utf8_locale    = (int(level) < int(fallback_level::do_not_assume_utf8_locale));
-    bool allow_assume_unicode_locale = (int(level) < int(fallback_level::do_not_assume_unicode_locale));
-
     std::array<wchar_t, 64> buffer_2;
     std::array<char, std::size(buffer_2)> buffer_3;
     std::size_t string_offset = 0;
     std::size_t buffer_offset_2 = buffer_offset;
-    if (ARCHON_LIKELY(m_is_utf8_locale && allow_assume_utf8_locale)) {
+    if (ARCHON_LIKELY(m_is_utf8_locale)) {
         for (;;) {
             std::size_t buffer_offset_3 = 0;
             bool end_of_string = true;
@@ -114,7 +148,7 @@ void native_mb_to_ascii_transcoder::transcode_l(core::StringSpan<char> string, c
             ARCHON_ASSERT(!error); // Because lenient mode is used
 
             std::wstring_view string_2 = { buffer_2.data(), buffer_offset_3 };
-            if (m_is_unicode_locale && allow_assume_unicode_locale) {
+            if (m_is_unicode_locale) {
                 for (wchar_t ch : string_2) {
                     auto val = std::char_traits<wchar_t>::to_int_type(ch);
                     char ch_2 = '?';
