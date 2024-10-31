@@ -85,25 +85,25 @@ ARCHON_TEST(Core_AsciiBridge_TranscodeNativeMbToAscii)
 
             bool is_unicode = core::assume_unicode_locale(locale);
             bool is_utf8    = core::assume_utf8_locale(locale);
-            bool allow_assume_unicode = true;
-            bool allow_assume_utf8    = true;
+            bool assume_unicode = is_unicode;
+            bool assume_utf8    = is_utf8;
             switch (level) {
                 case fallback_level::normal:
                     break;
                 case fallback_level::no_unicode_assumption:
-                    allow_assume_unicode = false;
+                    assume_unicode = false;
                     break;
                 case fallback_level::no_utf8_assumption:
-                    allow_assume_utf8 = false;
+                    assume_utf8 = false;
                     break;
                 case fallback_level::no_unicode_or_utf8_assumption:
-                    allow_assume_unicode = false;
-                    allow_assume_utf8 = false;
+                    assume_unicode = false;
+                    assume_utf8 = false;
                     break;
             }
-            test_context.logger.detail("is_unicode: %s, is_utf8: %s, allow_assume_unicode: %s, allow_assume_utf8: %s",
-                                       (is_unicode ? "yes" : "no"), (is_utf8 ? "yes" : "no"),
-                                       (allow_assume_unicode ? "yes" : "no"), (allow_assume_utf8 ? "yes" : "no"));
+            test_context.logger.detail("(unicode: %s -> %s, utf8: %s -> %s)",
+                                       (is_unicode ? "yes" : "no"), (assume_unicode ? "yes" : "no"),
+                                       (is_utf8 ? "yes" : "no"), (assume_utf8 ? "yes" : "no"));
 
             core::native_mb_to_ascii_transcoder transcoder(locale, level);
             std::array<char, 32> seed_memory;
@@ -130,7 +130,7 @@ ARCHON_TEST(Core_AsciiBridge_TranscodeNativeMbToAscii)
             subsubtest(true);  // Starting with nonempty buffer
 
             // Input that is valid ASCII but outside the basic character set
-            if (is_unicode && is_utf8 && allow_assume_unicode) {
+            if (is_utf8 && (assume_unicode || assume_utf8)) {
                 char bytes[] = {
                     std::char_traits<char>::to_char_type(0x7F), // DEL
                 };
@@ -141,7 +141,7 @@ ARCHON_TEST(Core_AsciiBridge_TranscodeNativeMbToAscii)
                 std::string_view string_2 = { buffer_2.data(), buffer_offset };
                 ARCHON_CHECK_EQUAL(string_2, string);
             }
-            if (is_unicode && is_utf8 && allow_assume_unicode) {
+            if (is_utf8 && (assume_unicode || assume_utf8)) {
                 char bytes[] = {
                     '*',
                     std::char_traits<char>::to_char_type(0x7F), // DEL
@@ -155,7 +155,7 @@ ARCHON_TEST(Core_AsciiBridge_TranscodeNativeMbToAscii)
             }
 
             // Input that is invalid UTF-8
-            if (is_utf8 && !allow_assume_utf8) {
+            if (is_utf8 && !assume_utf8) {
                 char bytes[] = {
                     '*',
                     std::char_traits<char>::to_char_type(0x90),
@@ -169,7 +169,7 @@ ARCHON_TEST(Core_AsciiBridge_TranscodeNativeMbToAscii)
             }
 
             // Input that is valid UTF-8 but not representable in ASCII
-            if (is_utf8 && !allow_assume_utf8) {
+            if (is_utf8 && !assume_utf8) {
                 // 4-byte UTF-8 sequence: Hwair (Gothic letter)
                 char bytes[] = {
                     '*',
