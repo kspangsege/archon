@@ -36,13 +36,17 @@
 /// \brief Select how to detect Unicode locales.
 ///
 /// The value assigned to this macro controls the behavior of \ref
-/// archon::core::assume_unicode_locale(). The default value (if none is specified), is `1`.
+/// archon::core::assume_unicode_locale(). The default value (if one is not specified), is
+/// `1`.
 ///
 ///   | Value  | Meaning
 ///   |--------|---------------------------------------------------------------
 ///   | 0 (<1) | Do not assume that any locales are Unicode locales.
 ///   | 1      | Auto-detect (see \ref archon::core::assume_unicode_locale()).
 ///   | 2 (>1) | Assume that all locales are Unicode locales.
+///
+/// See \ref archon::core::assume_unicode_locale()) for an explanation of what exactly it
+/// means for a locale to be a *Unicode locale*.
 ///
 /// Be careful not to confuse this macro with \ref ARCHON_ASSUME_UTF8_LOCALE.
 ///
@@ -56,13 +60,16 @@
 /// \brief Select how to detect UTF-8 locales.
 ///
 /// The value assigned to this macro controls the behavior of \ref
-/// archon::core::assume_utf8_locale(). The default value (if none is specified), is `1`.
+/// archon::core::assume_utf8_locale(). The default value (if one is not specified), is `1`.
 ///
 ///   | Value  | Meaning
 ///   |--------|------------------------------------------------------------
 ///   | 0 (<1) | Do not assume that any locales are UTF-8 locales.
 ///   | 1      | Auto-detect (see \ref archon::core::assume_utf8_locale()).
 ///   | 2 (>1) | Assume that all locales are UTF-8 locales.
+///
+/// See \ref archon::core::assume_utf8_locale()) for an explanation of what exactly it means
+/// for a locale to be a *UTF-8 locale*.
 ///
 /// Be careful not to confuse this macro with \ref ARCHON_ASSUME_UNICODE_LOCALE.
 ///
@@ -147,16 +154,22 @@ bool has_locale(const char* name);
 ///
 /// Depending on the value of \ref ARCHON_ASSUME_UNICODE_LOCALE, this function either
 /// returns `false` for all locales, `true` for all locales, or attempts to automatically
-/// detect whether the specified locale is a Unicode locale. Here, a Unicode locale is to be
-/// understood as one whose internal (wide character) encoding is UCS (Unicode). With
-/// automatic detection, all locales will be considered to be Unicode locales if \ref
+/// detect whether the specified locale is a Unicode locale.
+///
+/// In this context, a *Unicode locale* is to be understood as one whose internal (wide
+/// character) encoding is UCS (Unicode).
+///
+/// With automatic detection, all locales will be considered to be Unicode locales if \ref
 /// ARCHON_WCHAR_IS_UNICODE is true. On some platforms, if \ref ARCHON_WCHAR_IS_UNICODE is
 /// not true, a locale will still be considered to be a Unicode locale if its name has a
 /// certain form.
 ///
 /// Be careful not to confuse this function with \ref assume_utf8_locale().
 ///
+/// A Unicode locale may, or may not also be a UTF-8 locale.
+///
 /// \sa \ref ARCHON_ASSUME_UNICODE_LOCALE.
+/// \sa \ref core::assume_utf8_locale()
 ///
 bool assume_unicode_locale(const std::locale&);
 
@@ -167,12 +180,17 @@ bool assume_unicode_locale(const std::locale&);
 /// Depending on the value of \ref ARCHON_ASSUME_UTF8_LOCALE, this function either returns
 /// `false` for all locales, `true` for all locales, or attempts to automatically detect
 /// whether the specified locale is a UTF-8 locale (generally, if its name ends with
-/// `.UTF-8`). Here, a UTF-8 locale is to be understood as one whose external (multi-byte)
+/// `.UTF-8`).
+///
+/// In this context, a *UTF-8 locale* is to be understood as one whose external (multi-byte)
 /// encoding is UTF-8.
 ///
 /// Be careful not to confuse this function with \ref assume_unicode_locale().
 ///
+/// A UTF-8 locale may, or may not also be a Unicode locale.
+///
 /// \sa \ref ARCHON_ASSUME_UTF8_LOCALE.
+/// \sa \ref core::assume_unicode_locale()
 ///
 bool assume_utf8_locale(const std::locale&);
 
