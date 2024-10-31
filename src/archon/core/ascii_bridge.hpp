@@ -81,6 +81,13 @@ public:
     /// is dealt with by producing a replacement character (or multiple replacement
     /// characters). The replacement character is `?`.
     ///
+    /// Besides being lenient with respect to invalid input, this function also operates in
+    /// a best-effort manner in the sense that it does what it can with the information it
+    /// has access to about the multi-byte and wide-character encodings associated with the
+    /// locale of the transcoder. In the worst case, only characters from the basic
+    /// character set will be preserved (\ref core::try_map_bcs_to_ascii()). Characters that
+    /// cannot be preserved will be dealt with like invalid input (see above).
+    ///
     /// Upon return, \p buffer_offset will have been set to point one beyond the last byte
     /// of the produced ASCII encoding, or, if the produced ASCII encoding is empty, it will
     /// be left unchanged.
@@ -147,6 +154,13 @@ public:
     /// This function operates in a lenient manner, meaning that an invalid input sequence
     /// is dealt with by producing a replacement character (or multiple replacement
     /// characters).
+    ///
+    /// Besides being lenient with respect to invalid input, this function also operates in
+    /// a best-effort manner in the sense that it does what it can with the information it
+    /// has access to about the multi-byte and wide-character encodings associated with the
+    /// locale of the transcoder. In the worst case, only characters from the basic
+    /// character set will be preserved (\ref core::try_map_ascii_to_bcs()). Characters that
+    /// cannot be preserved will be dealt with like invalid input (see above).
     ///
     /// Upon return, \p buffer_offset will have been set to point one beyond the last byte
     /// of the produced string, or, if the produced string is empty, it will be left

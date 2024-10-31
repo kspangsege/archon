@@ -105,10 +105,13 @@
 /// These macros are implemented in terms of \ref archon::check::TestContext::check_in() and
 /// \ref archon::check::TestContext::check_not_in().
 ///
+/// Due to limitations of variadic macros, these macros require that at least one value is
+/// specified after \p val.
+///
 /// \sa \ref ARCHON_CHECK_EQUAL()
 ///
-#define ARCHON_CHECK_IN(val, ...)     X_ARCHON_CHECK_IN(val __VA_OPT__(,) __VA_ARGS__)
-#define ARCHON_CHECK_NOT_IN(val, ...) X_ARCHON_CHECK_NOT_IN(val __VA_OPT__(,) __VA_ARGS__)
+#define ARCHON_CHECK_IN(val, ...)     X_ARCHON_CHECK_IN(val, __VA_ARGS__)
+#define ARCHON_CHECK_NOT_IN(val, ...) X_ARCHON_CHECK_NOT_IN(val, __VA_ARGS__)
 /// \}
 
 
