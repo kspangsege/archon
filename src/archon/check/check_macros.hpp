@@ -419,12 +419,11 @@
 
 
 #define X_ARCHON_CHECK_IN(val, ...)                                     \
-    test_context.check_in(val, "ARCHON_CHECK_IN", #val, #__VA_ARGS__, __FILE__, __LINE__ __VA_OPT__(,) __VA_ARGS__)
+    test_context.check_in(val, "ARCHON_CHECK_IN", #val, #__VA_ARGS__, __FILE__, __LINE__, __VA_ARGS__)
 
 
 #define X_ARCHON_CHECK_NOT_IN(val, ...)                                 \
-    test_context.check_not_in(val, "ARCHON_CHECK_NOT_IN", #val, #__VA_ARGS__, __FILE__, __LINE__ \
-                              __VA_OPT__(,) __VA_ARGS__)
+    test_context.check_not_in(val, "ARCHON_CHECK_NOT_IN", #val, #__VA_ARGS__, __FILE__, __LINE__, __VA_ARGS__)
 
 
 #define X_ARCHON_CHECK_DIST_LESS(a, b, dist)                            \
