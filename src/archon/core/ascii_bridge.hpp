@@ -64,7 +64,7 @@ public:
     ///
     /// The overload that takes a fallback level argument is useful for testing and
     /// debugging purposes only. The specified level is entirely ignored unless the core
-    /// library is build in debug mode (\ref ARCHON_DEBUG).
+    /// library is built in debug mode (\ref ARCHON_DEBUG).
     ///
     native_mb_to_ascii_transcoder(const std::locale&);
     native_mb_to_ascii_transcoder(const std::locale&, fallback_level);
@@ -131,7 +131,7 @@ public:
     ///
     /// The overload that takes a fallback level argument is useful for testing and
     /// debugging purposes only. The specified level is entirely ignored unless the core
-    /// library is build in debug mode (\ref ARCHON_DEBUG).
+    /// library is built in debug mode (\ref ARCHON_DEBUG).
     ///
     ascii_to_native_mb_transcoder(const std::locale&);
     ascii_to_native_mb_transcoder(const std::locale&, fallback_level);

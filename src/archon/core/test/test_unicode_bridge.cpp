@@ -46,10 +46,12 @@ auto fallback_level_to_string(core::native_mb_to_utf8_transcoder::fallback_level
     switch (level) {
         case fallback_level::normal:
             return "normal";
-        case fallback_level::do_not_assume_utf8_locale:
-            return "do_not_assume_utf8_locale";
-        case fallback_level::do_not_assume_unicode_locale:
-            return "do_not_assume_unicode_locale";
+        case fallback_level::no_unicode_assumption:
+            return "no_unicode_assumption";
+        case fallback_level::no_utf8_assumption:
+            return "no_utf8_assumption";
+        case fallback_level::no_unicode_or_utf8_assumption:
+            return "no_unicode_or_utf8_assumption";
     }
     return {};
 }
@@ -78,12 +80,28 @@ ARCHON_TEST(Core_UnicodeBridge_TranscodeNativeMbToUtf8)
         using fallback_level = core::native_mb_to_utf8_transcoder::fallback_level;
         auto subtest = [&, &parent_test_context = test_context](fallback_level level) {
             ARCHON_TEST_TRAIL(parent_test_context, fallback_level_to_string(level));
-            bool is_utf8 = core::assume_utf8_locale(locale);
-            bool allow_assume_utf8_locale    = (int(level) < int(fallback_level::do_not_assume_utf8_locale));
-            bool allow_assume_unicode_locale = (int(level) < int(fallback_level::do_not_assume_unicode_locale));
-            test_context.logger.detail("UTF-8 locale: %s (allow assume UTF-8: %s, allow assume Unicode: %s)",
-                                       (is_utf8 ? "yes" : "no"), (allow_assume_utf8_locale ? "yes" : "no"),
-                                       (allow_assume_unicode_locale ? "yes" : "no"));
+
+            bool is_unicode = core::assume_unicode_locale(locale);
+            bool is_utf8    = core::assume_utf8_locale(locale);
+            bool allow_assume_unicode = true;
+            bool allow_assume_utf8    = true;
+            switch (level) {
+                case fallback_level::normal:
+                    break;
+                case fallback_level::no_unicode_assumption:
+                    allow_assume_unicode = false;
+                    break;
+                case fallback_level::no_utf8_assumption:
+                    allow_assume_utf8 = false;
+                    break;
+                case fallback_level::no_unicode_or_utf8_assumption:
+                    allow_assume_unicode = false;
+                    allow_assume_utf8 = false;
+                    break;
+            }
+            test_context.logger.detail("is_unicode: %s, is_utf8: %s, allow_assume_unicode: %s, allow_assume_utf8: %s",
+                                       (is_unicode ? "yes" : "no"), (is_utf8 ? "yes" : "no"),
+                                       (allow_assume_unicode ? "yes" : "no"), (allow_assume_utf8 ? "yes" : "no"));
 
             core::native_mb_to_utf8_transcoder transcoder(locale, level);
             std::array<char, 32> seed_memory;
@@ -109,7 +127,8 @@ ARCHON_TEST(Core_UnicodeBridge_TranscodeNativeMbToUtf8)
             subsubtest(false); // Starting with empty buffer
             subsubtest(true);  // Starting with nonempty buffer
 
-            if (is_utf8 && allow_assume_unicode_locale) {
+            // Input that is valid UTF-8 but outside the basic character set
+            if (is_unicode && is_utf8 && allow_assume_unicode) {
                 // 4-byte UTF-8 sequence: Hwair (Gothic letter)
                 char bytes[] = {
                     std::char_traits<char>::to_char_type(0xF0),
@@ -123,8 +142,7 @@ ARCHON_TEST(Core_UnicodeBridge_TranscodeNativeMbToUtf8)
                 std::string_view string_2 = { buffer_2.data(), buffer_offset };
                 ARCHON_CHECK_EQUAL(string_2, string);
             }
-
-            if (is_utf8 && allow_assume_unicode_locale) {
+            if (is_unicode && is_utf8 && allow_assume_unicode) {
                 // 4-byte UTF-8 sequence: Hwair (Gothic letter)
                 char bytes[] = {
                     '*',
@@ -142,7 +160,7 @@ ARCHON_TEST(Core_UnicodeBridge_TranscodeNativeMbToUtf8)
             }
 
             // Input that is invalid UTF-8
-            if (is_utf8 && allow_assume_unicode_locale && !allow_assume_utf8_locale) {
+            if (is_utf8 && !allow_assume_utf8) {
                 char bytes_1[] = {
                     '*',
                     std::char_traits<char>::to_char_type(0x90),
@@ -164,10 +182,12 @@ ARCHON_TEST(Core_UnicodeBridge_TranscodeNativeMbToUtf8)
                 ARCHON_CHECK_EQUAL(string_2, string_3);
             }
         };
+
         subtest(fallback_level::normal);
 #if ARCHON_DEBUG
-        subtest(fallback_level::do_not_assume_utf8_locale);
-        subtest(fallback_level::do_not_assume_unicode_locale);
+        subtest(fallback_level::no_unicode_assumption);
+        subtest(fallback_level::no_utf8_assumption);
+        subtest(fallback_level::no_unicode_or_utf8_assumption);
 #endif
     };
 
