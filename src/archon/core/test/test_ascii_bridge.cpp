@@ -279,7 +279,7 @@ ARCHON_TEST(Core_AsciiBridge_TranscodeAsciiToNativeMb)
             }
 
             // Input that is invalid ASCII
-            if (is_utf8 && allow_assume_unicode && !allow_assume_utf8) {
+            if (is_unicode && is_utf8 && allow_assume_unicode && !allow_assume_utf8) {
                 char bytes_1[] = {
                     '*',
                     std::char_traits<char>::to_char_type(0x80),
