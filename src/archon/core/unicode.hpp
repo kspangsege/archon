@@ -153,13 +153,12 @@ void decode_utf8(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_
 /// lenient manner, which means that any invalid UTF-8 sequence in the specified string
 /// yields a Unicode replacement character in the resulting string.
 ///
-/// This function is implemented in terms of \ref core::decode_utf8_a() and \ref
-/// core::resync_utf8().
+/// This function is implemented in terms of \ref core::decode_utf8_incr_l().
 ///
 /// Behavior is undefined if \p buffer_offset is greater than `buffer.size()` prior to the
 /// invocation.
 ///
-/// \sa \ref core::decode_utf8(), \ref core::decode_utf8_a(), \ref core::resync_utf8()
+/// \sa \ref core::decode_utf8(), \ref core::decode_utf8_incr_l()
 ///
 /// \sa \ref core::encode_utf8_l(), \ref core::decode_utf16_l(), \ref
 /// core::utf8_to_utf16_l()
@@ -979,10 +978,11 @@ void encode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
 /// specified input covers the end of input for the entire decoding process, the application
 /// should probably consider any unconsumed incomplete UTF-8 sequence as an error.
 ///
-/// When the decoding process is stopped due to invalid input, the application may wish to
-/// skip over some input and attempt to resume the decoding process when possible. Such a
-/// behavior can be effectively implemented using \ref core::resync_utf8(). See also \ref
-/// core::decode_utf8_l() for an example of a function that uses \ref core::resync_utf8().                                                                                             
+/// When the decoding process stops due to invalid input, the application may wish to skip
+/// over some input and attempt to resume the decoding process when possible. Such a
+/// behavior can be effectively implemented using \ref core::resync_utf8(). See \ref
+/// core::decode_utf8_incr_l() for an example of a function that uses \ref
+/// core::resync_utf8().
 ///
 /// Behavior is undefined if, prior to the invocation, \p in_size is greater than
 /// `in.size()` or \p out_offset is greater than `out.size()`.
@@ -1002,8 +1002,7 @@ void encode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
 /// U+D7FF, U+E000 -> U+FFFD, U+10000 -> U+10FFFF). Both `wchar_t` and `char32_t` can be
 /// used here.
 ///
-/// \sa \ref core::decode_utf8(), \ref core::decode_utf8_l(), \ref core::decode_utf8_a(),
-/// \ref core::resync_utf8()
+/// \sa \ref core::decode_utf8(), \ref core::decode_utf8_incr_l(), \ref core::resync_utf8()
 ///
 /// \sa \ref core::encode_utf8_incr(), \ref core::decode_utf16_incr(), \ref
 /// core::utf8_to_utf16_incr()
@@ -1036,8 +1035,10 @@ void decode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
 /// input was decoded. In that case, this function should be called again with at least some
 /// available output space.
 ///
-/// \sa \ref core::decode_utf8_incr()
-///    
+/// \sa \ref core::decode_utf8(), \ref core::decode_utf8_l(), \ref core::decode_utf8_incr()
+///
+/// \sa \ref core::encode_utf8_incr_l(), \ref core::encode_utf16_incr_l(), \ref
+/// core::utf8_to_utf16_incr_l()
 ///
 template<class C, class D, class T = std::char_traits<C>, class U = std::char_traits<D>>
 bool decode_utf8_incr_l(core::Span<const C> in, core::Span<D> out, std::size_t& in_offset, std::size_t& out_offset,
@@ -1151,8 +1152,8 @@ void encode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& i
 /// the end of input for the entire decoding process, the application should probably
 /// consider any unconsumed incomplete UTF-16 sequence as an error.
 ///
-/// When the decoding process is stopped due to invalid input, the application may wish to
-/// skip over some input and attempt to resume the decoding process when possible. Such a
+/// When the decoding process stops due to invalid input, the application may wish to skip
+/// over some input and attempt to resume the decoding process when possible. Such a
 /// behavior can be effectively implemented using \ref core::resync_utf16(). See also \ref
 /// core::decode_utf16_l() for an example of a function that uses \ref core::resync_utf16().
 ///
@@ -1222,11 +1223,10 @@ void decode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& i
 /// process, the application should probably consider any unconsumed incomplete UTF-8
 /// sequence as an error.
 ///
-/// When the transcoding process is stopped due to invalid input, the application may wish
-/// to skip over some input and attempt to resume the transcoding process when
-/// possible. Such a behavior can be effectively implemented using \ref
-/// core::resync_utf8(). See also \ref core::utf8_to_utf16_l() for an example of a function
-/// that uses \ref core::resync_utf8().
+/// When the transcoding process stops due to invalid input, the application may wish to
+/// skip over some input and attempt to resume the transcoding process when possible. Such a
+/// behavior can be effectively implemented using \ref core::resync_utf8(). See also \ref
+/// core::utf8_to_utf16_l() for an example of a function that uses \ref core::resync_utf8().
 ///
 /// Behavior is undefined if, prior to the invocation, \p in_size is greater than
 /// `in.size()` or \p out_offset is greater than `out.size()`.
@@ -1295,11 +1295,11 @@ void utf8_to_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& 
 /// application should probably consider any unconsumed incomplete UTF-16 sequence as an
 /// error.
 ///
-/// When the transcoding process is stopped due to invalid input, the application may wish
-/// to skip over some input and attempt to resume the transcoding process when
-/// possible. Such a behavior can be effectively implemented using \ref
-/// core::resync_utf16(). See also \ref core::utf16_to_utf8_l() for an example of a function
-/// that uses \ref core::resync_utf16().
+/// When the transcoding process stops due to invalid input, the application may wish to
+/// skip over some input and attempt to resume the transcoding process when possible. Such a
+/// behavior can be effectively implemented using \ref core::resync_utf16(). See also \ref
+/// core::utf16_to_utf8_l() for an example of a function that uses \ref
+/// core::resync_utf16().
 ///
 /// Behavior is undefined if, prior to the invocation, \p in_size is greater than
 /// `in.size()` or \p out_offset is greater than `out.size()`.
