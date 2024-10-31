@@ -1484,23 +1484,16 @@ template<class C, class D, class T, class U>
 void decode_utf8_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
     std::size_t string_offset = 0;
-    std::size_t buffer_offset_2 = buffer_offset;
     for (;;) {
-        core::decode_utf8_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
-        bool success = (string_offset == string.size());
-        if (ARCHON_LIKELY(success)) {
-            buffer_offset = buffer_offset_2;
+        bool end_of_string = true;
+        bool complete = core::decode_utf8_incr_l<C, D, T, U>(string, buffer, string_offset, buffer_offset,
+                                                             end_of_string);
+        if (ARCHON_LIKELY(complete)) {
+            ARCHON_ASSERT(string_offset == string.size());
             return;
         }
         ARCHON_ASSERT(string_offset < string.size());
-        string_offset += 1;
-        core::resync_utf8<C, T>(string, string_offset);
-        using char_type = D;
-        using traits_type = U;
-        char_type replacement[] = {
-            traits_type::to_char_type(0xFFFD),
-        };
-        buffer.append(replacement, buffer_offset); // Throws
+        buffer.expand(buffer_offset); // Throws
     }
 }
 
