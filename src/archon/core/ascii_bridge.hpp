@@ -119,26 +119,23 @@ private:
 ///
 class ascii_to_native_mb_transcoder {
 public:
-    /// \brief Force fallback behavior in debug mode.
-    ///
-    /// When the core library is compiled in debug mode (\ref ARCHON_DEBUG), the transcoder
-    /// can be put into one of several fallback modes where it abstains from taking
-    /// shortcuts in its implementation even when such shortcuts are available. This allows
-    /// for testing of the fallback behavior. It is intended only for that purpose.
-    ///
-    enum class fallback_level { normal, do_not_assume_utf8_locale, do_not_assume_unicode_locale };
+    enum class fallback_level;
 
+    /// \{
+    ///
     /// \brief Construct transcoder for particular locale.
     ///
-    /// This constructor constructs a transcoder for the specified locale. That locale must
+    /// These constructors construct a transcoder for the specified locale. That locale must
     /// agree on the encoding of the basic character set with the multi-byte encoding of the
     /// execution character set, i.e., the encoding of plain character literals.
     ///
-    /// The fallback level is useful for testing and debugging purposes only. The specified
-    /// level is entirely ignored unless the core library is build in debug mode (\ref
-    /// ARCHON_DEBUG).
+    /// The overload that takes a fallback level argument is useful for testing and
+    /// debugging purposes only. The specified level is entirely ignored unless the core
+    /// library is build in debug mode (\ref ARCHON_DEBUG).
     ///
-    ascii_to_native_mb_transcoder(const std::locale&, fallback_level = fallback_level::normal);
+    ascii_to_native_mb_transcoder(const std::locale&);
+    ascii_to_native_mb_transcoder(const std::locale&, fallback_level);
+    /// \}
 
     /// \brief Leniently transcode from ASCII to native encoding.
     ///
@@ -165,11 +162,8 @@ public:
 
 private:
     std::locale m_locale;
-#if ARCHON_DEBUG
-    fallback_level m_fallback_level;
-#endif
-    bool m_is_utf8_locale;
     bool m_is_unicode_locale;
+    bool m_is_utf8_locale;
 };
 
 
@@ -189,6 +183,21 @@ enum class native_mb_to_ascii_transcoder::fallback_level {
 };
 
 
+/// \brief Force fallback behavior in debug mode.
+///
+/// When the core library is compiled in debug mode (\ref ARCHON_DEBUG), the transcoder can
+/// be put into one of several fallback modes where it abstains from taking shortcuts in its
+/// implementation even when such shortcuts are available. This allows for testing of the
+/// fallback behavior. It is intended for that purpose only.
+///
+enum class ascii_to_native_mb_transcoder::fallback_level {
+    normal,                        ///< Normal mode.
+    no_unicode_assumption,         ///< Do not assume that locale is Unicode (\ref core::assume_unicode_locale()).
+    no_utf8_assumption,            ///< Do not assume that locale is UTF-8 (\ref core::assume_utf8_locale()).
+    no_unicode_or_utf8_assumption, ///< Neither assume that locale is Unicode, nor that it is UTF-8.
+};
+
+
 
 
 
@@ -200,6 +209,12 @@ enum class native_mb_to_ascii_transcoder::fallback_level {
 
 inline native_mb_to_ascii_transcoder::native_mb_to_ascii_transcoder(const std::locale& locale)
     : native_mb_to_ascii_transcoder(locale, fallback_level::normal) // Throws
+{
+}
+
+
+inline ascii_to_native_mb_transcoder::ascii_to_native_mb_transcoder(const std::locale& locale)
+    : ascii_to_native_mb_transcoder(locale, fallback_level::normal) // Throws
 {
 }
 
