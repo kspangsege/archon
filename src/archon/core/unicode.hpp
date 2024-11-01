@@ -27,6 +27,8 @@
 #include <cstddef>
 #include <cstdint>
 #include <type_traits>
+#include <iterator>
+#include <algorithm>
 #include <stdexcept>
 #include <string>
 
@@ -103,11 +105,9 @@ void encode_utf8_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::siz
 /// Upon return, if \p string_offset is equal to `string.size()`, the encoding process
 /// completed. Otherwise, it stopped because of an invalid code point.
 ///
-/// If this function throws, \p string_offset may, or may not have been advanced, but if it
-/// has been advanced, \p buffer_offset will have been advanced accordingly. If \p
-/// string_offset was not advanced, \p buffer_offset will also not have been advanced. Also,
-/// the buffer may have been expanded, and the buffer contents beyond \p buffer_offset may
-/// have been clobbered.
+/// If this function throws, \p string_offset and \p buffer_offset are guaranteed to be
+/// unchanged, but buffer memory may have been reallocated, and buffer contents beyond \p
+/// buffer_offset may have been clobbered.
 ///
 /// Behavior is undefined if, prior to the invocation, \p string_size is greater than
 /// `string.size()` or \p buffer_offset is greater than `buffer.size()`.
@@ -188,11 +188,9 @@ void decode_utf8_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::siz
 /// completed. Otherwise, it stopped because of an invalid UTF-8 sequence. An incomplete
 /// UTF-8 sequence at the end of the specified string will be considered invalid.
 ///
-/// If this function throws, \p string_offset may, or may not have been advanced, but if it
-/// has been advanced, \p buffer_offset will have been advanced accordingly. If \p
-/// string_offset was not advanced, \p buffer_offset will also not have been advanced. Also,
-/// the buffer may have been expanded, and the buffer contents beyond \p buffer_offset may
-/// have been clobbered.
+/// If this function throws, \p string_offset and \p buffer_offset are guaranteed to be
+/// unchanged, but buffer memory may have been reallocated, and buffer contents beyond \p
+/// buffer_offset may have been clobbered.
 ///
 /// Behavior is undefined if, prior to the invocation, \p string_size is greater than
 /// `string.size()` or \p buffer_offset is greater than `buffer.size()`.
@@ -272,11 +270,9 @@ void encode_utf16_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::si
 /// Upon return, if \p string_offset is equal to `string.size()`, the encoding process
 /// completed. Otherwise, it stopped because of an invalid code point.
 ///
-/// If this function throws, \p string_offset may, or may not have been advanced, but if it
-/// has been advanced, \p buffer_offset will have been advanced accordingly. If \p
-/// string_offset was not advanced, \p buffer_offset will also not have been advanced. Also,
-/// the buffer may have been expanded, and the buffer contents beyond \p buffer_offset may
-/// have been clobbered.
+/// If this function throws, \p string_offset and \p buffer_offset are guaranteed to be
+/// unchanged, but buffer memory may have been reallocated, and buffer contents beyond \p
+/// buffer_offset may have been clobbered.
 ///
 /// Behavior is undefined if, prior to the invocation, \p string_size is greater than
 /// `string.size()` or \p buffer_offset is greater than `buffer.size()`.
@@ -368,11 +364,9 @@ void decode_utf16_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::si
 /// completed. Otherwise, it stopped because of an invalid UTF-16 sequence. An incomplete
 /// UTF-16 sequence at the end of the specified string will be considered invalid.
 ///
-/// If this function throws, \p string_offset may, or may not have been advanced, but if it
-/// has been advanced, \p buffer_offset will have been advanced accordingly. If \p
-/// string_offset was not advanced, \p buffer_offset will also not have been advanced. Also,
-/// the buffer may have been expanded, and the buffer contents beyond \p buffer_offset may
-/// have been clobbered.
+/// If this function throws, \p string_offset and \p buffer_offset are guaranteed to be
+/// unchanged, but buffer memory may have been reallocated, and buffer contents beyond \p
+/// buffer_offset may have been clobbered.
 ///
 /// Behavior is undefined if, prior to the invocation, \p string_size is greater than
 /// `string.size()` or \p buffer_offset is greater than `buffer.size()`.
@@ -458,11 +452,9 @@ void utf8_to_utf16_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::s
 /// completed. Otherwise, it stopped because of an invalid UTF-8 sequence. An incomplete
 /// UTF-8 sequence at the end of the specified string will be considered invalid.
 ///
-/// If this function throws, \p string_offset may, or may not have been advanced, but if it
-/// has been advanced, \p buffer_offset will have been advanced accordingly. If \p
-/// string_offset was not advanced, \p buffer_offset will also not have been advanced. Also,
-/// the buffer may have been expanded, and the buffer contents beyond \p buffer_offset may
-/// have been clobbered.
+/// If this function throws, \p string_offset and \p buffer_offset are guaranteed to be
+/// unchanged, but buffer memory may have been reallocated, and buffer contents beyond \p
+/// buffer_offset may have been clobbered.
 ///
 /// Behavior is undefined if, prior to the invocation, \p string_size is greater than
 /// `string.size()` or \p buffer_offset is greater than `buffer.size()`.
@@ -557,11 +549,9 @@ void utf16_to_utf8_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::s
 /// completed. Otherwise, it stopped because of an invalid UTF-16 sequence. An incomplete
 /// UTF-16 sequence at the end of the specified string will be considered invalid.
 ///
-/// If this function throws, \p string_offset may, or may not have been advanced, but if it
-/// has been advanced, \p buffer_offset will have been advanced accordingly. If \p
-/// string_offset was not advanced, \p buffer_offset will also not have been advanced. Also,
-/// the buffer may have been expanded, and the buffer contents beyond \p buffer_offset may
-/// have been clobbered.
+/// If this function throws, \p string_offset and \p buffer_offset are guaranteed to be
+/// unchanged, but buffer memory may have been reallocated, and buffer contents beyond \p
+/// buffer_offset may have been clobbered.
 ///
 /// Behavior is undefined if, prior to the invocation, \p string_size is greater than
 /// `string.size()` or \p buffer_offset is greater than `buffer.size()`.
@@ -598,8 +588,9 @@ void utf16_to_utf8_a(core::StringSpan<C> string, std::size_t& string_offset, cor
 /// unchanged. In this case, the buffer may have been expanded, and buffer contents beyond
 /// \p buffer_offset may have been clobbered.
 ///
-/// If this function throws, \p buffer_offset will be unchanged, but the buffer may have
-/// been expanded, and buffer contents beyond \p buffer_offset may have been clobbered.
+/// If this function throws, \p buffer_offset is guaranteed to be unchanged, but buffer
+/// memory may have been reallocated, and buffer contents beyond \p buffer_offset may have
+/// been clobbered.
 ///
 /// Behavior is undefined if \p buffer_offset is greater than `buffer.size()` prior to the
 /// invocation.
@@ -646,8 +637,9 @@ bool try_encode_utf8(core::StringSpan<C> string, core::Buffer<D>& buffer, std::s
 /// unchanged. In this case, the buffer may have been expanded, and buffer contents beyond
 /// \p buffer_offset may have been clobbered.
 ///
-/// If this function throws, \p buffer_offset will be unchanged, but the buffer may have
-/// been expanded, and buffer contents beyond \p buffer_offset may have been clobbered.
+/// If this function throws, \p buffer_offset is guaranteed to be unchanged, but buffer
+/// memory may have been reallocated, and buffer contents beyond \p buffer_offset may have
+/// been clobbered.
 ///
 /// Behavior is undefined if \p buffer_offset is greater than `buffer.size()` prior to the
 /// invocation.
@@ -698,8 +690,9 @@ bool try_decode_utf8(core::StringSpan<C> string, core::Buffer<D>& buffer, std::s
 /// unchanged. In this case, the buffer may have been expanded, and buffer contents beyond
 /// \p buffer_offset may have been clobbered.
 ///
-/// If this function throws, \p buffer_offset will be unchanged, but the buffer may have
-/// been expanded, and buffer contents beyond \p buffer_offset may have been clobbered.
+/// If this function throws, \p buffer_offset is guaranteed to be unchanged, but buffer
+/// memory may have been reallocated, and buffer contents beyond \p buffer_offset may have
+/// been clobbered.
 ///
 /// Behavior is undefined if \p buffer_offset is greater than `buffer.size()` prior to the
 /// invocation.
@@ -748,8 +741,9 @@ bool try_encode_utf16(core::StringSpan<C> string, core::Buffer<D>& buffer, std::
 /// unchanged. In this case, the buffer may have been expanded, and buffer contents beyond
 /// \p buffer_offset may have been clobbered.
 ///
-/// If this function throws, \p buffer_offset will be unchanged, but the buffer may have
-/// been expanded, and buffer contents beyond \p buffer_offset may have been clobbered.
+/// If this function throws, \p buffer_offset is guaranteed to be unchanged, but buffer
+/// memory may have been reallocated, and buffer contents beyond \p buffer_offset may have
+/// been clobbered.
 ///
 /// Behavior is undefined if \p buffer_offset is greater than `buffer.size()` prior to the
 /// invocation.
@@ -797,8 +791,9 @@ bool try_decode_utf16(core::StringSpan<C> string, core::Buffer<D>& buffer, std::
 /// unchanged. In this case, the buffer may have been expanded, and buffer contents beyond
 /// \p buffer_offset may have been clobbered.
 ///
-/// If this function throws, \p buffer_offset will be unchanged, but the buffer may have
-/// been expanded, and buffer contents beyond \p buffer_offset may have been clobbered.
+/// If this function throws, \p buffer_offset is guaranteed to be unchanged, but buffer
+/// memory may have been reallocated, and buffer contents beyond \p buffer_offset may have
+/// been clobbered.
 ///
 /// Behavior is undefined if \p buffer_offset is greater than `buffer.size()` prior to the
 /// invocation.
@@ -846,8 +841,9 @@ bool try_utf8_to_utf16(core::StringSpan<C> string, core::Buffer<D>& buffer, std:
 /// unchanged. In this case, the buffer may have been expanded, and buffer contents beyond
 /// \p buffer_offset may have been clobbered.
 ///
-/// If this function throws, \p buffer_offset will be unchanged, but the buffer may have
-/// been expanded, and buffer contents beyond \p buffer_offset may have been clobbered.
+/// If this function throws, \p buffer_offset is guaranteed to be unchanged, but buffer
+/// memory may have been reallocated, and buffer contents beyond \p buffer_offset may have
+/// been clobbered.
 ///
 /// Behavior is undefined if \p buffer_offset is greater than `buffer.size()` prior to the
 /// invocation.
@@ -946,15 +942,14 @@ void encode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
 /// This function advances an ongoing incremental UTF-8 encoding process just like \ref
 /// core::encode_utf8_incr(). The difference is that this function operates with leniency in
 /// the sense that it accepts invalid input and automatically replaces it with replacement
-/// characters. It is implemented in terms of \ref core::encode_utf8_incr() and \ref
-/// core::resync_utf8().
+/// characters. It is implemented in terms of \ref core::encode_utf8_incr().
 ///
 /// For the meaning of parameters \p in, \p out, \p in_offset, and \p out_offset, see \ref
 /// core::encode_utf8_incr().
 ///
 /// If this function returns `true`, it means that all of the specified input was
 /// encoded. If this function returns `false`, it means that output space was exhausted
-/// before all input was decoded. In that case, this function should be called again with at
+/// before all input was encoded. In that case, this function should be called again with at
 /// least some available output space.
 ///
 /// \sa \ref core::encode_utf8(), \ref core::encode_utf8_l(), \ref core::encode_utf8_incr()
@@ -1135,6 +1130,32 @@ void encode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& i
                        bool& in_exhausted, bool& error) noexcept;
 
 
+/// \brief Next step of lenient incremental UTF-16 encoding process.
+///
+/// This function advances an ongoing incremental UTF-16 encoding process just like \ref
+/// core::encode_utf16_incr(). The difference is that this function operates with leniency
+/// in the sense that it accepts invalid input and automatically replaces it with
+/// replacement characters. It is implemented in terms of \ref core::encode_utf16_incr().
+///
+/// For the meaning of parameters \p in, \p out, \p in_offset, and \p out_offset, see \ref
+/// core::encode_utf16_incr().
+///
+/// If this function returns `true`, it means that all of the specified input was
+/// encoded. If this function returns `false`, it means that output space was exhausted
+/// before all input was encoded. In that case, this function should be called again with at
+/// least some available output space.
+///
+/// \sa \ref core::encode_utf16(), \ref core::encode_utf16_l(), \ref
+/// core::encode_utf16_incr()
+///
+/// \sa \ref core::decode_utf16_incr_l(), \ref core::encode_utf8_incr_l(), \ref
+/// core::utf8_to_utf16_incr_l()
+///
+template<class C, class D, class T = std::char_traits<C>, class U = std::char_traits<D>>
+bool encode_utf16_incr_l(core::Span<const C> in, core::Span<D> out, std::size_t& in_offset,
+                         std::size_t& out_offset) noexcept;
+
+
 /// \brief Next step of incremental UTF-16 decoding process.
 ///
 /// The purpose of this function is to advance an ongoing UTF-16 decoding process. An
@@ -1208,6 +1229,40 @@ void encode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& i
 template<class C, class D, class T = std::char_traits<C>, class U = std::char_traits<D>>
 void decode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in_offset, std::size_t& out_offset,
                        bool& in_exhausted, bool& error) noexcept;
+
+
+/// \brief Next step of lenient incremental UTF-16 decoding process.
+///
+/// This function advances an ongoing incremental UTF-16 decoding process just like \ref
+/// core::decode_utf16_incr(). The difference is that this function operates with leniency
+/// in the sense that it accepts invalid input and automatically replaces it with
+/// replacement characters. It is implemented in terms of \ref core::decode_utf16_incr() and
+/// \ref core::resync_utf16().
+///
+/// For the meaning of parameters \p in, \p out, \p in_offset, and \p out_offset, see \ref
+/// core::decode_utf16_incr().
+///
+/// If this function returns `true` and \p end_of_input was `true`, it means that all of the
+/// specified input was decoded. If \p end_of_input was `false`, it means that if any input
+/// remains unconsumed, it must be a prefix of some valid UTF-16 sequence. The idea is that
+/// the caller sets \p end_of_input to `true` when the caller knows that the passed input
+/// includes all of the remaining input for the whole decoding process. The caller then
+/// knows that the decoding process is complete when this function returns `true` and the
+/// end of input for the whole decoding process was included.
+///
+/// If this function returns `false`, it means that output space was exhausted before all
+/// input was decoded. In that case, this function should be called again with at least some
+/// available output space.
+///
+/// \sa \ref core::decode_utf16(), \ref core::decode_utf16_l(), \ref
+/// core::decode_utf16_incr()
+///
+/// \sa \ref core::encode_utf16_incr_l(), \ref core::decode_utf8_incr_l(), \ref
+/// core::utf16_to_utf8_incr_l()
+///
+template<class C, class D, class T = std::char_traits<C>, class U = std::char_traits<D>>
+bool decode_utf16_incr_l(core::Span<const C> in, core::Span<D> out, std::size_t& in_offset, std::size_t& out_offset,
+                         bool end_of_input) noexcept;
 
 
 /// \brief Next step of incremental UTF-8 to UTF-16 transcoding process.
@@ -1452,14 +1507,16 @@ template<class C, class D, class T, class U>
 void encode_utf8_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
     std::size_t string_offset = 0;
+    std::size_t buffer_offset_2 = buffer_offset;
     for (;;) {
-        bool complete = core::encode_utf8_incr_l<C, D, T, U>(string, buffer, string_offset, buffer_offset);
+        bool complete = core::encode_utf8_incr_l<C, D, T, U>(string, buffer, string_offset, buffer_offset_2);
         if (ARCHON_LIKELY(complete)) {
             ARCHON_ASSERT(string_offset == string.size());
+            buffer_offset = buffer_offset_2;
             return;
         }
         ARCHON_ASSERT(string_offset < string.size());
-        buffer.expand(buffer_offset); // Throws
+        buffer.expand(buffer_offset_2); // Throws
     }
 }
 
@@ -1468,21 +1525,23 @@ template<class C, class D, class T, class U>
 void encode_utf8_a(core::StringSpan<C> string, std::size_t& string_offset, core::Buffer<D>& buffer,
                    std::size_t& buffer_offset)
 {
-    bool string_exhausted = {};
-    bool error = {};
+    std::size_t string_offset_2 = string_offset;
+    std::size_t buffer_offset_2 = buffer_offset;
     for (;;) {
-        core::encode_utf8_incr<C, D, T, U>(string, buffer, string_offset, buffer_offset, string_exhausted, error);
+        bool string_exhausted = {};
+        bool error = {};
+        core::encode_utf8_incr<C, D, T, U>(string, buffer, string_offset_2, buffer_offset_2, string_exhausted, error);
         if (ARCHON_LIKELY(string_exhausted)) {
-            ARCHON_ASSERT(string_offset == string.size());
-            return;
+            ARCHON_ASSERT(string_offset_2 == string.size());
+            break;
         }
-        ARCHON_ASSERT(string_offset < string.size());
-        if (ARCHON_LIKELY(!error)) {
-            buffer.expand(buffer_offset); // Throws
-            continue;
-        }
-        return;
+        ARCHON_ASSERT(string_offset_2 < string.size());
+        if (ARCHON_UNLIKELY(error))
+            break;
+        buffer.expand(buffer_offset_2); // Throws
     }
+    string_offset = string_offset_2;
+    buffer_offset = buffer_offset_2;
 }
 
 
@@ -1500,16 +1559,18 @@ template<class C, class D, class T, class U>
 void decode_utf8_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
     std::size_t string_offset = 0;
+    std::size_t buffer_offset_2 = buffer_offset;
     for (;;) {
         bool end_of_string = true;
-        bool complete = core::decode_utf8_incr_l<C, D, T, U>(string, buffer, string_offset, buffer_offset,
+        bool complete = core::decode_utf8_incr_l<C, D, T, U>(string, buffer, string_offset, buffer_offset_2,
                                                              end_of_string);
         if (ARCHON_LIKELY(complete)) {
             ARCHON_ASSERT(string_offset == string.size());
+            buffer_offset = buffer_offset_2;
             return;
         }
         ARCHON_ASSERT(string_offset < string.size());
-        buffer.expand(buffer_offset); // Throws
+        buffer.expand(buffer_offset_2); // Throws
     }
 }
 
@@ -1518,20 +1579,22 @@ template<class C, class D, class T, class U>
 void decode_utf8_a(core::StringSpan<C> string, std::size_t& string_offset, core::Buffer<D>& buffer,
                    std::size_t& buffer_offset)
 {
-    bool string_exhausted = {};
-    bool error = {};
+    std::size_t string_offset_2 = string_offset;
+    std::size_t buffer_offset_2 = buffer_offset;
     for (;;) {
-        core::decode_utf8_incr<C, D, T, U>(string, buffer, string_offset, buffer_offset, string_exhausted, error);
+        bool string_exhausted = {};
+        bool error = {};
+        core::decode_utf8_incr<C, D, T, U>(string, buffer, string_offset_2, buffer_offset_2, string_exhausted, error);
         if (ARCHON_LIKELY(string_exhausted))
-            return;
-        ARCHON_ASSERT(string_offset < string.size());
-        if (ARCHON_LIKELY(!error)) {
-            ARCHON_ASSERT(buffer_offset == buffer.size());
-            buffer.expand(buffer_offset); // Throws
-            continue;
-        }
-        return;
+            break;
+        ARCHON_ASSERT(string_offset_2 < string.size());
+        if (ARCHON_UNLIKELY(error))
+            break;
+        ARCHON_ASSERT(buffer_offset_2 == buffer.size());
+        buffer.expand(buffer_offset_2); // Throws
     }
+    string_offset = string_offset_2;
+    buffer_offset = buffer_offset_2;
 }
 
 
@@ -1551,20 +1614,14 @@ void encode_utf16_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::si
     std::size_t string_offset = 0;
     std::size_t buffer_offset_2 = buffer_offset;
     for (;;) {
-        core::encode_utf16_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
-        bool success = (string_offset == string.size());
-        if (ARCHON_LIKELY(success)) {
+        bool complete = core::encode_utf16_incr_l<C, D, T, U>(string, buffer, string_offset, buffer_offset_2);
+        if (ARCHON_LIKELY(complete)) {
+            ARCHON_ASSERT(string_offset == string.size());
             buffer_offset = buffer_offset_2;
             return;
         }
         ARCHON_ASSERT(string_offset < string.size());
-        string_offset += 1;
-        using char_type = D;
-        using traits_type = U;
-        char_type replacement[] = {
-            traits_type::to_char_type(0xFFFD),
-        };
-        buffer.append(replacement, buffer_offset); // Throws
+        buffer.expand(buffer_offset_2); // Throws
     }
 }
 
@@ -1573,21 +1630,23 @@ template<class C, class D, class T, class U>
 void encode_utf16_a(core::StringSpan<C> string, std::size_t& string_offset, core::Buffer<D>& buffer,
                     std::size_t& buffer_offset)
 {
-    bool string_exhausted = {};
-    bool error = {};
+    std::size_t string_offset_2 = string_offset;
+    std::size_t buffer_offset_2 = buffer_offset;
     for (;;) {
-        core::encode_utf16_incr<C, D, T, U>(string, buffer, string_offset, buffer_offset, string_exhausted, error);
+        bool string_exhausted = {};
+        bool error = {};
+        core::encode_utf16_incr<C, D, T, U>(string, buffer, string_offset_2, buffer_offset_2, string_exhausted, error);
         if (ARCHON_LIKELY(string_exhausted)) {
-            ARCHON_ASSERT(string_offset == string.size());
-            return;
+            ARCHON_ASSERT(string_offset_2 == string.size());
+            break;
         }
-        ARCHON_ASSERT(string_offset < string.size());
-        if (ARCHON_LIKELY(!error)) {
-            buffer.expand(buffer_offset); // Throws
-            continue;
-        }
-        return;
+        ARCHON_ASSERT(string_offset_2 < string.size());
+        if (ARCHON_UNLIKELY(error))
+            break;
+        buffer.expand(buffer_offset_2); // Throws
     }
+    string_offset = string_offset_2;
+    buffer_offset = buffer_offset_2;
 }
 
 
@@ -1607,21 +1666,16 @@ void decode_utf16_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::si
     std::size_t string_offset = 0;
     std::size_t buffer_offset_2 = buffer_offset;
     for (;;) {
-        core::decode_utf16_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
-        bool success = (string_offset == string.size());
-        if (ARCHON_LIKELY(success)) {
+        bool end_of_string = true;
+        bool complete = core::decode_utf16_incr_l<C, D, T, U>(string, buffer, string_offset, buffer_offset_2,
+                                                              end_of_string);
+        if (ARCHON_LIKELY(complete)) {
+            ARCHON_ASSERT(string_offset == string.size());
             buffer_offset = buffer_offset_2;
             return;
         }
         ARCHON_ASSERT(string_offset < string.size());
-        string_offset += 1;
-        core::resync_utf16<C, T>(string, string_offset);
-        using char_type = D;
-        using traits_type = U;
-        char_type replacement[] = {
-            traits_type::to_char_type(0xFFFD),
-        };
-        buffer.append(replacement, buffer_offset); // Throws
+        buffer.expand(buffer_offset_2); // Throws
     }
 }
 
@@ -1630,20 +1684,22 @@ template<class C, class D, class T, class U>
 void decode_utf16_a(core::StringSpan<C> string, std::size_t& string_offset, core::Buffer<D>& buffer,
                     std::size_t& buffer_offset)
 {
-    bool string_exhausted = {};
-    bool error = {};
+    std::size_t string_offset_2 = string_offset;
+    std::size_t buffer_offset_2 = buffer_offset;
     for (;;) {
-        core::decode_utf16_incr<C, D, T, U>(string, buffer, string_offset, buffer_offset, string_exhausted, error);
+        bool string_exhausted = {};
+        bool error = {};
+        core::decode_utf16_incr<C, D, T, U>(string, buffer, string_offset_2, buffer_offset_2, string_exhausted, error);
         if (ARCHON_LIKELY(string_exhausted))
-            return;
-        ARCHON_ASSERT(string_offset < string.size());
-        if (ARCHON_LIKELY(!error)) {
-            ARCHON_ASSERT(buffer_offset == buffer.size());
-            buffer.expand(buffer_offset); // Throws
-            continue;
-        }
-        return;
+            break;
+        ARCHON_ASSERT(string_offset_2 < string.size());
+        if (ARCHON_UNLIKELY(error))
+            break;
+        ARCHON_ASSERT(buffer_offset_2 == buffer.size());
+        buffer.expand(buffer_offset_2); // Throws
     }
+    string_offset = string_offset_2;
+    buffer_offset = buffer_offset_2;
 }
 
 
@@ -1677,7 +1733,7 @@ void utf8_to_utf16_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::s
         char_type replacement[] = {
             traits_type::to_char_type(0xFFFD),
         };
-        buffer.append(replacement, buffer_offset); // Throws
+        buffer.append(replacement, buffer_offset_2); // Throws
     }
 }
 
@@ -1686,19 +1742,22 @@ template<class C, class D, class T, class U>
 void utf8_to_utf16_a(core::StringSpan<C> string, std::size_t& string_offset, core::Buffer<D>& buffer,
                      std::size_t& buffer_offset)
 {
-    bool string_exhausted = {};
-    bool error = {};
+    std::size_t string_offset_2 = string_offset;
+    std::size_t buffer_offset_2 = buffer_offset;
     for (;;) {
-        core::utf8_to_utf16_incr<C, D, T, U>(string, buffer, string_offset, buffer_offset, string_exhausted, error);
+        bool string_exhausted = {};
+        bool error = {};
+        core::utf8_to_utf16_incr<C, D, T, U>(string, buffer, string_offset_2, buffer_offset_2, string_exhausted,
+                                             error);
         if (ARCHON_LIKELY(string_exhausted))
-            return;
-        ARCHON_ASSERT(string_offset < string.size());
-        if (ARCHON_LIKELY(!error)) {
-            buffer.expand(buffer_offset); // Throws
-            continue;
-        }
-        return;
+            break;
+        ARCHON_ASSERT(string_offset_2 < string.size());
+        if (ARCHON_UNLIKELY(error))
+            break;
+        buffer.expand(buffer_offset_2); // Throws
     }
+    string_offset = string_offset_2;
+    buffer_offset = buffer_offset_2;
 }
 
 
@@ -1734,7 +1793,7 @@ void utf16_to_utf8_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::s
             traits_type::to_char_type(0xBF),
             traits_type::to_char_type(0xBD),
         };
-        buffer.append(replacement, buffer_offset); // Throws
+        buffer.append(replacement, buffer_offset_2); // Throws
     }
 }
 
@@ -1743,19 +1802,22 @@ template<class C, class D, class T, class U>
 void utf16_to_utf8_a(core::StringSpan<C> string, std::size_t& string_offset, core::Buffer<D>& buffer,
                      std::size_t& buffer_offset)
 {
-    bool string_exhausted = {};
-    bool error = {};
+    std::size_t string_offset_2 = string_offset;
+    std::size_t buffer_offset_2 = buffer_offset;
     for (;;) {
-        core::utf16_to_utf8_incr<C, D, T, U>(string, buffer, string_offset, buffer_offset, string_exhausted, error);
+        bool string_exhausted = {};
+        bool error = {};
+        core::utf16_to_utf8_incr<C, D, T, U>(string, buffer, string_offset_2, buffer_offset_2, string_exhausted,
+                                             error);
         if (ARCHON_LIKELY(string_exhausted))
-            return;
-        ARCHON_ASSERT(string_offset < string.size());
-        if (ARCHON_LIKELY(!error)) {
-            buffer.expand(buffer_offset); // Throws
-            continue;
-        }
-        return;
+            break;
+        ARCHON_ASSERT(string_offset_2 < string.size());
+        if (ARCHON_UNLIKELY(error))
+            break;
+        buffer.expand(buffer_offset_2); // Throws
     }
+    string_offset = string_offset_2;
+    buffer_offset = buffer_offset_2;
 }
 
 
@@ -1763,13 +1825,10 @@ template<class C, class D, class T, class U>
 inline bool try_encode_utf8(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
     std::size_t string_offset = 0;
-    std::size_t buffer_offset_2 = buffer_offset;
-    core::encode_utf8_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
+    core::encode_utf8_a<C, D, T, U>(string, string_offset, buffer, buffer_offset); // Throws
     bool success = (string_offset == string.size());
-    if (ARCHON_LIKELY(success)) {
-        buffer_offset = buffer_offset_2;
+    if (ARCHON_LIKELY(success))
         return true;
-    }
     ARCHON_ASSERT(string_offset < string.size());
     return false;
 }
@@ -1779,13 +1838,10 @@ template<class C, class D, class T, class U>
 inline bool try_decode_utf8(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
     std::size_t string_offset = 0;
-    std::size_t buffer_offset_2 = buffer_offset;
-    core::decode_utf8_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
+    core::decode_utf8_a<C, D, T, U>(string, string_offset, buffer, buffer_offset); // Throws
     bool success = (string_offset == string.size());
-    if (ARCHON_LIKELY(success)) {
-        buffer_offset = buffer_offset_2;
+    if (ARCHON_LIKELY(success))
         return true;
-    }
     ARCHON_ASSERT(string_offset < string.size());
     return false;
 }
@@ -1795,13 +1851,10 @@ template<class C, class D, class T, class U>
 inline bool try_encode_utf16(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
     std::size_t string_offset = 0;
-    std::size_t buffer_offset_2 = buffer_offset;
-    core::encode_utf16_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
+    core::encode_utf16_a<C, D, T, U>(string, string_offset, buffer, buffer_offset); // Throws
     bool success = (string_offset == string.size());
-    if (ARCHON_LIKELY(success)) {
-        buffer_offset = buffer_offset_2;
+    if (ARCHON_LIKELY(success))
         return true;
-    }
     ARCHON_ASSERT(string_offset < string.size());
     return false;
 }
@@ -1811,13 +1864,10 @@ template<class C, class D, class T, class U>
 inline bool try_decode_utf16(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
     std::size_t string_offset = 0;
-    std::size_t buffer_offset_2 = buffer_offset;
-    core::decode_utf16_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
+    core::decode_utf16_a<C, D, T, U>(string, string_offset, buffer, buffer_offset); // Throws
     bool success = (string_offset == string.size());
-    if (ARCHON_LIKELY(success)) {
-        buffer_offset = buffer_offset_2;
+    if (ARCHON_LIKELY(success))
         return true;
-    }
     ARCHON_ASSERT(string_offset < string.size());
     return false;
 }
@@ -1827,13 +1877,10 @@ template<class C, class D, class T, class U>
 inline bool try_utf8_to_utf16(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
     std::size_t string_offset = 0;
-    std::size_t buffer_offset_2 = buffer_offset;
-    core::utf8_to_utf16_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
+    core::utf8_to_utf16_a<C, D, T, U>(string, string_offset, buffer, buffer_offset); // Throws
     bool success = (string_offset == string.size());
-    if (ARCHON_LIKELY(success)) {
-        buffer_offset = buffer_offset_2;
+    if (ARCHON_LIKELY(success))
         return true;
-    }
     ARCHON_ASSERT(string_offset < string.size());
     return false;
 }
@@ -1843,13 +1890,10 @@ template<class C, class D, class T, class U>
 inline bool try_utf16_to_utf8(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
     std::size_t string_offset = 0;
-    std::size_t buffer_offset_2 = buffer_offset;
-    core::utf16_to_utf8_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
+    core::utf16_to_utf8_a<C, D, T, U>(string, string_offset, buffer, buffer_offset); // Throws
     bool success = (string_offset == string.size());
-    if (ARCHON_LIKELY(success)) {
-        buffer_offset = buffer_offset_2;
+    if (ARCHON_LIKELY(success))
         return true;
-    }
     ARCHON_ASSERT(string_offset < string.size());
     return false;
 }
@@ -1964,17 +2008,21 @@ template<class C, class D, class T, class U>
 bool encode_utf8_incr_l(core::Span<const C> in, core::Span<D> out, std::size_t& in_offset,
                         std::size_t& out_offset) noexcept
 {
+    std::size_t in_offset_2  = in_offset;
+    std::size_t out_offset_2 = out_offset;
+    bool complete = false;
     for (;;) {
         bool in_exhausted = {};
         bool error = {};
-        core::encode_utf8_incr<C, D, T, U>(in, out, in_offset, out_offset, in_exhausted, error);
+        core::encode_utf8_incr<C, D, T, U>(in, out, in_offset_2, out_offset_2, in_exhausted, error);
         if (ARCHON_LIKELY(in_exhausted)) {
-            ARCHON_ASSERT(in_offset == in.size());
-            return true;
+            ARCHON_ASSERT(in_offset_2 == in.size());
+            complete = true;
+            break;
         }
-        ARCHON_ASSERT(in_offset < in.size());
+        ARCHON_ASSERT(in_offset_2 < in.size());
         if (ARCHON_LIKELY(!error))
-            return false;
+            break;
         using char_type = D;
         using traits_type = U;
         char_type replacement[] = {
@@ -1982,14 +2030,16 @@ bool encode_utf8_incr_l(core::Span<const C> in, core::Span<D> out, std::size_t& 
             traits_type::to_char_type(0xBF),
             traits_type::to_char_type(0xBD),
         };
-        if (ARCHON_LIKELY(std::size_t(out.size() - out_offset) >= std::size(replacement))) {
-            std::copy_n(replacement, std::size(replacement), out.data());
-            out_offset += std::size(replacement);
-            in_offset += 1;
-            continue;
-        }
-        return false;
+        std::size_t avail = std::size_t(out.size() - out_offset_2);
+        if (ARCHON_UNLIKELY(std::size(replacement) > avail))
+            break;
+        std::copy_n(replacement, std::size(replacement), out.data());
+        out_offset_2 += std::size(replacement);
+        in_offset_2 += 1;
     }
+    in_offset  = in_offset_2;
+    out_offset = out_offset_2;
+    return complete;
 }
 
 
@@ -2164,38 +2214,44 @@ template<class C, class D, class T, class U>
 bool decode_utf8_incr_l(core::Span<const C> in, core::Span<D> out, std::size_t& in_offset, std::size_t& out_offset,
                         bool end_of_input) noexcept
 {
+    std::size_t in_offset_2  = in_offset;
+    std::size_t out_offset_2 = out_offset;
+    bool complete = false;
     using char_type = D;
     using traits_type = U;
     char_type replacement = traits_type::to_char_type(0xFFFD);
     for (;;) {
         bool in_exhausted = {};
         bool error = {};
-        core::decode_utf8_incr<C, D, T, U>(in, out, in_offset, out_offset, in_exhausted, error);
+        core::decode_utf8_incr<C, D, T, U>(in, out, in_offset_2, out_offset_2, in_exhausted, error);
         if (ARCHON_LIKELY(in_exhausted)) {
-            if (ARCHON_LIKELY(in_offset == in.size() || !end_of_input ))
-                return true;
-            if (ARCHON_LIKELY(out_offset < out.size())) {
-                in_offset = in.size();
-                out[out_offset] = replacement;
-                out_offset += 1;
-                return true;
+            if (ARCHON_LIKELY(in_offset_2 == in.size() || !end_of_input )) {
+                complete = true;
+                break;
             }
-            return false;
+            if (ARCHON_UNLIKELY(out_offset_2 >= out.size()))
+                break;
+            in_offset_2 = in.size();
+            out[out_offset_2] = replacement;
+            out_offset_2 += 1;
+            complete = true;
+            break;
         }
-        ARCHON_ASSERT(in_offset < in.size());
+        ARCHON_ASSERT(in_offset_2 < in.size());
         if (ARCHON_LIKELY(!error)) {
-            ARCHON_ASSERT(out_offset == out.size());
-            return false;
+            ARCHON_ASSERT(out_offset_2 == out.size());
+            break;
         }
-        if (ARCHON_LIKELY(out_offset < out.size())) {
-            out[out_offset] = replacement;
-            out_offset += 1;
-            in_offset += 1;
-            core::resync_utf8<C, T>(in, in_offset);
-            continue;
-        }
-        return false;
+        if (ARCHON_UNLIKELY(out_offset_2 >= out.size()))
+            break;
+        out[out_offset_2] = replacement;
+        out_offset_2 += 1;
+        in_offset_2 += 1;
+        core::resync_utf8<C, T>(in, in_offset_2);
     }
+    in_offset  = in_offset_2;
+    out_offset = out_offset_2;
+    return complete;
 }
 
 
@@ -2273,6 +2329,43 @@ void encode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& i
 
     in_offset  = std::size_t(i_1 - in.data());
     out_offset = std::size_t(i_2 - out.data());
+}
+
+
+template<class C, class D, class T, class U>
+bool encode_utf16_incr_l(core::Span<const C> in, core::Span<D> out, std::size_t& in_offset,
+                         std::size_t& out_offset) noexcept
+{
+    std::size_t in_offset_2  = in_offset;
+    std::size_t out_offset_2 = out_offset;
+    bool complete = false;
+    for (;;) {
+        bool in_exhausted = {};
+        bool error = {};
+        core::encode_utf16_incr<C, D, T, U>(in, out, in_offset_2, out_offset_2, in_exhausted, error);
+        if (ARCHON_LIKELY(in_exhausted)) {
+            ARCHON_ASSERT(in_offset_2 == in.size());
+            complete = true;
+            break;
+        }
+        ARCHON_ASSERT(in_offset_2 < in.size());
+        if (ARCHON_LIKELY(!error))
+            break;
+        using char_type = D;
+        using traits_type = U;
+        char_type replacement[] = {
+            traits_type::to_char_type(0xFFFD),
+        };
+        std::size_t avail = std::size_t(out.size() - out_offset_2);
+        if (ARCHON_UNLIKELY(std::size(replacement) > avail))
+            break;
+        std::copy_n(replacement, std::size(replacement), out.data());
+        out_offset_2 += std::size(replacement);
+        in_offset_2 += 1;
+    }
+    in_offset  = in_offset_2;
+    out_offset = out_offset_2;
+    return complete;
 }
 
 
@@ -2371,6 +2464,51 @@ void decode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& i
 
     in_offset  = std::size_t(i_1 - in.data());
     out_offset = std::size_t(i_2 - out.data());
+}
+
+
+template<class C, class D, class T, class U>
+bool decode_utf16_incr_l(core::Span<const C> in, core::Span<D> out, std::size_t& in_offset, std::size_t& out_offset,
+                         bool end_of_input) noexcept
+{
+    std::size_t in_offset_2  = in_offset;
+    std::size_t out_offset_2 = out_offset;
+    bool complete = false;
+    using char_type = D;
+    using traits_type = U;
+    char_type replacement = traits_type::to_char_type(0xFFFD);
+    for (;;) {
+        bool in_exhausted = {};
+        bool error = {};
+        core::decode_utf16_incr<C, D, T, U>(in, out, in_offset_2, out_offset_2, in_exhausted, error);
+        if (ARCHON_LIKELY(in_exhausted)) {
+            if (ARCHON_LIKELY(in_offset_2 == in.size() || !end_of_input )) {
+                complete = true;
+                break;
+            }
+            if (ARCHON_UNLIKELY(out_offset_2 >= out.size()))
+                break;
+            in_offset_2 = in.size();
+            out[out_offset_2] = replacement;
+            out_offset_2 += 1;
+            complete = true;
+            break;
+        }
+        ARCHON_ASSERT(in_offset_2 < in.size());
+        if (ARCHON_LIKELY(!error)) {
+            ARCHON_ASSERT(out_offset_2 == out.size());
+            break;
+        }
+        if (ARCHON_UNLIKELY(out_offset_2 >= out.size()))
+            break;
+        out[out_offset_2] = replacement;
+        out_offset_2 += 1;
+        in_offset_2 += 1;
+        core::resync_utf16<C, T>(in, in_offset_2);
+    }
+    in_offset  = in_offset_2;
+    out_offset = out_offset_2;
+    return complete;
 }
 
 
