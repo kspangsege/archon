@@ -236,12 +236,12 @@ void encode_utf16(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size
 /// lenient manner, which means that any invalid code point in the string is dealt with as
 /// if it was the Unicode replacement character.
 ///
-/// This function is implemented in terms of \ref core::encode_utf16_a().
+/// This function is implemented in terms of \ref core::encode_utf16_incr_l().
 ///
 /// Behavior is undefined if \p buffer_offset is greater than `buffer.size()` prior to the
 /// invocation.
 ///
-/// \sa \ref core::encode_utf16(), \ref core::encode_utf16_a()
+/// \sa \ref core::encode_utf16(), \ref core::encode_utf16_incr_l()
 ///
 /// \sa \ref core::decode_utf16_l(), \ref core::encode_utf8_l(), \ref
 /// core::utf8_to_utf16_l()
@@ -325,13 +325,12 @@ void decode_utf16(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size
 /// This function does not recognize a UTF-16 byte order mark (BOM). It is the
 /// responsibility of the application to ensure its absence.
 ///
-/// This function is implemented in terms of \ref core::decode_utf16_a() and \ref
-/// core::resync_utf16().
+/// This function is implemented in terms of \ref core::decode_utf16_incr_l().
 ///
 /// Behavior is undefined if \p buffer_offset is greater than `buffer.size()` prior to the
 /// invocation.
 ///
-/// \sa \ref core::decode_utf16(), \ref core::decode_utf16_a(), \ref core::resync_utf16()
+/// \sa \ref core::decode_utf16(), \ref core::decode_utf16_incr_l()
 ///
 /// \sa \ref core::encode_utf16_l(), \ref core::decode_utf8_l(), \ref
 /// core::utf16_to_utf8_l()
@@ -1120,7 +1119,7 @@ bool decode_utf8_incr_l(core::Span<const C> in, core::Span<D> out, std::size_t& 
 /// bit-width of at least 16, and `std::char_traits<D>::eof()` must be outside the range of
 /// valid UTF-16 code units, 0x0000 -> 0xFFFD. `char16_t` can be used here.
 ///
-/// \sa \ref core::encode_utf16(), \ref core::encode_utf16_a()
+/// \sa \ref core::encode_utf16(), \ref core::encode_utf16_incr_l()
 ///
 /// \sa \ref core::decode_utf16_incr(), \ref core::encode_utf8_incr(), \ref
 /// core::utf8_to_utf16_incr()
@@ -1201,8 +1200,9 @@ bool encode_utf16_incr_l(core::Span<const C> in, core::Span<D> out, std::size_t&
 ///
 /// When the decoding process stops due to invalid input, the application may wish to skip
 /// over some input and attempt to resume the decoding process when possible. Such a
-/// behavior can be effectively implemented using \ref core::resync_utf16(). See also \ref
-/// core::decode_utf16_l() for an example of a function that uses \ref core::resync_utf16().
+/// behavior can be effectively implemented using \ref core::resync_utf16(). See \ref
+/// core::decode_utf16_incr_l() for an example of a function that uses \ref
+/// core::resync_utf16().
 ///
 /// Behavior is undefined if, prior to the invocation, \p in_size is greater than
 /// `in.size()` or \p out_offset is greater than `out.size()`.
@@ -1220,8 +1220,8 @@ bool encode_utf16_incr_l(core::Span<const C> in, core::Span<D> out, std::size_t&
 /// valid code point (U+0000 -> U+D7FF, U+E000 -> U+FFFD, U+10000 -> U+10FFFF). Both
 /// `wchar_t` and `char32_t` can be used here.
 ///
-/// \sa \ref core::decode_utf16(), \ref core::decode_utf16_l(), \ref core::decode_utf16_a(),
-/// \ref core::resync_utf16()
+/// \sa \ref core::decode_utf16(), \ref core::decode_utf16_incr_l(), \ref
+/// core::resync_utf16()
 ///
 /// \sa \ref core::encode_utf16_incr(), \ref core::decode_utf8_incr(), \ref
 /// core::utf16_to_utf8_incr()
