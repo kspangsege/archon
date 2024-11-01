@@ -69,12 +69,12 @@ void encode_utf8(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_
 /// lenient manner, which means that any invalid code point in the string is dealt with as
 /// if it was the Unicode replacement character.
 ///
-/// This function is implemented in terms of \ref core::encode_utf8_a().
+/// This function is implemented in terms of \ref core::encode_utf8_incr_l().
 ///
 /// Behavior is undefined if \p buffer_offset is greater than `buffer.size()` prior to the
 /// invocation.
 ///
-/// \sa \ref core::encode_utf8(), \ref core::encode_utf8_a()
+/// \sa \ref core::encode_utf8(), \ref core::encode_utf8_incr_l()
 ///
 /// \sa \ref core::decode_utf8_l(), \ref core::encode_utf16_l(), \ref
 /// core::utf16_to_utf8_l()
@@ -931,7 +931,7 @@ bool try_utf16_to_utf8(core::StringSpan<C> string, core::Buffer<D>& buffer, std:
 /// it is required to have a bit width of at least 8, and `std::char_traits<char>::eof()` is
 /// required to be negative. `char8_t` can also be used.
 ///
-/// \sa \ref core::encode_utf8(), \ref core::encode_utf8_a()
+/// \sa \ref core::encode_utf8(), \ref core::encode_utf8_incr_l()
 ///
 /// \sa \ref core::decode_utf8_incr(), \ref core::encode_utf16_incr(), \ref
 /// core::utf16_to_utf8_incr()
@@ -939,6 +939,32 @@ bool try_utf16_to_utf8(core::StringSpan<C> string, core::Buffer<D>& buffer, std:
 template<class C, class D, class T = std::char_traits<C>, class U = std::char_traits<D>>
 void encode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in_offset, std::size_t& out_offset,
                       bool& in_exhausted, bool& error) noexcept;
+
+
+/// \brief Next step of lenient incremental UTF-8 encoding process.
+///
+/// This function advances an ongoing incremental UTF-8 encoding process just like \ref
+/// core::encode_utf8_incr(). The difference is that this function operates with leniency in
+/// the sense that it accepts invalid input and automatically replaces it with replacement
+/// characters. It is implemented in terms of \ref core::encode_utf8_incr() and \ref
+/// core::resync_utf8().
+///
+/// For the meaning of parameters \p in, \p out, \p in_offset, and \p out_offset, see \ref
+/// core::encode_utf8_incr().
+///
+/// If this function returns `true`, it means that all of the specified input was
+/// encoded. If this function returns `false`, it means that output space was exhausted
+/// before all input was decoded. In that case, this function should be called again with at
+/// least some available output space.
+///
+/// \sa \ref core::encode_utf8(), \ref core::encode_utf8_l(), \ref core::encode_utf8_incr()
+///
+/// \sa \ref core::decode_utf8_incr_l(), \ref core::encode_utf16_incr_l(), \ref
+/// core::utf16_to_utf8_incr_l()
+///
+template<class C, class D, class T = std::char_traits<C>, class U = std::char_traits<D>>
+bool encode_utf8_incr_l(core::Span<const C> in, core::Span<D> out, std::size_t& in_offset,
+                        std::size_t& out_offset) noexcept;
 
 
 /// \brief Next step of incremental UTF-8 decoding process.
@@ -1037,7 +1063,7 @@ void decode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
 ///
 /// \sa \ref core::decode_utf8(), \ref core::decode_utf8_l(), \ref core::decode_utf8_incr()
 ///
-/// \sa \ref core::encode_utf8_incr_l(), \ref core::encode_utf16_incr_l(), \ref
+/// \sa \ref core::encode_utf8_incr_l(), \ref core::decode_utf16_incr_l(), \ref
 /// core::utf8_to_utf16_incr_l()
 ///
 template<class C, class D, class T = std::char_traits<C>, class U = std::char_traits<D>>
@@ -1426,24 +1452,14 @@ template<class C, class D, class T, class U>
 void encode_utf8_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::size_t& buffer_offset)
 {
     std::size_t string_offset = 0;
-    std::size_t buffer_offset_2 = buffer_offset;
     for (;;) {
-        core::encode_utf8_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
-        bool success = (string_offset == string.size());
-        if (ARCHON_LIKELY(success)) {
-            buffer_offset = buffer_offset_2;
+        bool complete = core::encode_utf8_incr_l<C, D, T, U>(string, buffer, string_offset, buffer_offset);
+        if (ARCHON_LIKELY(complete)) {
+            ARCHON_ASSERT(string_offset == string.size());
             return;
         }
         ARCHON_ASSERT(string_offset < string.size());
-        string_offset += 1;
-        using char_type = D;
-        using traits_type = U;
-        char_type replacement[] = {
-            traits_type::to_char_type(0xEF),
-            traits_type::to_char_type(0xBF),
-            traits_type::to_char_type(0xBD),
-        };
-        buffer.append(replacement, buffer_offset); // Throws
+        buffer.expand(buffer_offset); // Throws
     }
 }
 
@@ -1945,6 +1961,39 @@ void encode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
 
 
 template<class C, class D, class T, class U>
+bool encode_utf8_incr_l(core::Span<const C> in, core::Span<D> out, std::size_t& in_offset,
+                        std::size_t& out_offset) noexcept
+{
+    for (;;) {
+        bool in_exhausted = {};
+        bool error = {};
+        core::encode_utf8_incr<C, D, T, U>(in, out, in_offset, out_offset, in_exhausted, error);
+        if (ARCHON_LIKELY(in_exhausted)) {
+            ARCHON_ASSERT(in_offset == in.size());
+            return true;
+        }
+        ARCHON_ASSERT(in_offset < in.size());
+        if (ARCHON_LIKELY(!error))
+            return false;
+        using char_type = D;
+        using traits_type = U;
+        char_type replacement[] = {
+            traits_type::to_char_type(0xEF),
+            traits_type::to_char_type(0xBF),
+            traits_type::to_char_type(0xBD),
+        };
+        if (ARCHON_LIKELY(std::size_t(out.size() - out_offset) >= std::size(replacement))) {
+            std::copy_n(replacement, std::size(replacement), out.data());
+            out_offset += std::size(replacement);
+            in_offset += 1;
+            continue;
+        }
+        return false;
+    }
+}
+
+
+template<class C, class D, class T, class U>
 void decode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in_offset, std::size_t& out_offset,
                       bool& in_exhausted, bool& error) noexcept
 {
@@ -2118,9 +2167,9 @@ bool decode_utf8_incr_l(core::Span<const C> in, core::Span<D> out, std::size_t& 
     using char_type = D;
     using traits_type = U;
     char_type replacement = traits_type::to_char_type(0xFFFD);
-    bool in_exhausted = {};
-    bool error = {};
     for (;;) {
+        bool in_exhausted = {};
+        bool error = {};
         core::decode_utf8_incr<C, D, T, U>(in, out, in_offset, out_offset, in_exhausted, error);
         if (ARCHON_LIKELY(in_exhausted)) {
             if (ARCHON_LIKELY(in_offset == in.size() || !end_of_input ))
@@ -2133,11 +2182,11 @@ bool decode_utf8_incr_l(core::Span<const C> in, core::Span<D> out, std::size_t& 
             }
             return false;
         }
+        ARCHON_ASSERT(in_offset < in.size());
         if (ARCHON_LIKELY(!error)) {
             ARCHON_ASSERT(out_offset == out.size());
             return false;
         }
-        ARCHON_ASSERT(in_offset < in.size());
         if (ARCHON_LIKELY(out_offset < out.size())) {
             out[out_offset] = replacement;
             out_offset += 1;
