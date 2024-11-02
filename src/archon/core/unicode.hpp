@@ -2090,8 +2090,8 @@ bool encode_utf8_incr_l(core::Span<const C> in, core::Span<D> out, std::size_t& 
         if (ARCHON_UNLIKELY(std::size(replacement) > avail))
             break;
         std::copy_n(replacement, std::size(replacement), out.data());
-        out_offset_2 += std::size(replacement);
         in_offset_2 += 1;
+        out_offset_2 += std::size(replacement);
     }
     in_offset  = in_offset_2;
     out_offset = out_offset_2;
@@ -2287,8 +2287,8 @@ bool decode_utf8_incr_l(core::Span<const C> in, core::Span<D> out, std::size_t& 
             }
             if (ARCHON_UNLIKELY(out_offset_2 >= out.size()))
                 break;
-            in_offset_2 = in.size();
             out[out_offset_2] = replacement;
+            in_offset_2 = in.size();
             out_offset_2 += 1;
             complete = true;
             break;
@@ -2301,8 +2301,8 @@ bool decode_utf8_incr_l(core::Span<const C> in, core::Span<D> out, std::size_t& 
         if (ARCHON_UNLIKELY(out_offset_2 >= out.size()))
             break;
         out[out_offset_2] = replacement;
-        out_offset_2 += 1;
         in_offset_2 += 1;
+        out_offset_2 += 1;
         core::resync_utf8<C, T>(in, in_offset_2);
     }
     in_offset  = in_offset_2;
@@ -2416,8 +2416,8 @@ bool encode_utf16_incr_l(core::Span<const C> in, core::Span<D> out, std::size_t&
         if (ARCHON_UNLIKELY(std::size(replacement) > avail))
             break;
         std::copy_n(replacement, std::size(replacement), out.data());
-        out_offset_2 += std::size(replacement);
         in_offset_2 += 1;
+        out_offset_2 += std::size(replacement);
     }
     in_offset  = in_offset_2;
     out_offset = out_offset_2;
@@ -2544,8 +2544,8 @@ bool decode_utf16_incr_l(core::Span<const C> in, core::Span<D> out, std::size_t&
             }
             if (ARCHON_UNLIKELY(out_offset_2 >= out.size()))
                 break;
-            in_offset_2 = in.size();
             out[out_offset_2] = replacement;
+            in_offset_2 = in.size();
             out_offset_2 += 1;
             complete = true;
             break;
@@ -2558,8 +2558,8 @@ bool decode_utf16_incr_l(core::Span<const C> in, core::Span<D> out, std::size_t&
         if (ARCHON_UNLIKELY(out_offset_2 >= out.size()))
             break;
         out[out_offset_2] = replacement;
-        out_offset_2 += 1;
         in_offset_2 += 1;
+        out_offset_2 += 1;
         core::resync_utf16<C, T>(in, in_offset_2);
     }
     in_offset  = in_offset_2;
@@ -2728,6 +2728,53 @@ void utf8_to_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& 
 }
 
 
+template<class C, class D, class T = std::char_traits<C>, class U = std::char_traits<D>>
+bool utf8_to_utf16_incr_l(core::Span<const C> in, core::Span<D> out, std::size_t& in_offset, std::size_t& out_offset,
+                          bool end_of_input) noexcept
+{
+    std::size_t in_offset_2  = in_offset;
+    std::size_t out_offset_2 = out_offset;
+    bool complete = false;
+    using char_type = D;
+    using traits_type = U;
+    char_type replacement[] = {
+        traits_type::to_char_type(0xFFFD),
+    };
+    for (;;) {
+        bool in_exhausted = {};
+        bool error = {};
+        core::utf8_to_utf16_incr<C, D, T, U>(in, out, in_offset_2, out_offset_2, in_exhausted, error);
+        if (ARCHON_LIKELY(in_exhausted)) {
+            if (ARCHON_LIKELY(in_offset_2 == in.size() || !end_of_input )) {
+                complete = true;
+                break;
+            }
+            std::size_t avail = std::size_t(out.size() - out_offset_2);
+            if (ARCHON_UNLIKELY(std::size(replacement) > avail))
+                break;
+            std::copy_n(replacement, std::size(replacement), out.data());
+            in_offset_2 = in.size();
+            out_offset_2 += std::size(replacement);
+            complete = true;
+            break;
+        }
+        ARCHON_ASSERT(in_offset_2 < in.size());
+        if (ARCHON_LIKELY(!error))
+            break;
+        std::size_t avail = std::size_t(out.size() - out_offset_2);
+        if (ARCHON_UNLIKELY(std::size(replacement) > avail))
+            break;
+        std::copy_n(replacement, std::size(replacement), out.data());
+        in_offset_2 += 1;
+        out_offset_2 += std::size(replacement);
+        core::resync_utf8<C, T>(in, in_offset_2);
+    }
+    in_offset  = in_offset_2;
+    out_offset = out_offset_2;
+    return complete;
+}
+
+
 template<class C, class D, class T, class U>
 void utf16_to_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in_offset, std::size_t& out_offset,
                         bool& in_exhausted, bool& error) noexcept
@@ -2844,6 +2891,55 @@ void utf16_to_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& 
 
     in_offset  = std::size_t(i_1 - in.data());
     out_offset = std::size_t(i_2 - out.data());
+}
+
+
+template<class C, class D, class T = std::char_traits<C>, class U = std::char_traits<D>>
+bool utf16_to_utf8_incr_l(core::Span<const C> in, core::Span<D> out, std::size_t& in_offset, std::size_t& out_offset,
+                          bool end_of_input) noexcept
+{
+    std::size_t in_offset_2  = in_offset;
+    std::size_t out_offset_2 = out_offset;
+    bool complete = false;
+    using char_type = D;
+    using traits_type = U;
+    char_type replacement[] = {
+        traits_type::to_char_type(0xEF),
+        traits_type::to_char_type(0xBF),
+        traits_type::to_char_type(0xBD),
+    };
+    for (;;) {
+        bool in_exhausted = {};
+        bool error = {};
+        core::utf16_to_utf8_incr<C, D, T, U>(in, out, in_offset_2, out_offset_2, in_exhausted, error);
+        if (ARCHON_LIKELY(in_exhausted)) {
+            if (ARCHON_LIKELY(in_offset_2 == in.size() || !end_of_input )) {
+                complete = true;
+                break;
+            }
+            std::size_t avail = std::size_t(out.size() - out_offset_2);
+            if (ARCHON_UNLIKELY(std::size(replacement) > avail))
+                break;
+            std::copy_n(replacement, std::size(replacement), out.data());
+            in_offset_2 = in.size();
+            out_offset_2 += std::size(replacement);
+            complete = true;
+            break;
+        }
+        ARCHON_ASSERT(in_offset_2 < in.size());
+        if (ARCHON_LIKELY(!error))
+            break;
+        std::size_t avail = std::size_t(out.size() - out_offset_2);
+        if (ARCHON_UNLIKELY(std::size(replacement) > avail))
+            break;
+        std::copy_n(replacement, std::size(replacement), out.data());
+        in_offset_2 += 1;
+        out_offset_2 += std::size(replacement);
+        core::resync_utf16<C, T>(in, in_offset_2);
+    }
+    in_offset  = in_offset_2;
+    out_offset = out_offset_2;
+    return complete;
 }
 
 
