@@ -2727,7 +2727,7 @@ void utf8_to_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& 
 }
 
 
-template<class C, class D, class T = std::char_traits<C>, class U = std::char_traits<D>>
+template<class C, class D, class T, class U>
 bool utf8_to_utf16_incr_l(core::Span<const C> in, core::Span<D> out, std::size_t& in_offset, std::size_t& out_offset,
                           bool end_of_input) noexcept
 {
@@ -2893,7 +2893,7 @@ void utf16_to_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& 
 }
 
 
-template<class C, class D, class T = std::char_traits<C>, class U = std::char_traits<D>>
+template<class C, class D, class T, class U>
 bool utf16_to_utf8_incr_l(core::Span<const C> in, core::Span<D> out, std::size_t& in_offset, std::size_t& out_offset,
                           bool end_of_input) noexcept
 {
