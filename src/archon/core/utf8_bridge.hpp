@@ -103,7 +103,7 @@ public:
 private:
     std::locale m_locale;
     core::WideCharMapper m_char_mapper;
-    bool m_is_unicode_locale;
+    bool m_is_ucs_locale;
     bool m_is_utf8_locale;
 };
 
@@ -176,7 +176,7 @@ public:
 
 private:
     std::locale m_locale;
-    bool m_is_unicode_locale;
+    bool m_is_ucs_locale;
     bool m_is_utf8_locale;
 };
 
@@ -190,10 +190,10 @@ private:
 /// fallback behavior. It is intended for that purpose only.
 ///
 enum class native_mb_to_utf8_transcoder::fallback_level {
-    normal,                        ///< Normal mode.
-    no_unicode_assumption,         ///< Do not assume that locale is Unicode (\ref core::assume_unicode_locale()).
-    no_utf8_assumption,            ///< Do not assume that locale is UTF-8 (\ref core::assume_utf8_locale()).
-    no_unicode_or_utf8_assumption, ///< Neither assume that locale is Unicode, nor that it is UTF-8.
+    normal,                    ///< Normal mode.
+    no_ucs_assumption,         ///< Do not assume that locale is UCS (\ref core::assume_ucs_locale()).
+    no_utf8_assumption,        ///< Do not assume that locale is UTF-8 (\ref core::assume_utf8_locale()).
+    no_ucs_or_utf8_assumption, ///< Neither assume that locale is UCS, nor that it is UTF-8.
 };
 
 
@@ -205,10 +205,10 @@ enum class native_mb_to_utf8_transcoder::fallback_level {
 /// fallback behavior. It is intended for that purpose only.
 ///
 enum class utf8_to_native_mb_transcoder::fallback_level {
-    normal,                        ///< Normal mode.
-    no_unicode_assumption,         ///< Do not assume that locale is Unicode (\ref core::assume_unicode_locale()).
-    no_utf8_assumption,            ///< Do not assume that locale is UTF-8 (\ref core::assume_utf8_locale()).
-    no_unicode_or_utf8_assumption, ///< Neither assume that locale is Unicode, nor that it is UTF-8.
+    normal,                    ///< Normal mode.
+    no_ucs_assumption,         ///< Do not assume that locale is UCS (\ref core::assume_unicode_locale()).
+    no_utf8_assumption,        ///< Do not assume that locale is UTF-8 (\ref core::assume_utf8_locale()).
+    no_ucs_or_utf8_assumption, ///< Neither assume that locale is UCS, nor that it is UTF-8.
 };
 
 

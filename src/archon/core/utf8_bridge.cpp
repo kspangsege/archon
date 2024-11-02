@@ -50,15 +50,15 @@ using core::utf8_to_native_mb_transcoder;
 namespace {
 
 
-bool assume_unicode_locale(const std::locale& locale, native_mb_to_utf8_transcoder::fallback_level level)
+bool assume_ucs_locale(const std::locale& locale, native_mb_to_utf8_transcoder::fallback_level level)
 {
-    bool is_unicode_locale = core::assume_unicode_locale(locale); // Throws
+    bool is_ucs_locale = core::assume_ucs_locale(locale); // Throws
 #if ARCHON_DEBUG
     using fallback_level = native_mb_to_utf8_transcoder::fallback_level;
     switch (level) {
-        case fallback_level::no_unicode_assumption:
-        case fallback_level::no_unicode_or_utf8_assumption:
-            is_unicode_locale = false;
+        case fallback_level::no_ucs_assumption:
+        case fallback_level::no_ucs_or_utf8_assumption:
+            is_ucs_locale = false;
             break;
         case fallback_level::normal:
         case fallback_level::no_utf8_assumption:
@@ -67,7 +67,7 @@ bool assume_unicode_locale(const std::locale& locale, native_mb_to_utf8_transcod
 #else
     static_cast<void>(level);
 #endif
-    return is_unicode_locale;
+    return is_ucs_locale;
 }
 
 bool assume_utf8_locale(const std::locale& locale, native_mb_to_utf8_transcoder::fallback_level level)
@@ -77,11 +77,11 @@ bool assume_utf8_locale(const std::locale& locale, native_mb_to_utf8_transcoder:
     using fallback_level = native_mb_to_utf8_transcoder::fallback_level;
     switch (level) {
         case fallback_level::no_utf8_assumption:
-        case fallback_level::no_unicode_or_utf8_assumption:
+        case fallback_level::no_ucs_or_utf8_assumption:
             is_utf8_locale = false;
             break;
         case fallback_level::normal:
-        case fallback_level::no_unicode_assumption:
+        case fallback_level::no_ucs_assumption:
             break;
     }
 #else
@@ -91,15 +91,15 @@ bool assume_utf8_locale(const std::locale& locale, native_mb_to_utf8_transcoder:
 }
 
 
-bool assume_unicode_locale(const std::locale& locale, utf8_to_native_mb_transcoder::fallback_level level)
+bool assume_ucs_locale(const std::locale& locale, utf8_to_native_mb_transcoder::fallback_level level)
 {
-    bool is_unicode_locale = core::assume_unicode_locale(locale); // Throws
+    bool is_ucs_locale = core::assume_ucs_locale(locale); // Throws
 #if ARCHON_DEBUG
     using fallback_level = utf8_to_native_mb_transcoder::fallback_level;
     switch (level) {
-        case fallback_level::no_unicode_assumption:
-        case fallback_level::no_unicode_or_utf8_assumption:
-            is_unicode_locale = false;
+        case fallback_level::no_ucs_assumption:
+        case fallback_level::no_ucs_or_utf8_assumption:
+            is_ucs_locale = false;
             break;
         case fallback_level::normal:
         case fallback_level::no_utf8_assumption:
@@ -108,7 +108,7 @@ bool assume_unicode_locale(const std::locale& locale, utf8_to_native_mb_transcod
 #else
     static_cast<void>(level);
 #endif
-    return is_unicode_locale;
+    return is_ucs_locale;
 }
 
 bool assume_utf8_locale(const std::locale& locale, utf8_to_native_mb_transcoder::fallback_level level)
@@ -118,11 +118,11 @@ bool assume_utf8_locale(const std::locale& locale, utf8_to_native_mb_transcoder:
     using fallback_level = utf8_to_native_mb_transcoder::fallback_level;
     switch (level) {
         case fallback_level::no_utf8_assumption:
-        case fallback_level::no_unicode_or_utf8_assumption:
+        case fallback_level::no_ucs_or_utf8_assumption:
             is_utf8_locale = false;
             break;
         case fallback_level::normal:
-        case fallback_level::no_unicode_assumption:
+        case fallback_level::no_ucs_assumption:
             break;
     }
 #else
@@ -139,7 +139,7 @@ bool assume_utf8_locale(const std::locale& locale, utf8_to_native_mb_transcoder:
 native_mb_to_utf8_transcoder::native_mb_to_utf8_transcoder(const std::locale& locale, fallback_level level)
     : m_locale(locale)
     , m_char_mapper(locale) // Throws
-    , m_is_unicode_locale(::assume_unicode_locale(locale, level)) // Throws
+    , m_is_ucs_locale(::assume_ucs_locale(locale, level)) // Throws
     , m_is_utf8_locale(::assume_utf8_locale(locale, level)) // Throws
 {
 }
@@ -174,7 +174,7 @@ void native_mb_to_utf8_transcoder::transcode_l(core::StringSpan<char> string, co
                                      buffer_2, buffer_offset_3, error); // Throws
         ARCHON_ASSERT(!error); // Because lenient mode is used
         std::wstring_view string_2 = { buffer_2.data(), buffer_offset_3 };
-        if (ARCHON_LIKELY(m_is_unicode_locale)) {
+        if (ARCHON_LIKELY(m_is_ucs_locale)) {
             core::encode_utf8<wchar_t>(string_2, buffer, buffer_offset_2); // Throws
         }
         else {
@@ -211,7 +211,7 @@ void native_mb_to_utf8_transcoder::transcode_l(core::StringSpan<char> string, co
 
 utf8_to_native_mb_transcoder::utf8_to_native_mb_transcoder(const std::locale& locale, fallback_level level)
     : m_locale(locale)
-    , m_is_unicode_locale(::assume_unicode_locale(locale, level)) // Throws
+    , m_is_ucs_locale(::assume_ucs_locale(locale, level)) // Throws
     , m_is_utf8_locale(::assume_utf8_locale(locale, level)) // Throws
 {
 }
@@ -242,7 +242,7 @@ void utf8_to_native_mb_transcoder::transcode_l(core::StringSpan<char> string, co
         bool complete = core::decode_utf8_incr_l(string, core::Span(buffer_2), string_offset, buffer_offset_2,
                                                  end_of_string);
         std::wstring_view string_2 = { buffer_2.data(), buffer_offset_2 }; // Throws
-        if (ARCHON_LIKELY(m_is_unicode_locale)) {
+        if (ARCHON_LIKELY(m_is_ucs_locale)) {
             std::size_t string_offset_2 = 0;
             for (;;) {
                 bool error = {};

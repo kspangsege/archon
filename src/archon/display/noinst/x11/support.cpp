@@ -2252,7 +2252,7 @@ x11::TextPropertyWrapper::TextPropertyWrapper(Display* dpy, std::string_view str
         return;
     }
 
-    if (core::assume_unicode_locale(loc) && !force_fallback) { // Throws
+    if (core::assume_ucs_locale(loc) && !force_fallback) { // Throws
         std::array<wchar_t, 256> seed_memory_1;
         core::BasicStringDecoder<wchar_t> decoder(loc, seed_memory_1); // Throws
         std::basic_string_view str_2 = decoder.decode_sc(str); // Throws
@@ -2300,7 +2300,7 @@ x11::TextPropertyWrapper::TextPropertyWrapper(Display* dpy, std::string_view str
         return;
     }
 
-    if (core::assume_unicode_locale(loc) && !force_fallback) { // Throws
+    if (core::assume_ucs_locale(loc) && !force_fallback) { // Throws
         std::array<wchar_t, 256> seed_memory_1;
         core::Buffer buffer_1(seed_memory_1);
         core::BasicStringDecoder<wchar_t> decoder(loc, seed_memory_1); // Throws

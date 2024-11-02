@@ -700,7 +700,7 @@ auto CharCodec4<C, T>::get_replacement_info(const std::locale& locale, const sup
 
     if constexpr (std::is_same_v<char_type, wchar_t>) {
         if (ARCHON_LIKELY(!config.use_fallback_replacement_char)) {
-            if (ARCHON_LIKELY(core::assume_unicode_locale(locale))) { // Throws
+            if (ARCHON_LIKELY(core::assume_ucs_locale(locale))) { // Throws
                 std::mbstate_t state = {};
                 wchar_t ch = traits_type::to_char_type(0xFFFD);
                 wchar_t data[] = { ch };

@@ -267,7 +267,7 @@
 // If `ARCHON_WCHAR_IS_UNICODE` is true, it means that we can assume that the character
 // encoding for `wchar_t` is UCS in all locales.
 //
-// See also \ref ARCHON_ASSUME_UNICODE_LOCALE and \ref ARCHON_ASSUME_UTF8_LOCALE.
+// See also \ref ARCHON_ASSUME_UCS_LOCALE and \ref ARCHON_ASSUME_UTF8_LOCALE.
 //
 #if defined __STDC_ISO_10646__
 #  define ARCHON_WCHAR_IS_UNICODE 1

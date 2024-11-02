@@ -46,12 +46,12 @@ auto fallback_level_to_string(core::native_mb_to_ascii_transcoder::fallback_leve
     switch (level) {
         case fallback_level::normal:
             return "normal";
-        case fallback_level::no_unicode_assumption:
-            return "no_unicode_assumption";
+        case fallback_level::no_ucs_assumption:
+            return "no_ucs_assumption";
         case fallback_level::no_utf8_assumption:
             return "no_utf8_assumption";
-        case fallback_level::no_unicode_or_utf8_assumption:
-            return "no_unicode_or_utf8_assumption";
+        case fallback_level::no_ucs_or_utf8_assumption:
+            return "no_ucs_or_utf8_assumption";
     }
     return {};
 }
@@ -62,12 +62,12 @@ auto fallback_level_to_string(core::ascii_to_native_mb_transcoder::fallback_leve
     switch (level) {
         case fallback_level::normal:
             return "normal";
-        case fallback_level::no_unicode_assumption:
-            return "no_unicode_assumption";
+        case fallback_level::no_ucs_assumption:
+            return "no_ucs_assumption";
         case fallback_level::no_utf8_assumption:
             return "no_utf8_assumption";
-        case fallback_level::no_unicode_or_utf8_assumption:
-            return "no_unicode_or_utf8_assumption";
+        case fallback_level::no_ucs_or_utf8_assumption:
+            return "no_ucs_or_utf8_assumption";
     }
     return {};
 }
@@ -83,26 +83,26 @@ ARCHON_TEST(Core_AsciiBridge_TranscodeNativeMbToAscii)
         auto subtest = [&, &parent_test_context = test_context](fallback_level level) {
             ARCHON_TEST_TRAIL(parent_test_context, fallback_level_to_string(level));
 
-            bool is_unicode = core::assume_unicode_locale(locale);
-            bool is_utf8    = core::assume_utf8_locale(locale);
-            bool assume_unicode = is_unicode;
-            bool assume_utf8    = is_utf8;
+            bool is_ucs  = core::assume_ucs_locale(locale);
+            bool is_utf8 = core::assume_utf8_locale(locale);
+            bool assume_ucs  = is_ucs;
+            bool assume_utf8 = is_utf8;
             switch (level) {
                 case fallback_level::normal:
                     break;
-                case fallback_level::no_unicode_assumption:
-                    assume_unicode = false;
+                case fallback_level::no_ucs_assumption:
+                    assume_ucs = false;
                     break;
                 case fallback_level::no_utf8_assumption:
                     assume_utf8 = false;
                     break;
-                case fallback_level::no_unicode_or_utf8_assumption:
-                    assume_unicode = false;
+                case fallback_level::no_ucs_or_utf8_assumption:
+                    assume_ucs = false;
                     assume_utf8 = false;
                     break;
             }
-            test_context.logger.detail("(unicode: %s -> %s, utf8: %s -> %s)",
-                                       (is_unicode ? "yes" : "no"), (assume_unicode ? "yes" : "no"),
+            test_context.logger.detail("(ucs: %s -> %s, utf8: %s -> %s)",
+                                       (is_ucs ? "yes" : "no"), (assume_ucs ? "yes" : "no"),
                                        (is_utf8 ? "yes" : "no"), (assume_utf8 ? "yes" : "no"));
 
             core::native_mb_to_ascii_transcoder transcoder(locale, level);
@@ -130,7 +130,7 @@ ARCHON_TEST(Core_AsciiBridge_TranscodeNativeMbToAscii)
             subsubtest(true);  // Starting with nonempty buffer
 
             // Input that is valid ASCII but outside the basic character set
-            if (is_utf8 && (assume_unicode || assume_utf8)) {
+            if (is_utf8 && (assume_ucs || assume_utf8)) {
                 char bytes[] = {
                     std::char_traits<char>::to_char_type(0x7F), // DEL
                 };
@@ -141,7 +141,7 @@ ARCHON_TEST(Core_AsciiBridge_TranscodeNativeMbToAscii)
                 std::string_view string_2 = { buffer_2.data(), buffer_offset };
                 ARCHON_CHECK_EQUAL(string_2, string);
             }
-            if (is_utf8 && (assume_unicode || assume_utf8)) {
+            if (is_utf8 && (assume_ucs || assume_utf8)) {
                 char bytes[] = {
                     '*',
                     std::char_traits<char>::to_char_type(0x7F), // DEL
@@ -189,9 +189,9 @@ ARCHON_TEST(Core_AsciiBridge_TranscodeNativeMbToAscii)
 
         subtest(fallback_level::normal);
 #if ARCHON_DEBUG
-        subtest(fallback_level::no_unicode_assumption);
+        subtest(fallback_level::no_ucs_assumption);
         subtest(fallback_level::no_utf8_assumption);
-        subtest(fallback_level::no_unicode_or_utf8_assumption);
+        subtest(fallback_level::no_ucs_or_utf8_assumption);
 #endif
     };
 
@@ -208,26 +208,26 @@ ARCHON_TEST(Core_AsciiBridge_TranscodeAsciiToNativeMb)
         auto subtest = [&, &parent_test_context = test_context](fallback_level level) {
             ARCHON_TEST_TRAIL(parent_test_context, fallback_level_to_string(level));
 
-            bool is_unicode = core::assume_unicode_locale(locale);
-            bool is_utf8    = core::assume_utf8_locale(locale);
-            bool assume_unicode = is_unicode;
-            bool assume_utf8    = is_utf8;
+            bool is_ucs  = core::assume_ucs_locale(locale);
+            bool is_utf8 = core::assume_utf8_locale(locale);
+            bool assume_ucs  = is_ucs;
+            bool assume_utf8 = is_utf8;
             switch (level) {
                 case fallback_level::normal:
                     break;
-                case fallback_level::no_unicode_assumption:
-                    assume_unicode = false;
+                case fallback_level::no_ucs_assumption:
+                    assume_ucs = false;
                     break;
                 case fallback_level::no_utf8_assumption:
                     assume_utf8 = false;
                     break;
-                case fallback_level::no_unicode_or_utf8_assumption:
-                    assume_unicode = false;
+                case fallback_level::no_ucs_or_utf8_assumption:
+                    assume_ucs = false;
                     assume_utf8 = false;
                     break;
             }
-            test_context.logger.detail("(unicode: %s -> %s, utf8: %s -> %s)",
-                                       (is_unicode ? "yes" : "no"), (assume_unicode ? "yes" : "no"),
+            test_context.logger.detail("(ucs: %s -> %s, utf8: %s -> %s)",
+                                       (is_ucs ? "yes" : "no"), (assume_ucs ? "yes" : "no"),
                                        (is_utf8 ? "yes" : "no"), (assume_utf8 ? "yes" : "no"));
 
             core::ascii_to_native_mb_transcoder transcoder(locale, level);
@@ -255,7 +255,7 @@ ARCHON_TEST(Core_AsciiBridge_TranscodeAsciiToNativeMb)
             subsubtest(true);  // Starting with nonempty buffer
 
             // Input that is valid ASCII but outside the basic character set
-            if (is_utf8 && (assume_unicode || assume_utf8)) {
+            if (is_utf8 && (assume_ucs || assume_utf8)) {
                 char bytes[] = {
                     std::char_traits<char>::to_char_type(0x7F), // DEL
                 };
@@ -265,7 +265,7 @@ ARCHON_TEST(Core_AsciiBridge_TranscodeAsciiToNativeMb)
                 std::string_view string_2 = { buffer_2.data(), buffer_offset };
                 ARCHON_CHECK_EQUAL(string_2, string);
             }
-            if (is_utf8 && (assume_unicode || assume_utf8)) {
+            if (is_utf8 && (assume_ucs || assume_utf8)) {
                 char bytes[] = {
                     '*',
                     std::char_traits<char>::to_char_type(0x7F), // DEL
@@ -279,7 +279,7 @@ ARCHON_TEST(Core_AsciiBridge_TranscodeAsciiToNativeMb)
             }
 
             // Input that is invalid ASCII
-            if (is_utf8 && assume_unicode && !assume_utf8) {
+            if (is_utf8 && assume_ucs && !assume_utf8) {
                 char bytes_1[] = {
                     '*',
                     std::char_traits<char>::to_char_type(0x80),
@@ -300,7 +300,7 @@ ARCHON_TEST(Core_AsciiBridge_TranscodeAsciiToNativeMb)
                 std::string_view string_3 = { bytes_2, std::size(bytes_2) };
                 ARCHON_CHECK_EQUAL(string_2, string_3);
             }
-            if (is_utf8 && !assume_unicode && !assume_utf8) {
+            if (is_utf8 && !assume_ucs && !assume_utf8) {
                 char bytes[] = {
                     '*',
                     std::char_traits<char>::to_char_type(0x80),
@@ -316,9 +316,9 @@ ARCHON_TEST(Core_AsciiBridge_TranscodeAsciiToNativeMb)
 
         subtest(fallback_level::normal);
 #if ARCHON_DEBUG
-        subtest(fallback_level::no_unicode_assumption);
+        subtest(fallback_level::no_ucs_assumption);
         subtest(fallback_level::no_utf8_assumption);
-        subtest(fallback_level::no_unicode_or_utf8_assumption);
+        subtest(fallback_level::no_ucs_or_utf8_assumption);
 #endif
     };
 

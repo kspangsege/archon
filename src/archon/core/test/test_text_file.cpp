@@ -673,7 +673,7 @@ ARCHON_TEST_BATCH(Core_TextFile_WithoutDynamicEndOfFile, wide_impl_variants)
     };
 
     for (const std::locale& locale : core::test::get_candidate_locales()) {
-        bool is_utf8 = (core::assume_utf8_locale(locale) && (core::assume_unicode_locale(locale) || ARCHON_WINDOWS));
+        bool is_utf8 = (core::assume_utf8_locale(locale) && (core::assume_ucs_locale(locale) || ARCHON_WINDOWS));
         if (is_utf8)
             subtest(locale);
     }
@@ -746,7 +746,7 @@ ARCHON_TEST_BATCH(Core_TextFile_WithDynamicEndOfFile, wide_impl_variants)
     };
 
     for (const std::locale& locale : core::test::get_candidate_locales()) {
-        bool is_utf8 = (core::assume_utf8_locale(locale) && (core::assume_unicode_locale(locale) || ARCHON_WINDOWS));
+        bool is_utf8 = (core::assume_utf8_locale(locale) && (core::assume_ucs_locale(locale) || ARCHON_WINDOWS));
         if (is_utf8)
             subtest(locale);
     }
