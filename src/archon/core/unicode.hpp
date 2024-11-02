@@ -414,13 +414,12 @@ void utf8_to_utf16(core::StringSpan<C> string, core::Buffer<D>& buffer, std::siz
 /// manner. This means that any invalid UTF-8 sequence in the specified string will be
 /// handled as if it was the valid encoding of the Unicode replacement character.
 ///
-/// This function is implemented in terms of \ref core::decode_utf8_a() and \ref
-/// core::resync_utf8().
+/// This function is implemented in terms of \ref core::utf8_to_utf16_incr_l().
 ///
 /// Behavior is undefined if \p buffer_offset is greater than `buffer.size()` prior to the
 /// invocation.
 ///
-/// \sa \ref core::utf8_to_utf16(), \ref core::utf8_to_utf16_a(), \ref core::resync_utf8()
+/// \sa \ref core::utf8_to_utf16(), \ref core::utf8_to_utf16_incr_l()
 ///
 /// \sa \ref core::utf16_to_utf8_l(), \ref core::decode_utf8_l(), \ref
 /// core::encode_utf16_l()
@@ -508,13 +507,12 @@ void utf16_to_utf8(core::StringSpan<C> string, core::Buffer<D>& buffer, std::siz
 /// This function does not recognize a UTF-16 byte order mark (BOM). It is the
 /// responsibility of the application to ensure its absence.
 ///
-/// This function is implemented in terms of \ref core::decode_utf16_a() and \ref
-/// core::resync_utf16().
+/// This function is implemented in terms of \ref core::utf16_to_utf8_incr_l().
 ///
 /// Behavior is undefined if \p buffer_offset is greater than `buffer.size()` prior to the
 /// invocation.
 ///
-/// \sa \ref core::utf16_to_utf8(), \ref core::utf16_to_utf8_a(), \ref core::resync_utf16()
+/// \sa \ref core::utf16_to_utf8(), \ref core::utf16_to_utf8_incr_l()
 ///
 /// \sa \ref core::utf8_to_utf16_l(), \ref core::decode_utf16_l(), \ref
 /// core::encode_utf8_l()
@@ -1306,8 +1304,9 @@ bool decode_utf16_incr_l(core::Span<const C> in, core::Span<D> out, std::size_t&
 ///
 /// When the transcoding process stops due to invalid input, the application may wish to
 /// skip over some input and attempt to resume the transcoding process when possible. Such a
-/// behavior can be effectively implemented using \ref core::resync_utf8(). See also \ref
-/// core::utf8_to_utf16_l() for an example of a function that uses \ref core::resync_utf8().
+/// behavior can be effectively implemented using \ref core::resync_utf8(). See \ref
+/// core::utf8_to_utf16_incr_l() for an example of a function that uses \ref
+/// core::resync_utf8().
 ///
 /// Behavior is undefined if, prior to the invocation, \p in_size is greater than
 /// `in.size()` or \p out_offset is greater than `out.size()`.
@@ -1322,8 +1321,8 @@ bool decode_utf16_incr_l(core::Span<const C> in, core::Span<D> out, std::size_t&
 /// bit-width of at least 16, and `std::char_traits<D>::eof()` must be outside the range of
 /// valid UTF-16 code units, 0x0000 -> 0xFFFD. `char16_t` can be used here.
 ///
-/// \sa \ref core::utf8_to_utf16(), \ref core::utf8_to_utf16_l(), \ref
-/// core::utf8_to_utf16_a(), \ref core::resync_utf8()
+/// \sa \ref core::utf8_to_utf16(), \ref core::utf8_to_utf16_incr_l(), \ref
+/// core::resync_utf8()
 ///
 /// \sa \ref core::utf16_to_utf8_incr(), \ref core::decode_utf8_incr(), \ref
 /// core::encode_utf16_incr()
@@ -1412,8 +1411,8 @@ bool utf8_to_utf16_incr_l(core::Span<const C> in, core::Span<D> out, std::size_t
 ///
 /// When the transcoding process stops due to invalid input, the application may wish to
 /// skip over some input and attempt to resume the transcoding process when possible. Such a
-/// behavior can be effectively implemented using \ref core::resync_utf16(). See also \ref
-/// core::utf16_to_utf8_l() for an example of a function that uses \ref
+/// behavior can be effectively implemented using \ref core::resync_utf16(). See \ref
+/// core::utf16_to_utf8_incr_l() for an example of a function that uses \ref
 /// core::resync_utf16().
 ///
 /// Behavior is undefined if, prior to the invocation, \p in_size is greater than
@@ -1429,8 +1428,8 @@ bool utf8_to_utf16_incr_l(core::Span<const C> in, core::Span<D> out, std::size_t
 /// it is required to have a bit width of at least 8, and `std::char_traits<char>::eof()` is
 /// required to be negative. `char8_t` can also be used.
 ///
-/// \sa \ref core::utf16_to_utf8(), \ref core::utf16_to_utf8_l(), \ref
-/// core::utf16_to_utf8_a(), \ref core::resync_utf16()
+/// \sa \ref core::utf16_to_utf8(), \ref core::utf16_to_utf8_incr_l(), \ref
+/// core::resync_utf16()
 ///
 /// \sa \ref core::utf8_to_utf16_incr(), \ref core::decode_utf16_incr(), \ref
 /// core::encode_utf8_incr()
