@@ -29,7 +29,7 @@
 #include <archon/core/features.h>
 #include <archon/core/buffer.hpp>
 #include <archon/core/locale.hpp>
-#include <archon/core/unicode_bridge.hpp>
+#include <archon/core/utf8_bridge.hpp>
 #include <archon/core/quote.hpp>
 #include <archon/check.hpp>
 #include <archon/core/test/locale_utils.hpp>
@@ -75,7 +75,7 @@ auto fallback_level_to_string(core::utf8_to_native_mb_transcoder::fallback_level
 } // unnamed namespace
 
 
-ARCHON_TEST(Core_UnicodeBridge_TranscodeNativeMbToUtf8)
+ARCHON_TEST(Core_Utf8Bridge_TranscodeNativeMbToUtf8)
 {
     auto test = [&, &parent_test_context = test_context](const std::locale& locale) {
         ARCHON_TEST_TRAIL(parent_test_context, core::quoted(std::string_view(locale.name())));
@@ -198,7 +198,7 @@ ARCHON_TEST(Core_UnicodeBridge_TranscodeNativeMbToUtf8)
 }
 
 
-ARCHON_TEST(Core_UnicodeBridge_TranscodeUtf8ToNativeMb)
+ARCHON_TEST(Core_Utf8Bridge_TranscodeUtf8ToNativeMb)
 {
     auto test = [&, &parent_test_context = test_context](const std::locale& locale) {
         ARCHON_TEST_TRAIL(parent_test_context, core::quoted(std::string_view(locale.name())));

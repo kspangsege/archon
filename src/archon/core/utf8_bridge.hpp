@@ -18,8 +18,8 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-#ifndef ARCHON_X_CORE_X_UNICODE_BRIDGE_HPP
-#define ARCHON_X_CORE_X_UNICODE_BRIDGE_HPP
+#ifndef ARCHON_X_CORE_X_UTF8_BRIDGE_HPP
+#define ARCHON_X_CORE_X_UTF8_BRIDGE_HPP
 
 /// \file
 
@@ -235,4 +235,4 @@ inline utf8_to_native_mb_transcoder::utf8_to_native_mb_transcoder(const std::loc
 
 } // namespace archon::core
 
-#endif // ARCHON_X_CORE_X_UNICODE_BRIDGE_HPP
+#endif // ARCHON_X_CORE_X_UTF8_BRIDGE_HPP

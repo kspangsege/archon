@@ -28,7 +28,7 @@
 #include <archon/core/span.hpp>
 #include <archon/core/index_range.hpp>
 #include <archon/core/string_buffer_contents.hpp>
-#include <archon/core/unicode_bridge.hpp>
+#include <archon/core/utf8_bridge.hpp>
 
 
 namespace archon::display::impl {

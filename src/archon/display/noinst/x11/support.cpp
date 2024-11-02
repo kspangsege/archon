@@ -55,7 +55,7 @@
 #include <archon/core/char_codec.hpp>
 #include <archon/core/string_codec.hpp>
 #include <archon/core/unicode.hpp>
-#include <archon/core/unicode_bridge.hpp>
+#include <archon/core/utf8_bridge.hpp>
 #include <archon/core/format.hpp>
 #include <archon/core/as_int.hpp>
 #include <archon/core/quote.hpp>
