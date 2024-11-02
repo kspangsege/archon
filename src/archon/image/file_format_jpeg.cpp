@@ -34,6 +34,8 @@
 #include <archon/core/features.h>
 #include <archon/core/span.hpp>
 #include <archon/core/assert.hpp>
+#include <archon/core/buffer.hpp>
+#include <archon/core/ascii_bridge.hpp>
 #include <archon/core/as_int.hpp>
 #include <archon/core/misc_error.hpp>
 #include <archon/core/source.hpp>
@@ -94,6 +96,35 @@ constexpr std::string_view g_filename_extensions[] = {
 
 
 #if ARCHON_IMAGE_HAVE_JPEG
+
+
+static_assert(std::is_same_v<JOCTET, char> || std::is_same_v<JOCTET, unsigned char>);
+
+template<bool> struct joctet_ptr_cast_helper {
+    static auto to_joctet_ptr(char* data) noexcept
+    {
+        return reinterpret_cast<JOCTET*>(data);
+    }
+    static auto from_joctet_ptr(const JOCTET* data) noexcept
+    {
+        return reinterpret_cast<const char*>(data);
+    }
+};
+
+// Avoid warning from compiler when JOCTET is char
+template<> struct joctet_ptr_cast_helper<true> {
+    static auto to_joctet_ptr(char* data) noexcept
+    {
+        return data;
+    }
+    static auto from_joctet_ptr(const JOCTET* data) noexcept
+    {
+        return data;
+    }
+};
+
+using joctet_ptr_cast = joctet_ptr_cast_helper<std::is_same_v<JOCTET, char>>;
+
 
 
 // Notes on using setjmp/longjmp in C++:
@@ -305,12 +336,12 @@ auto string_for_color_space(J_COLOR_SPACE color_space) noexcept -> std::string_v
 
 
 // The size of the buffers used for input/output streaming
-constexpr std::size_t g_buffer_size = 4096;
+constexpr std::size_t g_read_write_buffer_size = 4096;
 
 
 class LoadContext : public Context {
 public:
-    LoadContext(log::Logger&, image::ProgressTracker*, image::CommentHandler*, core::Source&);
+    LoadContext(log::Logger&, image::ProgressTracker*, image::CommentHandler*, core::Source&, const std::locale&);
     ~LoadContext() noexcept;
 
     bool recognize(bool& recognized, std::error_code&);
@@ -319,7 +350,9 @@ public:
 private:
     image::CommentHandler* const m_comment_handler;
     core::Source& m_source;
-    std::unique_ptr<char[]> m_buffer;
+    core::ascii_to_native_mb_transcoder m_ascii_to_native_mb_transcoder;
+    core::Buffer<char> m_transcode_buffer;
+    std::unique_ptr<char[]> m_read_buffer;
     jpeg_source_mgr m_source_mgr = {};
     jpeg_decompress_struct m_info = {};
     std::unique_ptr<image::WritableImage> m_image;
@@ -346,12 +379,13 @@ private:
 
 
 LoadContext::LoadContext(log::Logger& logger, image::ProgressTracker* progress_tracker,
-                         image::CommentHandler* comment_handler, core::Source& source)
+                         image::CommentHandler* comment_handler, core::Source& source, const std::locale& locale)
     : Context(logger, progress_tracker) // Throws
     , m_comment_handler(comment_handler)
     , m_source(source)
+    , m_ascii_to_native_mb_transcoder(locale) // Throws
 {
-    m_buffer = std::make_unique<char[]>(g_buffer_size); // Throws
+    m_read_buffer = std::make_unique<char[]>(g_read_write_buffer_size); // Throws
 
     m_source_mgr.init_source       = &init_callback;
     m_source_mgr.fill_input_buffer = &read_callback;
@@ -614,7 +648,7 @@ inline auto LoadContext::get_context(j_decompress_ptr info) noexcept -> LoadCont
 
 bool LoadContext::read(std::error_code& ec)
 {
-    core::Span buffer = { m_buffer.get(), g_buffer_size };
+    core::Span buffer = { m_read_buffer.get(), g_read_write_buffer_size };
     std::size_t n = {};
     if (ARCHON_UNLIKELY(!m_source.try_read_some(buffer, n, ec))) // Throws
         return false; // Failure
@@ -622,9 +656,8 @@ bool LoadContext::read(std::error_code& ec)
         ec = core::MiscError::premature_end_of_input;
         return false; // Failure
     }
-    static_assert(std::is_same_v<JOCTET, char> || std::is_same_v<JOCTET, unsigned char>);
     m_source_mgr.bytes_in_buffer = n;
-    m_source_mgr.next_input_byte = reinterpret_cast<JOCTET*>(buffer.data());
+    m_source_mgr.next_input_byte = joctet_ptr_cast::to_joctet_ptr(buffer.data());
     return true; // Success
 }
 
@@ -704,9 +737,15 @@ template<class C> void LoadContext::create_image_2(int num_channels, const image
 
 void LoadContext::handle_comment(const JOCTET* data, unsigned size)
 {
-    static_cast<void>(data);        
-    static_cast<void>(size);        
-    ARCHON_STEADY_ASSERT_UNREACHABLE();            
+    ARCHON_ASSERT(m_comment_handler);
+    const char* data_2 = joctet_ptr_cast::from_joctet_ptr(data);
+    std::size_t size_2 = {};
+    core::int_cast(size, size_2); // Throws
+    std::string_view string_1 = { data_2, size_2 }; // Throws
+    std::size_t buffer_offset = 0;
+    m_ascii_to_native_mb_transcoder.transcode_l(string_1, m_transcode_buffer, buffer_offset); // Throws
+    std::string_view string_2 = { m_transcode_buffer.data(), buffer_offset }; // Throws
+    m_comment_handler->handle_comment(string_2); // Throws
 }
 
 
@@ -739,21 +778,20 @@ public:
         return true;
     }
 
-    bool try_recognize(core::Source& source, bool& recognized, const std::locale&, log::Logger& logger,
+    bool try_recognize(core::Source& source, bool& recognized, const std::locale& locale, log::Logger& logger,
                        std::error_code& ec) const override
     {
         image::ProgressTracker* progress_tracker = nullptr;
         image::CommentHandler* comment_handler = nullptr;
-        LoadContext context(logger, progress_tracker, comment_handler, source); // Throws
+        LoadContext context(logger, progress_tracker, comment_handler, source, locale); // Throws
         return context.recognize(recognized, ec); // Throws
     }
 
-    bool do_try_load(core::Source& source, std::unique_ptr<image::WritableImage>& image, const std::locale& loc,
+    bool do_try_load(core::Source& source, std::unique_ptr<image::WritableImage>& image, const std::locale& locale,
                      log::Logger& logger, const LoadConfig& config, std::error_code& ec) const override
     {
         // FIXME: Deal with config.image_provider                 
-        static_cast<void>(loc);    
-        LoadContext context(logger, config.progress_tracker, config.comment_handler, source); // Throws
+        LoadContext context(logger, config.progress_tracker, config.comment_handler, source, locale); // Throws
         return context.load(image, ec); // Throws
     }
 
