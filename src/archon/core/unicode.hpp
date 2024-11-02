@@ -939,8 +939,8 @@ void encode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
 /// \brief Next step of lenient incremental UTF-8 encoding process.
 ///
 /// This function advances an ongoing incremental UTF-8 encoding process just like \ref
-/// core::encode_utf8_incr(). The difference is that this function operates with leniency in
-/// the sense that it accepts invalid input and automatically replaces it with replacement
+/// core::encode_utf8_incr(). The difference is that this function operates leniently in the
+/// sense that it accepts invalid input and automatically replaces it with replacement
 /// characters. It is implemented in terms of \ref core::encode_utf8_incr().
 ///
 /// For the meaning of parameters \p in, \p out, \p in_offset, and \p out_offset, see \ref
@@ -1035,8 +1035,8 @@ void decode_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in
 /// \brief Next step of lenient incremental UTF-8 decoding process.
 ///
 /// This function advances an ongoing incremental UTF-8 decoding process just like \ref
-/// core::decode_utf8_incr(). The difference is that this function operates with leniency in
-/// the sense that it accepts invalid input and automatically replaces it with replacement
+/// core::decode_utf8_incr(). The difference is that this function operates leniently in the
+/// sense that it accepts invalid input and automatically replaces it with replacement
 /// characters. It is implemented in terms of \ref core::decode_utf8_incr() and \ref
 /// core::resync_utf8().
 ///
@@ -1132,9 +1132,9 @@ void encode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& i
 /// \brief Next step of lenient incremental UTF-16 encoding process.
 ///
 /// This function advances an ongoing incremental UTF-16 encoding process just like \ref
-/// core::encode_utf16_incr(). The difference is that this function operates with leniency
-/// in the sense that it accepts invalid input and automatically replaces it with
-/// replacement characters. It is implemented in terms of \ref core::encode_utf16_incr().
+/// core::encode_utf16_incr(). The difference is that this function operates leniently in
+/// the sense that it accepts invalid input and automatically replaces it with replacement
+/// characters. It is implemented in terms of \ref core::encode_utf16_incr().
 ///
 /// For the meaning of parameters \p in, \p out, \p in_offset, and \p out_offset, see \ref
 /// core::encode_utf16_incr().
@@ -1234,10 +1234,10 @@ void decode_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& i
 /// \brief Next step of lenient incremental UTF-16 decoding process.
 ///
 /// This function advances an ongoing incremental UTF-16 decoding process just like \ref
-/// core::decode_utf16_incr(). The difference is that this function operates with leniency
-/// in the sense that it accepts invalid input and automatically replaces it with
-/// replacement characters. It is implemented in terms of \ref core::decode_utf16_incr() and
-/// \ref core::resync_utf16().
+/// core::decode_utf16_incr(). The difference is that this function operates leniently in
+/// the sense that it accepts invalid input and automatically replaces it with replacement
+/// characters. It is implemented in terms of \ref core::decode_utf16_incr() and \ref
+/// core::resync_utf16().
 ///
 /// For the meaning of parameters \p in, \p out, \p in_offset, and \p out_offset, see \ref
 /// core::decode_utf16_incr().
@@ -1333,6 +1333,40 @@ void utf8_to_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& 
                         bool& in_exhausted, bool& error) noexcept;
 
 
+/// \brief Next step of lenient incremental UTF-8 to UTF-16 transcoding process.
+///
+/// This function advances an ongoing UTF-8 to UTF-16 transcoding process just like \ref
+/// core::utf8_to_utf16_incr(). The difference is that this function operates leniently in
+/// the sense that it accepts invalid input and automatically replaces it with replacement
+/// characters. It is implemented in terms of \ref core::utf8_to_utf16_incr() and \ref
+/// core::resync_utf8().
+///
+/// For the meaning of parameters \p in, \p out, \p in_offset, and \p out_offset, see \ref
+/// core::utf8_to_utf16_incr().
+///
+/// If this function returns `true` and \p end_of_input was `true`, it means that all of the
+/// specified input was decoded. If \p end_of_input was `false`, it means that if any input
+/// remains unconsumed, it must be a prefix of some valid UTF-8 sequence. The idea is that
+/// the caller sets \p end_of_input to `true` when the caller knows that the passed input
+/// includes all of the remaining input for the whole decoding process. The caller then
+/// knows that the decoding process is complete when this function returns `true` and the
+/// end of input for the whole decoding process was included.
+///
+/// If this function returns `false`, it means that output space was exhausted before all
+/// input was decoded. In that case, this function should be called again with at least some
+/// available output space.
+///
+/// \sa \ref core::utf8_to_utf16(), \ref core::utf8_to_utf16_l(), \ref
+/// core::utf8_to_utf16_incr()
+///
+/// \sa \ref core::utf16_to_utf8_incr_l(), \ref core::decode_utf8_incr_l(), \ref
+/// core::encode_utf16_incr_l()
+///
+template<class C, class D, class T = std::char_traits<C>, class U = std::char_traits<D>>
+bool utf8_to_utf16_incr_l(core::Span<const C> in, core::Span<D> out, std::size_t& in_offset, std::size_t& out_offset,
+                          bool end_of_input) noexcept;
+
+
 /// \brief Next step of incremental UTF-16 to UTF-8 transcoding process.
 ///
 /// The purpose of this function is to advance an ongoing UTF-16 to UTF-8 transcoding
@@ -1404,6 +1438,40 @@ void utf8_to_utf16_incr(core::Span<const C> in, core::Span<D> out, std::size_t& 
 template<class C, class D, class T = std::char_traits<C>, class U = std::char_traits<D>>
 void utf16_to_utf8_incr(core::Span<const C> in, core::Span<D> out, std::size_t& in_offset, std::size_t& out_offset,
                         bool& in_exhausted, bool& error) noexcept;
+
+
+/// \brief Next step of lenient incremental UTF-16 to UTF-8 transcoding process.
+///
+/// This function advances an ongoing UTF-16 to UTF-8 transcoding process just like \ref
+/// core::utf16_to_utf8_incr(). The difference is that this function operates leniently in
+/// the sense that it accepts invalid input and automatically replaces it with replacement
+/// characters. It is implemented in terms of \ref core::utf16_to_utf8_incr() and \ref
+/// core::resync_utf16().
+///
+/// For the meaning of parameters \p in, \p out, \p in_offset, and \p out_offset, see \ref
+/// core::utf16_to_utf8_incr().
+///
+/// If this function returns `true` and \p end_of_input was `true`, it means that all of the
+/// specified input was decoded. If \p end_of_input was `false`, it means that if any input
+/// remains unconsumed, it must be a prefix of some valid UTF-16 sequence. The idea is that
+/// the caller sets \p end_of_input to `true` when the caller knows that the passed input
+/// includes all of the remaining input for the whole decoding process. The caller then
+/// knows that the decoding process is complete when this function returns `true` and the
+/// end of input for the whole decoding process was included.
+///
+/// If this function returns `false`, it means that output space was exhausted before all
+/// input was decoded. In that case, this function should be called again with at least some
+/// available output space.
+///
+/// \sa \ref core::utf16_to_utf8(), \ref core::utf16_to_utf8_l(), \ref
+/// core::utf16_to_utf8_incr()
+///
+/// \sa \ref core::utf8_to_utf16_incr_l(), \ref core::decode_utf16_incr_l(), \ref
+/// core::encode_utf8_incr_l()
+///
+template<class C, class D, class T = std::char_traits<C>, class U = std::char_traits<D>>
+bool utf16_to_utf8_incr_l(core::Span<const C> in, core::Span<D> out, std::size_t& in_offset, std::size_t& out_offset,
+                          bool end_of_input) noexcept;
 
 
 /// \brief Discard rest of invalid UTF-8 sequence.
@@ -1719,21 +1787,16 @@ void utf8_to_utf16_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::s
     std::size_t string_offset = 0;
     std::size_t buffer_offset_2 = buffer_offset;
     for (;;) {
-        core::utf8_to_utf16_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
-        bool success = (string_offset == string.size());
-        if (ARCHON_LIKELY(success)) {
+        bool end_of_string = true;
+        bool complete = core::utf8_to_utf16_incr_l<C, D, T, U>(string, buffer, string_offset, buffer_offset_2,
+                                                               end_of_string);
+        if (ARCHON_LIKELY(complete)) {
+            ARCHON_ASSERT(string_offset == string.size());
             buffer_offset = buffer_offset_2;
             return;
         }
         ARCHON_ASSERT(string_offset < string.size());
-        string_offset += 1;
-        core::resync_utf8<C, T>(string, string_offset);
-        using char_type = D;
-        using traits_type = U;
-        char_type replacement[] = {
-            traits_type::to_char_type(0xFFFD),
-        };
-        buffer.append(replacement, buffer_offset_2); // Throws
+        buffer.expand(buffer_offset_2); // Throws
     }
 }
 
@@ -1777,23 +1840,16 @@ void utf16_to_utf8_l(core::StringSpan<C> string, core::Buffer<D>& buffer, std::s
     std::size_t string_offset = 0;
     std::size_t buffer_offset_2 = buffer_offset;
     for (;;) {
-        core::utf16_to_utf8_a<C, D, T, U>(string, string_offset, buffer, buffer_offset_2); // Throws
-        bool success = (string_offset == string.size());
-        if (ARCHON_LIKELY(success)) {
+        bool end_of_string = true;
+        bool complete = core::utf16_to_utf8_incr_l<C, D, T, U>(string, buffer, string_offset, buffer_offset_2,
+                                                               end_of_string);
+        if (ARCHON_LIKELY(complete)) {
+            ARCHON_ASSERT(string_offset == string.size());
             buffer_offset = buffer_offset_2;
             return;
         }
         ARCHON_ASSERT(string_offset < string.size());
-        string_offset += 1;
-        core::resync_utf16<C, T>(string, string_offset);
-        using char_type = D;
-        using traits_type = U;
-        char_type replacement[] = {
-            traits_type::to_char_type(0xEF),
-            traits_type::to_char_type(0xBF),
-            traits_type::to_char_type(0xBD),
-        };
-        buffer.append(replacement, buffer_offset_2); // Throws
+        buffer.expand(buffer_offset_2); // Throws
     }
 }
 
