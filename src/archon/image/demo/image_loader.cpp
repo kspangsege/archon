@@ -131,8 +131,9 @@ int main(int argc, char* argv[])
     }
     load_config.registry = &image_file_format_registry;
 
-    log::FileLogger root_logger(core::File::get_stdout(), locale);
-    log::LimitLogger logger(root_logger, log_level_limit); // Throws
+    log::FileLogger root_logger(core::File::get_stdout(), locale); // Throws
+    log::LimitLogger limit_logger(root_logger, log_level_limit); // Throws
+    log::ChannelLogger logger(limit_logger, "root", root_logger); // Throws
 
     ProgressTracker progress_tracker(root_logger);
     if (progress) {
@@ -143,8 +144,10 @@ int main(int argc, char* argv[])
     if (ARCHON_UNLIKELY(optional_file_format.has_value()))
         load_config.file_format = optional_file_format.value();
 
+    core::StringFormatter string_formatter(locale); // Throws
     for (const fs::path& path : paths) {
-        log::PrefixLogger path_logger(logger, core::path_to_string_native(path, locale)); // Throws
+        std::string path_2 = core::path_to_string_native(path, locale); // Throws
+        log::PrefixLogger path_logger(logger, string_formatter.format("%s: ", path_2)); // Throws
         load_config.logger = &path_logger;
         std::unique_ptr<image::WritableImage> image;
         std::error_code ec;
@@ -152,6 +155,7 @@ int main(int argc, char* argv[])
             logger.error("Failed to load image: %s", ec.message()); // Throws
             return EXIT_FAILURE;
         }
-        root_logger.info("Loaded"); // Hmmm, can I use diffrent channels here with different log level limits?                            
+        log::Logger path_root_logger(path_logger, "root"); // Throws
+        path_root_logger.info("Loaded"); // Throws
     }
 }
