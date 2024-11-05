@@ -207,6 +207,9 @@ bool image::try_load_a(const image::Input& input, std::unique_ptr<image::Writabl
     if (ARCHON_UNLIKELY(!determinae_file_format(source, input.mime_type, input.filename_extension, loc, logger, config,
                                                 format, ec))) // Throws
         return false; // Failure
+    logger.detail("Detected file format: %s", format->get_ident()); // Throws
+    if (ARCHON_UNLIKELY(config.detected_file_format))
+        *config.detected_file_format = format->get_ident();
     source.release();
     return format->try_load(source, image, loc, logger, config, ec); // Throws
 }

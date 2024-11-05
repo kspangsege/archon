@@ -121,6 +121,8 @@ public:
     /// this one, are used to uniquely identify file formats in a file format registry (\ref
     /// image::FileFormatRegistry).
     ///
+    /// The returned string view must remain valid until the file format object is destroyed.
+    ///
     virtual auto get_ident() const noexcept -> std::string_view = 0;
 
     /// \brief File format description.
@@ -129,6 +131,8 @@ public:
     /// supposed to be a short text that serves to identify the file format in a broader
     /// context.
     ///
+    /// The returned string view must remain valid until the file format object is destroyed.
+    ///
     virtual auto get_descr() const -> std::string_view = 0;
 
     /// \brief Associated MIME types.
@@ -136,12 +140,16 @@ public:
     /// This function returns the list of MIME types for which the file format should be
     /// considered a likely candidate.
     ///
+    /// The returned string views must remain valid until the file format object is destroyed.
+    ///
     virtual auto get_mime_types() const noexcept -> core::Span<const std::string_view> = 0;
 
     /// \brief Associated filename extensions.
     ///
     /// This function returns the list of filename extensions for which the file format
     /// should be considered a likely candidate.
+    ///
+    /// The returned string views must remain valid until the file format object is destroyed.
     ///
     virtual auto get_filename_extensions() const noexcept -> core::Span<const std::string_view> = 0;
 

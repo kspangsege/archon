@@ -73,6 +73,26 @@ struct LoadConfig : image::FileFormat::LoadConfig {
     ///
     std::optional<std::string_view> file_format;
 
+    /// \brief Reveal detected file format.
+    ///
+    /// If specified, the referenced string view object will be set to the identifier for
+    /// the detected image file format. It will be set even if a specific file format is
+    /// requested through \ref file_format. The updated string view will be a "shallow copy"
+    /// of the string view returned by \ref image::FileFormat::get_ident(), so it will
+    /// remain valid at least until the corresponding file format object is destroyed (\ref
+    /// registry, \ref image::FileFormatRegistry::register_file_format()).
+    ///
+    /// The referenced string view will be set to the detected file format as soon as file
+    /// format detection succeeds. This means that its value can be relied on if the loading
+    /// operation succeeds (\ref image::try_load_a()). It also means that the string view
+    /// object may, or may not have been updated after a load operation fails. If the
+    /// application is interested in knowing the detected file format even when the load
+    /// operation fails, it can set the string view to the empty string before invoking the
+    /// load operation and then check whether it is non-empty after a failure. It will be
+    /// non-empty if, and only if file format detection succeeded.
+    ///
+    std::string_view* detected_file_format = nullptr;
+
     /// \brief Alternative set of file formats to be used during file format detection.
     ///
     /// If a file format registry is specified, that set of image file formats will be

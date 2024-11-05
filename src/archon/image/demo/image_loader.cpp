@@ -51,8 +51,6 @@ namespace {
 class ProgressTracker final
     : public image::ProgressTracker {
 public:
-    bool is_save = false;
-
     ProgressTracker(log::Logger& logger) noexcept
         : m_logger(logger)
     {
@@ -60,12 +58,25 @@ public:
 
     void progress(const image::Image&, double fraction) override
     {
-        if (!is_save) {
-            m_logger.info("Load progress: %s", core::as_percent(fraction));
-        }
-        else {
-            m_logger.info("Save progress: %s", core::as_percent(fraction));
-        }
+        m_logger.info("Load progress: %s", core::as_percent(fraction)); // Throws
+    }
+
+private:
+    log::Logger& m_logger;
+};
+
+
+class CommentHandler final
+    : public image::CommentHandler {
+public:
+    CommentHandler(log::Logger& logger) noexcept
+        : m_logger(logger)
+    {
+    }
+
+    void handle_comment(std::string_view comment) override
+    {
+        m_logger.info("Comment: %s", core::quoted(comment)); // Throws
     }
 
 private:
@@ -85,8 +96,10 @@ int main(int argc, char* argv[])
     std::vector<fs::path> paths;
     bool list_image_file_formats = false;
     log::LogLevel log_level_limit = log::LogLevel::warn;
+    bool abort_on_error = false;
     std::optional<std::string> optional_file_format;
     bool progress = false;
+    bool show_comments = false;
     image::LoadConfig load_config;
 
     cli::Spec spec;
@@ -106,15 +119,23 @@ int main(int argc, char* argv[])
         "Set the log level limit. The possible levels are @G. The default limit is @Q.",
         cli::assign(log_level_limit)); // Throws
 
+    opt("-e, --abort-on-error", "", cli::no_attributes, spec,
+        "If the loading of one image fails, do not proceed to load additional images.",
+        cli::raise_flag(abort_on_error)); // Throws
+
     opt("-s, --file-format", "<ident>", cli::no_attributes, spec,
         "Assume that the specified images use this file format. By default, automatic detection of the file format "
         "will be attempted for each image individually. Use `--list-image-file-formats` to see a list of supported "
         "image file formats.",
         cli::assign(optional_file_format)); // Throws
 
-    opt("-P, --progress", "", cli::no_attributes, spec,
-        "Report loading progress.",
+    opt("-p, --progress", "", cli::no_attributes, spec,
+        "Report on loading progress.",
         cli::raise_flag(progress)); // Throws
+
+    opt("-c, --show-comments", "", cli::no_attributes, spec,
+        "Show comments in loaded images.",
+        cli::raise_flag(show_comments)); // Throws
 
     opt("-r, --read-buffer-size", "<size>", cli::no_attributes, spec,
         "Set the size of the read buffer used when loading images. The default size is @V.",
@@ -124,38 +145,52 @@ int main(int argc, char* argv[])
     if (ARCHON_UNLIKELY(cli::process(argc, argv, spec, exit_status, locale))) // Throws
         return exit_status;
 
-    const image::FileFormatRegistry& image_file_format_registry = image::FileFormatRegistry::get_default_registry();
+    const image::FileFormatRegistry& file_format_registry = image::FileFormatRegistry::get_default_registry();
     if (list_image_file_formats) {
-        image::list_file_formats(core::File::get_stdout(), locale, image_file_format_registry); // Throws
+        image::list_file_formats(core::File::get_stdout(), locale, file_format_registry); // Throws
         return EXIT_SUCCESS;
     }
-    load_config.registry = &image_file_format_registry;
+    load_config.registry = &file_format_registry;
 
     log::FileLogger root_logger(core::File::get_stdout(), locale); // Throws
     log::LimitLogger limit_logger(root_logger, log_level_limit); // Throws
     log::ChannelLogger logger(limit_logger, "root", root_logger); // Throws
 
-    ProgressTracker progress_tracker(root_logger);
-    if (progress) {
-        progress_tracker.is_save = false;
-        load_config.progress_tracker = &progress_tracker;
-    }
-
     if (ARCHON_UNLIKELY(optional_file_format.has_value()))
         load_config.file_format = optional_file_format.value();
 
+    std::string_view detected_file_format;
+    load_config.detected_file_format = &detected_file_format;
+
+    bool errors_occurred = false;
     core::StringFormatter string_formatter(locale); // Throws
     for (const fs::path& path : paths) {
         std::string path_2 = core::path_to_string_native(path, locale); // Throws
         log::PrefixLogger path_logger(logger, string_formatter.format("%s: ", path_2)); // Throws
         load_config.logger = &path_logger;
+        log::Logger path_root_logger(path_logger, "root"); // Throws
+        ProgressTracker progress_tracker(path_root_logger);
+        if (progress)
+            load_config.progress_tracker = &progress_tracker;
+        CommentHandler comment_handler(path_root_logger);
+        if (show_comments)
+            load_config.comment_handler = &comment_handler;
         std::unique_ptr<image::WritableImage> image;
         std::error_code ec;
-        if (!image::try_load(path, image, locale, load_config, ec)) { // Throws
-            logger.error("Failed to load image: %s", ec.message()); // Throws
-            return EXIT_FAILURE;
+        if (ARCHON_LIKELY(image::try_load(path, image, locale, load_config, ec))) { // Throws
+            image::Size size = image->get_size();
+            path_root_logger.info("Loaded (%s, %sx%s)", detected_file_format,
+                                  core::as_int(size.width), core::as_int(size.height)); // Throws
+            continue;
         }
-        log::Logger path_root_logger(path_logger, "root"); // Throws
-        path_root_logger.info("Loaded"); // Throws
+        path_logger.error("Failed to load image: %s", ec.message()); // Throws
+        if (abort_on_error)
+            return EXIT_FAILURE;
+        errors_occurred = true;
+    }
+
+    if (errors_occurred) {
+        logger.error("Some images failed to load"); // Throws
+        return EXIT_FAILURE;
     }
 }
