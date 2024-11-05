@@ -818,3 +818,16 @@ ARCHON_TEST(Core_Deque_ExceptionSafetyInConstructFromIteratorPair)
     }
     ARCHON_CHECK_EQUAL(context.num_instances, 0);
 }
+
+
+ARCHON_TEST(Foo)
+{
+/*
+    char32_t chars[] = {
+        0x0, // 0x10348,
+    };
+*/
+    std::u32string_view str_1;
+    std::u32string_view str_2; //  = { chars, std::size(chars) };
+    ARCHON_CHECK_NOT_EQUAL(str_1, str_2);
+}
