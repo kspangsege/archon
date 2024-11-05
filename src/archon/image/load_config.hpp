@@ -88,8 +88,8 @@ struct LoadConfig : image::FileFormat::LoadConfig {
     /// object may, or may not have been updated after a load operation fails. If the
     /// application is interested in knowing the detected file format even when the load
     /// operation fails, it can set the string view to the empty string before invoking the
-    /// load operation and then check whether it is non-empty after a failure. It will be
-    /// non-empty if, and only if file format detection succeeded.
+    /// load operation and then check whether it is non-empty after a failure. It will then
+    /// be nonempty if, and only if file format detection succeeded.
     ///
     std::string_view* detected_file_format = nullptr;
 
