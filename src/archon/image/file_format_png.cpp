@@ -70,6 +70,9 @@
 #endif
 
 
+// For libpng API documentation, see http://www.libpng.org/pub/png/libpng-manual.txt
+
+
 using namespace archon;
 using namespace std::literals;
 
