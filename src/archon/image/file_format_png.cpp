@@ -882,6 +882,17 @@ bool do_load(LoadContext& ctx)
 
         // Read final chunks after image data, if any
         png_read_end(ctx.png_ptr, ctx.info_ptr);
+
+/*       
+        png_textp text_ptr = nullptr;
+        int num_text = 0;
+        if (png_get_text(w.png_ptr, w.info_ptr, &text_ptr, &num_text) > 0) {
+            for (int i = 0; i < num_text; ++i) {
+                // ...
+            }
+        }
+*/
+
     }
     else {
         // Long jumps from the callback functions land here.
@@ -896,8 +907,6 @@ bool load(core::Source& source, std::unique_ptr<image::WritableImage>& image, co
           log::Logger& logger, image::ProgressTracker* progress_tracker, image::ImageProvider* image_provider,
           const image::PNGLoadConfig&, std::error_code& ec)
 {
-    // FIXME: Read text comments using `png_get_text()`            
-
     // FIXME: Get background color using `png_get_bKGD()`             
 
     bool recognized = {};
