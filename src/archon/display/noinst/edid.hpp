@@ -28,7 +28,7 @@
 #include <archon/core/span.hpp>
 #include <archon/core/index_range.hpp>
 #include <archon/core/string_buffer_contents.hpp>
-#include <archon/core/utf8_bridge.hpp>
+#include <archon/core/charenc_bridge.hpp>
 
 
 namespace archon::display::impl {
@@ -47,7 +47,7 @@ public:
     bool parse(core::Span<const char> data, impl::EdidInfo& info, core::StringBufferContents& string_data) const;
 
 private:
-    core::utf8_to_native_mb_transcoder m_transcoder;
+    core::charenc_bridge m_charenc_bridge;
 };
 
 
@@ -61,7 +61,7 @@ private:
 
 
 inline EdidParser::EdidParser(const std::locale& locale)
-    : m_transcoder(locale) // Throws
+    : m_charenc_bridge(locale) // Throws
 {
 }
 

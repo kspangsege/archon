@@ -35,7 +35,7 @@
 #include <archon/core/span.hpp>
 #include <archon/core/assert.hpp>
 #include <archon/core/buffer.hpp>
-#include <archon/core/ascii_bridge.hpp>
+#include <archon/core/charenc_bridge.hpp>
 #include <archon/core/as_int.hpp>
 #include <archon/core/misc_error.hpp>
 #include <archon/core/source.hpp>
@@ -350,7 +350,7 @@ public:
 private:
     image::CommentHandler* const m_comment_handler;
     core::Source& m_source;
-    core::ascii_to_native_mb_transcoder m_ascii_to_native_mb_transcoder;
+    core::charenc_bridge m_charenc_bridge;
     core::Buffer<char> m_transcode_buffer;
     std::unique_ptr<char[]> m_read_buffer;
     jpeg_source_mgr m_source_mgr = {};
@@ -383,7 +383,7 @@ LoadContext::LoadContext(log::Logger& logger, image::ProgressTracker* progress_t
     : Context(logger, progress_tracker) // Throws
     , m_comment_handler(comment_handler)
     , m_source(source)
-    , m_ascii_to_native_mb_transcoder(locale) // Throws
+    , m_charenc_bridge(locale) // Throws
 {
     m_read_buffer = std::make_unique<char[]>(g_read_write_buffer_size); // Throws
 
@@ -743,7 +743,7 @@ void LoadContext::handle_comment(const JOCTET* data, unsigned size)
     core::int_cast(size, size_2); // Throws
     std::string_view string_1 = { data_2, size_2 }; // Throws
     std::size_t buffer_offset = 0;
-    m_ascii_to_native_mb_transcoder.transcode_l(string_1, m_transcode_buffer, buffer_offset); // Throws
+    m_charenc_bridge.ascii_to_native_mb_l(string_1, m_transcode_buffer, buffer_offset); // Throws
     std::string_view string_2 = { m_transcode_buffer.data(), buffer_offset }; // Throws
     m_comment_handler->handle_comment(string_2); // Throws
 }

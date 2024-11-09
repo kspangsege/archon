@@ -55,7 +55,7 @@
 #include <archon/core/char_codec.hpp>
 #include <archon/core/string_codec.hpp>
 #include <archon/core/unicode.hpp>
-#include <archon/core/utf8_bridge.hpp>
+#include <archon/core/charenc_bridge.hpp>
 #include <archon/core/format.hpp>
 #include <archon/core/as_int.hpp>
 #include <archon/core/quote.hpp>
@@ -2084,12 +2084,12 @@ bool try_update_screen_conf(Display* dpy, ::Window root, Atom atom_edid, const i
         crtc = { enabled, bounds, info->rotation, refresh_rate };
         return &crtc;
     };
-    core::utf8_to_native_mb_transcoder transcoder(locale); // Throws
+    core::charenc_bridge charenc_bridge(locale); // Throws
     std::array<char, 64> transcode_seed_memory = {};
     core::Buffer<char> transcode_buffer(transcode_seed_memory);
     auto transcode = [&](std::string_view utf8) {
         std::size_t offset = 0;
-        transcoder.transcode_l(utf8, transcode_buffer, offset); // Throws
+        charenc_bridge.utf8_to_native_mb_l(utf8, transcode_buffer, offset); // Throws
         return std::string_view(transcode_buffer.data(), offset); // Throws
     };
     core::Vector<x11::ProtoViewport, 16> new_viewports;
