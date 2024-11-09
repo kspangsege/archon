@@ -48,6 +48,7 @@ add_library(CoreTest OBJECT
   test_unicode.cpp
   test_ascii_bridge.cpp
   test_utf8_bridge.cpp
+  test_charenc_bridge.cpp
   test_impl_prim_text_file_impl.cpp
   test_impl_text_file_impl.cpp
   test_text_file.cpp

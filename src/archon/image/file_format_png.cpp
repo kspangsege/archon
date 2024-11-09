@@ -38,6 +38,9 @@
 #include <archon/core/span.hpp>
 #include <archon/core/assert.hpp>
 #include <archon/core/integer.hpp>
+#include <archon/core/buffer.hpp>
+#include <archon/core/basic_character_set.hpp>
+#include <archon/core/charenc_bridge.hpp>
 #include <archon/core/format.hpp>
 #include <archon/core/endianness.hpp>
 #include <archon/core/misc_error.hpp>
@@ -46,21 +49,20 @@
 #include <archon/log/logger.hpp>
 #include <archon/image/impl/config.h>
 #include <archon/image/geom.hpp>
+#include <archon/image/comp_types.hpp>
 #include <archon/image/standard_channel_spec.hpp>
-#include <archon/image/bit_field.hpp>
 #include <archon/image/buffer_format.hpp>
-#include <archon/image/image.hpp>    
+#include <archon/image/image.hpp>
 #include <archon/image/writable_image.hpp>
 #include <archon/image/integer_pixel_format.hpp>
 #include <archon/image/subword_pixel_format.hpp>
 #include <archon/image/buffered_image.hpp>
 #include <archon/image/progress_tracker.hpp>
 #include <archon/image/image_provider.hpp>
+#include <archon/image/comment_handler.hpp>
 #include <archon/image/error.hpp>
 #include <archon/image/file_format.hpp>
 #include <archon/image/file_format_png.hpp>
-#include <archon/image/load_config.hpp>
-#include <archon/image/save_config.hpp>
 
 #if ARCHON_IMAGE_HAVE_PNG
 #  include <png.h>
@@ -139,7 +141,7 @@ template<class W> inline auto from_png_bytep(png_bytep ptr) noexcept
 }
 
 
-inline auto string_for_color_type(png_byte val) -> std::string_view
+inline auto string_for_color_type(png_byte val) noexcept -> std::string_view
 {
     switch (val) {
         case PNG_COLOR_TYPE_PALETTE:
@@ -158,7 +160,7 @@ inline auto string_for_color_type(png_byte val) -> std::string_view
 }
 
 
-inline auto string_for_interlace_type(png_byte val) -> std::string_view
+inline auto string_for_interlace_type(png_byte val) noexcept -> std::string_view
 {
     switch (val) {
         case PNG_INTERLACE_ADAM7:
@@ -557,6 +559,7 @@ class LoadContext
     : public Context {
 public:
     image::ImageProvider* image_provider = nullptr;
+    image::CommentHandler* comment_handler = nullptr;
     core::Source* source = nullptr;
     const std::locale* locale = nullptr;
 
@@ -766,6 +769,53 @@ public:
 
         return true;
     }
+
+    void handle_comments(const png_text* entries, int num_entries)
+    {
+        ARCHON_ASSERT(comment_handler);
+        char seed_memory[64] = {};
+        core::Buffer buffer(seed_memory);
+        core::charenc_bridge bridge(*locale); // Throws
+        for (int i = 0; i < num_entries; ++i) {
+            const png_text& entry = entries[i];
+            bool failure = false;
+            std::size_t buffer_offset = 0;
+            std::string_view key = entry.key; // Throws
+            for (char ch : key) {
+                char ch_2 = {};
+                if (ARCHON_UNLIKELY(!core::try_map_ascii_to_bcs(ch, ch_2))) {
+                    failure = true;
+                    break;
+                }
+                buffer.append_a(ch_2, buffer_offset); // Throws
+            }
+            std::string_view key_2 = { buffer.data(), buffer_offset }; // Throws
+            // FIXME: Gimp uses the keyword `Comment` for comments, which agrees with the
+            // PNG specification (https://www.w3.org/TR/png/#11keywords). On the other hand,
+            // Image Magic's `convert` commend uses `comment` (lower case `c`), which
+            // conflicts with the PNG specification because it states that case
+            // matters. Should case folding be done here despite what the specification
+            // says?
+            if (ARCHON_LIKELY(failure || key_2 != "Comment"sv))
+                continue;
+            std::string_view text = entry.text; // Throws
+            bool is_utf8 = false;
+            switch (entry.compression) {
+                case 1: // From plain iTXt chunk
+                case 2: // From compressed iTXt chunk
+                    is_utf8 = true;
+            }
+            buffer_offset = 0;
+            if (is_utf8) {
+                bridge.utf8_to_native_mb_l(text, buffer, buffer_offset); // Throws
+            }
+            else {
+                bridge.latin1_to_native_mb_l(text, buffer, buffer_offset); // Throws
+            }
+            std::string_view text_2 = { buffer.data(), buffer_offset }; // Throws
+            comment_handler->handle_comment(text_2); // Throws
+        }
+    }
 };
 
 
@@ -883,16 +933,13 @@ bool do_load(LoadContext& ctx)
         // Read final chunks after image data, if any
         png_read_end(ctx.png_ptr, ctx.info_ptr);
 
-/*       
-        png_textp text_ptr = nullptr;
-        int num_text = 0;
-        if (png_get_text(w.png_ptr, w.info_ptr, &text_ptr, &num_text) > 0) {
-            for (int i = 0; i < num_text; ++i) {
-                // ...
-            }
+        if (ctx.comment_handler) {
+            png_textp text_ptr = {};
+            int num_text = {};
+            png_get_text(ctx.png_ptr, ctx.info_ptr, &text_ptr, &num_text);
+            if (num_text > 0)
+                ctx.handle_comments(text_ptr, num_text); // Throws
         }
-*/
-
     }
     else {
         // Long jumps from the callback functions land here.
@@ -905,7 +952,7 @@ bool do_load(LoadContext& ctx)
 
 bool load(core::Source& source, std::unique_ptr<image::WritableImage>& image, const std::locale& loc,
           log::Logger& logger, image::ProgressTracker* progress_tracker, image::ImageProvider* image_provider,
-          const image::PNGLoadConfig&, std::error_code& ec)
+          image::CommentHandler* comment_handler, const image::PNGLoadConfig&, std::error_code& ec)
 {
     // FIXME: Get background color using `png_get_bKGD()`             
 
@@ -921,6 +968,7 @@ bool load(core::Source& source, std::unique_ptr<image::WritableImage>& image, co
     ctx.logger = &logger;
     ctx.progress_tracker = progress_tracker;
     ctx.image_provider = image_provider;
+    ctx.comment_handler = comment_handler;
     ctx.source = &source;
     ctx.locale = &loc;
 
@@ -1243,6 +1291,7 @@ public:
     {
         image::ProgressTracker* progress_tracker = config.progress_tracker;
         image::ImageProvider* image_provider = config.image_provider;
+        image::CommentHandler* comment_handler = config.comment_handler;
         const image::PNGLoadConfig* config_2 = nullptr;
         if (config.special) {
             const image::PNGLoadConfig* config_3 =
@@ -1253,7 +1302,8 @@ public:
         std::optional<image::PNGLoadConfig> config_4;
         if (!config_2)
             config_2 = &config_4.emplace(); // Throws
-        return ::load(source, image, loc, logger, progress_tracker, image_provider, *config_2, ec); // Throws
+        return ::load(source, image, loc, logger, progress_tracker, image_provider, comment_handler, *config_2,
+                      ec); // Throws
     }
 
     bool do_try_save(const image::Image& image, core::Sink& sink, const std::locale& loc, log::Logger& logger,
