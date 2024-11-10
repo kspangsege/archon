@@ -97,6 +97,9 @@ public:
     /// appropriately. When it fails, this function must return `false` and leave \p format
     /// and \p buffer unchanged.
     ///
+    /// On success, the returned buffer and buffer format shall remain valid until the image
+    /// is destroyed.
+    ///
     /// The general intention is that a request for direct access to the pixel buffer should
     /// succeed when, and only when pixels are stored in a memory buffer using a storage
     /// format that can be described using \ref image::BufferFormat. Each image

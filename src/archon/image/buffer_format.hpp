@@ -58,7 +58,7 @@ struct BufferFormat {
     /// | Value     | Fundamental type
     /// |-----------|--------------------------------------------
     /// | `byte`    | `std::byte`
-    /// | `char_`   | `char`, `signed char`, or `unsigned chhar`
+    /// | `char_`   | `char`, `signed char`, or `unsigned char`
     /// | `short_`  | `short` or `unsigned short`
     /// | `int_`    | `int` or `unsigned`
     /// | `long_`   | `long` or `unsigned long`

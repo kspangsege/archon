@@ -1232,7 +1232,7 @@ bool save(const image::Image& image, core::Sink& sink, const std::locale& loc, l
     ctx.rows = std::make_unique<const png_byte*[]>(std::size_t(image_size.height)); // Throws
     {
         const png_byte* row = buffer;
-        for (std::size_t i = 0; i < std::size_t(image_size.height); ++i) {
+        for (int i = 0; i < image_size.height; ++i) {
             ctx.rows[i] = row;
             row += ctx.bytes_per_row;
         }

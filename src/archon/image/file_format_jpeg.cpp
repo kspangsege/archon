@@ -19,6 +19,7 @@
 // DEALINGS IN THE SOFTWARE.
 
 
+                     
 #include <cstddef>
 #include <csetjmp>
 #include <type_traits>
@@ -58,7 +59,7 @@
 #  include <jpeglib.h>
 #  include <jerror.h>
 #  if JPEG_LIB_VERSION < 62 // Need version 6b or newer
-#    error "PNG library is too old"
+#    error "JPEG library is too old"
 #  endif
 #endif
 
@@ -335,8 +336,43 @@ auto string_for_color_space(J_COLOR_SPACE color_space) noexcept -> std::string_v
 }
 
 
+template<class C>
+auto create_image(const image::Size& size, JSAMPLE*& base, int& num_channels,
+                  std::size_t& components_per_row) -> std::unique_ptr<image::WritableImage>
+{
+    using channel_spec_type = C;
+
+    // If `word_type` is `unsigned char` (which it is), make it `char` instead in the hope
+    // that this will reduce the number of template instantiations of
+    // image::IntegerPixelFormat. This is possible because a `char` object can be safely
+    // accessed through an `unsigend char` pointer.
+    using word_type = std::conditional_t<std::is_same_v<JSAMPLE, unsigned char>, char, JSAMPLE>;
+
+    constexpr int bits_per_word = 8;
+    using format_type = image::IntegerPixelFormat<channel_spec_type, word_type, bits_per_word>;
+    using image_type = image::BufferedImage<format_type>;
+    std::unique_ptr<image_type> image = std::make_unique<image_type>(size); // Throws
+
+    JSAMPLE* base_2;
+    if constexpr (std::is_same_v<JSAMPLE, unsigned char> && std::is_same_v<word_type, char>) {
+        base_2 = reinterpret_cast<unsigned char*>(image->get_buffer().data());
+    }
+    else {
+        base_2 = image->get_buffer().data();
+    }
+    std::size_t components_per_row_2 = format_type::get_words_per_row(size.width); // Throws
+
+    base = base_2;
+    num_channels = channel_spec_type::num_channels;
+    components_per_row = components_per_row_2;
+
+    return image;
+}
+
+
 // The size of the buffers used for input/output streaming
 constexpr std::size_t g_read_write_buffer_size = 4096;
+
 
 
 class LoadContext : public Context {
@@ -358,21 +394,20 @@ private:
     std::unique_ptr<image::WritableImage> m_image;
     std::unique_ptr<JSAMPLE*[]> m_rows;
 
-    static void noop_message_callback(j_common_ptr info, int msg_level) noexcept;
+    static void noop_message_callback(j_common_ptr, int msg_level) noexcept;
 
-    static void init_callback(j_decompress_ptr info) noexcept;
-    static auto read_callback(j_decompress_ptr info) noexcept -> boolean;
-    static void skip_callback(j_decompress_ptr info, long num_bytes) noexcept;
-    static void term_callback(j_decompress_ptr info) noexcept;
+    static void init_callback(j_decompress_ptr) noexcept;
+    static auto read_callback(j_decompress_ptr) noexcept -> boolean;
+    static void skip_callback(j_decompress_ptr, long num_bytes) noexcept;
+    static void term_callback(j_decompress_ptr) noexcept;
 
-    static auto get_context(j_decompress_ptr info) noexcept -> LoadContext&;
+    static auto get_context(j_decompress_ptr) noexcept -> LoadContext&;
 
-    bool read(std::error_code& ec);
-    bool skip(long num_bytes, std::error_code& ec);
+    bool read(std::error_code&);
+    bool skip(long num_bytes, std::error_code&);
 
-    bool create_image_1(J_COLOR_SPACE, int num_channels, JDIMENSION width, JDIMENSION height, JSAMPLE*& base,
-                        std::error_code&);
-    template<class C> void create_image_2(int num_channels, const image::Size&, JSAMPLE*& base);
+    bool create_image(J_COLOR_SPACE, int num_channels, JDIMENSION width, JDIMENSION height,
+                      JSAMPLE*& base, std::size_t& components_per_row, std::error_code&);
 
     void handle_comment(const JOCTET* data, unsigned size);
 };
@@ -395,7 +430,7 @@ LoadContext::LoadContext(log::Logger& logger, image::ProgressTracker* progress_t
     m_source_mgr.bytes_in_buffer   = 0;
     m_source_mgr.next_input_byte   = nullptr;
 
-    // Must store point of type `Context*` (see Context::get_context())
+    // Must store pointer of type `Context*` (see Context::get_context())
     m_info.client_data = static_cast<Context*>(this);
 }
 
@@ -515,16 +550,16 @@ bool LoadContext::load(std::unique_ptr<image::WritableImage>& image, std::error_
 
         int num_channels = m_info.out_color_components;
         JSAMPLE* base = {};
-        if (ARCHON_UNLIKELY(!create_image_1(color_space, num_channels, width, height, base, ec))) // Throws
+        std::size_t components_per_row = {};
+        if (ARCHON_UNLIKELY(!create_image(color_space, num_channels, width, height,
+                                          base, components_per_row, ec))) // Throws
             return false;
         m_progress_image = &*m_image;
 
         // NOTE: Construction of a buffered image (archon::image::BufferedImage) would fail
-        // unless the total number of components is representable in std::size_t, so both
-        // the height and the number of components per row must be representable in
-        // std::size_t at this point.
+        // unless the total number of components is representable in std::size_t, so the
+        // height must be representable in std::size_t at this point.
         std::size_t num_rows = std::size_t(height);
-        std::size_t components_per_row = std::size_t(width * std::size_t(num_channels));
         m_rows = std::make_unique<JSAMPLE*[]>(num_rows); // Throws
         for (std::size_t i = 0; i < num_rows; ++i)
             m_rows[i] = base + i * components_per_row;
@@ -677,8 +712,8 @@ bool LoadContext::skip(long num_bytes, std::error_code& ec)
 }
 
 
-bool LoadContext::create_image_1(J_COLOR_SPACE color_space, int num_channels, JDIMENSION width, JDIMENSION height,
-                                 JSAMPLE*& base, std::error_code& ec)
+bool LoadContext::create_image(J_COLOR_SPACE color_space, int num_channels, JDIMENSION width, JDIMENSION height,
+                               JSAMPLE*& base, std::size_t& components_per_row, std::error_code& ec)
 {
     int width_2 = {}, height_2 = {};
     bool overflow = false;
@@ -689,12 +724,17 @@ bool LoadContext::create_image_1(J_COLOR_SPACE color_space, int num_channels, JD
         return false;
     }
     image::Size size = { width_2, height_2 };
+    JSAMPLE* base_2 = {};
+    int num_channels_2 = {};
+    std::size_t components_per_row_2 = {};
     switch (color_space) {
         case JCS_GRAYSCALE:
-            create_image_2<image::ChannelSpec_Lum>(num_channels, size, base); // Throws
+            m_image = ::create_image<image::ChannelSpec_Lum>(size, base_2, num_channels_2,
+                                                             components_per_row_2); // Throws
             break;
         case JCS_RGB:
-            create_image_2<image::ChannelSpec_RGB>(num_channels, size, base); // Throws
+            m_image = ::create_image<image::ChannelSpec_RGB>(size, base_2, num_channels_2,
+                                                             components_per_row_2); // Throws
             break;
         case JCS_CMYK:
             // FIXME: How can CMYK color space be supported? Documentation does not promise that libjpeg can perform the conversion automatically              
@@ -704,34 +744,16 @@ bool LoadContext::create_image_1(J_COLOR_SPACE color_space, int num_channels, JD
             ec = image::Error::unsupported_image_parameter;
             return false; // Failure
     }
+    if (ARCHON_UNLIKELY(num_channels_2 != num_channels)) {
+        // FIXME: Not clear whether this could even happen. Why does libjpeg have a
+        // specification of number of channels in addition to the specification of the color
+        // space?
+        ec = image::Error::unsupported_image_parameter;
+        return false; // Failure
+    }
+    base = base_2;
+    components_per_row = components_per_row_2;
     return true; // Success
-}
-
-
-template<class C> void LoadContext::create_image_2(int num_channels, const image::Size& size, JSAMPLE*& base)
-{
-    using channel_spec_type = C;
-    ARCHON_STEADY_ASSERT(channel_spec_type::num_channels == num_channels);
-
-    // If `word_type` is `unsigned char` (which it is), make it `char` instead in the hope
-    // that this will reduce the number of template instantiations of
-    // image::IntegerPixelFormat. This is possible because a `char` object can be safely
-    // accessed through an `unsigend char` pointer.
-    using word_type = std::conditional_t<std::is_same_v<JSAMPLE, unsigned char>, char, JSAMPLE>;
-
-    constexpr int bits_per_word = 8;
-    using format_type = image::IntegerPixelFormat<channel_spec_type, word_type, bits_per_word>;
-    using image_type = image::BufferedImage<format_type>;
-    std::unique_ptr<image_type> image = std::make_unique<image_type>(size); // Throws
-
-    if constexpr (std::is_same_v<JSAMPLE, unsigned char> && std::is_same_v<word_type, char>) {
-        base = reinterpret_cast<unsigned char*>(image->get_buffer().data());
-    }
-    else {
-        base = image->get_buffer().data();
-    }
-
-    m_image = std::move(image);
 }
 
 
@@ -746,6 +768,319 @@ void LoadContext::handle_comment(const JOCTET* data, unsigned size)
     m_charenc_bridge.ascii_to_native_mb_l(string_1, m_transcode_buffer, buffer_offset); // Throws
     std::string_view string_2 = { m_transcode_buffer.data(), buffer_offset }; // Throws
     m_comment_handler->handle_comment(string_2); // Throws
+}
+
+
+
+struct Format {
+    int num_channels;
+    J_COLOR_SPACE color_space;
+};
+
+
+bool try_match_save_format(const image::BufferFormat& buffer_format, const image::Size& image_size, Format& format,
+                           std::size_t& components_per_row) noexcept
+{
+    // FIXME: Some things are gravely wrong with image::BufferFormat::IntegerType,
+    // image::BufferFormat::try_map_integer_type(), and
+    // image::BufferFormat::try_cast_to(). It is not good enough to know that the underlying
+    // type is `short` or `unsigned short`. It is necessary to know which one it is.                                         
+
+    image::BufferFormat::IntegerType word_type = {};
+    if (ARCHON_UNLIKELY(!image::BufferFormat::try_map_integer_type<JSAMPLE>(word_type)))
+        return false;
+
+    image::BufferFormat::IntegerFormat integer_format = {};
+    if (ARCHON_LIKELY(buffer_format.try_cast_to(integer_format, word_type))) { // Throws
+        if (ARCHON_UNLIKELY(integer_format.bits_per_word != BITS_IN_JSAMPLE || integer_format.words_per_channel != 1 ||
+                            integer_format.channel_conf.has_alpha))
+            return false;
+
+        image::ColorSpace::Tag color_space = {};
+        if (ARCHON_UNLIKELY(!integer_format.channel_conf.color_space->try_get_tag(color_space)))
+            return false;
+
+        Format format_2 = {};
+        format_2.num_channels = image::get_num_channels(color_space);
+        switch (color_space) {
+            case image::ColorSpace::Tag::lum:
+                format_2.color_space = JCS_GRAYSCALE;
+                break;
+            case image::ColorSpace::Tag::rgb:
+                if (ARCHON_UNLIKELY(integer_format.channel_conf.reverse_order))
+                    return false;
+                format_2.color_space = JCS_RGB;
+                break;
+            default:
+                return false;
+        }
+        std::size_t components_per_row_2 = integer_format.get_words_per_row(image_size.width); // Throws
+
+        format = format_2;
+        components_per_row = components_per_row_2;
+        return true;
+    }
+
+    ARCHON_STEADY_ASSERT_UNREACHABLE();                                         
+}
+
+
+
+class SaveContext : public Context {
+public:
+    SaveContext(log::Logger&, image::ProgressTracker*, core::Sink&, const std::locale&);
+    ~SaveContext() noexcept;
+
+    bool save(const image::Image&, std::error_code&);
+
+private:
+    core::Sink& m_sink;
+/*    
+    core::charenc_bridge m_charenc_bridge;
+    core::Buffer<char> m_transcode_buffer;
+*/
+    std::unique_ptr<char[]> m_write_buffer;
+    jpeg_destination_mgr m_destination_mgr = {};
+    jpeg_compress_struct m_info = {};
+    JDIMENSION m_image_width = {};
+    JDIMENSION m_image_height = {};
+    Format m_format = {};
+    std::unique_ptr<image::WritableImage> m_converted_image;
+    std::unique_ptr<const JSAMPLE*[]> m_rows;
+
+    bool prepare(const image::Image&, std::error_code&);
+
+    static void init_callback(j_compress_ptr) noexcept;
+    static auto write_callback(j_compress_ptr) noexcept -> boolean;
+    static void term_callback(j_compress_ptr) noexcept;
+
+    static auto get_context(j_compress_ptr) noexcept -> SaveContext&;
+
+    bool write(std::error_code&);
+    bool term(std::error_code&);
+};
+
+
+SaveContext::SaveContext(log::Logger& logger, image::ProgressTracker* progress_tracker, core::Sink& sink,
+                         const std::locale& locale)
+    : Context(logger, progress_tracker) // Throws
+    , m_sink(sink)
+{
+    static_cast<void>(locale);               
+
+    m_write_buffer = std::make_unique<char[]>(g_read_write_buffer_size); // Throws
+
+    core::Span buffer = { m_write_buffer.get(), g_read_write_buffer_size };
+    m_destination_mgr.init_destination    = init_callback;
+    m_destination_mgr.empty_output_buffer = write_callback;
+    m_destination_mgr.term_destination    = term_callback;
+    m_destination_mgr.next_output_byte    = joctet_ptr_cast::to_joctet_ptr(buffer.data());
+    m_destination_mgr.free_in_buffer      = buffer.size();
+
+    // Must store pointer of type `Context*` (see Context::get_context())
+    m_info.client_data = static_cast<Context*>(this);
+}
+
+
+SaveContext::~SaveContext() noexcept
+{
+    m_info.err = {};
+    m_info.dest = {};
+    jpeg_destroy_compress(&m_info);
+}
+
+
+bool SaveContext::save(const image::Image& image, std::error_code& ec)
+{
+    // Long jump safety: No non-volatile automatic variables in the scope from which
+    // setjmp() is called (see notes on long jump safety above).
+
+    // Catch long jumps from one of the callback functions.
+    if (setjmp(m_jmp_buf) == 0) {
+        // Long jump safety: No automatic variables of nontrivial type in the "try"-scope,
+        // or in any subscope that may directly or indirectly initiate a long jump (see
+        // notes on long jump safety above).
+
+        if (ARCHON_UNLIKELY(!prepare(image, ec))) // Throws
+            return false;
+
+        m_info.err = &m_error_mgr;
+        jpeg_create_compress(&m_info);
+
+        m_info.dest = &m_destination_mgr;
+        if (ARCHON_UNLIKELY(m_progress_tracker))
+            m_info.progress = &m_progress_mgr;
+
+        // Set header info
+        m_info.image_width  = m_image_width;
+        m_info.image_height = m_image_height;
+        m_info.input_components = m_format.num_channels;
+        m_info.in_color_space = m_format.color_space;
+        jpeg_set_defaults(&m_info);
+
+        jpeg_start_compress(&m_info, TRUE);
+
+        // FIXME: Deal with comment saving      
+
+        JSAMPLE** rows = const_cast<JSAMPLE**>(m_rows.get());
+        jpeg_write_scanlines(&m_info, rows, m_image_height);
+
+        jpeg_finish_compress(&m_info);
+    }
+    else {
+        // Long jumps from the callback functions land here.
+
+        if (ARCHON_LIKELY(m_have_libjpeg_error)) {
+            libjpeg_log(reinterpret_cast<j_common_ptr>(&m_info), log::LogLevel::error); // Throws
+            ec = image::Error::saving_process_failed;
+            return false; // Failure
+        }
+
+        if (ARCHON_LIKELY(m_have_ec)) {
+            ec = m_ec;
+            return false; // Failure
+        }
+
+        ARCHON_ASSERT(m_exception);
+        std::rethrow_exception(std::move(m_exception)); // Throws
+    }
+
+    return true; // Success
+}
+
+
+bool SaveContext::prepare(const image::Image& image, std::error_code& ec)
+{
+    image::Size image_size = image.get_size();
+    if (ARCHON_UNLIKELY(image_size.width < 1 || image_size.height < 1 ||
+                        !core::try_int_cast(image_size.width, m_image_width) ||
+                        !core::try_int_cast(image_size.height, m_image_height))) {
+        ec = image::Error::image_size_out_of_range;
+        return false;
+    }
+
+    const JSAMPLE* base = {};
+    std::size_t components_per_row = {};
+    {
+        image::BufferFormat buffer_format = {};
+        const void* buffer = {};
+        bool is_matched = (image.try_get_buffer(buffer_format, buffer) &&
+                           ::try_match_save_format(buffer_format, image_size, m_format, components_per_row)); // Throws
+        if (is_matched) {
+            base = static_cast<const JSAMPLE*>(buffer);
+        }
+        else {
+            JSAMPLE* base_2 = {};
+            image::Image::TransferInfo info = image.get_transfer_info(); // Throws
+            bool use_rgb = !info.color_space->is_lum();
+            if (ARCHON_LIKELY(use_rgb)) {
+                using spec_type = image::ChannelSpec_RGB;
+                m_converted_image = ::create_image<spec_type>(image_size, base_2, m_format.num_channels,
+                                                              components_per_row); // Throws
+                m_format.color_space = JCS_RGB;
+            }
+            else {
+                using spec_type = image::ChannelSpec_Lum;
+                m_converted_image = ::create_image<spec_type>(image_size, base_2, m_format.num_channels,
+                                                              components_per_row); // Throws
+                m_format.color_space = JCS_GRAYSCALE;
+            }
+            image::Pos pos = { 0, 0 };
+            m_converted_image->put_image(pos, image); // Throws
+            base = base_2;
+        }
+    }
+
+    m_rows = std::make_unique<const JSAMPLE*[]>(std::size_t(image_size.height)); // Throws
+    {
+        const JSAMPLE* row = base;
+        for (int i = 0; i < image_size.height; ++i) {
+            m_rows[i] = row;
+            row += components_per_row;
+        }
+    }
+
+    return true;
+}
+
+
+void SaveContext::init_callback(j_compress_ptr) noexcept
+{
+    // No-op
+}
+
+
+auto SaveContext::write_callback(j_compress_ptr info) noexcept -> boolean
+{
+    // Long jump safety: No automatic variables of nontrivial type in a scope from which
+    // std::longjmp() may be called or through with stack unwinding may pass (see notes on
+    // long jump safety above).
+
+    SaveContext& ctx = get_context(info);
+    try {
+        std::error_code ec;
+        if (ARCHON_LIKELY(ctx.write(ec))) // Throws
+            return 1;
+        ctx.m_ec = ec;
+        ctx.m_have_ec = true;
+    }
+    catch (...) {
+        ctx.m_exception = std::current_exception();
+    }
+
+    std::longjmp(ctx.m_jmp_buf, 1);
+}
+
+
+void SaveContext::term_callback(j_compress_ptr info) noexcept
+{
+    // Long jump safety: No automatic variables of nontrivial type in a scope from which
+    // std::longjmp() may be called or through with stack unwinding may pass (see notes on
+    // long jump safety above).
+
+    SaveContext& ctx = get_context(info);
+    try {
+        std::error_code ec;
+        if (ARCHON_LIKELY(ctx.term(ec))) // Throws
+            return;
+        ctx.m_ec = ec;
+        ctx.m_have_ec = true;
+    }
+    catch (...) {
+        ctx.m_exception = std::current_exception();
+    }
+
+    std::longjmp(ctx.m_jmp_buf, 1);
+}
+
+
+inline auto SaveContext::get_context(j_compress_ptr info) noexcept -> SaveContext&
+{
+    // Stored pointer is always of type `Context*` (see Context::get_context())
+    Context& context = *static_cast<Context*>(info->client_data);
+    return static_cast<SaveContext&>(context);
+}
+
+
+bool SaveContext::write(std::error_code& ec)
+{
+    core::Span buffer = { m_write_buffer.get(), g_read_write_buffer_size };
+    std::size_t n = {}; // Dummy
+    if (ARCHON_UNLIKELY(!m_sink.try_write(buffer, n, ec))) // Throws
+        return false; // Failure
+    m_destination_mgr.next_output_byte = joctet_ptr_cast::to_joctet_ptr(buffer.data());
+    m_destination_mgr.free_in_buffer   = buffer.size();
+    return true; // Success
+}
+
+
+bool SaveContext::term(std::error_code& ec)
+{
+    core::Span buffer = { m_write_buffer.get(), g_read_write_buffer_size };
+    std::size_t used = std::size_t(buffer.size() - m_destination_mgr.free_in_buffer);
+    core::Span data = buffer.first(used);
+    std::size_t n = {}; // Dummy
+    return m_sink.try_write(data, n, ec); // Throws
 }
 
 
@@ -790,21 +1125,16 @@ public:
     bool do_try_load(core::Source& source, std::unique_ptr<image::WritableImage>& image, const std::locale& locale,
                      log::Logger& logger, const LoadConfig& config, std::error_code& ec) const override
     {
-        // FIXME: Deal with config.image_provider                 
+        // FIXME: Deal with config.image_provider                     
         LoadContext context(logger, config.progress_tracker, config.comment_handler, source, locale); // Throws
         return context.load(image, ec); // Throws
     }
 
-    bool do_try_save(const image::Image& image, core::Sink& sink, const std::locale& loc, log::Logger& logger,
+    bool do_try_save(const image::Image& image, core::Sink& sink, const std::locale& locale, log::Logger& logger,
                      const SaveConfig& config, std::error_code& ec) const override
     {
-        static_cast<void>(image);    
-        static_cast<void>(sink);    
-        static_cast<void>(loc);    
-        static_cast<void>(logger);    
-        static_cast<void>(config);    
-        static_cast<void>(ec);    
-        ARCHON_STEADY_ASSERT_UNREACHABLE();     
+        SaveContext context(logger, config.progress_tracker, sink, locale); // Throws
+        return context.save(image, ec); // Throws
     }
 };
 
