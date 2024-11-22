@@ -1,5 +1,6 @@
 add_library(ImageTest OBJECT
   test_iter.cpp
+  test_buffer_format.cpp
   comp_repr_utils.cpp
   test_integer_pixel_format.cpp
   test_subword_pixel_format.cpp

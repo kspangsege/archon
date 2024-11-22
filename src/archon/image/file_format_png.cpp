@@ -223,8 +223,11 @@ struct WriteTransformations {
 bool try_match_save_format(const image::BufferFormat& buffer_format, image::Size image_size, Format& format,
                            WriteTransformations& xforms, std::size_t& bytes_per_row)
 {
+    image::BufferFormat::IntegerType word_type = {};
+    if (ARCHON_UNLIKELY(!image::BufferFormat::try_map_integer_type<png_byte>(word_type)))
+        return false;
+
     image::BufferFormat::IntegerFormat integer_format = {};
-    image::BufferFormat::IntegerType word_type = image::BufferFormat::IntegerType::byte;
     if (ARCHON_LIKELY(buffer_format.try_cast_to(integer_format, word_type))) { // Throws
         if (ARCHON_LIKELY(integer_format.bits_per_word == 8)) {
             png_byte bit_depth;

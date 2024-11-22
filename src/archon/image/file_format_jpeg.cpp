@@ -99,7 +99,7 @@ constexpr std::string_view g_filename_extensions[] = {
 #if ARCHON_IMAGE_HAVE_JPEG
 
 
-static_assert(std::is_same_v<JOCTET, char> || std::is_same_v<JOCTET, unsigned char>);
+static_assert(core::type_in<JOCTET, char, unsigned char>);
 
 template<bool> struct joctet_ptr_cast_helper {
     static auto to_joctet_ptr(char* data) noexcept
@@ -781,47 +781,41 @@ struct Format {
 bool try_match_save_format(const image::BufferFormat& buffer_format, const image::Size& image_size, Format& format,
                            std::size_t& components_per_row) noexcept
 {
-    // FIXME: Some things are gravely wrong with image::BufferFormat::IntegerType,
-    // image::BufferFormat::try_map_integer_type(), and
-    // image::BufferFormat::try_cast_to(). It is not good enough to know that the underlying
-    // type is `short` or `unsigned short`. It is necessary to know which one it is.                                         
-
     image::BufferFormat::IntegerType word_type = {};
     if (ARCHON_UNLIKELY(!image::BufferFormat::try_map_integer_type<JSAMPLE>(word_type)))
         return false;
 
     image::BufferFormat::IntegerFormat integer_format = {};
-    if (ARCHON_LIKELY(buffer_format.try_cast_to(integer_format, word_type))) { // Throws
-        if (ARCHON_UNLIKELY(integer_format.bits_per_word != BITS_IN_JSAMPLE || integer_format.words_per_channel != 1 ||
-                            integer_format.channel_conf.has_alpha))
-            return false;
+    if (ARCHON_UNLIKELY(!buffer_format.try_cast_to(integer_format, word_type))) // Throws
+        return false;
 
-        image::ColorSpace::Tag color_space = {};
-        if (ARCHON_UNLIKELY(!integer_format.channel_conf.color_space->try_get_tag(color_space)))
-            return false;
+    if (ARCHON_UNLIKELY(integer_format.bits_per_word != BITS_IN_JSAMPLE || integer_format.words_per_channel != 1 ||
+                        integer_format.channel_conf.has_alpha))
+        return false;
 
-        Format format_2 = {};
-        format_2.num_channels = image::get_num_channels(color_space);
-        switch (color_space) {
-            case image::ColorSpace::Tag::lum:
-                format_2.color_space = JCS_GRAYSCALE;
-                break;
-            case image::ColorSpace::Tag::rgb:
-                if (ARCHON_UNLIKELY(integer_format.channel_conf.reverse_order))
-                    return false;
-                format_2.color_space = JCS_RGB;
-                break;
-            default:
+    image::ColorSpace::Tag color_space = {};
+    if (ARCHON_UNLIKELY(!integer_format.channel_conf.color_space->try_get_tag(color_space)))
+        return false;
+
+    Format format_2 = {};
+    format_2.num_channels = image::get_num_channels(color_space);
+    switch (color_space) {
+        case image::ColorSpace::Tag::lum:
+            format_2.color_space = JCS_GRAYSCALE;
+            break;
+        case image::ColorSpace::Tag::rgb:
+            if (ARCHON_UNLIKELY(integer_format.channel_conf.reverse_order))
                 return false;
-        }
-        std::size_t components_per_row_2 = integer_format.get_words_per_row(image_size.width); // Throws
-
-        format = format_2;
-        components_per_row = components_per_row_2;
-        return true;
+            format_2.color_space = JCS_RGB;
+            break;
+        default:
+            return false;
     }
+    std::size_t components_per_row_2 = integer_format.get_words_per_row(image_size.width); // Throws
 
-    ARCHON_STEADY_ASSERT_UNREACHABLE();                                         
+    format = format_2;
+    components_per_row = components_per_row_2;
+    return true;
 }
 
 

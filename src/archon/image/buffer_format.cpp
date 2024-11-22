@@ -56,8 +56,9 @@ bool BufferFormat::try_cast_to(IntegerFormat& format, IntegerType word_type) con
             if (ARCHON_UNLIKELY(!integer.is_valid()))
                 throw std::runtime_error("Invalid buffer format");
             if (word_type != integer.word_type) {
-                // A word of any type can be accessed in terms of the bytes that make it
-                // up. Any other type punning would cause undefined behavior.
+                // A word of any type can be accessed in terms of the bytes (`std::byte`,
+                // `char`, or `unsigned char`, but not `signed char`) that make it up. Any
+                // other type punning would cause undefined behavior.
                 if (ARCHON_UNLIKELY(word_type != IntegerType::byte))
                     return false;
                 // Cast to byte-based format
@@ -89,7 +90,7 @@ bool BufferFormat::try_cast_to(IntegerFormat& format, IntegerType word_type) con
             format.word_type = word_type;
             return true;
         }
-        case Type::packed: {
+        case Type::packed: {                                                                                                                                                                                                                    
             if (ARCHON_UNLIKELY(!packed.is_valid()))
                 throw std::runtime_error("Invalid buffer format");
             int num_channels = packed.channel_conf.get_num_channels();
@@ -118,8 +119,9 @@ bool BufferFormat::try_cast_to(IntegerFormat& format, IntegerType word_type) con
             }
             core::Endianness word_order = packed.word_order;
             if (word_type != packed.word_type) {
-                // A word of any type can be accessed in terms of the bytes that make it
-                // up. Any other type punning would cause undefined behavior.
+                // A word of any type can be accessed in terms of the bytes (`std::byte`,
+                // `char`, or `unsigned char`, but not `signed char`) that make it up. Any
+                // other type punning would cause undefined behavior.
                 if (ARCHON_UNLIKELY(word_type != IntegerType::byte))
                     return false;
                 // Cast to byte-based format
@@ -173,8 +175,9 @@ bool BufferFormat::try_cast_to(IntegerFormat& format, IntegerType word_type) con
             if (ARCHON_UNLIKELY(!subword.is_valid()))
                 throw std::runtime_error("Invalid buffer format");
             if (word_type != subword.word_type) {
-                // A word of any type can be accessed in terms of the bytes that make it
-                // up. Any other type punning would cause undefined behavior.
+                // A word of any type can be accessed in terms of the bytes (`std::byte`,
+                // `char`, or `unsigned char`, but not `signed char`) that make it up. Any
+                // other type punning would cause undefined behavior.
                 if (ARCHON_UNLIKELY(word_type != IntegerType::byte))
                     return false;
                 // Cast to byte-based format
@@ -261,8 +264,9 @@ bool BufferFormat::try_cast_to(PackedFormat& format, IntegerType word_type) cons
             if (ARCHON_UNLIKELY(!integer.is_valid()))
                 throw std::runtime_error("Invalid buffer format");
 /*            if (word_type != integer.word_type) {
-                // A word of any type can be accessed in terms of the bytes that make it
-                // up. Any other type punning would cause undefined behavior.
+                // A word of any type can be accessed in terms of the bytes (`std::byte`,
+                // `char`, or `unsigned char`, but not `signed char`) that make it up. Any
+                // other type punning would cause undefined behavior.
                 if (ARCHON_UNLIKELY(word_type != IntegerType::byte))
                     return false;
                 // Cast to byte-based format
@@ -289,8 +293,9 @@ bool BufferFormat::try_cast_to(PackedFormat& format, IntegerType word_type) cons
                 throw std::runtime_error("Invalid buffer format");
 /*
             if (word_type != packed.word_type) {
-                // A word of any type can be accessed in terms of the bytes that make it
-                // up. Any other type punning would cause undefined behavior.
+                // A word of any type can be accessed in terms of the bytes (`std::byte`,
+                // `char`, or `unsigned char`, but not `signed char`) that make it up. Any
+                // other type punning would cause undefined behavior.
                 if (ARCHON_UNLIKELY(word_type != IntegerType::byte))
                     return false;
                 // Cast to byte-based format
@@ -353,8 +358,9 @@ bool BufferFormat::try_cast_to(SubwordFormat& format, IntegerType word_type) con
             if (ARCHON_UNLIKELY(!integer.is_valid()))
                 throw std::runtime_error("Invalid buffer format");
             if (word_type != integer.word_type) {
-                // A word of any type can be accessed in terms of the bytes that make it
-                // up. Any other type punning would cause undefined behavior.
+                // A word of any type can be accessed in terms of the bytes (`std::byte`,
+                // `char`, or `unsigned char`, but not `signed char`) that make it up. Any
+                // other type punning would cause undefined behavior.
                 if (ARCHON_UNLIKELY(word_type != IntegerType::byte))
                     return false;
                 // If there is more than one byte per word, it is impossible to cast to a
@@ -391,8 +397,9 @@ bool BufferFormat::try_cast_to(SubwordFormat& format, IntegerType word_type) con
             // per word if the layout of the bit fields satisfy certain criteria: All gaps
             // must be zero. All widths must be equal.
             if (word_type != packed.word_type) {
-                // A word of any type can be accessed in terms of the bytes that make it
-                // up. Any other type punning would cause undefined behavior.
+                // A word of any type can be accessed in terms of the bytes (`std::byte`,
+                // `char`, or `unsigned char`, but not `signed char`) that make it up. Any
+                // other type punning would cause undefined behavior.
                 if (ARCHON_UNLIKELY(word_type != IntegerType::byte))
                     return false;
                 // A packed format cannot be expressed as a byte-based subword format unless
@@ -434,8 +441,9 @@ bool BufferFormat::try_cast_to(SubwordFormat& format, IntegerType word_type) con
             if (ARCHON_UNLIKELY(!subword.is_valid()))
                 throw std::runtime_error("Invalid buffer format");
             if (word_type != subword.word_type) {
-                // A word of any type can be accessed in terms of the bytes that make it
-                // up. Any other type punning would cause undefined behavior.
+                // A word of any type can be accessed in terms of the bytes (`std::byte`,
+                // `char`, or `unsigned char`, but not `signed char`) that make it up. Any
+                // other type punning would cause undefined behavior.
                 if (ARCHON_UNLIKELY(word_type != IntegerType::byte))
                     return false;
                 // Cast to byte-based format
@@ -489,19 +497,25 @@ bool BufferFormat::try_cast_to(SubwordFormat& format, IntegerType word_type) con
 
 bool BufferFormat::try_get_byte_order(IntegerType word_type, core::Endianness& byte_order) noexcept
 {
+    // Unsigned integer types are required to have the same object representation as their
+    // corresponding signed types (C++20 section 6.8.1 [basic.fundamental]), which implies
+    // thay they use the same byte order.
     switch (word_type) {
         case IntegerType::byte:
+        case IntegerType::schar:
             byte_order = core::Endianness::big;
             return true;
-        case IntegerType::char_:
-            return core::try_get_byte_order<char>(byte_order);
         case IntegerType::short_:
+        case IntegerType::ushort:
             return core::try_get_byte_order<short>(byte_order);
         case IntegerType::int_:
+        case IntegerType::uint:
             return core::try_get_byte_order<int>(byte_order);
         case IntegerType::long_:
+        case IntegerType::ulong:
             return core::try_get_byte_order<long>(byte_order);
         case IntegerType::llong:
+        case IntegerType::ullong:
             return core::try_get_byte_order<long long>(byte_order);
     }
     ARCHON_ASSERT_UNREACHABLE();

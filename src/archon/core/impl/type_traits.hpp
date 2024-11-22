@@ -59,6 +59,10 @@ template<class T, class... U> struct TypeIn {
 
 
 
+template<class P, class F, class... T> using pick_type = core::FindType<core::TypeList<T...>, P, F>;
+
+
+
 template<class> struct FuncDecay1;
 
 template<class R, class C, class... A> struct FuncDecay1<R(C::*)(A...) const> {

@@ -89,6 +89,31 @@ template<class T, class... U> constexpr bool type_in = impl::TypeIn<T, U...>::va
 
 
 
+/// \brief Pick first type that satisfies predicate.
+///
+/// This is the same type as `core::pick_type_a<P, void, T...>`.
+///
+/// \sa \ref core::pick_type_a
+///
+template<class P, class... T> using pick_type = impl::pick_type<P, void, T...>;
+
+
+
+/// \brief Pick first type that satisfies predicate.
+///
+/// This type is the first in `T...` that satisfies the specified predicate (\p P), or if no
+/// type in `T...` staisfies the predicate, this type is the specified fallback type (\p F).
+///
+/// The predicate type (\p P) must be such that `P::template value<T>` is valid, refers to a
+/// compile-time constant, and is `true` if, and only if the predicate is satisfied for `T`.
+///
+/// \sa \ref core::pick_type
+/// \sa \ref core::FindType
+///
+template<class P, class F, class... T> using pick_type_a = impl::pick_type<P, F, T...>;
+
+
+
 /// \brief Reduce function type to its most basic form.
 ///
 /// If `T` is a function type, a pointer to a function type, or a reference to a function

@@ -56,15 +56,19 @@ struct BufferFormat {
     /// IntegerFormat, \ref SubwordFormat, and \ref IndexedFormat.
     ///
     /// | Value     | Fundamental type
-    /// |-----------|--------------------------------------------
-    /// | `byte`    | `std::byte`
-    /// | `char_`   | `char`, `signed char`, or `unsigned char`
-    /// | `short_`  | `short` or `unsigned short`
-    /// | `int_`    | `int` or `unsigned`
-    /// | `long_`   | `long` or `unsigned long`
-    /// | `llong`   | `long long` or `unsigned long long`
+    /// |-----------|------------------------------------------
+    /// | `byte`    | `std::byte`, `char`, or `unsigned char`
+    /// | `schar`   | `signed char`
+    /// | `short_`  | `short`
+    /// | `ushort`  | `unsigned short`
+    /// | `int_`    | `int`
+    /// | `uint`    | `unsigned`
+    /// | `long_`   | `long`
+    /// | `ulong`   | `unsigned long`
+    /// | `llong`   | `long long`
+    /// | `ullong`  | `unsigned long long`
     ///
-    enum class IntegerType { byte, char_, short_, int_, long_, llong };
+    enum class IntegerType { byte, schar, short_, ushort, int_, uint, long_, ulong, llong, ullong };
 
     /// \brief Available floating-point types.
     ///
@@ -368,7 +372,10 @@ struct BufferFormat {
     /// equal to the word type of the original buffer format, or is `IntegerType::byte`.
     ///
     /// These function require that the original format is valid (\ref is_valid()), and they
-    /// they guarantee that the new format is valid.
+    /// ensure that the new format is valid.
+    ///
+    /// \sa \ref IntegerFormat, \ref PackedFormat, \ref SubwordFormat
+    /// \sa \ref IntegerType
     ///
     bool try_cast_to(IntegerFormat& format, IntegerType word_type) const;
     bool try_cast_to(PackedFormat& format, IntegerType word_type) const;
@@ -568,16 +575,19 @@ constexpr int BufferFormat::get_bits_per_word(IntegerType word_type) noexcept
 {
     switch (word_type) {
         case IntegerType::byte:
-            return image::bit_width<char>;
-        case IntegerType::char_:
+        case IntegerType::schar:
             return image::bit_width<char>;
         case IntegerType::short_:
+        case IntegerType::ushort:
             return image::bit_width<short>;
         case IntegerType::int_:
+        case IntegerType::uint:
             return image::bit_width<int>;
         case IntegerType::long_:
+        case IntegerType::ulong:
             return image::bit_width<long>;
         case IntegerType::llong:
+        case IntegerType::ullong:
             return image::bit_width<long long>;
     }
     ARCHON_ASSERT_UNREACHABLE();
@@ -589,16 +599,19 @@ constexpr int BufferFormat::get_bytes_per_word(IntegerType word_type) noexcept
 {
     switch (word_type) {
         case IntegerType::byte:
-            return 1;
-        case IntegerType::char_:
+        case IntegerType::schar:
             return 1;
         case IntegerType::short_:
+        case IntegerType::ushort:
             return int(sizeof (short));
         case IntegerType::int_:
+        case IntegerType::uint:
             return int(sizeof (int));
         case IntegerType::long_:
+        case IntegerType::ulong:
             return int(sizeof (long));
         case IntegerType::llong:
+        case IntegerType::ullong:
             return int(sizeof (long long));
     }
     ARCHON_ASSERT_UNREACHABLE();
@@ -608,28 +621,44 @@ constexpr int BufferFormat::get_bytes_per_word(IntegerType word_type) noexcept
 
 template<class W> constexpr bool BufferFormat::try_map_integer_type(IntegerType& word_type) noexcept
 {
-    if constexpr (std::is_same_v<W, std::byte>) {
+    if constexpr (std::is_same_v<W, std::byte> || std::is_same_v<W, char> || std::is_same_v<W, unsigned char>) {
         word_type = IntegerType::byte;
         return true;
     }
-    else if constexpr (std::is_same_v<W, char> || std::is_same_v<W, signed char> || std::is_same_v<W, unsigned char>) {
-        word_type = IntegerType::char_;
+    else if constexpr (std::is_same_v<W, signed char>) {
+        word_type = IntegerType::schar;
         return true;
     }
-    else if constexpr (std::is_same_v<W, short> || std::is_same_v<W, unsigned short>) {
+    else if constexpr (std::is_same_v<W, short>) {
         word_type = IntegerType::short_;
         return true;
     }
-    else if constexpr (std::is_same_v<W, int> || std::is_same_v<W, unsigned>) {
+    else if constexpr (std::is_same_v<W, unsigned short>) {
+        word_type = IntegerType::ushort;
+        return true;
+    }
+    else if constexpr (std::is_same_v<W, int>) {
         word_type = IntegerType::int_;
         return true;
     }
-    else if constexpr (std::is_same_v<W, long> || std::is_same_v<W, unsigned long>) {
+    else if constexpr (std::is_same_v<W, unsigned>) {
+        word_type = IntegerType::uint;
+        return true;
+    }
+    else if constexpr (std::is_same_v<W, long>) {
         word_type = IntegerType::long_;
         return true;
     }
-    else if constexpr (std::is_same_v<W, long long> || std::is_same_v<W, unsigned long long>) {
+    else if constexpr (std::is_same_v<W, unsigned long>) {
+        word_type = IntegerType::ulong;
+        return true;
+    }
+    else if constexpr (std::is_same_v<W, long long>) {
         word_type = IntegerType::llong;
+        return true;
+    }
+    else if constexpr (std::is_same_v<W, unsigned long long>) {
+        word_type = IntegerType::ullong;
         return true;
     }
     else {
