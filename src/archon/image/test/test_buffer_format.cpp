@@ -310,10 +310,11 @@ ARCHON_TEST(Image_BufferFormat_TryCastTo_PackedToInteger)
             int words_per_pixel = 2;
             int bits_per_field = 2 * bits_per_word - 1;
             image::BitField bit_fields[] = {
-                { bits_per_field, 0 }, // Luminance
+                { bits_per_byte, 0 }, // Luminance
+                { bits_per_byte, 0 }, // Alpha
             };
             const image::ColorSpace& color_space = image::ColorSpace::get_lum();
-            bool has_alpha = false;
+            bool has_alpha = true;
             bool alpha_channel_first = false; // Immaterial
             bool reverse_channel_order = false; // Immaterial
             image::BufferFormat format = {};
