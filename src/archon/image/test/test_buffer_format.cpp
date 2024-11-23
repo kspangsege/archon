@@ -298,7 +298,7 @@ ARCHON_TEST(Image_BufferFormat_TryCastTo_PackedToInteger)
     // word order in both formats is equal to the byte order of the word type in the packed
     // format
 
-    // N = 2, P = 2, Q = 2, M = 2
+    // N = C, P = C, Q = X, M = X
     {
         using word_type = int;
         core::Endianness byte_order = {};
@@ -306,23 +306,34 @@ ARCHON_TEST(Image_BufferFormat_TryCastTo_PackedToInteger)
             IntegerType word_type_2 = {};
             bool success = image::BufferFormat::try_map_integer_type<word_type>(word_type_2);
             ARCHON_ASSERT(success);
-            int bits_per_word = 12;
+            // FIXME: Negative case when bits_per_word is less than bit width of word     
+            int bits_per_word = core::int_width<word_type>();
             int words_per_pixel = 2;
-            int bits_per_field = 2 * bits_per_word - 1;
+            // FIXME: Negative case when word order is opposite of byte order     
+            core::Endianness word_order = byte_order; // FIXME: VARY                
+            int bits_per_field = bits_per_word - 2;
             image::BitField bit_fields[] = {
-                { bits_per_byte, 0 }, // Luminance
-                { bits_per_byte, 0 }, // Alpha
+                { bits_per_field, 0 }, // Luminance
+                { bits_per_field, 0 }, // Alpha
             };
             const image::ColorSpace& color_space = image::ColorSpace::get_lum();
             bool has_alpha = true;
-            bool alpha_channel_first = false; // Immaterial
+            bool alpha_channel_first = false;
             bool reverse_channel_order = false; // Immaterial
             image::BufferFormat format = {};
             format.set_packed_format(word_type_2, bits_per_word, words_per_pixel, word_order, bit_fields, color_space,
                                      has_alpha, alpha_channel_first, reverse_channel_order);
             image::BufferFormat::IntegerFormat integer = {};
             if (ARCHON_LIKELY(ARCHON_CHECK(format.try_cast_to(integer, IntegerType::byte)))) {
-                
+                int bits_per_byte = core::int_width<char>();
+                int bytes_per_word = sizeof (word_type);
+                ARCHON_CHECK_EQUAL(integer_type_enum(integer.word_type), integer_type_enum(IntegerType::byte));
+                ARCHON_CHECK_EQUAL(integer.bits_per_word, bits_per_byte);
+                ARCHON_CHECK_EQUAL(integer.words_per_channel, bytes_per_word);
+                ARCHON_CHECK_EQUAL(integer.word_order, byte_order);
+                ARCHON_CHECK_EQUAL(integer.channel_conf.color_space, &color_space);
+                ARCHON_CHECK_EQUAL(integer.channel_conf.has_alpha, true);
+                ARCHON_CHECK_EQUAL(integer.channel_conf.alpha_channel_first, false);
             }
         }
     }
