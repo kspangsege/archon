@@ -1667,7 +1667,31 @@ class _Session:
         return False # Reprocess
 
     def _process_token_after_after_frameset(self, token):
-        raise RuntimeError("Not yet implemented")              
+        location = token.location
+        parser = self._parser
+        if isinstance(token, _Data):
+            whitespace = token.skip_leading_whitespace()
+            if whitespace:
+                self._reconstruct_active_formatting_elements()
+                self._insert_text(whitespace)
+            if not token.data:
+                return True
+        elif isinstance(token, _StartTag):
+            name_index = token.elem_name_index
+            if name_index == parser._elem_name_noframes:
+                return self._process_token_in_head(token)
+            elif name_index == parser._elem_name_html:
+                return self._process_token_in_body(token)
+        elif isinstance(token, _Comment):
+            self._insert_comment(token.data, parent = self._document)
+            return True
+        elif isinstance(token, _EndOfInput):
+            return True
+        elif isinstance(token, _Doctype):
+            self._bad_doctype(location)
+            return True
+        self._parse_error(location, "Invalid token after <html> element in frameset document (ignored)")
+        return False
 
     def _process_foreign_token(self, token):
         self._log("FOREIGN")
