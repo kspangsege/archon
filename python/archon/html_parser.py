@@ -483,7 +483,7 @@ class RetainingSource(Source):
 
 
 class Callbacks:
-    def create_doctype(self, decl):
+    def create_doctype(self, name, public_ident, system_ident):
         return None
 
     # `namespace` is one of the values of the `Namespace` enumeration
@@ -553,8 +553,8 @@ class Callbacks:
 
 
 class TreeBuilder(Callbacks):
-    def create_doctype(self, decl):
-        return archon.dom.Doctype(decl)
+    def create_doctype(self, name, public_ident, system_ident):
+        return archon.dom.Doctype(name, public_ident, system_ident)
 
     def create_element(self, namespace, prefix, local_name, attributes):
         assert namespace is not None
@@ -575,7 +575,7 @@ class TreeBuilder(Callbacks):
     def append_child(self, node, parent):
         # FIXME: If parent is a document node, detect and ignore invalid insertions        
         if type(node) == archon.dom.Text and parent.children:
-            assert not node.has_parent()
+            assert not node.get_parent_node()
             node_2 = parent.children[-1]
             if type(node_2) == archon.dom.Text:
                 node_2.data += node.data
@@ -695,7 +695,9 @@ class _Session:
     def handle_doctype(self, decl):
         self._log("HANDLE: <!doctype>")
         location = self._get_location()
-        self._process_token(_Doctype(location, decl))
+        # FIXME: Newline normalization!?!?    
+        name, public_ident, system_ident, force_quirks_mode = self._parse_doctype(location, decl)
+        self._process_token(_Doctype(location, name, public_ident, system_ident, force_quirks_mode))
 
     def handle_data(self, data):
         self._log("HANDLE: DATA")
@@ -752,6 +754,132 @@ class _Session:
         line_number, position = self._tokenizer.getpos()
         return Location(line_number, position)
 
+    def _parse_doctype(self, location, text):
+        text_2 = text.replace("\0", "\u0394")
+        if text_2 != text:
+            # FIXME: Point to first null character        
+            self._parse_error(location, "Error (unexpected-null-character)")
+        i = 0
+        n = len(text_2)
+        def begins_with(prefix):
+            j = i + len(prefix)
+            return text_2[i:j].lower() == prefix.lower()
+        def try_consume(prefix):
+            nonlocal i
+            if begins_with(prefix):
+                i += len(prefix)
+                return True
+            return False
+        def skip_whitespace():
+            nonlocal i
+            i_0 = i
+            # FIXME: Carriage return (`\r`) is here because of missing newline normalization    
+            while i < n and text_2[i] in "\t\n\f\r ":
+                i += 1
+            return i - i_0
+        def skip_nonwhitespace():
+            nonlocal i
+            while i < n and text_2[i] not in "\t\n\f\r ":
+                i += 1
+        def ascii_lower(text):
+            return "".join([ch.lower() if ch.isascii() else ch for ch in text])
+        name = None
+        public_ident = None
+        system_ident = None
+        force_quirks_mode = False
+        def consume_public_ident():
+            nonlocal i, public_ident, force_quirks_mode
+            assert i < n
+            mark = text_2[i]
+            if mark not in "'\"":
+                self._parse_error(location, "Error (missing-quote-before-doctype-public-identifier)")
+                force_quirks_mode = True
+                return False
+            i += 1
+            j = text_2.find(mark, i)
+            unclosed = False
+            if j == -1:
+                unclosed = True
+                j == n
+            assert j >= i
+            public_ident = text_2[i:j]
+            if unclosed:
+                self._parse_error(location, "Error (abrupt-doctype-public-identifier)")
+                force_quirks_mode = True
+                return False
+            i = j + 1
+            return True
+        def consume_system_ident():
+            nonlocal i, system_ident, force_quirks_mode
+            assert i < n
+            mark = text_2[i]
+            if mark not in "'\"":
+                self._parse_error(location, "Error (missing-quote-before-doctype-system-identifier)")
+                force_quirks_mode = True
+                return
+            i += 1
+            j = text_2.find(mark, i)
+            unclosed = False
+            if j == -1:
+                unclosed = True
+                j == n
+            assert j >= i
+            system_ident = text_2[i:j]
+            if unclosed:
+                self._parse_error(location, "Error (abrupt-doctype-system-identifier)")
+                force_quirks_mode = True
+                return
+            i = j + 1
+            skip_whitespace()
+            if i < n:
+                self._parse_error(location, "Error (unexpected-character-after-doctype-system-identifier)")
+        def parse():
+            nonlocal i, name, force_quirks_mode
+            assert try_consume("DOCTYPE")
+            m = skip_whitespace()
+            if i == n:
+                self._parse_error(location, "Error (missing-doctype-name)")
+                force_quirks_mode = True
+                return
+            if m == 0:
+                self._parse_error(location, "Error (missing-whitespace-before-doctype-name)")
+            i_0 = i
+            i += 1
+            skip_nonwhitespace()
+            name = ascii_lower(text_2[i_0:i])
+            skip_whitespace()
+            if try_consume("PUBLIC"):
+                if i < n and text_2[i] in "'\"":
+                    self._parse_error(location, "Error (missing-whitespace-after-doctype-public-keyword)")
+                skip_whitespace()
+                if i == n:
+                    self._parse_error(location, "Error (missing-doctype-public-identifier)")
+                    force_quirks_mode = True
+                    return
+                if consume_public_ident():
+                    if i < n and text_2[i] in "'\"":
+                        self._parse_error(location, "Error "
+                                          "(missing-whitespace-between-doctype-public-and-system-identifiers)")
+                    skip_whitespace()
+                    if i < n:
+                        consume_system_ident()
+                return
+            if try_consume("SYSTEM"):
+                if i < n and text_2[i] in "'\"":
+                    self._parse_error(location, "Error (missing-whitespace-after-doctype-system-keyword)")
+                skip_whitespace()
+                if i == n:
+                    self._parse_error(location, "Error (missing-doctype-system-identifier)")
+                    force_quirks_mode = True
+                    return
+                consume_system_ident()
+                return
+            if i < n:
+                self._parse_error(location, "Error (invalid-character-sequence-after-doctype-name)")
+                force_quirks_mode = True
+        parse()
+        return name, public_ident, system_ident, force_quirks_mode
+
     def _build_attributes(self, location, attrs):
         attributes = []
         seen_attributes = set()
@@ -767,7 +895,7 @@ class _Session:
                 attributes.append(attr)
                 seen_attributes.add(name)
         if duplicates_seen:
-            self._parse_error(location, "Invalid start tag: Duplicate attributes")    
+            self._parse_error(location, "Invalid start tag: Duplicate attributes (first occurrences win)")
         return attributes
 
     def _process_token(self, token):
@@ -843,9 +971,9 @@ class _Session:
     def _process_token_initial(self, token):
         location = token.location
         if isinstance(token, _Doctype):
-            # FIXME: If the DOCTYPE token's name is not "html", or the token's public identifier is not missing, or the token's system identifier is neither missing nor "about:legacy-compat", then there is a parse error.    
-            self._insert_doctype(token.decl, parent = self._document)
-            # FIXME: Deal with quirks mode and limited-quirks mode    
+            # FIXME: If the DOCTYPE token's name is not "html", or the token's public identifier is not missing, or the token's system identifier is neither missing nor "about:legacy-compat", then there is a parse error.                                                                     
+            self._insert_doctype(token.name, token.public_ident, token.system_ident, parent = self._document)
+            # FIXME: Deal with quirks mode and limited-quirks mode            
             self._insertion_mode = _InsertionMode.BEFORE_HTML
             return True
         elif isinstance(token, _Data):
@@ -2087,8 +2215,8 @@ class _Session:
         app_node = self._callbacks.create_element(namespace, prefix, local_name, attributes_2)
         return _Element(namespace, name_index, orig_name_index, attributes, attribute_map, app_node)
 
-    def _insert_doctype(self, decl, parent = None):
-        app_node = self._callbacks.create_doctype(decl)
+    def _insert_doctype(self, name, public_ident, system_ident, parent = None):
+        app_node = self._callbacks.create_doctype(name, public_ident, system_ident)
         # FIXME: Skip if effective parent is not a document node (but can this ever occur).        
         self._insert_app_node(app_node, parent)
 
@@ -2191,6 +2319,7 @@ class _Session:
             self._logger.log(message % params)
 
 
+# FIXME: Does tokenizer comply with required newline normalization (https://infra.spec.whatwg.org/#normalize-newlines)?    
 class _Tokenizer(html.parser.HTMLParser):
     def __init__(self, session):
         html.parser.HTMLParser.__init__(self)
@@ -2253,9 +2382,12 @@ class Token:
         self.location = location
 
 class _Doctype(Token):
-    def __init__(self, location, decl):
+    def __init__(self, location, name, public_ident, system_ident, force_quirks_mode):
         Token.__init__(self, location)
-        self.decl = decl
+        self.name = name
+        self.public_ident = public_ident
+        self.system_ident = system_ident
+        self.force_quirks_mode = force_quirks_mode
 
 class _Data(Token):
     def __init__(self, location, data):
@@ -2269,6 +2401,7 @@ class _Data(Token):
                 location.line_number += 1
                 location.position = 0
                 continue
+            # FIXME: According to 13.2.3.5 "Preprocessing the input stream", there are never any U+000D carriage returns in input to the tokenizer. But then why does the parser have specific rules for U+000D carriage returns?           
             if ch in "\t\f\r ":
                 location.position += 1
                 continue

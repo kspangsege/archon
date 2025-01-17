@@ -36,6 +36,51 @@ def _generate_tests(add_test):
     test(" 1", True,
          "<html><head/><body>1</body></html>")
 
+    test("<!doctype html>", False,
+         "<!doctype html><html><head/><body/></html>")
+
+    test("<!DOCTYPE html PUBLIC 'foo'>", False,
+         "<!DOCTYPE html PUBLIC 'foo'><html><head/><body/></html>")
+
+    test("<!DOCTYPE html PUBLIC 'foo' 'bar'>", False,
+         "<!DOCTYPE html PUBLIC 'foo' 'bar'><html><head/><body/></html>")
+
+    test("<!DOCTYPE html SYSTEM 'bar'>", False,
+         "<!DOCTYPE html SYSTEM 'bar'><html><head/><body/></html>")
+
+    test("<!DOCTYPE html PUBLIC>", True,
+         "<!DOCTYPE html><html><head/><body/></html>")
+
+    test("<!DOCTYPE html SYSTEM>", True,
+         "<!DOCTYPE html><html><head/><body/></html>")
+
+    test("<!DOCTYPE html PUBLICfoo>", True,
+         "<!DOCTYPE html><html><head/><body/></html>")
+
+    test("<!DOCTYPE html SYSTEMbar>", True,
+         "<!DOCTYPE html><html><head/><body/></html>")
+
+    test("<!DOCTYPE html PUBLIC foo>", True,
+         "<!DOCTYPE html><html><head/><body/></html>")
+
+    test("<!DOCTYPE html SYSTEM bar>", True,
+         "<!DOCTYPE html><html><head/><body/></html>")
+
+    test("<!DOCTYPE html PUBLIC 'foo'bar>", True,
+         "<!DOCTYPE html PUBLIC 'foo'><html><head/><body/></html>")
+
+    test("<!DOCTYPE html PUBLIC 'foo' bar>", True,
+         "<!DOCTYPE html PUBLIC 'foo'><html><head/><body/></html>")
+
+    test("<!DOCTYPE html PUBLIC 'foo''bar'>", True,
+         "<!DOCTYPE html PUBLIC 'foo' 'bar'><html><head/><body/></html>")
+
+    test("<!DOCTYPE html PUBLIC 'foo' 'bar' 'baz'>", True,
+         "<!DOCTYPE html PUBLIC 'foo' 'bar'><html><head/><body/></html>")
+
+    test("<!DOCTYPE html SYSTEM 'foo' 'baz'>", True,
+         "<!DOCTYPE html SYSTEM 'foo'><html><head/><body/></html>")
+
     test("<!doctype html>1", False,
          "<!doctype html><html><head/><body>1</body></html>")
 
@@ -210,7 +255,8 @@ def _test(string, expected, expect_parse_error):
             parent.append_child(node)
         class Tokenizer(html.parser.HTMLParser):
             def handle_decl(self, decl):
-                append(archon.dom.Doctype(decl))
+                name, public_ident, system_ident = parse_expected_doctype(decl)
+                append(archon.dom.Doctype(name, public_ident, system_ident))
             def handle_data(self, data):
                 append(archon.dom.Text(data))
             def handle_starttag(self, tag, attrs):
@@ -240,6 +286,78 @@ def _test(string, expected, expect_parse_error):
         assert not stack
         return document
 
+    def parse_expected_doctype(decl):
+        i = 0
+        n = len(decl)
+        def begins_with(prefix):
+            j = i + len(prefix)
+            return decl[i:j].lower() == prefix.lower()
+        def try_consume(prefix):
+            nonlocal i
+            if begins_with(prefix):
+                i += len(prefix)
+                return True
+            return False
+        def skip_space():
+            nonlocal i
+            while i < n and decl[i] == " ":
+                i += 1
+        def skip_nonspace():
+            nonlocal i
+            while i < n and decl[i] != " ":
+                i += 1
+        name = None
+        public_ident = None
+        system_ident = None
+        def consume_public_ident():
+            nonlocal i, public_ident
+            assert i < n
+            mark = decl[i]
+            assert mark in "'\""
+            i += 1
+            j = decl.find(mark, i)
+            assert j != -1
+            public_ident = decl[i:j]
+            i = j + 1
+        def consume_system_ident():
+            nonlocal i, system_ident
+            assert i < n
+            mark = decl[i]
+            assert mark in "'\""
+            i += 1
+            j = decl.find(mark, i)
+            assert j != -1
+            system_ident = decl[i:j]
+            i = j + 1
+            skip_space()
+            assert i == n
+        def parse():
+            nonlocal i, name
+            assert try_consume("DOCTYPE")
+            skip_space()
+            assert i < n
+            i_0 = i
+            i += 1
+            skip_nonspace()
+            name = decl[i_0:i].lower()
+            skip_space()
+            if try_consume("PUBLIC"):
+                skip_space()
+                assert i < n
+                consume_public_ident()
+                skip_space()
+                if i < n:
+                    consume_system_ident()
+                return
+            if try_consume("SYSTEM"):
+                skip_space()
+                assert i < n
+                consume_system_ident()
+                return
+            assert i == n
+        parse()
+        return name, public_ident, system_ident
+
     def format_path(path):
         path_2 = []
         parent = document
@@ -265,16 +383,23 @@ def _test(string, expected, expect_parse_error):
 
     def compare_children(node, expected_node, path, children, index):
         def type_mismatch():
-            path_error("Node type mismatch %s: %s vs %s" % (format_context_qualifier(), _format_node(node),
-                                                            _format_node(expected_node)), path)
+            path_error("Node type mismatch %s: %s vs %s" % (format_context_qualifier(children, index),
+                                                            _format_node(node), _format_node(expected_node)), path)
         if isinstance(node, archon.dom.Doctype):
             if not isinstance(expected_node, archon.dom.Doctype):
                 type_mismatch()
                 return
-            if node.decl != expected_node.decl:
-                path_error("Doctype mismatch %s: %r vs %r" % (format_context_qualifier(), node.decl,
-                                                              expected_node.decl), path)
-                return
+            if node.name != expected_node.name:
+                path_error("Doctype name mismatch %s: %r vs %r" % (format_context_qualifier(children, index),
+                                                                   node.name, expected_node.name), path)
+            if node.public_ident != expected_node.public_ident:
+                path_error("Doctype public identifier mismatch %s: "
+                           "%r vs %r" % (format_context_qualifier(children, index), node.public_ident,
+                                         expected_node.public_ident), path)
+            if node.system_ident != expected_node.system_ident:
+                path_error("Doctype system identifier mismatch %s: "
+                           "%r vs %r" % (format_context_qualifier(children, index), node.system_ident,
+                                         expected_node.system_ident), path)
             return
         if isinstance(node, archon.dom.Element):
             if not isinstance(expected_node, archon.dom.Element):
@@ -345,8 +470,8 @@ def _test(string, expected, expect_parse_error):
             return "at beginning"
         max_nodes = 3
         if index <= max_nodes:
-            return "after %s" % _format_nodes(children[:index])
-        return "after ...%s" % _format_nodes(children[index-max_nodes:index])
+            return "after %s" % _format_nodes(nodes[:index])
+        return "after ...%s" % _format_nodes(nodes[index-max_nodes:index])
 
     def path_error(message, path):
         error("%s: %s" % (format_path(path), message))
