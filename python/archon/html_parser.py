@@ -483,13 +483,13 @@ class RetainingSource(Source):
 
 
 class Callbacks:
-    def create_doctype(self, name, public_ident, system_ident):
+    def create_doctype(self, name, public_id, system_id):
         return None
 
     # `namespace` is one of the values of the `Namespace` enumeration
-    # `prefix` is None when there is no prefix
+    # `prefix` is None when there is no namespace prefix
     # `attributes` is a list of quadruples (namespace, prefix, local_name, value)
-    # In `attributes`, `namespace` and `prefix` are None wheren there is no namespace or prefix respectively
+    # In `attributes`, `namespace` and `prefix` are None when there is no namespace or namespace prefix respectively
     def create_element(self, namespace, prefix, local_name, attributes):
         return None
 
@@ -553,24 +553,27 @@ class Callbacks:
 
 
 class TreeBuilder(Callbacks):
-    def create_doctype(self, name, public_ident, system_ident):
-        return archon.dom.Doctype(name, public_ident, system_ident)
+    def __init__(self, document):
+        self._document = document
+
+    def create_doctype(self, name, public_id, system_id):
+        return archon.dom.Doctype(self._document, name, public_id, system_id)
 
     def create_element(self, namespace, prefix, local_name, attributes):
         assert namespace is not None
-        namespace_2 = get_namespace_string(namespace)
+        namespace_uri = get_namespace_uri(namespace)
         attributes_2 = []
-        for namespace_3, prefix_2, local_name_2, value in attributes:
-            namespace_4 = get_namespace_string(namespace_3)
-            attr = archon.dom.Attribute(namespace_4, prefix_2, local_name_2, value)
+        for namespace_2, prefix_2, local_name_2, value in attributes:
+            namespace_uri_2 = get_namespace_uri(namespace_2)
+            attr = archon.dom.Attr(self._document, namespace_uri_2, prefix_2, local_name_2, value)
             attributes_2.append(attr)
-        return archon.dom.Element(namespace_2, prefix, local_name, attributes_2)
+        return archon.dom.Element(self._document, namespace_uri, prefix, local_name, attributes_2)
 
     def create_text(self, data):
-        return archon.dom.Text(data)
+        return archon.dom.Text(self._document, data)
 
     def create_comment(self, data):
-        return archon.dom.Comment(data)
+        return archon.dom.Comment(self._document, data)
 
     def append_child(self, node, parent):
         # FIXME: If parent is a document node, detect and ignore invalid insertions        
@@ -578,7 +581,8 @@ class TreeBuilder(Callbacks):
             assert not node.get_parent_node()
             node_2 = parent.get_last_child()
             if type(node_2) == archon.dom.Text:
-                node_2.data += node.data
+                data = node_2.get_data()
+                node_2.set_data(data + node.get_data())
                 return
         parent.append_child(node)
 
@@ -633,7 +637,7 @@ class Namespace(enum.Enum):
     XMLNS  = enum.auto()
 
 
-def get_namespace_string(namespace):
+def get_namespace_uri(namespace):
     if namespace is None:
         return None
     if namespace == Namespace.HTML:
@@ -696,8 +700,8 @@ class _Session:
         self._log("HANDLE: <!doctype>")
         location = self._get_location()
         # FIXME: Newline normalization!?!?    
-        name, public_ident, system_ident, force_quirks_mode = self._parse_doctype(location, decl)
-        self._process_token(_Doctype(location, name, public_ident, system_ident, force_quirks_mode))
+        name, public_id, system_id, force_quirks_mode = self._parse_doctype(location, decl)
+        self._process_token(_Doctype(location, name, public_id, system_id, force_quirks_mode))
 
     def handle_data(self, data):
         self._log("HANDLE: DATA")
@@ -784,11 +788,11 @@ class _Session:
         def ascii_lower(text):
             return "".join([ch.lower() if ch.isascii() else ch for ch in text])
         name = None
-        public_ident = None
-        system_ident = None
+        public_id = None
+        system_id = None
         force_quirks_mode = False
-        def consume_public_ident():
-            nonlocal i, public_ident, force_quirks_mode
+        def consume_public_id():
+            nonlocal i, public_id, force_quirks_mode
             assert i < n
             mark = text_2[i]
             if mark not in "'\"":
@@ -802,15 +806,15 @@ class _Session:
                 unclosed = True
                 j == n
             assert j >= i
-            public_ident = text_2[i:j]
+            public_id = text_2[i:j]
             if unclosed:
                 self._parse_error(location, "Error (abrupt-doctype-public-identifier)")
                 force_quirks_mode = True
                 return False
             i = j + 1
             return True
-        def consume_system_ident():
-            nonlocal i, system_ident, force_quirks_mode
+        def consume_system_id():
+            nonlocal i, system_id, force_quirks_mode
             assert i < n
             mark = text_2[i]
             if mark not in "'\"":
@@ -824,7 +828,7 @@ class _Session:
                 unclosed = True
                 j == n
             assert j >= i
-            system_ident = text_2[i:j]
+            system_id = text_2[i:j]
             if unclosed:
                 self._parse_error(location, "Error (abrupt-doctype-system-identifier)")
                 force_quirks_mode = True
@@ -856,13 +860,13 @@ class _Session:
                     self._parse_error(location, "Error (missing-doctype-public-identifier)")
                     force_quirks_mode = True
                     return
-                if consume_public_ident():
+                if consume_public_id():
                     if i < n and text_2[i] in "'\"":
                         self._parse_error(location, "Error "
                                           "(missing-whitespace-between-doctype-public-and-system-identifiers)")
                     skip_whitespace()
                     if i < n:
-                        consume_system_ident()
+                        consume_system_id()
                 return
             if try_consume("SYSTEM"):
                 if i < n and text_2[i] in "'\"":
@@ -872,13 +876,13 @@ class _Session:
                     self._parse_error(location, "Error (missing-doctype-system-identifier)")
                     force_quirks_mode = True
                     return
-                consume_system_ident()
+                consume_system_id()
                 return
             if i < n:
                 self._parse_error(location, "Error (invalid-character-sequence-after-doctype-name)")
                 force_quirks_mode = True
         parse()
-        return name, public_ident, system_ident, force_quirks_mode
+        return name, public_id, system_id, force_quirks_mode
 
     def _build_attributes(self, location, attrs):
         attributes = []
@@ -972,7 +976,7 @@ class _Session:
         location = token.location
         if isinstance(token, _Doctype):
             # FIXME: If the DOCTYPE token's name is not "html", or the token's public identifier is not missing, or the token's system identifier is neither missing nor "about:legacy-compat", then there is a parse error.                                                                     
-            self._insert_doctype(token.name, token.public_ident, token.system_ident, parent = self._document)
+            self._insert_doctype(token.name, token.public_id, token.system_id, parent = self._document)
             # FIXME: Deal with quirks mode and limited-quirks mode            
             self._insertion_mode = _InsertionMode.BEFORE_HTML
             return True
@@ -2215,8 +2219,8 @@ class _Session:
         app_node = self._callbacks.create_element(namespace, prefix, local_name, attributes_2)
         return _Element(namespace, name_index, orig_name_index, attributes, attribute_map, app_node)
 
-    def _insert_doctype(self, name, public_ident, system_ident, parent = None):
-        app_node = self._callbacks.create_doctype(name, public_ident, system_ident)
+    def _insert_doctype(self, name, public_id, system_id, parent = None):
+        app_node = self._callbacks.create_doctype(name, public_id, system_id)
         # FIXME: Skip if effective parent is not a document node (but can this ever occur).        
         self._insert_app_node(app_node, parent)
 
@@ -2382,11 +2386,11 @@ class Token:
         self.location = location
 
 class _Doctype(Token):
-    def __init__(self, location, name, public_ident, system_ident, force_quirks_mode):
+    def __init__(self, location, name, public_id, system_id, force_quirks_mode):
         Token.__init__(self, location)
         self.name = name
-        self.public_ident = public_ident
-        self.system_ident = system_ident
+        self.public_id = public_id
+        self.system_id = system_id
         self.force_quirks_mode = force_quirks_mode
 
 class _Data(Token):

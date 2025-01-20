@@ -30,13 +30,28 @@ def run(tests):
 
 
 class Context:
-    def check_equal(self, a, b):
-        raise RuntimeError("Abstract function")
-
     def check(self, cond):
         raise RuntimeError("Abstract function")
 
     def check_not(self, cond):
+        raise RuntimeError("Abstract function")
+
+    def check_is_none(self, val):
+        raise RuntimeError("Abstract function")
+
+    def check_is_not_none(self, val):
+        raise RuntimeError("Abstract function")
+
+    def check_equal(self, a, b):
+        raise RuntimeError("Abstract function")
+
+    def check_not_equal(self, a, b):
+        raise RuntimeError("Abstract function")
+
+    def check_in(self, a, b):
+        raise RuntimeError("Abstract function")
+
+    def check_not_in(self, a, b):
         raise RuntimeError("Abstract function")
 
 
@@ -52,14 +67,29 @@ class _RegularContext(Context):
         self._debug_on_failure = True
         self._failure = False
 
-    def check_equal(self, a, b):
-        return self._check(a == b, "check_equal(%s, %s) failed", a, b)
-
     def check(self, cond):
         return self._check(cond, "check(%s) failed", cond)
 
     def check_not(self, cond):
         return self._check(not cond, "check_not(%s) failed", cond)
+
+    def check_is_none(self, val):
+        return self._check(val is None, "check_is_none(%s) failed", val)
+
+    def check_is_not_none(self, val):
+        return self._check(val is not None, "check_is_not_none(%s) failed", val)
+
+    def check_equal(self, a, b):
+        return self._check(a == b, "check_equal(%s, %s) failed", a, b)
+
+    def check_not_equal(self, a, b):
+        return self._check(a != b, "check_not_equal(%s, %s) failed", a, b)
+
+    def check_in(self, a, b):
+        return self._check(a in b, "check_in(%s, %s) failed", a, b)
+
+    def check_not_in(self, a, b):
+        return self._check(a not in b, "check_not_in(%s, %s) failed", a, b)
 
     def _check(self, cond, message, *params):
         if cond:
@@ -103,11 +133,26 @@ class _ContextBridge(Context):
     def __init__(self, test_case):
         self._test_case = test_case
 
-    def check_equal(self, a, b):
-        return self._test_case.assertEqual(a, b)
-
     def check(self, cond):
         return self._test_case.assertTrue(cond)
 
     def check_not(self, cond):
         return self._test_case.assertFalse(cond)
+
+    def check_is_none(self, val):
+        return self._test_case.assertIsNone(val)
+
+    def check_is_not_none(self, val):
+        return self._test_case.assertIsNotNone(val)
+
+    def check_equal(self, a, b):
+        return self._test_case.assertEqual(a, b)
+
+    def check_not_equal(self, a, b):
+        return self._test_case.assertNotEqual(a, b)
+
+    def check_in(self, a, b):
+        return self._test_case.assertIn(a, b)
+
+    def check_not_in(self, a, b):
+        return self._test_case.assertNotIn(a, b)

@@ -165,6 +165,22 @@ def test_RemoveChild(context):
     context.check_equal(baz.get_next_sibling(), None)
 
 
+def test_ChildNodesIsSequence(context):
+    doc = _make_document()
+    root = doc.create_element("root")
+    foo = doc.create_element("foo")
+    root.append_child(foo)
+    bar = doc.create_element("bar")
+    root.append_child(bar)
+    baz = doc.create_text_node("baz")
+    root.append_child(baz)
+
+    context.check_equal(list(root.get_child_nodes()), [foo, bar, baz])
+    context.check_equal(list(reversed(root.get_child_nodes())), [baz, bar, foo])
+    context.check_in(foo, root.get_child_nodes())
+    context.check_not_in(root, root.get_child_nodes())
+
+
 # Bridge to Python's native testing framework
 def load_tests(loader, standard_tests, pattern):
     return archon.test.generate_native_tests(__name__)
