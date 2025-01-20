@@ -574,16 +574,16 @@ class TreeBuilder(Callbacks):
 
     def append_child(self, node, parent):
         # FIXME: If parent is a document node, detect and ignore invalid insertions        
-        if type(node) == archon.dom.Text and parent.children:
+        if type(node) == archon.dom.Text and parent.has_child_nodes():
             assert not node.get_parent_node()
-            node_2 = parent.children[-1]
+            node_2 = parent.get_last_child()
             if type(node_2) == archon.dom.Text:
                 node_2.data += node.data
                 return
         parent.append_child(node)
 
     def move_children(self, old_parent, new_parent):
-        children = list(old_parent.children) # Copy to allow mutation during iteration
+        children = list(old_parent.get_child_nodes()) # Copy to allow mutation during iteration
         for node in children:
             new_parent.append_child(node)
 

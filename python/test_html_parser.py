@@ -199,13 +199,13 @@ def _generate_tests(add_test):
 # Bridge to the Archon testing framework
 def _run_tests():
     import archon.test
-    tests = archon.test.List()
+    tests = []
     def add_test(name, descr, func):
         def test(context):
             context.check(func())
-        tests.add(name, descr, test)
+        tests.append(archon.test.Test(name, descr, test))
     _generate_tests(add_test)
-    tests.run()
+    archon.test.run(tests)
 
 
 # Bridge to Python's native testing framework
@@ -238,7 +238,9 @@ def _test(string, expected, expect_parse_error):
         parser = archon.html_parser.Parser()
         source = archon.html_parser.StringSource(string)
         retaining_source = archon.html_parser.RetainingSource(source)
-        document = archon.dom.Document()
+        content_type = "text/html"
+        is_html = True
+        document = archon.dom.Document(content_type, is_html)
         tree_builder = archon.html_parser.TreeBuilder()
         null_logger = archon.log.NullLogger()
         logger = null_logger if expect_parse_error else archon.log.FileLogger()
@@ -248,7 +250,9 @@ def _test(string, expected, expect_parse_error):
         return document
 
     def parse_expected(string):
-        document = archon.dom.Document()
+        content_type = "text/html"
+        is_html = True
+        document = archon.dom.Document(content_type, is_html)
         stack = []
         def append(node):
             parent = stack[-1] if stack else document
@@ -362,11 +366,12 @@ def _test(string, expected, expect_parse_error):
         path_2 = []
         parent = document
         for i in path:
-            node = parent.children[i]
+            child_nodes = parent.get_child_nodes()
+            node = child_nodes[i]
             assert isinstance(node, archon.dom.Element)
             elem = node
             n = 0
-            for node in parent.children:
+            for node in child_nodes:
                 if not isinstance(node, archon.dom.Element):
                     continue
                 elem_2 = node
@@ -432,7 +437,7 @@ def _test(string, expected, expect_parse_error):
                 attrs_1 = format_attributes(node.attributes)
                 attrs_2 = format_attributes(expected_node.attributes)
                 path_error("Attribute difference: %s vs %s" % (attrs_1, attrs_2), subpath)
-            compare_child_lists(node.children, expected_node.children, subpath)
+            compare_child_lists(list(node.get_child_nodes()), list(expected_node.get_child_nodes()), subpath)
             return
         if isinstance(node, archon.dom.Text):
             if not isinstance(expected_node, archon.dom.Text):
@@ -492,7 +497,7 @@ def _test(string, expected, expect_parse_error):
 
     expected_document = parse_expected(expected)
 
-    compare_child_lists(document.children, expected_document.children, [])
+    compare_child_lists(list(document.get_child_nodes()), list(expected_document.get_child_nodes()), [])
 
     return not errors_occurred
 
