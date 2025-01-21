@@ -557,7 +557,7 @@ class TreeBuilder(Callbacks):
         self._document = document
 
     def create_doctype(self, name, public_id, system_id):
-        return archon.dom.Doctype(self._document, name, public_id, system_id)
+        return archon.dom.create_document_type(self._document, name, public_id, system_id)
 
     def create_element(self, namespace, prefix, local_name, attributes):
         assert namespace is not None
@@ -565,22 +565,22 @@ class TreeBuilder(Callbacks):
         attributes_2 = []
         for namespace_2, prefix_2, local_name_2, value in attributes:
             namespace_uri_2 = get_namespace_uri(namespace_2)
-            attr = archon.dom.Attr(self._document, namespace_uri_2, prefix_2, local_name_2, value)
+            attr = archon.dom.create_attribute(self._document, namespace_uri_2, prefix_2, local_name_2, value)
             attributes_2.append(attr)
-        return archon.dom.Element(self._document, namespace_uri, prefix, local_name, attributes_2)
+        return archon.dom.create_element(self._document, namespace_uri, prefix, local_name, attributes_2)
 
     def create_text(self, data):
-        return archon.dom.Text(self._document, data)
+        return self._document.create_text_node(data)
 
     def create_comment(self, data):
-        return archon.dom.Comment(self._document, data)
+        return self._document.create_comment(data)
 
     def append_child(self, node, parent):
         # FIXME: If parent is a document node, detect and ignore invalid insertions        
-        if type(node) == archon.dom.Text and parent.has_child_nodes():
+        if isinstance(node, archon.dom.Text) and parent.has_child_nodes():
             assert not node.get_parent_node()
             node_2 = parent.get_last_child()
-            if type(node_2) == archon.dom.Text:
+            if isinstance(node_2, archon.dom.Text):
                 data = node_2.get_data()
                 node_2.set_data(data + node.get_data())
                 return

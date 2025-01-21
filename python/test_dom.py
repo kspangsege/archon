@@ -3,9 +3,7 @@ import archon.dom
 
 
 def _make_document():
-    content_type = "application/xml"
-    is_html = False
-    return archon.dom.Document(content_type, is_html)
+    return archon.dom.create_xml_document()
 
 
 def test_AppendChild(context):

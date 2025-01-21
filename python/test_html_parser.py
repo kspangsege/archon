@@ -238,9 +238,7 @@ def _test(string, expected, expect_parse_error):
         parser = archon.html_parser.Parser()
         source = archon.html_parser.StringSource(string)
         retaining_source = archon.html_parser.RetainingSource(source)
-        content_type = "text/html"
-        is_html = True
-        document = archon.dom.Document(content_type, is_html)
+        document = archon.dom.create_html_document()
         tree_builder = archon.html_parser.TreeBuilder(document)
         null_logger = archon.log.NullLogger()
         logger = null_logger if expect_parse_error else archon.log.FileLogger()
@@ -250,9 +248,7 @@ def _test(string, expected, expect_parse_error):
         return document
 
     def parse_expected(string):
-        content_type = "text/html"
-        is_html = True
-        document = archon.dom.Document(content_type, is_html)
+        document = archon.dom.create_html_document()
         stack = []
         def append(node):
             parent = stack[-1] if stack else document
@@ -260,9 +256,9 @@ def _test(string, expected, expect_parse_error):
         class Tokenizer(html.parser.HTMLParser):
             def handle_decl(self, decl):
                 name, public_id, system_id = parse_expected_doctype(decl)
-                append(archon.dom.Doctype(document, name, public_id, system_id))
+                append(archon.dom.create_document_type(document, name, public_id, system_id))
             def handle_data(self, data):
-                append(archon.dom.Text(document, data))
+                append(document.create_text_node(data))
             def handle_starttag(self, tag, attrs):
                 namespace_uri = "http://www.w3.org/1999/xhtml"
                 if stack:
@@ -275,16 +271,16 @@ def _test(string, expected, expect_parse_error):
                         continue
                     namespace_uri_2 = None
                     prefix_2 = None
-                    attr = archon.dom.Attr(document, namespace_uri_2, prefix_2, name, value)
+                    attr = archon.dom.create_attribute(document, namespace_uri_2, prefix_2, name, value)
                     attributes.append(attr)
-                elem = archon.dom.Element(document, namespace_uri, prefix, tag, attributes)
+                elem = archon.dom.create_element(document, namespace_uri, prefix, tag, attributes)
                 append(elem)
                 stack.append(elem)
             def handle_endtag(self, tag):
                 assert tag == stack[-1].get_local_name()
                 stack.pop()
             def handle_comment(self, data):
-                append(archon.dom.Comment(document, data))
+                append(document.create_comment(data))
         tokenizer = Tokenizer()
         tokenizer.feed(string)
         assert not stack
@@ -392,8 +388,8 @@ def _test(string, expected, expect_parse_error):
         def type_mismatch():
             path_error("Node type mismatch %s: %s vs %s" % (format_context_qualifier(children, index),
                                                             _format_node(node), _format_node(expected_node)), path)
-        if isinstance(node, archon.dom.Doctype):
-            if not isinstance(expected_node, archon.dom.Doctype):
+        if isinstance(node, archon.dom.DocumentType):
+            if not isinstance(expected_node, archon.dom.DocumentType):
                 type_mismatch()
                 return
             name_1 = node.get_name()
@@ -522,7 +518,7 @@ def _format_nodes(nodes):
     return ", ".join([_format_node(node) for node in nodes])
 
 def _format_node(node):
-    if isinstance(node, archon.dom.Doctype):
+    if isinstance(node, archon.dom.DocumentType):
         return "#doctype"
     if isinstance(node, archon.dom.Element):
         return _format_element_name(node)
