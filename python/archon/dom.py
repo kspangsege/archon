@@ -4,8 +4,24 @@ import archon.core
 
 
 class Node:
-    # FIXME: Implement get_node_type()
-    # FIXME: Implement get_node_name()
+    ELEMENT_NODE = 1
+    ATTRIBUTE_NODE = 2
+    TEXT_NODE = 3
+    CDATA_SECTION_NODE = 4
+    ENTITY_REFERENCE_NODE = 5
+    ENTITY_NODE = 6
+    PROCESSING_INSTRUCTION_NODE = 7
+    COMMENT_NODE = 8
+    DOCUMENT_NODE = 9
+    DOCUMENT_TYPE_NODE = 10
+    DOCUMENT_FRAGMENT_NODE = 11
+    NOTATION_NODE = 12
+
+    def get_node_type(self):
+        raise RuntimeError("Abstract method")
+
+    def get_node_name(self):
+        raise RuntimeError("Abstract method")
 
     def get_owner_document(self):
         raise RuntimeError("Abstract method")
@@ -143,8 +159,14 @@ class Text(CharacterData):
     pass
 
 
+# FIXME: Add CDATASection
+
+
 class Comment(CharacterData):
     pass
+
+
+# FIXME: Add ProcessingInstruction
 
 
 class Attr(Node):
@@ -337,6 +359,7 @@ def dump_document(document, max_string_size = 90):
 
 
 
+# FIXME: Implement `__str__()` / `__repr__()` which should probably just return whatever `get_node_name()` returns       
 class _NodeImpl(Node):
     def __init__(self, document, state):
         assert document
@@ -683,6 +706,12 @@ class _DocumentImpl(_ParentNodeImpl, _NodeImpl, Document):
         state = _CommentState(data)
         return _wrap_node(state, self)
 
+    def get_node_type(self):
+        return self.DOCUMENT_NODE
+
+    def get_node_name(self):
+        return "#document"
+
     def get_owner_document(self):
         return None
 
@@ -742,6 +771,12 @@ class _DocumentTypeImpl(_ChildNodeImpl, _NodeImpl, DocumentType):
 
     def get_system_id(self):
         return self._state.system_id
+
+    def get_node_type(self):
+        return self.DOCUMENT_TYPE_NODE
+
+    def get_node_name(self):
+        return self.get_name()
 
 
 class _DocumentTypeState(_ChildNodeState, _NodeState):
@@ -811,6 +846,12 @@ class _ElementImpl(_ParentNodeImpl, _ChildNodeImpl, _NodeImpl, Element):
     def set_attribute_node_ns(self, attr):
         state = self._state.set_attribute_node(_unwrap_node(attr))
         return _wrap_node(state, self._document)
+
+    def get_node_type(self):
+        return self.ELEMENT_NODE
+
+    def get_node_name(self):
+        return self.get_tag_name()
 
 
 class _ElementState(_ParentNodeState, _ChildNodeState, _NodeState):
@@ -966,7 +1007,11 @@ class _CharacterDataState(_ChildNodeState, _NodeState):
 
 
 class _TextImpl(_CharacterDataImpl, Text):
-    pass
+    def get_node_type(self):
+        return self.TEXT_NODE
+
+    def get_node_name(self):
+        return "#text"
 
 
 class _TextState(_CharacterDataState):
@@ -976,7 +1021,11 @@ class _TextState(_CharacterDataState):
 
 
 class _CommentImpl(_CharacterDataImpl, Comment):
-    pass
+    def get_node_type(self):
+        return self.COMMENT_NODE
+
+    def get_node_name(self):
+        return "#comment"
 
 
 class _CommentState(_CharacterDataState):
@@ -1012,6 +1061,12 @@ class _AttrImpl(_NodeImpl, Attr):
 
     def is_specified(self):
         return True
+
+    def get_node_type(self):
+        return self.ATTRIBUTE_NODE
+
+    def get_node_name(self):
+        return self.get_qualified_name()
 
 
 class _AttrState(_NodeState):
