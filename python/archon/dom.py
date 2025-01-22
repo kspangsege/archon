@@ -176,6 +176,12 @@ class Element(ParentNode, ChildNode, Node):
     def get_attributes(self):
         raise RuntimeError("Abstract method")
 
+    def het_attribute(self, qualified_name):
+        raise RuntimeError("Abstract method")
+
+    def get_attribute_ns(self, namespace, local_name):
+        raise RuntimeError("Abstract method")
+
     def remove_attribute(self, qualified_name):
         raise RuntimeError("Abstract method")
 
@@ -252,7 +258,7 @@ class NodeList(collections.abc.Sequence):
         raise RuntimeError("Abstract method")
 
 
-class NamedNodeMap(collections.abc.MutableMapping):
+class NamedNodeMap(collections.abc.Mapping):
     def get_length(self):
         raise RuntimeError("Abstract method")
 
@@ -971,6 +977,12 @@ class _ElementImpl(_ParentNodeImpl, _ChildNodeImpl, _NodeImpl, Element):
         self._weak_attributes = weakref.ref(attributes)
         return attributes
 
+    def get_attribute(self, qualified_name):
+        return self._state.get_attribute(qualified_name)
+
+    def get_attribute_ns(self, namespace, local_name):
+        self._state.get_attribute_ns(namespace, local_name)
+
     def remove_attribute(self, qualified_name):
         self._state.remove_attribute(qualified_name)
 
@@ -1016,6 +1028,32 @@ class _ElementState(_ParentNodeState, _ChildNodeState, _NodeState):
             return self.local_name
         return "%s:%s" % (self.prefix, self.local_name)
 
+    def get_attribute(self, qualified_name):
+        candidates, index = self._find_attribute(qualified_name)
+        if index is None:
+            return None
+        attr = candidates[index]
+        return attr.value
+
+    def get_attribute_ns(self, namespace, local_name):
+        candidates, index = self._find_attribute_ns(namespace, local_name)
+        if index is None:
+            return None
+        attr = candidates[index]
+        return attr.value
+
+    def remove_attribute(self, qualified_name):
+        candidates, index = self._find_attribute(qualified_name)
+        if index is None:
+            return None
+        return self._remove_attribute(candidates, index)
+
+    def remove_attribute_ns(self, namespace, local_name):
+        candidates, index = self._find_attribute_ns(namespace, local_name)
+        if index is None:
+            return None
+        return self._remove_attribute(candidates, index)
+
     def get_attribute_node(self, qualified_name):
         candidates, index = self._find_attribute(qualified_name)
         return None if index is None else candidates[index]
@@ -1025,7 +1063,6 @@ class _ElementState(_ParentNodeState, _ChildNodeState, _NodeState):
         return None if index is None else candidates[index]
 
     def set_attribute(self, qualified_name, value):
-        # FIXME: If qualifiedName does not match the Name production in XML, then throw an "InvalidCharacterError" DOMException (but ideally this check should only be done if a new candidates map entry needs to be added).                                                                                         
         key, adjusted_qualified_name = self._get_attribute_key(qualified_name)
         candidates = self.attribute_map.setdefault(key, [])
         index = self._attribute_search(candidates, adjusted_qualified_name)
@@ -1033,9 +1070,13 @@ class _ElementState(_ParentNodeState, _ChildNodeState, _NodeState):
             attr = candidates[index]
             attr.set_value(value)
             return
+        local_name = adjusted_qualified_name
+        if not _is_valid_general_name(local_name):
+            if not candidates:
+                del self.attribute_map[key]
+            raise InvalidCharacterError()
         namespace_uri = None
         prefix = None
-        local_name = adjusted_qualified_name
         attr = _AttrState(namespace_uri, prefix, local_name)
         attr.set_value(value)
         self._append_attribute(candidates, attr)
@@ -1053,18 +1094,6 @@ class _ElementState(_ParentNodeState, _ChildNodeState, _NodeState):
         if old_attr != attr:
             self._replace_attribute(candidates, index, attr)
         return old_attr
-
-    def remove_attribute(self, qualified_name):
-        candidates, index = self._find_attribute(qualified_name)
-        if index is None:
-            return None
-        return self._remove_attribute(candidates, index)
-
-    def remove_attribute_ns(self, namespace, local_name):
-        candidates, index = self._find_attribute_ns(namespace, local_name)
-        if index is None:
-            return None
-        return self._remove_attribute(candidates, index)
 
     def _find_attribute(self, qualified_name):
         key, adjusted_qualified_name = self._get_attribute_key(qualified_name)
@@ -1365,16 +1394,10 @@ class _Attributes(NamedNodeMap):
         self._element = element
 
     def __getitem__(self, qualified_name):
-        attr = self.get_named_item(name)
+        attr = self.get_named_item(qualified_name)
         if not attr:
             raise KeyError
         return attr
-
-    def __setitem__(self, qualified_name, value):
-        self._element._state.set_attribute(qualified_name, value)
-
-    def __delitem__(self, qualified_name):
-        self.remove_named_item(qualified_name)
 
     def __iter__(self):
         return _AttributeIter(self._element)
