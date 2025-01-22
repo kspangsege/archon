@@ -9,6 +9,52 @@ def _make_html_document():
     return archon.dom.create_html_document()
 
 
+def test_DOMImplementation(context):
+    doc = _make_xml_document()
+    impl = doc.get_implementation()
+    context.check_is_instance(impl, archon.dom.DOMImplementation)
+
+    doctype = impl.create_document_type("a", "b", "c")
+    context.check_is_instance(doctype, archon.dom.DocumentType)
+    context.check_equal(doctype.get_name(), "a")
+    context.check_equal(doctype.get_public_id(), "b")
+    context.check_equal(doctype.get_system_id(), "c")
+    context.check_equal(doctype.get_owner_document(), doc)
+
+    doc_2 = impl.create_document("ns", "p:foo", doctype)
+    context.check_is_instance(doc_2, archon.dom.XMLDocument)
+    context.check_equal(doc_2.get_doctype(), doctype)
+    # The document type node must have been migrated to the new document
+    context.check_equal(doctype.get_owner_document(), doc_2)
+    root = doc_2.get_document_element()
+    if context.check(root):
+        context.check_equal(doc_2.get_document_element().get_namespace_uri(), "ns")
+        context.check_equal(doc_2.get_document_element().get_prefix(), "p")
+        context.check_equal(doc_2.get_document_element().get_local_name(), "foo")
+
+    doc_3 = impl.create_html_document("hello")
+    context.check_is_instance(doc_3, archon.dom.Document)
+    context.check_not_is_instance(doc_3, archon.dom.XMLDocument)
+    context.check_equal(doc_3.get_doctype().get_name(), "html")
+    html = doc_3.get_document_element()
+    if context.check(html):
+        context.check_equal(html.get_local_name(), "html")
+        if context.check_equal(len(html.get_child_nodes()), 2):
+            head = html.get_child_nodes()[0]
+            body = html.get_child_nodes()[1]
+            context.check_equal(head.get_local_name(), "head")
+            context.check_equal(body.get_local_name(), "body")
+            if context.check_equal(len(head.get_child_nodes()), 1):
+                title = head.get_child_nodes()[0]
+                context.check_equal(title.get_local_name(), "title")
+                if context.check_equal(len(title.get_child_nodes()), 1):
+                    text = title.get_child_nodes()[0]
+                    context.check_equal(text.get_data(), "hello")
+            context.check_equal(len(body.get_child_nodes()), 0)
+
+    context.check(impl.has_feature())
+
+
 def test_NodeName(context):
     doc = _make_xml_document()
     doctype = doc.get_implementation().create_document_type("a", "b", "c")

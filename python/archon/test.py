@@ -31,28 +31,34 @@ def run(tests):
 
 class Context:
     def check(self, cond):
-        raise RuntimeError("Abstract function")
+        raise RuntimeError("Abstract method")
 
     def check_not(self, cond):
-        raise RuntimeError("Abstract function")
+        raise RuntimeError("Abstract method")
 
     def check_is_none(self, val):
-        raise RuntimeError("Abstract function")
+        raise RuntimeError("Abstract method")
 
     def check_is_not_none(self, val):
-        raise RuntimeError("Abstract function")
+        raise RuntimeError("Abstract method")
 
     def check_equal(self, a, b):
-        raise RuntimeError("Abstract function")
+        raise RuntimeError("Abstract method")
 
     def check_not_equal(self, a, b):
-        raise RuntimeError("Abstract function")
+        raise RuntimeError("Abstract method")
 
     def check_in(self, a, b):
-        raise RuntimeError("Abstract function")
+        raise RuntimeError("Abstract method")
 
     def check_not_in(self, a, b):
-        raise RuntimeError("Abstract function")
+        raise RuntimeError("Abstract method")
+
+    def check_is_instance(self, val, type_):
+        raise RuntimeError("Abstract method")
+
+    def check_not_is_instance(self, val, type_):
+        raise RuntimeError("Abstract method")
 
 
 class Test:
@@ -64,7 +70,7 @@ class Test:
 
 class _RegularContext(Context):
     def __init__(self):
-        self._debug_on_failure = True
+        self._debug_on_failure = False
         self._failure = False
 
     def check(self, cond):
@@ -90,6 +96,13 @@ class _RegularContext(Context):
 
     def check_not_in(self, a, b):
         return self._check(a not in b, "check_not_in(%r, %r) failed", a, b)
+
+    def check_is_instance(self, val, type_):
+        return self._check(isinstance(val, type_), "check_is_instance(%r, %s) failed (type was %s)",
+                           val, type_.__name__, type(val).__name__)
+
+    def check_not_is_instance(self, val, type_):
+        return self._check(not isinstance(val, type_), "check_not_is_instance(%r, %s) failed", val, type_.__name__)
 
     def _check(self, cond, message, *params):
         if cond:
@@ -156,3 +169,10 @@ class _ContextBridge(Context):
 
     def check_not_in(self, a, b):
         return self._test_case.assertNotIn(a, b)
+
+    def check_is_instance(self, val, type_):
+        return self._test_case.assertIsInstance(val, type_)
+
+    def check_not_is_instance(self, val, type_):
+        return self._test_case.assertNotIsInstance(val, type_)
+
