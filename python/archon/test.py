@@ -68,28 +68,28 @@ class _RegularContext(Context):
         self._failure = False
 
     def check(self, cond):
-        return self._check(cond, "check(%s) failed", cond)
+        return self._check(cond, "check(%r) failed", cond)
 
     def check_not(self, cond):
-        return self._check(not cond, "check_not(%s) failed", cond)
+        return self._check(not cond, "check_not(%r) failed", cond)
 
     def check_is_none(self, val):
-        return self._check(val is None, "check_is_none(%s) failed", val)
+        return self._check(val is None, "check_is_none(%r) failed", val)
 
     def check_is_not_none(self, val):
-        return self._check(val is not None, "check_is_not_none(%s) failed", val)
+        return self._check(val is not None, "check_is_not_none(%r) failed", val)
 
     def check_equal(self, a, b):
-        return self._check(a == b, "check_equal(%s, %s) failed", a, b)
+        return self._check(a == b, "check_equal(%r, %r) failed", a, b)
 
     def check_not_equal(self, a, b):
-        return self._check(a != b, "check_not_equal(%s, %s) failed", a, b)
+        return self._check(a != b, "check_not_equal(%r, %r) failed", a, b)
 
     def check_in(self, a, b):
-        return self._check(a in b, "check_in(%s, %s) failed", a, b)
+        return self._check(a in b, "check_in(%r, %r) failed", a, b)
 
     def check_not_in(self, a, b):
-        return self._check(a not in b, "check_not_in(%s, %s) failed", a, b)
+        return self._check(a not in b, "check_not_in(%r, %r) failed", a, b)
 
     def _check(self, cond, message, *params):
         if cond:

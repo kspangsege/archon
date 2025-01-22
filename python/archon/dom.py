@@ -3,6 +3,39 @@ import collections.abc
 import archon.core
 
 
+# Reference snapshot: https://dom.spec.whatwg.org/commit-snapshots/369654b7697f08dfd813aee0ce9064ae7b24e3ec/
+
+
+# FIXME: Consider invariants for names of document type nodes (as enforced by create_document_type() of DOMImplementation)
+# --> Enforce in parser backdoor: archon.dom.create_document_type()
+
+# FIXME: Consider the following naming related tentative invariants for elements and attributes:
+# --> TENTATIVE INVARIANT: local_name is not null
+# --> TENTATIVE INVARIANT: local_name is not empty
+# --> TENTATIVE INVARIANT: local_name does not contain any of: U+0000 NULL, U+0009 CHARACTER TABULATION, U+000A LINE FEED, U+000C FORM FEED, U+000D CARRIAGE RETURN, U+0020 SPACE, U+002F SOLIDUS (/)
+# --> TENTATIVE INVARIANT: If prefix is not null, it matches the `NCName` production of the XML standard (not empty and does not contain ":")
+# --> TENTATIVE INVARIANT: if prefix is not null, then local_name matches the `NCName` production of the XML standard (does not contain ":")
+# --> TENTATIVE INVARIANT: if prefix is not null, then namespace is not null
+# --> TENTATIVE INVARIANT: If prefix is "xml", then namespace is "http://www.w3.org/XML/1998/namespace"
+# --> TENTATIVE INVARIANT: If prefix is "xmlns", then namespace is "http://www.w3.org/2000/xmlns/"
+# --> TENTATIVE INVARIANT: If namespace is "http://www.w3.org/2000/xmlns/", either prefix is "xmlns", or prefix is null and local_name is "xmlns"
+# --> Should be generally ensured by _parse_qualified_name(namespace, qualified) (https://dom.spec.whatwg.org/#validate-and-extract)
+# --> Need to be required and checked in parser backdoor: archon.dom.create_element() and archon.dom.create_attribute()
+
+
+
+class DOMImplementation:
+    def create_document_type(self, qualified_name, public_id, system_id):
+        raise RuntimeError("Abstract method")
+
+    def create_document(self, namespace, qualified_name, doctype):
+        raise RuntimeError("Abstract method")
+
+    def create_html_document(self, title):
+        raise RuntimeError("Abstract method")
+
+
+
 class Node:
     ELEMENT_NODE = 1
     ATTRIBUTE_NODE = 2
@@ -72,7 +105,8 @@ class ParentNode:
 
 
 class Document(ParentNode, Node):
-    # FIXME: Add get_implementation()
+    def get_implementation(self):
+        raise RuntimeError("Abstract method")
 
     def get_content_type(self):
         raise RuntimeError("Abstract method")
@@ -86,12 +120,19 @@ class Document(ParentNode, Node):
     def create_element(self, local_name):
         raise RuntimeError("Abstract method")
 
-    # FIXME: Add create_element_ns()
+    def create_element_ns(self, namespace, qualified_name):
+        raise RuntimeError("Abstract method")
 
     def create_text_node(self, data):
         raise RuntimeError("Abstract method")
 
     def create_comment(self, data):
+        raise RuntimeError("Abstract method")
+
+    def create_attribute(self, local_name):
+        raise RuntimeError("Abstract method")
+
+    def create_attribute_ns(self, namespace, qualified_name):
         raise RuntimeError("Abstract method")
 
 
@@ -238,10 +279,16 @@ class DOMException(RuntimeError):
 class HierarchyRequestError(DOMException):
     pass
 
+class InvalidCharacterError(DOMException):
+    pass
+
 class NotFoundError(DOMException):
     pass
 
 class InUseAttributeError(DOMException):
+    pass
+
+class NamespaceError(DOMException):
     pass
 
 
@@ -259,20 +306,23 @@ def create_html_document():
     return _wrap_node(state, None)
 
 def create_document_type(document, name, public_id, system_id):
+    assert _is_valid_qualified_name(name)
     state = _DocumentTypeState(name, public_id, system_id)
     return _wrap_node(state, document)
 
 def create_element(document, namespace_uri, prefix, local_name, attributes):
+    _assert_valid_naming(namespace_uri, prefix, local_name)
     document_state = _unwrap_node(document)
     document_is_html = document_state.is_html
     element_state = _ElementState(document_is_html, namespace_uri, prefix, local_name)
-    element = _wrap_node(element_state, document)
     for attr in attributes:
-        element.set_attribute_node(attr)
-    return element
+        element_state.set_attribute_node(_unwrap_node(attr))
+    return _wrap_node(element_state, document)
 
 def create_attribute(document, namespace_uri, prefix, local_name, value):
-    state = _AttrState(namespace_uri, prefix, local_name, value)
+    _assert_valid_naming(namespace_uri, prefix, local_name)
+    state = _AttrState(namespace_uri, prefix, local_name)
+    state.set_value(value)
     return _wrap_node(state, document)
 
 
@@ -359,12 +409,14 @@ def dump_document(document, max_string_size = 90):
 
 
 
-# FIXME: Implement `__str__()` / `__repr__()` which should probably just return whatever `get_node_name()` returns       
 class _NodeImpl(Node):
     def __init__(self, document, state):
         assert document
         self._document = document
         self._state = state
+
+    def __str__(self):
+        return self.get_node_name()
 
     def get_owner_document(self):
         return self._document
@@ -684,6 +736,16 @@ class _DocumentImpl(_ParentNodeImpl, _NodeImpl, Document):
     def __init__(self, state):
         _NodeImpl.__init__(self, self, state)
         _ParentNodeImpl.__init__(self)
+        self._weak_implementation = None
+
+    def get_implementation(self):
+        if self._weak_implementation:
+            implementation = self._weak_implementation()
+            if implementation:
+                return implementation
+        implementation = _Implementation(self)
+        self._weak_implementation = weakref.ref(implementation)
+        return implementation
 
     def get_content_type(self):
         return self._state.content_type
@@ -698,12 +760,24 @@ class _DocumentImpl(_ParentNodeImpl, _NodeImpl, Document):
         state = self._state.create_element(local_name)
         return _wrap_node(state, self)
 
+    def create_element_ns(self, namespace, qualified_name):
+        state = self._state.create_element_ns(namespace, qualified_name)
+        return _wrap_node(state, self)
+
     def create_text_node(self, data):
         state = _TextState(data)
         return _wrap_node(state, self)
 
     def create_comment(self, data):
         state = _CommentState(data)
+        return _wrap_node(state, self)
+
+    def create_attribute(self, local_name):
+        state = self._state.create_attribute(local_name)
+        return _wrap_node(state, self)
+
+    def create_attribute_ns(self, namespace, qualified_name):
+        state = self._state.create_attribute_ns(namespace, qualified_name)
         return _wrap_node(state, self)
 
     def get_node_type(self):
@@ -727,16 +801,37 @@ class _DocumentState(_ParentNodeState, _NodeState):
 
     # FIXME: Must also take optional `options` argument
     def create_element(self, local_name):
-        # FIXME: If localName does not match the Name production, then throw an
-        # "InvalidCharacterError" DOMException.
+        if not _is_valid_general_name(local_name):
+            raise InvalidCharacterError()
+        document_is_html = self.is_html
+        local_name_2 = local_name
+        if document_is_html:
+            local_name_2 = _ascii_lowercase(local_name_2)
+        namespace_uri = None
+        if document_is_html or self.content_type == "application/xhtml+xml":
+            namespace_uri = "http://www.w3.org/1999/xhtml"
+        prefix = None
+        return _ElementState(document_is_html, namespace_uri, prefix, local_name_2)
+
+    # FIXME: Must also take optional `options` argument
+    def create_element_ns(self, namespace, qualified_name):
+        document_is_html = self.is_html
+        adjusted_namespace, prefix, local_name = _parse_qualified_name(namespace, qualified_name)
+        return _ElementState(document_is_html, adjusted_namespace, prefix, local_name)
+
+    def create_attribute(self, local_name):
+        if not _is_valid_general_name(local_name):
+            raise InvalidCharacterError()
         local_name_2 = local_name
         if self.is_html:
             local_name_2 = _ascii_lowercase(local_name_2)
         namespace_uri = None
-        if self.is_html or self.content_type == "application/xhtml+xml":
-            namespace_uri = "http://www.w3.org/1999/xhtml"
         prefix = None
-        return _ElementState(self.is_html, namespace_uri, prefix, local_name)
+        return _AttrState(namespace_uri, prefix, local_name_2)
+
+    def create_attribute_ns(self, namespace, qualified_name):
+        adjusted_namespace, prefix, local_name = _parse_qualified_name(namespace, qualified_name)
+        return _AttrState(adjusted_namespace, prefix, local_name)
 
     def _child_inserted(self, node):
         if isinstance(node, _DocumentTypeState):
@@ -860,7 +955,6 @@ class _ElementState(_ParentNodeState, _ChildNodeState, _NodeState):
         _ChildNodeState.__init__(self)
         _ParentNodeState.__init__(self)
         self.is_html = document_is_html and namespace_uri == "http://www.w3.org/1999/xhtml"
-        # FIXME: Prefix and local name validation?                                         
         self.namespace_uri = namespace_uri
         self.prefix = prefix
         self.local_name = local_name
@@ -881,7 +975,7 @@ class _ElementState(_ParentNodeState, _ChildNodeState, _NodeState):
         return None if index is None else candidates[index]
 
     def set_attribute(self, qualified_name, value):
-        # FIXME: If qualifiedName does not match the Name production in XML, then throw an "InvalidCharacterError" DOMException (but ideally this check should only be done if a new candidates map entry needs to be added).   
+        # FIXME: If qualifiedName does not match the Name production in XML, then throw an "InvalidCharacterError" DOMException (but ideally this check should only be done if a new candidates map entry needs to be added).                                                                                         
         key, adjusted_qualified_name = self._get_attribute_key(qualified_name)
         candidates = self.attribute_map.setdefault(key, [])
         index = self._attribute_search(candidates, adjusted_qualified_name)
@@ -892,11 +986,12 @@ class _ElementState(_ParentNodeState, _ChildNodeState, _NodeState):
         namespace_uri = None
         prefix = None
         local_name = adjusted_qualified_name
-        attr = _AttrState(namespace_uri, prefix, local_name, value)
+        attr = _AttrState(namespace_uri, prefix, local_name)
+        attr.set_value(value)
         self._append_attribute(candidates, attr)
 
     def set_attribute_node(self, attr):
-        # FIXME: What should happen if `attr` is the wrong kind of node? Consider requiring a particular base type in _unwrap_node()                                                                                                          
+        # FIXME: What should happen if `attr` is the wrong kind of node? Consider requiring a particular base type in _unwrap_node()                                                                                                                                                                                  
         if attr.weak_owner_element and attr.weak_owner_element != self.weak_self:
             raise InUseAttributeError()
         key = self._get_attribute_key_ns(attr.local_name)
@@ -1054,7 +1149,7 @@ class _AttrImpl(_NodeImpl, Attr):
         return self._state.value
 
     def set_value(self, value):
-        self._state.value = _default_null_coercion(value)
+        self._state.set_value(value)
 
     def get_owner_element(self):
         return self._state.weak_owner_element and self._state.weak_owner_element()
@@ -1066,18 +1161,20 @@ class _AttrImpl(_NodeImpl, Attr):
         return self.ATTRIBUTE_NODE
 
     def get_node_name(self):
-        return self.get_qualified_name()
+        return self.get_name()
 
 
 class _AttrState(_NodeState):
-    def __init__(self, namespace_uri, prefix, local_name, value):
+    def __init__(self, namespace_uri, prefix, local_name):
         _NodeState.__init__(self)
-        # FIXME: Prefix and local name validation?                                         
         self.namespace_uri = namespace_uri
         self.prefix = prefix
         self.local_name = local_name
-        self.value = _default_null_coercion(value)
+        self.value = ""
         self.weak_owner_element = None
+
+    def set_value(self, value):
+        self.value = _default_null_coercion(value)
 
     def get_qualified_name(self):
         if self.prefix is None:
@@ -1086,6 +1183,24 @@ class _AttrState(_NodeState):
 
     def _do_wrap(self, document):
         return _AttrImpl(document, self)
+
+
+
+class _Implementation(DOMImplementation):
+    def __init__(self, document):
+        self._document = document
+
+    def create_document_type(self, qualified_name, public_id, system_id):
+        if not _is_valid_qualified_name(qualified_name):
+            raise InvalidCharacterError()
+        state = _DocumentTypeState(qualified_name, public_id, system_id)
+        return _wrap_node(state, self._document)
+
+    def create_document(self, namespace, qualified_name, doctype):
+        raise RuntimeError("Not yet implemented")                                                                                         
+
+    def create_html_document(self, title):
+        raise RuntimeError("Not yet implemented")                                                                                         
 
 
 
@@ -1239,6 +1354,93 @@ def _unwrap_node(node):
         return None
     assert isinstance(node, _NodeImpl)
     return node._unwrap()
+
+
+def _assert_valid_naming(namespace, prefix, local_name):
+    assert local_name is not None
+    if prefix is None:
+        assert local_name
+        assert _is_minimally_valid_name(local_name)
+    else:
+        assert namespace_uri is not None
+        assert _is_valid_ncname(prefix)
+        assert _is_valid_ncname(local_name)
+        assert prefix != "xml" or namespace_uri == "http://www.w3.org/XML/1998/namespace"
+        assert prefix != "xmlns" or namespace_uri == "http://www.w3.org/2000/xmlns/"
+        assert namespace_uri != "http://www.w3.org/2000/xmlns/" or \
+            prefix == "xmlns" or (prefix is None and local_name == "xmlns")
+
+
+def _is_minimally_valid_name(name):
+    if not name:
+        return False
+    for ch in name:
+        if ch in "\0\t\n\f\r /":
+            return False
+    return True
+
+
+# This function corresponds to the "validate and extract" operation as defined in the DOM
+# standard (https://dom.spec.whatwg.org/#validate-and-extract)
+def _parse_qualified_name(namespace, qualified_name):
+    adjusted_namespace = namespace or None
+    if not _is_valid_qualified_name(qualified_name):
+        raise InvalidCharacterError()
+    prefix = None
+    local_name = qualified_name
+    i = qualified_name.find(":")
+    if i >= 0:
+        prefix = qualified_name[:i]
+        local_name = qualified_name[i+1:]
+    if prefix is not None and namespace is None:
+        raise NamespaceError()
+    if prefix == "xml" and adjusted_namespace != "http://www.w3.org/XML/1998/namespace":
+        raise NamespaceError()
+    if (qualified_name == "xmlns" or prefix == "xmlns") != (adjusted_namespace == "http://www.w3.org/2000/xmlns/"):
+        raise NamespaceError()
+    return adjusted_namespace, prefix, local_name
+
+
+def _is_valid_qualified_name(qualified_name):
+    return _is_valid_general_name(qualified_name) and qualified_name.count(":") <= 1
+
+
+def _is_valid_general_name(name):
+    if not name or not _is_valid_name_start_char(name[0]):
+        return False
+    for ch in name[1:]:
+        if not _is_valid_name_char(ch):
+            return False
+    return True
+
+
+def _is_valid_name_start_char(ch):
+    val = ord(ch)
+    if val < 0x80:
+        return ch.isalpha() or ch == ":" or ch == "_"
+    return ((val >= 0xC0    and val <= 0xD6)   or
+            (val >= 0xD8    and val <= 0xF6)   or
+            (val >= 0xF8    and val <= 0x2FF)  or
+            (val >= 0x370   and val <= 0x37D)  or
+            (val >= 0x37F   and val <= 0x1FFF) or
+            (val >= 0x200C  and val <= 0x200D) or
+            (val >= 0x2070  and val <= 0x218F) or
+            (val >= 0x2C00  and val <= 0x2FEF) or
+            (val >= 0x3001  and val <= 0xD7FF) or
+            (val >= 0xF900  and val <= 0xFDCF) or
+            (val >= 0xFDF0  and val <= 0xFFFD) or
+            (val >= 0x10000 and val <= 0xEFFFF))
+
+def _is_valid_name_char(ch):
+    if _is_valid_name_start_char(ch):
+        return True
+    val = ord(ch)
+    if val < 0x80:
+        return ch.isdigit() or ch == "-" or ch == "."
+    return (val == 0xB7 or
+            (val >= 0x0300 and val <= 0x036F) or
+            (val >= 0x203F and val <= 0x2040))
+
 
 
 def _default_null_coercion(string):

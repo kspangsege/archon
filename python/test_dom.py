@@ -2,12 +2,45 @@ import archon.test
 import archon.dom
 
 
-def _make_document():
+def _make_xml_document():
     return archon.dom.create_xml_document()
+
+def _make_html_document():
+    return archon.dom.create_html_document()
+
+
+def test_NodeName(context):
+    doc = _make_xml_document()
+    doctype = doc.get_implementation().create_document_type("a", "b", "c")
+    elem_1 = doc.create_element("xFoo")
+    elem_2 = doc.create_element_ns("ns1", "p:xFoo")
+    text = doc.create_text_node("x")
+    comment = doc.create_comment("x")
+    attr_1 = doc.create_attribute("xBar")
+    attr_2 = doc.create_attribute_ns("ns2", "p:xBar")
+    context.check_equal(doctype.get_node_name(), "a")
+    context.check_equal(doc.get_node_name(), "#document")
+    context.check_equal(elem_1.get_node_name(), "xFoo")
+    context.check_equal(elem_2.get_node_name(), "p:xFoo")
+    context.check_equal(text.get_node_name(), "#text")
+    context.check_equal(comment.get_node_name(), "#comment")
+    context.check_equal(attr_1.get_node_name(), "xBar")
+    context.check_equal(attr_2.get_node_name(), "p:xBar")
+
+    doc = _make_html_document()
+    elem_1 = doc.create_element("xFoo")
+    elem_2 = doc.create_element_ns("ns1", "p:xFoo")
+    attr_1 = doc.create_attribute("xBar")
+    attr_2 = doc.create_attribute_ns("ns2", "p:xBar")
+    context.check_equal(doc.get_node_name(), "#document")
+    context.check_equal(elem_1.get_node_name(), "XFOO")
+    context.check_equal(elem_2.get_node_name(), "p:xFoo")
+    context.check_equal(attr_1.get_node_name(), "xbar")
+    context.check_equal(attr_2.get_node_name(), "p:xBar")
 
 
 def test_AppendChild(context):
-    doc = _make_document()
+    doc = _make_xml_document()
     root = doc.create_element("root")
     context.check_not(root.has_child_nodes())
     context.check_equal(root.get_first_child(), None)
@@ -55,7 +88,7 @@ def test_AppendChild(context):
 
 
 def test_InsertBefore(context):
-    doc = _make_document()
+    doc = _make_xml_document()
     root = doc.create_element("root")
 
     foo = doc.create_element("foo")
@@ -99,7 +132,7 @@ def test_InsertBefore(context):
 
 
 def test_RemoveChild(context):
-    doc = _make_document()
+    doc = _make_xml_document()
     root = doc.create_element("root")
     foo = doc.create_element("foo")
     root.append_child(foo)
@@ -164,7 +197,7 @@ def test_RemoveChild(context):
 
 
 def test_ChildNodesIsSequence(context):
-    doc = _make_document()
+    doc = _make_xml_document()
     root = doc.create_element("root")
     foo = doc.create_element("foo")
     root.append_child(foo)
