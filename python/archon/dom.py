@@ -313,22 +313,22 @@ def create_html_document():
     return _wrap_node(state, None)
 
 def create_document_type(document, name, public_id, system_id):
-    document_state = _unwrap_node(document)
+    document_state = _unwrap_typed_node(document, _DocumentImpl)
     assert _is_valid_qualified_name(name)
     state = _DocumentTypeState(document_state, name, public_id, system_id)
     return _wrap_node(state, document)
 
 def create_element(document, namespace_uri, prefix, local_name, attributes):
-    document_state = _unwrap_node(document)
+    document_state = _unwrap_typed_node(document, _DocumentImpl)
     _assert_valid_naming(namespace_uri, prefix, local_name)
     document_is_html = document_state.is_html
     element_state = _ElementState(document_state, document_is_html, namespace_uri, prefix, local_name)
     for attr in attributes:
-        element_state.set_attribute_node(_unwrap_node(attr))
+        element_state.set_attribute_node(_unwrap_typed_node(attr, _AttrImpl))
     return _wrap_node(element_state, document)
 
 def create_attribute(document, namespace_uri, prefix, local_name, value):
-    document_state = _unwrap_node(document)
+    document_state = _unwrap_typed_node(document, _DocumentImpl)
     _assert_valid_naming(namespace_uri, prefix, local_name)
     state = _AttrState(namespace_uri, prefix, local_name)
     state.set_value(value)
@@ -978,7 +978,7 @@ class _ElementImpl(_ParentNodeImpl, _ChildNodeImpl, _NodeImpl, Element):
         return self.set_attribute_node_ns(attr)
 
     def set_attribute_node_ns(self, attr):
-        state = self._state.set_attribute_node(_unwrap_node(attr))
+        state = self._state.set_attribute_node(_unwrap_typed_node(attr, _AttrImpl))
         return _wrap_node(state, self._document)
 
     def get_node_type(self):
@@ -1030,7 +1030,6 @@ class _ElementState(_ParentNodeState, _ChildNodeState, _NodeState):
         self._append_attribute(candidates, attr)
 
     def set_attribute_node(self, attr):
-        # FIXME: What should happen if `attr` is the wrong kind of node? Consider requiring a particular base type in _unwrap_node()                                                                                                                                                                                  
         if attr.weak_owner_element and attr.weak_owner_element != self.weak_self:
             raise InUseAttributeError()
         key = self._get_attribute_key_ns(attr.local_name)
@@ -1246,7 +1245,7 @@ class _Implementation(DOMImplementation):
         document_state = _XMLDocumentState(content_type, is_html)
         document = _wrap_node(document_state, None)
         if doctype:
-            document_state.append_child(_unwrap_node(doctype), document)
+            document_state.append_child(_unwrap_typed_node(doctype, _DocumentTypeImpl), document)
         if qualified_name:
             element_state = document_state.create_element_ns(namespace, qualified_name)
             document_state.append_child(element_state, document)
@@ -1392,7 +1391,7 @@ class _Attributes(NamedNodeMap):
         return self.set_named_item_ns(attr)
 
     def set_named_item_ns(self, attr):
-        state = self._element._state.set_attribute_node(_unwrap_node(attr))
+        state = self._element._state.set_attribute_node(_unwrap_typed_node(attr, _AttrImpl))
         return _wrap_node(state, self._element._document)
 
     def remove_named_item(self, qualified_name):
@@ -1425,9 +1424,12 @@ def _wrap_node(state, document):
     return state.wrap(document) if state else None
 
 def _unwrap_node(node):
+    return _unwrap_typed_node(node, _NodeImpl)
+
+def _unwrap_typed_node(node, type_):
     if not node:
         return None
-    assert isinstance(node, _NodeImpl)
+    assert isinstance(node, type_)
     return node._unwrap()
 
 
