@@ -300,6 +300,10 @@ class NamespaceError(DOMException):
 
 
 
+
+# Non-standard stuff below
+
+
 def create_xml_document():
     content_type = "application/xml"
     is_html = False
@@ -313,22 +317,22 @@ def create_html_document():
     return _wrap_node(state, None)
 
 def create_document_type(document, name, public_id, system_id):
-    document_state = _unwrap_typed_node(document, _DocumentImpl)
+    document_state = _unwrap_typed_node(document, Document)
     assert _is_valid_qualified_name(name)
     state = _DocumentTypeState(document_state, name, public_id, system_id)
     return _wrap_node(state, document)
 
 def create_element(document, namespace_uri, prefix, local_name, attributes):
-    document_state = _unwrap_typed_node(document, _DocumentImpl)
+    document_state = _unwrap_typed_node(document, Document)
     _assert_valid_naming(namespace_uri, prefix, local_name)
     document_is_html = document_state.is_html
     element_state = _ElementState(document_state, document_is_html, namespace_uri, prefix, local_name)
     for attr in attributes:
-        element_state.set_attribute_node(_unwrap_typed_node(attr, _AttrImpl))
+        element_state.set_attribute_node(_unwrap_typed_node(attr, Attr))
     return _wrap_node(element_state, document)
 
 def create_attribute(document, namespace_uri, prefix, local_name, value):
-    document_state = _unwrap_typed_node(document, _DocumentImpl)
+    document_state = _unwrap_typed_node(document, Document)
     _assert_valid_naming(namespace_uri, prefix, local_name)
     state = _AttrState(namespace_uri, prefix, local_name)
     state.set_value(value)
@@ -410,6 +414,13 @@ def dump_document(document, max_string_size = 90):
     namespace_uri = None
     level = 0
     visit(document, namespace_uri, level)
+
+
+class ArgumentTypeError(DOMException):
+    pass
+
+class ImplementationMismatchError(DOMException):
+    pass
 
 
 
@@ -978,7 +989,7 @@ class _ElementImpl(_ParentNodeImpl, _ChildNodeImpl, _NodeImpl, Element):
         return self.set_attribute_node_ns(attr)
 
     def set_attribute_node_ns(self, attr):
-        state = self._state.set_attribute_node(_unwrap_typed_node(attr, _AttrImpl))
+        state = self._state.set_attribute_node(_unwrap_typed_node(attr, Attr))
         return _wrap_node(state, self._document)
 
     def get_node_type(self):
@@ -1245,7 +1256,7 @@ class _Implementation(DOMImplementation):
         document_state = _XMLDocumentState(content_type, is_html)
         document = _wrap_node(document_state, None)
         if doctype:
-            document_state.append_child(_unwrap_typed_node(doctype, _DocumentTypeImpl), document)
+            document_state.append_child(_unwrap_typed_node(doctype, DocumentType), document)
         if qualified_name:
             element_state = document_state.create_element_ns(namespace, qualified_name)
             document_state.append_child(element_state, document)
@@ -1391,7 +1402,7 @@ class _Attributes(NamedNodeMap):
         return self.set_named_item_ns(attr)
 
     def set_named_item_ns(self, attr):
-        state = self._element._state.set_attribute_node(_unwrap_typed_node(attr, _AttrImpl))
+        state = self._element._state.set_attribute_node(_unwrap_typed_node(attr, Attr))
         return _wrap_node(state, self._element._document)
 
     def remove_named_item(self, qualified_name):
@@ -1424,12 +1435,15 @@ def _wrap_node(state, document):
     return state.wrap(document) if state else None
 
 def _unwrap_node(node):
-    return _unwrap_typed_node(node, _NodeImpl)
+    return _unwrap_typed_node(node, Node)
 
 def _unwrap_typed_node(node, type_):
     if not node:
         return None
-    assert isinstance(node, type_)
+    if not isinstance(node, type_):
+        raise ArgumentTypeError()
+    if not isinstance(node, _NodeImpl):
+        raise ImplementationMismatchError()
     return node._unwrap()
 
 
