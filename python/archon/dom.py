@@ -176,10 +176,16 @@ class Element(ParentNode, ChildNode, Node):
     def get_attributes(self):
         raise RuntimeError("Abstract method")
 
-    def het_attribute(self, qualified_name):
+    def get_attribute(self, qualified_name):
         raise RuntimeError("Abstract method")
 
     def get_attribute_ns(self, namespace, local_name):
+        raise RuntimeError("Abstract method")
+
+    def set_attribute(self, qualified_name, value):
+        raise RuntimeError("Abstract method")
+
+    def set_attribute_ns(self, namespace, qualified_name, value):
         raise RuntimeError("Abstract method")
 
     def remove_attribute(self, qualified_name):
@@ -981,7 +987,13 @@ class _ElementImpl(_ParentNodeImpl, _ChildNodeImpl, _NodeImpl, Element):
         return self._state.get_attribute(qualified_name)
 
     def get_attribute_ns(self, namespace, local_name):
-        self._state.get_attribute_ns(namespace, local_name)
+        return self._state.get_attribute_ns(namespace, local_name)
+
+    def set_attribute(self, qualified_name, value):
+        self._state.set_attribute(qualified_name, value)
+
+    def set_attribute_ns(self, namespace, qualified_name, value):
+        self._state.set_attribute_ns(namespace, qualified_name, value)
 
     def remove_attribute(self, qualified_name):
         self._state.remove_attribute(qualified_name)
@@ -1042,6 +1054,46 @@ class _ElementState(_ParentNodeState, _ChildNodeState, _NodeState):
         attr = candidates[index]
         return attr.value
 
+    def set_attribute(self, qualified_name, value):
+        key, adjusted_qualified_name = self._get_attribute_key(qualified_name)
+        candidates = self.attribute_map.setdefault(key, [])
+        index = self._attribute_search(candidates, adjusted_qualified_name)
+        if index is not None:
+            attr = candidates[index]
+            attr.set_value(value)
+            return
+        local_name = adjusted_qualified_name
+        if not _is_valid_general_name(local_name):
+            if not candidates:
+                del self.attribute_map[key]
+            raise InvalidCharacterError()
+        namespace_uri = None
+        prefix = None
+        attr = _AttrState(namespace_uri, prefix, local_name)
+        attr.set_value(value)
+        self._append_attribute(candidates, attr)
+
+    def set_attribute_ns(self, namespace, qualified_name, value):
+        key, prefix, local_name = self._get_attribute_key_ns_q(qualified_name)
+        candidates = self.attribute_map.setdefault(key, [])
+        index = self._attribute_search_ns(candidates, namespace, local_name)
+        if index is not None:
+            attr = candidates[index]
+            attr.set_value(value)
+            return
+        if not _is_valid_qualified_name(qualified_name):
+            if not candidates:
+                del self.attribute_map[key]
+            raise InvalidCharacterError()
+        adjusted_namespace = namespace or None
+        if not _is_valid_name_parts_combination(adjusted_namespace, prefix, local_name):
+            if not candidates:
+                del self.attribute_map[key]
+            raise NamespaceError()
+        attr = _AttrState(adjusted_namespace, prefix, local_name)
+        attr.set_value(value)
+        self._append_attribute(candidates, attr)
+
     def remove_attribute(self, qualified_name):
         candidates, index = self._find_attribute(qualified_name)
         if index is None:
@@ -1061,25 +1113,6 @@ class _ElementState(_ParentNodeState, _ChildNodeState, _NodeState):
     def get_attribute_node_ns(self, namespace, local_name):
         candidates, index = self._find_attribute_ns(namespace, local_name)
         return None if index is None else candidates[index]
-
-    def set_attribute(self, qualified_name, value):
-        key, adjusted_qualified_name = self._get_attribute_key(qualified_name)
-        candidates = self.attribute_map.setdefault(key, [])
-        index = self._attribute_search(candidates, adjusted_qualified_name)
-        if index is not None:
-            attr = candidates[index]
-            attr.set_value(value)
-            return
-        local_name = adjusted_qualified_name
-        if not _is_valid_general_name(local_name):
-            if not candidates:
-                del self.attribute_map[key]
-            raise InvalidCharacterError()
-        namespace_uri = None
-        prefix = None
-        attr = _AttrState(namespace_uri, prefix, local_name)
-        attr.set_value(value)
-        self._append_attribute(candidates, attr)
 
     def set_attribute_node(self, attr):
         if attr.weak_owner_element and attr.weak_owner_element != self.weak_self:
@@ -1120,6 +1153,13 @@ class _ElementState(_ParentNodeState, _ChildNodeState, _NodeState):
         if self.is_html:
             key = _ascii_lowercase(key)
         return key
+
+    def _get_attribute_key_ns_q(self, qualified_name):
+        i = qualified_name.find(":")
+        prefix = qualified_name[:i]
+        local_name = qualified_name if i < 0 else qualified_name[i+1:]
+        key = self._get_attribute_key_ns(local_name)
+        return key, prefix, local_name
 
     def _attribute_search(self, candidates, adjusted_qualified_name):
         for index, attr in enumerate(candidates):
@@ -1506,13 +1546,18 @@ def _parse_qualified_name(namespace, qualified_name):
     if i >= 0:
         prefix = qualified_name[:i]
         local_name = qualified_name[i+1:]
-    if prefix is not None and namespace is None:
-        raise NamespaceError()
-    if prefix == "xml" and adjusted_namespace != "http://www.w3.org/XML/1998/namespace":
-        raise NamespaceError()
-    if (qualified_name == "xmlns" or prefix == "xmlns") != (adjusted_namespace == "http://www.w3.org/2000/xmlns/"):
+    if not _is_valid_name_parts_combination(adjusted_namespace, prefix, local_name):
         raise NamespaceError()
     return adjusted_namespace, prefix, local_name
+
+
+def _is_valid_name_parts_combination(namespace, prefix, local_name):
+    if prefix is not None and namespace is None:
+        return False
+    if prefix == "xml" and namespace != "http://www.w3.org/XML/1998/namespace":
+        return False
+    return ((prefix is None and local_name == "xmlns") or prefix == "xmlns") == \
+        (namespace == "http://www.w3.org/2000/xmlns/")
 
 
 def _is_valid_qualified_name(qualified_name):
