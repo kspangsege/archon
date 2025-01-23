@@ -6,23 +6,6 @@ import archon.core
 # Reference snapshot: https://dom.spec.whatwg.org/commit-snapshots/369654b7697f08dfd813aee0ce9064ae7b24e3ec/
 
 
-# FIXME: Consider invariants for names of document type nodes (as enforced by create_document_type() of DOMImplementation)
-# --> Enforce in parser backdoor: archon.dom.create_document_type()
-
-# FIXME: Consider the following naming related tentative invariants for elements and attributes:
-# --> TENTATIVE INVARIANT: local_name is not null
-# --> TENTATIVE INVARIANT: local_name is not empty
-# --> TENTATIVE INVARIANT: local_name does not contain any of: U+0000 NULL, U+0009 CHARACTER TABULATION, U+000A LINE FEED, U+000C FORM FEED, U+000D CARRIAGE RETURN, U+0020 SPACE, U+002F SOLIDUS (/)
-# --> TENTATIVE INVARIANT: If prefix is not null, it matches the `NCName` production of the XML standard (not empty and does not contain ":")
-# --> TENTATIVE INVARIANT: if prefix is not null, then local_name matches the `NCName` production of the XML standard (does not contain ":")
-# --> TENTATIVE INVARIANT: if prefix is not null, then namespace is not null
-# --> TENTATIVE INVARIANT: If prefix is "xml", then namespace is "http://www.w3.org/XML/1998/namespace"
-# --> TENTATIVE INVARIANT: If prefix is "xmlns", then namespace is "http://www.w3.org/2000/xmlns/"
-# --> TENTATIVE INVARIANT: If namespace is "http://www.w3.org/2000/xmlns/", either prefix is "xmlns", or prefix is null and local_name is "xmlns"
-# --> Should be generally ensured by _parse_qualified_name(namespace, qualified) (https://dom.spec.whatwg.org/#validate-and-extract)
-# --> Need to be required and checked in parser backdoor: archon.dom.create_element() and archon.dom.create_attribute()
-
-
 
 class DOMImplementation:
     def create_document_type(self, qualified_name, public_id, system_id):
@@ -194,6 +177,12 @@ class Element(ParentNode, ChildNode, Node):
     def remove_attribute_ns(self, namespace, local_name):
         raise RuntimeError("Abstract method")
 
+    def has_attribute(self, qualified_name):
+        raise RuntimeError("Abstract method")
+
+    def has_attribute_ns(self, namespace, local_name):
+        raise RuntimeError("Abstract method")
+
     def get_attribute_node(self, qualified_name):
         raise RuntimeError("Abstract method")
 
@@ -312,46 +301,7 @@ class NamespaceError(DOMException):
 
 
 
-
-# Non-standard stuff below
-
-
-def create_xml_document():
-    content_type = "application/xml"
-    is_html = False
-    state = _XMLDocumentState(content_type, is_html)
-    return _wrap_node(state, None)
-
-def create_html_document():
-    content_type = "text/html"
-    is_html = True
-    state = _DocumentState(content_type, is_html)
-    return _wrap_node(state, None)
-
-def create_document_type(document, name, public_id, system_id):
-    document_state = _unwrap_typed_node(document, Document)
-    assert _is_valid_qualified_name(name)
-    state = _DocumentTypeState(document_state, name, public_id, system_id)
-    return _wrap_node(state, document)
-
-def create_element(document, namespace_uri, prefix, local_name, attributes):
-    document_state = _unwrap_typed_node(document, Document)
-    _assert_valid_naming(namespace_uri, prefix, local_name)
-    document_is_html = document_state.is_html
-    element_state = _ElementState(document_state, document_is_html, namespace_uri, prefix, local_name)
-    for attr in attributes:
-        element_state.set_attribute_node(_unwrap_typed_node(attr, Attr))
-    return _wrap_node(element_state, document)
-
-def create_attribute(document, namespace_uri, prefix, local_name, value):
-    document_state = _unwrap_typed_node(document, Document)
-    _assert_valid_naming(namespace_uri, prefix, local_name)
-    state = _AttrState(namespace_uri, prefix, local_name)
-    state.set_value(value)
-    return _wrap_node(state, document)
-
-
-# This one is implementation agnostic
+# This one is non-standard and implementation agnostic
 def dump_document(document, max_string_size = 90):
     assert isinstance(document, Document)
     def format_nullable_string(string):
@@ -426,6 +376,86 @@ def dump_document(document, max_string_size = 90):
     namespace_uri = None
     level = 0
     visit(document, namespace_uri, level)
+
+
+
+
+# Implementation specific stuff below
+
+
+# All document type nodes (`DocumentType`) created in the context of this implementation
+# are guaranteed to have a name that is minimally valid (see definition below). Note that
+# a stronger guarantee holds for document type nodes that were created through the
+# standard DOM API (`DOMImplementation.create_document_type()`). These will have a name
+# that conforms to the `QName` production of the XML standard.
+#
+# All element and attribute nodes (`Element`, `Attr`) created in the context of this
+# implementation are guaranteed to satisfy the namespaced naming constraints as defined
+# below. Note that a stronger guarantee holds for element and attribute node that were
+# created through the standard DOM API (`Document.create_element()`,
+# `Document.create_attribute()`). These will have a local name (`local_name`) that
+# conforms to the `Name` production of the XML standard.
+#
+# These are the *namespaced naming constraints*:
+#
+#  - `namespace_uri` is `None` or not empty
+#  - `local_name` is not `None`
+#  - `local_name` is minimally valid (see definition below)
+#  - If `prefix` is not `None`, it matches the `NCName` production of the XML standard (is
+#    not empty and does not contain `:`)
+#  - If `prefix` is not `None`, `local_name` matches the `NCName` production of the XML
+#    standard (it does not contain `:`)
+#  - If `prefix` is not `None`, `namespace_uri` is not `None`
+#  - If `prefix` is `"xml"`, `namespace_uri` is
+#    `"http://www.w3.org/XML/1998/namespace"`
+#  - If `prefix` is `"xmlns"`, `namespace_uri` is `"http://www.w3.org/2000/xmlns/"`
+#  - If `namespace_uri` is `"http://www.w3.org/2000/xmlns/"`, either `prefix` is
+#    `"xmlns"`, or `prefix` is `None` and `local_name` is `"xmlns"`
+#
+# A name is *minimally valid* if it is nonempty and does not contain U+0000 NULL, U+0009
+# CHARACTER TABULATION, U+000A LINE FEED, U+000C FORM FEED, U+000D CARRIAGE RETURN, U+0020
+# SPACE, and U+002F SOLIDUS (/).
+
+
+
+def create_xml_document():
+    content_type = "application/xml"
+    is_html = False
+    state = _XMLDocumentState(content_type, is_html)
+    return _wrap_node(state, None)
+
+def create_html_document():
+    content_type = "text/html"
+    is_html = True
+    state = _DocumentState(content_type, is_html)
+    return _wrap_node(state, None)
+
+# `name` must be minimally valid (see definition above)
+def create_document_type(document, name, public_id, system_id):
+    document_state = _unwrap_typed_node(document, Document)
+    assert _is_minimally_valid_name(name)
+    state = _DocumentTypeState(document_state, name, public_id, system_id)
+    return _wrap_node(state, document)
+
+# (`namespace_uri`, `prefix`, `local_name`) must satisfy the namespaced naming constraints
+# (see definition above).
+def create_element(document, namespace_uri, prefix, local_name, attributes):
+    document_state = _unwrap_typed_node(document, Document)
+    _assert_valid_naming(namespace_uri, prefix, local_name)
+    document_is_html = document_state.is_html
+    element_state = _ElementState(document_state, document_is_html, namespace_uri, prefix, local_name)
+    for attr in attributes:
+        element_state.set_attribute_node(_unwrap_typed_node(attr, Attr))
+    return _wrap_node(element_state, document)
+
+# (`namespace_uri`, `prefix`, `local_name`) must satisfy the namespaced naming constraints
+# (see definition above).
+def create_attribute(document, namespace_uri, prefix, local_name, value):
+    document_state = _unwrap_typed_node(document, Document)
+    _assert_valid_naming(namespace_uri, prefix, local_name)
+    state = _AttrState(namespace_uri, prefix, local_name)
+    state.set_value(value)
+    return _wrap_node(state, document)
 
 
 class ArgumentTypeError(DOMException):
@@ -1001,6 +1031,12 @@ class _ElementImpl(_ParentNodeImpl, _ChildNodeImpl, _NodeImpl, Element):
     def remove_attribute_ns(self, namespace, local_name):
         self._state.remove_attribute_ns(namespace, local_name)
 
+    def has_attribute(self, qualified_name):
+        return self._state.has_attribute(qualified_name)
+
+    def has_attribute_ns(self, namespace, local_name):
+        return self._state.has_attribute_ns(namespace, local_name)
+
     def get_attribute_node(self, qualified_name):
         state = self._state.get_attribute_node(qualified_name)
         return _wrap_node(state, self._document)
@@ -1106,6 +1142,14 @@ class _ElementState(_ParentNodeState, _ChildNodeState, _NodeState):
             return None
         return self._remove_attribute(candidates, index)
 
+    def has_attribute(self, qualified_name):
+        _, index = self._find_attribute(qualified_name)
+        return index is not None
+
+    def has_attribute_ns(self, namespace, local_name):
+        _, index = self._find_attribute_ns(namespace, local_name)
+        return index is not None
+
     def get_attribute_node(self, qualified_name):
         candidates, index = self._find_attribute(qualified_name)
         return None if index is None else candidates[index]
@@ -1164,7 +1208,8 @@ class _ElementState(_ParentNodeState, _ChildNodeState, _NodeState):
     def _attribute_search(self, candidates, adjusted_qualified_name):
         for index, attr in enumerate(candidates):
             if attr.get_qualified_name() == adjusted_qualified_name:
-                return candidates, index
+                return index
+        return None
 
     def _attribute_search_ns(self, candidates, namespace, local_name):
         adjusted_namespace = namespace or None
@@ -1434,6 +1479,7 @@ class _Attributes(NamedNodeMap):
         self._element = element
 
     def __getitem__(self, qualified_name):
+        assert type(qualified_name) == str
         attr = self.get_named_item(qualified_name)
         if not attr:
             raise KeyError
@@ -1484,7 +1530,7 @@ class _AttributeIter:
         self._index = -1
 
     def __next__(self):
-        if not self._index is not None:
+        if self._index is not None:
             self._index += 1
             if self._index < len(self._element._state.attributes):
                 state = self._element._state.attributes[self._index]
@@ -1511,6 +1557,8 @@ def _unwrap_typed_node(node, type_):
 
 
 def _assert_valid_naming(namespace, prefix, local_name):
+    if namespace is not None:
+        assert namespace
     assert local_name is not None
     if prefix is None:
         assert local_name

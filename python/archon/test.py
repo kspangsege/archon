@@ -1,4 +1,5 @@
 import sys
+import traceback
 
 
 def run_module_tests(module_name):
@@ -17,13 +18,17 @@ def generate_native_tests(module_name):
 
 def run(tests):
     context = _RegularContext()
+    failure = False
     for test in tests:
         if test.descr is None:
-            print("%s" % test.name)
+            print("TEST: %s" % test.name)
         else:
-            print("%s: %s" % (test.name, test.descr))
-        test.func(context)
-    if not context._failure:
+            print("TEST: %s: %s" % (test.name, test.descr))
+        try:
+            test.func(context)
+        except CheckFailure:
+            failure = True
+    if not failure:
         print("Success")
     else:
         print("FAILURE")
@@ -68,53 +73,67 @@ class Test:
         self.func = func
 
 
+class CheckFailure(RuntimeError):
+    pass
+
+
+
 class _RegularContext(Context):
     def __init__(self):
         self._debug_on_failure = False
-        self._failure = False
 
     def check(self, cond):
-        return self._check(cond, "check(%r) failed", cond)
+        if not self._check(cond, "check(%r) failed", cond):
+            raise CheckFailure()
 
     def check_not(self, cond):
-        return self._check(not cond, "check_not(%r) failed", cond)
+        if not self._check(not cond, "check_not(%r) failed", cond):
+            raise CheckFailure()
 
     def check_is_none(self, val):
-        return self._check(val is None, "check_is_none(%r) failed", val)
+        if not self._check(val is None, "check_is_none(%r) failed", val):
+            raise CheckFailure()
 
     def check_is_not_none(self, val):
-        return self._check(val is not None, "check_is_not_none(%r) failed", val)
+        if not self._check(val is not None, "check_is_not_none(%r) failed", val):
+            raise CheckFailure()
 
     def check_equal(self, a, b):
-        return self._check(a == b, "check_equal(%r, %r) failed", a, b)
+        if not self._check(a == b, "check_equal(%r, %r) failed", a, b):
+            raise CheckFailure()
 
     def check_not_equal(self, a, b):
-        return self._check(a != b, "check_not_equal(%r, %r) failed", a, b)
+        if not self._check(a != b, "check_not_equal(%r, %r) failed", a, b):
+            raise CheckFailure()
 
     def check_in(self, a, b):
-        return self._check(a in b, "check_in(%r, %r) failed", a, b)
+        if not self._check(a in b, "check_in(%r, %r) failed", a, b):
+            raise CheckFailure()
 
     def check_not_in(self, a, b):
-        return self._check(a not in b, "check_not_in(%r, %r) failed", a, b)
+        if not self._check(a not in b, "check_not_in(%r, %r) failed", a, b):
+            raise CheckFailure()
 
     def check_is_instance(self, val, type_):
-        return self._check(isinstance(val, type_), "check_is_instance(%r, %s) failed (type was %s)",
-                           val, type_.__name__, type(val).__name__)
+        if not self._check(isinstance(val, type_), "check_is_instance(%r, %s) failed (type was %s)", val,
+                           type_.__name__, type(val).__name__):
+            raise CheckFailure()
 
     def check_not_is_instance(self, val, type_):
-        return self._check(not isinstance(val, type_), "check_not_is_instance(%r, %s) failed", val, type_.__name__)
+        if not self._check(not isinstance(val, type_), "check_not_is_instance(%r, %s) failed", val, type_.__name__):
+            raise CheckFailure()
 
     def _check(self, cond, message, *params):
         if cond:
             return True
-        self._fail(message % params)
+        message_2 = message % params
+        print("ERROR: %s" % message_2)
         if self._debug_on_failure:
             breakpoint()
+        entries = traceback.extract_stack()
+        for entry in traceback.format_list(entries[:-2]):
+            sys.stdout.write(entry)
         return False
-
-    def _fail(self, message):
-        print("ERROR: %s" % message)
-        self._failure = True
 
 
 def _get_module_tests(module_name):
@@ -147,32 +166,32 @@ class _ContextBridge(Context):
         self._test_case = test_case
 
     def check(self, cond):
-        return self._test_case.assertTrue(cond)
+        self._test_case.assertTrue(cond)
 
     def check_not(self, cond):
-        return self._test_case.assertFalse(cond)
+        self._test_case.assertFalse(cond)
 
     def check_is_none(self, val):
-        return self._test_case.assertIsNone(val)
+        self._test_case.assertIsNone(val)
 
     def check_is_not_none(self, val):
-        return self._test_case.assertIsNotNone(val)
+        self._test_case.assertIsNotNone(val)
 
     def check_equal(self, a, b):
-        return self._test_case.assertEqual(a, b)
+        self._test_case.assertEqual(a, b)
 
     def check_not_equal(self, a, b):
-        return self._test_case.assertNotEqual(a, b)
+        self._test_case.assertNotEqual(a, b)
 
     def check_in(self, a, b):
-        return self._test_case.assertIn(a, b)
+        self._test_case.assertIn(a, b)
 
     def check_not_in(self, a, b):
-        return self._test_case.assertNotIn(a, b)
+        self._test_case.assertNotIn(a, b)
 
     def check_is_instance(self, val, type_):
-        return self._test_case.assertIsInstance(val, type_)
+        self._test_case.assertIsInstance(val, type_)
 
     def check_not_is_instance(self, val, type_):
-        return self._test_case.assertNotIsInstance(val, type_)
+        self._test_case.assertNotIsInstance(val, type_)
 

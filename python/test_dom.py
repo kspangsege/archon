@@ -27,35 +27,35 @@ def test_DOMImplementation(context):
     # The document type node must have been migrated to the new document
     context.check_equal(doctype.get_owner_document(), doc_2)
     root = doc_2.get_document_element()
-    if context.check(root):
-        context.check_equal(doc_2.get_document_element().get_namespace_uri(), "ns")
-        context.check_equal(doc_2.get_document_element().get_prefix(), "p")
-        context.check_equal(doc_2.get_document_element().get_local_name(), "foo")
+    context.check(root)
+    context.check_equal(doc_2.get_document_element().get_namespace_uri(), "ns")
+    context.check_equal(doc_2.get_document_element().get_prefix(), "p")
+    context.check_equal(doc_2.get_document_element().get_local_name(), "foo")
 
     doc_3 = impl.create_html_document("hello")
     context.check_is_instance(doc_3, archon.dom.Document)
     context.check_not_is_instance(doc_3, archon.dom.XMLDocument)
     context.check_equal(doc_3.get_doctype().get_name(), "html")
     html = doc_3.get_document_element()
-    if context.check(html):
-        context.check_equal(html.get_local_name(), "html")
-        if context.check_equal(len(html.get_child_nodes()), 2):
-            head = html.get_child_nodes()[0]
-            body = html.get_child_nodes()[1]
-            context.check_equal(head.get_local_name(), "head")
-            context.check_equal(body.get_local_name(), "body")
-            if context.check_equal(len(head.get_child_nodes()), 1):
-                title = head.get_child_nodes()[0]
-                context.check_equal(title.get_local_name(), "title")
-                if context.check_equal(len(title.get_child_nodes()), 1):
-                    text = title.get_child_nodes()[0]
-                    context.check_equal(text.get_data(), "hello")
-            context.check_equal(len(body.get_child_nodes()), 0)
+    context.check(html)
+    context.check_equal(html.get_local_name(), "html")
+    context.check_equal(len(html.get_child_nodes()), 2)
+    head = html.get_child_nodes()[0]
+    body = html.get_child_nodes()[1]
+    context.check_equal(head.get_local_name(), "head")
+    context.check_equal(body.get_local_name(), "body")
+    context.check_equal(len(head.get_child_nodes()), 1)
+    title = head.get_child_nodes()[0]
+    context.check_equal(title.get_local_name(), "title")
+    context.check_equal(len(title.get_child_nodes()), 1)
+    text = title.get_child_nodes()[0]
+    context.check_equal(text.get_data(), "hello")
+    context.check_equal(len(body.get_child_nodes()), 0)
 
     context.check(impl.has_feature())
 
 
-def test_NodeName(context):
+def test_Node_NodeName(context):
     doc = _make_xml_document()
     doctype = doc.get_implementation().create_document_type("a", "b", "c")
     elem_1 = doc.create_element("xFoo")
@@ -85,7 +85,7 @@ def test_NodeName(context):
     context.check_equal(attr_2.get_node_name(), "p:xBar")
 
 
-def test_AppendChild(context):
+def test_Node_AppendChild(context):
     doc = _make_xml_document()
     root = doc.create_element("root")
     context.check_not(root.has_child_nodes())
@@ -133,7 +133,7 @@ def test_AppendChild(context):
     context.check_equal(baz.get_next_sibling(), None)
 
 
-def test_InsertBefore(context):
+def test_Node_InsertBefore(context):
     doc = _make_xml_document()
     root = doc.create_element("root")
 
@@ -177,7 +177,7 @@ def test_InsertBefore(context):
     context.check_equal(baz.get_next_sibling(), foo)
 
 
-def test_RemoveChild(context):
+def test_Node_RemoveChild(context):
     doc = _make_xml_document()
     root = doc.create_element("root")
     foo = doc.create_element("foo")
@@ -242,7 +242,7 @@ def test_RemoveChild(context):
     context.check_equal(baz.get_next_sibling(), None)
 
 
-def test_ChildNodesIsSequence(context):
+def test_Node_ChildNodesAsSequence(context):
     doc = _make_xml_document()
     root = doc.create_element("root")
     foo = doc.create_element("foo")
@@ -256,6 +256,35 @@ def test_ChildNodesIsSequence(context):
     context.check_equal(list(reversed(root.get_child_nodes())), [baz, bar, foo])
     context.check_in(foo, root.get_child_nodes())
     context.check_not_in(root, root.get_child_nodes())
+
+
+def test_Element_Basics(context):
+    doc = _make_xml_document()
+    elem = doc.create_element("elem")
+    context.check_equal(len(elem.get_attributes()), 0)
+    attributes = list(elem.get_attributes())
+    context.check_equal(len(attributes), 0)
+
+    elem.set_attribute("Foo", "1")
+    context.check_equal(len(elem.get_attributes()), 1)
+    attributes = list(elem.get_attributes())
+    context.check_equal(len(attributes), 1)
+    context.check_equal(attributes[0].get_local_name(), "Foo")
+
+    elem.set_attribute("Bar", "2")
+    context.check_equal(len(elem.get_attributes()), 2)
+    attributes = list(elem.get_attributes())
+    context.check_equal(len(attributes), 2)
+    context.check_equal(attributes[0].get_local_name(), "Foo")
+    context.check_equal(attributes[1].get_local_name(), "Bar")
+
+
+def test_Element_HasAttributes(context):
+    doc = _make_xml_document()
+    elem = doc.create_element("elem")
+    context.check_not(elem.has_attributes())
+    elem.set_attribute("foo", "1")
+    context.check(elem.has_attributes())
 
 
 # Bridge to Python's native testing framework
