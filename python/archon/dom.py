@@ -396,6 +396,16 @@ def dump_document(document, max_string_size = 90):
 # `Document.create_attribute()`). These will have a local name (`local_name`) that
 # conforms to the `Name` production of the XML standard.
 #
+# INVARIANT: Two attributes (`Attr`) of an element (`Element`), that was created in the
+# context of this implementation, cannot have the same namespace (`namespace_uri`) and
+# qualified name (`get_name()`). Note that the *qualified name* is the local name
+# (`local_name`) if the prefix (`prefix`) is None. Otherwise, it is the prefix followed by
+# `:` followed by the local name.
+#
+# It follows from the previous invariant that two attributes of an element, that was
+# created in the context of this implementation, cannot have the same namespace, prefix,
+# and local name.
+#
 # These are the *namespaced naming constraints*:
 #
 #  - `namespace_uri` is `None` or not empty
