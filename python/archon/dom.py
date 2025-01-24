@@ -1488,9 +1488,12 @@ class _Attributes(NamedNodeMap):
     def __init__(self, element):
         self._element = element
 
-    def __getitem__(self, qualified_name):
-        assert type(qualified_name) == str
-        attr = self.get_named_item(qualified_name)
+    def __getitem__(self, key):
+        if type(key) == int:
+            state = self._element._state.attributes[key]
+            return _wrap_node(state, self._element._document)
+        assert type(key) == str
+        attr = self.get_named_item(key)
         if not attr:
             raise KeyError
         return attr
