@@ -28,6 +28,10 @@ def run(tests):
             test.func(context)
         except CheckFailure:
             failure = True
+        except Exception as exc:
+            print("ERROR: Unhandled exception: %s" % type(exc).__name__)
+            traceback.print_tb(exc.__traceback__, file = sys.stdout)
+            failure = True
     if not failure:
         print("Success")
     else:
@@ -65,6 +69,9 @@ class Context:
     def check_not_is_instance(self, val, type_):
         raise RuntimeError("Abstract method")
 
+    def check_raises(self, exc):
+        raise RuntimeError("Abstract method")
+
 
 class Test:
     def __init__(self, name, descr, func):
@@ -73,7 +80,7 @@ class Test:
         self.func = func
 
 
-class CheckFailure(RuntimeError):
+class CheckFailure(Exception):
     pass
 
 
@@ -83,57 +90,75 @@ class _RegularContext(Context):
         self._debug_on_failure = False
 
     def check(self, cond):
-        if not self._check(cond, "check(%r) failed", cond):
-            raise CheckFailure()
+        self._check(cond, "check(%r) failed", cond)
 
     def check_not(self, cond):
-        if not self._check(not cond, "check_not(%r) failed", cond):
-            raise CheckFailure()
+        self._check(not cond, "check_not(%r) failed", cond)
 
     def check_is_none(self, val):
-        if not self._check(val is None, "check_is_none(%r) failed", val):
-            raise CheckFailure()
+        self._check(val is None, "check_is_none(%r) failed", val)
 
     def check_is_not_none(self, val):
-        if not self._check(val is not None, "check_is_not_none(%r) failed", val):
-            raise CheckFailure()
+        self._check(val is not None, "check_is_not_none(%r) failed", val)
 
     def check_equal(self, a, b):
-        if not self._check(a == b, "check_equal(%r, %r) failed", a, b):
-            raise CheckFailure()
+        self._check(a == b, "check_equal(%r, %r) failed", a, b)
 
     def check_not_equal(self, a, b):
-        if not self._check(a != b, "check_not_equal(%r, %r) failed", a, b):
-            raise CheckFailure()
+        self._check(a != b, "check_not_equal(%r, %r) failed", a, b)
 
     def check_in(self, a, b):
-        if not self._check(a in b, "check_in(%r, %r) failed", a, b):
-            raise CheckFailure()
+        self._check(a in b, "check_in(%r, %r) failed", a, b)
 
     def check_not_in(self, a, b):
-        if not self._check(a not in b, "check_not_in(%r, %r) failed", a, b):
-            raise CheckFailure()
+        self._check(a not in b, "check_not_in(%r, %r) failed", a, b)
 
     def check_is_instance(self, val, type_):
-        if not self._check(isinstance(val, type_), "check_is_instance(%r, %s) failed (type was %s)", val,
-                           type_.__name__, type(val).__name__):
-            raise CheckFailure()
+        self._check(isinstance(val, type_), "check_is_instance(%r, %s) failed: Type was %s", val, type_.__name__,
+                    type(val).__name__)
 
     def check_not_is_instance(self, val, type_):
-        if not self._check(not isinstance(val, type_), "check_not_is_instance(%r, %s) failed", val, type_.__name__):
-            raise CheckFailure()
+        self._check(not isinstance(val, type_), "check_not_is_instance(%r, %s) failed", val, type_.__name__)
+
+    def check_raises(self, exc_type):
+        return _CheckRaises(self, exc_type)
 
     def _check(self, cond, message, *params):
         if cond:
-            return True
-        message_2 = message % params
-        print("ERROR: %s" % message_2)
+            return
+        clip = 3
+        self._fail(message % params, clip)
+
+    def _fail(self, message, clip, exc_tb = None):
+        print("ERROR: %s" % message)
         if self._debug_on_failure:
             breakpoint()
         entries = traceback.extract_stack()
-        for entry in traceback.format_list(entries[:-2]):
+        for entry in traceback.format_list(entries[:-clip]):
             sys.stdout.write(entry)
-        return False
+        if exc_tb:
+            print("Unexpected exception:")
+            traceback.print_tb(exc_tb, file = sys.stdout)
+        raise CheckFailure()
+
+
+class _CheckRaises:
+    def __init__(self, context, exc_type):
+        self._context = context
+        self._exc_type = exc_type
+
+    def __enter__(self):
+        pass
+
+    def __exit__(self, exc_type, exc, tb):
+        if isinstance(exc, self._exc_type):
+            return True
+        submessage = "No exception was raised"
+        if exc is not None:
+            submessage = "A different exception was raised (%s)" % exc_type.__name__
+        message = "check_raises(%s) failed: %s" % (self._exc_type.__name__, submessage)
+        clip = 2
+        self._context._fail(message, clip, tb)
 
 
 def _get_module_tests(module_name):
@@ -195,3 +220,5 @@ class _ContextBridge(Context):
     def check_not_is_instance(self, val, type_):
         self._test_case.assertNotIsInstance(val, type_)
 
+    def check_raises(self, exc):
+        return self._test_case.assertRaises(exc)

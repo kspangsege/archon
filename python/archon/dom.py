@@ -280,7 +280,7 @@ class NamedNodeMap(collections.abc.Mapping):
 
 
 
-class DOMException(RuntimeError):
+class DOMException(Exception):
     pass
 
 
@@ -428,16 +428,16 @@ def dump_document(document, max_string_size = 90):
 
 
 
-def create_xml_document():
-    content_type = "application/xml"
+def create_xml_document(content_type = None):
+    content_type_2 = content_type if content_type is not None else "application/xml"
     is_html = False
-    state = _XMLDocumentState(content_type, is_html)
+    state = _XMLDocumentState(content_type_2, is_html)
     return _wrap_node(state, None)
 
-def create_html_document():
-    content_type = "text/html"
+def create_html_document(content_type = None):
+    content_type_2 = content_type if content_type is not None else "text/html"
     is_html = True
-    state = _DocumentState(content_type, is_html)
+    state = _DocumentState(content_type_2, is_html)
     return _wrap_node(state, None)
 
 # `name` must be minimally valid (see definition above)

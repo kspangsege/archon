@@ -2,11 +2,11 @@ import archon.test
 import archon.dom
 
 
-def _make_xml_document():
-    return archon.dom.create_xml_document()
+def _make_xml_document(content_type = None):
+    return archon.dom.create_xml_document(content_type = content_type)
 
-def _make_html_document():
-    return archon.dom.create_html_document()
+def _make_html_document(content_type = None):
+    return archon.dom.create_html_document(content_type = content_type)
 
 
 def test_DOMImplementation(context):
@@ -256,6 +256,98 @@ def test_Node_ChildNodesAsSequence(context):
     context.check_equal(list(reversed(root.get_child_nodes())), [baz, bar, foo])
     context.check_in(foo, root.get_child_nodes())
     context.check_not_in(root, root.get_child_nodes())
+
+
+def test_Document_CreateElement(context):
+    doc_1 = _make_xml_document()
+    doc_2 = _make_html_document()
+    doc_3 = _make_xml_document(content_type = "application/xhtml+xml")
+    def check(elem, namespace_uri, prefix, local_name):
+        context.check_equal(elem.get_namespace_uri(), namespace_uri)
+        context.check_equal(elem.get_prefix(), prefix)
+        context.check_equal(elem.get_local_name(), local_name)
+    check(doc_1.create_element("Foo"), None, None, "Foo")
+    check(doc_1.create_element("p:Foo"), None, None, "p:Foo")
+    check(doc_2.create_element("Foo"), "http://www.w3.org/1999/xhtml", None, "foo")
+    check(doc_2.create_element("p:Foo"), "http://www.w3.org/1999/xhtml", None, "p:foo")
+    check(doc_3.create_element("Foo"), "http://www.w3.org/1999/xhtml", None, "Foo")
+    check(doc_3.create_element("p:Foo"), "http://www.w3.org/1999/xhtml", None, "p:Foo")
+
+
+def test_Document_CreateElementNS(context):
+    doc_1 = _make_xml_document()
+    doc_2 = _make_html_document()
+    def check(elem, namespace_uri, prefix, local_name):
+        context.check_equal(elem.get_namespace_uri(), namespace_uri)
+        context.check_equal(elem.get_prefix(), prefix)
+        context.check_equal(elem.get_local_name(), local_name)
+    check(doc_1.create_element_ns("ns", "Foo"), "ns", None, "Foo")
+    check(doc_1.create_element_ns("ns", "p:Foo"), "ns", "p", "Foo")
+    check(doc_2.create_element_ns("ns", "Foo"), "ns", None, "Foo")
+    check(doc_2.create_element_ns("ns", "p:Foo"), "ns", "p", "Foo")
+
+    # These must not fail
+    doc_1.create_element_ns("http://www.w3.org/XML/1998/namespace", "xml:foo")
+    doc_1.create_element_ns("http://www.w3.org/XML/1998/namespace", "p:foo")
+    doc_1.create_element_ns("http://www.w3.org/2000/xmlns/", "xmlns")
+    doc_1.create_element_ns("http://www.w3.org/2000/xmlns/", "xmlns:foo")
+
+    with context.check_raises(archon.dom.NamespaceError):
+        doc_1.create_element_ns("ns", "xml:foo")
+    with context.check_raises(archon.dom.NamespaceError):
+        doc_1.create_element_ns("ns", "xmlns")
+    with context.check_raises(archon.dom.NamespaceError):
+        doc_1.create_element_ns("ns", "xmlns:foo")
+    with context.check_raises(archon.dom.NamespaceError):
+        doc_1.create_element_ns("http://www.w3.org/2000/xmlns/", "p")
+    with context.check_raises(archon.dom.NamespaceError):
+        doc_1.create_element_ns("http://www.w3.org/2000/xmlns/", "p:foo")
+
+
+def test_Document_CreateAttribute(context):
+    doc_1 = _make_xml_document()
+    doc_2 = _make_html_document()
+    doc_3 = _make_xml_document(content_type = "application/xhtml+xml")
+    def check(attr, namespace_uri, prefix, local_name):
+        context.check_equal(attr.get_namespace_uri(), namespace_uri)
+        context.check_equal(attr.get_prefix(), prefix)
+        context.check_equal(attr.get_local_name(), local_name)
+    check(doc_1.create_attribute("Foo"), None, None, "Foo")
+    check(doc_1.create_attribute("p:Foo"), None, None, "p:Foo")
+    check(doc_2.create_attribute("Foo"), None, None, "foo")
+    check(doc_2.create_attribute("p:Foo"), None, None, "p:foo")
+    check(doc_3.create_attribute("Foo"), None, None, "Foo")
+    check(doc_3.create_attribute("p:Foo"), None, None, "p:Foo")
+
+
+def test_Document_CreateAttributeNS(context):
+    doc_1 = _make_xml_document()
+    doc_2 = _make_html_document()
+    def check(attr, namespace_uri, prefix, local_name):
+        context.check_equal(attr.get_namespace_uri(), namespace_uri)
+        context.check_equal(attr.get_prefix(), prefix)
+        context.check_equal(attr.get_local_name(), local_name)
+    check(doc_1.create_attribute_ns("ns", "Foo"), "ns", None, "Foo")
+    check(doc_1.create_attribute_ns("ns", "p:Foo"), "ns", "p", "Foo")
+    check(doc_2.create_attribute_ns("ns", "Foo"), "ns", None, "Foo")
+    check(doc_2.create_attribute_ns("ns", "p:Foo"), "ns", "p", "Foo")
+
+    # These must not fail
+    doc_1.create_attribute_ns("http://www.w3.org/XML/1998/namespace", "xml:foo")
+    doc_1.create_attribute_ns("http://www.w3.org/XML/1998/namespace", "p:foo")
+    doc_1.create_attribute_ns("http://www.w3.org/2000/xmlns/", "xmlns")
+    doc_1.create_attribute_ns("http://www.w3.org/2000/xmlns/", "xmlns:foo")
+
+    with context.check_raises(archon.dom.NamespaceError):
+        doc_1.create_attribute_ns("ns", "xml:foo")
+    with context.check_raises(archon.dom.NamespaceError):
+        doc_1.create_attribute_ns("ns", "xmlns")
+    with context.check_raises(archon.dom.NamespaceError):
+        doc_1.create_attribute_ns("ns", "xmlns:foo")
+    with context.check_raises(archon.dom.NamespaceError):
+        doc_1.create_attribute_ns("http://www.w3.org/2000/xmlns/", "p")
+    with context.check_raises(archon.dom.NamespaceError):
+        doc_1.create_attribute_ns("http://www.w3.org/2000/xmlns/", "p:foo")
 
 
 def test_Element_Basics(context):
