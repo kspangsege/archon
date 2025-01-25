@@ -385,6 +385,43 @@ def test_Element_HasAttributes(context):
     context.check(elem.has_attributes())
 
 
+def test_Element_SetAttributeNode(context):
+    doc = _make_xml_document()
+    elem = doc.create_element("elem")
+    attributes = elem.get_attributes()
+    attr_1 = doc.create_attribute("foo")
+    attr = elem.set_attribute_node(attr_1)
+    context.check_is_none(attr)
+    context.check_equal(len(attributes), 1)
+    context.check_equal(attributes[0], attr_1)
+
+    attr_2 = doc.create_attribute("foo")
+    attr = elem.set_attribute_node(attr_2)
+    context.check_equal(attr, attr_1)
+    context.check_equal(len(attributes), 1)
+    context.check_equal(attributes[0], attr_2)
+
+    attr_3 = doc.create_attribute("bar")
+    attr = elem.set_attribute_node(attr_3)
+    context.check_is_none(attr)
+    context.check_equal(len(attributes), 2)
+    context.check_equal(attributes[0], attr_2)
+    context.check_equal(attributes[1], attr_3)
+
+
+def test_Element_RemoveAttributeNode(context):
+    doc = _make_xml_document()
+    elem = doc.create_element("elem")
+    attr = doc.create_attribute("foo")
+    with context.check_raises(archon.dom.NotFoundError):
+        elem.remove_attribute_node(attr)
+    elem.set_attribute_node(attr)
+    attr_2 = elem.remove_attribute_node(attr)
+    context.check_equal(attr_2, attr)
+    with context.check_raises(archon.dom.NotFoundError):
+        elem.remove_attribute_node(attr)
+
+
 # Bridge to Python's native testing framework
 def load_tests(loader, standard_tests, pattern):
     return archon.test.generate_native_tests(__name__)

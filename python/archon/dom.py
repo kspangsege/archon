@@ -195,6 +195,9 @@ class Element(ParentNode, ChildNode, Node):
     def set_attribute_node_ns(self, attr):
         raise NotImplementedError()
 
+    def remove_attribute_node(self, attr):
+        raise NotImplementedError()
+
 
 class CharacterData(ChildNode, Node):
     def get_data(self):
@@ -650,10 +653,10 @@ class _ParentNodeState:
             weak_node = weak_node().get_weak_parent_node()
         return False
 
-    # FIXME: Add test case for parent.insert_before(node, child) where `node` is already a child of `parent`
-    # FIXME: Add test case for parent.insert_before(node, child) where `node` and `child` are the same node
-    # FIXME: Add test case for parent.replace_child(node, child) where `node` is already a child of `parent`
-    # FIXME: Add test case for parent.replace_child(node, child) where `node` and `child` are the same node
+    # FIXME: Add test case for parent.insert_before(node, child) where `node` is already a child of `parent`                            
+    # FIXME: Add test case for parent.insert_before(node, child) where `node` and `child` are the same node                            
+    # FIXME: Add test case for parent.replace_child(node, child) where `node` is already a child of `parent`                            
+    # FIXME: Add test case for parent.replace_child(node, child) where `node` and `child` are the same node                            
 
     def insert_before(self, node, child, document_wrapper):
         before = child
@@ -704,7 +707,7 @@ class _ParentNodeState:
         if node.contains(self):
             raise HierarchyRequestError()
         if before and before.get_weak_parent_node() != self.weak_self:
-            return NotFoundError()
+            raise NotFoundError()
         if not isinstance(self, _DocumentState):
             if isinstance(node, _DocumentTypeState):
                 raise HierarchyRequestError()
@@ -740,7 +743,7 @@ class _ParentNodeState:
         if node.contains(self):
             raise HierarchyRequestError()
         if orig.get_weak_parent_node() != self.weak_self:
-            return NotFoundError()
+            raise NotFoundError()
         if not isinstance(self, _DocumentState):
             if isinstance(node, _DocumentTypeState):
                 raise HierarchyRequestError()
@@ -1062,6 +1065,10 @@ class _ElementImpl(_ParentNodeImpl, _ChildNodeImpl, _NodeImpl, Element):
         state = self._state.set_attribute_node(_unwrap_typed_node(attr, Attr))
         return _wrap_node(state, self._document)
 
+    def remove_attribute_node(self, attr):
+        self._state.remove_attribute_node(_unwrap_typed_node(attr, Attr))
+        return attr
+
     def get_node_type(self):
         return self.ELEMENT_NODE
 
@@ -1181,6 +1188,16 @@ class _ElementState(_ParentNodeState, _ChildNodeState, _NodeState):
         if old_attr != attr:
             self._replace_attribute(candidates, index, attr)
         return old_attr
+
+    def remove_attribute_node(self, attr):
+        if attr.weak_owner_element != self.weak_self:
+            raise NotFoundError()
+        key = self._get_attribute_key_ns(attr.local_name)
+        candidates = self.attribute_map.get(key)
+        assert candidates is not None
+        self.attributes.remove(attr)
+        candidates.remove(attr)
+        attr.weak_owner_element = None
 
     def _find_attribute(self, qualified_name):
         key, adjusted_qualified_name = self._get_attribute_key(qualified_name)
