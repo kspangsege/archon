@@ -9,16 +9,16 @@ import archon.core
 
 class DOMImplementation:
     def create_document_type(self, qualified_name, public_id, system_id):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def create_document(self, namespace, qualified_name, doctype):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def create_html_document(self, title):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def has_feature(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
 
 
@@ -37,49 +37,49 @@ class Node:
     NOTATION_NODE = 12
 
     def get_node_type(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def get_node_name(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def get_owner_document(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def get_parent_node(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def has_child_nodes(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def get_child_nodes(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def get_first_child(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def get_last_child(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def get_previous_sibling(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def get_next_sibling(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def contains(self, other):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def insert_before(self, node, child):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def append_child(self, node):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def replace_child(self, node, child):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def remove_child(self, node):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
 
 class ChildNode:
@@ -92,34 +92,34 @@ class ParentNode:
 
 class Document(ParentNode, Node):
     def get_implementation(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def get_content_type(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def get_doctype(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def get_document_element(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def create_element(self, local_name):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def create_element_ns(self, namespace, qualified_name):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def create_text_node(self, data):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def create_comment(self, data):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def create_attribute(self, local_name):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def create_attribute_ns(self, namespace, qualified_name):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
 
 class XMLDocument(Document):
@@ -128,80 +128,80 @@ class XMLDocument(Document):
 
 class DocumentType(ChildNode, Node):
     def get_name(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def get_public_id(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def get_system_id(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
 
 class Element(ParentNode, ChildNode, Node):
     def get_namespace_uri(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def get_prefix(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def get_local_name(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def get_tag_name(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     # FIXME: Add attribute covering getters and setters: `get_id()`, `set_id()` cover `id`
     # attribute; `get_class_name()`, `set_class_name()` cover `class` attribute, etc.
 
     def has_attributes(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def get_attributes(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def get_attribute(self, qualified_name):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def get_attribute_ns(self, namespace, local_name):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def set_attribute(self, qualified_name, value):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def set_attribute_ns(self, namespace, qualified_name, value):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def remove_attribute(self, qualified_name):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def remove_attribute_ns(self, namespace, local_name):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def has_attribute(self, qualified_name):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def has_attribute_ns(self, namespace, local_name):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def get_attribute_node(self, qualified_name):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def get_attribute_node_ns(self, namespace, local_name):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def set_attribute_node(self, attr):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def set_attribute_node_ns(self, attr):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
 
 class CharacterData(ChildNode, Node):
     def get_data(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def set_data(self, data):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
 
 class Text(CharacterData):
@@ -220,63 +220,63 @@ class Comment(CharacterData):
 
 class Attr(Node):
     def get_namespace_uri(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def get_prefix(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def get_local_name(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def get_name(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def get_value(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def set_value(self, value):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def get_owner_element(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def is_specified(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
 
 
 class NodeList(collections.abc.Sequence):
     def get_length(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def item(self, index):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
 
 class NamedNodeMap(collections.abc.Mapping):
     def get_length(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def item(self, index):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def get_named_item(self, qualified_name):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def get_named_item_ns(self, namespace, local_name):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def set_named_item(self, attr):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def set_named_item_ns(self, attr):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def remove_named_item(self, qualified_name):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def remove_named_item_ns(self, namespace, local_name):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
 
 
@@ -555,7 +555,7 @@ class _NodeState:
         return self.weak_wrapper and self.weak_wrapper()
 
     def _do_wrap(self, document):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
 
 

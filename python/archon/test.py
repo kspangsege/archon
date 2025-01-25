@@ -40,37 +40,37 @@ def run(tests):
 
 class Context:
     def check(self, cond):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def check_not(self, cond):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def check_is_none(self, val):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def check_is_not_none(self, val):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def check_equal(self, a, b):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def check_not_equal(self, a, b):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def check_in(self, a, b):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def check_not_in(self, a, b):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def check_is_instance(self, val, type_):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def check_not_is_instance(self, val, type_):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def check_raises(self, exc):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
 
 class Test:

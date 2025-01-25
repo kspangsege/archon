@@ -428,7 +428,7 @@ class Source:
     # character. No returned line can be the empty string. Zero lines can be returned
     # altogether.
     def read_line(self):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
     def reached_line_number(self, line_number):
         pass

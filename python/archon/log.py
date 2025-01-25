@@ -2,7 +2,7 @@ import sys
 
 class Logger:
     def log(self, message, *params):
-        raise RuntimeError("Abstract method")
+        raise NotImplementedError()
 
 class NullLogger(Logger):
     def log(self, message, *params):
