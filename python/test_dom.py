@@ -9,6 +9,19 @@ def _make_html_document(content_type = None):
     return archon.dom.create_html_document(content_type = content_type)
 
 
+def check_elem(context, elem, namespace_uri, prefix, local_name):
+    context.check_equal(elem.get_namespace_uri(), namespace_uri)
+    context.check_equal(elem.get_prefix(), prefix)
+    context.check_equal(elem.get_local_name(), local_name)
+
+def check_attr(context, attr, namespace_uri, prefix, local_name, value):
+    context.check_equal(attr.get_namespace_uri(), namespace_uri)
+    context.check_equal(attr.get_prefix(), prefix)
+    context.check_equal(attr.get_local_name(), local_name)
+    context.check_equal(attr.get_value(), value)
+
+
+
 def test_DOMImplementation(context):
     doc = _make_xml_document()
     impl = doc.get_implementation()
@@ -262,29 +275,21 @@ def test_Document_CreateElement(context):
     doc_1 = _make_xml_document()
     doc_2 = _make_html_document()
     doc_3 = _make_xml_document(content_type = "application/xhtml+xml")
-    def check(elem, namespace_uri, prefix, local_name):
-        context.check_equal(elem.get_namespace_uri(), namespace_uri)
-        context.check_equal(elem.get_prefix(), prefix)
-        context.check_equal(elem.get_local_name(), local_name)
-    check(doc_1.create_element("Foo"), None, None, "Foo")
-    check(doc_1.create_element("p:Foo"), None, None, "p:Foo")
-    check(doc_2.create_element("Foo"), "http://www.w3.org/1999/xhtml", None, "foo")
-    check(doc_2.create_element("p:Foo"), "http://www.w3.org/1999/xhtml", None, "p:foo")
-    check(doc_3.create_element("Foo"), "http://www.w3.org/1999/xhtml", None, "Foo")
-    check(doc_3.create_element("p:Foo"), "http://www.w3.org/1999/xhtml", None, "p:Foo")
+    check_elem(context, doc_1.create_element("Foo"), None, None, "Foo")
+    check_elem(context, doc_1.create_element("p:Foo"), None, None, "p:Foo")
+    check_elem(context, doc_2.create_element("Foo"), "http://www.w3.org/1999/xhtml", None, "foo")
+    check_elem(context, doc_2.create_element("p:Foo"), "http://www.w3.org/1999/xhtml", None, "p:foo")
+    check_elem(context, doc_3.create_element("Foo"), "http://www.w3.org/1999/xhtml", None, "Foo")
+    check_elem(context, doc_3.create_element("p:Foo"), "http://www.w3.org/1999/xhtml", None, "p:Foo")
 
 
 def test_Document_CreateElementNS(context):
     doc_1 = _make_xml_document()
     doc_2 = _make_html_document()
-    def check(elem, namespace_uri, prefix, local_name):
-        context.check_equal(elem.get_namespace_uri(), namespace_uri)
-        context.check_equal(elem.get_prefix(), prefix)
-        context.check_equal(elem.get_local_name(), local_name)
-    check(doc_1.create_element_ns("ns", "Foo"), "ns", None, "Foo")
-    check(doc_1.create_element_ns("ns", "p:Foo"), "ns", "p", "Foo")
-    check(doc_2.create_element_ns("ns", "Foo"), "ns", None, "Foo")
-    check(doc_2.create_element_ns("ns", "p:Foo"), "ns", "p", "Foo")
+    check_elem(context, doc_1.create_element_ns("ns", "Foo"), "ns", None, "Foo")
+    check_elem(context, doc_1.create_element_ns("ns", "p:Foo"), "ns", "p", "Foo")
+    check_elem(context, doc_2.create_element_ns("ns", "Foo"), "ns", None, "Foo")
+    check_elem(context, doc_2.create_element_ns("ns", "p:Foo"), "ns", "p", "Foo")
 
     # These must not fail
     doc_1.create_element_ns("http://www.w3.org/XML/1998/namespace", "xml:foo")
@@ -308,29 +313,21 @@ def test_Document_CreateAttribute(context):
     doc_1 = _make_xml_document()
     doc_2 = _make_html_document()
     doc_3 = _make_xml_document(content_type = "application/xhtml+xml")
-    def check(attr, namespace_uri, prefix, local_name):
-        context.check_equal(attr.get_namespace_uri(), namespace_uri)
-        context.check_equal(attr.get_prefix(), prefix)
-        context.check_equal(attr.get_local_name(), local_name)
-    check(doc_1.create_attribute("Foo"), None, None, "Foo")
-    check(doc_1.create_attribute("p:Foo"), None, None, "p:Foo")
-    check(doc_2.create_attribute("Foo"), None, None, "foo")
-    check(doc_2.create_attribute("p:Foo"), None, None, "p:foo")
-    check(doc_3.create_attribute("Foo"), None, None, "Foo")
-    check(doc_3.create_attribute("p:Foo"), None, None, "p:Foo")
+    check_elem(context, doc_1.create_attribute("Foo"), None, None, "Foo")
+    check_elem(context, doc_1.create_attribute("p:Foo"), None, None, "p:Foo")
+    check_elem(context, doc_2.create_attribute("Foo"), None, None, "foo")
+    check_elem(context, doc_2.create_attribute("p:Foo"), None, None, "p:foo")
+    check_elem(context, doc_3.create_attribute("Foo"), None, None, "Foo")
+    check_elem(context, doc_3.create_attribute("p:Foo"), None, None, "p:Foo")
 
 
 def test_Document_CreateAttributeNS(context):
     doc_1 = _make_xml_document()
     doc_2 = _make_html_document()
-    def check(attr, namespace_uri, prefix, local_name):
-        context.check_equal(attr.get_namespace_uri(), namespace_uri)
-        context.check_equal(attr.get_prefix(), prefix)
-        context.check_equal(attr.get_local_name(), local_name)
-    check(doc_1.create_attribute_ns("ns", "Foo"), "ns", None, "Foo")
-    check(doc_1.create_attribute_ns("ns", "p:Foo"), "ns", "p", "Foo")
-    check(doc_2.create_attribute_ns("ns", "Foo"), "ns", None, "Foo")
-    check(doc_2.create_attribute_ns("ns", "p:Foo"), "ns", "p", "Foo")
+    check_elem(context, doc_1.create_attribute_ns("ns", "Foo"), "ns", None, "Foo")
+    check_elem(context, doc_1.create_attribute_ns("ns", "p:Foo"), "ns", "p", "Foo")
+    check_elem(context, doc_2.create_attribute_ns("ns", "Foo"), "ns", None, "Foo")
+    check_elem(context, doc_2.create_attribute_ns("ns", "p:Foo"), "ns", "p", "Foo")
 
     # These must not fail
     doc_1.create_attribute_ns("http://www.w3.org/XML/1998/namespace", "xml:foo")
@@ -351,30 +348,48 @@ def test_Document_CreateAttributeNS(context):
 
 
 def test_Element_Basics(context):
-    doc = _make_xml_document()
-    elem = doc.create_element("elem")
-    attributes_1 = elem.get_attributes()
-    context.check_equal(len(attributes_1), 0)
-    attributes_2 = list(attributes_1)
-    context.check_equal(len(attributes_2), 0)
+    def check(doc, is_html):
+        elem = doc.create_element("elem")
+        attributes_1 = elem.get_attributes()
+        context.check_equal(len(attributes_1), 0)
+        attributes_2 = list(attributes_1)
+        context.check_equal(len(attributes_2), 0)
 
-    elem.set_attribute("Foo", "1")
-    attributes_1 = elem.get_attributes()
-    context.check_equal(len(attributes_1), 1)
-    context.check_equal(attributes_1[0].get_local_name(), "Foo")
-    attributes_2 = list(attributes_1)
-    context.check_equal(len(attributes_2), 1)
-    context.check_equal(attributes_2[0], attributes_1[0])
+        elem.set_attribute("p:foo", "1")
+        attributes_1 = elem.get_attributes()
+        context.check_equal(len(attributes_1), 1)
+        attr_1 = attributes_1[0]
+        check_attr(context, attr_1, None, None, "p:foo", "1")
+        attributes_2 = list(attributes_1)
+        context.check_equal(len(attributes_2), 1)
+        context.check_equal(attributes_2[0], attr_1)
 
-    elem.set_attribute("Bar", "2")
-    attributes_1 = elem.get_attributes()
-    context.check_equal(len(attributes_1), 2)
-    context.check_equal(attributes_1[0].get_local_name(), "Foo")
-    context.check_equal(attributes_1[1].get_local_name(), "Bar")
-    attributes_2 = list(attributes_1)
-    context.check_equal(len(attributes_2), 2)
-    context.check_equal(attributes_2[0], attributes_1[0])
-    context.check_equal(attributes_2[1], attributes_1[1])
+        elem.set_attribute("p:Bar", "2")
+        attributes_1 = elem.get_attributes()
+        context.check_equal(len(attributes_1), 2)
+        context.check_equal(attributes_1[0], attr_1)
+        attr_2 = attributes_1[1]
+        check_attr(context, attr_2, None, None, "p:bar" if is_html else "p:Bar", "2")
+        attributes_2 = list(attributes_1)
+        context.check_equal(len(attributes_2), 2)
+        context.check_equal(attributes_2[0], attr_1)
+        context.check_equal(attributes_2[1], attr_2)
+
+        elem.set_attribute_ns("ns", "p:Baz", "3")
+        attributes_1 = elem.get_attributes()
+        context.check_equal(len(attributes_1), 3)
+        context.check_equal(attributes_1[0], attr_1)
+        context.check_equal(attributes_1[1], attr_2)
+        attr_3 = attributes_1[2]
+        check_attr(context, attr_3, "ns", "p", "Baz", "3")
+        attributes_2 = list(attributes_1)
+        context.check_equal(len(attributes_2), 3)
+        context.check_equal(attributes_2[0], attr_1)
+        context.check_equal(attributes_2[1], attr_2)
+        context.check_equal(attributes_2[2], attr_3)
+
+    check( _make_xml_document(), False)
+    check( _make_html_document(), True)
 
 
 def test_Element_HasAttributes(context):
@@ -385,10 +400,143 @@ def test_Element_HasAttributes(context):
     context.check(elem.has_attributes())
 
 
+def test_Element_SetAttribute(context):
+    def check(doc, is_html):
+        elem = doc.create_element("elem")
+        attributes_1 = elem.get_attributes()
+        elem.set_attribute("p:foo1", "1")
+        elem.set_attribute("p:foo2", "2")
+        elem.set_attribute_ns("ns", "p:bar1", "3")
+        elem.set_attribute_ns("ns", "p:bar2", "4")
+        elem.set_attribute_ns("ns", "p:Baz", "5")
+
+        context.check_equal(len(attributes_1), 5)
+        check_attr(context, attributes_1[0], None, None, "p:foo1", "1")
+        check_attr(context, attributes_1[1], None, None, "p:foo2", "2")
+        check_attr(context, attributes_1[2], "ns", "p", "bar1", "3")
+        check_attr(context, attributes_1[3], "ns", "p", "bar2", "4")
+        check_attr(context, attributes_1[4], "ns", "p", "Baz", "5")
+
+        attributes_2 = list(attributes_1)
+        def check_match(qualified_name, new_value, index):
+            elem.set_attribute(qualified_name, new_value)
+            context.check_equal(len(attributes_1), len(attributes_2))
+            context.check_equal(list(attributes_1), attributes_2)
+            context.check_equal(attributes_1[index].get_value(), new_value)
+
+        def check_mismatch(qualified_name, new_value):
+            nonlocal attributes_2
+            elem.set_attribute(qualified_name, new_value)
+            context.check_equal(len(attributes_1), len(attributes_2) + 1)
+            attributes_3 = list(attributes_1)
+            context.check_equal(attributes_3[:-1], attributes_2)
+            local_name = qualified_name.lower() if is_html else qualified_name
+            check_attr(context, attributes_3[-1], None, None, local_name, new_value)
+            attributes_2 = attributes_3
+
+        if is_html:
+            check_match("p:foo1", "11", 0)
+            check_match("p:Foo2", "12", 1)
+            check_match("p:bar1", "13", 2)
+            check_match("p:Bar2", "14", 3)
+            check_mismatch("p:Baz", "15")
+        else:
+            check_match("p:foo1", "11", 0)
+            check_mismatch("p:Foo2", "12")
+            check_match("p:bar1", "13", 2)
+            check_mismatch("p:Bar2", "14")
+            check_match("p:Baz", "15", 4)
+
+        with context.check_raises(archon.dom.InvalidCharacterError):
+            elem.set_attribute("", "x")
+        with context.check_raises(archon.dom.InvalidCharacterError):
+            elem.set_attribute(" ", "x")
+        with context.check_raises(archon.dom.InvalidCharacterError):
+            elem.set_attribute("@", "x")
+
+        # FIXME: Check argument type coercion rules (None -> "None", ...)      
+
+    check( _make_xml_document(), False)
+    check( _make_html_document(), True)
+
+
+# FIXME: Add test_Element_SetAttributeNS()                
+
+
+def test_Element_ToggleAttribute(context):
+    def check(doc, is_html):
+        elem = doc.create_element("elem")
+        attributes = elem.get_attributes()
+
+        now_present = elem.toggle_attribute("foo")
+        context.check(now_present)
+        context.check_equal(len(attributes), 1)
+        attr_1 = attributes[0]
+        check_attr(context, attr_1, None, None, "foo", "")
+
+        now_present = elem.toggle_attribute("bar")
+        context.check(now_present)
+        context.check_equal(len(attributes), 2)
+        context.check_equal(attributes[0], attr_1)
+        check_attr(context, attributes[1], None, None, "bar", "")
+
+        now_present = elem.toggle_attribute("bar")
+        context.check_not(now_present)
+        context.check_equal(len(attributes), 1)
+        context.check_equal(attributes[0], attr_1)
+
+        now_present = elem.toggle_attribute("foo", force = True)
+        context.check(now_present)
+        context.check_equal(len(attributes), 1)
+        context.check_equal(attributes[0], attr_1)
+
+        now_present = elem.toggle_attribute("bar", force = True)
+        context.check(now_present)
+        context.check_equal(len(attributes), 2)
+        context.check_equal(attributes[0], attr_1)
+        attr_2 = attributes[1]
+        check_attr(context, attr_2, None, None, "bar", "")
+
+        now_present = elem.toggle_attribute("baz", force = False)
+        context.check_not(now_present)
+        context.check_equal(len(attributes), 2)
+        context.check_equal(attributes[0], attr_1)
+        context.check_equal(attributes[1], attr_2)
+
+        now_present = elem.toggle_attribute("foo", force = False)
+        context.check_not(now_present)
+        context.check_equal(len(attributes), 1)
+        context.check_equal(attributes[0], attr_2)
+
+        # New element for testing matching rules
+        elem = doc.create_element("elem")
+        elem.set_attribute("p:foo1", "1")
+        elem.set_attribute("p:foo2", "2")
+        elem.set_attribute_ns("ns", "p:bar1", "3")
+        elem.set_attribute_ns("ns", "p:bar2", "4")
+        elem.set_attribute_ns("ns", "p:Baz", "5")
+        if is_html:
+            context.check_not(elem.toggle_attribute("p:foo1"))
+            context.check_not(elem.toggle_attribute("p:Foo2"))
+            context.check_not(elem.toggle_attribute("p:bar1"))
+            context.check_not(elem.toggle_attribute("p:Bar2"))
+            context.check(elem.toggle_attribute("p:Baz"))
+        else:
+            context.check_not(elem.toggle_attribute("p:foo1"))
+            context.check(elem.toggle_attribute("p:Foo2"))
+            context.check_not(elem.toggle_attribute("p:bar1"))
+            context.check(elem.toggle_attribute("p:Bar2"))
+            context.check_not(elem.toggle_attribute("p:Baz"))
+
+    check( _make_xml_document(), False)
+    check( _make_html_document(), True)
+
+
 def test_Element_SetAttributeNode(context):
     doc = _make_xml_document()
     elem = doc.create_element("elem")
     attributes = elem.get_attributes()
+
     attr_1 = doc.create_attribute("foo")
     attr = elem.set_attribute_node(attr_1)
     context.check_is_none(attr)

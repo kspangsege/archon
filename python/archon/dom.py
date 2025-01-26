@@ -177,6 +177,9 @@ class Element(ParentNode, ChildNode, Node):
     def remove_attribute_ns(self, namespace, local_name):
         raise NotImplementedError()
 
+    def toggle_attribute(self, qualified_name, force = None):
+        raise NotImplementedError()
+
     def has_attribute(self, qualified_name):
         raise NotImplementedError()
 
@@ -1044,6 +1047,9 @@ class _ElementImpl(_ParentNodeImpl, _ChildNodeImpl, _NodeImpl, Element):
     def remove_attribute_ns(self, namespace, local_name):
         self._state.remove_attribute_ns(namespace, local_name)
 
+    def toggle_attribute(self, qualified_name, force = None):
+        return self._state.toggle_attribute(qualified_name, force)
+
     def has_attribute(self, qualified_name):
         return self._state.has_attribute(qualified_name)
 
@@ -1158,6 +1164,28 @@ class _ElementState(_ParentNodeState, _ChildNodeState, _NodeState):
         if index is None:
             return None
         return self._remove_attribute(candidates, index)
+
+    def toggle_attribute(self, qualified_name, force):
+        key, adjusted_qualified_name = self._get_attribute_key(qualified_name)
+        candidates = self.attribute_map.setdefault(key, [])
+        index = self._attribute_search(candidates, adjusted_qualified_name)
+        if index is not None:
+            if force:
+                return True
+            self._remove_attribute(candidates, index)
+            return False
+        local_name = adjusted_qualified_name
+        if not _is_valid_general_name(local_name):
+            if not candidates:
+                del self.attribute_map[key]
+            raise InvalidCharacterError()
+        if force is not None and not force:
+            return False
+        namespace_uri = None
+        prefix = None
+        attr = _AttrState(namespace_uri, prefix, local_name)
+        self._append_attribute(candidates, attr)
+        return True
 
     def has_attribute(self, qualified_name):
         _, index = self._find_attribute(qualified_name)
