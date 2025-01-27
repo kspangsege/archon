@@ -350,43 +350,34 @@ def test_Document_CreateAttributeNS(context):
 def test_Element_Basics(context):
     def check(doc, is_html):
         elem = doc.create_element("elem")
-        attributes_1 = elem.get_attributes()
-        context.check_equal(len(attributes_1), 0)
-        attributes_2 = list(attributes_1)
-        context.check_equal(len(attributes_2), 0)
+        attributes = elem.get_attributes()
+        context.check_equal(len(attributes), 0)
+        context.check_equal(attributes.item(-1), None)
+        context.check_equal(attributes.item(0), None)
 
         elem.set_attribute("p:foo", "1")
-        attributes_1 = elem.get_attributes()
-        context.check_equal(len(attributes_1), 1)
-        attr_1 = attributes_1[0]
+        context.check_equal(len(attributes), 1)
+        attr_1 = attributes.item(0)
         check_attr(context, attr_1, None, None, "p:foo", "1")
-        attributes_2 = list(attributes_1)
-        context.check_equal(len(attributes_2), 1)
-        context.check_equal(attributes_2[0], attr_1)
+        context.check_equal(attributes.item(-1), None)
+        context.check_equal(attributes.item(1), None)
 
         elem.set_attribute("p:Bar", "2")
-        attributes_1 = elem.get_attributes()
-        context.check_equal(len(attributes_1), 2)
-        context.check_equal(attributes_1[0], attr_1)
-        attr_2 = attributes_1[1]
+        context.check_equal(len(attributes), 2)
+        context.check_equal(attributes.item(0), attr_1)
+        attr_2 = attributes.item(1)
         check_attr(context, attr_2, None, None, "p:bar" if is_html else "p:Bar", "2")
-        attributes_2 = list(attributes_1)
-        context.check_equal(len(attributes_2), 2)
-        context.check_equal(attributes_2[0], attr_1)
-        context.check_equal(attributes_2[1], attr_2)
+        context.check_equal(attributes.item(-1), None)
+        context.check_equal(attributes.item(2), None)
 
         elem.set_attribute_ns("ns", "p:Baz", "3")
-        attributes_1 = elem.get_attributes()
-        context.check_equal(len(attributes_1), 3)
-        context.check_equal(attributes_1[0], attr_1)
-        context.check_equal(attributes_1[1], attr_2)
-        attr_3 = attributes_1[2]
+        context.check_equal(len(attributes), 3)
+        context.check_equal(attributes.item(0), attr_1)
+        context.check_equal(attributes.item(1), attr_2)
+        attr_3 = attributes.item(2)
         check_attr(context, attr_3, "ns", "p", "Baz", "3")
-        attributes_2 = list(attributes_1)
-        context.check_equal(len(attributes_2), 3)
-        context.check_equal(attributes_2[0], attr_1)
-        context.check_equal(attributes_2[1], attr_2)
-        context.check_equal(attributes_2[2], attr_3)
+        context.check_equal(attributes.item(-1), None)
+        context.check_equal(attributes.item(3), None)
 
     check( _make_xml_document(), False)
     check( _make_html_document(), True)
@@ -411,24 +402,24 @@ def test_Element_SetAttribute(context):
         elem.set_attribute_ns("ns", "p:Baz", "5")
 
         context.check_equal(len(attributes_1), 5)
-        check_attr(context, attributes_1[0], None, None, "p:foo1", "1")
-        check_attr(context, attributes_1[1], None, None, "p:foo2", "2")
-        check_attr(context, attributes_1[2], "ns", "p", "bar1", "3")
-        check_attr(context, attributes_1[3], "ns", "p", "bar2", "4")
-        check_attr(context, attributes_1[4], "ns", "p", "Baz", "5")
+        check_attr(context, attributes_1.item(0), None, None, "p:foo1", "1")
+        check_attr(context, attributes_1.item(1), None, None, "p:foo2", "2")
+        check_attr(context, attributes_1.item(2), "ns", "p", "bar1", "3")
+        check_attr(context, attributes_1.item(3), "ns", "p", "bar2", "4")
+        check_attr(context, attributes_1.item(4), "ns", "p", "Baz", "5")
 
-        attributes_2 = list(attributes_1)
+        attributes_2 = list(attributes_1.values())
         def check_match(qualified_name, new_value, index):
             elem.set_attribute(qualified_name, new_value)
             context.check_equal(len(attributes_1), len(attributes_2))
-            context.check_equal(list(attributes_1), attributes_2)
-            context.check_equal(attributes_1[index].get_value(), new_value)
+            context.check_equal(list(attributes_1.values()), attributes_2)
+            context.check_equal(attributes_1.item(index).get_value(), new_value)
 
         def check_mismatch(qualified_name, new_value):
             nonlocal attributes_2
             elem.set_attribute(qualified_name, new_value)
             context.check_equal(len(attributes_1), len(attributes_2) + 1)
-            attributes_3 = list(attributes_1)
+            attributes_3 = list(attributes_1.values())
             context.check_equal(attributes_3[:-1], attributes_2)
             local_name = qualified_name.lower() if is_html else qualified_name
             check_attr(context, attributes_3[-1], None, None, local_name, new_value)
@@ -471,42 +462,42 @@ def test_Element_ToggleAttribute(context):
         now_present = elem.toggle_attribute("foo")
         context.check(now_present)
         context.check_equal(len(attributes), 1)
-        attr_1 = attributes[0]
+        attr_1 = attributes.item(0)
         check_attr(context, attr_1, None, None, "foo", "")
 
         now_present = elem.toggle_attribute("bar")
         context.check(now_present)
         context.check_equal(len(attributes), 2)
-        context.check_equal(attributes[0], attr_1)
-        check_attr(context, attributes[1], None, None, "bar", "")
+        context.check_equal(attributes.item(0), attr_1)
+        check_attr(context, attributes.item(1), None, None, "bar", "")
 
         now_present = elem.toggle_attribute("bar")
         context.check_not(now_present)
         context.check_equal(len(attributes), 1)
-        context.check_equal(attributes[0], attr_1)
+        context.check_equal(attributes.item(0), attr_1)
 
         now_present = elem.toggle_attribute("foo", force = True)
         context.check(now_present)
         context.check_equal(len(attributes), 1)
-        context.check_equal(attributes[0], attr_1)
+        context.check_equal(attributes.item(0), attr_1)
 
         now_present = elem.toggle_attribute("bar", force = True)
         context.check(now_present)
         context.check_equal(len(attributes), 2)
-        context.check_equal(attributes[0], attr_1)
-        attr_2 = attributes[1]
+        context.check_equal(attributes.item(0), attr_1)
+        attr_2 = attributes.item(1)
         check_attr(context, attr_2, None, None, "bar", "")
 
         now_present = elem.toggle_attribute("baz", force = False)
         context.check_not(now_present)
         context.check_equal(len(attributes), 2)
-        context.check_equal(attributes[0], attr_1)
-        context.check_equal(attributes[1], attr_2)
+        context.check_equal(attributes.item(0), attr_1)
+        context.check_equal(attributes.item(1), attr_2)
 
         now_present = elem.toggle_attribute("foo", force = False)
         context.check_not(now_present)
         context.check_equal(len(attributes), 1)
-        context.check_equal(attributes[0], attr_2)
+        context.check_equal(attributes.item(0), attr_2)
 
         # New element for testing matching rules
         elem = doc.create_element("elem")
@@ -541,20 +532,20 @@ def test_Element_SetAttributeNode(context):
     attr = elem.set_attribute_node(attr_1)
     context.check_is_none(attr)
     context.check_equal(len(attributes), 1)
-    context.check_equal(attributes[0], attr_1)
+    context.check_equal(attributes.item(0), attr_1)
 
     attr_2 = doc.create_attribute("foo")
     attr = elem.set_attribute_node(attr_2)
     context.check_equal(attr, attr_1)
     context.check_equal(len(attributes), 1)
-    context.check_equal(attributes[0], attr_2)
+    context.check_equal(attributes.item(0), attr_2)
 
     attr_3 = doc.create_attribute("bar")
     attr = elem.set_attribute_node(attr_3)
     context.check_is_none(attr)
     context.check_equal(len(attributes), 2)
-    context.check_equal(attributes[0], attr_2)
-    context.check_equal(attributes[1], attr_3)
+    context.check_equal(attributes.item(0), attr_2)
+    context.check_equal(attributes.item(1), attr_3)
 
 
 def test_Element_RemoveAttributeNode(context):
@@ -568,6 +559,90 @@ def test_Element_RemoveAttributeNode(context):
     context.check_equal(attr_2, attr)
     with context.check_raises(archon.dom.NotFoundError):
         elem.remove_attribute_node(attr)
+
+
+def test_Node_AttributesAsMapping(context):
+    # Quirkiness abound:
+    #
+    # * The attribute map may contain multiple attributes with the same key (`attr_1` and
+    #   `attr_2` below). In a sense, the attribute map is a multi-map.
+    #
+    # * In an HTML document, attributes with a qualified name that is not "ASCII lower case"
+    #   (`attr_3` and `attr_4` below) cannot be reached through subscription. I.e., if
+    #   `attr` is such an attribute and `map` is the attribute map, then there is no `key`
+    #   such that `map[key] == attr` or `map.get(key) == attr`. Likewise, there is no `key`
+    #   such that `key in map` is true so long as `key` is not the qualified name of some
+    #   other attribute in `map`. Further more, the list of keys as returned by `iter(map)`
+    #   or `map.keys()` does contain an entry for `attr`, but that key will appear to not be
+    #   in the map from the point of view of `map[key]`, `map.get(key)`, and `key in map`.
+    #
+    # Corresponding quirkiness is present in Firefox and Chrome browsers at the JavaScript
+    # level.
+    #
+    def check(doc, is_html):
+        elem = doc.create_element("elem")
+        attr_1 = doc.create_attribute_ns("ns1", "foo")
+        attr_2 = doc.create_attribute_ns("ns2", "foo")
+        attr_3 = doc.create_attribute_ns("ns3", "Foo")
+        attr_4 = doc.create_attribute_ns("ns3", "Bar")
+        elem.set_attribute_node(attr_1)
+        elem.set_attribute_node(attr_2)
+        elem.set_attribute_node(attr_3)
+        elem.set_attribute_node(attr_4)
+        attributes = elem.get_attributes()
+        context.check_equal(len(attributes), 4)
+        context.check_equal(attributes["foo"], attr_1)
+        context.check_equal(attributes["Foo"], attr_1 if is_html else attr_3)
+        with context.check_raises(KeyError):
+            attributes["bar"]
+        if is_html:
+            with context.check_raises(KeyError):
+                attributes["Bar"]
+        else:
+            context.check_equal(attributes["Bar"], attr_4)
+        with context.check_raises(TypeError):
+            attributes[1]
+        context.check_equal(attributes.get("foo"), attr_1)
+        context.check_equal(attributes.get("Foo"), attr_1 if is_html else attr_3)
+        context.check_equal(attributes.get("bar"), None)
+        context.check_equal(attributes.get("Bar"), None if is_html else attr_4)
+        context.check_equal("foo" in attributes, True)
+        context.check_equal("Foo" in attributes, True)
+        context.check_equal("bar" in attributes, False)
+        context.check_equal("Bar" in attributes, False if is_html else True)
+
+        attributes_2 = list(attributes)
+        context.check_equal(attributes_2[0], "foo")
+        context.check_equal(attributes_2[1], "foo")
+        context.check_equal(attributes_2[2], "Foo")
+        context.check_equal(attributes_2[3], "Bar")
+
+        keys = attributes.keys()
+        context.check_equal(len(keys), 4)
+        keys_2 = list(keys)
+        context.check_equal(keys_2[0], "foo")
+        context.check_equal(keys_2[1], "foo")
+        context.check_equal(keys_2[2], "Foo")
+        context.check_equal(keys_2[3], "Bar")
+
+        values = attributes.values()
+        context.check_equal(len(values), 4)
+        values_2 = list(values)
+        context.check_equal(values_2[0], attr_1)
+        context.check_equal(values_2[1], attr_2)
+        context.check_equal(values_2[2], attr_3)
+        context.check_equal(values_2[3], attr_4)
+
+        items = attributes.items()
+        context.check_equal(len(items), 4)
+        items_2 = list(items)
+        context.check_equal(items_2[0], ("foo", attr_1))
+        context.check_equal(items_2[1], ("foo", attr_2))
+        context.check_equal(items_2[2], ("Foo", attr_3))
+        context.check_equal(items_2[3], ("Bar", attr_4))
+
+    check( _make_xml_document(), False)
+    check( _make_html_document(), True)
 
 
 # Bridge to Python's native testing framework

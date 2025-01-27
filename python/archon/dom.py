@@ -1534,28 +1534,36 @@ class _Attributes(NamedNodeMap):
         self._element = element
 
     def __getitem__(self, key):
-        if type(key) == int:
-            state = self._element._state.attributes[key]
-            return _wrap_node(state, self._element._document)
-        assert type(key) == str
+        if type(key) != str:
+            raise TypeError
         attr = self.get_named_item(key)
         if not attr:
             raise KeyError
         return attr
 
     def __iter__(self):
-        return _AttributeIter(self._element)
+        return _AttributeKeyIter(self._element)
 
     def __len__(self):
         return len(self._element._state.attributes)
+
+    def keys(self):
+        return _AttributeKeys(self._element)
+
+    def values(self):
+        return _AttributeValues(self._element)
+
+    def items(self):
+        return _AttributeItems(self._element)
 
     def get_length(self):
         return len(self._element._state.attributes)
 
     def item(self, index):
-        if index < 0 or index >= len(self._list):
+        attributes = self._element._state.attributes
+        if index < 0 or index >= len(attributes):
             return None
-        return self._element._state.attributes[index]
+        return _wrap_node(attributes[index], self._element._document)
 
     def get_named_item(self, qualified_name):
         state = self._element._state.get_attribute_node(qualified_name)
@@ -1581,8 +1589,58 @@ class _Attributes(NamedNodeMap):
         return _wrap_node(state, self._element._document)
 
 
+class _AttributeKeys:
+    def __init__(self, element):
+        self._element = element
 
-class _AttributeIter:
+    def __len__(self):
+        return len(self._element._state.attributes)
+
+    def __iter__(self):
+        return _AttributeKeyIter(self._element)
+
+
+class _AttributeValues:
+    def __init__(self, element):
+        self._element = element
+
+    def __len__(self):
+        return len(self._element._state.attributes)
+
+    def __iter__(self):
+        return _AttributeValueIter(self._element)
+
+
+class _AttributeItems:
+    def __init__(self, element):
+        self._element = element
+
+    def __len__(self):
+        return len(self._element._state.attributes)
+
+    def __iter__(self):
+        return _AttributeItemIter(self._element)
+
+
+class _AttributeKeyIter:
+    def __init__(self, element):
+        self._element = element
+        self._index = -1
+
+    def __next__(self):
+        if self._index is not None:
+            self._index += 1
+            if self._index < len(self._element._state.attributes):
+                state = self._element._state.attributes[self._index]
+                return state.get_qualified_name()
+            self._index = None
+        raise StopIteration()
+
+    def __iter__(self):
+        return self
+
+
+class _AttributeValueIter:
     def __init__(self, element):
         self._element = element
         self._index = -1
@@ -1595,6 +1653,29 @@ class _AttributeIter:
                 return _wrap_node(state, self._element._document)
             self._index = None
         raise StopIteration()
+
+    def __iter__(self):
+        return self
+
+
+class _AttributeItemIter(_AttributeValueIter):
+    def __init__(self, element):
+        self._element = element
+        self._index = -1
+
+    def __next__(self):
+        if self._index is not None:
+            self._index += 1
+            if self._index < len(self._element._state.attributes):
+                state = self._element._state.attributes[self._index]
+                qualified_name = state.get_qualified_name()
+                attr = _wrap_node(state, self._element._document)
+                return qualified_name, attr
+            self._index = None
+        raise StopIteration()
+
+    def __iter__(self):
+        return self
 
 
 
