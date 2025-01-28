@@ -427,11 +427,11 @@ def _test(string, expected, expect_parse_error):
                 same_attributes = False
             else:
                 map = {}
-                for attr in attributes_2 :
+                for attr in attributes_2.values() :
                     key = (attr.get_namespace_uri(), attr.get_local_name())
                     assert key not in map
                     map[key] = attr
-                for attr in attributes_1:
+                for attr in attributes_1.values():
                     key = (attr.get_namespace_uri(), attr.get_local_name())
                     expected_attr = map.get(key)
                     if not expected_attr or attr.get_value() != expected_attr.get_value():

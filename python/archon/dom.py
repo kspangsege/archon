@@ -159,6 +159,9 @@ class Element(ParentNode, ChildNode, Node):
     def get_attributes(self):
         raise NotImplementedError()
 
+    def get_attribute_names(self):
+        raise NotImplementedError()
+
     def get_attribute(self, qualified_name):
         raise NotImplementedError()
 
@@ -360,7 +363,7 @@ def dump_document(document, max_string_size = 90):
                 dump(string, level)
                 return
             dump("%s:" % string, level)
-            for attr in node.get_attributes():
+            for attr in node.get_attributes().values():
                 string = format_name(attr.get_local_name())
                 prefix = attr.get_prefix()
                 if prefix is not None:
@@ -1029,6 +1032,9 @@ class _ElementImpl(_ParentNodeImpl, _ChildNodeImpl, _NodeImpl, Element):
         self._weak_attributes = weakref.ref(attributes)
         return attributes
 
+    def get_attribute_names(self):
+        return [attr.get_qualified_name() for attr in self._state.attributes]
+
     def get_attribute(self, qualified_name):
         return self._state.get_attribute(qualified_name)
 
@@ -1255,7 +1261,7 @@ class _ElementState(_ParentNodeState, _ChildNodeState, _NodeState):
 
     def _get_attribute_key_ns_q(self, qualified_name):
         i = qualified_name.find(":")
-        prefix = qualified_name[:i]
+        prefix = None if i < 0 else qualified_name[:i]
         local_name = qualified_name if i < 0 else qualified_name[i+1:]
         key = self._get_attribute_key_ns(local_name)
         return key, prefix, local_name

@@ -347,7 +347,7 @@ def test_Document_CreateAttributeNS(context):
         doc_1.create_attribute_ns("http://www.w3.org/2000/xmlns/", "p:foo")
 
 
-def test_Element_Basics(context):
+def test_Element_AttributeBasics(context):
     def check(doc, is_html):
         elem = doc.create_element("elem")
         attributes = elem.get_attributes()
@@ -389,6 +389,26 @@ def test_Element_HasAttributes(context):
     context.check_not(elem.has_attributes())
     elem.set_attribute("foo", "1")
     context.check(elem.has_attributes())
+
+
+def test_Element_GetAttributeNames(context):
+    def check(doc, is_html):
+        elem = doc.create_element("elem")
+        elem.set_attribute("Foo", "1")
+        elem.set_attribute("p:Bar", "2")
+        elem.set_attribute_ns("ns1", "Foo", "3")
+        elem.set_attribute_ns("ns2", "Foo", "4")
+        elem.set_attribute_ns("ns3", "p:Bar", "5")
+        names = elem.get_attribute_names()
+        context.check_equal(len(names), 5)
+        context.check_equal(names[0], "foo" if is_html else "Foo")
+        context.check_equal(names[1], "p:bar" if is_html else "p:Bar")
+        context.check_equal(names[2], "Foo")
+        context.check_equal(names[3], "Foo")
+        context.check_equal(names[4], "p:Bar")
+
+    check( _make_xml_document(), False)
+    check( _make_html_document(), True)
 
 
 def test_Element_SetAttribute(context):
