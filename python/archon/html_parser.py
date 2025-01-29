@@ -570,26 +570,26 @@ class TreeBuilder(Callbacks):
         return archon.dom.create_element(self._document, namespace_uri, prefix, local_name, attributes_2)
 
     def create_text(self, data):
-        return self._document.create_text_node(data)
+        return self._document.createTextNode(data)
 
     def create_comment(self, data):
-        return self._document.create_comment(data)
+        return self._document.createComment(data)
 
     def append_child(self, node, parent):
         # FIXME: If parent is a document node, detect and ignore invalid insertions        
-        if isinstance(node, archon.dom.Text) and parent.has_child_nodes():
-            assert not node.get_parent_node()
-            node_2 = parent.get_last_child()
+        if isinstance(node, archon.dom.Text) and parent.hasChildNodes():
+            assert not node.getParentNode()
+            node_2 = parent.getLastChild()
             if isinstance(node_2, archon.dom.Text):
-                data = node_2.get_data()
-                node_2.set_data(data + node.get_data())
+                data = node_2.getData()
+                node_2.setData(data + node.getData())
                 return
-        parent.append_child(node)
+        parent.appendChild(node)
 
     def move_children(self, old_parent, new_parent):
-        children = list(old_parent.get_child_nodes()) # Copy to allow mutation during iteration
+        children = list(old_parent.getChildNodes()) # Copy to allow mutation during iteration
         for node in children:
-            new_parent.append_child(node)
+            new_parent.appendChild(node)
 
 
 class ErrorHandler:
