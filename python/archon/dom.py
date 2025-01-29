@@ -549,6 +549,7 @@ def create_attribute(document, namespace_uri, prefix, local_name, value):
 class _NodeImpl(Node):
     def __init__(self, document, state):
         assert document
+        assert isinstance(document, _DocumentImpl)
         self._document = document
         self._state = state
 
@@ -649,12 +650,22 @@ class _ChildNodeState:
         return self.weak_parent_node and self.weak_parent_node()
 
     def migrate_if_needed(self, document_wrapper):
+        assert isinstance(document_wrapper, _DocumentImpl)
+        if self.weak_owner_document == document_wrapper._state.weak_self:
+            return
+        self._migrate(document_wrapper)
+
+    def _migrate(self, document_wrapper):
+        if isinstance(self, _ParentNodeState):
+            child = self.first_child
+            while child:
+                child._migrate(document_wrapper)
+                child = child.next_sibling
         document = document_wrapper._state
-        if self.weak_owner_document != document.weak_self:
-            self.weak_owner_document = document.weak_self
-            wrapper = self.try_get_wrapper()
-            if wrapper:
-                wrapper._document = document_wrapper
+        self.weak_owner_document = document.weak_self
+        wrapper = self.try_get_wrapper()
+        if wrapper:
+            wrapper._document = document_wrapper
 
 
 
@@ -686,13 +697,16 @@ class _ParentNodeImpl(ParentNode):
         return self._state.contains(_unwrap_node(other))
 
     def insert_before(self, node, child):
-        self._state.insert_before(_unwrap_node(node), _unwrap_optional_node(child), self)
+        document = self._document or self
+        self._state.insert_before(_unwrap_node(node), _unwrap_optional_node(child), document)
 
     def append_child(self, node):
-        self._state.append_child(_unwrap_node(node), self)
+        document = self._document or self
+        self._state.append_child(_unwrap_node(node), document)
 
     def replace_child(self, node, child):
-        self._state.replace_child(_unwrap_node(node), _unwrap_node(child), self)
+        document = self._document or self
+        self._state.replace_child(_unwrap_node(node), _unwrap_node(child), document)
 
     def remove_child(self, node):
         state = self._state.remove_child(_unwrap_node(node))

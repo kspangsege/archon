@@ -493,52 +493,429 @@ def test_Node_NodeName(context):
     context.check_equal(attr_2.get_node_name(), "p:xBar")
 
 
+def test_Node_ChildNodeBasics(context):
+    doc = _make_xml_document()
+    parent = doc.create_element("parent")
+    child_nodes = parent.get_child_nodes()
+    context.check_equal(parent.get_first_child(), None)
+    context.check_equal(parent.get_last_child(), None)
+    context.check_equal(child_nodes.get_length(), 0)
+    context.check_equal(child_nodes.item(-1), None)
+    context.check_equal(child_nodes.item(0), None)
+
+    child_1 = doc.create_text_node("1")
+    parent.append_child(child_1)
+    context.check_equal(parent.get_first_child(), child_1)
+    context.check_equal(parent.get_last_child(), child_1)
+    context.check_equal(child_nodes.get_length(), 1)
+    context.check_equal(child_nodes.item(-1), None)
+    context.check_equal(child_nodes.item(0), child_1)
+    context.check_equal(child_nodes.item(1), None)
+
+    child_2 = doc.create_text_node("2")
+    parent.append_child(child_2)
+    context.check_equal(parent.get_first_child(), child_1)
+    context.check_equal(parent.get_last_child(), child_2)
+    context.check_equal(child_nodes.get_length(), 2)
+    context.check_equal(child_nodes.item(-1), None)
+    context.check_equal(child_nodes.item(0), child_1)
+    context.check_equal(child_nodes.item(1), child_2)
+    context.check_equal(child_nodes.item(2), None)
+
+    child_3 = doc.create_text_node("3")
+    parent.append_child(child_3)
+    context.check_equal(parent.get_first_child(), child_1)
+    context.check_equal(parent.get_last_child(), child_3)
+    context.check_equal(child_nodes.get_length(), 3)
+    context.check_equal(child_nodes.item(-1), None)
+    context.check_equal(child_nodes.item(0), child_1)
+    context.check_equal(child_nodes.item(1), child_2)
+    context.check_equal(child_nodes.item(2), child_3)
+    context.check_equal(child_nodes.item(3), None)
+
+    parent.remove_child(child_2)
+    context.check_equal(parent.get_first_child(), child_1)
+    context.check_equal(parent.get_last_child(), child_3)
+    context.check_equal(child_nodes.get_length(), 2)
+    context.check_equal(child_nodes.item(-1), None)
+    context.check_equal(child_nodes.item(0), child_1)
+    context.check_equal(child_nodes.item(1), child_3)
+    context.check_equal(child_nodes.item(2), None)
+
+
+def test_Node_ParentNode(context):
+    doc = _make_xml_document()
+    context.check_equal(doc.get_parent_node(), None)
+    elem = doc.create_element("elem")
+    attr = doc.create_attribute("attr")
+    context.check_equal(attr.get_parent_node(), None)
+    elem.set_attribute_node(attr)
+    context.check_equal(attr.get_parent_node(), None)
+
+    impl = doc.get_implementation()
+    doctype = impl.create_document_type("foo", "bar", "baz")
+    context.check_equal(doctype.get_parent_node(), None)
+    doc.append_child(doctype)
+    context.check_equal(doctype.get_parent_node(), doc)
+    doc.remove_child(doctype)
+    context.check_equal(doctype.get_parent_node(), None)
+
+    def check(child):
+        context.check_equal(child.get_parent_node(), None)
+        elem.append_child(child)
+        context.check_equal(child.get_parent_node(), elem)
+        elem.remove_child(child)
+        context.check_equal(child.get_parent_node(), None)
+
+    check(doc.create_element("foo"))
+    check(doc.create_text_node("foo"))
+    check(doc.create_comment("foo"))
+
+
+def test_Node_HasChildNodes(context):
+    doc = _make_xml_document()
+    context.check_not(doc.has_child_nodes())
+    elem = doc.create_element("elem")
+    context.check_not(elem.has_child_nodes())
+    doc.append_child(elem)
+    context.check(doc.has_child_nodes())
+    context.check_not(elem.has_child_nodes())
+    elem.append_child(doc.create_text_node("text"))
+    context.check(elem.has_child_nodes())
+
+    impl = doc.get_implementation()
+    doctype = impl.create_document_type("foo", "bar", "baz")
+    context.check_not(doctype.has_child_nodes())
+    text = doc.create_text_node("text")
+    context.check_not(text.has_child_nodes())
+    comment = doc.create_comment("comment")
+    context.check_not(comment.has_child_nodes())
+
+
+def test_Node_PreviousNextSibling(context):
+    doc = _make_xml_document()
+    context.check_equal(doc.get_previous_sibling(), None)
+    context.check_equal(doc.get_next_sibling(), None)
+    elem = doc.create_element("elem")
+    attr_1 = doc.create_attribute("attr_1")
+    attr_2 = doc.create_attribute("attr_2")
+    context.check_equal(attr_1.get_previous_sibling(), None)
+    context.check_equal(attr_1.get_next_sibling(), None)
+    context.check_equal(attr_2.get_previous_sibling(), None)
+    context.check_equal(attr_2.get_next_sibling(), None)
+    elem.set_attribute_node(attr_1)
+    elem.set_attribute_node(attr_2)
+    context.check_equal(attr_1.get_previous_sibling(), None)
+    context.check_equal(attr_1.get_next_sibling(), None)
+    context.check_equal(attr_2.get_previous_sibling(), None)
+    context.check_equal(attr_2.get_next_sibling(), None)
+
+    comment_1 = doc.create_comment("comment 1")
+    comment_2 = doc.create_comment("comment 2")
+
+    impl = doc.get_implementation()
+    doctype = impl.create_document_type("foo", "bar", "baz")
+    context.check_equal(doctype.get_previous_sibling(), None)
+    context.check_equal(doctype.get_next_sibling(), None)
+    doc.append_child(doctype)
+    context.check_equal(doctype.get_previous_sibling(), None)
+    context.check_equal(doctype.get_next_sibling(), None)
+    doc.remove_child(doctype)
+    doc.append_child(comment_1)
+    doc.append_child(doctype)
+    context.check_equal(doctype.get_previous_sibling(), comment_1)
+    context.check_equal(doctype.get_next_sibling(), None)
+    doc.append_child(comment_2)
+    context.check_equal(doctype.get_previous_sibling(), comment_1)
+    context.check_equal(doctype.get_next_sibling(), comment_2)
+    doc.remove_child(comment_1)
+    context.check_equal(doctype.get_previous_sibling(), None)
+    context.check_equal(doctype.get_next_sibling(), comment_2)
+    doc.remove_child(doctype)
+    context.check_equal(doctype.get_previous_sibling(), None)
+    context.check_equal(doctype.get_next_sibling(), None)
+    doc.remove_child(comment_2)
+
+    def check(child):
+        context.check_equal(child.get_previous_sibling(), None)
+        context.check_equal(child.get_next_sibling(), None)
+        elem.append_child(child)
+        context.check_equal(child.get_previous_sibling(), None)
+        context.check_equal(child.get_next_sibling(), None)
+        elem.remove_child(child)
+        elem.append_child(comment_1)
+        elem.append_child(child)
+        context.check_equal(child.get_previous_sibling(), comment_1)
+        context.check_equal(child.get_next_sibling(), None)
+        elem.append_child(comment_2)
+        context.check_equal(child.get_previous_sibling(), comment_1)
+        context.check_equal(child.get_next_sibling(), comment_2)
+        elem.remove_child(comment_1)
+        context.check_equal(child.get_previous_sibling(), None)
+        context.check_equal(child.get_next_sibling(), comment_2)
+        elem.remove_child(child)
+        context.check_equal(child.get_previous_sibling(), None)
+        context.check_equal(child.get_next_sibling(), None)
+        elem.remove_child(comment_2)
+
+    check(doc.create_element("foo"))
+    check(doc.create_text_node("foo"))
+    check(doc.create_comment("foo"))
+
+
 def test_Node_AppendChild(context):
     doc = _make_xml_document()
     root = doc.create_element("root")
-    context.check_not(root.has_child_nodes())
-    context.check_equal(root.get_first_child(), None)
-    context.check_equal(root.get_last_child(), None)
-    context.check_equal(len(root.get_child_nodes()), 0)
 
-    foo = doc.create_element("foo")
-    root.append_child(foo)
-    context.check(root.has_child_nodes())
-    context.check_equal(root.get_first_child(), foo)
-    context.check_equal(root.get_last_child(), foo)
-    context.check_equal(len(root.get_child_nodes()), 1)
-    context.check_equal(root.get_child_nodes()[0], foo)
-    context.check_equal(foo.get_previous_sibling(), None)
-    context.check_equal(foo.get_next_sibling(), None)
+    def check(grandparent, parent, is_connected):
+        child_nodes = parent.get_child_nodes()
+        context.check_equal(parent.get_first_child(), None)
+        context.check_equal(parent.get_last_child(), None)
+        context.check_equal(child_nodes.get_length(), 0)
 
-    bar = doc.create_element("bar")
-    root.append_child(bar)
-    context.check(root.has_child_nodes())
-    context.check_equal(root.get_first_child(), foo)
-    context.check_equal(root.get_last_child(), bar)
-    context.check_equal(len(root.get_child_nodes()), 2)
-    context.check_equal(root.get_child_nodes()[0], foo)
-    context.check_equal(root.get_child_nodes()[1], bar)
-    context.check_equal(foo.get_previous_sibling(), None)
-    context.check_equal(foo.get_next_sibling(), bar)
-    context.check_equal(bar.get_previous_sibling(), foo)
-    context.check_equal(bar.get_next_sibling(), None)
+        child_1 = doc.create_element("elem")
+        parent.append_child(child_1)
+        context.check_equal(parent.get_first_child(), child_1)
+        context.check_equal(parent.get_last_child(), child_1)
+        context.check_equal(child_nodes.get_length(), 1)
+        context.check_equal(child_nodes.item(0), child_1)
+        context.check_equal(child_1.get_parent_node(), parent)
+        context.check_equal(child_1.get_previous_sibling(), None)
+        context.check_equal(child_1.get_next_sibling(), None)
 
-    baz = doc.create_text_node("baz")
-    root.append_child(baz)
-    context.check(root.has_child_nodes())
-    context.check_equal(root.get_first_child(), foo)
-    context.check_equal(root.get_last_child(), baz)
-    context.check_equal(len(root.get_child_nodes()), 3)
-    context.check_equal(root.get_child_nodes()[0], foo)
-    context.check_equal(root.get_child_nodes()[1], bar)
-    context.check_equal(root.get_child_nodes()[2], baz)
-    context.check_equal(foo.get_previous_sibling(), None)
-    context.check_equal(foo.get_next_sibling(), bar)
-    context.check_equal(bar.get_previous_sibling(), foo)
-    context.check_equal(bar.get_next_sibling(), baz)
-    context.check_equal(baz.get_previous_sibling(), bar)
-    context.check_equal(baz.get_next_sibling(), None)
+        child_2 = doc.create_text_node("text")
+        parent.append_child(child_2)
+        context.check_equal(parent.get_first_child(), child_1)
+        context.check_equal(parent.get_last_child(), child_2)
+        context.check_equal(child_nodes.get_length(), 2)
+        context.check_equal(child_nodes.item(0), child_1)
+        context.check_equal(child_nodes.item(1), child_2)
+        context.check_equal(child_1.get_parent_node(), parent)
+        context.check_equal(child_1.get_previous_sibling(), None)
+        context.check_equal(child_1.get_next_sibling(), child_2)
+        context.check_equal(child_2.get_parent_node(), parent)
+        context.check_equal(child_2.get_previous_sibling(), child_1)
+        context.check_equal(child_2.get_next_sibling(), None)
+
+        child_3 = doc.create_comment("comment")
+        parent.append_child(child_3)
+        context.check_equal(parent.get_first_child(), child_1)
+        context.check_equal(parent.get_last_child(), child_3)
+        context.check_equal(child_nodes.get_length(), 3)
+        context.check_equal(child_nodes.item(0), child_1)
+        context.check_equal(child_nodes.item(1), child_2)
+        context.check_equal(child_nodes.item(2), child_3)
+        context.check_equal(child_1.get_parent_node(), parent)
+        context.check_equal(child_1.get_previous_sibling(), None)
+        context.check_equal(child_1.get_next_sibling(), child_2)
+        context.check_equal(child_2.get_parent_node(), parent)
+        context.check_equal(child_2.get_previous_sibling(), child_1)
+        context.check_equal(child_2.get_next_sibling(), child_3)
+        context.check_equal(child_3.get_parent_node(), parent)
+        context.check_equal(child_3.get_previous_sibling(), child_2)
+        context.check_equal(child_3.get_next_sibling(), None)
+
+        parent.remove_child(child_3)
+        parent.remove_child(child_2)
+
+        def subcheck(child, subchild):
+            parent.append_child(child)
+            context.check_equal(parent.get_first_child(), child_1)
+            context.check_equal(parent.get_last_child(), child)
+            context.check_equal(child_nodes.get_length(), 2)
+            context.check_equal(child_nodes.item(0), child_1)
+            context.check_equal(child_nodes.item(1), child)
+            context.check_equal(child_1.get_parent_node(), parent)
+            context.check_equal(child_1.get_previous_sibling(), None)
+            context.check_equal(child_1.get_next_sibling(), child)
+            context.check_equal(child.get_parent_node(), parent)
+            context.check_equal(child.get_previous_sibling(), child_1)
+            context.check_equal(child.get_next_sibling(), None)
+            context.check_equal(child.get_owner_document(), doc)
+            if subchild:
+                context.check_equal(subchild.get_parent_node(), child)
+                context.check_equal(subchild.get_owner_document(), doc)
+
+        child = doc.create_text_node("text")
+        subcheck(child, None)
+        parent.remove_child(child)
+        child = doc.create_element("elem")
+        subchild = doc.create_text_node("text")
+        child.append_child(subchild)
+        subcheck(child, subchild)
+        parent.remove_child(child)
+        child = doc.create_text_node("text")
+        root.append_child(child)
+        subcheck(child, None)
+        parent.remove_child(child)
+        child = doc.create_element("elem")
+        subchild = doc.create_text_node("text")
+        child.append_child(subchild)
+        root.append_child(child)
+        subcheck(child, subchild)
+        parent.remove_child(child)
+
+        child = doc.create_text_node("text")
+        parent.append_child(child)
+        subcheck(child, None)
+        parent.remove_child(child)
+        child = doc.create_element("elem")
+        subchild = doc.create_text_node("text")
+        child.append_child(subchild)
+        parent.append_child(child)
+        subcheck(child, subchild)
+        parent.remove_child(child)
+
+        doc_2 = _make_xml_document()
+        root_2 = doc.create_element("root")
+        child = doc_2.create_text_node("text")
+        subcheck(child, None)
+        parent.remove_child(child)
+        child = doc_2.create_element("elem")
+        subchild = doc_2.create_text_node("text")
+        child.append_child(subchild)
+        subcheck(child, subchild)
+        parent.remove_child(child)
+        child = doc_2.create_text_node("text")
+        root_2.append_child(child)
+        subcheck(child, None)
+        parent.remove_child(child)
+        child = doc_2.create_element("elem")
+        subchild = doc_2.create_text_node("text")
+        child.append_child(subchild)
+        root_2.append_child(child)
+        subcheck(child, subchild)
+        parent.remove_child(child)
+
+        with context.check_raises(archon.dom.HierarchyRequestError):
+            parent.append_child(grandparent)
+        with context.check_raises(archon.dom.HierarchyRequestError):
+            parent.append_child(parent)
+
+    grandparent = doc.create_element("grandparent")
+    parent = doc.create_element("parent")
+    grandparent.append_child(parent)
+    check(grandparent, parent, False)
+    grandparent = doc.create_element("grandparent")
+    parent = doc.create_element("parent")
+    grandparent.append_child(parent)
+    root.append_child(grandparent)
+    check(root, parent, True)
+
+    # Check appended to a document parent
+
+    doc = _make_xml_document()
+    context.check_equal(doc.has_child_nodes(), False)
+    impl = doc.get_implementation()
+    child = impl.create_document_type("foo", "bar", "baz")
+    doc.append_child(child)
+    context.check_equal(doc.has_child_nodes(), True)
+
+    doc = _make_xml_document()
+    context.check_equal(doc.has_child_nodes(), False)
+    child = doc.create_element("elem")
+    doc.append_child(child)
+    context.check_equal(doc.has_child_nodes(), True)
+
+    doc = _make_xml_document()
+    context.check_equal(doc.has_child_nodes(), False)
+    child = doc.create_comment("comment")
+    doc.append_child(child)
+    context.check_equal(doc.has_child_nodes(), True)
+
+    doc = _make_xml_document()
+    with context.check_raises(archon.dom.HierarchyRequestError):
+        doc.append_child(_make_xml_document())
+    with context.check_raises(archon.dom.HierarchyRequestError):
+        doc.append_child(doc.create_text_node("text"))
+    with context.check_raises(archon.dom.HierarchyRequestError):
+        doc.append_child(doc.create_attribute("attr"))
+
+    doc = _make_xml_document()
+    impl = doc.get_implementation()
+    doctype = impl.create_document_type("foo", "bar", "baz")
+    doc.append_child(doctype)
+    with context.check_raises(archon.dom.HierarchyRequestError):
+        doc.append_child(impl.create_document_type("foo", "bar", "baz"))
+
+    doc = _make_xml_document()
+    impl = doc.get_implementation()
+    elem = doc.create_element("elem")
+    doc.append_child(elem)
+    with context.check_raises(archon.dom.HierarchyRequestError):
+        doc.append_child(impl.create_document_type("foo", "bar", "baz"))
+    with context.check_raises(archon.dom.HierarchyRequestError):
+        doc.append_child(doc.create_element("elem"))
+
+    # Check appended to an element parent
+
+    doc = _make_xml_document()
+    elem = doc.create_element("parent")
+    context.check_equal(elem.has_child_nodes(), False)
+    child = doc.create_element("elem")
+    elem.append_child(child)
+    context.check_equal(elem.has_child_nodes(), True)
+
+    elem = doc.create_element("parent")
+    context.check_equal(elem.has_child_nodes(), False)
+    child = doc.create_text_node("text")
+    elem.append_child(child)
+    context.check_equal(elem.has_child_nodes(), True)
+
+    elem = doc.create_element("parent")
+    context.check_equal(elem.has_child_nodes(), False)
+    child = doc.create_comment("comment")
+    elem.append_child(child)
+    context.check_equal(elem.has_child_nodes(), True)
+
+    elem = doc.create_element("parent")
+    impl = doc.get_implementation()
+    with context.check_raises(archon.dom.HierarchyRequestError):
+        elem.append_child(_make_xml_document())
+    with context.check_raises(archon.dom.HierarchyRequestError):
+        elem.append_child(impl.create_document_type("foo", "bar", "baz"))
+    with context.check_raises(archon.dom.HierarchyRequestError):
+        elem.append_child(doc.create_attribute("attr"))
+
+    # Check that no kinds of nodes can be appended to a non-parent node
+
+    doc = _make_xml_document()
+    impl = doc.get_implementation()
+    def check(parent):
+        with context.check_raises(archon.dom.HierarchyRequestError):
+            parent.append_child(_make_xml_document())
+        with context.check_raises(archon.dom.HierarchyRequestError):
+            parent.append_child(doc.create_element("elem"))
+        with context.check_raises(archon.dom.HierarchyRequestError):
+            parent.append_child(impl.create_document_type("foo", "bar", "baz"))
+        with context.check_raises(archon.dom.HierarchyRequestError):
+            parent.append_child(doc.create_text_node("text"))
+        with context.check_raises(archon.dom.HierarchyRequestError):
+            parent.append_child(doc.create_comment("comment"))
+        with context.check_raises(archon.dom.HierarchyRequestError):
+            parent.append_child(doc.create_attribute("attr"))
+    check(impl.create_document_type("foo", "bar", "baz"))
+    check(doc.create_text_node("test"))
+    check(doc.create_comment("comment"))
+    check(doc.create_attribute("attr"))
+
+    # Check that non-node arguments are properly dealt with
+
+    class WrongImplText(archon.dom.Text):
+        pass
+
+    def check(elem):
+        with context.check_raises(TypeError):
+            elem.append_child(None)
+        with context.check_raises(TypeError):
+            elem.append_child(7)
+        with context.check_raises(TypeError):
+            elem.append_child("foo")
+        with context.check_raises(TypeError):
+            elem.append_child(WrongImplText())
+    doc = _make_xml_document()
+    check(doc)
+    check(doc.create_element("elem"))
 
 
 def test_Node_InsertBefore(context):
@@ -651,6 +1028,7 @@ def test_Node_RemoveChild(context):
 
 
 def test_Node_ChildNodesAsSequence(context):
+    # FIXME: More needs to be tested here: len(), argument validity, ...    
     doc = _make_xml_document()
     root = doc.create_element("root")
     foo = doc.create_element("foo")
@@ -764,19 +1142,19 @@ def test_Element_AttributeBasics(context):
     def check(doc, is_html):
         elem = doc.create_element("elem")
         attributes = elem.get_attributes()
-        context.check_equal(len(attributes), 0)
+        context.check_equal(attributes.get_length(), 0)
         context.check_equal(attributes.item(-1), None)
         context.check_equal(attributes.item(0), None)
 
         elem.set_attribute("p:foo", "1")
-        context.check_equal(len(attributes), 1)
+        context.check_equal(attributes.get_length(), 1)
         attr_1 = attributes.item(0)
         check_attr(context, attr_1, None, None, "p:foo", "1")
         context.check_equal(attributes.item(-1), None)
         context.check_equal(attributes.item(1), None)
 
         elem.set_attribute("p:Bar", "2")
-        context.check_equal(len(attributes), 2)
+        context.check_equal(attributes.get_length(), 2)
         context.check_equal(attributes.item(0), attr_1)
         attr_2 = attributes.item(1)
         check_attr(context, attr_2, None, None, "p:bar" if is_html else "p:Bar", "2")
@@ -784,7 +1162,7 @@ def test_Element_AttributeBasics(context):
         context.check_equal(attributes.item(2), None)
 
         elem.set_attribute_ns("ns", "p:Baz", "3")
-        context.check_equal(len(attributes), 3)
+        context.check_equal(attributes.get_length(), 3)
         context.check_equal(attributes.item(0), attr_1)
         context.check_equal(attributes.item(1), attr_2)
         attr_3 = attributes.item(2)
