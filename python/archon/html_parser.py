@@ -428,7 +428,7 @@ class Source:
     # character. No returned line can be the empty string. Zero lines can be returned
     # altogether.
     def read_line(self):
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def reached_line_number(self, line_number):
         pass
@@ -976,7 +976,10 @@ class _Session:
         location = token.location
         if isinstance(token, _Doctype):
             # FIXME: If the DOCTYPE token's name is not "html", or the token's public identifier is not missing, or the token's system identifier is neither missing nor "about:legacy-compat", then there is a parse error.                                                                     
-            self._insert_doctype(token.name, token.public_id, token.system_id, parent = self._document)
+            name = token.name or ""
+            public_id = token.public_id or ""
+            system_id = token.system_id or ""
+            self._insert_doctype(name, public_id, system_id, parent = self._document)
             # FIXME: Deal with quirks mode and limited-quirks mode            
             self._insertion_mode = _InsertionMode.BEFORE_HTML
             return True

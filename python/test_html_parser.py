@@ -256,6 +256,12 @@ def _test(string, expected, expect_parse_error):
         class Tokenizer(html.parser.HTMLParser):
             def handle_decl(self, decl):
                 name, public_id, system_id = parse_expected_doctype(decl)
+                if name is None:
+                    name = ""
+                if public_id is None:
+                    public_id = ""
+                if system_id is None:
+                    system_id = ""
                 append(archon.dom.create_document_type(document, name, public_id, system_id))
             def handle_data(self, data):
                 append(document.create_text_node(data))

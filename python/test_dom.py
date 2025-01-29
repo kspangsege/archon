@@ -22,6 +22,388 @@ def check_attr(context, attr, namespace_uri, prefix, local_name, value):
 
 
 
+def test_CreateXMLDocument(context):
+    doc = archon.dom.create_xml_document()
+    context.check_equal(doc.get_content_type(), "application/xml")
+    doc = archon.dom.create_xml_document(content_type = None)
+    context.check_equal(doc.get_content_type(), "application/xml")
+    doc = archon.dom.create_xml_document(content_type = "foo")
+    context.check_equal(doc.get_content_type(), "foo")
+    with context.check_raises(TypeError):
+        archon.dom.create_xml_document(content_type = 7)
+
+
+def test_CreateHTMLDocument(context):
+    doc = archon.dom.create_html_document()
+    context.check_equal(doc.get_content_type(), "text/html")
+    doc = archon.dom.create_html_document(content_type = None)
+    context.check_equal(doc.get_content_type(), "text/html")
+    doc = archon.dom.create_html_document(content_type = "foo")
+    context.check_equal(doc.get_content_type(), "foo")
+    with context.check_raises(TypeError):
+        archon.dom.create_html_document(content_type = 7)
+
+
+def test_CreateDocumentType(context):
+    def check(doc, is_html):
+        doctype = archon.dom.create_document_type(doc, "Foo", "Bar", "Baz")
+        context.check_equal(doctype.get_owner_document(), doc)
+
+        doctype = archon.dom.create_document_type(doc, "Foo", "Bar", "Baz")
+        context.check_equal(doctype.get_name(), "Foo")
+        context.check_equal(doctype.get_public_id(), "Bar")
+        context.check_equal(doctype.get_system_id(), "Baz")
+
+        doctype = archon.dom.create_document_type(doc, "", "", "")
+        context.check_equal(doctype.get_name(), "")
+        context.check_equal(doctype.get_public_id(), "")
+        context.check_equal(doctype.get_system_id(), "")
+
+        bad_doc = doc.create_text_node("foo")
+        with context.check_raises(TypeError):
+            archon.dom.create_document_type(None, "Foo", "Bar", "Baz")
+        with context.check_raises(TypeError):
+            archon.dom.create_document_type(bad_doc, "Foo", "Bar", "Baz")
+
+        with context.check_raises(TypeError):
+            archon.dom.create_document_type(doc, 7, "Bar", "Baz")
+        with context.check_raises(TypeError):
+            archon.dom.create_document_type(doc, None, "Bar", "Baz")
+        with context.check_raises(TypeError):
+            archon.dom.create_document_type(doc, "Foo", 7, "Baz")
+        with context.check_raises(TypeError):
+            archon.dom.create_document_type(doc, "Foo", None, "Baz")
+        with context.check_raises(TypeError):
+            archon.dom.create_document_type(doc, "Foo", "Bar", 7)
+        with context.check_raises(TypeError):
+            archon.dom.create_document_type(doc, "Foo", "Bar", None)
+
+        with context.check_raises(ValueError):
+            archon.dom.create_document_type(doc, "x x", "Bar", "Baz")
+        with context.check_raises(ValueError):
+            archon.dom.create_document_type(doc, "x\0x", "Bar", "Baz")
+
+    check(_make_xml_document(), False)
+    check(_make_html_document(), True)
+
+
+def test_CreateAttribute(context):
+    def check(doc, is_html):
+        attr = archon.dom.create_attribute(doc, "ns", "p", "Foo", "")
+        context.check_equal(attr.get_owner_document(), doc)
+
+        attr = archon.dom.create_attribute(doc, "ns", "p", "Foo", "")
+        context.check_equal(attr.get_namespace_uri(), "ns")
+        context.check_equal(attr.get_prefix(), "p")
+        context.check_equal(attr.get_local_name(), "Foo")
+
+        attr = archon.dom.create_attribute(doc, "ns", None, "Foo", "")
+        context.check_equal(attr.get_namespace_uri(), "ns")
+        context.check_equal(attr.get_prefix(), None)
+        context.check_equal(attr.get_local_name(), "Foo")
+
+        attr = archon.dom.create_attribute(doc, None, None, "Foo", "")
+        context.check_equal(attr.get_namespace_uri(), None)
+        context.check_equal(attr.get_prefix(), None)
+        context.check_equal(attr.get_local_name(), "Foo")
+
+        attr = archon.dom.create_attribute(doc, "ns", None, "@:p:Foo", "")
+        context.check_equal(attr.get_namespace_uri(), "ns")
+        context.check_equal(attr.get_prefix(), None)
+        context.check_equal(attr.get_local_name(), "@:p:Foo")
+
+        attr = archon.dom.create_attribute(doc, None, None, "@:p:Foo", "")
+        context.check_equal(attr.get_namespace_uri(), None)
+        context.check_equal(attr.get_prefix(), None)
+        context.check_equal(attr.get_local_name(), "@:p:Foo")
+
+        attr = archon.dom.create_attribute(doc, "http://www.w3.org/XML/1998/namespace", "xml", "foo", "")
+        context.check_equal(attr.get_namespace_uri(), "http://www.w3.org/XML/1998/namespace")
+        context.check_equal(attr.get_prefix(), "xml")
+        context.check_equal(attr.get_local_name(), "foo")
+
+        attr = archon.dom.create_attribute(doc, "http://www.w3.org/2000/xmlns/", "xmlns", "foo", "")
+        context.check_equal(attr.get_namespace_uri(), "http://www.w3.org/2000/xmlns/")
+        context.check_equal(attr.get_prefix(), "xmlns")
+        context.check_equal(attr.get_local_name(), "foo")
+
+        attr = archon.dom.create_attribute(doc, "http://www.w3.org/2000/xmlns/", None, "xmlns", "")
+        context.check_equal(attr.get_namespace_uri(), "http://www.w3.org/2000/xmlns/")
+        context.check_equal(attr.get_prefix(), None)
+        context.check_equal(attr.get_local_name(), "xmlns")
+
+        bad_doc = doc.create_text_node("foo")
+        with context.check_raises(TypeError):
+            archon.dom.create_attribute(None, "ns", "p", "Foo", "")
+        with context.check_raises(TypeError):
+            archon.dom.create_attribute(bad_doc, "ns", "p", "Foo", "")
+
+        with context.check_raises(TypeError):
+            archon.dom.create_attribute(doc, 7, "p", "Foo", "")
+        with context.check_raises(TypeError):
+            archon.dom.create_attribute(doc, "ns", 7, "Foo", "")
+        with context.check_raises(TypeError):
+            archon.dom.create_attribute(doc, "ns", "p", 7, "")
+
+        with context.check_raises(TypeError):
+            archon.dom.create_attribute(doc, None, None, None, "")
+        with context.check_raises(TypeError):
+            archon.dom.create_attribute(doc, "ns", None, None, "")
+        with context.check_raises(TypeError):
+            archon.dom.create_attribute(doc, "ns", "p", None, "")
+
+        with context.check_raises(ValueError):
+            archon.dom.create_attribute(doc, None, None, "", "")
+        with context.check_raises(ValueError):
+            archon.dom.create_attribute(doc, None, None, "x x", "")
+        with context.check_raises(ValueError):
+            archon.dom.create_attribute(doc, None, None, "x\0x", "")
+        with context.check_raises(ValueError):
+            archon.dom.create_attribute(doc, None, None, "x/x", "")
+
+        with context.check_raises(ValueError):
+            archon.dom.create_attribute(doc, "ns", None, "", "")
+        with context.check_raises(ValueError):
+            archon.dom.create_attribute(doc, "ns", None, "x x", "")
+        with context.check_raises(ValueError):
+            archon.dom.create_attribute(doc, "ns", None, "x\0x", "")
+        with context.check_raises(ValueError):
+            archon.dom.create_attribute(doc, "ns", None, "x/x", "")
+
+        with context.check_raises(ValueError):
+            archon.dom.create_attribute(doc, "ns", "p", "", "")
+        with context.check_raises(ValueError):
+            archon.dom.create_attribute(doc, "ns", "p", "x x", "")
+        with context.check_raises(ValueError):
+            archon.dom.create_attribute(doc, "ns", "p", "x\0x", "")
+        with context.check_raises(ValueError):
+            archon.dom.create_attribute(doc, "ns", "p", "x/x", "")
+        with context.check_raises(ValueError):
+            archon.dom.create_attribute(doc, "ns", "p", "x:x", "")
+        with context.check_raises(ValueError):
+            archon.dom.create_attribute(doc, "ns", "p", "x@x", "")
+
+        with context.check_raises(ValueError):
+            archon.dom.create_attribute(doc, "ns", "", "Foo", "")
+        with context.check_raises(ValueError):
+            archon.dom.create_attribute(doc, "ns", "x x", "Foo", "")
+        with context.check_raises(ValueError):
+            archon.dom.create_attribute(doc, "ns", "x\0x", "Foo", "")
+        with context.check_raises(ValueError):
+            archon.dom.create_attribute(doc, "ns", "x/x", "Foo", "")
+        with context.check_raises(ValueError):
+            archon.dom.create_attribute(doc, "ns", "x:x", "Foo", "")
+        with context.check_raises(ValueError):
+            archon.dom.create_attribute(doc, "ns", "x@x", "Foo", "")
+
+        with context.check_raises(ValueError):
+            archon.dom.create_attribute(doc, "", None, "Foo", "")
+        with context.check_raises(ValueError):
+            archon.dom.create_attribute(doc, "", "p", "Foo", "")
+
+        with context.check_raises(ValueError):
+            archon.dom.create_attribute(doc, None, "p", "Foo", "")
+        with context.check_raises(ValueError):
+            archon.dom.create_attribute(doc, "ns", "xml", "Foo", "")
+        with context.check_raises(ValueError):
+            archon.dom.create_attribute(doc, "ns", "xmlns", "Foo", "")
+
+        with context.check_raises(ValueError):
+            archon.dom.create_attribute(doc, "http://www.w3.org/2000/xmlns/", None, "Foo", "")
+        with context.check_raises(ValueError):
+            archon.dom.create_attribute(doc, "http://www.w3.org/2000/xmlns/", "p", "Foo", "")
+        with context.check_raises(ValueError):
+            archon.dom.create_attribute(doc, "http://www.w3.org/2000/xmlns/", "p", "xmlns", "")
+
+        attr = archon.dom.create_attribute(doc, "ns", "p", "foo", "")
+        context.check_equal(attr.get_value(), "")
+        attr = archon.dom.create_attribute(doc, "ns", "p", "foo", "1")
+        context.check_equal(attr.get_value(), "1")
+        with context.check_raises(TypeError):
+            archon.dom.create_attribute(doc, "ns", "p", "foo", None)
+        with context.check_raises(TypeError):
+            archon.dom.create_attribute(doc, "ns", "p", "foo", 7)
+
+    check(_make_xml_document(), False)
+    check(_make_html_document(), True)
+
+
+def test_CreateElement(context):
+    def check(doc, is_html):
+        elem = archon.dom.create_element(doc, "ns", "p", "Foo", [])
+        context.check_equal(elem.get_owner_document(), doc)
+
+        elem = archon.dom.create_element(doc, "ns", "p", "Foo", [])
+        context.check_equal(elem.get_namespace_uri(), "ns")
+        context.check_equal(elem.get_prefix(), "p")
+        context.check_equal(elem.get_local_name(), "Foo")
+
+        elem = archon.dom.create_element(doc, "ns", None, "Foo", [])
+        context.check_equal(elem.get_namespace_uri(), "ns")
+        context.check_equal(elem.get_prefix(), None)
+        context.check_equal(elem.get_local_name(), "Foo")
+
+        elem = archon.dom.create_element(doc, None, None, "Foo", [])
+        context.check_equal(elem.get_namespace_uri(), None)
+        context.check_equal(elem.get_prefix(), None)
+        context.check_equal(elem.get_local_name(), "Foo")
+
+        elem = archon.dom.create_element(doc, "ns", None, "@:p:Foo", [])
+        context.check_equal(elem.get_namespace_uri(), "ns")
+        context.check_equal(elem.get_prefix(), None)
+        context.check_equal(elem.get_local_name(), "@:p:Foo")
+
+        elem = archon.dom.create_element(doc, None, None, "@:p:Foo", [])
+        context.check_equal(elem.get_namespace_uri(), None)
+        context.check_equal(elem.get_prefix(), None)
+        context.check_equal(elem.get_local_name(), "@:p:Foo")
+
+        elem = archon.dom.create_element(doc, "http://www.w3.org/XML/1998/namespace", "xml", "foo", [])
+        context.check_equal(elem.get_namespace_uri(), "http://www.w3.org/XML/1998/namespace")
+        context.check_equal(elem.get_prefix(), "xml")
+        context.check_equal(elem.get_local_name(), "foo")
+
+        elem = archon.dom.create_element(doc, "http://www.w3.org/2000/xmlns/", "xmlns", "foo", [])
+        context.check_equal(elem.get_namespace_uri(), "http://www.w3.org/2000/xmlns/")
+        context.check_equal(elem.get_prefix(), "xmlns")
+        context.check_equal(elem.get_local_name(), "foo")
+
+        elem = archon.dom.create_element(doc, "http://www.w3.org/2000/xmlns/", None, "xmlns", [])
+        context.check_equal(elem.get_namespace_uri(), "http://www.w3.org/2000/xmlns/")
+        context.check_equal(elem.get_prefix(), None)
+        context.check_equal(elem.get_local_name(), "xmlns")
+
+        bad_doc = doc.create_text_node("foo")
+        with context.check_raises(TypeError):
+            archon.dom.create_element(None, "ns", "p", "Foo", [])
+        with context.check_raises(TypeError):
+            archon.dom.create_element(bad_doc, "ns", "p", "Foo", [])
+
+        with context.check_raises(TypeError):
+            archon.dom.create_element(doc, 7, "p", "Foo", [])
+        with context.check_raises(TypeError):
+            archon.dom.create_element(doc, "ns", 7, "Foo", [])
+        with context.check_raises(TypeError):
+            archon.dom.create_element(doc, "ns", "p", 7, [])
+
+        with context.check_raises(TypeError):
+            archon.dom.create_element(doc, None, None, None, [])
+        with context.check_raises(TypeError):
+            archon.dom.create_element(doc, "ns", None, None, [])
+        with context.check_raises(TypeError):
+            archon.dom.create_element(doc, "ns", "p", None, [])
+
+        with context.check_raises(ValueError):
+            archon.dom.create_element(doc, None, None, "", [])
+        with context.check_raises(ValueError):
+            archon.dom.create_element(doc, None, None, "x x", [])
+        with context.check_raises(ValueError):
+            archon.dom.create_element(doc, None, None, "x\0x", [])
+        with context.check_raises(ValueError):
+            archon.dom.create_element(doc, None, None, "x/x", [])
+
+        with context.check_raises(ValueError):
+            archon.dom.create_element(doc, "ns", None, "", [])
+        with context.check_raises(ValueError):
+            archon.dom.create_element(doc, "ns", None, "x x", [])
+        with context.check_raises(ValueError):
+            archon.dom.create_element(doc, "ns", None, "x\0x", [])
+        with context.check_raises(ValueError):
+            archon.dom.create_element(doc, "ns", None, "x/x", [])
+
+        with context.check_raises(ValueError):
+            archon.dom.create_element(doc, "ns", "p", "", [])
+        with context.check_raises(ValueError):
+            archon.dom.create_element(doc, "ns", "p", "x x", [])
+        with context.check_raises(ValueError):
+            archon.dom.create_element(doc, "ns", "p", "x\0x", [])
+        with context.check_raises(ValueError):
+            archon.dom.create_element(doc, "ns", "p", "x/x", [])
+        with context.check_raises(ValueError):
+            archon.dom.create_element(doc, "ns", "p", "x:x", [])
+        with context.check_raises(ValueError):
+            archon.dom.create_element(doc, "ns", "p", "x@x", [])
+
+        with context.check_raises(ValueError):
+            archon.dom.create_element(doc, "ns", "", "Foo", [])
+        with context.check_raises(ValueError):
+            archon.dom.create_element(doc, "ns", "x x", "Foo", [])
+        with context.check_raises(ValueError):
+            archon.dom.create_element(doc, "ns", "x\0x", "Foo", [])
+        with context.check_raises(ValueError):
+            archon.dom.create_element(doc, "ns", "x/x", "Foo", [])
+        with context.check_raises(ValueError):
+            archon.dom.create_element(doc, "ns", "x:x", "Foo", [])
+        with context.check_raises(ValueError):
+            archon.dom.create_element(doc, "ns", "x@x", "Foo", [])
+
+        with context.check_raises(ValueError):
+            archon.dom.create_element(doc, "", None, "Foo", [])
+        with context.check_raises(ValueError):
+            archon.dom.create_element(doc, "", "p", "Foo", [])
+
+        with context.check_raises(ValueError):
+            archon.dom.create_element(doc, None, "p", "Foo", [])
+        with context.check_raises(ValueError):
+            archon.dom.create_element(doc, "ns", "xml", "Foo", [])
+        with context.check_raises(ValueError):
+            archon.dom.create_element(doc, "ns", "xmlns", "Foo", [])
+
+        with context.check_raises(ValueError):
+            archon.dom.create_element(doc, "http://www.w3.org/2000/xmlns/", None, "Foo", [])
+        with context.check_raises(ValueError):
+            archon.dom.create_element(doc, "http://www.w3.org/2000/xmlns/", "p", "Foo", [])
+        with context.check_raises(ValueError):
+            archon.dom.create_element(doc, "http://www.w3.org/2000/xmlns/", "p", "xmlns", [])
+
+        attr_1 = archon.dom.create_attribute(doc, "ns", "p", "foo", "")
+        attr_2 = archon.dom.create_attribute(doc, "ns", None, "bar", "")
+        attr_3 = archon.dom.create_attribute(doc, None, None, "baz", "")
+        elem = archon.dom.create_element(doc, "ns", "p", "foo", [ attr_1, attr_2, attr_3 ])
+        attributes = elem.get_attributes()
+        context.check_equal(len(attributes), 3)
+        context.check_equal(attributes.item(0), attr_1)
+        context.check_equal(attributes.item(1), attr_2)
+        context.check_equal(attributes.item(2), attr_3)
+
+        attr_1 = archon.dom.create_attribute(doc, "ns", "p", "foo", "")
+        attr_2 = archon.dom.create_attribute(doc, "ns", None, "bar", "")
+        attr_3 = archon.dom.create_attribute(doc, None, None, "baz", "")
+        attr_4 = archon.dom.create_attribute(doc, "ns", None, "bar", "")
+        attr_5 = archon.dom.create_attribute(doc, None, None, "baz", "")
+        attr_6 = archon.dom.create_attribute(doc, "ns", None, "baz", "")
+        elem = archon.dom.create_element(doc, "ns", "p", "foo", [ attr_6 ])
+        bad_attr = doc.create_text_node("foo")
+        with context.check_raises(TypeError):
+            archon.dom.create_element(doc, "ns", "p", "foo", [ attr_1, None, attr_3 ])
+        with context.check_raises(TypeError):
+            archon.dom.create_element(doc, "ns", "p", "foo", [ attr_1, bad_attr, attr_3 ])
+        with context.check_raises(ValueError):
+            archon.dom.create_element(doc, "ns", "p", "foo", [ attr_1, attr_1, attr_3 ])
+        with context.check_raises(ValueError):
+            archon.dom.create_element(doc, "ns", "p", "foo", [ attr_4, attr_2, attr_3 ])
+        with context.check_raises(ValueError):
+            archon.dom.create_element(doc, "ns", "p", "foo", [ attr_5, attr_2, attr_3 ])
+        with context.check_raises(ValueError):
+            archon.dom.create_element(doc, "ns", "p", "foo", [ attr_1, attr_6, attr_3 ])
+
+        # FIXME: Reneable once detection of document mismatch has been implemented                                            
+        # def subcheck(doc_2, is_html_2):
+        #     attr_7 = archon.dom.create_attribute(doc_2, "ns", None, "bar", "")
+        #     attr_8 = archon.dom.create_attribute(doc_2, "ns", None, "bar", "")
+        #     elem_2 = archon.dom.create_element(doc_2, "ns", "p", "foo", [ attr_8 ])
+        #     with context.check_raises(ValueError):
+        #         archon.dom.create_element(doc, "ns", "p", "foo", [ attr_1, attr_7, attr_3 ])
+        #     with context.check_raises(ValueError):
+        #         archon.dom.create_element(doc, "ns", "p", "foo", [ attr_1, attr_8, attr_3 ])
+
+        # subcheck(_make_xml_document(), False)
+        # subcheck(_make_html_document(), True)
+
+    check(_make_xml_document(), False)
+    check(_make_html_document(), True)
+
+
 def test_DOMImplementation(context):
     doc = _make_xml_document()
     impl = doc.get_implementation()
@@ -33,6 +415,19 @@ def test_DOMImplementation(context):
     context.check_equal(doctype.get_public_id(), "b")
     context.check_equal(doctype.get_system_id(), "c")
     context.check_equal(doctype.get_owner_document(), doc)
+
+    with context.check_raises(TypeError):
+        impl.create_document_type(7, "b", "c")
+    with context.check_raises(TypeError):
+        impl.create_document_type(None, "b", "c")
+    with context.check_raises(TypeError):
+        impl.create_document_type("a", 7, "c")
+    with context.check_raises(TypeError):
+        impl.create_document_type("a", None, "c")
+    with context.check_raises(TypeError):
+        impl.create_document_type("a", "b", 7)
+    with context.check_raises(TypeError):
+        impl.create_document_type("a", "b", None)
 
     doc_2 = impl.create_document("ns", "p:foo", doctype)
     context.check_is_instance(doc_2, archon.dom.XMLDocument)
@@ -275,6 +670,10 @@ def test_Document_CreateElement(context):
     doc_1 = _make_xml_document()
     doc_2 = _make_html_document()
     doc_3 = _make_xml_document(content_type = "application/xhtml+xml")
+
+    elem = doc_1.create_element("foo")
+    context.check_equal(elem.get_owner_document(), doc_1)
+
     check_elem(context, doc_1.create_element("Foo"), None, None, "Foo")
     check_elem(context, doc_1.create_element("p:Foo"), None, None, "p:Foo")
     check_elem(context, doc_2.create_element("Foo"), "http://www.w3.org/1999/xhtml", None, "foo")
@@ -286,6 +685,10 @@ def test_Document_CreateElement(context):
 def test_Document_CreateElementNS(context):
     doc_1 = _make_xml_document()
     doc_2 = _make_html_document()
+
+    elem = doc_1.create_element_ns("ns", "foo")
+    context.check_equal(elem.get_owner_document(), doc_1)
+
     check_elem(context, doc_1.create_element_ns("ns", "Foo"), "ns", None, "Foo")
     check_elem(context, doc_1.create_element_ns("ns", "p:Foo"), "ns", "p", "Foo")
     check_elem(context, doc_2.create_element_ns("ns", "Foo"), "ns", None, "Foo")
@@ -313,6 +716,11 @@ def test_Document_CreateAttribute(context):
     doc_1 = _make_xml_document()
     doc_2 = _make_html_document()
     doc_3 = _make_xml_document(content_type = "application/xhtml+xml")
+
+    attr = doc_1.create_attribute("foo")
+    context.check_equal(attr.get_owner_document(), doc_1)
+    context.check_equal(attr.get_owner_element(), None)
+
     check_elem(context, doc_1.create_attribute("Foo"), None, None, "Foo")
     check_elem(context, doc_1.create_attribute("p:Foo"), None, None, "p:Foo")
     check_elem(context, doc_2.create_attribute("Foo"), None, None, "foo")
@@ -324,6 +732,11 @@ def test_Document_CreateAttribute(context):
 def test_Document_CreateAttributeNS(context):
     doc_1 = _make_xml_document()
     doc_2 = _make_html_document()
+
+    attr = doc_1.create_attribute_ns("ns", "foo")
+    context.check_equal(attr.get_owner_document(), doc_1)
+    context.check_equal(attr.get_owner_element(), None)
+
     check_elem(context, doc_1.create_attribute_ns("ns", "Foo"), "ns", None, "Foo")
     check_elem(context, doc_1.create_attribute_ns("ns", "p:Foo"), "ns", "p", "Foo")
     check_elem(context, doc_2.create_attribute_ns("ns", "Foo"), "ns", None, "Foo")
@@ -379,8 +792,8 @@ def test_Element_AttributeBasics(context):
         context.check_equal(attributes.item(-1), None)
         context.check_equal(attributes.item(3), None)
 
-    check( _make_xml_document(), False)
-    check( _make_html_document(), True)
+    check(_make_xml_document(), False)
+    check(_make_html_document(), True)
 
 
 def test_Element_HasAttributes(context):
@@ -407,8 +820,8 @@ def test_Element_GetAttributeNames(context):
         context.check_equal(names[3], "Foo")
         context.check_equal(names[4], "p:Bar")
 
-    check( _make_xml_document(), False)
-    check( _make_html_document(), True)
+    check(_make_xml_document(), False)
+    check(_make_html_document(), True)
 
 
 def test_Element_SetAttribute(context):
@@ -467,8 +880,8 @@ def test_Element_SetAttribute(context):
 
         # FIXME: Check argument type coercion rules (None -> "None", ...)      
 
-    check( _make_xml_document(), False)
-    check( _make_html_document(), True)
+    check(_make_xml_document(), False)
+    check(_make_html_document(), True)
 
 
 # FIXME: Add test_Element_SetAttributeNS()                
@@ -539,33 +952,51 @@ def test_Element_ToggleAttribute(context):
             context.check(elem.toggle_attribute("p:Bar2"))
             context.check_not(elem.toggle_attribute("p:Baz"))
 
-    check( _make_xml_document(), False)
-    check( _make_html_document(), True)
+    check(_make_xml_document(), False)
+    check(_make_html_document(), True)
 
 
 def test_Element_SetAttributeNode(context):
-    doc = _make_xml_document()
-    elem = doc.create_element("elem")
-    attributes = elem.get_attributes()
+    def check(doc, is_html):
+        elem = doc.create_element("elem")
+        attributes = elem.get_attributes()
 
-    attr_1 = doc.create_attribute("foo")
-    attr = elem.set_attribute_node(attr_1)
-    context.check_is_none(attr)
-    context.check_equal(len(attributes), 1)
-    context.check_equal(attributes.item(0), attr_1)
+        attr_1 = doc.create_attribute("foo")
+        attr = elem.set_attribute_node(attr_1)
+        context.check_is_none(attr)
+        context.check_equal(len(attributes), 1)
+        context.check_equal(attributes.item(0), attr_1)
 
-    attr_2 = doc.create_attribute("foo")
-    attr = elem.set_attribute_node(attr_2)
-    context.check_equal(attr, attr_1)
-    context.check_equal(len(attributes), 1)
-    context.check_equal(attributes.item(0), attr_2)
+        attr_2 = doc.create_attribute("foo")
+        attr = elem.set_attribute_node(attr_2)
+        context.check_equal(attr, attr_1)
+        context.check_equal(len(attributes), 1)
+        context.check_equal(attributes.item(0), attr_2)
 
-    attr_3 = doc.create_attribute("bar")
-    attr = elem.set_attribute_node(attr_3)
-    context.check_is_none(attr)
-    context.check_equal(len(attributes), 2)
-    context.check_equal(attributes.item(0), attr_2)
-    context.check_equal(attributes.item(1), attr_3)
+        attr_3 = doc.create_attribute("bar")
+        attr = elem.set_attribute_node(attr_3)
+        context.check_is_none(attr)
+        context.check_equal(len(attributes), 2)
+        context.check_equal(attributes.item(0), attr_2)
+        context.check_equal(attributes.item(1), attr_3)
+
+        # FIXME: Reneable once migration of attributes has been implemented                      
+        # def subcheck(doc_2, is_html_2):
+        #     elem = doc.create_element("elem")
+        #     attributes = elem.get_attributes()
+        #     attr_1 = doc_2.create_attribute("foo")
+        #     context.check_equal(attr_1.get_owner_document(), doc_2)
+        #     attr_2 = elem.set_attribute_node(attr_1)
+        #     context.check_is_none(attr_2)
+        #     context.check_equal(len(attributes), 1)
+        #     context.check_equal(attributes.item(0), attr_1)
+        #     context.check_equal(attr_1.get_owner_document(), doc)
+
+        # subcheck(_make_xml_document(), False)
+        # subcheck(_make_html_document(), True)
+
+    check(_make_xml_document(), False)
+    check(_make_html_document(), True)
 
 
 def test_Element_RemoveAttributeNode(context):
@@ -581,7 +1012,7 @@ def test_Element_RemoveAttributeNode(context):
         elem.remove_attribute_node(attr)
 
 
-def test_Node_AttributesAsMapping(context):
+def test_Element_AttributesAsMapping(context):
     # Quirkiness abound:
     #
     # * The attribute map may contain multiple attributes with the same key (`attr_1` and
@@ -661,8 +1092,8 @@ def test_Node_AttributesAsMapping(context):
         context.check_equal(items_2[2], ("Foo", attr_3))
         context.check_equal(items_2[3], ("Bar", attr_4))
 
-    check( _make_xml_document(), False)
-    check( _make_html_document(), True)
+    check(_make_xml_document(), False)
+    check(_make_html_document(), True)
 
 
 # Bridge to Python's native testing framework
