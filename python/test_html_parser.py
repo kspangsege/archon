@@ -268,7 +268,7 @@ def _test(string, expected, expect_parse_error):
             def handle_starttag(self, tag, attrs):
                 namespace_uri = "http://www.w3.org/1999/xhtml"
                 if stack:
-                    namespace_uri = stack[-1].getNamespaceURI()
+                    namespace_uri = stack[-1].namespaceURI
                 prefix = None
                 attributes = []
                 for name, value in attrs:
@@ -283,7 +283,7 @@ def _test(string, expected, expect_parse_error):
                 append(elem)
                 stack.append(elem)
             def handle_endtag(self, tag):
-                assert tag == stack[-1].getLocalName()
+                assert tag == stack[-1].localName
                 stack.pop()
             def handle_comment(self, data):
                 append(document.createComment(data))
@@ -368,7 +368,7 @@ def _test(string, expected, expect_parse_error):
         path_2 = []
         parent = document
         for i in path:
-            child_nodes = parent.getChildNodes()
+            child_nodes = parent.childNodes
             node = child_nodes[i]
             assert isinstance(node, archon.dom.Element)
             elem = node
@@ -377,9 +377,9 @@ def _test(string, expected, expect_parse_error):
                 if not isinstance(node, archon.dom.Element):
                     continue
                 elem_2 = node
-                if elem_2.getNamespaceURI() != elem.getNamespaceURI():
+                if elem_2.namespaceURI != elem.namespaceURI:
                     continue
-                if elem_2.getLocalName() != elem.getLocalName():
+                if elem_2.localName != elem.localName:
                     continue
                 n += 1
             assert n >= 1
@@ -398,18 +398,18 @@ def _test(string, expected, expect_parse_error):
             if not isinstance(expected_node, archon.dom.DocumentType):
                 type_mismatch()
                 return
-            name_1 = node.getName()
-            name_2 = expected_node.getName()
+            name_1 = node.name
+            name_2 = expected_node.name
             if name_1 != name_2:
                 path_error("Doctype name mismatch %s: %r vs %r" % (format_context_qualifier(children, index),
                                                                    name_1, name_2), path)
-            public_id_1 = node.getPublicId()
-            public_id_2 = expected_node.getPublicId()
+            public_id_1 = node.publicId
+            public_id_2 = expected_node.publicId
             if public_id_1 != public_id_2:
                 path_error("Doctype public identifier mismatch %s: "
                            "%r vs %r" % (format_context_qualifier(children, index), public_id_1, public_id_2), path)
-            system_id_1 = node.getSystemId()
-            system_id_2 = expected_node.getSystemId()
+            system_id_1 = node.systemId
+            system_id_2 = expected_node.systemId
             if system_id_1 != system_id_2:
                 path_error("Doctype system identifier mismatch %s: "
                            "%r vs %r" % (format_context_qualifier(children, index), system_id_1, system_id_2), path)
@@ -418,47 +418,47 @@ def _test(string, expected, expect_parse_error):
             if not isinstance(expected_node, archon.dom.Element):
                 type_mismatch()
                 return
-            namespace_uri_1 = node.getNamespaceURI()
-            namespace_uri_2 = expected_node.getNamespaceURI()
-            local_name_1 = node.getLocalName()
-            local_name_2 = expected_node.getLocalName()
+            namespace_uri_1 = node.namespaceURI
+            namespace_uri_2 = expected_node.namespaceURI
+            local_name_1 = node.localName
+            local_name_2 = expected_node.localName
             if namespace_uri_1 != namespace_uri_2 or local_name_1 != local_name_2:
                 path_error("Element type mismatch %s: %s vs %s" % (format_context_qualifier(), _format_node(node),
                                                                    _format_node(expected_node)), path)
                 return
             same_attributes = True
-            attributes_1 = node.getAttributes()
-            attributes_2 = expected_node.getAttributes()
+            attributes_1 = node.attributes
+            attributes_2 = expected_node.attributes
             if len(attributes_1) != len(attributes_2):
                 same_attributes = False
             else:
                 map = {}
                 for attr in attributes_2.values() :
-                    key = (attr.getNamespaceURI(), attr.getLocalName())
+                    key = (attr.namespaceURI, attr.localName)
                     assert key not in map
                     map[key] = attr
                 for attr in attributes_1.values():
-                    key = (attr.getNamespaceURI(), attr.getLocalName())
+                    key = (attr.namespaceURI, attr.localName)
                     expected_attr = map.get(key)
-                    if not expected_attr or attr.getValue() != expected_attr.getValue():
+                    if not expected_attr or attr.value != expected_attr.value:
                         same_attributes = False
                         break
             subpath = path + [index]
             if not same_attributes:
                 def format_attributes(attributes):
-                    parts = ["%s=%r" % (_format_attribute_name(attr), attr.getValue()) for attr in attributes]
+                    parts = ["%s=%r" % (_format_attribute_name(attr), attr.value) for attr in attributes]
                     return "[%s]" % " ".join(parts)
                 formatted_1 = format_attributes(attributes_1)
                 formatted_2 = format_attributes(attributes_2)
                 path_error("Attribute difference: %s vs %s" % (formatted_1, formatted_2), subpath)
-            compare_child_lists(list(node.getChildNodes()), list(expected_node.getChildNodes()), subpath)
+            compare_child_lists(list(node.childNodes), list(expected_node.childNodes), subpath)
             return
         if isinstance(node, archon.dom.Text):
             if not isinstance(expected_node, archon.dom.Text):
                 type_mismatch()
                 return
-            data_1 = node.getData()
-            data_2 = expected_node.getData()
+            data_1 = node.data
+            data_2 = expected_node.data
             if data_1 != data_2:
                 path_error("Text mismatch %s: %r vs %r" % (format_context_qualifier(children, index),
                                                            data_1, data_2), path)
@@ -468,8 +468,8 @@ def _test(string, expected, expect_parse_error):
             if not isinstance(expected_node, archon.dom.Comment):
                 type_mismatch()
                 return
-            data_1 = node.getData()
-            data_2 = expected_node.getData()
+            data_1 = node.data
+            data_2 = expected_node.data
             if data_1 != data_2:
                 path_error("Comment mismatch %s: %r vs %r" % (format_context_qualifier(children, index),
                                                               data_1, data_2), path)
@@ -515,7 +515,7 @@ def _test(string, expected, expect_parse_error):
 
     expected_document = parse_expected(expected)
 
-    compare_child_lists(list(document.getChildNodes()), list(expected_document.getChildNodes()), [])
+    compare_child_lists(list(document.childNodes), list(expected_document.childNodes), [])
 
     return not errors_occurred
 
@@ -529,7 +529,7 @@ def _format_node(node):
     if isinstance(node, archon.dom.Element):
         return _format_element_name(node)
     if isinstance(node, archon.dom.Text):
-        return "#text(%s)" % archon.core.clamped_quote(node.getData(), 12)
+        return "#text(%s)" % archon.core.clamped_quote(node.data, 12)
     if isinstance(node, archon.dom.Comment):
         return "#comment"
     assert False
@@ -537,8 +537,8 @@ def _format_node(node):
 
 def _format_element_name(elem):
     assert isinstance(elem, archon.dom.Element)
-    namespace_uri = elem.getNamespaceURI()
-    local_name = elem.getLocalName()
+    namespace_uri = elem.namespaceURI
+    local_name = elem.localName
     if namespace_uri == "http://www.w3.org/1999/xhtml":
         return local_name
     prefix = _get_default_prefix(namespace_uri)
@@ -547,8 +547,8 @@ def _format_element_name(elem):
 
 def _format_attribute_name(attr):
     assert isinstance(attr, archon.dom.Attr)
-    namespace_uri = attr.getNamespaceURI()
-    local_name = attr.getLocalName()
+    namespace_uri = attr.namespaceURI
+    local_name = attr.localName
     if namespace_uri is None:
         return local_name
     prefix = _get_default_prefix(namespace_uri)

@@ -36,34 +36,43 @@ class Node:
     DOCUMENT_FRAGMENT_NODE = 11
     NOTATION_NODE = 12
 
-    def getNodeType(self):
+    @property
+    def nodeType(self):
         raise NotImplementedError
 
-    def getNodeName(self):
+    @property
+    def nodeName(self):
         raise NotImplementedError
 
-    def getOwnerDocument(self):
+    @property
+    def ownerDocument(self):
         raise NotImplementedError
 
-    def getParentNode(self):
+    @property
+    def parentNode(self):
         raise NotImplementedError
 
     def hasChildNodes(self):
         raise NotImplementedError
 
-    def getChildNodes(self):
+    @property
+    def childNodes(self):
         raise NotImplementedError
 
-    def getFirstChild(self):
+    @property
+    def firstChild(self):
         raise NotImplementedError
 
-    def getLastChild(self):
+    @property
+    def lastChild(self):
         raise NotImplementedError
 
-    def getPreviousSibling(self):
+    @property
+    def previousSibling(self):
         raise NotImplementedError
 
-    def getNextSibling(self):
+    @property
+    def nextSibling(self):
         raise NotImplementedError
 
     def contains(self, other):
@@ -91,16 +100,20 @@ class ParentNode:
 
 
 class Document(ParentNode, Node):
-    def getImplementation(self):
+    @property
+    def implementation(self):
         raise NotImplementedError
 
-    def getContentType(self):
+    @property
+    def contentType(self):
         raise NotImplementedError
 
-    def getDoctype(self):
+    @property
+    def doctype(self):
         raise NotImplementedError
 
-    def getDocumentElement(self):
+    @property
+    def documentElement(self):
         raise NotImplementedError
 
     def createElement(self, localName):
@@ -127,36 +140,43 @@ class XMLDocument(Document):
 
 
 class DocumentType(ChildNode, Node):
-    def getName(self):
+    @property
+    def name(self):
         raise NotImplementedError
 
-    def getPublicId(self):
+    @property
+    def publicId(self):
         raise NotImplementedError
 
-    def getSystemId(self):
+    @property
+    def systemId(self):
         raise NotImplementedError
 
 
 class Element(ParentNode, ChildNode, Node):
-    def getNamespaceURI(self):
+    @property
+    def namespaceURI(self):
         raise NotImplementedError
 
-    def getPrefix(self):
+    @property
+    def prefix(self):
         raise NotImplementedError
 
-    def getLocalName(self):
+    @property
+    def localName(self):
         raise NotImplementedError
 
-    def getTagName(self):
+    @property
+    def tagName(self):
         raise NotImplementedError
 
-    # FIXME: Add attribute covering getters and setters: `getId()`, `setId()` cover `id`
-    # attribute; `getClassName()`, `setClassName()` cover `class` attribute, etc.
+    # FIXME: Add attribute covering mutable properties for `id`, `className`, etc.    
 
     def hasAttributes(self):
         raise NotImplementedError
 
-    def getAttributes(self):
+    @property
+    def attributes(self):
         raise NotImplementedError
 
     def getAttributeNames(self):
@@ -206,10 +226,12 @@ class Element(ParentNode, ChildNode, Node):
 
 
 class CharacterData(ChildNode, Node):
-    def getData(self):
+    @property
+    def data(self):
         raise NotImplementedError
 
-    def setData(self, data):
+    @data.setter
+    def data(self, data):
         raise NotImplementedError
 
 
@@ -228,34 +250,43 @@ class Comment(CharacterData):
 
 
 class Attr(Node):
-    def getNamespaceURI(self):
+    @property
+    def namespaceURI(self):
         raise NotImplementedError
 
-    def getPrefix(self):
+    @property
+    def prefix(self):
         raise NotImplementedError
 
-    def getLocalName(self):
+    @property
+    def localName(self):
         raise NotImplementedError
 
-    def getName(self):
+    @property
+    def name(self):
         raise NotImplementedError
 
-    def getValue(self):
+    @property
+    def value(self):
         raise NotImplementedError
 
-    def setValue(self, value):
+    @value.setter
+    def value(self, value):
         raise NotImplementedError
 
-    def getOwnerElement(self):
+    @property
+    def ownerElement(self):
         raise NotImplementedError
 
-    def isSpecified(self):
+    @property
+    def specified(self):
         raise NotImplementedError
 
 
 
 class NodeList(collections.abc.Sequence):
-    def getLength(self):
+    @property
+    def length(self):
         raise NotImplementedError
 
     def item(self, index):
@@ -263,7 +294,8 @@ class NodeList(collections.abc.Sequence):
 
 
 class NamedNodeMap(collections.abc.Mapping):
-    def getLength(self):
+    @property
+    def length(self):
         raise NotImplementedError
 
     def item(self, index):
@@ -331,25 +363,25 @@ def dump_document(document, max_string_size = 90):
         print("%s%s" % (level * "  ", string))
     def visit(node, namespace_uri, level):
         if isinstance(node, Document):
-            string = "Document(content_type=%s)" % archon.core.quote(node.getContentType())
+            string = "Document(content_type=%s)" % archon.core.quote(node.contentType)
             if not node.hasChildNodes():
                 dump(string, level)
                 return
             dump("%s:" % string, level)
-            for child in node.getChildNodes():
+            for child in node.childNodes:
                 visit(child, namespace_uri, level + 1)
             return
         if isinstance(node, DocumentType):
-            dump("Doctype(%s, %s, %s)" % (archon.core.quote(node.getName()),
-                                          archon.core.quote(node.getPublicId()),
-                                          archon.core.quote(node.getSystemId())), level)
+            dump("Doctype(%s, %s, %s)" % (archon.core.quote(node.name),
+                                          archon.core.quote(node.publicId),
+                                          archon.core.quote(node.systemId)), level)
             return
         if isinstance(node, Element):
-            string = format_name(node.getLocalName())
-            prefix = node.getPrefix()
+            string = format_name(node.localName)
+            prefix = node.prefix
             if prefix is not None:
                 string = "%s:%s" % (format_name(prefix), string)
-            namespace_uri_2 = node.getNamespaceURI()
+            namespace_uri_2 = node.namespaceURI
             if namespace_uri_2 != namespace_uri:
                 string = "%s[%s]" % (string, format_namespace_uri(namespace_uri_2))
             string = "Element(%s)" % string
@@ -357,23 +389,23 @@ def dump_document(document, max_string_size = 90):
                 dump(string, level)
                 return
             dump("%s:" % string, level)
-            for attr in node.getAttributes().values():
-                string = format_name(attr.getLocalName())
-                prefix = attr.getPrefix()
+            for attr in node.attributes.values():
+                string = format_name(attr.localName)
+                prefix = attr.prefix
                 if prefix is not None:
                     string = "%s:%s" % (format_name(prefix), string)
-                namespace_uri_3 = attr.getNamespaceURI()
+                namespace_uri_3 = attr.namespaceURI
                 if namespace_uri_3 is not None:
                     string = "%s[%s]" % (string, format_namespace_uri(namespace_uri_3))
-                dump("Attr(%s=%s)" % (string, archon.core.clamped_quote(attr.getValue(), max_string_size)), level + 1)
-            for child in node.getChildNodes():
+                dump("Attr(%s=%s)" % (string, archon.core.clamped_quote(attr.value, max_string_size)), level + 1)
+            for child in node.childNodes:
                 visit(child, namespace_uri_2, level + 1)
             return
         if isinstance(node, Text):
-            dump("Text(%s)" % archon.core.clamped_quote(node.getData(), max_string_size), level)
+            dump("Text(%s)" % archon.core.clamped_quote(node.data, max_string_size), level)
             return
         if isinstance(node, Comment):
-            dump("Comment(%s)" % archon.core.clamped_quote(node.getData(), max_string_size), level)
+            dump("Comment(%s)" % archon.core.clamped_quote(node.data, max_string_size), level)
             return
         assert False
     namespace_uri = None
@@ -401,9 +433,9 @@ def dump_document(document, max_string_size = 90):
 #
 # INVARIANT: Two attributes (`Attr`) of an element (`Element`), that was created in the
 # context of this implementation, cannot have the same namespace (`namespaceURI`) and
-# qualified name (`getName()`). Note that the *qualified name* is the local name
-# (`localName`) if the prefix (`prefix`) is None. Otherwise, it is the prefix followed by
-# `:` followed by the local name.
+# qualified name (`name`). Note that the *qualified name* is the local name (`localName`) if
+# the prefix (`prefix`) is None. Otherwise, it is the prefix followed by `:` followed by the
+# local name.
 #
 # It follows from the previous invariant that two attributes of an element, that was
 # created in the context of this implementation, cannot have the same namespace, prefix,
@@ -483,7 +515,7 @@ def create_document_type(document, name, public_id, system_id):
 # attribute nodes must have been created in the context of this DOM implementation. No two
 # of the attributes are allowed to have the same namespace (`namespaceURI`) and local name
 # (`localName`). None of the attributes are allowed to have an owner element
-# (`Attr.getOwnerElement()`).
+# (`Attr.ownerElement`).
 #
 def create_element(document, namespace_uri, prefix, local_name, attributes):
     document_state = _unwrap_typed_node(document, Document)
@@ -553,30 +585,37 @@ class _NodeImpl(Node):
         self._state = state
 
     def __str__(self):
-        return self.getNodeName()
+        return self.nodeName
 
-    def getOwnerDocument(self):
+    @property
+    def ownerDocument(self):
         return self._document
 
-    def getParentNode(self):
+    @property
+    def parentNode(self):
         return None
 
     def hasChildNodes(self):
         return False
 
-    def getChildNodes(self):
+    @property
+    def childNodes(self):
         return _degen_node_list
 
-    def getFirstChild(self):
+    @property
+    def firstChild(self):
         return None
 
-    def getLastChild(self):
+    @property
+    def lastChild(self):
         return None
 
-    def getPreviousSibling(self):
+    @property
+    def previousSibling(self):
         return None
 
-    def getNextSibling(self):
+    @property
+    def nextSibling(self):
         return None
 
     def contains(self, other):
@@ -625,13 +664,16 @@ class _NodeState:
 
 
 class _ChildNodeImpl(ChildNode):
-    def getParentNode(self):
+    @property
+    def parentNode(self):
         return _wrap_node(self._state.get_parent_node(), self._document)
 
-    def getPreviousSibling(self):
+    @property
+    def previousSibling(self):
         return _wrap_node(self._state.previous_sibling, self._document)
 
-    def getNextSibling(self):
+    @property
+    def nextSibling(self):
         return _wrap_node(self._state.next_sibling, self._document)
 
 
@@ -675,7 +717,8 @@ class _ParentNodeImpl(ParentNode):
     def hasChildNodes(self):
         return self._state.num_children > 0
 
-    def getChildNodes(self):
+    @property
+    def childNodes(self):
         if self._weak_child_nodes:
             child_nodes = self._weak_child_nodes()
             if child_nodes:
@@ -684,10 +727,12 @@ class _ParentNodeImpl(ParentNode):
         self._weak_child_nodes = weakref.ref(child_nodes)
         return child_nodes
 
-    def getFirstChild(self):
+    @property
+    def firstChild(self):
         return _wrap_node(self._state.first_child, self._document)
 
-    def getLastChild(self):
+    @property
+    def lastChild(self):
         return _wrap_node(self._state.last_child, self._document)
 
     def contains(self, other):
@@ -904,7 +949,8 @@ class _DocumentImpl(_ParentNodeImpl, _NodeImpl, Document):
         _ParentNodeImpl.__init__(self)
         self._weak_implementation = None
 
-    def getImplementation(self):
+    @property
+    def implementation(self):
         if self._weak_implementation:
             implementation = self._weak_implementation()
             if implementation:
@@ -913,13 +959,16 @@ class _DocumentImpl(_ParentNodeImpl, _NodeImpl, Document):
         self._weak_implementation = weakref.ref(implementation)
         return implementation
 
-    def getContentType(self):
+    @property
+    def contentType(self):
         return self._state.content_type
 
-    def getDoctype(self):
+    @property
+    def doctype(self):
         return _wrap_node(self._state.doctype, self)
 
-    def getDocumentElement(self):
+    @property
+    def documentElement(self):
         return _wrap_node(self._state.document_element, self)
 
     def createElement(self, localName):
@@ -946,13 +995,16 @@ class _DocumentImpl(_ParentNodeImpl, _NodeImpl, Document):
         state = self._state.create_attribute_ns(namespace, qualifiedName)
         return _wrap_node(state, self)
 
-    def getNodeType(self):
+    @property
+    def nodeType(self):
         return self.DOCUMENT_NODE
 
-    def getNodeName(self):
+    @property
+    def nodeName(self):
         return "#document"
 
-    def getOwnerDocument(self):
+    @property
+    def ownerDocument(self):
         return None
 
 
@@ -1040,20 +1092,25 @@ class _DocumentTypeImpl(_ChildNodeImpl, _NodeImpl, DocumentType):
     def __init__(self, document, state):
         _NodeImpl.__init__(self, document, state)
 
-    def getName(self):
+    @property
+    def name(self):
         return self._state.name
 
-    def getPublicId(self):
+    @property
+    def publicId(self):
         return self._state.public_id
 
-    def getSystemId(self):
+    @property
+    def systemId(self):
         return self._state.system_id
 
-    def getNodeType(self):
+    @property
+    def nodeType(self):
         return self.DOCUMENT_TYPE_NODE
 
-    def getNodeName(self):
-        return self.getName()
+    @property
+    def nodeName(self):
+        return self.name
 
 
 class _DocumentTypeState(_ChildNodeState, _NodeState):
@@ -1075,16 +1132,20 @@ class _ElementImpl(_ParentNodeImpl, _ChildNodeImpl, _NodeImpl, Element):
         _ParentNodeImpl.__init__(self)
         self._weak_attributes = None
 
-    def getNamespaceURI(self):
+    @property
+    def namespaceURI(self):
         return self._state.namespace_uri
 
-    def getPrefix(self):
+    @property
+    def prefix(self):
         return self._state.prefix
 
-    def getLocalName(self):
+    @property
+    def localName(self):
         return self._state.local_name
 
-    def getTagName(self):
+    @property
+    def tagName(self):
         state = self._state
         qualified_name = state.get_qualified_name()
         if state.is_html:
@@ -1094,7 +1155,8 @@ class _ElementImpl(_ParentNodeImpl, _ChildNodeImpl, _NodeImpl, Element):
     def hasAttributes(self):
         return bool(self._state.attributes)
 
-    def getAttributes(self):
+    @property
+    def attributes(self):
         if self._weak_attributes:
             attributes = self._weak_attributes()
             if attributes:
@@ -1152,11 +1214,13 @@ class _ElementImpl(_ParentNodeImpl, _ChildNodeImpl, _NodeImpl, Element):
         self._state.remove_attribute_node(_unwrap_typed_node(attr, Attr))
         return attr
 
-    def getNodeType(self):
+    @property
+    def nodeType(self):
         return self.ELEMENT_NODE
 
-    def getNodeName(self):
-        return self.getTagName()
+    @property
+    def nodeName(self):
+        return self.tagName
 
 
 class _ElementState(_ParentNodeState, _ChildNodeState, _NodeState):
@@ -1399,10 +1463,12 @@ class _CharacterDataImpl(_ChildNodeImpl, _NodeImpl, CharacterData):
     def __init__(self, document, state):
         _NodeImpl.__init__(self, document, state)
 
-    def getData(self):
+    @property
+    def data(self):
         return self._state.data
 
-    def setData(self, data):
+    @data.setter
+    def data(self, data):
         self._state.data = _legacy_null_to_empty_string(data)                 
 
 
@@ -1415,10 +1481,12 @@ class _CharacterDataState(_ChildNodeState, _NodeState):
 
 
 class _TextImpl(_CharacterDataImpl, Text):
-    def getNodeType(self):
+    @property
+    def nodeType(self):
         return self.TEXT_NODE
 
-    def getNodeName(self):
+    @property
+    def nodeName(self):
         return "#text"
 
 
@@ -1429,10 +1497,12 @@ class _TextState(_CharacterDataState):
 
 
 class _CommentImpl(_CharacterDataImpl, Comment):
-    def getNodeType(self):
+    @property
+    def nodeType(self):
         return self.COMMENT_NODE
 
-    def getNodeName(self):
+    @property
+    def nodeName(self):
         return "#comment"
 
 
@@ -1446,36 +1516,46 @@ class _AttrImpl(_NodeImpl, Attr):
     def __init__(self, document, state):
         _NodeImpl.__init__(self, document, state)
 
-    def getNamespaceURI(self):
+    @property
+    def namespaceURI(self):
         return self._state.namespace_uri
 
-    def getPrefix(self):
+    @property
+    def prefix(self):
         return self._state.prefix
 
-    def getLocalName(self):
+    @property
+    def localName(self):
         return self._state.local_name
 
-    def getName(self):
+    @property
+    def name(self):
         return self._state.get_qualified_name()
 
-    def getValue(self):
+    @property
+    def value(self):
         return self._state.value
 
-    def setValue(self, value):
+    @value.setter
+    def value(self, value):
         self._state.set_value(value)
 
-    def getOwnerElement(self):
+    @property
+    def ownerElement(self):
         state = self._state.weak_owner_element and self._state.weak_owner_element()
         return _wrap_node(state, self._document)
 
-    def isSpecified(self):
+    @property
+    def specified(self):
         return True
 
-    def getNodeType(self):
+    @property
+    def nodeType(self):
         return self.ATTRIBUTE_NODE
 
-    def getNodeName(self):
-        return self.getName()
+    @property
+    def nodeName(self):
+        return self.name
 
 
 class _AttrState(_NodeState):
@@ -1563,16 +1643,17 @@ class _ChildNodes(NodeList):
 
     def __getitem__(self, index):
         if index < 0:
-            index += self.getLength()
+            index += self.length
         node = self.item(index)
         if not node:
             raise IndexError
         return node
 
     def __len__(self):
-        return self.getLength()
+        return self.length
 
-    def getLength(self):
+    @property
+    def length(self):
         return self._parent_node._state.num_children
 
     def item(self, index):
@@ -1654,7 +1735,8 @@ class _Attributes(NamedNodeMap):
     def items(self):
         return _AttributeItems(self._element)
 
-    def getLength(self):
+    @property
+    def length(self):
         return len(self._element._state.attributes)
 
     def item(self, index):
