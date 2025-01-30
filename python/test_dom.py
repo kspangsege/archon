@@ -691,7 +691,8 @@ def test_Node_AppendChild(context):
         context.check_equal(child_nodes.length, 0)
 
         child_1 = doc.createElement("elem")
-        parent.appendChild(child_1)
+        child = parent.appendChild(child_1)
+        context.check_equal(child, child_1)
         context.check_equal(parent.firstChild, child_1)
         context.check_equal(parent.lastChild, child_1)
         context.check_equal(child_nodes.length, 1)
@@ -701,7 +702,8 @@ def test_Node_AppendChild(context):
         context.check_equal(child_1.nextSibling, None)
 
         child_2 = doc.createTextNode("text")
-        parent.appendChild(child_2)
+        child = parent.appendChild(child_2)
+        context.check_equal(child, child_2)
         context.check_equal(parent.firstChild, child_1)
         context.check_equal(parent.lastChild, child_2)
         context.check_equal(child_nodes.length, 2)
@@ -715,7 +717,8 @@ def test_Node_AppendChild(context):
         context.check_equal(child_2.nextSibling, None)
 
         child_3 = doc.createComment("comment")
-        parent.appendChild(child_3)
+        child = parent.appendChild(child_3)
+        context.check_equal(child, child_3)
         context.check_equal(parent.firstChild, child_1)
         context.check_equal(parent.lastChild, child_3)
         context.check_equal(child_nodes.length, 3)
@@ -940,7 +943,8 @@ def test_Node_InsertBefore(context):
     root = doc.createElement("root")
 
     foo = doc.createElement("foo")
-    root.insertBefore(foo, None)
+    child = root.insertBefore(foo, None)
+    context.check_equal(child, foo)
     context.check(root.hasChildNodes())
     context.check_equal(root.firstChild, foo)
     context.check_equal(root.lastChild, foo)
@@ -950,7 +954,8 @@ def test_Node_InsertBefore(context):
     context.check_equal(foo.nextSibling, None)
 
     bar = doc.createElement("bar")
-    root.insertBefore(bar, foo)
+    child = root.insertBefore(bar, foo)
+    context.check_equal(child, bar)
     context.check(root.hasChildNodes())
     context.check_equal(root.firstChild, bar)
     context.check_equal(root.lastChild, foo)
@@ -963,7 +968,8 @@ def test_Node_InsertBefore(context):
     context.check_equal(bar.nextSibling, foo)
 
     baz = doc.createTextNode("baz")
-    root.insertBefore(baz, foo)
+    child = root.insertBefore(baz, foo)
+    context.check_equal(child, baz)
     context.check(root.hasChildNodes())
     context.check_equal(root.firstChild, bar)
     context.check_equal(root.lastChild, foo)
@@ -989,7 +995,8 @@ def test_Node_RemoveChild(context):
     baz = doc.createTextNode("baz")
     root.appendChild(baz)
 
-    root.removeChild(bar)
+    child = root.removeChild(bar)
+    context.check_equal(child, bar)
     context.check(root.hasChildNodes())
     context.check_equal(root.firstChild, foo)
     context.check_equal(root.lastChild, baz)
@@ -1004,7 +1011,8 @@ def test_Node_RemoveChild(context):
     context.check_equal(baz.nextSibling, None)
 
     root.insertBefore(bar, baz)
-    root.removeChild(baz)
+    child = root.removeChild(baz)
+    context.check_equal(child, baz)
     context.check(root.hasChildNodes())
     context.check_equal(root.firstChild, foo)
     context.check_equal(root.lastChild, bar)
@@ -1018,7 +1026,8 @@ def test_Node_RemoveChild(context):
     context.check_equal(baz.previousSibling, None)
     context.check_equal(baz.nextSibling, None)
 
-    root.removeChild(foo)
+    child = root.removeChild(foo)
+    context.check_equal(child, foo)
     context.check(root.hasChildNodes())
     context.check_equal(root.firstChild, bar)
     context.check_equal(root.lastChild, bar)
@@ -1031,7 +1040,8 @@ def test_Node_RemoveChild(context):
     context.check_equal(baz.previousSibling, None)
     context.check_equal(baz.nextSibling, None)
 
-    root.removeChild(bar)
+    child = root.removeChild(bar)
+    context.check_equal(child, bar)
     context.check_not(root.hasChildNodes())
     context.check_equal(root.firstChild, None)
     context.check_equal(root.lastChild, None)

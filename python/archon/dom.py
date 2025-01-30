@@ -760,9 +760,8 @@ class _ParentNodeImpl(ParentNode):
         return child
 
     def removeChild(self, node):
-        state = self._state.remove_child(_unwrap_node(node))
-        document = self._get_document()
-        return _wrap_node(state, document)
+        self._state.remove_child(_unwrap_node(node))
+        return node
 
 
 class _ParentNodeState:
@@ -827,7 +826,6 @@ class _ParentNodeState:
         self._remove_child(node)
         node.weak_parent_node = None
         self._child_removed(node)
-        return node
 
     # `node` may already be a child of `self`
     # `node` and `before` may be the same node
