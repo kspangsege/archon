@@ -24,6 +24,7 @@ def check_attr(context, attr, namespace_uri, prefix, local_name, value):
 
 def test_CreateXMLDocument(context):
     doc = archon.dom.create_xml_document()
+    context.check_is_instance(doc, archon.dom.XMLDocument)
     context.check_equal(doc.contentType, "application/xml")
     doc = archon.dom.create_xml_document(content_type = None)
     context.check_equal(doc.contentType, "application/xml")
@@ -35,6 +36,7 @@ def test_CreateXMLDocument(context):
 
 def test_CreateHTMLDocument(context):
     doc = archon.dom.create_html_document()
+    context.check_not_is_instance(doc, archon.dom.XMLDocument)
     context.check_equal(doc.contentType, "text/html")
     doc = archon.dom.create_html_document(content_type = None)
     context.check_equal(doc.contentType, "text/html")

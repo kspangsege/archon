@@ -494,12 +494,12 @@ def create_html_document(content_type = None):
 # `name` must be empty or minimally valid (see definition above).
 #
 def create_document_type(document, name, public_id, system_id):
-    document_state = _unwrap_typed_node(document, Document)
+    _unwrap_typed_node(document, Document)
     if type(name) != str or type(public_id) != str or type(system_id) != str:
         raise TypeError
     if name and not _is_minimally_valid_name(name):
         raise ValueError
-    state = _DocumentTypeState(document_state, name, public_id, system_id)
+    state = _DocumentTypeState(name, public_id, system_id)
     return _wrap_node(state, document)
 
 # `document` must be a document node (`Document`) produced in the context of this DOM
@@ -519,8 +519,6 @@ def create_document_type(document, name, public_id, system_id):
 #
 def create_element(document, namespace_uri, prefix, local_name, attributes):
     document_state = _unwrap_typed_node(document, Document)
-    if not document_state:
-        raise TypeError
     if namespace_uri is not None and type(namespace_uri) != str:
         raise TypeError
     if prefix is not None and type(prefix) != str:
@@ -530,7 +528,7 @@ def create_element(document, namespace_uri, prefix, local_name, attributes):
     if not _is_valid_naming(namespace_uri, prefix, local_name):
         raise ValueError
     document_is_html = document_state.is_html
-    element_state = _ElementState(document_state, document_is_html, namespace_uri, prefix, local_name)
+    element_state = _ElementState(document_is_html, namespace_uri, prefix, local_name)
     for i, attr in enumerate(attributes):
         try:
             element_state.append_attribute_node(_unwrap_typed_node(attr, Attr))
@@ -555,8 +553,6 @@ def create_element(document, namespace_uri, prefix, local_name, attributes):
 #
 def create_attribute(document, namespace_uri, prefix, local_name, value):
     document_state = _unwrap_typed_node(document, Document)
-    if not document_state:
-        raise TypeError
     if namespace_uri is not None and type(namespace_uri) != str:
         raise TypeError
     if prefix is not None and type(prefix) != str:
@@ -579,9 +575,9 @@ def create_attribute(document, namespace_uri, prefix, local_name, value):
 
 class _NodeImpl(Node):
     def __init__(self, document, state):
-        assert document
-        assert isinstance(document, _DocumentImpl)
-        self._document = document
+        assert not isinstance(self, _DocumentImpl) or not document
+        assert not document or isinstance(document, _DocumentImpl)
+        self._document = document # Is None for documents
         self._state = state
 
     def __str__(self):
@@ -633,8 +629,8 @@ class _NodeImpl(Node):
     def removeChild(self, node):
         raise NotFoundError
 
-    def _unwrap(self):
-        return self._state
+    def _get_document(self):
+        return self._document
 
 
 class _NodeState:
@@ -651,14 +647,14 @@ class _NodeState:
         wrapper = self.try_get_wrapper()
         if wrapper:
             return wrapper
-        wrapper = self._do_wrap(document)
+        wrapper = self._wrap(document)
         self.weak_wrapper = weakref.ref(wrapper)
         return wrapper
 
     def try_get_wrapper(self):
         return self.weak_wrapper and self.weak_wrapper()
 
-    def _do_wrap(self, document):
+    def _wrap(self, document):
         raise NotImplementedError
 
 
@@ -678,8 +674,7 @@ class _ChildNodeImpl(ChildNode):
 
 
 class _ChildNodeState:
-    def __init__(self, owner_document):
-        self.weak_owner_document = owner_document.weak_self
+    def __init__(self):
         self.weak_parent_node = None
         self.previous_sibling = None
         self.next_sibling = None
@@ -691,9 +686,9 @@ class _ChildNodeState:
         return self.weak_parent_node and self.weak_parent_node()
 
     def migrate_if_needed(self, document_wrapper):
-        assert isinstance(document_wrapper, _DocumentImpl)
-        if self.weak_owner_document == document_wrapper._state.weak_self:
+        if not document_wrapper:
             return
+        assert isinstance(document_wrapper, _DocumentImpl)
         self._migrate(document_wrapper)
 
     def _migrate(self, document_wrapper):
@@ -702,8 +697,6 @@ class _ChildNodeState:
             while child:
                 child._migrate(document_wrapper)
                 child = child.next_sibling
-        document = document_wrapper._state
-        self.weak_owner_document = document.weak_self
         wrapper = self.try_get_wrapper()
         if wrapper:
             wrapper._document = document_wrapper
@@ -729,11 +722,13 @@ class _ParentNodeImpl(ParentNode):
 
     @property
     def firstChild(self):
-        return _wrap_node(self._state.first_child, self._document)
+        document = self._get_document()
+        return _wrap_node(self._state.first_child, document)
 
     @property
     def lastChild(self):
-        return _wrap_node(self._state.last_child, self._document)
+        document = self._get_document()
+        return _wrap_node(self._state.last_child, document)
 
     def contains(self, other):
         if other is None:
@@ -741,20 +736,33 @@ class _ParentNodeImpl(ParentNode):
         return self._state.contains(_unwrap_node(other))
 
     def insertBefore(self, node, child):
-        document = self._document or self
+        node_state = _unwrap_node(node)
+        document = self._get_document()
+        if node._get_document() == document:
+            document = None # No migration
         self._state.insert_before(_unwrap_node(node), _unwrap_optional_node(child), document)
+        return node
 
     def appendChild(self, node):
-        document = self._document or self
+        node_state = _unwrap_node(node)
+        document = self._get_document()
+        if node._get_document() == document:
+            document = None # No migration
         self._state.append_child(_unwrap_node(node), document)
+        return node
 
     def replaceChild(self, node, child):
-        document = self._document or self
+        node_state = _unwrap_node(node)
+        document = self._get_document()
+        if node._get_document() == document:
+            document = None # No migration
         self._state.replace_child(_unwrap_node(node), _unwrap_node(child), document)
+        return child
 
     def removeChild(self, node):
         state = self._state.remove_child(_unwrap_node(node))
-        return _wrap_node(state, self._document)
+        document = self._get_document()
+        return _wrap_node(state, document)
 
 
 class _ParentNodeState:
@@ -780,6 +788,12 @@ class _ParentNodeState:
     # FIXME: Add test case for parent.replaceChild(node, child) where `node` is already a child of `parent`                            
     # FIXME: Add test case for parent.replaceChild(node, child) where `node` and `child` are the same node                            
 
+    # `document_wrapper` must be non-None when, and only when migration is needed
+    def append_child(self, node, document_wrapper):
+        child = None
+        self.insert_before(node, child, document_wrapper)
+
+    # `document_wrapper` must be non-None when, and only when migration is needed
     def insert_before(self, node, child, document_wrapper):
         before = child
         self._validate_child_insertion(node, before)
@@ -792,10 +806,7 @@ class _ParentNodeState:
         node.weak_parent_node = self.weak_self
         self._child_inserted(node)
 
-    def append_child(self, node, document_wrapper):
-        child = None
-        self.insert_before(node, child, document_wrapper)
-
+    # `document_wrapper` must be non-None when, and only when migration is needed
     def replace_child(self, node, child, document_wrapper):
         orig = child
         self._validate_child_replacement(node, orig)
@@ -945,7 +956,7 @@ class _ParentNodeState:
 
 class _DocumentImpl(_ParentNodeImpl, _NodeImpl, Document):
     def __init__(self, state):
-        _NodeImpl.__init__(self, self, state)
+        _NodeImpl.__init__(self, None, state)
         _ParentNodeImpl.__init__(self)
         self._weak_implementation = None
 
@@ -1007,6 +1018,9 @@ class _DocumentImpl(_ParentNodeImpl, _NodeImpl, Document):
     def ownerDocument(self):
         return None
 
+    def _get_document(self):
+        return self
+
 
 class _DocumentState(_ParentNodeState, _NodeState):
     def __init__(self, content_type, is_html):
@@ -1029,19 +1043,19 @@ class _DocumentState(_ParentNodeState, _NodeState):
         if document_is_html or self.content_type == "application/xhtml+xml":
             namespace_uri = "http://www.w3.org/1999/xhtml"
         prefix = None
-        return _ElementState(self, document_is_html, namespace_uri, prefix, local_name_2)
+        return _ElementState(document_is_html, namespace_uri, prefix, local_name_2)
 
     # FIXME: Must also take optional `options` argument
     def create_element_ns(self, namespace, qualified_name):
         document_is_html = self.is_html
         adjusted_namespace, prefix, local_name = _parse_qualified_name(namespace, qualified_name)
-        return _ElementState(self, document_is_html, adjusted_namespace, prefix, local_name)
+        return _ElementState(document_is_html, adjusted_namespace, prefix, local_name)
 
     def create_text_node(self, data):
-        return _TextState(self, data)
+        return _TextState(data)
 
     def create_comment(self, data):
-        return _CommentState(self, data)
+        return _CommentState(data)
 
     def create_attribute(self, local_name):
         if not _is_valid_general_name(local_name):
@@ -1073,7 +1087,7 @@ class _DocumentState(_ParentNodeState, _NodeState):
             assert self.document_element == node
             self.document_element = None
 
-    def _do_wrap(self, document):
+    def _wrap(self, document):
         return _DocumentImpl(self)
 
 
@@ -1083,7 +1097,7 @@ class _XMLDocumentImpl(_DocumentImpl, XMLDocument):
 
 
 class _XMLDocumentState(_DocumentState):
-    def _do_wrap(self, document):
+    def _wrap(self, document):
         return _XMLDocumentImpl(self)
 
 
@@ -1114,14 +1128,14 @@ class _DocumentTypeImpl(_ChildNodeImpl, _NodeImpl, DocumentType):
 
 
 class _DocumentTypeState(_ChildNodeState, _NodeState):
-    def __init__(self, owner_document, name, public_id, system_id):
+    def __init__(self, name, public_id, system_id):
         _NodeState.__init__(self)
-        _ChildNodeState.__init__(self, owner_document)
+        _ChildNodeState.__init__(self)
         self.name = name
         self.public_id = public_id
         self.system_id = system_id
 
-    def _do_wrap(self, document):
+    def _wrap(self, document):
         return _DocumentTypeImpl(document, self)
 
 
@@ -1224,9 +1238,9 @@ class _ElementImpl(_ParentNodeImpl, _ChildNodeImpl, _NodeImpl, Element):
 
 
 class _ElementState(_ParentNodeState, _ChildNodeState, _NodeState):
-    def __init__(self, owner_document, document_is_html, namespace_uri, prefix, local_name):
+    def __init__(self, document_is_html, namespace_uri, prefix, local_name):
         _NodeState.__init__(self)
-        _ChildNodeState.__init__(self, owner_document)
+        _ChildNodeState.__init__(self)
         _ParentNodeState.__init__(self)
         self.is_html = document_is_html and namespace_uri == "http://www.w3.org/1999/xhtml"
         self.namespace_uri = namespace_uri
@@ -1454,7 +1468,7 @@ class _ElementState(_ParentNodeState, _ChildNodeState, _NodeState):
         attr.weak_owner_element = None
         return attr
 
-    def _do_wrap(self, document):
+    def _wrap(self, document):
         return _ElementImpl(document, self)
 
 
@@ -1473,9 +1487,9 @@ class _CharacterDataImpl(_ChildNodeImpl, _NodeImpl, CharacterData):
 
 
 class _CharacterDataState(_ChildNodeState, _NodeState):
-    def __init__(self, owner_document, data):
+    def __init__(self, data):
         _NodeState.__init__(self)
-        _ChildNodeState.__init__(self, owner_document)
+        _ChildNodeState.__init__(self)
         self.data = _default_null_coercion(data)                      
 
 
@@ -1491,7 +1505,7 @@ class _TextImpl(_CharacterDataImpl, Text):
 
 
 class _TextState(_CharacterDataState):
-    def _do_wrap(self, document):
+    def _wrap(self, document):
         return _TextImpl(document, self)
 
 
@@ -1507,7 +1521,7 @@ class _CommentImpl(_CharacterDataImpl, Comment):
 
 
 class _CommentState(_CharacterDataState):
-    def _do_wrap(self, document):
+    def _wrap(self, document):
         return _CommentImpl(document, self)
 
 
@@ -1575,7 +1589,7 @@ class _AttrState(_NodeState):
             return self.local_name
         return "%s:%s" % (self.prefix, self.local_name)
 
-    def _do_wrap(self, document):
+    def _wrap(self, document):
         return _AttrImpl(document, self)
 
 
@@ -1589,8 +1603,7 @@ class _Implementation(DOMImplementation):
             raise TypeError
         if not _is_valid_qualified_name(qualifiedName):
             raise InvalidCharacterError
-        owner_document = self._document._state
-        state = _DocumentTypeState(owner_document, qualifiedName, publicId, systemId)
+        state = _DocumentTypeState(qualifiedName, publicId, systemId)
         return _wrap_node(state, self._document)
 
     def createDocument(self, namespace, qualifiedName, doctype):
@@ -1603,33 +1616,33 @@ class _Implementation(DOMImplementation):
         document_state = _XMLDocumentState(content_type, is_html)
         document = _wrap_node(document_state, None)
         if doctype:
-            document_state.append_child(_unwrap_typed_node(doctype, DocumentType), document)
+            doctype_state = _unwrap_typed_node(doctype, DocumentType)
+            document_state.append_child(doctype_state, document)
         if qualifiedName:
             element_state = document_state.create_element_ns(namespace, qualifiedName)
-            document_state.append_child(element_state, document)
+            document_state.append_child(element_state, None)
         return document
 
     def createHTMLDocument(self, title):
         content_type = "text/html"
         is_html = True
         document_state = _DocumentState(content_type, is_html)
-        document = _wrap_node(document_state, None)
         public_id = None
         system_id = None
-        doctype_state = _DocumentTypeState(document_state, "html", public_id, system_id)
-        document_state.append_child(doctype_state, document)
+        doctype_state = _DocumentTypeState("html", public_id, system_id)
+        document_state.append_child(doctype_state, None)
         html_state = document_state.create_element("html")
-        document_state.append_child(html_state, document)
+        document_state.append_child(html_state, None)
         head_state = document_state.create_element("head")
-        html_state.append_child(head_state, document)
+        html_state.append_child(head_state, None)
         if title is not None:
             title_state = document_state.create_element("title")
-            head_state.append_child(title_state, document)
+            head_state.append_child(title_state, None)
             text_state = document_state.create_text_node(title)
-            title_state.append_child(text_state, document)
+            title_state.append_child(text_state, None)
         body_state = document_state.create_element("body")
-        html_state.append_child(body_state, document)
-        return document
+        html_state.append_child(body_state, None)
+        return _wrap_node(document_state, None)
 
     def hasFeature(self):
         return True
@@ -1658,7 +1671,8 @@ class _ChildNodes(NodeList):
 
     def item(self, index):
         state = self._iter_cache.get(self._parent_node._state, index)
-        return _wrap_node(state, self._parent_node._document)
+        document = self._parent_node._get_document()
+        return _wrap_node(state, document)
 
 
 
@@ -1875,7 +1889,7 @@ def _unwrap_typed_node(node, type_):
         raise TypeError
     if not isinstance(node, _NodeImpl):
         raise TypeError
-    return node._unwrap()
+    return node._state
 
 
 def _is_valid_naming(namespace, prefix, local_name):
