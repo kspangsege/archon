@@ -508,7 +508,7 @@ def test_Node_NodeName(context):
     context.check_equal(attr_2.nodeName, "p:xBar")
 
 
-def test_Node_ChildNodeBasics(context):
+def test_Node_ChildNodes(context):
     doc = _make_xml_document()
     parent = doc.createElement("parent")
     child_nodes = parent.childNodes
@@ -1153,7 +1153,7 @@ def test_Document_CreateAttributeNS(context):
         doc_1.createAttributeNS("http://www.w3.org/2000/xmlns/", "p:foo")
 
 
-def test_Element_AttributeBasics(context):
+def test_Element_Attributes(context):
     def check(doc, is_html):
         elem = doc.createElement("elem")
         attributes = elem.attributes
@@ -1184,6 +1184,8 @@ def test_Element_AttributeBasics(context):
         check_attr(context, attr_3, "ns", "p", "Baz", "3")
         context.check_equal(attributes.item(-1), None)
         context.check_equal(attributes.item(3), None)
+
+        # FIXME: Test rest of methods of NamedNodeMap    
 
     check(_make_xml_document(), False)
     check(_make_html_document(), True)
