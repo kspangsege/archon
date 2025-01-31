@@ -512,9 +512,10 @@ def create_document_type(document, name, public_id, system_id):
 # as defined above.
 #
 # `attributes` must be an iterable sequence of zero or more attribute nodes (`Attr`). The
-# attribute nodes must have been created in the context of this DOM implementation. No two
-# of the attributes are allowed to have the same namespace (`namespaceURI`) and local name
-# (`localName`). None of the attributes are allowed to have an owner element
+# attribute nodes must have been created in the context of this DOM implementation and their
+# associate document (`Node.ownerDocument`) must be the specified document (`document`). No
+# two of the attributes are allowed to have the same namespace (`Attr.namespaceURI`) and
+# local name (`Attr.localName`). None of the attributes are allowed to have an owner element
 # (`Attr.ownerElement`).
 #
 def create_element(document, namespace_uri, prefix, local_name, attributes):
@@ -529,15 +530,18 @@ def create_element(document, namespace_uri, prefix, local_name, attributes):
         raise ValueError
     document_is_html = document_state.is_html
     element_state = _ElementState(document_is_html, namespace_uri, prefix, local_name)
-    for i, attr in enumerate(attributes):
-        try:
-            element_state.append_attribute_node(_unwrap_typed_node(attr, Attr))
-        except InUseAttributeError:
-            element_state.remove_all_attributes()
-            raise ValueError
-        except:
-            element_state.remove_all_attributes()
-            raise
+    try:
+        for i, attr in enumerate(attributes):
+            attr_state = _unwrap_typed_node(attr, Attr)
+            if attr._document != document:
+                raise ValueError
+            element_state.append_attribute_node(attr_state)
+    except InUseAttributeError:
+        element_state.remove_all_attributes()
+        raise ValueError
+    except:
+        element_state.remove_all_attributes()
+        raise
     return _wrap_node(element_state, document)
 
 # `document` must be a document node (`Document`) produced in the context of this DOM
@@ -1219,7 +1223,11 @@ class _ElementImpl(_ParentNodeImpl, _ChildNodeImpl, _NodeImpl, Element):
         return self.setAttributeNodeNS(attr)
 
     def setAttributeNodeNS(self, attr):
-        state = self._state.set_attribute_node(_unwrap_typed_node(attr, Attr))
+        attr_state = _unwrap_typed_node(attr, Attr)
+        document = self._document
+        if attr._document == document:
+            document = None # No migration
+        state = self._state.set_attribute_node(attr_state, document)
         return _wrap_node(state, self._document)
 
     def removeAttributeNode(self, attr):
@@ -1368,9 +1376,11 @@ class _ElementState(_ParentNodeState, _ChildNodeState, _NodeState):
             raise ValueError
         self._append_attribute(candidates, attr)
 
-    def set_attribute_node(self, attr):
+    # `document_wrapper` must be non-None when, and only when migration is needed
+    def set_attribute_node(self, attr, document_wrapper):
         if attr.weak_owner_element and attr.weak_owner_element != self.weak_self:
             raise InUseAttributeError
+        attr.migrate_if_needed(document_wrapper)
         key = self._get_attribute_key_ns(attr.local_name)
         candidates = self.attribute_map.setdefault(key, [])
         index = self._attribute_search_ns(candidates, attr.namespace_uri, attr.local_name)
@@ -1587,6 +1597,14 @@ class _AttrState(_NodeState):
             return self.local_name
         return "%s:%s" % (self.prefix, self.local_name)
 
+    def migrate_if_needed(self, document_wrapper):
+        if not document_wrapper:
+            return
+        assert isinstance(document_wrapper, _DocumentImpl)
+        wrapper = self.try_get_wrapper()
+        if wrapper:
+            wrapper._document = document_wrapper
+
     def _wrap(self, document):
         return _AttrImpl(document, self)
 
@@ -1758,19 +1776,16 @@ class _Attributes(NamedNodeMap):
         return _wrap_node(attributes[index], self._element._document)
 
     def getNamedItem(self, qualifiedName):
-        state = self._element._state.get_attribute_node(qualifiedName)
-        return _wrap_node(state, self._element._document)
+        return self._element.getAttributeNode(qualifiedName)
 
     def getNamedItemNS(self, namespace, localName):
-        state = self._element._state.get_attribute_node_ns(namespace, localName)
-        return _wrap_node(state, self._element._document)
+        return self._element.getAttributeNode(namespace, localName)
 
     def setNamedItem(self, attr):
-        return self.setNamedItemNS(attr)
+        return self._element.setAttributeNode(attr)
 
     def setNamedItemNS(self, attr):
-        state = self._element._state.set_attribute_node(_unwrap_typed_node(attr, Attr))
-        return _wrap_node(state, self._element._document)
+        return self._element.setAttributeNodeNS(attr)
 
     def removeNamedItem(self, qualifiedName):
         state = self._element._state.remove_attribute(qualifiedName)

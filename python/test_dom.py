@@ -389,18 +389,17 @@ def test_CreateElement(context):
         with context.check_raises(ValueError):
             archon.dom.create_element(doc, "ns", "p", "foo", [ attr_1, attr_6, attr_3 ])
 
-        # FIXME: Reneable once detection of document mismatch has been implemented                                            
-        # def subcheck(doc_2, is_html_2):
-        #     attr_7 = archon.dom.create_attribute(doc_2, "ns", None, "bar", "")
-        #     attr_8 = archon.dom.create_attribute(doc_2, "ns", None, "bar", "")
-        #     elem_2 = archon.dom.create_element(doc_2, "ns", "p", "foo", [ attr_8 ])
-        #     with context.check_raises(ValueError):
-        #         archon.dom.create_element(doc, "ns", "p", "foo", [ attr_1, attr_7, attr_3 ])
-        #     with context.check_raises(ValueError):
-        #         archon.dom.create_element(doc, "ns", "p", "foo", [ attr_1, attr_8, attr_3 ])
+        def subcheck(doc_2, is_html_2):
+            attr_7 = archon.dom.create_attribute(doc_2, "ns", None, "bar", "")
+            attr_8 = archon.dom.create_attribute(doc_2, "ns", None, "bar", "")
+            elem_2 = archon.dom.create_element(doc_2, "ns", "p", "foo", [ attr_8 ])
+            with context.check_raises(ValueError):
+                archon.dom.create_element(doc, "ns", "p", "foo", [ attr_1, attr_7, attr_3 ])
+            with context.check_raises(ValueError):
+                archon.dom.create_element(doc, "ns", "p", "foo", [ attr_1, attr_8, attr_3 ])
 
-        # subcheck(_make_xml_document(), False)
-        # subcheck(_make_html_document(), True)
+        subcheck(_make_xml_document(), False)
+        subcheck(_make_html_document(), True)
 
     check(_make_xml_document(), False)
     check(_make_html_document(), True)
@@ -1387,20 +1386,19 @@ def test_Element_SetAttributeNode(context):
         context.check_equal(attributes.item(0), attr_2)
         context.check_equal(attributes.item(1), attr_3)
 
-        # FIXME: Reneable once migration of attributes has been implemented                      
-        # def subcheck(doc_2, is_html_2):
-        #     elem = doc.createElement("elem")
-        #     attributes = elem.attributes
-        #     attr_1 = doc_2.createAttribute("foo")
-        #     context.check_equal(attr_1.ownerDocument, doc_2)
-        #     attr_2 = elem.setAttributeNode(attr_1)
-        #     context.check_is_none(attr_2)
-        #     context.check_equal(len(attributes), 1)
-        #     context.check_equal(attributes.item(0), attr_1)
-        #     context.check_equal(attr_1.ownerDocument, doc)
+        def subcheck(doc_2, is_html_2):
+            elem = doc.createElement("elem")
+            attributes = elem.attributes
+            attr_1 = doc_2.createAttribute("foo")
+            context.check_equal(attr_1.ownerDocument, doc_2)
+            attr_2 = elem.setAttributeNode(attr_1)
+            context.check_is_none(attr_2)
+            context.check_equal(len(attributes), 1)
+            context.check_equal(attributes.item(0), attr_1)
+            context.check_equal(attr_1.ownerDocument, doc)
 
-        # subcheck(_make_xml_document(), False)
-        # subcheck(_make_html_document(), True)
+        subcheck(_make_xml_document(), False)
+        subcheck(_make_html_document(), True)
 
     check(_make_xml_document(), False)
     check(_make_html_document(), True)
