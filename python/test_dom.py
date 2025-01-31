@@ -701,13 +701,13 @@ def test_Node_AppendChild(context):
     doc = _make_xml_document()
     root = doc.createElement("root")
 
-    def check(grandparent, parent, is_connected):
+    def check(grandparent, parent):
         child_nodes = parent.childNodes
         context.check_equal(parent.firstChild, None)
         context.check_equal(parent.lastChild, None)
         context.check_equal(child_nodes.length, 0)
 
-        child_1 = doc.createElement("elem")
+        child_1 = doc.createComment("comment 1")
         child = parent.appendChild(child_1)
         context.check_equal(child, child_1)
         context.check_equal(parent.firstChild, child_1)
@@ -718,7 +718,7 @@ def test_Node_AppendChild(context):
         context.check_equal(child_1.previousSibling, None)
         context.check_equal(child_1.nextSibling, None)
 
-        child_2 = doc.createTextNode("text")
+        child_2 = doc.createComment("comment 2")
         child = parent.appendChild(child_2)
         context.check_equal(child, child_2)
         context.check_equal(parent.firstChild, child_1)
@@ -733,7 +733,7 @@ def test_Node_AppendChild(context):
         context.check_equal(child_2.previousSibling, child_1)
         context.check_equal(child_2.nextSibling, None)
 
-        child_3 = doc.createComment("comment")
+        child_3 = doc.createComment("comment 3")
         child = parent.appendChild(child_3)
         context.check_equal(child, child_3)
         context.check_equal(parent.firstChild, child_1)
@@ -773,7 +773,7 @@ def test_Node_AppendChild(context):
                 context.check_equal(subchild.parentNode, child)
                 context.check_equal(subchild.ownerDocument, doc)
 
-        child = doc.createTextNode("text")
+        child = doc.createComment("comment")
         subcheck(child, None)
         parent.removeChild(child)
         child = doc.createElement("elem")
@@ -781,7 +781,7 @@ def test_Node_AppendChild(context):
         child.appendChild(subchild)
         subcheck(child, subchild)
         parent.removeChild(child)
-        child = doc.createTextNode("text")
+        child = doc.createComment("comment")
         root.appendChild(child)
         subcheck(child, None)
         parent.removeChild(child)
@@ -792,7 +792,7 @@ def test_Node_AppendChild(context):
         subcheck(child, subchild)
         parent.removeChild(child)
 
-        child = doc.createTextNode("text")
+        child = doc.createComment("comment")
         parent.appendChild(child)
         subcheck(child, None)
         parent.removeChild(child)
@@ -805,7 +805,7 @@ def test_Node_AppendChild(context):
 
         doc_2 = _make_xml_document()
         root_2 = doc.createElement("root")
-        child = doc_2.createTextNode("text")
+        child = doc_2.createComment("comment")
         subcheck(child, None)
         parent.removeChild(child)
         child = doc_2.createElement("elem")
@@ -813,7 +813,7 @@ def test_Node_AppendChild(context):
         child.appendChild(subchild)
         subcheck(child, subchild)
         parent.removeChild(child)
-        child = doc_2.createTextNode("text")
+        child = doc_2.createComment("comment")
         root_2.appendChild(child)
         subcheck(child, None)
         parent.removeChild(child)
@@ -824,22 +824,26 @@ def test_Node_AppendChild(context):
         subcheck(child, subchild)
         parent.removeChild(child)
 
-        with context.check_raises(archon.dom.HierarchyRequestError):
-            parent.appendChild(grandparent)
+        if grandparent:
+            with context.check_raises(archon.dom.HierarchyRequestError):
+                parent.appendChild(grandparent)
         with context.check_raises(archon.dom.HierarchyRequestError):
             parent.appendChild(parent)
 
+    grandparent = None
+    parent = doc
+    check(grandparent, parent)
     grandparent = doc.createElement("grandparent")
     parent = doc.createElement("parent")
     grandparent.appendChild(parent)
-    check(grandparent, parent, False)
+    check(grandparent, parent)
     grandparent = doc.createElement("grandparent")
     parent = doc.createElement("parent")
     grandparent.appendChild(parent)
     root.appendChild(grandparent)
-    check(root, parent, True)
+    check(root, parent)
 
-    # Check append to a document parent
+    # Check append to document
 
     doc = _make_xml_document()
     context.check_equal(doc.hasChildNodes(), False)
@@ -890,7 +894,7 @@ def test_Node_AppendChild(context):
     with context.check_raises(archon.dom.HierarchyRequestError):
         doc.appendChild(doc.createElement("elem"))
 
-    # Check append to an element parent
+    # Check append to element
 
     doc = _make_xml_document()
     elem = doc.createElement("parent")
@@ -964,6 +968,44 @@ def test_Node_AppendChild(context):
 def test_Node_InsertBefore(context):
     doc = _make_xml_document()
     root = doc.createElement("root")
+
+    #                                                                                         
+    # Iteretsting cases:
+    #   CASE 1: parent node is document
+    #   CASE 2: parent node is unconnected element
+    #   CASE 3: parent node is connected element
+    #     child_3 = append comment just to get started
+    #     child_1 = check after inserting comment before preexisting child
+    #     child_2 = check after inserting comment between two preexisting children
+    #     CASE 1: node is child_2 and child is child_1 (restore: insertBefore(child_1, child_2))
+    #     CASE 2: node is child_2 and child is child_2 (no restoration needed)
+    #     CASE 3: node is child_2 and child is child_3 (no restoration needed)
+    #     Case 4: node is unconnected leaf and child is child_2 (restore: removeChild(node))           
+    #     Case 5: node is unconnected tree and child is child_2 (restore: removeChild(node))           
+    #     Case 6: node is connected leaf and child is child_2 (restore: removeChild(node))           
+    #     Case 7: node is connected tree and child is child_2 (restore: removeChild(node))           
+    #     Case 8: node is unconnected leaf from foreign document and child is child_2 (restore: removeChild(node))           
+    #     Case 9: node is unconnected tree from foreign document and child is child_2 (restore: removeChild(node))           
+    #     Case 10: node is connected leaf from foreign document and child is child_2 (restore: removeChild(node))           
+    #     Case 11: node is connected tree from foreign document and child is child_2 (restore: removeChild(node))           
+    #       Insert
+    #       Check
+    #   
+
+    # Check insertion into document
+
+    # Check insertion into element
+
+    # Check that no kinds of nodes can be appended to a non-parent node
+
+    # Check that non-node arguments are properly dealt with
+
+    # Iteretsting error cases:
+    #   `child` is not in target element
+    #   `child` is not a node
+    #   `child` is from different implementation
+    #   `child` is an integer
+    #   `child` is an string
 
     foo = doc.createElement("foo")
     child = root.insertBefore(foo, None)
