@@ -418,6 +418,11 @@ def dump_document(document, max_string_size = 90):
 # Implementation specific stuff below
 
 
+# This DOM implementation is free of internal strong reference cycles. This means that it
+# can be used with disabled garbage collection without causing memory leaks.
+#
+# FIXME: The above statement is not currently true, but it must become true                                                        
+#
 # All document type nodes (`DocumentType`) created in the context of this implementation are
 # guaranteed to have a name that is minimally valid (see definition below). Note that a
 # stronger guarantee holds for document type nodes that were created through the standard
@@ -798,27 +803,27 @@ class _ParentNodeState:
 
     # `document_wrapper` must be non-None when, and only when migration is needed
     def insert_before(self, node, child, document_wrapper):
-        before = child
-        self._validate_child_insertion(node, before)
+        self._validate_child_insertion(node, child)
         parent = node.get_parent_node()
         if parent:
-            # FIXME: Oops, something needs to be done here if `node` and `before` are the same node                       
+            # FIXME: Oops, something needs to be done here if `node` and `child` are the same node                       
             parent._remove_child(node)
+            parent._child_removed(node)
         node.migrate_if_needed(document_wrapper)
-        self._insert_child(node, before)
+        self._insert_child(node, child)
         node.weak_parent_node = self.weak_self
         self._child_inserted(node)
 
     # `document_wrapper` must be non-None when, and only when migration is needed
     def replace_child(self, node, child, document_wrapper):
-        orig = child
-        self._validate_child_replacement(node, orig)
+        self._validate_child_replacement(node, child)
         parent = node.get_parent_node()
         if parent:
-            # FIXME: Oops, something needs to be done here if `node` and `orig` are the same node                       
+            # FIXME: Oops, something needs to be done here if `node` and `child` are the same node                       
             parent._remove_child(node)
+            parent._child_removed(node)
         node.migrate_if_needed(document_wrapper)
-        self._replace_child(node, orig)                                                                                                               
+        self._replace_child(node, child)                                                                                                               
         child.weak_parent_node = None
         node.weak_parent_node = self.weak_self
         self._child_removed(child)
@@ -831,9 +836,9 @@ class _ParentNodeState:
         node.weak_parent_node = None
         self._child_removed(node)
 
-    # `node` may already be a child of `self`
-    # `node` and `before` may be the same node
-    def _validate_child_insertion(self, node, before):
+    # `node` may be a child of `self`
+    # `node` and `child` may be the same node
+    def _validate_child_insertion(self, node, child):
         # FIXME: Need to take DocumentFragment into account below
         if not isinstance(node, _ChildNodeState):
             raise HierarchyRequestError
@@ -841,35 +846,35 @@ class _ParentNodeState:
         # instead of the "inclusive ancestor"
         if node.contains(self):
             raise HierarchyRequestError
-        if before and before.get_weak_parent_node() != self.weak_self:
+        if child and child.get_weak_parent_node() != self.weak_self:
             raise NotFoundError
         if not isinstance(self, _DocumentState):
             if isinstance(node, _DocumentTypeState):
                 raise HierarchyRequestError
             return
         if isinstance(node, _DocumentTypeState):
-            if self.doctype: # FIXME: Not good if `node` is already a child of `self`                    
+            if self.doctype and self.doctype != node:
                 raise HierarchyRequestError
-            child = self.first_child
-            while child != before:
-                if isinstance(child, _ElementState):
+            child_2 = self.first_child
+            while child_2 != child:
+                if isinstance(child_2, _ElementState):
                     raise HierarchyRequestError
-                child = child.next_sibling
+                child_2 = child_2.next_sibling
         elif isinstance(node, _ElementState):
-            if self.document_element: # FIXME: Not good if `node` is already a child of `self`                    
+            if self.document_element and self.document_element != node:
                 raise HierarchyRequestError
-            if before:
-                child = before
-                while child:
-                    if isinstance(child, _DocumentTypeState):
+            if child:
+                child_2 = child
+                while child_2:
+                    if isinstance(child_2, _DocumentTypeState):
                         raise HierarchyRequestError
-                    child = child.next_sibling
+                    child_2 = child_2.next_sibling
         elif isinstance(node, _TextState):
             raise HierarchyRequestError
 
-    # `node` may already be a child of `self`
-    # `node` and `orig` may be the same node
-    def _validate_child_replacement(self, node, orig):
+    # `node` may be a child of `self`
+    # `node` and `child` may be the same node
+    def _validate_child_replacement(self, node, child):
         # FIXME: Need to take DocumentFragment into account below
         if not isinstance(node, _ChildNodeState):
             raise HierarchyRequestError
@@ -877,7 +882,7 @@ class _ParentNodeState:
         # instead of the "inclusive ancestor"
         if node.contains(self):
             raise HierarchyRequestError
-        if orig.get_weak_parent_node() != self.weak_self:
+        if child.get_weak_parent_node() != self.weak_self:
             raise NotFoundError
         if not isinstance(self, _DocumentState):
             if isinstance(node, _DocumentTypeState):
@@ -886,25 +891,25 @@ class _ParentNodeState:
         if isinstance(node, _DocumentTypeState):
             # FIXME: Does this work if `node` is already a child of `self`?                    
             if self.doctype:
-                if self.doctype != orig:
+                if self.doctype != child:
                     raise HierarchyRequestError
                 return
-            child = self.first_child
-            while child != orig:
-                if isinstance(child, _ElementState):
+            child_2 = self.first_child
+            while child_2 != child:
+                if isinstance(child_2, _ElementState):
                     raise HierarchyRequestError
-                child = child.next_sibling
+                child_2 = child_2.next_sibling
         elif isinstance(node, _ElementState):
             # FIXME: Does this work if `node` is already a child of `self`?                    
             if self.document_element:
-                if self.document_element != orig:
+                if self.document_element != child:
                     raise HierarchyRequestError
                 return
-            child = orig.next_sibling
-            while child:
-                if isinstance(child, _DocumentTypeState):
+            child_2 = child.next_sibling
+            while child_2:
+                if isinstance(child_2, _DocumentTypeState):
                     raise HierarchyRequestError
-                child = child.next_sibling
+                child_2 = child_2.next_sibling
         elif isinstance(node, _TextState):
             raise HierarchyRequestError
 

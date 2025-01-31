@@ -587,6 +587,24 @@ def test_Node_ParentNode(context):
     check(doc.createTextNode("foo"))
     check(doc.createComment("foo"))
 
+    # FIXME: Reenable this when implementation is fixed                                            
+
+    # # Check that parent remains reachable through `Node.parenNode` after application drops
+    # # all its references to the parent
+    # parent = doc.createElement("parent")
+    # elem = doc.createElement("elem")
+    # parent.appendChild(elem)
+    # del parent
+    # gc.collect()
+    # context.check_is_not_none(elem.parentNode)
+
+    # # Check that the existence of the parent reference does not cause a strong reference
+    # # cycle
+    # with disabled_gc():                       
+    #     weak_elem = weakref.ref(elem)
+    #     del elem
+    #     context.check_is_none(weak_elem())
+
 
 def test_Node_HasChildNodes(context):
     doc = _make_xml_document()
@@ -821,7 +839,7 @@ def test_Node_AppendChild(context):
     root.appendChild(grandparent)
     check(root, parent, True)
 
-    # Check appended to a document parent
+    # Check append to a document parent
 
     doc = _make_xml_document()
     context.check_equal(doc.hasChildNodes(), False)
@@ -854,6 +872,9 @@ def test_Node_AppendChild(context):
     impl = doc.implementation
     doctype = impl.createDocumentType("foo", "bar", "baz")
     doc.appendChild(doctype)
+    doc.appendChild(doctype) # Must remove, then re-append
+    context.check_equal(doc.childNodes.length, 1)
+    context.check_equal(doc.childNodes.item(0), doctype)
     with context.check_raises(archon.dom.HierarchyRequestError):
         doc.appendChild(impl.createDocumentType("foo", "bar", "baz"))
 
@@ -861,12 +882,15 @@ def test_Node_AppendChild(context):
     impl = doc.implementation
     elem = doc.createElement("elem")
     doc.appendChild(elem)
+    doc.appendChild(elem) # Remove, then re-append
+    context.check_equal(doc.childNodes.length, 1)
+    context.check_equal(doc.childNodes.item(0), elem)
     with context.check_raises(archon.dom.HierarchyRequestError):
         doc.appendChild(impl.createDocumentType("foo", "bar", "baz"))
     with context.check_raises(archon.dom.HierarchyRequestError):
         doc.appendChild(doc.createElement("elem"))
 
-    # Check appended to an element parent
+    # Check append to an element parent
 
     doc = _make_xml_document()
     elem = doc.createElement("parent")
