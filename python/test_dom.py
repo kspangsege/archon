@@ -974,29 +974,37 @@ def test_Node_InsertBefore(context):
     #   CASE 1: parent node is document
     #   CASE 2: parent node is unconnected element
     #   CASE 3: parent node is connected element
+    #     CAN I MAKE DO WITH TWO PREEXISTING CHILDREN?
     #     child_3 = append comment just to get started
     #     child_1 = check after inserting comment before preexisting child
     #     child_2 = check after inserting comment between two preexisting children
-    #     CASE 1: node is child_2 and child is child_1 (restore: insertBefore(child_1, child_2))
-    #     CASE 2: node is child_2 and child is child_2 (no restoration needed)
-    #     CASE 3: node is child_2 and child is child_3 (no restoration needed)
-    #     Case 4: node is unconnected leaf and child is child_2 (restore: removeChild(node))           
-    #     Case 5: node is unconnected tree and child is child_2 (restore: removeChild(node))           
-    #     Case 6: node is connected leaf and child is child_2 (restore: removeChild(node))           
-    #     Case 7: node is connected tree and child is child_2 (restore: removeChild(node))           
-    #     Case 8: node is unconnected leaf from foreign document and child is child_2 (restore: removeChild(node))           
-    #     Case 9: node is unconnected tree from foreign document and child is child_2 (restore: removeChild(node))           
-    #     Case 10: node is connected leaf from foreign document and child is child_2 (restore: removeChild(node))           
-    #     Case 11: node is connected tree from foreign document and child is child_2 (restore: removeChild(node))           
-    #       Insert
-    #       Check
-    #   
+    #     CASE: node is child_2 and child is child_1 (restore: insertBefore(child_1, child_2))
+    #       Insert and check
+    #     CASE: node is child_2 and child is child_2 (no restoration needed)
+    #       Insert and check
+    #     CASE: node is child_2 and child is child_3 (no restoration needed)
+    #       Insert and check
+    #     Case 1: node is child of parent node
+    #     Case 2: node is unconnected leaf and child is child_2 (restore: removeChild(node))           
+    #     Case 3: node is unconnected tree and child is child_2 (restore: removeChild(node))           
+    #     Case 4: node is connected leaf and child is child_2 (restore: removeChild(node))           
+    #     Case 5: node is connected tree and child is child_2 (restore: removeChild(node))           
+    #     Case 6: node is unconnected leaf from foreign document and child is child_2 (restore: removeChild(node))           
+    #     Case 7: node is unconnected tree from foreign document and child is child_2 (restore: removeChild(node))           
+    #     Case 8: node is connected leaf from foreign document and child is child_2 (restore: removeChild(node))           
+    #     Case 9: node is connected tree from foreign document and child is child_2 (restore: removeChild(node))           
+    #       Insert but ignore child and check
+    #       Insert with child and check
+    #
 
     # Check insertion into document
+    #   With and without child argument
 
     # Check insertion into element
+    #   With and without child argument
 
     # Check that no kinds of nodes can be appended to a non-parent node
+    #   With and without child argument
 
     # Check that non-node arguments are properly dealt with
 
