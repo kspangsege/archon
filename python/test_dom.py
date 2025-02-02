@@ -21,6 +21,29 @@ def check_attr(context, attr, namespace_uri, prefix, local_name, value):
     context.check_equal(attr.value, value)
 
 
+def check_children(context, parent, children):
+    child_nodes = parent.childNodes
+    context.check_equal(parent.firstChild, children[0] if children else None)
+    context.check_equal(parent.lastChild, children[-1] if children else None)
+    context.check_equal(child_nodes.length, len(children))
+    prev = None
+    for i, child in enumerate(children):
+        context.check_equal(child, child_nodes.item(i))
+        context.check_equal(child.parentNode, parent)
+        if prev:
+            context.check_equal(prev.nextSibling, child)
+        context.check_equal(child.previousSibling, prev)
+        prev = child
+    if prev:
+        context.check_equal(prev.nextSibling, None)
+
+
+def check_nonchild(context, child):
+        context.check_equal(child.parentNode, None)
+        context.check_equal(child.previousSibling, None)
+        context.check_equal(child.nextSibling, None)
+
+
 
 def test_CreateXMLDocument(context):
     doc = archon.dom.create_xml_document()
@@ -702,127 +725,78 @@ def test_Node_AppendChild(context):
     root = doc.createElement("root")
 
     def check(grandparent, parent):
-        child_nodes = parent.childNodes
-        context.check_equal(parent.firstChild, None)
-        context.check_equal(parent.lastChild, None)
-        context.check_equal(child_nodes.length, 0)
+        check_children(context, parent, [])
 
         child_1 = doc.createComment("comment 1")
         child = parent.appendChild(child_1)
         context.check_equal(child, child_1)
-        context.check_equal(parent.firstChild, child_1)
-        context.check_equal(parent.lastChild, child_1)
-        context.check_equal(child_nodes.length, 1)
-        context.check_equal(child_nodes.item(0), child_1)
-        context.check_equal(child_1.parentNode, parent)
-        context.check_equal(child_1.previousSibling, None)
-        context.check_equal(child_1.nextSibling, None)
+        check_children(context, parent, [ child_1 ])
 
         child_2 = doc.createComment("comment 2")
         child = parent.appendChild(child_2)
         context.check_equal(child, child_2)
-        context.check_equal(parent.firstChild, child_1)
-        context.check_equal(parent.lastChild, child_2)
-        context.check_equal(child_nodes.length, 2)
-        context.check_equal(child_nodes.item(0), child_1)
-        context.check_equal(child_nodes.item(1), child_2)
-        context.check_equal(child_1.parentNode, parent)
-        context.check_equal(child_1.previousSibling, None)
-        context.check_equal(child_1.nextSibling, child_2)
-        context.check_equal(child_2.parentNode, parent)
-        context.check_equal(child_2.previousSibling, child_1)
-        context.check_equal(child_2.nextSibling, None)
+        check_children(context, parent, [ child_1, child_2 ])
 
         child_3 = doc.createComment("comment 3")
         child = parent.appendChild(child_3)
         context.check_equal(child, child_3)
-        context.check_equal(parent.firstChild, child_1)
-        context.check_equal(parent.lastChild, child_3)
-        context.check_equal(child_nodes.length, 3)
-        context.check_equal(child_nodes.item(0), child_1)
-        context.check_equal(child_nodes.item(1), child_2)
-        context.check_equal(child_nodes.item(2), child_3)
-        context.check_equal(child_1.parentNode, parent)
-        context.check_equal(child_1.previousSibling, None)
-        context.check_equal(child_1.nextSibling, child_2)
-        context.check_equal(child_2.parentNode, parent)
-        context.check_equal(child_2.previousSibling, child_1)
-        context.check_equal(child_2.nextSibling, child_3)
-        context.check_equal(child_3.parentNode, parent)
-        context.check_equal(child_3.previousSibling, child_2)
-        context.check_equal(child_3.nextSibling, None)
+        check_children(context, parent, [ child_1, child_2, child_3 ])
 
         parent.removeChild(child_3)
         parent.removeChild(child_2)
+        check_children(context, parent, [ child_1 ])
 
         def subcheck(child, subchild):
             parent.appendChild(child)
-            context.check_equal(parent.firstChild, child_1)
-            context.check_equal(parent.lastChild, child)
-            context.check_equal(child_nodes.length, 2)
-            context.check_equal(child_nodes.item(0), child_1)
-            context.check_equal(child_nodes.item(1), child)
-            context.check_equal(child_1.parentNode, parent)
-            context.check_equal(child_1.previousSibling, None)
-            context.check_equal(child_1.nextSibling, child)
-            context.check_equal(child.parentNode, parent)
-            context.check_equal(child.previousSibling, child_1)
-            context.check_equal(child.nextSibling, None)
+            check_children(context, parent, [ child_1, child ])
             context.check_equal(child.ownerDocument, doc)
             if subchild:
                 context.check_equal(subchild.parentNode, child)
                 context.check_equal(subchild.ownerDocument, doc)
 
+            parent.removeChild(child)
+            check_children(context, parent, [ child_1 ])
+
         child = doc.createComment("comment")
         subcheck(child, None)
-        parent.removeChild(child)
         child = doc.createElement("elem")
         subchild = doc.createTextNode("text")
         child.appendChild(subchild)
         subcheck(child, subchild)
-        parent.removeChild(child)
         child = doc.createComment("comment")
         root.appendChild(child)
         subcheck(child, None)
-        parent.removeChild(child)
         child = doc.createElement("elem")
         subchild = doc.createTextNode("text")
         child.appendChild(subchild)
         root.appendChild(child)
         subcheck(child, subchild)
-        parent.removeChild(child)
 
         child = doc.createComment("comment")
         parent.appendChild(child)
         subcheck(child, None)
-        parent.removeChild(child)
         child = doc.createElement("elem")
         subchild = doc.createTextNode("text")
         child.appendChild(subchild)
         parent.appendChild(child)
         subcheck(child, subchild)
-        parent.removeChild(child)
 
         doc_2 = _make_xml_document()
         root_2 = doc.createElement("root")
         child = doc_2.createComment("comment")
         subcheck(child, None)
-        parent.removeChild(child)
         child = doc_2.createElement("elem")
         subchild = doc_2.createTextNode("text")
         child.appendChild(subchild)
         subcheck(child, subchild)
-        parent.removeChild(child)
         child = doc_2.createComment("comment")
         root_2.appendChild(child)
         subcheck(child, None)
-        parent.removeChild(child)
         child = doc_2.createElement("elem")
         subchild = doc_2.createTextNode("text")
         child.appendChild(subchild)
         root_2.appendChild(child)
         subcheck(child, subchild)
-        parent.removeChild(child)
 
         if grandparent:
             with context.check_raises(archon.dom.HierarchyRequestError):
@@ -942,24 +916,24 @@ def test_Node_AppendChild(context):
         with context.check_raises(archon.dom.HierarchyRequestError):
             parent.appendChild(doc.createAttribute("attr"))
     check(impl.createDocumentType("foo", "bar", "baz"))
-    check(doc.createTextNode("test"))
+    check(doc.createTextNode("text"))
     check(doc.createComment("comment"))
     check(doc.createAttribute("attr"))
 
     # Check that non-node arguments are properly dealt with
 
-    class WrongImplText(archon.dom.Text):
+    class WrongImplComment(archon.dom.Comment):
         pass
 
-    def check(elem):
+    def check(parent):
         with context.check_raises(TypeError):
-            elem.appendChild(None)
+            parent.appendChild(None)
         with context.check_raises(TypeError):
-            elem.appendChild(7)
+            parent.appendChild(7)
         with context.check_raises(TypeError):
-            elem.appendChild("foo")
+            parent.appendChild("foo")
         with context.check_raises(TypeError):
-            elem.appendChild(WrongImplText())
+            parent.appendChild(WrongImplComment())
     doc = _make_xml_document()
     check(doc)
     check(doc.createElement("elem"))
@@ -969,93 +943,325 @@ def test_Node_InsertBefore(context):
     doc = _make_xml_document()
     root = doc.createElement("root")
 
-    #                                                                                         
-    # Iteretsting cases:
-    #   CASE 1: parent node is document
-    #   CASE 2: parent node is unconnected element
-    #   CASE 3: parent node is connected element
-    #     CAN I MAKE DO WITH TWO PREEXISTING CHILDREN?
-    #     child_3 = append comment just to get started
-    #     child_1 = check after inserting comment before preexisting child
-    #     child_2 = check after inserting comment between two preexisting children
-    #     CASE: node is child_2 and child is child_1 (restore: insertBefore(child_1, child_2))
-    #       Insert and check
-    #     CASE: node is child_2 and child is child_2 (no restoration needed)
-    #       Insert and check
-    #     CASE: node is child_2 and child is child_3 (no restoration needed)
-    #       Insert and check
-    #     Case 1: node is child of parent node
-    #     Case 2: node is unconnected leaf and child is child_2 (restore: removeChild(node))           
-    #     Case 3: node is unconnected tree and child is child_2 (restore: removeChild(node))           
-    #     Case 4: node is connected leaf and child is child_2 (restore: removeChild(node))           
-    #     Case 5: node is connected tree and child is child_2 (restore: removeChild(node))           
-    #     Case 6: node is unconnected leaf from foreign document and child is child_2 (restore: removeChild(node))           
-    #     Case 7: node is unconnected tree from foreign document and child is child_2 (restore: removeChild(node))           
-    #     Case 8: node is connected leaf from foreign document and child is child_2 (restore: removeChild(node))           
-    #     Case 9: node is connected tree from foreign document and child is child_2 (restore: removeChild(node))           
-    #       Insert but ignore child and check
-    #       Insert with child and check
-    #
+    def check(grandparent, parent):
+        check_children(context, parent, [])
+
+        child_1 = doc.createComment("comment 1")
+        child = parent.insertBefore(child_1, None)
+        context.check_equal(child, child_1)
+        check_children(context, parent, [ child_1 ])
+
+        child_2 = doc.createComment("comment 2")
+        child = parent.insertBefore(child_2, None)
+        context.check_equal(child, child_2)
+        check_children(context, parent, [ child_1, child_2 ])
+
+        child_3 = doc.createComment("comment 3")
+        child = parent.insertBefore(child_3, None)
+        context.check_equal(child, child_3)
+        check_children(context, parent, [ child_1, child_2, child_3 ])
+
+        parent.removeChild(child_1)
+        parent.removeChild(child_2)
+        check_children(context, parent, [ child_3 ])
+        check_nonchild(context, child_1)
+        check_nonchild(context, child_2)
+
+        child = parent.insertBefore(child_1, child_3)
+        context.check_equal(child, child_1)
+        check_children(context, parent, [ child_1, child_3 ])
+
+        child = parent.insertBefore(child_2, child_3)
+        context.check_equal(child, child_2)
+        check_children(context, parent, [ child_1, child_2, child_3 ])
+
+        child = parent.insertBefore(child_2, child_1)
+        context.check_equal(child, child_2)
+        check_children(context, parent, [ child_2, child_1, child_3 ])
+
+        child = parent.insertBefore(child_1, child_2)
+        context.check_equal(child, child_1)
+        check_children(context, parent, [ child_1, child_2, child_3 ])
+
+        child = parent.insertBefore(child_2, child_2)
+        context.check_equal(child, child_2)
+        check_children(context, parent, [ child_1, child_2, child_3 ])
+
+        child = parent.insertBefore(child_2, child_3)
+        context.check_equal(child, child_2)
+        check_children(context, parent, [ child_1, child_2, child_3 ])
+
+        parent.removeChild(child_3)
+        parent.removeChild(child_2)
+        check_children(context, parent, [ child_1 ])
+        check_nonchild(context, child_2)
+        check_nonchild(context, child_3)
+
+        def subcheck(child, subchild):
+            parent.insertBefore(child, None)
+            check_children(context, parent, [ child_1, child ])
+            context.check_equal(child.ownerDocument, doc)
+            if subchild:
+                context.check_equal(subchild.parentNode, child)
+                context.check_equal(subchild.ownerDocument, doc)
+
+            parent.removeChild(child)
+            check_children(context, parent, [ child_1 ])
+            check_nonchild(context, child)
+
+            parent.insertBefore(child, child_1)
+            check_children(context, parent, [ child, child_1 ])
+            context.check_equal(child.ownerDocument, doc)
+            if subchild:
+                context.check_equal(subchild.parentNode, child)
+                context.check_equal(subchild.ownerDocument, doc)
+
+            parent.removeChild(child)
+            check_children(context, parent, [ child_1 ])
+
+        child = doc.createComment("comment")
+        subcheck(child, None)
+        child = doc.createElement("elem")
+        subchild = doc.createTextNode("text")
+        child.appendChild(subchild)
+        subcheck(child, subchild)
+        child = doc.createComment("comment")
+        root.appendChild(child)
+        subcheck(child, None)
+        child = doc.createElement("elem")
+        subchild = doc.createTextNode("text")
+        child.appendChild(subchild)
+        root.appendChild(child)
+        subcheck(child, subchild)
+
+        child = doc.createComment("comment")
+        parent.appendChild(child)
+        subcheck(child, None)
+        child = doc.createElement("elem")
+        subchild = doc.createTextNode("text")
+        child.appendChild(subchild)
+        parent.appendChild(child)
+        subcheck(child, subchild)
+
+        doc_2 = _make_xml_document()
+        root_2 = doc.createElement("root")
+        child = doc_2.createComment("comment")
+        subcheck(child, None)
+        child = doc_2.createElement("elem")
+        subchild = doc_2.createTextNode("text")
+        child.appendChild(subchild)
+        subcheck(child, subchild)
+        child = doc_2.createComment("comment")
+        root_2.appendChild(child)
+        subcheck(child, None)
+        child = doc_2.createElement("elem")
+        subchild = doc_2.createTextNode("text")
+        child.appendChild(subchild)
+        root_2.appendChild(child)
+        subcheck(child, subchild)
+
+        with context.check_raises(archon.dom.NotFoundError):
+            parent.insertBefore(child_2, child_3)
+        if grandparent:
+            with context.check_raises(archon.dom.HierarchyRequestError):
+                parent.insertBefore(grandparent, None)
+            with context.check_raises(archon.dom.HierarchyRequestError):
+                parent.insertBefore(grandparent, child_1)
+        with context.check_raises(archon.dom.HierarchyRequestError):
+            parent.insertBefore(parent, None)
+        with context.check_raises(archon.dom.HierarchyRequestError):
+            parent.insertBefore(parent, child_1)
+
+    grandparent = None
+    parent = doc
+    check(grandparent, parent)
+    grandparent = doc.createElement("grandparent")
+    parent = doc.createElement("parent")
+    grandparent.appendChild(parent)
+    check(grandparent, parent)
+    grandparent = doc.createElement("grandparent")
+    parent = doc.createElement("parent")
+    grandparent.appendChild(parent)
+    root.appendChild(grandparent)
+    check(root, parent)
 
     # Check insertion into document
-    #   With and without child argument
+
+    doc = _make_xml_document()
+    impl = doc.implementation
+    child = doc.createComment("child")
+    doc.appendChild(child)
+
+    def check(node):
+        check_children(context, doc, [ child ])
+        doc.insertBefore(node, None)
+        check_children(context, doc, [ child, node ])
+        doc.removeChild(node)
+        check_children(context, doc, [ child ])
+        doc.insertBefore(node, child)
+        check_children(context, doc, [ node, child ])
+        doc.removeChild(node)
+
+    check(impl.createDocumentType("foo", "bar", "baz"))
+    check(doc.createElement("elem"))
+    check(doc.createComment("comment"))
+
+    def check(node):
+        with context.check_raises(archon.dom.HierarchyRequestError):
+            doc.insertBefore(node, None)
+        with context.check_raises(archon.dom.HierarchyRequestError):
+            doc.insertBefore(node, child)
+
+    check(_make_xml_document())
+    check(doc.createTextNode("text"))
+    check(doc.createAttribute("attr"))
+
+    doctype = impl.createDocumentType("foo", "bar", "baz")
+    doc.appendChild(doctype)
+    check_children(context, doc, [ child, doctype ])
+    doc.insertBefore(doctype, None)
+    check_children(context, doc, [ child, doctype ])
+    doc.insertBefore(doctype, doctype)
+    check_children(context, doc, [ child, doctype ])
+    doc.insertBefore(doctype, child)
+    check_children(context, doc, [ doctype, child ])
+    doc.insertBefore(doctype, child)
+    check_children(context, doc, [ doctype, child ])
+    doc.insertBefore(doctype, doctype)
+    check_children(context, doc, [ doctype, child ])
+    elem = doc.createElement("elem")
+    doc.appendChild(elem)
+    check_children(context, doc, [ doctype, child, elem ])
+    doc.insertBefore(doctype, elem)
+    check_children(context, doc, [ child, doctype, elem ])
+    with context.check_raises(archon.dom.HierarchyRequestError):
+        doc.insertBefore(doctype, None)
+    doctype_2 = impl.createDocumentType("foo", "bar", "baz")
+    with context.check_raises(archon.dom.HierarchyRequestError):
+        doc.insertBefore(doctype_2, None)
+    with context.check_raises(archon.dom.HierarchyRequestError):
+        doc.insertBefore(doctype_2, elem)
+    with context.check_raises(archon.dom.HierarchyRequestError):
+        doc.insertBefore(doctype_2, doctype)
+
+    doc.removeChild(doctype)
+    check_children(context, doc, [ child, elem ])
+    doc.insertBefore(elem, None)
+    check_children(context, doc, [ child, elem ])
+    doc.insertBefore(elem, elem)
+    check_children(context, doc, [ child, elem ])
+    doc.insertBefore(elem, child)
+    check_children(context, doc, [ elem, child ])
+    doc.insertBefore(elem, child)
+    check_children(context, doc, [ elem, child ])
+    doc.insertBefore(elem, elem)
+    check_children(context, doc, [ elem, child ])
+    doc.removeChild(child)
+    doc.removeChild(elem)
+    doc.appendChild(doctype)
+    doc.appendChild(child)
+    doc.appendChild(elem)
+    check_children(context, doc, [ doctype, child, elem ])
+    doc.insertBefore(elem, child)
+    check_children(context, doc, [ doctype, elem, child ])
+    with context.check_raises(archon.dom.HierarchyRequestError):
+        doc.insertBefore(elem, doctype)
+    elem_2 = doc.createElement("elem2")
+    with context.check_raises(archon.dom.HierarchyRequestError):
+        doc.insertBefore(elem_2, None)
+    with context.check_raises(archon.dom.HierarchyRequestError):
+        doc.insertBefore(elem_2, elem)
+    with context.check_raises(archon.dom.HierarchyRequestError):
+        doc.insertBefore(elem_2, doctype)
 
     # Check insertion into element
-    #   With and without child argument
 
-    # Check that no kinds of nodes can be appended to a non-parent node
-    #   With and without child argument
+    doc = _make_xml_document()
+    impl = doc.implementation
+    elem = doc.createElement("elem")
+    child_nodes = elem.childNodes
+    child = doc.createComment("child")
+    elem.appendChild(child)
+
+    def check(node):
+        check_children(context, elem, [ child ])
+        elem.insertBefore(node, None)
+        check_children(context, elem, [ child, node ])
+        elem.removeChild(node)
+        check_children(context, elem, [ child ])
+        elem.insertBefore(node, child)
+        check_children(context, elem, [ node, child ])
+        elem.removeChild(node)
+
+    check(doc.createElement("elem"))
+    check(doc.createTextNode("text"))
+    check(doc.createComment("comment"))
+
+    def check(node):
+        with context.check_raises(archon.dom.HierarchyRequestError):
+            elem.insertBefore(node, None)
+        with context.check_raises(archon.dom.HierarchyRequestError):
+            elem.insertBefore(node, child)
+
+    check(_make_xml_document())
+    check(impl.createDocumentType("foo", "bar", "baz"))
+    check(doc.createAttribute("attr"))
+
+    # Check that no kinds of nodes can be inserted into a non-parent node
+
+    doc = _make_xml_document()
+    impl = doc.implementation
+    def check(parent):
+        def subcheck(node):
+            with context.check_raises(archon.dom.HierarchyRequestError):
+                parent.insertBefore(node, None)
+        subcheck(_make_xml_document())
+        subcheck(doc.createElement("elem"))
+        subcheck(impl.createDocumentType("foo", "bar", "baz"))
+        subcheck(doc.createTextNode("text"))
+        subcheck(doc.createComment("comment"))
+        subcheck(doc.createAttribute("attr"))
+    check(impl.createDocumentType("foo", "bar", "baz"))
+    check(doc.createTextNode("text"))
+    check(doc.createComment("comment"))
+    check(doc.createAttribute("attr"))
 
     # Check that non-node arguments are properly dealt with
 
-    # Iteretsting error cases:
-    #   `child` is not in target element
-    #   `child` is not a node
-    #   `child` is from different implementation
-    #   `child` is an integer
-    #   `child` is an string
+    class WrongImplComment(archon.dom.Comment):
+        pass
 
-    foo = doc.createElement("foo")
-    child = root.insertBefore(foo, None)
-    context.check_equal(child, foo)
-    context.check(root.hasChildNodes())
-    context.check_equal(root.firstChild, foo)
-    context.check_equal(root.lastChild, foo)
-    context.check_equal(len(root.childNodes), 1)
-    context.check_equal(root.childNodes[0], foo)
-    context.check_equal(foo.previousSibling, None)
-    context.check_equal(foo.nextSibling, None)
+    def check(parent, child):
+        def subcheck(node):
+            with context.check_raises(TypeError):
+                parent.insertBefore(node, None)
+            with context.check_raises(TypeError):
+                parent.insertBefore(node, child)
+        subcheck(None)
+        subcheck(7)
+        subcheck("foo")
+        subcheck(WrongImplComment())
+    doc = _make_xml_document()
+    child = doc.createComment("child")
+    doc.appendChild(child)
+    check(doc, child)
+    elem = doc.createElement("elem")
+    elem.appendChild(child)
+    check(elem, child)
 
-    bar = doc.createElement("bar")
-    child = root.insertBefore(bar, foo)
-    context.check_equal(child, bar)
-    context.check(root.hasChildNodes())
-    context.check_equal(root.firstChild, bar)
-    context.check_equal(root.lastChild, foo)
-    context.check_equal(len(root.childNodes), 2)
-    context.check_equal(root.childNodes[0], bar)
-    context.check_equal(root.childNodes[1], foo)
-    context.check_equal(foo.previousSibling, bar)
-    context.check_equal(foo.nextSibling, None)
-    context.check_equal(bar.previousSibling, None)
-    context.check_equal(bar.nextSibling, foo)
-
-    baz = doc.createTextNode("baz")
-    child = root.insertBefore(baz, foo)
-    context.check_equal(child, baz)
-    context.check(root.hasChildNodes())
-    context.check_equal(root.firstChild, bar)
-    context.check_equal(root.lastChild, foo)
-    context.check_equal(len(root.childNodes), 3)
-    context.check_equal(root.childNodes[0], bar)
-    context.check_equal(root.childNodes[1], baz)
-    context.check_equal(root.childNodes[2], foo)
-    context.check_equal(foo.previousSibling, baz)
-    context.check_equal(foo.nextSibling, None)
-    context.check_equal(bar.previousSibling, None)
-    context.check_equal(bar.nextSibling, baz)
-    context.check_equal(baz.previousSibling, bar)
-    context.check_equal(baz.nextSibling, foo)
+    doc = _make_xml_document()
+    node = doc.createComment("node")
+    def check(parent):
+        def subcheck(child):
+            with context.check_raises(TypeError):
+                parent.insertBefore(node, child)
+        subcheck(7)
+        subcheck("foo")
+        subcheck(WrongImplComment())
+    doc = _make_xml_document()
+    check(doc)
+    elem = doc.createElement("elem")
+    check(elem)
 
 
 def test_Node_RemoveChild(context):

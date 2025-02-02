@@ -791,11 +791,6 @@ class _ParentNodeState:
             weak_node = weak_node().get_weak_parent_node()
         return False
 
-    # FIXME: Add test case for parent.insertBefore(node, child) where `node` is already a child of `parent`                            
-    # FIXME: Add test case for parent.insertBefore(node, child) where `node` and `child` are the same node                            
-    # FIXME: Add test case for parent.replaceChild(node, child) where `node` is already a child of `parent`                            
-    # FIXME: Add test case for parent.replaceChild(node, child) where `node` and `child` are the same node                            
-
     # `document_wrapper` must be non-None when, and only when migration is needed
     def append_child(self, node, document_wrapper):
         child = None
@@ -806,20 +801,25 @@ class _ParentNodeState:
         self._validate_child_insertion(node, child)
         parent = node.get_parent_node()
         if parent:
-            # FIXME: Oops, something needs to be done here if `node` and `child` are the same node                       
+            if child == node:
+                child = node.next_sibling
             parent._remove_child(node)
+            node.weak_parent_node = None
             parent._child_removed(node)
         node.migrate_if_needed(document_wrapper)
         self._insert_child(node, child)
         node.weak_parent_node = self.weak_self
         self._child_inserted(node)
 
+    # FIXME: Add test case for parent.replaceChild(node, child) where `node` is already a child of `parent`                            
+    # FIXME: Add test case for parent.replaceChild(node, child) where `node` and `child` are the same node                            
+
     # `document_wrapper` must be non-None when, and only when migration is needed
     def replace_child(self, node, child, document_wrapper):
         self._validate_child_replacement(node, child)
         parent = node.get_parent_node()
         if parent:
-            # FIXME: Oops, something needs to be done here if `node` and `child` are the same node                       
+            # FIXME: Oops, something needs to be done here if `node` and `child` are the same node                              
             parent._remove_child(node)
             parent._child_removed(node)
         node.migrate_if_needed(document_wrapper)
