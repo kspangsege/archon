@@ -820,49 +820,43 @@ def test_Node_AppendChild(context):
     # Check append to document
 
     doc = _make_xml_document()
-    context.check_equal(doc.hasChildNodes(), False)
     impl = doc.implementation
-    child = impl.createDocumentType("foo", "bar", "baz")
-    doc.appendChild(child)
-    context.check_equal(doc.hasChildNodes(), True)
 
-    doc = _make_xml_document()
-    context.check_equal(doc.hasChildNodes(), False)
-    child = doc.createElement("elem")
-    doc.appendChild(child)
-    context.check_equal(doc.hasChildNodes(), True)
+    def check(node):
+        check_children(context, doc, [])
+        doc.appendChild(node)
+        check_children(context, doc, [ node ])
+        doc.removeChild(node)
 
-    doc = _make_xml_document()
-    context.check_equal(doc.hasChildNodes(), False)
-    child = doc.createComment("comment")
-    doc.appendChild(child)
-    context.check_equal(doc.hasChildNodes(), True)
+    check(impl.createDocumentType("foo", "bar", "baz"))
+    check(doc.createElement("elem"))
+    check(doc.createComment("comment"))
 
-    doc = _make_xml_document()
-    with context.check_raises(archon.dom.HierarchyRequestError):
-        doc.appendChild(_make_xml_document())
-    with context.check_raises(archon.dom.HierarchyRequestError):
-        doc.appendChild(doc.createTextNode("text"))
-    with context.check_raises(archon.dom.HierarchyRequestError):
-        doc.appendChild(doc.createAttribute("attr"))
+    def check(node):
+        with context.check_raises(archon.dom.HierarchyRequestError):
+            doc.appendChild(node)
 
-    doc = _make_xml_document()
-    impl = doc.implementation
+    check(_make_xml_document())
+    check(doc.createTextNode("text"))
+    check(doc.createAttribute("attr"))
+
     doctype = impl.createDocumentType("foo", "bar", "baz")
     doc.appendChild(doctype)
-    doc.appendChild(doctype) # Must remove, then re-append
-    context.check_equal(doc.childNodes.length, 1)
-    context.check_equal(doc.childNodes.item(0), doctype)
+    check_children(context, doc, [ doctype ])
+    doc.appendChild(doctype)
+    check_children(context, doc, [ doctype ])
     with context.check_raises(archon.dom.HierarchyRequestError):
         doc.appendChild(impl.createDocumentType("foo", "bar", "baz"))
-
-    doc = _make_xml_document()
-    impl = doc.implementation
     elem = doc.createElement("elem")
     doc.appendChild(elem)
-    doc.appendChild(elem) # Remove, then re-append
-    context.check_equal(doc.childNodes.length, 1)
-    context.check_equal(doc.childNodes.item(0), elem)
+    check_children(context, doc, [ doctype, elem ])
+    with context.check_raises(archon.dom.HierarchyRequestError):
+        doc.appendChild(doctype)
+
+    doc.removeChild(doctype)
+    check_children(context, doc, [ elem ])
+    doc.appendChild(elem)
+    check_children(context, doc, [ elem ])
     with context.check_raises(archon.dom.HierarchyRequestError):
         doc.appendChild(impl.createDocumentType("foo", "bar", "baz"))
     with context.check_raises(archon.dom.HierarchyRequestError):
@@ -871,50 +865,41 @@ def test_Node_AppendChild(context):
     # Check append to element
 
     doc = _make_xml_document()
-    elem = doc.createElement("parent")
-    context.check_equal(elem.hasChildNodes(), False)
-    child = doc.createElement("elem")
-    elem.appendChild(child)
-    context.check_equal(elem.hasChildNodes(), True)
-
-    elem = doc.createElement("parent")
-    context.check_equal(elem.hasChildNodes(), False)
-    child = doc.createTextNode("text")
-    elem.appendChild(child)
-    context.check_equal(elem.hasChildNodes(), True)
-
-    elem = doc.createElement("parent")
-    context.check_equal(elem.hasChildNodes(), False)
-    child = doc.createComment("comment")
-    elem.appendChild(child)
-    context.check_equal(elem.hasChildNodes(), True)
-
-    elem = doc.createElement("parent")
     impl = doc.implementation
-    with context.check_raises(archon.dom.HierarchyRequestError):
-        elem.appendChild(_make_xml_document())
-    with context.check_raises(archon.dom.HierarchyRequestError):
-        elem.appendChild(impl.createDocumentType("foo", "bar", "baz"))
-    with context.check_raises(archon.dom.HierarchyRequestError):
-        elem.appendChild(doc.createAttribute("attr"))
+    elem = doc.createElement("elem")
+
+    def check(node):
+        check_children(context, elem, [])
+        elem.appendChild(node)
+        check_children(context, elem, [ node ])
+        elem.removeChild(node)
+
+    check(doc.createElement("elem"))
+    check(doc.createTextNode("text"))
+    check(doc.createComment("comment"))
+
+    def check(node):
+        with context.check_raises(archon.dom.HierarchyRequestError):
+            elem.appendChild(node)
+
+    check(_make_xml_document())
+    check(impl.createDocumentType("foo", "bar", "baz"))
+    check(doc.createAttribute("attr"))
 
     # Check that no kinds of nodes can be appended to a non-parent node
 
     doc = _make_xml_document()
     impl = doc.implementation
     def check(parent):
-        with context.check_raises(archon.dom.HierarchyRequestError):
-            parent.appendChild(_make_xml_document())
-        with context.check_raises(archon.dom.HierarchyRequestError):
-            parent.appendChild(doc.createElement("elem"))
-        with context.check_raises(archon.dom.HierarchyRequestError):
-            parent.appendChild(impl.createDocumentType("foo", "bar", "baz"))
-        with context.check_raises(archon.dom.HierarchyRequestError):
-            parent.appendChild(doc.createTextNode("text"))
-        with context.check_raises(archon.dom.HierarchyRequestError):
-            parent.appendChild(doc.createComment("comment"))
-        with context.check_raises(archon.dom.HierarchyRequestError):
-            parent.appendChild(doc.createAttribute("attr"))
+        def subcheck(node):
+            with context.check_raises(archon.dom.HierarchyRequestError):
+                parent.appendChild(node)
+        subcheck(_make_xml_document())
+        subcheck(doc.createElement("elem"))
+        subcheck(impl.createDocumentType("foo", "bar", "baz"))
+        subcheck(doc.createTextNode("text"))
+        subcheck(doc.createComment("comment"))
+        subcheck(doc.createAttribute("attr"))
     check(impl.createDocumentType("foo", "bar", "baz"))
     check(doc.createTextNode("text"))
     check(doc.createComment("comment"))
@@ -926,17 +911,17 @@ def test_Node_AppendChild(context):
         pass
 
     def check(parent):
-        with context.check_raises(TypeError):
-            parent.appendChild(None)
-        with context.check_raises(TypeError):
-            parent.appendChild(7)
-        with context.check_raises(TypeError):
-            parent.appendChild("foo")
-        with context.check_raises(TypeError):
-            parent.appendChild(WrongImplComment())
+        def subcheck(node):
+            with context.check_raises(TypeError):
+                parent.appendChild(node)
+        subcheck(None)
+        subcheck(7)
+        subcheck("foo")
+        subcheck(WrongImplComment())
     doc = _make_xml_document()
     check(doc)
-    check(doc.createElement("elem"))
+    elem = doc.createElement("elem")
+    check(elem)
 
 
 def test_Node_InsertBefore(context):
@@ -1179,7 +1164,6 @@ def test_Node_InsertBefore(context):
     doc = _make_xml_document()
     impl = doc.implementation
     elem = doc.createElement("elem")
-    child_nodes = elem.childNodes
     child = doc.createComment("child")
     elem.appendChild(child)
 
