@@ -1253,29 +1253,96 @@ def test_Node_ReplaceChild(context):
     root = doc.createElement("root")
 
     def check(grandparent, parent):
-        check_children(context, parent, [])
+        child_1 = doc.createComment("Child 1")
+        parent.appendChild(child_1)
+        child_2 = doc.createComment("Child 2")
+        parent.appendChild(child_2)
+        child_3 = doc.createComment("Child 3")
+        parent.appendChild(child_3)
+        check_children(context, parent, [ child_1, child_2, child_3 ])
 
-        # Append three comment children
+        child_4 = doc.createComment("Child 4")
+        child = parent.replaceChild(child_4, child_1)
+        context.check_equal(child, child_1)
+        check_children(context, parent, [ child_4, child_2, child_3 ])
+        child = parent.replaceChild(child_1, child_2)
+        context.check_equal(child, child_2)
+        check_children(context, parent, [ child_4, child_1, child_3 ])
+        child = parent.replaceChild(child_2, child_3)
+        context.check_equal(child, child_3)
+        check_children(context, parent, [ child_4, child_1, child_2 ])
+        parent.removeChild(child_4)
+        parent.appendChild(child_3)
+        check_children(context, parent, [ child_1, child_2, child_3 ])
+
+        child = parent.replaceChild(child_1, child_1)
+        context.check_equal(child, child_1)
+        check_children(context, parent, [ child_1, child_2, child_3 ])
+        child = parent.replaceChild(child_1, child_2)
+        context.check_equal(child, child_2)
+        check_children(context, parent, [ child_1, child_3 ])
+        parent.insertBefore(child_2, child_3)
+        check_children(context, parent, [ child_1, child_2, child_3 ])
+        child = parent.replaceChild(child_1, child_3)
+        context.check_equal(child, child_3)
+        check_children(context, parent, [ child_2, child_1 ])
+        parent.removeChild(child_2)
+        parent.appendChild(child_2)
+        parent.appendChild(child_3)
+        check_children(context, parent, [ child_1, child_2, child_3 ])
+
+        child = parent.replaceChild(child_2, child_1)
+        context.check_equal(child, child_1)
+        check_children(context, parent, [ child_2, child_3 ])
+        parent.insertBefore(child_1, child_2)
+        check_children(context, parent, [ child_1, child_2, child_3 ])
+        child = parent.replaceChild(child_2, child_2)
+        context.check_equal(child, child_2)
+        check_children(context, parent, [ child_1, child_2, child_3 ])
+        child = parent.replaceChild(child_2, child_3)
+        context.check_equal(child, child_3)
+        check_children(context, parent, [ child_1, child_2 ])
+        parent.appendChild(child_3)
+        check_children(context, parent, [ child_1, child_2, child_3 ])
+
+        child = parent.replaceChild(child_3, child_1)
+        context.check_equal(child, child_1)
+        check_children(context, parent, [ child_3, child_2 ])
+        parent.removeChild(child_3)
+        parent.appendChild(child_3)
+        parent.insertBefore(child_1, child_2)
+        check_children(context, parent, [ child_1, child_2, child_3 ])
+        child = parent.replaceChild(child_3, child_2)
+        context.check_equal(child, child_2)
+        check_children(context, parent, [ child_1, child_3 ])
+        parent.insertBefore(child_2, child_3)
+        check_children(context, parent, [ child_1, child_2, child_3 ])
+        child = parent.replaceChild(child_3, child_3)
+        context.check_equal(child, child_3)
+        check_children(context, parent, [ child_1, child_2, child_3 ])
         
-        # Interesting cases:
-        # - Replace first with other
-        # - replace inbetween with other
-        # - Replace last with other
-        #
-        # - Replace first with first
-        #
-        # - Replace middle with first
-        # - Replace middle with middle
-        # - Replace middle with last
+
         #
         # def subcheck(child, subchild):
         # - replace middle with child
 
         # Check replacement in document
         # - replace comment with all types of nodes and check that it only works for some kinds of nodes
-        # - Fail: replace comment doctype when aother do
+        #
+        # - Good: replace comment with doctype that is not already present when replaced comment does not follow    element
+        # - Good: replace comment with doctype that is     already present when replaced comment does not follow    element
+        # - Good: replace comment with element that is not already present when replaced comment is not followed by doctype
+        # - Good: replace comment with element that is     already present when replaced comment is not followed by doctype
+        #
+        # - Fail: replace comment with doctype that is not already present when another doctype is already present
+        # - Fail: replace comment with doctype that is not already present when replaced comment follows element
+        # - Fail: replace comment with doctype that is     already present when replaced comment follows element
+        # - Fail: replace comment with element that is not already present when another element is already present
+        # - Fail: replace comment with element that is not already present when replaced comment is followed by doctype
+        # - Fail: replace comment with element that is     already present when replaced comment is followed by doctype
 
         # Check replacement in element
+        # - replace comment with all types of nodes and check that it only works for some kinds of nodes
 
         # Interesting error cases:
         #

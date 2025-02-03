@@ -811,19 +811,18 @@ class _ParentNodeState:
         node.weak_parent_node = self.weak_self
         self._child_inserted(node)
 
-    # FIXME: Add test case for parent.replaceChild(node, child) where `node` is already a child of `parent`                            
-    # FIXME: Add test case for parent.replaceChild(node, child) where `node` and `child` are the same node                            
-
     # `document_wrapper` must be non-None when, and only when migration is needed
     def replace_child(self, node, child, document_wrapper):
         self._validate_child_replacement(node, child)
+        if child == node:
+            return
         parent = node.get_parent_node()
         if parent:
-            # FIXME: Oops, something needs to be done here if `node` and `child` are the same node                              
             parent._remove_child(node)
+            node.weak_parent_node = None
             parent._child_removed(node)
         node.migrate_if_needed(document_wrapper)
-        self._replace_child(node, child)                                                                                                               
+        self._replace_child(node, child)
         child.weak_parent_node = None
         node.weak_parent_node = self.weak_self
         self._child_removed(child)
@@ -889,27 +888,27 @@ class _ParentNodeState:
                 raise HierarchyRequestError
             return
         if isinstance(node, _DocumentTypeState):
-            # FIXME: Does this work if `node` is already a child of `self`?                    
+            # FIXME: This fails if `node` is already a child of `self` but not equal to `child` ---> Make sure there is a test to catch it                                   
             if self.doctype:
                 if self.doctype != child:
                     raise HierarchyRequestError
-                return
-            child_2 = self.first_child
-            while child_2 != child:
-                if isinstance(child_2, _ElementState):
-                    raise HierarchyRequestError
-                child_2 = child_2.next_sibling
+            else:
+                child_2 = self.first_child
+                while child_2 != child:
+                    if isinstance(child_2, _ElementState):
+                        raise HierarchyRequestError
+                    child_2 = child_2.next_sibling
         elif isinstance(node, _ElementState):
-            # FIXME: Does this work if `node` is already a child of `self`?                    
+            # FIXME: This fails if `node` is already a child of `self` but not equal to `child` ---> Make sure there is a test to catch it                                    
             if self.document_element:
                 if self.document_element != child:
                     raise HierarchyRequestError
-                return
-            child_2 = child.next_sibling
-            while child_2:
-                if isinstance(child_2, _DocumentTypeState):
-                    raise HierarchyRequestError
-                child_2 = child_2.next_sibling
+            else:
+                child_2 = child.next_sibling
+                while child_2:
+                    if isinstance(child_2, _DocumentTypeState):
+                        raise HierarchyRequestError
+                    child_2 = child_2.next_sibling
         elif isinstance(node, _TextState):
             raise HierarchyRequestError
 
@@ -941,6 +940,24 @@ class _ParentNodeState:
                 node.previous_sibling = after
                 self.last_child = node
         self.num_children += 1
+        self.iter_cache.invalidate()
+
+    def _replace_child(self, node, child):
+        assert node != child
+        predecessor = child.previous_sibling
+        successor = child.next_sibling
+        if predecessor:
+            predecessor.next_sibling = node
+            node.previous_sibling = predecessor
+            child.previous_sibling = None
+        else:
+            self.first_child = node
+        if successor:
+            child.next_sibling = None
+            node.next_sibling = successor
+            successor.previous_sibling = node
+        else:
+            self.last_child = node
         self.iter_cache.invalidate()
 
     def _remove_child(self, node):
