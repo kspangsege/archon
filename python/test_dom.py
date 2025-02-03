@@ -1248,6 +1248,57 @@ def test_Node_InsertBefore(context):
     check(elem)
 
 
+def test_Node_ReplaceChild(context):
+    doc = _make_xml_document()
+    root = doc.createElement("root")
+
+    def check(grandparent, parent):
+        check_children(context, parent, [])
+
+        # Append three comment children
+        
+        # Interesting cases:
+        # - Replace first with other
+        # - replace inbetween with other
+        # - Replace last with other
+        #
+        # - Replace first with first
+        #
+        # - Replace middle with first
+        # - Replace middle with middle
+        # - Replace middle with last
+        #
+        # def subcheck(child, subchild):
+        # - replace middle with child
+
+        # Check replacement in document
+        # - replace comment with all types of nodes and check that it only works for some kinds of nodes
+        # - Fail: replace comment doctype when aother do
+
+        # Check replacement in element
+
+        # Interesting error cases:
+        #
+        # - node is not a node
+        # - child is not a node
+        # - child is not a child of parent
+
+    grandparent = None
+    parent = doc
+    check(grandparent, parent)
+    grandparent = doc.createElement("grandparent")
+    parent = doc.createElement("parent")
+    grandparent.appendChild(parent)
+    check(grandparent, parent)
+    grandparent = doc.createElement("grandparent")
+    parent = doc.createElement("parent")
+    grandparent.appendChild(parent)
+    root.appendChild(grandparent)
+    check(root, parent)
+
+    
+
+
 def test_Node_RemoveChild(context):
     doc = _make_xml_document()
     root = doc.createElement("root")
