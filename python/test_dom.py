@@ -610,6 +610,8 @@ def test_Node_ParentNode(context):
     check(doc.createTextNode("foo"))
     check(doc.createComment("foo"))
 
+    # FIXME: Also check that two or more siblings do not cause a strong reference cycle                                                  
+
     # FIXME: Reenable this when implementation is fixed                                            
 
     # # Check that parent remains reachable through `Node.parenNode` after application drops
@@ -855,12 +857,22 @@ def test_Node_AppendChild(context):
 
     doc.removeChild(doctype)
     check_children(context, doc, [ elem ])
+    with context.check_raises(archon.dom.HierarchyRequestError):
+        doc.appendChild(doctype)
+
+    check_children(context, doc, [ elem ])
     doc.appendChild(elem)
     check_children(context, doc, [ elem ])
     with context.check_raises(archon.dom.HierarchyRequestError):
         doc.appendChild(impl.createDocumentType("foo", "bar", "baz"))
     with context.check_raises(archon.dom.HierarchyRequestError):
         doc.appendChild(doc.createElement("elem"))
+
+    doc.removeChild(elem)
+    doc.appendChild(doctype)
+    check_children(context, doc, [ doctype ])
+    doc.appendChild(elem)
+    check_children(context, doc, [ doctype, elem ])
 
     # Check append to element
 
@@ -1004,6 +1016,9 @@ def test_Node_InsertBefore(context):
             parent.removeChild(child)
             check_children(context, parent, [ child_1 ])
 
+            with context.check_raises(archon.dom.NotFoundError):
+                parent.insertBefore(child, child_3)
+
         child = doc.createComment("comment")
         subcheck(child, None)
         child = doc.createElement("elem")
@@ -1045,8 +1060,6 @@ def test_Node_InsertBefore(context):
         root_2.appendChild(child)
         subcheck(child, subchild)
 
-        with context.check_raises(archon.dom.NotFoundError):
-            parent.insertBefore(child_2, child_3)
         if grandparent:
             with context.check_raises(archon.dom.HierarchyRequestError):
                 parent.insertBefore(grandparent, None)
@@ -1102,6 +1115,7 @@ def test_Node_InsertBefore(context):
     check(doc.createAttribute("attr"))
 
     doctype = impl.createDocumentType("foo", "bar", "baz")
+    elem = doc.createElement("elem")
     doc.appendChild(doctype)
     check_children(context, doc, [ child, doctype ])
     doc.insertBefore(doctype, None)
@@ -1114,7 +1128,6 @@ def test_Node_InsertBefore(context):
     check_children(context, doc, [ doctype, child ])
     doc.insertBefore(doctype, doctype)
     check_children(context, doc, [ doctype, child ])
-    elem = doc.createElement("elem")
     doc.appendChild(elem)
     check_children(context, doc, [ doctype, child, elem ])
     doc.insertBefore(doctype, elem)
@@ -1130,6 +1143,20 @@ def test_Node_InsertBefore(context):
         doc.insertBefore(doctype_2, doctype)
 
     doc.removeChild(doctype)
+    doc.removeChild(child)
+    doc.appendChild(child)
+    check_children(context, doc, [ elem, child ])
+    doc.insertBefore(doctype, elem)
+    check_children(context, doc, [ doctype, elem, child ])
+    doc.removeChild(doctype)
+    check_children(context, doc, [ elem, child ])
+    with context.check_raises(archon.dom.HierarchyRequestError):
+        doc.insertBefore(doctype, None)
+    with context.check_raises(archon.dom.HierarchyRequestError):
+        doc.insertBefore(doctype, child)
+
+    doc.removeChild(elem)
+    doc.appendChild(elem)
     check_children(context, doc, [ child, elem ])
     doc.insertBefore(elem, None)
     check_children(context, doc, [ child, elem ])
@@ -1158,6 +1185,19 @@ def test_Node_InsertBefore(context):
         doc.insertBefore(elem_2, elem)
     with context.check_raises(archon.dom.HierarchyRequestError):
         doc.insertBefore(elem_2, doctype)
+
+    doc.removeChild(elem)
+    check_children(context, doc, [ doctype, child ])
+    doc.insertBefore(elem, None)
+    check_children(context, doc, [ doctype, child, elem ])
+    doc.removeChild(elem)
+    check_children(context, doc, [ doctype, child ])
+    doc.insertBefore(elem, child)
+    check_children(context, doc, [ doctype, elem, child ])
+    doc.removeChild(elem)
+    check_children(context, doc, [ doctype, child ])
+    with context.check_raises(archon.dom.HierarchyRequestError):
+        doc.insertBefore(elem, doctype)
 
     # Check insertion into element
 
@@ -1274,6 +1314,7 @@ def test_Node_ReplaceChild(context):
         parent.removeChild(child_4)
         parent.appendChild(child_3)
         check_children(context, parent, [ child_1, child_2, child_3 ])
+        check_nonchild(context, child_4)
 
         child = parent.replaceChild(child_1, child_1)
         context.check_equal(child, child_1)
@@ -1320,35 +1361,68 @@ def test_Node_ReplaceChild(context):
         child = parent.replaceChild(child_3, child_3)
         context.check_equal(child, child_3)
         check_children(context, parent, [ child_1, child_2, child_3 ])
-        
 
-        #
-        # def subcheck(child, subchild):
-        # - replace middle with child
+        def subcheck(child, subchild):
+            parent.replaceChild(child, child_2)
+            check_children(context, parent, [ child_1, child, child_3 ])
+            context.check_equal(child.ownerDocument, doc)
+            if subchild:
+                context.check_equal(subchild.parentNode, child)
+                context.check_equal(subchild.ownerDocument, doc)
 
-        # Check replacement in document
-        # - replace comment with all types of nodes and check that it only works for some kinds of nodes
-        #
-        # - Good: replace comment with doctype that is not already present when replaced comment does not follow    element
-        # - Good: replace comment with doctype that is     already present when replaced comment does not follow    element
-        # - Good: replace comment with element that is not already present when replaced comment is not followed by doctype
-        # - Good: replace comment with element that is     already present when replaced comment is not followed by doctype
-        #
-        # - Fail: replace comment with doctype that is not already present when another doctype is already present
-        # - Fail: replace comment with doctype that is not already present when replaced comment follows element
-        # - Fail: replace comment with doctype that is     already present when replaced comment follows element
-        # - Fail: replace comment with element that is not already present when another element is already present
-        # - Fail: replace comment with element that is not already present when replaced comment is followed by doctype
-        # - Fail: replace comment with element that is     already present when replaced comment is followed by doctype
+            parent.removeChild(child)
+            parent.insertBefore(child_2, child_3)
+            check_children(context, parent, [ child_1, child_2, child_3 ])
 
-        # Check replacement in element
-        # - replace comment with all types of nodes and check that it only works for some kinds of nodes
+            with context.check_raises(archon.dom.NotFoundError):
+                parent.replaceChild(child, child_4)
 
-        # Interesting error cases:
-        #
-        # - node is not a node
-        # - child is not a node
-        # - child is not a child of parent
+        child = doc.createComment("comment")
+        subcheck(child, None)
+        child = doc.createElement("elem")
+        subchild = doc.createTextNode("text")
+        child.appendChild(subchild)
+        subcheck(child, subchild)
+        child = doc.createComment("comment")
+        root.appendChild(child)
+        subcheck(child, None)
+        child = doc.createElement("elem")
+        subchild = doc.createTextNode("text")
+        child.appendChild(subchild)
+        root.appendChild(child)
+        subcheck(child, subchild)
+
+        child = doc.createComment("comment")
+        parent.appendChild(child)
+        subcheck(child, None)
+        child = doc.createElement("elem")
+        subchild = doc.createTextNode("text")
+        child.appendChild(subchild)
+        parent.appendChild(child)
+        subcheck(child, subchild)
+
+        doc_2 = _make_xml_document()
+        root_2 = doc.createElement("root")
+        child = doc_2.createComment("comment")
+        subcheck(child, None)
+        child = doc_2.createElement("elem")
+        subchild = doc_2.createTextNode("text")
+        child.appendChild(subchild)
+        subcheck(child, subchild)
+        child = doc_2.createComment("comment")
+        root_2.appendChild(child)
+        subcheck(child, None)
+        child = doc_2.createElement("elem")
+        subchild = doc_2.createTextNode("text")
+        child.appendChild(subchild)
+        root_2.appendChild(child)
+        subcheck(child, subchild)
+
+        if grandparent:
+            with context.check_raises(archon.dom.HierarchyRequestError):
+                parent.replaceChild(grandparent, child_2)
+        with context.check_raises(archon.dom.HierarchyRequestError):
+            parent.replaceChild(parent, child_2)
 
     grandparent = None
     parent = doc
@@ -1363,7 +1437,131 @@ def test_Node_ReplaceChild(context):
     root.appendChild(grandparent)
     check(root, parent)
 
-    
+    # Check replacement in document
+
+    doc = _make_xml_document()
+    impl = doc.implementation
+    child = doc.createComment("child")
+    doc.appendChild(child)
+
+    def check(node):
+        check_children(context, doc, [ child ])
+        doc.replaceChild(node, child)
+        check_children(context, doc, [ node ])
+        doc.removeChild(node)
+        doc.appendChild(child)
+
+    check(impl.createDocumentType("foo", "bar", "baz"))
+    check(doc.createElement("elem"))
+    check(doc.createComment("comment"))
+
+    def check(node):
+        with context.check_raises(archon.dom.HierarchyRequestError):
+            doc.replaceChild(node, child)
+
+    check(_make_xml_document())
+    check(doc.createTextNode("text"))
+    check(doc.createAttribute("attr"))
+
+    # Incoming node is doctype and document already contains a doctype (same or different) and may or may not already contain an element
+    #   Good: doctype -> comment (that doctype is already present, no element is present)
+    #   Good: doctype -> comment (that doctype is already present, element is present, comment is not preceded by that element)
+    #   Fail: doctype -> comment (that doctype is already present, element is present, comment is     preceded by that element)
+    #   Fail: doctype -> comment (other doctype is already present)
+    #   Good: doctype -> doctype (element not present)
+    #   Good: doctype -> doctype (element present)
+    #   Good: doctype -> other doctype (element not present)
+    #   Good: doctype -> other doctype (element present)
+    #   Good: doctype -> element (no doctype present)
+    #   Good: doctype -> element (that doctype is already present)
+    #   Fail: doctype -> element (other doctype is already present)
+
+    # Incoming node is doctype and document does not already contain a doctype but does already contain and element
+    #   Good: doctype -> child, and child precedes element
+    #   Good: doctype -> child, and child is element
+    #   Fail: doctype -> child, and child succeeds element
+
+    # Incoming node is element and document already contains an element (same or different)
+
+    # Incoming node is element and document already contains doctype
+
+                                  
+    # - 1.1 Good: replace comment with doctype that is     already present, and no other doctype is already present, and no element is present
+    # - 1.2 Good: replace comment with doctype that is     already present, and no other doctype is already present, and    element is present but replaced comment does not follow that element
+    # - 1.3 Good: replace comment with doctype that is not already present, and no other doctype is already present, and    element is present but replaced comment does not follow that element
+    # - 1.4 Fail: replace comment with doctype that is not already present, and another  doctype is already present
+    # - 1.5 Fail: replace comment with doctype that is     already present, and no other doctype is already present, and replaced comment follows element
+    # - 1.6 Fail: replace comment with doctype that is not already present, and no other doctype is already present, and replaced comment follows element
+    #
+    # - 2.1 Good: replace comment with element that is     already present, and no other element is already present, and no doctype is present
+    # - 2.2 Good: replace comment with element that is     already present, and no other element is already present, and    doctype is present but replaced comment is not followed by that doctype
+    # - 2.3 Good: replace comment with element that is not already present, and no other element is already present, and    doctype is present but replaced comment is not followed by that doctype
+    # - 2.4 Fail: replace comment with element that is not already present, and another  element is already present
+    # - 2.5 Fail: replace comment with element that is     already present, and no other element is already present, and replaced comment is followed by doctype
+    # - 2.6 Fail: replace comment with element that is not already present, and no other element is already present, and replaced comment is followed by doctype
+
+    # Check replacement in element
+
+    doc = _make_xml_document()
+    impl = doc.implementation
+    elem = doc.createElement("elem")
+    child = doc.createComment("child")
+    elem.appendChild(child)
+
+    def check(node):
+        check_children(context, elem, [ child ])
+        elem.replaceChild(node, child)
+        check_children(context, elem, [ node ])
+        elem.removeChild(node)
+        elem.appendChild(child)
+
+    check(doc.createElement("elem"))
+    check(doc.createTextNode("text"))
+    check(doc.createComment("comment"))
+
+    def check(node):
+        with context.check_raises(archon.dom.HierarchyRequestError):
+            elem.replaceChild(node, child)
+
+    check(_make_xml_document())
+    check(impl.createDocumentType("foo", "bar", "baz"))
+    check(doc.createAttribute("attr"))
+
+    # Check that non-node arguments are properly dealt with
+
+    class WrongImplComment(archon.dom.Comment):
+        pass
+
+    def check(parent, child):
+        def subcheck(node):
+            with context.check_raises(TypeError):
+                parent.replaceChild(node, child)
+        subcheck(None)
+        subcheck(7)
+        subcheck("foo")
+        subcheck(WrongImplComment())
+    doc = _make_xml_document()
+    child = doc.createComment("child")
+    doc.appendChild(child)
+    check(doc, child)
+    elem = doc.createElement("elem")
+    elem.appendChild(child)
+    check(elem, child)
+
+    doc = _make_xml_document()
+    node = doc.createComment("node")
+    def check(parent):
+        def subcheck(child):
+            with context.check_raises(TypeError):
+                parent.replaceChild(node, child)
+        subcheck(None)
+        subcheck(7)
+        subcheck("foo")
+        subcheck(WrongImplComment())
+    doc = _make_xml_document()
+    check(doc)
+    elem = doc.createElement("elem")
+    check(elem)
 
 
 def test_Node_RemoveChild(context):

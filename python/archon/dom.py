@@ -899,9 +899,8 @@ class _ParentNodeState:
                         raise HierarchyRequestError
                     child_2 = child_2.next_sibling
         elif isinstance(node, _ElementState):
-            # FIXME: This fails if `node` is already a child of `self` but not equal to `child` ---> Make sure there is a test to catch it                                    
             if self.document_element:
-                if self.document_element != child:
+                if self.document_element not in [node, child]:
                     raise HierarchyRequestError
             else:
                 child_2 = child.next_sibling
