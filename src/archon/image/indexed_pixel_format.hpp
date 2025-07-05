@@ -53,7 +53,7 @@ namespace archon::image {
 ///
 /// For formats that use direct color, see \ref image::InterPixelFormat, \ref
 /// image::PackedPixelFormat, \ref image::SubwordPixelFormat, and \ref
-/// image::FloatingPixelFormat.                        
+/// image::FloatPixelFormat.                        
 ///
 /// With this pixel format, the underlying sequence of words is aggregated into a sequence
 /// of bit compounds using the specified number of words per compound (\p D) and taking the
@@ -113,6 +113,8 @@ namespace archon::image {
 ///
 /// \tparam H Whether the start of each row of pixels is aligned on a bit compound boundary
 /// (see \ref compound_aligned_rows).
+///
+/// \sa \ref image::BufferFormat::IndexedFormat
 ///
 template<class S, int M, int N = 1, core::Endianness A = core::Endianness::big, class W = S,
          int B = image::bit_width<W>, int D = 1, core::Endianness E = core::Endianness::big, bool H = true>

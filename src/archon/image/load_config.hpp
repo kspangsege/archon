@@ -25,6 +25,7 @@
 
 
 #include <cstddef>
+#include <optional>
 #include <string_view>
 
 #include <archon/core/span.hpp>
@@ -39,27 +40,65 @@ namespace archon::image {
 /// \brief Configuration of image loading process.
 ///
 /// An object of this type is used to specify parameters that control the image loading
-/// process as it is invoked through \ref image::load().
+/// process as it is invoked through \ref image::load(), \ref image::try_load(), and \ref
+/// image::try_load_a().
 ///
 /// Note that some of the available parameters are inherited from \ref
 /// image::FileFormat::LoadConfig.
 ///
+/// \sa \ref image::load(), \ref image::try_load(), \ref image::try_load_a()
+/// \sa \ref image::SaveConfig
+///
 struct LoadConfig : image::FileFormat::LoadConfig {
-    /// \brief  
+    /// \brief Log through specified logger.
     ///
-    ///  
-    ///
-    std::string_view file_format;
-
-    /// \brief  
-    ///
-    ///  
+    /// If no logger is specified, nothing is logged during the loading process. If a logger
+    /// is specified, it must use a locale that is compatible with the locale that is passed
+    /// to \ref image::load(), \ref image::try_load(), or \ref image::try_load_a(). The
+    /// important thing is that the character encodings agree (`std::codecvt` facet).
     ///
     log::Logger* logger = nullptr;
 
-    /// \brief  
+    /// \brief Assume specific file format for loaded image.
     ///
-    ///  
+    /// If specified, assume that the loaded image uses that particular file format. It is
+    /// specified when it is nonempty. In that case, it is taken to be the file format
+    /// identifier (\ref image::FileFormat::get_ident()) for one of the file formats in the
+    /// registry (\ref registry). If it is not a valid file format identifier, the loading
+    /// process fails with \ref image::Error::no_such_file_format.
+    ///
+    /// When not explicitly specified, an attempt will be made to automatically detect the
+    /// image file format. See \ref image::try_load() for details on the file format
+    /// detection scheme.
+    ///
+    std::optional<std::string_view> file_format;
+
+    /// \brief Reveal detected file format.
+    ///
+    /// If specified, the referenced string view object will be set to the identifier for
+    /// the detected image file format. It will be set even if a specific file format is
+    /// requested through \ref file_format. The updated string view will be a "shallow copy"
+    /// of the string view returned by \ref image::FileFormat::get_ident(), so it will
+    /// remain valid at least until the corresponding file format object is destroyed (\ref
+    /// registry, \ref image::FileFormatRegistry::register_file_format()).
+    ///
+    /// The referenced string view will be set to the detected file format as soon as file
+    /// format detection succeeds. This means that its value can be relied on if the loading
+    /// operation succeeds (\ref image::try_load_a()). It also means that the string view
+    /// object may, or may not have been updated after a load operation fails. If the
+    /// application is interested in knowing the detected file format even when the load
+    /// operation fails, it can set the string view to the empty string before invoking the
+    /// load operation and then check whether it is non-empty after a failure. It will then
+    /// be nonempty if, and only if file format detection succeeded.
+    ///
+    std::string_view* detected_file_format = nullptr;
+
+    /// \brief Alternative set of file formats to be used during file format detection.
+    ///
+    /// If a file format registry is specified, that set of image file formats will be
+    /// considered during file format detection. See \ref image::try_load() for details on
+    /// the file format detection scheme. If a file format registry is not specified, the
+    /// default one will be used (\ref image::FileFormatRegistry::get_default_registry()).
     ///
     const image::FileFormatRegistry* registry = nullptr;
 

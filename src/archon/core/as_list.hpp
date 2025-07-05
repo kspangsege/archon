@@ -195,6 +195,14 @@ template<class S> auto as_rbr_list(S&& seq, char separator = ',', core::AsListSp
 template<class S> auto as_sbr_list(S&& seq, char separator = ',', core::AsListSpace = core::AsListSpace::auto_);
 template<class S> auto as_cbr_list(S&& seq, char separator = ',', core::AsListSpace = core::AsListSpace::auto_);
 template<class S> auto as_abr_list(S&& seq, char separator = ',', core::AsListSpace = core::AsListSpace::auto_);
+template<class S, class F> auto as_rbr_list(S&& seq, F&& func, char separator = ',',
+                                            core::AsListSpace = core::AsListSpace::auto_);
+template<class S, class F> auto as_sbr_list(S&& seq, F&& func, char separator = ',',
+                                            core::AsListSpace = core::AsListSpace::auto_);
+template<class S, class F> auto as_cbr_list(S&& seq, F&& func, char separator = ',',
+                                            core::AsListSpace = core::AsListSpace::auto_);
+template<class S, class F> auto as_abr_list(S&& seq, F&& func, char separator = ',',
+                                            core::AsListSpace = core::AsListSpace::auto_);
 /// \}
 
 
@@ -732,6 +740,54 @@ template<class S> inline auto as_abr_list(S&& seq, char separator, core::AsListS
     config.closing_bracket = '>';
     config.space           = space;
     return core::as_list(std::forward<S>(seq), std::move(config)); // Throws
+}
+
+
+template<class S, class F> inline auto as_rbr_list(S&& seq, F&& func, char separator, core::AsListSpace space)
+{
+    core::AsListConfig config;
+    config.separator       = separator;
+    config.bracketed       = true;
+    config.opening_bracket = '(';
+    config.closing_bracket = ')';
+    config.space           = space;
+    return core::as_list(std::forward<S>(seq), std::forward<F>(func), std::move(config)); // Throws
+}
+
+
+template<class S, class F> inline auto as_sbr_list(S&& seq, F&& func, char separator, core::AsListSpace space)
+{
+    core::AsListConfig config;
+    config.separator       = separator;
+    config.bracketed       = true;
+    config.opening_bracket = '[';
+    config.closing_bracket = ']';
+    config.space           = space;
+    return core::as_list(std::forward<S>(seq), std::forward<F>(func), std::move(config)); // Throws
+}
+
+
+template<class S, class F> inline auto as_cbr_list(S&& seq, F&& func, char separator, core::AsListSpace space)
+{
+    core::AsListConfig config;
+    config.separator       = separator;
+    config.bracketed       = true;
+    config.opening_bracket = '{';
+    config.closing_bracket = '}';
+    config.space           = space;
+    return core::as_list(std::forward<S>(seq), std::forward<F>(func), std::move(config)); // Throws
+}
+
+
+template<class S, class F> inline auto as_abr_list(S&& seq, F&& func, char separator, core::AsListSpace space)
+{
+    core::AsListConfig config;
+    config.separator       = separator;
+    config.bracketed       = true;
+    config.opening_bracket = '<';
+    config.closing_bracket = '>';
+    config.space           = space;
+    return core::as_list(std::forward<S>(seq), std::forward<F>(func), std::move(config)); // Throws
 }
 
 

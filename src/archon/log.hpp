@@ -28,6 +28,7 @@
 #include <archon/log/logger.hpp>
 #include <archon/log/prefix_logger.hpp>
 #include <archon/log/limit_logger.hpp>
+#include <archon/log/channel_logger.hpp>
 #include <archon/log/log.hpp>
 
 

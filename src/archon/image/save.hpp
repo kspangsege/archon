@@ -46,7 +46,10 @@ namespace archon::image {
 /// `std::system_error` on failure.
 ///
 /// The overload, where the path is specified as a string view, constructs a proper
-/// filesytem path object using \ref core::make_fs_path_generic().
+/// filesystem path object using \ref core::make_fs_path_generic().
+///
+/// \sa \ref image::load()
+/// \sa \ref image::try_save()
 ///
 void save(const image::Image& image, std::string_view path, const std::locale&, const image::SaveConfig& = {});
 void save(const image::Image& image, core::FilesystemPathRef path, const std::locale&, const image::SaveConfig& = {});
@@ -63,7 +66,7 @@ void save(const image::Image& image, core::FilesystemPathRef path, const std::lo
 ///
 /// On success, these functions return `true` and leave \p ec unchanged.
 ///
-/// On failure, these functions return `false` after seting \p ec to an error code that
+/// On failure, these functions return `false` after setting \p ec to an error code that
 /// reflects the cause of the failure (see file format detection below).
 ///
 ///
@@ -72,19 +75,25 @@ void save(const image::Image& image, core::FilesystemPathRef path, const std::lo
 /// If a particular file format is specified through \p config (\ref
 /// image::SaveConfig::file_format), and such a file format exists in the registry (\ref
 /// image::SaveConfig::registry), that file format is used. If it does not exists in the
-/// registry, file format detection fails with error \ref
-/// image::Error::file_format_unavailable.
+/// registry, file format detection fails with error \ref image::Error::no_such_file_format.
 ///
-/// Otherwise, if a MIME type is specified through the \p output argument, and there are
-/// file formats associated with that MIME type in the registry, the first registered of
-/// those file formats is used.
+/// Otherwise, if a MIME type is specified through the \p input argument (\ref
+/// image::Input::mime_type), and it matches any file formats in the registry, and if any of
+/// those file formats are available (\ref image::FileFormat::is_available()), use the one
+/// that occurs first in the registry.
 ///
-/// Otherwise, if a filename extension is specified through the \p path or the \p output
-/// argument, and there are file formats associated with that filename extension in the
-/// registry, the first registered of those file formats is used.
+/// Otherwise, if a filename extension is specified through the \p path, or through the \p
+/// input argument (\ref image::Input::filename_extension), and it matches any file formats
+/// in the registry, and if any of those file formats are available, use the one that occurs
+/// first in the registry.
 ///
-/// Otherwise, file format detection fails with error \ref
-/// image::Error::file_format_detection_failed.
+/// Otherwise, if a MIME type was specified and did match any file formats in the registry,
+/// use the one that occurs first. It will be unavailable, but use it anyway.
+///
+/// Otherwise, if a filename extension was specified and did match any file formats in the
+/// registry, use the one that occurs first. It will be unavailable, but use it anyway.
+///
+/// Otherwise, fail with \ref image::Error::file_format_detection_failed.
 ///
 ///
 /// #### Buffered write to file
@@ -99,7 +108,9 @@ void save(const image::Image& image, core::FilesystemPathRef path, const std::lo
 /// image::SaveConfig::write_buffer.
 ///
 ///
+/// \sa \ref image::save()
 /// \sa \ref image::try_load()
+/// \sa \ref image::SaveConfig
 ///
 bool try_save(const image::Image& image, core::FilesystemPathRef path, const std::locale&,
               const image::SaveConfig& config, std::error_code& ec);

@@ -25,7 +25,6 @@
 
 
 #include <type_traits>
-#include <iterator>
 #include <utility>
 #include <string>
 
@@ -40,14 +39,6 @@ namespace archon::core {
 /// This type alias is \p T if \p T is not `void`. Otherwise it is \p U.
 ///
 template<class T, class U> using NotVoidOr = std::conditional_t<!std::is_same_v<T, void>, T, U>;
-
-
-
-template<class I> using NeedIntegral = std::enable_if_t<std::is_integral_v<I>>;
-
-template<class I> using NeedIter =
-    std::enable_if_t<std::is_convertible_v<typename std::iterator_traits<I>::iterator_category,
-                                           std::input_iterator_tag>>;
 
 
 
@@ -86,6 +77,31 @@ template<class T> using RemoveOptional = typename impl::RemoveOptional<T>::type;
 /// list of types (\p U...).
 ///
 template<class T, class... U> constexpr bool type_in = impl::TypeIn<T, U...>::value;
+
+
+
+/// \brief Pick first type that satisfies predicate.
+///
+/// This is the same type as `core::pick_type_a<P, void, T...>`.
+///
+/// \sa \ref core::pick_type_a
+///
+template<class P, class... T> using pick_type = impl::pick_type<P, void, T...>;
+
+
+
+/// \brief Pick first type that satisfies predicate.
+///
+/// This type is the first in `T...` that satisfies the specified predicate (\p P), or if no
+/// type in `T...` staisfies the predicate, this type is the specified fallback type (\p F).
+///
+/// The predicate type (\p P) must be such that `P::template value<T>` is valid, refers to a
+/// compile-time constant, and is `true` if, and only if the predicate is satisfied for `T`.
+///
+/// \sa \ref core::pick_type
+/// \sa \ref core::FindType
+///
+template<class P, class F, class... T> using pick_type_a = impl::pick_type<P, F, T...>;
 
 
 

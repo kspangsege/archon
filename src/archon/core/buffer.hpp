@@ -53,6 +53,10 @@ struct BufferDataTag {};
 /// An instance of this class owns a chunk of memory, and offers ways of expanding and
 /// accessing that memory.
 ///
+/// A byte buffer (\p T = `std::byte`) will be suitably aligned as storage for type `U` if
+/// no seed memory was passed to the constructor or if the seed memory is suitably aligned
+/// as storage for type `U`.
+///
 /// \sa \ref core::ArraySeededBuffer.
 /// \sa \ref core::BufferContents.
 /// \sa \ref core::BasicStringBufferContents.
@@ -153,7 +157,7 @@ public:
 
     /// \brief Grow buffer size by at least one.
     ///
-    /// This function expands the buffer by at least one element. If is shorthand for
+    /// This function expands the buffer by at least one element. It is shorthand for
     /// calling \ref expand_a() while passing 1 for \p min_extra_size.
     ///
     void expand(std::size_t used_size, std::size_t max_size = -1);

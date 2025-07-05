@@ -95,3 +95,19 @@ target_link_libraries(PerlinNoise PUBLIC
   Util
   Image
 )
+
+
+add_executable(ImageLoader
+  image_loader.cpp
+)
+
+set_target_properties(ImageLoader PROPERTIES
+  OUTPUT_NAME "archon-image-loader"
+)
+
+target_link_libraries(ImageLoader PUBLIC
+  Core
+  Log
+  Cli
+  Image
+)

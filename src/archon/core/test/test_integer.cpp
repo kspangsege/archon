@@ -25,6 +25,7 @@
 #include <vector>
 #include <set>
 
+#include <archon/core/type.hpp>
 #include <archon/core/type_list.hpp>
 #include <archon/core/demangle.hpp>
 #include <archon/core/integer.hpp>
@@ -1231,4 +1232,116 @@ ARCHON_TEST(Core_Integer_SquareRoot)
 {
     std::mt19937_64 random(test_context.seed_seq());
     core::for_each_type_alt<Types, TestSquareRoot>(test_context, random);
+}
+
+
+ARCHON_TEST(Core_Integer_SaturatingAdd)
+{
+    auto test_1 = [&, &parent_test_context = test_context](auto tag_1, auto tag_2) {
+        using lval_type = typename decltype(tag_1)::type;
+        using rval_type = typename decltype(tag_2)::type;
+        ARCHON_TEST_TRAIL(parent_test_context, core::formatted("%s vs %s", core::get_type_name<lval_type>(),
+                                                               core::get_type_name<rval_type>()));
+
+
+        auto check = [&, &parent_test_context = test_context](lval_type lval_1, rval_type rval, lval_type lval_2) {
+            ARCHON_TEST_TRAIL(parent_test_context, core::formatted("%s plus %s", core::promote(lval_1),
+                                                                   core::promote(rval)));
+            lval_type lval_3 = lval_1;
+            core::saturating_add(lval_3, rval);
+            ARCHON_CHECK_EQUAL(lval_3, lval_2);
+        };
+
+        if (core::is_signed<lval_type>()) {
+            lval_type min = core::int_min<lval_type>();
+            if (core::is_signed<rval_type>())
+                check(min, rval_type(-1), min);
+            check(min, 0, min);
+            check(min, 1, lval_type(min + 1));
+        }
+
+        if (core::is_signed<rval_type>())
+            check(0, rval_type(-1), lval_type(core::is_signed<lval_type>() ? -1 : 0));
+        check(0, 0, 0);
+        check(0, 1, 1);
+
+        lval_type max = core::int_max<lval_type>();
+        if (core::is_signed<rval_type>())
+            check(max, rval_type(-1), lval_type(max - 1));
+        check(max, 0, max);
+        check(max, 1, max);
+    };
+
+    using wide_signed_type     = signed long long;
+    using wide_unsigned_type   = unsigned long long;
+    using narrow_signed_type   = signed char;
+    using narrow_unsigned_type = unsigned char;
+
+    auto test_2 = [&](auto tag) {
+        test_1(tag, core::Wrap<wide_signed_type>());
+        test_1(tag, core::Wrap<wide_unsigned_type>());
+        test_1(tag, core::Wrap<narrow_signed_type>());
+        test_1(tag, core::Wrap<narrow_unsigned_type>());
+    };
+
+    test_2(core::Wrap<wide_signed_type>());
+    test_2(core::Wrap<wide_unsigned_type>());
+    test_2(core::Wrap<narrow_signed_type>());
+    test_2(core::Wrap<narrow_unsigned_type>());
+}
+
+
+ARCHON_TEST(Core_Integer_SaturatingSub)
+{
+    auto test_1 = [&, &parent_test_context = test_context](auto tag_1, auto tag_2) {
+        using lval_type = typename decltype(tag_1)::type;
+        using rval_type = typename decltype(tag_2)::type;
+        ARCHON_TEST_TRAIL(parent_test_context, core::formatted("%s vs %s", core::get_type_name<lval_type>(),
+                                                               core::get_type_name<rval_type>()));
+
+
+        auto check = [&, &parent_test_context = test_context](lval_type lval_1, rval_type rval, lval_type lval_2) {
+            ARCHON_TEST_TRAIL(parent_test_context, core::formatted("%s minus %s", core::promote(lval_1),
+                                                                   core::promote(rval)));
+            lval_type lval_3 = lval_1;
+            core::saturating_sub(lval_3, rval);
+            ARCHON_CHECK_EQUAL(lval_3, lval_2);
+        };
+
+        if (core::is_signed<lval_type>()) {
+            lval_type min = core::int_min<lval_type>();
+            if (core::is_signed<rval_type>())
+                check(min, rval_type(-1), min + 1);
+            check(min, 0, min);
+            check(min, 1, min);
+        }
+
+        if (core::is_signed<rval_type>())
+            check(0, rval_type(-1), 1);
+        check(0, 0, 0);
+        check(0, 1, lval_type(core::is_signed<lval_type>() ? -1 : 0));
+
+        lval_type max = core::int_max<lval_type>();
+        if (core::is_signed<rval_type>())
+            check(max, rval_type(-1), max);
+        check(max, 0, max);
+        check(max, 1, lval_type(max - 1));
+    };
+
+    using wide_signed_type     = signed long long;
+    using wide_unsigned_type   = unsigned long long;
+    using narrow_signed_type   = signed char;
+    using narrow_unsigned_type = unsigned char;
+
+    auto test_2 = [&](auto tag) {
+        test_1(tag, core::Wrap<wide_signed_type>());
+        test_1(tag, core::Wrap<wide_unsigned_type>());
+        test_1(tag, core::Wrap<narrow_signed_type>());
+        test_1(tag, core::Wrap<narrow_unsigned_type>());
+    };
+
+    test_2(core::Wrap<wide_signed_type>());
+    test_2(core::Wrap<wide_unsigned_type>());
+    test_2(core::Wrap<narrow_signed_type>());
+    test_2(core::Wrap<narrow_unsigned_type>());
 }

@@ -41,6 +41,7 @@
 #include <archon/core/formattable_value_ref.hpp>
 #include <archon/core/terminate.hpp>
 #include <archon/core/assert.hpp>
+#include <archon/core/iterator.hpp>
 #include <archon/core/impl/utility.hpp>
 #include <archon/core/utility.hpp>
 #include <archon/core/scope_exit.hpp>
@@ -108,7 +109,7 @@
 #include <archon/core/string_codec.hpp>
 #include <archon/core/basic_character_set.hpp>
 #include <archon/core/unicode.hpp>
-#include <archon/core/unicode_bridge.hpp>
+#include <archon/core/charenc_bridge.hpp>
 #include <archon/core/memory_input_stream.hpp>
 #include <archon/core/memory_output_stream.hpp>
 #include <archon/core/seed_memory_output_stream.hpp>
@@ -180,4 +181,5 @@
 #include <archon/core/histogram.hpp>
 #include <archon/core/word_wrap.hpp>
 #include <archon/core/text_formatter.hpp>
+#include <archon/core/with_text_formatter.hpp>
 #include <archon/core/text_parser.hpp>

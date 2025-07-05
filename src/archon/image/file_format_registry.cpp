@@ -27,8 +27,9 @@
 #include <archon/core/span.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/image/file_format.hpp>
-#include <archon/image/file_format_registry.hpp>
 #include <archon/image/file_format_png.hpp>
+#include <archon/image/file_format_jpeg.hpp>
+#include <archon/image/file_format_registry.hpp>
 
 
 using namespace archon;
@@ -42,14 +43,8 @@ class DefaultRegistry
 public:
     DefaultRegistry()
     {
-        const image::FileFormat* known_file_formats[] {
-            image::get_file_format_png(),
-        };
-
-        for (const image::FileFormat* format : known_file_formats) {
-            if (format)
-                register_file_format(*format); // Throws
-        }
+        register_file_format(image::get_file_format_png()); // Throws
+        register_file_format(image::get_file_format_jpeg()); // Throws
     }
 };
 
@@ -83,19 +78,6 @@ auto FileFormatRegistry::lookup(std::string_view ident) const noexcept -> const 
 }
 
 
-auto FileFormatRegistry::lookup_by_mime_type(std::string_view mime_type) const -> const image::FileFormat*
-{
-    auto p = m_formats_by_mime_type.equal_range(mime_type);
-    auto begin = p.first;
-    auto end   = p.second;
-    if (ARCHON_LIKELY(begin != end)) {
-        std::size_t format_index = begin->second;
-        return m_formats[format_index];
-    }
-    return nullptr;
-}
-
-
 void FileFormatRegistry::lookup_by_mime_type(std::string_view mime_type, tray_type& tray) const
 {
     auto p = m_formats_by_mime_type.equal_range(mime_type);
@@ -105,19 +87,6 @@ void FileFormatRegistry::lookup_by_mime_type(std::string_view mime_type, tray_ty
         std::size_t format_index = i->second;
         tray.push_back(m_formats[format_index]); // Throws
     }
-}
-
-
-auto FileFormatRegistry::lookup_by_extension(std::string_view extension) const -> const image::FileFormat*
-{
-    auto p = m_formats_by_extension.equal_range(extension);
-    auto begin = p.first;
-    auto end   = p.second;
-    if (ARCHON_LIKELY(begin != end)) {
-        std::size_t format_index = begin->second;
-        return m_formats[format_index];
-    }
-    return nullptr;
 }
 
 

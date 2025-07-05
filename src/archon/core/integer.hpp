@@ -692,6 +692,8 @@ template<class A, class B> constexpr bool int_greater_equal(A, B) noexcept;
 /// core::try_int_mul(), and \ref core::try_int_pos() respectively, except that they throw
 /// `std::overflow_error` on positive or negative overflow instead of returning `false`.
 ///
+/// \sa \ref core::saturating_add(), \ref core::saturating_sub()
+///
 template<class L, class R> constexpr void int_add(L& lval, R rval);
 template<class L, class R> constexpr void int_sub(L& lval, R rval);
 template<class L, class R> constexpr void int_mul(L& lval, R rval);
@@ -926,6 +928,17 @@ template<class T> constexpr auto int_sqrt(T val) noexcept -> T;
 ///
 template<bool sign_extend, class T, class U, std::size_t N, std::size_t M>
 constexpr void int_bit_copy(const std::array<T, N>& parts_1, std::array<U, M>& parts_2) noexcept;
+
+
+/// \{
+///
+/// \brief Perform saturating arithmetic operations on integer values.
+///
+/// \sa \ref core::int_add(), \ref core::int_sub()
+///
+template<class L, class R> constexpr void saturating_add(L& lval, R rval) noexcept;
+template<class L, class R> constexpr void saturating_sub(L& lval, R rval) noexcept;
+/// \}
 
 
 
@@ -2247,6 +2260,22 @@ constexpr void int_bit_copy(const std::array<T, N>& parts_1, std::array<U, M>& p
             break;
         }
     }
+}
+
+
+template<class L, class R> constexpr void saturating_add(L& lval, R rval) noexcept
+{
+    if (ARCHON_LIKELY(core::try_int_add(lval, rval)))
+        return;
+    lval = (core::is_negative(rval) ? core::int_min<L>() : core::int_max<L>());
+}
+
+
+template<class L, class R> constexpr void saturating_sub(L& lval, R rval) noexcept
+{
+    if (ARCHON_LIKELY(core::try_int_sub(lval, rval)))
+        return;
+    lval = (core::is_negative(rval) ? core::int_max<L>() : core::int_min<L>());
 }
 
 

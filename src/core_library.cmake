@@ -3,7 +3,7 @@ add_library(Core
   archon/core/terminate.cpp
   archon/core/time.cpp
   archon/core/newline_codec.cpp
-  archon/core/unicode_bridge.cpp
+  archon/core/charenc_bridge.cpp
   archon/core/random.cpp
   archon/core/locale.cpp
   archon/core/timer.cpp
@@ -112,7 +112,7 @@ target_sources(Core PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "${
   archon/core/string_codec.hpp
   archon/core/basic_character_set.hpp
   archon/core/unicode.hpp
-  archon/core/unicode_bridge.hpp
+  archon/core/charenc_bridge.hpp
   archon/core/memory_input_stream.hpp
   archon/core/memory_output_stream.hpp
   archon/core/seed_memory_output_stream.hpp
@@ -175,6 +175,7 @@ target_sources(Core PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "${
   archon/core/histogram.hpp
   archon/core/word_wrap.hpp
   archon/core/text_formatter.hpp
+  archon/core/with_text_formatter.hpp
   archon/core/text_parser.hpp
 )
 

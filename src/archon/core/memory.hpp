@@ -33,6 +33,7 @@
 #include <stdexcept>
 
 #include <archon/core/features.h>
+#include <archon/core/concepts.hpp>
 #include <archon/core/span.hpp>
 #include <archon/core/assert.hpp>
 #include <archon/core/integer.hpp>
@@ -188,6 +189,7 @@ public:
     void recreate(std::size_t capacity);
     void recreate(std::size_t size, T fill_value);
     template<class U> void recreate(core::Span<U> data);
+    template<core::iter_type I> void recreate(I begin, I end);
 
     template<class... A> auto add(A&&... args) noexcept(std::is_nothrow_constructible_v<T, A...>) -> T&;
 

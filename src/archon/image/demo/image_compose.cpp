@@ -113,7 +113,7 @@ int main(int argc, char* argv[])
     if (ARCHON_UNLIKELY(cli::process(argc, argv, spec, exit_status, locale))) // Throws
         return exit_status;
 
-    log::FileLogger root_logger(core::File::get_cout(), locale);
+    log::FileLogger root_logger(core::File::get_stdout(), locale);
     log::LimitLogger logger(root_logger, log_level_limit); // Throws
 
     // Load

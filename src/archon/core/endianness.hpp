@@ -25,6 +25,7 @@
 
 
 #include <archon/core/integer.hpp>
+#include <archon/core/enum.hpp>
 
 
 namespace archon::core {
@@ -64,21 +65,26 @@ template<class T> bool is_indeterminate_endian() noexcept;
 /// the byte with the least significant bits occurs at the lowest address in memory.
 ///
 /// Big-endian is also known as "network byte order" because it is often used as the
-/// "neutral" form for tranmission over networks. With big-endianness, the byte with the
+/// "neutral" form for transmission over networks. With big-endianness, the byte with the
 /// most significant bits occurs at the lowest address in memory.
 ///
 /// Endianness can also be used to specify the order in which integers other than bytes are
-/// combined ito larger integers.
+/// combined into larger integers.
 ///
-/// When the bits of an integer type are divided into smaller parts, endianness can be used
-/// to describe the order of such parts. In this case, endianness can be referred to as bit
-/// order.
+/// When the bits of an integer value are divided into smaller parts (fields), endianness
+/// can be used to specify whether the natural order of those parts coincide with rising or
+/// falling bit significance. In this case, endianness can be referred to as bit order, and
+/// little-endianness would mean that among two parts, the one that occupies the least
+/// significant bits is to be considered as coming first.
+///
+/// A specialization of \ref core::EnumTraits is provided, making stream input and output
+/// immediately available.
 ///
 /// \sa \ref core::try_get_byte_order()
 ///
 enum class Endianness {
-    big,    ///< Big-endian. Most significant byte comes first.
-    little, ///< Little-endian. Least significant byte comes first.
+    big,    ///< Big-endian. Most significant byte comes first in memory.
+    little, ///< Little-endian. Least significant byte comes first in memory.
 };
 
 
@@ -130,6 +136,18 @@ template<class T> inline bool is_indeterminate_endian() noexcept
     core::Endianness byte_order = {}; // Dummy
     return !core::try_get_byte_order<T>(byte_order);
 }
+
+
+template<> struct EnumTraits<core::Endianness> {
+    static constexpr bool is_specialized = true;
+    struct Spec {
+        static constexpr core::EnumAssoc map[] = {
+            { int(core::Endianness::big),    "big"    },
+            { int(core::Endianness::little), "little" },
+        };
+    };
+    static constexpr bool ignore_case = false;
+};
 
 
 template<class T> bool try_get_byte_order(core::Endianness& byte_order) noexcept

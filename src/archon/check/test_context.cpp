@@ -119,7 +119,7 @@ void TestContext::check_general_cond_failed(check::Location location, std::strin
 }
 
 
-void TestContext::check_special_cond_failed_2(check::Location location, std::string_view macro_name,
+void TestContext::check_special_cond_failed_3(check::Location location, std::string_view macro_name,
                                               core::Span<const std::string_view> args,
                                               core::Span<const std::string_view> arg_vals)
 {

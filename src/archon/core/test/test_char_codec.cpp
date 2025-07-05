@@ -144,7 +144,7 @@ ARCHON_TEST(Core_CharCodec_Decode)
             test_context.logger.detail("Have decode error: %s", core::as_format_func(format));
         }
 
-        bool is_utf8 = (core::assume_utf8_locale(locale) && (core::assume_unicode_locale(locale) || ARCHON_WINDOWS));
+        bool is_utf8 = (core::assume_utf8_locale(locale) && (core::assume_ucs_locale(locale) || ARCHON_WINDOWS));
         test_context.logger.detail("Is UTF-8: %s", (is_utf8 ? "Yes" : "No"));
 
         if (true) {
@@ -324,7 +324,7 @@ ARCHON_TEST(Core_CharCodec_Encode)
             test_context.logger.detail("Have encode error: %s", core::as_format_func(format));
         }
 
-        bool is_utf8 = (core::assume_utf8_locale(locale) && (core::assume_unicode_locale(locale) || ARCHON_WINDOWS));
+        bool is_utf8 = (core::assume_utf8_locale(locale) && (core::assume_ucs_locale(locale) || ARCHON_WINDOWS));
         test_context.logger.detail("Is UTF-8: %s", (is_utf8 ? "Yes" : "No"));
 
         if (true) {
@@ -423,7 +423,7 @@ ARCHON_TEST(Core_CharCodec_SimulDecode)
             ARCHON_CHECK_EQUAL(data_offset_2 - data_offset, expected_data_advance);
         };
 
-        bool is_utf8 = (core::assume_utf8_locale(locale) && (core::assume_unicode_locale(locale) || ARCHON_WINDOWS));
+        bool is_utf8 = (core::assume_utf8_locale(locale) && (core::assume_ucs_locale(locale) || ARCHON_WINDOWS));
         test_context.logger.detail("Is UTF-8: %s", (is_utf8 ? "Yes" : "No"));
 
         if (true) {
@@ -542,7 +542,7 @@ ARCHON_TEST(Core_CharCodec_LenientDecode)
             test_context.logger.detail("Have decode error: %s", core::as_format_func(format));
         }
 
-        bool is_utf8 = (core::assume_utf8_locale(locale) && (core::assume_unicode_locale(locale) || ARCHON_WINDOWS));
+        bool is_utf8 = (core::assume_utf8_locale(locale) && (core::assume_ucs_locale(locale) || ARCHON_WINDOWS));
         test_context.logger.detail("Is UTF-8: %s", (is_utf8 ? "Yes" : "No"));
 
         if (true) {
@@ -726,7 +726,7 @@ ARCHON_TEST(Core_CharCodec_LenientEncode)
             test_context.logger.detail("Have encode error: %s", core::as_format_func(format));
         }
 
-        bool is_utf8 = (core::assume_utf8_locale(locale) && (core::assume_unicode_locale(locale) || ARCHON_WINDOWS));
+        bool is_utf8 = (core::assume_utf8_locale(locale) && (core::assume_ucs_locale(locale) || ARCHON_WINDOWS));
         test_context.logger.detail("Is UTF-8: %s", (is_utf8 ? "Yes" : "No"));
 
         if (true) {

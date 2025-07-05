@@ -1,6 +1,6 @@
 // General rules:
 //
-// - Lines should not be longer than 100 characters (for readability).
+// - Lines should not be longer than 120 characters (for readability).
 //
 // - Source files should never contain characters ouside the portable character set as
 //   defined by POSIX (for compatibility).

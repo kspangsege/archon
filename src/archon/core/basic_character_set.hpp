@@ -67,6 +67,8 @@ namespace archon::core {
 ///
 ///     $ @ `
 ///
+/// This would bring all printable characters of ASCII into the basic character set.
+///
 /// \sa \ref core::try_map_ascii_to_bcs()
 ///
 constexpr bool try_map_bcs_to_ascii(char ch, char& ascii) noexcept;

@@ -30,6 +30,7 @@
 #include <limits>
 #include <algorithm>
 #include <iterator>
+#include <initializer_list>
 #include <array>
 #include <string_view>
 #include <string>
@@ -44,6 +45,8 @@
 #include <archon/core/integer.hpp>
 #include <archon/core/float.hpp>
 #include <archon/core/inexact_compare.hpp>
+#include <archon/core/buffer.hpp>
+#include <archon/core/buffer_contents.hpp>
 #include <archon/core/string_codec.hpp>
 #include <archon/core/seed_memory_output_stream.hpp>
 #include <archon/core/value_formatter.hpp>
@@ -383,6 +386,31 @@ public:
                                       std::string_view file_path, long line_number);
     /// \}
 
+    /// \{
+    ///
+    /// \brief Checks involving presence of value in set of values.
+    ///
+    /// `check_in(val, a, b, ...)` checks that `val` compares equal to at least one of the
+    /// values in (`a`, `b`, ...). Comparisons are performed by \ref equal().
+    ///
+    /// `check_not_in(val, a, b, ...)` checks that the value does not compare equal to any
+    /// of the values in (`a`, `b`, ...). Comparisons are performed by \ref equal().
+    ///
+    /// These functions are automatically invoked when using check macros \ref
+    /// ARCHON_CHECK_IN() and \ref ARCHON_CHECK_NOT_IN.
+    ///
+    /// These functions are needed as a conduit between the macros and \ref
+    /// check_special_cond_a() in order to ensure that each argument is evaluated exactly
+    /// once. See \ref check_equal() for more on this.
+    ///
+    template<class T, class... U> bool check_in(const T& val, std::string_view macro_name,
+                                                std::string_view val_text, std::string_view args_text,
+                                                std::string_view file_path, long line_number, const U&... args);
+    template<class T, class... U> bool check_not_in(const T& val, std::string_view macro_name,
+                                                    std::string_view val_text, std::string_view args_text,
+                                                    std::string_view file_path, long line_number, const U&... args);
+    /// \}
+
     /// \brief Basis for checks of general conditions.
     ///
     /// This function is the basis for check macros \ref ARCHON_CHECK() and \ref
@@ -455,17 +483,38 @@ public:
     ///
     /// \sa \ref ARCHON_CHECK_EQUAL()
     /// \sa \ref check_general_cond()
+    /// \sa \ref check_special_cond_a()
     ///
     template<class... T> bool check_special_cond(bool cond, std::string_view file_path, long line_number,
                                                  std::string_view macro_name, check::CheckArg<T>... args);
+
+    /// \brief Alternative basis for checks of special conditions.
+    ///
+    /// This function is similar in spirit to \ref check_special_cond(). It is well suited
+    /// for situations where a variable number of arguments are passed through a variadic
+    /// macro such as \ref ARCHON_CHECK_IN(). In those cases, the text representation of the
+    /// variadic parameter pack can be generated using `#__VA_ARGS__` and passed as \p
+    /// extra_args_text.
+    ///
+    /// This function assumes that the number of values in \p args is the actual number of
+    /// macro arguments, and that when the number of argument texts in \p arg_texts is less
+    /// than the actual number of arguments, then the text covering the remaining arguments
+    /// is in \p extra_args_text.
+    ///
+    /// \sa \ref check_special_cond()
+    ///
+    template<class... T> bool check_special_cond_a(bool cond, std::string_view file_path, long line_number,
+                                                   std::string_view macro_name,
+                                                   std::initializer_list<std::string_view> arg_texts,
+                                                   std::string_view extra_args_text, const T&... args);
 
     /// \brief Custom comparison check.
     ///
     /// See \ref ARCHON_CHECK_COMPARE().
     ///
     template<class A, class B, class C>
-    bool check_compare(const A& a, const B& b, C&& comp, const char* file_path, long line_number, const char* a_text,
-                       const char* b_text, const char* comp_text);
+    bool check_compare(const A& a, const B& b, C&& comp, std::string_view file_path, long line_number,
+                       std::string_view a_text, std::string_view b_text, std::string_view comp_text);
 
     /// \{
     ///
@@ -474,14 +523,15 @@ public:
     /// See \ref ARCHON_CHECK_THROW(), \ref ARCHON_CHECK_THROW_EX(), \ref
     /// ARCHON_CHECK_THROW_ANY(), and \ref ARCHON_CHECK_NOTHROW().
     ///
-    void check_throw_failed(const char* file_path, long line_number, const char* expr_text,
-                            const char* exception_name);
-    void check_throw_ex_failed(const char* file_path, long line_number, const char* expr_text,
-                               const char* exception_name, const char* exception_cond_text);
-    void check_throw_ex_cond_failed(const char* file_path, long line_number, const char* expr_text,
-                                    const char* exception_name, const char* exception_cond_text);
-    void check_throw_any_failed(const char* file_path, long line_number, const char* expr_text);
-    void check_nothrow_failed(const char* file_path, long line_number, const char* expr_text, std::exception*);
+    void check_throw_failed(std::string_view file_path, long line_number, std::string_view expr_text,
+                            std::string_view exception_name);
+    void check_throw_ex_failed(std::string_view file_path, long line_number, std::string_view expr_text,
+                               std::string_view exception_name, std::string_view exception_cond_text);
+    void check_throw_ex_cond_failed(std::string_view file_path, long line_number, std::string_view expr_text,
+                                    std::string_view exception_name, std::string_view exception_cond_text);
+    void check_throw_any_failed(std::string_view file_path, long line_number, std::string_view expr_text);
+    void check_nothrow_failed(std::string_view file_path, long line_number, std::string_view expr_text,
+                              std::exception*);
     /// \}
 
     /// \{
@@ -503,11 +553,11 @@ public:
     /// See \ref ARCHON_CHECK_EQUAL_SEQ(), \ref ARCHON_CHECK_COMPARE_SEQ().
     ///
     template<class A, class B>
-    bool check_equal_seq(const A& a, const B& b, const char* file_path, long line_number,
-                         const char* a_text, const char* b_text);
+    bool check_equal_seq(const A& a, const B& b, std::string_view file_path, long line_number,
+                         std::string_view a_text, std::string_view b_text);
     template<class A, class B, class C>
-    bool check_compare_seq(const A& a, const B& b, C&& comp, const char* file_path, long line_number,
-                           const char* a_text, const char* b_text, const char* comp_text);
+    bool check_compare_seq(const A& a, const B& b, C&& comp, std::string_view file_path, long line_number,
+                           std::string_view a_text, std::string_view b_text, std::string_view comp_text);
     /// \}
 
     /// \{
@@ -586,7 +636,11 @@ private:
 
     template<class... T>
     void check_special_cond_failed(check::Location, std::string_view macro_name, check::CheckArg<T>... args);
+    template<class... T>
     void check_special_cond_failed_2(check::Location, std::string_view macro_name,
+                                     core::Span<const std::string_view> arg_texts,
+                                     std::string_view extra_args_text, const T&... args);
+    void check_special_cond_failed_3(check::Location, std::string_view macro_name,
                                      core::Span<const std::string_view> args,
                                      core::Span<const std::string_view> arg_vals);
 
@@ -631,6 +685,10 @@ private:
     template<class T, class... U>
     static void process_check_args(core::SeedMemoryOutputStream&, std::string_view* texts, std::size_t* ends,
                                    check::CheckArg<T> arg, check::CheckArg<U>... args);
+
+    static void process_check_args_a(core::SeedMemoryOutputStream&, std::size_t* ends);
+    template<class T, class... U>
+    static void process_check_args_a(core::SeedMemoryOutputStream&, std::size_t* ends, const T& arg, const U&... args);
 
     template<bool greater, bool or_equal, class A, class B, class D>
     static bool dist_compare(const A& a, const B& b, const D& dist);
@@ -965,6 +1023,27 @@ inline bool TestContext::check_not_definitely_greater(const A& a, const B& b, co
 }
 
 
+template<class T, class... U>
+inline bool TestContext::check_in(const T& val, std::string_view macro_name, std::string_view val_text,
+                                  std::string_view args_text, std::string_view file_path, long line_number,
+                                  const U&... args)
+{
+    bool cond = (... || equal(val, args));
+    return check_special_cond_a(cond, file_path, line_number, macro_name, { val_text }, args_text,
+                                val, args...); // Throws
+}
+
+
+template<class T, class... U>
+inline bool TestContext::check_not_in(const T& val, std::string_view macro_name, std::string_view val_text,
+                                      std::string_view args_text, std::string_view file_path, long line_number,
+                                      const U&... args)
+{
+    bool cond = (... && !equal(val, args));
+    return check_special_cond_a(cond, file_path, line_number, macro_name, { val_text }, args_text,
+                                val, args...); // Throws
+}
+
 inline bool TestContext::check_general_cond(bool cond, std::string_view file_path, long line_number,
                                             std::string_view macro_name, std::string_view cond_text)
 {
@@ -994,9 +1073,27 @@ inline bool TestContext::check_special_cond(bool cond, std::string_view file_pat
 }
 
 
+template<class... T>
+inline bool TestContext::check_special_cond_a(bool cond, std::string_view file_path, long line_number,
+                                              std::string_view macro_name,
+                                              std::initializer_list<std::string_view> arg_texts,
+                                              std::string_view extra_args_text, const T&... args)
+{
+    if (ARCHON_LIKELY(cond)) {
+        check_succeeded();
+    }
+    else {
+        check::Location location = { file_path, line_number };
+        core::Span<const std::string_view> arg_texts_2 = { std::data(arg_texts), arg_texts.size() };
+        check_special_cond_failed_2(location, macro_name, arg_texts_2, extra_args_text, args...); // Throws
+    }
+    return cond;
+}
+
+
 template<class A, class B, class C>
-inline bool TestContext::check_compare(const A& a, const B& b, C&& comp, const char* file_path, long line_number,
-                                       const char* a_text, const char* b_text, const char* comp_text)
+inline bool TestContext::check_compare(const A& a, const B& b, C&& comp, std::string_view file_path, long line_number,
+                                       std::string_view a_text, std::string_view b_text, std::string_view comp_text)
 {
     bool cond = std::forward<C>(comp)(a, b); // Throws
     if (ARCHON_LIKELY(cond)) {
@@ -1010,38 +1107,41 @@ inline bool TestContext::check_compare(const A& a, const B& b, C&& comp, const c
 }
 
 
-inline void TestContext::check_throw_failed(const char* file_path, long line_number, const char* expr_text,
-                                            const char* exception_name)
+inline void TestContext::check_throw_failed(std::string_view file_path, long line_number, std::string_view expr_text,
+                                            std::string_view exception_name)
 {
     check::Location location = { file_path, line_number };
     check_throw_failed_2(location, expr_text, exception_name); // Throws
 }
 
 
-inline void TestContext::check_throw_ex_failed(const char* file_path, long line_number, const char* expr_text,
-                                               const char* exception_name, const char* exception_cond_text)
+inline void TestContext::check_throw_ex_failed(std::string_view file_path, long line_number,
+                                               std::string_view expr_text, std::string_view exception_name,
+                                               std::string_view exception_cond_text)
 {
     check::Location location = { file_path, line_number };
     check_throw_ex_failed_2(location, expr_text, exception_name, exception_cond_text); // Throws
 }
 
 
-inline void TestContext::check_throw_ex_cond_failed(const char* file_path, long line_number, const char* expr_text,
-                                                    const char* exception_name, const char* exception_cond_text)
+inline void TestContext::check_throw_ex_cond_failed(std::string_view file_path, long line_number,
+                                                    std::string_view expr_text, std::string_view exception_name,
+                                                    std::string_view exception_cond_text)
 {
     check::Location location = { file_path, line_number };
     check_throw_ex_cond_failed_2(location, expr_text, exception_name, exception_cond_text); // Throws
 }
 
 
-inline void TestContext::check_throw_any_failed(const char* file_path, long line_number, const char* expr_text)
+inline void TestContext::check_throw_any_failed(std::string_view file_path, long line_number,
+                                                std::string_view expr_text)
 {
     check::Location location = { file_path, line_number };
     check_throw_any_failed_2(location, expr_text); // Throws
 }
 
 
-inline void TestContext::check_nothrow_failed(const char* file_path, long line_number, const char* expr_text,
+inline void TestContext::check_nothrow_failed(std::string_view file_path, long line_number, std::string_view expr_text,
                                               std::exception* exc)
 {
     check::Location location = { file_path, line_number };
@@ -1050,8 +1150,8 @@ inline void TestContext::check_nothrow_failed(const char* file_path, long line_n
 
 
 template<class A, class B>
-bool TestContext::check_equal_seq(const A& a, const B& b, const char* file_path, long line_number,
-                                  const char* a_text, const char* b_text)
+bool TestContext::check_equal_seq(const A& a, const B& b, std::string_view file_path, long line_number,
+                                  std::string_view a_text, std::string_view b_text)
 {
     auto pred = [](const auto& c, const auto& d) {
         return equal(c, d); // Throws
@@ -1083,8 +1183,8 @@ bool TestContext::check_equal_seq(const A& a, const B& b, const char* file_path,
 
 
 template<class A, class B, class C>
-bool TestContext::check_compare_seq(const A& a, const B& b, C&& comp, const char* file_path, long line_number,
-                                    const char* a_text, const char* b_text, const char* comp_text)
+bool TestContext::check_compare_seq(const A& a, const B& b, C&& comp, std::string_view file_path, long line_number,
+                                    std::string_view a_text, std::string_view b_text, std::string_view comp_text)
 {
     auto pair = std::mismatch(std::begin(a), std::end(a), std::begin(b), std::end(b), std::forward<C>(comp)); // Throws
     bool success = (pair.first == std::end(a) && pair.second == std::end(b));
@@ -1251,7 +1351,37 @@ void TestContext::check_special_cond_failed(check::Location location, std::strin
         arg_vals[i] = out.view().substr(prev_end, std::size_t(end - prev_end));
         prev_end = end;
     }
-    check_special_cond_failed_2(location, macro_name, args_2, arg_vals); // Throws
+    check_special_cond_failed_3(location, macro_name, args_2, arg_vals); // Throws
+}
+
+
+template<class... T>
+void TestContext::check_special_cond_failed_2(check::Location location, std::string_view macro_name,
+                                              core::Span<const std::string_view> arg_texts,
+                                              std::string_view extra_args_text, const T&... args)
+{
+    std::array<char, 512> seed_memory;
+    core::SeedMemoryOutputStream out(seed_memory); // Throws
+    out.exceptions(std::ios_base::badbit | std::ios_base::failbit); // Throws
+    out.imbue(locale); // Throws
+    constexpr std::size_t num_args = sizeof... (args);
+    std::array<std::size_t, num_args> ends = {};
+    process_check_args_a(out, ends.data(), args...); // Throws
+    std::array<std::string_view, num_args> arg_vals;
+    std::size_t prev_end = 0;
+    for (std::size_t i = 0; i < num_args; ++i) {
+        std::size_t end = ends[i];
+        arg_vals[i] = out.view().substr(prev_end, std::size_t(end - prev_end));
+        prev_end = end;
+    }
+    std::array<std::string_view, num_args> seed_mem = {};
+    core::Buffer buffer(seed_mem);
+    core::BufferContents args_2(buffer);
+    args_2.append(arg_texts); // Throws
+    bool extra_args = (arg_texts.size() < num_args);
+    if (extra_args)
+        args_2.append(1, extra_args_text); // Throws
+    check_special_cond_failed_3(location, macro_name, args_2, arg_vals); // Throws
 }
 
 
@@ -1375,6 +1505,21 @@ inline void TestContext::process_check_args(core::SeedMemoryOutputStream& out, s
     *texts = arg.get_text();
     *ends = out.streambuf().size();
     process_check_args(out, texts + 1, ends + 1, args...); // Throws
+}
+
+
+inline void TestContext::process_check_args_a(core::SeedMemoryOutputStream&, std::size_t*)
+{
+}
+
+
+template<class T, class... U>
+inline void TestContext::process_check_args_a(core::SeedMemoryOutputStream& out, std::size_t* ends, const T& arg,
+                                              const U&... args)
+{
+    format_value(out, arg); // Throws
+    *ends = out.streambuf().size();
+    process_check_args_a(out, ends + 1, args...); // Throws
 }
 
 

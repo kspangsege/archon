@@ -38,6 +38,9 @@
 #include <archon/core/span.hpp>
 #include <archon/core/assert.hpp>
 #include <archon/core/integer.hpp>
+#include <archon/core/buffer.hpp>
+#include <archon/core/basic_character_set.hpp>
+#include <archon/core/charenc_bridge.hpp>
 #include <archon/core/format.hpp>
 #include <archon/core/endianness.hpp>
 #include <archon/core/misc_error.hpp>
@@ -46,24 +49,30 @@
 #include <archon/log/logger.hpp>
 #include <archon/image/impl/config.h>
 #include <archon/image/geom.hpp>
-#include <archon/image/bit_field.hpp>
+#include <archon/image/comp_types.hpp>
+#include <archon/image/standard_channel_spec.hpp>
 #include <archon/image/buffer_format.hpp>
-#include <archon/image/image.hpp>    
+#include <archon/image/image.hpp>
 #include <archon/image/writable_image.hpp>
 #include <archon/image/integer_pixel_format.hpp>
 #include <archon/image/subword_pixel_format.hpp>
 #include <archon/image/buffered_image.hpp>
 #include <archon/image/progress_tracker.hpp>
-#include <archon/image/provider.hpp>
+#include <archon/image/image_provider.hpp>
+#include <archon/image/comment_handler.hpp>
+#include <archon/image/error.hpp>
 #include <archon/image/file_format.hpp>
 #include <archon/image/file_format_png.hpp>
-#include <archon/image/load_config.hpp>
-#include <archon/image/save_config.hpp>
-#include <archon/image/error.hpp>
 
 #if ARCHON_IMAGE_HAVE_PNG
 #  include <png.h>
+#  if PNG_LIBPNG_VER < 10504
+#    error "PNG library is too old"
+#  endif
 #endif
+
+
+// For libpng API documentation, see http://www.libpng.org/pub/png/libpng-manual.txt
 
 
 using namespace archon;
@@ -71,6 +80,20 @@ using namespace std::literals;
 
 
 namespace {
+
+
+constexpr std::string_view g_file_format_ident = "png"sv;
+
+constexpr std::string_view g_file_format_descr = "PNG (Portable Network Graphics)"sv;
+
+constexpr std::string_view g_mime_types[] = {
+    "image/png"sv,
+};
+
+constexpr std::string_view g_filename_extensions[] = {
+    ".png"sv,
+};
+
 
 
 #if ARCHON_IMAGE_HAVE_PNG
@@ -118,7 +141,7 @@ template<class W> inline auto from_png_bytep(png_bytep ptr) noexcept
 }
 
 
-inline auto string_for_color_type(png_byte val) -> std::string_view
+inline auto string_for_color_type(png_byte val) noexcept -> std::string_view
 {
     switch (val) {
         case PNG_COLOR_TYPE_PALETTE:
@@ -137,7 +160,7 @@ inline auto string_for_color_type(png_byte val) -> std::string_view
 }
 
 
-inline auto string_for_interlace_type(png_byte val) -> std::string_view
+inline auto string_for_interlace_type(png_byte val) noexcept -> std::string_view
 {
     switch (val) {
         case PNG_INTERLACE_ADAM7:
@@ -148,16 +171,15 @@ inline auto string_for_interlace_type(png_byte val) -> std::string_view
 }
 
 
-bool recognize(core::Source& source, std::error_code& ec)
+bool try_recognize(core::Source& source, bool& recognized, std::error_code& ec)
 {
     constexpr std::size_t header_size = 8;
     char header[header_size];
     std::size_t n = 0;
     if (ARCHON_LIKELY(source.try_read(header, n, ec))) { // Throws
-        if (ARCHON_LIKELY(n == header_size && png_sig_cmp(to_png_bytep(header), 0, header_size) == 0))
-            return true; // Success
+        recognized = (n == header_size && png_sig_cmp(to_png_bytep(header), 0, header_size) == 0);
+        return true; // Success
     }
-    ec = image::Error::wrong_file_format;
     return false; // Failure
 }
 
@@ -201,8 +223,11 @@ struct WriteTransformations {
 bool try_match_save_format(const image::BufferFormat& buffer_format, image::Size image_size, Format& format,
                            WriteTransformations& xforms, std::size_t& bytes_per_row)
 {
+    image::BufferFormat::IntegerType word_type = {};
+    if (ARCHON_UNLIKELY(!image::BufferFormat::try_map_integer_type<png_byte>(word_type)))
+        return false;
+
     image::BufferFormat::IntegerFormat integer_format = {};
-    image::BufferFormat::IntegerType word_type = image::BufferFormat::IntegerType::byte;
     if (ARCHON_LIKELY(buffer_format.try_cast_to(integer_format, word_type))) { // Throws
         if (ARCHON_LIKELY(integer_format.bits_per_word == 8)) {
             png_byte bit_depth;
@@ -227,8 +252,7 @@ bool try_match_save_format(const image::BufferFormat& buffer_format, image::Size
             else {
                 return false;
             }
-            bool alpha_first = (integer_format.channel_conf.alpha_channel_first !=
-                                integer_format.channel_conf.reverse_order);
+            bool alpha_first = (integer_format.channel_conf.alpha_first != integer_format.channel_conf.reverse_order);
             bool rgb_to_bgr = integer_format.channel_conf.reverse_order;
             bool swap_bits = false;
             std::size_t bytes_per_row_2 = integer_format.get_words_per_row(image_size.width); // Throws
@@ -405,19 +429,19 @@ auto create_image(image::Size size, const Format& format, bool use_short_int, pn
 }
 
 
-// Notes on using setjump/longjump in C++:
+// Notes on using setjmp/longjmp in C++:
 //
-// Great care must be taken when using setjump/longjump in C++ context. The main problem is
+// Great care must be taken when using setjmp/longjmp in C++ context. The main problem is
 // that stack objects will not have their destructors called during a long jump stack
 // unwinding process.
 //
-// A secondary problem is that a local variable in the scope from which setjmp() is called
-// has indeterminate state upon a long jump if it was modified after the invocation of
-// setjmp().
+// A secondary problem is that an automatic variable in the scope from which setjmp() is
+// called has indeterminate state upon a long jump if it was modified after the invocation
+// of setjmp().
 //
 // In order to be on the safe side, the following restrictions should be adhered to:
 //
-//  * Keep the setjump/longjump construction on the following canonical form:
+//  * Keep the setjmp/longjmp construction on the following canonical form:
 //
 //      if (setjmp(jmpbuf) == 0) { // try
 //         // code that may potentially issue a long jump (throw)
@@ -426,13 +450,13 @@ auto create_image(image::Size size, const Format& format, bool use_short_int, pn
 //          // code that handles the long jump (exception)
 //      }
 //
-//  * Keep the "try"-scope completely free of automatic variables of non-trivial type
+//  * Keep the "try"-scope completely free of automatic variables of nontrivial type
 //    (std::is_trivial). This also applies to any sub-scope from which a long jump may be
 //    directly or indirectly initiated. A sub-scope from which a long jump can not be
-//    initiated, may safly have automatic variable of non-trivial type.
+//    initiated, may safely have automatic variable of nontrivial type.
 //
 //  * Keep statements, that directly or indirectly may initiate a long jump, completely free
-//    of temporaries of non-trivial type.
+//    of temporaries of nontrivial type.
 //
 //  * Keep the scope from which setjmp() is called completely free of automatic variables.
 //
@@ -443,7 +467,7 @@ auto create_image(image::Size size, const Format& format, bool use_short_int, pn
 struct Context {
     bool is_save = false;
     log::Logger* logger = nullptr;
-    image::ProgressTracker* tracker = nullptr;
+    image::ProgressTracker* progress_tracker = nullptr;
 
     // Progress notification
     const image::Image* image = nullptr;
@@ -460,6 +484,10 @@ struct Context {
 
 [[noreturn]] void error_callback(png_structp png_ptr, png_const_charp message) noexcept
 {
+    // Long jump safety: No automatic variables of nontrivial type in a scope from which
+    // std::longjmp() may be called or through with stack unwinding may pass (see notes on
+    // long jump safety above).
+
     Context& ctx = *static_cast<Context*>(png_get_error_ptr(png_ptr));
     try {
         ctx.logger->error("%s", std::string_view(message)); // Throws
@@ -480,6 +508,10 @@ struct Context {
 
 void warning_callback(png_structp png_ptr, png_const_charp message) noexcept
 {
+    // Long jump safety: No automatic variables of nontrivial type in a scope from which
+    // std::longjmp() may be called or through with stack unwinding may pass (see notes on
+    // long jump safety above).
+
     Context& ctx = *static_cast<Context*>(png_get_error_ptr(png_ptr));
     try {
         ctx.logger->warn("%s", std::string_view(message)); // Throws
@@ -494,6 +526,10 @@ void warning_callback(png_structp png_ptr, png_const_charp message) noexcept
 
 void progress_callback(png_structp png_ptr, png_uint_32 row, int pass) noexcept
 {
+    // Long jump safety: No automatic variables of nontrivial type in a scope from which
+    // std::longjmp() may be called or through with stack unwinding may pass (see notes on
+    // long jump safety above).
+
     // This function must only be used with non-interlaced images
     ARCHON_ASSERT(row > 0);
     ARCHON_ASSERT(pass == 0);
@@ -503,10 +539,12 @@ void progress_callback(png_structp png_ptr, png_uint_32 row, int pass) noexcept
         if (ARCHON_LIKELY(num_rows < ctx.num_rows_at_next_notification))
             return;
 
+        ARCHON_ASSERT(ctx.image);
         ARCHON_ASSERT(num_rows <= ctx.num_rows_total);
         ARCHON_ASSERT(num_rows <= ctx.num_rows_at_next_notification);
         ARCHON_ASSERT(ctx.num_rows_total > 0);
-        ctx.tracker->progress(*ctx.image, num_rows, ctx.num_rows_total); // Throws
+        double fraction = double(num_rows) / ctx.num_rows_total;
+        ctx.progress_tracker->progress(*ctx.image, fraction); // Throws
 
         int remain = ctx.num_rows_total - ctx.num_rows_at_next_notification;
         ctx.num_rows_at_next_notification += std::min(ctx.num_rows_per_notification, remain);
@@ -522,7 +560,8 @@ void progress_callback(png_structp png_ptr, png_uint_32 row, int pass) noexcept
 class LoadContext
     : public Context {
 public:
-    image::Provider* provider = nullptr;
+    image::ImageProvider* image_provider = nullptr;
+    image::CommentHandler* comment_handler = nullptr;
     core::Source* source = nullptr;
     const std::locale* locale = nullptr;
 
@@ -599,7 +638,7 @@ public:
         }
 
         format = raw_format;
-        if (!provider) {
+        if (!image_provider) {
             // Ask libpng to convert palette-based formats into regular formats
             if (format.color_type == PNG_COLOR_TYPE_PALETTE) {
                 xforms.palette_to_rgb = true;
@@ -629,8 +668,8 @@ public:
                 }
             }
 
-            // FIXME: Consider adding support for platte-type image object and then stop                 
-            // asking libpng to make this convertion, then read the palette using
+            // FIXME: Consider adding support for palette-type image object and then stop                 
+            // asking libpng to make this conversion, then read the palette using
             // `png_get_PLTE()`
 
             // Swap byte order for 16-bit images if that allows us to use a 16-bit word type
@@ -663,7 +702,7 @@ public:
         
         image::Image* image_3 = nullptr;
         image::Pos pos;
-        if (ctx.provider->provide(image_size, transfer_info, image_3, pos, ec)) { // Throws
+        if (ctx.image_provider->provide_image(image_size, transfer_info, image_3, pos, ec)) { // Throws
             
             return true;
         }
@@ -709,7 +748,7 @@ public:
         image_2 = create_image(image_size, format, use_short_int, buffer,
                                bytes_per_row_2); // Throws
 
-        // Sanity check: Must agreee with libpng on number of bytes per row
+        // Sanity check: Must agree with libpng on number of bytes per row
         if (bytes_per_row_2 != bytes_per_row) {
             fatal("Unexpected number of bytes per row: %s vs %s", bytes_per_row,
                   bytes_per_row_2); // Throws
@@ -732,11 +771,62 @@ public:
 
         return true;
     }
+
+    void handle_comments(const png_text* entries, int num_entries)
+    {
+        ARCHON_ASSERT(comment_handler);
+        char seed_memory[64] = {};
+        core::Buffer buffer(seed_memory);
+        core::charenc_bridge bridge(*locale); // Throws
+        for (int i = 0; i < num_entries; ++i) {
+            const png_text& entry = entries[i];
+            bool failure = false;
+            std::size_t buffer_offset = 0;
+            std::string_view key = entry.key; // Throws
+            for (char ch : key) {
+                char ch_2 = {};
+                if (ARCHON_UNLIKELY(!core::try_map_ascii_to_bcs(ch, ch_2))) {
+                    failure = true;
+                    break;
+                }
+                buffer.append_a(ch_2, buffer_offset); // Throws
+            }
+            std::string_view key_2 = { buffer.data(), buffer_offset }; // Throws
+            // FIXME: Gimp uses the keyword `Comment` for comments, which agrees with the
+            // PNG specification (https://www.w3.org/TR/png/#11keywords). On the other hand,
+            // Image Magic's `convert` commend uses `comment` (lower case `c`), which
+            // conflicts with the PNG specification because it states that case
+            // matters. Should case folding be done here despite what the specification
+            // says?
+            if (ARCHON_LIKELY(failure || key_2 != "Comment"sv))
+                continue;
+            std::string_view text = entry.text; // Throws
+            bool is_utf8 = false;
+            switch (entry.compression) {
+                case 1: // From plain iTXt chunk
+                case 2: // From compressed iTXt chunk
+                    is_utf8 = true;
+            }
+            buffer_offset = 0;
+            if (is_utf8) {
+                bridge.utf8_to_native_mb_l(text, buffer, buffer_offset); // Throws
+            }
+            else {
+                bridge.latin1_to_native_mb_l(text, buffer, buffer_offset); // Throws
+            }
+            std::string_view text_2 = { buffer.data(), buffer_offset }; // Throws
+            comment_handler->handle_comment(text_2); // Throws
+        }
+    }
 };
 
 
 void read_callback(png_structp png_ptr, png_bytep data, std::size_t size) noexcept
 {
+    // Long jump safety: No automatic variables of nontrivial type in a scope from which
+    // std::longjmp() may be called or through with stack unwinding may pass (see notes on
+    // long jump safety above).
+
     LoadContext& ctx = *static_cast<LoadContext*>(png_get_error_ptr(png_ptr));
     try {
         core::Span<char> buffer(from_png_bytep<char>(data), size);
@@ -759,8 +849,8 @@ void read_callback(png_structp png_ptr, png_bytep data, std::size_t size) noexce
 
 bool do_load(LoadContext& ctx)
 {
-    // Long jump safety: No non-volatile local variables in the scope from which setjmp() is
-    // called (see notes on long jump safety above).
+    // Long jump safety: No non-volatile automatic variables in the scope from which
+    // setjmp() is called (see notes on long jump safety above).
 
     ctx.png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, &ctx, error_callback, warning_callback);
     if (ARCHON_UNLIKELY(!ctx.png_ptr))
@@ -772,9 +862,9 @@ bool do_load(LoadContext& ctx)
 
     // Catch long jumps from one of the callback functions.
     if (setjmp(png_jmpbuf(ctx.png_ptr)) == 0) {
-        // Long jump safety: No local variables of nontrivial type in the "try"-scope, or in
-        // any subscope that may directly or indirectly initiate a long jump (see notes on
-        // long jump safety above).
+        // Long jump safety: No automatic variables of nontrivial type in the "try"-scope,
+        // or in any subscope that may directly or indirectly initiate a long jump (see
+        // notes on long jump safety above).
 
         png_set_sig_bytes(ctx.png_ptr, 8);
         png_set_read_fn(ctx.png_ptr, 0, read_callback);
@@ -827,22 +917,31 @@ bool do_load(LoadContext& ctx)
         // Track progress using callback function, but only when interlacing is not in use
         // (when interlacing is in use, progress is tracked in a different way)
         bool is_interlaced = (ctx.interlace_type != PNG_INTERLACE_NONE);
-        if (ctx.tracker && !is_interlaced)
+        if (ctx.progress_tracker && !is_interlaced)
             png_set_read_status_fn(ctx.png_ptr, progress_callback);
 
         // Read image data
-        if (!is_interlaced || !ctx.tracker) {
+        if (!is_interlaced || !ctx.progress_tracker) {
             png_read_image(ctx.png_ptr, ctx.rows.get());
         }
         else {
             for (int i = 0; i < ctx.num_passes; ++i) {
                 png_read_rows(ctx.png_ptr, nullptr, ctx.rows.get(), ctx.height);
-                ctx.tracker->progress(*ctx.image, i + 1, ctx.num_passes); // Throws
+                double fraction = double(i + 1) / ctx.num_passes;
+                ctx.progress_tracker->progress(*ctx.image, fraction); // Throws
             }
         }
 
         // Read final chunks after image data, if any
         png_read_end(ctx.png_ptr, ctx.info_ptr);
+
+        if (ctx.comment_handler) {
+            png_textp text_ptr = {};
+            int num_text = {};
+            png_get_text(ctx.png_ptr, ctx.info_ptr, &text_ptr, &num_text);
+            if (num_text > 0)
+                ctx.handle_comments(text_ptr, num_text); // Throws
+        }
     }
     else {
         // Long jumps from the callback functions land here.
@@ -854,27 +953,24 @@ bool do_load(LoadContext& ctx)
 
 
 bool load(core::Source& source, std::unique_ptr<image::WritableImage>& image, const std::locale& loc,
-          log::Logger& logger, image::ProgressTracker* tracker, image::Provider* provider, const image::PNGLoadConfig&,
-          std::error_code& ec)
+          log::Logger& logger, image::ProgressTracker* progress_tracker, image::ImageProvider* image_provider,
+          image::CommentHandler* comment_handler, const image::PNGLoadConfig&, std::error_code& ec)
 {
-    // FIXME: How about setting 1.5.4 as the minimum required version of libpng?                            
-    //
-    // > If you need to support versions prior to libpng-1.5.4 test the version
-    // > number as illustrated below using "PNG_LIBPNG_VER >= 10504" and follow
-    // > the procedures described in the appropriate manual page.
-    //
-
-    // FIXME: Read text comments using `png_get_text()`            
-
     // FIXME: Get background color using `png_get_bKGD()`             
 
-    if (ARCHON_UNLIKELY(!recognize(source, ec)))
-        return false; // Failure (wrong file format)
+    bool recognized = {};
+    if (ARCHON_UNLIKELY(!try_recognize(source, recognized, ec))) // Throws
+        return false; // Failure
+    if (ARCHON_UNLIKELY(!recognized)) {
+        ec = image::Error::bad_file;
+        return false; // Failure
+    }
 
     LoadContext ctx;
     ctx.logger = &logger;
-    ctx.tracker = tracker;
-    ctx.provider = provider;
+    ctx.progress_tracker = progress_tracker;
+    ctx.image_provider = image_provider;
+    ctx.comment_handler = comment_handler;
     ctx.source = &source;
     ctx.locale = &loc;
 
@@ -929,6 +1025,10 @@ public:
 
 void write_callback(png_structp png_ptr, png_bytep data, png_size_t size) noexcept
 {
+    // Long jump safety: No automatic variables of nontrivial type in a scope from which
+    // std::longjmp() may be called or through with stack unwinding may pass (see notes on
+    // long jump safety above).
+
     SaveContext& ctx = *static_cast<SaveContext*>(png_get_error_ptr(png_ptr));
     try {
         core::Span<const char> data_2(from_png_bytep<const char>(data), size);
@@ -956,8 +1056,8 @@ void flush_callback(png_structp) noexcept
 
 bool do_save(SaveContext& ctx)
 {
-    // Long jump safety: No non-volatile local variables in the scope from which setjmp() is
-    // called (see notes on long jump safety above).
+    // Long jump safety: No non-volatile automatic variables in the scope from which
+    // setjmp() is called (see notes on long jump safety above).
 
     ctx.png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, &ctx, error_callback, warning_callback);
     if (ARCHON_UNLIKELY(!ctx.png_ptr))
@@ -969,22 +1069,22 @@ bool do_save(SaveContext& ctx)
 
     // Catch long jumps from one of the callback functions.
     if (setjmp(png_jmpbuf(ctx.png_ptr)) == 0) {
-        // Long jump safety: No local variables of nontrivial type in the "try"-scope, or in
-        // any subscope that may directly or indirectly initiate a long jump (see notes on
-        // long jump safety above).
+        // Long jump safety: No automatic variables of nontrivial type in the "try"-scope,
+        // or in any subscope that may directly or indirectly initiate a long jump (see
+        // notes on long jump safety above).
 
         png_set_write_fn(ctx.png_ptr, 0, write_callback, flush_callback);
 
         // Track progress using callback function, but only when interlacing is not turned
         // on (when interlacing is turned on, progress is tracked in a different way)
-        if (ctx.tracker && !ctx.use_interlacing)
+        if (ctx.progress_tracker && !ctx.use_interlacing)
             png_set_write_status_fn(ctx.png_ptr, progress_callback);
 
         png_byte interlace_type = (ctx.use_interlacing ? PNG_INTERLACE_ADAM7 : PNG_INTERLACE_NONE);
         png_set_IHDR(ctx.png_ptr, ctx.info_ptr, ctx.width, ctx.height, ctx.format.bit_depth, ctx.format.color_type,
                      interlace_type, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 
-        // Sanity check: Must agreee with libpng on number of bytes per row
+        // Sanity check: Must agree with libpng on number of bytes per row
         {
             std::size_t bytes_per_row = png_get_rowbytes(ctx.png_ptr, ctx.info_ptr);
             if (ctx.bytes_per_row != bytes_per_row) {
@@ -1011,14 +1111,15 @@ bool do_save(SaveContext& ctx)
             png_set_packswap(ctx.png_ptr);
 
         // Write image data
-        if (!ctx.use_interlacing || !ctx.tracker) {
+        if (!ctx.use_interlacing || !ctx.progress_tracker) {
             png_write_image(ctx.png_ptr, const_cast<png_byte**>(ctx.rows.get()));
         }
         else {
             int num_passes = png_set_interlace_handling(ctx.png_ptr);
             for (int i = 0; i < num_passes; ++i) {
                 png_write_rows(ctx.png_ptr, const_cast<png_byte**>(ctx.rows.get()), ctx.height);
-                ctx.tracker->progress(*ctx.image, i + 1, num_passes); // Throws
+                double fraction = double(i + 1) / num_passes;
+                ctx.progress_tracker->progress(*ctx.image, fraction); // Throws
             }
         }
 
@@ -1040,11 +1141,11 @@ bool do_save(SaveContext& ctx)
 
 
 bool save(const image::Image& image, core::Sink& sink, const std::locale& loc, log::Logger& logger,
-          image::ProgressTracker* tracker, const image::PNGSaveConfig& config, std::error_code& ec)
+          image::ProgressTracker* progress_tracker, const image::PNGSaveConfig& config, std::error_code& ec)
 {
     SaveContext ctx;
     ctx.logger = &logger;
-    ctx.tracker = tracker;
+    ctx.progress_tracker = progress_tracker;
     ctx.sink = &sink;
     ctx.locale = &loc;
 
@@ -1133,7 +1234,7 @@ bool save(const image::Image& image, core::Sink& sink, const std::locale& loc, l
     ctx.rows = std::make_unique<const png_byte*[]>(std::size_t(image_size.height)); // Throws
     {
         const png_byte* row = buffer;
-        for (std::size_t i = 0; i < std::size_t(image_size.height); ++i) {
+        for (int i = 0; i < image_size.height; ++i) {
             ctx.rows[i] = row;
             row += ctx.bytes_per_row;
         }
@@ -1152,26 +1253,18 @@ bool save(const image::Image& image, core::Sink& sink, const std::locale& loc, l
 }
 
 
-constexpr std::string_view g_mime_types[] = {
-    "image/png"sv,
-};
-
-constexpr std::string_view g_filename_extensions[] = {
-    ".png"sv,
-};
-
 
 class FileFormatImpl final
     : public image::FileFormat {
 public:
     auto get_ident() const noexcept -> std::string_view override
     {
-        return "png"sv;
+        return g_file_format_ident;
     }
 
     auto get_descr() const -> std::string_view override
     {
-        return "Portable Network Graphics"sv;
+        return g_file_format_descr;
     }
 
     auto get_mime_types() const noexcept -> core::Span<const std::string_view> override
@@ -1184,17 +1277,23 @@ public:
         return g_filename_extensions;
     }
 
-    bool recognize(core::Source& source) const override
+    bool is_available() const noexcept override
     {
-        std::error_code ec; // Dummy
-        return ::recognize(source, ec); // Throws
+        return true;
+    }
+
+    bool try_recognize(core::Source& source, bool& recognized, const std::locale&, log::Logger&,
+                       std::error_code& ec) const override
+    {
+        return ::try_recognize(source, recognized, ec); // Throws
     }
 
     bool do_try_load(core::Source& source, std::unique_ptr<image::WritableImage>& image, const std::locale& loc,
                      log::Logger& logger, const LoadConfig& config, std::error_code& ec) const override
     {
-        image::ProgressTracker* tracker = config.tracker;
-        image::Provider* provider = config.provider;
+        image::ProgressTracker* progress_tracker = config.progress_tracker;
+        image::ImageProvider* image_provider = config.image_provider;
+        image::CommentHandler* comment_handler = config.comment_handler;
         const image::PNGLoadConfig* config_2 = nullptr;
         if (config.special) {
             const image::PNGLoadConfig* config_3 =
@@ -1205,13 +1304,14 @@ public:
         std::optional<image::PNGLoadConfig> config_4;
         if (!config_2)
             config_2 = &config_4.emplace(); // Throws
-        return ::load(source, image, loc, logger, tracker, provider, *config_2, ec); // Throws
+        return ::load(source, image, loc, logger, progress_tracker, image_provider, comment_handler, *config_2,
+                      ec); // Throws
     }
 
     bool do_try_save(const image::Image& image, core::Sink& sink, const std::locale& loc, log::Logger& logger,
                      const SaveConfig& config, std::error_code& ec) const override
     {
-        image::ProgressTracker* tracker = config.tracker;
+        image::ProgressTracker* progress_tracker = config.progress_tracker;
         const image::PNGSaveConfig* config_2 = nullptr;
         if (config.special) {
             const image::PNGSaveConfig* config_3 = config.special->get<const image::PNGSaveConfig>();
@@ -1221,25 +1321,72 @@ public:
         std::optional<image::PNGSaveConfig> config_4;
         if (!config_2)
             config_2 = &config_4.emplace(); // Throws
-        return ::save(image, sink, loc, logger, tracker, *config_2, ec); // Throws
+        return ::save(image, sink, loc, logger, progress_tracker, *config_2, ec); // Throws
     }
 };
 
 
+#else // !ARCHON_IMAGE_HAVE_PNG
 
 
-#endif // ARCHON_IMAGE_HAVE_PNG
+class FileFormatImpl final
+    : public image::FileFormat {
+public:
+    auto get_ident() const noexcept -> std::string_view override
+    {
+        return g_file_format_ident;
+    }
+
+    auto get_descr() const -> std::string_view override
+    {
+        return g_file_format_descr;
+    }
+
+    auto get_mime_types() const noexcept -> core::Span<const std::string_view> override
+    {
+        return g_mime_types;
+    }
+
+    auto get_filename_extensions() const noexcept -> core::Span<const std::string_view> override
+    {
+        return g_filename_extensions;
+    }
+
+    bool is_available() const noexcept override
+    {
+        return false;
+    }
+
+    bool try_recognize(core::Source&, bool&, const std::locale&, log::Logger&, std::error_code& ec) const override
+    {
+        ec = image::Error::file_format_unavailable;
+        return false; // Failure
+    }
+
+    bool do_try_load(core::Source&, std::unique_ptr<image::WritableImage>&, const std::locale&, log::Logger&,
+                     const LoadConfig&, std::error_code& ec) const override
+    {
+        ec = image::Error::file_format_unavailable;
+        return false; // Failure
+    }
+
+    bool do_try_save(const image::Image&, core::Sink&, const std::locale&, log::Logger&, const SaveConfig&,
+                     std::error_code& ec) const override
+    {
+        ec = image::Error::file_format_unavailable;
+        return false; // Failure
+    }
+};
+
+
+#endif // !ARCHON_IMAGE_HAVE_PNG
 
 
 } // unnamed namespace
 
 
-auto image::get_file_format_png() noexcept -> const image::FileFormat*
+auto image::get_file_format_png() noexcept -> const image::FileFormat&
 {
-#if ARCHON_IMAGE_HAVE_PNG
     static FileFormatImpl impl;
-    return &impl;
-#else
-    return nullptr;
-#endif
+    return impl;
 }

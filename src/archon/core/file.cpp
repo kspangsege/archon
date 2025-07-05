@@ -783,7 +783,7 @@ int get_standard_stream_handle(int which) noexcept
 File::StandardStreams::StandardStreams() noexcept
 {
     bool no_implicit_close = true;
-    cin.adopt(get_standard_stream_handle(0), no_implicit_close);
-    cout.adopt(get_standard_stream_handle(1), no_implicit_close);
-    cerr.adopt(get_standard_stream_handle(2), no_implicit_close);
+    stdin_.adopt(get_standard_stream_handle(0), no_implicit_close);
+    stdout_.adopt(get_standard_stream_handle(1), no_implicit_close);
+    stderr_.adopt(get_standard_stream_handle(2), no_implicit_close);
 }

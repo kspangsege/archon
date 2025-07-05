@@ -67,7 +67,7 @@ ARCHON_TEST(Core_Impl_CodecvtQuirks)
 
     auto subtest = [&, &parent_test_context = test_context](const std::locale& locale) {
         ARCHON_TEST_TRAIL(parent_test_context, core::quoted(std::string_view(locale.name())));
-        bool is_utf8 = (core::assume_utf8_locale(locale) && (core::assume_unicode_locale(locale) || ARCHON_WINDOWS));
+        bool is_utf8 = (core::assume_utf8_locale(locale) && (core::assume_ucs_locale(locale) || ARCHON_WINDOWS));
         using codecvt_type = std::codecvt<wchar_t, char, std::mbstate_t>;
         const codecvt_type& codecvt = std::use_facet<codecvt_type>(locale);
 

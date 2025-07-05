@@ -75,15 +75,18 @@
 
 // Load / save
 #include <archon/image/progress_tracker.hpp>
-#include <archon/image/provider.hpp>
+#include <archon/image/image_provider.hpp>
+#include <archon/image/comment_handler.hpp>
+#include <archon/image/error.hpp>
 #include <archon/image/file_format.hpp>
-#include <archon/image/file_format_registry.hpp>
 #include <archon/image/file_format_png.hpp>
+#include <archon/image/file_format_jpeg.hpp>
+#include <archon/image/file_format_registry.hpp>
+#include <archon/image/list_file_formats.hpp>
 #include <archon/image/load_config.hpp>
 #include <archon/image/save_config.hpp>
 #include <archon/image/input.hpp>
 #include <archon/image/output.hpp>
-#include <archon/image/error.hpp>
 #include <archon/image/load.hpp>
 #include <archon/image/save.hpp>
 

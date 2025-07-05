@@ -64,7 +64,7 @@ namespace archon::image {
 /// For formats that pack multiple pixels into each bit compound, see \ref
 /// image::SubwordPixelFormat.
 ///
-/// For floating-point based formats, see \ref image::FloatingPixelFormat.         
+/// For floating-point based formats, see \ref image::FloatPixelFormat.         
 ///
 /// For indirect color formats, see \ref image::IndexedPixelFormat.
 ///
@@ -116,6 +116,8 @@ namespace archon::image {
 /// \tparam G If set to `true`, the stored order of color channels is opposite of the
 /// canonical order for the color space in effect. This also affects the position of the
 /// alpha channel, see \p F.
+///
+/// \sa \ref image::BufferFormat::IntegerFormat
 ///
 template<class C, class W, int B, class S = W, int D = 1,
          core::Endianness E = core::Endianness::big, bool F = false, bool G = false>

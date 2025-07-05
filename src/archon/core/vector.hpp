@@ -25,7 +25,6 @@
 
 
 #include <cstddef>
-#include <type_traits>
 #include <limits>
 #include <algorithm>
 #include <iterator>
@@ -36,6 +35,7 @@
 
 #include <archon/core/features.h>
 #include <archon/core/type_traits.hpp>
+#include <archon/core/concepts.hpp>
 #include <archon/core/span.hpp>
 #include <archon/core/memory.hpp>
 #include <archon/core/impl/vector_impl.hpp>
@@ -149,13 +149,13 @@ public:
     Vector(std::initializer_list<T>);
     explicit Vector(size_type size);
     Vector(size_type size, const T& value);
-    template<class I, class = core::NeedIter<I>> Vector(I begin, I end);
+    template<core::iter_type I> Vector(I begin, I end);
 
     auto operator=(Vector&&) noexcept -> Vector&;
 
     void assign(std::initializer_list<T>);
     void assign(size_type size, const T& value);
-    template<class I, class = NeedIter<I>> void assign(I begin, I end);
+    template<core::iter_type I> void assign(I begin, I end);
 
     // Element access
 
@@ -217,7 +217,7 @@ public:
 
     void append(std::initializer_list<T>);
     void append(size_type size, const T& value);
-    template<class I, class = NeedIter<I>> void append(I begin, I end);
+    template<core::iter_type I> void append(I begin, I end);
 
     template<class... A> auto emplace(const_iterator pos, A&&... args) -> iterator;
 
@@ -314,7 +314,7 @@ inline Vector<T, N>::Vector(size_type size, const T& value)
 
 
 template<class T, std::size_t N>
-template<class I, class> inline Vector<T, N>::Vector(I begin, I end)
+template<core::iter_type I> inline Vector<T, N>::Vector(I begin, I end)
     : Vector()
 {
     append(begin, end); // Throws
@@ -347,7 +347,7 @@ inline void Vector<T, N>::assign(size_type size, const T& value)
 
 
 template<class T, std::size_t N>
-template<class I, class> inline void Vector<T, N>::assign(I begin, I end)
+template<core::iter_type I> inline void Vector<T, N>::assign(I begin, I end)
 {
     clear();
     append(begin, end); // Throws
@@ -617,7 +617,7 @@ inline void Vector<T, N>::append(size_type size, const T& value)
 
 
 template<class T, std::size_t N>
-template<class I, class> inline void Vector<T, N>::append(I begin, I end)
+template<core::iter_type I> inline void Vector<T, N>::append(I begin, I end)
 {
     do_append(begin, end); // Throws
 }

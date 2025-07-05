@@ -446,9 +446,9 @@ public:
     ///
     /// \param img A writable interface of the image into which the glyph will be merged.            
     ///
-    /// \todo FIXME: It might be attractive to offer alternative blending             
-    /// modes/functions. One could simply be channel = max(orig, new). Then the original
-    /// 'max(orig,new) intensity stuff' can easily be reenabled.
+    /// FIXME: It might be attractive to offer alternative blending modes/functions. One             
+    /// could simply be channel = max(orig, new). Then the original 'max(orig,new) intensity
+    /// stuff' can easily be reenabled.
     ///
     void render_glyph_mask(image::Writer&);
     void render_glyph_rgba(image::Writer&);

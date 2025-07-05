@@ -80,7 +80,7 @@ namespace archon::image {
 /// For formats that pack multiple channels into each bit compound, see \ref
 /// image::PackedPixelFormat.
 ///
-/// For floating-point based formats, see \ref image::FloatingPixelFormat.         
+/// For floating-point based formats, see \ref image::FloatPixelFormat.         
 ///
 /// For indirect color formats, see \ref image::IndexedPixelFormat.
 ///
@@ -122,6 +122,8 @@ namespace archon::image {
 /// alpha channel, see \p F.
 ///
 /// \tparam H If set to `true`, each row of pixels is aligned on a word boundary.
+///
+/// \sa \ref image::BufferFormat::SubwordFormat
 ///
 template<class C, class W, int B, int D, core::Endianness E = core::Endianness::big,
          bool F = false, bool G = false, bool H = true>

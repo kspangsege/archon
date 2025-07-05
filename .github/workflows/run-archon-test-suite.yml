@@ -18,18 +18,18 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         build_type: [Release, Debug]
-        c_compiler: [gcc, clang-15]
+        c_compiler: [gcc, clang]
         include:
           - c_compiler: gcc
             cpp_compiler: g++
-          - c_compiler: clang-15
-            cpp_compiler: clang++-15
+          - c_compiler: clang
+            cpp_compiler: clang++
 
     steps:
     - name: Install dependencies
       run: |
         sudo apt update
-        sudo apt install libpng-dev libfreetype-dev libx11-dev libsdl2-dev clang-15
+        sudo apt install libpng-dev libjpeg-dev libfreetype-dev libx11-dev libsdl2-dev clang
 
     - name: Checkout
       uses: actions/checkout@v4
@@ -65,7 +65,7 @@ jobs:
     steps:
     - name: Install dependencies
       run: |
-        brew install libpng freetype sdl2
+        brew install libjpeg sdl2
 
     - name: Checkout
       uses: actions/checkout@v4
@@ -103,7 +103,7 @@ jobs:
     - name: Install dependencies
       run: |
         (cd C:\vcpkg && git pull)
-        vcpkg install --triplet x64-windows libpng freetype sdl2
+        vcpkg install --triplet x64-windows libpng libjpeg-turbo freetype sdl2
 
     - name: Checkout
       uses: actions/checkout@v4
