@@ -106,10 +106,11 @@ int main(int argc, char* argv[])
     log::LogLevel log_level_limit = log::LogLevel::warn;
     std::optional<std::string> optional_source_file_format;
     std::optional<std::string> optional_destin_file_format;
+    std::optional<std::string> optional_comment;
     bool progress = false;
-    bool interlace = false;
     image::LoadConfig load_config;
     image::SaveConfig save_config;
+    image::PNGSaveConfig png_save_config;
 
     cli::Spec spec;
     pat("<source path>  <destination path>", cli::no_attributes, spec,
@@ -144,13 +145,18 @@ int main(int argc, char* argv[])
         "will be attempted. Use `--list-image-file-formats` to see a list of supported image file formats.",
         cli::assign(optional_destin_file_format)); // Throws
 
+    opt("-c, --comment", "<string>", cli::no_attributes, spec,
+        "Store the specified comment in the destination image provided that the destination file format has support "
+        "for comments.",
+        cli::assign(optional_comment)); // Throws
+
     opt("-P, --progress", "", cli::no_attributes, spec,
         "Report loading and saving progress.",
         cli::raise_flag(progress)); // Throws
 
     opt("-i, --interlace", "", cli::no_attributes, spec,
         "Turn on Adam7 interlacing when producing a PNG file.",
-        cli::raise_flag(interlace)); // Throws
+        cli::raise_flag(png_save_config.use_adam7_interlacing)); // Throws
 
     opt("-r, --read-buffer-size", "<size>", cli::no_attributes, spec,
         "Set the size of the read buffer used when loading the specified image. The default size "
@@ -160,6 +166,11 @@ int main(int argc, char* argv[])
     opt("-w, --write-buffer-size", "<size>", cli::no_attributes, spec,
         "Set the size of the write buffer used when saving the converted image. The default size is @V.",
         cli::assign(core::as_int(save_config.write_buffer_size))); // Throws
+
+    opt("-L, --force-latin1-comment", "", cli::no_attributes, spec,
+        "For PNG images, force comment to be saved in tEXt/zTXt chunk which requires coercion to Latin-1 character "
+        "encoding.",
+        cli::raise_flag(png_save_config.force_latin1_comment)); // Throws
 
     int exit_status = 0;
     if (ARCHON_UNLIKELY(cli::process(argc, argv, spec, exit_status, locale))) // Throws
@@ -222,9 +233,6 @@ int main(int argc, char* argv[])
 
     // Save
     {
-        image::PNGSaveConfig png_save_config;
-        png_save_config.use_adam7_interlacing = interlace;
-
         image::FileFormat::SpecialSaveConfigRegistry special_save_config_registry; // Throws
         special_save_config_registry.register_(png_save_config); // Throws
 
@@ -239,6 +247,8 @@ int main(int argc, char* argv[])
         save_config.registry = &image_file_format_registry;
         if (ARCHON_UNLIKELY(optional_destin_file_format.has_value()))
             save_config.file_format = optional_destin_file_format.value();
+        if (ARCHON_UNLIKELY(optional_comment.has_value()))
+            save_config.comment = optional_comment.value();
 
         if (!image::try_save(*image, destin_path, locale, save_config, ec)) { // Throws
             logger.error("Failed to save destination image: %s", ec.message()); // Throws
