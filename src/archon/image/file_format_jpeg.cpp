@@ -19,7 +19,6 @@
 // DEALINGS IN THE SOFTWARE.
 
 
-                     
 #include <cstddef>
 #include <csetjmp>
 #include <type_traits>
@@ -28,13 +27,16 @@
 #include <utility>
 #include <algorithm>
 #include <memory>
+#include <optional>
 #include <string_view>
 #include <system_error>
 #include <locale>
 
 #include <archon/core/features.h>
+#include <archon/core/type_traits.hpp>
 #include <archon/core/span.hpp>
 #include <archon/core/assert.hpp>
+#include <archon/core/integer.hpp>
 #include <archon/core/buffer.hpp>
 #include <archon/core/charenc_bridge.hpp>
 #include <archon/core/as_int.hpp>
@@ -44,7 +46,9 @@
 #include <archon/log.hpp>
 #include <archon/image/impl/config.h>
 #include <archon/image/geom.hpp>
+#include <archon/image/color_space.hpp>
 #include <archon/image/standard_channel_spec.hpp>
+#include <archon/image/buffer_format.hpp>
 #include <archon/image/image.hpp>
 #include <archon/image/writable_image.hpp>
 #include <archon/image/integer_pixel_format.hpp>
@@ -822,17 +826,16 @@ bool try_match_save_format(const image::BufferFormat& buffer_format, const image
 
 class SaveContext : public Context {
 public:
-    SaveContext(log::Logger&, image::ProgressTracker*, core::Sink&, const std::locale&);
+    SaveContext(log::Logger&, image::ProgressTracker*, const std::optional<std::string_view>& comment, core::Sink&,
+                const std::locale&);
     ~SaveContext() noexcept;
 
     bool save(const image::Image&, std::error_code&);
 
 private:
     core::Sink& m_sink;
-/*    
-    core::charenc_bridge m_charenc_bridge;
-    core::Buffer<char> m_transcode_buffer;
-*/
+    core::Buffer<char> m_comment_buffer;
+    std::optional<std::string_view> m_comment;
     std::unique_ptr<char[]> m_write_buffer;
     jpeg_destination_mgr m_destination_mgr = {};
     jpeg_compress_struct m_info = {};
@@ -855,12 +858,17 @@ private:
 };
 
 
-SaveContext::SaveContext(log::Logger& logger, image::ProgressTracker* progress_tracker, core::Sink& sink,
-                         const std::locale& locale)
+SaveContext::SaveContext(log::Logger& logger, image::ProgressTracker* progress_tracker,
+                         const std::optional<std::string_view>& comment, core::Sink& sink, const std::locale& locale)
     : Context(logger, progress_tracker) // Throws
     , m_sink(sink)
 {
-    static_cast<void>(locale);               
+    if (comment.has_value()) {
+        core::charenc_bridge bridge(locale); // Throws
+        std::size_t buffer_offset = 0;
+        bridge.native_mb_to_ascii_l(comment.value(), m_comment_buffer, buffer_offset); // Throws
+        m_comment = std::string_view(m_comment_buffer.data(), buffer_offset); // Throws
+    }
 
     m_write_buffer = std::make_unique<char[]>(g_read_write_buffer_size); // Throws
 
@@ -914,7 +922,16 @@ bool SaveContext::save(const image::Image& image, std::error_code& ec)
 
         jpeg_start_compress(&m_info, TRUE);
 
-        // FIXME: Deal with comment saving      
+        if (m_comment.has_value()) {
+            const std::string_view& comment = m_comment.value();
+            std::size_t size = comment.size();
+            int marker = JPEG_COM;
+            const JOCTET *dataptr = reinterpret_cast<const JOCTET*>(comment.data());
+            unsigned datalen = core::int_max<unsigned>();
+            if (ARCHON_LIKELY(size < datalen))
+                datalen = unsigned(size);
+            jpeg_write_marker(&m_info, marker, dataptr, datalen);
+        }
 
         JSAMPLE** rows = const_cast<JSAMPLE**>(m_rows.get());
         jpeg_write_scanlines(&m_info, rows, m_image_height);
@@ -1127,7 +1144,7 @@ public:
     bool do_try_save(const image::Image& image, core::Sink& sink, const std::locale& locale, log::Logger& logger,
                      const SaveConfig& config, std::error_code& ec) const override
     {
-        SaveContext context(logger, config.progress_tracker, sink, locale); // Throws
+        SaveContext context(logger, config.progress_tracker, config.comment, sink, locale); // Throws
         return context.save(image, ec); // Throws
     }
 };

@@ -39,6 +39,7 @@
 #include <archon/core/assert.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/buffer.hpp>
+#include <archon/core/string_buffer_contents.hpp>
 #include <archon/core/basic_character_set.hpp>
 #include <archon/core/charenc_bridge.hpp>
 #include <archon/core/format.hpp>
@@ -72,7 +73,15 @@
 #endif
 
 
-// For libpng API documentation, see http://www.libpng.org/pub/png/libpng-manual.txt
+// For PNG specification, see https://www.w3.org/TR/png.
+//
+// For libpng API documentation, see http://www.libpng.org/pub/png/libpng-manual.txt.
+//
+// For additional information on libpng API, see http://www.libpng.org/pub/png/book/chapter15.html.
+//
+// See also `example.c` in
+// https://sourceforge.net/projects/libpng/files/libpng16/1.6.50/libpng-1.6.50.tar.gz (or in
+// later versions of libpng).
 
 
 using namespace archon;
@@ -167,6 +176,48 @@ inline auto string_for_interlace_type(png_byte val) noexcept -> std::string_view
             return "Adam7";
         default:
             return {};
+    }
+}
+
+
+void replace_null_chars_latin1(core::StringBufferContents& comment) noexcept
+{
+    using traits_type = std::char_traits<char>;
+    std::size_t n = comment.size();
+    for (std::size_t i = 0; i < n; ++i) {
+        auto val = traits_type::to_int_type(comment[i]);
+        if (ARCHON_LIKELY(val != 0))
+            continue;
+        comment[i] = traits_type::to_char_type(63);
+    }
+}
+
+void replace_null_chars_utf8(core::StringBufferContents& comment)
+{
+    using traits_type = std::char_traits<char>;
+    std::size_t n = comment.size();
+    for (std::size_t i = 0; i < n; ++i) {
+        auto val = std::char_traits<char>::to_int_type(comment[i]);
+        if (ARCHON_LIKELY(val != 0))
+            continue;
+        const char* base = comment.data();
+        std::string rest = std::string(base + i + 1, base + n); // Throws
+        comment.set_size(i);
+        char replacement[] = {
+            traits_type::to_char_type(0xEF),
+            traits_type::to_char_type(0xBF),
+            traits_type::to_char_type(0xBD),
+        };
+        comment.append(core::Span(replacement)); // Throws
+        for (char ch : rest) {
+            auto val = std::char_traits<char>::to_int_type(comment[i]);
+            if (ARCHON_LIKELY(val != 0)) {
+                comment.append(1, ch); // Throws
+                continue;
+            }
+            comment.append(core::Span(replacement)); // Throws
+        }
+        return;
     }
 }
 
@@ -803,8 +854,8 @@ public:
             std::string_view text = entry.text; // Throws
             bool is_utf8 = false;
             switch (entry.compression) {
-                case 1: // From plain iTXt chunk
-                case 2: // From compressed iTXt chunk
+                case PNG_ITXT_COMPRESSION_NONE: // From plain iTXt chunk
+                case PNG_ITXT_COMPRESSION_zTXt: // From compressed iTXt chunk
                     is_utf8 = true;
             }
             buffer_offset = 0;
@@ -990,6 +1041,9 @@ bool load(core::Source& source, std::unique_ptr<image::WritableImage>& image, co
 class SaveContext
     : public Context {
 public:
+    const char* comment = nullptr;
+    bool comment_is_utf8 = false; // Else Latin-1
+    bool comment_compress = false;
     core::Sink* sink = nullptr;
     const std::locale* locale = nullptr;
 
@@ -1000,7 +1054,7 @@ public:
     Format format = {};
     WriteTransformations xforms = {};
     std::size_t bytes_per_row = 0;
-    std::unique_ptr<const png_byte*[]> rows;
+    const png_byte** rows = {};
     bool use_interlacing = false;
 
     SaveContext() noexcept
@@ -1112,22 +1166,31 @@ bool do_save(SaveContext& ctx)
 
         // Write image data
         if (!ctx.use_interlacing || !ctx.progress_tracker) {
-            png_write_image(ctx.png_ptr, const_cast<png_byte**>(ctx.rows.get()));
+            png_write_image(ctx.png_ptr, const_cast<png_bytepp>(ctx.rows));
         }
         else {
             int num_passes = png_set_interlace_handling(ctx.png_ptr);
             for (int i = 0; i < num_passes; ++i) {
-                png_write_rows(ctx.png_ptr, const_cast<png_byte**>(ctx.rows.get()), ctx.height);
+                png_write_rows(ctx.png_ptr, const_cast<png_bytepp>(ctx.rows), ctx.height);
                 double fraction = double(i + 1) / num_passes;
                 ctx.progress_tracker->progress(*ctx.image, fraction); // Throws
             }
         }
 
-/*
-        // Add the comment after the pixel data
-        if (text.text)
-            png_set_text(ctx.png_ptr, ctx.info_ptr, &text, 1);       
-*/
+        // Add comment after the pixel data
+        if (ctx.comment) {
+            png_text text = {};
+            if (ctx.comment_is_utf8) {
+                text.compression = (ctx.comment_compress ? PNG_ITXT_COMPRESSION_zTXt : PNG_ITXT_COMPRESSION_NONE);
+            }
+            else {
+                text.compression = (ctx.comment_compress ? PNG_TEXT_COMPRESSION_zTXt : PNG_TEXT_COMPRESSION_NONE);
+            }
+            text.key  = const_cast<png_charp>("Comment");
+            text.text = const_cast<png_charp>(ctx.comment);
+            int num_text = 1;
+            png_set_text(ctx.png_ptr, ctx.info_ptr, &text, num_text);
+        }
 
         png_write_end(ctx.png_ptr, ctx.info_ptr);
     }
@@ -1141,7 +1204,8 @@ bool do_save(SaveContext& ctx)
 
 
 bool save(const image::Image& image, core::Sink& sink, const std::locale& loc, log::Logger& logger,
-          image::ProgressTracker* progress_tracker, const image::PNGSaveConfig& config, std::error_code& ec)
+          image::ProgressTracker* progress_tracker, const std::optional<std::string_view>& comment,
+          const image::PNGSaveConfig& config, std::error_code& ec)
 {
     SaveContext ctx;
     ctx.logger = &logger;
@@ -1231,16 +1295,43 @@ bool save(const image::Image& image, core::Sink& sink, const std::locale& loc, l
         ctx.bytes_per_row = bytes_per_row;
     }
 
-    ctx.rows = std::make_unique<const png_byte*[]>(std::size_t(image_size.height)); // Throws
+    std::unique_ptr<const png_byte*[]> rows =
+        std::make_unique<const png_byte*[]>(std::size_t(image_size.height)); // Throws
     {
         const png_byte* row = buffer;
         for (int i = 0; i < image_size.height; ++i) {
-            ctx.rows[i] = row;
+            rows[i] = row;
             row += ctx.bytes_per_row;
         }
     }
+    ctx.rows = rows.get();
 
     ctx.use_interlacing = config.use_adam7_interlacing;
+
+    core::Buffer<char> comment_buffer;
+    core::StringBufferContents comment_2(comment_buffer);
+    if (comment.has_value()) {
+        core::charenc_bridge bridge(loc); // Throws
+        if (config.force_latin1_comment) {
+            std::size_t buffer_offset = 0;
+            bridge.native_mb_to_latin1_l(comment.value(), comment_buffer, buffer_offset); // Throws
+            comment_2.set_size(buffer_offset);
+            // Null characters are not allowed, so replace them
+            replace_null_chars_latin1(comment_2);
+        }
+        else {
+            std::size_t buffer_offset = 0;
+            bridge.native_mb_to_utf8_l(comment.value(), comment_buffer, buffer_offset); // Throws
+            comment_2.set_size(buffer_offset);
+            // Null characters are not allowed, so replace them
+            replace_null_chars_utf8(comment_2); // Throws
+            ctx.comment_is_utf8 = true;
+        }
+        if (comment_2.size() >= 1000)
+            ctx.comment_compress = true;
+        comment_2.append(1, '\0'); // Terminating null character
+        ctx.comment = comment_2.data(); // Throws
+    }
 
     if (ARCHON_LIKELY(do_save(ctx))) // Throws
         return true; // Success
@@ -1312,6 +1403,7 @@ public:
                      const SaveConfig& config, std::error_code& ec) const override
     {
         image::ProgressTracker* progress_tracker = config.progress_tracker;
+        const std::optional<std::string_view>& comment = config.comment;
         const image::PNGSaveConfig* config_2 = nullptr;
         if (config.special) {
             const image::PNGSaveConfig* config_3 = config.special->get<const image::PNGSaveConfig>();
@@ -1321,7 +1413,7 @@ public:
         std::optional<image::PNGSaveConfig> config_4;
         if (!config_2)
             config_2 = &config_4.emplace(); // Throws
-        return ::save(image, sink, loc, logger, progress_tracker, *config_2, ec); // Throws
+        return ::save(image, sink, loc, logger, progress_tracker, comment, *config_2, ec); // Throws
     }
 };
 

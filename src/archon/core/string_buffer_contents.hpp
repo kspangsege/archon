@@ -26,6 +26,8 @@
 
 #include <cstddef>
 #include <algorithm>
+#include <string_view>
+#include <string>
 
 #include <archon/core/string_span.hpp>
 #include <archon/core/buffer.hpp>
@@ -43,13 +45,15 @@ namespace archon::core {
 /// \sa \ref core::Buffer
 /// \sa \ref core::BufferContents
 ///
-template<class C> class BasicStringBufferContents {
+template<class C, class T = std::char_traits<C>> class BasicStringBufferContents {
 public:
-    using char_type = C;
+    using char_type   = C;
+    using traits_type = T;
 
     using iterator       = C*;
     using const_iterator = const C*;
 
+    using string_view_type = std::basic_string_view<C, T>;
     using buffer_type = core::Buffer<C>;
 
     /// \brief Construct string buffer contents tracker.
@@ -73,6 +77,8 @@ public:
     auto end() noexcept -> C*;
     auto begin() const noexcept -> const C*;
     auto end() const noexcept -> const C*;
+
+    auto string() const -> string_view_type;
 
     void append(core::StringSpan<C>);
     void append(std::size_t n, C ch);
@@ -119,86 +125,93 @@ using WideStringBufferContents = BasicStringBufferContents<wchar_t>;
 // Implementation
 
 
-template<class C>
-inline BasicStringBufferContents<C>::BasicStringBufferContents(buffer_type& buffer, std::size_t size) noexcept
+template<class C, class T>
+inline BasicStringBufferContents<C, T>::BasicStringBufferContents(buffer_type& buffer, std::size_t size) noexcept
     : m_buffer(buffer)
     , m_size(size)
 {
 }
 
 
-template<class C>
-inline auto BasicStringBufferContents<C>::operator[](std::size_t i) noexcept -> C&
+template<class C, class T>
+inline auto BasicStringBufferContents<C, T>::operator[](std::size_t i) noexcept -> C&
 {
     return data()[i];
 }
 
 
-template<class C>
-inline auto BasicStringBufferContents<C>::operator[](std::size_t i) const noexcept -> const C&
+template<class C, class T>
+inline auto BasicStringBufferContents<C, T>::operator[](std::size_t i) const noexcept -> const C&
 {
     return data()[i];
 }
 
 
-template<class C>
-inline bool BasicStringBufferContents<C>::empty() const noexcept
+template<class C, class T>
+inline bool BasicStringBufferContents<C, T>::empty() const noexcept
 {
     return m_size == 0;
 }
 
 
-template<class C>
-inline auto BasicStringBufferContents<C>::size() const noexcept -> std::size_t
+template<class C, class T>
+inline auto BasicStringBufferContents<C, T>::size() const noexcept -> std::size_t
 {
     return m_size;
 }
 
 
-template<class C>
-inline auto BasicStringBufferContents<C>::data() noexcept -> C*
+template<class C, class T>
+inline auto BasicStringBufferContents<C, T>::data() noexcept -> C*
 {
     return m_buffer.data();
 }
 
 
-template<class C>
-inline auto BasicStringBufferContents<C>::data() const noexcept -> const C*
+template<class C, class T>
+inline auto BasicStringBufferContents<C, T>::data() const noexcept -> const C*
 {
     return m_buffer.data();
 }
 
 
-template<class C>
-inline auto BasicStringBufferContents<C>::begin() noexcept -> C*
+template<class C, class T>
+inline auto BasicStringBufferContents<C, T>::begin() noexcept -> C*
 {
     return data();
 }
 
 
-template<class C>
-inline auto BasicStringBufferContents<C>::end() noexcept -> C*
+template<class C, class T>
+inline auto BasicStringBufferContents<C, T>::end() noexcept -> C*
 {
     return data() + size();
 }
 
 
-template<class C>
-inline auto BasicStringBufferContents<C>::begin() const noexcept -> const C*
+template<class C, class T>
+inline auto BasicStringBufferContents<C, T>::begin() const noexcept -> const C*
 {
     return data();
 }
 
 
-template<class C>
-inline auto BasicStringBufferContents<C>::end() const noexcept -> const C*
+template<class C, class T>
+inline auto BasicStringBufferContents<C, T>::end() const noexcept -> const C*
 {
     return data() + size();
 }
 
 
-template<class C>
-inline void BasicStringBufferContents<C>::append(core::StringSpan<C> string)
+template<class C, class T>
+inline auto BasicStringBufferContents<C, T>::string() const -> string_view_type
+{
+    return string_view_type(data(), size()); // Throws
+}
+
+
+template<class C, class T>
+inline void BasicStringBufferContents<C, T>::append(core::StringSpan<C> string)
 {
     std::size_t size = string.size();
     m_buffer.reserve_extra(size, m_size); // Throws
@@ -207,8 +220,8 @@ inline void BasicStringBufferContents<C>::append(core::StringSpan<C> string)
 }
 
 
-template<class C>
-inline void BasicStringBufferContents<C>::append(std::size_t n, C ch)
+template<class C, class T>
+inline void BasicStringBufferContents<C, T>::append(std::size_t n, C ch)
 {
     m_buffer.reserve_extra(n, m_size); // Throws
     C* base = m_buffer.data() + m_size;
@@ -217,29 +230,29 @@ inline void BasicStringBufferContents<C>::append(std::size_t n, C ch)
 }
 
 
-template<class C>
-inline void BasicStringBufferContents<C>::clear() noexcept
+template<class C, class T>
+inline void BasicStringBufferContents<C, T>::clear() noexcept
 {
     m_size = 0;
 }
 
 
-template<class C>
-inline auto BasicStringBufferContents<C>::buffer() noexcept -> buffer_type&
+template<class C, class T>
+inline auto BasicStringBufferContents<C, T>::buffer() noexcept -> buffer_type&
 {
     return m_buffer;
 }
 
 
-template<class C>
-inline auto BasicStringBufferContents<C>::buffer() const noexcept -> const buffer_type&
+template<class C, class T>
+inline auto BasicStringBufferContents<C, T>::buffer() const noexcept -> const buffer_type&
 {
     return m_buffer;
 }
 
 
-template<class C>
-inline void BasicStringBufferContents<C>::set_size(std::size_t size) noexcept
+template<class C, class T>
+inline void BasicStringBufferContents<C, T>::set_size(std::size_t size) noexcept
 {
     m_size = size;
 }

@@ -55,6 +55,17 @@ struct PNGSaveConfig : image::FileFormat::SpecialSaveConfig {
     /// interlacing scheme.
     ///
     bool use_adam7_interlacing = false;
+
+    /// \brief Save comments in tEXt/zTXt chunks which implies Latin-1 character encoding.
+    ///
+    /// If set to `true`, text comments (\ref image::FileFormat::SaveConfig::comment) will
+    /// be transcoded / coerced to the Latin-1 character encoding (ISO 8859-1) and stored
+    /// using `tEXt`/`zTXt` type chunks. Otherwise, they will be transcoded to UTF-8 and
+    /// stored using `iTXt` type chunks.
+    ///
+    /// \sa \ref image::FileFormat::SaveConfig::comment
+    ///
+    bool force_latin1_comment = false;
 };
 
 
@@ -70,6 +81,11 @@ struct PNGSaveConfig : image::FileFormat::SpecialSaveConfig {
 /// See \ref image::PNGLoadConfig and \ref image::PNGSaveConfig for parameters that can be
 /// used to control the loading and saving of PNG images. Those parameters are specific to
 /// the PNG image file format.
+///
+/// When loading, text comments are recognized and reported only if they are associated with
+/// the keyword `Comment` (\ref image::FileFormat::LoadConfig::comment_handler). Likewise,
+/// when saving, stored text comments are associated with keyword `Comment` (\ref
+/// image::FileFormat::SaveConfig::comment).
 ///
 /// \sa http://www.libpng.org/
 ///

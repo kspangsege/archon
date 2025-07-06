@@ -25,6 +25,7 @@
 
 
 #include <memory>
+#include <optional>
 #include <string_view>
 #include <locale>
 #include <system_error>
@@ -263,6 +264,8 @@ protected:
 /// An object of this type is used to specify parameters that control the image loading
 /// process as it is invoked through \ref try_load().
 ///
+/// \sa \ref image::LoadConfig
+///
 struct FileFormat::LoadConfig {
     /// \brief Track progress of loading process.
     ///
@@ -305,6 +308,8 @@ struct FileFormat::LoadConfig {
 /// An object of this type is used to specify parameters that control the image saving
 /// process as it is invoked through \ref try_save().
 ///
+/// \sa \ref image::SaveConfig
+///
 struct FileFormat::SaveConfig {
     /// \brief Opportunity to track progress of saving process.
     ///
@@ -315,6 +320,18 @@ struct FileFormat::SaveConfig {
     /// \sa \ref image::ProgressTracker.
     ///
     image::ProgressTracker* progress_tracker = nullptr;
+
+    /// \brief Text comment to be saved with image.
+    ///
+    /// If specified, that comment will be placed in the saved image file so long as the
+    /// image file format has support for text comments. If there is not support for text
+    /// comments, the specified comment will be silently ignored.
+    ///
+    /// The specified comment must always be expressed in terms of the native character
+    /// encoding of the locale passed to \ref FileFormat::try_save(), \ref image::save(),
+    /// \ref image::try_save(), or \ref image::try_save_a().
+    ///
+    std::optional<std::string_view> comment;
 
     /// \brief Opportunity to pass special configuration parameters to saving process.
     ///
