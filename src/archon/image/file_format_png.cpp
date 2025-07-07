@@ -54,9 +54,11 @@
 #include <archon/image/standard_channel_spec.hpp>
 #include <archon/image/buffer_format.hpp>
 #include <archon/image/image.hpp>
+#include <archon/image/palette_image.hpp>
 #include <archon/image/writable_image.hpp>
 #include <archon/image/integer_pixel_format.hpp>
 #include <archon/image/subword_pixel_format.hpp>
+#include <archon/image/indexed_pixel_format.hpp>
 #include <archon/image/buffered_image.hpp>
 #include <archon/image/progress_tracker.hpp>
 #include <archon/image/image_provider.hpp>
@@ -239,16 +241,7 @@ struct Format {
     png_byte bit_depth;
     png_byte color_type;
 
-    bool operator==(Format other) const noexcept
-    {
-        return (bit_depth == other.bit_depth &&
-                color_type == other.color_type);
-    }
-
-    bool operator!=(Format other) const noexcept
-    {
-        return !(*this == other);
-    }
+    constexpr auto operator<=>(const Format&) const noexcept = default;
 };
 
 
@@ -358,13 +351,13 @@ bool try_match_save_format(const image::BufferFormat& buffer_format, image::Size
 }
 
 
-template<class F>
-auto create_image_1(image::Size size, png_byte*& buffer, std::size_t& bytes_per_row) ->
+template<class F, class... A>
+auto create_image_1(image::Size size, png_byte*& buffer, std::size_t& bytes_per_row, A&&... args) ->
     std::unique_ptr<image::WritableImage>
 {
     using format_type = F;
     using image_type = image::BufferedImage<format_type>;
-    auto image = std::make_unique<image_type>(size); // Throws
+    auto image = std::make_unique<image_type>(size, format_type(std::forward<A>(args)...)); // Throws
     std::size_t words_per_row = format_type::get_words_per_row(size.width); // Throws
     buffer = to_png_bytep(image->get_buffer().data());
     bytes_per_row = words_per_row * sizeof (typename format_type::word_type);
@@ -420,60 +413,94 @@ auto create_image_2(image::Size size, png_byte bit_depth, bool use_short_int, pn
 }
 
 
-auto create_image(image::Size size, const Format& format, bool use_short_int, png_byte*& buffer,
+auto create_image(image::Size size, const Format& format, bool use_short_int,
+                  std::unique_ptr<const image::Image> palette, png_byte*& buffer,
                   std::size_t& bytes_per_row) -> std::unique_ptr<image::WritableImage>
 {
-    switch (format.color_type) {
-        case PNG_COLOR_TYPE_GRAY: {
-            if (ARCHON_LIKELY(format.bit_depth >= 8)) {
-                return create_image_2<image::ChannelSpec_Lum>(size, format.bit_depth, use_short_int, buffer,
-                                                              bytes_per_row); // Throws
-            }
-            ARCHON_ASSERT(!use_short_int);
-            using word_type = unsigned char;
-            constexpr core::Endianness bit_order =
-                core::Endianness::big; // libpng uses big endian bit order
-            constexpr bool word_aligned_rows = true;
-            if (format.bit_depth == 1) {
-                constexpr int bits_per_channel = 1;
-                constexpr int pixels_per_word = 8;
-                using format_type =
-                    image::SubwordPixelFormat_Lum<word_type, bits_per_channel, pixels_per_word,
-                                                  bit_order, word_aligned_rows>;
-                return create_image_1<format_type>(size, buffer, bytes_per_row); // Throws
-            }
-            if (format.bit_depth == 2) {
-                constexpr int bits_per_channel = 2;
-                constexpr int pixels_per_word = 4;
-                using format_type =
-                    image::SubwordPixelFormat_Lum<word_type, bits_per_channel, pixels_per_word,
-                                                  bit_order, word_aligned_rows>;
-                return create_image_1<format_type>(size, buffer, bytes_per_row); // Throws
-            }
-            if (format.bit_depth == 4) {
-                constexpr int bits_per_channel = 4;
-                constexpr int pixels_per_word = 2;
-                using format_type =
-                    image::SubwordPixelFormat_Lum<word_type, bits_per_channel, pixels_per_word,
-                                                  bit_order, word_aligned_rows>;
-                return create_image_1<format_type>(size, buffer, bytes_per_row); // Throws
-            }
-            break;
+    if (format.color_type == PNG_COLOR_TYPE_GRAY) {
+        if (ARCHON_LIKELY(format.bit_depth >= 8)) {
+            return create_image_2<image::ChannelSpec_Lum>(size, format.bit_depth, use_short_int, buffer,
+                                                          bytes_per_row); // Throws
         }
-        case PNG_COLOR_TYPE_GRAY_ALPHA: {
-            return create_image_2<image::ChannelSpec_LumA>(size, format.bit_depth, use_short_int,
-                                                           buffer, bytes_per_row); // Throws
+        ARCHON_ASSERT(!use_short_int);
+        using word_type = unsigned char;
+        constexpr core::Endianness bit_order = core::Endianness::big; // libpng uses big endian bit order
+        constexpr bool word_aligned_rows = true;
+        if (format.bit_depth == 1) {
+            constexpr int bits_per_channel = 1;
+            constexpr int pixels_per_word = 8;
+            using format_type = image::SubwordPixelFormat_Lum<word_type, bits_per_channel, pixels_per_word,
+                                                              bit_order, word_aligned_rows>;
+            return create_image_1<format_type>(size, buffer, bytes_per_row); // Throws
         }
-        case PNG_COLOR_TYPE_RGB: {
-            return create_image_2<image::ChannelSpec_RGB>(size, format.bit_depth, use_short_int,
-                                                          buffer, bytes_per_row); // Throws
+        if (format.bit_depth == 2) {
+            constexpr int bits_per_channel = 2;
+            constexpr int pixels_per_word = 4;
+            using format_type = image::SubwordPixelFormat_Lum<word_type, bits_per_channel, pixels_per_word,
+                                                              bit_order, word_aligned_rows>;
+            return create_image_1<format_type>(size, buffer, bytes_per_row); // Throws
         }
-        case PNG_COLOR_TYPE_RGB_ALPHA: {
-            return create_image_2<image::ChannelSpec_RGBA>(size, format.bit_depth, use_short_int,
-                                                           buffer, bytes_per_row); // Throws
+        if (format.bit_depth == 4) {
+            constexpr int bits_per_channel = 4;
+            constexpr int pixels_per_word = 2;
+            using format_type = image::SubwordPixelFormat_Lum<word_type, bits_per_channel, pixels_per_word,
+                                                              bit_order, word_aligned_rows>;
+            return create_image_1<format_type>(size, buffer, bytes_per_row); // Throws
         }
-        default:
-            break;
+    }
+    else if (format.color_type == PNG_COLOR_TYPE_GRAY_ALPHA) {
+        return create_image_2<image::ChannelSpec_LumA>(size, format.bit_depth, use_short_int,
+                                                       buffer, bytes_per_row); // Throws
+    }
+    else if (format.color_type == PNG_COLOR_TYPE_RGB) {
+        return create_image_2<image::ChannelSpec_RGB>(size, format.bit_depth, use_short_int,
+                                                      buffer, bytes_per_row); // Throws
+    }
+    else if (format.color_type == PNG_COLOR_TYPE_RGB_ALPHA) {
+        return create_image_2<image::ChannelSpec_RGBA>(size, format.bit_depth, use_short_int,
+                                                       buffer, bytes_per_row); // Throws
+    }
+    else if (format.color_type == PNG_COLOR_TYPE_PALETTE) {
+        ARCHON_ASSERT(palette);
+        using word_type = unsigned char;
+        using compound_type = word_type;
+        constexpr core::Endianness bit_order = core::Endianness::big; // libpng uses big endian bit order
+        constexpr int bits_per_word = 8;
+        constexpr int words_per_compound = 1;
+        constexpr core::Endianness word_order = core::Endianness::big; // Immaterial
+        constexpr bool compound_aligned_rows = true;
+        if (format.bit_depth == 1) {
+            constexpr int bits_per_pixel = 1;
+            constexpr int pixels_per_compound = 8;
+            using format_type = image::IndexedPixelFormat<compound_type, bits_per_pixel, pixels_per_compound,
+                                                          bit_order, word_type, bits_per_word, words_per_compound,
+                                                          word_order, compound_aligned_rows>;
+            return create_image_1<format_type>(size, buffer, bytes_per_row, std::move(palette)); // Throws
+        }
+        if (format.bit_depth == 2) {
+            constexpr int bits_per_pixel = 2;
+            constexpr int pixels_per_compound = 4;
+            using format_type = image::IndexedPixelFormat<compound_type, bits_per_pixel, pixels_per_compound,
+                                                          bit_order, word_type, bits_per_word, words_per_compound,
+                                                          word_order, compound_aligned_rows>;
+            return create_image_1<format_type>(size, buffer, bytes_per_row, std::move(palette)); // Throws
+        }
+        if (format.bit_depth == 4) {
+            constexpr int bits_per_pixel = 4;
+            constexpr int pixels_per_compound = 2;
+            using format_type = image::IndexedPixelFormat<compound_type, bits_per_pixel, pixels_per_compound,
+                                                          bit_order, word_type, bits_per_word, words_per_compound,
+                                                          word_order, compound_aligned_rows>;
+            return create_image_1<format_type>(size, buffer, bytes_per_row, std::move(palette)); // Throws
+        }
+        if (format.bit_depth == 8) {
+            constexpr int bits_per_pixel = 8;
+            constexpr int pixels_per_compound = 1;
+            using format_type = image::IndexedPixelFormat<compound_type, bits_per_pixel, pixels_per_compound,
+                                                          bit_order, word_type, bits_per_word, words_per_compound,
+                                                          word_order, compound_aligned_rows>;
+            return create_image_1<format_type>(size, buffer, bytes_per_row, std::move(palette)); // Throws
+        }
     }
     ARCHON_ASSERT_UNREACHABLE();
     return nullptr;
@@ -615,6 +642,7 @@ public:
     image::CommentHandler* comment_handler = nullptr;
     core::Source* source = nullptr;
     const std::locale* locale = nullptr;
+    bool expand_indirect_color = false;
 
     png_structp png_ptr = nullptr;
     png_infop info_ptr = nullptr;
@@ -629,6 +657,11 @@ public:
     bool use_short_int = false;
     int num_passes = 0;
     Format format_2 = {};
+    const png_color* palette = nullptr;
+    const png_byte* palette_alpha = nullptr;
+    int palette_size = 0;
+    int palette_alpha_size = 0;
+    bool have_palette = false;
     std::size_t bytes_per_row = 0;
     std::unique_ptr<image::WritableImage> image_2;
     std::unique_ptr<png_byte*[]> rows;
@@ -691,7 +724,7 @@ public:
         format = raw_format;
         if (!image_provider) {
             // Ask libpng to convert palette-based formats into regular formats
-            if (format.color_type == PNG_COLOR_TYPE_PALETTE) {
+            if (format.color_type == PNG_COLOR_TYPE_PALETTE && expand_indirect_color) {
                 xforms.palette_to_rgb = true;
                 format.color_type = PNG_COLOR_TYPE_RGB;
                 format.bit_depth = 8;
@@ -718,10 +751,6 @@ public:
                         break;
                 }
             }
-
-            // FIXME: Consider adding support for palette-type image object and then stop                 
-            // asking libpng to make this conversion, then read the palette using
-            // `png_get_PLTE()`
 
             // Swap byte order for 16-bit images if that allows us to use a 16-bit word type
             // in the image buffer. This will generally allow for more efficient pixel
@@ -794,10 +823,64 @@ public:
                            core::promote(num_passes)); // Throws
         }
 
+        std::unique_ptr<image::Image> palette_image;
+        if (format.color_type == PNG_COLOR_TYPE_PALETTE) {
+            if (ARCHON_UNLIKELY(!have_palette))
+                fatal("Palette not found"); // Throws
+            if (ARCHON_UNLIKELY(palette_size < 1))
+                fatal("Palette is too small"); // Throws
+            if (ARCHON_UNLIKELY(palette_size > 256))
+                fatal("Palette is too big"); // Throws
+            std::size_t num_colors = std::size_t(palette_size);
+            using unpacked_type = image::unpacked_type<png_byte, 8>;
+            if (!has_transparency_chunk) {
+                using palette_image_type = image::PaletteImage_RGB_8;
+                using pixel_type = palette_image_type::pixel_type;
+                std::unique_ptr<pixel_type[]> palette_2 = std::make_unique<pixel_type[]>(num_colors); // Throws
+                for (int i = 0; i < palette_size; ++i) {
+                    const png_color& color = palette[i];
+                    unpacked_type red   = image::unpack_int<8>(color.red);
+                    unpacked_type green = image::unpack_int<8>(color.green);
+                    unpacked_type blue  = image::unpack_int<8>(color.blue);
+                    constexpr image::CompRepr comp_repr = pixel_type::comp_repr;
+                    std::array<pixel_type::comp_type, 3> components = {
+                        image::comp_repr_pack<comp_repr>(red),
+                        image::comp_repr_pack<comp_repr>(green),
+                        image::comp_repr_pack<comp_repr>(blue),
+                    };
+                    palette_2[i] = components;
+                }
+                palette_image = std::make_unique<palette_image_type>(std::move(palette_2), num_colors); // Throws
+            }
+            else {
+                using palette_image_type = image::PaletteImage_RGBA_8;
+                using pixel_type = palette_image_type::pixel_type;
+                std::unique_ptr<pixel_type[]> palette_2 = std::make_unique<pixel_type[]>(num_colors); // Throws
+                for (int i = 0; i < palette_size; ++i) {
+                    const png_color& color = palette[i];
+                    unpacked_type red   = image::unpack_int<8>(color.red);
+                    unpacked_type green = image::unpack_int<8>(color.green);
+                    unpacked_type blue  = image::unpack_int<8>(color.blue);
+                    unpacked_type alpha = 255;
+                    if (i < palette_alpha_size)
+                        alpha = image::unpack_int<8>(palette_alpha[i]);
+                    constexpr image::CompRepr comp_repr = pixel_type::comp_repr;
+                    std::array<pixel_type::comp_type, 4> components = {
+                        image::comp_repr_pack<comp_repr>(red),
+                        image::comp_repr_pack<comp_repr>(green),
+                        image::comp_repr_pack<comp_repr>(blue),
+                        image::comp_repr_pack<comp_repr>(alpha),
+                    };
+                    palette_2[i] = components;
+                }
+                palette_image = std::make_unique<palette_image_type>(std::move(palette_2), num_colors); // Throws
+            }
+        }
+
         png_byte* buffer = nullptr;
         std::size_t bytes_per_row_2 = 0;
-        image_2 = create_image(image_size, format, use_short_int, buffer,
-                               bytes_per_row_2); // Throws
+        image_2 = create_image(image_size, format, use_short_int, std::move(palette_image),
+                               buffer, bytes_per_row_2); // Throws
 
         // Sanity check: Must agree with libpng on number of bytes per row
         if (bytes_per_row_2 != bytes_per_row) {
@@ -962,6 +1045,26 @@ bool do_load(LoadContext& ctx)
         ctx.format_2.color_type = png_get_color_type(ctx.png_ptr, ctx.info_ptr);
         ctx.bytes_per_row       = png_get_rowbytes(ctx.png_ptr, ctx.info_ptr);
 
+        if (ctx.format.color_type == PNG_COLOR_TYPE_PALETTE) {
+            png_colorp palette = {};
+            int num_palette = {};
+            png_uint_32 ret = png_get_PLTE(ctx.png_ptr, ctx.info_ptr, &palette, &num_palette);
+            if (ARCHON_LIKELY(ret != 0)) {
+                ctx.have_palette = true;
+                ctx.palette = palette;
+                ctx.palette_size = num_palette;
+                if (ctx.has_transparency_chunk) {
+                    png_bytep trans_alpha = {};
+                    int num_trans = {};
+                    png_color_16p trans_color = {};
+                    ret = png_get_tRNS(ctx.png_ptr, ctx.info_ptr, &trans_alpha, &num_trans, &trans_color);
+                    ARCHON_ASSERT(ret != 0);
+                    ctx.palette_alpha = trans_alpha;
+                    ctx.palette_alpha_size = num_trans;
+                }
+            }
+        }
+
         if (ARCHON_UNLIKELY(!ctx.process_stage_2())) // Throws
             return false;
 
@@ -1005,7 +1108,7 @@ bool do_load(LoadContext& ctx)
 
 bool load(core::Source& source, std::unique_ptr<image::WritableImage>& image, const std::locale& loc,
           log::Logger& logger, image::ProgressTracker* progress_tracker, image::ImageProvider* image_provider,
-          image::CommentHandler* comment_handler, const image::PNGLoadConfig&, std::error_code& ec)
+          image::CommentHandler* comment_handler, const image::PNGLoadConfig& config, std::error_code& ec)
 {
     // FIXME: Get background color using `png_get_bKGD()`             
 
@@ -1024,6 +1127,7 @@ bool load(core::Source& source, std::unique_ptr<image::WritableImage>& image, co
     ctx.comment_handler = comment_handler;
     ctx.source = &source;
     ctx.locale = &loc;
+    ctx.expand_indirect_color = config.expand_indirect_color;
 
     if (ARCHON_LIKELY(do_load(ctx))) { // Throws
         image = std::move(ctx.image_2);
@@ -1146,7 +1250,7 @@ bool do_save(SaveContext& ctx)
             }
         }
 
-        // FIXME: Set palette here                                        
+        // FIXME: Set palette here                                                                              
 
         // FIXME: Set gamma here               
 
@@ -1240,7 +1344,7 @@ bool save(const image::Image& image, core::Sink& sink, const std::locale& loc, l
         }
     }
     if (!format_matched) {
-        // FIXME: Replicate indexed format if origin image is indirect color image and color space is Lum or RGB and bit depth is less than, or equal to 8 (requires that `is_indexed` and `palette_size` are added to `image::Image::TransferInfo`, requires also that functions are added to `image::Image` that allow for extraction of pixels as indexes into palette and extraction of palette entries)                                                       
+        // FIXME: Replicate indexed format if origin image is indirect color image and color space is Lum or RGB and bit depth is less than, or equal to 8 (requires that `is_indexed` and `palette_size` are added to `image::Image::TransferInfo`, requires also that functions are added to `image::Image` that allow for extraction of pixels as indexes into palette and extraction of palette entries)                                                                                        
         Format format = {};
         WriteTransformations xforms = {};
         image::Image::TransferInfo info = image.get_transfer_info(); // Throws
@@ -1282,9 +1386,11 @@ bool save(const image::Image& image, core::Sink& sink, const std::locale& loc, l
             // Use 4-bit Lum format
             format.bit_depth = 4;
         }
+        std::unique_ptr<const image::Image> palette;
         png_byte* buffer_2 = nullptr;
         std::size_t bytes_per_row = 0;
-        converted_image = create_image(image_size, format, use_short_int, buffer_2, bytes_per_row); // Throws
+        converted_image = create_image(image_size, format, use_short_int, std::move(palette),
+                                       buffer_2, bytes_per_row); // Throws
         image::Pos pos = { 0, 0 };
         bool blend = false;
         converted_image->put_image(pos, image, blend); // Throws

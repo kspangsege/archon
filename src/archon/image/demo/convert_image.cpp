@@ -154,7 +154,7 @@ int main(int argc, char* argv[])
         "Report loading and saving progress.",
         cli::raise_flag(progress)); // Throws
 
-    opt("-i, --interlace", "", cli::no_attributes, spec,
+    opt("-i, --png-interlace", "", cli::no_attributes, spec,
         "Turn on Adam7 interlacing when producing a PNG file.",
         cli::raise_flag(png_save_config.use_adam7_interlacing)); // Throws
 
@@ -167,7 +167,7 @@ int main(int argc, char* argv[])
         "Set the size of the write buffer used when saving the converted image. The default size is @V.",
         cli::assign(core::as_int(save_config.write_buffer_size))); // Throws
 
-    opt("-L, --force-latin1-comment", "", cli::no_attributes, spec,
+    opt("-L, --png-force-latin1-comment", "", cli::no_attributes, spec,
         "For PNG images, force comment to be saved in tEXt/zTXt chunk which requires coercion to Latin-1 character "
         "encoding.",
         cli::raise_flag(png_save_config.force_latin1_comment)); // Throws
@@ -233,7 +233,7 @@ int main(int argc, char* argv[])
 
     // Save
     {
-        image::FileFormat::SpecialSaveConfigRegistry special_save_config_registry; // Throws
+        image::FileFormat::SpecialSaveConfigRegistry special_save_config_registry;
         special_save_config_registry.register_(png_save_config); // Throws
 
         log::PrefixLogger save_logger(logger, "Save: "); // Throws

@@ -41,6 +41,7 @@
 #include <archon/log.hpp>
 #include <archon/cli.hpp>
 #include <archon/image.hpp>
+#include <archon/image/file_format_png.hpp>
 
 
 using namespace archon;
@@ -102,6 +103,7 @@ int main(int argc, char* argv[])
     bool progress = false;
     bool show_comments = false;
     image::LoadConfig load_config;
+    image::PNGLoadConfig png_load_config;
 
     cli::Spec spec;
     pat("[<path>...]", cli::no_attributes, spec,
@@ -142,6 +144,10 @@ int main(int argc, char* argv[])
         "Set the size of the read buffer used when loading images. The default size is @V.",
         cli::assign(core::as_int(load_config.read_buffer_size))); // Throws
 
+    opt("-E, --png-expand-indirect-color", "", cli::no_attributes, spec,
+        "For PNG images, convert indirect to direct color during loading.",
+        cli::raise_flag(png_load_config.expand_indirect_color)); // Throws
+
     int exit_status = 0;
     if (ARCHON_UNLIKELY(cli::process(argc, argv, spec, exit_status, locale))) // Throws
         return exit_status;
@@ -162,6 +168,10 @@ int main(int argc, char* argv[])
 
     std::string_view detected_file_format;
     load_config.detected_file_format = &detected_file_format;
+
+    image::FileFormat::SpecialLoadConfigRegistry special_load_config_registry;
+    special_load_config_registry.register_(png_load_config); // Throws
+    load_config.special = &special_load_config_registry;
 
     bool errors_occurred = false;
     core::StringFormatter string_formatter(locale); // Throws
