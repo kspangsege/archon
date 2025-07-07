@@ -57,6 +57,8 @@ public:
 
     static constexpr std::size_t static_capacity = N;
 
+    TypedObjectRegistry() noexcept = default;
+
     /// \brief Register object by type.
     ///
     /// This function adds the specified object reference to the registry. The reference can
