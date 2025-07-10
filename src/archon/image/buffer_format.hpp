@@ -264,8 +264,12 @@ struct BufferFormat {
         ///   * \ref bits_per_word must be less than, or equal to number of available bits
         ///     per word (\ref BufferFormat::get_bits_per_word(), \ref word_type).
         ///
-        ///   * The number of bits per channel (\ref words_per_channel times \ref
-        ///     bits_per_word) must be representable in type `int`.
+        ///   * The unreduced number of bits per pixel must be representable in type
+        ///     `int`. The *unreduced number of bits per pixel* is the number of bits in a
+        ///     byte (usually 8) times the number of bytes per word (\ref
+        ///     BufferFormat::get_bytes_per_word()) times the number of words per channel
+        ///     (\ref words_per_channel) times the number of channels (\ref
+        ///     ChannelConf::get_num_channels(), \ref channel_conf).
         ///
         bool is_valid() const noexcept;
 
@@ -296,12 +300,12 @@ struct BufferFormat {
         ///
         /// While a successful cast guarantees that the target format can be used to access
         /// any pixel buffer that could be accessed using the origin format, the reverse is
-        /// not guranteed. I.e, it is possible that a cast fails even if there is a way to
+        /// not guaranteed. I.e, it is possible that a cast fails even if there is a way to
         /// express the origin format as a format of the specified type and using the
         /// specified target word type, and that it would work for any pixel buffer (image
         /// of any size).
         ///
-        /// These functions require that the origin format is valid (\ref is_valid()), and                    
+        /// These functions require that the origin format is valid (\ref is_valid()), and
         /// they ensure that the new format is valid. If the original format is invalid,
         /// these functions throw.
         ///
@@ -565,9 +569,6 @@ struct BufferFormat {
         ///   * \ref bits_per_word must be less than, or equal to the number of available
         ///     bits per word (\ref BufferFormat::get_bits_per_word(), \ref word_type).
         ///
-        ///   * The number of bits per bit compound (\ref words_per_pixel times \ref
-        ///     bits_per_word) must be representable in type `int`.
-        ///
         ///   * The number of channels (\ref ChannelConf::get_num_channels(), \ref
         ///     channel_conf) must be less than, or equal to \ref max_bit_fields.
         ///
@@ -576,6 +577,12 @@ struct BufferFormat {
         ///     times \ref bits_per_word). See \ref image::valid_bit_fields() for an
         ///     explanation of what it means for a sequence of bit fields to be valid and
         ///     fit within a certain number of bits.
+        ///
+        ///   * The unreduced number of bits per bit compound must be representable in type
+        ///     `int`. The *unreduced number of bits per bit compound* is the number of bits
+        ///     in a byte (usually 8) times the number of bytes per word (\ref
+        ///     BufferFormat::get_bytes_per_word()) times the number of words per compound
+        ///     (\ref words_per_pixel).
         ///
         bool is_valid() const noexcept;
 
@@ -606,12 +613,12 @@ struct BufferFormat {
         ///
         /// While a successful cast guarantees that the target format can be used to access
         /// any pixel buffer that could be accessed using the origin format, the reverse is
-        /// not guranteed. I.e, it is possible that a cast fails even if there is a way to
+        /// not guaranteed. I.e, it is possible that a cast fails even if there is a way to
         /// express the origin format as a format of the specified type and using the
         /// specified target word type, and that it would work for any pixel buffer (image
         /// of any size).
         ///
-        /// These functions require that the origin format is valid (\ref is_valid()), and                    
+        /// These functions require that the origin format is valid (\ref is_valid()), and
         /// they ensure that the new format is valid. If the original format is invalid,
         /// these functions throw.
         ///
@@ -959,12 +966,12 @@ struct BufferFormat {
         ///
         /// While a successful cast guarantees that the target format can be used to access
         /// any pixel buffer that could be accessed using the origin format, the reverse is
-        /// not guranteed. I.e, it is possible that a cast fails even if there is a way to
+        /// not guaranteed. I.e, it is possible that a cast fails even if there is a way to
         /// express the origin format as a format of the specified type and using the
         /// specified target word type, and that it would work for any pixel buffer (image
         /// of any size).
         ///
-        /// These functions require that the origin format is valid (\ref is_valid()), and                    
+        /// These functions require that the origin format is valid (\ref is_valid()), and
         /// they ensure that the new format is valid. If the original format is invalid,
         /// these functions throw.
         ///
@@ -1348,7 +1355,7 @@ struct BufferFormat {
         ///
         ///   * The unreduced number of bits per bit compound must be representable in type
         ///     `int`. The *unreduced number of bits per bit compound* is the number of bits
-        ///     in a byte (usually 8) times the number of bytes per word word (\ref
+        ///     in a byte (usually 8) times the number of bytes per word (\ref
         ///     BufferFormat::get_bytes_per_word()) times the number of words per compound
         ///     (\ref words_per_compound).
         ///
@@ -1377,11 +1384,11 @@ struct BufferFormat {
         ///
         /// While a successful cast guarantees that the target format can be used to access
         /// any pixel buffer that could be accessed using the origin format, the reverse is
-        /// not guranteed. I.e, it is possible that a cast fails even if there is a way to
+        /// not guaranteed. I.e, it is possible that a cast fails even if there is a way to
         /// express the origin format using the specified target word type, and that it
         /// would work for any pixel buffer (image of any size).
         ///
-        /// This function requires that the origin format is valid (\ref is_valid()), and it                    
+        /// This function requires that the origin format is valid (\ref is_valid()), and it
         /// ensures that the new format is valid. If the original format is invalid, this
         /// function throws.
         ///
@@ -1661,9 +1668,12 @@ inline void BufferFormat::ChannelConf::reverse() noexcept
 
 inline bool BufferFormat::IntegerFormat::is_valid() const noexcept
 {
+    int bits_per_word_u = get_bytes_per_word(word_type) * core::int_width<char>();
+    int num_channels = channel_conf.get_num_channels();
     return (bits_per_word > 0 && words_per_channel > 0 &&
             bits_per_word <= get_bits_per_word(word_type) &&
-            words_per_channel <= core::int_max<int>() / bits_per_word);
+            words_per_channel <= core::int_max<int>() / bits_per_word_u &&
+            num_channels <= core::int_max<int>() / (words_per_channel * bits_per_word_u));
 }
 
 
@@ -1677,6 +1687,27 @@ inline auto BufferFormat::IntegerFormat::get_words_per_row(int image_width) cons
 }
 
 
+                                      
+        ///   * \ref bits_per_word and \ref words_per_pixel must be greater than, or equal
+        ///     to 1.
+        ///
+        ///   * \ref bits_per_word must be less than, or equal to the number of available
+        ///     bits per word (\ref BufferFormat::get_bits_per_word(), \ref word_type).
+        ///
+        ///   * The number of channels (\ref ChannelConf::get_num_channels(), \ref
+        ///     channel_conf) must be less than, or equal to \ref max_bit_fields.
+        ///
+        ///   * If N is the number of channels, the first N bit fields must describe a valid
+        ///     sequence of bit fields that fit within a bit compound (\ref words_per_pixel
+        ///     times \ref bits_per_word). See \ref image::valid_bit_fields() for an
+        ///     explanation of what it means for a sequence of bit fields to be valid and
+        ///     fit within a certain number of bits.
+        ///
+        ///   * The unreduced number of bits per bit compound must be representable in type
+        ///     `int`. The *unreduced number of bits per bit compound* is the number of bits
+        ///     in a byte (usually 8) times the number of bytes per word (\ref
+        ///     BufferFormat::get_bytes_per_word()) times the number of words per compound
+        ///     (\ref words_per_pixel).
 inline bool BufferFormat::PackedFormat::is_valid() const noexcept
 {
     int num_channels = channel_conf.get_num_channels();
@@ -1706,11 +1737,12 @@ inline bool BufferFormat::FloatFormat::is_valid() const noexcept
 
 inline bool BufferFormat::IndexedFormat::is_valid() const noexcept
 {
+    int bits_per_word_u = get_bytes_per_word(word_type) * core::int_width<char>();
     return (bits_per_pixel > 0 && pixels_per_compound > 0 &&
             bits_per_word > 0 && words_per_compound > 0 &&
             bits_per_word <= get_bits_per_word(word_type) &&
-            words_per_compound <= core::int_max<int>() / bits_per_word &&
-            pixels_per_compound <= (words_per_compound * bits_per_word) / bits_per_pixel);
+            pixels_per_compound <= (words_per_compound * bits_per_word) / bits_per_pixel &&
+            words_per_compound <= core::int_max<int>() / bits_per_word_u);
 }
 
 
