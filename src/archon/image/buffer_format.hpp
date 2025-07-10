@@ -273,9 +273,37 @@ struct BufferFormat {
         ///
         /// \brief Try to cast integer format as format of different type.
         ///
-        /// These functions are called by \ref BufferFormat::try_cast_to(), but can also be
-        /// called directly by the application when the origin format is statically known to
-        /// be an integer format (of type `IntegerFormat`).
+        /// These functions determine whether it is possible to reexpress this integer
+        /// format as the kind of format implied by the first argument (\p format), and with
+        /// the additional requirement that the word type of the new format must be as
+        /// specified (\p target_word_type).
+        ///
+        /// When it is possible to reexpress this format as specified, these functions
+        /// return `true` after setting \p format to the new format. Otherwise, these
+        /// functions return `false` and leave \p format unchanged.
+        ///
+        /// When these functions return `true`, it means that pixels stored in memory
+        /// according to the origin format can be accessed as though they were stored
+        /// according to the new format, i.e., the one specified by \p format.
+        ///
+        /// \important The ability to cast from format A to format B does *NOT* imply that
+        /// the reverse cast is possible, that is, it does not imply that pixels stored
+        /// according to format B can be accessed as if stored according to format A.
+        ///
+        /// A necessary but generally insufficient condition for these casts to succeed is
+        /// that the specified word type (\p target_word_type) is either equal to the word
+        /// type in the original format, or is `byte` (\ref IntegerType).
+        ///
+        /// While a successful cast guarantees that the target format can be used to access
+        /// any pixel buffer that could be accessed using the origin format, the reverse is
+        /// not guranteed. I.e, it is possible that a cast fails even if there is a way to
+        /// express the origin format as a format of the specified type and using the
+        /// specified target word type, and that it would work for any pixel buffer (image
+        /// of any size).
+        ///
+        /// These functions require that the origin format is valid (\ref is_valid()), and                    
+        /// they ensure that the new format is valid. If the original format is invalid,
+        /// these functions throw.
         ///
         /// \sa \ref BufferFormat::try_cast_to()
         ///
@@ -555,9 +583,37 @@ struct BufferFormat {
         ///
         /// \brief Try to cast packed format as format of different type.
         ///
-        /// These functions are called by \ref BufferFormat::try_cast_to(), but can also be
-        /// called directly by the application when the origin format is statically known to
-        /// be a packed format (of type `PackedFormat`).
+        /// These functions determine whether it is possible to reexpress this packed format
+        /// as the kind of format implied by the first argument (\p format), and with the
+        /// additional requirement that the word type of the new format must be as specified
+        /// (\p target_word_type).
+        ///
+        /// When it is possible to reexpress this format as specified, these functions
+        /// return `true` after setting \p format to the new format. Otherwise, these
+        /// functions return `false` and leave \p format unchanged.
+        ///
+        /// When these functions return `true`, it means that pixels stored in memory
+        /// according to the origin format can be accessed as though they were stored
+        /// according to the new format, i.e., the one specified by \p format.
+        ///
+        /// \important The ability to cast from format A to format B does *NOT* imply that
+        /// the reverse cast is possible, that is, it does not imply that pixels stored
+        /// according to format B can be accessed as if stored according to format A.
+        ///
+        /// A necessary but generally insufficient condition for these casts to succeed is
+        /// that the specified word type (\p target_word_type) is either equal to the word
+        /// type in the original format, or is `byte` (\ref IntegerType).
+        ///
+        /// While a successful cast guarantees that the target format can be used to access
+        /// any pixel buffer that could be accessed using the origin format, the reverse is
+        /// not guranteed. I.e, it is possible that a cast fails even if there is a way to
+        /// express the origin format as a format of the specified type and using the
+        /// specified target word type, and that it would work for any pixel buffer (image
+        /// of any size).
+        ///
+        /// These functions require that the origin format is valid (\ref is_valid()), and                    
+        /// they ensure that the new format is valid. If the original format is invalid,
+        /// these functions throw.
         ///
         /// \sa \ref BufferFormat::try_cast_to()
         ///
@@ -880,9 +936,37 @@ struct BufferFormat {
         ///
         /// \brief Try to cast subword format as format of different type.
         ///
-        /// These functions are called by \ref BufferFormat::try_cast_to(), but can also be
-        /// called directly by the application when the origin format is statically known to
-        /// be a subword format (of type `SubwordFormat`).
+        /// These functions determine whether it is possible to reexpress this subword format
+        /// as the kind of format implied by the first argument (\p format), and with the
+        /// additional requirement that the word type of the new format must be as specified
+        /// (\p target_word_type).
+        ///
+        /// When it is possible to reexpress this format as specified, these functions
+        /// return `true` after setting \p format to the new format. Otherwise, these
+        /// functions return `false` and leave \p format unchanged.
+        ///
+        /// When these functions return `true`, it means that pixels stored in memory
+        /// according to the origin format can be accessed as though they were stored
+        /// according to the new format, i.e., the one specified by \p format.
+        ///
+        /// \important The ability to cast from format A to format B does *NOT* imply that
+        /// the reverse cast is possible, that is, it does not imply that pixels stored
+        /// according to format B can be accessed as if stored according to format A.
+        ///
+        /// A necessary but generally insufficient condition for these casts to succeed is
+        /// that the specified word type (\p target_word_type) is either equal to the word
+        /// type in the original format, or is `byte` (\ref IntegerType).
+        ///
+        /// While a successful cast guarantees that the target format can be used to access
+        /// any pixel buffer that could be accessed using the origin format, the reverse is
+        /// not guranteed. I.e, it is possible that a cast fails even if there is a way to
+        /// express the origin format as a format of the specified type and using the
+        /// specified target word type, and that it would work for any pixel buffer (image
+        /// of any size).
+        ///
+        /// These functions require that the origin format is valid (\ref is_valid()), and                    
+        /// they ensure that the new format is valid. If the original format is invalid,
+        /// these functions throw.
         ///
         /// \sa \ref BufferFormat::try_cast_to()
         ///
@@ -1272,9 +1356,37 @@ struct BufferFormat {
 
         /// \brief Try to cast indexed format to other indexed format.
         ///
-        /// This function is called by \ref BufferFormat::try_cast_to(), but can also be
-        /// called directly by the application when the origin format is statically known to
-        /// be an indexed format (of type `IndexedFormat`).
+        /// This function determines whether it is possible to reexpress this indexed format
+        /// as an indexed format using the specified target word type (\p target_word_type).
+        ///
+        /// When it is possible to reexpress this format as specified, this function return
+        /// `true` after setting \p format to the new format. Otherwise, this function
+        /// returns `false` and leaves \p format unchanged.
+        ///
+        /// When this function returns `true`, it means that pixels stored in memory
+        /// according to the origin format can be accessed as though they were stored
+        /// according to the new format, i.e., the one specified by \p format.
+        ///
+        /// \important The ability to cast from format A to format B does *NOT* imply that
+        /// the reverse cast is possible, that is, it does not imply that pixels stored
+        /// according to format B can be accessed as if stored according to format A.
+        ///
+        /// A necessary but generally insufficient condition for this cast to succeed is
+        /// that the specified word type (\p target_word_type) is either equal to the word
+        /// type in the original format, or is `byte` (\ref IntegerType).
+        ///
+        /// While a successful cast guarantees that the target format can be used to access
+        /// any pixel buffer that could be accessed using the origin format, the reverse is
+        /// not guranteed. I.e, it is possible that a cast fails even if there is a way to
+        /// express the origin format using the specified target word type, and that it
+        /// would work for any pixel buffer (image of any size).
+        ///
+        /// This function requires that the origin format is valid (\ref is_valid()), and it                    
+        /// ensures that the new format is valid. If the original format is invalid, this
+        /// function throws.
+        ///
+        /// \sa \ref BufferFormat::try_cast_to()
+        ///
         ///
         /// An indexed format can be cast to another indexed format if, and only if the cast
         /// takes one of the following two forms:
@@ -1332,8 +1444,6 @@ struct BufferFormat {
         ///   * Pixel rows will be required to be bit compound aligned (\ref
         ///     compound_aligned_rows) if, and only if pixel rows are required to be
         ///     compound aligned in the origin format.
-        ///
-        /// \sa \ref BufferFormat::try_cast_to()
         ///
         bool try_cast_to(IndexedFormat& format, IntegerType target_word_type) const;
     };
@@ -1411,42 +1521,22 @@ struct BufferFormat {
     ///
     /// These functions determine whether it is possible to reexpress this buffer format as
     /// the kind of format implied by the first argument, and with the additional
-    /// requirement that the word type of the new format must be the specified word type (\p
+    /// requirement that the word type of the new format must be as specified (\p
     /// target_word_type).
     ///
     /// When it is possible to reexpress the original format as specified, these functions
     /// return `true` after setting \p format to the new format. Otherwise, these function
     /// return `false` and leave \p format unchanged.
     ///
-    /// For details on each type of cast, see \ref IntegerFormat::try_cast_to(), \ref
-    /// PackedFormat::try_cast_to(), \ref SubwordFormat::try_cast_to().    
+    /// These functions all check the type of contained format and forwards the call to the
+    /// corresponding casting function if one exists. If there is no casting function for a
+    /// particular origin and target format type, these functions return `false`.  See \ref
+    /// IntegerFormat::try_cast_to(), \ref PackedFormat::try_cast_to(), \ref
+    /// SubwordFormat::try_cast_to(), \ref FloatFormat::try_cast_to(), and \ref
+    /// IndexedFormat::try_cast_to().
     ///
-    /// When these functions return `true`, it means that pixels stored in memory according
-    /// to the original format can be accessed as though they were stored according to the
-    /// new format, i.e., the one specified by \p format upon return.
-    ///
-    /// CAUTION: The ability to cast format A to format B does *NOT* imply that pixels
-    /// stored according to format B can be accessed as though they were stored according to
-    /// format A. If it did, it would allow for memory allocated in terms of `char` to be
-    /// accessed in terms of `int`, for example. This is not allowed in C++.
-    ///
-    /// A necessary, but insufficient condition for success is that the original buffer        
-    /// format is one of the integer based formats (\ref IntegerFormat, \ref PackedFormat,
-    /// or \ref SubwordFormat), and that the specified word type (\p target_word_type) is
-    /// either equal to the word type of the original buffer format, or is
-    /// `IntegerType::byte`.
-    ///
-    /// FIXME: The use of "equivalent" below is problematic because it suggests symmetry.                                                       
-    ///
-    /// A successful cast guarantees that the target format is equivalent to the origin
-    /// format for images of any size. Conversely, there could be a cast that fails even
-    /// though an equivalent target format does exist for an image of a particular size.
-    ///
-    /// These function require that the original format is valid (\ref is_valid()), and they
-    /// ensure that the new format is valid. If the original format is invalid, these
-    /// functions throw.
-    ///
-    /// \sa \ref IntegerFormat::try_cast_to(), \ref PackedFormat::try_cast_to(), \ref SubwordFormat::try_cast_to()                   
+    /// \sa \ref IntegerFormat::try_cast_to(), \ref PackedFormat::try_cast_to(), \ref SubwordFormat::try_cast_to()
+    /// \sa \ref FloatFormat::try_cast_to(), \ref IndexedFormat::try_cast_to()
     /// \sa \ref IntegerType, \ref FloatType
     ///
     bool try_cast_to(IntegerFormat& format, IntegerType target_word_type) const;
