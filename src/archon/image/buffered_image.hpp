@@ -36,6 +36,7 @@
 #include <archon/image/tray.hpp>
 #include <archon/image/comp_types.hpp>
 #include <archon/image/comp_repr.hpp>
+#include <archon/image/transfer_info.hpp>
 #include <archon/image/buffer_format.hpp>
 #include <archon/image/writable_image.hpp>
 #include <archon/image/integer_pixel_format.hpp>
@@ -86,8 +87,7 @@ public:
     // Overriding functions in image::Image
     auto get_size() const noexcept -> image::Size override final;
     bool try_get_buffer(image::BufferFormat&, const void*&) const override final;
-    auto get_transfer_info() const -> TransferInfo override final;
-    auto get_palette() const noexcept -> const Image* override final;
+    auto get_transfer_info() const -> image::TransferInfo override final;
     void read(image::Pos, const image::Tray<void>&) const override final;
 
     // Overriding functions in image::WritableImage
@@ -216,21 +216,9 @@ inline bool BufferedImage<F>::try_get_buffer(image::BufferFormat& format, const 
 
 
 template<class F>
-inline auto BufferedImage<F>::get_transfer_info() const -> TransferInfo
+inline auto BufferedImage<F>::get_transfer_info() const -> image::TransferInfo
 {
-    return format().get_transfer_info();
-}
-
-
-template<class F>
-inline auto BufferedImage<F>::get_palette() const noexcept -> const Image*
-{
-    if constexpr (format_type::is_indexed_color) {
-        return &format().get_palette();
-    }
-    else {
-        return nullptr;
-    }
+    return format().get_transfer_info(); // Throws
 }
 
 

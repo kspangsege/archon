@@ -39,8 +39,8 @@
 #include <archon/image/comp_repr.hpp>
 #include <archon/image/color_space.hpp>
 #include <archon/image/standard_channel_spec.hpp>
+#include <archon/image/transfer_info.hpp>
 #include <archon/image/buffer_format.hpp>
-#include <archon/image/image.hpp>
 
 
 namespace archon::image {
@@ -174,7 +174,7 @@ public:
     ///
     static auto get_buffer_size(image::Size) -> std::size_t;
     bool try_describe(image::BufferFormat&) const;
-    auto get_transfer_info() const noexcept -> image::Image::TransferInfo;
+    auto get_transfer_info() const noexcept -> image::TransferInfo;
     static void read(const word_type* buffer, image::Size image_size, image::Pos,
                      const image::Tray<transf_comp_type>&) noexcept;
     static void write(word_type* buffer, image::Size image_size, image::Pos,
@@ -284,10 +284,19 @@ bool IntegerPixelFormat<C, W, B, S, D, E, F, G>::try_describe(image::BufferForma
 
 
 template<class C, class W, int B, class S, int D, core::Endianness E, bool F, bool G>
-auto IntegerPixelFormat<C, W, B, S, D, E, F, G>::get_transfer_info() const noexcept -> image::Image::TransferInfo
+auto IntegerPixelFormat<C, W, B, S, D, E, F, G>::get_transfer_info() const noexcept -> image::TransferInfo
 {
     const image::ColorSpace& color_space = m_channel_spec.get_color_space();
-    return { transf_repr, &color_space, has_alpha_channel, bit_depth };
+    const image::Image* palette = nullptr;
+    int index_depth = 0;
+    return {
+        &color_space,
+        has_alpha_channel,
+        transf_repr,
+        bit_depth,
+        palette,
+        index_depth,
+    };
 }
 
 

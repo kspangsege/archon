@@ -1,5 +1,6 @@
 add_library(Image
   archon/image/color_space.cpp
+  archon/image/transfer_info.cpp
   archon/image/buffer_format.cpp
   archon/image/writable_image.cpp
   archon/image/palettes.cpp
@@ -60,6 +61,8 @@ target_sources(Image PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "$
   archon/image/custom_channel_spec.hpp
   archon/image/bit_field.hpp
   archon/image/channel_packing.hpp
+  archon/image/image_fwd.hpp
+  archon/image/transfer_info.hpp
   archon/image/buffer_format.hpp
   archon/image/image.hpp
   archon/image/computed_image.hpp
@@ -73,6 +76,7 @@ target_sources(Image PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "$
   archon/image/indexed_pixel_format.hpp
   archon/image/buffered_image.hpp
   archon/image/palettes.hpp
+  archon/image/impl/subdivide.hpp
   archon/image/impl/workspace.hpp
   archon/image/reader.hpp
   archon/image/writer.hpp

@@ -40,8 +40,8 @@
 #include <archon/image/gamma.hpp>
 #include <archon/image/comp_repr.hpp>
 #include <archon/image/color_space.hpp>
+#include <archon/image/transfer_info.hpp>
 #include <archon/image/buffer_format.hpp>
-#include <archon/image/image.hpp>
 
 
 namespace archon::display::impl {
@@ -78,7 +78,7 @@ namespace archon::display::impl {
 //
 //  * `F::transf_repr` must be a valid compile-time constant expression of type
 //    `image::CompRepr`. It must specify the transfer representation scheme (see
-//    `image::Image::TransferInfo::comp_repr`).
+//    `image::TransferInfo::comp_repr`).
 //
 //  * `f.get_max(i)` must be a valid function invocation when `i` is an object of type
 //    `int`. It must also be a `noexcept` expression. When `i` is between zero and
@@ -158,7 +158,7 @@ public:
     //
     static auto get_buffer_size(image::Size) -> std::size_t;
     bool try_describe(image::BufferFormat&) const;
-    auto get_transfer_info() const noexcept -> image::Image::TransferInfo;
+    auto get_transfer_info() const noexcept -> image::TransferInfo;
     void read(const word_type* buffer, image::Size image_size, image::Pos,
               const image::Tray<transf_comp_type>&) const noexcept;
     void write(word_type* buffer, image::Size image_size, image::Pos,
@@ -260,7 +260,7 @@ bool MultPixelFormat<C, F, W, B, D, E>::try_describe(image::BufferFormat&) const
 
 
 template<class C, class F, class W, int B, int D, core::Endianness E>
-auto MultPixelFormat<C, F, W, B, D, E>::get_transfer_info() const noexcept -> image::Image::TransferInfo
+auto MultPixelFormat<C, F, W, B, D, E>::get_transfer_info() const noexcept -> image::TransferInfo
 {
     int max_width = 0;
     for (int i = 0; i < field_spec_type::num_fields; ++i) {
@@ -268,7 +268,16 @@ auto MultPixelFormat<C, F, W, B, D, E>::get_transfer_info() const noexcept -> im
         max_width = std::max(width, max_width);
     }
     const image::ColorSpace& color_space = m_channel_spec.get_color_space();
-    return { transf_repr, &color_space, has_alpha_channel, max_width };
+    const image::Image* palette = nullptr;
+    int index_depth = 0;
+    return {
+        &color_space,
+        has_alpha_channel,
+        transf_repr,
+        max_width,
+        palette,
+        index_depth,
+    };
 }
 
 

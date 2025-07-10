@@ -29,6 +29,7 @@
 #include <archon/image/tray.hpp>
 #include <archon/image/comp_repr.hpp>
 #include <archon/image/block.hpp>
+#include <archon/image/transfer_info.hpp>
 #include <archon/image/buffer_format.hpp>
 #include <archon/image/image.hpp>
 #include <archon/image/writable_image.hpp>
@@ -71,8 +72,7 @@ public:
     // Overriding virtual member functions of `image::Image`.
     auto get_size() const noexcept -> image::Size override final;
     bool try_get_buffer(image::BufferFormat&, const void*&) const override final;
-    auto get_transfer_info() const -> TransferInfo override final;
-    auto get_palette() const noexcept -> const Image* override final;
+    auto get_transfer_info() const -> image::TransferInfo override final;
     void read(image::Pos, const image::Tray<void>&) const override final;
 
 private:
@@ -117,8 +117,7 @@ public:
     // Overriding virtual member functions of `image::Image`.
     auto get_size() const noexcept -> image::Size override final;
     bool try_get_buffer(image::BufferFormat&, const void*&) const override final;
-    auto get_transfer_info() const -> TransferInfo override final;
-    auto get_palette() const noexcept -> const Image* override final;
+    auto get_transfer_info() const -> image::TransferInfo override final;
     void read(image::Pos, const image::Tray<void>&) const override final;
 
     // Overriding virtual member functions of `image::WritableImage`.
@@ -182,16 +181,18 @@ bool IndexedTrayImage<R>::try_get_buffer(image::BufferFormat&, const void*&) con
 
 
 template<image::CompRepr R>
-auto IndexedTrayImage<R>::get_transfer_info() const -> TransferInfo
+auto IndexedTrayImage<R>::get_transfer_info() const -> image::TransferInfo
 {
-    return m_palette.get_transfer_info(); // Throws
-}
-
-
-template<image::CompRepr R>
-auto IndexedTrayImage<R>::get_palette() const noexcept -> const Image*
-{
-    return &m_palette;
+    image::TransferInfo palette_info = m_palette.get_transfer_info(); // Throws
+    int index_depth = image::comp_repr_bit_width<comp_repr>();
+    return {
+        palette_info.color_space,
+        palette_info.has_alpha,
+        palette_info.comp_repr,
+        palette_info.bit_depth,
+        &m_palette,
+        index_depth,
+    };
 }
 
 
@@ -248,16 +249,18 @@ bool WritableIndexedTrayImage<R>::try_get_buffer(image::BufferFormat&, const voi
 
 
 template<image::CompRepr R>
-auto WritableIndexedTrayImage<R>::get_transfer_info() const -> TransferInfo
+auto WritableIndexedTrayImage<R>::get_transfer_info() const -> image::TransferInfo
 {
-    return m_palette.get_transfer_info(); // Throws
-}
-
-
-template<image::CompRepr R>
-auto WritableIndexedTrayImage<R>::get_palette() const noexcept -> const Image*
-{
-    return &m_palette;
+    image::TransferInfo palette_info = m_palette.get_transfer_info(); // Throws
+    int index_depth = image::comp_repr_bit_width<comp_repr>();
+    return {
+        palette_info.color_space,
+        palette_info.has_alpha,
+        palette_info.comp_repr,
+        palette_info.bit_depth,
+        &m_palette,
+        index_depth,
+    };
 }
 
 

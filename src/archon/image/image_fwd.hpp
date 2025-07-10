@@ -1,6 +1,6 @@
 // This file is part of the Archon project, a suite of C++ libraries.
 //
-// Copyright (C) 2022 Kristian Spangsege <kristian.spangsege@gmail.com>
+// Copyright (C) 2025 Kristian Spangsege <kristian.spangsege@gmail.com>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this
 // software and associated documentation files (the "Software"), to deal in the Software
@@ -18,37 +18,18 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-#ifndef ARCHON_X_IMAGE_X_IMAGE_PROVIDER_HPP
-#define ARCHON_X_IMAGE_X_IMAGE_PROVIDER_HPP
+#ifndef ARCHON_X_IMAGE_X_IMAGE_FWD_HPP
+#define ARCHON_X_IMAGE_X_IMAGE_FWD_HPP
 
 /// \file
-
-
-#include <archon/image/geom.hpp>
-#include <archon/image/transfer_info.hpp>
-#include <archon/image/image.hpp>
 
 
 namespace archon::image {
 
 
-/// \brief    
-///
-///    
-///
-class ImageProvider {
-public:
-    /// \brief    
-    ///
-    ///    
-    ///
-    virtual bool try_provide_image(image::Size image_size, image::TransferInfo, image::Image*&, image::Pos&,
-                                   std::error_code&) = 0;
-
-    virtual ~ImageProvider() noexcept = default;
-};
+class Image;
 
 
 } // namespace archon::image
 
-#endif // ARCHON_X_IMAGE_X_IMAGE_PROVIDER_HPP
+#endif // ARCHON_X_IMAGE_X_IMAGE_FWD_HPP

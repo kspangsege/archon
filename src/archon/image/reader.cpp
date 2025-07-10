@@ -36,34 +36,11 @@
 #include <archon/image/gamma.hpp>
 #include <archon/image/comp_repr.hpp>
 #include <archon/image/pixel.hpp>
-#include <archon/image/image.hpp>
 #include <archon/image/reader.hpp>
 
 
 using namespace archon;
 using image::Reader;
-
-
-auto Reader::determine_palette_size(const image::Image* palette) noexcept -> std::size_t
-{
-    if (ARCHON_LIKELY(!palette))
-        return 0;
-
-    image::Size palette_image_size = palette->get_size();
-    std::size_t palette_size = 1;
-    bool overflow = (!core::try_int_mul(palette_size, std::max(palette_image_size.width, 0)) ||
-                     !core::try_int_mul(palette_size, std::max(palette_image_size.height, 0)));
-    if (ARCHON_UNLIKELY(overflow))
-        palette_size = core::int_max<std::size_t>();
-
-    // Clamp palette size to available index range
-    image::CompRepr index_repr = image::color_index_repr; // FIXME: Should be made varyable, and be provided through TransferInfo                            
-    int index_bit_width = image::comp_repr_int_bit_width(index_repr);
-    std::size_t max_index = core::int_mask<std::size_t>(std::min(index_bit_width, core::int_width<std::size_t>()));
-    if (ARCHON_LIKELY(palette_size == 0 || max_index >= std::size_t(palette_size - 1)))
-        return palette_size;
-    return std::size_t(max_index + 1);
-}
 
 
 bool Reader::adjust(FalloffMode mode, int image_size, int& read_pos, int read_size, int& progen_pos,
@@ -266,7 +243,7 @@ void Reader::set_default_color(ColorSlot slot)
 
 void Reader::instantiate_palette_cache_f()
 {
-    ARCHON_ASSERT(m_palette);
+    ARCHON_ASSERT(m_transfer_info.palette);
     ARCHON_ASSERT(!m_palette_cache_f);
 
     std::unique_ptr<image::float_type[]> float_components;
@@ -305,10 +282,10 @@ void Reader::instantiate_palette_cache_f()
 
 void Reader::instantiate_palette_cache()
 {
-    ARCHON_ASSERT(m_palette);
+    ARCHON_ASSERT(m_transfer_info.palette);
     ARCHON_ASSERT(!m_palette_cache);
 
-    image::Reader palette_reader(*m_palette);
+    image::Reader palette_reader(*m_transfer_info.palette);
     image::Size palette_image_size = palette_reader.get_image_size();
 
     std::size_t buffer_size = 1;

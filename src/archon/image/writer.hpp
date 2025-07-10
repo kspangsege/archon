@@ -30,6 +30,7 @@
 #include <utility>
 #include <array>
 #include <optional>
+#include <stdexcept>
 
 #include <archon/core/features.h>
 #include <archon/core/assert.hpp>
@@ -46,8 +47,11 @@
 #include <archon/image/pixel_repr.hpp>
 #include <archon/image/pixel.hpp>
 #include <archon/image/block.hpp>
+#include <archon/image/transfer_info.hpp>
 #include <archon/image/image.hpp>
 #include <archon/image/writable_image.hpp>
+#include <archon/image/impl/subdivide.hpp>
+#include <archon/image/impl/workspace.hpp>
 #include <archon/image/reader.hpp>
 
 
@@ -161,7 +165,7 @@ public:
     ///
     /// * The configured opacity is 1 (this is the default value).
     ///
-    /// * The attached image uses direct color (\ref has_indexed_color()).
+    /// * The attached image uses direct color (\ref has_indirect_color()).
     ///
     /// When operating in a lossless manner, this function guarantees that the fill
     /// operation is carried out by way of one or more invocations of \ref
@@ -181,6 +185,7 @@ public:
     /// constructed from the specified image (\p img), and a box constructed from the size
     /// of the specified image.
     ///
+    /// \sa \ref put_image_a()
     /// \sa \ref image::Reader
     ///
     auto put_image(image::Pos pos, const image::Image& img) -> Writer&;
@@ -214,7 +219,7 @@ public:
     ///
     /// * The configured opacity is 1 (this is the default value).
     ///
-    /// * The image attached to this writer uses direct color (\ref has_indexed_color()).
+    /// * The image attached to this writer uses direct color (\ref has_indirect_color()).
     ///
     /// When operating in a lossless manner, this function guarantees that the pixels passed
     /// to \ref image::WritableImage::write() of the image attached to this writer are
@@ -222,6 +227,8 @@ public:
     /// to the specified reader with the proviso that if the image attached to the specified
     /// reader does not have an alpha channel, but the image attached to this writer does,
     /// then alpha components with maximum value (full opacity) will be introduced.
+    ///
+    /// \sa \ref put_image()
     ///
     auto put_image_a(image::Pos pos, image::Reader& reader, image::Box box) -> Writer&;
 
@@ -290,13 +297,15 @@ public:
     ///
     /// * The configured opacity is 1 (this is the default value).
     ///
-    /// * The attached image uses direct color (\ref has_indexed_color()).
+    /// * The attached image uses direct color (\ref has_indirect_color()).
     ///
     /// When operating in a lossless manner, this function guarantees that the pixels passed
     /// to \ref image::WritableImage::write() are exactly equal to those passed to
     /// `put_block_a()` with the proviso that if the specified block does not have an alpha
     /// channel, but the target image does, then alpha components with maximum value (full
     /// opacity) will be introduced.
+    ///
+    /// \sa \ref put_color_index_block()
     ///
     template<image::CompRepr R> auto put_block_a(image::Pos pos, const image::const_tray_type<R>& tray,
                                                  const image::ColorSpace& color_space, bool has_alpha) -> Writer&;
@@ -350,16 +359,14 @@ public:
     /// format of the specified color is as specified by \p R, \p color_space, and \p
     /// has_alpha.
     ///
-    /// If the attached image does not have a palette (because it does not use indirect
-    /// color), or if the palette is empty (number of entries is zero) this function returns
-    /// zero.
+    /// If the palette is empty (number of entries is zero) this function returns zero.
     ///
-    /// If the number of pixels in the palette image (the image that acts as palette of the
-    /// attached image), is greater than N, where N is the largest representable index plus
-    /// one (256), only the first N pixels of the palette image are considered part of the
-    /// palette (row-major order).
+    /// It is an error to call this function when the attached image does not have a palette
+    /// (\ref has_indirect_color()). If this function is called in such a case, an exception
+    /// is thrown.
     ///
-    /// FIXME: Update paragraph above when support for varying index representation schemes is added.                          
+    /// Note that the palette may not include all the pixels in the image that acts as
+    /// palette. See \ref image::TransferInfo::determine_palette_size() for details.
     ///
     /// \sa \ref reverse_palette_lookup()
     /// \sa \ref palette_lookup_a()
@@ -401,6 +408,32 @@ public:
     auto color_sqdist_a(const image::comp_type<R>* components_1, const image::ColorSpace& color_space_1,
                         bool has_alpha_1, const image::comp_type<S>* components_2,
                         const image::ColorSpace& color_space_2, bool has_alpha_2) -> image::float_type;
+
+    /// \brief Set color indexes for block of pixels.
+    ///
+    /// This function first verifies that all the specified color indexes (\p tray) can be
+    /// represented in the attached image. They can if, and only if they are non-negative
+    /// and less than two to the power of the index depth, which is 8. If verification
+    /// succeeds, this function proceeds to store the indexes in the image and then returns
+    /// `true`. If verification fails, this function returns `false` and leaves the image
+    /// unchanged.
+    ///
+    /// FIXME: Update paragraph above when support for exact index bit width is added                           
+    ///
+    /// FIXME: Update paragraph above when support for varying index representation schemes is added.                          
+    ///
+    /// It is an error if the target area extends beyond the image boundary. If it does,
+    /// this function throws. The size of the image is available through \ref
+    /// get_image_size().
+    ///
+    /// It is an error to call this function when the attached image does not have a palette
+    /// (\ref has_indirect_color()). If this function is called in such a case, an exception
+    /// is thrown.
+    ///
+    /// \sa \ref put_block_a()
+    /// \sa \ref try_get_color_index_block()
+    ///
+    template<class I> bool try_put_color_index_block(image::Pos pos, const image::Tray<I>& tray);
 
 private:
     // When preset, each entry is a color index, and the entries are sorted by
@@ -590,7 +623,7 @@ auto Writer::put_block_a(image::Pos pos, const image::const_tray_type<R>& tray, 
     if (ARCHON_UNLIKELY(!boundary.clip(box)))
         return *this;
 
-    image::Image::TransferInfo info = get_transfer_info();
+    image::TransferInfo info = get_transfer_info();
     bool same_comp_repr = (repr == info.comp_repr);
     bool same_color_space = (&color_space == info.color_space);
     bool add_alpha = (!has_alpha && info.has_alpha);
@@ -598,7 +631,7 @@ auto Writer::put_block_a(image::Pos pos, const image::const_tray_type<R>& tray, 
     bool is_float = (repr == image::CompRepr::float_);
     image::float_type opacity = get_opacity();
     bool blending = (get_blending_enabled() && (has_alpha || opacity != 1));
-    bool is_indexed = has_indexed_color();
+    bool is_indexed = has_indirect_color();
     bool lossless = (same_comp_repr && same_color_space && (!remove_alpha || is_float) && opacity == 1 && !blending &&
                      !is_indexed);
     if (ARCHON_LIKELY(lossless && !add_alpha)) {
@@ -609,7 +642,7 @@ auto Writer::put_block_a(image::Pos pos, const image::const_tray_type<R>& tray, 
         return *this;
     }
 
-    subdivide(box, [&](const image::Box& subbox) {
+    impl::subdivide(box, [&](const image::Box& subbox) {
         image::Tray tray_1 = tray.subtray(subbox, pos);
         int num_channels_ext = m_num_channels_ext;
         if (ARCHON_LIKELY(lossless)) {
@@ -700,6 +733,47 @@ auto Writer::color_sqdist_a(const image::comp_type<R>* components_1, const image
     color_to_promoted_native<R>(components_1, color_space_1, has_alpha_1, buffer_1); // Throws
     color_to_promoted_native<S>(components_2, color_space_2, has_alpha_2, buffer_2); // Throws
     return do_color_sqdist_a(buffer_1, buffer_2);
+}
+
+
+template<class I> bool Writer::try_put_color_index_block(image::Pos pos, const image::Tray<I>& tray)
+{
+    if (ARCHON_UNLIKELY(!m_transfer_info.palette))
+        throw std::runtime_error("Image has no palette");
+
+    constexpr image::CompRepr index_repr = image::color_index_repr; // FIXME: Should be made variable, and be provided through TransferInfo                                  
+    using index_comp_type = image::comp_type<index_repr>;
+    core::Buffer<std::byte>& buffer = m_workspace_buffer_1;
+    impl::Workspace<index_comp_type> workspace(buffer);
+
+    // Verify that all indexes are representable before clobbering the image.
+    using unpacked_index_comp_type = image::unpacked_comp_type<index_repr>;
+    unpacked_index_comp_type max_index = image::comp_repr_unpacked_max<index_repr>(); // FIXME: Should instead be determined by TransferInfo::index_depth                 
+    for (int y = 0; y < tray.size.height; ++y) {
+        for (int x = 0; x < tray.size.width; ++x) {
+            I index = *tray(x, y);
+            if (ARCHON_LIKELY(index >= 0 && core::to_unsigned(index) <= core::to_unsigned(max_index)))
+                continue;
+            return false;
+        }
+    }
+
+    image::Box box = { pos, tray.size };
+    impl::subdivide(box, [&](const image::Box& subbox) {
+        image::Tray tray_2 = tray.subtray(subbox, pos);
+        int num_index_channels = 1;
+        workspace.reset(num_index_channels, subbox.size); // Throws
+        image::Tray tray_3 = workspace.tray(num_index_channels, subbox.size);
+        for (int y = 0; y < tray_2.size.height; ++y) {
+            for (int x = 0; x < tray_2.size.width; ++x) {
+                I index = *tray_2(x, y);
+                *tray_3(x, y) = image::comp_repr_pack<index_repr>(index);
+            }
+        }
+        get_image().write(subbox.pos, tray_3); // Throws
+    }); // Throws
+
+    return true;
 }
 
 

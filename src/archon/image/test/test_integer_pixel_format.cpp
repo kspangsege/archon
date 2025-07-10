@@ -40,6 +40,7 @@
 #include <archon/image/comp_repr.hpp>
 #include <archon/image/standard_channel_spec.hpp>
 #include <archon/image/custom_channel_spec.hpp>
+#include <archon/image/transfer_info.hpp>
 #include <archon/image/integer_pixel_format.hpp>
 #include <archon/image/test/comp_repr_utils.hpp>
 
@@ -91,7 +92,7 @@ ARCHON_TEST(Image_IntegerPixelFormat_GetTransferInfo)
     auto test = [](check::TestContext& parent_test_context, auto format, std::string_view label,
                    image::CompRepr comp_repr, const image::ColorSpace& color_space, bool has_alpha, int bit_depth) {
         ARCHON_TEST_TRAIL(parent_test_context, label);
-        image::Image::TransferInfo info = format.get_transfer_info();
+        image::TransferInfo info = format.get_transfer_info();
         ARCHON_CHECK_EQUAL(info.comp_repr, comp_repr);
         ARCHON_CHECK_EQUAL(info.color_space, &color_space);
         ARCHON_CHECK_EQUAL(info.has_alpha, has_alpha);

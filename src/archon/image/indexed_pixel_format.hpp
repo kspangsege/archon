@@ -27,16 +27,17 @@
 #include <cstddef>
 #include <type_traits>
 #include <utility>
-#include <memory>
 
 #include <archon/core/features.h>
 #include <archon/core/assert.hpp>
 #include <archon/core/integer.hpp>
+#include <archon/core/opt_owning_ptr.hpp>
 #include <archon/core/endianness.hpp>
 #include <archon/image/geom.hpp>
 #include <archon/image/tray.hpp>
 #include <archon/image/comp_types.hpp>
 #include <archon/image/comp_repr.hpp>
+#include <archon/image/transfer_info.hpp>
 #include <archon/image/buffer_format.hpp>
 #include <archon/image/image.hpp>
 
@@ -216,18 +217,15 @@ public:
     /// \brief Construct indexed pixel format.
     ///
     /// These constructors construct an indexed pixel format whose color indexes refer to
-    /// the specified palette.
+    /// the specified palette (\p palette).
     ///
-    /// With the overload that takes a reference argument, the caller must ensure that the
-    /// specified palette remains alive for as long as the indexed pixel format is in
-    /// use. Destruction of the pixel format, however, is allowed to happen after the
-    /// destruction of the palette.
-    ///
-    /// With the overload that takes a unique pointer argument, the ownership of the palette
-    /// image is passed to the indexed pixel format.
+    /// If the palette is passed as an image reference or using a non-owning pointer, the
+    /// caller must ensure that the palette remains alive for as long as the indexed pixel
+    /// format is in use. Destruction of the pixel format, however, is allowed to happen
+    /// after the destruction of the palette.
     ///
     explicit IndexedPixelFormat(const image::Image& palette) noexcept;
-    explicit IndexedPixelFormat(std::unique_ptr<const image::Image> palette) noexcept;
+    explicit IndexedPixelFormat(core::opt_owning_ptr<const image::Image> palette) noexcept;
     /// \}
 
     /// \{
@@ -249,9 +247,8 @@ public:
     /// See \ref Concept_Archon_Image_PixelFormat.
     ///
     static auto get_buffer_size(image::Size) -> std::size_t;
-    auto get_palette() const noexcept -> const image::Image&;
     bool try_describe(image::BufferFormat&) const;
-    auto get_transfer_info() const noexcept -> image::Image::TransferInfo;
+    auto get_transfer_info() const -> image::TransferInfo;
     static void read(const word_type* buffer, image::Size image_size, image::Pos,
                      const image::Tray<transf_comp_type>&) noexcept;
     static void write(word_type* buffer, image::Size image_size, image::Pos,
@@ -269,8 +266,7 @@ public:
     static constexpr auto get_words_per_row(int image_width) -> std::size_t;
 
 private:
-    std::unique_ptr<const image::Image> m_palette_owner;
-    const image::Image& m_palette;
+    core::opt_owning_ptr<const image::Image> m_palette;
 
     struct PixelPos {
         std::ptrdiff_t compound_index;
@@ -322,15 +318,14 @@ using IndexedPixelFormat_8 = image::IndexedPixelFormat<S, 8, N, A, W, B, D, E, H
 
 template<class S, int M, int N, core::Endianness A, class W, int B, int D, core::Endianness E, bool H>
 inline IndexedPixelFormat<S, M, N, A, W, B, D, E, H>::IndexedPixelFormat(const image::Image& palette) noexcept
-    : m_palette(palette)
+    : IndexedPixelFormat(&palette)
 {
 }
 
 
 template<class S, int M, int N, core::Endianness A, class W, int B, int D, core::Endianness E, bool H>
-inline IndexedPixelFormat<S, M, N, A, W, B, D, E, H>::IndexedPixelFormat(std::unique_ptr<const image::Image> palette) noexcept
-    : m_palette_owner(std::move(palette))
-    , m_palette(*m_palette_owner)
+inline IndexedPixelFormat<S, M, N, A, W, B, D, E, H>::IndexedPixelFormat(core::opt_owning_ptr<const image::Image> palette) noexcept
+    : m_palette(std::move(palette))
 {
 }
 
@@ -355,19 +350,12 @@ auto IndexedPixelFormat<S, M, N, A, W, B, D, E, H>::get_buffer_size(image::Size 
 
 
 template<class S, int M, int N, core::Endianness A, class W, int B, int D, core::Endianness E, bool H>
-inline auto IndexedPixelFormat<S, M, N, A, W, B, D, E, H>::get_palette() const noexcept -> const image::Image&
-{
-    return m_palette;
-}
-
-
-template<class S, int M, int N, core::Endianness A, class W, int B, int D, core::Endianness E, bool H>
 bool IndexedPixelFormat<S, M, N, A, W, B, D, E, H>::try_describe(image::BufferFormat& format) const
 {
     image::BufferFormat::IntegerType word_type_2 = {};
     if (ARCHON_LIKELY(image::BufferFormat::try_map_integer_type<word_type>(word_type_2))) {
         format.set_indexed_format(word_type_2, bits_per_pixel, pixels_per_compound, bits_per_word, words_per_compound,
-                                  bit_order, word_order, compound_aligned_rows); // Throws
+                                  bit_order, word_order, compound_aligned_rows, *m_palette); // Throws
         return true;
     }
     return false;
@@ -375,9 +363,18 @@ bool IndexedPixelFormat<S, M, N, A, W, B, D, E, H>::try_describe(image::BufferFo
 
 
 template<class S, int M, int N, core::Endianness A, class W, int B, int D, core::Endianness E, bool H>
-auto IndexedPixelFormat<S, M, N, A, W, B, D, E, H>::get_transfer_info() const noexcept -> image::Image::TransferInfo
+auto IndexedPixelFormat<S, M, N, A, W, B, D, E, H>::get_transfer_info() const -> image::TransferInfo
 {
-    return m_palette.get_transfer_info();
+    image::TransferInfo palette_info = m_palette->get_transfer_info(); // Throws
+    int index_depth = bits_per_pixel;
+    return {
+        palette_info.color_space,
+        palette_info.has_alpha,
+        palette_info.comp_repr,
+        palette_info.bit_depth,
+        m_palette.get(),
+        index_depth,
+    };
 }
 
 

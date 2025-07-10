@@ -128,9 +128,7 @@ bool BufferFormat::IntegerFormat::try_cast_to(PackedFormat& format, IntegerType 
     if (ARCHON_UNLIKELY(num_channels > max_bit_fields))
         return false;
 
-    int words_per_pixel = words_per_channel_2;
-    if (ARCHON_UNLIKELY(!core::try_int_mul(words_per_pixel, num_channels)))
-        return false;
+    int words_per_pixel = num_channels * words_per_channel_2;
 
     format = {
         target_word_type,
@@ -753,6 +751,142 @@ bool BufferFormat::SubwordFormat::try_cast_to(SubwordFormat& format, IntegerType
 }
 
 
+bool BufferFormat::FloatFormat::try_cast_to(FloatFormat& format, FloatType target_word_type) const
+{
+    // CASE: float --> float
+
+    if (ARCHON_UNLIKELY(!is_valid()))
+        throw std::runtime_error("Invalid float format");
+
+    if (target_word_type == word_type) {
+        format = *this;
+        return true;
+    }
+
+    return false;
+}
+
+
+bool BufferFormat::IndexedFormat::try_cast_to_1(IndexedFormat& format, IntegerType target_word_type) const
+{
+    // CASE: indexed --> indexed #1
+
+    if (ARCHON_UNLIKELY(!is_valid()))
+        throw std::runtime_error("Invalid indexed format");
+
+    int bits_per_word_2 = bits_per_word;
+    int words_per_compound_2 = words_per_compound;
+    core::Endianness word_order_2 = word_order;
+
+    if (target_word_type != word_type) {
+        // A word of any type can be accessed in terms of the bytes that make it up
+        // (`std::byte`, `char`, or `unsigned char`, but not `signed char`). Any other type
+        // punning would cause undefined behavior.
+        if (ARCHON_UNLIKELY(target_word_type != IntegerType::byte))
+            return false;
+
+        int bytes_per_word = get_bytes_per_word(word_type);
+        if (bytes_per_word > 1) {
+            // Native byte order must be determinable
+            core::Endianness byte_order = {};
+            if (ARCHON_UNLIKELY(!try_get_byte_order(word_type, byte_order)))
+                return false;
+
+            int bits_per_byte = core::int_width<char>();
+
+            if (ARCHON_LIKELY(words_per_compound == 1))
+                goto proceed;
+
+            if (word_order != byte_order)
+                return false;
+
+            if (ARCHON_LIKELY(bits_per_word == bytes_per_word * bits_per_byte))
+                goto proceed;
+
+            if (ARCHON_LIKELY(pixels_per_compound * bits_per_pixel > bits_per_word))
+                return false;
+
+          proceed:
+            bits_per_word_2 = bits_per_byte;
+            words_per_compound_2 *= bytes_per_word;
+            word_order_2 = byte_order;
+        }
+    }
+
+    format = {
+        target_word_type,
+        bits_per_pixel,
+        pixels_per_compound,
+        bits_per_word_2,
+        words_per_compound_2,
+        bit_order,
+        word_order_2,
+        compound_aligned_rows,
+        palette,
+    };
+
+    return true;
+}
+
+
+bool BufferFormat::IndexedFormat::try_cast_to_2(IndexedFormat& format, int words_per_target_compound) const
+{
+    // CASE: indexed --> indexed #2
+
+    if (ARCHON_UNLIKELY(!is_valid()))
+        throw std::runtime_error("Invalid indexed format");
+
+    if (ARCHON_UNLIKELY(words_per_target_compound < 1))
+        throw std::runtime_error("Invalid number of words per target compound");
+
+    int pixels_per_compound_2 = pixels_per_compound;
+    int words_per_compound_2 = words_per_compound;
+
+    if (words_per_target_compound != words_per_compound) {
+        // The number of words in the target compound must evenly divide the number of words
+        // in the origin compound
+        int quotient  = words_per_compound / words_per_target_compound;
+        int remainder = words_per_compound % words_per_target_compound;
+        if (remainder != 0)
+            return false;
+
+        // The number of bits per pixel must evenly divide the number of bits in the target
+        // compound
+        if ((words_per_target_compound * bits_per_word) % bits_per_pixel != 0)
+            return false;
+
+        // There must be no unused bit positions in the bit compound
+        if (pixels_per_compound * bits_per_pixel != words_per_compound * bits_per_word)
+            return false;
+
+        // Bit order must match word order such that the first pixel comes first in memory
+        if (bit_order != word_order)
+            return false;
+
+        // Cannot have requirement of compound aligned rows
+        if (compound_aligned_rows)
+            return false;
+
+        pixels_per_compound_2 /= quotient;
+        words_per_compound_2 = words_per_target_compound;
+    }
+
+    format = {
+        word_type,
+        bits_per_pixel,
+        pixels_per_compound_2,
+        bits_per_word,
+        words_per_compound_2,
+        bit_order,
+        word_order,
+        compound_aligned_rows,
+        palette,
+    };
+
+    return true;
+}
+
+
 bool BufferFormat::is_valid() const noexcept
 {
     switch (type) {
@@ -819,6 +953,38 @@ bool BufferFormat::try_cast_to(SubwordFormat& format, IntegerType target_word_ty
             return subword.try_cast_to(format, target_word_type); // Throws
         case Type::float_:
         case Type::indexed:
+            break;
+    }
+
+    return false;
+}
+
+
+bool BufferFormat::try_cast_to(FloatFormat& format, FloatType target_word_type) const
+{
+    switch (type) {
+        case Type::float_:
+            return float_.try_cast_to(format, target_word_type); // Throws
+        case Type::integer:
+        case Type::packed:
+        case Type::subword:
+        case Type::indexed:
+            break;
+    }
+
+    return false;
+}
+
+
+bool BufferFormat::try_cast_to(IndexedFormat& format, IntegerType target_word_type) const
+{
+    switch (type) {
+        case Type::indexed:
+            return indexed.try_cast_to_1(format, target_word_type); // Throws
+        case Type::integer:
+        case Type::packed:
+        case Type::subword:
+        case Type::float_:
             break;
     }
 

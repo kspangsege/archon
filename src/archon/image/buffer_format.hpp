@@ -36,6 +36,7 @@
 #include <archon/core/endianness.hpp>
 #include <archon/image/color_space.hpp>
 #include <archon/image/bit_field.hpp>
+#include <archon/image/image_fwd.hpp>
 
 
 namespace archon::image {
@@ -219,12 +220,11 @@ struct BufferFormat {
 
         /// \brief Number of used bit positions per word
         ///
-        /// This is the number of bits that are taken from each word to make up channel
-        /// components. Specifically, if N is the value of `bits_per_word`, then the bits
-        /// corresponding to the N least significant bit positions are taken from each word
-        /// that make up a channel component. Those bits are then assembled into a channel
-        /// component in the order specified by \ref word_order. Bits at unused bit
-        /// positions must be zero.
+        /// This is the number of bits that are taken from each word to make up a channel
+        /// component. Specifically, if N is the value of `bits_per_word`, then the bits
+        /// corresponding to the N least significant bit positions are taken from each
+        /// word. The order in which those bits are assembled into channel components is
+        /// specified by \ref word_order. Bits at unused bit positions must be zero.
         ///
         int bits_per_word;
 
@@ -265,8 +265,12 @@ struct BufferFormat {
         ///   * \ref bits_per_word must be less than, or equal to number of available bits
         ///     per word (\ref BufferFormat::get_bits_per_word(), \ref word_type).
         ///
-        ///   * The number of bits per channel (\ref words_per_channel times \ref
-        ///     bits_per_word) must be representable in type `int`.
+        ///   * The unreduced number of bits per pixel must be representable in type
+        ///     `int`. The *unreduced number of bits per pixel* is the number of bits in a
+        ///     byte (usually 8) times the number of bytes per word (\ref
+        ///     BufferFormat::get_bytes_per_word()) times the number of words per channel
+        ///     (\ref words_per_channel) times the number of channels (\ref
+        ///     ChannelConf::get_num_channels(), \ref channel_conf).
         ///
         bool is_valid() const noexcept;
 
@@ -274,9 +278,37 @@ struct BufferFormat {
         ///
         /// \brief Try to cast integer format as format of different type.
         ///
-        /// These functions are used by \ref BufferFormat::try_cast_to(), but can also be
-        /// called directly by the application when the origin format is statically known to
-        /// be an integer format (`IntegerFormat`).
+        /// These functions determine whether it is possible to reexpress this integer
+        /// format as the kind of format implied by the first argument (\p format), and with
+        /// the additional requirement that the word type of the new format must be as
+        /// specified (\p target_word_type).
+        ///
+        /// When it is possible to reexpress this format as specified, these functions
+        /// return `true` after setting \p format to the new format. Otherwise, these
+        /// functions return `false` and leave \p format unchanged.
+        ///
+        /// When these functions return `true`, it means that pixels stored in memory
+        /// according to the origin format can be accessed as though they were stored
+        /// according to the new format, i.e., the one specified by \p format.
+        ///
+        /// \important The ability to cast from format A to format B does *NOT* imply that
+        /// the reverse cast is possible, that is, it does not imply that pixels stored
+        /// according to format B can be accessed as if stored according to format A.
+        ///
+        /// A necessary but generally insufficient condition for these casts to succeed is
+        /// that the specified word type (\p target_word_type) is either equal to the word
+        /// type in the original format, or is `byte` (\ref IntegerType).
+        ///
+        /// While a successful cast guarantees that the target format can be used to access
+        /// any pixel buffer that could be accessed using the origin format, the reverse is
+        /// not guaranteed. I.e, it is possible that a cast fails even if there is a way to
+        /// express the origin format as a format of the specified type and using the
+        /// specified target word type, and that it would work for any pixel buffer (image
+        /// of any size).
+        ///
+        /// These functions require that the origin format is valid (\ref is_valid()), and
+        /// they ensure that the new format is valid. If the original format is invalid,
+        /// these functions throw.
         ///
         /// \sa \ref BufferFormat::try_cast_to()
         ///
@@ -292,8 +324,7 @@ struct BufferFormat {
         /// word type is `byte`.
         ///
         /// <em>Form 2:</em> There is more than one byte per origin word and the specified
-        /// target word type is `byte`. Additionally, the following conditions must
-        /// hold:
+        /// target word type is `byte`. Additionally, the following conditions hold:
         ///
         ///   * There are no unused bits, which means that \ref bits_per_word is equal to
         ///     the number of bits per byte times the number of bytes in each origin word.
@@ -330,21 +361,19 @@ struct BufferFormat {
         /// ### Integer to packed
         ///
         /// An integer format can be cast to a packed format if, and only if the cast takes
-        /// one of the following two forms and the number of channels (\ref
-        /// ChannelConf::get_num_channels(), \ref channel_conf) is less than, or equal to
-        /// the maximum number of bit fields in a packed format (\ref
-        /// BufferFormat::max_bit_fields):
+        /// one of the following two forms:
         ///
         /// <em>Form 1:</em> The origin word type (\ref word_type) is the same as the
         /// specified target word type (\p target_word_type), or there is only one byte per
         /// origin word (\ref BufferFormat::get_bytes_per_word()) and the specified target
-        /// word type is `byte`. Additionally, the following conditions must hold:
+        /// word type is `byte`. Additionally, the following conditions hold:
         ///
-        ///   * The number of words per pixel (\ref words_per_channel times number of
-        ///     channels) is representable in an object of type `int`.
+        ///   * The number of channels (\ref ChannelConf::get_num_channels(), \ref
+        ///     channel_conf) is less than, or equal to the maximum number of bit fields in
+        ///     a packed format (\ref BufferFormat::max_bit_fields).
         ///
         /// <em>Form 2:</em> There is more than one byte per origin word and the specified
-        /// target word type is `byte`. Additionally, the following conditions must hold:
+        /// target word type is `byte`. Additionally, the following conditions hold:
         ///
         ///   * There are no unused bits, which means that \ref bits_per_word is equal to
         ///     the number of bits per byte times the number of bytes in each origin word.
@@ -356,9 +385,8 @@ struct BufferFormat {
         ///     the origin word order (\ref word_order) matches the native byte order for
         ///     the origin word type.
         ///
-        ///   * The number of bytes per pixel (\ref words_per_channel times number of
-        ///     channels times number of bytes per origin word) is representable in an
-        ///     object of type `int`.
+        ///   * The number of channels is less than, or equal to the maximum number of bit
+        ///     fields in a packed format.
         ///
         /// When the cast succeeds, the parameters of the target format are set as follows:
         ///
@@ -482,12 +510,11 @@ struct BufferFormat {
 
         /// \brief Number of used bit positions per word
         ///
-        /// This is the number of bits that are taken from each word to make up per pixel
-        /// bit compounds. Specifically, if N is the value of `bits_per_word`, then the bits
-        /// corresponding to the N least significant bit positions are taken from each word
-        /// that make up a bit compound. Those bits are then assembled into a bit compound
-        /// in the order specified by \ref word_order. Bits at unused bit positions must be
-        /// zero.
+        /// This is the number of bits that are taken from each word to make up a bit
+        /// compound. Specifically, if N is the value of `bits_per_word`, then the bits
+        /// corresponding to the N least significant bit positions are taken from each
+        /// word. The order in which those bits are assembled into bit compounds is
+        /// specified by \ref word_order. Bits at unused bit positions must be zero.
         ///
         int bits_per_word;
 
@@ -540,9 +567,6 @@ struct BufferFormat {
         ///   * \ref bits_per_word must be less than, or equal to the number of available
         ///     bits per word (\ref BufferFormat::get_bits_per_word(), \ref word_type).
         ///
-        ///   * The number of bits per bit compound (\ref words_per_pixel times \ref
-        ///     bits_per_word) must be representable in type `int`.
-        ///
         ///   * The number of channels (\ref ChannelConf::get_num_channels(), \ref
         ///     channel_conf) must be less than, or equal to \ref max_bit_fields.
         ///
@@ -552,15 +576,49 @@ struct BufferFormat {
         ///     explanation of what it means for a sequence of bit fields to be valid and
         ///     fit within a certain number of bits.
         ///
+        ///   * The unreduced number of bits per bit compound must be representable in type
+        ///     `int`. The *unreduced number of bits per bit compound* is the number of bits
+        ///     in a byte (usually 8) times the number of bytes per word (\ref
+        ///     BufferFormat::get_bytes_per_word()) times the number of words per compound
+        ///     (\ref words_per_pixel).
+        ///
         bool is_valid() const noexcept;
 
         /// \{
         ///
         /// \brief Try to cast packed format as format of different type.
         ///
-        /// These functions are used by \ref BufferFormat::try_cast_to(), but can also be
-        /// called directly by the application when the origin format is statically known to
-        /// be a packed format (`PackedFormat`).
+        /// These functions determine whether it is possible to reexpress this packed format
+        /// as the kind of format implied by the first argument (\p format), and with the
+        /// additional requirement that the word type of the new format must be as specified
+        /// (\p target_word_type).
+        ///
+        /// When it is possible to reexpress this format as specified, these functions
+        /// return `true` after setting \p format to the new format. Otherwise, these
+        /// functions return `false` and leave \p format unchanged.
+        ///
+        /// When these functions return `true`, it means that pixels stored in memory
+        /// according to the origin format can be accessed as though they were stored
+        /// according to the new format, i.e., the one specified by \p format.
+        ///
+        /// \important The ability to cast from format A to format B does *NOT* imply that
+        /// the reverse cast is possible, that is, it does not imply that pixels stored
+        /// according to format B can be accessed as if stored according to format A.
+        ///
+        /// A necessary but generally insufficient condition for these casts to succeed is
+        /// that the specified word type (\p target_word_type) is either equal to the word
+        /// type in the original format, or is `byte` (\ref IntegerType).
+        ///
+        /// While a successful cast guarantees that the target format can be used to access
+        /// any pixel buffer that could be accessed using the origin format, the reverse is
+        /// not guaranteed. I.e, it is possible that a cast fails even if there is a way to
+        /// express the origin format as a format of the specified type and using the
+        /// specified target word type, and that it would work for any pixel buffer (image
+        /// of any size).
+        ///
+        /// These functions require that the origin format is valid (\ref is_valid()), and
+        /// they ensure that the new format is valid. If the original format is invalid,
+        /// these functions throw.
         ///
         /// \sa \ref BufferFormat::try_cast_to()
         ///
@@ -573,7 +631,7 @@ struct BufferFormat {
         /// <em>Form 1:</em> The origin word type (\ref word_type) is the same as the
         /// specified target word type (\p target_word_type), or there is only one byte per
         /// origin word (\ref BufferFormat::get_bytes_per_word()) and the specified target
-        /// word type is `byte`. Additionally, the following conditions must hold:
+        /// word type is `byte`. Additionally, the following conditions hold:
         ///
         ///   * The number of origin words per bit compound (\ref words_per_pixel) is an
         ///     integer multiple of the number of channels.
@@ -588,7 +646,7 @@ struct BufferFormat {
         ///     multiples of the number words per channel times the number of bits per word.
         ///
         /// <em>Form 2:</em> There is more than one byte per origin word and the specified
-        /// target word type is `byte`. Additionally, the following conditions must hold:
+        /// target word type is `byte`. Additionally, the following conditions hold:
         ///
         ///   * There are no unused bits, which means that the number of bits per origin
         ///     word (\ref bits_per_word) is equal to the number of bytes per origin word
@@ -656,7 +714,7 @@ struct BufferFormat {
         /// word type is `byte`.
         ///
         /// <em>Form 2:</em> There is more than one byte per origin word and the specified
-        /// target word type is `byte`. Additionally, the following conditions must hold:
+        /// target word type is `byte`. Additionally, the following conditions hold:
         ///
         ///   * The native byte order for the origin word type is determinable (\ref
         ///     BufferFormat::try_get_byte_order()).
@@ -819,36 +877,37 @@ struct BufferFormat {
         ///
         int bits_per_channel;
 
-        /// \brief Number of pixels slots in each word.
+        /// \brief Number of pixel slots in each word.
         ///
         /// This is the number of pixel slots that will exist in each word. The order of
         /// pixels within the bits of the word is specified by \ref bit_order.
         ///
         int pixels_per_word;
 
-        /// \brief Order of pixel to slot assignment in each memory word.
+        /// \brief Order of pixels within memory word.
         ///
         /// The bit order specifies the order in which pixels are assigned to pixel slots of
         /// a particular memory word with respect to a top-to-bottom, left-to-right,
-        /// row-major traversal of the image. If the bit order is set to 'big endian', pixel
-        /// will be assigned to slots in order of decreasing bit position significance. If
-        /// it is set to 'little endian', they will be assigned in order of increasing bit
-        /// position significance.
+        /// row-major traversal of the image. If the bit order is set to 'big endian',
+        /// pixels will be assigned to slots in order of decreasing bit position
+        /// significance. If it is set to 'little endian', they will be assigned in order of
+        /// increasing bit position significance. Unused pixel slots will always be slots of
+        /// greatest bit position significance.
         ///
         core::Endianness bit_order;
 
-        /// \brief Whether pixel rows are aligned on word boundaries.
+        /// \brief Whether pixel rows are required to be aligned on word boundaries.
         ///
-        /// If `true`, pixel rows are required to be aligned with word boundaries. This
-        /// means that during a top-to-bottom, left-to-right, row-major traversal of the
-        /// pixels, when the last pixel in a row is assigned to a word and there are
-        /// additional unused pixel slots in that word, those unused pixel slots will be
-        /// skipped such that the first pixel of the next row is assigned to the first slot
-        /// in the next word.
+        /// If `true`, pixel rows are required to be aligned on word boundaries. This means
+        /// that during a top-to-bottom, left-to-right, row-major traversal of the pixels,
+        /// when the last pixel in a row is assigned to a word and there are additional
+        /// unused pixel slots in that word, those unused pixel slots will be skipped such
+        /// that the first pixel of the next row is assigned to the first slot in the next
+        /// word.
         ///
-        /// If `false`, pixel rows are required to be aligned with word boundaries, and no
-        /// pixel slots are skipped. The last word, which is the one the last pixel is
-        /// assigned to, may still have unused pixel slots.
+        /// If `false`, pixel rows are not required to be aligned on word boundaries, and no
+        /// pixel slots are skipped. The last word in the pixel buffer, which is the one the
+        /// last pixel in the image is assigned to, may still have unused pixel slots.
         ///
         bool word_aligned_rows;
 
@@ -882,9 +941,37 @@ struct BufferFormat {
         ///
         /// \brief Try to cast subword format as format of different type.
         ///
-        /// These functions are used by \ref BufferFormat::try_cast_to(), but can also be
-        /// called directly by the application when the origin format is statically known to
-        /// be a subword format (`SubwordFormat`).
+        /// These functions determine whether it is possible to reexpress this subword format
+        /// as the kind of format implied by the first argument (\p format), and with the
+        /// additional requirement that the word type of the new format must be as specified
+        /// (\p target_word_type).
+        ///
+        /// When it is possible to reexpress this format as specified, these functions
+        /// return `true` after setting \p format to the new format. Otherwise, these
+        /// functions return `false` and leave \p format unchanged.
+        ///
+        /// When these functions return `true`, it means that pixels stored in memory
+        /// according to the origin format can be accessed as though they were stored
+        /// according to the new format, i.e., the one specified by \p format.
+        ///
+        /// \important The ability to cast from format A to format B does *NOT* imply that
+        /// the reverse cast is possible, that is, it does not imply that pixels stored
+        /// according to format B can be accessed as if stored according to format A.
+        ///
+        /// A necessary but generally insufficient condition for these casts to succeed is
+        /// that the specified word type (\p target_word_type) is either equal to the word
+        /// type in the original format, or is `byte` (\ref IntegerType).
+        ///
+        /// While a successful cast guarantees that the target format can be used to access
+        /// any pixel buffer that could be accessed using the origin format, the reverse is
+        /// not guaranteed. I.e, it is possible that a cast fails even if there is a way to
+        /// express the origin format as a format of the specified type and using the
+        /// specified target word type, and that it would work for any pixel buffer (image
+        /// of any size).
+        ///
+        /// These functions require that the origin format is valid (\ref is_valid()), and
+        /// they ensure that the new format is valid. If the original format is invalid,
+        /// these functions throw.
         ///
         /// \sa \ref BufferFormat::try_cast_to()
         ///
@@ -897,7 +984,7 @@ struct BufferFormat {
         /// <em>Form 1:</em> The origin word type (\ref word_type) is the same as the
         /// specified target word type (\p target_word_type), or there is only one byte per
         /// origin word (\ref BufferFormat::get_bytes_per_word()) and the specified target
-        /// word type is `byte`. Additionally, the following conditions must hold:
+        /// word type is `byte`. Additionally, the following conditions hold:
         ///
         ///   * There is only one pixel per word in the subword format (\ref
         ///     pixels_per_word).
@@ -906,7 +993,7 @@ struct BufferFormat {
         ///     channel_conf).
         ///
         /// <em>Form 2:</em> There is more than one byte per origin word and the specified
-        /// target word type is `byte`. Additionally, the following conditions must hold:
+        /// target word type is `byte`. Additionally, the following conditions hold:
         ///
         ///   * The number of bits per channel component (\ref bits_per_channel) is an
         ///     integer multiple of the number of bits in a byte.
@@ -925,7 +1012,7 @@ struct BufferFormat {
         ///     word type.
         ///
         ///   * If there is more than one pixel per origin word, pixel rows are not required
-        ///     to be word aligned (\ref word_aligned_rows).
+        ///     to be word aligned in the origin format (\ref word_aligned_rows).
         ///
         /// When the cast succeeds, the parameters of the target format are set as follows:
         ///
@@ -955,21 +1042,22 @@ struct BufferFormat {
         /// ### Subword to packed
         ///
         /// A subword format can be cast to a packed format if, and only if the cast takes
-        /// one of the following two forms and the number of channels (\ref
-        /// ChannelConf::get_num_channels(), \ref channel_conf) is less than, or equal to
-        /// the maximum number of bit fields in a packed format (\ref
-        /// BufferFormat::max_bit_fields):
+        /// one of the following two forms:
         ///
         /// <em>Form 1:</em> The origin word type (\ref word_type) is the same as the
         /// specified target word type (\p target_word_type), or there is only one byte per
         /// origin word (\ref BufferFormat::get_bytes_per_word()) and the specified target
-        /// word type is `byte`. Additionally, the following conditions must hold:
+        /// word type is `byte`. Additionally, the following conditions hold:
         ///
         ///   * There is only one pixel per word in the subword format (\ref
         ///     pixels_per_word).
         ///
+        ///   * The number of channels (\ref ChannelConf::get_num_channels(), \ref
+        ///     channel_conf) is less than, or equal to the maximum number of bit fields in
+        ///     a packed format (\ref BufferFormat::max_bit_fields).
+        ///
         /// <em>Form 2:</em> There is more than one byte per origin word and the specified
-        /// target word type is `byte`. Additionally, the following conditions must hold:
+        /// target word type is `byte`. Additionally, the following conditions hold:
         ///
         ///   * If there is more than one pixel per origin word, the number of bits per
         ///     pixel (number of channels times \ref bits_per_channel) is an integer
@@ -989,7 +1077,10 @@ struct BufferFormat {
         ///     word type.
         ///
         ///   * If there is more than one pixel per origin word, pixel rows are not required
-        ///     to be word aligned (\ref word_aligned_rows).
+        ///     to be word aligned in the origin format (\ref word_aligned_rows).
+        ///
+        ///   * The number of channels is less than, or equal to the maximum number of bit
+        ///     fields in a packed format.
         ///
         /// When the cast succeeds, the parameters of the target format are set as follows:
         ///
@@ -1030,7 +1121,7 @@ struct BufferFormat {
         /// word type is `byte`.
         ///
         /// <em>Form 2:</em> There is more than one byte per origin word and the specified
-        /// target word type is `byte`. Additionally, the following conditions must hold:
+        /// target word type is `byte`. Additionally, the following conditions hold:
         ///
         ///   * There are no unused bits, which means that the number of pixels per word
         ///     (\ref pixels_per_word) times the number of channels (\ref
@@ -1048,7 +1139,8 @@ struct BufferFormat {
         ///   * The bit order (\ref bit_order) matches the native byte order for the origin
         ///     word type.
         ///
-        ///   * Pixel rows are not required to be word aligned (\ref word_aligned_rows).
+        ///   * Pixel rows are not required to be word aligned in the origin format (\ref
+        ///     word_aligned_rows).
         ///
         /// When the cast succeeds, the parameters of the target format are set as follows:
         ///
@@ -1115,28 +1207,143 @@ struct BufferFormat {
         /// format types.
         ///
         bool is_valid() const noexcept;
+
+        /// \brief Try to cast float format to other float format.
+        ///
+        /// This function is hardly useful but exists for the sake of alignment with the
+        /// other format types. It is called by \ref BufferFormat::try_cast_to(), but can
+        /// also be called directly by the application when the origin format is statically
+        /// known to be a float format (of type `FloatFormat`).
+        ///
+        /// An float format can be cast to another float format if, and only if the
+        /// specified target word type is the word type in the origin format (\ref
+        /// word_type).
+        ///
+        /// When the cast succeeds, the target format is set equal to the origin format.
+        ///
+        /// \sa \ref BufferFormat::try_cast_to()
+        ///
+        bool try_cast_to(FloatFormat& format, FloatType target_word_type) const;
     };
 
     /// \brief Pixel buffer format using indexed color.
     ///
-    /// With this format, each pixel in the pixel buffer is an index into a palette of
-    /// colors.
+    /// This pixel buffer format uses indirect color, which means that the pixels in the
+    /// pixel buffer are indexes into a palette of colors. As is further explained below,
+    /// the color indexes are stored in pixel slots, pixel slots reside inside bit
+    /// compounds, and bit compounds are constructed from memory words.
     ///
-    /// Pixels, i.e., indexes into the palette are stored in row-major order.
+    /// The pixel buffer is a sequence of memory words of the type specified by \ref
+    /// word_type. Those memory words are combined into larger bit compounds with \ref
+    /// words_per_compound specifying the number of consecutive memory words that are used
+    /// for each bit compound. The number of bits taken from each word is specified by \ref
+    /// bits_per_word, and the order in which those bits are combined is specified by \ref
+    /// word_order.
     ///
-    ///                                      
+    /// Each bit compound is divided into a fixed number of pixel slots. Each pixel slot has
+    /// a bit width specified by \ref bits_per_pixel, and the number of pixel slots is
+    /// specified by \ref pixels_per_compound. If the number of bit positions in a bit
+    /// compound is greater than the number of pixel slots per compound times the number of
+    /// bits per pixel slot, the unused bit positions are always those of greatest
+    /// significance. Bits at such unused positions must always be zero.
+    ///
+    /// From the point of view of a top-to-bottom, left-to-right, row-major traversal of the
+    /// image, pixels are associated with pixel slots as follows: The slots of a particular
+    /// bit compound are associated in the order specified by \ref bit_order, and bit
+    /// compounds are filled in order of increasing memory address.
+    ///
+    /// The last bit compound in the pixel buffer, which is the bit compound that contains
+    /// the last pixel in the image, may have unused pixel slots. Likewise, if \ref
+    /// compound_aligned_rows is `true`, the last bit compound of each row of pixels may
+    /// have unused pixel slots. Bits inside unused pixel slots are not required to be
+    /// zero. If \ref compound_aligned_rows is `true`, every pixel row is required to start
+    /// on a compound boundary. This is achieved by skipping remaining unused pixel slots in
+    /// the bit compound when the last pixel of the row has been associated with a pixel
+    /// slot.
     ///
     /// \sa \ref image::IndexedPixelFormat
     ///
     struct IndexedFormat {
+        /// \brief Pixel buffer element type.
+        ///
+        /// This is the type of memory elements that the described pixel buffer is made up
+        /// of. For example, if the word type is `IntegerType::int_` (see \ref
+        /// BufferFormat::IntegerType), it means that the memory needs to be accessed as an
+        /// array of elements of type `int`.
+        ///
         IntegerType word_type;
+
+        /// \brief Number of bit used per pixel.
+        ///
+        /// This is the number of bits that are used per pixel, that is, per color index.
+        ///
         int bits_per_pixel;
+
+        /// \brief Number of pixel slots in each bit compound.
+        ///
+        /// This is the number of pixel slots that will exist in each bit compound. The
+        /// order of pixels within the bits of the compound is specified by \ref bit_order.
+        ///
         int pixels_per_compound;
+
+        /// \brief Number of used bit positions per word
+        ///
+        /// This is the number of bits that are taken from each word to make up a bit
+        /// compound. Specifically, if N is the value of `bits_per_word`, then the bits
+        /// corresponding to the N least significant bit positions are taken from each
+        /// word. The order in which those bits are assembled into bit compounds is
+        /// specified by \ref word_order. Bits at unused bit positions must be zero.
+        ///
         int bits_per_word;
+
+        /// \brief Number of words per bit compound.
+        ///
+        /// This is the number of words that make up each bit compound.
+        ///
         int words_per_compound;
+
+        /// \brief Order of pixels within bit compound.
+        ///
+        /// The bit order specifies the order in which pixels are assigned to pixel slots of
+        /// a particular bit compound with respect to a top-to-bottom, left-to-right,
+        /// row-major traversal of the image. If the bit order is set to 'big endian',
+        /// pixels will be assigned to slots in order of decreasing bit position
+        /// significance. If it is set to 'little endian', they will be assigned in order of
+        /// increasing bit position significance. Unused pixel slots will always be slots of
+        /// greatest bit position significance.
+        ///
         core::Endianness bit_order;
+
+        /// \brief Order in which words are assembled into bit compounds.
+        ///
+        /// The word order specifies how words are assembled into bit compounds. If the word
+        /// order is set to 'big endian', words at lower memory address will make up bits of
+        /// higher significance in the bit compound value.
+        ///
         core::Endianness word_order;
+
+        /// \brief Whether pixel rows are required_to be aligned on bit compound boundaries.
+        ///
+        /// If `true`, pixel rows are required to be aligned on word boundaries. This means
+        /// that during a top-to-bottom, left-to-right, row-major traversal of the pixels,
+        /// when the last pixel in a row is assigned to a bit compound and there are
+        /// additional unused pixel slots in that bit compound, those unused pixel slots
+        /// will be skipped such that the first pixel of the next row is assigned to the
+        /// first slot in the next bit compound.
+        ///
+        /// If `false`, pixel rows are not required to be aligned on bit compound
+        /// boundaries, and no pixel slots are skipped. The last bit compound in the pixel
+        /// buffer, which is the one the last pixel in the image is assigned to, may still
+        /// have unused pixel slots.
+        ///
         bool compound_aligned_rows;
+
+        /// \brief Associated palette.
+        ///
+        /// The palette whose colors are referenced by the color indexes in the described
+        /// pixel buffer.
+        ///
+        const image::Image* palette;
 
         /// \brief Whether all consistency requirements are met.
         ///
@@ -1145,20 +1352,213 @@ struct BufferFormat {
         ///
         /// The consistency requirements are:
         ///
-        ///   * `bits_per_pixel` `pixels_per_compound`, `bits_per_word`, and
-        ///     `words_per_compound` must all be greater than, or equal to 1.
+        ///   * \ref bits_per_pixel, \ref pixels_per_compound, \ref bits_per_word, and \ref
+        ///     words_per_compound must all be greater than, or equal to 1.
         ///
-        ///   * `bits_per_word` must be less than, or equal to number of available bits per
-        ///     word (\ref BufferFormat::get_bits_per_word()).
+        ///   * \ref bits_per_word must be less than, or equal to number of available bits
+        ///     per word (\ref BufferFormat::get_bits_per_word()).
         ///
-        ///   * The number of bits per compound (`words_per_compound` times `bits_per_word`)
-        ///     must be representable in type `int`.
+        ///   * The number of used bits in the bit compound (\ref pixels_per_compound times
+        ///     \ref bits_per_pixel) must be less than, or equal to the number of bits per
+        ///     compound (\ref words_per_compound times \ref bits_per_word).
         ///
-        ///   * The number of bits per compound allocated for pixels (`pixels_per_compound`
-        ///     times `bits_per_pixel`) must be less than, or equal to the total number of
-        ///     bits per compound (`words_per_compound` times `bits_per_word`).
+        ///   * The unreduced number of bits per bit compound must be representable in type
+        ///     `int`. The *unreduced number of bits per bit compound* is the number of bits
+        ///     in a byte (usually 8) times the number of bytes per word (\ref
+        ///     BufferFormat::get_bytes_per_word()) times the number of words per compound
+        ///     (\ref words_per_compound).
         ///
         bool is_valid() const noexcept;
+
+        /// \brief Try to cast indexed format to different word type.
+        ///
+        /// This function determines whether it is possible to reexpress this indexed format
+        /// as an indexed format using the specified target word type (\p target_word_type).
+        ///
+        /// When it is possible to reexpress this format as specified, this function return
+        /// `true` after setting \p format to the new format. Otherwise, this function
+        /// returns `false` and leaves \p format unchanged.
+        ///
+        /// When this function returns `true`, it means that pixels stored in memory
+        /// according to the origin format can be accessed as though they were stored
+        /// according to the new format, i.e., the one specified by \p format.
+        ///
+        /// \important The ability to cast from format A to format B does *NOT* imply that
+        /// the reverse cast is possible, that is, it does not imply that pixels stored
+        /// according to format B can be accessed as if stored according to format A.
+        ///
+        /// A necessary but generally insufficient condition for this cast to succeed is
+        /// that the specified word type (\p target_word_type) is either equal to the word
+        /// type in the original format, or is `byte` (\ref IntegerType).
+        ///
+        /// While a successful cast guarantees that the target format can be used to access
+        /// any pixel buffer that could be accessed using the origin format, the reverse is
+        /// not guaranteed. I.e, it is possible that a cast fails even if there is a way to
+        /// express the origin format using the specified target word type, and that it
+        /// would work for any pixel buffer (image of any size).
+        ///
+        /// This function requires that the origin format is valid (\ref is_valid()), and it
+        /// ensures that the new format is valid. If the original format is invalid, this
+        /// function throws.
+        ///
+        /// \sa \ref BufferFormat::try_cast_to()
+        /// \sa \ref IndexedFormat::try_cast_to_2()
+        ///
+        ///
+        /// An indexed format can be cast to another indexed format that uses the specified
+        /// target word type if, and only if the cast takes one of the following two forms:
+        ///
+        /// <em>Form 1:</em> The origin word type (\ref word_type) is the same as the
+        /// specified target word type (\p target_word_type), or there is only one byte per
+        /// origin word (\ref BufferFormat::get_bytes_per_word()) and the specified target
+        /// word type is `byte`.
+        ///
+        /// <em>Form 2:</em> There is more than one byte per origin word and the specified
+        /// target word type is `byte`. Additionally, the following conditions hold:
+        ///
+        ///   * The native byte order for the origin word type is determinable (\ref
+        ///     BufferFormat::try_get_byte_order()).
+        ///
+        ///   * At least one of the following *bit compound conditions* hold:
+        ///
+        ///      1. There is only one word per bit compound in the origin format.
+        ///
+        ///      2. There are no unused bits in the origin words (\ref bits_per_word is
+        ///         equal to the number of bits in a byte times the number of bytes in an
+        ///         origin word) and the word order in the origin format matches the native
+        ///         byte order for the origin word type.
+        ///
+        ///      3. All pixel slots are fully contained in the first origin word and the
+        ///         word order in the origin format matches the native byte order for the
+        ///         origin word type.
+        ///
+        /// When the cast succeeds, the parameters of the target format are set as follows:
+        ///
+        ///   * The word type (\ref word_type) is set to the specified target word type.
+        ///
+        ///   * The number of bits per pixel (\ref bits_per_pixel) is set to the number of
+        ///     bits per pixel in the origin format.
+        ///
+        ///   * The number of pixels per bit compound (\ref pixels_per_compound) is set to
+        ///     the number of pixels per bit compound in the origin format.
+        ///
+        ///   * The number of bits per word (\ref bits_per_word) is set to the number of
+        ///     bits per word in the origin format if the cast is on the first form (see
+        ///     above). Otherwise, the number of bits per word is set to the number of bits
+        ///     in a byte (usually 8).
+        ///
+        ///   * The number of words per bit compound (\ref words_per_compound) is set to the
+        ///     number of words per bit compound in the origin format if the cast is on the
+        ///     first form (see above). Otherwise, the number of words per bit compound is
+        ///     set to that times the number of bytes per origin word.
+        ///
+        ///   * The bit order (\ref bit_order) is set to the bit order in the origin format.
+        ///
+        ///   * The word order (\ref word_order) is set to the word order in the origin
+        ///     format if the cast is on the first form (see above). Otherwise, the word
+        ///     order is set to the native byte order for the origin word type.
+        ///
+        ///   * Pixel rows will be required to be compound aligned (\ref
+        ///     compound_aligned_rows) if, and only if pixel rows are required to be
+        ///     compound aligned in the origin format.
+        ///
+        bool try_cast_to_1(IndexedFormat& format, IntegerType target_word_type) const;
+
+        /// \brief Try to cast indexed format to smaller bit compound size.
+        ///
+        /// This function determines whether it is possible to reexpress this indexed format
+        /// as an indexed format using the specified number of memory words per bit compound
+        /// (\p words_per_target_compound).
+        ///
+        /// When it is possible to reexpress this format as specified, this function return
+        /// `true` after setting \p format to the new format. Otherwise, this function
+        /// returns `false` and leaves \p format unchanged.
+        ///
+        /// When this function returns `true`, it means that pixels stored in memory
+        /// according to the origin format can be accessed as though they were stored
+        /// according to the new format, i.e., the one specified by \p format.
+        ///
+        /// \important The ability to cast from format A to format B does *NOT* imply that
+        /// the reverse cast is possible, that is, it does not imply that pixels stored
+        /// according to format B can be accessed as if stored according to format A.
+        ///
+        /// A necessary but generally insufficient condition for this cast to succeed is
+        /// that the specified number of words per bit compound (\p
+        /// words_per_target_compound) evenly divides the number of words per bit compound
+        /// in the origin format.
+        ///
+        /// While a successful cast guarantees that the target format can be used to access
+        /// any pixel buffer that could be accessed using the origin format, the reverse is
+        /// not guaranteed. I.e, it is possible that a cast fails even if there is a way to
+        /// express the origin format using the specified number of words per target
+        /// compound, and that it would work for any pixel buffer (image of any size).
+        ///
+        /// This function requires that the origin format is valid (\ref is_valid()), and it
+        /// ensures that the new format is valid. It also requires that the specified number
+        /// of words per target compound is greater than, or equal to 1. If the original
+        /// format is invalid or the specified number of words per target compound is less
+        /// than 1, this function throws.
+        ///
+        /// \sa \ref IndexedFormat::try_cast_to_1()
+        ///
+        ///
+        /// An indexed format can be cast to another indexed format that uses the specified
+        /// number of words per bit compound if, and only if the cast takes one of the
+        /// following two forms:
+        ///
+        /// <em>Form 1:</em> The specified number of words per target bit compound (\p
+        /// words_per_target_compound) is equal to the number of words per bit compound in
+        /// the origin format (\p words_per_compound).
+        ///
+        /// <em>Form 2:</em> The specified number of words per target bit compound is
+        /// different from the number of words per bit compound in the origin
+        /// format. Additionally, the following conditions hold:
+        ///
+        ///   * The number of words per bit compound in origin format is an integer multiple
+        ///     of the specified number of words per target bit compound.
+        ///
+        ///   * The number of bits per target bit compound (\ref bits_per_word times \p
+        ///     words_per_target_compound) is an integer multiple of the number of bits per
+        ///     pixel.
+        ///
+        ///   * There are no unused bits in the origin bit compound (\ref bits_per_pixel
+        ///     times \ref pixels_per_compound is equal to \ref bits_per_word times \ref
+        ///     words_per_compound).
+        ///
+        ///   * The bit order in the origin format (\ref bit_order) matches the word order
+        ///     in the origin format (\ref word_order).
+        ///
+        ///   * Pixel rows are not required to be compound aligned in the origin format
+        ///     (\ref compound_aligned_rows).
+        ///
+        /// When the cast succeeds, the parameters of the target format are set as follows:
+        ///
+        ///   * The word type (\ref word_type) is set to the word type in the origin format.
+        ///
+        ///   * The number of bits per pixel (\ref bits_per_pixel) is set to the number of
+        ///     bits per pixel in the origin format.
+        ///
+        ///   * The number of pixels per bit compound (\ref pixels_per_compound) is set to
+        ///     the number of pixels per bit compound in the origin format divided by Q,
+        ///     where Q is the number of words per bit compound in the origin format divided
+        ///     by the number of words per bit compound in the target format.
+        ///
+        ///   * The number of bits per word (\ref bits_per_word) is set to the number of
+        ///     bits per word in the origin format.
+        ///
+        ///   * The number of words per bit compound (\ref words_per_compound) is set as
+        ///     specified (\p words_per_target_compound).
+        ///
+        ///   * The bit order (\ref bit_order) is set to the bit order in the origin format.
+        ///
+        ///   * The word order (\ref word_order) is set to the word order in the origin
+        ///     format.
+        ///
+        ///   * Pixel rows will be required to be compound aligned (\ref
+        ///     compound_aligned_rows) if, and only if pixel rows are required to be
+        ///     compound aligned in the origin format.
+        ///
+        bool try_cast_to_2(IndexedFormat& format, int words_per_target_compound) const;
     };
 
     enum class Type { integer,  packed, subword, float_, indexed };
@@ -1218,7 +1618,7 @@ struct BufferFormat {
                             bool reverse_channel_order);
     void set_indexed_format(IntegerType word_type, int bits_per_pixel, int pixels_per_compound,
                             int bits_per_word, int words_per_compound, core::Endianness bit_order,
-                            core::Endianness word_order, bool compound_aligned_rows);
+                            core::Endianness word_order, bool compound_aligned_rows, const image::Image& palette);
     /// \}
 
     /// \brief Whether all consistency requirements are met.
@@ -1234,47 +1634,29 @@ struct BufferFormat {
     ///
     /// These functions determine whether it is possible to reexpress this buffer format as
     /// the kind of format implied by the first argument, and with the additional
-    /// requirement that the word type of the new format must be the specified word type (\p
+    /// requirement that the word type of the new format must be as specified (\p
     /// target_word_type).
     ///
     /// When it is possible to reexpress the original format as specified, these functions
     /// return `true` after setting \p format to the new format. Otherwise, these function
     /// return `false` and leave \p format unchanged.
     ///
-    /// For details on each type of cast, see \ref IntegerFormat::try_cast_to(), \ref
-    /// PackedFormat::try_cast_to(), \ref SubwordFormat::try_cast_to().
+    /// These functions all check the type of contained format and forwards the call to the
+    /// corresponding casting function if one exists. If there is no casting function for a
+    /// particular origin and target format type, these functions return `false`.  See \ref
+    /// IntegerFormat::try_cast_to(), \ref PackedFormat::try_cast_to(), \ref
+    /// SubwordFormat::try_cast_to(), \ref FloatFormat::try_cast_to(), and \ref
+    /// IndexedFormat::try_cast_to_1().
     ///
-    /// When these functions return `true`, it means that pixels stored in memory according
-    /// to the original format can be accessed as though they were stored according to the
-    /// new format, i.e., the one specified by \p format upon return.
-    ///
-    /// CAUTION: The ability to cast format A to format B does *NOT* imply that pixels
-    /// stored according to format B can be accessed as though they were stored according to
-    /// format A. If it did, it would allow for memory allocated in terms of `char` to be
-    /// accessed in terms of `int`, for example. This is not allowed in C++.
-    ///
-    /// A necessary, but insufficient condition for success is that the original buffer
-    /// format is one of the integer based formats (\ref IntegerFormat, \ref PackedFormat,
-    /// or \ref SubwordFormat), and that the specified word type (\p target_word_type) is
-    /// either equal to the word type of the original buffer format, or is
-    /// `IntegerType::byte`.
-    ///
-    /// A successful cast guarantees that the target format format is equivalent to the
-    /// origin format for images of any size. Conversely, there could be a cast that fails
-    /// even though an equivalent target format does exist for an image of a particular
-    /// size.
-    ///
-    /// These function require that the original format is valid (\ref is_valid()), and they
-    /// ensure that the new format is valid. If the original format is invalid, these
-    /// functions throw.
-    ///
-    /// \sa \ref IntegerFormat, \ref PackedFormat, \ref SubwordFormat
     /// \sa \ref IntegerFormat::try_cast_to(), \ref PackedFormat::try_cast_to(), \ref SubwordFormat::try_cast_to()
-    /// \sa \ref IntegerType
+    /// \sa \ref FloatFormat::try_cast_to(), \ref IndexedFormat::try_cast_to_1()
+    /// \sa \ref IntegerType, \ref FloatType
     ///
     bool try_cast_to(IntegerFormat& format, IntegerType target_word_type) const;
     bool try_cast_to(PackedFormat& format, IntegerType target_word_type) const;
     bool try_cast_to(SubwordFormat& format, IntegerType target_word_type) const;
+    bool try_cast_to(FloatFormat& format, FloatType target_word_type) const;
+    bool try_cast_to(IndexedFormat& format, IntegerType target_word_type) const;
     /// \}
 
     /// \brief Number of available bits for word type.
@@ -1392,9 +1774,12 @@ inline void BufferFormat::ChannelConf::reverse() noexcept
 
 inline bool BufferFormat::IntegerFormat::is_valid() const noexcept
 {
+    int bits_per_word_u = get_bytes_per_word(word_type) * core::int_width<char>();
+    int num_channels = channel_conf.get_num_channels();
     return (bits_per_word > 0 && words_per_channel > 0 &&
             bits_per_word <= get_bits_per_word(word_type) &&
-            words_per_channel <= core::int_max<int>() / bits_per_word);
+            words_per_channel <= core::int_max<int>() / bits_per_word_u &&
+            num_channels <= core::int_max<int>() / (words_per_channel * bits_per_word_u));
 }
 
 
@@ -1410,12 +1795,13 @@ inline auto BufferFormat::IntegerFormat::get_words_per_row(int image_width) cons
 
 inline bool BufferFormat::PackedFormat::is_valid() const noexcept
 {
+    int bits_per_word_u = get_bytes_per_word(word_type) * core::int_width<char>();
     int num_channels = channel_conf.get_num_channels();
     return (bits_per_word > 0 && words_per_pixel > 0 &&
             bits_per_word <= get_bits_per_word(word_type) &&
-            words_per_pixel <= core::int_max<int>() / bits_per_word &&
             num_channels <= max_bit_fields &&
-            image::valid_bit_fields(bit_fields.data(), num_channels, words_per_pixel * bits_per_word));
+            image::valid_bit_fields(bit_fields.data(), num_channels, words_per_pixel * bits_per_word) &&
+            words_per_pixel <= core::int_max<int>() / bits_per_word_u);
 }
 
 
@@ -1437,11 +1823,12 @@ inline bool BufferFormat::FloatFormat::is_valid() const noexcept
 
 inline bool BufferFormat::IndexedFormat::is_valid() const noexcept
 {
+    int bits_per_word_u = get_bytes_per_word(word_type) * core::int_width<char>();
     return (bits_per_pixel > 0 && pixels_per_compound > 0 &&
             bits_per_word > 0 && words_per_compound > 0 &&
             bits_per_word <= get_bits_per_word(word_type) &&
-            words_per_compound <= core::int_max<int>() / bits_per_word &&
-            pixels_per_compound <= (words_per_compound * bits_per_word) / bits_per_pixel);
+            pixels_per_compound <= (words_per_compound * bits_per_word) / bits_per_pixel &&
+            words_per_compound <= core::int_max<int>() / bits_per_word_u);
 }
 
 
@@ -1556,7 +1943,8 @@ inline void BufferFormat::set_subword_format(IntegerType word_type, int bits_per
 
 inline void BufferFormat::set_indexed_format(IntegerType word_type, int bits_per_pixel, int pixels_per_compound,
                                              int bits_per_word, int words_per_compound, core::Endianness bit_order,
-                                             core::Endianness word_order, bool compound_aligned_rows)
+                                             core::Endianness word_order, bool compound_aligned_rows,
+                                             const image::Image& palette)
 {
     type = Type::indexed;
     indexed = {
@@ -1568,6 +1956,7 @@ inline void BufferFormat::set_indexed_format(IntegerType word_type, int bits_per
         bit_order,
         word_order,
         compound_aligned_rows,
+        &palette,
     };
 }
 

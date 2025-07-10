@@ -34,6 +34,7 @@
 #include <archon/image/comp_repr.hpp>
 #include <archon/image/pixel_repr.hpp>
 #include <archon/image/pixel.hpp>
+#include <archon/image/transfer_info.hpp>
 #include <archon/image/buffer_format.hpp>
 #include <archon/image/image.hpp>
 
@@ -44,7 +45,7 @@ namespace archon::image {
 /// \brief Present array of colors as image useful as palette.
 ///
 /// This class allows for an array of colors to be presented as an image in a way that makes
-/// that image useful as a palette (\ref image::Image::get_palette()).
+/// that image useful as a palette (\ref image::TransferInfo::palette).
 ///
 /// Palettes (images functioning as palettes) can be used with images that use an indexed
 /// pixel format. For example, a buffered image (\ref image::BufferedImage) using a pixel
@@ -106,8 +107,7 @@ public:
     // Overriding virtual member functions of `image::Image`.
     auto get_size() const noexcept -> image::Size override final;
     bool try_get_buffer(image::BufferFormat&, const void*&) const override final;
-    auto get_transfer_info() const -> TransferInfo override final;
-    auto get_palette() const noexcept -> const Image* override final;
+    auto get_transfer_info() const -> image::TransferInfo override final;
     void read(image::Pos, const image::Tray<void>&) const override final;
 
 private:
@@ -180,21 +180,18 @@ bool PaletteImage<R>::try_get_buffer(image::BufferFormat&, const void*&) const
 
 
 template<class R>
-auto PaletteImage<R>::get_transfer_info() const -> TransferInfo
+auto PaletteImage<R>::get_transfer_info() const -> image::TransferInfo
 {
+    const image::Image* palette = nullptr;
+    int index_depth = 0;
     return {
-        repr_type::comp_repr,
         &repr_type::get_color_space(),
         repr_type::has_alpha,
+        repr_type::comp_repr,
         image::comp_repr_bit_width<repr_type::comp_repr>(),
+        palette,
+        index_depth,
     };
-}
-
-
-template<class R>
-auto PaletteImage<R>::get_palette() const noexcept -> const Image*
-{
-    return nullptr;
 }
 
 
