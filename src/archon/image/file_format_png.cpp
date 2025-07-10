@@ -307,6 +307,7 @@ bool try_match_save_format(const image::BufferFormat& buffer_format, image::Size
         }
         return false;
     }
+
     image::BufferFormat::SubwordFormat subword_format = {};
     if (ARCHON_LIKELY(buffer_format.try_cast_to(subword_format, word_type))) { // Throws
         switch (subword_format.bits_per_channel) {
@@ -339,14 +340,13 @@ bool try_match_save_format(const image::BufferFormat& buffer_format, image::Size
         bytes_per_row = core::int_cast<std::size_t>(bytes_per_row_2); // Throws
         return true;
     }
-/*
+
     image::BufferFormat::IndexedFormat indexed_format = {};
     if (ARCHON_LIKELY(buffer_format.try_cast_to(indexed_format, word_type))) { // Throws
         
         ARCHON_STEADY_ASSERT_UNREACHABLE();                                     
         return false;
     }
-*/
     return false;
 }
 
@@ -1344,7 +1344,7 @@ bool save(const image::Image& image, core::Sink& sink, const std::locale& loc, l
         }
     }
     if (!format_matched) {
-        // FIXME: Replicate indexed format if origin image is indirect color image and color space is Lum or RGB and bit depth is less than, or equal to 8 (requires that `is_indexed` and `palette_size` are added to `image::Image::TransferInfo`, requires also that functions are added to `image::Image` that allow for extraction of pixels as indexes into palette and extraction of palette entries)                                                                                        
+        // FIXME: Replicate indexed format if origin image is indirect color image and color space is Lum or RGB and bit depth is less than, or equal to 8 (requires that `is_indexed` and `palette_size` are added to `image::Image::TransferInfo`, requires also that functions are added to `image::Image` that allow for extraction of pixels as indexes into palette and extraction of palette entries)                                                                                                                
         Format format = {};
         WriteTransformations xforms = {};
         image::Image::TransferInfo info = image.get_transfer_info(); // Throws
