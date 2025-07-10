@@ -753,6 +753,44 @@ bool BufferFormat::SubwordFormat::try_cast_to(SubwordFormat& format, IntegerType
 }
 
 
+bool BufferFormat::FloatFormat::try_cast_to(FloatFormat& format, FloatType target_word_type) const
+{
+    // CASE: float --> float
+
+    if (ARCHON_UNLIKELY(!is_valid()))
+        throw std::runtime_error("Invalid float format");
+
+    if (target_word_type == word_type) {
+        format = *this;
+        return true;
+    }
+
+    return false;
+}
+
+
+bool BufferFormat::IndexedFormat::try_cast_to(IndexedFormat& format, IntegerType target_word_type) const
+{
+    // CASE: indexed --> indexed
+
+    if (ARCHON_UNLIKELY(!is_valid()))
+        throw std::runtime_error("Invalid subword format");
+
+    // Same word type or from byte sized to bytes:
+    //   Just copy, but set new word type
+    // Else:
+    ///  Require: there is only one origin word per bit compound, or
+    ///           all pixels fully reside in first origin word and word order matches byte order, or
+    ///           all bits of each origin word is used and word order matches byte order.
+    ///  Require: determinable byte order
+    //   Multiply words_per_compound by number of bytes per word
+
+    static_cast<void>(format);        
+    static_cast<void>(target_word_type);        
+    return false;
+}
+
+
 bool BufferFormat::is_valid() const noexcept
 {
     switch (type) {
@@ -819,6 +857,38 @@ bool BufferFormat::try_cast_to(SubwordFormat& format, IntegerType target_word_ty
             return subword.try_cast_to(format, target_word_type); // Throws
         case Type::float_:
         case Type::indexed:
+            break;
+    }
+
+    return false;
+}
+
+
+bool BufferFormat::try_cast_to(FloatFormat& format, FloatType target_word_type) const
+{
+    switch (type) {
+        case Type::float_:
+            return float_.try_cast_to(format, target_word_type); // Throws
+        case Type::integer:
+        case Type::packed:
+        case Type::subword:
+        case Type::indexed:
+            break;
+    }
+
+    return false;
+}
+
+
+bool BufferFormat::try_cast_to(IndexedFormat& format, IntegerType target_word_type) const
+{
+    switch (type) {
+        case Type::indexed:
+            return indexed.try_cast_to(format, target_word_type); // Throws
+        case Type::integer:
+        case Type::packed:
+        case Type::subword:
+        case Type::float_:
             break;
     }
 
