@@ -128,9 +128,7 @@ bool BufferFormat::IntegerFormat::try_cast_to(PackedFormat& format, IntegerType 
     if (ARCHON_UNLIKELY(num_channels > max_bit_fields))
         return false;
 
-    int words_per_pixel = words_per_channel_2;
-    if (ARCHON_UNLIKELY(!core::try_int_mul(words_per_pixel, num_channels)))
-        return false;
+    int words_per_pixel = num_channels * words_per_channel_2;
 
     format = {
         target_word_type,

@@ -360,18 +360,16 @@ struct BufferFormat {
         /// ### Integer to packed
         ///
         /// An integer format can be cast to a packed format if, and only if the cast takes
-        /// one of the following two forms and the number of channels (\ref
-        /// ChannelConf::get_num_channels(), \ref channel_conf) is less than, or equal to
-        /// the maximum number of bit fields in a packed format (\ref
-        /// BufferFormat::max_bit_fields):
+        /// one of the following two forms:
         ///
         /// <em>Form 1:</em> The origin word type (\ref word_type) is the same as the
         /// specified target word type (\p target_word_type), or there is only one byte per
         /// origin word (\ref BufferFormat::get_bytes_per_word()) and the specified target
         /// word type is `byte`. Additionally, the following conditions hold:
         ///
-        ///   * The number of words per pixel (\ref words_per_channel times number of
-        ///     channels) is representable in an object of type `int`.
+        ///   * The number of channels (\ref ChannelConf::get_num_channels(), \ref
+        ///     channel_conf) is less than, or equal to the maximum number of bit fields in
+        ///     a packed format (\ref BufferFormat::max_bit_fields).
         ///
         /// <em>Form 2:</em> There is more than one byte per origin word and the specified
         /// target word type is `byte`. Additionally, the following conditions hold:
@@ -386,9 +384,8 @@ struct BufferFormat {
         ///     the origin word order (\ref word_order) matches the native byte order for
         ///     the origin word type.
         ///
-        ///   * The number of bytes per pixel (\ref words_per_channel times number of
-        ///     channels times number of bytes per origin word) is representable in an
-        ///     object of type `int`.
+        ///   * The number of channels is less than, or equal to the maximum number of bit
+        ///     fields in a packed format.
         ///
         /// When the cast succeeds, the parameters of the target format are set as follows:
         ///
@@ -1044,10 +1041,7 @@ struct BufferFormat {
         /// ### Subword to packed
         ///
         /// A subword format can be cast to a packed format if, and only if the cast takes
-        /// one of the following two forms and the number of channels (\ref
-        /// ChannelConf::get_num_channels(), \ref channel_conf) is less than, or equal to
-        /// the maximum number of bit fields in a packed format (\ref
-        /// BufferFormat::max_bit_fields):
+        /// one of the following two forms:
         ///
         /// <em>Form 1:</em> The origin word type (\ref word_type) is the same as the
         /// specified target word type (\p target_word_type), or there is only one byte per
@@ -1056,6 +1050,10 @@ struct BufferFormat {
         ///
         ///   * There is only one pixel per word in the subword format (\ref
         ///     pixels_per_word).
+        ///
+        ///   * The number of channels (\ref ChannelConf::get_num_channels(), \ref
+        ///     channel_conf) is less than, or equal to the maximum number of bit fields in
+        ///     a packed format (\ref BufferFormat::max_bit_fields).
         ///
         /// <em>Form 2:</em> There is more than one byte per origin word and the specified
         /// target word type is `byte`. Additionally, the following conditions hold:
@@ -1079,6 +1077,9 @@ struct BufferFormat {
         ///
         ///   * If there is more than one pixel per origin word, pixel rows are not required
         ///     to be word aligned in the origin format (\ref word_aligned_rows).
+        ///
+        ///   * The number of channels is less than, or equal to the maximum number of bit
+        ///     fields in a packed format.
         ///
         /// When the cast succeeds, the parameters of the target format are set as follows:
         ///
@@ -1687,35 +1688,15 @@ inline auto BufferFormat::IntegerFormat::get_words_per_row(int image_width) cons
 }
 
 
-                                      
-        ///   * \ref bits_per_word and \ref words_per_pixel must be greater than, or equal
-        ///     to 1.
-        ///
-        ///   * \ref bits_per_word must be less than, or equal to the number of available
-        ///     bits per word (\ref BufferFormat::get_bits_per_word(), \ref word_type).
-        ///
-        ///   * The number of channels (\ref ChannelConf::get_num_channels(), \ref
-        ///     channel_conf) must be less than, or equal to \ref max_bit_fields.
-        ///
-        ///   * If N is the number of channels, the first N bit fields must describe a valid
-        ///     sequence of bit fields that fit within a bit compound (\ref words_per_pixel
-        ///     times \ref bits_per_word). See \ref image::valid_bit_fields() for an
-        ///     explanation of what it means for a sequence of bit fields to be valid and
-        ///     fit within a certain number of bits.
-        ///
-        ///   * The unreduced number of bits per bit compound must be representable in type
-        ///     `int`. The *unreduced number of bits per bit compound* is the number of bits
-        ///     in a byte (usually 8) times the number of bytes per word (\ref
-        ///     BufferFormat::get_bytes_per_word()) times the number of words per compound
-        ///     (\ref words_per_pixel).
 inline bool BufferFormat::PackedFormat::is_valid() const noexcept
 {
+    int bits_per_word_u = get_bytes_per_word(word_type) * core::int_width<char>();
     int num_channels = channel_conf.get_num_channels();
     return (bits_per_word > 0 && words_per_pixel > 0 &&
             bits_per_word <= get_bits_per_word(word_type) &&
-            words_per_pixel <= core::int_max<int>() / bits_per_word &&
             num_channels <= max_bit_fields &&
-            image::valid_bit_fields(bit_fields.data(), num_channels, words_per_pixel * bits_per_word));
+            image::valid_bit_fields(bit_fields.data(), num_channels, words_per_pixel * bits_per_word) &&
+            words_per_pixel <= core::int_max<int>() / bits_per_word_u);
 }
 
 
