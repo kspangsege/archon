@@ -52,9 +52,16 @@ namespace {
 
 
 using IntegerType = image::BufferFormat::IntegerType;
+using FloatType   = image::BufferFormat::FloatType;
 
 constexpr std::array g_other_integer_types = {
     IntegerType::short_,
+};
+
+constexpr std::array g_other_float_types = {
+    FloatType::float_,
+    FloatType::double_,
+    FloatType::ldouble,
 };
 
 
@@ -75,6 +82,7 @@ using quadruple_int_type = core::pick_type<is_quadruple_int, short, int, long, l
 using IntegerFormat = image::BufferFormat::IntegerFormat;
 using PackedFormat  = image::BufferFormat::PackedFormat;
 using SubwordFormat = image::BufferFormat::SubwordFormat;
+using FloatFormat   = image::BufferFormat::FloatFormat;
 using IndexedFormat = image::BufferFormat::IndexedFormat;
 
 
@@ -307,6 +315,37 @@ template<class F> void generate_subword_test_formats(IntegerType word_type, F&& 
 
     for (int n: { 1, 2, 3, 4, 5, 7, 8, 9, 15, 16 })
         gen_6(n); // Throws
+}
+
+
+template<class F> void generate_float_test_formats(FloatType word_type, F&& func)
+{
+    auto gen = [&](const image::ColorSpace& color_space, bool has_alpha_channel,
+                   bool alpha_channel_first, bool reverse_channel_order) {
+        image::BufferFormat::ChannelConf channel_conf = {
+            &color_space,
+            has_alpha_channel,
+            alpha_channel_first,
+            reverse_channel_order,
+        };
+        FloatFormat format = {
+            word_type,
+            channel_conf,
+        };
+        func(format); // Throws
+    };
+
+    auto gen_2 = [&](const image::ColorSpace& color_space, bool has_alpha_channel) {
+        gen(color_space, has_alpha_channel, false, false); // Throws
+        gen(color_space, has_alpha_channel, false, true);  // Throws
+        gen(color_space, has_alpha_channel, true, false);  // Throws
+        gen(color_space, has_alpha_channel, true, true);   // Throws
+    };
+
+    gen_2(image::ColorSpace::get_lum(), false); // Throws
+    gen_2(image::ColorSpace::get_lum(), true);  // Throws
+    gen_2(image::ColorSpace::get_rgb(), false); // Throws
+    gen_2(image::ColorSpace::get_rgb(), true);  // Throws
 }
 
 
@@ -567,6 +606,36 @@ inline bool indexed_format_wrapper::operator==(const indexed_format_wrapper& oth
             a.bit_order == b.bit_order                     &&
             a.word_order == b.word_order                   &&
             a.compound_aligned_rows == b.compound_aligned_rows);
+}
+
+
+struct float_format_wrapper {
+    const FloatFormat& format;
+
+    bool operator==(const float_format_wrapper& other) const noexcept;
+};
+
+
+auto wrap(const FloatFormat& format) noexcept
+{
+    return float_format_wrapper { format };
+}
+
+
+auto operator<<(std::ostream& out, float_format_wrapper wrapper) -> std::ostream&
+{
+    const FloatFormat& format = wrapper.format;
+    out << core::formatted("(%s, %s)", format.word_type, wrap(format.channel_conf)); // Throws
+    return out;
+}
+
+
+inline bool float_format_wrapper::operator==(const float_format_wrapper& other) const noexcept
+{
+    const FloatFormat& a = format;
+    const FloatFormat& b = other.format;
+    return (a.word_type == b.word_type &&
+            wrap(a.channel_conf) == wrap(b.channel_conf));
 }
 
 
@@ -861,6 +930,11 @@ ARCHON_TEST_VARIANTS(abridged_integer_type_variants,
                      ARCHON_TEST_VALUE(IntegerType::fict_1, Fictional1),
                      ARCHON_TEST_VALUE(IntegerType::fict_2, Fictional2),
                      ARCHON_TEST_VALUE(IntegerType::fict_3, Fictional3));
+
+ARCHON_TEST_VARIANTS(abridged_float_type_variants,
+                     ARCHON_TEST_VALUE(FloatType::float_,  Float),
+                     ARCHON_TEST_VALUE(FloatType::double_, Double));
+
 
 
 ARCHON_TEST_BATCH(Image_BufferFormat_TryCastTo_IntegerToInteger, abridged_integer_type_variants)
@@ -2065,6 +2139,39 @@ ARCHON_TEST_BATCH(Image_BufferFormat_TryCastTo_SubwordToSubword, abridged_intege
     };
 
     generate_subword_test_formats(word_type, [&](const SubwordFormat& format) {
+        test(format);
+    });
+}
+
+
+ARCHON_TEST_BATCH(Image_BufferFormat_TryCastTo_FloatToFloat, abridged_float_type_variants)
+{
+    FloatType word_type = test_value;
+
+    auto test = [&, &parent_test_context = test_context](const FloatFormat& format) {
+        ARCHON_TEST_TRAIL(parent_test_context, wrap(format));
+
+        image::BufferFormat format_2 = format;
+        FloatFormat format_3 = {};
+
+        // Cast to same word type
+        {
+            bool success = format_2.try_cast_to(format_3, format.word_type);
+            bool expect_success = true;
+            ARCHON_CHECK_EQUAL(success, expect_success);
+            if (success && expect_success)
+                ARCHON_CHECK_EQUAL(wrap(format_3), wrap(format));
+        }
+
+        // Cast to other word types
+        for (auto word_type : g_other_float_types) {
+            if (word_type == format.word_type)
+                continue;
+            ARCHON_CHECK_NOT(format_2.try_cast_to(format_3, word_type));
+        }
+    };
+
+    generate_float_test_formats(word_type, [&](const FloatFormat& format) {
         test(format);
     });
 }
