@@ -75,6 +75,7 @@ using quadruple_int_type = core::pick_type<is_quadruple_int, short, int, long, l
 using IntegerFormat = image::BufferFormat::IntegerFormat;
 using PackedFormat  = image::BufferFormat::PackedFormat;
 using SubwordFormat = image::BufferFormat::SubwordFormat;
+using IndexedFormat = image::BufferFormat::IndexedFormat;
 
 
 template<class F> void generate_integer_test_formats(IntegerType word_type, F&& func)
@@ -309,6 +310,76 @@ template<class F> void generate_subword_test_formats(IntegerType word_type, F&& 
 }
 
 
+template<class F> void generate_indexed_test_formats(IntegerType word_type, F&& func)
+{
+    auto gen = [&](int bits_per_word, int words_per_compound, core::Endianness word_order,
+                   int bits_per_pixel, int pixels_per_compound, core::Endianness bit_order,
+                   bool compound_aligned_rows) {
+        if (bits_per_pixel >= 1 && pixels_per_compound * bits_per_pixel <= words_per_compound * bits_per_word) {
+            IndexedFormat format = {
+                word_type,
+                bits_per_pixel,
+                pixels_per_compound,
+                bits_per_word,
+                words_per_compound,
+                bit_order,
+                word_order,
+                compound_aligned_rows,
+            };
+            func(format); // Throws
+        }
+    };
+
+    auto gen_2 = [&](int bits_per_word, int words_per_compound, core::Endianness word_order,
+                     int bits_per_pixel, int pixels_per_compound, core::Endianness bit_order) {
+        gen(bits_per_word, words_per_compound, word_order, bits_per_pixel, pixels_per_compound, bit_order,
+            false); // Throws
+        gen(bits_per_word, words_per_compound, word_order, bits_per_pixel, pixels_per_compound, bit_order,
+            true); // Throws
+    };
+
+    auto gen_3 = [&](int bits_per_word, int words_per_compound, core::Endianness word_order,
+                     int bits_per_pixel, int pixels_per_compound) {
+        gen_2(bits_per_word, words_per_compound, word_order, bits_per_pixel, pixels_per_compound,
+              core::Endianness::big); // Throws
+        gen_2(bits_per_word, words_per_compound, word_order, bits_per_pixel, pixels_per_compound,
+              core::Endianness::little); // Throws
+    };
+
+    auto gen_4 = [&](int bits_per_word, int words_per_compound, core::Endianness word_order, int bits_per_pixel) {
+        gen_3(bits_per_word, words_per_compound, word_order, bits_per_pixel, 1); // Throws
+        gen_3(bits_per_word, words_per_compound, word_order, bits_per_pixel, 2); // Throws
+        gen_3(bits_per_word, words_per_compound, word_order, bits_per_pixel, 3); // Throws
+        gen_3(bits_per_word, words_per_compound, word_order, bits_per_pixel, 4); // Throws
+    };
+
+    auto gen_5 = [&](int bits_per_word, int words_per_compound, core::Endianness word_order) {
+        gen_4(bits_per_word, words_per_compound, word_order, bits_per_word / 1 - 0); // Throws
+        gen_4(bits_per_word, words_per_compound, word_order, bits_per_word / 1 - 1); // Throws
+        gen_4(bits_per_word, words_per_compound, word_order, bits_per_word / 2 - 0); // Throws
+        gen_4(bits_per_word, words_per_compound, word_order, bits_per_word / 2 - 1); // Throws
+    };
+
+    auto gen_6 = [&](int bits_per_word, int words_per_compound) {
+        gen_5(bits_per_word, words_per_compound, core::Endianness::big);    // Throws
+        gen_5(bits_per_word, words_per_compound, core::Endianness::little); // Throws
+    };
+
+    auto gen_7 = [&](int bits_per_word) {
+        gen_6(bits_per_word, 1); // Throws
+        gen_6(bits_per_word, 2); // Throws
+        gen_6(bits_per_word, 3); // Throws
+        gen_6(bits_per_word, 4); // Throws
+    };
+
+    int bits_per_word = image::BufferFormat::get_bits_per_word(word_type);
+    gen_7(bits_per_word / 1 - 0); // Throws
+    gen_7(bits_per_word / 1 - 1); // Throws
+    gen_7(bits_per_word / 2 - 0); // Throws
+    gen_7(bits_per_word / 2 - 1); // Throws
+}
+
+
 struct channel_conf_wrapper {
     const image::BufferFormat::ChannelConf& conf;
 
@@ -460,6 +531,45 @@ inline bool subword_format_wrapper::operator==(const subword_format_wrapper& oth
 }
 
 
+struct indexed_format_wrapper {
+    const IndexedFormat& format;
+
+    bool operator==(const indexed_format_wrapper& other) const noexcept;
+};
+
+
+auto wrap(const IndexedFormat& format) noexcept
+{
+    return indexed_format_wrapper { format };
+}
+
+
+auto operator<<(std::ostream& out, indexed_format_wrapper wrapper) -> std::ostream&
+{
+    const IndexedFormat& format = wrapper.format;
+    out << core::formatted("(%s, %s, %s, %s, %s, %s, %s, %s)", format.word_type, core::as_int(format.bits_per_pixel),
+                           core::as_int(format.pixels_per_compound), core::as_int(format.bits_per_word),
+                           core::as_int(format.words_per_compound), format.bit_order, format.word_order,
+                           format.compound_aligned_rows); // Throws
+    return out;
+}
+
+
+inline bool indexed_format_wrapper::operator==(const indexed_format_wrapper& other) const noexcept
+{
+    const IndexedFormat& a = format;
+    const IndexedFormat& b = other.format;
+    return (a.word_type == b.word_type                     &&
+            a.bits_per_pixel == b.bits_per_pixel           &&
+            a.pixels_per_compound == b.pixels_per_compound &&
+            a.bits_per_word == b.bits_per_word             &&
+            a.words_per_compound == b.words_per_compound   &&
+            a.bit_order == b.bit_order                     &&
+            a.word_order == b.word_order                   &&
+            a.compound_aligned_rows == b.compound_aligned_rows);
+}
+
+
 // Map from canonical channel roder to channel storage order
 int map_channel_index(const image::BufferFormat::ChannelConf& channel_conf, int i) noexcept
 {
@@ -474,13 +584,13 @@ int map_channel_index(const image::BufferFormat::ChannelConf& channel_conf, int 
 }
 
 
-int get_channel_width(const IntegerFormat& format, int) noexcept
+int get_bit_width(const IntegerFormat& format, int) noexcept
 {
     return format.words_per_channel * format.bits_per_word;
 }
 
 
-int get_channel_width(const PackedFormat& format, int channel_index) noexcept
+int get_bit_width(const PackedFormat& format, int channel_index) noexcept
 {
     int channel_index_2 = map_channel_index(format.channel_conf, channel_index);
     ARCHON_ASSERT(channel_index_2 < format.channel_conf.get_num_channels());
@@ -488,9 +598,15 @@ int get_channel_width(const PackedFormat& format, int channel_index) noexcept
 }
 
 
-int get_channel_width(const SubwordFormat& format, int) noexcept
+int get_bit_width(const SubwordFormat& format, int) noexcept
 {
     return format.bits_per_channel;
+}
+
+
+int get_bit_width(const IndexedFormat& format) noexcept
+{
+    return format.bits_per_pixel;
 }
 
 
@@ -561,6 +677,35 @@ void map_bit_position(const SubwordFormat& format, const image::Size& image_size
 }
 
 
+void map_bit_position(const IndexedFormat& format, const image::Size& image_size, const image::Pos& pos,
+                      int bit_pos, std::size_t& word_index, int& bit_pos_2) noexcept
+{
+    std::size_t compound_offset;
+    std::size_t pixel_index;
+    if (format.compound_aligned_rows) {
+        int compounds_per_row = core::int_div_round_up(image_size.width, format.pixels_per_compound);
+        compound_offset = std::size_t(pos.y * std::size_t(compounds_per_row));
+        pixel_index = std::size_t(pos.x);
+    }
+    else {
+        compound_offset = 0;
+        pixel_index = std::size_t((pos.x + pos.y * std::size_t(image_size.width)));
+    }
+    std::size_t compound_index = std::size_t(pixel_index / format.pixels_per_compound);
+    int pixel_index_2 = int(pixel_index % format.pixels_per_compound);
+    if (format.bit_order == core::Endianness::big)
+        pixel_index_2 = format.pixels_per_compound - 1 - pixel_index_2;
+    int bit_pos_3 = pixel_index_2 * format.bits_per_pixel + bit_pos;
+    int word_index_2 = bit_pos_3 / format.bits_per_word;
+    int bit_pos_4 = bit_pos_3 % format.bits_per_word;
+    if (format.word_order == core::Endianness::big)
+        word_index_2 = format.words_per_compound - 1 - word_index_2;
+    std::size_t compound_index_2 = std::size_t(compound_offset + compound_index);
+    word_index = std::size_t(compound_index_2 * format.words_per_compound + word_index_2);
+    bit_pos_2 = bit_pos_4;
+}
+
+
 inline void map_word_to_byte_position(core::Endianness byte_order, int bytes_per_word,
                                       std::size_t word_index, int bit_pos,
                                       std::size_t& byte_index, int& bit_pos_2) noexcept
@@ -575,13 +720,13 @@ inline void map_word_to_byte_position(core::Endianness byte_order, int bytes_per
 }
 
 
-template<class F, class G> bool equivalent_formats(const F& origin_format, const G& target_format)
+template<class F, class G> bool equivalent_direct_color_formats(const F& origin_format, const G& target_format)
 {
     int num_channels = origin_format.channel_conf.get_num_channels();
     ARCHON_ASSERT(num_channels == target_format.channel_conf.get_num_channels());
     for (int i = 0; i < num_channels; ++i) {
-        int a = get_channel_width(origin_format, i);
-        int b = get_channel_width(target_format, i);
+        int a = get_bit_width(origin_format, i);
+        int b = get_bit_width(target_format, i);
         if (ARCHON_UNLIKELY(a != b))
             return false;
     }
@@ -591,7 +736,7 @@ template<class F, class G> bool equivalent_formats(const F& origin_format, const
         auto check = [&](const image::Size& image_size) {
             image::test::for_each_pos_in(image_size, [&](const image::Pos& pos) {
                 for (int i = 0; i < num_channels; ++i) {
-                    int bit_width = get_channel_width(origin_format, i);
+                    int bit_width = get_bit_width(origin_format, i);
                     for (int j = 0; j < bit_width; ++j) {
                         std::size_t word_index_1 = {}, word_index_2 = {};
                         int bit_pos_1 = {}, bit_pos_2 = {};
@@ -622,7 +767,7 @@ template<class F, class G> bool equivalent_formats(const F& origin_format, const
     auto check = [&](const image::Size& image_size) {
         image::test::for_each_pos_in(image_size, [&](const image::Pos& pos) {
             for (int i = 0; i < num_channels; ++i) {
-                int bit_width = get_channel_width(origin_format, i);
+                int bit_width = get_bit_width(origin_format, i);
                 for (int j = 0; j < bit_width; ++j) {
                     std::size_t word_index_1 = {}, word_index_2 = {};
                     std::size_t byte_index_1 = {}, byte_index_2 = {};
@@ -637,6 +782,66 @@ template<class F, class G> bool equivalent_formats(const F& origin_format, const
                         continue;
                     equivalent = false;
                 }
+            }
+        });
+    };
+    check({ 1, 2 });
+    check({ 2, 2 });
+    return equivalent;
+}
+
+
+template<class F, class G> bool equivalent_indirect_color_formats(const F& origin_format, const G& target_format)
+{
+    int bit_width = get_bit_width(origin_format);
+    if (ARCHON_UNLIKELY(bit_width != get_bit_width(target_format)))
+        return false;
+
+    if (target_format.word_type == origin_format.word_type) {
+        bool equivalent = true;
+        auto check = [&](const image::Size& image_size) {
+            image::test::for_each_pos_in(image_size, [&](const image::Pos& pos) {
+                for (int i = 0; i < bit_width; ++i) {
+                    std::size_t word_index_1 = {}, word_index_2 = {};
+                    int bit_pos_1 = {}, bit_pos_2 = {};
+                    map_bit_position(origin_format, image_size, pos, i, word_index_1, bit_pos_1);
+                    map_bit_position(target_format, image_size, pos, i, word_index_2, bit_pos_2);
+                    if (ARCHON_LIKELY(word_index_1 == word_index_2 && bit_pos_1 == bit_pos_2))
+                        continue;
+                    equivalent = false;
+                }
+            });
+        };
+        check({ 1, 2 });
+        check({ 2, 2 });
+        return equivalent;
+    }
+
+    core::Endianness origin_byte_order = {}, target_byte_order = {};
+    bool success_1 = image::BufferFormat::try_get_byte_order(origin_format.word_type, origin_byte_order);
+    bool success_2 = image::BufferFormat::try_get_byte_order(target_format.word_type, target_byte_order);
+    ARCHON_ASSERT(success_1);
+    ARCHON_ASSERT(success_2);
+
+    int bytes_per_origin_word = image::BufferFormat::get_bytes_per_word(origin_format.word_type);
+    int bytes_per_target_word = image::BufferFormat::get_bytes_per_word(target_format.word_type);
+
+    bool equivalent = true;
+    auto check = [&](const image::Size& image_size) {
+        image::test::for_each_pos_in(image_size, [&](const image::Pos& pos) {
+            for (int i = 0; i < bit_width; ++i) {
+                std::size_t word_index_1 = {}, word_index_2 = {};
+                std::size_t byte_index_1 = {}, byte_index_2 = {};
+                int bit_pos_1 = {}, bit_pos_2 = {}, bit_pos_3 = {}, bit_pos_4 = {};
+                map_bit_position(origin_format, image_size, pos, i, word_index_1, bit_pos_1);
+                map_word_to_byte_position(origin_byte_order, bytes_per_origin_word, word_index_1, bit_pos_1,
+                                          byte_index_1, bit_pos_3);
+                map_bit_position(target_format, image_size, pos, i, word_index_2, bit_pos_2);
+                map_word_to_byte_position(target_byte_order, bytes_per_target_word, word_index_2, bit_pos_2,
+                                          byte_index_2, bit_pos_4);
+                if (ARCHON_LIKELY(byte_index_1 == byte_index_2 && bit_pos_3 == bit_pos_4))
+                    continue;
+                equivalent = false;
             }
         });
     };
@@ -710,7 +915,7 @@ ARCHON_TEST_BATCH(Image_BufferFormat_TryCastTo_IntegerToInteger, abridged_intege
                     ARCHON_ASSERT(have_byte_order);
                     ARCHON_CHECK_EQUAL(format_3.word_order, byte_order);
                     ARCHON_CHECK_EQUAL(wrap(format_3.channel_conf), wrap(format.channel_conf));
-                    ARCHON_CHECK(equivalent_formats(format, format_3));
+                    ARCHON_CHECK(equivalent_direct_color_formats(format, format_3));
                 }
             }
         }
@@ -767,7 +972,7 @@ ARCHON_TEST_BATCH(Image_BufferFormat_TryCastTo_IntegerToPacked, abridged_integer
                 else {
                     ARCHON_CHECK_EQUAL(format_3.channel_conf.reverse_order, !format.channel_conf.reverse_order);
                 }
-                ARCHON_CHECK(equivalent_formats(format, format_3));
+                ARCHON_CHECK(equivalent_direct_color_formats(format, format_3));
             }
         }
 
@@ -798,7 +1003,7 @@ ARCHON_TEST_BATCH(Image_BufferFormat_TryCastTo_IntegerToPacked, abridged_integer
                     else {
                         ARCHON_CHECK_EQUAL(format_3.channel_conf.reverse_order, !format.channel_conf.reverse_order);
                     }
-                    ARCHON_CHECK(equivalent_formats(format, format_3));
+                    ARCHON_CHECK(equivalent_direct_color_formats(format, format_3));
                 }
             }
             else {
@@ -833,7 +1038,7 @@ ARCHON_TEST_BATCH(Image_BufferFormat_TryCastTo_IntegerToPacked, abridged_integer
                     else {
                         ARCHON_CHECK_EQUAL(format_3.channel_conf.reverse_order, !format.channel_conf.reverse_order);
                     }
-                    ARCHON_CHECK(equivalent_formats(format, format_3));
+                    ARCHON_CHECK(equivalent_direct_color_formats(format, format_3));
                 }
             }
         }
@@ -877,7 +1082,7 @@ ARCHON_TEST_BATCH(Image_BufferFormat_TryCastTo_IntegerToSubword, abridged_intege
                 ARCHON_CHECK_EQUAL(format_3.bit_order, core::Endianness::big);
                 ARCHON_CHECK_EQUAL(format_3.word_aligned_rows, false);
                 ARCHON_CHECK_EQUAL(wrap(format_3.channel_conf), wrap(format.channel_conf));
-                ARCHON_CHECK(equivalent_formats(format, format_3));
+                ARCHON_CHECK(equivalent_direct_color_formats(format, format_3));
             }
         }
 
@@ -895,7 +1100,7 @@ ARCHON_TEST_BATCH(Image_BufferFormat_TryCastTo_IntegerToSubword, abridged_intege
                 ARCHON_CHECK_EQUAL(format_3.bit_order, core::Endianness::big);
                 ARCHON_CHECK_EQUAL(format_3.word_aligned_rows, false);
                 ARCHON_CHECK_EQUAL(wrap(format_3.channel_conf), wrap(format.channel_conf));
-                ARCHON_CHECK(equivalent_formats(format, format_3));
+                ARCHON_CHECK(equivalent_direct_color_formats(format, format_3));
             }
         }
 
@@ -964,7 +1169,7 @@ ARCHON_TEST_BATCH(Image_BufferFormat_TryCastTo_PackedToInteger, abridged_integer
                 else {
                     ARCHON_CHECK_EQUAL(format_3.channel_conf.reverse_order, !format.channel_conf.reverse_order);
                 }
-                ARCHON_CHECK(equivalent_formats(format, format_3));
+                ARCHON_CHECK(equivalent_direct_color_formats(format, format_3));
             }
         }
 
@@ -1000,7 +1205,7 @@ ARCHON_TEST_BATCH(Image_BufferFormat_TryCastTo_PackedToInteger, abridged_integer
                     else {
                         ARCHON_CHECK_EQUAL(format_3.channel_conf.reverse_order, !format.channel_conf.reverse_order);
                     }
-                    ARCHON_CHECK(equivalent_formats(format, format_3));
+                    ARCHON_CHECK(equivalent_direct_color_formats(format, format_3));
                 }
             }
             else {
@@ -1034,7 +1239,7 @@ ARCHON_TEST_BATCH(Image_BufferFormat_TryCastTo_PackedToInteger, abridged_integer
                     else {
                         ARCHON_CHECK_EQUAL(format_3.channel_conf.reverse_order, format.channel_conf.reverse_order);
                     }
-                    ARCHON_CHECK(equivalent_formats(format, format_3));
+                    ARCHON_CHECK(equivalent_direct_color_formats(format, format_3));
                 }
             }
         }
@@ -1516,7 +1721,7 @@ ARCHON_TEST_BATCH(Image_BufferFormat_TryCastTo_PackedToPacked, abridged_integer_
                     else {
                         ARCHON_CHECK_EQUAL(format_3.channel_conf.reverse_order, format.channel_conf.reverse_order);
                     }
-                    ARCHON_CHECK(equivalent_formats(format, format_3));
+                    ARCHON_CHECK(equivalent_direct_color_formats(format, format_3));
                 }
             }
         }
@@ -1572,7 +1777,7 @@ ARCHON_TEST_BATCH(Image_BufferFormat_TryCastTo_PackedToSubword, abridged_integer
                 ARCHON_CHECK_EQUAL(format_3.bit_order, core::Endianness::big);
                 ARCHON_CHECK_EQUAL(format_3.word_aligned_rows, false);
                 ARCHON_CHECK_EQUAL(wrap(format_3.channel_conf), wrap(format.channel_conf));
-                ARCHON_CHECK(equivalent_formats(format, format_3));
+                ARCHON_CHECK(equivalent_direct_color_formats(format, format_3));
             }
         }
 
@@ -1590,7 +1795,7 @@ ARCHON_TEST_BATCH(Image_BufferFormat_TryCastTo_PackedToSubword, abridged_integer
                 ARCHON_CHECK_EQUAL(format_3.bit_order, core::Endianness::big);
                 ARCHON_CHECK_EQUAL(format_3.word_aligned_rows, false);
                 ARCHON_CHECK_EQUAL(wrap(format_3.channel_conf), wrap(format.channel_conf));
-                ARCHON_CHECK(equivalent_formats(format, format_3));
+                ARCHON_CHECK(equivalent_direct_color_formats(format, format_3));
             }
         }
 
@@ -1633,7 +1838,7 @@ ARCHON_TEST_BATCH(Image_BufferFormat_TryCastTo_SubwordToInteger, abridged_intege
                 ARCHON_CHECK_EQUAL(format_3.words_per_channel, 1);
                 ARCHON_CHECK_EQUAL(format_3.word_order, core::Endianness::big);
                 ARCHON_CHECK_EQUAL(wrap(format_3.channel_conf), wrap(format.channel_conf));
-                ARCHON_CHECK(equivalent_formats(format, format_3));
+                ARCHON_CHECK(equivalent_direct_color_formats(format, format_3));
             }
         }
 
@@ -1651,7 +1856,7 @@ ARCHON_TEST_BATCH(Image_BufferFormat_TryCastTo_SubwordToInteger, abridged_intege
                     ARCHON_CHECK_EQUAL(format_3.words_per_channel, 1);
                     ARCHON_CHECK_EQUAL(format_3.word_order, core::Endianness::big);
                     ARCHON_CHECK_EQUAL(wrap(format_3.channel_conf), wrap(format.channel_conf));
-                    ARCHON_CHECK(equivalent_formats(format, format_3));
+                    ARCHON_CHECK(equivalent_direct_color_formats(format, format_3));
                 }
             }
             else {
@@ -1681,7 +1886,7 @@ ARCHON_TEST_BATCH(Image_BufferFormat_TryCastTo_SubwordToInteger, abridged_intege
                     else {
                         ARCHON_CHECK_EQUAL(format_3.channel_conf.reverse_order, !format.channel_conf.reverse_order);
                     }
-                    ARCHON_CHECK(equivalent_formats(format, format_3));
+                    ARCHON_CHECK(equivalent_direct_color_formats(format, format_3));
                 }
             }
         }
@@ -1731,7 +1936,7 @@ ARCHON_TEST_BATCH(Image_BufferFormat_TryCastTo_SubwordToPacked, abridged_integer
                     ARCHON_CHECK_EQUAL(bit_field.gap, 0);
                 }
                 ARCHON_CHECK_EQUAL(wrap(format_3.channel_conf), wrap(format.channel_conf));
-                ARCHON_CHECK(equivalent_formats(format, format_3));
+                ARCHON_CHECK(equivalent_direct_color_formats(format, format_3));
             }
         }
 
@@ -1755,7 +1960,7 @@ ARCHON_TEST_BATCH(Image_BufferFormat_TryCastTo_SubwordToPacked, abridged_integer
                         ARCHON_CHECK_EQUAL(bit_field.gap, 0);
                     }
                     ARCHON_CHECK_EQUAL(wrap(format_3.channel_conf), wrap(format.channel_conf));
-                    ARCHON_CHECK(equivalent_formats(format, format_3));
+                    ARCHON_CHECK(equivalent_direct_color_formats(format, format_3));
                 }
             }
             else {
@@ -1784,7 +1989,7 @@ ARCHON_TEST_BATCH(Image_BufferFormat_TryCastTo_SubwordToPacked, abridged_integer
                         ARCHON_CHECK_EQUAL(bit_field.gap, 0);
                     }
                     ARCHON_CHECK_EQUAL(wrap(format_3.channel_conf), wrap(format.channel_conf));
-                    ARCHON_CHECK(equivalent_formats(format, format_3));
+                    ARCHON_CHECK(equivalent_direct_color_formats(format, format_3));
                 }
             }
         }
@@ -1847,7 +2052,7 @@ ARCHON_TEST_BATCH(Image_BufferFormat_TryCastTo_SubwordToSubword, abridged_intege
                 ARCHON_CHECK_EQUAL(format_3.bit_order, format.bit_order);
                 ARCHON_CHECK_EQUAL(format_3.word_aligned_rows, format.word_aligned_rows);
                 ARCHON_CHECK_EQUAL(wrap(format_3.channel_conf), wrap(format.channel_conf));
-                ARCHON_CHECK(equivalent_formats(format, format_3));
+                ARCHON_CHECK(equivalent_direct_color_formats(format, format_3));
             }
         }
 
@@ -1860,6 +2065,90 @@ ARCHON_TEST_BATCH(Image_BufferFormat_TryCastTo_SubwordToSubword, abridged_intege
     };
 
     generate_subword_test_formats(word_type, [&](const SubwordFormat& format) {
+        test(format);
+    });
+}
+
+
+ARCHON_TEST_BATCH(Image_BufferFormat_TryCastTo_IndexedToIndexed, abridged_integer_type_variants)
+{
+    IntegerType word_type = test_value;
+
+    auto test = [&, &parent_test_context = test_context](const IndexedFormat& format) {
+        ARCHON_TEST_TRAIL(parent_test_context, wrap(format));
+
+        image::BufferFormat format_2 = format;
+        IndexedFormat format_3 = {};
+
+        // Cast to same word type
+        {
+            bool success = format_2.try_cast_to(format_3, format.word_type);
+            bool expect_success = true;
+            ARCHON_CHECK_EQUAL(success, expect_success);
+            if (success && expect_success)
+                ARCHON_CHECK_EQUAL(wrap(format_3), wrap(format));
+        }
+
+        // Cast to bytes
+        if (format.word_type != IntegerType::byte) {
+            bool success = format_2.try_cast_to(format_3, IntegerType::byte);
+            int bytes_per_word = image::BufferFormat::get_bytes_per_word(format.word_type);
+            if (bytes_per_word == 1) {
+                bool expect_success = true;
+                ARCHON_CHECK_EQUAL(success, expect_success);
+                if (success && expect_success) {
+                    ARCHON_CHECK(format_3.is_valid());
+                    ARCHON_CHECK_EQUAL(format_3.word_type, IntegerType::byte);
+                    ARCHON_CHECK_EQUAL(format_3.bits_per_pixel, format.bits_per_pixel);
+                    ARCHON_CHECK_EQUAL(format_3.pixels_per_compound, format.pixels_per_compound);
+                    ARCHON_CHECK_EQUAL(format_3.bits_per_word, format.bits_per_word);
+                    ARCHON_CHECK_EQUAL(format_3.words_per_compound, format.words_per_compound);
+                    ARCHON_CHECK_EQUAL(format_3.bit_order, format.bit_order);
+                    ARCHON_CHECK_EQUAL(format_3.word_order, format.word_order);
+                    ARCHON_CHECK_EQUAL(format_3.compound_aligned_rows, format.compound_aligned_rows);
+                }
+            }
+            else {
+                int bits_per_byte = core::int_width<char>();
+                core::Endianness byte_order = {};
+                bool have_byte_order = image::BufferFormat::try_get_byte_order(format.word_type, byte_order);
+                auto satisfies_a_bit_compound_condition = [&]() {
+                    ARCHON_ASSERT(have_byte_order);
+                    if (format.words_per_compound == 1)
+                        return true;
+                    if (format.word_order != byte_order)
+                        return false;
+                    if (format.bits_per_word == bytes_per_word * bits_per_byte)
+                        return true;
+                    return (format.pixels_per_compound * format.bits_per_pixel <= format.bits_per_word);
+                };
+                bool expect_success = (have_byte_order &&
+                                       satisfies_a_bit_compound_condition());
+                ARCHON_CHECK_EQUAL(success, expect_success);
+                if (success && expect_success) {
+                    ARCHON_CHECK(format_3.is_valid());
+                    ARCHON_CHECK_EQUAL(format_3.word_type, IntegerType::byte);
+                    ARCHON_CHECK_EQUAL(format_3.bits_per_pixel, format.bits_per_pixel);
+                    ARCHON_CHECK_EQUAL(format_3.pixels_per_compound, format.pixels_per_compound);
+                    ARCHON_CHECK_EQUAL(format_3.bits_per_word, bits_per_byte);
+                    ARCHON_CHECK_EQUAL(format_3.words_per_compound, format.words_per_compound * bytes_per_word);
+                    ARCHON_CHECK_EQUAL(format_3.bit_order, format.bit_order);
+                    ARCHON_CHECK_EQUAL(format_3.word_order, byte_order);
+                    ARCHON_CHECK_EQUAL(format_3.compound_aligned_rows, format.compound_aligned_rows);
+                    ARCHON_CHECK(equivalent_indirect_color_formats(format, format_3));
+                }
+            }
+        }
+
+        // Cast to other word types
+        for (auto word_type : g_other_integer_types) {
+            if (word_type == format.word_type || word_type == IntegerType::byte)
+                continue;
+            ARCHON_CHECK_NOT(format_2.try_cast_to(format_3, word_type));
+        }
+    };
+
+    generate_indexed_test_formats(word_type, [&](const IndexedFormat& format) {
         test(format);
     });
 }

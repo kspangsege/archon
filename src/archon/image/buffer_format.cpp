@@ -772,20 +772,59 @@ bool BufferFormat::IndexedFormat::try_cast_to(IndexedFormat& format, IntegerType
     // CASE: indexed --> indexed
 
     if (ARCHON_UNLIKELY(!is_valid()))
-        throw std::runtime_error("Invalid subword format");
+        throw std::runtime_error("Invalid indexed format");
 
-    // Same word type or from byte sized to bytes:
-    //   Just copy, but set new word type
-    // Else:
-    ///  Require: there is only one origin word per bit compound, or
-    ///           all pixels fully reside in first origin word and word order matches byte order, or
-    ///           all bits of each origin word is used and word order matches byte order.
-    ///  Require: determinable byte order
-    //   Multiply words_per_compound by number of bytes per word
+    int bits_per_word_2 = bits_per_word;
+    int words_per_compound_2 = words_per_compound;
+    core::Endianness word_order_2 = word_order;
 
-    static_cast<void>(format);        
-    static_cast<void>(target_word_type);        
-    return false;
+    if (target_word_type != word_type) {
+        // A word of any type can be accessed in terms of the bytes that make it up
+        // (`std::byte`, `char`, or `unsigned char`, but not `signed char`). Any other type
+        // punning would cause undefined behavior.
+        if (ARCHON_UNLIKELY(target_word_type != IntegerType::byte))
+            return false;
+
+        int bytes_per_word = get_bytes_per_word(word_type);
+        if (bytes_per_word > 1) {
+            // Native byte order must be determinable
+            core::Endianness byte_order = {};
+            if (ARCHON_UNLIKELY(!try_get_byte_order(word_type, byte_order)))
+                return false;
+
+            int bits_per_byte = core::int_width<char>();
+
+            if (ARCHON_LIKELY(words_per_compound == 1))
+                goto proceed;
+
+            if (word_order != byte_order)
+                return false;
+
+            if (ARCHON_LIKELY(bits_per_word == bytes_per_word * bits_per_byte))
+                goto proceed;
+
+            if (ARCHON_LIKELY(pixels_per_compound * bits_per_pixel > bits_per_word))
+                return false;
+
+          proceed:
+            bits_per_word_2 = bits_per_byte;
+            words_per_compound_2 *= bytes_per_word;
+            word_order_2 = byte_order;
+        }
+    }
+
+    format = {
+        target_word_type,
+        bits_per_pixel,
+        pixels_per_compound,
+        bits_per_word_2,
+        words_per_compound_2,
+        bit_order,
+        word_order_2,
+        compound_aligned_rows,
+    };
+
+    return true;
 }
 
 

@@ -1419,9 +1419,9 @@ struct BufferFormat {
         ///         origin word) and the word order in the origin format matches the native
         ///         byte order for the origin word type.
         ///
-        ///      3. All bit fields are fully contained in the first origin word and the word
-        ///         order in the origin format matches the native byte order for the origin
-        ///         word type.
+        ///      3. All pixel slots are fully contained in the first origin word and the
+        ///         word order in the origin format matches the native byte order for the
+        ///         origin word type.
         ///
         /// When the cast succeeds, the parameters of the target format are set as follows:
         ///
