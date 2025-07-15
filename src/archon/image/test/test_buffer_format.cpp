@@ -2177,7 +2177,7 @@ ARCHON_TEST_BATCH(Image_BufferFormat_TryCastTo_FloatToFloat, abridged_float_type
 }
 
 
-ARCHON_TEST_BATCH(Image_BufferFormat_TryCastTo_IndexedToIndexed, abridged_integer_type_variants)
+ARCHON_TEST_BATCH(Image_BufferFormat_TryCastTo_IndexedToIndexed_1, abridged_integer_type_variants)
 {
     IntegerType word_type = test_value;
 
@@ -2253,6 +2253,61 @@ ARCHON_TEST_BATCH(Image_BufferFormat_TryCastTo_IndexedToIndexed, abridged_intege
                 continue;
             ARCHON_CHECK_NOT(format_2.try_cast_to(format_3, word_type));
         }
+    };
+
+    generate_indexed_test_formats(word_type, [&](const IndexedFormat& format) {
+        test(format);
+    });
+}
+
+
+ARCHON_TEST_BATCH(Image_BufferFormat_TryCastTo_IndexedToIndexed_2, abridged_integer_type_variants)
+{
+    IntegerType word_type = test_value;
+
+    auto test = [&, &parent_test_context = test_context](const IndexedFormat& format) {
+        ARCHON_TEST_TRAIL(parent_test_context, wrap(format));
+
+        IndexedFormat format_2 = {};
+
+        // Cast to same compound size
+        {
+            bool success = format.try_cast_to_2(format_2, format.words_per_compound);
+            bool expect_success = true;
+            ARCHON_CHECK_EQUAL(success, expect_success);
+            if (success && expect_success)
+                ARCHON_CHECK_EQUAL(wrap(format_2), wrap(format));
+        }
+
+        // Cast to smaller compound
+        for (int i = 1; i < format.words_per_compound; ++i) {
+            int words_per_target_compound = i;
+            bool success = format.try_cast_to_2(format_2, words_per_target_compound);
+            int quotient  = format.words_per_compound / words_per_target_compound;
+            int remainder = format.words_per_compound % words_per_target_compound;
+            int num_used_bits = format.pixels_per_compound * format.bits_per_pixel;
+            bool expect_success = (remainder == 0 &&
+                                   (words_per_target_compound * format.bits_per_word) % format.bits_per_pixel == 0 &&
+                                   num_used_bits == format.words_per_compound * format.bits_per_word &&
+                                   format.bit_order == format.word_order &&
+                                   !format.compound_aligned_rows);
+            ARCHON_CHECK_EQUAL(success, expect_success);
+            if (success && expect_success) {
+                ARCHON_CHECK(format_2.is_valid());
+                ARCHON_CHECK_EQUAL(format_2.word_type, format.word_type);
+                ARCHON_CHECK_EQUAL(format_2.bits_per_pixel, format.bits_per_pixel);
+                ARCHON_CHECK_EQUAL(format_2.pixels_per_compound, format.pixels_per_compound / quotient);
+                ARCHON_CHECK_EQUAL(format_2.bits_per_word, format.bits_per_word);
+                ARCHON_CHECK_EQUAL(format_2.words_per_compound, words_per_target_compound);
+                ARCHON_CHECK_EQUAL(format_2.bit_order, format.bit_order);
+                ARCHON_CHECK_EQUAL(format_2.word_order, format.word_order);
+                ARCHON_CHECK_EQUAL(format_2.compound_aligned_rows, format.compound_aligned_rows);
+                ARCHON_CHECK(equivalent_indirect_color_formats(format, format_2));
+            }
+        }
+
+        // Cast to larger compound
+        ARCHON_CHECK_NOT(format.try_cast_to_2(format_2, 2 * format.words_per_compound));
     };
 
     generate_indexed_test_formats(word_type, [&](const IndexedFormat& format) {

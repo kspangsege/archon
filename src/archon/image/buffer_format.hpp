@@ -1362,7 +1362,7 @@ struct BufferFormat {
         ///
         bool is_valid() const noexcept;
 
-        /// \brief Try to cast indexed format to other indexed format.
+        /// \brief Try to cast indexed format to different word type.
         ///
         /// This function determines whether it is possible to reexpress this indexed format
         /// as an indexed format using the specified target word type (\p target_word_type).
@@ -1394,10 +1394,11 @@ struct BufferFormat {
         /// function throws.
         ///
         /// \sa \ref BufferFormat::try_cast_to()
+        /// \sa \ref IndexedFormat::try_cast_to_2()
         ///
         ///
-        /// An indexed format can be cast to another indexed format if, and only if the cast
-        /// takes one of the following two forms:
+        /// An indexed format can be cast to another indexed format that uses the specified
+        /// target word type if, and only if the cast takes one of the following two forms:
         ///
         /// <em>Form 1:</em> The origin word type (\ref word_type) is the same as the
         /// specified target word type (\p target_word_type), or there is only one byte per
@@ -1434,9 +1435,9 @@ struct BufferFormat {
         ///     the number of pixels per bit compound in the origin format.
         ///
         ///   * The number of bits per word (\ref bits_per_word) is set to the number of
-        ///     bits per word in the origin format (\ref bits_per_word) if the cast is on
-        ///     the first form (see above). Otherwise, the number of bits per word is set to
-        ///     the number of bits in a byte (usually 8).
+        ///     bits per word in the origin format if the cast is on the first form (see
+        ///     above). Otherwise, the number of bits per word is set to the number of bits
+        ///     in a byte (usually 8).
         ///
         ///   * The number of words per bit compound (\ref words_per_compound) is set to the
         ///     number of words per bit compound in the origin format if the cast is on the
@@ -1449,11 +1450,107 @@ struct BufferFormat {
         ///     format if the cast is on the first form (see above). Otherwise, the word
         ///     order is set to the native byte order for the origin word type.
         ///
-        ///   * Pixel rows will be required to be bit compound aligned (\ref
+        ///   * Pixel rows will be required to be compound aligned (\ref
         ///     compound_aligned_rows) if, and only if pixel rows are required to be
         ///     compound aligned in the origin format.
         ///
-        bool try_cast_to(IndexedFormat& format, IntegerType target_word_type) const;
+        bool try_cast_to_1(IndexedFormat& format, IntegerType target_word_type) const;
+
+        /// \brief Try to cast indexed format to smaller bit compound size.
+        ///
+        /// This function determines whether it is possible to reexpress this indexed format
+        /// as an indexed format using the specified number of memory words per bit compound
+        /// (\p words_per_target_compound).
+        ///
+        /// When it is possible to reexpress this format as specified, this function return
+        /// `true` after setting \p format to the new format. Otherwise, this function
+        /// returns `false` and leaves \p format unchanged.
+        ///
+        /// When this function returns `true`, it means that pixels stored in memory
+        /// according to the origin format can be accessed as though they were stored
+        /// according to the new format, i.e., the one specified by \p format.
+        ///
+        /// \important The ability to cast from format A to format B does *NOT* imply that
+        /// the reverse cast is possible, that is, it does not imply that pixels stored
+        /// according to format B can be accessed as if stored according to format A.
+        ///
+        /// A necessary but generally insufficient condition for this cast to succeed is
+        /// that the specified number of words per bit compound (\p
+        /// words_per_target_compound) evenly divides the number of words per bit compound
+        /// in the origin format.
+        ///
+        /// While a successful cast guarantees that the target format can be used to access
+        /// any pixel buffer that could be accessed using the origin format, the reverse is
+        /// not guaranteed. I.e, it is possible that a cast fails even if there is a way to
+        /// express the origin format using the specified number of words per target
+        /// compound, and that it would work for any pixel buffer (image of any size).
+        ///
+        /// This function requires that the origin format is valid (\ref is_valid()), and it
+        /// ensures that the new format is valid. It also requires that the specified number
+        /// of words per target compound is greater than, or equal to 1. If the original
+        /// format is invalid or the specified number of words per target compound is less
+        /// than 1, this function throws.
+        ///
+        /// \sa \ref IndexedFormat::try_cast_to_1()
+        ///
+        ///
+        /// An indexed format can be cast to another indexed format that uses the specified
+        /// number of words per bit compound if, and only if the cast takes one of the
+        /// following two forms:
+        ///
+        /// <em>Form 1:</em> The specified number of words per target bit compound (\p
+        /// words_per_target_compound) is equal to the number of words per bit compound in
+        /// the origin format (\p words_per_compound).
+        ///
+        /// <em>Form 2:</em> The specified number of words per target bit compound is
+        /// different from the number of words per bit compound in the origin
+        /// format. Additionally, the following conditions hold:
+        ///
+        ///   * The number of words per bit compound in origin format is an integer multiple
+        ///     of the specified number of words per target bit compound.
+        ///
+        ///   * The number of bits per target bit compound (\ref bits_per_word times \p
+        ///     words_per_target_compound) is an integer multiple of the number of bits per
+        ///     pixel.
+        ///
+        ///   * There are no unused bits in the origin bit compound (\ref bits_per_pixel
+        ///     times \ref pixels_per_compound is equal to \ref bits_per_word times \ref
+        ///     words_per_compound).
+        ///
+        ///   * The bit order in the origin format (\ref bit_order) matches the word order
+        ///     in the origin format (\ref word_order).
+        ///
+        ///   * Pixel rows are not required to be compound aligned in the origin format
+        ///     (\ref compound_aligned_rows).
+        ///
+        /// When the cast succeeds, the parameters of the target format are set as follows:
+        ///
+        ///   * The word type (\ref word_type) is set to the word type in the origin format.
+        ///
+        ///   * The number of bits per pixel (\ref bits_per_pixel) is set to the number of
+        ///     bits per pixel in the origin format.
+        ///
+        ///   * The number of pixels per bit compound (\ref pixels_per_compound) is set to
+        ///     the number of pixels per bit compound in the origin format divided by Q,
+        ///     where Q is the number of words per bit compound in the origin format divided
+        ///     by the number of words per bit compound in the target format.
+        ///
+        ///   * The number of bits per word (\ref bits_per_word) is set to the number of
+        ///     bits per word in the origin format.
+        ///
+        ///   * The number of words per bit compound (\ref words_per_compound) is set as
+        ///     specified (\p words_per_target_compound).
+        ///
+        ///   * The bit order (\ref bit_order) is set to the bit order in the origin format.
+        ///
+        ///   * The word order (\ref word_order) is set to the word order in the origin
+        ///     format.
+        ///
+        ///   * Pixel rows will be required to be compound aligned (\ref
+        ///     compound_aligned_rows) if, and only if pixel rows are required to be
+        ///     compound aligned in the origin format.
+        ///
+        bool try_cast_to_2(IndexedFormat& format, int words_per_target_compound) const;
     };
 
     enum class Type { integer,  packed, subword, float_, indexed };
@@ -1541,10 +1638,10 @@ struct BufferFormat {
     /// particular origin and target format type, these functions return `false`.  See \ref
     /// IntegerFormat::try_cast_to(), \ref PackedFormat::try_cast_to(), \ref
     /// SubwordFormat::try_cast_to(), \ref FloatFormat::try_cast_to(), and \ref
-    /// IndexedFormat::try_cast_to().
+    /// IndexedFormat::try_cast_to_1().
     ///
     /// \sa \ref IntegerFormat::try_cast_to(), \ref PackedFormat::try_cast_to(), \ref SubwordFormat::try_cast_to()
-    /// \sa \ref FloatFormat::try_cast_to(), \ref IndexedFormat::try_cast_to()
+    /// \sa \ref FloatFormat::try_cast_to(), \ref IndexedFormat::try_cast_to_1()
     /// \sa \ref IntegerType, \ref FloatType
     ///
     bool try_cast_to(IntegerFormat& format, IntegerType target_word_type) const;

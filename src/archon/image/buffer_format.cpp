@@ -767,9 +767,9 @@ bool BufferFormat::FloatFormat::try_cast_to(FloatFormat& format, FloatType targe
 }
 
 
-bool BufferFormat::IndexedFormat::try_cast_to(IndexedFormat& format, IntegerType target_word_type) const
+bool BufferFormat::IndexedFormat::try_cast_to_1(IndexedFormat& format, IntegerType target_word_type) const
 {
-    // CASE: indexed --> indexed
+    // CASE: indexed --> indexed #1
 
     if (ARCHON_UNLIKELY(!is_valid()))
         throw std::runtime_error("Invalid indexed format");
@@ -821,6 +821,63 @@ bool BufferFormat::IndexedFormat::try_cast_to(IndexedFormat& format, IntegerType
         words_per_compound_2,
         bit_order,
         word_order_2,
+        compound_aligned_rows,
+    };
+
+    return true;
+}
+
+
+bool BufferFormat::IndexedFormat::try_cast_to_2(IndexedFormat& format, int words_per_target_compound) const
+{
+    // CASE: indexed --> indexed #2
+
+    if (ARCHON_UNLIKELY(!is_valid()))
+        throw std::runtime_error("Invalid indexed format");
+
+    if (ARCHON_UNLIKELY(words_per_target_compound < 1))
+        throw std::runtime_error("Invalid number of words per target compound");
+
+    int pixels_per_compound_2 = pixels_per_compound;
+    int words_per_compound_2 = words_per_compound;
+
+    if (words_per_target_compound != words_per_compound) {
+        // The number of words in the target compound must evenly divide the number of words
+        // in the origin compound
+        int quotient  = words_per_compound / words_per_target_compound;
+        int remainder = words_per_compound % words_per_target_compound;
+        if (remainder != 0)
+            return false;
+
+        // The number of bits per pixel must evenly divide the number of bits in the target
+        // compound
+        if ((words_per_target_compound * bits_per_word) % bits_per_pixel != 0)
+            return false;
+
+        // There must be no unused bit positions in the bit compound
+        if (pixels_per_compound * bits_per_pixel != words_per_compound * bits_per_word)
+            return false;
+
+        // Bit order must match word order such that the first pixel comes first in memory
+        if (bit_order != word_order)
+            return false;
+
+        // Cannot have requirement of compound aligned rows
+        if (compound_aligned_rows)
+            return false;
+
+        pixels_per_compound_2 /= quotient;
+        words_per_compound_2 = words_per_target_compound;
+    }
+
+    format = {
+        word_type,
+        bits_per_pixel,
+        pixels_per_compound_2,
+        bits_per_word,
+        words_per_compound_2,
+        bit_order,
+        word_order,
         compound_aligned_rows,
     };
 
@@ -921,7 +978,7 @@ bool BufferFormat::try_cast_to(IndexedFormat& format, IntegerType target_word_ty
 {
     switch (type) {
         case Type::indexed:
-            return indexed.try_cast_to(format, target_word_type); // Throws
+            return indexed.try_cast_to_1(format, target_word_type); // Throws
         case Type::integer:
         case Type::packed:
         case Type::subword:

@@ -343,9 +343,12 @@ bool try_match_save_format(const image::BufferFormat& buffer_format, image::Size
 
     image::BufferFormat::IndexedFormat indexed_format = {};
     if (ARCHON_LIKELY(buffer_format.try_cast_to(indexed_format, word_type))) { // Throws
-        
-        ARCHON_STEADY_ASSERT_UNREACHABLE();                                     
-        return false;
+        image::BufferFormat::IndexedFormat indexed_format_2 = {};
+        if (ARCHON_LIKELY(indexed_format.try_cast_to_2(indexed_format_2, 1))) { // Throws
+            
+            ARCHON_STEADY_ASSERT_UNREACHABLE();                                     
+            return false;
+        }
     }
     return false;
 }
