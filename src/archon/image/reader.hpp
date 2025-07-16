@@ -60,7 +60,7 @@ namespace archon::image {
 ///
 /// FIXME: Make it clear that read operations are not `const` qualified, this means that it is not safe for two threads to read concurrently via the same reader.                                   
 ///
-/// FIXME: Consider allowing for rebinding reader to new image such that allocated memory can be reused.           
+/// FIXME: Consider allowing for rebinding reader to new image such that allocated memory can be reused (virtual auto reset(const image::Image&) noexcept -> Reader& and Writer::reset()).           
 ///
 class Reader {
 public:
