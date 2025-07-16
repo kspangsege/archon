@@ -447,9 +447,9 @@ public:
     /// stores the resulting channel components in the specified array (\p components).
     ///
     /// If the attached image does not have a palette (because it does not use indirect
-    /// color), or if the palette is empty (number of entries is zero), this function
-    /// fetches the currently configured background color instead (\ref
-    /// set_background_color()).
+    /// color), or if the specified color index (\p color_index) is greater than, or equal
+    /// to the size of the palette, this function fetches the currently configured
+    /// background color instead (see \ref set_background_color()).
     ///
     /// \sa \ref palette_lookup()
     /// \sa \ref image::Writer::reverse_palette_lookup_a()

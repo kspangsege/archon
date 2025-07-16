@@ -51,6 +51,9 @@
 #include <archon/image/impl/config.h>
 #include <archon/image/geom.hpp>
 #include <archon/image/comp_types.hpp>
+#include <archon/image/bit_medium.hpp>
+#include <archon/image/comp_repr.hpp>
+#include <archon/image/pixel_repr.hpp>
 #include <archon/image/standard_channel_spec.hpp>
 #include <archon/image/buffer_format.hpp>
 #include <archon/image/image.hpp>
@@ -60,6 +63,7 @@
 #include <archon/image/subword_pixel_format.hpp>
 #include <archon/image/indexed_pixel_format.hpp>
 #include <archon/image/buffered_image.hpp>
+#include <archon/image/reader.hpp>
 #include <archon/image/progress_tracker.hpp>
 #include <archon/image/image_provider.hpp>
 #include <archon/image/comment_handler.hpp>
@@ -337,17 +341,43 @@ bool try_match_save_format(const image::BufferFormat& buffer_format, image::Size
         format.bit_depth  = png_byte(subword_format.bits_per_channel);
         format.color_type = PNG_COLOR_TYPE_GRAY;
         xforms.swap_bits = (subword_format.bit_order != core::Endianness::big);
-        bytes_per_row = core::int_cast<std::size_t>(bytes_per_row_2); // Throws
+        bytes_per_row = std::size_t(bytes_per_row_2); // Throws
         return true;
     }
 
     image::BufferFormat::IndexedFormat indexed_format = {};
     if (ARCHON_LIKELY(buffer_format.try_cast_to(indexed_format, word_type))) { // Throws
-        image::BufferFormat::IndexedFormat indexed_format_2 = {};
-        if (ARCHON_LIKELY(indexed_format.try_cast_to_2(indexed_format_2, 1))) { // Throws
-            
-            ARCHON_STEADY_ASSERT_UNREACHABLE();                                     
-            return false;
+        image::BufferFormat::IndexedFormat indexed_format_2 = indexed_format;
+        if (ARCHON_LIKELY(indexed_format_2.try_cast_to_2(indexed_format, 1))) { // Throws
+            // FIXME: What if saved image uses a palette with more than 256 colors, uses a
+            // color space that is not RGB, or has more than 8 bits per channel in the
+            // palette?                                                      
+            switch (indexed_format.bits_per_pixel) {
+                case 1:
+                case 2:
+                case 4:
+                case 8:
+                    break;
+                default:
+                    return false;
+            }
+            int pixels_per_byte = 8 / indexed_format.bits_per_pixel;
+            if (indexed_format.pixels_per_compound != pixels_per_byte)
+                return false;
+            int bytes_per_row_2 = image_size.width / pixels_per_byte;
+            int remainder       = image_size.width % pixels_per_byte;
+            if (remainder != 0) {
+                if (!indexed_format.compound_aligned_rows)
+                    return false;
+                bytes_per_row_2 += 1;
+            }
+            format = {};
+            xforms = {};
+            format.bit_depth  = png_byte(indexed_format.bits_per_pixel);
+            format.color_type = PNG_COLOR_TYPE_PALETTE;
+            xforms.swap_bits = (indexed_format.bit_order != core::Endianness::big);
+            bytes_per_row = std::size_t(bytes_per_row_2); // Throws
+            return true;
         }
     }
     return false;
@@ -1161,6 +1191,10 @@ public:
     Format format = {};
     WriteTransformations xforms = {};
     std::size_t bytes_per_row = 0;
+    const png_color* palette = nullptr;
+    const png_byte* palette_alpha = nullptr;
+    int palette_size = 0;
+    int palette_alpha_size = 0;
     const png_byte** rows = {};
     bool use_interlacing = false;
 
@@ -1253,7 +1287,14 @@ bool do_save(SaveContext& ctx)
             }
         }
 
-        // FIXME: Set palette here                                                                              
+        if (ctx.palette_size > 0) {
+            ARCHON_ASSERT(ctx.format.color_type == PNG_COLOR_TYPE_PALETTE);
+            png_set_PLTE(ctx.png_ptr, ctx.info_ptr, ctx.palette, ctx.palette_size);
+        }
+        if (ctx.palette_alpha_size > 0) {
+            ARCHON_ASSERT(ctx.palette_size > 0);
+            png_set_tRNS(ctx.png_ptr, ctx.info_ptr, ctx.palette_alpha, ctx.palette_alpha_size, nullptr);
+        }
 
         // FIXME: Set gamma here               
 
@@ -1402,6 +1443,61 @@ bool save(const image::Image& image, core::Sink& sink, const std::locale& loc, l
         ctx.format = format;
         ctx.xforms = xforms;
         ctx.bytes_per_row = bytes_per_row;
+    }
+
+    constexpr int max_palette_size = 256;
+    png_color palette[max_palette_size];
+    png_byte palette_alpha[max_palette_size];
+    if (ctx.format.color_type == PNG_COLOR_TYPE_PALETTE) {
+        // FIXME: Find the largest color index in the image by creating an image reader.... hmmm.....           
+        const image::Image* palette_image = image.get_palette();
+        ARCHON_ASSERT(palette_image);
+        image::Reader reader(*palette_image);
+        image::Size size = reader.get_image_size();
+        // FIXME: Clamp palette size further to 2**N where N is number of bits per pixel                                                
+        int palette_size = max_palette_size;
+        if (ARCHON_LIKELY(size.width <= max_palette_size && size.height <= max_palette_size / size.width))
+            palette_size = size.height * size.width;
+        int quotient  = palette_size / size.width;
+        int remainder = palette_size % size.width;
+        using pixel_repr_type = image::RGBA_8;
+        using tray_type = pixel_repr_type::tray_type;
+        using iter_type = tray_type::iter_type;
+        using comp_type = iter_type::comp_type;
+        comp_type components[max_palette_size * 4];
+        iter_type iter = { components, 4, std::min(size.width, max_palette_size) * 4 };
+        if (quotient > 0) {
+            image::Pos pos = { 0, 0 };
+            tray_type tray = { iter, image::Size(size.width, quotient) };
+            reader.get_block<image::RGBA_8>(pos, tray);
+        }
+        if (remainder > 0) {
+            image::Pos pos = { 0, quotient };
+            tray_type tray = { iter + image::Size(0, quotient), image::Size(remainder, 1) };
+            reader.get_block<image::RGBA_8>(pos, tray);
+        }
+        int palette_alpha_size = 0;
+        for (int i = 0; i < palette_size; ++i) {
+            constexpr image::CompRepr comp_repr = pixel_repr_type::comp_repr;
+            using unpacked_type = image::unpacked_comp_type<comp_repr>;
+            unpacked_type red   = image::comp_repr_unpack<comp_repr>(components[i * 4 + 0]);
+            unpacked_type green = image::comp_repr_unpack<comp_repr>(components[i * 4 + 1]);
+            unpacked_type blue  = image::comp_repr_unpack<comp_repr>(components[i * 4 + 2]);
+            unpacked_type alpha = image::comp_repr_unpack<comp_repr>(components[i * 4 + 3]);
+            png_color& color = palette[i];
+            color.red        = image::pack_int<png_byte, 8>(red);
+            color.green      = image::pack_int<png_byte, 8>(green);
+            color.blue       = image::pack_int<png_byte, 8>(blue);
+            palette_alpha[i] = image::pack_int<png_byte, 8>(alpha);
+            if (alpha < 255)
+                palette_alpha_size = i + 1;
+            // FIXME: Ensure that palette size is never zero                              
+            // FIXME: Ensure that there is a zero size transparency chunk if the origin palette has an alpha channel but all alpha components are 255               
+        }
+        ctx.palette = palette;
+        ctx.palette_size = palette_size;
+        ctx.palette_alpha = palette_alpha;
+        ctx.palette_alpha_size = palette_alpha_size;
     }
 
     std::unique_ptr<const png_byte*[]> rows =
