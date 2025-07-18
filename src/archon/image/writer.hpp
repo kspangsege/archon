@@ -329,6 +329,16 @@ public:
     ///
     auto put_block_mask(image::Pos pos, const const_int8_tray_type& tray) -> Writer&;
 
+    /// \brief    
+    ///
+    ///    
+    ///
+    /// This function throws if the image is not indexed.    
+    ///
+    /// This function throws if a passed index is not representible in the availble number of bits per pixel.    
+    ///
+    template<image::CompRepr R> auto put_index_block(image::Pos pos, const image::const_tray_type<R>& tray) -> Writer&;
+
     /// \brief Find index of closest color in palette.
     ///
     /// This function searches the associated palette for the entry whose color is closest

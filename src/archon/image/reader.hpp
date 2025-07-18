@@ -60,7 +60,7 @@ namespace archon::image {
 ///
 /// FIXME: Make it clear that read operations are not `const` qualified, this means that it is not safe for two threads to read concurrently via the same reader.                                   
 ///
-/// FIXME: Consider allowing for rebinding reader to new image such that allocated memory can be reused.           
+/// FIXME: Consider allowing for rebinding reader to new image such that allocated memory can be reused (virtual auto reset(const image::Image&) noexcept -> Reader& and Writer::reset()).           
 ///
 class Reader {
 public:
@@ -329,6 +329,16 @@ public:
     template<image::CompRepr R> auto get_block_a(image::Pos pos, const image::tray_type<R>& tray,
                                                  const image::ColorSpace& color_space, bool has_alpha) -> Reader&;
 
+    /// \brief    
+    ///
+    ///    
+    ///
+    /// This function throws if image is not indexed    
+    ///
+    /// This function throws if an extracted index cannot be represented in the selected component type    
+    ///
+    template<image::CompRepr R> auto get_index_block(image::Pos pos, const image::tray_type<R>& tray) -> Reader&;
+
     enum class ColorSlot;
 
     /// \brief Assign new color to color slot.
@@ -447,9 +457,9 @@ public:
     /// stores the resulting channel components in the specified array (\p components).
     ///
     /// If the attached image does not have a palette (because it does not use indirect
-    /// color), or if the palette is empty (number of entries is zero), this function
-    /// fetches the currently configured background color instead (\ref
-    /// set_background_color()).
+    /// color), or if the specified color index (\p color_index) is greater than, or equal
+    /// to the size of the palette, this function fetches the currently configured
+    /// background color instead (see \ref set_background_color()).
     ///
     /// \sa \ref palette_lookup()
     /// \sa \ref image::Writer::reverse_palette_lookup_a()
@@ -576,10 +586,11 @@ private:
     template<image::CompRepr R> void read_g(image::Pos pos, const image::tray_type<R>& tray,
                                             const image::ColorSpace& color_space, bool has_alpha);
 
-    // Specified box (`image::Box(pos, tray.size)`) is allowed to extend beyond the image
-    // area. Escaping parts will be filled according to selected horizontal and vertical
-    // falloff modes. Tray size must be bounded as if by subdivision. Clobbers primary
-    // workspace buffer (may clobber contents, and may reallocate memory).
+    // Handles reads outside image image. Specified box (`image::Box(pos, tray.size)`) is
+    // allowed to extend beyond the image area. Escaping parts will be filled according to
+    // selected horizontal and vertical falloff modes. Tray size must be bounded as if by
+    // subdivision. Clobbers primary workspace buffer (may clobber contents, and may
+    // reallocate memory).
     template<image::CompRepr R> void read_e(image::Pos pos, const image::tray_type<R>& tray, bool ensure_alpha);
 
     // Handles palette lookup. Specified box (`image::Box(pos, tray.size)`) must be confined
@@ -985,6 +996,29 @@ template<image::CompRepr R> auto Reader::get_block_a(image::Pos pos, const image
         read_g<repr>(subbox.pos, tray.subtray(subbox, pos), color_space, has_alpha); // Throws
     }); // Throws
     return *this;
+}
+
+
+template<image::CompRepr R> auto Reader::get_index_block(image::Pos pos, const image::tray_type<R>& tray) -> Reader&
+{
+    // has_indexed_color();                      
+
+    constexpr image::CompRepr repr = R;
+    image::Box box = { pos, tray.size };
+    subdivide(box, [&](const image::Box& subbox) {
+        read_g<repr>(subbox.pos, tray.subtray(subbox, pos)); // Throws                                               
+    }); // Throws
+    return *this;
+    
+    constexpr image::CompRepr index_repr = image::color_index_repr; // FIXME: Should be made variable, and be provided through TransferInfo                                  
+    using index_comp_type = image::comp_type<index_repr>;
+    core::Buffer<std::byte>& buffer = m_workspace_buffer_1;
+    int num_index_channels = 1;
+    impl::Workspace<index_comp_type> workspace(buffer, num_index_channels, tray.size); // Throws
+    image::Tray tray_2 = workspace.tray(num_index_channels, tray.size);
+    m_image.read(pos, tray_2); // Throws
+    
+    
 }
 
 
