@@ -48,6 +48,7 @@
 #include <archon/image/geom.hpp>
 #include <archon/image/color_space.hpp>
 #include <archon/image/standard_channel_spec.hpp>
+#include <archon/image/transfer_info.hpp>
 #include <archon/image/buffer_format.hpp>
 #include <archon/image/image.hpp>
 #include <archon/image/writable_image.hpp>
@@ -982,7 +983,7 @@ bool SaveContext::prepare(const image::Image& image, std::error_code& ec)
         }
         else {
             JSAMPLE* base_2 = {};
-            image::Image::TransferInfo info = image.get_transfer_info(); // Throws
+            image::TransferInfo info = image.get_transfer_info(); // Throws
             bool use_rgb = !info.color_space->is_lum();
             if (ARCHON_LIKELY(use_rgb)) {
                 using spec_type = image::ChannelSpec_RGB;

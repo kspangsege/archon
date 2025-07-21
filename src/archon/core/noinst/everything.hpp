@@ -73,7 +73,8 @@
 #include <archon/core/impl/hash.hpp>
 #include <archon/core/hash.hpp>
 
-// Containers
+// Containers and smart pointers
+#include <archon/core/opt_owning_ptr.hpp>
 #include <archon/core/buffer.hpp>
 #include <archon/core/buffer_contents.hpp>
 #include <archon/core/string_buffer_contents.hpp>

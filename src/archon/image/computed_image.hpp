@@ -33,6 +33,7 @@
 #include <archon/image/comp_repr.hpp>
 #include <archon/image/color_space.hpp>
 #include <archon/image/pixel.hpp>
+#include <archon/image/transfer_info.hpp>
 #include <archon/image/buffer_format.hpp>
 #include <archon/image/image.hpp>
 
@@ -72,8 +73,7 @@ public:
     // Overriding virtual member functions of `image::Image`.
     auto get_size() const noexcept -> image::Size override final;
     bool try_get_buffer(image::BufferFormat&, const void*&) const override final;
-    auto get_transfer_info() const -> TransferInfo override final;
-    auto get_palette() const noexcept -> const Image* override final;
+    auto get_transfer_info() const -> image::TransferInfo override final;
     void read(image::Pos, const image::Tray<void>&) const override final;
 
 private:
@@ -117,21 +117,18 @@ bool ComputedImage<R, F>::try_get_buffer(image::BufferFormat&, const void*&) con
 
 
 template<class R, class F>
-auto ComputedImage<R, F>::get_transfer_info() const -> TransferInfo
+auto ComputedImage<R, F>::get_transfer_info() const -> image::TransferInfo
 {
+    const image::Image* palette = nullptr;
+    int index_depth = 0;
     return {
-        pixel_repr_type::comp_repr,
         &image::get_color_space(pixel_repr_type::color_space_tag),
         pixel_repr_type::has_alpha,
+        pixel_repr_type::comp_repr,
         image::comp_repr_bit_width<pixel_repr_type::comp_repr>(),
+        palette,
+        index_depth,
     };
-}
-
-
-template<class R, class F>
-auto ComputedImage<R, F>::get_palette() const noexcept -> const Image*
-{
-    return nullptr;
 }
 
 

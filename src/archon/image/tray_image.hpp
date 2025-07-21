@@ -30,6 +30,7 @@
 #include <archon/image/comp_repr.hpp>
 #include <archon/image/color_space.hpp>
 #include <archon/image/block.hpp>
+#include <archon/image/transfer_info.hpp>
 #include <archon/image/buffer_format.hpp>
 #include <archon/image/image.hpp>
 #include <archon/image/writable_image.hpp>
@@ -70,8 +71,7 @@ public:
     // Overriding virtual member functions of `image::Image`.
     auto get_size() const noexcept -> image::Size override final;
     bool try_get_buffer(image::BufferFormat&, const void*&) const override final;
-    auto get_transfer_info() const -> TransferInfo override final;
-    auto get_palette() const noexcept -> const Image* override final;
+    auto get_transfer_info() const -> image::TransferInfo override final;
     void read(image::Pos, const image::Tray<void>&) const override final;
 
 private:
@@ -119,8 +119,7 @@ public:
     // Overriding virtual member functions of `image::Image`.
     auto get_size() const noexcept -> image::Size override final;
     bool try_get_buffer(image::BufferFormat&, const void*&) const override final;
-    auto get_transfer_info() const -> TransferInfo override final;
-    auto get_palette() const noexcept -> const Image* override final;
+    auto get_transfer_info() const -> image::TransferInfo override final;
     void read(image::Pos, const image::Tray<void>&) const override final;
 
     // Overriding virtual member functions of `image::WritableImage`.
@@ -189,21 +188,18 @@ bool TrayImage<R>::try_get_buffer(image::BufferFormat&, const void*&) const
 
 
 template<image::CompRepr R>
-auto TrayImage<R>::get_transfer_info() const -> TransferInfo
+auto TrayImage<R>::get_transfer_info() const -> image::TransferInfo
 {
+    const image::Image* palette = nullptr;
+    int index_depth = 0;
     return {
-        comp_repr,
         m_color_space,
         m_has_alpha,
+        comp_repr,
         image::comp_repr_bit_width<comp_repr>(),
+        palette,
+        index_depth,
     };
-}
-
-
-template<image::CompRepr R>
-auto TrayImage<R>::get_palette() const noexcept -> const Image*
-{
-    return nullptr;
 }
 
 
@@ -260,21 +256,18 @@ bool WritableTrayImage<R>::try_get_buffer(image::BufferFormat&, const void*&) co
 
 
 template<image::CompRepr R>
-auto WritableTrayImage<R>::get_transfer_info() const -> TransferInfo
+auto WritableTrayImage<R>::get_transfer_info() const -> image::TransferInfo
 {
+    const image::Image* palette = nullptr;
+    int index_depth = 0;
     return {
-        comp_repr,
         m_color_space,
         m_has_alpha,
+        comp_repr,
         image::comp_repr_bit_width<comp_repr>(),
+        palette,
+        index_depth,
     };
-}
-
-
-template<image::CompRepr R>
-auto WritableTrayImage<R>::get_palette() const noexcept -> const Image*
-{
-    return nullptr;
 }
 
 

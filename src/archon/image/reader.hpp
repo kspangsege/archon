@@ -29,8 +29,10 @@
 #include <utility>
 #include <memory>
 #include <array>
+#include <stdexcept>
 
 #include <archon/core/features.h>
+#include <archon/core/span.hpp>
 #include <archon/core/assert.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/buffer.hpp>
@@ -47,7 +49,9 @@
 #include <archon/image/pixel_repr.hpp>
 #include <archon/image/pixel.hpp>
 #include <archon/image/block.hpp>
+#include <archon/image/transfer_info.hpp>
 #include <archon/image/image.hpp>
+#include <archon/image/impl/subdivide.hpp>
 #include <archon/image/impl/workspace.hpp>
 
 
@@ -60,7 +64,7 @@ namespace archon::image {
 ///
 /// FIXME: Make it clear that read operations are not `const` qualified, this means that it is not safe for two threads to read concurrently via the same reader.                                   
 ///
-/// FIXME: Consider allowing for rebinding reader to new image such that allocated memory can be reused.           
+/// FIXME: Consider allowing for rebinding reader to new image such that allocated memory can be reused (virtual auto reset(const image::Image&) noexcept -> Reader& and Writer::reset()).           
 ///
 class Reader {
 public:
@@ -114,10 +118,10 @@ public:
     /// \brief Whether attached image uses indirect color.
     ///
     /// This function returns `true` when, and only when the attached image uses indirect
-    /// color. If `r` is a reader, them `r.has_indexed_color()` is identical to
+    /// color. If `r` is a reader, them `r.has_indirect_color()` is identical to
     /// `bool(r.get_palette())`.
     ///
-    bool has_indexed_color() const noexcept;
+    bool has_indirect_color() const noexcept;
 
     /// \brief Native component representation scheme of reader.
     ///
@@ -130,8 +134,10 @@ public:
 
     /// \brief Associated palette for indirect color image.
     ///
-    /// This function is a shorthand for calling \ref Image::get_palette() on the attached
-    /// image, but is more efficient due to the valued being cached in the reader.
+    /// If the attached image uses indirect color, this function returns the associated
+    /// palette. Otherwise it returns null. If `r` is a reader, `r.get_palette()` is
+    /// shorthand for `r.get_transfer_info().palette`. See \ref get_transfer_info() and \ref
+    /// image::TransferInfo::palette.
     ///
     auto get_palette() const noexcept -> const image::Image*;
 
@@ -159,21 +165,13 @@ public:
     /// associated image, but is more efficient due to the returned object being cached in
     /// the reader.
     ///
-    auto get_transfer_info() const noexcept -> const image::Image::TransferInfo&;
+    auto get_transfer_info() const noexcept -> const image::TransferInfo&;
 
     /// \brief Number of colors in palette.
     ///
-    /// If the attached image uses indirect color, this function returns the number of
-    /// colors in the associated palette (\ref get_palette()). If the attached image uses
-    /// direct color, this function returns zero.
-    ///
-    /// The number of colors in the palette is the number of pixels in the image used as
-    /// palette clamped to the smaller of N and 2^M where N is the maximum representable
-    /// value in `std::size_t` and M is the number of available bits in the component
-    /// representation used to store color indexes in the attached image
-    /// (`image::comp_repr_int_bit_width(image::color_index_repr)`).
-    ///
-    /// FIXME: Adjust text above when support of varying index representations is added.                                           
+    /// If the attached image uses indirect color, this function returns the effective
+    /// palette size (\ref image::TransferInfo::determine_palette_size()). If the attached
+    /// image uses direct color, this function returns zero.
     ///
     auto get_palette_size() const noexcept -> std::size_t;
 
@@ -432,10 +430,10 @@ public:
     /// color.
     ///
     /// If `r` is a reader, then `r.palette_lookup(color_index, color)` is shorthand for
-    /// `r.palette_lookup_a<R::comp_repr>(color_index, color.data(), R::get_color_space(),
-    /// R::has_alpha)`.
+    /// `r.read_palette(color_index, core::Span(&color, 1))`. See \ref read_palette().
     ///
     /// \sa \ref palette_lookup_a()
+    /// \sa \ref read_palette()
     /// \sa \ref image::Writer::reverse_palette_lookup()
     ///
     template<class R> auto palette_lookup(std::size_t color_index, image::Pixel<R>& color) -> Reader&;
@@ -444,18 +442,113 @@ public:
     ///
     /// This function fetches the color from the specified palette entry (\p color_index),
     /// converts it to the requested form (\p R, \p color_space, \p has_alpha), and then
-    /// stores the resulting channel components in the specified array (\p components).
+    /// stores the resulting channel components in the specified array (\p components). The
+    /// array must be big enough to store one component per channel in the requested color
+    /// format. The number of channels is `color_space.get_num_channels() + int(has_alpha)`.
     ///
-    /// If the attached image does not have a palette (because it does not use indirect
-    /// color), or if the palette is empty (number of entries is zero), this function
-    /// fetches the currently configured background color instead (\ref
-    /// set_background_color()).
+    /// If `r` is a reader, then `r.palette_lookup_a(color_index, color_space, has_alpha,
+    /// components)` is shorthand for `r.read_palette_a(color_index, 1, color_space,
+    /// has_alpha, components)`. See \ref read_palette_a().
     ///
     /// \sa \ref palette_lookup()
+    /// \sa \ref read_palette_a()
     /// \sa \ref image::Writer::reverse_palette_lookup_a()
     ///
-    template<image::CompRepr R> auto palette_lookup_a(std::size_t color_index, image::comp_type<R>* components,
-                                                      const image::ColorSpace& color_space, bool has_alpha) -> Reader&;
+    template<image::CompRepr R> auto palette_lookup_a(std::size_t color_index, const image::ColorSpace& color_space,
+                                                      bool has_alpha, image::comp_type<R>* components) -> Reader&;
+
+    /// \brief Fetch section of palette.
+    ///
+    /// This function fetches all, or part of the palette. The part that is fetched begins
+    /// at the specified offset (\p offset) and extends for as many entries as will fit in
+    /// the specified span of colors (\p colors). The requested entries are converted to the
+    /// specified color format (\ref R) as part of the extraction process.
+    ///
+    /// It is an error if the specified section extends beyond the end of the palette. If it
+    /// does, this function throws. The size of the palette can be obtained by calling \ref
+    /// get_palette_size().
+    ///
+    /// It is an error to call this function when the attached image does not have a palette
+    /// (uses a direct color scheme). If this function is called in such a case, an
+    /// exception is thrown.
+    ///
+    /// \sa \ref read_palette_a()
+    /// \sa \ref palette_lookup()
+    ///
+    template<class R> auto read_palette(std::size_t offset, const core::Span<image::Pixel<R>>& colors) -> Reader&;
+
+    /// \brief Fetch section of palette with maximum color format flexibility.
+    ///
+    /// This function fetches all, or part of the palette. The part that is fetched begins
+    /// at the specified offset (\p offset) and extends for the specified number of entries
+    /// (\p num). The requested entries are converted to the specified color format (\ref R,
+    /// \ref color_space, \ref has_alpha) and then stored in the specified component array
+    /// (\p components). The array must be big enough to store all the requested
+    /// components. The total number of requested components is the requested number of
+    /// entries (\p num) times the number of channels in the requested color format. The
+    /// number of channels is `color_space.get_num_channels() + int(has_alpha)`.
+    ///
+    /// It is an error if the specified section extends beyond the end of the palette. If it
+    /// does, this function throws. The size of the palette can be obtained by calling \ref
+    /// get_palette_size().
+    ///
+    /// It is an error to call this function when the attached image does not have a palette
+    /// (\ref has_indirect_color()). If this function is called in such a case, an exception
+    /// is thrown.
+    ///
+    /// \sa \ref read_palette()
+    /// \sa \ref palette_lookup_a()
+    ///
+    template<image::CompRepr R> auto read_palette_a(std::size_t offset, std::size_t num,
+                                                    const image::ColorSpace& color_space, bool has_alpha,
+                                                    image::comp_type<R>* components) -> Reader&;
+
+    /// \brief Determine highest color index present in attached image.
+    ///
+    /// This function scans the attached image and determines the highest color index that
+    /// is present. It then attempts to assign that index to \p highest_index. The
+    /// assignment succeeds if, and only if the index is representable in the specified
+    /// integer type (\p I). The index needs to be representable in \p I in its unpacked
+    /// form (\ref image::unpack_int()). On success, this function returns `true` after
+    /// assigning the highest index to \p highest_index. On failure, it returns `false` and
+    /// leaves \p highest_index unchanged. If the image is empty (has no pixels), this
+    /// function attempts to return zero, which will always succeed.
+    ///
+    /// It is an error to call this function when the attached image does not have a palette
+    /// (\ref has_indirect_color()). If this function is called in such a case, an exception
+    /// is thrown.
+    ///
+    /// \sa \ref try_get_color_index_block()
+    ///
+    template<class I> bool try_get_highest_color_index(I& highest_index);
+
+    /// \brief Extract color indexes for block of pixels.
+    ///
+    /// This function extracts color indexes for a block of pixels and then attempts to
+    /// store those indexes in the memory locations prescribed by the specified tray
+    /// (\p tray). The extracted pixels are those that fall inside the specified source
+    /// area, which is `image::Box(pos, tray.size)`. Tray storage succeeds if, and only if
+    /// all the extracted indexes are representable in the specified integer type (\p
+    /// I). The indexes needs to be representable in \p I in their unpacked form (\ref
+    /// image::unpack_int()). On success, this function returns `true`. On failure, it
+    /// returns `false`.
+    ///
+    /// On failure, some of the memory locations prescribed by the specified tray may have
+    /// been clobbered.
+    ///
+    /// It is an error if the source area extends beyond the image boundary. If it does,
+    /// this function throws. The size of the image is available through \ref
+    /// get_image_size().
+    ///
+    /// It is an error to call this function when the attached image does not have a palette
+    /// (\ref has_indirect_color()). If this function is called in such a case, an exception
+    /// is thrown.
+    ///
+    /// \sa \ref get_block_a()
+    /// \sa \ref try_get_highest_color_index()
+    /// \sa \ref image::Writer::try_put_color_index_block()
+    ///
+    template<class I> bool try_get_color_index_block(image::Pos pos, const image::Tray<I>& tray);
 
 private:
     friend class Writer;
@@ -477,9 +570,8 @@ private:
 
     const image::Image& m_image;
     const image::Size m_image_size;
-    const image::Image* const m_palette;
+    const image::TransferInfo m_transfer_info;
     const std::size_t m_palette_size;
-    const image::Image::TransferInfo m_transfer_info;
     const int m_num_channels;
     const int m_num_channels_ext; // Always includes an alpha channel
 
@@ -560,15 +652,9 @@ private:
     // `std::ptrdiff_t` and in `std::size_t`.
     void verify_max_num_components() const;
 
-    static auto determine_palette_size(const image::Image* palette) noexcept -> std::size_t;
-
     // Whether current color in color slot is solid. Clobbers primary workspace buffer (may
     // clobber contents, and may reallocate memory).
     bool is_solid_color(ColorSlot);
-
-    // Divide operation into sequence of operations on smaller boxes. Specified box must be
-    // valid (`image::Box::is_valid()`).
-    template<class F> void subdivide(const image::Box&, F&& func);
 
     // Handle conversion to caller's pixel format. Tray size must be bounded as if by
     // subdivision. Clobbers primary and secondary workspace buffers (may clobber contents,
@@ -576,10 +662,11 @@ private:
     template<image::CompRepr R> void read_g(image::Pos pos, const image::tray_type<R>& tray,
                                             const image::ColorSpace& color_space, bool has_alpha);
 
-    // Specified box (`image::Box(pos, tray.size)`) is allowed to extend beyond the image
-    // area. Escaping parts will be filled according to selected horizontal and vertical
-    // falloff modes. Tray size must be bounded as if by subdivision. Clobbers primary
-    // workspace buffer (may clobber contents, and may reallocate memory).
+    // Handles reads outside image image. Specified box (`image::Box(pos, tray.size)`) is
+    // allowed to extend beyond the image area. Escaping parts will be filled according to
+    // selected horizontal and vertical falloff modes. Tray size must be bounded as if by
+    // subdivision. Clobbers primary workspace buffer (may clobber contents, and may
+    // reallocate memory).
     template<image::CompRepr R> void read_e(image::Pos pos, const image::tray_type<R>& tray, bool ensure_alpha);
 
     // Handles palette lookup. Specified box (`image::Box(pos, tray.size)`) must be confined
@@ -784,9 +871,8 @@ enum class Reader::ColorSlot {
 inline Reader::Reader(const image::Image& image)
     : m_image(image)
     , m_image_size(image.get_size())
-    , m_palette(image.get_palette())
-    , m_palette_size(determine_palette_size(m_palette))
     , m_transfer_info(image.get_transfer_info()) // Throws
+    , m_palette_size(m_transfer_info.determine_palette_size())
     , m_num_channels(m_transfer_info.get_num_channels())
     , m_num_channels_ext(m_num_channels + int(!m_transfer_info.has_alpha))
     , m_horz_falloff_mode(FalloffMode::background)
@@ -827,7 +913,7 @@ inline bool Reader::has_alpha_channel() const noexcept
 }
 
 
-inline bool Reader::has_indexed_color() const noexcept
+inline bool Reader::has_indirect_color() const noexcept
 {
     return bool(get_palette());
 }
@@ -841,7 +927,7 @@ inline auto Reader::get_comp_repr() const noexcept -> image::CompRepr
 
 inline auto Reader::get_palette() const noexcept -> const image::Image*
 {
-    return m_palette;
+    return m_transfer_info.palette;
 }
 
 
@@ -857,7 +943,7 @@ inline int Reader::get_num_channels_ext() const noexcept
 }
 
 
-inline auto Reader::get_transfer_info() const noexcept -> const image::Image::TransferInfo&
+inline auto Reader::get_transfer_info() const noexcept -> const image::TransferInfo&
 {
     return m_transfer_info;
 }
@@ -981,7 +1067,7 @@ template<image::CompRepr R> auto Reader::get_block_a(image::Pos pos, const image
 {
     constexpr image::CompRepr repr = R;
     image::Box box = { pos, tray.size };
-    subdivide(box, [&](const image::Box& subbox) {
+    impl::subdivide(box, [&](const image::Box& subbox) {
         read_g<repr>(subbox.pos, tray.subtray(subbox, pos), color_space, has_alpha); // Throws
     }); // Throws
     return *this;
@@ -1070,68 +1156,183 @@ auto Reader::get_color_a(ColorSlot slot, image::comp_type<R>* components, const 
 
 template<class R> inline auto Reader::palette_lookup(std::size_t color_index, image::Pixel<R>& color) -> Reader&
 {
-    return palette_lookup_a<R::comp_repr>(color_index, color.data(), R::get_color_space(), R::has_alpha); // Throws
+    std::size_t offset = color_index;
+    core::Span colors = { &color, 1 };
+    return read_palette(offset, colors); // Throws
 }
 
 
 template<image::CompRepr R>
-auto Reader::palette_lookup_a(std::size_t color_index, image::comp_type<R>* components,
-                              const image::ColorSpace& color_space, bool has_alpha) -> Reader&
+inline auto Reader::palette_lookup_a(std::size_t color_index, const image::ColorSpace& color_space, bool has_alpha,
+                                     image::comp_type<R>* components) -> Reader&
 {
-    if (ARCHON_UNLIKELY(color_index >= m_palette_size))
-        return get_color_a<R>(ColorSlot::background, components, color_space, has_alpha); // Throws
+    std::size_t offset = color_index;
+    std::size_t num = 1;
+    return read_palette_a(offset, num, color_space, has_alpha, components); // Throws
+}
 
-    // Short circuit mode: The requested color can be read without lossy conversion when the
-    // requested format is sufficiently close to the native format of the attached
+
+template<class R> auto Reader::read_palette(std::size_t offset, const core::Span<image::Pixel<R>>& colors) -> Reader&
+{
+    using pixel_repr_type = R;
+    using pixel_type = image::Pixel<pixel_repr_type>;
+    const image::ColorSpace& color_space = pixel_repr_type::get_color_space();
+    bool has_alpha = pixel_repr_type::has_alpha;
+    using comp_type = pixel_repr_type::comp_type;
+    constexpr int chunk_size = 32;
+    constexpr int num_channels = pixel_repr_type::num_channels;
+    comp_type components[chunk_size * num_channels];
+    std::size_t size = colors.size();
+    std::size_t offset_2 = 0;
+    while (offset_2 < size) {
+        std::size_t remain = size - offset_2;
+        std::size_t num = std::min(std::size_t(chunk_size), remain);
+        constexpr image::CompRepr comp_repr = pixel_repr_type::comp_repr;
+        read_palette_a<comp_repr>(std::size_t(offset + offset_2), num, color_space, has_alpha, components); // Throws
+        for (std::size_t i = 0; i < num; ++i) {
+            pixel_type& color = colors[offset_2 + i];
+            for (int j = 0; j < num_channels; ++j)
+                color[j] = components[i * num_channels + j];
+        }
+        offset_2 += num;
+    }
+    return *this;
+}
+
+
+template<image::CompRepr R>
+auto Reader::read_palette_a(std::size_t offset, std::size_t num, const image::ColorSpace& color_space, bool has_alpha,
+                            image::comp_type<R>* components) -> Reader&
+{
+    constexpr image::CompRepr repr = R;
+
+    if (ARCHON_UNLIKELY(!m_transfer_info.palette))
+        throw std::runtime_error("Image has no palette");
+    if (ARCHON_UNLIKELY(num > m_palette_size || offset > m_palette_size - num))
+        throw std::runtime_error("Out of bounds read from palette");
+
+    // Short circuit mode: The requested colors can be read without lossy conversion when
+    // the requested format is sufficiently close to the native format of the attached
     // image. This is relevant for performance, and also because it ensures that there is no
     // information lost due to conversion. For this to work, the requested format must use
     // the same component representation scheme and color space as the native
     // format. Additionally, because palette entries always carry an alpha component, the
     // requested format must also include an alpha channel, or it must be possible to obtain
-    // the correct result simply by throwing away the alpha component. If the color in the
-    // specified palette entry is solid, the alpha component can be thrown away regardless
-    // of component representation scheme. If it is not solid, the alpha component can still
-    // be thrown away if the component representation scheme is `_float` due to alpha
+    // the correct result simply by throwing away the alpha component. If the color in a
+    // particular entry is solid, the alpha component can be thrown away regardless of
+    // component representation scheme. If it is not solid, the alpha component can still be
+    // thrown away if the component representation scheme is `_float` due to alpha
     // premultiplication. Throwing away the alpha component in this case corresponds to
     // blending with black (color OVER black) which is the required behavior when an alpha
     // channel is eliminated.
-    constexpr image::CompRepr repr = R;
+
     const image::ColorSpace& origin_color_space = *m_transfer_info.color_space;
-    int origin_num_channels = m_num_channels_ext;
     bool same_comp_repr = (repr == m_transfer_info.comp_repr);
     bool same_color_space = (&color_space == &origin_color_space);
     bool maybe_short_circuit = (same_comp_repr && same_color_space);
-    if (ARCHON_LIKELY(maybe_short_circuit)) {
-        using comp_type = image::comp_type<repr>;
-        const comp_type* entries = ensure_palette_cache<repr>(); // Throws
-        const comp_type* color = entries + origin_num_channels * color_index;
-        bool remove_alpha = !has_alpha;
-        bool is_float = (repr == image::CompRepr::float_);
-        bool is_solid = (color[origin_num_channels - 1] == image::comp_repr_max<repr>()); // Throws
-        bool short_circuit = (!remove_alpha || is_float || is_solid);
-        if (ARCHON_LIKELY(short_circuit)) {
-            // Short circuit case: Source from native slot
-            int n = origin_num_channels - int(!has_alpha);
-            std::copy(color, color + n, components);
-            return *this;
-        }
-    }
-    // Fallback case: Source from neutral slot
-    const image::float_type* entries = ensure_palette_cache_f(); // Throws
-    const image::float_type* color = entries + origin_num_channels * color_index;
+    using comp_type = image::comp_type<repr>;
+    const comp_type* entries = nullptr;
+    if (ARCHON_LIKELY(maybe_short_circuit))
+        entries = ensure_palette_cache<repr>(); // Throws
+    int origin_num_channels = m_num_channels_ext;
     int destin_num_channels = color_space.get_num_channels() + int(has_alpha);
     std::array<image::float_type, s_default_workspace_seed_size> seed_mem;
     impl::Workspace<image::float_type> workspace(seed_mem, m_workspace_buffer_1,
                                                  std::max(origin_num_channels, destin_num_channels)); // Throws
-    constexpr image::CompRepr repr_2 = image::CompRepr::float_;
-    bool origin_has_alpha = true;
-    image::float_type* interm = workspace.data();
-    const image::ColorSpaceConverter* custom_converter =
-        find_color_space_converter(origin_color_space, color_space);
-    image::pixel_convert_a<repr_2, repr>(color, origin_color_space, origin_has_alpha,
-                                         components, color_space, has_alpha,
-                                         interm, custom_converter); // Throws
+    const image::ColorSpaceConverter* custom_converter = find_color_space_converter(origin_color_space, color_space);
+    for (std::size_t i = 0; i < num; ++i) {
+        comp_type* components_2 = components + i * destin_num_channels;
+        if (ARCHON_LIKELY(maybe_short_circuit)) {
+            const comp_type* color = entries + (offset + i) * origin_num_channels;
+            bool remove_alpha = !has_alpha;
+            bool is_float = (repr == image::CompRepr::float_);
+            bool is_solid = (color[origin_num_channels - 1] == image::comp_repr_max<repr>()); // Throws
+            bool short_circuit = (!remove_alpha || is_float || is_solid);
+            if (ARCHON_LIKELY(short_circuit)) {
+                // Short circuit case: Source from native slot
+                int n = origin_num_channels - int(!has_alpha);
+                std::copy_n(color, n, components_2);
+                continue;
+            }
+        }
+        // Fallback case: Source from neutral slot
+        const image::float_type* entries_f = ensure_palette_cache_f(); // Throws
+        const image::float_type* color_f = entries_f + (offset + i) * origin_num_channels;
+        constexpr image::CompRepr repr_2 = image::CompRepr::float_;
+        bool origin_has_alpha = true;
+        image::float_type* interm = workspace.data();
+        image::pixel_convert_a<repr_2, repr>(color_f, origin_color_space, origin_has_alpha,
+                                             components_2, color_space, has_alpha,
+                                             interm, custom_converter); // Throws
+    }
+
     return *this;
+}
+
+
+template<class I> bool Reader::try_get_highest_color_index(I& highest_index)
+{
+    if (ARCHON_UNLIKELY(!m_transfer_info.palette))
+        throw std::runtime_error("Image has no palette");
+
+    constexpr image::CompRepr index_repr = image::color_index_repr; // FIXME: Should be made variable, and be provided through TransferInfo                                  
+    using index_comp_type = image::comp_type<index_repr>;
+    using unpacked_index_comp_type = image::unpacked_comp_type<index_repr>;
+    core::Buffer<std::byte>& buffer = m_workspace_buffer_1;
+    impl::Workspace<index_comp_type> workspace(buffer);
+    unpacked_index_comp_type highest_index_2 = 0;
+
+    image::Box box = m_image_size;
+    impl::subdivide(box, [&](const image::Box& subbox) {
+        int num_index_channels = 1;
+        workspace.reset(num_index_channels, subbox.size); // Throws
+        image::Tray tray = workspace.tray(num_index_channels, subbox.size);
+        m_image.read(subbox.pos, tray); // Throws
+        for (int y = 0; y < tray.size.height; ++y) {
+            for (int x = 0; x < tray.size.width; ++x) {
+                const index_comp_type* pixel = tray(x, y);
+                unpacked_index_comp_type index = image::comp_repr_unpack<index_repr>(*pixel);
+                if (ARCHON_LIKELY(index <= highest_index_2))
+                    continue;
+                highest_index_2 = index;
+            }
+        }
+    }); // Throws
+
+    return core::try_int_cast(highest_index_2, highest_index);
+}
+
+
+template<class I> bool Reader::try_get_color_index_block(image::Pos pos, const image::Tray<I>& tray)
+{
+    image::Box box = { pos, tray.size };
+    if (ARCHON_UNLIKELY(!m_transfer_info.palette))
+        throw std::runtime_error("Image has no palette");
+    if (ARCHON_UNLIKELY(!box.contained_in(m_image_size)))
+        throw std::runtime_error("Reading outside image boundary");
+
+    constexpr image::CompRepr index_repr = image::color_index_repr; // FIXME: Should be made variable, and be provided through TransferInfo                                  
+    using index_comp_type = image::comp_type<index_repr>;
+    core::Buffer<std::byte>& buffer = m_workspace_buffer_1;
+    impl::Workspace<index_comp_type> workspace(buffer);
+
+    return impl::subdivide(box, [&](const image::Box& subbox) {
+        int num_index_channels = 1;
+        workspace.reset(num_index_channels, subbox.size); // Throws
+        image::Tray tray_2 = workspace.tray(num_index_channels, subbox.size);
+        m_image.read(subbox.pos, tray_2); // Throws
+        image::Tray tray_3 = tray.subtray(subbox, pos);
+        for (int y = 0; y < tray_2.size.height; ++y) {
+            for (int x = 0; x < tray_2.size.width; ++x) {
+                const index_comp_type* pixel = tray_2(x, y);
+                auto index = image::comp_repr_unpack<index_repr>(*pixel);
+                if (ARCHON_LIKELY(core::try_int_cast(index, *tray_3(x, y))))
+                    continue;
+                return false;
+            }
+        }
+        return true;
+    }); // Throws
 }
 
 
@@ -1154,60 +1355,6 @@ inline bool Reader::is_solid_color(ColorSlot slot)
     set_default_color(slot); // Throws
   have:
     return ctrl.is_solid;
-}
-
-
-template<class F> void Reader::subdivide(const image::Box& box, F&& func)
-{
-    ARCHON_ASSERT(box.is_valid());
-    constexpr int preferred_block_width  = 64;
-    constexpr int preferred_block_height = 64;
-    constexpr int preferred_block_area = preferred_block_width * preferred_block_height;
-    if (ARCHON_LIKELY(box.size.width >= preferred_block_width)) {
-        int y = 0;
-        for (;;) {
-            int h, max_w;
-            {
-                int remaining_h = box.size.height - y;
-                if (ARCHON_LIKELY(remaining_h >= preferred_block_height)) {
-                    h = preferred_block_height;
-                    max_w = preferred_block_width;
-                }
-                else {
-                    if (remaining_h == 0)
-                        break;
-                    h = remaining_h;
-                    max_w = preferred_block_area / h;
-                }
-            }
-            int x = 0;
-            for (;;) {
-                int remaining_w = box.size.width - x;
-                int w = std::min(remaining_w, max_w);
-                func(image::Box(box.pos + image::Size(x, y), { w, h })); // Throws
-                x += w;
-                if (ARCHON_LIKELY(x < box.size.width))
-                    continue;
-                break;
-            }
-            y += h;
-        }
-    }
-    else if (box.size.width > 0) {
-        int w = box.size.width;
-        int max_h = preferred_block_area / w;
-        int x = 0;
-        int y = 0;
-        for (;;) {
-            int remaining_h = box.size.height - y;
-            int h = std::min(remaining_h, max_h);
-            func(image::Box(box.pos + image::Size(x, y), { w, h })); // Throws
-            y += h;
-            if (ARCHON_LIKELY(y < box.size.height))
-                continue;
-            break;
-        }
-    }
 }
 
 
@@ -1523,7 +1670,7 @@ template<image::CompRepr R> void Reader::read(image::Pos pos, const image::tray_
 
     using comp_type = image::comp_type<repr>;
     constexpr image::CompRepr float_repr = image::CompRepr::float_;
-    bool direct_color = !has_indexed_color();
+    bool direct_color = !has_indirect_color();
     if (ARCHON_LIKELY(direct_color)) {
         if constexpr (repr == float_repr) {
             if (ARCHON_LIKELY(get_comp_repr() != float_repr)) {

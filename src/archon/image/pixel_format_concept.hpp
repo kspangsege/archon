@@ -65,20 +65,14 @@ requirements are met:
     `F::word_type`, of the buffer that would be needed to hold an image of the specified
     size. The function must throw if the image size is too large.
 
-  - `f.get_palette()` must be a valid function invocation if the pixel format uses indexed
-    color (`F::is_indexed_color`). In that case, the result must be convertible to `const
-    image::Image*`, and the invocation must be `noexcept` operation. The returned image must
-    be the image that functions as a palette for this pixel format. See \ref
-    archon::image::Image::get_palette().
-
   - `f.try_describe(buffer_format)` must be a valid function invocation. The result must be
     of type `bool`. If this pixel format can be described using \ref
     archon::image::BufferFormat, the result must be `true`, and `buffer_format` must have
     been set to describe this pixel format. Otherwise the result must be `false` and
     `buffer_format` must have been left unchanged.
 
-  - `f.get_transfer_info()` must be a valid function invocation. The invocation must be
-    `noexcept` operation. The result must be of type \ref image::Image::TransferInfo.
+  - `f.get_transfer_info()` must be a valid function invocation. The result must be of type
+    \ref image::TransferInfo.
 
   - `f.read(buffer, image_size, pos, tray)` must be a valid function invocations if `buffer`
     is a pointer to an array of `const` words of type `F::word_type`, and `tray` is an

@@ -82,6 +82,7 @@ target_sources(Core PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "${
   archon/core/hash_fnv.hpp
   archon/core/impl/hash.hpp
   archon/core/hash.hpp
+  archon/core/opt_owning_ptr.hpp
   archon/core/buffer.hpp
   archon/core/buffer_contents.hpp
   archon/core/string_buffer_contents.hpp

@@ -1,6 +1,6 @@
 // This file is part of the Archon project, a suite of C++ libraries.
 //
-// Copyright (C) 2022 Kristian Spangsege <kristian.spangsege@gmail.com>
+// Copyright (C) 2025 Kristian Spangsege <kristian.spangsege@gmail.com>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this
 // software and associated documentation files (the "Software"), to deal in the Software
@@ -18,37 +18,36 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-#ifndef ARCHON_X_IMAGE_X_IMAGE_PROVIDER_HPP
-#define ARCHON_X_IMAGE_X_IMAGE_PROVIDER_HPP
 
-/// \file
+#include <cstddef>
+#include <algorithm>
 
-
+#include <archon/core/features.h>
+#include <archon/core/integer.hpp>
 #include <archon/image/geom.hpp>
 #include <archon/image/transfer_info.hpp>
 #include <archon/image/image.hpp>
 
 
-namespace archon::image {
+using namespace archon;
+using image::TransferInfo;
 
 
-/// \brief    
-///
-///    
-///
-class ImageProvider {
-public:
-    /// \brief    
-    ///
-    ///    
-    ///
-    virtual bool try_provide_image(image::Size image_size, image::TransferInfo, image::Image*&, image::Pos&,
-                                   std::error_code&) = 0;
+auto TransferInfo::determine_palette_size() const noexcept -> std::size_t
+{
+    if (!palette)
+        return 0;
 
-    virtual ~ImageProvider() noexcept = default;
-};
+    image::Size palette_image_size = palette->get_size();
+    std::size_t palette_size = 1;
+    bool overflow = (!core::try_int_mul(palette_size, std::max(palette_image_size.width, 0)) ||
+                     !core::try_int_mul(palette_size, std::max(palette_image_size.height, 0)));
+    if (ARCHON_UNLIKELY(overflow))
+        palette_size = core::int_max<std::size_t>();
 
-
-} // namespace archon::image
-
-#endif // ARCHON_X_IMAGE_X_IMAGE_PROVIDER_HPP
+    // Clamp palette size to available index range
+    std::size_t max_index = core::int_mask<std::size_t>(std::min(index_depth, core::int_width<std::size_t>()));
+    if (ARCHON_LIKELY(palette_size == 0 || max_index >= std::size_t(palette_size - 1)))
+        return palette_size;
+    return std::size_t(max_index + 1);
+}

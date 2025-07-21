@@ -51,6 +51,8 @@
 #include <archon/image/bit_field.hpp>
 #include <archon/image/channel_packing_concept.hpp>
 #include <archon/image/channel_packing.hpp>
+#include <archon/image/image_fwd.hpp>
+#include <archon/image/transfer_info.hpp>
 #include <archon/image/buffer_format.hpp>
 
 // Images and palettes
@@ -69,6 +71,7 @@
 #include <archon/image/palettes.hpp>
 
 // Image access
+#include <archon/image/impl/subdivide.hpp>
 #include <archon/image/impl/workspace.hpp>
 #include <archon/image/reader.hpp>
 #include <archon/image/writer.hpp>

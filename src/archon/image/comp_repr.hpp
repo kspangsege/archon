@@ -230,7 +230,7 @@ template<image::CompRepr R> using const_tray_type = image::Tray<const image::com
 ///
 /// \sa \ref image::comp_repr_unpack()
 ///
-template<image::CompRepr R, class T> auto comp_repr_pack(T val) noexcept -> image::comp_type<R>;
+template<image::CompRepr R, class T> constexpr auto comp_repr_pack(T val) noexcept -> image::comp_type<R>;
 
 
 /// \brief Retrieve original component value from its packed form.
@@ -248,7 +248,8 @@ template<image::CompRepr R, class T> auto comp_repr_pack(T val) noexcept -> imag
 ///
 /// \sa \ref image::comp_repr_pack()
 ///
-template<image::CompRepr R> auto comp_repr_unpack(image::comp_type<R> comp) noexcept -> image::unpacked_comp_type<R>;
+template<image::CompRepr R> constexpr auto comp_repr_unpack(image::comp_type<R> comp) noexcept ->
+    image::unpacked_comp_type<R>;
 
 
 
@@ -502,7 +503,7 @@ template<image::CompRepr R> struct UnpackedCompType {
 } // namespace impl
 
 
-template<image::CompRepr R, class T> auto comp_repr_pack(T val) noexcept -> image::comp_type<R>
+template<image::CompRepr R, class T> constexpr auto comp_repr_pack(T val) noexcept -> image::comp_type<R>
 {
     using comp_type = image::comp_type<R>;
     if constexpr (std::is_integral_v<comp_type>) {
@@ -516,7 +517,8 @@ template<image::CompRepr R, class T> auto comp_repr_pack(T val) noexcept -> imag
 }
 
 
-template<image::CompRepr R> auto comp_repr_unpack(image::comp_type<R> comp) noexcept -> image::unpacked_comp_type<R>
+template<image::CompRepr R>
+constexpr auto comp_repr_unpack(image::comp_type<R> comp) noexcept -> image::unpacked_comp_type<R>
 {
     using comp_type = image::comp_type<R>;
     if constexpr (std::is_integral_v<comp_type>) {

@@ -42,7 +42,7 @@ struct PNGLoadConfig : image::FileFormat::SpecialLoadConfig {
     ///
     /// If set to `true`, loaded image data that uses indirect color (has a palette) will be
     /// expanded and returned to the caller as an image that uses direct color (has no
-    /// palette). See \ref image::Image::get_palette().
+    /// palette). See \ref image::TransferInfo::palette.
     ///
     bool expand_indirect_color = false;
 };

@@ -35,7 +35,9 @@
 #include <archon/image/comp_types.hpp>
 #include <archon/image/comp_repr.hpp>
 #include <archon/image/blend.hpp>
+#include <archon/image/transfer_info.hpp>
 #include <archon/image/image.hpp>
+#include <archon/image/impl/subdivide.hpp>
 #include <archon/image/impl/workspace.hpp>
 #include <archon/image/reader.hpp>
 #include <archon/image/writer.hpp>
@@ -56,7 +58,7 @@ auto Writer::fill(const image::Box& area, ColorSlot slot) -> Writer&
     image::float_type opacity = get_opacity();
     bool no_blending = (!get_blending_enabled() || (is_solid && opacity == 1));
     if (ARCHON_LIKELY(no_blending)) {
-        bool direct_color = !has_indexed_color();
+        bool direct_color = !has_indirect_color();
         if (ARCHON_LIKELY(direct_color)) {
             // Alternative: No blending, direct color
             repr_dispatch([&](auto tag) {
@@ -125,7 +127,7 @@ auto Writer::fill(const image::Box& area, ColorSlot slot) -> Writer&
     impl::Workspace<image::float_type> workspace_1(seed_mem, m_workspace_buffer_2, num_channels_ext); // Throws
     for (int i = 0; i < num_channels_ext; ++i)
         workspace_1[i] = opacity * color[i];
-    subdivide(box, [&](const image::Box& subbox) {
+    impl::subdivide(box, [&](const image::Box& subbox) {
         impl::Workspace<image::float_type> workspace_2(m_workspace_buffer_3, num_channels_ext, subbox.size); // Throws
         image::Tray tray = workspace_2.tray(num_channels_ext, subbox.size);
         constexpr image::CompRepr float_repr = image::CompRepr::float_;
@@ -153,20 +155,20 @@ auto Writer::put_image_a(image::Pos pos, image::Reader& reader, image::Box box) 
     if (ARCHON_UNLIKELY(!boundary.clip(destin_box)))
         return *this;
 
-    image::Image::TransferInfo origin_info = reader.get_transfer_info();
-    image::Image::TransferInfo destin_info = get_transfer_info();
+    image::TransferInfo origin_info = reader.get_transfer_info();
+    image::TransferInfo destin_info = get_transfer_info();
     bool same_comp_repr = (origin_info.comp_repr == destin_info.comp_repr);
     bool same_color_space = (origin_info.color_space == destin_info.color_space);
     bool remove_alpha = (origin_info.has_alpha && !destin_info.has_alpha);
     bool is_float = (destin_info.comp_repr == image::CompRepr::float_);
     image::float_type opacity = get_opacity();
     bool blending = (get_blending_enabled() && (origin_info.has_alpha || opacity != 1));
-    bool is_indexed = has_indexed_color();
+    bool is_indexed = has_indirect_color();
     bool lossless = (same_comp_repr && same_color_space && (!remove_alpha || is_float) && opacity == 1 && !blending &&
                      !is_indexed);
     if (ARCHON_LIKELY(lossless)) {
         repr_dispatch([&](auto tag) {
-            subdivide(destin_box, [&](const image::Box& destin_subbox) {
+            impl::subdivide(destin_box, [&](const image::Box& destin_subbox) {
                 // FIXME: Explain sanity of having the extracted alpha channel ignored when (remove_alpha && is_float)                                                                                       
                 image::Size displacement = destin_subbox.pos - pos;
                 image::Pos origin_subpos = box.pos + displacement;
@@ -184,7 +186,7 @@ auto Writer::put_image_a(image::Pos pos, image::Reader& reader, image::Box box) 
         return *this;
     }
 
-    subdivide(destin_box, [&](const image::Box& destin_subbox) {
+    impl::subdivide(destin_box, [&](const image::Box& destin_subbox) {
         image::Size displacement = destin_subbox.pos - pos;
         image::Pos origin_subpos = box.pos + displacement;
         // Using tertiary workspace buffer becasue write_b() clobbers primary and secondary
@@ -220,7 +222,7 @@ auto Writer::put_block_mask(image::Pos pos, const const_int8_tray_type& tray) ->
     const image::float_type* bg = ensure_color_slot_f(ColorSlot::background); // Throws
     const image::float_type* fg = ensure_color_slot_f(ColorSlot::foreground); // Throws
 
-    subdivide(box, [&](const image::Box& subbox) {
+    impl::subdivide(box, [&](const image::Box& subbox) {
         // Using tertiary workspace buffer becasue write_b() clobbers primary and secondary
         // workspace buffers.
         core::Buffer<std::byte>& buffer = m_workspace_buffer_3;
@@ -286,7 +288,7 @@ void Writer::write_b(image::Pos pos, const image::Tray<const image::float_type>&
 
 void Writer::write(image::Pos pos, const image::Tray<const image::float_type>& tray)
 {
-    bool direct_color = !has_indexed_color();
+    bool direct_color = !has_indirect_color();
     if (ARCHON_LIKELY(direct_color)) {
         if (ARCHON_LIKELY(get_comp_repr() != image::CompRepr::float_)) {
             repr_dispatch([&](auto tag) {
@@ -358,11 +360,10 @@ void Writer::instantiate_palette_kdtree()
 
 auto Writer::do_reverse_palette_lookup_a(const image::float_type* color) -> std::size_t
 {
-    if (ARCHON_LIKELY(has_indexed_color())) {
-        ensure_palette_kdtree(); // Throws
-        return do_reverse_palette_lookup(color); // Throws
-    }
-    return 0;
+    if (ARCHON_UNLIKELY(!has_indirect_color()))
+        throw std::runtime_error("Image has no palette");
+    ensure_palette_kdtree(); // Throws
+    return do_reverse_palette_lookup(color); // Throws
 }
 
 

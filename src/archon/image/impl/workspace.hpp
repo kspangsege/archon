@@ -45,7 +45,6 @@ public:
 
     // **CAUTION:** It is the callers responsibility that the buffer memory
     // (`buffer.data()`) is suitably aligned for `T`.
-    Workspace() noexcept = default;
     Workspace(core::Buffer<std::byte>& buffer) noexcept;
     Workspace(span_type seed_mem, core::Buffer<std::byte>& buffer) noexcept;
     Workspace(core::Buffer<std::byte>& buffer, int num_channels, image::Size image_size = 1);
