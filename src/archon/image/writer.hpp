@@ -413,14 +413,10 @@ public:
     ///
     /// This function first verifies that all the specified color indexes (\p tray) can be
     /// represented in the attached image. They can if, and only if they are non-negative
-    /// and less than two to the power of the index depth, which is 8. If verification
-    /// succeeds, this function proceeds to store the indexes in the image and then returns
-    /// `true`. If verification fails, this function returns `false` and leaves the image
-    /// unchanged.
-    ///
-    /// FIXME: Update paragraph above when support for exact index bit width is added                           
-    ///
-    /// FIXME: Update paragraph above when support for varying index representation schemes is added.                          
+    /// and less than two to the power of the index depth of the attached image (\ref
+    /// image::TransferInfo::index_depth). If verification succeeds, this function proceeds
+    /// to store the indexes in the image and then returns `true`. If verification fails,
+    /// this function returns `false` and leaves the image unchanged.
     ///
     /// It is an error if the target area extends beyond the image boundary. If it does,
     /// this function throws. The size of the image is available through \ref
@@ -748,7 +744,7 @@ template<class I> bool Writer::try_put_color_index_block(image::Pos pos, const i
 
     // Verify that all indexes are representable before clobbering the image.
     using unpacked_index_comp_type = image::unpacked_comp_type<index_repr>;
-    unpacked_index_comp_type max_index = image::comp_repr_unpacked_max<index_repr>(); // FIXME: Should instead be determined by TransferInfo::index_depth                 
+    unpacked_index_comp_type max_index = core::int_mask<unpacked_index_comp_type>(m_transfer_info.index_depth);
     for (int y = 0; y < tray.size.height; ++y) {
         for (int x = 0; x < tray.size.width; ++x) {
             I index = *tray(x, y);

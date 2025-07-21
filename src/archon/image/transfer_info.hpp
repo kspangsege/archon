@@ -153,9 +153,10 @@ struct TransferInfo {
     /// undamaged.
     ///
     /// `index_depth` is required to be less than, or equal to the number of bits in the
-    /// component representation scheme of the pixel transfer scheme.
+    /// component representation scheme used for color indexes, which is
+    /// `image::comp_repr_int_bit_width(image::color_index_repr)`.
     ///
-    /// FIXME: Adjust paragraph above when `index_repr` is added.    
+    /// FIXME: Adjust paragraph above when/if `index_repr` is added.        
     ///
     int index_depth;
 
