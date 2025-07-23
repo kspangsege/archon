@@ -176,6 +176,7 @@ bool EngineImpl::try_init(std::string_view window_title, display::Size window_si
     window_config.resizable = config.allow_window_resize;
     window_config.fullscreen = config.fullscreen_mode;
     window_config.enable_opengl_rendering = true;
+    window_config.require_opengl_depth_buffer = config.require_depth_buffer;
     std::string error_2;
     if (ARCHON_UNLIKELY(!m_conn.try_new_window(window_title, window_size, window_config,
                                                m_window, error_2))) { // Throws
@@ -209,7 +210,7 @@ void EngineImpl::run()
 #endif // ARCHON_RENDER_HAVE_OPENGL
     }
 
-    m_scene.init(); // Throws
+    m_scene.render_init(); // Throws
 
     m_started = true;
     update_resolution(m_resolution); // Throws

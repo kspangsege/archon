@@ -54,12 +54,12 @@ namespace {
 class Scene final
     : public render::Engine::Scene {
 public:
-    void init() override;
-    void render() override;
+    void render_init() override final;
+    void render() override final;
 };
 
 
-void Scene::init()
+void Scene::render_init()
 {
 #if ARCHON_RENDER_HAVE_OPENGL
 
@@ -371,8 +371,9 @@ int main(int argc, char* argv[])
     }
 
     engine_config.screen = screen;
-    engine_config.allow_window_resize = true;
     engine_config.logger = &logger;
+    engine_config.require_depth_buffer = false;
+    engine_config.allow_window_resize = true;
 
     render::Engine engine;
     Scene scene;

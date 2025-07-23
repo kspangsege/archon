@@ -55,7 +55,7 @@ namespace archon::util {
 /// In any case, when this function needs the (`i` + 1)'th component of a point `p`, it
 /// calls `get_comp(p, i)`. Here, `p` is one of the objects in the specified range (which
 /// may, or may not be the point itself). The type of the object passed as first argument is
-/// `std::iterator_traits<I>::value_type`, and the type of the object pass as second
+/// `std::iterator_traits<I>::value_type`, and the type of the object passed as second
 /// argument is `int`.
 ///
 /// Once the points have been sorted, the resulting k-d tree can be used with \ref
