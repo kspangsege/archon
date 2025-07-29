@@ -41,9 +41,9 @@ namespace archon::core {
 /// Fowler, Landon Curt Noll, and Kiem-Phong Vo.
 ///
 /// In some cases, an object can be hashed in one go using \ref add_obj() (see caveats in
-/// documentation). More generally, an object that consists of N subobjects, is hashed by
+/// documentation). More generally, an object that consists of N sub-objects, is hashed by
 /// constructing a hasher (object of type `Hash_FNV_1a_32`) and then adding each relevant
-/// subobject sequentially.
+/// sub-object sequentially.
 ///
 /// Hashing of an integer is a `constexpr` operation if done using \ref add_int(). Likewise,
 /// hashing of a byte is a `constexpr` operation if done using \ref add_byte()
@@ -74,8 +74,8 @@ public:
     /// This function digests the specified object as a sequence of bytes, i.e., the bytes
     /// that constitute the representation of that object. Note that this scheme is not
     /// appropriate for all types of objects. For example, it is not appropriate for objects
-    /// of type `std::string`, because the string itself needs to be hashed, and iit is
-    /// genrally not contained inside the `std::string` object. In many cases, the
+    /// of type `std::string`, because the string itself needs to be hashed, and it is
+    /// generally not contained inside the `std::string` object. In many cases, the
     /// application must deal with each member of a class appropriately rather than passing
     /// the entire object to this function.
     ///
