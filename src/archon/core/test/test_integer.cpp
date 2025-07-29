@@ -1215,12 +1215,55 @@ template<class T> void test_square_root(check::TestContext& test_context, std::m
 }
 
 
+template<class T> void test_cube_root(check::TestContext& test_context, std::mt19937_64& random)
+{
+    using type = T;
+    auto test = [&](type val) {
+        type res = core::int_cbrt(val);
+        // Check that `res` cubed is less than, or equal to `val`, and that `res + 1` cubed
+        // would either overflow, or be larger than `val`.
+        auto val_2 = core::promote(val);
+        auto res_2 = core::promote(res);
+        ARCHON_CHECK_LESS_EQUAL(res_2 * res_2 * res_2, val_2);
+        auto val_3 = res_2 + 1;
+        bool overflow = !(core::try_int_mul(val_3, res_2 + 1) && core::try_int_mul(val_3, res_2 + 1));
+        ARCHON_CHECK(overflow || val_3 > val_2);
+    };
+    constexpr long num_rounds = 32768;
+    constexpr bool full_coverage = (core::int_find_msb_pos(num_rounds) >=
+                                    core::num_value_bits<type>());
+    if constexpr (full_coverage) {
+            long n = long(core::int_max<type>()) + 1;
+            for (long i = 0; i < n; ++i) {
+                type val = core::int_cast_a<type>(i);
+                test(val);
+            }
+    }
+    else {
+        for (long i = 0; i < num_rounds; ++i) {
+            type val = core::rand_int_max<type>(random, core::int_max<type>());
+            test(val);
+        }
+    }
+}
+
+
 struct TestSquareRoot {
     template<class T, std::size_t>
     static void exec(check::TestContext& parent_test_context, std::mt19937_64& random)
     {
         ARCHON_TEST_TRAIL(parent_test_context, core::get_type_name<T>());
         test_square_root<T>(test_context, random);
+    }
+};
+
+
+struct TestCubeRoot {
+    template<class T, std::size_t>
+    static void exec(check::TestContext& parent_test_context, std::mt19937_64& random)
+    {
+        ARCHON_TEST_TRAIL(parent_test_context, core::get_type_name<T>());
+        test_cube_root<T>(test_context, random);
     }
 };
 
@@ -1232,6 +1275,13 @@ ARCHON_TEST(Core_Integer_SquareRoot)
 {
     std::mt19937_64 random(test_context.seed_seq());
     core::for_each_type_alt<Types, TestSquareRoot>(test_context, random);
+}
+
+
+ARCHON_TEST(Core_Integer_CubeRoot)
+{
+    std::mt19937_64 random(test_context.seed_seq());
+    core::for_each_type_alt<Types, TestCubeRoot>(test_context, random);
 }
 
 

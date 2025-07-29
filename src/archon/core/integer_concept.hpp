@@ -82,11 +82,11 @@ requirements are met:
   - `V()` must be a valid non-throwing expression that can be evaluated at compile time. It
     must construct an object that represents zero.
 
-  - `V(i)` must be a valid non-throwing type conversion expression that can be evaluated at
+  - `V(i)` must be a valid non-throwing type conversion expression, that can be evaluated at
     compile time if `i` is a compile-time constant. The operation must be value preserving
-    if `i` represents a value that is also representable in `V`.
+    if `i` is a value that is representable in `V`.
 
-  - `int(v)` must be a valid non-throwing type conversion expression that can be evaluated
+  - `int(v)` must be a valid non-throwing type conversion expression, that can be evaluated
     at compile time if `v` is a compile-time constant. The operation must be value
     preserving if `v` represents a value that is also representable in `int`.
 

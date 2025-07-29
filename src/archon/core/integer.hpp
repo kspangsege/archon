@@ -921,6 +921,20 @@ template<class T, class U> constexpr auto int_periodic_mod(T a, U b) noexcept ->
 template<class T> constexpr auto int_sqrt(T val) noexcept -> T;
 
 
+/// \brief Integer cube root.
+///
+/// This function computes the integer cube root of the specified value. The specified value
+/// must be a non-negative integer.
+///
+/// The type of the specified value (\p T) must conform to the integer concept (\ref
+/// Concept_Archon_Core_Integer).
+///
+/// The current implementation uses Newton's method with a start guess based on the base-2
+/// logarithm.
+///
+template<class T> constexpr auto int_cbrt(T val) noexcept -> T;
+
+
 /// \brief Copy integer bits.
 ///
 /// Both types (\p T and \p U) must conform to the integer concept (\ref
@@ -2146,13 +2160,567 @@ template<class T, class U> constexpr auto int_periodic_mod(T a, U b) noexcept ->
 
 template<class T> constexpr auto int_sqrt(T val) noexcept -> T
 {
+    // The following is a motivation for the chosen implementation, and an proof of its
+    // correctness:
+    //
+    // Asking for the real-valued square root of v is asking for the root, r, of f(x) = x^2
+    // - v. From a real-valued point of view, an arbitrarily good approximation to r can be
+    // found using Newton's method. Fortunately, in the case of the square root, it is
+    // possible to adapt Newton's method to use only integer arithmetic, and in a way that
+    // guarantees that the desired result, floor(r), is identified and reached in finitely
+    // many steps.
+    //
+    // The ordinary update step of Newton's method when finding the square root is
+    //
+    //     r_(i+1)  =  u(r_i)  where  u(w) = (w + v/w) / 2
+    //
+    // The key is to change the update step to the following, which is equivalent to using
+    // integer division in both places as is done in the implementation
+    //
+    //     r_(i+1)  =  t(r_i)  where  t(w) = floor((w + v/w) / 2)
+    //
+    // Due to the convex shape (positive 1st and 2nd order derivative) of f(x) to the right
+    // of r, if we use a start guess, r_0, that is definitely greater than, or equal to r,
+    // we know that u(w) will produce a strictly decreasing series of guesses that converge
+    // to r without ever crossing r. This tells us that the integer-valued update function,
+    // t(w), will also produce a strictly decreasing series of guesses for the same start
+    // guess, at least until r is crossed.
+    //
+    //
+    // Stop criterion
+    // --------------
+    //
+    // Due to the floor operation in t(w), r can get crossed at a particular step, and it
+    // generally will be. The key thing to notice, however, is that if r_j is the result of
+    // the first step that crosses r, then r_j will become less than r only because of the
+    // floor operation, so r_j must be floor(r), which is the desired result.
+    //
+    // Further more, we can observe that
+    //
+    //     r^2 / floor(r)  >=  r^2 / r  =  r  >=  floor(r)
+    //
+    // This leads us to
+    //
+    //     r_(j+1)  =  floor((r_j + v / r_j) / 2)  =  floor((floor(r) + r^2 / floor(r)) / 2) >=
+    //     floor((floor(r) + floor(r)) / 2)  =  floor(r)  =  r_j
+    //
+    // This proves that if w is the desired result, then t(w) will be greater than or equal
+    // to w. Because of that, we can use r_(j+1) >= r_j as a stop criterion for the
+    // algorithm.
+    //
+    // Since the algorithm stops when w becomes floor(r), it follows that
+    //
+    //     floor(r)  <=  w                                                      (1)
+    //
+    //
+    // Start guess
+    // -----------
+    //
+    // When using the integer-valued update function, t(w), the start guess only needs to be
+    // greater than, or equal to floor(r). The reason that we can allow an integer start
+    // guess that is potentially less than r, is that if it is less than r, we know that it
+    // must be floor(r), and we know that a guess of floor(r) will properly trigger the stop
+    // criterion.
+    //
+    // To see that the implemented start guess, r_0, is in fact greater than, or equal to
+    // floor(r), first notice that it can be written as follows
+    //
+    //     r_0  =  g(v)  =  2 ^ (floor(floor(log2(v)) / 2) + 1) - 1
+    //
+    // By removing the redundant nested floor operation and observing that log2(v) / 2 is
+    // the same as log2(r), this can be simplified to
+    //
+    //     g(v)  =  2 ^ (floor(log2(r)) + 1) - 1
+    //
+    // So, we need to prove that
+    //
+    //     2 ^ (floor(log2(r)) + 1) - 1  >=  floor(r)                           (2)
+    //
+    // Because the left-hand side is an integer, we get the following equivalent inequality
+    //
+    //     2 ^ (floor(log2(r)) + 1)  >  r  =  2 ^ log2(r)
+    //
+    // By taking the base-2 logarithm on both sides, we get
+    //
+    //     floor(log2(r)) + 1  >  log2(r)
+    //
+    // We can see that this is true for all r > 0 and therefore for all v > 0, so this
+    // proves (2) which means that the implemented start guess is indeed always greater than
+    // or equal to the desired solution, floor(r). From this, and from (1), it follows that
+    //
+    //     floor(r)  <=  w  <=  g(v)                                            (3)
+    //
+    //
+    // Overflow
+    // --------
+    //
+    // The last thing to worry about is arithmetic overflow in the update step as it is
+    // implemented. We need to show that the sum does not overflow. If there is no overflow
+    // in the sum, there can be no overflow in the update step.
+    //
+    // Let m be the maximum representable value, which we know is at least 32.767. We know
+    // that because of the nature of strong promotion (core::promote_strongly()) and because
+    // `int` has at least 15 value bits. We then need to show that
+    //
+    //     w + floor(v / w)  <=  m
+    //
+    // Let us consider three cases:
+    //
+    //
+    // # Case 1/3: v < 16
+    //
+    // From v < 16 and from the monotonicity of g(v) we get
+    //
+    //     g(v)  <  g(16)  =  7                                                 (4)
+    //
+    // Because v >= 1 and because w >= floor(r), it follows that
+    //
+    //     1  <=  floor(r)  <=  w                                               (5)
+    //
+    // From (4) and (5) we get
+    //
+    //     w + floor(v / w)  <=  w + v / w  <=  w + v  <  7 + 16  <  m
+    //
+    // This proves that there is no overflow in the sum when v < 16.
+    //
+    //
+    // # Case 2/3: v >= 16 and w < r
+    //
+    // We need to prove that
+    //
+    //     w + floor(v / w)  <=  m                                              (6)
+    //
+    // Because floor(v / w) <= v / w and because v is necessarily less than or equal to m,
+    // we can instead prove the stronger inequality
+    //
+    //     w + v / w  <=  v
+    //
+    // Because w > 0, we can multiply by w on both sides to get
+    //
+    //     w^2 + v  <=  v * w
+    //
+    // By subtracting v from both sides, and then factoring v out on the right side of the
+    // inequality, we get
+    //
+    //     w^2  <=  v * w - v  =  v * (w - 1)                                   (7)
+    //
+    // Because v is r^2 and because w < r, it follows that
+    //
+    //     w^2  <  v
+    //
+    // From (5) it follows that
+    //
+    //     w - 1  >=  0
+    //
+    // Since v > w^2 and w - 1 >= 0, we know that v * (w - 1) >= w^2 * (w - 1). Therefore,
+    // in order to prove (7), it is sufficient to prove the following stronger inequality
+    //
+    //     w^2  <=  w^2 * (w - 1)
+    //
+    // Because w >= 1, it follows that w^2 > 0, so we can divide by w^2 on both sides and
+    // then add 1 on both sides to get
+    //
+    //     2  <=  w                                                             (8)
+    //
+    // Since v >= 16, it follows that floor(r) >= 4. From (3) we have that w >= floor(r), so
+    // it follows that w >= 4. This means that (8) is satisfied, which in turn means that
+    // (6) is proven, so there can be no overflow in the sum of t(w) when v >= 16 and w < r.
+    //
+    //
+    // # Case 3/3: v >= 16 and w >= r
+    //
+    // We need to show that
+    //
+    //     w + floor(v / w)  <=  m                                              (9)
+    //
+    // Again, because v is representable, it follows that v <= m, so it suffices to show
+    // this stronger inequality
+    //
+    //     w + floor(v / w)  <=  v
+    //
+    // By removing the floor operation, we obtain this stronger inequality
+    //
+    //     w + v / w  <=  v
+    //
+    // Since v >= 1 and 1 <= r <= w, it follow that v / r >= v / w, so we can instead prove
+    // the following stronger inequality
+    //
+    //     w + v / r  <=  v
+    //
+    // Since v = r^2, this simplifies to
+    //
+    //     w + r  <=  v
+    //
+    // Since w >= r, we can instead prove the following stronger inequality
+    //
+    //     w + w  <=  v
+    //
+    // This simplifies to
+    //
+    //     2*w  <=  v                                                           (10)
+    //
+    // From (3) we know that
+    //
+    //     w  <=  g(v)  =  2 ^ (floor(log2(r)) + 1) - 1
+    //
+    // From this, it follows that
+    //
+    //     w  <=  2 ^ (floor(log2(r)) + 1)
+    //
+    // Multiplying by two on both sides gives us
+    //
+    //     2*w  <=  2 * 2 ^ (floor(log2(r)) + 1)
+    //
+    // Therefore, in order to prove (10), it suffices to show that
+    //
+    //     2 * 2 ^ (floor(log2(r)) + 1)  <=  v
+    //
+    // If we divide by two on both sides, then take the base-2 logarithm on both sides,
+    // and finally subtract one on both sides, we get
+    //
+    //     floor(log2(r))  <=  log2(v / 2) - 1
+    //
+    // By removing the floor operation on the left side, we obtain this stronger inequality
+    //
+    //     log2(r)  <=  log2(v / 2) - 1  =  log2(v / 4)
+    //
+    // By exponentiating with base 2 on both sides, and then raising to the power of two on
+    // both sides, we get
+    //
+    //     v  =  r^2  <=  (v / 4) ^ 2  =  v^2 / 16
+    //
+    // This can be simplified to
+    //
+    //     v  >=  16
+    //
+    // Since this is satisfied by the case condition, we have proven (10), which means that
+    // we have proven (9), so there can be no overflow in the sum operation of t(w) when v
+    // >= 16 and w >= r.
+    //
     ARCHON_ASSERT(!core::is_negative(val));
-    auto v = core::promote(val);
+    auto v = core::promote_strongly(val);
     using type = decltype(v);
     if (ARCHON_LIKELY(v != type(0))) {
         type w = (type(1) << (core::int_find_msb_pos(core::to_unsigned(v)) / 2 + 1)) - type(1);
         for (;;) {
             type w_2 = (w + v / w) >> 1;
+            if (ARCHON_LIKELY(w_2 < w)) {
+                w = w_2;
+                continue;
+            }
+            break;
+        }
+        return core::int_cast_a<T>(w);
+    }
+    return val;
+}
+
+
+template<class T> constexpr auto int_cbrt(T val) noexcept -> T
+{
+    // The following is a motivation for the chosen implementation, and a proof of its
+    // correctness:
+    //
+    // Asking for the real-valued cube root of v is asking for the root, r, of f(x) = x^3 -
+    // v. From a real-valued point of view, an arbitrarily good approximation to r can be
+    // found using Newton's method. Fortunately, in the case of the cube root, it is
+    // possible to adapt Newton's method to use only integer arithmetic, and in a way that
+    // guarantees that the desired result, floor(r), is identified and reached in finitely
+    // many steps.
+    //
+    // The ordinary update step of Newton's method when finding the cube root is
+    //
+    //     r_(i+1)  =  u(r_i)  where  u(w) = (2*w + v/w^2) / 3
+    //
+    // The key is to change the update step to the following, which is equivalent to using
+    // integer division in both places as is done in the implementation
+    //
+    //     r_(i+1)  =  t(r_i)  where  t(w) = floor((2*w + v/w^2) / 3)
+    //
+    // Due to the convex shape (positive 1st and 2nd order derivative) of f(x) to the right
+    // of r, if we use a start guess, r_0, that is definitely greater than, or equal to r,
+    // we know that u(w) will produce a strictly decreasing series of guesses that converge
+    // to r without ever crossing r. This tells us that the integer-valued update function,
+    // t(w), will also produce a strictly decreasing series of guesses for the same start
+    // guess, at least until r is crossed.
+    //
+    //
+    // Stop criterion
+    // --------------
+    //
+    // Due to the floor operation in t(w), r can get crossed at a particular step, and it
+    // generally will be. The key thing to notice, however, is that if r_j is the result of
+    // the first step that crosses r, then r_j will become less than r only because of the
+    // floor operation, so r_j must be floor(r), which is the desired result.
+    //
+    // Further more, we can observe that
+    //
+    //     r^3 / floor(r)^2  >=  r^3 / r^2  =  r  >=  floor(r)
+    //
+    // This leads us to
+    //
+    //     r_(j+1)  =  floor((2*r_j + v / r_j^2) / 3)  =  floor((2*floor(r) + r^3 / floor(r)^2) / 3) >=
+    //     floor((2*floor(r) + floor(r)) / 3)  =  floor(r)  =  r_j
+    //
+    // This proves that if w is the desired result, then t(w) will be greater than or equal
+    // to w. Because of that, we can use r_(j+1) >= r_j as a stop criterion for the
+    // algorithm.
+    //
+    // Since the algorithm stops when w becomes floor(r), it follows that
+    //
+    //     floor(r)  <=  w                                                      (1)
+    //
+    //
+    // Start guess
+    // -----------
+    //
+    // When using the integer-valued update function, t(w), the start guess only needs to be
+    // greater than, or equal to floor(r). The reason that we can allow an integer start
+    // guess that is potentially less than r, is that if it is less than r, we know that it
+    // must be floor(r), and we know that a guess of floor(r) will properly trigger the stop
+    // criterion.
+    //
+    // To see that the implemented start guess, r_0, is in fact greater than, or equal to
+    // floor(r), first notice that it can be written as follows
+    //
+    //     r_0  =  g(v)  =  2 ^ (floor(floor(log2(v)) / 3) + 1) - 1
+    //
+    // By removing the redundant nested floor operation and observing that log2(v) / 3 is
+    // the same as log2(r), this can be simplified to
+    //
+    //     g(v)  =  2 ^ (floor(log2(r)) + 1) - 1
+    //
+    // So, we need to prove that
+    //
+    //     2 ^ (floor(log2(r)) + 1) - 1  >=  floor(r)                           (2)
+    //
+    // Because the left-hand side is an integer, we get the following equivalent inequality
+    //
+    //     2 ^ (floor(log2(r)) + 1)  >  r  =  2 ^ log2(r)
+    //
+    // By taking the base-2 logarithm on both sides, we get
+    //
+    //     floor(log2(r)) + 1  >  log2(r)
+    //
+    // We can see that this is true for all r > 0 and therefore for all v > 0, so this
+    // proves (2) which means that the implemented start guess is indeed always greater than
+    // or equal to the desired solution, floor(r). From this, and from (1), it follows that
+    //
+    //     floor(r)  <=  w  <=  g(v)                                            (3)
+    //
+    //
+    // Overflow
+    // --------
+    //
+    // The last thing to worry about is arithmetic overflow in the update step as it is
+    // implemented. We need to show that the squaring of w does not overflow, and also that
+    // the sum does not overflow. If there is no overflow in either of those operations,
+    // there can be no overflow in the update step.
+    //
+    // Let m be the maximum representable value, which we know is at least 32.767. We know
+    // that because of the nature of strong promotion (core::promote_strongly()) and because
+    // `int` has at least 15 value bits. We then need to show that
+    //
+    //     w^2  <=  m   and   2*w + floor(v / w^2)  <=  m
+    //
+    // Let us consider three cases:
+    //
+    //
+    // # Case 1/3: v < 64
+    //
+    // From v < 64 and from the monotonicity of g(v) we get that
+    //
+    //     g(v)  <  g(64)  =  7                                                 (4)
+    //
+    // Because v >= 1 and because w >= floor(r), it follows that
+    //
+    //     1  <=  floor(r)  <=  w  <=  g(v)                                     (5)
+    //
+    // From (4) and (5), we have
+    //
+    //     w^2  <=  g(v)^2  <  7^2  =  49  <=  m
+    //
+    // This proves that the squaring of w does not overflow when v < 64.
+    //
+    // For the sum, we have
+    //
+    //     2*w + floor(v / w^2)  <=  2*w + v / w^2  <=  2*w + v  <  2*7 + 64  <  m
+    //
+    // This proves that there is no overflow in the sum when v < 64.
+    //
+    //
+    // # Case 2/3: v >= 64 and w < r
+    //
+    // For the squaring of w, and from (5), we immediately have
+    //
+    //     w^2  <  r^2  <= r^3  =  v
+    //
+    // Since v is necessarily less than or equal to m, we have proven that there is no
+    // overflow in the squaring operation when w < r.
+    //
+    //
+    // For the sum, we need to prove that
+    //
+    //     2*w + floor(v / w^2)  <=  m                                          (6)
+    //
+    // Because floor(v / w^2) <= v / w^2 and because v is necessarily less than or equal to
+    // m, we can instead prove the stronger inequality
+    //
+    //     2*w + v / w^2  <=  v
+    //
+    // Because w^2 > 0, we can multiply by w^2 on both sides to get
+    //
+    //     2*w^3 + v  <=  v * w^2
+    //
+    // By subtracting v from both sides, and then factoring v out on the right side of the
+    // inequality, we get
+    //
+    //     2*w^3  <=  v * w^2 - v  =  v * (w^2 - 1)                             (7)
+    //
+    // Because v is r^3 and because w < r, it follows that
+    //
+    //     w^3  <  v
+    //
+    // From (5) it follows that
+    //
+    //     w^2 - 1  >=  0
+    //
+    // Since v > w^3 and w^2 - 1 >= 0, we know that v * (w^2 - 1) >= w^3 * (w^2 -
+    // 1). Therefore, in order to prove (7), it is sufficient to prove the following
+    // stronger inequality
+    //
+    //     2*w^3  <=  w^3 * (w^2 - 1)
+    //
+    // Because w >= 1, it follows that w^3 > 0, so we can divide by w^3 on both sides and
+    // then add 1 on both sides to get
+    //
+    //     3  <=  w^2                                                           (8)
+    //
+    // Since v >= 64, it follows that floor(r) >= 4. From (3) we have that w >= floor(r), so
+    // it follows that w >= 4. This means that (8) is satisfied, which in turn means that
+    // (6) is proven, so there can be no overflow in the sum of t(w) when v >= 64 and w < r.
+    //
+    //
+    // # Case 3/3: v >= 64 and w >= r
+    //
+    // For the squaring of w, we need to show that
+    //
+    //     w^2  <=  m                                                           (9)
+    //
+    // Because v is representable, it follows that v <= m, so it suffices to prove this
+    // stronger inequality
+    //
+    //     w^2  <=  v                                                           (10)
+    //
+    // From (3) we know that
+    //
+    //     w  <=  g(v)  =  2 ^ (floor(log2(r)) + 1) - 1
+    //
+    // From this, it follows that
+    //
+    //     w  <=  2 ^ (floor(log2(r)) + 1)                                      (11)
+    //
+    // By squaring on both sides, we get
+    //
+    //     w^2  <=  2 ^ (2 * (floor(log2(r)) + 1))
+    //
+    // Therefore, in order to prove (10), it suffices to show that
+    //
+    //     2 ^ (2 * (floor(log2(r)) + 1))  <=  v  =  2 ^ log2(v)                (12)
+    //
+    // By taking the base-2 logarithm on both sides, we get
+    //
+    //     2 * (floor(log2(r)) + 1)  <=  log2(v)
+    //
+    // If we divide by two on both sides, and then subtract one on both sides, we get
+    //
+    //     floor(log2(r))  <=  log2(v) / 2 - 1
+    //
+    // By removing the floor operation on the left side, we obtain this stronger inequality
+    //
+    //     log2(r)  <=  log2(v) / 2 - 1  =  log2(r^3) / 2 - 1  =  3/2 * log2(r) - 1
+    //
+    // If we first multiply by 2 on both sides, and then add 2 and subtract 2 * log2(v) on
+    // both sides, we get
+    //
+    //     2  <=  log2(r)
+    //
+    // By exponentiating with base 2 on both sides and then cubing on both sides, we get
+    //
+    //     64  <=  r^3  = v
+    //
+    // Since this is satisfied by the case condition, we have proven (12), which means that
+    // we have proven (9), so there can be no overflow in the squaring of w in t(w) when v
+    // >= 64 and w >= r.
+    //
+    //
+    // For the sum, we need to show that
+    //
+    //     2*w + floor(v / w^2)  <=  m                                          (13)
+    //
+    // Again, because v is representable, it follows that v <= m, so it suffices to show
+    // this stronger inequality
+    //
+    //     2*w + floor(v / w^2)  <=  v
+    //
+    // By removing the floor operation, we obtain this stronger inequality
+    //
+    //     2*w + v / w^2  <=  v
+    //
+    // Since v >= 1 and 1 <= r <= w, it follow that v / r^2 >= v / w^2, so we can instead
+    // prove the following stronger inequality
+    //
+    //     2*w + v / r^2  <=  v
+    //
+    // Since v = r^3, this simplifies to
+    //
+    //     2*w + r  <=  v
+    //
+    // Since w >= r, we can instead prove the following stronger inequality
+    //
+    //     2*w + w  <=  v
+    //
+    // This simplifies to
+    //
+    //     3*w  <=  v                                                           (14)
+    //
+    // From (11), it follow that
+    //
+    //     3*w  <=  3 * 2 ^ (floor(log2(r)) + 1)
+    //
+    // Therefore, in order to prove (14), it suffices to show that
+    //
+    //     3 * 2 ^ (floor(log2(r)) + 1)  <=  v
+    //
+    // If we divide by three on both sides, then take the base-2 logarithm on both sides,
+    // and finally subtract one on both sides, we get
+    //
+    //     floor(log2(r))  <=  log2(v / 3) - 1
+    //
+    // By removing the floor operation on the left side, we obtain this stronger inequality
+    //
+    //     log2(r)  <=  log2(v / 3) - 1  =  log2(v / 6)
+    //
+    // By exponentiating with base 2 on both sides, and then raising to the power of three
+    // on both sides, we get
+    //
+    //     v  =  r^3  <=  (v / 6) ^ 3  =  v^3 / 216
+    //
+    // This can be simplified to
+    //
+    //     v  >=  sqrt(216)
+    //
+    // Since this is trivially satisfied by the case condition, we have proven (14), which
+    // means that we have proven (13), so there can be no overflow in the sum operation of
+    // t(w) when v >= 64 and w >= r.
+    //
+    ARCHON_ASSERT(!core::is_negative(val));
+    auto v = core::promote_strongly(val);
+    using type = decltype(v);
+    if (ARCHON_LIKELY(v != type(0))) {
+        type w = (type(1) << (core::int_find_msb_pos(core::to_unsigned(v)) / 3 + 1)) - type(1);
+        for (;;) {
+            type w_2 = (2 * w + v / (w * w)) / type(3);
             if (ARCHON_LIKELY(w_2 < w)) {
                 w = w_2;
                 continue;
