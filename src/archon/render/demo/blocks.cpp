@@ -103,7 +103,7 @@ enum class box_face { left, right, bottom, top, back, front };
 
 
 struct block {
-    // One plus the index in m_block_variants of the last variant of this block. The index    
+    // One plus the index in m_block_variants of the last variant of this block. The index
     // of the first variant is `prev.variants_end`, where `prev` is the previous entry in
     // m_blocks, or zero if this is the first entry in m_blocks.
     std::size_t variants_end;
@@ -114,14 +114,14 @@ struct block {
 
 
 struct block_variant {
-    // One plus the index in m_quads of the last quad of this block variant. The index of     
+    // One plus the index in m_quads of the last quad of this block variant. The index of
     // the first quad is `prev.quads_end`, where `prev` is the previous entry in
     // m_block_variants, or zero if this is the first entry in m_block_variants.
     std::size_t quads_end;
 };
 
 
-// Spatial coordinates are in 16th of a block units    
+// Spatial coordinates are in block units and relative to the origin corner of the block
 struct quad {
     box_face orientation;
     GLuint texture;
@@ -337,53 +337,9 @@ void world::render()
     
 
     // Render opaque blocks
-    glDisable(GL_TEXTURE_2D);    
 //    m_transparent_chunks.clear();           
     for (chunk_array_pos pos : m_chunk_order) {
         // FIXME: Find a way to efficiently skip some of the chunnks that are definitely not intersecting the view frustum      
-
-/*
-        chunk_pos pos_2 = {
-            block_coord_type(m_current_chunk.x + pos.x),
-            block_coord_type(m_current_chunk.y + pos.y),
-            block_coord_type(m_current_chunk.z + pos.z),
-        };
-        int x = core::int_periodic_mod(pos_2.x,  m_chunk_array_size_x);
-        int y = core::int_periodic_mod(pos_2.y,  m_chunk_array_size_y);
-        int z = core::int_periodic_mod(pos_2.z,  m_chunk_array_size_z);
-        std::size_t i = std::size_t((std::size_t(z) * m_chunk_array_size_y + y) * m_chunk_array_size_x + x);
-        chunk*& cnk = m_chunk_array[i];
-        if (ARCHON_UNLIKELY(!cnk)) {
-            std::unique_ptr<chunk>& cnk_2 = m_chunks[pos_2]; // Throws
-            if (ARCHON_UNLIKELY(!cnk_2)) {
-                // FIXME: Consider setting max cache size to the number of chunks in the largest allowed chunk array    
-                // FIXME: If chunk cache is now too large, and there are unlinked chunks, discard one of those but reuse the chunk object --> remember to recycle the call list if there was one    
-                cnk_2 = std::make_unique<chunk>(); // Throws
-            }
-            cnk = cnk_2.get();
-        }
-
-      again:
-        if (ARCHON_LIKELY(cnk->processed)) {
-            if (cnk->call_list != 0)
-                glCallList(cnk->call_list);
-        }
-        else if (ARCHON_LIKELY(cnk->initialized)) {
-            // FIXME: Maybe allocate new call lists in chunks of 16: glGenLists(16)     
-            // glNewList(chunk.call_list,  GL_COMPILE_AND_EXECUTE);     
-            process_chunk(*cnk); // Throws
-            // glEndList();     
-        }
-        else {
-            // FIXME: If number of outstanding initialization requests is less than max: Request initialization (add chunk pointer to list of outstanding requests, then at end of frame, commit head of list to background thread)    
-            // FIXME: For now, just initialize the chunk here and now, then jump back    
-            cnk->initialized = true;  
-            on_chunk_initiaqlized(*cnk, pos);
-            goto again;  
-        }
-
-        // FIXME: If chunk has semi-transparent texels: m_transparent_chunks.push_back(cnk); // Throws    
-*/
 
         chunk& cnk = ensure_array_chunk(pos); // Throws
         request_initialization(cnk); // Throws
@@ -424,45 +380,11 @@ void world::render()
     //
     // In order to facilitate the handling of chunks in the right order (farthest to closest), a list of chunk grid positions must be precomputed for a particular rendering distance. Chunks are then visited in this order in step 2, where each chunk with transparency is appended to a list of chunks to be processed in step 3.
 
-    // Both transparent and non-transparent quads are rendered with backface culling enabled.
-
     // FIXME: Consider blending parameters to allow for textures with holes as opposed to textures with semitransparent texels      
 
     // How to arrange the transparent quads in each chunk to allow for fast ordered traversal? --> kd-tree-ish over block positions
 
     // FIXME: When position is changed: Clear rolled-over part of chunk grid
-
-    // Loop over all chunk positions in grid:
-    //   If chunk intersects with viewing frustum out to render distance:
-    //     If chunk is missing:
-    //       Look it up in cache by hash key from chunk coordinates:
-    //         If not found:
-    //           Request it (generate it)
-    //     If chunk is non-empty, render it
-
-/*
-    for (int i_z = 0; i_z < 12; ++i_z) {
-        for (int i_y = 0; i_y < 12; ++i_y) {
-            for (int i_x = 0; i_x < 12; ++i_x) {
-                int x_2 = x + i_x;
-                int y_2 = y + i_y;
-                int z_2 = z + i_z;
-                chunk& chunk = get_chunk(x_2, y_2, z_2);
-                if (chunk.call_list == 0)
-                    continue;
-                if (chunk.dirty)
-                    update_chunk_call_list(chunk, x_2, y_2, z_2);
-                glPushMatrix();
-                int x_3 = x_2 * (s_num_x*n);
-                int y_3 = y_2 * (s_num_y*n);
-                int z_3 = z_2 * (s_num_z*n);
-                glTranslatef(float(x_3), float(y_3), float(z_3));
-                glCallList(chunk.call_list);
-                glPopMatrix();
-            }
-        }
-    }
-*/
 }
 
 
@@ -489,7 +411,6 @@ void world::add_empty_block()
 
 void world::add_block()
 {
-    // FIXME: Need to have back-face culling turned on for almost all (if not all) types of blocks                 
     auto add_quad = [&](box_face orientation) {
         GLuint texture = 0;
         GLfloat s_1 = 0, t_1 = 0, x_1 = 0, y_1 = 0, z_1 = 0;
