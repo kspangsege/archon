@@ -26,6 +26,8 @@
 #include <tuple>
 #include <string_view>
 #include <string>
+#include <vector>
+#include <stack>
 #include <unordered_map>
 #include <locale>
 #include <filesystem>
@@ -64,6 +66,7 @@ constexpr int g_chunk_size_z = 16;
 
 using chunk_array_coord_type = std::int_fast8_t;
 using block_coord_type = std::int_fast64_t;
+using block_index_type = std::uint_least16_t;
 
 
 struct chunk_array_pos {
@@ -86,20 +89,77 @@ struct chunk_pos {
 struct chunk_pos_hash {
     auto operator()(const chunk_pos& pos) const noexcept -> std::size_t
     {
-        core::Hash_FNV_1a_32 hash;
+        core::Hash_FNV_1a_Default hash;
         hash.add_int(pos.x);
         hash.add_int(pos.y);
         hash.add_int(pos.z);
-        return hash.get();
+        return std::size_t(hash.get());
     }
 };
 
 
-struct chunk {
-    std::uint_least16_t blocks[g_chunk_size_x][g_chunk_size_y][g_chunk_size_z];
+enum class box_face { left, right, bottom, top, back, front };
 
-    chunk* next;
-    chunk* prev;
+
+struct block {
+    // One plus the index in m_block_variants of the last variant of this block. The index    
+    // of the first variant is `prev.variants_end`, where `prev` is the previous entry in
+    // m_blocks, or zero if this is the first entry in m_blocks.
+    std::size_t variants_end;
+    bool full; // all six faces are aligned with the respective faces of the unit block
+    bool solid; // No fully transparent texels
+    bool opaque; // No semi-transparent texels
+};
+
+
+struct block_variant {
+    // One plus the index in m_quads of the last quad of this block variant. The index of     
+    // the first quad is `prev.quads_end`, where `prev` is the previous entry in
+    // m_block_variants, or zero if this is the first entry in m_block_variants.
+    std::size_t quads_end;
+};
+
+
+// Spatial coordinates are in 16th of a block units    
+struct quad {
+    box_face orientation;
+    GLuint texture;
+    GLfloat s_1, t_1, x_1, y_1, z_1;
+    GLfloat s_2, t_2, x_2, y_2, z_2;
+    GLfloat s_3, t_3, x_3, y_3, z_3;
+    GLfloat s_4, t_4, x_4, y_4, z_4;
+    GLfloat n_x, n_y, n_z;
+};
+
+
+using block_array = block_index_type[g_chunk_size_z][g_chunk_size_y][g_chunk_size_z];
+constexpr block_array g_empty_block_array = {};
+
+
+struct chunk {
+    // FIXME: Consider not having the block array be a statical part of the chunk, but instead have it be allocated separately. This way, air chunks can take up much less memory    
+    block_array blocks = {};
+    const block_array* blocks_indir = &g_empty_block_array;
+
+    chunk_pos pos = {};
+
+    chunk* next_unused = nullptr;
+    chunk* prev_unused = nullptr;
+
+    // States                   | initialized | processed
+    // -------------------------|-------------|-----------
+    // Uninitialized            | false       | false
+    // Initialized              | true        | false
+    // Processed                | true        | true
+    bool initialized = false;
+    bool processed = false;
+
+    bool init_in_progress = false; // Currently exposed to background thread
+    bool linked = false; // Referenced from chunk array
+
+    // After the chunk is processed, zero means that nothing is to be rendered during the
+    // opaque stage for this chunk
+    GLuint call_list = 0;
 };
 
 
@@ -113,13 +173,32 @@ public:
     void render() override final;
 
 private:
-    std::unordered_map<chunk_pos, std::unique_ptr<chunk>, chunk_pos_hash> m_chunks;
-    chunk* m_unlinked_chunks; // First one is the one that became unlinked first
-
     bool m_thrust_forwards = false, m_thrust_backwards = false;
     bool m_thrust_leftwards = false, m_thrust_rightwards = false;
     bool m_thrust_upwards = false, m_thrust_downwards = false;
     bool m_sprint_mode = false;
+
+    std::vector<block> m_blocks;
+    std::vector<block_variant> m_block_variants;
+    std::vector<quad> m_quads;
+
+    std::unordered_map<chunk_pos, std::unique_ptr<chunk>, chunk_pos_hash> m_chunks;
+    chunk* m_unused_chunks = nullptr; // First one is the one that became unused first
+    std::size_t m_num_unused_chunks = 0;
+
+    std::stack<GLuint> m_unused_call_lists;
+
+    // Consider the chunk at `m_chunk_array[z][y][x]` to be at X, Y, and Z-coordinates, `x`,
+    // `y`, and `z`.
+    int m_chunk_array_size_x = {};
+    int m_chunk_array_size_y = {};
+    int m_chunk_array_size_z = {};
+    std::unique_ptr<chunk*[]> m_chunk_array;
+
+    // List of chunks that are within the currently selected render distance. Chunks occur
+    // in an order that ensures back-to-front rendering. Chunk array positions are relative
+    // to the center chunk (the one containing the player).
+    std::vector<chunk_array_pos> m_chunk_order;
 
     chunk_pos m_current_chunk = { 0, 0, 0 };
 
@@ -130,17 +209,7 @@ private:
     // Velocity of camera. Measured in texel units.
     math::Vector3 m_velocity;
 
-    // Consider the chunk at `m_chunk_array[z][y][x]` to be at X, Y, and Z-coordinates, `x`,
-    // `y`, and `z`.
-    int m_chunk_array_size_x;
-    int m_chunk_array_size_y;
-    int m_chunk_array_size_z;
-    std::unique_ptr<chunk*[]> m_chunk_array;
-
-    // List of chunks that are within the currently selected render distance. Chunks occur
-    // in an order that ensures back-to-front rendering. Chunk array positions are relative
-    // to the center chunk (the one containing the player).
-    std::vector<chunk_array_pos> m_chunk_order;
+    void add_block();
 
     // In number of blocks
     void change_render_distance(double horz_dist, double vert_dist);
@@ -150,18 +219,36 @@ private:
     bool try_set_position(const math::Vector3& pos, const block_pos& ref = {}) noexcept;
 
     void render_avatar();
-    void render_opaque(const chunk&);
 
     // In meters above feet
     double get_eye_height() const noexcept;
 
-    auto get_chunk(const chunk_array_pos& pos) const noexcept -> chunk*&;
+    void process_chunk(chunk& cnk);
+
+    // Position must be inside chunk array
+    auto ensure_array_chunk(const chunk_array_pos& pos) -> chunk&;
+
+    auto ensure_chunk(const chunk_pos& pos) -> chunk&;
+    auto get_chunk(const chunk_pos& pos) noexcept -> chunk*;
+
+    void mark_linked(chunk&) noexcept;
+    void request_initialization(chunk&);
+    void mark_initialized(chunk&);
+    void on_changed(chunk&);
+    void mark_dirty(chunk&);
+    void add_unused(chunk&);
+    void remove_unused(chunk&);
+
+    auto alloc_call_list() -> GLuint;
+    void return_call_list(GLuint list);
+
 };
 
 
 
 world::world()
 {
+    add_block(); // Throws
     change_render_distance(64, 64); // Throws
     set_position({ 0, 0, 0 }); // Throws
 }
@@ -190,11 +277,13 @@ void world::render_init()
 void world::render()
 {
     glEnable(GL_DEPTH_TEST);
-    // FIXME: Guard against missing OpenGL header      
-    int n = 16;          
+    // FIXME: Guard against missing OpenGL include file      
+/*
+    int n = 16;              
     glScaled(1.0 / n, 1.0 / n, 1.0 / n);    
+*/
     math::Vector3 eye_displacement = { 0, 0, 0 };
-    eye_displacement[1] += get_eye_height() * n;
+    eye_displacement[1] += get_eye_height();
     glTranslated(-eye_displacement[0], -eye_displacement[1], -eye_displacement[2]);
     glDisable(GL_TEXTURE_2D);
     render_avatar(); // Throws
@@ -207,9 +296,11 @@ void world::render()
     
 
     // Render opaque blocks
+//    m_transparent_chunks.clear();           
     for (chunk_array_pos pos : m_chunk_order) {
         // FIXME: Find a way to efficiently skip some of the chunnks that are definitely not overlapping with the view frustum    
 
+/*
         chunk_pos pos_2 = {
             block_coord_type(m_current_chunk.x + pos.x),
             block_coord_type(m_current_chunk.y + pos.y),
@@ -219,23 +310,56 @@ void world::render()
         int y = core::int_periodic_mod(pos_2.y,  m_chunk_array_size_y);
         int z = core::int_periodic_mod(pos_2.z,  m_chunk_array_size_z);
         std::size_t i = std::size_t((std::size_t(z) * m_chunk_array_size_y + y) * m_chunk_array_size_x + x);
-        chunk*& chunk_1 = m_chunk_array[i];
-        if (ARCHON_UNLIKELY(!chunk_1)) {
-            std::unique_ptr<chunk>& chunk_2 = m_chunks[pos_2]; // Throws
-            if (ARCHON_UNLIKELY(!chunk_2)) {
-                // FIXME: Consider setting max cache size to number of chunks in largest possible chunk array    
-                // FIXME: If chunk cache is now too large, and there are unlinked chunks, discard one of those but reuse the chunk object    
-                chunk_2 = std::make_unique<chunk>(); // Throws
-                // FIXME: Request initialization of this chunk    
+        chunk*& cnk = m_chunk_array[i];
+        if (ARCHON_UNLIKELY(!cnk)) {
+            std::unique_ptr<chunk>& cnk_2 = m_chunks[pos_2]; // Throws
+            if (ARCHON_UNLIKELY(!cnk_2)) {
+                // FIXME: Consider setting max cache size to the number of chunks in the largest allowed chunk array    
+                // FIXME: If chunk cache is now too large, and there are unlinked chunks, discard one of those but reuse the chunk object --> remember to recycle the call list if there was one    
+                cnk_2 = std::make_unique<chunk>(); // Throws
             }
-            chunk_1 = chunk_2.get();
+            cnk = cnk_2.get();
         }
 
-        // FIXME: Skip this chunk if it has no contents (all air, or all same block type and fully surrounded by that block type)
+      again:
+        if (ARCHON_LIKELY(cnk->processed)) {
+            if (cnk->call_list != 0)
+                glCallList(cnk->call_list);
+        }
+        else if (ARCHON_LIKELY(cnk->initialized)) {
+            // FIXME: Maybe allocate new call lists in chunks of 16: glGenLists(16)     
+            // glNewList(chunk.call_list,  GL_COMPILE_AND_EXECUTE);     
+            process_chunk(*cnk); // Throws
+            // glEndList();     
+        }
+        else {
+            // FIXME: If number of outstanding initialization requests is less than max: Request initialization (add chunk pointer to list of outstanding requests, then at end of frame, commit head of list to background thread)    
+            // FIXME: For now, just initialize the chunk here and now, then jump back    
+            cnk->initialized = true;  
+            on_chunk_initiaqlized(*cnk, pos);
+            goto again;  
+        }
 
-        render_opaque(*chunk_1); // Throws
+        // FIXME: If chunk has semi-transparent texels: m_transparent_chunks.push_back(cnk); // Throws    
+        */
 
-        // FIXME: If this chunk has semi-transparent texels, add it to m_transparent_chunks
+        chunk& cnk = ensure_array_chunk(pos); // Throws
+        request_initialization(cnk); // Throws
+        if (ARCHON_LIKELY(cnk.processed)) {
+            if (cnk.call_list != 0)
+                glCallList(cnk.call_list);
+        }
+        else if (ARCHON_LIKELY(cnk.initialized)) {
+            // FIXME: Maybe allocate new call lists in chunks of 16: glGenLists(16)     
+            // glNewList(chunk.call_list,  GL_COMPILE_AND_EXECUTE);     
+            process_chunk(cnk); // Throws
+            // glEndList();     
+        }
+        else {
+            continue;
+        }
+
+        // FIXME: If chunk has semi-transparent texels: m_transparent_chunks.push_back(cnk); // Throws    
     }
 
     // Render transparent blocks
@@ -294,6 +418,90 @@ void world::render()
         }
     }
 */
+}
+
+
+
+void world::add_block()
+{
+    // FIXME: Need to have back-face culling turned on for almost all (if not all) types of blocks                 
+    auto add_quad = [&](box_face orientation) {
+        GLuint texture = 0;
+        GLfloat s_1 = 0, t_1 = 0, x_1 = 0, y_1 = 0, z_1 = 0;
+        GLfloat s_2 = 0, t_2 = 1, x_2 = 0, y_2 = 0, z_2 = 0;
+        GLfloat s_3 = 1, t_3 = 1, x_3 = 0, y_3 = 0, z_3 = 0;
+        GLfloat s_4 = 1, t_4 = 0, x_4 = 0, y_4 = 0, z_4 = 0;
+        GLfloat n_x = 0, n_y = 0, n_z = 0;
+        switch (orientation) {
+            case box_face::left:
+                x_1 = 0, y_1 = 0, z_1 = 0;
+                x_2 = 0, y_2 = 1, z_2 = 0;
+                x_3 = 0, y_3 = 1, z_3 = 1;
+                x_4 = 0, y_4 = 0, z_4 = 1;
+                n_x = -1;
+                break;
+            case box_face::right:
+                x_1 = 1, y_1 = 0, z_1 = 1;
+                x_2 = 1, y_2 = 1, z_2 = 1;
+                x_3 = 1, y_3 = 1, z_3 = 0;
+                x_4 = 1, y_4 = 0, z_4 = 0;
+                n_x = 1;
+                break;
+            case box_face::bottom:
+                x_1 = 0, y_1 = 0, z_1 = 0;
+                x_2 = 0, y_2 = 0, z_2 = 1;
+                x_3 = 1, y_3 = 0, z_3 = 1;
+                x_4 = 1, y_4 = 0, z_4 = 0;
+                n_y = -1;
+                break;
+            case box_face::top:
+                x_1 = 0, y_1 = 1, z_1 = 1;
+                x_2 = 0, y_2 = 1, z_2 = 0;
+                x_3 = 1, y_3 = 1, z_3 = 0;
+                x_4 = 1, y_4 = 1, z_4 = 1;
+                n_y = 1;
+                break;
+            case box_face::back:
+                x_1 = 1, y_1 = 0, z_1 = 0;
+                x_2 = 1, y_2 = 1, z_2 = 0;
+                x_3 = 0, y_3 = 1, z_3 = 0;
+                x_4 = 0, y_4 = 0, z_4 = 0;
+                n_z = -1;
+                break;
+            case box_face::front:
+                x_1 = 0, y_1 = 0, z_1 = 1;
+                x_2 = 0, y_2 = 1, z_2 = 1;
+                x_3 = 1, y_3 = 1, z_3 = 1;
+                x_4 = 1, y_4 = 0, z_4 = 1;
+                n_z = 1;
+                break;
+        }
+        quad q = {
+            orientation,
+            texture,
+            s_1, t_1, x_1, y_1, z_1,
+            s_2, t_2, x_2, y_2, z_2,
+            s_3, t_3, x_3, y_3, z_3,
+            s_4, t_4, x_4, y_4, z_4,
+            n_x, n_y, n_z,
+        };
+        m_quads.push_back(q); // Throws
+    };
+    add_quad(box_face::left); // Throws
+    std::size_t quads_end = m_quads.size();
+    block_variant var = { quads_end };
+    m_block_variants.push_back(var); // Throws
+    std::size_t variants_end = m_block_variants.size();
+    bool full = true;
+    bool solid = true;
+    bool opaque = true;
+    block blk = {
+        variants_end,
+        full,
+        solid,
+        opaque,
+    };
+    m_blocks.push_back(blk); // Throws
 }
 
 
@@ -472,10 +680,33 @@ void world::render_avatar()
 
 
 
-void world::render_opaque(const chunk& chunk)
+/*
+void world::mark_chunk_initialized(chunk& cnk, const chunk_pos& pos)                 
 {
-    static_cast<void>(chunk);                 
+    cnk.initialized = true;
+
+    auto f = [](int x, int y, int z) {
+        chunk_pos pos_2 = {
+            
+        };
+    };
+
+    // FIXME: Must also mark all neighbouring chunks unprocessed     
 }
+
+
+
+void world::mark_chunk_dirty(chunk& cnk, const chunk_pos& pos)                     
+{
+    cnk.processed = true;
+
+    auto f = [](int x, int y, int z) {
+        chunk_pos pos_2 = {
+            
+        };
+    };
+}
+*/
 
 
 
@@ -486,6 +717,342 @@ double world::get_eye_height() const noexcept
     if (m_thrust_downwards)
         return sneak_height;
     return normal_height;
+}
+
+
+
+void world::process_chunk(chunk& cnk)
+{
+    auto neighbor = [&](int x, int y, int z) -> const chunk& {
+        chunk_pos pos_2 = {
+            block_coord_type(cnk.pos.x + x),
+            block_coord_type(cnk.pos.y + y),
+            block_coord_type(cnk.pos.z + z),
+        };
+        chunk& cnk_2 = ensure_chunk(pos_2); // Throws
+        request_initialization(cnk_2); // Throws
+        return cnk_2;
+    };
+    auto get_block = [](const chunk& cnk, int x, int y, int z) noexcept {
+        const block_array& blocks = *cnk.blocks_indir;
+        return blocks[z][y][x];
+    };
+    const chunk& left   = neighbor(-1, 0, 0); // Throws
+    const chunk& right  = neighbor(+1, 0, 0); // Throws
+    const chunk& bottom = neighbor(0, -1, 0); // Throws
+    const chunk& top    = neighbor(0, +1, 0); // Throws
+    const chunk& back   = neighbor(0, 0, -1); // Throws
+    const chunk& front  = neighbor(0, 0, +1); // Throws
+    GLuint call_list = 0;
+    GLuint texture = 0;
+    int serial = 0; // FIXME: Tend to possible overflow     
+    auto pick_variant = [&](std::size_t n) {
+        core::Hash_FNV_1a_Default hash;
+        hash.add_obj(cnk.pos);
+        hash.add_int(serial);
+        return std::size_t(hash.get() % n);
+    };
+    for (int z = 0; z < g_chunk_size_z; ++z) {
+        for (int y = 0; y < g_chunk_size_y; ++y) {
+            for (int x = 0; x < g_chunk_size_x; ++x, ++serial) {
+                block_index_type i = get_block(cnk, x, y, z);
+                if (i == 0)
+                    continue; // Air
+                GLfloat x_2 = x;
+                GLfloat y_2 = y;
+                GLfloat z_2 = z;
+                ARCHON_ASSERT(i < m_blocks.size());
+                const block& blk = m_blocks[i];
+                std::size_t variants_begin = (i == 0 ? 0 : m_blocks[i - 1].variants_end);
+                std::size_t variants_end = blk.variants_end;
+                std::size_t num_variants = std::size_t(variants_end - variants_begin);
+                ARCHON_ASSERT(num_variants >= 1);
+                std::size_t j = variants_begin;
+                if (num_variants > 1)
+                    j = std::size_t(variants_begin + pick_variant(num_variants));
+                const block_variant& var = m_block_variants[j];
+                std::size_t quads_begin = (j == 0 ? 0 : m_block_variants[j - 1].quads_end);
+                std::size_t quads_end = var.quads_end;
+                for (std::size_t k = quads_begin; k < quads_end; ++k) {
+                    const quad& q = m_quads[k];
+                    block_index_type i_2 = {};
+                    if (blk.full) {
+                        switch (q.orientation) {
+                            case box_face::left:
+                                if (ARCHON_LIKELY(x != 0)) {
+                                    i_2 = get_block(cnk, x - 1, y, z);
+                                }
+                                else {
+                                    i_2 = get_block(left, g_chunk_size_x - 1, y, z);
+                                }
+                                break;
+                            case box_face::right:
+                                if (ARCHON_LIKELY(x != g_chunk_size_x - 1)) {
+                                    i_2 = get_block(cnk, x + 1, y, z);
+                                }
+                                else {
+                                    i_2 = get_block(right, 0, y, z);
+                                }
+                                break;
+                            case box_face::bottom:
+                                if (ARCHON_LIKELY(y != 0)) {
+                                    i_2 = get_block(cnk, x, y - 1, z);
+                                }
+                                else {
+                                    i_2 = get_block(bottom, x, g_chunk_size_y - 1, z);
+                                }
+                                break;
+                            case box_face::top:
+                                if (ARCHON_LIKELY(y != g_chunk_size_y - 1)) {
+                                    i_2 = get_block(cnk, x, y + 1, z);
+                                }
+                                else {
+                                    i_2 = get_block(top, x, 0, z);
+                                }
+                                break;
+                            case box_face::back:
+                                if (ARCHON_LIKELY(z != 0)) {
+                                    i_2 = get_block(cnk, x, y, z - 1);
+                                }
+                                else {
+                                    i_2 = get_block(back, x, y, g_chunk_size_z - 1);
+                                }
+                                break;
+                            case box_face::front:
+                                if (ARCHON_LIKELY(z != g_chunk_size_z - 1)) {
+                                    i_2 = get_block(cnk, x, y, z + 1);
+                                }
+                                else {
+                                    i_2 = get_block(front, x, y, 0);
+                                }
+                                break;
+                        }
+                        const block& blk_2 = m_blocks[i_2];
+                        bool elide = (blk_2.full && blk_2.solid && (blk_2.opaque || i_2 == i));
+                        if (ARCHON_LIKELY(elide))
+                            continue;
+                    }
+                    if (ARCHON_UNLIKELY(q.texture != texture)) {
+                        if (ARCHON_LIKELY(call_list != 0)) {
+                            glEnd();
+                        }
+                        else {
+                            call_list = alloc_call_list(); // Throws
+                            glNewList(call_list, GL_COMPILE_AND_EXECUTE);
+                        }
+                        texture = q.texture;
+                        glBindTexture(GL_TEXTURE_2D, texture);
+                        glBegin(GL_QUADS);
+                    }
+                    glNormal3f(q.n_x, q.n_y, q.n_z);
+                    glTexCoord2f(q.s_1, q.t_1);
+                    glVertex3f(x_2 + q.x_1, y_2 + q.y_1, z_2 + q.z_1);
+                    glTexCoord2f(q.s_2, q.t_2);
+                    glVertex3f(x_2 + q.x_2, y_2 + q.y_2, z_2 + q.z_2);
+                    glTexCoord2f(q.s_3, q.t_3);
+                    glVertex3f(x_2 + q.x_3, y_2 + q.y_3, z_2 + q.z_3);
+                    glTexCoord2f(q.s_4, q.t_4);
+                    glVertex3f(x_2 + q.x_4, y_2 + q.y_4, z_2 + q.z_4);
+                }
+            }
+        }
+    }
+    if (call_list != 0) {
+        glEnd();
+        glEndList();
+    }
+    cnk.call_list = call_list;
+    cnk.processed = false;
+}
+
+
+
+auto world::ensure_array_chunk(const chunk_array_pos& pos) -> chunk&
+{
+    // FIXME: Maybe verify that position is inside logical array boundary          
+    chunk_pos pos_2 = {
+        block_coord_type(m_current_chunk.x + pos.x),
+        block_coord_type(m_current_chunk.y + pos.y),
+        block_coord_type(m_current_chunk.z + pos.z),
+    };
+    int x = core::int_periodic_mod(pos_2.x,  m_chunk_array_size_x);
+    int y = core::int_periodic_mod(pos_2.y,  m_chunk_array_size_y);
+    int z = core::int_periodic_mod(pos_2.z,  m_chunk_array_size_z);
+    std::size_t i = std::size_t((std::size_t(z) * m_chunk_array_size_y + y) * m_chunk_array_size_x + x);
+    chunk*& cnk = m_chunk_array[i];
+    if (ARCHON_UNLIKELY(!cnk)) {
+        chunk& cnk_2 = ensure_chunk(pos_2); // Throws
+        mark_linked(cnk_2);
+        cnk = &cnk_2;
+    }
+    return *cnk;
+}
+
+
+
+// FIXME: For the sake of efficiency, consider a ensure_linked_chunk(const chunk_pos& pos) that delivers the chunk in the linked state          
+auto world::ensure_chunk(const chunk_pos& pos) -> chunk&
+{
+    std::unique_ptr<chunk>& cnk = m_chunks[pos]; // Throws
+    if (ARCHON_UNLIKELY(!cnk)) {
+        // FIXME: If current chunk cache size is now over its soft limit and there are reclaimable chunks, reclaim the least recently used reclaimable chunk. A chunk is reclaimable if it is neither linked from the chunk array nor locked during exposure to background thread       
+        cnk = std::make_unique<chunk>(); // Throws
+        cnk->pos = pos;
+        add_unused(*cnk);
+    }
+    return *cnk;
+}
+
+
+
+auto world::get_chunk(const chunk_pos& pos) noexcept -> chunk*
+{
+    auto i = m_chunks.find(pos);
+    if (ARCHON_LIKELY(i != m_chunks.end())) {
+        const std::unique_ptr<chunk>& cnk = i->second;
+        return cnk.get();
+    }
+    return nullptr;
+}
+
+
+
+void world::mark_linked(chunk& cnk) noexcept
+{
+    ARCHON_ASSERT(!cnk.linked);
+    bool was_unused = !cnk.init_in_progress;
+    if (was_unused)
+        remove_unused(cnk);
+    cnk.linked = true;
+}
+
+
+
+void world::request_initialization(chunk& cnk)
+{
+    if (ARCHON_LIKELY(cnk.initialized || cnk.init_in_progress))
+        return;
+    // FIXME: Do not initialize here. Instead, if initialization request queue is not full, request initialization      
+    mark_initialized(cnk); // Throws
+}
+
+
+
+void world::mark_initialized(chunk& cnk)
+{
+    ARCHON_ASSERT(!cnk.initialized);
+    ARCHON_ASSERT(!cnk.processed);
+    if (cnk.init_in_progress) {
+        cnk.init_in_progress = false;
+        bool is_unused = !cnk.linked;
+        if (is_unused)
+            add_unused(cnk);
+    }
+    cnk.blocks_indir = &cnk.blocks;
+    cnk.initialized = true;
+    on_changed(cnk); // Throws
+}
+
+
+
+void world::on_changed(chunk& cnk)
+{
+    ARCHON_ASSERT(cnk.initialized);
+    mark_dirty(cnk); // Throws
+    auto neighbor = [&](int x, int y, int z) {
+        chunk_pos pos_2 = {
+            block_coord_type(cnk.pos.x + x),
+            block_coord_type(cnk.pos.y + y),
+            block_coord_type(cnk.pos.z + z),
+        };
+        if (chunk* cnk_2 = get_chunk(pos_2))
+            mark_dirty(*cnk_2); // Throws
+    };
+    neighbor(-1, 0, 0); // Throws
+    neighbor(+1, 0, 0); // Throws
+    neighbor(0, -1, 0); // Throws
+    neighbor(0, +1, 0); // Throws
+    neighbor(0, 0, -1); // Throws
+    neighbor(0, 0, +1); // Throws
+}
+
+
+
+void world::mark_dirty(chunk& cnk)
+{
+    if (cnk.call_list != 0) {
+        return_call_list(cnk.call_list); // Throws
+        cnk.call_list = 0;
+    }
+    cnk.processed = false;
+}
+
+
+
+void world::add_unused(chunk& cnk)
+{
+    ARCHON_ASSERT(!cnk.prev_unused);
+    ARCHON_ASSERT(!cnk.next_unused);
+    if (ARCHON_LIKELY(m_unused_chunks)) {
+        chunk* next = m_unused_chunks->next_unused;
+        cnk.prev_unused = m_unused_chunks;
+        cnk.next_unused = next;
+        next->prev_unused = &cnk;
+        m_unused_chunks->next_unused = &cnk;
+    }
+    else {
+        cnk.prev_unused = &cnk;
+        cnk.next_unused = &cnk;
+        m_unused_chunks = &cnk;
+    }
+    m_num_unused_chunks += 1;
+}
+
+
+
+void world::remove_unused(chunk& cnk)
+{
+    ARCHON_ASSERT(cnk.prev_unused);
+    ARCHON_ASSERT(cnk.next_unused);
+    ARCHON_ASSERT(m_num_unused_chunks > 0);
+    if (ARCHON_LIKELY(m_num_unused_chunks > 1)) {
+        chunk* prev = m_unused_chunks->prev_unused;
+        chunk* next = m_unused_chunks->next_unused;
+        if (m_unused_chunks == &cnk)
+            m_unused_chunks = next;
+        prev->next_unused = next;
+        next->prev_unused = prev;
+    }
+    else {
+        m_unused_chunks = nullptr;
+    }
+    cnk.prev_unused = nullptr;
+    cnk.next_unused = nullptr;
+    m_num_unused_chunks -= 1;
+}
+
+
+
+auto world::alloc_call_list() -> GLuint
+{
+    if (ARCHON_UNLIKELY(m_unused_call_lists.empty())) {
+        constexpr int n = 64;
+        GLuint offset = glGenLists(n);
+        if (ARCHON_UNLIKELY(offset == 0))
+            throw std::runtime_error("Call list allocation failed");
+        for (int i = 0; i < n; ++i)
+            m_unused_call_lists.push(GLuint(offset + i));
+    }
+    GLuint list = m_unused_call_lists.top();
+    m_unused_call_lists.pop();
+    return list;
+}
+
+
+
+inline void world::return_call_list(GLuint list)
+{
+    m_unused_call_lists.push(list); // Throws
 }
 
 
