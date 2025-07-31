@@ -98,6 +98,7 @@ struct chunk_pos_hash {
 };
 
 
+
 enum class box_face { left, right, bottom, top, back, front };
 
 
@@ -132,8 +133,35 @@ struct quad {
 };
 
 
+
 using block_array = block_index_type[g_chunk_size_z][g_chunk_size_y][g_chunk_size_z];
 constexpr block_array g_empty_block_array = {};
+
+inline auto get_block(const block_array& arr, int x, int y, int z) noexcept -> block_index_type
+{
+    return arr[z][y][x];
+}
+
+inline void set_block(block_array& arr, int x, int y, int z, block_index_type i) noexcept
+{
+    arr[z][y][x] = i;
+}
+
+void fill(block_array& arr, int x_1, int y_1, int z_1, int x_2, int y_2, int z_2, int i) noexcept
+{
+    for (int z = z_1; z < z_2; ++z) {
+        for (int y = y_1; y < y_2; ++y) {
+            for (int x = x_1; x < x_2; ++x)
+                set_block(arr, x, y, z, i);
+        }
+    }
+}
+
+inline void fill(block_array& arr, block_index_type i) noexcept
+{
+    fill(arr, 0, 0, 0, g_chunk_size_x, g_chunk_size_y, g_chunk_size_z, i);
+}
+
 
 
 struct chunk {
@@ -209,6 +237,7 @@ private:
     // Velocity of camera. Measured in texel units.
     math::Vector3 m_velocity;
 
+    void add_empty_block();
     void add_block();
 
     // In number of blocks
@@ -248,6 +277,7 @@ private:
 
 world::world()
 {
+    add_empty_block(); // Throws
     add_block(); // Throws
     change_render_distance(64, 64); // Throws
     set_position({ 0, 0, 0 }); // Throws
@@ -259,8 +289,10 @@ void world::render_init()
 {
 #if ARCHON_RENDER_HAVE_OPENGL
 
+    glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
     glEnable(GL_LIGHTING);
+    glEnable(GL_TEXTURE_2D);
 
 #ifdef GL_LIGHT_MODEL_COLOR_CONTROL
     glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL, GL_SEPARATE_SPECULAR_COLOR);
@@ -276,29 +308,39 @@ void world::render_init()
 
 void world::render()
 {
-    glEnable(GL_DEPTH_TEST);
     // FIXME: Guard against missing OpenGL include file      
-/*
-    int n = 16;              
-    glScaled(1.0 / n, 1.0 / n, 1.0 / n);    
-*/
     math::Vector3 eye_displacement = { 0, 0, 0 };
     eye_displacement[1] += get_eye_height();
     glTranslated(-eye_displacement[0], -eye_displacement[1], -eye_displacement[2]);
-    glDisable(GL_TEXTURE_2D);
     render_avatar(); // Throws
-    glTranslated(-m_position[0], -m_position[1], -m_position[2]);
-    glEnable(GL_TEXTURE_2D);
-    glColor3d(1, 1, 1);
+    glTranslated(GLdouble(-m_position[0]), GLdouble(-m_position[1]), GLdouble(-m_position[2]));
 
+/*
+    glPushAttrib(GL_CURRENT_BIT | GL_ENABLE_BIT | GL_LIGHTING_BIT);
+    glDisable(GL_CULL_FACE);
+    glEnable(GL_LIGHTING);
+    glDisable(GL_TEXTURE_2D);
+    glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
+    glEnable(GL_COLOR_MATERIAL);
+    glColor3d(1, 0.2, 0.2);
+    glBegin(GL_QUADS);
+    glNormal3f(0, 0, 1);
+    glVertex3f(0, 0, -16);
+    glVertex3f(1, 0, -16);
+    glVertex3f(1, 1, -16);
+    glVertex3f(0, 1, -16);
+    glEnd();
+    glPopAttrib();
+*/
 
     // Render entities
     
 
     // Render opaque blocks
+    glDisable(GL_TEXTURE_2D);    
 //    m_transparent_chunks.clear();           
     for (chunk_array_pos pos : m_chunk_order) {
-        // FIXME: Find a way to efficiently skip some of the chunnks that are definitely not overlapping with the view frustum    
+        // FIXME: Find a way to efficiently skip some of the chunnks that are definitely not intersecting the view frustum      
 
 /*
         chunk_pos pos_2 = {
@@ -341,23 +383,27 @@ void world::render()
         }
 
         // FIXME: If chunk has semi-transparent texels: m_transparent_chunks.push_back(cnk); // Throws    
-        */
+*/
 
         chunk& cnk = ensure_array_chunk(pos); // Throws
         request_initialization(cnk); // Throws
+        if (ARCHON_UNLIKELY(!cnk.initialized))
+            continue;
+
+        // FIXME: Formally require that each of the coordinates of a chunk array position can be represented in `int` as a number of blocks         
+        GLfloat x = GLfloat(pos.x * g_chunk_size_x);
+        GLfloat y = GLfloat(pos.y * g_chunk_size_y);
+        GLfloat z = GLfloat(pos.z * g_chunk_size_z);
+        glPushMatrix();
+        glTranslatef(x, y, z);
         if (ARCHON_LIKELY(cnk.processed)) {
             if (cnk.call_list != 0)
                 glCallList(cnk.call_list);
         }
-        else if (ARCHON_LIKELY(cnk.initialized)) {
-            // FIXME: Maybe allocate new call lists in chunks of 16: glGenLists(16)     
-            // glNewList(chunk.call_list,  GL_COMPILE_AND_EXECUTE);     
-            process_chunk(cnk); // Throws
-            // glEndList();     
-        }
         else {
-            continue;
+            process_chunk(cnk); // Throws
         }
+        glPopMatrix();
 
         // FIXME: If chunk has semi-transparent texels: m_transparent_chunks.push_back(cnk); // Throws    
     }
@@ -366,7 +412,6 @@ void world::render()
     
 
     // Render HUD
-    glDisable(GL_DEPTH_TEST);
     
 
     // Rendering proceeds in three stages:
@@ -422,57 +467,77 @@ void world::render()
 
 
 
+void world::add_empty_block()
+{
+    std::size_t quads_end = m_quads.size();
+    block_variant var = { quads_end };
+    m_block_variants.push_back(var); // Throws
+    std::size_t variants_end = m_block_variants.size();
+    bool full = false;
+    bool solid = false;
+    bool opaque = false;
+    block blk = {
+        variants_end,
+        full,
+        solid,
+        opaque,
+    };
+    m_blocks.push_back(blk); // Throws
+}
+
+
+
 void world::add_block()
 {
     // FIXME: Need to have back-face culling turned on for almost all (if not all) types of blocks                 
     auto add_quad = [&](box_face orientation) {
         GLuint texture = 0;
         GLfloat s_1 = 0, t_1 = 0, x_1 = 0, y_1 = 0, z_1 = 0;
-        GLfloat s_2 = 0, t_2 = 1, x_2 = 0, y_2 = 0, z_2 = 0;
+        GLfloat s_2 = 1, t_2 = 0, x_2 = 0, y_2 = 0, z_2 = 0;
         GLfloat s_3 = 1, t_3 = 1, x_3 = 0, y_3 = 0, z_3 = 0;
-        GLfloat s_4 = 1, t_4 = 0, x_4 = 0, y_4 = 0, z_4 = 0;
+        GLfloat s_4 = 0, t_4 = 1, x_4 = 0, y_4 = 0, z_4 = 0;
         GLfloat n_x = 0, n_y = 0, n_z = 0;
         switch (orientation) {
             case box_face::left:
                 x_1 = 0, y_1 = 0, z_1 = 0;
-                x_2 = 0, y_2 = 1, z_2 = 0;
+                x_2 = 0, y_2 = 0, z_2 = 1;
                 x_3 = 0, y_3 = 1, z_3 = 1;
-                x_4 = 0, y_4 = 0, z_4 = 1;
+                x_4 = 0, y_4 = 1, z_4 = 0;
                 n_x = -1;
                 break;
             case box_face::right:
                 x_1 = 1, y_1 = 0, z_1 = 1;
-                x_2 = 1, y_2 = 1, z_2 = 1;
+                x_2 = 1, y_2 = 0, z_2 = 0;
                 x_3 = 1, y_3 = 1, z_3 = 0;
-                x_4 = 1, y_4 = 0, z_4 = 0;
+                x_4 = 1, y_4 = 1, z_4 = 1;
                 n_x = 1;
                 break;
             case box_face::bottom:
                 x_1 = 0, y_1 = 0, z_1 = 0;
-                x_2 = 0, y_2 = 0, z_2 = 1;
+                x_2 = 1, y_2 = 0, z_2 = 0;
                 x_3 = 1, y_3 = 0, z_3 = 1;
-                x_4 = 1, y_4 = 0, z_4 = 0;
+                x_4 = 0, y_4 = 0, z_4 = 1;
                 n_y = -1;
                 break;
             case box_face::top:
                 x_1 = 0, y_1 = 1, z_1 = 1;
-                x_2 = 0, y_2 = 1, z_2 = 0;
+                x_2 = 1, y_2 = 1, z_2 = 1;
                 x_3 = 1, y_3 = 1, z_3 = 0;
-                x_4 = 1, y_4 = 1, z_4 = 1;
+                x_4 = 0, y_4 = 1, z_4 = 0;
                 n_y = 1;
                 break;
             case box_face::back:
                 x_1 = 1, y_1 = 0, z_1 = 0;
-                x_2 = 1, y_2 = 1, z_2 = 0;
+                x_2 = 0, y_2 = 0, z_2 = 0;
                 x_3 = 0, y_3 = 1, z_3 = 0;
-                x_4 = 0, y_4 = 0, z_4 = 0;
+                x_4 = 1, y_4 = 1, z_4 = 0;
                 n_z = -1;
                 break;
             case box_face::front:
                 x_1 = 0, y_1 = 0, z_1 = 1;
-                x_2 = 0, y_2 = 1, z_2 = 1;
+                x_2 = 1, y_2 = 0, z_2 = 1;
                 x_3 = 1, y_3 = 1, z_3 = 1;
-                x_4 = 1, y_4 = 0, z_4 = 1;
+                x_4 = 0, y_4 = 1, z_4 = 1;
                 n_z = 1;
                 break;
         }
@@ -488,6 +553,11 @@ void world::add_block()
         m_quads.push_back(q); // Throws
     };
     add_quad(box_face::left); // Throws
+    add_quad(box_face::right); // Throws
+    add_quad(box_face::bottom); // Throws
+    add_quad(box_face::top); // Throws
+    add_quad(box_face::back); // Throws
+    add_quad(box_face::front); // Throws
     std::size_t quads_end = m_quads.size();
     block_variant var = { quads_end };
     m_block_variants.push_back(var); // Throws
@@ -680,36 +750,6 @@ void world::render_avatar()
 
 
 
-/*
-void world::mark_chunk_initialized(chunk& cnk, const chunk_pos& pos)                 
-{
-    cnk.initialized = true;
-
-    auto f = [](int x, int y, int z) {
-        chunk_pos pos_2 = {
-            
-        };
-    };
-
-    // FIXME: Must also mark all neighbouring chunks unprocessed     
-}
-
-
-
-void world::mark_chunk_dirty(chunk& cnk, const chunk_pos& pos)                     
-{
-    cnk.processed = true;
-
-    auto f = [](int x, int y, int z) {
-        chunk_pos pos_2 = {
-            
-        };
-    };
-}
-*/
-
-
-
 double world::get_eye_height() const noexcept
 {
     double normal_height = 1.62;
@@ -723,6 +763,7 @@ double world::get_eye_height() const noexcept
 
 void world::process_chunk(chunk& cnk)
 {
+    ARCHON_ASSERT(!cnk.processed);
     auto neighbor = [&](int x, int y, int z) -> const chunk& {
         chunk_pos pos_2 = {
             block_coord_type(cnk.pos.x + x),
@@ -745,19 +786,17 @@ void world::process_chunk(chunk& cnk)
     const chunk& front  = neighbor(0, 0, +1); // Throws
     GLuint call_list = 0;
     GLuint texture = 0;
-    int serial = 0; // FIXME: Tend to possible overflow     
+    std::size_t serial = 0;
     auto pick_variant = [&](std::size_t n) {
         core::Hash_FNV_1a_Default hash;
         hash.add_obj(cnk.pos);
-        hash.add_int(serial);
+        hash.add_obj(serial);
         return std::size_t(hash.get() % n);
     };
     for (int z = 0; z < g_chunk_size_z; ++z) {
         for (int y = 0; y < g_chunk_size_y; ++y) {
             for (int x = 0; x < g_chunk_size_x; ++x, ++serial) {
                 block_index_type i = get_block(cnk, x, y, z);
-                if (i == 0)
-                    continue; // Air
                 GLfloat x_2 = x;
                 GLfloat y_2 = y;
                 GLfloat z_2 = z;
@@ -832,14 +871,14 @@ void world::process_chunk(chunk& cnk)
                         if (ARCHON_LIKELY(elide))
                             continue;
                     }
+                    if (ARCHON_UNLIKELY(call_list == 0)) {
+                        call_list = alloc_call_list(); // Throws
+                        glNewList(call_list, GL_COMPILE_AND_EXECUTE);
+                        glBindTexture(GL_TEXTURE_2D, texture);
+                        glBegin(GL_QUADS);
+                    }
                     if (ARCHON_UNLIKELY(q.texture != texture)) {
-                        if (ARCHON_LIKELY(call_list != 0)) {
-                            glEnd();
-                        }
-                        else {
-                            call_list = alloc_call_list(); // Throws
-                            glNewList(call_list, GL_COMPILE_AND_EXECUTE);
-                        }
+                        glEnd();
                         texture = q.texture;
                         glBindTexture(GL_TEXTURE_2D, texture);
                         glBegin(GL_QUADS);
@@ -862,7 +901,7 @@ void world::process_chunk(chunk& cnk)
         glEndList();
     }
     cnk.call_list = call_list;
-    cnk.processed = false;
+    cnk.processed = true;
 }
 
 
@@ -932,7 +971,24 @@ void world::request_initialization(chunk& cnk)
 {
     if (ARCHON_LIKELY(cnk.initialized || cnk.init_in_progress))
         return;
-    // FIXME: Do not initialize here. Instead, if initialization request queue is not full, request initialization      
+    // FIXME: Do not generally initialize chunk here, but instead initiate a request for initialization to the background thread    
+    // FIXME: Explain why this cannot overflow   
+    block_pos pos = {
+        block_coord_type(cnk.pos.x * g_chunk_size_x),
+        block_coord_type(cnk.pos.y * g_chunk_size_y),
+        block_coord_type(cnk.pos.z * g_chunk_size_z),
+    };
+    for (int z = 0; z < g_chunk_size_z; ++z) {
+        for (int y = 0; y < g_chunk_size_y; ++y) {
+            for (int x = 0; x < g_chunk_size_x; ++x) {
+                block_coord_type y_2 = block_coord_type(pos.y + y); // FIXME: What guarantees that this does not overflow?    
+                block_index_type air   = 0;
+                block_index_type stone = 1;
+                block_index_type i = (y_2 < 0 ? stone : air);
+                set_block(cnk.blocks, x, y, z, i);
+            }
+        }
+    }
     mark_initialized(cnk); // Throws
 }
 
