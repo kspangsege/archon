@@ -523,10 +523,10 @@ bool ConnectionImpl::try_get_screen_conf(int screen, core::Buffer<display::Viewp
         throw std::invalid_argument("Bad screen index");
 
     // NOTE: Currently no support for screen configuration in SDL-based
-    // implementation. There are too many quirks that it is impossible, or at least
-    // difficult to work around. For example, changes are only reported when monitors are
-    // added or removed, not when individual monitors change, e.g., when its size changes
-    // (virtual monitors). See also out-commented handling of SDL_DISPLAYEVENT in
+    // implementation. There are too many quirks that are impossible, or at least difficult
+    // to work around. For example, changes are only reported when monitors are added or
+    // removed, not when individual monitors change, e.g., when its size changes (virtual
+    // monitors). See also out-commented handling of SDL_DISPLAYEVENT in
     // ConnectionImpl::process_outstanding_events().
 
     return false;
@@ -989,6 +989,11 @@ void WindowImpl::create(std::string_view title, display::Size size, const Config
         flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
     if (config.enable_opengl_rendering)
         flags |= SDL_WINDOW_OPENGL;
+    bool require_depth_buffer = config.enable_opengl_rendering && config.require_opengl_depth_buffer;
+    // This value (8) mirrors the default for FindVisualParams::min_opengl_depth_buffer_bits
+    // in noinst/x11/support.hpp
+    int min_depth_buffer_bits = 8;
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, (require_depth_buffer ? min_depth_buffer_bits : 0));
     SDL_Window* win = SDL_CreateWindow(title_2, x, y, w, h, flags);
     if (ARCHON_UNLIKELY(!win))
         throw_sdl_error(conn.locale, "SDL_CreateWindow() failed"); // Throws

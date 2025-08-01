@@ -290,6 +290,14 @@ struct Window::Config {
     ///
     bool enable_opengl_rendering = false;
 
+    /// \brief Whether OpenGL depth buffer is required.
+    ///
+    /// If set to `true` and if \ref enable_opengl_rendering is `true`, require that the
+    /// window is created with an OpenGL depth buffer. If \p enable_opengl_rendering is
+    /// `false`, this parameter has no effect.
+    ///
+    bool require_opengl_depth_buffer = true;
+
     /// \brief Enforce minimum size of window
     ///
     /// If set, and the window is made resizable (\ref resizable), the window will be kept

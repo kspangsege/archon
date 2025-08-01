@@ -14,3 +14,21 @@ target_link_libraries(Box PUBLIC
   Display
   Render
 )
+
+
+add_executable(Blocks
+  blocks.cpp
+)
+
+set_target_properties(Blocks PROPERTIES
+  OUTPUT_NAME "archon-blocks"
+)
+
+target_link_libraries(Blocks PUBLIC
+  Core
+  Log
+  Cli
+  Math
+  Display
+  Render
+)

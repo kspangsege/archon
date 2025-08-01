@@ -90,9 +90,11 @@ template<class F, class I> bool float_greater_equal_int(F float_val, I int_val) 
 /// \}
 
 
+/// \{
+///
 /// \brief Convert floating-point value to integer value with clamping behavior.
 ///
-/// This function converts the specified floating-point value (\p val) to an integer value
+/// These functions convert the specified floating-point value (\p val) to an integer value
 /// of the specified type (\p I). If the specified value is outside the range representable
 /// in the integer type, it will be silently clamped to that range.
 ///
@@ -122,6 +124,8 @@ template<class F, class I> bool float_greater_equal_int(F float_val, I int_val) 
 /// FIXME: Make constexpr in C++23
 ///
 template<class I, class F> auto clamped_float_to_int(F val) noexcept -> I;
+template<class I, class F> void clamped_float_to_int(F val, I& res) noexcept;
+/// \}
 
 
 /// \brief Try to convert floating-point value to integer value.
@@ -352,6 +356,12 @@ template<class I, class F> inline auto clamped_float_to_int(F val) noexcept -> I
     if (ARCHON_LIKELY(val < (core::min_float_for_int<F, I>())))
         return core::int_min<I>();
     return I(0); // NaN
+}
+
+
+template<class I, class F> inline void clamped_float_to_int(F val, I& res) noexcept
+{
+    res = core::clamped_float_to_int<I>(val);
 }
 
 

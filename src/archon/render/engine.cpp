@@ -220,7 +220,7 @@ auto Engine::get_key_bindings() noexcept -> impl::KeyBindings&
 }
 
 
-void Engine::Scene::init()
+void Engine::Scene::render_init()
 {
 }
 

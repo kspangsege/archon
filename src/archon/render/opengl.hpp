@@ -36,6 +36,8 @@
 /// \brief Whether OpenGL is available.
 ///
 /// This macro expands to `1` if OpenGL is availabe. Otherwise it expands to `0`.
+///
+/// For OpenGL 2.1 manual pages, see https://registry.khronos.org/OpenGL-Refpages/gl2.1/
 
 
 #if ARCHON_RENDER_HAVE_OPENGL
