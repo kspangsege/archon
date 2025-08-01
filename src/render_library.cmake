@@ -1,6 +1,7 @@
 add_library(Render
   archon/render/math.cpp
   archon/render/opengl.cpp
+  archon/render/load_texture.cpp
   archon/render/virt_trackball.cpp
   archon/render/impl/key_bindings.cpp
   archon/render/engine.cpp
@@ -14,12 +15,14 @@ target_link_libraries(Render PUBLIC
   Log
   Math
   Util
+  Image
   Display
 )
 
 target_sources(Render PUBLIC FILE_SET HEADERS FILES
   archon/render/math.hpp
   archon/render/opengl.hpp
+  archon/render/load_texture.hpp
   archon/render/impl/finite_sequence_memory.hpp
   archon/render/impl/finite_curve_memory.hpp
   archon/render/virt_trackball.hpp
