@@ -1,6 +1,6 @@
 // This file is part of the Archon project, a suite of C++ libraries.
 //
-// Copyright (C) 2023 Kristian Spangsege <kristian.spangsege@gmail.com>
+// Copyright (C) 2025 Kristian Spangsege <kristian.spangsege@gmail.com>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this
 // software and associated documentation files (the "Software"), to deal in the Software
@@ -19,20 +19,37 @@
 // DEALINGS IN THE SOFTWARE.
 
 
-// Do not include this header file. It exists only to specify the canonical header order,
-// which is a topological dependency ordering of all the header files of the Archon
-// Rendering Library, including any that must never be included by applications.
-#error "Do not include this header file"
-
-
-#include <archon/render/render_namespace.hpp>
-#include <archon/render/impl/config.h>
-#include <archon/render/opengl.hpp>
+       
+#include <archon/image/image.hpp>
 #include <archon/render/load_texture.hpp>
-#include <archon/render/impl/finite_sequence_memory.hpp>
-#include <archon/render/impl/finite_curve_memory.hpp>
-#include <archon/render/virt_trackball.hpp>
-#include <archon/render/key_binding_support.hpp>
-#include <archon/render/impl/key_bindings.hpp>
-#include <archon/render/engine.hpp>
-#include <archon/render/noinst/engine_impl.hpp>
+
+
+using namespace archon;
+
+
+void image::load_texture(const image::Image& image, bool no_interp)
+{
+    image::Size image_size = image.get_size();
+
+    glPushClientAttrib(GL_CLIENT_PIXEL_STORE_BIT);
+    glPixelStorei(GL_UNPACK_SWAP_BYTES, swap_bytes);  
+    glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);  
+    glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);  
+    glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);  
+    glPixelStorei(GL_UNPACK_ALIGNMENT, row_align_bytes);  
+
+    // ARCHON_ASSERT_1(0 < num_channels && num_channels <= 4, "Wrong number of channels");  
+
+    glPopClientAttrib();
+
+    GLsizei width = {};
+    GLsizei height = {};
+    core::int_cast(image_size.width, width); // Throws
+    core::int_cast(image_size.height, height); // Throws
+
+    GLint level = 0;
+    GLint border = 0;
+    glTexImage2D(GL_TEXTURE_2D, level, internal_format, width, height, border, format, type, buffer);
+
+    
+}
