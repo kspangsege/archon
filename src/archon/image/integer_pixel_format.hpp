@@ -430,9 +430,8 @@ auto IntegerPixelFormat<C, W, B, S, D, E, F, G>::read_comp(const word_type* pixe
     else {
         unpacked_comp_type comp = 0;
         for (int i = 0; i < words_per_channel; ++i) {
-            int j = map_word_index(i);
-            comp <<= bits_per_word;
-            comp |= image::unpack_int<bits_per_word>(channel_ptr[j]);
+            int shift = map_word_index(i) * bits_per_word;
+            comp |= unpacked_comp_type(image::unpack_int<bits_per_word>(channel_ptr[i])) << shift;
         }
         if constexpr (std::is_integral_v<transf_comp_type>) {
             constexpr int n = image::comp_repr_bit_width<transf_repr>();
@@ -474,11 +473,9 @@ void IntegerPixelFormat<C, W, B, S, D, E, F, G>::write_comp(transf_comp_type val
             }
         }
         for (int i = 0; i < words_per_channel; ++i) {
-            int reverse_i = (words_per_channel - 1) - i;
-            int shift = reverse_i * bits_per_word;
-            unpacked_comp_type word = (comp >> shift) & core::int_mask<unpacked_comp_type>(bits_per_word);
-            int j = map_word_index(i);
-            channel_ptr[j] = image::pack_int<word_type, bits_per_word>(word);
+            int shift = map_word_index(i) * bits_per_word;
+            unpacked_comp_type value = (comp >> shift) & core::int_mask<unpacked_comp_type>(bits_per_word);
+            channel_ptr[i] = image::pack_int<word_type, bits_per_word>(value);
         }
     }
 }
@@ -510,16 +507,16 @@ constexpr int IntegerPixelFormat<C, W, B, S, D, E, F, G>::map_channel_index(int 
 template<class C, class W, int B, class S, int D, core::Endianness E, bool F, bool G>
 constexpr int IntegerPixelFormat<C, W, B, S, D, E, F, G>::map_word_index(int i) noexcept
 {
-    // Map index from big-endian order to actual order.
+    // Map index from little-endian order to actual order.
     int n = words_per_channel;
     ARCHON_ASSERT(i >= 0 && i < n);
     switch (word_order) {
         case core::Endianness::big:
             break;
         case core::Endianness::little:
-            return (n - 1) - i;
+            return i;
     }
-    return i;
+    return (n - 1) - i;
 }
 
 
