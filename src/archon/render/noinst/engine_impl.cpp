@@ -198,6 +198,9 @@ bool EngineImpl::try_init(std::string_view window_title, display::Size window_si
     m_logger.detail("OpenGL Vendor: %s", glGetString(GL_VENDOR)); // Throws
     m_logger.detail("OpenGL Renderer: %s", glGetString(GL_RENDERER)); // Throws
     m_logger.detail("OpenGL Version: %s", glGetString(GL_VERSION)); // Throws
+    if (const GLubyte* str = glGetString(GL_SHADING_LANGUAGE_VERSION))
+        m_logger.detail("GLSL Version: %s", str); // Throws
+    m_logger.detail("GLEW Version: %s", glewGetString(GLEW_VERSION)); // Throws
 #endif // ARCHON_DISPLAY_HAVE_OPENGL
 
     if (ARCHON_UNLIKELY(!m_scene.try_prepare(error))) // Throws

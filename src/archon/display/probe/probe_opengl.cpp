@@ -145,6 +145,9 @@ bool event_loop::try_init(display::Size window_size)
     m_logger.info("OpenGL Vendor: %s", glGetString(GL_VENDOR)); // Throws
     m_logger.info("OpenGL Renderer: %s", glGetString(GL_RENDERER)); // Throws
     m_logger.info("OpenGL Version: %s", glGetString(GL_VERSION)); // Throws
+    if (const GLubyte* str = glGetString(GL_SHADING_LANGUAGE_VERSION))
+        m_logger.info("GLSL Version: %s", str); // Throws
+    m_logger.info("GLEW Version: %s", glewGetString(GLEW_VERSION)); // Throws
 
     m_window = std::move(window);
     m_initialized = true;

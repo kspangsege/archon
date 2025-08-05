@@ -55,6 +55,7 @@
 #include <archon/display/connection.hpp>
 #include <archon/display/implementation.hpp>
 #include <archon/display/sdl_implementation.hpp>
+#include <archon/display/opengl.hpp>
 
 #if ARCHON_DISPLAY_HAVE_SDL
 #  define HAVE_SDL 1
@@ -99,10 +100,6 @@ constexpr std::string_view g_implementation_descr = "SDL (Simple DirectMedia Lay
 #if HAVE_SDL
 
 
-class WindowImpl;
-class TextureImpl;
-
-
 auto get_sdl_error(const std::locale& locale, std::string_view message) -> std::string
 {
     return core::format(locale, "%s: %s", message, SDL_GetError()); // Throws
@@ -128,6 +125,10 @@ void init_rect(SDL_Rect* rect, const display::Box& area) noexcept
 bool map_key(display::KeyCode, display::Key&) noexcept;
 bool rev_map_key(display::Key, display::KeyCode&) noexcept;
 auto map_mouse_button(Uint8 button) noexcept -> display::MouseButton;
+
+
+class WindowImpl;
+class TextureImpl;
 
 
 class ImplementationImpl final
@@ -1018,8 +1019,33 @@ bool WindowImpl::try_create(std::string_view title, display::Size size, const Co
     conn.register_window(id, *this); // Throws
     m_id = id;
 
-    // With the X11 back end, and when OpenGL support is not explicitly requested, the
-    // window will be recreated when a renderer is created. Presumably, this is because a
+    if (config.enable_opengl_rendering) {
+        SDL_GLContext ret = SDL_GL_CreateContext(m_win);
+        if (ARCHON_UNLIKELY(!ret)) {
+            error = get_sdl_error(conn.locale, "SDL_GL_CreateContext() failed"); // Throws
+            return false;
+        }
+        m_gl_context = ret;
+
+#if ARCHON_DISPLAY_HAVE_OPENGL
+
+        GLenum err = glewInit();
+        if (ARCHON_UNLIKELY(err != GLEW_OK)) {
+            const GLubyte* str = glewGetErrorString(err);
+            error = core::format(conn.locale, "Failed to initialize GLEW: %s", str); // Throws
+            return false;
+        }
+
+#else // !ARCHON_DISPLAY_HAVE_OPENGL
+
+        error = "OpenGL rendering not available";
+        return false;
+
+#endif// !ARCHON_DISPLAY_HAVE_OPENGL
+    }
+
+    // With the X11 back end, and when OpenGL support is not explicitly requested, SDL will
+    // recreate the window when a renderer is created. Presumably, this is because a
     // renderer requires OpenGL support, but when OpenGL support is not requested initially,
     // a visual without OpenGL support is selected initially. Unfortunately, this leads to a
     // very visible flicker / artifact if the recreation occurs while the window is
@@ -1170,18 +1196,10 @@ void WindowImpl::present()
 
 void WindowImpl::opengl_make_current()
 {
-    if (ARCHON_LIKELY(m_gl_context)) {
-        int ret = SDL_GL_MakeCurrent(m_win, m_gl_context);
-        if (ARCHON_LIKELY(ret == 0))
-            return;
-        throw_sdl_error(conn.locale, "SDL_GL_MakeCurrent() failed"); // Throws
-    }
-    SDL_GLContext ret = SDL_GL_CreateContext(m_win);
-    if (ARCHON_LIKELY(ret)) {
-        m_gl_context = ret;
+    int ret = SDL_GL_MakeCurrent(m_win, m_gl_context);
+    if (ARCHON_LIKELY(ret == 0))
         return;
-    }
-    throw_sdl_error(conn.locale, "SDL_GL_CreateContext() failed"); // Throws
+    throw_sdl_error(conn.locale, "SDL_GL_MakeCurrent() failed"); // Throws
 }
 
 
