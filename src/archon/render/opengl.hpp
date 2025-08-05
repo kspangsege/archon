@@ -43,6 +43,7 @@
 
 
 #if ARCHON_RENDER_HAVE_OPENGL
+#  include <GL/glew.h>
 #  if ARCHON_APPLE
 #    define GL_SILENCE_DEPRECATION
 #    include <OpenGL/gl.h>
