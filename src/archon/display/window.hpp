@@ -232,6 +232,10 @@ public:
     /// OpenGL rendering performed by the calling thread is directed onto this window. On an
     /// X11 platform, this corresponds to `glXMakeCurrent()`.
     ///
+    /// The creation of a new window that is configured for OpenGL rendering may or may not
+    /// clobber the current context association for the calling thread. Applications must
+    /// assume that such clobbering happens.
+    ///
     /// Behavior is undefined if this function is called on a window that is not configured
     /// for OpenGL rendering.
     ///

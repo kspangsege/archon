@@ -1523,6 +1523,13 @@ void WindowImpl::create(display::Size size, const Config& config, bool enable_do
         if (ARCHON_UNLIKELY(!ctx))
             throw std::runtime_error("glXCreateContextAttribsARB() failed");
         m_ctx = ctx;
+        glXMakeCurrent(conn.dpy, win, m_ctx);
+        GLenum err = glewInit();
+        if (ARCHON_UNLIKELY(err != GLEW_OK)) {
+            const GLubyte* str = glewGetErrorString(err);
+            std::string message = core::format(conn.locale, "Failed to initialize GLEW: %s", str); // Throws
+            throw std::runtime_error(std::move(message));
+        }
     }
 #else // !HAVE_GLX
     ARCHON_ASSERT(!enable_opengl);

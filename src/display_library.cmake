@@ -1,14 +1,25 @@
 # Need X11 for the following reasons:
 # * X11-based display implementation (see archon/display/x11_implementation.cpp)
+#
 find_package(X11)
 
+# Need OpenGL for the following reasons:
+# * Exposure of OpenGL to applciations through archon/display/opengl.hpp
+#
 # Need GLX for the following reasons:
 # * X11-based display implementation (see archon/display/x11_implementation.cpp)
+#
 find_package(OpenGL)
 
 # Need SDL for the following reasons:
 # * SDL-based display implementation (see archon/display/sdl_implementation.cpp)
+#
 find_package(SDL2 2.0.22)
+
+# Need GLEW for the following reasons:
+# * Exposure of OpenGL to applciations through archon/display/opengl.hpp
+#
+find_package(GLEW)
 
 set(ARCHON_DISPLAY_HAVE_X11 0)
 set(ARCHON_DISPLAY_HAVE_X11_XDBE 0)
@@ -35,7 +46,7 @@ if(X11_FOUND)
   if(X11_Xrandr_FOUND)
     set(ARCHON_DISPLAY_HAVE_X11_XRANDR 1)
   endif()
-  if(OpenGL_GLX_FOUND)
+  if(OpenGL_GLX_FOUND AND GLEW_FOUND)
     set(ARCHON_DISPLAY_HAVE_X11_GLX 1)
   endif()
 endif()
@@ -46,7 +57,7 @@ if(SDL2_FOUND)
 endif()
 
 set(ARCHON_DISPLAY_HAVE_OPENGL 0)
-if(OPENGL_FOUND)
+if(OPENGL_FOUND AND GLEW_FOUND)
   set(ARCHON_DISPLAY_HAVE_OPENGL 1)
 endif()
 
@@ -97,8 +108,8 @@ if(SDL2_FOUND)
   target_link_libraries(Display PRIVATE ${SDL2_LIBRARIES})
 endif()
 
-if(OPENGL_FOUND)
-  target_link_libraries(Display PUBLIC OpenGL::GL)
+if(OPENGL_FOUND AND GLEW_FOUND)
+  target_link_libraries(Display PUBLIC OpenGL::GL GLEW::GLEW)
 endif()
 
 configure_file(archon/display/impl/config.h.in archon/display/impl/config.h)
