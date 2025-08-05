@@ -29,6 +29,7 @@ Here is the list of dependencies for the various libraries of the Archon project
   | GLX       |                 | Display        | Yes      | OpenGL Extension to the X Window System
   | SDL       | 2.0.22          | Display        | Yes      | OS GUI integration (Simple DirectMedia Layer)
   | OpenGL    |                 | Render         | Yes      | Open Graphics Library
+  | GLEW      |                 | Render         | Yes      | The OpenGL Extension Wrangler Library
 
 Note: `libjpeg-turbo` can be used in place of `libjpeg`.
 
@@ -36,29 +37,29 @@ See below for information on how to install these dependencies on various platfo
 
 ### Ubuntu Linux
 
-Run this command to install `libpng`, `libjpeg`, FreeType, Xlib, GLX, SDL, and OpenGL:
+Run this command to install `libpng`, `libjpeg`, FreeType, Xlib, GLX, SDL, OpenGL, and GLEW:
 
 ```sh
-apt install libpng-dev libjpeg-dev libfreetype-dev libx11-dev libglx-dev libsdl2-dev libgl-dev
+apt install libpng-dev libjpeg-dev libfreetype-dev libx11-dev libglx-dev libsdl2-dev libgl-dev libglew-dev
 ```
 
 ### macOS
 
-Run this command to install `libpng`, `libjpeg`, FreeType, and SDL using
+Run this command to install `libpng`, `libjpeg`, FreeType, SDL, and GLEW using
 [Homebrew][homebrew]:
 
 ```sh
-brew install libpng libjpeg freetype sdl2
+brew install libpng libjpeg freetype sdl2 glew
 ```
 
 ### Windows
 
-Run this command to install `libpng`, `libjpeg-turbo`, FreeType, and SDL using
+Run this command to install `libpng`, `libjpeg-turbo`, FreeType, SDL, and GLEW using
 [Vcpkg][vcpkg]:
 
 
 ```sh
-c:\src\vcpkg\vcpkg.exe install --triplet x64-windows libpng libjpeg-turbo freetype sdl2
+c:\src\vcpkg\vcpkg.exe install --triplet x64-windows libpng libjpeg-turbo freetype sdl2 glew
 ```
 
 A good place to run it, is in the Developer Command Prompt. Search for "x64 Native Tools

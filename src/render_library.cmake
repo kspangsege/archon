@@ -18,9 +18,10 @@ target_link_libraries(Render PUBLIC
 
 set(ARCHON_RENDER_HAVE_OPENGL 0)
 find_package(OpenGL)
-if(OPENGL_FOUND)
+find_package(GLEW)
+if(OPENGL_FOUND AND GLEW_FOUND)
   set(ARCHON_RENDER_HAVE_OPENGL 1)
-  target_link_libraries(Render PUBLIC OpenGL::GL)
+  target_link_libraries(Render PUBLIC OpenGL::GL GLEW::GLEW)
 endif()
 
 configure_file(archon/render/impl/config.h.in archon/render/impl/config.h)

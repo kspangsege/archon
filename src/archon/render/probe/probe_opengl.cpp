@@ -225,9 +225,19 @@ int main(int argc, char* argv[])
 
     win->opengl_make_current(); // Throws
 
+    GLenum err = glewInit();
+    if (err != GLEW_OK) {
+        const GLubyte* str = glewGetErrorString(err);
+        logger.error("Failed to initialize GLEW: %s", str); // Throws
+        return EXIT_FAILURE;
+    }
+
     logger.info("OpenGL Vendor: %s", glGetString(GL_VENDOR)); // Throws
     logger.info("OpenGL Renderer: %s", glGetString(GL_RENDERER)); // Throws
     logger.info("OpenGL Version: %s", glGetString(GL_VERSION)); // Throws
+    if (const GLubyte* str = glGetString(GL_SHADING_LANGUAGE_VERSION))
+        logger.info("GLSL Version: %s", str); // Throws
+    logger.info("GLEW Version: %s", glewGetString(GLEW_VERSION)); // Throws
 
     EventLoop event_loop(*conn, *win);
     win->set_event_handler(event_loop); // throws
