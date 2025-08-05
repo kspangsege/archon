@@ -55,6 +55,7 @@
 #include <archon/display/connection.hpp>
 #include <archon/display/implementation.hpp>
 #include <archon/display/sdl_implementation.hpp>
+#include <archon/display/opengl.hpp>
 
 #if ARCHON_DISPLAY_HAVE_SDL
 #  define HAVE_SDL 1
@@ -1018,8 +1019,24 @@ bool WindowImpl::try_create(std::string_view title, display::Size size, const Co
     conn.register_window(id, *this); // Throws
     m_id = id;
 
-    // With the X11 back end, and when OpenGL support is not explicitly requested, the
-    // window will be recreated when a renderer is created. Presumably, this is because a
+    if (config.enable_opengl_rendering) {
+        SDL_GLContext ret = SDL_GL_CreateContext(m_win);
+        if (ARCHON_UNLIKELY(!ret)) {
+            error = get_sdl_error(conn.locale, "SDL_GL_CreateContext() failed"); // Throws
+            return false;
+        }
+        m_gl_context = ret;
+
+        GLenum err = glewInit();
+        if (err != GLEW_OK) {
+            const GLubyte* str = glewGetErrorString(err);
+            std::string message = core::format(conn.locale, "Failed to initialize GLEW: %s", str); // Throws
+            throw std::runtime_error(std::move(message));
+        }
+    }
+
+    // With the X11 back end, and when OpenGL support is not explicitly requested, SDL will
+    // recreate the window when a renderer is created. Presumably, this is because a
     // renderer requires OpenGL support, but when OpenGL support is not requested initially,
     // a visual without OpenGL support is selected initially. Unfortunately, this leads to a
     // very visible flicker / artifact if the recreation occurs while the window is
@@ -1170,18 +1187,10 @@ void WindowImpl::present()
 
 void WindowImpl::opengl_make_current()
 {
-    if (ARCHON_LIKELY(m_gl_context)) {
-        int ret = SDL_GL_MakeCurrent(m_win, m_gl_context);
-        if (ARCHON_LIKELY(ret == 0))
-            return;
-        throw_sdl_error(conn.locale, "SDL_GL_MakeCurrent() failed"); // Throws
-    }
-    SDL_GLContext ret = SDL_GL_CreateContext(m_win);
-    if (ARCHON_LIKELY(ret)) {
-        m_gl_context = ret;
+    int ret = SDL_GL_MakeCurrent(m_win, m_gl_context);
+    if (ARCHON_LIKELY(ret == 0))
         return;
-    }
-    throw_sdl_error(conn.locale, "SDL_GL_CreateContext() failed"); // Throws
+    throw_sdl_error(conn.locale, "SDL_GL_MakeCurrent() failed"); // Throws
 }
 
 
