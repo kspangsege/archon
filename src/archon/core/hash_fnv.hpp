@@ -28,7 +28,6 @@
 #include <cstdint>
 #include <type_traits>
 
-#include <archon/core/span.hpp>
 #include <archon/core/integer.hpp>
 
 
@@ -37,22 +36,32 @@ namespace archon::core {
 
 /// \ref Fowler/Noll/Vo hashing.
 ///
-/// This class is an implementation of the non-cryptographic hash function created by Glenn
-/// Fowler, Landon Curt Noll, and Kiem-Phong Vo.
+/// This class is an implementation of FNV 1a, which is a non-cryptographic hash function
+/// created by Glenn Fowler, Landon Curt Noll, and Kiem-Phong Vo.
 ///
 /// In some cases, an object can be hashed in one go using \ref add_obj() (see caveats in
-/// documentation). More generally, an object that consists of N subobjects, is hashed by
-/// constructing a hasher (object of type `Hash_FNV_1a_32`) and then adding each relevant
-/// subobject sequentially.
+/// documentation). More generally, an object that consists of N sub-objects, is hashed by
+/// constructing a hasher (object of type `Hash_FNV_1a`) and then adding each relevant
+/// sub-object sequentially.
 ///
 /// Hashing of an integer is a `constexpr` operation if done using \ref add_int(). Likewise,
 /// hashing of a byte is a `constexpr` operation if done using \ref add_byte()
 ///
+/// \sa \ref core::Hash_FNV_1a_32, \ref core::Hash_FNV_1a_64
+/// \sa \ref core::Hash_FNV_1a_Default
+///
 /// \sa http://www.isthe.com/chongo/tech/comp/fnv/index.html
 ///
-class Hash_FNV_1a_32 {
+template<class T, int W, T B, T P> class Hash_FNV_1a {
 public:
-    using value_type = std::uint_fast32_t;
+    using value_type = T;
+
+    static constexpr int bit_width = W;
+    static constexpr value_type offset_basis = B;
+    static constexpr value_type prime = P;
+
+    static_assert(core::is_unsigned<value_type>());
+    static_assert(bit_width <= core::int_width<value_type>());
 
     /// \brief Digest single byte.
     ///
@@ -62,26 +71,26 @@ public:
 
     /// \brief Digest object of integer type.
     ///
-    /// This function digests the specified integer object. Contrary to \ref add(), this
+    /// This function digests the specified integer object. Contrary to \ref add_obj(), this
     /// function is a `constexpr` operation.
     ///
     /// \sa \ref add_obj()
     ///
-    template<class T> constexpr void add_int(T value) noexcept;
+    template<class I> constexpr void add_int(I value) noexcept;
 
     /// \brief Digest specified object.
     ///
     /// This function digests the specified object as a sequence of bytes, i.e., the bytes
     /// that constitute the representation of that object. Note that this scheme is not
     /// appropriate for all types of objects. For example, it is not appropriate for objects
-    /// of type `std::string`, because the string itself needs to be hashed, and iit is
-    /// genrally not contained inside the `std::string` object. In many cases, the
+    /// of type `std::string`, because the string itself needs to be hashed, and it is
+    /// generally not contained inside the `std::string` object. In many cases, the
     /// application must deal with each member of a class appropriately rather than passing
     /// the entire object to this function.
     ///
     /// \sa \ref add_int()
     ///
-    template<class T> void add_obj(const T& value) noexcept;
+    template<class O> void add_obj(const O& obj) noexcept;
 
     /// \brief Get hashed value.
     ///
@@ -92,8 +101,47 @@ public:
 private:
     constexpr void add_octet(value_type) noexcept;
 
-    std::uint_fast32_t m_hash = 2166136261;
+    value_type m_hash = offset_basis;
 };
+
+
+/// \brief 32-bit version of FNV 1a hash function
+///
+/// This is the 32-bit version of FNV 1a, which is a non-cryptographic hash function created
+/// by Glenn Fowler, Landon Curt Noll, and Kiem-Phong Vo).
+///
+/// It uses an offset basis of 2166136261 and the prime 16777619.
+///
+/// \sa \ref core::Hash_FNV_1a_64
+/// \sa \ref core::Hash_FNV_1a_Default
+/// \sa \ref core::Hash_FNV_1a
+///
+using Hash_FNV_1a_32 = core::Hash_FNV_1a<std::uint_fast32_t, 32, 2166136261U, 16777619U>;
+
+
+/// \brief 64-bit version of FNV 1a hash function
+///
+/// This is the 64-bit version of FNV 1a, which is a non-cryptographic hash function created
+/// by Glenn Fowler, Landon Curt Noll, and Kiem-Phong Vo).
+///
+/// It uses an offset basis of 14695981039346656037 and the prime 1099511628211.
+///
+/// \sa \ref core::Hash_FNV_1a_32
+/// \sa \ref core::Hash_FNV_1a_Default
+/// \sa \ref core::Hash_FNV_1a
+///
+using Hash_FNV_1a_64 = core::Hash_FNV_1a<std::uint_fast64_t, 64, 14695981039346656037U, 1099511628211U>;
+
+
+/// \brief Default version of FNV 1a hash function
+///
+/// This is a type alias for \ref core::Hash_FNV_1a_32 if the number of bits in
+/// `std::size_t` is less than or equal to 32. Otherwise this is a type alias for \ref
+/// core::Hash_FNV_1a_64.
+///
+/// \sa \ref core::Hash_FNV_1a_32, \ref core::Hash_FNV_1a_64
+///
+using Hash_FNV_1a_Default = std::conditional_t<core::int_width<std::size_t>() <= 32, Hash_FNV_1a_32, Hash_FNV_1a_64>;
 
 
 
@@ -105,7 +153,7 @@ private:
 // Implementation
 
 
-constexpr void Hash_FNV_1a_32::add_byte(std::byte value) noexcept
+template<class T, int W, T B, T P> constexpr void Hash_FNV_1a<T, W, B, P>::add_byte(std::byte value) noexcept
 {
     constexpr int width = core::int_width<char>();
     using uchar = unsigned char;
@@ -122,10 +170,10 @@ constexpr void Hash_FNV_1a_32::add_byte(std::byte value) noexcept
 }
 
 
-template<class T> constexpr void Hash_FNV_1a_32::add_int(T value) noexcept
+template<class T, int W, T B, T P> template<class I> constexpr void Hash_FNV_1a<T, W, B, P>::add_int(I value) noexcept
 {
-    static_assert(std::is_integral_v<T>);
-    constexpr int width = core::int_width<T>();
+    static_assert(std::is_integral_v<I>);
+    constexpr int width = core::int_width<I>();
     auto value_2 = core::to_unsigned(core::promote(value));
     if constexpr (width > 8) {
         int offset = 0;
@@ -139,28 +187,28 @@ template<class T> constexpr void Hash_FNV_1a_32::add_int(T value) noexcept
 }
 
 
-template<class T> void Hash_FNV_1a_32::add_obj(const T& value) noexcept
+template<class T, int W, T B, T P> template<class O> void Hash_FNV_1a<T, W, B, P>::add_obj(const O& obj) noexcept
 {
-    const void* ptr = &value;
+    const void* ptr = &obj;
     const std::byte* bytes = static_cast<const std::byte*>(ptr);
-    for (std::size_t i = 0; i < sizeof (T); ++i)
+    for (std::size_t i = 0; i < sizeof (O); ++i)
         add_byte(bytes[i]);
 }
 
 
-constexpr auto Hash_FNV_1a_32::get() const noexcept -> value_type
+template<class T, int W, T B, T P> constexpr auto Hash_FNV_1a<T, W, B, P>::get() const noexcept -> value_type
 {
-    return value_type(m_hash & 0xFFFFFFFF);
+    return value_type(m_hash & core::int_mask<value_type>(bit_width));
 }
 
 
-constexpr void Hash_FNV_1a_32::add_octet(value_type value) noexcept
+template<class T, int W, T B, T P> constexpr void Hash_FNV_1a<T, W, B, P>::add_octet(value_type value) noexcept
 {
     // Xor the bottom bits with the incoming octet
     m_hash ^= value;
 
-    // Multiply by the 32 bit FNV magic prime mod 2^32
-    m_hash *= 16777619;
+    // Multiply by the 32 bit FNV magic prime
+    m_hash *= prime;
 }
 
 
