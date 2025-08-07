@@ -1563,9 +1563,9 @@ struct BufferFormat {
 
     enum class Type { integer,  packed, subword, float_, indexed };
 
-    Type type;
+    Type type = Type::integer;
     union {
-        IntegerFormat integer;
+        IntegerFormat integer = {};
         PackedFormat packed;
         SubwordFormat subword;
         FloatFormat float_;

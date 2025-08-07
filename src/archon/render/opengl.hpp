@@ -36,9 +36,14 @@
 /// \brief Whether OpenGL is available.
 ///
 /// This macro expands to `1` if OpenGL is availabe. Otherwise it expands to `0`.
+///
+/// For OpenGL manual pages, see https://registry.khronos.org/OpenGL-Refpages/ or https://docs.gl/.
+///
+/// For the OpenGL specification, see https://registry.khronos.org/OpenGL/specs/.
 
 
 #if ARCHON_RENDER_HAVE_OPENGL
+#  include <GL/glew.h>
 #  if ARCHON_APPLE
 #    define GL_SILENCE_DEPRECATION
 #    include <OpenGL/gl.h>
@@ -59,7 +64,7 @@
 // Define some OpenGL types allowing for certain functions to exist even when OpenGL is
 // unavailable (e.g., `get_opengl_error_message()`).
 
-using GLenum = int;
+using GLenum = unsigned;
 
 #endif // !ARCHON_RENDER_HAVE_OPENGL
 

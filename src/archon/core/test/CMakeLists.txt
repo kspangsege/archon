@@ -58,7 +58,7 @@ add_library(CoreTest OBJECT
   test_text_formatter.cpp
 )
 
-target_link_libraries(CoreTest
+target_link_libraries(CoreTest PRIVATE
   Core
   Check
 )

@@ -1,6 +1,6 @@
 // This file is part of the Archon project, a suite of C++ libraries.
 //
-// Copyright (C) 2023 Kristian Spangsege <kristian.spangsege@gmail.com>
+// Copyright (C) 2025 Kristian Spangsege <kristian.spangsege@gmail.com>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this
 // software and associated documentation files (the "Software"), to deal in the Software
@@ -18,21 +18,29 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
+#ifndef ARCHON_X_RENDER_X_LOAD_TEXTURE_HPP
+#define ARCHON_X_RENDER_X_LOAD_TEXTURE_HPP
 
-// Do not include this header file. It exists only to specify the canonical header order,
-// which is a topological dependency ordering of all the header files of the Archon
-// Rendering Library, including any that must never be included by applications.
-#error "Do not include this header file"
+/// \file
 
 
-#include <archon/render/render_namespace.hpp>
-#include <archon/render/impl/config.h>
-#include <archon/render/opengl.hpp>
-#include <archon/render/load_texture.hpp>
-#include <archon/render/impl/finite_sequence_memory.hpp>
-#include <archon/render/impl/finite_curve_memory.hpp>
-#include <archon/render/virt_trackball.hpp>
-#include <archon/render/key_binding_support.hpp>
-#include <archon/render/impl/key_bindings.hpp>
-#include <archon/render/engine.hpp>
-#include <archon/render/noinst/engine_impl.hpp>
+#include <archon/image/image.hpp>
+
+
+namespace archon::render {
+
+
+/// \brief Load and configure OpenGL texture
+///
+/// This function loads the specified image into the currently bound OpenGL texture object
+/// and also sets the interpolation parameter for the texture as specified.
+///
+/// \param no_interp Turn off linear interpolation between texture pixels. In
+/// this case the nearest pixel is used.
+///
+void load_texture(const image::Image& image, bool no_interp = false);
+
+
+} // namespace archon::render
+
+#endif // ARCHON_X_RENDER_X_LOAD_TEXTURE_HPP
