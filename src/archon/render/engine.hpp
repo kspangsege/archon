@@ -655,11 +655,32 @@ struct Engine::Config {
 ///
 class Engine::Scene {
 public:
-    /// \brief Initialize OpenGL context.
+    /// \brief Opportunity to prepare resources in OpenGL context.
+    ///
+    /// This function is an opportunity for the application to prepare resources for
+    /// rendering, such as loading of textures. This function will only be called once, even
+    /// if multiple contexts are involved in rendering, however, the context, that is bound
+    /// to the calling thread, will share resources with any context that is used for
+    /// rendering. If this function is called for a context that is also used for rendering,
+    /// it will be called before \ref render_init().
+    ///
+    /// If resource preparation succeeds, this function must return `true` and leave \p
+    /// error unchanged. If resource preparation fails, it must return `false` after setting
+    /// \p error to a string that informs about the cause of the failure.
+    ///
+    /// \sa \ref render_init()
+    ///
+    virtual bool try_prepare(std::string& error);
+
+    /// \brief Initialize OpenGL context for rendering.
     ///
     /// This function is called once before the first invocation of \ref render() with the
-    /// calling thread bound to the same OpenGL rendering context as will be bound when \ref render() is
-    /// called. The scene implementation can set up OpenGL rendering parameters here.
+    /// calling thread bound to the same OpenGL rendering context as will be bound when \ref
+    /// render() is called. The scene implementation can set up OpenGL rendering parameters
+    /// here. If more than one context is involved in rendering, this function will be
+    /// called once for each of them.
+    ///
+    /// \sa \ref try_prepare()
     ///
     virtual void render_init();
 

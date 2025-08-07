@@ -183,14 +183,27 @@ bool EngineImpl::try_init(std::string_view window_title, display::Size window_si
     window_config.fullscreen = config.fullscreen_mode;
     window_config.enable_opengl_rendering = true;
     window_config.require_opengl_depth_buffer = config.require_depth_buffer;
+    std::unique_ptr<display::Window> window;
     std::string error_2;
     if (ARCHON_UNLIKELY(!m_conn.try_new_window(window_title, window_size, window_config,
-                                               m_window, error_2))) { // Throws
+                                               window, error_2))) { // Throws
             error = core::format(m_locale, "Failed to create window: %s", error_2); // Throws
             return false;
     }
 
-    m_window->set_event_handler(m_event_handler); // Throws
+    window->set_event_handler(m_event_handler); // Throws
+    window->opengl_make_current(); // Throws
+
+#if ARCHON_RENDER_HAVE_OPENGL
+    m_logger.detail("OpenGL Vendor: %s", glGetString(GL_VENDOR)); // Throws
+    m_logger.detail("OpenGL Renderer: %s", glGetString(GL_RENDERER)); // Throws
+    m_logger.detail("OpenGL Version: %s", glGetString(GL_VERSION)); // Throws
+#endif // ARCHON_RENDER_HAVE_OPENGL
+
+    if (ARCHON_UNLIKELY(!m_scene.try_prepare(error))) // Throws
+        return false;
+
+    m_window = std::move(window);
     m_fullscreen_mode = config.fullscreen_mode;
     m_initialized = true;
 
@@ -206,9 +219,6 @@ void EngineImpl::run()
     fetch_screen_conf(); // Throws
     track_screen_conf(); // Throws
 
-    m_window->show(); // Throws
-    m_window->opengl_make_current(); // Throws
-
     if (m_headlight_feature_enabled) {
 #if ARCHON_RENDER_HAVE_OPENGL
         GLfloat params[4]  = { 0, 0, 0, 1 };
@@ -218,6 +228,7 @@ void EngineImpl::run()
 
     m_scene.render_init(); // Throws
 
+    m_window->show(); // Throws
     m_started = true;
     update_resolution(m_resolution); // Throws
     update_frame_rate(m_frame_rate); // Throws

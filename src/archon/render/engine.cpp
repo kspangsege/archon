@@ -220,6 +220,12 @@ auto Engine::get_key_bindings() noexcept -> impl::KeyBindings&
 }
 
 
+bool Engine::Scene::try_prepare(std::string&)
+{
+    return true;
+}
+
+
 void Engine::Scene::render_init()
 {
 }
