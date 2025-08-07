@@ -20,7 +20,7 @@ set(ARCHON_RENDER_HAVE_OPENGL 0)
 find_package(OpenGL)
 if(OPENGL_FOUND)
   set(ARCHON_RENDER_HAVE_OPENGL 1)
-  target_link_libraries(Render INTERFACE OpenGL::GL)
+  target_link_libraries(Render PUBLIC OpenGL::GL)
 endif()
 
 configure_file(archon/render/impl/config.h.in archon/render/impl/config.h)

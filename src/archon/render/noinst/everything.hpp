@@ -20,8 +20,8 @@
 
 
 // Do not include this header file. It exists only to specify the canonical header order,
-// which is a topological dependency ordering of all the header files of the Archon Core
-// Library, including any that must never be included by applications.
+// which is a topological dependency ordering of all the header files of the Archon
+// Rendering Library, including any that must never be included by applications.
 #error "Do not include this header file"
 
 

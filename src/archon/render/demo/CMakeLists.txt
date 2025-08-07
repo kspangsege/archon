@@ -6,7 +6,7 @@ set_target_properties(Box PROPERTIES
   OUTPUT_NAME "archon-box"
 )
 
-target_link_libraries(Box PUBLIC
+target_link_libraries(Box PRIVATE
   Core
   Log
   Cli

@@ -654,7 +654,7 @@ public:
     /// calling thread bound to the same OpenGL rendering context as will be bound when \ref render() is
     /// called. The scene implementation can set up OpenGL rendering parameters here.
     ///
-    virtual void init();
+    virtual void render_init();
 
     /// \brief Render the scene.
     ///

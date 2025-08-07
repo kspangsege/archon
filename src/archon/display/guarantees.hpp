@@ -29,9 +29,9 @@ namespace archon::display {
 
 /// \brief Guarantees to enable display implementations.
 ///
-/// This is a set of guarantees that an application can provide when querying for available
-/// display implementations (\ref display::Implementation::is_available()). In general, the
-/// more guarantees are provided, the more implementations will be available.
+/// This is a set of guarantees that an application can pledge to satisfy when querying for
+/// available display implementations (\ref display::Implementation::is_available()). In
+/// general, the more guarantees are provided, the more implementations will be available.
 ///
 /// | Guarantee               | X11      | SDL
 /// |-------------------------|----------|----------

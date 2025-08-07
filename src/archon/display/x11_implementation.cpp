@@ -794,7 +794,7 @@ bool ConnectionImpl::try_get_screen_conf(int screen, core::Buffer<display::Viewp
 
 #if HAVE_XRANDR
     if (m_extension_info.have_xrandr) {
-        const ScreenSlot& slot = ensure_screen_slot(screen); // Throws
+        const ScreenSlot& slot = ensure_screen_slot(screen_2); // Throws
         const x11::ScreenConf& conf = slot.screen_conf;
         std::size_t n = conf.viewports.size();
         viewports.reserve(n); // Throws

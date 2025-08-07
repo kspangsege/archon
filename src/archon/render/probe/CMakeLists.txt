@@ -6,7 +6,7 @@ set_target_properties(ProbeOpenGL PROPERTIES
   OUTPUT_NAME "archon-probe-opengl"
 )
 
-target_link_libraries(ProbeOpenGL PUBLIC
+target_link_libraries(ProbeOpenGL PRIVATE
   Display
   Render
 )

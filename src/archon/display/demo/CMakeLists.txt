@@ -6,7 +6,7 @@ set_target_properties(DisplaySnooper PROPERTIES
   OUTPUT_NAME "archon-display-snooper"
 )
 
-target_link_libraries(DisplaySnooper PUBLIC
+target_link_libraries(DisplaySnooper PRIVATE
   Core
   Log
   Cli
@@ -22,7 +22,7 @@ set_target_properties(ImageViewer PROPERTIES
   OUTPUT_NAME "archon-image-viewer"
 )
 
-target_link_libraries(ImageViewer PUBLIC
+target_link_libraries(ImageViewer PRIVATE
   Core
   Log
   Cli
@@ -39,7 +39,7 @@ set_target_properties(MultipleWindows PROPERTIES
   OUTPUT_NAME "archon-multiple-windows"
 )
 
-target_link_libraries(MultipleWindows PUBLIC
+target_link_libraries(MultipleWindows PRIVATE
   Core
   Log
   Cli

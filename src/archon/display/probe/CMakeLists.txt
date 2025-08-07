@@ -6,7 +6,7 @@ set_target_properties(ProbeX11 PROPERTIES
   OUTPUT_NAME "archon-probe-x11"
 )
 
-target_link_libraries(ProbeX11 PUBLIC
+target_link_libraries(ProbeX11 PRIVATE
   Core
   Log
   Util
@@ -38,7 +38,7 @@ set_target_properties(ProbeSDL PROPERTIES
   OUTPUT_NAME "archon-probe-sdl"
 )
 
-target_link_libraries(ProbeSDL PUBLIC
+target_link_libraries(ProbeSDL PRIVATE
   Core
   Log
 )

@@ -6,7 +6,7 @@ add_library(CliTest OBJECT
   test_delegation.cpp
 )
 
-target_link_libraries(CliTest
+target_link_libraries(CliTest PRIVATE
   Core
   Cli
   Check
