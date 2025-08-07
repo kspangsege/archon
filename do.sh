@@ -283,7 +283,7 @@ if [ "$warnings_are_errors" ]; then
 fi
 
 build_subdir="$build_dir/$build_subdir_name"
-cmake -S "$root_dir" -B "$build_subdir" -D CMAKE_BUILD_TYPE="$build_type" -D ARCHON_ASAN="$asan" -D ARCHON_TSAN="$tsan" -D ARCHON_UBSAN="$ubsan" || exit 1
+cmake -S "$root_dir" -B "$build_subdir" -D CMAKE_BUILD_TYPE="$build_type" -D ARCHON_ASAN="$asan" -D ARCHON_TSAN="$tsan" -D ARCHON_UBSAN="$ubsan" $CMAKE_ARGS || exit 1
 cmake --build "$build_subdir" --config "$build_type" $parallel_option || exit 1
 
 if [ "$run" ]; then

@@ -26,7 +26,9 @@ Here is the list of dependencies for the various libraries of the Archon project
   | `libjpeg` | 6b              | Image          | Yes      | JPEG image file format
   | FreeType  |                 | Font           | Yes      | Font rendering facilities
   | Xlib      |                 | Display        | Yes      | X Window System protocol client library
+  | GLX       |                 | Display        | Yes      | OpenGL Extension to the X Window System
   | SDL       | 2.0.22          | Display        | Yes      | OS GUI integration (Simple DirectMedia Layer)
+  | OpenGL    |                 | Render         | Yes      | Open Graphics Library
 
 Note: `libjpeg-turbo` can be used in place of `libjpeg`.
 
@@ -34,15 +36,16 @@ See below for information on how to install these dependencies on various platfo
 
 ### Ubuntu Linux
 
-Run this command to install `libpng`, `libjpeg`, FreeType, Xlib, and SDL:
+Run this command to install `libpng`, `libjpeg`, FreeType, Xlib, GLX, SDL, and OpenGL:
 
 ```sh
-apt install libpng-dev libjpeg-dev libfreetype-dev libx11-dev libsdl2-dev
+apt install libpng-dev libjpeg-dev libfreetype-dev libx11-dev libglx-dev libsdl2-dev libgl-dev
 ```
 
 ### macOS
 
-Run this command to install `libpng`, `libjpeg`, FreeType, and SDL:
+Run this command to install `libpng`, `libjpeg`, FreeType, and SDL using
+[Homebrew][homebrew]:
 
 ```sh
 brew install libpng libjpeg freetype sdl2
@@ -50,12 +53,16 @@ brew install libpng libjpeg freetype sdl2
 
 ### Windows
 
-Run this command to install `libpng`, `libjpeg-turbo`, FreeType, and SDL using [Vcpkg][vcpkg]:
+Run this command to install `libpng`, `libjpeg-turbo`, FreeType, and SDL using
+[Vcpkg][vcpkg]:
 
 
 ```sh
 c:\src\vcpkg\vcpkg.exe install --triplet x64-windows libpng libjpeg-turbo freetype sdl2
 ```
+
+A good place to run it, is in the Developer Command Prompt. Search for "x64 Native Tools
+Command Prompt for VS".
 
 If Vcpkg in not already installed, you can install it by running these commands:
 
@@ -66,6 +73,7 @@ git clone https://github.com/Microsoft/vcpkg.git
 .\vcpkg\vcpkg.exe integrate install
 ```
 
+[homebrew]: https://brew.sh/
 [vcpkg]: https://github.com/Microsoft/vcpkg
 
 

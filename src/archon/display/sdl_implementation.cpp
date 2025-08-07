@@ -523,10 +523,10 @@ bool ConnectionImpl::try_get_screen_conf(int screen, core::Buffer<display::Viewp
         throw std::invalid_argument("Bad screen index");
 
     // NOTE: Currently no support for screen configuration in SDL-based
-    // implementation. There are too many quirks that it is impossible, or at least
-    // difficult to work around. For example, changes are only reported when monitors are
-    // added or removed, not when individual monitors change, e.g., when its size changes
-    // (virtual monitors). See also out-commented handling of SDL_DISPLAYEVENT in
+    // implementation. There are too many quirks that are impossible, or at least difficult
+    // to work around. For example, changes are only reported when monitors are added or
+    // removed, not when individual monitors change, e.g., when its size changes (virtual
+    // monitors). See also out-commented handling of SDL_DISPLAYEVENT in
     // ConnectionImpl::process_outstanding_events().
 
     return false;

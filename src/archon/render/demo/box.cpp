@@ -51,18 +51,19 @@ using namespace archon;
 
 namespace {
 
+#if ARCHON_RENDER_HAVE_OPENGL
+
+
 class Scene final
     : public render::Engine::Scene {
 public:
-    void init() override;
-    void render() override;
+    void render_init() override final;
+    void render() override final;
 };
 
 
-void Scene::init()
+void Scene::render_init()
 {
-#if ARCHON_RENDER_HAVE_OPENGL
-
     glEnable(GL_CULL_FACE);
     glEnable(GL_LIGHTING);
 
@@ -72,15 +73,11 @@ void Scene::init()
 #ifdef GL_LIGHT_MODEL_LOCAL_VIEWER
     glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, 1);
 #endif
-
-#endif // ARCHON_RENDER_HAVE_OPENGL
 }
 
 
 void Scene::render()
 {
-#if ARCHON_RENDER_HAVE_OPENGL
-
     float scale_factor = 0.5;
     math::Vector3F a = scale_factor * math::Vector3F(-1, -1, -1);
     math::Vector3F b = scale_factor * math::Vector3F(+1, +1, +1);
@@ -130,10 +127,10 @@ void Scene::render()
     glVertex3f(a[0], b[1], b[2]);
 
     glEnd();
-
-#endif // ARCHON_RENDER_HAVE_OPENGL
 }
 
+
+#endif // ARCHON_RENDER_HAVE_OPENGL
 
 } // unnamed namespace
 
@@ -370,12 +367,17 @@ int main(int argc, char* argv[])
         screen = val;
     }
 
-    engine_config.screen = screen;
-    engine_config.allow_window_resize = true;
-    engine_config.logger = &logger;
-
     render::Engine engine;
+
+#if ARCHON_RENDER_HAVE_OPENGL
     Scene scene;
+#else
+    render::Engine::Scene scene;
+#endif
+
+    engine_config.screen = screen;
+    engine_config.logger = &logger;
+    engine_config.allow_window_resize = true;
 
     if (ARCHON_UNLIKELY(!engine.try_create(scene, *conn, "Archon Box", window_size, locale, engine_config,
                                            error))) { // Throws

@@ -272,9 +272,9 @@ struct FindVisualParams {
     bool prefer_double_buffered = true;
 
     bool require_opengl = false;
-    bool require_opengl_depth_buffer = false;
-    bool require_opengl_stencil_buffer = false;
-    bool require_opengl_accum_buffer = false;
+    bool require_opengl_depth_buffer = false;   // Must be false if require_opengl is false
+    bool require_opengl_stencil_buffer = false; // Must be false if require_opengl is false
+    bool require_opengl_accum_buffer = false;   // Must be false if require_opengl is false
 
     int min_opengl_depth_buffer_bits = 8;
     int min_opengl_stencil_buffer_bits = 1;

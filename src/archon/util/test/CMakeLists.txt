@@ -7,7 +7,7 @@ add_library(UtilTest OBJECT
   test_rectangle_packer.cpp
 )
 
-target_link_libraries(UtilTest
+target_link_libraries(UtilTest PRIVATE
   Core
   Check
   Util

@@ -21,43 +21,26 @@
 
 #include <cstdlib>
 #include <memory>
+#include <chrono>
+#include <optional>
+#include <tuple>
 #include <string>
 #include <locale>
-#include <chrono>
+#include <stdexcept>
 
 #include <archon/core/features.h>
 #include <archon/core/locale.hpp>
 #include <archon/core/file.hpp>
 #include <archon/log.hpp>
+#include <archon/cli.hpp>
 #include <archon/display.hpp>
-#include <archon/render/impl/config.h>
-
-#if ARCHON_RENDER_HAVE_OPENGL
-#  define HAVE_OPENGL 1
-#else
-#  define HAVE_OPENGL 0
-#endif
-
-#if HAVE_OPENGL
-#  if ARCHON_APPLE
-#    define GL_SILENCE_DEPRECATION
-#    include <OpenGL/gl.h>
-#  elif ARCHON_WINDOWS
-#    if !defined NOMINMAX
-#      define NOMINMAX
-#    endif
-#    include <windows.h>
-#    include <gl/GL.h>
-#  else
-#    include <GL/gl.h>
-#  endif
-#endif
+#include <archon/render/opengl.hpp>
 
 
 using namespace archon;
 
 
-#if HAVE_OPENGL
+#if ARCHON_RENDER_HAVE_OPENGL
 
 
 namespace {
@@ -76,13 +59,11 @@ public:
 
     void run()
     {
-        m_win.opengl_make_current(); // Throws
-
         using clock_type      = display::Connection::clock_type;
         using duration_type   = clock_type::duration;
         using time_point_type = display::Connection::time_point_type;
 
-        duration_type time_per_frame = std::chrono::milliseconds(10);                             
+        duration_type time_per_frame = std::chrono::milliseconds(10);
 
         time_point_type deadline = clock_type::now();
         do {
@@ -150,15 +131,44 @@ void EventLoop::render_frame()
 } // unnamed namespace
 
 
-#endif // HAVE_OPENGL
+#endif // ARCHON_RENDER_HAVE_OPENGL
 
 
-int main()
+int main(int argc, char* argv[])
 {
     std::locale locale = core::get_default_locale(); // Throws
-    log::FileLogger logger(core::File::get_stdout(), locale); // Throws
 
-#if HAVE_OPENGL
+    bool list_display_implementations = false;
+    log::LogLevel log_level_limit = log::LogLevel::info;
+    std::optional<std::string> optional_display_implementation;
+
+    cli::Spec spec;
+    pat("", cli::no_attributes, spec,
+        "Lorem ipsum.",
+        std::tie()); // Throws
+
+    pat("--list-display-implementations", cli::no_attributes, spec,
+        "List known display implementations.",
+        [&] {
+            list_display_implementations = true;
+        }); // Throws
+
+    opt(cli::help_tag, spec); // Throws
+    opt(cli::stop_tag, spec); // Throws
+
+    opt("-l, --log-level", "<level>", cli::no_attributes, spec,
+        "Set the log level limit. The possible levels are @G. The default limit is @Q.",
+        cli::assign(log_level_limit)); // Throws
+
+    opt("-i, --display-implementation", "<ident>", cli::no_attributes, spec,
+        "Use the specified display implementation. Use `--list-display-implementations` to see which implementations "
+        "are available. It is possible that no implementations are available. By default, if any implementations are "
+        "available, the one, that is listed first by `--list-display-implementations`, is used.",
+        cli::assign(optional_display_implementation)); // Throws
+
+    int exit_status = 0;
+    if (ARCHON_UNLIKELY(cli::process(argc, argv, spec, exit_status, locale))) // Throws
+        return exit_status;
 
     display::Guarantees guarantees;
 
@@ -177,9 +187,28 @@ int main()
     // indirect use of anything that would conflict with use of SDL.
     guarantees.no_other_use_of_sdl = true;
 
-    std::unique_ptr<display::Connection> conn;
+    if (list_display_implementations) {
+        display::list_implementations(core::File::get_stdout(), locale, guarantees); // Throws
+        return EXIT_SUCCESS;
+    }
+
+    log::FileLogger root_logger(core::File::get_stdout(), locale); // Throws
+    log::LimitLogger logger(root_logger, log_level_limit); // Throws
+
+    const display::Implementation* impl = {};
     std::string error;
-    if (ARCHON_UNLIKELY(!display::try_new_connection(locale, guarantees, conn, error))) { // Throws
+    if (ARCHON_UNLIKELY(!display::try_pick_implementation(optional_display_implementation, guarantees,
+                                                          impl, error))) { // Throws
+        logger.error("Failed to pick display implementation: %s", error); // Throws
+        return EXIT_FAILURE;
+    }
+    logger.detail("Display implementation: %s", impl->get_slot().get_ident()); // Throws
+
+    log::PrefixLogger display_logger(logger, "Display: "); // Throws
+    display::Connection::Config connection_config;
+    connection_config.logger = &display_logger;
+    std::unique_ptr<display::Connection> conn;
+    if (ARCHON_UNLIKELY(!impl->try_new_connection(locale, connection_config, conn, error))) { // Throws
         logger.error("Failed to open display connection: %s", error); // Throws
         return EXIT_FAILURE;
     }
@@ -191,15 +220,24 @@ int main()
         logger.error("Failed to create window: %s", error); // Throws
         return EXIT_FAILURE;
     }
+
+#if ARCHON_RENDER_HAVE_OPENGL
+
+    win->opengl_make_current(); // Throws
+
+    logger.info("OpenGL Vendor: %s", glGetString(GL_VENDOR)); // Throws
+    logger.info("OpenGL Renderer: %s", glGetString(GL_RENDERER)); // Throws
+    logger.info("OpenGL Version: %s", glGetString(GL_VERSION)); // Throws
+
     EventLoop event_loop(*conn, *win);
     win->set_event_handler(event_loop); // throws
     win->show(); // Throws
     event_loop.run(); // Throws
 
-#else // !HAVE_OPENGL
+#else // !ARCHON_RENDER_HAVE_OPENGL
 
     logger.error("No OpenGL support"); // Throws
     return EXIT_FAILURE;
 
-#endif // !HAVE_OPENGL
+#endif // !ARCHON_RENDER_HAVE_OPENGL
 }

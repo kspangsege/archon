@@ -31,7 +31,7 @@ set_target_properties(Core PROPERTIES OUTPUT_NAME "archon-core")
 if(MSVC OR MINGW)
   # platform_info.cpp needs to link against GetFileVersionInfoSizeExW,
   # GetFileVersionInfoExW, and VerQueryValueW.
-  target_link_libraries(Core version.lib)
+  target_link_libraries(Core PRIVATE version.lib)
 endif()
 
 file(RELATIVE_PATH "ARCHON_SOURCE_FROM_BUILD_PATH" "${ARCHON_BUILD_ROOT}" "${ARCHON_SOURCE_ROOT}")

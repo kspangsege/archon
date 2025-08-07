@@ -10,7 +10,7 @@ add_library(ImageTest OBJECT
   test_writer.cpp
 )
 
-target_link_libraries(ImageTest
+target_link_libraries(ImageTest PRIVATE
   Core
   Check
   Image

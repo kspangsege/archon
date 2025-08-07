@@ -65,7 +65,7 @@ EngineImpl::EngineImpl(Scene& scene, display::Connection& conn, const std::local
     : m_locale(locale)
     , m_scene(scene)
     , m_conn(conn)
-    , m_screen(config.screen)
+    , m_screen(config.screen >= 0 ? config.screen : conn.get_default_screen()) // Throws
     , m_logger(config.logger ? *config.logger : instantiate_fallback_logger(m_fallback_logger, locale)) // Throws
     , m_headlight_feature_enabled(!config.disable_headlight_feature)
     , m_wireframe_feature_enabled(!config.disable_wireframe_feature)
@@ -209,7 +209,7 @@ void EngineImpl::run()
 #endif // ARCHON_RENDER_HAVE_OPENGL
     }
 
-    m_scene.init(); // Throws
+    m_scene.render_init(); // Throws
 
     m_started = true;
     update_resolution(m_resolution); // Throws

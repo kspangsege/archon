@@ -20,7 +20,7 @@
 
 
 // Do not include this header file. It exists only to specify the canonical header order,
-// which is a topological dependency ordering of all the header files of the Archon Core
+// which is a topological dependency ordering of all the header files of the Archon Display
 // Library, including any that must never be included by applications.
 #error "Do not include this header file"
 

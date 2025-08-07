@@ -2150,13 +2150,16 @@ template<class T> constexpr auto int_sqrt(T val) noexcept -> T
     auto v = core::promote(val);
     using type = decltype(v);
     if (ARCHON_LIKELY(v != type(0))) {
-        type v_0 = type(1) << (core::int_find_msb_pos(core::to_unsigned(v)) / 2 + 1);
-        type v_1 = (v_0 + v / v_0) >> 1;
-        while (ARCHON_LIKELY(v_1 < v_0)) {
-            v_0 = v_1;
-            v_1 = (v_0 + v / v_0) >> 1;
+        type w = (type(1) << (core::int_find_msb_pos(core::to_unsigned(v)) / 2 + 1)) - type(1);
+        for (;;) {
+            type w_2 = (w + v / w) >> 1;
+            if (ARCHON_LIKELY(w_2 < w)) {
+                w = w_2;
+                continue;
+            }
+            break;
         }
-        return core::int_cast_a<T>(v_0);
+        return core::int_cast_a<T>(w);
     }
     return val;
 }
