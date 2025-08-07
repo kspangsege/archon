@@ -19,3 +19,25 @@ if(ARCHON_DISPLAY_HAVE_OPENGL)
     PRIVATE Render
   )
 endif()
+
+
+if(ARCHON_DISPLAY_HAVE_OPENGL)
+  add_executable(Blocks
+    blocks.cpp
+  )
+
+  set_target_properties(Blocks PROPERTIES
+    OUTPUT_NAME "archon-blocks"
+  )
+
+  target_link_libraries(Blocks
+    PRIVATE Core
+    PRIVATE Log
+    PRIVATE Cli
+    PRIVATE Math
+    PRIVATE Image
+    PRIVATE Gfx
+    PRIVATE Display
+    PRIVATE Render
+  )
+endif()
