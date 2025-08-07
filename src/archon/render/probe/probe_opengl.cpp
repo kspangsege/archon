@@ -59,6 +59,8 @@ public:
 
     void run()
     {
+        glEnable(GL_FRAMEBUFFER_SRGB);
+
         using clock_type      = display::Connection::clock_type;
         using duration_type   = clock_type::duration;
         using time_point_type = display::Connection::time_point_type;
