@@ -393,7 +393,7 @@ private:
     auto intern_string(const char*) noexcept -> Atom;
     auto ensure_screen_slot(int screen) const -> ScreenSlot&;
     bool determine_visual_spec(const ScreenSlot&, bool prefer_double_buffered, bool require_opengl,
-                               const x11::VisualSpec*&, std::string& error) const;
+                               bool require_depth_buffer, const x11::VisualSpec*&, std::string& error) const;
     auto get_pixmap_format(int depth) const -> const XPixmapFormatValues&;
     auto ensure_pixel_format(ScreenSlot&, const XVisualInfo&) const -> const x11::PixelFormat&;
     bool do_process_events(const time_point_type* deadline);
@@ -730,8 +730,10 @@ bool ConnectionImpl::try_new_window(std::string_view title, display::Size size, 
         enable_opengl = true;
     }
     ScreenSlot& screen_slot = ensure_screen_slot(screen); // Throws
+    bool require_depth_buffer = config.require_opengl_depth_buffer;
     const x11::VisualSpec* visual_spec = {};
-    if (ARCHON_LIKELY(determine_visual_spec(screen_slot, prefer_double_buffered, enable_opengl, visual_spec, error))) { // Throws
+    if (ARCHON_LIKELY(determine_visual_spec(screen_slot, prefer_double_buffered, enable_opengl, require_depth_buffer,
+                                            visual_spec, error))) { // Throws
         const XVisualInfo& info = visual_spec->info;
         logger.detail("Using %s visual (%s) of depth %s for new X11 window", x11::get_visual_class_name(info.c_class),
                       core::as_flex_int_h(info.visualid), info.depth); // Throws
@@ -873,7 +875,8 @@ auto ConnectionImpl::ensure_screen_slot(int screen) const -> ScreenSlot&
 
 
 bool ConnectionImpl::determine_visual_spec(const ScreenSlot& screen_slot, bool prefer_double_buffered,
-                                           bool require_opengl, const x11::VisualSpec*& spec, std::string& error) const
+                                           bool require_opengl, bool require_depth_buffer,
+                                           const x11::VisualSpec*& spec, std::string& error) const
 {
     core::Span visual_specs = screen_slot.visual_specs;
     x11::FindVisualParams params;
@@ -882,7 +885,7 @@ bool ConnectionImpl::determine_visual_spec(const ScreenSlot& screen_slot, bool p
     params.visual_type = m_visual_override;
     params.prefer_double_buffered = prefer_double_buffered;
     params.require_opengl = require_opengl;
-    params.require_opengl_depth_buffer = require_opengl;
+    params.require_opengl_depth_buffer = require_opengl && require_depth_buffer;
     std::size_t index = {};
     if (ARCHON_LIKELY(x11::find_visual(dpy, screen_slot.screen, visual_specs, params, index))) { // Throws
         spec = &visual_specs[index];

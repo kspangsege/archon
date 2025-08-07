@@ -989,6 +989,11 @@ void WindowImpl::create(std::string_view title, display::Size size, const Config
         flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
     if (config.enable_opengl_rendering)
         flags |= SDL_WINDOW_OPENGL;
+    bool require_depth_buffer = config.enable_opengl_rendering && config.require_opengl_depth_buffer;
+    // This value (8) mirrors the default for FindVisualParams::min_opengl_depth_buffer_bits
+    // in noinst/x11/support.hpp
+    int min_depth_buffer_bits = 8;
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, (require_depth_buffer ? min_depth_buffer_bits : 0));
     SDL_Window* win = SDL_CreateWindow(title_2, x, y, w, h, flags);
     if (ARCHON_UNLIKELY(!win))
         throw_sdl_error(conn.locale, "SDL_CreateWindow() failed"); // Throws
