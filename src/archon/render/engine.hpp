@@ -457,6 +457,13 @@ struct Engine::Config {
     ///
     log::Logger* logger = nullptr;
 
+    /// \brief Whether OpenGL depth buffer is required.
+    ///
+    /// If set to `true`, require that the created window makes an OpenGL depth buffer
+    /// available.
+    ///
+    bool require_depth_buffer = true;
+
     /// \brief Make window resizable.
     ///
     /// If set to `true`, the opened window will be made resizable and interactive toggling

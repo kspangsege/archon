@@ -377,6 +377,7 @@ int main(int argc, char* argv[])
 
     engine_config.screen = screen;
     engine_config.logger = &logger;
+    engine_config.require_depth_buffer = false;
     engine_config.allow_window_resize = true;
 
     if (ARCHON_UNLIKELY(!engine.try_create(scene, *conn, "Archon Box", window_size, locale, engine_config,
