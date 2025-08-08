@@ -7,6 +7,9 @@ set_target_properties(ProbeOpenGL PROPERTIES
 )
 
 target_link_libraries(ProbeOpenGL PRIVATE
+  Core
+  Log
+  Cli
   Display
   Render
 )
