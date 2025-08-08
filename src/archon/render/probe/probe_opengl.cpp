@@ -19,17 +19,25 @@
 // DEALINGS IN THE SOFTWARE.
 
 
+#include <cstddef>
+#include <cmath>
 #include <cstdlib>
 #include <memory>
+#include <utility>
 #include <chrono>
 #include <optional>
 #include <tuple>
 #include <string>
 #include <locale>
-#include <stdexcept>
 
 #include <archon/core/features.h>
+#include <archon/core/span.hpp>
+#include <archon/core/assert.hpp>
+#include <archon/core/math.hpp>
+#include <archon/core/buffer.hpp>
 #include <archon/core/locale.hpp>
+#include <archon/core/as_int.hpp>
+#include <archon/core/format_as.hpp>
 #include <archon/core/file.hpp>
 #include <archon/log.hpp>
 #include <archon/cli.hpp>
@@ -46,87 +54,262 @@ using namespace archon;
 namespace {
 
 
-class EventLoop final
-    : public display::WindowEventHandler {
+class event_loop final
+    : private display::ConnectionEventHandler
+    , private display::WindowEventHandler {
 public:
-    EventLoop(display::Connection& conn, display::Window& win) noexcept
-        : m_conn(conn)
-        , m_win(win)
-    {
-    }
+    event_loop(const std::locale& locale, log::Logger& logger, display::Connection& conn, int screen) noexcept;
+    ~event_loop() noexcept;
+
+    bool try_init(display::Size window_size);
+
+    void run();
+
+private:
+    using clock_type = display::Connection::clock_type;
+
+    static constexpr double s_default_frame_rate = 60;
+
+    std::locale m_locale;
+    log::Logger& m_logger;
+    display::Connection& m_conn;
+    const int m_screen;
+
+    std::unique_ptr<display::Window> m_window;
+
+    core::Buffer<display::Viewport> m_viewports;
+    core::Buffer<char> m_viewport_strings;
+    std::size_t m_num_viewports = 0;
+    display::Size m_window_size;
+    display::Pos m_window_pos;
+    double m_frame_rate;
+    clock_type::duration m_time_per_frame;
+
+    bool m_initialized = false;
+    bool m_started = false;
+    int m_max_opengl_errors = 8;
+    double m_angle = 0;
 
     void render_frame();
 
-    void run()
-    {
-        glEnable(GL_FRAMEBUFFER_SRGB);
+    bool on_keydown(const display::KeyEvent&) override;
+    bool on_resize(const display::WindowSizeEvent&) override;
+    bool on_reposition(const display::WindowPosEvent&) override;
+    bool on_screen_change(int) override;
 
-        using clock_type      = display::Connection::clock_type;
-        using duration_type   = clock_type::duration;
-        using time_point_type = display::Connection::time_point_type;
+    void fetch_screen_conf();
+    void track_screen_conf();
 
-        duration_type time_per_frame = std::chrono::milliseconds(10);
-
-        time_point_type deadline = clock_type::now();
-        do {
-            deadline += time_per_frame;
-            time_point_type now = clock_type::now();
-            if (ARCHON_UNLIKELY(deadline < now))
-                deadline = now;
-
-            render_frame(); // Throws
-            m_win.opengl_swap_buffers(); // Throws
-        }
-        while (m_conn.process_events_a(deadline)); // Throws
-    }
-
-    bool on_keydown(const display::KeyEvent& ev) override
-    {
-        display::Key key = {};
-        if (ARCHON_LIKELY(m_conn.try_map_key_code_to_key(ev.key_code, key))) { // Throws
-            if (ARCHON_UNLIKELY(key == display::Key::escape))
-                return false;
-        }
-        return true;
-    }
-
-private:
-    display::Connection& m_conn;
-    display::Window& m_win;
-    double m_angle = 0;
+    void update_frame_rate(double);
 };
 
 
-void EventLoop::render_frame()
+inline event_loop::event_loop(const std::locale& locale, log::Logger& logger, display::Connection& conn,
+                              int screen) noexcept
+    : m_locale(locale)
+    , m_logger(logger)
+    , m_conn(conn)
+    , m_screen(screen)
 {
+}
+
+
+event_loop::~event_loop() noexcept
+{
+    m_conn.unset_event_handler();
+}
+
+
+bool event_loop::try_init(display::Size window_size)
+{
+    ARCHON_ASSERT(!m_initialized);
+
+    m_conn.set_event_handler(*this); // Throws
+
+    m_window_size = window_size;
+    update_frame_rate(s_default_frame_rate); // Throws
+
+    display::Window::Config window_config;
+    window_config.screen = m_screen;
+    window_config.enable_opengl_rendering = true;
+    std::unique_ptr<display::Window> window;
+    std::string error;
+    if (ARCHON_UNLIKELY(!m_conn.try_new_window("Probe OpenGL", window_size, window_config, window, error))) { // Throws
+        m_logger.error("Failed to create window: %s", error); // Throws
+        return false;
+    }
+
+    window->set_event_handler(*this); // Throws
+    window->opengl_make_current(); // Throws
+
+    GLenum err = glewInit();
+    if (err != GLEW_OK) {
+        const GLubyte* str = glewGetErrorString(err);
+        m_logger.error("Failed to initialize GLEW: %s", str); // Throws
+        return false;
+    }
+
+    m_logger.info("OpenGL Vendor: %s", glGetString(GL_VENDOR)); // Throws
+    m_logger.info("OpenGL Renderer: %s", glGetString(GL_RENDERER)); // Throws
+    m_logger.info("OpenGL Version: %s", glGetString(GL_VERSION)); // Throws
+    if (const GLubyte* str = glGetString(GL_SHADING_LANGUAGE_VERSION))
+        m_logger.info("GLSL Version: %s", str); // Throws
+    m_logger.info("GLEW Version: %s", glewGetString(GLEW_VERSION)); // Throws
+
+    m_window = std::move(window);
+    m_initialized = true;
+    return true;
+}
+
+
+void event_loop::run()
+{
+    ARCHON_ASSERT(m_initialized);
+    ARCHON_ASSERT(!m_started);
+
+    fetch_screen_conf(); // Throws
+    track_screen_conf(); // Throws
+
+    glEnable(GL_FRAMEBUFFER_SRGB);
+    glClearColor(0.03310, 0.07324, 0.07324, 1.0);
+    glColor3f(1.00000, 0.21404, 0.03310);
+
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+
     double view_plane_dist  = 1;
     double view_plane_right = 1;
     double view_plane_top   = 1;
     double far_clip_dist    = 100;
-
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
     glFrustum(-view_plane_right, view_plane_right, -view_plane_top, view_plane_top, view_plane_dist, far_clip_dist);
 
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
 
     double camera_dist = 10;
-
     glTranslated(0, 0, -camera_dist);
-    glRotated(m_angle, 0, 0, -1);
-    m_angle += 5;
 
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    m_window->show(); // Throws
+    m_started = true;
+    update_frame_rate(m_frame_rate); // Throws
 
-    // Render
-    glColor3f(1, 1, 1);
+    clock_type::time_point deadline = clock_type::now();
+    do {
+        deadline += m_time_per_frame;
+        clock_type::time_point now = clock_type::now();
+        if (ARCHON_UNLIKELY(deadline < now))
+            deadline = now;
+
+        render_frame(); // Throws
+        m_window->opengl_swap_buffers(); // Throws
+
+        if (m_max_opengl_errors > 0) {
+            GLenum error = glGetError();
+            if (error != GL_NO_ERROR) {
+                m_logger.error("OpenGL error: %s", render::get_opengl_error_message(error)); // Throws
+                m_max_opengl_errors -= 1;
+                if (m_max_opengl_errors == 0)
+                    m_logger.error("No more OpenGL error will be reported"); // Throws
+            }
+        }
+    }
+    while (m_conn.process_events_a(deadline)); // Throws
+}
+
+
+void event_loop::render_frame()
+{
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    glPushMatrix();
+    glRotated(core::rad_to_deg(m_angle), 0, 0, -1);
+
+    m_angle += 1 / m_frame_rate;
+    for (;;) {
+        if (ARCHON_LIKELY(m_angle < 2 * core::pi<double>))
+            break;
+        m_angle -= 2 * core::pi<double>;
+    }
+
     glBegin(GL_QUADS);
     glVertex3f(-5, -5, 0);
     glVertex3f(+5, -5, 0);
     glVertex3f(+5, +5, 0);
     glVertex3f(-5, +5, 0);
     glEnd();
+
+    glPopMatrix();
+}
+
+
+bool event_loop::on_keydown(const display::KeyEvent& ev)
+{
+    display::Key key = {};
+    if (ARCHON_LIKELY(m_conn.try_map_key_code_to_key(ev.key_code, key))) { // Throws
+        if (ARCHON_UNLIKELY(key == display::Key::escape))
+            return false;
+    }
+    return true;
+}
+
+
+bool event_loop::on_resize(const display::WindowSizeEvent& ev)
+{
+    m_window_size = ev.size;
+    track_screen_conf(); // Throws
+    return true;
+}
+
+
+bool event_loop::on_reposition(const display::WindowPosEvent& ev)
+{
+    m_window_pos = ev.pos;
+    track_screen_conf(); // Throws
+    return true;
+}
+
+
+bool event_loop::on_screen_change(int screen)
+{
+    if (screen == m_screen) {
+        fetch_screen_conf(); // Throws
+        track_screen_conf(); // Throws
+    }
+    return true;
+}
+
+
+void event_loop::fetch_screen_conf()
+{
+    m_num_viewports = 0;
+    m_conn.try_get_screen_conf(m_screen, m_viewports, m_viewport_strings, m_num_viewports); // Throws
+}
+
+
+void event_loop::track_screen_conf()
+{
+    double frame_rate = s_default_frame_rate;
+    core::Span viewports = { m_viewports.data(), m_num_viewports };
+    std::size_t i = display::find_viewport(viewports, m_window_pos, m_window_size);
+    if (ARCHON_LIKELY(i != std::size_t(-1))) {
+        const display::Viewport& viewport = m_viewports[i];
+        if (ARCHON_LIKELY(viewport.refresh_rate.has_value()))
+            frame_rate = viewport.refresh_rate.value();
+    }
+    if (ARCHON_UNLIKELY(frame_rate != m_frame_rate))
+        update_frame_rate(frame_rate); // Throws
+}
+
+
+void event_loop::update_frame_rate(double rate)
+{
+    m_frame_rate = rate;
+    if (m_started) {
+        auto nanos_per_frame = std::chrono::nanoseconds::rep(std::floor(1E9 / m_frame_rate));
+        auto time_per_frame = std::chrono::nanoseconds(nanos_per_frame);
+        m_time_per_frame = std::chrono::duration_cast<clock_type::duration>(time_per_frame);
+        m_logger.detail("Frame rate: %sf/s (%s per frame)", m_frame_rate, core::as_time(m_time_per_frame)); // Throws
+    }
 }
 
 
@@ -136,13 +319,17 @@ void EventLoop::render_frame()
 #endif // ARCHON_RENDER_HAVE_OPENGL
 
 
+
 int main(int argc, char* argv[])
 {
     std::locale locale = core::get_default_locale(); // Throws
 
     bool list_display_implementations = false;
+    display::Size window_size = 512;
     log::LogLevel log_level_limit = log::LogLevel::info;
     std::optional<std::string> optional_display_implementation;
+    std::optional<int> optional_screen;
+    std::optional<std::string> optional_x11_display;
 
     cli::Spec spec;
     pat("", cli::no_attributes, spec,
@@ -158,6 +345,11 @@ int main(int argc, char* argv[])
     opt(cli::help_tag, spec); // Throws
     opt(cli::stop_tag, spec); // Throws
 
+    opt("-S, --window-size", "<size>", cli::no_attributes, spec,
+        "Set the window size in number of pixels. \"@A\" can be specified either as a pair \"<width>,<height>\", or "
+        "as a single value, which is then used as both width and height. The default size is @V.",
+        cli::assign(window_size)); // Throws
+
     opt("-l, --log-level", "<level>", cli::no_attributes, spec,
         "Set the log level limit. The possible levels are @G. The default limit is @Q.",
         cli::assign(log_level_limit)); // Throws
@@ -167,6 +359,16 @@ int main(int argc, char* argv[])
         "are available. It is possible that no implementations are available. By default, if any implementations are "
         "available, the one, that is listed first by `--list-display-implementations`, is used.",
         cli::assign(optional_display_implementation)); // Throws
+
+    opt("-s, --screen", "<number>", cli::no_attributes, spec,
+        "Target the specified screen (@A). This is an index between zero and the number of screens minus one. If this "
+        "option is not specified, the default screen of the display will be targeted.",
+        cli::assign(optional_screen)); // Throws
+
+    opt("-D, --x11-display", "<string>", cli::no_attributes, spec,
+        "When using the X11-based display implementation, target the specified X11 display (@A). If this option is "
+        "not specified, the value of the DISPLAY environment variable will be used.",
+        cli::assign(optional_x11_display)); // Throws
 
     int exit_status = 0;
     if (ARCHON_UNLIKELY(cli::process(argc, argv, spec, exit_status, locale))) // Throws
@@ -209,45 +411,37 @@ int main(int argc, char* argv[])
     log::PrefixLogger display_logger(logger, "Display: "); // Throws
     display::Connection::Config connection_config;
     connection_config.logger = &display_logger;
+    connection_config.x11.display = optional_x11_display;
     std::unique_ptr<display::Connection> conn;
     if (ARCHON_UNLIKELY(!impl->try_new_connection(locale, connection_config, conn, error))) { // Throws
         logger.error("Failed to open display connection: %s", error); // Throws
         return EXIT_FAILURE;
     }
 
-    display::Window::Config config;
-    config.enable_opengl_rendering = true;
-    std::unique_ptr<display::Window> win;
-    if (ARCHON_UNLIKELY(!conn->try_new_window("Probe OpenGL", 512, config, win, error))) { // Throws
-        logger.error("Failed to create window: %s", error); // Throws
-        return EXIT_FAILURE;
+    int screen;
+    if (!optional_screen.has_value()) {
+        screen = conn->get_default_screen();
+    }
+    else {
+        int val = optional_screen.value();
+        int num_screens = conn->get_num_screens();
+        if (ARCHON_UNLIKELY(val < 0 || val >= num_screens)) {
+            logger.error("Specified screen index (%s) is out of range", core::as_int(val)); // Throws
+            return EXIT_FAILURE;
+        }
+        screen = val;
     }
 
 #if ARCHON_RENDER_HAVE_OPENGL
 
-    win->opengl_make_current(); // Throws
-
-    GLenum err = glewInit();
-    if (err != GLEW_OK) {
-        const GLubyte* str = glewGetErrorString(err);
-        logger.error("Failed to initialize GLEW: %s", str); // Throws
+    event_loop loop(locale, logger, *conn, screen);
+    if (ARCHON_UNLIKELY(!loop.try_init(window_size))) // Throws
         return EXIT_FAILURE;
-    }
-
-    logger.info("OpenGL Vendor: %s", glGetString(GL_VENDOR)); // Throws
-    logger.info("OpenGL Renderer: %s", glGetString(GL_RENDERER)); // Throws
-    logger.info("OpenGL Version: %s", glGetString(GL_VERSION)); // Throws
-    if (const GLubyte* str = glGetString(GL_SHADING_LANGUAGE_VERSION))
-        logger.info("GLSL Version: %s", str); // Throws
-    logger.info("GLEW Version: %s", glewGetString(GLEW_VERSION)); // Throws
-
-    EventLoop event_loop(*conn, *win);
-    win->set_event_handler(event_loop); // throws
-    win->show(); // Throws
-    event_loop.run(); // Throws
+    loop.run(); // Throws
 
 #else // !ARCHON_RENDER_HAVE_OPENGL
 
+    static_cast<void>(screen);
     logger.error("No OpenGL support"); // Throws
     return EXIT_FAILURE;
 
