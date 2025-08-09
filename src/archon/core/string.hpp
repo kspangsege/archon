@@ -81,6 +81,30 @@ template<class C, class T> void rebase_string(std::basic_string_view<C, T>& str,
 
 /// \{
 ///
+/// \brief Remove trailing sequences of newline or other delimiter.
+///
+/// These functions remove trailing sequences of the specified delimiter \p delim.
+///
+/// The overload that takes a locale argument, will widen the specified delimiter as
+/// necessary. The overload that does not take a locale argument assumes that the specified
+/// delimiter has already been widened by the caller.
+///
+/// For the sake of efficiency, when performing many chomp operations, the caller should use
+/// the overload that takes a pre-widened delimiter and only widen the delimiter once up
+/// front.
+///
+/// \sa \ref core::trim()
+///
+template<class C, class T> auto chomp(std::basic_string_view<C, T> str, const std::locale&, char delim = '\n') ->
+    std::basic_string_view<C, T>;
+template<class C, class T> auto chomp(std::basic_string_view<C, T> str, C delim) noexcept ->
+    std::basic_string_view<C, T>;
+/// \}
+
+
+
+/// \{
+///
 /// \brief Remove leading and trailing sequences of space or other delimiter.
 ///
 /// These functions remove leading and trailing sequences of the specified delimiter \p
@@ -93,6 +117,8 @@ template<class C, class T> void rebase_string(std::basic_string_view<C, T>& str,
 /// For the sake of efficiency, when performing many trim operations, the caller should use
 /// the overload that takes a pre-widened delimiter and only widen the delimiter once up
 /// front.
+///
+/// \sa \ref core::chomp()
 ///
 template<class C, class T> auto trim(std::basic_string_view<C, T> str, const std::locale&, char delim = ' ') ->
     std::basic_string_view<C, T>;
@@ -247,6 +273,25 @@ template<class C, class T> inline void rebase_string(std::basic_string_view<C, T
 {
     std::ptrdiff_t offset = str.data() - old_base;
     str = { new_base + offset, str.size() }; // Throws
+}
+
+
+template<class C, class T>
+inline auto chomp(std::basic_string_view<C, T> str, const std::locale& loc, char delim) -> std::basic_string_view<C, T>
+{
+    core::BasicCharMapper<C, T> mapper(loc); // Throws
+    return core::chomp(str, mapper.widen(delim)); // Throws
+}
+
+
+template<class C, class T> auto chomp(std::basic_string_view<C, T> str, C delim) noexcept ->
+    std::basic_string_view<C, T>
+{
+    const C* begin = str.data();
+    const C* end   = begin + str.size();
+    while (end > begin && end[-1] == delim)
+        --end;
+    return { begin, std::size_t(end - begin) };
 }
 
 
