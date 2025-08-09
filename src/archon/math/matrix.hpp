@@ -180,6 +180,14 @@ public:
     ///
     constexpr auto set_col(int i, col_type col) noexcept -> Matrix&;
 
+    /// \brief Set sub-column from vector.
+    ///
+    /// This function sets a subsection of the column at the specified index (\p j) equal to
+    /// the specified P-vector (\p col). The subsection starts at the specified row index \p
+    /// i.
+    ///
+    template<int P> constexpr auto set_subcol(int i, int j, const math::Vector<P, T>& col) noexcept -> Matrix&;
+
     /// \brief Get main diagonal as vector.
     ///
     /// This function returns the main diagonal as an P-vector, where P is the minimum of \p
@@ -218,6 +226,58 @@ public:
     /// the row index and the second parameter is the column index.
     ///
     template<class F> static constexpr auto generate(F func) noexcept(noexcept(T(func(int(), int())))) -> Matrix;
+
+    /// \{
+    ///
+    /// \brief Construct matrix from array of components.
+    ///
+    /// These functions construct a matrix from the specified one or two-dimensional array
+    /// of components (\p array). The components must occur in row-major order.
+    ///
+    /// \sa \ref to_array()
+    /// \sa \ref from_array_a()
+    ///
+    template<class U> static constexpr auto from_array(U(& array)[M][N]) noexcept -> Matrix;
+    template<class U> static constexpr auto from_array(U(& array)[M * N]) noexcept -> Matrix;
+    template<class U> static constexpr auto from_array(const std::array<U, M * N>& array) noexcept -> Matrix;
+    /// \}
+
+    /// \{
+    ///
+    /// \brief Store matrix components in array.
+    ///
+    /// These functions store the components of this matrix in the specified one or
+    /// two-dimensional array (\p array). The components will be stored in row-major order.
+    ///
+    /// \sa \ref from_array()
+    /// \sa \ref to_array_a()
+    ///
+    template<class U> constexpr void to_array(U(&)[M][N]) const noexcept;
+    template<class U> constexpr void to_array(U(&)[M * N]) const noexcept;
+    template<class U> constexpr void to_array(std::array<U, M * N>&) const noexcept;
+    /// \}
+
+    /// \brief Construct matrix from flat array of components.
+    ///
+    /// This function constructs a matrix from M times N components read from the specified
+    /// one-dimensional array (\p array). The components must occur in row-major
+    /// order. Behavior is undefined if \p array points to fewer than M times N components.
+    ///
+    /// \sa \ref from_array()
+    /// \sa \ref to_array_a()
+    ///
+    template<class U> static constexpr auto from_array_a(U* array) noexcept -> Matrix;
+
+    /// \brief Store matrix components in flat array.
+    ///
+    /// This function stores the M times N components of this matrix in the specified
+    /// one-dimensional array (\p array) in row-major order. Behavior is undefined if \p
+    /// array has space for fewer than M times N components.
+    ///
+    /// \sa \ref to_array()
+    /// \sa \ref from_array_a()
+    ///
+    template<class U> constexpr void to_array_a(U* array) const noexcept;
 };
 
 
@@ -744,6 +804,16 @@ constexpr auto Matrix<M, N, T>::set_col(int i, col_type col) noexcept -> Matrix&
 
 
 template<int M, int N, class T>
+template<int P>
+constexpr auto Matrix<M, N, T>::set_subcol(int i, int j, const math::Vector<P, T>& col) noexcept -> Matrix&
+{
+    for (int k = 0; k < P; ++k)
+        (*this)[i + k][j] = col[k];
+    return *this;
+}
+
+
+template<int M, int N, class T>
 constexpr auto Matrix<M, N, T>::get_diag() const noexcept -> diag_type
 {
     diag_type diag;
@@ -795,6 +865,70 @@ template<class F> constexpr auto Matrix<M, N, T>::generate(F func) noexcept(noex
             mat[i][j] = T(func(i, j)); // Throws
     }
     return mat;
+}
+
+
+template<int M, int N, class T>
+template<class U> constexpr auto Matrix<M, N, T>::from_array(U(& array)[M][N]) noexcept -> Matrix
+{
+    return from_array_a(&array[0][0]);
+}
+
+
+template<int M, int N, class T>
+template<class U> constexpr auto Matrix<M, N, T>::from_array(U(& array)[M * N]) noexcept -> Matrix
+{
+    return from_array_a(array);
+}
+
+
+template<int M, int N, class T>
+template<class U> constexpr auto Matrix<M, N, T>::from_array(const std::array<U, M * N>& array) noexcept -> Matrix
+{
+    return from_array_a(array.data());
+}
+
+
+template<int M, int N, class T>
+template<class U> constexpr void Matrix<M, N, T>::to_array(U(& array)[M][N]) const noexcept
+{
+    to_array_a(&array[0][0]);
+}
+
+
+template<int M, int N, class T>
+template<class U> constexpr void Matrix<M, N, T>::to_array(U(& array)[M * N]) const noexcept
+{
+    to_array_a(array);
+}
+
+
+template<int M, int N, class T>
+template<class U> constexpr void Matrix<M, N, T>::to_array(std::array<U, M * N>& array) const noexcept
+{
+    to_array_a(array).data();
+}
+
+
+template<int M, int N, class T>
+template<class U> constexpr auto Matrix<M, N, T>::from_array_a(U* array) noexcept -> Matrix
+{
+    Matrix mat;
+    U* ptr = array;
+    for (int i = 0; i < M; ++i) {
+        std::copy_n(ptr, N, mat[i].components().data());
+        ptr += N;
+    }
+    return mat;
+}
+
+
+template<int M, int N, class T>
+template<class U> constexpr void Matrix<M, N, T>::to_array_a(U* array) const noexcept
+{
+    U* ptr = array;
+    for (int i = 0; i < M; ++i)
+        ptr = std::copy_n((*this)[i].components().data(), N, ptr);
 }
 
 

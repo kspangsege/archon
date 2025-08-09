@@ -89,6 +89,7 @@ namespace archon::math {
 /// \sa \ref inner(const math::Vector<N, T>&, const math::Vector<N, U>&)
 /// \sa \ref inner(const math::Matrix<M, N, T>&, const math::Vector<N, U>&)
 /// \sa \ref inner(const math::Vector<M, T>&, const math::Matrix<M, N, U>&)
+/// \sa \ref extend(const math::Vector<M, U>&, int)
 ///
 template<int N, class T = double> class Vector
     : public math::VectorBase2<N, T> {
@@ -153,6 +154,20 @@ public:
     /// conversion is lossless (see \ref math::is_lossless_conv).
     ///
     template<class U> explicit(!math::is_lossless_conv<T, U>) constexpr operator Vector<N, U>() const noexcept;
+
+    /// \brief Get sub-vector.
+    ///
+    /// This function returns a sub-vector of this vector. The sub-vector spans \p M
+    /// components starting with the component at index \p i.
+    ///
+    template<int M> constexpr auto get_subvector(int i) const noexcept -> Vector<M, T>;
+
+    /// \brief Set sub-vector.
+    ///
+    /// This function sets a sub-vector of this vector equal to the specified vector. The
+    /// sub-vector spans \p N components starting with the component at index \p i.
+    ///
+    template<int M> constexpr auto set_subvector(int i, const Vector<M, T>& vec) noexcept -> Vector&;
 };
 
 template<std::size_t N, class T> Vector(T(&)[N]) -> Vector<N, std::remove_const_t<T>>;
@@ -353,6 +368,18 @@ constexpr auto inner(const math::Vector<N, T>& a, const math::Vector<N, U>& b) n
     math::scalar_arith_type<T, U>;
 
 
+/// \brief Extend vector.
+///
+/// This function constructs an extension of the specified vector.
+///
+/// `math::extend<N, T>(vec, i)` is shorthand for constructing a default-initialized vector
+/// of type `math::Vector<N, T>`, and then calling \ref math::Vector::set_subvector() on it,
+/// passing `i` and `vec` as arguments.
+///
+template<int N, class T = double, int M, class U>
+constexpr auto extend(const math::Vector<M, U>& vec, int i) -> math::Vector<N, T>;
+
+
 
 
 
@@ -454,6 +481,25 @@ template<int N, class T>
 template<class U> constexpr Vector<N, T>::operator Vector<N, U>() const noexcept
 {
     return Vector<N, U>(this->components());
+}
+
+
+template<int N, class T>
+template<int M> constexpr auto Vector<N, T>::get_subvector(int i) const noexcept -> Vector<M, T>
+{
+    math::Vector<M, T> vec;
+    for (int j = 0; j < M; ++j)
+        vec[j] = (*this)[i + j];
+    return vec;
+}
+
+
+template<int N, class T>
+template<int M> constexpr auto Vector<N, T>::set_subvector(int i, const Vector<M, T>& vec) noexcept -> Vector&
+{
+    for (int j = 0; j < M; ++j)
+        (*this)[i + j] = vec[j];
+    return *this;
 }
 
 
@@ -619,6 +665,15 @@ constexpr auto inner(const math::Vector<N, T>& a, const math::Vector<N, U>& b) n
     for (int i = 0; i < N; ++i)
         c += a[i] * b[i];
     return c;
+}
+
+
+template<int N, class T, int M, class U>
+constexpr auto extend(const math::Vector<M, U>& vec, int i) -> math::Vector<N, T>
+{
+    math::Vector<N, T> vec_2;
+    vec_2.set_subvector(i, vec);
+    return vec_2;
 }
 
 
