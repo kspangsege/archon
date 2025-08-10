@@ -10,6 +10,7 @@ target_link_libraries(ProbeOpenGL PRIVATE
   Core
   Log
   Cli
+  Math
   Display
   Render
 )
