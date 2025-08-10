@@ -22,25 +22,33 @@
 #include <cstddef>
 #include <cmath>
 #include <cstdlib>
+#include <iterator>
 #include <memory>
 #include <utility>
 #include <chrono>
 #include <optional>
 #include <tuple>
+#include <initializer_list>
+#include <string_view>
 #include <string>
 #include <locale>
 
 #include <archon/core/features.h>
 #include <archon/core/span.hpp>
 #include <archon/core/assert.hpp>
+#include <archon/core/integer.hpp>
 #include <archon/core/math.hpp>
 #include <archon/core/buffer.hpp>
+#include <archon/core/string.hpp>
 #include <archon/core/locale.hpp>
 #include <archon/core/as_int.hpp>
 #include <archon/core/format_as.hpp>
 #include <archon/core/file.hpp>
 #include <archon/log.hpp>
 #include <archon/cli.hpp>
+#include <archon/math/vector.hpp>
+#include <archon/math/matrix.hpp>
+#include <archon/math/quaternion.hpp>
 #include <archon/display.hpp>
 #include <archon/display/opengl.hpp>
 
@@ -52,6 +60,139 @@ using namespace archon;
 
 
 namespace {
+
+
+bool compile_shader(GLenum type, std::string_view label, std::string_view source, const std::locale& locale,
+                    log::Logger& logger, GLuint& shader)
+{
+    GLuint shader_2 = glCreateShader(type);
+
+    GLsizei count = 1;
+    const GLchar* string = source.data();
+    GLint length = {};
+    core::int_cast(source.size(), length); // Throws
+    glShaderSource(shader_2, count, &string, &length);
+
+    glCompileShader(shader_2);
+
+    int success = {};
+    glGetShaderiv(shader_2, GL_COMPILE_STATUS, &success);
+    if (ARCHON_LIKELY(success)) {
+        shader = shader_2;
+        return true;
+    }
+
+    // FIXME: What if message is longer than 512?
+    char info_log[512] = {};
+    GLsizei max_length = std::size(info_log);
+    GLsizei length_2 = {};
+    glGetShaderInfoLog(shader_2, max_length, &length_2, info_log);
+    std::string_view str = { info_log, std::size_t(length_2) };
+    logger.error("Compilation of %s failed:\n%s", label, core::chomp(str, locale)); // Throws
+    return false;
+}
+
+
+bool link_shader(std::string_view label, std::initializer_list<GLuint> shaders, const std::locale& locale,
+                 log::Logger& logger, GLuint& program)
+{
+    GLuint program_2 = glCreateProgram();
+
+    for (GLuint shader : shaders)
+        glAttachShader(program_2, shader);
+
+    glLinkProgram(program_2);
+
+    int success = {};
+    glGetProgramiv(program_2, GL_LINK_STATUS, &success);
+    if (ARCHON_LIKELY(success)) {
+        program = program_2;
+        return true;
+    }
+
+    // FIXME: What if message is longer than 512?
+    char info_log[512] = {};
+    GLsizei max_length = std::size(info_log);
+    GLsizei length = {};
+    glGetShaderInfoLog(program_2, max_length, &length, info_log);
+    std::string_view str = { info_log, std::size_t(length) };
+    logger.error("Linking of %s failed:\n%s", label, core::chomp(str, locale)); // Throws
+    return false;
+}
+
+
+auto extend_matrix(const math::Matrix3F& mat) -> math::Matrix4F
+{
+    math::Matrix4F mat_2 = math::Matrix4F::identity();
+    mat_2.set_submatrix(0, 0, mat);
+    return mat_2;
+}
+
+
+auto make_perspective(double left, double right, double bottom, double top, double near_, double far_)
+{
+    double width  = right - left;
+    double height = top - bottom;
+    double depth  = far_ - near_;
+    math::Matrix4F mat;
+    mat[0][0] = 2 * near_         / width;
+    mat[0][2] = (right + left)    / width;
+    mat[1][1] = 2 * near_         / height;
+    mat[1][2] = (top + bottom)    / height;
+    mat[2][2] = -(far_ + near_)   / depth;
+    mat[2][3] = -2 * far_ * near_ / depth;
+    mat[3][2] = -1;
+    return mat;
+}
+
+
+auto make_translation(const math::Vector3F& vec) -> math::Matrix4F
+{
+    math::Matrix4F mat = math::Matrix4F::identity();
+    mat.set_subcol(0, 3, vec);
+    return mat;
+}
+
+
+auto make_rotation(const math::Vector3& axis, double angle) -> math::Matrix4F
+{
+    math::Quaternion quat = math::Quaternion::from_axis_angle(axis, angle);
+    return extend_matrix(math::Matrix3F(quat.to_rotation_matrix()));
+}
+
+
+void translate(math::Matrix4F& mat, const math::Vector3F& vec)
+{
+    mat *= make_translation(vec);
+}
+
+
+void rotate(math::Matrix4F& mat, const math::Vector3& axis, double angle)
+{
+    mat *= make_rotation(axis, angle);
+}
+
+
+
+const char* vertex_shader_source = R"(
+    #version 410 core
+    layout (location = 0) in vec3 aPos;
+    uniform mat4 modelView;
+    uniform mat4 proj;
+    void main() {
+        gl_Position = proj * modelView * vec4(aPos, 1.0);
+    }
+)";
+
+
+const char* fragment_shader_source = R"(
+    #version 410 core
+    out vec4 FragColor;
+    void main() {
+        FragColor = vec4(1.00000f, 0.21404f, 0.03310f, 1.00000f); // Orange color
+    }
+)";
+
 
 
 class event_loop final
@@ -76,6 +217,7 @@ private:
     const int m_screen;
 
     std::unique_ptr<display::Window> m_window;
+    GLint m_model_view_loc;
 
     core::Buffer<display::Viewport> m_viewports;
     core::Buffer<char> m_viewport_strings;
@@ -149,7 +291,89 @@ bool event_loop::try_init(display::Size window_size)
         m_logger.info("GLSL Version: %s", str); // Throws
     m_logger.info("GLEW Version: %s", glewGetString(GLEW_VERSION)); // Throws
 
+    GLuint vertex_shader = {};
+    if (ARCHON_UNLIKELY(!compile_shader(GL_VERTEX_SHADER, "vertex shader", vertex_shader_source,
+                                        m_locale, m_logger, vertex_shader))) // Throws
+        return false;
+
+    GLuint fragment_shader = {};
+    if (ARCHON_UNLIKELY(!compile_shader(GL_FRAGMENT_SHADER, "fragment shader", fragment_shader_source,
+                                        m_locale, m_logger, fragment_shader))) // Throws
+        return false;
+
+    GLuint shader_program = {};
+    if (ARCHON_UNLIKELY(!link_shader("shader program", { vertex_shader, fragment_shader },
+                                     m_locale, m_logger, shader_program))) // Throws
+        return false;
+
+    glDeleteShader(vertex_shader);
+    glDeleteShader(fragment_shader);
+
+    GLint model_view_loc = glGetUniformLocation(shader_program, "modelView");
+    GLint proj_loc = glGetUniformLocation(shader_program, "proj");
+    if (model_view_loc < 0 || proj_loc < 0) {
+        m_logger.error("Failed to get uniform locations from shader program"); // Throws
+        return false;
+    }
+
+    GLfloat vertices[] = {
+        -5, -5, 0,
+        +5, -5, 0,
+        +5, +5, 0,
+        -5, +5, 0,
+    };
+
+    GLuint indices[] = {
+        0, 1, 2,
+        2, 3, 0,
+    };
+
+    GLuint vao = {};
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+
+    GLuint vbo = {}, ebo = {};
+    glGenBuffers(1, &vbo);
+    glGenBuffers(1, &ebo);
+
+    glBindBuffer(GL_ARRAY_BUFFER, vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof vertices, vertices, GL_STATIC_DRAW);
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof indices, indices, GL_STATIC_DRAW);
+
+    {
+        GLuint index = 0;
+        GLint size = 3;
+        GLenum type = GL_FLOAT;
+        GLboolean normalized = GL_FALSE;
+        GLsizei stride = 3 * sizeof (GLfloat);
+        std::size_t offset = 0;
+        glVertexAttribPointer(index, size, type, normalized, stride, reinterpret_cast<void*>(offset));
+        glEnableVertexAttribArray(index);
+    }
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+
+    double view_plane_dist  = 1;
+    double view_plane_right = 1;
+    double view_plane_top   = 1;
+    double far_clip_dist    = 100;
+    math::Matrix4F proj = make_perspective(-view_plane_right, view_plane_right, -view_plane_top, view_plane_top,
+                                           view_plane_dist, far_clip_dist);
+
+    glUseProgram(shader_program);
+
+    {
+        GLsizei count = 1;
+        GLboolean transpose = GL_TRUE;
+        GLfloat value[16] = {};
+        proj.to_array(value);
+        glUniformMatrix4fv(proj_loc, count, transpose, value);
+    }
+
     m_window = std::move(window);
+    m_model_view_loc = model_view_loc;
     m_initialized = true;
     return true;
 }
@@ -165,22 +389,6 @@ void event_loop::run()
 
     glEnable(GL_FRAMEBUFFER_SRGB);
     glClearColor(0.03310, 0.07324, 0.07324, 1.0);
-    glColor3f(1.00000, 0.21404, 0.03310);
-
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-
-    double view_plane_dist  = 1;
-    double view_plane_right = 1;
-    double view_plane_top   = 1;
-    double far_clip_dist    = 100;
-    glFrustum(-view_plane_right, view_plane_right, -view_plane_top, view_plane_top, view_plane_dist, far_clip_dist);
-
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-
-    double camera_dist = 10;
-    glTranslated(0, 0, -camera_dist);
 
     m_window->show(); // Throws
     m_started = true;
@@ -214,8 +422,10 @@ void event_loop::render_frame()
 {
     glClear(GL_COLOR_BUFFER_BIT);
 
-    glPushMatrix();
-    glRotated(core::rad_to_deg(m_angle), 0, 0, -1);
+    double camera_dist = 10;
+    math::Matrix4F view = math::Matrix4F::identity();
+    translate(view, math::Vector3F(0, 0, float(-camera_dist)));
+    rotate(view, math::Vector3(0, 0, 1), m_angle);
 
     m_angle += 1 / m_frame_rate;
     for (;;) {
@@ -224,14 +434,23 @@ void event_loop::render_frame()
         m_angle -= 2 * core::pi<double>;
     }
 
-    glBegin(GL_QUADS);
-    glVertex3f(-5, -5, 0);
-    glVertex3f(+5, -5, 0);
-    glVertex3f(+5, +5, 0);
-    glVertex3f(-5, +5, 0);
-    glEnd();
+    math::Matrix4F model = math::Matrix4F::identity();
+    math::Matrix4F model_view = view * model;
 
-    glPopMatrix();
+    {
+        GLsizei count = 1;
+        GLboolean transpose = GL_TRUE;
+        GLfloat value[16] = {};
+        model_view.to_array(value);
+        glUniformMatrix4fv(m_model_view_loc, count, transpose, value);
+    }
+
+    {
+        GLsizei count = 6;
+        GLenum type = GL_UNSIGNED_INT;
+        std::size_t offset = 0;
+        glDrawElements(GL_TRIANGLES, count, type, reinterpret_cast<void*>(offset));
+    }
 }
 
 
