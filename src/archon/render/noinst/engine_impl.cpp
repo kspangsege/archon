@@ -84,6 +84,12 @@ EngineImpl::EngineImpl(Scene& scene, display::Connection& conn, const std::local
 }
 
 
+EngineImpl::~EngineImpl() noexcept
+{
+    m_conn.unset_event_handler();
+}
+
+
 bool EngineImpl::try_init(std::string_view window_title, display::Size window_size, const Config& config,
                           std::string& error)
 {

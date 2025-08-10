@@ -51,6 +51,8 @@ public:
     using Clock             = render::Engine::Clock;
 
     EngineImpl(Scene&, display::Connection&, const std::locale&, const Config&);
+    ~EngineImpl() noexcept;
+
     bool try_init(std::string_view window_title, display::Size window_size, const Config&, std::string& error);
 
     void run();

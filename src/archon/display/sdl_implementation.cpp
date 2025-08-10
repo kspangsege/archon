@@ -182,6 +182,7 @@ public:
     bool try_new_window(std::string_view, display::Size, const display::Window::Config&,
                         std::unique_ptr<display::Window>&, std::string&) override;
     void set_event_handler(display::ConnectionEventHandler&) override;
+    void unset_event_handler() noexcept override;
     void process_events() override;
     bool process_events_a(time_point_type) override;
     int get_num_screens() const override;
@@ -257,6 +258,7 @@ public:
     void set_draw_color(SDL_Renderer* renderer, util::Color color);
 
     void set_event_handler(display::WindowEventHandler&) noexcept override;
+    void unset_event_handler() noexcept override;
     void show() override;
     void hide() override;
     void set_title(std::string_view) override;
@@ -469,6 +471,12 @@ bool ConnectionImpl::try_new_window(std::string_view title, display::Size size, 
 void ConnectionImpl::set_event_handler(display::ConnectionEventHandler& handler)
 {
     event_handler = &handler;
+}
+
+
+void ConnectionImpl::unset_event_handler() noexcept
+{
+    event_handler = this;
 }
 
 
@@ -1042,6 +1050,12 @@ void WindowImpl::set_draw_color(SDL_Renderer* renderer, util::Color color)
 void WindowImpl::set_event_handler(display::WindowEventHandler& handler) noexcept
 {
     event_handler = &handler;
+}
+
+
+void WindowImpl::unset_event_handler() noexcept
+{
+    event_handler = this;
 }
 
 

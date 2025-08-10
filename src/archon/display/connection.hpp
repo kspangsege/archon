@@ -186,9 +186,18 @@ public:
     /// calling \ref process_events() or \ref process_events_a().
     ///
     /// \sa \ref process_events(), \ref process_events_a()
+    /// \sa \ref unset_event_handler()
     /// \sa \ref display::Window::set_event_handler()
     ///
     virtual void set_event_handler(display::ConnectionEventHandler&) = 0;
+
+    /// \brief Remove event handler from connection.
+    ///
+    /// This function removes any previously set event handler for the connection.
+    ///
+    /// \sa \ref set_event_handler()
+    ///
+    virtual void unset_event_handler() noexcept = 0;
 
     using clock_type      = std::chrono::steady_clock;
     using time_point_type = std::chrono::time_point<clock_type>;

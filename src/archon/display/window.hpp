@@ -102,8 +102,17 @@ public:
     ///
     /// \sa \ref display::Connection::process_events()
     /// \sa \ref display::ConnectionEventHandler
+    /// \sa \ref unset_event_handler()
     ///
     virtual void set_event_handler(display::WindowEventHandler&) = 0;
+
+    /// \brief Remove event handler from window.
+    ///
+    /// This function removes any previously set event handler for the window.
+    ///
+    /// \sa \ref set_event_handler()
+    ///
+    virtual void unset_event_handler() noexcept = 0;
 
     /// \{
     ///
