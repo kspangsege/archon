@@ -72,10 +72,10 @@ namespace archon::display {
 /// properties of those viewports, and their spatial arrangement.
 ///
 /// When supported by the underlying implementation, the current configuration of a screen
-/// can be obtained by calling \ref try_get_screen_conf(), and the the application can
-/// register to be informed about screen configuration changes by using a connection-level
-/// event handler (passed to \ref display::Connection::process_events()) and implementing
-/// \ref display::ConnectionEventHandler::on_screen_change().
+/// can be obtained by calling \ref try_get_screen_conf(), and the application can register
+/// to be informed about screen configuration changes by using a connection-level event
+/// handler (passed to \ref display::Connection::process_events()) and implementing \ref
+/// display::ConnectionEventHandler::on_screen_change().
 ///
 /// New connections can be established by calling \ref display::new_connection() or \ref
 /// display::Implementation::new_connection(). The latter one allows you to establish a
@@ -329,17 +329,17 @@ public:
     /// \brief Retrieve current configuration of screen.
     ///
     /// If supported by the implementation, this function returns the current configuration
-    /// of the specified screen (\p screen). Specifying a negative value for the screen has
-    /// the same effect as specifying the default screen (\ref get_default_screen()).
+    /// of the specified screen (\p screen). The screen must be non-negative and less than
+    /// the number of screens (\ref get_num_screens()).
     ///
     /// A particular display implementation (\ref display::Implementation) is not required
     /// to expose information about the configuration of each of the accessible screens. If
     /// the implementation in use for this connection does not expose this information, this
     /// function returns `false` and leaves all arguments unchanged. Otherwise, this
     /// function returns `true` after placing an entry in \p viewports for each of the
-    /// viewports that are currently parts of the specified screen, placing associated
-    /// string data in \p strings, and setting \p num_viewports to the number of viewports
-    /// placed in \p viewports.
+    /// viewports that are currently part of the specified screen, placing associated string
+    /// data in \p strings, and setting \p num_viewports to the number of viewports placed
+    /// in \p viewports.
     ///
     /// If the implementation exposes the screen configuration, i.e., when this function
     /// returns `true`, the implementation will also generate "screen changed" events

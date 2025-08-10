@@ -786,17 +786,12 @@ int ConnectionImpl::get_default_screen() const
 bool ConnectionImpl::try_get_screen_conf(int screen, core::Buffer<display::Viewport>& viewports,
                                          core::Buffer<char>& strings, std::size_t& num_viewports) const
 {
-    int screen_2 = screen;
-    if (ARCHON_LIKELY(screen_2 < 0)) {
-        screen_2 = int(DefaultScreen(dpy));
-    }
-    else if (ARCHON_UNLIKELY(screen_2 >= int(ScreenCount(dpy)))) {
+    if (ARCHON_UNLIKELY(screen < 0 || screen >= int(ScreenCount(dpy))))
         throw std::invalid_argument("Bad screen index");
-    }
 
 #if HAVE_XRANDR
     if (m_extension_info.have_xrandr) {
-        const ScreenSlot& slot = ensure_screen_slot(screen_2); // Throws
+        const ScreenSlot& slot = ensure_screen_slot(screen); // Throws
         const x11::ScreenConf& conf = slot.screen_conf;
         std::size_t n = conf.viewports.size();
         viewports.reserve(n); // Throws
