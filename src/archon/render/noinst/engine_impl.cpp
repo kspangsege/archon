@@ -828,30 +828,22 @@ void EngineImpl::fetch_screen_conf()
 void EngineImpl::track_screen_conf()
 {
     if (ARCHON_LIKELY(m_resolution_tracking_enabled || m_frame_rate_tracking_enabled)) {
-        std::optional<display::Resolution> resolution;
-        std::optional<double> frame_rate;
-        // FIXME: Use more efficient search scheme here                      
-        display::Box window = { m_window_pos, m_window_size };
+        display::Resolution resolution = m_default_resolution;
+        double frame_rate = m_default_frame_rate;
         core::Span viewports = { m_viewports.data(), m_num_viewports };
-        for (const display::Viewport& viewport : viewports) {
-            if (ARCHON_LIKELY(!viewport.bounds.intersects(window)))
-                continue;
+        std::size_t i = display::find_viewport(viewports, m_window_pos, m_window_size);
+        if (ARCHON_LIKELY(i != std::size_t(-1))) {
+            const display::Viewport& viewport = m_viewports[i];
             if (ARCHON_LIKELY(viewport.resolution.has_value()))
                 resolution = viewport.resolution.value();
             if (ARCHON_LIKELY(viewport.refresh_rate.has_value()))
                 frame_rate = viewport.refresh_rate.value();
-            break;
         }
-        if (ARCHON_LIKELY(m_resolution_tracking_enabled)) {
-            display::Resolution resolution_2 = resolution.value_or(m_default_resolution);
-            if (ARCHON_UNLIKELY(resolution_2 != m_resolution))
-                update_resolution(resolution_2); // Throws
-        }
-        if (ARCHON_LIKELY(m_frame_rate_tracking_enabled)) {
-            double frame_rate_2 = frame_rate.value_or(m_default_frame_rate);
-            if (ARCHON_UNLIKELY(frame_rate_2 != m_frame_rate))
-                update_frame_rate(frame_rate_2); // Throws
-        }
+
+        if (ARCHON_UNLIKELY(m_resolution_tracking_enabled && resolution != m_resolution))
+            update_resolution(resolution); // Throws
+        if (ARCHON_UNLIKELY(m_frame_rate_tracking_enabled && frame_rate != m_frame_rate))
+            update_frame_rate(frame_rate); // Throws
     }
 }
 

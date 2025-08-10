@@ -333,6 +333,8 @@ public:
     /// display::Window::set_fullscreen_mode()) will generally cause the windows position to
     /// change, and when it does, reposition events will be generated (but see note below).
     ///
+    /// The default implementation of this function does nothing other than return `true`.
+    ///
     /// \note Due to quirks in the behavior of some X11 window managers, "reposition" events
     /// are not always generated when switching to and from fullscreen mode. Specifically,
     /// when using the X11-based display implementation (\ref
@@ -355,8 +357,6 @@ public:
     /// in time, which can lead to unexpected behavior. A more robust scheme might be to
     /// track the position of the parent window, i.e., the window created by the window
     /// manager, but this will only work if the parent of the parent is the root.
-    ///
-    /// The default implementation of this function does nothing other than return `true`.
     ///
     virtual bool on_reposition(const display::WindowPosEvent&);
 

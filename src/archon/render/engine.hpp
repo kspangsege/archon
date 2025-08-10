@@ -99,7 +99,7 @@ public:
     class Scene;
     enum class BuiltinKeyHandler;
 
-    using Clock = std::chrono::steady_clock;
+    using Clock = display::Connection::clock_type;
 
     /// \{
     ///

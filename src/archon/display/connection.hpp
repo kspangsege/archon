@@ -341,6 +341,9 @@ public:
     /// of the specified screen (\p screen). The screen must be non-negative and less than
     /// the number of screens (\ref get_num_screens()).
     ///
+    /// The application can use \ref display::find_viewport() on the returned list of
+    /// viewports to determine which viewport (monitor) a particular window occurs on.
+    ///
     /// A particular display implementation (\ref display::Implementation) is not required
     /// to expose information about the configuration of each of the accessible screens. If
     /// the implementation in use for this connection does not expose this information, this
@@ -354,6 +357,8 @@ public:
     /// returns `true`, the implementation will also generate "screen changed" events
     /// whenever a screen configuration changes (\ref
     /// display::ConnectionEventHandler::on_screen_change()).
+    ///
+    /// \sa \ref display::find_viewport()
     ///
     virtual bool try_get_screen_conf(int screen, core::Buffer<display::Viewport>& viewports,
                                      core::Buffer<char>& strings, std::size_t& num_viewports) const = 0;

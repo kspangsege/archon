@@ -24,9 +24,11 @@
 /// \file
 
 
+#include <cstddef>
 #include <optional>
 #include <string_view>
 
+#include <archon/core/span.hpp>
 #include <archon/display/geometry.hpp>
 #include <archon/display/resolution.hpp>
 
@@ -40,6 +42,7 @@ namespace archon::display {
 /// display::Connection::try_get_screen_conf()).
 ///
 /// \sa \ref display::Connection::try_get_screen_conf()
+/// \sa \ref display::find_viewport()
 ///
 struct Viewport {
     /// \brief Name of video adapter output associated with viewport.
@@ -89,6 +92,39 @@ struct Viewport {
     ///
     std::optional<double> refresh_rate;
 };
+
+
+
+/// \brief Find viewport (or monitor) that window occurs on.
+///
+/// This function searches for the viewport (monitor) that the specified window occurs
+/// on. More specifically, it finds the first viewport in the specified list (\p viewports)
+/// that contains the center point of the specified window geometry (\p window_pos, \p
+/// window_size), or, if none do, it finds the first one that has an overlap with the window
+/// geometry. If no viewport is found, this function returns `std::size_t(-1)`. The window
+/// geometry should be the contents area of the window as provided by event handlers \ref
+/// display::WindowEventHandler::on_reposition() and \ref
+/// display::WindowEventHandler::on_resize().
+///
+/// An application can use this function to continuously track which viewport (monitor) a
+/// window occurs on as follows: First, track the position and size of the window by
+/// installing event handlers for move and resize events (\ref
+/// display::WindowEventHandler::on_reposition(), \ref
+/// display::WindowEventHandler::on_resize()). Set the initial window position to (0, 0) and
+/// the initial window size to the size passed to \ref
+/// display::Connection::new_window(). Next, track the screen configuration by installing an
+/// event handler for screen configuration changes (\ref
+/// display::ConnectionEventHandler::on_screen_change()). Set the initial screen
+/// configuration by calling \ref display::Connection::try_get_screen_conf(). Finally, at
+/// the beginning, after the initial call of \ref
+/// display::Connection::try_get_screen_conf(), and whenever the window position, window
+/// size, or screen configuration changes, call this function to determine the current
+/// viewport.
+///
+/// \sa \ref display::Connection::try_get_screen_conf()
+///
+auto find_viewport(core::Span<const display::Viewport> viewports, display::Pos window_pos,
+                   display::Size window_size) noexcept -> std::size_t;
 
 
 } // namespace archon::display
