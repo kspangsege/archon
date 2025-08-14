@@ -391,6 +391,9 @@ void ConnectionImpl::open()
     Uint32 flags = SDL_INIT_VIDEO;
     int ret = SDL_Init(flags);
     if (ARCHON_LIKELY(ret >= 0)) {
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
         impl.have_connection = true;
         m_was_opened = true;
         return;
