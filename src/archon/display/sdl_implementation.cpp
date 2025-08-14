@@ -39,8 +39,10 @@
 #include <archon/core/deque.hpp>
 #include <archon/core/flat_map.hpp>
 #include <archon/core/literal_hash_map.hpp>
+#include <archon/core/char_mapper.hpp>
 #include <archon/core/locale.hpp>
 #include <archon/core/charenc_bridge.hpp>
+#include <archon/core/integer_parser.hpp>
 #include <archon/core/format.hpp>
 #include <archon/util/color.hpp>
 #include <archon/image.hpp>
@@ -98,6 +100,34 @@ constexpr std::string_view g_implementation_descr = "SDL (Simple DirectMedia Lay
 
 
 #if HAVE_SDL
+
+
+#if ARCHON_DISPLAY_HAVE_OPENGL
+
+bool try_parse_opengl_version(std::string_view version, int& major, int& minor)
+{
+    std::size_t n = version.size();
+    std::size_t i = version.find_first_of(". ");
+    if (ARCHON_LIKELY(i < n && version[i] == '.')) {
+        std::string_view str_1 = version.substr(0, i);
+        i += 1;
+        std::size_t j = version.find_first_of(". ", i);
+        std::string_view str_2 = version.substr(i, std::size_t(j - i));
+        core::CharMapper char_mapper(std::locale::classic()); // Throws
+        core::IntegerParser parser(char_mapper);
+        int val_1 = {}, val_2 = {};
+        bool success = (parser.parse_dec<core::IntegerParser::Sign::reject>(str_1, val_1) &&
+                        parser.parse_dec<core::IntegerParser::Sign::reject>(str_2, val_2)); // Throws
+        if (ARCHON_LIKELY(success)) {
+            major = val_1;
+            minor = val_2;
+            return true;
+        }
+    }
+    return false;
+}
+
+#endif // ARCHON_DISPLAY_HAVE_OPENGL
 
 
 auto get_sdl_error(const std::locale& locale, std::string_view message) -> std::string
@@ -991,7 +1021,12 @@ bool WindowImpl::try_create(std::string_view title, display::Size size, const Co
     }
     const char* title_2 = buffer.data();
 
+    int opengl_version_major = 4;
+    int opengl_version_minor = 1;
     if (config.enable_opengl_rendering) {
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, opengl_version_major);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, opengl_version_minor);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
         SDL_GL_SetAttribute(SDL_GL_FRAMEBUFFER_SRGB_CAPABLE, 1);
 
         bool require_depth_buffer = config.require_opengl_depth_buffer;
@@ -1033,6 +1068,16 @@ bool WindowImpl::try_create(std::string_view title, display::Size size, const Co
         m_gl_context = ret;
 
 #if ARCHON_DISPLAY_HAVE_OPENGL
+
+        std::string_view version = reinterpret_cast<const char*>(glGetString(GL_VERSION)); // Throws
+        int major = {}, minor = {};
+        bool good_version = (::try_parse_opengl_version(version, major, minor) &&
+                             (major > opengl_version_major || (major == opengl_version_major &&
+                                                               minor >= opengl_version_minor))); // Throws
+        if (ARCHON_UNLIKELY(!good_version)) {
+            error = "SDL_GL_CreateContext() failed: Requested OpenGL version is unmet"; // Throws
+            return false;
+        }
 
         GLenum err = glewInit();
         if (ARCHON_UNLIKELY(err != GLEW_OK)) {

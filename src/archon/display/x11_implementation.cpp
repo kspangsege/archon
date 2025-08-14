@@ -1516,6 +1516,9 @@ void WindowImpl::create(display::Size size, const Config& config, bool enable_do
         GLXContext share_context = {}; // No sharing, so far
         Bool direct = Bool(enable_glx_direct_rendering);
         int attrib_list[] = {
+            GLX_CONTEXT_MAJOR_VERSION_ARB, 4,
+            GLX_CONTEXT_MINOR_VERSION_ARB, 1,
+            GLX_CONTEXT_PROFILE_MASK_ARB, GLX_CONTEXT_CORE_PROFILE_BIT_ARB,
             None // End of list
         };
         GLXContext ctx = conn.extension_info.glx_create_context(conn.dpy, visual_spec.fb_config,

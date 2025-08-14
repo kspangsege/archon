@@ -39,7 +39,9 @@
 ///
 /// For OpenGL manual pages, see https://registry.khronos.org/OpenGL-Refpages/ or https://docs.gl/.
 ///
-/// For the OpenGL specification, see https://registry.khronos.org/OpenGL/specs/.
+/// For the OpenGL 4.1 specification, see
+/// https://registry.khronos.org/OpenGL/specs/gl/glspec41.core.pdf. For other OpenGL
+/// specifications, see https://registry.khronos.org/OpenGL/specs/.
 
 
 #if ARCHON_DISPLAY_HAVE_OPENGL
