@@ -232,6 +232,10 @@ public:
     /// OpenGL rendering performed by the calling thread is directed onto this window. On an
     /// X11 platform, this corresponds to `glXMakeCurrent()`.
     ///
+    /// The creation of a new window that is configured for OpenGL rendering may or may not
+    /// clobber the current context association for the calling thread. Applications must
+    /// assume that the association is clobbered.
+    ///
     /// Behavior is undefined if this function is called on a window that is not configured
     /// for OpenGL rendering.
     ///
@@ -295,7 +299,8 @@ struct Window::Config {
 
     /// \brief Enable OpenGL-based rendering.
     ///
-    /// If set to `true`, the window will be configured to support OpenGL rendering.
+    /// If set to `true`, the window will be configured to support OpenGL rendering. The
+    /// created window will then be associated with a core profile OpenGL 4.1 context.
     ///
     bool enable_opengl_rendering = false;
 
