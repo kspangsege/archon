@@ -299,8 +299,9 @@ struct Window::Config {
 
     /// \brief Enable OpenGL-based rendering.
     ///
-    /// If set to `true`, the window will be configured to support OpenGL rendering. The
-    /// selected framebuffer configuration will be one that supports sRGB
+    /// If set to `true`, the window will be configured to support OpenGL rendering. Such a
+    /// window will be associated with a core profile OpenGL 4.1 context. The selected
+    /// framebuffer configuration will be one that supports sRGB
     /// (`GLX_FRAMEBUFFER_SRGB_CAPABLE_ARB`).
     ///
     bool enable_opengl_rendering = false;
