@@ -277,6 +277,8 @@ public:
     x11::DisplayWrapper dpy_owner;
     Display* dpy = nullptr;
 
+    x11::ExtensionInfo extension_info = {};
+
     Atom atom_wm_protocols;
     Atom atom_wm_delete_window;
     Atom atom_net_wm_fullscreen_monitors;
@@ -323,8 +325,6 @@ private:
     bool m_detectable_autorepeat_enabled = false;
     bool m_expect_keymap_notify = false;
     bool m_have_curr_window = false;
-
-    x11::ExtensionInfo m_extension_info = {};
 
     core::FlatMap<int, XPixmapFormatValues> m_pixmap_formats; // Key is visual depth
 
@@ -583,8 +583,8 @@ bool ConnectionImpl::try_open(const display::x11_connection_config& config, std:
     if (ARCHON_UNLIKELY(config.synchronous_mode))
         XSynchronize(dpy, True);
 
-    m_extension_info = x11::init_extensions(dpy); // Throws
-    if (ARCHON_UNLIKELY(!m_extension_info.have_xkb)) {
+    extension_info = x11::init_extensions(dpy); // Throws
+    if (ARCHON_UNLIKELY(!extension_info.have_xkb)) {
         error = "X Keyboard Extension is required but not available"; // Throws
         return false;
     }
@@ -725,7 +725,7 @@ bool ConnectionImpl::try_new_window(std::string_view title, display::Size size, 
         prefer_double_buffered = true;
     bool enable_opengl = false;
     if (config.enable_opengl_rendering) {
-        if (ARCHON_UNLIKELY(!m_extension_info.have_glx)) {
+        if (ARCHON_UNLIKELY(!extension_info.have_glx)) {
             error = "OpenGL rendering not available";
             return false;
         }
@@ -798,7 +798,7 @@ bool ConnectionImpl::try_get_screen_conf(int screen, core::Buffer<display::Viewp
         throw std::invalid_argument("Bad screen index");
 
 #if HAVE_XRANDR
-    if (m_extension_info.have_xrandr) {
+    if (extension_info.have_xrandr) {
         const ScreenSlot& slot = ensure_screen_slot(screen); // Throws
         const x11::ScreenConf& conf = slot.screen_conf;
         std::size_t n = conf.viewports.size();
@@ -860,11 +860,11 @@ auto ConnectionImpl::ensure_screen_slot(int screen) const -> ScreenSlot&
         m_screens_by_root[root] = screen; // Throws
 
         // Fetch information about supported visuals
-        slot.visual_specs = x11::load_visuals(dpy, screen, m_extension_info); // Throws
+        slot.visual_specs = x11::load_visuals(dpy, screen, extension_info); // Throws
 
         // Fetch initial screen configuration
 #if HAVE_XRANDR
-        if (ARCHON_LIKELY(m_extension_info.have_xrandr)) {
+        if (ARCHON_LIKELY(extension_info.have_xrandr)) {
             int mask = RROutputChangeNotifyMask | RRCrtcChangeNotifyMask;
             XRRSelectInput(dpy, root, mask);
             update_screen_conf(slot); // Throws
@@ -1296,7 +1296,7 @@ bool ConnectionImpl::process_event_batch()
     }
 
 #if HAVE_XRANDR
-    if (m_extension_info.have_xrandr && ev.type == m_extension_info.xrandr_event_base + RRNotify) {
+    if (extension_info.have_xrandr && ev.type == extension_info.xrandr_event_base + RRNotify) {
         const auto& ev_2 = reinterpret_cast<const XRRNotifyEvent&>(ev);
         switch (ev_2.subtype) {
             case RRNotify_CrtcChange:
@@ -1513,16 +1513,19 @@ void WindowImpl::create(display::Size size, const Config& config, bool enable_do
     // Create OpenGL rendering context
 #if HAVE_GLX
     if (enable_opengl) {
-        XVisualInfo vis = visual_spec.info;
-        GLXContext share_list = nullptr; // No sharing
+        GLXContext share_context = {}; // No sharing, so far
         Bool direct = Bool(enable_glx_direct_rendering);
-        GLXContext ctx = glXCreateContext(conn.dpy, &vis, share_list, direct);
+        int attrib_list[] = {
+            None // End of list
+        };
+        GLXContext ctx = conn.extension_info.glx_create_context(conn.dpy, visual_spec.fb_config,
+                                                                share_context, direct, attrib_list);
         if (ARCHON_UNLIKELY(!ctx))
-            throw std::runtime_error("glXCreateContext() failed");
+            throw std::runtime_error("glXCreateContextAttribsARB() failed");
         m_ctx = ctx;
     }
 #else // !HAVE_GLX
-    static_cast<void>(enable_opengl);
+    ARCHON_ASSERT(!enable_opengl);
     static_cast<void>(enable_glx_direct_rendering);
 #endif // !HAVE_GLX
 

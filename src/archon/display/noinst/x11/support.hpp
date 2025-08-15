@@ -59,50 +59,38 @@
 #endif
 
 #if HAVE_X11
-#  if ARCHON_DISPLAY_HAVE_X11_XDBE
-#    define HAVE_XDBE 1
-#  else
-#    define HAVE_XDBE 0
-#  endif
-#  if ARCHON_DISPLAY_HAVE_X11_XRANDR
-#    define HAVE_XRANDR 1
-#  else
-#    define HAVE_XRANDR 0
-#  endif
-#  if ARCHON_DISPLAY_HAVE_X11_XRENDER
-#    define HAVE_XRENDER 1
-#  else
-#    define HAVE_XRENDER 0
-#  endif
-#  if ARCHON_DISPLAY_HAVE_OPENGL_GLX
-#    define HAVE_GLX 1
-#  else
-#    define HAVE_GLX 0
-#  endif
-#endif
-
-#if HAVE_X11
 #  include <poll.h>
 #  include <X11/Xlib.h>
 #  include <X11/Xatom.h>
 #  include <X11/Xutil.h>
 #  include <X11/keysym.h>
 #  include <X11/XKBlib.h>
-#  if HAVE_XDBE
+#  if ARCHON_DISPLAY_HAVE_X11_XDBE
 #    include <X11/extensions/Xdbe.h>
+#    define HAVE_XDBE 1
+#  else
+#    define HAVE_XDBE 0
 #  endif
-#  if HAVE_XRANDR
+#  if ARCHON_DISPLAY_HAVE_X11_XRANDR
 #    include <X11/extensions/Xrandr.h>
+#    define HAVE_XRANDR 1
+#  else
+#    define HAVE_XRANDR 0
 #  endif
-#  if HAVE_XRENDER
+#  if ARCHON_DISPLAY_HAVE_X11_XRENDER
 #    include <X11/extensions/Xrender.h>
+#    define HAVE_XRENDER 1
+#  else
+#    define HAVE_XRENDER 0
 #  endif
-#  if HAVE_GLX
+#  if ARCHON_DISPLAY_HAVE_OPENGL_GLX
 #    include <GL/glx.h>
 #  endif
-#endif
-
-#if HAVE_X11
+#  if ARCHON_DISPLAY_HAVE_OPENGL_GLX && defined GLX_VERSION_1_4 && GLX_VERSION_1_4
+#    define HAVE_GLX 1
+#  else
+#    define HAVE_GLX 0
+#  endif
 #  if defined X_HAVE_UTF8_STRING && X_HAVE_UTF8_STRING
 #    define HAVE_X11_UTF8 1
 #  else
@@ -236,6 +224,9 @@ struct ExtensionInfo {
 
     // Valid only when `have_glx` is `true`
     int glx_major, glx_minor;
+#if HAVE_GLX
+    PFNGLXCREATECONTEXTATTRIBSARBPROC glx_create_context;
+#endif
 };
 
 
@@ -248,6 +239,9 @@ struct TextPropertyWrapper {
 
 
 struct VisualSpec {
+#if HAVE_GLX
+    GLXFBConfig fb_config;
+#endif
     XVisualInfo info;
     bool double_buffered;
     bool opengl_supported;
