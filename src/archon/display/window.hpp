@@ -295,7 +295,8 @@ struct Window::Config {
 
     /// \brief Enable OpenGL-based rendering.
     ///
-    /// If set to `true`, the window will be configured to support OpenGL rendering.
+    /// If set to `true`, the window will be configured to support OpenGL rendering. The
+    /// created window will then be associated with a core profile OpenGL 4.1 context.
     ///
     bool enable_opengl_rendering = false;
 
