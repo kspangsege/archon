@@ -175,7 +175,7 @@ void rotate(math::Matrix4F& mat, const math::Vector3& axis, double angle)
 
 
 const char* vertex_shader_source = R"(
-    #version 330 core
+    #version 410 core
     layout (location = 0) in vec3 aPos;
     uniform mat4 model;
     uniform mat4 view;
@@ -187,7 +187,7 @@ const char* vertex_shader_source = R"(
 
 
 const char* fragment_shader_source = R"(
-    #version 330 core
+    #version 410 core
     out vec4 FragColor;
     void main() {
         FragColor = vec4(1.00000f, 0.21404f, 0.03310f, 1.00000f); // Orange color
