@@ -995,8 +995,14 @@ void WindowImpl::create(std::string_view title, display::Size size, const Config
         flags |= SDL_WINDOW_RESIZABLE;
     if (config.fullscreen)
         flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
-    if (config.enable_opengl_rendering)
+    int opengl_version_major = 4;
+    int opengl_version_minor = 1;
+    if (config.enable_opengl_rendering) {
         flags |= SDL_WINDOW_OPENGL;
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, opengl_version_major);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, opengl_version_minor);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+    }
     bool require_depth_buffer = config.enable_opengl_rendering && config.require_opengl_depth_buffer;
     // This value (8) mirrors the default for FindVisualParams::min_opengl_depth_buffer_bits
     // in noinst/x11/support.hpp
@@ -1012,8 +1018,21 @@ void WindowImpl::create(std::string_view title, display::Size size, const Config
     conn.register_window(id, *this); // Throws
     m_id = id;
 
-    // With the X11 back end, and when OpenGL support is not explicitly requested, the
-    // window will be recreated when a renderer is created. Presumably, this is because a
+    if (config.enable_opengl_rendering) {
+        SDL_GLContext ret = SDL_GL_CreateContext(m_win);
+        if (ARCHON_UNLIKELY(!ret))
+            throw_sdl_error(conn.locale, "SDL_GL_CreateContext() failed"); // Throws
+        m_gl_context = ret;
+        int major = {}, minor = {};
+        SDL_GL_GetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, &major);
+        SDL_GL_GetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, &minor);
+        bool good = (major > opengl_version_major || (major == opengl_version_major && minor >= opengl_version_minor));
+        if (ARCHON_UNLIKELY(!good))
+            throw std::runtime_error("SDL_GL_CreateContext() failed: Requested OpenGL version is unavailable");
+    }
+
+    // With the X11 back end, and when OpenGL support is not explicitly requested, SDL will
+    // recreate the window when a renderer is created. Presumably, this is because a
     // renderer requires OpenGL support, but when OpenGL support is not requested initially,
     // a visual without OpenGL support is selected initially. Unfortunately, this leads to a
     // very visible flicker / artifact if the recreation occurs while the window is
@@ -1162,18 +1181,10 @@ void WindowImpl::present()
 
 void WindowImpl::opengl_make_current()
 {
-    if (ARCHON_LIKELY(m_gl_context)) {
-        int ret = SDL_GL_MakeCurrent(m_win, m_gl_context);
-        if (ARCHON_LIKELY(ret == 0))
-            return;
-        throw_sdl_error(conn.locale, "SDL_GL_MakeCurrent() failed"); // Throws
-    }
-    SDL_GLContext ret = SDL_GL_CreateContext(m_win);
-    if (ARCHON_LIKELY(ret)) {
-        m_gl_context = ret;
+    int ret = SDL_GL_MakeCurrent(m_win, m_gl_context);
+    if (ARCHON_LIKELY(ret == 0))
         return;
-    }
-    throw_sdl_error(conn.locale, "SDL_GL_CreateContext() failed"); // Throws
+    throw_sdl_error(conn.locale, "SDL_GL_MakeCurrent() failed"); // Throws
 }
 
 

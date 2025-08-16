@@ -64,15 +64,12 @@ public:
 
 void Scene::render_init()
 {
+    glEnable(GL_FRAMEBUFFER_SRGB);
     glEnable(GL_CULL_FACE);
     glEnable(GL_LIGHTING);
 
-#ifdef GL_LIGHT_MODEL_COLOR_CONTROL
     glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL, GL_SEPARATE_SPECULAR_COLOR);
-#endif
-#ifdef GL_LIGHT_MODEL_LOCAL_VIEWER
     glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, 1);
-#endif
 }
 
 
