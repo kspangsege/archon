@@ -9,6 +9,7 @@ set_target_properties(ProbeX11 PROPERTIES
 target_link_libraries(ProbeX11 PRIVATE
   Core
   Log
+  Cli
   Util
   Image
   Display
@@ -30,6 +31,7 @@ if(X11_FOUND)
   endif()
 endif()
 
+
 add_executable(ProbeSDL
   probe_sdl.cpp
 )
@@ -41,9 +43,27 @@ set_target_properties(ProbeSDL PROPERTIES
 target_link_libraries(ProbeSDL PRIVATE
   Core
   Log
+  Cli
+  Display
 )
 
 if(SDL2_FOUND)
   target_include_directories(ProbeSDL PRIVATE ${SDL2_INCLUDE_DIRS})
   target_link_libraries(ProbeSDL PRIVATE ${SDL2_LIBRARIES})
 endif()
+
+
+add_executable(ProbeOpenGL
+  probe_opengl.cpp
+)
+
+set_target_properties(ProbeOpenGL PROPERTIES
+  OUTPUT_NAME "archon-probe-opengl"
+)
+
+target_link_libraries(ProbeOpenGL PRIVATE
+  Core
+  Log
+  Cli
+  Display
+)
