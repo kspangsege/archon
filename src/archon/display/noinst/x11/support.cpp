@@ -51,6 +51,7 @@
 #include <archon/core/string_buffer_contents.hpp>
 #include <archon/core/vector.hpp>
 #include <archon/core/flat_map.hpp>
+#include <archon/core/string.hpp>
 #include <archon/core/locale.hpp>
 #include <archon/core/char_codec.hpp>
 #include <archon/core/string_codec.hpp>
@@ -2712,7 +2713,16 @@ auto x11::load_visuals(Display* dpy, int screen, const x11::ExtensionInfo& exten
 
 #if HAVE_GLX
 
-    if (ARCHON_LIKELY(extension_info.have_glx)) {
+    bool screen_supports_opengl = false;
+    {
+        std::string_view str = glXQueryExtensionsString(dpy, screen);
+        bool has_srgb_framebuffer_support = (core::contains_word(str, "GLX_ARB_framebuffer_sRGB") ||
+                                             core::contains_word(str, "GLX_EXT_framebuffer_sRGB")); // Throws
+        if (ARCHON_LIKELY(has_srgb_framebuffer_support))
+            screen_supports_opengl = true;
+    }
+
+    if (ARCHON_LIKELY(extension_info.have_glx && screen_supports_opengl)) {
         std::vector<x11::VisualSpec> visual_specs;
         int n = {};
         GLXFBConfig* configs = glXGetFBConfigs(dpy, screen, &n);
@@ -2737,7 +2747,8 @@ auto x11::load_visuals(Display* dpy, int screen, const x11::ExtensionInfo& exten
                         throw std::runtime_error("glXGetConfig() failed");
                     return value;
                 };
-                if (get(GLX_USE_GL) != 0) { // Throws
+                bool opengl_supported = (get(GLX_USE_GL) != 0 && get(GLX_FRAMEBUFFER_SRGB_CAPABLE_ARB) != 0);
+                if (ARCHON_LIKELY(opengl_supported)) { // Throws
                     spec.opengl_supported           = true;
                     spec.opengl_level               = get(GLX_LEVEL); // Throws
                     spec.opengl_double_buffered     = (get(GLX_DOUBLEBUFFER) != 0); // Throws

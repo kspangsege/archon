@@ -163,8 +163,9 @@ void event_loop::run()
     fetch_screen_conf(); // Throws
     track_screen_conf(); // Throws
 
-    glClearColor(0.2, 0.3, 0.3, 1.0);
-    glColor3f(1.0, 0.5, 0.2);
+    glEnable(GL_FRAMEBUFFER_SRGB);
+    glClearColor(0.03310, 0.07324, 0.07324, 1.0);
+    glColor3f(1.00000, 0.21404, 0.03310);
 
     glMatrixMode(GL_PROJECTION);
     glLoadIdentity();
