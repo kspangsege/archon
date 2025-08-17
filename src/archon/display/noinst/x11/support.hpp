@@ -83,10 +83,10 @@
 #  else
 #    define HAVE_XRENDER 0
 #  endif
-#  if ARCHON_DISPLAY_HAVE_OPENGL_GLX
+#  if ARCHON_DISPLAY_HAVE_X11_GLX
 #    include <GL/glx.h>
 #  endif
-#  if ARCHON_DISPLAY_HAVE_OPENGL_GLX && defined GLX_VERSION_1_4 && GLX_VERSION_1_4
+#  if ARCHON_DISPLAY_HAVE_X11_GLX && defined GLX_VERSION_1_4 && GLX_VERSION_1_4
 #    define HAVE_GLX 1
 #  else
 #    define HAVE_GLX 0

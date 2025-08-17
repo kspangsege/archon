@@ -15,7 +15,7 @@ set(ARCHON_DISPLAY_HAVE_X11_XDBE 0)
 set(ARCHON_DISPLAY_HAVE_X11_XKB 0)
 set(ARCHON_DISPLAY_HAVE_X11_XRENDER 0)
 set(ARCHON_DISPLAY_HAVE_X11_XRANDR 0)
-set(ARCHON_DISPLAY_HAVE_OPENGL_GLX 0)
+set(ARCHON_DISPLAY_HAVE_X11_GLX 0)
 if(X11_FOUND)
   set(ARCHON_DISPLAY_HAVE_X11 1)
   if(X11_Xext_FOUND)
@@ -36,13 +36,18 @@ if(X11_FOUND)
     set(ARCHON_DISPLAY_HAVE_X11_XRANDR 1)
   endif()
   if(OpenGL_GLX_FOUND)
-    set(ARCHON_DISPLAY_HAVE_OPENGL_GLX 1)
+    set(ARCHON_DISPLAY_HAVE_X11_GLX 1)
   endif()
 endif()
 
 set(ARCHON_DISPLAY_HAVE_SDL 0)
 if(SDL2_FOUND)
   set(ARCHON_DISPLAY_HAVE_SDL 1)
+endif()
+
+set(ARCHON_DISPLAY_HAVE_OPENGL 0)
+if(OPENGL_FOUND)
+  set(ARCHON_DISPLAY_HAVE_OPENGL 1)
 endif()
 
 add_subdirectory(archon/display/probe)
@@ -58,6 +63,7 @@ add_library(Display
   archon/display/list_implementations.cpp
   archon/display/noinst/palette_map.cpp
   archon/display/noinst/x11/support.cpp
+  archon/display/opengl.cpp
 )
 
 set_target_properties(Display PROPERTIES OUTPUT_NAME "archon-display")
@@ -91,6 +97,10 @@ if(SDL2_FOUND)
   target_link_libraries(Display PRIVATE ${SDL2_LIBRARIES})
 endif()
 
+if(OPENGL_FOUND)
+  target_link_libraries(Display PUBLIC OpenGL::GL)
+endif()
+
 configure_file(archon/display/impl/config.h.in archon/display/impl/config.h)
 
 target_sources(Display PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "${ARCHON_SOURCE_ROOT}" FILES
@@ -116,6 +126,7 @@ target_sources(Display PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" 
   archon/display/sdl_implementation.hpp
   archon/display/as_key_name.hpp
   archon/display/list_implementations.hpp
+  archon/display/opengl.hpp
   archon/display.hpp
 )
 

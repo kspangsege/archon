@@ -42,13 +42,13 @@
 #include <archon/log.hpp>
 #include <archon/cli.hpp>
 #include <archon/display.hpp>
-#include <archon/render/opengl.hpp>
+#include <archon/display/opengl.hpp>
 
 
 using namespace archon;
 
 
-#if ARCHON_RENDER_HAVE_OPENGL
+#if ARCHON_DISPLAY_HAVE_OPENGL
 
 
 namespace {
@@ -195,7 +195,7 @@ void event_loop::run()
         if (m_max_opengl_errors > 0) {
             GLenum error = glGetError();
             if (error != GL_NO_ERROR) {
-                m_logger.error("OpenGL error: %s", render::get_opengl_error_message(error)); // Throws
+                m_logger.error("OpenGL error: %s", display::get_opengl_error_message(error)); // Throws
                 m_max_opengl_errors -= 1;
                 if (m_max_opengl_errors == 0)
                     m_logger.error("No more OpenGL error will be reported"); // Throws
@@ -305,7 +305,7 @@ void event_loop::update_frame_rate(double rate)
 } // unnamed namespace
 
 
-#endif // ARCHON_RENDER_HAVE_OPENGL
+#endif // ARCHON_DISPLAY_HAVE_OPENGL
 
 
 
@@ -421,18 +421,18 @@ int main(int argc, char* argv[])
         screen = val;
     }
 
-#if ARCHON_RENDER_HAVE_OPENGL
+#if ARCHON_DISPLAY_HAVE_OPENGL
 
     event_loop loop(locale, logger, *conn, screen);
     if (ARCHON_UNLIKELY(!loop.try_init(window_size))) // Throws
         return EXIT_FAILURE;
     loop.run(); // Throws
 
-#else // !ARCHON_RENDER_HAVE_OPENGL
+#else // !ARCHON_DISPLAY_HAVE_OPENGL
 
     static_cast<void>(screen);
     logger.error("No OpenGL support"); // Throws
     return EXIT_FAILURE;
 
-#endif // !ARCHON_RENDER_HAVE_OPENGL
+#endif // !ARCHON_DISPLAY_HAVE_OPENGL
 }
