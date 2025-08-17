@@ -21,15 +21,15 @@
 
 #include <string_view>
 
-#include <archon/render/opengl.hpp>
+#include <archon/display/opengl.hpp>
 
 
 using namespace archon;
 
 
-auto render::get_opengl_error_message(GLenum error) noexcept -> std::string_view
+auto display::get_opengl_error_message(GLenum error) noexcept -> std::string_view
 {
-#if ARCHON_RENDER_HAVE_OPENGL
+#if ARCHON_DISPLAY_HAVE_OPENGL
 
     switch (error) {
         case GL_INVALID_ENUM:
@@ -50,11 +50,11 @@ auto render::get_opengl_error_message(GLenum error) noexcept -> std::string_view
             return "Stack overflow";
     }
 
-#else // !ARCHON_RENDER_HAVE_OPENGL
+#else // !ARCHON_DISPLAY_HAVE_OPENGL
 
     static_cast<void>(error);
 
-#endif // !ARCHON_RENDER_HAVE_OPENGL
+#endif // !ARCHON_DISPLAY_HAVE_OPENGL
 
     return "Unknown error";
 }

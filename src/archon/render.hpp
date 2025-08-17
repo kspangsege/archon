@@ -24,7 +24,6 @@
 /// \file
 
 
-#include <archon/render/opengl.hpp>
 #include <archon/render/virt_trackball.hpp>
 #include <archon/render/key_binding_support.hpp>
 #include <archon/render/engine.hpp>

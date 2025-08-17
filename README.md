@@ -28,7 +28,7 @@ Here is the list of dependencies for the various libraries of the Archon project
   | Xlib      |                 | Display        | Yes      | X Window System protocol client library
   | GLX       |                 | Display        | Yes      | OpenGL Extension to the X Window System
   | SDL       | 2.0.22          | Display        | Yes      | OS GUI integration (Simple DirectMedia Layer)
-  | OpenGL    |                 | Render         | Yes      | Open Graphics Library
+  | OpenGL    |                 | Display        | Yes      | Open Graphics Library
 
 Note: `libjpeg-turbo` can be used in place of `libjpeg`.
 

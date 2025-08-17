@@ -42,7 +42,7 @@
 #include <archon/display.hpp>
 #include <archon/display/x11_fullscreen_monitors.hpp>
 #include <archon/display/x11_connection_config.hpp>
-#include <archon/render/opengl.hpp>
+#include <archon/display/opengl.hpp>
 #include <archon/render/engine.hpp>
 
 
@@ -51,7 +51,7 @@ using namespace archon;
 
 namespace {
 
-#if ARCHON_RENDER_HAVE_OPENGL
+#if ARCHON_DISPLAY_HAVE_OPENGL
 
 
 class Scene final
@@ -130,7 +130,7 @@ void Scene::render()
 }
 
 
-#endif // ARCHON_RENDER_HAVE_OPENGL
+#endif // ARCHON_DISPLAY_HAVE_OPENGL
 
 } // unnamed namespace
 
@@ -369,7 +369,7 @@ int main(int argc, char* argv[])
 
     render::Engine engine;
 
-#if ARCHON_RENDER_HAVE_OPENGL
+#if ARCHON_DISPLAY_HAVE_OPENGL
     Scene scene;
 #else
     render::Engine::Scene scene;

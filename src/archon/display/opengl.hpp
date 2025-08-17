@@ -18,8 +18,8 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-#ifndef ARCHON_X_RENDER_X_OPENGL_HPP
-#define ARCHON_X_RENDER_X_OPENGL_HPP
+#ifndef ARCHON_X_DISPLAY_X_OPENGL_HPP
+#define ARCHON_X_DISPLAY_X_OPENGL_HPP
 
 /// \file
 
@@ -28,10 +28,10 @@
 #include <chrono>
 
 #include <archon/core/features.h>
-#include <archon/render/impl/config.h>
+#include <archon/display/impl/config.h>
 
 
-/// \def ARCHON_RENDER_HAVE_OPENGL
+/// \def ARCHON_DISPLAY_HAVE_OPENGL
 ///
 /// \brief Whether OpenGL is available.
 ///
@@ -42,7 +42,7 @@
 /// For the OpenGL specification, see https://registry.khronos.org/OpenGL/specs/.
 
 
-#if ARCHON_RENDER_HAVE_OPENGL
+#if ARCHON_DISPLAY_HAVE_OPENGL
 #  if ARCHON_APPLE
 #    define GL_SILENCE_DEPRECATION
 #    include <OpenGL/gl.h>
@@ -55,20 +55,20 @@
 #  else
 #    include <GL/gl.h>
 #  endif
-#endif // ARCHON_RENDER_HAVE_OPENGL
+#endif // ARCHON_DISPLAY_HAVE_OPENGL
 
 
-#if !ARCHON_RENDER_HAVE_OPENGL
+#if !ARCHON_DISPLAY_HAVE_OPENGL
 
 // Define some OpenGL types allowing for certain functions to exist even when OpenGL is
 // unavailable (e.g., `get_opengl_error_message()`).
 
 using GLenum = unsigned;
 
-#endif // !ARCHON_RENDER_HAVE_OPENGL
+#endif // !ARCHON_DISPLAY_HAVE_OPENGL
 
 
-namespace archon::render {
+namespace archon::display {
 
 
 /// \brief Get string for OpenGL error code.
@@ -76,13 +76,13 @@ namespace archon::render {
 /// This function returns a string that describes the specified OpenGL error code as
 /// returned by `glGetError()`.
 ///
-/// If OpenGL is not available (\ref ARCHON_RENDER_HAVE_OPENGL), this function returns the
-/// empty string. Note that `GLenum` is an alias for `int` in this case.
+/// If OpenGL is not available (\ref ARCHON_DISPLAY_HAVE_OPENGL), this function returns the
+/// empty string. Note that `GLenum` is an alias for `unsigned` in this case.
 ///
 auto get_opengl_error_message(GLenum error) noexcept -> std::string_view;
 
 
-} // namespace archon::render
+} // namespace archon::display
 
 
-#endif // ARCHON_X_RENDER_X_OPENGL_HPP
+#endif // ARCHON_X_DISPLAY_X_OPENGL_HPP
