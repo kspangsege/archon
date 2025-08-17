@@ -27,5 +27,4 @@ target_sources(Render PUBLIC FILE_SET HEADERS FILES
 
 install(TARGETS Render FILE_SET HEADERS)
 
-add_subdirectory(archon/render/probe)
 add_subdirectory(archon/render/demo)
