@@ -31,6 +31,7 @@
 #include <locale>
 
 #include <archon/core/features.h>
+#include <archon/core/type.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/char_mapper.hpp>
 
@@ -162,17 +163,61 @@ template<class C, class T> auto trim_a(std::basic_string_view<C, T> str, C delim
 
 
 
+/// \{
+///
+/// \brief Check whether string contains word.
+///
+/// These functions return true if and only if the specified string (\p str) contains the
+/// specified word (\p word). The specified string is split into words as if by \ref
+/// core::for_each_word().
+///
+/// The overload that does not take a locale argument can only operate on strings of
+/// non-wide character type and using the standard character traits. This is because a
+/// locale is needed to widen the space character when the widening operation is
+/// non-trivial, which it is for other string types (\ref
+/// core::BasicCharMapper::is_trivial).
+///
+/// \sa \ref core::for_each_word()
+///
+bool contains_word(std::string_view str, std::string_view word) noexcept;
+template<class C, class T> bool contains_word(std::basic_string_view<C, T> str, core::Type<std::basic_string_view<C, T>> word,
+                                              const std::locale&);
+/// \}
+
+
+
+/// \{
+///
 /// \brief Split string into words.
 ///
-/// This function calls the specified function for each word in the specified string.
+/// These functions call the specified function (\p func) for each word in the specified
+/// string (\p str).
 ///
-/// The specified function must be callable with a single argument, which will be a string
-/// view that refers to one of the words of the string. These string views will reference
-/// the same memory as is referenced by the specified string (\p str).
+/// The specified function will be called for each word in the string. The type of the
+/// passed argument will be the same as the type of the specified string (\p str). The word
+/// arguments passed to the specified function will be substrings of the specified string
+/// (\p str), i.e., they will refer to the same memory as the specified string does.
+///
+/// If the return type of the specified function is `void`, this function simply returns
+/// `true`. Otherwise, if the specified function returns `false` for a particular word, the
+/// iteration is terminated and this function returns `false`. Otherwise, the iteration goes
+/// on, and if the specified function returns `true` for all words in \p str, this function
+/// returns `true`.
+///
+/// The overload that does not take a locale argument can only operate on strings of
+/// non-wide character type and using the standard character traits. This is because a
+/// locale is needed to widen the space character when the widening operation is
+/// non-trivial, which it is for other string types (\ref
+/// core::BasicCharMapper::is_trivial).
 ///
 /// Splitting is done by an instance of \ref core::BasicStringSplitter.
 ///
-template<class C, class T, class F> void for_each_word(std::basic_string_view<C, T> str, const std::locale&, F func);
+/// \sa \ref core::contains_word()
+/// \sa \ref core::BasicStringSplitter
+///
+template<class F> bool for_each_word(std::string_view str, F func) noexcept(noexcept(func(str)));
+template<class C, class T, class F> bool for_each_word(std::basic_string_view<C, T> str, const std::locale&, F func);
+/// \}
 
 
 
@@ -362,13 +407,62 @@ template<class C, class T> auto trim_a(std::basic_string_view<C, T> str, C delim
 }
 
 
+inline bool contains_word(std::string_view str, std::string_view word) noexcept
+{
+    bool found = !core::for_each_word(str, [&](std::string_view word_2) noexcept {
+        bool match = (word_2 == word);
+        return !match;
+    });
+    return found;
+}
+
+
+template<class C, class T>
+inline bool contains_word(std::basic_string_view<C, T> str, core::Type<std::basic_string_view<C, T>> word,
+                          const std::locale& locale)
+{
+    bool found = !core::for_each_word(str, locale, [&](std::basic_string_view<C, T> word_2) noexcept {
+        bool match = (word_2 == word);
+        return !match;
+    }); // Throws
+    return found;
+}
+
+
+template<class F> bool for_each_word(std::string_view str, F func) noexcept(noexcept(func(str)))
+{
+    core::StringSplitter splitter(str, ' ');
+    std::string_view word;
+    while (ARCHON_LIKELY(splitter.next(word))) {
+        if constexpr (std::is_same_v<decltype (func(word)), void>) {
+            func(word); // Throws
+        }
+        else {
+            bool success = func(word); // Throws
+            if (ARCHON_UNLIKELY(!success))
+                return false;
+        }
+    }
+    return true;
+}
+
+
 template<class C, class T, class F>
-void for_each_word(std::basic_string_view<C, T> str, const std::locale& loc, F func)
+bool for_each_word(std::basic_string_view<C, T> str, const std::locale& loc, F func)
 {
     core::BasicStringSplitter<C, T> splitter(str, loc); // Throws
     std::basic_string_view<C, T> word;
-    while (ARCHON_LIKELY(splitter.next(word)))
-        func(word); // Throws
+    while (ARCHON_LIKELY(splitter.next(word))) {
+        if constexpr (std::is_same_v<decltype (func(word)), void>) {
+            func(word); // Throws
+        }
+        else {
+            bool success = func(word); // Throws
+            if (ARCHON_UNLIKELY(!success))
+                return false;
+        }
+    }
+    return true;
 }
 
 
