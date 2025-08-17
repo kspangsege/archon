@@ -87,7 +87,10 @@
 #  if ARCHON_DISPLAY_HAVE_X11_GLX
 #    include <GL/glx.h>
 #  endif
-#  if ARCHON_DISPLAY_HAVE_X11_GLX && defined GLX_VERSION_1_4 && GLX_VERSION_1_4
+#  if ARCHON_DISPLAY_HAVE_X11_GLX &&                                \
+    defined GLX_VERSION_1_4 && GLX_VERSION_1_4 &&                   \
+    defined GLX_ARB_get_proc_address && GLX_ARB_get_proc_address && \
+    defined GLX_ARB_framebuffer_sRGB && GLX_ARB_framebuffer_sRGB
 #    define HAVE_GLX 1
 #  else
 #    define HAVE_GLX 0

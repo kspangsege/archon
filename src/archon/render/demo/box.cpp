@@ -64,6 +64,7 @@ public:
 
 void Scene::render_init()
 {
+    glEnable(GL_FRAMEBUFFER_SRGB);
     glEnable(GL_CULL_FACE);
     glEnable(GL_LIGHTING);
 
