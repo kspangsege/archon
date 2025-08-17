@@ -172,7 +172,7 @@ public:
     ConnectionImpl(const ImplementationImpl&, const std::locale&) noexcept;
     ~ConnectionImpl() noexcept override;
 
-    void open();
+    bool try_open(std::string& error);
     void register_window(Uint32 id, WindowImpl&);
     void unregister_window(Uint32 id, WindowImpl&) noexcept;
 
@@ -253,7 +253,7 @@ public:
     WindowImpl(ConnectionImpl&, int cookie) noexcept;
     ~WindowImpl() noexcept override;
 
-    void create(std::string_view title, display::Size size, const Config&);
+    bool try_create(std::string_view title, display::Size size, const Config&, std::string& error);
     auto ensure_renderer() -> SDL_Renderer*;
     void set_draw_color(SDL_Renderer* renderer, util::Color color);
 
@@ -313,12 +313,14 @@ inline ImplementationImpl::ImplementationImpl(Slot& slot) noexcept
 
 
 bool ImplementationImpl::try_new_connection(const std::locale& locale, const display::Connection::Config&,
-                                            std::unique_ptr<display::Connection>& conn, std::string&) const
+                                            std::unique_ptr<display::Connection>& conn, std::string& error) const
 {
     auto conn_2 = std::make_unique<ConnectionImpl>(*this, locale); // Throws
-    conn_2->open(); // Throws
-    conn = std::move(conn_2);
-    return true;
+    if (ARCHON_LIKELY(conn_2->try_open(error))) { // Throws
+        conn = std::move(conn_2);
+        return true;
+    }
+    return false;
 }
 
 
@@ -377,7 +379,7 @@ ConnectionImpl::~ConnectionImpl() noexcept
 }
 
 
-void ConnectionImpl::open()
+bool ConnectionImpl::try_open(std::string& error)
 {
     ARCHON_ASSERT(!m_was_opened);
     std::lock_guard lock(impl.mutex);
@@ -393,9 +395,10 @@ void ConnectionImpl::open()
     if (ARCHON_LIKELY(ret >= 0)) {
         impl.have_connection = true;
         m_was_opened = true;
-        return;
+        return true;
     }
-    throw_sdl_error(locale, "SDL_Init() failed"); // Throws
+    error = get_sdl_error(locale, "SDL_Init() failed"); // Throws
+    return false;
 }
 
 
@@ -455,16 +458,17 @@ bool ConnectionImpl::try_get_key_name(display::KeyCode key_code, std::string_vie
 
 
 bool ConnectionImpl::try_new_window(std::string_view title, display::Size size, const display::Window::Config& config,
-                                    std::unique_ptr<display::Window>& win, std::string&)
+                                    std::unique_ptr<display::Window>& win, std::string& error)
 {
     int screen = config.screen;
-    if (ARCHON_UNLIKELY(screen >= 0 && screen != 0)) {
+    if (ARCHON_UNLIKELY(screen >= 0 && screen != 0))
         throw std::invalid_argument("Bad screen index");
-    }
     auto win_2 = std::make_unique<WindowImpl>(*this, config.cookie); // Throws
-    win_2->create(title, size, config); // Throws
-    win = std::move(win_2);
-    return true;
+    if (ARCHON_LIKELY(win_2->try_create(title, size, config, error))) { // Throws
+        win = std::move(win_2);
+        return true;
+    }
+    return false;
 }
 
 
@@ -965,7 +969,7 @@ WindowImpl::~WindowImpl() noexcept
 }
 
 
-void WindowImpl::create(std::string_view title, display::Size size, const Config& config)
+bool WindowImpl::try_create(std::string_view title, display::Size size, const Config& config, std::string& error)
 {
     if (config.resizable && config.minimum_size.has_value()) {
         m_have_minimum_size = true;
@@ -1003,8 +1007,10 @@ void WindowImpl::create(std::string_view title, display::Size size, const Config
     int min_depth_buffer_bits = 8;
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, (require_depth_buffer ? min_depth_buffer_bits : 0));
     SDL_Window* win = SDL_CreateWindow(title_2, x, y, w, h, flags);
-    if (ARCHON_UNLIKELY(!win))
-        throw_sdl_error(conn.locale, "SDL_CreateWindow() failed"); // Throws
+    if (ARCHON_UNLIKELY(!win)) {
+        error = get_sdl_error(conn.locale, "SDL_CreateWindow() failed"); // Throws
+        return false;
+    }
     m_win = win;
     Uint32 id = SDL_GetWindowID(m_win);
     if (ARCHON_UNLIKELY(id <= 0))
@@ -1025,6 +1031,8 @@ void WindowImpl::create(std::string_view title, display::Size size, const Config
     // Set minimum window size if requested
     if (m_have_minimum_size)
         SDL_SetWindowMinimumSize(m_win, m_minimum_size.width, m_minimum_size.height);
+
+    return true;
 }
 
 
