@@ -237,6 +237,13 @@ public:
     ///
     void set_base_interest_size(double size);
 
+    /// \brief Cause scene to be redrawn.
+    ///
+    /// An invocation of this function causes the scene to be redrawn at the next tick, even
+    /// if there is no other reason to redraw it.
+    ///
+    void need_redraw() noexcept;
+
     /// \brief Get reference to engine's logger.
     ///
     /// This function returns a reference to the logger that is used by the render
@@ -403,22 +410,6 @@ public:
     ///
     void reset_view();
 
-    /// \brief Turn headlight on or off.
-    ///
-    /// If the headlight feature is not disabled (\ref Config::disable_headlight_feature),
-    /// this function turns the headlight on or off. If the headlight feature is disabled,
-    /// this function has no effect.
-    ///
-    void set_headlight_mode(bool on);
-
-    /// \brief Turn wireframe mode on or off.
-    ///
-    /// If the wireframe feature is not disabled (\ref Config::disable_wireframe_feature),
-    /// this function turns the wireframe mode on or off. If the wireframe feature is
-    /// disabled, this function has no effect.
-    ///
-    void set_wireframe_mode(bool on);
-
     ~Engine() noexcept;
 
 private:
@@ -486,22 +477,6 @@ struct Engine::Config {
     /// If set to `true`, interactive frame rate control will be disabled.
     ///
     bool disable_frame_rate_control = false;
-
-    /// \brief Whether headlight feature is disabled.
-    ///
-    /// If set to `true`, the headlight feature is disabled.
-    ///
-    /// \sa \ref headlight_mode
-    ///
-    bool disable_headlight_feature = false;
-
-    /// \brief Whether wireframe feature is disabled.
-    ///
-    /// If set to `true`, the wireframe feature is disabled.
-    ///
-    /// \sa \ref wireframe_mode
-    ///
-    bool disable_wireframe_feature = false;
 
     /// \brief Resolution tracking mode.
     ///
@@ -626,20 +601,6 @@ struct Engine::Config {
     /// \sa \ref Engine::set_interest_size()
     ///
     double interest_size = 2;
-
-    /// \brief Whether headlight should be turned on initially.
-    ///
-    /// If set to `true` (the default), and the headlight feature is not disabled (\ref
-    /// disable_headlight_feature) the headlight will be turned on initially.
-    ///
-    bool headlight_mode = true;
-
-    /// \brief Whether wireframe mode should be turned on initially.
-    ///
-    /// If set to `true`, and the wireframe feature is not disabled (\ref
-    /// disable_wireframe_feature) the wireframe mode will be turned on initially.
-    ///
-    bool wireframe_mode = false;
 };
 
 
@@ -691,9 +652,9 @@ public:
     /// OpenGL. Multiple sequential calls with no in-between calls of \ref tick() must
     /// produce the same result, i.e., the state of the scene must be unchanged.
     ///
-    /// This function may be called many times per tick to fully redraw the scene. It may
-    /// also be called less than once per tick, depending on such things as what \ref tick()
-    /// returns.
+    /// This function may get called many times per tick to fully redraw the scene. It may
+    /// also get called less than once per tick, depending on, among other things, whether
+    /// \ref tick() returns `true` or `false`.
     ///
     virtual void render();
 
@@ -726,8 +687,6 @@ enum class Engine::BuiltinKeyHandler {
     dec_frame_rate,    ///< Decrease frame rate
     toggle_fullscreen, ///< Toggle fullscreen mode
     reset_view,        ///< Reset view
-    toggle_headlight,  ///< Toggle headlight
-    toggle_wireframe,  ///< Toggle wireframe mode
 };
 
 

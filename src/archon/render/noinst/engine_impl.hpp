@@ -54,6 +54,7 @@ public:
     ~EngineImpl() noexcept;
 
     bool try_init(std::string_view window_title, display::Size window_size, const Config&, std::string& error);
+    bool try_post_init(std::string& error);
 
     void run();
 
@@ -65,6 +66,7 @@ public:
     void set_base_spin(const math::Rotation& spin);
     void set_base_zoom_factor(double factor);
     void set_base_interest_size(double size);
+    void need_redraw() noexcept;
 
     auto get_logger() noexcept -> log::Logger&;
 
@@ -82,9 +84,6 @@ public:
     void set_zoom_factor(double factor);
     void set_interest_size(double diameter);
     void reset_view();
-
-    void set_headlight_mode(bool on);
-    void set_wireframe_mode(bool on);
 
 private:
     class EventHandler final
@@ -120,8 +119,6 @@ private:
     const int m_screen;
     std::unique_ptr<log::FileLogger> m_fallback_logger;
     log::Logger& m_logger;
-    bool m_headlight_feature_enabled;
-    bool m_wireframe_feature_enabled;
     bool m_resolution_tracking_enabled;
     bool m_frame_rate_tracking_enabled;
     display::Resolution m_default_resolution;
@@ -162,10 +159,6 @@ private:
     bool m_projection_and_viewport_need_update = true;
     bool m_need_redraw = true;
     bool m_fullscreen_mode = false;
-    bool m_headlight_mode = false;
-    bool m_headlight_mode_prev = false;
-    bool m_wireframe_mode = false;
-    bool m_wireframe_mode_prev = false;
 
     int m_max_opengl_errors = 8;
 
@@ -185,8 +178,6 @@ private:
     bool key_func_dec_frame_rate(bool down);
     bool key_func_toggle_fullscreen(bool down);
     bool key_func_reset_view(bool down);
-    bool key_func_toggle_headlight(bool down);
-    bool key_func_toggle_wireframe(bool down);
 
     void redraw();
     bool process_events(Clock::time_point deadline);

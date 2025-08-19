@@ -57,9 +57,58 @@ namespace {
 class Scene final
     : public render::Engine::Scene {
 public:
+    Scene(render::Engine&) noexcept;
+
+    bool try_prepare(std::string&) override final;
     void render_init() override final;
     void render() override final;
+
+private:
+    render::Engine& m_engine;
+    bool m_headlight_mode_1 = true;
+    bool m_headlight_mode_2 = false;
+    bool m_wireframe_mode_1 = false;
+    bool m_wireframe_mode_2 = false;
 };
+
+
+inline Scene::Scene(render::Engine& engine) noexcept
+    : m_engine(engine)
+{
+}
+
+
+bool Scene::try_prepare(std::string&)
+{
+    m_engine.set_base_spin(math::Rotation({ 0, 1, 0 }, core::deg_to_rad(90))); // Throws
+
+    m_engine.bind_key(display::Key::small_s, "Spin", [&](bool down) {
+        if (down) {
+            m_engine.set_spin(math::Rotation({ 0, 1, 0 }, core::deg_to_rad(90))); // Throws
+        }
+        else {
+            m_engine.set_spin(math::Rotation({ 0, 1, 0 }, core::deg_to_rad(0))); // Throws
+        }
+    }); // Throws
+
+    m_engine.bind_key(display::Key::small_l, "Toggle headlight", [&](bool down) {
+        if (down) {
+            m_headlight_mode_1 = !m_headlight_mode_1;
+            m_engine.need_redraw();
+            // m_engine.set_on_off_status(L"HEADLIGHT", m_headlight_mode_1); // Throws                       
+        }
+    }); // Throws
+
+    m_engine.bind_key(display::Key::small_w, "Toggle wireframe mode", [&](bool down) {
+        if (down) {
+            m_wireframe_mode_1 = !m_wireframe_mode_1;
+            m_engine.need_redraw();
+            // m_engine.set_on_off_status(L"WIREFRAME", m_wireframe_mode_1); // Throws                       
+        }
+    }); // Throws
+
+    return true;
+}
 
 
 void Scene::render_init()
@@ -70,11 +119,30 @@ void Scene::render_init()
 
     glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL, GL_SEPARATE_SPECULAR_COLOR);
     glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, 1);
+
+    GLfloat params[4]  = { 0, 0, 0, 1 };
+    glLightfv(GL_LIGHT0, GL_POSITION, params);
 }
 
 
 void Scene::render()
 {
+    if (ARCHON_UNLIKELY(m_headlight_mode_1 != m_headlight_mode_2)) {
+        if (m_headlight_mode_1) {
+            glEnable(GL_LIGHT0);
+        }
+        else {
+            glDisable(GL_LIGHT0);
+        }
+        m_headlight_mode_2 = m_headlight_mode_1;
+    }
+
+    if (ARCHON_UNLIKELY(m_wireframe_mode_1 != m_wireframe_mode_2)) {
+        // FIXME: Consider adding proper wireframe mode by using the barycentric coordinates scheme    
+        glPolygonMode(GL_FRONT_AND_BACK, m_wireframe_mode_1 ? GL_LINE : GL_FILL);
+        m_wireframe_mode_2 = m_wireframe_mode_1;
+    }
+
     float scale_factor = 0.5;
     math::Vector3F a = scale_factor * math::Vector3F(-1, -1, -1);
     math::Vector3F b = scale_factor * math::Vector3F(+1, +1, +1);
@@ -367,7 +435,7 @@ int main(int argc, char* argv[])
     render::Engine engine;
 
 #if ARCHON_DISPLAY_HAVE_OPENGL
-    Scene scene;
+    Scene scene(engine);
 #else
     render::Engine::Scene scene;
 #endif
@@ -382,17 +450,6 @@ int main(int argc, char* argv[])
         logger.error("Failed to create render engine: %s", error); // Throws
         return EXIT_FAILURE;
     }
-
-    engine.set_base_spin(math::Rotation({ 0, 1, 0 }, core::deg_to_rad(90))); // Throws
-
-    engine.bind_key(display::Key::small_s, "Spin", [&](bool down) {
-        if (down) {
-            engine.set_spin(math::Rotation({ 0, 1, 0 }, core::deg_to_rad(90))); // Throws
-        }
-        else {
-            engine.set_spin(math::Rotation({ 0, 1, 0 }, core::deg_to_rad(0))); // Throws
-        }
-    }); // Throws
 
     engine.run(); // Throws
 }
