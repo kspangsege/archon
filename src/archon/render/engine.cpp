@@ -220,11 +220,6 @@ void Engine::Scene::render_init()
 }
 
 
-void Engine::Scene::render()
-{
-}
-
-
 bool Engine::Scene::tick(Clock::time_point)
 {
     return false;
