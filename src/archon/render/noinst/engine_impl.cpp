@@ -36,9 +36,12 @@
 #include <archon/core/format_as.hpp>
 #include <archon/core/file.hpp>
 #include <archon/log.hpp>
+#include <archon/math/vector.hpp>
+#include <archon/math/matrix.hpp>
 #include <archon/math/rotation.hpp>
 #include <archon/util/color.hpp>
 #include <archon/util/colors.hpp>
+#include <archon/gfx/math.hpp>
 #include <archon/display.hpp>
 #include <archon/display/opengl.hpp>
 #include <archon/render/key_binding_support.hpp>
@@ -440,8 +443,10 @@ bool EngineImpl::EventHandler::on_expose(const display::WindowEvent&)
 
 bool EngineImpl::EventHandler::on_resize(const display::WindowSizeEvent& ev)
 {
-    m_engine.update_window_size(ev.size);
-    m_engine.track_screen_conf(); // Throws
+    if (ev.size != m_engine.m_window_size) {
+        m_engine.update_window_size(ev.size);
+        m_engine.track_screen_conf(); // Throws
+    }
     return true;
 }
 
@@ -637,12 +642,6 @@ void EngineImpl::redraw()
 {
     if (ARCHON_UNLIKELY(m_need_misc_update)) {
 #if ARCHON_DISPLAY_HAVE_OPENGL
-/*
-        GLfloat params[] = { GLfloat(m_global_ambience),
-                             GLfloat(m_global_ambience),
-                             GLfloat(m_global_ambience), 1 };
-        glLightModelfv(GL_LIGHT_MODEL_AMBIENT, params);
-*/
         glClearColor(m_background_color[0], m_background_color[1],
                      m_background_color[2], m_background_color[3]);
 #endif // ARCHON_DISPLAY_HAVE_OPENGL
@@ -700,23 +699,20 @@ void EngineImpl::tick(Clock::time_point time_of_tick)
 void EngineImpl::render_frame()
 {
 #if ARCHON_DISPLAY_HAVE_OPENGL
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-    glTranslated(0, 0, -m_perspect_proj.camera_dist);
-    glRotated(core::rad_to_deg(m_orientation.angle), m_orientation.axis[0], m_orientation.axis[1],
-              m_orientation.axis[2]);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 #endif // ARCHON_DISPLAY_HAVE_OPENGL
 
-    m_scene.render(); // Throws
+    math::Matrix4F view = math::Matrix4F::identity();
+    gfx::translate(view, math::Vector3F(0, 0, float(-m_perspect_proj.camera_dist)));
+    gfx::rotate(view, math::Vector3F(m_orientation.axis), float(m_orientation.angle));
+
+    m_scene.render(view); // Throws
 }
 
 
 void EngineImpl::update_projection_and_viewport()
 {
     update_perpect_proj_and_trackball(); // Throws
-
-#if ARCHON_DISPLAY_HAVE_OPENGL
 
     double view_plane_right = m_perspect_proj.get_near_clip_width()  / 2;
     double view_plane_top   = m_perspect_proj.get_near_clip_height() / 2;
@@ -732,12 +728,14 @@ void EngineImpl::update_projection_and_viewport()
     m_logger.trace("Window size:        %s", m_window_size); // Throws
 */
 
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glFrustum(-view_plane_right, view_plane_right, -view_plane_top, view_plane_top, view_plane_dist, far_clip_dist);
-    glViewport(0, 0, m_window_size.width, m_window_size.height);
+    math::Matrix4F proj = gfx::make_perspective(-view_plane_right, view_plane_right,
+                                                -view_plane_top, view_plane_top,
+                                                view_plane_dist, far_clip_dist);
+    m_scene.set_projection(proj); // Throws
 
-#endif // ARCHON_DISPLAY_HAVE_OPENGL
+#if ARCHON_DISPLAY_HAVE_OPENGL
+    glViewport(0, 0, m_window_size.width, m_window_size.height);
+#endif
 }
 
 
