@@ -38,6 +38,7 @@
 #include <archon/log.hpp>
 #include <archon/cli.hpp>
 #include <archon/math/vector.hpp>
+#include <archon/math/matrix.hpp>
 #include <archon/math/rotation.hpp>
 #include <archon/display.hpp>
 #include <archon/display/x11_fullscreen_monitors.hpp>
@@ -61,7 +62,8 @@ public:
 
     bool try_prepare(std::string&) override final;
     void render_init() override final;
-    void render() override final;
+    void set_projection(const math::Matrix4F&) override final;
+    void render(const math::Matrix4F&) override final;
 
 private:
     render::Engine& m_engine;
@@ -125,7 +127,17 @@ void Scene::render_init()
 }
 
 
-void Scene::render()
+void Scene::set_projection(const math::Matrix4F& proj)
+{
+    glMatrixMode(GL_PROJECTION);
+    GLfloat value[16] = {};
+    transpose(proj).to_array(value);
+    glLoadMatrixf(value);
+    glMatrixMode(GL_MODELVIEW);
+}
+
+
+void Scene::render(const math::Matrix4F& view)
 {
     if (ARCHON_UNLIKELY(m_headlight_mode_1 != m_headlight_mode_2)) {
         if (m_headlight_mode_1) {
@@ -141,6 +153,12 @@ void Scene::render()
         // FIXME: Consider adding proper wireframe mode by using the barycentric coordinates scheme    
         glPolygonMode(GL_FRONT_AND_BACK, m_wireframe_mode_1 ? GL_LINE : GL_FILL);
         m_wireframe_mode_2 = m_wireframe_mode_1;
+    }
+
+    {
+        GLfloat value[16] = {};
+        transpose(view).to_array(value);
+        glLoadMatrixf(value);
     }
 
     float scale_factor = 0.5;
@@ -432,24 +450,27 @@ int main(int argc, char* argv[])
         screen = val;
     }
 
-    render::Engine engine;
-
-#if ARCHON_DISPLAY_HAVE_OPENGL
-    Scene scene(engine);
-#else
-    render::Engine::Scene scene;
-#endif
-
     engine_config.screen = screen;
     engine_config.logger = &logger;
     engine_config.require_depth_buffer = false;
     engine_config.allow_window_resize = true;
 
+#if ARCHON_DISPLAY_HAVE_OPENGL
+
+    render::Engine engine;
+    Scene scene(engine);
     if (ARCHON_UNLIKELY(!engine.try_create(scene, *conn, "Archon Box", window_size, locale, engine_config,
                                            error))) { // Throws
         logger.error("Failed to create render engine: %s", error); // Throws
         return EXIT_FAILURE;
     }
-
     engine.run(); // Throws
+
+#else // !ARCHON_DISPLAY_HAVE_OPENGL
+
+    static_cast<void>(engine_config);
+    logger.error("OpenGL rendering not available"); // Throws
+    return EXIT_FAILURE;
+
+#endif // !ARCHON_DISPLAY_HAVE_OPENGL
 }
