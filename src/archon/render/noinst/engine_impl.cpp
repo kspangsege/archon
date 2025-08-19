@@ -67,8 +67,6 @@ EngineImpl::EngineImpl(Scene& scene, display::Connection& conn, const std::local
     , m_conn(conn)
     , m_screen(config.screen >= 0 ? config.screen : conn.get_default_screen()) // Throws
     , m_logger(config.logger ? *config.logger : instantiate_fallback_logger(m_fallback_logger, locale)) // Throws
-    , m_headlight_feature_enabled(!config.disable_headlight_feature)
-    , m_wireframe_feature_enabled(!config.disable_wireframe_feature)
     , m_resolution_tracking_enabled(!config.disable_resolution_tracking)
     , m_frame_rate_tracking_enabled(!config.disable_frame_rate_tracking)
     , m_default_resolution(config.resolution)
@@ -105,8 +103,6 @@ bool EngineImpl::try_init(std::string_view window_title, display::Size window_si
     update_frame_rate(m_default_frame_rate); // Throws
     set_background_color(util::colors::black); // Throws
     reset_view(); // Throws
-    set_headlight_mode(config.headlight_mode); // Throws
-    set_wireframe_mode(config.wireframe_mode); // Throws
 
     render::KeyHandlerIdent handler;
     handler = register_builtin_key_handler(BuiltinKeyHandler::shift_modifier,
@@ -163,20 +159,6 @@ bool EngineImpl::try_init(std::string_view window_title, display::Size window_si
                                            &EngineImpl::key_func_reset_view); // Throws
     bind_key(display::Key::space, handler); // Throws
 
-    if (!config.disable_headlight_feature) {
-        handler = register_builtin_key_handler(BuiltinKeyHandler::toggle_headlight,
-                                               "Toggle headlight",
-                                               &EngineImpl::key_func_toggle_headlight); // Throws
-        bind_key(display::Key::small_l, handler); // Throws
-    }
-
-    if (!config.disable_wireframe_feature) {
-        handler = register_builtin_key_handler(BuiltinKeyHandler::toggle_wireframe,
-                                               "Toggle wireframe mode",
-                                               &EngineImpl::key_func_toggle_wireframe); // Throws
-        bind_key(display::Key::small_w, handler); // Throws
-    }
-
     display::Window::Config window_config;
     window_config.screen = m_screen;
     window_config.resizable = config.allow_window_resize;
@@ -203,14 +185,17 @@ bool EngineImpl::try_init(std::string_view window_title, display::Size window_si
     m_logger.detail("GLEW Version: %s", glewGetString(GLEW_VERSION)); // Throws
 #endif // ARCHON_DISPLAY_HAVE_OPENGL
 
-    if (ARCHON_UNLIKELY(!m_scene.try_prepare(error))) // Throws
-        return false;
-
     m_window = std::move(window);
     m_fullscreen_mode = config.fullscreen_mode;
     m_initialized = true;
 
     return true;
+}
+
+
+bool EngineImpl::try_post_init(std::string& error)
+{
+    return m_scene.try_prepare(error); // Throws
 }
 
 
@@ -221,13 +206,6 @@ void EngineImpl::run()
 
     fetch_screen_conf(); // Throws
     track_screen_conf(); // Throws
-
-    if (m_headlight_feature_enabled) {
-#if ARCHON_DISPLAY_HAVE_OPENGL
-        GLfloat params[4]  = { 0, 0, 0, 1 };
-        glLightfv(GL_LIGHT0, GL_POSITION, params);
-#endif // ARCHON_DISPLAY_HAVE_OPENGL
-    }
 
     m_scene.render_init(); // Throws
 
@@ -303,6 +281,12 @@ void EngineImpl::set_base_interest_size(double size)
 }
 
 
+void EngineImpl::need_redraw() noexcept
+{
+    m_need_redraw = true;
+}
+
+
 void EngineImpl::bind_key(render::KeyIdent key, render::KeyModifierMode modifier,
                           render::KeyPressMultiplicity multiplicity, render::KeyHandlerIdent handler)
 {
@@ -369,20 +353,6 @@ void EngineImpl::reset_view()
     set_spin(m_base_spin);  // Throws
     set_zoom_factor(m_base_zoom_factor); // Throws
     set_interest_size(m_base_interest_size); // Throws
-}
-
-
-void EngineImpl::set_headlight_mode(bool on)
-{
-    m_headlight_mode = on;
-    m_need_redraw = true;
-}
-
-
-void EngineImpl::set_wireframe_mode(bool on)
-{
-    m_wireframe_mode = on;
-    m_need_redraw = true;
 }
 
 
@@ -659,26 +629,6 @@ bool EngineImpl::key_func_reset_view(bool down)
 }
 
 
-bool EngineImpl::key_func_toggle_headlight(bool down)
-{
-    if (down) {
-        set_headlight_mode(!m_headlight_mode); // Throws
-        // set_on_off_status(L"HEADLIGHT", m_headlight_mode);                       
-    }
-    return true;
-}
-
-
-bool EngineImpl::key_func_toggle_wireframe(bool down)
-{
-    if (down) {
-        set_wireframe_mode(!m_wireframe_mode); // Throws
-        // set_on_off_status(L"WIREFRAME", m_wireframe_mode);                       
-    }
-    return true;
-}
-
-
 void EngineImpl::redraw()
 {
     if (ARCHON_UNLIKELY(m_need_misc_update)) {
@@ -745,27 +695,6 @@ void EngineImpl::tick(Clock::time_point time_of_tick)
 
 void EngineImpl::render_frame()
 {
-    // Handle headlight feature
-    if (ARCHON_UNLIKELY(m_headlight_feature_enabled && m_headlight_mode != m_headlight_mode_prev)) {
-#if ARCHON_DISPLAY_HAVE_OPENGL
-        if (m_headlight_mode) {
-            glEnable(GL_LIGHT0);
-        }
-        else {
-            glDisable(GL_LIGHT0);
-        }
-#endif // ARCHON_DISPLAY_HAVE_OPENGL
-        m_headlight_mode_prev = m_headlight_mode;
-    }
-
-    // Handle wireframe feature
-    if (ARCHON_UNLIKELY(m_wireframe_feature_enabled && m_wireframe_mode != m_wireframe_mode_prev)) {
-#if ARCHON_DISPLAY_HAVE_OPENGL
-        glPolygonMode(GL_FRONT_AND_BACK, m_wireframe_mode ? GL_LINE : GL_FILL);
-#endif // ARCHON_DISPLAY_HAVE_OPENGL
-        m_wireframe_mode_prev = m_wireframe_mode;
-    }
-
 #if ARCHON_DISPLAY_HAVE_OPENGL
     glMatrixMode(GL_MODELVIEW);
     glLoadIdentity();
