@@ -1,6 +1,6 @@
 // This file is part of the Archon project, a suite of C++ libraries.
 //
-// Copyright (C) 2020 Kristian Spangsege <kristian.spangsege@gmail.com>
+// Copyright (C) 2025 Kristian Spangsege <kristian.spangsege@gmail.com>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this
 // software and associated documentation files (the "Software"), to deal in the Software
@@ -19,29 +19,26 @@
 // DEALINGS IN THE SOFTWARE.
 
 
-// Do not include this header file. It exists only to specify the canonical header order,
-// which is a topological dependency ordering of all the header files of the Archon Core
-// Library, including any that must never be included by applications.
-#error "Do not include this header file"
+#include <archon/math/matrix.hpp>
+#include <archon/gfx/math.hpp>
 
 
-#include <archon/core/noinst/everything.hpp>
-#include <archon/log.hpp>
-#include <archon/log/noinst/everything.hpp>
-#include <archon/cli.hpp>
-#include <archon/cli/noinst/everything.hpp>
-#include <archon/check.hpp>
-#include <archon/check/noinst/everything.hpp>
-#include <archon/core/test/everything.hpp>
+using namespace archon;
 
-#include <archon/math/noinst/everything.hpp>
-#include <archon/util/noinst/everything.hpp>
-#include <archon/image.hpp>
-#include <archon/image/noinst/everything.hpp>
-#include <archon/font.hpp>
-#include <archon/font/noinst/everything.hpp>
-#include <archon/gfx/noinst/everything.hpp>
-#include <archon/display.hpp>
-#include <archon/display/noinst/everything.hpp>
-#include <archon/render.hpp>
-#include <archon/render/noinst/everything.hpp>
+
+auto gfx::make_perspective(double left, double right, double bottom, double top,
+                           double near_, double far_) noexcept -> math::Matrix4F
+{
+    double width  = right - left;
+    double height = top - bottom;
+    double depth  = far_ - near_;
+    math::Matrix4F mat;
+    mat[0][0] = 2 * near_         / width;
+    mat[0][2] = (right + left)    / width;
+    mat[1][1] = 2 * near_         / height;
+    mat[1][2] = (top + bottom)    / height;
+    mat[2][2] = -(far_ + near_)   / depth;
+    mat[2][3] = -2 * far_ * near_ / depth;
+    mat[3][2] = -1;
+    return mat;
+}

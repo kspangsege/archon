@@ -9,6 +9,7 @@ include(math_library.cmake)
 include(util_library.cmake)
 include(image_library.cmake)
 include(font_library.cmake)
+include(gfx_library.cmake)
 include(display_library.cmake)
 include(render_library.cmake)
 

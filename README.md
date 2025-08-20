@@ -12,6 +12,7 @@ The Archon project consists of a number of general purpose libraries:
   | Util    | Special purpose utilities
   | Image   | Load, save, and manipulate images
   | Font    | Font rendering
+  | GFX     | Graphics utilities
   | Display | OS GUI integration
   | Render  | Facilities for rendering of 3-D graphics
 
