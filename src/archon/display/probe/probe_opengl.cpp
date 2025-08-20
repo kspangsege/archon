@@ -121,7 +121,7 @@ bool link_shader(std::string_view label, std::initializer_list<GLuint> shaders, 
 }
 
 
-auto extend_matrix(const math::Matrix3F& mat) -> math::Matrix4F
+auto extend_matrix(const math::Matrix3F& mat) noexcept -> math::Matrix4F
 {
     math::Matrix4F mat_2 = math::Matrix4F::identity();
     mat_2.set_submatrix(0, 0, mat);
@@ -129,7 +129,7 @@ auto extend_matrix(const math::Matrix3F& mat) -> math::Matrix4F
 }
 
 
-auto make_perspective(double left, double right, double bottom, double top, double near_, double far_)
+auto make_perspective(double left, double right, double bottom, double top, double near_, double far_) noexcept
 {
     double width  = right - left;
     double height = top - bottom;
@@ -146,7 +146,7 @@ auto make_perspective(double left, double right, double bottom, double top, doub
 }
 
 
-auto make_translation(const math::Vector3F& vec) -> math::Matrix4F
+auto make_translation(const math::Vector3F& vec) noexcept -> math::Matrix4F
 {
     math::Matrix4F mat = math::Matrix4F::identity();
     mat.set_subcol(0, 3, vec);
@@ -154,20 +154,20 @@ auto make_translation(const math::Vector3F& vec) -> math::Matrix4F
 }
 
 
-auto make_rotation(const math::Vector3& axis, double angle) -> math::Matrix4F
+auto make_rotation(const math::Vector3& axis, double angle) noexcept -> math::Matrix4F
 {
     math::Quaternion quat = math::Quaternion::from_axis_angle(axis, angle);
     return extend_matrix(math::Matrix3F(quat.to_rotation_matrix()));
 }
 
 
-void translate(math::Matrix4F& mat, const math::Vector3F& vec)
+void translate(math::Matrix4F& mat, const math::Vector3F& vec) noexcept
 {
     mat *= make_translation(vec);
 }
 
 
-void rotate(math::Matrix4F& mat, const math::Vector3& axis, double angle)
+void rotate(math::Matrix4F& mat, const math::Vector3& axis, double angle) noexcept
 {
     mat *= make_rotation(axis, angle);
 }
