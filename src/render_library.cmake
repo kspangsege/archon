@@ -1,4 +1,5 @@
 add_library(Render
+  archon/render/math.cpp
   archon/render/virt_trackball.cpp
   archon/render/impl/key_bindings.cpp
   archon/render/engine.cpp
@@ -16,6 +17,7 @@ target_link_libraries(Render PUBLIC
 )
 
 target_sources(Render PUBLIC FILE_SET HEADERS FILES
+  archon/render/math.hpp
   archon/render/impl/finite_sequence_memory.hpp
   archon/render/impl/finite_curve_memory.hpp
   archon/render/virt_trackball.hpp
