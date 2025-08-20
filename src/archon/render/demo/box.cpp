@@ -44,6 +44,8 @@
 #include <archon/display/x11_fullscreen_monitors.hpp>
 #include <archon/display/x11_connection_config.hpp>
 #include <archon/display/opengl.hpp>
+#include <archon/render/opengl.hpp>
+#include <archon/render/object_builder.hpp>
 #include <archon/render/engine.hpp>
 
 
@@ -55,10 +57,75 @@ namespace {
 #if ARCHON_DISPLAY_HAVE_OPENGL
 
 
+const char* vertex_shader_source = R"(
+    #version 410 core
+    layout (location = 0) in vec3 aPos;
+    layout (location = 1) in vec3 aNormal;
+
+    out vec3 FragPos_viewSpace;
+    out vec3 Normal_viewSpace;
+
+    uniform mat4 modelView;
+    uniform mat4 proj;
+
+    void main()
+    {
+        FragPos_viewSpace = vec3(modelView * vec4(aPos, 1.0));
+        Normal_viewSpace = mat3(transpose(inverse(modelView))) * aNormal;
+
+        gl_Position = proj * modelView * vec4(aPos, 1.0);
+    }
+)";
+
+
+const char* fragment_shader_source = R"(
+    #version 410 core
+
+    in vec3 FragPos_viewSpace;
+    in vec3 Normal_viewSpace;
+
+    out vec4 FragColor;
+
+    uniform bool headlightOn = true;
+
+    void main()
+    {
+        vec3 objectColor = vec3(1.00000, 0.21404, 0.03310);
+
+        float specularStrength = 0.1;
+        float shininess = 32;
+        vec3 headlightColor = vec3(0.9, 0.9, 0.9);
+        vec3 ambientColor = vec3(0.02, 0.02, 0.02);
+
+        vec3 result = ambientColor * objectColor;
+
+        if (headlightOn) {
+            vec3 lightPos_viewSpace = vec3(0, 0, 0);
+
+            vec3 norm = normalize(Normal_viewSpace);
+            vec3 lightDir = normalize(lightPos_viewSpace - FragPos_viewSpace);
+            vec3 viewDir = normalize(lightPos_viewSpace - FragPos_viewSpace);
+
+            float diff = max(dot(norm, lightDir), 0);
+            vec3 diffuse = diff * headlightColor * objectColor;
+
+            vec3 halfwayDir = normalize(lightDir + viewDir);
+            float spec = pow(max(dot(norm, halfwayDir), 0), shininess);
+            vec3 specular = spec * specularStrength * headlightColor;
+
+            result += diffuse + specular;
+        }
+
+        FragColor = vec4(result, 1);
+    }
+)";
+
+
+
 class Scene final
     : public render::Engine::Scene {
 public:
-    Scene(render::Engine&) noexcept;
+    Scene(log::Logger&, render::Engine&) noexcept;
 
     bool try_prepare(std::string&) override final;
     void render_init() override final;
@@ -66,7 +133,16 @@ public:
     void render(const math::Matrix4F&) override final;
 
 private:
+    log::Logger& m_logger;
     render::Engine& m_engine;
+
+    GLuint m_shader_program = {};
+    render::object_builder::descriptor m_object_descriptor;
+    GLint m_model_view_loc = {};
+    GLint m_proj_loc = {};
+    GLint m_headlight_on_loc = {};
+    GLuint m_vbo = {}, m_ebo = {};
+
     bool m_headlight_mode_1 = true;
     bool m_headlight_mode_2 = false;
     bool m_wireframe_mode_1 = false;
@@ -74,13 +150,14 @@ private:
 };
 
 
-inline Scene::Scene(render::Engine& engine) noexcept
-    : m_engine(engine)
+inline Scene::Scene(log::Logger& logger, render::Engine& engine) noexcept
+    : m_logger(logger)
+    , m_engine(engine)
 {
 }
 
 
-bool Scene::try_prepare(std::string&)
+bool Scene::try_prepare(std::string& error)
 {
     m_engine.set_base_spin(math::Rotation({ 0, 1, 0 }, core::deg_to_rad(90))); // Throws
 
@@ -109,6 +186,99 @@ bool Scene::try_prepare(std::string&)
         }
     }); // Throws
 
+    GLuint vertex_shader = {};
+    if (ARCHON_UNLIKELY(!render::compile_shader(GL_VERTEX_SHADER, "vertex shader", vertex_shader_source,
+                                                m_logger, vertex_shader))) { // Throws
+        error = "Faield to compile vertex shader"; // Throws
+        return false;
+    }
+
+    GLuint fragment_shader = {};
+    if (ARCHON_UNLIKELY(!render::compile_shader(GL_FRAGMENT_SHADER, "fragment shader", fragment_shader_source,
+                                                m_logger, fragment_shader))) { // Throws
+        error = "Faield to compile fragment shader"; // Throws
+        return false;
+    }
+
+    if (ARCHON_UNLIKELY(!render::link_shader("shader program", { vertex_shader, fragment_shader },
+                                             m_logger, m_shader_program))) { // Throws
+        error = "Faield to link shader program"; // Throws
+        return false;
+    }
+
+    glDeleteShader(vertex_shader);
+    glDeleteShader(fragment_shader);
+
+    m_model_view_loc = glGetUniformLocation(m_shader_program, "modelView");
+    m_proj_loc = glGetUniformLocation(m_shader_program, "proj");
+    m_headlight_on_loc = glGetUniformLocation(m_shader_program, "headlightOn");
+    if (m_model_view_loc < 0 || m_proj_loc < 0 || m_headlight_on_loc < 0) {
+        error = "Failed to get uniform locations in shader program"; // Throws
+        return false;
+    }
+
+    float scale_factor = 0.5;
+    math::Vector3F a = scale_factor * math::Vector3F(-1, -1, -1);
+    math::Vector3F b = scale_factor * math::Vector3F(+1, +1, +1);
+
+    render::object_builder builder;
+    builder.begin(render::object_builder::primitive::quads); // Throws
+
+    // Left side of box
+    builder.normal({ -1, 0, 0 }); // Throws
+    builder.vertex({ a[0], a[1], a[2] }); // Throws
+    builder.vertex({ a[0], a[1], b[2] }); // Throws
+    builder.vertex({ a[0], b[1], b[2] }); // Throws
+    builder.vertex({ a[0], b[1], a[2] }); // Throws
+
+    // Right side of box
+    builder.normal({ +1, 0, 0 }); // Throws
+    builder.vertex({ b[0], a[1], a[2] }); // Throws
+    builder.vertex({ b[0], b[1], a[2] }); // Throws
+    builder.vertex({ b[0], b[1], b[2] }); // Throws
+    builder.vertex({ b[0], a[1], b[2] }); // Throws
+
+    // Bottom of box
+    builder.normal({ 0, -1, 0 }); // Throws
+    builder.vertex({ a[0], a[1], a[2] }); // Throws
+    builder.vertex({ b[0], a[1], a[2] }); // Throws
+    builder.vertex({ b[0], a[1], b[2] }); // Throws
+    builder.vertex({ a[0], a[1], b[2] }); // Throws
+
+    // Top of box
+    builder.normal({ 0, +1, 0 }); // Throws
+    builder.vertex({ a[0], b[1], a[2] }); // Throws
+    builder.vertex({ a[0], b[1], b[2] }); // Throws
+    builder.vertex({ b[0], b[1], b[2] }); // Throws
+    builder.vertex({ b[0], b[1], a[2] }); // Throws
+
+    // Back side of box
+    builder.normal({ 0, 0, -1 }); // Throws
+    builder.vertex({ a[0], a[1], a[2] }); // Throws
+    builder.vertex({ a[0], b[1], a[2] }); // Throws
+    builder.vertex({ b[0], b[1], a[2] }); // Throws
+    builder.vertex({ b[0], a[1], a[2] }); // Throws
+
+    // Front side of box
+    builder.normal({ 0, 0, +1 }); // Throws
+    builder.vertex({ a[0], a[1], b[2] }); // Throws
+    builder.vertex({ b[0], a[1], b[2] }); // Throws
+    builder.vertex({ b[0], b[1], b[2] }); // Throws
+    builder.vertex({ a[0], b[1], b[2] }); // Throws
+
+    builder.end();
+
+    glGenBuffers(1, &m_vbo);
+    glGenBuffers(1, &m_ebo);
+
+    glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ebo);
+
+    m_object_descriptor = builder.create(); // Throws
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
     return true;
 }
 
@@ -117,35 +287,37 @@ void Scene::render_init()
 {
     glEnable(GL_FRAMEBUFFER_SRGB);
     glEnable(GL_CULL_FACE);
-    glEnable(GL_LIGHTING);
 
-    glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL, GL_SEPARATE_SPECULAR_COLOR);
-    glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, 1);
+    glUseProgram(m_shader_program);
 
-    GLfloat params[4]  = { 0, 0, 0, 1 };
-    glLightfv(GL_LIGHT0, GL_POSITION, params);
+    GLuint vao = {};
+    glGenVertexArrays(1, &vao);
+    glBindVertexArray(vao);
+
+    glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ebo);
+
+    GLuint positions_index = 0;
+    GLuint normals_index = 1;
+    m_object_descriptor.configure(positions_index, normals_index); // Throws
+
+    glEnableVertexAttribArray(positions_index);
+    glEnableVertexAttribArray(normals_index);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
 
 void Scene::set_projection(const math::Matrix4F& proj)
 {
-    glMatrixMode(GL_PROJECTION);
-    GLfloat value[16] = {};
-    transpose(proj).to_array(value);
-    glLoadMatrixf(value);
-    glMatrixMode(GL_MODELVIEW);
+    render::set_uniform_matrix(m_proj_loc, proj); // Throws
 }
 
 
 void Scene::render(const math::Matrix4F& view)
 {
     if (ARCHON_UNLIKELY(m_headlight_mode_1 != m_headlight_mode_2)) {
-        if (m_headlight_mode_1) {
-            glEnable(GL_LIGHT0);
-        }
-        else {
-            glDisable(GL_LIGHT0);
-        }
+        render::set_uniform_bool(m_headlight_on_loc, m_headlight_mode_1); // Throws
         m_headlight_mode_2 = m_headlight_mode_1;
     }
 
@@ -155,61 +327,10 @@ void Scene::render(const math::Matrix4F& view)
         m_wireframe_mode_2 = m_wireframe_mode_1;
     }
 
-    {
-        GLfloat value[16] = {};
-        transpose(view).to_array(value);
-        glLoadMatrixf(value);
-    }
+    math::Matrix4F model_view = view;
+    render::set_uniform_matrix(m_model_view_loc, model_view); // Throws
 
-    float scale_factor = 0.5;
-    math::Vector3F a = scale_factor * math::Vector3F(-1, -1, -1);
-    math::Vector3F b = scale_factor * math::Vector3F(+1, +1, +1);
-
-    glBegin(GL_QUADS);
-
-    // Left side of box
-    glNormal3f(-1, 0, 0);
-    glVertex3f(a[0], a[1], a[2]);
-    glVertex3f(a[0], a[1], b[2]);
-    glVertex3f(a[0], b[1], b[2]);
-    glVertex3f(a[0], b[1], a[2]);
-
-    // Right side of box
-    glNormal3f(+1, 0, 0);
-    glVertex3f(b[0], a[1], a[2]);
-    glVertex3f(b[0], b[1], a[2]);
-    glVertex3f(b[0], b[1], b[2]);
-    glVertex3f(b[0], a[1], b[2]);
-
-    // Bottom of box
-    glNormal3f(0, -1, 0);
-    glVertex3f(a[0], a[1], a[2]);
-    glVertex3f(b[0], a[1], a[2]);
-    glVertex3f(b[0], a[1], b[2]);
-    glVertex3f(a[0], a[1], b[2]);
-
-    // Top of box
-    glNormal3f(0, +1, 0);
-    glVertex3f(a[0], b[1], a[2]);
-    glVertex3f(a[0], b[1], b[2]);
-    glVertex3f(b[0], b[1], b[2]);
-    glVertex3f(b[0], b[1], a[2]);
-
-    // Back side of box
-    glNormal3f(0, 0, -1);
-    glVertex3f(a[0], a[1], a[2]);
-    glVertex3f(a[0], b[1], a[2]);
-    glVertex3f(b[0], b[1], a[2]);
-    glVertex3f(b[0], a[1], a[2]);
-
-    // Front side of box
-    glNormal3f(0, 0, +1);
-    glVertex3f(a[0], a[1], b[2]);
-    glVertex3f(b[0], a[1], b[2]);
-    glVertex3f(b[0], b[1], b[2]);
-    glVertex3f(a[0], b[1], b[2]);
-
-    glEnd();
+    m_object_descriptor.draw(); // Throws
 }
 
 
@@ -458,7 +579,7 @@ int main(int argc, char* argv[])
 #if ARCHON_DISPLAY_HAVE_OPENGL
 
     render::Engine engine;
-    Scene scene(engine);
+    Scene scene(logger, engine);
     if (ARCHON_UNLIKELY(!engine.try_create(scene, *conn, "Archon Box", window_size, locale, engine_config,
                                            error))) { // Throws
         logger.error("Failed to create render engine: %s", error); // Throws
