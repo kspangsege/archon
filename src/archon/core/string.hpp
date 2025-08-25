@@ -83,23 +83,41 @@ template<class C, class T> void rebase_string(std::basic_string_view<C, T>& str,
 ///
 /// \brief Remove trailing sequences of newline or other delimiter.
 ///
-/// These functions remove trailing sequences of the specified delimiter \p delim.
+/// These functions remove trailing sequences of the specified delimiter (\p delim) from the
+/// specified string (\p str) and return the result.
 ///
-/// The overload that takes a locale argument, will widen the specified delimiter as
-/// necessary. The overload that does not take a locale argument assumes that the specified
-/// delimiter has already been widened by the caller.
+/// The overload, that takes a locale argument, first widens the specified delimiter as if
+/// by \ref core::BasicCharMapper::widen() and then calls \ref core::chomp_a(). The
+/// overload, that does not take a locale argument, skips the widening operation. It can do
+/// that because it only accepts non-wide character strings tied to the default character
+/// traits, and for such strings, the widening operation is guaranteed to be a trivial
+/// pass-through operation.
 ///
-/// For the sake of efficiency, when performing many chomp operations, the caller should use
-/// the overload that takes a pre-widened delimiter and only widen the delimiter once up
-/// front.
-///
+/// \sa \ref core::chomp_a()
 /// \sa \ref core::trim()
 ///
+auto chomp(std::string_view str, char delim = '\n') noexcept -> std::string_view;
 template<class C, class T> auto chomp(std::basic_string_view<C, T> str, const std::locale&, char delim = '\n') ->
     std::basic_string_view<C, T>;
-template<class C, class T> auto chomp(std::basic_string_view<C, T> str, C delim) noexcept ->
-    std::basic_string_view<C, T>;
 /// \}
+
+
+
+/// \brief Remove trailing sequences of delimiter.
+///
+/// This function removes trailing sequences of the specified delimiter (\p delim) from the
+/// specified string (\p str) and returns the result.
+///
+/// The specified delimiter must have been widened as if by \ref
+/// core::BasicCharMapper::widen(). For a more convenient alternative, see \ref
+/// core::chomp().
+///
+/// \sa \ref core::chomp()
+/// \sa \ref core::trim_a()
+/// \sa \ref core::BasicCharMapper
+///
+template<class C, class T> auto chomp_a(std::basic_string_view<C, T> str, C delim) noexcept ->
+    std::basic_string_view<C, T>;
 
 
 
@@ -107,24 +125,40 @@ template<class C, class T> auto chomp(std::basic_string_view<C, T> str, C delim)
 ///
 /// \brief Remove leading and trailing sequences of space or other delimiter.
 ///
-/// These functions remove leading and trailing sequences of the specified delimiter \p
-/// delim.
+/// These functions remove leading and trailing sequences of the specified delimiter (\p
+/// delim) from the specified string (\p str) and return the result.
 ///
-/// The overload that takes a locale argument, will widen the specified delimiter as
-/// necessary. The overload that does not take a locale argument assumes that the specified
-/// delimiter has already been widened by the caller.
+/// The overload, that takes a locale argument, first widens the specified delimiter as if
+/// by \ref core::BasicCharMapper::widen() and then calls \ref core::trim_a(). The overload,
+/// that does not take a locale argument, skips the widening operation. It can do that
+/// because it only accepts non-wide character strings tied to the default character traits,
+/// and for such strings, the widening operation is guaranteed to be a trivial pass-through
+/// operation.
 ///
-/// For the sake of efficiency, when performing many trim operations, the caller should use
-/// the overload that takes a pre-widened delimiter and only widen the delimiter once up
-/// front.
-///
+/// \sa \ref core::trim_a()
 /// \sa \ref core::chomp()
 ///
+auto trim(std::string_view str, char delim = '\n') noexcept -> std::string_view;
 template<class C, class T> auto trim(std::basic_string_view<C, T> str, const std::locale&, char delim = ' ') ->
     std::basic_string_view<C, T>;
-template<class C, class T> auto trim(std::basic_string_view<C, T> str, C delim) noexcept ->
-    std::basic_string_view<C, T>;
 /// \}
+
+
+
+/// \brief Remove leading and trailing sequences of delimiter.
+///
+/// This function removes leading and trailing sequences of the specified delimiter (\p
+/// delim) from the specified string (\p str) and returns the result.
+///
+/// The specified delimiter must have been widened as if by \ref
+/// core::BasicCharMapper::widen(). For a more convenient alternative, see \ref core::trim().
+///
+/// \sa \ref core::trim()
+/// \sa \ref core::chomp_a()
+/// \sa \ref core::BasicCharMapper
+///
+template<class C, class T> auto trim_a(std::basic_string_view<C, T> str, C delim) noexcept ->
+    std::basic_string_view<C, T>;
 
 
 
@@ -276,15 +310,21 @@ template<class C, class T> inline void rebase_string(std::basic_string_view<C, T
 }
 
 
+inline auto chomp(std::string_view str, char delim) noexcept -> std::string_view
+{
+    return core::chomp_a(str, delim);
+}
+
+
 template<class C, class T>
 inline auto chomp(std::basic_string_view<C, T> str, const std::locale& loc, char delim) -> std::basic_string_view<C, T>
 {
     core::BasicCharMapper<C, T> mapper(loc); // Throws
-    return core::chomp(str, mapper.widen(delim)); // Throws
+    return core::chomp_a(str, mapper.widen(delim)); // Throws
 }
 
 
-template<class C, class T> auto chomp(std::basic_string_view<C, T> str, C delim) noexcept ->
+template<class C, class T> auto chomp_a(std::basic_string_view<C, T> str, C delim) noexcept ->
     std::basic_string_view<C, T>
 {
     const C* begin = str.data();
@@ -295,15 +335,21 @@ template<class C, class T> auto chomp(std::basic_string_view<C, T> str, C delim)
 }
 
 
+inline auto trim(std::string_view str, char delim) noexcept -> std::string_view
+{
+    return core::trim_a(str, delim);
+}
+
+
 template<class C, class T>
 inline auto trim(std::basic_string_view<C, T> str, const std::locale& loc, char delim) -> std::basic_string_view<C, T>
 {
     core::BasicCharMapper<C, T> mapper(loc); // Throws
-    return core::trim(str, mapper.widen(delim)); // Throws
+    return core::trim_a(str, mapper.widen(delim)); // Throws
 }
 
 
-template<class C, class T> auto trim(std::basic_string_view<C, T> str, C delim) noexcept ->
+template<class C, class T> auto trim_a(std::basic_string_view<C, T> str, C delim) noexcept ->
     std::basic_string_view<C, T>
 {
     const C* begin = str.data();
