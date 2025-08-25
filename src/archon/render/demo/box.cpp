@@ -38,10 +38,12 @@
 #include <archon/log.hpp>
 #include <archon/cli.hpp>
 #include <archon/math/vector.hpp>
+#include <archon/math/matrix.hpp>
 #include <archon/math/rotation.hpp>
 #include <archon/display.hpp>
 #include <archon/display/x11_fullscreen_monitors.hpp>
 #include <archon/display/x11_connection_config.hpp>
+#include <archon/display/opengl.hpp>
 #include <archon/render/opengl.hpp>
 #include <archon/render/engine.hpp>
 
@@ -51,86 +53,439 @@ using namespace archon;
 
 namespace {
 
-#if ARCHON_RENDER_HAVE_OPENGL
+#if ARCHON_DISPLAY_HAVE_OPENGL
+
+
+class object_builder {
+public:
+    enum class primitive {
+        quads,
+    };
+
+    void begin(primitive);
+    void end();
+
+    void normal(const math::Vector3F&);
+
+    void vertex(const math::Vector3F&);
+
+    struct descriptor;
+
+    auto create() -> descriptor;
+
+private:
+    using promoted_vertex_index_type = decltype(GLuint() + unsigned());
+
+    math::Vector3F m_normal = { 0, 0, 1 };
+    std::vector<GLfloat> m_components;
+    std::vector<GLuint> m_indices;
+
+    std::optional<primitive> m_primitive;
+    promoted_vertex_index_type m_num_vertices = 0;
+    promoted_vertex_index_type m_vertex_offset = 0;
+
+    template<class V> void push_components(const V& vec);
+    void generate_quads();
+};
+
+
+class object_builder::descriptor {
+public:
+    descriptor() noexcept = default;
+    void configure(GLuint positions_index, GLuint normals_index);
+    void draw();
+
+
+private:
+    GLsizei m_num_indices = 0;
+
+    descriptor(GLsizei num_indices) noexcept;
+
+    friend class object_builder;
+};
+
+
+void object_builder::begin(primitive prim)
+{
+    ARCHON_ASSERT(!m_primitive.has_value());
+    m_primitive = prim;
+    m_vertex_offset = m_num_vertices;
+}
+
+
+void object_builder::end()
+{
+    primitive prim = m_primitive.value(); // Throws
+    switch (prim) { // Throws
+        case primitive::quads:
+            generate_quads(); // Throws
+            break;
+    }
+    m_primitive.reset();
+}
+
+
+void object_builder::normal(const math::Vector3F& normal)
+{
+    m_normal = normal;
+}
+
+
+void object_builder::vertex(const math::Vector3F& vertex)
+{
+    push_components(vertex); // Throws
+    push_components(m_normal); // Throws
+    core::int_add(m_num_vertices, 1); // Throws
+}
+
+
+auto object_builder::create() -> descriptor
+{
+    GLsizei num_indices = {};
+    core::int_cast(m_indices.size(), num_indices); // Throws
+
+    GLsizeiptr size = {};
+    core::int_cast(m_components.size(), size); // Throws
+    core::int_mul(size, sizeof (GLfloat)); // Throws
+    glBufferData(GL_ARRAY_BUFFER, size, m_components.data(), GL_STATIC_DRAW);
+    core::int_cast(num_indices, size); // Throws
+    core::int_mul(size, sizeof (GLuint)); // Throws
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, size, m_indices.data(), GL_STATIC_DRAW);
+
+    return descriptor(num_indices);
+}
+
+
+template<class V> inline void object_builder::push_components(const V& vec)
+{
+    constexpr int n = V::size;
+    for (int i = 0; i < n; ++i)
+        m_components.push_back(vec[i]); // Throws
+}
+
+
+void object_builder::generate_quads()
+{
+    promoted_vertex_index_type offset = m_vertex_offset;
+    promoted_vertex_index_type n =  promoted_vertex_index_type((m_num_vertices - offset) / 4);
+    for (promoted_vertex_index_type i = 0; i < n; ++i) {
+        for (int j : { 0, 1, 2, 2, 3, 0 })
+            m_indices.push_back(GLuint(offset + j)); // Throws
+        offset += 4;
+    }
+    ARCHON_ASSERT(offset == m_num_vertices);
+}
+
+
+void object_builder::descriptor::configure(GLuint positions_index, GLuint normals_index)
+{
+    {
+        GLint size = 3;
+        GLenum type = GL_FLOAT;
+        GLboolean normalized = GL_FALSE;
+        GLsizei stride = 6 * sizeof (GLfloat);
+        GLsizei offset = 0;
+        glVertexAttribPointer(positions_index, size, type, normalized, stride, reinterpret_cast<void*>(offset));
+    }
+
+    {
+        GLint size = 3;
+        GLenum type = GL_FLOAT;
+        GLboolean normalized = GL_FALSE;
+        GLsizei stride = 6 * sizeof (GLfloat);
+        GLsizei offset = 3 * sizeof (GLfloat);
+        glVertexAttribPointer(normals_index, size, type, normalized, stride, reinterpret_cast<void*>(offset));
+    }
+}
+
+
+void object_builder::descriptor::draw()
+{
+    GLsizei count = m_num_indices;
+    GLenum type = GL_UNSIGNED_INT;
+    GLsizei offset = 0;
+    glDrawElements(GL_TRIANGLES, count, type, reinterpret_cast<void*>(offset));
+}
+
+
+inline object_builder::descriptor::descriptor(GLsizei num_indices) noexcept
+    : m_num_indices(num_indices)
+{
+}
+
+
+
+const char* vertex_shader_source = R"(
+    #version 410 core
+    layout (location = 0) in vec3 aPos;
+    layout (location = 1) in vec3 aNormal;
+
+    out vec3 FragPos_viewSpace;
+    out vec3 Normal_viewSpace;
+
+    uniform mat4 modelView;
+    uniform mat4 proj;
+
+    void main()
+    {
+        FragPos_viewSpace = vec3(modelView * vec4(aPos, 1.0));
+        Normal_viewSpace = mat3(transpose(inverse(modelView))) * aNormal;
+
+        gl_Position = proj * modelView * vec4(aPos, 1.0);
+    }
+)";
+
+
+const char* fragment_shader_source = R"(
+    #version 410 core
+
+    in vec3 FragPos_viewSpace;
+    in vec3 Normal_viewSpace;
+
+    out vec4 FragColor;
+
+    uniform bool headlightOn = true;
+
+    void main()
+    {
+        vec3 objectColor = vec3(1.00000, 0.21404, 0.03310);
+
+        float specularStrength = 0.1;
+        float shininess = 32;
+        vec3 headlightColor = vec3(0.9, 0.9, 0.9);
+        vec3 ambientColor = vec3(0.02, 0.02, 0.02);
+
+        vec3 result = ambientColor * objectColor;
+
+        if (headlightOn) {
+            vec3 lightPos_viewSpace = vec3(0, 0, 0);
+
+            vec3 norm = normalize(Normal_viewSpace);
+            vec3 lightDir = normalize(lightPos_viewSpace - FragPos_viewSpace);
+            vec3 viewDir = normalize(lightPos_viewSpace - FragPos_viewSpace);
+
+            float diff = max(dot(norm, lightDir), 0);
+            vec3 diffuse = diff * headlightColor * objectColor;
+
+            vec3 halfwayDir = normalize(lightDir + viewDir);
+            float spec = pow(max(dot(norm, halfwayDir), 0), shininess);
+            vec3 specular = spec * specularStrength * headlightColor;
+
+            result += diffuse + specular;
+        }
+
+        FragColor = vec4(result, 1);
+    }
+)";
+
 
 
 class Scene final
     : public render::Engine::Scene {
 public:
+    Scene(log::Logger&, render::Engine&) noexcept;
+
+    bool try_prepare(std::string&) override final;
     void render_init() override final;
-    void render() override final;
+    void set_projection(const math::Matrix4F&) override final;
+    void render(const math::Matrix4F&) override final;
+
+private:
+    log::Logger& m_logger;
+    render::Engine& m_engine;
+
+    GLuint m_shader_program = {};
+    object_builder::descriptor m_object_descriptor;
+    GLint m_model_view_loc = {};
+    GLint m_proj_loc = {};
+    GLint m_headlight_on_loc = {};
+    GLuint m_vbo = {}, m_ebo = {};
+
+    bool m_headlight_mode_1 = true;
+    bool m_headlight_mode_2 = false;
+    bool m_wireframe_mode_1 = false;
+    bool m_wireframe_mode_2 = false;
 };
 
 
-void Scene::render_init()
+inline Scene::Scene(log::Logger& logger, render::Engine& engine) noexcept
+    : m_logger(logger)
+    , m_engine(engine)
 {
-    glEnable(GL_CULL_FACE);
-    glEnable(GL_LIGHTING);
-
-#ifdef GL_LIGHT_MODEL_COLOR_CONTROL
-    glLightModeli(GL_LIGHT_MODEL_COLOR_CONTROL, GL_SEPARATE_SPECULAR_COLOR);
-#endif
-#ifdef GL_LIGHT_MODEL_LOCAL_VIEWER
-    glLightModeli(GL_LIGHT_MODEL_LOCAL_VIEWER, 1);
-#endif
 }
 
 
-void Scene::render()
+bool Scene::try_prepare(std::string& error)
 {
+    m_engine.set_base_spin(math::Rotation({ 0, 1, 0 }, core::deg_to_rad(90))); // Throws
+
+    m_engine.bind_key(display::Key::small_s, "Spin", [&](bool down) {
+        if (down) {
+            m_engine.set_spin(math::Rotation({ 0, 1, 0 }, core::deg_to_rad(90))); // Throws
+        }
+        else {
+            m_engine.set_spin(math::Rotation({ 0, 1, 0 }, core::deg_to_rad(0))); // Throws
+        }
+    }); // Throws
+
+    m_engine.bind_key(display::Key::small_l, "Toggle headlight", [&](bool down) {
+        if (down) {
+            m_headlight_mode_1 = !m_headlight_mode_1;
+            // m_engine.set_on_off_status(L"HEADLIGHT", m_headlight_mode_1);                       
+        }
+    }); // Throws
+
+    m_engine.bind_key(display::Key::small_w, "Toggle wireframe mode", [&](bool down) {
+        if (down) {
+            m_wireframe_mode_1 = !m_wireframe_mode_1;
+            // m_engine.set_on_off_status(L"WIREFRAME", m_wireframe_mode_1);                       
+        }
+    }); // Throws
+
+    GLuint vertex_shader = {};
+    if (ARCHON_UNLIKELY(!render::compile_shader(GL_VERTEX_SHADER, "vertex shader", vertex_shader_source,
+                                                m_logger, vertex_shader))) { // Throws
+        error = "Faield to compile vertex shader"; // Throws
+        return false;
+    }
+
+    GLuint fragment_shader = {};
+    if (ARCHON_UNLIKELY(!render::compile_shader(GL_FRAGMENT_SHADER, "fragment shader", fragment_shader_source,
+                                                m_logger, fragment_shader))) { // Throws
+        error = "Faield to compile fragment shader"; // Throws
+        return false;
+    }
+
+    if (ARCHON_UNLIKELY(!render::link_shader("shader program", { vertex_shader, fragment_shader },
+                                             m_logger, m_shader_program))) { // Throws
+        error = "Faield to link shader program"; // Throws
+        return false;
+    }
+
+    glDeleteShader(vertex_shader);
+    glDeleteShader(fragment_shader);
+
+    m_model_view_loc = glGetUniformLocation(m_shader_program, "modelView");
+    m_proj_loc = glGetUniformLocation(m_shader_program, "proj");
+    m_headlight_on_loc = glGetUniformLocation(m_shader_program, "headlightOn");
+    if (m_model_view_loc < 0 || m_proj_loc < 0 || m_headlight_on_loc < 0) {
+        error = "Failed to get uniform locations in shader program"; // Throws
+        return false;
+    }
+
     float scale_factor = 0.5;
     math::Vector3F a = scale_factor * math::Vector3F(-1, -1, -1);
     math::Vector3F b = scale_factor * math::Vector3F(+1, +1, +1);
 
-    glBegin(GL_QUADS);
+    object_builder builder;
+    builder.begin(object_builder::primitive::quads); // Throws
 
     // Left side of box
-    glNormal3f(-1, 0, 0);
-    glVertex3f(a[0], a[1], a[2]);
-    glVertex3f(a[0], a[1], b[2]);
-    glVertex3f(a[0], b[1], b[2]);
-    glVertex3f(a[0], b[1], a[2]);
+    builder.normal({ -1, 0, 0 }); // Throws
+    builder.vertex({ a[0], a[1], a[2] }); // Throws
+    builder.vertex({ a[0], a[1], b[2] }); // Throws
+    builder.vertex({ a[0], b[1], b[2] }); // Throws
+    builder.vertex({ a[0], b[1], a[2] }); // Throws
 
     // Right side of box
-    glNormal3f(+1, 0, 0);
-    glVertex3f(b[0], a[1], a[2]);
-    glVertex3f(b[0], b[1], a[2]);
-    glVertex3f(b[0], b[1], b[2]);
-    glVertex3f(b[0], a[1], b[2]);
+    builder.normal({ +1, 0, 0 }); // Throws
+    builder.vertex({ b[0], a[1], a[2] }); // Throws
+    builder.vertex({ b[0], b[1], a[2] }); // Throws
+    builder.vertex({ b[0], b[1], b[2] }); // Throws
+    builder.vertex({ b[0], a[1], b[2] }); // Throws
 
     // Bottom of box
-    glNormal3f(0, -1, 0);
-    glVertex3f(a[0], a[1], a[2]);
-    glVertex3f(b[0], a[1], a[2]);
-    glVertex3f(b[0], a[1], b[2]);
-    glVertex3f(a[0], a[1], b[2]);
+    builder.normal({ 0, -1, 0 }); // Throws
+    builder.vertex({ a[0], a[1], a[2] }); // Throws
+    builder.vertex({ b[0], a[1], a[2] }); // Throws
+    builder.vertex({ b[0], a[1], b[2] }); // Throws
+    builder.vertex({ a[0], a[1], b[2] }); // Throws
 
     // Top of box
-    glNormal3f(0, +1, 0);
-    glVertex3f(a[0], b[1], a[2]);
-    glVertex3f(a[0], b[1], b[2]);
-    glVertex3f(b[0], b[1], b[2]);
-    glVertex3f(b[0], b[1], a[2]);
+    builder.normal({ 0, +1, 0 }); // Throws
+    builder.vertex({ a[0], b[1], a[2] }); // Throws
+    builder.vertex({ a[0], b[1], b[2] }); // Throws
+    builder.vertex({ b[0], b[1], b[2] }); // Throws
+    builder.vertex({ b[0], b[1], a[2] }); // Throws
 
     // Back side of box
-    glNormal3f(0, 0, -1);
-    glVertex3f(a[0], a[1], a[2]);
-    glVertex3f(a[0], b[1], a[2]);
-    glVertex3f(b[0], b[1], a[2]);
-    glVertex3f(b[0], a[1], a[2]);
+    builder.normal({ 0, 0, -1 }); // Throws
+    builder.vertex({ a[0], a[1], a[2] }); // Throws
+    builder.vertex({ a[0], b[1], a[2] }); // Throws
+    builder.vertex({ b[0], b[1], a[2] }); // Throws
+    builder.vertex({ b[0], a[1], a[2] }); // Throws
 
     // Front side of box
-    glNormal3f(0, 0, +1);
-    glVertex3f(a[0], a[1], b[2]);
-    glVertex3f(b[0], a[1], b[2]);
-    glVertex3f(b[0], b[1], b[2]);
-    glVertex3f(a[0], b[1], b[2]);
+    builder.normal({ 0, 0, +1 }); // Throws
+    builder.vertex({ a[0], a[1], b[2] }); // Throws
+    builder.vertex({ b[0], a[1], b[2] }); // Throws
+    builder.vertex({ b[0], b[1], b[2] }); // Throws
+    builder.vertex({ a[0], b[1], b[2] }); // Throws
 
-    glEnd();
+    builder.end();
+
+    glGenBuffers(1, &m_vbo);
+    glGenBuffers(1, &m_ebo);
+
+    glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ebo);
+
+    m_object_descriptor = builder.create(); // Throws
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
+    return true;
 }
 
 
-#endif // ARCHON_RENDER_HAVE_OPENGL
+void Scene::render_init()
+{
+    glEnable(GL_FRAMEBUFFER_SRGB);
+    glEnable(GL_CULL_FACE);
+
+    glUseProgram(m_shader_program);
+
+    glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ebo);
+
+    GLuint positions_index = 0;
+    GLuint normals_index = 1;
+    m_object_descriptor.configure(positions_index, normals_index); // Throws
+
+    glEnableVertexAttribArray(positions_index);
+    glEnableVertexAttribArray(normals_index);
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+}
+
+
+void Scene::set_projection(const math::Matrix4F& proj)
+{
+    render::set_uniform_matrix(m_proj_loc, proj); // Throws
+}
+
+
+void Scene::render(const math::Matrix4F& view)
+{
+    if (ARCHON_UNLIKELY(m_headlight_mode_1 != m_headlight_mode_2)) {
+        render::set_uniform_bool(m_headlight_on_loc, m_headlight_mode_1); // Throws
+        m_headlight_mode_2 = m_headlight_mode_1;
+    }
+
+    if (ARCHON_UNLIKELY(m_wireframe_mode_1 != m_wireframe_mode_2)) {
+        glPolygonMode(GL_FRONT_AND_BACK, m_wireframe_mode_1 ? GL_LINE : GL_FILL);
+        m_wireframe_mode_2 = m_wireframe_mode_1;
+    }
+
+    math::Matrix4F model_view = view;
+    render::set_uniform_matrix(m_model_view_loc, model_view); // Throws
+
+    m_object_descriptor.draw(); // Throws
+}
+
+
+#endif // ARCHON_DISPLAY_HAVE_OPENGL
 
 } // unnamed namespace
 
@@ -367,35 +722,25 @@ int main(int argc, char* argv[])
         screen = val;
     }
 
-    render::Engine engine;
-
-#if ARCHON_RENDER_HAVE_OPENGL
-    Scene scene;
-#else
-    render::Engine::Scene scene;
-#endif
-
     engine_config.screen = screen;
     engine_config.logger = &logger;
     engine_config.require_depth_buffer = false;
     engine_config.allow_window_resize = true;
 
+#if ARCHON_DISPLAY_HAVE_OPENGL
+
+    render::Engine engine;
+    Scene scene(logger, engine);
     if (ARCHON_UNLIKELY(!engine.try_create(scene, *conn, "Archon Box", window_size, locale, engine_config,
                                            error))) { // Throws
         logger.error("Failed to create render engine: %s", error); // Throws
         return EXIT_FAILURE;
     }
-
-    engine.set_base_spin(math::Rotation({ 0, 1, 0 }, core::deg_to_rad(90))); // Throws
-
-    engine.bind_key(display::Key::small_s, "Spin", [&](bool down) {
-        if (down) {
-            engine.set_spin(math::Rotation({ 0, 1, 0 }, core::deg_to_rad(90))); // Throws
-        }
-        else {
-            engine.set_spin(math::Rotation({ 0, 1, 0 }, core::deg_to_rad(0))); // Throws
-        }
-    }); // Throws
-
     engine.run(); // Throws
+
+#else // !ARCHON_DISPLAY_HAVE_OPENGL
+
+    static_cast<void>(engine_config);
+
+#endif // !ARCHON_DISPLAY_HAVE_OPENGL
 }

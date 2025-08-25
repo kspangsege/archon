@@ -56,11 +56,16 @@ template<class C, class T> class CharMapperBase;
 
 /// \brief Locale dependent character mapping.
 ///
-/// This class provides services based on those provided by `std::ctype<C>`. In general, an
-/// instance of this class encapsulates a locale, and its associated `std::ctype<C>`
-/// facet. However, in the interest of efficiency, on some platforms, and with some
-/// character types, it may store less, because less is needed. For instance, if `C` is
-/// `char`, it may not store anything at all (it may be an empty class).
+/// This class provides various character widening and narrowing operations. It makes the
+/// assumption that when the specified wide character type (\p C) is `char` and the
+/// accompanying character traits type (\p T) is `std::char_traits<char>`, then the widening
+/// and narrowing operations are trivial pass-through operations. In all other cases, this
+/// class delegates its operations to the `std::ctype<C>` facet that is directly or
+/// indirectly passed the character mapper constructor.
+///
+/// In general, an instance of this class encapsulates a locale, and its associated
+/// `std::ctype<C>` facet. However, when the widening and narrowing operations operations
+/// are trivial (\ref is_trivial), this class reduces to an empty class.
 ///
 template<class C, class T = std::char_traits<C>> class BasicCharMapper
     : private impl::CharMapperBase<C, T> {
@@ -107,8 +112,9 @@ public:
     /// \brief True iff mappings are trivial.
     ///
     /// This variable is `true` if, and only if character mapping is trivial for the
-    /// specified character type `C`. Trivial character mapping means that both the widening
-    /// and the narrowing operations are identity transformations.
+    /// specified character type \p C and traits type \p T, which it is precisely when \p C
+    /// is `char` and \p T is `std::char_traits<char>`. Trivial character mapping means that
+    /// both the widening and the narrowing operations are identity transformations.
     ///
     static constexpr bool is_trivial = impl::CharMapperBase<C, T>::is_trivial;
 

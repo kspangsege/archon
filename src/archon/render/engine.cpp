@@ -76,7 +76,8 @@ bool Engine::try_create(Scene& scene, display::Connection& conn, std::string_vie
     auto impl = std::make_unique<Impl>(scene, conn, locale, config); // Throws
     if (ARCHON_LIKELY(impl->try_init(window_title, window_size, config, error))) { // Throws
         m_impl = std::move(impl);
-        return true;
+        if (ARCHON_LIKELY(m_impl->try_post_init(error))) // Throws
+            return true;
     }
     return false;
 }
@@ -197,18 +198,6 @@ void Engine::reset_view()
 }
 
 
-void Engine::set_headlight_mode(bool on)
-{
-    m_impl->set_headlight_mode(on); // Throws
-}
-
-
-void Engine::set_wireframe_mode(bool on)
-{
-    m_impl->set_wireframe_mode(on); // Throws
-}
-
-
 Engine::~Engine() noexcept
 {
 }
@@ -227,11 +216,6 @@ bool Engine::Scene::try_prepare(std::string&)
 
 
 void Engine::Scene::render_init()
-{
-}
-
-
-void Engine::Scene::render()
 {
 }
 

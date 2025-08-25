@@ -54,3 +54,4 @@
 #include <archon/display/noinst/palette_map.hpp>
 #include <archon/display/noinst/impl_util.hpp>
 #include <archon/display/noinst/x11/support.hpp>
+#include <archon/display/opengl.hpp>

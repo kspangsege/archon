@@ -166,7 +166,7 @@ bool load_spec(core::FilesystemPathRef resource_dir, log::Logger& logger, const 
     while (ARCHON_LIKELY(file.read_line(buffer, line))) { // Throws
         ++line_num;
         line = line.substr(0, line.find(hash));
-        line_2 = core::trim(line, delim);
+        line_2 = core::trim_a(line, delim);
         if (line_2.empty())
             continue;
         if (ARCHON_LIKELY(have_font_metrics))
