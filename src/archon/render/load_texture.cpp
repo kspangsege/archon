@@ -19,7 +19,7 @@
 // DEALINGS IN THE SOFTWARE.
 
 
-       
+           
 #include <memory>
 #include <stdexcept>
 
@@ -32,13 +32,12 @@
 #include <archon/render/load_texture.hpp>
 
 
+#if ARCHON_DISPLAY_HAVE_OPENGL
+
 using namespace archon;
 
 
 namespace {
-
-
-#if ARCHON_DISPLAY_HAVE_OPENGL
 
 
 // ASSUMPTION: When using GL_INT, GL_UNSIGNED_INT, or GL_UNSIGNED_INT_* as `type` argument
@@ -73,7 +72,8 @@ struct gl_format {
 };
 
 
-bool try_map_integer_format(const image::BufferFormat::IntegerFormat& format, gl_format& format_2)
+bool try_map_integer_format(const image::BufferFormat::IntegerFormat& format, std::optional<bool> want_alpha,
+                            gl_format& format_2)
 {
 /*
     // FIXME: In OpenGL ES 3.2, only GL_UNSIGNED_BYTE is supported in combination with one
@@ -138,12 +138,14 @@ bool try_map_integer_format(const image::BufferFormat::IntegerFormat& format, gl
 */
 
     static_cast<void>(format);    
+    static_cast<void>(want_alpha);    
     static_cast<void>(format_2);    
     return false;
 }
 
 
-bool try_map_packed_format(const image::BufferFormat::PackedFormat& format, gl_format& format_2)
+bool try_map_packed_format(const image::BufferFormat::PackedFormat& format, std::optional<bool> want_alpha,
+                           gl_format& format_2)
 {
 /*    
     // In OpenGL's packed formats, the first number in the name always refers to the bit
@@ -201,34 +203,36 @@ bool try_map_packed_format(const image::BufferFormat::PackedFormat& format, gl_f
 */
 
     static_cast<void>(format);    
+    static_cast<void>(want_alpha);    
     static_cast<void>(format_2);    
     return false;
 }
 
 
-template<class F> bool try_map_integer_based_format(const F& format, gl_format& format_2)
+template<class F>
+bool try_map_integer_based_format(const F& format, std::optional<bool> want_alpha, gl_format& format_2)
 {
     image::BufferFormat::IntegerType word_type = format.word_type;
     bool is_byte = (word_type == image::BufferFormat::IntegerType::byte);
     {
         image::BufferFormat::IntegerFormat format_3 = {};
         if (format.try_cast_to(format_3, word_type)) {
-            if (ARCHON_LIKELY(try_map_integer_format(format_3, format_2)))
+            if (ARCHON_LIKELY(try_map_integer_format(format_3, want_alpha, format_2)))
                 return true;
         }
         if (!is_byte && format.try_cast_to(format_3, image::BufferFormat::IntegerType::byte)) {
-            if (ARCHON_LIKELY(try_map_integer_format(format_3, format_2)))
+            if (ARCHON_LIKELY(try_map_integer_format(format_3, want_alpha, format_2)))
                 return true;
         }
     }
     {
         image::BufferFormat::PackedFormat format_3 = {};
         if (format.try_cast_to(format_3, word_type)) {
-            if (ARCHON_LIKELY(try_map_packed_format(format_3, format_2)))
+            if (ARCHON_LIKELY(try_map_packed_format(format_3, want_alpha, format_2)))
                 return true;
         }
         if (!is_byte && format.try_cast_to(format_3, image::BufferFormat::IntegerType::byte)) {
-            if (ARCHON_LIKELY(try_map_packed_format(format_3, format_2)))
+            if (ARCHON_LIKELY(try_map_packed_format(format_3, want_alpha, format_2)))
                 return true;
         }
     }
@@ -237,25 +241,27 @@ template<class F> bool try_map_integer_based_format(const F& format, gl_format& 
 }
 
 
-bool try_map_float_format(const image::BufferFormat::FloatFormat& format, gl_format& format_2)
+bool try_map_float_format(const image::BufferFormat::FloatFormat& format, std::optional<bool> want_alpha,
+                          gl_format& format_2)
 {
     static_cast<void>(format);    
+    static_cast<void>(want_alpha);    
     static_cast<void>(format_2);    
     return false;
 }
 
 
-bool try_map_format(const image::BufferFormat& format, gl_format& format_2)
+bool try_map_format(const image::BufferFormat& format, std::optional<bool> want_alpha, gl_format& format_2)
 {
     switch (format.type) {
         case image::BufferFormat::Type::integer:
-            return try_map_integer_based_format(format.integer, format_2); // Throws
+            return try_map_integer_based_format(format.integer, want_alpha, format_2); // Throws
         case image::BufferFormat::Type::packed:
-            return try_map_integer_based_format(format.packed, format_2); // Throws
+            return try_map_integer_based_format(format.packed, want_alpha, format_2); // Throws
         case image::BufferFormat::Type::subword:
-            return try_map_integer_based_format(format.packed, format_2); // Throws
+            return try_map_integer_based_format(format.packed, want_alpha, format_2); // Throws
         case image::BufferFormat::Type::float_:
-            return try_map_float_format(format.float_, format_2); // Throws
+            return try_map_float_format(format.float_, want_alpha, format_2); // Throws
         case image::BufferFormat::Type::indexed:
             // Indexed color formats unavailable since OpenGL 3.1
             return false;
@@ -291,15 +297,16 @@ auto create_image_2(image::Size size, bool has_alpha, const void*& buffer) -> st
 }
 
 
-auto copy_image(const image::Image& image, const void*& buffer, gl_format& format) -> std::unique_ptr<image::Image>
+auto copy_image(const image::Image& image, std::optional<bool> want_alpha, const void*& buffer,
+                gl_format& format) -> std::unique_ptr<image::Image>
 {
     // Since OpenGL 3.1, luminance (grayscale) has been deprecated as an external color
     // space, so only RGB is supported now.
 
     image::TransferInfo info = image.get_transfer_info();
-    bool has_alpha = info.has_alpha;
-    GLint internal_format = (has_alpha ? GL_SRGB8_ALPHA8 : GL_SRGB8);
-    GLenum format_2 = (has_alpha ? GL_RGBA : GL_RGB);
+    bool want_alpha_2 = want_alpha.value_or(info.has_alpha);
+    GLint internal_format = (want_alpha_2 ? GL_SRGB8_ALPHA8 : GL_SRGB8);
+    GLenum format_2 = (want_alpha_2 ? GL_RGBA : GL_RGB);
 
     constexpr bool can_use_short = (sizeof (GLushort) == 2);
     constexpr bool can_use_int   = (sizeof (GLuint) == 4);
@@ -315,7 +322,7 @@ auto copy_image(const image::Image& image, const void*& buffer, gl_format& forma
     std::unique_ptr<image::WritableImage> image_2;
     if constexpr (can_use_int) {
         if (ARCHON_UNLIKELY(depth >= min_int_depth)) {
-            image_2 = create_image_2<GLuint, 32>(size, has_alpha, buffer_2); // Throws
+            image_2 = create_image_2<GLuint, 32>(size, want_alpha_2, buffer_2); // Throws
             type = GL_UNSIGNED_INT;
             alignment = 4;
             goto proceed;
@@ -323,14 +330,14 @@ auto copy_image(const image::Image& image, const void*& buffer, gl_format& forma
     }
     if constexpr (can_use_short) {
         if (ARCHON_UNLIKELY(depth >= min_short_depth)) {
-            image_2 = create_image_2<GLushort, 16>(size, has_alpha, buffer_2); // Throws
+            image_2 = create_image_2<GLushort, 16>(size, want_alpha_2, buffer_2); // Throws
             type = GL_UNSIGNED_SHORT;
             alignment = 2;
             goto proceed;
         }
     }
     {
-        image_2 = create_image_2<char, 8>(size, has_alpha, buffer_2); // Throws
+        image_2 = create_image_2<char, 8>(size, want_alpha_2, buffer_2); // Throws
         type = GL_UNSIGNED_BYTE;
         alignment = 1;
     }
@@ -349,27 +356,35 @@ auto copy_image(const image::Image& image, const void*& buffer, gl_format& forma
 }
 
 
-#endif // ARCHON_DISPLAY_HAVE_OPENGL
-
-
 } // unnamed namespace
 
 
 
-void render::load_texture(const image::Image& image, bool no_interp)
+void render::load_and_configure_texture(const image::Image& image, bool no_interp, bool no_mipmap)
 {
-#if ARCHON_DISPLAY_HAVE_OPENGL
+    render::load_texture(image); // Throws
 
-    image::Size image_size = image.get_size();
+    if (ARCHON_LIKELY(!no_mipmap))
+        glGenerateMipmap(GL_TEXTURE_2D);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, (no_interp ? GL_NEAREST : GL_LINEAR));
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, (no_mipmap ? GL_LINEAR : GL_LINEAR_MIPMAP_LINEAR));
+}
+
+
+void render::load_texture(const image::Image& image)
+{
+    std::optional<bool> want_alpha; // Let it be up to the image
     image::BufferFormat format;
     const void* buffer = {};
     gl_format format_2 = {};
-    bool have_format = (image.try_get_buffer(format, buffer) &&
-                        try_map_format(format, format_2)); // Throws
+    bool have_buffer = (image.try_get_buffer(format, buffer) &&
+                        try_map_format(format, want_alpha, format_2)); // Throws
     std::unique_ptr<image::Image> image_2;
-    if (ARCHON_UNLIKELY(!have_format))
-        image_2 = copy_image(image, buffer, format_2); // Throws
+    if (ARCHON_UNLIKELY(!have_buffer))
+        image_2 = copy_image(image, want_alpha, buffer, format_2); // Throws
 
+    image::Size image_size = image.get_size();
     GLsizei width = {};
     GLsizei height = {};
     core::int_cast(image_size.width, width); // Throws
@@ -384,15 +399,42 @@ void render::load_texture(const image::Image& image, bool no_interp)
                  format_2.format, format_2.type, buffer);
 
     glPopClientAttrib();
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, no_interp ? GL_NEAREST : GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, no_interp ? GL_NEAREST : GL_LINEAR);
-
-#else // !ARCHON_DISPLAY_HAVE_OPENGL
-
-    static_cast<void>(image);
-    static_cast<void>(no_interp);
-    throw std::runtime_error("OpenGL not available");
-
-#endif // !ARCHON_DISPLAY_HAVE_OPENGL
 }
+
+
+void render::load_texture_layer(const image::Image& image, int layer, bool texture_has_alpha)
+{
+    std::optional<bool> want_alpha = texture_has_alpha;
+    image::BufferFormat format;
+    const void* buffer = {};
+    gl_format format_2 = {};
+    bool have_buffer = (image.try_get_buffer(format, buffer) &&
+                        try_map_format(format, want_alpha, format_2)); // Throws
+    std::unique_ptr<image::Image> image_2;
+    if (ARCHON_UNLIKELY(!have_buffer))
+        image_2 = copy_image(image, want_alpha, buffer, format_2); // Throws
+
+    image::Size image_size = image.get_size();
+    GLsizei width = {};
+    GLsizei height = {};
+    core::int_cast(image_size.width, width); // Throws
+    core::int_cast(image_size.height, height); // Throws
+
+    glPushClientAttrib(GL_CLIENT_PIXEL_STORE_BIT);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, format_2.alignment);
+
+    GLint zoffset = {};
+    core::int_cast(layer, zoffset); // Throws
+
+    GLint level = 0;
+    GLint xoffset = 0;
+    GLint yoffset = 0;
+    GLsizei depth = 1;
+    glTexSubImage3D(GL_TEXTURE_2D_ARRAY, level, xoffset, yoffset, zoffset, width, height, depth,
+                    format_2.format, format_2.type, buffer);
+
+    glPopClientAttrib();
+}
+
+
+#endif // ARCHON_DISPLAY_HAVE_OPENGL
