@@ -465,7 +465,8 @@ bool world::try_add_block(std::string_view texture_path, std::string& error)
     glGenTextures(1, &texture);
     glBindTexture(GL_TEXTURE_2D, texture);
     bool no_interp = true;
-    render::load_texture(*texture_image, no_interp); // Throws
+    bool no_mipmap = false;
+    render::load_and_configure_texture(*texture_image, no_interp, no_mipmap); // Throws
 
     auto add_quad = [&](box_face orientation) {
         GLfloat s_1 = 0, t_1 = 0, x_1 = 0, y_1 = 0, z_1 = 0;
