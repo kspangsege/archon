@@ -58,23 +58,34 @@ Run this command to install `libpng`, `libjpeg-turbo`, FreeType, and SDL using
 
 
 ```sh
-c:\src\vcpkg\vcpkg.exe install --triplet x64-windows libpng libjpeg-turbo freetype sdl2
+vcpkg install --triplet x64-windows libpng libjpeg-turbo freetype sdl2
 ```
 
-A good place to run it, is in the Developer Command Prompt. Search for "x64 Native Tools
-Command Prompt for VS".
+This assumes that Vcpkg is installed and can be found via the `PATH` environment variable.
 
-If Vcpkg in not already installed, you can install it by running these commands:
+If Vcpkg in not already installed, you can install it in your home directory by running
+these commands from a command prompt[^wincmdprompt]:
 
 ```sh
-cd c:\src
-git clone https://github.com/Microsoft/vcpkg.git
-.\vcpkg\bootstrap-vcpkg.bat
-.\vcpkg\vcpkg.exe integrate install
+git clone https://github.com/Microsoft/vcpkg.git %USERPROFILE%\vcpkg
+%USERPROFILE%\vcpkg\bootstrap-vcpkg.bat
 ```
+
+To allow for Vcpkg to be found from the command line, add `%USERPROFILE%\vcpkg` to the
+`PATH` environment variable using the system tool, "Edit the system environment variables".
+
+If you want to build the Archon project from within the Visual Studio UI, tell Visual Studio
+about your Vcpkg installation by running this command:
+
+```sh
+vcpkg integrate install
+```
+
 
 [homebrew]: https://brew.sh/
 [vcpkg]: https://github.com/Microsoft/vcpkg
+
+[^wincmdprompt]: You can use the regular system Command Prompt.
 
 
 ## Build and run the test suite
@@ -109,13 +120,17 @@ Alternatively, after CMake generation has finished:
 1. Open `src/archon/test.cpp` inside Visual Studio, and make it the active window.
 2. From the "Debug" menu, chose "Start Without Debugging".
 
-Alternatively, if [Git for Windows][gitfw] is installed, open Git Bash and enter the root
+Alternatively, if Git for Windows[^gitfw] is installed, open Git Bash and enter the root
 directory of the checked out Archon project, then run:
 
 ```sh
 bash do.sh check-debug
 ```
 
+The `do.sh` script assumes that the dependencies were installed using Vcpkg, and that
+`vcpkg` can be found via the `PATH` environment variable.
+
 See above for additional possibilities when using `do.sh`.
 
-[gitfw]: Git for Windows can be installed from [https://gitforwindows.org/](https://gitforwindows.org/).
+[^gitfw]: Git for Windows can be installed from https://git-scm.com/download/win. See also
+    https://gitforwindows.org/.
