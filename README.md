@@ -111,7 +111,7 @@ Alternatively, after CMake generation has finished:
 1. Open `src/archon/test.cpp` inside Visual Studio, and make it the active window.
 2. From the "Debug" menu, chose "Start Without Debugging".
 
-Alternatively, if [Git for Windows][gitfw] is installed, open Git Bash and enter the root
+Alternatively, if Git for Windows[^gitfw] is installed, open Git Bash and enter the root
 directory of the checked out Archon project, then run:
 
 ```sh
@@ -120,4 +120,5 @@ bash do.sh check-debug
 
 See above for additional possibilities when using `do.sh`.
 
-[gitfw]: Git for Windows can be installed from [https://gitforwindows.org/](https://gitforwindows.org/).
+[^gitfw]: Git for Windows can be installed from https://git-scm.com/download/win. See also
+    https://gitforwindows.org/.
