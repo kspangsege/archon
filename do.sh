@@ -254,8 +254,12 @@ fi
 
 if [ -z "$CMAKE_TOOLCHAIN_FILE" ]; then
     if [ "$OS" = "Windows_NT" ]; then
-        # Asuming that Vcpkg is installed, and that it is installed under c:/src/vcpkg
-        export CMAKE_TOOLCHAIN_FILE="c:/src/vcpkg/scripts/buildsystems/vcpkg.cmake"
+        if path_1="$(command -v vcpkg 2>/dev/null)"; then
+            path_2="$(dirname "$path_1")/scripts/buildsystems/vcpkg.cmake"
+            if [ -e "$path_2" ]; then
+                export CMAKE_TOOLCHAIN_FILE="$path_2"
+            fi
+        fi
     fi
 fi
 
