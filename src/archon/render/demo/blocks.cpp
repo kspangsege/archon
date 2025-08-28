@@ -300,6 +300,8 @@ bool world::try_prepare(std::string& error)
     add_empty_block(); // Throws
     if (ARCHON_UNLIKELY(!try_add_block("stone.png", error))) // Throws
         return false;
+    if (ARCHON_UNLIKELY(!try_add_block("redstone_ore.png", error))) // Throws
+        return false;
     return true;
 }
 
@@ -350,28 +352,6 @@ void world::render(const math::Matrix4F& view)
     glTranslated(-eye_displacement[0], -eye_displacement[1], -eye_displacement[2]);
     render_avatar(); // Throws
     glTranslated(GLdouble(-m_position[0]), GLdouble(-m_position[1]), GLdouble(-m_position[2]));
-
-/*
-    glPushAttrib(GL_CURRENT_BIT | GL_ENABLE_BIT | GL_LIGHTING_BIT);
-    glDisable(GL_CULL_FACE);
-    glEnable(GL_LIGHTING);
-    glDisable(GL_TEXTURE_2D);
-    glLightModeli(GL_LIGHT_MODEL_TWO_SIDE, GL_TRUE);
-    glEnable(GL_COLOR_MATERIAL);
-    glColor3d(1, 0.2, 0.2);
-    glBegin(GL_QUADS);
-    glNormal3f(0, 0, 1);
-    glTexCoord2f(0, 0);
-    glVertex3f(0, 0, -16);
-    glTexCoord2f(1, 0);
-    glVertex3f(1, 0, -16);
-    glTexCoord2f(1, 1);
-    glVertex3f(1, 1, -16);
-    glTexCoord2f(0, 1);
-    glVertex3f(0, 1, -16);
-    glEnd();
-    glPopAttrib();
-*/
 
     // Render entities
     
@@ -958,12 +938,23 @@ void world::request_initialization(chunk& cnk)
         block_coord_type(cnk.pos.y * g_chunk_size_y),
         block_coord_type(cnk.pos.z * g_chunk_size_z),
     };
+    using hash_type = core::Hash_FNV_1a_Default;
+    hash_type hash;
+    hash.add_obj(pos);
     for (int z = 0; z < g_chunk_size_z; ++z) {
+        hast_type hash_z = hash;
+        hash_z.add_int(z);
         for (int y = 0; y < g_chunk_size_y; ++y) {
+            hast_type hash_y = hash_z;
+            hash_y.add_int(y);
             for (int x = 0; x < g_chunk_size_x; ++x) {
+                hast_type hash_x = hash_y;
+                hash_x.add_int(x);
+                
                 block_coord_type y_2 = block_coord_type(pos.y + y); // FIXME: What guarantees that this does not overflow?    
                 block_index_type air   = 0;
                 block_index_type stone = 1;
+                block_index_type redstone_ore = 2;
                 block_index_type i = (y_2 < 0 ? stone : air);
                 set_block(cnk.blocks, x, y, z, i);
             }
