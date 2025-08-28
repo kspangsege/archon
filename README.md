@@ -66,10 +66,11 @@ c:\src\vcpkg\vcpkg.exe install --triplet x64-windows libpng libjpeg-turbo freety
 A good place to run it, is in the Developer Command Prompt. Search for "x64 Native Tools
 Command Prompt for VS".
 
-If Vcpkg in not already installed, you can install it by running these commands:
+If Vcpkg in not already installed, you can install it in your home directory by running
+these commands in the Developer Command Prompt[^XXXXXXXXXXXXXXXXXXXXXXXXXXXX]:
 
 ```sh
-cd c:\src
+cd %USERPROFILE%
 git clone https://github.com/Microsoft/vcpkg.git
 .\vcpkg\bootstrap-vcpkg.bat
 .\vcpkg\vcpkg.exe integrate install
@@ -122,3 +123,13 @@ See above for additional possibilities when using `do.sh`.
 
 [^gitfw]: Git for Windows can be installed from https://git-scm.com/download/win. See also
     https://gitforwindows.org/.
+
+
+
+
+To use the CMake that comes bundled with Visual Studio, locate the path to the CMake bin directory (e.g. `C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin`), then add the path to the `PATH` environment variable using the "Edit the system environment variables" tool. Finally, restart Git Bash terminal to update the `PATH` variable.
+
+
+"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath   + either vcpkg or VC\vcpkg    
+
+
