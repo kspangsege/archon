@@ -60,24 +60,35 @@ Run this command to install `libpng`, `libjpeg-turbo`, FreeType, SDL, and GLEW u
 
 
 ```sh
-c:\src\vcpkg\vcpkg.exe install --triplet x64-windows libpng libjpeg-turbo freetype sdl2 glew
+vcpkg install --triplet x64-windows libpng libjpeg-turbo freetype sdl2 glew
 ```
 
-A good place to run it, is in the Developer Command Prompt. Search for "x64 Native Tools
-Command Prompt for VS".
+This assumes that Vcpkg is installed and can be found via the `PATH` environment variable.
 
 If Vcpkg in not already installed, you can install it in your home directory by running
-these commands in the Developer Command Prompt[^XXXXXXXXXXXXXXXXXXXXXXXXXXXX]:
+these commands from a command prompt[^windevcmdprompt]:
 
 ```sh
-cd %USERPROFILE%
-git clone https://github.com/Microsoft/vcpkg.git
-.\vcpkg\bootstrap-vcpkg.bat
-.\vcpkg\vcpkg.exe integrate install
+git clone https://github.com/Microsoft/vcpkg.git %USERPROFILE%\vcpkg
+%USERPROFILE%\vcpkg\bootstrap-vcpkg.bat
 ```
+
+To allow for Vcpkg to be found from the command line, add `%USERPROFILE%\vcpkg` to the
+`PATH` environment variable using the system tool, "Edit the system environment variables".
+
+If you want to build the Archon project from within the Visual Studio UI, tell Visual Studio
+about your Vcpkg installation by running this command:
+
+```sh
+vcpkg integrate install
+```
+
 
 [homebrew]: https://brew.sh/
 [vcpkg]: https://github.com/Microsoft/vcpkg
+
+[^windevcmdprompt] For Visual Studio 2022, use "x64 Native Tools Command Prompt for VS
+2022".
 
 
 ## Build and run the test suite
@@ -119,17 +130,10 @@ directory of the checked out Archon project, then run:
 bash do.sh check-debug
 ```
 
+The `do.sh` script assumes that the dependencies were installed using Vcpkg, and that
+`vcpkg` can be found via the `PATH` environment variable.
+
 See above for additional possibilities when using `do.sh`.
 
 [^gitfw]: Git for Windows can be installed from https://git-scm.com/download/win. See also
     https://gitforwindows.org/.
-
-
-
-
-To use the CMake that comes bundled with Visual Studio, locate the path to the CMake bin directory (e.g. `C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin`), then add the path to the `PATH` environment variable using the "Edit the system environment variables" tool. Finally, restart Git Bash terminal to update the `PATH` variable.
-
-
-"%ProgramFiles(x86)%\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath   + either vcpkg or VC\vcpkg    
-
-
