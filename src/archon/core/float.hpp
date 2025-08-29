@@ -47,10 +47,11 @@ namespace archon::core {
 /// is `true`.
 ///
 /// The standard floating-point types do conform to \ref Concept_Archon_Core_Float if they
-/// conform to IEC 559 (IEEE 754), which they usually do. If \ref
-/// ARCHON_ASSUME_VALID_STD_FLOAT is nonzero, they will be assumed to conform in any case,
-/// even if conformance to IEC 559 is not know For more on this, see \ref core::FloatTraits
-/// and \ref ARCHON_ASSUME_VALID_STD_FLOAT.
+/// conform to IEC 559 (IEEE 754), which they usually do. A standard floating-point type, \p
+/// F, is taken to conform to IEC 559 if `std::numeric_limits<F>::is_iec559` is `true`. If
+/// \ref ARCHON_ASSUME_VALID_STD_FLOAT is nonzero, all standard floating-point types will be
+/// assumed to conform regardless of the value of `std::numeric_limits<F>::is_iec559`. For
+/// more on this, see \ref core::FloatTraits and \ref ARCHON_ASSUME_VALID_STD_FLOAT.
 ///
 template<class F> constexpr bool is_float() noexcept;
 
