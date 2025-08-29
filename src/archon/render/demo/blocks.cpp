@@ -300,6 +300,8 @@ bool world::try_prepare(std::string& error)
     add_empty_block(); // Throws
     if (ARCHON_UNLIKELY(!try_add_block("stone.png", error))) // Throws
         return false;
+    if (ARCHON_UNLIKELY(!try_add_block("coal_ore.png", error))) // Throws
+        return false;
     if (ARCHON_UNLIKELY(!try_add_block("redstone_ore.png", error))) // Throws
         return false;
     return true;
@@ -309,7 +311,7 @@ bool world::try_prepare(std::string& error)
 
 void world::render_init()
 {
-    change_render_distance(64, 64); // Throws
+    change_render_distance(192, 192); // Throws
     set_position({ 0, 0, 0 }); // Throws
 
     glEnable(GL_FRAMEBUFFER_SRGB);
@@ -940,6 +942,8 @@ void world::request_initialization(chunk& cnk)
     };
     using hash_type = core::Hash_FNV_1a_Default;
     hash_type hash;
+    int seed = 7342245;
+    hash.add_int(seed);
     hash.add_obj(pos);
     for (int z = 0; z < g_chunk_size_z; ++z) {
         hash_type hash_z = hash;
@@ -950,12 +954,13 @@ void world::request_initialization(chunk& cnk)
             for (int x = 0; x < g_chunk_size_x; ++x) {
                 hash_type hash_x = hash_y;
                 hash_x.add_int(x);
-                
+                double f = hash_x.get_as_float<double>();
                 block_coord_type y_2 = block_coord_type(pos.y + y); // FIXME: What guarantees that this does not overflow?    
                 block_index_type air   = 0;
                 block_index_type stone = 1;
-                block_index_type redstone_ore = 2;
-                block_index_type i = (y_2 < 0 ? stone : air);
+                block_index_type coal_ore = 2;
+                block_index_type redstone_ore = 3;
+                block_index_type i = (y_2 < 0 ? (f < 0.0005 ? redstone_ore : (f < 0.005 ? coal_ore : stone)) : air);
                 set_block(cnk.blocks, x, y, z, i);
             }
         }
