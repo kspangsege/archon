@@ -47,8 +47,8 @@ namespace archon::core {
 ///
 /// The native multi-byte character encoding is to be understood as the multi-byte encoding
 /// of the execution environment. It is the encoding of plain character and string
-/// literals. All characters in the basic character set have native multi-byte encoding that
-/// uses only one byte (only one element of type `char`).
+/// literals. All characters in the basic character set have native multi-byte encodings
+/// that use only one byte (only one element of type `char`).
 ///
 /// \note The Archon project in general assumes that an application specified locale uses a
 /// multi-byte character encoding that agrees on encoded values with the native multi-byte

@@ -36,11 +36,14 @@
 #include <archon/core/format_as.hpp>
 #include <archon/core/file.hpp>
 #include <archon/log.hpp>
+#include <archon/math/vector.hpp>
+#include <archon/math/matrix.hpp>
 #include <archon/math/rotation.hpp>
 #include <archon/util/color.hpp>
 #include <archon/util/colors.hpp>
 #include <archon/display.hpp>
-#include <archon/render/opengl.hpp>
+#include <archon/display/opengl.hpp>
+#include <archon/render/math.hpp>
 #include <archon/render/key_binding_support.hpp>
 #include <archon/render/impl/key_bindings.hpp>
 #include <archon/render/noinst/engine_impl.hpp>
@@ -67,8 +70,6 @@ EngineImpl::EngineImpl(Scene& scene, display::Connection& conn, const std::local
     , m_conn(conn)
     , m_screen(config.screen >= 0 ? config.screen : conn.get_default_screen()) // Throws
     , m_logger(config.logger ? *config.logger : instantiate_fallback_logger(m_fallback_logger, locale)) // Throws
-    , m_headlight_feature_enabled(!config.disable_headlight_feature)
-    , m_wireframe_feature_enabled(!config.disable_wireframe_feature)
     , m_resolution_tracking_enabled(!config.disable_resolution_tracking)
     , m_frame_rate_tracking_enabled(!config.disable_frame_rate_tracking)
     , m_default_resolution(config.resolution)
@@ -95,7 +96,7 @@ bool EngineImpl::try_init(std::string_view window_title, display::Size window_si
 {
     ARCHON_ASSERT(!m_initialized);
 
-#if !ARCHON_RENDER_HAVE_OPENGL
+#if !ARCHON_DISPLAY_HAVE_OPENGL
     error = "OpenGL not available"; // Throws
     return false;
 #endif
@@ -105,8 +106,6 @@ bool EngineImpl::try_init(std::string_view window_title, display::Size window_si
     update_frame_rate(m_default_frame_rate); // Throws
     set_background_color(util::colors::black); // Throws
     reset_view(); // Throws
-    set_headlight_mode(config.headlight_mode); // Throws
-    set_wireframe_mode(config.wireframe_mode); // Throws
 
     render::KeyHandlerIdent handler;
     handler = register_builtin_key_handler(BuiltinKeyHandler::shift_modifier,
@@ -163,20 +162,6 @@ bool EngineImpl::try_init(std::string_view window_title, display::Size window_si
                                            &EngineImpl::key_func_reset_view); // Throws
     bind_key(display::Key::space, handler); // Throws
 
-    if (!config.disable_headlight_feature) {
-        handler = register_builtin_key_handler(BuiltinKeyHandler::toggle_headlight,
-                                               "Toggle headlight",
-                                               &EngineImpl::key_func_toggle_headlight); // Throws
-        bind_key(display::Key::small_l, handler); // Throws
-    }
-
-    if (!config.disable_wireframe_feature) {
-        handler = register_builtin_key_handler(BuiltinKeyHandler::toggle_wireframe,
-                                               "Toggle wireframe mode",
-                                               &EngineImpl::key_func_toggle_wireframe); // Throws
-        bind_key(display::Key::small_w, handler); // Throws
-    }
-
     display::Window::Config window_config;
     window_config.screen = m_screen;
     window_config.resizable = config.allow_window_resize;
@@ -194,20 +179,26 @@ bool EngineImpl::try_init(std::string_view window_title, display::Size window_si
     window->set_event_handler(m_event_handler); // Throws
     window->opengl_make_current(); // Throws
 
-#if ARCHON_RENDER_HAVE_OPENGL
+#if ARCHON_DISPLAY_HAVE_OPENGL
     m_logger.detail("OpenGL Vendor: %s", glGetString(GL_VENDOR)); // Throws
     m_logger.detail("OpenGL Renderer: %s", glGetString(GL_RENDERER)); // Throws
     m_logger.detail("OpenGL Version: %s", glGetString(GL_VERSION)); // Throws
-#endif // ARCHON_RENDER_HAVE_OPENGL
-
-    if (ARCHON_UNLIKELY(!m_scene.try_prepare(error))) // Throws
-        return false;
+    if (const GLubyte* str = glGetString(GL_SHADING_LANGUAGE_VERSION))
+        m_logger.detail("GLSL Version: %s", str); // Throws
+    m_logger.detail("GLEW Version: %s", glewGetString(GLEW_VERSION)); // Throws
+#endif // ARCHON_DISPLAY_HAVE_OPENGL
 
     m_window = std::move(window);
     m_fullscreen_mode = config.fullscreen_mode;
     m_initialized = true;
 
     return true;
+}
+
+
+bool EngineImpl::try_post_init(std::string& error)
+{
+    return m_scene.try_prepare(error); // Throws
 }
 
 
@@ -218,13 +209,6 @@ void EngineImpl::run()
 
     fetch_screen_conf(); // Throws
     track_screen_conf(); // Throws
-
-    if (m_headlight_feature_enabled) {
-#if ARCHON_RENDER_HAVE_OPENGL
-        GLfloat params[4]  = { 0, 0, 0, 1 };
-        glLightfv(GL_LIGHT0, GL_POSITION, params);
-#endif // ARCHON_RENDER_HAVE_OPENGL
-    }
 
     m_scene.render_init(); // Throws
 
@@ -300,6 +284,12 @@ void EngineImpl::set_base_interest_size(double size)
 }
 
 
+void EngineImpl::need_redraw() noexcept
+{
+    m_need_redraw = true;
+}
+
+
 void EngineImpl::bind_key(render::KeyIdent key, render::KeyModifierMode modifier,
                           render::KeyPressMultiplicity multiplicity, render::KeyHandlerIdent handler)
 {
@@ -366,20 +356,6 @@ void EngineImpl::reset_view()
     set_spin(m_base_spin);  // Throws
     set_zoom_factor(m_base_zoom_factor); // Throws
     set_interest_size(m_base_interest_size); // Throws
-}
-
-
-void EngineImpl::set_headlight_mode(bool on)
-{
-    m_headlight_mode = on;
-    m_need_redraw = true;
-}
-
-
-void EngineImpl::set_wireframe_mode(bool on)
-{
-    m_wireframe_mode = on;
-    m_need_redraw = true;
 }
 
 
@@ -463,8 +439,10 @@ bool EngineImpl::EventHandler::on_expose(const display::WindowEvent&)
 
 bool EngineImpl::EventHandler::on_resize(const display::WindowSizeEvent& ev)
 {
-    m_engine.update_window_size(ev.size);
-    m_engine.track_screen_conf(); // Throws
+    if (ev.size != m_engine.m_window_size) {
+        m_engine.update_window_size(ev.size);
+        m_engine.track_screen_conf(); // Throws
+    }
     return true;
 }
 
@@ -656,30 +634,10 @@ bool EngineImpl::key_func_reset_view(bool down)
 }
 
 
-bool EngineImpl::key_func_toggle_headlight(bool down)
-{
-    if (down) {
-        set_headlight_mode(!m_headlight_mode); // Throws
-        // set_on_off_status(L"HEADLIGHT", m_headlight_mode);                       
-    }
-    return true;
-}
-
-
-bool EngineImpl::key_func_toggle_wireframe(bool down)
-{
-    if (down) {
-        set_wireframe_mode(!m_wireframe_mode); // Throws
-        // set_on_off_status(L"WIREFRAME", m_wireframe_mode);                       
-    }
-    return true;
-}
-
-
 void EngineImpl::redraw()
 {
     if (ARCHON_UNLIKELY(m_need_misc_update)) {
-#if ARCHON_RENDER_HAVE_OPENGL
+#if ARCHON_DISPLAY_HAVE_OPENGL
 /*
         GLfloat params[] = { GLfloat(m_global_ambience),
                              GLfloat(m_global_ambience),
@@ -688,7 +646,7 @@ void EngineImpl::redraw()
 */
         glClearColor(m_background_color[0], m_background_color[1],
                      m_background_color[2], m_background_color[3]);
-#endif // ARCHON_RENDER_HAVE_OPENGL
+#endif // ARCHON_DISPLAY_HAVE_OPENGL
         m_need_misc_update = false;
     }
 
@@ -701,17 +659,17 @@ void EngineImpl::redraw()
 
     m_window->opengl_swap_buffers(); // Throws
 
-#if ARCHON_RENDER_HAVE_OPENGL
+#if ARCHON_DISPLAY_HAVE_OPENGL
     if (m_max_opengl_errors > 0) {
         GLenum error = glGetError();
         if (error != GL_NO_ERROR) {
-            m_logger.error("OpenGL error: %s", render::get_opengl_error_message(error)); // Throws
+            m_logger.error("OpenGL error: %s", display::get_opengl_error_message(error)); // Throws
             m_max_opengl_errors -= 1;
             if (m_max_opengl_errors == 0)
                 m_logger.error("No more OpenGL error will be reported"); // Throws
         }
     }
-#endif // ARCHON_RENDER_HAVE_OPENGL
+#endif // ARCHON_DISPLAY_HAVE_OPENGL
 }
 
 
@@ -742,45 +700,21 @@ void EngineImpl::tick(Clock::time_point time_of_tick)
 
 void EngineImpl::render_frame()
 {
-    // Handle headlight feature
-    if (ARCHON_UNLIKELY(m_headlight_feature_enabled && m_headlight_mode != m_headlight_mode_prev)) {
-#if ARCHON_RENDER_HAVE_OPENGL
-        if (m_headlight_mode) {
-            glEnable(GL_LIGHT0);
-        }
-        else {
-            glDisable(GL_LIGHT0);
-        }
-#endif // ARCHON_RENDER_HAVE_OPENGL
-        m_headlight_mode_prev = m_headlight_mode;
-    }
-
-    // Handle wireframe feature
-    if (ARCHON_UNLIKELY(m_wireframe_feature_enabled && m_wireframe_mode != m_wireframe_mode_prev)) {
-#if ARCHON_RENDER_HAVE_OPENGL
-        glPolygonMode(GL_FRONT_AND_BACK, m_wireframe_mode ? GL_LINE : GL_FILL);
-#endif // ARCHON_RENDER_HAVE_OPENGL
-        m_wireframe_mode_prev = m_wireframe_mode;
-    }
-
-#if ARCHON_RENDER_HAVE_OPENGL
-    glMatrixMode(GL_MODELVIEW);
-    glLoadIdentity();
-    glTranslated(0, 0, -m_perspect_proj.camera_dist);
-    glRotated(core::rad_to_deg(m_orientation.angle), m_orientation.axis[0], m_orientation.axis[1],
-              m_orientation.axis[2]);
+#if ARCHON_DISPLAY_HAVE_OPENGL
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-#endif // ARCHON_RENDER_HAVE_OPENGL
+#endif // ARCHON_DISPLAY_HAVE_OPENGL
 
-    m_scene.render(); // Throws
+    math::Matrix4F view = math::Matrix4F::identity();
+    render::translate(view, math::Vector3F(0, 0, float(-m_perspect_proj.camera_dist)));
+    render::rotate(view, math::Vector3F(m_orientation.axis), float(m_orientation.angle));
+
+    m_scene.render(view); // Throws
 }
 
 
 void EngineImpl::update_projection_and_viewport()
 {
     update_perpect_proj_and_trackball(); // Throws
-
-#if ARCHON_RENDER_HAVE_OPENGL
 
     double view_plane_right = m_perspect_proj.get_near_clip_width()  / 2;
     double view_plane_top   = m_perspect_proj.get_near_clip_height() / 2;
@@ -796,11 +730,14 @@ void EngineImpl::update_projection_and_viewport()
     m_logger.trace("Window size:        %s", m_window_size); // Throws
 */
 
-    glMatrixMode(GL_PROJECTION);
-    glLoadIdentity();
-    glFrustum(-view_plane_right, view_plane_right, -view_plane_top, view_plane_top, view_plane_dist, far_clip_dist);
+    math::Matrix4F proj = render::make_perspective(-view_plane_right, view_plane_right,
+                                                   -view_plane_top, view_plane_top,
+                                                   view_plane_dist, far_clip_dist);
+    m_scene.set_projection(proj); // Throws
+
+#if ARCHON_DISPLAY_HAVE_OPENGL
     glViewport(0, 0, m_window_size.width, m_window_size.height);
-#endif // ARCHON_RENDER_HAVE_OPENGL
+#endif
 }
 
 

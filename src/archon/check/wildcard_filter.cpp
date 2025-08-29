@@ -40,7 +40,7 @@ WildcardFilter::WildcardFilter(std::string_view filter, const std::locale& local
             builder.add_pattern(core::StringMatcher::PatternType::wildcard, "*"); // Throws
         builder.build(m_include_matcher); // Throws
     };
-    core::for_each_word(filter, locale, [&](std::string_view word) {
+    core::for_each_word(filter, [&](std::string_view word) {
         if (word != "-") {
             builder.add_pattern(core::StringMatcher::PatternType::wildcard, word); // Throws
         }

@@ -26,8 +26,10 @@
 
 
 #include <archon/render/render_namespace.hpp>
-#include <archon/render/impl/config.h>
+#include <archon/render/math.hpp>
 #include <archon/render/opengl.hpp>
+#include <archon/render/object_builder.hpp>
+#include <archon/render/load_texture.hpp>
 #include <archon/render/impl/finite_sequence_memory.hpp>
 #include <archon/render/impl/finite_curve_memory.hpp>
 #include <archon/render/virt_trackball.hpp>

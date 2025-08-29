@@ -51,6 +51,7 @@
 #include <archon/core/string_buffer_contents.hpp>
 #include <archon/core/vector.hpp>
 #include <archon/core/flat_map.hpp>
+#include <archon/core/string.hpp>
 #include <archon/core/locale.hpp>
 #include <archon/core/char_codec.hpp>
 #include <archon/core/string_codec.hpp>
@@ -2544,9 +2545,17 @@ auto x11::init_extensions(Display* dpy) -> x11::ExtensionInfo
             if (ARCHON_UNLIKELY(!success))
                 throw std::runtime_error("glXQueryVersion() failed");
             if (ARCHON_LIKELY(major > 1 || (major == 1 && minor >= 4))) {
-                info.have_glx = true;
-                info.glx_major = major;
-                info.glx_minor = minor;
+                auto get_proc = [](const char* name) {
+                    const GLubyte* name_2 = reinterpret_cast<const GLubyte*>(name);
+                    return glXGetProcAddressARB(name_2);
+                };
+                void (*create_context)() = get_proc("glXCreateContextAttribsARB");
+                if (ARCHON_LIKELY(create_context)) {
+                    info.have_glx = true;
+                    info.glx_major = major;
+                    info.glx_minor = minor;
+                    info.glx_create_context = reinterpret_cast<PFNGLXCREATECONTEXTATTRIBSARBPROC>(create_context);
+                }
             }
         }
     }
@@ -2629,7 +2638,9 @@ auto x11::load_visuals(Display* dpy, int screen, const x11::ExtensionInfo& exten
     core::Slab<x11::VisualSpec>
 {
     core::FlatMap<core::Pair<int, VisualID>, int> double_buffered_visuals;
+
 #if HAVE_XDBE
+
     if (ARCHON_LIKELY(extension_info.have_xdbe)) {
         Window root = RootWindow(dpy, screen);
         Drawable screen_specifiers[] = {
@@ -2654,8 +2665,112 @@ auto x11::load_visuals(Display* dpy, int screen, const x11::ExtensionInfo& exten
             ARCHON_ASSERT(was_inserted);
         }
     }
+
 #else // !HAVE_XDBE
+
     static_cast<void>(extension_info);
+
+#endif // !HAVE_XDBE
+
+    auto make_spec = [&](const XVisualInfo & info) noexcept -> x11::VisualSpec {
+#if HAVE_GLX
+        GLXFBConfig fb_config = {};
+#endif
+        bool double_buffered = false;
+        int double_buffered_perflevel = 0;
+        {
+            auto i = double_buffered_visuals.find(core::Pair(info.depth, info.visualid));
+            if (i != double_buffered_visuals.end()) {
+                double_buffered = true;
+                double_buffered_perflevel = i->second;
+            }
+        }
+        bool opengl_supported = false;
+        int opengl_level = 0;
+        bool opengl_double_buffered = false;
+        bool opengl_stereo = false;
+        int opengl_num_aux_buffers = 0;
+        int opengl_depth_buffer_bits = 0;
+        int opengl_stencil_buffer_bits = 0;
+        int opengl_accum_buffer_bits = 0;
+        return {
+#if HAVE_GLX
+            fb_config,
+#endif
+            info,
+            double_buffered,
+            opengl_supported,
+            opengl_double_buffered,
+            opengl_stereo,
+            double_buffered_perflevel,
+            opengl_level,
+            opengl_num_aux_buffers,
+            opengl_depth_buffer_bits,
+            opengl_stencil_buffer_bits,
+            opengl_accum_buffer_bits,
+        };
+    };
+
+#if HAVE_GLX
+
+    bool screen_supports_opengl = false;
+    {
+        std::string_view str = glXQueryExtensionsString(dpy, screen);
+        bool has_srgb_framebuffer_support = (core::contains_word(str, "GLX_ARB_framebuffer_sRGB") ||
+                                             core::contains_word(str, "GLX_EXT_framebuffer_sRGB")); // Throws
+        if (ARCHON_LIKELY(has_srgb_framebuffer_support))
+            screen_supports_opengl = true;
+    }
+
+    if (ARCHON_LIKELY(extension_info.have_glx && screen_supports_opengl)) {
+        std::vector<x11::VisualSpec> visual_specs;
+        int n = {};
+        GLXFBConfig* configs = glXGetFBConfigs(dpy, screen, &n);
+        if (ARCHON_LIKELY(configs)) {
+            ARCHON_SCOPE_EXIT {
+                XFree(configs);
+            };
+            for (int i = 0; i < n; ++i) {
+                GLXFBConfig config = configs[i];
+                XVisualInfo* info = glXGetVisualFromFBConfig(dpy, config);
+                if (!info)
+                    continue;
+                ARCHON_SCOPE_EXIT {
+                    XFree(info);
+                };
+                x11::VisualSpec spec =  make_spec(*info);
+                spec.fb_config = config;
+                auto get = [&](int attrib) {
+                    int value = {};
+                    int ret = glXGetConfig(dpy, info, attrib, &value);
+                    if (ARCHON_UNLIKELY(ret != 0))
+                        throw std::runtime_error("glXGetConfig() failed");
+                    return value;
+                };
+                bool opengl_supported = (get(GLX_USE_GL) != 0 && get(GLX_FRAMEBUFFER_SRGB_CAPABLE_ARB) != 0);
+                if (ARCHON_LIKELY(opengl_supported)) { // Throws
+                    spec.opengl_supported           = true;
+                    spec.opengl_level               = get(GLX_LEVEL); // Throws
+                    spec.opengl_double_buffered     = (get(GLX_DOUBLEBUFFER) != 0); // Throws
+                    spec.opengl_stereo              = (get(GLX_STEREO) != 0); // Throws
+                    spec.opengl_num_aux_buffers     = get(GLX_AUX_BUFFERS); // Throws
+                    spec.opengl_depth_buffer_bits   = get(GLX_DEPTH_SIZE); // Throws
+                    spec.opengl_stencil_buffer_bits = get(GLX_STENCIL_SIZE); // Throws
+                    spec.opengl_accum_buffer_bits   = (get(GLX_ACCUM_RED_SIZE) + get(GLX_ACCUM_GREEN_SIZE) +
+                                                       get(GLX_ACCUM_BLUE_SIZE) + get(GLX_ACCUM_ALPHA_SIZE)); // Throws
+                }
+                visual_specs.push_back(spec); // Throws
+            }
+        }
+        core::Span visual_specs_2 = visual_specs;
+        core::Slab<x11::VisualSpec> visual_specs_3(visual_specs_2); // Throws
+        return visual_specs_3;
+    }
+
+#else // !HAVE_XDBE
+
+    static_cast<void>(extension_info);
+
 #endif // !HAVE_XDBE
 
     core::Slab<x11::VisualSpec> visual_specs;
@@ -2673,64 +2788,10 @@ auto x11::load_visuals(Display* dpy, int screen, const x11::ExtensionInfo& exten
         visual_specs.recreate(n_2); // Throws
         for (std::size_t i = 0; i < n_2; ++i) {
             XVisualInfo& info = entries[i];
-            bool double_buffered = false;
-            int double_buffered_perflevel = 0;
-            {
-                auto i = double_buffered_visuals.find(core::Pair(info.depth, info.visualid));
-                if (i != double_buffered_visuals.end()) {
-                    double_buffered = true;
-                    double_buffered_perflevel = i->second;
-                }
-            }
-            bool opengl_supported = false;
-            int opengl_level = 0;
-            bool opengl_double_buffered = false;
-            bool opengl_stereo = false;
-            int opengl_num_aux_buffers = 0;
-            int opengl_depth_buffer_bits = 0;
-            int opengl_stencil_buffer_bits = 0;
-            int opengl_accum_buffer_bits = 0;
-#if HAVE_GLX
-            if (ARCHON_LIKELY(extension_info.have_glx)) {
-                auto get = [&](int attrib) {
-                    int value = {};
-                    int ret = glXGetConfig(dpy, &info, attrib, &value);
-                    if (ARCHON_UNLIKELY(ret != 0))
-                        throw std::runtime_error("glXGetConfig() failed");
-                    return value;
-                };
-                if (get(GLX_USE_GL) != 0) { // Throws
-                    opengl_supported           = true;
-                    opengl_level               = get(GLX_LEVEL); // Throws
-                    opengl_double_buffered     = (get(GLX_DOUBLEBUFFER) != 0); // Throws
-                    opengl_stereo              = (get(GLX_STEREO) != 0); // Throws
-                    opengl_num_aux_buffers     = get(GLX_AUX_BUFFERS); // Throws
-                    opengl_depth_buffer_bits   = get(GLX_DEPTH_SIZE); // Throws
-                    opengl_stencil_buffer_bits = get(GLX_STENCIL_SIZE); // Throws
-                    opengl_accum_buffer_bits   = (get(GLX_ACCUM_RED_SIZE) + get(GLX_ACCUM_GREEN_SIZE) +
-                                                  get(GLX_ACCUM_BLUE_SIZE) + get(GLX_ACCUM_ALPHA_SIZE)); // Throws
-                }
-            }
-#else // !HAVE_GLX
-    static_cast<void>(extension_info);
-#endif // !HAVE_GLX
-            x11::VisualSpec spec = {
-                info,
-                double_buffered,
-                opengl_supported,
-                opengl_double_buffered,
-                opengl_stereo,
-                double_buffered_perflevel,
-                opengl_level,
-                opengl_num_aux_buffers,
-                opengl_depth_buffer_bits,
-                opengl_stencil_buffer_bits,
-                opengl_accum_buffer_bits,
-            };
+            x11::VisualSpec spec =  make_spec(info);
             visual_specs.add(spec);
         }
     }
-
     return visual_specs;
 }
 

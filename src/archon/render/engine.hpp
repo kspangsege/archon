@@ -33,6 +33,7 @@
 
 #include <archon/core/concepts.hpp>
 #include <archon/log/logger.hpp>
+#include <archon/math/matrix.hpp>
 #include <archon/math/rotation.hpp>
 #include <archon/util/color.hpp>
 #include <archon/display.hpp>
@@ -45,8 +46,8 @@ namespace archon::render {
 
 /// \brief Render application specified scene in window.
 ///
-/// A render engine renders an application-specified scene (\ref Scene) inside a window of
-/// the platform's graphical user interface.
+/// A render engine opens a window that is configured for OpenGL rendering, and asks an
+/// application-specified scene (\ref Scene) to render itself.
 ///
 /// The outline of a very simple application could looks like this:
 ///
@@ -59,7 +60,12 @@ namespace archon::render {
 ///       {
 ///       }
 ///
-///       void render() override
+///       void set_projection(const math::Matrix4F& proj) override
+///       {
+///           // ...
+///       }
+///
+///       void render(const math::Matrix4F& view) override
 ///       {
 ///           // ...
 ///       }
@@ -237,6 +243,13 @@ public:
     ///
     void set_base_interest_size(double size);
 
+    /// \brief Cause scene to be redrawn.
+    ///
+    /// An invocation of this function causes the scene to be redrawn at the next tick, even
+    /// if there is no other reason to redraw it.
+    ///
+    void need_redraw() noexcept;
+
     /// \brief Get reference to engine's logger.
     ///
     /// This function returns a reference to the logger that is used by the render
@@ -403,22 +416,6 @@ public:
     ///
     void reset_view();
 
-    /// \brief Turn headlight on or off.
-    ///
-    /// If the headlight feature is not disabled (\ref Config::disable_headlight_feature),
-    /// this function turns the headlight on or off. If the headlight feature is disabled,
-    /// this function has no effect.
-    ///
-    void set_headlight_mode(bool on);
-
-    /// \brief Turn wireframe mode on or off.
-    ///
-    /// If the wireframe feature is not disabled (\ref Config::disable_wireframe_feature),
-    /// this function turns the wireframe mode on or off. If the wireframe feature is
-    /// disabled, this function has no effect.
-    ///
-    void set_wireframe_mode(bool on);
-
     ~Engine() noexcept;
 
 private:
@@ -486,22 +483,6 @@ struct Engine::Config {
     /// If set to `true`, interactive frame rate control will be disabled.
     ///
     bool disable_frame_rate_control = false;
-
-    /// \brief Whether headlight feature is disabled.
-    ///
-    /// If set to `true`, the headlight feature is disabled.
-    ///
-    /// \sa \ref headlight_mode
-    ///
-    bool disable_headlight_feature = false;
-
-    /// \brief Whether wireframe feature is disabled.
-    ///
-    /// If set to `true`, the wireframe feature is disabled.
-    ///
-    /// \sa \ref wireframe_mode
-    ///
-    bool disable_wireframe_feature = false;
 
     /// \brief Resolution tracking mode.
     ///
@@ -626,30 +607,16 @@ struct Engine::Config {
     /// \sa \ref Engine::set_interest_size()
     ///
     double interest_size = 2;
-
-    /// \brief Whether headlight should be turned on initially.
-    ///
-    /// If set to `true` (the default), and the headlight feature is not disabled (\ref
-    /// disable_headlight_feature) the headlight will be turned on initially.
-    ///
-    bool headlight_mode = true;
-
-    /// \brief Whether wireframe mode should be turned on initially.
-    ///
-    /// If set to `true`, and the wireframe feature is not disabled (\ref
-    /// disable_wireframe_feature) the wireframe mode will be turned on initially.
-    ///
-    bool wireframe_mode = false;
 };
 
 
 
 /// \brief Base class for render engine scenes.
 ///
-/// This is the base class for application specified scenes to be rendered by a render
-/// engine. An application can choose to override any or all of the virtual member functions
-/// of this class. See the documentation of \ref Engine for an outline of how to implement a
-/// concrete scene.
+/// This is the base class for application specified scenes as they are passed to \ref
+/// Engin::create(), \ref Engin::try_create(), or the engine constructor (\ref
+/// Engine::Engine()). See the class-level documentation of \ref Engine for an outline of
+/// how to implement a concrete scene.
 ///
 /// \sa \ref Engine
 ///
@@ -684,18 +651,25 @@ public:
     ///
     virtual void render_init();
 
+    /// \brief Update projection transformation.
+    ///
+    /// This function is called by the engine to update the projection transformation.
+    ///
+    virtual void set_projection(const math::Matrix4F& proj) = 0;
+
     /// \brief Render the scene.
     ///
     /// This function is called by the engine (\ref render::Engine) whenever the scene needs
-    /// to be redrawn. This function must render the scene in its current state using
-    /// OpenGL. Multiple sequential calls with no in-between calls of \ref tick() must
-    /// produce the same result, i.e., the state of the scene must be unchanged.
+    /// to be redrawn. This function must render the scene in its current state, from the
+    /// specified view, and using OpenGL. Multiple sequential calls with the same \p view
+    /// argument and no in-between calls of \ref tick() must produce the same result, i.e.,
+    /// the state of the scene must be unchanged.
     ///
-    /// This function may be called many times per tick to fully redraw the scene. It may
-    /// also be called less than once per tick, depending on such things as what \ref tick()
-    /// returns.
+    /// This function may get called many times per tick to fully redraw the scene. It may
+    /// also get called less than once per tick, depending on, among other things, whether
+    /// \ref tick() returns `true` or `false`.
     ///
-    virtual void render();
+    virtual void render(const math::Matrix4F& view) = 0;
 
     /// \brief Opportunity to update the state of the scene.
     ///
@@ -726,8 +700,6 @@ enum class Engine::BuiltinKeyHandler {
     dec_frame_rate,    ///< Decrease frame rate
     toggle_fullscreen, ///< Toggle fullscreen mode
     reset_view,        ///< Reset view
-    toggle_headlight,  ///< Toggle headlight
-    toggle_wireframe,  ///< Toggle wireframe mode
 };
 
 

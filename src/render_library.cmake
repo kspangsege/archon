@@ -1,5 +1,8 @@
 add_library(Render
+  archon/render/math.cpp
   archon/render/opengl.cpp
+  archon/render/object_builder.cpp
+  archon/render/load_texture.cpp
   archon/render/virt_trackball.cpp
   archon/render/impl/key_bindings.cpp
   archon/render/engine.cpp
@@ -13,21 +16,15 @@ target_link_libraries(Render PUBLIC
   Log
   Math
   Util
+  Image
   Display
 )
 
-set(ARCHON_RENDER_HAVE_OPENGL 0)
-find_package(OpenGL)
-if(OPENGL_FOUND)
-  set(ARCHON_RENDER_HAVE_OPENGL 1)
-  target_link_libraries(Render PUBLIC OpenGL::GL)
-endif()
-
-configure_file(archon/render/impl/config.h.in archon/render/impl/config.h)
-
-target_sources(Render PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "${ARCHON_SOURCE_ROOT}" FILES
-  "${CMAKE_CURRENT_BINARY_DIR}/archon/render/impl/config.h"
+target_sources(Render PUBLIC FILE_SET HEADERS FILES
+  archon/render/math.hpp
   archon/render/opengl.hpp
+  archon/render/object_builder.hpp
+  archon/render/load_texture.hpp
   archon/render/impl/finite_sequence_memory.hpp
   archon/render/impl/finite_curve_memory.hpp
   archon/render/virt_trackball.hpp
@@ -39,5 +36,4 @@ target_sources(Render PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "
 
 install(TARGETS Render FILE_SET HEADERS)
 
-add_subdirectory(archon/render/probe)
 add_subdirectory(archon/render/demo)

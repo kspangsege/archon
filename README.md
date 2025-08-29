@@ -13,6 +13,7 @@ The Archon project consists of a number of general purpose libraries:
   | Image   | Load, save, and manipulate images
   | Font    | Font rendering
   | Display | OS GUI integration
+  | GFX     | Graphics utilities
   | Render  | Facilities for rendering of 3-D graphics
 
 
@@ -28,7 +29,8 @@ Here is the list of dependencies for the various libraries of the Archon project
   | Xlib      |                 | Display        | Yes      | X Window System protocol client library
   | GLX       |                 | Display        | Yes      | OpenGL Extension to the X Window System
   | SDL       | 2.0.22          | Display        | Yes      | OS GUI integration (Simple DirectMedia Layer)
-  | OpenGL    |                 | Render         | Yes      | Open Graphics Library
+  | OpenGL    |                 | Display        | Yes      | Open Graphics Library
+  | GLEW      |                 | Display        | Yes      | The OpenGL Extension Wrangler Library
 
 Note: `libjpeg-turbo` can be used in place of `libjpeg`.
 
@@ -36,45 +38,56 @@ See below for information on how to install these dependencies on various platfo
 
 ### Ubuntu Linux
 
-Run this command to install `libpng`, `libjpeg`, FreeType, Xlib, GLX, SDL, and OpenGL:
+Run this command to install `libpng`, `libjpeg`, FreeType, Xlib, GLX, SDL, OpenGL, and GLEW:
 
 ```sh
-apt install libpng-dev libjpeg-dev libfreetype-dev libx11-dev libglx-dev libsdl2-dev libgl-dev
+apt install libpng-dev libjpeg-dev libfreetype-dev libx11-dev libglx-dev libsdl2-dev libgl-dev libglew-dev
 ```
 
 ### macOS
 
-Run this command to install `libpng`, `libjpeg`, FreeType, and SDL using
+Run this command to install `libpng`, `libjpeg`, FreeType, SDL, and GLEW using
 [Homebrew][homebrew]:
 
 ```sh
-brew install libpng libjpeg freetype sdl2
+brew install libpng libjpeg freetype sdl2 glew
 ```
 
 ### Windows
 
-Run this command to install `libpng`, `libjpeg-turbo`, FreeType, and SDL using
+Run this command to install `libpng`, `libjpeg-turbo`, FreeType, SDL, and GLEW using
 [Vcpkg][vcpkg]:
 
 
 ```sh
-c:\src\vcpkg\vcpkg.exe install --triplet x64-windows libpng libjpeg-turbo freetype sdl2
+vcpkg install --triplet x64-windows libpng libjpeg-turbo freetype sdl2 glew
 ```
 
-A good place to run it, is in the Developer Command Prompt. Search for "x64 Native Tools
-Command Prompt for VS".
+This assumes that Vcpkg is installed and can be found via the `PATH` environment variable.
 
-If Vcpkg in not already installed, you can install it by running these commands:
+If Vcpkg in not already installed, you can install it in your home directory by running
+these commands from a command prompt[^wincmdprompt]:
 
 ```sh
-cd c:\src
-git clone https://github.com/Microsoft/vcpkg.git
-.\vcpkg\bootstrap-vcpkg.bat
-.\vcpkg\vcpkg.exe integrate install
+git clone https://github.com/Microsoft/vcpkg.git %USERPROFILE%\vcpkg
+%USERPROFILE%\vcpkg\bootstrap-vcpkg.bat
 ```
+
+To allow for Vcpkg to be found from the command line, add `%USERPROFILE%\vcpkg` to the
+`PATH` environment variable using the system tool, "Edit the system environment variables".
+
+If you want to build the Archon project from within the Visual Studio UI, tell Visual Studio
+about your Vcpkg installation by running this command:
+
+```sh
+vcpkg integrate install
+```
+
 
 [homebrew]: https://brew.sh/
 [vcpkg]: https://github.com/Microsoft/vcpkg
+
+[^wincmdprompt]: You can use the regular system Command Prompt.
 
 
 ## Build and run the test suite
@@ -109,13 +122,17 @@ Alternatively, after CMake generation has finished:
 1. Open `src/archon/test.cpp` inside Visual Studio, and make it the active window.
 2. From the "Debug" menu, chose "Start Without Debugging".
 
-Alternatively, if [Git for Windows][gitfw] is installed, open Git Bash and enter the root
+Alternatively, if Git for Windows[^gitfw] is installed, open Git Bash and enter the root
 directory of the checked out Archon project, then run:
 
 ```sh
 bash do.sh check-debug
 ```
 
+The `do.sh` script assumes that the dependencies were installed using Vcpkg, and that
+`vcpkg` can be found via the `PATH` environment variable.
+
 See above for additional possibilities when using `do.sh`.
 
-[gitfw]: Git for Windows can be installed from [https://gitforwindows.org/](https://gitforwindows.org/).
+[^gitfw]: Git for Windows can be installed from https://git-scm.com/download/win. See also
+    https://gitforwindows.org/.

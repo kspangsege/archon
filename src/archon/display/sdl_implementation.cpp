@@ -39,8 +39,10 @@
 #include <archon/core/deque.hpp>
 #include <archon/core/flat_map.hpp>
 #include <archon/core/literal_hash_map.hpp>
+#include <archon/core/char_mapper.hpp>
 #include <archon/core/locale.hpp>
 #include <archon/core/charenc_bridge.hpp>
+#include <archon/core/integer_parser.hpp>
 #include <archon/core/format.hpp>
 #include <archon/util/color.hpp>
 #include <archon/image.hpp>
@@ -55,6 +57,7 @@
 #include <archon/display/connection.hpp>
 #include <archon/display/implementation.hpp>
 #include <archon/display/sdl_implementation.hpp>
+#include <archon/display/opengl.hpp>
 
 #if ARCHON_DISPLAY_HAVE_SDL
 #  define HAVE_SDL 1
@@ -99,8 +102,32 @@ constexpr std::string_view g_implementation_descr = "SDL (Simple DirectMedia Lay
 #if HAVE_SDL
 
 
-class WindowImpl;
-class TextureImpl;
+#if ARCHON_DISPLAY_HAVE_OPENGL
+
+bool try_parse_opengl_version(std::string_view version, int& major, int& minor)
+{
+    std::size_t n = version.size();
+    std::size_t i = version.find_first_of(". ");
+    if (ARCHON_LIKELY(i < n && version[i] == '.')) {
+        std::string_view str_1 = version.substr(0, i);
+        i += 1;
+        std::size_t j = version.find_first_of(". ", i);
+        std::string_view str_2 = version.substr(i, std::size_t(j - i));
+        core::CharMapper char_mapper(std::locale::classic()); // Throws
+        core::IntegerParser parser(char_mapper);
+        int val_1 = {}, val_2 = {};
+        bool success = (parser.parse_dec<core::IntegerParser::Sign::reject>(str_1, val_1) &&
+                        parser.parse_dec<core::IntegerParser::Sign::reject>(str_2, val_2)); // Throws
+        if (ARCHON_LIKELY(success)) {
+            major = val_1;
+            minor = val_2;
+            return true;
+        }
+    }
+    return false;
+}
+
+#endif // ARCHON_DISPLAY_HAVE_OPENGL
 
 
 auto get_sdl_error(const std::locale& locale, std::string_view message) -> std::string
@@ -128,6 +155,10 @@ void init_rect(SDL_Rect* rect, const display::Box& area) noexcept
 bool map_key(display::KeyCode, display::Key&) noexcept;
 bool rev_map_key(display::Key, display::KeyCode&) noexcept;
 auto map_mouse_button(Uint8 button) noexcept -> display::MouseButton;
+
+
+class WindowImpl;
+class TextureImpl;
 
 
 class ImplementationImpl final
@@ -172,7 +203,7 @@ public:
     ConnectionImpl(const ImplementationImpl&, const std::locale&) noexcept;
     ~ConnectionImpl() noexcept override;
 
-    void open();
+    bool try_open(std::string& error);
     void register_window(Uint32 id, WindowImpl&);
     void unregister_window(Uint32 id, WindowImpl&) noexcept;
 
@@ -253,7 +284,7 @@ public:
     WindowImpl(ConnectionImpl&, int cookie) noexcept;
     ~WindowImpl() noexcept override;
 
-    void create(std::string_view title, display::Size size, const Config&);
+    bool try_create(std::string_view title, display::Size size, const Config&, std::string& error);
     auto ensure_renderer() -> SDL_Renderer*;
     void set_draw_color(SDL_Renderer* renderer, util::Color color);
 
@@ -313,12 +344,14 @@ inline ImplementationImpl::ImplementationImpl(Slot& slot) noexcept
 
 
 bool ImplementationImpl::try_new_connection(const std::locale& locale, const display::Connection::Config&,
-                                            std::unique_ptr<display::Connection>& conn, std::string&) const
+                                            std::unique_ptr<display::Connection>& conn, std::string& error) const
 {
     auto conn_2 = std::make_unique<ConnectionImpl>(*this, locale); // Throws
-    conn_2->open(); // Throws
-    conn = std::move(conn_2);
-    return true;
+    if (ARCHON_LIKELY(conn_2->try_open(error))) { // Throws
+        conn = std::move(conn_2);
+        return true;
+    }
+    return false;
 }
 
 
@@ -377,7 +410,7 @@ ConnectionImpl::~ConnectionImpl() noexcept
 }
 
 
-void ConnectionImpl::open()
+bool ConnectionImpl::try_open(std::string& error)
 {
     ARCHON_ASSERT(!m_was_opened);
     std::lock_guard lock(impl.mutex);
@@ -393,9 +426,10 @@ void ConnectionImpl::open()
     if (ARCHON_LIKELY(ret >= 0)) {
         impl.have_connection = true;
         m_was_opened = true;
-        return;
+        return true;
     }
-    throw_sdl_error(locale, "SDL_Init() failed"); // Throws
+    error = get_sdl_error(locale, "SDL_Init() failed"); // Throws
+    return false;
 }
 
 
@@ -455,16 +489,17 @@ bool ConnectionImpl::try_get_key_name(display::KeyCode key_code, std::string_vie
 
 
 bool ConnectionImpl::try_new_window(std::string_view title, display::Size size, const display::Window::Config& config,
-                                    std::unique_ptr<display::Window>& win, std::string&)
+                                    std::unique_ptr<display::Window>& win, std::string& error)
 {
     int screen = config.screen;
-    if (ARCHON_UNLIKELY(screen >= 0 && screen != 0)) {
+    if (ARCHON_UNLIKELY(screen >= 0 && screen != 0))
         throw std::invalid_argument("Bad screen index");
-    }
     auto win_2 = std::make_unique<WindowImpl>(*this, config.cookie); // Throws
-    win_2->create(title, size, config); // Throws
-    win = std::move(win_2);
-    return true;
+    if (ARCHON_LIKELY(win_2->try_create(title, size, config, error))) { // Throws
+        win = std::move(win_2);
+        return true;
+    }
+    return false;
 }
 
 
@@ -965,7 +1000,7 @@ WindowImpl::~WindowImpl() noexcept
 }
 
 
-void WindowImpl::create(std::string_view title, display::Size size, const Config& config)
+bool WindowImpl::try_create(std::string_view title, display::Size size, const Config& config, std::string& error)
 {
     if (config.resizable && config.minimum_size.has_value()) {
         m_have_minimum_size = true;
@@ -986,6 +1021,21 @@ void WindowImpl::create(std::string_view title, display::Size size, const Config
     }
     const char* title_2 = buffer.data();
 
+    int opengl_version_major = 4;
+    int opengl_version_minor = 1;
+    if (config.enable_opengl_rendering) {
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, opengl_version_major);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, opengl_version_minor);
+        SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+        SDL_GL_SetAttribute(SDL_GL_FRAMEBUFFER_SRGB_CAPABLE, 1);
+
+        bool require_depth_buffer = config.require_opengl_depth_buffer;
+        // This value (8) mirrors the default for
+        // FindVisualParams::min_opengl_depth_buffer_bits in noinst/x11/support.hpp
+        int min_depth_buffer_bits = 8;
+        SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, (require_depth_buffer ? min_depth_buffer_bits : 0));
+    }
+
     int x = SDL_WINDOWPOS_UNDEFINED;
     int y = SDL_WINDOWPOS_UNDEFINED;
     int w = adjusted_size.width;
@@ -997,14 +1047,11 @@ void WindowImpl::create(std::string_view title, display::Size size, const Config
         flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
     if (config.enable_opengl_rendering)
         flags |= SDL_WINDOW_OPENGL;
-    bool require_depth_buffer = config.enable_opengl_rendering && config.require_opengl_depth_buffer;
-    // This value (8) mirrors the default for FindVisualParams::min_opengl_depth_buffer_bits
-    // in noinst/x11/support.hpp
-    int min_depth_buffer_bits = 8;
-    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, (require_depth_buffer ? min_depth_buffer_bits : 0));
     SDL_Window* win = SDL_CreateWindow(title_2, x, y, w, h, flags);
-    if (ARCHON_UNLIKELY(!win))
-        throw_sdl_error(conn.locale, "SDL_CreateWindow() failed"); // Throws
+    if (ARCHON_UNLIKELY(!win)) {
+        error = get_sdl_error(conn.locale, "SDL_CreateWindow() failed"); // Throws
+        return false;
+    }
     m_win = win;
     Uint32 id = SDL_GetWindowID(m_win);
     if (ARCHON_UNLIKELY(id <= 0))
@@ -1012,8 +1059,43 @@ void WindowImpl::create(std::string_view title, display::Size size, const Config
     conn.register_window(id, *this); // Throws
     m_id = id;
 
-    // With the X11 back end, and when OpenGL support is not explicitly requested, the
-    // window will be recreated when a renderer is created. Presumably, this is because a
+    if (config.enable_opengl_rendering) {
+        SDL_GLContext ret = SDL_GL_CreateContext(m_win);
+        if (ARCHON_UNLIKELY(!ret)) {
+            error = get_sdl_error(conn.locale, "SDL_GL_CreateContext() failed"); // Throws
+            return false;
+        }
+        m_gl_context = ret;
+
+#if ARCHON_DISPLAY_HAVE_OPENGL
+
+        std::string_view version = reinterpret_cast<const char*>(glGetString(GL_VERSION)); // Throws
+        int major = {}, minor = {};
+        bool good_version = (::try_parse_opengl_version(version, major, minor) &&
+                             (major > opengl_version_major || (major == opengl_version_major &&
+                                                               minor >= opengl_version_minor))); // Throws
+        if (ARCHON_UNLIKELY(!good_version)) {
+            error = "SDL_GL_CreateContext() failed: Requested OpenGL version is unmet"; // Throws
+            return false;
+        }
+
+        GLenum err = glewInit();
+        if (ARCHON_UNLIKELY(err != GLEW_OK)) {
+            const GLubyte* str = glewGetErrorString(err);
+            error = core::format(conn.locale, "Failed to initialize GLEW: %s", str); // Throws
+            return false;
+        }
+
+#else // !ARCHON_DISPLAY_HAVE_OPENGL
+
+        error = "OpenGL rendering not available";
+        return false;
+
+#endif// !ARCHON_DISPLAY_HAVE_OPENGL
+    }
+
+    // With the X11 back end, and when OpenGL support is not explicitly requested, SDL will
+    // recreate the window when a renderer is created. Presumably, this is because a
     // renderer requires OpenGL support, but when OpenGL support is not requested initially,
     // a visual without OpenGL support is selected initially. Unfortunately, this leads to a
     // very visible flicker / artifact if the recreation occurs while the window is
@@ -1025,6 +1107,8 @@ void WindowImpl::create(std::string_view title, display::Size size, const Config
     // Set minimum window size if requested
     if (m_have_minimum_size)
         SDL_SetWindowMinimumSize(m_win, m_minimum_size.width, m_minimum_size.height);
+
+    return true;
 }
 
 
@@ -1162,18 +1246,10 @@ void WindowImpl::present()
 
 void WindowImpl::opengl_make_current()
 {
-    if (ARCHON_LIKELY(m_gl_context)) {
-        int ret = SDL_GL_MakeCurrent(m_win, m_gl_context);
-        if (ARCHON_LIKELY(ret == 0))
-            return;
-        throw_sdl_error(conn.locale, "SDL_GL_MakeCurrent() failed"); // Throws
-    }
-    SDL_GLContext ret = SDL_GL_CreateContext(m_win);
-    if (ARCHON_LIKELY(ret)) {
-        m_gl_context = ret;
+    int ret = SDL_GL_MakeCurrent(m_win, m_gl_context);
+    if (ARCHON_LIKELY(ret == 0))
         return;
-    }
-    throw_sdl_error(conn.locale, "SDL_GL_CreateContext() failed"); // Throws
+    throw_sdl_error(conn.locale, "SDL_GL_MakeCurrent() failed"); // Throws
 }
 
 
