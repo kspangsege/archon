@@ -942,13 +942,13 @@ void world::request_initialization(chunk& cnk)
     hash_type hash;
     hash.add_obj(pos);
     for (int z = 0; z < g_chunk_size_z; ++z) {
-        hast_type hash_z = hash;
+        hash_type hash_z = hash;
         hash_z.add_int(z);
         for (int y = 0; y < g_chunk_size_y; ++y) {
-            hast_type hash_y = hash_z;
+            hash_type hash_y = hash_z;
             hash_y.add_int(y);
             for (int x = 0; x < g_chunk_size_x; ++x) {
-                hast_type hash_x = hash_y;
+                hash_type hash_x = hash_y;
                 hash_x.add_int(x);
                 
                 block_coord_type y_2 = block_coord_type(pos.y + y); // FIXME: What guarantees that this does not overflow?    
