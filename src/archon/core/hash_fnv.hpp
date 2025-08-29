@@ -26,6 +26,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cmath>
 #include <type_traits>
 
 #include <archon/core/integer.hpp>
@@ -98,6 +99,16 @@ public:
     ///
     constexpr auto get() const noexcept -> value_type;
 
+    /// \brief Scale hash value to floating-point interval [0, 1).
+    ///
+    /// This function returns the current hash value (\ref get()) scaled to the half-open
+    /// floating-point interval [0, 1). The returned value can be understood as having been
+    /// drawn from a uniform random distribution over the half-open interval [0, 1).
+    ///
+    /// FIXME: Make constexpr when switching to C++23
+    ///
+    template<class F> auto get_as_float() const noexcept -> F;
+
 private:
     constexpr void add_octet(value_type) noexcept;
 
@@ -153,7 +164,8 @@ using Hash_FNV_1a_Default = std::conditional_t<core::int_width<std::size_t>() <=
 // Implementation
 
 
-template<class T, int W, T B, T P> constexpr void Hash_FNV_1a<T, W, B, P>::add_byte(std::byte value) noexcept
+template<class T, int W, T B, T P>
+constexpr void Hash_FNV_1a<T, W, B, P>::add_byte(std::byte value) noexcept
 {
     constexpr int width = core::int_width<char>();
     using uchar = unsigned char;
@@ -170,7 +182,8 @@ template<class T, int W, T B, T P> constexpr void Hash_FNV_1a<T, W, B, P>::add_b
 }
 
 
-template<class T, int W, T B, T P> template<class I> constexpr void Hash_FNV_1a<T, W, B, P>::add_int(I value) noexcept
+template<class T, int W, T B, T P>
+template<class I> constexpr void Hash_FNV_1a<T, W, B, P>::add_int(I value) noexcept
 {
     static_assert(std::is_integral_v<I>);
     constexpr int width = core::int_width<I>();
@@ -187,7 +200,8 @@ template<class T, int W, T B, T P> template<class I> constexpr void Hash_FNV_1a<
 }
 
 
-template<class T, int W, T B, T P> template<class O> void Hash_FNV_1a<T, W, B, P>::add_obj(const O& obj) noexcept
+template<class T, int W, T B, T P>
+template<class O> void Hash_FNV_1a<T, W, B, P>::add_obj(const O& obj) noexcept
 {
     const void* ptr = &obj;
     const std::byte* bytes = static_cast<const std::byte*>(ptr);
@@ -196,13 +210,23 @@ template<class T, int W, T B, T P> template<class O> void Hash_FNV_1a<T, W, B, P
 }
 
 
-template<class T, int W, T B, T P> constexpr auto Hash_FNV_1a<T, W, B, P>::get() const noexcept -> value_type
+template<class T, int W, T B, T P>
+constexpr auto Hash_FNV_1a<T, W, B, P>::get() const noexcept -> value_type
 {
     return value_type(m_hash & core::int_mask<value_type>(bit_width));
 }
 
 
-template<class T, int W, T B, T P> constexpr void Hash_FNV_1a<T, W, B, P>::add_octet(value_type value) noexcept
+template<class T, int W, T B, T P>
+template<class F> auto Hash_FNV_1a<T, W, B, P>::get_as_float() const noexcept -> F
+{
+    static_assert(std::is_floating_point_v<F>);
+    return std::ldexp(F(get()), -bit_width);
+}
+
+
+template<class T, int W, T B, T P>
+constexpr void Hash_FNV_1a<T, W, B, P>::add_octet(value_type value) noexcept
 {
     // Xor the bottom bits with the incoming octet
     m_hash ^= value;
