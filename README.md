@@ -66,7 +66,7 @@ vcpkg install --triplet x64-windows libpng libjpeg-turbo freetype sdl2 glew
 This assumes that Vcpkg is installed and can be found via the `PATH` environment variable.
 
 If Vcpkg in not already installed, you can install it in your home directory by running
-these commands from a command prompt[^windevcmdprompt]:
+these commands from a command prompt[^wincmdprompt]:
 
 ```sh
 git clone https://github.com/Microsoft/vcpkg.git %USERPROFILE%\vcpkg
@@ -87,8 +87,7 @@ vcpkg integrate install
 [homebrew]: https://brew.sh/
 [vcpkg]: https://github.com/Microsoft/vcpkg
 
-[^windevcmdprompt] For Visual Studio 2022, use "x64 Native Tools Command Prompt for VS
-2022".
+[^wincmdprompt]: You can use the regular system Command Prompt.
 
 
 ## Build and run the test suite
