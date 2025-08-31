@@ -58,7 +58,7 @@ public:
 template<class T>
 constexpr auto HashInt<T>::operator()(const argument_type& arg) const noexcept -> std::size_t
 {
-    core::Hash_FNV_1a_32 hash;
+    core::Hash_FNV_1a_Default hash;
     hash.add_int(arg);
     return hash.get();
 }
@@ -67,7 +67,7 @@ constexpr auto HashInt<T>::operator()(const argument_type& arg) const noexcept -
 template<class E>
 constexpr auto HashEnum<E>::operator()(const argument_type& arg) const noexcept -> std::size_t
 {
-    core::Hash_FNV_1a_32 hash;
+    core::Hash_FNV_1a_Default hash;
     hash.add_int(std::underlying_type_t<E>(arg));
     return hash.get();
 }

@@ -46,7 +46,7 @@ template<class T> class Hash;
 ///
 /// These are the integer type specializations of the hash function that can be used at
 /// compile time. These specializations are all implemented in terms of \ref
-/// core::Hash_FNV_1a_32.
+/// core::Hash_FNV_1a_Default.
 ///
 template<> class Hash<bool>               : public core::impl::HashInt<bool> {};
 template<> class Hash<char>               : public core::impl::HashInt<char> {};

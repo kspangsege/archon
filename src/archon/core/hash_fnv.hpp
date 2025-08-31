@@ -70,14 +70,24 @@ public:
     ///
     constexpr void add_byte(std::byte value) noexcept;
 
+    /// \{
+    ///
     /// \brief Digest object of integer type.
     ///
-    /// This function digests the specified integer object. Contrary to \ref add_obj(), this
-    /// function is a `constexpr` operation.
+    /// These functions digest the specified integer object. Note that, contrary to \ref
+    /// add_obj(), these functions are `constexpr` operations.
+    ///
+    /// The overload that takes a \p width argument assumes that only the bits at the N
+    /// least significant bit positions can be nonzero, where N is the value passed for \p
+    /// width. If bits at positions of higher significance are nonzero, the result is
+    /// unspecified. If \p width is equal to `core::int_width<I>()`, the two overloads are
+    /// guaranteed to produce the same result.
     ///
     /// \sa \ref add_obj()
     ///
     template<class I> constexpr void add_int(I value) noexcept;
+    template<class I> constexpr void add_int(I value, int width) noexcept;
+    /// \}
 
     /// \brief Digest specified object.
     ///
@@ -195,6 +205,22 @@ template<class I> constexpr void Hash_FNV_1a<T, W, B, P>::add_int(I value) noexc
             value_2 >>= 8;
             offset += 8;
         }
+    }
+    add_octet(value_type(value_2));
+}
+
+
+template<class T, int W, T B, T P>
+template<class I> constexpr void Hash_FNV_1a<T, W, B, P>::add_int(I value, int width) noexcept
+{
+    static_assert(std::is_integral_v<I>);
+    ARCHON_ASSERT(width <= core::int_width<I>());
+    auto value_2 = core::to_unsigned(core::promote(value));
+    int offset = 0;
+    while (width - offset > 8) {
+        add_octet(value_type(value_2 & 0xFF));
+        value_2 >>= 8;
+        offset += 8;
     }
     add_octet(value_type(value_2));
 }
