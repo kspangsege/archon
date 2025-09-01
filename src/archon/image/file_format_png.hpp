@@ -45,6 +45,19 @@ struct PNGLoadConfig : image::FileFormat::SpecialLoadConfig {
     /// palette). See \ref image::TransferInfo::palette.
     ///
     bool expand_indirect_color = false;
+
+    /// \brief Expand grayscale to RGB during loading.
+    ///
+    /// If set to `true`, grayscale image data will be converted to RGB during loading.
+    ///
+    bool expand_lum_to_rgb = false;
+
+    /// \brief Add missing alpha channel during loading.
+    ///
+    /// If set to `true`, a fully opaque alpha channel will be added to image data during
+    /// loading, when that image data does not already include an alpha channel.
+    ///
+    bool ensure_alpha_channel = false;
 };
 
 

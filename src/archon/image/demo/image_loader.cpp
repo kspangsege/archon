@@ -148,6 +148,14 @@ int main(int argc, char* argv[])
         "For PNG images, convert indirect to direct color during loading.",
         cli::raise_flag(png_load_config.expand_indirect_color)); // Throws
 
+    opt("-R, --png-expand-lum-to-rgb", "", cli::no_attributes, spec,
+        "For PNG images, convert grayscale to RGB during loading.",
+        cli::raise_flag(png_load_config.expand_lum_to_rgb)); // Throws
+
+    opt("-A, --png-ensure-alpha-channel", "", cli::no_attributes, spec,
+        "For PNG images, add alpha channel when no already present.",
+        cli::raise_flag(png_load_config.ensure_alpha_channel)); // Throws
+
     int exit_status = 0;
     if (ARCHON_UNLIKELY(cli::process(argc, argv, spec, exit_status, locale))) // Throws
         return exit_status;

@@ -110,6 +110,7 @@ int main(int argc, char* argv[])
     bool progress = false;
     image::LoadConfig load_config;
     image::SaveConfig save_config;
+    image::PNGLoadConfig png_load_config;
     image::PNGSaveConfig png_save_config;
 
     cli::Spec spec;
@@ -167,6 +168,18 @@ int main(int argc, char* argv[])
         "Set the size of the write buffer used when saving the converted image. The default size is @V.",
         cli::assign(core::as_int(save_config.write_buffer_size))); // Throws
 
+    opt("-E, --png-expand-indirect-color", "", cli::no_attributes, spec,
+        "For PNG images, convert indirect to direct color during loading.",
+        cli::raise_flag(png_load_config.expand_indirect_color)); // Throws
+
+    opt("-R, --png-expand-lum-to-rgb", "", cli::no_attributes, spec,
+        "For PNG images, convert grayscale to RGB during loading.",
+        cli::raise_flag(png_load_config.expand_lum_to_rgb)); // Throws
+
+    opt("-A, --png-ensure-alpha-channel", "", cli::no_attributes, spec,
+        "For PNG images, add alpha channel when no already present.",
+        cli::raise_flag(png_load_config.ensure_alpha_channel)); // Throws
+
     opt("-L, --png-force-latin1-comment", "", cli::no_attributes, spec,
         "For PNG images, force comment to be saved in tEXt/zTXt chunk which requires coercion to Latin-1 character "
         "encoding.",
@@ -192,12 +205,16 @@ int main(int argc, char* argv[])
 
     // Load
     {
+        image::FileFormat::SpecialLoadConfigRegistry special_load_config_registry;
+        special_load_config_registry.register_(png_load_config); // Throws
+
         log::PrefixLogger load_logger(logger, "Load: "); // Throws
 
         if (progress) {
             progress_tracker.is_save = false;
             load_config.progress_tracker = &progress_tracker;
         }
+        load_config.special = &special_load_config_registry;
         load_config.logger = &load_logger;
         load_config.registry = &image_file_format_registry;
         if (ARCHON_UNLIKELY(optional_source_file_format.has_value()))

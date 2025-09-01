@@ -268,6 +268,8 @@ struct ReadTransformations {
     bool rgb_to_bgr;
     bool swap_bytes;
     bool swap_bits;
+    bool lum_to_rgb;
+    bool add_alpha;
 };
 
 
@@ -687,7 +689,9 @@ public:
     image::CommentHandler* comment_handler = nullptr;
     core::Source* source = nullptr;
     const std::locale* locale = nullptr;
-    bool expand_indirect_color = false;
+    bool expand_indirect_color = {};
+    bool expand_lum_to_rgb = {};
+    bool ensure_alpha_channel = {};
 
     png_structp png_ptr = nullptr;
     png_infop info_ptr = nullptr;
@@ -806,6 +810,46 @@ public:
                     use_short_int = true;
                     if (ARCHON_LIKELY(byte_order == core::Endianness::little))
                         xforms.swap_bytes = true;
+                }
+            }
+
+            if (expand_lum_to_rgb) {
+                png_byte color_type = format.color_type;
+                switch (color_type) {
+                    case PNG_COLOR_TYPE_GRAY:
+                        color_type = PNG_COLOR_TYPE_RGB;
+                        break;
+                    case PNG_COLOR_TYPE_GRAY_ALPHA:
+                        color_type = PNG_COLOR_TYPE_RGBA;
+                        break;
+                }
+                if (color_type != format.color_type) {
+                    if (format.bit_depth < 8) {
+                        xforms.unpack_subbyte = true;
+                        format.bit_depth = 8;
+                    }
+                    xforms.lum_to_rgb = true;
+                    format.color_type = color_type;
+                }
+            }
+
+            if (ensure_alpha_channel) {
+                png_byte color_type = format.color_type;
+                switch (color_type) {
+                    case PNG_COLOR_TYPE_GRAY:
+                        color_type = PNG_COLOR_TYPE_GRAY_ALPHA;
+                        break;
+                    case PNG_COLOR_TYPE_RGB:
+                        color_type = PNG_COLOR_TYPE_RGBA;
+                        break;
+                }
+                if (color_type != format.color_type) {
+                    if (format.bit_depth < 8) {
+                        xforms.unpack_subbyte = true;
+                        format.bit_depth = 8;
+                    }
+                    xforms.add_alpha = true;
+                    format.color_type = color_type;
                 }
             }
 
@@ -1081,6 +1125,10 @@ bool do_load(LoadContext& ctx)
             png_set_swap(ctx.png_ptr);
         if (ctx.xforms.swap_bits)
             png_set_packswap(ctx.png_ptr);
+        if (ctx.xforms.lum_to_rgb)
+            png_set_gray_to_rgb(ctx.png_ptr);
+        if (ctx.xforms.add_alpha)
+            png_set_add_alpha(ctx.png_ptr, 0xFFFF, PNG_FILLER_AFTER);
 
         ctx.num_passes = png_set_interlace_handling(ctx.png_ptr);
 
@@ -1173,6 +1221,9 @@ bool load(core::Source& source, std::unique_ptr<image::WritableImage>& image, co
     ctx.source = &source;
     ctx.locale = &loc;
     ctx.expand_indirect_color = config.expand_indirect_color;
+    ctx.expand_lum_to_rgb = config.expand_lum_to_rgb;
+    ctx.ensure_alpha_channel = config.ensure_alpha_channel;
+
 
     if (ARCHON_LIKELY(do_load(ctx))) { // Throws
         image = std::move(ctx.image_2);
