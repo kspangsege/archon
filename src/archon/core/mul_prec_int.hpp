@@ -51,7 +51,8 @@ namespace archon::core {
 /// is specified by \p T and the number of parts is specified by \p N. Each part is an
 /// unsigned integer that contributes all its value bits to the state of the multiple
 /// precision integer type. The first part contributes the least significant bits (little
-/// endian).
+/// endian). In both the signed and the unsigned case, the total width of the type (\ref
+/// width) is the width of the part type (\p T) times the number of parts (\p N).
 ///
 /// The multiple precision integer type can be signed or unsigned. It is signed if `true` is
 /// passed for \p S. Otherwise it is unsigned.
@@ -63,6 +64,9 @@ namespace archon::core {
 /// supported.
 ///
 /// \p T must be one of the fundamental unsigned integer types, and it cannot be `bool`.
+///
+/// \sa \ref core::least_signed_ext_int_type, \ref core::least_unsigned_ext_int_type, \ref
+/// core::fast_signed_ext_int_type, \ref core::fast_unsigned_ext_int_type
 ///
 template<class T, int N, bool S> class MulPrecInt {
 public:

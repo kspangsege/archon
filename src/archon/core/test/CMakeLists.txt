@@ -2,6 +2,7 @@ add_library(CoreTest OBJECT
   test_pair.cpp
   test_type.cpp
   test_type_list.cpp
+  test_type_traits.cpp
   test_integer.cpp
   test_float.cpp
   test_math.cpp
@@ -32,11 +33,12 @@ add_library(CoreTest OBJECT
   test_quote.cpp
   test_enum.cpp
   test_hex_dump.cpp
-  test_base64.cpp
   test_string_template.cpp
   test_string_matcher.cpp
   test_super_int.cpp
   test_mul_prec_int.cpp
+  test_ext_int_type.cpp
+  test_base64.cpp
   test_random.cpp
   test_file.cpp
   test_file_source.cpp

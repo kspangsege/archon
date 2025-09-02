@@ -93,7 +93,7 @@ template<class P, class... T> using pick_type = impl::pick_type<P, void, T...>;
 /// \brief Pick first type that satisfies predicate.
 ///
 /// This type is the first in `T...` that satisfies the specified predicate (\p P), or if no
-/// type in `T...` staisfies the predicate, this type is the specified fallback type (\p F).
+/// type in `T...` satisfies the predicate, this type is the specified fallback type (\p F).
 ///
 /// The predicate type (\p P) must be such that `P::template value<T>` is valid, refers to a
 /// compile-time constant, and is `true` if, and only if the predicate is satisfied for `T`.
@@ -167,18 +167,19 @@ template<class F> using ReturnType = typename impl::ReturnType<core::FuncDecay<F
 /// \brief Least or fast signed or unsigned integer type with specified width.
 ///
 /// `least_signed_int_type<N, F>` is an alias for `least_signed_int_type_a<P, F>` where `P`
-/// is a predicate that requires the width of the type (\ref core::int_width()) to be
-/// greater than, or equal to \p N. The width of the type is the number of value bits plus
-/// one if the type is signed (see \ref core::int_width()).
+/// is a predicate that requires the width of the type to be greater than, or equal to \p
+/// N. Likewise for `least_unsigned_int_type<N, F>`, `fast_signed_int_type<N, F>`, and
+/// `fast_unsigned_int_type<N, F>`. The width of the type is the number of value bits plus
+/// one if the type is signed. See also \ref core::int_width().
 ///
-/// \sa \ref core::least_signed_int_type
-/// \sa \ref core::least_unsigned_int_type
-/// \sa \ref core::fast_signed_int_type
-/// \sa \ref core::fast_unsigned_int_type
-/// \sa \ref core::least_signed_int_type_a
-/// \sa \ref core::least_unsigned_int_type_a
-/// \sa \ref core::fast_signed_int_type_a
-/// \sa \ref core::fast_unsigned_int_type_a
+/// \sa \ref core::least_signed_int_type, \ref core::least_unsigned_int_type, \ref
+/// core::fast_signed_int_type, \ref core::fast_unsigned_int_type
+///
+/// \sa \ref core::least_signed_int_type_a, \ref core::least_unsigned_int_type_a, \ref
+/// core::fast_signed_int_type_a, \ref core::fast_unsigned_int_type_a
+///
+/// \sa \ref core::least_signed_ext_int_type, \ref core::least_unsigned_ext_int_type, \ref
+/// core::fast_signed_ext_int_type, \ref core::fast_unsigned_ext_int_type
 ///
 template<int N, class F = void> using least_signed_int_type = typename impl::LeastSignedIntType<N, F>::type;
 template<int N, class F = void> using least_unsigned_int_type = typename impl::LeastUnsignedIntType<N, F>::type;
@@ -195,6 +196,11 @@ template<int N, class F = void> using fast_unsigned_int_type = typename impl::Fa
 /// These types are aliases for the firsts type in the corresponding lists of integer types
 /// below that satisfy the specified predicate (\p P), or, in each case, if none of those
 /// types satisfy the predicate, it is an alias for the fallback type, which is \p F.
+///
+/// The predicate, \p P, must be a type such that the expression `P::value<T>` is a valid
+/// expression that can be evaluated in a boolean context at compile time when \p T is one
+/// of the standard integer types. It must evaluate to `true` if and only if the predicate
+/// is true for \p T.
 ///
 /// Candidate types for `least_signed_int_type_a`:
 ///
@@ -228,14 +234,11 @@ template<int N, class F = void> using fast_unsigned_int_type = typename impl::Fa
 ///   * `unsigned long long`
 ///   * `std::uintmax_t`
 ///
-/// \sa \ref core::least_signed_int_type
-/// \sa \ref core::least_unsigned_int_type
-/// \sa \ref core::fast_signed_int_type
-/// \sa \ref core::fast_unsigned_int_type
-/// \sa \ref core::least_signed_int_type_a
-/// \sa \ref core::least_unsigned_int_type_a
-/// \sa \ref core::fast_signed_int_type_a
-/// \sa \ref core::fast_unsigned_int_type_a
+/// \sa \ref core::least_signed_int_type, \ref core::least_unsigned_int_type, \ref
+/// core::fast_signed_int_type, \ref core::fast_unsigned_int_type
+///
+/// \sa \ref core::least_signed_int_type_a, \ref core::least_unsigned_int_type_a, \ref
+/// core::fast_signed_int_type_a, \ref core::fast_unsigned_int_type_a
 ///
 template<class P, class F = void> using least_signed_int_type_a = typename impl::LeastSignedIntTypeA<P, F>::type;
 template<class P, class F = void> using least_unsigned_int_type_a = typename impl::LeastUnsignedIntTypeA<P, F>::type;

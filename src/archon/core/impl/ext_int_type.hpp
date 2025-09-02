@@ -23,6 +23,8 @@
 
 
 #include <cstdint>
+#include <type_traits>
+#include <algorithm>
 
 #include <archon/core/type_traits.hpp>
 #include <archon/core/integer.hpp>
@@ -32,35 +34,39 @@
 namespace archon::core::impl {
 
 
-template<int N, bool S> struct ExtIntTypePredWrapper {
+template<int N, bool S, bool F> struct ext_int_type_finder {
     static constexpr int required_width = N;
-    static constexpr bool is_signed = S;
-    static constexpr int max_parts = core::int_div_round_up(required_width, core::int_width<std::uintmax_t>());
-    struct Pred {
-        template<class T> static constexpr bool value =
-            (core::MulPrecInt<T, max_parts, is_signed>::width >= required_width);
-    };
+    static constexpr bool want_signed = S;
+    static constexpr bool want_fast = F;
+    static constexpr int max_part_width = core::int_width<std::uintmax_t>();
+    static constexpr int num_parts = std::max(core::int_div_round_up(required_width, max_part_width), 1);
+    static constexpr int min_part_width = core::int_div_round_up(required_width, num_parts);
+    using part_type = std::conditional_t<want_fast, core::fast_unsigned_int_type<min_part_width>,
+                                         core::least_unsigned_int_type<min_part_width>>;
+    using type = core::MulPrecInt<part_type, num_parts, want_signed>;
+    static_assert(core::int_width<type>() >= required_width);
 };
+
 
 
 template<int N> struct LeastSignedExtIntType {
     using type = core::NotVoidOr<core::least_signed_int_type<N>,
-                                 core::least_unsigned_int_type_a<typename impl::ExtIntTypePredWrapper<N, true>::Pred>>;
+                                 typename impl::ext_int_type_finder<N, true, false>::type>;
 };
 
 template<int N> struct LeastUnsignedExtIntType {
     using type = core::NotVoidOr<core::least_unsigned_int_type<N>,
-                                 core::least_unsigned_int_type_a<typename impl::ExtIntTypePredWrapper<N, false>::Pred>>;
+                                 typename impl::ext_int_type_finder<N, false, false>::type>;
 };
 
 template<int N> struct FastSignedExtIntType {
     using type = core::NotVoidOr<core::fast_signed_int_type<N>,
-                                 core::fast_unsigned_int_type_a<typename impl::ExtIntTypePredWrapper<N, true>::Pred>>;
+                                 typename impl::ext_int_type_finder<N, true, true>::type>;
 };
 
 template<int N> struct FastUnsignedExtIntType {
     using type = core::NotVoidOr<core::fast_unsigned_int_type<N>,
-                                 core::fast_unsigned_int_type_a<typename impl::ExtIntTypePredWrapper<N, false>::Pred>>;
+                                 typename impl::ext_int_type_finder<N, false, true>::type>;
 };
 
 

@@ -36,12 +36,24 @@ namespace archon::core {
 ///
 /// These types are aliases either for a standard or an extended integer type whose width is
 /// greater than, or equal to the specified width (\p N). Types are available to accommodate
-/// and width requirement. In all cases, the aliased types are guaranteed to use two's
-/// complement representation of negative numbers.
+/// any width requirement. In all cases, the aliased types are guaranteed to conform to \ref
+/// Concept_Archon_Core_Integer and to use two's complement representation of negative
+/// numbers.
+///
+/// If `core::least_signed_ext_int_type<N>` is not `void`, `least_signed_ext_int_type<N>`
+/// will be the same type as `core::least_signed_ext_int_type<N>`. Likewise for
+/// `least_unsigned_ext_int_type<N>`, `fast_signed_ext_int_type<N>`, and
+/// `fast_unsigned_ext_int_type<N>`.
 ///
 /// \tparam N The required minimum width. For signed integer types, the width is the number
-/// of value bits plus one if the type is signed. For unsigned integer types, it is just the
-/// number of value bits. See also \ref core::int_width().
+/// of value bits plus one. For unsigned integer types, it is simply the number of value
+/// bits. See also \ref core::int_width().
+///
+/// \sa \ref core::least_signed_int_type, \ref core::least_unsigned_int_type, \ref
+/// core::fast_signed_int_type, \ref core::fast_unsigned_int_type
+///
+/// \sa \ref Concept_Archon_Core_Integer
+/// \sa \ref core::MulPrecInt
 ///
 template<int N> using least_signed_ext_int_type = typename impl::LeastSignedExtIntType<N>::type;
 template<int N> using least_unsigned_ext_int_type = typename impl::LeastUnsignedExtIntType<N>::type;
