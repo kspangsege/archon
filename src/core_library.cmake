@@ -172,6 +172,7 @@ target_sources(Core PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "${
   archon/core/super_int.hpp
   archon/core/impl/ext_int_type.hpp
   archon/core/ext_int_type.hpp
+  archon/core/float_width.hpp
   archon/core/base64.hpp
   archon/core/histogram.hpp
   archon/core/word_wrap.hpp

@@ -178,6 +178,7 @@
 #include <archon/core/super_int.hpp>
 #include <archon/core/impl/ext_int_type.hpp>
 #include <archon/core/ext_int_type.hpp>
+#include <archon/core/float_width.hpp>
 #include <archon/core/base64.hpp>
 #include <archon/core/histogram.hpp>
 #include <archon/core/word_wrap.hpp>

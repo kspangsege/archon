@@ -2001,7 +2001,7 @@ template<class L, class R> constexpr bool try_int_pow(L& lval, R rval) noexcept
         if (ARCHON_UNLIKELY(core::is_zero(base)))
             return false;
         if (ARCHON_UNLIKELY(core::int_equal(base, -1) && core::int_is_even(exp)))
-            base = 1;
+            base = base_type(1);
         result /= base;
     }
     return core::try_int_cast<L>(result, lval);
