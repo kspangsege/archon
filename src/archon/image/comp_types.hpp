@@ -148,8 +148,8 @@ template<class I, int N, class F> constexpr auto float_to_int(F val) noexcept ->
 /// number of value bits plus one. Since C++20, if \p T is one of the standard or extended
 /// signed integer types, this is the number of value bits plus one.
 ///
-/// For floating-point types, this is the number of bits across the mantissa and the
-/// exponent.
+/// For floating-point types, this is the approximate equivalent bit width as returned by
+/// \ref core::float_width().
 ///
 /// The specified type (\p T) must either be an integer type that conforms to the integer
 /// concept (\ref Concept_Archon_Core_Integer), or it must be a standard floating-point

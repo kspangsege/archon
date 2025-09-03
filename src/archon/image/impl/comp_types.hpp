@@ -27,6 +27,7 @@
 #include <algorithm>
 
 #include <archon/core/integer.hpp>
+#include <archon/core/float_width.hpp>
 
 
 namespace archon::image::impl {
@@ -51,10 +52,7 @@ template<class T> constexpr int get_bit_width() noexcept
     }
     else {
         static_assert(std::is_floating_point_v<T>);
-        using lim_type = std::numeric_limits<T>;
-        static_assert(lim_type::is_specialized);
-        return (lim_type::digits + core::int_find_msb_pos(unsigned(lim_type::max_exponent) -
-                                                          unsigned(lim_type::min_exponent)) + 1);
+        return core::float_width<T>();
     }
 }
 
