@@ -394,12 +394,26 @@ void comp_repr_convert(const image::comp_type<R>* origin, image::comp_type<S>* d
                        bool has_alpha) noexcept;
 
 
-/// \brief Choose suitable component representation scheme for bit depth.
+/// \brief Choose suitable integer component representation scheme for bit depth.
 ///
-/// This function chooses a suitable representation scheme for transfer of pixel components
-/// that are otherwise represented as integer values using the specified number of bits.
+/// This function chooses a suitable integer-based representation scheme for transfer of
+/// pixel components that are otherwise represented as integer values of the specified width
+/// (\p bit_width). See also \ref image::bit_width.
 ///
-constexpr auto choose_transf_repr(int num_bits) noexcept -> image::CompRepr;
+/// \sa \ref image::choose_float_transf_repr()
+///
+constexpr auto choose_int_transf_repr(int bit_width) noexcept -> image::CompRepr;
+
+
+/// \brief Choose suitable floating-point component representation scheme for bit depth.
+///
+/// This function chooses a suitable floating-point-based representation scheme for transfer
+/// of pixel components that are otherwise represented as floating-point values using a type
+/// of the specified width (\p bit_width). See also \ref image::bit_width.
+///
+/// \sa \ref image::choose_transf_repr()
+///
+constexpr auto choose_float_transf_repr(int bit_width) noexcept -> image::CompRepr;
 
 
 /// \{
@@ -713,12 +727,17 @@ inline void comp_repr_convert(const image::comp_type<R>* origin, image::comp_typ
 }
 
 
-constexpr auto choose_transf_repr(int num_bits) noexcept -> image::CompRepr
+constexpr auto choose_int_transf_repr(int bit_width) noexcept -> image::CompRepr
 {
-    if (num_bits <= 8)
+    if (bit_width <= 8)
         return image::CompRepr::int8;
-    if (num_bits <= 16)
-        return image::CompRepr::int16;
+    return image::CompRepr::int16;
+}
+
+
+constexpr auto choose_float_transf_repr(int bit_width) noexcept -> image::CompRepr
+{
+    static_cast<void>(bit_width);
     return image::CompRepr::float_;
 }
 

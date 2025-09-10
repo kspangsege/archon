@@ -73,6 +73,7 @@ target_sources(Image PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "$
   archon/image/integer_pixel_format.hpp
   archon/image/packed_pixel_format.hpp
   archon/image/subword_pixel_format.hpp
+  archon/image/float_pixel_format.hpp
   archon/image/indexed_pixel_format.hpp
   archon/image/buffered_image.hpp
   archon/image/palettes.hpp

@@ -54,7 +54,7 @@ namespace archon::image {
 ///
 /// For formats that use direct color, see \ref image::InterPixelFormat, \ref
 /// image::PackedPixelFormat, \ref image::SubwordPixelFormat, and \ref
-/// image::FloatPixelFormat.                        
+/// image::FloatPixelFormat.
 ///
 /// With this pixel format, the underlying sequence of words is aggregated into a sequence
 /// of bit compounds using the specified number of words per compound (\p D) and taking the

@@ -5,6 +5,7 @@ add_library(ImageTest OBJECT
   test_integer_pixel_format.cpp
   test_subword_pixel_format.cpp
   test_packed_pixel_format.cpp
+  test_float_pixel_format.cpp
   test_indexed_pixel_format.cpp
   test_reader.cpp
   test_writer.cpp

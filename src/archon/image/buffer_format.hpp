@@ -1183,6 +1183,8 @@ struct BufferFormat {
     /// The channel configuration (color space, presence of alpha channel, and channel
     /// order) is specified by \ref channel_conf.
     ///
+    /// \sa \ref image::FloatPixelFormat
+    ///
     struct FloatFormat {
         /// \brief Pixel buffer element type.
         ///
@@ -1616,6 +1618,8 @@ struct BufferFormat {
                             core::Endianness bit_order, bool word_aligned_rows,
                             const image::ColorSpace&, bool has_alpha_channel, bool alpha_channel_first,
                             bool reverse_channel_order);
+    void set_float_format(FloatType word_type, const image::ColorSpace&, bool has_alpha_channel,
+                          bool alpha_channel_first, bool reverse_channel_order);
     void set_indexed_format(IntegerType word_type, int bits_per_pixel, int pixels_per_compound,
                             int bits_per_word, int words_per_compound, core::Endianness bit_order,
                             core::Endianness word_order, bool compound_aligned_rows, const image::Image& palette);
@@ -1936,6 +1940,24 @@ inline void BufferFormat::set_subword_format(IntegerType word_type, int bits_per
         pixels_per_word,
         bit_order,
         word_aligned_rows,
+        channel_conf,
+    };
+}
+
+
+inline void BufferFormat::set_float_format(FloatType word_type, const image::ColorSpace& color_space,
+                                           bool has_alpha_channel, bool alpha_channel_first,
+                                           bool reverse_channel_order)
+{
+    ChannelConf channel_conf = {
+        &color_space,
+        has_alpha_channel,
+        alpha_channel_first,
+        reverse_channel_order,
+    };
+    type = Type::float_;
+    float_ = {
+        word_type,
         channel_conf,
     };
 }

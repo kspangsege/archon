@@ -26,6 +26,7 @@
 
 #include <cstddef>
 #include <type_traits>
+#include <algorithm>
 #include <utility>
 
 #include <archon/core/features.h>
@@ -41,6 +42,7 @@
 #include <archon/image/standard_channel_spec.hpp>
 #include <archon/image/transfer_info.hpp>
 #include <archon/image/buffer_format.hpp>
+#include <archon/image/image.hpp>
 
 
 namespace archon::image {
@@ -48,9 +50,9 @@ namespace archon::image {
 
 /// \brief Specification of simple integer-based pixel format.
 ///
-/// An instantiation of this template is used to specify an integer-based pixel format. Such
-/// a pixel format implements \ref Concept_Archon_Image_PixelFormat and can therefore be
-/// used with \ref image::BufferedImage.
+/// An instance of this class specifies an integer-based pixel format. Such a pixel format
+/// conforms to \ref Concept_Archon_Image_PixelFormat and can therefore be used with \ref
+/// image::BufferedImage.
 ///
 /// Each channel component is stored using \p D consecutive words. Channels are stored
 /// consecutively in the specified order (\p F and \p G). No words are unused.
@@ -59,14 +61,9 @@ namespace archon::image {
 /// compression scheme of sRGB. The alpha channel, on the other hand, is stored linearly.
 ///
 /// For formats that pack multiple channels into each bit compound, see \ref
-/// image::PackedPixelFormat.
-///
-/// For formats that pack multiple pixels into each bit compound, see \ref
-/// image::SubwordPixelFormat.
-///
-/// For floating-point based formats, see \ref image::FloatPixelFormat.         
-///
-/// For indirect color formats, see \ref image::IndexedPixelFormat.
+/// image::PackedPixelFormat. For formats that pack multiple pixels into each bit compound,
+/// see \ref image::SubwordPixelFormat. For floating-point based formats, see \ref
+/// image::FloatPixelFormat. For indirect color formats, see \ref image::IndexedPixelFormat.
 ///
 /// If the word type (\p W) has more bits than are used (\p B), the unused bits must be
 /// zero. Behavior is undefined if this pixel format is used with a pixel buffer where these
@@ -86,7 +83,8 @@ namespace archon::image {
 /// \tparam C Channel specification. See \ref Concept_Archon_Image_ChannelSpec and \ref
 /// image::StandardChannelSpec.
 ///
-/// \tparam W Memory will be accessed in terms of words of this type.
+/// \tparam W Memory will be accessed in terms of words of this type. It must be one of the
+/// standard integer types (`std::is_integral`).
 ///
 /// \tparam B Number of used bits per word. When this is less than the number of bits in \p
 /// W, the used bits will be the \p B least significant ones.
@@ -161,7 +159,7 @@ public:
     /// See \ref Concept_Archon_Image_PixelFormat.
     ///
     static constexpr bool is_indexed_color = false;
-    static constexpr image::CompRepr transf_repr = image::choose_transf_repr(bit_depth);
+    static constexpr image::CompRepr transf_repr = image::choose_int_transf_repr(bit_depth);
     /// \}
 
     using transf_comp_type = image::comp_type<transf_repr>;

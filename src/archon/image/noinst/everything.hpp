@@ -66,6 +66,7 @@
 #include <archon/image/integer_pixel_format.hpp>
 #include <archon/image/packed_pixel_format.hpp>
 #include <archon/image/subword_pixel_format.hpp>
+#include <archon/image/float_pixel_format.hpp>
 #include <archon/image/indexed_pixel_format.hpp>
 #include <archon/image/buffered_image.hpp>
 #include <archon/image/palettes.hpp>

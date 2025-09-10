@@ -65,7 +65,7 @@ namespace archon::image {
 /// For formats that pack multiple pixels into each bit compound, see \ref
 /// image::SubwordPixelFormat.
 ///
-/// For floating-point based formats, see \ref image::FloatPixelFormat.         
+/// For floating-point based formats, see \ref image::FloatPixelFormat.
 ///
 /// For indirect color formats, see \ref image::IndexedPixelFormat.
 ///
@@ -173,7 +173,7 @@ public:
     /// See \ref Concept_Archon_Image_PixelFormat.
     ///
     static constexpr bool is_indexed_color = false;
-    static constexpr image::CompRepr transf_repr = image::choose_transf_repr(bit_depth);
+    static constexpr image::CompRepr transf_repr = image::choose_int_transf_repr(bit_depth);
     /// \}
 
     using transf_comp_type = image::comp_type<transf_repr>;
