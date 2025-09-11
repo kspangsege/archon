@@ -100,6 +100,16 @@ public:
 
     using math::VectorBase2<N, T>::VectorBase2;
 
+    /// \brief Construct vector from vector with different number of components.
+    ///
+    /// If \p M is greater than, or equal to \p N, this constructor creates a vector whose
+    /// components are a copy of the first N components of the specified vector (\p
+    /// vec). Otherwise, this constructor creates a vector where the first M components are
+    /// a copy of the specified vector and the remaining components are set to the specified
+    /// fill value (\p fill).
+    ///
+    template<int M, class U> explicit constexpr Vector(const Vector<M, U>& vec, T fill = 0) noexcept;
+
     /// \{
     ///
     /// \brief Access specific component of vector.
@@ -387,6 +397,18 @@ constexpr auto extend(const math::Vector<M, U>& vec, int i) -> math::Vector<N, T
 
 
 // Implementation
+
+
+template<int N, class T>
+template<int M, class U> constexpr Vector<N, T>::Vector(const Vector<M, U>& vec, T fill) noexcept
+{
+    static_assert(noexcept(T(vec[int()])));
+    T* components = this->components().data();
+    for (int i = 0; i < std::min(N, M); ++i)
+        components[i] = T(vec[i]);
+    for (int i = M; i < N; ++i)
+        components[i] = fill;
+}
 
 
 template<int N, class T>

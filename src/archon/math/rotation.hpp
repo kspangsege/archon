@@ -160,7 +160,7 @@ template<class C, class T> auto operator<<(std::basic_ostream<C, T>& out, const 
 /// \brief Add rotations.
 ///
 /// This operation combines the two specified rotations. The combined rotation is the result
-/// of the first rotating (\p a) followed by the second rotation (\p b). The combined
+/// of the first rotation (\p a) followed by the second rotation (\p b). The combined
 /// rotation is as if computed by `math::Rotation::from_versor(b.to_versor() *
 /// a.to_versor())` (note the inversion of order).
 ///

@@ -103,6 +103,20 @@ public:
 
     using math::MatrixBase2<M, N, T>::MatrixBase2;
 
+    /// \brief Construct matrix from matrix of different size.
+    ///
+    /// This constructor first extends the specified matrix (\p mat) so that it has at least
+    /// \p P rows and \p Q columns. It then constructs a new matrix as a copy of the
+    /// top-left `P`-by-`Q` submatrix of the extension of \p mat. The extension of \p mat
+    /// occurs by adding columns to the right and rows below as needed. In this process, new
+    /// diagonal components are set to \p diag_fill and new non-diagonal components to \p
+    /// nondiag_fill.
+    ///
+    /// \sa \ref get_submatrix()
+    ///
+    template<int P, int Q, class U>
+    explicit constexpr Matrix(const Matrix<P, Q, U>& mat, T diag_fill = 0, T nondiag_fill = 0) noexcept;
+
     /// \brief Identity matrix.
     ///
     /// This function returns a matrix with where all components in the main diagonal are 1,
@@ -208,7 +222,9 @@ public:
     /// starting with the row at index \p i, and pans \p Q columns starting with the column
     /// at index \p j.
     ///
-    template<int P, int Q> constexpr auto get_submatrix(int i, int j) const noexcept -> Matrix<P, Q, T>;
+    /// \sa \ref Matrix(const Matrix<P, Q, U>&, T, T)
+    ///
+    template<int P, int Q = P> constexpr auto get_submatrix(int i, int j) const noexcept -> Matrix<P, Q, T>;
 
     /// \brief Set sub-matrix.
     ///
@@ -680,6 +696,26 @@ template<int M, int N, class T> constexpr auto decompose(math::Matrix<M, N, T>&)
 
 
 // Implementation
+
+
+template<int M, int N, class T>
+template<int P, int Q, class U>
+constexpr Matrix<M, N, T>::Matrix(const Matrix<P, Q, U>& mat, T diag_fill, T nondiag_fill) noexcept
+{
+    static_assert(noexcept(T(mat[int()][int()])));
+    for (int i = 0; i < M; ++i) {
+        for (int j = 0; j < N; ++j) {
+            T val = diag_fill;
+            if (i < P && j < Q) {
+                val = T(mat[i][j]);
+            }
+            else if (i != j) {
+                val = nondiag_fill;
+            }
+            (*this)[i][j] = val;
+        }
+    }
+}
 
 
 template<int M, int N, class T>
