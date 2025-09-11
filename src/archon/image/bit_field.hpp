@@ -41,8 +41,8 @@ namespace archon::image {
 /// word type. The position is specified relative to the subsequent field. See \ref gap for
 /// more.
 ///
-/// In a sequence of bit fields, a field is understood as occupying bit positions of higher
-/// significance than all subsequent fields in the sequence.
+/// Unless something else is stated, a field in a sequence is understood as occupying bit
+/// positions of higher significance than all subsequent fields in that sequence.
 ///
 struct BitField {
     /// \brief Number of bits in field.
@@ -120,6 +120,28 @@ constexpr int widest_bit_field(const image::BitField* fields, int num_fields) no
 
 
 
+/// \brief Match bit fields against list of field widths.
+///
+/// This function returns true if, and only if the specified sequence of bit fields (\p
+/// fields, \p num_fields) matches the specified sequence of field widths (\p
+/// field_widths). The two match when, and only when
+///
+///  * the number of field widths is equal to the number of fields, and
+///
+///  * all the fields have a gap of zero, and
+///
+///  * the width of the field at a particular index in the sequence of bit fields (\p
+///    fields, \p num_fields) equals the width at the same index in the sequence of field
+///    widths (\p field_widths).
+///
+/// Note that within \p field_widths, the last width pertains the field that covers the
+/// least significant bit positions.
+///
+constexpr bool bit_fields_match(const image::BitField* fields, int num_fields,
+                                std::initializer_list<int> field_widths) noexcept;
+
+
+
 
 
 
@@ -188,6 +210,20 @@ constexpr int widest_bit_field(const image::BitField* fields, int num_fields) no
         width = field.width;
     }
     return width;
+}
+
+
+constexpr bool bit_fields_match(const image::BitField* fields, int num_fields,
+                                std::initializer_list<int> field_widths) noexcept
+{
+    if (core::int_not_equal(num_fields, field_widths.size()))
+        return false;
+    for (int i = 0; i < num_fields; ++i) {
+        const image::BitField& field = fields[i];
+        if (field.width != field_widths.begin()[i] || field.gap != 0)
+            return false;
+    }
+    return true;
 }
 
 

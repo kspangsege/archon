@@ -33,6 +33,7 @@
 #include <archon/image/pixel_repr.hpp>
 #include <archon/image/pixel.hpp>
 #include <archon/image/block.hpp>
+#include <archon/image/transfer_info.hpp>
 #include <archon/image/buffer_format.hpp>
 #include <archon/image/image.hpp>
 #include <archon/image/palette_image.hpp>
