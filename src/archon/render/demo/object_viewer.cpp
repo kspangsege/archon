@@ -19,33 +19,51 @@
 // DEALINGS IN THE SOFTWARE.
 
 
+#include <cstddef>
 #include <cstdint>
+#include <cstdlib>
+#include <cmath>
 #include <memory>
+#include <utility>
+#include <algorithm>
 #include <optional>
 #include <tuple>
 #include <string_view>
+#include <vector>
 #include <string>
 #include <locale>
+#include <system_error>
 #include <filesystem>
 
 #include <archon/core/features.h>
+#include <archon/core/assert.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/math.hpp>
 #include <archon/core/locale.hpp>
 #include <archon/core/value_parser.hpp>
+#include <archon/core/format.hpp>
 #include <archon/core/as_int.hpp>
+#include <archon/core/filesystem.hpp>
+#include <archon/core/build_environment.hpp>
 #include <archon/core/file.hpp>
 #include <archon/log.hpp>
 #include <archon/cli.hpp>
 #include <archon/math/vector.hpp>
 #include <archon/math/matrix.hpp>
 #include <archon/math/rotation.hpp>
+#include <archon/util/color.hpp>
+#include <archon/util/colors.hpp>
+#include <archon/util/as_css_color.hpp>
+#include <archon/image.hpp>
+#include <archon/image/file_format_png.hpp>
+#include <archon/gfx/build_object.hpp>
 #include <archon/display.hpp>
 #include <archon/display/x11_fullscreen_monitors.hpp>
 #include <archon/display/x11_connection_config.hpp>
 #include <archon/display/opengl.hpp>
 #include <archon/render/opengl.hpp>
 #include <archon/render/object_builder.hpp>
+#include <archon/render/load_texture.hpp>
 #include <archon/render/engine.hpp>
 
 
@@ -58,19 +76,25 @@ namespace {
 #if ARCHON_DISPLAY_HAVE_OPENGL
 
 
-constexpr GLuint g_attrib_location_coord  = 0;
-constexpr GLuint g_attrib_location_normal = 1;
+constexpr GLuint g_attrib_location_coord     = 0;
+constexpr GLuint g_attrib_location_normal    = 1;
+constexpr GLuint g_attrib_location_color     = 2;
+constexpr GLuint g_attrib_location_tex_coord = 3;
 
 
 constexpr vertex_attrib g_attrib_layout[] = {
     vertex_attrib::coord_3,
     vertex_attrib::normal_3,
+    vertex_attrib::color_3,
+    vertex_attrib::tex_coord_2,
 };
 
 
 constexpr std::pair<vertex_attrib, GLuint> g_attrib_map[] = {
-    { vertex_attrib::coord_3,  g_attrib_location_coord  },
-    { vertex_attrib::normal_3, g_attrib_location_normal },
+    { vertex_attrib::coord_3,     g_attrib_location_coord     },
+    { vertex_attrib::normal_3,    g_attrib_location_normal    },
+    { vertex_attrib::color_3,     g_attrib_location_color     },
+    { vertex_attrib::tex_coord_2, g_attrib_location_tex_coord },
 };
 
 
@@ -78,9 +102,13 @@ const char* g_vertex_shader_source = R"(
     #version 410 core
     layout (location = 0) in vec3 aPos;
     layout (location = 1) in vec3 aNormal;
+    layout (location = 2) in vec3 aColor;
+    layout (location = 3) in vec2 aTexCoord;
 
     out vec3 vFragPos_viewSpace;
     out vec3 vNormal_viewSpace;
+    out vec3 vColor;
+    out vec2 vTexCoord;
 
     uniform mat4 uProjectionMatrix;
     uniform mat4 uModelViewMatrix;
@@ -89,6 +117,8 @@ const char* g_vertex_shader_source = R"(
     {
         vFragPos_viewSpace = vec3(uModelViewMatrix * vec4(aPos, 1.0));
         vNormal_viewSpace = normalize(mat3(transpose(inverse(uModelViewMatrix))) * aNormal);
+        vColor = aColor;
+        vTexCoord = aTexCoord;
 
         gl_Position = uProjectionMatrix * uModelViewMatrix * vec4(aPos, 1.0);
     }
@@ -100,21 +130,24 @@ const char* g_fragment_shader_source = R"(
 
     in vec3 vFragPos_viewSpace;
     in vec3 vNormal_viewSpace;
+    in vec3 vColor;
+    in vec2 vTexCoord;
 
     out vec4 FragColor;
 
+    uniform sampler2D uTexture;
     uniform bool uHeadlightOn = true;
 
     void main()
     {
-        vec3 objectColor = vec3(1, 1, 1);
-
         float specularStrength = 0.1;
         float shininess = 32;
         vec3 headlightColor = vec3(0.9, 0.9, 0.9);
         vec3 ambientColor = vec3(0.02, 0.02, 0.02);
 
-        vec3 result = ambientColor * objectColor;
+        vec4 texSample = texture(uTexture, vTexCoord);
+        vec3 color = mix(vColor, texSample.rgb, texSample.a);
+        vec3 result = ambientColor * color;
 
         if (uHeadlightOn) {
             vec3 lightPos_viewSpace = vec3(0, 0, 0);
@@ -124,7 +157,7 @@ const char* g_fragment_shader_source = R"(
             vec3 viewDir = normalize(lightPos_viewSpace - vFragPos_viewSpace);
 
             float diff = max(dot(norm, lightDir), 0);
-            vec3 diffuse = diff * headlightColor * objectColor;
+            vec3 diffuse = diff * headlightColor * color;
 
             vec3 halfwayDir = normalize(lightDir + viewDir);
             float spec = pow(max(dot(norm, halfwayDir), 0), shininess);
@@ -138,11 +171,31 @@ const char* g_fragment_shader_source = R"(
 )";
 
 
+struct object_proto {
+    GLuint vbo;
+    GLuint ebo;
+    GLsizei num_indices;
+};
+
+
+struct object {
+    GLuint vao;
+    GLsizei num_indices;
+};
+
+
 
 class Scene final
     : public render::Engine::Scene {
 public:
-    Scene(log::Logger&, render::Engine&) noexcept;
+    struct config {
+        util::Color color = util::colors::ivory;
+        util::Color background_color = util::colors::black;
+        double subdivision_level = 4;
+        bool disable_texture_smoothing = false;
+    };
+
+    Scene(const std::locale&, log::Logger&, render::Engine&, const std::filesystem::path& texture_path, const config&);
 
     bool try_prepare(std::string&) override final;
     void render_init() override final;
@@ -150,33 +203,59 @@ public:
     void render(const math::Matrix4F&) override final;
 
 private:
+    const std::locale m_locale;
     log::Logger& m_logger;
     render::Engine& m_engine;
+    const std::filesystem::path m_texture_path;
+    const config m_config;
+
+    object_proto m_box = {};
+    object_proto m_cylinder = {};
+    object_proto m_cone = {};
+    object_proto m_sphere = {};
+    object_proto m_torus = {};
+
+    std::vector<object> m_objects;
+    std::size_t m_object_index = 0;
 
     GLuint m_shader_program = {};
-    GLsizei m_num_indices = {};
+    GLuint m_texture = {};
+    GLsizei m_num_indices; // For currently selected object
+
     GLint m_model_view_loc = {};
     GLint m_proj_loc = {};
+    GLint m_texture_loc = {};
     GLint m_headlight_on_loc = {};
-    GLuint m_vbo = {}, m_ebo = {};
 
     bool m_headlight_mode_1 = true;
     bool m_headlight_mode_2 = false;
     bool m_wireframe_mode_1 = false;
     bool m_wireframe_mode_2 = false;
+
+    void select_object(std::size_t i);
+
+    int adjust_subdivision(int val, int min) noexcept;
+
 };
 
 
-inline Scene::Scene(log::Logger& logger, render::Engine& engine) noexcept
-    : m_logger(logger)
+
+inline Scene::Scene(const std::locale& locale, log::Logger& logger, render::Engine& engine,
+                    const std::filesystem::path& texture_path, const config& cfg)
+    : m_locale(locale)
+    , m_logger(logger)
     , m_engine(engine)
+    , m_texture_path(texture_path) // Throws
+    , m_config(cfg)
 {
 }
 
 
 bool Scene::try_prepare(std::string& error)
 {
-    m_engine.set_base_spin(math::Rotation({ 0, 1, 0 }, core::deg_to_rad(90))); // Throws
+    math::Rotation yaw   = { { 0, 1, 0 }, core::deg_to_rad(-31) };
+    math::Rotation pitch = { { 1, 0, 0 }, core::deg_to_rad(+17) };
+    m_engine.set_base_orientation(yaw + pitch);
 
     m_engine.bind_key(display::Key::small_s, "Spin", [&](bool down) {
         if (down) {
@@ -184,6 +263,20 @@ bool Scene::try_prepare(std::string& error)
         }
         else {
             m_engine.set_spin(math::Rotation({ 0, 1, 0 }, core::deg_to_rad(0))); // Throws
+        }
+    }); // Throws
+
+    m_engine.bind_key(display::Key::prior, "Previous object", [&](bool down) {
+        if (down) {
+            m_object_index = std::size_t(m_object_index == 0 ? m_objects.size() - 1 : m_object_index - 1);
+            select_object(m_object_index); // Throws
+        }
+    }); // Throws
+
+    m_engine.bind_key(display::Key::next, "Next object", [&](bool down) {
+        if (down) {
+            m_object_index = std::size_t(m_object_index == std::size_t(m_objects.size() - 1) ? 0 : m_object_index + 1);
+            select_object(m_object_index); // Throws
         }
     }); // Throws
 
@@ -228,74 +321,126 @@ bool Scene::try_prepare(std::string& error)
 
     m_proj_loc = glGetUniformLocation(m_shader_program, "uProjectionMatrix");
     m_model_view_loc = glGetUniformLocation(m_shader_program, "uModelViewMatrix");
+    m_texture_loc = glGetUniformLocation(m_shader_program, "uTexture");
     m_headlight_on_loc = glGetUniformLocation(m_shader_program, "uHeadlightOn");
-    if (m_model_view_loc < 0 || m_proj_loc < 0 || m_headlight_on_loc < 0) {
+    if (m_model_view_loc < 0 || m_proj_loc < 0 || m_texture_loc < 0 || m_headlight_on_loc < 0) {
         error = "Failed to get uniform locations in shader program"; // Throws
         return false;
     }
 
-    float scale_factor = 0.5;
-    math::Vector3F a = scale_factor * math::Vector3F(-1, -1, -1);
-    math::Vector3F b = scale_factor * math::Vector3F(+1, +1, +1);
+    glGenTextures(1, &m_texture);
+    glBindTexture(GL_TEXTURE_2D, m_texture);
+    {
+        std::unique_ptr<image::WritableImage> image;
+        log::PrefixLogger sublogger(m_logger, "Load texture: "); // Throws
+        image::PNGLoadConfig png_load_config;
+        png_load_config.expand_indirect_color = true;
+        png_load_config.expand_lum_to_rgb = true;
+        png_load_config.ensure_alpha_channel = true;
+        image::FileFormat::SpecialLoadConfigRegistry special_load_config_registry;
+        special_load_config_registry.register_(png_load_config); // Throws
+        image::LoadConfig load_config;
+        load_config.vertical_flip = true;
+        load_config.logger = &sublogger;
+        load_config.special = &special_load_config_registry;
+        std::error_code ec;
+        if (ARCHON_UNLIKELY(!image::try_load(m_texture_path, image, m_locale, load_config, ec))) { // Throws
+            error = core::format("Failed to load texture image %s: %s", m_texture_path, ec.message()); // Throws
+            return false;
+        }
+        bool require_format_match = false;
+        bool preserve_precision = false;
+        bool no_interp = m_config.disable_texture_smoothing;
+        bool no_mipmap = false;
+        render::load_and_configure_texture(*image, require_format_match, preserve_precision,
+                                           no_interp, no_mipmap); // Throws
+    }
 
     render::object_builder builder;
     builder.set_attrib_layout(g_attrib_layout); // Throws
-    builder.begin_quads(); // Throws
 
-    // Left side of box
-    builder.set_normal({ -1, 0, 0 }); // Throws
-    builder.add_vertex({ a[0], a[1], a[2] }); // Throws
-    builder.add_vertex({ a[0], a[1], b[2] }); // Throws
-    builder.add_vertex({ a[0], b[1], b[2] }); // Throws
-    builder.add_vertex({ a[0], b[1], a[2] }); // Throws
+    auto create_object_proto = [&](auto&& func) -> object_proto {
+        builder.reset();
+        builder.set_color(m_config.color);
+        func(); // Throws
 
-    // Right side of box
-    builder.set_normal({ +1, 0, 0 }); // Throws
-    builder.add_vertex({ b[0], a[1], a[2] }); // Throws
-    builder.add_vertex({ b[0], b[1], a[2] }); // Throws
-    builder.add_vertex({ b[0], b[1], b[2] }); // Throws
-    builder.add_vertex({ b[0], a[1], b[2] }); // Throws
+        GLuint vbo = {}, ebo = {};
+        glGenBuffers(1, &vbo);
+        glGenBuffers(1, &ebo);
 
-    // Bottom of box
-    builder.set_normal({ 0, -1, 0 }); // Throws
-    builder.add_vertex({ a[0], a[1], a[2] }); // Throws
-    builder.add_vertex({ b[0], a[1], a[2] }); // Throws
-    builder.add_vertex({ b[0], a[1], b[2] }); // Throws
-    builder.add_vertex({ a[0], a[1], b[2] }); // Throws
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+        GLsizei num_indices = builder.create(); // Throws
 
-    // Top of box
-    builder.set_normal({ 0, +1, 0 }); // Throws
-    builder.add_vertex({ a[0], b[1], a[2] }); // Throws
-    builder.add_vertex({ a[0], b[1], b[2] }); // Throws
-    builder.add_vertex({ b[0], b[1], b[2] }); // Throws
-    builder.add_vertex({ b[0], b[1], a[2] }); // Throws
+        return {
+            vbo,
+            ebo,
+            num_indices,
+        };
+    };
 
-    // Back side of box
-    builder.set_normal({ 0, 0, -1 }); // Throws
-    builder.add_vertex({ a[0], a[1], a[2] }); // Throws
-    builder.add_vertex({ a[0], b[1], a[2] }); // Throws
-    builder.add_vertex({ b[0], b[1], a[2] }); // Throws
-    builder.add_vertex({ b[0], a[1], a[2] }); // Throws
+    m_box = create_object_proto([&]() {
+        builder.translate(-0.5f * math::Vector3F(1, 1, 1));
+        int steps = adjust_subdivision(12, 1);
+        gfx::build_box(builder, steps); // Throws
+    }); // Throws
 
-    // Front side of box
-    builder.set_normal({ 0, 0, +1 }); // Throws
-    builder.add_vertex({ a[0], a[1], b[2] }); // Throws
-    builder.add_vertex({ b[0], a[1], b[2] }); // Throws
-    builder.add_vertex({ b[0], b[1], b[2] }); // Throws
-    builder.add_vertex({ a[0], b[1], b[2] }); // Throws
+    m_cylinder = create_object_proto([&]() {
+        builder.scale(0.5);
+        bool has_side = true;
+        bool has_top = false;
+        bool has_bottom = false;
+        int azimuth_steps = adjust_subdivision(36, 6);
+        int height_steps = adjust_subdivision(12, 1);
+        int radial_steps = adjust_subdivision(6, 1);
+        builder.matrix_mode_tex_coord();
+        builder.push(); // Throws
+        builder.scale(3, 1, 1);
+        gfx::build_cylinder(builder, has_side, has_top, has_bottom,
+                            azimuth_steps, height_steps, radial_steps); // Throws
+        builder.pop();
+        has_side = false;
+        has_top = true;
+        has_bottom = true;
+        gfx::build_cylinder(builder, has_side, has_top, has_bottom,
+                            azimuth_steps, height_steps, radial_steps); // Throws
+    }); // Throws
 
-    builder.end(); // Throws
+    m_cone = create_object_proto([&]() {
+        builder.scale(0.5);
+        bool has_side = true;
+        bool has_bottom = false;
+        int azimuth_steps = adjust_subdivision(36, 6);
+        int height_steps = adjust_subdivision(12, 1);
+        int radial_steps = adjust_subdivision(6, 1);
+        builder.matrix_mode_tex_coord();
+        builder.push(); // Throws
+        builder.scale(3, 1, 1);
+        gfx::build_cone(builder, has_side, has_bottom, azimuth_steps, height_steps, radial_steps); // Throws
+        builder.pop();
+        has_side = false;
+        has_bottom = true;
+        gfx::build_cone(builder, has_side, has_bottom, azimuth_steps, height_steps, radial_steps); // Throws
+    }); // Throws
 
-    glGenBuffers(1, &m_vbo);
-    glGenBuffers(1, &m_ebo);
+    m_sphere = create_object_proto([&]() {
+        builder.scale(0.5);
+        builder.matrix_mode_tex_coord();
+        builder.scale(3, 1, 1);
+        int azimuth_steps = adjust_subdivision(36, 6);
+        int elevation_steps = adjust_subdivision(18, 3);
+        gfx::build_sphere(builder, azimuth_steps, elevation_steps); // Throws
+    }); // Throws
 
-    glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ebo);
-
-    m_num_indices = builder.create(); // Throws
-
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+    m_torus = create_object_proto([&]() {
+        builder.scale(0.5);
+        builder.matrix_mode_tex_coord();
+        builder.scale(3, 1, 1);
+        float minor_radius = 0.5;
+        int major_azimuth_steps = adjust_subdivision(36, 6);
+        int minor_azimuth_steps = adjust_subdivision(18, 6);
+        gfx::build_torus(builder, minor_radius, major_azimuth_steps, minor_azimuth_steps); // Throws
+    }); // Throws
 
     return true;
 }
@@ -304,20 +449,41 @@ bool Scene::try_prepare(std::string& error)
 void Scene::render_init()
 {
     glEnable(GL_FRAMEBUFFER_SRGB);
+    glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
 
+    math::Vector4F background_color;
+    m_config.background_color.to_lin_vec(background_color);
+    glClearColor(background_color[0], background_color[1], background_color[2], background_color[3]);
+
     glUseProgram(m_shader_program);
+    glUniform1i(m_texture_loc, 0); // Use texture unit 0
+    glBindTexture(GL_TEXTURE_2D, m_texture);
 
-    GLuint vao = {};
-    glGenVertexArrays(1, &vao);
-    glBindVertexArray(vao);
+    auto add_object = [&](const object_proto& proto) {
+        GLuint vao = {};
+        glGenVertexArrays(1, &vao);
+        glBindVertexArray(vao);
 
-    glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ebo);
+        glBindBuffer(GL_ARRAY_BUFFER, proto.vbo);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, proto.ebo);
 
-    render::object_builder::configure_and_enable_attribs(g_attrib_layout, g_attrib_map); // Throws
+        render::object_builder::configure_and_enable_attribs(g_attrib_layout, g_attrib_map); // Throws
 
-    glBindBuffer(GL_ARRAY_BUFFER, 0);
+        object obj = {
+            vao,
+            proto.num_indices,
+        };
+        m_objects.push_back(obj); // Throws
+    };
+
+    add_object(m_box);      // Throws
+    add_object(m_cylinder); // Throws
+    add_object(m_cone);     // Throws
+    add_object(m_sphere);   // Throws
+    add_object(m_torus);    // Throws
+
+    select_object(0); // Throws
 }
 
 
@@ -347,6 +513,24 @@ void Scene::render(const math::Matrix4F& view)
 }
 
 
+void Scene::select_object(std::size_t i)
+{
+    ARCHON_ASSERT(i < m_objects.size());
+    const object& obj = m_objects[i];
+    glBindVertexArray(obj.vao);
+    m_num_indices = obj.num_indices;
+    m_engine.need_redraw();
+    // m_engine.set_status("%s", obj.label); // Throws                       
+}
+
+
+
+int Scene::adjust_subdivision(int val, int min) noexcept
+{
+    return std::max(int(std::ceil(m_config.subdivision_level * val)), min);
+}
+
+
 #endif // ARCHON_DISPLAY_HAVE_OPENGL
 
 } // unnamed namespace
@@ -359,6 +543,8 @@ int main(int argc, char* argv[])
     namespace fs = std::filesystem;
     bool list_display_implementations = false;
     render::Engine::Config engine_config;
+    Scene::config scene_config;
+    std::optional<fs::path> optional_texture;
     display::Size window_size = 512;
     log::LogLevel log_level_limit = log::LogLevel::warn;
     std::optional<std::string> optional_display_implementation;
@@ -389,6 +575,31 @@ int main(int argc, char* argv[])
 
     opt(cli::help_tag, spec); // Throws
     opt(cli::stop_tag, spec); // Throws
+
+    opt("-o, --color", "<color>", cli::no_attributes, spec,
+        "Set the foreground color. \"@A\" can be any valid CSS3 color value with, or without an alpha component, as "
+        "well as the extended hex-forms, \"#RGBA\" and \"#RRGGBBAA\", accommodating the alpha component. The default "
+        "color is @Q.",
+        cli::assign(util::as_css_color(scene_config.color))); // Throws
+
+    opt("-b, --background-color", "<color>", cli::no_attributes, spec,
+        "Set the background color. \"@A\" can be any valid CSS3 color value with, or without an alpha component, as "
+        "well as the extended hex-forms, \"#RGBA\" and \"#RRGGBBAA\", accommodating the alpha component. The default "
+        "color is @Q.",
+        cli::assign(util::as_css_color(scene_config.background_color))); // Throws
+
+    opt("-L, --subdivision-level", "<val>", cli::no_attributes, spec,
+        "Change amount of geometry subdivision. Double the value means roughly twice as much subdivision. The default "
+        "is @V.",
+        cli::assign(scene_config.subdivision_level)); // Throws
+
+    opt("-t, --texture", "<path>", cli::no_attributes, spec,
+        "Use this texture instead of the default one.",
+        cli::assign(optional_texture)); // Throws
+
+    opt("-m, --disable-texture-smoothing", "", cli::no_attributes, spec,
+        "Turn off texture smoothing.",
+        cli::raise_flag(scene_config.disable_texture_smoothing)); // Throws
 
     opt("-S, --window-size", "<size>", cli::no_attributes, spec,
         "Set the window size in number of pixels. \"@A\" can be specified either as a pair \"<width>,<height>\", or "
@@ -540,6 +751,33 @@ int main(int argc, char* argv[])
     log::FileLogger root_logger(core::File::get_stderr(), locale); // Throws
     log::LimitLogger logger(root_logger, log_level_limit); // Throws
 
+    // `src_root` is the relative path to the root of the source tree from the root of the
+    // project.
+    //
+    // `src_path` is the relative path to this source file from the root of source tree.
+    //
+    // `bin_path` is the relative path to the executable from the root of the source root as
+    // it is reflected into the build directory.
+    //
+    core::BuildEnvironment::Params build_env_params;
+    build_env_params.file_path = __FILE__;
+    build_env_params.bin_path  = "archon/render/demo/archon-object-viewer";
+    build_env_params.src_path  = "archon/render/demo/object_viewer.cpp";
+    build_env_params.src_root  = "src";
+    build_env_params.source_from_build_path = core::archon_source_from_build_path;
+    core::BuildEnvironment build_env = core::BuildEnvironment(argv[0], build_env_params, locale); // Throws
+
+    namespace fs = std::filesystem;
+    fs::path resource_path = (build_env.get_relative_source_root() /
+                              core::make_fs_path_generic("archon/render/demo", locale)); // Throws
+    fs::path texture_path;
+    if (optional_texture.has_value()) {
+        texture_path = optional_texture.value(); // Throws
+    }
+    else {
+        texture_path = (resource_path / core::make_fs_path_generic("archon_text.png", locale)); // Throws
+    }
+
     const display::Implementation* impl = {};
     std::string error;
     if (ARCHON_UNLIKELY(!display::try_pick_implementation(optional_display_implementation, guarantees,
@@ -592,9 +830,9 @@ int main(int argc, char* argv[])
 #if ARCHON_DISPLAY_HAVE_OPENGL
 
     render::Engine engine;
-    Scene scene(logger, engine);
-    if (ARCHON_UNLIKELY(!engine.try_create(scene, *conn, "Archon Box", window_size, locale, engine_config,
-                                           error))) { // Throws
+    Scene scene(locale, logger, engine, texture_path, scene_config); // Throws
+    if (ARCHON_UNLIKELY(!engine.try_create(scene, *conn, "Archon Object Viewer", window_size, locale,
+                                           engine_config, error))) { // Throws
         logger.error("Failed to create render engine: %s", error); // Throws
         return EXIT_FAILURE;
     }
