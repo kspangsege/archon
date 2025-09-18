@@ -382,13 +382,15 @@ constexpr std::size_t g_read_write_buffer_size = 4096;
 
 class LoadContext : public Context {
 public:
-    LoadContext(log::Logger&, image::ProgressTracker*, image::CommentHandler*, core::Source&, const std::locale&);
+    LoadContext(log::Logger&, bool vertical_flip, image::ProgressTracker*,
+                image::CommentHandler*, core::Source&, const std::locale&);
     ~LoadContext() noexcept;
 
     bool recognize(bool& recognized, std::error_code&);
     bool load(std::unique_ptr<image::WritableImage>&, std::error_code&);
 
 private:
+    bool m_vertical_flip;
     image::CommentHandler* const m_comment_handler;
     core::Source& m_source;
     core::charenc_bridge m_charenc_bridge;
@@ -418,9 +420,10 @@ private:
 };
 
 
-LoadContext::LoadContext(log::Logger& logger, image::ProgressTracker* progress_tracker,
+LoadContext::LoadContext(log::Logger& logger, bool vertical_flip, image::ProgressTracker* progress_tracker,
                          image::CommentHandler* comment_handler, core::Source& source, const std::locale& locale)
     : Context(logger, progress_tracker) // Throws
+    , m_vertical_flip(vertical_flip)
     , m_comment_handler(comment_handler)
     , m_source(source)
     , m_charenc_bridge(locale) // Throws
@@ -568,6 +571,8 @@ bool LoadContext::load(std::unique_ptr<image::WritableImage>& image, std::error_
         m_rows = std::make_unique<JSAMPLE*[]>(num_rows); // Throws
         for (std::size_t i = 0; i < num_rows; ++i)
             m_rows[i] = base + i * components_per_row;
+        if (m_vertical_flip)
+            std::reverse(m_rows.get(), m_rows.get() + height);
         while (m_info.output_scanline < height) {
             JDIMENSION n = static_cast<JDIMENSION>(height - m_info.output_scanline);
             jpeg_read_scanlines(&m_info, m_rows.get() + m_info.output_scanline, n);
@@ -1128,9 +1133,10 @@ public:
     bool try_recognize(core::Source& source, bool& recognized, const std::locale& locale, log::Logger& logger,
                        std::error_code& ec) const override
     {
+        bool vertical_flip = false;
         image::ProgressTracker* progress_tracker = nullptr;
         image::CommentHandler* comment_handler = nullptr;
-        LoadContext context(logger, progress_tracker, comment_handler, source, locale); // Throws
+        LoadContext context(logger, vertical_flip, progress_tracker, comment_handler, source, locale); // Throws
         return context.recognize(recognized, ec); // Throws
     }
 
@@ -1138,7 +1144,8 @@ public:
                      log::Logger& logger, const LoadConfig& config, std::error_code& ec) const override
     {
         // FIXME: Deal with config.image_provider                     
-        LoadContext context(logger, config.progress_tracker, config.comment_handler, source, locale); // Throws
+        LoadContext context(logger, config.vertical_flip, config.progress_tracker,
+                            config.comment_handler, source, locale); // Throws
         return context.load(image, ec); // Throws
     }
 

@@ -267,6 +267,17 @@ protected:
 /// \sa \ref image::LoadConfig
 ///
 struct FileFormat::LoadConfig {
+    /// \brief Flip loaded image upside down.
+    ///
+    /// If set to `true`, the loaded image will have been flipped upside down such that it
+    /// is the bottom-most pixel row that occurs first in memory. By default, that is when
+    /// `vertical_flip` is left at `false`, it is the top-most pixel row that occurs first
+    /// in memory. The default is the established convention for images, but there are cases
+    /// where the flipped vertical direction is useful. One example is when the image is to
+    /// be used as an OpenGL texture.
+    ///
+    bool vertical_flip = false;
+
     /// \brief Track progress of loading process.
     ///
     /// An application that wishes to be notified about progress of the loading process can

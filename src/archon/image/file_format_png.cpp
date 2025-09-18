@@ -689,6 +689,7 @@ public:
     image::CommentHandler* comment_handler = nullptr;
     core::Source* source = nullptr;
     const std::locale* locale = nullptr;
+    bool vertical_flip = {};
     bool expand_indirect_color = {};
     bool expand_lum_to_rgb = {};
     bool ensure_alpha_channel = {};
@@ -991,6 +992,8 @@ public:
                 row += bytes_per_row;
             }
         }
+        if (vertical_flip)
+            std::reverse(rows.get(), rows.get() + image_size.height);
 
         return true;
     }
@@ -1200,8 +1203,9 @@ bool do_load(LoadContext& ctx)
 
 
 bool load(core::Source& source, std::unique_ptr<image::WritableImage>& image, const std::locale& loc,
-          log::Logger& logger, image::ProgressTracker* progress_tracker, image::ImageProvider* image_provider,
-          image::CommentHandler* comment_handler, const image::PNGLoadConfig& config, std::error_code& ec)
+          log::Logger& logger, bool vertical_flip, image::ProgressTracker* progress_tracker,
+          image::ImageProvider* image_provider, image::CommentHandler* comment_handler,
+          const image::PNGLoadConfig& config, std::error_code& ec)
 {
     // FIXME: Get background color using `png_get_bKGD()`             
 
@@ -1220,6 +1224,7 @@ bool load(core::Source& source, std::unique_ptr<image::WritableImage>& image, co
     ctx.comment_handler = comment_handler;
     ctx.source = &source;
     ctx.locale = &loc;
+    ctx.vertical_flip = vertical_flip;
     ctx.expand_indirect_color = config.expand_indirect_color;
     ctx.expand_lum_to_rgb = config.expand_lum_to_rgb;
     ctx.ensure_alpha_channel = config.ensure_alpha_channel;
@@ -1696,6 +1701,7 @@ public:
     bool do_try_load(core::Source& source, std::unique_ptr<image::WritableImage>& image, const std::locale& loc,
                      log::Logger& logger, const LoadConfig& config, std::error_code& ec) const override
     {
+        bool vertical_flip = config.vertical_flip;
         image::ProgressTracker* progress_tracker = config.progress_tracker;
         image::ImageProvider* image_provider = config.image_provider;
         image::CommentHandler* comment_handler = config.comment_handler;
@@ -1709,8 +1715,8 @@ public:
         std::optional<image::PNGLoadConfig> config_4;
         if (!config_2)
             config_2 = &config_4.emplace(); // Throws
-        return ::load(source, image, loc, logger, progress_tracker, image_provider, comment_handler, *config_2,
-                      ec); // Throws
+        return ::load(source, image, loc, logger, vertical_flip, progress_tracker, image_provider, comment_handler,
+                      *config_2, ec); // Throws
     }
 
     bool do_try_save(const image::Image& image, core::Sink& sink, const std::locale& loc, log::Logger& logger,
