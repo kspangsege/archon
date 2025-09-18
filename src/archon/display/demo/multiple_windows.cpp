@@ -92,7 +92,7 @@ public:
             math::Vector<3, double> hsv = { m_next_hue, 0.3, 0.5 };
             m_next_hue = core::periodic_mod(m_next_hue + core::golden_fraction<double>, 1.0);
             math::Vector rgb = util::cvt_HSV_to_sRGB(hsv);
-            m_windows[id] = { std::move(win), util::Color::from_vec(rgb) }; // Throws
+            m_windows[id] = { std::move(win), util::Color::from_compr_vec(rgb) }; // Throws
             m_prev_window_id = id;
             return true;
         }

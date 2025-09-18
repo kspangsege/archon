@@ -266,7 +266,7 @@ void EngineImpl::run()
 
 void EngineImpl::set_background_color(util::Color color)
 {
-    color.to_vec(m_background_color);
+    color.to_compr_vec(m_background_color);
     m_need_misc_update = true;
     m_need_redraw = true;
 }

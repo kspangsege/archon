@@ -58,9 +58,9 @@ public:
     constexpr auto to_rgba() const noexcept -> rgba_type;
     constexpr auto to_trgb() const noexcept -> trgb_type;
 
-    template<class T> static constexpr auto from_vec(const math::Vector<3, T>& rgb, T a = 1) noexcept -> Color;
-    template<class T> static constexpr auto from_vec(const math::Vector<4, T>& rgba) noexcept -> Color;
-    template<class T> constexpr void to_vec(math::Vector<4, T>& rgba) const noexcept;
+    template<class T> static constexpr auto from_compr_vec(const math::Vector<3, T>& rgb, T a = 1) noexcept -> Color;
+    template<class T> static constexpr auto from_compr_vec(const math::Vector<4, T>& rgba) noexcept -> Color;
+    template<class T> constexpr void to_compr_vec(math::Vector<4, T>& rgba) const noexcept;
 
     /// \brief Whether color is fully opaque.
     ///
@@ -152,13 +152,13 @@ constexpr auto Color::to_trgb() const noexcept -> trgb_type
 }
 
 
-template<class T> constexpr auto Color::from_vec(const math::Vector<3, T>& rgb, T a) noexcept -> Color
+template<class T> constexpr auto Color::from_compr_vec(const math::Vector<3, T>& rgb, T a) noexcept -> Color
 {
-    return from_vec(math::Vector<4, T>(rgb[0], rgb[1], rgb[2], a));
+    return from_compr_vec(math::Vector<4, T>(rgb[0], rgb[1], rgb[2], a));
 }
 
 
-template<class T> constexpr auto Color::from_vec(const math::Vector<4, T>& rgba) noexcept -> Color
+template<class T> constexpr auto Color::from_compr_vec(const math::Vector<4, T>& rgba) noexcept -> Color
 {
     static_assert(std::is_floating_point_v<T>);
     Color color;
@@ -170,7 +170,7 @@ template<class T> constexpr auto Color::from_vec(const math::Vector<4, T>& rgba)
 }
 
 
-template<class T> constexpr void Color::to_vec(math::Vector<4, T>& rgba) const noexcept
+template<class T> constexpr void Color::to_compr_vec(math::Vector<4, T>& rgba) const noexcept
 {
     static_assert(std::is_floating_point_v<T>);
     for (int i = 0; i < 4; ++i) {
