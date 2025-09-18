@@ -27,3 +27,5 @@
 
 #include <archon/gfx/gfx_namespace.hpp>
 #include <archon/gfx/math.hpp>
+#include <archon/gfx/object_builder.hpp>
+#include <archon/gfx/build_object.hpp>
