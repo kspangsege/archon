@@ -39,8 +39,6 @@
 #include <archon/math/vector.hpp>
 #include <archon/math/matrix.hpp>
 #include <archon/math/rotation.hpp>
-#include <archon/util/color.hpp>
-#include <archon/util/colors.hpp>
 #include <archon/gfx/math.hpp>
 #include <archon/display.hpp>
 #include <archon/display/opengl.hpp>
@@ -104,7 +102,6 @@ bool EngineImpl::try_init(std::string_view window_title, display::Size window_si
     update_window_size(window_size);
     update_resolution(m_default_resolution); // Throws
     update_frame_rate(m_default_frame_rate); // Throws
-    set_background_color(util::colors::black); // Throws
     reset_view(); // Throws
 
     render::KeyHandlerIdent handler;
@@ -249,14 +246,6 @@ void EngineImpl::run()
 
         tick(deadline); // Throws
     }
-}
-
-
-void EngineImpl::set_background_color(util::Color color)
-{
-    color.to_lin_vec(m_background_color);
-    m_need_misc_update = true;
-    m_need_redraw = true;
 }
 
 
@@ -640,14 +629,6 @@ bool EngineImpl::key_func_reset_view(bool down)
 
 void EngineImpl::redraw()
 {
-    if (ARCHON_UNLIKELY(m_need_misc_update)) {
-#if ARCHON_DISPLAY_HAVE_OPENGL
-        glClearColor(m_background_color[0], m_background_color[1],
-                     m_background_color[2], m_background_color[3]);
-#endif // ARCHON_DISPLAY_HAVE_OPENGL
-        m_need_misc_update = false;
-    }
-
     if (ARCHON_UNLIKELY(m_projection_and_viewport_need_update)) {
         update_projection_and_viewport();
         m_projection_and_viewport_need_update = false;

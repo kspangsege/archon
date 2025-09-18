@@ -29,7 +29,6 @@
 #include <archon/core/features.h>
 #include <archon/log/logger.hpp>
 #include <archon/math/rotation.hpp>
-#include <archon/util/color.hpp>
 #include <archon/display.hpp>
 #include <archon/render/key_binding_support.hpp>
 #include <archon/render/engine.hpp>
@@ -98,12 +97,6 @@ void Engine::set_resolution(const display::Resolution& resol)
 void Engine::set_frame_rate(double rate)
 {
     m_impl->set_frame_rate(rate); // Throws
-}
-
-
-void Engine::set_background_color(util::Color color)
-{
-    m_impl->set_background_color(color); // Throws
 }
 
 

@@ -35,7 +35,6 @@
 #include <archon/log/logger.hpp>
 #include <archon/math/matrix.hpp>
 #include <archon/math/rotation.hpp>
-#include <archon/util/color.hpp>
 #include <archon/display.hpp>
 #include <archon/render/key_binding_support.hpp>
 #include <archon/render/impl/key_bindings.hpp>
@@ -193,12 +192,6 @@ public:
     /// \sa \ref Config::frame_rate, \ref Config::disable_frame_rate_tracking
     ///
     void set_frame_rate(double rate);
-
-    /// \brief Set background color for rendered scene.
-    ///
-    /// This function sets the background color for the rendered scene.
-    ///
-    void set_background_color(util::Color color);
 
     /// \brief Set base orientation of virtual trackball.
     ///

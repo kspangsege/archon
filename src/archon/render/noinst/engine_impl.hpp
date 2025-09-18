@@ -31,7 +31,6 @@
 #include <archon/log.hpp>
 #include <archon/math/vector.hpp>
 #include <archon/math/rotation.hpp>
-#include <archon/util/color.hpp>
 #include <archon/util/perspect_proj.hpp>
 #include <archon/display.hpp>
 #include <archon/render/virt_trackball.hpp>
@@ -60,7 +59,6 @@ public:
 
     void set_resolution(const display::Resolution& resol);
     void set_frame_rate(double rate);
-    void set_background_color(util::Color color);
 
     void set_base_orientation(const math::Rotation& orientation);
     void set_base_spin(const math::Rotation& spin);
@@ -139,7 +137,6 @@ private:
     Clock::duration m_time_per_frame;
     display::Size m_window_size;
     display::Pos m_window_pos;
-    math::Vector4F m_background_color;
     math::Rotation m_base_orientation;
     math::Rotation m_orientation;
     math::Rotation m_base_spin;
@@ -155,7 +152,6 @@ private:
     bool m_quit = false;
     bool m_interrupt_before_sleep = false;
     bool m_refresh_rate_changed = false;
-    bool m_need_misc_update = true;
     bool m_projection_and_viewport_need_update = true;
     bool m_need_redraw = true;
     bool m_fullscreen_mode = false;
