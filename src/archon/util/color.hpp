@@ -31,6 +31,7 @@
 
 #include <archon/math/vector.hpp>
 #include <archon/util/color_comp.hpp>
+#include <archon/util/srgb_gamma.hpp>
 
 
 namespace archon::util {
@@ -67,14 +68,37 @@ public:
 
     /// \{
     ///
+    /// \brief Convert to linear-intensity floating-point form.
+    ///
+    /// These function convert a color to a vector of floating-point components in the range
+    /// [0,1], or vice versa. All floating-point components (color channels and alpha
+    /// channel) are expressed in terms of linear intensities, so floating-point color
+    /// channel components are not gamma compressed (\ref util::srgb_gamma_compress()). This
+    /// is in contrast to \ref to_compr_vec() and \ref from_compr_vec() where floating-point
+    /// color channel components are gamma compressed.
+    ///
+    /// FIXME: Make these `constexpr` when switching to C++26.
+    ///
+    /// \sa \ref to_lin_vec(), \ref from_lin_vec()
+    /// \sa \ref to_compr_vec(), \ref from_compr_vec()
+    ///
+    template<class T> void to_lin_vec(math::Vector<4, T>& rgba) const noexcept;
+    template<class T> static auto from_lin_vec(const math::Vector<3, T>& rgb, T a = 1) noexcept -> Color;
+    template<class T> static auto from_lin_vec(const math::Vector<4, T>& rgba) noexcept -> Color;
+    /// \}
+
+    /// \{
+    ///
     /// \brief Convert to gamma-compressed floating-point form.
     ///
     /// These function convert a color to a vector of floating-point components in the range
     /// [0,1], or vice versa. Floating-point components pertaining to color channels are
     /// expressed in gamma-compressed form (\ref util::srgb_gamma_compress()). The alpha
-    /// channel, is expressed linearly.
+    /// channel, is expressed linearly. See \ref to_lin_vec() and \ref from_lin_vec() for an
+    /// alternative that treats floating-point color channels in terms of linear intensity.
     ///
     /// \sa \ref to_compr_vec(), \ref from_compr_vec()
+    /// \sa \ref to_lin_vec(), \ref from_lin_vec()
     ///
     template<class T> constexpr void to_compr_vec(math::Vector<4, T>& rgba) const noexcept;
     template<class T> static constexpr auto from_compr_vec(const math::Vector<3, T>& rgb, T a = 1) noexcept -> Color;
@@ -168,6 +192,30 @@ constexpr auto Color::to_trgb() const noexcept -> trgb_type
             (trgb_type(m_rgba[0])       << 16) |
             (trgb_type(m_rgba[1])       <<  8) |
             (trgb_type(m_rgba[2])       <<  0));
+}
+
+
+template<class T> inline void Color::to_lin_vec(math::Vector<4, T>& rgba) const noexcept
+{
+    static_assert(std::is_floating_point_v<T>);
+    for (int i = 0; i < 4; ++i)
+        rgba[i] = util::srgb_gamma_expand(util::color_comp_int_to_float<8, T>(m_rgba[i]));
+}
+
+
+template<class T> inline auto Color::from_lin_vec(const math::Vector<3, T>& rgb, T a) noexcept -> Color
+{
+    return from_lin_vec(math::Vector<4, T>(rgb, a));
+}
+
+
+template<class T> inline auto Color::from_lin_vec(const math::Vector<4, T>& rgba) noexcept -> Color
+{
+    static_assert(std::is_floating_point_v<T>);
+    Color color;
+    for (int i = 0; i < 4; ++i)
+        color[i] = util::color_comp_float_to_int<comp_type, 8>(util::srgb_gamma_compress(rgba[i]));
+    return color;
 }
 
 
