@@ -30,12 +30,19 @@
 #include <tuple>
 
 #include <archon/math/vector.hpp>
-#include <archon/util/unit_frac.hpp>
+#include <archon/util/color_comp.hpp>
 
 
 namespace archon::util {
 
 
+/// \brief sRGB color plus alpha component with 8 bits per component.
+///
+/// An instance of this class represents a color in the sRGB color space plus an alpha
+/// component (opacity). Color components are represented in gamma-compressed form as
+/// integers in the range [0,255]. The alpha channel is represented linearly as an integer
+/// in the range [0,255].
+///
 class Color {
 public:
     using comp_type = std::uint_least8_t;
@@ -58,9 +65,21 @@ public:
     constexpr auto to_rgba() const noexcept -> rgba_type;
     constexpr auto to_trgb() const noexcept -> trgb_type;
 
+    /// \{
+    ///
+    /// \brief Convert to gamma-compressed floating-point form.
+    ///
+    /// These function convert a color to a vector of floating-point components in the range
+    /// [0,1], or vice versa. Floating-point components pertaining to color channels are
+    /// expressed in gamma-compressed form (\ref util::srgb_gamma_compress()). The alpha
+    /// channel, is expressed linearly.
+    ///
+    /// \sa \ref to_compr_vec(), \ref from_compr_vec()
+    ///
+    template<class T> constexpr void to_compr_vec(math::Vector<4, T>& rgba) const noexcept;
     template<class T> static constexpr auto from_compr_vec(const math::Vector<3, T>& rgb, T a = 1) noexcept -> Color;
     template<class T> static constexpr auto from_compr_vec(const math::Vector<4, T>& rgba) noexcept -> Color;
-    template<class T> constexpr void to_compr_vec(math::Vector<4, T>& rgba) const noexcept;
+    /// \}
 
     /// \brief Whether color is fully opaque.
     ///
@@ -152,9 +171,17 @@ constexpr auto Color::to_trgb() const noexcept -> trgb_type
 }
 
 
+template<class T> constexpr void Color::to_compr_vec(math::Vector<4, T>& rgba) const noexcept
+{
+    static_assert(std::is_floating_point_v<T>);
+    for (int i = 0; i < 4; ++i)
+        rgba[i] = util::color_comp_int_to_float<8, T>(m_rgba[i]);
+}
+
+
 template<class T> constexpr auto Color::from_compr_vec(const math::Vector<3, T>& rgb, T a) noexcept -> Color
 {
-    return from_compr_vec(math::Vector<4, T>(rgb[0], rgb[1], rgb[2], a));
+    return from_compr_vec(math::Vector<4, T>(rgb, a));
 }
 
 
@@ -162,21 +189,9 @@ template<class T> constexpr auto Color::from_compr_vec(const math::Vector<4, T>&
 {
     static_assert(std::is_floating_point_v<T>);
     Color color;
-    for (int i = 0; i < 4; ++i) {
-        namespace uf = util::unit_frac;
-        color[i] = uf::flt_to_int<comp_type>(rgba[i], 255);
-    }
+    for (int i = 0; i < 4; ++i)
+        color[i] = util::color_comp_float_to_int<comp_type, 8>(rgba[i]);
     return color;
-}
-
-
-template<class T> constexpr void Color::to_compr_vec(math::Vector<4, T>& rgba) const noexcept
-{
-    static_assert(std::is_floating_point_v<T>);
-    for (int i = 0; i < 4; ++i) {
-        namespace uf = util::unit_frac;
-        rgba[i] = uf::int_to_flt<T>(m_rgba[i], 255);
-    }
 }
 
 

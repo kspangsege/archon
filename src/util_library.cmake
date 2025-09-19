@@ -13,6 +13,7 @@ target_sources(Util PUBLIC FILE_SET HEADERS FILES
   archon/util/impl/bit_medium.hpp
   archon/util/bit_medium.hpp
   archon/util/unit_frac.hpp
+  archon/util/color_comp.hpp
   archon/util/kdtree.hpp
   archon/util/color_space.hpp
   archon/util/color.hpp
