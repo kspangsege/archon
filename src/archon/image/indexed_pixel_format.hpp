@@ -33,6 +33,7 @@
 #include <archon/core/integer.hpp>
 #include <archon/core/opt_owning_ptr.hpp>
 #include <archon/core/endianness.hpp>
+#include <archon/util/bit_medium.hpp>
 #include <archon/image/geom.hpp>
 #include <archon/image/tray.hpp>
 #include <archon/image/comp_types.hpp>
@@ -159,7 +160,7 @@ public:
     /// bits in them, the used bits are the least significant ones. If the word type is
     /// signed, the sign bit is effectively available as an extra value bit provided that
     /// the corresponding unsigned type has more value bits that the signed type (usually
-    /// the case). See also \ref image::pack_int() and \ref image::unpack_int().
+    /// the case). See also \ref util::pack_int() and \ref util::unpack_int().
     ///
     static constexpr int bits_per_word = B;
 
@@ -277,7 +278,7 @@ private:
 
     // A type that is "prepromoted" and also avoids undefined behavior when bits are shifted
     // into and out of the highest relevant bit position.
-    using value_type = image::unpacked_type<compound_type, bits_per_compound>;
+    using value_type = util::unpacked_type<compound_type, bits_per_compound>;
 
     static auto read_compound(const word_type* source) noexcept -> value_type;
     static void write_compound(value_type value, word_type* target) noexcept;
@@ -561,7 +562,7 @@ auto IndexedPixelFormat<S, M, N, A, W, B, D, E, H>::read_compound(const word_typ
     value_type value = 0;
     for (int i = 0; i < words_per_compound; ++i) {
         int shift = map_word_index(i) * bits_per_word;
-        value |= value_type(image::unpack_int<bits_per_word>(source[i])) << shift;
+        value |= value_type(util::unpack_int<bits_per_word>(source[i])) << shift;
     }
     return value;
 }
@@ -573,7 +574,7 @@ void IndexedPixelFormat<S, M, N, A, W, B, D, E, H>::write_compound(value_type va
     for (int i = 0; i < words_per_compound; ++i) {
         int shift = map_word_index(i) * bits_per_word;
         value_type value_2 = (value >> shift) & core::int_mask<value_type>(bits_per_word);
-        target[i] = image::pack_int<word_type, bits_per_word>(value_2);
+        target[i] = util::pack_int<word_type, bits_per_word>(value_2);
     }
 }
 

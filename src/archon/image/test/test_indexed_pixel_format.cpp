@@ -31,6 +31,7 @@
 #include <archon/core/random.hpp>
 #include <archon/core/endianness.hpp>
 #include <archon/check.hpp>
+#include <archon/util/bit_medium.hpp>
 #include <archon/image/geom.hpp>
 #include <archon/image/iter.hpp>
 #include <archon/image/tray.hpp>
@@ -109,7 +110,7 @@ ARCHON_TEST_BATCH(Image_IndexedPixelFormat_Read, variants)
     using word_type = typename format_type::word_type;
     using compound_type = typename format_type::compound_type;
     constexpr int bits_per_compound = format_type::bits_per_compound;
-    using value_type = image::unpacked_type<compound_type, bits_per_compound>;
+    using value_type = util::unpacked_type<compound_type, bits_per_compound>;
     constexpr int bits_per_pixel = format_type::bits_per_pixel;
     constexpr int pixels_per_compound = format_type::pixels_per_compound;
     constexpr int bits_per_word = format_type::bits_per_word;
@@ -141,7 +142,7 @@ ARCHON_TEST_BATCH(Image_IndexedPixelFormat_Read, variants)
                             break;
                     }
                     word_type word = compound[j];
-                    value_type value_2 = value_type(image::unpack_int<bits_per_word>(word));
+                    value_type value_2 = value_type(util::unpack_int<bits_per_word>(word));
                     value |= value_2 << (word_index * bits_per_word);
                 }
                 {
@@ -166,7 +167,7 @@ ARCHON_TEST_BATCH(Image_IndexedPixelFormat_Read, variants)
                     }
                     value_type value_2 = value >> (word_index * j);
                     value_2 &= core::int_mask<value_type>(bits_per_word);
-                    compound[j] = image::pack_int<word_type, bits_per_word>(value_2);
+                    compound[j] = util::pack_int<word_type, bits_per_word>(value_2);
                 }
             }
         };
@@ -214,7 +215,7 @@ ARCHON_TEST_BATCH(Image_IndexedPixelFormat_Read, variants)
                             break;
                     }
                     word_type word = compound[word_index];
-                    value_type value_2 = value_type(image::unpack_int<bits_per_word>(word));
+                    value_type value_2 = value_type(util::unpack_int<bits_per_word>(word));
                     value |= value_2 << (word_index * bits_per_word);
                 }
                 switch (format_type::bit_order) {
@@ -226,7 +227,7 @@ ARCHON_TEST_BATCH(Image_IndexedPixelFormat_Read, variants)
                 }
                 value_type value_2 = value >> (pixel_index * bits_per_pixel);
                 value_2 &= core::int_mask<value_type>(bits_per_pixel);
-                transf_type pixel_2 = image::pack_int<transf_type, bits_per_pixel>(value_2);
+                transf_type pixel_2 = util::pack_int<transf_type, bits_per_pixel>(value_2);
                 bool success = ARCHON_CHECK_EQUAL(pixel_1, pixel_2);
                 if (ARCHON_UNLIKELY(!success))
                     return;
@@ -298,7 +299,7 @@ ARCHON_TEST_BATCH(Image_IndexedPixelFormat_Write, variants)
     using word_type = typename format_type::word_type;
     using compound_type = typename format_type::compound_type;
     constexpr int bits_per_compound = format_type::bits_per_compound;
-    using value_type = image::unpacked_type<compound_type, bits_per_compound>;
+    using value_type = util::unpacked_type<compound_type, bits_per_compound>;
     constexpr int bits_per_pixel = format_type::bits_per_pixel;
     constexpr value_type max_pixel = core::int_mask<value_type>(bits_per_pixel);
     constexpr image::CompRepr transf_repr = format_type::transf_repr;
@@ -318,7 +319,7 @@ ARCHON_TEST_BATCH(Image_IndexedPixelFormat_Write, variants)
             for (int x = 0; x < block.size.width; ++x) {
                 transf_type* pixel = tray_1(x, y);
                 value_type value = core::rand_int_max(random, max_pixel);
-                pixel[0] = image::pack_int<transf_type, transf_depth>(value);
+                pixel[0] = util::pack_int<transf_type, transf_depth>(value);
             }
         }
 
@@ -419,7 +420,7 @@ ARCHON_TEST_BATCH(Image_IndexedPixelFormat_Fill, variants)
     using word_type = typename format_type::word_type;
     using compound_type = typename format_type::compound_type;
     constexpr int bits_per_compound = format_type::bits_per_compound;
-    using value_type = image::unpacked_type<compound_type, bits_per_compound>;
+    using value_type = util::unpacked_type<compound_type, bits_per_compound>;
     constexpr int bits_per_pixel = format_type::bits_per_pixel;
     constexpr value_type max_pixel = core::int_mask<value_type>(bits_per_pixel);
     constexpr image::CompRepr transf_repr = format_type::transf_repr;
@@ -436,7 +437,7 @@ ARCHON_TEST_BATCH(Image_IndexedPixelFormat_Fill, variants)
 
         // Generate random fill color
         value_type value = core::rand_int_max(random, max_pixel);
-        transf_type color = image::pack_int<transf_type, transf_depth>(value);
+        transf_type color = util::pack_int<transf_type, transf_depth>(value);
 
         // Fill
         format_type::fill(image_buffer.data(), image_size, block, &color);

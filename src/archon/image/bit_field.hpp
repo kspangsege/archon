@@ -29,6 +29,7 @@
 #include <archon/core/features.h>
 #include <archon/core/assert.hpp>
 #include <archon/core/integer.hpp>
+#include <archon/util/bit_medium.hpp>
 #include <archon/image/comp_types.hpp>
 
 
@@ -103,7 +104,7 @@ constexpr int get_bit_field_shift(const image::BitField* fields, int num_fields,
 /// field_index). The bit field is specified in terms of its index within the specified list
 /// of fields (\p fields). The mask will be packed into the specified bit medium (\p T)
 /// which must be wide enough to hold the mask in packed form (see \ref
-/// image::is_bit_medium_of_width). The type is wide enough if `image::bit_width<T>` is
+/// util::is_bit_medium_of_width). The type is wide enough if `image::bit_width<T>` is
 /// greater than, or equal to the width of the field plus the left-shift of the field. See
 /// \ref image::bit_width.
 ///
@@ -195,8 +196,8 @@ template<class T> constexpr auto get_bit_field_mask(const image::BitField* field
     int shift = image::get_bit_field_shift(fields, num_fields, field_index);
     constexpr int n = image::bit_width<compound_type>;
     ARCHON_ASSERT(width <= n && shift <= n - width);
-    using unpacked_type = image::unpacked_type<compound_type, n>;
-    return image::pack_int<compound_type, n>(core::int_mask<unpacked_type>(width) << shift);
+    using unpacked_type = util::unpacked_type<compound_type, n>;
+    return util::pack_int<compound_type, n>(core::int_mask<unpacked_type>(width) << shift);
 }
 
 

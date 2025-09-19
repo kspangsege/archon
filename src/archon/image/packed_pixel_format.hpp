@@ -35,6 +35,7 @@
 #include <archon/core/utility.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/endianness.hpp>
+#include <archon/util/bit_medium.hpp>
 #include <archon/image/geom.hpp>
 #include <archon/image/tray.hpp>
 #include <archon/image/comp_types.hpp>
@@ -221,7 +222,7 @@ public:
 private:
     // Type that is "prepromoted" and also avoids undefined behaviour when bits are shifted
     // into and out of the highest relevant bit position.
-    using value_type = image::unpacked_type<compound_type, bits_per_pixel>;
+    using value_type = util::unpacked_type<compound_type, bits_per_pixel>;
 
     static auto get_pixel_ptr(word_type* buffer, int image_width, image::Pos pos) -> word_type*;
     static auto get_pixel_ptr(const word_type* buffer, int image_width, image::Pos pos) -> const word_type*;
@@ -433,7 +434,7 @@ void PackedPixelFormat<C, S, P, W, B, D, E, F, G>::read_pixel(const word_type* s
     value_type pixel = 0;
     for (int i = 0; i < words_per_pixel; ++i) {
         int shift = map_word_index(i) * bits_per_word;
-        pixel |= value_type(image::unpack_int<bits_per_word>(source[i])) << shift;
+        pixel |= value_type(util::unpack_int<bits_per_word>(source[i])) << shift;
     }
 
     // Unpack components
@@ -484,7 +485,7 @@ void PackedPixelFormat<C, S, P, W, B, D, E, F, G>::write_pixel(const transf_comp
     for (int i = 0; i < words_per_pixel; ++i) {
         int shift = map_word_index(i) * bits_per_word;
         value_type value = (pixel >> shift) & core::int_mask<value_type>(bits_per_word);
-        target[i] = image::pack_int<word_type, bits_per_word>(value);
+        target[i] = util::pack_int<word_type, bits_per_word>(value);
     }
 }
 

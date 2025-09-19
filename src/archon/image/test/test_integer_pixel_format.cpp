@@ -33,6 +33,7 @@
 #include <archon/core/random.hpp>
 #include <archon/core/endianness.hpp>
 #include <archon/check.hpp>
+#include <archon/util/bit_medium.hpp>
 #include <archon/image/geom.hpp>
 #include <archon/image/iter.hpp>
 #include <archon/image/tray.hpp>
@@ -125,7 +126,7 @@ ARCHON_TEST_BATCH(Image_IntegerPixelFormat_Read, variants)
     using format_type = test_type;
     using word_type = typename format_type::word_type;
     using comp_type = typename format_type::comp_type;
-    using value_type = image::unpacked_type<comp_type, format_type::bit_depth>;
+    using value_type = util::unpacked_type<comp_type, format_type::bit_depth>;
     using transf_comp_type = typename format_type::transf_comp_type;
 
     auto test_1 = [&](check::TestContext& parent_test_context, image::Size image_size, const image::Box& block,
@@ -138,9 +139,9 @@ ARCHON_TEST_BATCH(Image_IntegerPixelFormat_Read, variants)
 
         // Randomize image contents
         for (std::size_t i = 0; i < image_buffer.size(); ++i) {
-            using word_value_type = image::unpacked_type<word_type, bits_per_word>;
+            using word_value_type = util::unpacked_type<word_type, bits_per_word>;
             word_value_type value = core::rand_int_bits<word_value_type>(random, bits_per_word);
-            image_buffer[i] = image::pack_int<word_type, bits_per_word>(value);
+            image_buffer[i] = util::pack_int<word_type, bits_per_word>(value);
         }
 
         // Read
@@ -161,7 +162,7 @@ ARCHON_TEST_BATCH(Image_IntegerPixelFormat_Read, variants)
                         int words_per_channel = format_type::words_per_channel;
                         for (int j = 0; j < words_per_channel; ++j) {
                             word_type word = image_buffer[word_index];
-                            value_type value = image::unpack_int<bits_per_word>(word);
+                            value_type value = util::unpack_int<bits_per_word>(word);
                             word_index += 1;
                             int word_pos = j;
                             switch (format_type::word_order) {
@@ -178,7 +179,7 @@ ARCHON_TEST_BATCH(Image_IntegerPixelFormat_Read, variants)
                             comp_pos = (num_channels - 1) - comp_pos;
                         if constexpr (has_alpha_channel && format_type::alpha_channel_first)
                             comp_pos = (comp_pos + (num_channels - 1)) % num_channels;
-                        pixel_2[comp_pos] = image::pack_int<comp_type, depth>(comp);
+                        pixel_2[comp_pos] = util::pack_int<comp_type, depth>(comp);
                     }
                 }
                 if constexpr (!std::is_floating_point_v<transf_comp_type>) {
@@ -295,10 +296,10 @@ ARCHON_TEST_BATCH(Image_IntegerPixelFormat_Write, variants)
                 if constexpr (!std::is_floating_point_v<transf_comp_type>) {
                     // Integer
                     constexpr int bit_width = image::comp_repr_bit_width<format_type::transf_repr>();
-                    using value_type = image::unpacked_type<transf_comp_type, bit_width>;
+                    using value_type = util::unpacked_type<transf_comp_type, bit_width>;
                     for (int i = 0; i < num_channels; ++i) {
                         value_type value = core::rand_int_bits<value_type>(random, bit_width);
-                        pixel[i] = image::pack_int<transf_comp_type, bit_width>(value);
+                        pixel[i] = util::pack_int<transf_comp_type, bit_width>(value);
                     }
                 }
                 else {
@@ -465,10 +466,10 @@ ARCHON_TEST_BATCH(Image_IntegerPixelFormat_Fill, variants)
         if constexpr (!std::is_floating_point_v<transf_comp_type>) {
             // Integer
             constexpr int bit_width = image::comp_repr_bit_width<format_type::transf_repr>();
-            using value_type = image::unpacked_type<transf_comp_type, bit_width>;
+            using value_type = util::unpacked_type<transf_comp_type, bit_width>;
             for (int i = 0; i < num_channels; ++i) {
                 value_type value = core::rand_int_bits<value_type>(random, bit_width);
-                color_1[i] = image::pack_int<transf_comp_type, bit_width>(value);
+                color_1[i] = util::pack_int<transf_comp_type, bit_width>(value);
             }
         }
         else {

@@ -37,11 +37,11 @@
 #include <archon/core/integer.hpp>
 #include <archon/core/buffer.hpp>
 #include <archon/core/enum.hpp>
+#include <archon/util/bit_medium.hpp>
 #include <archon/util/color.hpp>
 #include <archon/image/geom.hpp>
 #include <archon/image/iter.hpp>
 #include <archon/image/tray.hpp>
-#include <archon/image/bit_medium.hpp>
 #include <archon/image/comp_types.hpp>
 #include <archon/image/comp_repr.hpp>
 #include <archon/image/color_space.hpp>
@@ -509,7 +509,7 @@ public:
     /// is present. It then attempts to assign that index to \p highest_index. The
     /// assignment succeeds if, and only if the index is representable in the specified
     /// integer type (\p I). The index needs to be representable in \p I in its unpacked
-    /// form (\ref image::unpack_int()). On success, this function returns `true` after
+    /// form (\ref util::unpack_int()). On success, this function returns `true` after
     /// assigning the highest index to \p highest_index. On failure, it returns `false` and
     /// leaves \p highest_index unchanged. If the image is empty (has no pixels), this
     /// function attempts to return zero, which will always succeed.
@@ -525,12 +525,12 @@ public:
     /// \brief Extract color indexes for block of pixels.
     ///
     /// This function extracts color indexes for a block of pixels and then attempts to
-    /// store those indexes in the memory locations prescribed by the specified tray
-    /// (\p tray). The extracted pixels are those that fall inside the specified source
-    /// area, which is `image::Box(pos, tray.size)`. Tray storage succeeds if, and only if
-    /// all the extracted indexes are representable in the specified integer type (\p
-    /// I). The indexes needs to be representable in \p I in their unpacked form (\ref
-    /// image::unpack_int()). On success, this function returns `true`. On failure, it
+    /// store those indexes in the memory locations prescribed by the specified tray (\p
+    /// tray). The extracted pixels are those that fall inside the specified source area,
+    /// which is `image::Box(pos, tray.size)`. Tray storage succeeds if, and only if all the
+    /// extracted indexes are representable in the specified integer type (\p I). The
+    /// indexes needs to be representable in \p I in their unpacked form (\ref
+    /// util::unpack_int()). On success, this function returns `true`. On failure, it
     /// returns `false`.
     ///
     /// On failure, some of the memory locations prescribed by the specified tray may have
@@ -1008,10 +1008,10 @@ inline auto Reader::get_pixel(image::Pos pos) -> util::Color
     image::Pixel_RGBA_8 pixel;
     get_pixel_a(pos, pixel); // Throws
     return {
-        util::Color::comp_type(image::unpack_int<8>(pixel[0])),
-        util::Color::comp_type(image::unpack_int<8>(pixel[1])),
-        util::Color::comp_type(image::unpack_int<8>(pixel[2])),
-        util::Color::comp_type(image::unpack_int<8>(pixel[3])),
+        util::Color::comp_type(util::unpack_int<8>(pixel[0])),
+        util::Color::comp_type(util::unpack_int<8>(pixel[1])),
+        util::Color::comp_type(util::unpack_int<8>(pixel[2])),
+        util::Color::comp_type(util::unpack_int<8>(pixel[3])),
     };
 }
 

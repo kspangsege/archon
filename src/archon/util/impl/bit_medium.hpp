@@ -18,8 +18,8 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-#ifndef ARCHON_X_IMAGE_X_IMPL_X_BIT_MEDIUM_HPP
-#define ARCHON_X_IMAGE_X_IMPL_X_BIT_MEDIUM_HPP
+#ifndef ARCHON_X_UTIL_X_IMPL_X_BIT_MEDIUM_HPP
+#define ARCHON_X_UTIL_X_IMPL_X_BIT_MEDIUM_HPP
 
 
 #include <type_traits>
@@ -28,7 +28,7 @@
 #include <archon/core/integer.hpp>
 
 
-namespace archon::image::impl {
+namespace archon::util::impl {
 
 
 template<class T, int N> constexpr bool is_bit_medium_of_width() noexcept;
@@ -63,6 +63,6 @@ template<class T, int N> constexpr bool is_bit_medium_of_width() noexcept
 }
 
 
-} // namespace archon::image::impl
+} // namespace archon::util::impl
 
-#endif // ARCHON_X_IMAGE_X_IMPL_X_BIT_MEDIUM_HPP
+#endif // ARCHON_X_UTIL_X_IMPL_X_BIT_MEDIUM_HPP

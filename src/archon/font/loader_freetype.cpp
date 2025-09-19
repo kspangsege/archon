@@ -38,6 +38,7 @@
 #include <archon/core/flat_map.hpp>
 #include <archon/core/filesystem.hpp>
 #include <archon/log.hpp>
+#include <archon/util/bit_medium.hpp>
 #include <archon/font/impl/config.h>
 #include <archon/font/size.hpp>
 #include <archon/font/code_point.hpp>
@@ -122,7 +123,7 @@ void render_spans(int y, int count, const FT_Span* spans, void* user) throw()
         // "demo programs" package of FreeType 2.12.1, `span.coverage` is supposed to be
         // interpreted as a linearly encoded alpha value rather than as a gamma encoded
         // gray-level. Unfortunately, the FreeType documentation is not clear about it.
-        comp_type alpha = image::pack_int<comp_type, 8>(span.coverage);
+        comp_type alpha = util::pack_int<comp_type, 8>(span.coverage);
         for (int x = x_1; x < x_2; ++x)
             base[x * context.horz_stride] = alpha;
     }

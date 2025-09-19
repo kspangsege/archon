@@ -30,6 +30,7 @@
 #include <archon/core/assert.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/enum.hpp>
+#include <archon/util/bit_medium.hpp>
 #include <archon/image/iter.hpp>
 #include <archon/image/tray.hpp>
 #include <archon/image/comp_types.hpp>
@@ -89,8 +90,8 @@ namespace archon::image {
 ///
 /// For an integer-based scheme, when the associated word type is signed, and the unsigned
 /// version of the type has more value bits than the signed type (usually the case), the
-/// sign bit is effectively available as an extra value bit. See \ref image::pack_int() and
-/// \ref image::unpack_int().
+/// sign bit is effectively available as an extra value bit. See \ref util::pack_int() and
+/// \ref util::unpack_int().
 ///
 /// In an integer-based scheme, component values are not allowed to be out of range. In
 /// general, behavior is undefined if integer components are out of range when passed to the
@@ -166,7 +167,7 @@ template<image::CompRepr R> using comp_type = typename impl::CompType<R>::type;
 /// when using the specified component representation scheme (\p R).
 ///
 /// When the specified component representation scheme is integer-based (see \ref
-/// image::CompRepr), `image::unpacked_comp_type<R>` is `image::unpacked_type<T, N>` where
+/// image::CompRepr), `image::unpacked_comp_type<R>` is `util::unpacked_type<T, N>` where
 /// `T` is `image::comp_type<R>` and `N` is `image::comp_repr_int_bit_width(R)`.
 ///
 /// When the specified component representation scheme is based on a floating-point type,
@@ -219,7 +220,7 @@ template<image::CompRepr R> using const_tray_type = image::Tray<const image::com
 /// If the specified component representation scheme is integer-based (see \ref
 /// image::CompRepr), this function packs a non-negative integer value (\p val) into a bit
 /// medium whose type and width is determined by that component representation scheme. The
-/// packing operation is performed by \ref image::pack_int(), and the bit medium width is as
+/// packing operation is performed by \ref util::pack_int(), and the bit medium width is as
 /// returned by \ref image::comp_repr_int_bit_width(). If the specified value is out of
 /// range, i.e., if it is negative or greater than `2^N - 1` where `N` is
 /// `image::comp_repr_int_bit_width(R)`, the result is unspecified. No undefined behavior is
@@ -505,7 +506,7 @@ template<image::CompRepr R, class T, bool I> struct UnpackedCompTypeHelper {
 
 template<image::CompRepr R, class T> struct UnpackedCompTypeHelper<R, T, true> {
     static constexpr int bit_width = image::comp_repr_int_bit_width(R);
-    using type = image::unpacked_type<T, bit_width>;
+    using type = util::unpacked_type<T, bit_width>;
 };
 
 template<image::CompRepr R> struct UnpackedCompType {
@@ -522,7 +523,7 @@ template<image::CompRepr R, class T> constexpr auto comp_repr_pack(T val) noexce
     using comp_type = image::comp_type<R>;
     if constexpr (std::is_integral_v<comp_type>) {
         constexpr int bit_width = image::comp_repr_int_bit_width(R);
-        return image::pack_int<comp_type, bit_width>(val);
+        return util::pack_int<comp_type, bit_width>(val);
     }
     else {
         static_assert(std::is_floating_point_v<comp_type>);
@@ -537,7 +538,7 @@ constexpr auto comp_repr_unpack(image::comp_type<R> comp) noexcept -> image::unp
     using comp_type = image::comp_type<R>;
     if constexpr (std::is_integral_v<comp_type>) {
         constexpr int bit_width = image::comp_repr_int_bit_width(R);
-        return image::unpack_int<bit_width>(comp);
+        return util::unpack_int<bit_width>(comp);
     }
     else {
         static_assert(std::is_floating_point_v<comp_type>);
@@ -634,8 +635,8 @@ template<image::CompRepr R> constexpr auto comp_repr_max() noexcept -> image::co
     using comp_type = image::comp_type<R>;
     if constexpr (std::is_integral_v<comp_type>) {
         constexpr int n = image::comp_repr_bit_width<R>();
-        using unpacked_type = image::unpacked_type<comp_type, n>;
-        return image::pack_int<comp_type, n>(core::int_mask<unpacked_type>(n));
+        using unpacked_type = util::unpacked_type<comp_type, n>;
+        return util::pack_int<comp_type, n>(core::int_mask<unpacked_type>(n));
     }
     else {
         static_assert(std::is_floating_point_v<comp_type>);
@@ -655,7 +656,7 @@ template<image::CompRepr R> constexpr bool comp_repr_less(image::comp_type<R> a,
     using comp_type = image::comp_type<R>;
     if constexpr (std::is_integral_v<comp_type>) {
         constexpr int n = image::comp_repr_bit_width<R>();
-        return (image::unpack_int<n>(a) < image::unpack_int<n>(b));
+        return (util::unpack_int<n>(a) < util::unpack_int<n>(b));
     }
     else {
         static_assert(std::is_floating_point_v<comp_type>);

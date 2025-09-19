@@ -31,8 +31,6 @@
 #include <archon/image/geom.hpp>
 #include <archon/image/iter.hpp>
 #include <archon/image/tray.hpp>
-#include <archon/image/impl/bit_medium.hpp>
-#include <archon/image/bit_medium.hpp>
 #include <archon/image/impl/comp_types.hpp>
 #include <archon/image/comp_types.hpp>
 #include <archon/image/gamma.hpp>

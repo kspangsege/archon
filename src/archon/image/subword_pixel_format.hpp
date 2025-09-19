@@ -32,6 +32,7 @@
 #include <archon/core/assert.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/endianness.hpp>
+#include <archon/util/bit_medium.hpp>
 #include <archon/image/geom.hpp>
 #include <archon/image/tray.hpp>
 #include <archon/image/comp_types.hpp>
@@ -205,7 +206,7 @@ private:
 
     // A type that is "prepromoted" and also avoids undefined behaviour when bits are
     // shifted into and out of the highest relevant bit position.
-    using value_type = image::unpacked_type<word_type, bits_per_word>;
+    using value_type = util::unpacked_type<word_type, bits_per_word>;
 
     static auto read_word(const word_type* source) noexcept -> value_type;
 
@@ -485,14 +486,14 @@ inline auto SubwordPixelFormat<C, W, B, D, E, F, G, H>::get_pixel_pos(int image_
 template<class C, class W, int B, int D, core::Endianness E, bool F, bool G, bool H>
 inline auto SubwordPixelFormat<C, W, B, D, E, F, G, H>::read_word(const word_type* source) noexcept -> value_type
 {
-    return image::unpack_int<bits_per_word>(*source);
+    return util::unpack_int<bits_per_word>(*source);
 }
 
 
 template<class C, class W, int B, int D, core::Endianness E, bool F, bool G, bool H>
 inline void SubwordPixelFormat<C, W, B, D, E, F, G, H>::write_word(value_type word, word_type* target) noexcept
 {
-    *target = image::pack_int<word_type, bits_per_word>(word);
+    *target = util::pack_int<word_type, bits_per_word>(word);
 }
 
 

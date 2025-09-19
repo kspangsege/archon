@@ -51,11 +51,11 @@
 #include <archon/core/source.hpp>
 #include <archon/core/sink.hpp>
 #include <archon/log/logger.hpp>
+#include <archon/util/bit_medium.hpp>
 #include <archon/image/impl/config.h>
 #include <archon/image/geom.hpp>
 #include <archon/image/tray.hpp>
 #include <archon/image/comp_types.hpp>
-#include <archon/image/bit_medium.hpp>
 #include <archon/image/comp_repr.hpp>
 #include <archon/image/color_space.hpp>
 #include <archon/image/pixel_repr.hpp>
@@ -922,16 +922,16 @@ public:
             if (ARCHON_UNLIKELY(palette_size > 256))
                 fatal("Palette is too big"); // Throws
             std::size_t num_colors = std::size_t(palette_size);
-            using unpacked_type = image::unpacked_type<png_byte, 8>;
+            using unpacked_type = util::unpacked_type<png_byte, 8>;
             if (!has_transparency_chunk) {
                 using palette_image_type = image::PaletteImage_RGB_8;
                 using pixel_type = palette_image_type::pixel_type;
                 std::unique_ptr<pixel_type[]> palette_2 = std::make_unique<pixel_type[]>(num_colors); // Throws
                 for (int i = 0; i < palette_size; ++i) {
                     const png_color& color = palette[i];
-                    unpacked_type red   = image::unpack_int<8>(color.red);
-                    unpacked_type green = image::unpack_int<8>(color.green);
-                    unpacked_type blue  = image::unpack_int<8>(color.blue);
+                    unpacked_type red   = util::unpack_int<8>(color.red);
+                    unpacked_type green = util::unpack_int<8>(color.green);
+                    unpacked_type blue  = util::unpack_int<8>(color.blue);
                     constexpr image::CompRepr comp_repr = pixel_type::comp_repr;
                     std::array<pixel_type::comp_type, 3> components = {
                         image::comp_repr_pack<comp_repr>(red),
@@ -948,12 +948,12 @@ public:
                 std::unique_ptr<pixel_type[]> palette_2 = std::make_unique<pixel_type[]>(num_colors); // Throws
                 for (int i = 0; i < palette_size; ++i) {
                     const png_color& color = palette[i];
-                    unpacked_type red   = image::unpack_int<8>(color.red);
-                    unpacked_type green = image::unpack_int<8>(color.green);
-                    unpacked_type blue  = image::unpack_int<8>(color.blue);
+                    unpacked_type red   = util::unpack_int<8>(color.red);
+                    unpacked_type green = util::unpack_int<8>(color.green);
+                    unpacked_type blue  = util::unpack_int<8>(color.blue);
                     unpacked_type alpha = 255;
                     if (i < palette_alpha_size)
-                        alpha = image::unpack_int<8>(palette_alpha[i]);
+                        alpha = util::unpack_int<8>(palette_alpha[i]);
                     constexpr image::CompRepr comp_repr = pixel_type::comp_repr;
                     std::array<pixel_type::comp_type, 4> components = {
                         image::comp_repr_pack<comp_repr>(red),
@@ -1596,10 +1596,10 @@ bool save(const image::Image& image, core::Sink& sink, const std::locale& loc, l
             unpacked_type blue  = image::comp_repr_unpack<comp_repr>(color_1[2]);
             unpacked_type alpha = image::comp_repr_unpack<comp_repr>(color_1[3]);
             png_color& color_2 = palette[i];
-            color_2.red      = image::pack_int<png_byte, 8>(red);
-            color_2.green    = image::pack_int<png_byte, 8>(green);
-            color_2.blue     = image::pack_int<png_byte, 8>(blue);
-            palette_alpha[i] = image::pack_int<png_byte, 8>(alpha);
+            color_2.red      = util::pack_int<png_byte, 8>(red);
+            color_2.green    = util::pack_int<png_byte, 8>(green);
+            color_2.blue     = util::pack_int<png_byte, 8>(blue);
+            palette_alpha[i] = util::pack_int<png_byte, 8>(alpha);
             if (alpha < 255)
                 highest_transparent_index = i;
         }

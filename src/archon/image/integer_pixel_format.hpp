@@ -33,6 +33,7 @@
 #include <archon/core/assert.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/endianness.hpp>
+#include <archon/util/bit_medium.hpp>
 #include <archon/image/geom.hpp>
 #include <archon/image/tray.hpp>
 #include <archon/image/comp_types.hpp>
@@ -189,7 +190,7 @@ public:
     static constexpr auto get_words_per_row(int image_width) -> std::size_t;
 
 private:
-    using unpacked_comp_type = image::unpacked_type<comp_type, bit_depth>;
+    using unpacked_comp_type = util::unpacked_type<comp_type, bit_depth>;
 
     static auto get_pixel_ptr(word_type* buffer, int image_width, image::Pos pos) -> word_type*;
     static auto get_pixel_ptr(const word_type* buffer, int image_width, image::Pos pos) -> const word_type*;
@@ -429,7 +430,7 @@ auto IntegerPixelFormat<C, W, B, S, D, E, F, G>::read_comp(const word_type* pixe
         unpacked_comp_type comp = 0;
         for (int i = 0; i < words_per_channel; ++i) {
             int shift = map_word_index(i) * bits_per_word;
-            comp |= unpacked_comp_type(image::unpack_int<bits_per_word>(channel_ptr[i])) << shift;
+            comp |= unpacked_comp_type(util::unpack_int<bits_per_word>(channel_ptr[i])) << shift;
         }
         if constexpr (std::is_integral_v<transf_comp_type>) {
             constexpr int n = image::comp_repr_bit_width<transf_repr>();
@@ -473,7 +474,7 @@ void IntegerPixelFormat<C, W, B, S, D, E, F, G>::write_comp(transf_comp_type val
         for (int i = 0; i < words_per_channel; ++i) {
             int shift = map_word_index(i) * bits_per_word;
             unpacked_comp_type value = (comp >> shift) & core::int_mask<unpacked_comp_type>(bits_per_word);
-            channel_ptr[i] = image::pack_int<word_type, bits_per_word>(value);
+            channel_ptr[i] = util::pack_int<word_type, bits_per_word>(value);
         }
     }
 }

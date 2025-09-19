@@ -28,8 +28,8 @@
 #include <type_traits>
 
 #include <archon/core/integer.hpp>
+#include <archon/util/bit_medium.hpp>
 #include <archon/util/unit_frac.hpp>
-#include <archon/image/bit_medium.hpp>
 #include <archon/image/impl/comp_types.hpp>
 
 
@@ -47,7 +47,7 @@ namespace archon::image {
 /// image::PackedPixelFormat).
 ///
 /// The integer types are each guaranteed to be bit media of particular widths (see \ref
-/// image::is_bit_medium_of_width):
+/// util::is_bit_medium_of_width):
 ///
 ///   | Integer type | Unpacked type         | Guaranteed bit medium width
 ///   |--------------|-----------------------|-----------------------------
@@ -74,15 +74,15 @@ using float_type = float;
 /// These types are the unpacked versions of \ref image::int8_type, \ref image::int16_type,
 /// \ref image::int32_type, and \ref image::int64_type respectively. That is,
 /// `unpacked_int16_type`, for instance, is the return type of
-/// `image::unpack_int<16>(image::int16_type())` (see \ref image::unpack_int()).
+/// `util::unpack_int<16>(image::int16_type())` (see \ref util::unpack_int()).
 ///
 /// \sa \ref image::int8_type
-/// \sa \ref image::unpack_int()
+/// \sa \ref util::unpack_int()
 ///
-using unpacked_int8_type  = image::unpacked_type<image::int8_type, 8>;
-using unpacked_int16_type = image::unpacked_type<image::int16_type, 16>;
-using unpacked_int32_type = image::unpacked_type<image::int32_type, 32>;
-using unpacked_int64_type = image::unpacked_type<image::int64_type, 64>;
+using unpacked_int8_type  = util::unpacked_type<image::int8_type, 8>;
+using unpacked_int16_type = util::unpacked_type<image::int16_type, 16>;
+using unpacked_int32_type = util::unpacked_type<image::int32_type, 32>;
+using unpacked_int64_type = util::unpacked_type<image::int64_type, 64>;
 /// \}
 
 
@@ -92,7 +92,7 @@ using unpacked_int64_type = image::unpacked_type<image::int64_type, 64>;
 /// This function converts a component value from one integer-based representation to
 /// another integer-base representation. The specified value (\p val) is treated as an M-bit
 /// component value packed into a bit medium of width M (\ref
-/// image::is_bit_medium_of_width). The returned value is the scaled N-bit component value
+/// util::is_bit_medium_of_width). The returned value is the scaled N-bit component value
 /// packed into a bit medium of width N. The scaling from an M-bit to an N-bit integer-based
 /// representation is performed by \ref util::unit_frac::change_bit_width().
 ///
@@ -109,7 +109,7 @@ template<int M, class I, int N, class J> constexpr auto int_to_int(J val) noexce
 /// This function converts a component value from an integer-based representation to a
 /// floating-point based representation. The specified value (\p val) is treated as an N-bit
 /// integer component value packed into a bit medium of width N (\ref
-/// image::is_bit_medium_of_width). The conversion to floating-point type is performed by
+/// util::is_bit_medium_of_width). The conversion to floating-point type is performed by
 /// \ref util::unit_frac::int_to_flt().
 ///
 /// \tparam I The type of the specified value. This must be one of the standard integer
@@ -126,7 +126,7 @@ template<int N, class F, class I> constexpr auto int_to_float(I val) noexcept ->
 ///
 /// This function converts a component value of floating-point type(\p val) to its packed
 /// N-bit integer representation. The returned value is an N-bit integer component value
-/// packed into a bit medium of width N (\ref image::is_bit_medium_of_width). The conversion
+/// packed into a bit medium of width N (\ref util::is_bit_medium_of_width). The conversion
 /// from floating-point type is performed by \ref util::unit_frac::flt_to_int().
 ///
 /// \tparam F The type of the specified value. This must be a standard floating-point type
@@ -143,7 +143,7 @@ template<class I, int N, class F> constexpr auto float_to_int(F val) noexcept ->
 ///
 /// For integer types, this is the number of available bits in the type, or more precisely,
 /// it is the largest width, N, such that \p T would be a bit medium of with N (see \ref
-/// image::is_bit_medium_of_width). For unsigned types, this is always the number of value
+/// util::is_bit_medium_of_width). For unsigned types, this is always the number of value
 /// bits in the type. For signed types, it is always either the number of value bits, or the
 /// number of value bits plus one. Since C++20, if \p T is one of the standard or extended
 /// signed integer types, this is the number of value bits plus one.
@@ -169,14 +169,14 @@ template<class T> constexpr int bit_width = impl::get_bit_width<T>();
 
 template<int M, class I, int N, class J> constexpr auto int_to_int(J val) noexcept -> I
 {
-    using type_1 = image::unpacked_type<J, M>;
-    using type_2 = image::unpacked_type<I, N>;
+    using type_1 = util::unpacked_type<J, M>;
+    using type_2 = util::unpacked_type<I, N>;
     using type_3 = core::common_int_type<type_1, type_2>;
     namespace uf = util::unit_frac;
-    type_1 val_2 = image::unpack_int<M>(val);
+    type_1 val_2 = util::unpack_int<M>(val);
     // FIXME: Is this definitely the right scaling scheme?                                                                                                                                     
     type_3 val_3 = uf::change_bit_width(type_3(val_2), M, N);
-    return image::pack_int<I, N>(val_3);
+    return util::pack_int<I, N>(val_3);
 }
 
 
@@ -186,8 +186,8 @@ template<int N, class F, class I> constexpr auto int_to_float(I val) noexcept ->
     // type and F is a standard floating-point type
     static_assert(std::is_integral_v<I>);
     static_assert(std::is_floating_point_v<F>);
-    using type = image::unpacked_type<I, N>;
-    type val_2 = image::unpack_int<N>(val);
+    using type = util::unpacked_type<I, N>;
+    type val_2 = util::unpack_int<N>(val);
     constexpr type max = core::int_mask<type>(N);
     namespace uf = util::unit_frac;
     return uf::int_to_flt<F>(val_2, max);
@@ -200,10 +200,10 @@ template<class I, int N, class F> constexpr auto float_to_int(F val) noexcept ->
     // type and F is a standard floating-point type
     static_assert(std::is_integral_v<I>);
     static_assert(std::is_floating_point_v<F>);
-    using type = image::unpacked_type<I, N>;
+    using type = util::unpacked_type<I, N>;
     constexpr type max = core::int_mask<type>(N);
     namespace uf = util::unit_frac;
-    return image::pack_int<I, N>(uf::flt_to_int<type>(val, max));
+    return util::pack_int<I, N>(uf::flt_to_int<type>(val, max));
 }
 
 

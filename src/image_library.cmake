@@ -45,8 +45,6 @@ target_sources(Image PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "$
   archon/image/geom.hpp
   archon/image/iter.hpp
   archon/image/tray.hpp
-  archon/image/impl/bit_medium.hpp
-  archon/image/bit_medium.hpp
   archon/image/impl/comp_types.hpp
   archon/image/comp_types.hpp
   archon/image/gamma.hpp

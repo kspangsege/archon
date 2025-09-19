@@ -9,6 +9,7 @@ set_target_properties(Font PROPERTIES OUTPUT_NAME "archon-font")
 
 target_link_libraries(Font PUBLIC
   Core
+  Util
   Image
 )
 

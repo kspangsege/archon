@@ -28,6 +28,7 @@
 #include <string_view>
 
 #include <archon/core/random.hpp>
+#include <archon/util/bit_medium.hpp>
 #include <archon/image/comp_types.hpp>
 #include <archon/image/comp_repr.hpp>
 
@@ -56,9 +57,9 @@ template<class T, int N, class E> inline auto rand_int_comp(E& engine) -> T
 {
     using comp_type = T;
     constexpr int bit_width = N;
-    using unpacked_type = image::unpacked_type<comp_type, bit_width>;
+    using unpacked_type = util::unpacked_type<comp_type, bit_width>;
     unpacked_type value = core::rand_int_bits<unpacked_type>(engine, bit_width); // Throws
-    return image::pack_int<comp_type, bit_width>(value);
+    return util::pack_int<comp_type, bit_width>(value);
 }
 
 

@@ -32,10 +32,10 @@
 #include <archon/core/assert.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/endianness.hpp>
+#include <archon/util/bit_medium.hpp>
 #include <archon/util/unit_frac.hpp>
 #include <archon/image/geom.hpp>
 #include <archon/image/tray.hpp>
-#include <archon/image/bit_medium.hpp>
 #include <archon/image/comp_types.hpp>
 #include <archon/image/gamma.hpp>
 #include <archon/image/comp_repr.hpp>
@@ -369,7 +369,7 @@ void MultPixelFormat<C, F, W, B, D, E>::read_pixel(const word_type* source, tran
     compound_type compound = 0;
     for (int i = 0; i < words_per_pixel; ++i) {
         int shift = map_word_index(i) * bits_per_word;
-        compound |= compound_type(image::unpack_int<bits_per_word>(source[i])) << shift;
+        compound |= compound_type(util::unpack_int<bits_per_word>(source[i])) << shift;
     }
 
     // Split bit compound into components
@@ -419,7 +419,7 @@ void MultPixelFormat<C, F, W, B, D, E>::write_pixel(const transf_comp_type* sour
     for (int i = 0; i < words_per_pixel; ++i) {
         int shift = map_word_index(i) * bits_per_word;
         compound_type value = (compound >> shift) & core::int_mask<compound_type>(bits_per_word);
-        target[i] = image::pack_int<word_type, bits_per_word>(value);
+        target[i] = util::pack_int<word_type, bits_per_word>(value);
     }
 }
 

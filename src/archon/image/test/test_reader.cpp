@@ -30,6 +30,7 @@
 #include <archon/core/math.hpp>
 #include <archon/core/random.hpp>
 #include <archon/check.hpp>
+#include <archon/util/bit_medium.hpp>
 #include <archon/util/colors.hpp>
 #include <archon/image/geom.hpp>
 #include <archon/image/comp_types.hpp>
@@ -181,8 +182,8 @@ ARCHON_TEST_BATCH(Image_Reader_GetBlock_NotShortCircuitDirectColor, color_space_
                 image::float_type value_1 =
                     alpha * image::compressed_int_to_float<bit_width>(pixel_2[i]);
                 comp_type value_2 = image::float_to_compressed_int<comp_type, bit_width>(value_1);
-                ARCHON_CHECK_DIST_LESS_EQUAL(image::unpack_int<bit_width>(pixel_1[i]),
-                                             image::unpack_int<bit_width>(value_2), 1);
+                ARCHON_CHECK_DIST_LESS_EQUAL(util::unpack_int<bit_width>(pixel_1[i]),
+                                             util::unpack_int<bit_width>(value_2), 1);
             }
         }
     }
@@ -218,7 +219,7 @@ ARCHON_TEST_BATCH(Image_Reader_GetBlock_IndirectColorSimilarFormats, color_space
     for (std::size_t i = 0; i < image_buffer.size(); ++i) {
         int max_index = palette_size; // max is then out of range by one
         int index = core::rand_int_max(random, max_index);
-        image_buffer[i] = image::pack_int<image_comp_type, image_bit_width>(index);
+        image_buffer[i] = util::pack_int<image_comp_type, image_bit_width>(index);
     }
 
     // Read block from image using same color space as palette, but with an alpha channel
@@ -235,7 +236,7 @@ ARCHON_TEST_BATCH(Image_Reader_GetBlock_IndirectColorSimilarFormats, color_space
         for (int x = 0; x < block_size.width; ++x) {
             image::Pixel<pixel_repr_type> pixel = block.get_pixel({ x, y });
             auto pixel_offset = pos.x + x + (pos.y + y) * std::size_t(image_size.width);
-            auto index = image::unpack_int<image_bit_width>(image_buffer[pixel_offset]);
+            auto index = util::unpack_int<image_bit_width>(image_buffer[pixel_offset]);
             if (ARCHON_LIKELY(core::int_less(index, palette_size))) {
                 int n = palette_format_type::num_channels;
                 const palette_comp_type* color = palette_buffer.data() + index * n;
@@ -282,7 +283,7 @@ ARCHON_TEST_BATCH(Image_Reader_GetBlock_IndirectColorDissimilarFormats, color_sp
     for (std::size_t i = 0; i < image_buffer.size(); ++i) {
         int max_index = palette_size; // max is then out of range by one
         int index = core::rand_int_max(random, max_index);
-        image_buffer[i] = image::pack_int<image_comp_type, image_bit_width>(index);
+        image_buffer[i] = util::pack_int<image_comp_type, image_bit_width>(index);
     }
 
     // Read block from image using same color space as palette, but without the alpha
@@ -299,7 +300,7 @@ ARCHON_TEST_BATCH(Image_Reader_GetBlock_IndirectColorDissimilarFormats, color_sp
         for (int x = 0; x < block_size.width; ++x) {
             image::Pixel<pixel_repr_type> pixel = block.get_pixel({ x, y });
             auto pixel_offset = pos.x + x + (pos.y + y) * std::size_t(image_size.width);
-            auto index = image::unpack_int<image_bit_width>(image_buffer[pixel_offset]);
+            auto index = util::unpack_int<image_bit_width>(image_buffer[pixel_offset]);
             if (ARCHON_LIKELY(core::int_less(index, palette_size))) {
                 int n = palette_format_type::num_channels;
                 const palette_comp_type* color = palette_buffer.data() + index * n;
@@ -311,8 +312,8 @@ ARCHON_TEST_BATCH(Image_Reader_GetBlock_IndirectColorDissimilarFormats, color_sp
                     palette_comp_type value_2 =
                         image::float_to_compressed_int<palette_comp_type,
                                                        palette_bit_width>(value_1);
-                    ARCHON_CHECK_DIST_LESS_EQUAL(image::unpack_int<palette_bit_width>(pixel[i]),
-                                                 image::unpack_int<palette_bit_width>(value_2), 1);
+                    ARCHON_CHECK_DIST_LESS_EQUAL(util::unpack_int<palette_bit_width>(pixel[i]),
+                                                 util::unpack_int<palette_bit_width>(value_2), 1);
                 }
             }
             else {
