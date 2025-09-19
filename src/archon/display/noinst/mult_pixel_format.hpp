@@ -34,10 +34,10 @@
 #include <archon/core/endianness.hpp>
 #include <archon/util/bit_medium.hpp>
 #include <archon/util/unit_frac.hpp>
+#include <archon/util/srgb_gamma.hpp>
 #include <archon/image/geom.hpp>
 #include <archon/image/tray.hpp>
 #include <archon/image/comp_types.hpp>
-#include <archon/image/gamma.hpp>
 #include <archon/image/comp_repr.hpp>
 #include <archon/image/color_space.hpp>
 #include <archon/image/transfer_info.hpp>
@@ -445,7 +445,7 @@ inline auto MultPixelFormat<C, F, W, B, D, E>::get_component(const compound_type
         if (!is_alpha) {
             using type = decltype(image::float_type() * double());
             type val_2 = uf::int_to_flt<type>(val, max);
-            return image::float_type(image::gamma_expand(val_2));
+            return image::float_type(util::srgb_gamma_expand(val_2));
         }
         else {
             return uf::int_to_flt<image::float_type>(val, max);
@@ -473,7 +473,7 @@ inline void MultPixelFormat<C, F, W, B, D, E>::set_component(compound_type* comp
         bool is_alpha = (has_alpha_channel && i == num_channels - 1);
         if (!is_alpha) {
             using type = decltype(image::float_type() * double());
-            type val_2 = image::gamma_compress(type(value));
+            type val_2 = util::srgb_gamma_compress(type(value));
             components[i] = uf::flt_to_int_a<compound_type>(val_2, max);
         }
         else {

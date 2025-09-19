@@ -27,8 +27,8 @@
 #include <archon/core/features.h>
 #include <archon/core/locale.hpp>
 #include <archon/cli.hpp>
+#include <archon/util/srgb_gamma.hpp>
 #include <archon/image.hpp>
-#include <archon/image/gamma.hpp>
 #include <archon/image/blend.hpp>
 #include <archon/image/computed_image.hpp>
 
@@ -76,7 +76,7 @@ int main(int argc, char* argv[])
     image::ComputedImage image(image_size, [&](image::Pos pos) {
         int i = pos.x / 32;
         int j = pos.y /  4;
-        comp_type f = comp_type(image::gamma_expand(factors[i] * double(1 + j) / 64));
+        comp_type f = comp_type(util::srgb_gamma_expand(factors[i] * double(1 + j) / 64));
         return image::Pixel_RGB_8(colors[i].blend(black, image::BlendMode::over, f));
     }); // Throws
     image::save(image, path, locale); // Throws

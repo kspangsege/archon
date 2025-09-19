@@ -63,6 +63,7 @@
 #include <archon/log.hpp>
 #include <archon/math/vector.hpp>
 #include <archon/util/unit_frac.hpp>
+#include <archon/util/srgb_gamma.hpp>
 #include <archon/util/color_space.hpp>
 #include <archon/util/color.hpp>
 #include <archon/image.hpp>
@@ -678,11 +679,11 @@ auto MultFieldPixelFormat<G, T, N>::intern_color(util::Color color) const noexce
     };
 
     auto expand = [](util::Color::comp_type val) noexcept -> double {
-        return image::gamma_expand(uf::int_to_flt<double>(val, 255));
+        return util::srgb_gamma_expand(uf::int_to_flt<double>(val, 255));
     };
 
     auto compress = [](double val, ulong max) noexcept -> ulong {
-        return uf::flt_to_int_a<ulong>(image::gamma_compress(val), max);
+        return uf::flt_to_int_a<ulong>(util::srgb_gamma_compress(val), max);
     };
 
     ulong r = 0, g = 0, b = 0;

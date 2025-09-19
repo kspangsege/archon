@@ -24,9 +24,7 @@
 /// \file
 
 
-#include <cmath>
-
-#include <archon/core/features.h>
+#include <archon/util/srgb_gamma.hpp>
 #include <archon/image/comp_types.hpp>
 
 
@@ -53,19 +51,6 @@ template<int N, class T> auto compressed_int_to_float(T) noexcept -> image::floa
 template<class T, int N> auto float_to_compressed_int(image::float_type) noexcept -> T;
 
 
-/// \{
-///
-/// \brief sRGB-style "gamma" compression and expansion.
-///
-/// These functions perform sRGB-style "gamma" compression and expansion repsectively.
-///
-/// \tparam One of the standard floating-point types.
-///
-template<class T> auto gamma_compress(T val) noexcept -> T;
-template<class T> auto gamma_expand(T val) noexcept -> T;
-/// \}
-
-
 
 
 
@@ -85,7 +70,7 @@ struct GammaDecompressTable8 {
     {
         for (int i = 0; i < 256; ++i) {
             double val = image::int_to_float<8, double>(i);
-            table[i] = image::float_type(image::gamma_expand(val));
+            table[i] = image::float_type(util::srgb_gamma_expand(val));
         }
     }
 };
@@ -108,7 +93,7 @@ template<int N, class T> inline auto compressed_int_to_float(T val) noexcept -> 
     else {
         // FIXME: Must find more efficient way to do this. Maybe just lookup the two adjacent values from the 8-bit table, and then interpolate between them.                                                            
         double val_2 = image::int_to_float<N, double>(val);
-        return image::float_type(image::gamma_expand(val_2));
+        return image::float_type(util::srgb_gamma_expand(val_2));
     }
 }
 
@@ -116,27 +101,7 @@ template<int N, class T> inline auto compressed_int_to_float(T val) noexcept -> 
 template<class T, int N> inline auto float_to_compressed_int(image::float_type val) noexcept -> T
 {
     // FIXME: Must find more efficient way to do this.                                         
-    return image::float_to_int<T, N>(image::gamma_compress(double(val)));
-}
-
-
-template<class T> inline auto gamma_compress(T val) noexcept -> T
-{
-    using type = T;
-    static_assert(std::is_floating_point_v<type>);
-    if (ARCHON_LIKELY(val > 0.0031308))
-        return type(1.055 * std::pow(val, type(1) / 2.4) - 0.055);
-    return type(12.92 * val);
-}
-
-
-template<class T> inline auto gamma_expand(T val) noexcept -> T
-{
-    using type = T;
-    static_assert(std::is_floating_point_v<type>);
-    if (ARCHON_LIKELY(val > 0.04045))
-        return type(std::pow((val + 0.055) / 1.055, 2.4));
-    return type(val / 12.92);
+    return image::float_to_int<T, N>(util::srgb_gamma_compress(double(val)));
 }
 
 

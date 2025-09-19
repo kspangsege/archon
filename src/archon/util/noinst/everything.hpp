@@ -30,6 +30,7 @@
 #include <archon/util/bit_medium.hpp>
 #include <archon/util/unit_frac.hpp>
 #include <archon/util/color_comp.hpp>
+#include <archon/util/srgb_gamma.hpp>
 #include <archon/util/kdtree.hpp>
 #include <archon/util/color_space.hpp>
 #include <archon/util/color.hpp>
