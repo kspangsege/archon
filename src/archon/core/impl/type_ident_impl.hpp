@@ -28,6 +28,7 @@
 #include <mutex>
 
 #include <archon/core/features.h>
+#include <archon/core/type.hpp>
 #include <archon/core/integer.hpp>
 
 
@@ -40,10 +41,7 @@ namespace archon::core::impl {
 using type_ident_type = std::uintptr_t;
 
 
-struct TypeIdentHelper {};
-
-
-template<class> constexpr impl::TypeIdentHelper type_ident_helper;
+template<class> inline core::Empty type_ident_helper;
 
 
 template<class T> inline bool try_get_type_ident(impl::type_ident_type& ident) noexcept
