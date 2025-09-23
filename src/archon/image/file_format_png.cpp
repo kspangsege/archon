@@ -1229,7 +1229,6 @@ bool load(core::Source& source, std::unique_ptr<image::WritableImage>& image, co
     ctx.expand_lum_to_rgb = config.expand_lum_to_rgb;
     ctx.ensure_alpha_channel = config.ensure_alpha_channel;
 
-
     if (ARCHON_LIKELY(do_load(ctx))) { // Throws
         image = std::move(ctx.image_2);
         return true; // Success

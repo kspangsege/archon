@@ -1178,7 +1178,7 @@ template<class R> auto Reader::read_palette(std::size_t offset, const core::Span
     using pixel_type = image::Pixel<pixel_repr_type>;
     const image::ColorSpace& color_space = pixel_repr_type::get_color_space();
     bool has_alpha = pixel_repr_type::has_alpha;
-    using comp_type = pixel_repr_type::comp_type;
+    using comp_type = typename pixel_repr_type::comp_type;
     constexpr int chunk_size = 32;
     constexpr int num_channels = pixel_repr_type::num_channels;
     comp_type components[chunk_size * num_channels];
