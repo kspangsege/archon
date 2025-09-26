@@ -428,28 +428,28 @@ constexpr auto Vector<N, T>::operator[](int i) const noexcept -> const comp_type
 template<int N, class T>
 template<class O> constexpr auto Vector<N, T>::operator+=(const O& other) noexcept -> Vector&
 {
-    return (*this = *this + other);
+    return (*this = Vector(*this + other));
 }
 
 
 template<int N, class T>
 template<class O> constexpr auto Vector<N, T>::operator-=(const O& other) noexcept -> Vector&
 {
-    return (*this = *this - other);
+    return (*this = Vector(*this - other));
 }
 
 
 template<int N, class T>
 template<class O> constexpr auto Vector<N, T>::operator*=(const O& other) noexcept -> Vector&
 {
-    return (*this = *this * other);
+    return (*this = Vector(*this * other));
 }
 
 
 template<int N, class T>
 template<class O> constexpr auto Vector<N, T>::operator/=(const O& other) noexcept -> Vector&
 {
-    return (*this = *this / other);
+    return (*this = Vector(*this / other));
 }
 
 

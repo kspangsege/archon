@@ -742,28 +742,28 @@ constexpr auto Matrix<M, N, T>::operator[](int i) const noexcept -> const row_ty
 template<int M, int N, class T>
 template<class O> constexpr auto Matrix<M, N, T>::operator+=(const O& other) noexcept -> Matrix&
 {
-    return (*this = *this + other);
+    return (*this = Matrix(*this + other));
 }
 
 
 template<int M, int N, class T>
 template<class O> constexpr auto Matrix<M, N, T>::operator-=(const O& other) noexcept -> Matrix&
 {
-    return (*this = *this - other);
+    return (*this = Matrix(*this - other));
 }
 
 
 template<int M, int N, class T>
 template<class O> constexpr auto Matrix<M, N, T>::operator*=(const O& other) noexcept -> Matrix&
 {
-    return (*this = *this * other);
+    return (*this = Matrix(*this * other));
 }
 
 
 template<int M, int N, class T>
 template<class O> constexpr auto Matrix<M, N, T>::operator/=(const O& other) noexcept -> Matrix&
 {
-    return (*this = *this / other);
+    return (*this = Matrix(*this / other));
 }
 
 
