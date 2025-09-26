@@ -824,7 +824,6 @@ int main(int argc, char* argv[])
 
     engine_config.screen = screen;
     engine_config.logger = &logger;
-    engine_config.require_depth_buffer = false;
     engine_config.allow_window_resize = true;
 
 #if ARCHON_DISPLAY_HAVE_OPENGL

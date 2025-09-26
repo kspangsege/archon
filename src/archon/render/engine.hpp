@@ -95,6 +95,10 @@ namespace archon::render {
 /// the exception of \ref run(), all the member functions of an engine may be called from a
 /// key handler. These functions may also be called before \ref run() is called.
 ///
+/// The event loop of an engine (\ref run()) can be terminated asynchronously by generating
+/// an artificial quit event on the display connection (\ref
+/// display::Connection::generate_quit_event()).
+///
 /// \sa \ref set_scene()
 /// \sa \ref Scene::render()
 ///
@@ -161,11 +165,15 @@ public:
 
     /// \brief Execute render engine.
     ///
-    /// This function executes the render engine. It must be called at most once per engine
-    /// object.
+    /// This function executes the render engine's event loop. It must be called at most
+    /// once per engine object.
     ///
     /// The thread that executes this function is the thread that will be executing any
     /// registered key handler (\ref bind_key(), \ref register_key_handler()).
+    ///
+    /// The event loop can be asynchronously terminated from anotehr thread by generating an
+    /// artificial "quit" event. See \ref display::Connection::generate_quit_event() on the
+    /// display connection that was passed to the engine constructor.
     ///
     void run();
 
