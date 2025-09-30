@@ -376,9 +376,9 @@ bool TestRunner::run() const
                 core::ThreadGuard::Config config;
                 std::string name = core::concat(std::string_view("test-thread-"),
                                                 integer_formatter.format_dec(i + 1)); // Throws
-                config.thread_name = core::ThreadGuard::ThreadName(std::move(name), m_locale);
+                config.thread_name = name;
                 config.block_signals = true;
-                threads[i] = core::ThreadGuard(func, std::move(config)); // Throws
+                threads[i] = core::ThreadGuard(func, config); // Throws
             }
             for (int i = 0; i < num_threads; ++i)
                 threads[i].join(); // Throws

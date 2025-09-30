@@ -26,9 +26,12 @@
 
 #include <exception>
 #include <utility>
+#include <optional>
+#include <string_view>
 #include <string>
+#include <locale>
+#include <thread>
 
-#include <archon/core/demangle.hpp>
 #include <archon/core/signal_blocker.hpp>
 #include <archon/core/thread.hpp>
 
@@ -48,20 +51,19 @@ namespace archon::core {
 ///
 class ThreadGuard {
 public:
-    class ThreadName;
     struct Config;
 
     /// \{
     ///
     /// \brief Execute function by managed thread.
     ///
-    /// These constructors launch a new thread, and make it thread execute the specified
+    /// These constructors launch a new thread, and make it execute the specified
     /// function. The life of the thread guard object is guaranteed to not end before the
     /// execution of the function completes. This guarantee is achived by having the
     /// destructor wait for the thread to exit.
     ///
     template<class F> explicit ThreadGuard(F&& func);
-    template<class F> ThreadGuard(F&& func, Config);
+    template<class F> ThreadGuard(F&& func, const Config&);
     /// \}
 
     /// \brief Wait for execution to complete.
@@ -133,19 +135,6 @@ private:
 
 
 
-class ThreadGuard::ThreadName {
-public:
-    explicit ThreadName(std::string, const std::locale& = {}) noexcept;
-
-private:
-    std::string m_name;
-    std::locale m_locale;
-
-    friend class ThreadGuard;
-};
-
-
-
 /// \brief Thread creation configuration parameters.
 ///
 /// Configuration parameters controlling the creation of the new thread.
@@ -154,17 +143,17 @@ struct ThreadGuard::Config {
     /// \ref Name of new thread.
     ///
     /// The name to be assigned to the new thread. The name is assigned as if by \ref
-    /// core::set_thread_name().
+    /// core::set_thread_name() with a locale argument of `std::locale::classic()`.
     ///
     /// If no name is specified, the new thread inherits the name of the parent.
     ///
-    std::optional<ThreadName> thread_name;
+    std::optional<std::string_view> thread_name;
 
     /// \brief Block signals from new thread.
     ///
     /// Block delivery of POSIX system signals to the new thread. The blocking of signals is
-    /// done as if by \ref SignalBlocker. To ensure that the signals are blocked from the
-    /// beginning of the life of the new thread, the signals are blocked in the parent
+    /// done as if by \ref core::SignalBlocker. To ensure that the signals are blocked from
+    /// the beginning of the life of the new thread, the signals are blocked in the parent
     /// thread while the new thread is created, which causes the signal blocking to be
     /// inherited by the new thread.
     ///
@@ -182,18 +171,22 @@ struct ThreadGuard::Config {
 
 
 template<class F> inline ThreadGuard::ThreadGuard(F&& func)
-    : ThreadGuard(std::move(func), {}) // Throws
+    : ThreadGuard(std::forward<F>(func), {}) // Throws
 {
 }
 
 
-template<class F> inline ThreadGuard::ThreadGuard(F&& func, Config config)
+template<class F> ThreadGuard::ThreadGuard(F&& func, const Config& config)
 {
-    auto run = [this, thread_name = std::move(config.thread_name),
-                func = std::move(func)]() noexcept {
+    std::optional<std::string> thread_name;
+    if (config.thread_name.has_value())
+        thread_name = std::string(config.thread_name.value()); // Throws
+    auto run = [this, func = std::move(func), thread_name = std::move(thread_name)]() noexcept {
         try {
-            if (thread_name.has_value())
-                core::set_thread_name(thread_name->m_name, thread_name->m_locale); // Throws
+            if (thread_name.has_value()) {
+                std::locale locale = std::locale::classic();
+                core::set_thread_name(thread_name.value(), locale); // Throws
+            }
             func(); // Throws
         }
         catch (...) {
@@ -201,7 +194,7 @@ template<class F> inline ThreadGuard::ThreadGuard(F&& func, Config config)
         }
     };
     if (config.block_signals) {
-        SignalBlocker sb;
+        core::SignalBlocker sb;
         m_thread = std::thread(std::move(run)); // Throws
     }
     else {
@@ -239,13 +232,6 @@ inline auto ThreadGuard::operator=(ThreadGuard&& other) noexcept -> ThreadGuard&
     m_thread    = std::move(other.m_thread);
     m_exception = std::move(other.m_exception);
     return *this;
-}
-
-
-inline ThreadGuard::ThreadName::ThreadName(std::string name, const std::locale& locale) noexcept
-    : m_name(std::move(name))
-    , m_locale(locale)
-{
 }
 
 
