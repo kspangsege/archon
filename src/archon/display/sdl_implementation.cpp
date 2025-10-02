@@ -23,6 +23,7 @@
 #include <cstdint>
 #include <memory>
 #include <utility>
+#include <atomic>
 #include <chrono>
 #include <stdexcept>
 #include <array>
@@ -216,6 +217,7 @@ public:
     void unset_event_handler() noexcept override;
     void process_events() override;
     bool process_events_a(time_point_type) override;
+    void generate_quit_event() noexcept override;
     int get_num_screens() const override;
     int get_default_screen() const override;
     bool try_get_screen_conf(int, core::Buffer<display::Viewport>&, core::Buffer<char>&, std::size_t&) const override;
@@ -225,6 +227,8 @@ private:
     using millis_type = std::chrono::milliseconds;
 
     bool m_was_opened = false;
+
+    std::atomic<bool> m_generate_quit_event;
 
     core::FlatMap<Uint32, WindowImpl&> m_windows;
 
@@ -263,6 +267,7 @@ private:
 
     void fetch_event_batch();
     bool process_event_batch();
+    bool check_quit_event_generation();
     bool after_event_batch();
     void wait_for_events();
     bool wait_for_events(time_point_type deadline);
@@ -416,20 +421,23 @@ bool ConnectionImpl::try_open(std::string& error)
     std::lock_guard lock(impl.mutex);
     if (impl.have_connection)
         throw std::runtime_error("Overlapping connections");
+
     SDL_SetMainReady();
     if (ARCHON_UNLIKELY(!SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS, "1")))
         throw std::runtime_error("Failed to set SDL hint " SDL_HINT_NO_SIGNAL_HANDLERS);
     if (ARCHON_UNLIKELY(!SDL_SetHint(SDL_HINT_QUIT_ON_LAST_WINDOW_CLOSE, "0")))
         throw std::runtime_error("Failed to set SDL hint " SDL_HINT_QUIT_ON_LAST_WINDOW_CLOSE);
+
     Uint32 flags = SDL_INIT_VIDEO;
     int ret = SDL_Init(flags);
-    if (ARCHON_LIKELY(ret >= 0)) {
-        impl.have_connection = true;
-        m_was_opened = true;
-        return true;
+    if (ARCHON_UNLIKELY(ret < 0)) {
+        error = get_sdl_error(locale, "SDL_Init() failed"); // Throws
+        return false;
     }
-    error = get_sdl_error(locale, "SDL_Init() failed"); // Throws
-    return false;
+
+    impl.have_connection = true;
+    m_was_opened = true;
+    return true;
 }
 
 
@@ -546,6 +554,21 @@ bool ConnectionImpl::process_events_a(time_point_type deadline)
 }
 
 
+void ConnectionImpl::generate_quit_event() noexcept
+{
+    // Synchronize with acquiring load in check_quit_event_generation()
+    m_generate_quit_event.store(true, std::memory_order::release);
+
+    // Opportunistic attempt at waking up a blocked event processing thread. If this fails,
+    // it is most likely because the event queue is full, but in that case, it is highly
+    // unlikely that there is any need to wake up the event processing thread.
+    SDL_Event ev = {};
+    ev.type = SDL_USEREVENT; // Hijack SDL_USEREVENT for this purpose
+    int ret = SDL_PushEvent(&ev);
+    static_cast<void>(ret); // Purposefully ignoring errors here
+}
+
+
 int ConnectionImpl::get_num_screens() const
 {
     // On an X11 platform, SDL does not provide access to more than one screen at a time.
@@ -613,6 +636,12 @@ void ConnectionImpl::fetch_event_batch()
 
 bool ConnectionImpl::process_event_batch()
 {
+    {
+        bool proceed = check_quit_event_generation(); // Throws
+        if (ARCHON_UNLIKELY(!proceed))
+            return false; // Interrupt
+    }
+
     SDL_Event event = {};
     WindowImpl* window = {};
     timestamp_unwrapper_type::Session unwrap_session(m_timestamp_unwrapper);
@@ -876,6 +905,17 @@ bool ConnectionImpl::process_event_batch()
         }
     }
     goto process_1;
+}
+
+
+bool ConnectionImpl::check_quit_event_generation()
+{
+    // Synchronize with releasing store in generate_quit_event()
+    bool value = m_generate_quit_event.load(std::memory_order::acquire);
+    if (ARCHON_LIKELY(!value))
+        return true; // No interruption
+    m_generate_quit_event.store(false, std::memory_order::relaxed);
+    return event_handler->on_quit(); // Throws
 }
 
 

@@ -51,8 +51,12 @@ struct Guarantees {
 
     /// \brief Everything happens on behalf of main thread.
     ///
-    /// The application may set this field to `true` if it promises that all use of the API
-    /// of the Archon Display Library happens on behalf of the main thread.
+    /// The application may set this field to `true` if it promises that, with one
+    /// exception, all use of the API of the Archon Display Library happens on behalf of the
+    /// main thread. The one exception is \ref
+    /// display::Connection::generate_quit_event(). Calling that function from a thread
+    /// other than the main thread is not a violation of the "main thread exclusive"
+    /// guarantee.  which may be called by any thread regardless.
     ///
     /// Note that destruction of unique pointers to connections and windows count as use of
     /// the API of the Archon Display Library, and so must also happen on behalf of the main
@@ -74,8 +78,9 @@ struct Guarantees {
     ///
     /// The application may set this field to `true` if it promises that there is no direct
     /// or indirect use of SDL (Simple DirectMedia Layer) other than through the Archon
-    /// Display Library, and that there is also no direct or indirect use of anything that
-    /// would conflict with use of SDL.
+    /// Display Library, and that there is also no direct or indirect use of an API in a way
+    /// that would conflict with use of SDL. For example, any use of Xlib would conflict
+    /// with the use of SDL due to Xlib not being inherently thread safe.
     ///
     /// \sa https://www.libsdl.org
     ///

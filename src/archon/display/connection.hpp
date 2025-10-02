@@ -303,6 +303,27 @@ public:
     ///
     virtual bool process_events_a(time_point_type deadline) = 0;
 
+    /// \brief Cause "quit" event to be generated.
+    ///
+    /// This function causes a "quit" event to be artificially generated. This "quit" event
+    /// will be picked up and handled by the event processing thread like any other "quit"
+    /// event (\ref display::ConnectionEventHandler::on_quit()). The event processing thread
+    /// is the one that calls \ref process_events() or \ref process_events_a(). That will
+    /// usually be the main thread (\ref display::Guarantees::main_thread_exclusive).
+    ///
+    /// This function may be called by any thread. The intention is to allow for a thread,
+    /// other than the event processing thread, to terminate the event loop. Note that
+    /// having such a different thread call this function does not amount to a violation of
+    /// the "main thread exclusive" guarantee (\ref
+    /// display::Guarantees::main_thread_exclusive).
+    ///
+    /// If this function is called multiple times, the generated "quit" events may, or may
+    /// not get coalesced into one event, which means one execution of the event handler for
+    /// the "quit" event. It is guaranteed, however, that at least one "quit" event will be
+    /// generated after an invocation of this function.
+    ///
+    virtual void generate_quit_event() noexcept = 0;
+
     /// \brief Number of screens accessible through connection.
     ///
     /// This function returns the number of separate screens that are accessible through

@@ -246,6 +246,10 @@ public:
     /// This function swaps front and back buffers for OpenGL rendering in this window. On
     /// an X11 platform, this corresponds to `glXSwapBuffers()`.
     ///
+    /// This function may, or may not involve a wait for "vertical retrace" (V-Sync). With
+    /// the X11-based display implementation, and when using the NVIDIA graphics driver, one
+    /// can turn V-Sync on or off using the environment variable `__GL_SYNC_TO_VBLANK`.
+    ///
     /// Behavior is undefined if this function is called on a window that is not configured
     /// for OpenGL rendering (\ref Config::enable_opengl_rendering).
     ///

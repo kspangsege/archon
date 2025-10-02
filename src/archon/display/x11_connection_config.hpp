@@ -118,6 +118,10 @@ struct x11_connection_config {
     /// context created for each window. When set to `false` (the default), direct rendering
     /// will be used when available.
     ///
+    /// Note that while indirect rendering is not formally incompatible with modern OpenGL
+    /// (OpenGL 4.1), it is practice incompatible due to choices made by the major driver
+    /// vendors, so one will very likely get an error if one disables direct rendering.
+    ///
     bool disable_glx_direct_rendering = false;
 
     /// \brief Disable use of "detectable auto-repeat" mode.

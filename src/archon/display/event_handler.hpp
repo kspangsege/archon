@@ -448,10 +448,10 @@ public:
     /// display::WindowEventHandler::on_close()). It is a request to close an entire program
     /// or application, not just one of its windows.
     ///
-    /// On the Apple macOS platform and when using the SDL-based implementation (\ref
-    /// display::get_sdl_implementation_slot()), the quit event is generated when Command-Q
-    /// is pressed on the keyboard. When using the X11-based implementation (\ref
-    /// display::get_x11_implementation_slot()), the quit event is never generated.
+    /// The "quit" event is generated when the application calls \ref
+    /// display::Connection::generate_quit_event(). On the Apple macOS platform and when
+    /// using the SDL-based implementation (\ref display::get_sdl_implementation_slot()),
+    /// the quit event is also generated when Command-Q is pressed on the keyboard.
     ///
     /// The default implementation of this function does nothing other than return
     /// `false`. This will cause event processing to be interrupted. This default
@@ -462,9 +462,9 @@ public:
     /// for the interruption. Applications that engage in frame-based rendering is an
     /// example of this.
     ///
-    /// If the application ignores a quit event (by returning `true` instead of `false`),
-    /// the quit event will be generated again as a result of a subsequent request to close
-    /// the application.
+    /// If the application ignores a quit event (by returning `true` instead of `false` from
+    /// the event handler), the quit event will be generated again as a result of a
+    /// subsequent request to close the application (Command-Q on macOS).
     ///
     /// \sa \ref display::WindowEventHandler::on_close()
     ///

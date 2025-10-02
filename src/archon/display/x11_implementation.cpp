@@ -31,6 +31,7 @@
 #include <string>
 #include <locale>
 #include <chrono>
+#include <system_error>
 
 #include <archon/core/features.h>
 #include <archon/core/pair.hpp>
@@ -72,6 +73,15 @@
 #include <archon/display/noinst/impl_util.hpp>
 #include <archon/display/noinst/x11/support.hpp>
 
+#if HAVE_X11
+#  include <fcntl.h>
+#  if defined _GNU_SOURCE
+#    define HAVE_LINUX_PIPE2 1
+#  else
+#    define HAVE_LINUX_PIPE2 0
+#  endif
+#endif
+
 
 using namespace archon;
 namespace impl = display::impl;
@@ -86,6 +96,188 @@ constexpr std::string_view g_implementation_descr = "X11 (X Window System, Versi
 
 
 #if HAVE_X11
+
+
+// Set file descriptor flag FD_CLOEXEC if `value` is true, otherwise clear it.
+//
+// Note that this method of setting FD_CLOEXEC is subject to a race condition if another
+// thread calls any of the exec functions concurrently. For that reason, this function
+// should only be used when there is no better alternative. For example, Linux generally
+// offers ways to set this flag atomically with the creation of a new file descriptor.
+//
+bool set_cloexec_flag(int fd, bool value, std::error_code& ec) noexcept
+{
+    int flags = ::fcntl(fd, F_GETFD, 0);
+    if (ARCHON_UNLIKELY(flags == -1)) {
+        int err = errno; // Eliminate any risk of clobbering
+        ec = core::make_system_error(err);
+        return false;
+    }
+    flags &= ~FD_CLOEXEC;
+    flags |= (value ? FD_CLOEXEC : 0);
+    int ret = ::fcntl(fd, F_SETFD, flags);
+    if (ARCHON_UNLIKELY(ret == -1)) {
+        int err = errno; // Eliminate any risk of clobbering
+        ec = core::make_system_error(err);
+        return false;
+    }
+    return true;
+}
+
+[[maybe_unused]] void set_cloexec_flag(int fd, bool value = true)
+{
+    std::error_code ec;
+    if (ARCHON_UNLIKELY(!::set_cloexec_flag(fd, value, ec)))
+        throw std::system_error(ec);
+}
+
+
+void checked_close(int fd) noexcept
+{
+    int ret = ::close(fd);
+
+    // We can accept various errors from close(), but they must be ignored as the file
+    // descriptor is closed in any case (not necessarily according to POSIX, but we shall
+    // assume it anyway). `EBADF`, however, would indicate an implementation bug, so we
+    // don't want to ignore that.
+    //
+    int err = errno; // Eliminate any risk of clobbering
+    ARCHON_ASSERT(ret != -1 || err != EBADF);
+}
+
+
+class close_guard {
+public:
+    close_guard() noexcept = default;
+    explicit close_guard(int fd) noexcept;
+    close_guard(close_guard&& other) noexcept;
+    ~close_guard() noexcept;
+
+    operator int() const noexcept;
+    void reset(int fd) noexcept;
+    int release() noexcept;
+
+private:
+    int m_fd = -1;
+};
+
+
+inline close_guard::close_guard(int fd) noexcept
+    : m_fd(fd)
+{
+    ARCHON_ASSERT(fd != -1);
+}
+
+
+inline close_guard::close_guard(close_guard&& other) noexcept
+    : m_fd(other.release())
+{
+}
+
+
+inline close_guard::~close_guard() noexcept
+{
+    if (m_fd != -1)
+        ::checked_close(m_fd);
+}
+
+
+inline close_guard::operator int() const noexcept
+{
+    return m_fd;
+}
+
+
+inline void close_guard::reset(int fd) noexcept
+{
+    ARCHON_ASSERT(fd != -1);
+    if (m_fd != -1)
+        ::checked_close(m_fd);
+    m_fd = fd;
+}
+
+
+inline int close_guard::release() noexcept
+{
+    int fd = m_fd;
+    m_fd = -1;
+    return fd;
+}
+
+
+class wakeup_pipe {
+public:
+    wakeup_pipe();
+
+    int wait_fd() const noexcept;
+
+    // Cause the wait descriptor (wait_fd()) to become readable within a short amount of
+    // time.
+    void signal() noexcept;
+
+    // Must be called after the wait descriptor (wait_fd()) becomes readable.
+    void acknowledge_signal() noexcept;
+
+private:
+    ::close_guard m_read_fd, m_write_fd;
+    std::mutex m_mutex;
+    bool m_signaled = false; // Protected by `m_mutex`.
+};
+
+
+wakeup_pipe::wakeup_pipe()
+{
+    int fildes[2];
+#if HAVE_LINUX_PIPE2
+    int flags = O_CLOEXEC;
+    int ret = ::pipe2(fildes, flags);
+#else
+    int ret = ::pipe(fildes);
+#endif
+    if (ARCHON_UNLIKELY(ret == -1)) {
+        int err = errno; // Eliminate any risk of clobbering
+        std::error_code ec = core::make_system_error(err);
+        throw std::system_error(ec);
+    }
+
+    m_read_fd.reset(fildes[0]);
+    m_write_fd.reset(fildes[1]);
+
+#if !HAVE_LINUX_PIPE2
+    ::set_cloexec_flag(m_read_fd);  // Throws
+    ::set_cloexec_flag(m_write_fd); // Throws
+#endif
+}
+
+
+inline int wakeup_pipe::wait_fd() const noexcept
+{
+    return m_read_fd;
+}
+
+
+void wakeup_pipe::signal() noexcept
+{
+    std::lock_guard lock(m_mutex);
+    if (!m_signaled) {
+        char c = 0;
+        ssize_t ret = ::write(m_write_fd, &c, 1);
+        ARCHON_ASSERT(ret == 1);
+        m_signaled = true;
+    }
+}
+
+
+void wakeup_pipe::acknowledge_signal() noexcept
+{
+    std::lock_guard lock(m_mutex);
+    if (m_signaled) {
+        char c;
+        ssize_t ret = ::read(m_read_fd, &c, 1);
+        ARCHON_ASSERT(ret == 1);
+        m_signaled = false;
+    }
+}
 
 
 // Compatible with XKeymapEvent::key_vector
@@ -306,12 +498,16 @@ public:
     void unset_event_handler() noexcept override;
     void process_events() override;
     bool process_events_a(time_point_type) override;
+    void generate_quit_event() noexcept override;
     int get_num_screens() const override;
     int get_default_screen() const override;
     bool try_get_screen_conf(int, core::Buffer<display::Viewport>&, core::Buffer<char>&, std::size_t&) const override;
     auto get_implementation() const noexcept -> const display::Implementation& override;
 
 private:
+    std::atomic<bool> m_generate_quit_event;
+    ::wakeup_pipe m_wakeup_pipe;
+
     const std::optional<int> m_depth_override;
     const std::optional<int> m_class_override;
     const std::optional<VisualID> m_visual_override;
@@ -390,6 +586,7 @@ private:
     WindowImpl* m_curr_window = nullptr;
 
     int m_num_events = 0;
+    bool m_generate_quit = false;
 
     auto intern_string(const char*) noexcept -> Atom;
     auto ensure_screen_slot(int screen) const -> ScreenSlot&;
@@ -398,6 +595,7 @@ private:
     auto get_pixmap_format(int depth) const -> const XPixmapFormatValues&;
     auto ensure_pixel_format(ScreenSlot&, const XVisualInfo&) const -> const x11::PixelFormat&;
     bool do_process_events(const time_point_type* deadline);
+    bool fetch_quit_generation();
     bool process_event_batch();
     bool after_event_batch();
     bool lookup_window(::Window window_id, WindowImpl*& window) noexcept;
@@ -557,6 +755,7 @@ inline ConnectionImpl::ConnectionImpl(const ImplementationImpl& impl_2, const st
     : impl(impl_2)
     , locale(locale_2)
     , logger(log::Logger::or_null(logger))
+    , m_wakeup_pipe() // Throws
     , m_depth_override(config.visual_depth)
     , m_class_override(x11::map_opt_visual_class(config.visual_class))
     , m_visual_override(map_opt_visual_type(config.visual_type)) // Throws
@@ -779,6 +978,15 @@ bool ConnectionImpl::process_events_a(time_point_type deadline)
 }
 
 
+void ConnectionImpl::generate_quit_event() noexcept
+{
+    // Synchronize with acquiring load in fetch_quit_generation()
+    m_generate_quit_event.store(true, std::memory_order::release);
+
+    m_wakeup_pipe.signal();
+}
+
+
 int ConnectionImpl::get_num_screens() const
 {
     return int(ScreenCount(dpy));
@@ -942,7 +1150,7 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline)
     //
     //  * There must be no events buffered inside Xlib when sleeping takes place. Below,
     //    this is ensured by the fact that there is no invocation of any Xlib function
-    //    between the sleep (call to wait()) and the preceding read (call to read()). Not
+    //    between the sleep (call to wait()) and the preceding read (call to read()). Note
     //    that due to the nature of the X11 protocol and the design of Xlib, there can be
     //    events that have been read from the network connection but have not yet been seen
     //    by the application. Since such events will be invisible to poll(), an explicit
@@ -950,6 +1158,7 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline)
     //
 
     auto read = [&](int mode) noexcept {
+        m_generate_quit = fetch_quit_generation();
         int n = XEventsQueued(dpy, mode);
         // If generation of X11 events happens fast enough to saturate processing, `n` could
         // grow without bounds over time. A ceiling is put on `n` in order to avoid this,
@@ -979,13 +1188,18 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline)
     };
 
     auto wait = [&](int timeout, bool& partial) {
-        pollfd fds[1] {};
-        int nfds = 1;
-        fds[0].fd = ConnectionNumber(dpy);
-        fds[0].events = POLLIN;
-        int ret = ::poll(fds, nfds, timeout);
+        pollfd pollfd_slots[2] {};
+        int nfds = 2;
+        pollfd_slots[0].fd = m_wakeup_pipe.wait_fd();
+        pollfd_slots[0].events = POLLIN;
+        pollfd_slots[1].fd = ConnectionNumber(dpy);
+        pollfd_slots[1].events = POLLIN;
+        int ret = ::poll(pollfd_slots, nfds, timeout);
         if (ARCHON_LIKELY(ret > 0)) {
-            ARCHON_ASSERT(ret == 1);
+            if (ARCHON_UNLIKELY(pollfd_slots[0].revents != 0)) {
+                ARCHON_ASSERT((pollfd_slots[0].revents & POLLNVAL) == 0);
+                m_wakeup_pipe.acknowledge_signal();
+            }
             return true; // Ready for reading
         }
         if (ARCHON_LIKELY(ret == 0)) {
@@ -1004,13 +1218,13 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline)
     if (ARCHON_LIKELY(process_event_batch())) { // Throws
         if (ARCHON_LIKELY(after_event_batch())) { // Throws
             if (ARCHON_LIKELY(event_handler->before_sleep())) { // Throws
-                ARCHON_ASSERT(m_num_events == 0);
+                ARCHON_ASSERT(m_num_events == 0 && !m_generate_quit);
                 read(QueuedAfterFlush); // Non-blocking read with preceding flush
                 for (;;) {
                     int timeout = {};
                     bool partial = {};
                     if (ARCHON_LIKELY(determine_timeout(timeout, partial))) {
-                        if (ARCHON_LIKELY(m_num_events > 0))
+                        if (ARCHON_LIKELY(m_num_events > 0 || m_generate_quit))
                             goto process;
                         if (ARCHON_LIKELY(wait(timeout, partial))) { // Throws
                             read(QueuedAfterReading); // Non-blocking read without preceding flush
@@ -1029,8 +1243,26 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline)
 }
 
 
+bool ConnectionImpl::fetch_quit_generation()
+{
+    // Synchronize with releasing store in generate_quit_event()
+    bool value = m_generate_quit_event.load(std::memory_order::acquire);
+    if (ARCHON_LIKELY(!value))
+        return false;
+    m_generate_quit_event.store(false, std::memory_order::relaxed);
+    return true;
+}
+
+
 bool ConnectionImpl::process_event_batch()
 {
+    if (ARCHON_UNLIKELY(m_generate_quit)) {
+        m_generate_quit = false;
+        bool proceed = event_handler->on_quit(); // Throws
+        if (ARCHON_UNLIKELY(!proceed))
+            return false; // Interrupt
+    }
+
     XEvent ev = {};
     WindowImpl* window = {};
     timestamp_unwrapper_type::Session unwrap_session(m_timestamp_unwrapper);
@@ -1318,7 +1550,7 @@ bool ConnectionImpl::process_event_batch()
 
 bool ConnectionImpl::after_event_batch()
 {
-    ARCHON_ASSERT(m_num_events == 0);
+    ARCHON_ASSERT(m_num_events == 0 && !m_generate_quit);
     for (;;) {
         if (ARCHON_LIKELY(m_exposed_windows.empty()))
             break;
