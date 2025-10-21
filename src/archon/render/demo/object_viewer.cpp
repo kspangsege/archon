@@ -73,8 +73,6 @@ using vertex_attrib = render::object_builder::vertex_attrib;
 
 namespace {
 
-#if ARCHON_DISPLAY_HAVE_OPENGL
-
 
 constexpr GLuint g_attrib_location_coord     = 0;
 constexpr GLuint g_attrib_location_normal    = 1;
@@ -531,9 +529,8 @@ int Scene::adjust_subdivision(int val, int min) noexcept
 }
 
 
-#endif // ARCHON_DISPLAY_HAVE_OPENGL
-
 } // unnamed namespace
+
 
 
 int main(int argc, char* argv[])
@@ -826,8 +823,6 @@ int main(int argc, char* argv[])
     engine_config.logger = &logger;
     engine_config.allow_window_resize = true;
 
-#if ARCHON_DISPLAY_HAVE_OPENGL
-
     render::Engine engine;
     Scene scene(locale, logger, engine, texture_path, scene_config); // Throws
     if (ARCHON_UNLIKELY(!engine.try_create(scene, *conn, "Archon Object Viewer", window_size, locale,
@@ -836,12 +831,4 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
     engine.run(); // Throws
-
-#else // !ARCHON_DISPLAY_HAVE_OPENGL
-
-    static_cast<void>(engine_config);
-    logger.error("OpenGL rendering not available"); // Throws
-    return EXIT_FAILURE;
-
-#endif // !ARCHON_DISPLAY_HAVE_OPENGL
 }
