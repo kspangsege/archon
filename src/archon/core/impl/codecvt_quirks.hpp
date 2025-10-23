@@ -29,15 +29,14 @@ namespace archon::core::impl {
 
 
 // std::codecvt::in() and std::codecvt::out() may report an `ok` result when the size of the
-// specified output buffer is zero, even when presented with a nonzero amount of input. See
-// also https://gcc.gnu.org/bugzilla/show_bug.cgi?id=37475.
+// specified output buffer is zero, even when presented with a nonzero amount of input.
 //
-// This happens in GCC, but not when using Cygwin or MinGW, presumably because libstdc++
-// uses a different (generic) locale implementation when used by Cygwin and MinGW.
+// This happens in older versions of GCC, but not when using Cygwin or MinGW, presumably
+// because libstdc++ uses a different (generic) locale implementation when used by Cygwin
+// and MinGW. See also https://gcc.gnu.org/bugzilla/show_bug.cgi?id=37475. This GCC bug as
+// been fixed in GCC 15.
 //
-// FIXME: This GCC bug is slated to be fixed in GCC 15.    
-//
-#if ARCHON_GNU_LIBCXX && !(ARCHON_CYGWIN || ARCHON_MINGW)
+#if ARCHON_GNU_LIBCXX && !(ARCHON_CYGWIN || ARCHON_MINGW) && _GLIBCXX_RELEASE < 15
 inline constexpr bool codecvt_quirk_ok_result_on_zero_size_buffer = true;
 #else
 inline constexpr bool codecvt_quirk_ok_result_on_zero_size_buffer = false;

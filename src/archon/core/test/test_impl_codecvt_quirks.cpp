@@ -43,9 +43,33 @@
 using namespace archon;
 
 
+namespace {
+
+bool has_quirk_1()
+{
+    ARCHON_ASSERT(core::impl::codecvt_quirk_ok_result_on_zero_size_buffer);
+    std::locale locale = std::locale::classic();
+    using codecvt_type = std::codecvt<wchar_t, char, std::mbstate_t>;
+    const codecvt_type& codecvt = std::use_facet<codecvt_type>(locale);
+    std::string_view data = "*";
+    wchar_t buffer[1];
+    std::mbstate_t state = {};
+    const char* from = data.data();
+    const char* from_end = from + data.size();
+    const char* from_next = nullptr;
+    wchar_t* to = buffer;
+    wchar_t* to_end = buffer + 0;
+    wchar_t* to_next = nullptr;
+    std::codecvt_base::result result = codecvt.in(state, from, from_end, from_next, to, to_end, to_next);
+    return (result == std::codecvt_base::ok);
+}
+
+} // unnamed namespace
+
+
 ARCHON_TEST(Core_Impl_CodecvtQuirks)
 {
-    bool quirk_1 = core::impl::codecvt_quirk_ok_result_on_zero_size_buffer;
+    bool quirk_1 = (core::impl::codecvt_quirk_ok_result_on_zero_size_buffer && has_quirk_1());
     bool quirk_2 = core::impl::codecvt_quirk_partial_result_on_partial_char;
     bool quirk_3 = core::impl::codecvt_quirk_partial_result_on_invalid_byte_seq;
     bool quirk_4 = core::impl::codecvt_quirk_consume_partial_char;
