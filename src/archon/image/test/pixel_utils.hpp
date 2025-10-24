@@ -28,7 +28,7 @@
 #include <type_traits>
 #include <limits>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/check/test_context.hpp>
 #include <archon/check/check_macros.hpp>
 #include <archon/image/comp_types.hpp>

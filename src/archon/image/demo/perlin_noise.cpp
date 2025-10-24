@@ -26,7 +26,7 @@
 #include <locale>
 #include <filesystem>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/float.hpp>
 #include <archon/core/math.hpp>
 #include <archon/core/locale.hpp>

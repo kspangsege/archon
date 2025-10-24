@@ -23,7 +23,7 @@
 #include <algorithm>
 #include <system_error>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/span.hpp>
 #include <archon/core/file_source.hpp>
 

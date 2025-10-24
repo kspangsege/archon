@@ -28,7 +28,7 @@
 #include <system_error>
 #include <locale>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/filesystem.hpp>
 #include <archon/image/image.hpp>
 #include <archon/image/save_config.hpp>

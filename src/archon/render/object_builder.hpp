@@ -28,7 +28,7 @@
 #include <utility>
 #include <vector>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/span.hpp>
 #include <archon/math/vector.hpp>
 #include <archon/gfx/object_builder.hpp>

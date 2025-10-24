@@ -22,7 +22,7 @@
 #include <cstddef>
 #include <algorithm>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/image/geom.hpp>
 #include <archon/image/transfer_info.hpp>

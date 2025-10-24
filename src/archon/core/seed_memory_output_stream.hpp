@@ -34,7 +34,7 @@
 #include <streambuf>
 #include <ios>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/memory.hpp>
 

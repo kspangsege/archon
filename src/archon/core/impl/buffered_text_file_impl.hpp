@@ -28,7 +28,7 @@
 #include <system_error>
 #include <locale>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/span.hpp>
 #include <archon/core/assert.hpp>
 #include <archon/core/buffer.hpp>

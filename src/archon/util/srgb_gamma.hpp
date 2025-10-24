@@ -27,7 +27,7 @@
 #include <cmath>
 #include <type_traits>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 
 
 namespace archon::util {

@@ -26,7 +26,7 @@
 
 #include <string_view>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/check/test_list.hpp>
 
 

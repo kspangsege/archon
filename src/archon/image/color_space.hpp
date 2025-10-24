@@ -28,7 +28,7 @@
 #include <optional>
 #include <map>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/assert.hpp>
 #include <archon/core/enum.hpp>
 #include <archon/image/comp_types.hpp>

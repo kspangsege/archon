@@ -27,7 +27,7 @@
 #include <vector>
 #include <random>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/inexact_compare.hpp>
 #include <archon/core/random.hpp>
 #include <archon/check.hpp>

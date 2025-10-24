@@ -28,7 +28,7 @@
 #include <string_view>
 #include <ostream>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/char_mapper.hpp>
 #include <archon/core/format.hpp>
 #include <archon/display/key_code.hpp>

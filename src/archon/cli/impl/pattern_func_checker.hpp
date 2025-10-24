@@ -31,7 +31,7 @@
 #include <variant>
 #include <vector>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/type_list.hpp>
 #include <archon/core/type_traits.hpp>
 #include <archon/core/span.hpp>

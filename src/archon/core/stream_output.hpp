@@ -30,7 +30,7 @@
 #include <string_view>
 #include <ostream>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/span.hpp>
 #include <archon/core/seed_memory_output_stream.hpp>
 

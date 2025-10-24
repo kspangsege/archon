@@ -24,7 +24,7 @@
 #include <locale>
 #include <filesystem>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/locale.hpp>
 #include <archon/cli.hpp>
 #include <archon/util/srgb_gamma.hpp>

@@ -29,7 +29,7 @@
 #include <array>
 #include <ostream>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/value_parser.hpp>
 #include <archon/core/as_int.hpp>
 #include <archon/core/as_list.hpp>

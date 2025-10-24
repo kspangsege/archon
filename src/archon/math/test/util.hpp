@@ -27,7 +27,7 @@
 #include <type_traits>
 #include <limits>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 
 
 namespace archon::math::test {

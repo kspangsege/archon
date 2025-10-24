@@ -24,7 +24,7 @@
 /// \file
 
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 
 
 #if ARCHON_DEBUG

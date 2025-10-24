@@ -26,7 +26,7 @@
 #include <string>
 #include <locale>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/buffer.hpp>
 #include <archon/core/locale.hpp>
 #include <archon/core/charenc_bridge.hpp>

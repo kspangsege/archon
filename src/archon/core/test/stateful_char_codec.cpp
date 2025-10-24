@@ -19,7 +19,7 @@
 // DEALINGS IN THE SOFTWARE.
 
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 
 #include <archon/core/test/stateful_char_codec.hpp>
 

@@ -30,7 +30,7 @@
 #include <locale>
 #include <iomanip>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/char_mapper.hpp>
 #include <archon/core/memory_output_stream.hpp>
 #include <archon/core/value_formatter.hpp>

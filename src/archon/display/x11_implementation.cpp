@@ -33,7 +33,7 @@
 #include <chrono>
 #include <system_error>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/pair.hpp>
 #include <archon/core/span.hpp>
 #include <archon/core/assert.hpp>

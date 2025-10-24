@@ -27,7 +27,7 @@
 #include <algorithm>
 #include <ostream>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/format.hpp>
 #include <archon/util/pixel_size.hpp>
 #include <archon/util/pixel_pos.hpp>

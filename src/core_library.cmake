@@ -45,7 +45,7 @@ configure_file(archon/core/impl/config.h.in archon/core/impl/config.h)
 
 target_sources(Core PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "${ARCHON_SOURCE_ROOT}" FILES
   "${CMAKE_CURRENT_BINARY_DIR}/archon/core/impl/config.h"
-  archon/core/features.h
+  archon/core/features.hpp
   archon/core/archon_version.hpp
   archon/core/type.hpp
   archon/core/type_list.hpp

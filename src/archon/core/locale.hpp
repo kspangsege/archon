@@ -27,7 +27,7 @@
 #include <string_view>
 #include <locale>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/string.hpp>
 
 

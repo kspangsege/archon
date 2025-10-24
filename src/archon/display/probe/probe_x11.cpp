@@ -34,7 +34,7 @@
 #include <filesystem>
 #include <ostream>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/assert.hpp>
 #include <archon/core/scope_exit.hpp>
 #include <archon/core/integer.hpp>

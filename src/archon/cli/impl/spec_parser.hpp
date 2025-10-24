@@ -31,7 +31,7 @@
 #include <stack>
 #include <locale>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/assert.hpp>
 #include <archon/core/index_range.hpp>
 #include <archon/core/buffer_contents.hpp>

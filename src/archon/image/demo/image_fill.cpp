@@ -27,7 +27,7 @@
 #include <system_error>
 #include <filesystem>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/locale.hpp>
 #include <archon/core/file.hpp>
 #include <archon/log.hpp>

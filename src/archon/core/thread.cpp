@@ -24,7 +24,7 @@
 #include <cerrno>
 #include <algorithm>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/string_codec.hpp>
 #include <archon/core/platform_support.hpp>
 #include <archon/core/thread.hpp>

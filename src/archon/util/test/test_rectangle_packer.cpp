@@ -23,7 +23,7 @@
 #include <vector>
 #include <random>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/random.hpp>
 #include <archon/check.hpp>
 #include <archon/util/rectangle_packer.hpp>

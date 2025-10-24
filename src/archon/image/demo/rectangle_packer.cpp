@@ -22,7 +22,7 @@
 #include <random>
 #include <locale>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/locale.hpp>
 #include <archon/core/format_as.hpp>
 #include <archon/core/random.hpp>

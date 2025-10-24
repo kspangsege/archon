@@ -27,7 +27,7 @@
 #include <string_view>
 #include <chrono>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/display/impl/config.h>
 
 

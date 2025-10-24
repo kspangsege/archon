@@ -23,7 +23,7 @@
 #include <stdexcept>
 #include <system_error>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/assert.hpp>
 
 #include <archon/core/resource_limits.hpp>

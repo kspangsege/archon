@@ -23,7 +23,7 @@
 #include <system_error>
 
 #include <archon/core/impl/config.h>
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/string.hpp>
 #include <archon/core/filesystem.hpp>
 #include <archon/core/build_mode.hpp>

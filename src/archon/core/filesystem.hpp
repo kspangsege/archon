@@ -32,7 +32,7 @@
 #include <ostream>
 #include <filesystem>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/string_codec.hpp>
 #include <archon/core/value_parser.hpp>
 

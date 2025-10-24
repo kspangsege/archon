@@ -26,7 +26,7 @@
 #include <string>
 #include <thread>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/scope_exit.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/buffer.hpp>

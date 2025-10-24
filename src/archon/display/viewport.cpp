@@ -21,7 +21,7 @@
 
 #include <cstddef>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/span.hpp>
 #include <archon/display/geometry.hpp>
 #include <archon/display/viewport.hpp>

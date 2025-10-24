@@ -28,7 +28,7 @@
 #include <type_traits>
 #include <tuple>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/type.hpp>
 
 

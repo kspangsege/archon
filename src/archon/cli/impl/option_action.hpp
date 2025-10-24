@@ -31,7 +31,7 @@
 #include <locale>
 #include <ostream>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/type_traits.hpp>
 #include <archon/cli/impl/call.hpp>
 #include <archon/cli/impl/value_formatter.hpp>

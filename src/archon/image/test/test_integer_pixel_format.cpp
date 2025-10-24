@@ -26,7 +26,7 @@
 #include <random>
 #include <string_view>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/span.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/format.hpp>

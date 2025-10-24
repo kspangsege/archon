@@ -33,7 +33,7 @@
 #include <istream>
 #include <ostream>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/span.hpp>
 #include <archon/core/array_seeded_buffer.hpp>
 #include <archon/core/char_mapper.hpp>

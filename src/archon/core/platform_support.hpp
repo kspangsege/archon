@@ -29,7 +29,7 @@
 #include <stdexcept>
 #include <system_error>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 
 #if ARCHON_WINDOWS
 #  if !defined NOMINMAX

@@ -26,7 +26,7 @@
 #include <string>
 #include <locale>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/log/logger.hpp>
 #include <archon/math/rotation.hpp>
 #include <archon/display.hpp>

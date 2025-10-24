@@ -27,7 +27,7 @@
 #include <optional>
 #include <vector>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/math/vector.hpp>
 #include <archon/math/matrix.hpp>
 #include <archon/math/rotation.hpp>

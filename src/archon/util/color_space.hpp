@@ -27,7 +27,7 @@
 #include <cmath>
 #include <algorithm>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/utility.hpp>
 #include <archon/core/math.hpp>
 #include <archon/math/vector.hpp>

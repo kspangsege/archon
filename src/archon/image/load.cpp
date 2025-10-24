@@ -26,7 +26,7 @@
 #include <locale>
 #include <filesystem>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/buffer.hpp>
 #include <archon/core/buffer_contents.hpp>
 #include <archon/core/array_seeded_buffer.hpp>

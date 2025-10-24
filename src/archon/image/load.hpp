@@ -29,7 +29,7 @@
 #include <system_error>
 #include <locale>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/filesystem.hpp>
 #include <archon/image/writable_image.hpp>
 #include <archon/image/load_config.hpp>

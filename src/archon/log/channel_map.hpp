@@ -29,7 +29,7 @@
 #include <string_view>
 #include <stdexcept>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/span.hpp>
 #include <archon/log/prefix.hpp>
 #include <archon/log/channel.hpp>

@@ -22,7 +22,7 @@
 #define ARCHON_X_CORE_X_IMPL_X_CODECVT_QUIRKS_HPP
 
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 
 
 namespace archon::core::impl {

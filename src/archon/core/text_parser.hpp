@@ -30,7 +30,7 @@
 #include <string_view>
 #include <vector>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/utility.hpp>
 #include <archon/core/string.hpp>
 #include <archon/core/value_parser.hpp>

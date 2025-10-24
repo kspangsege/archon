@@ -24,7 +24,7 @@
 #include <memory>
 #include <vector>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/pair.hpp>
 #include <archon/core/flat_multimap.hpp>
 #include <archon/check.hpp>

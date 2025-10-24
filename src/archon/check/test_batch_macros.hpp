@@ -29,7 +29,7 @@
 #include <string>
 #include <tuple>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/type.hpp>
 #include <archon/core/string.hpp>
 #include <archon/check/test_list.hpp>

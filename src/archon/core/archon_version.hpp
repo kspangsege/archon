@@ -25,7 +25,7 @@
 
 
 #include <archon/core/impl/config.h>
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 
 
 /// \brief Version of Archon project.

@@ -29,7 +29,7 @@
 #include <functional>
 #include <map>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/assert.hpp>
 #include <archon/core/proxy_iterator.hpp>
 

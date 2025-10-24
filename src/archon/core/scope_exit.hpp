@@ -28,7 +28,7 @@
 #include <utility>
 #include <optional>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 
 
 /// \brief Execute code at exit from scope.

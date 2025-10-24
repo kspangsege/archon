@@ -28,7 +28,7 @@
 #include <array>
 #include <tuple>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 
 
 namespace archon::core::impl {

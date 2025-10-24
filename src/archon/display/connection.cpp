@@ -25,7 +25,7 @@
 #include <string>
 #include <locale>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/string.hpp>
 #include <archon/display/guarantees.hpp>
 #include <archon/display/connection.hpp>

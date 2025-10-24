@@ -30,7 +30,7 @@
 #include <locale>
 #include <filesystem>
 
-#include <archon/core/features.h>
+#include <archon/core/features.hpp>
 #include <archon/core/integer.hpp>
 #include <archon/core/locale.hpp>
 #include <archon/core/value_parser.hpp>
