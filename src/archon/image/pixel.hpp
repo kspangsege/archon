@@ -299,8 +299,9 @@ template<class S> inline Pixel<R>::Pixel(const Pixel<S>& other) noexcept
 template<class R>
 inline Pixel<R>::Pixel(util::Color color)
 {
-    image::int8_type origin[4];
-    for (int i = 0; i < 4; ++i)
+    constexpr int origin_num_channels = 4;
+    image::int8_type origin[origin_num_channels];
+    for (int i = 0; i < origin_num_channels; ++i)
         origin[i] = image::int_to_int<8, image::int8_type, 8>(color[i]);
     constexpr image::CompRepr origin_comp_repr = image::CompRepr::int8;
     const image::ColorSpace& origin_color_space = image::ColorSpace::get_rgb();
@@ -311,9 +312,9 @@ inline Pixel<R>::Pixel(util::Color color)
     // A custom color space converter is neither needed nor allowed when either color space
     // is RGB
     const image::ColorSpaceConverter* custom_converter = nullptr;
-    image::pixel_convert_a<origin_comp_repr, comp_repr>(origin, origin_color_space, origin_has_alpha,
-                                                        destin, destin_color_space, has_alpha,
-                                                        interm, custom_converter); // Throws
+    image::pixel_convert_a<origin_comp_repr, comp_repr>(origin, origin_num_channels, origin_color_space,
+                                                        origin_has_alpha, destin, num_channels, destin_color_space,
+                                                        has_alpha, interm, custom_converter); // Throws
 }
 
 
@@ -323,18 +324,19 @@ inline Pixel<R>::operator util::Color() const
     const comp_type* origin = m_components.data();
     const image::ColorSpace& origin_color_space = get_color_space();
     constexpr image::CompRepr destin_comp_repr = image::CompRepr::int8;
-    image::int8_type destin[4];
+    constexpr int destin_num_channels = 4;
+    image::int8_type destin[destin_num_channels];
     const image::ColorSpace& destin_color_space = image::ColorSpace::get_rgb();
     bool destin_has_alpha = true;
-    image::float_type interm[std::max(num_channels, 4)];
+    image::float_type interm[std::max(num_channels, destin_num_channels)];
     // A custom color space converter is neither needed nor allowed when either color space
     // is RGB
     const image::ColorSpaceConverter* custom_converter = nullptr;
-    image::pixel_convert_a<comp_repr, destin_comp_repr>(origin, origin_color_space, has_alpha,
-                                                        destin, destin_color_space, destin_has_alpha,
-                                                        interm, custom_converter); // Throws
+    image::pixel_convert_a<comp_repr, destin_comp_repr>(origin, num_channels, origin_color_space, has_alpha,
+                                                        destin, destin_num_channels, destin_color_space,
+                                                        destin_has_alpha, interm, custom_converter); // Throws
     util::Color color;
-    for (int i = 0; i < 4; ++i)
+    for (int i = 0; i < destin_num_channels; ++i)
         color[i] = image::int_to_int<8, util::Color::comp_type, 8>(origin[i]);
     return color;
 }
@@ -446,9 +448,10 @@ template<class S> inline auto Pixel<R>::convert(const image::ColorSpaceConverter
     constexpr image::CompRepr comp_repr_2 = repr_type_2::comp_repr;
     Pixel<S> pixel;
     image::float_type interm[std::max(repr_type::num_channels, repr_type_2::num_channels)];
-    image::pixel_convert_a<comp_repr, comp_repr_2>(data(), repr_type::get_color_space(), repr_type::has_alpha,
-                                                   pixel.data(), repr_type_2::get_color_space(),
-                                                   repr_type_2::has_alpha, interm, custom_converter); // Throws
+    image::pixel_convert_a<comp_repr, comp_repr_2>(data(), repr_type::num_channels, repr_type::get_color_space(),
+                                                   repr_type::has_alpha, pixel.data(), repr_type_2::num_channels,
+                                                   repr_type_2::get_color_space(), repr_type_2::has_alpha,
+                                                   interm, custom_converter); // Throws
     return pixel;
 }
 

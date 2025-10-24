@@ -285,7 +285,9 @@ inline void BasicStreamOutputHelper<C, T>::write(string_view_type string)
     if (ARCHON_LIKELY(!m_error)) {
         const char_type* data = string.data();
         std::size_t size = string.size();
-        std::streamsize max_1 = std::numeric_limits<std::streamsize>::max();
+        // Dividing by two to work around static analysis misbehavior in GCC 14 and later
+        // versions.
+        std::streamsize max_1 = std::numeric_limits<std::streamsize>::max() / 2;
         auto max_2 = core::to_unsigned(max_1);
         for (;;) {
             if (ARCHON_LIKELY(size <= max_2)) {

@@ -75,10 +75,10 @@ void pixel_convert(const image::comp_type<R>* origin, bool origin_has_alpha, ima
 /// FIXME: Explain lossless operation and conditions for it (same component representation, same color space, no non-solid alpha removal)                        
 ///
 template<image::CompRepr R, image::CompRepr S>
-void pixel_convert_a(const image::comp_type<R>* origin, const image::ColorSpace& origin_color_space,
-                     bool origin_has_alpha, image::comp_type<S>* destin, const image::ColorSpace& destin_color_space,
-                     bool destin_has_alpha, image::float_type* interm,
-                     const image::ColorSpaceConverter* custom_converter);
+void pixel_convert_a(const image::comp_type<R>* origin, int origin_num_channels,
+                     const image::ColorSpace& origin_color_space, bool origin_has_alpha, image::comp_type<S>* destin,
+                     int destin_num_channels, const image::ColorSpace& destin_color_space, bool destin_has_alpha,
+                     image::float_type* interm, const image::ColorSpaceConverter* custom_converter);
 
 
 
@@ -140,8 +140,9 @@ inline void pixel_convert(const image::comp_type<R>* origin, bool origin_has_alp
 
 
 template<image::CompRepr R, image::CompRepr S>
-inline void pixel_convert_a(const image::comp_type<R>* origin, const image::ColorSpace& origin_color_space,
-                            bool origin_has_alpha, image::comp_type<S>* destin,
+inline void pixel_convert_a(const image::comp_type<R>* origin, int origin_num_channels,
+                            const image::ColorSpace& origin_color_space, bool origin_has_alpha,
+                            image::comp_type<S>* destin, int destin_num_channels,
                             const image::ColorSpace& destin_color_space, bool destin_has_alpha,
                             image::float_type* interm, const image::ColorSpaceConverter* custom_converter)
 {
@@ -156,8 +157,8 @@ inline void pixel_convert_a(const image::comp_type<R>* origin, const image::Colo
     using origin_comp_type = image::comp_type<origin_comp_repr>;
     using destin_comp_type = image::comp_type<destin_comp_repr>;
 
-    int origin_num_channels = origin_color_space.get_num_channels() + int(origin_has_alpha);
-    int destin_num_channels = destin_color_space.get_num_channels() + int(destin_has_alpha);
+    ARCHON_ASSERT(origin_num_channels == origin_color_space.get_num_channels() + int(origin_has_alpha));
+    ARCHON_ASSERT(destin_num_channels == destin_color_space.get_num_channels() + int(destin_has_alpha));
 
     constexpr bool int_to_int = (!std::is_floating_point_v<origin_comp_type> &&
                                  !std::is_floating_point_v<destin_comp_type>);

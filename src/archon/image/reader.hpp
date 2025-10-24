@@ -1146,8 +1146,8 @@ auto Reader::get_color_a(ColorSlot slot, image::comp_type<R>* components, const 
         image::float_type* interm = workspace.data();
         const image::ColorSpaceConverter* custom_converter =
             find_color_space_converter(origin_color_space, color_space);
-        image::pixel_convert_a<repr_2, repr>(color, origin_color_space, origin_has_alpha,
-                                             components, color_space, has_alpha,
+        image::pixel_convert_a<repr_2, repr>(color, origin_num_channels, origin_color_space, origin_has_alpha,
+                                             components, destin_num_channels, color_space, has_alpha,
                                              interm, custom_converter); // Throws
     }
     return *this;
@@ -1261,8 +1261,8 @@ auto Reader::read_palette_a(std::size_t offset, std::size_t num, const image::Co
         constexpr image::CompRepr repr_2 = image::CompRepr::float_;
         bool origin_has_alpha = true;
         image::float_type* interm = workspace.data();
-        image::pixel_convert_a<repr_2, repr>(color_f, origin_color_space, origin_has_alpha,
-                                             components_2, color_space, has_alpha,
+        image::pixel_convert_a<repr_2, repr>(color_f, origin_num_channels, origin_color_space, origin_has_alpha,
+                                             components_2, destin_num_channels, color_space, has_alpha,
                                              interm, custom_converter); // Throws
     }
 
@@ -1980,8 +1980,8 @@ void Reader::do_set_color(ColorSlot slot, const image::comp_type<R>* components,
                                                  std::max(num_channels, destin_num_channels)); // Throws
     image::float_type* interm = workspace.data();
     const image::ColorSpaceConverter* custom_converter = find_color_space_converter(color_space, destin_color_space);
-    image::pixel_convert_a<repr, repr_2>(components, color_space, has_alpha,
-                                         destin, destin_color_space, destin_has_alpha,
+    image::pixel_convert_a<repr, repr_2>(components, num_channels, color_space, has_alpha,
+                                         destin, destin_num_channels, destin_color_space, destin_has_alpha,
                                          interm, custom_converter); // Throws
 
     // Apply opacity
@@ -2052,8 +2052,8 @@ void Reader::convert_2(image::const_tray_type<R> origin, const image::ColorSpace
         find_color_space_converter(origin_color_space, destin_color_space);
     for (int y = 0; y < origin.size.height; ++y) {
         for (int x = 0; x < origin.size.width; ++x) {
-            image::pixel_convert_a<R, S>(origin(x, y), origin_color_space, origin_has_alpha,
-                                         destin(x, y), destin_color_space, destin_has_alpha,
+            image::pixel_convert_a<R, S>(origin(x, y), origin_num_channels, origin_color_space, origin_has_alpha,
+                                         destin(x, y), destin_num_channels, destin_color_space, destin_has_alpha,
                                          interm, custom_converter); // Throws
         }
     }
