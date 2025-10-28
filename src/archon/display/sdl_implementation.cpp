@@ -67,26 +67,8 @@
 #endif
 
 #if HAVE_SDL
-#  if ARCHON_CLANG
-#    pragma clang diagnostic push
-#    pragma clang diagnostic ignored "-Wold-style-cast"
-#  endif
-#  define SDL_MAIN_HANDLED
-#  include <SDL.h>
-#  if ARCHON_CLANG
-#    pragma clang diagnostic pop
-#  endif
+#  include <SDL3/SDL.h>
 #endif
-
-
-// Current minimum required SDL version is 2.0.22 for the following reasons:
-//
-// * Need SDL_HINT_QUIT_ON_LAST_WINDOW_CLOSE which was introduced in SDL 2.0.22.
-//
-// * Need proper and automatic mouse capturing behavior when mouse buttons are pressed
-//   allowing for mouse move events while mouse is outside window. This was introduced in
-//   SDL 2.0.22.
-//
 
 
 using namespace archon;
@@ -144,7 +126,7 @@ auto get_sdl_error(const std::locale& locale, std::string_view message) -> std::
 }
 
 
-void init_rect(SDL_Rect* rect, const display::Box& area) noexcept
+void init_rect(SDL_FRect* rect, const display::Box& area) noexcept
 {
     rect->x = area.pos.x;
     rect->y = area.pos.y;
@@ -232,12 +214,6 @@ private:
 
     core::FlatMap<Uint32, WindowImpl&> m_windows;
 
-    // SDL timestamps are 32-bit unsigned integers and `Uint32` refers to the unsigned
-    // integer type that SDL uses to store these timestamps.
-    //
-    using timestamp_unwrapper_type = impl::TimestampUnwrapper<Uint32, 32>;
-    timestamp_unwrapper_type m_timestamp_unwrapper;
-
     static constexpr std::size_t s_max_events = 128;
     std::size_t m_num_events = 0;
     std::size_t m_next_event = 0;
@@ -310,8 +286,6 @@ public:
     void opengl_swap_buffers() override;
 
 private:
-    bool m_have_minimum_size = false;
-    display::Size m_minimum_size;
     SDL_Window* m_win = nullptr;
     Uint32 m_id = 0; // If nonzero, this window has been registered in the connection object
     SDL_Renderer* m_renderer = nullptr;
@@ -422,15 +396,12 @@ bool ConnectionImpl::try_open(std::string& error)
     if (impl.have_connection)
         throw std::runtime_error("Overlapping connections");
 
-    SDL_SetMainReady();
-    if (ARCHON_UNLIKELY(!SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS, "1")))
-        throw std::runtime_error("Failed to set SDL hint " SDL_HINT_NO_SIGNAL_HANDLERS);
     if (ARCHON_UNLIKELY(!SDL_SetHint(SDL_HINT_QUIT_ON_LAST_WINDOW_CLOSE, "0")))
         throw std::runtime_error("Failed to set SDL hint " SDL_HINT_QUIT_ON_LAST_WINDOW_CLOSE);
 
     Uint32 flags = SDL_INIT_VIDEO;
-    int ret = SDL_Init(flags);
-    if (ARCHON_UNLIKELY(ret < 0)) {
+    bool success = SDL_Init(flags);
+    if (ARCHON_UNLIKELY(!success)) {
         error = get_sdl_error(locale, "SDL_Init() failed"); // Throws
         return false;
     }
@@ -563,9 +534,9 @@ void ConnectionImpl::generate_quit_event() noexcept
     // it is most likely because the event queue is full, but in that case, it is highly
     // unlikely that there is any need to wake up the event processing thread.
     SDL_Event ev = {};
-    ev.type = SDL_USEREVENT; // Hijack SDL_USEREVENT for this purpose
-    int ret = SDL_PushEvent(&ev);
-    static_cast<void>(ret); // Purposefully ignoring errors here
+    ev.type = SDL_EVENT_USER; // Hijack SDL_EVENT_USER for this purpose
+    bool success = SDL_PushEvent(&ev);
+    static_cast<void>(success); // Purposefully ignoring errors here
 }
 
 
@@ -594,6 +565,9 @@ bool ConnectionImpl::try_get_screen_conf(int screen, core::Buffer<display::Viewp
     // removed, not when individual monitors change, e.g., when its size changes (virtual
     // monitors). See also out-commented handling of SDL_DISPLAYEVENT in
     // ConnectionImpl::process_outstanding_events().
+    //
+    // FIXME: The previous assesment was made in the context of SDL 2. The situation should
+    // be reassesed due to the move from SDL 2 to SDL 3.
 
     return false;
 }
@@ -620,12 +594,11 @@ void ConnectionImpl::fetch_event_batch()
         std::size_t i = 0;
         while (i < s_max_events) {
             m_events.reserve_extra(1, i, s_max_events); // Throws
-            int ret = SDL_PollEvent(&m_events[i]); // Non-blocking
-            if (ARCHON_LIKELY(ret == 1)) {
+            bool success = SDL_PollEvent(&m_events[i]); // Non-blocking
+            if (ARCHON_LIKELY(success)) {
                 i += 1;
                 continue;
             }
-            ARCHON_ASSERT(ret == 0);
             break;
         }
         m_num_events = i;
@@ -644,7 +617,11 @@ bool ConnectionImpl::process_event_batch()
 
     SDL_Event event = {};
     WindowImpl* window = {};
-    timestamp_unwrapper_type::Session unwrap_session(m_timestamp_unwrapper);
+
+    auto map_timestamp = [](Uint64 timestamp) noexcept -> std::chrono::milliseconds {
+        std::chrono::nanoseconds nanos = std::chrono::nanoseconds(timestamp);
+        return std::chrono::duration_cast<std::chrono::milliseconds>(nanos);
+    };
 
     auto expose = [&] {
         if (ARCHON_LIKELY(window->has_pending_expose_event))
@@ -663,14 +640,16 @@ bool ConnectionImpl::process_event_batch()
     event = m_events[m_next_event];
     m_next_event += 1;
     switch (event.type) {
-        case SDL_MOUSEMOTION:
+        case SDL_EVENT_MOUSE_MOTION:
             if (ARCHON_LIKELY(event.motion.state == 0))
                 break;
             if (ARCHON_LIKELY(lookup_window(event.motion.windowID, window))) {
+                int x = int(event.motion.x + 0.5);
+                int y = int(event.motion.y + 0.5);
                 display::MouseButtonEvent event_2;
                 event_2.cookie = window->cookie;
-                event_2.timestamp = unwrap_session.unwrap_next_timestamp(event.motion.timestamp); // Throws
-                event_2.pos = { event.motion.x, event.motion.y };
+                event_2.timestamp = map_timestamp(event.motion.timestamp);
+                event_2.pos = { x, y };
                 bool proceed = window->event_handler->on_mousemove(event_2); // Throws
                 if (ARCHON_LIKELY(proceed))
                     break;
@@ -678,12 +657,12 @@ bool ConnectionImpl::process_event_batch()
             }
             break;
 
-        case SDL_MOUSEWHEEL:
+        case SDL_EVENT_MOUSE_WHEEL:
             if (ARCHON_LIKELY(lookup_window(event.wheel.windowID, window))) {
                 display::ScrollEvent event_2;
                 event_2.cookie = window->cookie;
-                event_2.timestamp = unwrap_session.unwrap_next_timestamp(event.wheel.timestamp); // Throws
-                event_2.amount = { event.wheel.preciseX, event.wheel.preciseY };
+                event_2.timestamp = map_timestamp(event.wheel.timestamp);
+                event_2.amount = { event.wheel.x, event.wheel.y };
                 bool proceed = window->event_handler->on_scroll(event_2); // Throws
                 if (ARCHON_LIKELY(proceed))
                     break;
@@ -691,16 +670,18 @@ bool ConnectionImpl::process_event_batch()
             }
             break;
 
-        case SDL_MOUSEBUTTONDOWN:
-        case SDL_MOUSEBUTTONUP:
+        case SDL_EVENT_MOUSE_BUTTON_DOWN:
+        case SDL_EVENT_MOUSE_BUTTON_UP:
             if (ARCHON_LIKELY(lookup_window(event.button.windowID, window))) {
+                int x = int(event.button.x + 0.5);
+                int y = int(event.button.y + 0.5);
                 display::MouseButtonEvent event_2;
                 event_2.cookie = window->cookie;
-                event_2.timestamp = unwrap_session.unwrap_next_timestamp(event.button.timestamp); // Throws
-                event_2.pos = { event.button.x, event.button.y };
+                event_2.timestamp = map_timestamp(event.button.timestamp);
+                event_2.pos = { x, y };
                 event_2.button = map_mouse_button(event.button.button);
                 bool proceed;
-                if (event.type == SDL_MOUSEBUTTONDOWN) {
+                if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {
                     proceed = window->event_handler->on_mousedown(event_2); // Throws
                 }
                 else {
@@ -712,8 +693,10 @@ bool ConnectionImpl::process_event_batch()
             }
             break;
 
-        case SDL_KEYDOWN:
-        case SDL_KEYUP:
+        case SDL_EVENT_KEY_DOWN:
+        case SDL_EVENT_KEY_UP:
+            // The following was true for SDL 2 and remains true for SDL 3:
+            //
             // Some keys may remain pressed down when a window loses input focus, and some
             // keys may already be pressed down when a window gains input focus. With the
             // SDL-based display implementation (i.e., this implementation), synthetic "key
@@ -766,10 +749,10 @@ bool ConnectionImpl::process_event_batch()
             if (ARCHON_LIKELY(lookup_window(event.key.windowID, window))) {
                 display::KeyEvent event_2;
                 event_2.cookie = window->cookie;
-                event_2.timestamp = unwrap_session.unwrap_next_timestamp(event.key.timestamp); // Throws
-                event_2.key_code = { display::KeyCode::code_type(event.key.keysym.sym) };
+                event_2.timestamp = map_timestamp(event.key.timestamp);
+                event_2.key_code = { display::KeyCode::code_type(event.key.key) };
                 bool proceed;
-                if (event.type == SDL_KEYDOWN) {
+                if (event.type == SDL_EVENT_KEY_DOWN) {
                     if (ARCHON_LIKELY(event.key.repeat == 0)) {
                         proceed = window->event_handler->on_keydown(event_2); // Throws
                     }
@@ -786,10 +769,17 @@ bool ConnectionImpl::process_event_batch()
             }
             break;
 
-        case SDL_WINDOWEVENT:
+        case SDL_EVENT_WINDOW_RESIZED:
+        case SDL_EVENT_WINDOW_MOVED:
+        case SDL_EVENT_WINDOW_EXPOSED:
+        case SDL_EVENT_WINDOW_MOUSE_ENTER:
+        case SDL_EVENT_WINDOW_MOUSE_LEAVE:
+        case SDL_EVENT_WINDOW_FOCUS_GAINED:
+        case SDL_EVENT_WINDOW_FOCUS_LOST:
+        case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
             if (ARCHON_LIKELY(lookup_window(event.window.windowID, window))) {
-                switch (event.window.event) {
-                    case SDL_WINDOWEVENT_SIZE_CHANGED: {
+                switch (event.type) {
+                    case SDL_EVENT_WINDOW_RESIZED: {
                         expose(); // Throws
                         display::WindowSizeEvent event_2;
                         event_2.cookie = window->cookie;
@@ -800,7 +790,7 @@ bool ConnectionImpl::process_event_batch()
                             break;
                         return false; // Interrupt
                     }
-                    case SDL_WINDOWEVENT_MOVED: {
+                    case SDL_EVENT_WINDOW_MOVED: {
                         display::WindowPosEvent event_2;
                         event_2.cookie = window->cookie;
                         core::int_cast(event.window.data1, event_2.pos.x); // Throws
@@ -810,17 +800,17 @@ bool ConnectionImpl::process_event_batch()
                             break;
                         return false; // Interrupt
                     }
-                    case SDL_WINDOWEVENT_EXPOSED: {
+                    case SDL_EVENT_WINDOW_EXPOSED: {
                         expose(); // Throws
                         break;
                     }
-                    case SDL_WINDOWEVENT_ENTER:
-                    case SDL_WINDOWEVENT_LEAVE: {
+                    case SDL_EVENT_WINDOW_MOUSE_ENTER:
+                    case SDL_EVENT_WINDOW_MOUSE_LEAVE: {
                         display::TimedWindowEvent event_2;
                         event_2.cookie = window->cookie;
-                        event_2.timestamp = unwrap_session.unwrap_next_timestamp(event.window.timestamp); // Throws
+                        event_2.timestamp = map_timestamp(event.window.timestamp);
                         bool proceed;
-                        if (event.window.event == SDL_WINDOWEVENT_ENTER) {
+                        if (event.type == SDL_EVENT_WINDOW_MOUSE_ENTER) {
                             proceed = window->event_handler->on_mouseover(event_2); // Throws
                         }
                         else {
@@ -830,12 +820,12 @@ bool ConnectionImpl::process_event_batch()
                             break;
                         return false; // Interrupt
                     }
-                    case SDL_WINDOWEVENT_FOCUS_GAINED:
-                    case SDL_WINDOWEVENT_FOCUS_LOST: {
+                    case SDL_EVENT_WINDOW_FOCUS_GAINED:
+                    case SDL_EVENT_WINDOW_FOCUS_LOST: {
                         display::WindowEvent event_2;
                         event_2.cookie = window->cookie;
                         bool proceed;
-                        if (event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED) {
+                        if (event.type == SDL_EVENT_WINDOW_FOCUS_GAINED) {
                             proceed = window->event_handler->on_focus(event_2); // Throws
                         }
                         else {
@@ -845,7 +835,7 @@ bool ConnectionImpl::process_event_batch()
                             break;
                         return false; // Interrupt
                     }
-                    case SDL_WINDOWEVENT_CLOSE: {
+                    case SDL_EVENT_WINDOW_CLOSE_REQUESTED: {
                         display::WindowEvent event_2;
                         event_2.cookie = window->cookie;
                         bool proceed = window->event_handler->on_close(event_2); // Throws
@@ -897,7 +887,7 @@ bool ConnectionImpl::process_event_batch()
         }
 */
 
-        case SDL_QUIT: {
+        case SDL_EVENT_QUIT: {
             bool proceed = event_handler->on_quit(); // Throws
             if (ARCHON_LIKELY(!proceed))
                 return false; // Interrupt
@@ -950,10 +940,9 @@ bool ConnectionImpl::after_event_batch()
 void ConnectionImpl::wait_for_events()
 {
     SDL_Event* event = nullptr;
-    int ret = SDL_WaitEvent(event);
-    if (ARCHON_LIKELY(ret == 1))
+    bool success = SDL_WaitEvent(event);
+    if (ARCHON_LIKELY(success))
         return;
-    ARCHON_ASSERT(ret == 0);
     throw_sdl_error(locale, "SDL_WaitEvent() failed"); // Throws
 }
 
@@ -963,30 +952,31 @@ bool ConnectionImpl::wait_for_events(time_point_type deadline)
     for (;;) {
         time_point_type now = clock_type::now();
         if (ARCHON_LIKELY(now < deadline)) {
-            int timeout = core::int_max<int>();
+            Sint32 timeout = core::int_max<Sint32>();
             bool complete = false;
             auto duration = std::chrono::ceil<std::chrono::milliseconds>(deadline - now).count();
             if (ARCHON_LIKELY(core::int_less_equal(duration, timeout))) {
                 timeout = int(duration);
                 complete = true;
             }
-            // FIXME: There is something broken about the design of
-            // SDL_WaitEventTimeout(). According to the documentation, when that function
-            // returns zero, it means that an error occurred or the timeout was reached,
-            // But, unfortunately, there is no way to tell which of the two happened. The
-            // only viable resolution seems to be to assume that the function can never
-            // fail, and that "zero" always means that the timeout was reached. Calling
-            // SDL_WaitEventTimeout() to see if an error occurred is not an option, as it
-            // will sometimes report errors when none occurred even if SDL_ClearError() is
-            // called before calling SDL_WaitEventTimeout().
-            //
-            // See also https://discourse.libsdl.org/t/proposal-for-sdl-3-return-value-improvement-for-sdl-waiteventtimeout/45743
+            // FIXME: There seems to be something broken about the design of
+            // SDL_WaitEventTimeout(). The signature and documentation of SDL_WaitEvent()
+            // suggests that an error can occur while waiting for an event. On the other
+            // hand, the documentation of SDL_WaitEventTimeout() specifies that the meaning
+            // of a `false` return falue is that the specified timeout was
+            // reached. Strangely, this leaves no way for SDL_WaitEventTimeout() to report
+            // an error. Judging from my investigation into the corresponding function in
+            // SDL 2, the function can actually fail, but reports a failure exactly as it
+            // reports a timeout, but this leaves the application with no way of
+            // discriminating between a timeout and a failure. The work-around for now, if
+            // one can call it a work-around, is to assume that SDL_WaitEventTimeout() never
+            // fails. See also
+            // https://discourse.libsdl.org/t/proposal-for-sdl-3-return-value-improvement-for-sdl-waiteventtimeout/45743
             //
             SDL_Event* event = nullptr;
-            int ret = SDL_WaitEventTimeout(event, timeout);
-            if (ARCHON_LIKELY(ret == 1))
+            bool success = SDL_WaitEventTimeout(event, timeout);
+            if (ARCHON_LIKELY(success))
                 return true; // Events are available
-            ARCHON_ASSERT(ret == 0);
             if (ARCHON_LIKELY(complete))
                 break;
             continue;
@@ -1033,8 +1023,10 @@ WindowImpl::~WindowImpl() noexcept
             conn.unregister_window(m_id, *this);
         if (m_renderer)
             SDL_DestroyRenderer(m_renderer);
-        if (m_gl_context)
-            SDL_GL_DeleteContext(m_gl_context);
+        if (m_gl_context) {
+            bool success = SDL_GL_DestroyContext(m_gl_context);
+            ARCHON_STEADY_ASSERT(success);
+        }
         SDL_DestroyWindow(m_win);
     }
 }
@@ -1042,14 +1034,16 @@ WindowImpl::~WindowImpl() noexcept
 
 bool WindowImpl::try_create(std::string_view title, display::Size size, const Config& config, std::string& error)
 {
+    bool have_minimum_size = false;
+    display::Size minimum_size;
     if (config.resizable && config.minimum_size.has_value()) {
-        m_have_minimum_size = true;
-        m_minimum_size = config.minimum_size.value();
+        have_minimum_size = true;
+        minimum_size = config.minimum_size.value();
     }
 
     display::Size adjusted_size = size;
-    if (m_have_minimum_size)
-        adjusted_size = max(adjusted_size, m_minimum_size);
+    if (have_minimum_size)
+        adjusted_size = max(adjusted_size, minimum_size);
 
     std::array<char, 128> seed_memory;
     core::Buffer buffer(seed_memory);
@@ -1064,40 +1058,58 @@ bool WindowImpl::try_create(std::string_view title, display::Size size, const Co
     int opengl_version_major = 4;
     int opengl_version_minor = 1;
     if (config.enable_opengl_rendering) {
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, opengl_version_major);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, opengl_version_minor);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-        SDL_GL_SetAttribute(SDL_GL_FRAMEBUFFER_SRGB_CAPABLE, 1);
+        bool success = true;
+        auto set_gl_attr = [&](SDL_GLAttr attr, int value) noexcept {
+            if (ARCHON_UNLIKELY(success && !SDL_GL_SetAttribute(attr, value)))
+                success = false;
+        };
+
+        set_gl_attr(SDL_GL_CONTEXT_MAJOR_VERSION, opengl_version_major);
+        set_gl_attr(SDL_GL_CONTEXT_MINOR_VERSION, opengl_version_minor);
+        set_gl_attr(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+        set_gl_attr(SDL_GL_FRAMEBUFFER_SRGB_CAPABLE, 1);
 
         bool require_depth_buffer = config.require_opengl_depth_buffer;
         // This value (8) mirrors the default for
         // FindVisualParams::min_opengl_depth_buffer_bits in noinst/x11/support.hpp
         int min_depth_buffer_bits = 8;
-        SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, (require_depth_buffer ? min_depth_buffer_bits : 0));
+        set_gl_attr(SDL_GL_DEPTH_SIZE, (require_depth_buffer ? min_depth_buffer_bits : 0));
+
+        if (ARCHON_UNLIKELY(!success)) {
+            error = get_sdl_error(conn.locale, "SDL_GL_SetAttribute() failed"); // Throws
+            return false;
+        }
     }
 
-    int x = SDL_WINDOWPOS_UNDEFINED;
-    int y = SDL_WINDOWPOS_UNDEFINED;
     int w = adjusted_size.width;
     int h = adjusted_size.height;
     Uint32 flags = SDL_WINDOW_HIDDEN;
     if (config.resizable)
         flags |= SDL_WINDOW_RESIZABLE;
     if (config.fullscreen)
-        flags |= SDL_WINDOW_FULLSCREEN_DESKTOP;
+        flags |= SDL_WINDOW_FULLSCREEN;
     if (config.enable_opengl_rendering)
         flags |= SDL_WINDOW_OPENGL;
-    SDL_Window* win = SDL_CreateWindow(title_2, x, y, w, h, flags);
+    SDL_Window* win = SDL_CreateWindow(title_2, w, h, flags);
     if (ARCHON_UNLIKELY(!win)) {
         error = get_sdl_error(conn.locale, "SDL_CreateWindow() failed"); // Throws
         return false;
     }
     m_win = win;
     Uint32 id = SDL_GetWindowID(m_win);
-    if (ARCHON_UNLIKELY(id <= 0))
+    if (ARCHON_UNLIKELY(id == 0))
         throw_sdl_error(conn.locale, "SDL_GetWindowID() failed"); // Throws
     conn.register_window(id, *this); // Throws
     m_id = id;
+
+    // Set minimum window size if requested
+    if (have_minimum_size) {
+        bool success = SDL_SetWindowMinimumSize(m_win, minimum_size.width, minimum_size.height);
+        if (ARCHON_UNLIKELY(!success)) {
+            error = get_sdl_error(conn.locale, "SDL_SetWindowMinimumSize() failed"); // Throws
+            return false;
+        }
+    }
 
     if (config.enable_opengl_rendering) {
         SDL_GLContext ret = SDL_GL_CreateContext(m_win);
@@ -1134,19 +1146,16 @@ bool WindowImpl::try_create(std::string_view title, display::Size size, const Co
 #endif// !ARCHON_DISPLAY_HAVE_OPENGL
     }
 
-    // With the X11 back end, and when OpenGL support is not explicitly requested, SDL will
-    // recreate the window when a renderer is created. Presumably, this is because a
-    // renderer requires OpenGL support, but when OpenGL support is not requested initially,
-    // a visual without OpenGL support is selected initially. Unfortunately, this leads to a
-    // very visible flicker / artifact if the recreation occurs while the window is
-    // visible. To work around this problem, we request the creation of the renderer before
-    // the window is made visible when OpenGL support is not explicitly requested.
+    // With SDL 2, and possibly also with SDL 3, when using the X11 back end, and when
+    // OpenGL support is not explicitly requested, SDL will recreate the window when a
+    // renderer is created. Presumably, this is because a renderer requires OpenGL support,
+    // but when OpenGL support is not requested initially, a visual without OpenGL support
+    // is selected initially. Unfortunately, this leads to a very visible flicker / artifact
+    // if the recreation occurs while the window is visible. To work around this problem, we
+    // request the creation of the renderer before the window is made visible when OpenGL
+    // support is not explicitly requested.
     if (!config.enable_opengl_rendering)
         ensure_renderer(); // Throws
-
-    // Set minimum window size if requested
-    if (m_have_minimum_size)
-        SDL_SetWindowMinimumSize(m_win, m_minimum_size.width, m_minimum_size.height);
 
     return true;
 }
@@ -1162,11 +1171,9 @@ inline auto WindowImpl::ensure_renderer() -> SDL_Renderer*
 
 void WindowImpl::set_draw_color(SDL_Renderer* renderer, util::Color color)
 {
-    int ret = SDL_SetRenderDrawColor(renderer, color.red(), color.green(), color.blue(), color.alpha());
-    if (ARCHON_LIKELY(ret >= 0)) {
-        ARCHON_ASSERT(ret == 0);
+    bool success = SDL_SetRenderDrawColor(renderer, color.red(), color.green(), color.blue(), color.alpha());
+    if (ARCHON_LIKELY(success))
         return;
-    }
     throw_sdl_error(conn.locale, "SDL_SetRenderDrawColor() failed"); // Throws
 }
 
@@ -1185,13 +1192,19 @@ void WindowImpl::unset_event_handler() noexcept
 
 void WindowImpl::show()
 {
-    SDL_ShowWindow(m_win);
+    bool success = SDL_ShowWindow(m_win);
+    if (ARCHON_LIKELY(success))
+        return;
+    throw_sdl_error(conn.locale, "SDL_ShowWindow() failed"); // Throws
 }
 
 
 void WindowImpl::hide()
 {
-    SDL_HideWindow(m_win);
+    bool success = SDL_HideWindow(m_win);
+    if (ARCHON_LIKELY(success))
+        return;
+    throw_sdl_error(conn.locale, "SDL_HideWindow() failed"); // Throws
 }
 
 
@@ -1206,22 +1219,36 @@ void WindowImpl::set_title(std::string_view title)
         buffer.append_a('\0', buffer_offset); // Throws
     }
     const char* title_2 = buffer.data();
-    SDL_SetWindowTitle(m_win, title_2);
+    bool success = SDL_SetWindowTitle(m_win, title_2);
+    if (ARCHON_LIKELY(success))
+        return;
+    throw_sdl_error(conn.locale, "SDL_SetWindowTitle() failed"); // Throws
 }
 
 
 void WindowImpl::set_size(display::Size size)
 {
-    SDL_SetWindowSize(m_win, size.width, size.height);
+    bool success = SDL_SetWindowSize(m_win, size.width, size.height);
+    if (ARCHON_LIKELY(success))
+        return;
+    throw_sdl_error(conn.locale, "SDL_SetWindowSize() failed"); // Throws
 }
 
 
 void WindowImpl::set_fullscreen_mode(bool on)
 {
-    int ret = SDL_SetWindowFullscreen(m_win, (on ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0));
-    if (ARCHON_LIKELY(ret >= 0)) {
-        ARCHON_ASSERT(ret == 0);
-        return;
+    bool success = SDL_SetWindowFullscreen(m_win, on);
+    if (ARCHON_LIKELY(success)) {
+        // FIXME: It is not clear why it is necessary to follow up with a call to
+        // SDL_SyncWindow(), nor is it clear what SDL_SyncWindow() does. Without it,
+        // occasionally, when switching from fullscreen to windowed mode, the window ends up
+        // without the final redraw having taken place. It is like the resize event that is
+        // supposed to indicate that the switch to windowed mode has happened, comes too
+        // early, and before the switch to windowed mode has happened.
+        success = SDL_SyncWindow(m_win);
+        if (ARCHON_LIKELY(success))
+            return;
+        throw_sdl_error(conn.locale, "SDL_SyncWindow() failed"); // Throws
     }
     throw_sdl_error(conn.locale, "SDL_SetWindowFullscreen() failed"); // Throws
 }
@@ -1231,11 +1258,9 @@ void WindowImpl::fill(util::Color color)
 {
     SDL_Renderer* renderer = ensure_renderer(); // Throws
     set_draw_color(renderer, color); // Throws
-    int ret = SDL_RenderClear(renderer);
-    if (ARCHON_LIKELY(ret >= 0)) {
-        ARCHON_ASSERT(ret == 0);
+    bool success = SDL_RenderClear(renderer);
+    if (ARCHON_LIKELY(success))
         return;
-    }
     throw_sdl_error(conn.locale, "SDL_RenderClear() failed"); // Throws
 }
 
@@ -1244,13 +1269,11 @@ void WindowImpl::fill(util::Color color, const display::Box& area)
 {
     SDL_Renderer* renderer = ensure_renderer(); // Throws
     set_draw_color(renderer, color); // Throws
-    SDL_Rect rect;
+    SDL_FRect rect = {};
     init_rect(&rect, area);
-    int ret = SDL_RenderFillRect(renderer, &rect);
-    if (ARCHON_LIKELY(ret >= 0)) {
-        ARCHON_ASSERT(ret == 0);
+    bool success = SDL_RenderFillRect(renderer, &rect);
+    if (ARCHON_LIKELY(success))
         return;
-    }
     throw_sdl_error(conn.locale, "SDL_RenderFillRect() failed"); // Throws
 }
 
@@ -1280,14 +1303,17 @@ void WindowImpl::put_texture(const display::Texture& tex, const display::Box& so
 void WindowImpl::present()
 {
     SDL_Renderer* renderer = ensure_renderer(); // Throws
-    SDL_RenderPresent(renderer);
+    bool success = SDL_RenderPresent(renderer);
+    if (ARCHON_LIKELY(success))
+        return;
+    throw_sdl_error(conn.locale, "SDL_RenderPresent() failed"); // Throws
 }
 
 
 void WindowImpl::opengl_make_current()
 {
-    int ret = SDL_GL_MakeCurrent(m_win, m_gl_context);
-    if (ARCHON_LIKELY(ret == 0))
+    bool success = SDL_GL_MakeCurrent(m_win, m_gl_context);
+    if (ARCHON_LIKELY(success))
         return;
     throw_sdl_error(conn.locale, "SDL_GL_MakeCurrent() failed"); // Throws
 }
@@ -1295,26 +1321,21 @@ void WindowImpl::opengl_make_current()
 
 void WindowImpl::opengl_swap_buffers()
 {
-    SDL_GL_SwapWindow(m_win);
+    bool success = SDL_GL_SwapWindow(m_win);
+    if (ARCHON_LIKELY(success))
+        return;
+    throw_sdl_error(conn.locale, "SDL_GL_SwapWindow() failed"); // Throws
 }
 
 
 auto WindowImpl::create_renderer() -> SDL_Renderer*
 {
     ARCHON_ASSERT(!m_renderer);
-    int driver_index = -1;
-    Uint32 flags = 0;
-    SDL_Renderer* renderer = SDL_CreateRenderer(m_win, driver_index, flags);
+    const char* name = nullptr; // Use default selection scheme
+    SDL_Renderer* renderer = SDL_CreateRenderer(m_win, name);
     if (ARCHON_UNLIKELY(!renderer))
         throw_sdl_error(conn.locale, "SDL_CreateRenderer() failed"); // Throws
-
     m_renderer = renderer;
-
-    // Due to a bug in SDL (https://github.com/libsdl-org/SDL/issues/8805), the setting of
-    // the minimum window size has to be repeated after the creation of the renderer.
-    if (m_have_minimum_size)
-        SDL_SetWindowMinimumSize(m_win, m_minimum_size.width, m_minimum_size.height);
-
     return renderer;
 }
 
@@ -1324,14 +1345,13 @@ void WindowImpl::do_put_texture(const TextureImpl& tex, const display::Box& sour
 {
     ARCHON_ASSERT(&tex.win.conn.impl == &conn.impl);
     ARCHON_ASSERT(m_renderer);
-    SDL_Rect src_rect, dst_rect;
+    SDL_FRect src_rect = {};
+    SDL_FRect dst_rect = {};
     init_rect(&src_rect, source_area);
     init_rect(&dst_rect, target_area);
-    int ret = SDL_RenderCopy(m_renderer, tex.get(), &src_rect, &dst_rect);
-    if (ARCHON_LIKELY(ret >= 0)) {
-        ARCHON_ASSERT(ret == 0);
+    bool success = SDL_RenderTexture(m_renderer, tex.get(), &src_rect, &dst_rect);
+    if (ARCHON_LIKELY(success))
         return;
-    }
     throw_sdl_error(conn.locale, "SDL_RenderCopy() failed"); // Throws
 }
 
@@ -1354,8 +1374,8 @@ TextureImpl::~TextureImpl() noexcept
 void TextureImpl::create()
 {
     SDL_Renderer* renderer = win.ensure_renderer(); // Throws
-    Uint32 format = SDL_PIXELFORMAT_ARGB32;    
-    int access = SDL_TEXTUREACCESS_STATIC;    
+    SDL_PixelFormat format = SDL_PIXELFORMAT_ARGB32;        
+    SDL_TextureAccess access = SDL_TEXTUREACCESS_STATIC;        
     SDL_Texture* tex = SDL_CreateTexture(renderer, format, access, size.width, size.height);
     if (ARCHON_LIKELY(tex)) {
         m_tex = tex;
@@ -1398,11 +1418,9 @@ If list contains RGB888, use that
     // FIXME: Risk of overflow goes away with subdivision and use of fixed size "image bridge"      
     int pitch = size.width;
     core::int_mul(pitch, 4); // Throws
-    int ret = SDL_UpdateTexture(m_tex, rect, img_2.get_buffer().data(), pitch);
-    if (ARCHON_LIKELY(ret >= 0)) {
-        ARCHON_ASSERT(ret == 0);
+    bool success = SDL_UpdateTexture(m_tex, rect, img_2.get_buffer().data(), pitch);
+    if (ARCHON_LIKELY(success))
         return;
-    }
     throw_sdl_error(win.conn.locale, "SDL_UpdateTexture() failed"); // Throws
 }
 

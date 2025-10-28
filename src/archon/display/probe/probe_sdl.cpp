@@ -40,6 +40,7 @@
 #include <archon/core/file.hpp>
 #include <archon/log.hpp>
 #include <archon/cli.hpp>
+#include <archon/math/vector.hpp>
 #include <archon/display/impl/config.h>
 #include <archon/display/geometry.hpp>
 
@@ -50,15 +51,7 @@
 #endif
 
 #if HAVE_SDL
-#  if ARCHON_CLANG
-#    pragma clang diagnostic push
-#    pragma clang diagnostic ignored "-Wold-style-cast"
-#  endif
-#  define SDL_MAIN_HANDLED
-#  include <SDL.h>
-#  if ARCHON_CLANG
-#    pragma clang diagnostic pop
-#  endif
+#  include <SDL3/SDL.h>
 #endif
 
 
@@ -82,110 +75,6 @@ auto get_sdl_error(std::string_view message) -> std::string
 {
     std::string msg = get_sdl_error(message); // Throws
     throw std::runtime_error(std::move(msg));
-}
-
-
-auto pixel_format_name(Uint32 format) -> const char*
-{
-    switch (format) {
-        case SDL_PIXELFORMAT_UNKNOWN:
-            break;
-        case SDL_PIXELFORMAT_INDEX1LSB:
-            return "INDEX1LSB";
-        case SDL_PIXELFORMAT_INDEX1MSB:
-            return "INDEX1MSB";
-        case SDL_PIXELFORMAT_INDEX4LSB:
-            return "INDEX4LSB";
-        case SDL_PIXELFORMAT_INDEX4MSB:
-            return "INDEX4MSB";
-        case SDL_PIXELFORMAT_INDEX8:
-            return "INDEX8";
-        case SDL_PIXELFORMAT_RGB332:
-            return "RGB332";
-        case SDL_PIXELFORMAT_RGB444:
-            return "RGB444";
-        case SDL_PIXELFORMAT_RGB555:
-            return "RGB555";
-        case SDL_PIXELFORMAT_BGR555:
-            return "BGR555";
-        case SDL_PIXELFORMAT_ARGB4444:
-            return "ARGB4444";
-        case SDL_PIXELFORMAT_RGBA4444:
-            return "RGBA4444";
-        case SDL_PIXELFORMAT_ABGR4444:
-            return "ABGR4444";
-        case SDL_PIXELFORMAT_BGRA4444:
-            return "BGRA4444";
-        case SDL_PIXELFORMAT_ARGB1555:
-            return "ARGB1555";
-        case SDL_PIXELFORMAT_RGBA5551:
-            return "RGBA5551";
-        case SDL_PIXELFORMAT_ABGR1555:
-            return "ABGR1555";
-        case SDL_PIXELFORMAT_BGRA5551:
-            return "BGRA5551";
-        case SDL_PIXELFORMAT_RGB565:
-            return "RGB565";
-        case SDL_PIXELFORMAT_BGR565:
-            return "BGR565";
-        case SDL_PIXELFORMAT_RGB24:
-            return "RGB24";
-        case SDL_PIXELFORMAT_BGR24:
-            return "BGR24";
-        case SDL_PIXELFORMAT_RGB888:
-            return "RGB888";
-        case SDL_PIXELFORMAT_RGBX8888:
-            return "RGBX8888";
-        case SDL_PIXELFORMAT_BGR888:
-            return "BGR888";
-        case SDL_PIXELFORMAT_BGRX8888:
-            return "BGRX8888";
-        case SDL_PIXELFORMAT_ARGB8888:
-            return "ARGB8888";
-        case SDL_PIXELFORMAT_RGBA8888:
-            return "RGBA8888";
-        case SDL_PIXELFORMAT_ABGR8888:
-            return "ABGR8888";
-        case SDL_PIXELFORMAT_BGRA8888:
-            return "BGRA8888";
-        case SDL_PIXELFORMAT_ARGB2101010:
-            return "ARGB2101010";
-        case SDL_PIXELFORMAT_YV12:
-            return "YV12";
-        case SDL_PIXELFORMAT_IYUV:
-            return "IYUV";
-        case SDL_PIXELFORMAT_YUY2:
-            return "YUY2";
-        case SDL_PIXELFORMAT_UYVY:
-            return "UYVY";
-        case SDL_PIXELFORMAT_YVYU:
-            return "YVYU";
-        case SDL_PIXELFORMAT_NV12:
-            return "NV12";
-        case SDL_PIXELFORMAT_NV21:
-            return "NV21";
-    }
-    ARCHON_ASSERT_UNREACHABLE();
-    return nullptr;
-}
-
-
-void show_renderer_info(const SDL_RendererInfo& info, log::Logger& logger)
-{
-    logger.info("  Name: %s", core::quoted(info.name)); // Throws
-    logger.info("  Flags:"); // Throws
-    if ((info.flags & SDL_RENDERER_SOFTWARE) != 0)
-        logger.info("    SOFTWARE"); // Throws
-    if ((info.flags & SDL_RENDERER_ACCELERATED) != 0)
-        logger.info("    ACCELERATED"); // Throws
-    if ((info.flags & SDL_RENDERER_PRESENTVSYNC) != 0)
-        logger.info("    PRESENTVSYNC"); // Throws
-    if ((info.flags & SDL_RENDERER_TARGETTEXTURE) != 0)
-        logger.info("    TARGETTEXTURE"); // Throws
-    logger.info("  Pixel formats:"); // Throws
-    for (int i = 0; i < int(info.num_texture_formats); ++i)
-        logger.info("    %s", pixel_format_name(info.texture_formats[i])); // Throws
-    logger.info("  Max texture size: %s", display::Size(info.max_texture_width, info.max_texture_height)); // Throws
 }
 
 
@@ -228,32 +117,19 @@ int main(int argc, char* argv[])
     log::FileLogger root_logger(core::File::get_stdout(), locale); // Throws
     log::LimitLogger logger(root_logger, log_level_limit); // Throws
 
-    SDL_SetMainReady();
-    if (ARCHON_UNLIKELY(!SDL_SetHint(SDL_HINT_NO_SIGNAL_HANDLERS, "1")))
-        throw std::runtime_error("Failed to set SDL hint " SDL_HINT_NO_SIGNAL_HANDLERS);
     if (ARCHON_UNLIKELY(!SDL_SetHint(SDL_HINT_QUIT_ON_LAST_WINDOW_CLOSE, "0")))
         throw std::runtime_error("Failed to set SDL hint " SDL_HINT_QUIT_ON_LAST_WINDOW_CLOSE);
 
     {
-        int ret = SDL_Init(SDL_INIT_VIDEO);
-        if (ret < 0)
+        bool success = SDL_Init(SDL_INIT_VIDEO);
+        if (ARCHON_UNLIKELY(!success))
             throw_sdl_error("SDL_Init() failed");
     }
-    int num_drivers;
-    {
-        int ret = SDL_GetNumRenderDrivers();
-        if (ret < 0)
-            throw_sdl_error("SDL_GetNumRenderDrivers()");
-        num_drivers = ret;
-    }
+    int num_drivers = SDL_GetNumRenderDrivers();
     logger.info("num_drivers = %s", num_drivers);
     for (int i = 0; i < num_drivers; ++i) {
-        SDL_RendererInfo info;
-        int ret = SDL_GetRenderDriverInfo(i, &info);
-        if (ret < 0)
-            throw_sdl_error("SDL_GetRenderDriverInfo() failed");
-        logger.info("Driver %s:", i);
-        show_renderer_info(info, logger);
+        const char* name = SDL_GetRenderDriver(i);
+        logger.info("Driver %s: %s", i + 1, core::quoted(name)); // Throws
     }
 
     struct WindowSlot {
@@ -308,46 +184,41 @@ int main(int argc, char* argv[])
         };
         {
             Uint32 flags = SDL_WINDOW_HIDDEN | SDL_WINDOW_RESIZABLE;
-            window = SDL_CreateWindow(title_3, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 256, 256, flags);
+            window = SDL_CreateWindow(title_3, 256, 256, flags);
             if (!window)
                 throw_sdl_error("SDL_CreateWindow() failed");
         }
+        bool success = SDL_SetWindowMinimumSize(window, 128, 128);
+        if (ARCHON_UNLIKELY(!success))
+            throw_sdl_error("SDL_SetWindowMinimumSize() failed");
         Uint32 id = SDL_GetWindowID(window);
-        if (ARCHON_UNLIKELY(id <= 0))
-            throw_sdl_error("SDL_GetWindowID() failed"); // Throws
+        if (ARCHON_UNLIKELY(id == 0))
+            throw_sdl_error("SDL_GetWindowID() failed");
         WindowSlot& slot = window_slots[id];
         slot.no = no;
         slot.window_id = id;
         slot.window = window;
         window = {};
         {
-            int driver_index = -1;
-            Uint32 flags = 0;
-            SDL_Renderer* renderer = SDL_CreateRenderer(slot.window, driver_index, flags);
+            const char* name = nullptr;
+            SDL_Renderer* renderer = SDL_CreateRenderer(slot.window, name);
             if (!renderer)
                 throw_sdl_error("SDL_CreateRenderer() failed");
             slot.renderer = renderer;
         }
-        // Due to bug in SDL (https://github.com/libsdl-org/SDL/issues/8805), the setting of
-        // the minimum window size must come after the creation of the renderer.
-        SDL_SetWindowMinimumSize(slot.window, 128, 128);
         {
-            SDL_RendererInfo info;
-            int ret = SDL_GetRendererInfo(slot.renderer, &info);
-            if (ret < 0)
-                throw_sdl_error("SDL_GetRenderInfo() failed");
-            if (no == 1) {
-                logger.info("Renderer:");
-                show_renderer_info(info, logger);
-            }
+            const char* name = SDL_GetRendererName(slot.renderer);
+            if (ARCHON_UNLIKELY(!name))
+                throw_sdl_error("SDL_GetRenderName() failed");
+            logger.info("Renderer: %s", core::quoted(name)); // Throws
         }
         {
             Uint8 r = 255;
             Uint8 g = 0;
             Uint8 b = 0;
             Uint8 a = 255;
-            int ret = SDL_SetRenderDrawColor(slot.renderer, r, g, b, a);
-            if (ret < 0)
+            bool success = SDL_SetRenderDrawColor(slot.renderer, r, g, b, a);
+            if (ARCHON_UNLIKELY(!success))
                 throw_sdl_error("SDL_SetRenderDrawColor() failed");
         }
         if (window_slots.size() > max_seen_window_slots)
@@ -382,97 +253,104 @@ int main(int argc, char* argv[])
 
     for (const auto& entry : window_slots) {
         const WindowSlot& slot = entry.second;
-        SDL_ShowWindow(slot.window);
+        bool success = SDL_ShowWindow(slot.window);
+        if (ARCHON_UNLIKELY(!success))
+            throw_sdl_error("SDL_ShowWindow() failed");
     }
 
     // Event loop
     while (!quit) {
         {
-            int ret = SDL_WaitEvent(nullptr);
-            if (ARCHON_UNLIKELY(ret != 1)) {
-                ARCHON_ASSERT(ret == 0);
+            bool success = SDL_WaitEvent(nullptr);
+            if (ARCHON_UNLIKELY(!success))
                 throw_sdl_error("SDL_WaitEvent() failed");
-            }
         }
 
         while (!quit) {
             SDL_Event event = {};
-            int ret = SDL_PollEvent(&event);
-            if (ARCHON_UNLIKELY(ret != 1)) {
-                ARCHON_ASSERT(ret == 0);
+            bool success = SDL_PollEvent(&event);
+            if (ARCHON_UNLIKELY(!success))
                 break;
-            }
 
             WindowSlot* slot = {};
             switch (event.type) {
-                case SDL_MOUSEMOTION:
+                case SDL_EVENT_MOUSE_MOTION:
                     if (ARCHON_LIKELY(event.motion.state == 0))
                         break;
                     if (ARCHON_LIKELY(try_get_window_slot(event.motion.windowID, slot))) {
-                        display::Pos pos = { event.motion.x, event.motion.y };
+                        math::Vector2F pos = { event.motion.x, event.motion.y };
                         if (report_mouse_move)
                             log(slot->no, "MOUSE MOVE: %s", pos); // Throws
                     }
                     break;
-                case SDL_MOUSEBUTTONDOWN:
-                case SDL_MOUSEBUTTONUP:
+                case SDL_EVENT_MOUSE_BUTTON_DOWN:
+                case SDL_EVENT_MOUSE_BUTTON_UP:
                     if (ARCHON_LIKELY(try_get_window_slot(event.button.windowID, slot))) {
-                        log(slot->no, "%s: %s", (event.type == SDL_MOUSEBUTTONDOWN ? "MOUSE DOWN" : "MOUSE UP"),
-                            core::promote(event.button.button)); // Throws
+                        const char* name = (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN ? "MOUSE DOWN" : "MOUSE UP");
+                        log(slot->no, "%s: %s", name, core::promote(event.button.button)); // Throws
                     }
                     break;
-                case SDL_KEYDOWN:
-                case SDL_KEYUP:
+                case SDL_EVENT_KEY_DOWN:
+                case SDL_EVENT_KEY_UP:
                     if (ARCHON_LIKELY(try_get_window_slot(event.key.windowID, slot))) {
-                        SDL_Keycode keysym = event.key.keysym.sym;
+                        SDL_Keycode keysym = event.key.key;
                         const char* key = "?";
                         if (ARCHON_LIKELY(core::assume_utf8_locale(locale))) // Throws
                             key = SDL_GetKeyName(keysym); // Throws
-                        log(slot->no, "%s: %s, %s, %s -> %s", (event.type == SDL_KEYDOWN ? "KEY DOWN" : "KEY UP"), key,
-                            core::as_int(event.key.repeat), core::as_int(int(event.key.keysym.scancode)),
-                            core::as_int(keysym)); // Throws
-                        if (event.type == SDL_KEYDOWN && (keysym == SDLK_ESCAPE || keysym == SDLK_q)) {
+                        const char* name = (event.type == SDL_EVENT_KEY_DOWN ? "KEY DOWN" : "KEY UP");
+                        log(slot->no, "%s: %s, %s, %s, %s -> %s", name, event.key.which, key, bool(event.key.repeat),
+                            core::as_int(int(event.key.scancode)), core::as_int(keysym)); // Throws
+                        if (event.type == SDL_EVENT_KEY_DOWN && (keysym == SDLK_ESCAPE || keysym == SDLK_Q)) {
                             close_window(slot->window_id);
                             break;
                         }
-                        if (event.type == SDL_KEYUP && keysym == SDLK_n) {
+                        if (event.type == SDL_EVENT_KEY_UP && keysym == SDLK_N) {
                             SDL_Window* window = open_window(); // Throws
-                            SDL_ShowWindow(window);
+                            bool success = SDL_ShowWindow(window);
+                            if (ARCHON_UNLIKELY(!success))
+                                throw_sdl_error("SDL_ShowWindow() failed");
                             break;
                         }
                     }
                     break;
-                case SDL_WINDOWEVENT:
+                case SDL_EVENT_WINDOW_RESIZED:
+                case SDL_EVENT_WINDOW_MOVED:
+                case SDL_EVENT_WINDOW_EXPOSED:
+                case SDL_EVENT_WINDOW_MOUSE_ENTER:
+                case SDL_EVENT_WINDOW_MOUSE_LEAVE:
+                case SDL_EVENT_WINDOW_FOCUS_GAINED:
+                case SDL_EVENT_WINDOW_FOCUS_LOST:
+                case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
                     if (ARCHON_LIKELY(try_get_window_slot(event.window.windowID, slot))) {
-                        switch (event.window.event) {
-                            case SDL_WINDOWEVENT_SIZE_CHANGED:
+                        switch (event.type) {
+                            case SDL_EVENT_WINDOW_RESIZED:
                                 log(slot->no, "SIZE: %s", display::Size(int(event.window.data1),
                                                                         int(event.window.data2))); // Throws
                                 break;
-                            case SDL_WINDOWEVENT_MOVED:
+                            case SDL_EVENT_WINDOW_MOVED:
                                 log(slot->no, "POS: %s", display::Pos(int(event.window.data1),
                                                                       int(event.window.data2))); // Throws
                                 break;
-                            case SDL_WINDOWEVENT_EXPOSED:
+                            case SDL_EVENT_WINDOW_EXPOSED:
                                 slot->redraw = true;
                                 break;
-                            case SDL_WINDOWEVENT_ENTER:
-                            case SDL_WINDOWEVENT_LEAVE:
-                                log(slot->no, (event.window.event == SDL_WINDOWEVENT_ENTER ? "MOUSE OVER" :
+                            case SDL_EVENT_WINDOW_MOUSE_ENTER:
+                            case SDL_EVENT_WINDOW_MOUSE_LEAVE:
+                                log(slot->no, (event.type == SDL_EVENT_WINDOW_MOUSE_ENTER ? "MOUSE OVER" :
                                                "MOUSE OUT")); // Throws
                                 break;
-                            case SDL_WINDOWEVENT_FOCUS_GAINED:
-                            case SDL_WINDOWEVENT_FOCUS_LOST:
-                                log(slot->no, (event.window.event == SDL_WINDOWEVENT_FOCUS_GAINED ? "FOCUS" :
+                            case SDL_EVENT_WINDOW_FOCUS_GAINED:
+                            case SDL_EVENT_WINDOW_FOCUS_LOST:
+                                log(slot->no, (event.type == SDL_EVENT_WINDOW_FOCUS_GAINED ? "FOCUS" :
                                                "BLUR")); // Throws
                                 break;
-                            case SDL_WINDOWEVENT_CLOSE:
+                            case SDL_EVENT_WINDOW_CLOSE_REQUESTED:
                                 close_window(slot->window_id);
                                 break;
                         }
                     }
                     break;
-                case SDL_QUIT:
+                case SDL_EVENT_QUIT:
                     quit = true;
                     break;
             }
@@ -481,10 +359,12 @@ int main(int argc, char* argv[])
         for (const auto& entry : window_slots) {
             const WindowSlot& slot = entry.second;
             if (slot.redraw) {
-                int ret = SDL_RenderClear(slot.renderer);
-                if (ret < 0)
+                bool success = SDL_RenderClear(slot.renderer);
+                if (ARCHON_UNLIKELY(!success))
                     throw_sdl_error("SDL_RenderClear() failed");
-                SDL_RenderPresent(slot.renderer);
+                success = SDL_RenderPresent(slot.renderer);
+                if (ARCHON_UNLIKELY(!success))
+                    throw_sdl_error("SDL_RenderPresent() failed");
             }
         }
     }

@@ -28,7 +28,7 @@ Here is the list of dependencies for the various libraries of the Archon project
   | FreeType  |                 | Font           | Yes      | Font rendering facilities
   | Xlib      |                 | Display        | Yes      | X Window System protocol client library
   | GLX       |                 | Display        | Yes      | OpenGL Extension to the X Window System
-  | SDL       | 2.0.22          | Display        | Yes      | OS GUI integration (Simple DirectMedia Layer)
+  | SDL       | 3.2.20          | Display        | Yes      | OS GUI integration (Simple DirectMedia Layer)
   | OpenGL    |                 | Display        | Yes      | Open Graphics Library
   | GLEW      |                 | Display        | Yes      | The OpenGL Extension Wrangler Library
 
@@ -38,11 +38,42 @@ See below for information on how to install these dependencies on various platfo
 
 ### Ubuntu Linux
 
-Run this command to install `libpng`, `libjpeg`, FreeType, Xlib, GLX, SDL, OpenGL, and GLEW:
+Run this command to install `libpng`, `libjpeg`, FreeType, Xlib, GLX, OpenGL, and GLEW:
 
 ```sh
-apt install libpng-dev libjpeg-dev libfreetype-dev libx11-dev libglx-dev libsdl2-dev libgl-dev libglew-dev
+apt install libpng-dev libjpeg-dev libfreetype-dev libx11-dev libxext-dev libxrandr-dev libxrender-dev libglx-dev libgl-dev libglew-dev
 ```
+
+Since Ubuntu 25.10, it is possible install SDL 3 using:
+
+```sh
+apt install libsdl3-dev
+```
+
+On Ubuntu 24.04, one can install SDL 3 by building it from source. Check out the SDL
+source code from GitHub using:
+
+```sh
+git clone git@github.com:libsdl-org/SDL.git
+```
+
+Install build dependencies using:
+
+```sh
+apt install libxinerama-dev libxcursor-dev libxi-dev libxfixes-dev libxss-dev libwayland-dev wayland-protocols libdecor-0-dev libegl-dev libdrm-dev libgbm-dev libvulkan-dev libasound2-dev libpulse-dev libpipewire-0.3-dev libsndio-dev libusb-1.0-0-dev libudev-dev libxkbcommon-dev libibus-1.0-dev
+```
+
+Finally, to configure, build, and install SDL, enter the directory in which SDL was checked
+out, then run:
+
+```sh
+mkdir build
+cd build
+cmake .. -DCMAKE_BUILD_TYPE=Release -DSDL_X11_XTEST=OFF
+make -j
+make install
+```
+
 
 ### macOS
 
@@ -50,7 +81,7 @@ Run this command to install `libpng`, `libjpeg`, FreeType, SDL, and GLEW using
 [Homebrew][homebrew]:
 
 ```sh
-brew install libpng libjpeg freetype sdl2 glew
+brew install libpng libjpeg freetype sdl3 glew
 ```
 
 ### Windows
@@ -60,7 +91,7 @@ Run this command to install `libpng`, `libjpeg-turbo`, FreeType, SDL, and GLEW u
 
 
 ```sh
-vcpkg install --triplet x64-windows libpng libjpeg-turbo freetype sdl2 glew
+vcpkg install --triplet x64-windows libpng libjpeg-turbo freetype sdl3 glew
 ```
 
 This assumes that Vcpkg is installed and can be found via the `PATH` environment variable.

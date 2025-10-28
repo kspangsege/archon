@@ -14,7 +14,13 @@ find_package(OpenGL)
 # Need SDL for the following reasons:
 # * SDL-based display implementation (see archon/display/sdl_implementation.cpp)
 #
-find_package(SDL2 2.0.22)
+set(SDL3_MINIMUM_REQUIRED_VERSION "3.2.20")
+find_package(SDL3 ${SDL3_MINIMUM_REQUIRED_VERSION} CONFIG QUIET)
+if(SDL3_FOUND)
+  message(STATUS "Found SDL3 (found version \"${SDL3_VERSION}\")")
+else()
+  message(STATUS "Could NOT find SDL3 (minimum required version is \"${SDL3_MINIMUM_REQUIRED_VERSION}\")")
+endif()
 
 # Need GLEW for the following reasons:
 # * Exposure of OpenGL to applciations through archon/display/opengl.hpp
@@ -52,7 +58,7 @@ if(X11_FOUND)
 endif()
 
 set(ARCHON_DISPLAY_HAVE_SDL 0)
-if(SDL2_FOUND)
+if(SDL3_FOUND)
   set(ARCHON_DISPLAY_HAVE_SDL 1)
 endif()
 
@@ -103,9 +109,8 @@ if(X11_FOUND)
   endif()
 endif()
 
-if(SDL2_FOUND)
-  target_include_directories(Display PRIVATE ${SDL2_INCLUDE_DIRS})
-  target_link_libraries(Display PRIVATE ${SDL2_LIBRARIES})
+if(SDL3_FOUND)
+  target_link_libraries(Display PRIVATE SDL3::SDL3)
 endif()
 
 if(OPENGL_FOUND AND GLEW_FOUND)

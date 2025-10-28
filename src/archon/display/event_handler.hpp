@@ -114,29 +114,31 @@ public:
     /// situation. Here, one separate button press is needed to assign input focus to the
     /// window. This then allows for the next button press to initiate a pointer grab.
     ///
-    /// SDL quirks: A pointer grab is supposed to be sustained even if the initiating window
-    /// loses input focus, and this is indeed the case when using the X11-based display
-    /// implementation (\ref display::get_x11_implementation_slot()). Unfortunately, SDL has
-    /// an inconsistent / buggy behavior when the window loses input focus while a pointer
-    /// grab is in progress, and it does not appear to be possible for the SDL-based
-    /// implementation (\ref display::get_sdl_implementation_slot()) to fully hide these
-    /// inconsistencies. From the point of view of the "mouse out" and "mouse move" events,
-    /// it looks like a pointer grab is terminated when the window loses input focus at a
-    /// time where the pointer is outside the window. Something is amiss, through, because
-    /// the the "mouse up" event is not generated at that time, and also not when the mouse
-    /// button is released. Moreover, when the mouse reenters the window, "mouse move"
-    /// events with nonzero `SDL_MouseMotionEvent::state` are generated even though no mouse
-    /// button is pressed, suggesting that the grab is not properly terminated. Also, when a
-    /// mouse button is pressed down, no "mouse down" event is generated, suggesting that
-    /// the button was incorrectly registered as already pressed down. The quirky SDL
-    /// behavior described here applies to SDL with X11 as a back-end and with SDL on
-    /// Windows. On macOS, a pointer grab seems to be fully terminated when the window loses
-    /// input focus, except for the "mouse up" event which is not generated at all in this
-    /// case.
+    /// SDL quirks: The following was true in SDL 2, and in SDL 3 (3.3.3), something similar
+    /// appears to be the case: A pointer grab is supposed to be sustained even if the
+    /// initiating window loses input focus, and this is indeed the case when using the
+    /// X11-based display implementation (\ref
+    /// display::get_x11_implementation_slot()). Unfortunately, SDL has an inconsistent /
+    /// buggy behavior when the window loses input focus while a pointer grab is in
+    /// progress, and it does not appear to be possible for the SDL-based implementation
+    /// (\ref display::get_sdl_implementation_slot()) to fully hide these
+    /// inconsistencies. From the point of view of the "mouse out" and "mouse motion"
+    /// events, it looks like a pointer grab is terminated when the window loses input focus
+    /// at a time where the pointer is outside the window. Something is amiss, though,
+    /// because the "mouse up" event is not generated at that time, and also not when the
+    /// mouse button is released. Moreover, when the mouse reenters the window, "mouse
+    /// motion" events with nonzero `SDL_MouseMotionEvent::state` are generated even though
+    /// no mouse button is pressed, suggesting that the grab is not properly
+    /// terminated. Also, when a mouse button is pressed down, no "mouse down" event is
+    /// generated, suggesting that the button was incorrectly registered as already pressed
+    /// down. The quirky SDL behavior described here applies to SDL with X11 as a back-end
+    /// and with SDL on Windows. On macOS, a pointer grab seems to be fully terminated when
+    /// the window loses input focus, except for the "mouse up" event which is not generated
+    /// at all in this case.
     ///
-    /// SDL quirks: With SDL on Windows, when a pointer grab ends over a different window,
-    /// the "mouse over" event for the different window is not generated until the mouse
-    /// starts to move.
+    /// SDL quirks: The following was true in SDL 2: With SDL on Windows, when a pointer
+    /// grab ends over a different window, the "mouse over" event for the different window
+    /// is not generated until the mouse starts to move.
     ///
     /// FIXME: Consider reporting the inconsistent / buggy behavior of SDL when a window loses input focus while a grab is in progress                            
     ///

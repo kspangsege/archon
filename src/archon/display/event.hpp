@@ -145,13 +145,20 @@ struct ScrollEvent : display::TimedWindowEvent {
     /// \brief Amount of scroll wheel motion.
     ///
     /// This is the amount of the motion of the scroll wheel. A positive Y-coordinate
-    /// corresponds to an upwards scroll, i.e., towards the top of the scrolled
-    /// medium. Likewise, a positive X-coordinate corresponds to a rightwards scroll, i.e.,
-    /// towards the right side the scrolled medium.
+    /// corresponds to an upwards scroll is a normally configured scrolling environment (see
+    /// below), i.e., towards the top of the scrolled medium. Likewise, a positive
+    /// X-coordinate corresponds to a rightwards scroll, i.e., towards the right side the
+    /// scrolled medium.
     ///
-    /// When the scroll wheel turns in discrete steps (detents), the unit of motion is
-    /// generally one such step. When the scroll wheel turns freely, the unit is generally
-    /// chosen to match that of a wheel that turns in discrete steps.
+    /// A *normally configured scrolling environment* is one where the scrolling direction
+    /// is not flipped. On macOS, it is when "natural scrolling" is disabled.
+    ///
+    /// In the case of a scroll wheel that moves vertically in discrete steps (detents), the
+    /// unit of motion is generally one such step. If the scroll wheel moves freely, the
+    /// unit of motion is generally the amount of rotation of the wheel that corresponds to
+    /// one step of a mouse wheel that moves in discrete steps. When scrolling by clicks,
+    /// such as when scrolling horizontally with a vertically scrolling mouse wheel, the unit
+    /// of motion is generally one click.
     ///
     math::Vector2F amount;
 };

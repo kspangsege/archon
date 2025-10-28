@@ -44,12 +44,12 @@ target_link_libraries(ProbeSDL PRIVATE
   Core
   Log
   Cli
+  Math
   Display
 )
 
-if(SDL2_FOUND)
-  target_include_directories(ProbeSDL PRIVATE ${SDL2_INCLUDE_DIRS})
-  target_link_libraries(ProbeSDL PRIVATE ${SDL2_LIBRARIES})
+if(SDL3_FOUND)
+  target_link_libraries(ProbeSDL PRIVATE SDL3::SDL3)
 endif()
 
 

@@ -30,7 +30,13 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt update
-        sudo apt install libpng-dev libjpeg-dev libfreetype-dev libx11-dev libsdl2-dev libglew-dev clang
+        sudo apt install clang
+        sudo apt install libpng-dev libjpeg-dev libfreetype-dev libx11-dev libxext-dev libxrandr-dev libxrender-dev libglx-dev libgl-dev libglew-dev
+        sudo apt install libxinerama-dev libxcursor-dev libxi-dev libxfixes-dev libxss-dev libwayland-dev wayland-protocols libdecor-0-dev libegl-dev libdrm-dev libgbm-dev libvulkan-dev libasound2-dev libpulse-dev libpipewire-0.3-dev libsndio-dev libusb-1.0-0-dev libudev-dev libxkbcommon-dev libibus-1.0-dev
+        SDL_SOURCE_DIR="${{ runner.temp }}/sdl-source"
+        mkdir "$SDL_SOURCE_DIR"
+        git clone https://github.com/libsdl-org/SDL.git "$SDL_SOURCE_DIR"
+        (cd "$SDL_SOURCE_DIR" && mkdir build && cd build && cmake .. -DCMAKE_BUILD_TYPE=Release -DSDL_X11_XTEST=OFF && make -j && sudo make install)
 
     - name: Checkout
       uses: actions/checkout@v6
@@ -66,7 +72,7 @@ jobs:
     steps:
     - name: Install dependencies
       run: |
-        brew install libjpeg sdl2 glew
+        brew install libjpeg sdl3 glew
 
     - name: Checkout
       uses: actions/checkout@v6
@@ -104,7 +110,7 @@ jobs:
     - name: Install dependencies
       run: |
         (cd C:\vcpkg && git pull)
-        vcpkg install --triplet x64-windows libpng libjpeg-turbo freetype sdl2 glew
+        vcpkg install --triplet x64-windows libpng libjpeg-turbo freetype sdl3 glew
 
     - name: Checkout
       uses: actions/checkout@v6
