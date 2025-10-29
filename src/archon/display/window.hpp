@@ -318,17 +318,18 @@ struct Window::Config {
     ///
     bool require_opengl_depth_buffer = true;
 
-    /// \brief Enforce minimum size of window
+    /// \brief Minimum size of window
     ///
-    /// If set, and the window is made resizable (\ref resizable), the window will be kept
-    /// no smaller than the specified minimum size. This applies separately in each
-    /// direction, horizontally and vertically. If the specified initial size of the window
-    /// is smaller than the minimum size, the initial size will be automatically increased
-    /// to equal the minimum size.
+    /// If the specified size of a new window is smaller than the minimum size specified
+    /// here, the effective size will be the minimum size. Otherwise it will be the
+    /// specified size. This applies separately in each direction, horizontally and
+    /// vertically.
     ///
-    /// If the window is made non-resizable (\ref resizable), `minimum_size` has no meaning.
+    /// Additionally, if the new window is made resizable (\ref resizable), it becomes
+    /// impossible to interactively make the window smaller than the minimum size specified
+    /// here.
     ///
-    std::optional<display::Size> minimum_size;
+    display::Size minimum_size = 16;
 };
 
 

@@ -1673,10 +1673,7 @@ WindowImpl::~WindowImpl() noexcept
 void WindowImpl::create(display::Size size, const Config& config, bool enable_double_buffering, bool enable_opengl,
                         bool enable_glx_direct_rendering)
 {
-    display::Size adjusted_size = size;
-    bool has_minimum_size = (config.resizable && config.minimum_size.has_value());
-    if (has_minimum_size)
-        adjusted_size = max(adjusted_size, config.minimum_size.value());
+    display::Size adjusted_size = max(size, config.minimum_size);
 
     ::Window parent = screen_slot.root;
     int x = 0, y = 0;
@@ -1720,13 +1717,12 @@ void WindowImpl::create(display::Size size, const Config& config, bool enable_do
         XSetWMSizeHints(conn.dpy, win, &size_hints, XA_WM_NORMAL_HINTS);
     }
 
-    // Set minimum window size if requested
-    if (has_minimum_size) {
-        display::Size min_size = config.minimum_size.value();
+    // Set minimum window size when necessary
+    if (config.resizable && !config.minimum_size.is_zero()) {
         XSizeHints size_hints = {};
         size_hints.flags = PMinSize;
-        size_hints.min_width  = min_size.width;
-        size_hints.min_height = min_size.height;
+        size_hints.min_width  = config.minimum_size.width;
+        size_hints.min_height = config.minimum_size.height;
         XSetWMSizeHints(conn.dpy, win, &size_hints, XA_WM_NORMAL_HINTS);
     }
 

@@ -1030,16 +1030,7 @@ WindowImpl::~WindowImpl() noexcept
 
 bool WindowImpl::try_create(std::string_view title, display::Size size, const Config& config, std::string& error)
 {
-    bool have_minimum_size = false;
-    display::Size minimum_size;
-    if (config.resizable && config.minimum_size.has_value()) {
-        have_minimum_size = true;
-        minimum_size = config.minimum_size.value();
-    }
-
-    display::Size adjusted_size = size;
-    if (have_minimum_size)
-        adjusted_size = max(adjusted_size, minimum_size);
+    display::Size adjusted_size = max(size, config.minimum_size);
 
     std::array<char, 128> seed_memory;
     core::Buffer buffer(seed_memory);
@@ -1098,9 +1089,9 @@ bool WindowImpl::try_create(std::string_view title, display::Size size, const Co
     conn.register_window(id, *this); // Throws
     m_id = id;
 
-    // Set minimum window size if requested
-    if (have_minimum_size) {
-        bool success = SDL_SetWindowMinimumSize(m_win, minimum_size.width, minimum_size.height);
+    // Set minimum window size when necessary
+    if (config.resizable && !config.minimum_size.is_zero()) {
+        bool success = SDL_SetWindowMinimumSize(m_win, config.minimum_size.width, config.minimum_size.height);
         if (ARCHON_UNLIKELY(!success)) {
             error = get_sdl_error(conn.locale, "SDL_SetWindowMinimumSize() failed"); // Throws
             return false;
