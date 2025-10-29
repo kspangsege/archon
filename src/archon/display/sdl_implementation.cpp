@@ -644,12 +644,10 @@ bool ConnectionImpl::process_event_batch()
             if (ARCHON_LIKELY(event.motion.state == 0))
                 break;
             if (ARCHON_LIKELY(lookup_window(event.motion.windowID, window))) {
-                int x = int(event.motion.x + 0.5);
-                int y = int(event.motion.y + 0.5);
-                display::MouseButtonEvent event_2;
+                display::MouseEvent event_2;
                 event_2.cookie = window->cookie;
                 event_2.timestamp = map_timestamp(event.motion.timestamp);
-                event_2.pos = { x, y };
+                event_2.pos = { event.motion.x, event.motion.y };
                 bool proceed = window->event_handler->on_mousemove(event_2); // Throws
                 if (ARCHON_LIKELY(proceed))
                     break;
@@ -673,12 +671,10 @@ bool ConnectionImpl::process_event_batch()
         case SDL_EVENT_MOUSE_BUTTON_DOWN:
         case SDL_EVENT_MOUSE_BUTTON_UP:
             if (ARCHON_LIKELY(lookup_window(event.button.windowID, window))) {
-                int x = int(event.button.x + 0.5);
-                int y = int(event.button.y + 0.5);
                 display::MouseButtonEvent event_2;
                 event_2.cookie = window->cookie;
                 event_2.timestamp = map_timestamp(event.button.timestamp);
-                event_2.pos = { x, y };
+                event_2.pos = { event.motion.x, event.motion.y };
                 event_2.button = map_mouse_button(event.button.button);
                 bool proceed;
                 if (event.type == SDL_EVENT_MOUSE_BUTTON_DOWN) {

@@ -110,10 +110,13 @@ struct MouseEvent : display::TimedWindowEvent {
     /// \brief Position of mouse.
     ///
     /// This is the position of the mouse at the time that the event was generated. The
-    /// position is relative to the top-left corner of the window's contents area (\ref
-    /// display::Window).
+    /// position is measured in pixels and relative to the top-left corner of the window's
+    /// contents area (\ref display::Window).
     ///
-    display::Pos pos;
+    /// If the mouse position needs to be converted to integer form, it should be done by
+    /// `int(pos.x + 0.5)` for the X-coordinate, and likewise for the Y-coordinate.
+    ///
+    math::Vector2F pos;
 };
 
 

@@ -1293,7 +1293,9 @@ bool ConnectionImpl::process_event_batch()
                 display::MouseEvent event;
                 event.cookie = window->cookie;
                 event.timestamp = unwrap_session.unwrap_next_timestamp(ev.xmotion.time); // Throws
-                event.pos = { ev.xmotion.x, ev.xmotion.y };
+                // FIXME: Look into using Xinput2 (XI2) extension to provide higher
+                // resolution coordinates                    
+                event.pos = { float(ev.xmotion.x), float(ev.xmotion.y) };
                 bool proceed = window->event_handler->on_mousemove(event); // Throws
                 if (ARCHON_LIKELY(proceed))
                     break;
@@ -1361,7 +1363,9 @@ bool ConnectionImpl::process_event_batch()
                         display::MouseButtonEvent event;
                         event.cookie = window->cookie;
                         event.timestamp = unwrap_session.unwrap_next_timestamp(ev.xbutton.time); // Throws
-                        event.pos = { ev.xbutton.x, ev.xbutton.y };
+                        // FIXME: Look into using Xinput2 (XI2) extension to provide higher
+                        // resolution coordinates                  
+                        event.pos = { float(ev.xbutton.x), float(ev.xbutton.y) };
                         event.button = button;
                         bool proceed;
                         if (ev.type == ButtonPress) {

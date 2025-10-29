@@ -32,7 +32,6 @@
 #include <archon/math/vector.hpp>
 #include <archon/math/rotation.hpp>
 #include <archon/util/pixel_size.hpp>
-#include <archon/util/pixel_pos.hpp>
 #include <archon/render/impl/finite_curve_memory.hpp>
 
 
@@ -144,7 +143,7 @@ public:
     /// \sa \ref acquire()
     /// \sa \ref release()
     ///
-    void track(util::pixel::Pos pos, TrackTime time) noexcept;
+    void track(const math::Vector2F& mouse_pos, TrackTime time) noexcept;
 
     /// \brief Release trackball from acquired state.
     ///

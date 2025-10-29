@@ -66,30 +66,30 @@ void VirtualTrackball::set_pixel_aspect_ratio(double ratio) noexcept
 }
 
 
-void VirtualTrackball::track(util::pixel::Pos pos, TrackTime track_time) noexcept
+void VirtualTrackball::track(const math::Vector2F& mouse_pos, TrackTime time) noexcept
 {
     if (!m_acquired)
         return;
 
-    m_track_pos = { double(pos.x), double(pos.y) };
+    m_track_pos = mouse_pos;
 
     // Event times are translated such that the origin is at the time of acquisition. This
     // ensures that the milli second representation can fit in a 32-bit signed integer (as
     // long as a grab does not last more than 24 days).
-    TrackTime track_time_2 = track_time;
+    TrackTime track_time = time;
     if (m_no_track_yet) {
-        m_first_track_time = track_time_2;
-        track_time_2 = TrackTime::zero();
+        m_first_track_time = track_time;
+        track_time = TrackTime::zero();
         m_first_track_pos = m_track_pos;
         m_first_track_point = get_ball_point(m_track_pos);
         m_curve_mem.clear();
         m_no_track_yet = false;
     }
     else {
-        track_time_2 -= m_first_track_time;
+        track_time -= m_first_track_time;
     }
 
-    m_track_millis = long(track_time_2.count());
+    m_track_millis = long(track_time.count());
     m_curve_mem.add_value(m_track_pos, m_track_millis);
 }
 
