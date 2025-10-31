@@ -129,8 +129,13 @@ directory of the checked out Archon project, then run:
 bash do.sh check-debug
 ```
 
-The `do.sh` script assumes that the dependencies were installed using Vcpkg, and that
-`vcpkg` can be found via the `PATH` environment variable.
+The `do.sh` script assumes that the dependencies were installed using Vcpkg, and that the
+`vcpkg` command can be found via the `PATH` environment variable. It also assumes that the
+`cmake` command can be found via the `PATH` environment variable. To use the CMake
+installation that is part of Visual Studio, add `<cmake root>\bin` to the `PATH` environment
+variable using the system tool, "Edit the system environment variables". For the community
+edition of Visual Studio 2022, `<cmake path>` might be
+`C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake`.
 
 See above for additional possibilities when using `do.sh`.
 
