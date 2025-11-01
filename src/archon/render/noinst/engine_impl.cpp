@@ -165,6 +165,7 @@ bool EngineImpl::try_init(std::string_view window_title, display::Size window_si
     window_config.fullscreen = config.fullscreen_mode;
     window_config.enable_opengl_rendering = true;
     window_config.require_opengl_depth_buffer = config.require_depth_buffer;
+    window_config.minimum_size = config.minimum_window_size;
     std::unique_ptr<display::Window> window;
     std::string error_2;
     if (ARCHON_UNLIKELY(!m_conn.try_new_window(window_title, window_size, window_config,

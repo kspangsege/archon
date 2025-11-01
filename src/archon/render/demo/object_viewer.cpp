@@ -822,6 +822,7 @@ int main(int argc, char* argv[])
     engine_config.screen = screen;
     engine_config.logger = &logger;
     engine_config.allow_window_resize = true;
+    engine_config.minimum_window_size = 128;
 
     render::Engine engine;
     Scene scene(locale, logger, engine, texture_path, scene_config); // Throws

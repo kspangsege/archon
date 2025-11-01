@@ -469,6 +469,12 @@ struct Engine::Config {
     ///
     bool allow_window_resize = false;
 
+    /// \brief Minimum size of window
+    ///
+    /// The minimum size of the window. See \ref display::Window::Config::minimum_size.
+    ///
+    display::Size minimum_window_size = 16;
+
     /// \brief Switch to fullscreen mode immediately.
     ///
     /// If set to `true`, fullscreen mode will be switched on immediately. In any case, if
