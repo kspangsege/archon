@@ -94,7 +94,7 @@ private:
         bool on_keyup(const display::KeyEvent&) override;
         bool on_mousedown(const display::MouseButtonEvent&) override;
         bool on_mouseup(const display::MouseButtonEvent&) override;
-        bool on_mousemove(const display::MouseEvent&) override;
+        bool on_mousemove(const display::MouseMotionEvent&) override;
         bool on_scroll(const display::ScrollEvent&) override;
         bool on_blur(const display::WindowEvent&) override;
         bool on_expose(const display::WindowEvent&) override;

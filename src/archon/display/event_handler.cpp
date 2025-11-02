@@ -57,7 +57,7 @@ bool WindowEventHandler::on_mouseup(const display::MouseButtonEvent&)
 }
 
 
-bool WindowEventHandler::on_mousemove(const display::MouseEvent&)
+bool WindowEventHandler::on_mousemove(const display::MouseMotionEvent&)
 {
     return true; // Do not interrupt event processing
 }

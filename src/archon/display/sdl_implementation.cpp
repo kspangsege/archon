@@ -644,7 +644,7 @@ bool ConnectionImpl::process_event_batch()
             if (ARCHON_LIKELY(event.motion.state == 0))
                 break;
             if (ARCHON_LIKELY(lookup_window(event.motion.windowID, window))) {
-                display::MouseEvent event_2;
+                display::MouseMotionEvent event_2;
                 event_2.cookie = window->cookie;
                 event_2.timestamp = map_timestamp(event.motion.timestamp);
                 event_2.pos = { event.motion.x, event.motion.y };

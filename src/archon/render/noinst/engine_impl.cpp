@@ -391,7 +391,7 @@ bool EngineImpl::EventHandler::on_mouseup(const display::MouseButtonEvent& ev)
 }
 
 
-bool EngineImpl::EventHandler::on_mousemove(const display::MouseEvent& ev)
+bool EngineImpl::EventHandler::on_mousemove(const display::MouseMotionEvent& ev)
 {
     m_engine.m_trackball.track(ev.pos, ev.timestamp);
     m_engine.m_need_redraw = true;

@@ -171,7 +171,7 @@ public:
     /// \sa \ref on_mousedown()
     /// \sa \ref on_scroll()
     ///
-    virtual bool on_mousemove(const display::MouseEvent&);
+    virtual bool on_mousemove(const display::MouseMotionEvent&);
 
     /// \brief Mouse scroll wheel moved.
     ///

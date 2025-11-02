@@ -1290,7 +1290,7 @@ bool ConnectionImpl::process_event_batch()
     switch (ev.type) {
         case MotionNotify:
             if (ARCHON_LIKELY(lookup_window(ev.xmotion.window, window))) {
-                display::MouseEvent event;
+                display::MouseMotionEvent event;
                 event.cookie = window->cookie;
                 event.timestamp = unwrap_session.unwrap_next_timestamp(ev.xmotion.time); // Throws
                 // FIXME: Look into using Xinput2 (XI2) extension to provide higher

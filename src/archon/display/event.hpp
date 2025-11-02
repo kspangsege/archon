@@ -97,24 +97,22 @@ struct KeyEvent : display::TimedWindowEvent {
 
 
 
-/// \brief When mouse moves or mouse button is pressed or released.
+/// \brief Common base for mouse button and motions events.
 ///
-/// This type of event is generated when the mouse moves. This class is also the base of
-/// \ref display::MouseButtonEvent, which is used when a mouse button is pressed or
-/// released.
+/// This type acts as a common base type for mouse button and mouse motion events (\ref
+/// display::MouseButtonEvent, \ref display::MouseMotionEvent).
 ///
-/// \sa \ref display::WindowEventHandler::on_mousemove()
-/// \sa \ref display::MouseButtonEvent
+/// \sa \ref display::MouseButtonEvent, \ref display::MouseMotionEvent
 ///
 struct MouseEvent : display::TimedWindowEvent {
     /// \brief Position of mouse.
     ///
-    /// This is the position of the mouse at the time that the event was generated. The
-    /// position is measured in pixels and relative to the top-left corner of the window's
-    /// contents area (\ref display::Window).
+    /// This is the position of the mouse at the time that the event was generated. This
+    /// position is measured in pixels and is relative to the top-left corner of the
+    /// window's contents area (\ref display::Window).
     ///
-    /// If the mouse position needs to be converted to integer form, it should be done by
-    /// `int(pos.x + 0.5)` for the X-coordinate, and likewise for the Y-coordinate.
+    /// If the application needs to convert the mouse position to integer form, it should do
+    /// it using `int(pos.x + 0.5)` for the X-coordinate, and likewise for the Y-coordinate.
     ///
     math::Vector2F pos;
 };
@@ -123,10 +121,11 @@ struct MouseEvent : display::TimedWindowEvent {
 
 /// \brief When mouse button is pressed or released.
 ///
-/// This type of event is generated both when a mouse button is pressed or released.
+/// This type of event is generated when a mouse button is pressed and when it is released.
 ///
 /// \sa \ref display::WindowEventHandler::on_mousedown()
 /// \sa \ref display::WindowEventHandler::on_mouseup()
+/// \sa \ref display::MouseMotionEvent
 ///
 struct MouseButtonEvent : display::MouseEvent {
     /// \brief Concerned mouse button.
@@ -135,6 +134,17 @@ struct MouseButtonEvent : display::MouseEvent {
     ///
     display::MouseButton button;
 };
+
+
+
+/// \brief When mouse moves.
+///
+/// This type of event is generated when the mouse moves.
+///
+/// \sa \ref display::WindowEventHandler::on_mousemove()
+/// \sa \ref display::MouseButtonEvent
+///
+struct MouseMotionEvent : display::MouseEvent {};
 
 
 

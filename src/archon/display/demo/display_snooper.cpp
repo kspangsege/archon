@@ -185,7 +185,7 @@ public:
         return true;
     }
 
-    bool on_mousemove(const display::MouseEvent& ev) override
+    bool on_mousemove(const display::MouseMotionEvent& ev) override
     {
         if (m_config.report_mouse_move)
             m_logger.info("MOUSE MOVE: %s", ev.pos); // Throws
