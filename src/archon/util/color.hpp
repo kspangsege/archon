@@ -77,11 +77,16 @@ public:
     /// is in contrast to \ref to_compr_vec() and \ref from_compr_vec() where floating-point
     /// color channel components are gamma compressed.
     ///
+    /// The overload of `to_lin_vec()` that takes a three-component vector reference
+    /// argument blends this color with a black fully opaque background (this color OVER
+    /// opaque black).
+    ///
     /// FIXME: Make these `constexpr` when switching to C++26.
     ///
     /// \sa \ref to_lin_vec(), \ref from_lin_vec()
     /// \sa \ref to_compr_vec(), \ref from_compr_vec()
     ///
+    template<class T> void to_lin_vec(math::Vector<3, T>& rgb) const noexcept;
     template<class T> void to_lin_vec(math::Vector<4, T>& rgba) const noexcept;
     template<class T> static auto from_lin_vec(const math::Vector<3, T>& rgb, T a = 1) noexcept -> Color;
     template<class T> static auto from_lin_vec(const math::Vector<4, T>& rgba) noexcept -> Color;
@@ -97,9 +102,17 @@ public:
     /// channel, is expressed linearly. See \ref to_lin_vec() and \ref from_lin_vec() for an
     /// alternative that treats floating-point color channels in terms of linear intensity.
     ///
+    /// The overload of `to_compr_vec()` that takes a three-component vector reference
+    /// argument blends this color with a black fully opaque background (this color OVER
+    /// opaque black).
+    ///
+    /// FIXME: Make the overload of `to_compr_vec()` that takes a three-component vector
+    /// reference argument `constexpr` when switching to C++26.
+    ///
     /// \sa \ref to_compr_vec(), \ref from_compr_vec()
     /// \sa \ref to_lin_vec(), \ref from_lin_vec()
     ///
+    template<class T> void to_compr_vec(math::Vector<3, T>& rgb) const noexcept;
     template<class T> constexpr void to_compr_vec(math::Vector<4, T>& rgba) const noexcept;
     template<class T> static constexpr auto from_compr_vec(const math::Vector<3, T>& rgb, T a = 1) noexcept -> Color;
     template<class T> static constexpr auto from_compr_vec(const math::Vector<4, T>& rgba) noexcept -> Color;
@@ -195,6 +208,15 @@ constexpr auto Color::to_trgb() const noexcept -> trgb_type
 }
 
 
+template<class T> inline void Color::to_lin_vec(math::Vector<3, T>& rgb) const noexcept
+{
+    math::Vector<4, T> rgba;
+    to_lin_vec(rgba);
+    T alpha = rgba[3];
+    rgb = alpha * math::Vector<3, T>(rgba);
+}
+
+
 template<class T> inline void Color::to_lin_vec(math::Vector<4, T>& rgba) const noexcept
 {
     static_assert(std::is_floating_point_v<T>);
@@ -216,6 +238,15 @@ template<class T> inline auto Color::from_lin_vec(const math::Vector<4, T>& rgba
     for (int i = 0; i < 4; ++i)
         color[i] = util::color_comp_float_to_int<comp_type, 8>(util::srgb_gamma_compress(rgba[i]));
     return color;
+}
+
+
+template<class T> void Color::to_compr_vec(math::Vector<3, T>& rgb) const noexcept
+{
+    math::Vector<3, T> rgb_2;
+    to_lin_vec(rgb_2);
+    for (int i = 0; i < 3; ++i)
+        rgb[i] = util::srgb_gamma_compress(rgb_2[i]);
 }
 
 

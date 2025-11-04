@@ -30,6 +30,7 @@
 #include <string_view>
 #include <string>
 #include <locale>
+#include <stdexcept>
 #include <system_error>
 #include <filesystem>
 #include <ios>
@@ -37,6 +38,7 @@
 
 #include <archon/core/features.hpp>
 #include <archon/core/integer.hpp>
+#include <archon/core/math.hpp>
 #include <archon/core/buffer.hpp>
 #include <archon/core/locale.hpp>
 #include <archon/core/seed_memory_output_stream.hpp>
@@ -50,6 +52,8 @@
 #include <archon/core/file.hpp>
 #include <archon/log.hpp>
 #include <archon/cli.hpp>
+#include <archon/math/vector.hpp>
+#include <archon/util/color_space.hpp>
 #include <archon/util/color.hpp>
 #include <archon/util/colors.hpp>
 #include <archon/util/as_css_color.hpp>
@@ -66,8 +70,10 @@ namespace {
 
 
 struct Config {
+    display::Size window_size = 256;
+    display::Size alt_window_size = { 512, 384 };
     bool report_mouse_move = false;
-    util::Color background_color = util::colors::white;
+    util::Color background_color = util::Color::from_trgb(0x598064);
     display::Pos texture_pos = { 16, 16 };
 };
 
@@ -76,14 +82,73 @@ class EventLoop final
     : public display::WindowEventHandler
     , public display::ConnectionEventHandler {
 public:
-    EventLoop(display::Connection& conn, display::Window& win, const display::Texture& tex,
-              log::Logger& logger, const Config& config) noexcept
-        : m_conn(conn)
-        , m_win(win)
-        , m_tex(tex)
+    EventLoop(const std::locale& locale, display::Connection& conn, int screen, const image::Image& img,
+              display::Size texture_size, const std::optional<std::string>& window_title, log::Logger& logger,
+              const Config& config) noexcept
+        : m_locale(locale)
+        , m_conn(conn)
+        , m_screen(screen)
+        , m_img(img)
+        , m_texture_size(texture_size)
+        , m_window_title(window_title)
         , m_logger(logger)
         , m_config(config)
     {
+        math::Vector3F rgb;
+        config.background_color.to_compr_vec(rgb);
+        m_next_bgcolor_hsv = util::cvt_sRGB_to_HSV(rgb);
+    }
+
+    void add_window()
+    {
+        std::string error;
+        if (ARCHON_LIKELY(try_add_window(error))) // Throws
+            return;
+        throw std::runtime_error(error);
+    }
+
+    bool try_add_window(std::string& error)
+    {
+        int id = m_prev_window_id + 1;
+        std::string_view title;
+        std::string title_owner;
+        if (m_window_title.has_value()) {
+            title = m_window_title.value();
+        }
+        else {
+            title_owner = core::format(m_locale, "Snooper #%s", id); // Throws
+            title = title_owner;
+        }
+        display::Window::Config window_config;
+        window_config.screen = m_screen;
+        window_config.cookie = id;
+        window_config.resizable = true;
+        window_config.minimum_size = 128;
+        std::unique_ptr<display::Window> win;
+        if (ARCHON_UNLIKELY(!m_conn.try_new_window(title, m_config.window_size, window_config, win, error))) // Throws
+            return false;
+        win->set_event_handler(*this); // Throws
+
+        util::Color color = util::Color::from_compr_vec(util::cvt_HSV_to_sRGB(m_next_bgcolor_hsv));
+        float& hue = m_next_bgcolor_hsv[0];
+        hue = core::periodic_mod(hue + core::golden_fraction<double>, 1.0);
+
+        image::BufferedImage_RGB_8 img(m_img.get_size()); // Throws
+        {
+            image::Writer writer(img); // Throws
+            writer.set_foreground_color(color); // Throws
+            writer.fill(); // Throws
+            writer.enable_blending(); // Throws
+            writer.put_image({ 0, 0 }, m_img); // Throws
+        }
+
+        std::unique_ptr<display::Texture> tex = win->new_texture(m_texture_size); // Throws
+        tex->put_image(img); // Throws
+
+        win->show(); // Throws
+        m_windows[id] = { std::move(win), std::move(tex), color }; // Throws
+        m_prev_window_id = id;
+        return true;
     }
 
     void dump_screen_conf(int screen)
@@ -134,14 +199,24 @@ public:
             if (ARCHON_LIKELY(have_key))
                 out << core::formatted(" (%s)", int(key)); // Throws
         };
-        m_logger.info("KEY DOWN: %s", core::as_format_func(format_key)); // Throws
+        int window_id = ev.cookie;
+        log(window_id, "KEY DOWN: %s", core::as_format_func(format_key)); // Throws
         if (ARCHON_LIKELY(have_key)) { // Throws
-            if (ARCHON_UNLIKELY(key == display::Key::escape || key == display::Key::small_q))
-                return false;
-            if (ARCHON_UNLIKELY(key == display::Key::small_f)) {
-                bool on = !fullscreen;
-                m_win.set_fullscreen_mode(on); // Throws
-                fullscreen = on;
+            switch (key) {
+                case display::Key::digit_1: {
+                    m_target_window = 1;
+                    break;
+                }
+                case display::Key::digit_2: {
+                    m_target_window = 2;
+                    break;
+                }
+                case display::Key::digit_3: {
+                    m_target_window = 3;
+                    break;
+                }
+                default:
+                    break;
             }
         }
         return true;
@@ -156,7 +231,82 @@ public:
             if (ARCHON_LIKELY(have_key))
                 out << core::formatted(" (%s)", int(key)); // Throws
         };
-        m_logger.info("KEY UP: %s", core::as_format_func(format_key)); // Throws
+        int window_id = ev.cookie;
+        log(window_id, "KEY UP: %s", core::as_format_func(format_key)); // Throws
+        if (ARCHON_LIKELY(have_key)) { // Throws
+            switch (key) {
+                case display::Key::digit_1:
+                    if (m_target_window == 1)
+                        m_target_window = 0;
+                    break;
+                case display::Key::digit_2:
+                    if (m_target_window == 2)
+                        m_target_window = 0;
+                    break;
+                case display::Key::digit_3:
+                    if (m_target_window == 3)
+                        m_target_window = 0;
+                    break;
+                case display::Key::small_s: {
+                    int target_id = (m_target_window == 0 ? window_id : m_target_window);
+                    auto i = m_windows.find(target_id);
+                    if (ARCHON_LIKELY(i != m_windows.end())) {
+                        WindowEntry& entry = i->second;
+                        display::Window& win = *entry.window;
+                        bool on = !entry.large;
+                        display::Size size = (on ? m_config.alt_window_size : m_config.window_size);
+                        win.set_size(size); // Throws
+                        entry.large = on;
+                    }
+                    break;
+                }
+                case display::Key::small_h: {
+                    int target_id = (m_target_window == 0 ? window_id : m_target_window);
+                    auto i = m_windows.find(target_id);
+                    if (ARCHON_LIKELY(i != m_windows.end())) {
+                        WindowEntry& entry = i->second;
+                        display::Window& win = *entry.window;
+                        bool on = !entry.hidden;
+                        if (on) {
+                            win.hide(); // Throws
+                        }
+                        else {
+                            win.show(); // Throws
+                        }
+                        entry.hidden = on;
+                    }
+                    break;
+                }
+                case display::Key::small_f: {
+                    int target_id = (m_target_window == 0 ? window_id : m_target_window);
+                    auto i = m_windows.find(target_id);
+                    if (ARCHON_LIKELY(i != m_windows.end())) {
+                        WindowEntry& entry = i->second;
+                        display::Window& win = *entry.window;
+                        bool on = !entry.fullscreen;
+                        win.set_fullscreen_mode(on); // Throws
+                        entry.fullscreen = on;
+                    }
+                    break;
+                }
+                case display::Key::small_o:
+                    add_window(); // Throws
+                    break;
+                case display::Key::escape:
+                case display::Key::small_q: {
+                    int target_id = (m_target_window == 0 ? window_id : m_target_window);
+                    auto i = m_windows.find(target_id);
+                    if (ARCHON_LIKELY(i != m_windows.end())) {
+                        if (m_windows.size() == 1)
+                            return false; // Terminate
+                        m_windows.erase(i);
+                    }
+                    break;
+                }
+                default:
+                    break;
+            }
+        }
         return true;
     }
 
@@ -169,83 +319,102 @@ public:
             if (ARCHON_LIKELY(have_key))
                 out << core::formatted(" (%s)", int(key)); // Throws
         };
-        m_logger.info("KEY REPEAT: %s", core::as_format_func(format_key)); // Throws
+        int window_id = ev.cookie;
+        log(window_id, "KEY REPEAT: %s", core::as_format_func(format_key)); // Throws
         return true;
     }
 
     bool on_mousedown(const display::MouseButtonEvent& ev) override
     {
-        m_logger.info("MOUSE DOWN: %s, (%s)", ev.button, ev.pos); // Throws
+        int window_id = ev.cookie;
+        log(window_id, "MOUSE DOWN: %s, (%s)", ev.button, ev.pos); // Throws
         return true;
     }
 
     bool on_mouseup(const display::MouseButtonEvent& ev) override
     {
-        m_logger.info("MOUSE UP: %s, (%s)", ev.button, ev.pos); // Throws
+        int window_id = ev.cookie;
+        log(window_id, "MOUSE UP: %s, (%s)", ev.button, ev.pos); // Throws
         return true;
     }
 
     bool on_mousemove(const display::MouseMotionEvent& ev) override
     {
+        int window_id = ev.cookie;
         if (m_config.report_mouse_move)
-            m_logger.info("MOUSE MOVE: %s", ev.pos); // Throws
+            log(window_id, "MOUSE MOVE: %s", ev.pos); // Throws
         return true;
     }
 
     bool on_scroll(const display::ScrollEvent& ev) override
     {
-        m_logger.info("SCROLL: %s", ev.amount); // Throws
+        int window_id = ev.cookie;
+        log(window_id, "SCROLL: %s", ev.amount); // Throws
         return true;
     }
 
-    bool on_mouseover(const display::TimedWindowEvent&) override
+    bool on_mouseover(const display::TimedWindowEvent& ev) override
     {
-        m_logger.info("MOUSE OVER"); // Throws
+        int window_id = ev.cookie;
+        log(window_id, "MOUSE OVER"); // Throws
         return true;
     }
 
-    bool on_mouseout(const display::TimedWindowEvent&) override
+    bool on_mouseout(const display::TimedWindowEvent& ev) override
     {
-        m_logger.info("MOUSE OUT"); // Throws
+        int window_id = ev.cookie;
+        log(window_id, "MOUSE OUT"); // Throws
         return true;
     }
 
-    bool on_focus(const display::WindowEvent&) override
+    bool on_focus(const display::WindowEvent& ev) override
     {
-        m_logger.info("FOCUS"); // Throws
+        int window_id = ev.cookie;
+        log(window_id, "FOCUS"); // Throws
         return true;
     }
 
-    bool on_blur(const display::WindowEvent&) override
+    bool on_blur(const display::WindowEvent& ev) override
     {
-        m_logger.info("BLUR"); // Throws
+        int window_id = ev.cookie;
+        log(window_id, "BLUR"); // Throws
         return true;
     }
 
-    bool on_expose(const display::WindowEvent&) override
+    bool on_expose(const display::WindowEvent& ev) override
     {
-        m_logger.info("EXPOSE"); // Throws
-        m_win.fill(m_config.background_color); // Throws
-        m_win.put_texture(m_tex, m_config.texture_pos); // Throws
-        m_win.present(); // Throws
+        int window_id = ev.cookie;
+        log(window_id, "EXPOSE"); // Throws
+        auto i = m_windows.find(window_id);
+        if (ARCHON_LIKELY(i != m_windows.end())) {
+            WindowEntry& entry = i->second;
+            display::Window& win = *entry.window;
+            display::Texture& tex = *entry.texture;
+            win.fill(entry.color); // Throws
+            win.put_texture(tex, m_config.texture_pos); // Throws
+            win.present(); // Throws
+        }
         return true;
     }
 
     bool on_resize(const display::WindowSizeEvent& ev) override
     {
-        m_logger.info("SIZE: %s", ev.size); // Throws
+        int window_id = ev.cookie;
+        log(window_id, "SIZE: %s", ev.size); // Throws
         return true;
     }
 
     bool on_reposition(const display::WindowPosEvent& ev) override
     {
-        m_logger.info("POS: %s", ev.pos); // Throws
+        int window_id = ev.cookie;
+        log(window_id, "POS: %s", ev.pos); // Throws
         return true;
     }
 
-    bool on_close(const display::WindowEvent&) override
+    bool on_close(const display::WindowEvent& ev) override
     {
-        m_logger.info("CLOSE"); // Throws
+        int window_id = ev.cookie;
+        log(window_id, "CLOSE"); // Throws
         return false; // Terminate
     }
 
@@ -262,15 +431,37 @@ public:
     }
 
 private:
+    struct WindowEntry {
+        std::unique_ptr<display::Window> window;
+        std::unique_ptr<display::Texture> texture;
+        util::Color color;
+
+        bool large = false;
+        bool hidden = false;
+        bool fullscreen = false;
+    };
+
+    std::locale m_locale;
     display::Connection& m_conn;
-    display::Window& m_win;
-    const display::Texture& m_tex;
+    const int m_screen;
+    const image::Image& m_img;
+    const display::Size m_texture_size;
+    const std::optional<std::string>& m_window_title;
     log::Logger& m_logger;
     const Config& m_config;
 
     core::Buffer<display::Viewport> m_viewports;
     core::Buffer<char> m_strings;
-    bool fullscreen = false;
+
+    int m_prev_window_id = 0;
+    math::Vector3F m_next_bgcolor_hsv;
+    std::map<int, WindowEntry> m_windows;
+    int m_target_window = 0;
+
+    template<class... P> void log(int window_id, std::string_view message, const P&... params)
+    {
+        m_logger.info("WINDOW %s: %s", window_id, core::formatted(message, params...)); // Throws
+    }
 };
 
 
@@ -286,7 +477,6 @@ int main(int argc, char* argv[])
     std::optional<fs::path> optional_path;
     bool list_display_implementations = false;
     Config config;
-    display::Size window_size = 256;
     std::optional<display::Size> optional_texture_size;
     log::LogLevel log_level_limit = log::LogLevel::info;
     std::optional<std::string> optional_display_implementation;
@@ -322,7 +512,11 @@ int main(int argc, char* argv[])
     opt("-S, --window-size", "<size>", cli::no_attributes, spec,
         "Set the initial size of the window. \"@A\" can be specified either as a pair \"<width>,<height>\", or as a "
         "single number, which is then used as both width and height. The default window size is @V.",
-        cli::assign(window_size)); // Throws
+        cli::assign(config.window_size)); // Throws
+
+    opt("-U, --alt-window-size", "<size>", cli::no_attributes, spec,
+        "Set the alternate window size. The default is @V.",
+        cli::assign(config.alt_window_size)); // Throws
 
     opt("-b, --background-color", "<color>", cli::no_attributes, spec,
         "Set the background color. \"@A\" can be any valid CSS3 color value with, or without an alpha component, as "
@@ -557,20 +751,6 @@ int main(int argc, char* argv[])
         screen = val;
     }
 
-    std::string_view window_title = "Archon Display Snooper";
-    if (optional_window_title.has_value())
-        window_title = optional_window_title.value();
-
-    display::Window::Config window_config;
-    window_config.screen = screen;
-    window_config.resizable = true;
-    window_config.minimum_size = 128;
-    std::unique_ptr<display::Window> win;
-    if (ARCHON_UNLIKELY(!conn->try_new_window(window_title, window_size, window_config, win, error))) { // Throws
-        logger.error("Failed to create window: %s", error); // Throws
-        return EXIT_FAILURE;
-    }
-
     display::Size texture_size;
     if (optional_texture_size.has_value()) {
         texture_size = optional_texture_size.value();
@@ -578,14 +758,16 @@ int main(int argc, char* argv[])
     else {
         texture_size = img->get_size();
     }
-    std::unique_ptr<display::Texture> tex = win->new_texture(texture_size); // Throws
-    tex->put_image(*img); // Throws
 
-    EventLoop event_loop(*conn, *win, *tex, logger, config);
+    EventLoop event_loop(locale, *conn, screen, *img, texture_size, optional_window_title, logger, config);
     conn->set_event_handler(event_loop); // Throws
+    if (ARCHON_UNLIKELY(!event_loop.try_add_window(error))) { // Throws
+        logger.error("Failed to create window: %s", error); // Throws
+        return EXIT_FAILURE;
+    }
+
     for (int i = 0; i < num_screens; ++i)
         event_loop.dump_screen_conf(i); // Throws
-    win->set_event_handler(event_loop); // Throws
-    win->show(); // Throws
+
     event_loop.process_events(); // Throws
 }
