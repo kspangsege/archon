@@ -179,7 +179,7 @@
 //
 // Start "fake" X server with support for various uncommon visuals:
 //
-//     Xephyr :1 -screen 1024x1024x8
+//     Xephyr :1 -softCursor -screen 1024x1024x8
 //     Xvfb :1 -screen 0 1024x1024x8 -fbdir /tmp
 //
 // Dump screen of "fake" X server when using `Xvfb`:

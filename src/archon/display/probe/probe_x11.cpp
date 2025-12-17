@@ -76,6 +76,50 @@ namespace x11 = impl::x11;
 namespace {
 
 
+auto get_grab_result_name(int ret) noexcept -> const char*
+{
+    switch (ret) {
+        case GrabSuccess:
+            return "GrabSuccess";
+        case GrabNotViewable:
+            return "GrabNotViewable";
+        case AlreadyGrabbed:
+            return "AlreadyGrabbed";
+        case GrabFrozen:
+            return "GrabFrozen";
+        case GrabInvalidTime:
+            return "GrabInvalidTime";
+    }
+    return "?";
+}
+
+
+bool try_grab_pointer(Display* dpy, Window win, log::Logger& logger)
+{
+    Window grab_window = win;
+    Bool owner_events = False;
+    unsigned int event_mask = (PointerMotionMask | ButtonPressMask | ButtonReleaseMask |
+                               EnterWindowMask | LeaveWindowMask);
+    int pointer_mode = GrabModeAsync;
+    int keyboard_mode = GrabModeAsync;
+    Window confine_to = None; // No confinement
+    Cursor cursor = None; // Leave cursor as is
+    Time time = CurrentTime;
+    int ret = XGrabPointer(dpy, grab_window, owner_events, event_mask, pointer_mode, keyboard_mode, confine_to, cursor, time);
+    if (ARCHON_LIKELY(ret == GrabSuccess))
+        return true;
+    logger.error("Grab failed: %s", get_grab_result_name(ret));
+    return false;
+}
+
+
+void ungrab_pointer(Display* dpy)
+{
+    Time time = CurrentTime;
+    XUngrabPointer(dpy, time);
+}
+
+
 auto get_crossing_mode_name(int mode) noexcept -> const char*
 {
     switch (mode) {
@@ -85,6 +129,30 @@ auto get_crossing_mode_name(int mode) noexcept -> const char*
             return "NotifyGrab";
         case NotifyUngrab:
             return "NotifyUngrab";
+    }
+    return "?";
+}
+
+
+auto get_crossing_detail_name(int detail) noexcept -> const char*
+{
+    switch (detail) {
+        case NotifyAncestor:
+            return "NotifyAncestor";
+        case NotifyVirtual:
+            return "NotifyVirtual";
+        case NotifyInferior:
+            return "NotifyInferior";
+        case NotifyNonlinear:
+            return "NotifyNonlinear";
+        case NotifyNonlinearVirtual:
+            return "NotifyNonlinearVirtual";
+        case NotifyPointer:
+            return "NotifyPointer";
+        case NotifyPointerRoot:
+            return "NotifyPointerRoot";
+        case NotifyDetailNone:
+            return "NotifyDetailNone";
     }
     return "?";
 }
@@ -165,6 +233,8 @@ int main(int argc, char* argv[])
     std::optional<display::Pos> optional_pos;
     log::LogLevel log_level_limit = log::LogLevel::warn;
     bool report_mouse_move = false;
+    bool override_redirect = false;
+    bool set_input_focus = false;
     bool synchronous_mode = false;
     bool install_colormap = false;
     bool colormap_weirdness = false;
@@ -260,8 +330,7 @@ int main(int argc, char* argv[])
         cli::raise_flag(disable_detectable_autorepeat)); // Throws
 
     opt("-p, --pos", "<position>", cli::no_attributes, spec,
-        "Specify the desired position of the windows. This may or may not be honored by the window manager. If no "
-        "position is specified, the position will be determined by the window manager.",
+        "Specify the desired position of the windows. A window manager, if present, may override this.",
         std::tie(optional_pos)); // Throws
 
     opt("-l, --log-level", "<level>", cli::no_attributes, spec,
@@ -271,6 +340,14 @@ int main(int argc, char* argv[])
     opt("-m, --report-mouse-move", "", cli::no_attributes, spec,
         "Turn on reporting of \"mouse move\" events.",
         cli::raise_flag(report_mouse_move)); // Throws
+
+    opt("-o, --override-redirect", "", cli::no_attributes, spec,
+        "Turn on \"override redirect\" mode for created windows.",
+        cli::raise_flag(override_redirect)); // Throws
+
+    opt("-i, --set-input-focus", "", cli::no_attributes, spec,
+        "Set input focus to \"self\" when creating windowss.",
+        cli::raise_flag(set_input_focus)); // Throws
 
     opt("-y, --synchronous-mode", "", cli::no_attributes, spec,
         "Turn on X11's synchronous mode. In this mode, buffering of X protocol requests is turned off, and the Xlib "
@@ -631,7 +708,9 @@ int main(int argc, char* argv[])
         image::Size win_size;
         image::Size img_size;
         Pixmap pixmap;
+        bool input_focus_set = false;
         bool fullscreen = false;
+        bool grabbed = false;
         bool redraw = false;
         bool suppress_redraw = false;
 
@@ -682,7 +761,7 @@ int main(int argc, char* argv[])
         display::Pos pos;
         if (optional_pos.has_value())
             pos = optional_pos.value();
-        unsigned long valuemask = CWBackPixel | CWEventMask | CWColormap;
+        unsigned long valuemask = (CWBackPixel | CWEventMask | CWOverrideRedirect | CWColormap);
         XSetWindowAttributes attributes;
         attributes.background_pixel = interned_background_color;
         attributes.event_mask = (KeyPressMask | KeyReleaseMask |
@@ -692,7 +771,9 @@ int main(int argc, char* argv[])
                                  FocusChangeMask |
                                  ExposureMask |
                                  StructureNotifyMask |
-                                 KeymapStateMask);
+                                 KeymapStateMask |
+                                 VisibilityChangeMask);
+        attributes.override_redirect = (override_redirect ? True : False);
         attributes.colormap = colormap;
         Window window = XCreateWindow(dpy, root, pos.x, pos.y, unsigned(size.width), unsigned(size.height), 0, depth,
                                       InputOutput, visual_info.visual, valuemask, &attributes);
@@ -834,9 +915,10 @@ int main(int argc, char* argv[])
                 switch (ev.type) {
                     case MotionNotify:
                         if (ARCHON_LIKELY(try_get_window_slot(ev.xmotion.window, slot))) {
-                            display::Pos pos = { ev.xmotion.x, ev.xmotion.y };
-                            if (report_mouse_move)
+                            if (report_mouse_move) {
+                                display::Pos pos = { ev.xmotion.x, ev.xmotion.y };
                                 log(slot->no, "MOUSE MOVE: %s", pos); // Throws
+                            }
                         }
                         break;
                     case ConfigureNotify:
@@ -873,8 +955,9 @@ int main(int argc, char* argv[])
                     case ButtonPress:
                     case ButtonRelease:
                         if (ARCHON_LIKELY(try_get_window_slot(ev.xbutton.window, slot))) {
-                            log(slot->no, "%s: %s, (%s,%s)", (ev.type == ButtonPress ? "MOUSE DOWN" : "MOUSE UP"),
-                                ev.xbutton.button, ev.xbutton.x, ev.xbutton.y); // Throws
+                            display::Pos pos = { ev.xbutton.x, ev.xbutton.y };
+                            log(slot->no, "%s: %s, %s", (ev.type == ButtonPress ? "MOUSE DOWN" : "MOUSE UP"),
+                                core::as_int(ev.xbutton.button), pos); // Throws
                         }
                         break;
                     case KeyPress:
@@ -897,6 +980,20 @@ int main(int argc, char* argv[])
                             if (ev.type == KeyRelease && keysym == XK_f) {
                                 slot->fullscreen = !slot->fullscreen;
                                 set_fullscreen_mode(slot->window, slot->fullscreen); // Throws
+                                break;
+                            }
+                            if (ev.type == KeyRelease && keysym == XK_g) {
+                                if (!slot->grabbed) {
+                                    if (try_grab_pointer(dpy, slot->window, logger)) { // Throws
+                                        slot->grabbed = true;
+                                        log(slot->no, "GRAB");
+                                        break;
+                                    }
+                                    break;
+                                }
+                                slot->grabbed = false;
+                                ungrab_pointer(dpy);
+                                log(slot->no, "UNGRAB");
                                 break;
                             }
                             if (ev.type == KeyRelease && keysym == XK_r) {
@@ -928,9 +1025,11 @@ int main(int argc, char* argv[])
                         break;
                     case EnterNotify:
                     case LeaveNotify:
-                        if (ARCHON_LIKELY(try_get_window_slot(ev.xcrossing.window, slot)))
-                            log(slot->no, "%s: %s", (ev.type == EnterNotify ? "MOUSE OVER" : "MOUSE OUT"),
-                                get_crossing_mode_name(ev.xcrossing.mode)); // Throws
+                        if (ARCHON_LIKELY(try_get_window_slot(ev.xcrossing.window, slot))) {
+                            log(slot->no, "%s: %s, %s", (ev.type == EnterNotify ? "MOUSE OVER" : "MOUSE OUT"),
+                                get_crossing_mode_name(ev.xcrossing.mode),
+                                get_crossing_detail_name(ev.xcrossing.detail)); // Throws
+                        }
                         break;
                     case FocusIn:
                     case FocusOut:
@@ -944,6 +1043,14 @@ int main(int argc, char* argv[])
                             bool is_close = (ev.xclient.format == 32 && Atom(ev.xclient.data.l[0]) == delete_window);
                             if (is_close)
                                 close_window(slot->window);
+                        }
+                        break;
+                    case VisibilityNotify:
+                        if (ARCHON_LIKELY(try_get_window_slot(ev.xvisibility.window, slot))) {
+                            if (set_input_focus && !slot->input_focus_set) {
+                                XSetInputFocus(dpy, slot->window, RevertToPointerRoot, CurrentTime);
+                                slot->input_focus_set = true;
+                            }
                         }
                         break;
                 }
