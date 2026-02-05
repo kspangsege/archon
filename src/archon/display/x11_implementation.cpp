@@ -1418,7 +1418,7 @@ bool ConnectionImpl::process_event_batch()
                     else {
                         ARCHON_ASSERT(m_pressed_keys.contains(ev.xkey.keycode));
                         if (m_num_events == 0) {
-                            int n = XEventsQueued(dpy, QueuedAfterReading);  // Non-blocking
+                            int n = XEventsQueued(dpy, QueuedAfterReading); // Non-blocking
                             if (n > 0)
                                 m_num_events = 1;
                         }

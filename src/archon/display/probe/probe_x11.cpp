@@ -24,6 +24,7 @@
 #include <stdexcept>
 #include <utility>
 #include <memory>
+#include <algorithm>
 #include <optional>
 #include <tuple>
 #include <vector>
@@ -58,6 +59,7 @@
 #include <archon/image.hpp>
 #include <archon/display/impl/config.h>
 #include <archon/display/geometry.hpp>
+#include <archon/display/noinst/timestamp_unwrapper.hpp>
 #include <archon/display/noinst/edid.hpp>
 #include <archon/display/x11_fullscreen_monitors.hpp>
 #include <archon/display/x11_connection_config.hpp>
@@ -156,6 +158,55 @@ auto get_crossing_detail_name(int detail) noexcept -> const char*
     }
     return "?";
 }
+
+
+// Compatible with XKeymapEvent::key_vector
+class X11KeyCodeSet {
+public:
+    void assign(const char* bytes) noexcept
+    {
+        std::copy_n(bytes, 32, m_bytes);
+    }
+
+    bool contains(KeyCode keycode) const noexcept
+    {
+        ARCHON_ASSERT(core::int_greater_equal(keycode, 0) && core::int_less_equal(keycode, 255));
+        int i = int(keycode);
+        return ((byte(i) & bit(i)) != 0);
+    }
+
+    void add(KeyCode keycode) noexcept
+    {
+        ARCHON_ASSERT(core::int_greater_equal(keycode, 0) && core::int_less_equal(keycode, 255));
+        int i = int(keycode);
+        byte(i) |= bit(i);
+    }
+
+    void remove(KeyCode keycode) noexcept
+    {
+        ARCHON_ASSERT(core::int_greater_equal(keycode, 0) && core::int_less_equal(keycode, 255));
+        int i = int(keycode);
+        byte(i) &= ~bit(i);
+    }
+
+private:
+    char m_bytes[32] = {};
+
+    auto byte(int i) const noexcept -> const unsigned char&
+    {
+        return reinterpret_cast<const unsigned char*>(m_bytes)[i / 8];
+    }
+
+    auto byte(int i) noexcept -> unsigned char&
+    {
+        return reinterpret_cast<unsigned char*>(m_bytes)[i / 8];
+    }
+
+    static int bit(int i) noexcept
+    {
+        return 1 << (i % 8);
+    }
+};
 
 
 class ColormapFinderImpl final
@@ -896,18 +947,30 @@ int main(int argc, char* argv[])
     if (install_colormap)
         XInstallColormap(dpy, colormap);
 
+    // X11 timestamps are 32-bit unsigned integers and `Time` refers to the unsigned integer
+    // type that X11 uses to store these timestamps.
+    using timestamp_unwrapper_type = impl::TimestampUnwrapper<Time, 32>;
+    timestamp_unwrapper_type timestamp_unwrapper;
+
     // Event loop
     bool expect_keymap_notify = false;
+    X11KeyCodeSet pressed_keys;
     std::vector<std::string_view> key_names;
     while (!window_slots.empty()) {
         XEvent ev = {};
-        XPeekEvent(dpy, &ev);
+        XPeekEvent(dpy, &ev); // Block until at least one event is available
+        timestamp_unwrapper_type::Session unwrap_session(timestamp_unwrapper);
         for (;;) {
-            int n = XEventsQueued(dpy, QueuedAfterReading);
+            int n = XEventsQueued(dpy, QueuedAfterReading); // Non-blocking
             if (n == 0)
                 break;
-            for (int i = 0; i < n; ++i) {
+            // If generation of X11 events happens fast enough to saturate processing, `n`
+            // could grow without bounds over time. A ceiling is put on `n` in order to
+            // avoid this.
+            int num_events = std::min(n, 256);
+            while (num_events > 0) {
                 XNextEvent(dpy, &ev);
+                num_events -= 1;
                 bool expect_keymap_notify_2 = expect_keymap_notify;
                 expect_keymap_notify = false;
                 ARCHON_ASSERT(!expect_keymap_notify_2 || ev.type == KeymapNotify);
@@ -963,10 +1026,71 @@ int main(int argc, char* argv[])
                     case KeyPress:
                     case KeyRelease:
                         if (ARCHON_LIKELY(try_get_window_slot(ev.xkey.window, slot))) {
+                            bool is_repetition = false;
+                            if (ARCHON_LIKELY(detectable_autorepeat_enabled)) {
+                                if (ev.type == KeyPress) {
+                                    if (!pressed_keys.contains(ev.xkey.keycode)) {
+                                        pressed_keys.add(ev.xkey.keycode);
+                                    }
+                                    else {
+                                        is_repetition = true;
+                                    }
+                                }
+                                else {
+                                    ARCHON_ASSERT(pressed_keys.contains(ev.xkey.keycode));
+                                    pressed_keys.remove(ev.xkey.keycode);
+                                }
+                            }
+                            else {
+                                // When "detectable auto-repeat" mode was not enabled, we
+                                // need to use a fall-back detection mechanism, which works
+                                // as follows: On "key up", if the next event is "key down"
+                                // for the same key and at almost the same time, consider
+                                // the pair to be caused by key repetition. This scheme
+                                // assumes that the second "key down" event is immediately
+                                // available, i.e., without having to block. This assumption
+                                // appears to hold in practice, but it could conceivably
+                                // fail, in which case the pair will be treated as genuine
+                                // "key up" and "key down" events.
+                                if (ev.type == KeyPress) {
+                                    ARCHON_ASSERT(!pressed_keys.contains(ev.xkey.keycode));
+                                    pressed_keys.add(ev.xkey.keycode);
+                                }
+                                else {
+                                    ARCHON_ASSERT(pressed_keys.contains(ev.xkey.keycode));
+                                    if (num_events == 0) {
+                                        int n = XEventsQueued(dpy, QueuedAfterReading); // Non-blocking
+                                        if (n > 0)
+                                            num_events = 1;
+                                    }
+                                    if (num_events > 0) {
+                                        XEvent ev_2 = {};
+                                        XPeekEvent(dpy, &ev_2);
+                                        if (ev_2.type == KeyPress && ev_2.xkey.keycode == ev.xkey.keycode) {
+                                            ARCHON_ASSERT(ev_2.xkey.window == ev.xkey.window);
+                                            using timestamp_type = timestamp_unwrapper_type::millis_type;
+                                            timestamp_type timestamp_1 =
+                                                unwrap_session.unwrap_next_timestamp(ev.xkey.time); // Throws
+                                            timestamp_type timestamp_2 =
+                                                unwrap_session.unwrap_next_timestamp(ev_2.xkey.time); // Throws
+                                            ARCHON_ASSERT(timestamp_2 >= timestamp_1);
+                                            if ((timestamp_2 - timestamp_1).count() <= 1) {
+                                                XNextEvent(dpy, &ev);
+                                                --num_events;
+                                                is_repetition = true;
+                                            }
+                                        }
+                                    }
+                                    if (!is_repetition)
+                                        pressed_keys.remove(ev.xkey.keycode);
+                                }
+                            }
                             KeySym keysym = get_keysym(ev.xkey.keycode);
+                            std::string_view label = (ev.type == KeyPress ? (is_repetition ? "KEY REPEAT" :
+                                                                             "KEY DOWN") : "KEY UP");
                             std::string_view key_name = get_key_name(keysym); // Throws
-                            log(slot->no, "%s: %s, %s -> %s", (ev.type == KeyPress ? "KEY DOWN" : "KEY UP"), key_name,
-                                core::as_int(ev.xkey.keycode), core::as_int(keysym)); // Throws
+                            log(slot->no, "%s: %s, %s -> %s", label, key_name, core::as_int(ev.xkey.keycode),
+                                core::as_int(keysym)); // Throws
                             if (ev.type == KeyPress && (keysym == XK_Escape || keysym == XK_q)) {
                                 close_window(slot->window);
                                 break;
@@ -1009,6 +1133,7 @@ int main(int argc, char* argv[])
                         // immediately after every `FocusIn` event, so this provides an
                         // implicit target window.
                         if (expect_keymap_notify_2) {
+                            pressed_keys.assign(ev.xkeymap.key_vector);
                             key_names.clear();
                             // X11 key codes lie in the inclusive range [8,255]
                             for (int i = 8; i < 256; ++i) {
