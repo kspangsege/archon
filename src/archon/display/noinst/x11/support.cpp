@@ -2716,11 +2716,14 @@ auto x11::load_visuals(Display* dpy, int screen, const x11::ExtensionInfo& exten
 
     bool screen_supports_opengl = false;
     {
-        std::string_view str = glXQueryExtensionsString(dpy, screen);
-        bool has_srgb_framebuffer_support = (core::contains_word(str, "GLX_ARB_framebuffer_sRGB") ||
-                                             core::contains_word(str, "GLX_EXT_framebuffer_sRGB")); // Throws
-        if (ARCHON_LIKELY(has_srgb_framebuffer_support))
-            screen_supports_opengl = true;
+        const char* str = glXQueryExtensionsString(dpy, screen);
+        if (str) {
+            std::string_view str_2 = str;
+            bool has_srgb_framebuffer_support = (core::contains_word(str_2, "GLX_ARB_framebuffer_sRGB") ||
+                                                 core::contains_word(str_2, "GLX_EXT_framebuffer_sRGB")); // Throws
+            if (ARCHON_LIKELY(has_srgb_framebuffer_support))
+                screen_supports_opengl = true;
+        }
     }
 
     if (ARCHON_LIKELY(extension_info.have_glx && screen_supports_opengl)) {
