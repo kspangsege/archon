@@ -7,5 +7,8 @@
  (c++-mode . ((c-file-style . "stroustrup")
               (c-basic-offset . 4)
               (c-file-offsets . ((innamespace . 0)
+                                 (label . *)
+                                 (substatement-label . *)
                                  (case-label . +)
+                                 (inline-open . 0)
                                  (inlambda . 0))))))
