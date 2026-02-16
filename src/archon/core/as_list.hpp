@@ -155,15 +155,23 @@ struct AsListConfig {
 ///
 /// The overloads that take a function argument (\p func) uses the specified function to map
 /// each element in the specified sequence to an object which will be formatted or parsed in
-/// place of the actual sequence element. Here is an example of how it can be used:
+/// place of the actual sequence element. Here are examples of how this can be used in
+/// formatting and parsing contexts respectively:
 ///
 /// \code{.cpp}
 ///
 ///   out << archon::core::as_list(values, [](const int& val) {
 ///       return archon::core::as_hex_int(val);
-///   })
+///   });
+///
+///   parser.parse(str, archon::core::as_list(list, [](int& ref) {
+///       return archon::core::as_hex_int(ref);
+///   });
 ///
 /// \endcode
+///
+/// Note that the latter form, where the function takes a non-const reference argument, can
+/// also be used in a mixed formatting and parsing context such as \ref cli::assign().
 ///
 /// \sa \ref core::as_rbr_list(), \ref core::as_sbr_list(), \ref core::as_cbr_list(), \ref core::as_abr_list()
 /// \sa \ref core::as_list_a(), \ref core::as_list_v()

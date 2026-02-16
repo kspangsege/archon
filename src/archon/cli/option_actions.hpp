@@ -34,13 +34,18 @@ namespace archon::cli {
 ///
 /// \brief Option actions.
 ///
+/// FIXME: Explain how \p ref arguments can be direct references to value objects or
+/// indirect ones in the form of format-adaptor objects that work in both parsing and
+/// formatting contexts such as those returned by \ref core::as_int() and \ref
+/// core::as_list().                              
+///
 /// FIXME: Explain: Arguments passed for \p default_arg, \p cond, or \p func are copied only
 /// if they are a r-values. If they are l-values, and if the returned assignment / execution
 /// objects are passed to \ref cli::BasicSpec::add_option(), then the caller must ensure
 /// that the objects referenced by the l-values stay alive for as long as the spec remains
 /// in use. By extension, if the spec is used to create a processor (\ref BasicProcessor),
 /// the caller must ensure that the objects referenced by the l-values stay alive for as
-/// long as the processor remains is in use.                               
+/// long as the processor remains in use.                               
 ///
 auto raise_flag(bool& flag);
 auto lower_flag(bool& flag);
