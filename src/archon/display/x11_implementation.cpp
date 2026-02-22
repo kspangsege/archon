@@ -641,6 +641,8 @@ public:
                 bool enable_glx_direct_rendering);
     auto ensure_image_bridge() -> x11::ImageBridge&;
     auto ensure_graphics_context() noexcept -> GC;
+    bool on_focus();
+    bool on_blur();
     void set_confirmed_fullscreen_state(bool on);
 
     void set_event_handler(display::WindowEventHandler&) noexcept override;
@@ -650,6 +652,7 @@ public:
     void set_title(std::string_view) override;
     void set_size(display::Size) override;
     void set_fullscreen_mode(bool) override;
+    void set_immersive_mode(bool) override;
     void fill(util::Color) override;
     void fill(util::Color, const display::Box&) override;
     auto new_texture(display::Size) -> std::unique_ptr<display::Texture> override;
@@ -672,9 +675,11 @@ private:
     bool m_is_registered = false;
     bool m_is_double_buffered = false;
     bool m_is_mapped = false;
+    bool m_has_focus = false;
     bool m_wanted_fullscreen_state = false;
     bool m_confirmed_fullscreen_state = false;
     bool m_compositor_bypass_state = false;
+    bool m_in_immersive_mode = false;
 
     const x11::PixelFormat& m_pixel_format;
     x11::ImageBridge* m_image_bridge = nullptr;
@@ -697,6 +702,8 @@ private:
     auto create_image_bridge() -> x11::ImageBridge&;
     auto create_graphics_context() noexcept -> GC;
     auto intern_color(util::Color) -> unsigned long;
+    void engage_immersive_mode();
+    void disengage_immersive_mode();
 };
 
 
@@ -1204,8 +1211,15 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline)
     };
 
     auto determine_timeout = [&](int& timeout, bool& partial) noexcept {
+        time_point_type now = clock_type::now();
+/*
+        ARCHON_ASSERT(!m_have_retry_engage_im_deadline || !m_retry_engage_immersive_mode);
+        if (ARCHON_UNLIKELY(m_have_retry_engage_im_deadline && m_retry_engage_im_deadline <= now)) {
+            m_have_retry_engage_im_deadline = false;
+            m_retry_engage_immersive_mode = true;
+        }
+*/
         if (ARCHON_LIKELY(deadline)) {
-            time_point_type now = clock_type::now();
             if (ARCHON_LIKELY(*deadline > now)) {
                 auto duration = std::chrono::ceil<std::chrono::milliseconds>(*deadline - now).count();
                 timeout = core::int_max<int>();
@@ -1298,6 +1312,13 @@ bool ConnectionImpl::process_event_batch()
         if (ARCHON_UNLIKELY(!proceed))
             return false; // Interrupt
     }
+
+/*
+    if (ARCHON_UNLIKELY(m_retry_engage_immersive_mode)) {
+        m_retry_engage_immersive_mode = false;
+        engage_immersive_mode(); // Throws
+    }
+*/
 
     XEvent ev = {};
     WindowImpl* window = {};
@@ -1583,12 +1604,14 @@ bool ConnectionImpl::process_event_batch()
                     window->has_input_focus = (ev.type == FocusIn);
                     display::WindowEvent event;
                     event.cookie = window->cookie;
-                    bool proceed;
+                    bool proceed = true;
                     if (ev.type == FocusIn) {
-                        proceed = window->event_handler->on_focus(event); // Throws
+                        if (ARCHON_LIKELY(window->on_focus())) // Throws
+                            proceed = window->event_handler->on_focus(event); // Throws
                     }
                     else {
-                        proceed = window->event_handler->on_blur(event); // Throws
+                        if (ARCHON_LIKELY(window->on_blur())) // Throws
+                            proceed = window->event_handler->on_blur(event); // Throws
                     }
                     if (ARCHON_LIKELY(proceed))
                         break;
@@ -1875,6 +1898,8 @@ void WindowImpl::create(display::Size size, const Config& config, bool enable_do
 
     if (config.opengl_vsync.has_value() && config.enable_opengl_rendering)
         try_set_opengl_vsync_state(config.opengl_vsync.value()); // Throws
+
+    m_in_immersive_mode = config.immersive;
 }
 
 
@@ -1891,6 +1916,30 @@ inline auto WindowImpl::ensure_graphics_context() noexcept -> GC
     if (ARCHON_LIKELY(m_gc != None))
         return m_gc;
     return create_graphics_context();
+}
+
+
+bool WindowImpl::on_focus()
+{
+    if (ARCHON_LIKELY(!m_has_focus)) {
+        if (m_in_immersive_mode)
+            engage_immersive_mode(); // Throws
+        m_has_focus = true;
+        return true;
+    }
+    return false;
+}
+
+
+bool WindowImpl::on_blur()
+{
+    if (ARCHON_LIKELY(m_has_focus)) {
+        if (m_in_immersive_mode)
+            disengage_immersive_mode(); // Throws
+        m_has_focus = false;
+        return true;
+    }
+    return false;
 }
 
 
@@ -1964,6 +2013,20 @@ void WindowImpl::set_fullscreen_mode(bool on)
         if (m_is_mapped)
             turn_on_off_fullscreen_mode(); // Throws
     }
+}
+
+
+void WindowImpl::set_immersive_mode(bool on)
+{
+    if (m_has_focus) {
+        if (on) {
+            engage_immersive_mode(); // Throws
+        }
+        else {
+            disengage_immersive_mode(); // Throws
+        }
+    }
+    m_in_immersive_mode = on;
 }
 
 
@@ -2182,6 +2245,45 @@ auto WindowImpl::create_graphics_context() noexcept -> GC
 auto WindowImpl::intern_color(util::Color color) -> unsigned long
 {
     return m_pixel_format.intern_color(color);
+}
+
+
+void WindowImpl::engage_immersive_mode()
+{
+/*
+    ARCHON_ASSERT(m_in_immersive_mode && m_has_focus);
+    ARCHON_ASSERT(!m_immersive_mode_engaged && !m_have_retry_engage_im_deadline);
+    Bool owner_events = False; // Report events relative to grab_window
+    unsigned int event_mask = PointerMotionMask | ButtonPressMask | ButtonReleaseMask;
+    int pointer_mode = GrabModeAsync; // Continue processing pointer events
+    int keyboard_mode = GrabModeAsync; // Continue processing keyboard events
+    Window confine_to = None; // Do not confine the pointer                             
+    Cursor cursor = None;                           
+    Time time = CurrentTime;
+    int ret = XGrabPointer(conn.dpy, win, owner_events, event_mask, pointer_mode, keyboard_mode, confine_to, cursor,
+                           time);
+    if (ARCHON_LIKELY(ret == GrabSuccess)) {
+        m_immersive_mode_engaged = true;
+        // Switch to relative mouse coordinates    
+    }
+    else {
+        // Schedule a retry
+        
+    }
+*/
+
+    
+    XFixesHideCursor(conn.dpy, win);            
+}
+
+
+void WindowImpl::disengage_immersive_mode()
+{
+    
+    // If engaged (m_immersive_mode_engaged), disengage (end cursor grab and switch to absolute mouse coordinates)    
+    // Else, if a retry is scheduled, cancel it    
+
+    XFixesShowCursor(conn.dpy, win);            
 }
 
 

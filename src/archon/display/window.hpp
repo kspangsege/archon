@@ -163,6 +163,12 @@ public:
     ///
     virtual void set_fullscreen_mode(bool on) = 0;
 
+    /// \brief    
+    ///
+    ///    
+    ///
+    virtual void set_immersive_mode(bool on) = 0;
+
     /// \{
     ///
     /// \brief Fill area with color.
@@ -376,6 +382,13 @@ struct Window::Config {
     /// set_fullscreen_mode()).
     ///
     bool fullscreen = false;
+
+    /// \brief Start out in immersive mode.
+    ///
+    /// If set to `true`, the window will start out in immersive mode (see \ref
+    /// set_immersive_mode()).
+    ///
+    bool immersive = false;
 
     /// \brief Enable OpenGL-based rendering.
     ///
