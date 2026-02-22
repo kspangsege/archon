@@ -55,7 +55,7 @@ namespace impl = display::impl;
 namespace x11 = impl::x11;
 
 
-#if HAVE_X11
+#if ARCHON_DISPLAY_HAVE_GOOD_X11
 
 
 namespace {
@@ -243,7 +243,7 @@ int main(int argc, char* argv[])
         cli::assign(optional_class)); // Throws
 
     opt("-v, --visual", "<number>", cli::no_attributes, spec,
-        "Target the specified visual type (@A). It can be expressed in decimal, hexadecumal (with prefix '0x'), or "
+        "Target the specified visual type (@A). It can be expressed in decimal, hexadecimal (with prefix '0x'), or "
         "octal (with prefix '0') form. If this option is not specified, the default visual type for the targeted "
         "screen will be used.",
         cli::exec([&](std::string_view str) {
@@ -294,7 +294,8 @@ int main(int argc, char* argv[])
     }
 
     x11::ExtensionInfo extension_info = x11::init_extensions(dpy); // Throws
-    core::Slab<x11::VisualSpec> visual_specs = x11::load_visuals(dpy, screen, extension_info); // Throws
+    x11::ScreenInfo screen_info = x11::get_screen_info(dpy, extension_info, screen); // Throws
+    core::Slab<x11::VisualSpec> visual_specs = x11::load_visuals(dpy, extension_info, screen_info); // Throws
 
     x11::FindVisualParams params;
     params.visual_depth = optional_depth;
@@ -329,8 +330,7 @@ int main(int argc, char* argv[])
     // https://tronche.com/gui/x/xlib/ICC/standard-colormaps/XSetRGBColormaps.html
 
     x11::ServerGrab grab(dpy);
-    Window root = RootWindow(dpy, screen);
-    if (ARCHON_UNLIKELY(x11::has_property(dpy, root, XA_RGB_DEFAULT_MAP))) { // Throws
+    if (ARCHON_UNLIKELY(x11::has_property(dpy, screen_info.root, XA_RGB_DEFAULT_MAP))) { // Throws
         logger.error("Property `RGB_DEFAULT_MAP` already exists on root window of targeted screen"); // Throws
         return EXIT_FAILURE;
     }
@@ -346,7 +346,7 @@ int main(int argc, char* argv[])
             seen.insert(visual); // Throws
             x11::ColormapWrapper colormap_owner;
             XStandardColormap colormap_params = {};
-            bool success = create_standard_colormap(dpy, root, visual_info, weirdness, logger,
+            bool success = create_standard_colormap(dpy, screen_info.root, visual_info, weirdness, logger,
                                                     colormap_owner, colormap_params); // Throws
             if (ARCHON_LIKELY(success)) {
                 colormap_owners.push_back(std::move(colormap_owner)); // Throws
@@ -370,7 +370,7 @@ int main(int argc, char* argv[])
     // Ask server to not destroy colormap when client connection is closed
     XSetCloseDownMode(dpy, RetainPermanent);
 
-    XSetRGBColormaps(dpy, root, colormap_param_entries.data(), count, XA_RGB_DEFAULT_MAP);
+    XSetRGBColormaps(dpy, screen_info.root, colormap_param_entries.data(), count, XA_RGB_DEFAULT_MAP);
 
     for (x11::ColormapWrapper& owner : colormap_owners)
         owner.release_ownership();
@@ -380,7 +380,7 @@ int main(int argc, char* argv[])
 }
 
 
-#else // !HAVE_X11
+#else // !ARCHON_DISPLAY_HAVE_GOOD_X11
 
 
 int main()
@@ -389,4 +389,4 @@ int main()
 }
 
 
-#endif // !HAVE_X11
+#endif // !ARCHON_DISPLAY_HAVE_GOOD_X11

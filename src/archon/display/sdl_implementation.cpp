@@ -20,16 +20,15 @@
 
 
 #include <cstddef>
-#include <cstdint>
 #include <memory>
 #include <utility>
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <stdexcept>
 #include <array>
 #include <string_view>
 #include <string>
-#include <system_error>
 #include <locale>
 #include <mutex>
 
@@ -45,15 +44,19 @@
 #include <archon/core/charenc_bridge.hpp>
 #include <archon/core/integer_parser.hpp>
 #include <archon/core/format.hpp>
+#include <archon/core/endianness.hpp>
 #include <archon/util/color.hpp>
 #include <archon/image.hpp>
 #include <archon/display/impl/config.h>
+#include <archon/display/geometry.hpp>
 #include <archon/display/key.hpp>
 #include <archon/display/key_code.hpp>
+#include <archon/display/mouse_button.hpp>
 #include <archon/display/event.hpp>
 #include <archon/display/event_handler.hpp>
-#include <archon/display/noinst/timestamp_unwrapper.hpp>
+#include <archon/display/viewport.hpp>
 #include <archon/display/guarantees.hpp>
+#include <archon/display/texture.hpp>
 #include <archon/display/window.hpp>
 #include <archon/display/connection.hpp>
 #include <archon/display/implementation.hpp>
@@ -72,7 +75,6 @@
 
 
 using namespace archon;
-namespace impl = display::impl;
 
 
 namespace {
@@ -262,7 +264,7 @@ public:
 
     bool has_pending_expose_event = false;
 
-    WindowImpl(ConnectionImpl&, int cookie) noexcept;
+    WindowImpl(ConnectionImpl&, int cookie, bool prefer_opengl_adaptive_vsync) noexcept;
     ~WindowImpl() noexcept override;
 
     bool try_create(std::string_view title, display::Size size, const Config&, std::string& error);
@@ -284,8 +286,12 @@ public:
     void present() override;
     void opengl_make_current() override;
     void opengl_swap_buffers() override;
+    bool try_get_opengl_vsync_state(bool&) override;
+    bool try_set_opengl_vsync_state(bool) override;
 
 private:
+    const bool m_prefer_opengl_adaptive_vsync;
+
     SDL_Window* m_win = nullptr;
     Uint32 m_id = 0; // If nonzero, this window has been registered in the connection object
     SDL_Renderer* m_renderer = nullptr;
@@ -473,7 +479,7 @@ bool ConnectionImpl::try_new_window(std::string_view title, display::Size size, 
     int screen = config.screen;
     if (ARCHON_UNLIKELY(screen >= 0 && screen != 0))
         throw std::invalid_argument("Bad screen index");
-    auto win_2 = std::make_unique<WindowImpl>(*this, config.cookie); // Throws
+    auto win_2 = std::make_unique<WindowImpl>(*this, config.cookie, config.prefer_opengl_adaptive_vsync); // Throws
     if (ARCHON_LIKELY(win_2->try_create(title, size, config, error))) { // Throws
         win = std::move(win_2);
         return true;
@@ -1005,9 +1011,10 @@ bool ConnectionImpl::lookup_window(Uint32 window_id, WindowImpl*& window) noexce
 
 
 
-inline WindowImpl::WindowImpl(ConnectionImpl& conn_2, int cookie_2) noexcept
+inline WindowImpl::WindowImpl(ConnectionImpl& conn_2, int cookie_2, bool prefer_opengl_adaptive_vsync) noexcept
     : conn(conn_2)
     , cookie(cookie_2)
+    , m_prefer_opengl_adaptive_vsync(prefer_opengl_adaptive_vsync)
 {
 }
 
@@ -1141,8 +1148,12 @@ bool WindowImpl::try_create(std::string_view title, display::Size size, const Co
     // if the recreation occurs while the window is visible. To work around this problem, we
     // request the creation of the renderer before the window is made visible when OpenGL
     // support is not explicitly requested.
+    //
     if (!config.enable_opengl_rendering)
         ensure_renderer(); // Throws
+
+    if (config.opengl_vsync.has_value() && config.enable_opengl_rendering)
+        try_set_opengl_vsync_state(config.opengl_vsync.value()); // Throws
 
     return true;
 }
@@ -1312,6 +1323,35 @@ void WindowImpl::opengl_swap_buffers()
     if (ARCHON_LIKELY(success))
         return;
     throw_sdl_error(conn.locale, "SDL_GL_SwapWindow() failed"); // Throws
+}
+
+
+bool WindowImpl::try_get_opengl_vsync_state(bool& on)
+{
+    opengl_make_current(); // Throws
+    int interval = {};
+    if (SDL_GL_GetSwapInterval(&interval)) {
+        on = (interval != 0);
+        return true;
+    }
+    return false;
+}
+
+
+bool WindowImpl::try_set_opengl_vsync_state(bool on)
+{
+    opengl_make_current(); // Throws
+    if (on) {
+        if (m_prefer_opengl_adaptive_vsync && SDL_GL_SetSwapInterval(-1)) // Prefer adaptive V-Sync
+          return true;
+        if (SDL_GL_SetSwapInterval(1))
+          return true;
+    }
+    else {
+        if (SDL_GL_SetSwapInterval(0))
+          return true;
+    }
+    return false;
 }
 
 

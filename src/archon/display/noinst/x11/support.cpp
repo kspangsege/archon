@@ -34,6 +34,7 @@
 #include <optional>
 #include <string_view>
 #include <string>
+#include <vector>
 #include <locale>
 #include <system_error>
 
@@ -89,7 +90,7 @@ namespace impl = display::impl;
 namespace x11 = impl::x11;
 
 
-#if HAVE_X11
+#if ARCHON_DISPLAY_HAVE_GOOD_X11
 
 
 namespace {
@@ -2032,7 +2033,7 @@ auto PixelFormatCreator::format_error_message(Error error) const -> std::string
 }
 
 
-#if HAVE_XRANDR
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_XRANDR
 
 
 bool try_update_screen_conf(Display* dpy, ::Window root, Atom atom_edid, const impl::EdidParser& edid_parser,
@@ -2218,7 +2219,7 @@ bool try_update_screen_conf(Display* dpy, ::Window root, Atom atom_edid, const i
 }
 
 
-#endif // HAVE_XRANDR
+#endif // ARCHON_DISPLAY_HAVE_GOOD_X11_XRANDR
 
 
 } // unnamed namespace
@@ -2461,9 +2462,34 @@ bool x11::try_connect(std::string_view display, x11::DisplayWrapper& dpy_owner)
 
 auto x11::init_extensions(Display* dpy) -> x11::ExtensionInfo
 {
+    // CAUTION: Be sure to keep the version checks below in correspondence with those near
+    // the top of <archon/display/noinst/x11/support.hpp>.
+
     x11::ExtensionInfo info = {};
 
-#if HAVE_XDBE
+    // Query for X Keyboard Extension
+    {
+        int lib_major = XkbMajorVersion;
+        int lib_minor = XkbMinorVersion;
+        if (ARCHON_LIKELY(XkbLibraryVersion(&lib_major, &lib_minor))) {
+            int opcode = 0; // Unused
+            int event_base = 0;
+            int error_base = 0; // Unused
+            int major = 0;
+            int minor = 0;
+            if (ARCHON_LIKELY(XkbQueryExtension(dpy, &opcode, &event_base, &error_base, &major, &minor))) {
+                if (ARCHON_LIKELY(major >= 1)) {
+                    info.have_xkb = true;
+                    info.xkb_event_base = event_base;
+                    info.xkb_major = major;
+                    info.xkb_minor = minor;
+                }
+            }
+        }
+    }
+
+    // Query for Double Buffer Extension
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_XDBE
     {
         int major = 0;
         int minor = 0;
@@ -2475,28 +2501,10 @@ auto x11::init_extensions(Display* dpy) -> x11::ExtensionInfo
             }
         }
     }
-#endif // HAVE_XDBE
+#endif // ARCHON_DISPLAY_HAVE_GOOD_X11_XDBE
 
-    {
-        int lib_major = XkbMajorVersion;
-        int lib_minor = XkbMinorVersion;
-        if (ARCHON_LIKELY(XkbLibraryVersion(&lib_major, &lib_minor))) {
-            int opcode = 0;     // Unused
-            int event_base = 0; // Unused
-            int error_base = 0; // Unused
-            int major = 0;
-            int minor = 0;
-            if (ARCHON_LIKELY(XkbQueryExtension(dpy, &opcode, &event_base, &error_base, &major, &minor))) {
-                if (ARCHON_LIKELY(major >= 1)) {
-                    info.have_xkb = true;
-                    info.xkb_major = major;
-                    info.xkb_minor = minor;
-                }
-            }
-        }
-    }
-
-#if HAVE_XRANDR
+    // Query for X Resize, Rotate and Reflect Extension
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_XRANDR
     {
         int event_base = 0;
         int error_base = 0; // Unused
@@ -2514,9 +2522,10 @@ auto x11::init_extensions(Display* dpy) -> x11::ExtensionInfo
             }
         }
     }
-#endif // HAVE_XRANDR
+#endif // ARCHON_DISPLAY_HAVE_GOOD_X11_XRANDR
 
-#if HAVE_XRENDER
+    // Query for X Rendering Extension
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_XRENDER
     {
         int event_base = 0; // Unused
         int error_base = 0; // Unused
@@ -2533,9 +2542,10 @@ auto x11::init_extensions(Display* dpy) -> x11::ExtensionInfo
             }
         }
     }
-#endif // HAVE_XRENDER
+#endif // ARCHON_DISPLAY_HAVE_GOOD_X11_XRENDER
 
-#if HAVE_GLX
+    // Query for X Extension for Rendering Using OpenGL
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_GLX
     {
         int error_base = 0; // Unused
         int event_base = 0; // Unused
@@ -2550,19 +2560,66 @@ auto x11::init_extensions(Display* dpy) -> x11::ExtensionInfo
                     const GLubyte* name_2 = reinterpret_cast<const GLubyte*>(name);
                     return glXGetProcAddressARB(name_2);
                 };
-                void (*create_context)() = get_proc("glXCreateContextAttribsARB");
-                if (ARCHON_LIKELY(create_context)) {
-                    info.have_glx = true;
-                    info.glx_major = major;
-                    info.glx_minor = minor;
-                    info.glx_create_context = reinterpret_cast<PFNGLXCREATECONTEXTATTRIBSARBPROC>(create_context);
+                // NOTE: A non-null `info.glx_create_context_func` does not guarantee that the
+                // GLX_ARB_create_context extension is available. This must be checked once
+                // the target screen is known. See x11::ScreenInfo::have_glx.
+                info.have_glx = true;
+                info.glx_major = major;
+                info.glx_minor = minor;
+                void (*func)();
+                if (ARCHON_LIKELY(func = get_proc("glXCreateContextAttribsARB"))) {
+                    using type = x11::ExtensionInfo::glx_create_context_func_type;
+                    info.glx_create_context_func = reinterpret_cast<type>(func);
+                }
+                if (ARCHON_LIKELY(func = get_proc("glXSwapIntervalEXT"))) {
+                    using type = x11::ExtensionInfo::glx_swap_interval_func_type;
+                    info.glx_swap_interval_func = reinterpret_cast<type>(func);
                 }
             }
         }
     }
-#endif // HAVE_GLX
+#endif // ARCHON_DISPLAY_HAVE_GOOD_X11_GLX
 
     return info;
+}
+
+
+auto x11::get_screen_info(Display* dpy, const x11::ExtensionInfo& extension_info, int screen) -> x11::ScreenInfo
+{
+    x11::ScreenInfo info = {};
+
+    info.screen = screen;
+    info.root = RootWindow(dpy, screen);
+    info.default_visual = XVisualIDFromVisual(DefaultVisual(dpy, screen));
+    info.default_colormap = DefaultColormap(dpy, screen);
+
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_GLX
+    const char* str = glXQueryExtensionsString(dpy, screen);
+    if (ARCHON_LIKELY(str)) {
+        std::string_view str_2 = str;
+        bool have_glx = (extension_info.have_glx && core::contains_word(str_2, "GLX_ARB_create_context"));
+        if (ARCHON_LIKELY(have_glx)) {
+            info.have_glx = true;
+            info.glx_has_srgb_framebuffer =
+                (core::contains_word(str_2, "GLX_ARB_framebuffer_sRGB") ||
+                 core::contains_word(str_2, "GLX_EXT_framebuffer_sRGB")); // Throws
+            info.glx_has_swap_control =
+                core::contains_word(str_2, "GLX_EXT_swap_control"); // Throws
+            info.glx_has_swap_control_tear =
+                core::contains_word(str_2, "GLX_EXT_swap_control_tear"); // Throws
+        }
+    }
+#endif // ARCHON_DISPLAY_HAVE_GOOD_X11_GLX
+
+    return info;
+}
+
+
+auto x11::intern_string(Display* dpy, const char* string) noexcept -> Atom
+{
+    Atom atom = XInternAtom(dpy, string, False);
+    ARCHON_STEADY_ASSERT(atom != None);
+    return atom;
 }
 
 
@@ -2588,6 +2645,70 @@ bool x11::has_property(Display* dpy, ::Window win, Atom name)
         return found;
     }
     throw std::runtime_error("XGetWindowProperty() failed");
+}
+
+
+bool x11::try_property_find_a(Display* dpy, ::Window win, Atom name, Atom value, bool& found)
+{
+    // NOTE: The `length` argument sets a limit on the number of 4-byte units that will be
+    // passed over the network on behalf of the property value. Because of the unpacking
+    // mechanism of XGetWindowProperty(), this does not always correlate simply with
+    // client-side memory footprint. On a platform where `sizeof (short)` is 2 and `sizeof
+    // (long)` is 4, the limit on client-side memory footprint in bytes would be 4 times the
+    // value passed as `length`, regardless of the actual format of the property, which is
+    // not generally known ahead of time. In general, however, given a value for `length`,
+    // the maximum corresponding client-side memory footprint is much more complicated to
+    // determine.
+    //
+    long offset = 0;
+    long length = 4 * (1024 * 1024L); // Limit memory footprint of value
+    Bool delete_ = False;
+    Atom req_type = XA_ATOM;
+    Atom actual_type = {};
+    int actual_format = {};
+    unsigned long nitems = {};
+    unsigned long bytes_after = {};
+    unsigned char* prop = {};
+    int ret = XGetWindowProperty(dpy, win, name, offset, length, delete_, req_type,
+                                 &actual_type, &actual_format, &nitems, &bytes_after, &prop);
+    if (ARCHON_LIKELY(ret == Success)) {
+        ARCHON_SCOPE_EXIT {
+            if (prop)
+                XFree(prop);
+        };
+        if (ARCHON_LIKELY(actual_type == XA_ATOM && actual_format == 32 && bytes_after == 0)) {
+            Atom* begin = reinterpret_cast<Atom*>(prop);
+            Atom* end = begin + nitems;
+            found = (std::find(begin, end, value) != end);
+            return true;
+        }
+        return false;
+    }
+    throw std::runtime_error("XGetWindowProperty() failed");
+}
+
+
+void x11::set_property_a(Display* dpy, ::Window win, Atom name, Atom value) noexcept
+{
+    XChangeProperty(dpy, win, name, XA_ATOM, 32, PropModeReplace, reinterpret_cast<unsigned char*>(&value), 1);
+}
+
+
+void x11::set_property_8(Display* dpy, ::Window win, Atom name, unsigned char value) noexcept
+{
+    XChangeProperty(dpy, win, name, XA_CARDINAL, 8, PropModeReplace, reinterpret_cast<unsigned char*>(&value), 1);
+}
+
+
+void x11::set_property_16(Display* dpy, ::Window win, Atom name, unsigned short value) noexcept
+{
+    XChangeProperty(dpy, win, name, XA_CARDINAL, 16, PropModeReplace, reinterpret_cast<unsigned char*>(&value), 1);
+}
+
+
+void x11::set_property_32(Display* dpy, ::Window win, Atom name, unsigned long value) noexcept
+{
+    XChangeProperty(dpy, win, name, XA_CARDINAL, 32, PropModeReplace, reinterpret_cast<unsigned char*>(&value), 1);
 }
 
 
@@ -2635,17 +2756,16 @@ auto x11::fetch_standard_colormaps(Display* dpy, ::Window root) -> core::FlatMap
 }
 
 
-auto x11::load_visuals(Display* dpy, int screen, const x11::ExtensionInfo& extension_info) ->
+auto x11::load_visuals(Display* dpy, const x11::ExtensionInfo& extension_info, const x11::ScreenInfo& screen_info) ->
     core::Slab<x11::VisualSpec>
 {
     core::FlatMap<core::Pair<int, VisualID>, int> double_buffered_visuals;
 
-#if HAVE_XDBE
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_XDBE
 
     if (ARCHON_LIKELY(extension_info.have_xdbe)) {
-        Window root = RootWindow(dpy, screen);
         Drawable screen_specifiers[] = {
-            root,
+            screen_info.root,
         };
         int n = 1;
         XdbeScreenVisualInfo* entries = XdbeGetVisualInfo(dpy, screen_specifiers, &n);
@@ -2667,14 +2787,14 @@ auto x11::load_visuals(Display* dpy, int screen, const x11::ExtensionInfo& exten
         }
     }
 
-#else // !HAVE_XDBE
+#else // !ARCHON_DISPLAY_HAVE_GOOD_X11_XDBE
 
     static_cast<void>(extension_info);
 
-#endif // !HAVE_XDBE
+#endif // !ARCHON_DISPLAY_HAVE_GOOD_X11_XDBE
 
     auto make_spec = [&](const XVisualInfo & info) noexcept -> x11::VisualSpec {
-#if HAVE_GLX
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_GLX
         GLXFBConfig fb_config = {};
 #endif
         bool double_buffered = false;
@@ -2695,7 +2815,7 @@ auto x11::load_visuals(Display* dpy, int screen, const x11::ExtensionInfo& exten
         int opengl_stencil_buffer_bits = 0;
         int opengl_accum_buffer_bits = 0;
         return {
-#if HAVE_GLX
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_GLX
             fb_config,
 #endif
             info,
@@ -2712,24 +2832,12 @@ auto x11::load_visuals(Display* dpy, int screen, const x11::ExtensionInfo& exten
         };
     };
 
-#if HAVE_GLX
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_GLX
 
-    bool screen_supports_opengl = false;
-    {
-        const char* str = glXQueryExtensionsString(dpy, screen);
-        if (str) {
-            std::string_view str_2 = str;
-            bool has_srgb_framebuffer_support = (core::contains_word(str_2, "GLX_ARB_framebuffer_sRGB") ||
-                                                 core::contains_word(str_2, "GLX_EXT_framebuffer_sRGB")); // Throws
-            if (ARCHON_LIKELY(has_srgb_framebuffer_support))
-                screen_supports_opengl = true;
-        }
-    }
-
-    if (ARCHON_LIKELY(extension_info.have_glx && screen_supports_opengl)) {
+    if (ARCHON_LIKELY(screen_info.glx_has_srgb_framebuffer)) {
         std::vector<x11::VisualSpec> visual_specs;
         int n = {};
-        GLXFBConfig* configs = glXGetFBConfigs(dpy, screen, &n);
+        GLXFBConfig* configs = glXGetFBConfigs(dpy, screen_info.screen, &n);
         if (ARCHON_LIKELY(configs)) {
             ARCHON_SCOPE_EXIT {
                 XFree(configs);
@@ -2771,17 +2879,13 @@ auto x11::load_visuals(Display* dpy, int screen, const x11::ExtensionInfo& exten
         return visual_specs_3;
     }
 
-#else // !HAVE_XDBE
-
-    static_cast<void>(extension_info);
-
-#endif // !HAVE_XDBE
+#endif // ARCHON_DISPLAY_HAVE_GOOD_X11_GLX
 
     core::Slab<x11::VisualSpec> visual_specs;
     int n = {};
     long vinfo_mask = VisualScreenMask;
     XVisualInfo vinfo_template = {};
-    vinfo_template.screen = screen;
+    vinfo_template.screen = screen_info.screen;
     XVisualInfo* entries = XGetVisualInfo(dpy, vinfo_mask, &vinfo_template, &n);
     if (ARCHON_LIKELY(entries)) {
         ARCHON_SCOPE_EXIT {
@@ -3092,7 +3196,7 @@ auto x11::create_pixel_format(Display* dpy, ::Window root, const XVisualInfo& vi
 }
 
 
-#if HAVE_XRANDR
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_XRANDR
 
 bool x11::update_screen_conf(Display* dpy, ::Window root, Atom atom_edid, const impl::EdidParser& edid_parser,
                              const std::locale& locale, x11::ScreenConf& conf)
@@ -3106,7 +3210,7 @@ bool x11::update_screen_conf(Display* dpy, ::Window root, Atom atom_edid, const 
     throw std::runtime_error("Failed to fetch XRandR screen configuration within the allotted number of attempts");
 }
 
-#endif // HAVE_XRANDR
+#endif // ARCHON_DISPLAY_HAVE_GOOD_X11_XRANDR
 
 
 void x11::set_fullscreen_monitors(Display* dpy, ::Window win, const display::x11_fullscreen_monitors& spec,
@@ -3153,4 +3257,4 @@ void x11::set_fullscreen_mode(Display* dpy, ::Window win, bool on, ::Window root
 
 
 
-#endif // HAVE_X11
+#endif // ARCHON_DISPLAY_HAVE_GOOD_X11

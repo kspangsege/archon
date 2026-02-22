@@ -35,6 +35,7 @@
 #include <archon/core/assert.hpp>
 #include <archon/core/index_range.hpp>
 #include <archon/core/integer.hpp>
+#include <archon/core/memory.hpp>
 #include <archon/core/buffer.hpp>
 #include <archon/core/flat_map.hpp>
 #include <archon/log.hpp>
@@ -51,74 +52,127 @@
 #if !ARCHON_WINDOWS && ARCHON_DISPLAY_HAVE_X11 && ARCHON_DISPLAY_HAVE_X11_XKB
 #  include <unistd.h>
 #  if defined _POSIX_VERSION && _POSIX_VERSION >= 200112L // POSIX.1-2001
-#    define HAVE_X11 1
+#    include <X11/Xlib.h>
+#    include <X11/XKBlib.h>
+#    // Require at least version 1.0 of the Xkb protocol extension (XkbMajorVersion,
+#    // XkbMinorVersion). Be sure to keep this check in correspondence with the check in
+#    // archon::display::impl::x11::init_extensions().
+#    if defined XkbMajorVersion && XkbMajorVersion >= 1
+#      define ARCHON_DISPLAY_HAVE_GOOD_X11 1
+#    else
+#      define ARCHON_DISPLAY_HAVE_GOOD_X11 0
+#    endif
 #  else
-#    define HAVE_X11 0
+#    define ARCHON_DISPLAY_HAVE_GOOD_X11 0
 #  endif
 #else
-#  define HAVE_X11 0
+#  define ARCHON_DISPLAY_HAVE_GOOD_X11 0
 #endif
 
-#if HAVE_X11
+#if ARCHON_DISPLAY_HAVE_GOOD_X11
+#
 #  include <poll.h>
 #  include <X11/Xlib.h>
 #  include <X11/Xatom.h>
 #  include <X11/Xutil.h>
 #  include <X11/keysym.h>
-#  include <X11/XKBlib.h>
+#
 #  if ARCHON_DISPLAY_HAVE_X11_XDBE
 #    include <X11/extensions/Xdbe.h>
-#    define HAVE_XDBE 1
+#    // Some older X.Org releases didn't include the protocol header from
+#    // <X11/extensions/Xdbe.h>, but that header is needed for the definitions of
+#    // DBE_MAJOR_VERSION and DBE_MINOR_VERSION, so an attempt is made to include it below.
+#    if !defined DBE_MAJOR_VERSION
+#      if __has_include(<X11/extensions/Xdbeproto.h>)
+#        include <X11/extensions/Xdbeproto.h>
+#      elif __has_include(<X11/extensions/dbe.h>)
+#        include <X11/extensions/dbe.h>
+#      endif
+#    endif
+#    // Require at least version 1.0 of the Xdbe protocol extension (DBE_MAJOR_VERSION,
+#    // DBE_MINOR_VERSION). Be sure to keep this check in correspondence with the check in
+#    // archon::display::impl::x11::init_extensions().
+#    if defined DBE_MAJOR_VERSION && DBE_MAJOR_VERSION >= 1
+#      define ARCHON_DISPLAY_HAVE_GOOD_X11_XDBE 1
+#    else
+#      define ARCHON_DISPLAY_HAVE_GOOD_X11_XDBE 0
+#    endif
 #  else
-#    define HAVE_XDBE 0
+#    define ARCHON_DISPLAY_HAVE_GOOD_X11_XDBE 0
 #  endif
+#
 #  if ARCHON_DISPLAY_HAVE_X11_XRANDR
 #    include <X11/extensions/Xrandr.h>
-#    define HAVE_XRANDR 1
+#    // Require at least version 1.5 of the XRandR protocol extension (RANDR_MAJOR,
+#    // RANDR_MINOR). Be sure to keep this check in correspondence with the check in
+#    // archon::display::impl::x11::init_extensions().
+#    if defined RANDR_MAJOR && (RANDR_MAJOR > 1 || (RANDR_MAJOR == 1 && defined RANDR_MINOR && RANDR_MINOR >= 5))
+#      define ARCHON_DISPLAY_HAVE_GOOD_X11_XRANDR 1
+#    else
+#      define ARCHON_DISPLAY_HAVE_GOOD_X11_XRANDR 0
+#    endif
 #  else
-#    define HAVE_XRANDR 0
+#    define ARCHON_DISPLAY_HAVE_GOOD_X11_XRANDR 0
 #  endif
+#
 #  if ARCHON_DISPLAY_HAVE_X11_XRENDER
 #    include <X11/extensions/Xrender.h>
-#    define HAVE_XRENDER 1
+#    // Require at least version 0.7 of the Xrender protocol extension (RENDER_MAJOR,
+#    // RENDER_MINOR). Be sure to keep this check in correspondence with the check in
+#    // archon::display::impl::x11::init_extensions().
+#    if defined RENDER_MAJOR && (RENDER_MAJOR > 0 || (RENDER_MAJOR == 0 && defined RENDER_MINOR && RENDER_MINOR >= 7))
+#      define ARCHON_DISPLAY_HAVE_GOOD_X11_XRENDER 1
+#    else
+#      define ARCHON_DISPLAY_HAVE_GOOD_X11_XRENDER 0
+#    endif
 #  else
-#    define HAVE_XRENDER 0
+#    define ARCHON_DISPLAY_HAVE_GOOD_X11_XRENDER 0
 #  endif
+#
 #  if ARCHON_DISPLAY_HAVE_X11_GLX
 #    include <GL/glx.h>
-#  endif
-#  if ARCHON_DISPLAY_HAVE_X11_GLX &&                                \
-    defined GLX_VERSION_1_4 && GLX_VERSION_1_4 &&                   \
-    defined GLX_ARB_get_proc_address && GLX_ARB_get_proc_address && \
-    defined GLX_ARB_framebuffer_sRGB && GLX_ARB_framebuffer_sRGB
-#    define HAVE_GLX 1
+#    // Require at least version 1.4 of the GLX protocol extension. Be sure to keep this
+#    // check in correspondence with the check in
+#    // archon::display::impl::x11::init_extensions().
+#    if defined GLX_VERSION_1_4 && GLX_VERSION_1_4 &&                   \
+        defined GLX_ARB_get_proc_address && GLX_ARB_get_proc_address && \
+        defined GLX_ARB_framebuffer_sRGB && GLX_ARB_framebuffer_sRGB
+#      define ARCHON_DISPLAY_HAVE_GOOD_X11_GLX 1
+#    else
+#      define ARCHON_DISPLAY_HAVE_GOOD_X11_GLX 0
+#    endif
 #  else
-#    define HAVE_GLX 0
+#    define ARCHON_DISPLAY_HAVE_GOOD_X11_GLX 0
 #  endif
+#
 #  if defined X_HAVE_UTF8_STRING && X_HAVE_UTF8_STRING
 #    define HAVE_X11_UTF8 1
 #  else
 #    define HAVE_X11_UTF8 0
 #  endif
+#
 #endif
 
 
 // According to Wikipedia, as of July 7, 2024, Release 7.7 is the latest release of X11. It
-// was released on June 6, 2012.
+// was released on June 6, 2012. That said, significant development has happened since 7.7
+// with new versions introduced for various extensions.
 //
 //
 // Relevant links
 // --------------
 //
-// X11 documentation overview: https://www.x.org/releases/X11R7.7/doc/
+// X11 documentation overview (latest): https://www.x.org/releases/current/doc/
+// X11 documentation overview (7.7): https://www.x.org/releases/X11R7.7/doc/
 //
-// X11 API documentation: https://www.x.org/releases/X11R7.7/doc/libX11/libX11/libX11.html
+// X11 API documentation (latest): https://www.x.org/releases/current/doc/libX11/libX11/libX11.html
+// X11 API documentation (7.7): https://www.x.org/releases/X11R7.7/doc/libX11/libX11/libX11.html
 //
-// Inter-Client Communication Conventions Manual: https://x.org/releases/X11R7.7/doc/xorg-docs/icccm/icccm.html
+// Inter-Client Communication Conventions Manual: https://x.org/releases/current/doc/xorg-docs/icccm/icccm.html
 //
 // Extended Window Manager Hints: https://specifications.freedesktop.org/wm-spec/latest/
 //
-// X11 protocol specification: https://www.x.org/releases/X11R7.7/doc/xproto/x11protocol.html
+// X11 protocol specification: https://www.x.org/releases/current/doc/xproto/x11protocol.html
 //
 // X.Org module-level source code releases: https://www.x.org/releases/individual/lib/
 //
@@ -130,17 +184,21 @@
 // Xkb extension
 // -------------
 //
-// API documentation: https://www.x.org/releases/X11R7.7/doc/libX11/XKB/xkblib.html
+// API documentation: https://www.x.org/releases/current/doc/libX11/XKB/xkblib.html
 //
-// Protocol specification: https://www.x.org/releases/X11R7.7/doc/kbproto/xkbproto.html
+// Protocol specification: https://www.x.org/releases/current/doc/kbproto/xkbproto.html
+//
+// NOTE: As of Feb 19, 2026, the linked protocol specification is for version 1.0.
 //
 //
 // Xdbe extension
 // --------------
 //
-// API documentation: https://www.x.org/releases/X11R7.7/doc/libXext/dbelib.html
+// API documentation: https://www.x.org/releases/current/doc/libXext/dbelib.html
 //
-// Protocol specification: https://www.x.org/releases/X11R7.7/doc/xextproto/dbe.html
+// Protocol specification: https://www.x.org/releases/current/doc/xextproto/dbe.html
+//
+// NOTE: As of Feb 19, 2026, the linked protocol specification is for version 1.0.
 //
 //
 // XRandR extension
@@ -148,9 +206,10 @@
 //
 // General documentation: https://www.x.org/wiki/libraries/libxrandr/
 //
-// Protocol specification: https://www.x.org/releases/X11R7.7/doc/randrproto/randrproto.txt
+// Protocol specification: https://www.x.org/releases/current/doc/randrproto/randrproto.txt
 //
-// NOTE: Version 1.6 of the protocol specification (from 2017-04-01) can be found as
+// NOTE: As of Feb 19, 2026, the linked protocol specification is for version 1.4. Version
+// 1.6 of the protocol specification (from 2017-04-01) can be found as
 // `/usr/share/doc/x11proto-dev/randrproto.txt.gz` in package `x11proto-dev` on Ubuntu
 // 24.04.
 //
@@ -158,9 +217,11 @@
 // Xrender extension
 // -----------------
 //
-// API documentation: https://www.x.org/releases/X11R7.7/doc/libXrender/libXrender.txt
+// API documentation: https://www.x.org/releases/current/doc/libXrender/libXrender.txt
 //
-// Protocol specification: https://www.x.org/releases/X11R7.7/doc/renderproto/renderproto.txt
+// Protocol specification: https://www.x.org/releases/current/doc/renderproto/renderproto.txt
+//
+// NOTE: As of Feb 19, 2026, the linked protocol specification is for version 0.11.
 //
 //
 // OpenGL GLX
@@ -203,21 +264,27 @@
 namespace archon::display::impl::x11 {
 
 
-#if HAVE_X11
+#if ARCHON_DISPLAY_HAVE_GOOD_X11
 
 
 struct ExtensionInfo {
+    // NOTE: GLX is available for a particular target screen only if `have_glx` is true and
+    // the GLX extension string for that screen contains `GLX_ARB_create_context`. When it
+    // does, glx_create_context_func can be called to create a GLX context for that
+    // screen. See x11::ScreenInfo::have_glx.
+    //
+    bool have_xkb;     // X Keyboard Extension
     bool have_xdbe;    // X Double Buffer Extension
-    bool have_xkb;     // X Keyboard Extention
     bool have_xrandr;  // X Resize, Rotate and Reflect Extension
     bool have_xrender; // X Rendering Extension
     bool have_glx;     // X extension for rendering using OpenGL
 
+    // Valid only when `have_xkb` is `true`
+    int xkb_event_base;
+    int xkb_major, xkb_minor;
+
     // Valid only when `have_xdbe` is `true`
     int xdbe_major, xdbe_minor;
-
-    // Valid only when `have_xkb` is `true`
-    int xkb_major, xkb_minor;
 
     // Valid only when `have_xrandr` is `true`
     int xrandr_event_base;
@@ -228,9 +295,26 @@ struct ExtensionInfo {
 
     // Valid only when `have_glx` is `true`
     int glx_major, glx_minor;
-#if HAVE_GLX
-    PFNGLXCREATECONTEXTATTRIBSARBPROC glx_create_context;
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_GLX
+    using glx_create_context_func_type = GLXContext (*)(Display* dpy, GLXFBConfig config, GLXContext share_context,
+                                                        Bool direct, const int* attrib_list);
+    using glx_swap_interval_func_type = void (*)(Display* dpy, GLXDrawable drawable, int interval);
+    glx_create_context_func_type glx_create_context_func;
+    glx_swap_interval_func_type glx_swap_interval_func;
 #endif
+};
+
+
+struct ScreenInfo {
+    int screen;
+    ::Window root;
+    VisualID default_visual;
+    Colormap default_colormap;
+
+    bool have_glx; // GLX + GLX_ARB_create_context
+    bool glx_has_srgb_framebuffer;  // Implies have_glx
+    bool glx_has_swap_control;      // Implies have_glx
+    bool glx_has_swap_control_tear; // Implies have_glx
 };
 
 
@@ -243,7 +327,7 @@ struct TextPropertyWrapper {
 
 
 struct VisualSpec {
-#if HAVE_GLX
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_GLX
     GLXFBConfig fb_config;
 #endif
     XVisualInfo info;
@@ -415,7 +499,7 @@ private:
 
 
 
-#if HAVE_XRANDR
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_XRANDR
 
 
 struct ProtoViewport {
@@ -434,7 +518,7 @@ struct ScreenConf {
 };
 
 
-#endif // HAVE_XRANDR
+#endif // ARCHON_DISPLAY_HAVE_GOOD_X11_XRANDR
 
 
 
@@ -463,6 +547,9 @@ bool try_connect(std::string_view display, x11::DisplayWrapper& dpy_owner);
 auto init_extensions(Display* dpy) -> x11::ExtensionInfo;
 
 
+auto get_screen_info(Display* dpy, const x11::ExtensionInfo& extension_info, int screen) -> x11::ScreenInfo;
+
+
 // If no screen is specified, the default screen for the display will be returned.
 //
 int get_screen_index(Display* dpy, std::optional<int> screen) noexcept;
@@ -471,7 +558,24 @@ int get_screen_index(Display* dpy, std::optional<int> screen) noexcept;
 bool valid_screen_index(Display* dpy, int screen) noexcept;
 
 
+auto intern_string(Display* dpy, const char* string) noexcept -> Atom;
+
+
 bool has_property(Display* dpy, ::Window win, Atom name);
+
+// Searches for the specified atom (`value`) within the list of values of the specified
+// property (`name`). It succeeds if the property has the right type (`XA_ATOM`), the format
+// is 32 (long), and the byte size of the value is within reasonable limits (16
+// MiB). Otherwise it fails. On success, it returns true after setting `found` to true if
+// and only if the specified value was found. On failure, it returns false and leaves
+// `found` unchanged.
+//
+bool try_property_find_a(Display* dpy, ::Window win, Atom name, Atom value, bool& found);
+
+void set_property_a(Display* dpy, ::Window win, Atom name, Atom value) noexcept;
+void set_property_8(Display* dpy, ::Window win, Atom name, unsigned char value) noexcept;
+void set_property_16(Display* dpy, ::Window win, Atom name, unsigned short value) noexcept;
+void set_property_32(Display* dpy, ::Window win, Atom name, unsigned long value) noexcept;
 
 
 // Key in returned map is visual depth.
@@ -482,7 +586,8 @@ auto fetch_pixmap_formats(Display* dpy) -> core::FlatMap<int, XPixmapFormatValue
 auto fetch_standard_colormaps(Display* dpy, ::Window root) -> core::FlatMap<VisualID, XStandardColormap>;
 
 
-auto load_visuals(Display* dpy, int screen, const x11::ExtensionInfo& extension_info) -> core::Slab<x11::VisualSpec>;
+auto load_visuals(Display* dpy, const x11::ExtensionInfo& extension_info, const x11::ScreenInfo& screen_info) ->
+    core::Slab<x11::VisualSpec>;
 
 
 bool find_visual(Display* dpy, int screen, core::Span<const x11::VisualSpec> visual_specs,
@@ -550,18 +655,18 @@ auto create_pixel_format(Display* dpy, ::Window root, const XVisualInfo&, const 
                          bool prefer_default_nondecomposed_colormap, bool weird) -> std::unique_ptr<x11::PixelFormat>;
 
 
-#if HAVE_XRANDR
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_XRANDR
 
 bool update_screen_conf(Display* dpy, ::Window root, Atom atom_edid, const impl::EdidParser& edid_parser,
                         const std::locale& locale, x11::ScreenConf& conf);
 
-#endif // HAVE_XRANDR
+#endif // ARCHON_DISPLAY_HAVE_GOOD_X11_XRANDR
 
 
 // These need to be called while window is mapped.
 //
 // FIXME: Why is it not possible to set fullscreen mode or "fullscreen monitors"
-// speciffication before window is mapped?                  
+// specification before window is mapped?                  
 //
 void set_fullscreen_monitors(Display* dpy, ::Window win, const display::x11_fullscreen_monitors& spec,
                              ::Window root, Atom atom_net_wm_fullscreen_monitors);
@@ -569,7 +674,7 @@ void set_fullscreen_mode(Display* dpy, ::Window win, bool on, ::Window root, Ato
                          Atom atom_net_wm_state_fullscreen);
 
 
-#endif // HAVE_X11
+#endif // ARCHON_DISPLAY_HAVE_GOOD_X11
 
 
 
@@ -581,7 +686,7 @@ void set_fullscreen_mode(Display* dpy, ::Window win, bool on, ::Window root, Ato
 // Implementation
 
 
-#if HAVE_X11
+#if ARCHON_DISPLAY_HAVE_GOOD_X11
 
 
 inline TextPropertyWrapper::~TextPropertyWrapper() noexcept
@@ -853,7 +958,7 @@ inline bool valid_screen_index(Display* dpy, int screen) noexcept
 }
 
 
-#endif // HAVE_X11
+#endif // ARCHON_DISPLAY_HAVE_GOOD_X11
 
 
 } // namespace archon::display::impl::x11

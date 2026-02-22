@@ -37,6 +37,8 @@ void display::list_implementations(core::File& file, const std::locale& locale, 
 {
     core::with_text_formatter(file, locale, [&](core::TextFormatter& formatter) {
         formatter.begin_hold(); // Throws
+
+        // 1st column: Identifier
         formatter.begin_compile(); // Throws
         int n = display::get_num_implementation_slots();
         for (int i = 0; i < n; ++i) {
@@ -52,6 +54,8 @@ void display::list_implementations(core::File& file, const std::locale& locale, 
         core::saturating_add(offset_1, 2);
         formatter.format_section(0); // Throws
         formatter.end_compile();
+
+        // 2nd column: Availability
         formatter.begin_compile();
         for (int i = 0; i < n; ++i) {
             const display::Implementation::Slot& slot = display::get_implementation_slot(i); // Throws
@@ -76,12 +80,15 @@ void display::list_implementations(core::File& file, const std::locale& locale, 
         formatter.set_offset(offset_1); // Throws
         formatter.format_section(0); // Throws
         formatter.end_compile();
+
+        // 3rd column: Description
         formatter.jump_back(); // Throws
         formatter.set_offset(offset_2); // Throws
         for (int i = 0; i < n; ++i) {
             const display::Implementation::Slot& slot = display::get_implementation_slot(i); // Throws
             formatter.writeln(slot.get_descr()); // Throws
         }
+
         formatter.end_hold(); // Throws
     }); // Throws
 }

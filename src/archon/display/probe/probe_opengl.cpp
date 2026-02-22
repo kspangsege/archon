@@ -23,6 +23,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <iterator>
+#include <algorithm>
 #include <memory>
 #include <utility>
 #include <chrono>
@@ -202,22 +203,24 @@ class event_loop final
     : private display::ConnectionEventHandler
     , private display::WindowEventHandler {
 public:
-    event_loop(const std::locale& locale, log::Logger& logger, display::Connection& conn, int screen) noexcept;
+    event_loop(const std::locale& locale, log::Logger& logger, display::Connection& conn, int screen,
+               double default_frame_rate, bool frame_rate_tracking_enabled, bool alternate_bgcolor) noexcept;
     ~event_loop() noexcept;
 
-    bool try_init(display::Size window_size);
+    bool try_init(display::Size window_size, bool fullscreen, std::optional<bool> vsync, bool prefer_adaptive_vsync);
 
     void run();
 
 private:
     using clock_type = display::Connection::clock_type;
 
-    static constexpr double s_default_frame_rate = 60;
-
     std::locale m_locale;
     log::Logger& m_logger;
     display::Connection& m_conn;
     const int m_screen;
+    const double m_default_frame_rate;
+    const bool m_frame_rate_tracking_enabled;
+    const bool m_alternate_bgcolor;
 
     std::unique_ptr<display::Window> m_window;
     GLint m_model_view_loc;
@@ -232,8 +235,11 @@ private:
 
     bool m_initialized = false;
     bool m_started = false;
+    bool m_fullscreen = {};
+    bool m_viewport_needs_update = true;
     int m_max_opengl_errors = 8;
     double m_angle = 0;
+    long long m_frame_index = 0;
 
     void render_frame();
 
@@ -249,12 +255,16 @@ private:
 };
 
 
-inline event_loop::event_loop(const std::locale& locale, log::Logger& logger, display::Connection& conn,
-                              int screen) noexcept
+inline event_loop::event_loop(const std::locale& locale, log::Logger& logger, display::Connection& conn, int screen,
+                              double default_frame_rate, bool frame_rate_tracking_enabled,
+                              bool alternate_bgcolor) noexcept
     : m_locale(locale)
     , m_logger(logger)
     , m_conn(conn)
     , m_screen(screen)
+    , m_default_frame_rate(default_frame_rate)
+    , m_frame_rate_tracking_enabled(frame_rate_tracking_enabled)
+    , m_alternate_bgcolor(alternate_bgcolor)
 {
 }
 
@@ -265,18 +275,24 @@ event_loop::~event_loop() noexcept
 }
 
 
-bool event_loop::try_init(display::Size window_size)
+bool event_loop::try_init(display::Size window_size, bool fullscreen, std::optional<bool> vsync,
+                          bool prefer_adaptive_vsync)
 {
     ARCHON_ASSERT(!m_initialized);
 
     m_conn.set_event_handler(*this); // Throws
 
     m_window_size = window_size;
-    update_frame_rate(s_default_frame_rate); // Throws
+    m_fullscreen = fullscreen;
+    update_frame_rate(m_default_frame_rate); // Throws
 
     display::Window::Config window_config;
     window_config.screen = m_screen;
+    window_config.resizable = true;
+    window_config.fullscreen = fullscreen;
     window_config.enable_opengl_rendering = true;
+    window_config.prefer_opengl_adaptive_vsync = prefer_adaptive_vsync;
+    window_config.opengl_vsync = vsync;
     std::unique_ptr<display::Window> window;
     std::string error;
     if (ARCHON_UNLIKELY(!m_conn.try_new_window("Probe OpenGL", window_size, window_config, window, error))) { // Throws
@@ -391,7 +407,6 @@ void event_loop::run()
     track_screen_conf(); // Throws
 
     glEnable(GL_FRAMEBUFFER_SRGB);
-    glClearColor(0.03310, 0.07324, 0.07324, 1);
 
     m_window->show(); // Throws
     m_started = true;
@@ -413,7 +428,7 @@ void event_loop::run()
                 m_logger.error("OpenGL error: %s", display::get_opengl_error_message(error)); // Throws
                 m_max_opengl_errors -= 1;
                 if (m_max_opengl_errors == 0)
-                    m_logger.error("No more OpenGL error will be reported"); // Throws
+                    m_logger.error("No more OpenGL errors will be reported"); // Throws
             }
         }
     }
@@ -423,6 +438,15 @@ void event_loop::run()
 
 void event_loop::render_frame()
 {
+    if (m_viewport_needs_update) {
+        int size = std::min(m_window_size.width, m_window_size.height);
+        int x = (m_window_size.width  - size) / 2;
+        int y = (m_window_size.height - size) / 2;
+        glViewport(GLint(x), GLint(y), GLint(size), GLint(size));
+    }
+
+    GLfloat green = ((!m_alternate_bgcolor || m_frame_index % 2 == 0) ? 0.07324 : 0.17324);
+    glClearColor(0.03310, green, 0.07324, 1);
     glClear(GL_COLOR_BUFFER_BIT);
 
     double camera_dist = 10;
@@ -454,6 +478,8 @@ void event_loop::render_frame()
         std::size_t offset = 0;
         glDrawElements(GL_TRIANGLES, count, type, reinterpret_cast<void*>(offset));
     }
+
+    m_frame_index += 1;
 }
 
 
@@ -461,8 +487,16 @@ bool event_loop::on_keydown(const display::KeyEvent& ev)
 {
     display::Key key = {};
     if (ARCHON_LIKELY(m_conn.try_map_key_code_to_key(ev.key_code, key))) { // Throws
-        if (ARCHON_UNLIKELY(key == display::Key::escape))
-            return false;
+        switch (key) {
+            case display::Key::escape:
+                return false;
+            case display::Key::small_f:
+                m_fullscreen = !m_fullscreen;
+                m_window->set_fullscreen_mode(m_fullscreen); // Throws
+                break;
+            default:
+                break;
+        }
     }
     return true;
 }
@@ -470,6 +504,8 @@ bool event_loop::on_keydown(const display::KeyEvent& ev)
 
 bool event_loop::on_resize(const display::WindowSizeEvent& ev)
 {
+    if (ev.size != m_window_size)
+        m_viewport_needs_update = true;
     m_window_size = ev.size;
     track_screen_conf(); // Throws
     return true;
@@ -496,23 +532,27 @@ bool event_loop::on_screen_change(int screen)
 
 void event_loop::fetch_screen_conf()
 {
-    m_num_viewports = 0;
-    m_conn.try_get_screen_conf(m_screen, m_viewports, m_viewport_strings, m_num_viewports); // Throws
+    if (m_frame_rate_tracking_enabled) {
+        m_num_viewports = 0;
+        m_conn.try_get_screen_conf(m_screen, m_viewports, m_viewport_strings, m_num_viewports); // Throws
+    }
 }
 
 
 void event_loop::track_screen_conf()
 {
-    double frame_rate = s_default_frame_rate;
-    core::Span viewports = { m_viewports.data(), m_num_viewports };
-    std::size_t i = display::find_viewport(viewports, m_window_pos, m_window_size);
-    if (ARCHON_LIKELY(i != std::size_t(-1))) {
-        const display::Viewport& viewport = m_viewports[i];
-        if (ARCHON_LIKELY(viewport.refresh_rate.has_value()))
-            frame_rate = viewport.refresh_rate.value();
+    if (m_frame_rate_tracking_enabled) {
+        double frame_rate = m_default_frame_rate;
+        core::Span viewports = { m_viewports.data(), m_num_viewports };
+        std::size_t i = display::find_viewport(viewports, m_window_pos, m_window_size);
+        if (ARCHON_LIKELY(i != std::size_t(-1))) {
+            const display::Viewport& viewport = m_viewports[i];
+            if (ARCHON_LIKELY(viewport.refresh_rate.has_value()))
+                frame_rate = viewport.refresh_rate.value();
+        }
+        if (ARCHON_UNLIKELY(frame_rate != m_frame_rate))
+            update_frame_rate(frame_rate); // Throws
     }
-    if (ARCHON_UNLIKELY(frame_rate != m_frame_rate))
-        update_frame_rate(frame_rate); // Throws
 }
 
 
@@ -541,10 +581,17 @@ int main(int argc, char* argv[])
 
     bool list_display_implementations = false;
     display::Size window_size = 512;
+    double frame_rate = 60;
+    bool disable_frame_rate_tracking = false;
+    bool fullscreen = false;
+    std::optional<bool> optional_vsync;
     log::LogLevel log_level_limit = log::LogLevel::info;
     std::optional<std::string> optional_display_implementation;
     std::optional<int> optional_screen;
+    bool alternate_bgcolor = false;
+    bool prefer_adaptive_vsync = false;
     std::optional<std::string> optional_x11_display;
+    bool x11_fullscreen_bypass_compositor = false;
 
     cli::Spec spec;
     pat("", cli::no_attributes, spec,
@@ -565,6 +612,23 @@ int main(int argc, char* argv[])
         "as a single value, which is then used as both width and height. The default size is @V.",
         cli::assign(window_size)); // Throws
 
+    opt("-r, --frame-rate", "<rate>", cli::no_attributes, spec,
+        "The initial frame rate limit. The frame rate limit marks the upper limit on the number of frames per second. "
+        "The value can be fractional using `.` as decimal point. The default initial rate limit is @V.",
+        cli::assign(frame_rate)); // Throws
+
+    opt("-g, --disable-frame-rate-tracking", "", cli::no_attributes, spec,
+        "Turn off frame rate tracking mode.",
+        cli::raise_flag(disable_frame_rate_tracking)); // Throws
+
+    opt("-f, --fullscreen", "", cli::no_attributes, spec,
+        "Open window in fullscreen mode.",
+        cli::raise_flag(fullscreen)); // Throws
+
+    opt("-v, --vsync", "<value>", cli::no_attributes, spec,
+        "Turn V-Sync on (value = 1) or off (value = 0). By default, V-Sync may be on or off.",
+        cli::assign(optional_vsync)); // Throws
+
     opt("-l, --log-level", "<level>", cli::no_attributes, spec,
         "Set the log level limit. The possible levels are @G. The default limit is @Q.",
         cli::assign(log_level_limit)); // Throws
@@ -580,10 +644,22 @@ int main(int argc, char* argv[])
         "option is not specified, the default screen of the display will be targeted.",
         cli::assign(optional_screen)); // Throws
 
+    opt("-a, --alternate-bgcolor", "", cli::no_attributes, spec,
+        "Use background color that alternates from frame to frame. Good for exposing tearing.",
+        cli::raise_flag(alternate_bgcolor)); // Throws
+
+    opt("-A, --prefer-adaptive-vsync", "", cli::no_attributes, spec,
+        "When V-Sync is turned on, use Adaptive V-Sync if possible.",
+        cli::raise_flag(prefer_adaptive_vsync)); // Throws
+
     opt("-D, --x11-display", "<string>", cli::no_attributes, spec,
         "When using the X11-based display implementation, target the specified X11 display (@A). If this option is "
         "not specified, the value of the DISPLAY environment variable will be used.",
         cli::assign(optional_x11_display)); // Throws
+
+    opt("-P, --x11-fullscreen-bypass-compositor", "", cli::no_attributes, spec,
+        "When using the X11-based display implementation, send hint to bypass compositor while in fullscreen mode.",
+        cli::raise_flag(x11_fullscreen_bypass_compositor)); // Throws
 
     int exit_status = 0;
     if (ARCHON_UNLIKELY(cli::process(argc, argv, spec, exit_status, locale))) // Throws
@@ -627,6 +703,7 @@ int main(int argc, char* argv[])
     display::Connection::Config connection_config;
     connection_config.logger = &display_logger;
     connection_config.x11.display = optional_x11_display;
+    connection_config.x11.fullscreen_opengl_bypass_compositor = x11_fullscreen_bypass_compositor;
     std::unique_ptr<display::Connection> conn;
     if (ARCHON_UNLIKELY(!impl->try_new_connection(locale, connection_config, conn, error))) { // Throws
         logger.error("Failed to open display connection: %s", error); // Throws
@@ -649,8 +726,9 @@ int main(int argc, char* argv[])
 
 #if ARCHON_DISPLAY_HAVE_OPENGL
 
-    event_loop loop(locale, logger, *conn, screen);
-    if (ARCHON_UNLIKELY(!loop.try_init(window_size))) // Throws
+    bool frame_rate_tracking_enabled = !disable_frame_rate_tracking;
+    event_loop loop(locale, logger, *conn, screen, frame_rate, frame_rate_tracking_enabled, alternate_bgcolor);
+    if (ARCHON_UNLIKELY(!loop.try_init(window_size, fullscreen, optional_vsync, prefer_adaptive_vsync))) // Throws
         return EXIT_FAILURE;
     loop.run(); // Throws
 

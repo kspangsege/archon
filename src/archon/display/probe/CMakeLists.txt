@@ -10,12 +10,13 @@ target_link_libraries(ProbeX11 PRIVATE
   Core
   Log
   Cli
+  Math
   Util
   Image
   Display
 )
 
-if(X11_FOUND)
+if(ARCHON_GOOD_X11_FOUND)
   target_link_libraries(ProbeX11 PRIVATE X11::X11)
   if(X11_Xext_FOUND)
     target_link_libraries(ProbeX11 PRIVATE X11::Xext)

@@ -53,12 +53,14 @@
 #include <archon/core/file.hpp>
 #include <archon/log.hpp>
 #include <archon/cli.hpp>
+#include <archon/math/vector.hpp>
 #include <archon/util/color.hpp>
 #include <archon/util/colors.hpp>
 #include <archon/util/as_css_color.hpp>
 #include <archon/image.hpp>
 #include <archon/display/impl/config.h>
 #include <archon/display/geometry.hpp>
+#include <archon/display/mouse_button.hpp>
 #include <archon/display/noinst/timestamp_unwrapper.hpp>
 #include <archon/display/noinst/edid.hpp>
 #include <archon/display/x11_fullscreen_monitors.hpp>
@@ -72,7 +74,7 @@ namespace impl = display::impl;
 namespace x11 = impl::x11;
 
 
-#if HAVE_X11
+#if ARCHON_DISPLAY_HAVE_GOOD_X11
 
 
 namespace {
@@ -96,12 +98,14 @@ auto get_grab_result_name(int ret) noexcept -> const char*
 }
 
 
-bool try_grab_pointer(Display* dpy, Window win, log::Logger& logger)
+bool try_grab_pointer(Display* dpy, Window win, bool motion, log::Logger& logger)
 {
     Window grab_window = win;
     Bool owner_events = False;
-    unsigned int event_mask = (PointerMotionMask | ButtonPressMask | ButtonReleaseMask |
+    unsigned int event_mask = (ButtonPressMask | ButtonReleaseMask |
                                EnterWindowMask | LeaveWindowMask);
+    if (motion)
+        event_mask |= PointerMotionMask;
     int pointer_mode = GrabModeAsync;
     int keyboard_mode = GrabModeAsync;
     Window confine_to = None; // No confinement
@@ -115,14 +119,14 @@ bool try_grab_pointer(Display* dpy, Window win, log::Logger& logger)
 }
 
 
-void ungrab_pointer(Display* dpy)
+void ungrab_pointer(Display* dpy) noexcept
 {
     Time time = CurrentTime;
     XUngrabPointer(dpy, time);
 }
 
 
-auto get_crossing_mode_name(int mode) noexcept -> const char*
+auto get_notify_mode_name(int mode) noexcept -> const char*
 {
     switch (mode) {
         case NotifyNormal:
@@ -131,12 +135,14 @@ auto get_crossing_mode_name(int mode) noexcept -> const char*
             return "NotifyGrab";
         case NotifyUngrab:
             return "NotifyUngrab";
+        case NotifyWhileGrabbed:
+            return "NotifyWhileGrabbed";
     }
     return "?";
 }
 
 
-auto get_crossing_detail_name(int detail) noexcept -> const char*
+auto get_notify_detail_name(int detail) noexcept -> const char*
 {
     switch (detail) {
         case NotifyAncestor:
@@ -157,6 +163,52 @@ auto get_crossing_detail_name(int detail) noexcept -> const char*
             return "NotifyDetailNone";
     }
     return "?";
+}
+
+
+// Map normalized X11 button identifier to well defined button or scrolling amount
+bool x11_try_map_pointer_button(unsigned x11_button, bool& is_scroll, display::MouseButton& button,
+                                math::Vector2F& amount) noexcept
+{
+    switch (x11_button) {
+        case 1:
+            is_scroll = false;
+            button = display::MouseButton::left;
+            return true;
+        case 2:
+            is_scroll = false;
+            button = display::MouseButton::middle;
+            return true;
+        case 3:
+            is_scroll = false;
+            button = display::MouseButton::right;
+            return true;
+        case 4:
+            is_scroll = true;
+            amount = { 0, +1 }; // Scroll up
+            return true;
+        case 5:
+            is_scroll = true;
+            amount = { 0, -1 }; // Scroll down
+            return true;
+        case 6:
+            is_scroll = true;
+            amount = { -1, 0 }; // Scroll left
+            return true;
+        case 7:
+            is_scroll = true;
+            amount = { +1, 0 }; // Scroll right
+            return true;
+        case 8:
+            is_scroll = false;
+            button = display::MouseButton::x1;
+            return true;
+        case 9:
+            is_scroll = false;
+            button = display::MouseButton::x2;
+            return true;
+    }
+    return false;
 }
 
 
@@ -278,12 +330,13 @@ int main(int argc, char* argv[])
     std::optional<int> optional_visual_depth;
     std::optional<display::x11_connection_config::VisualClass> optional_visual_class;
     std::optional<VisualID> optional_visual_type;
+    bool fullscreen_bypass_compositor = false;
     bool prefer_default_nondecomposed_colormap = false;
     bool disable_double_buffering = false;
     bool disable_detectable_autorepeat = false;
     std::optional<display::Pos> optional_pos;
     log::LogLevel log_level_limit = log::LogLevel::warn;
-    bool report_mouse_move = false;
+    bool report_mouse_motion = false;
     bool override_redirect = false;
     bool set_input_focus = false;
     bool synchronous_mode = false;
@@ -354,7 +407,7 @@ int main(int argc, char* argv[])
 
     opt("-V, --visual-type", "<num>", cli::no_attributes, spec,
         "Pick a visual of the specified type (@A). The type, also known as the visual ID, is a 32-bit unsigned "
-        "integer that can be expressed in decimal, hexadecumal (with prefix '0x'), or octal (with prefix '0') form.",
+        "integer that can be expressed in decimal, hexadecimal (with prefix '0x'), or octal (with prefix '0') form.",
         cli::exec([&](std::string_view str) {
             core::ValueParser parser(locale);
             std::uint_fast32_t type = {};
@@ -366,6 +419,10 @@ int main(int argc, char* argv[])
             }
             return false;
         })); // Throws
+
+    opt("-P, --fullscreen-bypass-compositor", "", cli::no_attributes, spec,
+        "Send hint to bypass X11 compositor while in fullscreen mode.",
+        cli::raise_flag(fullscreen_bypass_compositor)); // Throws
 
     opt("-C, --prefer-default-nondecomposed-colormap", "", cli::no_attributes, spec,
         "Prefer the use of the default colormap when the default visual is used and is a PseudoColor or GrayScale "
@@ -388,16 +445,16 @@ int main(int argc, char* argv[])
         "Set the log level limit. The possible levels are @G. The default limit is @Q.",
         std::tie(log_level_limit)); // Throws
 
-    opt("-m, --report-mouse-move", "", cli::no_attributes, spec,
+    opt("-m, --report-mouse-motion", "", cli::no_attributes, spec,
         "Turn on reporting of \"mouse move\" events.",
-        cli::raise_flag(report_mouse_move)); // Throws
+        cli::raise_flag(report_mouse_motion)); // Throws
 
     opt("-o, --override-redirect", "", cli::no_attributes, spec,
         "Turn on \"override redirect\" mode for created windows.",
         cli::raise_flag(override_redirect)); // Throws
 
     opt("-i, --set-input-focus", "", cli::no_attributes, spec,
-        "Set input focus to \"self\" when creating windowss.",
+        "Set input focus to \"self\" when creating windows.",
         cli::raise_flag(set_input_focus)); // Throws
 
     opt("-y, --synchronous-mode", "", cli::no_attributes, spec,
@@ -480,14 +537,12 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    Window root = RootWindow(dpy, screen);
-    VisualID default_visual = XVisualIDFromVisual(DefaultVisual(dpy, screen));
-    Colormap default_colormap = DefaultColormap(dpy, screen);
-
     x11::ExtensionInfo extension_info = x11::init_extensions(dpy); // Throws
+    x11::ScreenInfo screen_info = x11::get_screen_info(dpy, extension_info, screen); // Throws
+    Window root = screen_info.root;
 
     bool detectable_autorepeat_enabled = false;
-    if (ARCHON_LIKELY(extension_info.have_xkb && !disable_detectable_autorepeat)) {
+    if (extension_info.have_xkb && !disable_detectable_autorepeat) {
         Bool detectable = True;
         Bool supported = {};
         XkbSetDetectableAutoRepeat(dpy, detectable, &supported);
@@ -495,17 +550,18 @@ int main(int argc, char* argv[])
             detectable_autorepeat_enabled = true;
     }
 
-#if HAVE_XRANDR
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_XRANDR
     if (ARCHON_LIKELY(extension_info.have_xrandr)) {
         int mask = RROutputChangeNotifyMask | RRCrtcChangeNotifyMask;
         XRRSelectInput(dpy, root, mask);
     }
-#endif // HAVE_XRANDR
+#endif // ARCHON_DISPLAY_HAVE_GOOD_X11_XRANDR
 
     // Key is visual depth
     core::FlatMap<int, XPixmapFormatValues> pixmap_formats = x11::fetch_pixmap_formats(dpy); // Throws
 
-    core::FlatMap<VisualID, XStandardColormap> standard_colormaps = x11::fetch_standard_colormaps(dpy, root); // Throws
+    core::FlatMap<VisualID, XStandardColormap> standard_colormaps =
+        x11::fetch_standard_colormaps(dpy, root); // Throws
 
     // Fetch depths
     std::vector<int> depths;
@@ -518,7 +574,7 @@ int main(int argc, char* argv[])
         XFree(entries);
     }
 
-    core::Slab<x11::VisualSpec> visual_specs = x11::load_visuals(dpy, screen, extension_info); // Throws
+    core::Slab<x11::VisualSpec> visual_specs = x11::load_visuals(dpy, extension_info, screen_info); // Throws
 
     // List supported visuals
     if (list_visuals) {
@@ -585,17 +641,17 @@ int main(int argc, char* argv[])
     bool use_double_buffering = visual_spec.double_buffered;
     const XPixmapFormatValues& pixmap_format = pixmap_formats.at(depth); // Throws
 
-    auto format_have_xdbe = [&](std::ostream& out) {
-        if (extension_info.have_xdbe) {
-            out << core::formatted("yes (%s.%s)", extension_info.xdbe_major, extension_info.xdbe_minor); // Throws
+    auto format_have_xkb = [&](std::ostream& out) {
+        if (extension_info.have_xkb) {
+            out << core::formatted("yes (%s.%s)", extension_info.xkb_major, extension_info.xkb_minor); // Throws
             return;
         }
         out << "no"; // Throws
     };
 
-    auto format_have_xkb = [&](std::ostream& out) {
-        if (extension_info.have_xkb) {
-            out << core::formatted("yes (%s.%s)", extension_info.xkb_major, extension_info.xkb_minor); // Throws
+    auto format_have_xdbe = [&](std::ostream& out) {
+        if (extension_info.have_xdbe) {
+            out << core::formatted("yes (%s.%s)", extension_info.xdbe_major, extension_info.xdbe_minor); // Throws
             return;
         }
         out << "no"; // Throws
@@ -611,14 +667,15 @@ int main(int argc, char* argv[])
 
     auto format_have_xrender = [&](std::ostream& out) {
         if (extension_info.have_xrender) {
-            out << core::formatted("yes (%s.%s)", extension_info.xrender_major, extension_info.xrender_minor); // Throws
+            out << core::formatted("yes (%s.%s)", extension_info.xrender_major,
+                                   extension_info.xrender_minor); // Throws
             return;
         }
         out << "no"; // Throws
     };
 
     auto format_have_glx = [&](std::ostream& out) {
-        if (extension_info.have_glx) {
+        if (screen_info.have_glx) {
             out << core::formatted("yes (%s.%s)", extension_info.glx_major, extension_info.glx_minor); // Throws
             return;
         }
@@ -628,9 +685,9 @@ int main(int argc, char* argv[])
     logger.info("Display string:                     %s", DisplayString(dpy)); // Throws
     logger.info("Server vendor:                      %s", ServerVendor(dpy)); // Throws
     logger.info("Vendor release:                     %s", core::as_int(VendorRelease(dpy))); // Throws
-    logger.info("Have Xdbe:                          %s", core::as_format_func(format_have_xdbe)); // Throws
     logger.info("Have Xkb:                           %s", core::as_format_func(format_have_xkb)); // Throws
-    logger.info("Have Xrandr:                        %s", core::as_format_func(format_have_xrandr)); // Throws
+    logger.info("Have Xdbe:                          %s", core::as_format_func(format_have_xdbe)); // Throws
+    logger.info("Have XRandR:                        %s", core::as_format_func(format_have_xrandr)); // Throws
     logger.info("Have Xrender:                       %s", core::as_format_func(format_have_xrender)); // Throws
     logger.info("Have GLX:                           %s", core::as_format_func(format_have_glx)); // Throws
     logger.info("Image byte order:                   %s",
@@ -655,7 +712,7 @@ int main(int argc, char* argv[])
     logger.info("Supported depths on screen:         %s", core::as_list(depths)); // Throws
     logger.info("Default depth of screen:            %s", core::as_int(DefaultDepth(dpy, screen))); // Throws
     logger.info("Selected depth:                     %s", core::as_int(depth)); // Throws
-    logger.info("Default visual of screen:           %s", core::as_flex_int_h(default_visual)); // Throws
+    logger.info("Default visual of screen:           %s", core::as_flex_int_h(screen_info.default_visual)); // Throws
     logger.info("Selected visual:                    %s", core::as_flex_int_h(visualid)); // Throws
     logger.info("Class of selected visual:           %s", x11::get_visual_class_name(visual_info.c_class)); // Throws
     logger.info("Detectable auto-repeat enabled:     %s", (detectable_autorepeat_enabled ? "yes" : "no")); // Throws
@@ -666,22 +723,16 @@ int main(int argc, char* argv[])
         return EXIT_FAILURE;
     }
 
-    ColormapFinderImpl colormap_finder(default_visual, default_colormap, standard_colormaps);
+    ColormapFinderImpl colormap_finder(screen_info.default_visual, screen_info.default_colormap, standard_colormaps);
     std::unique_ptr<x11::PixelFormat> pixel_format =
         x11::create_pixel_format(dpy, root, visual_info, pixmap_format, colormap_finder, locale, logger,
                                  prefer_default_nondecomposed_colormap, colormap_weirdness); // Throws
     unsigned long interned_background_color = pixel_format->intern_color(background_color); // Throws
     Colormap colormap = pixel_format->get_colormap();
 
-    auto intern_string = [&](const char* string) noexcept -> Atom {
-        Atom atom = XInternAtom(dpy, string, False);
-        ARCHON_STEADY_ASSERT(atom != None);
-        return atom;
-    };
-
-#if HAVE_XRANDR
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_XRANDR
     x11::ScreenConf screen_conf;
-    Atom atom_edid = intern_string(RR_PROPERTY_RANDR_EDID);
+    Atom atom_edid = x11::intern_string(dpy, RR_PROPERTY_RANDR_EDID);
     impl::EdidParser edid_parser(locale);
     auto update_screen_conf = [&] {
         return x11::update_screen_conf(dpy, root, atom_edid, edid_parser, locale, screen_conf); // Throws
@@ -709,7 +760,7 @@ int main(int argc, char* argv[])
         update_screen_conf(); // Throws
         dump_screen_conf(); // Throws
     }
-#endif // HAVE_XRANDR
+#endif // ARCHON_DISPLAY_HAVE_GOOD_X11_XRANDR
 
     // Create graphics context
     XGCValues gc_values = {};
@@ -760,10 +811,13 @@ int main(int argc, char* argv[])
         image::Size img_size;
         Pixmap pixmap;
         bool input_focus_set = false;
-        bool fullscreen = false;
+        bool wanted_fullscreen_state = false;
+        bool confirmed_fullscreen_state = false;
+        bool compositor_bypassed = false;
         bool grabbed = false;
         bool redraw = false;
         bool suppress_redraw = false;
+        bool has_input_focus = false;
 
         WindowSlot(bool is_first_2, int no_2, Window window_2, Drawable drawable_2, image::Size size,
                    Pixmap pixmap_2) noexcept
@@ -789,12 +843,15 @@ int main(int argc, char* argv[])
         return false;
     };
 
-    Atom delete_window                   = intern_string("WM_DELETE_WINDOW");
-    Atom atom_net_wm_fullscreen_monitors = intern_string("_NET_WM_FULLSCREEN_MONITORS");
-    Atom atom_net_wm_state               = intern_string("_NET_WM_STATE");
-    Atom atom_net_wm_state_fullscreen    = intern_string("_NET_WM_STATE_FULLSCREEN");
+    // FIXME: Does an X11 request exist for interning a batch of strings at once?
+    Atom atom_wm_protocols               = x11::intern_string(dpy, "WM_PROTOCOLS");
+    Atom atom_wm_delete_window           = x11::intern_string(dpy, "WM_DELETE_WINDOW");
+    Atom atom_net_wm_fullscreen_monitors = x11::intern_string(dpy, "_NET_WM_FULLSCREEN_MONITORS");
+    Atom atom_net_wm_state               = x11::intern_string(dpy, "_NET_WM_STATE");
+    Atom atom_net_wm_state_fullscreen    = x11::intern_string(dpy, "_NET_WM_STATE_FULLSCREEN");
+    Atom atom_net_wm_bypass_compositor   = x11::intern_string(dpy, "_NET_WM_BYPASS_COMPOSITOR");
 
-#if HAVE_XDBE
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_XDBE
     XdbeSwapAction swap_action = XdbeUndefined; // Contents of swapped-out buffer becomes undefined
 #endif
 
@@ -809,21 +866,24 @@ int main(int argc, char* argv[])
         image::Size size = pixmap_slot.size;
 
         // Create window
+        long event_mask = (KeyPressMask | KeyReleaseMask |
+                           ButtonPressMask | ButtonReleaseMask |
+                           EnterWindowMask | LeaveWindowMask |
+                           FocusChangeMask |
+                           ExposureMask |
+                           StructureNotifyMask |
+                           KeymapStateMask |
+                           VisibilityChangeMask |
+                           PropertyChangeMask);
+        if (report_mouse_motion)
+            event_mask |= ButtonMotionMask;
         display::Pos pos;
         if (optional_pos.has_value())
             pos = optional_pos.value();
         unsigned long valuemask = (CWBackPixel | CWEventMask | CWOverrideRedirect | CWColormap);
         XSetWindowAttributes attributes;
         attributes.background_pixel = interned_background_color;
-        attributes.event_mask = (KeyPressMask | KeyReleaseMask |
-                                 ButtonPressMask | ButtonReleaseMask |
-                                 ButtonMotionMask |
-                                 EnterWindowMask | LeaveWindowMask |
-                                 FocusChangeMask |
-                                 ExposureMask |
-                                 StructureNotifyMask |
-                                 KeymapStateMask |
-                                 VisibilityChangeMask);
+        attributes.event_mask = event_mask;
         attributes.override_redirect = (override_redirect ? True : False);
         attributes.colormap = colormap;
         Window window = XCreateWindow(dpy, root, pos.x, pos.y, unsigned(size.width), unsigned(size.height), 0, depth,
@@ -843,7 +903,8 @@ int main(int argc, char* argv[])
         x11::TextPropertyWrapper name_3(dpy, name_2, locale); // Throws
         XSetWMName(dpy, window, &name_3.prop);
 
-        // Tell window manager to assign input focus to this window
+        // Tell window manager to assign input focus to this window (the "passive focus
+        // model" as defined by ICCCM)
         XWMHints hints = {};
         hints.flags = InputHint;
         hints.input = True;
@@ -862,16 +923,16 @@ int main(int argc, char* argv[])
         XSetWMNormalHints(dpy, window, &size_hints);
 
         // Ask X to notify rather than close connection when window is closed
-        XSetWMProtocols(dpy, window, &delete_window, 1);
+        x11::set_property_a(dpy, window, atom_wm_protocols, atom_wm_delete_window);
 
         // Allocate back buffer when using double buffering
         Drawable drawable = window;
-#if HAVE_XDBE
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_XDBE
         if (use_double_buffering) {
             XdbeBackBuffer back_buffer = XdbeAllocateBackBufferName(dpy, window, swap_action);
             drawable = back_buffer;
         }
-#endif // HAVE_XDBE
+#endif // ARCHON_DISPLAY_HAVE_GOOD_X11_XDBE
 
         bool is_first = (window_index == 0);
         WindowSlot slot = { is_first, no, window, drawable, size, pixmap_slot.pixmap };
@@ -895,17 +956,85 @@ int main(int argc, char* argv[])
                                      atom_net_wm_fullscreen_monitors); // Throws
     };
 
-    auto set_fullscreen_mode = [&](Window win, bool on) {
-        x11::set_fullscreen_mode(dpy, win, on, root, atom_net_wm_state, atom_net_wm_state_fullscreen); // Throws
+    auto set_compositor_bypass_mode = [&](::Window win, bool on) noexcept {
+        // Send EWMH hint to compositor (if present) to "unredirect" the window. If honored,
+        // this will bypass the compositing stage and improve performance. Some compositors
+        // have this behavior by default (when value is zero). Others do not (require a
+        // value of 1).
+        unsigned long value = (on ? 1 : 0);
+        x11::set_property_32(dpy, win, atom_net_wm_bypass_compositor, value);
     };
 
-    auto get_keysym = [&](KeyCode keycode) noexcept -> KeySym {
-        // Map key code to a keyboard independent symbol identifier (in general the symbol
-        // in the upper left corner on the corresponding key). See also
-        // https://tronche.com/gui/x/xlib/input/keyboard-encoding.html.
-        KeySym keysym = XkbKeycodeToKeysym(dpy, keycode, XkbGroup1Index, 0);
-        ARCHON_STEADY_ASSERT(keysym != NoSymbol);
-        return keysym;
+    auto ensure_turn_on_off_compositor_bypass_mode = [&](WindowSlot& slot) noexcept {
+        // When the "fullscreen compositor bypass" feature is enabled
+        // (`fullscreen_bypass_compositor`), compositor bypass mode is automatically turned
+        // on and off for windows as they enter and leave fullscreen mode.
+        //
+        // In this context, the *compositor bypass mode* is to be understood as *turned on*
+        // when the window property _NET_WM_BYPASS_COMPOSITOR is set to 1. Note, however,
+        // that this window property is merely a hint to the compositor, if there even is
+        // one. Compositors may or may not honor the hint. Some will, by default,
+        // automatically manage bypass mode based on their own heuristics.
+        //
+        // To control exactly when to turn compositor bypass mode on or off, two flags are
+        // maintained per window:
+        //
+        // 1. `wanted_fullscreen_state`: Reflects the application's currently requested
+        //    state.
+        //
+        // 2. `confirmed_fullscreen_state`: Reflects the actual state, judged by observing
+        //    the necessarily delayed stream of "property change" events from the X server.
+        //
+        // The turning on and off of compositor bypass mode is then driven by the
+        // conjunction (logical AND) of these two flags:
+        //
+        // - OFF -> ON: When both flags become true, compositor bypass mode is turned on
+        //   (ensures wait for X server to actually enter fullscreen mode).
+        //
+        // - ON -> OFF: When the conjunction becomes false, compositor bypass mode is turned
+        //   off (ensures immediate turn off of bypass mode when leaving fullscreen mode).
+        //
+        // This scheme generally ensures that compositor bypass mode is in the turned-on
+        // state *only* while the window is actually in fullscreen mode. Under normal timing
+        // conditions, this is guaranteed. However, in extreme cases (e.g., when fullscreen
+        // mode is rapidly and repeatedly toggled), transients can occur where compositor
+        // bypass mode is in the turned-on state while the window is not in fullscreen
+        // mode. Unfortunately, no reasonable solution exists that completely avoids this.
+        //
+        ARCHON_ASSERT(fullscreen_bypass_compositor);
+        bool want_compositor_bypass = (slot.wanted_fullscreen_state && slot.confirmed_fullscreen_state);
+        if (want_compositor_bypass != slot.compositor_bypassed) {
+            set_compositor_bypass_mode(slot.window, want_compositor_bypass);
+            slot.compositor_bypassed = want_compositor_bypass;
+        }
+    };
+
+    auto set_fullscreen_mode = [&](WindowSlot& slot, bool on) {
+        if (on != slot.wanted_fullscreen_state) {
+            slot.wanted_fullscreen_state = on;
+            x11::set_fullscreen_mode(dpy, slot.window, on, root, atom_net_wm_state,
+                                     atom_net_wm_state_fullscreen); // Throws
+            if (fullscreen_bypass_compositor)
+                ensure_turn_on_off_compositor_bypass_mode(slot);
+        }
+    };
+
+    // Map key code to a keyboard independent symbol identifier for the main function of the
+    // key (in general the symbol in the upper left corner).
+    auto try_get_keysym = [&](KeyCode keycode, KeySym& keysym) noexcept -> bool {
+        // Both the shift level and the group selector needs to be zero in order to get the
+        // KeySym value for the main function of the key
+        int group = 0;
+        int level = 0;
+        // FIXME: XkbKeycodeToKeysym() does automatically track changes to the keyboard
+        // layout, but this tracking is not 100% reliable when multiple layout changes
+        // happen in quick succession, or when input seat re-assignment happens (MPX).
+        KeySym keysym_2 = XkbKeycodeToKeysym(dpy, keycode, group, level);
+        if (ARCHON_LIKELY(keysym_2 != NoSymbol)) {
+            keysym = keysym_2;
+            return true;
+        }
+        return false;
     };
 
     auto get_key_name = [&](KeySym keysym) -> std::string_view {
@@ -939,13 +1068,61 @@ int main(int argc, char* argv[])
         XMapWindow(dpy, slot.window);
         set_fullscreen_monitors(slot.window); // Throws
         if (slot.is_first && fullscreen) {
-            slot.fullscreen = true;
-            set_fullscreen_mode(slot.window, true); // Throws
+            bool on = true;
+            set_fullscreen_mode(slot, on); // Throws
         }
     }
 
     if (install_colormap)
         XInstallColormap(dpy, colormap);
+
+    auto on_keydown = [&](KeySym keysym, bool is_repetition, WindowSlot& slot) {
+        switch (keysym) {
+            case XK_Escape:
+            case XK_q: {
+                if (!is_repetition)
+                    close_window(slot.window);
+                break;
+            }
+        }
+    };
+
+    auto on_keyup = [&](KeySym keysym, WindowSlot& slot) {
+        switch (keysym) {
+            case XK_n: {
+                Window window = open_window(); // Throws
+                XMapWindow(dpy, window);
+                set_fullscreen_monitors(window); // Throws
+                break;
+            }
+            case XK_f: {
+                set_fullscreen_mode(slot, !slot.wanted_fullscreen_state); // Throws
+                break;
+            }
+            case XK_g: {
+                if (!slot.grabbed) {
+                    bool success = try_grab_pointer(dpy, slot.window, report_mouse_motion, logger); // Throws
+                    if (ARCHON_LIKELY(success)) {
+                        slot.grabbed = true;
+                        log(slot.no, "GRAB");
+                    }
+                    else {
+                        log(slot.no, "GRAB FAILED");
+                    }
+                }
+                else {
+                    slot.grabbed = false;
+                    ungrab_pointer(dpy);
+                    log(slot.no, "UNGRAB");
+                }
+                break;
+            }
+            case XK_r: {
+                slot.suppress_redraw = !slot.suppress_redraw;
+                break;
+            }
+        }
+    };
 
     // X11 timestamps are 32-bit unsigned integers and `Time` refers to the unsigned integer
     // type that X11 uses to store these timestamps.
@@ -955,7 +1132,6 @@ int main(int argc, char* argv[])
     // Event loop
     bool expect_keymap_notify = false;
     X11KeyCodeSet pressed_keys;
-    std::vector<std::string_view> key_names;
     while (!window_slots.empty()) {
         XEvent ev = {};
         XPeekEvent(dpy, &ev); // Block until at least one event is available
@@ -978,16 +1154,15 @@ int main(int argc, char* argv[])
                 switch (ev.type) {
                     case MotionNotify:
                         if (ARCHON_LIKELY(try_get_window_slot(ev.xmotion.window, slot))) {
-                            if (report_mouse_move) {
-                                display::Pos pos = { ev.xmotion.x, ev.xmotion.y };
-                                log(slot->no, "MOUSE MOVE: %s", pos); // Throws
-                            }
+                            math::Vector2F pos = { float(ev.xmotion.x), float(ev.xmotion.y) };
+                            auto timestamp = unwrap_session.unwrap_next_timestamp(ev.xmotion.time); // Throws
+                            log(slot->no, "MOUSE MOVE: %s, %s", pos, core::as_int(timestamp.count())); // Throws
                         }
                         break;
                     case ConfigureNotify:
                         if (ARCHON_LIKELY(try_get_window_slot(ev.xconfigure.window, slot))) {
                             // When there is a window manager, the window manager will
-                            // generally reparent the client's window. This generally means
+                            // generally re-parent the client's window. This generally means
                             // that the client's window will remain at a fixed position
                             // relative to it's parent, so there will be no configure
                             // notifications when the window is moved through user
@@ -1018,27 +1193,45 @@ int main(int argc, char* argv[])
                     case ButtonPress:
                     case ButtonRelease:
                         if (ARCHON_LIKELY(try_get_window_slot(ev.xbutton.window, slot))) {
-                            display::Pos pos = { ev.xbutton.x, ev.xbutton.y };
-                            log(slot->no, "%s: %s, %s", (ev.type == ButtonPress ? "MOUSE DOWN" : "MOUSE UP"),
-                                core::as_int(ev.xbutton.button), pos); // Throws
+                            bool is_scroll = {};
+                            display::MouseButton button = {};
+                            math::Vector2F amount = {};
+                            if (ARCHON_LIKELY(x11_try_map_pointer_button(ev.xbutton.button, is_scroll, button,
+                                                                         amount))) {
+                                auto timestamp = unwrap_session.unwrap_next_timestamp(ev.xbutton.time); // Throws
+                                if (is_scroll) {
+                                    if (ev.type == ButtonPress) {
+                                        log(slot->no, "SCROLL: %s, %s", amount,
+                                            core::as_int(timestamp.count())); // Throws
+                                    }
+                                }
+                                else {
+                                    std::string_view label = (ev.type == ButtonPress ? "MOUSE DOWN" : "MOUSE UP");
+                                    math::Vector2F pos = { float(ev.xbutton.x), float(ev.xbutton.y) };
+                                    log(slot->no, "%s: %s, %s, %s", label, button, pos,
+                                        core::as_int(timestamp.count())); // Throws
+                                }
+                            }
                         }
                         break;
                     case KeyPress:
                     case KeyRelease:
                         if (ARCHON_LIKELY(try_get_window_slot(ev.xkey.window, slot))) {
+                            KeyCode keycode = KeyCode(ev.xkey.keycode);
+                            auto timestamp = unwrap_session.unwrap_next_timestamp(ev.xkey.time); // Throws
                             bool is_repetition = false;
                             if (ARCHON_LIKELY(detectable_autorepeat_enabled)) {
                                 if (ev.type == KeyPress) {
-                                    if (!pressed_keys.contains(ev.xkey.keycode)) {
-                                        pressed_keys.add(ev.xkey.keycode);
+                                    if (!pressed_keys.contains(keycode)) {
+                                        pressed_keys.add(keycode);
                                     }
                                     else {
                                         is_repetition = true;
                                     }
                                 }
                                 else {
-                                    ARCHON_ASSERT(pressed_keys.contains(ev.xkey.keycode));
-                                    pressed_keys.remove(ev.xkey.keycode);
+                                    ARCHON_ASSERT(pressed_keys.contains(keycode));
+                                    pressed_keys.remove(keycode);
                                 }
                             }
                             else {
@@ -1053,11 +1246,11 @@ int main(int argc, char* argv[])
                                 // fail, in which case the pair will be treated as genuine
                                 // "key up" and "key down" events.
                                 if (ev.type == KeyPress) {
-                                    ARCHON_ASSERT(!pressed_keys.contains(ev.xkey.keycode));
-                                    pressed_keys.add(ev.xkey.keycode);
+                                    ARCHON_ASSERT(!pressed_keys.contains(keycode));
+                                    pressed_keys.add(keycode);
                                 }
                                 else {
-                                    ARCHON_ASSERT(pressed_keys.contains(ev.xkey.keycode));
+                                    ARCHON_ASSERT(pressed_keys.contains(keycode));
                                     if (num_events == 0) {
                                         int n = XEventsQueued(dpy, QueuedAfterReading); // Non-blocking
                                         if (n > 0)
@@ -1066,63 +1259,36 @@ int main(int argc, char* argv[])
                                     if (num_events > 0) {
                                         XEvent ev_2 = {};
                                         XPeekEvent(dpy, &ev_2);
-                                        if (ev_2.type == KeyPress && ev_2.xkey.keycode == ev.xkey.keycode) {
+                                        if (ev_2.type == KeyPress && KeyCode(ev_2.xkey.keycode) == keycode) {
                                             ARCHON_ASSERT(ev_2.xkey.window == ev.xkey.window);
-                                            using timestamp_type = timestamp_unwrapper_type::millis_type;
-                                            timestamp_type timestamp_1 =
-                                                unwrap_session.unwrap_next_timestamp(ev.xkey.time); // Throws
-                                            timestamp_type timestamp_2 =
+                                            auto timestamp_2 =
                                                 unwrap_session.unwrap_next_timestamp(ev_2.xkey.time); // Throws
-                                            ARCHON_ASSERT(timestamp_2 >= timestamp_1);
-                                            if ((timestamp_2 - timestamp_1).count() <= 1) {
+                                            ARCHON_ASSERT(timestamp_2 >= timestamp);
+                                            if ((timestamp_2 - timestamp).count() <= 1) {
                                                 XNextEvent(dpy, &ev);
+                                                timestamp = timestamp_2;
                                                 --num_events;
                                                 is_repetition = true;
                                             }
                                         }
                                     }
                                     if (!is_repetition)
-                                        pressed_keys.remove(ev.xkey.keycode);
+                                        pressed_keys.remove(keycode);
                                 }
                             }
-                            KeySym keysym = get_keysym(ev.xkey.keycode);
-                            std::string_view label = (ev.type == KeyPress ? (is_repetition ? "KEY REPEAT" :
-                                                                             "KEY DOWN") : "KEY UP");
-                            std::string_view key_name = get_key_name(keysym); // Throws
-                            log(slot->no, "%s: %s, %s -> %s", label, key_name, core::as_int(ev.xkey.keycode),
-                                core::as_int(keysym)); // Throws
-                            if (ev.type == KeyPress && (keysym == XK_Escape || keysym == XK_q)) {
-                                close_window(slot->window);
-                                break;
-                            }
-                            if (ev.type == KeyRelease && keysym == XK_n) {
-                                Window window = open_window(); // Throws
-                                XMapWindow(dpy, window);
-                                set_fullscreen_monitors(window); // Throws
-                                break;
-                            }
-                            if (ev.type == KeyRelease && keysym == XK_f) {
-                                slot->fullscreen = !slot->fullscreen;
-                                set_fullscreen_mode(slot->window, slot->fullscreen); // Throws
-                                break;
-                            }
-                            if (ev.type == KeyRelease && keysym == XK_g) {
-                                if (!slot->grabbed) {
-                                    if (try_grab_pointer(dpy, slot->window, logger)) { // Throws
-                                        slot->grabbed = true;
-                                        log(slot->no, "GRAB");
-                                        break;
-                                    }
-                                    break;
+                            KeySym keysym = {};
+                            if (ARCHON_LIKELY(slot->has_input_focus && try_get_keysym(keycode, keysym))) {
+                                std::string_view label = (ev.type == KeyPress ? (is_repetition ? "KEY REPEAT" :
+                                                                                 "KEY DOWN") : "KEY UP");
+                                std::string_view key_name = get_key_name(keysym); // Throws
+                                log(slot->no, "%s: %s, %s -> %s, %s", label, key_name, core::as_int(ev.xkey.keycode),
+                                    core::as_int(keysym), core::as_int(timestamp.count())); // Throws
+                                if (ev.type == KeyPress) {
+                                    on_keydown(keysym, is_repetition, *slot); // Throws
                                 }
-                                slot->grabbed = false;
-                                ungrab_pointer(dpy);
-                                log(slot->no, "UNGRAB");
-                                break;
-                            }
-                            if (ev.type == KeyRelease && keysym == XK_r) {
-                                slot->suppress_redraw = !slot->suppress_redraw;
-                                break;
+                                else {
+                                    on_keyup(keysym, *slot); // Throws
+                                }
                             }
                         }
                         break;
@@ -1132,40 +1298,63 @@ int main(int argc, char* argv[])
                         // events. Instead, one can rely on `KeymapNotify` to be generated
                         // immediately after every `FocusIn` event, so this provides an
                         // implicit target window.
-                        if (expect_keymap_notify_2) {
+                        if (expect_keymap_notify_2)
                             pressed_keys.assign(ev.xkeymap.key_vector);
-                            key_names.clear();
-                            // X11 key codes lie in the inclusive range [8,255]
-                            for (int i = 8; i < 256; ++i) {
-                                using uchar = unsigned char;
-                                bool pressed = ((int(uchar(ev.xkeymap.key_vector[i / 8])) & (1 << (i % 8))) != 0);
-                                if (ARCHON_LIKELY(!pressed))
-                                    continue;
-                                KeySym keysym = get_keysym(KeyCode(i));
-                                std::string_view key_name = get_key_name(keysym); // Throws
-                                key_names.push_back(key_name); // Throws
-                            }
-                            logger.info("KEYMAP: %s", core::as_sbr_list(key_names)); // Throws
-                        }
                         break;
                     case EnterNotify:
                     case LeaveNotify:
                         if (ARCHON_LIKELY(try_get_window_slot(ev.xcrossing.window, slot))) {
                             log(slot->no, "%s: %s, %s", (ev.type == EnterNotify ? "MOUSE OVER" : "MOUSE OUT"),
-                                get_crossing_mode_name(ev.xcrossing.mode),
-                                get_crossing_detail_name(ev.xcrossing.detail)); // Throws
+                                get_notify_mode_name(ev.xcrossing.mode),
+                                get_notify_detail_name(ev.xcrossing.detail)); // Throws
                         }
                         break;
                     case FocusIn:
                     case FocusOut:
                         if (ev.type == FocusIn)
                             expect_keymap_notify = true;
-                        if (ARCHON_LIKELY(try_get_window_slot(ev.xfocus.window, slot)))
-                            log(slot->no, (ev.type == FocusIn ? "FOCUS" : "BLUR")); // Throws
+                        //
+                        // When regular input focus is gained or lost, it is reported to the
+                        // window using a focus event with mode=NotifyNormal or
+                        // mode=NotifyWhileGrabbed. The latter is used if the change occurs
+                        // while the keyboard is grabbed.
+                        //
+                        // Events with mode=NotifyGrab or mode=NotifyUngrab are filtered
+                        // out. These report the initiation or termination of a keyboard
+                        // grab, which does not indicate a gain or loss of regular input
+                        // focus for the window.
+                        //
+                        // In this context, a window is understood as having *regular input
+                        // focus* if and only if the X server's global input focus is
+                        // explicitly set to that window. The X server's global input focus
+                        // is set by XSetInputFocus(), and then only changes if
+                        // XSetInputFocus() is called again or the focus window becomes
+                        // unviewable.
+                        //
+                        // Note that the regular input focus is not identical to the
+                        // *effective input focus*. The latter determines where key events
+                        // are actually sent at any specific time. It depends on the regular
+                        // input focus, but also on keyboard grabs and, when the server is
+                        // in PointerRoot mode, the position of the pointer.
+                        //
+                        // Events with detail=NotifyPointer are also filtered out. These are
+                        // generated for a window, W, when an ancestor window gains or loses
+                        // input focus (including switches to or from PointerRoot), and the
+                        // pointer happens to be located within W. In none of these cases
+                        // does it indicate a gain or loss of regular input focus for W.
+                        //
+                        if (ARCHON_LIKELY((ev.xfocus.mode == NotifyNormal || ev.xfocus.mode == NotifyWhileGrabbed) &&
+                                          ev.xfocus.detail != NotifyPointer)) {
+                            if (ARCHON_LIKELY(try_get_window_slot(ev.xfocus.window, slot))) {
+                                slot->has_input_focus = (ev.type == FocusIn);
+                                log(slot->no, "%s", (ev.type == FocusIn ? "FOCUS" : "BLUR")); // Throws
+                            }
+                        }
                         break;
                     case ClientMessage:
                         if (ARCHON_LIKELY(try_get_window_slot(ev.xclient.window, slot))) {
-                            bool is_close = (ev.xclient.format == 32 && Atom(ev.xclient.data.l[0]) == delete_window);
+                            bool is_close = (ev.xclient.format == 32 &&
+                                             Atom(ev.xclient.data.l[0]) == atom_wm_delete_window);
                             if (is_close)
                                 close_window(slot->window);
                         }
@@ -1178,8 +1367,23 @@ int main(int argc, char* argv[])
                             }
                         }
                         break;
+                    case PropertyNotify:
+                        if (ARCHON_LIKELY(try_get_window_slot(ev.xproperty.window, slot))) {
+                            if (fullscreen_bypass_compositor) {
+                                bool found = {};
+                                bool good = (ev.xproperty.atom == atom_net_wm_state &&
+                                             ev.xproperty.state == PropertyNewValue &&
+                                             x11::try_property_find_a(dpy, slot->window, atom_net_wm_state,
+                                                                      atom_net_wm_state_fullscreen, found)); // Throws
+                                if (good) {
+                                    slot->confirmed_fullscreen_state = found;
+                                    ensure_turn_on_off_compositor_bypass_mode(*slot);
+                                }
+                            }
+                        }
+                        break;
                 }
-#if HAVE_XRANDR
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_XRANDR
                 if (extension_info.have_xrandr && ev.type == extension_info.xrandr_event_base + RRNotify) {
                     const auto& ev_2 = reinterpret_cast<const XRRNotifyEvent&>(ev);
                     switch (ev_2.subtype) {
@@ -1189,7 +1393,7 @@ int main(int argc, char* argv[])
                                 dump_screen_conf(); // Throws
                     }
                 }
-#endif // HAVE_XRANDR
+#endif // ARCHON_DISPLAY_HAVE_GOOD_X11_XRANDR
             }
         }
 
@@ -1238,7 +1442,7 @@ int main(int argc, char* argv[])
                 if (bottom < win_height)
                     XFillRectangle(dpy, drawable, gc, 0, bottom, unsigned(win_width), unsigned(win_height - bottom));
 
-#if HAVE_XDBE
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_XDBE
                 if (use_double_buffering) {
                     XdbeSwapInfo info;
                     info.swap_window = slot.window;
@@ -1246,14 +1450,14 @@ int main(int argc, char* argv[])
                     Status status = XdbeSwapBuffers(dpy, &info, 1);
                     ARCHON_STEADY_ASSERT(status != 0);
                 }
-#endif // HAVE_XDBE
+#endif // ARCHON_DISPLAY_HAVE_GOOD_X11_XDBE
             }
         }
     }
 }
 
 
-#else // !HAVE_X11
+#else // !ARCHON_DISPLAY_HAVE_GOOD_X11
 
 
 int main()
@@ -1262,4 +1466,4 @@ int main()
 }
 
 
-#endif // !HAVE_X11
+#endif // !ARCHON_DISPLAY_HAVE_GOOD_X11

@@ -25,6 +25,7 @@
 
 
 #include <memory>
+#include <optional>
 #include <string_view>
 
 #include <archon/util/color.hpp>
@@ -228,9 +229,10 @@ public:
     ///
     /// A window, that is configured for OpenGL rendering (\ref
     /// Config::enable_opengl_rendering), is associated with an OpenGL rendering
-    /// context. This function binds the calling thread to that rendering context, such that
-    /// OpenGL rendering performed by the calling thread is directed onto this window. On an
-    /// X11 platform, this corresponds to `glXMakeCurrent()`.
+    /// context. This function binds the calling thread to that rendering context and to
+    /// this window, such that subsequent OpenGL rendering performed by the calling thread
+    /// is directed onto this window. On an X11 platform, this function corresponds to
+    /// `glXMakeCurrent()`.
     ///
     /// The creation of a new window that is configured for OpenGL rendering may or may not
     /// clobber the current context association for the calling thread. Applications must
@@ -246,14 +248,87 @@ public:
     /// This function swaps front and back buffers for OpenGL rendering in this window. On
     /// an X11 platform, this corresponds to `glXSwapBuffers()`.
     ///
-    /// This function may, or may not involve a wait for "vertical retrace" (V-Sync). With
-    /// the X11-based display implementation, and when using the NVIDIA graphics driver, one
-    /// can turn V-Sync on or off using the environment variable `__GL_SYNC_TO_VBLANK`.
+    /// This function may, or may not by default involve a wait for "vertical retrace"
+    /// (V-Sync). See \ref try_set_opengl_vsync_state() for a general explanation of V-Sync
+    /// and a way to change the default.
     ///
     /// Behavior is undefined if this function is called on a window that is not configured
     /// for OpenGL rendering (\ref Config::enable_opengl_rendering).
     ///
+    /// \sa \ref try_set_opengl_vsync_state()
+    ///
     virtual void opengl_swap_buffers() = 0;
+
+    /// \brief Try to determine whether V-Sync is on or off.
+    ///
+    /// This function attempts to determine whether V-Sync is currently turned on or off for
+    /// OpenGL rendering in this window. This function fails if the platform has no support
+    /// for V-Sync control, or if it specifically lacks support for querying the current
+    /// state of V-Sync. If it succeeds, it returns true after setting \p on to true if
+    /// regular or adaptive V-Sync is enabled and to false otherwise. If it fails, it
+    /// returns false and leaves \p on unchanged.
+    ///
+    /// \warning This function may clobber the calling thread's current OpenGL context
+    /// binding (\ref opengl_make_current()). The application must assume that it does, and
+    /// not rely on any particular binding upon return.
+    ///
+    /// For general notes about V-Sync, see \ref try_set_opengl_vsync_state().
+    ///
+    /// Behavior is undefined if this function is called on a window that is not configured
+    /// for OpenGL rendering (\ref Config::enable_opengl_rendering).
+    ///
+    /// \sa \ref try_set_opengl_vsync_state()
+    ///
+    virtual bool try_get_opengl_vsync_state(bool& on) = 0;
+
+    /// \brief Try to turn V-Sync on or off.
+    ///
+    /// If \p on is true, this function attempts to turn V-Sync on for OpenGL rendering in
+    /// this window. If \p on is false, it attempts to turn V-Sync off. If \ref
+    /// prefer_opengl_adaptive_vsync is true and if then adaptive V-Sync (see below) is
+    /// available, it will be used. Otherwise regular V-Sync will be used. This function
+    /// fails if the platform does not support V-Sync control. When it succeeds, it returns
+    /// true. When it fails, it returns false.
+    ///
+    /// \warning This function may clobber the calling thread's current OpenGL context
+    /// binding (\ref opengl_make_current()). The application must assume that it does, and
+    /// not rely on any particular binding upon return.
+    ///
+    /// *Regular V-Sync* is when the swapping of front and back buffers (\ref
+    /// opengl_swap_buffers()) is synchronized to the "vertical retrace", and ensures no
+    /// "tearing". *Adaptive V-Sync* is like regular V-Sync but allows for immediate buffer
+    /// swap if the vertical retrace is missed, i.e., when the rendering of one frame has
+    /// taken more time that was available between two successive vertical retraces. Not all
+    /// platforms support adaptive V-Sync.
+    ///
+    /// On X11-based platforms, such as Linux, and when using the proprietary NVIDIA
+    /// graphics driver, one can also turn V-Sync on or off using the environment variable
+    /// `__GL_SYNC_TO_VBLANK`.
+    ///
+    /// On some platforms, such as those featuring an X11 compositor, V-Sync, from the point
+    /// of view of this function, is a matter between the application and the
+    /// compositor. When V-Sync is turned on, buffer swaps are synchronized with the
+    /// compositor's buffer swaps, which, in turn, are synchronized with the actual
+    /// "hardware retrace". However, when V-Sync is turned off, buffer swaps can happen many
+    /// times per hardware retrace, but only the last one will have any effect. The presence
+    /// of the compositor will prevent such redundant buffer swaps from ever becoming
+    /// visible.
+    ///
+    /// When using the X11-based implementation of the display API (\ref
+    /// display::get_x11_implementation_slot()), one can request that the compositor, if
+    /// present, is bypassed for fullscreen windows. See \ref
+    /// display::x11_connection_config::fullscreen_opengl_bypass_compositor. When such a
+    /// request is honored, V-Sync again becomes a matter between the application and the
+    /// "hardware retrace".
+    ///
+    /// Behavior is undefined if this function is called on a window that is not configured
+    /// for OpenGL rendering (\ref Config::enable_opengl_rendering).
+    ///
+    /// \sa \ref try_get_opengl_vsync_state()
+    /// \sa \ref Config::opengl_vsync
+    /// \sa \ref opengl_swap_buffers()
+    ///
+    virtual bool try_set_opengl_vsync_state(bool on) = 0;
 
     virtual ~Window() noexcept = default;
 };
@@ -297,7 +372,8 @@ struct Window::Config {
 
     /// \brief Start out in fullscreen mode.
     ///
-    /// If set to `true`, the window will start out in fullscreen mode.
+    /// If set to `true`, the window will start out in fullscreen mode (see \ref
+    /// set_fullscreen_mode()).
     ///
     bool fullscreen = false;
 
@@ -318,6 +394,21 @@ struct Window::Config {
     ///
     bool require_opengl_depth_buffer = true;
 
+    /// \brief Prefer Adaptive V-Sync if V-Sync is turned on.
+    ///
+    /// Setting this flag to true does **not** by itself turn Adaptive V-Sync on. Instead,
+    /// when V-Sync is turned on using \ref try_set_opengl_vsync_state(), and this flag is
+    /// set to true, Adaptive V-Sync is turned on if it is supported by the platform. If
+    /// Adaptive V-Sync is not supported by the platform, but regular V-Sync is, then
+    /// regular V-Sync is turned on by \ref try_set_opengl_vsync_state() even when this flag
+    /// is set to true. See \ref try_set_opengl_vsync_state() for more on V-Sync in general
+    /// and the how Adaptive V-Sync differs from regular V-Sync.
+    ///
+    /// \sa \ref try_set_opengl_vsync_state()
+    /// \sa \ref opengl_vsync
+    ///
+    bool prefer_opengl_adaptive_vsync = false;
+
     /// \brief Minimum size of window
     ///
     /// If the specified size of a new window is smaller than the minimum size specified
@@ -330,6 +421,19 @@ struct Window::Config {
     /// here.
     ///
     display::Size minimum_size = 16;
+
+    /// \brief Set state of OpenGL V-Sync.
+    ///
+    /// If specified, and if \ref enable_opengl_rendering is true, an attempt will be made,
+    /// during the creation of the window, to turn OpenGL V-Sync on or off as if by an
+    /// invocation of \ref try_set_opengl_vsync_state(). If not specified, or if the
+    /// invocation of \ref try_set_opengl_vsync_state() fails, V-Sync will be left in its
+    /// default state. The default state depends on the platform.
+    ///
+    /// \sa \ref try_set_opengl_vsync_state()
+    /// \sa \ref prefer_opengl_adaptive_vsync
+    ///
+    std::optional<bool> opengl_vsync;
 };
 
 

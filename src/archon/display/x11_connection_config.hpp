@@ -92,6 +92,21 @@ struct x11_connection_config {
     ///
     std::optional<display::x11_fullscreen_monitors> fullscreen_monitors;
 
+    /// \brief Bypass X11 compositor for fullscreen OpenGL windows.
+    ///
+    /// If set to true, an EWMH hint will be sent to the compositor (if present) to
+    /// "unredirect" a window while that window is in fullscreen mode, but only if the
+    /// window is configured for OpenGL rendering (\ref
+    /// display::Window::Config::enable_opengl_rendering). If the hint is honored, it will
+    /// cause the compositing stage to be bypassed which will generally improve
+    /// performance. Some compositors will automatically unredirect fullscreen windows, but
+    /// others will not, unless the hint is sent.
+    ///
+    /// \sa \ref display::Window::Config::enable_opengl_rendering
+    /// \sa \ref display::Window::try_set_opengl_vsync_state()
+    ///
+    bool fullscreen_opengl_bypass_compositor = false;
+
     /// \brief Prefer use of default colormap for nonstatic nondecomposed visuals.
     ///
     /// By default, when using a nonstatic nondecomposed visual (`PseudoColor` or

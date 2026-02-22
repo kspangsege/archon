@@ -1,7 +1,43 @@
+include(FindPackageMessage)
+
 # Need X11 for the following reasons:
 # * X11-based display implementation (see archon/display/x11_implementation.cpp)
 #
-find_package(X11)
+find_package(X11 QUIET)
+set(_version "unknown")
+set(_library "")
+if(X11_FOUND)
+  # Manually hunt for the `x11.pc` file in nearby pkgconfig directories
+  if (X11_X11_LIB)
+    get_filename_component(_dir "${X11_X11_LIB}" DIRECTORY)
+    find_file(_pc_file "x11.pc" PATHS
+      "${_dir}/pkgconfig"
+      "${_dir}/../lib/pkgconfig"
+      "${_dir}/../share/pkgconfig"
+    )
+    if(_pc_file)
+      file(STRINGS "${_pc_file}" _line REGEX "^Version: ")
+      if(_line MATCHES "Version: ([0-9]+\\.[0-9]+\\.[0-9]+)")
+        set(_version "${CMAKE_MATCH_1}")
+        set(_library "${X11_X11_LIB}")
+      endif()
+    endif()
+  endif()
+endif()
+set(ARCHON_GOOD_X11_FOUND 0)
+set(_min_version "1.3.0")
+if(NOT _version STREQUAL "unknown" AND _version VERSION_GREATER_EQUAL _min_version)
+  set(ARCHON_GOOD_X11_FOUND 1)
+  string(CONCAT _msg
+    "Found Xlib: ${_library} (found suitable version \"${_version}\", minimum required is \"${_min_version}\")"
+  )
+else()
+  string(CONCAT _msg
+    "Could NOT find Xlib (minimum required version is \"${_min_version}\")"
+  )
+endif()
+find_package_message(ARCHON_XLIB_MSG "${_msg}" "[${_version}][${_min_version}][${_library}]")
+
 
 # Need OpenGL for the following reasons:
 # * Exposure of OpenGL to applciations through archon/display/opengl.hpp
@@ -14,13 +50,20 @@ find_package(OpenGL)
 # Need SDL for the following reasons:
 # * SDL-based display implementation (see archon/display/sdl_implementation.cpp)
 #
-set(SDL3_MINIMUM_REQUIRED_VERSION "3.2.20")
-find_package(SDL3 ${SDL3_MINIMUM_REQUIRED_VERSION} CONFIG QUIET)
+set(_archon_sdl_min_version "3.2.20")
+find_package(SDL3 ${_archon_sdl_min_version} CONFIG QUIET)
 if(SDL3_FOUND)
-  message(STATUS "Found SDL3 (found version \"${SDL3_VERSION}\")")
+  set(_version "${SDL3_VERSION}")
+  string(CONCAT _msg
+    "Found SDL (found version \"${_version}\")"
+  )
 else()
-  message(STATUS "Could NOT find SDL3 (minimum required version is \"${SDL3_MINIMUM_REQUIRED_VERSION}\")")
+  set(_version "")
+  string(CONCAT _msg
+    "Could NOT find SDL (minimum required version is \"${_archon_sdl_min_version}\")"
+  )
 endif()
+find_package_message(ARCHON_SDL_MSG "${_msg}" "[${SDL3_FOUND}][${_version}][${_archon_sdl_min_version}]")
 
 # Need GLEW for the following reasons:
 # * Exposure of OpenGL to applciations through archon/display/opengl.hpp
@@ -28,23 +71,23 @@ endif()
 find_package(GLEW)
 
 set(ARCHON_DISPLAY_HAVE_X11 0)
-set(ARCHON_DISPLAY_HAVE_X11_XDBE 0)
 set(ARCHON_DISPLAY_HAVE_X11_XKB 0)
+set(ARCHON_DISPLAY_HAVE_X11_XDBE 0)
 set(ARCHON_DISPLAY_HAVE_X11_XRENDER 0)
 set(ARCHON_DISPLAY_HAVE_X11_XRANDR 0)
 set(ARCHON_DISPLAY_HAVE_X11_GLX 0)
-if(X11_FOUND)
+if(ARCHON_GOOD_X11_FOUND)
   set(ARCHON_DISPLAY_HAVE_X11 1)
-  if(X11_Xext_FOUND)
-    # Unfortunately, Xdbe is not directly covered by FindX11.cmake
-    # See https://gitlab.kitware.com/cmake/cmake/-/issues/25591.
-    find_path(ARCHON_Xdbe_INCLUDE_PATH X11/extensions/Xdbe.h ${X11_Xext_INCLUDE_PATH})
-    if(ARCHON_Xdbe_INCLUDE_PATH)
-      set(ARCHON_DISPLAY_HAVE_X11_XDBE 1)
-    endif()
-  endif()
   if(X11_Xkb_FOUND)
     set(ARCHON_DISPLAY_HAVE_X11_XKB 1)
+  endif()
+  if(X11_Xext_FOUND)
+    # Unfortunately, Xdbe is not directly covered by FindX11.cmake until CMake 3.29.
+    # See https://gitlab.kitware.com/cmake/cmake/-/issues/25591.
+    find_path(ARCHON_XDBE_INCLUDE_PATH X11/extensions/Xdbe.h ${X11_Xext_INCLUDE_PATH})
+    if(ARCHON_XDBE_INCLUDE_PATH)
+      set(ARCHON_DISPLAY_HAVE_X11_XDBE 1)
+    endif()
   endif()
   if(X11_Xrender_FOUND)
     set(ARCHON_DISPLAY_HAVE_X11_XRENDER 1)
@@ -93,7 +136,7 @@ target_link_libraries(Display PUBLIC
   Image
 )
 
-if(X11_FOUND)
+if(ARCHON_GOOD_X11_FOUND)
   target_link_libraries(Display PRIVATE X11::X11)
   if(X11_Xext_FOUND)
     target_link_libraries(Display PRIVATE X11::Xext)

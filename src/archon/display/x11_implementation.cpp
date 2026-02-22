@@ -32,6 +32,8 @@
 #include <locale>
 #include <chrono>
 #include <system_error>
+#include <atomic>
+#include <mutex>
 
 #include <archon/core/features.hpp>
 #include <archon/core/pair.hpp>
@@ -73,7 +75,7 @@
 #include <archon/display/noinst/impl_util.hpp>
 #include <archon/display/noinst/x11/support.hpp>
 
-#if HAVE_X11
+#if ARCHON_DISPLAY_HAVE_GOOD_X11
 #  include <fcntl.h>
 #  if defined _GNU_SOURCE
 #    define HAVE_LINUX_PIPE2 1
@@ -95,7 +97,7 @@ constexpr std::string_view g_implementation_ident = "x11";
 constexpr std::string_view g_implementation_descr = "X11 (X Window System, Version 11)";
 
 
-#if HAVE_X11
+#if ARCHON_DISPLAY_HAVE_GOOD_X11
 
 
 // Set file descriptor flag FD_CLOEXEC if `value` is true, otherwise clear it.
@@ -344,10 +346,7 @@ auto map_opt_visual_type(const std::optional<std::uint_fast32_t>& type) -> std::
 struct ScreenSlot {
     bool is_initialized = false;
     bool have_standard_colormaps = false;
-    int screen = {};
-    Window root = {};
-    VisualID default_visual = {};
-    Colormap default_colormap = {};
+    x11::ScreenInfo info = {};
     core::Slab<x11::VisualSpec> visual_specs;
     core::FlatMap<VisualID, XStandardColormap> standard_colormaps;
 
@@ -355,7 +354,7 @@ struct ScreenSlot {
     core::FlatMap<core::Pair<int, VisualID>, std::unique_ptr<x11::PixelFormat>> pixel_formats;
     core::FlatMap<core::Pair<int, VisualID>, std::unique_ptr<x11::ImageBridge>> image_bridges;
 
-#if HAVE_XRANDR
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_XRANDR
     x11::ScreenConf screen_conf;
 #endif
 };
@@ -386,8 +385,8 @@ inline ColormapFinderImpl::ColormapFinderImpl(Display* dpy, ScreenSlot& screen_s
 
 bool ColormapFinderImpl::find_default_colormap(VisualID visual, Colormap& colormap) const noexcept
 {
-    if (visual == m_screen_slot.default_visual) {
-        colormap = m_screen_slot.default_colormap;
+    if (visual == m_screen_slot.info.default_visual) {
+        colormap = m_screen_slot.info.default_colormap;
         return true;
     }
     return false;
@@ -398,12 +397,12 @@ bool ColormapFinderImpl::find_standard_colormap(VisualID visual, XStandardColorm
 {
     if (ARCHON_LIKELY(m_screen_slot.have_standard_colormaps))
         goto have;
-    m_screen_slot.standard_colormaps = x11::fetch_standard_colormaps(m_dpy, m_screen_slot.root); // Throws
+    m_screen_slot.standard_colormaps = x11::fetch_standard_colormaps(m_dpy, m_screen_slot.info.root); // Throws
     m_screen_slot.have_standard_colormaps = true;
     {
         core::NumOfSpec spec = { "standard colormap", "standard colormaps" };
         m_logger.detail("Found %s on screen %s", core::as_num_of(m_screen_slot.standard_colormaps.size(), spec),
-                        core::as_int(m_screen_slot.screen)); // Throws
+                        core::as_int(m_screen_slot.info.screen)); // Throws
     }
 
   have:
@@ -458,14 +457,21 @@ private:
 };
 
 
+class dummy_event_handler final
+    : public display::ConnectionEventHandler
+    , public display::WindowEventHandler {
+};
+
+constinit dummy_event_handler g_dummy_event_handler;
+
+
 class ConnectionImpl final
-    : private display::ConnectionEventHandler
-    , public display::Connection {
+    : public display::Connection {
 public:
     const ImplementationImpl& impl;
     const std::locale locale;
     log::Logger& logger;
-    display::ConnectionEventHandler* event_handler = this;
+    display::ConnectionEventHandler* event_handler = &g_dummy_event_handler;
     x11::DisplayWrapper dpy_owner;
     Display* dpy = nullptr;
 
@@ -476,8 +482,9 @@ public:
     Atom atom_net_wm_fullscreen_monitors;
     Atom atom_net_wm_state;
     Atom atom_net_wm_state_fullscreen;
+    Atom atom_net_wm_bypass_compositor;
 
-#if HAVE_XRANDR
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_XRANDR
     Atom atom_edid;
 #endif
 
@@ -487,7 +494,10 @@ public:
     void register_window(WindowImpl&);
     void unregister_window(WindowImpl&) noexcept;
     auto ensure_image_bridge(const XVisualInfo&, const x11::PixelFormat&) const -> x11::ImageBridge&;
+    void set_fullscreen_mode(::Window win, ::Window root, bool on);
+    void set_compositor_bypass_mode(::Window win, bool on) noexcept;
     void set_fullscreen_monitors(::Window win, ::Window root);
+    bool fullscreen_opengl_bypass_compositor() const;
 
     bool try_map_key_to_key_code(display::Key, display::KeyCode&) const override;
     bool try_map_key_code_to_key(display::KeyCode, display::Key&) const override;
@@ -512,6 +522,7 @@ private:
     const std::optional<int> m_class_override;
     const std::optional<VisualID> m_visual_override;
     const std::optional<display::x11_fullscreen_monitors> m_fullscreen_monitors;
+    const bool m_fullscreen_opengl_bypass_compositor;
     const bool m_prefer_default_nondecomposed_colormap;
     const bool m_disable_double_buffering;
     const bool m_disable_glx_direct_rendering;
@@ -527,7 +538,7 @@ private:
     mutable std::unique_ptr<ScreenSlot[]> m_screen_slots;
     mutable core::FlatMap<::Window, int> m_screens_by_root;
 
-#if HAVE_XRANDR
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_XRANDR
     mutable std::optional<impl::EdidParser> m_edid_parser;
 #endif
 
@@ -588,7 +599,6 @@ private:
     int m_num_events = 0;
     bool m_generate_quit = false;
 
-    auto intern_string(const char*) noexcept -> Atom;
     auto ensure_screen_slot(int screen) const -> ScreenSlot&;
     bool determine_visual_spec(const ScreenSlot&, bool prefer_double_buffered, bool require_opengl,
                                bool require_depth_buffer, const x11::VisualSpec*&, std::string& error) const;
@@ -602,7 +612,7 @@ private:
     void track_pointer_grabs(::Window window_id, unsigned button, bool is_press);
     bool is_pointer_grabbed() const noexcept;
 
-#if HAVE_XRANDR
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_XRANDR
     bool update_screen_conf(ScreenSlot& slot) const;
     auto ensure_edid_parser() const -> const impl::EdidParser&;
 #endif
@@ -610,27 +620,28 @@ private:
 
 
 class WindowImpl final
-    : private display::WindowEventHandler
-    , public display::Window {
+    : public display::Window {
 public:
     ConnectionImpl& conn;
     const ScreenSlot& screen_slot;
     const x11::VisualSpec& visual_spec;
     const int cookie;
-    display::WindowEventHandler* event_handler = this;
+    display::WindowEventHandler* event_handler = &g_dummy_event_handler;
 
     ::Window win = None;
 
     bool has_pending_expose_event = false;
+    bool has_input_focus = false;
 
     WindowImpl(ConnectionImpl&, const ScreenSlot&, const x11::VisualSpec&, const x11::PixelFormat&,
-               int cookie) noexcept;
+               int cookie, bool enable_opengl, bool prefer_opengl_adaptive_vsync) noexcept;
     ~WindowImpl() noexcept override;
 
     void create(display::Size size, const Config& config, bool enable_double_buffering,
-                bool enable_opengl, bool enable_glx_direct_rendering);
+                bool enable_glx_direct_rendering);
     auto ensure_image_bridge() -> x11::ImageBridge&;
     auto ensure_graphics_context() noexcept -> GC;
+    void set_confirmed_fullscreen_state(bool on);
 
     void set_event_handler(display::WindowEventHandler&) noexcept override;
     void unset_event_handler() noexcept override;
@@ -647,12 +658,23 @@ public:
     void present() override;
     void opengl_make_current() override;
     void opengl_swap_buffers() override;
+    bool try_get_opengl_vsync_state(bool&) override;
+    bool try_set_opengl_vsync_state(bool) override;
 
 private:
+    // True if this window was created with an explicit requirement for OpenGL support
+    // (Window::Config::enable_opengl_rendering) and the window was created on a screen that
+    // supports GLX + the GLX_ARB_create_context extension.
+    const bool m_enable_opengl;
+
+    const bool m_prefer_opengl_adaptive_vsync;
+
     bool m_is_registered = false;
     bool m_is_double_buffered = false;
     bool m_is_mapped = false;
-    bool m_fullscreen_mode = false;
+    bool m_wanted_fullscreen_state = false;
+    bool m_confirmed_fullscreen_state = false;
+    bool m_compositor_bypass_state = false;
 
     const x11::PixelFormat& m_pixel_format;
     x11::ImageBridge* m_image_bridge = nullptr;
@@ -660,16 +682,16 @@ private:
     GC m_gc = None;
 
     Drawable m_drawable;
-#if HAVE_XDBE
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_XDBE
     XdbeSwapAction m_swap_action;
 #endif
 
-#if HAVE_GLX
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_GLX
     GLXContext m_ctx = nullptr;
 #endif
 
-    void set_property(Atom name, Atom value) noexcept;
-    void do_set_fullscreen_mode(bool on);
+    void turn_on_off_fullscreen_mode();
+    void ensure_turn_on_off_compositor_bypass_mode() noexcept;
     void do_fill(util::Color color, int x, int y, unsigned w, unsigned h);
     void do_put_texture(const TextureImpl&, const display::Box& source_area, const display::Pos& pos);
     auto create_image_bridge() -> x11::ImageBridge&;
@@ -760,6 +782,7 @@ inline ConnectionImpl::ConnectionImpl(const ImplementationImpl& impl_2, const st
     , m_class_override(x11::map_opt_visual_class(config.visual_class))
     , m_visual_override(map_opt_visual_type(config.visual_type)) // Throws
     , m_fullscreen_monitors(config.fullscreen_monitors)
+    , m_fullscreen_opengl_bypass_compositor(config.fullscreen_opengl_bypass_compositor)
     , m_prefer_default_nondecomposed_colormap(config.prefer_default_nondecomposed_colormap)
     , m_disable_double_buffering(config.disable_double_buffering)
     , m_disable_glx_direct_rendering(config.disable_glx_direct_rendering)
@@ -798,14 +821,16 @@ bool ConnectionImpl::try_open(const display::x11_connection_config& config, std:
 
     m_pixmap_formats = x11::fetch_pixmap_formats(dpy); // Throws
 
-    atom_wm_protocols               = intern_string("WM_PROTOCOLS");
-    atom_wm_delete_window           = intern_string("WM_DELETE_WINDOW");
-    atom_net_wm_fullscreen_monitors = intern_string("_NET_WM_FULLSCREEN_MONITORS");
-    atom_net_wm_state               = intern_string("_NET_WM_STATE");
-    atom_net_wm_state_fullscreen    = intern_string("_NET_WM_STATE_FULLSCREEN");
+    // FIXME: Does an X11 request exist for interning a batch of strings at once?
+    atom_wm_protocols               = x11::intern_string(dpy, "WM_PROTOCOLS");
+    atom_wm_delete_window           = x11::intern_string(dpy, "WM_DELETE_WINDOW");
+    atom_net_wm_fullscreen_monitors = x11::intern_string(dpy, "_NET_WM_FULLSCREEN_MONITORS");
+    atom_net_wm_state               = x11::intern_string(dpy, "_NET_WM_STATE");
+    atom_net_wm_state_fullscreen    = x11::intern_string(dpy, "_NET_WM_STATE_FULLSCREEN");
+    atom_net_wm_bypass_compositor   = x11::intern_string(dpy, "_NET_WM_BYPASS_COMPOSITOR");
 
-#if HAVE_XRANDR
-    atom_edid = intern_string(RR_PROPERTY_RANDR_EDID);
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_XRANDR
+    atom_edid = x11::intern_string(dpy, RR_PROPERTY_RANDR_EDID);
 #endif
 
     m_screen_slots = std::make_unique<ScreenSlot[]>(std::size_t(ScreenCount(dpy))); // Throws
@@ -868,12 +893,34 @@ auto ConnectionImpl::ensure_image_bridge(const XVisualInfo& visual_info,
 }
 
 
+inline void ConnectionImpl::set_fullscreen_mode(::Window win, ::Window root, bool on)
+{
+    x11::set_fullscreen_mode(dpy, win, on, root, atom_net_wm_state, atom_net_wm_state_fullscreen); // Throws
+}
+
+
+inline void ConnectionImpl::set_compositor_bypass_mode(::Window win, bool on) noexcept
+{
+    // Send EWMH hint to compositor (if present) to "unredirect" the window. If honored,
+    // this will bypass the compositing stage and improve performance. Some compositors have
+    // this behavior by default (when value is zero). Others do not (require a value of 1).
+    unsigned long value = (on ? 1 : 0);
+    x11::set_property_32(dpy, win, atom_net_wm_bypass_compositor, value);
+}
+
+
 void ConnectionImpl::set_fullscreen_monitors(::Window win, ::Window root)
 {
     if (ARCHON_LIKELY(!m_fullscreen_monitors.has_value()))
         return;
     x11::set_fullscreen_monitors(dpy, win, m_fullscreen_monitors.value(), root,
                                  atom_net_wm_fullscreen_monitors); // Throws
+}
+
+
+inline bool ConnectionImpl::fullscreen_opengl_bypass_compositor() const
+{
+    return m_fullscreen_opengl_bypass_compositor;
 }
 
 
@@ -919,18 +966,18 @@ bool ConnectionImpl::try_new_window(std::string_view title, display::Size size, 
     else if (ARCHON_UNLIKELY(screen < 0 || screen >= int(ScreenCount(dpy)))) {
         throw std::invalid_argument("Bad screen index");
     }
+    ScreenSlot& screen_slot = ensure_screen_slot(screen); // Throws
     bool prefer_double_buffered = false;
     if (ARCHON_LIKELY(!m_disable_double_buffering))
         prefer_double_buffered = true;
     bool enable_opengl = false;
     if (config.enable_opengl_rendering) {
-        if (ARCHON_UNLIKELY(!extension_info.have_glx)) {
+        if (ARCHON_UNLIKELY(!screen_slot.info.have_glx)) {
             error = "OpenGL rendering not available";
             return false;
         }
         enable_opengl = true;
     }
-    ScreenSlot& screen_slot = ensure_screen_slot(screen); // Throws
     bool require_depth_buffer = config.require_opengl_depth_buffer;
     const x11::VisualSpec* visual_spec = {};
     if (ARCHON_LIKELY(determine_visual_spec(screen_slot, prefer_double_buffered, enable_opengl, require_depth_buffer,
@@ -939,10 +986,11 @@ bool ConnectionImpl::try_new_window(std::string_view title, display::Size size, 
         logger.detail("Using %s visual (%s) of depth %s for new X11 window", x11::get_visual_class_name(info.c_class),
                       core::as_flex_int_h(info.visualid), info.depth); // Throws
         const x11::PixelFormat& pixel_format = ensure_pixel_format(screen_slot, info); // Throws
-        auto win_2 = std::make_unique<WindowImpl>(*this, screen_slot, *visual_spec, pixel_format, config.cookie); // Throws
+        auto win_2 = std::make_unique<WindowImpl>(*this, screen_slot, *visual_spec, pixel_format, config.cookie,
+                                                  enable_opengl, config.prefer_opengl_adaptive_vsync); // Throws
         bool enable_double_buffering = visual_spec->double_buffered && !m_disable_double_buffering;
         bool enable_glx_direct_rendering = !m_disable_glx_direct_rendering;
-        win_2->create(size, config, enable_double_buffering, enable_opengl, enable_glx_direct_rendering); // Throws
+        win_2->create(size, config, enable_double_buffering, enable_glx_direct_rendering); // Throws
         win_2->set_title(title); // Throws
         if (ARCHON_UNLIKELY(m_install_colormaps))
             XInstallColormap(dpy, pixel_format.get_colormap());
@@ -961,7 +1009,7 @@ void ConnectionImpl::set_event_handler(display::ConnectionEventHandler& handler)
 
 void ConnectionImpl::unset_event_handler() noexcept
 {
-    event_handler = this;
+    event_handler = &g_dummy_event_handler;
 }
 
 
@@ -1005,7 +1053,7 @@ bool ConnectionImpl::try_get_screen_conf(int screen, core::Buffer<display::Viewp
     if (ARCHON_UNLIKELY(screen < 0 || screen >= int(ScreenCount(dpy))))
         throw std::invalid_argument("Bad screen index");
 
-#if HAVE_XRANDR
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_XRANDR
     if (extension_info.have_xrandr) {
         const ScreenSlot& slot = ensure_screen_slot(screen); // Throws
         const x11::ScreenConf& conf = slot.screen_conf;
@@ -1031,12 +1079,12 @@ bool ConnectionImpl::try_get_screen_conf(int screen, core::Buffer<display::Viewp
         return true;
     }
     return false;
-#else // !HAVE_XRANDR
+#else // !ARCHON_DISPLAY_HAVE_GOOD_X11_XRANDR
     static_cast<void>(viewports);
     static_cast<void>(strings);
     static_cast<void>(num_viewports);
     return false;
-#endif // !HAVE_XRANDR
+#endif // !ARCHON_DISPLAY_HAVE_GOOD_X11_XRANDR
 }
 
 
@@ -1046,38 +1094,26 @@ auto ConnectionImpl::get_implementation() const noexcept -> const display::Imple
 }
 
 
-inline auto ConnectionImpl::intern_string(const char* string) noexcept -> Atom
-{
-    Atom atom = XInternAtom(dpy, string, False);
-    ARCHON_STEADY_ASSERT(atom != None);
-    return atom;
-}
-
-
 auto ConnectionImpl::ensure_screen_slot(int screen) const -> ScreenSlot&
 {
     ARCHON_ASSERT(m_screen_slots);
     ARCHON_ASSERT(screen >= 0 && screen <= ScreenCount(dpy));
     ScreenSlot& slot = m_screen_slots[screen];
     if (ARCHON_UNLIKELY(!slot.is_initialized)) {
-        ::Window root = RootWindow(dpy, screen);
-        slot.screen = screen;
-        slot.root = root;
-        slot.default_visual = XVisualIDFromVisual(DefaultVisual(dpy, screen));
-        slot.default_colormap = DefaultColormap(dpy, screen);
-        m_screens_by_root[root] = screen; // Throws
+        slot.info = x11::get_screen_info(dpy, extension_info, screen); // Throws
+        m_screens_by_root[slot.info.root] = screen; // Throws
 
         // Fetch information about supported visuals
-        slot.visual_specs = x11::load_visuals(dpy, screen, extension_info); // Throws
+        slot.visual_specs = x11::load_visuals(dpy, extension_info, slot.info); // Throws
 
         // Fetch initial screen configuration
-#if HAVE_XRANDR
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_XRANDR
         if (ARCHON_LIKELY(extension_info.have_xrandr)) {
             int mask = RROutputChangeNotifyMask | RRCrtcChangeNotifyMask;
-            XRRSelectInput(dpy, root, mask);
+            XRRSelectInput(dpy, slot.info.root, mask);
             update_screen_conf(slot); // Throws
         }
-#endif // HAVE_XRANDR
+#endif // ARCHON_DISPLAY_HAVE_GOOD_X11_XRANDR
 
         slot.is_initialized = true;
     }
@@ -1098,7 +1134,7 @@ bool ConnectionImpl::determine_visual_spec(const ScreenSlot& screen_slot, bool p
     params.require_opengl = require_opengl;
     params.require_opengl_depth_buffer = require_opengl && require_depth_buffer;
     std::size_t index = {};
-    if (ARCHON_LIKELY(x11::find_visual(dpy, screen_slot.screen, visual_specs, params, index))) { // Throws
+    if (ARCHON_LIKELY(x11::find_visual(dpy, screen_slot.info.screen, visual_specs, params, index))) { // Throws
         spec = &visual_specs[index];
         return true;
     }
@@ -1126,7 +1162,7 @@ auto ConnectionImpl::ensure_pixel_format(ScreenSlot& screen_slot,
     const XPixmapFormatValues& pixmap_format = get_pixmap_format(visual_info.depth); // Throws
     ColormapFinderImpl colormap_finder(dpy, screen_slot, logger);
     std::unique_ptr<x11::PixelFormat> pixel_format =
-        x11::create_pixel_format(dpy, screen_slot.root, visual_info, pixmap_format, colormap_finder,
+        x11::create_pixel_format(dpy, screen_slot.info.root, visual_info, pixmap_format, colormap_finder,
                                  locale, logger, m_prefer_default_nondecomposed_colormap,
                                  m_colormap_weirdness); // Throws
     auto p = screen_slot.pixel_formats.emplace(key, std::move(pixel_format)); // Throws
@@ -1144,7 +1180,7 @@ bool ConnectionImpl::do_process_events(const time_point_type* deadline)
     // following additional requirements:
     //
     //  * There must be no unflushed X11 requests when sleeping takes place. Below, this is
-    //    ensured by the fact there is no opportunity for X11 requests to be generated
+    //    ensured by the fact that there is no opportunity for X11 requests to be generated
     //    between the flushing read (call to read() with QueuedAfterFlush) and the sleep
     //    (call to wait()).
     //
@@ -1385,21 +1421,21 @@ bool ConnectionImpl::process_event_batch()
         case KeyPress:
         case KeyRelease:
             if (ARCHON_LIKELY(lookup_window(ev.xkey.window, window))) {
-                using timestamp_type = display::TimedWindowEvent::Timestamp;
-                timestamp_type timestamp = unwrap_session.unwrap_next_timestamp(ev.xkey.time); // Throws
+                KeyCode keycode = KeyCode(ev.xkey.keycode);
+                auto timestamp = unwrap_session.unwrap_next_timestamp(ev.xkey.time); // Throws
                 bool is_repetition = false;
                 if (ARCHON_LIKELY(m_detectable_autorepeat_enabled)) {
                     if (ev.type == KeyPress) {
-                        if (!m_pressed_keys.contains(ev.xkey.keycode)) {
-                            m_pressed_keys.add(ev.xkey.keycode);
+                        if (!m_pressed_keys.contains(keycode)) {
+                            m_pressed_keys.add(keycode);
                         }
                         else {
                             is_repetition = true;
                         }
                     }
                     else {
-                        ARCHON_ASSERT(m_pressed_keys.contains(ev.xkey.keycode));
-                        m_pressed_keys.remove(ev.xkey.keycode);
+                        ARCHON_ASSERT(m_pressed_keys.contains(keycode));
+                        m_pressed_keys.remove(keycode);
                     }
                 }
                 else {
@@ -1411,12 +1447,13 @@ bool ConnectionImpl::process_event_batch()
                     // available, i.e., without having to block. This assumption appears to
                     // hold in practice, but it could conceivably fail, in which case the
                     // pair will be treated as genuine "key up" and "key down" events.
+                    //
                     if (ev.type == KeyPress) {
-                        ARCHON_ASSERT(!m_pressed_keys.contains(ev.xkey.keycode));
-                        m_pressed_keys.add(ev.xkey.keycode);
+                        ARCHON_ASSERT(!m_pressed_keys.contains(keycode));
+                        m_pressed_keys.add(keycode);
                     }
                     else {
-                        ARCHON_ASSERT(m_pressed_keys.contains(ev.xkey.keycode));
+                        ARCHON_ASSERT(m_pressed_keys.contains(keycode));
                         if (m_num_events == 0) {
                             int n = XEventsQueued(dpy, QueuedAfterReading); // Non-blocking
                             if (n > 0)
@@ -1425,10 +1462,9 @@ bool ConnectionImpl::process_event_batch()
                         if (m_num_events > 0) {
                             XEvent ev_2 = {};
                             XPeekEvent(dpy, &ev_2);
-                            if (ev_2.type == KeyPress && ev_2.xkey.keycode == ev.xkey.keycode) {
+                            if (ev_2.type == KeyPress && KeyCode(ev_2.xkey.keycode) == keycode) {
                                 ARCHON_ASSERT(ev_2.xkey.window == ev.xkey.window);
-                                timestamp_type timestamp_2 =
-                                    unwrap_session.unwrap_next_timestamp(ev_2.xkey.time); // Throws
+                                auto timestamp_2 = unwrap_session.unwrap_next_timestamp(ev_2.xkey.time); // Throws
                                 ARCHON_ASSERT(timestamp_2 >= timestamp);
                                 if ((timestamp_2 - timestamp).count() <= 1) {
                                     XNextEvent(dpy, &ev);
@@ -1439,35 +1475,46 @@ bool ConnectionImpl::process_event_batch()
                             }
                         }
                         if (!is_repetition)
-                            m_pressed_keys.remove(ev.xkey.keycode);
+                            m_pressed_keys.remove(keycode);
                     }
                 }
-                // Map key code to a keyboard independent symbol identifier (in general the
-                // symbol in the upper left corner on the corresponding key). See also
-                // https://tronche.com/gui/x/xlib/input/keyboard-encoding.html.
-                unsigned group = XkbGroup1Index;
-                unsigned level = 0;
-                KeySym keysym = XkbKeycodeToKeysym(dpy, ev.xkey.keycode, group, level);
-                ARCHON_ASSERT(keysym != NoSymbol);
-                display::KeyEvent event;
-                event.cookie = window->cookie;
-                event.timestamp = timestamp;
-                event.key_code = { display::KeyCode::code_type(keysym) };
-                bool proceed;
-                if (ev.type == KeyPress) {
-                    if (ARCHON_LIKELY(!is_repetition)) {
-                        proceed = window->event_handler->on_keydown(event); // Throws
-                    }
-                    else {
-                        proceed = window->event_handler->on_keyrepeat(event); // Throws
+                if (window->has_input_focus) {
+                    // Map key code to a keyboard independent symbol identifier for the main
+                    // function of the key (in general the symbol in the upper left corner).
+                    //
+                    // FIXME: XkbKeycodeToKeysym() does automatically track changes to the
+                    // keyboard layout, but this tracking is not 100% reliable when multiple
+                    // layout changes happen in quick succession, or when input seat
+                    // re-assignment happens (MPX).
+                    //
+                    // Both the shift level and the group selector needs to be zero in order
+                    // to get the KeySym value for the main function of the key
+                    //
+                    int group = 0;
+                    int level = 0;
+                    KeySym keysym = XkbKeycodeToKeysym(dpy, keycode, group, level);
+                    if (ARCHON_LIKELY(keysym != NoSymbol)) {
+                        display::KeyEvent event;
+                        event.cookie = window->cookie;
+                        event.timestamp = timestamp;
+                        event.key_code = { display::KeyCode::code_type(keysym) };
+                        bool proceed;
+                        if (ev.type == KeyPress) {
+                            if (ARCHON_LIKELY(!is_repetition)) {
+                                proceed = window->event_handler->on_keydown(event); // Throws
+                            }
+                            else {
+                                proceed = window->event_handler->on_keyrepeat(event); // Throws
+                            }
+                        }
+                        else {
+                            proceed = window->event_handler->on_keyup(event); // Throws
+                        }
+                        if (ARCHON_LIKELY(proceed))
+                            break;
+                        return false; // Interrupt
                     }
                 }
-                else {
-                    proceed = window->event_handler->on_keyup(event); // Throws
-                }
-                if (ARCHON_LIKELY(proceed))
-                    break;
-                return false; // Interrupt
             }
             break;
 
@@ -1503,35 +1550,80 @@ bool ConnectionImpl::process_event_batch()
         case FocusOut:
             if (ev.type == FocusIn)
                 m_expect_keymap_notify = true;
-            if (ARCHON_LIKELY(lookup_window(ev.xfocus.window, window))) {
-                display::WindowEvent event;
-                event.cookie = window->cookie;
-                bool proceed;
-                if (ev.type == FocusIn) {
-                    proceed = window->event_handler->on_focus(event); // Throws
+            //
+            // When regular input focus is gained or lost, it is reported to the window
+            // using a focus event with mode=NotifyNormal or mode=NotifyWhileGrabbed. The
+            // latter is used if the change occurs while the keyboard is grabbed.
+            //
+            // Events with mode=NotifyGrab or mode=NotifyUngrab are filtered out. These
+            // report the initiation or termination of a keyboard grab, which does not
+            // indicate a gain or loss of regular input focus for the window.
+            //
+            // In this context, a window is understood as having *regular input focus* if
+            // and only if the X server's global input focus is explicitly set to that
+            // window. The X server's global input focus is set by XSetInputFocus(), and
+            // then only changes if XSetInputFocus() is called again or the focus window
+            // becomes unviewable.
+            //
+            // Note that the regular input focus is not identical to the *effective input
+            // focus*. The latter determines where key events are actually sent at any
+            // specific time. It depends on the regular input focus, but also on keyboard
+            // grabs and, when the server is in PointerRoot mode, the position of the
+            // pointer.
+            //
+            // Events with detail=NotifyPointer are also filtered out. These are generated
+            // for a window, W, when an ancestor window gains or loses input focus
+            // (including switches to or from PointerRoot), and the pointer happens to be
+            // located within W. In none of these cases does it indicate a gain or loss of
+            // regular input focus for W.
+            //
+            if (ARCHON_LIKELY((ev.xfocus.mode == NotifyNormal || ev.xfocus.mode == NotifyWhileGrabbed) &&
+                              ev.xfocus.detail != NotifyPointer)) {
+                if (ARCHON_LIKELY(lookup_window(ev.xfocus.window, window))) {
+                    window->has_input_focus = (ev.type == FocusIn);
+                    display::WindowEvent event;
+                    event.cookie = window->cookie;
+                    bool proceed;
+                    if (ev.type == FocusIn) {
+                        proceed = window->event_handler->on_focus(event); // Throws
+                    }
+                    else {
+                        proceed = window->event_handler->on_blur(event); // Throws
+                    }
+                    if (ARCHON_LIKELY(proceed))
+                        break;
+                    return false; // Interrupt
                 }
-                else {
-                    proceed = window->event_handler->on_blur(event); // Throws
-                }
-                if (ARCHON_LIKELY(proceed))
-                    break;
-                return false; // Interrupt
             }
             break;
 
         case ClientMessage:
-            bool is_close = (ev.xclient.format == 32 && Atom(ev.xclient.data.l[0]) == atom_wm_delete_window);
-            if (ARCHON_LIKELY(is_close && lookup_window(ev.xclient.window, window))) {
-                display::WindowEvent event;
-                event.cookie = window->cookie;
-                bool proceed = window->event_handler->on_close(event); // Throws
-                if (ARCHON_LIKELY(!proceed))
-                    return false; // Interrupt
+            if (ARCHON_LIKELY(lookup_window(ev.xclient.window, window))) {
+                bool is_close = (ev.xclient.format == 32 && Atom(ev.xclient.data.l[0]) == atom_wm_delete_window);
+                if (is_close) {
+                    display::WindowEvent event;
+                    event.cookie = window->cookie;
+                    bool proceed = window->event_handler->on_close(event); // Throws
+                    if (ARCHON_LIKELY(!proceed))
+                        return false; // Interrupt
+                }
+            }
+            break;
+
+        case PropertyNotify:
+            if (ARCHON_LIKELY(lookup_window(ev.xproperty.window, window))) {
+                bool found = {};
+                bool good = (ev.xproperty.atom == atom_net_wm_state &&
+                             ev.xproperty.state == PropertyNewValue &&
+                             x11::try_property_find_a(dpy, window->win, atom_net_wm_state,
+                                                      atom_net_wm_state_fullscreen, found)); // Throws
+                if (good)
+                    window->set_confirmed_fullscreen_state(found);
             }
             break;
     }
 
-#if HAVE_XRANDR
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_XRANDR
     if (extension_info.have_xrandr && ev.type == extension_info.xrandr_event_base + RRNotify) {
         const auto& ev_2 = reinterpret_cast<const XRRNotifyEvent&>(ev);
         switch (ev_2.subtype) {
@@ -1547,7 +1639,7 @@ bool ConnectionImpl::process_event_batch()
                     event_handler->on_screen_change(screen); // Throws
         }
     }
-#endif // HAVE_XRANDR
+#endif // ARCHON_DISPLAY_HAVE_GOOD_X11_XRANDR
     goto process_1;
 }
 
@@ -1617,13 +1709,13 @@ inline bool ConnectionImpl::is_pointer_grabbed() const noexcept
 }
 
 
-#if HAVE_XRANDR
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_XRANDR
 
 
 inline bool ConnectionImpl::update_screen_conf(ScreenSlot& slot) const
 {
     const impl::EdidParser& edid_parser = ensure_edid_parser(); // Throws
-    return x11::update_screen_conf(dpy, slot.root, atom_edid, edid_parser, locale, slot.screen_conf); // Throws
+    return x11::update_screen_conf(dpy, slot.info.root, atom_edid, edid_parser, locale, slot.screen_conf); // Throws
 }
 
 
@@ -1636,17 +1728,19 @@ auto ConnectionImpl::ensure_edid_parser() const -> const impl::EdidParser&
 }
 
 
-#endif // HAVE_XRANDR
+#endif // ARCHON_DISPLAY_HAVE_GOOD_X11_XRANDR
 
 
 
 inline WindowImpl::WindowImpl(ConnectionImpl& conn_2, const ScreenSlot& screen_slot_2,
                               const x11::VisualSpec& visual_spec_2, const x11::PixelFormat& pixel_format,
-                              int cookie_2) noexcept
+                              int cookie_2, bool enable_opengl, bool prefer_opengl_adaptive_vsync) noexcept
     : conn(conn_2)
     , screen_slot(screen_slot_2)
     , visual_spec(visual_spec_2)
     , cookie(cookie_2)
+    , m_enable_opengl(enable_opengl)
+    , m_prefer_opengl_adaptive_vsync(prefer_opengl_adaptive_vsync)
     , m_pixel_format(pixel_format)
 {
 }
@@ -1654,10 +1748,10 @@ inline WindowImpl::WindowImpl(ConnectionImpl& conn_2, const ScreenSlot& screen_s
 
 WindowImpl::~WindowImpl() noexcept
 {
-#if HAVE_GLX
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_GLX
     if (m_ctx)
         glXDestroyContext(conn.dpy, m_ctx);
-#endif // HAVE_GLX
+#endif // ARCHON_DISPLAY_HAVE_GOOD_X11_GLX
 
     if (ARCHON_LIKELY(win != None)) {
         if (ARCHON_LIKELY(m_is_registered)) {
@@ -1670,12 +1764,22 @@ WindowImpl::~WindowImpl() noexcept
 }
 
 
-void WindowImpl::create(display::Size size, const Config& config, bool enable_double_buffering, bool enable_opengl,
+void WindowImpl::create(display::Size size, const Config& config, bool enable_double_buffering,
                         bool enable_glx_direct_rendering)
 {
     display::Size adjusted_size = max(size, config.minimum_size);
 
-    ::Window parent = screen_slot.root;
+    long event_mask = (KeyPressMask | KeyReleaseMask |
+                       ButtonPressMask | ButtonReleaseMask |
+                       ButtonMotionMask |
+                       EnterWindowMask | LeaveWindowMask |
+                       FocusChangeMask |
+                       ExposureMask |
+                       StructureNotifyMask |
+                       KeymapStateMask |
+                       PropertyChangeMask);
+
+    ::Window parent = screen_slot.info.root;
     int x = 0, y = 0;
     unsigned width  = unsigned(adjusted_size.width);
     unsigned height = unsigned(adjusted_size.height);
@@ -1685,14 +1789,7 @@ void WindowImpl::create(display::Size size, const Config& config, bool enable_do
     Visual* visual = visual_spec.info.visual;
     unsigned long valuemask = CWEventMask | CWColormap;
     XSetWindowAttributes attributes = {};
-    attributes.event_mask = (KeyPressMask | KeyReleaseMask |
-                             ButtonPressMask | ButtonReleaseMask |
-                             ButtonMotionMask |
-                             EnterWindowMask | LeaveWindowMask |
-                             FocusChangeMask |
-                             ExposureMask |
-                             StructureNotifyMask |
-                             KeymapStateMask);
+    attributes.event_mask = event_mask;
     attributes.colormap = m_pixel_format.get_colormap();
     win = XCreateWindow(conn.dpy, parent, x, y, width, height, border_width, depth, class_, visual,
                         valuemask, &attributes);
@@ -1700,7 +1797,8 @@ void WindowImpl::create(display::Size size, const Config& config, bool enable_do
     conn.register_window(*this); // Throws
     m_is_registered = true;
 
-    // Tell window manager to assign input focus to this window
+    // Tell window manager to assign input focus to this window (the "passive focus model"
+    // as defined by ICCCM)
     XWMHints hints = {};
     hints.flags = InputHint;
     hints.input = True;
@@ -1727,24 +1825,24 @@ void WindowImpl::create(display::Size size, const Config& config, bool enable_do
     }
 
     // Ask X server to notify rather than close connection when window is closed
-    set_property(conn.atom_wm_protocols, conn.atom_wm_delete_window);
+    x11::set_property_a(conn.dpy, win, conn.atom_wm_protocols, conn.atom_wm_delete_window);
 
     // Enable double buffering
     m_drawable = win;
-#if HAVE_XDBE
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_XDBE
     if (ARCHON_LIKELY(enable_double_buffering)) {
         m_swap_action = XdbeUndefined; // Contents of swapped-out buffer becomes undefined
         XdbeBackBuffer back_buffer = XdbeAllocateBackBufferName(conn.dpy, win, m_swap_action);
         m_drawable = back_buffer;
         m_is_double_buffered = true;
     }
-#else // !HAVE_XDBE
+#else // !ARCHON_DISPLAY_HAVE_GOOD_X11_XDBE
     static_cast<void>(enable_double_buffering);
-#endif // !HAVE_XDBE
+#endif // !ARCHON_DISPLAY_HAVE_GOOD_X11_XDBE
 
     // Create OpenGL rendering context
-#if HAVE_GLX
-    if (enable_opengl) {
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_GLX
+    if (m_enable_opengl) {
         GLXContext share_context = {}; // No sharing, so far
         Bool direct = Bool(enable_glx_direct_rendering);
         int attrib_list[] = {
@@ -1753,8 +1851,10 @@ void WindowImpl::create(display::Size size, const Config& config, bool enable_do
             GLX_CONTEXT_PROFILE_MASK_ARB, GLX_CONTEXT_CORE_PROFILE_BIT_ARB,
             None // End of list
         };
-        GLXContext ctx = conn.extension_info.glx_create_context(conn.dpy, visual_spec.fb_config,
-                                                                share_context, direct, attrib_list);
+        // Safe to call glXCreateContextAttribsARB() here because `m_enable_opengl` is true
+        // only if the `GLX_ARB_create_context` extension is supported on the target screen.
+        GLXContext ctx = conn.extension_info.glx_create_context_func(conn.dpy, visual_spec.fb_config,
+                                                                     share_context, direct, attrib_list);
         if (ARCHON_UNLIKELY(!ctx))
             throw std::runtime_error("glXCreateContextAttribsARB() failed");
         m_ctx = ctx;
@@ -1766,12 +1866,15 @@ void WindowImpl::create(display::Size size, const Config& config, bool enable_do
             throw std::runtime_error(std::move(message));
         }
     }
-#else // !HAVE_GLX
-    ARCHON_ASSERT(!enable_opengl);
+#else // !ARCHON_DISPLAY_HAVE_GOOD_X11_GLX
+    ARCHON_ASSERT(!m_enable_opengl);
     static_cast<void>(enable_glx_direct_rendering);
-#endif // !HAVE_GLX
+#endif // !ARCHON_DISPLAY_HAVE_GOOD_X11_GLX
 
-    m_fullscreen_mode = config.fullscreen;
+    m_wanted_fullscreen_state = config.fullscreen;
+
+    if (config.opengl_vsync.has_value() && config.enable_opengl_rendering)
+        try_set_opengl_vsync_state(config.opengl_vsync.value()); // Throws
 }
 
 
@@ -1791,6 +1894,14 @@ inline auto WindowImpl::ensure_graphics_context() noexcept -> GC
 }
 
 
+void WindowImpl::set_confirmed_fullscreen_state(bool on)
+{
+    m_confirmed_fullscreen_state = on;
+    if (m_is_mapped)
+        ensure_turn_on_off_compositor_bypass_mode();
+}
+
+
 void WindowImpl::set_event_handler(display::WindowEventHandler& handler) noexcept
 {
     event_handler = &handler;
@@ -1799,24 +1910,33 @@ void WindowImpl::set_event_handler(display::WindowEventHandler& handler) noexcep
 
 void WindowImpl::unset_event_handler() noexcept
 {
-    event_handler = this;
+    event_handler = &g_dummy_event_handler;
 }
 
 
 void WindowImpl::show()
 {
-    XMapWindow(conn.dpy, win);
-    m_is_mapped = true;
-    conn.set_fullscreen_monitors(win, screen_slot.root); // Throws
-    if (m_fullscreen_mode)
-        do_set_fullscreen_mode(true); // Throws
+    if (!m_is_mapped) {
+        XMapWindow(conn.dpy, win);
+        m_is_mapped = true;
+        conn.set_fullscreen_monitors(win, screen_slot.info.root); // Throws
+        if (m_wanted_fullscreen_state)
+            turn_on_off_fullscreen_mode(); // Throws
+    }
 }
 
 
 void WindowImpl::hide()
 {
-    XUnmapWindow(conn.dpy, win);
-    m_is_mapped = false;
+    if (m_is_mapped) {
+        m_is_mapped = false;
+        if (m_compositor_bypass_state) {
+            bool on = false;
+            conn.set_compositor_bypass_mode(win, on);
+            m_compositor_bypass_state = false;
+        }
+        XUnmapWindow(conn.dpy, win);
+    }
 }
 
 
@@ -1839,9 +1959,11 @@ void WindowImpl::set_size(display::Size size)
 
 void WindowImpl::set_fullscreen_mode(bool on)
 {
-    m_fullscreen_mode = on;
-    if (m_is_mapped)
-        do_set_fullscreen_mode(m_fullscreen_mode); // Throws
+    if (on != m_wanted_fullscreen_state) {
+        m_wanted_fullscreen_state = on;
+        if (m_is_mapped)
+            turn_on_off_fullscreen_mode(); // Throws
+    }
 }
 
 
@@ -1895,7 +2017,7 @@ void WindowImpl::put_texture(const display::Texture& tex, const display::Box& so
 
 void WindowImpl::present()
 {
-#if HAVE_XDBE
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_XDBE
     if (m_is_double_buffered) {
         XdbeSwapInfo info;
         info.swap_window = win;
@@ -1904,13 +2026,13 @@ void WindowImpl::present()
         if (ARCHON_UNLIKELY(status == 0))
             throw std::runtime_error("XdbeSwapBuffers() failed");
     }
-#endif // HAVE_XDBE
+#endif // ARCHON_DISPLAY_HAVE_GOOD_X11_XDBE
 }
 
 
 void WindowImpl::opengl_make_current()
 {
-#if HAVE_GLX
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_GLX
     glXMakeCurrent(conn.dpy, win, m_ctx);
 #endif
 }
@@ -1918,22 +2040,98 @@ void WindowImpl::opengl_make_current()
 
 void WindowImpl::opengl_swap_buffers()
 {
-#if HAVE_GLX
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_GLX
     glXSwapBuffers(conn.dpy, win);
 #endif
 }
 
 
-void WindowImpl::set_property(Atom name, Atom value) noexcept
+bool WindowImpl::try_get_opengl_vsync_state(bool& on)
 {
-    XChangeProperty(conn.dpy, win, name, XA_ATOM, 32, PropModeReplace, reinterpret_cast<unsigned char*>(&value), 1);
+    if (screen_slot.info.glx_has_swap_control) {
+        unsigned interval = 0;
+        glXQueryDrawable(conn.dpy, win, GLX_SWAP_INTERVAL_EXT, &interval);
+        on = (interval != 0);
+        return true;
+    }
+    return false;
 }
 
 
-void WindowImpl::do_set_fullscreen_mode(bool on)
+bool WindowImpl::try_set_opengl_vsync_state(bool on)
 {
-    x11::set_fullscreen_mode(conn.dpy, win, on, screen_slot.root, conn.atom_net_wm_state,
-                             conn.atom_net_wm_state_fullscreen); // Throws
+    if (screen_slot.info.glx_has_swap_control) {
+        if (on) {
+            if (m_prefer_opengl_adaptive_vsync && screen_slot.info.glx_has_swap_control_tear) {
+                conn.extension_info.glx_swap_interval_func(conn.dpy, win, -1); // Adaptive V-Sync
+            }
+            else {
+                conn.extension_info.glx_swap_interval_func(conn.dpy, win, 1);  // Regular V-Sync
+            }
+        }
+        else {
+            conn.extension_info.glx_swap_interval_func(conn.dpy, win, 0);
+        }
+        return true;
+    }
+    return false;
+}
+
+
+void WindowImpl::turn_on_off_fullscreen_mode()
+{
+    ARCHON_ASSERT(m_is_mapped);
+    conn.set_fullscreen_mode(win, screen_slot.info.root, m_wanted_fullscreen_state); // Throws
+    ensure_turn_on_off_compositor_bypass_mode();
+}
+
+
+void WindowImpl::ensure_turn_on_off_compositor_bypass_mode() noexcept
+{
+    // When the "fullscreen OpenGL compositor bypass" feature is enabled
+    // (`conn.fullscreen_opengl_bypass_compositor()`), compositor bypass mode is
+    // automatically turned on and off for windows as they enter and leave fullscreen mode.
+    //
+    // In this context, the *compositor bypass mode* is to be understood as *turned on* when
+    // the window property _NET_WM_BYPASS_COMPOSITOR is set to 1. Note, however, that this
+    // window property is merely a hint to the compositor, if there even is one. Compositors
+    // may or may not honor the hint. Some will, by default, automatically manage bypass
+    // mode based on their own heuristics.
+    //
+    // To control exactly when to turn compositor bypass mode on or off, two flags are
+    // maintained per window:
+    //
+    // 1. `wanted_fullscreen_state`: Reflects the application's currently requested state.
+    //
+    // 2. `confirmed_fullscreen_state`: Reflects the actual state, judged by observing the
+    //    necessarily delayed stream of "property change" events from the X server.
+    //
+    // The turning on and off of compositor bypass mode is then driven by the conjunction
+    // (logical AND) of these two flags:
+    //
+    // - OFF -> ON: When both flags become true, compositor bypass mode is turned on
+    //   (ensures wait for X server to actually enter fullscreen mode).
+    //
+    // - ON -> OFF: When the conjunction becomes false, compositor bypass mode is turned off
+    //   (ensures immediate turn off of bypass mode when leaving fullscreen mode).
+    //
+    // This scheme generally ensures that compositor bypass mode is in the turned-on state
+    // *only* while the window is actually in fullscreen mode. Under normal timing
+    // conditions, this is guaranteed. However, in extreme cases (e.g., when fullscreen mode
+    // is rapidly and repeatedly toggled), transients can occur where compositor bypass mode
+    // is in the turned-on state while the window is not in fullscreen mode. Unfortunately,
+    // no reasonable solution exists that completely avoids this.
+
+    ARCHON_ASSERT(m_is_mapped);
+    // Note that `m_enable_opengl` is true only if the application explicitly requested
+    // OpenGL support for the window.
+    if (conn.fullscreen_opengl_bypass_compositor() && m_enable_opengl) {
+        bool want_compositor_bypass = (m_wanted_fullscreen_state && m_confirmed_fullscreen_state);
+        if (want_compositor_bypass != m_compositor_bypass_state) {
+            conn.set_compositor_bypass_mode(win, want_compositor_bypass);
+            m_compositor_bypass_state = want_compositor_bypass;
+        }
+    }
 }
 
 
@@ -2000,7 +2198,7 @@ TextureImpl::~TextureImpl() noexcept
 void TextureImpl::create()
 {
     if (ARCHON_LIKELY(!size.is_empty()))
-        pixmap = XCreatePixmap(win.conn.dpy, win.screen_slot.root, unsigned(size.width), unsigned(size.height),
+        pixmap = XCreatePixmap(win.conn.dpy, win.screen_slot.info.root, unsigned(size.width), unsigned(size.height),
                                win.visual_spec.info.depth);
 }
 
@@ -2446,7 +2644,7 @@ bool try_map_mouse_button(unsigned x11_button, bool& is_scroll, display::MouseBu
 }
 
 
-#else // !HAVE_X11
+#else // !ARCHON_DISPLAY_HAVE_GOOD_X11
 
 
 class SlotImpl final
@@ -2476,7 +2674,7 @@ auto SlotImpl::get_implementation_a(const display::Guarantees&) const noexcept -
 }
 
 
-#endif // !HAVE_X11
+#endif // !ARCHON_DISPLAY_HAVE_GOOD_X11
 
 
 } // unnamed namespace

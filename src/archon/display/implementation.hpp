@@ -106,7 +106,7 @@ protected:
 
 /// \brief Get default display implementation.
 ///
-/// This function is like \ref get_default_implementation_a() except that is throws an
+/// This function is like \ref get_default_implementation_a() except that it throws an
 /// exception instead of returning null if no display implementations are available.
 ///
 /// \sa \ref get_default_implementation_a()
@@ -123,8 +123,8 @@ auto get_default_implementation(const display::Guarantees& guarantees) -> const 
 /// implementation slots as exposed by \ref display::get_num_implementation_slots() and \ref
 /// display::get_implementation_slot().
 ///
-/// An implementation is available if \ref display::Implementation::is_available() would return
-/// `true` for the specified guarantees (\p guarantees).
+/// An implementation is available if \ref display::Implementation::Slot::is_available()
+/// would return `true` for the specified guarantees (\p guarantees).
 ///
 /// If there are no available implementations, this function returns null.
 ///
@@ -166,7 +166,7 @@ public:
     ///
     /// This function returns the description of the display implementation in this
     /// slot. The description is supposed to be a short text that serves to identify the
-    /// file format in a broader context.
+    /// implementation in a broader context.
     ///
     virtual auto get_descr() const noexcept -> std::string_view = 0;
 
@@ -207,8 +207,8 @@ protected:
 
 /// \brief Number of display implementation slots.
 ///
-/// This function returns the number of display implementation slots (see \ref
-/// display::Implementation::Slot). Each one can be accessed using \ref
+/// This function returns the number of built-in display implementations (\ref
+/// display::Implementation::Slot). Each one can be retrieved using \ref
 /// display::get_implementation_slot().
 ///
 /// \sa \ref display::Implementation::Slot
@@ -219,10 +219,12 @@ int get_num_implementation_slots() noexcept;
 
 /// \brief Get display implementation slot by index.
 ///
-/// This function returns the specified display implementation slot (\ref
-/// display::Implementation::Slot). The slot is specified in terms of its index within the
-/// built-in list of implementation slots. The number of slots in this list can be obtained
-/// by calling \ref display::get_num_implementation_slots().
+/// This function returns the slot of the specified built-in display implementation (\ref
+/// display::Implementation::Slot). The implementation is specified in terms of its index
+/// within the built-in list of available and unavailable implementations (\ref
+/// display::Implementation::Slot::is_available()). The number of implementations in the
+/// list can be obtained by calling \ref display::get_num_implementation_slots(). The order
+/// of implementations in the list is fixed.
 ///
 /// \sa \ref display::Implementation::Slot
 /// \sa \ref display::get_num_implementation_slots()
@@ -230,12 +232,19 @@ int get_num_implementation_slots() noexcept;
 auto get_implementation_slot(int index) -> const display::Implementation::Slot&;
 
 
-/// \brief Lookup display implementation by identifier.
+/// \brief Lookup display implementation slot by identifier.
 ///
-/// If the specified identifier matches one of the known display implementations (\ref
-/// display::Implementation), then this function returns the implementation slot of that
-/// implementation regardless of whether that implementation is available. Otherwise, this
-/// function returns null.
+/// If the specified identifier matches one of the slots of the built-in display
+/// implementations (\ref display::Implementation::Slot), then this function returns that
+/// slot regardless of whether the implementation is available (\ref
+/// display::Implementation::Slot::is_available()). If the specified identifier does not
+/// mach any slots, this function returns null. The built-in list of implementations is the
+/// one that is accessed using \ref display::get_num_implementation_slots() and \ref
+/// display::get_implementation_slot().
+///
+/// \sa \ref display::Implementation::Slot
+/// \sa \ref display::get_num_implementation_slots(), \ref display::get_implementation_slot()
+/// \sa \ref display::Implementation::Slot::get_ident()
 ///
 auto lookup_implementation(std::string_view ident) noexcept -> const display::Implementation::Slot*;
 
@@ -251,15 +260,16 @@ auto pick_implementation(const std::optional<std::string_view>& ident, const dis
 
 /// \brief Try to pick display implementation.
 ///
-/// This function attempts to picks a suitable display implementation based on the specified
-/// criteria. On success, this function returns `true` after setting \p impl to the picked
-/// implementation. O failure, it returns `false` after setting \p error to a message that
-/// describes the cause of the failure. \p error is left untouched on success. \p impl is
-/// left untouched on failure.
+/// This function attempts to picks a suitable built-in display implementation based on the
+/// specified criteria. On success, this function returns `true` after setting \p impl to
+/// the picked implementation. O failure, it returns `false` after setting \p error to a
+/// message that describes the cause of the failure. \p error is left untouched on
+/// success. \p impl is left untouched on failure.
 ///
-/// If an identifier is specified (\p ident), and such an implementation exists and is
-/// available, that implementation is picked. If no identifier is specified, the default
-/// implementation, based on the specified criteria, is picked (see \ref
+/// If an identifier is specified (\p ident), and a matching implementation exists in the
+/// built-in list of implementations, and the implementation is available, that
+/// implementation is picked. If no identifier is specified, the default implementation,
+/// based on the specified criteria, is picked (see \ref
 /// display::get_default_implementation_a()). Whether a particular implementation is
 /// available depends both on build-time configuration and on the specified guarantees (\p
 /// guarantees).

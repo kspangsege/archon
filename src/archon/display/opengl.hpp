@@ -25,7 +25,6 @@
 
 
 #include <string_view>
-#include <chrono>
 
 #include <archon/core/features.hpp>
 #include <archon/display/impl/config.h>
@@ -35,7 +34,7 @@
 ///
 /// \brief Whether OpenGL is available.
 ///
-/// This macro expands to `1` if OpenGL is availabe. Otherwise it expands to `0`.
+/// This macro expands to `1` if OpenGL is available. Otherwise it expands to `0`.
 ///
 /// For OpenGL manual pages, see https://registry.khronos.org/OpenGL-Refpages/ or https://docs.gl/.
 ///

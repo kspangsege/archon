@@ -29,7 +29,6 @@
 #include <string_view>
 #include <string>
 #include <locale>
-#include <chrono>
 
 #include <archon/core/concepts.hpp>
 #include <archon/log/logger.hpp>
@@ -171,7 +170,7 @@ public:
     /// The thread that executes this function is the thread that will be executing any
     /// registered key handler (\ref bind_key(), \ref register_key_handler()).
     ///
-    /// The event loop can be asynchronously terminated from anotehr thread by generating an
+    /// The event loop can be asynchronously terminated from another thread by generating an
     /// artificial "quit" event. See \ref display::Connection::generate_quit_event() on the
     /// display connection that was passed to the engine constructor.
     ///
@@ -477,11 +476,9 @@ struct Engine::Config {
 
     /// \brief Switch to fullscreen mode immediately.
     ///
-    /// If set to `true`, fullscreen mode will be switched on immediately. In any case, if
-    /// \ref allow_window_resize is `true`, fullscreen mode can be switched on and off
-    /// interactively.
-    ///
-    /// \sa \ref set_fullscreen_mode()
+    /// If set to `true`, fullscreen mode will be turned on immediately. In any case, if
+    /// \ref allow_window_resize is `true`, fullscreen mode can be turned on and off
+    /// dynamically through use of \ref set_fullscreen_mode().
     ///
     bool fullscreen_mode = false;
 
