@@ -49,15 +49,18 @@
 #include <archon/display/x11_connection_config.hpp>
 #include <archon/display/opengl.hpp>
 
-#if !ARCHON_WINDOWS && ARCHON_DISPLAY_HAVE_X11 && ARCHON_DISPLAY_HAVE_X11_XKB
+#if !ARCHON_WINDOWS && ARCHON_DISPLAY_HAVE_X11 && ARCHON_DISPLAY_HAVE_X11_XKB && ARCHON_DISPLAY_HAVE_X11_XINPUT2
 #  include <unistd.h>
 #  if defined _POSIX_VERSION && _POSIX_VERSION >= 200112L // POSIX.1-2001
 #    include <X11/Xlib.h>
 #    include <X11/XKBlib.h>
+#    include <X11/extensions/XInput2.h>
 #    // Require at least version 1.0 of the Xkb protocol extension (XkbMajorVersion,
-#    // XkbMinorVersion). Be sure to keep this check in correspondence with the check in
-#    // archon::display::impl::x11::init_extensions().
-#    if defined XkbMajorVersion && XkbMajorVersion >= 1
+#    // XkbMinorVersion) and at least version 2.1 of the XInput2 protocol extension
+#    // (XI_2_Major, XI_2_Minor). Be sure to keep these checks in correspondence with the
+#    // checks in archon::display::impl::x11::init_extensions().
+#    if defined XkbMajorVersion && XkbMajorVersion >= 1 &&              \
+        defined XI_2_Major && (XI_2_Major > 2 || (XI_2_Major == 2 && defined XI_2_Minor && XI_2_Minor >= 1))
 #      define ARCHON_DISPLAY_HAVE_GOOD_X11 1
 #    else
 #      define ARCHON_DISPLAY_HAVE_GOOD_X11 0
@@ -76,6 +79,20 @@
 #  include <X11/Xatom.h>
 #  include <X11/Xutil.h>
 #  include <X11/keysym.h>
+#
+#  if ARCHON_DISPLAY_HAVE_X11_XFIXES
+#    include <X11/extensions/Xfixes.h>
+#    // Require at least version 4.0 of the Xfixes protocol extension (XFIXES_MAJOR,
+#    // XFIXES_MINOR). Be sure to keep this check in correspondence with the check in
+#    // archon::display::impl::x11::init_extensions().
+#    if defined XFIXES_MAJOR && XFIXES_MAJOR >= 4
+#      define ARCHON_DISPLAY_HAVE_GOOD_X11_XFIXES 1
+#    else
+#      define ARCHON_DISPLAY_HAVE_GOOD_X11_XFIXES 0
+#    endif
+#  else
+#    define ARCHON_DISPLAY_HAVE_GOOD_X11_XFIXES 0
+#  endif
 #
 #  if ARCHON_DISPLAY_HAVE_X11_XDBE
 #    include <X11/extensions/Xdbe.h>
@@ -191,6 +208,22 @@
 // NOTE: As of Feb 19, 2026, the linked protocol specification is for version 1.0.
 //
 //
+// XInput2 extension
+// -----------------
+//
+// Protocol specification: https://www.x.org/releases/current/doc/inputproto/XI2proto.txt
+//
+// NOTE: As of Feb 19, 2026, the linked protocol specification is for version 2.3.
+//
+//
+// Xfixes extension
+// ----------------
+//
+// Protocol specification: https://www.x.org/releases/current/doc/fixesproto/fixesproto.txt
+//
+// NOTE: As of Feb 19, 2026, the linked protocol specification is for version 5.0.
+//
+//
 // Xdbe extension
 // --------------
 //
@@ -274,6 +307,8 @@ struct ExtensionInfo {
     // screen. See x11::ScreenInfo::have_glx.
     //
     bool have_xkb;     // X Keyboard Extension
+    bool have_xinput;  // X Input Extension (version 2)
+    bool have_xfixes;  // X Fixes Extension
     bool have_xdbe;    // X Double Buffer Extension
     bool have_xrandr;  // X Resize, Rotate and Reflect Extension
     bool have_xrender; // X Rendering Extension
@@ -282,6 +317,13 @@ struct ExtensionInfo {
     // Valid only when `have_xkb` is `true`
     int xkb_event_base;
     int xkb_major, xkb_minor;
+
+    // Valid only when `have_xinput` is `true`
+    int xinput_major, xinput_minor;
+    int xinput_opcode;
+
+    // Valid only when `have_xfixes` is `true`
+    int xfixes_major, xfixes_minor;
 
     // Valid only when `have_xdbe` is `true`
     int xdbe_major, xdbe_minor;

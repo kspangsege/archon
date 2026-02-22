@@ -649,6 +649,22 @@ int main(int argc, char* argv[])
         out << "no"; // Throws
     };
 
+    auto format_have_xinput = [&](std::ostream& out) {
+        if (extension_info.have_xinput) {
+            out << core::formatted("yes (%s.%s)", extension_info.xinput_major, extension_info.xinput_minor); // Throws
+            return;
+        }
+        out << "no"; // Throws
+    };
+
+    auto format_have_xfixes = [&](std::ostream& out) {
+        if (extension_info.have_xfixes) {
+            out << core::formatted("yes (%s.%s)", extension_info.xfixes_major, extension_info.xfixes_minor); // Throws
+            return;
+        }
+        out << "no"; // Throws
+    };
+
     auto format_have_xdbe = [&](std::ostream& out) {
         if (extension_info.have_xdbe) {
             out << core::formatted("yes (%s.%s)", extension_info.xdbe_major, extension_info.xdbe_minor); // Throws
@@ -686,6 +702,8 @@ int main(int argc, char* argv[])
     logger.info("Server vendor:                      %s", ServerVendor(dpy)); // Throws
     logger.info("Vendor release:                     %s", core::as_int(VendorRelease(dpy))); // Throws
     logger.info("Have Xkb:                           %s", core::as_format_func(format_have_xkb)); // Throws
+    logger.info("Have XInput:                        %s", core::as_format_func(format_have_xinput)); // Throws
+    logger.info("Have Xfixes:                        %s", core::as_format_func(format_have_xfixes)); // Throws
     logger.info("Have Xdbe:                          %s", core::as_format_func(format_have_xdbe)); // Throws
     logger.info("Have XRandR:                        %s", core::as_format_func(format_have_xrandr)); // Throws
     logger.info("Have Xrender:                       %s", core::as_format_func(format_have_xrender)); // Throws

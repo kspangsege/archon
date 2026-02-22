@@ -41,7 +41,7 @@ See below for information on how to install these dependencies on various platfo
 Run this command to install `libpng`, `libjpeg`, FreeType, Xlib, GLX, OpenGL, and GLEW:
 
 ```sh
-apt install libpng-dev libjpeg-dev libfreetype-dev libx11-dev libxext-dev libxrandr-dev libxrender-dev libglx-dev libgl-dev libglew-dev
+apt install libpng-dev libjpeg-dev libfreetype-dev libx11-dev libxi-dev libxfixes-dev libxext-dev libxrandr-dev libxrender-dev libglx-dev libgl-dev libglew-dev
 ```
 
 Since Ubuntu 25.10, it is possible install SDL 3 using:
@@ -60,7 +60,7 @@ git clone git@github.com:libsdl-org/SDL.git
 Install build dependencies using:
 
 ```sh
-apt install libxinerama-dev libxcursor-dev libxi-dev libxfixes-dev libxss-dev libwayland-dev wayland-protocols libdecor-0-dev libegl-dev libdrm-dev libgbm-dev libvulkan-dev libasound2-dev libpulse-dev libpipewire-0.3-dev libsndio-dev libusb-1.0-0-dev libudev-dev libxkbcommon-dev libibus-1.0-dev
+apt install libxinerama-dev libxcursor-dev libxss-dev libwayland-dev wayland-protocols libdecor-0-dev libegl-dev libdrm-dev libgbm-dev libvulkan-dev libasound2-dev libpulse-dev libpipewire-0.3-dev libsndio-dev libusb-1.0-0-dev libudev-dev libxkbcommon-dev libibus-1.0-dev
 ```
 
 Finally, to configure, build, and install SDL, enter the directory in which SDL was checked

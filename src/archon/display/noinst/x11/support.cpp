@@ -2488,6 +2488,48 @@ auto x11::init_extensions(Display* dpy) -> x11::ExtensionInfo
         }
     }
 
+    // Query for X Input Extension
+    {
+        int major_opcode = {}; // Unused
+        int event_base   = {}; // Unused
+        int error_base   = {}; // Unused
+        if (ARCHON_LIKELY(XQueryExtension(dpy, "XInputExtension", &major_opcode, &event_base, &error_base))) {
+            int major = 2;
+            int minor = 1;
+            Status status = XIQueryVersion(dpy, &major, &minor);
+            if (ARCHON_UNLIKELY(status != Success))
+                throw std::runtime_error("XIQueryVersion() failed");
+            // Need at least version 2.1 to get support for raw events
+            if (ARCHON_LIKELY(major > 2 || (major == 2 && minor >= 1))) {
+                info.have_xinput = true;
+                info.xinput_major = major;
+                info.xinput_minor = minor;
+                info.xinput_opcode = major_opcode;
+            }
+        }
+    }
+
+    // Query for X Fixes extension
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_XFIXES
+    {
+        int event_base = 0; // Unused
+        int error_base = 0; // Unused
+        if (ARCHON_LIKELY(XFixesQueryExtension(dpy, &event_base, &error_base))) {
+            int major = 0;
+            int minor = 0;
+            Status status = XFixesQueryVersion(dpy, &major, &minor);
+            if (ARCHON_UNLIKELY(status == 0))
+                throw std::runtime_error("XFixesQueryVersion() failed");
+            // Need at least version 4 to get the mouse cursor hiding functionality
+            if (ARCHON_LIKELY(major >= 4)) {
+                info.have_xfixes = true;
+                info.xfixes_major = major;
+                info.xfixes_minor = minor;
+            }
+        }
+    }
+#endif // ARCHON_DISPLAY_HAVE_GOOD_X11_XFIXES
+
     // Query for Double Buffer Extension
 #if ARCHON_DISPLAY_HAVE_GOOD_X11_XDBE
     {
