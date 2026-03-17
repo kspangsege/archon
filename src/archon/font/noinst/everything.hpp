@@ -31,5 +31,7 @@
 #include <archon/font/code_point.hpp>
 #include <archon/font/face.hpp>
 #include <archon/font/loader.hpp>
-#include <archon/font/loader_fallback.hpp>
-#include <archon/font/loader_freetype.hpp>
+#include <archon/font/implementation.hpp>
+#include <archon/font/fallback_implementation.hpp>
+#include <archon/font/freetype_implementation.hpp>
+#include <archon/font/list_implementations.hpp>

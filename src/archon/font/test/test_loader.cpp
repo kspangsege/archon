@@ -24,6 +24,7 @@
 #include <archon/check.hpp>
 #include <archon/font/face.hpp>
 #include <archon/font/loader.hpp>
+#include <archon/font/implementation.hpp>
 
 
 using namespace archon;
@@ -38,18 +39,18 @@ constexpr std::string_view g_test_dir_path = "archon/font/test";
 
 ARCHON_TEST(Font_Loader_Basics)
 {
-    ARCHON_CHECK_GREATER_EQUAL(font::Loader::get_num_implementations(), 1);
+    ARCHON_CHECK_GREATER_EQUAL(font::get_num_implementations(), 1);
     namespace fs = std::filesystem;
     fs::path resource_path = test_context.get_data_path(g_test_dir_path, "..");
     font::Loader::Config config;
     config.logger = &test_context.logger;
-    auto test = [&](check::TestContext& parent_test_context, const font::Loader::Implementation& impl) {
-        ARCHON_TEST_TRAIL(parent_test_context, impl.ident());
+    auto test = [&](check::TestContext& parent_test_context, const font::Implementation& impl) {
+        ARCHON_TEST_TRAIL(parent_test_context, impl.get_ident());
         std::unique_ptr<font::Loader> loader = impl.new_loader(resource_path, test_context.locale, config); // Throws
         std::unique_ptr<font::Face> face = loader->load_default_face();
         test_context.logger.info("%s", face->get_family_name());
     };
-    int n = font::Loader::get_num_implementations();
+    int n = font::get_num_implementations();
     for (int i = 0; i < n; ++i)
-        test(test_context, font::Loader::get_implementation(i));
+        test(test_context, font::get_implementation(i));
 }

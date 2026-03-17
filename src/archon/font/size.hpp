@@ -25,6 +25,7 @@
 
 
 #include <cstddef>
+#include <compare>
 #include <utility>
 #include <array>
 #include <ostream>
@@ -51,6 +52,8 @@ struct Size {
 
     Size(comp_type = 0);
     Size(comp_type width, comp_type height);
+
+    constexpr auto operator<=>(const Size&) const noexcept = default;
 };
 
 

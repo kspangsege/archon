@@ -24,6 +24,7 @@
 #include <utility>
 #include <tuple>
 #include <optional>
+#include <string_view>
 #include <vector>
 #include <locale>
 #include <filesystem>
@@ -39,7 +40,8 @@
 #include <archon/font/code_point.hpp>
 #include <archon/font/face.hpp>
 #include <archon/font/loader.hpp>
-#include <archon/font/loader_fallback.hpp>
+#include <archon/font/fallback_implementation.hpp>
+#include <archon/font/freetype_implementation.hpp>
 
 
 using namespace archon;
@@ -100,11 +102,14 @@ int main(int argc, char* argv[])
     namespace fs = std::filesystem;
     fs::path resource_dir = (build_env.get_relative_source_root() /
                              core::make_fs_path_generic("archon/font", locale)); // Throws
+    std::string_view file_name = "LiberationMono-Regular.ttf";
+    namespace fs = std::filesystem;
+    fs::path file = resource_dir / core::make_fs_path_generic(file_name, locale); // Throws
     log::LimitLogger limit_logger(logger, log_level_limit); // Throws
     font::Loader::Config config;
     config.logger = &limit_logger;
     std::unique_ptr<font::Loader> font_loader =
-        font::Loader::new_default_loader(resource_dir, locale, config); // Throws
+        font::new_freetype_loader_from_font_file(file, locale, config); // Throws
     std::unique_ptr<font::Face> font_face = font_loader->load_default_face(); // Throws
 
     bool try_keep_orig_font_size = true;

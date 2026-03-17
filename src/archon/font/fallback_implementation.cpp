@@ -43,6 +43,7 @@
 #include <archon/core/integer.hpp>
 #include <archon/core/memory.hpp>
 #include <archon/core/buffer.hpp>
+#include <archon/core/vector.hpp>
 #include <archon/core/char_mapper.hpp>
 #include <archon/core/string.hpp>
 #include <archon/core/seed_memory_output_stream.hpp>
@@ -64,7 +65,8 @@
 #include <archon/font/code_point.hpp>
 #include <archon/font/face.hpp>
 #include <archon/font/loader.hpp>
-#include <archon/font/loader_fallback.hpp>
+#include <archon/font/implementation.hpp>
+#include <archon/font/fallback_implementation.hpp>
 
 
 using namespace archon;
@@ -389,7 +391,7 @@ auto make_file_logger(const std::locale& loc) -> std::unique_ptr<log::FileLogger
 }
 
 
-auto get_logger(const std::locale& loc, font::Loader::Config config,
+auto get_logger(const std::locale& loc, const font::Loader::Config& config,
                 std::unique_ptr<log::FileLogger>& file_logger) -> log::Logger&
 {
     if (config.logger)
@@ -601,8 +603,6 @@ public:
         return std::make_unique<FaceImpl>(font); // Throws
     }
 
-    auto get_implementation() const noexcept -> const Implementation& override;
-
 private:
     const std::filesystem::path m_resource_dir;
     const std::locale m_locale;
@@ -642,46 +642,46 @@ private:
 
 
 class ImplementationImpl final
-    : public font::Loader::Implementation {
+    : public font::Implementation {
 public:
-    auto ident() const noexcept -> std::string_view override
+    auto get_ident() const noexcept -> std::string_view override
     {
         return "fallback";
     }
 
-    auto new_loader(core::FilesystemPathRef resource_dir, const std::locale& loc,
-                    font::Loader::Config config) const -> std::unique_ptr<font::Loader> override
+    auto get_descr() const noexcept -> std::string_view override
     {
-        return std::make_unique<LoaderImpl>(resource_dir, loc, config.logger); // Throws
+        return "Fallback font implementation";
+    }
+
+    bool is_available() const noexcept override
+    {
+        return true;
+    }
+
+    auto new_loader(core::FilesystemPathRef resource_dir, const std::locale& locale,
+                    const font::Loader::Config& config) const -> std::unique_ptr<font::Loader> override
+    {
+        return std::make_unique<LoaderImpl>(resource_dir, locale, config.logger); // Throws
     }
 };
 
-inline auto get_implementation() noexcept -> const ImplementationImpl&
-{
-    static ImplementationImpl impl;
-    return impl;
-}
-
-
-
-inline auto LoaderImpl::get_implementation() const noexcept -> const Implementation&
-{
-    return ::get_implementation();
-}
+// Making this `constexpr` triggers a bug in GCC 12 and below
+constinit ImplementationImpl g_implementation;
 
 
 } // unnamed namespace
 
 
-auto font::loader_fallback_impl() noexcept -> const font::Loader::Implementation&
+auto font::get_fallback_implementation() noexcept -> const font::Implementation&
 {
-    return ::get_implementation();
+    return g_implementation;
 }
 
 
 void font::regen_fallback_font(font::Face& face, bool try_keep_orig_font_size,
                                core::Span<const font::CodePointRange> ranges, core::FilesystemPathRef resource_dir,
-                               const std::locale& loc, font::Loader::Config config)
+                               const std::locale& loc, const font::Loader::Config& config)
 {
     std::vector<font::CodePointRange> fallback_ranges;
     core::Span<const font::CodePointRange> ranges_2 = ranges;

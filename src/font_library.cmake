@@ -3,8 +3,10 @@ include(FindPackageMessage)
 add_library(Font
   archon/font/face.cpp
   archon/font/loader.cpp
-  archon/font/loader_fallback.cpp
-  archon/font/loader_freetype.cpp
+  archon/font/implementation.cpp
+  archon/font/fallback_implementation.cpp
+  archon/font/freetype_implementation.cpp
+  archon/font/list_implementations.cpp
 )
 
 set_target_properties(Font PROPERTIES OUTPUT_NAME "archon-font")
@@ -54,8 +56,10 @@ target_sources(Font PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "${
   archon/font/code_point.hpp
   archon/font/face.hpp
   archon/font/loader.hpp
-  archon/font/loader_fallback.hpp
-  archon/font/loader_freetype.hpp
+  archon/font/implementation.hpp
+  archon/font/fallback_implementation.hpp
+  archon/font/freetype_implementation.hpp
+  archon/font/list_implementations.hpp
   archon/font.hpp
 )
 

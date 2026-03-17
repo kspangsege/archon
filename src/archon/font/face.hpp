@@ -52,7 +52,7 @@ namespace archon::font {
 /// New font face objects are generally created by calling either \ref                  
 /// font::Loader::load_face().
 ///
-/// CAUTION: A font face object must be accessed by at most one thread at a time.
+/// CAUTION: A particular font face object must be accessed by at most one thread at a time.
 ///
 class Face {
 public:
@@ -210,10 +210,12 @@ public:
     /// \brief    
     ///
     /// Get the displacement of the baseline relative to the bottom of the line for a
-    /// horizontal valyout. If the layout is vertical, it is the displacement relative to
-    /// the left side of the line. The value is normally positive, meaning that the baseline
+    /// horizontal layout. If the layout is vertical, it is the displacement relative to the
+    /// left side of the line. The value is normally positive, meaning that the baseline
     /// lies within the line box. If the basline happens to lie outside, then the value may
     /// be negative (depending on side). It is measured in number of pixels.                           
+    ///
+    /// FIXME: Clarify what is meant by *the bottom of the line* and *the line box*.
     ///
     /// If grid fitting mode is enabled, the returned value is always an integer, otherwise
     /// the value may be fractional.
@@ -263,8 +265,9 @@ public:
     ///
     /// FIXME: Explain design tablet in class-level doc.                          
     ///
-    /// This function loads the specified glyph onto the design tablet. After this you can
-    /// inspect and modify it, and finally you can render it as a block of pixels.
+    /// This function loads the specified glyph onto the design tablet. After this, the
+    /// glyph can be inspected and modified, and finally it can be rendered as a block of
+    /// pixels.
     ///
     /// As a part of the loading process, a glyph is first scaled according to the
     /// previously specified rendering size (see \ref set_scaled_size()), then, if
@@ -381,10 +384,10 @@ public:
     /// number of generated pixels is `right - left`, and similarly in the vertical
     /// direction.
     ///
-    /// When the target origin is set to (0,0) the returned block coincides with the region              
+    /// When the target origin is set to (0,0) the returned block coincides with the region
     /// of the target image that will be affected during a call to render_pixels_to().
     ///
-    /// It shall be guaranteed that when the target origin is set to (0,0), \ref               
+    /// It shall be guaranteed that when the target origin is set to (0,0), \ref
     /// render_pixels_to() shall not affect nor access any pixel outside the box returned by
     /// this method.
     ///
@@ -399,18 +402,21 @@ public:
     ///   top - bottom  =  ceil(size.y)
     /// ```
     ///
+    /// FIXME: The statement above is rather surprising. Does Freetype really guarantee
+    /// that?
+    ///
     void get_glyph_pa_box(int& left, int& right, int& bottom, int& top);
 
     /// \brief    
     ///
-    /// Set the position of the origin of the design tablet within the target image. The
+    /// This function sets the position of the origin of the design tablet within the target image. The
     /// initial position is (0,0) which corresponds to the upper left corner of the image.
     ///
     /// For normal fonts, this position will need to be moved down. If it is not moved down,
     /// most glyphs will be situated above to top of the image, and will therefore not show
     /// up.
     ///
-    /// FIXME: Explain briefly how to obtain a good value for this position?                                          
+    /// FIXME: Explain briefly how to obtain a good value for this position?
     ///
     void set_target_pos(image::Pos) noexcept;
 
@@ -439,10 +445,10 @@ public:
     /// the same color as the foreground only fully transparent.
     ///
     /// The final position of the glyph in the image is determined by matching the design                
-    /// tablet origin with the target origin set by set_target_origin(). Thus, the final
-    /// position of the glyph in the image is influenced both by the position of the glyph
-    /// on the design tablet relative to the design tablet origin, and by the currently
-    /// selected target origin.
+    /// tablet origin with the target position in the image set by \ref
+    /// set_target_pos(). Thus, the final position of the glyph in the image is influenced
+    /// both by the position of the glyph on the design tablet relative to the design tablet
+    /// origin, and by the currently specified target position in the image.
     ///
     /// \param img A writable interface of the image into which the glyph will be merged.            
     ///
@@ -478,9 +484,10 @@ protected:
     ///
     /// \brief   
     ///
-    /// FIXME: Explain: \p pos is the position of the origin of the design tablet within the target tray (iter, size), and should generally be set to the currently configured target position (\ref ....)              
+    /// FIXME: Explain: \p pos is the position of the origin of the design tablet within the
+    /// target tray (iter, size)
     ///
-    /// FIXME: Combine \p iter \p size into single tray argument.            
+    /// FIXME: Combine \p iter \p size into single tray argument.
     ///
     virtual void do_render_glyph_mask(image::Pos pos, const iter_type& iter, image::Size size) = 0;
     virtual void do_render_glyph_rgba(image::Pos pos, const iter_type& iter, image::Size size) = 0;

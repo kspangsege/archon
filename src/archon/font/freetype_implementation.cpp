@@ -19,7 +19,6 @@
 // DEALINGS IN THE SOFTWARE.
 
 
-                        
 #include <cstddef>
 #include <cmath>
 #include <type_traits>
@@ -29,6 +28,7 @@
 #include <stdexcept>
 #include <locale>
 #include <mutex>
+#include <filesystem>
 
 #include <archon/core/features.hpp>
 #include <archon/core/assert.hpp>
@@ -44,7 +44,8 @@
 #include <archon/font/code_point.hpp>
 #include <archon/font/face.hpp>
 #include <archon/font/loader.hpp>
-#include <archon/font/loader_freetype.hpp>
+#include <archon/font/implementation.hpp>
+#include <archon/font/freetype_implementation.hpp>
 
 #if ARCHON_FONT_HAVE_FREETYPE
 #  include <ft2build.h>
@@ -257,7 +258,7 @@ public:
 
     void set_scaled_size(font::Size size) override
     {
-        if (ARCHON_LIKELY(!FT_IS_SCALABLE(m_face.face))) {
+        if (ARCHON_LIKELY(FT_IS_SCALABLE(m_face.face))) {
             FT_F26Dot6 width  = float_to_fixed_26p6(size.width);
             FT_F26Dot6 height = float_to_fixed_26p6(size.height);
             do_set_scaled_size(width, height); // Throws
@@ -410,18 +411,21 @@ public:
         // Vector from bearing point of vertical layout to bearing point of horizontal
         // layout
         //
-        // FIXME: It seems that in some cases such as "Liberation Serif", the vertical                              
+        // FIXME: It seems that in some cases such as "Liberation Serif", the vertical
         // metrics are set to appropriate values even when the underlying font face does not
         // provide any. If that were always the case, there would be no point in emulating
         // those metrics below. Problem is, according to the documentation, the vertical
         // metrics must be considered unrelibale when FT_HAS_VERTICAL(face) returns false.
         //
+        // FIXME: Gemini claims that emulated vertical metrics are always available when
+        // FT_HAS_VERTICAL() returns false.
+        //
         // FIXME: Due to the assumptions made for font-level vertical layout metrics, it is
         // problematic to use glyph-level vertical metrics provided by FreeType, even if
-        // FT_HAS_VERTICAL(m_face.face) is true.                                                          
+        // FT_HAS_VERTICAL(m_face.face) is true.
         //
         vector_type vert_to_horz;
-        if (FT_HAS_VERTICAL(m_face.face)) {                                                                                    
+        if (FT_HAS_VERTICAL(m_face.face)) {
             m_vert_glyph_advance = fixed_26p6_to_float(m_glyph->metrics.vertAdvance);
             vert_to_horz = vector_type {
                 fixed_26p6_to_float(m_glyph->metrics.vertBearingX - m_glyph->metrics.horiBearingX),
@@ -434,7 +438,7 @@ public:
                 vert_to_horz[1] = std::round(vert_to_horz[1]);
             }
         }
-        else {                                   
+        else {
             // Emulated vertical metrics
             float_type half = float_type(0.5);
             if (grid_fitting) {
@@ -520,7 +524,9 @@ protected:
         throw std::runtime_error("Unsupported glyph format");
 
       outline:
-        // FIXME: Generally avoid translations (because it is wasteful) as long as they are all by integer amounts and no other transformations (rotations) have been specified                                    
+        // FIXME: Generally avoid translations (because it is wasteful) as long as they are
+        // all by integer amounts and no other transformations (rotations) have been
+        // specified.
         //
         // Translate glyph                             
         {
@@ -667,12 +673,22 @@ private:
         FT_Short raw_max_advance  = m_face.face->max_advance_width;
         FT_Short adj_raw_ascender = (raw_ascender + raw_descender + raw_height) / 2;
 
-        // Unfortunately FreeType cannot provide appropriate values for the the descender                                                                                     
+        // Unfortunately FreeType cannot provide appropriate values for the the descender
         // and ascender equivalents in a vertical layout. We are forced to make a guess that
         // can easily be wrong. We will assume that the vertical baseline is centered on the
         // line.
 
-        // FIXME: What if font is not scalable?                                                                                                                     
+        // FIXME: Using face->max_advance_width for the vertical baseline spaceing is
+        // problematic (Noto Sans CJK). Gemini suggests that is is better to use
+        // face->height even though it is for the wrong direction (but consider teh case
+        // where the EM square is not square).
+
+        // FIXME: Call FT_Get_Sfnt_Table() to get exact vertical font metrics when
+        // available. First `vhea = static_cast<TT_VertHeader*>(FT_Get_Sfnt_Table(face,
+        // FT_SFNT_VHEA))`. Then `from_raw_y(vhea->Ascender)` to get scaled
+        // ascender. Likewise for `Descender` and `Line_Gap`.
+
+        // FIXME: What if font is not scalable?
         {
             auto from_raw_x = [&](FT_Short val) {
                 return fixed_26p6_to_float(FT_MulFix(val, metrics.x_scale));
@@ -732,13 +748,9 @@ private:
 class LoaderImpl final
     : public font::Loader {
 public:
-    LoaderImpl(core::FilesystemPathRef resource_dir, const std::locale& loc, log::Logger*)
+    LoaderImpl(core::FilesystemPathRef path, const std::locale& locale, log::Logger*)
     {
-//        std::string_view file_name = "LiberationSans-Regular.ttf";                           
-        std::string_view file_name = "LiberationMono-Regular.ttf";                           
-        namespace fs = std::filesystem;
-        fs::path path = resource_dir / core::make_fs_path_generic(file_name, loc); // Throws
-        m_path = core::path_to_string_native(path, loc); // Throws
+        m_path = core::path_to_string_native(path, locale); // Throws
         m_library.init(); // Throws
     }
 
@@ -748,8 +760,6 @@ public:
         return std::make_unique<FaceImpl>(m_library, m_path.c_str(), face_index); // Throws
     }
 
-    auto get_implementation() const noexcept -> const Implementation& override;
-
 private:
     std::string m_path;
     LibraryGuard m_library;
@@ -757,46 +767,79 @@ private:
 
 
 
-class ImplementationImpl final
-    : public font::Loader::Implementation {
-public:
-    auto ident() const noexcept -> std::string_view override
-    {
-        return "freetype";
-    }
-
-    auto new_loader(core::FilesystemPathRef resource_dir, const std::locale& loc,
-                    font::Loader::Config config) const -> std::unique_ptr<font::Loader> override
-    {
-        return std::make_unique<LoaderImpl>(resource_dir, loc, config.logger); // Throws
-    }
-};
-
-inline auto get_implementation() noexcept -> const ImplementationImpl&
+auto new_loader_from_font_file(core::FilesystemPathRef file, const std::locale& locale,
+                               font::Loader::Config config) -> std::unique_ptr<font::Loader>
 {
-    static ImplementationImpl impl;
-    return impl;
+    return std::make_unique<LoaderImpl>(file, locale, config.logger); // Throws
 }
 
 
-
-inline auto LoaderImpl::get_implementation() const noexcept -> const Implementation&
+auto new_loader(core::FilesystemPathRef resource_dir, const std::locale& locale,
+                font::Loader::Config config) -> std::unique_ptr<font::Loader>
 {
-    return ::get_implementation();
+//    std::string_view file_name = "LiberationSans-Regular.ttf";                           
+    std::string_view file_name = "LiberationMono-Regular.ttf";                           
+    namespace fs = std::filesystem;
+    fs::path file = resource_dir / core::make_fs_path_generic(file_name, locale); // Throws
+    return ::new_loader_from_font_file(file, locale, config); // Throws
 }
 
 
 #endif // ARCHON_FONT_HAVE_FREETYPE
 
 
+class ImplementationImpl final
+    : public font::Implementation {
+public:
+    auto get_ident() const noexcept -> std::string_view override
+    {
+        return "freetype";
+    }
+
+    auto get_descr() const noexcept -> std::string_view override
+    {
+        return "FreeType font rendering library";
+    }
+
+    bool is_available() const noexcept override
+    {
+#if ARCHON_FONT_HAVE_FREETYPE
+        return true;
+#else
+        return false;
+#endif
+    }
+
+    auto new_loader(core::FilesystemPathRef resource_dir, const std::locale& locale,
+                    const font::Loader::Config& config) const -> std::unique_ptr<font::Loader> override
+    {
+#if ARCHON_FONT_HAVE_FREETYPE
+        return ::new_loader(resource_dir, locale, config); // Throws
+#else
+        throw std::runtime_error("FreeType implementation is unavailable");
+#endif
+    }
+};
+
+// Making this `constexpr` triggers a bug in GCC 12 and below
+constinit ImplementationImpl g_implementation;
+
+
 } // unnamed namespace
 
 
-auto font::loader_freetype_impl() noexcept -> const font::Loader::Implementation*
+auto font::get_freetype_implementation() noexcept -> const font::Implementation&
+{
+    return g_implementation;
+}
+
+
+auto font::new_freetype_loader_from_font_file(core::FilesystemPathRef file, const std::locale& locale,
+                                              const font::Loader::Config& config) -> std::unique_ptr<font::Loader>
 {
 #if ARCHON_FONT_HAVE_FREETYPE
-    return &::get_implementation();
+    return ::new_loader_from_font_file(file, locale, config); // Throws
 #else
-    return nullptr;
+    throw std::runtime_error("FreeType implementation is unavailable");
 #endif
 }

@@ -214,6 +214,8 @@ public:
     /// set_foreground_color_a() respectively with the specified color converted as if by
     /// `image::Pixel(color)`.
     ///
+    /// For the default colors, see \ref ColorSlot.
+    ///
     auto set_background_color(util::Color color, image::float_type opacity = 1) -> Reader&;
     auto set_foreground_color(util::Color color, image::float_type opacity = 1) -> Reader&;
     /// \}

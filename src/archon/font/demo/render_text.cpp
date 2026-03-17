@@ -19,21 +19,25 @@
 // DEALINGS IN THE SOFTWARE.
 
 
+#include <cstddef>
+#include <cmath>
 #include <cstdlib>
-#include <utility>
+#include <algorithm>
 #include <memory>
 #include <tuple>
 #include <optional>
 #include <string_view>
 #include <string>
+#include <vector>
 #include <locale>
-#include <iostream>
 #include <filesystem>
 
 #include <archon/core/features.hpp>
 #include <archon/core/locale.hpp>
+#include <archon/core/quote.hpp>
 #include <archon/core/filesystem.hpp>
 #include <archon/core/build_environment.hpp>
+#include <archon/core/file.hpp>
 #include <archon/log.hpp>
 #include <archon/cli.hpp>
 #include <archon/util/color.hpp>
@@ -41,7 +45,11 @@
 #include <archon/util/as_css_color.hpp>
 #include <archon/image.hpp>
 #include <archon/font/size.hpp>
+#include <archon/font/face.hpp>
 #include <archon/font/loader.hpp>
+#include <archon/font/implementation.hpp>
+#include <archon/font/freetype_implementation.hpp>
+#include <archon/font/list_implementations.hpp>
 
 
 using namespace archon;
@@ -66,7 +74,10 @@ int main(int argc, char* argv[])
     bool kerning = true;
     bool reverse = false;
     std::optional<std::string> optional_implementation;
+    std::optional<fs::path> optional_font_file;
     log::LogLevel log_level_limit = log::LogLevel::warn;
+    bool show_line_box = false;
+    bool show_bearing_point = false;
 
     cli::WideSpec spec;
     pat("<text>  <path>", cli::no_attributes, spec,
@@ -146,21 +157,28 @@ int main(int argc, char* argv[])
         "`--list-implementations`.",
         cli::assign(optional_implementation)); // Throws
 
+    opt("-f, --font-file", "<path>", cli::no_attributes, spec,
+        "Use particular font file. Ignored unless implementation is `freetype`.",
+        cli::assign(optional_font_file)); // Throws
+
     opt("-l, --log-level", "<level>", cli::no_attributes, spec,
         "Set the log level limit. The possible levels are @G. The default limit is @Q.",
         cli::assign(log_level_limit)); // Throws
+
+    opt("-L, --show-line-box", "", cli::no_attributes, spec,
+        "Show the line box.",
+        cli::raise_flag(show_line_box)); // Throws
+
+    opt("-B, --show-bearing-point", "", cli::no_attributes, spec,
+        "Show the leading bearing point.",
+        cli::raise_flag(show_bearing_point)); // Throws
 
     int exit_status = 0;
     if (ARCHON_UNLIKELY(cli::process(argc, argv, spec, exit_status, locale))) // Throws
         return exit_status;
 
     if (list_implementations) {
-        log::FileLogger stdout_logger(core::File::get_stdout(), locale); // Throws
-        int n = font::Loader::get_num_implementations();
-        for (int i = 0; i < n; ++i) {
-            const font::Loader::Implementation& impl = font::Loader::get_implementation(i); // Throws
-            stdout_logger.info("%s", impl.ident()); // Throws
-        }
+        font::list_implementations(core::File::get_stdout(), locale); // Throws
         return EXIT_SUCCESS;
     }
 
@@ -168,17 +186,17 @@ int main(int argc, char* argv[])
     log::FileLogger root_logger(core::File::get_stderr(), locale); // Throws
     log::LimitLogger logger(root_logger, log_level_limit); // Throws
 
-    const font::Loader::Implementation* impl;
+    const font::Implementation* impl;
     if (optional_implementation.has_value()) {
         std::string_view ident = optional_implementation.value();
-        impl = font::Loader::lookup_implementation(ident);
+        impl = font::lookup_implementation(ident);
         if (ARCHON_UNLIKELY(!impl)) {
             logger.error("No such font loader implementation (%s)", core::quoted(ident)); // Throws
             return EXIT_FAILURE;
         }
     }
     else {
-        impl = &font::Loader::get_default_implementation();
+        impl = &font::get_default_implementation();
     }
 
     // `src_root` is the relative path to the root of the source tree from the root of the
@@ -203,7 +221,13 @@ int main(int argc, char* argv[])
 
     font::Loader::Config loader_config;
     loader_config.logger = &logger;
-    std::unique_ptr<font::Loader> loader = impl->new_loader(resource_path, locale, std::move(loader_config)); // Throws
+    std::unique_ptr<font::Loader> loader;
+    if (optional_font_file.has_value() && impl->get_ident() == font::get_freetype_implementation().get_ident()) {
+        loader = font::new_freetype_loader_from_font_file(optional_font_file.value(), locale, loader_config); // Throws
+    }
+    else {
+        loader = impl->new_loader(resource_path, locale, loader_config); // Throws
+    }
     std::unique_ptr<font::Face> face = loader->load_default_face(); // Throws
     face->set_approx_size(font_size); // Throws
 
@@ -282,8 +306,7 @@ int main(int argc, char* argv[])
     writer.set_background_color(background_color); // Throws
     writer.fill(image::Writer::ColorSlot::background); // Throws
 
-/*
-    if (true) {
+    if (show_line_box) {
         image::Pos pos_1 = {
             target_pos.x + int(std::round(line_box_pos[0])),
             target_pos.y - int(std::round(line_box_pos[1] + line_box_size[1])),
@@ -295,7 +318,16 @@ int main(int argc, char* argv[])
         writer.set_foreground_color(util::colors::yellow); // Throws
         writer.fill(image::Box(pos_1, pos_2 - pos_1)); // Throws
     }
-*/
+
+    if (show_bearing_point) {
+        image::Pos pos = {
+            target_pos.x + int(std::round(cursor_start_pos[0])),
+            target_pos.y - int(std::round(cursor_start_pos[1])),
+        };
+        writer.set_foreground_color(util::colors::brown); // Throws
+        writer.fill(image::Box({ 0, pos.y }, { image_size.width, 1 })); // Throws
+        writer.fill(image::Box({ pos.x - 1, 0 }, { 1, image_size.height })); // Throws
+    }
 
     bool overlapping_glyphs = true; // false;                                                                                          
     if (overlapping_glyphs) {

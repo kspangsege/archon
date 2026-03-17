@@ -28,6 +28,7 @@
 #include <archon/font/code_point.hpp>
 #include <archon/font/face.hpp>
 #include <archon/font/loader.hpp>
+#include <archon/font/implementation.hpp>
 
 
 #endif // ARCHON_X_FONT_HPP

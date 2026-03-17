@@ -68,8 +68,10 @@ public:
     /// \brief Construct a buffered image.
     ///
     /// If no image size is specified (\p image_size), a zero-size image will be
-    /// constructed. If a size is specified, but not a buffer, a new buffer will be
-    /// allocated and cleared (all words set to zero).
+    /// constructed.
+    ///
+    /// If a size is specified, but not a buffer, a new buffer will be allocated and cleared
+    /// (all words set to zero).
     ///
     /// Behaviour is undefined if an invalid size is specified (\ref
     /// image::Size::is_valid()).

@@ -1,6 +1,6 @@
 // This file is part of the Archon project, a suite of C++ libraries.
 //
-// Copyright (C) 2022 Kristian Spangsege <kristian.spangsege@gmail.com>
+// Copyright (C) 2026 Kristian Spangsege <kristian.spangsege@gmail.com>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this
 // software and associated documentation files (the "Software"), to deal in the Software
@@ -18,39 +18,38 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
-#ifndef ARCHON_X_FONT_X_LOADER_FALLBACK_HPP
-#define ARCHON_X_FONT_X_LOADER_FALLBACK_HPP
+#ifndef ARCHON_X_FONT_X_LIST_IMPLEMENTATIONS_HPP
+#define ARCHON_X_FONT_X_LIST_IMPLEMENTATIONS_HPP
 
 /// \file
 
 
-#include <archon/core/span.hpp>
-#include <archon/font/code_point.hpp>
-#include <archon/font/face.hpp>
-#include <archon/font/loader.hpp>
+#include <locale>
+
+#include <archon/core/file.hpp>
 
 
 namespace archon::font {
 
 
-auto loader_fallback_impl() noexcept -> const font::Loader::Implementation&;
-
-
-/// \brief Create, or recreate the falback font.
+/// \brief Produce textual rendition of list of font implementations.
 ///
-/// If no code point ranges are specified, an attempt will be made to reuse the code point
-/// ranges from the old fallback font. If this fails, the code point ranges will default to
-/// 0 -> 127.
+/// This function writes a textual rendition of the list of font implementations to the
+/// specified file (\p file), which can be \ref core::File::get_stdout(). The list is
+/// formatted with the assumption that it will be displayed in a monospaced font, such as on
+/// a text terminal. Both available and unavailable implementations will be
+/// listed. Unavailable implementations will be marked as such.
 ///
-/// If a logger is specified through the configuration object, the locale associated with
-/// that logger must be compatible with the locale that is passed directly to this
-/// function. The important thing is that the character encodings agree (`std::codecvt`
-/// facet).
+/// ANSI escape sequences will be emitted only when
+/// `core::terminal::should_enable_escape_sequences(file.is_terminal(), locale)` returns
+/// true.
 ///
-void regen_fallback_font(font::Face&, bool try_keep_orig_font_size, core::Span<const font::CodePointRange>,
-                         core::FilesystemPathRef resource_dir, const std::locale&, font::Loader::Config = {});
+/// \sa \ref font::Implementation
+/// \sa \ref core::terminal::should_enable_escape_sequences()
+///
+void list_implementations(core::File& file, const std::locale& locale);
 
 
 } // namespace archon::font
 
-#endif // ARCHON_X_FONT_X_LOADER_FALLBACK_HPP
+#endif // ARCHON_X_FONT_X_LIST_IMPLEMENTATIONS_HPP

@@ -1,6 +1,6 @@
 // This file is part of the Archon project, a suite of C++ libraries.
 //
-// Copyright (C) 2022 Kristian Spangsege <kristian.spangsege@gmail.com>
+// Copyright (C) 2026 Kristian Spangsege <kristian.spangsege@gmail.com>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this
 // software and associated documentation files (the "Software"), to deal in the Software
@@ -25,30 +25,23 @@
 
 
 #include <memory>
-#include <utility>
-#include <string_view>
 #include <locale>
 
 #include <archon/core/filesystem.hpp>
 #include <archon/log/logger.hpp>
-#include <archon/font/size.hpp>
 #include <archon/font/face.hpp>
 
 
 namespace archon::font {
 
 
+/// \brief    
+///
+///    
+///
 class Loader {
 public:
     struct Config;
-    class Implementation;
-
-    static auto new_default_loader(core::FilesystemPathRef resource_dir, const std::locale&) ->
-        std::unique_ptr<Loader>;
-    static auto new_default_loader(core::FilesystemPathRef resource_dir, const std::locale&, Config) ->
-        std::unique_ptr<Loader>;
-
-    virtual ~Loader() noexcept = default;
 
     /// \brief     
     ///
@@ -63,12 +56,7 @@ public:
     ///
     virtual auto load_default_face() const -> std::unique_ptr<font::Face> = 0;
 
-    virtual auto get_implementation() const noexcept -> const Implementation& = 0;
-
-    static auto get_default_implementation() noexcept -> const Implementation&;
-    static int get_num_implementations() noexcept;
-    static auto get_implementation(int index) -> const Implementation&;
-    static auto lookup_implementation(std::string_view ident) noexcept -> const Implementation*;
+    virtual ~Loader() noexcept = default;
 };
 
 
@@ -80,52 +68,25 @@ public:
 struct Loader::Config {
     /// \brief Log through alternative logger.
     ///
-    /// If a logger is specified, log messages will be routed through that logger.
-    ///
-    /// If a logger is not specified, messages will be routed to STDOUT.
+    /// If a logger is specified, log messages will be routed through that logger. Otherwise
+    /// messages will be routed to STDOUT.
     ///
     /// If a logger is specified, it must use a locale that is compatible with the locale
     /// that is specified during font loader construction (\ref
-    /// Implementation::new_loader()). The important thing is that the character encodings
-    /// agree (`std::codecvt` facet).
-    ///
-    /// The specified logger must be thread-safe.
+    /// font::Implementation::new_loader()). The important thing is that the character
+    /// encodings agree (`std::codecvt` facet).
     ///
     log::Logger* logger = nullptr;
 };
 
 
-class Loader::Implementation {
-public:
-    virtual auto ident() const noexcept -> std::string_view = 0;
-    virtual auto new_loader(core::FilesystemPathRef resource_dir, const std::locale&, Config = {}) const ->
-        std::unique_ptr<Loader> = 0;
-
-    virtual ~Implementation() noexcept = default;
-};
-
-
-
-
-
-
-
-
-// Implementation
-
-
-inline auto Loader::new_default_loader(core::FilesystemPathRef resource_dir,
-                                       const std::locale& loc) -> std::unique_ptr<Loader>
-{
-    return new_default_loader(resource_dir, loc, {}); // Throws
-}
-
-
-inline auto Loader::new_default_loader(core::FilesystemPathRef resource_dir, const std::locale& loc,
-                                       Config config) -> std::unique_ptr<Loader>
-{
-    return get_default_implementation().new_loader(resource_dir, loc, std::move(config)); // Throws
-}
+/// \brief Create font loader for default implementation.
+///
+/// This function is shorthand for calling \ref font::Implementation::new_load() on the
+/// implementation obtained by calling \ref font::get_default_implementation().
+///
+auto new_default_loader(core::FilesystemPathRef resource_dir, const std::locale& locale,
+                        const font::Loader::Config& config = {}) -> std::unique_ptr<font::Loader>;
 
 
 } // namespace archon::font
