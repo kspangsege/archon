@@ -50,6 +50,7 @@ ARCHON_TEST_IF(Font_Freetype, font::get_freetype_implementation().is_available()
     config.logger = &test_context.logger;
     std::unique_ptr<font::Loader> loader =
         font::new_freetype_loader_from_font_file(file, test_context.locale, config); // Throws
+    ARCHON_CHECK_EQUAL(loader->get_num_faces(), 1);
     std::unique_ptr<font::Face> face = loader->load_default_face();
     ARCHON_CHECK_EQUAL(face->get_family_name(), "Test");
     ARCHON_CHECK_NOT(face->is_bold());

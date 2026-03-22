@@ -55,7 +55,8 @@ auto get_freetype_implementation() noexcept -> const font::Implementation&;
 /// the specified font file (\p file), and only those font faces. This may be useful for
 /// testing purposes where a test font can be passed.
 ///
-/// FIXME: Clarify which face becomes the default font face for the loader
+/// The default font face in the returned loader is the first one offered by the specified
+/// font file.
 ///
 /// FIXME: Clarify whether this function is also needed when regenerating the fallback font
 ///

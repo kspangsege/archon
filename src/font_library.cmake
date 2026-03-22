@@ -7,6 +7,7 @@ add_library(Font
   archon/font/fallback_implementation.cpp
   archon/font/freetype_implementation.cpp
   archon/font/list_implementations.cpp
+  archon/font/list_font_faces.cpp
 )
 
 set_target_properties(Font PROPERTIES OUTPUT_NAME "archon-font")
@@ -60,6 +61,7 @@ target_sources(Font PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "${
   archon/font/fallback_implementation.hpp
   archon/font/freetype_implementation.hpp
   archon/font/list_implementations.hpp
+  archon/font/list_font_faces.hpp
   archon/font.hpp
 )
 

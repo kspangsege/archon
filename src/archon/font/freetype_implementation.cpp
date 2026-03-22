@@ -27,7 +27,6 @@
 #include <string>
 #include <stdexcept>
 #include <locale>
-#include <mutex>
 #include <filesystem>
 
 #include <archon/core/features.hpp>
@@ -133,7 +132,6 @@ void render_spans(int y, int count, const FT_Span* spans, void* user) throw()
 
 struct LibraryGuard {
     FT_Library library = nullptr;
-    mutable std::mutex mutex;
     void init()
     {
         FT_Error err = FT_Init_FreeType(&library);
@@ -159,7 +157,6 @@ struct FaceGuard {
     }
     void init(const char* path, FT_Long face_index)
     {
-        std::lock_guard lock(library.mutex);
         FT_Error err = FT_New_Face(library.library, path, face_index, &face);
         if (ARCHON_UNLIKELY(err != 0))
             throw std::runtime_error("FreeType: Failed to load font face");
@@ -167,7 +164,6 @@ struct FaceGuard {
     ~FaceGuard() noexcept
     {
         if (ARCHON_LIKELY(face)) {
-            std::lock_guard lock(library.mutex);
             FT_Error err = FT_Done_Face(face);
             ARCHON_ASSERT(err == 0);
         }
@@ -754,15 +750,51 @@ public:
         m_library.init(); // Throws
     }
 
-    auto load_default_face() const -> std::unique_ptr<font::Face> override
+    auto load_default_face() -> std::unique_ptr<font::Face> override
     {
         FT_Long face_index = 0;
-        return std::make_unique<FaceImpl>(m_library, m_path.c_str(), face_index); // Throws
+        return do_load_face(face_index); // Throws
+    }
+
+    int get_num_faces() override
+    {
+        ensure_num_faces(); // Throws
+        return m_num_faces;
+    }
+
+    auto load_face(int face_index) -> std::unique_ptr<font::Face> override
+    {
+        if (ARCHON_LIKELY(face_index == 0 || (face_index >= 0 && face_index < get_num_faces())))
+            return do_load_face(FT_Long(face_index)); // Throws
+        throw std::invalid_argument("Face index");
     }
 
 private:
     std::string m_path;
     LibraryGuard m_library;
+
+    bool m_have_num_faces = false;
+    int m_num_faces = {};
+
+    void ensure_num_faces()
+    {
+        if (m_have_num_faces)
+            return;
+        FaceGuard face(m_library);
+        FT_Long face_index = -1; // Produce a degenrate face object
+        face.init(m_path.c_str(), face_index); // Throws
+        core::int_cast(face.face->num_faces, m_num_faces); // Throws
+        if (ARCHON_LIKELY(m_num_faces >= 1)) {
+            m_have_num_faces = true;
+            return;
+        }
+        throw std::runtime_error("No font faces in font file");
+    }
+
+    auto do_load_face(FT_Long face_index) -> std::unique_ptr<font::Face>
+    {
+        return std::make_unique<FaceImpl>(m_library, m_path.c_str(), face_index); // Throws
+    }
 };
 
 

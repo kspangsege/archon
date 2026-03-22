@@ -77,10 +77,13 @@ public:
 
     /// \brief Create new font loader.
     ///
-    /// This function creates a new font loader that is connected to the font
-    /// implementation.
+    /// This function creates a new font loader that is tied to the font implementation. The
+    /// caller must ensure that the lifetime of the returned loader does not extend beyond
+    /// the lifetime of the implementation. This is trivially ensured for built in
+    /// implementations. The returned loader object must be used by at most one thread at a
+    /// time. Destruction counts as use.
     ///
-    /// For applications that ling against an installed font library, the specified resource
+    /// For applications that link against an installed font library, the specified resource
     /// directory path (\p resource_dir) must point to the directory in which font resources
     /// were installed (possibly `/usr/local/share/archon/font`). For applications linking
     /// against an uninstalled font library, such as during testing, the specified resource
@@ -88,10 +91,6 @@ public:
     /// core::BuildEnvironment and \ref core::archon_source_from_build_path).
     ///
     /// FIXME: Clarify how to determine the resource directory path.
-    ///
-    /// FIXME: Currently, a single loader can be shared and safely used by multiple threads,
-    /// but this should be changed such that one loader is needed per thread. This is in
-    /// order to follow conventional design principles.
     ///
     virtual auto new_loader(core::FilesystemPathRef resource_dir, const std::locale& locale,
                             const font::Loader::Config& config = {}) const -> std::unique_ptr<font::Loader> = 0;

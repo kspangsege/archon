@@ -38,21 +38,27 @@
 namespace archon::font {
 
 
-/// \brief Particular variant of particular font.
+/// \brief Loaded font face.
 ///
-/// This class represents a particular font face, and can be used to examine and render the
-/// glyphs available in that font face. A font face is a particular variant (bold, italic,
-/// ...) of a font.
+/// This class represents a particular loaded font face, and can be used to examine and
+/// render the glyphs available in that font face. A font face is a specific stylistic
+/// variant of a font family.
 ///
 /// If this font face provides fixed sizes (see \ref get_num_fixed_sizes()), then the
 /// initial rendering size is the fixed size that is closest in area to 12 by 12
 /// pixels. Otherwise, this font face is scalable, and the initial rendering size is set to
 /// exactly 12 by 12 pixels.
 ///
-/// New font face objects are generally created by calling either \ref                  
-/// font::Loader::load_face().
+/// New font face objects are created by a font loader (\ref font::Loader). They are created
+/// as a result of calling \ref font::Loader::load_face() or \ref
+/// font::Loader::load_default_face(). A font face object is tied to that particular loader
+/// object. A font face object must never outlive the loader object that it is tied to.
 ///
-/// CAUTION: A particular font face object must be accessed by at most one thread at a time.
+/// The font loader aggregate (see \ref font::Loader) that a font face object belongs to
+/// must never be accessed by more than one thread at a time. On the other hand, two threads
+/// can safely work with separate font loader aggregates.
+///
+/// \sa \ref font::Loader::load_face(), \ref font::Loader::load_default_face()
 ///
 class Face {
 public:
@@ -109,10 +115,10 @@ public:
     /// in this font face.
     ///
     /// Scalable fonts may or may not provide fixed rendering sizes. If they do, it should
-    /// be understood as the preferrable sizes that lead to the result of highest quality.
+    /// be understood as the preferable sizes that lead to the result of highest quality.
     ///
-    /// For fonts that are not scalable (\ref is_scalable()), this funcction is guaranteed
-    /// to return at least 1.
+    /// For fonts that are not scalable (\ref is_scalable()), this function is guaranteed to
+    /// return at least 1.
     ///
     virtual int get_num_fixed_sizes() = 0;
 
@@ -120,7 +126,7 @@ public:
     ///
     /// This function returns the specified fixed rendering size. The fixed rendering size
     /// is identified by its index in the list of offered fixed rendering sizes. The number
-    /// of entried in this list is returned by \ref get_num_fixed_sizes().
+    /// of entries in this list is returned by \ref get_num_fixed_sizes().
     ///
     /// \sa \ref set_fixed_size()
     ///
@@ -130,7 +136,7 @@ public:
     ///
     /// This function selects the specified fixed rendering size as the current rendering
     /// size for this font face. The fixed rendering size is identified by its index in the
-    /// list of offered fixed rendering sizes. The number of entried in this list is
+    /// list of offered fixed rendering sizes. The number of entries in this list is
     /// returned by \ref get_num_fixed_sizes().
     ///
     /// \note There is no guarantee that the rendered size of any particular glyph is
@@ -143,10 +149,11 @@ public:
 
     /// \brief Set rendering size for scalable font.
     ///
-    /// FIXME: Explain that specified size will be silently clamped to range allowed by implementation.                                                     
+    /// FIXME: Explain that specified size will be silently clamped to range allowed by
+    /// implementation.
     ///
     /// If the font face is scalable (\ref is_scalable()), this function sets the current
-    /// rendering size as specified. If the font face is not scalbale, it is an error to
+    /// rendering size as specified. If the font face is not scalable, it is an error to
     /// call this function and an exception of unspecified type will be thrown.
     ///
     /// \note There is no guarantee that the rendered size of any particular glyph is
@@ -179,7 +186,7 @@ public:
     ///
     virtual void set_approx_size(font::Size) = 0;
 
-    /// \brief Get selected rendeing size.
+    /// \brief Get selected rendering size.
     ///
     /// This function returns the currently selected rendering size for this font face. The
     /// rendering size is the resolution, in pixels, of the EM-square. Even though the
@@ -212,7 +219,7 @@ public:
     /// Get the displacement of the baseline relative to the bottom of the line for a
     /// horizontal layout. If the layout is vertical, it is the displacement relative to the
     /// left side of the line. The value is normally positive, meaning that the baseline
-    /// lies within the line box. If the basline happens to lie outside, then the value may
+    /// lies within the line box. If the baseline happens to lie outside, then the value may
     /// be negative (depending on side). It is measured in number of pixels.                           
     ///
     /// FIXME: Clarify what is meant by *the bottom of the line* and *the line box*.
@@ -369,7 +376,7 @@ public:
     ///
     /// This function determines the pixel-aligned bounding box of the currently loaded
     /// glyph given its current translation. The size of this box is the size of the block
-    /// of pixels that would be generated if the glygh was rendered now (\ref
+    /// of pixels that would be generated if the glyph was rendered now (\ref
     /// render_glyph_mask()). See also \ref get_target_glyph_box().
     ///
     /// Superimposed on the design tablet is a pixel grid. Each pixel in the grid must be                   
@@ -402,7 +409,7 @@ public:
     ///   top - bottom  =  ceil(size.y)
     /// ```
     ///
-    /// FIXME: The statement above is rather surprising. Does Freetype really guarantee
+    /// FIXME: The statement above is rather surprising. Does FreeType really guarantee
     /// that?
     ///
     void get_glyph_pa_box(int& left, int& right, int& bottom, int& top);
@@ -438,9 +445,9 @@ public:
     /// determines the color of the rendered glyph. Likewise it will be the selected
     /// background color that determines the contrast/background color.
     ///
-    /// Because glyphs can easily end up overlaping each other, it is recommended that               
-    /// blending is also enabled in the image writer, and that the backgound color is made
-    /// to be transparet. This way the rendered glyph will be blended nicely into the
+    /// Because glyphs can easily end up overlapping each other, it is recommended that               
+    /// blending is also enabled in the image writer, and that the background color is made
+    /// to be transparent. This way the rendered glyph will be blended nicely into the
     /// original contents of the image. For optimum results, the background color should be
     /// the same color as the foreground only fully transparent.
     ///
@@ -454,7 +461,7 @@ public:
     ///
     /// FIXME: It might be attractive to offer alternative blending modes/functions. One             
     /// could simply be channel = max(orig, new). Then the original 'max(orig,new) intensity
-    /// stuff' can easily be reenabled.
+    /// stuff' can easily be re-enabled.
     ///
     void render_glyph_mask(image::Writer&);
     void render_glyph_rgba(image::Writer&);

@@ -35,26 +35,59 @@
 namespace archon::font {
 
 
-/// \brief    
+/// \brief Font loader tied to specific implementation.
 ///
-///    
+/// An instance of this class represents an ordered collection of font faces. The number of
+/// faces is obtained by calling \ref get_num_faces() and each face can be loaded using \ref
+/// load_face(). The loader designates a particular face as the default face. This implies
+/// that there is always at least one face in the collection. The default font face is
+/// loaded using \ref load_default_face().
+///
+/// New font loader objects are created by, or in the context of a particular font
+/// implementation (\ref font::Implementation). A font loader is tied to that particular
+/// font implementation. A font loader object must never outlive its implementation object.
+///
+/// A font loader aggregate, which is the loader object together with any font face objects
+/// tied to it, must never be accessed by more than one thread at a time. On the other hand,
+/// two threads can safely work with separate font loader aggregates. Destruction of a
+/// loader or face object counts as aggregate access.
+///
+/// \sa \ref font::Implementation::new_loader()
+/// \sa \ref font::new_default_loader()
+/// \sa \ref font::new_freetype_loader_from_font_file()
 ///
 class Loader {
 public:
     struct Config;
 
-    /// \brief     
+    /// \brief Load default font face.
     ///
-    ///    
+    /// This function loads the default font face. The caller must ensure that the lifetime
+    /// of the returned face object does not extend beyond the lifetime of the loader.
     ///
-    /// The caller must ensure that the returned font face object is destroyed before the
-    /// font loader object is destroyed.
+    /// \sa \ref load_face()
     ///
-    /// Note that while a single font loader object can safely be accessed concurrently by
-    /// multiple threads, behavior is undefined if multiple threads access a single font
-    /// face object concurrently. I.e., font face objects are not thread-safe.
+    virtual auto load_default_face() -> std::unique_ptr<font::Face> = 0;
+
+    /// \brief Number of available font faces.
     ///
-    virtual auto load_default_face() const -> std::unique_ptr<font::Face> = 0;
+    /// This function returns the number of font faces in the collection represented by the
+    /// font loader. Each of those font faces can be loaded using \ref load_face(). There is
+    /// always at least one face in the collection.
+    ///
+    virtual int get_num_faces() = 0;
+
+    /// \brief Load font face at particular index.
+    ///
+    /// This function loads the font face at the specified index. The index refers to the
+    /// position of the font face in the ordered collection represented by the font
+    /// loader. Number of available faces is returned by \ref get_num_faces(). The caller
+    /// must ensure that the lifetime of the returned face object does not extend beyond the
+    /// lifetime of the loader.
+    ///
+    /// \sa \ref load_default_face()
+    ///
+    virtual auto load_face(int face_index) -> std::unique_ptr<font::Face> = 0;
 
     virtual ~Loader() noexcept = default;
 };

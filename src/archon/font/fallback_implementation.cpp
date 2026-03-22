@@ -35,7 +35,6 @@
 #include <locale>
 #include <filesystem>
 #include <ios>
-#include <mutex>
 
 #include <archon/core/features.hpp>
 #include <archon/core/span.hpp>
@@ -597,10 +596,21 @@ public:
     {
     }
 
-    auto load_default_face() const -> std::unique_ptr<font::Face> override
+    auto load_default_face() -> std::unique_ptr<font::Face> override
     {
-        const Font& font = ensure_font(); // Throws
-        return std::make_unique<FaceImpl>(font); // Throws
+        return do_load_face(); // Throws
+    }
+
+    int get_num_faces() override
+    {
+        return 1;
+    }
+
+    auto load_face(int face_index) -> std::unique_ptr<font::Face> override
+    {
+        if (ARCHON_LIKELY(face_index == 0))
+            return do_load_face(); // Throws
+        throw std::invalid_argument("Face index");
     }
 
 private:
@@ -609,12 +619,16 @@ private:
     const std::unique_ptr<log::FileLogger> m_file_logger;
     log::Logger& m_logger;
 
-    mutable std::mutex m_mutex;
-    mutable std::unique_ptr<Font> m_font; // Protected by `m_mutex`
+    std::unique_ptr<Font> m_font;
 
-    auto ensure_font() const -> const Font&
+    auto do_load_face() -> std::unique_ptr<font::Face>
     {
-        std::lock_guard<std::mutex> lock(m_mutex);
+        const Font& font = ensure_font(); // Throws
+        return std::make_unique<FaceImpl>(font); // Throws
+    }
+
+    auto ensure_font() -> const Font&
+    {
         if (ARCHON_LIKELY(m_font))
             goto have;
         m_font = load_font(); // Throws

@@ -19,34 +19,51 @@
 // DEALINGS IN THE SOFTWARE.
 
 
+#include <memory>
+#include <string>
+#include <vector>
 #include <locale>
 
 #include <archon/core/integer.hpp>
+#include <archon/core/as_int.hpp>
 #include <archon/core/file.hpp>
 #include <archon/core/text_formatter.hpp>
 #include <archon/core/with_text_formatter.hpp>
-#include <archon/font/implementation.hpp>
-#include <archon/font/list_implementations.hpp>
+#include <archon/font/face.hpp>
+#include <archon/font/loader.hpp>
+#include <archon/font/list_font_faces.hpp>
 
 
 using namespace archon;
 
 
-void font::list_implementations(core::File& file, const std::locale& locale)
+void font::list_font_faces(font::Loader& loader, core::File& file, const std::locale& locale)
 {
+    struct entry {
+        bool bold, italic, monospace, scalable;
+        std::string family;
+    };
+    std::vector<entry> entries;
+    int n = loader.get_num_faces(); // Throws
+    for (int i = 0; i < n; ++i) {
+        std::unique_ptr<font::Face> face = loader.load_face(i); // Throws
+        entry e = {
+            face->is_bold(),
+            face->is_italic(),
+            face->is_monospace(),
+            face->is_scalable(),
+            std::string(face->get_family_name()), // Throws
+        };
+        entries.push_back(e); // Throws
+    }
+
     core::with_text_formatter(file, locale, [&](core::TextFormatter& formatter) {
         formatter.begin_hold(); // Throws
 
-        // 1st column: Identifier
+        // 1st column: Ordinal
         formatter.begin_compile(); // Throws
-        int n = font::get_num_implementations();
-        for (int i = 0; i < n; ++i) {
-            const font::Implementation& impl = font::get_implementation(i); // Throws
-            using Weight = core::TextFormatter::Weight;
-            formatter.set_weight(Weight::bold); // Throws
-            formatter.writeln(impl.get_ident()); // Throws
-            formatter.set_weight(Weight::normal); // Throws
-        }
+        for (int i = 0; i < n; ++i)
+            formatter.writeln(core::as_int(1 + i)); // Throws
         formatter.close_section(); // Throws
         core::TextFormatter::MeasureResult result_1 = formatter.measure(0, formatter.get_cursor_state()); // Throws
         int offset_1 = result_1.min_width_no_break;
@@ -54,21 +71,14 @@ void font::list_implementations(core::File& file, const std::locale& locale)
         formatter.format_section(0); // Throws
         formatter.end_compile();
 
-        // 2nd column: Availability
+        // 2nd column: Flags
         formatter.begin_compile();
-        for (int i = 0; i < n; ++i) {
-            const font::Implementation& impl = font::get_implementation(i); // Throws
-            using Color = core::TextFormatter::Color;
-            if (impl.is_available()) {
-                formatter.set_color(Color::green); // Throws
-                formatter.writeln("available"); // Throws
-                formatter.unset_color(); // Throws
-            }
-            else {
-                formatter.set_color(Color::red); // Throws
-                formatter.writeln("unavailable"); // Throws
-                formatter.unset_color(); // Throws
-            }
+        for (const entry& e : entries) {
+            formatter.write(e.bold      ? "B" : "-"); // Throws
+            formatter.write(e.italic    ? "I" : "-"); // Throws
+            formatter.write(e.monospace ? "M" : "-"); // Throws
+            formatter.write(e.scalable  ? "S" : "-"); // Throws
+            formatter.write("\n"); // Throws
         }
         formatter.close_section(); // Throws
         core::TextFormatter::MeasureResult result_2 = formatter.measure(0, formatter.get_cursor_state()); // Throws
@@ -80,14 +90,11 @@ void font::list_implementations(core::File& file, const std::locale& locale)
         formatter.format_section(0); // Throws
         formatter.end_compile();
 
-        // 3rd column: Description
+        // 3rd column: Family name
         formatter.jump_back(); // Throws
         formatter.set_offset(offset_2); // Throws
-        for (int i = 0; i < n; ++i) {
-            const font::Implementation& impl = font::get_implementation(i); // Throws
-            formatter.writeln(impl.get_descr()); // Throws
-        }
-
+        for (const entry& e : entries)
+            formatter.writeln(e.family); // Throws
         formatter.end_hold(); // Throws
     }); // Throws
 }

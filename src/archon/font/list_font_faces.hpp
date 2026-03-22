@@ -1,6 +1,6 @@
 // This file is part of the Archon project, a suite of C++ libraries.
 //
-// Copyright (C) 2022 Kristian Spangsege <kristian.spangsege@gmail.com>
+// Copyright (C) 2026 Kristian Spangsege <kristian.spangsege@gmail.com>
 //
 // Permission is hereby granted, free of charge, to any person obtaining a copy of this
 // software and associated documentation files (the "Software"), to deal in the Software
@@ -18,21 +18,37 @@
 // OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 // DEALINGS IN THE SOFTWARE.
 
+#ifndef ARCHON_X_FONT_X_LIST_FONT_FACES_HPP
+#define ARCHON_X_FONT_X_LIST_FONT_FACES_HPP
 
-// Do not include this header file. It exists only to specify the canonical header order,
-// which is a topological dependency ordering of all the header files of the Archon Font
-// Library, including any that must never be included by applications.
-#error "Do not include this header file"
+/// \file
 
 
-#include <archon/font/font_namespace.hpp>
-#include <archon/font/impl/config.h>
-#include <archon/font/size.hpp>
-#include <archon/font/code_point.hpp>
-#include <archon/font/face.hpp>
+#include <locale>
+
+#include <archon/core/file.hpp>
 #include <archon/font/loader.hpp>
-#include <archon/font/implementation.hpp>
-#include <archon/font/fallback_implementation.hpp>
-#include <archon/font/freetype_implementation.hpp>
-#include <archon/font/list_implementations.hpp>
-#include <archon/font/list_font_faces.hpp>
+
+
+namespace archon::font {
+
+
+/// \brief Produce textual rendition of list of font faces.
+///
+/// This function writes a textual rendition of the list of font faces offered by the
+/// specified font loader. The textual rendition is written to the specified file (\p file),
+/// which can be \ref core::File::get_stdout(). The list is formatted with the assumption
+/// that it will be displayed in a monospaced font, such as on a text terminal.
+///
+/// ANSI escape sequences will be emitted only when
+/// `core::terminal::should_enable_escape_sequences(file.is_terminal(), locale)` returns
+/// true.
+///
+/// \sa \ref core::terminal::should_enable_escape_sequences()
+///
+void list_font_faces(font::Loader& loader, core::File& file, const std::locale& locale);
+
+
+} // namespace archon::font
+
+#endif // ARCHON_X_FONT_X_LIST_FONT_FACES_HPP

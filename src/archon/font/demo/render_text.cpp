@@ -50,6 +50,7 @@
 #include <archon/font/implementation.hpp>
 #include <archon/font/freetype_implementation.hpp>
 #include <archon/font/list_implementations.hpp>
+#include <archon/font/list_font_faces.hpp>
 
 
 using namespace archon;
@@ -63,6 +64,7 @@ int main(int argc, char* argv[])
     std::wstring text;
     fs::path path;
     bool list_implementations = false;
+    bool list_font_faces = false;
     font::Size font_size = 12;
     util::Color color = util::colors::black;
     util::Color background_color = util::colors::white;
@@ -88,6 +90,12 @@ int main(int argc, char* argv[])
         "Lorem ipsum.",
         [&] {
             list_implementations = true;
+        }); // Throws
+
+    pat("--list-font-faces", cli::no_attributes, spec,
+        "Lorem ipsum.",
+        [&] {
+            list_font_faces = true;
         }); // Throws
 
     opt(cli::help_tag, spec); // Throws
@@ -228,6 +236,12 @@ int main(int argc, char* argv[])
     else {
         loader = impl->new_loader(resource_path, locale, loader_config); // Throws
     }
+
+    if (list_font_faces) {
+        font::list_font_faces(*loader, core::File::get_stdout(), locale); // Throws
+        return EXIT_SUCCESS;
+    }
+
     std::unique_ptr<font::Face> face = loader->load_default_face(); // Throws
     face->set_approx_size(font_size); // Throws
 
