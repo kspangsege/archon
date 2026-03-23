@@ -13,7 +13,7 @@ target_link_libraries(Font PUBLIC
   Image
 )
 
-find_package(Freetype)
+find_package(Freetype 2.10)
 
 set(ARCHON_FONT_HAVE_FREETYPE 0)
 if(FREETYPE_FOUND)

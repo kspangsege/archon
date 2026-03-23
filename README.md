@@ -25,7 +25,7 @@ Here is the list of dependencies for the various libraries of the Archon project
   |-----------|-----------------|----------------|----------|-----------------------------------------------
   | `libpng`  | 1.5.4           | Image          | Yes      | PNG image file format
   | `libjpeg` | 6b              | Image          | Yes      | JPEG image file format
-  | FreeType  |                 | Font           | Yes      | Font rendering facilities
+  | FreeType  | 2.10            | Font           | Yes      | Font rendering facilities
   | Xlib      |                 | Display        | Yes      | X Window System protocol client library
   | GLX       |                 | Display        | Yes      | OpenGL Extension to the X Window System
   | SDL       | 3.2.20          | Display        | Yes      | OS GUI integration (Simple DirectMedia Layer)
