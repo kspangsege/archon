@@ -25,6 +25,7 @@
 #error "Do not include this header file"
 
 
+#include <archon/archon_namespace.hpp>
 #include <archon/core/noinst/everything.hpp>
 #include <archon/log.hpp>
 #include <archon/log/noinst/everything.hpp>
