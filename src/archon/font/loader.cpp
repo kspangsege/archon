@@ -31,8 +31,8 @@ using namespace archon;
 
 
 auto font::new_default_loader(core::FilesystemPathRef resource_dir, const std::locale& locale,
-                              const font::Loader::Config& config) -> std::unique_ptr<font::Loader>
+                              const font::loader::config& config) -> std::unique_ptr<font::loader>
 {
-    const font::Implementation& impl = font::get_default_implementation();
+    const font::implementation& impl = font::get_default_implementation();
     return impl.new_loader(resource_dir, locale, config); // Throws
 }

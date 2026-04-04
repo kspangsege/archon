@@ -1,5 +1,6 @@
 add_library(FontTest OBJECT
   test_loader.cpp
+  test_fallback.cpp
   test_freetype.cpp
 )
 

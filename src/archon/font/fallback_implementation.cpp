@@ -21,8 +21,9 @@
 
 #include <cstddef>
 #include <cmath>
-#include <memory>
 #include <utility>
+#include <algorithm>
+#include <memory>
 #include <array>
 #include <tuple>
 #include <optional>
@@ -40,6 +41,7 @@
 #include <archon/core/span.hpp>
 #include <archon/core/assert.hpp>
 #include <archon/core/integer.hpp>
+#include <archon/core/float.hpp>
 #include <archon/core/memory.hpp>
 #include <archon/core/buffer.hpp>
 #include <archon/core/vector.hpp>
@@ -74,70 +76,88 @@ using namespace archon;
 namespace {
 
 
-constexpr std::string_view g_spec_file_name  = "fallback-font.txt";
-constexpr std::string_view g_image_file_name = "fallback-font.png";
+// The fallback font is specified by an image file (`fallback-font.png`) and a spec file
+// (`fallback-font.txt`). The image file contains all the rasterized glyphs packed closely
+// together. The spec file is a text file and specifies glyph metrics (one glyph per line),
+// including the positions of the glyphs in the image.
+//
+// NOTE: Glyphs are not stored conventionally in the image. The PNG image has one channel of
+// 8-bit components. While the PNG format believes these are gamma-compressed luminance
+// values, they are in fact linear coverage values making up an alpha mask (as produced by
+// font::face::render_glyph_mask_a()). This is in order to best preserve the linear alpha
+// values while only using one channel. The obvious alternative would have been to use a
+// two-channel image with an alpha channel, and then let the alpha channel fully specify the
+// glyph, but this would have been wasteful.
+//
+// The fact that a linear alpha channel masquerades as gamma-compressed luminance channel
+// means that if the image file is opened in an image viewer, the anti-aliased borders of
+// the glyphs will appear different and gamma-incorrect compared to a proper rendering of
+// the glyph.
+//
+constexpr std::string_view spec_file_name  = "fallback-font.txt";
+constexpr std::string_view image_file_name = "fallback-font.png";
 
 
 auto generate_file_path(core::FilesystemPathRef resource_dir, std::string_view file_name, const std::locale& loc,
-                        std::string_view modifier = "") -> std::filesystem::path
+                        std::string_view qual = "") -> std::filesystem::path
 {
     std::string file_name_2 = std::string(file_name); // Throws
     auto i = file_name_2.rfind('.');
     if (ARCHON_UNLIKELY(i == std::string::npos))
         i = file_name_2.size();
-    file_name_2.insert(i, modifier); // Throws
+    file_name_2.insert(i, qual); // Throws
     namespace fs = std::filesystem;
     fs::path path = core::make_fs_path_generic(file_name_2, loc); // Throws
     return resource_dir / path; // Throws
 }
 
 
-using char_type = font::CodePoint::char_type;
+using char_type = font::code_point::char_type;
 
 
-struct Glyph {
+struct glyph {
     // Position and size of glyph in image.
     image::Box box;
 
-    // Position of bearing point of a left-to-right layout realtive to the lower left corner
-    // of the bounding box of the glyph. The X-coordinate increases towards the right and
-    // the Y-coordinate increases upwards.
+    // Position in design space of lower-left corner of glyphs bounding box.
+    int pos_x, pos_y;
+
+    // Position in design space of the bearing point for horizontal layout.
     int horz_bearing_x, horz_bearing_y;
 
-    // Position of bearing point of a bottom-to-top layout realtive to the lower left corner
-    // of the bounding box of the glyph. The X-coordinate increases towards the right and
-    // the Y-coordinate increases upwards.
+    // Position in design space of the bearing point for vertical layout.
     int vert_bearing_x, vert_bearing_y;
 
-    // The glyph advance for horizontal and vertical layouts respecively. Neither can be
+    // The glyph advance for horizontal and vertical layouts respectively. Neither can be
     // negative.
     int horz_advance, vert_advance;
 };
 
 
-struct Spec {
+struct spec {
     std::string family_name;
-    std::vector<font::CodePointRange> code_point_ranges;
+    std::string style_name;
+    std::vector<font::code_point_range> code_point_ranges;
     image::Size image_size;
     bool bold, italic, monospace;
-    font::Size render_size;
-    int horz_baseline_offset, horz_baseline_spacing;
-    int vert_baseline_offset, vert_baseline_spacing;
-    core::Slab<Glyph> glyphs; // First glyph is fallback glyph
+    font::size render_size;
+    int horz_ascender, horz_descender, horz_baseline_spacing;
+    int vert_ascender, vert_descender, vert_baseline_spacing;
+    core::Slab<::glyph> glyphs; // First glyph is fallback glyph
     std::map<char_type, std::size_t> glyph_map;
 };
 
 
-struct Font {
+struct fallback_font {
     std::unique_ptr<image::Image> image;
-    Spec spec;
+    ::spec spec;
 };
 
 
-bool load_spec(core::FilesystemPathRef resource_dir, log::Logger& logger, const std::locale& loc, Spec& spec)
+bool load_spec(core::FilesystemPathRef resource_dir, log::Logger& logger, const std::locale& loc, ::spec& spec)
 {
     namespace fs = std::filesystem;
-    fs::path path = generate_file_path(resource_dir, g_spec_file_name, loc); // Throws
+    fs::path path = generate_file_path(resource_dir, ::spec_file_name, loc); // Throws
     core::BufferedTextFile file(path, loc); // Throws
     std::array<char, 96> seed_memory;
     core::Buffer<char> buffer(seed_memory);
@@ -148,11 +168,12 @@ bool load_spec(core::FilesystemPathRef resource_dir, log::Logger& logger, const 
     core::CharMapper char_mapper(loc); // Throws
     char delim = char_mapper.widen(' '); // Throws
     char hash = char_mapper.widen('#'); // Throws
-    std::vector<Glyph> glyphs;
-    std::vector<font::CodePoint> code_points;
+    std::vector<::glyph> glyphs;
+    std::vector<font::code_point> code_points;
     bool have_family_name = false;
+    bool have_style_name = false;
     bool have_code_point_ranges = false;
-    bool have_font_metrics = false;
+    bool have_global_metrics = false;
     bool have_fallback_glyph = false;
     long line_num = 0;
     bool have_error = false;
@@ -170,14 +191,20 @@ bool load_spec(core::FilesystemPathRef resource_dir, log::Logger& logger, const 
         line_2 = core::trim_a(line, delim);
         if (line_2.empty())
             continue;
-        if (ARCHON_LIKELY(have_font_metrics))
+        if (ARCHON_LIKELY(have_global_metrics))
             goto glyph_spec;
         if (have_code_point_ranges)
-            goto font_metrics_spec;
-        if (have_family_name)
+            goto global_metrics_spec;
+        if (have_style_name)
             goto code_point_ranges;
+        if (have_family_name)
+            goto style_name;
         spec.family_name = std::string(line_2); // Throws
         have_family_name = true;
+        continue;
+      style_name:
+        spec.style_name = std::string(line_2); // Throws
+        have_style_name = true;
         continue;
       code_point_ranges:
         have_code_point_ranges = true;
@@ -193,8 +220,8 @@ bool load_spec(core::FilesystemPathRef resource_dir, log::Logger& logger, const 
             bool success = text_parser.parse(line, delim, fields, field_seq, min, max, error, value, label,
                                              pos); // Throws
             if (ARCHON_LIKELY(success)) {
-                std::optional<font::CodePoint> prev_last;
-                for (font::CodePointRange range : spec.code_point_ranges) {
+                std::optional<font::code_point> prev_last;
+                for (font::code_point_range range : spec.code_point_ranges) {
                     if (ARCHON_LIKELY(!prev_last.has_value() || range.first().to_int() > prev_last.value().to_int())) {
                         prev_last = range.last();
                         continue;
@@ -217,8 +244,8 @@ bool load_spec(core::FilesystemPathRef resource_dir, log::Logger& logger, const 
             }
             goto error;
         }
-      font_metrics_spec:
-        have_font_metrics = true;
+      global_metrics_spec:
+        have_global_metrics = true;
         {
             using namespace std::literals;
             std::tuple fields = {
@@ -229,9 +256,11 @@ bool load_spec(core::FilesystemPathRef resource_dir, log::Logger& logger, const 
                 text_parser.field(core::as_int(spec.monospace),             "monospace"sv),
                 text_parser.field(spec.render_size.width,                   "render width"sv),
                 text_parser.field(spec.render_size.height,                  "render height"sv),
-                text_parser.field(core::as_int(spec.horz_baseline_offset),  "horizontal baseline offset"sv),
+                text_parser.field(core::as_int(spec.horz_ascender),         "horizontal ascender"sv),
+                text_parser.field(core::as_int(spec.horz_descender),        "horizontal descender"sv),
                 text_parser.field(core::as_int(spec.horz_baseline_spacing), "horizontal baseline spacing"sv),
-                text_parser.field(core::as_int(spec.vert_baseline_offset),  "vertical baseline offset"sv),
+                text_parser.field(core::as_int(spec.vert_ascender),         "vertical ascender"sv),
+                text_parser.field(core::as_int(spec.vert_descender),        "vertical descender"sv),
                 text_parser.field(core::as_int(spec.vert_baseline_spacing), "vertical baseline spacing"sv),
             };
             core::TextParser::Error error = {};
@@ -257,12 +286,12 @@ bool load_spec(core::FilesystemPathRef resource_dir, log::Logger& logger, const 
         }
       glyph_spec:
         {
-            Glyph glyph;
+            ::glyph glyph;
             code_points.clear();
             using namespace std::literals;
             std::tuple fields = {
-                text_parser.field(core::as_int(glyph.box.pos.x),       "left"sv),
-                text_parser.field(core::as_int(glyph.box.pos.y),       "top"sv),
+                text_parser.field(core::as_int(glyph.box.pos.x),       "image position x"sv),
+                text_parser.field(core::as_int(glyph.box.pos.y),       "image position y"sv),
                 text_parser.field(core::as_int(glyph.box.size.width),  "width"sv),
                 text_parser.field(core::as_int(glyph.box.size.height), "height"sv),
                 text_parser.field(core::as_int(glyph.horz_bearing_x),  "horizontal bearing x"sv),
@@ -271,6 +300,8 @@ bool load_spec(core::FilesystemPathRef resource_dir, log::Logger& logger, const 
                 text_parser.field(core::as_int(glyph.vert_bearing_y),  "vertical bearing y"sv),
                 text_parser.field(core::as_int(glyph.horz_advance),    "horizontal advance"sv),
                 text_parser.field(core::as_int(glyph.vert_advance),    "vertical advance"sv),
+                text_parser.field(core::as_int(glyph.pos_x),           "position x"sv),
+                text_parser.field(core::as_int(glyph.pos_y),           "position y"sv),
             };
             auto field_seq = text_parser.field_seq(code_points, "code point"sv);
             std::size_t min = 0, max = 0;
@@ -295,13 +326,13 @@ bool load_spec(core::FilesystemPathRef resource_dir, log::Logger& logger, const 
                     goto error;
                 }
                 if (ARCHON_UNLIKELY(glyph.horz_advance < 0 || glyph.vert_advance < 0)) {
-                    error_1("Negative glyph advance (horizontal %s, vertival %s)", glyph.horz_advance,
+                    error_1("Negative glyph advance (horizontal %s, vertical %s)", glyph.horz_advance,
                             glyph.vert_advance); // Throws
                     goto error;
                 }
                 std::size_t glyph_index = glyphs.size();
                 glyphs.push_back(glyph); // Throws
-                for (font::CodePoint cp : code_points) {
+                for (font::code_point cp : code_points) {
                     char_type ch = cp.to_char();
                     auto p = spec.glyph_map.emplace(ch, glyph_index); // Throws
                     bool was_inserted = p.second;
@@ -337,7 +368,17 @@ bool load_spec(core::FilesystemPathRef resource_dir, log::Logger& logger, const 
         error_1("Missing family name"); // Throws
         return false;
     }
-    if (ARCHON_UNLIKELY(!have_font_metrics)) {
+    if (ARCHON_UNLIKELY(!have_style_name)) {
+        ++line_num;
+        error_1("Missing style name"); // Throws
+        return false;
+    }
+    if (ARCHON_UNLIKELY(!have_code_point_ranges)) {
+        ++line_num;
+        error_1("Missing code point ranges"); // Throws
+        return false;
+    }
+    if (ARCHON_UNLIKELY(!have_global_metrics)) {
         ++line_num;
         error_1("Missing font metrics"); // Throws
         return false;
@@ -347,7 +388,7 @@ bool load_spec(core::FilesystemPathRef resource_dir, log::Logger& logger, const 
         error_1("Missing replacement glyph"); // Throws
         return false;
     }
-    spec.glyphs = core::Slab<Glyph>(core::Span(glyphs)); // Throws
+    spec.glyphs = core::Slab<::glyph>(core::Span(glyphs)); // Throws
     return true;
 }
 
@@ -356,7 +397,7 @@ bool load_image(core::FilesystemPathRef resource_dir, log::Logger& logger, const
                 image::Size expected_image_size, std::unique_ptr<image::Image>& image)
 {
     namespace fs = std::filesystem;
-    fs::path path = generate_file_path(resource_dir, g_image_file_name, loc); // Throws
+    fs::path path = generate_file_path(resource_dir, ::image_file_name, loc); // Throws
     log::PrefixLogger load_logger(logger, "Load image with glyphs of fallback font: "); // Throws
     image::LoadConfig config;
     config.logger = &load_logger;
@@ -367,7 +408,7 @@ bool load_image(core::FilesystemPathRef resource_dir, log::Logger& logger, const
             image = std::move(image_2);
             return true;
         }
-        load_logger.error("Image size  mismatch (was %s, expected %s)", image_2->get_size(),
+        load_logger.error("Image size mismatch (was %s, expected %s)", image_2->get_size(),
                           expected_image_size); // Throws
         return false;
     }
@@ -376,21 +417,15 @@ bool load_image(core::FilesystemPathRef resource_dir, log::Logger& logger, const
 }
 
 
-bool load_font(core::FilesystemPathRef resource_dir, log::Logger& logger, const std::locale& loc, Font& font)
+bool load_font(core::FilesystemPathRef resource_dir, log::Logger& logger, const std::locale& loc, ::fallback_font& font)
 {
-    if (ARCHON_LIKELY(load_spec(resource_dir, logger, loc, font.spec))) // Throws
+    if (ARCHON_LIKELY(::load_spec(resource_dir, logger, loc, font.spec))) // Throws
         return load_image(resource_dir, logger, loc, font.spec.image_size, font.image); // Throws
     return false;
 }
 
 
-auto make_file_logger(const std::locale& loc) -> std::unique_ptr<log::FileLogger>
-{
-    return std::make_unique<log::FileLogger>(core::File::get_stdout(), loc); // Throws
-}
-
-
-auto get_logger(const std::locale& loc, const font::Loader::Config& config,
+auto get_logger(const std::locale& loc, const font::loader::config& config,
                 std::unique_ptr<log::FileLogger>& file_logger) -> log::Logger&
 {
     if (config.logger)
@@ -401,353 +436,532 @@ auto get_logger(const std::locale& loc, const font::Loader::Config& config,
 
 
 
-class FaceImpl final
-    : public font::Face {
+class face_impl final
+    : public font::face {
 public:
-    FaceImpl(const Font& font) noexcept
-        : m_font(font)
-        , m_image_reader(*font.image) // Throws
-    {
-        ARCHON_ASSERT(m_font.spec.glyphs.size() > 0);
-        m_glyph = &m_font.spec.glyphs[0]; // Replacement glyph
-    }
+    face_impl(const ::fallback_font& font) noexcept;
 
-    auto get_family_name() -> std::string_view override
-    {
-        return m_font.spec.family_name;
-    }
-
-    bool is_bold() noexcept override
-    {
-        return m_font.spec.bold;
-    }
-
-    bool is_italic() noexcept override
-    {
-        return m_font.spec.italic;
-    }
-
-    bool is_monospace() noexcept override
-    {
-        return m_font.spec.monospace;
-    }
-
-    bool is_scalable() noexcept override
-    {
-        return false;
-    }
-
-    int get_num_fixed_sizes() override
-    {
-        return 1;
-    }
-
-    auto get_fixed_size(int fixed_size_index) -> font::Size override
-    {
-        if (ARCHON_LIKELY(fixed_size_index == 0))
-            return m_font.spec.render_size;
-        throw std::out_of_range("Fixed size index");
-    }
-
-    void set_fixed_size(int fixed_size_index) override
-    {
-        if (ARCHON_LIKELY(fixed_size_index == 0))
-            return;
-        throw std::out_of_range("Fixed size index");
-    }
-
-    void set_scaled_size(font::Size) override
-    {
-        throw std::logic_error("Font face is not scalable");
-    }
-
-    void set_approx_size(font::Size) override
-    {
-        // No-op since there is only one size in the first place
-    }
-
-    auto get_size() noexcept -> font::Size override
-    {
-        return m_font.spec.render_size;
-    }
-
-    auto get_baseline_spacing(bool vertical, bool) noexcept -> float_type override
-    {
-        const Spec& spec = m_font.spec;
-        return (vertical ? float_type(spec.vert_baseline_spacing) : float_type(spec.horz_baseline_spacing));
-    }
-
-    auto get_baseline_offset(bool vertical, bool) noexcept -> float_type override
-    {
-        const Spec& spec = m_font.spec;
-        return (vertical ? float_type(spec.vert_baseline_offset) : float_type(spec.horz_baseline_offset));
-    }
-
-    auto find_glyph(char_type ch) -> std::size_t override
-    {
-        auto i = m_font.spec.glyph_map.find(ch); // Throws
-        if (ARCHON_LIKELY(i != m_font.spec.glyph_map.end()))
-            return i->second;
-        return 0;
-    }
-
-    auto get_kerning(std::size_t, std::size_t, bool, bool) -> float_type override
-    {
-        return 0;
-    }
-
-    void load_glyph(std::size_t glyph_index, bool) override
-    {
-        if (ARCHON_LIKELY(glyph_index < m_font.spec.glyphs.size())) {
-            m_glyph = &m_font.spec.glyphs[glyph_index];
-            m_glyph_translation = vector_type(); // Throws
-            return;
-        }
-        throw std::out_of_range("glyph index");
-    }
-
-    auto get_glyph_advance(bool vertical) noexcept -> float_type override
-    {
-        if (ARCHON_LIKELY(!vertical))
-            return float_type(m_glyph->horz_advance);
-        return float_type(m_glyph->vert_advance);
-    }
-
-    auto get_glyph_bearing(bool vertical) noexcept -> vector_type override
-    {
-        if (ARCHON_LIKELY(!vertical))
-            return { float_type(m_glyph->horz_bearing_x), float_type(m_glyph->horz_bearing_y) };
-        return { float_type(m_glyph->vert_bearing_x), float_type(m_glyph->vert_bearing_y) };
-    }
-
-    void translate_glyph(vector_type dist) override
-    {
-        m_glyph_translation += dist;
-    }
-
-protected:
-    void do_get_glyph_pa_box(int& left, int& right, int& bottom, int& top) override
-    {
-        // FIXME: Tend to overflow in arithmetic     
-        left   = get_glyph_translation_x(); // Throws
-        bottom = get_glyph_translation_y(); // Throws
-        right  = left   + m_glyph->box.size.width;
-        top    = bottom + m_glyph->box.size.height;
-    }
-
-    void do_render_glyph_mask(image::Pos pos, const iter_type& iter, image::Size size) override
-    {
-        // FIXME: Would be better if glyph image had been loaded into tray-type buffer. Then this function could be a simple memory copy for each scan line.                                                          
-        ARCHON_ASSERT(m_glyph);
-        image::Pos pos_2 = pos;
-        // Note the inversion of the Y-axis
-        int left   = get_glyph_translation_x(); // Throws
-        int bottom = get_glyph_translation_y(); // Throws
-        int top    = bottom + m_glyph->box.size.height;
-        core::int_add(pos_2.x, left); // Throws
-        core::int_sub(pos_2.y, top); // Throws
-        image::Box target_box = { pos_2, m_glyph->box.size };
-        image::Box bounding_box = { size };
-        if (ARCHON_LIKELY(bounding_box.clip(target_box))) {
-            image::Iter iter_2 = iter + (target_box.pos - image::Pos());
-            image::Pos source_pos = m_glyph->box.pos + (target_box.pos - pos_2);
-            m_image_reader.get_block_lum(source_pos, { iter_2, target_box.size }); // Throws
-        }
-    }
-
-    void do_render_glyph_rgba(image::Pos pos, const iter_type& iter, image::Size size) override
-    {
-        // FIXME: Implement this                                                                       
-        static_cast<void>(pos);                
-        static_cast<void>(iter);                
-        static_cast<void>(size);                
-        ARCHON_STEADY_ASSERT_UNREACHABLE();                  
-    }
+    auto get_family_name() noexcept -> std::string_view override;
+    auto get_style_name() noexcept -> std::string_view override;
+    bool is_bold() noexcept override;
+    bool is_italic() noexcept override;
+    bool is_monospace() noexcept override;
+    bool is_scalable() noexcept override;
+    bool has_color() noexcept override;
+    void set_resolution(font::size) noexcept override;
+    int get_num_fixed_sizes() noexcept override;
+    auto get_fixed_size(int) -> font::size override;
+    void set_fixed_size(int) override;
+    void set_scaled_size(font::size) override;
+    void set_approx_size(font::size) override;
+    auto get_size() noexcept -> font::size override;
+    auto get_ascender(bool, bool) noexcept -> float_type override;
+    auto get_descender(bool, bool) noexcept -> float_type override;
+    auto get_baseline_spacing(bool, bool) noexcept -> float_type override;
+    void set_color_loading_enabled(bool) override;
+    auto find_glyph(char_type) -> std::size_t override;
+    auto get_kerning(std::size_t, std::size_t, bool, bool) -> float_type override;
+    [[nodiscard]] bool try_load_glyph(std::size_t, bool, bool) override;
+    auto get_glyph_advance(bool) noexcept -> float_type override;
+    auto get_glyph_bearing(bool) noexcept -> vector_type override;
+    auto get_glyph_pos() noexcept -> vector_type override;
+    auto get_glyph_size() noexcept -> vector_type override;
+    bool glyph_may_be_colored() noexcept override;
+    void set_transform(const matrix_type&) noexcept override;
+    void set_translat(vector_type) noexcept override;
+    void reset_transform_translat() noexcept override;
+    void set_target_pos(image::Pos) noexcept override;
+    auto get_target_glyph_box() -> image::Box override;
+    void render_glyph_mask_a(image::Pos, const tray_type&) override;
+    void render_glyph_rgba_a(image::Pos, const tray_type&) override;
 
 private:
-    const Font& m_font;
+    const ::fallback_font& m_font;
     image::Reader m_image_reader;
-    const Glyph* m_glyph = nullptr;
-    vector_type m_glyph_translation;
+    const ::glyph* m_glyph = nullptr;
+    vector_type m_translation;
+    image::Pos m_target_pos;
 
-    int get_glyph_translation_x() const
-    {
-        // FIXME: Tend to overflow in conversion     
-        return int(std::round(m_glyph_translation[0])); // Throws
-    }
-
-    int get_glyph_translation_y() const
-    {
-        // FIXME: Tend to overflow in conversion     
-        return int(std::round(m_glyph_translation[1])); // Throws
-    }
+    auto do_get_target_glyph_box() -> image::Box;
 };
 
 
 
-class LoaderImpl final
-    : public font::Loader {
+class loader_impl final
+    : public font::loader {
 public:
-    LoaderImpl(core::FilesystemPathRef resource_dir, const std::locale& loc, log::Logger* logger)
-        : m_resource_dir(resource_dir) // Throws
-        , m_locale(loc)
-        , m_file_logger(logger ? nullptr : make_file_logger(loc)) // Throws
-        , m_logger(logger ? *logger : *m_file_logger)
-    {
-    }
+    loader_impl(core::FilesystemPathRef resource_dir, const std::locale& loc, log::Logger* logger);
 
-    auto load_default_face() -> std::unique_ptr<font::Face> override
-    {
-        return do_load_face(); // Throws
-    }
-
-    int get_num_faces() override
-    {
-        return 1;
-    }
-
-    auto load_face(int face_index) -> std::unique_ptr<font::Face> override
-    {
-        if (ARCHON_LIKELY(face_index == 0))
-            return do_load_face(); // Throws
-        throw std::invalid_argument("Face index");
-    }
+    auto load_default_face() -> std::unique_ptr<font::face> override;
+    int get_num_faces() override;
+    auto load_face(int) -> std::unique_ptr<font::face> override;
 
 private:
     const std::filesystem::path m_resource_dir;
     const std::locale m_locale;
-    const std::unique_ptr<log::FileLogger> m_file_logger;
     log::Logger& m_logger;
 
-    std::unique_ptr<Font> m_font;
+    std::unique_ptr<::fallback_font> m_font;
 
-    auto do_load_face() -> std::unique_ptr<font::Face>
-    {
-        const Font& font = ensure_font(); // Throws
-        return std::make_unique<FaceImpl>(font); // Throws
-    }
-
-    auto ensure_font() -> const Font&
-    {
-        if (ARCHON_LIKELY(m_font))
-            goto have;
-        m_font = load_font(); // Throws
-      have:
-        return *m_font;
-    }
-
-    auto load_font() const -> std::unique_ptr<Font>
-    {
-        auto font = std::make_unique<Font>(); // Throws
-        if (ARCHON_LIKELY(::load_font(m_resource_dir, m_logger, m_locale, *font))) { // Throws
-            std::size_t num_glyphs = font->spec.glyphs.size();
-            std::size_t num_code_points = font->spec.glyph_map.size();
-            core::NumOfSpec glyphs_spec = { "glyph", "glyphs" };
-            core::NumOfSpec code_points_spec = { "code point", "code points" };
-            m_logger.detail("Fallback font loaded: %s (%s, %s)", font->spec.family_name,
-                            core::as_num_of(num_glyphs, glyphs_spec),
-                            core::as_num_of(num_code_points, code_points_spec)); // Throws
-            return font;
-        }
-        throw std::runtime_error("Failed to load fallback font");
-    }
+    auto do_load_face() -> std::unique_ptr<font::face>;
+    auto ensure_font() -> const ::fallback_font&;
+    auto load_font() const -> std::unique_ptr<::fallback_font>;
 };
 
 
 
-class ImplementationImpl final
-    : public font::Implementation {
+class implementation_impl final
+    : public font::implementation {
 public:
-    auto get_ident() const noexcept -> std::string_view override
-    {
-        return "fallback";
-    }
-
-    auto get_descr() const noexcept -> std::string_view override
-    {
-        return "Fallback font implementation";
-    }
-
-    bool is_available() const noexcept override
-    {
-        return true;
-    }
-
-    auto new_loader(core::FilesystemPathRef resource_dir, const std::locale& locale,
-                    const font::Loader::Config& config) const -> std::unique_ptr<font::Loader> override
-    {
-        return std::make_unique<LoaderImpl>(resource_dir, locale, config.logger); // Throws
-    }
+    auto get_ident() const noexcept -> std::string_view override;
+    auto get_descr() const noexcept -> std::string_view override;
+    bool is_available() const noexcept override;
+    auto new_loader(core::FilesystemPathRef, const std::locale&, const font::loader::config&) const ->
+        std::unique_ptr<font::loader> override;
 };
 
 // Making this `constexpr` triggers a bug in GCC 12 and below
-constinit ImplementationImpl g_implementation;
+constinit ::implementation_impl g_implementation;
+
+
+
+face_impl::face_impl(const ::fallback_font& font) noexcept
+    : m_font(font)
+    , m_image_reader(*font.image) // Throws
+{
+    ARCHON_ASSERT(m_font.spec.glyphs.size() > 0);
+    m_glyph = &m_font.spec.glyphs[0]; // Replacement glyph
+}
+
+
+auto face_impl::get_family_name() noexcept -> std::string_view
+{
+    return m_font.spec.family_name;
+}
+
+
+auto face_impl::get_style_name() noexcept -> std::string_view
+{
+    return m_font.spec.style_name;
+}
+
+
+bool face_impl::is_bold() noexcept
+{
+    return m_font.spec.bold;
+}
+
+
+bool face_impl::is_italic() noexcept
+{
+    return m_font.spec.italic;
+}
+
+
+bool face_impl::is_monospace() noexcept
+{
+    return m_font.spec.monospace;
+}
+
+
+bool face_impl::is_scalable() noexcept
+{
+    return false;
+}
+
+
+bool face_impl::has_color() noexcept
+{
+    return false;
+}
+
+
+void face_impl::set_resolution(font::size) noexcept
+{
+    // No-op since this as a non-scalable font.
+}
+
+
+int face_impl::get_num_fixed_sizes() noexcept
+{
+    return 1;
+}
+
+
+auto face_impl::get_fixed_size(int fixed_size_index) -> font::size
+{
+    if (ARCHON_LIKELY(fixed_size_index == 0))
+        return m_font.spec.render_size;
+    throw std::out_of_range("Fixed size index");
+}
+
+
+void face_impl::set_fixed_size(int fixed_size_index)
+{
+    if (ARCHON_LIKELY(fixed_size_index == 0))
+        return;
+    throw std::out_of_range("Fixed size index");
+}
+
+
+void face_impl::set_scaled_size(font::size)
+{
+    throw std::logic_error("Font face is not scalable");
+}
+
+
+void face_impl::set_approx_size(font::size)
+{
+    // No-op since there is only one size in the first place
+}
+
+
+auto face_impl::get_size() noexcept -> font::size
+{
+    return m_font.spec.render_size;
+}
+
+
+auto face_impl::get_ascender(bool, bool vertical) noexcept -> float_type
+{
+    const ::spec& spec = m_font.spec;
+    return (vertical ? float_type(spec.vert_ascender) : float_type(spec.horz_ascender));
+}
+
+
+auto face_impl::get_descender(bool, bool vertical) noexcept -> float_type
+{
+    const ::spec& spec = m_font.spec;
+    return (vertical ? float_type(spec.vert_descender) : float_type(spec.horz_descender));
+}
+
+
+auto face_impl::get_baseline_spacing(bool, bool vertical) noexcept -> float_type
+{
+    const ::spec& spec = m_font.spec;
+    return (vertical ? float_type(spec.vert_baseline_spacing) : float_type(spec.horz_baseline_spacing));
+}
+
+
+void face_impl::set_color_loading_enabled(bool)
+{
+    // No-op since implementation has no support for color
+}
+
+
+auto face_impl::find_glyph(char_type ch) -> std::size_t
+{
+    auto i = m_font.spec.glyph_map.find(ch); // Throws
+    if (ARCHON_LIKELY(i != m_font.spec.glyph_map.end()))
+        return i->second;
+    return 0;
+}
+
+
+auto face_impl::get_kerning(std::size_t, std::size_t, bool, bool) -> float_type
+{
+    return 0;
+}
+
+
+bool face_impl::try_load_glyph(std::size_t glyph_index, bool, bool)
+{
+    if (ARCHON_LIKELY(glyph_index < m_font.spec.glyphs.size())) {
+        m_glyph = &m_font.spec.glyphs[glyph_index];
+        return true;
+    }
+    throw std::out_of_range("glyph index");
+}
+
+
+auto face_impl::get_glyph_advance(bool vertical) noexcept -> float_type
+{
+    if (ARCHON_LIKELY(!vertical))
+        return float_type(m_glyph->horz_advance);
+    return float_type(m_glyph->vert_advance);
+}
+
+
+auto face_impl::get_glyph_bearing(bool vertical) noexcept -> vector_type
+{
+    if (ARCHON_LIKELY(!vertical))
+        return { float_type(m_glyph->horz_bearing_x), float_type(m_glyph->horz_bearing_y) };
+    return { float_type(m_glyph->vert_bearing_x), float_type(m_glyph->vert_bearing_y) };
+}
+
+
+auto face_impl::get_glyph_pos() noexcept -> vector_type
+{
+    return { float_type(m_glyph->pos_x), float_type(m_glyph->pos_y) };
+}
+
+
+auto face_impl::get_glyph_size() noexcept -> vector_type
+{
+    return { float_type(m_glyph->box.size.width), float_type(m_glyph->box.size.height) };
+}
+
+
+bool face_impl::glyph_may_be_colored() noexcept
+{
+    return false;
+}
+
+
+void face_impl::set_transform(const matrix_type&) noexcept
+{
+    // Any configured glyph transformation is supposed to be ignored for a non-scalable font face.
+}
+
+
+void face_impl::set_translat(vector_type translat) noexcept
+{
+    m_translation = translat;
+}
+
+
+void face_impl::reset_transform_translat() noexcept
+{
+    m_translation = {};
+}
+
+
+void face_impl::set_target_pos(image::Pos pos) noexcept
+{
+    m_target_pos = pos;
+}
+
+
+auto face_impl::get_target_glyph_box() -> image::Box
+{
+    return do_get_target_glyph_box(); // Throws
+}
+
+
+void face_impl::render_glyph_mask_a(image::Pos pos, const tray_type& tray)
+{
+    image::Box target_box = { pos, tray.size };
+    image::Box box = do_get_target_glyph_box(); // Throws
+    image::Pos orig_pos = box.pos;
+    if (ARCHON_UNLIKELY(!target_box.clip(box)))
+        return;
+    image::Pos pos_2 = m_glyph->box.pos + (box.pos - orig_pos);
+    tray_type::iter_type iter = tray.iter + (box.pos - pos);
+    //
+    // NOTE: The component values in the image are in fact linear coverage values
+    // masquerading as gamma-compressed luminance values. Therefore,
+    // image::Image::get_block_lum() effectively extracts an alpha mask, despite the
+    // functions name.
+    //
+    m_image_reader.get_block_lum(pos_2, { iter, box.size }); // Throws
+}
+
+
+void face_impl::render_glyph_rgba_a(image::Pos pos, const tray_type& tray)
+{
+    image::Box target_box = { pos, tray.size };
+    image::Box box = do_get_target_glyph_box(); // Throws
+    image::Pos orig_pos = box.pos;
+    if (ARCHON_UNLIKELY(!target_box.clip(box)))
+        return;
+    image::Pos pos_2 = m_glyph->box.pos + (box.pos - orig_pos);
+    tray_type::iter_type iter = tray.iter + (box.pos - pos);
+    //
+    // First read coverage values from the image directly into the alpha channel of the
+    // callers tray, then set the color channels to BLACK.
+    //
+    // NOTE: The component values in the image are in fact linear coverage values
+    // masquerading as gamma-compressed luminance values. Therefore,
+    // image::Image::get_block_lum() effectively extracts an alpha mask, despite the
+    // functions name.
+    //
+    m_image_reader.get_block_lum(pos_2, { iter.shift(3), box.size }); // Throws
+    for (int y = 0; y < box.size.height; ++y) {
+        for (int x = 0; x < box.size.width; ++x) {
+            tray_type::comp_type* pixel = iter(x, y);
+            pixel[0] = 0;
+            pixel[1] = 0;
+            pixel[2] = 0;
+        }
+    }
+}
+
+
+auto face_impl::do_get_target_glyph_box() -> image::Box
+{
+    int translation_x = {}, translation_y = {};
+    core::float_to_int(std::floor(m_translation[0]), translation_x); // Throws
+    core::float_to_int(std::floor(m_translation[1]), translation_y); // Throws
+
+    image::Pos pos = m_target_pos;
+    core::int_add(pos.x, m_glyph->pos_x); // Throws
+    core::int_sub(pos.y, m_glyph->pos_y + m_glyph->box.size.height); // Throws
+    core::int_add(pos.x, translation_x); // Throws
+    core::int_sub(pos.y, translation_y); // Throws
+
+    return { pos, m_glyph->box.size };
+}
+
+
+
+loader_impl::loader_impl(core::FilesystemPathRef resource_dir, const std::locale& loc, log::Logger* logger)
+    : m_resource_dir(resource_dir) // Throws
+    , m_locale(loc)
+    , m_logger(log::Logger::or_null(logger))
+{
+}
+
+
+auto loader_impl::load_default_face() -> std::unique_ptr<font::face>
+{
+    return do_load_face(); // Throws
+}
+
+
+int loader_impl::get_num_faces()
+{
+    return 1;
+}
+
+
+auto loader_impl::load_face(int face_index) -> std::unique_ptr<font::face>
+{
+    if (ARCHON_LIKELY(face_index == 0))
+        return do_load_face(); // Throws
+    throw std::invalid_argument("Face index");
+}
+
+
+auto loader_impl::do_load_face() -> std::unique_ptr<font::face>
+{
+    const ::fallback_font& font = ensure_font(); // Throws
+    return std::make_unique<::face_impl>(font); // Throws
+}
+
+
+inline auto loader_impl::ensure_font() -> const ::fallback_font&
+{
+    if (ARCHON_LIKELY(m_font))
+        goto have;
+    m_font = load_font(); // Throws
+  have:
+    return *m_font;
+}
+
+
+auto loader_impl::load_font() const -> std::unique_ptr<::fallback_font>
+{
+    auto font = std::make_unique<::fallback_font>(); // Throws
+    if (ARCHON_LIKELY(::load_font(m_resource_dir, m_logger, m_locale, *font))) { // Throws
+        std::size_t num_glyphs = font->spec.glyphs.size();
+        std::size_t num_code_points = font->spec.glyph_map.size();
+        core::NumOfSpec glyphs_spec = { "glyph", "glyphs" };
+        core::NumOfSpec code_points_spec = { "code point", "code points" };
+        m_logger.detail("Fallback font loaded: %s %s (%s, %s)", font->spec.family_name, font->spec.style_name,
+                        core::as_num_of(num_glyphs, glyphs_spec),
+                        core::as_num_of(num_code_points, code_points_spec)); // Throws
+        return font;
+    }
+    throw std::runtime_error("Failed to load fallback font");
+}
+
+
+
+inline auto new_loader(core::FilesystemPathRef resource_dir, const std::locale& locale,
+                       const font::loader::config& config) -> std::unique_ptr<font::loader>
+{
+    return std::make_unique<::loader_impl>(resource_dir, locale, config.logger); // Throws
+}
+
+
+
+auto implementation_impl::get_ident() const noexcept -> std::string_view
+{
+    return "fallback";
+}
+
+
+auto implementation_impl::get_descr() const noexcept -> std::string_view
+{
+    return "Fallback font implementation";
+}
+
+
+bool implementation_impl::is_available() const noexcept
+{
+    return true;
+}
+
+
+auto implementation_impl::new_loader(core::FilesystemPathRef resource_dir, const std::locale& locale,
+                                     const font::loader::config& config) const -> std::unique_ptr<font::loader>
+{
+    return ::new_loader(resource_dir, locale, config); // Throws
+}
 
 
 } // unnamed namespace
 
 
-auto font::get_fallback_implementation() noexcept -> const font::Implementation&
+auto font::get_fallback_implementation() noexcept -> const font::implementation&
 {
-    return g_implementation;
+    return ::g_implementation;
 }
 
 
-void font::regen_fallback_font(font::Face& face, bool try_keep_orig_font_size,
-                               core::Span<const font::CodePointRange> ranges, core::FilesystemPathRef resource_dir,
-                               const std::locale& loc, const font::Loader::Config& config)
+auto font::new_fallback_loader(core::FilesystemPathRef resource_dir, const std::locale& locale,
+                               const font::loader::config& config) -> std::unique_ptr<font::loader>
 {
-    std::vector<font::CodePointRange> fallback_ranges;
-    core::Span<const font::CodePointRange> ranges_2 = ranges;
-    if (ranges_2.empty() || try_keep_orig_font_size) {
-        Spec spec = {};
-        log::Logger& logger = log::Logger::get_null();
-        if (ARCHON_LIKELY(load_spec(resource_dir, logger, loc, spec))) { // Throws
-            fallback_ranges = std::move(spec.code_point_ranges);
-            if (try_keep_orig_font_size)
-                face.set_approx_size(spec.render_size); // Throws
-        }
-        else {
-            font::CodePoint first, last;
-            bool success = (first.try_from_int(0) && last.try_from_int(127));
-            ARCHON_ASSERT(success);
-            fallback_ranges = {
-                { first, last },
-            };
-        }
-        if (ranges_2.empty())
-            ranges_2 = fallback_ranges;
-    }
-    std::unique_ptr<log::FileLogger> file_logger;
-    log::Logger& logger = get_logger(loc, config, file_logger); // Throws
+    return ::new_loader(resource_dir, locale, config); // Throws
+}
 
-    struct Glyph2 {
+
+void font::regen_fallback_font(font::face& face, core::Span<const font::code_point_range> ranges,
+                               core::FilesystemPathRef resource_dir, std::string_view file_name_qual,
+                               const std::locale& locale, const font::loader::config& config)
+{
+    if (ARCHON_UNLIKELY(ranges.empty()))
+        throw std::invalid_argument("Codepoint ranges");
+
+    std::unique_ptr<log::FileLogger> file_logger;
+    log::Logger& logger = get_logger(locale, config, file_logger); // Throws
+
+    struct glyph_entry {
         std::size_t index; // In sourcing font face
         image::Box box; // Position and size in image
         int horz_bearing_x, horz_bearing_y;
         int vert_bearing_x, vert_bearing_y;
         int horz_advance, vert_advance;
-        std::vector<font::CodePoint> code_points;
+        int pos_x, pos_y;
+        std::vector<font::code_point> code_points;
     };
-    std::vector<Glyph2> glyphs;
+    std::vector<glyph_entry> glyphs;
     std::size_t num_code_points = 0;
 
     // Load glyph metrics
     bool grid_fitting = true;
+    bool vertical = false;
     {
         auto add_glyph = [&](std::size_t index) {
-            face.load_glyph(index, grid_fitting); // Throws
-            Glyph2 glyph = {};
+            glyph_entry glyph = {};
             glyph.index = index;
-            glyph.box.size = face.get_glyph_pa_size(); // Throws
-            font::Face::vector_type horz_bearing = face.get_glyph_bearing(false); // Throws
+            ARCHON_ASSERT(grid_fitting);
+            bool success = face.try_load_glyph(index, grid_fitting, vertical); // Throws
+            if (ARCHON_UNLIKELY(!success))
+                throw std::invalid_argument("Unsupported glyph format");
+            font::face::vector_type size = face.get_glyph_size();
+            glyph.box.size = { int(size[0]), int(size[1]) };
+            font::face::vector_type horz_bearing = face.get_glyph_bearing(false);
             glyph.horz_bearing_x = int(horz_bearing[0]);
             glyph.horz_bearing_y = int(horz_bearing[1]);
-            font::Face::vector_type vert_bearing = face.get_glyph_bearing(true); // Throws
+            font::face::vector_type vert_bearing = face.get_glyph_bearing(true);
             glyph.vert_bearing_x = int(vert_bearing[0]);
             glyph.vert_bearing_y = int(vert_bearing[1]);
-            glyph.horz_advance = int(face.get_glyph_advance(false)); // Throws
-            glyph.vert_advance = int(face.get_glyph_advance(true)); // Throws
+            glyph.horz_advance = int(face.get_glyph_advance(false));
+            glyph.vert_advance = int(face.get_glyph_advance(true));
+            font::face::vector_type pos = face.get_glyph_pos();
+            glyph.pos_x = int(pos[0]);
+            glyph.pos_y = int(pos[1]);
             glyphs.push_back(std::move(glyph)); // Throws
         };
         // Add replacement glyph first
@@ -755,10 +969,10 @@ void font::regen_fallback_font(font::Face& face, bool try_keep_orig_font_size,
         // Map index of glyph in sourcing font face to index of glyph in generated fallback
         // font face
         std::map<std::size_t, std::size_t> map;
-        for (font::CodePointRange range : ranges_2) {
+        for (font::code_point_range range : ranges) {
             char_type ch = range.first().to_char();
             for (;;) {
-                font::CodePoint cp;
+                font::code_point cp;
                 if (ARCHON_LIKELY(cp.try_from_char(ch))) {
                     std::size_t index = face.find_glyph(ch);
                     if (index != 0) {
@@ -766,7 +980,7 @@ void font::regen_fallback_font(font::Face& face, bool try_keep_orig_font_size,
                         bool was_inserted = p.second;
                         if (was_inserted)
                             add_glyph(index); // Throws
-                        Glyph2& glyph = glyphs[p.first->second];
+                        glyph_entry& glyph = glyphs[p.first->second];
                         glyph.code_points.push_back(cp); // Throws
                         core::int_add(num_code_points, 1); // Throws
                     }
@@ -782,7 +996,7 @@ void font::regen_fallback_font(font::Face& face, bool try_keep_orig_font_size,
     image::Size image_size;
     {
         util::RectanglePacker<int> packer;
-        for (const Glyph2& glyph : glyphs)
+        for (const glyph_entry& glyph : glyphs)
             packer.add_rect(glyph.box.size.width, glyph.box.size.height); // Throws
         int max_width = packer.suggest_bin_width();
         if (ARCHON_LIKELY(packer.pack(max_width))) { // Throws
@@ -791,7 +1005,7 @@ void font::regen_fallback_font(font::Face& face, bool try_keep_orig_font_size,
             image_size.height = packer.get_utilized_height();
             std::size_t n = glyphs.size();
             for (std::size_t i = 0; i < n; ++i) {
-                Glyph2& glyph = glyphs[i];
+                glyph_entry& glyph = glyphs[i];
                 packer.get_rect_pos(i, glyph.box.pos.x, glyph.box.pos.y);
             }
         }
@@ -803,10 +1017,10 @@ void font::regen_fallback_font(font::Face& face, bool try_keep_orig_font_size,
     // Generate new spec file
     {
         namespace fs = std::filesystem;
-        fs::path path = generate_file_path(resource_dir, g_spec_file_name, loc, "-new"); // Throws
+        fs::path path = generate_file_path(resource_dir, ::spec_file_name, locale, file_name_qual); // Throws
         core::BufferedTextFile file(path, core::File::Mode::write); // Throws
         core::SeedMemoryOutputStream out; // Throws
-        out.imbue(loc); // Throws
+        out.imbue(locale); // Throws
         out.exceptions(std::ios_base::badbit | std::ios_base::failbit); // Throws
         auto format = [&](const char* message, const auto&... params) {
             core::format(out, message, params...); // Throws
@@ -814,17 +1028,20 @@ void font::regen_fallback_font(font::Face& face, bool try_keep_orig_font_size,
             out.full_clear();
         };
         format("%s\n", face.get_family_name()); // Throws
-        format("%s\n", core::as_words(ranges_2)); // Throws
-        font::Size font_size = face.get_size();
-        format("%s %s   %s %s %s   %s %s   %s %s   %s %s\n",
+        format("%s\n", face.get_style_name()); // Throws
+        format("%s\n", core::as_words(ranges)); // Throws
+        font::size font_size = face.get_size();
+        format("%s %s   %s %s %s   %s %s   %s %s %s   %s %s %s\n",
                core::as_int(image_size.width), core::as_int(image_size.height),
                core::as_int(face.is_bold()), core::as_int(face.is_italic()),
                core::as_int(face.is_monospace()),
                font_size.width, font_size.height,
-               face.get_baseline_offset(false,  grid_fitting),
-               face.get_baseline_spacing(false, grid_fitting),
-               face.get_baseline_offset(true,   grid_fitting),
-               face.get_baseline_spacing(true,  grid_fitting)); // Throws
+               face.get_ascender(grid_fitting, false),
+               face.get_descender(grid_fitting, false),
+               face.get_baseline_spacing(grid_fitting, false),
+               face.get_ascender(grid_fitting, true),
+               face.get_descender(grid_fitting, true),
+               face.get_baseline_spacing(grid_fitting, true)); // Throws
         using namespace std::literals;
         std::string_view padding = "        "sv;
         auto pad = [&](std::size_t n) {
@@ -836,8 +1053,8 @@ void font::regen_fallback_font(font::Face& face, bool try_keep_orig_font_size,
             file.write(padding.substr(0, n_2)); // Throws
         };
         std::array col_spacings = {
-            0, // before left
-            2, // before top
+            0, // before image position x
+            2, // before image position y
             2, // before width
             2, // before height
             4, // before horizontal bearing x
@@ -846,6 +1063,8 @@ void font::regen_fallback_font(font::Face& face, bool try_keep_orig_font_size,
             2, // before vertical bearing y
             4, // before horizontal advance
             2, // before vertical advance
+            4, // before position x
+            2, // before position y
             4, // before code points
         };
         std::vector<std::size_t> cell_ends;
@@ -864,7 +1083,7 @@ void font::regen_fallback_font(font::Face& face, bool try_keep_orig_font_size,
                 col_widths[col_index] = col_width;
             ++col_index;
         };
-        for (const Glyph2& glyph : glyphs) {
+        for (const glyph_entry& glyph : glyphs) {
             format_cell("%s", core::as_int(glyph.box.pos.x)); // Throws
             format_cell("%s", core::as_int(glyph.box.pos.y)); // Throws
             format_cell("%s", core::as_int(glyph.box.size.width)); // Throws
@@ -875,6 +1094,8 @@ void font::regen_fallback_font(font::Face& face, bool try_keep_orig_font_size,
             format_cell("%s", core::as_int(glyph.vert_bearing_y)); // Throws
             format_cell("%s", core::as_int(glyph.horz_advance)); // Throws
             format_cell("%s", core::as_int(glyph.vert_advance)); // Throws
+            format_cell("%s", core::as_int(glyph.pos_x)); // Throws
+            format_cell("%s", core::as_int(glyph.pos_y)); // Throws
             format_cell("%s", core::as_words(glyph.code_points)); // Throws
             row_ends.push_back(cell_ends.size()); // Throws
             col_index = 0;
@@ -911,46 +1132,91 @@ void font::regen_fallback_font(font::Face& face, bool try_keep_orig_font_size,
     // Create image with glyphs
     {
         namespace fs = std::filesystem;
-        fs::path path = generate_file_path(resource_dir, g_image_file_name, loc, "-new"); // Throws
+        fs::path path = generate_file_path(resource_dir, ::image_file_name, locale, file_name_qual); // Throws
         image::BufferedImage_Lum_8 image(image_size); // Throws
         std::ptrdiff_t horz_stride = 1;
         std::ptrdiff_t vert_stride = std::ptrdiff_t(image_size.width);
         image::Iter iter = { image.get_buffer().data(), horz_stride, vert_stride };
-        for (const Glyph2& glyph : glyphs) {
-            image::Pos pos = glyph.box.pos;
-            pos.y += glyph.box.size.height;
-            face.set_target_pos(pos);
-            face.load_glyph(glyph.index, grid_fitting); // Throws
-            face.render_glyph_mask_a(iter, image_size); // Throws
+        image::Tray tray = { iter, image_size };
+        image::Pos pos = { 0, 0 };
+        for (const glyph_entry& glyph : glyphs) {
+            using float_type = font::face::float_type;
+            face.set_translat({ -float_type(glyph.pos_x), -float_type(glyph.pos_y) });
+            face.set_target_pos(glyph.box.pos + glyph.box.size.proj_y());
+            bool success = face.try_load_glyph(glyph.index, grid_fitting, vertical); // Throws
+            ARCHON_ASSERT(success);
+            // NOTE: The component values extracted by font::face::render_glyph_mask_a() are
+            // linear coverage values, but these are stored directly into a pixel buffer
+            // which forms a single gamma-compressed luminance channel. The effect of this
+            // is that the linear coverage values, now masquerading as gamma-compress
+            // luminance values get transported into and stored in the image file without
+            // loss of information. The reader must know, however, that when extracting the
+            // gamma-compressed luminance channel, what comes out is really a linear alpha
+            // mask.
+            face.render_glyph_mask_a(pos, tray); // Throws
         }
-        image::save(image, path, loc); // Throws
+        image::save(image, path, locale); // Throws
         logger.info("Image file generated: %s", core::as_native_path(path)); // Throws
     }
 
-    core::Vector<std::string_view, 3> font_style_keywords;
-    if (face.is_bold())
-        font_style_keywords.push_back("bold"); // Throws
-    if (face.is_italic())
-        font_style_keywords.push_back("italic"); // Throws
-    if (face.is_monospace())
-        font_style_keywords.push_back("monospace"); // Throws
-    font::Size font_size = face.get_size();
+    font::size font_size = face.get_size();
     std::size_t num_glyphs = glyphs.size();
     double em_area = double(font_size.width) * double(font_size.height);
     double image_area = double(image_size.width) * double(image_size.height);
     double accum_glyph_area = 0;
-    for (Glyph2 glyph : glyphs)
+    for (glyph_entry glyph : glyphs)
         accum_glyph_area += double(glyph.box.size.width) * double(glyph.box.size.height);
     double coverage = accum_glyph_area / image_area;
-    double gplyps_per_em = em_area / (image_area / num_glyphs);
+    double glyphs_per_em = em_area / (image_area / num_glyphs);
     logger.info("Fallback font successfully generated"); // Throws
     logger.info("Font family: %s", face.get_family_name()); // Throws
-    logger.info("Font style: %s", core::as_list(font_style_keywords)); // Throws
+    logger.info("Font style: %s", face.get_style_name()); // Throws
     logger.info("Font size: %s", font_size); // Throws
-    logger.info("Code point ranges: %s", core::as_list(ranges_2)); // Throws
-    logger.info("Number of glyphs: %s", num_glyphs); // Throws
-    logger.info("Number of code points: %s", num_code_points); // Throws
+    logger.info("Code point ranges: %s", core::as_list(ranges)); // Throws
+    logger.info("Number of glyphs: %s", core::as_int(num_glyphs)); // Throws
+    logger.info("Number of code points: %s", core::as_int(num_code_points)); // Throws
     logger.info("Image size: %s", image_size); // Throws
     logger.info("Image coverage: %s", core::as_percent(coverage, 1)); // Throws
-    logger.info("Glyphs per EM-square: %s", core::with_fixed(gplyps_per_em, 2)); // Throws
+    logger.info("Glyphs per EM-square: %s", core::with_fixed(glyphs_per_em, 2)); // Throws
+}
+
+
+bool font::try_get_fallback_font_params(core::FilesystemPathRef resource_dir, const std::locale& locale,
+                                        std::vector<font::code_point_range>& ranges, font::fallback_font_params& params,
+                                        std::unique_ptr<char[]>& string_owner, font::size& size)
+{
+    log::Logger& logger = log::Logger::get_null();
+    ::spec spec = {};
+    if (ARCHON_LIKELY(::load_spec(resource_dir, logger, locale, spec))) { // Throws
+        char seed_mem[64] = {};
+        core::Buffer<char> buffer(seed_mem);
+        std::size_t buffer_offset = 0;
+        std::size_t family_name_offset = buffer_offset;
+        buffer.append(spec.family_name, buffer_offset); // Throws
+        std::size_t family_name_size = std::size_t(buffer_offset - family_name_offset);
+        std::size_t style_name_offset = buffer_offset;
+        buffer.append(spec.style_name, buffer_offset); // Throws
+        std::size_t style_name_size = std::size_t(buffer_offset - style_name_offset);
+        std::unique_ptr<char[]> string_owner_2;
+        std::string_view family_name;
+        std::string_view style_name;
+        if (ARCHON_LIKELY(buffer_offset > 0)) {
+            string_owner_2 = std::make_unique_for_overwrite<char[]>(buffer_offset); // Throws
+            std::copy_n(buffer.data(), buffer_offset, string_owner_2.get());
+            family_name = { string_owner_2.get() + family_name_offset, family_name_size }; // Throws
+            style_name  = { string_owner_2.get() + style_name_offset,  style_name_size  }; // Throws
+        }
+        string_owner = std::move(string_owner_2);
+        ranges = std::move(spec.code_point_ranges);
+        params = {
+            family_name,
+            style_name,
+            spec.bold,
+            spec.italic,
+            spec.monospace,
+        };
+        size = spec.render_size;
+        return true;
+    }
+    return false;
 }

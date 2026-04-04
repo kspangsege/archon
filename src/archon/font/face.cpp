@@ -19,47 +19,31 @@
 // DEALINGS IN THE SOFTWARE.
 
 
-#include <cstddef>
-#include <algorithm>
-
-#include <archon/core/integer.hpp>
 #include <archon/image/geom.hpp>
+#include <archon/image/comp_repr.hpp>
+#include <archon/image/block.hpp>
 #include <archon/image/writer.hpp>
 #include <archon/font/face.hpp>
 
 
 using namespace archon;
-using font::Face;
 
 
-void Face::render_glyph_mask(image::Writer& writer)
+void font::face::render_glyph_mask(image::Writer& writer, buffer_type& buffer)
 {
     image::Box box = get_target_glyph_box(); // Throws
-    std::ptrdiff_t horz_stride = 1; // 1 channel (alpha)
-    std::ptrdiff_t vert_stride = horz_stride;
-    core::int_mul(vert_stride, box.size.width); // Throws
-    std::size_t buffer_size = std::size_t(vert_stride);
-    core::int_mul(buffer_size, box.size.height); // Throws
-    m_render_buffer.reserve(buffer_size); // Throws
-    std::fill_n(m_render_buffer.data(), buffer_size, comp_type(0));
-    iter_type iter { m_render_buffer.data(), horz_stride, vert_stride };
-    image::Pos pos = image::Pos() - (box.pos - m_target_pos);
-    do_render_glyph_mask(pos, iter, box.size); // Throws
-    writer.put_block_mask(box.pos, { iter, box.size }); // Throws
+    image::PixelBlock_Alpha_8 block(box.size, buffer); // Throws
+    tray_type tray = block.tray();
+    render_glyph_mask_a(box.pos, tray); // Throws
+    writer.put_block_mask(box.pos, tray); // Throws
 }
 
 
-void Face::render_glyph_rgba(image::Writer& writer)
+void font::face::render_glyph_rgba(image::Writer& writer, buffer_type& buffer)
 {
     image::Box box = get_target_glyph_box(); // Throws
-    std::ptrdiff_t horz_stride = 4; // 4 channels (RGBA)
-    std::ptrdiff_t vert_stride = horz_stride;
-    core::int_mul(vert_stride, box.size.width); // Throws
-    std::size_t buffer_size = std::size_t(vert_stride);
-    core::int_mul(buffer_size, box.size.height); // Throws
-    m_render_buffer.reserve(buffer_size); // Throws
-    iter_type iter { m_render_buffer.data(), horz_stride, vert_stride };
-    image::Pos pos = image::Pos() - (box.pos - m_target_pos);
-    do_render_glyph_rgba(pos, iter, box.size); // Throws
-    writer.put_block_rgba(box.pos, { iter, box.size }); // Throws
+    image::PixelBlock_RGBA_8 block(box.size, buffer); // Throws
+    tray_type tray = block.tray();
+    render_glyph_rgba_a(box.pos, tray); // Throws
+    writer.put_block_rgba(box.pos, tray); // Throws
 }

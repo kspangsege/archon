@@ -44,7 +44,7 @@ namespace archon::font {
 /// `core::terminal::should_enable_escape_sequences(file.is_terminal(), locale)` returns
 /// true.
 ///
-/// \sa \ref font::Implementation
+/// \sa \ref font::implementation
 /// \sa \ref core::terminal::should_enable_escape_sequences()
 ///
 void list_implementations(core::File& file, const std::locale& locale);

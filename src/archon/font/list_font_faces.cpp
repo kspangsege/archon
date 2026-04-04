@@ -37,7 +37,7 @@
 using namespace archon;
 
 
-void font::list_font_faces(font::Loader& loader, core::File& file, const std::locale& locale)
+void font::list_font_faces(font::loader& loader, core::File& file, const std::locale& locale)
 {
     struct entry {
         bool bold, italic, monospace, scalable;
@@ -46,7 +46,7 @@ void font::list_font_faces(font::Loader& loader, core::File& file, const std::lo
     std::vector<entry> entries;
     int n = loader.get_num_faces(); // Throws
     for (int i = 0; i < n; ++i) {
-        std::unique_ptr<font::Face> face = loader.load_face(i); // Throws
+        std::unique_ptr<font::face> face = loader.load_face(i); // Throws
         entry e = {
             face->is_bold(),
             face->is_italic(),

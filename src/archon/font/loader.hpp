@@ -27,6 +27,7 @@
 #include <memory>
 #include <locale>
 
+#include <archon/core/typed_object_registry.hpp>
 #include <archon/core/filesystem.hpp>
 #include <archon/log/logger.hpp>
 #include <archon/font/face.hpp>
@@ -44,7 +45,7 @@ namespace archon::font {
 /// loaded using \ref load_default_face().
 ///
 /// New font loader objects are created by, or in the context of a particular font
-/// implementation (\ref font::Implementation). A font loader is tied to that particular
+/// implementation (\ref font::implementation). A font loader is tied to that particular
 /// font implementation. A font loader object must never outlive its implementation object.
 ///
 /// A font loader aggregate, which is the loader object together with any font face objects
@@ -52,13 +53,13 @@ namespace archon::font {
 /// two threads can safely work with separate font loader aggregates. Destruction of a
 /// loader or face object counts as aggregate access.
 ///
-/// \sa \ref font::Implementation::new_loader()
+/// \sa \ref font::implementation::new_loader()
 /// \sa \ref font::new_default_loader()
 /// \sa \ref font::new_freetype_loader_from_font_file()
 ///
-class Loader {
+class loader {
 public:
-    struct Config;
+    struct config;
 
     /// \brief Load default font face.
     ///
@@ -67,7 +68,7 @@ public:
     ///
     /// \sa \ref load_face()
     ///
-    virtual auto load_default_face() -> std::unique_ptr<font::Face> = 0;
+    virtual auto load_default_face() -> std::unique_ptr<font::face> = 0;
 
     /// \brief Number of available font faces.
     ///
@@ -87,39 +88,75 @@ public:
     ///
     /// \sa \ref load_default_face()
     ///
-    virtual auto load_face(int face_index) -> std::unique_ptr<font::Face> = 0;
+    virtual auto load_face(int face_index) -> std::unique_ptr<font::face> = 0;
 
-    virtual ~Loader() noexcept = default;
+    virtual ~loader() noexcept = default;
 };
 
 
 /// \brief Font loader configuration parameters.
 ///
 /// These are the available parameters for configuring the the operation of a font loader
-/// (\ref font::Loader).
+/// (\ref font::loader).
 ///
-struct Loader::Config {
+struct loader::config {
     /// \brief Log through alternative logger.
     ///
     /// If a logger is specified, log messages will be routed through that logger. Otherwise
-    /// messages will be routed to STDOUT.
+    /// all logging will be inhibited.
     ///
     /// If a logger is specified, it must use a locale that is compatible with the locale
     /// that is specified during font loader construction (\ref
-    /// font::Implementation::new_loader()). The important thing is that the character
+    /// font::implementation::new_loader()). The important thing is that the character
     /// encodings agree (`std::codecvt` facet).
     ///
     log::Logger* logger = nullptr;
+
+    /// \brief Base class for sub-configurations.
+    ///
+    /// Base class for sub-configurations. See \ref sub.
+    ///
+    struct subconfig {};
+
+    /// \brief Registry of implementation-specific sub-configurations.
+    ///
+    /// Registry of sub-configurations for particular implementations. For example, the
+    /// application can pass FreeType-specific parameters to the loader constructor as
+    /// follows:
+    ///
+    /// \code{.cpp}
+    ///
+    ///   archon::font::freetype_subconfig freetype_subconfig;
+    ///   // set parameters in freetype_subconfig...
+    ///   archon::font::loader::config config;
+    ///   config.sub.register_(freetype_subconfig);
+    ///   loader = archon::font::new_default_loader(resource_dir, locale, config);
+    ///
+    /// \endcode
+    ///
+    /// Note that the application is responsible for keeping the sub-configuration object
+    /// alive for as long as the configuration object remains in use. The constructed loader
+    /// object copies the configuration it needs. It does not keep a reference to the
+    /// configuration object.
+    ///
+    /// Note that FreeType-specific parameters have effect only if the FreeType-based
+    /// implementation is selected by \ref font::new_default_loader(). If a different
+    /// implementation is selected, the FreeType-specific parameters will be ignored.
+    ///
+    /// \sa \ref font::freetype_subconfig
+    /// \sa \ref core::TypedObjectRegistry::register_()
+    ///
+    core::TypedObjectRegistry<subconfig, 4> sub;
 };
 
 
 /// \brief Create font loader for default implementation.
 ///
-/// This function is shorthand for calling \ref font::Implementation::new_load() on the
+/// This function is shorthand for calling \ref font::implementation::new_load() on the
 /// implementation obtained by calling \ref font::get_default_implementation().
 ///
 auto new_default_loader(core::FilesystemPathRef resource_dir, const std::locale& locale,
-                        const font::Loader::Config& config = {}) -> std::unique_ptr<font::Loader>;
+                        const font::loader::config& config = {}) -> std::unique_ptr<font::loader>;
 
 
 } // namespace archon::font

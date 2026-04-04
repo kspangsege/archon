@@ -46,7 +46,7 @@ namespace archon::font {
 ///
 /// \sa \ref core::terminal::should_enable_escape_sequences()
 ///
-void list_font_faces(font::Loader& loader, core::File& file, const std::locale& locale);
+void list_font_faces(font::loader& loader, core::File& file, const std::locale& locale);
 
 
 } // namespace archon::font

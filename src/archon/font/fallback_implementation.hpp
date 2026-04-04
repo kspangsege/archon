@@ -24,10 +24,14 @@
 /// \file
 
 
+#include <memory>
+#include <string_view>
+#include <vector>
 #include <locale>
 
 #include <archon/core/span.hpp>
 #include <archon/core/filesystem.hpp>
+#include <archon/font/size.hpp>
 #include <archon/font/code_point.hpp>
 #include <archon/font/face.hpp>
 #include <archon/font/loader.hpp>
@@ -40,25 +44,83 @@ namespace archon::font {
 /// \brief Fallback font implementation.
 ///
 /// This function returns the fallback font implementation using the identifier `fallback`
-/// (\ref font::Implementation::get_ident()). The fallback font implementation is always
-/// available (\ref font::Implementation::is_available()).
+/// (\ref font::implementation::get_ident()). The fallback font implementation is always
+/// available (\ref font::implementation::is_available()).
 ///
-auto get_fallback_implementation() noexcept -> const font::Implementation&;
+/// \sa \ref font::new_fallback_loader()
+///
+auto get_fallback_implementation() noexcept -> const font::implementation&;
 
 
-/// \brief Create, or recreate the fallback font.
+/// \brief Construct fallback font loader.
 ///
-/// If no code point ranges are specified, an attempt will be made to reuse the code point
-/// ranges from the old fallback font. If this fails, the code point ranges will default to
-/// 0 -> 127.
+/// This function constructs a fallback font loader. It has the same effect as calling \ref
+/// font::implementation::new_loader() on the implementation object returned by \ref
+/// font::get_fallback_implementation().
+///
+/// This function expects to find the two fallback font files, `fallback-font.txt` and
+/// `fallback-font.png`, in the specified resource directory (\p resource_dir). The
+/// specified resource directory is not used for anything else by this function.
+///
+/// \sa \ref font::get_fallback_implementation(), \ref font::implementation::new_loader()
+/// \sa \ref font::regen_fallback_font()
+///
+auto new_fallback_loader(core::FilesystemPathRef resource_dir, const std::locale& locale,
+                         const font::loader::config& config) -> std::unique_ptr<font::loader>;
+
+
+/// \brief Recreate the fallback font.
+///
+/// This function recreates the fallback font. The two generated files, `fallback-font.txt`
+/// and `fallback-font.png`, are placed in the specified resource directory. The specified
+/// resource directory is not used in any other way by this function. The file names can be
+/// modified by a qualifier (\p file_name_qual). It will be injected into the names
+/// immediately before the dot (`.`). If the specified qualifier is the empty string, the
+/// names are generated exactly as they are expected by the fallback implementation.
 ///
 /// If a logger is specified through the configuration object, the locale associated with
 /// that logger must be compatible with the locale that is passed directly to this
 /// function. The important thing is that the character encodings agree (`std::codecvt`
 /// facet).
 ///
-void regen_fallback_font(font::Face&, bool try_keep_orig_font_size, core::Span<const font::CodePointRange>,
-                         core::FilesystemPathRef resource_dir, const std::locale&, const font::Loader::Config& = {});
+/// \note The caller must assume that rendering parameters have been modified in the font
+/// face object upon return.
+///
+/// \sa \ref font::try_get_fallback_font_params()
+/// \sa \ref font::new_fallback_loader()
+///
+void regen_fallback_font(font::face& face, core::Span<const font::code_point_range> ranges,
+                         core::FilesystemPathRef resource_dir, std::string_view file_name_qual,
+                         const std::locale& locale, const font::loader::config& config);
+
+
+/// \brief Fallback font face selection parameters.
+///
+/// An object of this type specifies the parameters needed to select the font face that was
+/// last used as a basis for creating the fallback font.
+///
+/// \sa \ref font::try_get_fallback_font_params()
+///
+struct fallback_font_params {
+    std::string_view family_name;
+    std::string_view style_name;
+    bool is_bold;
+    bool is_italic;
+    bool is_monospace;
+};
+
+
+/// \brief Extract basic fallback font parameters.
+///
+/// This function attempts to extract the basic font parameters used when the fallback font
+/// was last recreated. This succeeds precisely when the `fallback-font.txt` file exists and
+/// can be successfully loaded and parsed.
+///
+/// \sa \ref font::regen_fallback_font()
+///
+bool try_get_fallback_font_params(core::FilesystemPathRef resource_dir, const std::locale& locale,
+                                  std::vector<font::code_point_range>& ranges, font::fallback_font_params& params,
+                                  std::unique_ptr<char[]>& string_owner, font::size& size);
 
 
 } // namespace archon::font

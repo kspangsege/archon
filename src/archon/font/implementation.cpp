@@ -36,7 +36,7 @@ using namespace archon;
 namespace {
 
 
-using implementation_getter_type = auto (*)() noexcept -> const font::Implementation&;
+using implementation_getter_type = auto (*)() noexcept -> const font::implementation&;
 
 constexpr implementation_getter_type g_implementation_getters[] {
     &font::get_freetype_implementation,
@@ -47,14 +47,14 @@ constexpr int g_num_implementations = int(std::size(g_implementation_getters));
 
 
 struct Init {
-    const font::Implementation* implementations[g_num_implementations] = {};
-    const font::Implementation* default_implementation = {};
+    const font::implementation* implementations[g_num_implementations] = {};
+    const font::implementation* default_implementation = {};
 
     Init() noexcept
     {
         for (int i = 0; i < g_num_implementations; ++i) {
             implementation_getter_type getter = g_implementation_getters[i];
-            const font::Implementation& impl = getter();
+            const font::implementation& impl = getter();
             implementations[i] = &impl;
             if (!default_implementation && impl.is_available())
                 default_implementation = &impl;
@@ -75,7 +75,7 @@ inline auto get_init() noexcept -> const Init&
 } // unnamed namespace
 
 
-auto font::get_default_implementation() noexcept -> const font::Implementation&
+auto font::get_default_implementation() noexcept -> const font::implementation&
 {
     const Init& init = get_init();
     return *init.default_implementation;
@@ -88,7 +88,7 @@ int font::get_num_implementations() noexcept
 }
 
 
-auto font::get_implementation(int index) -> const font::Implementation&
+auto font::get_implementation(int index) -> const font::implementation&
 {
     const Init& init = get_init();
     if (ARCHON_LIKELY(index >= 0 && index < g_num_implementations))
@@ -97,12 +97,12 @@ auto font::get_implementation(int index) -> const font::Implementation&
 }
 
 
-auto font::lookup_implementation(std::string_view ident) noexcept -> const font::Implementation*
+auto font::lookup_implementation(std::string_view ident) noexcept -> const font::implementation*
 {
     const Init& init = get_init();
     int n = g_num_implementations;
     for (int i = 0; i < n; ++i) {
-        const font::Implementation& impl = *init.implementations[i];
+        const font::implementation& impl = *init.implementations[i];
         if (ARCHON_LIKELY(impl.get_ident() != ident))
             continue;
         return &impl;

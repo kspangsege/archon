@@ -21,22 +21,26 @@
 
 #include <cstdlib>
 #include <memory>
-#include <utility>
-#include <tuple>
 #include <optional>
+#include <tuple>
 #include <string_view>
 #include <vector>
 #include <locale>
 #include <filesystem>
 
 #include <archon/core/features.hpp>
+#include <archon/core/assert.hpp>
 #include <archon/core/locale.hpp>
+#include <archon/core/as_list.hpp>
+#include <archon/core/format_as.hpp>
+#include <archon/core/quote.hpp>
 #include <archon/core/filesystem.hpp>
 #include <archon/core/build_environment.hpp>
 #include <archon/core/file.hpp>
 #include <archon/log/logger.hpp>
 #include <archon/log/limit_logger.hpp>
 #include <archon/cli.hpp>
+#include <archon/font/size.hpp>
 #include <archon/font/code_point.hpp>
 #include <archon/font/face.hpp>
 #include <archon/font/loader.hpp>
@@ -51,17 +55,21 @@ int main(int argc, char* argv[])
 {
     std::locale locale = core::get_default_locale(); // Throws
 
-    std::vector<font::CodePointRange> ranges;
+    std::vector<font::code_point_range> ranges;
+    font::size font_size = 16;
     log::LogLevel log_level_limit = log::LogLevel::info;
 
     cli::Spec spec;
     pat("[<range>...]", cli::no_attributes, spec,
-        "If no code point ranges are specified, an attempt will be made to load them from the existing fallback font. "
-        "If this fails, the single range 0 -> 127 will be used.",
+        "If no code point ranges are specified, the single range 0 -> 65534 will be used.",
         std::tie(ranges)); // Throws
 
     opt(cli::help_tag, spec); // Throws
     opt(cli::stop_tag, spec); // Throws
+
+    opt("-s, --font-size", "<size>", cli::no_attributes, spec,
+        "Set the font size as close to the specified size as possible. The default font size is @V.",
+        cli::assign(font_size)); // Throws
 
     opt("-l, --log-level", "<level>", cli::no_attributes, spec,
         "Set the log level limit. The possible levels are @G. The default limit is @Q.",
@@ -72,8 +80,8 @@ int main(int argc, char* argv[])
         return exit_status;
 
     log::FileLogger logger(core::File::get_stdout(), locale);
-    std::optional<font::CodePoint> prev_last;
-    for (font::CodePointRange range : ranges) {
+    std::optional<font::code_point> prev_last;
+    for (font::code_point_range range : ranges) {
         if (ARCHON_LIKELY(!prev_last.has_value() ||
                           range.first().to_int() > prev_last.value().to_int())) {
             prev_last = range.last();
@@ -81,6 +89,15 @@ int main(int argc, char* argv[])
         }
         logger.error("Overlapping code point ranges");
         return EXIT_FAILURE;
+    }
+
+    if (ranges.empty()) {
+        font::code_point first, last;
+        bool success = (first.try_from_int(0) && last.try_from_int(65534));
+        ARCHON_ASSERT(success);
+        ranges = {
+            { first, last },
+        };
     }
 
     // `src_root` is the relative path to the root of the source tree from the root of the
@@ -102,16 +119,59 @@ int main(int argc, char* argv[])
     namespace fs = std::filesystem;
     fs::path resource_dir = (build_env.get_relative_source_root() /
                              core::make_fs_path_generic("archon/font", locale)); // Throws
-    std::string_view file_name = "LiberationMono-Regular.ttf";
+    std::string_view file_name = "liberation-mono-regular.ttf";
     namespace fs = std::filesystem;
     fs::path file = resource_dir / core::make_fs_path_generic(file_name, locale); // Throws
     log::LimitLogger limit_logger(logger, log_level_limit); // Throws
-    font::Loader::Config config;
+    font::loader::config config;
     config.logger = &limit_logger;
-    std::unique_ptr<font::Loader> font_loader =
-        font::new_freetype_loader_from_font_file(file, locale, config); // Throws
-    std::unique_ptr<font::Face> font_face = font_loader->load_default_face(); // Throws
+    std::unique_ptr<font::loader> loader = font::new_freetype_loader_from_font_file(file, locale, config); // Throws
+    std::unique_ptr<font::face> face = loader->load_default_face(); // Throws
+    face->set_approx_size(font_size); // Throws
 
-    bool try_keep_orig_font_size = true;
-    font::regen_fallback_font(*font_face, try_keep_orig_font_size, ranges, resource_dir, locale, config); // Throws
+    std::vector<font::code_point_range> orig_ranges;
+    font::fallback_font_params orig_params;
+    std::unique_ptr<char[]> string_owner;
+    font::size orig_size;
+    if (ARCHON_LIKELY(font::try_get_fallback_font_params(resource_dir, locale, orig_ranges, orig_params, string_owner,
+                                                         orig_size))) { // Throws
+        if (ARCHON_UNLIKELY(ranges != orig_ranges)) {
+            logger.warn("Using different codepoint ranges (original was %s, now using %s)", core::as_list(orig_ranges),
+                        core::as_list(ranges)); // Throws
+        }
+        if (ARCHON_UNLIKELY(face->get_family_name() != orig_params.family_name)) {
+            logger.warn("Using different font face (original family name was %s, now using %s)",
+                        core::quoted(orig_params.family_name), core::quoted(face->get_family_name())); // Throws
+        }
+        if (ARCHON_UNLIKELY(face->get_style_name() != orig_params.style_name)) {
+            logger.warn("Using different font face (original style name was %s, now using %s)",
+                        core::quoted(orig_params.style_name), core::quoted(face->get_style_name())); // Throws
+        }
+        if (ARCHON_UNLIKELY(face->is_bold() != orig_params.is_bold)) {
+            core::BoolSpec spec { "non-bold", "bold" };
+            logger.warn("Using different font face (original face was %s, now using face that is %s)",
+                        core::as_bool(orig_params.is_bold, spec), core::as_bool(face->is_bold(), spec)); // Throws
+        }
+        if (ARCHON_UNLIKELY(face->is_italic() != orig_params.is_italic)) {
+            core::BoolSpec spec { "non-italic", "italic" };
+            logger.warn("Using different font face (original face was %s, now using face that is %s)",
+                        core::as_bool(orig_params.is_italic, spec), core::as_bool(face->is_italic(), spec)); // Throws
+        }
+        if (ARCHON_UNLIKELY(face->is_monospace() != orig_params.is_monospace)) {
+            core::BoolSpec spec { "proportional", "monospace" };
+            logger.warn("Using different font face (original face was %s, now using face that is %s)",
+                        core::as_bool(orig_params.is_monospace, spec),
+                        core::as_bool(face->is_monospace(), spec)); // Throws
+        }
+        if (ARCHON_UNLIKELY(face->get_size() != orig_size)) {
+            logger.warn("Using different font rendering size (original was %s, now using %s)", orig_size,
+                        face->get_size()); // Throws
+        }
+    }
+    else {
+        logger.warn("Failed to determine original font parameters");
+    }
+
+    std::string_view file_name_qual = "-new"; // Don't clobber the original files
+    font::regen_fallback_font(*face, ranges, resource_dir, file_name_qual, locale, config); // Throws
 }

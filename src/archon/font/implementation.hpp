@@ -49,7 +49,7 @@ namespace archon::font {
 /// \sa \ref font::lookup_implementation()
 /// \sa \ref font::get_fallback_implementation(), \ref font::get_freetype_implementation()
 ///
-class Implementation {
+class implementation {
 public:
     /// \brief Identifier for font implementation.
     ///
@@ -93,9 +93,9 @@ public:
     /// FIXME: Clarify how to determine the resource directory path.
     ///
     virtual auto new_loader(core::FilesystemPathRef resource_dir, const std::locale& locale,
-                            const font::Loader::Config& config = {}) const -> std::unique_ptr<font::Loader> = 0;
+                            const font::loader::config& config = {}) const -> std::unique_ptr<font::loader> = 0;
 
-    virtual ~Implementation() noexcept = default;
+    virtual ~implementation() noexcept = default;
 };
 
 
@@ -103,23 +103,23 @@ public:
 ///
 /// This function retrieves the default font implementation. The default font implementation
 /// is the first one in the built-in list of implementations that is available (\ref
-/// font::Implementation::is_available()). Since the fallback font implementation is always
+/// font::implementation::is_available()). Since the fallback font implementation is always
 /// available, there is always a default implementation. The built-in list is the one that
 /// is accessed using \ref font::get_num_implementations() and \ref
 /// font::get_implementation().
 ///
 /// \sa \ref font::get_num_implementations(), \ref font::get_implementation()
-/// \sa \ref font::Implementation::is_available()
+/// \sa \ref font::implementation::is_available()
 ///
-auto get_default_implementation() noexcept -> const font::Implementation&;
+auto get_default_implementation() noexcept -> const font::implementation&;
 
 
 /// \brief Number of font implementations.
 ///
 /// This function returns the number of built-in font implementations (\ref
-/// font::Implementation). Each one can be retrieved using \ref font::get_implementation().
+/// font::implementation). Each one can be retrieved using \ref font::get_implementation().
 ///
-/// \sa \ref font::Implementation
+/// \sa \ref font::implementation
 /// \sa \ref font::get_implementation()
 ///
 int get_num_implementations() noexcept;
@@ -128,33 +128,33 @@ int get_num_implementations() noexcept;
 /// \brief Get font implementation by index.
 ///
 /// This function returns the specified built-in font implementation (\ref
-/// font::Implementation). The implementation is specified in terms of its index within the
+/// font::implementation). The implementation is specified in terms of its index within the
 /// built-in list of available and unavailable implementations (\ref
-/// font::Implementation::is_available()). The number of implementations in the list can be
+/// font::implementation::is_available()). The number of implementations in the list can be
 /// obtained by calling \ref font::get_num_implementations(). The order of implementations
 /// in the list is fixed with the fallback implementation (\ref
 /// font::get_fallback_implementation()) always coming last.
 ///
-/// \sa \ref font::Implementation
+/// \sa \ref font::implementation
 /// \sa \ref font::get_num_implementations()
 ///
-auto get_implementation(int index) -> const font::Implementation&;
+auto get_implementation(int index) -> const font::implementation&;
 
 
 /// \brief Lookup font implementation by identifier.
 ///
 /// If the specified identifier matches one of the built-in font implementations (\ref
-/// font::Implementation), then this function returns that implementation regardless of
-/// whether it is available (\ref font::Implementation::is_available()). If the specified
+/// font::implementation), then this function returns that implementation regardless of
+/// whether it is available (\ref font::implementation::is_available()). If the specified
 /// identifier does not mach any implementations, this function returns null. The built-in
 /// list of implementations is the one that is accessed using \ref
 /// font::get_num_implementations() and \ref font::get_implementation().
 ///
-/// \sa \ref font::Implementation
+/// \sa \ref font::implementation
 /// \sa \ref font::get_num_implementations(), \ref font::get_implementation()
-/// \sa \ref font::Implementation::get_ident()
+/// \sa \ref font::implementation::get_ident()
 ///
-auto lookup_implementation(std::string_view ident) noexcept -> const font::Implementation*;
+auto lookup_implementation(std::string_view ident) noexcept -> const font::implementation*;
 
 
 } // namespace archon::font

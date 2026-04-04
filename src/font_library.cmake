@@ -18,6 +18,8 @@ target_link_libraries(Font PUBLIC
   Image
 )
 
+# NOTE: Keep this version in sync with the runtime version check in
+# font/freetype_implementation.cpp, and with the documented dependency version requirements.
 set(_min_version "2.10")
 find_package(Freetype ${_min_version} QUIET)
 set(_version "")

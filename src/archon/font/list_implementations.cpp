@@ -41,7 +41,7 @@ void font::list_implementations(core::File& file, const std::locale& locale)
         formatter.begin_compile(); // Throws
         int n = font::get_num_implementations();
         for (int i = 0; i < n; ++i) {
-            const font::Implementation& impl = font::get_implementation(i); // Throws
+            const font::implementation& impl = font::get_implementation(i); // Throws
             using Weight = core::TextFormatter::Weight;
             formatter.set_weight(Weight::bold); // Throws
             formatter.writeln(impl.get_ident()); // Throws
@@ -57,7 +57,7 @@ void font::list_implementations(core::File& file, const std::locale& locale)
         // 2nd column: Availability
         formatter.begin_compile();
         for (int i = 0; i < n; ++i) {
-            const font::Implementation& impl = font::get_implementation(i); // Throws
+            const font::implementation& impl = font::get_implementation(i); // Throws
             using Color = core::TextFormatter::Color;
             if (impl.is_available()) {
                 formatter.set_color(Color::green); // Throws
@@ -84,7 +84,7 @@ void font::list_implementations(core::File& file, const std::locale& locale)
         formatter.jump_back(); // Throws
         formatter.set_offset(offset_2); // Throws
         for (int i = 0; i < n; ++i) {
-            const font::Implementation& impl = font::get_implementation(i); // Throws
+            const font::implementation& impl = font::get_implementation(i); // Throws
             formatter.writeln(impl.get_descr()); // Throws
         }
 

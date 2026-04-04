@@ -25,6 +25,7 @@
 
 
 #include <cstddef>
+#include <compare>
 #include <string_view>
 #include <ostream>
 
@@ -38,7 +39,7 @@
 namespace archon::font {
 
 
-class CodePoint {
+class code_point {
 public:
     using char_type   = wchar_t;
     using traits_type = std::char_traits<char_type>;
@@ -49,34 +50,38 @@ public:
     constexpr bool try_from_int(int_type) noexcept;
     constexpr bool try_from_char(char_type) noexcept;
 
+    constexpr auto operator<=>(const code_point&) const noexcept = default;
+
 private:
     int_type m_val = 0;
 };
 
 
-template<class C, class T> auto operator<<(std::basic_ostream<C, T>&, font::CodePoint) -> std::basic_ostream<C, T>&;
+template<class C, class T> auto operator<<(std::basic_ostream<C, T>&, font::code_point) -> std::basic_ostream<C, T>&;
 
-template<class C, class T> bool parse_value(core::BasicValueParserSource<C, T>&, font::CodePoint&);
+template<class C, class T> bool parse_value(core::BasicValueParserSource<C, T>&, font::code_point&);
 
 
 
-class CodePointRange {
+class code_point_range {
 public:
-    constexpr CodePointRange(font::CodePoint = {}) noexcept;
-    constexpr CodePointRange(font::CodePoint first, font::CodePoint last) noexcept;
+    constexpr code_point_range(font::code_point = {}) noexcept;
+    constexpr code_point_range(font::code_point first, font::code_point last) noexcept;
 
-    constexpr auto first() const noexcept -> font::CodePoint;
-    constexpr auto last() const noexcept  -> font::CodePoint;
+    constexpr auto first() const noexcept -> font::code_point;
+    constexpr auto last() const noexcept  -> font::code_point;
+
+    constexpr auto operator<=>(const code_point_range&) const noexcept = default;
 
 private:
-    font::CodePoint m_first, m_last;
+    font::code_point m_first, m_last;
 };
 
 
-template<class C, class T> auto operator<<(std::basic_ostream<C, T>&, const font::CodePointRange&) ->
+template<class C, class T> auto operator<<(std::basic_ostream<C, T>&, const font::code_point_range&) ->
     std::basic_ostream<C, T>&;
 
-template<class C, class T> bool parse_value(core::BasicValueParserSource<C, T>&, font::CodePointRange&);
+template<class C, class T> bool parse_value(core::BasicValueParserSource<C, T>&, font::code_point_range&);
 
 
 
@@ -88,19 +93,19 @@ template<class C, class T> bool parse_value(core::BasicValueParserSource<C, T>&,
 // Implementation
 
 
-constexpr auto CodePoint::to_int() const noexcept -> int_type
+constexpr auto code_point::to_int() const noexcept -> int_type
 {
     return m_val;
 }
 
 
-constexpr auto CodePoint::to_char() const noexcept -> char_type
+constexpr auto code_point::to_char() const noexcept -> char_type
 {
     return traits_type::to_char_type(m_val);
 }
 
 
-constexpr bool CodePoint::try_from_int(int_type val) noexcept
+constexpr bool code_point::try_from_int(int_type val) noexcept
 {
     char_type ch = traits_type::to_char_type(val);
     bool valid = (!core::is_negative(val) && traits_type::to_int_type(ch) == val && val != traits_type::eof());
@@ -112,7 +117,7 @@ constexpr bool CodePoint::try_from_int(int_type val) noexcept
 }
 
 
-constexpr bool CodePoint::try_from_char(char_type ch) noexcept
+constexpr bool code_point::try_from_char(char_type ch) noexcept
 {
     int_type val = traits_type::to_int_type(ch);
     bool valid = (val != traits_type::eof());
@@ -125,15 +130,15 @@ constexpr bool CodePoint::try_from_char(char_type ch) noexcept
 
 
 template<class C, class T>
-inline auto operator<<(std::basic_ostream<C, T>& out, font::CodePoint cp) -> std::basic_ostream<C, T>&
+inline auto operator<<(std::basic_ostream<C, T>& out, font::code_point cp) -> std::basic_ostream<C, T>&
 {
     return out << core::as_int(cp.to_int()); // Throws
 }
 
 
-template<class C, class T> inline bool parse_value(core::BasicValueParserSource<C, T>& src, font::CodePoint& cp)
+template<class C, class T> inline bool parse_value(core::BasicValueParserSource<C, T>& src, font::code_point& cp)
 {
-    using int_type = font::CodePoint::int_type;
+    using int_type = font::code_point::int_type;
     int_type val = {};
     if (ARCHON_LIKELY(src.delegate(core::as_int(val))))
         return cp.try_from_int(val);
@@ -141,34 +146,34 @@ template<class C, class T> inline bool parse_value(core::BasicValueParserSource<
 }
 
 
-constexpr CodePointRange::CodePointRange(font::CodePoint cp) noexcept
+constexpr code_point_range::code_point_range(font::code_point cp) noexcept
     : m_first(cp)
     , m_last(cp)
 {
 }
 
 
-constexpr CodePointRange::CodePointRange(font::CodePoint first, font::CodePoint last) noexcept
+constexpr code_point_range::code_point_range(font::code_point first, font::code_point last) noexcept
     : m_first(first)
     , m_last(last)
 {
 }
 
 
-constexpr auto CodePointRange::first() const noexcept -> font::CodePoint
+constexpr auto code_point_range::first() const noexcept -> font::code_point
 {
     return m_first;
 }
 
 
-constexpr auto CodePointRange::last() const noexcept -> font::CodePoint
+constexpr auto code_point_range::last() const noexcept -> font::code_point
 {
     return m_last;
 }
 
 
 template<class C, class T>
-auto operator<<(std::basic_ostream<C, T>& out, const font::CodePointRange& range) -> std::basic_ostream<C, T>&
+auto operator<<(std::basic_ostream<C, T>& out, const font::code_point_range& range) -> std::basic_ostream<C, T>&
 {
     if (range.last().to_int() > range.first().to_int())
         return out << core::formatted("%s-%s", range.first(), range.last()); // Throws
@@ -176,14 +181,14 @@ auto operator<<(std::basic_ostream<C, T>& out, const font::CodePointRange& range
 }
 
 
-template<class C, class T> bool parse_value(core::BasicValueParserSource<C, T>& src, font::CodePointRange& range)
+template<class C, class T> bool parse_value(core::BasicValueParserSource<C, T>& src, font::code_point_range& range)
 {
     using string_view_type = std::basic_string_view<C, T>;
     string_view_type str = src.string();
     C dash = src.widen('-'); // Throws
     std::size_t i = str.find(dash);
     if (i != std::size_t(-1)) {
-        font::CodePoint first, last;
+        font::code_point first, last;
         if (ARCHON_LIKELY(src.delegate(str.substr(0, i), first) &&
                           src.delegate(str.substr(i + 1), last))) { // Throws
             if (ARCHON_LIKELY(first.to_int() <= last.to_int())) {
@@ -193,7 +198,7 @@ template<class C, class T> bool parse_value(core::BasicValueParserSource<C, T>& 
         }
         return false;
     }
-    font::CodePoint cp;
+    font::code_point cp;
     if (ARCHON_LIKELY(src.delegate(str, cp))) { // Throws
         range = { cp };
         return true;

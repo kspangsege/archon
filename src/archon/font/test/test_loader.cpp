@@ -42,12 +42,12 @@ ARCHON_TEST(Font_Loader_Basics)
     ARCHON_CHECK_GREATER_EQUAL(font::get_num_implementations(), 1);
     namespace fs = std::filesystem;
     fs::path resource_path = test_context.get_data_path(g_test_dir_path, "..");
-    font::Loader::Config config;
+    font::loader::config config;
     config.logger = &test_context.logger;
-    auto test = [&](check::TestContext& parent_test_context, const font::Implementation& impl) {
+    auto test = [&](check::TestContext& parent_test_context, const font::implementation& impl) {
         ARCHON_TEST_TRAIL(parent_test_context, impl.get_ident());
-        std::unique_ptr<font::Loader> loader = impl.new_loader(resource_path, test_context.locale, config); // Throws
-        std::unique_ptr<font::Face> face = loader->load_default_face();
+        std::unique_ptr<font::loader> loader = impl.new_loader(resource_path, test_context.locale, config); // Throws
+        std::unique_ptr<font::face> face = loader->load_default_face();
         test_context.logger.info("%s", face->get_family_name());
     };
     int n = font::get_num_implementations();
