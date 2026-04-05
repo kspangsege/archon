@@ -51,6 +51,38 @@ namespace archon::core {
 
 
 
+/// \brief Used with as_bool().
+///
+/// See \ref core::as_bool() for information on how to use this type.
+///
+struct BoolSpec {
+    const char* false_form;
+    const char* true_form;
+};
+
+
+/// \brief Format boolean value as two alternative texts.
+///
+/// This function constructs an object that, if written to an output stream, formats the
+/// specified boolean value according to "alternative texts" specification (\p spec).
+///
+/// The spec (\p spec) can be immediately specified or be stored in a variable for reuse:
+///
+/// \code{.cpp}
+///
+///   std::cout << core::as_bool(flag, { "off", "on" });
+///
+///   core::BoolSpec offon_spec = { "off", "on" };
+///   std::cout << core::as_bool(flag, offon_spec);
+///
+/// \endcode
+///
+/// \sa \ref core::BoolSpec
+///
+auto as_bool(bool value, core::BoolSpec spec) noexcept;
+
+
+
 /// \brief Format an optional value.
 ///
 /// This function returns an object that, if written to an output stream, formats the
@@ -80,7 +112,7 @@ template<class T> auto as_ordinal(T value) noexcept;
 
 /// \brief Used with as_num_of().
 ///
-/// See as_num_of() for information on how to use this type.
+/// See \ref core::as_num_of() for information on how to use this type.
 ///
 struct NumOfSpec {
     const char* singular_form;
@@ -108,6 +140,8 @@ struct NumOfSpec {
 ///
 /// The field width of the target stream will be respected, and the effect will be as if all
 /// of the generated output was written to the stream as a single string object.
+///
+/// \sa \ref core::NumOfSpec
 ///
 template<class T> auto as_num_of(T value, const core::NumOfSpec& spec) noexcept;
 
@@ -283,6 +317,12 @@ template<class F> auto as_format_func(F func);
 namespace impl {
 
 
+struct AsBool {
+    bool value;
+    core::BoolSpec spec;
+};
+
+
 template<class T> struct AsOptional {
     const std::optional<T>* value;
     const char* absent_text;
@@ -334,6 +374,12 @@ template<class F> struct AsFormatFunc {
 
 
 } // namespace impl
+
+
+inline auto as_bool(bool value, core::BoolSpec spec) noexcept
+{
+    return impl::AsBool { value, spec };
+}
 
 
 template<class T> inline auto as_optional(const std::optional<T>& value, const char* absent_text) noexcept
@@ -402,6 +448,13 @@ template<class F> inline auto as_format_func(F func)
 
 
 namespace impl {
+
+
+template<class C, class T>
+inline auto operator<<(std::basic_ostream<C, T>& out, const impl::AsBool& pod) -> std::basic_ostream<C, T>&
+{
+    return out << (pod.value ? pod.spec.true_form : pod.spec.false_form); // Throws
+}
 
 
 // Largest value such that all values, that are strictly smaller than it, and greater than
