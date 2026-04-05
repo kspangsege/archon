@@ -1,3 +1,5 @@
+include(FindPackageMessage)
+
 add_library(Font
   archon/font/face.cpp
   archon/font/loader.cpp
@@ -13,10 +15,33 @@ target_link_libraries(Font PUBLIC
   Image
 )
 
-find_package(Freetype 2.10)
+set(_min_version "2.10")
+find_package(Freetype ${_min_version} QUIET)
+set(_version "")
+set(_library "")
+if(Freetype_FOUND)
+  if(Freetype_VERSION)
+    set(_version "${Freetype_VERSION}")
+  elseif(FREETYPE_VERSION_STRING)
+    set(_version "${FREETYPE_VERSION_STRING}")
+  endif()
+  if(Freetype_DIR)
+    set(_library "${Freetype_DIR}")
+  else()
+    set(_library "${FREETYPE_LIBRARY}")
+  endif()
+  string(CONCAT _msg
+    "Found FreeType: ${_library} (found suitable version \"${_version}\", minimum required is \"${_min_version}\")"
+  )
+else()
+  string(CONCAT _msg
+    "Could NOT find FreeType (minimum required version is \"${_min_version}\")"
+  )
+endif()
+find_package_message(ARCHON_FREETYPE_MSG "${_msg}" "[${_version}][${_min_version}][${_library}]")
 
 set(ARCHON_FONT_HAVE_FREETYPE 0)
-if(FREETYPE_FOUND)
+if(Freetype_FOUND)
   set(ARCHON_FONT_HAVE_FREETYPE 1)
   target_link_libraries(Font PRIVATE Freetype::Freetype)
 endif()
