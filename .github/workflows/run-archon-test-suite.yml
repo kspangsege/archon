@@ -33,7 +33,7 @@ jobs:
         sudo apt install libpng-dev libjpeg-dev libfreetype-dev libx11-dev libsdl2-dev libglew-dev clang
 
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Configure
       run: |
@@ -69,7 +69,7 @@ jobs:
         brew install libjpeg sdl2 glew
 
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Configure
       run: |
@@ -107,7 +107,7 @@ jobs:
         vcpkg install --triplet x64-windows libpng libjpeg-turbo freetype sdl2 glew
 
     - name: Checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Configure
       run: |
