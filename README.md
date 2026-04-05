@@ -136,6 +136,8 @@ installation that is part of Visual Studio, add `<cmake root>\bin` to the `PATH`
 variable using the system tool, "Edit the system environment variables". For the community
 edition of Visual Studio 2022, `<cmake path>` might be
 `C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake`.
+For the community edition of Visual Studio 2026, it might instead be
+`C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake`.
 
 See above for additional possibilities when using `do.sh`.
 

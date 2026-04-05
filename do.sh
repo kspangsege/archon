@@ -295,7 +295,7 @@ if [ "$run" ]; then
         run_path="src/test"
     fi
 
-    if [ -e "$build_subdir/Archon.sln" ]; then
+    if [ -e "$build_subdir/Archon.sln" -o -e "$build_subdir/Archon.slnx" ]; then
         visual_studio_generator="1"
     fi
 
