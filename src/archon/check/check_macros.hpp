@@ -120,9 +120,9 @@
 ///
 /// \brief Checks involving distance between two values.
 ///
-/// These macros determine the distance between the first two arguments, \p a and \p b, and
-/// then check that it relates correctly to the specified distance, \p dist. When all
-/// arguments (\p a, \p b, and \p dist) have integer type, the check is exact.
+/// These macros determine the absolute distance between the first two arguments, \p a and
+/// \p b, and then check that it relates correctly to the specified distance, \p dist. When
+/// all arguments (\p a, \p b, and \p dist) have integer type, the check is exact.
 ///
 /// `ARCHON_CHECK_DIST_LESS(a, b, dist)` checks that the distance between \p a and \p b is
 /// less than \p dist with distance determination and comparison performed by \ref

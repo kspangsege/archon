@@ -50,8 +50,9 @@
 /// \brief Define a type-like test case variant specifier.
 ///
 /// This macro defines a variant specifier where the test type is the specified type, and
-/// the test value is \ref core::Empty. See \ref ARCHON_TEST_BATCH() for an example of how
-/// to use it.
+/// the test value is \ref core::Empty. The variant name (\p name) is used as a suffix of
+/// the name of the generated test case, so it is allowed to start with a digit, or be
+/// purely numeric. See \ref ARCHON_TEST_BATCH() for an example of how to use it.
 ///
 /// \sa \ref ARCHON_TEST_VALUE()
 /// \sa \ref ARCHON_TEST_TYPE_AND_VALUE()
@@ -62,7 +63,9 @@
 /// \brief Define a value-like test case variant specifier.
 ///
 /// This macro defines a variant specifier where the test type is the type of the specified
-/// value, and the test value is the specified value.
+/// value, and the test value is the specified value. The variant name (\p name) is used as
+/// a suffix of the name of the generated test case, so it is allowed to start with a digit,
+/// or be purely numeric.
 ///
 /// \sa \ref ARCHON_TEST_TYPE()
 /// \sa \ref ARCHON_TEST_TYPE_AND_VALUE()
@@ -74,7 +77,9 @@
 ///
 /// This macro defines a variant specifier carrying both a type and a value. The test type
 /// is the specified type (\p type) and the test value is the specified value (\p
-/// value). The type of the value is allowed to differ from the test type.
+/// value). The type of the value is allowed to differ from the test type. The variant name
+/// (\p name) is used as a suffix of the name of the generated test case, so it is allowed
+/// to start with a digit, or be purely numeric.
 ///
 /// \sa \ref ARCHON_TEST_VALUE()
 /// \sa \ref ARCHON_TEST_TYPE()
@@ -104,7 +109,7 @@
 ///   ARCHON_TEST_VARIANTS(variants,
 ///                        ARCHON_TEST_TYPE(short, Short),
 ///                        ARCHON_TEST_TYPE(int,   Int),
-///                        ARCHON_TEST_TYPE(long,  Long))
+///                        ARCHON_TEST_TYPE(long,  Long));
 ///
 ///   ARCHON_TEST_BATCH(Foo, variants)
 ///   {
@@ -147,7 +152,7 @@
 /// the same batch name as long as the two sets of variant names are disjoint.
 ///
 /// The \p variants argument must be an object whose type is some instantiation of
-/// `std::tuple`, and each of its compoents can be of any type, as long as they define the
+/// `std::tuple`, and each of its components can be of any type, as long as they define the
 /// three members `type`, `value`, and `name` for the test type, test value, and variant
 /// name respectively. The test value must be a compile time constant, and the name must be
 /// something that can be implicitly converted to `std::string_view`.

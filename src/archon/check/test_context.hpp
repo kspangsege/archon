@@ -589,8 +589,8 @@ public:
     ///
     /// \brief Reliably compare distance between values with given distance.
     ///
-    /// These functions compare the distance between the specified values (\p a and \p b)
-    /// with the specified distance (\p dist).
+    /// These functions compare the absolute distance between the specified values (\p a and
+    /// \p b) with the specified distance (\p dist).
     ///
     /// If all arguments (\p a, \p b, and \p dist) have integer type in the sense that \ref
     /// core::is_integer() returns `true` for all three types, the result is
