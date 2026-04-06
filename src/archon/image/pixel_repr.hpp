@@ -48,11 +48,12 @@ template<image::ColorSpace::Tag C, bool A, image::CompRepr R> struct PixelRepr {
 
     static auto get_color_space() noexcept -> const image::ColorSpace&;
 
-    using comp_type       = image::comp_type<R>;
-    using iter_type       = image::Iter<comp_type>;
-    using const_iter_type = image::Iter<const comp_type>;
-    using tray_type       = image::Tray<comp_type>;
-    using const_tray_type = image::Tray<const comp_type>;
+    using comp_type          = image::comp_type<R>;
+    using unpacked_comp_type = image::unpacked_comp_type<comp_repr>;
+    using iter_type          = image::Iter<comp_type>;
+    using const_iter_type    = image::Iter<const comp_type>;
+    using tray_type          = image::Tray<comp_type>;
+    using const_tray_type    = image::Tray<const comp_type>;
 
     /// \brief Promoted pixel representation scheme.
     ///

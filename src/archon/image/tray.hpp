@@ -122,6 +122,15 @@ public:
     ///
     constexpr auto subtray(const image::Box&, image::Pos origin = { 0, 0 }) const noexcept -> Tray;
 
+    /// \brief Compare two trays for equality.
+    ///
+    /// Two trays are equal if their sizes are equal and each pair of pixies at
+    /// corresponding X and Y coordinates are equal. Two pixels are equal if each pair of
+    /// corresponding components have equal values. The number of components per pixel is
+    /// specified by \p n.
+    ///
+    bool is_equal_to(const Tray& other, int n) const;
+
     /// \brief Copy pixels to locations specified by iterator.
     ///
     /// This function copies pixels from this tray to the memory locations referenced by \p
@@ -205,6 +214,13 @@ template<class T>
 constexpr auto Tray<T>::subtray(const image::Box& box, image::Pos origin) const noexcept -> Tray
 {
     return { iter + (box.pos - origin), box.size };
+}
+
+
+template<class T>
+inline bool Tray<T>::is_equal_to(const Tray& other, int n) const
+{
+    return (size == other.size && iter.is_equal_to(other.iter, size, n)); // Throws
 }
 
 

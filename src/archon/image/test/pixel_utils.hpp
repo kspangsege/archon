@@ -60,21 +60,21 @@ template<class R> bool check_approx_equal_pixels(check::TestContext& test_contex
                                                  const image::Pixel<R>& b)
 {
     using repr_type = R;
-    using comp_type = typename repr_type::comp_type;
-    auto check = [&](comp_type a, comp_type b) {
-        if constexpr (std::is_integral_v<comp_type>) {
+    using unpacked_comp_type = typename repr_type::unpacked_comp_type;
+    auto check = [&](unpacked_comp_type a, unpacked_comp_type b) {
+        if constexpr (std::is_integral_v<unpacked_comp_type>) {
             return ARCHON_CHECK_DIST_LESS_EQUAL(a, b, 1);
         }
         else {
-            static_assert(std::is_floating_point_v<comp_type>);
-            comp_type eps = std::numeric_limits<comp_type>::epsilon();
+            static_assert(std::is_floating_point_v<unpacked_comp_type>);
+            unpacked_comp_type eps = std::numeric_limits<unpacked_comp_type>::epsilon();
             return ARCHON_CHECK_APPROXIMATELY_EQUAL(a, b, 10 * eps);
         }
     };
-    if (a.opacity() == 0 || b.opacity() == 0)
-        return check(a.opacity(), b.opacity()); // Throws
+    if (a.get_opacity() == 0 || b.get_opacity() == 0)
+        return check(a.get_opacity(), b.get_opacity()); // Throws
     for (int i = 0; i < repr_type::num_channels; ++i) {
-        if (ARCHON_UNLIKELY(!check(a[i], b[i]))) // Throws
+        if (ARCHON_UNLIKELY(!check(a.get_comp_value(i), b.get_comp_value(i)))) // Throws
             return false;
     }
     return true;

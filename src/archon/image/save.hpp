@@ -141,7 +141,7 @@ inline void save(const image::Image& image, core::FilesystemPathRef path, const 
                  const image::SaveConfig& config)
 {
     std::error_code ec;
-    if (ARCHON_LIKELY(try_save(image, path, loc, config, ec))) // Throws
+    if (ARCHON_LIKELY(image::try_save(image, path, loc, config, ec))) // Throws
         return; // Success
     throw std::system_error(ec, "Failed to save image");
 }

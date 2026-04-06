@@ -159,6 +159,27 @@ public:
     constexpr auto operator-=(image::Size size) noexcept -> Iter&;
     /// \}
 
+    /// \brief Construct typed iterator shifted to other channel.
+    ///
+    /// If `iter` is a typed iterator, then `iter.shift(s)` is a shorthand for making a copy
+    /// of `iter`, say `iter_2`, then doing `iter_2.base += s`, and finally returning
+    /// `iter_2`. This can be used for shifting from one channel to another. For example, if
+    /// `iter` refers to RGBA quadruples, then `iter.shift(3)` can be used as a reference
+    /// specifically to the alpha channel.
+    ///
+    /// This function is not available for untyped iterators.
+    ///
+    constexpr auto shift(int s) const noexcept -> Iter;
+
+    /// \brief Compare two pixel arrays for equality.
+    ///
+    /// Two pixel arrays of the same size are equal if each pair of pixies at corresponding
+    /// X and Y coordinates are equal. Two pixels are equal if each pair of corresponding
+    /// components have equal values. The number of components per pixel is specified by \p
+    /// n.
+    ///
+    bool is_equal_to(const Iter& other, image::Size size, int n) const;
+
     /// \brief Copy array of pixels.
     ///
     /// This function copies an array pixels of the specified size (\p size) from the memory
@@ -329,6 +350,29 @@ constexpr auto Iter<T>::operator-=(image::Size size) noexcept -> Iter&
     base -= size.width  * horz_stride;
     base -= size.height * vert_stride;
     return *this;
+}
+
+
+template<class T>
+constexpr auto Iter<T>::shift(int s) const noexcept -> Iter
+{
+    return { base + s, horz_stride, vert_stride };
+}
+
+
+template<class T>
+bool Iter<T>::is_equal_to(const Iter& other, image::Size size, int n) const
+{
+    for (int y = 0; y < size.height; ++y) {
+        for (int x = 0; x < size.width; ++x) {
+            const comp_type* a = (*this)(x, y);
+            const comp_type* b = other(x, y);
+            if (ARCHON_LIKELY(std::equal(a, a + n, b))) // Throws
+                continue;
+            return false;
+        }
+    }
+    return true;
 }
 
 

@@ -89,8 +89,8 @@ public:
     static constexpr bool is_rgba_8 = std::is_same_v<R, image::RGBA_8>;
     static auto get_color_space() noexcept -> const image::ColorSpace&;
 
-    using comp_type = typename repr_type::comp_type;
-    using unpacked_comp_type = image::unpacked_comp_type<comp_repr>;
+    using comp_type          = typename repr_type::comp_type;
+    using unpacked_comp_type = typename repr_type::unpacked_comp_type;
 
     Pixel() noexcept = default;
     Pixel(std::array<comp_type, num_channels> components) noexcept;
@@ -153,15 +153,16 @@ public:
     ///
     /// \sa \ref get_comp_value()
     ///
-    void set_comp_value(int channel_index, unpacked_comp_type value) const noexcept;
+    void set_comp_value(int channel_index, unpacked_comp_type value) noexcept;
 
-    /// \brief Get implicit or explicit alpha component of this pixel.
+    /// \brief Get value of implicit or explicit alpha component of this pixel.
     ///
-    /// If this pixel has an alpha component, this function returns that component,
-    /// otherwise it returns `image::comp_repr_max<R>()` (\ref image::comp_repr_max())
-    /// corresponding to an implicit alpha component at maximum value (maximum opacity).
+    /// If this pixel has an alpha component, this function returns that component unpacked
+    /// (\ref image::comp_repr_unpack()). Otherwise it returns the unpacking of
+    /// `image::comp_repr_max<R>()` (\ref image::comp_repr_max()), which corresponds to an
+    /// implicit alpha component at maximum value (maximum opacity).
     ///
-    auto opacity() const noexcept -> comp_type;
+    auto get_opacity() const noexcept -> unpacked_comp_type;
 
     /// \brief Get canonicalized version of pixel.
     ///
@@ -452,7 +453,7 @@ inline auto Pixel<R>::get_comp_value(int channel_index) const noexcept -> unpack
 
 
 template<class R>
-inline void Pixel<R>::set_comp_value(int channel_index, unpacked_comp_type value) const noexcept
+inline void Pixel<R>::set_comp_value(int channel_index, unpacked_comp_type value) noexcept
 {
     comp_type comp = image::comp_repr_pack<comp_repr>(value);
     m_components[std::size_t(channel_index)] = comp;
@@ -460,13 +461,13 @@ inline void Pixel<R>::set_comp_value(int channel_index, unpacked_comp_type value
 
 
 template<class R>
-inline auto Pixel<R>::opacity() const noexcept -> comp_type
+inline auto Pixel<R>::get_opacity() const noexcept -> unpacked_comp_type
 {
     if constexpr (has_alpha) {
-        return m_components[num_channels - 1];
+        return get_comp_value(num_channels - 1);
     }
     else {
-        return image::comp_repr_max<comp_repr>();
+        return image::comp_repr_unpack<comp_repr>(image::comp_repr_max<comp_repr>());
     }
 }
 
@@ -474,7 +475,7 @@ inline auto Pixel<R>::opacity() const noexcept -> comp_type
 template<class R>
 inline auto Pixel<R>::canonicalize() const noexcept -> Pixel
 {
-    if (ARCHON_LIKELY(opacity() != 0))
+    if (ARCHON_LIKELY(get_opacity() != 0))
         return *this;
     return {};
 }

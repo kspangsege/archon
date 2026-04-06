@@ -33,6 +33,7 @@
 #include <archon/core/features.hpp>
 #include <archon/core/span.hpp>
 #include <archon/core/integer.hpp>
+#include <archon/core/buffer.hpp>
 #include <archon/image/geom.hpp>
 #include <archon/image/iter.hpp>
 #include <archon/image/tray.hpp>
@@ -62,7 +63,22 @@ public:
     using const_span_type = core::Span<const comp_type>;
 
     explicit Block() noexcept = default;
+
+    /// \brief Create block of specific size.
+    ///
+    /// Create a block of the specified size. The allocated memory is owned by the block
+    /// object. Every component of every pixel in the block will be initialized to zero.
+    ///
     explicit Block(image::Size size);
+
+    /// \brief Create block using buffer to supply memory.
+    ///
+    /// Create a block of the specified size. The specified buffer is used to provide the
+    /// needed memory. The buffer will be expanded as necessary. The memory remains owned by
+    /// the buffer. Every component of every pixel in the block will be initialized to zero.
+    ///
+    explicit Block(image::Size size, core::Buffer<comp_type>& buffer);
+
     explicit Block(image::Size size, span_type buffer);
     explicit Block(image::Size size, std::unique_ptr<comp_type[]> buffer, std::size_t buffer_size);
 
@@ -76,6 +92,17 @@ public:
 
     auto tray() noexcept       -> tray_type;
     auto tray() const noexcept -> const_tray_type;
+
+    auto get(image::Pos pos) noexcept       -> comp_type*;
+    auto get(image::Pos pos) const noexcept -> const comp_type*;
+
+    /// \brief Whether two blocks are equal.
+    ///
+    /// Two blocks are equal if they have the same size and each pair of corresponding
+    /// pixels are equal. Two pixels are equal if each pair of corresponding components have
+    /// equal values.
+    ///
+    bool operator==(const Block& other) const;
 
 private:
     std::unique_ptr<comp_type[]> m_buffer_owner;
@@ -114,6 +141,8 @@ public:
     using pixel_type = image::Pixel<pixel_repr_type>;
 
     auto get_pixel(image::Pos pos) const noexcept -> pixel_type;
+
+    void set_pixel(image::Pos pos, const pixel_type& pixel) noexcept;
 };
 
 
@@ -154,6 +183,8 @@ public:
     using image::Block<R, 1>::Block;
 
     auto get_index(image::Pos pos) const noexcept -> std::size_t;
+
+    void set_index(image::Pos pos, std::size_t index) noexcept;
 };
 
 
@@ -178,6 +209,16 @@ inline Block<R, N>::Block(image::Size size)
     if (ARCHON_LIKELY(buffer_size > 0))
         m_buffer_owner = std::make_unique<comp_type[]>(buffer_size); // Throws
     m_buffer = { m_buffer_owner.get(), buffer_size };
+}
+
+
+template<image::CompRepr R, int N>
+Block<R, N>::Block(image::Size size, core::Buffer<comp_type>& buffer)
+{
+    std::size_t buffer_size = determine_buffer_size(size); // Throws
+    buffer.assign_a(0, buffer_size); // Throws
+    m_size = size;
+    m_buffer = { buffer.data(), buffer_size };
 }
 
 
@@ -236,6 +277,28 @@ inline auto Block<R, N>::tray() const noexcept -> const_tray_type
 
 
 template<image::CompRepr R, int N>
+inline auto Block<R, N>::get(image::Pos pos) noexcept -> comp_type*
+{
+    return tray()(pos);
+}
+
+
+template<image::CompRepr R, int N>
+inline auto Block<R, N>::get(image::Pos pos) const noexcept -> const comp_type*
+{
+    return tray()(pos);
+}
+
+
+template<image::CompRepr R, int N>
+inline bool Block<R, N>::operator==(const Block& other) const
+{
+    return tray().is_equal_to(other.tray(), N); // Throws
+}
+
+
+
+template<image::CompRepr R, int N>
 void Block<R, N>::verify_buffer_size(std::size_t buffer_size, image::Size block_size)
 {
     std::size_t min_buffer_size = determine_buffer_size(block_size); // Throws
@@ -270,18 +333,34 @@ inline auto Block<R, N>::make_tray() const noexcept -> tray_type
 template<class R>
 inline auto PixelBlock<R>::get_pixel(image::Pos pos) const noexcept -> pixel_type
 {
-    const comp_type* pixel_1 = this->tray()(pos);
+    const comp_type* pixel_1 = this->get(pos);
     pixel_type pixel_2;
     std::copy_n(pixel_1, pixel_repr_type::num_channels, pixel_2.data());
     return pixel_2;
 }
 
 
+template<class R>
+inline void PixelBlock<R>::set_pixel(image::Pos pos, const pixel_type& pixel) noexcept
+{
+    comp_type* pixel_2 = this->get(pos);
+    std::copy_n(pixel.data(), pixel_repr_type::num_channels, pixel_2);
+}
+
+
 template<image::CompRepr R>
 inline auto IndexBlock<R>::get_index(image::Pos pos) const noexcept -> std::size_t
 {
-    const comp_type* pixel = this->tray()(pos);
+    const comp_type* pixel = this->get(pos);
     return std::size_t(image::comp_repr_unpack<R>(pixel[0]));
+}
+
+
+template<image::CompRepr R>
+inline void IndexBlock<R>::set_index(image::Pos pos, std::size_t index) noexcept
+{
+    comp_type* pixel = this->get(pos);
+    pixel[0] = image::comp_repr_pack<R>(index);
 }
 
 

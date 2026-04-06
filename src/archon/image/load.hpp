@@ -159,7 +159,7 @@ inline auto load(core::FilesystemPathRef path, const std::locale& loc,
 {
     std::unique_ptr<image::WritableImage> image;
     std::error_code ec;
-    if (ARCHON_LIKELY(try_load(path, image, loc, config, ec))) // Throws
+    if (ARCHON_LIKELY(image::try_load(path, image, loc, config, ec))) // Throws
         return image; // Success
     throw std::system_error(ec, "Failed to load image");
 }

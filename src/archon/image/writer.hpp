@@ -321,12 +321,12 @@ public:
     /// integers, but expressed linearly because they are alpha component and not color
     /// components.
     ///
-    /// For each targeted pixel, a preliminary pixel is constructed as `opacity` * ((`mask`
-    /// * `fg`) OVER `bg`), where `opacity` is the currently configured opacity (\ref
+    /// For each targeted pixel, a preliminary pixel is constructed as `opacity * ((mask *
+    /// fg) OVER bg)`, where `opacity` is the currently configured opacity (\ref
     /// set_opacity()), `mask` is the alpha value from the corresponding position in the
     /// specified mask (\p tray), `fg` is the currently configured foreground color (\ref
     /// set_foreground_color()), `bg` is the currently configured background color (\ref
-    /// set_background_color()), `alpha` * `color` means `color` with opacity scaled by
+    /// set_background_color()), `alpha * color` means `color` with opacity scaled by
     /// `alpha`, and OVER refers to the Porter-Duff alpha-compositing operator of that name
     /// (see \sa https://en.wikipedia.org/wiki/Alpha_compositing). Note that the foreground
     /// color and background color carry opacity information even when the target image has
@@ -675,7 +675,7 @@ auto Writer::put_block_a(image::Pos pos, const image::const_tray_type<R>& tray, 
         if (ARCHON_UNLIKELY(opacity != 1)) {
             std::size_t n = workspace.size();
             for (std::size_t i = 0; i < n; ++i)
-                workspace[i] *= opacity; // Throws
+                workspace[i] *= opacity;
         }
         write_b(subbox.pos, tray_2); // Throws
     }); // Throws
