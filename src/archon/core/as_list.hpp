@@ -90,9 +90,11 @@ enum class AsListSpace {
 struct AsListConfig {
     /// \brief Element separating character.
     ///
-    /// This is the character that separates the list elements. It can be the space
-    /// character (see \ref core::as_words()). The character is specified in its unwidened
-    /// form. Widening will be performed as part of the formatting, or parsing operation.
+    /// This is the character that separates the list elements. It is allowed to be the
+    /// space character (see \ref core::as_words()). The space character has special
+    /// interaction with \ref space (see \ref core::AsListSpace). The character is specified
+    /// in its unwidened form. Widening will be performed as part of the formatting, or
+    /// parsing operation.
     ///
     char separator = ',';
 
