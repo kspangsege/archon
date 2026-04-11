@@ -197,8 +197,8 @@ namespace impl {
 template<class I, bool alt, class F>
 constexpr auto flt_to_int(F flt_val, core::Type<I> max_int) noexcept -> I
 {
-    // Max value for type is must be odd, so that we can be sure below that it is possible
-    // to add 1 when the value is even.
+    // The max value for the type is necessarily odd. This is needed below where 1 is added
+    // when the value is even.
     static_assert((core::int_max<I>() & 1) == 1);
     F v = flt_val;
     if (ARCHON_LIKELY(v >= F(0))) {
