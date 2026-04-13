@@ -42,6 +42,25 @@ ARCHON_TEST_VARIANTS(variants,
 } // unnamed namespace
 
 
+ARCHON_TEST_BATCH(Core_FormatAs_Tuple, variants)
+{
+    using value_formatter_type = test_type;
+    using char_type   = typename value_formatter_type::char_type;
+    using traits_type = typename value_formatter_type::traits_type;
+    using string_widener_type = core::BasicStringWidener<char_type, traits_type>;
+
+    std::array<char_type, 16> seed_memory_1;
+    value_formatter_type formatter(seed_memory_1, test_context.locale);
+    std::array<char_type, 16> seed_memory_2;
+    string_widener_type widener(test_context.locale, seed_memory_2);
+
+    ARCHON_CHECK_EQUAL(formatter.format(core::as_tuple()), widener.widen("()"));
+    ARCHON_CHECK_EQUAL(formatter.format(core::as_tuple(1)), widener.widen("(1)"));
+    ARCHON_CHECK_EQUAL(formatter.format(core::as_tuple(1, 2)), widener.widen("(1, 2)"));
+    ARCHON_CHECK_EQUAL(formatter.format(core::as_tuple(1, 2, 3)), widener.widen("(1, 2, 3)"));
+}
+
+
 ARCHON_TEST_BATCH(Core_FormatAs_Bool, variants)
 {
     using value_formatter_type = test_type;

@@ -30,6 +30,7 @@
 #include <type_traits>
 #include <limits>
 #include <utility>
+#include <tuple>
 #include <array>
 #include <stdexcept>
 #include <chrono>
@@ -48,6 +49,16 @@
 
 
 namespace archon::core {
+
+
+
+/// \brief Format values as tuple.
+///
+/// This function constructs an object that, if written to an output stream, formats the
+/// specified values as a tuple. The format is `(<value 1>, <value 2>, ...)`. Passing no
+/// values is allowed.
+///
+template<class... T> auto as_tuple(const T&... values) noexcept;
 
 
 
@@ -317,6 +328,11 @@ template<class F> auto as_format_func(F func);
 namespace impl {
 
 
+template<class... T> struct AsTuple {
+    std::tuple<const T*...> values;
+};
+
+
 struct AsBool {
     bool value;
     core::BoolSpec spec;
@@ -374,6 +390,12 @@ template<class F> struct AsFormatFunc {
 
 
 } // namespace impl
+
+
+template<class... T> inline auto as_tuple(const T&... values) noexcept
+{
+    return impl::AsTuple { std::make_tuple(&values...) };
+}
 
 
 inline auto as_bool(bool value, core::BoolSpec spec) noexcept
@@ -448,6 +470,22 @@ template<class F> inline auto as_format_func(F func)
 
 
 namespace impl {
+
+
+template<class C, class T, class... U>
+auto operator<<(std::basic_ostream<C, T>& out, const impl::AsTuple<U...>& pod) -> std::basic_ostream<C, T>&
+{
+    std::array<C, 64> seed_memory;
+    core::BasicStreamOutputAltHelper helper(out, seed_memory); // Throws
+    helper.out << "("; // Throws
+    std::apply([&helper](const auto*... values) {
+        [[maybe_unused]] const char* sep = "";
+        ((helper.out << std::exchange(sep, ", ") << *values), ...); // Throws
+    }, pod.values); // Throws
+    helper.out << ")"; // Throws
+    helper.flush(); // Throws
+    return out;
+}
 
 
 template<class C, class T>
