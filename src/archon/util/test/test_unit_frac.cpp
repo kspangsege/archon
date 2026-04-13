@@ -21,15 +21,17 @@
 
 #include <cstddef>
 #include <cmath>
-#include <type_traits>
 #include <limits>
 #include <random>
 
+#include <archon/core/features.hpp>
 #include <archon/core/type_list.hpp>
 #include <archon/core/demangle.hpp>
 #include <archon/core/integer.hpp>
+#include <archon/core/format.hpp>
+#include <archon/core/format_as.hpp>
 #include <archon/core/random.hpp>
-#include <archon/core/mul_prec_int.hpp>
+#include <archon/core/ext_int_type.hpp>
 #include <archon/check.hpp>
 #include <archon/util/unit_frac.hpp>
 
@@ -126,6 +128,125 @@ struct TestIntToFltToInt {
 };
 
 
+struct TestIntToInt {
+    template<class P, std::size_t> static void exec(check::TestContext& parent_test_context, std::mt19937_64& random)
+    {
+        ARCHON_TEST_TRAIL(parent_test_context, core::get_type_name<P>());
+
+        test<P, 2, 2>(test_context, random);
+        test<P, 2, 3>(test_context, random);
+        test<P, 2, 4>(test_context, random);
+        test<P, 2, 6>(test_context, random);
+
+        test<P, 3, 2>(test_context, random);
+        test<P, 3, 3>(test_context, random);
+        test<P, 3, 4>(test_context, random);
+        test<P, 3, 6>(test_context, random);
+
+        test<P, 4, 2>(test_context, random);
+        test<P, 4, 3>(test_context, random);
+        test<P, 4, 4>(test_context, random);
+        test<P, 4, 6>(test_context, random);
+
+        test<P, 6, 2>(test_context, random);
+        test<P, 6, 3>(test_context, random);
+        test<P, 6, 4>(test_context, random);
+        test<P, 6, 6>(test_context, random);
+    }
+
+    template<class P, std::size_t M, std::size_t N>
+    static void test(check::TestContext& parent_test_context, std::mt19937_64& random)
+    {
+        ARCHON_TEST_TRAIL(parent_test_context, core::as_tuple(M, N));
+
+        using type_1 = typename P::first_type;
+        using type_2 = typename P::second_type;
+
+        constexpr int width_1 = (M * core::int_width<type_1>()) / 6;
+        constexpr int width_2 = (N * core::int_width<type_2>()) / 6;
+        if (width_1 < 1 || width_2 < 1)
+            return;
+
+        constexpr long n = 4096;
+        for (long i = 0; i < n; ++i) {
+            type_1 max_1 = core::int_mask<type_1>(width_1);
+            type_2 max_2 = core::int_mask<type_2>(width_2);
+            if (core::chance(random, 1, 2))
+                max_1 = core::rand_int<type_1>(random, 1, max_1);
+            if (core::chance(random, 1, 2))
+                max_2 = core::rand_int<type_2>(random, 1, max_2);
+            type_1 val_1 = core::rand_int_max(random, max_1);
+            type_2 val_2 = unit_frac::int_to_int<width_1, width_2>(val_1, max_1, max_2);
+            using type_3 = core::fast_unsigned_ext_int_type<width_1 + width_2 + 1>;
+            type_3 max_3 = core::int_cast_a<type_3>(max_2);
+            type_3 val_3 = core::int_cast_a<type_3>(val_1) * (max_3 + type_3(1)) / core::int_cast_a<type_3>(max_1);
+            if (ARCHON_UNLIKELY(val_3 > max_3))
+                val_3 = max_3;
+            ARCHON_CHECK_EQUAL(val_2, core::int_cast_a<type_2>(val_3));
+        }
+    }
+};
+
+
+struct TestIntToIntA {
+    template<class P, std::size_t> static void exec(check::TestContext& parent_test_context, std::mt19937_64& random)
+    {
+        ARCHON_TEST_TRAIL(parent_test_context, core::get_type_name<P>());
+
+        test<P, 2, 2>(test_context, random);
+        test<P, 2, 3>(test_context, random);
+        test<P, 2, 4>(test_context, random);
+        test<P, 2, 6>(test_context, random);
+
+        test<P, 3, 2>(test_context, random);
+        test<P, 3, 3>(test_context, random);
+        test<P, 3, 4>(test_context, random);
+        test<P, 3, 6>(test_context, random);
+
+        test<P, 4, 2>(test_context, random);
+        test<P, 4, 3>(test_context, random);
+        test<P, 4, 4>(test_context, random);
+        test<P, 4, 6>(test_context, random);
+
+        test<P, 6, 2>(test_context, random);
+        test<P, 6, 3>(test_context, random);
+        test<P, 6, 4>(test_context, random);
+        test<P, 6, 6>(test_context, random);
+    }
+
+    template<class P, std::size_t M, std::size_t N>
+    static void test(check::TestContext& parent_test_context, std::mt19937_64& random)
+    {
+        ARCHON_TEST_TRAIL(parent_test_context, core::as_tuple(M, N));
+
+        using type_1 = typename P::first_type;
+        using type_2 = typename P::second_type;
+
+        constexpr int width_1 = (M * core::int_width<type_1>()) / 6;
+        constexpr int width_2 = (N * core::int_width<type_2>()) / 6;
+        if (width_1 < 1 || width_2 < 1)
+            return;
+
+        constexpr long n = 4096;
+        for (long i = 0; i < n; ++i) {
+            type_1 max_1 = core::int_mask<type_1>(width_1);
+            type_2 max_2 = core::int_mask<type_2>(width_2);
+            if (core::chance(random, 1, 2))
+                max_1 = core::rand_int<type_1>(random, 1, max_1);
+            if (core::chance(random, 1, 2))
+                max_2 = core::rand_int<type_2>(random, 1, max_2);
+            type_1 val_1 = core::rand_int_max(random, max_1);
+            type_2 val_2 = unit_frac::int_to_int_a<width_1, width_2>(val_1, max_1, max_2);
+            using type_3 = core::fast_unsigned_ext_int_type<width_1 + width_2>;
+            type_3 val_3 = core::int_div_round_half_down(core::int_cast_a<type_3>(val_1) *
+                                                         core::int_cast_a<type_3>(max_2),
+                                                         core::int_cast_a<type_3>(max_1));
+            ARCHON_CHECK_EQUAL(val_2, core::int_cast_a<type_2>(val_3));
+        }
+    }
+};
+
+
 struct TestChangeBitWidth {
     template<class I, std::size_t> static void exec(check::TestContext& test_context, std::mt19937_64& random)
     {
@@ -156,13 +277,9 @@ struct TestChangeBitWidth {
                           core::formatted("test<%s>(%s, %s)", core::get_type_name<I>(), +m, +n));
         auto subtest = [&](I val) {
             I val_2 = unit_frac::change_bit_width(val, m, n);
-            using uint_type = std::make_unsigned_t<core::promoted_type<I>>;
-            using mul_prec_type = core::MulPrecInt<uint_type, 2, false>;
-            mul_prec_type max = mul_prec_type(core::int_mask<I>(n));
-            mul_prec_type val_3 = (mul_prec_type(val) * (max + mul_prec_type(1)) /
-                                   mul_prec_type(core::int_mask<I>(m)));
-            I val_4 = core::int_cast_a<I>(uint_type(val_3 <= max ? val_3 : max));
-            ARCHON_CHECK_EQUAL(val_4, val_2);
+            constexpr int p = core::int_width<I>();
+            I val_3 = unit_frac::int_to_int<p, p>(val, core::int_mask<I>(m), core::int_mask<I>(n));
+            ARCHON_CHECK_EQUAL(val_2, val_3);
         };
         long num_rounds = 2048;
         bool full_coverage = core::int_find_msb_pos(num_rounds) >= m;
@@ -192,6 +309,20 @@ ARCHON_TEST(Util_UnitFrac_IntToFltToInt)
 {
     std::mt19937_64 random(test_context.seed_seq());
     core::for_each_type_alt<core::TypeListProduct<IntTypes, FltTypes>, TestIntToFltToInt>(test_context, random);
+}
+
+
+ARCHON_TEST(Util_UnitFrac_IntToInt)
+{
+    std::mt19937_64 random(test_context.seed_seq());
+    core::for_each_type_alt<core::TypeListProduct<IntTypes, IntTypes>, TestIntToInt>(test_context, random);
+}
+
+
+ARCHON_TEST(Util_UnitFrac_IntToIntA)
+{
+    std::mt19937_64 random(test_context.seed_seq());
+    core::for_each_type_alt<core::TypeListProduct<IntTypes, IntTypes>, TestIntToIntA>(test_context, random);
 }
 
 
