@@ -82,14 +82,15 @@ template<class R> class Pixel {
 public:
     using repr_type = R;
 
-    using comp_type = typename repr_type::comp_type;
-
     static constexpr image::ColorSpace::Tag color_space_tag = repr_type::color_space_tag;
     static constexpr bool has_alpha = repr_type::has_alpha;
     static constexpr int num_channels = repr_type::num_channels;
     static constexpr image::CompRepr comp_repr = repr_type::comp_repr;
     static constexpr bool is_rgba_8 = std::is_same_v<R, image::RGBA_8>;
     static auto get_color_space() noexcept -> const image::ColorSpace&;
+
+    using comp_type = typename repr_type::comp_type;
+    using unpacked_comp_type = image::unpacked_comp_type<comp_repr>;
 
     Pixel() noexcept = default;
     Pixel(std::array<comp_type, num_channels> components) noexcept;
@@ -131,6 +132,28 @@ public:
     bool operator> (const Pixel& other) const noexcept;
     bool operator>=(const Pixel& other) const noexcept;
     /// \}
+
+    /// \brief Get unpacked component value.
+    ///
+    /// Get component value in its unpacked form. The value will be unpacked using \ref
+    /// image::comp_repr_unpack(). Behavior is undefined if the specified channel index is
+    /// out of bounds, i.e., if it is less than zero or greater than or equal to the number
+    /// of channels (\ref num_channels).
+    ///
+    /// \sa \ref set_comp_value()
+    ///
+    auto get_comp_value(int channel_index) const noexcept -> unpacked_comp_type;
+
+    /// \brief Set component from unpacked value.
+    ///
+    /// Set component to the specified unpacked component value. The value will be packed
+    /// using \ref image::comp_repr_pack(). Behavior is undefined if the specified channel
+    /// index is out of bounds, i.e., if it is less than zero or greater than or equal to
+    /// the number of channels (\ref num_channels).
+    ///
+    /// \sa \ref get_comp_value()
+    ///
+    void set_comp_value(int channel_index, unpacked_comp_type value) const noexcept;
 
     /// \brief Get implicit or explicit alpha component of this pixel.
     ///
@@ -417,6 +440,22 @@ template<class R>
 inline bool Pixel<R>::operator>=(const Pixel& other) const noexcept
 {
     return  !(*this < other);
+}
+
+
+template<class R>
+inline auto Pixel<R>::get_comp_value(int channel_index) const noexcept -> unpacked_comp_type
+{
+    comp_type comp = m_components[std::size_t(channel_index)];
+    return image::comp_repr_unpack<comp_repr>(comp);
+}
+
+
+template<class R>
+inline void Pixel<R>::set_comp_value(int channel_index, unpacked_comp_type value) const noexcept
+{
+    comp_type comp = image::comp_repr_pack<comp_repr>(value);
+    m_components[std::size_t(channel_index)] = comp;
 }
 
 

@@ -43,7 +43,7 @@ namespace archon::image {
 
 /// \brief Alternative pixel component representation schemes.
 ///
-/// This is a set of alternative component representation schemes that is used in many
+/// This is a set of alternative component representation schemes that are used in many
 /// places in the Archon Image Library as part of the specification of a concrete pixel
 /// format.
 ///
@@ -62,8 +62,8 @@ namespace archon::image {
 /// represented as an ordered sequence on words of this type, with one word per channel, and
 /// with each word holding the corresponding channel component. The order of channel
 /// components is always the canonical order for the color space in use (\ref
-/// image::ColorSpace), and the alpha channel always comes last, when an alpha channel is
-/// present. The word type for a particular representation scheme, `R`, is available as
+/// image::ColorSpace), and when an alpha channel is present, it always comes last. The word
+/// type for a particular representation scheme, `R`, is available as
 /// `image::comp_type<R>`. See \ref image::comp_type.
 ///
 ///   | Scheme   | Word type            | Image library type alias
