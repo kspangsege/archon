@@ -852,6 +852,19 @@ template<class T> using IntDivMod = typename impl::IntDivMod<T>::type;
 template<class T> constexpr auto int_divmod(T a, T b) noexcept -> core::IntDivMod<T>;
 
 
+/// \brief Integer division with downwards rounding.
+///
+/// This function divides \p a by \p b and returns the greatest integer that is less than,
+/// or equal to the true untruncated result. Both \p a and \p b must be non-negative
+/// integers. If \p b is zero, the effect is the same as it would be for the expression `a /
+/// b`.
+///
+/// The types of the specified values (\p T and \p U) must conform to the integer concept
+/// (\ref Concept_Archon_Core_Integer).
+///
+template<class T, class U> constexpr auto int_div_round_down(T a, U b) noexcept -> T;
+
+
 /// \brief Integer division with upwards rounding.
 ///
 /// This function divides \p a by \p b and returns the least integer that is greater than,
@@ -876,6 +889,32 @@ template<class T, class U> constexpr auto int_div_round_up(T a, U b) noexcept ->
 /// (\ref Concept_Archon_Core_Integer).
 ///
 template<class T, class U> constexpr auto int_div_round_half_down(T a, U b) noexcept -> T;
+
+
+/// \brief Integer division with half-up rounding behavior.
+///
+/// This function divides \p a by \p b and returns the result rounded to the nearest
+/// integer, or if the result is half way between two integers, rounded up. Both \p a and \p
+/// b must be non-negative integers. If \p b is zero, the effect is the same as it would be
+/// for the expression `a / b`.
+///
+/// The types of the specified values (\p T and \p U) must conform to the integer concept
+/// (\ref Concept_Archon_Core_Integer).
+///
+template<class T, class U> constexpr auto int_div_round_half_up(T a, U b) noexcept -> T;
+
+
+/// \brief Integer division with half-even rounding behavior.
+///
+/// This function divides \p a by \p b and returns the result rounded to the nearest
+/// integer, or if the result is half way between two integers, rounded to the even
+/// integer. Both \p a and \p b must be non-negative integers. If \p b is zero, the effect
+/// is the same as it would be for the expression `a / b`.
+///
+/// The types of the specified values (\p T and \p U) must conform to the integer concept
+/// (\ref Concept_Archon_Core_Integer).
+///
+template<class T, class U> constexpr auto int_div_round_half_even(T a, U b) noexcept -> T;
 
 
 /// \brief Performs periodic modulo operation.
@@ -2072,6 +2111,17 @@ template<class T> constexpr auto int_divmod(T a, T b) noexcept -> core::IntDivMo
 }
 
 
+template<class T, class U> constexpr auto int_div_round_down(T a, U b) noexcept -> T
+{
+    ARCHON_ASSERT(!core::is_negative(a));
+    ARCHON_ASSERT(!core::is_negative(b));
+    using type = core::promoted_type<core::common_int_type<T, U>>;
+    type a_2 = core::int_cast_a<type>(a);
+    type b_2 = core::int_cast_a<type>(b);
+    return core::int_cast_a<T>(a_2 / b_2);
+}
+
+
 template<class T, class U> constexpr auto int_div_round_up(T a, U b) noexcept -> T
 {
     ARCHON_ASSERT(!core::is_negative(a));
@@ -2094,7 +2144,36 @@ template<class T, class U> constexpr auto int_div_round_half_down(T a, U b) noex
     type a_2 = core::int_cast_a<type>(a);
     type b_2 = core::int_cast_a<type>(b);
     core::IntDivMod<type> res = core::int_divmod(a_2, b_2);
-    if (ARCHON_LIKELY(res.rem <= type(b / 2)))
+    if (res.rem <= b_2 - res.rem)
+        return core::int_cast_a<T>(res.quot);
+    return core::int_cast_a<T>(res.quot + type(1));
+}
+
+
+template<class T, class U> constexpr auto int_div_round_half_up(T a, U b) noexcept -> T
+{
+    ARCHON_ASSERT(!core::is_negative(a));
+    ARCHON_ASSERT(!core::is_negative(b));
+    using type = core::promoted_type<core::common_int_type<T, U>>;
+    type a_2 = core::int_cast_a<type>(a);
+    type b_2 = core::int_cast_a<type>(b);
+    core::IntDivMod<type> res = core::int_divmod(a_2, b_2);
+    if (res.rem < b_2 - res.rem)
+        return core::int_cast_a<T>(res.quot);
+    return core::int_cast_a<T>(res.quot + type(1));
+}
+
+
+template<class T, class U> constexpr auto int_div_round_half_even(T a, U b) noexcept -> T
+{
+    ARCHON_ASSERT(!core::is_negative(a));
+    ARCHON_ASSERT(!core::is_negative(b));
+    using type = core::promoted_type<core::common_int_type<T, U>>;
+    type a_2 = core::int_cast_a<type>(a);
+    type b_2 = core::int_cast_a<type>(b);
+    core::IntDivMod<type> res = core::int_divmod(a_2, b_2);
+    type rev_rem = b_2 - res.rem;
+    if (res.rem < rev_rem || (res.rem == rev_rem && core::int_is_even(res.quot)))
         return core::int_cast_a<T>(res.quot);
     return core::int_cast_a<T>(res.quot + type(1));
 }
