@@ -14,8 +14,10 @@ if(CYGWIN)
   add_compile_options(-D_POSIX_C_SOURCE=200809)
 endif()
 
-# Necessary to increase number of sectinos in object file when using Cygwin (same effect as
-# `/bigobj` with MSVC).
+# Necessary increase of the maximum number of sectinos in object files
+if(MSVC)
+  add_compile_options(/bigobj)
+endif()
 if(CYGWIN)
   add_compile_options(-Wa,-mbig-obj)
 endif()
