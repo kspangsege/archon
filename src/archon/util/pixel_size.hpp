@@ -60,7 +60,8 @@ namespace archon::util::pixel {
 /// components. If there are two values, they must be separated by a comma `,`. Space is
 /// allowed between the comma and the second component.
 ///
-struct Size {
+class Size {
+public:
     /// \brief Components of size.
     ///
     /// These are the components of the size. `width` is the horizontal component, and
@@ -119,21 +120,6 @@ struct Size {
 
     /// \{
     ///
-    /// \brief Compare two boxes.
-    ///
-    /// These operators compare this size with the specified size (\p other). Comparison
-    /// happens lexicographically on \ref width followed by \ref height.
-    ///
-    constexpr bool operator==(Size other) const noexcept;
-    constexpr bool operator!=(Size other) const noexcept;
-    constexpr bool operator< (Size other) const noexcept;
-    constexpr bool operator<=(Size other) const noexcept;
-    constexpr bool operator> (Size other) const noexcept;
-    constexpr bool operator>=(Size other) const noexcept;
-    /// \}
-
-    /// \{
-    ///
     /// \brief Addition and subtraction of sizes.
     ///
     /// These functions compute the sum and difference, respectively, of this size and the
@@ -175,6 +161,8 @@ struct Size {
     constexpr auto with_width(int width) const noexcept -> Size;
     constexpr auto with_height(int height) const noexcept -> Size;
     /// \}
+
+    constexpr auto operator<=>(const Size&) const noexcept = default;
 };
 
 
@@ -288,42 +276,6 @@ constexpr bool Size::contains(const Size& other) const noexcept
 constexpr bool Size::contained_in(const Size& other) const noexcept
 {
     return (width <= other.width && height <= other.height);
-}
-
-
-constexpr bool Size::operator==(Size other) const noexcept
-{
-    return (width == other.width && height == other.height);
-}
-
-
-constexpr bool Size::operator!=(Size other) const noexcept
-{
-    return !(*this == other);
-}
-
-
-constexpr bool Size::operator<(Size other) const noexcept
-{
-    return (width < other.width || (width == other.width && height < other.height));
-}
-
-
-constexpr bool Size::operator<=(Size other) const noexcept
-{
-    return !(*this > other);
-}
-
-
-constexpr bool Size::operator>(Size other) const noexcept
-{
-    return (other < *this);
-}
-
-
-constexpr bool Size::operator>=(Size other) const noexcept
-{
-    return  !(*this < other);
 }
 
 

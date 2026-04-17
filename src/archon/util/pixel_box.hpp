@@ -46,7 +46,8 @@ namespace archon::util::pixel {
 /// Boxes can be formatted as text which happens when they are written to an output
 /// stream. The format is `<position>;<size>`.
 ///
-struct Box {
+class Box {
+public:
     /// \brief Position of upper-left corner of box.
     ///
     /// This is the position of the upper-right corner of the rectangular area that is this
@@ -139,18 +140,17 @@ struct Box {
 
     /// \{
     ///
-    /// \brief Compare two boxes.
+    /// \brief Construct new box by adding or subtracting size from box position.
     ///
-    /// These operators compare this box with the specified box (\p other). Comparison
-    /// happens lexicographically on \ref pos followed by \ref size.
+    /// `box + size` is shorthand for `image::Box(box.pos + size, box.size)`.
     ///
-    constexpr bool operator==(const Box& other) const noexcept;
-    constexpr bool operator!=(const Box& other) const noexcept;
-    constexpr bool operator< (const Box& other) const noexcept;
-    constexpr bool operator<=(const Box& other) const noexcept;
-    constexpr bool operator> (const Box& other) const noexcept;
-    constexpr bool operator>=(const Box& other) const noexcept;
+    /// `box - size` is shorthand for `image::Box(box.pos - size, box.size)`.
+    ///
+    constexpr auto operator+(pixel::Size size) const noexcept -> Box;
+    constexpr auto operator-(pixel::Size size) const noexcept -> Box;
     /// \}
+
+    constexpr auto operator<=>(const Box&) const noexcept = default;
 };
 
 
@@ -277,39 +277,15 @@ constexpr bool Box::clip(Box& other) const noexcept
 }
 
 
-constexpr bool Box::operator==(const Box& other) const noexcept
+constexpr auto Box::operator+(pixel::Size size) const noexcept -> Box
 {
-    return (pos == other.pos && size == other.size);
+    return { pos + size, this->size };
 }
 
 
-constexpr bool Box::operator!=(const Box& other) const noexcept
+constexpr auto Box::operator-(pixel::Size size) const noexcept -> Box
 {
-    return !(*this == other);
-}
-
-
-constexpr bool Box::operator<(const Box& other) const noexcept
-{
-    return (pos < other.pos || (pos == other.pos && size < other.size));
-}
-
-
-constexpr bool Box::operator<=(const Box& other) const noexcept
-{
-    return !(*this > other);
-}
-
-
-constexpr bool Box::operator>(const Box& other) const noexcept
-{
-    return (other < *this);
-}
-
-
-constexpr bool Box::operator>=(const Box& other) const noexcept
-{
-    return  !(*this < other);
+    return { pos - size, this->size };
 }
 
 

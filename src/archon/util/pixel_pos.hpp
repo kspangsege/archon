@@ -60,7 +60,8 @@ namespace archon::util::pixel {
 /// When a position is parsed, the two components must be separated by a comma `,`. Space is
 /// allowed between the comma and the second component.
 ///
-struct Pos {
+class Pos {
+public:
     /// \brief Components of position.
     ///
     /// These are the components of the position. `x` is the horizontal component, and `y`
@@ -99,21 +100,6 @@ struct Pos {
     ///
     constexpr bool can_add(pixel::Size size) const noexcept;
     constexpr bool can_sub(pixel::Size size) const noexcept;
-    /// \}
-
-    /// \{
-    ///
-    /// \brief Compare two boxes.
-    ///
-    /// These operators compare this position with the specified position (\p
-    /// other). Comparison happens lexicographically on \ref x followed by \ref y.
-    ///
-    constexpr bool operator==(Pos other) const noexcept;
-    constexpr bool operator!=(Pos other) const noexcept;
-    constexpr bool operator< (Pos other) const noexcept;
-    constexpr bool operator<=(Pos other) const noexcept;
-    constexpr bool operator> (Pos other) const noexcept;
-    constexpr bool operator>=(Pos other) const noexcept;
     /// \}
 
     /// \brief Difference between positions as size.
@@ -167,6 +153,8 @@ struct Pos {
     constexpr auto with_x(int x) const noexcept -> Pos;
     constexpr auto with_y(int y) const noexcept -> Pos;
     /// \}
+
+    constexpr auto operator<=>(const Pos&) const noexcept = default;
 };
 
 
@@ -234,42 +222,6 @@ constexpr bool Pos::can_add(pixel::Size size) const noexcept
 constexpr bool Pos::can_sub(pixel::Size size) const noexcept
 {
     return (core::can_int_sub(x, size.width) && core::can_int_sub(y, size.height));
-}
-
-
-constexpr bool Pos::operator==(Pos other) const noexcept
-{
-    return (x == other.x && y == other.y);
-}
-
-
-constexpr bool Pos::operator!=(Pos other) const noexcept
-{
-    return !(*this == other);
-}
-
-
-constexpr bool Pos::operator<(Pos other) const noexcept
-{
-    return (x < other.x || (x == other.x && y < other.y));
-}
-
-
-constexpr bool Pos::operator<=(Pos other) const noexcept
-{
-    return !(*this > other);
-}
-
-
-constexpr bool Pos::operator>(Pos other) const noexcept
-{
-    return (other < *this);
-}
-
-
-constexpr bool Pos::operator>=(Pos other) const noexcept
-{
-    return  !(*this < other);
 }
 
 
