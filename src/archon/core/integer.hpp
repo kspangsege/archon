@@ -2799,7 +2799,7 @@ template<class T> constexpr auto int_cbrt(T val) noexcept -> T
     if (ARCHON_LIKELY(v != type(0))) {
         type w = (type(1) << (core::int_find_msb_pos(core::to_unsigned(v)) / 3 + 1)) - type(1);
         for (;;) {
-            type w_2 = (2 * w + v / (w * w)) / type(3);
+            type w_2 = (type(2) * w + v / (w * w)) / type(3);
             if (ARCHON_LIKELY(w_2 < w)) {
                 w = w_2;
                 continue;

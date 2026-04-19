@@ -31,6 +31,7 @@
 #include <archon/core/integer.hpp>
 #include <archon/core/format.hpp>
 #include <archon/core/as_int.hpp>
+#include <archon/core/mul_prec_int.hpp>
 #include <archon/core/super_int.hpp>
 #include <archon/check.hpp>
 #include <archon/core/test/integer_tests.hpp>
@@ -1407,6 +1408,19 @@ ARCHON_TEST(Core_Integer_SquareRoot)
 {
     std::mt19937_64 random(test_context.seed_seq());
     core::for_each_type_alt<Types, TestSquareRoot>(test_context, random);
+
+    // Check that square-root function works for custom types
+    using type = core::MulPrecInt<unsigned, 2, true>;
+    ARCHON_CHECK_EQUAL(core::int_sqrt(type(0)), type(0));
+    ARCHON_CHECK_EQUAL(core::int_sqrt(type(1)), type(1));
+    ARCHON_CHECK_EQUAL(core::int_sqrt(type(2)), type(1));
+    ARCHON_CHECK_EQUAL(core::int_sqrt(type(3)), type(1));
+    ARCHON_CHECK_EQUAL(core::int_sqrt(type(4)), type(2));
+    ARCHON_CHECK_EQUAL(core::int_sqrt(type(5)), type(2));
+    ARCHON_CHECK_EQUAL(core::int_sqrt(type(6)), type(2));
+    ARCHON_CHECK_EQUAL(core::int_sqrt(type(7)), type(2));
+    ARCHON_CHECK_EQUAL(core::int_sqrt(type(8)), type(2));
+    ARCHON_CHECK_EQUAL(core::int_sqrt(type(9)), type(3));
 }
 
 
@@ -1414,6 +1428,19 @@ ARCHON_TEST(Core_Integer_CubeRoot)
 {
     std::mt19937_64 random(test_context.seed_seq());
     core::for_each_type_alt<Types, TestCubeRoot>(test_context, random);
+
+    // Check that cube-root function works for custom types
+    using type = core::MulPrecInt<unsigned, 2, true>;
+    ARCHON_CHECK_EQUAL(core::int_cbrt(type(0)), type(0));
+    ARCHON_CHECK_EQUAL(core::int_cbrt(type(1)), type(1));
+    ARCHON_CHECK_EQUAL(core::int_cbrt(type(2)), type(1));
+    ARCHON_CHECK_EQUAL(core::int_cbrt(type(3)), type(1));
+    ARCHON_CHECK_EQUAL(core::int_cbrt(type(4)), type(1));
+    ARCHON_CHECK_EQUAL(core::int_cbrt(type(5)), type(1));
+    ARCHON_CHECK_EQUAL(core::int_cbrt(type(6)), type(1));
+    ARCHON_CHECK_EQUAL(core::int_cbrt(type(7)), type(1));
+    ARCHON_CHECK_EQUAL(core::int_cbrt(type(8)), type(2));
+    ARCHON_CHECK_EQUAL(core::int_cbrt(type(9)), type(2));
 }
 
 
