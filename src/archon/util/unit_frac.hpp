@@ -24,6 +24,8 @@
 /// \file
 
 
+#include <limits>
+
 #include <archon/core/features.hpp>
 #include <archon/core/type.hpp>
 #include <archon/core/assert.hpp>
@@ -41,66 +43,87 @@
 namespace archon::util::unit_frac {
 
 
+/// \{
+///
 /// \brief Convert fraction of unity from integer-based to floating-point representation.
 ///
-/// This function produces a floating-point value that corresponds to the fraction of unity
-/// represented by the specified integer value. The returned value is `F(int_val) /
-/// max_int`.
+/// These functions produces a floating-point value that corresponds to the fraction of
+/// unity represented by the specified integer value. There are two available models for
+/// mapping a fraction of unity between floating-point and integer representations (see
+/// "Mapping models" below for a detailed discussion):
 ///
-/// There are two different mental models for what this function is doing; causing each of
-/// \ref unit_frac::flt_to_int() and \ref unit_frac::flt_to_int_a() to be a natural inverse
-/// operation.
+/// `int_to_flt<F>(int_val, max_int)` computes `F(int_val) / max_int`.
 ///
-/// Default model, where \ref unit_frac::flt_to_int() is the natural inverse operation: The
-/// range 0 -> 1 is divided into N equally sized intervals, where N is the number of
-/// available integer values, i.e., \p max_int + 1, and the size of each interval is
-/// 1/N. The I'th interval corresponds to the I'th integer value. The floating-point value
-/// returned by this function for some integer value, does not generally fall in the center
-/// of the corresponding interval. Instead, in order to ensure that integer values 0 and N-1
-/// map to floating-point values 0 and 1 respectively, a linearly varying shift is
-/// introduced such that, at integer value 0, it pushes the floating point value from 1/(2N)
-/// to 0; and, at integer value N-1, it pushes the floating point value from 1-1/(2N) to 1.
+/// `int_to_flt_a<F>(int_val, max_int)` computes `F(int_val + 0.5) / (max_int + 1)`.
 ///
-/// Alternate model, where \ref unit_frac::flt_to_int_a() is the natural inverse operation:
-/// The floating-point range -S/2 -> 1+S/2 is divided into N equally sized intervals, where
-/// N is the number of available integer values, i.e., \p max_int + 1, and S = 1/(N-1) is
-/// the interval size. The I'th interval corresponds to the I'th integer value. The
-/// floating-point value produced for a particular integer value lies in the center of the
-/// corresponding interval.
+/// While the nominal range for the specified integer value (\p int_val) is zero -> \p
+/// max_int, these functions do not require the specified value to be in this range, nor do
+/// they clamp it to the range. If the specified value is outside the range, the returned
+/// value will be less than zero or greater than one.
 ///
-/// If N was 4 (2 bit integer), the intervals would be as follows:
+/// \tparam F A standard floating-point type (std::is_floating_point).
+///
+/// \tparam I A standard integer type (std::is_integral).
+///
+/// \sa \ref unit_frac::int_to_flt(), \ref unit_frac::int_to_flt_a()
+/// \sa \ref unit_frac::flt_to_int(), \ref unit_frac::flt_to_int_a()
+/// \sa \ref unit_frac::int_to_int(), \ref unit_frac::int_to_int_a(), \ref unit_frac::change_bit_width()
+///
+///
+/// ### Mapping models
+///
+/// 1. Default model: Point-Sampled Quantization
+///
+///    Int to float: `F(int_val) / max_int`
+///
+///    Float to int: `round_half_even(flt_val * max_int)`
+///
+///    Functions: \ref unit_frac::int_to_flt(), \ref unit_frac::flt_to_int(), \ref
+///    unit_frac::int_to_int()
+///
+///    Domain: Computer Graphics, GPUs (Vulkan/OpenGL/DirectX), and Image Processing.
+///
+///    Behavior: Treats integers as dimensionless point-samples mapped to exactly `int_val /
+///    max_int`. The "bins" for zero and \p max_int are exactly half the width of interior
+///    bins (see diagram below). This ensures that a smooth gradient correctly reaches the
+///    absolute endpoints without statistical bias. Rounds to the even integer in half-way
+///    cases during conversion from floating-point to integer representation. This ensures
+///    reasonable numeric stability across multiple round-trip conversions. This is the
+///    industry standard for color conversion and alpha blending.
+///
+/// 2. Alternative model: Uniform Binning / Uniform Quantization
+///
+///    Int to float: `F(int_val + 0.5) / (max_int + 1)`
+///
+///    Float to int: `min(trunc(flt_val * (max_int + 1)), max_int)`
+///
+///    Functions: \ref unit_frac::int_to_flt_a(), \ref unit_frac::flt_to_int_a(), \ref
+///    unit_frac::int_to_int_a(), \ref unit_frac::change_bit_width()
+///
+///    Domain: DSP, Statistics, Spatial Subdivision, and hardware bit-replication.
+///
+///    Behavior: Divides the floating-point unit range into `max_int + 1` intervals of equal
+///    size (see diagram below). Every integer receives an exact, equal share of the
+///    floating-point domain.
+///
+///    Warning: Applying Uniform Binning to point-sampled image data (like standard 8-bit
+///    PNGs) will result in subtle color shifting and off-by-one errors during round-trip
+///    conversions. Use only for statistical binning or pure mathematical scaling.
+///
+/// Illustration of bin layout for the two models in a case where \p max_int is 3:
 ///
 ///              0                                               1
 ///     ---------|-----------------------------------------------|--------->
 ///              .                                               .
-///              |<--- 0 --->|<--- 1 --->|<--- 2 --->|<--- 3 --->|          Default model
+///      |<----- 0 ----->|<----- 1 ----->|<----- 2 ----->|<----- 3 ----->|  Default model
 ///              .                                               .
-///      |<----- 0 ----->|<----- 1 ----->|<----- 2 ----->|<----- 3 ----->|  Alternate model
-///
-/// For a integer value `i` of type `I` and a floating-point type `F`, the round trip
-/// `flt_to_int_a<I>(int_to_flt<F>(i))` (alternate model) is numerically more stable than
-/// `flt_to_int<I>(int_to_flt<F>(i))` (default model). The additional stability in the
-/// alternate model stems from the produced floating-point values being centered in the
-/// respective intervals.
-///
-/// There are two reasons why the alternate model is not the default model. The first reason
-/// is that under the alternate model, all integer values are not represented by an equal
-/// share of the unit interval (0 -> 1) which can lead to bias in some usage scenarios. The
-/// second reason is that the operation of \ref unit_frac::change_bit_width() is consistent
-/// with the model that is the default mode, and inconsistent with the alternate model.
-///
-/// While the nominal range for the specified integer value (\p int_val) is 0 -> \p max_int,
-/// this function does not require the specified value to be in this range, nor does it
-/// clamp it to the range. If the specified value is outside the range, the returned value
-/// will be less than 0 or greater than 1. Note however, that under the default model, due
-/// to the shifting, passing an integer value outside the nominal range will produced a
-/// nonsensical result (unstable round trip).
-///
-/// \sa \ref unit_frac::flt_to_int(), \ref unit_frac::flt_to_int_a()
-/// \sa \ref unit_frac::int_to_int(), \ref unit_frac::int_to_int_a()
+///              |<--- 0 --->|<--- 1 --->|<--- 2 --->|<--- 3 --->|          Alternative model
 ///
 template<class F, class I>
 constexpr auto int_to_flt(I int_val, core::Type<I> max_int = core::int_max<I>()) noexcept -> F;
+template<class F, class I>
+constexpr auto int_to_flt_a(I int_val, core::Type<I> max_int = core::int_max<I>()) noexcept -> F;
+/// \}
 
 
 /// \{
@@ -108,28 +131,27 @@ constexpr auto int_to_flt(I int_val, core::Type<I> max_int = core::int_max<I>())
 /// \brief Convert fraction of unity from floating-point to integer-based representation.
 ///
 /// These functions convert the specified floating-point representation of a fraction of
-/// unity to the corresponding integer representation. The two functions does it in slightly
-/// different ways.
+/// unity to the corresponding integer representation. The two functions do this in slightly
+/// different ways (see "Mapping models" under \ref unit_frac::int_to_flt() for a detailed
+/// discussion):
 ///
-/// `flt_to_int(flt_val, max_int)` returns `trunc(flt_val * (max_int + 1))` when `0 <=
-/// flt_val < 1`. The computation is done in a way that allows for \p max_int to be the
-/// maximum value for the type. When flt_val is 1, it returns `max_int`.
+/// `flt_to_int(flt_val, max_int)` computes `round_half_even(flt_val * max_int)` when \p
+/// flt_val is between zero and one.
 ///
-/// `flt_to_int_a(flt_val, max_int)` returns `round(flt_val * max_int)` when `0 <= flt_val
-/// <= 1`.
+/// `flt_to_int_a(flt_val, max_int)` computes `min(trunc(flt_val * (max_int + 1)), max_int)`
+/// when \p flt_val is between zero and one.
 ///
-/// See \ref unit_frac::int_to_flt() for further information on, and motivation for the two
-/// alternative forms.
-///
-/// These functions have clamping behavior, meaning that if the specified floating-point
-/// representation is out of bounds (less than zero, or greater than 1), the returned value
-/// is the one that corresponds to the boundary point nearest to the specified value (0 or
-/// 1).
+/// Both functions have clamping behavior, which means that they return zero when \p flt_val
+/// is less than zero and \p max_int when \p flt_val is greater than one.
 ///
 /// These functions convert NaN to zero.
 ///
-/// \sa \ref unit_frac::int_to_flt()
-/// \sa \ref unit_frac::int_to_int(), \ref unit_frac::int_to_int_a()
+/// \tparam I A standard integer type (std::is_integral).
+///
+/// \tparam F A standard floating-point type (std::is_floating_point).
+///
+/// \sa \ref unit_frac::flt_to_int(), \ref unit_frac::flt_to_int_a()
+/// \sa \ref unit_frac::int_to_flt(), \ref unit_frac::int_to_flt_a()
 ///
 template<class I, class F>
 constexpr auto flt_to_int(F flt_val, core::Type<I> max_int = core::int_max<I>()) noexcept -> I;
@@ -138,49 +160,37 @@ constexpr auto flt_to_int_a(F flt_val, core::Type<I> max_int = core::int_max<I>(
 /// \}
 
 
-/// \brief Convert fraction of unity between integer-based representations of different bit
-/// width.
-///
-/// This function converts a fraction of unity from an integer representation of width \p m
-/// to another integer representation of width \p n.
-///
-/// This function is functionally equivalent to `unit_frac::int_to_int<p, p>(v,
-/// core::int_mask<T>(m), core::int_mask<T>(n))` where `p = core::int_width<T>()`, but it is
-/// generally more efficient to compute.
-///
-/// Behavior is undefined if \p v is out of range, i.e., if it is less than zero, or greater
-/// than, or equal to `2^m`. So long as \p v is in range, the result is guaranteed to also
-/// be in range, i.e, greater than, or equal to zero, and less than `2^n`.
-///
-/// \sa \ref unit_frac::int_to_int()
-///
-template<class T> constexpr auto change_bit_width(T v, int m, int n) noexcept -> T;
-
-
 /// \{
 ///
 /// \brief Convert fraction of unity between integer-based representations.
 ///
 /// These functions convert a fraction of unity from one integer representation to
 /// another. Both the origin and target representations are specified in terms of their
-/// maximum value (\p max_1, \p max_2).
+/// maximum value (\p max_1, \p max_2). There are two available mapping models (see "Mapping
+/// models" under \ref unit_frac::int_to_flt() for a detailed discussion):
 ///
 /// In the case of `int_to_int()`, the conversion is an infinitely precise alternative to
-/// first converting to a floating point representation using \ref unit_frac::int_to_flt()
-/// and then to the target integer representation using \ref unit_frac::flt_to_int().
+/// first converting to floating-point representation using \ref unit_frac::int_to_flt() and
+/// then to the target integer representation using \ref unit_frac::flt_to_int().
 ///
 /// In the case of `int_to_int_a()`, the conversion is an infinitely precise alternative to
-/// first converting to a floating point representation using \ref unit_frac::int_to_flt()
+/// first converting to floating-point representation using \ref unit_frac::int_to_flt()
 /// and then to the target integer representation using \ref unit_frac::flt_to_int_a().
+///
+/// The overloads that only take one argument are shorthands for passing
+/// `core::int_mask<I>(M)` for `max_1` and `core::int_mask<I>(N)` for `max_2`.
 ///
 /// For the special case where both \p max_1 and \p max_2 are one minus a power of two, see
 /// \ref change_bit_width().
 ///
-/// \tparam N A limit on the number of value bits needed to represent \p max_1. In general,
+/// \tparam M A limit on the number of value bits needed to represent \p max_1. In general,
 /// a lower value leads to a more efficient conversion operation.
 ///
-/// \tparam M A limit on the number of value bits needed to represent \p max_2. In general,
+/// \tparam N A limit on the number of value bits needed to represent \p max_2. In general,
 /// a lower value leads to a more efficient conversion operation.
+///
+/// \tparam I, J These must conform to the integer concept (\ref
+/// Concept_Archon_Core_Integer).
 ///
 /// \param val A value of the origin representation to be converted to the target
 /// representation. The result is unspecified if this is negative or greater than \p max_1.
@@ -191,12 +201,36 @@ template<class T> constexpr auto change_bit_width(T v, int m, int n) noexcept ->
 /// \param max_2 The maximum value for the target representation. Behavior is undefined if
 /// this is negative or zero.
 ///
-/// \sa \ref unit_frac::change_bit_width()
-/// \sa \ref unit_frac::int_to_flt(), \ref unit_frac::flt_to_int(), \ref unit_frac::flt_to_int_a()
+/// \sa \ref unit_frac::int_to_int(), \ref unit_frac::int_to_int_a(), \ref unit_frac::change_bit_width()
+/// \sa \ref unit_frac::int_to_flt(), \ref unit_frac::int_to_flt_a()
+/// \sa \ref unit_frac::flt_to_int(), \ref unit_frac::flt_to_int_a()
 ///
-template<int N, int M, class I, class J> auto int_to_int(I val, I max_1, J max_2) noexcept -> J;
-template<int N, int M, class I, class J> auto int_to_int_a(I val, I max_1, J max_2) noexcept -> J;
+template<int M, int N, class I>          constexpr auto int_to_int(I val) noexcept -> I;
+template<int M, int N, class I>          constexpr auto int_to_int_a(I val) noexcept -> I;
+template<int M, int N, class I, class J> constexpr auto int_to_int(I val, I max_1, J max_2) noexcept -> J;
+template<int M, int N, class I, class J> constexpr auto int_to_int_a(I val, I max_1, J max_2) noexcept -> J;
 /// \}
+
+
+/// \brief Convert fraction of unity between integer-based representations of different bit
+/// width.
+///
+/// This function converts a fraction of unity from an integer representation of width \p m
+/// to another integer representation of width \p n.
+///
+/// This function is functionally equivalent to `unit_frac::int_to_int_a<p, p>(v,
+/// core::int_mask<T>(m), core::int_mask<T>(n))` where `p = core::int_width<T>()`, but it is
+/// generally more efficient to compute.
+///
+/// Behavior is undefined if \p v is out of range, i.e., if it is less than zero, or greater
+/// than, or equal to `2^m`. So long as \p v is in range, the result is guaranteed to also
+/// be in range, i.e, greater than, or equal to zero, and less than `2^n`.
+///
+/// \tparam T Must conform to the integer concept (\ref Concept_Archon_Core_Integer).
+///
+/// \sa \ref unit_frac::int_to_int_a()
+///
+template<class T> constexpr auto change_bit_width(T v, int m, int n) noexcept -> T;
 
 
 
@@ -208,34 +242,73 @@ template<int N, int M, class I, class J> auto int_to_int_a(I val, I max_1, J max
 // Implementation
 
 
-namespace impl {
-
-
-template<class I, bool alt, class F>
-constexpr auto flt_to_int(F flt_val, core::Type<I> max_int) noexcept -> I
+template<class F, class I> constexpr auto int_to_flt(I int_val, core::Type<I> max_int) noexcept -> F
 {
-    // The max value for the type is necessarily odd. This is needed below where 1 is added
-    // when the value is even.
-    static_assert((core::int_max<I>() & 1) == 1);
-    F v = flt_val;
-    if (ARCHON_LIKELY(v >= F(0))) {
-        if constexpr (!alt) {
-            // Model: Default
-            // Intuition: v = floor(v * (max_int + 1))
-            v *= ((max_int & 1) == 1 ? F(2 * F(+max_int / 2 + 1)) : F(max_int + 1));
-        }
-        else {
-            // Model: Alternate
-            // Intuition: v = round(v * max_int)
-            v *= F(max_int);
-            v += F(1) / 2;
-        }
+    return F(F(int_val) / F(max_int));
+}
+
+
+template<class F, class I> constexpr auto int_to_flt_a(I int_val, core::Type<I> max_int) noexcept -> F
+{
+    static_assert(core::int_is_odd(core::int_max<I>())); // Needed below
+    auto max_int_2 = core::promote(max_int);
+    return (F(int_val) + F(0.5)) / (core::int_is_odd(max_int_2) ? 2 * F(max_int_2 / 2 + 1) : F(max_int_2 + 1));
+}
+
+
+template<class I, class F> constexpr auto flt_to_int(F flt_val, core::Type<I> max_int) noexcept -> I
+{
+    // Intuition: round_half_even(flt_val * max_int) plus clamping behavior
+    if (ARCHON_LIKELY(flt_val >= F(0))) {
+        // The following multiplication involves a rounding to the nearest representable
+        // floating-point value. This is the only place where loss of precision can occur in
+        // this function in a way that affects the result.
+        F flt_val_2 = flt_val * F(max_int);
         // Avoid undefined behavior in the conversion from floating point to integer.
         F max_flt = core::max_float_for_int<F, I>();
-        if (ARCHON_LIKELY(v <= max_flt)) {
-            I w = core::float_to_int_a<I>(v);
-            if (ARCHON_LIKELY(w <= max_int))
-                return w;
+        if (ARCHON_LIKELY(flt_val_2 <= max_flt)) {
+            using int_type = core::promoted_type<I>;
+            int_type int_val = int_type(flt_val_2);
+            if (ARCHON_LIKELY(int_val < int_type(max_int))) {
+                using lim_type = std::numeric_limits<F>;
+                if constexpr (core::int_is_even(lim_type::radix) && ARCHON_ENABLE_PLATFORM_OPTIMIZATIONS) {
+                    F diff = flt_val_2 - F(int_val);
+                    F half = 0.5; // Exactly representable
+                    if (diff < half)
+                        return I(int_val);
+                    if (diff > half)
+                        return I(int_val + 1);
+                }
+                else {
+                    // Note on precision: While `flt_val_2 - F(int_val)` is always computed
+                    // exactly (due to Sterbenz's Lemma and catastrophic cancellation of the
+                    // integer bits), `F(int_val + 1) - flt_val_2` can suffer from precision
+                    // loss if `flt_val_2` is very close to `int_val`. This happens because
+                    // aligning the exponents forces the tiny fractional bits off the right
+                    // edge of the mantissa.
+                    //
+                    // However, this precision loss is mathematically harmless. It only
+                    // occurs when `flt_val_2` is extremely close to the floor, meaning
+                    // `dist_down` will be orders of magnitude smaller than `dist_up`. The
+                    // comparisons will trivially succeed despite the rounding error.
+                    //
+                    // Conversely, when `flt_val_2` approaches the exact halfway point
+                    // (where precision is critical to resolve the tie-breaker), the
+                    // exponents of the two operands align perfectly. In that region, the
+                    // subtraction is guaranteed to be mathematically exact, ensuring
+                    // flawless Banker's Rounding.
+                    //
+                    F dist_down = flt_val_2 - F(int_val);
+                    F dist_up   = F(int_val + 1) - flt_val_2;
+                    if (dist_down < dist_up)
+                        return I(int_val);
+                    if (dist_down > dist_up)
+                        return I(int_val + 1);
+                }
+                if (core::int_is_even(int_val))
+                    return I(int_val);
+                return I(int_val + 1);
+            }
         }
         return max_int;
     }
@@ -243,26 +316,58 @@ constexpr auto flt_to_int(F flt_val, core::Type<I> max_int) noexcept -> I
 }
 
 
-} // namespace impl
-
-
-template<class F, class I> constexpr auto int_to_flt(I int_val, core::Type<I> max_int) noexcept -> F
-{
-    return F(F(int_val) / F(max_int));
-}
-
-
-template<class I, class F> constexpr auto flt_to_int(F flt_val, core::Type<I> max_int) noexcept -> I
-{
-    constexpr bool alt = false;
-    return impl::flt_to_int<I, alt>(flt_val, max_int);
-}
-
-
 template<class I, class F> constexpr auto flt_to_int_a(F flt_val, core::Type<I> max_int) noexcept -> I
 {
-    constexpr bool alt = true;
-    return impl::flt_to_int<I, alt>(flt_val, max_int);
+    // Intuition: min(floor(flt_val * (max_int + 1)), max_int) plus clamping behavior
+    if (ARCHON_LIKELY(flt_val >= F(0))) {
+        // The max value for the type is necessarily odd. This is needed below where 1 is
+        // added when the value is even.
+        static_assert((core::int_max<I>() & 1) == 1);
+        F flt_val_2 = flt_val * (core::int_is_odd(max_int) ? F(2 * F(+max_int / 2 + 1)) : F(max_int + 1));
+        // Avoid undefined behavior in the conversion from floating point to integer.
+        F max_flt = core::max_float_for_int<F, I>();
+        if (ARCHON_LIKELY(flt_val_2 <= max_flt)) {
+            using int_type = core::promoted_type<I>;
+            int_type int_val = int_type(flt_val_2);
+            if (ARCHON_LIKELY(int_val <= int_type(max_int)))
+                return I(int_val);
+        }
+        return max_int;
+    }
+    return I(0);
+}
+
+
+template<int M, int N, class I> constexpr auto int_to_int(I val) noexcept -> I
+{
+    if constexpr (M != 0 && N % M == 0)
+        return unit_frac::change_bit_width(val, M, N);
+    return unit_frac::int_to_int<M, N>(val, core::int_mask<I>(M), core::int_mask<I>(N));
+}
+
+
+template<int M, int N, class I> constexpr auto int_to_int_a(I val) noexcept -> I
+{
+    return unit_frac::change_bit_width(val, M, N);
+}
+
+
+template<int M, int N, class I, class J> constexpr auto int_to_int(I val, I max_1, J max_2) noexcept -> J
+{
+    using type = core::fast_unsigned_ext_int_type<M + N>;
+    type val_2 = core::int_cast_a<type>(val) * core::int_cast_a<type>(max_2);
+    return core::int_cast_a<J>(core::int_div_round_half_even(val_2, max_1));
+}
+
+
+template<int M, int N, class I, class J> constexpr auto int_to_int_a(I val, I max_1, J max_2) noexcept -> J
+{
+    if (ARCHON_LIKELY(val < max_1)) {
+        using type = core::fast_unsigned_ext_int_type<M + N>;
+        type val_2 = core::int_cast_a<type>(val) * (core::int_cast_a<type>(max_2) + type(1));
+        return core::int_cast_a<J>(core::int_div_round_down(val_2, max_1));
+    }
+    return max_2;
 }
 
 
@@ -283,28 +388,9 @@ template<class T> constexpr auto change_bit_width(T v, int n, int m) noexcept ->
             return core::int_cast_a<T>(r != 0 ? v_2 << r | v_2 >> (n_2 - r) : v_2);
         }
         // Double the bit sequence when possible, since this is particularly easy
-        v_2 *= (type(1) << n_2) + 1;
+        v_2 *= (type(1) << n_2) + type(1);
         n_2 = n_3;
     }
-}
-
-
-template<int N, int M, class I, class J> auto int_to_int(I val, I max_1, J max_2) noexcept -> J
-{
-    if (ARCHON_LIKELY(val < max_1)) {
-        using type = core::fast_unsigned_ext_int_type<N + M>;
-        type val_2 = core::int_cast_a<type>(val) * (core::int_cast_a<type>(max_2) + type(1));
-        return core::int_cast_a<J>(core::int_div_round_down(val_2, max_1));
-    }
-    return max_2;
-}
-
-
-template<int N, int M, class I, class J> auto int_to_int_a(I val, I max_1, J max_2) noexcept -> J
-{
-    using type = core::fast_unsigned_ext_int_type<N + M>;
-    type val_2 = core::int_cast_a<type>(val) * core::int_cast_a<type>(max_2);
-    return core::int_cast_a<J>(core::int_div_round_half_down(val_2, max_1));
 }
 
 

@@ -669,15 +669,13 @@ inline MultFieldPixelFormat<G, T, N>::MultFieldPixelFormat(Display* dpy, const X
 template<bool G, class T, int N>
 auto MultFieldPixelFormat<G, T, N>::intern_color(util::Color color) const noexcept -> unsigned long
 {
-    // FIXME: Is the proper scaling scheme used here?                   
-
     namespace uf = util::unit_frac;
     using ulong = unsigned long;
 
     auto scale = [](util::Color::comp_type val, ulong max) noexcept {
         constexpr int n = 8;
         constexpr int m = 16;
-        return uf::int_to_int_a<n, m>(val, util::Color::comp_type(255), max);
+        return uf::int_to_int<n, m>(val, util::Color::comp_type(255), max);
     };
 
     auto expand = [](util::Color::comp_type val) noexcept -> double {
@@ -685,7 +683,7 @@ auto MultFieldPixelFormat<G, T, N>::intern_color(util::Color color) const noexce
     };
 
     auto compress = [](double val, ulong max) noexcept -> ulong {
-        return uf::flt_to_int_a<ulong>(util::srgb_gamma_compress(val), max);
+        return uf::flt_to_int<ulong>(util::srgb_gamma_compress(val), max);
     };
 
     ulong r = 0, g = 0, b = 0;
@@ -1351,8 +1349,7 @@ bool PixelFormatCreator::create_grayscale(std::unique_ptr<x11::PixelFormat>& for
                 namespace uf = util::unit_frac;
                 int i = 0;
                 while (i < num_levels) {
-                    // FIXME: Is this the proper scaling scheme?                 
-                    color.red = uf::int_to_int_a<n, m>(i, num_levels - 1, ulong(65535));
+                    color.red = uf::int_to_int<n, m>(i, num_levels - 1, ulong(65535));
                     color.green = color.red;
                     color.blue  = color.red;
                     Status status = XAllocColor(m_dpy, colormap, &color);
@@ -1501,12 +1498,11 @@ bool PixelFormatCreator::create_pseudocolor(std::unique_ptr<x11::PixelFormat>& f
                 namespace uf = util::unit_frac;
                 int i = 0;
                 for (int r = 0; r < num_red; ++r) {
-                    // FIXME: Is this the proper scaling scheme?                 
-                    color.red = uf::int_to_int_a<n, m>(r, num_red - 1, ulong(65535));
+                    color.red = uf::int_to_int<n, m>(r, num_red - 1, ulong(65535));
                     for (int g = 0; g < num_green; ++g) {
-                        color.green = uf::int_to_int_a<n, m>(g, num_green - 1, ulong(65535));
+                        color.green = uf::int_to_int<n, m>(g, num_green - 1, ulong(65535));
                         for (int b = 0; b < num_blue; ++b) {
-                            color.blue = uf::int_to_int_a<n, m>(b, num_blue - 1, ulong(65535));
+                            color.blue = uf::int_to_int<n, m>(b, num_blue - 1, ulong(65535));
                             Status status = XAllocColor(m_dpy, colormap, &color);
                             if (ARCHON_LIKELY(status == 0))
                                 goto fail;
@@ -3026,7 +3022,8 @@ void x11::init_grayscale_colormap(Display* dpy, Colormap colormap, const x11::Mu
     auto scale = [](int val, ulong max) noexcept -> ulong {
         ARCHON_ASSERT(max <= 65535u);
         ARCHON_ASSERT(val >= 0 && unsigned(val) <= max);
-        return core::int_div_round_half_down(ulong(val) * 65535, max); // FIXME: Is this the proper scaling scheme?                 
+        namespace uf = util::unit_frac;
+        return uf::int_to_int<16, 16>(ulong(val), max, ulong(65535));
     };
 
     constexpr int max_chunk_size = 256;
@@ -3082,7 +3079,8 @@ void x11::init_pseudocolor_colormap(Display* dpy, Colormap colormap, const x11::
     auto scale = [](int val, ulong max) noexcept -> ulong {
         ARCHON_ASSERT(max <= 65535u);
         ARCHON_ASSERT(val >= 0 && unsigned(val) <= max);
-        return core::int_div_round_half_down(ulong(val) * 65535, max); // FIXME: Is this the proper scaling scheme?                 
+        namespace uf = util::unit_frac;
+        return uf::int_to_int<16, 16>(ulong(val), max, ulong(65535));
     };
 
     constexpr int max_chunk_size = 256;
@@ -3149,7 +3147,7 @@ void x11::init_directcolor_colormap(Display* dpy, Colormap colormap, const x11::
             color = {};
             long j = offset + i;
             if (j < num_red) {
-                long val = uf::change_bit_width(j, fields.red_width, 16);
+                long val = uf::int_to_int<16, 16>(j, core::int_mask<long>(fields.red_width), 65535L);
                 if (weird)
                     val = 65535 - val;
                 color.pixel |= ulong(j) << fields.red_shift;
@@ -3157,13 +3155,13 @@ void x11::init_directcolor_colormap(Display* dpy, Colormap colormap, const x11::
                 color.flags |= DoRed;
             }
             if (j < num_green) {
-                long val = uf::change_bit_width(j, fields.green_width, 16);
+                long val = uf::int_to_int<16, 16>(j, core::int_mask<long>(fields.green_width), 65535L);
                 color.pixel |= ulong(j) << fields.green_shift;
                 color.green = ushort(val);
                 color.flags |= DoGreen;
             }
             if (j < num_blue) {
-                long val = uf::change_bit_width(j, fields.blue_width, 16);
+                long val = uf::int_to_int<16, 16>(j, core::int_mask<long>(fields.blue_width), 65535L);
                 color.pixel |= ulong(j) << fields.blue_shift;
                 color.blue = ushort(val);
                 color.flags |= DoBlue;

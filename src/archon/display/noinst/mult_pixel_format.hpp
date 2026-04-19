@@ -436,7 +436,7 @@ inline auto MultPixelFormat<C, F, W, B, D, E>::get_component(const compound_type
         constexpr int m = image::comp_repr_int_bit_width(transf_repr);
         using unpacked_transf_type = image::unpacked_comp_type<transf_repr>;
         unpacked_transf_type max_2 = image::comp_repr_unpacked_max<transf_repr>();
-        unpacked_transf_type val_2 = uf::int_to_int_a<n, m>(val, max, max_2);
+        unpacked_transf_type val_2 = uf::int_to_int<n, m>(val, max, max_2);
         return image::comp_repr_pack<transf_repr>(val_2);
     }
     else {
@@ -466,7 +466,7 @@ inline void MultPixelFormat<C, F, W, B, D, E>::set_component(compound_type* comp
         using unpacked_transf_type = image::unpacked_comp_type<transf_repr>;
         unpacked_transf_type val_2 = image::comp_repr_unpack<transf_repr>(value);
         unpacked_transf_type max_2 = image::comp_repr_unpacked_max<transf_repr>();
-        components[i] = uf::int_to_int_a<n, m>(val_2, max_2, max);
+        components[i] = uf::int_to_int<n, m>(val_2, max_2, max);
     }
     else {
         static_assert(std::is_same_v<transf_comp_type, image::float_type>);
@@ -474,10 +474,10 @@ inline void MultPixelFormat<C, F, W, B, D, E>::set_component(compound_type* comp
         if (!is_alpha) {
             using type = decltype(image::float_type() * double());
             type val_2 = util::srgb_gamma_compress(type(value));
-            components[i] = uf::flt_to_int_a<compound_type>(val_2, max);
+            components[i] = uf::flt_to_int<compound_type>(val_2, max);
         }
         else {
-            components[i] = uf::flt_to_int_a<compound_type>(value, max);
+            components[i] = uf::flt_to_int<compound_type>(value, max);
         }
     }
 }

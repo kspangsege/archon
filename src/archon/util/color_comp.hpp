@@ -41,7 +41,7 @@ namespace archon::util {
 /// component value packed into a bit medium of width M (\ref
 /// util::is_bit_medium_of_width). The returned value is the scaled N-bit component value
 /// packed into a bit medium of width N. The scaling from an M-bit to an N-bit integer-based
-/// representation is performed by \ref util::unit_frac::change_bit_width().
+/// representation is performed by \ref util::unit_frac::int_to_int().
 ///
 /// \tparam J The type of the specified value. This must be a bit medium of width M.
 ///
@@ -101,8 +101,7 @@ template<int M, class I, int N, class J> constexpr auto color_comp_int_to_int(J 
     using type_3 = core::common_int_type<type_1, type_2>;
     namespace uf = util::unit_frac;
     type_1 val_2 = util::unpack_int<M>(val);
-    // FIXME: Is this definitely the right scaling scheme?                                                                                                                                     
-    type_3 val_3 = uf::change_bit_width(type_3(val_2), M, N);
+    type_3 val_3 = uf::int_to_int<M, N>(type_3(val_2));
     return util::pack_int<I, N>(val_3);
 }
 

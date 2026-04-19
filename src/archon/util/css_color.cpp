@@ -67,17 +67,6 @@ constexpr auto to_rgba(int_comp_type r, int_comp_type g, int_comp_type b, int_co
 }
 
 
-// Using flt_to_int() instead of flt_to_int_a() below because it distributes the floating
-// point values more evenly across into the available integer "buckets", especially the
-// buckets corresponding to 0 and 255.
-//
-// This choice is safe because 255 as `max_int` is small enough compared to the precision of
-// `flt_comp_type` that flt_to_int() is as robust as flt_to_int_a() in practice. I.e.,
-// flt_to_int<int_comp_type>(int_to_flt<flt_comp_type>(i)) will always be equal to `i` for
-// all values of `i` less than, or equal to 255 assuming that `flt_comp_type` has at least
-// as much precision as the single-precision type specified by IEEE 754.
-
-
 auto to_hex(flt_comp_type r, flt_comp_type g, flt_comp_type b, flt_comp_type a) noexcept -> util::CssColor::Hex
 {
     int_comp_type r_2 = util::unit_frac::flt_to_int<int_comp_type>(r, 255);
