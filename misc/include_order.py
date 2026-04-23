@@ -65,7 +65,7 @@ def get_inclusions(header_path):
                 if not line:
                     break
                 line = line.rstrip("\n")
-                match = re.fullmatch("(\s*#\s*include\s*<(archon/.*)>\s*)", line)
+                match = re.fullmatch(r"(\s*#\s*include\s*<(archon/.*)>\s*)", line)
                 if match:
                     line         = match.group(1)
                     incl_subpath = match.group(2)
