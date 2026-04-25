@@ -125,30 +125,30 @@ Synopsis:  sh  $0  help
       or:  sh  $0  ubsan
       or:  sh  $0  ubsan-release
       or:  sh  $0  ubsan-debug
-      or:  sh  $0  check                [<test harness arg>...]
-      or:  sh  $0  check-release        [<test harness arg>...]
-      or:  sh  $0  check-debug          [<test harness arg>...]
-      or:  sh  $0  check-asan           [<test harness arg>...]
-      or:  sh  $0  check-asan-release   [<test harness arg>...]
-      or:  sh  $0  check-asan-debug     [<test harness arg>...]
-      or:  sh  $0  check-tsan           [<test harness arg>...]
-      or:  sh  $0  check-tsan-release   [<test harness arg>...]
-      or:  sh  $0  check-tsan-debug     [<test harness arg>...]
-      or:  sh  $0  check-ubsan          [<test harness arg>...]
-      or:  sh  $0  check-ubsan-release  [<test harness arg>...]
-      or:  sh  $0  check-ubsan-debug    [<test harness arg>...]
-      or:  sh  $0  check-time           [<test harness arg>...]
-      or:  sh  $0  check-time-release   [<test harness arg>...]
-      or:  sh  $0  check-time-debug     [<test harness arg>...]
-      or:  sh  $0  check-vg             [<test harness arg>...]
-      or:  sh  $0  check-vg-release     [<test harness arg>...]
-      or:  sh  $0  check-vg-debug       [<test harness arg>...]
-      or:  sh  $0  check-gdb            [<test harness arg>...]
-      or:  sh  $0  check-gdb-release    [<test harness arg>...]
-      or:  sh  $0  check-gdb-debug      [<test harness arg>...]
-      or:  sh  $0  check-lldb           [<test harness arg>...]
-      or:  sh  $0  check-lldb-release   [<test harness arg>...]
-      or:  sh  $0  check-lldb-debug     [<test harness arg>...]
+      or:  sh  $0  check                [<arg>...]
+      or:  sh  $0  check-release        [<arg>...]
+      or:  sh  $0  check-debug          [<arg>...]
+      or:  sh  $0  check-asan           [<arg>...]
+      or:  sh  $0  check-asan-release   [<arg>...]
+      or:  sh  $0  check-asan-debug     [<arg>...]
+      or:  sh  $0  check-tsan           [<arg>...]
+      or:  sh  $0  check-tsan-release   [<arg>...]
+      or:  sh  $0  check-tsan-debug     [<arg>...]
+      or:  sh  $0  check-ubsan          [<arg>...]
+      or:  sh  $0  check-ubsan-release  [<arg>...]
+      or:  sh  $0  check-ubsan-debug    [<arg>...]
+      or:  sh  $0  check-time           [<arg>...]
+      or:  sh  $0  check-time-release   [<arg>...]
+      or:  sh  $0  check-time-debug     [<arg>...]
+      or:  sh  $0  check-vg             [<arg>...]
+      or:  sh  $0  check-vg-release     [<arg>...]
+      or:  sh  $0  check-vg-debug       [<arg>...]
+      or:  sh  $0  check-gdb            [<arg>...]
+      or:  sh  $0  check-gdb-release    [<arg>...]
+      or:  sh  $0  check-gdb-debug      [<arg>...]
+      or:  sh  $0  check-lldb           [<arg>...]
+      or:  sh  $0  check-lldb-release   [<arg>...]
+      or:  sh  $0  check-lldb-debug     [<arg>...]
       or:  sh  $0  run                <path>  [<arg>...]
       or:  sh  $0  run-release        <path>  [<arg>...]
       or:  sh  $0  run-debug          <path>  [<arg>...]
@@ -173,6 +173,14 @@ Synopsis:  sh  $0  help
       or:  sh  $0  run-lldb           <path>  [<arg>...]
       or:  sh  $0  run-lldb-release   <path>  [<arg>...]
       or:  sh  $0  run-lldb-debug     <path>  [<arg>...]
+
+Options:
+    -n, --no-parallel
+    -s, --stop-on-error
+    -e, --warnings-are-errors
+
+To be recognized, these options need to be placed immediately after $0
+
 EOF
         exit 0
         ;;
