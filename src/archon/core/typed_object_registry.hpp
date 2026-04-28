@@ -61,11 +61,19 @@ public:
 
     /// \brief Register object by type.
     ///
-    /// This function adds the specified object reference to the registry. The reference can
-    /// later be retrieved using \ref get(). If an object of the same type was previously
-    /// registered, the earlier registration will be forgotten.
+    /// Add the specified object reference to the registry. The reference can later be
+    /// retrieved using \ref get(). If an object of the same type was previously registered,
+    /// the earlier registration will be forgotten.
     ///
     template<class T> void register_(T& obj);
+
+    /// \brief Check for object registration and assign.
+    ///
+    /// Shorthand for `const T* ptr = get<const T>()` followed by `obj = *ptr` if `ptr` is
+    /// not null. Returns true if the assignment to \p obj was made. Returns false
+    /// otherwise.
+    ///
+    template<class T> bool get(T& obj) const noexcept(std::is_nothrow_copy_assignable_v<T>);
 
     /// \brief Retrieve registered object by type.
     ///
@@ -105,6 +113,18 @@ template<class T> void TypedObjectRegistry<B, N>::register_(T& obj)
         return;
     }
     throw std::length_error("Registry size");
+}
+
+
+template<class B, std::size_t N>
+template<class T> inline bool TypedObjectRegistry<B, N>::get(T& obj) const
+    noexcept(std::is_nothrow_copy_assignable_v<T>)
+{
+    const T* ptr = get<const T>();
+    if (!ptr)
+        return false;
+    obj = *ptr; // Throws
+    return true;
 }
 
 
