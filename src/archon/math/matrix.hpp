@@ -24,6 +24,7 @@
 /// \file
 
 
+#include <cmath>
 #include <algorithm>
 #include <array>
 #include <ostream>
@@ -580,7 +581,17 @@ constexpr auto inner(const math::Matrix<M, N, T>& a, const math::Matrix<N, P, U>
 /// order.
 ///
 template<int M, int N, class T = double, int P, int Q, class U>
-constexpr auto extend(const math::Matrix<P, Q, U>& mat, int i, int j) -> math::Matrix<M, N, T>;
+constexpr auto extend(const math::Matrix<P, Q, U>& mat, int i, int j) noexcept -> math::Matrix<M, N, T>;
+
+
+/// \brief Construct standard 2-by-2 rotation matrix.
+///
+/// Construct standard 2-by-2 rotation matrix from specified angle. The angle is specified
+/// in radians.
+///
+/// FIXME: Make constexpr when switching to C++26
+///
+template<class T> auto rot(T angle) noexcept -> math::Matrix<2, 2, T>;
 
 
 /// \brief Invert square matrix.
@@ -1182,11 +1193,22 @@ constexpr auto inner(const math::Matrix<M, N, T>& a, const math::Matrix<N, P, U>
 
 
 template<int M, int N, class T, int P, int Q, class U>
-constexpr auto extend(const math::Matrix<P, Q, U>& mat, int i, int j) -> math::Matrix<M, N, T>
+constexpr auto extend(const math::Matrix<P, Q, U>& mat, int i, int j) noexcept -> math::Matrix<M, N, T>
 {
     math::Matrix<M, N, T> mat_2;
     mat_2.set_submatrix(i, j, mat);
     return mat_2;
+}
+
+
+template<class T> auto rot(T angle) noexcept -> math::Matrix<2, 2, T>
+{
+    T sin = std::sin(angle);
+    T cos = std::cos(angle);
+    return {
+        { cos, -sin },
+        { sin,  cos },
+    };
 }
 
 
