@@ -85,6 +85,7 @@ namespace archon::math {
 /// \sa \ref inner(const math::Vector<M, T>&, const math::Matrix<M, N, U>&)
 /// \sa \ref inner(const math::Matrix<M, N, T>&, const math::Matrix<N, P, U>&)
 /// \sa \ref extend(const math::Matrix<P, Q, U>&, int, int)
+/// \sa \ref math::rot(T)
 /// \sa \ref math::try_inv()
 /// \sa \ref math::try_lower_tri_inv()
 /// \sa \ref math::try_upper_tri_inv()
@@ -125,6 +126,20 @@ public:
     /// matrix.
     ///
     static constexpr auto identity() noexcept -> Matrix;
+
+    /// \{
+    ///
+    /// \brief Construct diagonal matrix.
+    ///
+    /// The overload that takes a scalar argument constructs a diagonal matrix with the
+    /// specified value in all the diagonal entries.
+    ///
+    /// The overload that takes a vector argument constructs a diagonal matrix where the
+    /// diagonal has entries corresponding to the specified vector.
+    ///
+    static constexpr auto diag(T val) noexcept -> Matrix;
+    static constexpr auto diag(const diag_type& diag) noexcept -> Matrix;
+    /// \}
 
     /// \{
     ///
@@ -732,7 +747,23 @@ constexpr Matrix<M, N, T>::Matrix(const Matrix<P, Q, U>& mat, T diag_fill, T non
 template<int M, int N, class T>
 constexpr auto Matrix<M, N, T>::identity() noexcept -> Matrix
 {
-    return generate([](int i, int j) noexcept { return (i == j ? 1 : 0); });
+    return diag(1);
+}
+
+
+template<int M, int N, class T>
+constexpr auto Matrix<M, N, T>::diag(T val) noexcept -> Matrix
+{
+    return generate([&](int i, int j) noexcept { return (i == j ? val : 0); });
+}
+
+
+template<int M, int N, class T>
+constexpr auto Matrix<M, N, T>::diag(const diag_type& diag) noexcept -> Matrix
+{
+    Matrix mat;
+    mat.set_diag(diag);
+    return mat;
 }
 
 
