@@ -47,14 +47,14 @@ struct empty {
 /// `std::identity_type`, but is shorter. Its uses include the following:
 ///
 ///  * Creation of non-deduced context for template argument deduction (see \ref
-///    core::Type).
+///    core::type).
 ///
 ///  * Passage of a type into a generic lambda (see \ref core::for_each_type()).
 ///
 ///  * Preservation of exact type (see \ref core::get_wrapped_type_name()).
 ///
 /// \sa \ref core::empty
-/// \sa \ref core::Type
+/// \sa \ref core::type
 ///
 template<class T> struct wrap {
     using type = T;
@@ -63,13 +63,13 @@ template<class T> struct wrap {
 
 /// \brief Identity type alias for creation of non-deduced contexts.
 ///
-/// This is an identity type alias, which means that `core::Type<T>` is `T` in all
+/// This is an identity type alias, which means that `core::type<T>` is `T` in all
 /// cases. The purpose of this type alias is to create non-deduced contexts in template
 /// argument deduction. For an example, consider the following function template:
 ///
 /// \code{.cpp}
 ///
-///   template<class T> void func(T a, core::Type<T> b);
+///   template<class T> void func(T a, core::type<T> b);
 ///
 /// \endcode
 ///
@@ -80,7 +80,7 @@ template<class T> struct wrap {
 ///
 /// \sa \ref core::wrap
 ///
-template<class T> using Type = typename core::wrap<T>::type;
+template<class T> using type = typename core::wrap<T>::type;
 
 
 } // namespace archon::core
