@@ -85,7 +85,7 @@ namespace archon::log {
 ///
 /// FIXME: Explain prefixes and refer to \ref log::BasicPrefixLogger.
 ///
-/// FIXME: Explain channels rougly. Full explanation can be deferred to \ref
+/// FIXME: Explain channels roughly. Full explanation can be deferred to \ref
 /// log::BasicChannelLogger.
 ///
 /// FIXME: Make reference to \ref log::BasicRootLogger.
@@ -109,9 +109,9 @@ public:
 
     /// \brief A null logger.
     ///
-    /// This function returns returns to a null logger, which is a logger that discards all
-    /// logged messages. More concretely, this function returns a reference to an instance
-    /// of \ref log::BasicNullLogger.
+    /// This function returns the null logger, which is a logger that discards all logged
+    /// messages. More concretely, this function returns a reference to an instance of \ref
+    /// log::BasicNullLogger.
     ///
     static auto get_null() noexcept -> BasicLogger&;
 
@@ -223,7 +223,7 @@ public:
     ///
     auto get_log_level_limit() const noexcept -> log::LogLevel;
 
-    /// \brief Construct logger targetting STDERR.
+    /// \brief Construct logger targeting STDERR.
     ///
     /// Construct a logger that is equivalent to the one returned by
     /// BasicLogger::get_stderr().
@@ -416,7 +416,7 @@ template<class C, class T, class I> struct BasicFileLogger<C, T, I>::Config {
     /// messages using ANSI terminal escape sequences (see \ref
     /// core::terminal::seq::set_weight()).
     ///
-    /// If set to `Colorize::yes`, colorization is eabled provided that \ref
+    /// If set to `Colorize::yes`, colorization is enabled provided that \ref
     /// core::assume_locale_has_escape() returns `true` for the logger's locale.
     ///
     /// If set to `Colorize::no`, colorization is disabled.
