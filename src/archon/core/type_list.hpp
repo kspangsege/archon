@@ -233,9 +233,9 @@ template<class L, class P, class... A> constexpr bool has_type_a(A&&... args)
 /// with corresponding template arguments.
 ///
 /// Let `func` be an object of type `F&`. Then `for_each_type_noexcept()` returns `true` if,
-/// and only if `noexcept(func(core::Wrap<T>(), int()))` is `true` for all `T` in
+/// and only if `noexcept(func(core::wrap<T>(), int()))` is `true` for all `T` in
 /// `L`. Likewise, `for_each_type_a_noexcept()` returns `true` if, and only if
-/// `noexcept(bool(func(core::Wrap<T>(), int())))` is `true` for all `T` in `L`.
+/// `noexcept(bool(func(core::wrap<T>(), int())))` is `true` for all `T` in `L`.
 ///
 /// \sa \ref core::for_each_type()
 /// \sa \ref core::for_each_type_a()
@@ -253,7 +253,7 @@ template<class L, class F> constexpr bool for_each_type_a_noexcept() noexcept;
 ///
 /// This function executes the specified generic lambda (\p func) once for each type in \p
 /// L, and in the order that the types occur in \p L. For a given type, `T`, in \p L, \p
-/// func is invoked with two arguments, one of type `core::Wrap<T>` and one of type
+/// func is invoked with two arguments, one of type `core::wrap<T>` and one of type
 /// `std::size_t`, which is the index of the type in \p L.
 ///
 /// Here is an example that demonstrates the idea:
@@ -531,17 +531,17 @@ template<class P, std::size_t I> struct HasTypeA<void, P, I> {
 
 
 template<class F> struct ForEachTypeFunc {
-    template<class T, std::size_t I> static void exec(F& func) noexcept(noexcept(func(core::Wrap<T>(), I)))
+    template<class T, std::size_t I> static void exec(F& func) noexcept(noexcept(func(core::wrap<T>(), I)))
     {
-        func(core::Wrap<T>(), I); // Throws
+        func(core::wrap<T>(), I); // Throws
     }
 };
 
 
 template<class F> struct ForEachTypeFuncA {
-    template<class T, std::size_t I> static bool exec(F& func) noexcept(noexcept(bool(func(core::Wrap<T>(), I))))
+    template<class T, std::size_t I> static bool exec(F& func) noexcept(noexcept(bool(func(core::wrap<T>(), I))))
     {
-        return bool(func(core::Wrap<T>(), I)); // Throws
+        return bool(func(core::wrap<T>(), I)); // Throws
     }
 };
 

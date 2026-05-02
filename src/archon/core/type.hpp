@@ -34,7 +34,7 @@ namespace archon::core {
 ///
 /// This is an empty class type.
 ///
-/// \sa \ref core::Wrap
+/// \sa \ref core::wrap
 ///
 struct empty {
     constexpr auto operator<=>(const empty&) const noexcept = default;
@@ -56,7 +56,7 @@ struct empty {
 /// \sa \ref core::empty
 /// \sa \ref core::Type
 ///
-template<class T> struct Wrap {
+template<class T> struct wrap {
     using type = T;
 };
 
@@ -78,9 +78,9 @@ template<class T> struct Wrap {
 ///
 /// This type alias is similar in purpose to `std::identity_type_t`.
 ///
-/// \sa \ref core::Wrap
+/// \sa \ref core::wrap
 ///
-template<class T> using Type = typename core::Wrap<T>::type;
+template<class T> using Type = typename core::wrap<T>::type;
 
 
 } // namespace archon::core
