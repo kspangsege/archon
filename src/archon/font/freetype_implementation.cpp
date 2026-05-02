@@ -1965,6 +1965,9 @@ auto implementation_impl::new_loader(core::FilesystemPathRef resource_dir, const
 #if ARCHON_FONT_HAVE_FREETYPE
     return ::new_loader(resource_dir, locale, config); // Throws
 #else
+    static_cast<void>(resource_dir);
+    static_cast<void>(locale);
+    static_cast<void>(config);
     throw std::runtime_error("FreeType implementation is unavailable");
 #endif
 }
@@ -1985,6 +1988,9 @@ auto font::new_freetype_loader_from_font_file(core::FilesystemPathRef file, cons
 #if ARCHON_FONT_HAVE_FREETYPE
     return ::new_loader_from_font_file(file, locale, config); // Throws
 #else
+    static_cast<void>(file);
+    static_cast<void>(locale);
+    static_cast<void>(config);
     throw std::runtime_error("FreeType implementation is unavailable");
 #endif
 }
