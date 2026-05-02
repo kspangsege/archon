@@ -39,10 +39,10 @@ on various systems.
 >
 > When a dependency, such as FreeType, is linked dynamically at build time, the dynamic
 > library (`.so`, `.dylib`, `.dll`) that is provided at runtime must be at least the same
-> version as what was used at build time. The Archon source code relies on this. It assumes
-> that dependency versions specified in headers, such as `FREETYPE_MAJOR` and
-> `FREETYPE_MINOR`, can be trusted as specifying the minimum version of the dependency that
-> can occur at runtime.
+> version as was used at build time. The Archon source code relies on this. It assumes that
+> dependency versions specified in headers, such as `FREETYPE_MAJOR` and `FREETYPE_MINOR`,
+> can be trusted as specifying the minimum version of the dependency that can occur at
+> runtime.
 >
 > Behavior is undefined (bad things can happen) if the version of a dynamically linked
 > dependency provided at runtime is lower than what was used at build time. Note that this
