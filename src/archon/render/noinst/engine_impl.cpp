@@ -94,11 +94,6 @@ bool EngineImpl::try_init(std::string_view window_title, display::Size window_si
 {
     ARCHON_ASSERT(!m_initialized);
 
-#if !ARCHON_DISPLAY_HAVE_OPENGL
-    error = "OpenGL not available"; // Throws
-    return false;
-#endif
-
     update_window_size(window_size);
     update_resolution(m_default_resolution); // Throws
     update_frame_rate(m_default_frame_rate); // Throws
@@ -639,6 +634,7 @@ void EngineImpl::redraw()
 
     m_window->opengl_swap_buffers(); // Throws
 
+    static_cast<void>(m_max_opengl_errors);
 #if ARCHON_DISPLAY_HAVE_OPENGL
     if (m_max_opengl_errors > 0) {
         GLenum error = glGetError();

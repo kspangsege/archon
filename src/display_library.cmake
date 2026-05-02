@@ -1,5 +1,6 @@
 include(FindPackageMessage)
 
+
 # Need X11 for the following reasons:
 # * X11-based display implementation (see archon/display/x11_implementation.cpp)
 #
@@ -45,7 +46,20 @@ find_package_message(ARCHON_XLIB_MSG "${_msg}" "[${_version}][${_min_version}][$
 # Need GLX for the following reasons:
 # * X11-based display implementation (see archon/display/x11_implementation.cpp)
 #
-find_package(OpenGL)
+find_package(OpenGL QUIET)
+if(OPENGL_FOUND)
+  set(_library "${OPENGL_LIBRARIES}")
+  string(CONCAT _msg
+    "Found OpenGL: ${_library}"
+  )
+else()
+  set(_library "")
+  string(CONCAT _msg
+    "Could NOT find OpenGL"
+  )
+endif()
+find_package_message(ARCHON_OPENGL_MSG "${_msg}" "[${OPENGL_FOUND}][${_library}]")
+
 
 # Need SDL for the following reasons:
 # * SDL-based display implementation (see archon/display/sdl_implementation.cpp)
@@ -54,21 +68,65 @@ set(_archon_sdl_min_version "3.2.20")
 find_package(SDL3 ${_archon_sdl_min_version} CONFIG QUIET)
 if(SDL3_FOUND)
   set(_version "${SDL3_VERSION}")
+  get_target_property(_library SDL3::SDL3 IMPORTED_LOCATION)
+  if(NOT _library OR _library MATCHES "-NOTFOUND")
+    get_target_property(_configs SDL3::SDL3 IMPORTED_CONFIGURATIONS)
+    if(_configs)
+      list(GET _configs 0 _first_config)
+      get_target_property(_library SDL3::SDL3 IMPORTED_LOCATION_${_first_config})
+    endif()
+  endif()
+  if(NOT _library OR _library MATCHES "-NOTFOUND")
+    set(_library "unknown")
+  endif()
   string(CONCAT _msg
-    "Found SDL (found version \"${_version}\")"
+    "Found SDL: ${_library} (found version \"${_version}\")"
   )
 else()
   set(_version "")
+  set(_library "")
   string(CONCAT _msg
     "Could NOT find SDL (minimum required version is \"${_archon_sdl_min_version}\")"
   )
 endif()
-find_package_message(ARCHON_SDL_MSG "${_msg}" "[${SDL3_FOUND}][${_version}][${_archon_sdl_min_version}]")
+find_package_message(ARCHON_SDL_MSG "${_msg}" "[${SDL3_FOUND}][${_version}][${_archon_sdl_min_version}][${_library}]")
+
 
 # Need GLEW for the following reasons:
 # * Exposure of OpenGL to applciations through archon/display/opengl.hpp
 #
-find_package(GLEW)
+find_package(GLEW QUIET)
+if(GLEW_FOUND)
+  set(_version "${GLEW_VERSION}")
+  if("${_version}" STREQUAL "" AND DEFINED glew_VERSION)
+    set(_version "${glew_VERSION}")
+  endif()
+  if("${_version}" STREQUAL "")
+    set(_version "unknown")
+  endif()
+  get_target_property(_library GLEW::GLEW IMPORTED_LOCATION)
+  if(NOT _library OR _library MATCHES "-NOTFOUND")
+    get_target_property(_configs GLEW::GLEW IMPORTED_CONFIGURATIONS)
+    if(_configs)
+      list(GET _configs 0 _first_config)
+      get_target_property(_library GLEW::GLEW IMPORTED_LOCATION_${_first_config})
+    endif()
+  endif()
+  if(NOT _library OR _library MATCHES "-NOTFOUND")
+    set(_library "unknown")
+  endif()
+  string(CONCAT _msg
+    "Found GLEW: ${_library} (found version \"${_version}\")"
+  )
+else()
+  set(_version "")
+  set(_library "")
+  string(CONCAT _msg
+    "Could NOT find GLEW"
+  )
+endif()
+find_package_message(ARCHON_GLEW_MSG "${_msg}" "[${GLEW_FOUND}][${_version}][${_library}]")
+
 
 set(ARCHON_DISPLAY_HAVE_X11 0)
 set(ARCHON_DISPLAY_HAVE_X11_XKB 0)

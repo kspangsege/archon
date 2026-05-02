@@ -2048,18 +2048,24 @@ void WindowImpl::opengl_swap_buffers()
 
 bool WindowImpl::try_get_opengl_vsync_state(bool& on)
 {
+    static_cast<void>(on);
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_GLX
     if (screen_slot.info.glx_has_swap_control) {
         unsigned interval = 0;
         glXQueryDrawable(conn.dpy, win, GLX_SWAP_INTERVAL_EXT, &interval);
         on = (interval != 0);
         return true;
     }
+#endif // ARCHON_DISPLAY_HAVE_GOOD_X11_GLX
     return false;
 }
 
 
 bool WindowImpl::try_set_opengl_vsync_state(bool on)
 {
+    static_cast<void>(on);
+    static_cast<void>(m_prefer_opengl_adaptive_vsync);
+#if ARCHON_DISPLAY_HAVE_GOOD_X11_GLX
     if (screen_slot.info.glx_has_swap_control) {
         if (on) {
             if (m_prefer_opengl_adaptive_vsync && screen_slot.info.glx_has_swap_control_tear) {
@@ -2074,6 +2080,7 @@ bool WindowImpl::try_set_opengl_vsync_state(bool on)
         }
         return true;
     }
+#endif // ARCHON_DISPLAY_HAVE_GOOD_X11_GLX
     return false;
 }
 
