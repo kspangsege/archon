@@ -41,7 +41,7 @@ namespace archon::core::impl {
 using type_ident_type = std::uintptr_t;
 
 
-template<class> inline core::Empty g_type_ident_helper;
+template<class> inline core::empty g_type_ident_helper;
 
 
 template<class T> inline bool try_get_type_ident(impl::type_ident_type& ident) noexcept

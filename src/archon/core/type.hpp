@@ -36,8 +36,8 @@ namespace archon::core {
 ///
 /// \sa \ref core::Wrap
 ///
-struct Empty {
-    constexpr auto operator<=>(const Empty&) const noexcept = default;
+struct empty {
+    constexpr auto operator<=>(const empty&) const noexcept = default;
 };
 
 
@@ -53,7 +53,7 @@ struct Empty {
 ///
 ///  * Preservation of exact type (see \ref core::get_wrapped_type_name()).
 ///
-/// \sa \ref core::Empty
+/// \sa \ref core::empty
 /// \sa \ref core::Type
 ///
 template<class T> struct Wrap {
