@@ -129,7 +129,7 @@ struct loader::config {
     ///   archon::font::freetype_subconfig freetype_subconfig;
     ///   // set parameters in freetype_subconfig...
     ///   archon::font::loader::config config;
-    ///   config.sub.register_(freetype_subconfig);
+    ///   config.sub.set(freetype_subconfig);
     ///   loader = archon::font::new_default_loader(resource_dir, locale, config);
     ///
     /// \endcode
@@ -144,9 +144,9 @@ struct loader::config {
     /// implementation is selected, the FreeType-specific parameters will be ignored.
     ///
     /// \sa \ref font::freetype_subconfig
-    /// \sa \ref core::TypedObjectRegistry::register_()
+    /// \sa \ref core::typed_object_registry::set()
     ///
-    core::TypedObjectRegistry<subconfig, 4> sub;
+    core::typed_object_registry<subconfig, 4> sub;
 };
 
 
