@@ -99,5 +99,10 @@ target_sources(Image PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "$
 
 install(TARGETS Image FILE_SET HEADERS)
 
-add_subdirectory(archon/image/test)
-add_subdirectory(archon/image/demo)
+if(ARCHON_BUILD_DEMO_PROGS)
+  add_subdirectory(archon/image/demo)
+endif()
+
+if(ARCHON_BUILD_TEST_SUITE)
+  add_subdirectory(archon/image/test)
+endif()

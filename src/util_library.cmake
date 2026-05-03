@@ -31,4 +31,6 @@ target_sources(Util PUBLIC FILE_SET HEADERS FILES
 
 install(TARGETS Util FILE_SET HEADERS)
 
-add_subdirectory(archon/util/test)
+if(ARCHON_BUILD_TEST_SUITE)
+  add_subdirectory(archon/util/test)
+endif()

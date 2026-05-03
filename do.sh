@@ -7,6 +7,7 @@ fi
 build_dir="${root_prefix}build"
 
 clean=""
+build_all=""
 no_parallel=""
 stop_on_error=""
 warnings_are_errors=""
@@ -17,13 +18,16 @@ check_option()
         "-c"|"--clean")
             clean="1"
             ;;
+        "-a"|"--build-all")
+            build_all="1"
+            ;;
         "-n"|"--no-parallel")
             no_parallel="1"
             ;;
         "-s"|"--stop-on-error")
             stop_on_error="1"
             ;;
-        "-e"|"--warnings-are-errors")
+        "-w"|"--warnings-are-errors")
             warnings_are_errors="1"
             ;;
         *)
@@ -82,6 +86,21 @@ case "$action" in
         action="$(printf "%s\n" "$action" | cut -d "-" -f "2-")" || exit 1
         ;;
 esac
+
+build_demo_progs="NO"
+build_test_suite="NO"
+case "$action" in
+    "run-"*)
+        build_demo_progs="YES"
+        ;;
+    "check-"*)
+        build_test_suite="YES"
+        ;;
+esac
+if [ -n "$build_all" ]; then
+    build_demo_progs="YES"
+    build_test_suite="YES"
+fi
 
 need_run_path=""
 case "$action" in
@@ -143,7 +162,6 @@ build_type="Release"
 asan="NO"
 tsan="NO"
 ubsan="NO"
-
 case "$action" in
     "help")
         ;;
@@ -297,7 +315,7 @@ Options:
     -c, --clean
     -n, --no-parallel
     -s, --stop-on-error
-    -e, --warnings-are-errors
+    -w, --warnings-are-errors
 
 To be recognized, these options need to be placed immediately after $0
 
@@ -340,16 +358,16 @@ case "$action" in
         ;;
     "thorough-check")
         banner "CHECK"
-        sh "$0" $options -c check || exit 1
+        sh "$0" $options -ca check || exit 1
         banner "CHECK DEBUG"
-        sh "$0" $options -c check-debug || exit 1
+        sh "$0" $options -ca check-debug || exit 1
         banner "CHECK ASAN DEBUG"
-        sh "$0" $options -c check-asan-debug || exit 1
+        sh "$0" $options -ca check-asan-debug || exit 1
         banner "CHECK WITH DISABLED PLATFORM OPTIMIZATIONS"
-        CXXFLAGS="-DARCHON_DISABLE_PLATFORM_OPTIMIZATIONS" sh "$0" $options -c check-debug || exit 1
+        CXXFLAGS="-DARCHON_DISABLE_PLATFORM_OPTIMIZATIONS" sh "$0" $options -ca check-debug || exit 1
         for x in PNG JPEG Freetype X11 OpenGL SDL3 GLEW; do
             banner "CHECK WITHOUT $x"
-            CMAKE_ARGS="-DCMAKE_DISABLE_FIND_PACKAGE_$x=ON" sh "$0" $options -c check-debug || exit 1
+            CMAKE_ARGS="-DCMAKE_DISABLE_FIND_PACKAGE_$x=ON" sh "$0" $options -ca check-debug || exit 1
         done
         banner "SUCCESS"
         exit 0
@@ -393,8 +411,8 @@ if [ -n "$warnings_are_errors" ]; then
     add_cxxflag "-Werror"
 fi
 
-build_subdir="$build_dir/$build_subdir_name"
-cmake -S "$root_dir" -B "$build_subdir" -D CMAKE_BUILD_TYPE="$build_type" -D ARCHON_ASAN="$asan" -D ARCHON_TSAN="$tsan" -D ARCHON_UBSAN="$ubsan" $CMAKE_ARGS || exit 1
+build_subdir="$build_dir/do/$build_subdir_name"
+cmake -S "$root_dir" -B "$build_subdir" -D CMAKE_BUILD_TYPE="$build_type" -D ARCHON_BUILD_DEMO_PROGS="$build_demo_progs" -D ARCHON_BUILD_TEST_SUITE="$build_test_suite" -D ARCHON_ASAN="$asan" -D ARCHON_TSAN="$tsan" -D ARCHON_UBSAN="$ubsan" $CMAKE_ARGS || exit 1
 cmake --build "$build_subdir" --config "$build_type" $parallel_option || exit 1
 
 visual_studio_generator=""

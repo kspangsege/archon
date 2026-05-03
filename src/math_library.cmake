@@ -19,4 +19,6 @@ target_sources(Math PUBLIC FILE_SET HEADERS FILES
 
 install(TARGETS Math FILE_SET HEADERS)
 
-add_subdirectory(archon/math/test)
+if(ARCHON_BUILD_TEST_SUITE)
+  add_subdirectory(archon/math/test)
+endif()

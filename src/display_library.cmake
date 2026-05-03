@@ -181,8 +181,6 @@ if(OPENGL_FOUND AND GLEW_FOUND)
   set(ARCHON_DISPLAY_HAVE_OPENGL 1)
 endif()
 
-add_subdirectory(archon/display/probe)
-
 add_library(Display
   archon/display/event_handler.cpp
   archon/display/viewport.cpp
@@ -268,6 +266,13 @@ target_sources(Display PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" 
 
 install(TARGETS Display FILE_SET HEADERS)
 
-add_subdirectory(archon/display/test)
 add_subdirectory(archon/display/tool)
-add_subdirectory(archon/display/demo)
+
+if(ARCHON_BUILD_DEMO_PROGS)
+  add_subdirectory(archon/display/probe)
+  add_subdirectory(archon/display/demo)
+endif()
+
+if(ARCHON_BUILD_TEST_SUITE)
+  add_subdirectory(archon/display/test)
+endif()

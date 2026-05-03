@@ -69,6 +69,12 @@ target_sources(Font PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "${
 
 install(TARGETS Font FILE_SET HEADERS)
 
-add_subdirectory(archon/font/test)
 add_subdirectory(archon/font/tool)
-add_subdirectory(archon/font/demo)
+
+if(ARCHON_BUILD_DEMO_PROGS)
+  add_subdirectory(archon/font/demo)
+endif()
+
+if(ARCHON_BUILD_TEST_SUITE)
+  add_subdirectory(archon/font/test)
+endif()

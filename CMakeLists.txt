@@ -6,6 +6,9 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_CXX_EXTENSIONS False)
 
+option(ARCHON_BUILD_DEMO_PROGS "Build the Archon demo applications" OFF)
+option(ARCHON_BUILD_TEST_SUITE "Build the Archon test suite" OFF)
+
 # For an unknown reason, when using the Cygwin compiler, `-ansi` (or `-std=c++20`)
 # suppresses the automatic setting of `_POSIX_C_SOURCE` when compiling in C++ mode. Judging
 # from regular GCC, this is supposed to happen when compiling in C mode, but not when

@@ -48,5 +48,10 @@ target_sources(Cli PUBLIC FILE_SET HEADERS FILES
 
 install(TARGETS Cli FILE_SET HEADERS)
 
-add_subdirectory(archon/cli/test)
-add_subdirectory(archon/cli/demo)
+if(ARCHON_BUILD_DEMO_PROGS)
+  add_subdirectory(archon/cli/demo)
+endif()
+
+if(ARCHON_BUILD_TEST_SUITE)
+  add_subdirectory(archon/cli/test)
+endif()

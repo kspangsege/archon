@@ -58,4 +58,6 @@ target_sources(Check PUBLIC FILE_SET HEADERS FILES
 
 install(TARGETS Check FILE_SET HEADERS)
 
-add_subdirectory(archon/check/test)
+if(ARCHON_BUILD_TEST_SUITE)
+  add_subdirectory(archon/check/test)
+endif()
