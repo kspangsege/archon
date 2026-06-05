@@ -6,6 +6,17 @@ import pathlib
 import json
 
 
+def as_ord(val: int) -> str:
+    match val:
+        case 1:
+            return "1st"
+        case 2:
+            return "2nd"
+        case 3:
+            return "3rd"
+    return "%sth" % val
+
+
 def quote(string: str) -> str:
     return json.dumps(string)
 
