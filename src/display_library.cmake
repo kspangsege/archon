@@ -128,6 +128,60 @@ endif()
 find_package_message(ARCHON_GLEW_MSG "${_msg}" "[${GLEW_FOUND}][${_version}][${_library}]")
 
 
+add_library(Display
+  archon/display/event_handler.cpp
+  archon/display/viewport.cpp
+  archon/display/noinst/edid.cpp
+  archon/display/connection.cpp
+  archon/display/implementation.cpp
+  archon/display/x11_implementation.cpp
+  archon/display/sdl_implementation.cpp
+  archon/display/list_implementations.cpp
+  archon/display/noinst/palette_map.cpp
+  archon/display/noinst/x11/support.cpp
+  archon/display/opengl.cpp
+)
+
+set_target_properties(Display PROPERTIES OUTPUT_NAME "archon-display")
+
+
+target_sources(Display PRIVATE
+  archon/display/display_namespace.hpp
+  archon/display/noinst/timestamp_unwrapper.hpp
+  archon/display/noinst/mult_pixel_format.hpp
+  archon/display/noinst/palette_map.hpp
+  archon/display/noinst/impl_util.hpp
+  archon/display/noinst/x11/support.hpp
+)
+
+
+target_sources(Display PUBLIC FILE_SET HEADERS FILES
+  archon/display/implementation_fwd.hpp
+  archon/display/geometry.hpp
+  archon/display/key.hpp
+  archon/display/key_code.hpp
+  archon/display/mouse_button.hpp
+  archon/display/event.hpp
+  archon/display/event_handler.hpp
+  archon/display/resolution.hpp
+  archon/display/viewport.hpp
+  archon/display/guarantees.hpp
+  archon/display/x11_fullscreen_monitors.hpp
+  archon/display/x11_connection_config.hpp
+  archon/display/sdl_connection_config.hpp
+  archon/display/texture.hpp
+  archon/display/window.hpp
+  archon/display/connection.hpp
+  archon/display/implementation.hpp
+  archon/display/x11_implementation.hpp
+  archon/display/sdl_implementation.hpp
+  archon/display/as_key_name.hpp
+  archon/display/list_implementations.hpp
+  archon/display/opengl.hpp
+  archon/display.hpp
+)
+
+
 set(ARCHON_DISPLAY_HAVE_X11 0)
 set(ARCHON_DISPLAY_HAVE_X11_XKB 0)
 set(ARCHON_DISPLAY_HAVE_X11_XINPUT2 0)
@@ -181,28 +235,19 @@ if(OPENGL_FOUND AND GLEW_FOUND)
   set(ARCHON_DISPLAY_HAVE_OPENGL 1)
 endif()
 
-add_library(Display
-  archon/display/event_handler.cpp
-  archon/display/viewport.cpp
-  archon/display/noinst/edid.cpp
-  archon/display/connection.cpp
-  archon/display/implementation.cpp
-  archon/display/x11_implementation.cpp
-  archon/display/sdl_implementation.cpp
-  archon/display/list_implementations.cpp
-  archon/display/noinst/palette_map.cpp
-  archon/display/noinst/x11/support.cpp
-  archon/display/opengl.cpp
+configure_file(archon/display/impl/config.h.in archon/display/impl/config.h)
+
+target_sources(Display PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" FILES
+  "${CMAKE_CURRENT_BINARY_DIR}/archon/display/impl/config.h"
 )
 
-set_target_properties(Display PROPERTIES OUTPUT_NAME "archon-display")
 
-target_link_libraries(Display PUBLIC
-  Core
-  Log
-  Math
-  Util
-  Image
+target_link_libraries(Display
+  PUBLIC Core
+  PUBLIC Log
+  PUBLIC Math
+  PUBLIC Util
+  PUBLIC Image
 )
 
 if(ARCHON_GOOD_X11_FOUND)
@@ -235,36 +280,9 @@ if(OPENGL_FOUND AND GLEW_FOUND)
   target_link_libraries(Display PUBLIC OpenGL::GL GLEW::GLEW)
 endif()
 
-configure_file(archon/display/impl/config.h.in archon/display/impl/config.h)
-
-target_sources(Display PUBLIC FILE_SET HEADERS BASE_DIRS "${ARCHON_BUILD_ROOT}" "${ARCHON_SOURCE_ROOT}" FILES
-  "${CMAKE_CURRENT_BINARY_DIR}/archon/display/impl/config.h"
-  archon/display/implementation_fwd.hpp
-  archon/display/geometry.hpp
-  archon/display/key.hpp
-  archon/display/key_code.hpp
-  archon/display/mouse_button.hpp
-  archon/display/event.hpp
-  archon/display/event_handler.hpp
-  archon/display/resolution.hpp
-  archon/display/viewport.hpp
-  archon/display/guarantees.hpp
-  archon/display/x11_fullscreen_monitors.hpp
-  archon/display/x11_connection_config.hpp
-  archon/display/sdl_connection_config.hpp
-  archon/display/texture.hpp
-  archon/display/window.hpp
-  archon/display/connection.hpp
-  archon/display/implementation.hpp
-  archon/display/x11_implementation.hpp
-  archon/display/sdl_implementation.hpp
-  archon/display/as_key_name.hpp
-  archon/display/list_implementations.hpp
-  archon/display/opengl.hpp
-  archon/display.hpp
-)
 
 install(TARGETS Display FILE_SET HEADERS)
+
 
 add_subdirectory(archon/display/tool)
 

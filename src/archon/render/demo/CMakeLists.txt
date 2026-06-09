@@ -7,13 +7,15 @@ if(ARCHON_DISPLAY_HAVE_OPENGL)
     OUTPUT_NAME "archon-object-viewer"
   )
 
-  target_link_libraries(ObjectViewer PRIVATE
-    Core
-    Log
-    Cli
-    Math
-    Gfx
-    Display
-    Render
+  target_link_libraries(ObjectViewer
+    PRIVATE Core
+    PRIVATE Log
+    PRIVATE Cli
+    PRIVATE Math
+    PRIVATE Util
+    PRIVATE Image
+    PRIVATE Gfx
+    PRIVATE Display
+    PRIVATE Render
   )
 endif()

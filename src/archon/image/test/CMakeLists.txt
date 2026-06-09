@@ -11,8 +11,9 @@ add_library(ImageTest OBJECT
   test_writer.cpp
 )
 
-target_link_libraries(ImageTest PRIVATE
-  Core
-  Check
-  Image
+target_link_libraries(ImageTest
+  PRIVATE Core
+  PRIVATE Check
+  PRIVATE Util
+  PRIVATE Image
 )

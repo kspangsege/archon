@@ -5,8 +5,8 @@ add_library(MathTest OBJECT
   test_rotation.cpp
 )
 
-target_link_libraries(MathTest PRIVATE
-  Core
-  Check
-  Math
+target_link_libraries(MathTest
+  PRIVATE Core
+  PRIVATE Check
+  PRIVATE Math
 )

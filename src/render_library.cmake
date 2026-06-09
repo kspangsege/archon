@@ -10,15 +10,6 @@ add_library(Render
 
 set_target_properties(Render PROPERTIES OUTPUT_NAME "archon-render")
 
-target_link_libraries(Render PUBLIC
-  Core
-  Log
-  Math
-  Util
-  Image
-  Gfx
-  Display
-)
 
 target_sources(Render PUBLIC FILE_SET HEADERS FILES
   archon/render/opengl.hpp
@@ -33,7 +24,20 @@ target_sources(Render PUBLIC FILE_SET HEADERS FILES
   archon/render.hpp
 )
 
+
+target_link_libraries(Render
+  PUBLIC Core
+  PUBLIC Log
+  PUBLIC Math
+  PUBLIC Util
+  PUBLIC Image
+  PUBLIC Gfx
+  PUBLIC Display
+)
+
+
 install(TARGETS Render FILE_SET HEADERS)
+
 
 if(ARCHON_BUILD_DEMO_PROGS)
   add_subdirectory(archon/render/demo)

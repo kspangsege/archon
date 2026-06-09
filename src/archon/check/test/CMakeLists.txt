@@ -3,7 +3,7 @@ add_library(CheckTest OBJECT
   test_check.cpp
 )
 
-target_link_libraries(CheckTest PRIVATE
-  Core
-  Check
+target_link_libraries(CheckTest
+  PRIVATE Core
+  PRIVATE Check
 )
