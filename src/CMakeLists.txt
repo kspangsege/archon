@@ -16,14 +16,46 @@ if(ARCHON_INCLUDE_TEST_SUITE)
 endif()
 
 
-include(core_library.cmake)
-include(log_library.cmake)
-include(cli_library.cmake)
-include(check_library.cmake)
-include(math_library.cmake)
-include(util_library.cmake)
-include(image_library.cmake)
-include(font_library.cmake)
-include(gfx_library.cmake)
-include(display_library.cmake)
-include(render_library.cmake)
+if(ARCHON_INCLUDE_LIBRARY_Core)
+  include(core_library.cmake)
+endif()
+
+if(ARCHON_INCLUDE_LIBRARY_Log)
+  include(log_library.cmake)
+endif()
+
+if(ARCHON_INCLUDE_LIBRARY_Cli)
+  include(cli_library.cmake)
+endif()
+
+if(ARCHON_INCLUDE_LIBRARY_Check)
+  include(check_library.cmake)
+endif()
+
+if(ARCHON_INCLUDE_LIBRARY_Math)
+  include(math_library.cmake)
+endif()
+
+if(ARCHON_INCLUDE_LIBRARY_Util)
+  include(util_library.cmake)
+endif()
+
+if(ARCHON_INCLUDE_LIBRARY_Image)
+  include(image_library.cmake)
+endif()
+
+if(ARCHON_INCLUDE_LIBRARY_Font)
+  include(font_library.cmake)
+endif()
+
+if(ARCHON_INCLUDE_LIBRARY_Gfx)
+  include(gfx_library.cmake)
+endif()
+
+if(ARCHON_INCLUDE_LIBRARY_Display)
+  include(display_library.cmake)
+endif()
+
+if(ARCHON_INCLUDE_LIBRARY_Render)
+  include(render_library.cmake)
+endif()
