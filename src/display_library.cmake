@@ -286,11 +286,11 @@ install(TARGETS Display FILE_SET HEADERS)
 
 add_subdirectory(archon/display/tool)
 
-if(ARCHON_BUILD_DEMO_PROGS)
+if(ARCHON_INCLUDE_DEMO_PROGS)
   add_subdirectory(archon/display/probe)
   add_subdirectory(archon/display/demo)
 endif()
 
-if(ARCHON_BUILD_TEST_SUITE)
+if(ARCHON_INCLUDE_TEST_SUITE)
   add_subdirectory(archon/display/test)
 endif()

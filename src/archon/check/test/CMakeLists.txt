@@ -7,3 +7,5 @@ target_link_libraries(CheckTest
   PRIVATE Core
   PRIVATE Check
 )
+
+target_link_libraries(Test PRIVATE CheckTest)

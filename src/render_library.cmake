@@ -39,6 +39,6 @@ target_link_libraries(Render
 install(TARGETS Render FILE_SET HEADERS)
 
 
-if(ARCHON_BUILD_DEMO_PROGS)
+if(ARCHON_INCLUDE_DEMO_PROGS)
   add_subdirectory(archon/render/demo)
 endif()

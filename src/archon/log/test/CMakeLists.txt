@@ -7,3 +7,5 @@ target_link_libraries(LogTest
   PRIVATE Log
   PRIVATE Check
 )
+
+target_link_libraries(Test PRIVATE LogTest)

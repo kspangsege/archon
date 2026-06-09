@@ -17,3 +17,5 @@ target_link_libraries(ImageTest
   PRIVATE Util
   PRIVATE Image
 )
+
+target_link_libraries(Test PRIVATE ImageTest)

@@ -1,0 +1,41 @@
+archon/check.hpp FORCE
+
+# Foundation
+archon/check/check_namespace.hpp
+archon/check/seed_seq.hpp
+archon/check/random_seed.hpp
+
+# Support
+archon/check/test_details.hpp
+archon/check/check_arg.hpp
+
+# Main
+archon/check/root_context.hpp
+archon/check/thread_context.hpp
+archon/check/test_context.hpp
+archon/check/test_list.hpp
+archon/check/fail_context.hpp
+archon/check/reporter.hpp
+archon/check/test_config.hpp
+archon/check/noinst/test_level_report_logger.hpp
+archon/check/noinst/root_context_impl.hpp
+archon/check/noinst/thread_context_impl.hpp
+archon/check/test_runner.hpp
+archon/check/run.hpp
+archon/check/command.hpp
+
+# Test and check macros
+archon/check/test_macros.hpp
+archon/check/test_batch_macros.hpp
+archon/check/test_trail.hpp
+archon/check/test_path.hpp
+archon/check/check_macros.hpp
+archon/check/check_no_error.hpp
+
+# Utilities
+archon/check/standard_path_mapper.hpp
+archon/check/pattern_based_test_order.hpp
+archon/check/wildcard_filter.hpp
+archon/check/simple_reporter.hpp
+archon/check/duplicating_reporter.hpp
+archon/check/xml_reporter.hpp

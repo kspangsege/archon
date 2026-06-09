@@ -10,3 +10,5 @@ target_link_libraries(MathTest
   PRIVATE Check
   PRIVATE Math
 )
+
+target_link_libraries(Test PRIVATE MathTest)

@@ -11,3 +11,5 @@ target_link_libraries(FontTest
   PRIVATE Image
   PRIVATE Font
 )
+
+target_link_libraries(Test PRIVATE FontTest)

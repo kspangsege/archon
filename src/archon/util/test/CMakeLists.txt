@@ -13,3 +13,5 @@ target_link_libraries(UtilTest
   PRIVATE Math
   PRIVATE Util
 )
+
+target_link_libraries(Test PRIVATE UtilTest)

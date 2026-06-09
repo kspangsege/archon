@@ -1,0 +1,41 @@
+from __future__ import annotations
+from dataclasses import dataclass
+
+import enum
+import pathlib
+import json
+
+
+def quote(string: str) -> str:
+    return json.dumps(string)
+
+
+def resolve_self_rel_path(argv0: str, rel_path: str) -> pathlib.Path:
+    self_path = pathlib.Path(argv0)
+    assert self_path.exists()
+    path = self_path.parent / rel_path
+    return path.resolve().relative_to(pathlib.Path.cwd())
+
+
+@dataclass(slots=True)
+class Wrap[T]:
+    value: T
+
+
+class Tristate(enum.Enum):
+    FALSE     = 0
+    UNCERTAIN = 1
+    TRUE      = 2
+
+    def __invert__(self):
+        return Tristate(2 - self.value)
+
+    def __and__(self, other):
+        if not isinstance(other, Tristate):
+            return NotImplemented
+        return Tristate(min(self.value, other.value))
+
+    def __or__(self, other):
+        if not isinstance(other, Tristate):
+            return NotImplemented
+        return Tristate(max(self.value, other.value))

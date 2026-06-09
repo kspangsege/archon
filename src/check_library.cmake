@@ -62,6 +62,6 @@ target_link_libraries(Check
 install(TARGETS Check FILE_SET HEADERS)
 
 
-if(ARCHON_BUILD_TEST_SUITE)
+if(ARCHON_INCLUDE_TEST_SUITE)
   add_subdirectory(archon/check/test)
 endif()

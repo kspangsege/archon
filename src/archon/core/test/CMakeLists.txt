@@ -66,3 +66,5 @@ target_link_libraries(CoreTest
   PRIVATE Log
   PRIVATE Check
 )
+
+target_link_libraries(Test PRIVATE CoreTest)

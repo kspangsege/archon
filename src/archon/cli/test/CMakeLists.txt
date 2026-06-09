@@ -11,3 +11,5 @@ target_link_libraries(CliTest
   PRIVATE Cli
   PRIVATE Check
 )
+
+target_link_libraries(Test PRIVATE CliTest)

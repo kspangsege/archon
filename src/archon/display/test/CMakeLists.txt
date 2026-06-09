@@ -7,3 +7,5 @@ target_link_libraries(DisplayTest
   PRIVATE Check
   PRIVATE Display
 )
+
+target_link_libraries(Test PRIVATE DisplayTest)

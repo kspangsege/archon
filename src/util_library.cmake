@@ -35,6 +35,6 @@ target_link_libraries(Util
 install(TARGETS Util FILE_SET HEADERS)
 
 
-if(ARCHON_BUILD_TEST_SUITE)
+if(ARCHON_INCLUDE_TEST_SUITE)
   add_subdirectory(archon/util/test)
 endif()

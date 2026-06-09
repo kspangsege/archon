@@ -52,10 +52,10 @@ target_link_libraries(Cli
 install(TARGETS Cli FILE_SET HEADERS)
 
 
-if(ARCHON_BUILD_DEMO_PROGS)
+if(ARCHON_INCLUDE_DEMO_PROGS)
   add_subdirectory(archon/cli/demo)
 endif()
 
-if(ARCHON_BUILD_TEST_SUITE)
+if(ARCHON_INCLUDE_TEST_SUITE)
   add_subdirectory(archon/cli/test)
 endif()

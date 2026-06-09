@@ -24,6 +24,6 @@ target_link_libraries(Math
 install(TARGETS Math FILE_SET HEADERS)
 
 
-if(ARCHON_BUILD_TEST_SUITE)
+if(ARCHON_INCLUDE_TEST_SUITE)
   add_subdirectory(archon/math/test)
 endif()
