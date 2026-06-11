@@ -85,7 +85,7 @@ class Protoargument:
     pos:                     _l.FullFilePos
 
 
-type Expr = StringExpr | CompositeExpr | VariableExpansionExpr
+type Expr = StringExpr | CompositeExpr | ExpansionExpr
 
 @dataclass(slots=True)
 class StringExpr:
@@ -99,13 +99,15 @@ class CompositeExpr:
         self.parts = list(parts)
 
 @dataclass(slots=True)
-class VariableExpansionExpr:
-    class Type(enum.Enum):
-        REGULAR = 0
-        ENV     = 1
-        CACHE   = 2
-    type_:     Type
-    name_expr: Expr
+class ExpansionExpr:
+    resolution_type: ResolutionType
+    name_expr:       Expr
+    pos:             _l.FullFilePos
+
+class ResolutionType(enum.Enum):
+    GENERAL = 0
+    CACHE   = 1
+    ENV     = 2
 
 
 def _parse(path: pathlib.Path, error_handler: ErrorHandler) -> Iterator[Invoc]:
@@ -428,18 +430,6 @@ _PARENT_TYPE_MAP = {
 
 def _tokenize(path: pathlib.Path, error_handler: ErrorHandler) -> Iterator[_Token]:
     file_pos = _l.FullFilePos()
-    def update_file_pos(text: str) -> None:
-        nonlocal file_pos
-        line_no = file_pos.line_no
-        offset  = file_pos.offset
-        size = len(text)
-        num_newlines = text.count("\n")
-        if num_newlines > 0:
-            line_no += num_newlines
-            offset = size - (text.rfind("\n") + 1)
-        else:
-            offset += size
-        file_pos = _l.FullFilePos(line_no, offset)
     input_ = ""
     eof = False
     prev_token_is_whitespace = False
@@ -457,7 +447,7 @@ def _tokenize(path: pathlib.Path, error_handler: ErrorHandler) -> Iterator[_Toke
 
                 token_text = m.group(0)
                 token_file_pos = file_pos
-                update_file_pos(token_text)
+                file_pos = _l.get_advanced_file_pos(file_pos, token_text)
 
                 orig_pos = pos
                 pos = m.end()
@@ -589,7 +579,7 @@ def _parse_string(string: str, error_handler: ErrorHandler, file_pos: _l.FullFil
         IN_EVAREXP = 2
         IN_CVAREXP = 3
 
-    stack: list[tuple[State, list[Expr]]] = []
+    stack: list[tuple[State, list[Expr], _l.FullFilePos]] = []
     state = State.ROOT
     parts: list[Expr] = []
 
@@ -606,30 +596,36 @@ def _parse_string(string: str, error_handler: ErrorHandler, file_pos: _l.FullFil
             return parts[0]
         return CompositeExpr(parts)
 
+    file_pos_2 = file_pos
     pos = 0
     for m in _STRING_REGEX.finditer(string):
         if m.start() > pos:
-            append_literal(string[pos:m.start()])
+            substring = string[pos:m.start()]
+            append_literal(substring)
+            file_pos_2 = _l.get_advanced_file_pos(file_pos_2, substring)
+        token_file_pos = file_pos_2
+        file_pos_2 = _l.get_advanced_file_pos(file_pos_2, m.group(0))
         pos = m.end()
+
         if m.group("ESCAPE"):
             append_literal(unescape(string[pos - 1]))
             continue
 
         if m.group("VAREXP"):
-            stack.append((state, parts))
+            stack.append((state, parts, token_file_pos))
             state = State.IN_VAREXP
             parts = []
             continue
 
-        if m.group("EVAREXP"):
-            stack.append((state, parts))
-            state = State.IN_EVAREXP
+        if m.group("CVAREXP"):
+            stack.append((state, parts, token_file_pos))
+            state = State.IN_CVAREXP
             parts = []
             continue
 
-        if m.group("CVAREXP"):
-            stack.append((state, parts))
-            state = State.IN_CVAREXP
+        if m.group("EVAREXP"):
+            stack.append((state, parts, token_file_pos))
+            state = State.IN_EVAREXP
             parts = []
             continue
 
@@ -639,16 +635,16 @@ def _parse_string(string: str, error_handler: ErrorHandler, file_pos: _l.FullFil
                     append_literal("}")
                     continue
                 case State.IN_VAREXP:
-                    type_ = VariableExpansionExpr.Type.REGULAR
-                case State.IN_EVAREXP:
-                    type_ = VariableExpansionExpr.Type.ENV
+                    resolution_type = ResolutionType.GENERAL
                 case State.IN_CVAREXP:
-                    type_ = VariableExpansionExpr.Type.CACHE
+                    resolution_type = ResolutionType.CACHE
+                case State.IN_EVAREXP:
+                    resolution_type = ResolutionType.ENV
                 case _:
                     assert_never(state)
             name_expr = get_expr()
-            state, parts = stack.pop()
-            parts.append(VariableExpansionExpr(type_, name_expr))
+            state, parts, expansion_file_pos = stack.pop()
+            parts.append(ExpansionExpr(resolution_type, name_expr, expansion_file_pos))
             continue
 
         assert False
@@ -657,17 +653,16 @@ def _parse_string(string: str, error_handler: ErrorHandler, file_pos: _l.FullFil
         append_literal(string[pos:])
 
     while state != State.ROOT:
-        error_handler(file_pos, "Unclosed variable expansion")
-        assert stack
-        state, parts = stack.pop()
+        state, parts, expansion_file_pos = stack.pop()
+        error_handler(expansion_file_pos, "Unclosed variable expansion")
 
     return get_expr()
 
 _STRING_REGEX = re.compile(
     r'(?P<ESCAPE>\\.)|'
     r'(?P<VAREXP>\$\{)|'
-    r'(?P<EVAREXP>\$ENV\{)|'
     r'(?P<CVAREXP>\$CACHE\{)|'
+    r'(?P<EVAREXP>\$ENV\{)|'
     r'(?P<RBRACE>\})',
     re.DOTALL,
 )

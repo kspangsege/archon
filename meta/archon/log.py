@@ -110,6 +110,19 @@ class FullFilePos(LineFilePos):
     offset: int = 0
 
 
+def get_advanced_file_pos(pos: FullFilePos, text: str) -> FullFilePos:
+    line_no = pos.line_no
+    offset  = pos.offset
+    size = len(text)
+    num_newlines = text.count("\n")
+    if num_newlines > 0:
+        line_no += num_newlines
+        offset = size - (text.rfind("\n") + 1)
+    else:
+        offset += size
+    return FullFilePos(line_no, offset)
+
+
 class FileContext:
     def __init__(self, path: pathlib.Path, pos: FilePos = NoFilePos()) -> None:
         self.path = path
