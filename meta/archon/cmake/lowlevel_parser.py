@@ -8,11 +8,12 @@ import re
 import pathlib
 
 import archon.base as _b
+import archon.text_pos as _tp
 import archon.log as _l
 
 
-def parse(path: pathlib.Path, error_handler: ErrorHandler) -> Iterator[Invoc]:
-    return _parse(path, error_handler)
+def parse(tracker: _tp.FilePosTracker, warning_handler: ErrorHandler, error_handler: ErrorHandler) -> Iterator[Invoc]:
+    return _parse(tracker, warning_handler, error_handler)
 
 
 def is_block_command(command_name_cf: str):
@@ -20,7 +21,7 @@ def is_block_command(command_name_cf: str):
 
 
 class ErrorHandler(Protocol):
-    def __call__(self, pos: _l.FullFilePos, message: str, *args: Any) -> None:
+    def __call__(self, pos: int, message: str, *args: Any) -> None:
         ...
 
 
@@ -30,9 +31,9 @@ type Invoc = SimpleInvoc | IfInvoc | ForeachInvoc | WhileInvoc | MacroDefInvoc |
 class InvocBase:
     command_name: str
     arguments:    list[Protoargument]
-    pos:          _l.FullFilePos
-    lparen_pos:   _l.FullFilePos
-    rparen_pos:   _l.FullFilePos
+    pos:          int
+    lparen_pos:   int
+    rparen_pos:   int
 
 @dataclass(slots=True, frozen=True)
 class SimpleInvoc(InvocBase):
@@ -79,39 +80,19 @@ class BlockInvoc(StructuredInvocBase):
 
 @dataclass(slots=True, frozen=True)
 class Protoargument:
-    expr:                    Expr
-    was_quoted_or_bracketed: bool
-    text:                    str
-    pos:                     _l.FullFilePos
+    class Type(enum.Enum):
+        BARE      = 0
+        QUOTED    = 1
+        BRACKETED = 2
+    type_:       Type
+    text:        str
+    prefix_size: int
+    suffix_size: int
+    pos:         int
 
 
-type Expr = StringExpr | CompositeExpr | ExpansionExpr
-
-@dataclass(slots=True)
-class StringExpr:
-    string: str
-
-@dataclass(slots=True)
-class CompositeExpr:
-    parts: list[Expr]
-
-    def __init__(self, parts: Iterable[Expr]) -> None:
-        self.parts = list(parts)
-
-@dataclass(slots=True)
-class ExpansionExpr:
-    resolution_type: ResolutionType
-    name_expr:       Expr
-    pos:             _l.FullFilePos
-
-class ResolutionType(enum.Enum):
-    GENERAL = 0
-    CACHE   = 1
-    ENV     = 2
-
-
-def _parse(path: pathlib.Path, error_handler: ErrorHandler) -> Iterator[Invoc]:
-    protoinvocations = _protoparse(path, error_handler)
+def _parse(tracker: _tp.FilePosTracker, warning_handler: ErrorHandler, error_handler: ErrorHandler) -> Iterator[Invoc]:
+    protoinvocations = _protoparse(tracker, warning_handler, error_handler)
     current = next(protoinvocations, None)
 
     def parse(parent_type: _ParentType, silent: bool = False) -> Iterator[Invoc]:
@@ -241,35 +222,35 @@ class _ParentType(enum.Enum):
     BLOCK    = 8
 
 
-def _protoparse(path: pathlib.Path, error_handler: ErrorHandler) -> Iterator[_Protoinvoc]:
+def _protoparse(tracker: _tp.FilePosTracker, warning_handler: ErrorHandler,
+                error_handler: ErrorHandler) -> Iterator[_Protoinvoc]:
     class State(enum.Enum):
         INITIAL   = 0
         HAVE_NAME = 1
         IN_ARGS   = 2
 
     class InvocInfo:
-        def __init__(self, file_pos: _l.FullFilePos) -> None:
+        def __init__(self, pos: int) -> None:
             self.command_name = ""
             self.args         = list[Protoargument]()
             self.invalid      = False
-            self.pos          = file_pos
-            self.lparen_pos   = _l.FullFilePos()
+            self.pos          = pos
+            self.lparen_pos   = 0
 
     state = State.INITIAL
     level:     int
     have_args: bool
     invoc_info: InvocInfo | None = None
 
-    for token in _tokenize(path, error_handler):
-        expr: Expr
+    for token in _tokenize(tracker, error_handler):
         match state:
             case State.INITIAL:
                 if isinstance(token, _UnquotedToken):
                     invoc_info = InvocInfo(token.pos)
-                    if not re.fullmatch(r"[A-Za-z_][0-9A-Za-z_]*", token.value):
+                    if not re.fullmatch(r"[A-Za-z_][0-9A-Za-z_]*", token.text):
                         error_handler(token.pos, "Invalid command name")
                         invoc_info.invalid = True
-                    invoc_info.command_name = token.value
+                    invoc_info.command_name = token.text
                     state = State.HAVE_NAME
                     continue
                 if isinstance(token, _LParenToken):
@@ -309,12 +290,13 @@ def _protoparse(path: pathlib.Path, error_handler: ErrorHandler) -> Iterator[_Pr
             case State.IN_ARGS:
                 assert invoc_info
                 require_preceding_whitespace = True
-                was_quoted_or_bracketed = False
                 reset_have_args = False
+                type_ = Protoargument.Type.BARE
+                prefix_size = 0
+                suffix_size = 0
                 if isinstance(token, _LParenToken):
                     level += 1
                     reset_have_args = True
-                    expr = StringExpr(token.text)
                 elif isinstance(token, _RParenToken):
                     assert level >= 0
                     if level == 0:
@@ -327,21 +309,22 @@ def _protoparse(path: pathlib.Path, error_handler: ErrorHandler) -> Iterator[_Pr
                         state = State.INITIAL
                         continue
                     level -= 1
-                    expr = StringExpr(token.text)
                     require_preceding_whitespace = False
                 elif isinstance(token, _UnquotedToken):
-                    expr = _parse_string(token.value, error_handler, token.pos)
+                    pass
                 elif isinstance(token, _QuotedToken):
-                    expr = _parse_string(token.value, error_handler, token.pos)
-                    was_quoted_or_bracketed = True
+                    type_ = Protoargument.Type.QUOTED
+                    prefix_size = 1
+                    suffix_size = 1
                 elif isinstance(token, _BracketToken):
-                    expr = StringExpr(token.value)
-                    was_quoted_or_bracketed = True
+                    type_ = Protoargument.Type.BRACKETED
+                    prefix_size = token.prefix_size
+                    suffix_size = token.suffix_size
                 else:
                     assert False
                 if have_args and require_preceding_whitespace and not token.preceded_by_whitespace:
-                    error_handler(token.pos, "Missing whitespace between arguments")
-                invoc_info.args.append(Protoargument(expr, was_quoted_or_bracketed, token.text, token.pos))
+                    warning_handler(token.pos, "Missing whitespace between arguments")
+                invoc_info.args.append(Protoargument(type_, token.text, prefix_size, suffix_size, token.pos))
                 have_args = True
                 if reset_have_args:
                     have_args = False
@@ -360,9 +343,9 @@ class _Protoinvoc:
     command_name_cf: str
     block_command:   _BlockCommand | None
     arguments:       list[Protoargument]
-    pos:             _l.FullFilePos
-    lparen_pos:      _l.FullFilePos
-    rparen_pos:      _l.FullFilePos
+    pos:             int
+    lparen_pos:      int
+    rparen_pos:      int
 
 
 class _BlockCommand(enum.Enum):
@@ -428,12 +411,11 @@ _PARENT_TYPE_MAP = {
 }
 
 
-def _tokenize(path: pathlib.Path, error_handler: ErrorHandler) -> Iterator[_Token]:
-    file_pos = _l.FullFilePos()
+def _tokenize(tracker: _tp.FilePosTracker, error_handler: ErrorHandler) -> Iterator[_Token]:
     input_ = ""
     eof = False
     prev_token_is_whitespace = False
-    with open(path, "r") as file_:
+    with open(tracker.path, "r") as file_:
         while True:
             line = file_.readline()
             if line:
@@ -446,66 +428,64 @@ def _tokenize(path: pathlib.Path, error_handler: ErrorHandler) -> Iterator[_Toke
                 assert m
 
                 token_text = m.group(0)
-                token_file_pos = file_pos
-                file_pos = _l.get_advanced_file_pos(file_pos, token_text)
 
                 orig_pos = pos
                 pos = m.end()
 
+                new_pos = pos = m.end()
                 if m.group("SPACE") or m.group("COMMENT"):
+                    tracker.track(token_text)
                     prev_token_is_whitespace = True
+                    pos = new_pos
                     continue
 
-                if pos == len(input_) and not eof:
-                    file_pos = token_file_pos
-                    pos = orig_pos
+                if new_pos == len(input_) and not eof:
                     break
 
+                token_pos = tracker.track(token_text)
                 preceded_by_whitespace = prev_token_is_whitespace
                 prev_token_is_whitespace = False
+                pos = new_pos
 
                 if m.group("UNQUOTED"):
-                    value = token_text
-                    yield _UnquotedToken(token_text, preceded_by_whitespace, token_file_pos, value)
+                    yield _UnquotedToken(token_text, preceded_by_whitespace, token_pos)
                     continue
 
                 if m.group("QUOTED"):
-                    value = token_text[1:-1]
-                    yield _QuotedToken(token_text, preceded_by_whitespace, token_file_pos, value)
+                    yield _QuotedToken(token_text, preceded_by_whitespace, token_pos)
                     continue
 
                 if m.group("LPAREN"):
-                    yield _LParenToken(token_text, preceded_by_whitespace, token_file_pos)
+                    yield _LParenToken(token_text, preceded_by_whitespace, token_pos)
                     continue
 
                 if m.group("RPAREN"):
-                    yield _RParenToken(token_text, preceded_by_whitespace, token_file_pos)
+                    yield _RParenToken(token_text, preceded_by_whitespace, token_pos)
                     continue
 
                 if m.group("BRACKET"):
                     eqs = m.group("eqs2")
-                    prefix_len = 2 + len(eqs)
-                    suffix_len = 2 + len(eqs)
-                    if len(token_text) > prefix_len + suffix_len and token_text[prefix_len] == "\n":
-                        prefix_len += 1
-                    value = token_text[prefix_len:-suffix_len]
-                    yield _BracketToken(token_text, preceded_by_whitespace, token_file_pos, value)
+                    prefix_size = 2 + len(eqs)
+                    suffix_size = 2 + len(eqs)
+                    if len(token_text) > prefix_size + suffix_size and token_text[prefix_size] == "\n":
+                        prefix_size += 1
+                    yield _BracketToken(token_text, preceded_by_whitespace, token_pos, prefix_size, suffix_size)
                     continue
 
                 if m.group("UNTERM_COMMENT"):
-                    error_handler(token_file_pos, "Unterminated bracketed comment")
+                    error_handler(token_pos, "Unterminated bracketed comment")
                     continue
 
                 if m.group("UNTERM_BRACKET"):
-                    error_handler(token_file_pos, "Unterminated bracket string")
+                    error_handler(token_pos, "Unterminated bracket string")
                     continue
 
                 if m.group("UNTERM_QUOTED"):
-                    error_handler(token_file_pos, "Unterminated quoted string")
+                    error_handler(token_pos, "Unterminated quoted string")
                     continue
 
                 if m.group("UNTERM_ESCAPE"):
-                    error_handler(token_file_pos, "Unterminated escape sequence")
+                    error_handler(token_pos, "Unterminated escape sequence")
                     continue
 
                 assert False
@@ -521,19 +501,20 @@ type _Token = _UnquotedToken | _QuotedToken | _BracketToken | _LParenToken | _RP
 class _TokenBase:
     text:                   str
     preceded_by_whitespace: bool
-    pos:                    _l.FullFilePos
+    pos:                    int
 
 @dataclass(slots=True, frozen=True)
 class _UnquotedToken(_TokenBase):
-    value: str
+    pass
 
 @dataclass(slots=True, frozen=True)
 class _QuotedToken(_TokenBase):
-    value: str
+    pass
 
 @dataclass(slots=True, frozen=True)
 class _BracketToken(_TokenBase):
-    value: str
+    prefix_size: int
+    suffix_size: int
 
 @dataclass(slots=True, frozen=True)
 class _LParenToken(_TokenBase):
@@ -556,113 +537,5 @@ _TOKEN_REGEX = re.compile(
     r'(?P<SPACE>\s+)|'
     r'(?P<UNQUOTED>(?:\\[^\n]|[^\s()"#\\])+)|'
     r'(?P<UNTERM_ESCAPE>\\)',
-    re.DOTALL,
-)
-
-
-def _parse_string(string: str, error_handler: ErrorHandler, file_pos: _l.FullFilePos) -> Expr:
-    def unescape(char: str) -> str:
-        special = {
-            ";":  "\\;", # CMake only unescapes `\;` during unqothed argument expansion
-            "n":  "\n",
-            "t":  "\t",
-            "r":  "\r",
-            "\n": "",
-        }
-        if char.isalnum() and char not in special:
-            error_handler(file_pos, "Invalid escape sequence `\\%s`", char)
-        return special.get(char, char)
-
-    class State(enum.Enum):
-        ROOT       = 0
-        IN_VAREXP  = 1
-        IN_EVAREXP = 2
-        IN_CVAREXP = 3
-
-    stack: list[tuple[State, list[Expr], _l.FullFilePos]] = []
-    state = State.ROOT
-    parts: list[Expr] = []
-
-    def append_literal(string: str) -> None:
-        if not parts or not isinstance(parts[-1], StringExpr):
-            parts.append(StringExpr(string))
-        else:
-            parts[-1].string += string
-
-    def get_expr() -> Expr:
-        if not parts:
-            return StringExpr("")
-        if len(parts) == 1:
-            return parts[0]
-        return CompositeExpr(parts)
-
-    file_pos_2 = file_pos
-    pos = 0
-    for m in _STRING_REGEX.finditer(string):
-        if m.start() > pos:
-            substring = string[pos:m.start()]
-            append_literal(substring)
-            file_pos_2 = _l.get_advanced_file_pos(file_pos_2, substring)
-        token_file_pos = file_pos_2
-        file_pos_2 = _l.get_advanced_file_pos(file_pos_2, m.group(0))
-        pos = m.end()
-
-        if m.group("ESCAPE"):
-            append_literal(unescape(string[pos - 1]))
-            continue
-
-        if m.group("VAREXP"):
-            stack.append((state, parts, token_file_pos))
-            state = State.IN_VAREXP
-            parts = []
-            continue
-
-        if m.group("CVAREXP"):
-            stack.append((state, parts, token_file_pos))
-            state = State.IN_CVAREXP
-            parts = []
-            continue
-
-        if m.group("EVAREXP"):
-            stack.append((state, parts, token_file_pos))
-            state = State.IN_EVAREXP
-            parts = []
-            continue
-
-        if m.group("RBRACE"):
-            match state:
-                case State.ROOT:
-                    append_literal("}")
-                    continue
-                case State.IN_VAREXP:
-                    resolution_type = ResolutionType.GENERAL
-                case State.IN_CVAREXP:
-                    resolution_type = ResolutionType.CACHE
-                case State.IN_EVAREXP:
-                    resolution_type = ResolutionType.ENV
-                case _:
-                    assert_never(state)
-            name_expr = get_expr()
-            state, parts, expansion_file_pos = stack.pop()
-            parts.append(ExpansionExpr(resolution_type, name_expr, expansion_file_pos))
-            continue
-
-        assert False
-
-    if len(string) > pos:
-        append_literal(string[pos:])
-
-    while state != State.ROOT:
-        state, parts, expansion_file_pos = stack.pop()
-        error_handler(expansion_file_pos, "Unclosed variable expansion")
-
-    return get_expr()
-
-_STRING_REGEX = re.compile(
-    r'(?P<ESCAPE>\\.)|'
-    r'(?P<VAREXP>\$\{)|'
-    r'(?P<CVAREXP>\$CACHE\{)|'
-    r'(?P<EVAREXP>\$ENV\{)|'
-    r'(?P<RBRACE>\})',
     re.DOTALL,
 )

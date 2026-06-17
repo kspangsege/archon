@@ -3,12 +3,12 @@ from typing import Any, Protocol, TextIO, assert_never
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 
-
 import enum
 import sys
 import pathlib
 
 import archon.ansi as _a
+import archon.text_pos as _tp
 
 
 class LogLevel(enum.Enum):
@@ -77,56 +77,22 @@ class LimitLogger(Logger):
 
 
 class FileContextLogger(Logger):
-    def __init__(self, base_logger: Logger, file_context: FileContext) -> None:
+    def __init__(self, base_logger: Logger, file_context: _tp.FileContext) -> None:
         sink = FileContextSink(base_logger.get_sink(), file_context)
         Logger.__init__(self, base_logger.get_limit(), sink)
         self._base_logger = base_logger
 
     def for_alt_line(self, line_no: int) -> FileContextLogger:
-        return self.for_alt_pos(LineFilePos(line_no))
+        return self.for_alt_pos(_tp.LineTextPos(line_no))
 
-    def for_alt_pos(self, pos: FilePos) -> FileContextLogger:
+    def for_alt_pos(self, pos: _tp.TextPos) -> FileContextLogger:
         sink = self.get_sink()
         assert isinstance(sink, FileContextSink)
         return self.for_alt_context(sink.get_path(), pos)
 
-    def for_alt_context(self, path: pathlib.Path, pos: FilePos) -> FileContextLogger:
-        file_context = FileContext(path, pos)
+    def for_alt_context(self, path: pathlib.Path, pos: _tp.TextPos) -> FileContextLogger:
+        file_context = _tp.FileContext(path, pos)
         return FileContextLogger(self._base_logger, file_context)
-
-
-type FilePos = NoFilePos | LineFilePos | FullFilePos
-
-@dataclass(slots=True, frozen=True)
-class NoFilePos:
-    pass
-
-@dataclass(slots=True, frozen=True)
-class LineFilePos:
-    line_no: int = 1
-
-@dataclass(slots=True, frozen=True)
-class FullFilePos(LineFilePos):
-    offset: int = 0
-
-
-def get_advanced_file_pos(pos: FullFilePos, text: str) -> FullFilePos:
-    line_no = pos.line_no
-    offset  = pos.offset
-    size = len(text)
-    num_newlines = text.count("\n")
-    if num_newlines > 0:
-        line_no += num_newlines
-        offset = size - (text.rfind("\n") + 1)
-    else:
-        offset += size
-    return FullFilePos(line_no, offset)
-
-
-class FileContext:
-    def __init__(self, path: pathlib.Path, pos: FilePos = NoFilePos()) -> None:
-        self.path = path
-        self.pos  = pos
 
 
 class Limit(ABC):
@@ -184,7 +150,7 @@ class RootSink(Sink):
 
 
 class FileContextSink(Sink):
-    def __init__(self, base_sink: Sink, file_context: FileContext) -> None:
+    def __init__(self, base_sink: Sink, file_context: _tp.FileContext) -> None:
         self._base_sink    = base_sink
         self._file_context = file_context
 
@@ -192,11 +158,11 @@ class FileContextSink(Sink):
         path = self._file_context.path
         pos  = self._file_context.pos
         match pos:
-            case FullFilePos(line_no, offset):
+            case _tp.FullTextPos(line_no, offset):
                 context = "%s:%s:%s" % (path, line_no, offset)
-            case LineFilePos(line_no):
+            case _tp.LineTextPos(line_no):
                 context = "%s:%s" % (path, line_no)
-            case NoFilePos():
+            case _tp.NoTextPos():
                 context = "%s" % path
             case _:
                 assert_never(pos)
