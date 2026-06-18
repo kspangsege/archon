@@ -3,6 +3,7 @@ import pathlib
 
 import archon.log as _l
 import archon.command_line_interface as _cli
+import archon.cmake.uncertainty_reason as _cur
 import archon.cmake.process as _cp
 
 
@@ -29,7 +30,7 @@ pos_resolver = _cp.PositionResolver()
 logger = _l.LimitLogger(root_logger, log_level)
 
 class Application(_cp.Application):
-    def message(self, pos: _cp.Position, uncertainty: _cp.ConditionalUncertainty, level: _cp.MessageLevel,
+    def message(self, pos: _cur.Position, uncertainty: _cp.ConditionalUncertainty, level: _cp.MessageLevel,
                 message: str) -> None:
         certainty = "Uncertain" if uncertainty else "Certain"
         context = pos_resolver.resolve(pos)

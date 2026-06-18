@@ -31,22 +31,3 @@ def resolve_self_rel_path(argv0: str, rel_path: str) -> pathlib.Path:
 @dataclass(slots=True)
 class Wrap[T]:
     value: T
-
-
-class Tristate(enum.Enum):
-    FALSE     = 0
-    UNCERTAIN = 1
-    TRUE      = 2
-
-    def __invert__(self):
-        return Tristate(2 - self.value)
-
-    def __and__(self, other):
-        if not isinstance(other, Tristate):
-            return NotImplemented
-        return Tristate(min(self.value, other.value))
-
-    def __or__(self, other):
-        if not isinstance(other, Tristate):
-            return NotImplemented
-        return Tristate(max(self.value, other.value))
