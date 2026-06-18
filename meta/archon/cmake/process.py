@@ -6,6 +6,7 @@ from dataclasses import dataclass
 import enum
 import pathlib
 
+import archon.base as _b
 import archon.text_pos as _tp
 import archon.log as _l
 import archon.cmake.util as _cu
@@ -13,22 +14,76 @@ import archon.cmake.lowlevel_parser as _clp
 import archon.cmake.string_parser as _csp
 
 
-def process(cmake_path: pathlib.Path, logger: _l.Logger) -> bool:
-    return _process(cmake_path, logger)
+def process(cmake_path: pathlib.Path, application: Application, pos_resolver: PositionResolver,
+            logger: _l.Logger) -> bool:
+    return _process(cmake_path, application, pos_resolver, logger)
 
 
-def _process(cmake_path: pathlib.Path, logger: _l.Logger) -> bool:
-    files       = list[_SourceFile]()
+class Application:
+    def message(self, pos: Position, uncertainty: ConditionalUncertainty, level: MessageLevel, message: str) -> None:
+        ...
+
+
+class PositionResolver:
+    def __init__(self) -> None:
+        self._files = list[_SourceFile]()
+
+    def resolve(self, pos: Position) -> _tp.FileContext:
+        return self._files[pos.file_index].pos_tracker.get_file_context(pos.pos)
+
+    def _append(self, file_: _SourceFile) -> int:
+        file_index = len(self._files)
+        self._files.append(file_)
+        return file_index
+
+
+@dataclass(slots=True, frozen=True)
+class Position:
+    file_index: int
+    pos:        int
+
+
+type ConditionalUncertainty = ExpansionUncertaintyReason | None
+
+type ValueUncertaintyReason = ExpansionUncertaintyReason | AssignmentOccurrenceUncertaintyReason
+
+@dataclass(slots=True, frozen=True)
+class ExpansionUncertaintyReason:
+    command_name:             str
+    variable_name:            str
+    expansion_position:       Position
+    value_uncertainty_reason: ValueUncertaintyReason | None
+
+@dataclass(slots=True, frozen=True)
+class AssignmentOccurrenceUncertaintyReason:
+    command_name:                   str
+    assignment_position:            Position
+    conditional_uncertainty_reason: ExpansionUncertaintyReason
+
+
+class MessageLevel(enum.Enum):
+    FATAL_ERROR    = 0
+    SEND_ERROR     = 1
+    WARNING        = 2
+    AUTHOR_WARNING = 3
+    DEPRECATION    = 4
+    NOTICE         = 5
+    STATUS         = 6
+    VERBOSE        = 7
+    DEBUG          = 8
+    TRACE          = 9
+
+
+def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Logger) -> bool:
     commands    = dict[str, _Command]()
     environment = _Environment()
     cache       = _Cache()
     _define_built_in_commands(commands)
 
     def process_file(cmake_path: pathlib.Path, directory: _Directory,
-                     conditional_uncertainty: _ConditionalUncertainty) -> None:
+                     conditional_uncertainty: ConditionalUncertainty) -> None:
         tracker = _tp.FilePosTracker(cmake_path)
-        file_index = len(files)
-        files.append(_SourceFile(tracker))
+        file_index = pos_resolver._append(_SourceFile(tracker))
         def warning_handler(pos: int, message: str, *args: Any) -> None:
             warning(file_index, pos, message, *args)
         def error_handler(pos: int, message: str, *args: Any) -> None:
@@ -66,18 +121,34 @@ def _process(cmake_path: pathlib.Path, logger: _l.Logger) -> bool:
             error(context.file_index, invoc.pos, "Unsupported %s() syntax", invoc.command_name)
             return
         except _UncertainArgumentException as e:
-            assert False                                    
+            position = e.reason.expansion_position
+            error(position.file_index, position.pos, "Failed to invoke %s() due to expansion of variable %s with "
+                  "uncertain value", e.reason.command_name, _b.quote(e.reason.variable_name))
+            reason = e.reason.value_uncertainty_reason
+            while reason:
+                if isinstance(reason, ExpansionUncertaintyReason):
+                    reason_2 = reason
+                elif isinstance(reason, AssignmentOccurrenceUncertaintyReason):
+                    position = reason.assignment_position
+                    error(position.file_index, position.pos, "Caused by execution of %s() with uncertain occurrence",
+                          reason.command_name)
+                    reason_2 = reason.conditional_uncertainty_reason
+                position = reason_2.expansion_position
+                error(position.file_index, position.pos, "Caused by expansion of variable %s with uncertain value in "
+                      "invocation of %s()", _b.quote(reason_2.variable_name), reason_2.command_name)
+                reason = reason_2.value_uncertainty_reason
+            return
 
     def process_simple(invoc: _clp.SimpleInvoc, context: _InvocContext) -> None:
         command = commands.get(invoc.command_name_cf)
         if not command:
-            error(context.file_index, invoc.pos, "Invocation of undefined command %s()", invoc.command_name)
+            error(context.file_index, invoc.pos, "Invocation of undefined command, %s()", invoc.command_name)
             return
         match command:
             case _BuiltInCommand(which):
                 match which:
                     case _BuiltInCommand.Which.UNSUPPORTED:
-                        error(context.file_index, invoc.pos, "Invocation of unsupported command %s()",
+                        error(context.file_index, invoc.pos, "Invocation of unsupported command, %s()",
                               invoc.command_name)
                         return
                     case _BuiltInCommand.Which.SET:
@@ -99,37 +170,31 @@ def _process(cmake_path: pathlib.Path, logger: _l.Logger) -> bool:
         assert_never(command)
 
     def process_if(invoc: _clp.IfInvoc, context: _InvocContext) -> None:
-        logger.info("-----> INVOC: %s", invoc.command_name)
         assert False        
 
     def process_foreach(invoc: _clp.ForeachInvoc, context: _InvocContext) -> None:
-        logger.info("-----> INVOC: %s", invoc.command_name)
         assert False        
 
     def process_while(invoc: _clp.WhileInvoc, context: _InvocContext) -> None:
-        logger.info("-----> INVOC: %s", invoc.command_name)
         assert False        
 
     def process_macro(invoc: _clp.MacroDefInvoc, context: _InvocContext) -> None:
-        logger.info("-----> INVOC: %s", invoc.command_name)
         assert False        
 
     def process_function(invoc: _clp.FunctionDefInvoc, context: _InvocContext) -> None:
-        logger.info("-----> INVOC: %s", invoc.command_name)
         assert False        
 
     def process_block(invoc: _clp.BlockInvoc, context: _InvocContext) -> None:
-        logger.info("-----> INVOC: %s", invoc.command_name)
         assert False        
 
     def process_set(invoc: _clp.SimpleInvoc, context: _InvocContext) -> None:
-        logger.info("-----> INVOC: %s", invoc.command_name)
         server = create_argument_server(invoc, context)
         # FIXME: Consider picking up the part of the variable name that is specified, if
         # any, and use it as a tainting pattern
         variable = server.consume()
         if not variable:
-            error(context.file_index, server.next_pos(), "Missing variable name in set() invocation")
+            error(context.file_index, server.next_pos(), "Missing variable name in %s() invocation",
+                  invoc.command_name)
             return
         var_ref = _cu.parse_variable_reference(variable.string)
         match var_ref.resolution_type:
@@ -158,22 +223,64 @@ def _process(cmake_path: pathlib.Path, logger: _l.Logger) -> bool:
             if context.directory.parent:
                 context.directory.parent.taint_variable(var_name, e.reason)
             return
-        set_variable(var_name, values, parent_scope, invoc.pos, context)
+        set_variable(var_name, values, parent_scope, invoc, context)
 
     def process_unset(invoc: _clp.SimpleInvoc, context: _InvocContext) -> None:
-        logger.info("-----> INVOC: %s", invoc.command_name)
-        assert False        
+        server = create_argument_server(invoc, context)
+        variable = server.consume()
+        if not variable:
+            error(context.file_index, server.next_pos(), "Missing variable name in %s() invocation",
+                  invoc.command_name)
+            return
+        var_ref = _cu.parse_variable_reference(variable.string)
+        match var_ref.resolution_type:
+            case _cu.ResolutionType.GENERAL:
+                pass
+            case _cu.ResolutionType.CACHE | _cu.ResolutionType.ENV:
+                raise _UnsupportedCommandSyntaxException from None
+            case _:
+                assert_never(var_ref.resolution_type)
+        var_name = var_ref.variable_name
+        parent_scope = False
+        try:
+            arg = server.consume()
+            if arg:
+                if arg.string == "CACHE":
+                    raise _UnsupportedCommandSyntaxException from None
+                if server.at_end() and arg.string == "PARENT_SCOPE":
+                    parent_scope = True
+                else:
+                    error(context.file_index, server.next_pos(), "Too many arguments in %s() invocation",
+                          invoc.command_name)
+        except _UncertainArgumentException as e:
+            context.directory.taint_variable(var_name, e.reason)
+            if context.directory.parent:
+                context.directory.parent.taint_variable(var_name, e.reason)
+            return
+        values = list[str]()
+        set_variable(var_name, values, parent_scope, invoc, context)
 
     def process_message(invoc: _clp.SimpleInvoc, context: _InvocContext) -> None:
-        logger.info("-----> INVOC: %s", invoc.command_name)
-        assert False        
+        server = create_argument_server(invoc, context)
+        if server.consume_keyword({"CHECK_START", "CHECK_PASS", "CHECK_FAIL", "CONFIGURE_LOG"}):
+            raise _UnsupportedCommandSyntaxException
+        level = MessageLevel.NOTICE
+        arg = server.consume_keyword(_MESSAGE_LEVEL_MAP.keys())
+        if arg:
+            level = _MESSAGE_LEVEL_MAP[arg.string]
+        message = ""
+        while True:
+            arg = server.consume()
+            if not arg:
+                break
+            message += arg.string
+        position = Position(context.file_index, invoc.pos)
+        application.message(position, context.conditional_uncertainty, level, message)
 
     def process_include(invoc: _clp.SimpleInvoc, context: _InvocContext) -> None:
-        logger.info("-----> INVOC: %s", invoc.command_name)
         assert False        
 
     def process_add_subdirectory(invoc: _clp.SimpleInvoc, context: _InvocContext) -> None:
-        logger.info("-----> INVOC: %s", invoc.command_name)
         assert False        
 
     def create_argument_server(invoc: _clp.InvocBase, context: _InvocContext) -> _ArgumentServer:
@@ -191,7 +298,7 @@ def _process(cmake_path: pathlib.Path, logger: _l.Logger) -> bool:
             match protoarg.type_:
                 case _clp.Protoargument.Type.BARE:
                     was_quoted_or_bracketed = False
-                    result = expand_string(string, pos, context)
+                    result = expand_string(string, pos, invoc, context)
                     match result:
                         case _CertainExpansionResult():
                             segments, is_derived = _list_split(result.string, result.is_derived)
@@ -208,7 +315,7 @@ def _process(cmake_path: pathlib.Path, logger: _l.Logger) -> bool:
                     assert_never(result)
                 case _clp.Protoargument.Type.QUOTED:
                     was_quoted_or_bracketed = True
-                    result = expand_string(string, pos, context)
+                    result = expand_string(string, pos, invoc, context)
                     match result:
                         case _CertainExpansionResult():
                             arg = _CertainArgument(was_quoted_or_bracketed, protoarg.pos, result.string,
@@ -230,7 +337,7 @@ def _process(cmake_path: pathlib.Path, logger: _l.Logger) -> bool:
             assert_never(protoarg.type_)
         return arguments
 
-    def expand_string(string: str, pos: int, context: _InvocContext) -> _ExpansionResult:
+    def expand_string(string: str, pos: int, invoc: _clp.InvocBase, context: _InvocContext) -> _ExpansionResult:
         def expand(expr: _csp.Expr) -> _ExpansionResult:
             if isinstance(expr, _csp.StringExpr):
                 is_derived = False
@@ -257,8 +364,8 @@ def _process(cmake_path: pathlib.Path, logger: _l.Logger) -> bool:
                         is_derived = True
                         return _CertainExpansionResult(string, is_derived)
                     if isinstance(value, _UncertainValue):
-                        source_pos = _SourcePosition(context.file_index, expr.pos)
-                        reason = _ExpansionUncertaintyReason(name, source_pos, value.reason)
+                        position = Position(context.file_index, expr.pos)
+                        reason = ExpansionUncertaintyReason(invoc.command_name, name, position, value.reason)
                         return _UncertainExpansionResult(reason)
                     assert_never(value)
                 if isinstance(result, _UncertainExpansionResult):
@@ -346,12 +453,12 @@ def _process(cmake_path: pathlib.Path, logger: _l.Logger) -> bool:
                 return environment.resolve(variable_name)
         assert_never(resolution_type)
 
-    def set_variable(variable_name: str, values: list[str], parent_scope: bool, invoc_pos: int,
+    def set_variable(variable_name: str, values: list[str], parent_scope: bool, invoc: _clp.InvocBase,
                      context: _InvocContext) -> None:
         target = directory
         if parent_scope:
             if not directory.parent:
-                warning(context.file_index, invoc_pos, "set() invocation skipped: No parent scope exists")
+                warning(context.file_index, invoc.pos, "set() invocation skipped: No parent scope exists")
                 return
             target = directory.parent
         if not context.conditional_uncertainty:
@@ -361,19 +468,19 @@ def _process(cmake_path: pathlib.Path, logger: _l.Logger) -> bool:
             target.set_variable(variable_name, value)
             return
         # FIXME: Consider adding new value as alternative specific value
-        assignment_pos = _SourcePosition(context.file_index, invoc_pos)
-        reason = _AssignmentOccurrenceUncertaintyReason(assignment_pos, context.conditional_uncertainty)
+        position = Position(context.file_index, invoc.pos)
+        reason = AssignmentOccurrenceUncertaintyReason(invoc.command_name, position, context.conditional_uncertainty)
         target.taint_variable(variable_name, reason)
 
     def warning(file_index: int, pos: int, message: str, *args: Any):
-        context = files[file_index].pos_tracker.get_file_context(pos)
+        context = pos_resolver.resolve(Position(file_index, pos))
         _l.FileContextLogger(logger, context).warn(message, *args)
 
     errors_seen = False
     def error(file_index: int, pos: int, message: str, *args: Any):
         nonlocal errors_seen
         errors_seen = True
-        context = files[file_index].pos_tracker.get_file_context(pos)
+        context = pos_resolver.resolve(Position(file_index, pos))
         _l.FileContextLogger(logger, context).error(message, *args)
 
     directory = _Directory()
@@ -385,12 +492,6 @@ def _process(cmake_path: pathlib.Path, logger: _l.Logger) -> bool:
 @dataclass(slots=True, frozen=True)
 class _SourceFile:
     pos_tracker: _tp.FilePosTracker
-
-
-@dataclass(slots=True, frozen=True)
-class _SourcePosition:
-    file_index: int
-    pos:        int
 
 
 type _Command = _BuiltInCommand
@@ -434,14 +535,14 @@ class _Directory:
     def __init__(self, parent: _Directory | None = None) -> None:
         self._parent            = parent
         self._variables         = dict[str, _CertainValue]()
-        self._tainted_variables = dict[str, _ValueUncertaintyReason]()
+        self._tainted_variables = dict[str, ValueUncertaintyReason]()
 
     @property
     def parent(self) -> _Directory | None:
         return self._parent
 
     def resolve_variable(self, name: str) -> _Value:
-        reason: _ValueUncertaintyReason | None
+        reason: ValueUncertaintyReason | None
         reason = self._tainted_variables.get(name)
         if reason:
             return _UncertainValue(reason)
@@ -457,7 +558,7 @@ class _Directory:
         self._variables[variable_name] = _CertainValue(value)
         self._tainted_variables.pop(variable_name, None)
 
-    def taint_variable(self, variable_name: str, reason: _ValueUncertaintyReason) -> None:
+    def taint_variable(self, variable_name: str, reason: ValueUncertaintyReason) -> None:
         self._variables.pop(variable_name, None)
         self._tainted_variables[variable_name] = reason
 
@@ -466,10 +567,7 @@ class _Directory:
 class _InvocContext:
     file_index:              int
     directory:               _Directory
-    conditional_uncertainty: _ConditionalUncertainty
-
-
-type _ConditionalUncertainty = _ExpansionUncertaintyReason | None
+    conditional_uncertainty: ConditionalUncertainty
 
 
 # FIXME: Consider expanding protoarguments just in time using a yielding scheme    
@@ -519,7 +617,7 @@ class _UnsupportedCommandSyntaxException(Exception):
 
 
 class _UncertainArgumentException(Exception):
-    def __init__(self, reason: _ExpansionUncertaintyReason) -> None:
+    def __init__(self, reason: ExpansionUncertaintyReason) -> None:
         self.reason = reason
 
 
@@ -531,7 +629,7 @@ class _CertainValue:
 
 @dataclass(slots=True, frozen=True)
 class _UncertainValue:
-    reason: _ValueUncertaintyReason | None
+    reason: ValueUncertaintyReason | None
 
 
 type _Argument = _CertainArgument | _UncertainArgument
@@ -548,7 +646,7 @@ class _CertainArgument(_ArgumentBase):
 
 @dataclass(slots=True, frozen=True)
 class _UncertainArgument(_ArgumentBase):
-    reason: _ExpansionUncertaintyReason
+    reason: ExpansionUncertaintyReason
 
 
 type _ExpansionResult = _CertainExpansionResult | _UncertainExpansionResult
@@ -560,7 +658,7 @@ class _CertainExpansionResult:
 
 @dataclass(slots=True, frozen=True)
 class _UncertainExpansionResult:
-    reason: _ExpansionUncertaintyReason
+    reason: ExpansionUncertaintyReason
 
 
 def _list_split(string: _tp.PosMappedString, is_derived: bool) -> tuple[list[_tp.PosMappedString], bool]:
@@ -593,15 +691,15 @@ def _list_split(string: _tp.PosMappedString, is_derived: bool) -> tuple[list[_tp
     return parts, is_derived_2
 
 
-type _ValueUncertaintyReason = _ExpansionUncertaintyReason | _AssignmentOccurrenceUncertaintyReason
-
-@dataclass(slots=True, frozen=True)
-class _ExpansionUncertaintyReason:
-    variable_name:            str
-    expansion_position:       _SourcePosition
-    value_uncertainty_reason: _ValueUncertaintyReason | None
-
-@dataclass(slots=True, frozen=True)
-class _AssignmentOccurrenceUncertaintyReason:
-    assignment_position:            _SourcePosition
-    conditional_uncertainty_reason: _ExpansionUncertaintyReason
+_MESSAGE_LEVEL_MAP = {
+    "FATAL_ERROR":    MessageLevel.FATAL_ERROR,
+    "SEND_ERROR":     MessageLevel.SEND_ERROR,
+    "WARNING":        MessageLevel.WARNING,
+    "AUTHOR_WARNING": MessageLevel.AUTHOR_WARNING,
+    "DEPRECATION":    MessageLevel.DEPRECATION,
+    "NOTICE":         MessageLevel.NOTICE,
+    "STATUS":         MessageLevel.STATUS,
+    "VERBOSE":        MessageLevel.VERBOSE,
+    "DEBUG":          MessageLevel.DEBUG,
+    "TRACE":          MessageLevel.TRACE,
+}

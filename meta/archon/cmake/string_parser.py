@@ -163,10 +163,10 @@ def _parse(string: str, pos: int, error_handler: ErrorHandler) -> Expr:
                 add_linear(token_text, token_pos)
                 continue
             flush(token_pos, finalize=True)
+            name_expr = get_expr()
             orig = var_expansion
             var_expansion, parts = stack.pop()
             if not orig.invalid:
-                name_expr = get_expr()
                 parts.append(ExpansionExpr(orig.pos, orig.resolution_type, name_expr))
             continue
 

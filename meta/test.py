@@ -25,5 +25,16 @@ if len(result.args) < 1:
 cmake_path = pathlib.Path(result.args[0])
 log_level = result.get_opt("--log-level")
 
+pos_resolver = _cp.PositionResolver()
 logger = _l.LimitLogger(root_logger, log_level)
-_cp.process(cmake_path, logger)
+
+class Application(_cp.Application):
+    def message(self, pos: _cp.Position, uncertainty: _cp.ConditionalUncertainty, level: _cp.MessageLevel,
+                message: str) -> None:
+        certainty = "Uncertain" if uncertainty else "Certain"
+        context = pos_resolver.resolve(pos)
+        context_logger = _l.FileContextLogger(logger, context)
+        context_logger.info("%s: Message(%s): %s", certainty, level.name, message)
+
+application = Application()
+_cp.process(cmake_path, application, pos_resolver, logger)
