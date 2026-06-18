@@ -2,11 +2,11 @@ from __future__ import annotations
 from typing import Protocol, Any
 from dataclasses import dataclass
 
-import enum
 import re
 
 import archon.base as _b
 import archon.text_pos as _tp
+import archon.cmake.util as _cu
 
 
 def parse(string: str, pos: int, error_handler: ErrorHandler) -> Expr:
@@ -34,20 +34,14 @@ class CompositeExpr(ExprBase):
 
 @dataclass(slots=True, frozen=True)
 class ExpansionExpr(ExprBase):
-    resolution_type: ResolutionType
+    resolution_type: _cu.ResolutionType
     name_expr:       Expr
-
-
-class ResolutionType(enum.Enum):
-    GENERAL = 0
-    CACHE   = 1
-    ENV     = 2
 
 
 def _parse(string: str, pos: int, error_handler: ErrorHandler) -> Expr:
     @dataclass(slots=True)
     class VarExpansion:
-        resolution_type: ResolutionType
+        resolution_type: _cu.ResolutionType
         pos:             int
         invalid:         bool
 
@@ -147,15 +141,15 @@ def _parse(string: str, pos: int, error_handler: ErrorHandler) -> Expr:
             flush(token_pos)
             assert len(token_text) >= 2 and token_text[0] == "$" and token_text[-1] == "{"
             domain = token_text[1:-1]
-            resolution_type = ResolutionType.GENERAL
+            resolution_type = _cu.ResolutionType.GENERAL
             invalid = False
             match domain:
                 case "":
                     pass
                 case "CACHE":
-                    resolution_type = ResolutionType.CACHE
+                    resolution_type = _cu.ResolutionType.CACHE
                 case "ENV":
-                    resolution_type = ResolutionType.ENV
+                    resolution_type = _cu.ResolutionType.ENV
                 case _:
                     error_handler(token_pos, "Invalid domain (%s) in variable expansion", _b.quote(domain))
                     invalid = True

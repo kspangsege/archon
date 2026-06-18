@@ -896,7 +896,7 @@ def _evaluate_string_expression(expr: _lcp.Expr, variable_resolver: VariableReso
 
 
 # FIXME: Looks like an unparsable `if()` command needs to throw a "taint bomb" because its
-# operators may have had side effects.                               
+# operators may have side effects.                               
 class _ArgumentServer:
     def __init__(self, cmake_path: pathlib.Path, protoinvoc: _lcp.Protoinvoc, arguments: Iterable[_Argument],
                  error_handler: ErrorHandler) -> None:
