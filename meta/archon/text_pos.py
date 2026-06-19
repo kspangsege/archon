@@ -167,8 +167,16 @@ class PosMap:
     lin_segments: tuple[LinSegment, ...]
     size:         int
 
+    def map_(self, pos: int) -> int:
+        if pos < 0 or pos > self.size:
+            raise KeyError("Position is out of bounds")
+        i = self._find_segment(pos)
+        return self._map(i, pos)
+
     # Produce map that corresponds to first mapping through `other` then through this map.
     def compose_with(self, other: PosMap) -> PosMap:
+        if other.map_(other.size) > self.size:
+            raise KeyError("Range of other map is out of bounds")
         i = self._find_segment(other.lead_ref_pos)
         ref_pos = self._map(i, other.lead_ref_pos)
         builder = PosMapBuilder(ref_pos)

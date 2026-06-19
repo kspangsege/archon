@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Protocol, Any, assert_never
+from typing import Protocol, Any, override, assert_never
 from collections.abc import Callable, Container
 from dataclasses import dataclass
 
@@ -13,8 +13,9 @@ import archon.cmake.util as _cu
 import archon.cmake.lowlevel_parser as _clp
 import archon.cmake.string_parser as _csp
 import archon.cmake.uncertainty_reason as _cur
+import archon.cmake.variable as _cv
 import archon.cmake.argument as _ca
-import archon.cmake.condition as _cd
+import archon.cmake.condition as _cc
 
 
 def process(cmake_path: pathlib.Path, application: Application, pos_resolver: PositionResolver,
@@ -55,6 +56,12 @@ class MessageLevel(enum.Enum):
     VERBOSE        = 7
     DEBUG          = 8
     TRACE          = 9
+
+
+
+
+
+
 
 
 def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Logger) -> bool:
@@ -153,11 +160,8 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
         assert_never(command)
 
     def process_if(invoc: _clp.IfInvoc, context: _InvocContext) -> None:
-        arguments = expand_arguments(invoc, context)
-        condition = _cd.parse(arguments, invoc.rparen_pos)
-        result = _cd.evaluate(condition)
-        # Evaluate main condition    
-        # If true, execute main branch    
+        result = evaluate_condition(invoc, context)
+        # If true, execute main branch        
         assert False        
 
     def process_foreach(invoc: _clp.ForeachInvoc, context: _InvocContext) -> None:
@@ -271,11 +275,27 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
     def process_add_subdirectory(invoc: _clp.SimpleInvoc, context: _InvocContext) -> None:
         assert False        
 
-    def create_argument_server(invoc: _clp.InvocBase, context: _InvocContext) -> _ca.ArgumentServer:
+    def evaluate_condition(invoc: _clp.GeneralizedInvoc, context: _InvocContext) -> _cc.Result:
+        arguments = expand_arguments(invoc, context)
+        condition = _cc.parse(arguments, invoc.rparen_pos)
+        class State(_cv.VariableState):
+            @override
+            def get(self, resolution_type: _cu.ResolutionType, variable_name: str, pos: int) -> _cv.Value:
+                return resolve_variable(resolution_type, variable_name, pos, context)
+            @override
+            def set_(self, variable_name: str, value: str | None) -> None:
+                context.directory.set_variable(variable_name, value)
+            @override
+            def taint(self, variable_name: str, reason: _cur.ValueUncertaintyReason) -> None:
+                context.directory.taint_variable(variable_name, reason)
+        state = State()
+        return _cc.evaluate(condition, invoc.command_name, context.file_index, state)
+
+    def create_argument_server(invoc: _clp.GeneralizedInvoc, context: _InvocContext) -> _ca.ArgumentServer:
         arguments = expand_arguments(invoc, context)
         return _ca.ArgumentServer(invoc, arguments, context.file_index)
 
-    def expand_arguments(invoc: _clp.InvocBase, context: _InvocContext) -> list[_ca.Argument]:
+    def expand_arguments(invoc: _clp.GeneralizedInvoc, context: _InvocContext) -> list[_ca.Argument]:
         arguments = list[_ca.Argument]()
         for protoarg in invoc.arguments:
             i = protoarg.prefix_size
@@ -325,7 +345,7 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
             assert_never(protoarg.type_)
         return arguments
 
-    def expand_string(string: str, pos: int, invoc: _clp.InvocBase, context: _InvocContext) -> _ExpansionResult:
+    def expand_string(string: str, pos: int, invoc: _clp.GeneralizedInvoc, context: _InvocContext) -> _ExpansionResult:
         def expand(expr: _csp.Expr) -> _ExpansionResult:
             if isinstance(expr, _csp.StringExpr):
                 is_derived = False
@@ -347,11 +367,11 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
                 if isinstance(result, _CertainExpansionResult):
                     name = result.string.string
                     value = resolve_variable(expr.resolution_type, name, expr.name_expr.pos, context)
-                    if isinstance(value, _CertainValue):
+                    if isinstance(value, _cv.CertainValue):
                         string = _tp.PosMappedString.from_nonlinear_string(value.string or "", expr.pos)
                         is_derived = True
                         return _CertainExpansionResult(string, is_derived)
-                    if isinstance(value, _UncertainValue):
+                    if isinstance(value, _cv.UncertainValue):
                         position = _cur.Position(context.file_index, expr.pos)
                         reason = _cur.ExpansionUncertaintyReason(invoc.command_name, name, position, value.reason)
                         return _UncertainExpansionResult(reason)
@@ -365,15 +385,15 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
         return expand(_csp.parse(string, pos, error_handler))
 
     def resolve_variable(resolution_type: _cu.ResolutionType, variable_name: str, pos: int,
-                         context: _InvocContext) -> _Value:
+                         context: _InvocContext) -> _cv.Value:
         match resolution_type:
             case _cu.ResolutionType.GENERAL:
                 value = directory.resolve_variable(variable_name)
                 match value:
-                    case _CertainValue(string):
+                    case _cv.CertainValue(string):
                         if string is not None:
                             return value
-                    case _UncertainValue():
+                    case _cv.UncertainValue():
                         return value
                     case _:
                         assert_never(value)
@@ -384,7 +404,7 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
                 return environment.resolve(variable_name)
         assert_never(resolution_type)
 
-    def set_variable(variable_name: str, values: list[str], parent_scope: bool, invoc: _clp.InvocBase,
+    def set_variable(variable_name: str, values: list[str], parent_scope: bool, invoc: _clp.GeneralizedInvoc,
                      context: _InvocContext) -> None:
         target = directory
         if parent_scope:
@@ -454,40 +474,40 @@ def _define_built_in_commands(commands: dict[str, _Command]) -> None:
 
 
 class _Environment:
-    def resolve(self, name: str) -> _Value:
+    def resolve(self, name: str) -> _cv.Value:
         assert False        
 
 
 class _Cache:
-    def resolve(self, name: str) -> _Value:
+    def resolve(self, name: str) -> _cv.Value:
         assert False        
 
 
 class _Directory:
     def __init__(self, parent: _Directory | None = None) -> None:
         self._parent            = parent
-        self._variables         = dict[str, _CertainValue]()
+        self._variables         = dict[str, _cv.CertainValue]()
         self._tainted_variables = dict[str, _cur.ValueUncertaintyReason]()
 
     @property
     def parent(self) -> _Directory | None:
         return self._parent
 
-    def resolve_variable(self, name: str) -> _Value:
+    def resolve_variable(self, name: str) -> _cv.Value:
         reason: _cur.ValueUncertaintyReason | None
         reason = self._tainted_variables.get(name)
         if reason:
-            return _UncertainValue(reason)
+            return _cv.UncertainValue(reason)
         value = self._variables.get(name)
         if value:
             if value.string is None and self._parent:
                 return self._parent.resolve_variable(name)
             return value
         reason = None
-        return _UncertainValue(reason)
+        return _cv.UncertainValue(reason)
 
     def set_variable(self, variable_name: str, value: str | None) -> None:
-        self._variables[variable_name] = _CertainValue(value)
+        self._variables[variable_name] = _cv.CertainValue(value)
         self._tainted_variables.pop(variable_name, None)
 
     def taint_variable(self, variable_name: str, reason: _cur.ValueUncertaintyReason) -> None:
@@ -504,17 +524,6 @@ class _InvocContext:
 
 class _UnsupportedCommandSyntaxException(Exception):
     pass
-
-
-type _Value = _CertainValue | _UncertainValue
-
-@dataclass(slots=True, frozen=True)
-class _CertainValue:
-    string: str | None
-
-@dataclass(slots=True, frozen=True)
-class _UncertainValue:
-    reason: _cur.ValueUncertaintyReason | None
 
 
 type _ExpansionResult = _CertainExpansionResult | _UncertainExpansionResult

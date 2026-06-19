@@ -5,6 +5,12 @@ import enum
 import re
 
 
+def list_split(string: str) -> list[str]:
+    if not string:
+        return []
+    return [s.replace(r"\;", ";") for s in re.split(r"(?<!\\);", string)]
+
+
 def parse_variable_reference(string: str) -> VariableReference:
     m = re.fullmatch(r"CACHE\{(.*)\}", string)
     if m:

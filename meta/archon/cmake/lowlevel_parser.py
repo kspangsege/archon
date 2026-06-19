@@ -27,6 +27,8 @@ class ErrorHandler(Protocol):
 
 type Invoc = SimpleInvoc | IfInvoc | ForeachInvoc | WhileInvoc | MacroDefInvoc | FunctionDefInvoc | BlockInvoc
 
+type GeneralizedInvoc = Invoc | IfBranch | EndMarker
+
 @dataclass(slots=True, frozen=True)
 class InvocBase:
     command_name: str
@@ -89,6 +91,12 @@ class Protoargument:
     prefix_size: int
     suffix_size: int
     pos:         int
+
+
+
+
+
+
 
 
 def _parse(tracker: _tp.FilePosTracker, warning_handler: ErrorHandler, error_handler: ErrorHandler) -> Iterator[Invoc]:

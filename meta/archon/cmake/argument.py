@@ -1,9 +1,10 @@
 from __future__ import annotations
-from typing import assert_never
+from typing import Protocol, assert_never
 from collections.abc import Callable, Container
 from dataclasses import dataclass
 
 import archon.text_pos as _tp
+import archon.cmake.util as _cu
 import archon.cmake.lowlevel_parser as _clp
 import archon.cmake.uncertainty_reason as _cur
 
@@ -27,7 +28,7 @@ class UncertainArgument(ArgumentBase):
 
 # FIXME: Consider expanding protoarguments just in time using a yielding scheme    
 class ArgumentServer:
-    def __init__(self, invoc: _clp.InvocBase, arguments: list[Argument], file_index: int):
+    def __init__(self, invoc: _clp.GeneralizedInvoc, arguments: list[Argument], file_index: int):
         self._invoc      = invoc
         self._arguments  = arguments
         self._file_index = file_index

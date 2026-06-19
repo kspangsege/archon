@@ -4,21 +4,33 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 
 import enum
+import re
 
+import archon.base as _b
 import archon.text_pos as _tp
+import archon.cmake.util as _cu
 import archon.cmake.uncertainty_reason as _cur
+import archon.cmake.variable as _cv
 import archon.cmake.argument as _ca
+import archon.cmake.regex as _cr
 
 
 def parse(arguments: Iterable[_ca.Argument], rparen_pos: int) -> Condition:
     return _parse(arguments, rparen_pos)
 
 
-def evaluate(condition: Condition) -> Result:
-    return _evaluate(condition)
+def evaluate(condition: Condition, command_name: str, file_index: int, variable_state: _cv.VariableState) -> Result:
+    return _evaluate(condition, command_name, file_index, variable_state)
 
 
 class FatalParseError(Exception):
+    def __init__(self, pos: int, message: str, *args: Any):
+        self.pos     = pos
+        self.message = message
+        self.args    = args
+
+
+class FatalEvalError(Exception):
     def __init__(self, pos: int, message: str, *args: Any):
         self.pos     = pos
         self.message = message
@@ -41,6 +53,7 @@ class FalseCondition(ConditionBase):
 class ArgumentCondition(ConditionBase):
     string:                  _tp.PosMappedString
     was_quoted_or_bracketed: bool
+    is_derived:              bool
 
 @dataclass(slots=True, frozen=True)
 class UnopCondition(ConditionBase):
@@ -247,7 +260,7 @@ def _parse(arguments: Iterable[_ca.Argument], rparen_pos: int) -> Condition:
     conditions = list[Condition]()
     for arg in arguments:
         if isinstance(arg, _ca.CertainArgument):
-            conditions.append(ArgumentCondition(arg.pos, arg.string, arg.was_quoted_or_bracketed))
+            conditions.append(ArgumentCondition(arg.pos, arg.string, arg.was_quoted_or_bracketed, arg.is_derived))
             continue
         if isinstance(arg, _ca.UncertainArgument):
             if not arg.was_quoted_or_bracketed:
@@ -302,5 +315,341 @@ _LOGICAL_BINARY_COND_OPER_MAP = {
 }
 
 
-def _evaluate(condition: Condition) -> Result:
-    assert False        
+
+
+def _evaluate(cond: Condition, command_name: str, file_index: int, variable_state: _cv.VariableState) -> Result:
+    def eval_as_bool(cond: Condition) -> Result:
+        if isinstance(cond, FalseCondition):
+            return FalseResult()
+        if isinstance(cond, ArgumentCondition):
+            if cond.was_quoted_or_bracketed:
+                if is_true_constant(cond.string.string, cond.pos):
+                    return TrueResult()
+                return FalseResult()
+            if is_true_constant(cond.string.string, cond.pos):
+                return TrueResult()
+            if is_false_constant(cond.string.string, cond.pos):
+                return FalseResult()
+            variable_name = cond.string.string
+            value = variable_state.get(_cu.ResolutionType.GENERAL, variable_name, cond.pos)
+            if isinstance(value, _cv.CertainValue):
+                if value.string is None or is_false_constant(value.string, cond.pos):
+                    return FalseResult()
+                return TrueResult()
+            if isinstance(value, _cv.UncertainValue):
+                position = _cur.Position(file_index, cond.pos)
+                reason = _cur.ExpansionUncertaintyReason(command_name, variable_name, position, value.reason)
+                return UncertainResult(reason)
+            assert_never(value)
+        if isinstance(cond, UnopCondition):
+            match cond.operator:
+                case UnopCondition.Operator.COMMAND:
+                    raise FatalEvalError(cond.pos, "Unsupported condition operator COMMAND")
+                case UnopCondition.Operator.POLICY:
+                    raise FatalEvalError(cond.pos, "Unsupported condition operator POLICY")
+                case UnopCondition.Operator.TARGET:
+                    raise FatalEvalError(cond.pos, "Unsupported condition operator TARGET")
+                case UnopCondition.Operator.TEST:
+                    raise FatalEvalError(cond.pos, "Unsupported condition operator TEST")
+                case UnopCondition.Operator.DEFINED:
+                    return eval_defined(cond.operand)
+                case UnopCondition.Operator.EXISTS:
+                    raise FatalEvalError(cond.pos, "Unsupported condition operator EXISTS")
+                case UnopCondition.Operator.IS_READABLE:
+                    raise FatalEvalError(cond.pos, "Unsupported condition operator IS_READABLE")
+                case UnopCondition.Operator.IS_WRITABLE:
+                    raise FatalEvalError(cond.pos, "Unsupported condition operator IS_WRITABLE")
+                case UnopCondition.Operator.IS_DIRECTORY:
+                    raise FatalEvalError(cond.pos, "Unsupported condition operator IS_DIRECTORY")
+                case UnopCondition.Operator.IS_ABSOLUTE:
+                    raise FatalEvalError(cond.pos, "Unsupported condition operator IS_ABSOLUTE")
+                case UnopCondition.Operator.NOT:
+                    return eval_not(cond.operand)
+            assert_never(cond.operator)
+        if isinstance(cond, BinopCondition):
+            match cond.operator:
+                case BinopCondition.Operator.STREQUAL:
+                    return eval_strequal(cond.left, cond.right)
+                case BinopCondition.Operator.STRLESS:
+                    raise FatalEvalError(cond.pos, "Unsupported condition operator STRLESS")
+                case BinopCondition.Operator.STRGREATER:
+                    raise FatalEvalError(cond.pos, "Unsupported condition operator STRGREATER")
+                case BinopCondition.Operator.STRLESS_EQUAL:
+                    raise FatalEvalError(cond.pos, "Unsupported condition operator STRLESS_EQUAL")
+                case BinopCondition.Operator.STRGREATER_EQUAL:
+                    raise FatalEvalError(cond.pos, "Unsupported condition operator STRGREATER_EQUAL")
+                case BinopCondition.Operator.EQUAL:
+                    raise FatalEvalError(cond.pos, "Unsupported condition operator EQUAL")
+                case BinopCondition.Operator.LESS:
+                    raise FatalEvalError(cond.pos, "Unsupported condition operator LESS")
+                case BinopCondition.Operator.GREATER:
+                    raise FatalEvalError(cond.pos, "Unsupported condition operator GREATER")
+                case BinopCondition.Operator.LESS_EQUAL:
+                    raise FatalEvalError(cond.pos, "Unsupported condition operator LESS_EQUAL")
+                case BinopCondition.Operator.GREATER_EQUAL:
+                    raise FatalEvalError(cond.pos, "Unsupported condition operator GREATER_EQUAL")
+                case BinopCondition.Operator.VERSION_EQUAL:
+                    raise FatalEvalError(cond.pos, "Unsupported condition operator VERSION_EQUAL")
+                case BinopCondition.Operator.VERSION_LESS:
+                    raise FatalEvalError(cond.pos, "Unsupported condition operator VERSION_LESS")
+                case BinopCondition.Operator.VERSION_GREATER:
+                    raise FatalEvalError(cond.pos, "Unsupported condition operator VERSION_GREATER")
+                case BinopCondition.Operator.VERSION_LESS_EQUAL:
+                    raise FatalEvalError(cond.pos, "Unsupported condition operator VERSION_LESS_EQUAL")
+                case BinopCondition.Operator.VERSION_GREATER_EQUAL:
+                    raise FatalEvalError(cond.pos, "Unsupported condition operator VERSION_GREATER_EQUAL")
+                case BinopCondition.Operator.MATCHES:
+                    return eval_matches(cond.left, cond.right)
+                case BinopCondition.Operator.IN_LIST:
+                    return eval_in_list(cond.left, cond.right)
+                case BinopCondition.Operator.IS_NEWER_THAN:
+                    raise FatalEvalError(cond.pos, "Unsupported condition operator IS_NEWER_THAN")
+                case BinopCondition.Operator.AND:
+                    return eval_and(cond.left, cond.right)
+                case BinopCondition.Operator.OR:
+                    return eval_or(cond.left, cond.right)
+            assert_never(cond.operator)
+        if isinstance(cond, UncertainCondition):
+            return UncertainResult(cond.reason)
+        assert_never(cond)
+
+    def eval_defined(operand: Condition) -> Result:
+        result = eval_as_str(operand)
+        match result:
+            case _CertainStringResult(string):
+                pass
+            case UncertainResult():
+                return result
+        var_ref = _cu.parse_variable_reference(string.string)
+        value = variable_state.get(var_ref.resolution_type, var_ref.variable_name, operand.pos)
+        if isinstance(value, _cv.CertainValue):
+            return TrueResult() if value.string is not None else FalseResult()
+        if isinstance(value, _cv.UncertainValue):
+            position = _cur.Position(file_index, cond.pos)
+            reason = _cur.ExpansionUncertaintyReason(command_name, var_ref.variable_name, position, value.reason)
+            return UncertainResult(reason)
+        assert_never(value)
+
+    def eval_strequal(left: Condition, right: Condition) -> Result:
+        result_1 = eval_as_str_from_var_or_str(left)
+        result_2 = eval_as_str_from_var_or_str(right)
+        if isinstance(result_1, _CertainStringResult):
+            pass
+        elif isinstance(result_1, UncertainResult):
+            return result_1
+        else:
+            assert_never(result_1)
+        if isinstance(result_2, _CertainStringResult):
+            pass
+        elif isinstance(result_2, UncertainResult):
+            return result_2
+        else:
+            assert_never(result_2)
+        if result_1.string.string == result_2.string.string:
+            return TrueResult()
+        return FalseResult()
+
+    def eval_matches(left: Condition, right: Condition) -> Result:
+        result_1 = eval_as_str_from_var_or_str(left)
+        result_2 = eval_as_str(right)
+        # FIXME: If result is uncertain, taint `CMAKE_MATCH_COUNT`                 
+        #
+        # FIXME: If result is uncertain, if `string_2` is unknown, taint all capture
+        # variables, otherwise taint only the cature variables that correspond to capure
+        # groups in the regular expression.                
+        #
+        # FIXME: Must also taint capture variables if the match is certain but the
+        # matches operation is part of a block of commands whose execution is predicated
+        # on an uncertain condition.                           
+        #
+        if isinstance(result_1, _CertainStringResult):
+            pass
+        elif isinstance(result_1, UncertainResult):
+            return result_1
+        else:
+            assert_never(result_1)
+        if isinstance(result_2, _CertainStringResult):
+            pass
+        elif isinstance(result_2, UncertainResult):
+            return result_2
+        else:
+            assert_never(result_2)
+        try:
+            regex = _cr.compile_(result_2.string.string)
+        except _cr.SyntaxError as e:
+            pos = result_2.string.pos_map.map_(e.pos)
+            raise FatalEvalError(pos, "Regular expression syntax error: %s", e)
+        m = regex.matches(result_1.string.string)
+        if m:
+            # CMake exposes up to 10 capture groups including the full match
+            max_groups = 10
+            groups = [m.group(0)] + list(m.groups(""))[:max_groups-1]
+            if groups[0]:
+                # CMAKE_MATCH_COUNT is the highest N with a nonempty capture
+                n = max(i for i in range(len(groups)) if groups[i])
+                variable_state.set_("CMAKE_MATCH_COUNT", str(n))
+                # Replicating CMake quirk / bug by only setting the capture variable
+                # if the captured string is nonempty.
+                for i, group in enumerate(groups):
+                    if group:
+                        variable_state.set_("CMAKE_MATCH_%s" % i, group)
+            else:
+                variable_state.set_("CMAKE_MATCH_COUNT", "")
+            return TrueResult()
+        return FalseResult()
+
+    def eval_in_list(left: Condition, right: Condition) -> Result:
+        result_1 = eval_as_str_from_var_or_str(left)
+        result_2 = eval_as_str_from_var(right)
+        if isinstance(result_1, _CertainStringResult):
+            pass
+        elif isinstance(result_1, UncertainResult):
+            return result_1
+        else:
+            assert_never(result_1)
+        if isinstance(result_2, _CertainStringResult):
+            pass
+        elif isinstance(result_2, UncertainResult):
+            return result_2
+        else:
+            assert_never(result_2)
+        if result_1.string.string in _cu.list_split(result_2.string.string):
+            return TrueResult()
+        return FalseResult()
+
+    def eval_not(operand: Condition) -> Result:
+        return ~eval_as_bool(operand)
+
+    def eval_and(left: Condition, right: Condition) -> Result:
+        # In CMake, AND is not short-circuiting
+        return eval_as_bool(left) & eval_as_bool(right)
+
+    def eval_or(left: Condition, right: Condition) -> Result:
+        # In CMake, OR is not short-circuiting
+        return eval_as_bool(left) | eval_as_bool(right)
+
+    def eval_as_str_from_var(cond: Condition) -> _StringResult:
+        result = eval_as_str(cond)
+        match result:
+            case _CertainStringResult(string):
+                pass
+            case UncertainResult():
+                return result
+            case _:
+                assert_never(result)
+        variable_name = string.string
+        value = variable_state.get(_cu.ResolutionType.GENERAL, variable_name, cond.pos)
+        if isinstance(value, _cv.CertainValue):
+            string = _tp.PosMappedString.from_nonlinear_string(value.string or "", cond.pos)
+            is_derived = True
+            return _CertainStringResult(string, is_derived)
+        if isinstance(value, _cv.UncertainValue):
+            position = _cur.Position(file_index, cond.pos)
+            reason = _cur.ExpansionUncertaintyReason(command_name, variable_name, position, value.reason)
+            return UncertainResult(reason)
+        assert_never(value)
+
+    def eval_as_str_from_var_or_str(cond: Condition) -> _StringResult:
+        if isinstance(cond, ArgumentCondition) and not cond.was_quoted_or_bracketed:
+            variable_name = cond.string.string
+            value = variable_state.get(_cu.ResolutionType.GENERAL, variable_name, cond.pos)
+            if isinstance(value, _cv.CertainValue):
+                if value.string is None:
+                    return _CertainStringResult(cond.string, cond.is_derived)
+                string = _tp.PosMappedString.from_nonlinear_string(value.string, cond.pos)
+                is_derived = True
+                return _CertainStringResult(string, is_derived)
+            if isinstance(value, _cv.UncertainValue):
+                position = _cur.Position(file_index, cond.pos)
+                reason = _cur.ExpansionUncertaintyReason(command_name, variable_name, position, value.reason)
+                return UncertainResult(reason)
+            assert_never(value)
+        return eval_as_str(cond)
+
+    def eval_as_str(cond: Condition) -> _StringResult:
+        if isinstance(cond, ArgumentCondition):
+            return _CertainStringResult(cond.string, cond.is_derived)
+        result = eval_as_bool(cond)
+        match result:
+            case FalseResult():
+                string = "0"
+            case TrueResult():
+                string = "1"
+            case UncertainResult():
+                return result
+            case _:
+                assert_never(result)
+        is_derived = True
+        return _CertainStringResult(_tp.PosMappedString.from_nonlinear_string(string, cond.pos), is_derived)
+
+    def is_false_constant(string: str, pos: int) -> bool:
+        string_cf = string.casefold()
+        if string_cf in {"off", "no", "false", "n", "ignore", "notfound", ""} or string_cf.endswith("-notfound"):
+            return True
+        value = _b.Wrap(0)
+        if as_number(string, value, pos):
+            return value == 0
+        return False
+
+    def is_true_constant(string: str, pos: int) -> bool:
+        string_cf = string.casefold()
+        if string_cf in {"on", "yes", "true", "y"}:
+            return True
+        value = _b.Wrap(0)
+        if as_number(string, value, pos):
+            return value != 0
+        return False
+
+    def as_number(string: str, value: _b.Wrap[int], pos: int) -> bool:
+        m = _FLOAT_REGEX.fullmatch(string)
+        if not m:
+            return False
+        if _INT_REGEX.fullmatch(string):
+            value.value = int(string)
+            return True
+        raise FatalEvalError(pos, "Unsupported floating-point syntax (%s)", _b.quote(string))
+
+    return eval_as_bool(cond)
+
+
+type _StringResult = _CertainStringResult | UncertainResult
+
+@dataclass(slots=True, frozen=True)
+class _CertainStringResult:
+    string:     _tp.PosMappedString
+    is_derived: bool
+
+
+# Attuned to C function `strtod()`
+_FLOAT_REGEX = re.compile(r"""
+    \s*   # Allow leading whitespace
+    [+-]? # Optional sign
+    (?:
+        # 1. Hexadecimal Floats
+        0x
+        (?:
+            [0-9a-f]+\.?[0-9a-f]* |
+            \.[0-9a-f]+
+        )
+        (?:p[+-]?[0-9]+)?
+
+        |
+
+        # 2. Decimal Floats
+        (?:
+            [0-9]+\.?[0-9]* |
+            \.[0-9]+
+        )
+        (?:e[+-]?[0-9]+)?
+
+        |
+
+        # 3. Infinity and NaN
+        INF(?:INITY)?
+        |
+        NAN(?:\([a-z0-9_]*\))?
+    )
+""", re.VERBOSE | re.IGNORECASE)
+
+
+_INT_REGEX = re.compile(r"\s*[+-]?[0-9]+")
