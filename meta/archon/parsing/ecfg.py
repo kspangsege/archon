@@ -91,6 +91,12 @@ class ParseError(Exception):
     pass
 
 
+
+
+
+
+
+
 # Self-grammar for Extended Context-Free Grammar (ECFG) plus directive syntax
 #
 # %token DIR_LEAD  # Generated at start of line that contains "%token" or "%start"

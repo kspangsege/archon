@@ -82,6 +82,12 @@ class Result:
         return self._option_values[index]
 
 
+
+
+
+
+
+
 def _parse(args: list[str], spec: Spec, result: Result, logger: _l.Logger) -> bool:
     for i, option in enumerate(spec._options):
         for form in option.forms:

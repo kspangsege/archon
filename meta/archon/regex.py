@@ -68,6 +68,12 @@ class Char:
     char: str  # Must be a single character
 
 
+
+
+
+
+
+
 def _format_as_python_regex(expression: Expression) -> str:
     PREC_ALT  = 0
     PREC_SEQ  = 1
