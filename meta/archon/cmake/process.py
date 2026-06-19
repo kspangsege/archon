@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Protocol, Any, override, assert_never
-from collections.abc import Callable, Container
+from collections.abc import Callable, Container, Iterable
 from dataclasses import dataclass
 
 import enum
@@ -36,7 +36,10 @@ class PositionResolver:
     def __init__(self) -> None:
         self._files = list[_SourceFile]()
 
-    def resolve(self, pos: _cur.Position) -> _tp.FileContext:
+    def resolve_text_pos(self, pos: _cur.Position) -> _tp.FullTextPos:
+        return self._files[pos.file_index].pos_tracker.get_text_pos(pos.pos)
+
+    def resolve_file_context(self, pos: _cur.Position) -> _tp.FileContext:
         return self._files[pos.file_index].pos_tracker.get_file_context(pos.pos)
 
     def _append_file(self, file_: _SourceFile) -> int:
@@ -74,41 +77,51 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
                      conditional_uncertainty: ConditionalUncertainty) -> None:
         tracker = _tp.FilePosTracker(cmake_path)
         file_index = pos_resolver._append_file(_SourceFile(tracker))
+        context = _InvocContext(file_index, directory, conditional_uncertainty)
         def warning_handler(pos: int, message: str, *args: Any) -> None:
             warning(file_index, pos, message, *args)
         def error_handler(pos: int, message: str, *args: Any) -> None:
             error(file_index, pos, message, *args)
         for invoc in _clp.parse(tracker, warning_handler, error_handler):
-            context = _InvocContext(file_index, directory, conditional_uncertainty)
-            process_invoc(invoc, context)
+            exec_command(invoc, context)
 
-    def process_invoc(invoc: _clp.Invoc, context: _InvocContext) -> None:
+    def exec_commands(invocations: Iterable[_clp.Invoc], context: _InvocContext) -> None:
+        for invoc in invocations:
+            exec_command(invoc, context)
+
+    def exec_command(invoc: _clp.Invoc, context: _InvocContext) -> None:
         try:
             match invoc:
                 case _clp.SimpleInvoc():
-                    process_simple(invoc, context)
+                    exec_simple(invoc, context)
                     return
                 case _clp.IfInvoc():
-                    process_if(invoc, context)
+                    exec_if(invoc, context)
                     return
                 case _clp.ForeachInvoc():
-                    process_foreach(invoc, context)
+                    exec_foreach(invoc, context)
                     return
                 case _clp.WhileInvoc():
-                    process_while(invoc, context)
+                    exec_while(invoc, context)
                     return
                 case _clp.MacroDefInvoc():
-                    process_macro(invoc, context)
+                    exec_macro(invoc, context)
                     return
                 case _clp.FunctionDefInvoc():
-                    process_function(invoc, context)
+                    exec_function(invoc, context)
                     return
                 case _clp.BlockInvoc():
-                    process_block(invoc, context)
+                    exec_block(invoc, context)
                     return
             assert_never(invoc)
-        except _UnsupportedCommandSyntaxException:
-            error(context.file_index, invoc.pos, "Unsupported %s() syntax", invoc.command_name)
+        except _UnsupportedInvocSyntaxException as e:
+            error(context.file_index, e.invoc.pos, "Unsupported %s() syntax", e.invoc.command_name)
+            return
+        except _ConditionParseError as e:
+            error(context.file_index, e.pos, "Failed to parse %s() condition: %s", e.command_name, e.message)
+            return
+        except _ConditionEvalError as e:
+            error(context.file_index, e.pos, "Failed to evaluate %s() condition: %s", e.command_name, e.message)
             return
         except _ca.UncertainArgumentException as e:
             position = e.reason.expansion_position
@@ -129,7 +142,7 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
                 reason = reason_2.value_uncertainty_reason
             return
 
-    def process_simple(invoc: _clp.SimpleInvoc, context: _InvocContext) -> None:
+    def exec_simple(invoc: _clp.SimpleInvoc, context: _InvocContext) -> None:
         command = commands.get(invoc.command_name_cf)
         if not command:
             error(context.file_index, invoc.pos, "Invocation of undefined command, %s()", invoc.command_name)
@@ -142,44 +155,92 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
                               invoc.command_name)
                         return
                     case _BuiltInCommand.Which.SET:
-                        process_set(invoc, context)
+                        exec_set(invoc, context)
                         return
                     case _BuiltInCommand.Which.UNSET:
-                        process_unset(invoc, context)
+                        exec_unset(invoc, context)
                         return
                     case _BuiltInCommand.Which.MESSAGE:
-                        process_message(invoc, context)
+                        exec_message(invoc, context)
                         return
                     case _BuiltInCommand.Which.INCLUDE:
-                        process_include(invoc, context)
+                        exec_include(invoc, context)
                         return
                     case _BuiltInCommand.Which.ADD_SUBDIRECTORY:
-                        process_add_subdirectory(invoc, context)
+                        exec_add_subdirectory(invoc, context)
                         return
                 assert_never(which)
         assert_never(command)
 
-    def process_if(invoc: _clp.IfInvoc, context: _InvocContext) -> None:
-        result = evaluate_condition(invoc, context)
-        # If true, execute main branch        
+    def exec_if(invoc: _clp.IfInvoc, context: _InvocContext) -> None:
+        # CMake has short-circuiting evaluation behavior across if-branches, meaning that as
+        # soon as a branch condition evaluates to true, the remaining branch conditions are
+        # not evaluated.
+        #
+        # FIXME: Since the evaluation of branches can happen with uncertain occurrence, it
+        # is necessary to taint touched variables for those branches (looks like an extra
+        # state overlay needs to be injected just for the evaluation of such conditions, at
+        # least if the condition can have side effects)                                               
+        #
+        accumulated = _cc.FalseResult()
+        done = False
+        def exec_branch(result: _cc.Result, children: Iterable[_clp.Invoc]) -> None:
+            nonlocal accumulated, done
+            effective = ~accumulated & result
+            accumulated |= result
+            conditional_uncertainty: ConditionalUncertainty = None
+            match effective:
+                case _cc.FalseResult():
+                    return
+                case _cc.TrueResult():
+                    done = True
+                case _cc.UncertainResult(reason):
+                    conditional_uncertainty = reason
+            context_2 = context
+            if not context.conditional_uncertainty and conditional_uncertainty:
+                context_2 = _InvocContext(context.file_index, context.directory, conditional_uncertainty)
+            exec_commands(children, context_2)
+        exec_branch(evaluate_condition(invoc, context), invoc.children)
+        for branch in invoc.elseif_branches:
+            if done:
+                break
+            exec_branch(evaluate_condition(branch, context), branch.children)
+        if not done and invoc.else_branch:
+            exec_branch(_cc.TrueResult(), invoc.else_branch.children)
+        exec_closing_invoc(invoc.closing_invoc, invoc, context)
+
+    def exec_foreach(invoc: _clp.ForeachInvoc, context: _InvocContext) -> None:
         assert False        
 
-    def process_foreach(invoc: _clp.ForeachInvoc, context: _InvocContext) -> None:
+    def exec_while(invoc: _clp.WhileInvoc, context: _InvocContext) -> None:
         assert False        
 
-    def process_while(invoc: _clp.WhileInvoc, context: _InvocContext) -> None:
+    def exec_macro(invoc: _clp.MacroDefInvoc, context: _InvocContext) -> None:
         assert False        
 
-    def process_macro(invoc: _clp.MacroDefInvoc, context: _InvocContext) -> None:
+    def exec_function(invoc: _clp.FunctionDefInvoc, context: _InvocContext) -> None:
         assert False        
 
-    def process_function(invoc: _clp.FunctionDefInvoc, context: _InvocContext) -> None:
+    def exec_block(invoc: _clp.BlockInvoc, context: _InvocContext) -> None:
         assert False        
 
-    def process_block(invoc: _clp.BlockInvoc, context: _InvocContext) -> None:
-        assert False        
+    def exec_closing_invoc(invoc: _clp.ClosingInvoc, opening_invoc: _clp.GeneralizedInvoc,
+                           context: _InvocContext) -> None:
+        # CMake ignores arguments in a closing invocation but generates a warning unless the
+        # closing invocation is either empty or matches the corresponding opening invocation
+        # proto-argument for proto-argument. if() is the corresponding opening invocation
+        # for endif() even if there are elseif() and/or else() invocations in between.
+        if not invoc.arguments:
+            return
+        opening_args = [a.text for a in opening_invoc.arguments]
+        closing_args = [a.text for a in invoc.arguments]
+        if opening_args != closing_args:
+            opening_position = _cur.Position(context.file_index, opening_invoc.pos)
+            opening_line_no = pos_resolver.resolve_text_pos(opening_position).line_no
+            warning(context.file_index, invoc.pos, "Closing invocation, %s(), has mismatching arguments (opening "
+                    "invocation is on line %s)", invoc.command_name, opening_line_no)
 
-    def process_set(invoc: _clp.SimpleInvoc, context: _InvocContext) -> None:
+    def exec_set(invoc: _clp.SimpleInvoc, context: _InvocContext) -> None:
         server = create_argument_server(invoc, context)
         # FIXME: Consider picking up the part of the variable name that is specified, if
         # any, and use it as a tainting pattern
@@ -193,7 +254,7 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
             case _cu.ResolutionType.GENERAL:
                 pass
             case _cu.ResolutionType.CACHE | _cu.ResolutionType.ENV:
-                raise _UnsupportedCommandSyntaxException from None
+                raise _UnsupportedInvocSyntaxException(invoc) from None
             case _:
                 assert_never(var_ref.resolution_type)
         var_name = var_ref.variable_name
@@ -205,7 +266,7 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
                 if not arg:
                     break
                 if arg.string == "CACHE":
-                    raise _UnsupportedCommandSyntaxException from None
+                    raise _UnsupportedInvocSyntaxException(invoc) from None
                 if server.at_end() and arg.string == "PARENT_SCOPE":
                     parent_scope = True
                     break
@@ -217,7 +278,7 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
             return
         set_variable(var_name, values, parent_scope, invoc, context)
 
-    def process_unset(invoc: _clp.SimpleInvoc, context: _InvocContext) -> None:
+    def exec_unset(invoc: _clp.SimpleInvoc, context: _InvocContext) -> None:
         server = create_argument_server(invoc, context)
         variable = server.consume()
         if not variable:
@@ -229,7 +290,7 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
             case _cu.ResolutionType.GENERAL:
                 pass
             case _cu.ResolutionType.CACHE | _cu.ResolutionType.ENV:
-                raise _UnsupportedCommandSyntaxException from None
+                raise _UnsupportedInvocSyntaxException(invoc) from None
             case _:
                 assert_never(var_ref.resolution_type)
         var_name = var_ref.variable_name
@@ -238,7 +299,7 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
             arg = server.consume()
             if arg:
                 if arg.string == "CACHE":
-                    raise _UnsupportedCommandSyntaxException from None
+                    raise _UnsupportedInvocSyntaxException(invoc) from None
                 if server.at_end() and arg.string == "PARENT_SCOPE":
                     parent_scope = True
                 else:
@@ -252,10 +313,10 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
         values = list[str]()
         set_variable(var_name, values, parent_scope, invoc, context)
 
-    def process_message(invoc: _clp.SimpleInvoc, context: _InvocContext) -> None:
+    def exec_message(invoc: _clp.SimpleInvoc, context: _InvocContext) -> None:
         server = create_argument_server(invoc, context)
         if server.consume_keyword({"CHECK_START", "CHECK_PASS", "CHECK_FAIL", "CONFIGURE_LOG"}):
-            raise _UnsupportedCommandSyntaxException
+            raise _UnsupportedInvocSyntaxException(invoc) from None
         level = MessageLevel.NOTICE
         arg = server.consume_keyword(_MESSAGE_LEVEL_MAP.keys())
         if arg:
@@ -269,27 +330,32 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
         position = _cur.Position(context.file_index, invoc.pos)
         application.message(position, context.conditional_uncertainty, level, message)
 
-    def process_include(invoc: _clp.SimpleInvoc, context: _InvocContext) -> None:
+    def exec_include(invoc: _clp.SimpleInvoc, context: _InvocContext) -> None:
         assert False        
 
-    def process_add_subdirectory(invoc: _clp.SimpleInvoc, context: _InvocContext) -> None:
+    def exec_add_subdirectory(invoc: _clp.SimpleInvoc, context: _InvocContext) -> None:
         assert False        
 
     def evaluate_condition(invoc: _clp.GeneralizedInvoc, context: _InvocContext) -> _cc.Result:
-        arguments = expand_arguments(invoc, context)
-        condition = _cc.parse(arguments, invoc.rparen_pos)
-        class State(_cv.VariableState):
-            @override
-            def get(self, resolution_type: _cu.ResolutionType, variable_name: str, pos: int) -> _cv.Value:
-                return resolve_variable(resolution_type, variable_name, pos, context)
-            @override
-            def set_(self, variable_name: str, value: str | None) -> None:
-                context.directory.set_variable(variable_name, value)
-            @override
-            def taint(self, variable_name: str, reason: _cur.ValueUncertaintyReason) -> None:
-                context.directory.taint_variable(variable_name, reason)
-        state = State()
-        return _cc.evaluate(condition, invoc.command_name, context.file_index, state)
+        try:
+            arguments = expand_arguments(invoc, context)
+            condition = _cc.parse(arguments, invoc.rparen_pos)
+            class State(_cv.VariableState):
+                @override
+                def get(self, resolution_type: _cu.ResolutionType, variable_name: str, pos: int) -> _cv.Value:
+                    return resolve_variable(resolution_type, variable_name, pos, context)
+                @override
+                def set_(self, variable_name: str, value: str | None) -> None:
+                    context.directory.set_variable(variable_name, value)
+                @override
+                def taint(self, variable_name: str, reason: _cur.ValueUncertaintyReason) -> None:
+                    context.directory.taint_variable(variable_name, reason)
+            state = State()
+            return _cc.evaluate(condition, invoc.command_name, context.file_index, state)
+        except _cc.FatalParseError as e:
+            raise _ConditionParseError(e.pos, invoc.command_name, e.message % e.args) from None
+        except _cc.FatalEvalError as e:
+            raise _ConditionEvalError(e.pos, invoc.command_name, e.message % e.args) from None
 
     def create_argument_server(invoc: _clp.GeneralizedInvoc, context: _InvocContext) -> _ca.ArgumentServer:
         arguments = expand_arguments(invoc, context)
@@ -305,41 +371,40 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
             arg: _ca.Argument
             match protoarg.type_:
                 case _clp.Protoargument.Type.BARE:
-                    was_quoted_or_bracketed = False
+                    was_bare = True
                     result = expand_string(string, pos, invoc, context)
                     match result:
                         case _CertainExpansionResult():
                             segments, is_derived = _list_split(result.string, result.is_derived)
                             for segment in segments:
-                                arg = _ca.CertainArgument(was_quoted_or_bracketed, protoarg.pos, segment, is_derived)
+                                arg = _ca.CertainArgument(protoarg.pos, was_bare, segment, is_derived)
                                 arguments.append(arg)
                             continue
                         case _UncertainExpansionResult():
                             # Note that an uncertain unquoted proto-argument stands in for
                             # any number of actual arguments, including zero.
-                            arg = _ca.UncertainArgument(was_quoted_or_bracketed, protoarg.pos, result.reason)
+                            arg = _ca.UncertainArgument(protoarg.pos, was_bare, result.reason)
                             arguments.append(arg)
                             continue
                     assert_never(result)
                 case _clp.Protoargument.Type.QUOTED:
-                    was_quoted_or_bracketed = True
+                    was_bare = False
                     result = expand_string(string, pos, invoc, context)
                     match result:
                         case _CertainExpansionResult():
-                            arg = _ca.CertainArgument(was_quoted_or_bracketed, protoarg.pos, result.string,
-                                                   result.is_derived)
+                            arg = _ca.CertainArgument(protoarg.pos, was_bare, result.string, result.is_derived)
                             arguments.append(arg)
                             continue
                         case _UncertainExpansionResult():
-                            arg = _ca.UncertainArgument(was_quoted_or_bracketed, protoarg.pos, result.reason)
+                            arg = _ca.UncertainArgument(protoarg.pos, was_bare, result.reason)
                             arguments.append(arg)
                             continue
                     assert_never(result)
                 case _clp.Protoargument.Type.BRACKETED:
-                    was_quoted_or_bracketed = True
+                    was_bare = False
                     string_2 = _tp.PosMappedString.from_linear_string(string, pos)
                     is_derived = False
-                    arg = _ca.CertainArgument(was_quoted_or_bracketed, protoarg.pos, string_2, is_derived)
+                    arg = _ca.CertainArgument(protoarg.pos, was_bare, string_2, is_derived)
                     arguments.append(arg)
                     continue
             assert_never(protoarg.type_)
@@ -424,15 +489,15 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
                                                             context.conditional_uncertainty)
         target.taint_variable(variable_name, reason)
 
-    def warning(file_index: int, pos: int, message: str, *args: Any):
-        context = pos_resolver.resolve(_cur.Position(file_index, pos))
+    def warning(file_index: int, pos: int, message: str, *args: Any) -> None:
+        context = pos_resolver.resolve_file_context(_cur.Position(file_index, pos))
         _l.FileContextLogger(logger, context).warn(message, *args)
 
     errors_seen = False
-    def error(file_index: int, pos: int, message: str, *args: Any):
+    def error(file_index: int, pos: int, message: str, *args: Any) -> None:
         nonlocal errors_seen
         errors_seen = True
-        context = pos_resolver.resolve(_cur.Position(file_index, pos))
+        context = pos_resolver.resolve_file_context(_cur.Position(file_index, pos))
         _l.FileContextLogger(logger, context).error(message, *args)
 
     directory = _Directory()
@@ -522,8 +587,23 @@ class _InvocContext:
     conditional_uncertainty: ConditionalUncertainty
 
 
-class _UnsupportedCommandSyntaxException(Exception):
-    pass
+class _UnsupportedInvocSyntaxException(Exception):
+    def __init__(self, invoc: _clp.GeneralizedInvoc) -> None:
+        self.invoc = invoc
+
+
+class _ConditionParseError(Exception):
+    def __init__(self, pos: int, command_name: str, message: str) -> None:
+        self.pos          = pos
+        self.command_name = command_name
+        self.message      = message
+
+
+class _ConditionEvalError(Exception):
+    def __init__(self, pos: int, command_name: str, message: str) -> None:
+        self.pos          = pos
+        self.command_name = command_name
+        self.message      = message
 
 
 type _ExpansionResult = _CertainExpansionResult | _UncertainExpansionResult

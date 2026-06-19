@@ -37,9 +37,7 @@ class FatalEvalError(Exception):
         self.args    = args
 
 
-type Condition = CertainCondition | UncertainCondition
-
-type CertainCondition = FalseCondition | ArgumentCondition | UnopCondition | BinopCondition
+type Condition = FalseCondition | UnopCondition | BinopCondition | ArgumentCondition | UncertainCondition
 
 @dataclass(slots=True, frozen=True)
 class ConditionBase:
@@ -48,12 +46,6 @@ class ConditionBase:
 @dataclass(slots=True, frozen=True)
 class FalseCondition(ConditionBase):
     pass
-
-@dataclass(slots=True, frozen=True)
-class ArgumentCondition(ConditionBase):
-    string:                  _tp.PosMappedString
-    was_quoted_or_bracketed: bool
-    is_derived:              bool
 
 @dataclass(slots=True, frozen=True)
 class UnopCondition(ConditionBase):
@@ -98,6 +90,12 @@ class BinopCondition(ConditionBase):
     operator: Operator
     left:     Condition
     right:    Condition
+
+@dataclass(slots=True, frozen=True)
+class ArgumentCondition(ConditionBase):
+    string:     _tp.PosMappedString
+    was_bare:   bool  # Neitehr quoted nor bracketed
+    is_derived: bool
 
 @dataclass(slots=True, frozen=True)
 class UncertainCondition(ConditionBase):
@@ -161,7 +159,7 @@ def _parse(arguments: Iterable[_ca.Argument], rparen_pos: int) -> Condition:
         i = 0
         while i < len(conditions):
             cond = conditions[i]
-            if isinstance(cond, ArgumentCondition) and not cond.was_quoted_or_bracketed:
+            if isinstance(cond, ArgumentCondition) and cond.was_bare:
                 if cond.string.string == "(":
                     if level == 0:
                         begin_index = i
@@ -186,7 +184,7 @@ def _parse(arguments: Iterable[_ca.Argument], rparen_pos: int) -> Condition:
         i = 0
         while i < len(conditions) - 1:
             cond = conditions[i]
-            if isinstance(cond, ArgumentCondition) and not cond.was_quoted_or_bracketed:
+            if isinstance(cond, ArgumentCondition) and cond.was_bare:
                 operator = _NONLOGICAL_UNARY_COND_OPER_MAP.get(cond.string.string)
                 if operator is not None:
                     operand = conditions[i+1]
@@ -203,7 +201,7 @@ def _parse(arguments: Iterable[_ca.Argument], rparen_pos: int) -> Condition:
         i = 1
         while i < len(conditions) - 1:
             cond = conditions[i]
-            if isinstance(cond, ArgumentCondition) and not cond.was_quoted_or_bracketed:
+            if isinstance(cond, ArgumentCondition) and cond.was_bare:
                 operator = _NONLOGICAL_BINARY_COND_OPER_MAP.get(cond.string.string)
                 if operator is not None:
                     left  = conditions[i-1]
@@ -220,7 +218,7 @@ def _parse(arguments: Iterable[_ca.Argument], rparen_pos: int) -> Condition:
         i = len(conditions) - 1
         while i > 0:
             cond = conditions[i-1]
-            if isinstance(cond, ArgumentCondition) and not cond.was_quoted_or_bracketed:
+            if isinstance(cond, ArgumentCondition) and cond.was_bare:
                 operator = _LOGICAL_UNARY_COND_OPER_MAP.get(cond.string.string)
                 if operator is not None:
                     operand = conditions[i]
@@ -237,7 +235,7 @@ def _parse(arguments: Iterable[_ca.Argument], rparen_pos: int) -> Condition:
         i = 1
         while i < len(conditions) - 1:
             cond = conditions[i]
-            if isinstance(cond, ArgumentCondition) and not cond.was_quoted_or_bracketed:
+            if isinstance(cond, ArgumentCondition) and cond.was_bare:
                 operator = _LOGICAL_BINARY_COND_OPER_MAP.get(cond.string.string)
                 if operator is not None:
                     left  = conditions[i-1]
@@ -251,19 +249,37 @@ def _parse(arguments: Iterable[_ca.Argument], rparen_pos: int) -> Condition:
             i += 1
 
         if len(conditions) > 1:
-            # FIXME: Find a way to format the currect list of conditions and insert them
-            # into the message        
-            raise FatalParseError(conditions[0].pos, "Unreducable condition")
+            def format_(cond: Condition):
+                match cond:
+                    case FalseCondition():
+                        return "()"
+                    case UnopCondition():
+                        return "(%s operation)" % cond.operator.name
+                    case BinopCondition():
+                        return "(%s operation)" % cond.operator.name
+                    case ArgumentCondition():
+                        # Bare parentheses are not possible here
+                        if cond.was_bare and re.fullmatch(r"[0-9A-Z_a-z]+", cond.string.string):
+                            return cond.string.string
+                        return _b.quote(cond.string.string)
+                    case UncertainCondition():
+                        return "(uncertain argument)"
+                assert_never(cond)
+            prefix = conditions[:3]
+            string = " ".join(format_(c) for c in prefix)
+            if len(conditions) > len(prefix):
+                string += " ..."
+            raise FatalParseError(conditions[0].pos, "Unreducable argument sequence: %s", string)
 
         return conditions[0]
 
     conditions = list[Condition]()
     for arg in arguments:
         if isinstance(arg, _ca.CertainArgument):
-            conditions.append(ArgumentCondition(arg.pos, arg.string, arg.was_quoted_or_bracketed, arg.is_derived))
+            conditions.append(ArgumentCondition(arg.pos, arg.string, arg.was_bare, arg.is_derived))
             continue
         if isinstance(arg, _ca.UncertainArgument):
-            if not arg.was_quoted_or_bracketed:
+            if arg.was_bare:
                 return UncertainCondition(arg.pos, arg.reason)
             conditions.append(UncertainCondition(arg.pos, arg.reason))
             continue
@@ -321,26 +337,6 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
     def eval_as_bool(cond: Condition) -> Result:
         if isinstance(cond, FalseCondition):
             return FalseResult()
-        if isinstance(cond, ArgumentCondition):
-            if cond.was_quoted_or_bracketed:
-                if is_true_constant(cond.string.string, cond.pos):
-                    return TrueResult()
-                return FalseResult()
-            if is_true_constant(cond.string.string, cond.pos):
-                return TrueResult()
-            if is_false_constant(cond.string.string, cond.pos):
-                return FalseResult()
-            variable_name = cond.string.string
-            value = variable_state.get(_cu.ResolutionType.GENERAL, variable_name, cond.pos)
-            if isinstance(value, _cv.CertainValue):
-                if value.string is None or is_false_constant(value.string, cond.pos):
-                    return FalseResult()
-                return TrueResult()
-            if isinstance(value, _cv.UncertainValue):
-                position = _cur.Position(file_index, cond.pos)
-                reason = _cur.ExpansionUncertaintyReason(command_name, variable_name, position, value.reason)
-                return UncertainResult(reason)
-            assert_never(value)
         if isinstance(cond, UnopCondition):
             match cond.operator:
                 case UnopCondition.Operator.COMMAND:
@@ -409,6 +405,26 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
                 case BinopCondition.Operator.OR:
                     return eval_or(cond.left, cond.right)
             assert_never(cond.operator)
+        if isinstance(cond, ArgumentCondition):
+            if not cond.was_bare:
+                if is_true_constant(cond.string.string, cond.pos):
+                    return TrueResult()
+                return FalseResult()
+            if is_true_constant(cond.string.string, cond.pos):
+                return TrueResult()
+            if is_false_constant(cond.string.string, cond.pos):
+                return FalseResult()
+            variable_name = cond.string.string
+            value = variable_state.get(_cu.ResolutionType.GENERAL, variable_name, cond.pos)
+            if isinstance(value, _cv.CertainValue):
+                if value.string is None or is_false_constant(value.string, cond.pos):
+                    return FalseResult()
+                return TrueResult()
+            if isinstance(value, _cv.UncertainValue):
+                position = _cur.Position(file_index, cond.pos)
+                reason = _cur.ExpansionUncertaintyReason(command_name, variable_name, position, value.reason)
+                return UncertainResult(reason)
+            assert_never(value)
         if isinstance(cond, UncertainCondition):
             return UncertainResult(cond.reason)
         assert_never(cond)
@@ -550,7 +566,7 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
         assert_never(value)
 
     def eval_as_str_from_var_or_str(cond: Condition) -> _StringResult:
-        if isinstance(cond, ArgumentCondition) and not cond.was_quoted_or_bracketed:
+        if isinstance(cond, ArgumentCondition) and cond.was_bare:
             variable_name = cond.string.string
             value = variable_state.get(_cu.ResolutionType.GENERAL, variable_name, cond.pos)
             if isinstance(value, _cv.CertainValue):

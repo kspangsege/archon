@@ -13,8 +13,8 @@ type Argument = CertainArgument | UncertainArgument
 
 @dataclass(slots=True, frozen=True)
 class ArgumentBase:
-    was_quoted_or_bracketed: bool
-    pos:                     int
+    pos:      int
+    was_bare: bool  # Neither quoted nor bracketed
 
 @dataclass(slots=True, frozen=True)
 class CertainArgument(ArgumentBase):

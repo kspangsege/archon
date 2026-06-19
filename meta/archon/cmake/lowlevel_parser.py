@@ -1,6 +1,6 @@
 from __future__ import annotations
 from typing import Protocol, Any, assert_never
-from collections.abc import Iterable, Iterator
+from collections.abc import Iterator
 from dataclasses import dataclass
 
 import enum
@@ -27,7 +27,7 @@ class ErrorHandler(Protocol):
 
 type Invoc = SimpleInvoc | IfInvoc | ForeachInvoc | WhileInvoc | MacroDefInvoc | FunctionDefInvoc | BlockInvoc
 
-type GeneralizedInvoc = Invoc | IfBranch | EndMarker
+type GeneralizedInvoc = Invoc | IfBranch | ClosingInvoc
 
 @dataclass(slots=True, frozen=True)
 class InvocBase:
@@ -49,35 +49,35 @@ class StructuredInvocBase(InvocBase):
 class IfInvoc(StructuredInvocBase):
     elseif_branches: list[IfBranch]
     else_branch:     IfBranch | None
-    end_marker:      EndMarker
+    closing_invoc:   ClosingInvoc
 
 @dataclass(slots=True, frozen=True)
 class IfBranch(StructuredInvocBase):
     pass
 
 @dataclass(slots=True, frozen=True)
-class EndMarker(InvocBase):
+class ClosingInvoc(InvocBase):
     pass
 
 @dataclass(slots=True, frozen=True)
 class ForeachInvoc(StructuredInvocBase):
-    end_marker: EndMarker
+    closing_invoc: ClosingInvoc
 
 @dataclass(slots=True, frozen=True)
 class WhileInvoc(StructuredInvocBase):
-    end_marker: EndMarker
+    closing_invoc: ClosingInvoc
 
 @dataclass(slots=True, frozen=True)
 class MacroDefInvoc(StructuredInvocBase):
-    end_marker: EndMarker
+    closing_invoc: ClosingInvoc
 
 @dataclass(slots=True, frozen=True)
 class FunctionDefInvoc(StructuredInvocBase):
-    end_marker: EndMarker
+    closing_invoc: ClosingInvoc
 
 @dataclass(slots=True, frozen=True)
 class BlockInvoc(StructuredInvocBase):
-    end_marker: EndMarker
+    closing_invoc: ClosingInvoc
 
 
 @dataclass(slots=True, frozen=True)
@@ -151,10 +151,10 @@ def _parse(tracker: _tp.FilePosTracker, warning_handler: ErrorHandler, error_han
                             error_handler(last.pos, "Unclosed %s()", last.command_name)
                         return
                     assert current.block_command is _BlockCommand.ENDIF
-                    end_marker = EndMarker(current.command_name, current.arguments, current.pos, current.lparen_pos,
-                                           current.rparen_pos)
+                    closing_invoc = ClosingInvoc(current.command_name, current.arguments, current.pos,
+                                                 current.lparen_pos, current.rparen_pos)
                     yield IfInvoc(orig.command_name, orig.arguments, orig.pos, orig.lparen_pos, orig.rparen_pos,
-                                  children, elseif_branches, else_branch, end_marker)
+                                  children, elseif_branches, else_branch, closing_invoc)
                     advance()
                     continue
 
@@ -177,23 +177,23 @@ def _parse(tracker: _tp.FilePosTracker, warning_handler: ErrorHandler, error_han
                             error_handler(last.pos, "Unclosed %s()", last.command_name)
                         return
                     assert current.block_command is _BLOCK_COMMAND_END_MAP[orig_command]
-                    end_marker = EndMarker(current.command_name, current.arguments, current.pos, current.lparen_pos,
-                                           current.rparen_pos)
+                    closing_invoc = ClosingInvoc(current.command_name, current.arguments, current.pos,
+                                                 current.lparen_pos, current.rparen_pos)
                     if orig_command == _BlockCommand.FOREACH:
                         yield ForeachInvoc(orig.command_name, orig.arguments, orig.pos, orig.lparen_pos,
-                                           orig.rparen_pos, children, end_marker)
+                                           orig.rparen_pos, children, closing_invoc)
                     elif orig_command == _BlockCommand.WHILE:
                         yield WhileInvoc(orig.command_name, orig.arguments, orig.pos, orig.lparen_pos,
-                                         orig.rparen_pos, children, end_marker)
+                                         orig.rparen_pos, children, closing_invoc)
                     elif orig_command == _BlockCommand.MACRO:
                         yield MacroDefInvoc(orig.command_name, orig.arguments, orig.pos, orig.lparen_pos,
-                                            orig.rparen_pos, children, end_marker)
+                                            orig.rparen_pos, children, closing_invoc)
                     elif orig_command == _BlockCommand.FUNCTION:
                         yield FunctionDefInvoc(orig.command_name, orig.arguments, orig.pos, orig.lparen_pos,
-                                               orig.rparen_pos, children, end_marker)
+                                               orig.rparen_pos, children, closing_invoc)
                     elif orig_command == _BlockCommand.BLOCK:
                         yield BlockInvoc(orig.command_name, orig.arguments, orig.pos, orig.lparen_pos,
-                                         orig.rparen_pos, children, end_marker)
+                                         orig.rparen_pos, children, closing_invoc)
                     else:
                         assert_never(orig_command)
                     advance()
