@@ -39,7 +39,7 @@ class SyntaxError(Exception):
 # Grammar for CMake regular expression syntax (simplified/modified version of POSIX ERE /
 # KWSys):
 #
-# %token STRING
+# %token CHAR
 # %token CHAR_CLASS
 #
 # regex          = alternation
@@ -47,7 +47,7 @@ class SyntaxError(Exception):
 # sequence       = repetition*
 # repetition     = primary quantifier?
 # quantifier     = "*" | "+" | "?"
-# primary        = group | wildcard | anchor | STRING | CHAR_CLASS
+# primary        = group | wildcard | anchor | CHAR | CHAR_CLASS
 # group          = "(" alternation ")"
 # wildcard       = "."
 # anchor         = "^" | "$"
@@ -69,9 +69,13 @@ def _parse(cmake_regex_string: str) -> _r.Expression:
         return _r.Alternation(alternatives)
 
     def parse_sequence() -> _r.Expression:
-        elements = []
-        while isinstance(token, (_StringToken, _WildcardToken, _CharClassToken, _AnchorToken, _LParenToken)):
-            elements.append(parse_repetition())
+        elements = list[_r.Expression]()
+        while isinstance(token, (_CharToken, _WildcardToken, _CharClassToken, _AnchorToken, _LParenToken)):
+            expression = parse_repetition()
+            if elements and isinstance(elements[-1], _r.Literal) and isinstance(expression, _r.Literal):
+                elements[-1] = _r.Literal(elements[-1].string + expression.string)
+            else:
+                elements.append(expression)
         if len(elements) == 1:
             return elements[0]
         return _r.Sequence(elements)
@@ -97,10 +101,10 @@ def _parse(cmake_regex_string: str) -> _r.Expression:
         return _r.Repetition(expression, min_, max_)
 
     def parse_primary() -> _r.Expression:
-        if isinstance(token, _StringToken):
-            string = token.string
+        if isinstance(token, _CharToken):
+            char = token.char
             advance()
-            return _r.Literal(string)
+            return _r.Literal(char)
         if isinstance(token, _WildcardToken):
             advance()
             return _r.Wildcard()
@@ -189,9 +193,14 @@ def _tokenize(cmake_regex_string: str) -> Iterator[_Token]:
         text = m.group()
         kind = m.lastgroup
 
-        if kind == "STRING":
-            string = re.sub(r"\\(.)", r"\1", text)
-            yield _StringToken(pos, text, string)
+        if kind == "CHAR":
+            if len(text) == 1:
+                char = text
+            else:
+                assert len(text) == 2
+                assert text[0] == "\\"
+                char = text[1]
+            yield _CharToken(pos, text, char)
             continue
 
         if kind == "WILDCARD":
@@ -237,7 +246,7 @@ def _tokenize(cmake_regex_string: str) -> Iterator[_Token]:
     yield _EndOfInputToken(pos, text)
 
 
-type _Token = (_StringToken | _WildcardToken | _CharClassToken | _QuantifierToken | _AnchorToken | _BarToken |
+type _Token = (_CharToken | _WildcardToken | _CharClassToken | _QuantifierToken | _AnchorToken | _BarToken |
                _LParenToken | _RParenToken | _EndOfInputToken)
 
 @dataclass(slots=True, frozen=True)
@@ -246,8 +255,8 @@ class _TokenBase:
     text: str
 
 @dataclass(slots=True, frozen=True)
-class _StringToken(_TokenBase):
-    string: str
+class _CharToken(_TokenBase):
+    char: str
 
 @dataclass(slots=True, frozen=True)
 class _WildcardToken(_TokenBase):
@@ -289,7 +298,7 @@ class _Quantifier(enum.Enum):
 
 
 _TOKEN_REGEX = re.compile(
-    r"(?P<STRING>(?:\\.|[^\[\\*+?|()^$.])+)|"
+    r"(?P<CHAR>\\.|[^\[\\*+?|()^$.])|"
     r"(?P<WILDCARD>\.)|"
     r"(?P<CLASS>\[\^?\]?[^\]]*\])|"
     r"(?P<QUANTIFIER>[*+?])|"
