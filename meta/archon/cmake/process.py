@@ -25,12 +25,12 @@ def process(cmake_path: pathlib.Path, application: Application, pos_resolver: Po
 
 
 class Application:
-    def message(self, pos: _cur.Position, uncertainty: ConditionalUncertainty, level: MessageLevel,
+    def message(self, pos: _cur.Position, occurrence_uncertainty: OccurrenceUncertainty, level: MessageLevel,
                 message: str) -> None:
         ...
 
 
-type ConditionalUncertainty = _cur.ExpansionUncertaintyReason | None
+type OccurrenceUncertainty = _cur.ExpansionUncertaintyReason | None
 
 
 class PositionResolver:
@@ -69,15 +69,10 @@ class MessageLevel(enum.Enum):
 
 
 def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Logger) -> bool:
-    commands    = dict[str, _Command]()    
-    environment = _Environment()    
-    cache       = _Cache()    
-    _define_built_in_commands(commands)    
-
-    def process_file(cmake_path: pathlib.Path, state: _State) -> None:
+    def process_file(cmake_path: pathlib.Path, state: _State, occurrence_uncertainty: OccurrenceUncertainty) -> None:
         tracker = _tp.FilePosTracker(cmake_path)
         file_index = pos_resolver._append_file(_SourceFile(tracker))
-        context = _InvocContext(file_index, state)
+        context = _InvocContext(file_index, state, occurrence_uncertainty)
         def warning_handler(pos: int, message: str, *args: Any) -> None:
             warning(file_index, pos, message, *args)
         def error_handler(pos: int, message: str, *args: Any) -> None:
@@ -132,7 +127,7 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
             return
 
     def exec_simple(invoc: _clp.SimpleInvoc, context: _InvocContext) -> None:
-        command = context.state.lookup_command(invoc.command_name_cf)
+        command = context.state.get_command(invoc.command_name_cf)
         match command:
             case _BuiltInCommand(which):
                 match which:
@@ -162,8 +157,9 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
                 if reason:
                     position = reason.definition_position
                     error(position.file_index, position.pos, "Caused by execution of %s() with uncertain occurrence",
-                          reason.command_name)
+                          reason.defining_command_name)
                     trace_expansion_uncertainty_causes(reason.occurrence_uncertainty_reason)
+                return
         assert_never(command)
 
     # FIXME: What is the exact list of command names that cannot be overridden? return() appears to be among them    
@@ -183,17 +179,19 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
             nonlocal accumulated, done
             effective = ~accumulated & result
             accumulated |= result
-            conditional_uncertainty: ConditionalUncertainty = None
+            occurrence_uncertainty: OccurrenceUncertainty = None
             match effective:
                 case _cc.FalseResult():
                     return
                 case _cc.TrueResult():
                     done = True
                 case _cc.UncertainResult(reason):
-                    conditional_uncertainty = reason
+                    occurrence_uncertainty = reason
             context_2 = context
-            if not context.conditional_uncertainty and conditional_uncertainty:
-                context_2 = _InvocContext(context.file_index, context.directory, conditional_uncertainty)
+            if occurrence_uncertainty:
+                state = _OccurrenceUncertaintyOverlayState(context.state, occurrence_uncertainty)
+                orig_occurrence_uncertainty = context.occurrence_uncertainty or occurrence_uncertainty
+                context_2 = _InvocContext(context.file_index, state, orig_occurrence_uncertainty)
             exec_commands(children, context_2)
         exec_branch(evaluate_condition(invoc, context), invoc.children)
         for branch in invoc.elseif_branches:
@@ -268,11 +266,12 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
                     break
                 values.append(arg.string)
         except _ca.UncertainArgumentException as e:
-            context.directory.taint_variable(var_name, e.reason)
-            if context.directory.parent:
-                context.directory.parent.taint_variable(var_name, e.reason)
+            context.state.taint_regular_variable(var_name, e.reason, parent_scope=False)
+            if not context.state.is_root_scope():
+                context.state.taint_regular_variable(var_name, e.reason, parent_scope=True)
             return
-        set_variable(var_name, values, parent_scope, invoc, context)
+        value = ";".join(values) if values else None
+        set_regular_variable(var_name, value, parent_scope, invoc, context)
 
     def exec_unset(invoc: _clp.SimpleInvoc, context: _InvocContext) -> None:
         server = create_argument_server(invoc, context)
@@ -302,12 +301,12 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
                     error(context.file_index, server.next_pos(), "Too many arguments in %s() invocation",
                           invoc.command_name)
         except _ca.UncertainArgumentException as e:
-            context.directory.taint_variable(var_name, e.reason)
-            if context.directory.parent:
-                context.directory.parent.taint_variable(var_name, e.reason)
+            context.state.taint_regular_variable(var_name, e.reason, parent_scope=False)
+            if not context.state.is_root_scope():
+                context.state.taint_regular_variable(var_name, e.reason, parent_scope=True)
             return
-        values = list[str]()
-        set_variable(var_name, values, parent_scope, invoc, context)
+        value = None
+        set_regular_variable(var_name, value, parent_scope, invoc, context)
 
     def exec_message(invoc: _clp.SimpleInvoc, context: _InvocContext) -> None:
         server = create_argument_server(invoc, context)
@@ -324,7 +323,7 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
                 break
             message += arg.string
         position = _cur.Position(context.file_index, invoc.pos)
-        application.message(position, context.conditional_uncertainty, level, message)
+        application.message(position, context.occurrence_uncertainty, level, message)
 
     def exec_include(invoc: _clp.SimpleInvoc, context: _InvocContext) -> None:
         assert False        
@@ -342,10 +341,10 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
                     return resolve_variable(resolution_type, variable_name, pos, context)
                 @override
                 def set_(self, variable_name: str, value: str | None) -> None:
-                    context.directory.set_variable(variable_name, value)
+                    context.state.set_regular_variable(variable_name, value, parent_scope=False)
                 @override
                 def taint(self, variable_name: str, reason: _cur.ValueUncertaintyReason) -> None:
-                    context.directory.taint_variable(variable_name, reason)
+                    context.state.taint_regular_variable(variable_name, reason, parent_scope=False)
             state = State()
             return _cc.evaluate(condition, invoc.command_name, context.file_index, state)
         except _cc.FatalParseError as e:
@@ -449,7 +448,7 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
                          context: _InvocContext) -> _cv.Value:
         match resolution_type:
             case _cu.ResolutionType.GENERAL:
-                value = directory.resolve_variable(variable_name)
+                value = context.state.get_regular_variable(variable_name)
                 match value:
                     case _cv.CertainValue(string):
                         if string is not None:
@@ -458,29 +457,20 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
                         return value
                     case _:
                         assert_never(value)
-                return cache.resolve(variable_name)
+                return context.state.get_cache_variable(variable_name)
             case _cu.ResolutionType.CACHE:
-                return cache.resolve(variable_name)
+                return context.state.get_cache_variable(variable_name)
             case _cu.ResolutionType.ENV:
-                return environment.resolve(variable_name)
+                return context.state.get_environment_variable(variable_name)
         assert_never(resolution_type)
 
-    # FIXME: Caller should convert to str | None    
-    def set_variable(variable_name: str, values: list[str], parent_scope: bool, invoc: _clp.GeneralizedInvoc,
-                     context: _InvocContext) -> None:
+    def set_regular_variable(variable_name: str, value: str | None, parent_scope: bool, invoc: _clp.GeneralizedInvoc,
+                             context: _InvocContext) -> None:
         if parent_scope and context.state.is_root_scope():
-            warning(context.file_index, invoc.pos, "%s() invocation skipped: No parent scope exists", command_name)
+            warning(context.file_index, invoc.pos, "%s() invocation skipped: No parent scope exists",
+                    invoc.command_name)
             return
-        value: str | None = None
-        if values:
-            value = ";".join(values)
-        target.set_variable(variable_name, value)
-            return
-        # FIXME: Consider adding new value as alternative specific value
-        position = _cur.Position(context.file_index, invoc.pos)
-        reason = _cur.AssignmentOccurrenceUncertaintyReason(invoc.command_name, position,
-                                                            context.conditional_uncertainty)
-        target.taint_variable(variable_name, reason)
+        context.state.set_regular_variable(variable_name, value, parent_scope)
 
     def trace_value_uncertainty_causes(cause: _cur.ValueUncertaintyReason) -> None:
         match cause:
@@ -514,7 +504,8 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
         _l.FileContextLogger(logger, context).error(message, *args)
 
     state = _RootState()
-    process_file(cmake_path, state)
+    occurrence_uncertainty = None
+    process_file(cmake_path, state, occurrence_uncertainty)
     return not errors_seen
 
 
@@ -525,39 +516,53 @@ class _SourceFile:
 
 @dataclass(slots=True, frozen=True)
 class _InvocContext:
-    file_index: int
-    state:      _State
+    file_index:             int
+    state:                  _State
+    occurrence_uncertainty: OccurrenceUncertainty
 
 
 class _State(ABC):
     @abstractmethod
-    def resolve_variable(self, resolution_type: _cu.ResolutionType, variable_name: str, pos: int) -> Value:
+    def is_root_scope(self) -> bool:
         ...
 
     @abstractmethod
-    def set_variable(self, variable_name: str, value: str | None, parent_scope: bool) -> None:
+    def get_regular_variable(self, name: str) -> _cv.Value:
         ...
 
     @abstractmethod
-    def taint_variable(self, variable_name: str, reason: _cur.ValueUncertaintyReason, parent_scope: bool) -> None:
+    def set_regular_variable(self, name: str, value: str | None, parent_scope: bool) -> None:
         ...
 
     @abstractmethod
-    def lookup_command(self, command_name_cf: str) -> Command:
+    def taint_regular_variable(self, name: str, reason: _cur.ValueUncertaintyReason, parent_scope: bool) -> None:
         ...
 
     @abstractmethod
-    def define_command(self, command_name_cf: str) -> None:
+    def get_cache_variable(self, name: str) -> _cv.Value:
         ...
 
     @abstractmethod
-    def taint_command(self, command_name_cf: str) -> None:
+    def get_environment_variable(self, name: str) -> _cv.Value:
+        ...
+
+    @abstractmethod
+    def get_command(self, name_cf: str) -> _Command:
+        ...
+
+    @abstractmethod
+    def set_command(self, name_cf: str, command: _CertainCommand, defining_command_name: str,
+                    definition_position: _cur.Position) -> None:
+        ...
+
+    @abstractmethod
+    def taint_command(self, name_cf: str, reason: _CommandDefinitionUncertaintyReason) -> None:
         ...
 
 
 class _RootState(_State):
     def __init__(self):
-        self._commands         = dict[str, _Command]()
+        self._commands         = dict[str, _CertainCommand]()
         self._tainted_commands = dict[str, _CommandDefinitionUncertaintyReason]()
         self._environment      = _Environment()
         self._cache            = _Cache()
@@ -565,19 +570,35 @@ class _RootState(_State):
         _define_built_in_commands(self._commands)
 
     @override
-    def resolve_variable(self, resolution_type: _cu.ResolutionType, variable_name: str, pos: int) -> Value:
+    def is_root_scope(self) -> bool:
+        return True
+
+    @override
+    def get_regular_variable(self, name: str) -> _cv.Value:
+        return self._directory.get_variable(name)
+
+    @override
+    def set_regular_variable(self, name: str, value: str | None, parent_scope: bool) -> None:
+        if parent_scope:
+            raise ValueError("No parent scope")
+        self._directory.set_variable(name, value)
+
+    @override
+    def taint_regular_variable(self, name: str, reason: _cur.ValueUncertaintyReason, parent_scope: bool) -> None:
+        if parent_scope:
+            raise ValueError("No parent scope")
+        self._directory.taint_variable(name, reason)
+
+    @override
+    def get_cache_variable(self, name: str) -> _cv.Value:
         assert False    
 
     @override
-    def set_variable(self, variable_name: str, value: str | None, parent_scope: bool) -> None:
+    def get_environment_variable(self, name: str) -> _cv.Value:
         assert False    
 
     @override
-    def taint_variable(self, variable_name: str, reason: _cur.ValueUncertaintyReason, parent_scope: bool) -> None:
-        assert False    
-
-    @override
-    def lookup_command(self, name_cf: str) -> Command:
+    def get_command(self, name_cf: str) -> _Command:
         reason = self._tainted_commands.get(name_cf)
         if reason:
             return _UncertainCommand(reason)
@@ -588,15 +609,70 @@ class _RootState(_State):
         return _UncertainCommand(reason)
 
     @override
-    def define_command(self, name_cf: str) -> None:
+    def set_command(self, name_cf: str, command: _CertainCommand, defining_command_name: str,
+                    definition_position: _cur.Position) -> None:
+        self._commands[name_cf] = command
+        self._tainted_commands.pop(name_cf, None)
+
+    @override
+    def taint_command(self, name_cf: str, reason: _CommandDefinitionUncertaintyReason) -> None:
+        self._tainted_commands[name_cf] = reason
+        self._commands.pop(name_cf, None)
+
+
+class _OccurrenceUncertaintyOverlayState(_State):
+    def __init__(self, parent_state: _State, occurrence_uncertainty_reason: _cur.ExpansionUncertaintyReason):
+        self._parent_state                  = parent_state
+        self._occurrence_uncertainty_reason = occurrence_uncertainty_reason
+        self._commands                      = dict[str, _CertainCommand]()
+
+    @override
+    def is_root_scope(self) -> bool:
+        return self._parent_state.is_root_scope()
+
+    @override
+    def get_regular_variable(self, name: str) -> _cv.Value:
         assert False    
 
     @override
-    def taint_command(self, name_cf: str) -> None:
+    def set_regular_variable(self, name: str, value: str | None, parent_scope: bool) -> None:
         assert False    
 
+    @override
+    def taint_regular_variable(self, name: str, reason: _cur.ValueUncertaintyReason, parent_scope: bool) -> None:
+        assert False    
 
-type _Command = _BuiltInCommand
+    @override
+    def get_cache_variable(self, name: str) -> _cv.Value:
+        assert False    
+
+    @override
+    def get_environment_variable(self, name: str) -> _cv.Value:
+        assert False    
+
+    @override
+    def get_command(self, name_cf: str) -> _Command:
+        command = self._commands.get(name_cf)
+        if command:
+            return command
+        return self._parent_state.get_command(name_cf)
+
+    @override
+    def set_command(self, name_cf: str, command: _CertainCommand, defining_command_name: str,
+                    definition_position: _cur.Position) -> None:
+        self._commands[name_cf] = command
+        reason = _CommandDefinitionUncertaintyReason(defining_command_name, definition_position,
+                                                     self._occurrence_uncertainty_reason)
+        self._parent_state.taint_command(name_cf, reason)
+
+    @override
+    def taint_command(self, name_cf: str, reason: _CommandDefinitionUncertaintyReason) -> None:
+        self._parent_state.taint_command(name_cf, reason)
+
+
+type _Command = _CertainCommand | _UncertainCommand
+
+type _CertainCommand = _BuiltInCommand
 
 @dataclass(slots=True, frozen=True)
 class _BuiltInCommand:
@@ -608,6 +684,17 @@ class _BuiltInCommand:
         INCLUDE          = 4
         ADD_SUBDIRECTORY = 5
     which: Which
+
+@dataclass(slots=True, frozen=True)
+class _UncertainCommand:
+    reason: _CommandDefinitionUncertaintyReason | None
+
+
+@dataclass(slots=True, frozen=True)
+class _CommandDefinitionUncertaintyReason:
+    defining_command_name:         str
+    definition_position:           _cur.Position
+    occurrence_uncertainty_reason: _cur.ExpansionUncertaintyReason
 
 
 def _define_built_in_commands(commands: dict[str, _Command]) -> None:
@@ -622,12 +709,6 @@ def _define_built_in_commands(commands: dict[str, _Command]) -> None:
     define("project",                _BuiltInCommand.Which.UNSUPPORTED)
     define("option",                 _BuiltInCommand.Which.UNSUPPORTED)
 
-
-@dataclass(slots=True, frozen=True)
-class _CommandDefinitionUncertaintyReason:
-    command_name:                  str
-    definition_position:           Position
-    occurrence_uncertainty_reason: ExpansionUncertaintyReason
 
 class _Environment:
     def resolve(self, name: str) -> _cv.Value:
@@ -649,7 +730,7 @@ class _Directory:
     def parent(self) -> _Directory | None:
         return self._parent
 
-    def resolve_variable(self, name: str) -> _cv.Value:
+    def get_variable(self, name: str) -> _cv.Value:
         reason: _cur.ValueUncertaintyReason | None
         reason = self._tainted_variables.get(name)
         if reason:
@@ -657,7 +738,7 @@ class _Directory:
         value = self._variables.get(name)
         if value:
             if value.string is None and self._parent:
-                return self._parent.resolve_variable(name)
+                return self._parent.get_variable(name)
             return value
         reason = None
         return _cv.UncertainValue(reason)

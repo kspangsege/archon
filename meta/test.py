@@ -30,9 +30,9 @@ pos_resolver = _cp.PositionResolver()
 logger = _l.LimitLogger(root_logger, log_level)
 
 class Application(_cp.Application):
-    def message(self, pos: _cur.Position, uncertainty: _cp.ConditionalUncertainty, level: _cp.MessageLevel,
+    def message(self, pos: _cur.Position, occurrence_uncertainty: _cp.OccurrenceUncertainty, level: _cp.MessageLevel,
                 message: str) -> None:
-        certainty = "Uncertain" if uncertainty else "Certain"
+        certainty = "Uncertain" if occurrence_uncertainty else "Certain"
         context = pos_resolver.resolve_file_context(pos)
         context_logger = _l.FileContextLogger(logger, context)
         context_logger.info("%s: Message(%s): %s", certainty, level.name, message)
