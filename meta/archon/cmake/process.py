@@ -68,16 +68,15 @@ class MessageLevel(enum.Enum):
 
 
 def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Logger) -> bool:
-    commands    = dict[str, _Command]()
-    environment = _Environment()
-    cache       = _Cache()
-    _define_built_in_commands(commands)
+    commands    = dict[str, _Command]()    
+    environment = _Environment()    
+    cache       = _Cache()    
+    _define_built_in_commands(commands)    
 
-    def process_file(cmake_path: pathlib.Path, directory: _Directory,
-                     conditional_uncertainty: ConditionalUncertainty) -> None:
+    def process_file(cmake_path: pathlib.Path, state: _State) -> None:
         tracker = _tp.FilePosTracker(cmake_path)
         file_index = pos_resolver._append_file(_SourceFile(tracker))
-        context = _InvocContext(file_index, directory, conditional_uncertainty)
+        context = _InvocContext(file_index, state)
         def warning_handler(pos: int, message: str, *args: Any) -> None:
             warning(file_index, pos, message, *args)
         def error_handler(pos: int, message: str, *args: Any) -> None:
@@ -127,26 +126,11 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
             position = e.reason.expansion_position
             error(position.file_index, position.pos, "Failed to invoke %s() due to expansion of variable %s with "
                   "uncertain value", e.reason.command_name, _b.quote(e.reason.variable_name))
-            reason = e.reason.value_uncertainty_reason
-            while reason:
-                if isinstance(reason, _cur.ExpansionUncertaintyReason):
-                    reason_2 = reason
-                elif isinstance(reason, _cur.AssignmentOccurrenceUncertaintyReason):
-                    position = reason.assignment_position
-                    error(position.file_index, position.pos, "Caused by execution of %s() with uncertain occurrence",
-                          reason.command_name)
-                    reason_2 = reason.conditional_uncertainty_reason
-                position = reason_2.expansion_position
-                error(position.file_index, position.pos, "Caused by expansion of variable %s with uncertain value in "
-                      "invocation of %s()", _b.quote(reason_2.variable_name), reason_2.command_name)
-                reason = reason_2.value_uncertainty_reason
+            trace_value_uncertainty_causes(e.reason.value_uncertainty_reason)
             return
 
     def exec_simple(invoc: _clp.SimpleInvoc, context: _InvocContext) -> None:
-        command = commands.get(invoc.command_name_cf)
-        if not command:
-            error(context.file_index, invoc.pos, "Invocation of undefined command, %s()", invoc.command_name)
-            return
+        command = context.state.get_command(invoc.command_name_cf)
         match command:
             case _BuiltInCommand(which):
                 match which:
@@ -170,8 +154,21 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
                         exec_add_subdirectory(invoc, context)
                         return
                 assert_never(which)
+            case _UncertainCommand(reason):
+                # _CommandDefinitionUncertaintyReason    
+                error(context.file_index, invoc.pos, "Invocation failed due to uncertain definition of %s()",
+                      invoc.command_name)
+                if reason:
+                    position = reason.definition_position
+                    error(position.file_index, position.pos, "Caused by execution of %s() with uncertain occurrence",
+                          reason.command_name)
+                    trace_expansion_uncertainty_causes(reason.occurrence_uncertainty_reason)
+                # If there is no reason, then it is because no definition of the command was ever seen.
+                # If there is a reason, then it is a _CommandDefinitionUncertaintyReason, which specifies position of defining invocation and reason for occurance uncertainty
+                
         assert_never(command)
 
+    # FIXME: What is the exact list of command names that cannot be overridden? return() appears to be among them    
     def exec_if(invoc: _clp.IfInvoc, context: _InvocContext) -> None:
         # CMake has short-circuiting evaluation behavior across if-branches, meaning that as
         # soon as a branch condition evaluates to true, the remaining branch conditions are
@@ -489,6 +486,25 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
         reason = _cur.AssignmentOccurrenceUncertaintyReason(invoc.command_name, position,
                                                             context.conditional_uncertainty)
         target.taint_variable(variable_name, reason)
+
+    def trace_value_uncertainty_causes(cause: _cur.ValueUncertaintyReason) -> None:
+        match cause:
+            case _cur.ExpansionUncertaintyReason():
+                trace_expansion_uncertainty_causes(cause)
+                return
+            case _cur.AssignmentOccurrenceUncertaintyReason():
+                position = cause.assignment_position
+                error(position.file_index, position.pos, "Caused by execution of %s() with uncertain occurrence",
+                      cause.command_name)
+                trace_expansion_uncertainty_causes(cause.occurrence_uncertainty_reason)
+                return
+        assert_never(cause)
+
+    def trace_expansion_uncertainty_causes(cause: _cur.ExpansionUncertaintyReason) -> None:
+        position = cause.expansion_position
+        error(position.file_index, position.pos, "Caused by expansion of variable %s with uncertain value in "
+              "invocation of %s()", _b.quote(cause.variable_name), cause.command_name)
+        trace_value_uncertainty_causes(cause.value_uncertainty_reason)
 
     def warning(file_index: int, pos: int, message: str, *args: Any) -> None:
         context = pos_resolver.resolve_file_context(_cur.Position(file_index, pos))

@@ -13,9 +13,9 @@ class ExpansionUncertaintyReason:
 
 @dataclass(slots=True, frozen=True)
 class AssignmentOccurrenceUncertaintyReason:
-    command_name:                   str
-    assignment_position:            Position
-    conditional_uncertainty_reason: ExpansionUncertaintyReason
+    command_name:                  str
+    assignment_position:           Position
+    occurrence_uncertainty_reason: ExpansionUncertaintyReason
 
 
 @dataclass(slots=True, frozen=True)
