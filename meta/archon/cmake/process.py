@@ -1,5 +1,6 @@
 from __future__ import annotations
 from typing import Protocol, Any, override, assert_never
+from abc import ABC, abstractmethod
 from collections.abc import Callable, Container, Iterable
 from dataclasses import dataclass
 
@@ -126,11 +127,12 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
             position = e.reason.expansion_position
             error(position.file_index, position.pos, "Failed to invoke %s() due to expansion of variable %s with "
                   "uncertain value", e.reason.command_name, _b.quote(e.reason.variable_name))
-            trace_value_uncertainty_causes(e.reason.value_uncertainty_reason)
+            if e.reason.value_uncertainty_reason:
+                trace_value_uncertainty_causes(e.reason.value_uncertainty_reason)
             return
 
     def exec_simple(invoc: _clp.SimpleInvoc, context: _InvocContext) -> None:
-        command = context.state.get_command(invoc.command_name_cf)
+        command = context.state.lookup_command(invoc.command_name_cf)
         match command:
             case _BuiltInCommand(which):
                 match which:
@@ -155,7 +157,6 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
                         return
                 assert_never(which)
             case _UncertainCommand(reason):
-                # _CommandDefinitionUncertaintyReason    
                 error(context.file_index, invoc.pos, "Invocation failed due to uncertain definition of %s()",
                       invoc.command_name)
                 if reason:
@@ -163,9 +164,6 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
                     error(position.file_index, position.pos, "Caused by execution of %s() with uncertain occurrence",
                           reason.command_name)
                     trace_expansion_uncertainty_causes(reason.occurrence_uncertainty_reason)
-                # If there is no reason, then it is because no definition of the command was ever seen.
-                # If there is a reason, then it is a _CommandDefinitionUncertaintyReason, which specifies position of defining invocation and reason for occurance uncertainty
-                
         assert_never(command)
 
     # FIXME: What is the exact list of command names that cannot be overridden? return() appears to be among them    
@@ -467,19 +465,16 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
                 return environment.resolve(variable_name)
         assert_never(resolution_type)
 
+    # FIXME: Caller should convert to str | None    
     def set_variable(variable_name: str, values: list[str], parent_scope: bool, invoc: _clp.GeneralizedInvoc,
                      context: _InvocContext) -> None:
-        target = directory
-        if parent_scope:
-            if not directory.parent:
-                warning(context.file_index, invoc.pos, "set() invocation skipped: No parent scope exists")
-                return
-            target = directory.parent
-        if not context.conditional_uncertainty:
-            value: str | None = None
-            if values:
-                value = ";".join(values)
-            target.set_variable(variable_name, value)
+        if parent_scope and context.state.is_root_scope():
+            warning(context.file_index, invoc.pos, "%s() invocation skipped: No parent scope exists", command_name)
+            return
+        value: str | None = None
+        if values:
+            value = ";".join(values)
+        target.set_variable(variable_name, value)
             return
         # FIXME: Consider adding new value as alternative specific value
         position = _cur.Position(context.file_index, invoc.pos)
@@ -504,7 +499,8 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
         position = cause.expansion_position
         error(position.file_index, position.pos, "Caused by expansion of variable %s with uncertain value in "
               "invocation of %s()", _b.quote(cause.variable_name), cause.command_name)
-        trace_value_uncertainty_causes(cause.value_uncertainty_reason)
+        if cause.value_uncertainty_reason:
+            trace_value_uncertainty_causes(cause.value_uncertainty_reason)
 
     def warning(file_index: int, pos: int, message: str, *args: Any) -> None:
         context = pos_resolver.resolve_file_context(_cur.Position(file_index, pos))
@@ -517,15 +513,87 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
         context = pos_resolver.resolve_file_context(_cur.Position(file_index, pos))
         _l.FileContextLogger(logger, context).error(message, *args)
 
-    directory = _Directory()
-    conditional_uncertainty = None
-    process_file(cmake_path, directory, conditional_uncertainty)
+    state = _RootState()
+    process_file(cmake_path, state)
     return not errors_seen
 
 
 @dataclass(slots=True, frozen=True)
 class _SourceFile:
     pos_tracker: _tp.FilePosTracker
+
+
+@dataclass(slots=True, frozen=True)
+class _InvocContext:
+    file_index: int
+    state:      _State
+
+
+class _State(ABC):
+    @abstractmethod
+    def resolve_variable(self, resolution_type: _cu.ResolutionType, variable_name: str, pos: int) -> Value:
+        ...
+
+    @abstractmethod
+    def set_variable(self, variable_name: str, value: str | None, parent_scope: bool) -> None:
+        ...
+
+    @abstractmethod
+    def taint_variable(self, variable_name: str, reason: _cur.ValueUncertaintyReason, parent_scope: bool) -> None:
+        ...
+
+    @abstractmethod
+    def lookup_command(self, command_name_cf: str) -> Command:
+        ...
+
+    @abstractmethod
+    def define_command(self, command_name_cf: str) -> None:
+        ...
+
+    @abstractmethod
+    def taint_command(self, command_name_cf: str) -> None:
+        ...
+
+
+class _RootState(_State):
+    def __init__(self):
+        self._commands         = dict[str, _Command]()
+        self._tainted_commands = dict[str, _CommandDefinitionUncertaintyReason]()
+        self._environment      = _Environment()
+        self._cache            = _Cache()
+        self._directory        = _Directory()
+        _define_built_in_commands(self._commands)
+
+    @override
+    def resolve_variable(self, resolution_type: _cu.ResolutionType, variable_name: str, pos: int) -> Value:
+        assert False    
+
+    @override
+    def set_variable(self, variable_name: str, value: str | None, parent_scope: bool) -> None:
+        assert False    
+
+    @override
+    def taint_variable(self, variable_name: str, reason: _cur.ValueUncertaintyReason, parent_scope: bool) -> None:
+        assert False    
+
+    @override
+    def lookup_command(self, name_cf: str) -> Command:
+        reason = self._tainted_commands.get(name_cf)
+        if reason:
+            return _UncertainCommand(reason)
+        command = self._commands.get(name_cf)
+        if command:
+            return command
+        reason = None
+        return _UncertainCommand(reason)
+
+    @override
+    def define_command(self, name_cf: str) -> None:
+        assert False    
+
+    @override
+    def taint_command(self, name_cf: str) -> None:
+        assert False    
 
 
 type _Command = _BuiltInCommand
@@ -554,6 +622,12 @@ def _define_built_in_commands(commands: dict[str, _Command]) -> None:
     define("project",                _BuiltInCommand.Which.UNSUPPORTED)
     define("option",                 _BuiltInCommand.Which.UNSUPPORTED)
 
+
+@dataclass(slots=True, frozen=True)
+class _CommandDefinitionUncertaintyReason:
+    command_name:                  str
+    definition_position:           Position
+    occurrence_uncertainty_reason: ExpansionUncertaintyReason
 
 class _Environment:
     def resolve(self, name: str) -> _cv.Value:
@@ -595,13 +669,6 @@ class _Directory:
     def taint_variable(self, variable_name: str, reason: _cur.ValueUncertaintyReason) -> None:
         self._variables.pop(variable_name, None)
         self._tainted_variables[variable_name] = reason
-
-
-@dataclass(slots=True, frozen=True)
-class _InvocContext:
-    file_index:              int
-    directory:               _Directory
-    conditional_uncertainty: ConditionalUncertainty
 
 
 class _UnsupportedInvocSyntaxException(Exception):
