@@ -206,6 +206,7 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
                 break
             exec_branch(evaluate_condition(branch, context), branch.children)
         if not done and invoc.else_branch:
+            # CMake completely ignores the arguments passed to `else()`
             exec_branch(_cc.TrueResult(), invoc.else_branch.children)
         exec_closing_invoc(invoc.closing_invoc, invoc, context)
 
