@@ -341,7 +341,11 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
                     return resolve_variable(resolution_type, variable_name, pos, context)
                 @override
                 def set_(self, variable_name: str, value: str | None) -> None:
-                    context.state.set_regular_variable(variable_name, value, parent_scope=False)
+                    parent_scope = False
+                    assigning_command_name = invoc.command_name
+                    assignment_position = _cur.Position(context.file_index, invoc.pos)
+                    context.state.set_regular_variable(variable_name, value, parent_scope, assigning_command_name,
+                                                       assignment_position)
                 @override
                 def taint(self, variable_name: str, reason: _cur.ValueUncertaintyReason) -> None:
                     context.state.taint_regular_variable(variable_name, reason, parent_scope=False)
@@ -448,7 +452,7 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
                          context: _InvocContext) -> _cv.Value:
         match resolution_type:
             case _cu.ResolutionType.GENERAL:
-                value = context.state.get_regular_variable(variable_name)
+                value = context.state.get_regular_variable(variable_name, parent_scope_override=None)
                 match value:
                     case _cv.CertainValue(string):
                         if string is not None:
@@ -470,7 +474,10 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
             warning(context.file_index, invoc.pos, "%s() invocation skipped: No parent scope exists",
                     invoc.command_name)
             return
-        context.state.set_regular_variable(variable_name, value, parent_scope)
+        assigning_command_name = invoc.command_name
+        assignment_position = _cur.Position(context.file_index, invoc.pos)
+        context.state.set_regular_variable(variable_name, value, parent_scope, assigning_command_name,
+                                           assignment_position)
 
     def trace_value_uncertainty_causes(cause: _cur.ValueUncertaintyReason) -> None:
         match cause:
@@ -527,11 +534,12 @@ class _State(ABC):
         ...
 
     @abstractmethod
-    def get_regular_variable(self, name: str) -> _cv.Value:
+    def get_regular_variable(self, name: str, parent_scope_override: _cv.CertainValue | None) -> _cv.Value:
         ...
 
     @abstractmethod
-    def set_regular_variable(self, name: str, value: str | None, parent_scope: bool) -> None:
+    def set_regular_variable(self, name: str, value: str | None, parent_scope: bool, assigning_command_name: str,
+                             assignment_position: _cur.Position) -> None:
         ...
 
     @abstractmethod
@@ -574,19 +582,19 @@ class _RootState(_State):
         return True
 
     @override
-    def get_regular_variable(self, name: str) -> _cv.Value:
+    def get_regular_variable(self, name: str, parent_scope_override: _cv.CertainValue | None) -> _cv.Value:
+        assert not parent_scope_override
         return self._directory.get_variable(name)
 
     @override
-    def set_regular_variable(self, name: str, value: str | None, parent_scope: bool) -> None:
-        if parent_scope:
-            raise ValueError("No parent scope")
+    def set_regular_variable(self, name: str, value: str | None, parent_scope: bool, assigning_command_name: str,
+                             assignment_position: _cur.Position) -> None:
+        assert not parent_scope
         self._directory.set_variable(name, value)
 
     @override
     def taint_regular_variable(self, name: str, reason: _cur.ValueUncertaintyReason, parent_scope: bool) -> None:
-        if parent_scope:
-            raise ValueError("No parent scope")
+        assert not parent_scope
         self._directory.taint_variable(name, reason)
 
     @override
@@ -625,22 +633,40 @@ class _OccurrenceUncertaintyOverlayState(_State):
         self._parent_state                  = parent_state
         self._occurrence_uncertainty_reason = occurrence_uncertainty_reason
         self._commands                      = dict[str, _CertainCommand]()
+        self._regular_variables             = dict[str, _cv.CertainValue]()
+        self._parent_scope_variables        = dict[str, _cv.CertainValue]()
 
     @override
     def is_root_scope(self) -> bool:
         return self._parent_state.is_root_scope()
 
     @override
-    def get_regular_variable(self, name: str) -> _cv.Value:
-        assert False    
+    def get_regular_variable(self, name: str, parent_scope_override: _cv.CertainValue | None) -> _cv.Value:
+        value = self._regular_variables.get(name)
+        if value:
+            return value
+        parent_scope_override_2 = parent_scope_override or self._parent_scope_variables.get(name)
+        return self._parent_state.get_regular_variable(name, parent_scope_override_2)
 
     @override
-    def set_regular_variable(self, name: str, value: str | None, parent_scope: bool) -> None:
-        assert False    
+    def set_regular_variable(self, name: str, value: str | None, parent_scope: bool, assigning_command_name: str,
+                             assignment_position: _cur.Position) -> None:
+        value_2 = _cv.CertainValue(value)
+        if parent_scope:
+            self._parent_scope_variables[name] = value_2
+        else:
+            self._regular_variables[name] = value_2
+        reason = _cur.AssignmentOccurrenceUncertaintyReason(assigning_command_name, assignment_position,
+                                                            self._occurrence_uncertainty_reason)
+        self._parent_state.taint_regular_variable(name, reason, parent_scope)
 
     @override
     def taint_regular_variable(self, name: str, reason: _cur.ValueUncertaintyReason, parent_scope: bool) -> None:
-        assert False    
+        if parent_scope:
+            self._parent_scope_variables.pop(name, None)
+        else:
+            self._regular_variables.pop(name, None)
+        self._parent_state.taint_regular_variable(name, reason, parent_scope)
 
     @override
     def get_cache_variable(self, name: str) -> _cv.Value:
@@ -667,6 +693,7 @@ class _OccurrenceUncertaintyOverlayState(_State):
 
     @override
     def taint_command(self, name_cf: str, reason: _CommandDefinitionUncertaintyReason) -> None:
+        self._commands.pop(name_cf, None)
         self._parent_state.taint_command(name_cf, reason)
 
 
