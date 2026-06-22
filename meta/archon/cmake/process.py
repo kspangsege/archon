@@ -108,6 +108,15 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
                 case _clp.BlockInvoc():
                     exec_block(invoc, context)
                     return
+                case _clp.ReturnInvoc():
+                    exec_return(invoc, context)
+                    return
+                case _clp.BreakInvoc():
+                    exec_break(invoc, context)
+                    return
+                case _clp.ContinueInvoc():
+                    exec_continue(invoc, context)
+                    return
             assert_never(invoc)
         except _UnsupportedInvocSyntaxException as e:
             error(context.file_index, e.invoc.pos, "Unsupported %s() syntax", e.invoc.command_name)
@@ -162,7 +171,6 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
                 return
         assert_never(command)
 
-    # FIXME: What is the exact list of command names that cannot be overridden? return() appears to be among them      
     def exec_if(invoc: _clp.IfInvoc, context: _InvocContext) -> None:
         def exec_level(subinvoc: _clp.IfInvoc | _clp.IfBranch, context: _InvocContext, next_elseif: int) -> None:
             def exec_else(context: _InvocContext):
@@ -212,6 +220,15 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
         assert False        
 
     def exec_block(invoc: _clp.BlockInvoc, context: _InvocContext) -> None:
+        assert False        
+
+    def exec_return(invoc: _clp.ReturnInvoc, context: _InvocContext) -> None:
+        assert False        
+
+    def exec_break(invoc: _clp.BreakInvoc, context: _InvocContext) -> None:
+        assert False        
+
+    def exec_continue(invoc: _clp.ContinueInvoc, context: _InvocContext) -> None:
         assert False        
 
     def exec_closing_invoc(invoc: _clp.ClosingInvoc, opening_invoc: _clp.Invoc, context: _InvocContext) -> None:

@@ -16,8 +16,8 @@ def parse(tracker: _tp.FilePosTracker, warning_handler: ErrorHandler, error_hand
     return _parse(tracker, warning_handler, error_handler)
 
 
-def is_block_command(command_name_cf: str):
-    return command_name_cf in _BLOCK_COMMAND_MAP
+def is_flow_control_command(command_name_cf: str):
+    return command_name_cf in _FLOW_CONTROL_MAP
 
 
 class ErrorHandler(Protocol):
@@ -25,7 +25,9 @@ class ErrorHandler(Protocol):
         ...
 
 
-type Invoc = SimpleInvoc | IfInvoc | ForeachInvoc | WhileInvoc | MacroDefInvoc | FunctionDefInvoc | BlockInvoc
+# FIXME: Rename SimpleInvoc --> GenericInvoc    
+type Invoc = SimpleInvoc | IfInvoc | ForeachInvoc | WhileInvoc | MacroDefInvoc | FunctionDefInvoc | BlockInvoc | \
+    ReturnInvoc | BreakInvoc | ContinueInvoc
 
 type GeneralizedInvoc = Invoc | IfBranch
 
@@ -79,6 +81,18 @@ class FunctionDefInvoc(StructuredInvocBase):
 class BlockInvoc(StructuredInvocBase):
     closing_invoc: ClosingInvoc
 
+@dataclass(slots=True, frozen=True)
+class ReturnInvoc(InvocBase):
+    pass
+
+@dataclass(slots=True, frozen=True)
+class BreakInvoc(InvocBase):
+    pass
+
+@dataclass(slots=True, frozen=True)
+class ContinueInvoc(InvocBase):
+    pass
+
 
 @dataclass(slots=True, frozen=True)
 class Protoargument:
@@ -107,21 +121,21 @@ def _parse(tracker: _tp.FilePosTracker, warning_handler: ErrorHandler, error_han
         while True:
             if not current:
                 return
-            match current.block_command:
+            match current.flow_control:
                 case None:
                     yield SimpleInvoc(current.command_name, current.arguments, current.pos, current.lparen_pos,
                                       current.rparen_pos, current.command_name_cf)
                     advance()
                     continue
 
-                case _BlockCommand.IF:
+                case _FlowControl.IF:
                     orig = current
                     advance()
                     children = list(parse(_ParentType.IF))
                     last = orig
                     elseif_branches: list[IfBranch]  = []
                     else_branch:     IfBranch | None = None
-                    while current and current.block_command is _BlockCommand.ELSEIF:
+                    while current and current.flow_control is _FlowControl.ELSEIF:
                         orig_2 = current
                         advance()
                         children_2 = list(parse(_ParentType.ELSEIF))
@@ -129,7 +143,7 @@ def _parse(tracker: _tp.FilePosTracker, warning_handler: ErrorHandler, error_han
                                           orig_2.rparen_pos, children_2)
                         elseif_branches.append(branch)
                         last = orig_2
-                    if current and current.block_command is _BlockCommand.ELSE:
+                    if current and current.flow_control is _FlowControl.ELSE:
                         orig_2 = current
                         advance()
                         children_2 = list(parse(_ParentType.ELSE))
@@ -137,8 +151,8 @@ def _parse(tracker: _tp.FilePosTracker, warning_handler: ErrorHandler, error_han
                                           orig_2.rparen_pos, children_2)
                         else_branch = branch
                         last = orig_2
-                    while current and current.block_command in (_BlockCommand.ELSEIF, _BlockCommand.ELSE):
-                        parent_type_2 = _PARENT_TYPE_MAP[current.block_command]
+                    while current and current.flow_control in (_FlowControl.ELSEIF, _FlowControl.ELSE):
+                        parent_type_2 = _PARENT_TYPE_MAP[current.flow_control]
                         if not silent:
                             error_handler(current.pos, "%s() after %s()", current.command_name, last.command_name)
                         orig_2 = current
@@ -150,7 +164,7 @@ def _parse(tracker: _tp.FilePosTracker, warning_handler: ErrorHandler, error_han
                         if not silent:
                             error_handler(last.pos, "Unclosed %s()", last.command_name)
                         return
-                    assert current.block_command is _BlockCommand.ENDIF
+                    assert current.flow_control is _FlowControl.ENDIF
                     closing_invoc = ClosingInvoc(current.command_name, current.arguments, current.pos,
                                                  current.lparen_pos, current.rparen_pos)
                     yield IfInvoc(orig.command_name, orig.arguments, orig.pos, orig.lparen_pos, orig.rparen_pos,
@@ -158,7 +172,7 @@ def _parse(tracker: _tp.FilePosTracker, warning_handler: ErrorHandler, error_han
                     advance()
                     continue
 
-                case _BlockCommand.ELSEIF | _BlockCommand.ELSE | _BlockCommand.ENDIF:
+                case _FlowControl.ELSEIF | _FlowControl.ELSE | _FlowControl.ENDIF:
                     if parent_type in [_ParentType.IF, _ParentType.ELSEIF, _ParentType.ELSE]:
                         return
                     if not silent:
@@ -166,32 +180,32 @@ def _parse(tracker: _tp.FilePosTracker, warning_handler: ErrorHandler, error_han
                     advance()
                     continue
 
-                case _BlockCommand.FOREACH | _BlockCommand.WHILE | _BlockCommand.MACRO | _BlockCommand.FUNCTION | \
-                     _BlockCommand.BLOCK:
+                case _FlowControl.FOREACH | _FlowControl.WHILE | _FlowControl.MACRO | _FlowControl.FUNCTION | \
+                     _FlowControl.BLOCK:
                     orig = current
-                    orig_command = current.block_command
+                    orig_command = current.flow_control
                     advance()
                     children = list(parse(_PARENT_TYPE_MAP[orig_command]))
                     if not current:
                         if not silent:
                             error_handler(last.pos, "Unclosed %s()", last.command_name)
                         return
-                    assert current.block_command is _BLOCK_COMMAND_END_MAP[orig_command]
+                    assert current.flow_control is _FLOW_CONTROL_END_MAP[orig_command]
                     closing_invoc = ClosingInvoc(current.command_name, current.arguments, current.pos,
                                                  current.lparen_pos, current.rparen_pos)
-                    if orig_command == _BlockCommand.FOREACH:
+                    if orig_command == _FlowControl.FOREACH:
                         yield ForeachInvoc(orig.command_name, orig.arguments, orig.pos, orig.lparen_pos,
                                            orig.rparen_pos, children, closing_invoc)
-                    elif orig_command == _BlockCommand.WHILE:
+                    elif orig_command == _FlowControl.WHILE:
                         yield WhileInvoc(orig.command_name, orig.arguments, orig.pos, orig.lparen_pos,
                                          orig.rparen_pos, children, closing_invoc)
-                    elif orig_command == _BlockCommand.MACRO:
+                    elif orig_command == _FlowControl.MACRO:
                         yield MacroDefInvoc(orig.command_name, orig.arguments, orig.pos, orig.lparen_pos,
                                             orig.rparen_pos, children, closing_invoc)
-                    elif orig_command == _BlockCommand.FUNCTION:
+                    elif orig_command == _FlowControl.FUNCTION:
                         yield FunctionDefInvoc(orig.command_name, orig.arguments, orig.pos, orig.lparen_pos,
                                                orig.rparen_pos, children, closing_invoc)
-                    elif orig_command == _BlockCommand.BLOCK:
+                    elif orig_command == _FlowControl.BLOCK:
                         yield BlockInvoc(orig.command_name, orig.arguments, orig.pos, orig.lparen_pos,
                                          orig.rparen_pos, children, closing_invoc)
                     else:
@@ -199,16 +213,28 @@ def _parse(tracker: _tp.FilePosTracker, warning_handler: ErrorHandler, error_han
                     advance()
                     continue
 
-                case _BlockCommand.ENDFOREACH | _BlockCommand.ENDWHILE | _BlockCommand.ENDMACRO | \
-                     _BlockCommand.ENDFUNCTION | _BlockCommand.ENDBLOCK:
-                    if parent_type is _PARENT_TYPE_MAP[current.block_command]:
+                case _FlowControl.ENDFOREACH | _FlowControl.ENDWHILE | _FlowControl.ENDMACRO | \
+                     _FlowControl.ENDFUNCTION | _FlowControl.ENDBLOCK:
+                    if parent_type is _PARENT_TYPE_MAP[current.flow_control]:
                         return
                     if not silent:
                         error_handler(current.pos, "Unmatched %s()", current.command_name)
                     advance()
                     continue
 
-            assert_never(current.block_command)
+                case _FlowControl.RETURN:
+                    yield ReturnInvoc(orig.command_name, orig.arguments, orig.pos, orig.lparen_pos, orig.rparen_pos)
+                    continue
+
+                case _FlowControl.BREAK:
+                    yield BreakInvoc(orig.command_name, orig.arguments, orig.pos, orig.lparen_pos, orig.rparen_pos)
+                    continue
+
+                case _FlowControl.CONTINUE:
+                    yield ContinueInvoc(orig.command_name, orig.arguments, orig.pos, orig.lparen_pos, orig.rparen_pos)
+                    continue
+
+            assert_never(current.flow_control)
 
     def advance():
         nonlocal current
@@ -310,7 +336,7 @@ def _protoparse(tracker: _tp.FilePosTracker, warning_handler: ErrorHandler,
                     if level == 0:
                         if not invoc_info.invalid:
                             command_name_cf = invoc_info.command_name.casefold()
-                            command = _BLOCK_COMMAND_MAP.get(command_name_cf)
+                            command = _FLOW_CONTROL_MAP.get(command_name_cf)
                             rparen_pos = token.pos
                             yield _Protoinvoc(invoc_info.command_name, command_name_cf, command, invoc_info.args,
                                               invoc_info.pos, invoc_info.lparen_pos, rparen_pos)
@@ -349,14 +375,14 @@ def _protoparse(tracker: _tp.FilePosTracker, warning_handler: ErrorHandler,
 class _Protoinvoc:
     command_name:    str
     command_name_cf: str
-    block_command:   _BlockCommand | None
+    flow_control:    _FlowControl | None
     arguments:       list[Protoargument]
     pos:             int
     lparen_pos:      int
     rparen_pos:      int
 
 
-class _BlockCommand(enum.Enum):
+class _FlowControl(enum.Enum):
     IF          =  0
     ELSEIF      =  1
     ELSE        =  2
@@ -371,51 +397,57 @@ class _BlockCommand(enum.Enum):
     ENDFUNCTION = 11
     BLOCK       = 12
     ENDBLOCK    = 13
+    RETURN      = 14
+    BREAK       = 15
+    CONTINUE    = 16
 
 
-_BLOCK_COMMAND_MAP = {
-    "if":          _BlockCommand.IF,
-    "elseif":      _BlockCommand.ELSEIF,
-    "else":        _BlockCommand.ELSE,
-    "endif":       _BlockCommand.ENDIF,
-    "foreach":     _BlockCommand.FOREACH,
-    "endforeach":  _BlockCommand.ENDFOREACH,
-    "while":       _BlockCommand.WHILE,
-    "endwhile":    _BlockCommand.ENDWHILE,
-    "macro":       _BlockCommand.MACRO,
-    "endmacro":    _BlockCommand.ENDMACRO,
-    "function":    _BlockCommand.FUNCTION,
-    "endfunction": _BlockCommand.ENDFUNCTION,
-    "block":       _BlockCommand.BLOCK,
-    "endblock":    _BlockCommand.ENDBLOCK,
+_FLOW_CONTROL_MAP = {
+    "if":          _FlowControl.IF,
+    "elseif":      _FlowControl.ELSEIF,
+    "else":        _FlowControl.ELSE,
+    "endif":       _FlowControl.ENDIF,
+    "foreach":     _FlowControl.FOREACH,
+    "endforeach":  _FlowControl.ENDFOREACH,
+    "while":       _FlowControl.WHILE,
+    "endwhile":    _FlowControl.ENDWHILE,
+    "macro":       _FlowControl.MACRO,
+    "endmacro":    _FlowControl.ENDMACRO,
+    "function":    _FlowControl.FUNCTION,
+    "endfunction": _FlowControl.ENDFUNCTION,
+    "block":       _FlowControl.BLOCK,
+    "endblock":    _FlowControl.ENDBLOCK,
+    "return":      _FlowControl.RETURN,
+    "break":       _FlowControl.BREAK,
+    "continue":    _FlowControl.CONTINUE,
 }
 
 
-_BLOCK_COMMAND_END_MAP = {
-    _BlockCommand.IF:       _BlockCommand.ENDIF,
-    _BlockCommand.FOREACH:  _BlockCommand.ENDFOREACH,
-    _BlockCommand.WHILE:    _BlockCommand.ENDWHILE,
-    _BlockCommand.MACRO:    _BlockCommand.ENDMACRO,
-    _BlockCommand.FUNCTION: _BlockCommand.ENDFUNCTION,
-    _BlockCommand.BLOCK:    _BlockCommand.ENDBLOCK,
+_FLOW_CONTROL_END_MAP = {
+    _FlowControl.IF:       _FlowControl.ENDIF,
+    _FlowControl.FOREACH:  _FlowControl.ENDFOREACH,
+    _FlowControl.WHILE:    _FlowControl.ENDWHILE,
+    _FlowControl.MACRO:    _FlowControl.ENDMACRO,
+    _FlowControl.FUNCTION: _FlowControl.ENDFUNCTION,
+    _FlowControl.BLOCK:    _FlowControl.ENDBLOCK,
 }
 
 
 _PARENT_TYPE_MAP = {
-    _BlockCommand.IF:          _ParentType.IF,
-    _BlockCommand.ELSEIF:      _ParentType.ELSEIF,
-    _BlockCommand.ELSE:        _ParentType.ELSE,
-    _BlockCommand.ENDIF:       _ParentType.IF,
-    _BlockCommand.FOREACH:     _ParentType.FOREACH,
-    _BlockCommand.ENDFOREACH:  _ParentType.FOREACH,
-    _BlockCommand.WHILE:       _ParentType.WHILE,
-    _BlockCommand.ENDWHILE:    _ParentType.WHILE,
-    _BlockCommand.MACRO:       _ParentType.MACRO,
-    _BlockCommand.ENDMACRO:    _ParentType.MACRO,
-    _BlockCommand.FUNCTION:    _ParentType.FUNCTION,
-    _BlockCommand.ENDFUNCTION: _ParentType.FUNCTION,
-    _BlockCommand.BLOCK:       _ParentType.BLOCK,
-    _BlockCommand.ENDBLOCK:    _ParentType.BLOCK,
+    _FlowControl.IF:          _ParentType.IF,
+    _FlowControl.ELSEIF:      _ParentType.ELSEIF,
+    _FlowControl.ELSE:        _ParentType.ELSE,
+    _FlowControl.ENDIF:       _ParentType.IF,
+    _FlowControl.FOREACH:     _ParentType.FOREACH,
+    _FlowControl.ENDFOREACH:  _ParentType.FOREACH,
+    _FlowControl.WHILE:       _ParentType.WHILE,
+    _FlowControl.ENDWHILE:    _ParentType.WHILE,
+    _FlowControl.MACRO:       _ParentType.MACRO,
+    _FlowControl.ENDMACRO:    _ParentType.MACRO,
+    _FlowControl.FUNCTION:    _ParentType.FUNCTION,
+    _FlowControl.ENDFUNCTION: _ParentType.FUNCTION,
+    _FlowControl.BLOCK:       _ParentType.BLOCK,
+    _FlowControl.ENDBLOCK:    _ParentType.BLOCK,
 }
 
 
