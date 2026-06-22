@@ -94,7 +94,7 @@ class BinopCondition(ConditionBase):
 @dataclass(slots=True, frozen=True)
 class ArgumentCondition(ConditionBase):
     string:     _tp.PosMappedString
-    was_bare:   bool  # Neitehr quoted nor bracketed
+    was_bare:   bool  # Neither quoted nor bracketed
     is_derived: bool
 
 @dataclass(slots=True, frozen=True)
@@ -167,7 +167,7 @@ def _parse(arguments: Iterable[_ca.Argument], rparen_pos: int) -> Condition:
                     level += 1
                 elif cond.string.string == ")":
                     if level == 0:
-                        raise FatalParseError(cond.pos, "Unmatched right parenhesis")
+                        raise FatalParseError(cond.pos, "Unmatched right parenthesis")
                     level -= 1
                     if level == 0:
                         end_index = i + 1
@@ -178,7 +178,7 @@ def _parse(arguments: Iterable[_ca.Argument], rparen_pos: int) -> Condition:
                         continue
             i += 1
         if level != 0:
-            raise FatalParseError(begin_pos, "Unmatched left parenhesis")
+            raise FatalParseError(begin_pos, "Unmatched left parenthesis")
 
         # Parse for unary operators
         i = 0
@@ -269,7 +269,7 @@ def _parse(arguments: Iterable[_ca.Argument], rparen_pos: int) -> Condition:
             string = " ".join(format_(c) for c in prefix)
             if len(conditions) > len(prefix):
                 string += " ..."
-            raise FatalParseError(conditions[0].pos, "Unreducable argument sequence: %s", string)
+            raise FatalParseError(conditions[0].pos, "Irreducible argument sequence: %s", string)
 
         return conditions[0]
 
@@ -485,7 +485,8 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
             case _CertainStringResult():
                 string = result_1.string.string
             case UncertainResult():
-                reason = result_1.reason
+                if not reason:
+                    reason = result_1.reason
             case _:
                 assert_never(result_1)
         # CMake exposes up to 9 capture groups excluding the full match
