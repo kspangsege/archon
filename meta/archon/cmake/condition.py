@@ -510,8 +510,12 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
                     if group:
                         variable_state.set_("CMAKE_MATCH_%s" % i, group)
             else:
+                # Weirdly, CMake sets CMAKE_MATCH_COUNT to the empty string when the full
+                # match is the empty string.
                 variable_state.set_("CMAKE_MATCH_COUNT", "")
             return TrueResult()
+        else:
+            variable_state.set_("CMAKE_MATCH_COUNT", "0")
         return FalseResult()
 
     def eval_in_list(left: Condition, right: Condition) -> Result:

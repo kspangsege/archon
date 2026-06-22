@@ -643,6 +643,7 @@ class _OccurrenceUncertaintyOverlayState(_State):
     @override
     def get_regular_variable(self, name: str, parent_scope_override: _cv.CertainValue | None) -> _cv.Value:
         value = self._regular_variables.get(name)
+        # FIXME: Oooops, if value.value is None and not is_root_scope(), then the parent scope must be consulted                 
         if value:
             return value
         parent_scope_override_2 = parent_scope_override or self._parent_scope_variables.get(name)
