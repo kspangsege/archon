@@ -468,38 +468,42 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
     def eval_matches(left: Condition, right: Condition) -> Result:
         result_1 = eval_as_str_from_var_or_str(left)
         result_2 = eval_as_str(right)
-        # FIXME: If result is uncertain, taint `CMAKE_MATCH_COUNT`                 
-        #
-        # FIXME: If result is uncertain, if `string_2` is unknown, taint all capture
-        # variables, otherwise taint only the cature variables that correspond to capure
-        # groups in the regular expression.                
-        #
-        # FIXME: Must also taint capture variables if the match is certain but the
-        # matches operation is part of a block of commands whose execution is predicated
-        # on an uncertain condition.                           
-        #
-        if isinstance(result_1, _CertainStringResult):
-            pass
-        elif isinstance(result_1, UncertainResult):
-            return result_1
-        else:
-            assert_never(result_1)
-        if isinstance(result_2, _CertainStringResult):
-            pass
-        elif isinstance(result_2, UncertainResult):
-            return result_2
-        else:
-            assert_never(result_2)
-        try:
-            regex = _cr.compile_(result_2.string.string)
-        except _cr.SyntaxError as e:
-            pos = result_2.string.pos_map.map_(e.pos)
-            raise FatalEvalError(pos, "Regular expression syntax error: %s", e)
-        m = regex.matches(result_1.string.string)
+        regex:  _cr.Regex | None = None
+        reason: _cur.ExpansionUncertaintyReason | None = None
+        match result_2:
+            case _CertainStringResult():
+                try:
+                    regex = _cr.compile_(result_2.string.string)
+                except _cr.SyntaxError as e:
+                    pos = result_2.string.pos_map.map_(e.pos)
+                    raise FatalEvalError(pos, "Regular expression syntax error: %s", e)
+            case UncertainResult():
+                reason = result_2.reason
+            case _:
+                assert_never(result_2)
+        match result_1:
+            case _CertainStringResult():
+                string = result_1.string.string
+            case UncertainResult():
+                reason = result_1.reason
+            case _:
+                assert_never(result_1)
+        # CMake exposes up to 9 capture groups excluding the full match
+        max_groups = 9
+        if reason:
+            variable_state.taint("CMAKE_MATCH_COUNT", reason)
+            n = max_groups
+            if regex:
+                # If the regex is known, the number of capture groups is known, which is the
+                # maximum possible number of capture variables that might be affected.
+                n = min(n, regex.num_capture_groups())
+            for i in range(n + 1):
+                variable_state.taint("CMAKE_MATCH_%s" % i, reason)
+            return UncertainResult(reason)
+        assert regex
+        m = regex.matches(string)
         if m:
-            # CMake exposes up to 10 capture groups including the full match
-            max_groups = 10
-            groups = [m.group(0)] + list(m.groups(""))[:max_groups-1]
+            groups = [m.group(0)] + list(m.groups(""))[:max_groups]
             if groups[0]:
                 # CMAKE_MATCH_COUNT is the highest N with a nonempty capture
                 n = max(i for i in range(len(groups)) if groups[i])

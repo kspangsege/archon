@@ -23,6 +23,9 @@ class Regex:
     def matches(self, string: str) -> re.Match[str] | None:
         return self._regex.search(string)
 
+    def num_capture_groups(self) -> int:
+        return self._regex.groups
+
 
 class SyntaxError(Exception):
     def __init__(self, pos: int, message: str, *args: Any) -> None:
