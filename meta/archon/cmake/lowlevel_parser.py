@@ -27,7 +27,7 @@ class ErrorHandler(Protocol):
 
 type Invoc = SimpleInvoc | IfInvoc | ForeachInvoc | WhileInvoc | MacroDefInvoc | FunctionDefInvoc | BlockInvoc
 
-type GeneralizedInvoc = Invoc | IfBranch | ClosingInvoc
+type GeneralizedInvoc = Invoc | IfBranch
 
 @dataclass(slots=True, frozen=True)
 class InvocBase:

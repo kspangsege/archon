@@ -162,46 +162,41 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
                 return
         assert_never(command)
 
-    # FIXME: What is the exact list of command names that cannot be overridden? return() appears to be among them    
+    # FIXME: What is the exact list of command names that cannot be overridden? return() appears to be among them      
     def exec_if(invoc: _clp.IfInvoc, context: _InvocContext) -> None:
-        # CMake has short-circuiting evaluation behavior across if-branches, meaning that as
-        # soon as a branch condition evaluates to true, the remaining branch conditions are
-        # not evaluated.
-        #
-        # FIXME: Since the evaluation of branches can happen with uncertain occurrence, it
-        # is necessary to taint touched variables for those branches (looks like an extra
-        # state overlay needs to be injected just for the evaluation of such conditions, at
-        # least if the condition can have side effects)                                               
-        #
-        accumulated = _cc.FalseResult()
-        done = False
-        def exec_branch(result: _cc.Result, children: Iterable[_clp.Invoc]) -> None:
-            nonlocal accumulated, done
-            effective = ~accumulated & result
-            accumulated |= result
-            occurrence_uncertainty: OccurrenceUncertainty = None
-            match effective:
+        def exec_level(subinvoc: _clp.IfInvoc | _clp.IfBranch, context: _InvocContext, next_elseif: int) -> None:
+            def exec_else(context: _InvocContext):
+                if next_elseif < len(invoc.elseif_branches):
+                    exec_level(invoc.elseif_branches[next_elseif], context, next_elseif + 1)
+                    return
+                assert next_elseif == len(invoc.elseif_branches)
+                if invoc.else_branch:
+                    # CMake completely ignores any arguments passed to `else()`
+                    exec_commands(invoc.else_branch.children, context)
+            result = evaluate_condition(subinvoc, context)
+            match result:
                 case _cc.FalseResult():
+                    exec_else(context)
                     return
                 case _cc.TrueResult():
-                    done = True
-                case _cc.UncertainResult(reason):
-                    occurrence_uncertainty = reason
-            # FIXME: Need to call state.push_taints()                          
-            context_2 = context
-            if occurrence_uncertainty:
-                state = _OccurrenceUncertaintyOverlayState(context.state, occurrence_uncertainty)
-                orig_occurrence_uncertainty = context.occurrence_uncertainty or occurrence_uncertainty
-                context_2 = _InvocContext(context.file_index, state, orig_occurrence_uncertainty)
-            exec_commands(children, context_2)
-        exec_branch(evaluate_condition(invoc, context), invoc.children)
-        for branch in invoc.elseif_branches:
-            if done:
-                break
-            exec_branch(evaluate_condition(branch, context), branch.children)
-        if not done and invoc.else_branch:
-            # CMake completely ignores the arguments passed to `else()`
-            exec_branch(_cc.TrueResult(), invoc.else_branch.children)
+                    # CMake has short-circuiting evaluation behavior across if-branches,
+                    # meaning that as soon as a branch condition evaluates to true, the
+                    # remaining branch conditions are not evaluated.
+                    exec_commands(subinvoc.children, context)
+                    return
+                case _cc.UncertainResult():
+                    occurrence_uncertainty = context.occurrence_uncertainty or result.reason
+                    if_state = _OccurrenceUncertaintyOverlayState(context.state, result.reason)
+                    if_context = _InvocContext(context.file_index, if_state, occurrence_uncertainty)
+                    exec_commands(subinvoc.children, if_context)
+                    else_state = _OccurrenceUncertaintyOverlayState(context.state, result.reason)
+                    else_context = _InvocContext(context.file_index, else_state, occurrence_uncertainty)
+                    exec_else(else_context)
+                    if_state.push_taints()
+                    else_state.push_taints()
+                    return
+            assert_never(result)
+        exec_level(invoc, context, 0)
         exec_closing_invoc(invoc.closing_invoc, invoc, context)
 
     def exec_foreach(invoc: _clp.ForeachInvoc, context: _InvocContext) -> None:
@@ -219,8 +214,7 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
     def exec_block(invoc: _clp.BlockInvoc, context: _InvocContext) -> None:
         assert False        
 
-    def exec_closing_invoc(invoc: _clp.ClosingInvoc, opening_invoc: _clp.GeneralizedInvoc,
-                           context: _InvocContext) -> None:
+    def exec_closing_invoc(invoc: _clp.ClosingInvoc, opening_invoc: _clp.Invoc, context: _InvocContext) -> None:
         # CMake ignores arguments in a closing invocation but generates a warning unless the
         # closing invocation is either empty or matches the corresponding opening invocation
         # proto-argument for proto-argument. if() is the corresponding opening invocation
@@ -357,7 +351,7 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
         except _cc.FatalEvalError as e:
             raise _ConditionEvalError(e.pos, invoc.command_name, e.message % e.args) from None
 
-    def create_argument_server(invoc: _clp.GeneralizedInvoc, context: _InvocContext) -> _ca.ArgumentServer:
+    def create_argument_server(invoc: _clp.Invoc, context: _InvocContext) -> _ca.ArgumentServer:
         arguments = expand_arguments(invoc, context)
         return _ca.ArgumentServer(invoc, arguments, context.file_index)
 
