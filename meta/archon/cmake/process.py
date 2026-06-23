@@ -1,10 +1,11 @@
 from __future__ import annotations
-from typing import Protocol, Any, override, assert_never
+from typing import Any, Protocol, assert_never, override
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Container, Iterable
 from dataclasses import dataclass
 
 import enum
+import re
 import pathlib
 
 import archon.base as _b
@@ -24,7 +25,8 @@ def process(cmake_path: pathlib.Path, application: Application, pos_resolver: Po
     return _process(cmake_path, application, pos_resolver, logger)
 
 
-class Application:
+class Application(ABC):
+    @abstractmethod
     def message(self, pos: _cur.Position, occurrence_uncertainty: OccurrenceUncertainty, level: MessageLevel,
                 message: str) -> None:
         ...
@@ -69,10 +71,11 @@ class MessageLevel(enum.Enum):
 
 
 def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Logger) -> bool:
-    def process_file(cmake_path: pathlib.Path, state: _State, occurrence_uncertainty: OccurrenceUncertainty) -> None:
+    def process_file(cmake_path: pathlib.Path, state: _State, occurrence_uncertainty: OccurrenceUncertainty,
+                     base_path: pathlib.Path) -> None:
         tracker = _tp.FilePosTracker(cmake_path)
         file_index = pos_resolver._append_file(_SourceFile(tracker))
-        context = _InvocContext(file_index, state, occurrence_uncertainty)
+        context = _InvocContext(file_index, state, occurrence_uncertainty, base_path)
         def warning_handler(pos: int, message: str, *args: Any) -> None:
             warning(file_index, pos, message, *args)
         def error_handler(pos: int, message: str, *args: Any) -> None:
@@ -87,9 +90,6 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
     def exec_command(invoc: _clp.Invoc, context: _InvocContext) -> None:
         try:
             match invoc:
-                case _clp.SimpleInvoc():
-                    exec_simple(invoc, context)
-                    return
                 case _clp.IfInvoc():
                     exec_if(invoc, context)
                     return
@@ -117,6 +117,9 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
                 case _clp.ContinueInvoc():
                     exec_continue(invoc, context)
                     return
+                case _clp.GenericInvoc():
+                    exec_generic(invoc, context)
+                    return
             assert_never(invoc)
         except _UnsupportedInvocSyntaxException as e:
             error(context.file_index, e.invoc.pos, "Unsupported %s() syntax", e.invoc.command_name)
@@ -135,7 +138,68 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
                 trace_value_uncertainty_causes(e.reason.value_uncertainty_reason)
             return
 
-    def exec_simple(invoc: _clp.SimpleInvoc, context: _InvocContext) -> None:
+    def exec_if(invoc: _clp.IfInvoc, context: _InvocContext) -> None:
+        def exec_level(subinvoc: _clp.IfInvoc | _clp.IfBranch, context: _InvocContext, next_elseif: int) -> None:
+            def exec_else(context: _InvocContext):
+                if next_elseif < len(invoc.elseif_branches):
+                    exec_level(invoc.elseif_branches[next_elseif], context, next_elseif + 1)
+                    return
+                assert next_elseif == len(invoc.elseif_branches)
+                if invoc.else_branch:
+                    # CMake completely ignores any arguments passed to `else()`
+                    exec_commands(invoc.else_branch.children, context)
+            result = evaluate_condition(subinvoc, context)
+            match result:
+                case _cc.FalseResult():
+                    exec_else(context)
+                    return
+                case _cc.TrueResult():
+                    # CMake has short-circuiting evaluation behavior across if-branches,
+                    # meaning that as soon as a branch condition evaluates to true, the
+                    # remaining branch conditions are not evaluated.
+                    exec_commands(subinvoc.children, context)
+                    return
+                case _cc.UncertainResult():
+                    occurrence_uncertainty = context.occurrence_uncertainty or result.reason
+                    if_state = _OccurrenceUncertaintyOverlayState(context.state, result.reason)
+                    if_context = _InvocContext(context.file_index, if_state, occurrence_uncertainty, context.base_path)
+                    exec_commands(subinvoc.children, if_context)
+                    else_state = _OccurrenceUncertaintyOverlayState(context.state, result.reason)
+                    else_context = _InvocContext(context.file_index, else_state, occurrence_uncertainty,
+                                                 context.base_path)
+                    exec_else(else_context)
+                    if_state.push_taints()
+                    else_state.push_taints()
+                    return
+            assert_never(result)
+        exec_level(invoc, context, 0)
+        exec_closing_invoc(invoc.closing_invoc, invoc, context)
+
+    def exec_foreach(invoc: _clp.ForeachInvoc, context: _InvocContext) -> None:
+        assert False        
+
+    def exec_while(invoc: _clp.WhileInvoc, context: _InvocContext) -> None:
+        assert False        
+
+    def exec_macro(invoc: _clp.MacroDefInvoc, context: _InvocContext) -> None:
+        assert False        
+
+    def exec_function(invoc: _clp.FunctionDefInvoc, context: _InvocContext) -> None:
+        assert False        
+
+    def exec_block(invoc: _clp.BlockInvoc, context: _InvocContext) -> None:
+        assert False        
+
+    def exec_return(invoc: _clp.ReturnInvoc, context: _InvocContext) -> None:
+        assert False        
+
+    def exec_break(invoc: _clp.BreakInvoc, context: _InvocContext) -> None:
+        assert False        
+
+    def exec_continue(invoc: _clp.ContinueInvoc, context: _InvocContext) -> None:
+        assert False        
+
+    def exec_generic(invoc: _clp.GenericInvoc, context: _InvocContext) -> None:
         command = context.state.get_command(invoc.command_name_cf)
         match command:
             case _BuiltInCommand(which):
@@ -171,66 +235,6 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
                 return
         assert_never(command)
 
-    def exec_if(invoc: _clp.IfInvoc, context: _InvocContext) -> None:
-        def exec_level(subinvoc: _clp.IfInvoc | _clp.IfBranch, context: _InvocContext, next_elseif: int) -> None:
-            def exec_else(context: _InvocContext):
-                if next_elseif < len(invoc.elseif_branches):
-                    exec_level(invoc.elseif_branches[next_elseif], context, next_elseif + 1)
-                    return
-                assert next_elseif == len(invoc.elseif_branches)
-                if invoc.else_branch:
-                    # CMake completely ignores any arguments passed to `else()`
-                    exec_commands(invoc.else_branch.children, context)
-            result = evaluate_condition(subinvoc, context)
-            match result:
-                case _cc.FalseResult():
-                    exec_else(context)
-                    return
-                case _cc.TrueResult():
-                    # CMake has short-circuiting evaluation behavior across if-branches,
-                    # meaning that as soon as a branch condition evaluates to true, the
-                    # remaining branch conditions are not evaluated.
-                    exec_commands(subinvoc.children, context)
-                    return
-                case _cc.UncertainResult():
-                    occurrence_uncertainty = context.occurrence_uncertainty or result.reason
-                    if_state = _OccurrenceUncertaintyOverlayState(context.state, result.reason)
-                    if_context = _InvocContext(context.file_index, if_state, occurrence_uncertainty)
-                    exec_commands(subinvoc.children, if_context)
-                    else_state = _OccurrenceUncertaintyOverlayState(context.state, result.reason)
-                    else_context = _InvocContext(context.file_index, else_state, occurrence_uncertainty)
-                    exec_else(else_context)
-                    if_state.push_taints()
-                    else_state.push_taints()
-                    return
-            assert_never(result)
-        exec_level(invoc, context, 0)
-        exec_closing_invoc(invoc.closing_invoc, invoc, context)
-
-    def exec_foreach(invoc: _clp.ForeachInvoc, context: _InvocContext) -> None:
-        assert False        
-
-    def exec_while(invoc: _clp.WhileInvoc, context: _InvocContext) -> None:
-        assert False        
-
-    def exec_macro(invoc: _clp.MacroDefInvoc, context: _InvocContext) -> None:
-        assert False        
-
-    def exec_function(invoc: _clp.FunctionDefInvoc, context: _InvocContext) -> None:
-        assert False        
-
-    def exec_block(invoc: _clp.BlockInvoc, context: _InvocContext) -> None:
-        assert False        
-
-    def exec_return(invoc: _clp.ReturnInvoc, context: _InvocContext) -> None:
-        assert False        
-
-    def exec_break(invoc: _clp.BreakInvoc, context: _InvocContext) -> None:
-        assert False        
-
-    def exec_continue(invoc: _clp.ContinueInvoc, context: _InvocContext) -> None:
-        assert False        
-
     def exec_closing_invoc(invoc: _clp.ClosingInvoc, opening_invoc: _clp.Invoc, context: _InvocContext) -> None:
         # CMake ignores arguments in a closing invocation but generates a warning unless the
         # closing invocation is either empty or matches the corresponding opening invocation
@@ -246,7 +250,7 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
             warning(context.file_index, invoc.pos, "Closing invocation, %s(), has mismatching arguments (opening "
                     "invocation is on line %s)", invoc.command_name, opening_line_no)
 
-    def exec_set(invoc: _clp.SimpleInvoc, context: _InvocContext) -> None:
+    def exec_set(invoc: _clp.GenericInvoc, context: _InvocContext) -> None:
         server = create_argument_server(invoc, context)
         # FIXME: Consider picking up the part of the variable name that is specified, if
         # any, and use it as a tainting pattern
@@ -285,7 +289,7 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
         value = ";".join(values) if values else None
         set_regular_variable(var_name, value, parent_scope, invoc, context)
 
-    def exec_unset(invoc: _clp.SimpleInvoc, context: _InvocContext) -> None:
+    def exec_unset(invoc: _clp.GenericInvoc, context: _InvocContext) -> None:
         server = create_argument_server(invoc, context)
         variable = server.consume()
         if not variable:
@@ -320,7 +324,7 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
         value = None
         set_regular_variable(var_name, value, parent_scope, invoc, context)
 
-    def exec_message(invoc: _clp.SimpleInvoc, context: _InvocContext) -> None:
+    def exec_message(invoc: _clp.GenericInvoc, context: _InvocContext) -> None:
         server = create_argument_server(invoc, context)
         if server.consume_keyword({"CHECK_START", "CHECK_PASS", "CHECK_FAIL", "CONFIGURE_LOG"}):
             raise _UnsupportedInvocSyntaxException(invoc) from None
@@ -337,10 +341,23 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
         position = _cur.Position(context.file_index, invoc.pos)
         application.message(position, context.occurrence_uncertainty, level, message)
 
-    def exec_include(invoc: _clp.SimpleInvoc, context: _InvocContext) -> None:
-        assert False        
+    def exec_include(invoc: _clp.GenericInvoc, context: _InvocContext) -> None:
+        server = create_argument_server(invoc, context)
+        file_or_module = server.consume()
+        if not file_or_module:
+            error(context.file_index, server.next_pos(), "Missing file or module in %s()", invoc.command_name)
+            return None
+        if not re.fullmatch(r".*\.cmake", file_or_module.string):
+            raise _UnsupportedInvocSyntaxException(invoc) from None
+        if not server.at_end():
+            raise _UnsupportedInvocSyntaxException(invoc) from None
+        cmake_path = context.base_path.parent / file_or_module.string
+        try:
+            process_file(cmake_path, context.state, context.occurrence_uncertainty, context.base_path)
+        except FileNotFoundError as e:
+            error(context.file_index, invoc.pos, "Failed to include %s: %s", _b.quote(str(cmake_path)), e.strerror)
 
-    def exec_add_subdirectory(invoc: _clp.SimpleInvoc, context: _InvocContext) -> None:
+    def exec_add_subdirectory(invoc: _clp.GenericInvoc, context: _InvocContext) -> None:
         assert False        
 
     def evaluate_condition(invoc: _clp.GeneralizedInvoc, context: _InvocContext) -> _cc.Result:
@@ -524,7 +541,8 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
 
     state = _RootState()
     occurrence_uncertainty = None
-    process_file(cmake_path, state, occurrence_uncertainty)
+    base_path = cmake_path
+    process_file(cmake_path, state, occurrence_uncertainty, base_path)
     return not errors_seen
 
 
@@ -538,6 +556,7 @@ class _InvocContext:
     file_index:             int
     state:                  _State
     occurrence_uncertainty: OccurrenceUncertainty
+    base_path:              pathlib.Path
 
 
 class _State(ABC):

@@ -1,3 +1,6 @@
+from __future__ import annotations
+from typing import override
+
 import sys
 import pathlib
 
@@ -30,6 +33,7 @@ pos_resolver = _cp.PositionResolver()
 logger = _l.LimitLogger(root_logger, log_level)
 
 class Application(_cp.Application):
+    @override
     def message(self, pos: _cur.Position, occurrence_uncertainty: _cp.OccurrenceUncertainty, level: _cp.MessageLevel,
                 message: str) -> None:
         certainty = "Uncertain" if occurrence_uncertainty else "Certain"

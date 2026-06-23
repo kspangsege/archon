@@ -25,9 +25,8 @@ class ErrorHandler(Protocol):
         ...
 
 
-# FIXME: Rename SimpleInvoc --> GenericInvoc    
-type Invoc = SimpleInvoc | IfInvoc | ForeachInvoc | WhileInvoc | MacroDefInvoc | FunctionDefInvoc | BlockInvoc | \
-    ReturnInvoc | BreakInvoc | ContinueInvoc
+type Invoc = IfInvoc | ForeachInvoc | WhileInvoc | MacroDefInvoc | FunctionDefInvoc | BlockInvoc | ReturnInvoc | \
+    BreakInvoc | ContinueInvoc | GenericInvoc
 
 type GeneralizedInvoc = Invoc | IfBranch
 
@@ -38,10 +37,6 @@ class InvocBase:
     pos:          int
     lparen_pos:   int
     rparen_pos:   int
-
-@dataclass(slots=True, frozen=True)
-class SimpleInvoc(InvocBase):
-    command_name_cf: str
 
 @dataclass(slots=True, frozen=True)
 class StructuredInvocBase(InvocBase):
@@ -93,6 +88,10 @@ class BreakInvoc(InvocBase):
 class ContinueInvoc(InvocBase):
     pass
 
+@dataclass(slots=True, frozen=True)
+class GenericInvoc(InvocBase):
+    command_name_cf: str
+
 
 @dataclass(slots=True, frozen=True)
 class Protoargument:
@@ -123,8 +122,8 @@ def _parse(tracker: _tp.FilePosTracker, warning_handler: ErrorHandler, error_han
                 return
             match current.flow_control:
                 case None:
-                    yield SimpleInvoc(current.command_name, current.arguments, current.pos, current.lparen_pos,
-                                      current.rparen_pos, current.command_name_cf)
+                    yield GenericInvoc(current.command_name, current.arguments, current.pos, current.lparen_pos,
+                                       current.rparen_pos, current.command_name_cf)
                     advance()
                     continue
 
@@ -223,15 +222,21 @@ def _parse(tracker: _tp.FilePosTracker, warning_handler: ErrorHandler, error_han
                     continue
 
                 case _FlowControl.RETURN:
-                    yield ReturnInvoc(orig.command_name, orig.arguments, orig.pos, orig.lparen_pos, orig.rparen_pos)
+                    yield ReturnInvoc(current.command_name, current.arguments, current.pos, current.lparen_pos,
+                                      current.rparen_pos)
+                    advance()
                     continue
 
                 case _FlowControl.BREAK:
-                    yield BreakInvoc(orig.command_name, orig.arguments, orig.pos, orig.lparen_pos, orig.rparen_pos)
+                    yield BreakInvoc(current.command_name, current.arguments, current.pos, current.lparen_pos,
+                                     current.rparen_pos)
+                    advance()
                     continue
 
                 case _FlowControl.CONTINUE:
-                    yield ContinueInvoc(orig.command_name, orig.arguments, orig.pos, orig.lparen_pos, orig.rparen_pos)
+                    yield ContinueInvoc(current.command_name, current.arguments, current.pos, current.lparen_pos,
+                                        current.rparen_pos)
+                    advance()
                     continue
 
             assert_never(current.flow_control)
