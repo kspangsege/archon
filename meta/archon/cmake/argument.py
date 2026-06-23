@@ -35,22 +35,22 @@ class ArgumentServer:
         self._begin         = 0
         self._end           = len(self._arguments)
 
-    def consume(self) -> _tp.PosMappedString | None:
+    def consume(self) -> CertainArgument | None:
         return self.consume_if(lambda _: True)
 
-    def consume_keyword(self, keywords: Container[str]) -> _tp.PosMappedString | None:
+    def consume_keyword(self, keywords: Container[str]) -> CertainArgument | None:
         return self.consume_if(lambda s: s in keywords)
 
-    def consume_not_keyword(self, keywords: Container[str]) -> _tp.PosMappedString | None:
+    def consume_not_keyword(self, keywords: Container[str]) -> CertainArgument | None:
         return self.consume_if(lambda s: s not in keywords)
 
-    def consume_if(self, pred: Callable[[str], bool]) -> _tp.PosMappedString | None:
+    def consume_if(self, pred: Callable[[str], bool]) -> CertainArgument | None:
         if self._begin < self._end:
             arg = self._arguments[self._begin]
             if isinstance(arg, CertainArgument):
                 if pred(arg.string.string):
                     self._begin += 1
-                    return arg.string
+                    return arg
                 return None
             if isinstance(arg, UncertainArgument):
                 raise UncertainArgumentException(arg.reason) from None

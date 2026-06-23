@@ -182,7 +182,28 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
         assert False        
 
     def exec_macro(invoc: _clp.MacroDefInvoc, context: _InvocContext) -> None:
-        assert False        
+        server = create_argument_server(invoc, context)
+        name = server.consume()
+        if not name:
+            error(context.file_index, server.next_pos(), "Missing macro name in %s() invocation", invoc.command_name)
+            return
+        name_cf = name.string.string.casefold()
+        if _clp.is_flow_control_command(name_cf):
+            error(context.file_index, name.pos, "Built-in flow control command, %s(), cannot be overridden",
+                  name.string.string)
+            return
+        args = []
+        while True:
+            arg = server.consume()
+            if not arg:
+                break
+            args.append(arg.string.string)
+        # FIXME: "Push" old definition, if any, to same name but with undeerscore prefix          
+        command = _CustomCommand(_CustomCommand.Type.MACRO, args, invoc.children)
+        defining_command_name = invoc.command_name
+        definition_position = _cur.Position(context.file_index, invoc.pos)
+        context.state.set_command(name_cf, command, defining_command_name, definition_position)
+        exec_closing_invoc(invoc.closing_invoc, invoc, context)
 
     def exec_function(invoc: _clp.FunctionDefInvoc, context: _InvocContext) -> None:
         assert False        
@@ -227,6 +248,8 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
                         exec_add_subdirectory(invoc, context)
                         return
                 assert_never(which)
+            case _CustomCommand():
+                assert False        
             case _UncertainCommand(reason):
                 error(context.file_index, invoc.pos, "Invocation failed due to uncertain definition of %s()",
                       invoc.command_name)
@@ -262,7 +285,7 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
             error(context.file_index, server.next_pos(), "Missing variable name in %s() invocation",
                   invoc.command_name)
             return
-        var_ref = _cu.parse_variable_reference(variable.string)
+        var_ref = _cu.parse_variable_reference(variable.string.string)
         match var_ref.resolution_type:
             case _cu.ResolutionType.GENERAL:
                 pass
@@ -278,12 +301,12 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
                 arg = server.consume()
                 if not arg:
                     break
-                if arg.string == "CACHE":
+                if arg.string.string == "CACHE":
                     raise _UnsupportedInvocSyntaxException(invoc) from None
-                if server.at_end() and arg.string == "PARENT_SCOPE":
+                if server.at_end() and arg.string.string == "PARENT_SCOPE":
                     parent_scope = True
                     break
-                values.append(arg.string)
+                values.append(arg.string.string)
         except _ca.UncertainArgumentException as e:
             context.state.taint_regular_variable(var_name, e.reason, parent_scope=False)
             if not context.state.is_root_scope():
@@ -299,7 +322,7 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
             error(context.file_index, server.next_pos(), "Missing variable name in %s() invocation",
                   invoc.command_name)
             return
-        var_ref = _cu.parse_variable_reference(variable.string)
+        var_ref = _cu.parse_variable_reference(variable.string.string)
         match var_ref.resolution_type:
             case _cu.ResolutionType.GENERAL:
                 pass
@@ -312,9 +335,9 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
         try:
             arg = server.consume()
             if arg:
-                if arg.string == "CACHE":
+                if arg.string.string == "CACHE":
                     raise _UnsupportedInvocSyntaxException(invoc) from None
-                if server.at_end() and arg.string == "PARENT_SCOPE":
+                if server.at_end() and arg.string.string == "PARENT_SCOPE":
                     parent_scope = True
                 else:
                     error(context.file_index, server.next_pos(), "Too many arguments in %s() invocation",
@@ -334,13 +357,13 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
         level = MessageLevel.NOTICE
         arg = server.consume_keyword(_MESSAGE_LEVEL_MAP.keys())
         if arg:
-            level = _MESSAGE_LEVEL_MAP[arg.string]
+            level = _MESSAGE_LEVEL_MAP[arg.string.string]
         message = ""
         while True:
             arg = server.consume()
             if not arg:
                 break
-            message += arg.string
+            message += arg.string.string
         position = _cur.Position(context.file_index, invoc.pos)
         application.message(position, context.occurrence_uncertainty, level, message)
 
@@ -350,11 +373,11 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
         if not file_or_module:
             error(context.file_index, server.next_pos(), "Missing file or module in %s()", invoc.command_name)
             return None
-        if not re.fullmatch(r".*\.cmake", file_or_module.string):
+        if not re.fullmatch(r".*\.cmake", file_or_module.string.string):
             raise _UnsupportedInvocSyntaxException(invoc) from None
         if not server.at_end():
             raise _UnsupportedInvocSyntaxException(invoc) from None
-        cmake_path = context.base_path.parent / file_or_module.string
+        cmake_path = context.base_path.parent / file_or_module.string.string
         try:
             process_file(cmake_path, context.state, context.occurrence_uncertainty, context.base_path)
         except FileNotFoundError as e:
@@ -822,7 +845,7 @@ class _OccurrenceUncertaintyOverlayState(_State):
 
 type _Command = _CertainCommand | _UncertainCommand
 
-type _CertainCommand = _BuiltInCommand
+type _CertainCommand = _BuiltInCommand | _CustomCommand
 
 @dataclass(slots=True, frozen=True)
 class _BuiltInCommand:
@@ -834,6 +857,15 @@ class _BuiltInCommand:
         INCLUDE          = 4
         ADD_SUBDIRECTORY = 5
     which: Which
+
+@dataclass(slots=True, frozen=True)
+class _CustomCommand:
+    class Type(enum.Enum):
+        MACRO    = 0
+        FUNCTION = 1
+    type_:       Type
+    args:        list[str]
+    invocations: list[_clp.Invoc]
 
 @dataclass(slots=True, frozen=True)
 class _UncertainCommand:
