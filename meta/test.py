@@ -42,4 +42,5 @@ class Application(_cp.Application):
         context_logger.info("%s: Message(%s): %s", certainty, level.name, message)
 
 application = Application()
-_cp.process(cmake_path, application, pos_resolver, logger)
+if not _cp.process(cmake_path, application, pos_resolver, logger):
+    sys.exit(1)

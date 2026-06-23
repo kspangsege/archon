@@ -191,6 +191,9 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
         assert False        
 
     def exec_return(invoc: _clp.ReturnInvoc, context: _InvocContext) -> None:
+        server = create_argument_server(invoc, context)
+        if not server.at_end():
+            raise _UnsupportedInvocSyntaxException(invoc) from None
         assert False        
 
     def exec_break(invoc: _clp.BreakInvoc, context: _InvocContext) -> None:
@@ -542,7 +545,11 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
     state = _RootState()
     occurrence_uncertainty = None
     base_path = cmake_path
-    process_file(cmake_path, state, occurrence_uncertainty, base_path)
+    try:
+        process_file(cmake_path, state, occurrence_uncertainty, base_path)
+    except FileNotFoundError as e:
+        errors_seen = True
+        logger.error("Failed to process %s: %s", _b.quote(str(cmake_path)), e.strerror)
     return not errors_seen
 
 
