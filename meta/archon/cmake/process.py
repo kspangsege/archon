@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Any, Protocol, assert_never, override
 from abc import ABC, abstractmethod
-from collections.abc import Callable, Container, Iterable
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 import enum
@@ -189,8 +189,8 @@ def _process(cmake_path: pathlib.Path, application, pos_resolver, logger: _l.Log
             return
         name_cf = name.string.string.casefold()
         if _clp.is_flow_control_command(name_cf):
-            error(context.file_index, name.pos, "Built-in flow control command, %s(), cannot be overridden",
-                  name.string.string)
+            error(context.file_index, name.pos, "Failed to define macro %s(): Built-in flow control commands cannot "
+                  "be overridden", name.string.string)
             return
         args = []
         while True:
