@@ -193,17 +193,87 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
         exec_closing_invoc(invoc.closing_invoc, invoc, context)
 
     def exec_foreach(invoc: _clp.ForeachInvoc, context: _InvocContext) -> None:
+        def iterate_list(loop_var: str, items: list[str]) -> None:
+            for item in items:
+                state = _VariableOverlayState(context.state, {
+                    loop_var: item,
+                })
+                exec_commands(invoc.children, context.with_state(state))
         server = create_argument_server(invoc, context)
-        loop_var = server.consume()
-        if not loop_var:
-            error(context.file_index, server.next_pos(), "Missing loop variable in %s() invocation",
-                  invoc.command_name)
+        i = server.find_keyword({"IN"})
+        if i == -1:
+            loop_var = server.consume()
+            if not loop_var:
+                error(context.file_index, server.next_pos(), "Missing loop variable in %s() invocation",
+                      invoc.command_name)
+                return
+            if server.consume_keyword({"RANGE"}):
+                raise _UnsupportedInvocSyntaxException(invoc) from None
+            items = []
+            while True:
+                arg = server.consume()
+                if not arg:
+                    break
+                items.append(arg.string.string)
+            iterate_list(loop_var.string.string, items)
             return
-        if server.consume_keyword({"IN"}):
-            if server.consume_keyword({"LISTS"}):
-                assert False        
-            assert False        
-        raise _UnsupportedInvocSyntaxException(invoc) from None
+        loop_vars = []
+        for _ in range(i):
+            arg = server.consume()
+            assert arg
+            loop_vars.append(arg.string.string)
+        arg = server.consume_keyword({"IN"})
+        assert arg
+        arg = server.consume()
+        if not arg:
+            return
+        if arg.string.string in {"LISTS", "ITEMS"}:
+            if not loop_vars:
+                error(context.file_index, server.next_pos(), "Missing loop variable in %s() invocation",
+                      invoc.command_name)
+                return
+            if len(loop_vars) > 1:
+                error(context.file_index, server.next_pos(), "Too many loop variables in %s() invocation",
+                      invoc.command_name)
+                return
+            items = []
+            mode = arg.string.string
+            while True:
+                arg = server.consume_keyword({"LISTS", "ITEMS", "ZIP_LISTS"})
+                if arg:
+                    if arg.string.string == "ZIP_LISTS":
+                        error(context.file_index, arg.pos, "ZIP_LISTS cannot be used with LISTS or ITEMS in "
+                              "%s() invocation", invoc.command_name)
+                        return
+                    mode = arg.string.string
+                arg = server.consume()
+                if not arg:
+                    break
+                if mode == "ITEMS":
+                    items.append(arg.string.string)
+                    continue
+                if mode == "LISTS":
+                    var_name = arg.string.string
+                    value = resolve_variable(_cu.ResolutionType.GENERAL, var_name, arg.pos, context)
+                    match value:
+                        case _cv.CertainValue():
+                            string = value.string or ""
+                        case _cv.UncertainValue():
+                            expansion_position = _cur.Position(context.file_index, arg.pos)
+                            reason = _cur.ExpansionUncertaintyReason(invoc.command_name, var_name, expansion_position,
+                                                                     value.reason)
+                            raise _ca.UncertainArgumentException(reason)
+                        case _:
+                            typing.assert_never(value)
+                    items += _cu.list_split(string)
+                    continue
+                assert False
+            iterate_list(loop_vars[0], items)
+            return
+        if arg.string.string == "ZIP_LISTS":
+            raise _UnsupportedInvocSyntaxException(invoc) from None
+        error(context.file_index, arg.pos, "Unrecognized keyword (%s) after IN in %s() invocation",
+              _b.quote(arg.string.string), invoc.command_name)
 
     def exec_while(invoc: _clp.WhileInvoc, context: _InvocContext) -> None:
         assert False        
@@ -225,7 +295,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
             if not arg:
                 break
             args.append(arg.string.string)
-        # FIXME: "Push" old definition, if any, to same name but with undeerscore prefix          
+        # FIXME: "Push" old definition, if any, to same name but with underscore prefix          
         command = _CustomCommand(_CustomCommand.Type.MACRO, args, invoc.children)
         defining_command_name = invoc.command_name
         definition_position = _cur.Position(context.file_index, invoc.pos)
@@ -276,7 +346,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                         return
                 typing.assert_never(which)
             case _CustomCommand():
-                assert False        
+                assert False                        
             case _UncertainCommand(reason):
                 error(context.file_index, invoc.pos, "Invocation failed due to uncertain definition of %s()",
                       invoc.command_name)
@@ -536,7 +606,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                          context: _InvocContext) -> _cv.Value:
         match resolution_type:
             case _cu.ResolutionType.GENERAL:
-                value = context.state.get_regular_variable(variable_name, override=None)
+                value = context.state.get_regular_variable(variable_name)
                 match value:
                     case _cv.CertainValue(string):
                         if string is not None:
@@ -613,6 +683,9 @@ class _InvocContext:
     occurrence_uncertainty: OccurrenceUncertainty
     base_path:              pathlib.Path
 
+    def with_state(self, state: _State) -> _InvocContext:
+        return _InvocContext(self.file_index, state, self.occurrence_uncertainty, self.base_path)
+
 
 class _State(abc.ABC):
     @abc.abstractmethod
@@ -620,7 +693,7 @@ class _State(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def get_regular_variable(self, name: str, override: _VariableOverride | None) -> _cv.Value:
+    def get_regular_variable(self, name: str) -> _cv.Value:
         ...
 
     @abc.abstractmethod
@@ -654,17 +727,6 @@ class _State(abc.ABC):
         ...
 
 
-type _VariableOverride = _ParentScopeOverride | _UnsetOverride
-
-@dataclasses.dataclass(slots=True, frozen=True)
-class _ParentScopeOverride:
-    value: _cv.Value
-
-@dataclasses.dataclass(slots=True, frozen=True)
-class _UnsetOverride:
-    and_parent_unset: bool
-
-
 class _RootState(_State):
     def __init__(self) -> None:
         self._commands    = dict[str, _Command]()
@@ -678,16 +740,8 @@ class _RootState(_State):
         return True
 
     @typing.override
-    def get_regular_variable(self, name: str, override: _VariableOverride | None) -> _cv.Value:
-        if not override:
-            return self._directory.get_variable(name)
-        match override:
-            case _ParentScopeOverride():
-                assert False
-            case _UnsetOverride():
-                assert not override.and_parent_unset
-                return _cv.CertainValue(None)
-        typing.assert_never(override)
+    def get_regular_variable(self, name: str) -> _cv.Value:
+        return self._directory.get_variable(name)
 
     @typing.override
     def set_regular_variable(self, name: str, value: str | None, parent_scope: bool, assigning_command_name: str,
@@ -726,6 +780,62 @@ class _RootState(_State):
         self._commands[name_cf] = _UncertainCommand(reason)
 
 
+class _VariableOverlayState(_State):
+    def __init__(self, parent_state: _State, variables: dict[str, str]) -> None:
+        self._parent_state = parent_state
+        self._variables    = dict[str, _cv.Value]()
+        for name, value in variables.items():
+            self._variables[name] = _cv.CertainValue(value)
+
+    @typing.override
+    def is_root_scope(self) -> bool:
+        return self._parent_state.is_root_scope()
+
+    @typing.override
+    def get_regular_variable(self, name: str) -> _cv.Value:
+        value = self._variables.get(name)
+        if value is not None:
+            return value
+        return self._parent_state.get_regular_variable(name)
+
+    @typing.override
+    def set_regular_variable(self, name: str, value: str | None, parent_scope: bool, assigning_command_name: str,
+                             assignment_position: _cur.Position) -> None:
+        if not parent_scope and name in self._variables:
+            self._variables[name] = _cv.CertainValue(value)
+            return
+        self._parent_state.set_regular_variable(name, value, parent_scope, assigning_command_name, assignment_position)
+
+    # FIXME: Generally do not replace a taint with a later one (retain the taint that occurs first)                   
+    @typing.override
+    def taint_regular_variable(self, name: str, reason: _cur.ValueUncertaintyReason, parent_scope: bool) -> None:
+        if not parent_scope and name in self._variables:
+            self._variables[name] = _cv.UncertainValue(reason)
+            return
+        self._parent_state.taint_regular_variable(name, reason, parent_scope)
+
+    @typing.override
+    def get_cache_variable(self, name: str) -> _cv.Value:
+        return self._parent_state.get_cache_variable(name)
+
+    @typing.override
+    def get_environment_variable(self, name: str) -> _cv.Value:
+        return self._parent_state.get_environment_variable(name)
+
+    @typing.override
+    def get_command(self, name_cf: str) -> _Command:
+        return self._parent_state.get_command(name_cf)
+
+    @typing.override
+    def set_command(self, name_cf: str, command: _CertainCommand, defining_command_name: str,
+                    definition_position: _cur.Position) -> None:
+        self._parent_state.set_command(name_cf, command, defining_command_name, definition_position)
+
+    @typing.override
+    def taint_command(self, name_cf: str, reason: _CommandDefinitionUncertaintyReason) -> None:
+        self._parent_state.taint_command(name_cf, reason)
+
+
 class _OccurrenceUncertaintyOverlayState(_State):
     def __init__(self, parent_state: _State, occurrence_uncertainty_reason: _cur.ExpansionUncertaintyReason) -> None:
         self._parent_state                   = parent_state
@@ -733,7 +843,6 @@ class _OccurrenceUncertaintyOverlayState(_State):
         self._commands                       = dict[str, _Command]()
         self._tainted_commands               = dict[str, _CommandDefinitionUncertaintyReason]()
         self._regular_variables              = dict[str, _cv.Value]()
-        self._parent_scope_variables         = dict[str, _cv.Value]()
         self._tainted_regular_variables      = dict[str, _cur.ValueUncertaintyReason]()
         self._tainted_parent_scope_variables = dict[str, _cur.ValueUncertaintyReason]()
 
@@ -751,92 +860,29 @@ class _OccurrenceUncertaintyOverlayState(_State):
         return self._parent_state.is_root_scope()
 
     @typing.override
-    def get_regular_variable(self, name: str, override: _VariableOverride | None) -> _cv.Value:
+    def get_regular_variable(self, name: str) -> _cv.Value:
         value = self._regular_variables.get(name)
-        value_2: _cv.CertainValue | None = None
         if value:
-            match value:
-                case _cv.CertainValue():
-                    if value.string is not None:
-                        return value
-                    value_2 = value
-                case _cv.UncertainValue():
-                    return value
-                case _:
-                    typing.assert_never(value)
-        override_2 = override
-        if not override:
-            parent_value = self._parent_scope_variables.get(name)
-            if value_2:
-                assert value_2.string is None
-                and_parent_unset = False
-                if parent_value:
-                    match parent_value:
-                        case _cv.CertainValue():
-                            if parent_value is not None:
-                                return parent_value
-                        case _cv.UncertainValue():
-                            return parent_value
-                        case _:
-                            typing.assert_never(parent_value)
-                    and_parent_unset = True
-                override_2 = _UnsetOverride(and_parent_unset)
-            elif parent_value:
-                override_2 = _ParentScopeOverride(parent_value)
-        else:
-            match override:
-                case _ParentScopeOverride():
-                    if value_2:
-                        assert value_2.string is None
-                        match override.value:
-                            case _cv.CertainValue():
-                                if override.value.string is not None:
-                                    return override.value
-                            case _cv.UncertainValue():
-                                return override.value
-                            case _:
-                                typing.assert_never(override.value)
-                        and_parent_unset = True
-                        override_2 = _UnsetOverride(and_parent_unset)
-                case _UnsetOverride():
-                    if not override.and_parent_unset:
-                        parent_value = self._parent_scope_variables.get(name)
-                        if parent_value:
-                            match parent_value:
-                                case _cv.CertainValue():
-                                    if parent_value is not None:
-                                        return parent_value
-                                case _cv.UncertainValue():
-                                    return parent_value
-                                case _:
-                                    typing.assert_never(parent_value)
-                            and_parent_unset = True
-                            override_2 = _UnsetOverride(and_parent_unset)
-                case _:
-                    typing.assert_never(override)
-        return self._parent_state.get_regular_variable(name, override_2)
+            return value
+        return self._parent_state.get_regular_variable(name)
 
     @typing.override
     def set_regular_variable(self, name: str, value: str | None, parent_scope: bool, assigning_command_name: str,
                              assignment_position: _cur.Position) -> None:
-        value_2 = _cv.CertainValue(value)
         reason = _cur.AssignmentOccurrenceUncertaintyReason(assigning_command_name, assignment_position,
                                                             self._occurrence_uncertainty_reason)
         if parent_scope:
-            self._parent_scope_variables[name] = value_2
             self._tainted_parent_scope_variables[name] = reason
         else:
-            self._regular_variables[name] = value_2
+            self._regular_variables[name] = _cv.CertainValue(value)
             self._tainted_regular_variables[name] = reason
 
     @typing.override
     def taint_regular_variable(self, name: str, reason: _cur.ValueUncertaintyReason, parent_scope: bool) -> None:
-        value = _cv.UncertainValue(reason)
         if parent_scope:
-            self._parent_scope_variables[name] = value
             self._tainted_parent_scope_variables[name] = reason
         else:
-            self._regular_variables[name] = value
+            self._regular_variables[name] = _cv.UncertainValue(reason)
             self._tainted_regular_variables[name] = reason
 
     @typing.override

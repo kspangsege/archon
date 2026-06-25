@@ -57,6 +57,23 @@ class ArgumentServer:
             assert_never(arg)
         return None
 
+    def find_keyword(self, keywords: Container[str]) -> int:
+        return self.find(lambda s: s in keywords)
+
+    def find(self, pred: Callable[[str], bool]) -> int:
+        i = self._begin
+        while i < self._end:
+            arg = self._arguments[i]
+            if isinstance(arg, CertainArgument):
+                if pred(arg.string.string):
+                    return i - self._begin
+                i += 1
+                continue
+            if isinstance(arg, UncertainArgument):
+                raise UncertainArgumentException(arg.reason) from None
+            assert_never(arg)
+        return -1
+
     def at_end(self) -> bool:
         assert self._begin <= self._end
         return self._begin == self._end

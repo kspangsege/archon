@@ -14,35 +14,75 @@ import archon.cmake.process as _cp
 
 
 def test_Message(context: _t.Context) -> None:
-    cmake_text = """\
+    text = """\
       message("Foo")
     """
-    cmake_path = pathlib.Path("text.cmake")
-    result = _process(textwrap.dedent(cmake_text), cmake_path, context)
+    path = pathlib.Path("test.cmake")
+    result = _process(textwrap.dedent(text), path, context)
     context.check_equal(len(result.messages), 1)
     message = result.messages[0]
-    context.check_equal(message.file_context.path, cmake_path)
+    context.check_equal(message.file_context.path, path)
     context.check_equal(message.file_context.pos, _tp.FullTextPos(1))
     context.check_is_none(message.occurrence_uncertainty)
     context.check_equal(message.level, _cp.MessageLevel.NOTICE)
     context.check_equal(message.message, "Foo")
+
+
+def test_Set(context: _t.Context) -> None:
+    text = """\
+      set(_x "Bar")
+      message("Foo ${_x}")
+    """
+    path = pathlib.Path("test.cmake")
+    result = _process(textwrap.dedent(text), path, context)
+    context.check_equal(len(result.messages), 1)
+    message = result.messages[0]
+    context.check_equal(message.file_context.path, path)
+    context.check_equal(message.file_context.pos, _tp.FullTextPos(2))
+    context.check_is_none(message.occurrence_uncertainty)
+    context.check_equal(message.level, _cp.MessageLevel.NOTICE)
+    context.check_equal(message.message, "Foo Bar")
 
 
 def test_Foreach(context: _t.Context) -> None:
-    cmake_text = """\
-      foreach(_x IN LISTS _l)
+    text = """\
+      set(l "Foo" "Bar" "Baz")
+      foreach(_x IN LISTS l)
         message("Foo ${_x}")
       endforeach()
     """
-    cmake_path = pathlib.Path("text.cmake")
-    result = _process(textwrap.dedent(cmake_text), cmake_path, context)
+    path = pathlib.Path("test.cmake")
+    result = _process(textwrap.dedent(text), path, context)
+    expected_messages = [
+        "Foo Foo",
+        "Foo Bar",
+        "Foo Baz",
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for message, expected in zip(result.messages, expected_messages):
+        context.check_equal(message.file_context.path, path)
+        context.check_equal(message.file_context.pos, _tp.FullTextPos(3, 2))
+        context.check_is_none(message.occurrence_uncertainty)
+        context.check_equal(message.level, _cp.MessageLevel.NOTICE)
+        context.check_equal(message.message, expected)
+
+
+def test_Macro(context: _t.Context) -> None:
+    text = """\
+      macro(foo _x)
+        message("Foo ${_x}")
+      endmacro()
+      foo("Bar")
+    """
+    path = pathlib.Path("test.cmake")
+    result = _process(textwrap.dedent(text), path, context)
     context.check_equal(len(result.messages), 1)
     message = result.messages[0]
-    context.check_equal(message.file_context.path, cmake_path)
-    context.check_equal(message.file_context.pos, _tp.FullTextPos(1))
+    context.check_equal(message.file_context.path, path)
+    context.check_equal(message.file_context.pos, _tp.FullTextPos(2, 20))
     context.check_is_none(message.occurrence_uncertainty)
     context.check_equal(message.level, _cp.MessageLevel.NOTICE)
-    context.check_equal(message.message, "Foo")
+    context.check_equal(message.message, "Foo Bar")
 
 
 def _process(cmake_text: str, cmake_path: pathlib.Path, context: _t.Context) -> _Result:

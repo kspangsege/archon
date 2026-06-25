@@ -7,6 +7,7 @@ import abc
 import collections
 import dataclasses
 import traceback
+import pathlib
 import sys
 import unittest
 
@@ -32,10 +33,10 @@ def run(tests: collections.abc.Iterable, logger: _l.Logger) -> None:
     context = _RegularContext(logger)
     failure = False
     for test in tests:
-        if test.descr is None:
-            print("TEST: %s" % test.name)
+        if test.description is None:
+            print("TEST: %s" % test.qualified_name)
         else:
-            print("TEST: %s: %s" % (test.name, test.descr))
+            print("TEST: %s: %s" % (test.qualified_name, test.description))
         try:
             test.func(context)
         except CheckFailure:
@@ -108,9 +109,10 @@ type TypeInfo = type | types.UnionType | tuple[TypeInfo, ...]
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class Test:
-    name:  str
-    descr: str | None
-    func:  collections.abc.Callable[[Context], None]
+    name:           str
+    qualified_name: str
+    description:    str | None
+    func:           collections.abc.Callable[[Context], None]
 
 
 class CheckFailure(Exception):
@@ -252,9 +254,12 @@ def _get_module_tests(module_name: str) -> list[Test]:
                                            "`archon.test.Context`)" % (param_name, name)) from None
         if hints.get("return") is not type(None):
             raise BadTestFunctionSignature("Wrong return type hint for `%s` (must be `None`)" % name) from None
+        assert module.__file__ is not None
+        proper_module_name = pathlib.Path(module.__file__).stem if module_name == "__main__" else module_name
         test_name = name[len(prefix):]
-        descr = func.__doc__
-        tests.append(Test(test_name, descr, func))
+        qualified_name = "%s.%s" % (proper_module_name, test_name)
+        description = func.__doc__
+        tests.append(Test(test_name, qualified_name, description, func))
     return tests
 
 
@@ -265,7 +270,7 @@ def _make_native_test(test: Test, logger: _l.Logger) -> unittest.TestCase:
     def method_func(self) -> None:
         context = _ContextBridge(self, logger)
         test.func(context)
-    method_func.__doc__ = test.descr
+    method_func.__doc__ = test.description
     attributes = {
         "__module__": test.func.__module__,
         method_name:  method_func,
