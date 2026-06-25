@@ -1,12 +1,83 @@
 from __future__ import annotations
 
+import typing
+import dataclasses
+import textwrap
+import pathlib
+import io
 import unittest
 
+import archon.text_pos as _tp
 import archon.test as _t
+import archon.cmake.uncertainty_reason as _cur
+import archon.cmake.process as _cp
 
 
-def test_Foo(context: _t.Context) -> None:
-    assert False            
+def test_Message(context: _t.Context) -> None:
+    cmake_text = """\
+      message("Foo")
+    """
+    cmake_path = pathlib.Path("text.cmake")
+    result = _process(textwrap.dedent(cmake_text), cmake_path, context)
+    context.check_equal(len(result.messages), 1)
+    message = result.messages[0]
+    context.check_equal(message.file_context.path, cmake_path)
+    context.check_equal(message.file_context.pos, _tp.FullTextPos(1))
+    context.check_is_none(message.occurrence_uncertainty)
+    context.check_equal(message.level, _cp.MessageLevel.NOTICE)
+    context.check_equal(message.message, "Foo")
+
+
+def test_Foreach(context: _t.Context) -> None:
+    cmake_text = """\
+      foreach(_x IN LISTS _l)
+        message("Foo ${_x}")
+      endforeach()
+    """
+    cmake_path = pathlib.Path("text.cmake")
+    result = _process(textwrap.dedent(cmake_text), cmake_path, context)
+    context.check_equal(len(result.messages), 1)
+    message = result.messages[0]
+    context.check_equal(message.file_context.path, cmake_path)
+    context.check_equal(message.file_context.pos, _tp.FullTextPos(1))
+    context.check_is_none(message.occurrence_uncertainty)
+    context.check_equal(message.level, _cp.MessageLevel.NOTICE)
+    context.check_equal(message.message, "Foo")
+
+
+def _process(cmake_text: str, cmake_path: pathlib.Path, context: _t.Context) -> _Result:
+    input_ = io.StringIO(cmake_text)
+    cmake_source = _cp.Source(input_, cmake_path)
+    pos_resolver = _cp.PositionResolver()
+    result = _Result()
+    application = _Application(pos_resolver, result)
+    _cp.process(cmake_source, application, pos_resolver, context.logger)
+    return result
+
+
+class _Result:
+    def __init__(self):
+        self.messages = list[_Message]()
+
+
+class _Application(_cp.Application):
+    def __init__(self, pos_resolver: _cp.PositionResolver, result: _Result) -> None:
+        self._pos_resolver = pos_resolver
+        self._result       = result
+
+    @typing.override
+    def message(self, pos: _cur.Position, occurrence_uncertainty: _cp.OccurrenceUncertainty, level: _cp.MessageLevel,
+                message: str) -> None:
+        file_context = self._pos_resolver.resolve_file_context(pos)
+        self._result.messages.append(_Message(file_context, occurrence_uncertainty, level, message))
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class _Message:
+    file_context:           _tp.FileContext
+    occurrence_uncertainty: _cp.OccurrenceUncertainty
+    level:                  _cp.MessageLevel
+    message:                str
 
 
 # Bridge to Python's native testing framework

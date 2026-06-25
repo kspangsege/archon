@@ -1,8 +1,8 @@
 from __future__ import annotations
-from typing import Protocol, Any, assert_never
-from collections.abc import Iterator
-from dataclasses import dataclass
 
+import typing
+import dataclasses
+import collections
 import enum
 import re
 import pathlib
@@ -12,16 +12,17 @@ import archon.text_pos as _tp
 import archon.log as _l
 
 
-def parse(tracker: _tp.FilePosTracker, warning_handler: ErrorHandler, error_handler: ErrorHandler) -> Iterator[Invoc]:
-    return _parse(tracker, warning_handler, error_handler)
+def parse(input_: typing.TextIO, tracker: _tp.FilePosTracker, warning_handler: ErrorHandler,
+          error_handler: ErrorHandler) -> collections.abc.Iterator[Invoc]:
+    return _parse(input_, tracker, warning_handler, error_handler)
 
 
 def is_flow_control_command(command_name_cf: str):
     return command_name_cf in _FLOW_CONTROL_MAP
 
 
-class ErrorHandler(Protocol):
-    def __call__(self, pos: int, message: str, *args: Any) -> None:
+class ErrorHandler(typing.Protocol):
+    def __call__(self, pos: int, message: str, *args: typing.Any) -> None:
         ...
 
 
@@ -30,7 +31,7 @@ type Invoc = IfInvoc | ForeachInvoc | WhileInvoc | MacroDefInvoc | FunctionDefIn
 
 type GeneralizedInvoc = Invoc | IfBranch
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class InvocBase:
     command_name: str
     arguments:    list[Protoargument]
@@ -38,62 +39,62 @@ class InvocBase:
     lparen_pos:   int
     rparen_pos:   int
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class StructuredInvocBase(InvocBase):
     children: list[Invoc]
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class IfInvoc(StructuredInvocBase):
     elseif_branches: list[IfBranch]
     else_branch:     IfBranch | None
     closing_invoc:   ClosingInvoc
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class IfBranch(StructuredInvocBase):
     pass
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class ClosingInvoc(InvocBase):
     pass
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class ForeachInvoc(StructuredInvocBase):
     closing_invoc: ClosingInvoc
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class WhileInvoc(StructuredInvocBase):
     closing_invoc: ClosingInvoc
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class MacroDefInvoc(StructuredInvocBase):
     closing_invoc: ClosingInvoc
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class FunctionDefInvoc(StructuredInvocBase):
     closing_invoc: ClosingInvoc
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class BlockInvoc(StructuredInvocBase):
     closing_invoc: ClosingInvoc
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class ReturnInvoc(InvocBase):
     pass
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class BreakInvoc(InvocBase):
     pass
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class ContinueInvoc(InvocBase):
     pass
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class GenericInvoc(InvocBase):
     command_name_cf: str
 
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class Protoargument:
     class Type(enum.Enum):
         BARE      = 0
@@ -112,11 +113,12 @@ class Protoargument:
 
 
 
-def _parse(tracker: _tp.FilePosTracker, warning_handler: ErrorHandler, error_handler: ErrorHandler) -> Iterator[Invoc]:
-    protoinvocations = _protoparse(tracker, warning_handler, error_handler)
+def _parse(input_: typing.TextIO, tracker: _tp.FilePosTracker, warning_handler: ErrorHandler,
+           error_handler: ErrorHandler) -> collections.abc.Iterator[Invoc]:
+    protoinvocations = _protoparse(input_, tracker, warning_handler, error_handler)
     current = next(protoinvocations, None)
 
-    def parse(parent_type: _ParentType, silent: bool = False) -> Iterator[Invoc]:
+    def parse(parent_type: _ParentType, silent: bool = False) -> collections.abc.Iterator[Invoc]:
         while True:
             if not current:
                 return
@@ -187,7 +189,7 @@ def _parse(tracker: _tp.FilePosTracker, warning_handler: ErrorHandler, error_han
                     children = list(parse(_PARENT_TYPE_MAP[orig_command]))
                     if not current:
                         if not silent:
-                            error_handler(last.pos, "Unclosed %s()", last.command_name)
+                            error_handler(orig.pos, "Unclosed %s()", orig.command_name)
                         return
                     assert current.flow_control is _FLOW_CONTROL_END_MAP[orig_command]
                     closing_invoc = ClosingInvoc(current.command_name, current.arguments, current.pos,
@@ -208,7 +210,7 @@ def _parse(tracker: _tp.FilePosTracker, warning_handler: ErrorHandler, error_han
                         yield BlockInvoc(orig.command_name, orig.arguments, orig.pos, orig.lparen_pos,
                                          orig.rparen_pos, children, closing_invoc)
                     else:
-                        assert_never(orig_command)
+                        typing.assert_never(orig_command)
                     advance()
                     continue
 
@@ -239,7 +241,7 @@ def _parse(tracker: _tp.FilePosTracker, warning_handler: ErrorHandler, error_han
                     advance()
                     continue
 
-            assert_never(current.flow_control)
+            typing.assert_never(current.flow_control)
 
     def advance():
         nonlocal current
@@ -261,8 +263,8 @@ class _ParentType(enum.Enum):
     BLOCK    = 8
 
 
-def _protoparse(tracker: _tp.FilePosTracker, warning_handler: ErrorHandler,
-                error_handler: ErrorHandler) -> Iterator[_Protoinvoc]:
+def _protoparse(input_: typing.TextIO, tracker: _tp.FilePosTracker, warning_handler: ErrorHandler,
+                error_handler: ErrorHandler) -> collections.abc.Iterator[_Protoinvoc]:
     class State(enum.Enum):
         INITIAL   = 0
         HAVE_NAME = 1
@@ -281,13 +283,13 @@ def _protoparse(tracker: _tp.FilePosTracker, warning_handler: ErrorHandler,
     have_args: bool
     invoc_info: InvocInfo | None = None
 
-    for token in _tokenize(tracker, error_handler):
+    for token in _tokenize(input_, tracker, error_handler):
         match state:
             case State.INITIAL:
                 if isinstance(token, _UnquotedToken):
                     invoc_info = InvocInfo(token.pos)
                     if not re.fullmatch(r"[A-Za-z_][0-9A-Za-z_]*", token.text):
-                        error_handler(token.pos, "Invalid command name")
+                        error_handler(token.pos, "Invalid command name (%s)", _b.quote(token.text))
                         invoc_info.invalid = True
                     invoc_info.command_name = token.text
                     state = State.HAVE_NAME
@@ -322,7 +324,7 @@ def _protoparse(tracker: _tp.FilePosTracker, warning_handler: ErrorHandler,
                     error_handler(token.pos, "Stray closing parenthesis")
                     state = State.INITIAL
                     continue
-                error_handler(token.pos, "Stray command argument")
+                error_handler(token.pos, "Stray command argument (%s)", _b.quote(token.text))
                 invoc_info.invalid = True
                 continue
 
@@ -369,14 +371,14 @@ def _protoparse(tracker: _tp.FilePosTracker, warning_handler: ErrorHandler,
                     have_args = False
                 continue
 
-        assert_never(state)
+        typing.assert_never(state)
 
     if state != State.INITIAL:
         assert invoc_info
         error_handler(invoc_info.pos, "Unterminated command invocation")
 
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class _Protoinvoc:
     command_name:    str
     command_name_cf: str
@@ -456,116 +458,114 @@ _PARENT_TYPE_MAP = {
 }
 
 
-def _tokenize(tracker: _tp.FilePosTracker, error_handler: ErrorHandler) -> Iterator[_Token]:
-    input_ = ""
+# typing.TextIO
+
+def _tokenize(input_: typing.TextIO, tracker: _tp.FilePosTracker,
+              error_handler: ErrorHandler) -> collections.abc.Iterator[_Token]:
+    chunk = ""
     eof = False
     prev_token_is_whitespace = False
-    with open(tracker.path, "r") as file_:
-        while True:
-            line = file_.readline()
-            if line:
-                input_ += line
-            else:
-                eof = True
-            pos = 0
-            while pos < len(input_):
-                m = _TOKEN_REGEX.match(input_, pos)
-                assert m
+    while True:
+        line = input_.readline()
+        if line:
+            chunk += line
+        else:
+            eof = True
+        pos = 0
+        while pos < len(chunk):
+            m = _TOKEN_REGEX.match(chunk, pos)
+            assert m
+            token_text = m.group(0)
+            new_pos = m.end()
 
-                token_text = m.group(0)
-
-                orig_pos = pos
-                pos = m.end()
-
-                new_pos = pos = m.end()
-                if m.group("SPACE") or m.group("COMMENT"):
-                    tracker.track(token_text)
-                    prev_token_is_whitespace = True
-                    pos = new_pos
-                    continue
-
-                if new_pos == len(input_) and not eof:
-                    break
-
-                token_pos = tracker.track(token_text)
-                preceded_by_whitespace = prev_token_is_whitespace
-                prev_token_is_whitespace = False
+            if m.group("SPACE") or m.group("COMMENT"):
+                tracker.track(token_text)
+                prev_token_is_whitespace = True
                 pos = new_pos
+                continue
 
-                if m.group("UNQUOTED"):
-                    yield _UnquotedToken(token_text, preceded_by_whitespace, token_pos)
-                    continue
-
-                if m.group("QUOTED"):
-                    yield _QuotedToken(token_text, preceded_by_whitespace, token_pos)
-                    continue
-
-                if m.group("LPAREN"):
-                    yield _LParenToken(token_text, preceded_by_whitespace, token_pos)
-                    continue
-
-                if m.group("RPAREN"):
-                    yield _RParenToken(token_text, preceded_by_whitespace, token_pos)
-                    continue
-
-                if m.group("BRACKET"):
-                    eqs = m.group("eqs2")
-                    prefix_size = 2 + len(eqs)
-                    suffix_size = 2 + len(eqs)
-                    if len(token_text) > prefix_size + suffix_size and token_text[prefix_size] == "\n":
-                        prefix_size += 1
-                    yield _BracketToken(token_text, preceded_by_whitespace, token_pos, prefix_size, suffix_size)
-                    continue
-
-                if m.group("UNTERM_COMMENT"):
-                    error_handler(token_pos, "Unterminated bracketed comment")
-                    continue
-
-                if m.group("UNTERM_BRACKET"):
-                    error_handler(token_pos, "Unterminated bracket string")
-                    continue
-
-                if m.group("UNTERM_QUOTED"):
-                    error_handler(token_pos, "Unterminated quoted string")
-                    continue
-
-                if m.group("UNTERM_ESCAPE"):
-                    error_handler(token_pos, "Unterminated escape sequence")
-                    continue
-
-                assert False
-
-            if eof:
+            if new_pos == len(chunk) and not eof:
                 break
-            input_ = input_[pos:]
+
+            token_pos = tracker.track(token_text)
+            preceded_by_whitespace = prev_token_is_whitespace
+            prev_token_is_whitespace = False
+            pos = new_pos
+
+            if m.group("UNQUOTED"):
+                yield _UnquotedToken(token_text, preceded_by_whitespace, token_pos)
+                continue
+
+            if m.group("QUOTED"):
+                yield _QuotedToken(token_text, preceded_by_whitespace, token_pos)
+                continue
+
+            if m.group("LPAREN"):
+                yield _LParenToken(token_text, preceded_by_whitespace, token_pos)
+                continue
+
+            if m.group("RPAREN"):
+                yield _RParenToken(token_text, preceded_by_whitespace, token_pos)
+                continue
+
+            if m.group("BRACKET"):
+                eqs = m.group("eqs2")
+                prefix_size = 2 + len(eqs)
+                suffix_size = 2 + len(eqs)
+                if len(token_text) > prefix_size + suffix_size and token_text[prefix_size] == "\n":
+                    prefix_size += 1
+                yield _BracketToken(token_text, preceded_by_whitespace, token_pos, prefix_size, suffix_size)
+                continue
+
+            if m.group("UNTERM_COMMENT"):
+                error_handler(token_pos, "Unterminated bracketed comment")
+                continue
+
+            if m.group("UNTERM_BRACKET"):
+                error_handler(token_pos, "Unterminated bracket string")
+                continue
+
+            if m.group("UNTERM_QUOTED"):
+                error_handler(token_pos, "Unterminated quoted string")
+                continue
+
+            if m.group("UNTERM_ESCAPE"):
+                error_handler(token_pos, "Unterminated escape sequence")
+                continue
+
+            assert False
+
+        if eof:
+            break
+        chunk = chunk[pos:]
 
 
 type _Token = _UnquotedToken | _QuotedToken | _BracketToken | _LParenToken | _RParenToken
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class _TokenBase:
     text:                   str
     preceded_by_whitespace: bool
     pos:                    int
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class _UnquotedToken(_TokenBase):
     pass
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class _QuotedToken(_TokenBase):
     pass
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class _BracketToken(_TokenBase):
     prefix_size: int
     suffix_size: int
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class _LParenToken(_TokenBase):
     pass
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class _RParenToken(_TokenBase):
     pass
 

@@ -10,22 +10,26 @@ import traceback
 import sys
 import unittest
 
+import archon.log as _l
+
 
 def run_module_tests(module_name: str) -> None:
+    logger = _l.RootLogger()
     tests = _get_module_tests(module_name)
-    run(tests)
+    run(tests, logger)
 
 
 def generate_native_tests(module_name: str) -> unittest.TestSuite:
+    logger = _l.RootLogger()
     tests = _get_module_tests(module_name)
     native_tests = unittest.TestSuite()
     for test in tests:
-        native_tests.addTest(_make_native_test(test))
+        native_tests.addTest(_make_native_test(test, logger))
     return native_tests
 
 
-def run(tests: collections.abc.Iterable) -> None:
-    context = _RegularContext()
+def run(tests: collections.abc.Iterable, logger: _l.Logger) -> None:
+    context = _RegularContext(logger)
     failure = False
     for test in tests:
         if test.descr is None:
@@ -91,6 +95,13 @@ class Context(abc.ABC):
     def check_raises(self, exception_type_info: TypeInfo) -> typing.ContextManager[None]:
         ...
 
+    @property
+    def logger(self) -> _l.Logger:
+        return self._logger
+
+    def __init__(self, logger: _l.Logger) -> None:
+        self._logger = logger
+
 
 type TypeInfo = type | types.UnionType | tuple[TypeInfo, ...]
 
@@ -117,7 +128,8 @@ class BadTestFunctionSignature(Exception):
 
 
 class _RegularContext(Context):
-    def __init__(self) -> None:
+    def __init__(self, logger: _l.Logger) -> None:
+        Context.__init__(self, logger)
         self._debug_on_failure = False
 
     @typing.override
@@ -246,12 +258,12 @@ def _get_module_tests(module_name: str) -> list[Test]:
     return tests
 
 
-def _make_native_test(test: Test) -> unittest.TestCase:
+def _make_native_test(test: Test, logger: _l.Logger) -> unittest.TestCase:
     class_name = "Tests"
     base_classes = (unittest.TestCase,)
     method_name = "test_%s" % test.name
     def method_func(self) -> None:
-        context = _ContextBridge(self)
+        context = _ContextBridge(self, logger)
         test.func(context)
     method_func.__doc__ = test.descr
     attributes = {
@@ -263,7 +275,8 @@ def _make_native_test(test: Test) -> unittest.TestCase:
 
 
 class _ContextBridge(Context):
-    def __init__(self, test_case: unittest.TestCase) -> None:
+    def __init__(self, test_case: unittest.TestCase, logger: _l.Logger) -> None:
+        Context.__init__(self, logger)
         self._test_case = test_case
 
     @typing.override
