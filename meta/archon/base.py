@@ -1,6 +1,6 @@
 from __future__ import annotations
-from dataclasses import dataclass
 
+import dataclasses
 import enum
 import pathlib
 import json
@@ -28,6 +28,6 @@ def resolve_self_rel_path(argv0: str, rel_path: str) -> pathlib.Path:
     return path.resolve().relative_to(pathlib.Path.cwd())
 
 
-@dataclass(slots=True)
+@dataclasses.dataclass(slots=True)
 class Wrap[T]:
     value: T

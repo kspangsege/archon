@@ -1,12 +1,12 @@
 from __future__ import annotations
-from typing import Any, TextIO
 
+import typing
 import enum
 import sys
 import os
 
 
-def is_ansi_term(output_stream: TextIO) -> bool:
+def is_ansi_term(output_stream: typing.TextIO) -> bool:
     if output_stream.isatty():
         return sys.platform != "win32" or "ANSICON" in os.environ
     return False

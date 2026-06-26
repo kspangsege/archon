@@ -1,6 +1,6 @@
 from __future__ import annotations
-from typing import override
 
+import typing
 import sys
 import pathlib
 
@@ -19,7 +19,7 @@ root_logger = _l.RootLogger()
 result = _cli.Result()
 if not _cli.parse(sys.argv[1:], spec, result, root_logger):
     sys.exit(1)
-if result.get_opt("--help"):
+if result.get_opt("--help", bool):
     _cli.show_help(spec, root_logger)
     sys.exit(0)
 if len(result.args) < 1:
@@ -27,13 +27,13 @@ if len(result.args) < 1:
     sys.exit(1)
 
 cmake_path = pathlib.Path(result.args[0])
-log_level = result.get_opt("--log-level")
+log_level = result.get_opt("--log-level", _l.LogLevel)
 
 pos_resolver = _cp.PositionResolver()
 logger = _l.LimitLogger(root_logger, log_level)
 
 class Application(_cp.Application):
-    @override
+    @typing.override
     def message(self, pos: _cur.Position, occurrence_uncertainty: _cp.OccurrenceUncertainty, level: _cp.MessageLevel,
                 message: str) -> None:
         certainty = "Uncertain" if occurrence_uncertainty else "Certain"

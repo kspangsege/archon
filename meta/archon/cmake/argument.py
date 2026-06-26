@@ -1,7 +1,8 @@
 from __future__ import annotations
-from typing import Protocol, assert_never
-from collections.abc import Callable, Container
-from dataclasses import dataclass
+
+import typing
+import dataclasses
+import collections
 
 import archon.text_pos as _tp
 import archon.cmake.util as _cu
@@ -11,17 +12,17 @@ import archon.cmake.uncertainty_reason as _cur
 
 type Argument = CertainArgument | UncertainArgument
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class ArgumentBase:
     pos:      int
     was_bare: bool  # Neither quoted nor bracketed
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class CertainArgument(ArgumentBase):
     string:     _tp.PosMappedString
     is_derived: bool
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class UncertainArgument(ArgumentBase):
     reason: _cur.ExpansionUncertaintyReason
 
@@ -38,13 +39,13 @@ class ArgumentServer:
     def consume(self) -> CertainArgument | None:
         return self.consume_if(lambda _: True)
 
-    def consume_keyword(self, keywords: Container[str]) -> CertainArgument | None:
+    def consume_keyword(self, keywords: collections.abc.Container[str]) -> CertainArgument | None:
         return self.consume_if(lambda s: s in keywords)
 
-    def consume_not_keyword(self, keywords: Container[str]) -> CertainArgument | None:
+    def consume_not_keyword(self, keywords: collections.abc.Container[str]) -> CertainArgument | None:
         return self.consume_if(lambda s: s not in keywords)
 
-    def consume_if(self, pred: Callable[[str], bool]) -> CertainArgument | None:
+    def consume_if(self, pred: collections.abc.Callable[[str], bool]) -> CertainArgument | None:
         if self._begin < self._end:
             arg = self._arguments[self._begin]
             if isinstance(arg, CertainArgument):
@@ -54,13 +55,13 @@ class ArgumentServer:
                 return None
             if isinstance(arg, UncertainArgument):
                 raise UncertainArgumentException(arg.reason) from None
-            assert_never(arg)
+            typing.assert_never(arg)
         return None
 
-    def find_keyword(self, keywords: Container[str]) -> int:
+    def find_keyword(self, keywords: collections.abc.Container[str]) -> int:
         return self.find(lambda s: s in keywords)
 
-    def find(self, pred: Callable[[str], bool]) -> int:
+    def find(self, pred: collections.abc.Callable[[str], bool]) -> int:
         i = self._begin
         while i < self._end:
             arg = self._arguments[i]
@@ -71,7 +72,7 @@ class ArgumentServer:
                 continue
             if isinstance(arg, UncertainArgument):
                 raise UncertainArgumentException(arg.reason) from None
-            assert_never(arg)
+            typing.assert_never(arg)
         return -1
 
     def at_end(self) -> bool:

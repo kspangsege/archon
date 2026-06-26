@@ -1,6 +1,6 @@
 from __future__ import annotations
-from dataclasses import dataclass
 
+import dataclasses
 import enum
 import re
 
@@ -21,7 +21,7 @@ def parse_variable_reference(string: str) -> VariableReference:
     return VariableReference(ResolutionType.GENERAL, string)
 
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class VariableReference:
     resolution_type: ResolutionType
     variable_name:   str

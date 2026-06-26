@@ -1,26 +1,26 @@
 from __future__ import annotations
-from dataclasses import dataclass
 
+import dataclasses
 import bisect
 import pathlib
 
 
 type TextPos = NoTextPos | LineTextPos | FullTextPos
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class NoTextPos:
     pass
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class LineTextPos:
     line_no: int = 1
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class FullTextPos(LineTextPos):
     offset: int = 0
 
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class FileContext:
     path: pathlib.Path
     pos:  TextPos = NoTextPos()
@@ -65,7 +65,7 @@ class FilePosTracker(TextPosTracker):
         return FileContext(self._path, text_pos)
 
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class PosMappedString:
     string:  str
     pos_map: PosMap
@@ -143,9 +143,9 @@ class PosMappedStringBuilder:
 #   * If `a` and `b` are linear segments, and `a` occurs immediately before `b` in
 #     `map.lin_segments`, then `a.end <= b.begin` and `a.ref_pos + a.size <= b.ref_pos`.
 #
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class PosMap:
-    @dataclass(slots=True, frozen=True)
+    @dataclasses.dataclass(slots=True, frozen=True)
     class LinSegment:
         begin:   int
         end:     int

@@ -1,7 +1,7 @@
 from __future__ import annotations
-from typing import Any
-from collections.abc import Iterable
 
+import typing
+import collections
 import re
 
 import archon.base as _b
@@ -20,51 +20,54 @@ class Spec:
     def __init__(self) -> None:
         self._options: list[Spec._Option] = []
 
-    def opt(self, forms: Iterable[str], value: Any = True, default_value: Any = None) -> None:
+    def opt(self, forms: collections.abc.Iterable[str], value: object = True, default_value: object = None) -> None:
         option = self._SimpleOption(forms, value, default_value)
         self._options.append(option)
 
-    def opt_with_arg(self, forms: Iterable[str], value_mapper, default_value: Any = None) -> None:
+    def opt_with_arg[T](self, forms: collections.abc.Iterable[str], value_mapper: collections.abc.Callable[[str], T],
+                        default_value: T | None = None) -> None:
         option = self._OptionWithArgument(forms, value_mapper, default_value)
         self._options.append(option)
 
-    def short_circuit_opt(self, forms: Iterable[str]) -> None:
+    def short_circuit_opt(self, forms: collections.abc.Iterable[str]) -> None:
         option = self._ShortCircuitOption(forms)
         self._options.append(option)
 
-    def stop_opt(self, forms: Iterable[str]) -> None:
+    def stop_opt(self, forms: collections.abc.Iterable[str]) -> None:
         option = self._StopOption(forms)
         self._options.append(option)
 
     class _Option:
-        def __init__(self, forms: Iterable[str], default_value: Any, allow_arg: bool, require_arg: bool) -> None:
+        def __init__(self, forms: collections.abc.Iterable[str], default_value: object, allow_arg: bool,
+                     require_arg: bool) -> None:
             self.forms = list(forms)
             self.default_value = default_value
             self.allow_arg   = allow_arg
             self.require_arg = require_arg
 
     class _SimpleOption(_Option):
-        def __init__(self, forms: Iterable[str], value: Any, default_value: Any) -> None:
+        def __init__(self, forms: collections.abc.Iterable[str], value: object, default_value: object) -> None:
             allow_arg   = False
             require_arg = False
             Spec._Option.__init__(self, forms, default_value, allow_arg, require_arg)
             self.value = value
 
     class _OptionWithArgument(_Option):
-        def __init__(self, forms: Iterable[str], value_mapper, default_value: Any) -> None:
+        def __init__(self, forms: collections.abc.Iterable[str], value_mapper: collections.abc.Callable[[str], object],
+                     default_value: object) -> None:
             allow_arg   = True
             require_arg = True
             Spec._Option.__init__(self, forms, default_value, allow_arg, require_arg)
             self.value_mapper = value_mapper
 
     class _ShortCircuitOption(_SimpleOption):
-        def __init__(self, forms: Iterable[str]) -> None:
+        def __init__(self, forms: collections.abc.Iterable[str]) -> None:
             value         = True
             default_value = False
             Spec._SimpleOption.__init__(self, forms, value, default_value)
 
     class _StopOption(_Option):
-        def __init__(self, forms: Iterable[str]) -> None:
+        def __init__(self, forms: collections.abc.Iterable[str]) -> None:
             default_value = None
             allow_arg     = False
             require_arg   = False
@@ -75,11 +78,14 @@ class Result:
     def __init__(self) -> None:
         self.args: list[str] = []
         self._option_map: dict[str, int] = {}
-        self._option_values: list[str] = []
+        self._option_values: list[object] = []
 
-    def get_opt(self, form: str) -> Any:
+    def get_opt[T](self, form: str, type_: type[T]) -> T:
         index = self._option_map[form]
-        return self._option_values[index]
+        value = self._option_values[index]
+        if isinstance(value, type_):
+            return value
+        raise TypeError("Option value type mismatch")
 
 
 
@@ -99,7 +105,7 @@ def _parse(args: list[str], spec: Spec, result: Result, logger: _l.Logger) -> bo
     short_circuit = False
     no_more_options = False
     errors = []
-    def error(message: str, *args: Any) -> None:
+    def error(message: str, *args: typing.Any) -> None:
         errors.append(message % args)
 
     next_arg_index = 0
@@ -206,7 +212,7 @@ def _parse(args: list[str], spec: Spec, result: Result, logger: _l.Logger) -> bo
 
 def _show_help(spec: Spec, logger: _l.Logger):
     lines = []
-    def add(message: str, *args: Any) -> None:
+    def add(message: str, *args: typing.Any) -> None:
         lines.append(message % args)
     add("Options:")
     for option in spec._options:

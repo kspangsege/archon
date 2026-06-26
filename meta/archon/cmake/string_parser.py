@@ -1,7 +1,7 @@
 from __future__ import annotations
-from typing import Protocol, Any
-from dataclasses import dataclass
 
+import typing
+import dataclasses
 import re
 
 import archon.base as _b
@@ -13,26 +13,26 @@ def parse(string: str, pos: int, error_handler: ErrorHandler) -> Expr:
     return _parse(string, pos, error_handler)
 
 
-class ErrorHandler(Protocol):
-    def __call__(self, pos: int, message: str, *args: Any) -> None:
+class ErrorHandler(typing.Protocol):
+    def __call__(self, pos: int, message: str, *args: typing.Any) -> None:
         ...
 
 
 type Expr = StringExpr | CompositeExpr | ExpansionExpr
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class ExprBase:
     pos: int
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class StringExpr(ExprBase):
     string: _tp.PosMappedString
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class CompositeExpr(ExprBase):
     parts: list[Expr]
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class ExpansionExpr(ExprBase):
     resolution_type: _cu.ResolutionType
     name_expr:       Expr
@@ -45,7 +45,7 @@ class ExpansionExpr(ExprBase):
 
 
 def _parse(string: str, pos: int, error_handler: ErrorHandler) -> Expr:
-    @dataclass(slots=True)
+    @dataclasses.dataclass(slots=True)
     class VarExpansion:
         resolution_type: _cu.ResolutionType
         pos:             int

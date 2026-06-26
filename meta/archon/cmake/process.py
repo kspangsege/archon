@@ -12,9 +12,9 @@ import archon.base as _b
 import archon.text_pos as _tp
 import archon.log as _l
 import archon.cmake.util as _cu
+import archon.cmake.uncertainty_reason as _cur
 import archon.cmake.lowlevel_parser as _clp
 import archon.cmake.string_parser as _csp
-import archon.cmake.uncertainty_reason as _cur
 import archon.cmake.variable as _cv
 import archon.cmake.argument as _ca
 import archon.cmake.condition as _cc
@@ -117,10 +117,10 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                     exec_while(invoc, context)
                     return
                 case _clp.MacroDefInvoc():
-                    exec_macro(invoc, context)
+                    exec_macro_def(invoc, context)
                     return
                 case _clp.FunctionDefInvoc():
-                    exec_function(invoc, context)
+                    exec_function_def(invoc, context)
                     return
                 case _clp.BlockInvoc():
                     exec_block(invoc, context)
@@ -278,7 +278,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
     def exec_while(invoc: _clp.WhileInvoc, context: _InvocContext) -> None:
         assert False        
 
-    def exec_macro(invoc: _clp.MacroDefInvoc, context: _InvocContext) -> None:
+    def exec_macro_def(invoc: _clp.MacroDefInvoc, context: _InvocContext) -> None:
         server = create_argument_server(invoc, context)
         name = server.consume()
         if not name:
@@ -289,20 +289,20 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
             error(context.file_index, name.pos, "Failed to define macro %s(): Built-in flow control commands cannot "
                   "be overridden", name.string.string)
             return
-        args = []
+        parameters = []
         while True:
             arg = server.consume()
             if not arg:
                 break
-            args.append(arg.string.string)
+            parameters.append(arg.string.string)
         # FIXME: "Push" old definition, if any, to same name but with underscore prefix          
-        command = _CustomCommand(_CustomCommand.Type.MACRO, args, invoc.children)
         defining_command_name = invoc.command_name
         definition_position = _cur.Position(context.file_index, invoc.pos)
+        command = _CustomCommand(_CustomCommand.Type.MACRO, parameters, invoc.children, definition_position)
         context.state.set_command(name_cf, command, defining_command_name, definition_position)
         exec_closing_invoc(invoc.closing_invoc, invoc, context)
 
-    def exec_function(invoc: _clp.FunctionDefInvoc, context: _InvocContext) -> None:
+    def exec_function_def(invoc: _clp.FunctionDefInvoc, context: _InvocContext) -> None:
         assert False        
 
     def exec_block(invoc: _clp.BlockInvoc, context: _InvocContext) -> None:
@@ -326,7 +326,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
             case _BuiltInCommand(which):
                 match which:
                     case _BuiltInCommand.Which.UNSUPPORTED:
-                        error(context.file_index, invoc.pos, "Invocation of unsupported command, %s()",
+                        error(context.file_index, invoc.pos, "Invocation of unsupported command %s()",
                               invoc.command_name)
                         return
                     case _BuiltInCommand.Which.SET:
@@ -346,7 +346,23 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                         return
                 typing.assert_never(which)
             case _CustomCommand():
-                assert False                        
+                arguments = expand_arguments(invoc, context)
+                match command.type_:
+                    case _CustomCommand.Type.MACRO:
+                        if len(arguments) < len(command.parameters):
+                            error(context.file_index, invoc.rparen_pos, "Too few arguments in invocation of "
+                                  "macro %s()", invoc.command_name)
+                            position = command.definition_position
+                            error(position.file_index, position.pos, "Definition of macro %s()", invoc.command_name)
+                            return
+                        substitutions = _get_macro_substitutions(command.parameters, arguments)
+                        for subinvoc in command.invocations:
+                            subinvoc_2 = _macro_substitute_invoc(subinvoc)
+                            exec_command(subinvoc_2, context)
+                        return
+                    case _CustomCommand.Type.FUNCTION:
+                        assert False                        
+                typing.assert_never(command.type_)
             case _UncertainCommand(reason):
                 error(context.file_index, invoc.pos, "Invocation failed due to uncertain definition of %s()",
                       invoc.command_name)
@@ -934,9 +950,10 @@ class _CustomCommand:
     class Type(enum.Enum):
         MACRO    = 0
         FUNCTION = 1
-    type_:       Type
-    args:        list[str]
-    invocations: list[_clp.Invoc]
+    type_:               Type
+    parameters:          list[str]
+    invocations:         list[_clp.Invoc]
+    definition_position: _cur.Position
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class _UncertainCommand:
@@ -1078,3 +1095,70 @@ _MESSAGE_LEVEL_MAP = {
     "DEBUG":          MessageLevel.DEBUG,
     "TRACE":          MessageLevel.TRACE,
 }
+
+
+def _get_macro_substitutions(parameters: list[str], arguments: list[_ca.Argument]) -> dict[str, _SubstitutionValue]:
+    substitutions = dict[str, _SubstitutionValue]()
+
+    for i, param in enumerate(parameters):
+        assert i < len(arguments)
+        arg = arguments[i]
+        match arg:
+            case _ca.CertainArgument():
+                substitutions[param] = _CertainSubstitutionValue(arg.string.string)
+                continue
+            case _ca.UncertainArgument():
+                substitutions[param] = _UncertainSubstitutionValue(arg.reason)
+                continue
+        typing.assert_never(arg)
+
+    # Special variables will shadow formal parameters of the same name. This is consistent
+    # with CMake behavior.
+    all_args   = []
+    extra_args = []
+    all_uncertainty:   _cur.ExpansionUncertaintyReason | None = None
+    extra_uncertainty: _cur.ExpansionUncertaintyReason | None = None
+    for arg in arguments:
+        name = "ARGV%s" % i
+        match arg:
+            case _ca.CertainArgument():
+                substitutions[name] = _CertainSubstitutionValue(arg.string.string)
+                all_args.append(arg.string.string)
+                if i >= len(parameters):
+                    extra_args.append(arg.string.string)
+                continue
+            case _ca.UncertainArgument():
+                substitutions[name] = _UncertainSubstitutionValue(arg.reason)
+                if not all_uncertainty:
+                    all_uncertainty = arg.reason
+                if i >= len(parameters):
+                    if not extra_uncertainty:
+                        extra_uncertainty = arg.reason
+                continue
+        typing.assert_never(arg)
+    if all_uncertainty:
+        substitutions["ARGV"] = _UncertainSubstitutionValue(all_uncertainty)
+    else:
+        substitutions["ARGV"] = _CertainSubstitutionValue(";".join(all_args))
+    if extra_uncertainty:
+        substitutions["ARGN"] = _UncertainSubstitutionValue(extra_uncertainty)
+    else:
+        substitutions["ARGN"] = _CertainSubstitutionValue(";".join(extra_args))
+    substitutions["ARGC"] = _CertainSubstitutionValue(str(len(arguments)))
+
+    return substitutions
+
+
+def _macro_substitute_invoc(invoc: _clp.Invoc) -> _clp.Invoc:
+    assert False        
+
+
+type _SubstitutionValue = _CertainSubstitutionValue | _UncertainSubstitutionValue
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class _CertainSubstitutionValue:
+    string: str
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class _UncertainSubstitutionValue:
+    reason: _cur.ExpansionUncertaintyReason

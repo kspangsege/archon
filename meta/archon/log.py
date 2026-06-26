@@ -1,8 +1,7 @@
 from __future__ import annotations
-from typing import Any, Protocol, TextIO, assert_never
-from abc import ABC, abstractmethod
-from dataclasses import dataclass
 
+import typing
+import abc
 import enum
 import sys
 import pathlib
@@ -26,28 +25,28 @@ class Logger:
         self._limit = limit
         self._sink  = sink
 
-    def fatal(self, pattern: str, *args: Any) -> None:
+    def fatal(self, pattern: str, *args: typing.Any) -> None:
         self.log(LogLevel.FATAL, pattern, *args)
 
-    def error(self, pattern: str, *args: Any) -> None:
+    def error(self, pattern: str, *args: typing.Any) -> None:
         self.log(LogLevel.ERROR, pattern, *args)
 
-    def warn(self, pattern: str, *args: Any) -> None:
+    def warn(self, pattern: str, *args: typing.Any) -> None:
         self.log(LogLevel.WARN, pattern, *args)
 
-    def info(self, pattern: str, *args: Any) -> None:
+    def info(self, pattern: str, *args: typing.Any) -> None:
         self.log(LogLevel.INFO, pattern, *args)
 
-    def detail(self, pattern: str, *args: Any) -> None:
+    def detail(self, pattern: str, *args: typing.Any) -> None:
         self.log(LogLevel.DETAIL, pattern, *args)
 
-    def debug(self, pattern: str, *args: Any) -> None:
+    def debug(self, pattern: str, *args: typing.Any) -> None:
         self.log(LogLevel.DEBUG, pattern, *args)
 
-    def trace(self, pattern: str, *args: Any) -> None:
+    def trace(self, pattern: str, *args: typing.Any) -> None:
         self.log(LogLevel.TRACE, pattern, *args)
 
-    def log(self, level: LogLevel, pattern: str, *args: Any) -> None:
+    def log(self, level: LogLevel, pattern: str, *args: typing.Any) -> None:
         if self.will_log(level):
             prefix = ""
             message = pattern % args
@@ -64,7 +63,7 @@ class Logger:
 
 
 class RootLogger(Logger):
-    def __init__(self, output_stream: TextIO = sys.stdout) -> None:
+    def __init__(self, output_stream: typing.TextIO = sys.stdout) -> None:
         limit = Nonlimit()
         sink = RootSink(output_stream)
         Logger.__init__(self, limit, sink)
@@ -95,8 +94,8 @@ class FileContextLogger(Logger):
         return FileContextLogger(self._base_logger, file_context)
 
 
-class Limit(ABC):
-    @abstractmethod
+class Limit(abc.ABC):
+    @abc.abstractmethod
     def will_log(self, level: LogLevel) -> bool:
         ...
 
@@ -115,14 +114,14 @@ class Sublimit(Limit):
         return level.value <= self._limit_level.value and self._base_limit.will_log(level)
 
 
-class Sink(ABC):
-    @abstractmethod
+class Sink(abc.ABC):
+    @abc.abstractmethod
     def log(self, level: LogLevel, prefix: str, message: str) -> None:
         ...
 
 
 class RootSink(Sink):
-    def __init__(self, output_stream: TextIO) -> None:
+    def __init__(self, output_stream: typing.TextIO) -> None:
         self._output_stream = output_stream
         self._is_ansi_term = _a.is_ansi_term(self._output_stream)
 
@@ -165,7 +164,7 @@ class FileContextSink(Sink):
             case _tp.NoTextPos():
                 context = "%s" % path
             case _:
-                assert_never(pos)
+                typing.assert_never(pos)
         prefix_2 = "%s: %s" % (context, prefix)
         self._base_sink.log(level, prefix_2, message)
 

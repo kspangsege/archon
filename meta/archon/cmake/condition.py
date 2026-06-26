@@ -1,9 +1,9 @@
 from __future__ import annotations
-from typing import Any, assert_never
-from collections.abc import Iterable
-from dataclasses import dataclass
 
+import typing
+import dataclasses
 import enum
+import collections
 import re
 
 import archon.base as _b
@@ -15,7 +15,7 @@ import archon.cmake.argument as _ca
 import archon.cmake.regex as _cr
 
 
-def parse(arguments: Iterable[_ca.Argument], rparen_pos: int) -> Condition:
+def parse(arguments: collections.abc.Iterable[_ca.Argument], rparen_pos: int) -> Condition:
     return _parse(arguments, rparen_pos)
 
 
@@ -24,14 +24,14 @@ def evaluate(condition: Condition, command_name: str, file_index: int, variable_
 
 
 class FatalParseError(Exception):
-    def __init__(self, pos: int, message: str, *args: Any):
+    def __init__(self, pos: int, message: str, *args: typing.Any):
         self.pos     = pos
         self.message = message
         self.args    = args
 
 
 class FatalEvalError(Exception):
-    def __init__(self, pos: int, message: str, *args: Any):
+    def __init__(self, pos: int, message: str, *args: typing.Any):
         self.pos     = pos
         self.message = message
         self.args    = args
@@ -39,15 +39,15 @@ class FatalEvalError(Exception):
 
 type Condition = FalseCondition | UnopCondition | BinopCondition | ArgumentCondition | UncertainCondition
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class ConditionBase:
     pos: int
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class FalseCondition(ConditionBase):
     pass
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class UnopCondition(ConditionBase):
     class Operator(enum.Enum):
         COMMAND      =  0
@@ -64,7 +64,7 @@ class UnopCondition(ConditionBase):
     operator: Operator
     operand:  Condition
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class BinopCondition(ConditionBase):
     class Operator(enum.Enum):
         STREQUAL              =  0
@@ -91,13 +91,13 @@ class BinopCondition(ConditionBase):
     left:     Condition
     right:    Condition
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class ArgumentCondition(ConditionBase):
     string:     _tp.PosMappedString
     was_bare:   bool  # Neither quoted nor bracketed
     is_derived: bool
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class UncertainCondition(ConditionBase):
     reason: _cur.ExpansionUncertaintyReason
 
@@ -106,7 +106,7 @@ type Result = CertainResult | UncertainResult
 
 type CertainResult = FalseResult | TrueResult
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class FalseResult:
     def __invert__(self):
         return TrueResult()
@@ -115,7 +115,7 @@ class FalseResult:
     def __or__(self, other):
         return other
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class TrueResult:
     def __invert__(self):
         return FalseResult()
@@ -124,7 +124,7 @@ class TrueResult:
     def __or__(self, other):
         return self
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class UncertainResult:
     reason: _cur.ExpansionUncertaintyReason
     def __invert__(self):
@@ -145,12 +145,12 @@ class UncertainResult:
 
 
 
-def _parse(arguments: Iterable[_ca.Argument], rparen_pos: int) -> Condition:
+def _parse(arguments: collections.abc.Iterable[_ca.Argument], rparen_pos: int) -> Condition:
     def parse(conditions: list[Condition], rparen_pos: int) -> Condition:
         if len(conditions) < 1:
             return FalseCondition(rparen_pos)
 
-        operator: Any
+        operator: typing.Any
 
         # Parse for parentheses
         begin_index: int
@@ -264,7 +264,7 @@ def _parse(arguments: Iterable[_ca.Argument], rparen_pos: int) -> Condition:
                         return _b.quote(cond.string.string)
                     case UncertainCondition():
                         return "(uncertain argument)"
-                assert_never(cond)
+                typing.assert_never(cond)
             prefix = conditions[:3]
             string = " ".join(format_(c) for c in prefix)
             if len(conditions) > len(prefix):
@@ -283,7 +283,7 @@ def _parse(arguments: Iterable[_ca.Argument], rparen_pos: int) -> Condition:
                 return UncertainCondition(arg.pos, arg.reason)
             conditions.append(UncertainCondition(arg.pos, arg.reason))
             continue
-        assert_never(arg)
+        typing.assert_never(arg)
     return parse(conditions, rparen_pos)
 
 
@@ -361,7 +361,7 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
                     raise FatalEvalError(cond.pos, "Unsupported condition operator IS_ABSOLUTE")
                 case UnopCondition.Operator.NOT:
                     return eval_not(cond.operand)
-            assert_never(cond.operator)
+            typing.assert_never(cond.operator)
         if isinstance(cond, BinopCondition):
             match cond.operator:
                 case BinopCondition.Operator.STREQUAL:
@@ -404,7 +404,7 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
                     return eval_and(cond.left, cond.right)
                 case BinopCondition.Operator.OR:
                     return eval_or(cond.left, cond.right)
-            assert_never(cond.operator)
+            typing.assert_never(cond.operator)
         if isinstance(cond, ArgumentCondition):
             if not cond.was_bare:
                 if is_true_constant(cond.string.string, cond.pos):
@@ -424,10 +424,10 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
                 position = _cur.Position(file_index, cond.pos)
                 reason = _cur.ExpansionUncertaintyReason(command_name, variable_name, position, value.reason)
                 return UncertainResult(reason)
-            assert_never(value)
+            typing.assert_never(value)
         if isinstance(cond, UncertainCondition):
             return UncertainResult(cond.reason)
-        assert_never(cond)
+        typing.assert_never(cond)
 
     def eval_defined(operand: Condition) -> Result:
         result = eval_as_str(operand)
@@ -444,7 +444,7 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
             position = _cur.Position(file_index, cond.pos)
             reason = _cur.ExpansionUncertaintyReason(command_name, var_ref.variable_name, position, value.reason)
             return UncertainResult(reason)
-        assert_never(value)
+        typing.assert_never(value)
 
     def eval_strequal(left: Condition, right: Condition) -> Result:
         result_1 = eval_as_str_from_var_or_str(left)
@@ -454,13 +454,13 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
         elif isinstance(result_1, UncertainResult):
             return result_1
         else:
-            assert_never(result_1)
+            typing.assert_never(result_1)
         if isinstance(result_2, _CertainStringResult):
             pass
         elif isinstance(result_2, UncertainResult):
             return result_2
         else:
-            assert_never(result_2)
+            typing.assert_never(result_2)
         if result_1.string.string == result_2.string.string:
             return TrueResult()
         return FalseResult()
@@ -480,7 +480,7 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
             case UncertainResult():
                 reason = result_2.reason
             case _:
-                assert_never(result_2)
+                typing.assert_never(result_2)
         match result_1:
             case _CertainStringResult():
                 string = result_1.string.string
@@ -488,7 +488,7 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
                 if not reason:
                     reason = result_1.reason
             case _:
-                assert_never(result_1)
+                typing.assert_never(result_1)
         # CMake exposes up to 9 capture groups excluding the full match
         max_groups = 9
         if reason:
@@ -531,13 +531,13 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
         elif isinstance(result_1, UncertainResult):
             return result_1
         else:
-            assert_never(result_1)
+            typing.assert_never(result_1)
         if isinstance(result_2, _CertainStringResult):
             pass
         elif isinstance(result_2, UncertainResult):
             return result_2
         else:
-            assert_never(result_2)
+            typing.assert_never(result_2)
         if result_1.string.string in _cu.list_split(result_2.string.string):
             return TrueResult()
         return FalseResult()
@@ -561,7 +561,7 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
             case UncertainResult():
                 return result
             case _:
-                assert_never(result)
+                typing.assert_never(result)
         variable_name = string.string
         value = variable_state.get(_cu.ResolutionType.GENERAL, variable_name, cond.pos)
         if isinstance(value, _cv.CertainValue):
@@ -572,7 +572,7 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
             position = _cur.Position(file_index, cond.pos)
             reason = _cur.ExpansionUncertaintyReason(command_name, variable_name, position, value.reason)
             return UncertainResult(reason)
-        assert_never(value)
+        typing.assert_never(value)
 
     def eval_as_str_from_var_or_str(cond: Condition) -> _StringResult:
         if isinstance(cond, ArgumentCondition) and cond.was_bare:
@@ -588,7 +588,7 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
                 position = _cur.Position(file_index, cond.pos)
                 reason = _cur.ExpansionUncertaintyReason(command_name, variable_name, position, value.reason)
                 return UncertainResult(reason)
-            assert_never(value)
+            typing.assert_never(value)
         return eval_as_str(cond)
 
     def eval_as_str(cond: Condition) -> _StringResult:
@@ -603,7 +603,7 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
             case UncertainResult():
                 return result
             case _:
-                assert_never(result)
+                typing.assert_never(result)
         is_derived = True
         return _CertainStringResult(_tp.PosMappedString.from_nonlinear_string(string, cond.pos), is_derived)
 
@@ -639,7 +639,7 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
 
 type _StringResult = _CertainStringResult | UncertainResult
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class _CertainStringResult:
     string:     _tp.PosMappedString
     is_derived: bool

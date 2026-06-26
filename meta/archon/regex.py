@@ -1,7 +1,7 @@
 from __future__ import annotations
-from dataclasses import dataclass
-from typing import assert_never
 
+import typing
+import dataclasses
 import enum
 
 
@@ -15,38 +15,38 @@ def is_nullable(expression: Expression) -> bool:
 
 type Expression = Alternation | Sequence | Repetition | Group | Wildcard | CharClass | Literal | Anchor
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class Alternation:
     alternatives: list[Expression]  # Must be non-empty
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class Sequence:
     elements: list[Expression]
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class Repetition:
     expression: Expression
     min_: int         # Must be greater than or equal to zero
     max_: int | None  # When specified, must be greater than or equal to min_
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class Group:
     expr: Expression
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class Wildcard:
     pass
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class CharClass:
     inverted: bool
     items:    list[Item]  # Must be non-empty
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class Literal:
     string: str
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class Anchor:
     class Type(enum.Enum):
         BEGIN = 0
@@ -56,14 +56,14 @@ class Anchor:
 
 type Item = Range | Char
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class Range:
     # `last` must be greater than or equal to `first` from the point of view Unicode code
     # points
     first: str  # Must be a single character
     last:  str  # Must be a single character
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class Char:
     char: str  # Must be a single character
 
@@ -141,7 +141,7 @@ def _format_as_python_regex(expression: Expression) -> str:
                             assert len(char) == 1
                             parts.append(format_class_char(char))
                             continue
-                    assert_never(item)
+                    typing.assert_never(item)
                 return "[%s]" % "".join(parts)
 
             case Literal(string):
@@ -157,12 +157,12 @@ def _format_as_python_regex(expression: Expression) -> str:
                     case Anchor.Type.END:
                         string_2 = "$"
                     case _:
-                        assert_never(type_)
+                        typing.assert_never(type_)
                 if parent_prec > PREC_SEQ:
                     return "(?:%s)" % string_2
                 return string_2
 
-        assert_never(expression)
+        typing.assert_never(expression)
 
     def format_class_char(char: str) -> str:
         return "\\" + char if char in r"]\-^" else char
@@ -186,4 +186,4 @@ def _is_nullable(expression: Expression) -> bool:
             return len(string) == 0
         case Anchor():
             return True
-    assert_never(expression)
+    typing.assert_never(expression)

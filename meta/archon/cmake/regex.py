@@ -1,9 +1,9 @@
 from __future__ import annotations
-from typing import Any, assert_never
-from collections.abc import Iterator
-from dataclasses import dataclass
 
+import typing
+import dataclasses
 import enum
+import collections
 import re
 
 import archon.base as _b
@@ -28,7 +28,7 @@ class Regex:
 
 
 class SyntaxError(Exception):
-    def __init__(self, pos: int, message: str, *args: Any) -> None:
+    def __init__(self, pos: int, message: str, *args: typing.Any) -> None:
         Exception.__init__(self, message % args)
         self.pos = pos
 
@@ -97,7 +97,7 @@ def _parse(cmake_regex_string: str) -> _r.Expression:
             case _Quantifier.QMARK:
                 min_, max_ = 0, 1
             case _:
-                assert_never(token.quantifier)
+                typing.assert_never(token.quantifier)
         if max_ is None and _r.is_nullable(expression):
             raise SyntaxError(token.pos, "Unbounded repetition of nullable subexpression")
         advance()
@@ -190,7 +190,7 @@ def _parse(cmake_regex_string: str) -> _r.Expression:
     return expression
 
 
-def _tokenize(cmake_regex_string: str) -> Iterator[_Token]:
+def _tokenize(cmake_regex_string: str) -> collections.abc.Iterator[_Token]:
     for m in _TOKEN_REGEX.finditer(cmake_regex_string):
         pos  = m.start()
         text = m.group()
@@ -252,44 +252,44 @@ def _tokenize(cmake_regex_string: str) -> Iterator[_Token]:
 type _Token = (_CharToken | _WildcardToken | _CharClassToken | _QuantifierToken | _AnchorToken | _BarToken |
                _LParenToken | _RParenToken | _EndOfInputToken)
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class _TokenBase:
     pos:  int
     text: str
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class _CharToken(_TokenBase):
     char: str
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class _WildcardToken(_TokenBase):
     pass
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class _CharClassToken(_TokenBase):
     pass
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class _QuantifierToken(_TokenBase):
     quantifier: _Quantifier
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class _AnchorToken(_TokenBase):
     anchor: _r.Anchor.Type
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class _BarToken(_TokenBase):
     pass
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class _LParenToken(_TokenBase):
     pass
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class _RParenToken(_TokenBase):
     pass
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class _EndOfInputToken(_TokenBase):
     pass
 
