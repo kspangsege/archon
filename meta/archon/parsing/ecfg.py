@@ -1,9 +1,9 @@
 from __future__ import annotations
-from typing import Protocol, Any, TextIO, assert_never
-from collections.abc import Iterator
-from dataclasses import dataclass
 
+import typing
+import dataclasses
 import enum
+import collections
 import re
 import sys
 import pathlib
@@ -11,7 +11,7 @@ import pathlib
 import archon.base as _b
 import archon.graph as _g
 import archon.ansi as _a
-import archon.log as _l
+import archon.text_pos as _tp
 
 
 def parse(path: pathlib.Path, error_handler: ErrorHandler) -> Grammar | None:
@@ -23,12 +23,12 @@ def format_grammar(grammar: Grammar) -> str:
 def format_expression(expression: Expression) -> str:
     return _format_expression(expression)
 
-def analyze_as_ell1(grammar: Grammar, output_stream: TextIO = sys.stdout) -> bool:
+def analyze_as_ell1(grammar: Grammar, output_stream: typing.TextIO = sys.stdout) -> bool:
     return _analyze_as_ell1(grammar, output_stream)
 
 
-class ErrorHandler(Protocol):
-    def __call__(self, pos: _l.FullFilePos, message: str, *args: Any) -> None:
+class ErrorHandler(typing.Protocol):
+    def __call__(self, pos: _tp.FullTextPos, message: str, *args: typing.Any) -> None:
         ...
 
 
@@ -44,44 +44,44 @@ class FormatError(Exception):
 #
 # No defined nonterminal must match a named terminal.
 #
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class Grammar:
     named_terminals:   list[str]
     start_nonterminal: str  # Must match one of the defined nonterminals
     definitions:       list[Definition]
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class Definition:
     nonterminal: str  # Must match matches r"\w+" but not r"\d.*"
     expression:  Expression
 
 type Expression = Alternation | Sequence | Repetition | Nonterminal | Terminal
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class Alternation:
     alternatives: list[Expression]  # Must be nonempty
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class Sequence:
     elements: list[Expression]
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class Repetition:
     expression: Expression
     min_: int         # Must be greater than or equal to zero
     max_: int | None  # When specified, must be greater than or equal to min_
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class Nonterminal:
     name: str  # Must match one of the defined nonterminals
 
 type Terminal = NamedTerminal | LiteralTerminal
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class NamedTerminal:
     name: str  # Must match one of the named terminals
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class LiteralTerminal:
     string: str
 
@@ -121,11 +121,11 @@ def _parse(path: pathlib.Path, error_handler: ErrorHandler) -> Grammar | None:
     named_terminals      = list[str]()
     named_terminal_map   = dict[str, int]()
     defined_nonterminals = set[str]()
-    referenced_names     = list[tuple[str, _l.FullFilePos]]()
+    referenced_names     = list[tuple[str, _tp.FullTextPos]]()
     referenced_name_map  = dict[str, int]()
 
     start_nonterminal: str | None = None
-    start_dir_pos:     _l.FullFilePos
+    start_dir_pos:     _tp.FullTextPos
 
     token: _Token
 
@@ -274,7 +274,7 @@ def _parse(path: pathlib.Path, error_handler: ErrorHandler) -> Grammar | None:
         return Repetition(expression, min_, max_)
 
     def parse_primary() -> Expression | None:
-        name: Any
+        name: typing.Any
         if isinstance(token, _NameToken):
             name = token
             advance()
@@ -310,12 +310,12 @@ def _parse(path: pathlib.Path, error_handler: ErrorHandler) -> Grammar | None:
         return isinstance(token, _SymbolToken) and token.symbol is symbol
 
     errors_seen = False
-    def error(pos: _l.FullFilePos, message: str, *args: Any) -> None:
+    def error(pos: _tp.FullTextPos, message: str, *args: typing.Any) -> None:
         nonlocal errors_seen
         errors_seen = True
         error_handler(pos, message, *args)
 
-    def tokenize_error_handler(pos: _l.FullFilePos, message: str, *args: Any) -> None:
+    def tokenize_error_handler(pos: _tp.FullTextPos, message: str, *args: typing.Any) -> None:
         error(pos, message, *args)
 
     tokens = _tokenize(path, tokenize_error_handler)
@@ -331,7 +331,7 @@ def _parse(path: pathlib.Path, error_handler: ErrorHandler) -> Grammar | None:
     return grammar
 
 
-def _tokenize(path: pathlib.Path, error_handler: ErrorHandler) -> Iterator[_Token]:
+def _tokenize(path: pathlib.Path, error_handler: ErrorHandler) -> collections.abc.Iterator[_Token]:
     with open(path, "r", encoding="utf-8") as file_:
         line_no = 0
 
@@ -349,7 +349,7 @@ def _tokenize(path: pathlib.Path, error_handler: ErrorHandler) -> Iterator[_Toke
             for m in _TOKEN_REGEX.finditer(line):
                 kind = m.lastgroup
                 text = m.group()
-                pos = _l.FullFilePos(line_no, m.start())
+                pos = _tp.FullTextPos(line_no, m.start())
 
                 if kind in ("WS", "COMMENT"):
                     continue
@@ -384,9 +384,9 @@ def _tokenize(path: pathlib.Path, error_handler: ErrorHandler) -> Iterator[_Toke
                 assert False
 
             if has_directive:
-                yield _DirLeadToken(_l.FullFilePos(line_no))
+                yield _DirLeadToken(_tp.FullTextPos(line_no))
             elif has_equal:
-                yield _DefLeadToken(_l.FullFilePos(line_no))
+                yield _DefLeadToken(_tp.FullTextPos(line_no))
 
             for token in tokens:
                 if not isinstance(token, _ErrorToken):
@@ -399,36 +399,36 @@ def _tokenize(path: pathlib.Path, error_handler: ErrorHandler) -> Iterator[_Toke
                     case _ErrorToken.Error.UNCLOSED_LITERAL:
                         error_handler(token.pos, "Unclosed literal")
                         continue
-                assert_never(token.error)
+                typing.assert_never(token.error)
 
-        yield _EndOfInputToken(_l.FullFilePos(line_no))
+        yield _EndOfInputToken(_tp.FullTextPos(line_no))
 
 
 type _Token = _DirLeadToken | _DefLeadToken | _NameToken | _LiteralToken | _SymbolToken | _EndOfInputToken
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class _TokenBase:
-    pos: _l.FullFilePos
+    pos: _tp.FullTextPos
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class _DirLeadToken(_TokenBase):
     pass
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class _DefLeadToken(_TokenBase):
     pass
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class _NameToken(_TokenBase):
     text:  str
     value: str
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class _LiteralToken(_TokenBase):
     text:  str
     value: str
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class _SymbolToken(_TokenBase):
     class Symbol(enum.Enum):
         TOKEN  = 0
@@ -443,7 +443,7 @@ class _SymbolToken(_TokenBase):
     text:   str
     symbol: Symbol
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class _ErrorToken(_TokenBase):
     class Error(enum.Enum):
         ILLEGAL_CHARACTER = 0
@@ -451,7 +451,7 @@ class _ErrorToken(_TokenBase):
     text:  str
     error: Error
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class _EndOfInputToken(_TokenBase):
     pass
 
@@ -552,11 +552,11 @@ def _format_expression(expression: Expression) -> str:
                 return name
             case LiteralTerminal(string):
                 return '"%s"' % re.sub(r'([\\"])', r'\\\1', string)
-        assert_never(expression)
+        typing.assert_never(expression)
     return format_expr(expression, PREC_MIN)
 
 
-def _analyze_as_ell1(grammar: Grammar, output_stream: TextIO = sys.stdout) -> bool:
+def _analyze_as_ell1(grammar: Grammar, output_stream: typing.TextIO = sys.stdout) -> bool:
     is_ell1 = True
 
     definition_map = dict[str, Definition]()
@@ -589,7 +589,7 @@ def _analyze_as_ell1(grammar: Grammar, output_stream: TextIO = sys.stdout) -> bo
                     return
                 case NamedTerminal() | LiteralTerminal():
                     return
-            assert_never(expression)
+            typing.assert_never(expression)
         visit_definition(grammar.start_nonterminal)
         return seen
 
@@ -620,7 +620,7 @@ def _analyze_as_ell1(grammar: Grammar, output_stream: TextIO = sys.stdout) -> bo
                     return
                 case LiteralTerminal() | NamedTerminal():
                     return
-            assert_never(expression)
+            typing.assert_never(expression)
         left_dependencies: list[set[int]] = [set() for _ in nonterminals]
         for definition in grammar.definitions:
             index = index_map.get(definition.nonterminal)
@@ -646,7 +646,7 @@ def _analyze_as_ell1(grammar: Grammar, output_stream: TextIO = sys.stdout) -> bo
                 return nullable_map[name]
             case LiteralTerminal() | NamedTerminal():
                 return False
-        assert_never(expression)
+        typing.assert_never(expression)
 
     def compute_first_set(expression: Expression) -> set[_Lookahead]:
         match expression:
@@ -667,7 +667,7 @@ def _analyze_as_ell1(grammar: Grammar, output_stream: TextIO = sys.stdout) -> bo
                 return first_set_map[name]
             case LiteralTerminal() | NamedTerminal():
                 return {expression}
-        assert_never(expression)
+        typing.assert_never(expression)
 
     while True:
         changed = False
@@ -719,7 +719,7 @@ def _analyze_as_ell1(grammar: Grammar, output_stream: TextIO = sys.stdout) -> bo
                 return len(target_follow_set) > orig_len
             case LiteralTerminal() | NamedTerminal():
                 return False
-        assert_never(expression)
+        typing.assert_never(expression)
 
     while True:
         changed = False
@@ -812,7 +812,7 @@ def _analyze_as_ell1(grammar: Grammar, output_stream: TextIO = sys.stdout) -> bo
             case LiteralTerminal() | NamedTerminal() | Nonterminal():
                 assert False
 
-        assert_never(expression)
+        typing.assert_never(expression)
 
     def compute_lookahead_order() -> dict[_Lookahead, int]:
         order = dict[_Lookahead, int]()
@@ -882,12 +882,12 @@ def _analyze_as_ell1(grammar: Grammar, output_stream: TextIO = sys.stdout) -> bo
         return optional
 
     lines = []
-    def add_line(level, want_colon, message: str, *args: Any) -> None:
+    def add_line(level, want_colon, message: str, *args: typing.Any) -> None:
         indentation = "    " * level
         lines.append("%s%s%s\n" % (indentation, message % args, ":" if want_colon else ""))
 
     is_ansi_term = _a.is_ansi_term(output_stream)
-    def add_warning(level, message: str, *args: Any) -> None:
+    def add_warning(level, message: str, *args: typing.Any) -> None:
         want_colon = False
         prefix = "WARNING: "
         if is_ansi_term:
@@ -911,7 +911,7 @@ def _analyze_as_ell1(grammar: Grammar, output_stream: TextIO = sys.stdout) -> bo
     return is_ell1
 
 
-@dataclass(slots=True, frozen=True)
+@dataclasses.dataclass(slots=True, frozen=True)
 class _EndOfInput:
     pass
 

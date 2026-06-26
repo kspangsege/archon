@@ -1,9 +1,10 @@
 from __future__ import annotations
-from typing import Any
 
+import typing
 import sys
 import pathlib
 
+import archon.text_pos as _tp
 import archon.log as _l
 import archon.command_line_interface as _cli
 import archon.parsing.ecfg as _pe
@@ -20,7 +21,7 @@ root_logger = _l.RootLogger()
 result = _cli.Result()
 if not _cli.parse(sys.argv[1:], spec, result, root_logger):
     sys.exit(1)
-if result.get_opt("--help"):
+if result.get_opt("--help", bool):
     _cli.show_help(spec, root_logger)
     sys.exit(0)
 if len(result.args) != 1:
@@ -28,13 +29,13 @@ if len(result.args) != 1:
     sys.exit(1)
 
 path = pathlib.Path(result.args[0])
-log_level = result.get_opt("--log-level")
-format_grammar = result.get_opt("--format-grammar")
-analyze_as_ell1 = result.get_opt("--analyze-as-ell1")
+log_level = result.get_opt("--log-level", _l.LogLevel)
+format_grammar = result.get_opt("--format-grammar", bool)
+analyze_as_ell1 = result.get_opt("--analyze-as-ell1", bool)
 
 logger = _l.LimitLogger(root_logger, log_level)
-def error_handler(pos: _l.FullFilePos, message: str, *args: Any) -> None:
-    context = _l.FileContext(path, pos)
+def error_handler(pos: _tp.FullTextPos, message: str, *args: typing.Any) -> None:
+    context = _tp.FileContext(path, pos)
     _l.FileContextLogger(logger, context).error(message, *args)
 grammar = _pe.parse(path, error_handler)
 if not grammar:
