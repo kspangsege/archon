@@ -6,7 +6,6 @@ import enum
 import collections
 import re
 import sys
-import pathlib
 
 import archon.base as _b
 import archon.graph as _g
@@ -14,8 +13,8 @@ import archon.ansi as _a
 import archon.text_pos as _tp
 
 
-def parse(path: pathlib.Path, error_handler: ErrorHandler) -> Grammar | None:
-    return _parse(path, error_handler)
+def parse(input_: typing.TextIO, error_handler: ErrorHandler) -> Grammar | None:
+    return _parse(input_, error_handler)
 
 def format_grammar(grammar: Grammar) -> str:
     return _format_grammar(grammar)
@@ -117,7 +116,7 @@ class ParseError(Exception):
 # terminal    = LITERAL | NAME  # Can be NAME only if the name is one of the named terminals
 
 
-def _parse(path: pathlib.Path, error_handler: ErrorHandler) -> Grammar | None:
+def _parse(input_: typing.TextIO, error_handler: ErrorHandler) -> Grammar | None:
     named_terminals      = list[str]()
     named_terminal_map   = dict[str, int]()
     defined_nonterminals = set[str]()
@@ -318,7 +317,7 @@ def _parse(path: pathlib.Path, error_handler: ErrorHandler) -> Grammar | None:
     def tokenize_error_handler(pos: _tp.FullTextPos, message: str, *args: typing.Any) -> None:
         error(pos, message, *args)
 
-    tokens = _tokenize(path, tokenize_error_handler)
+    tokens = _tokenize(input_, tokenize_error_handler)
     token = next(tokens)
     def advance() -> None:
         nonlocal token
@@ -331,77 +330,76 @@ def _parse(path: pathlib.Path, error_handler: ErrorHandler) -> Grammar | None:
     return grammar
 
 
-def _tokenize(path: pathlib.Path, error_handler: ErrorHandler) -> collections.abc.Iterator[_Token]:
-    with open(path, "r", encoding="utf-8") as file_:
-        line_no = 0
+def _tokenize(input_: typing.TextIO, error_handler: ErrorHandler) -> collections.abc.Iterator[_Token]:
+    line_no = 0
 
-        while True:
-            line_no += 1
-            line = file_.readline()
-            if not line:
-                break
-            line = line.rstrip("\n")
+    while True:
+        line_no += 1
+        line = input_.readline()
+        if not line:
+            break
+        line = line.rstrip("\n")
 
-            tokens: list[_Token | _ErrorToken] = []
-            has_directive = False
-            has_equal     = False
+        tokens: list[_Token | _ErrorToken] = []
+        has_directive = False
+        has_equal     = False
 
-            for m in _TOKEN_REGEX.finditer(line):
-                kind = m.lastgroup
-                text = m.group()
-                pos = _tp.FullTextPos(line_no, m.start())
+        for m in _TOKEN_REGEX.finditer(line):
+            kind = m.lastgroup
+            text = m.group()
+            pos = _tp.FullTextPos(line_no, m.start())
 
-                if kind in ("WS", "COMMENT"):
+            if kind in ("WS", "COMMENT"):
+                continue
+
+            if kind == "NAME":
+                value = text
+                tokens.append(_NameToken(pos, text, value))
+                continue
+
+            if kind == "LITERAL":
+                value = value = re.sub(r"\\(.)", r"\1", text[1:-1])
+                tokens.append(_LiteralToken(pos, text, value))
+                continue
+
+            if kind == "SYMBOL":
+                symbol = _SYMBOL_MAP[text]
+                if symbol in [_SymbolToken.Symbol.TOKEN, _SymbolToken.Symbol.START]:
+                    has_directive = True
+                elif symbol == _SymbolToken.Symbol.EQUAL:
+                    has_equal = True
+                tokens.append(_SymbolToken(pos, text, symbol))
+                continue
+
+            if kind == "UNCLOSED_LIT":
+                tokens.append(_ErrorToken(pos, text, _ErrorToken.Error.UNCLOSED_LITERAL))
+                continue
+
+            if kind == "ILL_CHAR":
+                tokens.append(_ErrorToken(pos, text, _ErrorToken.Error.ILLEGAL_CHARACTER))
+                continue
+
+            assert False
+
+        if has_directive:
+            yield _DirLeadToken(_tp.FullTextPos(line_no))
+        elif has_equal:
+            yield _DefLeadToken(_tp.FullTextPos(line_no))
+
+        for token in tokens:
+            if not isinstance(token, _ErrorToken):
+                yield token
+                continue
+            match token.error:
+                case _ErrorToken.Error.ILLEGAL_CHARACTER:
+                    error_handler(token.pos, "Illegal character (%s)", _b.quote(token.text))
                     continue
-
-                if kind == "NAME":
-                    value = text
-                    tokens.append(_NameToken(pos, text, value))
+                case _ErrorToken.Error.UNCLOSED_LITERAL:
+                    error_handler(token.pos, "Unclosed literal")
                     continue
+            typing.assert_never(token.error)
 
-                if kind == "LITERAL":
-                    value = value = re.sub(r"\\(.)", r"\1", text[1:-1])
-                    tokens.append(_LiteralToken(pos, text, value))
-                    continue
-
-                if kind == "SYMBOL":
-                    symbol = _SYMBOL_MAP[text]
-                    if symbol in [_SymbolToken.Symbol.TOKEN, _SymbolToken.Symbol.START]:
-                        has_directive = True
-                    elif symbol == _SymbolToken.Symbol.EQUAL:
-                        has_equal = True
-                    tokens.append(_SymbolToken(pos, text, symbol))
-                    continue
-
-                if kind == "UNCLOSED_LIT":
-                    tokens.append(_ErrorToken(pos, text, _ErrorToken.Error.UNCLOSED_LITERAL))
-                    continue
-
-                if kind == "ILL_CHAR":
-                    tokens.append(_ErrorToken(pos, text, _ErrorToken.Error.ILLEGAL_CHARACTER))
-                    continue
-
-                assert False
-
-            if has_directive:
-                yield _DirLeadToken(_tp.FullTextPos(line_no))
-            elif has_equal:
-                yield _DefLeadToken(_tp.FullTextPos(line_no))
-
-            for token in tokens:
-                if not isinstance(token, _ErrorToken):
-                    yield token
-                    continue
-                match token.error:
-                    case _ErrorToken.Error.ILLEGAL_CHARACTER:
-                        error_handler(token.pos, "Illegal character (%s)", _b.quote(token.text))
-                        continue
-                    case _ErrorToken.Error.UNCLOSED_LITERAL:
-                        error_handler(token.pos, "Unclosed literal")
-                        continue
-                typing.assert_never(token.error)
-
-        yield _EndOfInputToken(_tp.FullTextPos(line_no))
+    yield _EndOfInputToken(_tp.FullTextPos(line_no))
 
 
 type _Token = _DirLeadToken | _DefLeadToken | _NameToken | _LiteralToken | _SymbolToken | _EndOfInputToken
@@ -495,7 +493,7 @@ def _format_grammar(grammar: Grammar) -> str:
         indent_1 = " " * len(lhs)
         indent_2 = " " * (max_lhs_size - len(lhs))
         lines = list[str]()
-        def add(expression):
+        def add(expression: Expression) -> None:
             rhs = _format_expression(expression)
             if not lines:
                 line = "%s%s = %s\n" % (lhs, indent_2, rhs)
@@ -757,7 +755,7 @@ def _analyze_as_ell1(grammar: Grammar, output_stream: typing.TextIO = sys.stdout
                                             (format_lookahead_set(overlap), _b.as_ord(1 + i_2)))
                     nontrivial = isinstance(alternative, (Sequence, Alternation, Repetition))
                     if_form = "If" if i == 0 else "Else if"
-                    add_line(level, nontrivial or warnings, "%s lookahead is in %s: Parse [%s]", if_form,
+                    add_line(level, nontrivial or bool(warnings), "%s lookahead is in %s: Parse [%s]", if_form,
                              format_lookahead_set(predict_set), _format_expression(alternative))
                     for w in warnings:
                         add_warning(level + 1, "%s", w)
@@ -796,7 +794,8 @@ def _analyze_as_ell1(grammar: Grammar, output_stream: typing.TextIO = sys.stdout
                         warnings.append("Continue/break ambiguity on %s" % format_lookahead_set(overlap))
                 quantifier = generate_repetition_quantifier(min_, max_, predict_set_continue)
                 nontrivial = isinstance(subexpression, (Sequence, Alternation, Repetition))
-                add_line(level, nontrivial or warnings, "Parse [%s] %s", _format_expression(subexpression), quantifier)
+                add_line(level, nontrivial or bool(warnings), "Parse [%s] %s", _format_expression(subexpression),
+                         quantifier)
                 for w in warnings:
                     add_warning(level + 1, "%s", w)
                 if nontrivial:
@@ -816,7 +815,7 @@ def _analyze_as_ell1(grammar: Grammar, output_stream: typing.TextIO = sys.stdout
 
     def compute_lookahead_order() -> dict[_Lookahead, int]:
         order = dict[_Lookahead, int]()
-        def visit(expression: Expression):
+        def visit(expression: Expression) -> None:
             match expression:
                 case Alternation(alternatives):
                     for a in alternatives:
@@ -882,12 +881,12 @@ def _analyze_as_ell1(grammar: Grammar, output_stream: typing.TextIO = sys.stdout
         return optional
 
     lines = []
-    def add_line(level, want_colon, message: str, *args: typing.Any) -> None:
+    def add_line(level: int, want_colon: bool, message: str, *args: typing.Any) -> None:
         indentation = "    " * level
         lines.append("%s%s%s\n" % (indentation, message % args, ":" if want_colon else ""))
 
     is_ansi_term = _a.is_ansi_term(output_stream)
-    def add_warning(level, message: str, *args: typing.Any) -> None:
+    def add_warning(level: int, message: str, *args: typing.Any) -> None:
         want_colon = False
         prefix = "WARNING: "
         if is_ansi_term:
