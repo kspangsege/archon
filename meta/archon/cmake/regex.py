@@ -17,7 +17,7 @@ def compile_(cmake_regex_string: str) -> Regex:
 
 
 class Regex:
-    def __init__(self, regex: re.Pattern) -> None:
+    def __init__(self, regex: re.Pattern[str]) -> None:
         self._regex = regex
 
     def matches(self, string: str) -> re.Match[str] | None:

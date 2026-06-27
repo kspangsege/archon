@@ -157,7 +157,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
 
     def exec_if(invoc: _clp.IfInvoc, context: _InvocContext) -> None:
         def exec_level(subinvoc: _clp.IfInvoc | _clp.IfBranch, context: _InvocContext, next_elseif: int) -> None:
-            def exec_else(context: _InvocContext):
+            def exec_else(context: _InvocContext) -> None:
                 if next_elseif < len(invoc.elseif_branches):
                     exec_level(invoc.elseif_branches[next_elseif], context, next_elseif + 1)
                     return
@@ -968,7 +968,7 @@ class _CommandDefinitionUncertaintyReason:
 
 
 def _define_built_in_commands(commands: dict[str, _Command]) -> None:
-    def define(name_cf: str, which: _BuiltInCommand.Which):
+    def define(name_cf: str, which: _BuiltInCommand.Which) -> None:
         commands[name_cf] = _BuiltInCommand(which)
     define("set",                    _BuiltInCommand.Which.SET)
     define("unset",                  _BuiltInCommand.Which.UNSET)

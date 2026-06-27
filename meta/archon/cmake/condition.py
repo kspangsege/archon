@@ -108,32 +108,32 @@ type CertainResult = FalseResult | TrueResult
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class FalseResult:
-    def __invert__(self):
+    def __invert__(self) -> TrueResult:
         return TrueResult()
-    def __and__(self, other):
+    def __and__[T: Result](self, other: T) -> typing.Self:
         return self
-    def __or__(self, other):
+    def __or__[T: Result](self, other: T) -> T:
         return other
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class TrueResult:
-    def __invert__(self):
+    def __invert__(self) -> FalseResult:
         return FalseResult()
-    def __and__(self, other):
+    def __and__[T: Result](self, other: T) -> T:
         return other
-    def __or__(self, other):
+    def __or__[T: Result](self, other: T) -> typing.Self:
         return self
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class UncertainResult:
     reason: _cur.ExpansionUncertaintyReason
-    def __invert__(self):
+    def __invert__(self) -> UncertainResult:
         return self
-    def __and__(self, other):
+    def __and__[T: Result](self, other: T) -> FalseResult | typing.Self:
         if isinstance(other, FalseResult):
             return other
         return self
-    def __or__(self, other):
+    def __or__[T: Result](self, other: T) -> TrueResult | typing.Self:
         if isinstance(other, TrueResult):
             return other
         return self
@@ -249,7 +249,7 @@ def _parse(arguments: collections.abc.Iterable[_ca.Argument], rparen_pos: int) -
             i += 1
 
         if len(conditions) > 1:
-            def format_(cond: Condition):
+            def format_(cond: Condition) -> str:
                 match cond:
                     case FalseCondition():
                         return "()"
@@ -613,7 +613,7 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
             return True
         value = _b.Wrap(0)
         if as_number(string, value, pos):
-            return value == 0
+            return value.value == 0
         return False
 
     def is_true_constant(string: str, pos: int) -> bool:
@@ -622,7 +622,7 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
             return True
         value = _b.Wrap(0)
         if as_number(string, value, pos):
-            return value != 0
+            return value.value != 0
         return False
 
     def as_number(string: str, value: _b.Wrap[int], pos: int) -> bool:

@@ -17,7 +17,7 @@ def parse(input_: typing.TextIO, tracker: _tp.FilePosTracker, warning_handler: E
     return _parse(input_, tracker, warning_handler, error_handler)
 
 
-def is_flow_control_command(command_name_cf: str):
+def is_flow_control_command(command_name_cf: str) -> bool:
     return command_name_cf in _FLOW_CONTROL_MAP
 
 
@@ -119,6 +119,7 @@ def _parse(input_: typing.TextIO, tracker: _tp.FilePosTracker, warning_handler: 
     current = next(protoinvocations, None)
 
     def parse(parent_type: _ParentType, silent: bool = False) -> collections.abc.Iterator[Invoc]:
+        nonlocal current
         while True:
             if not current:
                 return
@@ -126,19 +127,19 @@ def _parse(input_: typing.TextIO, tracker: _tp.FilePosTracker, warning_handler: 
                 case None:
                     yield GenericInvoc(current.command_name, current.arguments, current.pos, current.lparen_pos,
                                        current.rparen_pos, current.command_name_cf)
-                    advance()
+                    current = advance(current)
                     continue
 
                 case _FlowControl.IF:
                     orig = current
-                    advance()
+                    current = advance(current)
                     children = list(parse(_ParentType.IF))
                     last = orig
                     elseif_branches: list[IfBranch]  = []
                     else_branch:     IfBranch | None = None
                     while current and current.flow_control is _FlowControl.ELSEIF:
                         orig_2 = current
-                        advance()
+                        current = advance(current)
                         children_2 = list(parse(_ParentType.ELSEIF))
                         branch = IfBranch(orig_2.command_name, orig_2.arguments, orig_2.pos, orig_2.lparen_pos,
                                           orig_2.rparen_pos, children_2)
@@ -146,7 +147,7 @@ def _parse(input_: typing.TextIO, tracker: _tp.FilePosTracker, warning_handler: 
                         last = orig_2
                     if current and current.flow_control is _FlowControl.ELSE:
                         orig_2 = current
-                        advance()
+                        current = advance(current)
                         children_2 = list(parse(_ParentType.ELSE))
                         branch = IfBranch(orig_2.command_name, orig_2.arguments, orig_2.pos, orig_2.lparen_pos,
                                           orig_2.rparen_pos, children_2)
@@ -157,7 +158,7 @@ def _parse(input_: typing.TextIO, tracker: _tp.FilePosTracker, warning_handler: 
                         if not silent:
                             error_handler(current.pos, "%s() after %s()", current.command_name, last.command_name)
                         orig_2 = current
-                        advance()
+                        current = advance(current)
                         for _ in parse(parent_type_2, silent=True):
                             pass
                         last = orig_2
@@ -170,7 +171,7 @@ def _parse(input_: typing.TextIO, tracker: _tp.FilePosTracker, warning_handler: 
                                                  current.lparen_pos, current.rparen_pos)
                     yield IfInvoc(orig.command_name, orig.arguments, orig.pos, orig.lparen_pos, orig.rparen_pos,
                                   children, elseif_branches, else_branch, closing_invoc)
-                    advance()
+                    current = advance(current)
                     continue
 
                 case _FlowControl.ELSEIF | _FlowControl.ELSE | _FlowControl.ENDIF:
@@ -178,14 +179,14 @@ def _parse(input_: typing.TextIO, tracker: _tp.FilePosTracker, warning_handler: 
                         return
                     if not silent:
                         error_handler(current.pos, "Unmatched %s()", current.command_name)
-                    advance()
+                    current = advance(current)
                     continue
 
                 case _FlowControl.FOREACH | _FlowControl.WHILE | _FlowControl.MACRO | _FlowControl.FUNCTION | \
                      _FlowControl.BLOCK:
                     orig = current
                     orig_command = current.flow_control
-                    advance()
+                    current = advance(current)
                     children = list(parse(_PARENT_TYPE_MAP[orig_command]))
                     if not current:
                         if not silent:
@@ -211,7 +212,7 @@ def _parse(input_: typing.TextIO, tracker: _tp.FilePosTracker, warning_handler: 
                                          orig.rparen_pos, children, closing_invoc)
                     else:
                         typing.assert_never(orig_command)
-                    advance()
+                    current = advance(current)
                     continue
 
                 case _FlowControl.ENDFOREACH | _FlowControl.ENDWHILE | _FlowControl.ENDMACRO | \
@@ -220,33 +221,31 @@ def _parse(input_: typing.TextIO, tracker: _tp.FilePosTracker, warning_handler: 
                         return
                     if not silent:
                         error_handler(current.pos, "Unmatched %s()", current.command_name)
-                    advance()
+                    current = advance(current)
                     continue
 
                 case _FlowControl.RETURN:
                     yield ReturnInvoc(current.command_name, current.arguments, current.pos, current.lparen_pos,
                                       current.rparen_pos)
-                    advance()
+                    current = advance(current)
                     continue
 
                 case _FlowControl.BREAK:
                     yield BreakInvoc(current.command_name, current.arguments, current.pos, current.lparen_pos,
                                      current.rparen_pos)
-                    advance()
+                    current = advance(current)
                     continue
 
                 case _FlowControl.CONTINUE:
                     yield ContinueInvoc(current.command_name, current.arguments, current.pos, current.lparen_pos,
                                         current.rparen_pos)
-                    advance()
+                    current = advance(current)
                     continue
 
             typing.assert_never(current.flow_control)
 
-    def advance():
-        nonlocal current
-        assert current is not None
-        current = next(protoinvocations, None)
+    def advance(prev: _Protoinvoc) -> _Protoinvoc | None:
+        return next(protoinvocations, None)
 
     return parse(_ParentType.ROOT)
 
