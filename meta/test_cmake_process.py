@@ -96,7 +96,7 @@ def _process(cmake_text: str, cmake_path: pathlib.Path, context: _t.Context) -> 
 
 
 class _Result:
-    def __init__(self):
+    def __init__(self) -> None:
         self.messages = list[_Message]()
 
 

@@ -9,8 +9,8 @@ import archon.text_pos as _tp
 import archon.cmake.util as _cu
 
 
-def parse(string: str, pos: int, error_handler: ErrorHandler) -> Expr:
-    return _parse(string, pos, error_handler)
+def parse(string: _tp.PosMappedString, error_handler: ErrorHandler) -> Expr:
+    return _parse(string, error_handler)
 
 
 class ErrorHandler(typing.Protocol):
@@ -44,7 +44,7 @@ class ExpansionExpr(ExprBase):
 
 
 
-def _parse(string: str, pos: int, error_handler: ErrorHandler) -> Expr:
+def _parse(string: _tp.PosMappedString, error_handler: ErrorHandler) -> Expr:
     @dataclasses.dataclass(slots=True)
     class VarExpansion:
         resolution_type: _cu.ResolutionType
@@ -57,27 +57,28 @@ def _parse(string: str, pos: int, error_handler: ErrorHandler) -> Expr:
     var_expansion: VarExpansion | None = None
     string_builder: _tp.PosMappedStringBuilder | None = None
 
-    def ensure_string_builder(ref_pos: int) -> _tp.PosMappedStringBuilder:
+    def ensure_string_builder(pos: int) -> _tp.PosMappedStringBuilder:
         nonlocal string_builder
         if not string_builder:
-            string_builder = _tp.PosMappedStringBuilder(ref_pos)
+            string_builder = _tp.PosMappedStringBuilder(pos)
         return string_builder
 
-    def add_linear(string: str, ref_pos: int) -> None:
-        ensure_string_builder(ref_pos).add_linear(string, ref_pos)
+    def add_linear(string: str, pos: int) -> None:
+        ensure_string_builder(pos).add_linear(string, pos)
 
-    def add_nonlinear(string: str, ref_pos: int) -> None:
-        ensure_string_builder(ref_pos).add_nonlinear(string, ref_pos)
+    def add_nonlinear(string: str, pos: int) -> None:
+        ensure_string_builder(pos).add_nonlinear(string, pos)
 
-    def flush(ref_pos: int, finalize: bool = False) -> None:
+    def flush(pos: int, finalize: bool = False) -> None:
         nonlocal string_builder
         if finalize and not parts:
-            ensure_string_builder(ref_pos)
+            ensure_string_builder(pos)
         if string_builder:
-            assert ref_pos >= string_builder.ref_pos
-            string = string_builder.get()
-            if string.string or (finalize and not parts):
-                parts.append(StringExpr(string.pos_map.lead_ref_pos, string))
+            assert pos >= string_builder.ref_pos
+            string_2 = string_builder.get()
+            if string_2.string or (finalize and not parts):
+                string_3 = string_2.map_through(string.pos_map)
+                parts.append(StringExpr(string_3.pos_map.lead_ref_pos, string_3))
             string_builder = None
 
     def get_expr() -> Expr:
@@ -87,22 +88,22 @@ def _parse(string: str, pos: int, error_handler: ErrorHandler) -> Expr:
         return CompositeExpr(parts[0].pos, parts)
 
     invalid_escape_seen = False
-    subpos = 0
-    for m in _REGEX.finditer(string):
-        if m.start() > subpos:
-            substring = string[subpos:m.start()]
+    pos = 0
+    for m in _REGEX.finditer(string.string):
+        if m.start() > pos:
+            substring = string.string[pos:m.start()]
             if var_expansion and not var_expansion.invalid:
                 # Allowing `$` in order to replicate CMake quirk / bug introduced during
                 # implementation of policy CMP0053.
                 m_2 = re.search(r"[^$+\-./0-9A-Z_a-z]", substring)
                 if m_2:
-                    error_pos = pos + subpos + m_2.start()
-                    error_handler(error_pos, "Invalid literal character (%s) in variable name", _b.quote(m_2.group(0)))
+                    ref_pos = string.pos_map.map_(pos + m_2.start())
+                    error_handler(ref_pos, "Invalid literal character (%s) in variable name", _b.quote(m_2.group(0)))
                     var_expansion.invalid = True
-            add_linear(substring, pos + subpos)
-        token_pos = pos + m.start()
+            add_linear(substring, pos)
+        token_pos = m.start()
         token_text = m.group(0)
-        subpos = m.end()
+        pos = m.end()
 
         if m.group("ESCAPE"):
             char = token_text[-1]
@@ -117,7 +118,8 @@ def _parse(string: str, pos: int, error_handler: ErrorHandler) -> Expr:
                         replacement = "\r"
                     case _:
                         if not var_expansion.invalid if var_expansion else not invalid_escape_seen:
-                            error_handler(token_pos, "Invalid escape sequence (\"%s\")", token_text)
+                            ref_pos = string.pos_map.map_(token_pos)
+                            error_handler(ref_pos, "Invalid escape sequence (\"%s\")", token_text)
                         if var_expansion:
                             var_expansion.invalid = True
                         else:
@@ -157,7 +159,8 @@ def _parse(string: str, pos: int, error_handler: ErrorHandler) -> Expr:
                 case "ENV":
                     resolution_type = _cu.ResolutionType.ENV
                 case _:
-                    error_handler(token_pos, "Invalid domain (%s) in variable expansion", _b.quote(domain))
+                    ref_pos = string.pos_map.map_(token_pos)
+                    error_handler(ref_pos, "Invalid domain (%s) in variable expansion", _b.quote(domain))
                     invalid = True
             stack.append((var_expansion, parts))
             parts = []
@@ -173,22 +176,24 @@ def _parse(string: str, pos: int, error_handler: ErrorHandler) -> Expr:
             orig = var_expansion
             var_expansion, parts = stack.pop()
             if not orig.invalid:
-                parts.append(ExpansionExpr(orig.pos, orig.resolution_type, name_expr))
+                ref_pos = string.pos_map.map_(orig.pos)
+                parts.append(ExpansionExpr(ref_pos, orig.resolution_type, name_expr))
             continue
 
         assert False
 
-    if len(string) > subpos:
-        substring = string[subpos:]
-        add_linear(substring, pos + subpos)
-    flush(pos + len(string))
+    if len(string.string) > pos:
+        substring = string.string[pos:]
+        add_linear(substring, pos)
+    flush(len(string.string))
 
     while var_expansion:
         if not var_expansion.invalid:
-            error_handler(var_expansion.pos, "Unclosed variable expansion")
+            ref_pos = string.pos_map.map_(var_expansion.pos)
+            error_handler(ref_pos, "Unclosed variable expansion")
         var_expansion, parts = stack.pop()
 
-    flush(pos + len(string), finalize=True)
+    flush(len(string.string), finalize=True)
     return get_expr()
 
 

@@ -5,6 +5,7 @@ import abc
 import dataclasses
 import collections
 import enum
+import copy
 import re
 import pathlib
 
@@ -381,8 +382,8 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
         # for endif() even if there are elseif() and/or else() invocations in between.
         if not invoc.arguments:
             return
-        opening_args = [a.text for a in opening_invoc.arguments]
-        closing_args = [a.text for a in invoc.arguments]
+        opening_args = [a.orig_text for a in opening_invoc.arguments]
+        closing_args = [a.orig_text for a in invoc.arguments]
         if opening_args != closing_args:
             opening_position = _cur.Position(context.file_index, opening_invoc.pos)
             opening_line_no = pos_resolver.resolve_text_pos(opening_position).line_no
@@ -533,53 +534,68 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
     def expand_arguments(invoc: _clp.GeneralizedInvoc, context: _InvocContext) -> list[_ca.Argument]:
         arguments = list[_ca.Argument]()
         for protoarg in invoc.arguments:
-            i = protoarg.prefix_size
-            j = len(protoarg.text) - protoarg.suffix_size
-            string = protoarg.text[i:j]
-            pos = protoarg.pos + i
             arg: _ca.Argument
-            match protoarg.type_:
-                case _clp.Protoargument.Type.BARE:
-                    was_bare = True
-                    result = expand_string(string, pos, invoc, context)
-                    match result:
-                        case _CertainExpansionResult():
-                            segments, is_derived = _list_split(result.string, result.is_derived)
-                            for segment in segments:
-                                arg = _ca.CertainArgument(protoarg.pos, was_bare, segment, is_derived)
-                                arguments.append(arg)
-                            continue
-                        case _UncertainExpansionResult():
-                            # Note that an uncertain unquoted proto-argument stands in for
-                            # any number of actual arguments, including zero.
-                            arg = _ca.UncertainArgument(protoarg.pos, was_bare, result.reason)
+            match protoarg:
+                case _clp.CertainProtoargument():
+                    match protoarg.type_:
+                        case _clp.ProtoargumentType.BARE:
+                            was_bare = True
+                            result = expand_string(protoarg.string, invoc, context)
+                            match result:
+                                case _CertainExpansionResult():
+                                    is_derived = protoarg.is_derived or result.is_derived
+                                    segments, is_derived_2 = _list_split(result.string, is_derived)
+                                    for segment in segments:
+                                        arg = _ca.CertainArgument(protoarg.pos, was_bare, segment, is_derived_2)
+                                        arguments.append(arg)
+                                    continue
+                                case _UncertainExpansionResult():
+                                    # Note that an uncertain unquoted proto-argument stands in for
+                                    # any number of actual arguments, including zero.
+                                    arg = _ca.UncertainArgument(protoarg.pos, was_bare, result.reason)
+                                    arguments.append(arg)
+                                    continue
+                            typing.assert_never(result)
+                        case _clp.ProtoargumentType.QUOTED:
+                            was_bare = False
+                            result = expand_string(protoarg.string, invoc, context)
+                            match result:
+                                case _CertainExpansionResult():
+                                    is_derived = protoarg.is_derived or result.is_derived
+                                    arg = _ca.CertainArgument(protoarg.pos, was_bare, result.string, is_derived)
+                                    arguments.append(arg)
+                                    continue
+                                case _UncertainExpansionResult():
+                                    arg = _ca.UncertainArgument(protoarg.pos, was_bare, result.reason)
+                                    arguments.append(arg)
+                                    continue
+                            typing.assert_never(result)
+                        case _clp.ProtoargumentType.BRACKETED:
+                            assert not protoarg.is_derived
+                            was_bare = False
+                            is_derived = False
+                            arg = _ca.CertainArgument(protoarg.pos, was_bare, protoarg.string, is_derived)
                             arguments.append(arg)
                             continue
-                    typing.assert_never(result)
-                case _clp.Protoargument.Type.QUOTED:
-                    was_bare = False
-                    result = expand_string(string, pos, invoc, context)
-                    match result:
-                        case _CertainExpansionResult():
-                            arg = _ca.CertainArgument(protoarg.pos, was_bare, result.string, result.is_derived)
-                            arguments.append(arg)
-                            continue
-                        case _UncertainExpansionResult():
-                            arg = _ca.UncertainArgument(protoarg.pos, was_bare, result.reason)
-                            arguments.append(arg)
-                            continue
-                    typing.assert_never(result)
-                case _clp.Protoargument.Type.BRACKETED:
-                    was_bare = False
-                    string_2 = _tp.PosMappedString.from_linear_string(string, pos)
-                    is_derived = False
-                    arg = _ca.CertainArgument(protoarg.pos, was_bare, string_2, is_derived)
+                    typing.assert_never(protoarg.type_)
+                case _clp.UncertainProtoargument():
+                    match protoarg.type_:
+                        case _clp.ProtoargumentType.BARE:
+                            was_bare = True
+                        case _clp.ProtoargumentType.QUOTED:
+                            was_bare = False
+                        case _clp.ProtoargumentType.BRACKETED:
+                            assert False  # Not affected by macro substitutions
+                        case _:
+                            typing.assert_never(protoarg.type_)
+                    arg = _ca.UncertainArgument(protoarg.pos, was_bare, protoarg.reason)
                     arguments.append(arg)
                     continue
-            typing.assert_never(protoarg.type_)
+            typing.assert_never(protoarg)
         return arguments
 
-    def expand_string(string: str, pos: int, invoc: _clp.GeneralizedInvoc, context: _InvocContext) -> _ExpansionResult:
+    def expand_string(string: _tp.PosMappedString, invoc: _clp.GeneralizedInvoc,
+                      context: _InvocContext) -> _ExpansionResult:
         def expand(expr: _csp.Expr) -> _ExpansionResult:
             if isinstance(expr, _csp.StringExpr):
                 is_derived = False
@@ -616,7 +632,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
             typing.assert_never(expr)
         def error_handler(pos: int, message: str, *args: typing.Any) -> None:
             error(context.file_index, pos, message, *args)
-        return expand(_csp.parse(string, pos, error_handler))
+        return expand(_csp.parse(string, error_handler))
 
     def resolve_variable(resolution_type: _cu.ResolutionType, variable_name: str, pos: int,
                          context: _InvocContext) -> _cv.Value:
@@ -1059,9 +1075,7 @@ def _list_split(string: _tp.PosMappedString, is_derived: bool) -> tuple[list[_tp
     string_builder = _tp.PosMappedStringBuilder()
     parts = []
     def flush() -> None:
-        string_2 = string_builder.get()
-        pos_map = string.pos_map.compose_with(string_2.pos_map)
-        parts.append(_tp.PosMappedString(string_2.string, pos_map))
+        parts.append(string_builder.get().map_through(string.pos_map))
     is_derived_2 = is_derived
     i = 0
     while True:
@@ -1150,7 +1164,54 @@ def _get_macro_substitutions(parameters: list[str], arguments: list[_ca.Argument
 
 
 def _macro_substitute_invoc(invoc: _clp.Invoc) -> _clp.Invoc:
-    assert False        
+    def subst_invoc(invoc: _clp.Invoc) -> None:
+        match invoc:
+            case _clp.IfInvoc():
+                subst_structured(invoc)
+                for branch in invoc.elseif_branches:
+                    subst_structured(branch)
+                if invoc.else_branch:
+                    subst_structured(invoc.else_branch)
+                subst_arguments(invoc.closing_invoc)
+                return
+            case _clp.ForeachInvoc() | _clp.WhileInvoc() | _clp.MacroDefInvoc() | _clp.FunctionDefInvoc() | \
+                 _clp.BlockInvoc():
+                subst_structured(invoc)
+                subst_arguments(invoc.closing_invoc)
+                return
+            case _clp.ReturnInvoc() | _clp.BreakInvoc() | _clp.ContinueInvoc() | _clp.GenericInvoc():
+                subst_arguments(invoc)
+                return
+        typing.assert_never(invoc)
+
+    def subst_structured(invoc: _clp.StructuredInvocBase) -> None:
+        subst_arguments(invoc)
+        for child in invoc.children:
+            subst_invoc(child)
+
+    def subst_arguments(invoc: _clp.InvocBase) -> None:
+        for i in range(len(invoc.arguments)):
+            arg = invoc.arguments[i]
+            match arg.type_:
+                case _clp.ProtoargumentType.BARE | _clp.ProtoargumentType.QUOTED:
+                    invoc.arguments[i] = subst_arg(arg)
+                    continue
+                case _clp.ProtoargumentType.BRACKETED:
+                    # CMake does not apply macro substitutions inside bracketed arguments
+                    continue
+            typing.assert_never(arg.type_)
+
+    def subst_arg(arg: _clp.Protoargument) -> _clp.Protoargument:
+        match arg:
+            case _clp.CertainProtoargument():
+                assert False            
+            case _clp.UncertainProtoargument():
+                return arg
+        typing.assert_never(arg)
+
+    new_invoc = copy.deepcopy(invoc)
+    subst_invoc(new_invoc)
+    return new_invoc
 
 
 type _SubstitutionValue = _CertainSubstitutionValue | _UncertainSubstitutionValue

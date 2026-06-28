@@ -17,6 +17,12 @@ def as_ord(val: int) -> str:
     return "%sth" % val
 
 
+def chomp(string: str) -> str:
+    if string and string[-1] == "\n":
+        return string[:-1]
+    return string
+
+
 def quote(string: str) -> str:
     return json.dumps(string)
 

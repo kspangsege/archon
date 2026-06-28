@@ -10,6 +10,7 @@ import pathlib
 import archon.base as _b
 import archon.text_pos as _tp
 import archon.log as _l
+import archon.cmake.uncertainty_reason as _cur
 
 
 def parse(input_: typing.TextIO, tracker: _tp.FilePosTracker, warning_handler: ErrorHandler,
@@ -94,17 +95,28 @@ class GenericInvoc(InvocBase):
     command_name_cf: str
 
 
+type Protoargument = CertainProtoargument | UncertainProtoargument
+
 @dataclasses.dataclass(slots=True, frozen=True)
-class Protoargument:
-    class Type(enum.Enum):
-        BARE      = 0
-        QUOTED    = 1
-        BRACKETED = 2
-    type_:       Type
-    text:        str
-    prefix_size: int
-    suffix_size: int
-    pos:         int
+class ProtoargumentBase:
+    type_:     ProtoargumentType
+    orig_text: str
+    pos:       int
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class CertainProtoargument(ProtoargumentBase):
+    string:     _tp.PosMappedString
+    is_derived: bool
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class UncertainProtoargument(ProtoargumentBase):
+    reason: _cur.ExpansionUncertaintyReason
+
+
+class ProtoargumentType(enum.Enum):
+    BARE      = 0
+    QUOTED    = 1
+    BRACKETED = 2
 
 
 
@@ -331,7 +343,7 @@ def _protoparse(input_: typing.TextIO, tracker: _tp.FilePosTracker, warning_hand
                 assert invoc_info
                 require_preceding_whitespace = True
                 reset_have_args = False
-                type_ = Protoargument.Type.BARE
+                type_ = ProtoargumentType.BARE
                 prefix_size = 0
                 suffix_size = 0
                 if isinstance(token, _LParenToken):
@@ -353,18 +365,22 @@ def _protoparse(input_: typing.TextIO, tracker: _tp.FilePosTracker, warning_hand
                 elif isinstance(token, _UnquotedToken):
                     pass
                 elif isinstance(token, _QuotedToken):
-                    type_ = Protoargument.Type.QUOTED
+                    type_ = ProtoargumentType.QUOTED
                     prefix_size = 1
                     suffix_size = 1
                 elif isinstance(token, _BracketToken):
-                    type_ = Protoargument.Type.BRACKETED
+                    type_ = ProtoargumentType.BRACKETED
                     prefix_size = token.prefix_size
                     suffix_size = token.suffix_size
                 else:
                     assert False
                 if have_args and require_preceding_whitespace and not token.preceded_by_whitespace:
                     warning_handler(token.pos, "Missing whitespace between arguments")
-                invoc_info.args.append(Protoargument(type_, token.text, prefix_size, suffix_size, token.pos))
+                i = prefix_size
+                j = len(token.text) - suffix_size
+                string = _tp.PosMappedString.from_linear_string(token.text[i:j], token.pos + i)
+                is_derived = False
+                invoc_info.args.append(CertainProtoargument(type_, token.text, token.pos, string, is_derived))
                 have_args = True
                 if reset_have_args:
                     have_args = False

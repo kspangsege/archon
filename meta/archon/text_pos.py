@@ -70,6 +70,9 @@ class PosMappedString:
     string:  str
     pos_map: PosMap
 
+    def map_through(self, pos_map: PosMap) -> PosMappedString:
+        return PosMappedString(self.string, pos_map.compose_with(self.pos_map))
+
     @classmethod
     def from_linear_string(cls, string: str, ref_pos: int = 0) -> PosMappedString:
         builder = PosMappedStringBuilder(ref_pos)
