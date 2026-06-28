@@ -79,7 +79,7 @@ def test_Macro(context: _t.Context) -> None:
     context.check_equal(len(result.messages), 1)
     message = result.messages[0]
     context.check_equal(message.file_context.path, path)
-    context.check_equal(message.file_context.pos, _tp.FullTextPos(2, 20))
+    context.check_equal(message.file_context.pos, _tp.FullTextPos(2, 2))
     context.check_is_none(message.occurrence_uncertainty)
     context.check_equal(message.level, _cp.MessageLevel.NOTICE)
     context.check_equal(message.message, "Foo Bar")

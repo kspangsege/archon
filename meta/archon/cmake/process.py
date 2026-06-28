@@ -358,7 +358,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                             return
                         substitutions = _get_macro_substitutions(command.parameters, arguments)
                         for subinvoc in command.invocations:
-                            subinvoc_2 = _macro_substitute_invoc(subinvoc)
+                            subinvoc_2 = _macro_substitute_invoc(subinvoc, context, substitutions)
                             exec_command(subinvoc_2, context)
                         return
                     case _CustomCommand.Type.FUNCTION:
@@ -1163,7 +1163,8 @@ def _get_macro_substitutions(parameters: list[str], arguments: list[_ca.Argument
     return substitutions
 
 
-def _macro_substitute_invoc(invoc: _clp.Invoc) -> _clp.Invoc:
+def _macro_substitute_invoc(invoc: _clp.Invoc, context: _InvocContext,
+                            substitutions: dict[str, _SubstitutionValue]) -> _clp.Invoc:
     def subst_invoc(invoc: _clp.Invoc) -> None:
         match invoc:
             case _clp.IfInvoc():
@@ -1194,17 +1195,48 @@ def _macro_substitute_invoc(invoc: _clp.Invoc) -> _clp.Invoc:
             arg = invoc.arguments[i]
             match arg.type_:
                 case _clp.ProtoargumentType.BARE | _clp.ProtoargumentType.QUOTED:
-                    invoc.arguments[i] = subst_arg(arg)
+                    invoc.arguments[i] = subst_arg(arg, invoc)
                     continue
                 case _clp.ProtoargumentType.BRACKETED:
                     # CMake does not apply macro substitutions inside bracketed arguments
                     continue
             typing.assert_never(arg.type_)
 
-    def subst_arg(arg: _clp.Protoargument) -> _clp.Protoargument:
+    def subst_arg(arg: _clp.Protoargument, invoc: _clp.InvocBase) -> _clp.Protoargument:
         match arg:
             case _clp.CertainProtoargument():
-                assert False            
+                is_derived = arg.is_derived
+                builder = _tp.PosMapBuilder()
+                pos = 0
+                def replacer(m: re.Match[str]) -> str:
+                    nonlocal is_derived, pos
+                    param = m.group(1)
+                    value = substitutions.get(param)
+                    if value is None:
+                        return m.group(0)
+                    match_pos = m.start()
+                    match value:
+                        case _CertainSubstitutionValue():
+                            is_derived = True
+                            builder.add_linear(match_pos - pos, pos)
+                            builder.add_nonlinear(len(value.string), match_pos)
+                            pos = m.end()
+                            return value.string
+                        case _UncertainSubstitutionValue():
+                            ref_pos = arg.string.pos_map.map_(match_pos)
+                            expansion_position = _cur.Position(context.file_index, ref_pos)
+                            reason = _cur.ExpansionUncertaintyReason(invoc.command_name, param, expansion_position,
+                                                                     value.reason)
+                            raise _UncertainSubstitutionException(reason)
+                    typing.assert_never(value)
+                try:
+                    new_string = re.sub(r"\$\{([^{}]+)\}", replacer, arg.string.string)
+                except _UncertainSubstitutionException as e:
+                    return _clp.UncertainProtoargument(arg.type_, arg.orig_text, arg.pos, e.reason)
+                builder.add_linear(len(arg.string.string) - pos, pos)
+                pos_map = arg.string.pos_map.compose_with(builder.get())
+                new_string_2 = _tp.PosMappedString(new_string, pos_map)
+                return _clp.CertainProtoargument(arg.type_, arg.orig_text, arg.pos, new_string_2, is_derived)
             case _clp.UncertainProtoargument():
                 return arg
         typing.assert_never(arg)
@@ -1223,3 +1255,8 @@ class _CertainSubstitutionValue:
 @dataclasses.dataclass(slots=True, frozen=True)
 class _UncertainSubstitutionValue:
     reason: _cur.ExpansionUncertaintyReason
+
+
+class _UncertainSubstitutionException(Exception):
+    def __init__(self, reason: _cur.ExpansionUncertaintyReason) -> None:
+        self.reason = reason
