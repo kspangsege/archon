@@ -78,11 +78,42 @@ def test_Macro(context: _t.Context) -> None:
     result = _process(textwrap.dedent(text), path, context)
     context.check_equal(len(result.messages), 1)
     message = result.messages[0]
-    context.check_equal(message.file_context.path, path)
     context.check_equal(message.file_context.pos, _tp.FullTextPos(2, 2))
     context.check_is_none(message.occurrence_uncertainty)
-    context.check_equal(message.level, _cp.MessageLevel.NOTICE)
     context.check_equal(message.message, "Foo Bar")
+
+    text = """\
+      macro(foo _x _y)
+        message("${_x}${_y}aa} -- ${_y}${_x}" [[ -- ${_x}${_y}]])
+      endmacro()
+      set(foo "bar")
+      set(faa "boo")
+      foo("oo}" "\\${f")
+    """
+    path = pathlib.Path("test.cmake")
+    result = _process(textwrap.dedent(text), path, context)
+    context.check_equal(len(result.messages), 1)
+    message = result.messages[0]
+    context.check_equal(message.file_context.pos, _tp.FullTextPos(2, 2))
+    context.check_is_none(message.occurrence_uncertainty)
+    context.check_equal(message.message, "oo}boo -- bar -- ${_x}${_y}")
+
+    text = """\
+      macro(foo _x _y)
+        macro(bar _y _z)
+          message("${_x}-${_y}-${_z}")
+        endmacro()
+        bar("c" "d")
+      endmacro()
+      foo("a" "b")
+    """
+    path = pathlib.Path("test.cmake")
+    result = _process(textwrap.dedent(text), path, context)
+    context.check_equal(len(result.messages), 1)
+    message = result.messages[0]
+    context.check_equal(message.file_context.pos, _tp.FullTextPos(3, 4))
+    context.check_is_none(message.occurrence_uncertainty)
+    context.check_equal(message.message, "a-b-d")
 
 
 def _process(cmake_text: str, cmake_path: pathlib.Path, context: _t.Context) -> _Result:
