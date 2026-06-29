@@ -17,7 +17,7 @@ log_level = _b.Wrap(_l.LogLevel.INFO)
 spec = _cli.Spec()
 spec.opt(["--"], _cli.Stop())
 spec.opt(["-h", "--help"], _cli.ShortCircuit(help_))
-spec.opt(["-l", "--log-level"], _cli.AssignWithArg(log_level, _l.parse_log_level))
+spec.opt(["-l", "--log-level"], _cli.AssignWithArg(_l.parse_log_level, log_level))
 
 root_logger = _l.RootLogger()
 success, args = _cli.parse(sys.argv[1:], spec, root_logger)

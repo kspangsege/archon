@@ -9,16 +9,48 @@ import dataclasses
 import traceback
 import pathlib
 import sys
+import secrets
+import random
 import unittest
 
 import archon.base as _b
 import archon.log as _l
+import archon.command_line_interface as _cli
 
 
 def run_module_tests(module_name: str) -> None:
+    help_ = _b.Wrap(False)
+
+    def int_16(string: str) -> int:
+        return int(string, 16)
+
+    random_seed: int | None = None
+    def set_random_seed(seed: int) -> None:
+        nonlocal random_seed
+        random_seed = seed
+
+    spec = _cli.Spec()
+    spec.opt(["--"], _cli.Stop())
+    spec.opt(["-h", "--help"], _cli.ShortCircuit(help_))
+    spec.opt(["-s", "--random-seed"], _cli.CallWithArg(int_16, set_random_seed))
+
     logger = _l.RootLogger()
+    success, args = _cli.parse(sys.argv[1:], spec, logger)
+    if not success:
+        sys.exit(1)
+    if help_.value:
+        _cli.show_help(spec, logger)
+        return
+    if len(args) > 0:
+        logger.error("Too many command-line arguments (try --help)")
+        sys.exit(1)
+
+    if random_seed is None:
+        random_seed = secrets.randbits(384)  # 19968 for a fill seeding
+
+    logger.info("Random seed: %s", hex(random_seed))
     tests = _get_module_tests(module_name)
-    run(tests, logger)
+    run(tests, logger, random_seed)
 
 
 def generate_native_tests(module_name: str) -> unittest.TestSuite:
@@ -30,9 +62,9 @@ def generate_native_tests(module_name: str) -> unittest.TestSuite:
     return native_tests
 
 
-def run(tests: collections.abc.Iterable[Test], logger: _l.Logger) -> None:
+def run(tests: collections.abc.Iterable[Test], logger: _l.Logger, random_seed: int) -> None:
     base_stack_depth = len(traceback.extract_stack())
-    context = _RegularContext(base_stack_depth, logger)
+    context = _RegularContext(logger, base_stack_depth, random_seed)
     failure = False
     for test in tests:
         if test.description is None:
@@ -103,6 +135,10 @@ class Context(abc.ABC):
     def check_raises(self, exception_type_info: TypeInfo) -> typing.ContextManager[None]:
         ...
 
+    @abc.abstractmethod
+    def create_rng(self) -> random.Random:
+        ...
+
     @property
     def logger(self) -> _l.Logger:
         return self._logger
@@ -137,9 +173,10 @@ class BadTestFunctionSignature(Exception):
 
 
 class _RegularContext(Context):
-    def __init__(self, base_stack_depth: int, logger: _l.Logger) -> None:
+    def __init__(self, logger: _l.Logger, base_stack_depth: int, random_seed: int) -> None:
         Context.__init__(self, logger)
         self._base_stack_depth = base_stack_depth
+        self._random_seed = random_seed
         self._debug_on_failure = False
 
     @typing.override
@@ -195,6 +232,10 @@ class _RegularContext(Context):
     @typing.override
     def check_raises(self, exception_type_info: TypeInfo) -> typing.ContextManager[None]:
         return _CheckRaises(self, exception_type_info)
+
+    @typing.override
+    def create_rng(self) -> random.Random:
+        return random.Random(self._random_seed)
 
     def _check(self, cond: bool, check_name: str, message: str, *params: typing.Any) -> None:
         if cond:
@@ -360,6 +401,10 @@ class _ContextBridge(Context):
         compat_type_info = _type_info_compat_cast(exception_type_info)
         native_cm: typing.ContextManager[typing.Any] = self._test_case.assertRaises(compat_type_info)
         return _NativeContextManagerAdaptor(native_cm)
+
+    @typing.override
+    def create_rng(self) -> random.Random:
+        return random.Random()
 
 
 def _type_info_compat_cast(type_info: TypeInfo) -> tuple[type, ...]:

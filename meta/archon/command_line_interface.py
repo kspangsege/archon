@@ -84,15 +84,39 @@ class Assign[T](OptionAction):
 
 
 class AssignWithArg[T](OptionAction):
-    def __init__(self, target: _b.Wrap[T], mapper: ValueMapper[T]) -> None:
+    def __init__(self, mapper: ValueMapper[T], target: _b.Wrap[T]) -> None:
         OptionAction.__init__(self, OptionAction.HasArg.ALWAYS)
-        self._target = target
         self._mapper = mapper
+        self._target = target
 
     @typing.override
     def invoke(self, arg: str | None) -> None:
         assert arg is not None
         self._target.value = self._mapper(arg)
+
+
+class Call(OptionAction):
+    def __init__(self, func: collections.abc.Callable[[], None]) -> None:
+        OptionAction.__init__(self, OptionAction.HasArg.NEVER)
+        self._func = func
+
+    @typing.override
+    def invoke(self, arg: str | None) -> None:
+        assert arg is None
+        self._func()
+
+
+class CallWithArg[T](OptionAction):
+    def __init__(self, mapper: ValueMapper[T], func: collections.abc.Callable[[T], None]) -> None:
+        OptionAction.__init__(self, OptionAction.HasArg.ALWAYS)
+        self._mapper = mapper
+        self._func = func
+
+    @typing.override
+    def invoke(self, arg: str | None) -> None:
+        assert arg is not None
+        value = self._mapper(arg)
+        self._func(value)
 
 
 class Stop(OptionAction):
