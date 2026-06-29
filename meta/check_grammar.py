@@ -19,7 +19,7 @@ analyze_as_ell1 = _b.Wrap(False)
 spec = _cli.Spec()
 spec.opt(["--"], _cli.Stop())
 spec.opt(["-h", "--help"], _cli.ShortCircuit(help_))
-spec.opt(["-l", "--log-level"], _cli.AssignWithArg(log_level, _l.parse_log_level))
+spec.opt(["-l", "--log-level"], _cli.AssignWithArg(_l.parse_log_level, log_level))
 spec.opt(["-f", "--format-grammar"], _cli.Raise(format_grammar))
 spec.opt(["-a", "--analyze-as-ell1"], _cli.Raise(analyze_as_ell1))
 
