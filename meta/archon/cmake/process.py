@@ -89,7 +89,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
     errors_seen = False
 
     # A custom command (macro or function) that is in the current invocation path must be in
-    # this map as (I, N), where I is the identifier of the cuatsom command object
+    # this map as (I, N), where I is the identifier of the custom command object
     # (`_CustomCommand`) and N is the number of times it is in the path. A custom command
     # that is not in the current invocation path should not be in this map.
     commands_in_invoc_path = dict[int, int]()
