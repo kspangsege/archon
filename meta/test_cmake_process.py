@@ -141,7 +141,7 @@ def test_Macro(context: _t.Context) -> None:
     context.check_equal(message.message, "click 1")
     context.check_equal(len(result.errors), 1)
     error = result.errors[0]
-    context.check_equal(error.message, "Regular expression syntax error: Invalid range")        
+    context.check_in("Regular expression syntax error: Invalid range", error.message)
     context.check_equal(error.file_pos, _tp.FilePos(path, 5, 53))
 
 

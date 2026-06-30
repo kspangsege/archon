@@ -11,6 +11,7 @@ import archon.ansi as _a
 
 
 class LogLevel(enum.Enum):
+    OFF    = 0
     FATAL  = 1
     ERROR  = 2
     WARN   = 3
@@ -18,6 +19,7 @@ class LogLevel(enum.Enum):
     DETAIL = 5
     DEBUG  = 6
     TRACE  = 7
+    ALL    = 8
 
 
 class Logger:
@@ -73,6 +75,12 @@ class LimitLogger(Logger):
     def __init__(self, base_logger: Logger, limit_level: LogLevel) -> None:
         limit = Sublimit(base_logger.get_limit(), limit_level)
         Logger.__init__(self, limit, base_logger.get_sink())
+
+
+class PrefixLogger(Logger):
+    def __init__(self, base_logger: Logger, prefix: str) -> None:
+        sink = PrefixSink(base_logger.get_sink(), prefix)
+        Logger.__init__(self, base_logger.get_limit(), sink)
 
 
 class FileContextLogger(Logger):
@@ -172,6 +180,16 @@ class RootSink(Sink):
         self._output_stream.write(block)
 
 
+class PrefixSink(Sink):
+    def __init__(self, base_sink: Sink, prefix: str) -> None:
+        self._base_sink = base_sink
+        self._prefix    = prefix
+
+    @typing.override
+    def log(self, level: LogLevel, prefix: str, message: str) -> None:
+        self._base_sink.log(level, self._prefix + prefix, message)
+
+
 class FileContextSink(Sink):
     def __init__(self, base_sink: Sink, file_context: FileContext) -> None:
         self._base_sink    = base_sink
@@ -199,6 +217,7 @@ class FileContextSink(Sink):
 
 def parse_log_level(string: str) -> LogLevel:
     map_ = {
+        "off":    LogLevel.OFF,
         "fatal":  LogLevel.FATAL,
         "error":  LogLevel.ERROR,
         "warn":   LogLevel.WARN,
@@ -206,6 +225,7 @@ def parse_log_level(string: str) -> LogLevel:
         "detail": LogLevel.DETAIL,
         "debug":  LogLevel.DEBUG,
         "trace":  LogLevel.TRACE,
+        "all":    LogLevel.ALL,
     }
     level = map_.get(string)
     if level is not None:

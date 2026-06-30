@@ -21,8 +21,6 @@ import archon.command_line_interface as _cli
 
 
 def run_module_tests(module_name: str) -> None:
-    help_ = _b.Wrap(False)
-
     def int_16(string: str) -> int:
         return int(string, 16)
 
@@ -31,10 +29,16 @@ def run_module_tests(module_name: str) -> None:
         nonlocal random_seed
         random_seed = seed
 
+    help_              = _b.Wrap(False)
+    debug_on_failure   = _b.Wrap(False)
+    testcase_log_level = _b.Wrap(_l.LogLevel.OFF)
+
     spec = _cli.Spec()
     spec.opt(["--"], _cli.Stop())
     spec.opt(["-h", "--help"], _cli.ShortCircuit(help_))
     spec.opt(["-s", "--random-seed"], _cli.CallWithArg(int_16, set_random_seed))
+    spec.opt(["-d", "--debug-on-failure"], _cli.Raise(debug_on_failure))
+    spec.opt(["-l", "--testcase-log-level"], _cli.AssignWithArg(_l.parse_log_level, testcase_log_level))
 
     logger = _l.RootLogger()
     success, args = _cli.parse(sys.argv[1:], spec, logger)
@@ -52,7 +56,9 @@ def run_module_tests(module_name: str) -> None:
 
     logger.info("Random seed: %s", hex(random_seed))
     tests = _get_module_tests(module_name)
-    run(tests, logger, random_seed)
+    testcase_logger_1 = _l.PrefixLogger(logger, "Testcase: ")
+    testcase_logger_2 = _l.LimitLogger(testcase_logger_1, testcase_log_level.value)
+    run(tests, random_seed, debug_on_failure.value, logger, testcase_logger_2)
 
 
 def generate_native_tests(module_name: str) -> unittest.TestSuite:
@@ -64,9 +70,10 @@ def generate_native_tests(module_name: str) -> unittest.TestSuite:
     return native_tests
 
 
-def run(tests: collections.abc.Iterable[Test], logger: _l.Logger, random_seed: int) -> None:
+def run(tests: collections.abc.Iterable[Test], random_seed: int, debug_on_failure: bool, logger: _l.Logger,
+        testcase_logger: _l.Logger) -> None:
     base_stack_depth = len(traceback.extract_stack())
-    context = _RegularContext(logger, base_stack_depth, random_seed)
+    context = _RegularContext(base_stack_depth, random_seed, debug_on_failure, logger, testcase_logger)
     failure = False
     for test in tests:
         if test.description is None:
@@ -145,10 +152,10 @@ class Context(abc.ABC):
 
     @property
     def logger(self) -> _l.Logger:
-        return self._logger
+        return self._testcase_logger
 
-    def __init__(self, logger: _l.Logger) -> None:
-        self._logger = logger
+    def __init__(self, testcase_logger: _l.Logger) -> None:
+        self._testcase_logger = testcase_logger
 
 
 type TypeInfo = type | types.UnionType | tuple[TypeInfo, ...]
@@ -177,11 +184,13 @@ class BadTestFunctionSignature(Exception):
 
 
 class _RegularContext(Context):
-    def __init__(self, logger: _l.Logger, base_stack_depth: int, random_seed: int) -> None:
-        Context.__init__(self, logger)
+    def __init__(self, base_stack_depth: int, random_seed: int, debug_on_failure: bool, logger: _l.Logger,
+                 testcase_logger: _l.Logger) -> None:
+        Context.__init__(self, testcase_logger)
         self._base_stack_depth = base_stack_depth
         self._random_seed = random_seed
-        self._debug_on_failure = False
+        self._debug_on_failure = debug_on_failure
+        self._logger = logger
 
     @typing.override
     def check(self, cond: bool) -> None:
