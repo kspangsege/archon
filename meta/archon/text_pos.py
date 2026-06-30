@@ -90,21 +90,21 @@ class PosMappedString:
 
     @classmethod
     def from_linear_string(cls, string: str, ref_pos: int = 0) -> PosMappedString:
-        builder = PosMappedStringBuilder(ref_pos)
+        builder = PosMappedStringBuilder()
         builder.add_linear(string, ref_pos)
         return builder.finalize_and_get()
 
     @classmethod
     def from_nonlinear_string(cls, string: str, ref_pos: int = 0) -> PosMappedString:
-        builder = PosMappedStringBuilder(ref_pos)
+        builder = PosMappedStringBuilder()
         builder.add_nonlinear(string, ref_pos)
         return builder.finalize_and_get()
 
 
 class PosMappedStringBuilder:
-    def __init__(self, ref_pos: int = 0) -> None:
+    def __init__(self) -> None:
         self._string = ""
-        self._pos_map_builder = PosMapBuilder(ref_pos)
+        self._pos_map_builder = PosMapBuilder()
 
     @property
     def ref_pos(self) -> int:
@@ -121,6 +121,9 @@ class PosMappedStringBuilder:
     def add_pos_mapped_string(self, string: PosMappedString) -> None:
         self._pos_map_builder.add_pos_map(string.pos_map) # Throws
         self._string += string.string
+
+    def bump_ref_pos_to(self, ref_pos: int) -> None:
+        self.bump_ref_pos_to(ref_pos)
 
     def finalize_and_get(self) -> PosMappedString:
         pos_map = self._pos_map_builder.finalize_and_get()
@@ -211,7 +214,7 @@ class PosMap:
             raise KeyError("Range of other map is out of bounds")
         builder = PosMapBuilder()
         i = self._find_segment(0)
-        builder.bump_ref_pos(self._map(i, 0))
+        builder.bump_ref_pos_to(self._map(i, 0))
         for inner_seg in other.lin_segments:
             builder.add_nonlinear(inner_seg.begin - builder.pos, builder.ref_pos)
             i = self._find_segment(inner_seg.ref_pos, i + 1)
@@ -250,7 +253,7 @@ class PosMap:
                     # Next outer segment is completely contained in current inner segment
                     builder.add_linear(outer_seg.size, outer_seg.ref_pos)
             i = self._find_segment(inner_seg.end_ref_pos, i + 1)
-            builder.bump_ref_pos(self._map(i, inner_seg.end_ref_pos))
+            builder.bump_ref_pos_to(self._map(i, inner_seg.end_ref_pos))
         builder.add_nonlinear(other.size - builder.pos, builder.ref_pos)
         return builder.finalize_and_get()
 
@@ -293,12 +296,10 @@ class PosMap:
 
 
 class PosMapBuilder:
-    def __init__(self, ref_pos: int = 0):
-        if ref_pos < 0:
-            raise ValueError("Negative leading reference position")
+    def __init__(self) -> None:
         self._lin_segments = list[PosMap.LinSegment]()
         self._pos          = 0
-        self._ref_pos      = ref_pos
+        self._ref_pos      = 0
 
     @property
     def pos(self) -> int:
@@ -342,8 +343,7 @@ class PosMapBuilder:
         self._ref_pos = ref_pos
 
     def add_pos_map(self, pos_map: PosMap) -> None:
-        if pos_map.begin_ref_pos < self._ref_pos:
-            raise ValueError("Reference position overlap")
+        self.bump_ref_pos_to(pos_map.begin_ref_pos)
         pos = 0
         for seg in pos_map.lin_segments:
             self.add_nonlinear(seg.begin - pos, self._ref_pos)
@@ -351,7 +351,7 @@ class PosMapBuilder:
             pos = seg.end
         self.add_nonlinear(pos_map.size - pos, self._ref_pos)
 
-    def bump_ref_pos(self, ref_pos: int) -> None:
+    def bump_ref_pos_to(self, ref_pos: int) -> None:
         if ref_pos < self._ref_pos:
             raise ValueError("Reference position overlap")
         self._ref_pos = ref_pos

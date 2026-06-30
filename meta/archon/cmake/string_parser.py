@@ -60,7 +60,8 @@ def _parse(string: _tp.PosMappedString, error_handler: ErrorHandler) -> Expr:
     def ensure_string_builder(pos: int) -> _tp.PosMappedStringBuilder:
         nonlocal string_builder
         if not string_builder:
-            string_builder = _tp.PosMappedStringBuilder(pos)
+            string_builder = _tp.PosMappedStringBuilder()
+            string_builder.bump_ref_pos_to(pos)
         return string_builder
 
     def add_linear(string: str, pos: int) -> None:

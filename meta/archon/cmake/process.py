@@ -601,7 +601,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                 is_derived = False
                 return _CertainExpansionResult(expr.string, is_derived)
             if isinstance(expr, _csp.CompositeExpr):
-                string_builder = _tp.PosMappedStringBuilder(expr.pos)
+                string_builder = _tp.PosMappedStringBuilder()
                 for part in expr.parts:
                     result = expand(part)
                     if isinstance(result, _CertainExpansionResult):
@@ -1079,20 +1079,21 @@ def _list_split(string: _tp.PosMappedString, is_derived: bool) -> tuple[list[_tp
     is_derived_2 = is_derived
     i = 0
     while True:
+        string_builder.bump_ref_pos_to(i)
         j = string.string.find(";", i)
         if j == -1:
-            string_builder.add_linear(string.string[i:], i)
+            string_builder.add_linear(string.string[i:], string_builder.ref_pos)
             break
         is_derived_2 = True
         if j > i and string.string[j-1] == "\\":
-            string_builder.add_linear(string.string[i:j-1], i)
-            string_builder.add_nonlinear(";", j - 1)
+            string_builder.add_linear(string.string[i:j-1], string_builder.ref_pos)
+            string_builder.add_nonlinear(";", string_builder.ref_pos)
             i = j + 1
             continue
-        string_builder.add_linear(string.string[i:j], i)
+        string_builder.add_linear(string.string[i:j], string_builder.ref_pos)
         flush()
         i = j + 1
-        string_builder = _tp.PosMappedStringBuilder(i)
+        string_builder = _tp.PosMappedStringBuilder()
     flush()
     return parts, is_derived_2
 

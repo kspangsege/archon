@@ -13,10 +13,10 @@ def test_PosMap_ComposeWith(context: _t.Context) -> None:
     num_rounds = 8192
     for _ in range(num_rounds):
         max_lin_segments = 5
-        max_outer_segment_size = 10
+        max_outer_lin_segment_size = 10
         max_outer_gap_size = 10
         max_inner_gap_size = 10
-        outer = _generate_outer_map(max_lin_segments, max_outer_segment_size, max_outer_gap_size, rng)
+        outer = _generate_outer_map(max_lin_segments, max_outer_lin_segment_size, max_outer_gap_size, rng)
         inner = _generate_inner_map(max_lin_segments, outer.size, max_inner_gap_size, rng)
         composed = outer.compose_with(inner)
         size = composed.size
@@ -25,54 +25,48 @@ def test_PosMap_ComposeWith(context: _t.Context) -> None:
             context.check_equal(composed.map_(i), outer.map_(inner.map_(i)))
 
 
-def _generate_outer_map(max_lin_segments: int, max_segment_size: int, max_gap_size: int,
+def _generate_outer_map(max_lin_segments: int, max_lin_segment_size: int, max_gap_size: int,
                         rng: random.Random) -> _tp.PosMap:
     num_lin_segments = rng.randint(0, max_lin_segments)
+    lin_segments = list[_tp.PosMap.LinSegment]()
+    pos = rng.randint(0, max_gap_size)
     ref_pos = rng.randint(0, max_gap_size)
-    builder = _tp.PosMapBuilder(ref_pos)
-    if num_lin_segments == 0:
-        size = rng.randint(0, max_gap_size)
-        builder.add_nonlinear(size, ref_pos)
-        return builder.finalize_and_get()
-
     for i in range(num_lin_segments):
-        domain_gap = rng.randint(0, max_gap_size)
-        builder.add_nonlinear(domain_gap, ref_pos)
-        seg_size = rng.randint(0, max_segment_size)
-        builder.add_linear(seg_size, ref_pos)
-        if i + 1 < num_lin_segments:
-            ref_gap = rng.randint(0, max_gap_size)
-            ref_pos = builder.ref_pos + ref_gap
-
-    size = rng.randint(0, max_gap_size)
-    builder.add_nonlinear(size, builder.ref_pos)
-    return builder.finalize_and_get()
+        size = rng.randint(0, max_lin_segment_size)
+        begin = pos
+        end = begin + size
+        lin_segments.append(_tp.PosMap.LinSegment(begin, end, ref_pos))
+        pos = end + rng.randint(0, max_gap_size)
+        ref_pos += size
+        if i < num_lin_segments - 1:
+            ref_pos += rng.randint(0, max_gap_size)
+    size = pos
+    return _tp.PosMap(tuple(lin_segments), size)
 
 
 def _generate_inner_map(max_lin_segments: int, outer_size: int, max_gap_size: int, rng: random.Random) -> _tp.PosMap:
     num_lin_segments = rng.randint(0, max_lin_segments)
-    if num_lin_segments == 0:
-        ref_pos = rng.randint(0, outer_size)
-        builder = _tp.PosMapBuilder(ref_pos)
-        size = rng.randint(0, max_gap_size)
-        builder.add_nonlinear(size, ref_pos)
-        return builder.finalize_and_get()
-
-    end_ref_pos = rng.randint(0, outer_size)
-    ref_partitions = _r.random_weak_composition(end_ref_pos, 2 * num_lin_segments, rng)
-    ref_gaps = ref_partitions[0::2]
-    lin_segment_sizes = ref_partitions[1::2]
-    gaps = [rng.randint(0, max_gap_size) for _ in range(num_lin_segments + 1)]
-
-    ref_pos = ref_gaps[0]
-    builder = _tp.PosMapBuilder(ref_pos)
-    for i in range(num_lin_segments):
-        builder.add_nonlinear(gaps[i], ref_pos)
-        builder.add_linear(lin_segment_sizes[i], ref_pos)
-        if i + 1 < num_lin_segments:
-            ref_pos = builder.ref_pos + ref_gaps[i + 1]
-    builder.add_nonlinear(gaps[num_lin_segments], builder.ref_pos)
-    return builder.finalize_and_get()
+    lin_segments = list[_tp.PosMap.LinSegment]()
+    pos = rng.randint(0, max_gap_size)
+    if num_lin_segments > 0:
+        ref_size = rng.randint(0, outer_size)
+        ref_pos_offset = rng.randint(0, outer_size - ref_size)
+        ref_partitions = _r.random_weak_composition(ref_size, 2 * num_lin_segments - 1, rng)
+        lin_segment_sizes = ref_partitions[0::2]
+        ref_gaps = ref_partitions[1::2]
+        ref_pos = ref_pos_offset
+        for i in range(num_lin_segments):
+            size = lin_segment_sizes[i]
+            begin = pos
+            end = begin + size
+            lin_segments.append(_tp.PosMap.LinSegment(begin, end, ref_pos))
+            pos = end + rng.randint(0, max_gap_size)
+            ref_pos += size
+            if i < num_lin_segments - 1:
+                ref_pos += ref_gaps[i]
+        assert ref_pos == ref_pos_offset + ref_size
+    size = pos
+    return _tp.PosMap(tuple(lin_segments), size)
 
 
 # Bridge to Python's native testing framework
