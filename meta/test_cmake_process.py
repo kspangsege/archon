@@ -101,6 +101,33 @@ def test_Macro(context: _t.Context) -> None:
     context.check_is_none(message.occurrence_uncertainty)
     context.check_equal(message.message, "oo}boo -- bar -- ${_x}${_y}")
 
+    # That special macro variables work correctly
+    text = r"""
+      set(ARGV1 "1")
+      set(ARGV2 "2")
+      macro(foo _x)
+        message("${ARGC}-${ARGN}-${ARGV}-${ARGV0}-${ARGV1}-${ARGV2}")
+      endmacro()
+      foo("x")
+      foo("x" "y")
+      foo("x" "y" "z")
+    """
+    path = pathlib.Path("test.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check(success)
+    expected_messages = [
+        "1--x-x-1-2",
+        "2-y-x;y-x-y-2",
+        "3-y;z-x;y;z-x-y-z",
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for message, expected in zip(result.messages, expected_messages):
+        context.check_equal(message.file_pos, _tp.FilePos(path, 4, 2))
+        context.check_is_none(message.occurrence_uncertainty)
+        context.check_equal(message.level, _cp.MessageLevel.NOTICE)
+        context.check_equal(message.message, expected)
+
+    # That expansion of outer macro parameters reaches into inner macro body
     text = r"""
       macro(foo _x _y)
         macro(bar _y _z)
@@ -120,7 +147,7 @@ def test_Macro(context: _t.Context) -> None:
     context.check_equal(message.message, "a-b-d")
 
     # Check determination of error position with correction for macro substitution and
-    # regular expression unesccaping
+    # regular expression unescaping
     text = r"""
       macro(foo _x)
         if("--${_x}----${_x}--" MATCHES "${_x}\\-\\-\\-\\-x")

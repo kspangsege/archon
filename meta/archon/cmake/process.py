@@ -1126,11 +1126,11 @@ def _get_macro_substitutions(parameters: list[str], arguments: list[_ca.Argument
 
     # Special variables will shadow formal parameters of the same name. This is consistent
     # with CMake behavior.
-    all_args   = []
-    extra_args = []
+    all_args   = list[str]()
+    extra_args = list[str]()
     all_uncertainty:   _cur.ExpansionUncertaintyReason | None = None
     extra_uncertainty: _cur.ExpansionUncertaintyReason | None = None
-    for arg in arguments:
+    for i, arg in enumerate(arguments):
         name = "ARGV%s" % i
         match arg:
             case _ca.CertainArgument():
