@@ -70,6 +70,14 @@ class PosMappedString:
     string:  str
     pos_map: PosMap
 
+    @property
+    def begin_ref_pos(self) -> int:
+        return self.pos_map.begin_ref_pos
+
+    @property
+    def end_ref_pos(self) -> int:
+        return self.pos_map.end_ref_pos
+
     def map_through(self, pos_map: PosMap) -> PosMappedString:
         return PosMappedString(self.string, pos_map.compose_with(self.pos_map))
 
@@ -94,9 +102,9 @@ class PosMappedString:
 
 
 class PosMappedStringBuilder:
-    def __init__(self, lead_ref_pos: int = 0) -> None:
+    def __init__(self, ref_pos: int = 0) -> None:
         self._string = ""
-        self._pos_map_builder = PosMapBuilder(lead_ref_pos)
+        self._pos_map_builder = PosMapBuilder(ref_pos)
 
     @property
     def ref_pos(self) -> int:
@@ -132,12 +140,12 @@ class PosMappedStringBuilder:
 # `seg.begin <= pos < seg.end`.
 #
 # A derived character position, `pos`, that occurs inside the map, `map`, but before the
-# first linear segment if there are any linear segments, maps to `map.lead_ref_pos`. The
-# derived position is inside the map when `0 <= pos < map.size`.
+# first linear segment if there are any linear segments, maps to zero. The derived position
+# is inside the map when `0 <= pos < map.size`.
 #
 # A derived character position, `pos`, that occurs after a linear segment, `seg`, but inside
 # the map and before the subsequent linear segment if there are any subsequent linear
-# segments, maps to `seg.ref_pos + seg.size`.
+# segments, maps to `seg.end_ref_pos`, which is `seg.ref_pos + seg.size`.
 #
 # A map, `map`, is valid if and only if all of the following are true:
 #
@@ -146,12 +154,12 @@ class PosMappedStringBuilder:
 #   * If `seg` is a linear segment in `map`, then `seg.begin <= seg.end`.
 #
 #   * If `first` is the first linear segment in `map`, then `first.begin >= 0` and
-#     `first.ref_pos >= map.lead_ref_pos`.
+#     `first.ref_pos >= 0`.
 #
 #   * If `last` is the last linear segment in `map`, then `last.end <= map.size`.
 #
 #   * If `a` and `b` are linear segments, and `a` occurs immediately before `b` in
-#     `map.lin_segments`, then `a.end <= b.begin` and `a.ref_pos + a.size <= b.ref_pos`.
+#     `map.lin_segments`, then `a.end <= b.begin` and `a.end_ref_pos <= b.ref_pos`.
 #
 @dataclasses.dataclass(slots=True, frozen=True)
 class PosMap:
@@ -173,15 +181,23 @@ class PosMap:
             assert pos >= self.begin
             return self.ref_pos + (pos - self.begin) if pos < self.end else self.end_ref_pos
 
-    lead_ref_pos: int
     lin_segments: tuple[LinSegment, ...]
     size:         int
 
     @property
+    def begin_ref_pos(self) -> int:
+        if self.lin_segments:
+            first = self.lin_segments[0]
+            if first.begin == 0:
+                return first.ref_pos
+            assert first.begin > 0
+        return 0
+
+    @property
     def end_ref_pos(self) -> int:
         if self.lin_segments:
-            return self.lin_segments[-1]._map(self.size)
-        return self.lead_ref_pos
+            return self.lin_segments[-1].end_ref_pos
+        return 0
 
     def map_(self, pos: int) -> int:
         if pos < 0 or pos > self.size:
@@ -193,11 +209,11 @@ class PosMap:
     def compose_with(self, other: PosMap) -> PosMap:
         if other.end_ref_pos > self.size:
             raise KeyError("Range of other map is out of bounds")
-        i = self._find_segment(other.lead_ref_pos)
-        outer_ref_pos = self._map(i, other.lead_ref_pos)
-        builder = PosMapBuilder(outer_ref_pos)
+        builder = PosMapBuilder()
+        i = self._find_segment(0)
+        builder.bump_ref_pos(self._map(i, 0))
         for inner_seg in other.lin_segments:
-            builder.add_nonlinear(inner_seg.begin - builder.pos, outer_ref_pos)
+            builder.add_nonlinear(inner_seg.begin - builder.pos, builder.ref_pos)
             i = self._find_segment(inner_seg.ref_pos, i + 1)
             outer_seg = self.lin_segments[i] if i >= 0 else None
             assert not outer_seg or outer_seg.begin <= inner_seg.ref_pos
@@ -234,8 +250,8 @@ class PosMap:
                     # Next outer segment is completely contained in current inner segment
                     builder.add_linear(outer_seg.size, outer_seg.ref_pos)
             i = self._find_segment(inner_seg.end_ref_pos, i + 1)
-            outer_ref_pos = self._map(i, inner_seg.end_ref_pos)
-        builder.add_nonlinear(other.size - builder.pos, outer_ref_pos)
+            builder.bump_ref_pos(self._map(i, inner_seg.end_ref_pos))
+        builder.add_nonlinear(other.size - builder.pos, builder.ref_pos)
         return builder.finalize_and_get()
 
     def is_valid(self) -> bool:
@@ -255,13 +271,15 @@ class PosMap:
             first = self.lin_segments[0]
             if first.begin < 0:
                 return False
-            if first.ref_pos < self.lead_ref_pos:
+            if first.ref_pos < 0:
                 return False
             last = self.lin_segments[-1]
             if last.end > self.size:
                 return False
         return True
 
+    # Find last linear segment that begins at or before the specified position. If no linear
+    # segment begins at or before the specified position, this function returns -1.
     def _find_segment(self, pos: int, offset: int = 0) -> int:
         assert 0 <= pos <= self.size
         assert 0 <= offset <= len(self.lin_segments)
@@ -271,15 +289,16 @@ class PosMap:
         if i >= 0:
             seg = self.lin_segments[i]
             return seg._map(pos)
-        return self.lead_ref_pos
+        return 0
 
 
 class PosMapBuilder:
-    def __init__(self, lead_ref_pos: int = 0):
-        self._lead_ref_pos = lead_ref_pos
+    def __init__(self, ref_pos: int = 0):
+        if ref_pos < 0:
+            raise ValueError("Negative leading reference position")
         self._lin_segments = list[PosMap.LinSegment]()
         self._pos          = 0
-        self._ref_pos      = lead_ref_pos
+        self._ref_pos      = ref_pos
 
     @property
     def pos(self) -> int:
@@ -323,9 +342,8 @@ class PosMapBuilder:
         self._ref_pos = ref_pos
 
     def add_pos_map(self, pos_map: PosMap) -> None:
-        if pos_map.lead_ref_pos < self._ref_pos:
+        if pos_map.begin_ref_pos < self._ref_pos:
             raise ValueError("Reference position overlap")
-        self._ref_pos = pos_map.lead_ref_pos
         pos = 0
         for seg in pos_map.lin_segments:
             self.add_nonlinear(seg.begin - pos, self._ref_pos)
@@ -333,13 +351,18 @@ class PosMapBuilder:
             pos = seg.end
         self.add_nonlinear(pos_map.size - pos, self._ref_pos)
 
+    def bump_ref_pos(self, ref_pos: int) -> None:
+        if ref_pos < self._ref_pos:
+            raise ValueError("Reference position overlap")
+        self._ref_pos = ref_pos
+
     def finalize_and_get(self) -> PosMap:
         self._flush_lin_segment(self._ref_pos)
         size = self._pos
-        return PosMap(self._lead_ref_pos, tuple(self._lin_segments), size)
+        return PosMap(tuple(self._lin_segments), size)
 
     def _flush_lin_segment(self, ref_pos: int) -> None:
-        end_ref_pos = self._lin_segments[-1].end_ref_pos if self._lin_segments else self._lead_ref_pos
+        end_ref_pos = self._lin_segments[-1].end_ref_pos if self._lin_segments else 0
         if ref_pos > end_ref_pos:
             begin = self._pos
             end = begin

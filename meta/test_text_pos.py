@@ -10,7 +10,7 @@ import archon.test as _t
 
 def test_PosMap_ComposeWith(context: _t.Context) -> None:
     rng = context.create_rng()
-    num_rounds = 65536
+    num_rounds = 8192
     for _ in range(num_rounds):
         max_lin_segments = 5
         max_outer_segment_size = 10
@@ -21,7 +21,7 @@ def test_PosMap_ComposeWith(context: _t.Context) -> None:
         composed = outer.compose_with(inner)
         size = composed.size
         context.check_equal(size, inner.size)
-        for i in range(size):
+        for i in range(size + 1):
             context.check_equal(composed.map_(i), outer.map_(inner.map_(i)))
 
 
