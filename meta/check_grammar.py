@@ -5,7 +5,6 @@ import sys
 import pathlib
 
 import archon.base as _b
-import archon.text_pos as _tp
 import archon.log as _l
 import archon.command_line_interface as _cli
 import archon.parsing.ecfg as _pe
@@ -38,8 +37,8 @@ path = pathlib.Path(args[0])
 logger = _l.LimitLogger(root_logger, log_level.value)
 try:
     with open(path, "r") as file_:
-        def error_handler(pos: _tp.FullTextPos, message: str, *args: typing.Any) -> None:
-            context = _tp.FileContext(path, pos)
+        def error_handler(pos: _l.FullTextPos, message: str, *args: typing.Any) -> None:
+            context = _l.FileContext(path, pos)
             _l.FileContextLogger(logger, context).error(message, *args)
         grammar = _pe.parse(file_, error_handler)
 except FileNotFoundError as e:

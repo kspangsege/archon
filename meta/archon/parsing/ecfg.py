@@ -10,7 +10,7 @@ import sys
 import archon.base as _b
 import archon.graph as _g
 import archon.ansi as _a
-import archon.text_pos as _tp
+import archon.log as _l
 
 
 def parse(input_: typing.TextIO, error_handler: ErrorHandler) -> Grammar | None:
@@ -27,7 +27,7 @@ def analyze_as_ell1(grammar: Grammar, output_stream: typing.TextIO = sys.stdout)
 
 
 class ErrorHandler(typing.Protocol):
-    def __call__(self, pos: _tp.FullTextPos, message: str, *args: typing.Any) -> None:
+    def __call__(self, pos: _l.FullTextPos, message: str, *args: typing.Any) -> None:
         ...
 
 
@@ -120,11 +120,11 @@ def _parse(input_: typing.TextIO, error_handler: ErrorHandler) -> Grammar | None
     named_terminals      = list[str]()
     named_terminal_map   = dict[str, int]()
     defined_nonterminals = set[str]()
-    referenced_names     = list[tuple[str, _tp.FullTextPos]]()
+    referenced_names     = list[tuple[str, _l.FullTextPos]]()
     referenced_name_map  = dict[str, int]()
 
     start_nonterminal: str | None = None
-    start_dir_pos:     _tp.FullTextPos
+    start_dir_pos:     _l.FullTextPos
 
     token: _Token
 
@@ -309,12 +309,12 @@ def _parse(input_: typing.TextIO, error_handler: ErrorHandler) -> Grammar | None
         return isinstance(token, _SymbolToken) and token.symbol is symbol
 
     errors_seen = False
-    def error(pos: _tp.FullTextPos, message: str, *args: typing.Any) -> None:
+    def error(pos: _l.FullTextPos, message: str, *args: typing.Any) -> None:
         nonlocal errors_seen
         errors_seen = True
         error_handler(pos, message, *args)
 
-    def tokenize_error_handler(pos: _tp.FullTextPos, message: str, *args: typing.Any) -> None:
+    def tokenize_error_handler(pos: _l.FullTextPos, message: str, *args: typing.Any) -> None:
         error(pos, message, *args)
 
     tokens = _tokenize(input_, tokenize_error_handler)
@@ -347,7 +347,7 @@ def _tokenize(input_: typing.TextIO, error_handler: ErrorHandler) -> collections
         for m in _TOKEN_REGEX.finditer(line):
             kind = m.lastgroup
             text = m.group()
-            pos = _tp.FullTextPos(line_no, m.start())
+            pos = _l.FullTextPos(line_no, m.start())
 
             if kind in ("WS", "COMMENT"):
                 continue
@@ -382,9 +382,9 @@ def _tokenize(input_: typing.TextIO, error_handler: ErrorHandler) -> collections
             assert False
 
         if has_directive:
-            yield _DirLeadToken(_tp.FullTextPos(line_no))
+            yield _DirLeadToken(_l.FullTextPos(line_no))
         elif has_equal:
-            yield _DefLeadToken(_tp.FullTextPos(line_no))
+            yield _DefLeadToken(_l.FullTextPos(line_no))
 
         for token in tokens:
             if not isinstance(token, _ErrorToken):
@@ -399,14 +399,14 @@ def _tokenize(input_: typing.TextIO, error_handler: ErrorHandler) -> collections
                     continue
             typing.assert_never(token.error)
 
-    yield _EndOfInputToken(_tp.FullTextPos(line_no))
+    yield _EndOfInputToken(_l.FullTextPos(line_no))
 
 
 type _Token = _DirLeadToken | _DefLeadToken | _NameToken | _LiteralToken | _SymbolToken | _EndOfInputToken
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class _TokenBase:
-    pos: _tp.FullTextPos
+    pos: _l.FullTextPos
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class _DirLeadToken(_TokenBase):
