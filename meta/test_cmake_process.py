@@ -45,6 +45,52 @@ def test_Set(context: _t.Context) -> None:
     context.check_equal(message.message, "Foo Bar")
 
 
+def test_String(context: _t.Context) -> None:
+    text = r"""
+      set(_x "Foo")
+      string(TOLOWER "${_x}" _y)
+      string(TOUPPER "${_x}" _z)
+      message("${_y}-${_z}")
+    """
+    path = pathlib.Path("test.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check(success)
+    context.check_equal(len(result.messages), 1)
+    message = result.messages[0]
+    context.check_equal(message.file_pos, _tp.FilePos(path, 4, 0))
+    context.check_is_none(message.occurrence_uncertainty)
+    context.check_equal(message.level, _cp.MessageLevel.NOTICE)
+    context.check_equal(message.message, "foo-FOO")
+
+
+def test_List(context: _t.Context) -> None:
+    text = r"""
+      set(_a "")
+      set(_b "A")
+      set(_c "")
+      set(_d "A")
+      list(APPEND _a)
+      list(APPEND _b)
+      list(APPEND _c "B")
+      list(APPEND _d "B")
+      message("${_a}-${_b}-${_c}-${_d}")
+      set(_l "A;B" "C\;D")
+      list(APPEND _l "E;F" "G\;H")
+      message("${_l}")
+    """
+    path = pathlib.Path("test.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check(success)
+    expected_messages = [
+        "-A-B-A;B",
+        "A;B;C\;D;E;F;G\;H",
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for message, expected in zip(result.messages, expected_messages):
+        context.check_is_none(message.occurrence_uncertainty)
+        context.check_equal(message.message, expected)
+
+
 def test_Foreach(context: _t.Context) -> None:
     text = r"""
       set(l "Foo" "Bar" "Baz")

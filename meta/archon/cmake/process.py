@@ -261,18 +261,8 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                     continue
                 if mode == "LISTS":
                     var_name = arg.string.string
-                    value = resolve_variable(_cu.ResolutionType.GENERAL, var_name, arg.pos, context)
-                    match value:
-                        case _cv.CertainValue():
-                            string = value.string or ""
-                        case _cv.UncertainValue():
-                            expansion_position = _cur.Position(context.file_index, arg.pos)
-                            reason = _cur.ExpansionUncertaintyReason(invoc.command_name, var_name, expansion_position,
-                                                                     value.reason)
-                            raise _ca.UncertainArgumentException(reason)
-                        case _:
-                            typing.assert_never(value)
-                    items += _cu.list_split(string)
+                    string = get_certain_variable(var_name, arg.pos, invoc, context)
+                    items += _cu.unescaping_list_split(string)
                     continue
                 assert False
             iterate_list(loop_vars[0], items)
@@ -344,6 +334,9 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                         return
                     case _BuiltInCommand.Which.STRING:
                         exec_string(invoc, context)
+                        return
+                    case _BuiltInCommand.Which.LIST:
+                        exec_list(invoc, context)
                         return
                     case _BuiltInCommand.Which.MESSAGE:
                         exec_message(invoc, context)
@@ -433,7 +426,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
             case _:
                 typing.assert_never(var_ref.resolution_type)
         var_name = var_ref.variable_name
-        values = []
+        values = list[str]()
         parent_scope = False
         try:
             while True:
@@ -491,25 +484,68 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
 
     def exec_string(invoc: _clp.GenericInvoc, context: _InvocContext) -> None:
         server = create_argument_server(invoc, context)
-        func = server.consume()
-        if not func:
+        arg = server.consume()
+        if not arg:
             error(context.file_index, server.next_pos(), "Too few arguments in %s() invocation",
                   invoc.command_name)
             return
-        if func.string.string == "TOUPPER":
-            # FIXME: Consider allowing for uncertain value (like in set())
-            string = server.consume()
-            if not string:
-                error(context.file_index, server.next_pos(), "Missing <string> argument in %s(TOUPPER) invocation",
-                      invoc.command_name)
+        func = arg.string.string
+        if func in {"TOLOWER", "TOUPPER"}:
+            # FIXME: Consider allowing for value uncertainty (like in set())    
+            arg = server.consume()
+            if not arg:
+                error(context.file_index, server.next_pos(), "Missing <string> argument in %s(%s) invocation",
+                      invoc.command_name, func)
                 return
-            out_var = server.consume()
-            if not out_var:
-                error(context.file_index, server.next_pos(), "Missing <out-var> argument in %s(TOUPPER) invocation",
-                      invoc.command_name)
+            string = arg.string.string
+            arg = server.consume()
+            if not arg:
+                error(context.file_index, server.next_pos(), "Missing <variable> argument in %s(%s) invocation",
+                      invoc.command_name, func)
                 return
-            string_2 = string.string.string.translate(_ASCII_UPPER_MAP)
-            set_regular_variable(out_var.string.string, string_2, invoc, context)
+            var_name = arg.string.string
+            # NOTE: CMake completely ignores additional arguments for these signatures
+            match func:
+                case "TOLOWER":
+                    string_2 = string.translate(_ASCII_LOWER_MAP)
+                case "TOUPPER":
+                    string_2 = string.translate(_ASCII_UPPER_MAP)
+                case _:
+                    assert False
+            set_regular_variable(var_name, string_2, invoc, context)
+            return
+        raise _UnsupportedInvocSyntaxException(invoc) from None
+
+    def exec_list(invoc: _clp.GenericInvoc, context: _InvocContext) -> None:
+        server = create_argument_server(invoc, context)
+        arg = server.consume()
+        if not arg:
+            error(context.file_index, server.next_pos(), "Too few arguments in %s() invocation",
+                  invoc.command_name)
+            return
+        func = arg.string.string
+        if func == "APPEND":
+            # FIXME: Consider allowing for original value and element uncertainty (like in set())    
+            arg = server.consume()
+            if not arg:
+                error(context.file_index, server.next_pos(), "Missing <variable> argument in %s(%s) invocation",
+                      invoc.command_name, func)
+                return
+            var_name = arg.string.string
+            var_name_pos = arg.pos
+            elements = list[str]()
+            while True:
+                arg = server.consume()
+                if not arg:
+                    break
+                elements.append(arg.string.string)
+            string = get_certain_variable(var_name, var_name_pos, invoc, context)
+            # NOTE: CMake never escapes literal `;` characters when joining list elements
+            # into a single string. This fact wrecks havoc in more complex list operations
+            # such as REVERSE (splitting un-escapes `\;` but re-joining fails to re-escape
+            # `;`).
+            string_2 = ";".join([string] + elements if string else elements)
+            set_regular_variable(var_name, string_2, invoc, context)
             return
         raise _UnsupportedInvocSyntaxException(invoc) from None
 
@@ -678,6 +714,18 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
         def error_handler(pos: int, message: str, *args: typing.Any) -> None:
             error(context.file_index, pos, message, *args)
         return expand(_csp.parse(string, error_handler))
+
+    def get_certain_variable(var_name: str, pos: int, invoc: _clp.GeneralizedInvoc, context: _InvocContext) -> str:
+        value = resolve_variable(_cu.ResolutionType.GENERAL, var_name, pos, context)
+        match value:
+            case _cv.CertainValue():
+                return value.string or ""
+            case _cv.UncertainValue():
+                expansion_position = _cur.Position(context.file_index, pos)
+                reason = _cur.ExpansionUncertaintyReason(invoc.command_name, var_name, expansion_position,
+                                                         value.reason)
+                raise _ca.UncertainArgumentException(reason)
+        typing.assert_never(value)
 
     def resolve_variable(resolution_type: _cu.ResolutionType, variable_name: str, pos: int,
                          context: _InvocContext) -> _cv.Value:
@@ -1006,9 +1054,10 @@ class _BuiltInCommand:
         SET              = 1
         UNSET            = 2
         STRING           = 3
-        MESSAGE          = 4
-        INCLUDE          = 5
-        ADD_SUBDIRECTORY = 6
+        LIST             = 4
+        MESSAGE          = 5
+        INCLUDE          = 6
+        ADD_SUBDIRECTORY = 7
     which: Which
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -1039,6 +1088,7 @@ def _define_built_in_commands(commands: dict[str, _Command]) -> None:
     define("set",                    _BuiltInCommand.Which.SET)
     define("unset",                  _BuiltInCommand.Which.UNSET)
     define("string",                 _BuiltInCommand.Which.STRING)
+    define("list",                   _BuiltInCommand.Which.LIST)
     define("message",                _BuiltInCommand.Which.MESSAGE)
     define("include",                _BuiltInCommand.Which.INCLUDE)
     define("add_subdirectory",       _BuiltInCommand.Which.ADD_SUBDIRECTORY)
@@ -1313,5 +1363,7 @@ class _UncertainSubstitutionException(Exception):
     def __init__(self, reason: _cur.ExpansionUncertaintyReason) -> None:
         self.reason = reason
 
+
+_ASCII_LOWER_MAP = str.maketrans(_string.ascii_uppercase, _string.ascii_lowercase)
 
 _ASCII_UPPER_MAP = str.maketrans(_string.ascii_lowercase, _string.ascii_uppercase)

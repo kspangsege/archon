@@ -538,7 +538,7 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
             return result_2
         else:
             typing.assert_never(result_2)
-        if result_1.string.string in _cu.list_split(result_2.string.string):
+        if result_1.string.string in _cu.unescaping_list_split(result_2.string.string):
             return TrueResult()
         return FalseResult()
 
