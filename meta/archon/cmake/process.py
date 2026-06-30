@@ -1082,15 +1082,15 @@ def _list_split(string: _tp.PosMappedString, is_derived: bool) -> tuple[list[_tp
         string_builder.bump_ref_pos_to(i)
         j = string.string.find(";", i)
         if j == -1:
-            string_builder.add_linear(string.string[i:], string_builder.ref_pos)
+            string_builder.add_linear(string.string[i:])
             break
         is_derived_2 = True
         if j > i and string.string[j-1] == "\\":
-            string_builder.add_linear(string.string[i:j-1], string_builder.ref_pos)
-            string_builder.add_nonlinear(";", string_builder.ref_pos)
+            string_builder.add_linear(string.string[i:j-1])
+            string_builder.add_nonlinear(";")
             i = j + 1
             continue
-        string_builder.add_linear(string.string[i:j], string_builder.ref_pos)
+        string_builder.add_linear(string.string[i:j])
         flush()
         i = j + 1
         string_builder = _tp.PosMappedStringBuilder()
