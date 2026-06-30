@@ -86,6 +86,14 @@ class MessageLevel(enum.Enum):
 
 
 def _process(cmake_source: Source, application: Application, pos_resolver: PositionResolver) -> bool:
+    errors_seen = False
+
+    # A custom command (macro or function) that is in the current invocation path must be in
+    # this map as (I, N), where I is the identifier of the cuatsom command object
+    # (`_CustomCommand`) and N is the number of times it is in the path. A custom command
+    # that is not in the current invocation path should not be in this map.
+    commands_in_invoc_path = dict[int, int]()
+
     def process_file(cmake_source: Source, state: _State, occurrence_uncertainty: OccurrenceUncertainty,
                      base_path: pathlib.Path) -> None:
         tracker = _tp.FilePosTracker(cmake_source.path)
@@ -344,23 +352,39 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                         return
                 typing.assert_never(which)
             case _CustomCommand():
-                arguments = expand_arguments(invoc, context)
-                match command.type_:
-                    case _CustomCommand.Type.MACRO:
-                        if len(arguments) < len(command.parameters):
-                            error(context.file_index, invoc.rparen_pos, "Too few arguments in invocation of "
-                                  "macro %s()", invoc.command_name)
-                            position = command.definition_position
-                            error(position.file_index, position.pos, "Definition of macro %s()", invoc.command_name)
-                            return
-                        substitutions = _get_macro_substitutions(command.parameters, arguments)
-                        for subinvoc in command.invocations:
-                            subinvoc_2 = _macro_substitute_invoc(subinvoc, context, substitutions)
-                            exec_command(subinvoc_2, context)
+                command_id = id(command)
+                if errors_seen:
+                    # Skip invocation if an error has occurred and this is a recursive
+                    # invocation. This is in order to avoid unintended infinite recursion.
+                    if command_id in commands_in_invoc_path:
                         return
-                    case _CustomCommand.Type.FUNCTION:
-                        assert False                        
-                typing.assert_never(command.type_)
+                commands_in_invoc_path[command_id] = commands_in_invoc_path.get(command_id, 0) + 1
+                try:
+                    arguments = expand_arguments(invoc, context)
+                    match command.type_:
+                        case _CustomCommand.Type.MACRO:
+                            if len(arguments) < len(command.parameters):
+                                error(context.file_index, invoc.rparen_pos, "Too few arguments in invocation of "
+                                      "macro %s()", invoc.command_name)
+                                position = command.definition_position
+                                error(position.file_index, position.pos, "Definition of macro %s()",
+                                      invoc.command_name)
+                                return
+                            substitutions = _get_macro_substitutions(command.parameters, arguments)
+                            for subinvoc in command.invocations:
+                                subinvoc_2 = _macro_substitute_invoc(subinvoc, context, substitutions)
+                                exec_command(subinvoc_2, context)
+                            return
+                        case _CustomCommand.Type.FUNCTION:
+                            assert False                        
+                    typing.assert_never(command.type_)
+                finally:
+                    n = commands_in_invoc_path[command_id]
+                    assert n > 0
+                    if n == 1:
+                        del commands_in_invoc_path[command_id]
+                    else:
+                        commands_in_invoc_path[command_id] = n - 1
             case _UncertainCommand(reason):
                 error(context.file_index, invoc.pos, "Invocation failed due to uncertain definition of %s()",
                       invoc.command_name)
@@ -686,7 +710,6 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
         position = _cur.Position(file_index, pos)
         application.warn(position, message, *args)
 
-    errors_seen = False
     def error(file_index: int, pos: int, message: str, *args: typing.Any) -> None:
         nonlocal errors_seen
         errors_seen = True
