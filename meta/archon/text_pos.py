@@ -5,27 +5,6 @@ import bisect
 import pathlib
 
 
-type TextPos = NoTextPos | LineTextPos | FullTextPos
-
-@dataclasses.dataclass(slots=True, frozen=True)
-class NoTextPos:
-    pass
-
-@dataclasses.dataclass(slots=True, frozen=True)
-class LineTextPos:
-    line_no: int = 1
-
-@dataclasses.dataclass(slots=True, frozen=True)
-class FullTextPos(LineTextPos):
-    offset: int = 0
-
-
-@dataclasses.dataclass(slots=True, frozen=True)
-class FileContext:
-    path: pathlib.Path
-    pos:  TextPos = NoTextPos()
-
-
 class TextPosTracker:
     def __init__(self) -> None:
         self._offset       = 0
@@ -43,12 +22,18 @@ class TextPosTracker:
             i = j
         return orig_offset
 
-    def get_text_pos(self, offset: int) -> FullTextPos:
+    def get_text_pos(self, offset: int) -> NewTextPos:
         assert offset <= self._offset
         i = bisect.bisect_right(self._line_offsets, offset) - 1
         line_no = 1 + i
-        offset_2 = offset - self._line_offsets[i]
-        return FullTextPos(line_no, offset_2)
+        pos_on_line = offset - self._line_offsets[i]
+        return NewTextPos(line_no, pos_on_line)
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class NewTextPos:        
+    line_no:     int
+    pos_on_line: int
 
 
 class FilePosTracker(TextPosTracker):
@@ -60,9 +45,20 @@ class FilePosTracker(TextPosTracker):
     def path(self) -> pathlib.Path:
         return self._path
 
-    def get_file_context(self, offset: int) -> FileContext:
+    def get_file_pos(self, offset: int) -> FilePos:
         text_pos = self.get_text_pos(offset)
-        return FileContext(self._path, text_pos)
+        return FilePos(self._path, text_pos.line_no, text_pos.pos_on_line)
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class FilePos:
+    path:        pathlib.Path
+    line_no:     int
+    pos_on_line: int
+
+    @property
+    def text_pos(self) -> NewTextPos:
+        return NewTextPos(self.line_no, self.pos_on_line)
 
 
 @dataclasses.dataclass(slots=True, frozen=True)

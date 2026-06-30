@@ -44,6 +44,22 @@ class Application(_cp.Application):
         context_logger = _l.FileContextLogger(logger, context)
         context_logger.info("%s: Message(%s): %s", certainty, level.name, message)
 
+    @typing.override
+    def warn(self, pos: _cur.Position, message: str, *args: typing.Any) -> None:
+        context = pos_resolver.resolve_file_context(pos)
+        _l.FileContextLogger(logger, context).warn(message, *args)
+
+    @typing.override
+    def error(self, pos: _cur.Position, message: str, *args: typing.Any) -> None:
+        context = pos_resolver.resolve_file_context(pos)
+        _l.FileContextLogger(logger, context).error(message, *args)
+
 application = Application()
-if not _cp.process_file(cmake_path, application, pos_resolver, logger):
+try:
+    with open(cmake_path, "r") as file_:
+        source = _cp.Source(file_, cmake_path)
+        if not _cp.process(source, application, pos_resolver):
+            sys.exit(1)
+except FileNotFoundError as e:
+    logger.error("Failed to process %s: %s", _b.quote(str(cmake_path)), e.strerror)
     sys.exit(1)

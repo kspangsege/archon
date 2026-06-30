@@ -18,9 +18,7 @@ def as_ord(val: int) -> str:
 
 
 def chomp(string: str) -> str:
-    if string and string[-1] == "\n":
-        return string[:-1]
-    return string
+    return string.removesuffix("\n")
 
 
 def quote(string: str) -> str:

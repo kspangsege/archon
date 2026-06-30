@@ -21,19 +21,8 @@ import archon.cmake.argument as _ca
 import archon.cmake.condition as _cc
 
 
-def process_file(cmake_path: pathlib.Path, application: Application, pos_resolver: PositionResolver,
-                 logger: _l.Logger) -> bool:
-    try:
-        with open(cmake_path, "r") as file_:
-            source = Source(file_, cmake_path)
-            return process(source, application, pos_resolver, logger)
-    except FileNotFoundError as e:
-        logger.error("Failed to process %s: %s", _b.quote(str(cmake_path)), e.strerror)
-        return False
-
-
-def process(cmake_source: Source, application: Application, pos_resolver: PositionResolver, logger: _l.Logger) -> bool:
-    return _process(cmake_source, application, pos_resolver, logger)
+def process(cmake_source: Source, application: Application, pos_resolver: PositionResolver) -> bool:
+    return _process(cmake_source, application, pos_resolver)
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -48,6 +37,14 @@ class Application(abc.ABC):
                 message: str) -> None:
         ...
 
+    @abc.abstractmethod
+    def warn(self, pos: _cur.Position, message: str, *args: typing.Any) -> None:
+        ...
+
+    @abc.abstractmethod
+    def error(self, pos: _cur.Position, message: str, *args: typing.Any) -> None:
+        ...
+
 
 type OccurrenceUncertainty = _cur.ExpansionUncertaintyReason | None
 
@@ -56,11 +53,12 @@ class PositionResolver:
     def __init__(self) -> None:
         self._files = list[_SourceFile]()
 
-    def resolve_text_pos(self, pos: _cur.Position) -> _tp.FullTextPos:
-        return self._files[pos.file_index].pos_tracker.get_text_pos(pos.pos)
+    def resolve_file_context(self, pos: _cur.Position) -> _l.FileContext:
+        file_pos = self.resolve_file_pos(pos)
+        return _l.FileContext(file_pos.path, _l.FullTextPos(file_pos.line_no, file_pos.pos_on_line))
 
-    def resolve_file_context(self, pos: _cur.Position) -> _tp.FileContext:
-        return self._files[pos.file_index].pos_tracker.get_file_context(pos.pos)
+    def resolve_file_pos(self, pos: _cur.Position) -> _tp.FilePos:
+        return self._files[pos.file_index].pos_tracker.get_file_pos(pos.pos)
 
     def _append_file(self, file_: _SourceFile) -> int:
         file_index = len(self._files)
@@ -87,8 +85,7 @@ class MessageLevel(enum.Enum):
 
 
 
-def _process(cmake_source: Source, application: Application, pos_resolver: PositionResolver,
-             logger: _l.Logger) -> bool:
+def _process(cmake_source: Source, application: Application, pos_resolver: PositionResolver) -> bool:
     def process_file(cmake_source: Source, state: _State, occurrence_uncertainty: OccurrenceUncertainty,
                      base_path: pathlib.Path) -> None:
         tracker = _tp.FilePosTracker(cmake_source.path)
@@ -386,7 +383,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
         closing_args = [a.orig_text for a in invoc.arguments]
         if opening_args != closing_args:
             opening_position = _cur.Position(context.file_index, opening_invoc.pos)
-            opening_line_no = pos_resolver.resolve_text_pos(opening_position).line_no
+            opening_line_no = pos_resolver.resolve_file_pos(opening_position).line_no
             warning(context.file_index, invoc.pos, "Closing invocation, %s(), has mismatching arguments (opening "
                     "invocation is on line %s)", invoc.command_name, opening_line_no)
 
@@ -686,15 +683,15 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
             trace_value_uncertainty_causes(cause.value_uncertainty_reason)
 
     def warning(file_index: int, pos: int, message: str, *args: typing.Any) -> None:
-        context = pos_resolver.resolve_file_context(_cur.Position(file_index, pos))
-        _l.FileContextLogger(logger, context).warn(message, *args)
+        position = _cur.Position(file_index, pos)
+        application.warn(position, message, *args)
 
     errors_seen = False
     def error(file_index: int, pos: int, message: str, *args: typing.Any) -> None:
         nonlocal errors_seen
         errors_seen = True
-        context = pos_resolver.resolve_file_context(_cur.Position(file_index, pos))
-        _l.FileContextLogger(logger, context).error(message, *args)
+        position = _cur.Position(file_index, pos)
+        application.error(position, message, *args)
 
     state = _RootState()
     occurrence_uncertainty = None
