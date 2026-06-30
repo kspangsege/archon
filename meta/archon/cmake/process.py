@@ -6,6 +6,7 @@ import dataclasses
 import collections
 import enum
 import copy
+import string as _string
 import re
 import pathlib
 
@@ -341,6 +342,9 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                     case _BuiltInCommand.Which.UNSET:
                         exec_unset(invoc, context)
                         return
+                    case _BuiltInCommand.Which.STRING:
+                        exec_string(invoc, context)
+                        return
                     case _BuiltInCommand.Which.MESSAGE:
                         exec_message(invoc, context)
                         return
@@ -448,7 +452,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                 context.state.taint_regular_variable(var_name, e.reason, parent_scope=True)
             return
         value = ";".join(values) if values else None
-        set_regular_variable(var_name, value, parent_scope, invoc, context)
+        set_regular_variable_advanced(var_name, value, parent_scope, invoc, context)
 
     def exec_unset(invoc: _clp.GenericInvoc, context: _InvocContext) -> None:
         server = create_argument_server(invoc, context)
@@ -483,7 +487,31 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                 context.state.taint_regular_variable(var_name, e.reason, parent_scope=True)
             return
         value = None
-        set_regular_variable(var_name, value, parent_scope, invoc, context)
+        set_regular_variable_advanced(var_name, value, parent_scope, invoc, context)
+
+    def exec_string(invoc: _clp.GenericInvoc, context: _InvocContext) -> None:
+        server = create_argument_server(invoc, context)
+        func = server.consume()
+        if not func:
+            error(context.file_index, server.next_pos(), "Too few arguments in %s() invocation",
+                  invoc.command_name)
+            return
+        if func.string.string == "TOUPPER":
+            # FIXME: Consider allowing for uncertain value (like in set())
+            string = server.consume()
+            if not string:
+                error(context.file_index, server.next_pos(), "Missing <string> argument in %s(TOUPPER) invocation",
+                      invoc.command_name)
+                return
+            out_var = server.consume()
+            if not out_var:
+                error(context.file_index, server.next_pos(), "Missing <out-var> argument in %s(TOUPPER) invocation",
+                      invoc.command_name)
+                return
+            string_2 = string.string.string.translate(_ASCII_UPPER_MAP)
+            set_regular_variable(out_var.string.string, string_2, invoc, context)
+            return
+        raise _UnsupportedInvocSyntaxException(invoc) from None
 
     def exec_message(invoc: _clp.GenericInvoc, context: _InvocContext) -> None:
         server = create_argument_server(invoc, context)
@@ -533,11 +561,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                     return resolve_variable(resolution_type, variable_name, pos, context)
                 @typing.override
                 def set_(self, variable_name: str, value: str | None) -> None:
-                    parent_scope = False
-                    assigning_command_name = invoc.command_name
-                    assignment_position = _cur.Position(context.file_index, invoc.pos)
-                    context.state.set_regular_variable(variable_name, value, parent_scope, assigning_command_name,
-                                                       assignment_position)
+                    set_regular_variable(variable_name, value, invoc, context)
                 @typing.override
                 def taint(self, variable_name: str, reason: _cur.ValueUncertaintyReason) -> None:
                     context.state.taint_regular_variable(variable_name, reason, parent_scope=False)
@@ -675,8 +699,13 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                 return context.state.get_environment_variable(variable_name)
         typing.assert_never(resolution_type)
 
-    def set_regular_variable(variable_name: str, value: str | None, parent_scope: bool, invoc: _clp.GeneralizedInvoc,
+    def set_regular_variable(variable_name: str, value: str | None, invoc: _clp.GeneralizedInvoc,
                              context: _InvocContext) -> None:
+        parent_scope = False
+        set_regular_variable_advanced(variable_name, value, parent_scope, invoc, context)
+
+    def set_regular_variable_advanced(variable_name: str, value: str | None, parent_scope: bool,
+                                      invoc: _clp.GeneralizedInvoc, context: _InvocContext) -> None:
         if parent_scope and context.state.is_root_scope():
             warning(context.file_index, invoc.pos, "%s() invocation skipped: No parent scope exists",
                     invoc.command_name)
@@ -976,9 +1005,10 @@ class _BuiltInCommand:
         UNSUPPORTED      = 0
         SET              = 1
         UNSET            = 2
-        MESSAGE          = 3
-        INCLUDE          = 4
-        ADD_SUBDIRECTORY = 5
+        STRING           = 3
+        MESSAGE          = 4
+        INCLUDE          = 5
+        ADD_SUBDIRECTORY = 6
     which: Which
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -1008,6 +1038,7 @@ def _define_built_in_commands(commands: dict[str, _Command]) -> None:
         commands[name_cf] = _BuiltInCommand(which)
     define("set",                    _BuiltInCommand.Which.SET)
     define("unset",                  _BuiltInCommand.Which.UNSET)
+    define("string",                 _BuiltInCommand.Which.STRING)
     define("message",                _BuiltInCommand.Which.MESSAGE)
     define("include",                _BuiltInCommand.Which.INCLUDE)
     define("add_subdirectory",       _BuiltInCommand.Which.ADD_SUBDIRECTORY)
@@ -1281,3 +1312,6 @@ class _UncertainSubstitutionValue:
 class _UncertainSubstitutionException(Exception):
     def __init__(self, reason: _cur.ExpansionUncertaintyReason) -> None:
         self.reason = reason
+
+
+_ASCII_UPPER_MAP = str.maketrans(_string.ascii_lowercase, _string.ascii_uppercase)
