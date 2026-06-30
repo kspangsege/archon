@@ -12,6 +12,8 @@ import sys
 import secrets
 import random
 import unittest
+import bdb
+import pdb
 
 import archon.base as _b
 import archon.log as _l
@@ -75,6 +77,8 @@ def run(tests: collections.abc.Iterable[Test], logger: _l.Logger, random_seed: i
             test.func(context)
         except CheckFailure:
             failure = True
+        except (pdb.Restart, bdb.BdbQuit):
+            raise
         except Exception as e:
             name = type(e).__name__
             message = str(e)

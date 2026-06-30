@@ -75,7 +75,7 @@ def _parse(string: _tp.PosMappedString, error_handler: ErrorHandler) -> Expr:
             ensure_string_builder(pos)
         if string_builder:
             assert pos >= string_builder.ref_pos
-            string_2 = string_builder.get()
+            string_2 = string_builder.finalize_and_get()
             if string_2.string or (finalize and not parts):
                 string_3 = string_2.map_through(string.pos_map)
                 parts.append(StringExpr(string_3.pos_map.lead_ref_pos, string_3))

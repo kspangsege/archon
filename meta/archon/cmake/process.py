@@ -611,7 +611,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                         return result
                     typing.assert_never(result)
                 is_derived = True
-                return _CertainExpansionResult(string_builder.get(), is_derived)
+                return _CertainExpansionResult(string_builder.finalize_and_get(), is_derived)
             if isinstance(expr, _csp.ExpansionExpr):
                 result = expand(expr.name_expr)
                 if isinstance(result, _CertainExpansionResult):
@@ -1075,7 +1075,7 @@ def _list_split(string: _tp.PosMappedString, is_derived: bool) -> tuple[list[_tp
     string_builder = _tp.PosMappedStringBuilder()
     parts = []
     def flush() -> None:
-        parts.append(string_builder.get().map_through(string.pos_map))
+        parts.append(string_builder.finalize_and_get().map_through(string.pos_map))
     is_derived_2 = is_derived
     i = 0
     while True:
@@ -1234,7 +1234,7 @@ def _macro_substitute_invoc(invoc: _clp.Invoc, context: _InvocContext,
                 except _UncertainSubstitutionException as e:
                     return _clp.UncertainProtoargument(arg.type_, arg.orig_text, arg.pos, e.reason)
                 builder.add_linear(len(arg.string.string) - pos, pos)
-                pos_map = arg.string.pos_map.compose_with(builder.get())
+                pos_map = arg.string.pos_map.compose_with(builder.finalize_and_get())
                 new_string_2 = _tp.PosMappedString(new_string, pos_map)
                 return _clp.CertainProtoargument(arg.type_, arg.orig_text, arg.pos, new_string_2, is_derived)
             case _clp.UncertainProtoargument():
