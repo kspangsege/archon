@@ -319,6 +319,12 @@ Options:
 
 To be recognized, these options need to be placed immediately after $0
 
+Environment variables:
+
+    CMAKE
+    CMAKE_ARGS
+    (incomplete)
+
 EOF
 }
 
@@ -367,7 +373,7 @@ case "$action" in
         CXXFLAGS="-DARCHON_DISABLE_PLATFORM_OPTIMIZATIONS" sh "$0" $options -ca check-debug || exit 1
         for x in PNG JPEG Freetype X11 OpenGL SDL3 GLEW; do
             banner "CHECK WITHOUT $x"
-            CMAKE_ARGS="-DCMAKE_DISABLE_FIND_PACKAGE_$x=ON" sh "$0" $options -ca check-debug || exit 1
+            CMAKE_ARGS="$CMAKE_ARGS -DCMAKE_DISABLE_FIND_PACKAGE_$x=ON" sh "$0" $options -ca check-debug || exit 1
         done
         banner "SUCCESS"
         exit 0
@@ -376,6 +382,11 @@ esac
 
 if [ -n "$clean" ]; then
     clean
+fi
+
+cmake="cmake"
+if [ -n "$CMAKE" ]; then
+    cmake="$CMAKE"
 fi
 
 if [ -z "${CMAKE_TOOLCHAIN_FILE:-}" ]; then
@@ -412,8 +423,8 @@ if [ -n "$warnings_are_errors" ]; then
 fi
 
 build_subdir="$build_dir/do/$build_subdir_name"
-cmake -S "$root_dir" -B "$build_subdir" -D CMAKE_BUILD_TYPE="$build_type" -D ARCHON_BUILD_DEMO_PROGS="$build_demo_progs" -D ARCHON_BUILD_TEST_SUITE="$build_test_suite" -D ARCHON_ASAN="$asan" -D ARCHON_TSAN="$tsan" -D ARCHON_UBSAN="$ubsan" $CMAKE_ARGS || exit 1
-cmake --build "$build_subdir" --config "$build_type" $parallel_option || exit 1
+"$cmake" -S "$root_dir" -B "$build_subdir" -D CMAKE_BUILD_TYPE="$build_type" -D ARCHON_BUILD_DEMO_PROGS="$build_demo_progs" -D ARCHON_BUILD_TEST_SUITE="$build_test_suite" -D ARCHON_ASAN="$asan" -D ARCHON_TSAN="$tsan" -D ARCHON_UBSAN="$ubsan" $CMAKE_ARGS || exit 1
+"$cmake" --build "$build_subdir" --config "$build_type" $parallel_option || exit 1
 
 visual_studio_generator=""
 if [ -n "$run" ]; then
@@ -421,7 +432,7 @@ if [ -n "$run" ]; then
         run_path="src/test"
     fi
 
-    if [ -e "$build_subdir/Archon.sln" ] || [ -e "$build_subdir/Archon.slnx" ]; then
+    if (set -- "$build_subdir"/*.sln; [ -e "$1" ]) || (set -- "$build_subdir"/*.slnx; [ -e "$1" ]); then
         visual_studio_generator="1"
     fi
 
@@ -452,14 +463,18 @@ case "$run" in
         ;;
 esac
 
-if [ "$install" = "YES" ]; then
-    cmake="cmake"
+cmake_install() {
     if [ "$install_sudo" = "YES" ]; then
-        cmake="sudo $cmake"
-    fi
-    if [ -n "$install_prefix" ]; then
-        $cmake --install "$build_subdir" --prefix "$install_prefix" || exit 1
+        sudo "$cmake" --install "$build_subdir" "$@" || return 1
     else
-        $cmake --install "$build_subdir" || exit 1
+        "$cmake" --install "$build_subdir" "$@" || return 1
+    fi
+}
+
+if [ "$install" = "YES" ]; then
+    if [ -n "$install_prefix" ]; then
+        cmake_install --prefix "$install_prefix" || exit 1
+    else
+        cmake_install || exit 1
     fi
 fi
