@@ -25,6 +25,7 @@ def evaluate(condition: Condition, command_name: str, file_index: int, variable_
 
 class FatalParseError(Exception):
     def __init__(self, pos: int, message: str, *args: typing.Any):
+        Exception.__init__(self)
         self.pos     = pos
         self.message = message
         self.args    = args
@@ -32,6 +33,7 @@ class FatalParseError(Exception):
 
 class FatalEvalError(Exception):
     def __init__(self, pos: int, message: str, *args: typing.Any):
+        Exception.__init__(self)
         self.pos     = pos
         self.message = message
         self.args    = args

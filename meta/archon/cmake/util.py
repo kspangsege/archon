@@ -5,7 +5,13 @@ import enum
 import re
 
 
-def unescaping_list_split(string: str) -> list[str]:
+def nonescaping_list_join(elements: list[str]) -> str | None:
+    if not elements:
+        return None
+    return ";".join(elements)
+
+
+def unescaping_list_split(string: str | None) -> list[str]:
     if not string:
         return []
     return [s.replace(r"\;", ";") for s in re.split(r"(?<!\\);", string)]

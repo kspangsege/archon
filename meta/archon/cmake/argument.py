@@ -75,10 +75,12 @@ class ArgumentServer:
             typing.assert_never(arg)
         return -1
 
+    @property
     def at_end(self) -> bool:
         assert self._begin <= self._end
         return self._begin == self._end
 
+    @property
     def next_pos(self) -> int:
         if self._begin < self._end:
             arg = self._arguments[self._begin]
@@ -88,4 +90,5 @@ class ArgumentServer:
 
 class UncertainArgumentException(Exception):
     def __init__(self, reason: _cur.ExpansionUncertaintyReason) -> None:
+        Exception.__init__(self)
         self.reason = reason

@@ -101,7 +101,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
         file_index = pos_resolver._append_file(_SourceFile(tracker))
         context = _InvocContext(file_index, state, occurrence_uncertainty, base_path)
         def warning_handler(pos: int, message: str, *args: typing.Any) -> None:
-            warning(file_index, pos, message, *args)
+            warn(file_index, pos, message, *args)
         def error_handler(pos: int, message: str, *args: typing.Any) -> None:
             error(file_index, pos, message, *args)
         for invoc in _clp.parse(cmake_source.input_, tracker, warning_handler, error_handler):
@@ -146,7 +146,10 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                     return
             typing.assert_never(invoc)
         except _UnsupportedInvocSyntaxException as e:
-            error(context.file_index, e.invoc.pos, "Unsupported %s() syntax", e.invoc.command_name)
+            if e.args:
+                error(context.file_index, e.invoc.pos, "Unsupported %s() syntax: %s", e.invoc.command_name, e)
+            else:
+                error(context.file_index, e.invoc.pos, "Unsupported %s() syntax", e.invoc.command_name)
             return
         except _ConditionParseError as e:
             error(context.file_index, e.pos, "Failed to parse %s() condition: %s", e.command_name, e.message)
@@ -211,11 +214,11 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
         if i == -1:
             loop_var = server.consume()
             if not loop_var:
-                error(context.file_index, server.next_pos(), "Missing loop variable in %s() invocation",
+                error(context.file_index, server.next_pos, "Missing loop variable in %s() invocation",
                       invoc.command_name)
                 return
             if server.consume_keyword({"RANGE"}):
-                raise _UnsupportedInvocSyntaxException(invoc) from None
+                raise _UnsupportedInvocSyntaxException(invoc, "RANGE keyword") from None
             items = []
             while True:
                 arg = server.consume()
@@ -236,11 +239,11 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
             return
         if arg.string.string in {"LISTS", "ITEMS"}:
             if not loop_vars:
-                error(context.file_index, server.next_pos(), "Missing loop variable in %s() invocation",
+                error(context.file_index, server.next_pos, "Missing loop variable in %s() invocation",
                       invoc.command_name)
                 return
             if len(loop_vars) > 1:
-                error(context.file_index, server.next_pos(), "Too many loop variables in %s() invocation",
+                error(context.file_index, server.next_pos, "Too many loop variables in %s() invocation",
                       invoc.command_name)
                 return
             items = []
@@ -268,7 +271,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
             iterate_list(loop_vars[0], items)
             return
         if arg.string.string == "ZIP_LISTS":
-            raise _UnsupportedInvocSyntaxException(invoc) from None
+            raise _UnsupportedInvocSyntaxException(invoc, "ZIP_LISTS keyword") from None
         error(context.file_index, arg.pos, "Unrecognized keyword (%s) after IN in %s() invocation",
               _b.quote(arg.string.string), invoc.command_name)
 
@@ -279,7 +282,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
         server = create_argument_server(invoc, context)
         name = server.consume()
         if not name:
-            error(context.file_index, server.next_pos(), "Missing macro name in %s() invocation", invoc.command_name)
+            error(context.file_index, server.next_pos, "Missing macro name in %s() invocation", invoc.command_name)
             return
         name_cf = name.string.string.casefold()
         if _clp.is_flow_control_command(name_cf):
@@ -307,7 +310,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
 
     def exec_return(invoc: _clp.ReturnInvoc, context: _InvocContext) -> None:
         server = create_argument_server(invoc, context)
-        if not server.at_end():
+        if not server.at_end:
             raise _UnsupportedInvocSyntaxException(invoc) from None
         assert False        
 
@@ -405,102 +408,193 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
         if opening_args != closing_args:
             opening_position = _cur.Position(context.file_index, opening_invoc.pos)
             opening_line_no = pos_resolver.resolve_file_pos(opening_position).line_no
-            warning(context.file_index, invoc.pos, "Closing invocation, %s(), has mismatching arguments (opening "
-                    "invocation is on line %s)", invoc.command_name, opening_line_no)
+            warn(context.file_index, invoc.pos, "Closing invocation, %s(), has mismatching arguments (opening "
+                 "invocation is on line %s)", invoc.command_name, opening_line_no)
 
     def exec_set(invoc: _clp.GenericInvoc, context: _InvocContext) -> None:
         server = create_argument_server(invoc, context)
         # FIXME: Consider picking up the part of the variable name that is specified, if
         # any, and use it as a tainting pattern
-        variable = server.consume()
-        if not variable:
-            error(context.file_index, server.next_pos(), "Missing variable name in %s() invocation",
-                  invoc.command_name)
+        arg = server.consume()
+        if not arg:
+            error(context.file_index, server.next_pos, "Missing variable name in %s() invocation", invoc.command_name)
             return
-        var_ref = _cu.parse_variable_reference(variable.string.string)
+        var_ref = _cu.parse_variable_reference(arg.string.string)
+        var_ref_pos = arg.pos
+        var_name = var_ref.variable_name
         match var_ref.resolution_type:
             case _cu.ResolutionType.GENERAL:
-                pass
-            case _cu.ResolutionType.CACHE | _cu.ResolutionType.ENV:
-                raise _UnsupportedInvocSyntaxException(invoc) from None
-            case _:
-                typing.assert_never(var_ref.resolution_type)
-        var_name = var_ref.variable_name
-        values = list[str]()
-        parent_scope = False
-        try:
-            while True:
-                arg = server.consume()
-                if not arg:
-                    break
-                if arg.string.string == "CACHE":
-                    raise _UnsupportedInvocSyntaxException(invoc) from None
-                if server.at_end() and arg.string.string == "PARENT_SCOPE":
-                    parent_scope = True
-                    break
-                values.append(arg.string.string)
-        except _ca.UncertainArgumentException as e:
-            context.state.taint_regular_variable(var_name, e.reason, parent_scope=False)
-            if not context.state.is_root_scope():
-                context.state.taint_regular_variable(var_name, e.reason, parent_scope=True)
-            return
-        value = ";".join(values) if values else None
-        set_regular_variable_advanced(var_name, value, parent_scope, invoc, context)
+                values = list[str]()
+                parent_scope = False
+                try:
+                    while True:
+                        arg = server.consume()
+                        if not arg:
+                            break
+                        if arg.string.string == "CACHE":
+                            raise _UnsupportedInvocSyntaxException(invoc, "CACHE keyword") from None
+                        if server.at_end and arg.string.string == "PARENT_SCOPE":
+                            parent_scope = True
+                            break
+                        values.append(arg.string.string)
+                except _ca.UncertainArgumentException as e:
+                    context.state.taint_regular_variable(var_name, e.reason, parent_scope=False)
+                    if not context.state.is_root_scope():
+                        context.state.taint_regular_variable(var_name, e.reason, parent_scope=True)
+                    return
+                value = _cu.nonescaping_list_join(values)
+                set_regular_variable_advanced(var_name, value, parent_scope, invoc, context)
+                return
+            case _cu.ResolutionType.CACHE:
+                type_: str | None = None
+                force = False
+                while True:
+                    if server.consume_keyword({"TYPE"}):
+                        arg = server.consume()
+                        if not arg:
+                            error(context.file_index, server.next_pos, "Missing <type> argument after TYPE keyword in "
+                                  "%s() invocation", invoc.command_name)
+                            return
+                        type_ = arg.string.string
+                        continue
+                    if server.consume_keyword({"HELP"}):
+                        raise _UnsupportedInvocSyntaxException(invoc, "HELP keyword") from None
+                    if server.consume_keyword({"FORCE"}):
+                        force = True
+                        continue
+                    if server.consume_keyword({"VALUE"}):
+                        break
+                    arg = server.consume()
+                    if arg:
+                        error(context.file_index, arg.pos, "Unrecognized argument (%s) before VALUE keyword in %s() "
+                              "invocation", _b.quote(arg.string.string), invoc.command_name)
+                        return
+                    error(context.file_index, server.next_pos, "Missing VALUE keyword in %s() invocation",
+                          invoc.command_name)
+                    return
+                if type_ is not None and type_ != "STRING":
+                    raise _UnsupportedInvocSyntaxException(invoc, "Non-STRING type") from None
+                if not force:
+                    raise _UnsupportedInvocSyntaxException(invoc, "No FORCE keyword") from None
+                # CMake accepts an empty list of values. If the list of values is empty, the
+                # variable will be set to the empty string. It will not be unset (contrast
+                # this with regular variables).
+                values = list[str]()
+                try:
+                    while True:
+                        arg = server.consume()
+                        if not arg:
+                            break
+                        values.append(arg.string.string)
+                except _ca.UncertainArgumentException as e:
+                    context.state.taint_cache_variable(var_name, e.reason)
+                    return
+                value = _cu.nonescaping_list_join(values) or ""
+                set_cache_variable(var_name, value, invoc, context)
+                return
+            case _cu.ResolutionType.ENV:
+                # CMake accepts zero values. If zero values are specified, the effect is the
+                # same as if a single empty string is specified. When an empty string is
+                # specified and the environment variable is undefined, the environment
+                # variable remains undefined. Otherwise the environment variable is set to
+                # the specified string. Arguments beyond a single value are accepted by
+                # CMake, but generate a warning.
+                value = ""
+                try:
+                    arg = server.consume()
+                    if arg:
+                        value = arg.string.string
+                        if not server.at_end:
+                            warn(context.file_index, server.next_pos, "Extraneous unused arguments in %s() invocation",
+                                 invoc.command_name)
+                except _ca.UncertainArgumentException as e:
+                    context.state.taint_env_variable(var_name, e.reason)
+                    return
+                if not value:
+                    # Value is empty or absent
+                    try:
+                        orig_value = get_certain_variable(var_name, var_ref_pos, invoc, context)
+                    except _ca.UncertainArgumentException as e:
+                        # If the target variable was tainted, it remains tainted. Nothing
+                        # further to do.
+                        return
+                    if not orig_value:
+                        return
+                set_env_variable(var_name, value, invoc, context)
+                return
+        typing.assert_never(var_ref.resolution_type)
 
     def exec_unset(invoc: _clp.GenericInvoc, context: _InvocContext) -> None:
         server = create_argument_server(invoc, context)
-        variable = server.consume()
-        if not variable:
-            error(context.file_index, server.next_pos(), "Missing variable name in %s() invocation",
-                  invoc.command_name)
+        arg = server.consume()
+        if not arg:
+            error(context.file_index, server.next_pos, "Missing variable name in %s() invocation", invoc.command_name)
             return
-        var_ref = _cu.parse_variable_reference(variable.string.string)
+        var_ref = _cu.parse_variable_reference(arg.string.string)
+        var_name = var_ref.variable_name
         match var_ref.resolution_type:
             case _cu.ResolutionType.GENERAL:
-                pass
-            case _cu.ResolutionType.CACHE | _cu.ResolutionType.ENV:
-                raise _UnsupportedInvocSyntaxException(invoc) from None
-            case _:
-                typing.assert_never(var_ref.resolution_type)
-        var_name = var_ref.variable_name
-        parent_scope = False
-        try:
-            arg = server.consume()
-            if arg:
-                if arg.string.string == "CACHE":
-                    raise _UnsupportedInvocSyntaxException(invoc) from None
-                if server.at_end() and arg.string.string == "PARENT_SCOPE":
-                    parent_scope = True
-                else:
-                    error(context.file_index, server.next_pos(), "Too many arguments in %s() invocation",
+                parent_scope = False
+                try:
+                    arg = server.consume()
+                    if arg:
+                        if arg.string.string == "CACHE":
+                            raise _UnsupportedInvocSyntaxException(invoc, "CACHE keyword") from None
+                        if server.at_end and arg.string.string == "PARENT_SCOPE":
+                            parent_scope = True
+                        else:
+                            error(context.file_index, server.next_pos, "Too many arguments in %s() invocation",
+                                  invoc.command_name)
+                except _ca.UncertainArgumentException as e:
+                    # FIXME: If the variable is unset already, then no taint is needed
+                    # (applies separately to parent scope)
+                    context.state.taint_regular_variable(var_name, e.reason, parent_scope=False)
+                    if not context.state.is_root_scope():
+                        context.state.taint_regular_variable(var_name, e.reason, parent_scope=True)
+                    return
+                value = None
+                set_regular_variable_advanced(var_name, value, parent_scope, invoc, context)
+                return
+            case _cu.ResolutionType.CACHE:
+                # CMake bizarrely accepts one extra unused argument without even issuing a
+                # warning. If more than one extra argument is passed, CMake errors.
+                server.consume()
+                if not server.at_end:
+                    error(context.file_index, server.next_pos, "Too many arguments in %s(CACHE{}) invocation",
                           invoc.command_name)
-        except _ca.UncertainArgumentException as e:
-            context.state.taint_regular_variable(var_name, e.reason, parent_scope=False)
-            if not context.state.is_root_scope():
-                context.state.taint_regular_variable(var_name, e.reason, parent_scope=True)
-            return
-        value = None
-        set_regular_variable_advanced(var_name, value, parent_scope, invoc, context)
+                value = None
+                set_cache_variable(var_name, value, invoc, context)
+                return
+            case _cu.ResolutionType.ENV:
+                # CMake bizarrely accepts one extra unused argument without even issuing a
+                # warning. If more than one extra argument is passed, CMake errors.
+                server.consume()
+                if not server.at_end:
+                    error(context.file_index, server.next_pos, "Too many arguments in %s(ENV{}) invocation",
+                          invoc.command_name)
+                value = None
+                set_env_variable(var_name, value, invoc, context)
+                return
+        typing.assert_never(var_ref.resolution_type)
 
     def exec_string(invoc: _clp.GenericInvoc, context: _InvocContext) -> None:
         server = create_argument_server(invoc, context)
         arg = server.consume()
         if not arg:
-            error(context.file_index, server.next_pos(), "Too few arguments in %s() invocation",
-                  invoc.command_name)
+            error(context.file_index, server.next_pos, "Too few arguments in %s() invocation", invoc.command_name)
             return
         func = arg.string.string
         if func in {"TOLOWER", "TOUPPER"}:
-            # FIXME: Consider allowing for value uncertainty (like in set())    
+            # FIXME: Consider allowing for value uncertainty (like in set())            
             arg = server.consume()
             if not arg:
-                error(context.file_index, server.next_pos(), "Missing <string> argument in %s(%s) invocation",
+                error(context.file_index, server.next_pos, "Missing <string> argument in %s(%s) invocation",
                       invoc.command_name, func)
                 return
             string = arg.string.string
             arg = server.consume()
             if not arg:
-                error(context.file_index, server.next_pos(), "Missing <variable> argument in %s(%s) invocation",
+                error(context.file_index, server.next_pos, "Missing <variable> argument in %s(%s) invocation",
                       invoc.command_name, func)
                 return
             var_name = arg.string.string
@@ -520,39 +614,51 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
         server = create_argument_server(invoc, context)
         arg = server.consume()
         if not arg:
-            error(context.file_index, server.next_pos(), "Too few arguments in %s() invocation",
-                  invoc.command_name)
+            error(context.file_index, server.next_pos, "Too few arguments in %s() invocation", invoc.command_name)
             return
         func = arg.string.string
         if func == "APPEND":
-            # FIXME: Consider allowing for original value and element uncertainty (like in set())    
             arg = server.consume()
             if not arg:
-                error(context.file_index, server.next_pos(), "Missing <variable> argument in %s(%s) invocation",
+                error(context.file_index, server.next_pos, "Missing <variable> argument in %s(%s) invocation",
                       invoc.command_name, func)
                 return
             var_name = arg.string.string
             var_name_pos = arg.pos
-            elements = list[str]()
-            while True:
-                arg = server.consume()
-                if not arg:
-                    break
-                elements.append(arg.string.string)
-            string = get_certain_variable(var_name, var_name_pos, invoc, context)
-            # NOTE: CMake never escapes literal `;` characters when joining list elements
-            # into a single string. This fact wrecks havoc in more complex list operations
-            # such as REVERSE (splitting un-escapes `\;` but re-joining fails to re-escape
-            # `;`).
-            string_2 = ";".join([string] + elements if string else elements)
-            set_regular_variable(var_name, string_2, invoc, context)
+            try:
+                elements = list[str]()
+                while True:
+                    arg = server.consume()
+                    if not arg:
+                        break
+                    elements.append(arg.string.string)
+            except _ca.UncertainArgumentException as e:
+                context.state.taint_regular_variable(var_name, e.reason, parent_scope=False)
+                return
+            try:
+                string = get_certain_variable(var_name, var_name_pos, invoc, context)
+            except _ca.UncertainArgumentException as e:
+                # If the target variable was tainted, it remains tainted. Nothing further to
+                # do.
+                return
+            # In CMake, if the target variable is undefined, i.e., `None`, and zero elements
+            # are appended, the target variable remain undefined. If the target variable was
+            # the empty string, it remains the empty string when zero elements are appended.
+            if elements or string is not None:
+                # NOTE: CMake never escapes literal `;` characters when joining list elements
+                # into a single string. This fact wrecks havoc in more complex list operations
+                # such as REVERSE (splitting un-escapes `\;` but re-joining fails to re-escape
+                # `;`).
+                string_2 = _cu.nonescaping_list_join([string or ""] + elements if string else elements)
+                string_3 = string_2 or ""
+                set_regular_variable(var_name, string_3, invoc, context)
             return
         raise _UnsupportedInvocSyntaxException(invoc) from None
 
     def exec_message(invoc: _clp.GenericInvoc, context: _InvocContext) -> None:
         server = create_argument_server(invoc, context)
         if server.consume_keyword({"CHECK_START", "CHECK_PASS", "CHECK_FAIL", "CONFIGURE_LOG"}):
-            raise _UnsupportedInvocSyntaxException(invoc) from None
+            raise _UnsupportedInvocSyntaxException(invoc, "Non-NOTICE level") from None
         level = MessageLevel.NOTICE
         arg = server.consume_keyword(_MESSAGE_LEVEL_MAP.keys())
         if arg:
@@ -570,11 +676,11 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
         server = create_argument_server(invoc, context)
         file_or_module = server.consume()
         if not file_or_module:
-            error(context.file_index, server.next_pos(), "Missing file or module in %s()", invoc.command_name)
+            error(context.file_index, server.next_pos, "Missing file or module in %s()", invoc.command_name)
             return None
         if not re.fullmatch(r".*\.cmake", file_or_module.string.string):
-            raise _UnsupportedInvocSyntaxException(invoc) from None
-        if not server.at_end():
+            raise _UnsupportedInvocSyntaxException(invoc, "Non-path argument") from None
+        if not server.at_end:
             raise _UnsupportedInvocSyntaxException(invoc) from None
         cmake_path = context.base_path.parent / file_or_module.string.string
         try:
@@ -715,16 +821,17 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
             error(context.file_index, pos, message, *args)
         return expand(_csp.parse(string, error_handler))
 
-    def get_certain_variable(var_name: str, pos: int, invoc: _clp.GeneralizedInvoc, context: _InvocContext) -> str:
+    def get_certain_variable(var_name: str, pos: int, invoc: _clp.GeneralizedInvoc,
+                             context: _InvocContext) -> str | None:
         value = resolve_variable(_cu.ResolutionType.GENERAL, var_name, pos, context)
         match value:
             case _cv.CertainValue():
-                return value.string or ""
+                return value.string
             case _cv.UncertainValue():
                 expansion_position = _cur.Position(context.file_index, pos)
                 reason = _cur.ExpansionUncertaintyReason(invoc.command_name, var_name, expansion_position,
                                                          value.reason)
-                raise _ca.UncertainArgumentException(reason)
+                raise _ca.UncertainArgumentException(reason) from None
         typing.assert_never(value)
 
     def resolve_variable(resolution_type: _cu.ResolutionType, variable_name: str, pos: int,
@@ -744,7 +851,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
             case _cu.ResolutionType.CACHE:
                 return context.state.get_cache_variable(variable_name)
             case _cu.ResolutionType.ENV:
-                return context.state.get_environment_variable(variable_name)
+                return context.state.get_env_variable(variable_name)
         typing.assert_never(resolution_type)
 
     def set_regular_variable(variable_name: str, value: str | None, invoc: _clp.GeneralizedInvoc,
@@ -755,13 +862,24 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
     def set_regular_variable_advanced(variable_name: str, value: str | None, parent_scope: bool,
                                       invoc: _clp.GeneralizedInvoc, context: _InvocContext) -> None:
         if parent_scope and context.state.is_root_scope():
-            warning(context.file_index, invoc.pos, "%s() invocation skipped: No parent scope exists",
-                    invoc.command_name)
+            warn(context.file_index, invoc.pos, "%s() invocation skipped: No parent scope exists", invoc.command_name)
             return
         assigning_command_name = invoc.command_name
         assignment_position = _cur.Position(context.file_index, invoc.pos)
         context.state.set_regular_variable(variable_name, value, parent_scope, assigning_command_name,
                                            assignment_position)
+
+    def set_cache_variable(variable_name: str, value: str | None, invoc: _clp.GeneralizedInvoc,
+                           context: _InvocContext) -> None:
+        assigning_command_name = invoc.command_name
+        assignment_position = _cur.Position(context.file_index, invoc.pos)
+        context.state.set_cache_variable(variable_name, value, assigning_command_name, assignment_position)
+
+    def set_env_variable(variable_name: str, value: str | None, invoc: _clp.GeneralizedInvoc,
+                         context: _InvocContext) -> None:
+        assigning_command_name = invoc.command_name
+        assignment_position = _cur.Position(context.file_index, invoc.pos)
+        context.state.set_env_variable(variable_name, value, assigning_command_name, assignment_position)
 
     def trace_value_uncertainty_causes(cause: _cur.ValueUncertaintyReason) -> None:
         match cause:
@@ -783,7 +901,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
         if cause.value_uncertainty_reason:
             trace_value_uncertainty_causes(cause.value_uncertainty_reason)
 
-    def warning(file_index: int, pos: int, message: str, *args: typing.Any) -> None:
+    def warn(file_index: int, pos: int, message: str, *args: typing.Any) -> None:
         position = _cur.Position(file_index, pos)
         application.warn(position, message, *args)
 
@@ -839,7 +957,25 @@ class _State(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def get_environment_variable(self, name: str) -> _cv.Value:
+    def set_cache_variable(self, name: str, value: str | None, assigning_command_name: str,
+                           assignment_position: _cur.Position) -> None:
+        ...
+
+    @abc.abstractmethod
+    def taint_cache_variable(self, name: str, reason: _cur.ValueUncertaintyReason) -> None:
+        ...
+
+    @abc.abstractmethod
+    def get_env_variable(self, name: str) -> _cv.Value:
+        ...
+
+    @abc.abstractmethod
+    def set_env_variable(self, name: str, value: str | None, assigning_command_name: str,
+                         assignment_position: _cur.Position) -> None:
+        ...
+
+    @abc.abstractmethod
+    def taint_env_variable(self, name: str, reason: _cur.ValueUncertaintyReason) -> None:
         ...
 
     @abc.abstractmethod
@@ -858,10 +994,10 @@ class _State(abc.ABC):
 
 class _RootState(_State):
     def __init__(self) -> None:
-        self._commands    = dict[str, _Command]()
-        self._environment = _Environment()
-        self._cache       = _Cache()
-        self._directory   = _Directory()
+        self._commands        = dict[str, _Command]()
+        self._env_variables   = dict[str, _cv.Value]()
+        self._cache_variables = dict[str, _cv.Value]()
+        self._directory       = _Directory()
         _define_built_in_commands(self._commands)
 
     @typing.override
@@ -885,11 +1021,37 @@ class _RootState(_State):
 
     @typing.override
     def get_cache_variable(self, name: str) -> _cv.Value:
-        assert False    
+        value = self._cache_variables.get(name)
+        if value:
+            return value
+        reason = None
+        return _cv.UncertainValue(reason)
 
     @typing.override
-    def get_environment_variable(self, name: str) -> _cv.Value:
-        assert False    
+    def set_cache_variable(self, name: str, value: str | None, assigning_command_name: str,
+                           assignment_position: _cur.Position) -> None:
+        self._cache_variables[name] = _cv.CertainValue(value)
+
+    @typing.override
+    def taint_cache_variable(self, name: str, reason: _cur.ValueUncertaintyReason) -> None:
+        self._cache_variables[name] = _cv.UncertainValue(reason)
+
+    @typing.override
+    def get_env_variable(self, name: str) -> _cv.Value:
+        value = self._env_variables.get(name)
+        if value:
+            return value
+        reason = None
+        return _cv.UncertainValue(reason)
+
+    @typing.override
+    def set_env_variable(self, name: str, value: str | None, assigning_command_name: str,
+                         assignment_position: _cur.Position) -> None:
+        self._env_variables[name] = _cv.CertainValue(value)
+
+    @typing.override
+    def taint_env_variable(self, name: str, reason: _cur.ValueUncertaintyReason) -> None:
+        self._env_variables[name] = _cv.UncertainValue(reason)
 
     @typing.override
     def get_command(self, name_cf: str) -> _Command:
@@ -948,8 +1110,26 @@ class _VariableOverlayState(_State):
         return self._parent_state.get_cache_variable(name)
 
     @typing.override
-    def get_environment_variable(self, name: str) -> _cv.Value:
-        return self._parent_state.get_environment_variable(name)
+    def set_cache_variable(self, name: str, value: str | None, assigning_command_name: str,
+                           assignment_position: _cur.Position) -> None:
+        self._parent_state.set_cache_variable(name, value, assigning_command_name, assignment_position)
+
+    @typing.override
+    def taint_cache_variable(self, name: str, reason: _cur.ValueUncertaintyReason) -> None:
+        self._parent_state.taint_cache_variable(name, reason)
+
+    @typing.override
+    def get_env_variable(self, name: str) -> _cv.Value:
+        return self._parent_state.get_env_variable(name)
+
+    @typing.override
+    def set_env_variable(self, name: str, value: str | None, assigning_command_name: str,
+                         assignment_position: _cur.Position) -> None:
+        self._parent_state.set_env_variable(name, value, assigning_command_name, assignment_position)
+
+    @typing.override
+    def taint_env_variable(self, name: str, reason: _cur.ValueUncertaintyReason) -> None:
+        self._parent_state.taint_env_variable(name, reason)
 
     @typing.override
     def get_command(self, name_cf: str) -> _Command:
@@ -971,6 +1151,10 @@ class _OccurrenceUncertaintyOverlayState(_State):
         self._occurrence_uncertainty_reason  = occurrence_uncertainty_reason
         self._commands                       = dict[str, _Command]()
         self._tainted_commands               = dict[str, _CommandDefinitionUncertaintyReason]()
+        self._env_variables                  = dict[str, _cv.Value]()
+        self._tainted_env_variables          = dict[str, _cur.ValueUncertaintyReason]()
+        self._cache_variables                = dict[str, _cv.Value]()
+        self._tainted_cache_variables        = dict[str, _cur.ValueUncertaintyReason]()
         self._regular_variables              = dict[str, _cv.Value]()
         self._tainted_regular_variables      = dict[str, _cur.ValueUncertaintyReason]()
         self._tainted_parent_scope_variables = dict[str, _cur.ValueUncertaintyReason]()
@@ -1001,26 +1185,58 @@ class _OccurrenceUncertaintyOverlayState(_State):
         reason = _cur.AssignmentOccurrenceUncertaintyReason(assigning_command_name, assignment_position,
                                                             self._occurrence_uncertainty_reason)
         if parent_scope:
-            self._tainted_parent_scope_variables[name] = reason
+            self._tainted_parent_scope_variables.setdefault(name, reason)
         else:
             self._regular_variables[name] = _cv.CertainValue(value)
-            self._tainted_regular_variables[name] = reason
+            self._tainted_regular_variables.setdefault(name, reason)
 
     @typing.override
     def taint_regular_variable(self, name: str, reason: _cur.ValueUncertaintyReason, parent_scope: bool) -> None:
         if parent_scope:
-            self._tainted_parent_scope_variables[name] = reason
+            self._tainted_parent_scope_variables.setdefault(name, reason)
         else:
             self._regular_variables[name] = _cv.UncertainValue(reason)
-            self._tainted_regular_variables[name] = reason
+            self._tainted_regular_variables.setdefault(name, reason)
 
     @typing.override
     def get_cache_variable(self, name: str) -> _cv.Value:
-        assert False    
+        value = self._cache_variables.get(name)
+        if value:
+            return value
+        return self._parent_state.get_cache_variable(name)
 
     @typing.override
-    def get_environment_variable(self, name: str) -> _cv.Value:
-        assert False    
+    def set_cache_variable(self, name: str, value: str | None, assigning_command_name: str,
+                           assignment_position: _cur.Position) -> None:
+        self._cache_variables[name] = _cv.CertainValue(value)
+        reason = _cur.AssignmentOccurrenceUncertaintyReason(assigning_command_name, assignment_position,
+                                                            self._occurrence_uncertainty_reason)
+        self._tainted_cache_variables.setdefault(name, reason)
+
+    @typing.override
+    def taint_cache_variable(self, name: str, reason: _cur.ValueUncertaintyReason) -> None:
+        self._cache_variables[name] = _cv.UncertainValue(reason)
+        self._tainted_cache_variables.setdefault(name, reason)
+
+    @typing.override
+    def get_env_variable(self, name: str) -> _cv.Value:
+        value = self._env_variables.get(name)
+        if value:
+            return value
+        return self._parent_state.get_env_variable(name)
+
+    @typing.override
+    def set_env_variable(self, name: str, value: str | None, assigning_command_name: str,
+                         assignment_position: _cur.Position) -> None:
+        self._env_variables[name] = _cv.CertainValue(value)
+        reason = _cur.AssignmentOccurrenceUncertaintyReason(assigning_command_name, assignment_position,
+                                                            self._occurrence_uncertainty_reason)
+        self._tainted_env_variables.setdefault(name, reason)
+
+    @typing.override
+    def taint_env_variable(self, name: str, reason: _cur.ValueUncertaintyReason) -> None:
+        self._env_variables[name] = _cv.UncertainValue(reason)
+        self._tainted_env_variables.setdefault(name, reason)
 
     @typing.override
     def get_command(self, name_cf: str) -> _Command:
@@ -1035,12 +1251,12 @@ class _OccurrenceUncertaintyOverlayState(_State):
         self._commands[name_cf] = command
         reason = _CommandDefinitionUncertaintyReason(defining_command_name, definition_position,
                                                      self._occurrence_uncertainty_reason)
-        self._tainted_commands[name_cf] = reason
+        self._tainted_commands.setdefault(name_cf, reason)
 
     @typing.override
     def taint_command(self, name_cf: str, reason: _CommandDefinitionUncertaintyReason) -> None:
         self._commands[name_cf] = _UncertainCommand(reason)
-        self._tainted_commands[name_cf] = reason
+        self._tainted_commands.setdefault(name_cf, reason)
 
 
 type _Command = _CertainCommand | _UncertainCommand
@@ -1097,55 +1313,41 @@ def _define_built_in_commands(commands: dict[str, _Command]) -> None:
     define("option",                 _BuiltInCommand.Which.UNSUPPORTED)
 
 
-class _Environment:
-    def resolve(self, name: str) -> _cv.Value:
-        assert False        
-
-
-class _Cache:
-    def resolve(self, name: str) -> _cv.Value:
-        assert False        
-
-
+# FIXME: Probably eliminate this class entirely                  
 class _Directory:
     def __init__(self, parent: _Directory | None = None) -> None:
-        self._parent            = parent
-        self._variables         = dict[str, _cv.CertainValue]()
-        self._tainted_variables = dict[str, _cur.ValueUncertaintyReason]()
+        self._parent    = parent
+        self._variables = dict[str, _cv.Value]()
 
     @property
     def parent(self) -> _Directory | None:
         return self._parent
 
     def get_variable(self, name: str) -> _cv.Value:
-        reason: _cur.ValueUncertaintyReason | None
-        reason = self._tainted_variables.get(name)
-        if reason:
-            return _cv.UncertainValue(reason)
         value = self._variables.get(name)
         if value:
-            if value.string is None and self._parent:
-                return self._parent.get_variable(name)
             return value
+        if self._parent:
+            return self._parent.get_variable(name)
         reason = None
         return _cv.UncertainValue(reason)
 
     def set_variable(self, variable_name: str, value: str | None) -> None:
         self._variables[variable_name] = _cv.CertainValue(value)
-        self._tainted_variables.pop(variable_name, None)
 
     def taint_variable(self, variable_name: str, reason: _cur.ValueUncertaintyReason) -> None:
-        self._variables.pop(variable_name, None)
-        self._tainted_variables[variable_name] = reason
+        self._variables[variable_name] = _cv.UncertainValue(reason)
 
 
 class _UnsupportedInvocSyntaxException(Exception):
-    def __init__(self, invoc: _clp.GeneralizedInvoc) -> None:
+    def __init__(self, invoc: _clp.GeneralizedInvoc, *args: typing.Any) -> None:
+        Exception.__init__(self, *args)
         self.invoc = invoc
 
 
 class _ConditionParseError(Exception):
     def __init__(self, pos: int, command_name: str, message: str) -> None:
+        Exception.__init__(self)
         self.pos          = pos
         self.command_name = command_name
         self.message      = message
@@ -1153,6 +1355,7 @@ class _ConditionParseError(Exception):
 
 class _ConditionEvalError(Exception):
     def __init__(self, pos: int, command_name: str, message: str) -> None:
+        Exception.__init__(self)
         self.pos          = pos
         self.command_name = command_name
         self.message      = message
@@ -1329,7 +1532,7 @@ def _macro_substitute_invoc(invoc: _clp.Invoc, context: _InvocContext,
                             expansion_position = _cur.Position(context.file_index, ref_pos)
                             reason = _cur.ExpansionUncertaintyReason(invoc.command_name, param, expansion_position,
                                                                      value.reason)
-                            raise _UncertainSubstitutionException(reason)
+                            raise _UncertainSubstitutionException(reason) from None
                     typing.assert_never(value)
                 try:
                     new_string = re.sub(r"\$\{([^{}]+)\}", replacer, arg.string.string)
@@ -1361,6 +1564,7 @@ class _UncertainSubstitutionValue:
 
 class _UncertainSubstitutionException(Exception):
     def __init__(self, reason: _cur.ExpansionUncertaintyReason) -> None:
+        Exception.__init__(self)
         self.reason = reason
 
 

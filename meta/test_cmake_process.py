@@ -45,6 +45,48 @@ def test_Set(context: _t.Context) -> None:
     context.check_equal(message.message, "Foo Bar")
 
 
+def test_Unset(context: _t.Context) -> None:
+    text = r"""
+      unset(CACHE{_x})
+      set(_x                    "x")
+      set(CACHE{_y} FORCE VALUE "y")
+      set(ENV{_z}               "z")
+      if(DEFINED _x)
+        message("d1x")
+      endif()
+      if(DEFINED CACHE{_y})
+        message("d1y")
+      endif()
+      if(DEFINED ENV{_z})
+        message("d1z")
+      endif()
+      unset(_x)
+      unset(CACHE{_y})
+      unset(ENV{_z})
+      if(DEFINED _x)
+        message("d2x")
+      endif()
+      if(DEFINED CACHE{_y})
+        message("d2y")
+      endif()
+      if(DEFINED ENV{_z})
+        message("d2z")
+      endif()
+    """
+    path = pathlib.Path("test.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check(success)
+    expected_messages = [
+        "d1x",
+        "d1y",
+        "d1z",
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for message, expected in zip(result.messages, expected_messages):
+        context.check_is_none(message.occurrence_uncertainty)
+        context.check_equal(message.message, expected)
+
+
 def test_String(context: _t.Context) -> None:
     text = r"""
       set(_x "Foo")
@@ -83,7 +125,7 @@ def test_List(context: _t.Context) -> None:
     context.check(success)
     expected_messages = [
         "-A-B-A;B",
-        "A;B;C\;D;E;F;G\;H",
+        "A;B;C\\;D;E;F;G\\;H",
     ]
     context.check_equal(len(result.messages), len(expected_messages))
     for message, expected in zip(result.messages, expected_messages):
@@ -250,6 +292,9 @@ class _Application(_cp.Application):
                 message: str) -> None:
         file_pos = self._pos_resolver.resolve_file_pos(pos)
         self._result.messages.append(_CMakeMessage(file_pos, occurrence_uncertainty, level, message))
+        context = _l.FileContext(file_pos.path, _l.FullTextPos(file_pos.line_no, file_pos.pos_on_line))
+        certainty = "Uncertain" if occurrence_uncertainty else "Certain"
+        _l.FileContextLogger(self._logger, context).info("%s: Message(%s): %s", certainty, level.name, message)
 
     @typing.override
     def warn(self, pos: _cur.Position, message: str, *args: typing.Any) -> None:
