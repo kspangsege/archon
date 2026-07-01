@@ -17,16 +17,28 @@ import archon.cmake.process as _cp
 def test_Message(context: _t.Context) -> None:
     text = r"""
       message("Foo")
+      meSsaGe("Bar")  # Mixed case in command name
+      message(WARNING "Baz")
+      if(${x})
+        message(FATAL_ERROR "Qux")  # Uncertain
+      endif()
     """
     path = pathlib.Path("test.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    context.check_equal(len(result.messages), 1)
-    message = result.messages[0]
-    context.check_equal(message.file_pos, _tp.FilePos(path, 1, 0))
-    context.check_is_none(message.occurrence_uncertainty)
-    context.check_equal(message.level, _cp.MessageLevel.NOTICE)
-    context.check_equal(message.message, "Foo")
+    expected_messages = [
+        ("Foo", _cp.MessageLevel.NOTICE,      True,  _tp.TextPos(1, 0)),
+        ("Bar", _cp.MessageLevel.NOTICE,      True,  _tp.TextPos(2, 0)),
+        ("Baz", _cp.MessageLevel.WARNING,     True,  _tp.TextPos(3, 0)),
+        ("Qux", _cp.MessageLevel.FATAL_ERROR, False, _tp.TextPos(5, 2)),
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(i)
+        subcontext.check_equal(message.message, expected[0])
+        subcontext.check_equal(message.level, expected[1])
+        subcontext.check_equal(not message.occurrence_uncertainty, expected[2])
+        subcontext.check_equal(message.file_pos.text_pos, expected[3])
 
 
 def test_Set(context: _t.Context) -> None:

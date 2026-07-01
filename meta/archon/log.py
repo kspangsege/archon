@@ -57,43 +57,48 @@ class Logger:
     def will_log(self, level: LogLevel) -> bool:
         return self._limit.will_log(level)
 
-    def get_limit(self) -> Limit:
+    @property
+    def limit(self) -> Limit:
         return self._limit
 
-    def get_sink(self) -> Sink:
+    @property
+    def sink(self) -> Sink:
         return self._sink
+
+
+null_logger: Logger
 
 
 class RootLogger(Logger):
     def __init__(self, output_stream: typing.TextIO = sys.stdout) -> None:
-        limit = Nonlimit()
+        limit = AllLimit()
         sink = RootSink(output_stream)
         Logger.__init__(self, limit, sink)
 
 
 class LimitLogger(Logger):
     def __init__(self, base_logger: Logger, limit_level: LogLevel) -> None:
-        limit = Sublimit(base_logger.get_limit(), limit_level)
-        Logger.__init__(self, limit, base_logger.get_sink())
+        limit = Sublimit(base_logger.limit, limit_level)
+        Logger.__init__(self, limit, base_logger.sink)
 
 
 class PrefixLogger(Logger):
     def __init__(self, base_logger: Logger, prefix: str) -> None:
-        sink = PrefixSink(base_logger.get_sink(), prefix)
-        Logger.__init__(self, base_logger.get_limit(), sink)
+        sink = PrefixSink(base_logger.sink, prefix)
+        Logger.__init__(self, base_logger.limit, sink)
 
 
 class FileContextLogger(Logger):
     def __init__(self, base_logger: Logger, file_context: FileContext) -> None:
-        sink = FileContextSink(base_logger.get_sink(), file_context)
-        Logger.__init__(self, base_logger.get_limit(), sink)
+        sink = FileContextSink(base_logger.sink, file_context)
+        Logger.__init__(self, base_logger.limit, sink)
         self._base_logger = base_logger
 
     def for_alt_line(self, line_no: int) -> FileContextLogger:
         return self.for_alt_pos(LineTextPos(line_no))
 
     def for_alt_pos(self, pos: TextPos) -> FileContextLogger:
-        sink = self.get_sink()
+        sink = self.sink
         assert isinstance(sink, FileContextSink)
         return self.for_alt_context(sink.get_path(), pos)
 
@@ -129,10 +134,15 @@ class Limit(abc.ABC):
         ...
 
 
-class Nonlimit(Limit):
+class AllLimit(Limit):
     @typing.override
     def will_log(self, level: LogLevel) -> bool:
         return True
+
+class OffLimit(Limit):
+    @typing.override
+    def will_log(self, level: LogLevel) -> bool:
+        return False
 
 
 class Sublimit(Limit):
@@ -149,6 +159,12 @@ class Sink(abc.ABC):
     @abc.abstractmethod
     def log(self, level: LogLevel, prefix: str, message: str) -> None:
         ...
+
+
+class NullSink(Sink):
+    @typing.override
+    def log(self, level: LogLevel, prefix: str, message: str) -> None:
+        pass
 
 
 class RootSink(Sink):
@@ -231,3 +247,6 @@ def parse_log_level(string: str) -> LogLevel:
     if level is not None:
         return level
     raise ValueError
+
+
+null_logger = Logger(OffLimit(), NullSink())

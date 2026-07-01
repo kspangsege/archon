@@ -3,6 +3,7 @@ from __future__ import annotations
 import typing
 import types
 import inspect
+import functools
 import abc
 import collections
 import dataclasses
@@ -18,6 +19,61 @@ import pdb
 import archon.base as _b
 import archon.log as _l
 import archon.command_line_interface as _cli
+
+
+class Context(abc.ABC):
+    def check(self, cond: bool) -> None:
+        self._impl.do_check(self._trail, cond)
+
+    def check_not(self, cond: bool) -> None:
+        self._impl.do_check_not(self._trail, cond)
+
+    def check_is_none(self, value: object) -> None:
+        self._impl.do_check_is_none(self._trail, value)
+
+    def check_is_not_none(self, value: object) -> None:
+        self._impl.do_check_is_not_none(self._trail, value)
+
+    def check_equal[T](self, a: T, b: T) -> None:
+        self._impl.do_check_equal(self._trail, a, b)
+
+    def check_not_equal[T](self, a: T, b: T) -> None:
+        self._impl.do_check_not_equal(self._trail, a, b)
+
+    def check_in[T](self, value: T, container: collections.abc.Container[T]) -> None:
+        self._impl.do_check_in(self._trail, value, container)
+
+    def check_not_in[T](self, value: T, container: collections.abc.Container[T]) -> None:
+        self._impl.do_check_not_in(self._trail, value, container)
+
+    def check_is_instance(self, value: object, type_info: TypeInfo) -> None:
+        self._impl.do_check_is_instance(self._trail, value, type_info)
+
+    def check_not_is_instance(self, value: object, type_info: TypeInfo) -> None:
+        self._impl.do_check_not_is_instance(self._trail, value, type_info)
+
+    def check_raises(self, exception_type_info: TypeInfo) -> typing.ContextManager[None]:
+        return self._impl.do_check_raises(self._trail, exception_type_info)
+
+    def create_rng(self) -> random.Random:
+        return self._impl.create_rng()
+
+    @property
+    def logger(self) -> _l.Logger:
+        return self._logger
+
+    def subcontext(self, *args: typing.Any) -> Context:
+        return Context(self._impl, _Subtrail(self._trail, args))
+
+    def __init__(self, impl: _Implementation, trail: _Trail) -> None:
+        self._impl   = impl
+        self._trail  = trail
+        base_logger = impl.testcase_base_logger
+        sink = _TrailSink(base_logger.sink, trail)
+        self._logger = _l.Logger(base_logger.limit, sink)
+
+
+type TypeInfo = type | types.UnionType | tuple[TypeInfo, ...]
 
 
 def run_module_tests(module_name: str) -> None:
@@ -62,18 +118,18 @@ def run_module_tests(module_name: str) -> None:
 
 
 def generate_native_tests(module_name: str) -> unittest.TestSuite:
-    logger = _l.RootLogger()
     tests = _get_module_tests(module_name)
     native_tests = unittest.TestSuite()
     for test in tests:
-        native_tests.addTest(_make_native_test(test, logger))
+        native_tests.addTest(_make_native_test(test))
     return native_tests
 
 
 def run(tests: collections.abc.Iterable[Test], random_seed: int, debug_on_failure: bool, logger: _l.Logger,
         testcase_logger: _l.Logger) -> None:
     base_stack_depth = len(traceback.extract_stack())
-    context = _RegularContext(base_stack_depth, random_seed, debug_on_failure, logger, testcase_logger)
+    impl = _RegularImplementation(base_stack_depth, random_seed, debug_on_failure, logger, testcase_logger)
+    context = Context(impl, None)
     failure = False
     for test in tests:
         if test.description is None:
@@ -101,66 +157,6 @@ def run(tests: collections.abc.Iterable[Test], random_seed: int, debug_on_failur
         logger.info("FAILURE")
 
 
-class Context(abc.ABC):
-    @abc.abstractmethod
-    def check(self, cond: bool) -> None:
-        ...
-
-    @abc.abstractmethod
-    def check_not(self, cond: bool) -> None:
-        ...
-
-    @abc.abstractmethod
-    def check_is_none(self, value: object) -> None:
-        ...
-
-    @abc.abstractmethod
-    def check_is_not_none(self, value: object) -> None:
-        ...
-
-    @abc.abstractmethod
-    def check_equal[T](self, a: T, b: T) -> None:
-        ...
-
-    @abc.abstractmethod
-    def check_not_equal[T](self, a: T, b: T) -> None:
-        ...
-
-    @abc.abstractmethod
-    def check_in[T](self, a: T, b: collections.abc.Container[T]) -> None:
-        ...
-
-    @abc.abstractmethod
-    def check_not_in[T](self, a: T, b: collections.abc.Container[T]) -> None:
-        ...
-
-    @abc.abstractmethod
-    def check_is_instance(self, value: object, type_info: TypeInfo) -> None:
-        ...
-
-    @abc.abstractmethod
-    def check_not_is_instance(self, value: object, type_info: TypeInfo) -> None:
-        ...
-
-    @abc.abstractmethod
-    def check_raises(self, exception_type_info: TypeInfo) -> typing.ContextManager[None]:
-        ...
-
-    @abc.abstractmethod
-    def create_rng(self) -> random.Random:
-        ...
-
-    @property
-    def logger(self) -> _l.Logger:
-        return self._testcase_logger
-
-    def __init__(self, testcase_logger: _l.Logger) -> None:
-        self._testcase_logger = testcase_logger
-
-
-type TypeInfo = type | types.UnionType | tuple[TypeInfo, ...]
-
-
 @dataclasses.dataclass(slots=True, frozen=True)
 class Test:
     name:           str
@@ -183,82 +179,167 @@ class BadTestFunctionSignature(Exception):
 
 
 
-class _RegularContext(Context):
+type _Trail = _Subtrail | None
+
+class _Subtrail:
+    def __init__(self, parent: _Trail, args: tuple[object, ...]) -> None:
+        self._parent = parent
+        self._args   = args
+
+    def __str__(self) -> str:
+        return self._string
+
+    @functools.cached_property
+    def _string(self) -> str:
+        args = self._args
+        string = "%s: " % (args[0] if len(args) == 1 else (args,))
+        return str(self._parent) + string if self._parent else string
+
+
+class _TrailSink(_l.Sink):
+    def __init__(self, base_sink: _l.Sink, trail: _Trail):
+        self._base_sink = base_sink
+        self._trail     = trail
+
+    @typing.override
+    def log(self, level: _l.LogLevel, prefix: str, message: str) -> None:
+        trail = str(self._trail) if self._trail else ""
+        self._base_sink.log(level, trail + prefix, message)
+
+
+class _Implementation(abc.ABC):
+    @abc.abstractmethod
+    def do_check(self, trail: _Trail, cond: bool) -> None:
+        ...
+
+    @abc.abstractmethod
+    def do_check_not(self, trail: _Trail, cond: bool) -> None:
+        ...
+
+    @abc.abstractmethod
+    def do_check_is_none(self, trail: _Trail, value: object) -> None:
+        ...
+
+    @abc.abstractmethod
+    def do_check_is_not_none(self, trail: _Trail, value: object) -> None:
+        ...
+
+    @abc.abstractmethod
+    def do_check_equal[T](self, trail: _Trail, a: T, b: T) -> None:
+        ...
+
+    @abc.abstractmethod
+    def do_check_not_equal[T](self, trail: _Trail, a: T, b: T) -> None:
+        ...
+
+    @abc.abstractmethod
+    def do_check_in[T](self, trail: _Trail, value: T, container: collections.abc.Container[T]) -> None:
+        ...
+
+    @abc.abstractmethod
+    def do_check_not_in[T](self, trail: _Trail, value: T, container: collections.abc.Container[T]) -> None:
+        ...
+
+    @abc.abstractmethod
+    def do_check_is_instance(self, trail: _Trail, value: object, type_info: TypeInfo) -> None:
+        ...
+
+    @abc.abstractmethod
+    def do_check_not_is_instance(self, trail: _Trail, value: object, type_info: TypeInfo) -> None:
+        ...
+
+    @abc.abstractmethod
+    def do_check_raises(self, trail: _Trail, exception_type_info: TypeInfo) -> typing.ContextManager[None]:
+        ...
+
+    @abc.abstractmethod
+    def create_rng(self) -> random.Random:
+        ...
+
+    @property
+    def testcase_base_logger(self) -> _l.Logger:
+        return self._testcase_base_logger
+
+    def __init__(self, testcase_base_logger: _l.Logger) -> None:
+        self._testcase_base_logger = testcase_base_logger
+
+
+class _RegularImplementation(_Implementation):
     def __init__(self, base_stack_depth: int, random_seed: int, debug_on_failure: bool, logger: _l.Logger,
-                 testcase_logger: _l.Logger) -> None:
-        Context.__init__(self, testcase_logger)
+                 testcase_base_logger: _l.Logger) -> None:
+        _Implementation.__init__(self, testcase_base_logger)
         self._base_stack_depth = base_stack_depth
         self._random_seed = random_seed
         self._debug_on_failure = debug_on_failure
         self._logger = logger
 
     @typing.override
-    def check(self, cond: bool) -> None:
-        self._check(cond, "check", "(%r) failed", cond)
+    def do_check(self, trail: _Trail, cond: bool) -> None:
+        self._check(trail, cond, "check", "(%r) failed", cond)
 
     @typing.override
-    def check_not(self, cond: bool) -> None:
-        self._check(not cond, "check_not", "(%r) failed", cond)
+    def do_check_not(self, trail: _Trail, cond: bool) -> None:
+        self._check(trail, not cond, "check_not", "(%r) failed", cond)
 
     @typing.override
-    def check_is_none(self, value: object) -> None:
+    def do_check_is_none(self, trail: _Trail, value: object) -> None:
         cond = value is None
-        self._check(cond, "check_is_none", "(%r) failed", value)
+        self._check(trail, cond, "check_is_none", "(%r) failed", value)
 
     @typing.override
-    def check_is_not_none(self, value: object) -> None:
+    def do_check_is_not_none(self, trail: _Trail, value: object) -> None:
         cond = value is not None
-        self._check(cond, "check_is_not_none", "(%r) failed", value)
+        self._check(trail, cond, "check_is_not_none", "(%r) failed", value)
 
     @typing.override
-    def check_equal[T](self, a: T, b: T) -> None:
+    def do_check_equal[T](self, trail: _Trail, a: T, b: T) -> None:
         cond = a == b
-        self._check(cond, "check_equal", "(%r, %r) failed", a, b)
+        self._check(trail, cond, "check_equal", "(%r, %r) failed", a, b)
 
     @typing.override
-    def check_not_equal[T](self, a: T, b: T) -> None:
+    def do_check_not_equal[T](self, trail: _Trail, a: T, b: T) -> None:
         cond = a != b
-        self._check(cond, "check_not_equal", "(%r, %r) failed", a, b)
+        self._check(trail, cond, "check_not_equal", "(%r, %r) failed", a, b)
 
     @typing.override
-    def check_in[T](self, a: T, b: collections.abc.Container[T]) -> None:
-        cond = a in b
-        self._check(cond, "check_in", "(%r, %r) failed", a, b)
+    def do_check_in[T](self, trail: _Trail, value: T, container: collections.abc.Container[T]) -> None:
+        cond = value in container
+        self._check(trail, cond, "check_in", "(%r, %r) failed", value, container)
 
     @typing.override
-    def check_not_in[T](self, a: T, b: collections.abc.Container[T]) -> None:
-        cond = a not in b
-        self._check(cond, "check_not_in", "(%r, %r) failed", a, b)
+    def do_check_not_in[T](self, trail: _Trail, value: T, container: collections.abc.Container[T]) -> None:
+        cond = value not in container
+        self._check(trail, cond, "check_not_in", "(%r, %r) failed", value, container)
 
     @typing.override
-    def check_is_instance(self, value: object, type_info: TypeInfo) -> None:
+    def do_check_is_instance(self, trail: _Trail, value: object, type_info: TypeInfo) -> None:
         cond = isinstance(value, type_info)
-        self._check(cond, "check_is_instance", "(%r, %s) failed: Type was %s", value, _format_type_info(type_info),
-                    type(value).__name__)
+        self._check(trail, cond, "check_is_instance", "(%r, %s) failed: Type was %s", value,
+                    _format_type_info(type_info), type(value).__name__)
 
     @typing.override
-    def check_not_is_instance(self, value: object, type_info: TypeInfo) -> None:
+    def do_check_not_is_instance(self, trail: _Trail, value: object, type_info: TypeInfo) -> None:
         cond = not isinstance(value, type_info)
-        self._check(cond, "check_not_is_instance", "(%r, %s) failed: Type was %s", value, _format_type_info(type_info),
-                    type(value).__name__)
+        self._check(trail, cond, "check_not_is_instance", "(%r, %s) failed: Type was %s", value,
+                    _format_type_info(type_info), type(value).__name__)
 
     @typing.override
-    def check_raises(self, exception_type_info: TypeInfo) -> typing.ContextManager[None]:
-        return _CheckRaises(self, exception_type_info)
+    def do_check_raises(self, trail: _Trail, exception_type_info: TypeInfo) -> typing.ContextManager[None]:
+        return _CheckRaises(self, trail, exception_type_info)
 
     @typing.override
     def create_rng(self) -> random.Random:
         return random.Random(self._random_seed)
 
-    def _check(self, cond: bool, check_name: str, message: str, *params: typing.Any) -> None:
+    def _check(self, trail: _Trail, cond: bool, check_name: str, message: str, *params: typing.Any) -> None:
         if cond:
             return
         message_2 = check_name + (message % params)
-        clip = 3
+        clip = 4
         check_frame_name = check_name
-        self._fail(message_2, clip, check_frame_name)
+        self._fail(trail, message_2, clip, check_frame_name)
 
-    def _fail(self, message: str, clip: int, check_frame_name: str,
+    def _fail(self, trail: _Trail, message: str, clip: int, check_frame_name: str,
               exception_tb: types.TracebackType | None = None) -> typing.Never:
         entries = traceback.extract_stack()
         if self._base_stack_depth > 0 and len(entries) >= self._base_stack_depth:
@@ -274,15 +355,16 @@ class _RegularContext(Context):
             stacktrace_2 = "".join(traceback.format_tb(exception_tb))
             if stacktrace_2:
                 text = "%s\nUnexpected exception traceback:\n%s" % (text, _b.chomp(stacktrace_2))
-        self._logger.error("%s", text)
+        self._logger.error("%s%s", trail, text)
         if self._debug_on_failure:
             breakpoint()
         raise CheckFailure
 
 
 class _CheckRaises:
-    def __init__(self, context: _RegularContext, exception_type_info: TypeInfo) -> None:
-        self._context             = context
+    def __init__(self, impl: _RegularImplementation, trail: _Trail, exception_type_info: TypeInfo) -> None:
+        self._impl                = impl
+        self._trail               = trail
         self._exception_type_info = exception_type_info
 
     def __enter__(self) -> None:
@@ -302,7 +384,7 @@ class _CheckRaises:
         message = "check_raises(%s) failed: %s" % (_format_type_info(self._exception_type_info), submessage)
         clip = 2
         check_frame_name = "__exit__"
-        self._context._fail(message, clip, check_frame_name, tb)
+        self._impl._fail(self._trail, message, clip, check_frame_name, tb)
 
 
 def _format_type_info(type_info: TypeInfo) -> str:
@@ -348,12 +430,13 @@ def _get_module_tests(module_name: str) -> list[Test]:
     return tests
 
 
-def _make_native_test(test: Test, logger: _l.Logger) -> unittest.TestCase:
+def _make_native_test(test: Test) -> unittest.TestCase:
     class_name = "Tests"
     base_classes = (unittest.TestCase,)
     method_name = "test_%s" % test.name
     def method_func(self: unittest.TestCase) -> None:
-        context = _ContextBridge(self, logger)
+        impl = _ImplementationBridge(self)
+        context = Context(impl, None)
         test.func(context)
     method_func.__doc__ = test.description
     attributes = {
@@ -364,53 +447,53 @@ def _make_native_test(test: Test, logger: _l.Logger) -> unittest.TestCase:
     return typing.cast(unittest.TestCase, test_case_class(methodName=method_name))
 
 
-class _ContextBridge(Context):
-    def __init__(self, test_case: unittest.TestCase, logger: _l.Logger) -> None:
-        Context.__init__(self, logger)
+class _ImplementationBridge(_Implementation):
+    def __init__(self, test_case: unittest.TestCase) -> None:
+        _Implementation.__init__(self, _l.null_logger)
         self._test_case = test_case
 
     @typing.override
-    def check(self, cond: bool) -> None:
+    def do_check(self, trail: _Trail, cond: bool) -> None:
         self._test_case.assertTrue(cond)
 
     @typing.override
-    def check_not(self, cond: bool) -> None:
+    def do_check_not(self, trail: _Trail, cond: bool) -> None:
         self._test_case.assertFalse(cond)
 
     @typing.override
-    def check_is_none(self, value: object) -> None:
+    def do_check_is_none(self, trail: _Trail, value: object) -> None:
         self._test_case.assertIsNone(value)
 
     @typing.override
-    def check_is_not_none(self, value: object) -> None:
+    def do_check_is_not_none(self, trail: _Trail, value: object) -> None:
         self._test_case.assertIsNotNone(value)
 
     @typing.override
-    def check_equal[T](self, a: T, b: T) -> None:
+    def do_check_equal[T](self, trail: _Trail, a: T, b: T) -> None:
         self._test_case.assertEqual(a, b)
 
     @typing.override
-    def check_not_equal[T](self, a: T, b: T) -> None:
+    def do_check_not_equal[T](self, trail: _Trail, a: T, b: T) -> None:
         self._test_case.assertNotEqual(a, b)
 
     @typing.override
-    def check_in[T](self, a: T, b: collections.abc.Container[T]) -> None:
-        self._test_case.assertIn(a, b)
+    def do_check_in[T](self, trail: _Trail, value: T, container: collections.abc.Container[T]) -> None:
+        self._test_case.assertIn(value, container)
 
     @typing.override
-    def check_not_in[T](self, a: T, b: collections.abc.Container[T]) -> None:
-        self._test_case.assertNotIn(a, b)
+    def do_check_not_in[T](self, trail: _Trail, value: T, container: collections.abc.Container[T]) -> None:
+        self._test_case.assertNotIn(value, container)
 
     @typing.override
-    def check_is_instance(self, value: object, type_info: TypeInfo) -> None:
+    def do_check_is_instance(self, trail: _Trail, value: object, type_info: TypeInfo) -> None:
         self._test_case.assertIsInstance(value, type_info)
 
     @typing.override
-    def check_not_is_instance(self, value: object, type_info: TypeInfo) -> None:
+    def do_check_not_is_instance(self, trail: _Trail, value: object, type_info: TypeInfo) -> None:
         self._test_case.assertNotIsInstance(value, type_info)
 
     @typing.override
-    def check_raises(self, exception_type_info: TypeInfo) -> typing.ContextManager[None]:
+    def do_check_raises(self, trail: _Trail, exception_type_info: TypeInfo) -> typing.ContextManager[None]:
         compat_type_info = _type_info_compat_cast(exception_type_info)
         native_cm: typing.ContextManager[typing.Any] = self._test_case.assertRaises(compat_type_info)
         return _NativeContextManagerAdaptor(native_cm)

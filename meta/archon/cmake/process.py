@@ -585,19 +585,25 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
             return
         func = arg.string.string
         if func in {"TOLOWER", "TOUPPER"}:
-            # FIXME: Consider allowing for value uncertainty (like in set())            
-            arg = server.consume()
-            if not arg:
-                error(context.file_index, server.next_pos, "Missing <string> argument in %s(%s) invocation",
-                      invoc.command_name, func)
-                return
-            string = arg.string.string
+            uncertainty: _cur.ExpansionUncertaintyReason | None = None
+            try:
+                arg = server.consume()
+                if not arg:
+                    error(context.file_index, server.next_pos, "Missing <string> argument in %s(%s) invocation",
+                          invoc.command_name, func)
+                    return
+                string = arg.string.string
+            except _ca.UncertainArgumentException as e:
+                uncertainty = e.reason
             arg = server.consume()
             if not arg:
                 error(context.file_index, server.next_pos, "Missing <variable> argument in %s(%s) invocation",
                       invoc.command_name, func)
                 return
             var_name = arg.string.string
+            if uncertainty:
+                context.state.taint_regular_variable(var_name, uncertainty, parent_scope=False)
+                return
             # NOTE: CMake completely ignores additional arguments for these signatures
             match func:
                 case "TOLOWER":
