@@ -3,7 +3,6 @@ from __future__ import annotations
 import typing
 import types
 import inspect
-import functools
 import abc
 import collections
 import dataclasses
@@ -112,7 +111,7 @@ def run_module_tests(module_name: str) -> None:
 
     logger.info("Random seed: %s", hex(random_seed))
     tests = _get_module_tests(module_name)
-    testcase_logger_1 = _l.PrefixLogger(logger, "Testcase: ")
+    testcase_logger_1 = _l.PrefixLogger(logger, "Inner: ")
     testcase_logger_2 = _l.LimitLogger(testcase_logger_1, testcase_log_level.value)
     run(tests, random_seed, debug_on_failure.value, logger, testcase_logger_2)
 
@@ -138,7 +137,7 @@ def run(tests: collections.abc.Iterable[Test], random_seed: int, debug_on_failur
             logger.info("TEST: %s: %s", test.qualified_name, test.description)
         try:
             test.func(context)
-        except CheckFailure:
+        except _CheckFailure:
             failure = True
         except (pdb.Restart, bdb.BdbQuit):
             raise
@@ -165,10 +164,6 @@ class Test:
     func:           collections.abc.Callable[[Context], None]
 
 
-class CheckFailure(Exception):
-    pass
-
-
 class BadTestFunctionSignature(Exception):
     pass
 
@@ -187,10 +182,6 @@ class _Subtrail:
         self._args   = args
 
     def __str__(self) -> str:
-        return self._string
-
-    @functools.cached_property
-    def _string(self) -> str:
         args = self._args
         string = "%s: " % (args[0] if len(args) == 1 else (args,))
         return str(self._parent) + string if self._parent else string
@@ -355,10 +346,11 @@ class _RegularImplementation(_Implementation):
             stacktrace_2 = "".join(traceback.format_tb(exception_tb))
             if stacktrace_2:
                 text = "%s\nUnexpected exception traceback:\n%s" % (text, _b.chomp(stacktrace_2))
-        self._logger.error("%s%s", trail, text)
+        prefix = str(trail) if trail else ""
+        self._logger.error("%s%s", prefix, text)
         if self._debug_on_failure:
             breakpoint()
-        raise CheckFailure
+        raise _CheckFailure from None
 
 
 class _CheckRaises:
@@ -525,3 +517,7 @@ class _NativeContextManagerAdaptor:
     def __exit__(self, exc_type: type[BaseException] | None, exc_val: BaseException | None,
                  tb: types.TracebackType | None) -> bool | None:
         return self._native_cm.__exit__(exc_type, exc_val, tb)
+
+
+class _CheckFailure(BaseException):
+    pass
