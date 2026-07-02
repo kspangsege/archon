@@ -6,6 +6,7 @@ import inspect
 import abc
 import collections
 import dataclasses
+import re
 import traceback
 import pathlib
 import sys
@@ -18,6 +19,7 @@ import pdb
 import archon.base as _b
 import archon.log as _l
 import archon.command_line_interface as _cli
+import archon.regex as _r
 
 
 class Context(abc.ABC):
@@ -79,19 +81,23 @@ def run_module_tests(module_name: str) -> None:
     def int_16(string: str) -> int:
         return int(string, 16)
 
-    random_seed: int | None = None
-    def set_random_seed(seed: int) -> None:
-        nonlocal random_seed
-        random_seed = seed
-
     help_              = _b.Wrap(False)
+    filter_            = _b.Wrap(typing.cast(str | None, None))
+    exclude            = _b.Wrap(typing.cast(str | None, None))
+    repeat             = _b.Wrap(1)
+    shuffle            = _b.Wrap(False)
+    random_seed        = _b.Wrap(typing.cast(int | None, None))
     debug_on_failure   = _b.Wrap(False)
     testcase_log_level = _b.Wrap(_l.LogLevel.OFF)
 
     spec = _cli.Spec()
     spec.opt(["--"], _cli.Stop())
     spec.opt(["-h", "--help"], _cli.ShortCircuit(help_))
-    spec.opt(["-s", "--random-seed"], _cli.CallWithArg(int_16, set_random_seed))
+    spec.opt(["-f", "--filter"], _cli.AssignWithArg(str, filter_))
+    spec.opt(["-e", "--exclude"], _cli.AssignWithArg(str, exclude))
+    spec.opt(["-n", "--repeat"], _cli.AssignWithArg(_cli.map_(int, lambda n: n > 0), repeat))
+    spec.opt(["-s", "--shuffle"], _cli.Raise(shuffle))
+    spec.opt(["-S", "--random-seed"], _cli.AssignWithArg(int_16, random_seed))
     spec.opt(["-d", "--debug-on-failure"], _cli.Raise(debug_on_failure))
     spec.opt(["-l", "--testcase-log-level"], _cli.AssignWithArg(_l.parse_log_level, testcase_log_level))
 
@@ -106,14 +112,31 @@ def run_module_tests(module_name: str) -> None:
         logger.error("Too many command-line arguments (try --help)")
         sys.exit(1)
 
-    if random_seed is None:
-        random_seed = secrets.randbits(384)  # 19968 for a fill seeding
+    regex:     re.Pattern[str] | None = None
+    neg_regex: re.Pattern[str] | None = None
+    if filter_.value is not None:
+        expr = _parse_filter_glob(filter_.value)
+        string = _r.format_as_python_regex(expr)
+        regex = re.compile(string)
+    if exclude.value is not None:
+        expr = _parse_filter_glob(exclude.value)
+        string = _r.format_as_python_regex(expr)
+        neg_regex = re.compile(string)
+    def filter_2(string: str) -> bool:
+        if regex is not None and not regex.fullmatch(string):
+            return False
+        if neg_regex is not None and bool(neg_regex.fullmatch(string)):
+            return False
+        return True
 
-    logger.info("Random seed: %s", hex(random_seed))
+    if random_seed.value is None:
+        random_seed.value = secrets.randbits(384)  # 19968 bit are needed for a full Mersenne Twister seeding
+
     tests = _get_module_tests(module_name)
     testcase_logger_1 = _l.PrefixLogger(logger, "Inner: ")
     testcase_logger_2 = _l.LimitLogger(testcase_logger_1, testcase_log_level.value)
-    run(tests, random_seed, debug_on_failure.value, logger, testcase_logger_2)
+    run(tests, filter_2, repeat.value, shuffle.value, random_seed.value, debug_on_failure.value, logger,
+        testcase_logger_2)
 
 
 def generate_native_tests(module_name: str) -> unittest.TestSuite:
@@ -124,17 +147,43 @@ def generate_native_tests(module_name: str) -> unittest.TestSuite:
     return native_tests
 
 
-def run(tests: collections.abc.Iterable[Test], random_seed: int, debug_on_failure: bool, logger: _l.Logger,
-        testcase_logger: _l.Logger) -> None:
+def run(tests: list[Test], filter_: _b.Predicate[str], num_repetitions: int, shuffle: bool, random_seed: int,
+        debug_on_failure: bool, logger: _l.Logger, testcase_logger: _l.Logger) -> None:
+    filtered = list[tuple[int, Test]]()
+    for i, test in enumerate(tests):
+        if filter_(test.qualified_name):
+            filtered.append((i, test))
+    @dataclasses.dataclass(slots=True, frozen=True)
+    class Invoc:
+        test:             Test
+        test_index:       int
+        repetition_index: int
+    invocations = list[Invoc]()
+    for i in range(num_repetitions):
+        for test_index, test in filtered:
+            invocations.append(Invoc(test, test_index, i))
+    if shuffle:
+        rng = random.Random(random_seed)
+        rng.shuffle(invocations)
+    coverage = (("" if len(filtered) == len(tests) else "%s out of " % len(filtered)) +
+                _b.as_num_of(len(tests), _b.NumOfSpec("test", "tests")) +
+                (" (%s invocations)" % len(invocations) if num_repetitions > 1 else ""))
+    logger.info("Executing %s", coverage)
+    logger.info("Random seed: %s", hex(random_seed))
     base_stack_depth = len(traceback.extract_stack())
-    impl = _RegularImplementation(base_stack_depth, random_seed, debug_on_failure, logger, testcase_logger)
-    context = Context(impl, None)
     failure = False
-    for test in tests:
+    for invoc in invocations:
+        test = invoc.test
+        test_name = test.qualified_name
+        if num_repetitions > 1:
+            test_name = "%s#%s" % (test.qualified_name, 1 + invoc.repetition_index)
         if test.description is None:
-            logger.info("TEST: %s", test.qualified_name)
+            logger.info("TEST: %s", test_name)
         else:
-            logger.info("TEST: %s: %s", test.qualified_name, test.description)
+            logger.info("TEST: %s: %s", test_name, test.description)
+        invoc_seed = random_seed ^ (invoc.test_index << 16) ^ invoc.repetition_index
+        impl = _RegularImplementation(base_stack_depth, invoc_seed, debug_on_failure, logger, testcase_logger)
+        context = Context(impl, None)
         try:
             test.func(context)
         except _CheckFailure:
@@ -151,7 +200,7 @@ def run(tests: collections.abc.Iterable[Test], random_seed: int, debug_on_failur
             logger.error("Unhandled exception: %s", string)
             failure = True
     if not failure:
-        logger.info("Success")
+        logger.info("Success: %s", coverage)
     else:
         logger.info("FAILURE")
 
@@ -521,3 +570,19 @@ class _NativeContextManagerAdaptor:
 
 class _CheckFailure(BaseException):
     pass
+
+
+def _parse_filter_glob(string: str) -> _r.Expression:
+    elements = list[_r.Expression]()
+    i = 0
+    while True:
+        j = string.find("*", i)
+        if j == -1:
+            break
+        if j > i:
+            elements.append(_r.Literal(string[i:j]))
+        elements.append(_r.Repetition(_r.Wildcard(), 0, None))
+        i = j + 1
+    if i < len(string):
+        elements.append(_r.Literal(string[i:]))
+    return elements[0] if len(elements) == 1 else _r.Sequence(elements)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import dataclasses
 import enum
+import collections
 import pathlib
 import json
 
@@ -15,6 +16,16 @@ def as_ord(val: int) -> str:
         case 3:
             return "3rd"
     return "%sth" % val
+
+
+def as_num_of(val: int, spec: NumOfSpec) -> str:
+    return "%s %s" % (val, spec.singular_form if val == 1 else spec.plural_form)
+
+
+@dataclasses.dataclass(slots=True)
+class NumOfSpec:
+    singular_form: str
+    plural_form:   str
 
 
 def chomp(string: str) -> str:
@@ -35,3 +46,6 @@ def resolve_self_rel_path(argv0: str, rel_path: str) -> pathlib.Path:
 @dataclasses.dataclass(slots=True)
 class Wrap[T]:
     value: T
+
+
+type Predicate[T] = collections.abc.Callable[[T], bool]

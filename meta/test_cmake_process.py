@@ -41,7 +41,8 @@ def test_Message(context: _t.Context) -> None:
         subcontext.check_equal(message.file_pos.text_pos, expected[3])
 
 
-def test_Set(context: _t.Context) -> None:
+def test_SetAndUnset(context: _t.Context) -> None:
+    # set()
     text = r"""
       set(_x "A")
       set(CACHE{_x} FORCE VALUE "B")
@@ -53,8 +54,10 @@ def test_Set(context: _t.Context) -> None:
       message("3: ${_x}-$CACHE{_x}-$ENV{_x}")
       set(ENV{_x} "C2")
       message("4: ${_x}-$CACHE{_x}-$ENV{_x}")
-      set(_x)
+      set(_x "")                               # Regular var still overrides cache
       message("5: ${_x}-$CACHE{_x}-$ENV{_x}")
+      set(_x)                                  # Regular no longer overrides cache
+      message("6: ${_x}-$CACHE{_x}-$ENV{_x}")
     """
     path = pathlib.Path("test.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
@@ -64,7 +67,8 @@ def test_Set(context: _t.Context) -> None:
         "2: A2-B-C",
         "3: A2-B2-C",
         "4: A2-B2-C2",
-        "5: B2-B2-C2",
+        "5: -B2-C2",
+        "6: B2-B2-C2",
     ]
     context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
@@ -73,8 +77,7 @@ def test_Set(context: _t.Context) -> None:
         subcontext.check_equal(message.level, _cp.MessageLevel.NOTICE)
         subcontext.check_equal(message.message, expected)
 
-
-def test_Unset(context: _t.Context) -> None:
+    # unset()
     text = r"""
       unset(CACHE{_x})
       set(_x                    "x")
@@ -116,8 +119,393 @@ def test_Unset(context: _t.Context) -> None:
         subcontext.check_is_none(message.occurrence_uncertainty)
         subcontext.check_equal(message.message, expected)
 
+    # Change from unset to empty
+    text = r"""
+      unset(r)
+      unset(CACHE{r})  # Prevent uncertainty from cache fallback
+      unset(CACHE{c})
+      unset(ENV{e})
+      if(NOT DEFINED r)
+        message("1-1: r")
+      endif()
+      if(NOT DEFINED CACHE{c})
+        message("1-1: c")
+      endif()
+      if(NOT DEFINED ENV{e})
+        message("1-1: e")
+      endif()
+      set(r "")
+      set(CACHE{c} FORCE VALUE "")
+      set(ENV{e} "x")  # CMake quirk: Cannot change environement variable directly from unset to empty
+      set(ENV{e} "")
+      if(DEFINED r AND r STREQUAL "")
+        message("1-2: r")
+      endif()
+      set(val "$CACHE{c}")
+      if(DEFINED CACHE{c} AND val STREQUAL "")
+        message("1-2: c")
+      endif()
+      set(val "$ENV{e}")
+      if(DEFINED ENV{e} AND val STREQUAL "")
+        message("1-2: e")
+      endif()
+    """
+    path = pathlib.Path("test.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check(success)
+    expected_messages = [
+        "1-1: r",
+        "1-1: c",
+        "1-1: e",
+        "1-2: r",
+        "1-2: c",
+        "1-2: e",
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(i)
+        subcontext.check_is_none(message.occurrence_uncertainty)
+        subcontext.check_equal(message.message, expected)
+
+    # Change from unset to nonempty
+    text = r"""
+      unset(r)
+      unset(CACHE{r})  # Prevent uncertainty from cache fallback
+      unset(CACHE{c})
+      unset(ENV{e})
+      if(NOT DEFINED r)
+        message("2-1: r")
+      endif()
+      if(NOT DEFINED CACHE{c})
+        message("2-1: c")
+      endif()
+      if(NOT DEFINED ENV{e})
+        message("2-1: e")
+      endif()
+      set(r "x")
+      set(CACHE{c} FORCE VALUE "x")
+      set(ENV{e} "x")
+      if(r STREQUAL "x")
+        message("2-2: r")
+      endif()
+      set(val "$CACHE{c}")
+      if(val STREQUAL "x")
+        message("2-2: c")
+      endif()
+      set(val "$ENV{e}")
+      if(val STREQUAL "x")
+        message("2-2: e")
+      endif()
+    """
+    path = pathlib.Path("test.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check(success)
+    expected_messages = [
+        "2-1: r",
+        "2-1: c",
+        "2-1: e",
+        "2-2: r",
+        "2-2: c",
+        "2-2: e",
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(i)
+        subcontext.check_is_none(message.occurrence_uncertainty)
+        subcontext.check_equal(message.message, expected)
+
+    # Change from empty to unset via unset()
+    text = r"""
+      set(r "")
+      set(CACHE{c} FORCE VALUE "")
+      set(ENV{e} "x")  # CMake quirk: Cannot change environement variable directly from unset to empty
+      set(ENV{e} "")
+      if(DEFINED r AND r STREQUAL "")
+        message("3-1: r")
+      endif()
+      set(val "$CACHE{c}")
+      if(DEFINED CACHE{c} AND val STREQUAL "")
+        message("3-1: c")
+      endif()
+      set(val "$ENV{e}")
+      if(DEFINED ENV{e} AND val STREQUAL "")
+        message("3-1: e")
+      endif()
+      unset(r)
+      unset(CACHE{r})  # Prevent uncertainty from cache fallback
+      unset(CACHE{c})
+      unset(ENV{e})
+      if(NOT DEFINED r)
+        message("3-2: r")
+      endif()
+      if(NOT DEFINED CACHE{c})
+        message("3-2: c")
+      endif()
+      if(NOT DEFINED ENV{e})
+        message("3-2: e")
+      endif()
+    """
+    path = pathlib.Path("test.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check(success)
+    expected_messages = [
+        "3-1: r",
+        "3-1: c",
+        "3-1: e",
+        "3-2: r",
+        "3-2: c",
+        "3-2: e",
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(i)
+        subcontext.check_is_none(message.occurrence_uncertainty)
+        subcontext.check_equal(message.message, expected)
+
+    # Change from empty to unset via set()
+    text = r"""
+      set(r "")
+      set(CACHE{c} FORCE VALUE "")
+      set(ENV{e} "x")  # CMake quirk: Cannot change environement variable directly from unset to empty
+      set(ENV{e} "")
+      if(DEFINED r AND r STREQUAL "")
+        message("4-1: r")
+      endif()
+      set(val "$CACHE{c}")
+      if(DEFINED CACHE{c} AND val STREQUAL "")
+        message("4-1: c")
+      endif()
+      set(val "$ENV{e}")
+      if(DEFINED ENV{e} AND val STREQUAL "")
+        message("4-1: e")
+      endif()
+      set(r)
+      unset(CACHE{r})  # Prevent uncertainty from cache fallback
+      set(CACHE{c} FORCE VALUE)
+      set(ENV{e})
+      if(NOT DEFINED r)
+        message("4-2: r")
+      endif()
+      if(DEFINED CACHE{c})
+        message("4-2: c - FAILED")
+      endif()
+      if(DEFINED ENV{e})
+        message("4-2: e - FAILED")
+      endif()
+    """
+    path = pathlib.Path("test.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check(success)
+    expected_messages = [
+        "4-1: r",
+        "4-1: c",
+        "4-1: e",
+        "4-2: r",
+        "4-2: c - FAILED",  # In CMake, `set(CACHE{c} FORCE VALUE)` sets `c` to the empty string
+        "4-2: e - FAILED",  # CMake quirk: Cannot change environement variable directly from empty to unset
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(i)
+        subcontext.check_is_none(message.occurrence_uncertainty)
+        subcontext.check_equal(message.message, expected)
+
+
+    # Change from empty to nonempty
+    text = r"""
+      set(r "")
+      set(CACHE{c} FORCE VALUE "")
+      set(ENV{e} "x")  # CMake quirk: Cannot change environement variable directly from unset to empty
+      set(ENV{e} "")
+      if(DEFINED r AND r STREQUAL "")
+        message("5-1: r")
+      endif()
+      set(val "$CACHE{c}")
+      if(DEFINED CACHE{c} AND val STREQUAL "")
+        message("5-1: c")
+      endif()
+      set(val "$ENV{e}")
+      if(DEFINED ENV{e} AND val STREQUAL "")
+        message("5-1: e")
+      endif()
+      set(r "x")
+      set(CACHE{c} FORCE VALUE "x")
+      set(ENV{e} "x")
+      if(r STREQUAL "x")
+        message("5-2: r")
+      endif()
+      set(val "$CACHE{c}")
+      if(val STREQUAL "x")
+        message("5-2: c")
+      endif()
+      set(val "$ENV{e}")
+      if(val STREQUAL "x")
+        message("5-2: e")
+      endif()
+    """
+    path = pathlib.Path("test.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check(success)
+    expected_messages = [
+        "5-1: r",
+        "5-1: c",
+        "5-1: e",
+        "5-2: r",
+        "5-2: c",
+        "5-2: e",
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(i)
+        subcontext.check_is_none(message.occurrence_uncertainty)
+        subcontext.check_equal(message.message, expected)
+
+    # Change from nonempty to unset via unset()
+    text = r"""
+      set(r "x")
+      set(CACHE{c} FORCE VALUE "x")
+      set(ENV{e} "x")
+      if(r STREQUAL "x")
+        message("6-1: r")
+      endif()
+      set(val "$CACHE{c}")
+      if(val STREQUAL "x")
+        message("6-1: c")
+      endif()
+      set(val "$ENV{e}")
+      if(val STREQUAL "x")
+        message("6-1: e")
+      endif()
+      unset(r)
+      unset(CACHE{r})  # Prevent uncertainty from cache fallback
+      unset(CACHE{c})
+      unset(ENV{e})
+      if(NOT DEFINED r)
+        message("6-2: r")
+      endif()
+      if(NOT DEFINED CACHE{c})
+        message("6-2: c")
+      endif()
+      if(NOT DEFINED ENV{e})
+        message("6-2: e")
+      endif()
+    """
+    path = pathlib.Path("test.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check(success)
+    expected_messages = [
+        "6-1: r",
+        "6-1: c",
+        "6-1: e",
+        "6-2: r",
+        "6-2: c",
+        "6-2: e",
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(i)
+        subcontext.check_is_none(message.occurrence_uncertainty)
+        subcontext.check_equal(message.message, expected)
+
+    # Change from nonempty to unset via set()
+    text = r"""
+      set(r "x")
+      set(CACHE{c} FORCE VALUE "x")
+      set(ENV{e} "x")
+      if(r STREQUAL "x")
+        message("7-1: r")
+      endif()
+      set(val "$CACHE{c}")
+      if(val STREQUAL "x")
+        message("7-1: c")
+      endif()
+      set(val "$ENV{e}")
+      if(val STREQUAL "x")
+        message("7-1: e")
+      endif()
+      set(r)
+      unset(CACHE{r})  # Prevent uncertainty from cache fallback
+      set(CACHE{c} FORCE VALUE)
+      set(ENV{e})
+      if(NOT DEFINED r)
+        message("7-2: r")
+      endif()
+      if(DEFINED CACHE{c})
+        message("7-2: c - FAILED")
+      endif()
+      if(DEFINED ENV{e})
+        message("7-2: e - FAILED")
+      endif()
+    """
+    path = pathlib.Path("test.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check(success)
+    expected_messages = [
+        "7-1: r",
+        "7-1: c",
+        "7-1: e",
+        "7-2: r",
+        "7-2: c - FAILED",  # In CMake, `set(CACHE{c} FORCE VALUE)` sets `c` to the empty string
+        "7-2: e - FAILED",  # CMake quirk: Cannot change environement variable directly from empty to unset
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(i)
+        subcontext.check_is_none(message.occurrence_uncertainty)
+        subcontext.check_equal(message.message, expected)
+
+    # Change from nonempty to empty
+    text = r"""
+      set(r "x")
+      set(CACHE{c} FORCE VALUE "x")
+      set(ENV{e} "x")
+      if(r STREQUAL "x")
+        message("8-1: r")
+      endif()
+      set(val "$CACHE{c}")
+      if(val STREQUAL "x")
+        message("8-1: c")
+      endif()
+      set(val "$ENV{e}")
+      if(val STREQUAL "x")
+        message("8-1: e")
+      endif()
+      set(r "")
+      set(CACHE{c} FORCE VALUE "")
+      set(ENV{e} "")
+      if(DEFINED r AND r STREQUAL "")
+        message("8-2: r")
+      endif()
+      set(val "$CACHE{c}")
+      if(DEFINED CACHE{c} AND val STREQUAL "")
+        message("8-2: c")
+      endif()
+      set(val "$ENV{e}")
+      if(DEFINED ENV{e} AND val STREQUAL "")
+        message("8-2: e")
+      endif()
+    """
+    path = pathlib.Path("test.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check(success)
+    expected_messages = [
+        "8-1: r",
+        "8-1: c",
+        "8-1: e",
+        "8-2: r",
+        "8-2: c",
+        "8-2: e",
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(i)
+        subcontext.check_is_none(message.occurrence_uncertainty)
+        subcontext.check_equal(message.message, expected)
+
 
 def test_VariableExpansion(context: _t.Context) -> None:
+    expected: typing.Any
+
     # Recursive
     text = r"""
       set(foo "A")
@@ -464,7 +852,9 @@ def _process(cmake_text: str, cmake_path: pathlib.Path, context: _t.Context) -> 
     pos_resolver = _cp.PositionResolver()
     result = _Result()
     application = _Application(pos_resolver, result, context.logger)
-    success = _cp.process(cmake_source, application, pos_resolver)
+    config = _cp.Config()
+    config.define_breakpoint_command = True
+    success = _cp.process(cmake_source, application, pos_resolver, config)
     return success, result
 
 

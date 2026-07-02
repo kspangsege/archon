@@ -135,6 +135,15 @@ class ShortCircuit(Raise):
 type ValueMapper[T] = collections.abc.Callable[[str], T]
 
 
+def map_[T](base_mapper: ValueMapper[T], pred: _b.Predicate[T]) -> ValueMapper[T]:
+    def mapper(string: str) -> T:
+        value = base_mapper(string)
+        if pred(value):
+            return value
+        raise ValueError from None
+    return mapper
+
+
 class SpecError(Exception):
     pass
 

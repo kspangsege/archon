@@ -22,8 +22,14 @@ import archon.cmake.argument as _ca
 import archon.cmake.condition as _cc
 
 
-def process(cmake_source: Source, application: Application, pos_resolver: PositionResolver) -> bool:
-    return _process(cmake_source, application, pos_resolver)
+@dataclasses.dataclass(kw_only=True)
+class Config:
+    define_breakpoint_command: bool = False
+
+
+def process(cmake_source: Source, application: Application, pos_resolver: PositionResolver,
+            config: Config = Config()) -> bool:
+    return _process(cmake_source, application, pos_resolver, config)
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -86,7 +92,7 @@ class MessageLevel(enum.Enum):
 
 
 
-def _process(cmake_source: Source, application: Application, pos_resolver: PositionResolver) -> bool:
+def _process(cmake_source: Source, application: Application, pos_resolver: PositionResolver, config: Config) -> bool:
     errors_seen = False
 
     # A custom command (macro or function) that is in the current invocation path must be in
@@ -264,7 +270,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                     continue
                 if mode == "LISTS":
                     var_name = arg.string.string
-                    string = get_certain_variable(var_name, arg.pos, invoc, context)
+                    string = resolve_certain_variable(_cu.ResolutionType.GENERAL, var_name, arg.pos, invoc, context)
                     items += _cu.unescaping_list_split(string)
                     continue
                 assert False
@@ -358,6 +364,9 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                         return
                     case _BuiltInCommand.Which.ADD_SUBDIRECTORY:
                         exec_add_subdirectory(invoc, context)
+                        return
+                    case _BuiltInCommand.Which.BREAKPOINT:
+                        breakpoint()
                         return
                 typing.assert_never(which)
             case _CustomCommand():
@@ -534,7 +543,8 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                 if not value:
                     # Value is empty or absent
                     try:
-                        orig_value = get_certain_variable(var_name, var_ref_pos, invoc, context)
+                        orig_value = resolve_certain_variable(_cu.ResolutionType.ENV, var_name, var_ref_pos, invoc,
+                                                              context)
                     except _ca.UncertainArgumentException as e:
                         # If the target variable was tainted, it remains tainted. Nothing
                         # further to do.
@@ -663,7 +673,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                 context.state.taint_regular_variable(var_name, e.reason, parent_scope=False)
                 return
             try:
-                string = get_certain_variable(var_name, var_name_pos, invoc, context)
+                string = resolve_certain_variable(_cu.ResolutionType.GENERAL, var_name, var_name_pos, invoc, context)
             except _ca.UncertainArgumentException as e:
                 # If the target variable was tainted, it remains tainted. Nothing further to
                 # do.
@@ -848,15 +858,15 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
             error(context.file_index, pos, message, *args)
         return expand(_csp.parse(string, error_handler))
 
-    def get_certain_variable(var_name: str, pos: int, invoc: _clp.GeneralizedInvoc,
-                             context: _InvocContext) -> str | None:
-        value = resolve_variable(_cu.ResolutionType.GENERAL, var_name, pos, context)
+    def resolve_certain_variable(resolution_type: _cu.ResolutionType, variable_name: str, pos: int,
+                                 invoc: _clp.GeneralizedInvoc, context: _InvocContext) -> str | None:
+        value = resolve_variable(resolution_type, variable_name, pos, context)
         match value:
             case _cv.CertainValue():
                 return value.string
             case _cv.UncertainValue():
                 expansion_position = _cur.Position(context.file_index, pos)
-                reason = _cur.ExpansionUncertaintyReason(invoc.command_name, var_name, expansion_position,
+                reason = _cur.ExpansionUncertaintyReason(invoc.command_name, variable_name, expansion_position,
                                                          value.reason)
                 raise _ca.UncertainArgumentException(reason) from None
         typing.assert_never(value)
@@ -938,7 +948,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
         position = _cur.Position(file_index, pos)
         application.error(position, message, *args)
 
-    state = _RootState()
+    state = _RootState(config.define_breakpoint_command)
     occurrence_uncertainty = None
     base_path = cmake_source.path
     process_file(cmake_source, state, occurrence_uncertainty, base_path)
@@ -1020,12 +1030,12 @@ class _State(abc.ABC):
 
 
 class _RootState(_State):
-    def __init__(self) -> None:
+    def __init__(self, define_breakpoint_command: bool) -> None:
         self._commands          = dict[str, _Command]()
         self._env_variables     = dict[str, _cv.Value]()
         self._cache_variables   = dict[str, _cv.Value]()
         self._regular_variables = dict[str, _cv.Value]()
-        _define_built_in_commands(self._commands)
+        _define_built_in_commands(self._commands, define_breakpoint_command)
 
     @typing.override
     def is_root_scope(self) -> bool:
@@ -1450,6 +1460,7 @@ class _BuiltInCommand:
         MESSAGE          = 5
         INCLUDE          = 6
         ADD_SUBDIRECTORY = 7
+        BREAKPOINT       = 8  # Non-standard
     which: Which
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -1474,7 +1485,7 @@ class _CommandDefinitionUncertaintyReason:
     occurrence_uncertainty_reason: _cur.ExpansionUncertaintyReason
 
 
-def _define_built_in_commands(commands: dict[str, _Command]) -> None:
+def _define_built_in_commands(commands: dict[str, _Command], define_breakpoint_command: bool) -> None:
     def define(name_cf: str, which: _BuiltInCommand.Which) -> None:
         commands[name_cf] = _BuiltInCommand(which)
     define("set",                    _BuiltInCommand.Which.SET)
@@ -1487,6 +1498,8 @@ def _define_built_in_commands(commands: dict[str, _Command]) -> None:
     define("cmake_minimum_required", _BuiltInCommand.Which.UNSUPPORTED)
     define("project",                _BuiltInCommand.Which.UNSUPPORTED)
     define("option",                 _BuiltInCommand.Which.UNSUPPORTED)
+    if define_breakpoint_command:
+        define("breakpoint", _BuiltInCommand.Which.BREAKPOINT)
 
 
 class _UnsupportedInvocSyntaxException(Exception):
