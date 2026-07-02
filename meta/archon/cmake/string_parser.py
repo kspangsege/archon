@@ -160,8 +160,8 @@ def _parse(string: _tp.PosMappedString, error_handler: ErrorHandler) -> Expr:
                 case "ENV":
                     resolution_type = _cu.ResolutionType.ENV
                 case _:
-                    ref_pos = string.pos_map.map_(token_pos)
-                    error_handler(ref_pos, "Invalid domain (%s) in variable expansion", _b.quote(domain))
+                    domain_pos = string.pos_map.map_(token_pos + 1)
+                    error_handler(domain_pos, "Invalid domain (%s) in variable expansion", _b.quote(domain))
                     invalid = True
             stack.append((var_expansion, parts))
             parts = []

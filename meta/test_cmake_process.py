@@ -43,18 +43,35 @@ def test_Message(context: _t.Context) -> None:
 
 def test_Set(context: _t.Context) -> None:
     text = r"""
-      set(_x "Bar")
-      message("Foo ${_x}")
+      set(_x "A")
+      set(CACHE{_x} FORCE VALUE "B")
+      set(ENV{_x} "C")
+      message("1: ${_x}-$CACHE{_x}-$ENV{_x}")
+      set(_x "A2")
+      message("2: ${_x}-$CACHE{_x}-$ENV{_x}")
+      set(CACHE{_x} FORCE VALUE "B2")
+      message("3: ${_x}-$CACHE{_x}-$ENV{_x}")
+      set(ENV{_x} "C2")
+      message("4: ${_x}-$CACHE{_x}-$ENV{_x}")
+      set(_x)
+      message("5: ${_x}-$CACHE{_x}-$ENV{_x}")
     """
     path = pathlib.Path("test.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    context.check_equal(len(result.messages), 1)
-    message = result.messages[0]
-    context.check_equal(message.file_pos, _tp.FilePos(path, 2, 0))
-    context.check_is_none(message.occurrence_uncertainty)
-    context.check_equal(message.level, _cp.MessageLevel.NOTICE)
-    context.check_equal(message.message, "Foo Bar")
+    expected_messages = [
+        "1: A-B-C",
+        "2: A2-B-C",
+        "3: A2-B2-C",
+        "4: A2-B2-C2",
+        "5: B2-B2-C2",
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(i)
+        subcontext.check_is_none(message.occurrence_uncertainty)
+        subcontext.check_equal(message.level, _cp.MessageLevel.NOTICE)
+        subcontext.check_equal(message.message, expected)
 
 
 def test_Unset(context: _t.Context) -> None:
@@ -98,6 +115,122 @@ def test_Unset(context: _t.Context) -> None:
         subcontext = context.subcontext(i)
         subcontext.check_is_none(message.occurrence_uncertainty)
         subcontext.check_equal(message.message, expected)
+
+
+def test_VariableExpansion(context: _t.Context) -> None:
+    # Recursive
+    text = r"""
+      set(foo "A")
+      set(bar "B")
+      set(baz "C")
+      set(_foo "foo")
+      set(_b "b")
+      set(_f "f")
+      set(_o "o")
+      set(_r "r")
+      set(_z "z")
+      message("1: x${${_foo}}y")
+      message("2: x${${_f}oo}y")
+      message("3: x${ba${_r}}y")
+      message("4: x${${_b}a${_z}}y")
+      message("5: x${${_f}${_o}o}y")
+      message("6: x${f${_o}${_o}}y")
+      message("7: x${${_f}${_o}${_o}}y")
+      message("8: x${f${_${_o}}o}y")  # Twice recursive
+    """
+    path = pathlib.Path("test.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check(success)
+    expected_messages = [
+        "1: xAy",
+        "2: xAy",
+        "3: xBy",
+        "4: xCy",
+        "5: xAy",
+        "6: xAy",
+        "7: xAy",
+        "8: xAy",
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(i)
+        subcontext.check_is_none(message.occurrence_uncertainty)
+        subcontext.check_equal(message.message, expected)
+
+    # Empty variable name
+    text = r"""
+      set(empty "")
+      set("" "empty")
+      message("1: (${})")
+      message("2: (${${empty}})")
+      message("3: (${${empty}${empty}})")
+    """
+    path = pathlib.Path("test.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check(success)
+    expected_messages = [
+        "1: (empty)",
+        "2: (empty)",
+        "3: (empty)",
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(i)
+        subcontext.check_is_none(message.occurrence_uncertainty)
+        subcontext.check_equal(message.message, expected)
+
+    # Invalids and weirds
+    text = r"""
+      message("1: x$FOO{bar}y")
+      message("2: x$F+O{bar}y")
+      message("3: x$F$O{bar}y")
+      message("4: x$F=O{bar}y")  # Not a variable expansion
+      set("f+o" "(+)")
+      set("f$o" "($)")
+      set("f=o" "(=)")
+      message("5: x${f+o}y")   # Valid
+      message("6: x${f$o}y")   # Spuriously valid (see CMake policy CMP0053)
+      message("7: x${f=o}y")
+      message("8: x${f\=o}y")  # Valid
+      set(empty "")
+      set(equal "=")
+      message("9:  x${${empty}f=o}y")
+      message("10: x${${empty}f\=o}y")  # Valid
+      message("11: x${f${equal}o}y")    # Valid
+    """
+    path = pathlib.Path("test.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check_not(success)
+    expected_messages = [
+        "1: xy",
+        "2: xy",
+        "3: x$Fy",
+        "4: x$F=O{bar}y",
+        "5: x(+)y",
+        "6: x($)y",
+        "7: xy",
+        "8: x(=)y",
+        "9:  xy",
+        "10: x(=)y",
+        "11: x(=)y",
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(i)
+        subcontext.check_is_none(message.occurrence_uncertainty)
+        subcontext.check_equal(message.message, expected)
+    expected_errors = [
+        ("Invalid domain", _tp.TextPos(1, 14)),
+        ("Invalid domain", _tp.TextPos(2, 14)),
+        ("Invalid domain", _tp.TextPos(3, 16)),
+        ("Invalid literal character", _tp.TextPos(10, 16)),
+        ("Invalid literal character", _tp.TextPos(14, 25)),
+    ]
+    context.check_equal(len(result.errors), len(expected_errors))
+    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
+        subcontext = context.subcontext(i)
+        subcontext.check_in(expected[0], error.message)
+        subcontext.check_equal(error.file_pos.text_pos, expected[1])
 
 
 def test_String(context: _t.Context) -> None:
