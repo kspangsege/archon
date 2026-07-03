@@ -41,7 +41,7 @@ set(ARCHON_TEST_DEPS_Gfx     "")
 set(ARCHON_TEST_DEPS_Display Core Check)
 set(ARCHON_TEST_DEPS_Render  "")
 
-# The libraries that the test suite executor depend on
+# The libraries that the test suite executor depends on
 set(ARCHON_TEST_DEPS Core Check)
 
 
