@@ -8,10 +8,11 @@ import archon.text_pos as _tp
 import archon.test as _t
 
 
-def test_PosMap_ComposeWith(context: _t.Context) -> None:
+def test_TextPos_PosMap_ComposeWith(context: _t.Context) -> None:
     rng = context.create_rng()
     num_rounds = 8192
-    for _ in range(num_rounds):
+    for i in range(num_rounds):
+        subcontext = context.subcontext(1 + i)
         max_lin_segments = 5
         max_outer_lin_segment_size = 10
         max_outer_gap_size = 10
@@ -20,9 +21,9 @@ def test_PosMap_ComposeWith(context: _t.Context) -> None:
         inner = _generate_inner_map(max_lin_segments, outer.size, max_inner_gap_size, rng)
         composed = outer.compose_with(inner)
         size = composed.size
-        context.check_equal(size, inner.size)
+        subcontext.check_equal(size, inner.size)
         for i in range(size + 1):
-            context.check_equal(composed.map_(i), outer.map_(inner.map_(i)))
+            subcontext.check_equal(composed.map_(i), outer.map_(inner.map_(i)))
 
 
 def _generate_outer_map(max_lin_segments: int, max_lin_segment_size: int, max_gap_size: int,

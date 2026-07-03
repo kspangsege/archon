@@ -8,7 +8,6 @@ import collections
 import dataclasses
 import re
 import traceback
-import pathlib
 import sys
 import secrets
 import random
@@ -151,7 +150,7 @@ def run(tests: list[Test], filter_: _b.Predicate[str], num_repetitions: int, shu
         debug_on_failure: bool, logger: _l.Logger, testcase_logger: _l.Logger) -> None:
     filtered = list[tuple[int, Test]]()
     for i, test in enumerate(tests):
-        if filter_(test.qualified_name):
+        if filter_(test.name):
             filtered.append((i, test))
     @dataclasses.dataclass(slots=True, frozen=True)
     class Invoc:
@@ -174,9 +173,9 @@ def run(tests: list[Test], filter_: _b.Predicate[str], num_repetitions: int, shu
     failure = False
     for invoc in invocations:
         test = invoc.test
-        test_name = test.qualified_name
+        test_name = test.name
         if num_repetitions > 1:
-            test_name = "%s#%s" % (test.qualified_name, 1 + invoc.repetition_index)
+            test_name = "%s#%s" % (test.name, 1 + invoc.repetition_index)
         if test.description is None:
             logger.info("TEST: %s", test_name)
         else:
@@ -207,10 +206,9 @@ def run(tests: list[Test], filter_: _b.Predicate[str], num_repetitions: int, shu
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class Test:
-    name:           str
-    qualified_name: str
-    description:    str | None
-    func:           collections.abc.Callable[[Context], None]
+    name:        str
+    description: str | None
+    func:        collections.abc.Callable[[Context], None]
 
 
 class BadTestFunctionSignature(Exception):
@@ -442,9 +440,11 @@ def _format_type_info(type_info: TypeInfo) -> str:
 def _get_module_tests(module_name: str) -> list[Test]:
     tests = []
     prefix = "test_"
+    def is_proper_test_name(name: str) -> bool:
+        return name.startswith(prefix) and len(name) > len(prefix) and name[len(prefix)].isalnum()
     module = sys.modules[module_name]
     for name, obj in module.__dict__.items():
-        if not name.startswith(prefix) or not inspect.isfunction(obj) or obj.__module__ != module_name:
+        if not is_proper_test_name(name) or not inspect.isfunction(obj) or obj.__module__ != module_name:
             continue
         func = obj
         sig = inspect.signature(func)
@@ -462,19 +462,16 @@ def _get_module_tests(module_name: str) -> list[Test]:
                                            "`archon.test.Context`)" % (param_name, name)) from None
         if hints.get("return") is not type(None):
             raise BadTestFunctionSignature("Wrong return type hint for `%s` (must be `None`)" % name) from None
-        assert module.__file__ is not None
-        proper_module_name = pathlib.Path(module.__file__).stem if module_name == "__main__" else module_name
         test_name = name[len(prefix):]
-        qualified_name = "%s.%s" % (proper_module_name, test_name)
         description = func.__doc__
-        tests.append(Test(test_name, qualified_name, description, func))
+        tests.append(Test(test_name, description, func))
     return tests
 
 
 def _make_native_test(test: Test) -> unittest.TestCase:
+    method_name = "test_" + test.name
     class_name = "Tests"
     base_classes = (unittest.TestCase,)
-    method_name = "test_%s" % test.name
     def method_func(self: unittest.TestCase) -> None:
         impl = _ImplementationBridge(self)
         context = Context(impl, None)

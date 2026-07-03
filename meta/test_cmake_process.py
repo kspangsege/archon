@@ -14,7 +14,7 @@ import archon.cmake.uncertainty_reason as _cur
 import archon.cmake.process as _cp
 
 
-def test_Message(context: _t.Context) -> None:
+def test_CMakeProcess_Message(context: _t.Context) -> None:
     text = r"""
       message("Foo")
       meSsaGe("Bar")  # Mixed case in command name
@@ -34,14 +34,14 @@ def test_Message(context: _t.Context) -> None:
     ]
     context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(i)
+        subcontext = context.subcontext(1 + i)
         subcontext.check_equal(message.message, expected[0])
         subcontext.check_equal(message.level, expected[1])
         subcontext.check_equal(not message.occurrence_uncertainty, expected[2])
         subcontext.check_equal(message.file_pos.text_pos, expected[3])
 
 
-def test_SetAndUnset(context: _t.Context) -> None:
+def test_CMakeProcess_SetAndUnset(context: _t.Context) -> None:
     # set()
     text = r"""
       set(_x "A")
@@ -72,7 +72,7 @@ def test_SetAndUnset(context: _t.Context) -> None:
     ]
     context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(i)
+        subcontext = context.subcontext(1 + i)
         subcontext.check_is_none(message.occurrence_uncertainty)
         subcontext.check_equal(message.level, _cp.MessageLevel.NOTICE)
         subcontext.check_equal(message.message, expected)
@@ -115,7 +115,7 @@ def test_SetAndUnset(context: _t.Context) -> None:
     ]
     context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(i)
+        subcontext = context.subcontext(1 + i)
         subcontext.check_is_none(message.occurrence_uncertainty)
         subcontext.check_equal(message.message, expected)
 
@@ -163,7 +163,7 @@ def test_SetAndUnset(context: _t.Context) -> None:
     ]
     context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(i)
+        subcontext = context.subcontext(1 + i)
         subcontext.check_is_none(message.occurrence_uncertainty)
         subcontext.check_equal(message.message, expected)
 
@@ -210,7 +210,7 @@ def test_SetAndUnset(context: _t.Context) -> None:
     ]
     context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(i)
+        subcontext = context.subcontext(1 + i)
         subcontext.check_is_none(message.occurrence_uncertainty)
         subcontext.check_equal(message.message, expected)
 
@@ -258,7 +258,7 @@ def test_SetAndUnset(context: _t.Context) -> None:
     ]
     context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(i)
+        subcontext = context.subcontext(1 + i)
         subcontext.check_is_none(message.occurrence_uncertainty)
         subcontext.check_equal(message.message, expected)
 
@@ -306,7 +306,7 @@ def test_SetAndUnset(context: _t.Context) -> None:
     ]
     context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(i)
+        subcontext = context.subcontext(1 + i)
         subcontext.check_is_none(message.occurrence_uncertainty)
         subcontext.check_equal(message.message, expected)
 
@@ -356,7 +356,7 @@ def test_SetAndUnset(context: _t.Context) -> None:
     ]
     context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(i)
+        subcontext = context.subcontext(1 + i)
         subcontext.check_is_none(message.occurrence_uncertainty)
         subcontext.check_equal(message.message, expected)
 
@@ -403,7 +403,7 @@ def test_SetAndUnset(context: _t.Context) -> None:
     ]
     context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(i)
+        subcontext = context.subcontext(1 + i)
         subcontext.check_is_none(message.occurrence_uncertainty)
         subcontext.check_equal(message.message, expected)
 
@@ -450,7 +450,7 @@ def test_SetAndUnset(context: _t.Context) -> None:
     ]
     context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(i)
+        subcontext = context.subcontext(1 + i)
         subcontext.check_is_none(message.occurrence_uncertainty)
         subcontext.check_equal(message.message, expected)
 
@@ -498,12 +498,12 @@ def test_SetAndUnset(context: _t.Context) -> None:
     ]
     context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(i)
+        subcontext = context.subcontext(1 + i)
         subcontext.check_is_none(message.occurrence_uncertainty)
         subcontext.check_equal(message.message, expected)
 
 
-def test_VariableExpansion(context: _t.Context) -> None:
+def test_CMakeProcess_VariableExpansion(context: _t.Context) -> None:
     expected: typing.Any
 
     # Recursive
@@ -541,7 +541,7 @@ def test_VariableExpansion(context: _t.Context) -> None:
     ]
     context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(i)
+        subcontext = context.subcontext(1 + i)
         subcontext.check_is_none(message.occurrence_uncertainty)
         subcontext.check_equal(message.message, expected)
 
@@ -563,7 +563,7 @@ def test_VariableExpansion(context: _t.Context) -> None:
     ]
     context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(i)
+        subcontext = context.subcontext(1 + i)
         subcontext.check_is_none(message.occurrence_uncertainty)
         subcontext.check_equal(message.message, expected)
 
@@ -604,7 +604,7 @@ def test_VariableExpansion(context: _t.Context) -> None:
     ]
     context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(i)
+        subcontext = context.subcontext(1 + i)
         subcontext.check_is_none(message.occurrence_uncertainty)
         subcontext.check_equal(message.message, expected)
     expected_errors = [
@@ -616,12 +616,12 @@ def test_VariableExpansion(context: _t.Context) -> None:
     ]
     context.check_equal(len(result.errors), len(expected_errors))
     for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
-        subcontext = context.subcontext(i)
+        subcontext = context.subcontext(1 + i)
         subcontext.check_in(expected[0], error.message)
         subcontext.check_equal(error.file_pos.text_pos, expected[1])
 
 
-def test_String(context: _t.Context) -> None:
+def test_CMakeProcess_String(context: _t.Context) -> None:
     text = r"""
       set(_x "Foo")
       string(TOLOWER "${_x}" _y)
@@ -639,7 +639,7 @@ def test_String(context: _t.Context) -> None:
     context.check_equal(message.message, "foo-FOO")
 
 
-def test_List(context: _t.Context) -> None:
+def test_CMakeProcess_List(context: _t.Context) -> None:
     text = r"""
       set(_a "")
       set(_b "A")
@@ -663,12 +663,12 @@ def test_List(context: _t.Context) -> None:
     ]
     context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(i)
+        subcontext = context.subcontext(1 + i)
         subcontext.check_is_none(message.occurrence_uncertainty)
         subcontext.check_equal(message.message, expected)
 
 
-def test_Foreach(context: _t.Context) -> None:
+def test_CMakeProcess_Foreach(context: _t.Context) -> None:
     text = r"""
       set(l "Foo" "Bar" "Baz")
       foreach(_x IN LISTS l)
@@ -685,14 +685,16 @@ def test_Foreach(context: _t.Context) -> None:
     ]
     context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(i)
+        subcontext = context.subcontext(1 + i)
         subcontext.check_equal(message.file_pos, _tp.FilePos(path, 3, 2))
         subcontext.check_is_none(message.occurrence_uncertainty)
         subcontext.check_equal(message.level, _cp.MessageLevel.NOTICE)
         subcontext.check_equal(message.message, expected)
 
 
-def test_Macro(context: _t.Context) -> None:
+def test_CMakeProcess_Macro(context: _t.Context) -> None:
+    expected_messages: typing.Any
+
     text = r"""
       macro(foo _x)
         message("Foo ${_x}")
@@ -700,7 +702,7 @@ def test_Macro(context: _t.Context) -> None:
       foo("Bar")
       Foo("Baz")  # Mixed case in command name
     """
-    path = pathlib.Path("test.cmake")
+    path = pathlib.Path("test-1.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
     expected_messages = [
@@ -709,7 +711,7 @@ def test_Macro(context: _t.Context) -> None:
     ]
     context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(i)
+        subcontext = context.subcontext(1 + i)
         subcontext.check_is_none(message.occurrence_uncertainty)
         subcontext.check_equal(message.message, expected)
 
@@ -721,7 +723,7 @@ def test_Macro(context: _t.Context) -> None:
       set(faa "boo")
       foo("oo}" "\${f")
     """
-    path = pathlib.Path("test.cmake")
+    path = pathlib.Path("test-2.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
     context.check_equal(len(result.messages), 1)
@@ -740,18 +742,20 @@ def test_Macro(context: _t.Context) -> None:
       foo("x")
       foo("x" "y")
       foo("x" "y" "z")
+      foo("a;b" "c;d" "e;f")
     """
-    path = pathlib.Path("test.cmake")
+    path = pathlib.Path("test-3.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
     expected_messages = [
         "1--x-x-1-2",
         "2-y-x;y-x-y-2",
         "3-y;z-x;y;z-x-y-z",
+        "3-c;d;e;f-a;b;c;d;e;f-a;b-c;d-e;f",
     ]
     context.check_equal(len(result.messages), len(expected_messages))
-    for message, expected in zip(result.messages, expected_messages):
-        subcontext = context.subcontext(i)
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(1 + i)
         subcontext.check_equal(message.file_pos, _tp.FilePos(path, 4, 2))
         subcontext.check_is_none(message.occurrence_uncertainty)
         subcontext.check_equal(message.level, _cp.MessageLevel.NOTICE)
@@ -767,7 +771,7 @@ def test_Macro(context: _t.Context) -> None:
       endmacro()
       foo("a" "b")
     """
-    path = pathlib.Path("test.cmake")
+    path = pathlib.Path("test-4.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
     context.check_equal(len(result.messages), 1)
@@ -789,7 +793,7 @@ def test_Macro(context: _t.Context) -> None:
       endmacro()
       foo("x")
     """
-    path = pathlib.Path("test.cmake")
+    path = pathlib.Path("test-5.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
     context.check_equal(len(result.messages), 1)
@@ -801,8 +805,63 @@ def test_Macro(context: _t.Context) -> None:
     context.check_in("Regular expression syntax error: Invalid range", error.message)
     context.check_equal(error.file_pos, _tp.FilePos(path, 5, 53))
 
+    # Argument uncertainty
+    text = r"""
+      macro(foo a b)
+        message("x${a}y")
+        macro(bar a)
+          message("x${a}y")
+          message("x${b}y")
+        endmacro()
+        bar("*")
+        macro(baz c)
+          message("x${c}y")
+        endmacro()
+        baz("*")
+        baz("${a}")
+        baz("-${b}-")
+      endmacro()
+      foo("${_1}" "${_2}")
+    """
+    path = pathlib.Path("test-6.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check_not(success)
+    expected_messages = [
+        ("x*y", _tp.TextPos(9, 4)),
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(message.message, expected[0])
+        subcontext.check_equal(message.file_pos.text_pos, expected[1])
+        subcontext.check_is_none(message.occurrence_uncertainty)
+    def invoke_uncertainty_error(var_name: str) -> str:
+        return 'Failed to invoke message() due to expansion of variable "%s" with uncertain value' % var_name
+    def expansion_uncertainty_cause(command_name: str, var_name: str) -> str:
+        return 'Caused by expansion of variable "%s" with uncertain value in invocation of %s()' % (var_name,
+                                                                                                    command_name)
+    expected_errors = [
+        (invoke_uncertainty_error("a"),            _tp.TextPos(2, 12)),  #  1
+        (expansion_uncertainty_cause("foo", "_1"), _tp.TextPos(15, 5)),  #  2
+        (invoke_uncertainty_error("a"),            _tp.TextPos(4, 14)),  #  3
+        (expansion_uncertainty_cause("foo", "_1"), _tp.TextPos(15, 5)),  #  4
+        (invoke_uncertainty_error("b"),            _tp.TextPos(5, 14)),  #  5
+        (expansion_uncertainty_cause("foo", "_2"), _tp.TextPos(15, 13)), #  6
+        (invoke_uncertainty_error("c"),            _tp.TextPos(9, 14)),  #  7
+        (expansion_uncertainty_cause("baz", "a"),  _tp.TextPos(12, 7)),  #  8
+        (expansion_uncertainty_cause("foo", "_1"), _tp.TextPos(15, 5)),  #  9
+        (invoke_uncertainty_error("c"),            _tp.TextPos(9, 14)),  # 10
+        (expansion_uncertainty_cause("baz", "b"),  _tp.TextPos(13, 8)),  # 11
+        (expansion_uncertainty_cause("foo", "_2"), _tp.TextPos(15, 13)), # 12
+    ]
+    context.check_equal(len(result.errors), len(expected_errors))
+    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(error.message, expected[0])
+        subcontext.check_equal(error.file_pos.text_pos, expected[1])
 
-def test_Block(context: _t.Context) -> None:
+
+def test_CMakeProcess_Block(context: _t.Context) -> None:
     text = r"""
       set(_x "A")
       set(_y "B")
@@ -824,7 +883,7 @@ def test_Block(context: _t.Context) -> None:
     ]
     context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(i)
+        subcontext = context.subcontext(1 + i)
         subcontext.check_is_none(message.occurrence_uncertainty)
         subcontext.check_equal(message.message, expected)
 
