@@ -654,7 +654,7 @@ def test_CMakeProcess_List(context: _t.Context) -> None:
       list(APPEND _l "E;F" "G\;H")
       message("${_l}")
     """
-    path = pathlib.Path("test.cmake")
+    path = pathlib.Path("test-1.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
     expected_messages = [
@@ -666,6 +666,72 @@ def test_CMakeProcess_List(context: _t.Context) -> None:
         subcontext = context.subcontext(1 + i)
         subcontext.check_is_none(message.occurrence_uncertainty)
         subcontext.check_equal(message.message, expected)
+
+    # Special cases involving unset lists, lists being the empty string, no elements
+    # appended, and the empty string being appended
+    text = r"""
+      unset(CACHE{l}) # Avoid uncertainty from cache fallback
+
+      # List is initially unset
+      set(l)
+      list(APPEND l)
+      if(NOT DEFINED l)
+        message("1")
+      endif()
+      set(l)
+      list(APPEND l "")
+      if(DEFINED l AND l STREQUAL "")
+        message("2")
+      endif()
+      set(l)
+      list(APPEND l "x")
+      if(l STREQUAL "x")
+        message("3")
+      endif()
+
+      # List is initially the empty string
+      set(l "")
+      list(APPEND l)
+      if(DEFINED l AND l STREQUAL "")
+        message("4")
+      endif()
+      set(l "")
+      list(APPEND l "")
+      if(DEFINED l AND l STREQUAL "")
+        message("5")
+      endif()
+      set(l "")
+      list(APPEND l "x")
+      if(l STREQUAL "x")
+        message("6")
+      endif()
+
+      # List is initially nonempty
+      set(l "x")
+      list(APPEND l)
+      if(l STREQUAL "x")
+        message("7")
+      endif()
+      set(l "x")
+      list(APPEND l "")
+      if(l STREQUAL "x;")
+        message("8")
+      endif()
+      set(l "x")
+      list(APPEND l "y")
+      if(l STREQUAL "x;y")
+        message("9")
+      endif()
+    """
+    path = pathlib.Path("test-2.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check(success)
+    expected_messages = [ "1", "2", "3", "4", "5", "6", "7", "8", "9" ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(message.message, expected)
+        subcontext.check_is_none(message.occurrence_uncertainty)
 
 
 def test_CMakeProcess_Foreach(context: _t.Context) -> None:
@@ -734,32 +800,43 @@ def test_CMakeProcess_Macro(context: _t.Context) -> None:
 
     # That special macro variables work correctly
     text = r"""
-      set(ARGV1 "1")
-      set(ARGV2 "2")
-      macro(foo _x)
-        message("${ARGC}-${ARGN}-${ARGV}-${ARGV0}-${ARGV1}-${ARGV2}")
+      set(ARGV1 "v1")
+      set(ARGV2 "v2")
+      macro(foo x)
+        message("1: ${ARGC}-${ARGN}-${ARGV}-${ARGV0}-${ARGV1}-${ARGV2}")
       endmacro()
       foo("x")
       foo("x" "y")
       foo("x" "y" "z")
       foo("a;b" "c;d" "e;f")
+
+      set(ARGC "c")
+      set(ARGN "n")
+      set(ARGV "v")
+      set(ARGV0 "v0")
+      macro(bar)
+        message("2: ${ARGC}-${ARGN}-${ARGV}-${ARGV0}")
+      endmacro()
+      bar()
+      bar("x")
     """
     path = pathlib.Path("test-3.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
     expected_messages = [
-        "1--x-x-1-2",
-        "2-y-x;y-x-y-2",
-        "3-y;z-x;y;z-x-y-z",
-        "3-c;d;e;f-a;b;c;d;e;f-a;b-c;d-e;f",
+        ("1: 1--x-x-v1-v2",                      _tp.TextPos(4, 2)),  # 1
+        ("1: 2-y-x;y-x-y-v2",                    _tp.TextPos(4, 2)),  # 2
+        ("1: 3-y;z-x;y;z-x-y-z",                 _tp.TextPos(4, 2)),  # 3
+        ("1: 3-c;d;e;f-a;b;c;d;e;f-a;b-c;d-e;f", _tp.TextPos(4, 2)),  # 4
+        ("2: 0---v0",                            _tp.TextPos(16, 2)), # 5
+        ("2: 1-x-x-x",                           _tp.TextPos(16, 2)), # 6
     ]
     context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
         subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.file_pos, _tp.FilePos(path, 4, 2))
+        subcontext.check_equal(message.message, expected[0])
+        subcontext.check_equal(message.file_pos.text_pos, expected[1])
         subcontext.check_is_none(message.occurrence_uncertainty)
-        subcontext.check_equal(message.level, _cp.MessageLevel.NOTICE)
-        subcontext.check_equal(message.message, expected)
 
     # That expansion of outer macro parameters reaches into inner macro body
     text = r"""

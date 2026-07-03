@@ -418,8 +418,8 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
         # For most block commands (all other than block()), CMake ignores arguments in a
         # closing invocation but generates a warning unless the closing invocation is either
         # empty or matches the corresponding opening invocation proto-argument for
-        # proto-argument. if() is the corresponding opening invocation for endif() even if
-        # there are elseif() and/or else() invocations in between.
+        # proto-argument. In the case of endif(), if() is the corresponding opening
+        # invocation, even if there are elseif() and/or else() invocations in between.
         if not invoc.arguments:
             return
         opening_args = [a.orig_text for a in opening_invoc.arguments]
@@ -672,23 +672,23 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
             except _ca.UncertainArgumentException as e:
                 context.state.taint_regular_variable(var_name, e.reason, parent_scope=False)
                 return
+            # In CMake, if no elements are appended, the original value is unchanged. If it
+            # was unset, it remains unset.
+            if not elements:
+                return
             try:
                 string = resolve_certain_variable(_cu.ResolutionType.GENERAL, var_name, var_name_pos, invoc, context)
             except _ca.UncertainArgumentException as e:
                 # If the target variable was tainted, it remains tainted. Nothing further to
                 # do.
                 return
-            # In CMake, if the target variable is undefined, i.e., `None`, and zero elements
-            # are appended, the target variable remain undefined. If the target variable was
-            # the empty string, it remains the empty string when zero elements are appended.
-            if elements or string is not None:
-                # NOTE: CMake never escapes literal `;` characters when joining list elements
-                # into a single string. This fact wrecks havoc in more complex list operations
-                # such as REVERSE (splitting un-escapes `\;` but re-joining fails to re-escape
-                # `;`).
-                string_2 = _cu.nonescaping_list_join([string or ""] + elements if string else elements)
-                string_3 = string_2 or ""
-                set_regular_variable(var_name, string_3, invoc, context)
+            # In CMake, when at least one element is appended and the list variable was
+            # unset or its original value was the empty string, the new list value becomes
+            # the semicolon-join of the appended elements. Otherwise, when at least one
+            # element is appended, the result is the original value plus semicolon plus the
+            # semicolon-join of the appended elements.
+            string_2 = (string + ";" if string else "") + _cu.nonescaping_list_join(elements)
+            set_regular_variable(var_name, string_2, invoc, context)
             return
         raise _UnsupportedInvocSyntaxException(invoc) from None
 
@@ -1621,11 +1621,13 @@ def _get_macro_substitutions(parameters: list[str], arguments: list[_ca.Argument
     if all_uncertainty:
         substitutions["ARGV"] = _UncertainSubstitutionValue(all_uncertainty)
     else:
-        substitutions["ARGV"] = _CertainSubstitutionValue(";".join(all_args))
+        string = _cu.nonescaping_list_join(all_args) or ""
+        substitutions["ARGV"] = _CertainSubstitutionValue(string)
     if extra_uncertainty:
         substitutions["ARGN"] = _UncertainSubstitutionValue(extra_uncertainty)
     else:
-        substitutions["ARGN"] = _CertainSubstitutionValue(";".join(extra_args))
+        string = _cu.nonescaping_list_join(extra_args) or ""
+        substitutions["ARGN"] = _CertainSubstitutionValue(string)
     substitutions["ARGC"] = _CertainSubstitutionValue(str(len(arguments)))
 
     return substitutions
