@@ -687,8 +687,10 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
             # the semicolon-join of the appended elements. Otherwise, when at least one
             # element is appended, the result is the original value plus semicolon plus the
             # semicolon-join of the appended elements.
-            string_2 = (string + ";" if string else "") + _cu.nonescaping_list_join(elements)
-            set_regular_variable(var_name, string_2, invoc, context)
+            string_2 = (string + ";" if string else "")
+            string_3 = _cu.nonescaping_list_join(elements)
+            assert string_3 is not None
+            set_regular_variable(var_name, string_2 + string_3, invoc, context)
             return
         raise _UnsupportedInvocSyntaxException(invoc) from None
 
