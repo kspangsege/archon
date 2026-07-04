@@ -1089,7 +1089,7 @@ def test_CMakeProcess_If(context: _t.Context) -> None:
         subcontext.check_equal(error.message, expected[0])
         subcontext.check_equal(error.file_pos.text_pos, expected[1])
 
-    # Cancellation of occurrence uncertainty
+    # Cancellation of tainting caused by occurrence uncertainty
     text = r"""
       set(r1 "foo")
       set(r2 "foo")
@@ -1129,6 +1129,48 @@ def test_CMakeProcess_If(context: _t.Context) -> None:
         subcontext = context.subcontext(1 + i)
         subcontext.check_equal(message.message, expected)
         subcontext.check_is_none(message.occurrence_uncertainty)
+
+    # Parent scope tainting caused by occurrence uncertainty
+    text = r"""
+      set(x1 "foo")
+      set(x2 "foo")
+      block()
+        block()
+          if(u)
+            set(x1 "bar" PARENT_SCOPE)
+            set(x2 "bar" PARENT_SCOPE)
+            set(x2 "foo" PARENT_SCOPE)  # Restore original value
+          endif()
+          message("1: -${x1}-${x2}-")
+        endblock()
+        message("2: -${x1}-")
+        message("3: -${x2}-")
+      endblock()
+      message("4: -${x1}-${x2}-")
+    """
+    path = pathlib.Path("test-5.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check_not(success)
+    expected_messages = [
+        "1: -foo-foo-",
+        "3: -foo-",
+        "4: -foo-foo-",
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(message.message, expected)
+        subcontext.check_is_none(message.occurrence_uncertainty)
+    expected_errors = [
+        (invoke_uncertainty_error("x1"),         _tp.TextPos(12, 15)),
+        (occurrence_uncertainty_cause("set"),    _tp.TextPos(6, 6)),
+        (expansion_uncertainty_cause("if", "u"), _tp.TextPos(5, 7)),
+    ]
+    context.check_equal(len(result.errors), len(expected_errors))
+    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(error.message, expected[0])
+        subcontext.check_equal(error.file_pos.text_pos, expected[1])
 
 
 def test_CMakeProcess_Foreach(context: _t.Context) -> None:
