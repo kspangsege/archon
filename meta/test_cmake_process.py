@@ -997,49 +997,138 @@ def test_CMakeProcess_If(context: _t.Context) -> None:
 
     # Tainting caused by occurrence uncertainty
     text = r"""
-      set(x1 "foo")
-      set(x2 "foo")
-      set(x3 "foo")
-      set(x4 "foo")
+      set(r1 "foo")
+      set(r2 "foo")
+      set(r3 "foo")
+      set(r4 "foo")
+      set(CACHE{c1} FORCE VALUE "foo")
+      set(CACHE{c2} FORCE VALUE "foo")
+      set(CACHE{c3} FORCE VALUE "foo")
+      set(CACHE{c4} FORCE VALUE "foo")
+      set(ENV{e1} "foo")
+      set(ENV{e2} "foo")
+      set(ENV{e3} "foo")
+      set(ENV{e4} "foo")
       if(u1)
-        set(x1 "bar")
+        set(r1 "bar")
+        set(CACHE{c1} FORCE VALUE "bar")
+        set(ENV{e1} "bar")
       elseif(u2)
-        set(x2 "bar")
+        set(r2 "bar")
+        set(CACHE{c2} FORCE VALUE "bar")
+        set(ENV{e2} "bar")
       else()
-        set(x3 "bar")
+        set(r3 "bar")
+        set(CACHE{c3} FORCE VALUE "bar")
+        set(ENV{e3} "bar")
       endif()
       if(u1)
       elseif(TRUE)
-        set(x4 "bar")
+        set(r4 "bar")
+        set(CACHE{c4} FORCE VALUE "bar")
+        set(ENV{e4} "bar")
       endif()
-      message("${x1}")
-      message("${x2}")
-      message("${x3}")
-      message("${x4}")
+      message("1:  ${r1}")
+      message("2:  ${r2}")
+      message("3:  ${r3}")
+      message("4:  ${r4}")
+      message("5:  $CACHE{c1}")
+      message("6:  $CACHE{c2}")
+      message("7:  $CACHE{c3}")
+      message("8:  $CACHE{c4}")
+      message("9:  $ENV{e1}")
+      message("10: $ENV{e2}")
+      message("11: $ENV{e3}")
+      message("12: $ENV{e4}")
     """
     path = pathlib.Path("test-3.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
     context.check_equal(len(result.messages), 0)
     expected_errors = [
-        (invoke_uncertainty_error("x1"),              _tp.TextPos(16, 9)),
-        (occurrence_uncertainty_cause("set"),         _tp.TextPos(6, 2)),
-        (expansion_uncertainty_cause("if", "u1"),     _tp.TextPos(5, 3)),
-        (invoke_uncertainty_error("x2"),              _tp.TextPos(17, 9)),
-        (occurrence_uncertainty_cause("set"),         _tp.TextPos(8, 2)),
-        (expansion_uncertainty_cause("elseif", "u2"), _tp.TextPos(7, 7)),
-        (invoke_uncertainty_error("x3"),              _tp.TextPos(18, 9)),
-        (occurrence_uncertainty_cause("set"),         _tp.TextPos(10, 2)),
-        (expansion_uncertainty_cause("elseif", "u2"), _tp.TextPos(7, 7)),
-        (invoke_uncertainty_error("x4"),              _tp.TextPos(19, 9)),
-        (occurrence_uncertainty_cause("set"),         _tp.TextPos(14, 2)),
-        (expansion_uncertainty_cause("if", "u1"),     _tp.TextPos(12, 3)),
+        (invoke_uncertainty_error("r1"),              _tp.TextPos(32, 13)), #  1
+        (occurrence_uncertainty_cause("set"),         _tp.TextPos(14, 2)),  #  2
+        (expansion_uncertainty_cause("if", "u1"),     _tp.TextPos(13, 3)),  #  3
+        (invoke_uncertainty_error("r2"),              _tp.TextPos(33, 13)), #  4
+        (occurrence_uncertainty_cause("set"),         _tp.TextPos(18, 2)),  #  5
+        (expansion_uncertainty_cause("elseif", "u2"), _tp.TextPos(17, 7)),  #  6
+        (invoke_uncertainty_error("r3"),              _tp.TextPos(34, 13)), #  7
+        (occurrence_uncertainty_cause("set"),         _tp.TextPos(22, 2)),  #  8
+        (expansion_uncertainty_cause("elseif", "u2"), _tp.TextPos(17, 7)),  #  9
+        (invoke_uncertainty_error("r4"),              _tp.TextPos(35, 13)), # 10
+        (occurrence_uncertainty_cause("set"),         _tp.TextPos(28, 2)),  # 11
+        (expansion_uncertainty_cause("if", "u1"),     _tp.TextPos(26, 3)),  # 12
+        (invoke_uncertainty_error("c1"),              _tp.TextPos(36, 13)), # 13
+        (occurrence_uncertainty_cause("set"),         _tp.TextPos(15, 2)),  # 14
+        (expansion_uncertainty_cause("if", "u1"),     _tp.TextPos(13, 3)),  # 15
+        (invoke_uncertainty_error("c2"),              _tp.TextPos(37, 13)), # 16
+        (occurrence_uncertainty_cause("set"),         _tp.TextPos(19, 2)),  # 17
+        (expansion_uncertainty_cause("elseif", "u2"), _tp.TextPos(17, 7)),  # 18
+        (invoke_uncertainty_error("c3"),              _tp.TextPos(38, 13)), # 19
+        (occurrence_uncertainty_cause("set"),         _tp.TextPos(23, 2)),  # 20
+        (expansion_uncertainty_cause("elseif", "u2"), _tp.TextPos(17, 7)),  # 21
+        (invoke_uncertainty_error("c4"),              _tp.TextPos(39, 13)), # 22
+        (occurrence_uncertainty_cause("set"),         _tp.TextPos(29, 2)),  # 23
+        (expansion_uncertainty_cause("if", "u1"),     _tp.TextPos(26, 3)),  # 24
+        (invoke_uncertainty_error("e1"),              _tp.TextPos(40, 13)), # 25
+        (occurrence_uncertainty_cause("set"),         _tp.TextPos(16, 2)),  # 26
+        (expansion_uncertainty_cause("if", "u1"),     _tp.TextPos(13, 3)),  # 27
+        (invoke_uncertainty_error("e2"),              _tp.TextPos(41, 13)), # 28
+        (occurrence_uncertainty_cause("set"),         _tp.TextPos(20, 2)),  # 29
+        (expansion_uncertainty_cause("elseif", "u2"), _tp.TextPos(17, 7)),  # 30
+        (invoke_uncertainty_error("e3"),              _tp.TextPos(42, 13)), # 31
+        (occurrence_uncertainty_cause("set"),         _tp.TextPos(24, 2)),  # 32
+        (expansion_uncertainty_cause("elseif", "u2"), _tp.TextPos(17, 7)),  # 33
+        (invoke_uncertainty_error("e4"),              _tp.TextPos(43, 13)), # 34
+        (occurrence_uncertainty_cause("set"),         _tp.TextPos(30, 2)),  # 35
+        (expansion_uncertainty_cause("if", "u1"),     _tp.TextPos(26, 3)),  # 36
     ]
     context.check_equal(len(result.errors), len(expected_errors))
     for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
         subcontext = context.subcontext(1 + i)
         subcontext.check_equal(error.message, expected[0])
         subcontext.check_equal(error.file_pos.text_pos, expected[1])
+
+    # Cancellation of occurrence uncertainty
+    text = r"""
+      set(r1 "foo")
+      set(r2 "foo")
+      set(r3 "foo")
+      set(CACHE{c1} FORCE VALUE "foo")
+      set(CACHE{c2} FORCE VALUE "foo")
+      set(CACHE{c3} FORCE VALUE "foo")
+      set(ENV{e1} "foo")
+      set(ENV{e2} "foo")
+      set(ENV{e3} "foo")
+      if(u1)
+        set(r1 "foo")                     # No change
+        set(CACHE{c1} FORCE VALUE "foo")  # No change
+        set(ENV{e1} "foo")                # No change
+      elseif(u2)
+        set(r2 "foo")                     # No change
+        set(CACHE{c2} FORCE VALUE "foo")  # No change
+        set(ENV{e2} "foo")                # No change
+      else()
+        set(r3 "bar")
+        set(CACHE{c3} FORCE VALUE "bar")
+        set(ENV{e3} "bar")
+        set(r3 "foo")                     # Original value restored
+        set(CACHE{c3} FORCE VALUE "foo")  # Original value restored
+        set(ENV{e3} "foo")                # Original value restored
+      endif()
+      message("-${r1}-${r2}-${r3}-$CACHE{c1}-$CACHE{c2}-$CACHE{c3}-$ENV{e1}-$ENV{e2}-$ENV{e3}-")
+    """
+    path = pathlib.Path("test-4.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check(success)
+    expected_messages = [
+        "-foo-foo-foo-foo-foo-foo-foo-foo-foo-",
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(message.message, expected)
+        subcontext.check_is_none(message.occurrence_uncertainty)
 
 
 def test_CMakeProcess_Foreach(context: _t.Context) -> None:

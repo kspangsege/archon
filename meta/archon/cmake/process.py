@@ -201,6 +201,11 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                     else_context = _InvocContext(context.file_index, else_state, occurrence_uncertainty,
                                                  context.base_path)
                     exec_else(else_context)
+                    # Must prune taints in both substates before pushing any taints to the
+                    # parent state. This is because the pruning operation needs access to
+                    # the original untouched parent state.
+                    if_state.prune_taints()
+                    else_state.prune_taints()
                     if_state.push_taints()
                     else_state.push_taints()
                     return
@@ -1319,10 +1324,68 @@ class _OccurrenceUncertaintyOverlayState(_State):
         self._tainted_regular_variables      = dict[str, _cur.ValueUncertaintyReason]()
         self._tainted_parent_scope_variables = dict[str, _cur.ValueUncertaintyReason]()
 
+    def prune_taints(self) -> None:
+        # Command taints are uncancellable because it is impossible in CMake to assign a
+        # command to a name that is the same command as the name once referred to. One can
+        # imagine assigning a new macro with the same macro body, but it is still not the
+        # same macro because the metadata (position in source code of definition) is
+        # necessarily different. Also, the new body may be nested inside another macro body,
+        # which means that substitutions may occur.
+        for name, value in self._env_variables.items():
+            match value:
+                case _cv.CertainValue():
+                    parent_value = self._parent_state.get_env_variable(name)
+                    match parent_value:
+                        case _cv.CertainValue():
+                            if parent_value.string == value.string:
+                                del self._tainted_env_variables[name]
+                            continue
+                        case _cv.UncertainValue():
+                            continue
+                    typing.assert_never(parent_value)
+                case _cv.UncertainValue():
+                    continue
+            typing.assert_never(value)
+        for name, value in self._cache_variables.items():
+            match value:
+                case _cv.CertainValue():
+                    parent_value = self._parent_state.get_cache_variable(name)
+                    match parent_value:
+                        case _cv.CertainValue():
+                            if parent_value.string == value.string:
+                                del self._tainted_cache_variables[name]
+                            continue
+                        case _cv.UncertainValue():
+                            continue
+                    typing.assert_never(parent_value)
+                case _cv.UncertainValue():
+                    continue
+            typing.assert_never(value)
+        for name, value in self._regular_variables.items():
+            match value:
+                case _cv.CertainValue():
+                    parent_value = self._parent_state.get_regular_variable(name)
+                    match parent_value:
+                        case _cv.CertainValue():
+                            if parent_value.string == value.string:
+                                del self._tainted_regular_variables[name]
+                            continue
+                        case _cv.UncertainValue():
+                            continue
+                    typing.assert_never(parent_value)
+                case _cv.UncertainValue():
+                    continue
+            typing.assert_never(value)
+        # FIXME: Tend to parent scope variables                        
+
     def push_taints(self) -> None:
         reason: typing.Any
         for name_cf, reason in self._tainted_commands.items():
             self._parent_state.taint_command(name_cf, reason)
+        for name, reason in self._tainted_env_variables.items():
+            self._parent_state.taint_env_variable(name, reason)
+        for name, reason in self._tainted_cache_variables.items():
+            self._parent_state.taint_cache_variable(name, reason)
         for name, reason in self._tainted_regular_variables.items():
             self._parent_state.taint_regular_variable(name, reason, parent_scope=False)
         for name, reason in self._tainted_parent_scope_variables.items():
