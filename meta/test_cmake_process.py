@@ -51,7 +51,7 @@ def test_CMakeProcess_Message(context: _t.Context) -> None:
     context.check_not(success)
     context.check_equal(len(result.messages), 0)
     expected_errors = [
-        (invoke_uncertainty_error("u"), _tp.TextPos(1, 11)),
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u"), _tp.TextPos(1, 11)),
     ]
     context.check_equal(len(result.errors), len(expected_errors))
     for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
@@ -533,9 +533,9 @@ def test_CMakeProcess_SetAndUnset(context: _t.Context) -> None:
     context.check_not(success)
     context.check_equal(len(result.messages), 0)
     expected_errors = [
-        (invoke_uncertainty_error("u3"),           _tp.TextPos(3, 9)),
-        (expansion_uncertainty_cause("set", "u2"), _tp.TextPos(2, 10)),
-        (expansion_uncertainty_cause("set", "u1"), _tp.TextPos(1, 8)),
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u3"), _tp.TextPos(3, 9)),
+        (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u2"),  _tp.TextPos(2, 10)),
+        (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u1"),  _tp.TextPos(1, 8)),
     ]
     context.check_equal(len(result.errors), len(expected_errors))
     for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
@@ -674,10 +674,10 @@ def test_CMakeProcess_VariableExpansion(context: _t.Context) -> None:
     context.check_not(success)
     context.check_equal(len(result.messages), 0)
     expected_errors = [
-        (invoke_uncertainty_error("u"), _tp.TextPos(2, 11)),
-        (invoke_uncertainty_error("u"), _tp.TextPos(3, 14)),
-        (invoke_uncertainty_error("u"), _tp.TextPos(4, 19)),
-        (invoke_uncertainty_error("u"), _tp.TextPos(5, 22)),
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u"), _tp.TextPos(2, 11)),
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u"), _tp.TextPos(3, 14)),
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u"), _tp.TextPos(4, 19)),
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u"), _tp.TextPos(5, 22)),
     ]
     context.check_equal(len(result.errors), len(expected_errors))
     for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
@@ -1046,42 +1046,42 @@ def test_CMakeProcess_If(context: _t.Context) -> None:
     context.check_not(success)
     context.check_equal(len(result.messages), 0)
     expected_errors = [
-        (invoke_uncertainty_error("r1"),              _tp.TextPos(32, 13)), #  1
-        (occurrence_uncertainty_cause("set"),         _tp.TextPos(14, 2)),  #  2
-        (expansion_uncertainty_cause("if", "u1"),     _tp.TextPos(13, 3)),  #  3
-        (invoke_uncertainty_error("r2"),              _tp.TextPos(33, 13)), #  4
-        (occurrence_uncertainty_cause("set"),         _tp.TextPos(18, 2)),  #  5
-        (expansion_uncertainty_cause("elseif", "u2"), _tp.TextPos(17, 7)),  #  6
-        (invoke_uncertainty_error("r3"),              _tp.TextPos(34, 13)), #  7
-        (occurrence_uncertainty_cause("set"),         _tp.TextPos(22, 2)),  #  8
-        (expansion_uncertainty_cause("elseif", "u2"), _tp.TextPos(17, 7)),  #  9
-        (invoke_uncertainty_error("r4"),              _tp.TextPos(35, 13)), # 10
-        (occurrence_uncertainty_cause("set"),         _tp.TextPos(28, 2)),  # 11
-        (expansion_uncertainty_cause("if", "u1"),     _tp.TextPos(26, 3)),  # 12
-        (invoke_uncertainty_error("c1"),              _tp.TextPos(36, 13)), # 13
-        (occurrence_uncertainty_cause("set"),         _tp.TextPos(15, 2)),  # 14
-        (expansion_uncertainty_cause("if", "u1"),     _tp.TextPos(13, 3)),  # 15
-        (invoke_uncertainty_error("c2"),              _tp.TextPos(37, 13)), # 16
-        (occurrence_uncertainty_cause("set"),         _tp.TextPos(19, 2)),  # 17
-        (expansion_uncertainty_cause("elseif", "u2"), _tp.TextPos(17, 7)),  # 18
-        (invoke_uncertainty_error("c3"),              _tp.TextPos(38, 13)), # 19
-        (occurrence_uncertainty_cause("set"),         _tp.TextPos(23, 2)),  # 20
-        (expansion_uncertainty_cause("elseif", "u2"), _tp.TextPos(17, 7)),  # 21
-        (invoke_uncertainty_error("c4"),              _tp.TextPos(39, 13)), # 22
-        (occurrence_uncertainty_cause("set"),         _tp.TextPos(29, 2)),  # 23
-        (expansion_uncertainty_cause("if", "u1"),     _tp.TextPos(26, 3)),  # 24
-        (invoke_uncertainty_error("e1"),              _tp.TextPos(40, 13)), # 25
-        (occurrence_uncertainty_cause("set"),         _tp.TextPos(16, 2)),  # 26
-        (expansion_uncertainty_cause("if", "u1"),     _tp.TextPos(13, 3)),  # 27
-        (invoke_uncertainty_error("e2"),              _tp.TextPos(41, 13)), # 28
-        (occurrence_uncertainty_cause("set"),         _tp.TextPos(20, 2)),  # 29
-        (expansion_uncertainty_cause("elseif", "u2"), _tp.TextPos(17, 7)),  # 30
-        (invoke_uncertainty_error("e3"),              _tp.TextPos(42, 13)), # 31
-        (occurrence_uncertainty_cause("set"),         _tp.TextPos(24, 2)),  # 32
-        (expansion_uncertainty_cause("elseif", "u2"), _tp.TextPos(17, 7)),  # 33
-        (invoke_uncertainty_error("e4"),              _tp.TextPos(43, 13)), # 34
-        (occurrence_uncertainty_cause("set"),         _tp.TextPos(30, 2)),  # 35
-        (expansion_uncertainty_cause("if", "u1"),     _tp.TextPos(26, 3)),  # 36
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "r1"),   _tp.TextPos(32, 13)), #  1
+        (occurrence_uncertainty_cause("set"),                                     _tp.TextPos(14, 2)),  #  2
+        (expansion_uncertainty_cause("if", _cur.ParamType.REGULAR_VAR, "u1"),     _tp.TextPos(13, 3)),  #  3
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "r2"),   _tp.TextPos(33, 13)), #  4
+        (occurrence_uncertainty_cause("set"),                                     _tp.TextPos(18, 2)),  #  5
+        (expansion_uncertainty_cause("elseif", _cur.ParamType.REGULAR_VAR, "u2"), _tp.TextPos(17, 7)),  #  6
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "r3"),   _tp.TextPos(34, 13)), #  7
+        (occurrence_uncertainty_cause("set"),                                     _tp.TextPos(22, 2)),  #  8
+        (expansion_uncertainty_cause("elseif", _cur.ParamType.REGULAR_VAR, "u2"), _tp.TextPos(17, 7)),  #  9
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "r4"),   _tp.TextPos(35, 13)), # 10
+        (occurrence_uncertainty_cause("set"),                                     _tp.TextPos(28, 2)),  # 11
+        (expansion_uncertainty_cause("if", _cur.ParamType.REGULAR_VAR, "u1"),     _tp.TextPos(26, 3)),  # 12
+        (invoke_uncertainty_error("message", _cur.ParamType.CACHE_VAR, "c1"),     _tp.TextPos(36, 13)), # 13
+        (occurrence_uncertainty_cause("set"),                                     _tp.TextPos(15, 2)),  # 14
+        (expansion_uncertainty_cause("if", _cur.ParamType.REGULAR_VAR, "u1"),     _tp.TextPos(13, 3)),  # 15
+        (invoke_uncertainty_error("message", _cur.ParamType.CACHE_VAR, "c2"),     _tp.TextPos(37, 13)), # 16
+        (occurrence_uncertainty_cause("set"),                                     _tp.TextPos(19, 2)),  # 17
+        (expansion_uncertainty_cause("elseif", _cur.ParamType.REGULAR_VAR, "u2"), _tp.TextPos(17, 7)),  # 18
+        (invoke_uncertainty_error("message", _cur.ParamType.CACHE_VAR, "c3"),     _tp.TextPos(38, 13)), # 19
+        (occurrence_uncertainty_cause("set"),                                     _tp.TextPos(23, 2)),  # 20
+        (expansion_uncertainty_cause("elseif", _cur.ParamType.REGULAR_VAR, "u2"), _tp.TextPos(17, 7)),  # 21
+        (invoke_uncertainty_error("message", _cur.ParamType.CACHE_VAR, "c4"),     _tp.TextPos(39, 13)), # 22
+        (occurrence_uncertainty_cause("set"),                                     _tp.TextPos(29, 2)),  # 23
+        (expansion_uncertainty_cause("if", _cur.ParamType.REGULAR_VAR, "u1"),     _tp.TextPos(26, 3)),  # 24
+        (invoke_uncertainty_error("message", _cur.ParamType.ENV_VAR, "e1"),       _tp.TextPos(40, 13)), # 25
+        (occurrence_uncertainty_cause("set"),                                     _tp.TextPos(16, 2)),  # 26
+        (expansion_uncertainty_cause("if", _cur.ParamType.REGULAR_VAR, "u1"),     _tp.TextPos(13, 3)),  # 27
+        (invoke_uncertainty_error("message", _cur.ParamType.ENV_VAR, "e2"),       _tp.TextPos(41, 13)), # 28
+        (occurrence_uncertainty_cause("set"),                                     _tp.TextPos(20, 2)),  # 29
+        (expansion_uncertainty_cause("elseif", _cur.ParamType.REGULAR_VAR, "u2"), _tp.TextPos(17, 7)),  # 30
+        (invoke_uncertainty_error("message", _cur.ParamType.ENV_VAR, "e3"),       _tp.TextPos(42, 13)), # 31
+        (occurrence_uncertainty_cause("set"),                                     _tp.TextPos(24, 2)),  # 32
+        (expansion_uncertainty_cause("elseif", _cur.ParamType.REGULAR_VAR, "u2"), _tp.TextPos(17, 7)),  # 33
+        (invoke_uncertainty_error("message", _cur.ParamType.ENV_VAR, "e4"),       _tp.TextPos(43, 13)), # 34
+        (occurrence_uncertainty_cause("set"),                                     _tp.TextPos(30, 2)),  # 35
+        (expansion_uncertainty_cause("if", _cur.ParamType.REGULAR_VAR, "u1"),     _tp.TextPos(26, 3)),  # 36
     ]
     context.check_equal(len(result.errors), len(expected_errors))
     for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
@@ -1162,9 +1162,9 @@ def test_CMakeProcess_If(context: _t.Context) -> None:
         subcontext.check_equal(message.message, expected)
         subcontext.check_is_none(message.occurrence_uncertainty)
     expected_errors = [
-        (invoke_uncertainty_error("x1"),         _tp.TextPos(12, 15)),
-        (occurrence_uncertainty_cause("set"),    _tp.TextPos(6, 6)),
-        (expansion_uncertainty_cause("if", "u"), _tp.TextPos(5, 7)),
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "x1"), _tp.TextPos(12, 15)),
+        (occurrence_uncertainty_cause("set"),                                   _tp.TextPos(6, 6)),
+        (expansion_uncertainty_cause("if", _cur.ParamType.REGULAR_VAR, "u"),    _tp.TextPos(5, 7)),
     ]
     context.check_equal(len(result.errors), len(expected_errors))
     for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
@@ -1352,18 +1352,18 @@ def test_CMakeProcess_Macro(context: _t.Context) -> None:
         subcontext.check_equal(message.file_pos.text_pos, expected[1])
         subcontext.check_is_none(message.occurrence_uncertainty)
     expected_errors = [
-        (invoke_uncertainty_error("a"),            _tp.TextPos(2, 12)),  #  1
-        (expansion_uncertainty_cause("foo", "_1"), _tp.TextPos(15, 5)),  #  2
-        (invoke_uncertainty_error("a"),            _tp.TextPos(4, 14)),  #  3
-        (expansion_uncertainty_cause("foo", "_1"), _tp.TextPos(15, 5)),  #  4
-        (invoke_uncertainty_error("b"),            _tp.TextPos(5, 14)),  #  5
-        (expansion_uncertainty_cause("foo", "_2"), _tp.TextPos(15, 13)), #  6
-        (invoke_uncertainty_error("c"),            _tp.TextPos(9, 14)),  #  7
-        (expansion_uncertainty_cause("baz", "a"),  _tp.TextPos(12, 7)),  #  8
-        (expansion_uncertainty_cause("foo", "_1"), _tp.TextPos(15, 5)),  #  9
-        (invoke_uncertainty_error("c"),            _tp.TextPos(9, 14)),  # 10
-        (expansion_uncertainty_cause("baz", "b"),  _tp.TextPos(13, 8)),  # 11
-        (expansion_uncertainty_cause("foo", "_2"), _tp.TextPos(15, 13)), # 12
+        (invoke_uncertainty_error("message", _cur.ParamType.MACRO_PARAM, "a"), _tp.TextPos(2, 12)),  #  1
+        (expansion_uncertainty_cause("foo", _cur.ParamType.REGULAR_VAR, "_1"), _tp.TextPos(15, 5)),  #  2
+        (invoke_uncertainty_error("message", _cur.ParamType.MACRO_PARAM, "a"), _tp.TextPos(4, 14)),  #  3
+        (expansion_uncertainty_cause("foo", _cur.ParamType.REGULAR_VAR, "_1"), _tp.TextPos(15, 5)),  #  4
+        (invoke_uncertainty_error("message", _cur.ParamType.MACRO_PARAM, "b"), _tp.TextPos(5, 14)),  #  5
+        (expansion_uncertainty_cause("foo", _cur.ParamType.REGULAR_VAR, "_2"), _tp.TextPos(15, 13)), #  6
+        (invoke_uncertainty_error("message", _cur.ParamType.MACRO_PARAM, "c"), _tp.TextPos(9, 14)),  #  7
+        (expansion_uncertainty_cause("baz", _cur.ParamType.MACRO_PARAM, "a"),  _tp.TextPos(12, 7)),  #  8
+        (expansion_uncertainty_cause("foo", _cur.ParamType.REGULAR_VAR, "_1"), _tp.TextPos(15, 5)),  #  9
+        (invoke_uncertainty_error("message", _cur.ParamType.MACRO_PARAM, "c"), _tp.TextPos(9, 14)),  # 10
+        (expansion_uncertainty_cause("baz", _cur.ParamType.MACRO_PARAM, "b"),  _tp.TextPos(13, 8)),  # 11
+        (expansion_uncertainty_cause("foo", _cur.ParamType.REGULAR_VAR, "_2"), _tp.TextPos(15, 13)), # 12
     ]
     context.check_equal(len(result.errors), len(expected_errors))
     for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
@@ -1413,11 +1413,13 @@ def test_CMakeProcess_Block(context: _t.Context) -> None:
     context.check_equal(error.file_pos, _tp.FilePos(path, 1, 8))
 
 
-def invoke_uncertainty_error(var_name: str) -> str:
-    return 'Failed to invoke message() due to expansion of variable "%s" with uncertain value' % var_name
+def invoke_uncertainty_error(command_name: str, param_type: _cur.ParamType, param_name: str) -> str:
+    return 'Failed to invoke %s() due to expansion of %s with uncertain value' % \
+        (command_name, _cur.get_qual_param_ref(param_type, param_name))
 
-def expansion_uncertainty_cause(command_name: str, var_name: str) -> str:
-    return 'Caused by expansion of variable "%s" with uncertain value in invocation of %s()' % (var_name, command_name)
+def expansion_uncertainty_cause(command_name: str, param_type: _cur.ParamType, param_name: str) -> str:
+    return 'Caused by expansion of %s with uncertain value in invocation of %s()' % \
+        (_cur.get_qual_param_ref(param_type, param_name), command_name)
 
 def occurrence_uncertainty_cause(command_name: str) -> str:
     return 'Caused by execution of %s() with uncertain occurrence' % command_name

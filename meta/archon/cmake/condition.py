@@ -417,15 +417,13 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
             if is_false_constant(cond.string.string, cond.pos):
                 return FalseResult()
             variable_name = cond.string.string
-            value = variable_state.get(_cu.ResolutionType.GENERAL, variable_name, cond.pos)
+            value, variable_type = variable_state.get(_cu.ResolutionType.GENERAL, variable_name, cond.pos)
             if isinstance(value, _cv.CertainValue):
                 if value.string is None or is_false_constant(value.string, cond.pos):
                     return FalseResult()
                 return TrueResult()
             if isinstance(value, _cv.UncertainValue):
-                position = _cur.Position(file_index, cond.pos)
-                reason = _cur.ExpansionUncertaintyReason(command_name, variable_name, position, value.reason)
-                return UncertainResult(reason)
+                return construct_uncertain_value_result(variable_type, variable_name, cond.pos, value.reason)
             typing.assert_never(value)
         if isinstance(cond, UncertainCondition):
             return UncertainResult(cond.reason)
@@ -439,13 +437,11 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
             case UncertainResult():
                 return result
         var_ref = _cu.parse_variable_reference(string.string)
-        value = variable_state.get(var_ref.resolution_type, var_ref.variable_name, operand.pos)
+        value, variable_type = variable_state.get(var_ref.resolution_type, var_ref.variable_name, operand.pos)
         if isinstance(value, _cv.CertainValue):
             return TrueResult() if value.string is not None else FalseResult()
         if isinstance(value, _cv.UncertainValue):
-            position = _cur.Position(file_index, cond.pos)
-            reason = _cur.ExpansionUncertaintyReason(command_name, var_ref.variable_name, position, value.reason)
-            return UncertainResult(reason)
+            return construct_uncertain_value_result(variable_type, var_ref.variable_name, cond.pos, value.reason)
         typing.assert_never(value)
 
     def eval_strequal(left: Condition, right: Condition) -> Result:
@@ -565,21 +561,19 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
             case _:
                 typing.assert_never(result)
         variable_name = string.string
-        value = variable_state.get(_cu.ResolutionType.GENERAL, variable_name, cond.pos)
+        value, variable_type = variable_state.get(_cu.ResolutionType.GENERAL, variable_name, cond.pos)
         if isinstance(value, _cv.CertainValue):
             string = _tp.PosMappedString.from_nonlinear_string(value.string or "", cond.pos)
             is_derived = True
             return _CertainStringResult(string, is_derived)
         if isinstance(value, _cv.UncertainValue):
-            position = _cur.Position(file_index, cond.pos)
-            reason = _cur.ExpansionUncertaintyReason(command_name, variable_name, position, value.reason)
-            return UncertainResult(reason)
+            return construct_uncertain_value_result(variable_type, variable_name, cond.pos, value.reason)
         typing.assert_never(value)
 
     def eval_as_str_from_var_or_str(cond: Condition) -> _StringResult:
         if isinstance(cond, ArgumentCondition) and cond.was_bare:
             variable_name = cond.string.string
-            value = variable_state.get(_cu.ResolutionType.GENERAL, variable_name, cond.pos)
+            value, variable_type = variable_state.get(_cu.ResolutionType.GENERAL, variable_name, cond.pos)
             if isinstance(value, _cv.CertainValue):
                 if value.string is None:
                     return _CertainStringResult(cond.string, cond.is_derived)
@@ -587,9 +581,7 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
                 is_derived = True
                 return _CertainStringResult(string, is_derived)
             if isinstance(value, _cv.UncertainValue):
-                position = _cur.Position(file_index, cond.pos)
-                reason = _cur.ExpansionUncertaintyReason(command_name, variable_name, position, value.reason)
-                return UncertainResult(reason)
+                return construct_uncertain_value_result(variable_type, variable_name, cond.pos, value.reason)
             typing.assert_never(value)
         return eval_as_str(cond)
 
@@ -635,6 +627,13 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
             value.value = int(string)
             return True
         raise FatalEvalError(pos, "Unsupported floating-point syntax (%s)", _b.quote(string))
+
+    def construct_uncertain_value_result(variable_type: _cv.VariableType, variable_name: str, pos: int,
+                                         reason: _cur.ValueUncertaintyReason | None) -> UncertainResult:
+        param_type = _cv.variable_to_param_type(variable_type)
+        position = _cur.Position(file_index, pos)
+        reason_2 = _cur.ExpansionUncertaintyReason(command_name, param_type, variable_name, position, reason)
+        return UncertainResult(reason_2)
 
     return eval_as_bool(cond)
 

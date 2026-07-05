@@ -165,8 +165,8 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
             return
         except _ca.UncertainArgumentException as e:
             position = e.reason.expansion_position
-            error(position.file_index, position.pos, "Failed to invoke %s() due to expansion of variable %s with "
-                  "uncertain value", e.reason.command_name, _b.quote(e.reason.variable_name))
+            error(position.file_index, position.pos, "Failed to invoke %s() due to expansion of %s with uncertain "
+                  "value", e.reason.command_name, e.reason.get_qual_param_ref())
             if e.reason.value_uncertainty_reason:
                 trace_value_uncertainty_causes(e.reason.value_uncertainty_reason)
             return
@@ -749,7 +749,8 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
             condition = _cc.parse(arguments, invoc.rparen_pos)
             class State(_cv.VariableState):
                 @typing.override
-                def get(self, resolution_type: _cu.ResolutionType, variable_name: str, pos: int) -> _cv.Value:
+                def get(self, resolution_type: _cu.ResolutionType, variable_name: str,
+                        pos: int) -> tuple[_cv.Value, _cv.VariableType]:
                     return resolve_variable(resolution_type, variable_name, pos, context)
                 @typing.override
                 def set_(self, variable_name: str, value: str | None) -> None:
@@ -853,14 +854,16 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                 result = expand(expr.name_expr)
                 if isinstance(result, _CertainExpansionResult):
                     name = result.string.string
-                    value = resolve_variable(expr.resolution_type, name, expr.name_expr.pos, context)
+                    value, variable_type = resolve_variable(expr.resolution_type, name, expr.name_expr.pos, context)
                     if isinstance(value, _cv.CertainValue):
                         string = _tp.PosMappedString.from_nonlinear_string(value.string or "", expr.pos)
                         is_derived = True
                         return _CertainExpansionResult(string, is_derived)
                     if isinstance(value, _cv.UncertainValue):
+                        param_type = _cv.variable_to_param_type(variable_type)
                         position = _cur.Position(context.file_index, expr.pos)
-                        reason = _cur.ExpansionUncertaintyReason(invoc.command_name, name, position, value.reason)
+                        reason = _cur.ExpansionUncertaintyReason(invoc.command_name, param_type, name, position,
+                                                                 value.reason)
                         return _UncertainExpansionResult(reason)
                     typing.assert_never(value)
                 if isinstance(result, _UncertainExpansionResult):
@@ -873,35 +876,36 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
 
     def resolve_certain_variable(resolution_type: _cu.ResolutionType, variable_name: str, pos: int,
                                  invoc: _clp.GeneralizedInvoc, context: _InvocContext) -> str | None:
-        value = resolve_variable(resolution_type, variable_name, pos, context)
+        value, variable_type = resolve_variable(resolution_type, variable_name, pos, context)
         match value:
             case _cv.CertainValue():
                 return value.string
             case _cv.UncertainValue():
+                param_type = _cv.variable_to_param_type(variable_type)
                 expansion_position = _cur.Position(context.file_index, pos)
-                reason = _cur.ExpansionUncertaintyReason(invoc.command_name, variable_name, expansion_position,
-                                                         value.reason)
+                reason = _cur.ExpansionUncertaintyReason(invoc.command_name, param_type, variable_name,
+                                                         expansion_position, value.reason)
                 raise _ca.UncertainArgumentException(reason) from None
         typing.assert_never(value)
 
     def resolve_variable(resolution_type: _cu.ResolutionType, variable_name: str, pos: int,
-                         context: _InvocContext) -> _cv.Value:
+                         context: _InvocContext) -> tuple[_cv.Value, _cv.VariableType]:
         match resolution_type:
             case _cu.ResolutionType.GENERAL:
                 value = context.state.get_regular_variable(variable_name)
                 match value:
                     case _cv.CertainValue(string):
                         if string is not None:
-                            return value
+                            return value, _cv.VariableType.REGULAR
                     case _cv.UncertainValue():
-                        return value
+                        return value, _cv.VariableType.REGULAR
                     case _:
                         typing.assert_never(value)
-                return context.state.get_cache_variable(variable_name)
+                return context.state.get_cache_variable(variable_name), _cv.VariableType.CACHE
             case _cu.ResolutionType.CACHE:
-                return context.state.get_cache_variable(variable_name)
+                return context.state.get_cache_variable(variable_name), _cv.VariableType.CACHE
             case _cu.ResolutionType.ENV:
-                return context.state.get_env_variable(variable_name)
+                return context.state.get_env_variable(variable_name), _cv.VariableType.ENV
         typing.assert_never(resolution_type)
 
     def set_regular_variable(variable_name: str, value: str | None, invoc: _clp.GeneralizedInvoc,
@@ -946,8 +950,8 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
 
     def trace_expansion_uncertainty_causes(cause: _cur.ExpansionUncertaintyReason) -> None:
         position = cause.expansion_position
-        error(position.file_index, position.pos, "Caused by expansion of variable %s with uncertain value in "
-              "invocation of %s()", _b.quote(cause.variable_name), cause.command_name)
+        error(position.file_index, position.pos, "Caused by expansion of %s with uncertain value in invocation of "
+              "%s()", cause.get_qual_param_ref(), cause.command_name)
         if cause.value_uncertainty_reason:
             trace_value_uncertainty_causes(cause.value_uncertainty_reason)
 
@@ -1843,10 +1847,11 @@ def _macro_substitute_invoc(invoc: _clp.Invoc, context: _InvocContext,
                             pos = m.end()
                             return value.string
                         case _UncertainSubstitutionValue():
+                            param_type = _cur.ParamType.MACRO_PARAM
                             ref_pos = arg.string.pos_map.map_(match_pos)
                             expansion_position = _cur.Position(context.file_index, ref_pos)
-                            reason = _cur.ExpansionUncertaintyReason(invoc.command_name, param, expansion_position,
-                                                                     value.reason)
+                            reason = _cur.ExpansionUncertaintyReason(invoc.command_name, param_type, param,
+                                                                     expansion_position, value.reason)
                             raise _UncertainSubstitutionException(reason) from None
                     typing.assert_never(value)
                 try:
