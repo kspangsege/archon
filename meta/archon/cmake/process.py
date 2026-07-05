@@ -473,12 +473,15 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                             break
                         values.append(arg.string.string)
                 except _ca.UncertainArgumentException as e:
-                    context.state.taint_regular_variable(var_name, e.reason, parent_scope=False)
+                    context.state.taint_regular_variable(var_name, e.reason)
                     if not context.state.is_root_scope():
-                        context.state.taint_regular_variable(var_name, e.reason, parent_scope=True)
+                        context.state.taint_parent_scope_variable(var_name, e.reason)
                     return
                 value = _cu.nonescaping_list_join(values)
-                set_regular_variable_advanced(var_name, value, parent_scope, invoc, context)
+                if not parent_scope:
+                    set_regular_variable(var_name, value, invoc, context)
+                    return
+                set_parent_scope_variable(var_name, value, invoc, context)
                 return
             case _cu.ResolutionType.CACHE:
                 type_: str | None = None
@@ -584,12 +587,15 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                 except _ca.UncertainArgumentException as e:
                     # FIXME: If the variable is unset already, then no taint is needed
                     # (applies separately to parent scope)
-                    context.state.taint_regular_variable(var_name, e.reason, parent_scope=False)
+                    context.state.taint_regular_variable(var_name, e.reason)
                     if not context.state.is_root_scope():
-                        context.state.taint_regular_variable(var_name, e.reason, parent_scope=True)
+                        context.state.taint_parent_scope_variable(var_name, e.reason)
                     return
                 value = None
-                set_regular_variable_advanced(var_name, value, parent_scope, invoc, context)
+                if not parent_scope:
+                    set_regular_variable(var_name, value, invoc, context)
+                    return
+                set_parent_scope_variable(var_name, value, invoc, context)
                 return
             case _cu.ResolutionType.CACHE:
                 # CMake bizarrely accepts one extra unused argument without even issuing a
@@ -638,7 +644,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                 return
             var_name = arg.string.string
             if uncertainty:
-                context.state.taint_regular_variable(var_name, uncertainty, parent_scope=False)
+                context.state.taint_regular_variable(var_name, uncertainty)
                 return
             # NOTE: CMake completely ignores additional arguments for these signatures
             match func:
@@ -675,7 +681,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                         break
                     elements.append(arg.string.string)
             except _ca.UncertainArgumentException as e:
-                context.state.taint_regular_variable(var_name, e.reason, parent_scope=False)
+                context.state.taint_regular_variable(var_name, e.reason)
                 return
             # In CMake, if no elements are appended, the original value is unchanged. If it
             # was unset, it remains unset.
@@ -750,7 +756,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                     set_regular_variable(variable_name, value, invoc, context)
                 @typing.override
                 def taint(self, variable_name: str, reason: _cur.ValueUncertaintyReason) -> None:
-                    context.state.taint_regular_variable(variable_name, reason, parent_scope=False)
+                    context.state.taint_regular_variable(variable_name, reason)
             state = State()
             return _cc.evaluate(condition, invoc.command_name, context.file_index, state)
         except _cc.FatalParseError as e:
@@ -882,7 +888,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                          context: _InvocContext) -> _cv.Value:
         match resolution_type:
             case _cu.ResolutionType.GENERAL:
-                value = context.state.get_regular_variable(variable_name, parent_scope=False)
+                value = context.state.get_regular_variable(variable_name)
                 match value:
                     case _cv.CertainValue(string):
                         if string is not None:
@@ -900,18 +906,18 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
 
     def set_regular_variable(variable_name: str, value: str | None, invoc: _clp.GeneralizedInvoc,
                              context: _InvocContext) -> None:
-        parent_scope = False
-        set_regular_variable_advanced(variable_name, value, parent_scope, invoc, context)
+        assigning_command_name = invoc.command_name
+        assignment_position = _cur.Position(context.file_index, invoc.pos)
+        context.state.set_regular_variable(variable_name, value, assigning_command_name, assignment_position)
 
-    def set_regular_variable_advanced(variable_name: str, value: str | None, parent_scope: bool,
-                                      invoc: _clp.GeneralizedInvoc, context: _InvocContext) -> None:
-        if parent_scope and context.state.is_root_scope():
+    def set_parent_scope_variable(variable_name: str, value: str | None, invoc: _clp.GeneralizedInvoc,
+                                  context: _InvocContext) -> None:
+        if context.state.is_root_scope():
             warn(context.file_index, invoc.pos, "%s() invocation skipped: No parent scope exists", invoc.command_name)
             return
         assigning_command_name = invoc.command_name
         assignment_position = _cur.Position(context.file_index, invoc.pos)
-        context.state.set_regular_variable(variable_name, value, parent_scope, assigning_command_name,
-                                           assignment_position)
+        context.state.set_parent_scope_variable(variable_name, value, assigning_command_name, assignment_position)
 
     def set_cache_variable(variable_name: str, value: str | None, invoc: _clp.GeneralizedInvoc,
                            context: _InvocContext) -> None:
@@ -984,16 +990,29 @@ class _State(abc.ABC):
         ...
 
     @abc.abstractmethod
-    def get_regular_variable(self, name: str, parent_scope: bool) -> _cv.Value:
+    def get_regular_variable(self, name: str) -> _cv.Value:
         ...
 
     @abc.abstractmethod
-    def set_regular_variable(self, name: str, value: str | None, parent_scope: bool, assigning_command_name: str,
+    def set_regular_variable(self, name: str, value: str | None, assigning_command_name: str,
                              assignment_position: _cur.Position) -> None:
         ...
 
     @abc.abstractmethod
-    def taint_regular_variable(self, name: str, reason: _cur.ValueUncertaintyReason, parent_scope: bool) -> None:
+    def taint_regular_variable(self, name: str, reason: _cur.ValueUncertaintyReason) -> None:
+        ...
+
+    @abc.abstractmethod
+    def get_parent_scope_variable(self, name: str) -> _cv.Value:
+        ...
+
+    @abc.abstractmethod
+    def set_parent_scope_variable(self, name: str, value: str | None, assigning_command_name: str,
+                                  assignment_position: _cur.Position) -> None:
+        ...
+
+    @abc.abstractmethod
+    def taint_parent_scope_variable(self, name: str, reason: _cur.ValueUncertaintyReason) -> None:
         ...
 
     @abc.abstractmethod
@@ -1049,8 +1068,7 @@ class _RootState(_State):
         return True
 
     @typing.override
-    def get_regular_variable(self, name: str, parent_scope: bool) -> _cv.Value:
-        assert not parent_scope
+    def get_regular_variable(self, name: str) -> _cv.Value:
         value = self._regular_variables.get(name)
         if value:
             return value
@@ -1058,14 +1076,12 @@ class _RootState(_State):
         return _cv.UncertainValue(reason)
 
     @typing.override
-    def set_regular_variable(self, name: str, value: str | None, parent_scope: bool, assigning_command_name: str,
+    def set_regular_variable(self, name: str, value: str | None, assigning_command_name: str,
                              assignment_position: _cur.Position) -> None:
-        assert not parent_scope
         self._regular_variables[name] = _cv.CertainValue(value)
 
     @typing.override
-    def taint_regular_variable(self, name: str, reason: _cur.ValueUncertaintyReason, parent_scope: bool) -> None:
-        assert not parent_scope
+    def taint_regular_variable(self, name: str, reason: _cur.ValueUncertaintyReason) -> None:
         value = self._regular_variables.get(name)
         match value:
             case None | _cv.CertainValue():
@@ -1074,6 +1090,19 @@ class _RootState(_State):
             case _cv.UncertainValue():
                 return
         typing.assert_never(value)
+
+    @typing.override
+    def get_parent_scope_variable(self, name: str) -> _cv.Value:
+        assert False
+
+    @typing.override
+    def set_parent_scope_variable(self, name: str, value: str | None, assigning_command_name: str,
+                                  assignment_position: _cur.Position) -> None:
+        assert False
+
+    @typing.override
+    def taint_parent_scope_variable(self, name: str, reason: _cur.ValueUncertaintyReason) -> None:
+        assert False
 
     @typing.override
     def get_cache_variable(self, name: str) -> _cv.Value:
@@ -1158,40 +1187,44 @@ class _SubscopeState(_State):
         return False
 
     @typing.override
-    def get_regular_variable(self, name: str, parent_scope: bool) -> _cv.Value:
-        if not parent_scope:
-            value = self._regular_variables.get(name)
-            if value:
-                return value
-        return self._parent_state.get_regular_variable(name, parent_scope=False)
+    def get_regular_variable(self, name: str) -> _cv.Value:
+        value = self._regular_variables.get(name)
+        if value:
+            return value
+        return self._parent_state.get_regular_variable(name)
 
     @typing.override
-    def set_regular_variable(self, name: str, value: str | None, parent_scope: bool, assigning_command_name: str,
+    def set_regular_variable(self, name: str, value: str | None, assigning_command_name: str,
                              assignment_position: _cur.Position) -> None:
-        if not parent_scope:
-            self._regular_variables[name] = _cv.CertainValue(value)
-            return
-        if name not in self._regular_variables:
-            self._regular_variables[name] = self._parent_state.get_regular_variable(name, parent_scope=False)
-        parents_parent_scope = False
-        self._parent_state.set_regular_variable(name, value, parents_parent_scope, assigning_command_name,
-                                                assignment_position)
+        self._regular_variables[name] = _cv.CertainValue(value)
 
     @typing.override
-    def taint_regular_variable(self, name: str, reason: _cur.ValueUncertaintyReason, parent_scope: bool) -> None:
-        if not parent_scope:
-            value = self._regular_variables.get(name)
-            match value:
-                case None | _cv.CertainValue():
-                    self._regular_variables[name] = _cv.UncertainValue(reason)
-                    return
-                case _cv.UncertainValue():
-                    return
-            typing.assert_never(value)
+    def taint_regular_variable(self, name: str, reason: _cur.ValueUncertaintyReason) -> None:
+        value = self._regular_variables.get(name)
+        match value:
+            case None | _cv.CertainValue():
+                self._regular_variables[name] = _cv.UncertainValue(reason)
+                return
+            case _cv.UncertainValue():
+                return
+        typing.assert_never(value)
+
+    @typing.override
+    def get_parent_scope_variable(self, name: str) -> _cv.Value:
+        return self._parent_state.get_regular_variable(name)
+
+    @typing.override
+    def set_parent_scope_variable(self, name: str, value: str | None, assigning_command_name: str,
+                                  assignment_position: _cur.Position) -> None:
         if name not in self._regular_variables:
-            self._regular_variables[name] = self._parent_state.get_regular_variable(name, parent_scope=False)
-        parents_parent_scope = False
-        self._parent_state.taint_regular_variable(name, reason, parents_parent_scope)
+            self._regular_variables[name] = self._parent_state.get_regular_variable(name)
+        self._parent_state.set_regular_variable(name, value, assigning_command_name, assignment_position)
+
+    @typing.override
+    def taint_parent_scope_variable(self, name: str, reason: _cur.ValueUncertaintyReason) -> None:
+        if name not in self._regular_variables:
+            self._regular_variables[name] = self._parent_state.get_regular_variable(name)
+        self._parent_state.taint_regular_variable(name, reason)
 
     @typing.override
     def get_cache_variable(self, name: str) -> _cv.Value:
@@ -1245,33 +1278,46 @@ class _VariableOverlayState(_State):
         return self._parent_state.is_root_scope()
 
     @typing.override
-    def get_regular_variable(self, name: str, parent_scope: bool) -> _cv.Value:
-        if not parent_scope:
-            value = self._regular_variables.get(name)
-            if value is not None:
-                return value
-        return self._parent_state.get_regular_variable(name, parent_scope)
+    def get_regular_variable(self, name: str) -> _cv.Value:
+        value = self._regular_variables.get(name)
+        if value is not None:
+            return value
+        return self._parent_state.get_regular_variable(name)
 
     @typing.override
-    def set_regular_variable(self, name: str, value: str | None, parent_scope: bool, assigning_command_name: str,
+    def set_regular_variable(self, name: str, value: str | None, assigning_command_name: str,
                              assignment_position: _cur.Position) -> None:
-        if not parent_scope and name in self._regular_variables:
-            self._regular_variables[name] = _cv.CertainValue(value)
+        if name not in self._regular_variables:
+            self._parent_state.set_regular_variable(name, value, assigning_command_name, assignment_position)
             return
-        self._parent_state.set_regular_variable(name, value, parent_scope, assigning_command_name, assignment_position)
+        self._regular_variables[name] = _cv.CertainValue(value)
 
     @typing.override
-    def taint_regular_variable(self, name: str, reason: _cur.ValueUncertaintyReason, parent_scope: bool) -> None:
-        if not parent_scope and name in self._regular_variables:
-            value = self._regular_variables.get(name)
-            match value:
-                case None | _cv.CertainValue():
-                    self._regular_variables[name] = _cv.UncertainValue(reason)
-                    return
-                case _cv.UncertainValue():
-                    return
-            typing.assert_never(value)
-        self._parent_state.taint_regular_variable(name, reason, parent_scope)
+    def taint_regular_variable(self, name: str, reason: _cur.ValueUncertaintyReason) -> None:
+        if name not in self._regular_variables:
+            self._parent_state.taint_regular_variable(name, reason)
+            return
+        value = self._regular_variables.get(name)
+        match value:
+            case None | _cv.CertainValue():
+                self._regular_variables[name] = _cv.UncertainValue(reason)
+                return
+            case _cv.UncertainValue():
+                return
+        typing.assert_never(value)
+
+    @typing.override
+    def get_parent_scope_variable(self, name: str) -> _cv.Value:
+        return self._parent_state.get_parent_scope_variable(name)
+
+    @typing.override
+    def set_parent_scope_variable(self, name: str, value: str | None, assigning_command_name: str,
+                                  assignment_position: _cur.Position) -> None:
+        self._parent_state.set_parent_scope_variable(name, value, assigning_command_name, assignment_position)
+
+    @typing.override
+    def taint_parent_scope_variable(self, name: str, reason: _cur.ValueUncertaintyReason) -> None:
+        self._parent_state.taint_parent_scope_variable(name, reason)
 
     @typing.override
     def get_cache_variable(self, name: str) -> _cv.Value:
@@ -1368,7 +1414,7 @@ class _OccurrenceUncertaintyOverlayState(_State):
         for name, value in self._regular_variables.items():
             match value:
                 case _cv.CertainValue():
-                    parent_value = self._parent_state.get_regular_variable(name, parent_scope=False)
+                    parent_value = self._parent_state.get_regular_variable(name)
                     match parent_value:
                         case _cv.CertainValue():
                             if parent_value.string == value.string:
@@ -1383,7 +1429,7 @@ class _OccurrenceUncertaintyOverlayState(_State):
         for name, value in self._parent_scope_variables.items():
             match value:
                 case _cv.CertainValue():
-                    parent_value = self._parent_state.get_regular_variable(name, parent_scope=True)
+                    parent_value = self._parent_state.get_parent_scope_variable(name)
                     match parent_value:
                         case _cv.CertainValue():
                             if parent_value.string == value.string:
@@ -1405,57 +1451,67 @@ class _OccurrenceUncertaintyOverlayState(_State):
         for name, reason in self._tainted_cache_variables.items():
             self._parent_state.taint_cache_variable(name, reason)
         for name, reason in self._tainted_regular_variables.items():
-            self._parent_state.taint_regular_variable(name, reason, parent_scope=False)
+            self._parent_state.taint_regular_variable(name, reason)
         for name, reason in self._tainted_parent_scope_variables.items():
-            self._parent_state.taint_regular_variable(name, reason, parent_scope=True)
+            self._parent_state.taint_parent_scope_variable(name, reason)
 
     @typing.override
     def is_root_scope(self) -> bool:
         return self._parent_state.is_root_scope()
 
     @typing.override
-    def get_regular_variable(self, name: str, parent_scope: bool) -> _cv.Value:
-        if not parent_scope:
-            value = self._regular_variables.get(name)
-        else:
-            value = self._parent_scope_variables.get(name)
+    def get_regular_variable(self, name: str) -> _cv.Value:
+        value = self._regular_variables.get(name)
         if value:
             return value
-        return self._parent_state.get_regular_variable(name, parent_scope)
+        return self._parent_state.get_regular_variable(name)
 
     @typing.override
-    def set_regular_variable(self, name: str, value: str | None, parent_scope: bool, assigning_command_name: str,
+    def set_regular_variable(self, name: str, value: str | None, assigning_command_name: str,
                              assignment_position: _cur.Position) -> None:
+        self._regular_variables[name] = _cv.CertainValue(value)
         reason = _cur.AssignmentOccurrenceUncertaintyReason(assigning_command_name, assignment_position,
                                                             self._occurrence_uncertainty_reason)
-        if not parent_scope:
-            self._tainted_regular_variables.setdefault(name, reason)
-            self._regular_variables[name] = _cv.CertainValue(value)
-            return
-        self._tainted_parent_scope_variables.setdefault(name, reason)
-        self._parent_scope_variables[name] = _cv.CertainValue(value)
+        self._tainted_regular_variables.setdefault(name, reason)
 
     @typing.override
-    def taint_regular_variable(self, name: str, reason: _cur.ValueUncertaintyReason, parent_scope: bool) -> None:
-        if not parent_scope:
-            self._tainted_regular_variables.setdefault(name, reason)
-            value = self._regular_variables.get(name)
-            match value:
-                case None | _cv.CertainValue():
-                    self._regular_variables[name] = _cv.UncertainValue(reason)
-                    return
-                case _cv.UncertainValue():
-                    return
-            typing.assert_never(value)
+    def taint_regular_variable(self, name: str, reason: _cur.ValueUncertaintyReason) -> None:
+        value = self._regular_variables.get(name)
+        match value:
+            case None | _cv.CertainValue():
+                self._regular_variables[name] = _cv.UncertainValue(reason)
+            case _cv.UncertainValue():
+                pass
+            case _:
+                typing.assert_never(value)
+        self._tainted_regular_variables.setdefault(name, reason)
+
+    @typing.override
+    def get_parent_scope_variable(self, name: str) -> _cv.Value:
+        value = self._parent_scope_variables.get(name)
+        if value:
+            return value
+        return self._parent_state.get_parent_scope_variable(name)
+
+    @typing.override
+    def set_parent_scope_variable(self, name: str, value: str | None, assigning_command_name: str,
+                                  assignment_position: _cur.Position) -> None:
+        self._parent_scope_variables[name] = _cv.CertainValue(value)
+        reason = _cur.AssignmentOccurrenceUncertaintyReason(assigning_command_name, assignment_position,
+                                                            self._occurrence_uncertainty_reason)
         self._tainted_parent_scope_variables.setdefault(name, reason)
+
+    @typing.override
+    def taint_parent_scope_variable(self, name: str, reason: _cur.ValueUncertaintyReason) -> None:
         value = self._parent_scope_variables.get(name)
         match value:
             case None | _cv.CertainValue():
                 self._parent_scope_variables[name] = _cv.UncertainValue(reason)
-                return
             case _cv.UncertainValue():
-                return
-        typing.assert_never(value)
+                pass
+            case _:
+                typing.assert_never(value)
+        self._tainted_parent_scope_variables.setdefault(name, reason)
 
     @typing.override
     def get_cache_variable(self, name: str) -> _cv.Value:
@@ -1474,15 +1530,15 @@ class _OccurrenceUncertaintyOverlayState(_State):
 
     @typing.override
     def taint_cache_variable(self, name: str, reason: _cur.ValueUncertaintyReason) -> None:
-        self._tainted_cache_variables.setdefault(name, reason)
         value = self._cache_variables.get(name)
         match value:
             case None | _cv.CertainValue():
                 self._cache_variables[name] = _cv.UncertainValue(reason)
-                return
             case _cv.UncertainValue():
-                return
-        typing.assert_never(value)
+                pass
+            case _:
+                typing.assert_never(value)
+        self._tainted_cache_variables.setdefault(name, reason)
 
     @typing.override
     def get_env_variable(self, name: str) -> _cv.Value:
@@ -1501,15 +1557,15 @@ class _OccurrenceUncertaintyOverlayState(_State):
 
     @typing.override
     def taint_env_variable(self, name: str, reason: _cur.ValueUncertaintyReason) -> None:
-        self._tainted_env_variables.setdefault(name, reason)
         value = self._env_variables.get(name)
         match value:
             case None | _cv.CertainValue():
                 self._env_variables[name] = _cv.UncertainValue(reason)
-                return
             case _cv.UncertainValue():
-                return
-        typing.assert_never(value)
+                pass
+            case _:
+                typing.assert_never(value)
+        self._tainted_env_variables.setdefault(name, reason)
 
     @typing.override
     def get_command(self, name_cf: str) -> _Command:
@@ -1528,15 +1584,15 @@ class _OccurrenceUncertaintyOverlayState(_State):
 
     @typing.override
     def taint_command(self, name_cf: str, reason: _CommandDefinitionUncertaintyReason) -> None:
-        self._tainted_commands.setdefault(name_cf, reason)
         command = self._commands.get(name_cf)
         match command:
             case None | _BuiltInCommand() | _CustomCommand():
                 self._commands[name_cf] = _UncertainCommand(reason)
-                return
             case _UncertainCommand():
-                return
-        typing.assert_never(command)
+                pass
+            case _:
+                typing.assert_never(command)
+        self._tainted_commands.setdefault(name_cf, reason)
 
 
 type _Command = _CertainCommand | _UncertainCommand
