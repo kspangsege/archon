@@ -1091,38 +1091,54 @@ def test_CMakeProcess_If(context: _t.Context) -> None:
 
     # Cancellation of tainting caused by occurrence uncertainty
     text = r"""
-      set(r1 "foo")
-      set(r2 "foo")
-      set(r3 "foo")
-      set(CACHE{c1} FORCE VALUE "foo")
-      set(CACHE{c2} FORCE VALUE "foo")
-      set(CACHE{c3} FORCE VALUE "foo")
-      set(ENV{e1} "foo")
-      set(ENV{e2} "foo")
-      set(ENV{e3} "foo")
+      set(r1 "foo:r1")
+      set(r2 "foo:r2")
+      set(r3 "foo:r3")
+      set(r4 "foo:r4")                     # Set to same new value in all branches
+      set(CACHE{c1} FORCE VALUE "foo:c1")
+      set(CACHE{c2} FORCE VALUE "foo:c2")
+      set(CACHE{c3} FORCE VALUE "foo:c3")
+      set(CACHE{c4} FORCE VALUE "foo:c4")  # Set to same new value in all branches
+      set(ENV{e1} "foo:e1")
+      set(ENV{e2} "foo:e2")
+      set(ENV{e3} "foo:e3")
+      set(ENV{e4} "foo:e4")                # Set to same new value in all branches
       if(u1)
-        set(r1 "foo")                     # No change
-        set(CACHE{c1} FORCE VALUE "foo")  # No change
-        set(ENV{e1} "foo")                # No change
+        set(r1 "foo:r1")                     # No change
+        set(CACHE{c1} FORCE VALUE "foo:c1")  # No change
+        set(ENV{e1} "foo:e1")                # No change
+        set(r4 "bar:r4")
+        set(CACHE{c4} FORCE VALUE "bar:c4")
+        set(ENV{e4} "bar:e4")
       elseif(u2)
-        set(r2 "foo")                     # No change
-        set(CACHE{c2} FORCE VALUE "foo")  # No change
-        set(ENV{e2} "foo")                # No change
+        set(r2 "foo:r2")                     # No change
+        set(CACHE{c2} FORCE VALUE "foo:c2")  # No change
+        set(ENV{e2} "foo:e2")                # No change
+        set(r4 "bar:r4")
+        set(CACHE{c4} FORCE VALUE "bar:c4")
+        set(ENV{e4} "bar:e4")
       else()
-        set(r3 "bar")
-        set(CACHE{c3} FORCE VALUE "bar")
-        set(ENV{e3} "bar")
-        set(r3 "foo")                     # Original value restored
-        set(CACHE{c3} FORCE VALUE "foo")  # Original value restored
-        set(ENV{e3} "foo")                # Original value restored
+        set(r3 "bar:r3")
+        set(CACHE{c3} FORCE VALUE "bar:c2")
+        set(ENV{e3} "bar:e3")
+        set(r3 "foo:r3")                     # Original value restored
+        set(CACHE{c3} FORCE VALUE "foo:c3")  # Original value restored
+        set(ENV{e3} "foo:e3")                # Original value restored
+        set(r4 "bar:r4")
+        set(CACHE{c4} FORCE VALUE "bar:c4")
+        set(ENV{e4} "bar:e4")
       endif()
-      message("-${r1}-${r2}-${r3}-$CACHE{c1}-$CACHE{c2}-$CACHE{c3}-$ENV{e1}-$ENV{e2}-$ENV{e3}-")
+      message("-${r1}-${r2}-${r3}-${r4}-")
+      message("-$CACHE{c1}-$CACHE{c2}-$CACHE{c3}-$CACHE{c4}-")
+      message("-$ENV{e1}-$ENV{e2}-$ENV{e3}-$ENV{e4}-")
     """
     path = pathlib.Path("test-4.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
     expected_messages = [
-        "-foo-foo-foo-foo-foo-foo-foo-foo-foo-",
+        "-foo:r1-foo:r2-foo:r3-bar:r4-",
+        "-foo:c1-foo:c2-foo:c3-bar:c4-",
+        "-foo:e1-foo:e2-foo:e3-bar:e4-",
     ]
     context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
