@@ -1078,14 +1078,8 @@ class _RootState(_State):
                 self._regular_variables[name] = _cv.CertainValue(value.string)
                 return
             case _cv.UncertainValue():
-                orig_value = self._regular_variables.get(name)
-                match orig_value:
-                    case None | _cv.CertainValue():
-                        self._regular_variables[name] = value
-                        return
-                    case _cv.UncertainValue():
-                        return
-                typing.assert_never(orig_value)
+                self._regular_variables[name] = value
+                return
         typing.assert_never(value)
 
     @typing.override
@@ -1111,14 +1105,8 @@ class _RootState(_State):
                 self._cache_variables[name] = _cv.CertainValue(value.string)
                 return
             case _cv.UncertainValue():
-                orig_value = self._cache_variables.get(name)
-                match orig_value:
-                    case None | _cv.CertainValue():
-                        self._cache_variables[name] = value
-                        return
-                    case _cv.UncertainValue():
-                        return
-                typing.assert_never(orig_value)
+                self._cache_variables[name] = value
+                return
         typing.assert_never(value)
 
     @typing.override
@@ -1136,14 +1124,8 @@ class _RootState(_State):
                 self._env_variables[name] = _cv.CertainValue(value.string)
                 return
             case _cv.UncertainValue():
-                orig_value = self._env_variables.get(name)
-                match orig_value:
-                    case None | _cv.CertainValue():
-                        self._env_variables[name] = value
-                        return
-                    case _cv.UncertainValue():
-                        return
-                typing.assert_never(orig_value)
+                self._env_variables[name] = value
+                return
         typing.assert_never(value)
 
     @typing.override
@@ -1161,14 +1143,8 @@ class _RootState(_State):
                 self._commands[name_cf] = command.command
                 return
             case _UncertainCommand():
-                orig_command = self._commands.get(name_cf)
-                match orig_command:
-                    case None | _BuiltInCommand() | _CustomCommand():
-                        self._commands[name_cf] = command
-                        return
-                    case _UncertainCommand():
-                        return
-                typing.assert_never(orig_command)
+                self._commands[name_cf] = command
+                return
         typing.assert_never(command)
 
 
@@ -1195,14 +1171,8 @@ class _SubscopeState(_State):
                 self._regular_variables[name] = _cv.CertainValue(value.string)
                 return
             case _cv.UncertainValue():
-                orig_value = self._regular_variables.get(name)
-                match orig_value:
-                    case None | _cv.CertainValue():
-                        self._regular_variables[name] = value
-                        return
-                    case _cv.UncertainValue():
-                        return
-                typing.assert_never(orig_value)
+                self._regular_variables[name] = value
+                return
         typing.assert_never(value)
 
     @typing.override
@@ -1271,14 +1241,8 @@ class _VariableOverlayState(_State):
                 self._regular_variables[name] = _cv.CertainValue(value.string)
                 return
             case _cv.UncertainValue():
-                orig_value = self._regular_variables.get(name)
-                match orig_value:
-                    case None | _cv.CertainValue():
-                        self._regular_variables[name] = value
-                        return
-                    case _cv.UncertainValue():
-                        return
-                typing.assert_never(orig_value)
+                self._regular_variables[name] = value
+                return
         typing.assert_never(value)
 
     @typing.override
@@ -1520,26 +1484,18 @@ class _OccurrenceUncertaintyOverlayState(_State):
 
     @typing.override
     def set_regular_variable(self, name: str, value: _AssignedValue) -> None:
+        self._regular_variables[name] = value
         match value:
             case _CertainAssignedValue():
-                self._regular_variables[name] = value
                 reason = _cur.AssignmentOccurrenceUncertaintyReason(value.assigning_command_name,
                                                                     value.assignment_position,
                                                                     self._occurrence_uncertainty_reason)
-                self._tainted_regular_variables.setdefault(name, _cv.UncertainValue(reason))
-                return
+                taint_value = _cv.UncertainValue(reason)
             case _cv.UncertainValue():
-                orig_value = self._regular_variables.get(name)
-                match orig_value:
-                    case None | _CertainAssignedValue():
-                        self._regular_variables[name] = value
-                    case _cv.UncertainValue():
-                        pass
-                    case _:
-                        typing.assert_never(orig_value)
-                self._tainted_regular_variables.setdefault(name, value)
-                return
-        typing.assert_never(value)
+                taint_value = value
+            case _:
+                typing.assert_never(value)
+        self._tainted_regular_variables[name] = taint_value
 
     @typing.override
     def get_parent_scope_variable(self, name: str) -> _cv.Value:
@@ -1555,26 +1511,18 @@ class _OccurrenceUncertaintyOverlayState(_State):
 
     @typing.override
     def set_parent_scope_variable(self, name: str, value: _AssignedValue) -> None:
+        self._parent_scope_variables[name] = value
         match value:
             case _CertainAssignedValue():
-                self._parent_scope_variables[name] = value
                 reason = _cur.AssignmentOccurrenceUncertaintyReason(value.assigning_command_name,
                                                                     value.assignment_position,
                                                                     self._occurrence_uncertainty_reason)
-                self._tainted_parent_scope_variables.setdefault(name, _cv.UncertainValue(reason))
-                return
+                taint_value = _cv.UncertainValue(reason)
             case _cv.UncertainValue():
-                orig_value = self._parent_scope_variables.get(name)
-                match orig_value:
-                    case None | _CertainAssignedValue():
-                        self._parent_scope_variables[name] = value
-                    case _cv.UncertainValue():
-                        pass
-                    case _:
-                        typing.assert_never(orig_value)
-                self._tainted_parent_scope_variables.setdefault(name, value)
-                return
-        typing.assert_never(value)
+                taint_value = value
+            case _:
+                typing.assert_never(value)
+        self._tainted_parent_scope_variables[name] = taint_value
 
     @typing.override
     def get_cache_variable(self, name: str) -> _cv.Value:
@@ -1590,26 +1538,18 @@ class _OccurrenceUncertaintyOverlayState(_State):
 
     @typing.override
     def set_cache_variable(self, name: str, value: _AssignedValue) -> None:
+        self._cache_variables[name] = value
         match value:
             case _CertainAssignedValue():
-                self._cache_variables[name] = value
                 reason = _cur.AssignmentOccurrenceUncertaintyReason(value.assigning_command_name,
                                                                     value.assignment_position,
                                                                     self._occurrence_uncertainty_reason)
-                self._tainted_cache_variables.setdefault(name, _cv.UncertainValue(reason))
-                return
+                taint_value = _cv.UncertainValue(reason)
             case _cv.UncertainValue():
-                orig_value = self._cache_variables.get(name)
-                match orig_value:
-                    case None | _CertainAssignedValue():
-                        self._cache_variables[name] = value
-                    case _cv.UncertainValue():
-                        pass
-                    case _:
-                        typing.assert_never(orig_value)
-                self._tainted_cache_variables.setdefault(name, value)
-                return
-        typing.assert_never(value)
+                taint_value = value
+            case _:
+                typing.assert_never(value)
+        self._tainted_cache_variables[name] = taint_value
 
     @typing.override
     def get_env_variable(self, name: str) -> _cv.Value:
@@ -1625,26 +1565,18 @@ class _OccurrenceUncertaintyOverlayState(_State):
 
     @typing.override
     def set_env_variable(self, name: str, value: _AssignedValue) -> None:
+        self._env_variables[name] = value
         match value:
             case _CertainAssignedValue():
-                self._env_variables[name] = value
                 reason = _cur.AssignmentOccurrenceUncertaintyReason(value.assigning_command_name,
                                                                     value.assignment_position,
                                                                     self._occurrence_uncertainty_reason)
-                self._tainted_env_variables.setdefault(name, _cv.UncertainValue(reason))
-                return
+                taint_value = _cv.UncertainValue(reason)
             case _cv.UncertainValue():
-                orig_value = self._env_variables.get(name)
-                match orig_value:
-                    case None | _CertainAssignedValue():
-                        self._env_variables[name] = value
-                    case _cv.UncertainValue():
-                        pass
-                    case _:
-                        typing.assert_never(orig_value)
-                self._tainted_env_variables.setdefault(name, value)
-                return
-        typing.assert_never(value)
+                taint_value = value
+            case _:
+                typing.assert_never(value)
+        self._tainted_env_variables[name] = taint_value
 
     @typing.override
     def get_command(self, name_cf: str) -> _Command:
@@ -1660,26 +1592,18 @@ class _OccurrenceUncertaintyOverlayState(_State):
 
     @typing.override
     def set_command(self, name_cf: str, command: _DefinedCommand) -> None:
+        self._commands[name_cf] = command
         match command:
             case _CertainDefinedCommand():
-                self._commands[name_cf] = command
                 reason = _CommandDefinitionUncertaintyReason(command.defining_command_name,
                                                              command.definition_position,
                                                              self._occurrence_uncertainty_reason)
-                self._tainted_commands.setdefault(name_cf, _UncertainCommand(reason))
-                return
+                taint_command = _UncertainCommand(reason)
             case _UncertainCommand():
-                orig_command = self._commands.get(name_cf)
-                match orig_command:
-                    case None | _CertainDefinedCommand():
-                        self._commands[name_cf] = command
-                    case _UncertainCommand():
-                        pass
-                    case _:
-                        typing.assert_never(orig_command)
-                self._tainted_commands.setdefault(name_cf, command)
-                return
-        typing.assert_never(command)
+                taint_command = command
+            case _:
+                typing.assert_never(command)
+        self._tainted_commands[name_cf] = taint_command
 
 
 type _Command = _CertainCommand | _UncertainCommand
