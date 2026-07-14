@@ -216,11 +216,17 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
 
     def exec_foreach(invoc: _clp.ForeachInvoc, context: _InvocContext) -> None:
         def iterate_list(loop_var: str, items: list[str]) -> None:
+            orig_value = context.state.get_regular_variable(loop_var)
             for item in items:
-                state = _VariableOverlayState(context.state, {
-                    loop_var: item,
-                })
-                exec_commands(invoc.children, context.with_state(state))
+                set_regular_variable(loop_var, item, invoc, context)
+                exec_commands(invoc.children, context)
+            match orig_value:
+                case _cv.CertainValue():
+                    set_regular_variable(loop_var, orig_value.string, invoc, context)
+                case _cv.UncertainValue():
+                    context.state.set_regular_variable(loop_var, orig_value)
+                case _:
+                    typing.assert_never(orig_value)
         server = create_argument_server(invoc, context)
         i = server.find_keyword({"IN"})
         if i == -1:
@@ -1187,71 +1193,6 @@ class _SubscopeState(_State):
         if name not in self._regular_variables:
             self._regular_variables[name] = self._parent_state.get_regular_variable(name)
         self._parent_state.set_regular_variable(name, value)
-
-    @typing.override
-    def get_cache_variable(self, name: str) -> _cv.Value:
-        return self._parent_state.get_cache_variable(name)
-
-    @typing.override
-    def set_cache_variable(self, name: str, value: _AssignedValue) -> None:
-        self._parent_state.set_cache_variable(name, value)
-
-    @typing.override
-    def get_env_variable(self, name: str) -> _cv.Value:
-        return self._parent_state.get_env_variable(name)
-
-    @typing.override
-    def set_env_variable(self, name: str, value: _AssignedValue) -> None:
-        self._parent_state.set_env_variable(name, value)
-
-    @typing.override
-    def get_command(self, name_cf: str) -> _Command:
-        return self._parent_state.get_command(name_cf)
-
-    @typing.override
-    def set_command(self, name_cf: str, command: _DefinedCommand) -> None:
-        self._parent_state.set_command(name_cf, command)
-
-
-class _VariableOverlayState(_State):
-    def __init__(self, parent_state: _State, variables: dict[str, str]) -> None:
-        self._parent_state      = parent_state
-        self._regular_variables = dict[str, _cv.Value]()
-        for name, value in variables.items():
-            self._regular_variables[name] = _cv.CertainValue(value)
-
-    @typing.override
-    def is_root_scope(self) -> bool:
-        return self._parent_state.is_root_scope()
-
-    @typing.override
-    def get_regular_variable(self, name: str) -> _cv.Value:
-        value = self._regular_variables.get(name)
-        if value is not None:
-            return value
-        return self._parent_state.get_regular_variable(name)
-
-    @typing.override
-    def set_regular_variable(self, name: str, value: _AssignedValue) -> None:
-        if name not in self._regular_variables:
-            self._parent_state.set_regular_variable(name, value)
-            return
-        match value:
-            case _CertainAssignedValue():
-                self._regular_variables[name] = _cv.CertainValue(value.string)
-                return
-            case _cv.UncertainValue():
-                self._regular_variables[name] = value
-                return
-        typing.assert_never(value)
-
-    @typing.override
-    def get_parent_scope_variable(self, name: str) -> _cv.Value:
-        return self._parent_state.get_parent_scope_variable(name)
-
-    @typing.override
-    def set_parent_scope_variable(self, name: str, value: _AssignedValue) -> None:
-        self._parent_state.set_parent_scope_variable(name, value)
 
     @typing.override
     def get_cache_variable(self, name: str) -> _cv.Value:
