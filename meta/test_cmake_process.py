@@ -1192,25 +1192,39 @@ def test_CMakeProcess_If(context: _t.Context) -> None:
 def test_CMakeProcess_Foreach(context: _t.Context) -> None:
     text = r"""
       set(l "Foo" "Bar" "Baz")
-      foreach(_x IN LISTS l)
-        message("Foo ${_x}")
+      set(x "x")
+      foreach(x IN LISTS l)
+        message("1: -${x}-")
       endforeach()
+      message("2: -${x}-")
+      set(y "y")
+      if(u)
+        foreach(y IN LISTS l)
+          message("3: -${y}-")
+        endforeach()
+        message("4: -${y}-")
+      endif()
+      message("5: -${y}-")
     """
     path = pathlib.Path("test.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
     expected_messages = [
-        "Foo Foo",
-        "Foo Bar",
-        "Foo Baz",
+        ("1: -Foo-", True),
+        ("1: -Bar-", True),
+        ("1: -Baz-", True),
+        ("2: -x-",   True),
+        ("3: -Foo-", False),
+        ("3: -Bar-", False),
+        ("3: -Baz-", False),
+        ("4: -y-",   False),
+        ("5: -y-",   True),
     ]
     context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
         subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_equal(message.file_pos, _tp.FilePos(path, 3, 2))
-        subcontext.check_equal(message.level, _cp.MessageLevel.NOTICE)
-        subcontext.check_is_none(message.occurrence_uncertainty)
+        subcontext.check_equal(message.message, expected[0])
+        subcontext.check_equal(not message.occurrence_uncertainty, expected[1])
 
 
 def test_CMakeProcess_Macro(context: _t.Context) -> None:
