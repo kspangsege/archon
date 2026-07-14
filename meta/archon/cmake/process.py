@@ -1917,51 +1917,76 @@ def _get_macro_substitutions(parameters: list[str], arguments: list[_ca.Argument
 
 def _macro_substitute_invoc(invoc: _clp.Invoc, context: _InvocContext,
                             substitutions: dict[str, _SubstitutionValue]) -> _clp.Invoc:
-    def subst_invoc(invoc: _clp.Invoc) -> None:
+    def subst_invoc[T: _clp.GeneralizedInvoc](invoc: T) -> tuple[T, bool]:
+        new_arguments, arguments_changed = subst_arguments(invoc)
         match invoc:
             case _clp.IfInvoc():
-                subst_structured(invoc)
+                new_children, children_changed = subst_children(invoc)
+                new_closing_invoc, closing_invoc_cahnged = subst_invoc(invoc.closing_invoc)
+                new_elseif_branches = list[_clp.IfBranch]()
+                elseif_branches_changed = False
                 for branch in invoc.elseif_branches:
-                    subst_structured(branch)
+                    new_branch, branch_changed = subst_invoc(branch)
+                    new_elseif_branches.append(new_branch)
+                    elseif_branches_changed |= branch_changed
+                new_else_branch: _clp.IfBranch | None = None
+                else_branch_changed = False
                 if invoc.else_branch:
-                    subst_structured(invoc.else_branch)
-                subst_arguments(invoc.closing_invoc)
-                return
+                    new_else_branch, else_branch_changed = subst_invoc(invoc.else_branch)
+                if not arguments_changed and not children_changed and not elseif_branches_changed and \
+                   not else_branch_changed and not closing_invoc_cahnged:
+                    return invoc, False
+                return dataclasses.replace(invoc, arguments=new_arguments, children=new_children,
+                                           closing_invoc=new_closing_invoc, elseif_branches=new_elseif_branches,
+                                           else_branch=new_else_branch), True
+            case _clp.IfBranch():
+                new_children, children_changed = subst_children(invoc)
+                if not arguments_changed and not children_changed:
+                    return invoc, False
+                return dataclasses.replace(invoc, arguments=new_arguments, children=new_children), True
             case _clp.ForeachInvoc() | _clp.WhileInvoc() | _clp.MacroDefInvoc() | _clp.FunctionDefInvoc() | \
                  _clp.BlockInvoc():
-                subst_structured(invoc)
-                subst_arguments(invoc.closing_invoc)
-                return
-            case _clp.ReturnInvoc() | _clp.BreakInvoc() | _clp.ContinueInvoc() | _clp.GenericInvoc():
-                subst_arguments(invoc)
-                return
+                new_children, children_changed = subst_children(invoc)
+                new_closing_invoc, closing_invoc_cahnged = subst_invoc(invoc.closing_invoc)
+                if not arguments_changed and not children_changed and not closing_invoc_cahnged:
+                    return invoc, False
+                return dataclasses.replace(invoc, arguments=new_arguments, children=new_children,
+                                           closing_invoc=new_closing_invoc), True
+            case _clp.ClosingInvoc() | _clp.ReturnInvoc() | _clp.BreakInvoc() | _clp.ContinueInvoc() | \
+                 _clp.GenericInvoc():
+                if not arguments_changed:
+                    return invoc, False
+                return dataclasses.replace(invoc, arguments=new_arguments), True
         typing.assert_never(invoc)
 
-    def subst_structured(invoc: _clp.StructuredInvocBase) -> None:
-        subst_arguments(invoc)
-        for child in invoc.children:
-            subst_invoc(child)
-
-    def subst_arguments(invoc: _clp.InvocBase) -> None:
-        for i in range(len(invoc.arguments)):
-            arg = invoc.arguments[i]
+    def subst_arguments(invoc: _clp.InvocBase) -> tuple[list[_clp.Protoargument], bool]:
+        new_arguments = list[_clp.Protoargument]()
+        arguments_changed = False
+        for arg in invoc.arguments:
             match arg.type_:
                 case _clp.ProtoargumentType.BARE | _clp.ProtoargumentType.QUOTED:
-                    invoc.arguments[i] = subst_arg(arg, invoc)
+                    new_arg, arg_changed = subst_arg(arg, invoc)
+                    new_arguments.append(new_arg)
+                    arguments_changed |= arg_changed
                     continue
                 case _clp.ProtoargumentType.BRACKETED:
                     # CMake does not apply macro substitutions inside bracketed arguments
+                    new_arguments.append(arg)
                     continue
             typing.assert_never(arg.type_)
+        if arguments_changed:
+            return new_arguments, True
+        return invoc.arguments, False
 
-    def subst_arg(arg: _clp.Protoargument, invoc: _clp.InvocBase) -> _clp.Protoargument:
+    def subst_arg(arg: _clp.Protoargument, invoc: _clp.InvocBase) -> tuple[_clp.Protoargument, bool]:
         match arg:
             case _clp.CertainProtoargument():
+                is_changed = False
                 is_derived = arg.is_derived
                 builder = _tp.PosMapBuilder()
                 pos = 0
                 def replacer(m: re.Match[str]) -> str:
-                    nonlocal is_derived, pos
+                    nonlocal is_changed, is_derived, pos
                     param = m.group(1)
                     value = substitutions.get(param)
                     if value is None:
@@ -1969,6 +1994,7 @@ def _macro_substitute_invoc(invoc: _clp.Invoc, context: _InvocContext,
                     match_pos = m.start()
                     match value:
                         case _CertainSubstitutionValue():
+                            is_changed = True
                             is_derived = True
                             builder.add_linear(match_pos - pos, pos)
                             builder.add_nonlinear(len(value.string), match_pos)
@@ -1983,19 +2009,31 @@ def _macro_substitute_invoc(invoc: _clp.Invoc, context: _InvocContext,
                             raise _UncertainSubstitutionException(reason) from None
                     typing.assert_never(value)
                 try:
-                    new_string = re.sub(r"\$\{([^{}]+)\}", replacer, arg.string.string)
+                    new_string = _MACRO_SUBSTITUTE_REGEX.sub(replacer, arg.string.string)
                 except _UncertainSubstitutionException as e:
-                    return _clp.UncertainProtoargument(arg.type_, arg.orig_text, arg.pos, e.reason)
+                    return _clp.UncertainProtoargument(arg.type_, arg.orig_text, arg.pos, e.reason), True
+                if not is_changed:
+                    return arg, False
                 builder.add_linear(len(arg.string.string) - pos, pos)
                 pos_map = arg.string.pos_map.compose_with(builder.finalize_and_get())
                 new_string_2 = _tp.PosMappedString(new_string, pos_map)
-                return _clp.CertainProtoargument(arg.type_, arg.orig_text, arg.pos, new_string_2, is_derived)
+                return _clp.CertainProtoargument(arg.type_, arg.orig_text, arg.pos, new_string_2, is_derived), True
             case _clp.UncertainProtoargument():
-                return arg
+                return arg, False
         typing.assert_never(arg)
 
-    new_invoc = copy.deepcopy(invoc)
-    subst_invoc(new_invoc)
+    def subst_children(invoc: _clp.StructuredInvoc) -> tuple[list[_clp.Invoc], bool]:
+        new_children = list[_clp.Invoc]()
+        children_changed = False
+        for child in invoc.children:
+            new_child, child_changed = subst_invoc(child)
+            new_children.append(new_child)
+            children_changed |= child_changed
+        if children_changed:
+            return new_children, True
+        return invoc.children, False
+
+    new_invoc, invoc_changed = subst_invoc(invoc)
     return new_invoc
 
 
@@ -2019,3 +2057,5 @@ class _UncertainSubstitutionException(Exception):
 _ASCII_LOWER_MAP = str.maketrans(_string.ascii_uppercase, _string.ascii_lowercase)
 
 _ASCII_UPPER_MAP = str.maketrans(_string.ascii_lowercase, _string.ascii_uppercase)
+
+_MACRO_SUBSTITUTE_REGEX = re.compile(r"\$\{([^{}]+)\}")

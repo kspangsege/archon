@@ -30,7 +30,7 @@ class ErrorHandler(typing.Protocol):
 type Invoc = IfInvoc | ForeachInvoc | WhileInvoc | MacroDefInvoc | FunctionDefInvoc | BlockInvoc | ReturnInvoc | \
     BreakInvoc | ContinueInvoc | GenericInvoc
 
-type GeneralizedInvoc = Invoc | IfBranch
+type GeneralizedInvoc = Invoc | ClosingInvoc | IfBranch
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class InvocBase:
@@ -41,42 +41,45 @@ class InvocBase:
     rparen_pos:   int
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class StructuredInvocBase(InvocBase):
+class StructuredInvoc(InvocBase):
     children: list[Invoc]
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class IfInvoc(StructuredInvocBase):
-    elseif_branches: list[IfBranch]
-    else_branch:     IfBranch | None
-    closing_invoc:   ClosingInvoc
-
-@dataclasses.dataclass(slots=True, frozen=True)
-class IfBranch(StructuredInvocBase):
-    pass
+class ExplicitlyClosedInvoc(StructuredInvoc):
+    closing_invoc: ClosingInvoc
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class ClosingInvoc(InvocBase):
     pass
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class ForeachInvoc(StructuredInvocBase):
-    closing_invoc: ClosingInvoc
+class IfInvoc(ExplicitlyClosedInvoc):
+    elseif_branches: list[IfBranch]
+    else_branch:     IfBranch | None
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class WhileInvoc(StructuredInvocBase):
-    closing_invoc: ClosingInvoc
+class IfBranch(StructuredInvoc):
+    pass
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class MacroDefInvoc(StructuredInvocBase):
-    closing_invoc: ClosingInvoc
+class ForeachInvoc(ExplicitlyClosedInvoc):
+    pass
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class FunctionDefInvoc(StructuredInvocBase):
-    closing_invoc: ClosingInvoc
+class WhileInvoc(ExplicitlyClosedInvoc):
+    pass
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class BlockInvoc(StructuredInvocBase):
-    closing_invoc: ClosingInvoc
+class MacroDefInvoc(ExplicitlyClosedInvoc):
+    pass
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class FunctionDefInvoc(ExplicitlyClosedInvoc):
+    pass
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class BlockInvoc(ExplicitlyClosedInvoc):
+    pass
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class ReturnInvoc(InvocBase):
@@ -182,7 +185,7 @@ def _parse(input_: typing.TextIO, tracker: _tp.FilePosTracker, warning_handler: 
                     closing_invoc = ClosingInvoc(current.command_name, current.arguments, current.pos,
                                                  current.lparen_pos, current.rparen_pos)
                     yield IfInvoc(orig.command_name, orig.arguments, orig.pos, orig.lparen_pos, orig.rparen_pos,
-                                  children, elseif_branches, else_branch, closing_invoc)
+                                  children, closing_invoc, elseif_branches, else_branch)
                     current = advance(current)
                     continue
 
