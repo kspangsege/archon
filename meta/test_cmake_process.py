@@ -1401,6 +1401,79 @@ def test_CMakeProcess_Macro(context: _t.Context) -> None:
         subcontext.check_equal(error.message, expected[0])
         subcontext.check_equal(error.file_pos.text_pos, expected[1])
 
+    # Reassignment of original command
+    text = r"""
+      macro(foo)
+        message("Foo 1")
+      endmacro()
+      foo()
+      _foo()
+      macro(foo)
+        message("Foo 2")
+      endmacro()
+      foo()
+      _foo()
+      __foo()
+      macro(foo)
+        message("Foo 3")
+      endmacro()
+      foo()
+      _foo()
+      __foo()
+      macro(_foo)
+        message("Foo 4")
+      endmacro()
+      foo()
+      _foo()
+      __foo()
+    """
+    path = pathlib.Path("test-7.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check_not(success)
+    expected_messages = [
+        "Foo 1",  # 1
+        "Foo 2",  # 2
+        "Foo 1",  # 3
+        "Foo 3",  # 4
+        "Foo 2",  # 5
+        "Foo 3",  # 6
+        "Foo 4",  # 7
+        "Foo 2",  # 8
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(message.message, expected)
+        subcontext.check_is_none(message.occurrence_uncertainty)
+    expected_errors = [
+        ("Invocation failed due to uncertain definition of _foo()",  _tp.TextPos(5, 0)),   # 1
+        ("Invocation failed due to uncertain definition of __foo()", _tp.TextPos(11, 0)),  # 2
+        ("Invocation failed due to uncertain definition of __foo()", _tp.TextPos(17, 0)),  # 3
+    ]
+    context.check_equal(len(result.errors), len(expected_errors))
+    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(error.message, expected[0])
+        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+
+    # Rejection of flow-control command names
+    text = r"""
+      macro(foreach)
+      endmacro()
+    """
+    path = pathlib.Path("test-8.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check_not(success)
+    context.check_equal(len(result.messages), 0)
+    expected_errors = [
+        ("Failed to define macro foreach(): Built-in flow control commands cannot be overridden", _tp.TextPos(1, 6)),
+    ]
+    context.check_equal(len(result.errors), len(expected_errors))
+    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(error.message, expected[0])
+        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+
 
 def test_CMakeProcess_Block(context: _t.Context) -> None:
     text = r"""

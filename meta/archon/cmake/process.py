@@ -313,9 +313,16 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
             if not arg:
                 break
             parameters.append(arg.string.string)
-        # FIXME: "Push" old definition, if any, to same name but with underscore prefix          
         defining_command_name = invoc.command_name
         definition_position = _cur.Position(context.file_index, invoc.pos)
+        orig_command = context.state.get_command(name_cf)
+        orig_command_2: _DefinedCommand
+        match orig_command:
+            case _BuiltInCommand() | _CustomCommand():
+                orig_command_2 = _CertainDefinedCommand(orig_command, defining_command_name, definition_position)
+            case _UncertainCommand():
+                orig_command_2 = orig_command
+        context.state.set_command("_" + name_cf, orig_command_2)
         command = _CustomCommand(_CustomCommand.Type.MACRO, parameters, invoc.children, definition_position)
         command_2 = _CertainDefinedCommand(command, defining_command_name, definition_position)
         context.state.set_command(name_cf, command_2)
