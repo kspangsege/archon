@@ -102,10 +102,10 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
     commands_in_invoc_path = dict[int, int]()
 
     def process_file(cmake_source: Source, state: _State, occurrence_uncertainty: OccurrenceUncertainty,
-                     base_path: pathlib.Path) -> None:
+                     base_path: pathlib.Path, root: _RootContext) -> None:
         tracker = _tp.FilePosTracker(cmake_source.path)
         file_index = pos_resolver._append_file(_SourceFile(tracker))
-        context = _InvocContext(file_index, state, occurrence_uncertainty, base_path)
+        context = _InvocContext(root, file_index, state, occurrence_uncertainty, base_path)
         def warning_handler(pos: int, message: str, *args: typing.Any) -> None:
             warn(file_index, pos, message, *args)
         def error_handler(pos: int, message: str, *args: typing.Any) -> None:
@@ -195,11 +195,12 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                 case _cc.UncertainResult():
                     occurrence_uncertainty = context.occurrence_uncertainty or result.reason
                     if_state = _OccurrenceUncertaintyOverlayState(context.state, result.reason)
-                    if_context = _InvocContext(context.file_index, if_state, occurrence_uncertainty, context.base_path)
+                    if_context = dataclasses.replace(context, state=if_state,
+                                                     occurrence_uncertainty=occurrence_uncertainty)
                     exec_commands(subinvoc.children, if_context)
                     else_state = _OccurrenceUncertaintyOverlayState(context.state, result.reason)
-                    else_context = _InvocContext(context.file_index, else_state, occurrence_uncertainty,
-                                                 context.base_path)
+                    else_context = dataclasses.replace(context, state=else_state,
+                                                       occurrence_uncertainty=occurrence_uncertainty)
                     exec_else(else_context)
                     # Must prune taints in both substates before pushing any taints to the
                     # parent state. This is because the pruning operation needs access to
@@ -298,14 +299,16 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
 
     def exec_macro_def(invoc: _clp.MacroDefInvoc, context: _InvocContext) -> None:
         server = create_argument_server(invoc, context)
-        name = server.consume()
-        if not name:
+        arg = server.consume()
+        if not arg:
             error(context.file_index, server.next_pos, "Missing macro name in %s() invocation", invoc.command_name)
             return
-        name_cf = name.string.string.casefold()
+        name = arg.string.string
+        name_pos = arg.pos
+        name_cf = name.casefold()
         if _clp.is_flow_control_command(name_cf):
-            error(context.file_index, name.pos, "Failed to define macro %s(): Built-in flow control commands cannot "
-                  "be overridden", name.string.string)
+            error(context.file_index, name_pos, "Failed to define macro %s(): Built-in flow control commands cannot "
+                  "be overridden", name)
             return
         parameters = []
         while True:
@@ -313,23 +316,52 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
             if not arg:
                 break
             parameters.append(arg.string.string)
-        defining_command_name = invoc.command_name
         definition_position = _cur.Position(context.file_index, invoc.pos)
         orig_command = context.state.get_command(name_cf)
         orig_command_2: _DefinedCommand
         match orig_command:
             case _BuiltInCommand() | _CustomCommand():
-                orig_command_2 = _CertainDefinedCommand(orig_command, defining_command_name, definition_position)
+                orig_command_2 = _CertainDefinedCommand(orig_command, invoc.command_name, definition_position)
             case _UncertainCommand():
                 orig_command_2 = orig_command
         context.state.set_command("_" + name_cf, orig_command_2)
-        command = _CustomCommand(_CustomCommand.Type.MACRO, parameters, invoc.children, definition_position)
-        command_2 = _CertainDefinedCommand(command, defining_command_name, definition_position)
+        command = _CustomCommand(_CustomCommand.Type.MACRO, name, parameters, invoc.children, definition_position)
+        command_2 = _CertainDefinedCommand(command, invoc.command_name, definition_position)
         context.state.set_command(name_cf, command_2)
         exec_closing_invoc(invoc.closing_invoc, invoc, context)
 
     def exec_function_def(invoc: _clp.FunctionDefInvoc, context: _InvocContext) -> None:
-        assert False        
+        server = create_argument_server(invoc, context)
+        arg = server.consume()
+        if not arg:
+            error(context.file_index, server.next_pos, "Missing function name in %s() invocation", invoc.command_name)
+            return
+        name = arg.string.string
+        name_pos = arg.pos
+        name_cf = name.casefold()
+        if _clp.is_flow_control_command(name_cf):
+            error(context.file_index, name_pos, "Failed to define function %s(): Built-in flow control commands "
+                  "cannot be overridden", name)
+            return
+        parameters = []
+        while True:
+            arg = server.consume()
+            if not arg:
+                break
+            parameters.append(arg.string.string)
+        definition_position = _cur.Position(context.file_index, invoc.pos)
+        orig_command = context.state.get_command(name_cf)
+        orig_command_2: _DefinedCommand
+        match orig_command:
+            case _BuiltInCommand() | _CustomCommand():
+                orig_command_2 = _CertainDefinedCommand(orig_command, invoc.command_name, definition_position)
+            case _UncertainCommand():
+                orig_command_2 = orig_command
+        context.state.set_command("_" + name_cf, orig_command_2)
+        command = _CustomCommand(_CustomCommand.Type.FUNCTION, name, parameters, invoc.children, definition_position)
+        command_2 = _CertainDefinedCommand(command, invoc.command_name, definition_position)
+        context.state.set_command(name_cf, command_2)
+        exec_closing_invoc(invoc.closing_invoc, invoc, context)
 
     def exec_block(invoc: _clp.BlockInvoc, context: _InvocContext) -> None:
         server = create_argument_server(invoc, context)
@@ -414,7 +446,17 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                                 exec_command(subinvoc_2, context)
                             return
                         case _CustomCommand.Type.FUNCTION:
-                            assert False                        
+                            if len(arguments) < len(command.parameters):
+                                error(context.file_index, invoc.rparen_pos, "Too few arguments in invocation of "
+                                      "function %s()", invoc.command_name)
+                                position = command.definition_position
+                                error(position.file_index, position.pos, "Definition of function %s()",
+                                      invoc.command_name)
+                                return
+                            state = _SubscopeState(context.state)
+                            _assign_function_arguments(command, arguments, state, invoc, context)
+                            exec_commands(command.invocations, context.with_state(state))
+                            return
                     typing.assert_never(command.type_)
                 finally:
                     n = commands_in_invoc_path[command_id]
@@ -749,9 +791,10 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
             raise _UnsupportedInvocSyntaxException(invoc) from None
         cmake_path = context.base_path.parent / file_or_module.string.string
         try:
-            with open(cmake_path, "r") as file_:
+            with open(context.resolve_path(cmake_path), "r") as file_:
                 cmake_source = Source(file_, cmake_path)
-                process_file(cmake_source, context.state, context.occurrence_uncertainty, context.base_path)
+                process_file(cmake_source, context.state, context.occurrence_uncertainty, context.base_path,
+                             context.root)
         except FileNotFoundError as e:
             error(context.file_index, invoc.pos, "Failed to include %s: %s", _b.quote(str(cmake_path)), e.strerror)
 
@@ -995,11 +1038,17 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
         position = _cur.Position(file_index, pos)
         application.error(position, message, *args)
 
+    abs_base_dir = pathlib.Path.cwd()
+    root = _RootContext(abs_base_dir, pos_resolver)
     state = _RootState(config.define_breakpoint_command)
     occurrence_uncertainty = None
     base_path = cmake_source.path
-    process_file(cmake_source, state, occurrence_uncertainty, base_path)
+    process_file(cmake_source, state, occurrence_uncertainty, base_path, root)
     return not errors_seen
+
+
+_ASCII_LOWER_MAP = str.maketrans(_string.ascii_uppercase, _string.ascii_lowercase)
+_ASCII_UPPER_MAP = str.maketrans(_string.ascii_lowercase, _string.ascii_uppercase)
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -1009,13 +1058,26 @@ class _SourceFile:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class _InvocContext:
+    root:                   _RootContext
     file_index:             int
     state:                  _State
     occurrence_uncertainty: OccurrenceUncertainty
     base_path:              pathlib.Path
 
     def with_state(self, state: _State) -> _InvocContext:
-        return _InvocContext(self.file_index, state, self.occurrence_uncertainty, self.base_path)
+        return dataclasses.replace(self, state=state)
+
+    def resolve_file_pos(self, pos: _cur.Position) -> _tp.FilePos:
+        return self.root.pos_resolver.resolve_file_pos(pos)
+
+    def resolve_path(self, path: pathlib.Path) -> pathlib.Path:
+        return (self.root.abs_base_dir / path).resolve()
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class _RootContext:
+    abs_base_dir: pathlib.Path
+    pos_resolver: PositionResolver
 
 
 class _State(abc.ABC):
@@ -1580,6 +1642,7 @@ class _CustomCommand:
         MACRO    = 0
         FUNCTION = 1
     type_:               Type
+    name:                str
     parameters:          list[str]
     invocations:         list[_clp.Invoc]
     definition_position: _cur.Position
@@ -1744,16 +1807,16 @@ def _get_macro_substitutions(parameters: list[str], arguments: list[_ca.Argument
                         extra_uncertainty = arg.reason
                 continue
         typing.assert_never(arg)
-    if all_uncertainty:
-        substitutions["ARGV"] = _UncertainSubstitutionValue(all_uncertainty)
-    else:
+    if not all_uncertainty:
         string = _cu.nonescaping_list_join(all_args) or ""
         substitutions["ARGV"] = _CertainSubstitutionValue(string)
-    if extra_uncertainty:
-        substitutions["ARGN"] = _UncertainSubstitutionValue(extra_uncertainty)
     else:
+        substitutions["ARGV"] = _UncertainSubstitutionValue(all_uncertainty)
+    if not extra_uncertainty:
         string = _cu.nonescaping_list_join(extra_args) or ""
         substitutions["ARGN"] = _CertainSubstitutionValue(string)
+    else:
+        substitutions["ARGN"] = _UncertainSubstitutionValue(extra_uncertainty)
     substitutions["ARGC"] = _CertainSubstitutionValue(str(len(arguments)))
 
     return substitutions
@@ -1898,8 +1961,71 @@ class _UncertainSubstitutionException(Exception):
         self.reason = reason
 
 
-_ASCII_LOWER_MAP = str.maketrans(_string.ascii_uppercase, _string.ascii_lowercase)
-
-_ASCII_UPPER_MAP = str.maketrans(_string.ascii_lowercase, _string.ascii_uppercase)
-
 _MACRO_SUBSTITUTE_REGEX = re.compile(r"\$\{([^{}]+)\}")
+
+
+def _assign_function_arguments(command: _CustomCommand, arguments: list[_ca.Argument], state: _SubscopeState,
+                               invoc: _clp.Invoc, context: _InvocContext) -> None:
+    assignment_position = _cur.Position(context.file_index, invoc.pos)
+    def set_certain_param(name: str, string: str) -> None:
+        value = _CertainAssignedValue(string, invoc.command_name, assignment_position)
+        state.set_regular_variable(name, value)
+    def set_uncertain_param(name: str, reason: _cur.ExpansionUncertaintyReason) -> None:
+        value = _cv.UncertainValue(reason)
+        state.set_regular_variable(name, value)
+
+    for i, param in enumerate(command.parameters):
+        assert i < len(arguments)
+        arg = arguments[i]
+        match arg:
+            case _ca.CertainArgument():
+                set_certain_param(param, arg.string.string)
+                continue
+            case _ca.UncertainArgument():
+                set_uncertain_param(param, arg.reason)
+                continue
+        typing.assert_never(arg)
+
+    # Special variables will shadow formal parameters of the same name. This is consistent
+    # with CMake behavior.
+    all_args   = list[str]()
+    extra_args = list[str]()
+    all_uncertainty:   _cur.ExpansionUncertaintyReason | None = None
+    extra_uncertainty: _cur.ExpansionUncertaintyReason | None = None
+    for i, arg in enumerate(arguments):
+        name = "ARGV%s" % i
+        match arg:
+            case _ca.CertainArgument():
+                set_certain_param(name, arg.string.string)
+                all_args.append(arg.string.string)
+                if i >= len(command.parameters):
+                    extra_args.append(arg.string.string)
+                continue
+            case _ca.UncertainArgument():
+                set_uncertain_param(name, arg.reason)
+                if not all_uncertainty:
+                    all_uncertainty = arg.reason
+                if i >= len(command.parameters):
+                    if not extra_uncertainty:
+                        extra_uncertainty = arg.reason
+                continue
+        typing.assert_never(arg)
+    if not all_uncertainty:
+        string = _cu.nonescaping_list_join(all_args) or ""
+        set_certain_param("ARGV", string)
+    else:
+        set_uncertain_param("ARGV", all_uncertainty)
+    if not extra_uncertainty:
+        string = _cu.nonescaping_list_join(extra_args) or ""
+        set_certain_param("ARGN", string)
+    else:
+        set_uncertain_param("ARGN", extra_uncertainty)
+    set_certain_param("ARGC", str(len(arguments)))
+
+    # Introspection parameters (these also shadow clashing formal parameters)
+    file_pos = context.resolve_file_pos(command.definition_position)
+    abs_path = context.resolve_path(file_pos.path)
+    set_certain_param("CMAKE_CURRENT_FUNCTION", command.name)
+    set_certain_param("CMAKE_CURRENT_FUNCTION_LIST_DIR", str(abs_path.parent))
+    set_certain_param("CMAKE_CURRENT_FUNCTION_LIST_FILE", str(abs_path))
+    set_certain_param("CMAKE_CURRENT_FUNCTION_LIST_LINE", str(file_pos.line_no))

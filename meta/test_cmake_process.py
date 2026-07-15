@@ -1231,18 +1231,57 @@ def test_CMakeProcess_Macro(context: _t.Context) -> None:
     expected_messages: typing.Any
 
     text = r"""
-      macro(foo _x)
-        message("Foo ${_x}")
+      macro(foo x)
+        message("1: -${x}-")
+        set(a "+${x}+")
+        macro(bar y)
+          message("2: -${y}-")
+          set(b "+${y}+")
+        endmacro()
+        bar("*${x}*")
       endmacro()
-      foo("Bar")
-      Foo("Baz")  # Mixed case in command name
+      set(a "a")
+      set(b "b")
+      foo("foo")
+      message("3: -${a}-${b}-")
+      set(a "a")
+      set(b "b")
+      Foo("bar")                 # Mixed case in command name
+      message("4: -${a}-${b}-")
     """
     path = pathlib.Path("test-1.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
     expected_messages = [
-        "Foo Bar",
-        "Foo Baz",
+        ("1: -foo-",           _tp.FilePos(path,  2, 2)),  # 1
+        ("2: -*foo*-",         _tp.FilePos(path,  5, 4)),  # 2
+        ("3: -+foo+-+*foo*+-", _tp.FilePos(path, 13, 0)),  # 3
+        ("1: -bar-",           _tp.FilePos(path,  2, 2)),  # 4
+        ("2: -*bar*-",         _tp.FilePos(path,  5, 4)),  # 5
+        ("4: -+bar+-+*bar*+-", _tp.FilePos(path, 17, 0)),  # 6
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(message.message, expected[0])
+        subcontext.check_equal(message.file_pos, expected[1])
+        subcontext.check_is_none(message.occurrence_uncertainty)
+
+    # Multiple parameters
+    text = r"""
+      macro(foo x y z)
+        macro(bar a b)
+          message("-${a}-${b}-")
+        endmacro()
+        bar("${x}+${z}" "${y}")
+      endmacro()
+      foo("X" "Y" "Z")
+    """
+    path = pathlib.Path("test-2.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check(success)
+    expected_messages = [
+        "-X+Z-Y-"
     ]
     context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
@@ -1250,6 +1289,31 @@ def test_CMakeProcess_Macro(context: _t.Context) -> None:
         subcontext.check_equal(message.message, expected)
         subcontext.check_is_none(message.occurrence_uncertainty)
 
+    # Too few arguments
+    text = r"""
+      macro(foo x y)
+      endmacro()
+      foo()
+      foo("x")
+      foo("x" "y")
+    """
+    path = pathlib.Path("test-3.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check_not(success)
+    context.check_equal(len(result.messages), 0)
+    expected_errors = [
+        ("Too few arguments in invocation of macro foo()", _tp.TextPos(3, 4)),  # 1
+        ("Definition of macro foo()",                      _tp.TextPos(1, 0)),  # 2
+        ("Too few arguments in invocation of macro foo()", _tp.TextPos(4, 7)),  # 3
+        ("Definition of macro foo()",                      _tp.TextPos(1, 0)),  # 4
+    ]
+    context.check_equal(len(result.errors), len(expected_errors))
+    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(error.message, expected[0])
+        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+
+    # Special parameter substitution
     text = r"""
       macro(foo _x _y)
         message("${_x}${_y}aa} -- ${_y}${_x}" [[ -- ${_x}${_y}]])
@@ -1258,7 +1322,7 @@ def test_CMakeProcess_Macro(context: _t.Context) -> None:
       set(faa "boo")
       foo("oo}" "\${f")
     """
-    path = pathlib.Path("test-2.cmake")
+    path = pathlib.Path("test-4.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
     context.check_equal(len(result.messages), 1)
@@ -1267,7 +1331,7 @@ def test_CMakeProcess_Macro(context: _t.Context) -> None:
     context.check_equal(message.file_pos, _tp.FilePos(path, 2, 2))
     context.check_is_none(message.occurrence_uncertainty)
 
-    # That special macro variables work correctly
+    # Special invocation parameters
     text = r"""
       set(ARGV1 "v1")
       set(ARGV2 "v2")
@@ -1289,7 +1353,7 @@ def test_CMakeProcess_Macro(context: _t.Context) -> None:
       bar()
       bar("x")
     """
-    path = pathlib.Path("test-3.cmake")
+    path = pathlib.Path("test-5.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
     expected_messages = [
@@ -1317,7 +1381,7 @@ def test_CMakeProcess_Macro(context: _t.Context) -> None:
       endmacro()
       foo("a" "b")
     """
-    path = pathlib.Path("test-4.cmake")
+    path = pathlib.Path("test-6.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
     context.check_equal(len(result.messages), 1)
@@ -1339,7 +1403,7 @@ def test_CMakeProcess_Macro(context: _t.Context) -> None:
       endmacro()
       foo("x")
     """
-    path = pathlib.Path("test-5.cmake")
+    path = pathlib.Path("test-7.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
     context.check_equal(len(result.messages), 1)
@@ -1369,7 +1433,7 @@ def test_CMakeProcess_Macro(context: _t.Context) -> None:
       endmacro()
       foo("${_1}" "${_2}")
     """
-    path = pathlib.Path("test-6.cmake")
+    path = pathlib.Path("test-8.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
     expected_messages = [
@@ -1427,7 +1491,7 @@ def test_CMakeProcess_Macro(context: _t.Context) -> None:
       _foo()
       __foo()
     """
-    path = pathlib.Path("test-7.cmake")
+    path = pathlib.Path("test-9.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
     expected_messages = [
@@ -1461,12 +1525,320 @@ def test_CMakeProcess_Macro(context: _t.Context) -> None:
       macro(foreach)
       endmacro()
     """
-    path = pathlib.Path("test-8.cmake")
+    path = pathlib.Path("test-10.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
     context.check_equal(len(result.messages), 0)
     expected_errors = [
         ("Failed to define macro foreach(): Built-in flow control commands cannot be overridden", _tp.TextPos(1, 6)),
+    ]
+    context.check_equal(len(result.errors), len(expected_errors))
+    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(error.message, expected[0])
+        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+
+
+def test_CMakeProcess_Function(context: _t.Context) -> None:
+    expected_messages: typing.Any
+    expected:          typing.Any
+
+    text = r"""
+      function(foo x)
+        set(a1 "a1")
+        set(a2 "a2")
+        function(bar y)
+          message("1: -${y}-")
+          set(a1 "aa1")
+          set(a2 "aa2" PARENT_SCOPE)
+        endfunction()
+        bar("*${x}*")
+        message("2: -${x}-${a1}-${a2}-")
+        set(b1 "bb1")
+        set(b2 "bb2" PARENT_SCOPE)
+      endfunction()
+      set(b1 "b1")
+      set(b2 "b2")
+      foo("foo")
+      message("3: -${b1}-${b2}-")
+      set(b1 "b1")
+      set(b2 "b2")
+      Foo("bar")                   # Mixed case in command name
+      message("4: -${b1}-${b2}-")
+    """
+    path = pathlib.Path("test-1.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check(success)
+    expected_messages = [
+        ("1: -*foo*-",      _tp.FilePos(path,  5, 4)),  # 1
+        ("2: -foo-a1-aa2-", _tp.FilePos(path, 10, 2)),  # 2
+        ("3: -b1-bb2-",     _tp.FilePos(path, 17, 0)),  # 3
+        ("1: -*bar*-",      _tp.FilePos(path,  5, 4)),  # 4
+        ("2: -bar-a1-aa2-", _tp.FilePos(path, 10, 2)),  # 5
+        ("4: -b1-bb2-",     _tp.FilePos(path, 21, 0)),  # 6
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(message.message, expected[0])
+        subcontext.check_equal(message.file_pos, expected[1])
+        subcontext.check_is_none(message.occurrence_uncertainty)
+
+    # Multiple parameters
+    text = r"""
+      function(foo x y z)
+        function(bar a b)
+          message("-${a}-${b}-")
+        endfunction()
+        bar("${x}+${z}" "${y}")
+      endfunction()
+      foo("X" "Y" "Z")
+    """
+    path = pathlib.Path("test-2.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check(success)
+    expected_messages = [
+        "-X+Z-Y-",
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(message.message, expected)
+        subcontext.check_is_none(message.occurrence_uncertainty)
+
+    # Too few arguments
+    text = r"""
+      function(foo x y)
+      endfunction()
+      foo()
+      foo("x")
+      foo("x" "y")
+    """
+    path = pathlib.Path("test-3.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check_not(success)
+    context.check_equal(len(result.messages), 0)
+    expected_errors = [
+        ("Too few arguments in invocation of function foo()", _tp.TextPos(3, 4)),  # 1
+        ("Definition of function foo()",                      _tp.TextPos(1, 0)),  # 2
+        ("Too few arguments in invocation of function foo()", _tp.TextPos(4, 7)),  # 3
+        ("Definition of function foo()",                      _tp.TextPos(1, 0)),  # 4
+    ]
+    context.check_equal(len(result.errors), len(expected_errors))
+    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(error.message, expected[0])
+        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+
+    # No macro-like parameter substitution
+    text = r"""
+      function(foo x y)
+        message("-${x}${y}-")
+      endfunction()
+      set(bar "bar")
+      foo("\${b" "ar}")
+    """
+    path = pathlib.Path("test-4.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check(success)
+    context.check_equal(len(result.messages), 1)
+    message = result.messages[0]
+    context.check_equal(message.message, "-${bar}-")
+    context.check_equal(message.file_pos, _tp.FilePos(path, 2, 2))
+    context.check_is_none(message.occurrence_uncertainty)
+
+    # Special invocation parameters
+    text = r"""
+      set(ARGV1 "v1")
+      set(ARGV2 "v2")
+      function(foo x)
+        message("1: ${ARGC}-${ARGN}-${ARGV}-${ARGV0}-${ARGV1}-${ARGV2}")
+      endfunction()
+      foo("x")
+      foo("x" "y")
+      foo("x" "y" "z")
+      foo("a;b" "c;d" "e;f")
+
+      set(ARGC "c")
+      set(ARGN "n")
+      set(ARGV "v")
+      set(ARGV0 "v0")
+      function(bar)
+        message("2: ${ARGC}-${ARGN}-${ARGV}-${ARGV0}")
+      endfunction()
+      bar()
+      bar("x")
+    """
+    path = pathlib.Path("test-5.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check(success)
+    expected_messages = [
+        ("1: 1--x-x-v1-v2",                      _tp.TextPos(4, 2)),  # 1
+        ("1: 2-y-x;y-x-y-v2",                    _tp.TextPos(4, 2)),  # 2
+        ("1: 3-y;z-x;y;z-x-y-z",                 _tp.TextPos(4, 2)),  # 3
+        ("1: 3-c;d;e;f-a;b;c;d;e;f-a;b-c;d-e;f", _tp.TextPos(4, 2)),  # 4
+        ("2: 0---v0",                            _tp.TextPos(16, 2)), # 5
+        ("2: 1-x-x-x",                           _tp.TextPos(16, 2)), # 6
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(message.message, expected[0])
+        subcontext.check_equal(message.file_pos.text_pos, expected[1])
+        subcontext.check_is_none(message.occurrence_uncertainty)
+
+    # Special introspection parameters
+    text = r"""
+      function(foo)
+        message("1: -${CMAKE_CURRENT_FUNCTION}-")
+        message("2: -${CMAKE_CURRENT_FUNCTION_LIST_LINE}-")
+      endfunction()
+      foo()
+      function(Foo)
+        message("3: -${CMAKE_CURRENT_FUNCTION}-")
+        message("4: -${CMAKE_CURRENT_FUNCTION_LIST_DIR}-")
+        message("5: -${CMAKE_CURRENT_FUNCTION_LIST_FILE}-")
+        message("6: -${CMAKE_CURRENT_FUNCTION_LIST_LINE}-")
+      endfunction()
+      FOO()   # Invocation case should not affect CMAKE_CURRENT_FUNCTION
+      _foo()
+    """
+    path = pathlib.Path("test-6.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check(success)
+    cwd = pathlib.Path.cwd()
+    expected_messages = [
+        "1: -foo-",                # 1
+        "2: -1-",                  # 2
+        "3: -Foo-",                # 3
+        "4: -%s-" % cwd,           # 4
+        "5: -%s-" % (cwd / path),  # 5
+        "6: -6-",                  # 6
+        "1: -foo-",                # 7
+        "2: -1-",                  # 8
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(message.message, expected)
+        subcontext.check_is_none(message.occurrence_uncertainty)
+
+    # Argument uncertainty
+    text = r"""
+      function(foo a b)
+        message("x${a}y")
+        function(bar a)
+          message("x${a}y")
+          message("x${b}y")
+        endfunction()
+        bar("*")
+        function(baz c)
+          message("x${c}y")
+        endfunction()
+        baz("*")
+        baz("${a}")
+        baz("-${b}-")
+      endfunction()
+      foo("${_1}" "${_2}")
+    """
+    path = pathlib.Path("test-7.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check_not(success)
+    expected_messages = [
+        ("x*y", _tp.TextPos(4, 4)),
+        ("x*y", _tp.TextPos(9, 4)),
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(message.message, expected[0])
+        subcontext.check_equal(message.file_pos.text_pos, expected[1])
+        subcontext.check_is_none(message.occurrence_uncertainty)
+    expected_errors = [
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "a"), _tp.TextPos(2, 12)),  #  1
+        (expansion_uncertainty_cause("foo", _cur.ParamType.REGULAR_VAR, "_1"), _tp.TextPos(15, 5)),  #  2
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "b"), _tp.TextPos(5, 14)),  #  3
+        (expansion_uncertainty_cause("foo", _cur.ParamType.REGULAR_VAR, "_2"), _tp.TextPos(15, 13)), #  4
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "c"), _tp.TextPos(9, 14)),  #  5
+        (expansion_uncertainty_cause("baz", _cur.ParamType.REGULAR_VAR, "a"),  _tp.TextPos(12, 7)),  #  6
+        (expansion_uncertainty_cause("foo", _cur.ParamType.REGULAR_VAR, "_1"), _tp.TextPos(15, 5)),  #  7
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "c"), _tp.TextPos(9, 14)),  #  8
+        (expansion_uncertainty_cause("baz", _cur.ParamType.REGULAR_VAR, "b"),  _tp.TextPos(13, 8)),  #  9
+        (expansion_uncertainty_cause("foo", _cur.ParamType.REGULAR_VAR, "_2"), _tp.TextPos(15, 13)), # 10
+    ]
+    context.check_equal(len(result.errors), len(expected_errors))
+    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(error.message, expected[0])
+        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+
+    # Reassignment of original command
+    text = r"""
+      function(foo)
+        message("Foo 1")
+      endfunction()
+      foo()
+      _foo()
+      function(foo)
+        message("Foo 2")
+      endfunction()
+      foo()
+      _foo()
+      __foo()
+      function(foo)
+        message("Foo 3")
+      endfunction()
+      foo()
+      _foo()
+      __foo()
+      function(_foo)
+        message("Foo 4")
+      endfunction()
+      foo()
+      _foo()
+      __foo()
+    """
+    path = pathlib.Path("test-8.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check_not(success)
+    expected_messages = [
+        "Foo 1",  # 1
+        "Foo 2",  # 2
+        "Foo 1",  # 3
+        "Foo 3",  # 4
+        "Foo 2",  # 5
+        "Foo 3",  # 6
+        "Foo 4",  # 7
+        "Foo 2",  # 8
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(message.message, expected)
+        subcontext.check_is_none(message.occurrence_uncertainty)
+    expected_errors = [
+        ("Invocation failed due to uncertain definition of _foo()",  _tp.TextPos(5, 0)),   # 1
+        ("Invocation failed due to uncertain definition of __foo()", _tp.TextPos(11, 0)),  # 2
+        ("Invocation failed due to uncertain definition of __foo()", _tp.TextPos(17, 0)),  # 3
+    ]
+    context.check_equal(len(result.errors), len(expected_errors))
+    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(error.message, expected[0])
+        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+
+    # Rejection of flow-control command names
+    text = r"""
+      function(foreach)
+      endfunction()
+    """
+    path = pathlib.Path("test-9.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check_not(success)
+    context.check_equal(len(result.messages), 0)
+    expected_errors = [
+        ("Failed to define function foreach(): Built-in flow control commands cannot be overridden",
+         _tp.TextPos(1, 9)),
     ]
     context.check_equal(len(result.errors), len(expected_errors))
     for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
