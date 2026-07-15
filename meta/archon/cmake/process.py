@@ -24,12 +24,14 @@ import archon.cmake.condition as _cc
 
 @dataclasses.dataclass(kw_only=True)
 class Config:
+    binary_dir:                pathlib.Path | None = None
+    initial_variables:         dict[str, str | None] = dataclasses.field(default_factory=dict)
     define_breakpoint_command: bool = False
 
 
-def process(cmake_source: Source, application: Application, pos_resolver: PositionResolver,
-            config: Config = Config()) -> bool:
-    return _process(cmake_source, application, pos_resolver, config)
+def process(source_dir: pathlib.Path, cmake_source: Source, application: Application,
+            pos_resolver: PositionResolver, config: Config = Config()) -> bool:
+    return _process(source_dir, cmake_source, application, pos_resolver, config)
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -39,8 +41,13 @@ class Source:
 
 
 class Application(abc.ABC):
-    def open_subfile(self, path: pathlib.Path, abs_base_dir: pathlib.Path) -> typing.TextIO:
-        return open((abs_base_dir / path).resolve(), "r")
+    @abc.abstractmethod
+    def open_subfile(self, path: pathlib.Path) -> typing.TextIO:
+        ...
+
+    @abc.abstractmethod
+    def resolve_path(self, path: pathlib.Path) -> pathlib.Path:
+        ...
 
     @abc.abstractmethod
     def message(self, pos: _cur.Position, occurrence_uncertainty: OccurrenceUncertainty, level: MessageLevel,
@@ -54,6 +61,39 @@ class Application(abc.ABC):
     @abc.abstractmethod
     def error(self, pos: _cur.Position, message: str, *args: typing.Any) -> None:
         ...
+
+
+class SimpleApplication(Application):
+    def __init__(self, abs_base_dir: pathlib.Path, pos_resolver: PositionResolver, logger: _l.Logger) -> None:
+        self._abs_base_dir = abs_base_dir
+        self._pos_resolver = pos_resolver
+        self._logger       = logger
+
+    @typing.override
+    def open_subfile(self, path: pathlib.Path) -> typing.TextIO:
+        return open(self.resolve_path(path), "r")
+
+    @typing.override
+    def resolve_path(self, path: pathlib.Path) -> pathlib.Path:
+        return (self._abs_base_dir / path).resolve()
+
+    @typing.override
+    def message(self, pos: _cur.Position, occurrence_uncertainty: OccurrenceUncertainty, level: MessageLevel,
+                message: str) -> None:
+        certainty = "Uncertain" if occurrence_uncertainty else "Certain"
+        context = self._pos_resolver.resolve_file_context(pos)
+        context_logger = _l.FileContextLogger(self._logger, context)
+        context_logger.info("%s: Message(%s): %s", certainty, level.name, message)
+
+    @typing.override
+    def warn(self, pos: _cur.Position, message: str, *args: typing.Any) -> None:
+        context = self._pos_resolver.resolve_file_context(pos)
+        _l.FileContextLogger(self._logger, context).warn(message, *args)
+
+    @typing.override
+    def error(self, pos: _cur.Position, message: str, *args: typing.Any) -> None:
+        context = self._pos_resolver.resolve_file_context(pos)
+        _l.FileContextLogger(self._logger, context).error(message, *args)
 
 
 type OccurrenceUncertainty = _cur.ExpansionUncertaintyReason | None
@@ -95,7 +135,8 @@ class MessageLevel(enum.Enum):
 
 
 
-def _process(cmake_source: Source, application: Application, pos_resolver: PositionResolver, config: Config) -> bool:
+def _process(source_dir: pathlib.Path, cmake_source: Source, application: Application, pos_resolver: PositionResolver,
+             config: Config) -> bool:
     errors_seen = False
 
     # A custom command (macro or function) that is in the current invocation path must be in
@@ -104,11 +145,12 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
     # that is not in the current invocation path should not be in this map.
     commands_in_invoc_path = dict[int, int]()
 
-    def process_file(cmake_source: Source, state: _State, occurrence_uncertainty: OccurrenceUncertainty,
-                     base_path: pathlib.Path, root: _RootContext) -> None:
+    def process_file(root: _RootContext, cmake_source: Source, state: _State,
+                     occurrence_uncertainty: OccurrenceUncertainty, source_dir: pathlib.Path,
+                     binary_dir: pathlib.Path | None) -> None:
         tracker = _tp.FilePosTracker(cmake_source.path)
         file_index = pos_resolver._append_file(_SourceFile(tracker))
-        context = _InvocContext(root, file_index, state, occurrence_uncertainty, base_path)
+        context = _InvocContext(root, file_index, state, occurrence_uncertainty, source_dir, binary_dir)
         def warning_handler(pos: int, message: str, *args: typing.Any) -> None:
             warn(file_index, pos, message, *args)
         def error_handler(pos: int, message: str, *args: typing.Any) -> None:
@@ -794,18 +836,45 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
             raise _UnsupportedInvocSyntaxException(invoc, "Non-path argument") from None
         if not server.at_end:
             raise _UnsupportedInvocSyntaxException(invoc) from None
-        cmake_path = context.base_path.parent / file_or_module
+        cmake_path = context.source_dir / file_or_module
         try:
             with context.open_subfile(cmake_path) as file_:
                 cmake_source = Source(file_, cmake_path)
-                process_file(cmake_source, context.state, context.occurrence_uncertainty, context.base_path,
-                             context.root)
+                process_file(context.root, cmake_source, context.state, context.occurrence_uncertainty,
+                             context.source_dir, context.binary_dir)
         except FileNotFoundError as e:
-            error(context.file_index, file_or_module_pos, "Failed to include %s: %s", _b.quote(str(cmake_path)),
-                  e.strerror)
+            error(context.file_index, file_or_module_pos, "Failed to include %s (%s): %s", _b.quote(file_or_module),
+                  _b.quote(str(cmake_path)), e.strerror)
 
     def exec_add_subdirectory(invoc: _clp.GenericInvoc, context: _InvocContext) -> None:
-        assert False        
+        server = create_argument_server(invoc, context)
+        arg = server.consume()
+        if not arg:
+            error(context.file_index, server.next_pos, "Missing source directory in %s()", invoc.command_name)
+            return None
+        source_dir = arg.string.string
+        source_dir_pos = arg.pos
+        if not server.at_end:
+            raise _UnsupportedInvocSyntaxException(invoc) from None
+        binary_dir = source_dir
+        source_dir_2 = context.source_dir / source_dir
+        binary_dir_2: pathlib.Path | None = None
+        if context.binary_dir is not None:
+            binary_dir_2 = context.binary_dir / binary_dir
+        initial_variables = dict[str, str | None]()
+        initial_variables["CMAKE_CURRENT_SOURCE_DIR"] = str(context.resolve_path(source_dir_2))
+        if binary_dir_2 is not None:
+            initial_variables["CMAKE_CURRENT_BINARY_DIR"] = str(context.resolve_path(binary_dir_2))
+        state = _SubscopeState(context.state, initial_variables)
+        cmake_path = source_dir_2 / "CMakeLists.txt"
+        try:
+            with context.open_subfile(cmake_path) as file_:
+                cmake_source = Source(file_, cmake_path)
+                process_file(context.root, cmake_source, state, context.occurrence_uncertainty, source_dir_2,
+                             binary_dir_2)
+        except FileNotFoundError as e:
+            error(context.file_index, source_dir_pos, "Failed to add subdirectory %s (%s): %s", _b.quote(source_dir),
+                  _b.quote(str(cmake_path)), e.strerror)
 
     def evaluate_condition(invoc: _clp.GeneralizedInvoc, context: _InvocContext) -> _cc.Result:
         try:
@@ -1044,12 +1113,15 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
         position = _cur.Position(file_index, pos)
         application.error(position, message, *args)
 
-    abs_base_dir = pathlib.Path.cwd()
-    root = _RootContext(application, abs_base_dir, pos_resolver)
-    state = _RootState(config.define_breakpoint_command)
+    initial_variables = config.initial_variables.copy()
+    initial_variables["CMAKE_CURRENT_SOURCE_DIR"] = str(application.resolve_path(source_dir))
+    if config.binary_dir is not None:
+        initial_variables["CMAKE_CURRENT_BINARY_DIR"] = str(application.resolve_path(config.binary_dir))
+    state = _RootState(initial_variables, config.define_breakpoint_command)
     occurrence_uncertainty = None
-    base_path = cmake_source.path
-    process_file(cmake_source, state, occurrence_uncertainty, base_path, root)
+    base_dir = source_dir
+    root = _RootContext(application, pos_resolver)
+    process_file(root, cmake_source, state, occurrence_uncertainty, source_dir, config.binary_dir)
     return not errors_seen
 
 
@@ -1068,7 +1140,8 @@ class _InvocContext:
     file_index:             int
     state:                  _State
     occurrence_uncertainty: OccurrenceUncertainty
-    base_path:              pathlib.Path
+    source_dir:             pathlib.Path
+    binary_dir:             pathlib.Path | None
 
     def with_state(self, state: _State) -> _InvocContext:
         return dataclasses.replace(self, state=state)
@@ -1077,16 +1150,15 @@ class _InvocContext:
         return self.root.pos_resolver.resolve_file_pos(pos)
 
     def open_subfile(self, path: pathlib.Path) -> typing.TextIO:
-        return self.root.application.open_subfile(path, self.root.abs_base_dir)
+        return self.root.application.open_subfile(path)
 
     def resolve_path(self, path: pathlib.Path) -> pathlib.Path:
-        return (self.root.abs_base_dir / path).resolve()
+        return self.root.application.resolve_path(path)
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class _RootContext:
     application:  Application
-    abs_base_dir: pathlib.Path
     pos_resolver: PositionResolver
 
 
@@ -1137,12 +1209,14 @@ class _State(abc.ABC):
 
 
 class _RootState(_State):
-    def __init__(self, define_breakpoint_command: bool) -> None:
+    def __init__(self, initial_variables: dict[str, str | None], define_breakpoint_command: bool) -> None:
         self._commands          = dict[str, _Command]()
         self._env_variables     = dict[str, _cv.Value]()
         self._cache_variables   = dict[str, _cv.Value]()
         self._regular_variables = dict[str, _cv.Value]()
-        _define_built_in_commands(self._commands, define_breakpoint_command)
+        for name, value in initial_variables.items():
+            self._regular_variables[name] = _cv.CertainValue(value)
+        self._define_built_in_commands(define_breakpoint_command)
 
     @typing.override
     def is_root_scope(self) -> bool:
@@ -1232,11 +1306,29 @@ class _RootState(_State):
                 return
         typing.assert_never(command)
 
+    def _define_built_in_commands(self, define_breakpoint_command: bool) -> None:
+        def define(name_cf: str, which: _BuiltInCommand.Which) -> None:
+            self._commands[name_cf] = _BuiltInCommand(which)
+        define("set",                    _BuiltInCommand.Which.SET)
+        define("unset",                  _BuiltInCommand.Which.UNSET)
+        define("string",                 _BuiltInCommand.Which.STRING)
+        define("list",                   _BuiltInCommand.Which.LIST)
+        define("message",                _BuiltInCommand.Which.MESSAGE)
+        define("include",                _BuiltInCommand.Which.INCLUDE)
+        define("add_subdirectory",       _BuiltInCommand.Which.ADD_SUBDIRECTORY)
+        define("cmake_minimum_required", _BuiltInCommand.Which.UNSUPPORTED)
+        define("project",                _BuiltInCommand.Which.UNSUPPORTED)
+        define("option",                 _BuiltInCommand.Which.UNSUPPORTED)
+        if define_breakpoint_command:
+            define("breakpoint", _BuiltInCommand.Which.BREAKPOINT)
+
 
 class _SubscopeState(_State):
-    def __init__(self, parent_state: _State) -> None:
+    def __init__(self, parent_state: _State, initial_variables: dict[str, str | None] = {}) -> None:
         self._parent_state      = parent_state
         self._regular_variables = dict[str, _cv.Value]()
+        for name, value in initial_variables.items():
+            self._regular_variables[name] = _cv.CertainValue(value)
 
     @typing.override
     def is_root_scope(self) -> bool:
@@ -1673,23 +1765,6 @@ class _CommandDefinitionUncertaintyReason:
     defining_command_name:         str
     definition_position:           _cur.Position
     occurrence_uncertainty_reason: _cur.ExpansionUncertaintyReason
-
-
-def _define_built_in_commands(commands: dict[str, _Command], define_breakpoint_command: bool) -> None:
-    def define(name_cf: str, which: _BuiltInCommand.Which) -> None:
-        commands[name_cf] = _BuiltInCommand(which)
-    define("set",                    _BuiltInCommand.Which.SET)
-    define("unset",                  _BuiltInCommand.Which.UNSET)
-    define("string",                 _BuiltInCommand.Which.STRING)
-    define("list",                   _BuiltInCommand.Which.LIST)
-    define("message",                _BuiltInCommand.Which.MESSAGE)
-    define("include",                _BuiltInCommand.Which.INCLUDE)
-    define("add_subdirectory",       _BuiltInCommand.Which.ADD_SUBDIRECTORY)
-    define("cmake_minimum_required", _BuiltInCommand.Which.UNSUPPORTED)
-    define("project",                _BuiltInCommand.Which.UNSUPPORTED)
-    define("option",                 _BuiltInCommand.Which.UNSUPPORTED)
-    if define_breakpoint_command:
-        define("breakpoint", _BuiltInCommand.Which.BREAKPOINT)
 
 
 type _AssignedValue = _CertainAssignedValue | _cv.UncertainValue

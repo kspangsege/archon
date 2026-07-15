@@ -1708,16 +1708,15 @@ def test_CMakeProcess_Function(context: _t.Context) -> None:
     path = pathlib.Path("test-6.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    cwd = pathlib.Path.cwd()
     expected_messages = [
-        "1: -foo-",                # 1
-        "2: -1-",                  # 2
-        "3: -Foo-",                # 3
-        "4: -%s-" % cwd,           # 4
-        "5: -%s-" % (cwd / path),  # 5
-        "6: -6-",                  # 6
-        "1: -foo-",                # 7
-        "2: -1-",                  # 8
+        "1: -foo-",              # 1
+        "2: -1-",                # 2
+        "3: -Foo-",              # 3
+        "4: -/root-",            # 4
+        "5: -/root/%s-" % path,  # 5
+        "6: -6-",                # 6
+        "1: -foo-",              # 7
+        "2: -1-",                # 8
     ]
     context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
@@ -1915,20 +1914,20 @@ def test_CMakeProcess_Include(context: _t.Context) -> None:
     root_path = pathlib.Path("test-1.cmake")
     def resolve(path: str) -> str:
         match path:
-            case "foo.cmake":
+            case "src/foo.cmake":
                 return _trim_cmake_text(foo_text)
-            case "bar.cmake":
+            case "src/bar.cmake":
                 return _trim_cmake_text(bar_text)
-            case "subdir/baz.cmake":
+            case "src/subdir/baz.cmake":
                 return _trim_cmake_text(subdir_baz_text)
         raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT))
     success, result = _process(_trim_cmake_text(root_text), root_path, context, resolve)
     context.check_not(success)
     expected_messages = [
-        ("1: -X-",     _tp.FilePos(pathlib.Path("foo.cmake"), 1, 0)), # 1
-        ("3: -X2-Y-",  _tp.FilePos(root_path, 3, 0)),                 # 2
-        ("2: -X2-Y-",  _tp.FilePos(pathlib.Path("bar.cmake"), 1, 0)), # 3
-        ("4: -X3-Y2-", _tp.FilePos(root_path, 5, 0)),                 # 4
+        ("1: -X-",     _tp.FilePos(pathlib.Path("src/foo.cmake"), 1, 0)),  # 1
+        ("3: -X2-Y-",  _tp.FilePos(root_path, 3, 0)),                      # 2
+        ("2: -X2-Y-",  _tp.FilePos(pathlib.Path("src/bar.cmake"), 1, 0)),  # 3
+        ("4: -X3-Y2-", _tp.FilePos(root_path, 5, 0)),                      # 4
     ]
     context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
@@ -1937,13 +1936,105 @@ def test_CMakeProcess_Include(context: _t.Context) -> None:
         subcontext.check_equal(message.file_pos, expected[1])
         subcontext.check_is_none(message.occurrence_uncertainty)
     expected_errors = [
-        ('Failed to include "qux.cmake": No such file or directory', _tp.FilePos(root_path, 6, 8)),
+        ('Failed to include "qux.cmake" ("src/qux.cmake"): No such file or directory', _tp.FilePos(root_path, 6, 8)),
     ]
     context.check_equal(len(result.errors), len(expected_errors))
     for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
         subcontext = context.subcontext(1 + i)
         subcontext.check_equal(error.message, expected[0])
         subcontext.check_equal(error.file_pos, expected[1])
+
+
+def test_CMakeProcess_AddSubdirectory(context: _t.Context) -> None:
+    foo_text = r"""
+      message("1: -${x}-${y}-")
+      set(x "X2")
+      set(y "Y2" PARENT_SCOPE)
+    """
+    baz_bar_text = r"""
+      message("2: -${x}-${y}-")
+      set(x "X3")
+      set(y "Y3" PARENT_SCOPE)
+    """
+    baz_text = r"""
+      add_subdirectory(bar)
+    """
+    root_text = r"""
+      set(x "X")
+      set(y "Y")
+      add_subdirectory(foo)
+      message("3: -${x}-${y}-")
+      add_subdirectory(baz)
+      message("4: -${x}-${y}-")
+      add_subdirectory(qux)
+    """
+    root_path = pathlib.Path("test-1.cmake")
+    def resolve(path: str) -> str:
+        match path:
+            case "src/foo/CMakeLists.txt":
+                return _trim_cmake_text(foo_text)
+            case "src/baz/bar/CMakeLists.txt":
+                return _trim_cmake_text(baz_bar_text)
+            case "src/baz/CMakeLists.txt":
+                return _trim_cmake_text(baz_text)
+        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT))
+    success, result = _process(_trim_cmake_text(root_text), root_path, context, resolve)
+    context.check_not(success)
+    expected_messages = [
+        ("1: -X-Y-",  _tp.FilePos(pathlib.Path("src/foo/CMakeLists.txt"), 1, 0)),     # 1
+        ("3: -X-Y2-", _tp.FilePos(root_path, 4, 0)),                                  # 2
+        ("2: -X-Y2-", _tp.FilePos(pathlib.Path("src/baz/bar/CMakeLists.txt"), 1, 0)), # 3
+        ("4: -X-Y2-", _tp.FilePos(root_path, 6, 0)),                                  # 4
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(message.message, expected[0])
+        subcontext.check_equal(message.file_pos, expected[1])
+        subcontext.check_is_none(message.occurrence_uncertainty)
+    expected_errors = [
+        ('Failed to add subdirectory "qux" ("src/qux/CMakeLists.txt"): No such file or directory',
+         _tp.FilePos(root_path, 7, 17)),
+    ]
+    context.check_equal(len(result.errors), len(expected_errors))
+    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(error.message, expected[0])
+        subcontext.check_equal(error.file_pos, expected[1])
+
+
+def test_CMakeProcess_DirectoryVariables(context: _t.Context) -> None:
+    foo_bar_text = r"""
+      message("1: -${CMAKE_CURRENT_SOURCE_DIR}-${CMAKE_CURRENT_BINARY_DIR}-")
+    """
+    foo_text = r"""
+      add_subdirectory(bar)
+      message("2: -${CMAKE_CURRENT_SOURCE_DIR}-${CMAKE_CURRENT_BINARY_DIR}-")
+    """
+    root_text = r"""
+      add_subdirectory(foo)
+      message("3: -${CMAKE_CURRENT_SOURCE_DIR}-${CMAKE_CURRENT_BINARY_DIR}-")
+    """
+    root_path = pathlib.Path("test-1.cmake")
+    def resolve(path: str) -> str:
+        match path:
+            case "src/foo/CMakeLists.txt":
+                return _trim_cmake_text(foo_text)
+            case "src/foo/bar/CMakeLists.txt":
+                return _trim_cmake_text(foo_bar_text)
+        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT))
+    success, result = _process(_trim_cmake_text(root_text), root_path, context, resolve, set_binary_dir=True)
+    context.check(success)
+    expected_messages = [
+        "1: -/root/src/foo/bar-/root/bin/foo/bar-",
+        "2: -/root/src/foo-/root/bin/foo-",
+        "3: -/root/src-/root/bin-",
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(message.message, expected)
+        subcontext.check_is_none(message.occurrence_uncertainty)
 
 
 
@@ -1969,31 +2060,39 @@ def _trim_cmake_text(text: str) -> str:
 
 
 def _process(cmake_text: str, cmake_path: pathlib.Path, context: _t.Context,
-             subfile_resolver: _SubfileResolver | None = None) -> tuple[bool, _Result]:
-    input_ = io.StringIO(cmake_text)
-    cmake_source = _cp.Source(input_, cmake_path)
+             subfile_resolver: _SubfileResolver | None = None, set_binary_dir: bool = False) -> tuple[bool, _Result]:
+    source_dir = pathlib.Path("src")
     pos_resolver = _cp.PositionResolver()
     result = _Result()
     application = _Application(subfile_resolver, pos_resolver, result, context.logger)
     config = _cp.Config()
+    if set_binary_dir:
+        config.binary_dir = pathlib.Path("bin")
     config.define_breakpoint_command = True
-    success = _cp.process(cmake_source, application, pos_resolver, config)
-    return success, result
+    with io.StringIO(cmake_text) as file_:
+        cmake_source = _cp.Source(file_, cmake_path)
+        success = _cp.process(source_dir, cmake_source, application, pos_resolver, config)
+        return success, result
 
 
 class _Application(_cp.Application):
     def __init__(self, subfile_resolver: _SubfileResolver | None, pos_resolver: _cp.PositionResolver, result: _Result,
                  logger: _l.Logger) -> None:
         self._subfile_resolver = subfile_resolver
+        self._abs_base_dir     = pathlib.Path("/root")
         self._pos_resolver     = pos_resolver
         self._result           = result
         self._logger           = logger
 
     @typing.override
-    def open_subfile(self, path: pathlib.Path, abs_base_dir: pathlib.Path) -> typing.TextIO:
+    def open_subfile(self, path: pathlib.Path) -> typing.TextIO:
         assert self._subfile_resolver
         cmake_text = self._subfile_resolver(path.as_posix())
         return io.StringIO(cmake_text)
+
+    @typing.override
+    def resolve_path(self, path: pathlib.Path) -> pathlib.Path:
+        return self._abs_base_dir / path
 
     @typing.override
     def message(self, pos: _cur.Position, occurrence_uncertainty: _cp.OccurrenceUncertainty, level: _cp.MessageLevel,
