@@ -728,6 +728,70 @@ def _process(source_dir: pathlib.Path, cmake_source: Source, application: Applic
             error(context.file_index, server.next_pos, "Too few arguments in %s() invocation", invoc.command_name)
             return
         func = arg.string.string
+        if func in {"APPEND", "PREPEND"}:
+            arg = server.consume()
+            if not arg:
+                error(context.file_index, server.next_pos, "Missing <variable> argument in %s(%s) invocation",
+                      invoc.command_name, func)
+                return
+            var_name = arg.string.string
+            var_name_pos = arg.pos
+            elements = list[str]()
+            try:
+                while True:
+                    arg = server.consume()
+                    if not arg:
+                        break
+                    elements.append(arg.string.string)
+            except _ca.UncertainArgumentException as e:
+                taint_regular_variable(var_name, e.reason, context)
+                return
+            # In CMake, if no elements are appended or prepended, the variable is
+            # unchanged. If it was unset, it remains unset.
+            if not elements:
+                return
+            # In CMake, these variable modifying operations load the original value either
+            # from a regular variable or from a cache variable if a regular variable does
+            # not exist, and, regardless of where the value was loaded from, the result is
+            # stored in a regular variable.
+            try:
+                orig_string = resolve_certain_variable(_cu.ResolutionType.GENERAL, var_name, var_name_pos, invoc,
+                                                       context)
+            except _ca.UncertainArgumentException as e:
+                # If the target variable was tainted, it remains tainted. Nothing further to
+                # do.
+                return
+            match func:
+                case "APPEND":
+                    string = (orig_string or "") + "".join(elements)
+                case "PREPEND":
+                    string = "".join(elements) + (orig_string or "")
+                case _:
+                    assert False
+            set_regular_variable(var_name, string, invoc, context)
+            return
+        if func == "CONCAT":
+            arg = server.consume()
+            if not arg:
+                error(context.file_index, server.next_pos, "Missing <variable> argument in %s(%s) invocation",
+                      invoc.command_name, func)
+                return
+            var_name = arg.string.string
+            var_name_pos = arg.pos
+            elements = list[str]()
+            try:
+                while True:
+                    arg = server.consume()
+                    if not arg:
+                        break
+                    elements.append(arg.string.string)
+            except _ca.UncertainArgumentException as e:
+                taint_regular_variable(var_name, e.reason, context)
+                return
+            # In CMake, if no elements are concatenated, the variable is set to the empty string.
+            string = "".join(elements)
+            set_regular_variable(var_name, string, invoc, context)
+            return
         if func in {"TOLOWER", "TOUPPER"}:
             uncertainty: _cur.ExpansionUncertaintyReason | None = None
             try:
@@ -775,8 +839,8 @@ def _process(source_dir: pathlib.Path, cmake_source: Source, application: Applic
                 return
             var_name = arg.string.string
             var_name_pos = arg.pos
+            elements = list[str]()
             try:
-                elements = list[str]()
                 while True:
                     arg = server.consume()
                     if not arg:
@@ -789,8 +853,13 @@ def _process(source_dir: pathlib.Path, cmake_source: Source, application: Applic
             # was unset, it remains unset.
             if not elements:
                 return
+            # In CMake, this variable modifying operation loads the original value either
+            # from a regular variable or from a cache variable if a regular variable does
+            # not exist, and, regardless of where the value was loaded from, the result is
+            # stored in a regular variable.
             try:
-                string = resolve_certain_variable(_cu.ResolutionType.GENERAL, var_name, var_name_pos, invoc, context)
+                orig_string = resolve_certain_variable(_cu.ResolutionType.GENERAL, var_name, var_name_pos, invoc,
+                                                       context)
             except _ca.UncertainArgumentException as e:
                 # If the target variable was tainted, it remains tainted. Nothing further to
                 # do.
@@ -800,10 +869,10 @@ def _process(source_dir: pathlib.Path, cmake_source: Source, application: Applic
             # the semicolon-join of the appended elements. Otherwise, when at least one
             # element is appended, the result is the original value plus semicolon plus the
             # semicolon-join of the appended elements.
-            string_2 = (string + ";" if string else "")
-            string_3 = _cu.nonescaping_list_join(elements)
-            assert string_3 is not None
-            set_regular_variable(var_name, string_2 + string_3, invoc, context)
+            string_1 = (orig_string + ";" if orig_string else "")
+            string_2 = _cu.nonescaping_list_join(elements)
+            assert string_2 is not None
+            set_regular_variable(var_name, string_1 + string_2, invoc, context)
             return
         raise _UnsupportedInvocSyntaxException(invoc) from None
 

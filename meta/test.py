@@ -56,5 +56,5 @@ try:
         if not _cp.process(source_dir, source, application, pos_resolver, config):
             sys.exit(1)
 except FileNotFoundError as e:
-    logger.error("Failed to process %s: %s", _b.quote(str(cmake_path)), e.strerror)
+    logger.error("Failed to process %s: %s", _b.quote(str(cmake_path_2)), e.strerror)
     sys.exit(1)
