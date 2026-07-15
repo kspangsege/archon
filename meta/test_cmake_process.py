@@ -4,6 +4,8 @@ import typing
 import dataclasses
 import textwrap
 import pathlib
+import errno
+import os
 import io
 import unittest
 
@@ -1888,6 +1890,68 @@ def test_CMakeProcess_Block(context: _t.Context) -> None:
     context.check_equal(error.file_pos, _tp.FilePos(path, 1, 8))
 
 
+def test_CMakeProcess_Include(context: _t.Context) -> None:
+    foo_text = r"""
+      message("1: -${x}-")
+      set(x "X2")
+      set(y "Y")
+    """
+    bar_text = r"""
+      message("2: -${x}-${y}-")
+      set(x "X3")
+      set(y "Y2")
+    """
+    subdir_baz_text = r"""
+      include(bar.cmake)
+    """
+    root_text = r"""
+      set(x "X")
+      include(foo.cmake)
+      message("3: -${x}-${y}-")
+      include(subdir/baz.cmake)
+      message("4: -${x}-${y}-")
+      include(qux.cmake)
+    """
+    root_path = pathlib.Path("test-1.cmake")
+    def resolve(path: str) -> str:
+        match path:
+            case "foo.cmake":
+                return _trim_cmake_text(foo_text)
+            case "bar.cmake":
+                return _trim_cmake_text(bar_text)
+            case "subdir/baz.cmake":
+                return _trim_cmake_text(subdir_baz_text)
+        raise FileNotFoundError(errno.ENOENT, os.strerror(errno.ENOENT))
+    success, result = _process(_trim_cmake_text(root_text), root_path, context, resolve)
+    context.check_not(success)
+    expected_messages = [
+        ("1: -X-",     _tp.FilePos(pathlib.Path("foo.cmake"), 1, 0)), # 1
+        ("3: -X2-Y-",  _tp.FilePos(root_path, 3, 0)),                 # 2
+        ("2: -X2-Y-",  _tp.FilePos(pathlib.Path("bar.cmake"), 1, 0)), # 3
+        ("4: -X3-Y2-", _tp.FilePos(root_path, 5, 0)),                 # 4
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(message.message, expected[0])
+        subcontext.check_equal(message.file_pos, expected[1])
+        subcontext.check_is_none(message.occurrence_uncertainty)
+    expected_errors = [
+        ('Failed to include "qux.cmake": No such file or directory', _tp.FilePos(root_path, 6, 8)),
+    ]
+    context.check_equal(len(result.errors), len(expected_errors))
+    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(error.message, expected[0])
+        subcontext.check_equal(error.file_pos, expected[1])
+
+
+
+
+
+
+
+
 def invoke_uncertainty_error(command_name: str, param_type: _cur.ParamType, param_name: str) -> str:
     return 'Failed to invoke %s() due to expansion of %s with uncertain value' % \
         (command_name, _cur.get_qual_param_ref(param_type, param_name))
@@ -1904,30 +1968,32 @@ def _trim_cmake_text(text: str) -> str:
     return textwrap.dedent(text.removeprefix("\n"))
 
 
-def _process(cmake_text: str, cmake_path: pathlib.Path, context: _t.Context) -> tuple[bool, _Result]:
+def _process(cmake_text: str, cmake_path: pathlib.Path, context: _t.Context,
+             subfile_resolver: _SubfileResolver | None = None) -> tuple[bool, _Result]:
     input_ = io.StringIO(cmake_text)
     cmake_source = _cp.Source(input_, cmake_path)
     pos_resolver = _cp.PositionResolver()
     result = _Result()
-    application = _Application(pos_resolver, result, context.logger)
+    application = _Application(subfile_resolver, pos_resolver, result, context.logger)
     config = _cp.Config()
     config.define_breakpoint_command = True
     success = _cp.process(cmake_source, application, pos_resolver, config)
     return success, result
 
 
-class _Result:
-    def __init__(self) -> None:
-        self.messages = list[_CMakeMessage]()
-        self.warnings = list[_LogMessage]()
-        self.errors   = list[_LogMessage]()
-
-
 class _Application(_cp.Application):
-    def __init__(self, pos_resolver: _cp.PositionResolver, result: _Result, logger: _l.Logger) -> None:
-        self._pos_resolver = pos_resolver
-        self._result       = result
-        self._logger       = logger
+    def __init__(self, subfile_resolver: _SubfileResolver | None, pos_resolver: _cp.PositionResolver, result: _Result,
+                 logger: _l.Logger) -> None:
+        self._subfile_resolver = subfile_resolver
+        self._pos_resolver     = pos_resolver
+        self._result           = result
+        self._logger           = logger
+
+    @typing.override
+    def open_subfile(self, path: pathlib.Path, abs_base_dir: pathlib.Path) -> typing.TextIO:
+        assert self._subfile_resolver
+        cmake_text = self._subfile_resolver(path.as_posix())
+        return io.StringIO(cmake_text)
 
     @typing.override
     def message(self, pos: _cur.Position, occurrence_uncertainty: _cp.OccurrenceUncertainty, level: _cp.MessageLevel,
@@ -1951,6 +2017,18 @@ class _Application(_cp.Application):
         self._result.errors.append(_LogMessage(file_pos, message % args))
         context = _l.FileContext(file_pos.path, _l.FullTextPos(file_pos.line_no, file_pos.pos_on_line))
         _l.FileContextLogger(self._logger, context).error(message, *args)
+
+
+class _SubfileResolver(typing.Protocol):
+    def __call__(self, path: str) -> str:
+        ...
+
+
+class _Result:
+    def __init__(self) -> None:
+        self.messages = list[_CMakeMessage]()
+        self.warnings = list[_LogMessage]()
+        self.errors   = list[_LogMessage]()
 
 
 @dataclasses.dataclass(slots=True, frozen=True)

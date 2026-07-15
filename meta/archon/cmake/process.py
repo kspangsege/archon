@@ -39,6 +39,9 @@ class Source:
 
 
 class Application(abc.ABC):
+    def open_subfile(self, path: pathlib.Path, abs_base_dir: pathlib.Path) -> typing.TextIO:
+        return open((abs_base_dir / path).resolve(), "r")
+
     @abc.abstractmethod
     def message(self, pos: _cur.Position, occurrence_uncertainty: OccurrenceUncertainty, level: MessageLevel,
                 message: str) -> None:
@@ -781,22 +784,25 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
 
     def exec_include(invoc: _clp.GenericInvoc, context: _InvocContext) -> None:
         server = create_argument_server(invoc, context)
-        file_or_module = server.consume()
-        if not file_or_module:
+        arg = server.consume()
+        if not arg:
             error(context.file_index, server.next_pos, "Missing file or module in %s()", invoc.command_name)
             return None
-        if not re.fullmatch(r".*\.cmake", file_or_module.string.string):
+        file_or_module = arg.string.string
+        file_or_module_pos = arg.pos
+        if not re.fullmatch(r".*\.cmake", file_or_module):
             raise _UnsupportedInvocSyntaxException(invoc, "Non-path argument") from None
         if not server.at_end:
             raise _UnsupportedInvocSyntaxException(invoc) from None
-        cmake_path = context.base_path.parent / file_or_module.string.string
+        cmake_path = context.base_path.parent / file_or_module
         try:
-            with open(context.resolve_path(cmake_path), "r") as file_:
+            with context.open_subfile(cmake_path) as file_:
                 cmake_source = Source(file_, cmake_path)
                 process_file(cmake_source, context.state, context.occurrence_uncertainty, context.base_path,
                              context.root)
         except FileNotFoundError as e:
-            error(context.file_index, invoc.pos, "Failed to include %s: %s", _b.quote(str(cmake_path)), e.strerror)
+            error(context.file_index, file_or_module_pos, "Failed to include %s: %s", _b.quote(str(cmake_path)),
+                  e.strerror)
 
     def exec_add_subdirectory(invoc: _clp.GenericInvoc, context: _InvocContext) -> None:
         assert False        
@@ -1039,7 +1045,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
         application.error(position, message, *args)
 
     abs_base_dir = pathlib.Path.cwd()
-    root = _RootContext(abs_base_dir, pos_resolver)
+    root = _RootContext(application, abs_base_dir, pos_resolver)
     state = _RootState(config.define_breakpoint_command)
     occurrence_uncertainty = None
     base_path = cmake_source.path
@@ -1070,12 +1076,16 @@ class _InvocContext:
     def resolve_file_pos(self, pos: _cur.Position) -> _tp.FilePos:
         return self.root.pos_resolver.resolve_file_pos(pos)
 
+    def open_subfile(self, path: pathlib.Path) -> typing.TextIO:
+        return self.root.application.open_subfile(path, self.root.abs_base_dir)
+
     def resolve_path(self, path: pathlib.Path) -> pathlib.Path:
         return (self.root.abs_base_dir / path).resolve()
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class _RootContext:
+    application:  Application
     abs_base_dir: pathlib.Path
     pos_resolver: PositionResolver
 
