@@ -812,6 +812,253 @@ def test_CMakeProcess_StringAppend(context: _t.Context) -> None:
         subcontext.check_equal(error.file_pos.text_pos, expected[1])
 
 
+def test_CMakeProcess_StringPrepend(context: _t.Context) -> None:
+    expected: typing.Any
+
+    text = r"""
+      # Avoid uncertainty from cache fallback
+      unset(CACHE{x1})
+      unset(CACHE{x2})
+      unset(CACHE{x3})
+      unset(CACHE{x4})
+
+      # Variable is initially unset
+      unset(x1)
+      unset(x2)
+      unset(x3)
+      unset(x4)
+      string(PREPEND x1)
+      string(PREPEND x2 "")
+      string(PREPEND x3 "a")
+      string(PREPEND x4 "a" "b")
+      if(DEFINED x1)
+        set(dx1 "y")
+      else()
+        set(dx1 "n")
+      endif()
+      if(DEFINED x2)
+        set(dx2 "y")
+      else()
+        set(dx2 "n")
+      endif()
+      message("1: -${dx1}:${x1}-${dx2}:${x2}-${x3}-${x4}-")
+
+      # Variable is initially empty
+      set(x1 "")
+      set(x2 "")
+      set(x3 "")
+      set(x4 "")
+      string(PREPEND x1)
+      string(PREPEND x2 "")
+      string(PREPEND x3 "a")
+      string(PREPEND x4 "a" "b")
+      if(DEFINED x1)
+        set(dx1 "y")
+      else()
+        set(dx1 "n")
+      endif()
+      if(DEFINED x2)
+        set(dx2 "y")
+      else()
+        set(dx2 "n")
+      endif()
+      message("2: -${dx1}:${x1}-${dx2}:${x2}-${x3}-${x4}-")
+
+      # Variable is initially nonempty
+      set(x1 "v")
+      set(x2 "v")
+      set(x3 "v")
+      set(x4 "v")
+      string(PREPEND x1)
+      string(PREPEND x2 "")
+      string(PREPEND x3 "a")
+      string(PREPEND x4 "a" "b")
+      message("3: -${x1}-${x2}-${x3}-${x4}-")
+
+      # Cache involvement
+      set(CACHE{x1} FORCE VALUE "v")
+      set(CACHE{x2} FORCE VALUE "v")
+      set(CACHE{x3} FORCE VALUE "v")
+      set(CACHE{x4} FORCE VALUE "v")
+      unset(x1)
+      unset(x2)
+      unset(x3)
+      unset(x4)
+      string(PREPEND x1)
+      string(PREPEND x2 "")
+      string(PREPEND x3 "a")
+      string(PREPEND x4 "a" "b")
+      message("4: -${x1}:$CACHE{x1}-${x2}:$CACHE{x1}-${x3}:$CACHE{x1}-${x4}:$CACHE{x1}-")
+    """
+    path = pathlib.Path("test-1.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check(success)
+    expected_messages = [
+        "1: -n:-y:-a-ab-",
+        "2: -y:-y:-a-ab-",
+        "3: -v-v-av-abv-",
+        "4: -v:v-v:v-av:v-abv:v-",
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(message.message, expected)
+        subcontext.check_is_none(message.occurrence_uncertainty)
+
+    # Uncertainty
+    text = r"""
+      set(x "v")
+      set(u1 "${u}")
+      set(u2 "${u}")
+      string(PREPEND x "${u1}")
+      string(PREPEND u2 "v")
+      string(PREPEND u3 "${u1}")
+      message("-${x}-")
+      message("-${u2}-")
+      message("-${u3}-")
+    """
+    path = pathlib.Path("test-2.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check_not(success)
+    context.check_equal(len(result.messages), 0)
+    expected_errors = [
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "x"),    _tp.TextPos(7, 10)), # 1
+        (expansion_uncertainty_cause("string", _cur.ParamType.REGULAR_VAR, "u1"), _tp.TextPos(4, 18)), # 2
+        (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u"),     _tp.TextPos(2, 8)),  # 3
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u2"),   _tp.TextPos(8, 10)), # 4
+        (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u"),     _tp.TextPos(3, 8)),  # 5
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u3"),   _tp.TextPos(9, 10)), # 6
+    ]
+    context.check_equal(len(result.errors), len(expected_errors))
+    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(error.message, expected[0])
+        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+
+
+def test_CMakeProcess_StringConcat(context: _t.Context) -> None:
+    expected: typing.Any
+
+    text = r"""
+      # Avoid uncertainty from cache fallback
+      unset(CACHE{x1})
+      unset(CACHE{x2})
+      unset(CACHE{x3})
+      unset(CACHE{x4})
+
+      # Variable is initially unset
+      unset(x1)
+      unset(x2)
+      unset(x3)
+      unset(x4)
+      string(CONCAT x1)
+      string(CONCAT x2 "")
+      string(CONCAT x3 "a")
+      string(CONCAT x4 "a" "b")
+      if(DEFINED x1)
+        set(dx1 "y")
+      else()
+        set(dx1 "n")
+      endif()
+      if(DEFINED x2)
+        set(dx2 "y")
+      else()
+        set(dx2 "n")
+      endif()
+      message("1: -${dx1}:${x1}-${dx2}:${x2}-${x3}-${x4}-")
+
+      # Variable is initially empty
+      set(x1 "")
+      set(x2 "")
+      set(x3 "")
+      set(x4 "")
+      string(CONCAT x1)
+      string(CONCAT x2 "")
+      string(CONCAT x3 "a")
+      string(CONCAT x4 "a" "b")
+      if(DEFINED x1)
+        set(dx1 "y")
+      else()
+        set(dx1 "n")
+      endif()
+      if(DEFINED x2)
+        set(dx2 "y")
+      else()
+        set(dx2 "n")
+      endif()
+      message("2: -${dx1}:${x1}-${dx2}:${x2}-${x3}-${x4}-")
+
+      # Variable is initially nonempty
+      set(x1 "v")
+      set(x2 "v")
+      set(x3 "v")
+      set(x4 "v")
+      string(CONCAT x1)
+      string(CONCAT x2 "")
+      string(CONCAT x3 "a")
+      string(CONCAT x4 "a" "b")
+      if(DEFINED x1)
+        set(dx1 "y")
+      else()
+        set(dx1 "n")
+      endif()
+      if(DEFINED x2)
+        set(dx2 "y")
+      else()
+        set(dx2 "n")
+      endif()
+      message("3: -${dx1}:${x1}-${dx2}:${x2}-${x3}-${x4}-")
+    """
+    path = pathlib.Path("test-1.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check(success)
+    expected_messages = [
+        "1: -y:-y:-a-ab-",
+        "2: -y:-y:-a-ab-",
+        "3: -y:-y:-a-ab-",
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(message.message, expected)
+        subcontext.check_is_none(message.occurrence_uncertainty)
+
+    # Uncertainty
+    text = r"""
+      set(u2 "${u1}")
+      string(CONCAT x1 "${u2}")
+      string(CONCAT x2 "v" "${u2}")
+      string(CONCAT x3 "${u1}" "v")
+      string(CONCAT x4 "${u2}" "${u1}")
+      message("${x1}")
+      message("${x2}")
+      message("${x3}")
+      message("${x4}")
+    """
+    path = pathlib.Path("test-2.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check_not(success)
+    context.check_equal(len(result.messages), 0)
+    expected_errors = [
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "x1"),   _tp.TextPos(6, 9)),  #  1
+        (expansion_uncertainty_cause("string", _cur.ParamType.REGULAR_VAR, "u2"), _tp.TextPos(2, 18)), #  2
+        (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u1"),    _tp.TextPos(1, 8)),  #  3
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "x2"),   _tp.TextPos(7, 9)),  #  4
+        (expansion_uncertainty_cause("string", _cur.ParamType.REGULAR_VAR, "u2"), _tp.TextPos(3, 22)), #  5
+        (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u1"),    _tp.TextPos(1, 8)),  #  6
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "x3"),   _tp.TextPos(8, 9)),  #  7
+        (expansion_uncertainty_cause("string", _cur.ParamType.REGULAR_VAR, "u1"), _tp.TextPos(4, 18)), #  8
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "x4"),   _tp.TextPos(9, 9)),  #  9
+        (expansion_uncertainty_cause("string", _cur.ParamType.REGULAR_VAR, "u2"), _tp.TextPos(5, 18)), # 10
+        (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u1"),    _tp.TextPos(1, 8)),  # 11
+    ]
+    context.check_equal(len(result.errors), len(expected_errors))
+    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(error.message, expected[0])
+        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+
+
 def test_CMakeProcess_StringTolowerAndToupper(context: _t.Context) -> None:
     text = r"""
       set(_x "Foo")
@@ -834,6 +1081,7 @@ def test_CMakeProcess_StringTolowerAndToupper(context: _t.Context) -> None:
       set(u1 "${u}")
       string(TOLOWER "${u1}" x)
       string(TOUPPER "${u2}" y)
+      string(TOLOWER ${u2} z)    # Unquoted uncertain value expansion is fatal with this signature
       message("-${x}-")
       message("-${y}-")
     """
@@ -842,11 +1090,12 @@ def test_CMakeProcess_StringTolowerAndToupper(context: _t.Context) -> None:
     context.check_not(success)
     context.check_equal(len(result.messages), 0)
     expected_errors = [
-        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "x"),    _tp.TextPos(4, 10)), # 1
-        (expansion_uncertainty_cause("string", _cur.ParamType.REGULAR_VAR, "u1"), _tp.TextPos(2, 16)), # 2
-        (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u"),     _tp.TextPos(1, 8)),  # 3
-        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "y"),    _tp.TextPos(5, 10)), # 4
-        (expansion_uncertainty_cause("string", _cur.ParamType.REGULAR_VAR, "u2"), _tp.TextPos(3, 16)), # 5
+        (invoke_uncertainty_error("string", _cur.ParamType.REGULAR_VAR, "u2"),    _tp.TextPos(4, 15)), # 1
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "x"),    _tp.TextPos(5, 10)), # 2
+        (expansion_uncertainty_cause("string", _cur.ParamType.REGULAR_VAR, "u1"), _tp.TextPos(2, 16)), # 3
+        (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u"),     _tp.TextPos(1, 8)),  # 4
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "y"),    _tp.TextPos(6, 10)), # 5
+        (expansion_uncertainty_cause("string", _cur.ParamType.REGULAR_VAR, "u2"), _tp.TextPos(3, 16)), # 6
     ]
     context.check_equal(len(result.errors), len(expected_errors))
     for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
