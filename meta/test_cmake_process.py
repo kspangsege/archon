@@ -1114,8 +1114,8 @@ def test_CMakeProcess_ListAppend(context: _t.Context) -> None:
       set(_d "A")
       list(APPEND _a)
       list(APPEND _b)
-      list(APPEND _c "B")
-      list(APPEND _d "B")
+      list(APPEND _c "B" "C")
+      list(APPEND _d "B" "C")
       message("${_a}-${_b}-${_c}-${_d}")
       set(_l "A;B" "C\;D")
       list(APPEND _l "E;F" "G\;H")
@@ -1125,7 +1125,7 @@ def test_CMakeProcess_ListAppend(context: _t.Context) -> None:
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
     expected_messages = [
-        "-A-B-A;B",
+        "-A-B;C-A;B;C",
         "A;B;C\\;D;E;F;G\\;H",
     ]
     context.check_equal(len(result.messages), len(expected_messages))
@@ -1237,6 +1237,151 @@ def test_CMakeProcess_ListAppend(context: _t.Context) -> None:
     expected_errors = [
         (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "x"),  _tp.TextPos(7, 10)), # 1
         (expansion_uncertainty_cause("list", _cur.ParamType.REGULAR_VAR, "u1"), _tp.TextPos(4, 15)), # 2
+        (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u"),   _tp.TextPos(2, 8)),  # 3
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u2"), _tp.TextPos(8, 10)), # 4
+        (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u"),   _tp.TextPos(3, 8)),  # 5
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u3"), _tp.TextPos(9, 10)), # 6
+    ]
+    context.check_equal(len(result.errors), len(expected_errors))
+    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(error.message, expected[0])
+        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+
+
+def test_CMakeProcess_ListPrepend(context: _t.Context) -> None:
+    expected: typing.Any
+
+    text = r"""
+      set(_a "")
+      set(_b "A")
+      set(_c "")
+      set(_d "A")
+      list(PREPEND _a)
+      list(PREPEND _b)
+      list(PREPEND _c "B" "C")
+      list(PREPEND _d "B" "C")
+      message("${_a}-${_b}-${_c}-${_d}")
+      set(_l "A;B" "C\;D")
+      list(PREPEND _l "E;F" "G\;H")
+      message("${_l}")
+    """
+    path = pathlib.Path("test-1.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check(success)
+    expected_messages = [
+        "-A-B;C-B;C;A",
+        "E;F;G\\;H;A;B;C\\;D",
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(message.message, expected)
+        subcontext.check_is_none(message.occurrence_uncertainty)
+
+    # Special cases involving unset lists, lists being the empty string, no elements
+    # prepended, and the empty string being prepended
+    text = r"""
+      unset(CACHE{l}) # Avoid uncertainty from cache fallback
+
+      # List is initially unset
+      set(l)
+      list(PREPEND l)
+      if(NOT DEFINED l)
+        message("1")
+      endif()
+      set(l)
+      list(PREPEND l "")
+      if(DEFINED l AND l STREQUAL "")
+        message("2")
+      endif()
+      set(l)
+      list(PREPEND l "x")
+      if(l STREQUAL "x")
+        message("3")
+      endif()
+
+      # List is initially the empty string
+      set(l "")
+      list(PREPEND l)
+      if(DEFINED l AND l STREQUAL "")
+        message("4")
+      endif()
+      set(l "")
+      list(PREPEND l "")
+      if(DEFINED l AND l STREQUAL "")
+        message("5")
+      endif()
+      set(l "")
+      list(PREPEND l "x")
+      if(l STREQUAL "x")
+        message("6")
+      endif()
+
+      # List is initially nonempty
+      set(l "x")
+      list(PREPEND l)
+      if(l STREQUAL "x")
+        message("7")
+      endif()
+      set(l "x")
+      list(PREPEND l "")
+      if(l STREQUAL ";x")
+        message("8")
+      endif()
+      set(l "x")
+      list(PREPEND l "y")
+      if(l STREQUAL "y;x")
+        message("9")
+      endif()
+
+      # Cache involvement
+      set(CACHE{l} FORCE VALUE "x")
+      set(l)
+      list(PREPEND l)
+      if(l STREQUAL "x")
+        message("10")
+      endif()
+      set(l)
+      list(PREPEND l "")
+      if(l STREQUAL ";x")
+        message("11")
+      endif()
+      set(l)
+      list(PREPEND l "y")
+      if(l STREQUAL "y;x")
+        message("12")
+      endif()
+    """
+    path = pathlib.Path("test-2.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check(success)
+    expected_messages = [ "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12" ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(message.message, expected)
+        subcontext.check_is_none(message.occurrence_uncertainty)
+
+    # Uncertainty
+    text = r"""
+      set(x "v")
+      set(u1 "${u}")
+      set(u2 "${u}")
+      list(PREPEND x "${u1}")
+      list(PREPEND u2 "v")
+      list(PREPEND u3 "${u1}")
+      message("-${x}-")
+      message("-${u2}-")
+      message("-${u3}-")
+    """
+    path = pathlib.Path("test-3.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check_not(success)
+    context.check_equal(len(result.messages), 0)
+    expected_errors = [
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "x"),  _tp.TextPos(7, 10)), # 1
+        (expansion_uncertainty_cause("list", _cur.ParamType.REGULAR_VAR, "u1"), _tp.TextPos(4, 16)), # 2
         (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u"),   _tp.TextPos(2, 8)),  # 3
         (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u2"), _tp.TextPos(8, 10)), # 4
         (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u"),   _tp.TextPos(3, 8)),  # 5

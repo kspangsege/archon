@@ -832,7 +832,7 @@ def _process(source_dir: pathlib.Path, cmake_source: Source, application: Applic
             error(context.file_index, server.next_pos, "Too few arguments in %s() invocation", invoc.command_name)
             return
         func = arg.string.string
-        if func == "APPEND":
+        if func in {"APPEND", "PREPEND"}:
             arg = server.consume()
             if not arg:
                 error(context.file_index, server.next_pos, "Missing <variable> argument in %s(%s) invocation",
@@ -861,19 +861,28 @@ def _process(source_dir: pathlib.Path, cmake_source: Source, application: Applic
             except _ca.UncertainArgumentException as e:
                 taint_regular_variable(var_name, e.reason, context)
                 return
-            # In CMake, if no elements are appended, the original value is unchanged. If it
-            # was unset, it remains unset.
+            # In CMake, if no elements are appended or prepended, the original value is
+            # unchanged. If it was unset, it remains unset.
             if not elements:
                 return
-            # In CMake, when at least one element is appended and the list variable was
-            # unset or its original value was the empty string, the new list value becomes
-            # the semicolon-join of the appended elements. Otherwise, when at least one
-            # element is appended, the result is the original value plus semicolon plus the
-            # semicolon-join of the appended elements.
-            string_1 = (orig_string + ";" if orig_string else "")
-            string_2 = _cu.nonescaping_list_join(elements)
-            assert string_2 is not None
-            set_regular_variable(var_name, string_1 + string_2, invoc, context)
+            # In CMake, when at least one element is appended or prepended and the list
+            # variable was unset or its original value was the empty string, the new list
+            # value becomes the semicolon-join of the appended / prepended
+            # elements. Otherwise, when at least one element is appended, the result is the
+            # original value plus semicolon plus the semicolon-join of the appended
+            # elements. Likewise, when at least one element is prepended, the result is he
+            # semicolon-join of the prepended elements plus semicolon plus the original
+            # value.
+            string_1 = _cu.nonescaping_list_join(elements)
+            assert string_1 is not None
+            match func:
+                case "APPEND":
+                    string_2 = (orig_string + ";" + string_1 if orig_string else string_1)
+                case "PREPEND":
+                    string_2 = (string_1 + ";" + orig_string if orig_string else string_1)
+                case _:
+                    assert False
+            set_regular_variable(var_name, string_2, invoc, context)
             return
         raise _UnsupportedInvocSyntaxException(invoc) from None
 
