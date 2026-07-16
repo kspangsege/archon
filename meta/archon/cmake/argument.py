@@ -58,6 +58,19 @@ class ArgumentServer:
             typing.assert_never(arg)
         return None
 
+    def discard(self) -> None:
+        if self._begin < self._end:
+            arg = self._arguments[self._begin]
+            if isinstance(arg, CertainArgument):
+                self._begin += 1
+                return
+            if isinstance(arg, UncertainArgument):
+                if arg.was_bare:
+                    raise UncertainArgumentException(arg.reason) from None
+                self._begin += 1
+                return
+            typing.assert_never(arg)
+
     def find_keyword(self, keywords: collections.abc.Container[str]) -> int:
         return self.find(lambda s: s in keywords)
 

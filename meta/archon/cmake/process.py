@@ -736,6 +736,17 @@ def _process(source_dir: pathlib.Path, cmake_source: Source, application: Applic
                 return
             var_name = arg.string.string
             var_name_pos = arg.pos
+            # In CMake, these variable modifying operations load the original value either
+            # from a regular variable or from a cache variable if a regular variable does
+            # not exist, and, regardless of where the value was loaded from, the result is
+            # stored in a regular variable.
+            try:
+                orig_string = resolve_certain_variable(_cu.ResolutionType.GENERAL, var_name, var_name_pos, invoc,
+                                                       context)
+            except _ca.UncertainArgumentException as e:
+                # If the target variable was tainted, it remains tainted. Nothing further to
+                # do.
+                return
             elements = list[str]()
             try:
                 while True:
@@ -749,17 +760,6 @@ def _process(source_dir: pathlib.Path, cmake_source: Source, application: Applic
             # In CMake, if no elements are appended or prepended, the variable is
             # unchanged. If it was unset, it remains unset.
             if not elements:
-                return
-            # In CMake, these variable modifying operations load the original value either
-            # from a regular variable or from a cache variable if a regular variable does
-            # not exist, and, regardless of where the value was loaded from, the result is
-            # stored in a regular variable.
-            try:
-                orig_string = resolve_certain_variable(_cu.ResolutionType.GENERAL, var_name, var_name_pos, invoc,
-                                                       context)
-            except _ca.UncertainArgumentException as e:
-                # If the target variable was tainted, it remains tainted. Nothing further to
-                # do.
                 return
             match func:
                 case "APPEND":
@@ -803,6 +803,7 @@ def _process(source_dir: pathlib.Path, cmake_source: Source, application: Applic
                 string = arg.string.string
             except _ca.UncertainArgumentException as e:
                 uncertainty = e.reason
+                server.discard()
             arg = server.consume()
             if not arg:
                 error(context.file_index, server.next_pos, "Missing <variable> argument in %s(%s) invocation",
@@ -839,6 +840,17 @@ def _process(source_dir: pathlib.Path, cmake_source: Source, application: Applic
                 return
             var_name = arg.string.string
             var_name_pos = arg.pos
+            # In CMake, this variable modifying operation loads the original value either
+            # from a regular variable or from a cache variable if a regular variable does
+            # not exist, and, regardless of where the value was loaded from, the result is
+            # stored in a regular variable.
+            try:
+                orig_string = resolve_certain_variable(_cu.ResolutionType.GENERAL, var_name, var_name_pos, invoc,
+                                                       context)
+            except _ca.UncertainArgumentException as e:
+                # If the target variable was tainted, it remains tainted. Nothing further to
+                # do.
+                return
             elements = list[str]()
             try:
                 while True:
@@ -852,17 +864,6 @@ def _process(source_dir: pathlib.Path, cmake_source: Source, application: Applic
             # In CMake, if no elements are appended, the original value is unchanged. If it
             # was unset, it remains unset.
             if not elements:
-                return
-            # In CMake, this variable modifying operation loads the original value either
-            # from a regular variable or from a cache variable if a regular variable does
-            # not exist, and, regardless of where the value was loaded from, the result is
-            # stored in a regular variable.
-            try:
-                orig_string = resolve_certain_variable(_cu.ResolutionType.GENERAL, var_name, var_name_pos, invoc,
-                                                       context)
-            except _ca.UncertainArgumentException as e:
-                # If the target variable was tainted, it remains tainted. Nothing further to
-                # do.
                 return
             # In CMake, when at least one element is appended and the list variable was
             # unset or its original value was the empty string, the new list value becomes
