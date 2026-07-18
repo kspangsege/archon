@@ -1994,12 +1994,15 @@ def test_CMakeProcess_Macro(context: _t.Context) -> None:
         bar("${x}+${z}" "${y}")
       endmacro()
       foo("X" "Y" "Z")
+      set(l "X" "Y" "Z")
+      foo(${l})
     """
     path = pathlib.Path("test-2.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
     expected_messages = [
-        "-X+Z-Y-"
+        "-X+Z-Y-",
+        "-X+Z-Y-",
     ]
     context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
@@ -2014,16 +2017,25 @@ def test_CMakeProcess_Macro(context: _t.Context) -> None:
       foo()
       foo("x")
       foo("x" "y")
+      unset(CACHE{l2})  # Prevent uncertainty from cache fallback
+      set(l1 "x")
+      set(l2)
+      foo(${l1})
+      foo(${l1} ${l2})
     """
     path = pathlib.Path("test-3.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
     context.check_equal(len(result.messages), 0)
     expected_errors = [
-        ("Too few arguments in invocation of macro foo()", _tp.TextPos(3, 4)),  # 1
-        ("Definition of macro foo()",                      _tp.TextPos(1, 0)),  # 2
-        ("Too few arguments in invocation of macro foo()", _tp.TextPos(4, 7)),  # 3
-        ("Definition of macro foo()",                      _tp.TextPos(1, 0)),  # 4
+        ("Too few arguments in invocation of macro foo()", _tp.TextPos(3, 4)),   # 1
+        ("Definition of macro foo()",                      _tp.TextPos(1, 0)),   # 2
+        ("Too few arguments in invocation of macro foo()", _tp.TextPos(4, 7)),   # 3
+        ("Definition of macro foo()",                      _tp.TextPos(1, 0)),   # 4
+        ("Too few arguments in invocation of macro foo()", _tp.TextPos(9, 9)),   # 5
+        ("Definition of macro foo()",                      _tp.TextPos(1, 0)),   # 6
+        ("Too few arguments in invocation of macro foo()", _tp.TextPos(10, 15)), # 7
+        ("Definition of macro foo()",                      _tp.TextPos(1, 0)),   # 8
     ]
     context.check_equal(len(result.errors), len(expected_errors))
     for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
@@ -2150,6 +2162,8 @@ def test_CMakeProcess_Macro(context: _t.Context) -> None:
         baz("-${b}-")
       endmacro()
       foo("${_1}" "${_2}")
+      foo(${_3})
+      foo(${_3} ${_4})
     """
     path = pathlib.Path("test-8.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
@@ -2176,6 +2190,8 @@ def test_CMakeProcess_Macro(context: _t.Context) -> None:
         (invoke_uncertainty_error("message", _cur.ParamType.MACRO_PARAM, "c"), _tp.TextPos(9, 14)),  # 10
         (expansion_uncertainty_cause("baz", _cur.ParamType.MACRO_PARAM, "b"),  _tp.TextPos(13, 8)),  # 11
         (expansion_uncertainty_cause("foo", _cur.ParamType.REGULAR_VAR, "_2"), _tp.TextPos(15, 13)), # 12
+        ("Uncertain number of arguments in invocation of macro foo()",         _tp.TextPos(16, 0)),  # 13
+        ("Uncertain number of arguments in invocation of macro foo()",         _tp.TextPos(17, 0)),  # 14
     ]
     context.check_equal(len(result.errors), len(expected_errors))
     for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
@@ -2311,11 +2327,14 @@ def test_CMakeProcess_Function(context: _t.Context) -> None:
         bar("${x}+${z}" "${y}")
       endfunction()
       foo("X" "Y" "Z")
+      set(l "X" "Y" "Z")
+      foo(${l})
     """
     path = pathlib.Path("test-2.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
     expected_messages = [
+        "-X+Z-Y-",
         "-X+Z-Y-",
     ]
     context.check_equal(len(result.messages), len(expected_messages))
@@ -2331,16 +2350,25 @@ def test_CMakeProcess_Function(context: _t.Context) -> None:
       foo()
       foo("x")
       foo("x" "y")
+      unset(CACHE{l2})  # Prevent uncertainty from cache fallback
+      set(l1 "x")
+      set(l2)
+      foo(${l1})
+      foo(${l1} ${l2})
     """
     path = pathlib.Path("test-3.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
     context.check_equal(len(result.messages), 0)
     expected_errors = [
-        ("Too few arguments in invocation of function foo()", _tp.TextPos(3, 4)),  # 1
-        ("Definition of function foo()",                      _tp.TextPos(1, 0)),  # 2
-        ("Too few arguments in invocation of function foo()", _tp.TextPos(4, 7)),  # 3
-        ("Definition of function foo()",                      _tp.TextPos(1, 0)),  # 4
+        ("Too few arguments in invocation of function foo()", _tp.TextPos(3, 4)),   # 1
+        ("Definition of function foo()",                      _tp.TextPos(1, 0)),   # 2
+        ("Too few arguments in invocation of function foo()", _tp.TextPos(4, 7)),   # 3
+        ("Definition of function foo()",                      _tp.TextPos(1, 0)),   # 4
+        ("Too few arguments in invocation of function foo()", _tp.TextPos(9, 9)),   # 5
+        ("Definition of function foo()",                      _tp.TextPos(1, 0)),   # 6
+        ("Too few arguments in invocation of function foo()", _tp.TextPos(10, 15)), # 7
+        ("Definition of function foo()",                      _tp.TextPos(1, 0)),   # 8
     ]
     context.check_equal(len(result.errors), len(expected_errors))
     for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
@@ -2457,6 +2485,8 @@ def test_CMakeProcess_Function(context: _t.Context) -> None:
         baz("-${b}-")
       endfunction()
       foo("${_1}" "${_2}")
+      foo(${_3})
+      foo(${_3} ${_4})
     """
     path = pathlib.Path("test-7.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
@@ -2482,6 +2512,8 @@ def test_CMakeProcess_Function(context: _t.Context) -> None:
         (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "c"), _tp.TextPos(9, 14)),  #  8
         (expansion_uncertainty_cause("baz", _cur.ParamType.REGULAR_VAR, "b"),  _tp.TextPos(13, 8)),  #  9
         (expansion_uncertainty_cause("foo", _cur.ParamType.REGULAR_VAR, "_2"), _tp.TextPos(15, 13)), # 10
+        ("Uncertain number of arguments in invocation of function foo()",      _tp.TextPos(16, 0)),  # 11
+        ("Uncertain number of arguments in invocation of function foo()",      _tp.TextPos(17, 0)),  # 12
     ]
     context.check_equal(len(result.errors), len(expected_errors))
     for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):

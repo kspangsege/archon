@@ -633,15 +633,24 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
                         return
                 commands_in_invoc_path[command_id] = commands_in_invoc_path.get(command_id, 0) + 1
                 try:
-                    arguments = expand_arguments(invoc, context)
+                    arguments, card_uncertainty = expand_arguments(invoc, context)
+                    def check(qual: str) -> bool:
+                        # Uncertainty in argument cardinality cannot be tolerated, even in
+                        # lenient mode
+                        if card_uncertainty:
+                            error(context.file_index, invoc.pos, "Uncertain number of arguments in invocation of %s "
+                                  "%s()", qual, invoc.command_name)
+                            return False
+                        if len(arguments) < len(command.parameters):
+                            error(context.file_index, invoc.rparen_pos, "Too few arguments in invocation of %s %s()",
+                                  qual, invoc.command_name)
+                            position = command.definition_position
+                            error(position.file_index, position.pos, "Definition of %s %s()", qual, invoc.command_name)
+                            return False
+                        return True
                     match command.type_:
                         case _CustomCommand.Type.MACRO:
-                            if len(arguments) < len(command.parameters):
-                                error(context.file_index, invoc.rparen_pos, "Too few arguments in invocation of "
-                                      "macro %s()", invoc.command_name)
-                                position = command.definition_position
-                                error(position.file_index, position.pos, "Definition of macro %s()",
-                                      invoc.command_name)
+                            if not check("macro"):
                                 return
                             substitutions = _get_macro_substitutions(command.parameters, arguments)
                             for subinvoc in command.invocations:
@@ -649,12 +658,7 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
                                 exec_command(subinvoc_2, context)
                             return
                         case _CustomCommand.Type.FUNCTION:
-                            if len(arguments) < len(command.parameters):
-                                error(context.file_index, invoc.rparen_pos, "Too few arguments in invocation of "
-                                      "function %s()", invoc.command_name)
-                                position = command.definition_position
-                                error(position.file_index, position.pos, "Definition of function %s()",
-                                      invoc.command_name)
+                            if not check("function"):
                                 return
                             state = _SubscopeState(context.state)
                             _assign_function_arguments(command, arguments, state, invoc, context)
@@ -1199,7 +1203,7 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
 
     def evaluate_condition(invoc: _clp.GeneralizedInvoc, context: _InvocContext) -> _cc.Result:
         try:
-            arguments = expand_arguments(invoc, context)
+            arguments, card_uncertainty = expand_arguments(invoc, context)
             condition = _cc.parse(arguments, invoc.rparen_pos)
             class State(_cv.VariableState):
                 @typing.override
@@ -1220,11 +1224,12 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
             raise _ConditionEvalError(e.pos, invoc.command_name, e.message % e.args) from None
 
     def create_argument_server(invoc: _clp.Invoc, context: _InvocContext) -> _ca.ArgumentServer:
-        arguments = expand_arguments(invoc, context)
+        arguments, card_uncertainty = expand_arguments(invoc, context)
         return _ca.ArgumentServer(invoc, arguments, context.file_index)
 
-    def expand_arguments(invoc: _clp.GeneralizedInvoc, context: _InvocContext) -> list[_ca.Argument]:
+    def expand_arguments(invoc: _clp.GeneralizedInvoc, context: _InvocContext) -> tuple[list[_ca.Argument], bool]:
         arguments = list[_ca.Argument]()
+        card_uncertainty = False
         for protoarg in invoc.arguments:
             arg: _ca.Argument
             match protoarg:
@@ -1242,8 +1247,7 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
                                         arguments.append(arg)
                                     continue
                                 case _UncertainExpansionResult():
-                                    # Note that an uncertain unquoted proto-argument stands in for
-                                    # any number of actual arguments, including zero.
+                                    card_uncertainty = True
                                     arg = _ca.UncertainArgument(protoarg.pos, was_bare, result.reason)
                                     arguments.append(arg)
                                     continue
@@ -1274,6 +1278,7 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
                     match protoarg.type_:
                         case _clp.ProtoargumentType.BARE:
                             was_bare = True
+                            card_uncertainty = True
                         case _clp.ProtoargumentType.QUOTED:
                             was_bare = False
                         case _clp.ProtoargumentType.BRACKETED:
@@ -1284,7 +1289,7 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
                     arguments.append(arg)
                     continue
             typing.assert_never(protoarg)
-        return arguments
+        return arguments, card_uncertainty
 
     def expand_string(string: _tp.PosMappedString, invoc: _clp.GeneralizedInvoc,
                       context: _InvocContext) -> _ExpansionResult:
@@ -2213,6 +2218,7 @@ def _get_macro_substitutions(parameters: list[str], arguments: list[_ca.Argument
                     extra_args.append(arg.string.string)
                 continue
             case _ca.UncertainArgument():
+                assert not arg.was_bare
                 substitutions[name] = _UncertainSubstitutionValue(arg.reason)
                 if not all_uncertainty:
                     all_uncertainty = arg.reason
@@ -2416,6 +2422,7 @@ def _assign_function_arguments(command: _CustomCommand, arguments: list[_ca.Argu
                     extra_args.append(arg.string.string)
                 continue
             case _ca.UncertainArgument():
+                assert not arg.was_bare
                 set_uncertain_param(name, arg.reason)
                 if not all_uncertainty:
                     all_uncertainty = arg.reason
