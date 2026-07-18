@@ -1104,6 +1104,129 @@ def test_CMakeProcess_StringTolowerAndToupper(context: _t.Context) -> None:
         subcontext.check_equal(error.file_pos.text_pos, expected[1])
 
 
+def test_CMakeProcess_ListGet(context: _t.Context) -> None:
+    expected: typing.Any
+
+    text = r"""
+      set(l "a" "b")
+      list(GET l 0 x)
+      list(GET l 1 y)
+      list(GET l +0 1 -2 " -1" z)  # Weirdly, CMake does allow for leading whitespace
+      message("${x}-${y}-${z}")
+    """
+    path = pathlib.Path("test-1.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check(success)
+    expected_messages = [
+        "a-b-a;b;a;b",
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(message.message, expected)
+        subcontext.check_is_none(message.occurrence_uncertainty)
+
+    # Invalidity
+    text = r"""
+      unset(CACHE{l1})  # Prevent uncertainty from cache fallback
+      set(l1)
+      set(l2 "a" "b")
+      list(GET l1      x)  # Too few indexes
+      list(GET l2  i   x)  # Invalid integer
+      list(GET l2 "1 " x)  # CMake does not allow for trailing whitespace
+      list(GET l1  0   x)
+      list(GET l1 -1   x)
+      list(GET l2  2   x)
+      list(GET l2 -3   x)
+    """
+    path = pathlib.Path("test-2.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check_not(success)
+    context.check_equal(len(result.messages), 0)
+    expected_errors = [
+        ("Too few indexes in list(GET) invocation",            _tp.TextPos(4, 17)),  # 1
+        ('Invalid index ("i") in list(GET) invocation',        _tp.TextPos(5, 13)),  # 2
+        ('Invalid index ("1 ") in list(GET) invocation',       _tp.TextPos(6, 12)),  # 3
+        ("Index (0) is out of range in list(GET) invocation",  _tp.TextPos(7, 13)),  # 4
+        ("Index (-1) is out of range in list(GET) invocation", _tp.TextPos(8, 12)),  # 5
+        ("Index (2) is out of range in list(GET) invocation",  _tp.TextPos(9, 13)),  # 6
+        ("Index (-3) is out of range in list(GET) invocation", _tp.TextPos(10, 12)), # 7
+    ]
+    context.check_equal(len(result.errors), len(expected_errors))
+    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(error.message, expected[0])
+        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+
+    # Strict mode uncertainty
+    text = r"""
+      set(l "v")
+      list(GET ${u}           )  # Maximal uncertainty
+      list(GET ${u}          x)  # Certain target name
+      list(GET ${u}   0 1    x)  # Uncertain separation between variable name and indexes
+      list(GET "${u}" 0      x)  # Uncertain list variable name
+      list(GET u      0      x)  # Uncertain list value
+      list(GET l      "${u}" x)  # Uncertain index
+      list(GET l      ${u}   x)  # Uncertain number of indexes
+    """
+    path = pathlib.Path("test-3.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check_not(success)
+    context.check_equal(len(result.messages), 0)
+    expected_errors = [
+        (invoke_uncertainty_error("list", _cur.ParamType.REGULAR_VAR, "u"), _tp.TextPos(2, 9)),  # 1
+        (invoke_uncertainty_error("list", _cur.ParamType.REGULAR_VAR, "u"), _tp.TextPos(3, 9)),  # 2
+        (invoke_uncertainty_error("list", _cur.ParamType.REGULAR_VAR, "u"), _tp.TextPos(4, 9)),  # 3
+        (invoke_uncertainty_error("list", _cur.ParamType.REGULAR_VAR, "u"), _tp.TextPos(5, 10)), # 4
+        (invoke_uncertainty_error("list", _cur.ParamType.REGULAR_VAR, "u"), _tp.TextPos(6, 9)),  # 5
+        (invoke_uncertainty_error("list", _cur.ParamType.REGULAR_VAR, "u"), _tp.TextPos(7, 17)), # 6
+        (invoke_uncertainty_error("list", _cur.ParamType.REGULAR_VAR, "u"), _tp.TextPos(8, 16)), # 7
+    ]
+    context.check_equal(len(result.errors), len(expected_errors))
+    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(error.message, expected[0])
+        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+
+    # Lenient mode uncertainty
+    text = r"""
+      set(l "v")
+      list(GET ${u}            )  # Maximal uncertainty
+      list(GET ${u}           x)  # Certain target name
+      list(GET ${u}   0 1     x)  # Uncertain separation between variable name and indexes
+      list(GET "${u}" 0      x1)  # Uncertain list variable name
+      list(GET u      0      x2)  # Uncertain list value
+      list(GET l      "${u}" x3)  # Uncertain index
+      list(GET l      ${u}   x4)  # Uncertain number of indexes
+      message("${x1}")
+      message("${x2}")
+      message("${x3}")
+      message("${x4}")
+    """
+    path = pathlib.Path("test-4.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context, lenient_mode=True)
+    context.check_not(success)
+    context.check_equal(len(result.messages), 0)
+    expected_errors = [
+        (invoke_uncertainty_error("list", _cur.ParamType.REGULAR_VAR, "u"),     _tp.TextPos(2, 9)),   #  1
+        (invoke_uncertainty_error("list", _cur.ParamType.REGULAR_VAR, "u"),     _tp.TextPos(3, 9)),   #  2
+        (invoke_uncertainty_error("list", _cur.ParamType.REGULAR_VAR, "u"),     _tp.TextPos(4, 9)),   #  3
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "x1"), _tp.TextPos(9, 9)),   #  4
+        (expansion_uncertainty_cause("list", _cur.ParamType.REGULAR_VAR, "u"),  _tp.TextPos(5, 10)),  #  5
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "x2"), _tp.TextPos(10, 9)),  #  6
+        (expansion_uncertainty_cause("list", _cur.ParamType.REGULAR_VAR, "u"),  _tp.TextPos(6, 9)),   #  7
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "x3"), _tp.TextPos(11, 9)),  #  8
+        (expansion_uncertainty_cause("list", _cur.ParamType.REGULAR_VAR, "u"),  _tp.TextPos(7, 17)),  #  9
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "x4"), _tp.TextPos(12, 9)),  # 10
+        (expansion_uncertainty_cause("list", _cur.ParamType.REGULAR_VAR, "u"),  _tp.TextPos(8, 16)),  # 11
+    ]
+    context.check_equal(len(result.errors), len(expected_errors))
+    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(error.message, expected[0])
+        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+
+
 def test_CMakeProcess_ListAppend(context: _t.Context) -> None:
     expected: typing.Any
 
@@ -2653,7 +2776,8 @@ def _trim_cmake_text(text: str) -> str:
 
 
 def _process(cmake_text: str, cmake_path: pathlib.Path, context: _t.Context,
-             subfile_resolver: _SubfileResolver | None = None, set_binary_dir: bool = False) -> tuple[bool, _Result]:
+             subfile_resolver: _SubfileResolver | None = None, set_binary_dir: bool = False,
+             lenient_mode: bool = False) -> tuple[bool, _Result]:
     source_dir = pathlib.Path("src")
     pos_resolver = _cp.PositionResolver()
     result = _Result()
@@ -2661,10 +2785,12 @@ def _process(cmake_text: str, cmake_path: pathlib.Path, context: _t.Context,
     config = _cp.Config()
     if set_binary_dir:
         config.binary_dir = pathlib.Path("bin")
+    if lenient_mode:
+        config.lenient_mode = True
     config.define_breakpoint_command = True
     with io.StringIO(cmake_text) as file_:
         cmake_source = _cp.Source(file_, cmake_path)
-        success = _cp.process(source_dir, cmake_source, application, pos_resolver, config)
+        success = _cp.process(cmake_source, source_dir, application, pos_resolver, config)
         return success, result
 
 

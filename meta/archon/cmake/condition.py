@@ -465,7 +465,7 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
 
     def eval_matches(left: Condition, right: Condition) -> Result:
         result_1 = eval_as_str_from_var_or_str(left)
-        result_2 = eval_as_str(right)
+        result_2 = eval_as_str(right)  # The regular expression
         regex:  _cr.Regex | None = None
         reason: _cur.ExpansionUncertaintyReason | None = None
         match result_2:

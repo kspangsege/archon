@@ -22,22 +22,110 @@ import archon.cmake.argument as _ca
 import archon.cmake.condition as _cc
 
 
-@dataclasses.dataclass(kw_only=True)
-class Config:
-    binary_dir:                pathlib.Path | None = None
-    initial_variables:         dict[str, str | None] = dataclasses.field(default_factory=dict)
-    define_breakpoint_command: bool = False
-
-
-def process(source_dir: pathlib.Path, cmake_source: Source, application: Application,
-            pos_resolver: PositionResolver, config: Config = Config()) -> bool:
-    return _process(source_dir, cmake_source, application, pos_resolver, config)
+# Process the specified CMake file (`cmake_source`) using the specified source directory
+# (`source_dir`) as the initial value of `CMAKE_CURRENT_SOURCE_DIR`. If specified paths are
+# relative, they will be resolved by the specified application (`application.open_subfile()`
+# or `application.resolve_path()`). `CMAKE_CURRENT_SOURCE_DIR` will be set to an absolute
+# path even when a relative path is specified. See also `Config.binary_dir`.
+#
+# The operation carried out by this function corresponds to the configuration phase of an
+# ordinary CMake run, but this function does it in a way that tracks uncertainty due to
+# variables with unknown value. During an ordinary CMake run, a variable that has never been
+# set or unset is taken to be definitely unset, and during an expansion its value is taken
+# to be the empty string. This function takes a different approach where a variable that has
+# never been set or unset is taken to have indefinite value and "unset" is one possible
+# value.
+#
+# The purpose of this approach is to allow for extraction of particular information from a
+# CMake buildsystem specification in a way that is environment independent. What information
+# to extract is determined by the application. Depending on the details of a concrete
+# buildsystem configuration, it may be impossible to extract particular information without
+# providing definite values for certain variables. Therefore, it is possible to set initial
+# values for certain variables (see `Config.initial_variables`), but the idea is that only a
+# few variable will need to be set in practice, and that it can be done in a way that
+# reasonably maintains environment independence. In general, the needed initial variables
+# will depend on what information needs to be extracted.
+#
+# This function returns `True` when the processing of the CMake file succeeds, and `False`
+# otherwise. It succeeds precisely when no errors are generated. An error is generated if
+#
+#   - a low-level syntactic error is encountered (exactly as in CMake), or
+#
+#   - an invocation of an unknown command or a command with uncertain definition was
+#     encountered and the command is not on the command whitelist (see "Whitelists" below),
+#     or
+#
+#   - an invocation of an unsupported command is encountered, or
+#
+#   - an invocation was determined to be invalid or to use unsupported syntax, or
+#
+#   - due to uncertainty in arguments, an invocation could neither be determined to be valid
+#     nor to be invalid or to use unsupported syntax and lenient mode was not enabled (see
+#     below), or
+#
+#   - an unsuppressed command invocation with an effect that cannot be accounted for in
+#     terms of propagation of variable uncertainty had uncertain occurrence (see
+#     Config.suppress_messages).
+#
+#
+# In strict mode (the default), when the validity of a command invocation cannot be
+# established due to argument uncertainty (best effort), an "uncertain argument" error is
+# generated.
+#
+# In lenient mode (see Config.lenient_mode), when the validity of a command invocation
+# cannot be established, but its effect can be accounted for in terms of propagation of
+# variable uncertainty so long as the uncertain arguments can be such that no error would be
+# generated under a regular CMake run, that command invocation will be assumed to be valid
+# (optimistic approach) and no error is generated.
+#
+#
+# Whitelists
+# ----------
+#
+# By default, an invocation of an unknown command or a command with uncertain definition
+# will generate an error and cause the processing of the CMake file to fail. To prevent
+# this, the application can put a command on the *command whitelist*
+# (`Config.command_whitelist`). By doing that, the application asserts that the command
+#
+#   - does not taint any function definitions, and
+#
+#   - does not taint any regular variables that are on the *variable whitelist*
+#     (`Config.variable_whitelist`), and
+#
+#   - does not taint any parent scope variables, and
+#
+#   - has no effect other than what is covered by the tainted variables.
+#
+# Note that an invocation of an unknown / uncertain command that is on the whitelist will
+# cause a taint of all cache variables, all environment variables, and all regular variables
+# that are not on the variable whitelist.
+#
+def process(cmake_source: Source, source_dir: pathlib.Path, application: Application,
+            pos_resolver: PositionResolver, config: Config | None = None) -> bool:
+    return _process(cmake_source, source_dir, application, pos_resolver, config or Config())
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class Source:
     input_: typing.TextIO
     path:   pathlib.Path
+
+
+@dataclasses.dataclass(kw_only=True)
+class Config:
+    binary_dir: pathlib.Path | None = None
+
+    lenient_mode: bool = False
+
+    suppress_messages: bool = False
+
+    initial_variables: dict[str, str | None] = dataclasses.field(default_factory=dict)
+
+    command_whitelist: list[str] = dataclasses.field(default_factory=list)
+
+    variable_whitelist: list[str] = dataclasses.field(default_factory=list)
+
+    define_breakpoint_command: bool = False
 
 
 class Application(abc.ABC):
@@ -135,7 +223,77 @@ class MessageLevel(enum.Enum):
 
 
 
-def _process(source_dir: pathlib.Path, cmake_source: Source, application: Application, pos_resolver: PositionResolver,
+# Clarification of principles of uncertainty handling that must be adhered to by command
+# implementations:
+#
+# For each considered invocation:
+#
+#  1. If command has unknown or uncertain definition:
+#
+#       - If command is not on application-specified command whitelist, fail
+#
+#       - Taint all cache and environment variables as well as all regular variables that
+#         are not on the application-specified variable whitelist
+#
+#       - Proceed to next invocation
+#
+#  2. If command is unsupported / not yet implemented, fail
+#
+#  3. Determine validity state of invocation (valid, invalid, unknown validity)
+#
+#  4. If invocation was determined to be invalid (invalid argument structure, unsupported
+#     argument structure, invalid arguments), fail
+#
+#  5. If invocation was not determined to be valid and lenient mode is not enabled
+#     (Config.lenient_mode), fail
+#
+#  6. If command is suppressed (message()), proceed to next invocation
+#
+#  7. If there is no argument or occurrence uncertainty, execute the command and proceed
+#
+#  8. If the command is a defined macro or function and the invocation is valid, which means
+#     that the number of arguments is known and is greater than or equal to the number of
+#     formal parameters, execute the command and proceed
+#
+#  9. If the effect of the command can be fully and reasonably accounted for in terms of
+#     uncertainty propagation, propagate uncertainty and proceed
+#
+# 10. Consider special cases (message() can be handled in the presence of occurrence
+#     uncertainty but not when there is argument uncertainty)
+#
+# 11. Fail
+#
+# Step 3: The validity state determination must be such that if an invocation is determined
+# to be valid or invalid, the invocation is definitely valid or definitely invalid. On the
+# other hand, the validity state determination is not required to determine validity or
+# invalidity, even when it could in principle be determined given the available information
+# including entanglement between argument uncertainties and occurrence uncertainty. As such,
+# the validity state determination is performed in a best-effort way.
+#
+# It must be noted that in strict mode an error may be generated because an invocation, that
+# in principle could be determined to be valid, was determined to have unknown validity. As
+# such, false positives are possible in strict mode.
+#
+# Conversely, in lenient mode, an error may not be generated for an invocation that could in
+# principle be determined to be invalid, because its validity status was determined as
+# unknown. As such, false negatives are possible in lenient mode.
+#
+# Step 9: There is latitude for command implementations to decide what is reasonable when it
+# comes to accounting for the effect of the command in terms of uncertainty propagation. For
+# example, `macro("${unknown}")` could in principle be handled by tainting all command
+# definitions, but this is deemed unreasonable behavior, so such an invocation will generate
+# an error even in lenient mode.
+#
+# FIXME: What if an unknown command is on the whitelist but the invocation is invalid in
+# fact. It seems like this leads to the possibility of false negatives even in strict
+# mode. Is there any reasonable way to fix this? Should the whitelist idea be expanded allow
+# for specification of per-command signature schema?      
+#
+# FIXME: It is not entirely clear whether `if()` should be regarded as a command whose
+# effect can be fully accounted for in terms of uncertainty propagation, or as a special
+# case.
+#
+def _process(cmake_source: Source, source_dir: pathlib.Path, application: Application, pos_resolver: PositionResolver,
              config: Config) -> bool:
     errors_seen = False
 
@@ -208,7 +366,7 @@ def _process(source_dir: pathlib.Path, cmake_source: Source, application: Applic
         except _ConditionEvalError as e:
             error(context.file_index, e.pos, "Failed to evaluate %s() condition: %s", e.command_name, e.message)
             return
-        except _ca.UncertainArgumentException as e:
+        except (_ca.UncertainArgumentException, _UncertainVariableResolutionException) as e:
             position = e.reason.expansion_position
             error(position.file_index, position.pos, "Failed to invoke %s() due to expansion of %s with uncertain "
                   "value", e.reason.command_name, e.reason.get_qual_param_ref())
@@ -655,7 +813,7 @@ def _process(source_dir: pathlib.Path, cmake_source: Source, application: Applic
                     try:
                         orig_value = resolve_certain_variable(_cu.ResolutionType.ENV, var_name, var_ref_pos, invoc,
                                                               context)
-                    except _ca.UncertainArgumentException as e:
+                    except _UncertainVariableResolutionException as e:
                         # If the target variable was tainted, it remains tainted. Nothing
                         # further to do.
                         return
@@ -743,7 +901,7 @@ def _process(source_dir: pathlib.Path, cmake_source: Source, application: Applic
             try:
                 orig_string = resolve_certain_variable(_cu.ResolutionType.GENERAL, var_name, var_name_pos, invoc,
                                                        context)
-            except _ca.UncertainArgumentException as e:
+            except _UncertainVariableResolutionException as e:
                 # If the target variable was tainted, it remains tainted. Nothing further to
                 # do.
                 return
@@ -802,8 +960,9 @@ def _process(source_dir: pathlib.Path, cmake_source: Source, application: Applic
                     return
                 string = arg.string.string
             except _ca.UncertainArgumentException as e:
+                if e.was_bare:
+                    raise
                 uncertainty = e.reason
-                server.discard()
             arg = server.consume()
             if not arg:
                 error(context.file_index, server.next_pos, "Missing <variable> argument in %s(%s) invocation",
@@ -832,6 +991,87 @@ def _process(source_dir: pathlib.Path, cmake_source: Source, application: Applic
             error(context.file_index, server.next_pos, "Too few arguments in %s() invocation", invoc.command_name)
             return
         func = arg.string.string
+        if func == "GET":
+            arg = server.consume_last()
+            if not arg:
+                error(context.file_index, server.next_pos, "Missing final <variable> argument in %s(%s) invocation",
+                      invoc.command_name, func)
+                return
+            var_name = arg.string.string
+            # Validity cannot be establish unless all arguments have certain values (because
+            # indexes need to be within range), therefore, in stricy mode, any uncertainty
+            # generates an error. In lenient mode, however, list contents can be unknown,
+            # the number of indexes can be unknown as long as there is at least one, and the
+            # actual index values can be unknown.
+            uncertainty: _cur.ExpansionUncertaintyReason | None = None
+            have_list_name = False
+            try:
+                arg = server.consume()
+                if not arg:
+                    error(context.file_index, server.next_pos, "Missing <list> argument in %s(%s) invocation",
+                          invoc.command_name, func)
+                    return
+                list_name = arg.string.string
+                list_name_pos = arg.pos
+                have_list_name = True
+            except _ca.UncertainArgumentException as e:
+                if not context.root.lenient_mode or e.was_bare:
+                    raise
+                if not uncertainty:
+                    uncertainty = e.reason
+            have_list_value = False
+            if have_list_name:
+                try:
+                    string = resolve_certain_variable(_cu.ResolutionType.GENERAL, list_name, list_name_pos, invoc,
+                                                      context)
+                    elements = _cu.unescaping_list_split(string)
+                    n = len(elements)
+                    have_list_value = True
+                except _UncertainVariableResolutionException as e:
+                    if not context.root.lenient_mode:
+                        raise
+                    if not uncertainty:
+                        uncertainty = e.reason
+            indexes = list[int]()
+            definitely_no_indexes = True
+            while True:
+                try:
+                    arg = server.consume()
+                    if not arg:
+                        break
+                    value = _cu.parse_index_arg(arg.string.string)
+                    if value is None:
+                        error(context.file_index, arg.pos, "Invalid index (%s) in %s(%s) invocation",
+                              _b.quote(arg.string.string), invoc.command_name, func)
+                        return
+                    if have_list_value and not (-n <= value < n):
+                        error(context.file_index, arg.pos, "Index (%s) is out of range in %s(%s) invocation", value,
+                              invoc.command_name, func)
+                        return
+                    definitely_no_indexes = False
+                    indexes.append(value)
+                except _ca.UncertainArgumentException as e:
+                    if not context.root.lenient_mode:
+                        raise
+                    definitely_no_indexes = False
+                    if not uncertainty:
+                        uncertainty = e.reason
+            if definitely_no_indexes:
+                error(context.file_index, server.next_pos, "Too few indexes in %s(%s) invocation", invoc.command_name,
+                      func)
+                return
+            if uncertainty:
+                assert context.root.lenient_mode
+                taint_regular_variable(var_name, uncertainty, context)
+                return
+            assert have_list_value
+            elements_2 = list[str]()
+            for index in indexes:
+                elements_2.append(elements[index])
+            assert elements_2
+            string_2 = _cu.nonescaping_list_join(elements_2)
+            set_regular_variable(var_name, string_2, invoc, context)
+            return
         if func in {"APPEND", "PREPEND"}:
             arg = server.consume()
             if not arg:
@@ -840,14 +1080,14 @@ def _process(source_dir: pathlib.Path, cmake_source: Source, application: Applic
                 return
             var_name = arg.string.string
             var_name_pos = arg.pos
-            # In CMake, this variable modifying operation loads the original value either
+            # In CMake, these variable modifying operations load the original value either
             # from a regular variable or from a cache variable if a regular variable does
             # not exist, and, regardless of where the value was loaded from, the result is
             # stored in a regular variable.
             try:
                 orig_string = resolve_certain_variable(_cu.ResolutionType.GENERAL, var_name, var_name_pos, invoc,
                                                        context)
-            except _ca.UncertainArgumentException as e:
+            except _UncertainVariableResolutionException as e:
                 # If the target variable was tainted, it remains tainted. Nothing further to
                 # do.
                 return
@@ -894,6 +1134,8 @@ def _process(source_dir: pathlib.Path, cmake_source: Source, application: Applic
         arg = server.consume_keyword(_MESSAGE_LEVEL_MAP.keys())
         if arg:
             level = _MESSAGE_LEVEL_MAP[arg.string.string]
+        if context.root.suppress_messages:
+            return
         message = ""
         while True:
             arg = server.consume()
@@ -1097,7 +1339,7 @@ def _process(source_dir: pathlib.Path, cmake_source: Source, application: Applic
                 expansion_position = _cur.Position(context.file_index, pos)
                 reason = _cur.ExpansionUncertaintyReason(invoc.command_name, param_type, variable_name,
                                                          expansion_position, value.reason)
-                raise _ca.UncertainArgumentException(reason) from None
+                raise _UncertainVariableResolutionException(reason) from None
         typing.assert_never(value)
 
     def resolve_variable(resolution_type: _cu.ResolutionType, variable_name: str, pos: int,
@@ -1199,7 +1441,7 @@ def _process(source_dir: pathlib.Path, cmake_source: Source, application: Applic
     state = _RootState(initial_variables, config.define_breakpoint_command)
     occurrence_uncertainty = None
     base_dir = source_dir
-    root = _RootContext(application, pos_resolver)
+    root = _RootContext(application, pos_resolver, config.lenient_mode, config.suppress_messages)
     process_file(root, cmake_source, state, occurrence_uncertainty, source_dir, config.binary_dir)
     return not errors_seen
 
@@ -1237,8 +1479,10 @@ class _InvocContext:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class _RootContext:
-    application:  Application
-    pos_resolver: PositionResolver
+    application:       Application
+    pos_resolver:      PositionResolver
+    lenient_mode:      bool
+    suppress_messages: bool
 
 
 class _State(abc.ABC):
@@ -1859,6 +2103,12 @@ class _UnsupportedInvocSyntaxException(Exception):
     def __init__(self, invoc: _clp.GeneralizedInvoc, *args: typing.Any) -> None:
         Exception.__init__(self, *args)
         self.invoc = invoc
+
+
+class _UncertainVariableResolutionException(Exception):
+    def __init__(self, reason: _cur.ExpansionUncertaintyReason) -> None:
+        Exception.__init__(self)
+        self.reason = reason
 
 
 class _ConditionParseError(Exception):

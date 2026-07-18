@@ -54,22 +54,27 @@ class ArgumentServer:
                     return arg
                 return None
             if isinstance(arg, UncertainArgument):
-                raise UncertainArgumentException(arg.reason) from None
+                self._begin += 1
+                raise UncertainArgumentException(arg.reason, arg.was_bare) from None
             typing.assert_never(arg)
         return None
 
-    def discard(self) -> None:
+    def consume_last(self) -> CertainArgument | None:
+        return self.consume_last_if(lambda _: True)
+
+    def consume_last_if(self, pred: collections.abc.Callable[[str], bool]) -> CertainArgument | None:
         if self._begin < self._end:
-            arg = self._arguments[self._begin]
+            arg = self._arguments[self._end - 1]
             if isinstance(arg, CertainArgument):
-                self._begin += 1
-                return
+                if pred(arg.string.string):
+                    self._end -= 1
+                    return arg
+                return None
             if isinstance(arg, UncertainArgument):
-                if arg.was_bare:
-                    raise UncertainArgumentException(arg.reason) from None
-                self._begin += 1
-                return
+                self._end -= 1
+                raise UncertainArgumentException(arg.reason, arg.was_bare) from None
             typing.assert_never(arg)
+        return None
 
     def find_keyword(self, keywords: collections.abc.Container[str]) -> int:
         return self.find(lambda s: s in keywords)
@@ -84,7 +89,7 @@ class ArgumentServer:
                 i += 1
                 continue
             if isinstance(arg, UncertainArgument):
-                raise UncertainArgumentException(arg.reason) from None
+                raise UncertainArgumentException(arg.reason, arg.was_bare) from None
             typing.assert_never(arg)
         return -1
 
@@ -95,13 +100,14 @@ class ArgumentServer:
 
     @property
     def next_pos(self) -> int:
-        if self._begin < self._end:
+        if self._begin < len(self._arguments):
             arg = self._arguments[self._begin]
             return arg.pos
         return self._invoc.rparen_pos
 
 
 class UncertainArgumentException(Exception):
-    def __init__(self, reason: _cur.ExpansionUncertaintyReason) -> None:
+    def __init__(self, reason: _cur.ExpansionUncertaintyReason, was_bare: bool) -> None:
         Exception.__init__(self)
         self.reason = reason
+        self.was_bare = was_bare
