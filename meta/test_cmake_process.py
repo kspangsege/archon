@@ -688,6 +688,102 @@ def test_CMakeProcess_VariableExpansion(context: _t.Context) -> None:
         subcontext.check_equal(error.file_pos.text_pos, expected[1])
 
 
+def test_CMakeProcess_MatchesOperator(context: _t.Context) -> None:
+    text = r"""
+      if("x" MATCHES "x")
+        message("1: -${CMAKE_MATCH_COUNT}-${CMAKE_MATCH_0}-")
+      endif()
+
+      # Only needs to find match on substring
+      if("xyx" MATCHES "y")
+        message("2: -${CMAKE_MATCH_COUNT}-${CMAKE_MATCH_0}-")
+      endif()
+
+      if("xyx" MATCHES "y|z")
+        message("3: -${CMAKE_MATCH_COUNT}-${CMAKE_MATCH_0}-")
+      endif()
+
+      if("xyx" MATCHES "x(y|z)x")
+        message("4: -${CMAKE_MATCH_COUNT}-${CMAKE_MATCH_0}-${CMAKE_MATCH_1}-")
+      endif()
+
+      # Variables are also visible after endif()
+      message("5: -${CMAKE_MATCH_COUNT}-${CMAKE_MATCH_0}-${CMAKE_MATCH_1}-")
+
+      # Variables for unused capture groups are unaffected
+      set(CMAKE_MATCH_1 "value 1")
+      set(CMAKE_MATCH_2 "value 2")
+      if("x" MATCHES "x")
+      endif()
+      message("6: -${CMAKE_MATCH_COUNT}-${CMAKE_MATCH_0}-${CMAKE_MATCH_1}-${CMAKE_MATCH_2}-")
+      if("x" MATCHES "(x)")
+      endif()
+      message("7: -${CMAKE_MATCH_COUNT}-${CMAKE_MATCH_0}-${CMAKE_MATCH_1}-${CMAKE_MATCH_2}-")
+
+      # Strangely, in CMake, variables for capture groups with empty matches are unaffected
+      set(CMAKE_MATCH_1 "value 1")
+      set(CMAKE_MATCH_2 "value 2")
+      if("xyx" MATCHES "(z*)y(x)")
+      endif()
+      message("8: -${CMAKE_MATCH_COUNT}-${CMAKE_MATCH_0}-${CMAKE_MATCH_1}-${CMAKE_MATCH_2}-")
+
+      # CMAKE_MATCH_COUNT is set to the number associated with the highest capture group that has a nonempty match
+      set(CMAKE_MATCH_1 "value 1")
+      set(CMAKE_MATCH_2 "value 2")
+      if("xyx" MATCHES "(x)y(z*)")
+      endif()
+      message("9: -${CMAKE_MATCH_COUNT}-${CMAKE_MATCH_0}-${CMAKE_MATCH_1}-${CMAKE_MATCH_2}-")
+
+      # Strangely, CMake sets CMAKE_MATCH_COUNT to the empty string when the full match is the empty string
+      set(CMAKE_MATCH_COUNT "value 1")
+      set(CMAKE_MATCH_0     "value 2")
+      if("xyx" MATCHES "z*")
+        message("10: -${CMAKE_MATCH_COUNT}-${CMAKE_MATCH_0}-")
+      endif()
+
+      # Non-match
+      set(CMAKE_MATCH_COUNT "value 1")
+      set(CMAKE_MATCH_0     "value 2")
+      if("xyx" MATCHES "x(a|b)x")
+      else()
+        message("11: -${CMAKE_MATCH_COUNT}-${CMAKE_MATCH_0}-")
+      endif()
+      message("12: -${CMAKE_MATCH_COUNT}-${CMAKE_MATCH_0}-")
+    """
+    path = pathlib.Path("test-1.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check(success)
+    expected_messages = [
+        "1: -0-x-",                 #  1
+        "2: -0-y-",                 #  2
+        "3: -0-y-",                 #  3
+        "4: -1-xyx-y-",             #  4
+        "5: -1-xyx-y-",             #  5
+        "6: -0-x-value 1-value 2-", #  6
+        "7: -1-x-x-value 2-",       #  7
+        "8: -2-yx-value 1-x-",      #  8
+        "9: -1-xy-x-value 2-",      #  9
+        "10: --value 2-",           # 10
+        "11: -0-value 2-",          # 11
+        "12: -0-value 2-",          # 12
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(message.message, expected)
+        subcontext.check_is_none(message.occurrence_uncertainty)
+
+
+    
+
+    # Invalidity
+
+    # Strict mode uncertainty
+
+    # Lenient mode uncertainty
+    
+
+
 def test_CMakeProcess_StringAppend(context: _t.Context) -> None:
     expected: typing.Any
 
