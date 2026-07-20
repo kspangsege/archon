@@ -741,14 +741,21 @@ def test_CMakeProcess_MatchesOperator(context: _t.Context) -> None:
         message("10: -${CMAKE_MATCH_COUNT}-${CMAKE_MATCH_0}-")
       endif()
 
+      # Empty regular expression allowed
+      set(CMAKE_MATCH_COUNT "value 1")
+      set(CMAKE_MATCH_0     "value 2")
+      if("xyx" MATCHES "")
+        message("11: -${CMAKE_MATCH_COUNT}-${CMAKE_MATCH_0}-")
+      endif()
+
       # Non-match
       set(CMAKE_MATCH_COUNT "value 1")
       set(CMAKE_MATCH_0     "value 2")
       if("xyx" MATCHES "x(a|b)x")
       else()
-        message("11: -${CMAKE_MATCH_COUNT}-${CMAKE_MATCH_0}-")
+        message("12: -${CMAKE_MATCH_COUNT}-${CMAKE_MATCH_0}-")
       endif()
-      message("12: -${CMAKE_MATCH_COUNT}-${CMAKE_MATCH_0}-")
+      message("13: -${CMAKE_MATCH_COUNT}-${CMAKE_MATCH_0}-")
     """
     path = pathlib.Path("test-1.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
@@ -764,16 +771,15 @@ def test_CMakeProcess_MatchesOperator(context: _t.Context) -> None:
         "8: -2-yx-value 1-x-",      #  8
         "9: -1-xy-x-value 2-",      #  9
         "10: --value 2-",           # 10
-        "11: -0-value 2-",          # 11
+        "11: --value 2-",           # 11
         "12: -0-value 2-",          # 12
+        "13: -0-value 2-",          # 13
     ]
     context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
         subcontext = context.subcontext(1 + i)
         subcontext.check_equal(message.message, expected)
         subcontext.check_is_none(message.occurrence_uncertainty)
-
-    # FIXME: Consider empty case (regular expression is the empty string)  
 
     # Invalidity
     text = """
