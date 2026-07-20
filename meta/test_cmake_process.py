@@ -773,10 +773,33 @@ def test_CMakeProcess_MatchesOperator(context: _t.Context) -> None:
         subcontext.check_equal(message.message, expected)
         subcontext.check_is_none(message.occurrence_uncertainty)
 
-
-    
+    # FIXME: Consider empty case (regular expression is the empty string)  
 
     # Invalidity
+    text = """
+      if("x" MATCHES "[2-1]")  # Invalaid range
+      endif()
+      if("x" MATCHES "x**")  # Invalaid double quantification
+      endif()
+      set(v "xx[2-1]xx")
+      if("x" MATCHES "yyyy${v}yyyy")  # Invalaid range inside variable
+      endif()
+    """
+    path = pathlib.Path("test-2.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check_not(success)
+    context.check_equal(len(result.messages), 0)
+    error_prefix = "Failed to evaluate if() condition: Regular expression syntax error: "
+    expected_errors = [
+        (error_prefix + 'Invalid range ("2-1")',           _tp.TextPos(1, 17)), # 1
+        (error_prefix + 'Invalid use of quantifier ("*")', _tp.TextPos(3, 18)), # 2
+        (error_prefix + 'Invalid range ("2-1")',           _tp.TextPos(6, 20)), # 3
+    ]
+    context.check_equal(len(result.errors), len(expected_errors))
+    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(error.message, expected[0])
+        subcontext.check_equal(error.file_pos.text_pos, expected[1])
 
     # Strict mode uncertainty
 
