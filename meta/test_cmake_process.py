@@ -688,6 +688,38 @@ def test_CMakeProcess_VariableExpansion(context: _t.Context) -> None:
         subcontext.check_equal(error.file_pos.text_pos, expected[1])
 
 
+def test_CMakeProcess_Condition(context: _t.Context) -> None:
+    # Parse errors
+    text = r"""
+      set(lparen "(")
+      set(rparen ")")
+      if(${lparen} "x" STREQUAL "y")  # Unmatched left parenthesis
+      endif()
+      if(FALSE)
+      elseif("x" STREQUAL "y" ${rparen})  # Unmatched right parenthesis
+      endif()
+      if("x" "x")  # Irreducible sequence
+      endif()
+      if("${lparen}" TRUE "${rparen}")  # Not parentheses when quoted
+      endif()
+    """
+    path = pathlib.Path("test-1.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check_not(success)
+    context.check_equal(len(result.messages), 0)
+    expected_errors = [
+        ("Failed to parse if() condition: Unmatched left parenthesis",                  _tp.TextPos(3, 3)),  # 1
+        ("Failed to parse elseif() condition: Unmatched right parenthesis",             _tp.TextPos(6, 24)), # 2
+        ('Failed to parse if() condition: Irreducible argument sequence: "x" "x"',      _tp.TextPos(8, 3)),  # 3
+        ('Failed to parse if() condition: Irreducible argument sequence: "(" TRUE ")"', _tp.TextPos(10, 3)), # 4
+    ]
+    context.check_equal(len(result.errors), len(expected_errors))
+    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(error.message, expected[0])
+        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+
+
 def test_CMakeProcess_MatchesOperator(context: _t.Context) -> None:
     expected: typing.Any
 

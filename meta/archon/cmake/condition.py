@@ -15,8 +15,8 @@ import archon.cmake.argument as _ca
 import archon.cmake.regex as _cr
 
 
-def parse(arguments: collections.abc.Iterable[_ca.Argument], rparen_pos: int) -> Condition:
-    return _parse(arguments, rparen_pos)
+def parse(command_name: str, arguments: collections.abc.Iterable[_ca.Argument], rparen_pos: int) -> Condition:
+    return _parse(command_name, arguments, rparen_pos)
 
 
 def evaluate(condition: Condition, command_name: str, file_index: int, variable_state: _cv.VariableState,
@@ -25,19 +25,21 @@ def evaluate(condition: Condition, command_name: str, file_index: int, variable_
 
 
 class FatalParseError(Exception):
-    def __init__(self, pos: int, message: str, *args: typing.Any) -> None:
+    def __init__(self, command_name: str, pos: int, message: str, *args: typing.Any) -> None:
         Exception.__init__(self)
-        self.pos     = pos
-        self.message = message
-        self.args    = args
+        self.command_name = command_name
+        self.pos          = pos
+        self.message      = message
+        self.args         = args
 
 
 class FatalEvalError(Exception):
-    def __init__(self, pos: int, message: str, *args: typing.Any) -> None:
+    def __init__(self, command_name: str, pos: int, message: str, *args: typing.Any) -> None:
         Exception.__init__(self)
-        self.pos     = pos
-        self.message = message
-        self.args    = args
+        self.command_name = command_name
+        self.pos          = pos
+        self.message      = message
+        self.args         = args
 
 
 class UncertaintyError(Exception):
@@ -154,7 +156,7 @@ class UncertainResult:
 
 
 
-def _parse(arguments: collections.abc.Iterable[_ca.Argument], rparen_pos: int) -> Condition:
+def _parse(command_name:str, arguments: collections.abc.Iterable[_ca.Argument], rparen_pos: int) -> Condition:
     def parse(conditions: list[Condition], rparen_pos: int) -> Condition:
         if len(conditions) < 1:
             return FalseCondition(rparen_pos)
@@ -176,7 +178,7 @@ def _parse(arguments: collections.abc.Iterable[_ca.Argument], rparen_pos: int) -
                     level += 1
                 elif cond.string.string == ")":
                     if level == 0:
-                        raise FatalParseError(cond.pos, "Unmatched right parenthesis") from None
+                        raise FatalParseError(command_name, cond.pos, "Unmatched right parenthesis") from None
                     level -= 1
                     if level == 0:
                         end_index = i + 1
@@ -187,7 +189,7 @@ def _parse(arguments: collections.abc.Iterable[_ca.Argument], rparen_pos: int) -
                         continue
             i += 1
         if level != 0:
-            raise FatalParseError(begin_pos, "Unmatched left parenthesis") from None
+            raise FatalParseError(command_name, begin_pos, "Unmatched left parenthesis") from None
 
         # Parse for unary operators
         i = 0
@@ -278,7 +280,8 @@ def _parse(arguments: collections.abc.Iterable[_ca.Argument], rparen_pos: int) -
             string = " ".join(format_(c) for c in prefix)
             if len(conditions) > len(prefix):
                 string += " ..."
-            raise FatalParseError(conditions[0].pos, "Irreducible argument sequence: %s", string) from None
+            raise FatalParseError(command_name, conditions[0].pos, "Irreducible argument sequence: %s",
+                                  string) from None
 
         return conditions[0]
 
@@ -350,25 +353,29 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
         if isinstance(cond, UnopCondition):
             match cond.operator:
                 case UnopCondition.Operator.COMMAND:
-                    raise FatalEvalError(cond.pos, "Unsupported condition operator COMMAND")
+                    raise FatalEvalError(command_name, cond.pos, "Unsupported condition operator COMMAND") from None
                 case UnopCondition.Operator.POLICY:
-                    raise FatalEvalError(cond.pos, "Unsupported condition operator POLICY")
+                    raise FatalEvalError(command_name, cond.pos, "Unsupported condition operator POLICY") from None
                 case UnopCondition.Operator.TARGET:
-                    raise FatalEvalError(cond.pos, "Unsupported condition operator TARGET")
+                    raise FatalEvalError(command_name, cond.pos, "Unsupported condition operator TARGET") from None
                 case UnopCondition.Operator.TEST:
-                    raise FatalEvalError(cond.pos, "Unsupported condition operator TEST")
+                    raise FatalEvalError(command_name, cond.pos, "Unsupported condition operator TEST") from None
                 case UnopCondition.Operator.DEFINED:
                     return eval_defined(cond.operand)
                 case UnopCondition.Operator.EXISTS:
-                    raise FatalEvalError(cond.pos, "Unsupported condition operator EXISTS")
+                    raise FatalEvalError(command_name, cond.pos, "Unsupported condition operator EXISTS") from None
                 case UnopCondition.Operator.IS_READABLE:
-                    raise FatalEvalError(cond.pos, "Unsupported condition operator IS_READABLE")
+                    raise FatalEvalError(command_name, cond.pos, "Unsupported condition operator "
+                                         "IS_READABLE") from None
                 case UnopCondition.Operator.IS_WRITABLE:
-                    raise FatalEvalError(cond.pos, "Unsupported condition operator IS_WRITABLE")
+                    raise FatalEvalError(command_name, cond.pos, "Unsupported condition operator "
+                                         "IS_WRITABLE") from None
                 case UnopCondition.Operator.IS_DIRECTORY:
-                    raise FatalEvalError(cond.pos, "Unsupported condition operator IS_DIRECTORY")
+                    raise FatalEvalError(command_name, cond.pos, "Unsupported condition operator "
+                                         "IS_DIRECTORY") from None
                 case UnopCondition.Operator.IS_ABSOLUTE:
-                    raise FatalEvalError(cond.pos, "Unsupported condition operator IS_ABSOLUTE")
+                    raise FatalEvalError(command_name, cond.pos, "Unsupported condition operator "
+                                         "IS_ABSOLUTE") from None
                 case UnopCondition.Operator.NOT:
                     return eval_not(cond.operand)
             typing.assert_never(cond.operator)
@@ -377,39 +384,48 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
                 case BinopCondition.Operator.STREQUAL:
                     return eval_strequal(cond.left, cond.right)
                 case BinopCondition.Operator.STRLESS:
-                    raise FatalEvalError(cond.pos, "Unsupported condition operator STRLESS")
+                    raise FatalEvalError(command_name, cond.pos, "Unsupported condition operator STRLESS") from None
                 case BinopCondition.Operator.STRGREATER:
-                    raise FatalEvalError(cond.pos, "Unsupported condition operator STRGREATER")
+                    raise FatalEvalError(command_name, cond.pos, "Unsupported condition operator STRGREATER") from None
                 case BinopCondition.Operator.STRLESS_EQUAL:
-                    raise FatalEvalError(cond.pos, "Unsupported condition operator STRLESS_EQUAL")
+                    raise FatalEvalError(command_name, cond.pos, "Unsupported condition operator "
+                                         "STRLESS_EQUAL") from None
                 case BinopCondition.Operator.STRGREATER_EQUAL:
-                    raise FatalEvalError(cond.pos, "Unsupported condition operator STRGREATER_EQUAL")
+                    raise FatalEvalError(command_name, cond.pos, "Unsupported condition operator "
+                                         "STRGREATER_EQUAL") from None
                 case BinopCondition.Operator.EQUAL:
-                    raise FatalEvalError(cond.pos, "Unsupported condition operator EQUAL")
+                    raise FatalEvalError(command_name, cond.pos, "Unsupported condition operator EQUAL") from None
                 case BinopCondition.Operator.LESS:
-                    raise FatalEvalError(cond.pos, "Unsupported condition operator LESS")
+                    raise FatalEvalError(command_name, cond.pos, "Unsupported condition operator LESS") from None
                 case BinopCondition.Operator.GREATER:
-                    raise FatalEvalError(cond.pos, "Unsupported condition operator GREATER")
+                    raise FatalEvalError(command_name, cond.pos, "Unsupported condition operator GREATER") from None
                 case BinopCondition.Operator.LESS_EQUAL:
-                    raise FatalEvalError(cond.pos, "Unsupported condition operator LESS_EQUAL")
+                    raise FatalEvalError(command_name, cond.pos, "Unsupported condition operator LESS_EQUAL") from None
                 case BinopCondition.Operator.GREATER_EQUAL:
-                    raise FatalEvalError(cond.pos, "Unsupported condition operator GREATER_EQUAL")
+                    raise FatalEvalError(command_name, cond.pos, "Unsupported condition operator "
+                                         "GREATER_EQUAL") from None
                 case BinopCondition.Operator.VERSION_EQUAL:
-                    raise FatalEvalError(cond.pos, "Unsupported condition operator VERSION_EQUAL")
+                    raise FatalEvalError(command_name, cond.pos, "Unsupported condition operator "
+                                         "VERSION_EQUAL") from None
                 case BinopCondition.Operator.VERSION_LESS:
-                    raise FatalEvalError(cond.pos, "Unsupported condition operator VERSION_LESS")
+                    raise FatalEvalError(command_name, cond.pos, "Unsupported condition operator "
+                                         "VERSION_LESS") from None
                 case BinopCondition.Operator.VERSION_GREATER:
-                    raise FatalEvalError(cond.pos, "Unsupported condition operator VERSION_GREATER")
+                    raise FatalEvalError(command_name, cond.pos, "Unsupported condition operator "
+                                         "VERSION_GREATER") from None
                 case BinopCondition.Operator.VERSION_LESS_EQUAL:
-                    raise FatalEvalError(cond.pos, "Unsupported condition operator VERSION_LESS_EQUAL")
+                    raise FatalEvalError(command_name, cond.pos, "Unsupported condition operator "
+                                         "VERSION_LESS_EQUAL") from None
                 case BinopCondition.Operator.VERSION_GREATER_EQUAL:
-                    raise FatalEvalError(cond.pos, "Unsupported condition operator VERSION_GREATER_EQUAL")
+                    raise FatalEvalError(command_name, cond.pos, "Unsupported condition operator "
+                                         "VERSION_GREATER_EQUAL") from None
                 case BinopCondition.Operator.MATCHES:
                     return eval_matches(cond.left, cond.right)
                 case BinopCondition.Operator.IN_LIST:
                     return eval_in_list(cond.left, cond.right)
                 case BinopCondition.Operator.IS_NEWER_THAN:
-                    raise FatalEvalError(cond.pos, "Unsupported condition operator IS_NEWER_THAN")
+                    raise FatalEvalError(command_name, cond.pos, "Unsupported condition operator "
+                                         "IS_NEWER_THAN") from None
                 case BinopCondition.Operator.AND:
                     return eval_and(cond.left, cond.right)
                 case BinopCondition.Operator.OR:
@@ -482,7 +498,7 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
                     regex = _cr.compile_(result_2.string.string)
                 except _cr.SyntaxError as e:
                     pos = result_2.string.pos_map.map_(e.pos)
-                    raise FatalEvalError(pos, "Regular expression syntax error: %s", e) from None
+                    raise FatalEvalError(command_name, pos, "Regular expression syntax error: %s", e) from None
             case UncertainResult():
                 if not lenient_mode:
                     raise UncertaintyError(result_2.reason) from None
@@ -636,7 +652,7 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
         if _INT_REGEX.fullmatch(string):
             value.value = int(string)
             return True
-        raise FatalEvalError(pos, "Unsupported floating-point syntax (%s)", _b.quote(string)) from None
+        raise FatalEvalError(command_name, pos, "Unsupported floating-point syntax (%s)", _b.quote(string)) from None
 
     def construct_uncertain_value_result(variable_type: _cv.VariableType, variable_name: str, pos: int,
                                          reason: _cur.ValueUncertaintyReason | None) -> UncertainResult:

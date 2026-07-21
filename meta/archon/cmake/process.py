@@ -360,11 +360,13 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
             else:
                 error(context.file_index, e.invoc.pos, "Unsupported %s() syntax", e.invoc.command_name)
             return
-        except _ConditionParseError as e:
-            error(context.file_index, e.pos, "Failed to parse %s() condition: %s", e.command_name, e.message)
+        except _cc.FatalParseError as e:
+            message = e.message % e.args
+            error(context.file_index, e.pos, "Failed to parse %s() condition: %s", e.command_name, message)
             return
-        except _ConditionEvalError as e:
-            error(context.file_index, e.pos, "Failed to evaluate %s() condition: %s", e.command_name, e.message)
+        except _cc.FatalEvalError as e:
+            message = e.message % e.args
+            error(context.file_index, e.pos, "Failed to evaluate %s() condition: %s", e.command_name, message)
             return
         except (_ca.UncertainArgumentException, _cc.UncertaintyError, _UncertainVariableResolutionException) as e:
             position = e.reason.expansion_position
@@ -1202,26 +1204,21 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
                   _b.quote(str(cmake_path)), e.strerror)
 
     def evaluate_condition(invoc: _clp.GeneralizedInvoc, context: _InvocContext) -> _cc.Result:
-        try:
-            arguments, card_uncertainty = expand_arguments(invoc, context)
-            condition = _cc.parse(arguments, invoc.rparen_pos)
-            class State(_cv.VariableState):
-                @typing.override
-                def get(self, resolution_type: _cu.ResolutionType, variable_name: str,
-                        pos: int) -> tuple[_cv.Value, _cv.VariableType]:
-                    return resolve_variable(resolution_type, variable_name, pos, context)
-                @typing.override
-                def set_(self, variable_name: str, value: str | None) -> None:
-                    set_regular_variable(variable_name, value, invoc, context)
-                @typing.override
-                def taint(self, variable_name: str, reason: _cur.ValueUncertaintyReason) -> None:
-                    taint_regular_variable(variable_name, reason, context)
-            state = State()
-            return _cc.evaluate(condition, invoc.command_name, context.file_index, state, context.root.lenient_mode)
-        except _cc.FatalParseError as e:
-            raise _ConditionParseError(e.pos, invoc.command_name, e.message % e.args) from None
-        except _cc.FatalEvalError as e:
-            raise _ConditionEvalError(e.pos, invoc.command_name, e.message % e.args) from None
+        arguments, card_uncertainty = expand_arguments(invoc, context)
+        condition = _cc.parse(invoc.command_name, arguments, invoc.rparen_pos)
+        class State(_cv.VariableState):
+            @typing.override
+            def get(self, resolution_type: _cu.ResolutionType, variable_name: str,
+                    pos: int) -> tuple[_cv.Value, _cv.VariableType]:
+                return resolve_variable(resolution_type, variable_name, pos, context)
+            @typing.override
+            def set_(self, variable_name: str, value: str | None) -> None:
+                set_regular_variable(variable_name, value, invoc, context)
+            @typing.override
+            def taint(self, variable_name: str, reason: _cur.ValueUncertaintyReason) -> None:
+                taint_regular_variable(variable_name, reason, context)
+        state = State()
+        return _cc.evaluate(condition, invoc.command_name, context.file_index, state, context.root.lenient_mode)
 
     def create_argument_server(invoc: _clp.Invoc, context: _InvocContext) -> _ca.ArgumentServer:
         arguments, card_uncertainty = expand_arguments(invoc, context)
@@ -2114,22 +2111,6 @@ class _UncertainVariableResolutionException(Exception):
     def __init__(self, reason: _cur.ExpansionUncertaintyReason) -> None:
         Exception.__init__(self)
         self.reason = reason
-
-
-class _ConditionParseError(Exception):
-    def __init__(self, pos: int, command_name: str, message: str) -> None:
-        Exception.__init__(self)
-        self.pos          = pos
-        self.command_name = command_name
-        self.message      = message
-
-
-class _ConditionEvalError(Exception):
-    def __init__(self, pos: int, command_name: str, message: str) -> None:
-        Exception.__init__(self)
-        self.pos          = pos
-        self.command_name = command_name
-        self.message      = message
 
 
 type _ExpansionResult = _CertainExpansionResult | _UncertainExpansionResult
