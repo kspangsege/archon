@@ -1304,6 +1304,119 @@ def test_CMakeProcess_Condition(context: _t.Context) -> None:
         subcontext.check_equal(error.message, expected[0])
         subcontext.check_equal(error.file_pos.text_pos, expected[1])
 
+    # Uncertainty
+    text = r"""
+      set(r "")
+      if("${u}")
+        set(r "v")
+      endif()
+      message("1: -${r}-")
+
+      set(r "")
+      if(NOT "${u}")
+        set(r "v")
+      endif()
+      message("2: -${r}-")
+
+      set(r "")
+      if("${u}" AND FALSE)
+        set(r "v")
+      endif()
+      message("3: -${r}-")
+      set(r "")
+      if("${u}" AND TRUE)
+        set(r "v")
+      endif()
+      message("4: -${r}-")
+      set(r "")
+      if(FALSE AND "${u}")
+        set(r "v")
+      endif()
+      message("5: -${r}-")
+      set(r "")
+      if(TRUE AND "${u}")
+        set(r "v")
+      endif()
+      message("6: -${r}-")
+
+      set(r "")
+      if("${u}" OR FALSE)
+        set(r "v")
+      endif()
+      message("7: -${r}-")
+      set(r "")
+      if("${u}" OR TRUE)
+        set(r "v")
+      endif()
+      message("8: -${r}-")
+      set(r "")
+      if(FALSE OR "${u}")
+        set(r "v")
+      endif()
+      message("9: -${r}-")
+      set(r "")
+      if(TRUE OR "${u}")
+        set(r "v")
+      endif()
+      message("10: -${r}-")
+
+      set(r "")
+      if("${u}" AND "${u}")
+        set(r "v")
+      endif()
+      message("11: -${r}-")
+      set(r "")
+      if("${u}" OR "${u}")
+        set(r "v")
+      endif()
+      message("12: -${r}-")
+    """
+    path = pathlib.Path("test-4.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check_not(success)
+    expected_messages = [
+        "3: --",
+        "5: --",
+        "8: -v-",
+        "10: -v-",
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(message.message, expected)
+        subcontext.check_is_none(message.occurrence_uncertainty)
+    expected_errors = [
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "r"), _tp.TextPos(5, 13)),  #  1
+        (occurrence_uncertainty_cause("set"),                                  _tp.TextPos(3, 2)),   #  2
+        (expansion_uncertainty_cause("if", _cur.ParamType.REGULAR_VAR, "u"),   _tp.TextPos(2, 4)),   #  3
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "r"), _tp.TextPos(11, 13)), #  4
+        (occurrence_uncertainty_cause("set"),                                  _tp.TextPos(9, 2)),   #  5
+        (expansion_uncertainty_cause("if", _cur.ParamType.REGULAR_VAR, "u"),   _tp.TextPos(8, 8)),   #  6
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "r"), _tp.TextPos(22, 13)), #  7
+        (occurrence_uncertainty_cause("set"),                                  _tp.TextPos(20, 2)),  #  8
+        (expansion_uncertainty_cause("if", _cur.ParamType.REGULAR_VAR, "u"),   _tp.TextPos(19, 4)),  #  9
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "r"), _tp.TextPos(32, 13)), # 10
+        (occurrence_uncertainty_cause("set"),                                  _tp.TextPos(30, 2)),  # 11
+        (expansion_uncertainty_cause("if", _cur.ParamType.REGULAR_VAR, "u"),   _tp.TextPos(29, 13)), # 12
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "r"), _tp.TextPos(38, 13)), # 13
+        (occurrence_uncertainty_cause("set"),                                  _tp.TextPos(36, 2)),  # 14
+        (expansion_uncertainty_cause("if", _cur.ParamType.REGULAR_VAR, "u"),   _tp.TextPos(35, 4)),  # 15
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "r"), _tp.TextPos(48, 13)), # 16
+        (occurrence_uncertainty_cause("set"),                                  _tp.TextPos(46, 2)),  # 17
+        (expansion_uncertainty_cause("if", _cur.ParamType.REGULAR_VAR, "u"),   _tp.TextPos(45, 13)), # 18
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "r"), _tp.TextPos(59, 14)), # 19
+        (occurrence_uncertainty_cause("set"),                                  _tp.TextPos(57, 2)),  # 20
+        (expansion_uncertainty_cause("if", _cur.ParamType.REGULAR_VAR, "u"),   _tp.TextPos(56, 4)),  # 21
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "r"), _tp.TextPos(64, 14)), # 22
+        (occurrence_uncertainty_cause("set"),                                  _tp.TextPos(62, 2)),  # 23
+        (expansion_uncertainty_cause("if", _cur.ParamType.REGULAR_VAR, "u"),   _tp.TextPos(61, 4)),  # 24
+    ]
+    context.check_equal(len(result.errors), len(expected_errors))
+    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(error.message, expected[0])
+        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+
 
 def test_CMakeProcess_MatchesOperator(context: _t.Context) -> None:
     expected: typing.Any
