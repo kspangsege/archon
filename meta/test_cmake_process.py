@@ -687,8 +687,413 @@ def test_CMakeProcess_VariableExpansion(context: _t.Context) -> None:
         subcontext.check_equal(error.message, expected[0])
         subcontext.check_equal(error.file_pos.text_pos, expected[1])
 
-
 def test_CMakeProcess_Condition(context: _t.Context) -> None:
+    expected: typing.Any
+
+    # Logical
+    text = r"""
+      if(FALSE)
+        message("A1")
+      endif()
+      if(TRUE)
+        message("A2")                 # A2
+      endif()
+
+      if(NOT FALSE)
+        message("B1")                 # B1
+      endif()
+      if(NOT TRUE)
+        message("B2")
+      endif()
+      if(NOT NOT FALSE)
+        message("B3")
+      endif()
+      if(NOT NOT TRUE)
+        message("B4")                 # B4
+      endif()
+
+      if(FALSE AND FALSE)
+        message("C1")
+      endif()
+      if(FALSE AND TRUE)
+        message("C2")
+      endif()
+      if(TRUE AND FALSE)
+        message("C3")
+      endif()
+      if(TRUE AND TRUE)
+        message("C4")                 # C4
+      endif()
+
+      if(FALSE OR FALSE)
+        message("D1")
+      endif()
+      if(FALSE OR TRUE)
+        message("D2")                 # D2
+      endif()
+      if(TRUE OR FALSE)
+        message("D3")                 # D3
+      endif()
+      if(TRUE OR TRUE)
+        message("D4")                 # D4
+      endif()
+
+      if(FALSE AND FALSE AND FALSE)
+        message("E1")
+      endif()
+      if(FALSE AND FALSE AND TRUE)
+        message("E2")
+      endif()
+      if(FALSE AND TRUE AND FALSE)
+        message("E3")
+      endif()
+      if(FALSE AND TRUE AND TRUE)
+        message("E4")
+      endif()
+      if(TRUE AND FALSE AND FALSE)
+        message("E5")
+      endif()
+      if(TRUE AND FALSE AND TRUE)
+        message("E6")
+      endif()
+      if(TRUE AND TRUE AND FALSE)
+        message("E7")
+      endif()
+      if(TRUE AND TRUE AND TRUE)
+        message("E8")                 # E8
+      endif()
+
+      if(FALSE AND FALSE OR FALSE)
+        message("F1")
+      endif()
+      if(FALSE AND FALSE OR TRUE)
+        message("F2")                 # F2
+      endif()
+      if(FALSE AND TRUE OR FALSE)
+        message("F3")
+      endif()
+      if(FALSE AND TRUE OR TRUE)
+        message("F4")                 # F4
+      endif()
+      if(TRUE AND FALSE OR FALSE)
+        message("F5")
+      endif()
+      if(TRUE AND FALSE OR TRUE)
+        message("F6")                 # F6
+      endif()
+      if(TRUE AND TRUE OR FALSE)
+        message("F7")                 # F7
+      endif()
+      if(TRUE AND TRUE OR TRUE)
+        message("F8")                 # F8
+      endif()
+
+      # Weirdly, AND and OR have the same precedence in CMake
+      if(FALSE OR FALSE AND FALSE)
+        message("G1")
+      endif()
+      if(FALSE OR FALSE AND TRUE)
+        message("G2")
+      endif()
+      if(FALSE OR TRUE AND FALSE)
+        message("G3")
+      endif()
+      if(FALSE OR TRUE AND TRUE)
+        message("G4")                 # G4
+      endif()
+      if(TRUE OR FALSE AND FALSE)
+        message("G5")
+      endif()
+      if(TRUE OR FALSE AND TRUE)
+        message("G6")                 # G6
+      endif()
+      if(TRUE OR TRUE AND FALSE)
+        message("G7")
+      endif()
+      if(TRUE OR TRUE AND TRUE)
+        message("G8")                 # G8
+      endif()
+
+      if(FALSE OR FALSE OR FALSE)
+        message("H1")
+      endif()
+      if(FALSE OR FALSE OR TRUE)
+        message("H2")                 # H2
+      endif()
+      if(FALSE OR TRUE OR FALSE)
+        message("H3")                 # H3
+      endif()
+      if(FALSE OR TRUE OR TRUE)
+        message("H4")                 # H4
+      endif()
+      if(TRUE OR FALSE OR FALSE)
+        message("H5")                 # H5
+      endif()
+      if(TRUE OR FALSE OR TRUE)
+        message("H6")                 # H6
+      endif()
+      if(TRUE OR TRUE OR FALSE)
+        message("H7")                 # H7
+      endif()
+      if(TRUE OR TRUE OR TRUE)
+        message("H8")                 # H8
+      endif()
+
+      if((FALSE AND FALSE) AND FALSE)
+        message("I1")
+      endif()
+      if((FALSE AND FALSE) AND TRUE)
+        message("I2")
+      endif()
+      if((FALSE AND TRUE) AND FALSE)
+        message("I3")
+      endif()
+      if((FALSE AND TRUE) AND TRUE)
+        message("I4")
+      endif()
+      if((TRUE AND FALSE) AND FALSE)
+        message("I5")
+      endif()
+      if((TRUE AND FALSE) AND TRUE)
+        message("I6")
+      endif()
+      if((TRUE AND TRUE) AND FALSE)
+        message("I7")
+      endif()
+      if((TRUE AND TRUE) AND TRUE)
+        message("I8")                 # I8
+      endif()
+
+      if((FALSE AND FALSE) OR FALSE)
+        message("J1")
+      endif()
+      if((FALSE AND FALSE) OR TRUE)
+        message("J2")                 # J2
+      endif()
+      if((FALSE AND TRUE) OR FALSE)
+        message("J3")
+      endif()
+      if((FALSE AND TRUE) OR TRUE)
+        message("J4")                 # J4
+      endif()
+      if((TRUE AND FALSE) OR FALSE)
+        message("J5")
+      endif()
+      if((TRUE AND FALSE) OR TRUE)
+        message("J6")                 # J6
+      endif()
+      if((TRUE AND TRUE) OR FALSE)
+        message("J7")                 # J7
+      endif()
+      if((TRUE AND TRUE) OR TRUE)
+        message("J8")                 # J8
+      endif()
+
+      if((FALSE OR FALSE) AND FALSE)
+        message("K1")
+      endif()
+      if((FALSE OR FALSE) AND TRUE)
+        message("K2")
+      endif()
+      if((FALSE OR TRUE) AND FALSE)
+        message("K3")
+      endif()
+      if((FALSE OR TRUE) AND TRUE)
+        message("K4")                 # K4
+      endif()
+      if((TRUE OR FALSE) AND FALSE)
+        message("K5")
+      endif()
+      if((TRUE OR FALSE) AND TRUE)
+        message("K6")                 # K6
+      endif()
+      if((TRUE OR TRUE) AND FALSE)
+        message("K7")
+      endif()
+      if((TRUE OR TRUE) AND TRUE)
+        message("K8")                 # K8
+      endif()
+
+      if((FALSE OR FALSE) OR FALSE)
+        message("L1")
+      endif()
+      if((FALSE OR FALSE) OR TRUE)
+        message("L2")                 # L2
+      endif()
+      if((FALSE OR TRUE) OR FALSE)
+        message("L3")                 # L3
+      endif()
+      if((FALSE OR TRUE) OR TRUE)
+        message("L4")                 # L4
+      endif()
+      if((TRUE OR FALSE) OR FALSE)
+        message("L5")                 # L5
+      endif()
+      if((TRUE OR FALSE) OR TRUE)
+        message("L6")                 # L6
+      endif()
+      if((TRUE OR TRUE) OR FALSE)
+        message("L7")                 # L7
+      endif()
+      if((TRUE OR TRUE) OR TRUE)
+        message("L8")                 # L8
+      endif()
+
+      if(FALSE AND (FALSE AND FALSE))
+        message("M1")
+      endif()
+      if(FALSE AND (FALSE AND TRUE))
+        message("M2")
+      endif()
+      if(FALSE AND (TRUE AND FALSE))
+        message("M3")
+      endif()
+      if(FALSE AND (TRUE AND TRUE))
+        message("M4")
+      endif()
+      if(TRUE AND (FALSE AND FALSE))
+        message("M5")
+      endif()
+      if(TRUE AND (FALSE AND TRUE))
+        message("M6")
+      endif()
+      if(TRUE AND (TRUE AND FALSE))
+        message("M7")
+      endif()
+      if(TRUE AND (TRUE AND TRUE))
+        message("M8")                 # M8
+      endif()
+
+      if(FALSE AND (FALSE OR FALSE))
+        message("N1")
+      endif()
+      if(FALSE AND (FALSE OR TRUE))
+        message("N2")
+      endif()
+      if(FALSE AND (TRUE OR FALSE))
+        message("N3")
+      endif()
+      if(FALSE AND (TRUE OR TRUE))
+        message("N4")
+      endif()
+      if(TRUE AND (FALSE OR FALSE))
+        message("N5")
+      endif()
+      if(TRUE AND (FALSE OR TRUE))
+        message("N6")                 # N6
+      endif()
+      if(TRUE AND (TRUE OR FALSE))
+        message("N7")                 # N7
+      endif()
+      if(TRUE AND (TRUE OR TRUE))
+        message("N8")                 # N8
+      endif()
+
+      if(FALSE OR (FALSE AND FALSE))
+        message("O1")
+      endif()
+      if(FALSE OR (FALSE AND TRUE))
+        message("O2")
+      endif()
+      if(FALSE OR (TRUE AND FALSE))
+        message("O3")
+      endif()
+      if(FALSE OR (TRUE AND TRUE))
+        message("O4")                 # O4
+      endif()
+      if(TRUE OR (FALSE AND FALSE))
+        message("O5")                 # O5
+      endif()
+      if(TRUE OR (FALSE AND TRUE))
+        message("O6")                 # O6
+      endif()
+      if(TRUE OR (TRUE AND FALSE))
+        message("O7")                 # O7
+      endif()
+      if(TRUE OR (TRUE AND TRUE))
+        message("O8")                 # O8
+      endif()
+
+      if(FALSE OR (FALSE OR FALSE))
+        message("P1")
+      endif()
+      if(FALSE OR (FALSE OR TRUE))
+        message("P2")                 # P2
+      endif()
+      if(FALSE OR (TRUE OR FALSE))
+        message("P3")                 # P3
+      endif()
+      if(FALSE OR (TRUE OR TRUE))
+        message("P4")                 # P4
+      endif()
+      if(TRUE OR (FALSE OR FALSE))
+        message("P5")                 # P5
+      endif()
+      if(TRUE OR (FALSE OR TRUE))
+        message("P6")                 # P6
+      endif()
+      if(TRUE OR (TRUE OR FALSE))
+        message("P7")                 # P7
+      endif()
+      if(TRUE OR (TRUE OR TRUE))
+        message("P8")                 # P8
+      endif()
+
+      if(NOT FALSE AND NOT FALSE)
+        message("Q1")                 # Q1
+      endif()
+      if(NOT FALSE AND NOT TRUE)
+        message("Q2")
+      endif()
+      if(NOT TRUE AND NOT FALSE)
+        message("Q3")
+      endif()
+      if(NOT TRUE AND NOT TRUE)
+        message("Q4")
+      endif()
+
+      if(NOT FALSE OR NOT FALSE)
+        message("R1")                 # R1
+      endif()
+      if(NOT FALSE OR NOT TRUE)
+        message("R2")                 # R2
+      endif()
+      if(NOT TRUE OR NOT FALSE)
+        message("R3")                 # R3
+      endif()
+      if(NOT TRUE OR NOT TRUE)
+        message("R4")
+      endif()
+    """
+    path = pathlib.Path("test-1.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check(success)
+    expected_messages = [
+        "A2",
+        "B1", "B4",
+        "C4",
+        "D2", "D3", "D4",
+        "E8",
+        "F2", "F4", "F6", "F7", "F8",
+        "G4", "G6", "G8",
+        "H2", "H3", "H4", "H5", "H6", "H7", "H8",
+        "I8",
+        "J2", "J4", "J6", "J7", "J8",
+        "K4", "K6", "K8",
+        "L2", "L3", "L4", "L5", "L6", "L7", "L8",
+        "M8",
+        "N6", "N7", "N8",
+        "O4", "O5", "O6", "O7", "O8",
+        "P2", "P3", "P4", "P5", "P6", "P7", "P8",
+        "Q1",
+        "R1", "R2", "R3",
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(message.message, expected)
+        subcontext.check_is_none(message.occurrence_uncertainty)
+
     # Parse errors
     text = r"""
       set(lparen "(")
@@ -703,7 +1108,7 @@ def test_CMakeProcess_Condition(context: _t.Context) -> None:
       if("${lparen}" TRUE "${rparen}")  # Not parentheses when quoted
       endif()
     """
-    path = pathlib.Path("test-1.cmake")
+    path = pathlib.Path("test-2.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
     context.check_equal(len(result.messages), 0)
@@ -1281,7 +1686,7 @@ def test_CMakeProcess_StringConcat(context: _t.Context) -> None:
         subcontext.check_equal(error.file_pos.text_pos, expected[1])
 
 
-def test_CMakeProcess_StringTolowerAndToupper(context: _t.Context) -> None:
+def test_CMakeProcess_StringTolowerToupper(context: _t.Context) -> None:
     text = r"""
       set(_x "Foo")
       string(TOLOWER "${_x}" _y)
