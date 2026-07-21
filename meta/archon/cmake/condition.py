@@ -19,12 +19,13 @@ def parse(arguments: collections.abc.Iterable[_ca.Argument], rparen_pos: int) ->
     return _parse(arguments, rparen_pos)
 
 
-def evaluate(condition: Condition, command_name: str, file_index: int, variable_state: _cv.VariableState) -> Result:
-    return _evaluate(condition, command_name, file_index, variable_state)
+def evaluate(condition: Condition, command_name: str, file_index: int, variable_state: _cv.VariableState,
+             lenient_mode: bool) -> Result:
+    return _evaluate(condition, command_name, file_index, variable_state, lenient_mode)
 
 
 class FatalParseError(Exception):
-    def __init__(self, pos: int, message: str, *args: typing.Any):
+    def __init__(self, pos: int, message: str, *args: typing.Any) -> None:
         Exception.__init__(self)
         self.pos     = pos
         self.message = message
@@ -32,11 +33,17 @@ class FatalParseError(Exception):
 
 
 class FatalEvalError(Exception):
-    def __init__(self, pos: int, message: str, *args: typing.Any):
+    def __init__(self, pos: int, message: str, *args: typing.Any) -> None:
         Exception.__init__(self)
         self.pos     = pos
         self.message = message
         self.args    = args
+
+
+class UncertaintyError(Exception):
+    def __init__(self, reason: _cur.ExpansionUncertaintyReason) -> None:
+        Exception.__init__(self)
+        self.reason = reason
 
 
 type Condition = FalseCondition | UnopCondition | BinopCondition | ArgumentCondition | UncertainCondition
@@ -169,7 +176,7 @@ def _parse(arguments: collections.abc.Iterable[_ca.Argument], rparen_pos: int) -
                     level += 1
                 elif cond.string.string == ")":
                     if level == 0:
-                        raise FatalParseError(cond.pos, "Unmatched right parenthesis")
+                        raise FatalParseError(cond.pos, "Unmatched right parenthesis") from None
                     level -= 1
                     if level == 0:
                         end_index = i + 1
@@ -180,7 +187,7 @@ def _parse(arguments: collections.abc.Iterable[_ca.Argument], rparen_pos: int) -
                         continue
             i += 1
         if level != 0:
-            raise FatalParseError(begin_pos, "Unmatched left parenthesis")
+            raise FatalParseError(begin_pos, "Unmatched left parenthesis") from None
 
         # Parse for unary operators
         i = 0
@@ -271,7 +278,7 @@ def _parse(arguments: collections.abc.Iterable[_ca.Argument], rparen_pos: int) -
             string = " ".join(format_(c) for c in prefix)
             if len(conditions) > len(prefix):
                 string += " ..."
-            raise FatalParseError(conditions[0].pos, "Irreducible argument sequence: %s", string)
+            raise FatalParseError(conditions[0].pos, "Irreducible argument sequence: %s", string) from None
 
         return conditions[0]
 
@@ -335,7 +342,8 @@ _LOGICAL_BINARY_COND_OPER_MAP = {
 
 
 
-def _evaluate(cond: Condition, command_name: str, file_index: int, variable_state: _cv.VariableState) -> Result:
+def _evaluate(cond: Condition, command_name: str, file_index: int, variable_state: _cv.VariableState,
+              lenient_mode: bool) -> Result:
     def eval_as_bool(cond: Condition) -> Result:
         if isinstance(cond, FalseCondition):
             return FalseResult()
@@ -474,8 +482,10 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
                     regex = _cr.compile_(result_2.string.string)
                 except _cr.SyntaxError as e:
                     pos = result_2.string.pos_map.map_(e.pos)
-                    raise FatalEvalError(pos, "Regular expression syntax error: %s", e)
+                    raise FatalEvalError(pos, "Regular expression syntax error: %s", e) from None
             case UncertainResult():
+                if not lenient_mode:
+                    raise UncertaintyError(result_2.reason) from None
                 reason = result_2.reason
             case _:
                 typing.assert_never(result_2)
@@ -626,7 +636,7 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
         if _INT_REGEX.fullmatch(string):
             value.value = int(string)
             return True
-        raise FatalEvalError(pos, "Unsupported floating-point syntax (%s)", _b.quote(string))
+        raise FatalEvalError(pos, "Unsupported floating-point syntax (%s)", _b.quote(string)) from None
 
     def construct_uncertain_value_result(variable_type: _cv.VariableType, variable_name: str, pos: int,
                                          reason: _cur.ValueUncertaintyReason | None) -> UncertainResult:

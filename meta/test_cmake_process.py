@@ -689,6 +689,8 @@ def test_CMakeProcess_VariableExpansion(context: _t.Context) -> None:
 
 
 def test_CMakeProcess_MatchesOperator(context: _t.Context) -> None:
+    expected: typing.Any
+
     text = r"""
       if("x" MATCHES "x")
         message("1: -${CMAKE_MATCH_COUNT}-${CMAKE_MATCH_0}-")
@@ -787,8 +789,8 @@ def test_CMakeProcess_MatchesOperator(context: _t.Context) -> None:
       endif()
       if("x" MATCHES "x**")  # Invalaid double quantification
       endif()
-      set(v "xx[2-1]xx")
-      if("x" MATCHES "yyyy${v}yyyy")  # Invalaid range inside variable
+      set(e "xx[2-1]xx")
+      if("x" MATCHES "yyyy${e}yyyy")  # Invalaid range inside variable
       endif()
     """
     path = pathlib.Path("test-2.cmake")
@@ -808,9 +810,72 @@ def test_CMakeProcess_MatchesOperator(context: _t.Context) -> None:
         subcontext.check_equal(error.file_pos.text_pos, expected[1])
 
     # Strict mode uncertainty
+    text = """
+      if("x${u1}x" MATCHES "x(y|z)x")
+        set(u2 "v")
+      endif()
+      message("${u2}")
+      set(u4 "${u3}")
+      if("xyx" MATCHES "x${u3}x")
+      endif()
+      if("xyx" MATCHES "x${u4}x")
+      endif()
+    """
+    path = pathlib.Path("test-3.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check_not(success)
+    context.check_equal(len(result.messages), 0)
+    expected_errors = [
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u2"), _tp.TextPos(4, 9)),  # 1
+        (occurrence_uncertainty_cause("set"),                                   _tp.TextPos(2, 2)),  # 2
+        (expansion_uncertainty_cause("if", _cur.ParamType.REGULAR_VAR, "u1"),   _tp.TextPos(1, 5)),  # 3
+        (invoke_uncertainty_error("if", _cur.ParamType.REGULAR_VAR, "u3"),      _tp.TextPos(6, 19)), # 4
+        (invoke_uncertainty_error("if", _cur.ParamType.REGULAR_VAR, "u4"),      _tp.TextPos(8, 19)), # 5
+        (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u3"),  _tp.TextPos(5, 8)),  # 6
+    ]
+    context.check_equal(len(result.errors), len(expected_errors))
+    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(error.message, expected[0])
+        subcontext.check_equal(error.file_pos.text_pos, expected[1])
 
     # Lenient mode uncertainty
-    
+    text = """
+      if("x${u1}x" MATCHES "x(y|z)x")
+        set(u2 "v")
+      endif()
+      message("${u2}")
+      set(u4 "${u3}")
+      if("xyx" MATCHES "x${u3}x")
+        set(u5 "v")
+      endif()
+      message("${u5}")
+      if("xyx" MATCHES "x${u4}x")
+        set(u6 "v")
+      endif()
+      message("${u6}")
+    """
+    path = pathlib.Path("test-3.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context, lenient_mode=True)
+    context.check_not(success)
+    context.check_equal(len(result.messages), 0)
+    expected_errors = [
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u2"), _tp.TextPos(4, 9)),   #  1
+        (occurrence_uncertainty_cause("set"),                                   _tp.TextPos(2, 2)),   #  2
+        (expansion_uncertainty_cause("if", _cur.ParamType.REGULAR_VAR, "u1"),   _tp.TextPos(1, 5)),   #  3
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u5"), _tp.TextPos(9, 9)),   #  4
+        (occurrence_uncertainty_cause("set"),                                   _tp.TextPos(7, 2)),   #  5
+        (expansion_uncertainty_cause("if", _cur.ParamType.REGULAR_VAR, "u3"),   _tp.TextPos(6, 19)),  #  6
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u6"), _tp.TextPos(13, 9)),  #  7
+        (occurrence_uncertainty_cause("set"),                                   _tp.TextPos(11, 2)),  #  8
+        (expansion_uncertainty_cause("if", _cur.ParamType.REGULAR_VAR, "u4"),   _tp.TextPos(10, 19)), #  9
+        (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u3"),  _tp.TextPos(5, 8)),   # 10
+    ]
+    context.check_equal(len(result.errors), len(expected_errors))
+    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(error.message, expected[0])
+        subcontext.check_equal(error.file_pos.text_pos, expected[1])
 
 
 def test_CMakeProcess_StringAppend(context: _t.Context) -> None:

@@ -366,7 +366,7 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
         except _ConditionEvalError as e:
             error(context.file_index, e.pos, "Failed to evaluate %s() condition: %s", e.command_name, e.message)
             return
-        except (_ca.UncertainArgumentException, _UncertainVariableResolutionException) as e:
+        except (_ca.UncertainArgumentException, _cc.UncertaintyError, _UncertainVariableResolutionException) as e:
             position = e.reason.expansion_position
             error(position.file_index, position.pos, "Failed to invoke %s() due to expansion of %s with uncertain "
                   "value", e.reason.command_name, e.reason.get_qual_param_ref())
@@ -1217,7 +1217,7 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
                 def taint(self, variable_name: str, reason: _cur.ValueUncertaintyReason) -> None:
                     taint_regular_variable(variable_name, reason, context)
             state = State()
-            return _cc.evaluate(condition, invoc.command_name, context.file_index, state)
+            return _cc.evaluate(condition, invoc.command_name, context.file_index, state, context.root.lenient_mode)
         except _cc.FatalParseError as e:
             raise _ConditionParseError(e.pos, invoc.command_name, e.message % e.args) from None
         except _cc.FatalEvalError as e:
