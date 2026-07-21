@@ -631,7 +631,7 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
         string_cf = string.casefold()
         if string_cf in {"off", "no", "false", "n", "ignore", "notfound", ""} or string_cf.endswith("-notfound"):
             return True
-        value = _b.Wrap(0)
+        value = _b.Wrap(0.0)
         if as_number(string, value, pos):
             return value.value == 0
         return False
@@ -640,17 +640,22 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
         string_cf = string.casefold()
         if string_cf in {"on", "yes", "true", "y"}:
             return True
-        value = _b.Wrap(0)
+        value = _b.Wrap(0.0)
         if as_number(string, value, pos):
             return value.value != 0
         return False
 
-    def as_number(string: str, value: _b.Wrap[int], pos: int) -> bool:
+    def as_number(string: str, value: _b.Wrap[float], pos: int) -> bool:
         m = _FLOAT_REGEX.fullmatch(string)
         if not m:
             return False
-        if _INT_REGEX.fullmatch(string):
-            value.value = int(string)
+        # The restricted syntax allows for integers and simple fractional values (`0.1`,
+        # `.1`, and `1.`). These can be safely parsed by Python's floating-point parser.
+        #
+        # FIXME: Support the full gamut of CMake floating-point syntax (strtod()).
+        #
+        if _RESTRICTED_FLOAT_REGEX.fullmatch(string):
+            value.value = float(string)
             return True
         raise FatalEvalError(command_name, pos, "Unsupported floating-point syntax (%s)", _b.quote(string)) from None
 
@@ -704,4 +709,4 @@ _FLOAT_REGEX = re.compile(r"""
 """, re.VERBOSE | re.IGNORECASE)
 
 
-_INT_REGEX = re.compile(r"\s*[+-]?[0-9]+")
+_RESTRICTED_FLOAT_REGEX = re.compile(r"\s*[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)")
