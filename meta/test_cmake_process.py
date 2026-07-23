@@ -2263,27 +2263,36 @@ def test_CMakeProcess_ListAppend(context: _t.Context) -> None:
 
     # Uncertainty
     text = r"""
-      set(x "v")
+      set(x1 "v")
+      set(x2 "v")
       set(u1 "${u}")
       set(u2 "${u}")
-      list(APPEND x "${u1}")
+      list(APPEND x1 "${u1}")
+      list(APPEND x2 ${u1})   # Unquoted expansion
       list(APPEND u2 "v")
       list(APPEND u3 "${u1}")
-      message("-${x}-")
+      list(APPEND u4 ${u1})   # Unquoted expansion
+      message("-${x1}-")
+      message("-${x2}-")
       message("-${u2}-")
       message("-${u3}-")
+      message("-${u4}-")
     """
     path = pathlib.Path("test-3.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
     context.check_equal(len(result.messages), 0)
     expected_errors = [
-        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "x"),  _tp.TextPos(7, 10)), # 1
-        (expansion_uncertainty_cause("list", _cur.ParamType.REGULAR_VAR, "u1"), _tp.TextPos(4, 15)), # 2
-        (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u"),   _tp.TextPos(2, 8)),  # 3
-        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u2"), _tp.TextPos(8, 10)), # 4
-        (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u"),   _tp.TextPos(3, 8)),  # 5
-        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u3"), _tp.TextPos(9, 10)), # 6
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "x1"), _tp.TextPos(10, 10)), #  1
+        (expansion_uncertainty_cause("list", _cur.ParamType.REGULAR_VAR, "u1"), _tp.TextPos(5, 16)),  #  2
+        (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u"),   _tp.TextPos(3, 8)),   #  3
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "x2"), _tp.TextPos(11, 10)), #  4
+        (expansion_uncertainty_cause("list", _cur.ParamType.REGULAR_VAR, "u1"), _tp.TextPos(6, 15)),  #  5
+        (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u"),   _tp.TextPos(3, 8)),   #  6
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u2"), _tp.TextPos(12, 10)), #  7
+        (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u"),   _tp.TextPos(4, 8)),   #  8
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u3"), _tp.TextPos(13, 10)), #  9
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u4"), _tp.TextPos(14, 10)), # 10
     ]
     context.check_equal(len(result.errors), len(expected_errors))
     for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
@@ -2408,27 +2417,36 @@ def test_CMakeProcess_ListPrepend(context: _t.Context) -> None:
 
     # Uncertainty
     text = r"""
-      set(x "v")
+      set(x1 "v")
+      set(x2 "v")
       set(u1 "${u}")
       set(u2 "${u}")
-      list(PREPEND x "${u1}")
+      list(PREPEND x1 "${u1}")
+      list(PREPEND x2 ${u1})   # Unquoted expansion
       list(PREPEND u2 "v")
       list(PREPEND u3 "${u1}")
-      message("-${x}-")
+      list(PREPEND u4 ${u1})   # Unquoted expansion
+      message("-${x1}-")
+      message("-${x2}-")
       message("-${u2}-")
       message("-${u3}-")
+      message("-${u4}-")
     """
     path = pathlib.Path("test-3.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
     context.check_equal(len(result.messages), 0)
     expected_errors = [
-        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "x"),  _tp.TextPos(7, 10)), # 1
-        (expansion_uncertainty_cause("list", _cur.ParamType.REGULAR_VAR, "u1"), _tp.TextPos(4, 16)), # 2
-        (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u"),   _tp.TextPos(2, 8)),  # 3
-        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u2"), _tp.TextPos(8, 10)), # 4
-        (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u"),   _tp.TextPos(3, 8)),  # 5
-        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u3"), _tp.TextPos(9, 10)), # 6
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "x1"), _tp.TextPos(10, 10)), #  1
+        (expansion_uncertainty_cause("list", _cur.ParamType.REGULAR_VAR, "u1"), _tp.TextPos(5, 17)),  #  2
+        (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u"),   _tp.TextPos(3, 8)),   #  3
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "x2"), _tp.TextPos(11, 10)), #  4
+        (expansion_uncertainty_cause("list", _cur.ParamType.REGULAR_VAR, "u1"), _tp.TextPos(6, 16)),  #  5
+        (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u"),   _tp.TextPos(3, 8)),   #  6
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u2"), _tp.TextPos(12, 10)), #  7
+        (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u"),   _tp.TextPos(4, 8)),   #  8
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u3"), _tp.TextPos(13, 10)), #  9
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u4"), _tp.TextPos(14, 10)), # 10
     ]
     context.check_equal(len(result.errors), len(expected_errors))
     for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
