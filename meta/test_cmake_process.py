@@ -2519,6 +2519,52 @@ def test_CMakeProcess_If(context: _t.Context) -> None:
         subcontext.check_equal(message.message, expected)
         subcontext.check_is_none(message.occurrence_uncertainty)
 
+    # Invalidity
+    _check_invalid(context, _trim_cmake_text(r"""
+      if()
+      endif()
+      else()  # Unmatched else()
+    """), "Unmatched else()", _tp.TextPos(3, 0))
+    _check_invalid(context, _trim_cmake_text(r"""
+      if()
+      endif()
+      elseif()  # Unmatched elseif()
+    """), "Unmatched elseif()", _tp.TextPos(3, 0))
+    _check_invalid(context, _trim_cmake_text(r"""
+      if()
+      endif()
+      endif()  # Unmatched endif()
+    """), "Unmatched endif()", _tp.TextPos(3, 0))
+    _check_invalid(context, _trim_cmake_text(r"""
+      if()  # Unclosed if()
+        if()
+        endif()
+    """), "Unclosed if()", _tp.TextPos(1, 0))
+    _check_invalid(context, _trim_cmake_text(r"""
+      if()
+      else()  # Unclosed else()
+        if()
+        endif()
+    """), "Unclosed else()", _tp.TextPos(2, 0))
+    _check_invalid(context, _trim_cmake_text(r"""
+      if()
+      elseif()  # Unclosed elseif()
+        if()
+        endif()
+    """), "Unclosed elseif()", _tp.TextPos(2, 0))
+    _check_invalid(context, _trim_cmake_text(r"""
+      if()
+      else()
+      elseif()  # elseif() after else()
+      endif()
+    """), "elseif() after else()", _tp.TextPos(3, 0))
+    _check_invalid(context, _trim_cmake_text(r"""
+      if()
+      else()
+      else()  # else() after else()
+      endif()
+    """), "else() after else()", _tp.TextPos(3, 0))
+
     # Uncertainty
     text = r"""
       set(x1 "")
@@ -3725,6 +3771,20 @@ def occurrence_uncertainty_cause(command_name: str) -> str:
 
 def _trim_cmake_text(text: str) -> str:
     return textwrap.dedent(text.removeprefix("\n"))
+
+
+def _check_invalid(context: _t.Context, cmake_text: str, expected_message: str, expected_pos: _tp.TextPos) -> None:
+    path = pathlib.Path("test.cmake")
+    success, result = _process(_trim_cmake_text(cmake_text), path, context)
+    context.check_not(success)
+    context.check_equal(len(result.messages), 0)
+    expected_errors = [
+        (invoke_uncertainty_error("message", _cur.ParamType.MACRO_PARAM, "a"), _tp.TextPos(2, 12)),  #  1
+    ]
+    context.check_equal(len(result.errors), 1)
+    error = result.errors[0]
+    context.check_equal(error.message, expected_message)
+    context.check_equal(error.file_pos.text_pos, expected_pos)
 
 
 def _process(cmake_text: str, cmake_path: pathlib.Path, context: _t.Context,
