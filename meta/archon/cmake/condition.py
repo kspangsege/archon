@@ -497,7 +497,7 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
                 try:
                     regex = _cr.compile_(result_2.string.string)
                 except _cr.SyntaxError as e:
-                    pos = result_2.string.pos_map.map_(e.pos)
+                    pos = result_2.string.ref_pos(e.pos)
                     raise FatalEvalError(command_name, pos, "Regular expression syntax error: %s", e) from None
             case UncertainResult():
                 if not lenient_mode:

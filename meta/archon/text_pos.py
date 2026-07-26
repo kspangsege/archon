@@ -74,6 +74,9 @@ class PosMappedString:
     def end_ref_pos(self) -> int:
         return self.pos_map.end_ref_pos
 
+    def ref_pos(self, pos: int) -> int:
+        return self.pos_map.map_(pos)
+
     def map_through(self, pos_map: PosMap) -> PosMappedString:
         return PosMappedString(self.string, pos_map.compose_with(self.pos_map))
 

@@ -20,6 +20,7 @@ import archon.cmake.string_parser as _csp
 import archon.cmake.variable as _cv
 import archon.cmake.argument as _ca
 import archon.cmake.condition as _cc
+import archon.cmake.version as _cve
 
 
 # Process the specified CMake file (`cmake_source`) using the specified source directory
@@ -119,6 +120,10 @@ class Config:
 
     suppress_messages: bool = False
 
+    # If specified, must be between LOWEST_SUPPORTED_CMAKE_VERSION and
+    # CMAKE_VERSION. Defaults to CMAKE_VERSION.
+    cmake_version: _cve.Version | None = None
+
     initial_variables: dict[str, str | None] = dataclasses.field(default_factory=dict)
 
     command_whitelist: list[str] = dataclasses.field(default_factory=list)
@@ -215,6 +220,10 @@ class MessageLevel(enum.Enum):
     VERBOSE        = 7
     DEBUG          = 8
     TRACE          = 9
+
+
+CMAKE_VERSION                  = _cve.Version(4, 3)
+LOWEST_SUPPORTED_CMAKE_VERSION = _cve.Version(3, 28)
 
 
 
@@ -374,6 +383,12 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
                   "value", e.reason.command_name, e.reason.get_qual_param_ref())
             if e.reason.value_uncertainty_reason:
                 trace_value_uncertainty_causes(e.reason.value_uncertainty_reason)
+            return
+        except _UncertainOccurrenceException as e:
+            position = e.position
+            error(position.file_index, position.pos, "Illegal occurrence uncertainty in invocation of %s()",
+                  e.command_name)
+            trace_expansion_uncertainty_causes(e.cause)
             return
 
     def exec_if(invoc: _clp.IfInvoc, context: _InvocContext) -> None:
@@ -621,6 +636,9 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
                         return
                     case _BuiltInCommand.Which.ADD_SUBDIRECTORY:
                         exec_add_subdirectory(invoc, context)
+                        return
+                    case _BuiltInCommand.Which.CMAKE_MINIMUM_REQUIRED:
+                        exec_cmake_minimum_required(invoc, context)
                         return
                     case _BuiltInCommand.Which.BREAKPOINT:
                         breakpoint()
@@ -1005,7 +1023,7 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
                 return
             var_name = arg.string.string
             # Validity cannot be establish unless all arguments have certain values (because
-            # indexes need to be within range), therefore, in stricy mode, any uncertainty
+            # indexes need to be within range), therefore, in strict mode, any uncertainty
             # generates an error. In lenient mode, however, list contents can be unknown,
             # the number of indexes can be unknown as long as there is at least one, and the
             # actual index values can be unknown.
@@ -1156,7 +1174,7 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
         arg = server.consume()
         if not arg:
             error(context.file_index, server.next_pos, "Missing file or module in %s()", invoc.command_name)
-            return None
+            return
         file_or_module = arg.string.string
         file_or_module_pos = arg.pos
         if not re.fullmatch(r".*\.cmake", file_or_module):
@@ -1178,7 +1196,7 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
         arg = server.consume()
         if not arg:
             error(context.file_index, server.next_pos, "Missing source directory in %s()", invoc.command_name)
-            return None
+            return
         source_dir = arg.string.string
         source_dir_pos = arg.pos
         if not server.at_end:
@@ -1202,6 +1220,82 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
         except FileNotFoundError as e:
             error(context.file_index, source_dir_pos, "Failed to add subdirectory %s (%s): %s", _b.quote(source_dir),
                   _b.quote(str(cmake_path)), e.strerror)
+
+    def exec_cmake_minimum_required(invoc: _clp.GenericInvoc, context: _InvocContext) -> None:
+        server = create_argument_server(invoc, context)
+        have_version = False
+        while True:
+            if server.consume_keyword({"VERSION"}):
+                arg = server.consume()
+                if not arg:
+                    error(context.file_index, server.next_pos, "Missing version argument after VERSION keyword in "
+                          "%s() invocation", invoc.command_name)
+                    return
+                version = arg.string
+                have_version = True
+                continue
+            if server.consume_keyword({"FATAL_ERROR"}):
+                # Superfluous in CMake 2.6 and later
+                continue
+            arg = server.consume()
+            if not arg:
+                break
+            error(context.file_index, arg.pos, "Unexpected argument (%s) in %s() invocation",
+                  _b.quote(arg.string.string), invoc.command_name)
+            return
+        if context.occurrence_uncertainty:
+            position = _cur.Position(context.file_index, invoc.pos)
+            raise _UncertainOccurrenceException(invoc.command_name, position, context.occurrence_uncertainty)
+        if not have_version:
+            return
+        ellipsis = "..."
+        ellipsis_pos = version.string.find(ellipsis)
+        min_version_string = version.string if ellipsis_pos < 0 else version.string[:ellipsis_pos]
+        try:
+            min_version = _cve.parse(min_version_string)
+        except ValueError:
+            ref_pos = version.begin_ref_pos
+            error(context.file_index, ref_pos, "Unsupported version syntax in specified minimum version (%s) in %s() "
+                  "invocation", _b.quote(min_version_string), invoc.command_name)
+            return
+        if ellipsis_pos < 0:
+            max_policy_version_pos    = 0
+            max_policy_version_string = min_version_string
+            max_policy_version        = min_version
+        else:
+            max_policy_version_pos    = ellipsis_pos + len(ellipsis)
+            max_policy_version_string = version.string[max_policy_version_pos:]
+            try:
+                max_policy_version = _cve.parse(max_policy_version_string)
+            except ValueError:
+                ref_pos = version.ref_pos(max_policy_version_pos)
+                error(context.file_index, ref_pos, "Unsupported version syntax in specified maximum policy version "
+                      "(%s) in %s() invocation", _b.quote(max_policy_version_string), invoc.command_name)
+                return
+            if max_policy_version < min_version:
+                ref_pos = version.begin_ref_pos
+                error(context.file_index, ref_pos, "Specified maximum policy version (%s) is lower than specified "
+                      "minimum version (%s) in %s() invocation", max_policy_version_string, min_version_string,
+                      invoc.command_name)
+                return
+        if min_version > context.root.cmake_version:
+            ref_pos = version.begin_ref_pos
+            error(context.file_index, ref_pos, "Specified minimum version (%s) is higher than highest supported CMake "
+                  "version (%s) in %s() invocation", min_version_string, context.root.cmake_version,
+                  invoc.command_name)
+            return
+        if max_policy_version < LOWEST_SUPPORTED_CMAKE_VERSION:
+            ref_pos = version.ref_pos(max_policy_version_pos)
+            error(context.file_index, ref_pos, "Specified maximum policy version (%s) is lower than lowest supported "
+                  "CMake version (%s) in %s() invocation", max_policy_version_string, LOWEST_SUPPORTED_CMAKE_VERSION,
+                  invoc.command_name)
+            return
+        set_regular_variable("CMAKE_MINIMUM_REQUIRED_VERSION", min_version_string, invoc, context)
+        policy_version = min(max_policy_version, context.root.cmake_version)
+        set_policy_version(policy_version)
+
+    def set_policy_version(version: _cve.Version) -> None:
+        pass                         
 
     def evaluate_condition(invoc: _clp.GeneralizedInvoc, context: _InvocContext) -> _cc.Result:
         arguments, card_uncertainty = expand_arguments(invoc, context)
@@ -1436,14 +1530,25 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
         position = _cur.Position(file_index, pos)
         application.error(position, message, *args)
 
+    cmake_version = CMAKE_VERSION
+    if config.cmake_version is not None:
+        if not (LOWEST_SUPPORTED_CMAKE_VERSION <= config.cmake_version <= CMAKE_VERSION):
+            raise ValueError("CMake version out of range")
+        cmake_version = config.cmake_version
+
     initial_variables = config.initial_variables.copy()
+    initial_variables["CMAKE_VERSION"] = str(cmake_version)  # Always on 3-component form
+    initial_variables["CMAKE_MAJOR_VERSION"] = str(cmake_version.major)
+    initial_variables["CMAKE_MINOR_VERSION"] = str(cmake_version.minor)
+    initial_variables["CMAKE_PATCH_VERSION"] = str(cmake_version.patch)
+    initial_variables["CMAKE_TWEAK_VERSION"] = "0"
     initial_variables["CMAKE_CURRENT_SOURCE_DIR"] = str(application.resolve_path(source_dir))
     if config.binary_dir is not None:
         initial_variables["CMAKE_CURRENT_BINARY_DIR"] = str(application.resolve_path(config.binary_dir))
     state = _RootState(initial_variables, config.define_breakpoint_command)
     occurrence_uncertainty = None
     base_dir = source_dir
-    root = _RootContext(application, pos_resolver, config.lenient_mode, config.suppress_messages)
+    root = _RootContext(application, pos_resolver, config.lenient_mode, config.suppress_messages, cmake_version)
     process_file(root, cmake_source, state, occurrence_uncertainty, source_dir, config.binary_dir)
     return not errors_seen
 
@@ -1485,6 +1590,7 @@ class _RootContext:
     pos_resolver:      PositionResolver
     lenient_mode:      bool
     suppress_messages: bool
+    cmake_version:     _cve.Version
 
 
 class _State(abc.ABC):
@@ -1641,7 +1747,7 @@ class _RootState(_State):
         define("message",                _BuiltInCommand.Which.MESSAGE)
         define("include",                _BuiltInCommand.Which.INCLUDE)
         define("add_subdirectory",       _BuiltInCommand.Which.ADD_SUBDIRECTORY)
-        define("cmake_minimum_required", _BuiltInCommand.Which.UNSUPPORTED)
+        define("cmake_minimum_required", _BuiltInCommand.Which.CMAKE_MINIMUM_REQUIRED)
         define("project",                _BuiltInCommand.Which.UNSUPPORTED)
         define("option",                 _BuiltInCommand.Which.UNSUPPORTED)
         if define_breakpoint_command:
@@ -2052,15 +2158,16 @@ type _DefinedCommand = _CertainDefinedCommand | _UncertainCommand
 @dataclasses.dataclass(slots=True, frozen=True)
 class _BuiltInCommand:
     class Which(enum.Enum):
-        UNSUPPORTED      = 0
-        SET              = 1
-        UNSET            = 2
-        STRING           = 3
-        LIST             = 4
-        MESSAGE          = 5
-        INCLUDE          = 6
-        ADD_SUBDIRECTORY = 7
-        BREAKPOINT       = 8  # Non-standard
+        UNSUPPORTED            = 0
+        SET                    = 1
+        UNSET                  = 2
+        STRING                 = 3
+        LIST                   = 4
+        MESSAGE                = 5
+        INCLUDE                = 6
+        ADD_SUBDIRECTORY       = 7
+        CMAKE_MINIMUM_REQUIRED = 8
+        BREAKPOINT             = 9  # Non-standard
     which: Which
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -2111,6 +2218,14 @@ class _UncertainVariableResolutionException(Exception):
     def __init__(self, reason: _cur.ExpansionUncertaintyReason) -> None:
         Exception.__init__(self)
         self.reason = reason
+
+
+class _UncertainOccurrenceException(Exception):
+    def __init__(self, command_name: str, position: _cur.Position, cause: _cur.ExpansionUncertaintyReason) -> None:
+        Exception.__init__(self)
+        self.command_name = command_name
+        self.position     = position
+        self.cause        = cause
 
 
 type _ExpansionResult = _CertainExpansionResult | _UncertainExpansionResult
@@ -2310,7 +2425,7 @@ def _macro_substitute_invoc(invoc: _clp.Invoc, context: _InvocContext,
                             return value.string
                         case _UncertainSubstitutionValue():
                             param_type = _cur.ParamType.MACRO_PARAM
-                            ref_pos = arg.string.pos_map.map_(match_pos)
+                            ref_pos = arg.string.ref_pos(match_pos)
                             expansion_position = _cur.Position(context.file_index, ref_pos)
                             reason = _cur.ExpansionUncertaintyReason(invoc.command_name, param_type, param,
                                                                      expansion_position, value.reason)

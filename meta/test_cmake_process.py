@@ -13,6 +13,7 @@ import archon.text_pos as _tp
 import archon.log as _l
 import archon.test as _t
 import archon.cmake.uncertainty_reason as _cur
+import archon.cmake.version as _cve
 import archon.cmake.process as _cp
 
 
@@ -3757,6 +3758,36 @@ def test_CMakeProcess_AddSubdirectory(context: _t.Context) -> None:
         subcontext.check_equal(error.file_pos, expected[1])
 
 
+def test_CMakeProcess_CMakeVersionVariables(context: _t.Context) -> None:
+    text = r"""
+      message("${CMAKE_VERSION}-"
+              "${CMAKE_MAJOR_VERSION}-${CMAKE_MINOR_VERSION}-${CMAKE_PATCH_VERSION}-${CMAKE_TWEAK_VERSION}")
+    """
+    path = pathlib.Path("test-1.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check(success)
+    expected_messages = [
+        "%s-%s-%s-%s-0" % (_cp.CMAKE_VERSION, _cp.CMAKE_VERSION.major, _cp.CMAKE_VERSION.minor,
+                           _cp.CMAKE_VERSION.patch),
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(message.message, expected)
+        subcontext.check_is_none(message.occurrence_uncertainty)
+    success, result = _process(_trim_cmake_text(text), path, context, cmake_version=_cp.LOWEST_SUPPORTED_CMAKE_VERSION)
+    context.check(success)
+    expected_messages = [
+        "%s-%s-%s-%s-0" % (_cp.LOWEST_SUPPORTED_CMAKE_VERSION, _cp.LOWEST_SUPPORTED_CMAKE_VERSION.major,
+                           _cp.LOWEST_SUPPORTED_CMAKE_VERSION.minor, _cp.LOWEST_SUPPORTED_CMAKE_VERSION.patch),
+    ]
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(message.message, expected)
+        subcontext.check_is_none(message.occurrence_uncertainty)
+
+
 def test_CMakeProcess_DirectoryVariables(context: _t.Context) -> None:
     foo_bar_text = r"""
       message("1: -${CMAKE_CURRENT_SOURCE_DIR}-${CMAKE_CURRENT_BINARY_DIR}-")
@@ -3791,6 +3822,80 @@ def test_CMakeProcess_DirectoryVariables(context: _t.Context) -> None:
         subcontext.check_is_none(message.occurrence_uncertainty)
 
 
+def test_CMakeProcess_CMakeMinimumRequired(context: _t.Context) -> None:
+    # Valid forms
+    _check_valid(context, _trim_cmake_text(r"""
+      cmake_minimum_required(VERSION %s)
+      message("${CMAKE_MINIMUM_REQUIRED_VERSION}")
+    """ % (_cp.LOWEST_SUPPORTED_CMAKE_VERSION,)), str(_cp.LOWEST_SUPPORTED_CMAKE_VERSION))
+    _check_valid(context, _trim_cmake_text(r"""
+      cmake_minimum_required(VERSION %s FATAL_ERROR)  # FATAL_ERROR is accepted
+      cmake_minimum_required(VERSION %s)              # 2nd invocation overrides
+      message("${CMAKE_MINIMUM_REQUIRED_VERSION}")
+    """ % (_cp.LOWEST_SUPPORTED_CMAKE_VERSION, _cp.CMAKE_VERSION)), str(_cp.CMAKE_VERSION))
+    _check_valid(context, _trim_cmake_text(r"""
+      cmake_minimum_required(FATAL_ERROR VERSION %s FATAL_ERROR VERSION %s)  # Last version argument takes precedence
+      message("${CMAKE_MINIMUM_REQUIRED_VERSION}")
+    """ % (_cp.CMAKE_VERSION, _cp.LOWEST_SUPPORTED_CMAKE_VERSION,)), str(_cp.LOWEST_SUPPORTED_CMAKE_VERSION))
+    _check_valid(context, _trim_cmake_text(r"""
+      cmake_minimum_required(VERSION %s)
+      cmake_minimum_required(FATAL_ERROR)  # Does nothing
+      cmake_minimum_required()             # Does nothing
+      message("${CMAKE_MINIMUM_REQUIRED_VERSION}")
+    """ % (_cp.CMAKE_VERSION,)), str(_cp.CMAKE_VERSION))
+    _check_valid(context, _trim_cmake_text(r"""
+      cmake_minimum_required(VERSION 0...%s)
+      message("${CMAKE_MINIMUM_REQUIRED_VERSION}")
+    """ % (_cp.LOWEST_SUPPORTED_CMAKE_VERSION,)), "0")
+    _check_valid(context, _trim_cmake_text(r"""
+      cmake_minimum_required(VERSION 0...%s)
+      message("${CMAKE_MINIMUM_REQUIRED_VERSION}")
+    """ % (_cp.CMAKE_VERSION,)), "0")
+    over_version = _cve.Version(_cp.CMAKE_VERSION.major + 1)
+    _check_valid(context, _trim_cmake_text(r"""
+      cmake_minimum_required(VERSION 0...%s)
+      message("${CMAKE_MINIMUM_REQUIRED_VERSION}")
+    """ % (over_version,)), "0")
+    _check_valid(context, _trim_cmake_text(r"""
+      cmake_minimum_required(VERSION %s...%s)
+      message("${CMAKE_MINIMUM_REQUIRED_VERSION}")
+    """ % (_cp.CMAKE_VERSION, over_version)), str(_cp.CMAKE_VERSION))
+
+    # No version range overlap
+    _check_invalid(context, _trim_cmake_text(r"""
+      cmake_minimum_required(VERSION 0)
+    """), ("Specified maximum policy version (0) is lower than lowest supported CMake version (%s) in "
+           "cmake_minimum_required() invocation") % (_cp.LOWEST_SUPPORTED_CMAKE_VERSION,), _tp.TextPos(1, 31))
+    _check_invalid(context, _trim_cmake_text(r"""
+      cmake_minimum_required(VERSION %s)
+    """ % (over_version,)), ("Specified minimum version (%s) is higher than highest supported CMake version (%s) in "
+           "cmake_minimum_required() invocation") % (over_version, _cp.CMAKE_VERSION), _tp.TextPos(1, 31))
+
+    # Invalid forms
+    _check_invalid(context, _trim_cmake_text(r"""
+      cmake_minimum_required(VERSION 0 FOO)
+    """), 'Unexpected argument ("FOO") in cmake_minimum_required() invocation', _tp.TextPos(1, 33))
+    _check_invalid(context, _trim_cmake_text(r"""
+      cmake_minimum_required(VERSION FOO)
+    """), ('Unsupported version syntax in specified minimum version ("FOO") in cmake_minimum_required() '
+           'invocation'), _tp.TextPos(1, 31))
+    _check_invalid(context, _trim_cmake_text(r"""
+      cmake_minimum_required(VERSION 0...1...2)
+    """), ('Unsupported version syntax in specified maximum policy version ("1...2") in cmake_minimum_required() '
+           'invocation'), _tp.TextPos(1, 35))
+    _check_invalid(context, _trim_cmake_text(r"""
+      set(min "0")
+      set(policy_max "4..0")
+      cmake_minimum_required(VERSION "${min}...${policy_max}")
+    """), ('Unsupported version syntax in specified maximum policy version ("4..0") in cmake_minimum_required() '
+           'invocation'), _tp.TextPos(3, 41))
+    _check_invalid(context, _trim_cmake_text(r"""
+      cmake_minimum_required(VERSION %s...%s)
+    """ % (over_version, _cp.CMAKE_VERSION)), ("Specified maximum policy version (4.3.0) is lower than specified "
+                                               "minimum version (5.0.0) in cmake_minimum_required() "
+                                               "invocation"), _tp.TextPos(1, 31))
+
+
 
 
 
@@ -3813,6 +3918,16 @@ def _trim_cmake_text(text: str) -> str:
     return textwrap.dedent(text.removeprefix("\n"))
 
 
+def _check_valid(context: _t.Context, cmake_text: str, expected_message: str) -> None:
+    path = pathlib.Path("test.cmake")
+    success, result = _process(_trim_cmake_text(cmake_text), path, context)
+    context.check(success)
+    context.check_equal(len(result.messages), 1)
+    message = result.messages[0]
+    context.check_equal(message.message, expected_message)
+    context.check_is_none(message.occurrence_uncertainty)
+
+
 def _check_invalid(context: _t.Context, cmake_text: str, expected_message: str, expected_pos: _tp.TextPos) -> None:
     path = pathlib.Path("test.cmake")
     success, result = _process(_trim_cmake_text(cmake_text), path, context)
@@ -3829,7 +3944,7 @@ def _check_invalid(context: _t.Context, cmake_text: str, expected_message: str, 
 
 def _process(cmake_text: str, cmake_path: pathlib.Path, context: _t.Context,
              subfile_resolver: _SubfileResolver | None = None, set_binary_dir: bool = False,
-             lenient_mode: bool = False) -> tuple[bool, _Result]:
+             lenient_mode: bool = False, cmake_version: _cve.Version | None = None) -> tuple[bool, _Result]:
     source_dir = pathlib.Path("src")
     pos_resolver = _cp.PositionResolver()
     result = _Result()
@@ -3837,8 +3952,8 @@ def _process(cmake_text: str, cmake_path: pathlib.Path, context: _t.Context,
     config = _cp.Config()
     if set_binary_dir:
         config.binary_dir = pathlib.Path("bin")
-    if lenient_mode:
-        config.lenient_mode = True
+    config.lenient_mode = lenient_mode
+    config.cmake_version = cmake_version
     config.define_breakpoint_command = True
     with io.StringIO(cmake_text) as file_:
         cmake_source = _cp.Source(file_, cmake_path)

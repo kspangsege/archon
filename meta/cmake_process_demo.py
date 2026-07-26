@@ -8,6 +8,7 @@ import archon.base as _b
 import archon.log as _l
 import archon.command_line_interface as _cli
 import archon.cmake.uncertainty_reason as _cur
+import archon.cmake.version as _cve
 import archon.cmake.process as _cp
 
 
@@ -16,7 +17,14 @@ binary_dir        = _b.Wrap(typing.cast(str | None, None))
 cmake_path        = _b.Wrap(typing.cast(str | None, None))
 lenient_mode      = _b.Wrap(False)
 suppress_messages = _b.Wrap(False)
+cmake_version     = _b.Wrap(_cp.CMAKE_VERSION)
 log_level         = _b.Wrap(_l.LogLevel.INFO)
+
+def parse_version(string: str) -> _cve.Version:
+    version = _cve.parse(string)
+    if _cp.LOWEST_SUPPORTED_CMAKE_VERSION <= version <= _cp.CMAKE_VERSION:
+        return version
+    raise ValueError
 
 spec = _cli.Spec()
 spec.opt(["--"], _cli.Stop())
@@ -25,6 +33,7 @@ spec.opt(["-b", "--binary-dir"], _cli.AssignWithArg(str, binary_dir))
 spec.opt(["-p", "--cmake-path"], _cli.AssignWithArg(str, cmake_path))
 spec.opt(["-L", "--lenient-mode"], _cli.Raise(lenient_mode))
 spec.opt(["-M", "--suppress-messages"], _cli.Raise(suppress_messages))
+spec.opt(["-v", "--cmake-version"], _cli.AssignWithArg(parse_version, cmake_version))
 spec.opt(["-l", "--log-level"], _cli.AssignWithArg(_l.parse_log_level, log_level))
 
 root_logger = _l.RootLogger()
@@ -47,6 +56,7 @@ application = _cp.SimpleApplication(abs_base_path, pos_resolver, logger)
 config = _cp.Config()
 config.lenient_mode = lenient_mode.value
 config.suppress_messages = suppress_messages.value
+config.cmake_version = cmake_version.value
 
 if binary_dir.value is not None:
     config.binary_dir = pathlib.Path(binary_dir.value)
