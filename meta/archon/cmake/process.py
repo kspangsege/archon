@@ -21,13 +21,15 @@ import archon.cmake.variable as _cv
 import archon.cmake.argument as _ca
 import archon.cmake.condition as _cc
 import archon.cmake.version as _cve
+import archon.cmake.policy as _cpo
 
 
-# Process the specified CMake file (`cmake_source`) using the specified source directory
-# (`source_dir`) as the initial value of `CMAKE_CURRENT_SOURCE_DIR`. If specified paths are
-# relative, they will be resolved by the specified application (`application.open_subfile()`
-# or `application.resolve_path()`). `CMAKE_CURRENT_SOURCE_DIR` will be set to an absolute
-# path even when a relative path is specified. See also `Config.binary_dir`.
+# Process the specified CMake file (`cmake_source`) with respect to the source directory
+# specified through the configuration object (`config.source_dir`). If specified paths are
+# relative, they will be resolved using the specified application
+# (`application.open_subfile()` or `application.resolve_path()`). `CMAKE_SOURCE_DIR` will be
+# set to an absolute path even when a relative path is specified. See also
+# `Config.binary_dir`.
 #
 # The operation carried out by this function corresponds to the configuration phase of an
 # ordinary CMake run, but this function does it in a way that tracks uncertainty due to
@@ -101,9 +103,9 @@ import archon.cmake.version as _cve
 # cause a taint of all cache variables, all environment variables, and all regular variables
 # that are not on the variable whitelist.
 #
-def process(cmake_source: Source, source_dir: pathlib.Path, application: Application,
-            pos_resolver: PositionResolver, config: Config | None = None) -> bool:
-    return _process(cmake_source, source_dir, application, pos_resolver, config or Config())
+def process(cmake_source: Source, application: Application, pos_resolver: PositionResolver,
+            config: Config | None = None) -> bool:
+    return _process(cmake_source, application, pos_resolver, config or Config())
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -114,6 +116,7 @@ class Source:
 
 @dataclasses.dataclass(kw_only=True)
 class Config:
+    source_dir: pathlib.Path = pathlib.Path(".")
     binary_dir: pathlib.Path | None = None
 
     lenient_mode: bool = False
@@ -302,8 +305,7 @@ LOWEST_SUPPORTED_CMAKE_VERSION = _cve.Version(3, 28)
 # effect can be fully accounted for in terms of uncertainty propagation, or as a special
 # case.
 #
-def _process(cmake_source: Source, source_dir: pathlib.Path, application: Application, pos_resolver: PositionResolver,
-             config: Config) -> bool:
+def _process(cmake_source: Source, application: Application, pos_resolver: PositionResolver, config: Config) -> bool:
     errors_seen = False
 
     # A custom command (macro or function) that is in the current invocation path must be in
@@ -312,12 +314,12 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
     # that is not in the current invocation path should not be in this map.
     commands_in_invoc_path = dict[int, int]()
 
-    def process_file(root: _RootContext, cmake_source: Source, state: _State,
+    def process_file(process_context: _ProcessContext, cmake_source: Source, state: _State,
                      occurrence_uncertainty: OccurrenceUncertainty, source_dir: pathlib.Path,
                      binary_dir: pathlib.Path | None) -> None:
         tracker = _tp.FilePosTracker(cmake_source.path)
         file_index = pos_resolver._append_file(_SourceFile(tracker))
-        context = _InvocContext(root, file_index, state, occurrence_uncertainty, source_dir, binary_dir)
+        context = _InvocContext(process_context, file_index, state, occurrence_uncertainty, source_dir, binary_dir)
         def warning_handler(pos: int, message: str, *args: typing.Any) -> None:
             warn(file_index, pos, message, *args)
         def error_handler(pos: int, message: str, *args: typing.Any) -> None:
@@ -369,6 +371,10 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
             else:
                 error(context.file_index, e.invoc.pos, "Unsupported %s() syntax", e.invoc.command_name)
             return
+        except _CommandExecutionFailedException as e:
+            message = e.message % e.args
+            error(context.file_index, e.pos, "Failed to execute %s(): %s", e.command_name, message)
+            return
         except _cc.FatalParseError as e:
             message = e.message % e.args
             error(context.file_index, e.pos, "Failed to parse %s() condition: %s", e.command_name, message)
@@ -389,6 +395,12 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
             error(position.file_index, position.pos, "Illegal occurrence uncertainty in invocation of %s()",
                   e.command_name)
             trace_expansion_uncertainty_causes(e.cause)
+            return
+        except _UncertainPolicyException as e:
+            definition = _cpo.get_definition(e.policy)
+            error(context.file_index, e.pos, "Failed to execute %s() due to uncertain status of policy %s",
+                  e.requesting_command, definition.name)
+            trace_value_uncertainty_causes(e.cause)
             return
 
     def exec_if(invoc: _clp.IfInvoc, context: _InvocContext) -> None:
@@ -639,6 +651,9 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
                         return
                     case _BuiltInCommand.Which.CMAKE_MINIMUM_REQUIRED:
                         exec_cmake_minimum_required(invoc, context)
+                        return
+                    case _BuiltInCommand.Which.PROJECT:
+                        exec_project(invoc, context)
                         return
                     case _BuiltInCommand.Which.BREAKPOINT:
                         breakpoint()
@@ -1039,7 +1054,7 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
                 list_name_pos = arg.pos
                 have_list_name = True
             except _ca.UncertainArgumentException as e:
-                if not context.root.lenient_mode or e.was_bare:
+                if not context.process.lenient_mode or e.was_bare:
                     raise
                 if not uncertainty:
                     uncertainty = e.reason
@@ -1052,7 +1067,7 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
                     n = len(elements)
                     have_list_value = True
                 except _UncertainVariableResolutionException as e:
-                    if not context.root.lenient_mode:
+                    if not context.process.lenient_mode:
                         raise
                     if not uncertainty:
                         uncertainty = e.reason
@@ -1075,7 +1090,7 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
                     definitely_no_indexes = False
                     indexes.append(value)
                 except _ca.UncertainArgumentException as e:
-                    if not context.root.lenient_mode:
+                    if not context.process.lenient_mode:
                         raise
                     definitely_no_indexes = False
                     if not uncertainty:
@@ -1085,7 +1100,7 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
                       func)
                 return
             if uncertainty:
-                assert context.root.lenient_mode
+                assert context.process.lenient_mode
                 taint_regular_variable(var_name, uncertainty, context)
                 return
             assert have_list_value
@@ -1158,7 +1173,7 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
         arg = server.consume_keyword(_MESSAGE_LEVEL_MAP.keys())
         if arg:
             level = _MESSAGE_LEVEL_MAP[arg.string.string]
-        if context.root.suppress_messages:
+        if context.process.suppress_messages:
             return
         message = ""
         while True:
@@ -1185,7 +1200,7 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
         try:
             with context.open_subfile(cmake_path) as file_:
                 cmake_source = Source(file_, cmake_path)
-                process_file(context.root, cmake_source, context.state, context.occurrence_uncertainty,
+                process_file(context.process, cmake_source, context.state, context.occurrence_uncertainty,
                              context.source_dir, context.binary_dir)
         except FileNotFoundError as e:
             error(context.file_index, file_or_module_pos, "Failed to include %s (%s): %s", _b.quote(file_or_module),
@@ -1215,7 +1230,7 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
         try:
             with context.open_subfile(cmake_path) as file_:
                 cmake_source = Source(file_, cmake_path)
-                process_file(context.root, cmake_source, state, context.occurrence_uncertainty, source_dir_2,
+                process_file(context.process, cmake_source, state, context.occurrence_uncertainty, source_dir_2,
                              binary_dir_2)
         except FileNotFoundError as e:
             error(context.file_index, source_dir_pos, "Failed to add subdirectory %s (%s): %s", _b.quote(source_dir),
@@ -1223,30 +1238,49 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
 
     def exec_cmake_minimum_required(invoc: _clp.GenericInvoc, context: _InvocContext) -> None:
         server = create_argument_server(invoc, context)
-        have_version = False
+        # In the case of cmake_minimum_required(), CMake allows for keywords to occur in any
+        # order and for keywords to recur any number of times. Also, keyword status takes
+        # precedence over value status meaning that a keyword cannot occur as a value of
+        # another keyword.
+        class Keyword(enum.Enum):
+            VERSION     = 0
+            FATAL_ERROR = 1
+        keywords = set(Keyword.__members__.keys())
+        version: _tp.PosMappedString | None = None
         while True:
-            if server.consume_keyword({"VERSION"}):
-                arg = server.consume()
-                if not arg:
-                    error(context.file_index, server.next_pos, "Missing version argument after VERSION keyword in "
-                          "%s() invocation", invoc.command_name)
-                    return
-                version = arg.string
-                have_version = True
-                continue
-            if server.consume_keyword({"FATAL_ERROR"}):
-                # Superfluous in CMake 2.6 and later
-                continue
             arg = server.consume()
             if not arg:
                 break
-            error(context.file_index, arg.pos, "Unexpected argument (%s) in %s() invocation",
-                  _b.quote(arg.string.string), invoc.command_name)
-            return
+            keyword = Keyword.__members__.get(arg.string.string)
+            match keyword:
+                case Keyword.VERSION:
+                    # Replicating very quirky CMake behavior here: Error if VERSION keyword is
+                    # not followed by a version argument unless the next argument is another
+                    # VERSION keyword
+                    while True:
+                        if not server.consume_keyword({"VERSION"}):
+                            break
+                    arg = server.consume_not_keyword(keywords)
+                    if not arg:
+                        error(context.file_index, server.next_pos, "Missing version after VERSION keyword in %s() "
+                              "invocation", invoc.command_name)
+                        return
+                    version = arg.string
+                    continue
+                case Keyword.FATAL_ERROR:
+                    # Superfluous since CMake 2.6
+                    continue
+                case None:
+                    error(context.file_index, arg.pos, "Unexpected argument (%s) in %s() invocation",
+                          _b.quote(arg.string.string), invoc.command_name)
+                    return
+            typing.assert_never(keyword)
         if context.occurrence_uncertainty:
             position = _cur.Position(context.file_index, invoc.pos)
             raise _UncertainOccurrenceException(invoc.command_name, position, context.occurrence_uncertainty)
-        if not have_version:
+        # In CMake, if a cmake_minimum_required() invocation specifies no version, the
+        # invocation has no effect at all.
+        if version is None:
             return
         ellipsis = "..."
         ellipsis_pos = version.string.find(ellipsis)
@@ -1278,10 +1312,10 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
                       "minimum version (%s) in %s() invocation", max_policy_version_string, min_version_string,
                       invoc.command_name)
                 return
-        if min_version > context.root.cmake_version:
+        if min_version > context.process.cmake_version:
             ref_pos = version.begin_ref_pos
             error(context.file_index, ref_pos, "Specified minimum version (%s) is higher than highest supported CMake "
-                  "version (%s) in %s() invocation", min_version_string, context.root.cmake_version,
+                  "version (%s) in %s() invocation", min_version_string, context.process.cmake_version,
                   invoc.command_name)
             return
         if max_policy_version < LOWEST_SUPPORTED_CMAKE_VERSION:
@@ -1291,11 +1325,290 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
                   invoc.command_name)
             return
         set_regular_variable("CMAKE_MINIMUM_REQUIRED_VERSION", min_version_string, invoc, context)
-        policy_version = min(max_policy_version, context.root.cmake_version)
-        set_policy_version(policy_version)
+        policy_version = min(max_policy_version, context.process.cmake_version)
+        set_policy_version(policy_version, invoc, context)
 
-    def set_policy_version(version: _cve.Version) -> None:
-        pass                         
+    def exec_project(invoc: _clp.GenericInvoc, context: _InvocContext) -> None:
+        server = create_argument_server(invoc, context)
+        arg = server.consume()
+        if not arg:
+            error(context.file_index, server.next_pos, "Missing project name in %s() invocation", invoc.command_name)
+            return
+        name = arg.string.string
+        # In the case of the keyword-based project() signature, CMake allows for keywords to
+        # occur in any order but does not allow for keywords to recur. Keyword status takes
+        # precedence over value status meaning that a keyword cannot occur as a value of
+        # another keyword. For keywords other than LANGUAGES, a missing value is tolerated
+        # but generates a warning.
+        class Keyword(enum.Enum):
+            VERSION        = 0
+            COMPAT_VERSION = 1
+            SPDX_LICENSE   = 2
+            DESCRIPTION    = 3
+            HOMEPAGE_URL   = 4
+            LANGUAGES      = 5
+        keywords = set(Keyword.__members__.keys())
+        version:      str | None = None
+        description:  str | None = None
+        homepage_url: str | None = None
+        languages = list[str]()
+        no_default_languages = False
+        if not server.has_keyword(keywords):
+            while True:
+                arg = server.consume()
+                if not arg:
+                    break
+                if arg.string.string == "NONE":
+                    no_default_languages = True
+                    continue
+                languages.append(arg.string.string)
+        else:
+            # Replicating quirky CMake behavior: A stray value argument anywhere is treated
+            # as a language argument. If there is no LANGUAGES keyword, an error is
+            # generated when a stray language argument is encountered. Otherwise, a warning
+            # is generated in that case.
+            has_languages_keyword = server.has_keyword({"LANGUAGES"})
+            if has_languages_keyword:
+                no_default_languages = True
+            languages_keyword_seen = False
+            while True:
+                arg = server.consume()
+                if not arg:
+                    break
+                keyword = Keyword.__members__.get(arg.string.string)
+                match keyword:
+                    case Keyword.VERSION:
+                        if version is not None:
+                            error(context.file_index, arg.pos, "More than one VERSION keyword in %s() invocation",
+                                  invoc.command_name)
+                            return
+                        arg = server.consume_not_keyword(keywords)
+                        if arg:
+                            version = arg.string.string
+                            # CMake accepts an empty string or a version with up to 4 purely
+                            # numeric components
+                            m = re.fullmatch(r"(?:(\d+)(?:\.(\d+)(?:\.(\d+)(?:\.(\d+))?)?)?)?", version, re.ASCII)
+                            if not m:
+                                error(context.file_index, arg.pos, "Invalid version syntax (%s) in %s() invocation",
+                                      _b.quote(version), invoc.command_name)
+                                return
+                            version_major = m.group(1) or ""
+                            version_minor = m.group(2) or ""
+                            version_patch = m.group(3) or ""
+                            version_tweak = m.group(4) or ""
+                        else:
+                            warn(context.file_index, server.next_pos, "Missing version after VERSION keyword in %s() "
+                                 "invocation", invoc.command_name)
+                            version       = ""
+                            version_major = ""
+                            version_minor = ""
+                            version_patch = ""
+                            version_tweak = ""
+                        continue
+                    case Keyword.COMPAT_VERSION:
+                        raise _UnsupportedInvocSyntaxException(invoc, "COMPAT_VERSION keyword") from None
+                    case Keyword.SPDX_LICENSE:
+                        raise _UnsupportedInvocSyntaxException(invoc, "SPDX_LICENSE keyword") from None
+                    case Keyword.DESCRIPTION:
+                        if description is not None:
+                            error(context.file_index, arg.pos, "More than one DESCRIPTION keyword in %s() invocation",
+                                  invoc.command_name)
+                            return
+                        arg = server.consume_not_keyword(keywords)
+                        if arg:
+                            description = arg.string.string
+                        else:
+                            warn(context.file_index, server.next_pos, "Missing description after DESCRIPTION keyword "
+                                 "in %s() invocation", invoc.command_name)
+                            description = ""
+                        continue
+                    case Keyword.HOMEPAGE_URL:
+                        if homepage_url is not None:
+                            error(context.file_index, arg.pos, "More than one HOMEPAGE_URL keyword in %s() invocation",
+                                  invoc.command_name)
+                            return
+                        arg = server.consume_not_keyword(keywords)
+                        if arg:
+                            homepage_url = arg.string.string
+                        else:
+                            warn(context.file_index, server.next_pos, "Missing URL after HOMEPAGE_URL keyword in %s() "
+                                 "invocation", invoc.command_name)
+                            homepage_url = ""
+                        continue
+                    case Keyword.LANGUAGES:
+                        if languages_keyword_seen:
+                            error(context.file_index, arg.pos, "More than one LANGUAGES keyword in %s() invocation",
+                                  invoc.command_name)
+                            return
+                        languages_keyword_seen = True
+                        while True:
+                            arg = server.consume_not_keyword(keywords)
+                            if not arg:
+                                break
+                            if arg.string.string != "NONE":
+                                languages.append(arg.string.string)
+                        continue
+                    case None:
+                        if not has_languages_keyword:
+                            error(context.file_index, arg.pos, "Language argument (%s) without LANGUAGES keyword in "
+                                  "%s() invocation", _b.quote(arg.string.string), invoc.command_name)
+                            return
+                        warn(context.file_index, arg.pos, "Misplaced language argument (%s) in %s() invocation",
+                             _b.quote(arg.string.string), invoc.command_name)
+                        if arg.string.string != "NONE":
+                            languages.append(arg.string.string)
+                        continue
+                typing.assert_never(keyword)
+
+        if context.occurrence_uncertainty:
+            position = _cur.Position(context.file_index, invoc.pos)
+            raise _UncertainOccurrenceException(invoc.command_name, position, context.occurrence_uncertainty)
+
+        if not languages and not no_default_languages:
+            languages = ["C", "CXX"]
+
+        is_master_project = False
+        if not context.process.state.master_project_seen:
+            is_master_project = True
+            context.process.state.master_project_seen = True
+
+        class Type(enum.Enum):
+            REGULAR_ONLY            = 0
+            CACHE_ONLY              = 1
+            CACHE_AND_REGULAR       = 2
+            CACHE_AND_UNSET_REGULAR = 3
+
+        hybrid_type = Type.CACHE_ONLY
+        if get_certain_policy(_cpo.Policy.CMP0180, invoc, context):
+            hybrid_type = Type.CACHE_AND_REGULAR
+
+        def set_(var_name: str, value: str, type_: Type) -> None:
+            match type_:
+                case Type.REGULAR_ONLY:
+                    set_regular_variable(var_name, value, invoc, context)
+                    return
+                case Type.CACHE_ONLY:
+                    set_cache_variable(var_name, value, invoc, context)
+                    return
+                case Type.CACHE_AND_REGULAR:
+                    set_cache_variable(var_name, value, invoc, context)
+                    set_regular_variable(var_name, value, invoc, context)
+                    return
+                case Type.CACHE_AND_UNSET_REGULAR:
+                    set_cache_variable(var_name, value, invoc, context)
+                    set_regular_variable(var_name, None, invoc, context)
+                    return
+            typing.assert_never(type_)
+
+        if is_master_project:
+            set_("CMAKE_PROJECT_NAME", name, Type.CACHE_AND_UNSET_REGULAR)
+        set_("PROJECT_NAME", name, Type.REGULAR_ONLY)
+
+        source_dir = str(context.resolve_path(context.source_dir))
+        binary_dir = str(context.resolve_path(context.binary_dir)) if context.binary_dir is not None else None
+        set_("PROJECT_SOURCE_DIR", source_dir, Type.REGULAR_ONLY)
+        set_(name + "_SOURCE_DIR", source_dir, hybrid_type)
+        if binary_dir is not None:
+            set_("PROJECT_BINARY_DIR", binary_dir, Type.REGULAR_ONLY)
+            set_(name + "_BINARY_DIR", binary_dir, hybrid_type)
+
+        is_top_level = context.resolve_path(context.source_dir) == context.resolve_path(context.process.root_dir)
+        is_top_level_2 = "ON" if is_top_level else "OFF"
+        set_("PROJECT_IS_TOP_LEVEL", is_top_level_2, Type.REGULAR_ONLY)
+        set_(name + "_IS_TOP_LEVEL", is_top_level_2, hybrid_type)
+
+        # Replicating quirky CMake 4.3 behavior: If the VERSION keyword occurs, all version
+        # variables are set to a defined value (not None), but if the VERSION keyword does
+        # not occur, version variables are changed to the empty string if they have a
+        # nonempty string value. Otherwise, they are left undefined (None). When judging
+        # whether they have a nonempty string value, the cache is consulted (general
+        # resolution type).
+        def special_reset(var_name: str, type_: Type) -> None:
+            match type_:
+                case Type.REGULAR_ONLY:
+                    value, _ = resolve_variable(_cu.ResolutionType.GENERAL, var_name, invoc.pos, context)
+                    match value:
+                        case _cv.CertainValue():
+                            if value.string:
+                                set_regular_variable(var_name, "", invoc, context)
+                            return
+                        case _cv.UncertainValue():
+                            if not value.reason:
+                                set_regular_variable(var_name, None, invoc, context)
+                            return
+                    typing.assert_never(value)
+                case Type.CACHE_ONLY | Type.CACHE_AND_REGULAR:
+                    # These cases are not in use
+                    assert False
+                case Type.CACHE_AND_UNSET_REGULAR:
+                    set_regular_variable(var_name, None, invoc, context)
+                    value, _ = resolve_variable(_cu.ResolutionType.CACHE, var_name, invoc.pos, context)
+                    match value:
+                        case _cv.CertainValue():
+                            if value.string:
+                                set_cache_variable(var_name, "", invoc, context)
+                            return
+                        case _cv.UncertainValue():
+                            if not value.reason:
+                                set_cache_variable(var_name, None, invoc, context)
+                            return
+                    typing.assert_never(value)
+            typing.assert_never(type_)
+
+        if version is None:
+            if is_master_project:
+                special_reset("CMAKE_PROJECT_VERSION", Type.CACHE_AND_UNSET_REGULAR)
+                special_reset("CMAKE_PROJECT_VERSION_MAJOR", Type.CACHE_AND_UNSET_REGULAR)
+                special_reset("CMAKE_PROJECT_VERSION_MINOR", Type.CACHE_AND_UNSET_REGULAR)
+                special_reset("CMAKE_PROJECT_VERSION_PATCH", Type.CACHE_AND_UNSET_REGULAR)
+                special_reset("CMAKE_PROJECT_VERSION_TWEAK", Type.CACHE_AND_UNSET_REGULAR)
+            special_reset("PROJECT_VERSION", Type.REGULAR_ONLY)
+            special_reset("PROJECT_VERSION_MAJOR", Type.REGULAR_ONLY)
+            special_reset("PROJECT_VERSION_MINOR", Type.REGULAR_ONLY)
+            special_reset("PROJECT_VERSION_PATCH", Type.REGULAR_ONLY)
+            special_reset("PROJECT_VERSION_TWEAK", Type.REGULAR_ONLY)
+            special_reset(name + "_VERSION", Type.REGULAR_ONLY)
+            special_reset(name + "_VERSION_MAJOR", Type.REGULAR_ONLY)
+            special_reset(name + "_VERSION_MINOR", Type.REGULAR_ONLY)
+            special_reset(name + "_VERSION_PATCH", Type.REGULAR_ONLY)
+            special_reset(name + "_VERSION_TWEAK", Type.REGULAR_ONLY)
+        else:
+            if is_master_project:
+                set_("CMAKE_PROJECT_VERSION", version, Type.CACHE_AND_UNSET_REGULAR)
+                set_("CMAKE_PROJECT_VERSION_MAJOR", version_major, Type.CACHE_AND_UNSET_REGULAR)
+                set_("CMAKE_PROJECT_VERSION_MINOR", version_minor, Type.CACHE_AND_UNSET_REGULAR)
+                set_("CMAKE_PROJECT_VERSION_PATCH", version_patch, Type.CACHE_AND_UNSET_REGULAR)
+                set_("CMAKE_PROJECT_VERSION_TWEAK", version_tweak, Type.CACHE_AND_UNSET_REGULAR)
+            set_("PROJECT_VERSION", version, Type.REGULAR_ONLY)
+            set_("PROJECT_VERSION_MAJOR", version_major, Type.REGULAR_ONLY)
+            set_("PROJECT_VERSION_MINOR", version_minor, Type.REGULAR_ONLY)
+            set_("PROJECT_VERSION_PATCH", version_patch, Type.REGULAR_ONLY)
+            set_("PROJECT_VERSION_TWEAK", version_tweak, Type.REGULAR_ONLY)
+            set_(name + "_VERSION", version, Type.REGULAR_ONLY)
+            set_(name + "_VERSION_MAJOR", version_major, Type.REGULAR_ONLY)
+            set_(name + "_VERSION_MINOR", version_minor, Type.REGULAR_ONLY)
+            set_(name + "_VERSION_PATCH", version_patch, Type.REGULAR_ONLY)
+            set_(name + "_VERSION_TWEAK", version_tweak, Type.REGULAR_ONLY)
+
+        # With CMake 4.3, "description" and "homepage URL" variables are set to the empty
+        # string when the respective keywords are absent. These variables are never left in
+        # the unset state (with value `None`).
+        if is_master_project:
+            set_("CMAKE_PROJECT_DESCRIPTION", description or "", Type.CACHE_AND_UNSET_REGULAR)
+            set_("CMAKE_PROJECT_HOMEPAGE_URL", homepage_url or "", Type.CACHE_AND_UNSET_REGULAR)
+        set_("PROJECT_DESCRIPTION", description or "", Type.REGULAR_ONLY)
+        set_("PROJECT_HOMEPAGE_URL", homepage_url or "", Type.REGULAR_ONLY)
+        set_(name + "_DESCRIPTION", description or "", Type.REGULAR_ONLY)
+        set_(name + "_HOMEPAGE_URL", homepage_url or "", Type.REGULAR_ONLY)
+
+    def set_policy_version(version: _cve.Version, invoc: _clp.GenericInvoc, context: _InvocContext) -> None:
+        context.process.state.policy_version = version
+        # Unset all policies such that they fall back to their default states for the
+        # recorded policy version.
+        for definition in _cpo.get_definitions():
+            if definition.toggleable:
+                new = None # Unset the policy
+                set_policy(definition.toggleable, new, invoc, context)
 
     def evaluate_condition(invoc: _clp.GeneralizedInvoc, context: _InvocContext) -> _cc.Result:
         arguments, card_uncertainty = expand_arguments(invoc, context)
@@ -1312,7 +1625,7 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
             def taint(self, variable_name: str, reason: _cur.ValueUncertaintyReason) -> None:
                 taint_regular_variable(variable_name, reason, context)
         state = State()
-        return _cc.evaluate(condition, invoc.command_name, context.file_index, state, context.root.lenient_mode)
+        return _cc.evaluate(condition, invoc.command_name, context.file_index, state, context.process.lenient_mode)
 
     def create_argument_server(invoc: _clp.Invoc, context: _InvocContext) -> _ca.ArgumentServer:
         arguments, card_uncertainty = expand_arguments(invoc, context)
@@ -1425,12 +1738,15 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
         return expand(_csp.parse(string, error_handler))
 
     def resolve_certain_variable(resolution_type: _cu.ResolutionType, variable_name: str, pos: int,
-                                 invoc: _clp.GeneralizedInvoc, context: _InvocContext) -> str | None:
+                                 invoc: _clp.GeneralizedInvoc, context: _InvocContext,
+                                 undefined_is_certain: bool = False) -> str | None:
         value, variable_type = resolve_variable(resolution_type, variable_name, pos, context)
         match value:
             case _cv.CertainValue():
                 return value.string
             case _cv.UncertainValue():
+                if not value.reason and undefined_is_certain:
+                    return None
                 param_type = _cv.variable_to_param_type(variable_type)
                 expansion_position = _cur.Position(context.file_index, pos)
                 reason = _cur.ExpansionUncertaintyReason(invoc.command_name, param_type, variable_name,
@@ -1500,6 +1816,63 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
     def taint_env_variable(variable_name: str, reason: _cur.ValueUncertaintyReason, context: _InvocContext) -> None:
         context.state.set_env_variable(variable_name, _cv.UncertainValue(reason))
 
+    def get_certain_policy(policy: _cpo.Policy, invoc: _clp.GeneralizedInvoc, context: _InvocContext,
+                           suppress_warning: bool = False) -> bool:
+        value = context.state.get_policy(policy)
+        match value:
+            case _CertainPolicyValue():
+                if value.new is not None:
+                    return value.new
+                return determine_default_policy_state(policy, invoc, context, suppress_warning)
+            case _UncertainPolicyValue():
+                raise _UncertainPolicyException(invoc.command_name, policy, invoc.pos, value.reason) from None
+        typing.assert_never(value)
+
+    def set_policy(policy: _cpo.Policy, new: bool | None, invoc: _clp.GeneralizedInvoc, context: _InvocContext) -> None:
+        assignment_position = _cur.Position(context.file_index, invoc.pos)
+        value = _CertainAssignedPolicyValue(new, invoc.command_name, assignment_position)
+        context.state.set_policy(policy, value)
+
+    def determine_default_policy_state(policy: _cpo.Policy, invoc: _clp.GeneralizedInvoc, context: _InvocContext,
+                                       suppress_warning: bool) -> bool:
+        definition = _cpo.get_definition(policy)
+
+        # In CMake, cmake_minimum_required() and cmake_policy() directly sets all policies
+        # that were introduced at or before the negotiated policy version to NEW and unsets
+        # the state of all other policies. The following achieves the same result.
+        if definition.intro_version <= context.process.state.policy_version:
+            return True  # NEW
+
+        # If the policy is not yet introduced in the simulated CMake version
+        # (`context.process.cmake_version`), its state is OLD
+        if definition.intro_version > context.process.cmake_version:
+            return False  # OLD
+
+        # The policy is known in the simulated CMake version, so we need to consult the
+        # variable that affects its default state
+        name = "CMAKE_POLICY_DEFAULT_" + definition.name
+        value = resolve_certain_variable(_cu.ResolutionType.GENERAL, name, invoc.pos, invoc, context,
+                                         undefined_is_certain=True)
+        if value == "NEW":
+            return True  # NEW
+        if value == "OLD":
+            if definition.force_version is not None and definition.force_version <= context.process.cmake_version:
+                raise _CommandExecutionFailedException(invoc.command_name, invoc.pos, "Opt out from policy %s not "
+                                                       "possible in CMake %s", definition.name,
+                                                       context.process.cmake_version) from None
+            return False  # OLD
+
+        if definition.force_version is not None and definition.force_version <= context.process.cmake_version:
+            # If the policy has become forced in the simulated CMake version, the state of
+            # the policy is forced to NEW even if it would have been OLD based on the
+            # negotiated policy version. This appears to be in line with CMake's behavior.
+            return True  # NEW
+
+        if not definition.suppress_warning and not suppress_warning:
+            warn(context.file_index, invoc.pos, "Policy %s is not in effect: %s", definition.name,
+                 definition.description)
+        return False  # OLD
+
     def trace_value_uncertainty_causes(cause: _cur.ValueUncertaintyReason) -> None:
         match cause:
             case _cur.ExpansionUncertaintyReason():
@@ -1536,20 +1909,42 @@ def _process(cmake_source: Source, source_dir: pathlib.Path, application: Applic
             raise ValueError("CMake version out of range")
         cmake_version = config.cmake_version
 
+    source_dir = str(application.resolve_path(config.source_dir))
+    binary_dir = str(application.resolve_path(config.binary_dir)) if config.binary_dir is not None else None
+
     initial_variables = config.initial_variables.copy()
     initial_variables["CMAKE_VERSION"] = str(cmake_version)  # Always on 3-component form
     initial_variables["CMAKE_MAJOR_VERSION"] = str(cmake_version.major)
     initial_variables["CMAKE_MINOR_VERSION"] = str(cmake_version.minor)
     initial_variables["CMAKE_PATCH_VERSION"] = str(cmake_version.patch)
     initial_variables["CMAKE_TWEAK_VERSION"] = "0"
-    initial_variables["CMAKE_CURRENT_SOURCE_DIR"] = str(application.resolve_path(source_dir))
-    if config.binary_dir is not None:
-        initial_variables["CMAKE_CURRENT_BINARY_DIR"] = str(application.resolve_path(config.binary_dir))
+    initial_variables["CMAKE_SOURCE_DIR"] = source_dir
+    initial_variables["CMAKE_CURRENT_SOURCE_DIR"] = source_dir
+    if binary_dir is not None:
+        initial_variables["CMAKE_BINARY_DIR"] = binary_dir
+        initial_variables["CMAKE_CURRENT_BINARY_DIR"] = binary_dir
+    definitely_unset_variables = [
+        "CMAKE_MINIMUM_REQUIRED_VERSION",
+        "PROJECT_NAME",
+        "PROJECT_SOURCE_DIR",
+        "PROJECT_BINARY_DIR",
+        "PROJECT_VERSION",
+        "PROJECT_VERSION_MAJOR",
+        "PROJECT_VERSION_MINOR",
+        "PROJECT_VERSION_PATCH",
+        "PROJECT_VERSION_TWEAK",
+        "PROJECT_DESCRIPTION",
+        "PROJECT_HOMEPAGE_URL",
+    ]
+    for name in definitely_unset_variables:
+        initial_variables.setdefault(name)
     state = _RootState(initial_variables, config.define_breakpoint_command)
     occurrence_uncertainty = None
-    base_dir = source_dir
-    root = _RootContext(application, pos_resolver, config.lenient_mode, config.suppress_messages, cmake_version)
-    process_file(root, cmake_source, state, occurrence_uncertainty, source_dir, config.binary_dir)
+    root_dir = config.source_dir
+    process_state = _ProcessState()
+    process_context = _ProcessContext(application, pos_resolver, config.lenient_mode, config.suppress_messages,
+                                      cmake_version, root_dir, process_state)
+    process_file(process_context, cmake_source, state, occurrence_uncertainty, config.source_dir, config.binary_dir)
     return not errors_seen
 
 
@@ -1564,7 +1959,7 @@ class _SourceFile:
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class _InvocContext:
-    root:                   _RootContext
+    process:                _ProcessContext
     file_index:             int
     state:                  _State
     occurrence_uncertainty: OccurrenceUncertainty
@@ -1575,22 +1970,30 @@ class _InvocContext:
         return dataclasses.replace(self, state=state)
 
     def resolve_file_pos(self, pos: _cur.Position) -> _tp.FilePos:
-        return self.root.pos_resolver.resolve_file_pos(pos)
+        return self.process.pos_resolver.resolve_file_pos(pos)
 
     def open_subfile(self, path: pathlib.Path) -> typing.TextIO:
-        return self.root.application.open_subfile(path)
+        return self.process.application.open_subfile(path)
 
     def resolve_path(self, path: pathlib.Path) -> pathlib.Path:
-        return self.root.application.resolve_path(path)
+        return self.process.application.resolve_path(path)
 
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class _RootContext:
+class _ProcessContext:
     application:       Application
     pos_resolver:      PositionResolver
     lenient_mode:      bool
     suppress_messages: bool
     cmake_version:     _cve.Version
+    root_dir:          pathlib.Path
+    state:             _ProcessState
+
+
+class _ProcessState:
+    def __init__(self) -> None:
+        self.policy_version      = LOWEST_SUPPORTED_CMAKE_VERSION
+        self.master_project_seen = False
 
 
 class _State(abc.ABC):
@@ -1638,14 +2041,24 @@ class _State(abc.ABC):
     def set_command(self, name_cf: str, command: _DefinedCommand) -> None:
         ...
 
+    @abc.abstractmethod
+    def get_policy(self, policy: _cpo.Policy) -> _PolicyValue:
+        ...
+
+    @abc.abstractmethod
+    def set_policy(self, policy: _cpo.Policy, value: _AssignedPolicyValue) -> None:
+        ...
+
 
 class _RootState(_State):
     def __init__(self, initial_variables: dict[str, str | None], define_breakpoint_command: bool) -> None:
+        self._policies          = dict[_cpo.Policy, _PolicyValue]()
         self._commands          = dict[str, _Command]()
         self._env_variables     = dict[str, _cv.Value]()
         self._cache_variables   = dict[str, _cv.Value]()
         self._regular_variables = dict[str, _cv.Value]()
         for name, value in initial_variables.items():
+            self._cache_variables[name] = _cv.CertainValue(None)
             self._regular_variables[name] = _cv.CertainValue(value)
         self._define_built_in_commands(define_breakpoint_command)
 
@@ -1737,6 +2150,25 @@ class _RootState(_State):
                 return
         typing.assert_never(command)
 
+    @typing.override
+    def get_policy(self, policy: _cpo.Policy) -> _PolicyValue:
+        value = self._policies.get(policy)
+        return value or _CertainPolicyValue(None)
+
+    @typing.override
+    def set_policy(self, policy: _cpo.Policy, value: _AssignedPolicyValue) -> None:
+        match value:
+            case _CertainAssignedPolicyValue():
+                if value.new is None:
+                    self._policies.pop(policy, None)
+                else:
+                    self._policies[policy] = _CertainPolicyValue(value.new)
+                return
+            case _UncertainPolicyValue():
+                self._policies[policy] = value
+                return
+        typing.assert_never(value)
+
     def _define_built_in_commands(self, define_breakpoint_command: bool) -> None:
         def define(name_cf: str, which: _BuiltInCommand.Which) -> None:
             self._commands[name_cf] = _BuiltInCommand(which)
@@ -1748,7 +2180,7 @@ class _RootState(_State):
         define("include",                _BuiltInCommand.Which.INCLUDE)
         define("add_subdirectory",       _BuiltInCommand.Which.ADD_SUBDIRECTORY)
         define("cmake_minimum_required", _BuiltInCommand.Which.CMAKE_MINIMUM_REQUIRED)
-        define("project",                _BuiltInCommand.Which.UNSUPPORTED)
+        define("project",                _BuiltInCommand.Which.PROJECT)
         define("option",                 _BuiltInCommand.Which.UNSUPPORTED)
         if define_breakpoint_command:
             define("breakpoint", _BuiltInCommand.Which.BREAKPOINT)
@@ -1820,11 +2252,21 @@ class _SubscopeState(_State):
     def set_command(self, name_cf: str, command: _DefinedCommand) -> None:
         self._parent_state.set_command(name_cf, command)
 
+    @typing.override
+    def get_policy(self, policy: _cpo.Policy) -> _PolicyValue:
+        return self._parent_state.get_policy(policy)
+
+    @typing.override
+    def set_policy(self, policy: _cpo.Policy, value: _AssignedPolicyValue) -> None:
+        self._parent_state.set_policy(policy, value)
+
 
 class _OccurrenceUncertaintyOverlayState(_State):
     def __init__(self, parent_state: _State, occurrence_uncertainty_reason: _cur.ExpansionUncertaintyReason) -> None:
         self._parent_state                   = parent_state
         self._occurrence_uncertainty_reason  = occurrence_uncertainty_reason
+        self._policies                       = dict[_cpo.Policy, _AssignedPolicyValue]()
+        self._tainted_policies               = dict[_cpo.Policy, _UncertainPolicyValue]()
         self._commands                       = dict[str, _DefinedCommand]()
         self._tainted_commands               = dict[str, _UncertainCommand]()
         self._env_variables                  = dict[str, _AssignedValue]()
@@ -1837,6 +2279,24 @@ class _OccurrenceUncertaintyOverlayState(_State):
         self._tainted_parent_scope_variables = dict[str, _cv.UncertainValue]()
 
     def prune_taints(self) -> None:
+        value:        _AssignedPolicyValue | _AssignedValue
+        parent_value: _PolicyValue | _cv.Value
+        for policy, value in list(self._policies.items()):
+            match value:
+                case _CertainAssignedPolicyValue():
+                    parent_value = self._parent_state.get_policy(policy)
+                    match parent_value:
+                        case _CertainPolicyValue():
+                            if parent_value.new == value.new:
+                                del self._policies[policy]
+                                del self._tainted_policies[policy]
+                            continue
+                        case _UncertainPolicyValue():
+                            continue
+                    typing.assert_never(parent_value)
+                case _UncertainPolicyValue():
+                    continue
+            typing.assert_never(value)
         # Command taints are uncancellable because it is impossible in CMake to assign a
         # command to a name that is the same command as the name once referred to. One can
         # imagine assigning a new macro with the same macro body, but it is still not the
@@ -1909,7 +2369,30 @@ class _OccurrenceUncertaintyOverlayState(_State):
             typing.assert_never(value)
 
     def cross_prune_taints(self, else_state: _OccurrenceUncertaintyOverlayState) -> None:
+        value:      _AssignedPolicyValue | _AssignedValue
+        else_value: _AssignedPolicyValue | _AssignedValue | None
         assert self._parent_state is else_state._parent_state
+        for policy, value in list(self._policies.items()):
+            match value:
+                case _CertainAssignedPolicyValue():
+                    else_value = else_state._policies.get(policy)
+                    if not else_value:
+                        continue
+                    match else_value:
+                        case _CertainAssignedPolicyValue():
+                            if value.new == else_value.new:
+                                self._parent_state.set_policy(policy, value)
+                                del self._policies[policy]
+                                del self._tainted_policies[policy]
+                                del else_state._policies[policy]
+                                del else_state._tainted_policies[policy]
+                            continue
+                        case _UncertainPolicyValue():
+                            continue
+                    typing.assert_never(else_value)
+                case _UncertainPolicyValue():
+                    continue
+            typing.assert_never(value)
         # Commands are uncomparable. See prune_taints().
         for name, value in list(self._env_variables.items()):
             match value:
@@ -1997,7 +2480,9 @@ class _OccurrenceUncertaintyOverlayState(_State):
             typing.assert_never(value)
 
     def push_taints(self) -> None:
-        value: typing.Any
+        value: _AssignedPolicyValue | _DefinedCommand | _AssignedValue
+        for policy, value in self._tainted_policies.items():
+            self._parent_state.set_policy(policy, value)
         for name_cf, value in self._tainted_commands.items():
             self._parent_state.set_command(name_cf, value)
         for name, value in self._tainted_env_variables.items():
@@ -2016,14 +2501,14 @@ class _OccurrenceUncertaintyOverlayState(_State):
     @typing.override
     def get_regular_variable(self, name: str) -> _cv.Value:
         value = self._regular_variables.get(name)
-        if value:
-            match value:
-                case _CertainAssignedValue():
-                    return _cv.CertainValue(value.string)
-                case _cv.UncertainValue():
-                    return value
-            typing.assert_never(value)
-        return self._parent_state.get_regular_variable(name)
+        if not value:
+            return self._parent_state.get_regular_variable(name)
+        match value:
+            case _CertainAssignedValue():
+                return _cv.CertainValue(value.string)
+            case _cv.UncertainValue():
+                return value
+        typing.assert_never(value)
 
     @typing.override
     def set_regular_variable(self, name: str, value: _AssignedValue) -> None:
@@ -2043,14 +2528,14 @@ class _OccurrenceUncertaintyOverlayState(_State):
     @typing.override
     def get_parent_scope_variable(self, name: str) -> _cv.Value:
         value = self._parent_scope_variables.get(name)
-        if value:
-            match value:
-                case _CertainAssignedValue():
-                    return _cv.CertainValue(value.string)
-                case _cv.UncertainValue():
-                    return value
-            typing.assert_never(value)
-        return self._parent_state.get_parent_scope_variable(name)
+        if not value:
+            return self._parent_state.get_parent_scope_variable(name)
+        match value:
+            case _CertainAssignedValue():
+                return _cv.CertainValue(value.string)
+            case _cv.UncertainValue():
+                return value
+        typing.assert_never(value)
 
     @typing.override
     def set_parent_scope_variable(self, name: str, value: _AssignedValue) -> None:
@@ -2070,14 +2555,14 @@ class _OccurrenceUncertaintyOverlayState(_State):
     @typing.override
     def get_cache_variable(self, name: str) -> _cv.Value:
         value = self._cache_variables.get(name)
-        if value:
-            match value:
-                case _CertainAssignedValue():
-                    return _cv.CertainValue(value.string)
-                case _cv.UncertainValue():
-                    return value
-            typing.assert_never(value)
-        return self._parent_state.get_cache_variable(name)
+        if not value:
+            return self._parent_state.get_cache_variable(name)
+        match value:
+            case _CertainAssignedValue():
+                return _cv.CertainValue(value.string)
+            case _cv.UncertainValue():
+                return value
+        typing.assert_never(value)
 
     @typing.override
     def set_cache_variable(self, name: str, value: _AssignedValue) -> None:
@@ -2097,14 +2582,14 @@ class _OccurrenceUncertaintyOverlayState(_State):
     @typing.override
     def get_env_variable(self, name: str) -> _cv.Value:
         value = self._env_variables.get(name)
-        if value:
-            match value:
-                case _CertainAssignedValue():
-                    return _cv.CertainValue(value.string)
-                case _cv.UncertainValue():
-                    return value
-            typing.assert_never(value)
-        return self._parent_state.get_env_variable(name)
+        if not value:
+            return self._parent_state.get_env_variable(name)
+        match value:
+            case _CertainAssignedValue():
+                return _cv.CertainValue(value.string)
+            case _cv.UncertainValue():
+                return value
+        typing.assert_never(value)
 
     @typing.override
     def set_env_variable(self, name: str, value: _AssignedValue) -> None:
@@ -2124,14 +2609,14 @@ class _OccurrenceUncertaintyOverlayState(_State):
     @typing.override
     def get_command(self, name_cf: str) -> _Command:
         command = self._commands.get(name_cf)
-        if command:
-            match command:
-                case _CertainDefinedCommand():
-                    return command.command
-                case _UncertainCommand():
-                    return command
-            typing.assert_never(command)
-        return self._parent_state.get_command(name_cf)
+        if not command:
+            return self._parent_state.get_command(name_cf)
+        match command:
+            case _CertainDefinedCommand():
+                return command.command
+            case _UncertainCommand():
+                return command
+        typing.assert_never(command)
 
     @typing.override
     def set_command(self, name_cf: str, command: _DefinedCommand) -> None:
@@ -2148,6 +2633,51 @@ class _OccurrenceUncertaintyOverlayState(_State):
                 typing.assert_never(command)
         self._tainted_commands[name_cf] = taint_command
 
+    @typing.override
+    def get_policy(self, policy: _cpo.Policy) -> _PolicyValue:
+        value = self._policies.get(policy)
+        if not value:
+            return self._parent_state.get_policy(policy)
+        match value:
+            case _CertainAssignedPolicyValue():
+                return _CertainPolicyValue(value.new)
+            case _UncertainPolicyValue():
+                return value
+        typing.assert_never(value)
+
+    @typing.override
+    def set_policy(self, policy: _cpo.Policy, value: _AssignedPolicyValue) -> None:
+        self._policies[policy] = value
+        match value:
+            case _CertainPolicyValue():
+                reason = _cur.AssignmentOccurrenceUncertaintyReason(value.assigning_command_name,
+                                                                    value.assignment_position,
+                                                                    self._occurrence_uncertainty_reason)
+                taint_value = _UncertainPolicyValue(reason)
+            case _UncertainPolicyValue():
+                taint_value = value
+            case _:
+                typing.assert_never(value)
+        self._tainted_policies[policy] = taint_value
+
+
+type _PolicyValue = _CertainPolicyValue | _UncertainPolicyValue
+
+type _AssignedPolicyValue = _CertainAssignedPolicyValue | _UncertainPolicyValue
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class _CertainPolicyValue:
+    new: bool | None
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class _CertainAssignedPolicyValue(_CertainPolicyValue):
+    assigning_command_name: str
+    assignment_position:    _cur.Position
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class _UncertainPolicyValue:
+    reason: _cur.ValueUncertaintyReason
+
 
 type _Command = _CertainCommand | _UncertainCommand
 
@@ -2158,16 +2688,17 @@ type _DefinedCommand = _CertainDefinedCommand | _UncertainCommand
 @dataclasses.dataclass(slots=True, frozen=True)
 class _BuiltInCommand:
     class Which(enum.Enum):
-        UNSUPPORTED            = 0
-        SET                    = 1
-        UNSET                  = 2
-        STRING                 = 3
-        LIST                   = 4
-        MESSAGE                = 5
-        INCLUDE                = 6
-        ADD_SUBDIRECTORY       = 7
-        CMAKE_MINIMUM_REQUIRED = 8
-        BREAKPOINT             = 9  # Non-standard
+        UNSUPPORTED            =  0
+        SET                    =  1
+        UNSET                  =  2
+        STRING                 =  3
+        LIST                   =  4
+        MESSAGE                =  5
+        INCLUDE                =  6
+        ADD_SUBDIRECTORY       =  7
+        CMAKE_MINIMUM_REQUIRED =  8
+        PROJECT                =  9
+        BREAKPOINT             = 10  # Non-standard
     which: Which
 
 @dataclasses.dataclass(slots=True, frozen=True)
@@ -2202,8 +2733,7 @@ class _CommandDefinitionUncertaintyReason:
 type _AssignedValue = _CertainAssignedValue | _cv.UncertainValue
 
 @dataclasses.dataclass(slots=True, frozen=True)
-class _CertainAssignedValue:
-    string:                 str | None
+class _CertainAssignedValue(_cv.CertainValue):
     assigning_command_name: str
     assignment_position:    _cur.Position
 
@@ -2212,6 +2742,15 @@ class _UnsupportedInvocSyntaxException(Exception):
     def __init__(self, invoc: _clp.GeneralizedInvoc, *args: typing.Any) -> None:
         Exception.__init__(self, *args)
         self.invoc = invoc
+
+
+class _CommandExecutionFailedException(Exception):
+    def __init__(self, command_name: str, pos: int, message: str, *args: typing.Any) -> None:
+        Exception.__init__(self)
+        self.command_name = command_name
+        self.pos          = pos
+        self.message      = message
+        self.args         = args
 
 
 class _UncertainVariableResolutionException(Exception):
@@ -2226,6 +2765,16 @@ class _UncertainOccurrenceException(Exception):
         self.command_name = command_name
         self.position     = position
         self.cause        = cause
+
+
+class _UncertainPolicyException(Exception):
+    def __init__(self, requesting_command: str, policy: _cpo.Policy, pos: int,
+                 cause: _cur.ValueUncertaintyReason) -> None:
+        Exception.__init__(self)
+        self.requesting_command = requesting_command
+        self.policy             = policy
+        self.pos                = pos
+        self.cause              = cause
 
 
 type _ExpansionResult = _CertainExpansionResult | _UncertainExpansionResult

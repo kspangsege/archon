@@ -13,6 +13,7 @@ import archon.cmake.process as _cp
 
 
 help_             = _b.Wrap(False)
+source_dir        = _b.Wrap(".")
 binary_dir        = _b.Wrap(typing.cast(str | None, None))
 cmake_path        = _b.Wrap(typing.cast(str | None, None))
 lenient_mode      = _b.Wrap(False)
@@ -29,6 +30,7 @@ def parse_version(string: str) -> _cve.Version:
 spec = _cli.Spec()
 spec.opt(["--"], _cli.Stop())
 spec.opt(["-h", "--help"], _cli.ShortCircuit(help_))
+spec.opt(["-s", "--source-dir"], _cli.AssignWithArg(str, source_dir))
 spec.opt(["-b", "--binary-dir"], _cli.AssignWithArg(str, binary_dir))
 spec.opt(["-p", "--cmake-path"], _cli.AssignWithArg(str, cmake_path))
 spec.opt(["-L", "--lenient-mode"], _cli.Raise(lenient_mode))
@@ -43,17 +45,16 @@ if not success:
 if help_.value:
     _cli.show_help(spec, root_logger)
     sys.exit(0)
-if len(args) != 1:
+if len(args) != 0:
     root_logger.error("Wrong number of command-line arguments (try --help)")
     sys.exit(1)
-
-source_dir = pathlib.Path(args[0])
 
 abs_base_path = pathlib.Path.cwd()
 pos_resolver = _cp.PositionResolver()
 logger = _l.LimitLogger(root_logger, log_level.value)
 application = _cp.SimpleApplication(abs_base_path, pos_resolver, logger)
 config = _cp.Config()
+config.source_dir = pathlib.Path(source_dir.value)
 config.lenient_mode = lenient_mode.value
 config.suppress_messages = suppress_messages.value
 config.cmake_version = cmake_version.value
@@ -64,12 +65,12 @@ if binary_dir.value is not None:
 if cmake_path.value is not None:
     cmake_path_2 = pathlib.Path(cmake_path.value)
 else:
-    cmake_path_2 = source_dir / "CMakeLists.txt"
+    cmake_path_2 = config.source_dir / "CMakeLists.txt"
 
 try:
     with application.open_subfile(cmake_path_2) as file_:
         source = _cp.Source(file_, cmake_path_2)
-        if not _cp.process(source, source_dir, application, pos_resolver, config):
+        if not _cp.process(source, application, pos_resolver, config):
             sys.exit(1)
 except FileNotFoundError as e:
     logger.error("Failed to process %s: %s", _b.quote(str(cmake_path_2)), e.strerror)

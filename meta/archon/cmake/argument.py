@@ -76,6 +76,10 @@ class ArgumentServer:
             typing.assert_never(arg)
         return None
 
+    def has_keyword(self, keywords: collections.abc.Container[str]) -> bool:
+        index = self.find_keyword(keywords)
+        return index >= 0
+
     def find_keyword(self, keywords: collections.abc.Container[str]) -> int:
         return self.find(lambda s: s in keywords)
 

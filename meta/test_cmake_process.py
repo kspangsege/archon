@@ -3945,11 +3945,11 @@ def _check_invalid(context: _t.Context, cmake_text: str, expected_message: str, 
 def _process(cmake_text: str, cmake_path: pathlib.Path, context: _t.Context,
              subfile_resolver: _SubfileResolver | None = None, set_binary_dir: bool = False,
              lenient_mode: bool = False, cmake_version: _cve.Version | None = None) -> tuple[bool, _Result]:
-    source_dir = pathlib.Path("src")
     pos_resolver = _cp.PositionResolver()
     result = _Result()
     application = _Application(subfile_resolver, pos_resolver, result, context.logger)
     config = _cp.Config()
+    config.source_dir = pathlib.Path("src")
     if set_binary_dir:
         config.binary_dir = pathlib.Path("bin")
     config.lenient_mode = lenient_mode
@@ -3957,7 +3957,7 @@ def _process(cmake_text: str, cmake_path: pathlib.Path, context: _t.Context,
     config.define_breakpoint_command = True
     with io.StringIO(cmake_text) as file_:
         cmake_source = _cp.Source(file_, cmake_path)
-        success = _cp.process(cmake_source, source_dir, application, pos_resolver, config)
+        success = _cp.process(cmake_source, application, pos_resolver, config)
         return success, result
 
 
