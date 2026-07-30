@@ -1329,6 +1329,15 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
         set_policy_version(policy_version, invoc, context)
 
     def exec_project(invoc: _clp.GenericInvoc, context: _InvocContext) -> None:
+        # CMake 4.3 warns if project() is invoked without a preceding
+        # cmake_minimum_required() invocation, which it checks by checking that variable
+        # CMAKE_MINIMUM_REQUIRED_VERSION is set (not unset).
+        value = resolve_certain_variable(_cu.ResolutionType.GENERAL, "CMAKE_MINIMUM_REQUIRED_VERSION", invoc.pos,
+                                         invoc, context, undefined_is_certain=True)
+        if value is None:
+            warn(context.file_index, invoc.pos, "Variable CMAKE_MINIMUM_REQUIRED_VERSION not set prior to %s() "
+                 "invocation", invoc.command_name)
+
         server = create_argument_server(invoc, context)
         arg = server.consume()
         if not arg:
@@ -1923,11 +1932,23 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
     if binary_dir is not None:
         initial_variables["CMAKE_BINARY_DIR"] = binary_dir
         initial_variables["CMAKE_CURRENT_BINARY_DIR"] = binary_dir
+
     definitely_unset_variables = [
         "CMAKE_MINIMUM_REQUIRED_VERSION",
+
+        "CMAKE_PROJECT_NAME",
+        "CMAKE_PROJECT_VERSION",
+        "CMAKE_PROJECT_VERSION_MAJOR",
+        "CMAKE_PROJECT_VERSION_MINOR",
+        "CMAKE_PROJECT_VERSION_PATCH",
+        "CMAKE_PROJECT_VERSION_TWEAK",
+        "CMAKE_PROJECT_DESCRIPTION",
+        "CMAKE_PROJECT_HOMEPAGE_URL",
+
         "PROJECT_NAME",
         "PROJECT_SOURCE_DIR",
         "PROJECT_BINARY_DIR",
+        "PROJECT_IS_TOP_LEVEL",
         "PROJECT_VERSION",
         "PROJECT_VERSION_MAJOR",
         "PROJECT_VERSION_MINOR",
@@ -1938,6 +1959,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
     ]
     for name in definitely_unset_variables:
         initial_variables.setdefault(name)
+
     state = _RootState(initial_variables, config.define_breakpoint_command)
     occurrence_uncertainty = None
     root_dir = config.source_dir

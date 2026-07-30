@@ -14,12 +14,11 @@ import archon.log as _l
 import archon.test as _t
 import archon.cmake.uncertainty_reason as _cur
 import archon.cmake.version as _cve
+import archon.cmake.policy as _cpo
 import archon.cmake.process as _cp
 
 
 def test_CMakeProcess_Message(context: _t.Context) -> None:
-    expected: typing.Any
-
     text = r"""
       message("Foo")
       meSsaGe("Bar")  # Mixed case in command name
@@ -44,6 +43,7 @@ def test_CMakeProcess_Message(context: _t.Context) -> None:
         subcontext.check_equal(message.level, expected[1])
         subcontext.check_equal(not message.occurrence_uncertainty, expected[2])
         subcontext.check_equal(message.file_pos.text_pos, expected[3])
+    check_warnings(context, result, path, [])
 
     # Uncertainty
     text = r"""
@@ -52,20 +52,14 @@ def test_CMakeProcess_Message(context: _t.Context) -> None:
     path = pathlib.Path("test-2.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
-    context.check_equal(len(result.messages), 0)
-    expected_errors = [
+    check_messages(context, result, [])
+    check_warnings(context, result, path, [])
+    check_errors(context, result, path, [
         (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u"), _tp.TextPos(1, 11)),
-    ]
-    context.check_equal(len(result.errors), len(expected_errors))
-    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(error.message, expected[0])
-        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+    ])
 
 
 def test_CMakeProcess_SetAndUnset(context: _t.Context) -> None:
-    expected: typing.Any
-
     # set()
     text = r"""
       set(_x "A")
@@ -86,20 +80,15 @@ def test_CMakeProcess_SetAndUnset(context: _t.Context) -> None:
     path = pathlib.Path("test-1.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = [
+    check_messages(context, result, [
         "1: A-B-C",
         "2: A2-B-C",
         "3: A2-B2-C",
         "4: A2-B2-C2",
         "5: -B2-C2",
         "6: B2-B2-C2",
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_equal(message.level, _cp.MessageLevel.NOTICE)
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    ])
+    check_warnings(context, result, path, [])
 
     # unset()
     text = r"""
@@ -132,16 +121,12 @@ def test_CMakeProcess_SetAndUnset(context: _t.Context) -> None:
     path = pathlib.Path("test-2.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = [
+    check_messages(context, result, [
         "d1x",
         "d1y",
         "d1z",
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    ])
+    check_warnings(context, result, path, [])
 
     # Change from unset to empty
     text = r"""
@@ -177,19 +162,15 @@ def test_CMakeProcess_SetAndUnset(context: _t.Context) -> None:
     path = pathlib.Path("test-3.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = [
-        "1-1: r",
-        "1-1: c",
-        "1-1: e",
-        "1-2: r",
-        "1-2: c",
-        "1-2: e",
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    check_messages(context, result, [
+        "1-1: r",  # 1
+        "1-1: c",  # 2
+        "1-1: e",  # 3
+        "1-2: r",  # 4
+        "1-2: c",  # 5
+        "1-2: e",  # 6
+    ])
+    check_warnings(context, result, path, [])
 
     # Change from unset to nonempty
     text = r"""
@@ -224,19 +205,15 @@ def test_CMakeProcess_SetAndUnset(context: _t.Context) -> None:
     path = pathlib.Path("test-4.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = [
-        "2-1: r",
-        "2-1: c",
-        "2-1: e",
-        "2-2: r",
-        "2-2: c",
-        "2-2: e",
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    check_messages(context, result, [
+        "2-1: r",  # 1
+        "2-1: c",  # 2
+        "2-1: e",  # 3
+        "2-2: r",  # 4
+        "2-2: c",  # 5
+        "2-2: e",  # 6
+    ])
+    check_warnings(context, result, path, [])
 
     # Change from empty to unset via unset()
     text = r"""
@@ -272,19 +249,15 @@ def test_CMakeProcess_SetAndUnset(context: _t.Context) -> None:
     path = pathlib.Path("test-5.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = [
-        "3-1: r",
-        "3-1: c",
-        "3-1: e",
-        "3-2: r",
-        "3-2: c",
-        "3-2: e",
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    check_messages(context, result, [
+        "3-1: r",  # 1
+        "3-1: c",  # 2
+        "3-1: e",  # 3
+        "3-2: r",  # 4
+        "3-2: c",  # 5
+        "3-2: e",  # 6
+    ])
+    check_warnings(context, result, path, [])
 
     # Change from empty to unset via set()
     text = r"""
@@ -320,19 +293,15 @@ def test_CMakeProcess_SetAndUnset(context: _t.Context) -> None:
     path = pathlib.Path("test-6.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = [
+    check_messages(context, result, [
         "4-1: r",
         "4-1: c",
         "4-1: e",
         "4-2: r",
         "4-2: c - FAILED",  # In CMake, `set(CACHE{c} FORCE VALUE)` sets `c` to the empty string
         "4-2: e - FAILED",  # CMake quirk: Cannot change environement variable directly from empty to unset
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    ])
+    check_warnings(context, result, path, [])
 
     # Change from empty to nonempty
     text = r"""
@@ -369,19 +338,15 @@ def test_CMakeProcess_SetAndUnset(context: _t.Context) -> None:
     path = pathlib.Path("test-7.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = [
-        "5-1: r",
-        "5-1: c",
-        "5-1: e",
-        "5-2: r",
-        "5-2: c",
-        "5-2: e",
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    check_messages(context, result, [
+        "5-1: r",  # 1
+        "5-1: c",  # 2
+        "5-1: e",  # 3
+        "5-2: r",  # 4
+        "5-2: c",  # 5
+        "5-2: e",  # 6
+    ])
+    check_warnings(context, result, path, [])
 
     # Change from nonempty to unset via unset()
     text = r"""
@@ -416,19 +381,15 @@ def test_CMakeProcess_SetAndUnset(context: _t.Context) -> None:
     path = pathlib.Path("test-8.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = [
-        "6-1: r",
-        "6-1: c",
-        "6-1: e",
-        "6-2: r",
-        "6-2: c",
-        "6-2: e",
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    check_messages(context, result, [
+        "6-1: r",  # 1
+        "6-1: c",  # 2
+        "6-1: e",  # 3
+        "6-2: r",  # 4
+        "6-2: c",  # 5
+        "6-2: e",  # 6
+    ])
+    check_warnings(context, result, path, [])
 
     # Change from nonempty to unset via set()
     text = r"""
@@ -463,19 +424,15 @@ def test_CMakeProcess_SetAndUnset(context: _t.Context) -> None:
     path = pathlib.Path("test-9.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = [
+    check_messages(context, result, [
         "7-1: r",
         "7-1: c",
         "7-1: e",
         "7-2: r",
         "7-2: c - FAILED",  # In CMake, `set(CACHE{c} FORCE VALUE)` sets `c` to the empty string
         "7-2: e - FAILED",  # CMake quirk: Cannot change environement variable directly from empty to unset
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    ])
+    check_warnings(context, result, path, [])
 
     # Change from nonempty to empty
     text = r"""
@@ -511,19 +468,15 @@ def test_CMakeProcess_SetAndUnset(context: _t.Context) -> None:
     path = pathlib.Path("test-10.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = [
-        "8-1: r",
-        "8-1: c",
-        "8-1: e",
-        "8-2: r",
-        "8-2: c",
-        "8-2: e",
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    check_messages(context, result, [
+        "8-1: r",  # 1
+        "8-1: c",  # 2
+        "8-1: e",  # 3
+        "8-2: r",  # 4
+        "8-2: c",  # 5
+        "8-2: e",  # 6
+    ])
+    check_warnings(context, result, path, [])
 
     # Uncertainty propagation
     text = r"""
@@ -534,22 +487,16 @@ def test_CMakeProcess_SetAndUnset(context: _t.Context) -> None:
     path = pathlib.Path("test-11.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
-    context.check_equal(len(result.messages), 0)
-    expected_errors = [
+    check_messages(context, result, [])
+    check_warnings(context, result, path, [])
+    check_errors(context, result, path, [
         (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u3"), _tp.TextPos(3, 9)),
         (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u2"),  _tp.TextPos(2, 10)),
         (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u1"),  _tp.TextPos(1, 8)),
-    ]
-    context.check_equal(len(result.errors), len(expected_errors))
-    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(error.message, expected[0])
-        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+    ])
 
 
 def test_CMakeProcess_VariableExpansion(context: _t.Context) -> None:
-    expected: typing.Any
-
     # Recursive
     text = r"""
       set(foo "A")
@@ -573,7 +520,7 @@ def test_CMakeProcess_VariableExpansion(context: _t.Context) -> None:
     path = pathlib.Path("test-1.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = [
+    check_messages(context, result, [
         "1: xAy",
         "2: xAy",
         "3: xBy",
@@ -582,12 +529,8 @@ def test_CMakeProcess_VariableExpansion(context: _t.Context) -> None:
         "6: xAy",
         "7: xAy",
         "8: xAy",
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    ])
+    check_warnings(context, result, path, [])
 
     # Empty variable name
     text = r"""
@@ -600,16 +543,12 @@ def test_CMakeProcess_VariableExpansion(context: _t.Context) -> None:
     path = pathlib.Path("test-2.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = [
+    check_messages(context, result, [
         "1: (empty)",
         "2: (empty)",
         "3: (empty)",
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    ])
+    check_warnings(context, result, path, [])
 
     # Invalids and weirds
     text = r"""
@@ -633,7 +572,7 @@ def test_CMakeProcess_VariableExpansion(context: _t.Context) -> None:
     path = pathlib.Path("test-3.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
-    expected_messages = [
+    check_messages(context, result, [
         "1: xy",
         "2: xy",
         "3: x$Fy",
@@ -645,24 +584,15 @@ def test_CMakeProcess_VariableExpansion(context: _t.Context) -> None:
         "9:  xy",
         "10: x(=)y",
         "11: x(=)y",
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
-    expected_errors = [
-        ("Invalid domain", _tp.TextPos(1, 14)),
-        ("Invalid domain", _tp.TextPos(2, 14)),
-        ("Invalid domain", _tp.TextPos(3, 16)),
-        ("Invalid literal character", _tp.TextPos(10, 16)),
-        ("Invalid literal character", _tp.TextPos(14, 25)),
-    ]
-    context.check_equal(len(result.errors), len(expected_errors))
-    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_in(expected[0], error.message)
-        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+    ])
+    check_warnings(context, result, path, [])
+    check_errors(context, result, path, [
+        ('Invalid domain ("FOO") in variable expansion',     _tp.TextPos(1, 14)),  # 1
+        ('Invalid domain ("F+O") in variable expansion',     _tp.TextPos(2, 14)),  # 2
+        ('Invalid domain ("O") in variable expansion',       _tp.TextPos(3, 16)),  # 3
+        ('Invalid literal character ("=") in variable name', _tp.TextPos(10, 16)), # 4
+        ('Invalid literal character ("=") in variable name', _tp.TextPos(14, 25)), # 5
+    ])
 
     # Uncertainty
     text = r"""
@@ -675,22 +605,17 @@ def test_CMakeProcess_VariableExpansion(context: _t.Context) -> None:
     path = pathlib.Path("test-4.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
-    context.check_equal(len(result.messages), 0)
-    expected_errors = [
-        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u"), _tp.TextPos(2, 11)),
-        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u"), _tp.TextPos(3, 14)),
-        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u"), _tp.TextPos(4, 19)),
-        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u"), _tp.TextPos(5, 22)),
-    ]
-    context.check_equal(len(result.errors), len(expected_errors))
-    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(error.message, expected[0])
-        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+    check_messages(context, result, [])
+    check_warnings(context, result, path, [])
+    check_errors(context, result, path, [
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u"), _tp.TextPos(2, 11)),  # 1
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u"), _tp.TextPos(3, 14)),  # 2
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u"), _tp.TextPos(4, 19)),  # 3
+        (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u"), _tp.TextPos(5, 22)),  # 4
+    ])
+
 
 def test_CMakeProcess_Condition(context: _t.Context) -> None:
-    expected: typing.Any
-
     text = r"""
       # TRUE constants
       if("ON")
@@ -862,14 +787,10 @@ def test_CMakeProcess_Condition(context: _t.Context) -> None:
     path = pathlib.Path("test-1.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15", "16", "17",
-                         "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28", "29", "30", "31", "32",
-                         "33", "34", "35", "36", "37", "38"]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    check_messages(context, result, ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12", "13", "14", "15",
+                                     "16", "17", "18", "19", "20", "21", "22", "23", "24", "25", "26", "27", "28",
+                                     "29", "30", "31", "32", "33", "34", "35", "36", "37", "38"])
+    check_warnings(context, result, path, [])
 
     # Logical
     text = r"""
@@ -1249,7 +1170,7 @@ def test_CMakeProcess_Condition(context: _t.Context) -> None:
     path = pathlib.Path("test-2.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = [
+    check_messages(context, result, [
         "A2",
         "B1", "B4",
         "C4",
@@ -1268,12 +1189,8 @@ def test_CMakeProcess_Condition(context: _t.Context) -> None:
         "P2", "P3", "P4", "P5", "P6", "P7", "P8",
         "Q1",
         "R1", "R2", "R3",
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    ])
+    check_warnings(context, result, path, [])
 
     # Parse errors
     text = r"""
@@ -1292,18 +1209,14 @@ def test_CMakeProcess_Condition(context: _t.Context) -> None:
     path = pathlib.Path("test-3.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
-    context.check_equal(len(result.messages), 0)
-    expected_errors = [
+    check_messages(context, result, [])
+    check_warnings(context, result, path, [])
+    check_errors(context, result, path, [
         ("Failed to parse if() condition: Unmatched left parenthesis",                  _tp.TextPos(3, 3)),  # 1
         ("Failed to parse elseif() condition: Unmatched right parenthesis",             _tp.TextPos(6, 24)), # 2
         ('Failed to parse if() condition: Irreducible argument sequence: "x" "x"',      _tp.TextPos(8, 3)),  # 3
         ('Failed to parse if() condition: Irreducible argument sequence: "(" TRUE ")"', _tp.TextPos(10, 3)), # 4
-    ]
-    context.check_equal(len(result.errors), len(expected_errors))
-    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(error.message, expected[0])
-        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+    ])
 
     # Uncertainty
     text = r"""
@@ -1375,18 +1288,14 @@ def test_CMakeProcess_Condition(context: _t.Context) -> None:
     path = pathlib.Path("test-4.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
-    expected_messages = [
-        "3: --",
-        "5: --",
-        "8: -v-",
-        "10: -v-",
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
-    expected_errors = [
+    check_messages(context, result, [
+        "3: --",    # 1
+        "5: --",    # 2
+        "8: -v-",   # 3
+        "10: -v-",  # 4
+    ])
+    check_warnings(context, result, path, [])
+    check_errors(context, result, path, [
         (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "r"), _tp.TextPos(5, 13)),  #  1
         (occurrence_uncertainty_cause("set"),                                  _tp.TextPos(3, 2)),   #  2
         (expansion_uncertainty_cause("if", _cur.ParamType.REGULAR_VAR, "u"),   _tp.TextPos(2, 4)),   #  3
@@ -1411,17 +1320,10 @@ def test_CMakeProcess_Condition(context: _t.Context) -> None:
         (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "r"), _tp.TextPos(64, 14)), # 22
         (occurrence_uncertainty_cause("set"),                                  _tp.TextPos(62, 2)),  # 23
         (expansion_uncertainty_cause("if", _cur.ParamType.REGULAR_VAR, "u"),   _tp.TextPos(61, 4)),  # 24
-    ]
-    context.check_equal(len(result.errors), len(expected_errors))
-    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(error.message, expected[0])
-        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+    ])
 
 
 def test_CMakeProcess_MatchesOperator(context: _t.Context) -> None:
-    expected: typing.Any
-
     text = r"""
       if("x" MATCHES "x")
         message("1: -${CMAKE_MATCH_COUNT}-${CMAKE_MATCH_0}-")
@@ -1493,7 +1395,7 @@ def test_CMakeProcess_MatchesOperator(context: _t.Context) -> None:
     path = pathlib.Path("test-1.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = [
+    check_messages(context, result, [
         "1: -0-x-",                 #  1
         "2: -0-y-",                 #  2
         "3: -0-y-",                 #  3
@@ -1507,12 +1409,8 @@ def test_CMakeProcess_MatchesOperator(context: _t.Context) -> None:
         "11: --value 2-",           # 11
         "12: -0-value 2-",          # 12
         "13: -0-value 2-",          # 13
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    ])
+    check_warnings(context, result, path, [])
 
     # Invalidity
     text = """
@@ -1527,18 +1425,14 @@ def test_CMakeProcess_MatchesOperator(context: _t.Context) -> None:
     path = pathlib.Path("test-2.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
-    context.check_equal(len(result.messages), 0)
+    check_messages(context, result, [])
+    check_warnings(context, result, path, [])
     error_prefix = "Failed to evaluate if() condition: Regular expression syntax error: "
-    expected_errors = [
+    check_errors(context, result, path, [
         (error_prefix + 'Invalid range ("2-1")',           _tp.TextPos(1, 17)), # 1
         (error_prefix + 'Invalid use of quantifier ("*")', _tp.TextPos(3, 18)), # 2
         (error_prefix + 'Invalid range ("2-1")',           _tp.TextPos(6, 20)), # 3
-    ]
-    context.check_equal(len(result.errors), len(expected_errors))
-    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(error.message, expected[0])
-        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+    ])
 
     # Strict mode uncertainty
     text = """
@@ -1555,20 +1449,16 @@ def test_CMakeProcess_MatchesOperator(context: _t.Context) -> None:
     path = pathlib.Path("test-3.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
-    context.check_equal(len(result.messages), 0)
-    expected_errors = [
+    check_messages(context, result, [])
+    check_warnings(context, result, path, [])
+    check_errors(context, result, path, [
         (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u2"), _tp.TextPos(4, 9)),  # 1
         (occurrence_uncertainty_cause("set"),                                   _tp.TextPos(2, 2)),  # 2
         (expansion_uncertainty_cause("if", _cur.ParamType.REGULAR_VAR, "u1"),   _tp.TextPos(1, 5)),  # 3
         (invoke_uncertainty_error("if", _cur.ParamType.REGULAR_VAR, "u3"),      _tp.TextPos(6, 19)), # 4
         (invoke_uncertainty_error("if", _cur.ParamType.REGULAR_VAR, "u4"),      _tp.TextPos(8, 19)), # 5
         (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u3"),  _tp.TextPos(5, 8)),  # 6
-    ]
-    context.check_equal(len(result.errors), len(expected_errors))
-    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(error.message, expected[0])
-        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+    ])
 
     # Lenient mode uncertainty
     text = """
@@ -1589,8 +1479,9 @@ def test_CMakeProcess_MatchesOperator(context: _t.Context) -> None:
     path = pathlib.Path("test-3.cmake")
     success, result = _process(_trim_cmake_text(text), path, context, lenient_mode=True)
     context.check_not(success)
-    context.check_equal(len(result.messages), 0)
-    expected_errors = [
+    check_messages(context, result, [])
+    check_warnings(context, result, path, [])
+    check_errors(context, result, path, [
         (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u2"), _tp.TextPos(4, 9)),   #  1
         (occurrence_uncertainty_cause("set"),                                   _tp.TextPos(2, 2)),   #  2
         (expansion_uncertainty_cause("if", _cur.ParamType.REGULAR_VAR, "u1"),   _tp.TextPos(1, 5)),   #  3
@@ -1601,17 +1492,10 @@ def test_CMakeProcess_MatchesOperator(context: _t.Context) -> None:
         (occurrence_uncertainty_cause("set"),                                   _tp.TextPos(11, 2)),  #  8
         (expansion_uncertainty_cause("if", _cur.ParamType.REGULAR_VAR, "u4"),   _tp.TextPos(10, 19)), #  9
         (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u3"),  _tp.TextPos(5, 8)),   # 10
-    ]
-    context.check_equal(len(result.errors), len(expected_errors))
-    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(error.message, expected[0])
-        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+    ])
 
 
 def test_CMakeProcess_StringAppend(context: _t.Context) -> None:
-    expected: typing.Any
-
     text = r"""
       # Avoid uncertainty from cache fallback
       unset(CACHE{x1})
@@ -1690,17 +1574,13 @@ def test_CMakeProcess_StringAppend(context: _t.Context) -> None:
     path = pathlib.Path("test-1.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = [
+    check_messages(context, result, [
         "1: -n:-y:-a-ab-",
         "2: -y:-y:-a-ab-",
         "3: -v-v-va-vab-",
         "4: -v:v-v:v-va:v-vab:v-",
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    ])
+    check_warnings(context, result, path, [])
 
     # Uncertainty
     text = r"""
@@ -1722,8 +1602,9 @@ def test_CMakeProcess_StringAppend(context: _t.Context) -> None:
     path = pathlib.Path("test-2.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
-    context.check_equal(len(result.messages), 0)
-    expected_errors = [
+    check_messages(context, result, [])
+    check_warnings(context, result, path, [])
+    check_errors(context, result, path, [
         (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "x1"),   _tp.TextPos(10, 10)), #  1
         (expansion_uncertainty_cause("string", _cur.ParamType.REGULAR_VAR, "u1"), _tp.TextPos(5, 18)),  #  2
         (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u"),     _tp.TextPos(3, 8)),   #  3
@@ -1734,17 +1615,10 @@ def test_CMakeProcess_StringAppend(context: _t.Context) -> None:
         (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u"),     _tp.TextPos(4, 8)),   #  8
         (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u3"),   _tp.TextPos(13, 10)), #  9
         (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u4"),   _tp.TextPos(14, 10)), # 10
-    ]
-    context.check_equal(len(result.errors), len(expected_errors))
-    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(error.message, expected[0])
-        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+    ])
 
 
 def test_CMakeProcess_StringPrepend(context: _t.Context) -> None:
-    expected: typing.Any
-
     text = r"""
       # Avoid uncertainty from cache fallback
       unset(CACHE{x1})
@@ -1823,17 +1697,13 @@ def test_CMakeProcess_StringPrepend(context: _t.Context) -> None:
     path = pathlib.Path("test-1.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = [
+    check_messages(context, result, [
         "1: -n:-y:-a-ab-",
         "2: -y:-y:-a-ab-",
         "3: -v-v-av-abv-",
         "4: -v:v-v:v-av:v-abv:v-",
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    ])
+    check_warnings(context, result, path, [])
 
     # Uncertainty
     text = r"""
@@ -1855,8 +1725,9 @@ def test_CMakeProcess_StringPrepend(context: _t.Context) -> None:
     path = pathlib.Path("test-2.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
-    context.check_equal(len(result.messages), 0)
-    expected_errors = [
+    check_messages(context, result, [])
+    check_warnings(context, result, path, [])
+    check_errors(context, result, path, [
         (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "x1"),   _tp.TextPos(10, 10)), #  1
         (expansion_uncertainty_cause("string", _cur.ParamType.REGULAR_VAR, "u1"), _tp.TextPos(5, 19)),  #  2
         (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u"),     _tp.TextPos(3, 8)),   #  3
@@ -1867,17 +1738,10 @@ def test_CMakeProcess_StringPrepend(context: _t.Context) -> None:
         (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u"),     _tp.TextPos(4, 8)),   #  8
         (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u3"),   _tp.TextPos(13, 10)), #  9
         (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u4"),   _tp.TextPos(14, 10)), # 10
-    ]
-    context.check_equal(len(result.errors), len(expected_errors))
-    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(error.message, expected[0])
-        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+    ])
 
 
 def test_CMakeProcess_StringConcat(context: _t.Context) -> None:
-    expected: typing.Any
-
     text = r"""
       # Avoid uncertainty from cache fallback
       unset(CACHE{x1})
@@ -1951,16 +1815,12 @@ def test_CMakeProcess_StringConcat(context: _t.Context) -> None:
     path = pathlib.Path("test-1.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = [
+    check_messages(context, result, [
         "1: -y:-y:-a-ab-",
         "2: -y:-y:-a-ab-",
         "3: -y:-y:-a-ab-",
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    ])
+    check_warnings(context, result, path, [])
 
     # Uncertainty
     text = r"""
@@ -1979,8 +1839,9 @@ def test_CMakeProcess_StringConcat(context: _t.Context) -> None:
     path = pathlib.Path("test-2.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
-    context.check_equal(len(result.messages), 0)
-    expected_errors = [
+    check_messages(context, result, [])
+    check_warnings(context, result, path, [])
+    check_errors(context, result, path, [
         (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "x1"),   _tp.TextPos(7, 9)),   #  1
         (expansion_uncertainty_cause("string", _cur.ParamType.REGULAR_VAR, "u2"), _tp.TextPos(2, 18)),  #  2
         (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u1"),    _tp.TextPos(1, 8)),   #  3
@@ -1994,12 +1855,7 @@ def test_CMakeProcess_StringConcat(context: _t.Context) -> None:
         (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u1"),    _tp.TextPos(1, 8)),   # 11
         (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "x5"),   _tp.TextPos(11, 9)),  # 12
         (expansion_uncertainty_cause("string", _cur.ParamType.REGULAR_VAR, "u1"), _tp.TextPos(6, 17)),  # 13
-    ]
-    context.check_equal(len(result.errors), len(expected_errors))
-    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(error.message, expected[0])
-        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+    ])
 
 
 def test_CMakeProcess_StringTolowerToupper(context: _t.Context) -> None:
@@ -2012,12 +1868,10 @@ def test_CMakeProcess_StringTolowerToupper(context: _t.Context) -> None:
     path = pathlib.Path("test-1.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    context.check_equal(len(result.messages), 1)
-    message = result.messages[0]
-    context.check_equal(message.message, "foo-FOO")
-    context.check_equal(message.file_pos, _tp.FilePos(path, 4, 0))
-    context.check_equal(message.level, _cp.MessageLevel.NOTICE)
-    context.check_is_none(message.occurrence_uncertainty)
+    check_messages_p(context, result, path, [
+        ("foo-FOO", _tp.TextPos(4, 0)),
+    ])
+    check_warnings(context, result, path, [])
 
     # Uncertainty
     text = r"""
@@ -2031,25 +1885,19 @@ def test_CMakeProcess_StringTolowerToupper(context: _t.Context) -> None:
     path = pathlib.Path("test-2.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
-    context.check_equal(len(result.messages), 0)
-    expected_errors = [
+    check_messages(context, result, [])
+    check_warnings(context, result, path, [])
+    check_errors(context, result, path, [
         (invoke_uncertainty_error("string", _cur.ParamType.REGULAR_VAR, "u2"),    _tp.TextPos(4, 15)), # 1
         (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "x"),    _tp.TextPos(5, 10)), # 2
         (expansion_uncertainty_cause("string", _cur.ParamType.REGULAR_VAR, "u1"), _tp.TextPos(2, 16)), # 3
         (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u"),     _tp.TextPos(1, 8)),  # 4
         (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "y"),    _tp.TextPos(6, 10)), # 5
         (expansion_uncertainty_cause("string", _cur.ParamType.REGULAR_VAR, "u2"), _tp.TextPos(3, 16)), # 6
-    ]
-    context.check_equal(len(result.errors), len(expected_errors))
-    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(error.message, expected[0])
-        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+    ])
 
 
 def test_CMakeProcess_ListGet(context: _t.Context) -> None:
-    expected: typing.Any
-
     text = r"""
       set(l "a" "b")
       list(GET l 0 x)
@@ -2060,14 +1908,10 @@ def test_CMakeProcess_ListGet(context: _t.Context) -> None:
     path = pathlib.Path("test-1.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = [
+    check_messages(context, result, [
         "a-b-a;b;a;b",
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    ])
+    check_warnings(context, result, path, [])
 
     # Invalidity
     text = r"""
@@ -2085,8 +1929,9 @@ def test_CMakeProcess_ListGet(context: _t.Context) -> None:
     path = pathlib.Path("test-2.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
-    context.check_equal(len(result.messages), 0)
-    expected_errors = [
+    check_messages(context, result, [])
+    check_warnings(context, result, path, [])
+    check_errors(context, result, path, [
         ("Too few indexes in list(GET) invocation",            _tp.TextPos(4, 17)),  # 1
         ('Invalid index ("i") in list(GET) invocation',        _tp.TextPos(5, 13)),  # 2
         ('Invalid index ("1 ") in list(GET) invocation',       _tp.TextPos(6, 12)),  # 3
@@ -2094,12 +1939,7 @@ def test_CMakeProcess_ListGet(context: _t.Context) -> None:
         ("Index (-1) is out of range in list(GET) invocation", _tp.TextPos(8, 12)),  # 5
         ("Index (2) is out of range in list(GET) invocation",  _tp.TextPos(9, 13)),  # 6
         ("Index (-3) is out of range in list(GET) invocation", _tp.TextPos(10, 12)), # 7
-    ]
-    context.check_equal(len(result.errors), len(expected_errors))
-    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(error.message, expected[0])
-        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+    ])
 
     # Strict mode uncertainty
     text = r"""
@@ -2115,8 +1955,9 @@ def test_CMakeProcess_ListGet(context: _t.Context) -> None:
     path = pathlib.Path("test-3.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
-    context.check_equal(len(result.messages), 0)
-    expected_errors = [
+    check_messages(context, result, [])
+    check_warnings(context, result, path, [])
+    check_errors(context, result, path, [
         (invoke_uncertainty_error("list", _cur.ParamType.REGULAR_VAR, "u"), _tp.TextPos(2, 9)),  # 1
         (invoke_uncertainty_error("list", _cur.ParamType.REGULAR_VAR, "u"), _tp.TextPos(3, 9)),  # 2
         (invoke_uncertainty_error("list", _cur.ParamType.REGULAR_VAR, "u"), _tp.TextPos(4, 9)),  # 3
@@ -2124,12 +1965,7 @@ def test_CMakeProcess_ListGet(context: _t.Context) -> None:
         (invoke_uncertainty_error("list", _cur.ParamType.REGULAR_VAR, "u"), _tp.TextPos(6, 9)),  # 5
         (invoke_uncertainty_error("list", _cur.ParamType.REGULAR_VAR, "u"), _tp.TextPos(7, 17)), # 6
         (invoke_uncertainty_error("list", _cur.ParamType.REGULAR_VAR, "u"), _tp.TextPos(8, 16)), # 7
-    ]
-    context.check_equal(len(result.errors), len(expected_errors))
-    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(error.message, expected[0])
-        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+    ])
 
     # Lenient mode uncertainty
     text = r"""
@@ -2149,8 +1985,9 @@ def test_CMakeProcess_ListGet(context: _t.Context) -> None:
     path = pathlib.Path("test-4.cmake")
     success, result = _process(_trim_cmake_text(text), path, context, lenient_mode=True)
     context.check_not(success)
-    context.check_equal(len(result.messages), 0)
-    expected_errors = [
+    check_messages(context, result, [])
+    check_warnings(context, result, path, [])
+    check_errors(context, result, path, [
         (invoke_uncertainty_error("list", _cur.ParamType.REGULAR_VAR, "u"),     _tp.TextPos(2, 9)),   #  1
         (invoke_uncertainty_error("list", _cur.ParamType.REGULAR_VAR, "u"),     _tp.TextPos(3, 9)),   #  2
         (invoke_uncertainty_error("list", _cur.ParamType.REGULAR_VAR, "u"),     _tp.TextPos(4, 9)),   #  3
@@ -2162,17 +1999,10 @@ def test_CMakeProcess_ListGet(context: _t.Context) -> None:
         (expansion_uncertainty_cause("list", _cur.ParamType.REGULAR_VAR, "u"),  _tp.TextPos(7, 17)),  #  9
         (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "x4"), _tp.TextPos(12, 9)),  # 10
         (expansion_uncertainty_cause("list", _cur.ParamType.REGULAR_VAR, "u"),  _tp.TextPos(8, 16)),  # 11
-    ]
-    context.check_equal(len(result.errors), len(expected_errors))
-    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(error.message, expected[0])
-        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+    ])
 
 
 def test_CMakeProcess_ListAppend(context: _t.Context) -> None:
-    expected: typing.Any
-
     text = r"""
       set(_a "")
       set(_b "A")
@@ -2190,15 +2020,11 @@ def test_CMakeProcess_ListAppend(context: _t.Context) -> None:
     path = pathlib.Path("test-1.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = [
+    check_messages(context, result, [
         "-A-B;C-A;B;C",
         "A;B;C\\;D;E;F;G\\;H",
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    ])
+    check_warnings(context, result, path, [])
 
     # Special cases involving unset lists, lists being the empty string, no elements
     # appended, and the empty string being appended
@@ -2277,12 +2103,8 @@ def test_CMakeProcess_ListAppend(context: _t.Context) -> None:
     path = pathlib.Path("test-2.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = [ "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12" ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    check_messages(context, result, ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"])
+    check_warnings(context, result, path, [])
 
     # Uncertainty
     text = r"""
@@ -2304,8 +2126,9 @@ def test_CMakeProcess_ListAppend(context: _t.Context) -> None:
     path = pathlib.Path("test-3.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
-    context.check_equal(len(result.messages), 0)
-    expected_errors = [
+    check_messages(context, result, [])
+    check_warnings(context, result, path, [])
+    check_errors(context, result, path, [
         (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "x1"), _tp.TextPos(10, 10)), #  1
         (expansion_uncertainty_cause("list", _cur.ParamType.REGULAR_VAR, "u1"), _tp.TextPos(5, 16)),  #  2
         (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u"),   _tp.TextPos(3, 8)),   #  3
@@ -2316,17 +2139,10 @@ def test_CMakeProcess_ListAppend(context: _t.Context) -> None:
         (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u"),   _tp.TextPos(4, 8)),   #  8
         (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u3"), _tp.TextPos(13, 10)), #  9
         (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u4"), _tp.TextPos(14, 10)), # 10
-    ]
-    context.check_equal(len(result.errors), len(expected_errors))
-    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(error.message, expected[0])
-        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+    ])
 
 
 def test_CMakeProcess_ListPrepend(context: _t.Context) -> None:
-    expected: typing.Any
-
     text = r"""
       set(_a "")
       set(_b "A")
@@ -2344,15 +2160,11 @@ def test_CMakeProcess_ListPrepend(context: _t.Context) -> None:
     path = pathlib.Path("test-1.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = [
+    check_messages(context, result, [
         "-A-B;C-B;C;A",
         "E;F;G\\;H;A;B;C\\;D",
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    ])
+    check_warnings(context, result, path, [])
 
     # Special cases involving unset lists, lists being the empty string, no elements
     # prepended, and the empty string being prepended
@@ -2431,12 +2243,8 @@ def test_CMakeProcess_ListPrepend(context: _t.Context) -> None:
     path = pathlib.Path("test-2.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = [ "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12" ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    check_messages(context, result, ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11", "12"])
+    check_warnings(context, result, path, [])
 
     # Uncertainty
     text = r"""
@@ -2458,8 +2266,9 @@ def test_CMakeProcess_ListPrepend(context: _t.Context) -> None:
     path = pathlib.Path("test-3.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
-    context.check_equal(len(result.messages), 0)
-    expected_errors = [
+    check_messages(context, result, [])
+    check_warnings(context, result, path, [])
+    check_errors(context, result, path, [
         (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "x1"), _tp.TextPos(10, 10)), #  1
         (expansion_uncertainty_cause("list", _cur.ParamType.REGULAR_VAR, "u1"), _tp.TextPos(5, 17)),  #  2
         (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u"),   _tp.TextPos(3, 8)),   #  3
@@ -2470,17 +2279,10 @@ def test_CMakeProcess_ListPrepend(context: _t.Context) -> None:
         (expansion_uncertainty_cause("set", _cur.ParamType.REGULAR_VAR, "u"),   _tp.TextPos(4, 8)),   #  8
         (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u3"), _tp.TextPos(13, 10)), #  9
         (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "u4"), _tp.TextPos(14, 10)), # 10
-    ]
-    context.check_equal(len(result.errors), len(expected_errors))
-    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(error.message, expected[0])
-        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+    ])
 
 
 def test_CMakeProcess_If(context: _t.Context) -> None:
-    expected_messages: typing.Any
-
     text = r"""
       if(FALSE)
         message("1")
@@ -2553,58 +2355,70 @@ def test_CMakeProcess_If(context: _t.Context) -> None:
     path = pathlib.Path("test-1.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = ["2", "4", "5", "10", "11", "13", "17", "19", "21", "24"]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    check_messages(context, result, ["2", "4", "5", "10", "11", "13", "17", "19", "21", "24"])
+    check_warnings(context, result, path, [])
 
     # Invalidity
     _check_invalid(context, _trim_cmake_text(r"""
       if()
       endif()
       else()  # Unmatched else()
-    """), "Unmatched else()", _tp.TextPos(3, 0))
+    """), [
+        ("Unmatched else()", _tp.TextPos(3, 0)),
+    ])
     _check_invalid(context, _trim_cmake_text(r"""
       if()
       endif()
       elseif()  # Unmatched elseif()
-    """), "Unmatched elseif()", _tp.TextPos(3, 0))
+    """), [
+        ("Unmatched elseif()", _tp.TextPos(3, 0)),
+    ])
     _check_invalid(context, _trim_cmake_text(r"""
       if()
       endif()
       endif()  # Unmatched endif()
-    """), "Unmatched endif()", _tp.TextPos(3, 0))
+    """), [
+        ("Unmatched endif()", _tp.TextPos(3, 0)),
+    ])
     _check_invalid(context, _trim_cmake_text(r"""
       if()  # Unclosed if()
         if()
         endif()
-    """), "Unclosed if()", _tp.TextPos(1, 0))
+    """), [
+        ("Unclosed if()", _tp.TextPos(1, 0)),
+    ])
     _check_invalid(context, _trim_cmake_text(r"""
       if()
       else()  # Unclosed else()
         if()
         endif()
-    """), "Unclosed else()", _tp.TextPos(2, 0))
+    """), [
+        ("Unclosed else()", _tp.TextPos(2, 0)),
+    ])
     _check_invalid(context, _trim_cmake_text(r"""
       if()
       elseif()  # Unclosed elseif()
         if()
         endif()
-    """), "Unclosed elseif()", _tp.TextPos(2, 0))
+    """), [
+        ("Unclosed elseif()", _tp.TextPos(2, 0)),
+    ])
     _check_invalid(context, _trim_cmake_text(r"""
       if()
       else()
       elseif()  # elseif() after else()
       endif()
-    """), "elseif() after else()", _tp.TextPos(3, 0))
+    """), [
+        ("elseif() after else()", _tp.TextPos(3, 0)),
+    ])
     _check_invalid(context, _trim_cmake_text(r"""
       if()
       else()
       else()  # else() after else()
       endif()
-    """), "else() after else()", _tp.TextPos(3, 0))
+    """), [
+        ("else() after else()", _tp.TextPos(3, 0)),
+    ])
 
     # Uncertainty
     text = r"""
@@ -2693,32 +2507,28 @@ def test_CMakeProcess_If(context: _t.Context) -> None:
     path = pathlib.Path("test-2.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = [
-        ("1",  False),
-        ("2",  False),
-        ("3",  False),
-        ("5",  False),
-        ("6",  True),
-        ("8",  False),
-        ("10", False),
-        ("11", False),
-        ("12", False),
-        ("13", False),
-        ("15", False),
-        ("16", False),
-        ("17", True),
-        ("20", False),
-        ("22", False),
-        ("23", False),
-        ("24", False),
-        ("27", False),
-        ("28", False),
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected[0])
-        subcontext.check_equal(not message.occurrence_uncertainty, expected[1])
+    check_messages_u(context, result, path, [
+        ("1",  True),
+        ("2",  True),
+        ("3",  True),
+        ("5",  True),
+        ("6",  False),
+        ("8",  True),
+        ("10", True),
+        ("11", True),
+        ("12", True),
+        ("13", True),
+        ("15", True),
+        ("16", True),
+        ("17", False),
+        ("20", True),
+        ("22", True),
+        ("23", True),
+        ("24", True),
+        ("27", True),
+        ("28", True),
+    ])
+    check_warnings(context, result, path, [])
 
     # Tainting caused by occurrence uncertainty
     text = r"""
@@ -2769,8 +2579,9 @@ def test_CMakeProcess_If(context: _t.Context) -> None:
     path = pathlib.Path("test-3.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
-    context.check_equal(len(result.messages), 0)
-    expected_errors = [
+    check_messages(context, result, [])
+    check_warnings(context, result, path, [])
+    check_errors(context, result, path, [
         (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "r1"),   _tp.TextPos(32, 13)), #  1
         (occurrence_uncertainty_cause("set"),                                     _tp.TextPos(14, 2)),  #  2
         (expansion_uncertainty_cause("if", _cur.ParamType.REGULAR_VAR, "u1"),     _tp.TextPos(13, 3)),  #  3
@@ -2807,12 +2618,7 @@ def test_CMakeProcess_If(context: _t.Context) -> None:
         (invoke_uncertainty_error("message", _cur.ParamType.ENV_VAR, "e4"),       _tp.TextPos(43, 13)), # 34
         (occurrence_uncertainty_cause("set"),                                     _tp.TextPos(30, 2)),  # 35
         (expansion_uncertainty_cause("if", _cur.ParamType.REGULAR_VAR, "u1"),     _tp.TextPos(26, 3)),  # 36
-    ]
-    context.check_equal(len(result.errors), len(expected_errors))
-    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(error.message, expected[0])
-        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+    ])
 
     # Cancellation of tainting caused by occurrence uncertainty
     text = r"""
@@ -2860,16 +2666,12 @@ def test_CMakeProcess_If(context: _t.Context) -> None:
     path = pathlib.Path("test-4.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = [
+    check_messages(context, result, [
         "-foo:r1-foo:r2-foo:r3-bar:r4-",
         "-foo:c1-foo:c2-foo:c3-bar:c4-",
         "-foo:e1-foo:e2-foo:e3-bar:e4-",
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    ])
+    check_warnings(context, result, path, [])
 
     # Parent scope tainting caused by occurrence uncertainty
     text = r"""
@@ -2892,26 +2694,17 @@ def test_CMakeProcess_If(context: _t.Context) -> None:
     path = pathlib.Path("test-5.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
-    expected_messages = [
+    check_messages(context, result, [
         "1: -foo-foo-",
         "3: -foo-",
         "4: -foo-foo-",
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
-    expected_errors = [
+    ])
+    check_warnings(context, result, path, [])
+    check_errors(context, result, path, [
         (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "x1"), _tp.TextPos(12, 15)),
         (occurrence_uncertainty_cause("set"),                                   _tp.TextPos(6, 6)),
         (expansion_uncertainty_cause("if", _cur.ParamType.REGULAR_VAR, "u"),    _tp.TextPos(5, 7)),
-    ]
-    context.check_equal(len(result.errors), len(expected_errors))
-    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(error.message, expected[0])
-        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+    ])
 
 
 def test_CMakeProcess_Foreach(context: _t.Context) -> None:
@@ -2934,27 +2727,21 @@ def test_CMakeProcess_Foreach(context: _t.Context) -> None:
     path = pathlib.Path("test.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = [
-        ("1: -Foo-", True),
-        ("1: -Bar-", True),
-        ("1: -Baz-", True),
-        ("2: -x-",   True),
-        ("3: -Foo-", False),
-        ("3: -Bar-", False),
-        ("3: -Baz-", False),
-        ("4: -y-",   False),
-        ("5: -y-",   True),
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected[0])
-        subcontext.check_equal(not message.occurrence_uncertainty, expected[1])
+    check_messages_u(context, result, path, [
+        ("1: -Foo-", False),
+        ("1: -Bar-", False),
+        ("1: -Baz-", False),
+        ("2: -x-",   False),
+        ("3: -Foo-", True),
+        ("3: -Bar-", True),
+        ("3: -Baz-", True),
+        ("4: -y-",   True),
+        ("5: -y-",   False),
+    ])
+    check_warnings(context, result, path, [])
 
 
 def test_CMakeProcess_Macro(context: _t.Context) -> None:
-    expected_messages: typing.Any
-
     text = r"""
       macro(foo x)
         message("1: -${x}-")
@@ -2977,20 +2764,15 @@ def test_CMakeProcess_Macro(context: _t.Context) -> None:
     path = pathlib.Path("test-1.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = [
-        ("1: -foo-",           _tp.FilePos(path,  2, 2)),  # 1
-        ("2: -*foo*-",         _tp.FilePos(path,  5, 4)),  # 2
-        ("3: -+foo+-+*foo*+-", _tp.FilePos(path, 13, 0)),  # 3
-        ("1: -bar-",           _tp.FilePos(path,  2, 2)),  # 4
-        ("2: -*bar*-",         _tp.FilePos(path,  5, 4)),  # 5
-        ("4: -+bar+-+*bar*+-", _tp.FilePos(path, 17, 0)),  # 6
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected[0])
-        subcontext.check_equal(message.file_pos, expected[1])
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    check_messages_p(context, result, path, [
+        ("1: -foo-",           _tp.TextPos(2, 2)),  # 1
+        ("2: -*foo*-",         _tp.TextPos(5, 4)),  # 2
+        ("3: -+foo+-+*foo*+-", _tp.TextPos(13, 0)), # 3
+        ("1: -bar-",           _tp.TextPos(2, 2)),  # 4
+        ("2: -*bar*-",         _tp.TextPos(5, 4)),  # 5
+        ("4: -+bar+-+*bar*+-", _tp.TextPos(17, 0)), # 6
+    ])
+    check_warnings(context, result, path, [])
 
     # Multiple parameters
     text = r"""
@@ -3007,15 +2789,11 @@ def test_CMakeProcess_Macro(context: _t.Context) -> None:
     path = pathlib.Path("test-2.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = [
+    check_messages(context, result, [
         "-X+Z-Y-",
         "-X+Z-Y-",
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    ])
+    check_warnings(context, result, path, [])
 
     # Too few arguments
     text = r"""
@@ -3033,8 +2811,9 @@ def test_CMakeProcess_Macro(context: _t.Context) -> None:
     path = pathlib.Path("test-3.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
-    context.check_equal(len(result.messages), 0)
-    expected_errors = [
+    check_messages(context, result, [])
+    check_warnings(context, result, path, [])
+    check_errors(context, result, path, [
         ("Too few arguments in invocation of macro foo()", _tp.TextPos(3, 4)),   # 1
         ("Definition of macro foo()",                      _tp.TextPos(1, 0)),   # 2
         ("Too few arguments in invocation of macro foo()", _tp.TextPos(4, 7)),   # 3
@@ -3043,12 +2822,7 @@ def test_CMakeProcess_Macro(context: _t.Context) -> None:
         ("Definition of macro foo()",                      _tp.TextPos(1, 0)),   # 6
         ("Too few arguments in invocation of macro foo()", _tp.TextPos(10, 15)), # 7
         ("Definition of macro foo()",                      _tp.TextPos(1, 0)),   # 8
-    ]
-    context.check_equal(len(result.errors), len(expected_errors))
-    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(error.message, expected[0])
-        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+    ])
 
     # Special parameter substitution
     text = r"""
@@ -3062,11 +2836,10 @@ def test_CMakeProcess_Macro(context: _t.Context) -> None:
     path = pathlib.Path("test-4.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    context.check_equal(len(result.messages), 1)
-    message = result.messages[0]
-    context.check_equal(message.message, "oo}boo -- bar -- ${_x}${_y}")
-    context.check_equal(message.file_pos, _tp.FilePos(path, 2, 2))
-    context.check_is_none(message.occurrence_uncertainty)
+    check_messages_p(context, result, path, [
+        ("oo}boo -- bar -- ${_x}${_y}", _tp.TextPos(2, 2)),
+    ])
+    check_warnings(context, result, path, [])
 
     # Special invocation parameters
     text = r"""
@@ -3093,20 +2866,15 @@ def test_CMakeProcess_Macro(context: _t.Context) -> None:
     path = pathlib.Path("test-5.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = [
+    check_messages_p(context, result, path, [
         ("1: 1--x-x-v1-v2",                      _tp.TextPos(4, 2)),  # 1
         ("1: 2-y-x;y-x-y-v2",                    _tp.TextPos(4, 2)),  # 2
         ("1: 3-y;z-x;y;z-x-y-z",                 _tp.TextPos(4, 2)),  # 3
         ("1: 3-c;d;e;f-a;b;c;d;e;f-a;b-c;d-e;f", _tp.TextPos(4, 2)),  # 4
         ("2: 0---v0",                            _tp.TextPos(16, 2)), # 5
         ("2: 1-x-x-x",                           _tp.TextPos(16, 2)), # 6
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected[0])
-        subcontext.check_equal(message.file_pos.text_pos, expected[1])
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    ])
+    check_warnings(context, result, path, [])
 
     # That expansion of outer macro parameters reaches into inner macro body
     text = r"""
@@ -3121,11 +2889,10 @@ def test_CMakeProcess_Macro(context: _t.Context) -> None:
     path = pathlib.Path("test-6.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    context.check_equal(len(result.messages), 1)
-    message = result.messages[0]
-    context.check_equal(message.message, "a-b-d")
-    context.check_equal(message.file_pos, _tp.FilePos(path, 3, 4))
-    context.check_is_none(message.occurrence_uncertainty)
+    check_messages_p(context, result, path, [
+        ("a-b-d", _tp.TextPos(3, 4)),
+    ])
+    check_warnings(context, result, path, [])
 
     # Check determination of error position with correction for macro substitution and
     # regular expression unescaping
@@ -3143,14 +2910,14 @@ def test_CMakeProcess_Macro(context: _t.Context) -> None:
     path = pathlib.Path("test-7.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
-    context.check_equal(len(result.messages), 1)
-    message = result.messages[0]
-    context.check_equal(message.message, "click 1")
-    context.check_is_none(message.occurrence_uncertainty)
-    context.check_equal(len(result.errors), 1)
-    error = result.errors[0]
-    context.check_in("Regular expression syntax error: Invalid range", error.message)
-    context.check_equal(error.file_pos, _tp.FilePos(path, 5, 53))
+    check_messages(context, result, [
+        "click 1"
+    ])
+    check_warnings(context, result, path, [])
+    check_errors(context, result, path, [
+        ('Failed to evaluate if() condition: Regular expression syntax error: Invalid range ("2-1")',
+         _tp.TextPos(5, 53)),
+    ])
 
     # Argument uncertainty
     text = r"""
@@ -3175,16 +2942,11 @@ def test_CMakeProcess_Macro(context: _t.Context) -> None:
     path = pathlib.Path("test-8.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
-    expected_messages = [
+    check_messages_p(context, result, path, [
         ("x*y", _tp.TextPos(9, 4)),
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected[0])
-        subcontext.check_equal(message.file_pos.text_pos, expected[1])
-        subcontext.check_is_none(message.occurrence_uncertainty)
-    expected_errors = [
+    ])
+    check_warnings(context, result, path, [])
+    check_errors(context, result, path, [
         (invoke_uncertainty_error("message", _cur.ParamType.MACRO_PARAM, "a"), _tp.TextPos(2, 12)),  #  1
         (expansion_uncertainty_cause("foo", _cur.ParamType.REGULAR_VAR, "_1"), _tp.TextPos(15, 5)),  #  2
         (invoke_uncertainty_error("message", _cur.ParamType.MACRO_PARAM, "a"), _tp.TextPos(4, 14)),  #  3
@@ -3199,12 +2961,7 @@ def test_CMakeProcess_Macro(context: _t.Context) -> None:
         (expansion_uncertainty_cause("foo", _cur.ParamType.REGULAR_VAR, "_2"), _tp.TextPos(15, 13)), # 12
         ("Uncertain number of arguments in invocation of macro foo()",         _tp.TextPos(16, 0)),  # 13
         ("Uncertain number of arguments in invocation of macro foo()",         _tp.TextPos(17, 0)),  # 14
-    ]
-    context.check_equal(len(result.errors), len(expected_errors))
-    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(error.message, expected[0])
-        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+    ])
 
     # Reassignment of original command
     text = r"""
@@ -3235,7 +2992,7 @@ def test_CMakeProcess_Macro(context: _t.Context) -> None:
     path = pathlib.Path("test-9.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
-    expected_messages = [
+    check_messages(context, result, [
         "Foo 1",  # 1
         "Foo 2",  # 2
         "Foo 1",  # 3
@@ -3244,22 +3001,13 @@ def test_CMakeProcess_Macro(context: _t.Context) -> None:
         "Foo 3",  # 6
         "Foo 4",  # 7
         "Foo 2",  # 8
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
-    expected_errors = [
+    ])
+    check_warnings(context, result, path, [])
+    check_errors(context, result, path, [
         ("Invocation failed due to uncertain definition of _foo()",  _tp.TextPos(5, 0)),   # 1
         ("Invocation failed due to uncertain definition of __foo()", _tp.TextPos(11, 0)),  # 2
         ("Invocation failed due to uncertain definition of __foo()", _tp.TextPos(17, 0)),  # 3
-    ]
-    context.check_equal(len(result.errors), len(expected_errors))
-    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(error.message, expected[0])
-        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+    ])
 
     # Rejection of flow-control command names
     text = r"""
@@ -3269,21 +3017,14 @@ def test_CMakeProcess_Macro(context: _t.Context) -> None:
     path = pathlib.Path("test-10.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
-    context.check_equal(len(result.messages), 0)
-    expected_errors = [
+    check_messages(context, result, [])
+    check_warnings(context, result, path, [])
+    check_errors(context, result, path, [
         ("Failed to define macro foreach(): Built-in flow control commands cannot be overridden", _tp.TextPos(1, 6)),
-    ]
-    context.check_equal(len(result.errors), len(expected_errors))
-    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(error.message, expected[0])
-        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+    ])
 
 
 def test_CMakeProcess_Function(context: _t.Context) -> None:
-    expected_messages: typing.Any
-    expected:          typing.Any
-
     text = r"""
       function(foo x)
         set(a1 "a1")
@@ -3310,20 +3051,15 @@ def test_CMakeProcess_Function(context: _t.Context) -> None:
     path = pathlib.Path("test-1.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = [
-        ("1: -*foo*-",      _tp.FilePos(path,  5, 4)),  # 1
-        ("2: -foo-a1-aa2-", _tp.FilePos(path, 10, 2)),  # 2
-        ("3: -b1-bb2-",     _tp.FilePos(path, 17, 0)),  # 3
-        ("1: -*bar*-",      _tp.FilePos(path,  5, 4)),  # 4
-        ("2: -bar-a1-aa2-", _tp.FilePos(path, 10, 2)),  # 5
-        ("4: -b1-bb2-",     _tp.FilePos(path, 21, 0)),  # 6
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected[0])
-        subcontext.check_equal(message.file_pos, expected[1])
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    check_messages_p(context, result, path, [
+        ("1: -*foo*-",      _tp.TextPos(5, 4)),   # 1
+        ("2: -foo-a1-aa2-", _tp.TextPos(10, 2)),  # 2
+        ("3: -b1-bb2-",     _tp.TextPos(17, 0)),  # 3
+        ("1: -*bar*-",      _tp.TextPos(5, 4)),   # 4
+        ("2: -bar-a1-aa2-", _tp.TextPos(10, 2)),  # 5
+        ("4: -b1-bb2-",     _tp.TextPos(21, 0)),  # 6
+    ])
+    check_warnings(context, result, path, [])
 
     # Multiple parameters
     text = r"""
@@ -3340,15 +3076,11 @@ def test_CMakeProcess_Function(context: _t.Context) -> None:
     path = pathlib.Path("test-2.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = [
+    check_messages(context, result, [
         "-X+Z-Y-",
         "-X+Z-Y-",
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    ])
+    check_warnings(context, result, path, [])
 
     # Too few arguments
     text = r"""
@@ -3366,8 +3098,9 @@ def test_CMakeProcess_Function(context: _t.Context) -> None:
     path = pathlib.Path("test-3.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
-    context.check_equal(len(result.messages), 0)
-    expected_errors = [
+    check_messages(context, result, [])
+    check_warnings(context, result, path, [])
+    check_errors(context, result, path, [
         ("Too few arguments in invocation of function foo()", _tp.TextPos(3, 4)),   # 1
         ("Definition of function foo()",                      _tp.TextPos(1, 0)),   # 2
         ("Too few arguments in invocation of function foo()", _tp.TextPos(4, 7)),   # 3
@@ -3376,12 +3109,7 @@ def test_CMakeProcess_Function(context: _t.Context) -> None:
         ("Definition of function foo()",                      _tp.TextPos(1, 0)),   # 6
         ("Too few arguments in invocation of function foo()", _tp.TextPos(10, 15)), # 7
         ("Definition of function foo()",                      _tp.TextPos(1, 0)),   # 8
-    ]
-    context.check_equal(len(result.errors), len(expected_errors))
-    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(error.message, expected[0])
-        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+    ])
 
     # No macro-like parameter substitution
     text = r"""
@@ -3394,11 +3122,10 @@ def test_CMakeProcess_Function(context: _t.Context) -> None:
     path = pathlib.Path("test-4.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    context.check_equal(len(result.messages), 1)
-    message = result.messages[0]
-    context.check_equal(message.message, "-${bar}-")
-    context.check_equal(message.file_pos, _tp.FilePos(path, 2, 2))
-    context.check_is_none(message.occurrence_uncertainty)
+    check_messages_p(context, result, path, [
+        ("-${bar}-", _tp.TextPos(2, 2)),
+    ])
+    check_warnings(context, result, path, [])
 
     # Special invocation parameters
     text = r"""
@@ -3425,20 +3152,15 @@ def test_CMakeProcess_Function(context: _t.Context) -> None:
     path = pathlib.Path("test-5.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = [
+    check_messages_p(context, result, path, [
         ("1: 1--x-x-v1-v2",                      _tp.TextPos(4, 2)),  # 1
         ("1: 2-y-x;y-x-y-v2",                    _tp.TextPos(4, 2)),  # 2
         ("1: 3-y;z-x;y;z-x-y-z",                 _tp.TextPos(4, 2)),  # 3
         ("1: 3-c;d;e;f-a;b;c;d;e;f-a;b-c;d-e;f", _tp.TextPos(4, 2)),  # 4
         ("2: 0---v0",                            _tp.TextPos(16, 2)), # 5
         ("2: 1-x-x-x",                           _tp.TextPos(16, 2)), # 6
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected[0])
-        subcontext.check_equal(message.file_pos.text_pos, expected[1])
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    ])
+    check_warnings(context, result, path, [])
 
     # Special introspection parameters
     text = r"""
@@ -3459,7 +3181,7 @@ def test_CMakeProcess_Function(context: _t.Context) -> None:
     path = pathlib.Path("test-6.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = [
+    check_messages(context, result, [
         "1: -foo-",              # 1
         "2: -1-",                # 2
         "3: -Foo-",              # 3
@@ -3468,12 +3190,8 @@ def test_CMakeProcess_Function(context: _t.Context) -> None:
         "6: -6-",                # 6
         "1: -foo-",              # 7
         "2: -1-",                # 8
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    ])
+    check_warnings(context, result, path, [])
 
     # Argument uncertainty
     text = r"""
@@ -3498,17 +3216,12 @@ def test_CMakeProcess_Function(context: _t.Context) -> None:
     path = pathlib.Path("test-7.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
-    expected_messages = [
+    check_messages_p(context, result, path, [
         ("x*y", _tp.TextPos(4, 4)),
         ("x*y", _tp.TextPos(9, 4)),
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected[0])
-        subcontext.check_equal(message.file_pos.text_pos, expected[1])
-        subcontext.check_is_none(message.occurrence_uncertainty)
-    expected_errors = [
+    ])
+    check_warnings(context, result, path, [])
+    check_errors(context, result, path, [
         (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "a"), _tp.TextPos(2, 12)),  #  1
         (expansion_uncertainty_cause("foo", _cur.ParamType.REGULAR_VAR, "_1"), _tp.TextPos(15, 5)),  #  2
         (invoke_uncertainty_error("message", _cur.ParamType.REGULAR_VAR, "b"), _tp.TextPos(5, 14)),  #  3
@@ -3521,12 +3234,7 @@ def test_CMakeProcess_Function(context: _t.Context) -> None:
         (expansion_uncertainty_cause("foo", _cur.ParamType.REGULAR_VAR, "_2"), _tp.TextPos(15, 13)), # 10
         ("Uncertain number of arguments in invocation of function foo()",      _tp.TextPos(16, 0)),  # 11
         ("Uncertain number of arguments in invocation of function foo()",      _tp.TextPos(17, 0)),  # 12
-    ]
-    context.check_equal(len(result.errors), len(expected_errors))
-    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(error.message, expected[0])
-        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+    ])
 
     # Reassignment of original command
     text = r"""
@@ -3557,7 +3265,7 @@ def test_CMakeProcess_Function(context: _t.Context) -> None:
     path = pathlib.Path("test-8.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
-    expected_messages = [
+    check_messages(context, result, [
         "Foo 1",  # 1
         "Foo 2",  # 2
         "Foo 1",  # 3
@@ -3566,22 +3274,13 @@ def test_CMakeProcess_Function(context: _t.Context) -> None:
         "Foo 3",  # 6
         "Foo 4",  # 7
         "Foo 2",  # 8
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
-    expected_errors = [
+    ])
+    check_warnings(context, result, path, [])
+    check_errors(context, result, path, [
         ("Invocation failed due to uncertain definition of _foo()",  _tp.TextPos(5, 0)),   # 1
         ("Invocation failed due to uncertain definition of __foo()", _tp.TextPos(11, 0)),  # 2
         ("Invocation failed due to uncertain definition of __foo()", _tp.TextPos(17, 0)),  # 3
-    ]
-    context.check_equal(len(result.errors), len(expected_errors))
-    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(error.message, expected[0])
-        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+    ])
 
     # Rejection of flow-control command names
     text = r"""
@@ -3591,16 +3290,12 @@ def test_CMakeProcess_Function(context: _t.Context) -> None:
     path = pathlib.Path("test-9.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
-    context.check_equal(len(result.messages), 0)
-    expected_errors = [
+    check_messages(context, result, [])
+    check_warnings(context, result, path, [])
+    check_errors(context, result, path, [
         ("Failed to define function foreach(): Built-in flow control commands cannot be overridden",
          _tp.TextPos(1, 9)),
-    ]
-    context.check_equal(len(result.errors), len(expected_errors))
-    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(error.message, expected[0])
-        subcontext.check_equal(error.file_pos.text_pos, expected[1])
+    ])
 
 
 def test_CMakeProcess_Block(context: _t.Context) -> None:
@@ -3618,16 +3313,12 @@ def test_CMakeProcess_Block(context: _t.Context) -> None:
     path = pathlib.Path("test-1.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = [
+    check_messages(context, result, [
         "1: A-B",
         "2: C-B",
         "3: A-D",
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    ])
+    check_warnings(context, result, path, [])
 
     # Invalid arguments
     text = r"""
@@ -3637,11 +3328,11 @@ def test_CMakeProcess_Block(context: _t.Context) -> None:
     path = pathlib.Path("test-2.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
-    context.check_equal(len(result.messages), 0)
-    context.check_equal(len(result.errors), 1)
-    error = result.errors[0]
-    context.check_in("Unrecognized first argument", error.message)
-    context.check_equal(error.file_pos, _tp.FilePos(path, 1, 8))
+    check_messages(context, result, [])
+    check_warnings(context, result, path, [])
+    check_errors(context, result, path, [
+        ("Unrecognized first argument in block() invocation", _tp.TextPos(1, 8)),
+    ])
 
 
 def test_CMakeProcess_Include(context: _t.Context) -> None:
@@ -3690,6 +3381,7 @@ def test_CMakeProcess_Include(context: _t.Context) -> None:
         subcontext.check_equal(message.message, expected[0])
         subcontext.check_equal(message.file_pos, expected[1])
         subcontext.check_is_none(message.occurrence_uncertainty)
+    context.check_equal(len(result.warnings), 0)
     expected_errors = [
         ('Failed to include "qux.cmake" ("src/qux.cmake"): No such file or directory', _tp.FilePos(root_path, 6, 8)),
     ]
@@ -3747,6 +3439,7 @@ def test_CMakeProcess_AddSubdirectory(context: _t.Context) -> None:
         subcontext.check_equal(message.message, expected[0])
         subcontext.check_equal(message.file_pos, expected[1])
         subcontext.check_is_none(message.occurrence_uncertainty)
+    context.check_equal(len(result.warnings), 0)
     expected_errors = [
         ('Failed to add subdirectory "qux" ("src/qux/CMakeLists.txt"): No such file or directory',
          _tp.FilePos(root_path, 7, 17)),
@@ -3766,39 +3459,32 @@ def test_CMakeProcess_CMakeVersionVariables(context: _t.Context) -> None:
     path = pathlib.Path("test-1.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
-    expected_messages = [
+    check_messages(context, result, [
         "%s-%s-%s-%s-0" % (_cp.CMAKE_VERSION, _cp.CMAKE_VERSION.major, _cp.CMAKE_VERSION.minor,
                            _cp.CMAKE_VERSION.patch),
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    ])
+    check_warnings(context, result, path, [])
     success, result = _process(_trim_cmake_text(text), path, context, cmake_version=_cp.LOWEST_SUPPORTED_CMAKE_VERSION)
     context.check(success)
-    expected_messages = [
+    check_messages(context, result, [
         "%s-%s-%s-%s-0" % (_cp.LOWEST_SUPPORTED_CMAKE_VERSION, _cp.LOWEST_SUPPORTED_CMAKE_VERSION.major,
                            _cp.LOWEST_SUPPORTED_CMAKE_VERSION.minor, _cp.LOWEST_SUPPORTED_CMAKE_VERSION.patch),
-    ]
-    context.check_equal(len(result.messages), len(expected_messages))
-    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
-        subcontext = context.subcontext(1 + i)
-        subcontext.check_equal(message.message, expected)
-        subcontext.check_is_none(message.occurrence_uncertainty)
+    ])
+    check_warnings(context, result, path, [])
 
 
 def test_CMakeProcess_DirectoryVariables(context: _t.Context) -> None:
     foo_bar_text = r"""
-      message("1: -${CMAKE_CURRENT_SOURCE_DIR}-${CMAKE_CURRENT_BINARY_DIR}-")
+      message("2: -${CMAKE_CURRENT_SOURCE_DIR}-${CMAKE_CURRENT_BINARY_DIR}-")
     """
     foo_text = r"""
       add_subdirectory(bar)
-      message("2: -${CMAKE_CURRENT_SOURCE_DIR}-${CMAKE_CURRENT_BINARY_DIR}-")
+      message("3: -${CMAKE_CURRENT_SOURCE_DIR}-${CMAKE_CURRENT_BINARY_DIR}-")
     """
     root_text = r"""
+      message("1: -${CMAKE_SOURCE_DIR}-${CMAKE_BINARY_DIR}-")
       add_subdirectory(foo)
-      message("3: -${CMAKE_CURRENT_SOURCE_DIR}-${CMAKE_CURRENT_BINARY_DIR}-")
+      message("4: -${CMAKE_CURRENT_SOURCE_DIR}-${CMAKE_CURRENT_BINARY_DIR}-")
     """
     root_path = pathlib.Path("test-1.cmake")
     def resolve(path: str) -> str:
@@ -3811,15 +3497,17 @@ def test_CMakeProcess_DirectoryVariables(context: _t.Context) -> None:
     success, result = _process(_trim_cmake_text(root_text), root_path, context, resolve, set_binary_dir=True)
     context.check(success)
     expected_messages = [
-        "1: -/root/src/foo/bar-/root/bin/foo/bar-",
-        "2: -/root/src/foo-/root/bin/foo-",
-        "3: -/root/src-/root/bin-",
+        "1: -/root/src-/root/bin-",
+        "2: -/root/src/foo/bar-/root/bin/foo/bar-",
+        "3: -/root/src/foo-/root/bin/foo-",
+        "4: -/root/src-/root/bin-",
     ]
     context.check_equal(len(result.messages), len(expected_messages))
     for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
         subcontext = context.subcontext(1 + i)
         subcontext.check_equal(message.message, expected)
         subcontext.check_is_none(message.occurrence_uncertainty)
+    context.check_equal(len(result.warnings), 0)
 
 
 def test_CMakeProcess_CMakeMinimumRequired(context: _t.Context) -> None:
@@ -3827,73 +3515,333 @@ def test_CMakeProcess_CMakeMinimumRequired(context: _t.Context) -> None:
     _check_valid(context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION %s)
       message("${CMAKE_MINIMUM_REQUIRED_VERSION}")
-    """ % (_cp.LOWEST_SUPPORTED_CMAKE_VERSION,)), str(_cp.LOWEST_SUPPORTED_CMAKE_VERSION))
+    """ % (_cp.LOWEST_SUPPORTED_CMAKE_VERSION,)), [
+        str(_cp.LOWEST_SUPPORTED_CMAKE_VERSION),
+    ])
     _check_valid(context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION %s FATAL_ERROR)  # FATAL_ERROR is accepted
       cmake_minimum_required(VERSION %s)              # 2nd invocation overrides
       message("${CMAKE_MINIMUM_REQUIRED_VERSION}")
-    """ % (_cp.LOWEST_SUPPORTED_CMAKE_VERSION, _cp.CMAKE_VERSION)), str(_cp.CMAKE_VERSION))
+    """ % (_cp.LOWEST_SUPPORTED_CMAKE_VERSION, _cp.CMAKE_VERSION)), [
+        str(_cp.CMAKE_VERSION),
+    ])
     _check_valid(context, _trim_cmake_text(r"""
       cmake_minimum_required(FATAL_ERROR VERSION %s FATAL_ERROR VERSION %s)  # Last version argument takes precedence
       message("${CMAKE_MINIMUM_REQUIRED_VERSION}")
-    """ % (_cp.CMAKE_VERSION, _cp.LOWEST_SUPPORTED_CMAKE_VERSION,)), str(_cp.LOWEST_SUPPORTED_CMAKE_VERSION))
+    """ % (_cp.CMAKE_VERSION, _cp.LOWEST_SUPPORTED_CMAKE_VERSION,)), [
+        str(_cp.LOWEST_SUPPORTED_CMAKE_VERSION),
+    ])
     _check_valid(context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION %s)
       cmake_minimum_required(FATAL_ERROR)  # Does nothing
       cmake_minimum_required()             # Does nothing
       message("${CMAKE_MINIMUM_REQUIRED_VERSION}")
-    """ % (_cp.CMAKE_VERSION,)), str(_cp.CMAKE_VERSION))
+    """ % (_cp.CMAKE_VERSION,)), [
+        str(_cp.CMAKE_VERSION),
+    ])
     _check_valid(context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION 0...%s)
       message("${CMAKE_MINIMUM_REQUIRED_VERSION}")
-    """ % (_cp.LOWEST_SUPPORTED_CMAKE_VERSION,)), "0")
+    """ % (_cp.LOWEST_SUPPORTED_CMAKE_VERSION,)), [
+        "0",
+    ])
     _check_valid(context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION 0...%s)
       message("${CMAKE_MINIMUM_REQUIRED_VERSION}")
-    """ % (_cp.CMAKE_VERSION,)), "0")
+    """ % (_cp.CMAKE_VERSION,)), [
+        "0",
+    ])
     over_version = _cve.Version(_cp.CMAKE_VERSION.major + 1)
     _check_valid(context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION 0...%s)
       message("${CMAKE_MINIMUM_REQUIRED_VERSION}")
-    """ % (over_version,)), "0")
+    """ % (over_version,)), [
+        "0",
+    ])
     _check_valid(context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION %s...%s)
       message("${CMAKE_MINIMUM_REQUIRED_VERSION}")
-    """ % (_cp.CMAKE_VERSION, over_version)), str(_cp.CMAKE_VERSION))
+    """ % (_cp.CMAKE_VERSION, over_version)), [
+        str(_cp.CMAKE_VERSION),
+    ])
 
     # No version range overlap
     _check_invalid(context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION 0)
-    """), ("Specified maximum policy version (0) is lower than lowest supported CMake version (%s) in "
-           "cmake_minimum_required() invocation") % (_cp.LOWEST_SUPPORTED_CMAKE_VERSION,), _tp.TextPos(1, 31))
+    """), [
+        ("Specified maximum policy version (0) is lower than lowest supported CMake version (%s) in "
+         "cmake_minimum_required() invocation" % (_cp.LOWEST_SUPPORTED_CMAKE_VERSION,), _tp.TextPos(1, 31)),
+    ])
     _check_invalid(context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION %s)
-    """ % (over_version,)), ("Specified minimum version (%s) is higher than highest supported CMake version (%s) in "
-           "cmake_minimum_required() invocation") % (over_version, _cp.CMAKE_VERSION), _tp.TextPos(1, 31))
+    """ % (over_version,)), [
+        ("Specified minimum version (%s) is higher than highest supported CMake version (%s) in "
+         "cmake_minimum_required() invocation" % (over_version, _cp.CMAKE_VERSION), _tp.TextPos(1, 31)),
+    ])
 
     # Invalid forms
     _check_invalid(context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION 0 FOO)
-    """), 'Unexpected argument ("FOO") in cmake_minimum_required() invocation', _tp.TextPos(1, 33))
+    """), [
+        ('Unexpected argument ("FOO") in cmake_minimum_required() invocation', _tp.TextPos(1, 33)),
+    ])
     _check_invalid(context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION FOO)
-    """), ('Unsupported version syntax in specified minimum version ("FOO") in cmake_minimum_required() '
-           'invocation'), _tp.TextPos(1, 31))
+    """), [
+        ('Unsupported version syntax in specified minimum version ("FOO") in cmake_minimum_required() invocation',
+         _tp.TextPos(1, 31)),
+    ])
     _check_invalid(context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION 0...1...2)
-    """), ('Unsupported version syntax in specified maximum policy version ("1...2") in cmake_minimum_required() '
-           'invocation'), _tp.TextPos(1, 35))
+    """), [
+        ('Unsupported version syntax in specified maximum policy version ("1...2") in cmake_minimum_required() '
+         'invocation', _tp.TextPos(1, 35)),
+    ])
     _check_invalid(context, _trim_cmake_text(r"""
       set(min "0")
       set(policy_max "4..0")
       cmake_minimum_required(VERSION "${min}...${policy_max}")
-    """), ('Unsupported version syntax in specified maximum policy version ("4..0") in cmake_minimum_required() '
-           'invocation'), _tp.TextPos(3, 41))
+    """), [
+        ('Unsupported version syntax in specified maximum policy version ("4..0") in cmake_minimum_required() '
+         'invocation', _tp.TextPos(3, 41)),
+    ])
     _check_invalid(context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION %s...%s)
-    """ % (over_version, _cp.CMAKE_VERSION)), ("Specified maximum policy version (4.3.0) is lower than specified "
-                                               "minimum version (5.0.0) in cmake_minimum_required() "
-                                               "invocation"), _tp.TextPos(1, 31))
+    """ % (over_version, _cp.CMAKE_VERSION)), [
+        ("Specified maximum policy version (4.3.0) is lower than specified minimum version (5.0.0) in "
+         "cmake_minimum_required() invocation", _tp.TextPos(1, 31)),
+    ])
+
+
+def test_CMakeProcess_Project(context: _t.Context) -> None:
+    text = r"""
+      cmake_minimum_required(VERSION "${version}")
+
+      macro(init _name _i)
+        if(init STREQUAL "1")
+          unset(CACHE{${_name}})
+          unset(${_name})
+        elseif(init STREQUAL "2")
+          set(CACHE{${_name}} FORCE VALUE "")
+          set(${_name} "")
+        elseif(init STREQUAL "3")
+          set(CACHE{${_name}} FORCE VALUE "c${_i}")
+          set(${_name} "r${_i}")
+        else()
+          message(FATAL_ERROR "Bad `init` value")
+        endif()
+      endmacro()
+
+      init("CMAKE_PROJECT_NAME"          1)
+      init("CMAKE_PROJECT_VERSION"       2)
+      init("CMAKE_PROJECT_VERSION_MAJOR" 3)
+      init("CMAKE_PROJECT_VERSION_MINOR" 4)
+      init("CMAKE_PROJECT_VERSION_PATCH" 5)
+      init("CMAKE_PROJECT_VERSION_TWEAK" 6)
+      init("CMAKE_PROJECT_DESCRIPTION"   7)
+      init("CMAKE_PROJECT_HOMEPAGE_URL"  8)
+
+      init("PROJECT_NAME"          9)
+      init("PROJECT_SOURCE_DIR"    10)
+      init("PROJECT_BINARY_DIR"    11)
+      init("PROJECT_IS_TOP_LEVEL"  12)
+      init("PROJECT_VERSION"       13)
+      init("PROJECT_VERSION_MAJOR" 14)
+      init("PROJECT_VERSION_MINOR" 15)
+      init("PROJECT_VERSION_PATCH" 16)
+      init("PROJECT_VERSION_TWEAK" 17)
+      init("PROJECT_DESCRIPTION"   18)
+      init("PROJECT_HOMEPAGE_URL"  19)
+
+      init("Foo_SOURCE_DIR"    20)
+      init("Foo_BINARY_DIR"    21)
+      init("Foo_IS_TOP_LEVEL"  22)
+      init("Foo_VERSION"       23)
+      init("Foo_VERSION_MAJOR" 24)
+      init("Foo_VERSION_MINOR" 25)
+      init("Foo_VERSION_PATCH" 26)
+      init("Foo_VERSION_TWEAK" 27)
+      init("Foo_DESCRIPTION"   28)
+      init("Foo_HOMEPAGE_URL"  29)
+
+      if(form STREQUAL "1")
+        project(Foo)
+      elseif(form STREQUAL "2")
+        project(Foo VERSION 1.0 DESCRIPTION "Bar" HOMEPAGE_URL "Baz")
+      else()
+        message(FATAL_ERROR "Bad `form` value")
+      endif()
+
+      macro(examine _name _var)
+        if(DEFINED CACHE{${_name}})
+          set(_c "d:$CACHE{${_name}}")
+        else()
+          set(_c "u")
+        endif()
+        unset(CACHE{${_name}})
+        if(DEFINED ${_name})
+          set(_r "d:${${_name}}")
+        else()
+          set(_r "u")
+        endif()
+        unset(${_name})
+        set(${_var} "${_c}+${_r}")
+      endmacro()
+
+      examine("CMAKE_PROJECT_NAME"          cpn)
+      examine("CMAKE_PROJECT_VERSION"       cpv)
+      examine("CMAKE_PROJECT_VERSION_MAJOR" cpv1)
+      examine("CMAKE_PROJECT_VERSION_MINOR" cpv2)
+      examine("CMAKE_PROJECT_VERSION_PATCH" cpv3)
+      examine("CMAKE_PROJECT_VERSION_TWEAK" cpv4)
+      examine("CMAKE_PROJECT_DESCRIPTION"   cpd)
+      examine("CMAKE_PROJECT_HOMEPAGE_URL"  cph)
+
+      examine("PROJECT_NAME"          pn)
+      examine("PROJECT_SOURCE_DIR"    ps)
+      examine("PROJECT_BINARY_DIR"    pb)
+      examine("PROJECT_IS_TOP_LEVEL"  pi)
+      examine("PROJECT_VERSION"       pv)
+      examine("PROJECT_VERSION_MAJOR" pv1)
+      examine("PROJECT_VERSION_MINOR" pv2)
+      examine("PROJECT_VERSION_PATCH" pv3)
+      examine("PROJECT_VERSION_TWEAK" pv4)
+      examine("PROJECT_DESCRIPTION"   pd)
+      examine("PROJECT_HOMEPAGE_URL"  ph)
+
+      examine("Foo_SOURCE_DIR"    fs)
+      examine("Foo_BINARY_DIR"    fb)
+      examine("Foo_IS_TOP_LEVEL"  fi)
+      examine("Foo_VERSION"       fv)
+      examine("Foo_VERSION_MAJOR" fv1)
+      examine("Foo_VERSION_MINOR" fv2)
+      examine("Foo_VERSION_PATCH" fv3)
+      examine("Foo_VERSION_TWEAK" fv4)
+      examine("Foo_DESCRIPTION"   fd)
+      examine("Foo_HOMEPAGE_URL"  fh)
+
+      message("1: |${cpn}|${cpv}|${cpv1}|${cpv2}|${cpv3}|${cpv4}|${cpd}|${cph}")
+      message("2: |${pn}|${ps}|${pb}|${pi}|${pv}|${pv1}|${pv2}|${pv3}|${pv4}|${pd}|${ph}")
+      message("3: |${fs}|${fb}|${fi}|${fv}|${fv1}|${fv2}|${fv3}|${fv4}|${fd}|${fh}")
+    """
+
+    def check(init: int, form: int, version: _cve.Version, expected_messages: list[str]) -> None:
+        path = pathlib.Path("test-1-%s-%s.cmake" % (init, form))
+        success, result = _process(_trim_cmake_text(text), path, context, set_binary_dir=True, initial_variables={
+            "version": str(version),
+            "init": str(init),
+            "form": str(form),
+        })
+        context.check(success)
+        check_messages(context, result, expected_messages)
+        check_warnings(context, result, path, [])
+
+    check(1, 1, _cp.CMAKE_VERSION, [
+        "1: |d:Foo+u|u+u|u+u|u+u|u+u|u+u|d:+u|d:+u",
+        "2: |u+d:Foo|u+d:/root/src|u+d:/root/bin|u+d:ON|u+u|u+u|u+u|u+u|u+u|u+d:|u+d:",
+        "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|u+u|u+u|u+u|u+u|u+u|u+d:|u+d:",
+    ])
+    check(1, 2, _cp.CMAKE_VERSION, [
+        "1: |d:Foo+u|d:1.0+u|d:1+u|d:0+u|d:+u|d:+u|d:Bar+u|d:Baz+u",
+        "2: |u+d:Foo|u+d:/root/src|u+d:/root/bin|u+d:ON|u+d:1.0|u+d:1|u+d:0|u+d:|u+d:|u+d:Bar|u+d:Baz",
+        "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|u+d:1.0|u+d:1|u+d:0|u+d:|u+d:|u+d:Bar|u+d:Baz",
+    ])
+    check(2, 1, _cp.CMAKE_VERSION, [
+        "1: |d:Foo+u|d:+u|d:+u|d:+u|d:+u|d:+u|d:+u|d:+u",
+        "2: |d:+d:Foo|d:+d:/root/src|d:+d:/root/bin|d:+d:ON|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:",
+        "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:",
+    ])
+    check(2, 2, _cp.CMAKE_VERSION, [
+        "1: |d:Foo+u|d:1.0+u|d:1+u|d:0+u|d:+u|d:+u|d:Bar+u|d:Baz+u",
+        "2: |d:+d:Foo|d:+d:/root/src|d:+d:/root/bin|d:+d:ON|d:+d:1.0|d:+d:1|d:+d:0|d:+d:|d:+d:|d:+d:Bar|d:+d:Baz",
+        "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|d:+d:1.0|d:+d:1|d:+d:0|d:+d:|d:+d:|d:+d:Bar|"
+        "d:+d:Baz",
+    ])
+    check(3, 1, _cp.CMAKE_VERSION, [
+        "1: |d:Foo+u|d:+u|d:+u|d:+u|d:+u|d:+u|d:+u|d:+u",
+        "2: |d:c9+d:Foo|d:c10+d:/root/src|d:c11+d:/root/bin|d:c12+d:ON|d:c13+d:|d:c14+d:|d:c15+d:|d:c16+d:|d:c17+d:|"
+        "d:c18+d:|d:c19+d:",
+        "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|d:c23+d:|d:c24+d:|d:c25+d:|d:c26+d:|d:c27+d:|"
+        "d:c28+d:|d:c29+d:",
+    ])
+    check(3, 2, _cp.CMAKE_VERSION, [
+        "1: |d:Foo+u|d:1.0+u|d:1+u|d:0+u|d:+u|d:+u|d:Bar+u|d:Baz+u",
+        "2: |d:c9+d:Foo|d:c10+d:/root/src|d:c11+d:/root/bin|d:c12+d:ON|d:c13+d:1.0|d:c14+d:1|d:c15+d:0|d:c16+d:|"
+        "d:c17+d:|d:c18+d:Bar|d:c19+d:Baz",
+        "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|d:c23+d:1.0|d:c24+d:1|d:c25+d:0|d:c26+d:|"
+        "d:c27+d:|d:c28+d:Bar|d:c29+d:Baz",
+    ])
+
+    # If policy CMP0180 is not in effect, only cache variables are set for `Foo_SOURCE_DIR`,
+    # `Foo_BINARY_DIR`, and `Foo_IS_TOP_LEVEL`, and regular variables are left unchanged
+    definition = _cpo.get_definition(_cpo.Policy.CMP0180)
+    assert definition.force_version is None or definition.force_version > _cp.LOWEST_SUPPORTED_CMAKE_VERSION
+    check(1, 1, _cp.LOWEST_SUPPORTED_CMAKE_VERSION, [
+        "1: |d:Foo+u|u+u|u+u|u+u|u+u|u+u|d:+u|d:+u",
+        "2: |u+d:Foo|u+d:/root/src|u+d:/root/bin|u+d:ON|u+u|u+u|u+u|u+u|u+u|u+d:|u+d:",
+        "3: |d:/root/src+u|d:/root/bin+u|d:ON+u|u+u|u+u|u+u|u+u|u+u|u+d:|u+d:",
+    ])
+    check(1, 2, _cp.LOWEST_SUPPORTED_CMAKE_VERSION, [
+        "1: |d:Foo+u|d:1.0+u|d:1+u|d:0+u|d:+u|d:+u|d:Bar+u|d:Baz+u",
+        "2: |u+d:Foo|u+d:/root/src|u+d:/root/bin|u+d:ON|u+d:1.0|u+d:1|u+d:0|u+d:|u+d:|u+d:Bar|u+d:Baz",
+        "3: |d:/root/src+u|d:/root/bin+u|d:ON+u|u+d:1.0|u+d:1|u+d:0|u+d:|u+d:|u+d:Bar|u+d:Baz",
+    ])
+    check(2, 1, _cp.LOWEST_SUPPORTED_CMAKE_VERSION, [
+        "1: |d:Foo+u|d:+u|d:+u|d:+u|d:+u|d:+u|d:+u|d:+u",
+        "2: |d:+d:Foo|d:+d:/root/src|d:+d:/root/bin|d:+d:ON|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:",
+        "3: |d:/root/src+d:|d:/root/bin+d:|d:ON+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:",
+    ])
+    check(2, 2, _cp.LOWEST_SUPPORTED_CMAKE_VERSION, [
+        "1: |d:Foo+u|d:1.0+u|d:1+u|d:0+u|d:+u|d:+u|d:Bar+u|d:Baz+u",
+        "2: |d:+d:Foo|d:+d:/root/src|d:+d:/root/bin|d:+d:ON|d:+d:1.0|d:+d:1|d:+d:0|d:+d:|d:+d:|d:+d:Bar|d:+d:Baz",
+        "3: |d:/root/src+d:|d:/root/bin+d:|d:ON+d:|d:+d:1.0|d:+d:1|d:+d:0|d:+d:|d:+d:|d:+d:Bar|d:+d:Baz",
+    ])
+    check(3, 1, _cp.LOWEST_SUPPORTED_CMAKE_VERSION, [
+        "1: |d:Foo+u|d:+u|d:+u|d:+u|d:+u|d:+u|d:+u|d:+u",
+        "2: |d:c9+d:Foo|d:c10+d:/root/src|d:c11+d:/root/bin|d:c12+d:ON|d:c13+d:|d:c14+d:|d:c15+d:|d:c16+d:|d:c17+d:|"
+        "d:c18+d:|d:c19+d:",
+        "3: |d:/root/src+d:r20|d:/root/bin+d:r21|d:ON+d:r22|d:c23+d:|d:c24+d:|d:c25+d:|d:c26+d:|d:c27+d:|d:c28+d:|"
+        "d:c29+d:",
+    ])
+    check(3, 2, _cp.LOWEST_SUPPORTED_CMAKE_VERSION, [
+        "1: |d:Foo+u|d:1.0+u|d:1+u|d:0+u|d:+u|d:+u|d:Bar+u|d:Baz+u",
+        "2: |d:c9+d:Foo|d:c10+d:/root/src|d:c11+d:/root/bin|d:c12+d:ON|d:c13+d:1.0|d:c14+d:1|d:c15+d:0|d:c16+d:|"
+        "d:c17+d:|d:c18+d:Bar|d:c19+d:Baz",
+        "3: |d:/root/src+d:r20|d:/root/bin+d:r21|d:ON+d:r22|d:c23+d:1.0|d:c24+d:1|d:c25+d:0|d:c26+d:|d:c27+d:|"
+        "d:c28+d:Bar|d:c29+d:Baz",
+    ])
+
+    # Warning if CMAKE_MINIMUM_REQUIRED_VERSION is not already set
+    text = r"""
+      project(Foo VERSION 1.0)
+    """
+    path = pathlib.Path("test-2.cmake")
+    success, result = _process(_trim_cmake_text(text), path, context)
+    context.check(success)
+    check_messages(context, result, [])
+    check_warnings(context, result, path, [
+        ("Variable CMAKE_MINIMUM_REQUIRED_VERSION not set prior to project() invocation", _tp.TextPos(1, 0)),
+    ])
+
+    # Invalid and weird forms
+    _check_valid(context, _trim_cmake_text(r"""
+      cmake_minimum_required(VERSION %s)
+      project(Foo VIRSION 1.0 C)  # Misspelled VERSION keyword is taken as a language argument
+    """ % (_cp.CMAKE_VERSION,)), [])
+    _check_invalid(context, _trim_cmake_text(r"""
+      cmake_minimum_required(VERSION %s)
+      project(Foo VERSION 1.0 C)  # Language argument without LANGUAGES keyword
+    """ % (_cp.CMAKE_VERSION,)), [
+        ('Language argument ("C") without LANGUAGES keyword in project() invocation', _tp.TextPos(2, 24)),
+    ])
+    _check_invalid(context, _trim_cmake_text(r"""
+      cmake_minimum_required(VERSION %s)
+      project(Foo VERSION 1.0 FOO)  # Wird language argument without LANGUAGES keyword
+    """ % (_cp.CMAKE_VERSION,)), [
+        ('Language argument ("FOO") without LANGUAGES keyword in project() invocation', _tp.TextPos(2, 24)),
+    ])
+
+    # FIXME: Check more invalid and weird forms    
 
 
 
@@ -3918,33 +3866,26 @@ def _trim_cmake_text(text: str) -> str:
     return textwrap.dedent(text.removeprefix("\n"))
 
 
-def _check_valid(context: _t.Context, cmake_text: str, expected_message: str) -> None:
+def _check_valid(context: _t.Context, cmake_text: str, expected_messages: list[str]) -> None:
     path = pathlib.Path("test.cmake")
     success, result = _process(_trim_cmake_text(cmake_text), path, context)
     context.check(success)
-    context.check_equal(len(result.messages), 1)
-    message = result.messages[0]
-    context.check_equal(message.message, expected_message)
-    context.check_is_none(message.occurrence_uncertainty)
+    check_messages(context, result, expected_messages)
+    check_warnings(context, result, path, [])
 
-
-def _check_invalid(context: _t.Context, cmake_text: str, expected_message: str, expected_pos: _tp.TextPos) -> None:
+def _check_invalid(context: _t.Context, cmake_text: str, expected_errors: list[tuple[str, _tp.TextPos]]) -> None:
     path = pathlib.Path("test.cmake")
     success, result = _process(_trim_cmake_text(cmake_text), path, context)
     context.check_not(success)
-    context.check_equal(len(result.messages), 0)
-    expected_errors = [
-        (invoke_uncertainty_error("message", _cur.ParamType.MACRO_PARAM, "a"), _tp.TextPos(2, 12)),  #  1
-    ]
-    context.check_equal(len(result.errors), 1)
-    error = result.errors[0]
-    context.check_equal(error.message, expected_message)
-    context.check_equal(error.file_pos.text_pos, expected_pos)
+    check_messages(context, result, [])
+    check_warnings(context, result, path, [])
+    check_errors(context, result, path, expected_errors)
 
 
 def _process(cmake_text: str, cmake_path: pathlib.Path, context: _t.Context,
              subfile_resolver: _SubfileResolver | None = None, set_binary_dir: bool = False,
-             lenient_mode: bool = False, cmake_version: _cve.Version | None = None) -> tuple[bool, _Result]:
+             lenient_mode: bool = False, cmake_version: _cve.Version | None = None,
+             initial_variables: dict[str, str | None] = {}) -> tuple[bool, _Result]:
     pos_resolver = _cp.PositionResolver()
     result = _Result()
     application = _Application(subfile_resolver, pos_resolver, result, context.logger)
@@ -3954,11 +3895,64 @@ def _process(cmake_text: str, cmake_path: pathlib.Path, context: _t.Context,
         config.binary_dir = pathlib.Path("bin")
     config.lenient_mode = lenient_mode
     config.cmake_version = cmake_version
+    config.initial_variables = initial_variables
     config.define_breakpoint_command = True
     with io.StringIO(cmake_text) as file_:
         cmake_source = _cp.Source(file_, cmake_path)
         success = _cp.process(cmake_source, application, pos_resolver, config)
         return success, result
+
+
+def check_messages(context: _t.Context, result: _Result, expected_messages: list[str]) -> None:
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(message.level, _cp.MessageLevel.NOTICE)
+        subcontext.check_equal(message.message, expected)
+        subcontext.check_is_none(message.occurrence_uncertainty)
+
+
+def check_messages_p(context: _t.Context, result: _Result, path: pathlib.Path,
+                     expected_messages: list[tuple[str, _tp.TextPos]]) -> None:
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(message.level, _cp.MessageLevel.NOTICE)
+        subcontext.check_equal(message.message, expected[0])
+        subcontext.check_equal(message.file_pos.path, path)
+        subcontext.check_equal(message.file_pos.text_pos, expected[1])
+        subcontext.check_is_none(message.occurrence_uncertainty)
+
+
+def check_messages_u(context: _t.Context, result: _Result, path: pathlib.Path,
+                     expected_messages: list[tuple[str, bool]]) -> None:
+    context.check_equal(len(result.messages), len(expected_messages))
+    for i, (message, expected) in enumerate(zip(result.messages, expected_messages)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(message.level, _cp.MessageLevel.NOTICE)
+        subcontext.check_equal(message.message, expected[0])
+        subcontext.check_equal(message.file_pos.path, path)
+        subcontext.check_equal(bool(message.occurrence_uncertainty), expected[1])
+
+
+def check_warnings(context: _t.Context, result: _Result, path: pathlib.Path,
+                   expected_warnings: list[tuple[str, _tp.TextPos]]) -> None:
+    context.check_equal(len(result.warnings), len(expected_warnings))
+    for i, (warning, expected) in enumerate(zip(result.warnings, expected_warnings)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(warning.message, expected[0])
+        subcontext.check_equal(warning.file_pos.path, path)
+        subcontext.check_equal(warning.file_pos.text_pos, expected[1])
+
+
+def check_errors(context: _t.Context, result: _Result, path: pathlib.Path,
+                 expected_errors: list[tuple[str, _tp.TextPos]]) -> None:
+    context.check_equal(len(result.errors), len(expected_errors))
+    for i, (error, expected) in enumerate(zip(result.errors, expected_errors)):
+        subcontext = context.subcontext(1 + i)
+        subcontext.check_equal(error.message, expected[0])
+        subcontext.check_equal(error.file_pos.path, path)
+        subcontext.check_equal(error.file_pos.text_pos, expected[1])
 
 
 class _Application(_cp.Application):
