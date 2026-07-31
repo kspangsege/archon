@@ -1611,6 +1611,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
         set_(name + "_HOMEPAGE_URL", homepage_url or "", Type.REGULAR_ONLY)
 
     def set_policy_version(version: _cve.Version, invoc: _clp.GenericInvoc, context: _InvocContext) -> None:
+        assert not context.occurrence_uncertainty
         context.process.state.policy_version = version
         # Unset all policies such that they fall back to their default states for the
         # recorded policy version.

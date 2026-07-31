@@ -20,6 +20,22 @@ lenient_mode      = _b.Wrap(False)
 suppress_messages = _b.Wrap(False)
 cmake_version     = _b.Wrap(_cp.CMAKE_VERSION)
 log_level         = _b.Wrap(_l.LogLevel.INFO)
+breakpoint_       = _b.Wrap(False)
+
+initial_variables = dict[str, str | None]()
+
+def parse_assignment(string: str) -> tuple[str, str]:
+    i = string.find("=")
+    if i >= 0:
+        return string[:i], string[i+1:]
+    raise ValueError
+
+def set_var(arg: tuple[str, str]) -> None:
+    name, value = arg
+    initial_variables[name] = value
+
+def unset_var(name: str) -> None:
+    initial_variables[name] = None
 
 def parse_version(string: str) -> _cve.Version:
     version = _cve.parse(string)
@@ -33,10 +49,14 @@ spec.opt(["-h", "--help"], _cli.ShortCircuit(help_))
 spec.opt(["-s", "--source-dir"], _cli.AssignWithArg(str, source_dir))
 spec.opt(["-b", "--binary-dir"], _cli.AssignWithArg(str, binary_dir))
 spec.opt(["-p", "--cmake-path"], _cli.AssignWithArg(str, cmake_path))
+spec.opt(["-S", "--set-var"], _cli.CallWithArg(parse_assignment, set_var))
+spec.opt(["-U", "--unset-var"], _cli.CallWithArg(str, unset_var))
 spec.opt(["-L", "--lenient-mode"], _cli.Raise(lenient_mode))
 spec.opt(["-M", "--suppress-messages"], _cli.Raise(suppress_messages))
 spec.opt(["-v", "--cmake-version"], _cli.AssignWithArg(parse_version, cmake_version))
 spec.opt(["-l", "--log-level"], _cli.AssignWithArg(_l.parse_log_level, log_level))
+spec.opt(["-B", "--breakpoint"], _cli.Raise(breakpoint_))
+
 
 root_logger = _l.RootLogger()
 success, args = _cli.parse(sys.argv[1:], spec, root_logger)
@@ -58,6 +78,8 @@ config.source_dir = pathlib.Path(source_dir.value)
 config.lenient_mode = lenient_mode.value
 config.suppress_messages = suppress_messages.value
 config.cmake_version = cmake_version.value
+config.initial_variables = initial_variables
+config.define_breakpoint_command = breakpoint_.value
 
 if binary_dir.value is not None:
     config.binary_dir = pathlib.Path(binary_dir.value)
