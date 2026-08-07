@@ -12,12 +12,17 @@ class Policy(enum.Enum):
     CMP0180 = enum.auto()  # project() normal variable shadowing
 
 
-def get_definitions() -> collections.abc.Iterator[Definition]:
-    return iter(_definitions)
+def get_name(policy: Policy) -> str:
+    definition = get_definition(policy)
+    return definition.name
 
 
 def get_definition(policy: Policy) -> Definition:
     return _definitions_by_policy[policy]
+
+
+def get_definitions() -> collections.abc.Iterator[Definition]:
+    return iter(_definitions)
 
 
 # A policy is togglable if `toggleable` is not `None`. If `toggleable` is `None`, toggling

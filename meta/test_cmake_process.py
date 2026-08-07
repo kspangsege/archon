@@ -12,9 +12,9 @@ import unittest
 import archon.text_pos as _tp
 import archon.log as _l
 import archon.test as _t
-import archon.cmake.uncertainty_reason as _cur
 import archon.cmake.version as _cve
 import archon.cmake.policy as _cpo
+import archon.cmake.uncertainty_reason as _cur
 import archon.cmake.process as _cp
 
 
@@ -3614,6 +3614,8 @@ def test_CMakeProcess_CMakeMinimumRequired(context: _t.Context) -> None:
 
 
 def test_CMakeProcess_Project(context: _t.Context) -> None:
+    # FIXME: Test for non-root directory                
+    # FIXME: Test with combinations of initialization                
     text = r"""
       cmake_minimum_required(VERSION "${version}")
 
@@ -3747,7 +3749,7 @@ def test_CMakeProcess_Project(context: _t.Context) -> None:
         "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|u+d:1.0|u+d:1|u+d:0|u+d:|u+d:|u+d:Bar|u+d:Baz",
     ])
     check(2, 1, _cp.CMAKE_VERSION, [
-        "1: |d:Foo+u|d:+u|d:+u|d:+u|d:+u|d:+u|d:+u|d:+u",
+        "1: |d:Foo+u|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+u|d:+u",
         "2: |d:+d:Foo|d:+d:/root/src|d:+d:/root/bin|d:+d:ON|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:",
         "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:",
     ])
@@ -3758,7 +3760,7 @@ def test_CMakeProcess_Project(context: _t.Context) -> None:
         "d:+d:Baz",
     ])
     check(3, 1, _cp.CMAKE_VERSION, [
-        "1: |d:Foo+u|d:+u|d:+u|d:+u|d:+u|d:+u|d:+u|d:+u",
+        "1: |d:Foo+u|d:c2+d:|d:c3+d:|d:c4+d:|d:c5+d:|d:c6+d:|d:+u|d:+u",
         "2: |d:c9+d:Foo|d:c10+d:/root/src|d:c11+d:/root/bin|d:c12+d:ON|d:c13+d:|d:c14+d:|d:c15+d:|d:c16+d:|d:c17+d:|"
         "d:c18+d:|d:c19+d:",
         "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|d:c23+d:|d:c24+d:|d:c25+d:|d:c26+d:|d:c27+d:|"
@@ -3772,8 +3774,8 @@ def test_CMakeProcess_Project(context: _t.Context) -> None:
         "d:c27+d:|d:c28+d:Bar|d:c29+d:Baz",
     ])
 
-    # If policy CMP0180 is not in effect, only cache variables are set for `Foo_SOURCE_DIR`,
-    # `Foo_BINARY_DIR`, and `Foo_IS_TOP_LEVEL`, and regular variables are left unchanged
+    # If policy CMP0180 is not in effect, regular variables are set for `Foo_SOURCE_DIR`,
+    # `Foo_BINARY_DIR`, and `Foo_IS_TOP_LEVEL` only if they are already set (not unset).
     definition = _cpo.get_definition(_cpo.Policy.CMP0180)
     assert definition.force_version is None or definition.force_version > _cp.LOWEST_SUPPORTED_CMAKE_VERSION
     check(1, 1, _cp.LOWEST_SUPPORTED_CMAKE_VERSION, [
@@ -3787,28 +3789,29 @@ def test_CMakeProcess_Project(context: _t.Context) -> None:
         "3: |d:/root/src+u|d:/root/bin+u|d:ON+u|u+d:1.0|u+d:1|u+d:0|u+d:|u+d:|u+d:Bar|u+d:Baz",
     ])
     check(2, 1, _cp.LOWEST_SUPPORTED_CMAKE_VERSION, [
-        "1: |d:Foo+u|d:+u|d:+u|d:+u|d:+u|d:+u|d:+u|d:+u",
+        "1: |d:Foo+u|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+u|d:+u",
         "2: |d:+d:Foo|d:+d:/root/src|d:+d:/root/bin|d:+d:ON|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:",
-        "3: |d:/root/src+d:|d:/root/bin+d:|d:ON+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:",
+        "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:",
     ])
     check(2, 2, _cp.LOWEST_SUPPORTED_CMAKE_VERSION, [
         "1: |d:Foo+u|d:1.0+u|d:1+u|d:0+u|d:+u|d:+u|d:Bar+u|d:Baz+u",
         "2: |d:+d:Foo|d:+d:/root/src|d:+d:/root/bin|d:+d:ON|d:+d:1.0|d:+d:1|d:+d:0|d:+d:|d:+d:|d:+d:Bar|d:+d:Baz",
-        "3: |d:/root/src+d:|d:/root/bin+d:|d:ON+d:|d:+d:1.0|d:+d:1|d:+d:0|d:+d:|d:+d:|d:+d:Bar|d:+d:Baz",
+        "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|d:+d:1.0|d:+d:1|d:+d:0|d:+d:|d:+d:|d:+d:Bar|"
+        "d:+d:Baz",
     ])
     check(3, 1, _cp.LOWEST_SUPPORTED_CMAKE_VERSION, [
-        "1: |d:Foo+u|d:+u|d:+u|d:+u|d:+u|d:+u|d:+u|d:+u",
+        "1: |d:Foo+u|d:c2+d:|d:c3+d:|d:c4+d:|d:c5+d:|d:c6+d:|d:+u|d:+u",
         "2: |d:c9+d:Foo|d:c10+d:/root/src|d:c11+d:/root/bin|d:c12+d:ON|d:c13+d:|d:c14+d:|d:c15+d:|d:c16+d:|d:c17+d:|"
         "d:c18+d:|d:c19+d:",
-        "3: |d:/root/src+d:r20|d:/root/bin+d:r21|d:ON+d:r22|d:c23+d:|d:c24+d:|d:c25+d:|d:c26+d:|d:c27+d:|d:c28+d:|"
-        "d:c29+d:",
+        "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|d:c23+d:|d:c24+d:|d:c25+d:|d:c26+d:|d:c27+d:|"
+        "d:c28+d:|d:c29+d:",
     ])
     check(3, 2, _cp.LOWEST_SUPPORTED_CMAKE_VERSION, [
         "1: |d:Foo+u|d:1.0+u|d:1+u|d:0+u|d:+u|d:+u|d:Bar+u|d:Baz+u",
         "2: |d:c9+d:Foo|d:c10+d:/root/src|d:c11+d:/root/bin|d:c12+d:ON|d:c13+d:1.0|d:c14+d:1|d:c15+d:0|d:c16+d:|"
         "d:c17+d:|d:c18+d:Bar|d:c19+d:Baz",
-        "3: |d:/root/src+d:r20|d:/root/bin+d:r21|d:ON+d:r22|d:c23+d:1.0|d:c24+d:1|d:c25+d:0|d:c26+d:|d:c27+d:|"
-        "d:c28+d:Bar|d:c29+d:Baz",
+        "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|d:c23+d:1.0|d:c24+d:1|d:c25+d:0|d:c26+d:|"
+        "d:c27+d:|d:c28+d:Bar|d:c29+d:Baz",
     ])
 
     # Warning if CMAKE_MINIMUM_REQUIRED_VERSION is not already set
@@ -3822,6 +3825,7 @@ def test_CMakeProcess_Project(context: _t.Context) -> None:
     check_warnings(context, result, path, [
         ("Variable CMAKE_MINIMUM_REQUIRED_VERSION not set prior to project() invocation", _tp.TextPos(1, 0)),
     ])
+    # FIXME: Maybe also check this from outside root dir where the warning should not occur    
 
     # Invalid and weird forms
     _check_valid(context, _trim_cmake_text(r"""

@@ -7,8 +7,8 @@ import pathlib
 import archon.base as _b
 import archon.log as _l
 import archon.command_line_interface as _cli
-import archon.cmake.uncertainty_reason as _cur
 import archon.cmake.version as _cve
+import archon.cmake.uncertainty_reason as _cur
 import archon.cmake.process as _cp
 
 

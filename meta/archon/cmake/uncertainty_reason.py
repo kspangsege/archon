@@ -5,9 +5,11 @@ import dataclasses
 import enum
 
 import archon.base as _b
+import archon.cmake.policy as _cpo
 
 
-type ValueUncertaintyReason = ExpansionUncertaintyReason | AssignmentOccurrenceUncertaintyReason
+type ValueUncertaintyReason = ExpansionUncertaintyReason | AssignmentOccurrenceUncertaintyReason | \
+    AssignmentPolicyUncertaintyReason
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class ExpansionUncertaintyReason:
@@ -26,6 +28,14 @@ class AssignmentOccurrenceUncertaintyReason:
     command_name:                  str
     assignment_position:           Position
     occurrence_uncertainty_reason: ExpansionUncertaintyReason
+
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class AssignmentPolicyUncertaintyReason:
+    command_name:              str
+    command_position:          Position
+    policy:                    _cpo.Policy
+    policy_uncertainty_reason: ValueUncertaintyReason
 
 
 class ParamType(enum.Enum):

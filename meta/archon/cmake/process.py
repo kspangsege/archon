@@ -14,14 +14,14 @@ import archon.base as _b
 import archon.text_pos as _tp
 import archon.log as _l
 import archon.cmake.util as _cu
+import archon.cmake.version as _cve
+import archon.cmake.policy as _cpo
 import archon.cmake.uncertainty_reason as _cur
 import archon.cmake.lowlevel_parser as _clp
 import archon.cmake.string_parser as _csp
 import archon.cmake.variable as _cv
 import archon.cmake.argument as _ca
 import archon.cmake.condition as _cc
-import archon.cmake.version as _cve
-import archon.cmake.policy as _cpo
 
 
 # Process the specified CMake file (`cmake_source`) with respect to the source directory
@@ -314,12 +314,13 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
     # that is not in the current invocation path should not be in this map.
     commands_in_invoc_path = dict[int, int]()
 
-    def process_file(process_context: _ProcessContext, cmake_source: Source, state: _State,
+    def process_file(process_context: _ProcessContext, cmake_source: Source, is_root_dir: bool, state: _State,
                      occurrence_uncertainty: OccurrenceUncertainty, source_dir: pathlib.Path,
                      binary_dir: pathlib.Path | None) -> None:
         tracker = _tp.FilePosTracker(cmake_source.path)
         file_index = pos_resolver._append_file(_SourceFile(tracker))
-        context = _InvocContext(process_context, file_index, state, occurrence_uncertainty, source_dir, binary_dir)
+        context = _InvocContext(process_context, file_index, is_root_dir, state, occurrence_uncertainty, source_dir,
+                                binary_dir)
         def warning_handler(pos: int, message: str, *args: typing.Any) -> None:
             warn(file_index, pos, message, *args)
         def error_handler(pos: int, message: str, *args: typing.Any) -> None:
@@ -389,12 +390,6 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                   "value", e.reason.command_name, e.reason.get_qual_param_ref())
             if e.reason.value_uncertainty_reason:
                 trace_value_uncertainty_causes(e.reason.value_uncertainty_reason)
-            return
-        except _UncertainOccurrenceException as e:
-            position = e.position
-            error(position.file_index, position.pos, "Illegal occurrence uncertainty in invocation of %s()",
-                  e.command_name)
-            trace_expansion_uncertainty_causes(e.cause)
             return
         except _UncertainPolicyException as e:
             definition = _cpo.get_definition(e.policy)
@@ -1200,8 +1195,8 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
         try:
             with context.open_subfile(cmake_path) as file_:
                 cmake_source = Source(file_, cmake_path)
-                process_file(context.process, cmake_source, context.state, context.occurrence_uncertainty,
-                             context.source_dir, context.binary_dir)
+                process_file(context.process, cmake_source, context.is_root_dir, context.state,
+                             context.occurrence_uncertainty, context.source_dir, context.binary_dir)
         except FileNotFoundError as e:
             error(context.file_index, file_or_module_pos, "Failed to include %s (%s): %s", _b.quote(file_or_module),
                   _b.quote(str(cmake_path)), e.strerror)
@@ -1230,8 +1225,9 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
         try:
             with context.open_subfile(cmake_path) as file_:
                 cmake_source = Source(file_, cmake_path)
-                process_file(context.process, cmake_source, state, context.occurrence_uncertainty, source_dir_2,
-                             binary_dir_2)
+                is_root_dir = False
+                process_file(context.process, cmake_source, is_root_dir, state, context.occurrence_uncertainty,
+                             source_dir_2, binary_dir_2)
         except FileNotFoundError as e:
             error(context.file_index, source_dir_pos, "Failed to add subdirectory %s (%s): %s", _b.quote(source_dir),
                   _b.quote(str(cmake_path)), e.strerror)
@@ -1275,9 +1271,6 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                           _b.quote(arg.string.string), invoc.command_name)
                     return
             typing.assert_never(keyword)
-        if context.occurrence_uncertainty:
-            position = _cur.Position(context.file_index, invoc.pos)
-            raise _UncertainOccurrenceException(invoc.command_name, position, context.occurrence_uncertainty)
         # In CMake, if a cmake_minimum_required() invocation specifies no version, the
         # invocation has no effect at all.
         if version is None:
@@ -1329,14 +1322,15 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
         set_policy_version(policy_version, invoc, context)
 
     def exec_project(invoc: _clp.GenericInvoc, context: _InvocContext) -> None:
-        # CMake 4.3 warns if project() is invoked without a preceding
-        # cmake_minimum_required() invocation, which it checks by checking that variable
-        # CMAKE_MINIMUM_REQUIRED_VERSION is set (not unset).
-        value = resolve_certain_variable(_cu.ResolutionType.GENERAL, "CMAKE_MINIMUM_REQUIRED_VERSION", invoc.pos,
-                                         invoc, context, undefined_is_certain=True)
-        if value is None:
-            warn(context.file_index, invoc.pos, "Variable CMAKE_MINIMUM_REQUIRED_VERSION not set prior to %s() "
-                 "invocation", invoc.command_name)
+        # CMake 4.3 warns if project() is invoked from the root directory but without a
+        # preceding cmake_minimum_required() invocation. CMake checks this by examining the
+        # variable CMAKE_MINIMUM_REQUIRED_VERSION.
+        if context.is_root_dir:
+            value = resolve_certain_variable(_cu.ResolutionType.GENERAL, "CMAKE_MINIMUM_REQUIRED_VERSION", invoc.pos,
+                                             invoc, context, undefined_is_certain=True)
+            if value is None:
+                warn(context.file_index, invoc.pos, "Variable CMAKE_MINIMUM_REQUIRED_VERSION not set prior to %s() "
+                     "invocation", invoc.command_name)
 
         server = create_argument_server(invoc, context)
         arg = server.consume()
@@ -1373,9 +1367,9 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                 languages.append(arg.string.string)
         else:
             # Replicating quirky CMake behavior: A stray value argument anywhere is treated
-            # as a language argument. If there is no LANGUAGES keyword, an error is
-            # generated when a stray language argument is encountered. Otherwise, a warning
-            # is generated in that case.
+            # as a language argument. When a stray value argument is encountered, if there
+            # is no LANGUAGES keyword, an error is generated. When the LANGUAGES keyword is
+            # present, a warning is generated instead.
             has_languages_keyword = server.has_keyword({"LANGUAGES"})
             if has_languages_keyword:
                 no_default_languages = True
@@ -1469,155 +1463,165 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                         continue
                 typing.assert_never(keyword)
 
-        if context.occurrence_uncertainty:
-            position = _cur.Position(context.file_index, invoc.pos)
-            raise _UncertainOccurrenceException(invoc.command_name, position, context.occurrence_uncertainty)
-
         if not languages and not no_default_languages:
             languages = ["C", "CXX"]
 
-        is_master_project = False
-        if not context.process.state.master_project_seen:
-            is_master_project = True
-            context.process.state.master_project_seen = True
+        def set_regular(var_name: str, value: str) -> None:
+            set_regular_variable(var_name, value, invoc, context)
 
-        class Type(enum.Enum):
-            REGULAR_ONLY            = 0
-            CACHE_ONLY              = 1
-            CACHE_AND_REGULAR       = 2
-            CACHE_AND_UNSET_REGULAR = 3
+        # If variable is unset or project() is invoked from root directory, set cache
+        # variable and unset regular variable. This is CMake's behavior for the
+        # `CMAKE_PROJECT_` family of variables.
+        def set_cache(var_name: str, value: str) -> None:
+            if not context.is_root_dir:
+                value_2, _ = resolve_variable(_cu.ResolutionType.GENERAL, var_name, invoc.pos, context)
+                match value_2:
+                    case _cv.CertainValue():
+                        if value_2.string:
+                            return
+                    case _cv.UncertainValue():
+                        if value_2.reason:
+                            # The variable is tainted, so it remains tainted.
+                            return
+                        # When there is no uncertainty reason, it means that no value or
+                        # uncertainty reason has yet been recorded for the variable. In the
+                        # case of these well defined variables, we take that to mean that
+                        # the variable is certainly unset.
+                    case _:
+                        typing.assert_never(value_2)
+            set_cache_variable(var_name, value, invoc, context)
+            set_regular_variable(var_name, None, invoc, context)
 
-        hybrid_type = Type.CACHE_ONLY
-        if get_certain_policy(_cpo.Policy.CMP0180, invoc, context):
-            hybrid_type = Type.CACHE_AND_REGULAR
+        # In CMake 4.3.4, the variables `<project name>_SOURCE_DIR`, `<project
+        # name>_BINARY_DIR`, and `<project name>_IS_TOP_LEVEL` are handled
+        # differently. Here, the cache variable of that name is set. Additionally, if the
+        # regular variable is set or if policy CMP0180 is NEW, the regular variable is set
+        # to the same value.
+        cmp0180_is_certainly_new = False
+        cmp0180_uncertainty: _cur.ValueUncertaintyReason | None = None
+        policy_value = resolve_policy(_cpo.Policy.CMP0180, invoc, context)
+        match policy_value:
+            case _CertainResolvedPolicyValue():
+                if policy_value.new:
+                    cmp0180_is_certainly_new = True
+            case _UncertainPolicyValue():
+                cmp0180_uncertainty = policy_value.reason
+            case _:
+                typing.assert_never(policy_value)
+        def set_special(var_name: str, value: str) -> None:
+            regular_var_is_certainly_unset = False
+            regular_var_is_certainly_set = False
+            value_2, var_type = resolve_variable(_cu.ResolutionType.GENERAL, var_name, invoc.pos, context)
+            match value_2:
+                case _cv.CertainValue():
+                    if value_2.string is None or var_type == _cv.VariableType.CACHE:
+                        regular_var_is_certainly_unset = True
+                    else:
+                        regular_var_is_certainly_set = True
+                case _cv.UncertainValue():
+                    if value_2.reason is None or var_type == _cv.VariableType.CACHE:
+                        regular_var_is_certainly_unset = True
+                case _:
+                    typing.assert_never(value_2)
+            set_cache_variable(var_name, value, invoc, context)
+            if regular_var_is_certainly_set or cmp0180_is_certainly_new:
+                set_regular_variable(var_name, value, invoc, context)
+            elif cmp0180_uncertainty and regular_var_is_certainly_unset:
+                command_position = _cur.Position(context.file_index, invoc.pos)
+                policy = _cpo.Policy.CMP0180
+                reason = _cur.AssignmentPolicyUncertaintyReason(invoc.command_name, command_position, policy,
+                                                                cmp0180_uncertainty)
+                taint_regular_variable(var_name, reason, context)
 
-        def set_(var_name: str, value: str, type_: Type) -> None:
-            match type_:
-                case Type.REGULAR_ONLY:
-                    set_regular_variable(var_name, value, invoc, context)
+        # Replicating quirky CMake 4.3 behavior: If the VERSION keyword is absent, version
+        # variables are changed to the empty string if they have a nonempty string
+        # value. Otherwise, they are left unchanged. When judging whether they have a
+        # nonempty string value, the cache is consulted (general resolution type).
+        def reset_special(var_name: str) -> None:
+            value, _ = resolve_variable(_cu.ResolutionType.GENERAL, var_name, invoc.pos, context)
+            match value:
+                case _cv.CertainValue():
+                    if value.string:
+                        set_regular_variable(var_name, "", invoc, context)
                     return
-                case Type.CACHE_ONLY:
-                    set_cache_variable(var_name, value, invoc, context)
+                case _cv.UncertainValue():
+                    # If there is no uncertainty reason, this variable can be taken to be
+                    # definitely unset, in which case there is nothing to do. If there is an
+                    # uncertainty reason, the variable is tainted. In that case, the
+                    # variable must remain tainted.
                     return
-                case Type.CACHE_AND_REGULAR:
-                    set_cache_variable(var_name, value, invoc, context)
-                    set_regular_variable(var_name, value, invoc, context)
-                    return
-                case Type.CACHE_AND_UNSET_REGULAR:
-                    set_cache_variable(var_name, value, invoc, context)
-                    set_regular_variable(var_name, None, invoc, context)
-                    return
-            typing.assert_never(type_)
+            typing.assert_never(value)
 
-        if is_master_project:
-            set_("CMAKE_PROJECT_NAME", name, Type.CACHE_AND_UNSET_REGULAR)
-        set_("PROJECT_NAME", name, Type.REGULAR_ONLY)
+        set_cache("CMAKE_PROJECT_NAME", name)
+        set_regular("PROJECT_NAME", name)
 
         source_dir = str(context.resolve_path(context.source_dir))
         binary_dir = str(context.resolve_path(context.binary_dir)) if context.binary_dir is not None else None
-        set_("PROJECT_SOURCE_DIR", source_dir, Type.REGULAR_ONLY)
-        set_(name + "_SOURCE_DIR", source_dir, hybrid_type)
+        set_regular("PROJECT_SOURCE_DIR", source_dir)
+        set_special(name + "_SOURCE_DIR", source_dir)
         if binary_dir is not None:
-            set_("PROJECT_BINARY_DIR", binary_dir, Type.REGULAR_ONLY)
-            set_(name + "_BINARY_DIR", binary_dir, hybrid_type)
+            set_regular("PROJECT_BINARY_DIR", binary_dir)
+            set_special(name + "_BINARY_DIR", binary_dir)
 
-        is_top_level = context.resolve_path(context.source_dir) == context.resolve_path(context.process.root_dir)
-        is_top_level_2 = "ON" if is_top_level else "OFF"
-        set_("PROJECT_IS_TOP_LEVEL", is_top_level_2, Type.REGULAR_ONLY)
-        set_(name + "_IS_TOP_LEVEL", is_top_level_2, hybrid_type)
-
-        # Replicating quirky CMake 4.3 behavior: If the VERSION keyword occurs, all version
-        # variables are set to a defined value (not None), but if the VERSION keyword does
-        # not occur, version variables are changed to the empty string if they have a
-        # nonempty string value. Otherwise, they are left undefined (None). When judging
-        # whether they have a nonempty string value, the cache is consulted (general
-        # resolution type).
-        def special_reset(var_name: str, type_: Type) -> None:
-            match type_:
-                case Type.REGULAR_ONLY:
-                    value, _ = resolve_variable(_cu.ResolutionType.GENERAL, var_name, invoc.pos, context)
-                    match value:
-                        case _cv.CertainValue():
-                            if value.string:
-                                set_regular_variable(var_name, "", invoc, context)
-                            return
-                        case _cv.UncertainValue():
-                            if not value.reason:
-                                set_regular_variable(var_name, None, invoc, context)
-                            return
-                    typing.assert_never(value)
-                case Type.CACHE_ONLY | Type.CACHE_AND_REGULAR:
-                    # These cases are not in use
-                    assert False
-                case Type.CACHE_AND_UNSET_REGULAR:
-                    set_regular_variable(var_name, None, invoc, context)
-                    value, _ = resolve_variable(_cu.ResolutionType.CACHE, var_name, invoc.pos, context)
-                    match value:
-                        case _cv.CertainValue():
-                            if value.string:
-                                set_cache_variable(var_name, "", invoc, context)
-                            return
-                        case _cv.UncertainValue():
-                            if not value.reason:
-                                set_cache_variable(var_name, None, invoc, context)
-                            return
-                    typing.assert_never(value)
-            typing.assert_never(type_)
+        is_top_level = "ON" if context.is_root_dir else "OFF"
+        set_regular("PROJECT_IS_TOP_LEVEL", is_top_level)
+        set_special(name + "_IS_TOP_LEVEL", is_top_level)
 
         if version is None:
-            if is_master_project:
-                special_reset("CMAKE_PROJECT_VERSION", Type.CACHE_AND_UNSET_REGULAR)
-                special_reset("CMAKE_PROJECT_VERSION_MAJOR", Type.CACHE_AND_UNSET_REGULAR)
-                special_reset("CMAKE_PROJECT_VERSION_MINOR", Type.CACHE_AND_UNSET_REGULAR)
-                special_reset("CMAKE_PROJECT_VERSION_PATCH", Type.CACHE_AND_UNSET_REGULAR)
-                special_reset("CMAKE_PROJECT_VERSION_TWEAK", Type.CACHE_AND_UNSET_REGULAR)
-            special_reset("PROJECT_VERSION", Type.REGULAR_ONLY)
-            special_reset("PROJECT_VERSION_MAJOR", Type.REGULAR_ONLY)
-            special_reset("PROJECT_VERSION_MINOR", Type.REGULAR_ONLY)
-            special_reset("PROJECT_VERSION_PATCH", Type.REGULAR_ONLY)
-            special_reset("PROJECT_VERSION_TWEAK", Type.REGULAR_ONLY)
-            special_reset(name + "_VERSION", Type.REGULAR_ONLY)
-            special_reset(name + "_VERSION_MAJOR", Type.REGULAR_ONLY)
-            special_reset(name + "_VERSION_MINOR", Type.REGULAR_ONLY)
-            special_reset(name + "_VERSION_PATCH", Type.REGULAR_ONLY)
-            special_reset(name + "_VERSION_TWEAK", Type.REGULAR_ONLY)
+            if context.is_root_dir:
+                reset_special("CMAKE_PROJECT_VERSION")
+                reset_special("CMAKE_PROJECT_VERSION_MAJOR")
+                reset_special("CMAKE_PROJECT_VERSION_MINOR")
+                reset_special("CMAKE_PROJECT_VERSION_PATCH")
+                reset_special("CMAKE_PROJECT_VERSION_TWEAK")
+            reset_special("PROJECT_VERSION")
+            reset_special("PROJECT_VERSION_MAJOR")
+            reset_special("PROJECT_VERSION_MINOR")
+            reset_special("PROJECT_VERSION_PATCH")
+            reset_special("PROJECT_VERSION_TWEAK")
+            reset_special(name + "_VERSION")
+            reset_special(name + "_VERSION_MAJOR")
+            reset_special(name + "_VERSION_MINOR")
+            reset_special(name + "_VERSION_PATCH")
+            reset_special(name + "_VERSION_TWEAK")
         else:
-            if is_master_project:
-                set_("CMAKE_PROJECT_VERSION", version, Type.CACHE_AND_UNSET_REGULAR)
-                set_("CMAKE_PROJECT_VERSION_MAJOR", version_major, Type.CACHE_AND_UNSET_REGULAR)
-                set_("CMAKE_PROJECT_VERSION_MINOR", version_minor, Type.CACHE_AND_UNSET_REGULAR)
-                set_("CMAKE_PROJECT_VERSION_PATCH", version_patch, Type.CACHE_AND_UNSET_REGULAR)
-                set_("CMAKE_PROJECT_VERSION_TWEAK", version_tweak, Type.CACHE_AND_UNSET_REGULAR)
-            set_("PROJECT_VERSION", version, Type.REGULAR_ONLY)
-            set_("PROJECT_VERSION_MAJOR", version_major, Type.REGULAR_ONLY)
-            set_("PROJECT_VERSION_MINOR", version_minor, Type.REGULAR_ONLY)
-            set_("PROJECT_VERSION_PATCH", version_patch, Type.REGULAR_ONLY)
-            set_("PROJECT_VERSION_TWEAK", version_tweak, Type.REGULAR_ONLY)
-            set_(name + "_VERSION", version, Type.REGULAR_ONLY)
-            set_(name + "_VERSION_MAJOR", version_major, Type.REGULAR_ONLY)
-            set_(name + "_VERSION_MINOR", version_minor, Type.REGULAR_ONLY)
-            set_(name + "_VERSION_PATCH", version_patch, Type.REGULAR_ONLY)
-            set_(name + "_VERSION_TWEAK", version_tweak, Type.REGULAR_ONLY)
+            set_cache("CMAKE_PROJECT_VERSION", version)
+            set_cache("CMAKE_PROJECT_VERSION_MAJOR", version_major)
+            set_cache("CMAKE_PROJECT_VERSION_MINOR", version_minor)
+            set_cache("CMAKE_PROJECT_VERSION_PATCH", version_patch)
+            set_cache("CMAKE_PROJECT_VERSION_TWEAK", version_tweak)
+            set_regular("PROJECT_VERSION", version)
+            set_regular("PROJECT_VERSION_MAJOR", version_major)
+            set_regular("PROJECT_VERSION_MINOR", version_minor)
+            set_regular("PROJECT_VERSION_PATCH", version_patch)
+            set_regular("PROJECT_VERSION_TWEAK", version_tweak)
+            set_regular(name + "_VERSION", version)
+            set_regular(name + "_VERSION_MAJOR", version_major)
+            set_regular(name + "_VERSION_MINOR", version_minor)
+            set_regular(name + "_VERSION_PATCH", version_patch)
+            set_regular(name + "_VERSION_TWEAK", version_tweak)
 
         # With CMake 4.3, "description" and "homepage URL" variables are set to the empty
         # string when the respective keywords are absent. These variables are never left in
         # the unset state (with value `None`).
-        if is_master_project:
-            set_("CMAKE_PROJECT_DESCRIPTION", description or "", Type.CACHE_AND_UNSET_REGULAR)
-            set_("CMAKE_PROJECT_HOMEPAGE_URL", homepage_url or "", Type.CACHE_AND_UNSET_REGULAR)
-        set_("PROJECT_DESCRIPTION", description or "", Type.REGULAR_ONLY)
-        set_("PROJECT_HOMEPAGE_URL", homepage_url or "", Type.REGULAR_ONLY)
-        set_(name + "_DESCRIPTION", description or "", Type.REGULAR_ONLY)
-        set_(name + "_HOMEPAGE_URL", homepage_url or "", Type.REGULAR_ONLY)
+        set_cache("CMAKE_PROJECT_DESCRIPTION", description or "")
+        set_cache("CMAKE_PROJECT_HOMEPAGE_URL", homepage_url or "")
+        set_regular("PROJECT_DESCRIPTION", description or "")
+        set_regular("PROJECT_HOMEPAGE_URL", homepage_url or "")
+        set_regular(name + "_DESCRIPTION", description or "")
+        set_regular(name + "_HOMEPAGE_URL", homepage_url or "")
 
     def set_policy_version(version: _cve.Version, invoc: _clp.GenericInvoc, context: _InvocContext) -> None:
         assert not context.occurrence_uncertainty
-        context.process.state.policy_version = version
-        # Unset all policies such that they fall back to their default states for the
-        # recorded policy version.
+        # Emulate CMake 4.3 behavior, which is to set behavior to NEW for all policies that
+        # were introduced at or before the negotiated policy version. All other policies get
+        # their behavior unset, so that the behavior gets determined dynamically on
+        # demand. This happens in determine_default_policy_state() below.
         for definition in _cpo.get_definitions():
             if definition.toggleable:
-                new = None # Unset the policy
+                new: bool | None = None
+                if definition.intro_version <= version:
+                    new = True
                 set_policy(definition.toggleable, new, invoc, context)
 
     def evaluate_condition(invoc: _clp.GeneralizedInvoc, context: _InvocContext) -> _cc.Result:
@@ -1810,6 +1814,11 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
 
     def set_cache_variable(variable_name: str, value: str | None, invoc: _clp.GeneralizedInvoc,
                            context: _InvocContext) -> None:
+        # FIXME: Tend to policy CMP0126. If `value` is not `None` and policy behavior is
+        # OLD, unset the regular variable of the same name. If policy behavior is uncertain
+        # and regular variable is definitely not unset, taint the regular variable. If
+        # policy behavior is uncertain and the regular variable is definitely unset or is in
+        # an uncertain state, leave the regular variable in its current state.          
         assignment_position = _cur.Position(context.file_index, invoc.pos)
         value_2 = _CertainAssignedValue(value, invoc.command_name, assignment_position)
         context.state.set_cache_variable(variable_name, value_2)
@@ -1826,16 +1835,28 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
     def taint_env_variable(variable_name: str, reason: _cur.ValueUncertaintyReason, context: _InvocContext) -> None:
         context.state.set_env_variable(variable_name, _cv.UncertainValue(reason))
 
-    def get_certain_policy(policy: _cpo.Policy, invoc: _clp.GeneralizedInvoc, context: _InvocContext,
-                           suppress_warning: bool = False) -> bool:
+    def resolve_certain_policy(policy: _cpo.Policy, invoc: _clp.GeneralizedInvoc, context: _InvocContext,
+                               suppress_warning: bool = False) -> bool:
+        value = resolve_policy(policy, invoc, context, suppress_warning)
+        match value:
+            case _CertainResolvedPolicyValue():
+                return value.new
+            case _UncertainPolicyValue():
+                raise _UncertainPolicyException(invoc.command_name, policy, invoc.pos, value.reason) from None
+        typing.assert_never(value)
+
+    def resolve_policy(policy: _cpo.Policy, invoc: _clp.GeneralizedInvoc, context: _InvocContext,
+                       suppress_warning: bool = False) -> _ResolvedPolicyValue:
         value = context.state.get_policy(policy)
         match value:
             case _CertainPolicyValue():
                 if value.new is not None:
-                    return value.new
-                return determine_default_policy_state(policy, invoc, context, suppress_warning)
+                    new = value.new
+                else:
+                    new = determine_default_policy_state(policy, invoc, context, suppress_warning)
+                return _CertainResolvedPolicyValue(new)
             case _UncertainPolicyValue():
-                raise _UncertainPolicyException(invoc.command_name, policy, invoc.pos, value.reason) from None
+                return value
         typing.assert_never(value)
 
     def set_policy(policy: _cpo.Policy, new: bool | None, invoc: _clp.GeneralizedInvoc, context: _InvocContext) -> None:
@@ -1847,14 +1868,8 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                                        suppress_warning: bool) -> bool:
         definition = _cpo.get_definition(policy)
 
-        # In CMake, cmake_minimum_required() and cmake_policy() directly sets all policies
-        # that were introduced at or before the negotiated policy version to NEW and unsets
-        # the state of all other policies. The following achieves the same result.
-        if definition.intro_version <= context.process.state.policy_version:
-            return True  # NEW
-
         # If the policy is not yet introduced in the simulated CMake version
-        # (`context.process.cmake_version`), its state is OLD
+        # (`context.process.cmake_version`), its state is definitely OLD
         if definition.intro_version > context.process.cmake_version:
             return False  # OLD
 
@@ -1893,6 +1908,12 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                 error(position.file_index, position.pos, "Caused by execution of %s() with uncertain occurrence",
                       cause.command_name)
                 trace_expansion_uncertainty_causes(cause.occurrence_uncertainty_reason)
+                return
+            case _cur.AssignmentPolicyUncertaintyReason():
+                position = cause.command_position
+                error(position.file_index, position.pos, "Caused by execution of %s() with uncertain state of policy "
+                      "%s", cause.command_name, _cpo.get_name(cause.policy))
+                trace_value_uncertainty_causes(cause.policy_uncertainty_reason)
                 return
         typing.assert_never(cause)
 
@@ -1961,13 +1982,14 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
     for name in definitely_unset_variables:
         initial_variables.setdefault(name)
 
+    is_root_dir = True
     state = _RootState(initial_variables, config.define_breakpoint_command)
     occurrence_uncertainty = None
     root_dir = config.source_dir
-    process_state = _ProcessState()
     process_context = _ProcessContext(application, pos_resolver, config.lenient_mode, config.suppress_messages,
-                                      cmake_version, root_dir, process_state)
-    process_file(process_context, cmake_source, state, occurrence_uncertainty, config.source_dir, config.binary_dir)
+                                      cmake_version, root_dir)
+    process_file(process_context, cmake_source, is_root_dir, state, occurrence_uncertainty, config.source_dir,
+                 config.binary_dir)
     return not errors_seen
 
 
@@ -1980,10 +2002,16 @@ class _SourceFile:
     pos_tracker: _tp.FilePosTracker
 
 
+# `is_root_dir` is true inside the immediately processed CMake file (the one whose path was
+# passed to process()) and all files included by it using include() invocations. Everywhere
+# else, that is inside files whose inclusion path involve add_subdirectory() invocations,
+# `is_root_dir` is false.
+#
 @dataclasses.dataclass(slots=True, frozen=True)
 class _InvocContext:
     process:                _ProcessContext
     file_index:             int
+    is_root_dir:            bool
     state:                  _State
     occurrence_uncertainty: OccurrenceUncertainty
     source_dir:             pathlib.Path
@@ -2010,13 +2038,6 @@ class _ProcessContext:
     suppress_messages: bool
     cmake_version:     _cve.Version
     root_dir:          pathlib.Path
-    state:             _ProcessState
-
-
-class _ProcessState:
-    def __init__(self) -> None:
-        self.policy_version      = LOWEST_SUPPORTED_CMAKE_VERSION
-        self.master_project_seen = False
 
 
 class _State(abc.ABC):
@@ -2686,11 +2707,17 @@ class _OccurrenceUncertaintyOverlayState(_State):
 
 type _PolicyValue = _CertainPolicyValue | _UncertainPolicyValue
 
+type _ResolvedPolicyValue = _CertainResolvedPolicyValue | _UncertainPolicyValue
+
 type _AssignedPolicyValue = _CertainAssignedPolicyValue | _UncertainPolicyValue
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class _CertainPolicyValue:
     new: bool | None
+
+@dataclasses.dataclass(slots=True, frozen=True)
+class _CertainResolvedPolicyValue:
+    new: bool
 
 @dataclasses.dataclass(slots=True, frozen=True)
 class _CertainAssignedPolicyValue(_CertainPolicyValue):
@@ -2780,14 +2807,6 @@ class _UncertainVariableResolutionException(Exception):
     def __init__(self, reason: _cur.ExpansionUncertaintyReason) -> None:
         Exception.__init__(self)
         self.reason = reason
-
-
-class _UncertainOccurrenceException(Exception):
-    def __init__(self, command_name: str, position: _cur.Position, cause: _cur.ExpansionUncertaintyReason) -> None:
-        Exception.__init__(self)
-        self.command_name = command_name
-        self.position     = position
-        self.cause        = cause
 
 
 class _UncertainPolicyException(Exception):
