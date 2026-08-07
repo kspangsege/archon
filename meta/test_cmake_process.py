@@ -3615,22 +3615,27 @@ def test_CMakeProcess_CMakeMinimumRequired(context: _t.Context) -> None:
 
 def test_CMakeProcess_Project(context: _t.Context) -> None:
     # FIXME: Test for non-root directory                
-    # FIXME: Test with combinations of initialization                
     text = r"""
       cmake_minimum_required(VERSION "${version}")
 
       macro(init _name _i)
-        if(init STREQUAL "1")
+        if(cache_init STREQUAL "1")
           unset(CACHE{${_name}})
-          unset(${_name})
-        elseif(init STREQUAL "2")
+        elseif(cache_init STREQUAL "2")
           set(CACHE{${_name}} FORCE VALUE "")
-          set(${_name} "")
-        elseif(init STREQUAL "3")
+        elseif(cache_init STREQUAL "3")
           set(CACHE{${_name}} FORCE VALUE "c${_i}")
+        else()
+          message(FATAL_ERROR "Bad `cache_init` value")
+        endif()
+        if(regular_init STREQUAL "1")
+          unset(${_name})
+        elseif(regular_init STREQUAL "2")
+          set(${_name} "")
+        elseif(regular_init STREQUAL "3")
           set(${_name} "r${_i}")
         else()
-          message(FATAL_ERROR "Bad `init` value")
+          message(FATAL_ERROR "Bad `regular_init` value")
         endif()
       endmacro()
 
@@ -3727,46 +3732,118 @@ def test_CMakeProcess_Project(context: _t.Context) -> None:
       message("3: |${fs}|${fb}|${fi}|${fv}|${fv1}|${fv2}|${fv3}|${fv4}|${fd}|${fh}")
     """
 
-    def check(init: int, form: int, version: _cve.Version, expected_messages: list[str]) -> None:
-        path = pathlib.Path("test-1-%s-%s.cmake" % (init, form))
+    def check(cache_init: int, regular_init: int, form: int, version: _cve.Version,
+              expected_messages: list[str]) -> None:
+        path = pathlib.Path("test-1-%s-%s-%s.cmake" % (cache_init, regular_init, form))
         success, result = _process(_trim_cmake_text(text), path, context, set_binary_dir=True, initial_variables={
-            "version": str(version),
-            "init": str(init),
-            "form": str(form),
+            "version":      str(version),
+            "cache_init":   str(cache_init),
+            "regular_init": str(regular_init),
+            "form":         str(form),
         })
         context.check(success)
         check_messages(context, result, expected_messages)
         check_warnings(context, result, path, [])
 
-    check(1, 1, _cp.CMAKE_VERSION, [
+    check(1, 1, 1, _cp.CMAKE_VERSION, [
         "1: |d:Foo+u|u+u|u+u|u+u|u+u|u+u|d:+u|d:+u",
         "2: |u+d:Foo|u+d:/root/src|u+d:/root/bin|u+d:ON|u+u|u+u|u+u|u+u|u+u|u+d:|u+d:",
         "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|u+u|u+u|u+u|u+u|u+u|u+d:|u+d:",
     ])
-    check(1, 2, _cp.CMAKE_VERSION, [
+    check(1, 1, 2, _cp.CMAKE_VERSION, [
         "1: |d:Foo+u|d:1.0+u|d:1+u|d:0+u|d:+u|d:+u|d:Bar+u|d:Baz+u",
         "2: |u+d:Foo|u+d:/root/src|u+d:/root/bin|u+d:ON|u+d:1.0|u+d:1|u+d:0|u+d:|u+d:|u+d:Bar|u+d:Baz",
         "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|u+d:1.0|u+d:1|u+d:0|u+d:|u+d:|u+d:Bar|u+d:Baz",
     ])
-    check(2, 1, _cp.CMAKE_VERSION, [
-        "1: |d:Foo+u|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+u|d:+u",
-        "2: |d:+d:Foo|d:+d:/root/src|d:+d:/root/bin|d:+d:ON|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:",
-        "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:",
+    check(1, 2, 1, _cp.CMAKE_VERSION, [
+        "1: |d:Foo+u|u+d:|u+d:|u+d:|u+d:|u+d:|d:+u|d:+u",
+        "2: |u+d:Foo|u+d:/root/src|u+d:/root/bin|u+d:ON|u+d:|u+d:|u+d:|u+d:|u+d:|u+d:|u+d:",
+        "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|u+d:|u+d:|u+d:|u+d:|u+d:|u+d:|u+d:",
     ])
-    check(2, 2, _cp.CMAKE_VERSION, [
+    check(1, 2, 2, _cp.CMAKE_VERSION, [
+        "1: |d:Foo+u|d:1.0+u|d:1+u|d:0+u|d:+u|d:+u|d:Bar+u|d:Baz+u",
+        "2: |u+d:Foo|u+d:/root/src|u+d:/root/bin|u+d:ON|u+d:1.0|u+d:1|u+d:0|u+d:|u+d:|u+d:Bar|u+d:Baz",
+        "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|u+d:1.0|u+d:1|u+d:0|u+d:|u+d:|u+d:Bar|u+d:Baz",
+    ])
+    check(1, 3, 1, _cp.CMAKE_VERSION, [
+        "1: |d:Foo+u|u+d:|u+d:|u+d:|u+d:|u+d:|d:+u|d:+u",
+        "2: |u+d:Foo|u+d:/root/src|u+d:/root/bin|u+d:ON|u+d:|u+d:|u+d:|u+d:|u+d:|u+d:|u+d:",
+        "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|u+d:|u+d:|u+d:|u+d:|u+d:|u+d:|u+d:",
+    ])
+    check(1, 3, 2, _cp.CMAKE_VERSION, [
+        "1: |d:Foo+u|d:1.0+u|d:1+u|d:0+u|d:+u|d:+u|d:Bar+u|d:Baz+u",
+        "2: |u+d:Foo|u+d:/root/src|u+d:/root/bin|u+d:ON|u+d:1.0|u+d:1|u+d:0|u+d:|u+d:|u+d:Bar|u+d:Baz",
+        "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|u+d:1.0|u+d:1|u+d:0|u+d:|u+d:|u+d:Bar|u+d:Baz",
+    ])
+    check(2, 1, 1, _cp.CMAKE_VERSION, [
+        "1: |d:Foo+u|d:+u|d:+u|d:+u|d:+u|d:+u|d:+u|d:+u",
+        "2: |d:+d:Foo|d:+d:/root/src|d:+d:/root/bin|d:+d:ON|d:+u|d:+u|d:+u|d:+u|d:+u|d:+d:|d:+d:",
+        "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|d:+u|d:+u|d:+u|d:+u|d:+u|d:+d:|d:+d:",
+    ])
+    check(2, 1, 2, _cp.CMAKE_VERSION, [
         "1: |d:Foo+u|d:1.0+u|d:1+u|d:0+u|d:+u|d:+u|d:Bar+u|d:Baz+u",
         "2: |d:+d:Foo|d:+d:/root/src|d:+d:/root/bin|d:+d:ON|d:+d:1.0|d:+d:1|d:+d:0|d:+d:|d:+d:|d:+d:Bar|d:+d:Baz",
         "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|d:+d:1.0|d:+d:1|d:+d:0|d:+d:|d:+d:|d:+d:Bar|"
         "d:+d:Baz",
     ])
-    check(3, 1, _cp.CMAKE_VERSION, [
+    check(2, 2, 1, _cp.CMAKE_VERSION, [
+        "1: |d:Foo+u|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+u|d:+u",
+        "2: |d:+d:Foo|d:+d:/root/src|d:+d:/root/bin|d:+d:ON|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:",
+        "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:",
+    ])
+    check(2, 2, 2, _cp.CMAKE_VERSION, [
+        "1: |d:Foo+u|d:1.0+u|d:1+u|d:0+u|d:+u|d:+u|d:Bar+u|d:Baz+u",
+        "2: |d:+d:Foo|d:+d:/root/src|d:+d:/root/bin|d:+d:ON|d:+d:1.0|d:+d:1|d:+d:0|d:+d:|d:+d:|d:+d:Bar|d:+d:Baz",
+        "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|d:+d:1.0|d:+d:1|d:+d:0|d:+d:|d:+d:|d:+d:Bar|"
+        "d:+d:Baz",
+    ])
+    check(2, 3, 1, _cp.CMAKE_VERSION, [
+        "1: |d:Foo+u|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+u|d:+u",
+        "2: |d:+d:Foo|d:+d:/root/src|d:+d:/root/bin|d:+d:ON|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:",
+        "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:",
+    ])
+    check(2, 3, 2, _cp.CMAKE_VERSION, [
+        "1: |d:Foo+u|d:1.0+u|d:1+u|d:0+u|d:+u|d:+u|d:Bar+u|d:Baz+u",
+        "2: |d:+d:Foo|d:+d:/root/src|d:+d:/root/bin|d:+d:ON|d:+d:1.0|d:+d:1|d:+d:0|d:+d:|d:+d:|d:+d:Bar|d:+d:Baz",
+        "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|d:+d:1.0|d:+d:1|d:+d:0|d:+d:|d:+d:|d:+d:Bar|"
+        "d:+d:Baz",
+    ])
+    check(3, 1, 1, _cp.CMAKE_VERSION, [
         "1: |d:Foo+u|d:c2+d:|d:c3+d:|d:c4+d:|d:c5+d:|d:c6+d:|d:+u|d:+u",
         "2: |d:c9+d:Foo|d:c10+d:/root/src|d:c11+d:/root/bin|d:c12+d:ON|d:c13+d:|d:c14+d:|d:c15+d:|d:c16+d:|d:c17+d:|"
         "d:c18+d:|d:c19+d:",
         "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|d:c23+d:|d:c24+d:|d:c25+d:|d:c26+d:|d:c27+d:|"
         "d:c28+d:|d:c29+d:",
     ])
-    check(3, 2, _cp.CMAKE_VERSION, [
+    check(3, 1, 2, _cp.CMAKE_VERSION, [
+        "1: |d:Foo+u|d:1.0+u|d:1+u|d:0+u|d:+u|d:+u|d:Bar+u|d:Baz+u",
+        "2: |d:c9+d:Foo|d:c10+d:/root/src|d:c11+d:/root/bin|d:c12+d:ON|d:c13+d:1.0|d:c14+d:1|d:c15+d:0|d:c16+d:|"
+        "d:c17+d:|d:c18+d:Bar|d:c19+d:Baz",
+        "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|d:c23+d:1.0|d:c24+d:1|d:c25+d:0|d:c26+d:|"
+        "d:c27+d:|d:c28+d:Bar|d:c29+d:Baz",
+    ])
+    check(3, 2, 1, _cp.CMAKE_VERSION, [
+        "1: |d:Foo+u|d:c2+d:|d:c3+d:|d:c4+d:|d:c5+d:|d:c6+d:|d:+u|d:+u",
+        "2: |d:c9+d:Foo|d:c10+d:/root/src|d:c11+d:/root/bin|d:c12+d:ON|d:c13+d:|d:c14+d:|d:c15+d:|d:c16+d:|d:c17+d:|"
+        "d:c18+d:|d:c19+d:",
+        "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|d:c23+d:|d:c24+d:|d:c25+d:|d:c26+d:|d:c27+d:|"
+        "d:c28+d:|d:c29+d:",
+    ])
+    check(3, 2, 2, _cp.CMAKE_VERSION, [
+        "1: |d:Foo+u|d:1.0+u|d:1+u|d:0+u|d:+u|d:+u|d:Bar+u|d:Baz+u",
+        "2: |d:c9+d:Foo|d:c10+d:/root/src|d:c11+d:/root/bin|d:c12+d:ON|d:c13+d:1.0|d:c14+d:1|d:c15+d:0|d:c16+d:|"
+        "d:c17+d:|d:c18+d:Bar|d:c19+d:Baz",
+        "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|d:c23+d:1.0|d:c24+d:1|d:c25+d:0|d:c26+d:|"
+        "d:c27+d:|d:c28+d:Bar|d:c29+d:Baz",
+    ])
+    check(3, 3, 1, _cp.CMAKE_VERSION, [
+        "1: |d:Foo+u|d:c2+d:|d:c3+d:|d:c4+d:|d:c5+d:|d:c6+d:|d:+u|d:+u",
+        "2: |d:c9+d:Foo|d:c10+d:/root/src|d:c11+d:/root/bin|d:c12+d:ON|d:c13+d:|d:c14+d:|d:c15+d:|d:c16+d:|d:c17+d:|"
+        "d:c18+d:|d:c19+d:",
+        "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|d:c23+d:|d:c24+d:|d:c25+d:|d:c26+d:|d:c27+d:|"
+        "d:c28+d:|d:c29+d:",
+    ])
+    check(3, 3, 2, _cp.CMAKE_VERSION, [
         "1: |d:Foo+u|d:1.0+u|d:1+u|d:0+u|d:+u|d:+u|d:Bar+u|d:Baz+u",
         "2: |d:c9+d:Foo|d:c10+d:/root/src|d:c11+d:/root/bin|d:c12+d:ON|d:c13+d:1.0|d:c14+d:1|d:c15+d:0|d:c16+d:|"
         "d:c17+d:|d:c18+d:Bar|d:c19+d:Baz",
@@ -3778,35 +3855,53 @@ def test_CMakeProcess_Project(context: _t.Context) -> None:
     # `Foo_BINARY_DIR`, and `Foo_IS_TOP_LEVEL` only if they are already set (not unset).
     definition = _cpo.get_definition(_cpo.Policy.CMP0180)
     assert definition.force_version is None or definition.force_version > _cp.LOWEST_SUPPORTED_CMAKE_VERSION
-    check(1, 1, _cp.LOWEST_SUPPORTED_CMAKE_VERSION, [
-        "1: |d:Foo+u|u+u|u+u|u+u|u+u|u+u|d:+u|d:+u",
-        "2: |u+d:Foo|u+d:/root/src|u+d:/root/bin|u+d:ON|u+u|u+u|u+u|u+u|u+u|u+d:|u+d:",
-        "3: |d:/root/src+u|d:/root/bin+u|d:ON+u|u+u|u+u|u+u|u+u|u+u|u+d:|u+d:",
-    ])
-    check(1, 2, _cp.LOWEST_SUPPORTED_CMAKE_VERSION, [
+    check(1, 1, 2, _cp.LOWEST_SUPPORTED_CMAKE_VERSION, [
         "1: |d:Foo+u|d:1.0+u|d:1+u|d:0+u|d:+u|d:+u|d:Bar+u|d:Baz+u",
         "2: |u+d:Foo|u+d:/root/src|u+d:/root/bin|u+d:ON|u+d:1.0|u+d:1|u+d:0|u+d:|u+d:|u+d:Bar|u+d:Baz",
         "3: |d:/root/src+u|d:/root/bin+u|d:ON+u|u+d:1.0|u+d:1|u+d:0|u+d:|u+d:|u+d:Bar|u+d:Baz",
     ])
-    check(2, 1, _cp.LOWEST_SUPPORTED_CMAKE_VERSION, [
-        "1: |d:Foo+u|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+u|d:+u",
-        "2: |d:+d:Foo|d:+d:/root/src|d:+d:/root/bin|d:+d:ON|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:",
-        "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:|d:+d:",
+    check(1, 2, 2, _cp.LOWEST_SUPPORTED_CMAKE_VERSION, [
+        "1: |d:Foo+u|d:1.0+u|d:1+u|d:0+u|d:+u|d:+u|d:Bar+u|d:Baz+u",
+        "2: |u+d:Foo|u+d:/root/src|u+d:/root/bin|u+d:ON|u+d:1.0|u+d:1|u+d:0|u+d:|u+d:|u+d:Bar|u+d:Baz",
+        "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|u+d:1.0|u+d:1|u+d:0|u+d:|u+d:|u+d:Bar|u+d:Baz",
     ])
-    check(2, 2, _cp.LOWEST_SUPPORTED_CMAKE_VERSION, [
+    check(1, 3, 2, _cp.LOWEST_SUPPORTED_CMAKE_VERSION, [
+        "1: |d:Foo+u|d:1.0+u|d:1+u|d:0+u|d:+u|d:+u|d:Bar+u|d:Baz+u",
+        "2: |u+d:Foo|u+d:/root/src|u+d:/root/bin|u+d:ON|u+d:1.0|u+d:1|u+d:0|u+d:|u+d:|u+d:Bar|u+d:Baz",
+        "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|u+d:1.0|u+d:1|u+d:0|u+d:|u+d:|u+d:Bar|u+d:Baz",
+    ])
+    check(2, 1, 2, _cp.LOWEST_SUPPORTED_CMAKE_VERSION, [
+        "1: |d:Foo+u|d:1.0+u|d:1+u|d:0+u|d:+u|d:+u|d:Bar+u|d:Baz+u",
+        "2: |d:+d:Foo|d:+d:/root/src|d:+d:/root/bin|d:+d:ON|d:+d:1.0|d:+d:1|d:+d:0|d:+d:|d:+d:|d:+d:Bar|d:+d:Baz",
+        "3: |d:/root/src+u|d:/root/bin+u|d:ON+u|d:+d:1.0|d:+d:1|d:+d:0|d:+d:|d:+d:|d:+d:Bar|d:+d:Baz",
+    ])
+    check(2, 2, 2, _cp.LOWEST_SUPPORTED_CMAKE_VERSION, [
         "1: |d:Foo+u|d:1.0+u|d:1+u|d:0+u|d:+u|d:+u|d:Bar+u|d:Baz+u",
         "2: |d:+d:Foo|d:+d:/root/src|d:+d:/root/bin|d:+d:ON|d:+d:1.0|d:+d:1|d:+d:0|d:+d:|d:+d:|d:+d:Bar|d:+d:Baz",
         "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|d:+d:1.0|d:+d:1|d:+d:0|d:+d:|d:+d:|d:+d:Bar|"
         "d:+d:Baz",
     ])
-    check(3, 1, _cp.LOWEST_SUPPORTED_CMAKE_VERSION, [
-        "1: |d:Foo+u|d:c2+d:|d:c3+d:|d:c4+d:|d:c5+d:|d:c6+d:|d:+u|d:+u",
-        "2: |d:c9+d:Foo|d:c10+d:/root/src|d:c11+d:/root/bin|d:c12+d:ON|d:c13+d:|d:c14+d:|d:c15+d:|d:c16+d:|d:c17+d:|"
-        "d:c18+d:|d:c19+d:",
-        "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|d:c23+d:|d:c24+d:|d:c25+d:|d:c26+d:|d:c27+d:|"
-        "d:c28+d:|d:c29+d:",
+    check(2, 3, 2, _cp.LOWEST_SUPPORTED_CMAKE_VERSION, [
+        "1: |d:Foo+u|d:1.0+u|d:1+u|d:0+u|d:+u|d:+u|d:Bar+u|d:Baz+u",
+        "2: |d:+d:Foo|d:+d:/root/src|d:+d:/root/bin|d:+d:ON|d:+d:1.0|d:+d:1|d:+d:0|d:+d:|d:+d:|d:+d:Bar|d:+d:Baz",
+        "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|d:+d:1.0|d:+d:1|d:+d:0|d:+d:|d:+d:|d:+d:Bar|"
+        "d:+d:Baz",
     ])
-    check(3, 2, _cp.LOWEST_SUPPORTED_CMAKE_VERSION, [
+    check(3, 1, 2, _cp.LOWEST_SUPPORTED_CMAKE_VERSION, [
+        "1: |d:Foo+u|d:1.0+u|d:1+u|d:0+u|d:+u|d:+u|d:Bar+u|d:Baz+u",
+        "2: |d:c9+d:Foo|d:c10+d:/root/src|d:c11+d:/root/bin|d:c12+d:ON|d:c13+d:1.0|d:c14+d:1|d:c15+d:0|d:c16+d:|"
+        "d:c17+d:|d:c18+d:Bar|d:c19+d:Baz",
+        "3: |d:/root/src+u|d:/root/bin+u|d:ON+u|d:c23+d:1.0|d:c24+d:1|d:c25+d:0|d:c26+d:|d:c27+d:|d:c28+d:Bar|"
+        "d:c29+d:Baz",
+    ])
+    check(3, 2, 2, _cp.LOWEST_SUPPORTED_CMAKE_VERSION, [
+        "1: |d:Foo+u|d:1.0+u|d:1+u|d:0+u|d:+u|d:+u|d:Bar+u|d:Baz+u",
+        "2: |d:c9+d:Foo|d:c10+d:/root/src|d:c11+d:/root/bin|d:c12+d:ON|d:c13+d:1.0|d:c14+d:1|d:c15+d:0|d:c16+d:|"
+        "d:c17+d:|d:c18+d:Bar|d:c19+d:Baz",
+        "3: |d:/root/src+d:/root/src|d:/root/bin+d:/root/bin|d:ON+d:ON|d:c23+d:1.0|d:c24+d:1|d:c25+d:0|d:c26+d:|"
+        "d:c27+d:|d:c28+d:Bar|d:c29+d:Baz",
+    ])
+    check(3, 3, 2, _cp.LOWEST_SUPPORTED_CMAKE_VERSION, [
         "1: |d:Foo+u|d:1.0+u|d:1+u|d:0+u|d:+u|d:+u|d:Bar+u|d:Baz+u",
         "2: |d:c9+d:Foo|d:c10+d:/root/src|d:c11+d:/root/bin|d:c12+d:ON|d:c13+d:1.0|d:c14+d:1|d:c15+d:0|d:c16+d:|"
         "d:c17+d:|d:c18+d:Bar|d:c19+d:Baz",

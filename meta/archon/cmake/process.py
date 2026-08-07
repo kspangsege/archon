@@ -1492,7 +1492,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
             set_cache_variable(var_name, value, invoc, context)
             set_regular_variable(var_name, None, invoc, context)
 
-        # In CMake 4.3.4, the variables `<project name>_SOURCE_DIR`, `<project
+        # In CMake 4.3, the variables `<project name>_SOURCE_DIR`, `<project
         # name>_BINARY_DIR`, and `<project name>_IS_TOP_LEVEL` are handled
         # differently. Here, the cache variable of that name is set. Additionally, if the
         # regular variable is set or if policy CMP0180 is NEW, the regular variable is set
