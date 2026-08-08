@@ -3570,15 +3570,29 @@ def test_CMakeProcess_CMakeMinimumRequired(context: _t.Context) -> None:
     ], initial_variables={
         "over_version": str(over_version),
     })
+    _check_valid(9, context, _trim_cmake_text(r"""
+      set(CMAKE_MINIMUM_REQUIRED_VERSION "foo")
+      cmake_minimum_required()  # Has no effect
+      message("${CMAKE_MINIMUM_REQUIRED_VERSION}")
+    """), [
+        "foo",
+    ])
+    _check_valid(10, context, _trim_cmake_text(r"""
+      set(CMAKE_MINIMUM_REQUIRED_VERSION "foo")
+      cmake_minimum_required(VERSION "")  # Has no effect
+      message("${CMAKE_MINIMUM_REQUIRED_VERSION}")
+    """), [
+        "foo",
+    ])
 
     # No version range overlap
-    _check_invalid(9, context, _trim_cmake_text(r"""
+    _check_invalid(11, context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION 0)
     """), [
         ("Specified maximum policy version (0) is lower than lowest supported CMake version (%s) in "
          "cmake_minimum_required() invocation" % (_cp.LOWEST_SUPPORTED_CMAKE_VERSION,), _tp.TextPos(1, 31)),
     ])
-    _check_invalid(10, context, _trim_cmake_text(r"""
+    _check_invalid(12, context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION "${over_version}")
     """), [
         ("Specified minimum version (%s) is higher than highest supported CMake version (%s) in "
@@ -3588,24 +3602,24 @@ def test_CMakeProcess_CMakeMinimumRequired(context: _t.Context) -> None:
     })
 
     # Invalid forms
-    _check_invalid(11, context, _trim_cmake_text(r"""
+    _check_invalid(13, context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION 0 FOO)
     """), [
         ('Unexpected argument ("FOO") in cmake_minimum_required() invocation', _tp.TextPos(1, 33)),
     ])
-    _check_invalid(12, context, _trim_cmake_text(r"""
+    _check_invalid(14, context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION FOO)
     """), [
         ('Unsupported version syntax in specified minimum version ("FOO") in cmake_minimum_required() invocation',
          _tp.TextPos(1, 31)),
     ])
-    _check_invalid(13, context, _trim_cmake_text(r"""
+    _check_invalid(15, context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION 0...1...2)
     """), [
         ('Unsupported version syntax in specified maximum policy version ("1...2") in cmake_minimum_required() '
          'invocation', _tp.TextPos(1, 35)),
     ])
-    _check_invalid(14, context, _trim_cmake_text(r"""
+    _check_invalid(16, context, _trim_cmake_text(r"""
       set(min "0")
       set(policy_max "4..0")
       cmake_minimum_required(VERSION "${min}...${policy_max}")
@@ -3613,7 +3627,7 @@ def test_CMakeProcess_CMakeMinimumRequired(context: _t.Context) -> None:
         ('Unsupported version syntax in specified maximum policy version ("4..0") in cmake_minimum_required() '
          'invocation', _tp.TextPos(3, 41)),
     ])
-    _check_invalid(15, context, _trim_cmake_text(r"""
+    _check_invalid(17, context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION "${over_version}...${cmake_version}")
     """), [
         ("Specified maximum policy version (4.3.0) is lower than specified minimum version (5.0.0) in "

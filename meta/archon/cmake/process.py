@@ -644,6 +644,9 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                     case _BuiltInCommand.Which.ADD_SUBDIRECTORY:
                         exec_add_subdirectory(invoc, context)
                         return
+                    case _BuiltInCommand.Which.CMAKE_POLICY:
+                        exec_cmake_policy(invoc, context)
+                        return
                     case _BuiltInCommand.Which.CMAKE_MINIMUM_REQUIRED:
                         exec_cmake_minimum_required(invoc, context)
                         return
@@ -1232,6 +1235,37 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
             error(context.file_index, source_dir_pos, "Failed to add subdirectory %s (%s): %s", _b.quote(source_dir),
                   _b.quote(str(cmake_path)), e.strerror)
 
+    def exec_cmake_policy(invoc: _clp.GenericInvoc, context: _InvocContext) -> None:
+        server = create_argument_server(invoc, context)
+        arg = server.consume()
+        if not arg:
+            error(context.file_index, server.next_pos, "Too few arguments in %s() invocation", invoc.command_name)
+            return
+        func = arg.string.string
+        func_pos = arg.pos
+        if func == "VERSION":
+            arg = server.consume()
+            if not arg:
+                error(context.file_index, server.next_pos, "Missing version after VERSION keyword in %s() "
+                      "invocation", invoc.command_name)
+                return
+            if not server.at_end:
+                error(context.file_index, server.next_pos, "Too many arguments in %s(VERSION) invocation",
+                      invoc.command_name)
+                return
+            version = arg.string
+            result = parse_cmake_version_range(version, invoc, context)
+            if not result:
+                return
+            min_string, min_version, policy_max_version = result
+            apply_policy_max_version(policy_max_version, invoc, context)
+            return
+        if func in {"SET", "GET", "PUSH", "POP"}:
+            message = "%s keyword" % func.upper()
+            raise _UnsupportedInvocSyntaxException(invoc, message) from None
+        error(context.file_index, func_pos, "Invalid function keyword (%s) in %s() invocation", _b.quote(func),
+              invoc.command_name)
+
     def exec_cmake_minimum_required(invoc: _clp.GenericInvoc, context: _InvocContext) -> None:
         server = create_argument_server(invoc, context)
         # In the case of cmake_minimum_required(), CMake allows for keywords to occur in any
@@ -1271,9 +1305,9 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                           _b.quote(arg.string.string), invoc.command_name)
                     return
             typing.assert_never(keyword)
-        # In CMake, if a cmake_minimum_required() invocation specifies no version, the
-        # invocation has no effect at all.
-        if version is None:
+        # In CMake 4.3, if a cmake_minimum_required() invocation specifies no version or an
+        # empty string as version, the invocation has no effect at all.
+        if version is None or not version.string:
             return
         ellipsis = "..."
         ellipsis_pos = version.string.find(ellipsis)
@@ -1286,23 +1320,23 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                   "invocation", _b.quote(min_version_string), invoc.command_name)
             return
         if ellipsis_pos < 0:
-            max_policy_version_pos    = 0
-            max_policy_version_string = min_version_string
-            max_policy_version        = min_version
+            policy_max_version_pos    = 0
+            policy_max_version_string = min_version_string
+            policy_max_version        = min_version
         else:
-            max_policy_version_pos    = ellipsis_pos + len(ellipsis)
-            max_policy_version_string = version.string[max_policy_version_pos:]
+            policy_max_version_pos    = ellipsis_pos + len(ellipsis)
+            policy_max_version_string = version.string[policy_max_version_pos:]
             try:
-                max_policy_version = _cve.parse(max_policy_version_string)
+                policy_max_version = _cve.parse(policy_max_version_string)
             except ValueError:
-                ref_pos = version.ref_pos(max_policy_version_pos)
+                ref_pos = version.ref_pos(policy_max_version_pos)
                 error(context.file_index, ref_pos, "Unsupported version syntax in specified maximum policy version "
-                      "(%s) in %s() invocation", _b.quote(max_policy_version_string), invoc.command_name)
+                      "(%s) in %s() invocation", _b.quote(policy_max_version_string), invoc.command_name)
                 return
-            if max_policy_version < min_version:
+            if policy_max_version < min_version:
                 ref_pos = version.begin_ref_pos
                 error(context.file_index, ref_pos, "Specified maximum policy version (%s) is lower than specified "
-                      "minimum version (%s) in %s() invocation", max_policy_version_string, min_version_string,
+                      "minimum version (%s) in %s() invocation", policy_max_version_string, min_version_string,
                       invoc.command_name)
                 return
         if min_version > context.process.cmake_version:
@@ -1311,15 +1345,16 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                   "version (%s) in %s() invocation", min_version_string, context.process.cmake_version,
                   invoc.command_name)
             return
-        if max_policy_version < LOWEST_SUPPORTED_CMAKE_VERSION:
-            ref_pos = version.ref_pos(max_policy_version_pos)
+        if policy_max_version < LOWEST_SUPPORTED_CMAKE_VERSION:
+            ref_pos = version.ref_pos(policy_max_version_pos)
             error(context.file_index, ref_pos, "Specified maximum policy version (%s) is lower than lowest supported "
-                  "CMake version (%s) in %s() invocation", max_policy_version_string, LOWEST_SUPPORTED_CMAKE_VERSION,
+                  "CMake version (%s) in %s() invocation", policy_max_version_string, LOWEST_SUPPORTED_CMAKE_VERSION,
                   invoc.command_name)
             return
+        success = apply_policy_max_version(policy_max_version, invoc, context)
+        if not success:
+            return
         set_regular_variable("CMAKE_MINIMUM_REQUIRED_VERSION", min_version_string, invoc, context)
-        policy_version = min(max_policy_version, context.process.cmake_version)
-        set_policy_version(policy_version, invoc, context)
 
     def exec_project(invoc: _clp.GenericInvoc, context: _InvocContext) -> None:
         # CMake 4.3 warns if project() is invoked from the root directory but without a
@@ -1611,8 +1646,80 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
         set_regular(name + "_DESCRIPTION", description or "")
         set_regular(name + "_HOMEPAGE_URL", homepage_url or "")
 
-    def set_policy_version(version: _cve.Version, invoc: _clp.GenericInvoc, context: _InvocContext) -> None:
-        assert not context.occurrence_uncertainty
+    def parse_cmake_version_range(string: _tp.PosMappedString, invoc: _clp.GenericInvoc,
+                                  context: _InvocContext) -> tuple[str, _cve.Version, _cve.Version] | None:
+        ellipsis = "..."
+        ellipsis_pos = string.string.find(ellipsis)
+        min_string = string.string if ellipsis_pos < 0 else string.string[:ellipsis_pos]
+        min_version = parse_cmake_version(min_string, string.begin_ref_pos, "specified minimum version", invoc,
+                                          context)
+        if not min_version:
+            return None
+        policy_max_version: _cve.Version | None
+        if ellipsis_pos < 0:
+            policy_max_pos     = 0
+            policy_max_string  = min_string
+            policy_max_version = min_version
+        else:
+            policy_max_pos     = ellipsis_pos + len(ellipsis)
+            policy_max_string  = string.string[policy_max_pos:]
+            policy_max_version = parse_cmake_version(policy_max_string, string.ref_pos(policy_max_pos),
+                                                     "specified policy maximum version", invoc, context)
+            if not policy_max_version:
+                return None
+            if policy_max_version < min_version:
+                ref_pos = string.begin_ref_pos
+                error(context.file_index, ref_pos, "Specified policy maximum version (%s) is lower than specified "
+                      "minimum version (%s) in %s() invocation", policy_max_string, min_string, invoc.command_name)
+                return None
+        if min_version > context.process.cmake_version:
+            ref_pos = string.begin_ref_pos
+            error(context.file_index, ref_pos, "Specified minimum version (%s) is higher than highest supported CMake "
+                  "version (%s) in %s() invocation", min_string, context.process.cmake_version, invoc.command_name)
+            return None
+        if policy_max_version < LOWEST_SUPPORTED_CMAKE_VERSION:
+            ref_pos = string.ref_pos(policy_max_pos)
+            error(context.file_index, ref_pos, "Specified policy maximum version (%s) is lower than lowest supported "
+                  "CMake version (%s) in %s() invocation", policy_max_string, LOWEST_SUPPORTED_CMAKE_VERSION,
+                  invoc.command_name)
+            return None
+        return min_string, min_version, policy_max_version
+
+    def parse_cmake_version(string: str, pos: int, qual: str, invoc: _clp.GenericInvoc,
+                            context: _InvocContext) -> _cve.Version | None:
+        try:
+            return _cve.parse(string)
+        except ValueError:
+            pass
+        if _CMAKE_VERSION_REGEX.match(string):
+            error(context.file_index, pos, "Unsupported version syntax in %s (%s) in %s() invocation", qual,
+                  _b.quote(string), invoc.command_name)
+        else:
+            error(context.file_index, pos, "Invalid version syntax in %s (%s) in %s() invocation", qual,
+                  _b.quote(string), invoc.command_name)
+        return None
+
+    def apply_policy_max_version(policy_max_version: _cve.Version, invoc: _clp.GenericInvoc,
+                                 context: _InvocContext) -> bool:
+        policy_max_version_2 = policy_max_version
+        string = resolve_certain_variable(_cu.ResolutionType.GENERAL, "CMAKE_POLICY_VERSION_MINIMUM", invoc.pos,
+                                         invoc, context, undefined_is_certain=True)
+        if string is not None:
+            try:
+                version = _cve.parse(string)
+                if version > policy_max_version_2:
+                    policy_max_version_2 = version
+            except ValueError:
+                if _CMAKE_VERSION_REGEX.match(string):
+                    error(context.file_index, invoc.pos, "Unsupported version syntax in value of "
+                          "CMAKE_POLICY_VERSION_MINIMUM variable (%s) during %s() execution", _b.quote(string),
+                          invoc.command_name)
+                    return False
+
+        # Make sure to not enable policies that are not yet introduced in the emulated CMake
+        # version (context.process.cmake_version)
+        policy_version = min(policy_max_version_2, context.process.cmake_version)
+
         # Emulate CMake 4.3 behavior, which is to set behavior to NEW for all policies that
         # were introduced at or before the negotiated policy version. All other policies get
         # their behavior unset, so that the behavior gets determined dynamically on
@@ -1620,9 +1727,10 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
         for definition in _cpo.get_definitions():
             if definition.toggleable:
                 new: bool | None = None
-                if definition.intro_version <= version:
+                if definition.intro_version <= policy_version:
                     new = True
                 set_policy(definition.toggleable, new, invoc, context)
+        return True
 
     def evaluate_condition(invoc: _clp.GeneralizedInvoc, context: _InvocContext) -> _cc.Result:
         arguments, card_uncertainty = expand_arguments(invoc, context)
@@ -1993,6 +2101,11 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
     return not errors_seen
 
 
+# Faithfully reproduce CMake's effective accept/reject behavior for version arguments as
+# passed to cmake_policy() and cmake_minimum_required()
+_CMAKE_VERSION_REGEX = re.compile(r"^\s*[+-]?\d+\.\s*[+-]?\d+", re.ASCII)
+
+
 _ASCII_LOWER_MAP = str.maketrans(_string.ascii_uppercase, _string.ascii_lowercase)
 _ASCII_UPPER_MAP = str.maketrans(_string.ascii_lowercase, _string.ascii_uppercase)
 
@@ -2036,7 +2149,7 @@ class _ProcessContext:
     pos_resolver:      PositionResolver
     lenient_mode:      bool
     suppress_messages: bool
-    cmake_version:     _cve.Version
+    cmake_version:     _cve.Version  # Emulated CMake version
     root_dir:          pathlib.Path
 
 
@@ -2223,6 +2336,7 @@ class _RootState(_State):
         define("message",                _BuiltInCommand.Which.MESSAGE)
         define("include",                _BuiltInCommand.Which.INCLUDE)
         define("add_subdirectory",       _BuiltInCommand.Which.ADD_SUBDIRECTORY)
+        define("cmake_policy",           _BuiltInCommand.Which.CMAKE_POLICY)
         define("cmake_minimum_required", _BuiltInCommand.Which.CMAKE_MINIMUM_REQUIRED)
         define("project",                _BuiltInCommand.Which.PROJECT)
         define("option",                 _BuiltInCommand.Which.UNSUPPORTED)
@@ -2746,9 +2860,10 @@ class _BuiltInCommand:
         MESSAGE                =  5
         INCLUDE                =  6
         ADD_SUBDIRECTORY       =  7
-        CMAKE_MINIMUM_REQUIRED =  8
-        PROJECT                =  9
-        BREAKPOINT             = 10  # Non-standard
+        CMAKE_POLICY           =  8
+        CMAKE_MINIMUM_REQUIRED =  9
+        PROJECT                = 10
+        BREAKPOINT             = 11  # Non-standard
     which: Which
 
 @dataclasses.dataclass(slots=True, frozen=True)
