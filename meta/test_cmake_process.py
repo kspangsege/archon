@@ -2359,35 +2359,35 @@ def test_CMakeProcess_If(context: _t.Context) -> None:
     check_warnings(context, result, path, [])
 
     # Invalidity
-    _check_invalid(context, _trim_cmake_text(r"""
+    _check_invalid(2, context, _trim_cmake_text(r"""
       if()
       endif()
       else()  # Unmatched else()
     """), [
         ("Unmatched else()", _tp.TextPos(3, 0)),
     ])
-    _check_invalid(context, _trim_cmake_text(r"""
+    _check_invalid(3, context, _trim_cmake_text(r"""
       if()
       endif()
       elseif()  # Unmatched elseif()
     """), [
         ("Unmatched elseif()", _tp.TextPos(3, 0)),
     ])
-    _check_invalid(context, _trim_cmake_text(r"""
+    _check_invalid(4, context, _trim_cmake_text(r"""
       if()
       endif()
       endif()  # Unmatched endif()
     """), [
         ("Unmatched endif()", _tp.TextPos(3, 0)),
     ])
-    _check_invalid(context, _trim_cmake_text(r"""
+    _check_invalid(5, context, _trim_cmake_text(r"""
       if()  # Unclosed if()
         if()
         endif()
     """), [
         ("Unclosed if()", _tp.TextPos(1, 0)),
     ])
-    _check_invalid(context, _trim_cmake_text(r"""
+    _check_invalid(6, context, _trim_cmake_text(r"""
       if()
       else()  # Unclosed else()
         if()
@@ -2395,7 +2395,7 @@ def test_CMakeProcess_If(context: _t.Context) -> None:
     """), [
         ("Unclosed else()", _tp.TextPos(2, 0)),
     ])
-    _check_invalid(context, _trim_cmake_text(r"""
+    _check_invalid(7, context, _trim_cmake_text(r"""
       if()
       elseif()  # Unclosed elseif()
         if()
@@ -2403,7 +2403,7 @@ def test_CMakeProcess_If(context: _t.Context) -> None:
     """), [
         ("Unclosed elseif()", _tp.TextPos(2, 0)),
     ])
-    _check_invalid(context, _trim_cmake_text(r"""
+    _check_invalid(8, context, _trim_cmake_text(r"""
       if()
       else()
       elseif()  # elseif() after else()
@@ -2411,7 +2411,7 @@ def test_CMakeProcess_If(context: _t.Context) -> None:
     """), [
         ("elseif() after else()", _tp.TextPos(3, 0)),
     ])
-    _check_invalid(context, _trim_cmake_text(r"""
+    _check_invalid(9, context, _trim_cmake_text(r"""
       if()
       else()
       else()  # else() after else()
@@ -2504,7 +2504,7 @@ def test_CMakeProcess_If(context: _t.Context) -> None:
         endif()
       endif()
     """
-    path = pathlib.Path("test-2.cmake")
+    path = pathlib.Path("test-10.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
     check_messages_u(context, result, path, [
@@ -2576,7 +2576,7 @@ def test_CMakeProcess_If(context: _t.Context) -> None:
       message("11: $ENV{e3}")
       message("12: $ENV{e4}")
     """
-    path = pathlib.Path("test-3.cmake")
+    path = pathlib.Path("test-11.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
     check_messages(context, result, [])
@@ -2663,7 +2663,7 @@ def test_CMakeProcess_If(context: _t.Context) -> None:
       message("-$CACHE{c1}-$CACHE{c2}-$CACHE{c3}-$CACHE{c4}-")
       message("-$ENV{e1}-$ENV{e2}-$ENV{e3}-$ENV{e4}-")
     """
-    path = pathlib.Path("test-4.cmake")
+    path = pathlib.Path("test-12.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check(success)
     check_messages(context, result, [
@@ -2691,7 +2691,7 @@ def test_CMakeProcess_If(context: _t.Context) -> None:
       endblock()
       message("4: -${x1}-${x2}-")
     """
-    path = pathlib.Path("test-5.cmake")
+    path = pathlib.Path("test-13.cmake")
     success, result = _process(_trim_cmake_text(text), path, context)
     context.check_not(success)
     check_messages(context, result, [
@@ -3513,26 +3513,26 @@ def test_CMakeProcess_DirectoryVariables(context: _t.Context) -> None:
 
 def test_CMakeProcess_CMakeMinimumRequired(context: _t.Context) -> None:
     # Valid forms
-    _check_valid(context, _trim_cmake_text(r"""
+    _check_valid(1, context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION %s)
       message("${CMAKE_MINIMUM_REQUIRED_VERSION}")
     """ % (_cp.LOWEST_SUPPORTED_CMAKE_VERSION,)), [
         str(_cp.LOWEST_SUPPORTED_CMAKE_VERSION),
     ])
-    _check_valid(context, _trim_cmake_text(r"""
+    _check_valid(2, context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION %s FATAL_ERROR)  # FATAL_ERROR is accepted
       cmake_minimum_required(VERSION %s)              # 2nd invocation overrides
       message("${CMAKE_MINIMUM_REQUIRED_VERSION}")
     """ % (_cp.LOWEST_SUPPORTED_CMAKE_VERSION, _cp.CMAKE_VERSION)), [
         str(_cp.CMAKE_VERSION),
     ])
-    _check_valid(context, _trim_cmake_text(r"""
+    _check_valid(3, context, _trim_cmake_text(r"""
       cmake_minimum_required(FATAL_ERROR VERSION %s FATAL_ERROR VERSION %s)  # Last version argument takes precedence
       message("${CMAKE_MINIMUM_REQUIRED_VERSION}")
     """ % (_cp.CMAKE_VERSION, _cp.LOWEST_SUPPORTED_CMAKE_VERSION,)), [
         str(_cp.LOWEST_SUPPORTED_CMAKE_VERSION),
     ])
-    _check_valid(context, _trim_cmake_text(r"""
+    _check_valid(4, context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION %s)
       cmake_minimum_required(FATAL_ERROR)  # Does nothing
       cmake_minimum_required()             # Does nothing
@@ -3540,26 +3540,26 @@ def test_CMakeProcess_CMakeMinimumRequired(context: _t.Context) -> None:
     """ % (_cp.CMAKE_VERSION,)), [
         str(_cp.CMAKE_VERSION),
     ])
-    _check_valid(context, _trim_cmake_text(r"""
+    _check_valid(5, context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION 0...%s)
       message("${CMAKE_MINIMUM_REQUIRED_VERSION}")
     """ % (_cp.LOWEST_SUPPORTED_CMAKE_VERSION,)), [
         "0",
     ])
-    _check_valid(context, _trim_cmake_text(r"""
+    _check_valid(6, context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION 0...%s)
       message("${CMAKE_MINIMUM_REQUIRED_VERSION}")
     """ % (_cp.CMAKE_VERSION,)), [
         "0",
     ])
     over_version = _cve.Version(_cp.CMAKE_VERSION.major + 1)
-    _check_valid(context, _trim_cmake_text(r"""
+    _check_valid(7, context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION 0...%s)
       message("${CMAKE_MINIMUM_REQUIRED_VERSION}")
     """ % (over_version,)), [
         "0",
     ])
-    _check_valid(context, _trim_cmake_text(r"""
+    _check_valid(8, context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION %s...%s)
       message("${CMAKE_MINIMUM_REQUIRED_VERSION}")
     """ % (_cp.CMAKE_VERSION, over_version)), [
@@ -3567,13 +3567,13 @@ def test_CMakeProcess_CMakeMinimumRequired(context: _t.Context) -> None:
     ])
 
     # No version range overlap
-    _check_invalid(context, _trim_cmake_text(r"""
+    _check_invalid(9, context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION 0)
     """), [
         ("Specified maximum policy version (0) is lower than lowest supported CMake version (%s) in "
          "cmake_minimum_required() invocation" % (_cp.LOWEST_SUPPORTED_CMAKE_VERSION,), _tp.TextPos(1, 31)),
     ])
-    _check_invalid(context, _trim_cmake_text(r"""
+    _check_invalid(10, context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION %s)
     """ % (over_version,)), [
         ("Specified minimum version (%s) is higher than highest supported CMake version (%s) in "
@@ -3581,24 +3581,24 @@ def test_CMakeProcess_CMakeMinimumRequired(context: _t.Context) -> None:
     ])
 
     # Invalid forms
-    _check_invalid(context, _trim_cmake_text(r"""
+    _check_invalid(11, context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION 0 FOO)
     """), [
         ('Unexpected argument ("FOO") in cmake_minimum_required() invocation', _tp.TextPos(1, 33)),
     ])
-    _check_invalid(context, _trim_cmake_text(r"""
+    _check_invalid(12, context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION FOO)
     """), [
         ('Unsupported version syntax in specified minimum version ("FOO") in cmake_minimum_required() invocation',
          _tp.TextPos(1, 31)),
     ])
-    _check_invalid(context, _trim_cmake_text(r"""
+    _check_invalid(13, context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION 0...1...2)
     """), [
         ('Unsupported version syntax in specified maximum policy version ("1...2") in cmake_minimum_required() '
          'invocation', _tp.TextPos(1, 35)),
     ])
-    _check_invalid(context, _trim_cmake_text(r"""
+    _check_invalid(14, context, _trim_cmake_text(r"""
       set(min "0")
       set(policy_max "4..0")
       cmake_minimum_required(VERSION "${min}...${policy_max}")
@@ -3606,7 +3606,7 @@ def test_CMakeProcess_CMakeMinimumRequired(context: _t.Context) -> None:
         ('Unsupported version syntax in specified maximum policy version ("4..0") in cmake_minimum_required() '
          'invocation', _tp.TextPos(3, 41)),
     ])
-    _check_invalid(context, _trim_cmake_text(r"""
+    _check_invalid(15, context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION %s...%s)
     """ % (over_version, _cp.CMAKE_VERSION)), [
         ("Specified maximum policy version (4.3.0) is lower than specified minimum version (5.0.0) in "
@@ -4052,30 +4052,25 @@ def test_CMakeProcess_Project(context: _t.Context) -> None:
     ])
 
     # Warning if CMAKE_MINIMUM_REQUIRED_VERSION is not already set
-    text = r"""
+    _check_valid(2, context, _trim_cmake_text(r"""
       project(Foo VERSION 1.0)
-    """
-    path = pathlib.Path("test-2.cmake")
-    success, result = _process(_trim_cmake_text(text), path, context)
-    context.check(success)
-    check_messages(context, result, [])
-    check_warnings(context, result, path, [
+    """), [], [
         ("Variable CMAKE_MINIMUM_REQUIRED_VERSION not set prior to project() invocation", _tp.TextPos(1, 0)),
     ])
     # FIXME: Maybe also check this from outside root dir where the warning should not occur    
 
     # Invalid and weird forms
-    _check_valid(context, _trim_cmake_text(r"""
+    _check_valid(3, context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION %s)
       project(Foo VIRSION 1.0 C)  # Misspelled VERSION keyword is taken as a language argument
     """ % (_cp.CMAKE_VERSION,)), [])
-    _check_invalid(context, _trim_cmake_text(r"""
+    _check_invalid(4, context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION %s)
       project(Foo VERSION 1.0 C)  # Language argument without LANGUAGES keyword
     """ % (_cp.CMAKE_VERSION,)), [
         ('Language argument ("C") without LANGUAGES keyword in project() invocation', _tp.TextPos(2, 24)),
     ])
-    _check_invalid(context, _trim_cmake_text(r"""
+    _check_invalid(5, context, _trim_cmake_text(r"""
       cmake_minimum_required(VERSION %s)
       project(Foo VERSION 1.0 FOO)  # Wird language argument without LANGUAGES keyword
     """ % (_cp.CMAKE_VERSION,)), [
@@ -4084,6 +4079,7 @@ def test_CMakeProcess_Project(context: _t.Context) -> None:
 
     # FIXME: Check more invalid and weird forms    
 
+    # FIXME: Check uncertainty
 
 
 
@@ -4107,15 +4103,16 @@ def _trim_cmake_text(text: str) -> str:
     return textwrap.dedent(text.removeprefix("\n"))
 
 
-def _check_valid(context: _t.Context, cmake_text: str, expected_messages: list[str]) -> None:
-    path = pathlib.Path("test.cmake")
+def _check_valid(no: int, context: _t.Context, cmake_text: str, expected_messages: list[str],
+                 expected_warnings: list[tuple[str, _tp.TextPos]] = []) -> None:
+    path = pathlib.Path("test-%s.cmake" % no)
     success, result = _process(_trim_cmake_text(cmake_text), path, context)
     context.check(success)
     check_messages(context, result, expected_messages)
-    check_warnings(context, result, path, [])
+    check_warnings(context, result, path, expected_warnings)
 
-def _check_invalid(context: _t.Context, cmake_text: str, expected_errors: list[tuple[str, _tp.TextPos]]) -> None:
-    path = pathlib.Path("test.cmake")
+def _check_invalid(no: int, context: _t.Context, cmake_text: str, expected_errors: list[tuple[str, _tp.TextPos]]) -> None:
+    path = pathlib.Path("test-%s.cmake" % no)
     success, result = _process(_trim_cmake_text(cmake_text), path, context)
     context.check_not(success)
     check_messages(context, result, [])
