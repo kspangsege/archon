@@ -3514,57 +3514,62 @@ def test_CMakeProcess_DirectoryVariables(context: _t.Context) -> None:
 def test_CMakeProcess_CMakeMinimumRequired(context: _t.Context) -> None:
     # Valid forms
     _check_valid(1, context, _trim_cmake_text(r"""
-      cmake_minimum_required(VERSION %s)
+      cmake_minimum_required(VERSION "${lowest_supported_cmake_version}")
       message("${CMAKE_MINIMUM_REQUIRED_VERSION}")
-    """ % (_cp.LOWEST_SUPPORTED_CMAKE_VERSION,)), [
+    """), [
         str(_cp.LOWEST_SUPPORTED_CMAKE_VERSION),
     ])
     _check_valid(2, context, _trim_cmake_text(r"""
-      cmake_minimum_required(VERSION %s FATAL_ERROR)  # FATAL_ERROR is accepted
-      cmake_minimum_required(VERSION %s)              # 2nd invocation overrides
+      cmake_minimum_required(VERSION "${lowest_supported_cmake_version}" FATAL_ERROR)  # FATAL_ERROR is accepted
+      cmake_minimum_required(VERSION "${cmake_version}")                               # 2nd invocation overrides
       message("${CMAKE_MINIMUM_REQUIRED_VERSION}")
-    """ % (_cp.LOWEST_SUPPORTED_CMAKE_VERSION, _cp.CMAKE_VERSION)), [
+    """), [
         str(_cp.CMAKE_VERSION),
     ])
     _check_valid(3, context, _trim_cmake_text(r"""
-      cmake_minimum_required(FATAL_ERROR VERSION %s FATAL_ERROR VERSION %s)  # Last version argument takes precedence
+      cmake_minimum_required(FATAL_ERROR VERSION "${cmake_version}" FATAL_ERROR
+                             VERSION "${lowest_supported_cmake_version}")  # Last version argument takes precedence
       message("${CMAKE_MINIMUM_REQUIRED_VERSION}")
-    """ % (_cp.CMAKE_VERSION, _cp.LOWEST_SUPPORTED_CMAKE_VERSION,)), [
+    """), [
         str(_cp.LOWEST_SUPPORTED_CMAKE_VERSION),
     ])
     _check_valid(4, context, _trim_cmake_text(r"""
-      cmake_minimum_required(VERSION %s)
+      cmake_minimum_required(VERSION "${cmake_version}")
       cmake_minimum_required(FATAL_ERROR)  # Does nothing
       cmake_minimum_required()             # Does nothing
       message("${CMAKE_MINIMUM_REQUIRED_VERSION}")
-    """ % (_cp.CMAKE_VERSION,)), [
+    """), [
         str(_cp.CMAKE_VERSION),
     ])
     _check_valid(5, context, _trim_cmake_text(r"""
-      cmake_minimum_required(VERSION 0...%s)
+      cmake_minimum_required(VERSION "0...${lowest_supported_cmake_version}")
       message("${CMAKE_MINIMUM_REQUIRED_VERSION}")
-    """ % (_cp.LOWEST_SUPPORTED_CMAKE_VERSION,)), [
+    """), [
         "0",
     ])
     _check_valid(6, context, _trim_cmake_text(r"""
-      cmake_minimum_required(VERSION 0...%s)
+      cmake_minimum_required(VERSION "0...${cmake_version}")
       message("${CMAKE_MINIMUM_REQUIRED_VERSION}")
-    """ % (_cp.CMAKE_VERSION,)), [
+    """), [
         "0",
     ])
     over_version = _cve.Version(_cp.CMAKE_VERSION.major + 1)
     _check_valid(7, context, _trim_cmake_text(r"""
-      cmake_minimum_required(VERSION 0...%s)
+      cmake_minimum_required(VERSION "0...${over_version}")
       message("${CMAKE_MINIMUM_REQUIRED_VERSION}")
-    """ % (over_version,)), [
+    """), [
         "0",
-    ])
+    ], initial_variables={
+        "over_version": str(over_version),
+    })
     _check_valid(8, context, _trim_cmake_text(r"""
-      cmake_minimum_required(VERSION %s...%s)
+      cmake_minimum_required(VERSION "${cmake_version}...${over_version}")
       message("${CMAKE_MINIMUM_REQUIRED_VERSION}")
-    """ % (_cp.CMAKE_VERSION, over_version)), [
+    """), [
         str(_cp.CMAKE_VERSION),
-    ])
+    ], initial_variables={
+        "over_version": str(over_version),
+    })
 
     # No version range overlap
     _check_invalid(9, context, _trim_cmake_text(r"""
@@ -3574,11 +3579,13 @@ def test_CMakeProcess_CMakeMinimumRequired(context: _t.Context) -> None:
          "cmake_minimum_required() invocation" % (_cp.LOWEST_SUPPORTED_CMAKE_VERSION,), _tp.TextPos(1, 31)),
     ])
     _check_invalid(10, context, _trim_cmake_text(r"""
-      cmake_minimum_required(VERSION %s)
-    """ % (over_version,)), [
+      cmake_minimum_required(VERSION "${over_version}")
+    """), [
         ("Specified minimum version (%s) is higher than highest supported CMake version (%s) in "
-         "cmake_minimum_required() invocation" % (over_version, _cp.CMAKE_VERSION), _tp.TextPos(1, 31)),
-    ])
+         "cmake_minimum_required() invocation" % (over_version, _cp.CMAKE_VERSION), _tp.TextPos(1, 32)),
+    ], initial_variables={
+        "over_version": str(over_version),
+    })
 
     # Invalid forms
     _check_invalid(11, context, _trim_cmake_text(r"""
@@ -3607,11 +3614,13 @@ def test_CMakeProcess_CMakeMinimumRequired(context: _t.Context) -> None:
          'invocation', _tp.TextPos(3, 41)),
     ])
     _check_invalid(15, context, _trim_cmake_text(r"""
-      cmake_minimum_required(VERSION %s...%s)
-    """ % (over_version, _cp.CMAKE_VERSION)), [
+      cmake_minimum_required(VERSION "${over_version}...${cmake_version}")
+    """), [
         ("Specified maximum policy version (4.3.0) is lower than specified minimum version (5.0.0) in "
-         "cmake_minimum_required() invocation", _tp.TextPos(1, 31)),
-    ])
+         "cmake_minimum_required() invocation", _tp.TextPos(1, 32)),
+    ], initial_variables={
+        "over_version": str(over_version),
+    })
 
 
 def test_CMakeProcess_Project(context: _t.Context) -> None:
@@ -4057,30 +4066,29 @@ def test_CMakeProcess_Project(context: _t.Context) -> None:
     """), [], [
         ("Variable CMAKE_MINIMUM_REQUIRED_VERSION not set prior to project() invocation", _tp.TextPos(1, 0)),
     ])
-    # FIXME: Maybe also check this from outside root dir where the warning should not occur    
 
     # Invalid and weird forms
     _check_valid(3, context, _trim_cmake_text(r"""
-      cmake_minimum_required(VERSION %s)
+      cmake_minimum_required(VERSION "${cmake_version}")
       project(Foo VIRSION 1.0 C)  # Misspelled VERSION keyword is taken as a language argument
-    """ % (_cp.CMAKE_VERSION,)), [])
+    """), [])
     _check_invalid(4, context, _trim_cmake_text(r"""
-      cmake_minimum_required(VERSION %s)
+      cmake_minimum_required(VERSION "${cmake_version}")
       project(Foo VERSION 1.0 C)  # Language argument without LANGUAGES keyword
-    """ % (_cp.CMAKE_VERSION,)), [
+    """), [
         ('Language argument ("C") without LANGUAGES keyword in project() invocation', _tp.TextPos(2, 24)),
     ])
     _check_invalid(5, context, _trim_cmake_text(r"""
-      cmake_minimum_required(VERSION %s)
-      project(Foo VERSION 1.0 FOO)  # Wird language argument without LANGUAGES keyword
-    """ % (_cp.CMAKE_VERSION,)), [
+      cmake_minimum_required(VERSION "${cmake_version}")
+      project(Foo VERSION 1.0 FOO)  # Weird language argument without LANGUAGES keyword
+    """), [
         ('Language argument ("FOO") without LANGUAGES keyword in project() invocation', _tp.TextPos(2, 24)),
     ])
-
     # FIXME: Check more invalid and weird forms    
 
-    # FIXME: Check uncertainty
+    # FIXME: Uncertainty due to tainted variable    
 
+    # FIXME: Policy uncertainty    
 
 
 
@@ -4104,16 +4112,26 @@ def _trim_cmake_text(text: str) -> str:
 
 
 def _check_valid(no: int, context: _t.Context, cmake_text: str, expected_messages: list[str],
-                 expected_warnings: list[tuple[str, _tp.TextPos]] = []) -> None:
+                 expected_warnings: list[tuple[str, _tp.TextPos]] = [],
+                 initial_variables: dict[str, str | None] = {}) -> None:
     path = pathlib.Path("test-%s.cmake" % no)
-    success, result = _process(_trim_cmake_text(cmake_text), path, context)
+    initial_variables_2 = {
+        "cmake_version":                  str(_cp.CMAKE_VERSION),
+        "lowest_supported_cmake_version": str(_cp.LOWEST_SUPPORTED_CMAKE_VERSION),
+    } | initial_variables
+    success, result = _process(_trim_cmake_text(cmake_text), path, context, initial_variables=initial_variables_2)
     context.check(success)
     check_messages(context, result, expected_messages)
     check_warnings(context, result, path, expected_warnings)
 
-def _check_invalid(no: int, context: _t.Context, cmake_text: str, expected_errors: list[tuple[str, _tp.TextPos]]) -> None:
+def _check_invalid(no: int, context: _t.Context, cmake_text: str, expected_errors: list[tuple[str, _tp.TextPos]],
+                 initial_variables: dict[str, str | None] = {}) -> None:
     path = pathlib.Path("test-%s.cmake" % no)
-    success, result = _process(_trim_cmake_text(cmake_text), path, context)
+    initial_variables_2 = {
+        "cmake_version":                  str(_cp.CMAKE_VERSION),
+        "lowest_supported_cmake_version": str(_cp.LOWEST_SUPPORTED_CMAKE_VERSION),
+    } | initial_variables
+    success, result = _process(_trim_cmake_text(cmake_text), path, context, initial_variables=initial_variables_2)
     context.check_not(success)
     check_messages(context, result, [])
     check_warnings(context, result, path, [])
