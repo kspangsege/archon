@@ -1357,16 +1357,6 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
         set_regular_variable("CMAKE_MINIMUM_REQUIRED_VERSION", min_version_string, invoc, context)
 
     def exec_project(invoc: _clp.GenericInvoc, context: _InvocContext) -> None:
-        # CMake 4.3 warns if project() is invoked from the root directory but without a
-        # preceding cmake_minimum_required() invocation. CMake checks this by examining the
-        # variable CMAKE_MINIMUM_REQUIRED_VERSION.
-        if context.is_root_dir:
-            value = resolve_certain_variable(_cu.ResolutionType.GENERAL, "CMAKE_MINIMUM_REQUIRED_VERSION", invoc.pos,
-                                             invoc, context, undefined_is_certain=True)
-            if value is None:
-                warn(context.file_index, invoc.pos, "Variable CMAKE_MINIMUM_REQUIRED_VERSION not set prior to %s() "
-                     "invocation", invoc.command_name)
-
         server = create_argument_server(invoc, context)
         arg = server.consume()
         if not arg:
@@ -1500,6 +1490,28 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
 
         if not languages and not no_default_languages:
             languages = ["C", "CXX"]
+
+        # CMake 4.3 warns if project() is invoked from the root directory but without a
+        # preceding cmake_minimum_required() invocation. CMake checks this by examining the
+        # variable CMAKE_MINIMUM_REQUIRED_VERSION.
+        if context.is_root_dir:
+            value = resolve_certain_variable(_cu.ResolutionType.GENERAL, "CMAKE_MINIMUM_REQUIRED_VERSION", invoc.pos,
+                                             invoc, context, undefined_is_certain=True)
+            if value is None:
+                warn(context.file_index, invoc.pos, "Variable CMAKE_MINIMUM_REQUIRED_VERSION not set prior to %s() "
+                     "invocation", invoc.command_name)
+
+        def handle_inclusion(var_name: str) -> None:
+            value = resolve_certain_variable(_cu.ResolutionType.GENERAL, var_name, invoc.pos, invoc, context,
+                                             undefined_is_certain=True)
+            for string in _cu.unescaping_list_split(value or ""):
+                if not string:
+                    continue
+                raise _CommandExecutionFailedException(invoc.command_name, invoc.pos, "Variable-based inclusion is "
+                                                       "not supported (%s)", var_name) from None
+
+        handle_inclusion("CMAKE_PROJECT_INCLUDE_BEFORE")
+        handle_inclusion("CMAKE_PROJECT_%s_INCLUDE_BEFORE" % name)
 
         def set_regular(var_name: str, value: str) -> None:
             set_regular_variable(var_name, value, invoc, context)
@@ -1645,6 +1657,9 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
         set_regular("PROJECT_HOMEPAGE_URL", homepage_url or "")
         set_regular(name + "_DESCRIPTION", description or "")
         set_regular(name + "_HOMEPAGE_URL", homepage_url or "")
+
+        handle_inclusion("CMAKE_PROJECT_INCLUDE")
+        handle_inclusion("CMAKE_PROJECT_%s_INCLUDE" % name)
 
     def parse_cmake_version_range(string: _tp.PosMappedString, invoc: _clp.GenericInvoc,
                                   context: _InvocContext) -> tuple[str, _cve.Version, _cve.Version] | None:
