@@ -109,6 +109,53 @@ class ArgumentServer:
             return arg.pos
         return self._invoc.rparen_pos
 
+    def rest(self) -> Rest:
+        certain_args  = list[CertainArgument]()
+        min_uncertain = 0
+        uncertainty:           _cur.ExpansionUncertaintyReason | None = None
+        unbounded_uncertainty: _cur.ExpansionUncertaintyReason | None = None
+        i = self._begin
+        while i < self._end:
+            arg = self._arguments[i]
+            i += 1
+            if isinstance(arg, CertainArgument):
+                certain_args.append(arg)
+                continue
+            if isinstance(arg, UncertainArgument):
+                if not uncertainty:
+                    uncertainty = arg.reason
+                if not arg.was_bare:
+                    min_uncertain += 1
+                    continue
+                if not unbounded_uncertainty:
+                    unbounded_uncertainty = arg.reason
+                continue
+            typing.assert_never(arg)
+        if self._end < len(self._arguments):
+            arg = self._arguments[self._begin]
+            follow_pos = arg.pos
+        else:
+            follow_pos = self._invoc.rparen_pos
+        return ArgumentServer.Rest(certain_args, min_uncertain, uncertainty, unbounded_uncertainty, follow_pos)
+
+    class Rest:
+        def __init__(self, certain_args: list[CertainArgument], min_uncertain: int,
+                     uncertainty: _cur.ExpansionUncertaintyReason | None,
+                     unbounded_uncertainty: _cur.ExpansionUncertaintyReason | None, follow_pos: int) -> None:
+            self.certain_args          = certain_args
+            self.min_uncertain         = min_uncertain
+            self.uncertainty           = uncertainty
+            self.unbounded_uncertainty = unbounded_uncertainty
+            self.follow_pos            = follow_pos
+        def certainly_fewer_than(self, n: int) -> bool:
+            return not self.unbounded_uncertainty and len(self.certain_args) + self.min_uncertain < n
+        def certainly_more_than(self, n: int) -> bool:
+            return len(self.certain_args) + self.min_uncertain > n
+        def require_bounded_uncertainty(self) -> None:
+            if self.unbounded_uncertainty:
+                was_bare = True
+                raise UncertainArgumentException(self.unbounded_uncertainty, was_bare) from None
+
 
 class UncertainArgumentException(Exception):
     def __init__(self, reason: _cur.ExpansionUncertaintyReason, was_bare: bool) -> None:

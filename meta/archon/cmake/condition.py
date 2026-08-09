@@ -9,6 +9,7 @@ import re
 import archon.base as _b
 import archon.text_pos as _tp
 import archon.cmake.util as _cu
+import archon.cmake.list_ as _cl
 import archon.cmake.uncertainty_reason as _cur
 import archon.cmake.variable as _cv
 import archon.cmake.argument as _ca
@@ -562,7 +563,7 @@ def _evaluate(cond: Condition, command_name: str, file_index: int, variable_stat
             return result_2
         else:
             typing.assert_never(result_2)
-        if result_1.string.string in _cu.unescaping_list_split(result_2.string.string):
+        if result_1.string.string in _cl.unescaping_split(result_2.string.string):
             return TrueResult()
         return FalseResult()
 

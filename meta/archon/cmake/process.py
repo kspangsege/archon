@@ -14,6 +14,7 @@ import archon.base as _b
 import archon.text_pos as _tp
 import archon.log as _l
 import archon.cmake.util as _cu
+import archon.cmake.list_ as _cl
 import archon.cmake.version as _cve
 import archon.cmake.policy as _cpo
 import archon.cmake.uncertainty_reason as _cur
@@ -511,7 +512,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                 if mode == "LISTS":
                     var_name = arg.string.string
                     string = resolve_certain_variable(_cu.ResolutionType.GENERAL, var_name, arg.pos, invoc, context)
-                    items += _cu.unescaping_list_split(string)
+                    items += _cl.unescaping_split(string)
                     continue
                 assert False
             iterate_list(loop_vars[0], items)
@@ -774,7 +775,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                     if not context.state.is_root_scope():
                         taint_parent_scope_variable(var_name, e.reason, context)
                     return
-                value = _cu.nonescaping_list_join(values)
+                value = _cl.nonescaping_join(values)
                 if not parent_scope:
                     set_regular_variable(var_name, value, invoc, context)
                     return
@@ -824,7 +825,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                 except _ca.UncertainArgumentException as e:
                     taint_cache_variable(var_name, e.reason, context)
                     return
-                value = _cu.nonescaping_list_join(values) or ""
+                value = _cl.nonescaping_join(values) or ""
                 set_cache_variable(var_name, value, invoc, context)
                 return
             case _cu.ResolutionType.ENV:
@@ -1028,6 +1029,44 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
             error(context.file_index, server.next_pos, "Too few arguments in %s() invocation", invoc.command_name)
             return
         func = arg.string.string
+        if func == "LENGTH":
+            arg = server.consume_last()
+            if not arg:
+                error(context.file_index, server.next_pos, "Missing final target variable argument in %s(%s) "
+                      "invocation", invoc.command_name, func)
+                return
+            out_var_name = arg.string.string
+            # In strict mode, uncertainty can be dealt with by tainting the target variable
+            # so long as it is known that there is exactly one remaining argument. In
+            # lenient mode, it only needs to be known that 1 is in the range of possible
+            # numbers of remaining arguments.
+            rest = server.rest()
+            if rest.certainly_fewer_than(1):
+                error(context.file_index, invoc.pos, "Too few arguments in %s(%s) invocation",
+                      invoc.command_name, func)
+                return
+            if rest.certainly_more_than(1):
+                error(context.file_index, invoc.pos, "Too many arguments in %s(%s) invocation",
+                      invoc.command_name, func)
+                return
+            if not context.process.lenient_mode:
+                rest.require_bounded_uncertainty()
+            if rest.uncertainty:
+                taint_regular_variable(out_var_name, rest.uncertainty, context)
+                return
+            assert len(rest.certain_args) == 1
+            arg = rest.certain_args[0]
+            list_var_name = arg.string.string
+            list_var_pos  = arg.pos
+            try:
+                string = resolve_certain_variable(_cu.ResolutionType.GENERAL, list_var_name, list_var_pos, invoc,
+                                                  context)
+            except _UncertainVariableResolutionException as e:
+                taint_regular_variable(out_var_name, e.reason, context)
+                return
+            elements = _cl.unescaping_split(string)
+            set_regular_variable(out_var_name, str(len(elements)), invoc, context)
+            return
         if func == "GET":
             arg = server.consume_last()
             if not arg:
@@ -1035,11 +1074,11 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                       invoc.command_name, func)
                 return
             var_name = arg.string.string
-            # Validity cannot be establish unless all arguments have certain values (because
-            # indexes need to be within range), therefore, in strict mode, any uncertainty
-            # generates an error. In lenient mode, however, list contents can be unknown,
-            # the number of indexes can be unknown as long as there is at least one, and the
-            # actual index values can be unknown.
+            # Validity cannot be established unless all arguments have certain values
+            # (because indexes need to be within range), therefore, in strict mode, any
+            # uncertainty generates an error. In lenient mode, however, list contents can be
+            # unknown, the number of indexes can be unknown as long as there is at least
+            # one, and the actual index values can be unknown.
             uncertainty: _cur.ExpansionUncertaintyReason | None = None
             have_list_name = False
             try:
@@ -1061,7 +1100,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
                 try:
                     string = resolve_certain_variable(_cu.ResolutionType.GENERAL, list_name, list_name_pos, invoc,
                                                       context)
-                    elements = _cu.unescaping_list_split(string)
+                    elements = _cl.unescaping_split(string)
                     n = len(elements)
                     have_list_value = True
                 except _UncertainVariableResolutionException as e:
@@ -1106,7 +1145,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
             for index in indexes:
                 elements_2.append(elements[index])
             assert elements_2
-            string_2 = _cu.nonescaping_list_join(elements_2)
+            string_2 = _cl.nonescaping_join(elements_2)
             set_regular_variable(var_name, string_2, invoc, context)
             return
         if func in {"APPEND", "PREPEND"}:
@@ -1150,7 +1189,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
             # elements. Likewise, when at least one element is prepended, the result is he
             # semicolon-join of the prepended elements plus semicolon plus the original
             # value.
-            string_1 = _cu.nonescaping_list_join(elements)
+            string_1 = _cl.nonescaping_join(elements)
             assert string_1 is not None
             match func:
                 case "APPEND":
@@ -1504,7 +1543,7 @@ def _process(cmake_source: Source, application: Application, pos_resolver: Posit
         def handle_inclusion(var_name: str) -> None:
             value = resolve_certain_variable(_cu.ResolutionType.GENERAL, var_name, invoc.pos, invoc, context,
                                              undefined_is_certain=True)
-            for string in _cu.unescaping_list_split(value or ""):
+            for string in _cl.unescaping_split(value or ""):
                 if not string:
                     continue
                 raise _CommandExecutionFailedException(invoc.command_name, invoc.pos, "Variable-based inclusion is "
@@ -3045,12 +3084,12 @@ def _get_macro_substitutions(parameters: list[str], arguments: list[_ca.Argument
                 continue
         typing.assert_never(arg)
     if not all_uncertainty:
-        string = _cu.nonescaping_list_join(all_args) or ""
+        string = _cl.nonescaping_join(all_args) or ""
         substitutions["ARGV"] = _CertainSubstitutionValue(string)
     else:
         substitutions["ARGV"] = _UncertainSubstitutionValue(all_uncertainty)
     if not extra_uncertainty:
-        string = _cu.nonescaping_list_join(extra_args) or ""
+        string = _cl.nonescaping_join(extra_args) or ""
         substitutions["ARGN"] = _CertainSubstitutionValue(string)
     else:
         substitutions["ARGN"] = _UncertainSubstitutionValue(extra_uncertainty)
@@ -3249,12 +3288,12 @@ def _assign_function_arguments(command: _CustomCommand, arguments: list[_ca.Argu
                 continue
         typing.assert_never(arg)
     if not all_uncertainty:
-        string = _cu.nonescaping_list_join(all_args) or ""
+        string = _cl.nonescaping_join(all_args) or ""
         set_certain_param("ARGV", string)
     else:
         set_uncertain_param("ARGV", all_uncertainty)
     if not extra_uncertainty:
-        string = _cu.nonescaping_list_join(extra_args) or ""
+        string = _cl.nonescaping_join(extra_args) or ""
         set_certain_param("ARGN", string)
     else:
         set_uncertain_param("ARGN", extra_uncertainty)
