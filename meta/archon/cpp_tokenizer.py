@@ -49,7 +49,50 @@ class TokenType(enum.Enum):
 
 
 
-def _tokenize(input_: typing.TextIO, tracker: _tp.TextPosTracker) -> collections.abc.Iterator[Token]:
+def _basic_tokenize(input_: typing.TextIO, tracker: _tp.TextPosTracker) -> collections.abc.Iterator[Token]:
+    line_iter = _logical_lines(input_, tracker)
+    def consume_block_comment():
+        closing_marker = "*/"
+        while True:
+            j = line.text.find(closing_marker, i)
+            if j != -1:
+                j += len(closing_marker)
+                lines.append(line[i:j])
+                i = j
+                break
+            lines.append(line[i:])
+            line_obj = next(line_iter, None)
+            i = 0
+            if not line_obj:
+                line = ""
+                break
+            line = line_obj.line
+        yield Token(TokenType.BLOCK_COMMENT, "".join(lines), pos)
+    def consume_raw_string_literal():
+        ...     
+    for line_obj in line_iter:
+        line = line_obj.text
+        nontrivial_token_seen = False
+        i = 0
+        while i < len(line):
+            m = _TOKEN_REGEX.match(line.text, i)
+            text = m.group()
+            pos = i
+            i += len(text)
+            assert m
+            group_name = m.lastgroup
+            match group name:
+                case "BLOCK_COMMENT":
+                    consume_blok_comment()
+                    continue
+                case ""
+            # If start of block comment:
+            #   ...
+            # Elif start of raw string:
+            #   ...
+            # If not trivial:
+            #   nontrivial_token_seen = True
+            # yield
 
 
 # FIXME: Also handle generation of `header-name` tokens here (`<foo.h>`)    
