@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import typing
 import dataclasses
-import collections
+import collections.abc
 import enum
 import re
 import pathlib
@@ -476,8 +476,6 @@ _PARENT_TYPE_MAP = {
 }
 
 
-# typing.TextIO
-
 def _tokenize(input_: typing.TextIO, tracker: _tp.FilePosTracker,
               error_handler: ErrorHandler) -> collections.abc.Iterator[_Token]:
     chunk = ""
@@ -497,7 +495,7 @@ def _tokenize(input_: typing.TextIO, tracker: _tp.FilePosTracker,
             new_pos = m.end()
 
             if m.group("SPACE") or m.group("COMMENT"):
-                tracker.track(token_text)
+                tracker.scan_chunk(token_text)
                 prev_token_is_whitespace = True
                 pos = new_pos
                 continue
@@ -505,7 +503,7 @@ def _tokenize(input_: typing.TextIO, tracker: _tp.FilePosTracker,
             if new_pos == len(chunk) and not eof:
                 break
 
-            token_pos = tracker.track(token_text)
+            token_pos = tracker.scan_chunk(token_text)
             preceded_by_whitespace = prev_token_is_whitespace
             prev_token_is_whitespace = False
             pos = new_pos

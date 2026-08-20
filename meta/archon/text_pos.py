@@ -10,7 +10,7 @@ class TextPosTracker:
         self._offset       = 0
         self._line_offsets = [0]
 
-    def track(self, chunk: str) -> int:
+    def scan_chunk(self, chunk: str) -> int:
         orig_offset = self._offset
         self._offset += len(chunk)
         i = 0
@@ -21,6 +21,15 @@ class TextPosTracker:
             self._line_offsets.append(orig_offset + j)
             i = j
         return orig_offset
+
+    def current(self) -> int:
+        return self._offset
+
+    def advance(self, size: int) -> None:
+        self._offset += size
+
+    def new_line(self) -> None:
+        self._line_offsets.append(self._offset)
 
     def get_text_pos(self, offset: int) -> TextPos:
         assert offset <= self._offset
